@@ -1,0 +1,29 @@
+# Build
+build/
+vendor/
+*.exe
+*.dll
+*.so
+*.dylib
+zeroned
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage.out
+*.test
+
+# Proto generated (tracked, but ignored in editor search)
+# *.pb.go — we DO track these
+
+# Vault binary
+vault/vault-*
