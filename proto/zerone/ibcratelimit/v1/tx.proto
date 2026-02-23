@@ -1,0 +1,42 @@
+syntax = "proto3";
+package zerone.ibcratelimit.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/ibcratelimit/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/ibcratelimit/v1/genesis.proto";
+
+// Msg defines the ibcratelimit module Msg service (all governance-gated).
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc AddRateLimit(MsgAddRateLimit) returns (MsgAddRateLimitResponse);
+  rpc RemoveRateLimit(MsgRemoveRateLimit) returns (MsgRemoveRateLimitResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgAddRateLimit {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority     = 1; // governance address
+  string channel_id    = 2;
+  string denom         = 3;
+  string max_send      = 4; // bigint string
+  string max_recv      = 5; // bigint string
+  uint64 window_blocks = 6;
+}
+message MsgAddRateLimitResponse {}
+
+message MsgRemoveRateLimit {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority  = 1; // governance address
+  string channel_id = 2;
+  string denom      = 3;
+}
+message MsgRemoveRateLimitResponse {}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1; // governance address
+  Params params    = 2;
+}
+message MsgUpdateParamsResponse {}

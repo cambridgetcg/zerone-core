@@ -1,0 +1,1927 @@
+# Zerone Event Reference
+
+All state-changing operations on Zerone emit queryable events following the
+`zerone.<module>.<action>` naming convention. Every attribute value is a string
+(CometBFT requirement). Events are deterministic: identical input produces
+identical events.
+
+---
+
+## Table of Contents
+
+- [alignment](#alignment)
+- [auth](#auth)
+- [autopoiesis](#autopoiesis)
+- [billing](#billing)
+- [bvm](#bvm)
+- [capture_challenge](#capture_challenge)
+- [capture_defense](#capture_defense)
+- [channels](#channels)
+- [claiming_pot](#claiming_pot)
+- [compute_pool](#compute_pool)
+- [discovery](#discovery)
+- [disputes](#disputes)
+- [emergency](#emergency)
+- [evidence_mgmt](#evidence_mgmt)
+- [gov](#gov)
+- [home](#home)
+- [ibcratelimit](#ibcratelimit)
+- [icaauth](#icaauth)
+- [knowledge](#knowledge)
+- [liquiditypool](#liquiditypool)
+- [ontology](#ontology)
+- [partnerships](#partnerships)
+- [qualification](#qualification)
+- [research](#research)
+- [schedule](#schedule)
+- [staking](#staking)
+- [tokens](#tokens)
+- [toolbox](#toolbox)
+- [tree](#tree)
+- [vesting_rewards](#vesting_rewards)
+- [WebSocket Subscriptions](#websocket-subscriptions)
+- [Transaction Indexing](#transaction-indexing)
+- [Block Explorer Compatibility](#block-explorer-compatibility)
+
+---
+
+## alignment
+
+### zerone.alignment.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.alignment.activated
+Module enabled or disabled.
+- `authority` -- governance address
+- `enabled` -- `"true"` or `"false"`
+
+### zerone.alignment.observation_recorded
+*EndBlock.* Periodic AHI observation completed.
+- `height` -- block height
+- `composite_score` -- composite alignment score (BPS)
+- `category` -- health category (`healthy`, `warning`, `critical`)
+- `correction_count` -- number of corrections applied
+- `observation_count` -- cumulative observation count
+
+---
+
+## auth
+
+### zerone.auth.account_registered
+New account registered on-chain.
+- `address` -- bech32 address
+- `did` -- decentralized identifier
+- `account_type` -- `human` or `agent`
+- `bootstrap_claimed` -- `"true"` or `"false"`
+
+### zerone.auth.key_rotated
+Key rotation performed.
+- `sender` -- account address
+- `key_type` -- key type rotated
+- `version` -- new key version
+
+### zerone.auth.session_created
+Ephemeral session key created.
+- `owner` -- account address
+- `key_hash` -- hash of session key
+- `expires_at` -- expiry block height
+
+### zerone.auth.session_revoked
+Session key revoked.
+- `owner` -- account address
+- `key_hash` -- hash of revoked key
+
+### zerone.auth.account_frozen
+Account frozen by authority.
+- `address` -- frozen account
+- `frozen_by` -- freezer address
+- `reason` -- freeze reason
+
+### zerone.auth.account_unfrozen
+Account unfrozen.
+- `address` -- unfrozen account
+- `unfrozen_by` -- unfreezer address
+
+### zerone.auth.recovery_config_set
+Recovery configuration updated.
+- `address` -- account address
+- `threshold` -- recovery threshold
+- `total_shards` -- total shard count
+
+### zerone.auth.recovery_initiated
+Account recovery initiated.
+- `account` -- target account
+- `initiated_by` -- initiator address
+- `delay_expires_at` -- delay expiry block
+
+### zerone.auth.recovery_shard_submitted
+Recovery shard submitted.
+- `account` -- target account
+- `shard_index` -- shard index
+- `shards_count` -- total shards submitted
+- `status` -- recovery status
+
+### zerone.auth.recovery_challenged
+Recovery challenged.
+- `account` -- target account
+- `challenger` -- challenger address
+- `reason` -- challenge reason
+
+### zerone.auth.recovery_executed
+Recovery executed.
+- `account` -- recovered account
+- `executed_by` -- executor address
+- `new_key_version` -- new key version
+
+### zerone.auth.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+---
+
+## autopoiesis
+
+### zerone.autopoiesis.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.autopoiesis.activated
+Module activated or deactivated.
+- `authority` -- governance address
+- `activated` -- `"true"` or `"false"`
+
+### zerone.autopoiesis.multiplier_overridden
+Multiplier force-set by governance.
+- `authority` -- governance address
+- `path` -- multiplier path
+- `value` -- new BPS value
+
+### zerone.autopoiesis.multiplier_frozen
+Multiplier freeze toggled.
+- `authority` -- governance address
+- `path` -- multiplier path
+- `frozen` -- `"true"` or `"false"`
+
+### zerone.autopoiesis.epoch_processed
+*EndBlock.* Epoch boundary reached, SSI computed, multipliers adjusted.
+- `epoch` -- epoch number
+- `ssi_score` -- system sustainability index (BPS)
+- `ssi_category` -- category (`healthy`, `caution`, `stressed`, `critical`)
+- `block_height` -- block height
+- `multiplier_count` -- number of multipliers in snapshot
+
+---
+
+## billing
+
+### zerone.billing.provider_registered
+Knowledge provider registered.
+- `address` -- provider address
+- `stake` -- staked amount
+- `domains` -- served domains
+
+### zerone.billing.provider_deregistered
+Provider deregistered.
+- `address` -- provider address
+- `stake_refunded` -- refunded stake
+
+### zerone.billing.fact_queried
+Single fact queried with payment.
+- `caller` -- query caller
+- `provider` -- serving provider
+- `fact_id` -- queried fact ID
+- `total_price` -- payment amount
+
+### zerone.billing.batch_facts_queried
+Batch fact query with payment.
+- `caller` -- query caller
+- `provider` -- serving provider
+- `fact_count` -- number of facts
+- `total_price` -- total payment
+
+### zerone.billing.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.billing.oracle_price_update
+Oracle price feed changed significantly (>5%).
+- `denom` -- denomination
+- `price_usd` -- new USD price
+- `source` -- price source
+
+---
+
+## bvm
+
+### zerone.bvm.contract_deployed
+BVM contract deployed.
+- `address` -- contract address
+- `deployer` -- deployer address
+- `code_hash` -- bytecode hash
+
+### zerone.bvm.contract_called
+BVM contract called.
+- `contract` -- contract address
+- `caller` -- caller address
+- `gas_used` -- gas consumed
+- `success` -- `"true"` or `"false"`
+
+### zerone.bvm.execution_scheduled
+Execution scheduled for future block.
+- `schedule_id` -- schedule ID
+- `contract` -- contract address
+- `execute_at_block` -- target block
+
+### zerone.bvm.contract_scheduled
+Contract scheduled.
+- `schedule_id` -- schedule ID
+- `contract` -- contract address
+- `execute_at_block` -- target block
+
+### zerone.bvm.schedule_cancelled
+Scheduled execution cancelled.
+- `schedule_id` -- schedule ID
+- `caller` -- canceller
+
+### zerone.bvm.update_contract_state
+Contract state updated.
+- `contract_address` -- contract address
+- `caller` -- caller address
+
+### zerone.bvm.update_params
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.bvm.schedule_executed
+*BeginBlock.* Scheduled execution completed.
+- `schedule_id` -- schedule ID
+- `contract` -- contract address
+- `block` -- execution block
+- `success` -- `"true"` or `"false"`
+- `gas_used` -- gas consumed
+
+---
+
+## capture_challenge
+
+### zerone.capture_challenge.challenge_submitted
+Capture challenge submitted.
+- `challenge_id` -- challenge ID
+- `challenger` -- challenger address
+- `domain` -- challenged domain
+- `stake` -- bond amount
+- `evidence_deadline` -- evidence deadline block
+- `review_deadline` -- review deadline block
+
+### zerone.capture_challenge.evidence_added
+Evidence added to challenge.
+- `challenge_id` -- challenge ID
+- `challenger` -- challenger address
+- `evidence_count` -- total evidence count
+
+### zerone.capture_challenge.challenge_resolved
+Challenge resolved with outcome.
+- `challenge_id` -- challenge ID
+- `outcome` -- resolution outcome
+- `reward_amount` -- reward paid
+- `slash_amount` -- amount slashed
+
+### zerone.capture_challenge.bounty_pool_funded
+Bounty pool funded.
+- `domain` -- domain funded
+- `sender` -- funder address
+- `amount` -- funded amount
+- `new_balance` -- pool balance after
+
+---
+
+## capture_defense
+
+### zerone.capture_defense.verification_recorded
+Verification round recorded.
+- `domain` -- verified domain
+- `round_id` -- round ID
+- `validator_count` -- participating validators
+- `block_height` -- block height
+
+### zerone.capture_defense.domain_analyzed
+Domain analysis completed.
+- `domain` -- analyzed domain
+- `risk_score` -- computed risk score
+- `hhi` -- Herfindahl-Hirschman Index
+- `flagged` -- `"true"` or `"false"`
+
+---
+
+## channels
+
+### zerone.channels.channel_opened
+Payment channel opened.
+- `channel_id` -- channel ID
+- `payer` -- payer address
+- `receiver` -- receiver address
+- `deposit` -- initial deposit
+
+### zerone.channels.channel_deposited
+Deposit added to channel.
+- `channel_id` -- channel ID
+- `depositor` -- depositor address
+- `amount` -- deposited amount
+
+### zerone.channels.state_updated
+Channel state updated.
+- `channel_id` -- channel ID
+- `nonce` -- state nonce
+- `spent` -- total spent
+
+### zerone.channels.channel_closed
+Channel closed cooperatively.
+- `channel_id` -- channel ID
+- `payer_refund` -- refund to payer
+- `receiver_payout` -- payout to receiver
+
+### zerone.channels.channel_disputed
+Channel dispute opened.
+- `channel_id` -- channel ID
+- `disputer` -- disputer address
+- `deadline` -- dispute deadline
+
+### zerone.channels.expired_claimed
+Expired channel funds claimed.
+- `channel_id` -- channel ID
+- `refunded` -- refunded amount
+
+### zerone.channels.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.channels.channel_auto_settled
+Channel auto-settled by keeper.
+- `channel_id` -- channel ID
+- `amount_to_payer` -- payer settlement
+- `amount_to_receiver` -- receiver settlement
+
+### zerone.channels.periodic_settlement
+Periodic settlement executed.
+- `channel_id` -- channel ID
+- `settled_amount` -- settled amount
+
+---
+
+## claiming_pot
+
+### zerone.claiming_pot.pot_created
+Claiming pot created.
+- `pot_id` -- pot ID
+- `name` -- pot name
+- `total_amount` -- total claimable amount
+
+### zerone.claiming_pot.pot_claimed
+Tokens claimed from pot.
+- `pot_id` -- pot ID
+- `claimant` -- claimant address
+- `amount` -- claimed amount
+
+### zerone.claiming_pot.update_pot_params
+Governance parameter update.
+- `authority` -- governance address
+
+---
+
+## compute_pool
+
+### zerone.compute_pool.provider_registered
+Compute provider registered.
+- `address` -- provider address
+- `service_type` -- service type
+- `stake` -- staked amount
+- `price_per_cu` -- price per compute unit
+
+### zerone.compute_pool.provider_unbonding
+Provider unbonding initiated.
+- `address` -- provider address
+- `unbonding_at` -- unbonding start block
+
+### zerone.compute_pool.heartbeat
+Provider heartbeat received.
+- `provider` -- provider address
+- `block` -- block height
+
+### zerone.compute_pool.price_update_pending
+Price update queued.
+- `address` -- provider address
+- `new_price` -- pending price
+- `effective_at` -- effective block
+
+### zerone.compute_pool.credits_redeemed
+Compute credits redeemed for uzrn.
+- `address` -- redeemer address
+- `credits` -- credits redeemed
+- `uzrn` -- uzrn received
+
+### zerone.compute_pool.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.compute_pool.provider_jailed
+*BeginBlock.* Provider jailed for missed heartbeat.
+- `address` -- provider address
+- `last_heartbeat` -- last heartbeat block
+- `block_height` -- current block
+
+### zerone.compute_pool.price_applied
+*BeginBlock.* Pending price change applied.
+- `address` -- provider address
+- `new_price` -- applied price
+
+### zerone.compute_pool.provider_removed
+*BeginBlock.* Provider unbonding completed, removed.
+- `address` -- provider address
+- `stake_refunded` -- refunded stake
+
+---
+
+## discovery
+
+### zerone.discovery.agent_registered
+Agent profile registered.
+- `address` -- agent address
+- `stake` -- staked amount
+- `display_name` -- display name
+
+### zerone.discovery.agent_profile_updated
+Profile updated.
+- `address` -- agent address
+
+### zerone.discovery.agent_heartbeat
+Agent heartbeat received.
+- `address` -- agent address
+- `block` -- block height
+
+### zerone.discovery.agent_deregistered
+Agent deregistered.
+- `address` -- agent address
+- `stake_refunded` -- refunded stake
+
+### zerone.discovery.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.discovery.profile_expired
+*BeginBlock.* Agent profile expired due to inactivity.
+- `address` -- agent address
+- `last_active_block` -- last active block
+
+---
+
+## disputes
+
+### zerone.disputes.dispute_initiated
+Dispute initiated.
+- `dispute_id` -- dispute ID
+- `challenger` -- challenger address
+- `defender` -- defender address
+- `target_id` -- disputed target ID
+- `bond` -- bond amount
+- `tier` -- dispute tier
+
+### zerone.disputes.evidence_committed
+Evidence commitment submitted.
+- `dispute_id` -- dispute ID
+- `submitter` -- submitter address
+- `side` -- `challenger` or `defender`
+
+### zerone.disputes.evidence_revealed
+Evidence revealed.
+- `dispute_id` -- dispute ID
+- `submitter` -- submitter address
+- `evidence_id` -- evidence ID
+
+### zerone.disputes.arbiter_voted
+Arbiter cast vote.
+- `dispute_id` -- dispute ID
+- `arbiter` -- arbiter address
+- `vote` -- vote cast
+
+### zerone.disputes.dispute_escalated
+Dispute escalated to higher tier.
+- `dispute_id` -- dispute ID
+- `new_tier` -- new tier
+- `additional_bond` -- additional bond
+- `total_bond` -- cumulative bond
+
+### zerone.disputes.dispute_settled
+Dispute settled.
+- `dispute_id` -- dispute ID
+- `outcome` -- settlement outcome
+
+---
+
+## emergency
+
+### zerone.emergency.halt_proposed
+Emergency halt ceremony proposed.
+- `ceremony_id` -- ceremony ID
+- `proposer` -- proposer address
+- `reason` -- halt reason
+
+### zerone.emergency.vote_halt
+Halt vote cast.
+- `ceremony_id` -- ceremony ID
+- `voter` -- voter address
+- `approve` -- `"true"` or `"false"`
+
+### zerone.emergency.revert_proposed
+Emergency revert ceremony proposed.
+- `ceremony_id` -- ceremony ID
+- `proposer` -- proposer address
+- `target_block` -- target revert block
+
+### zerone.emergency.vote_revert
+Revert vote cast.
+- `ceremony_id` -- ceremony ID
+- `voter` -- voter address
+- `approve` -- `"true"` or `"false"`
+
+### zerone.emergency.resume_proposed
+Resume ceremony proposed.
+- `ceremony_id` -- ceremony ID
+- `proposer` -- proposer address
+
+### zerone.emergency.vote_resume
+Resume vote cast.
+- `ceremony_id` -- ceremony ID
+- `voter` -- voter address
+- `approve` -- `"true"` or `"false"`
+
+### zerone.emergency.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.emergency.ceremony_advanced
+Ceremony phase advanced (prevote quorum reached).
+- `ceremony_id` -- ceremony ID
+- `ceremony_type` -- `halt`, `revert`, or `resume`
+- `phase` -- new phase
+- `yes_prevote_stake` -- total yes stake
+
+### zerone.emergency.ceremony_finalized
+Ceremony finalized and executed.
+- `ceremony_id` -- ceremony ID
+- `ceremony_type` -- `halt`, `revert`, or `resume`
+- `status` -- resulting chain status
+- `block_height` -- finalization block
+
+### zerone.emergency.revert_required
+Revert ceremony finalized; operator action required.
+- `ceremony_id` -- ceremony ID
+- `target_height` -- rollback target height
+- `target_hash` -- rollback target hash
+- `action` -- operator instructions
+
+---
+
+## evidence_mgmt
+
+### zerone.evidence_mgmt.evidence_submitted
+Evidence submitted to chain.
+- `evidence_id` -- evidence ID
+- `submitter` -- submitter address
+- `evidence_type` -- evidence type
+
+### zerone.evidence_mgmt.custody_transferred
+Evidence custody transferred.
+- `evidence_id` -- evidence ID
+- `from` -- previous custodian
+- `to` -- new custodian
+
+### zerone.evidence_mgmt.evidence_verified
+Evidence verified.
+- `evidence_id` -- evidence ID
+- `verifier` -- verifier address
+- `outcome` -- verification outcome
+- `confidence` -- confidence score
+
+### zerone.evidence_mgmt.evidence_challenged
+Evidence challenged.
+- `evidence_id` -- evidence ID
+- `challenger` -- challenger address
+- `dispute_id` -- linked dispute ID
+- `bond` -- challenge bond
+
+### zerone.evidence_mgmt.update_params
+Governance parameter update.
+- `authority` -- governance address
+
+---
+
+## gov
+
+### zerone.gov.lip_submitted
+LIP (Living Improvement Proposal) created.
+- `lip_id` -- LIP identifier (e.g. `LIP-42`)
+- `proposer` -- proposer address
+- `category` -- proposal category
+- `initial_stake` -- initial stake amount
+
+### zerone.gov.lip_staked
+Stake added to LIP.
+- `lip_id` -- LIP identifier
+- `staker` -- staker address
+- `amount` -- staked amount
+- `new_stage` -- stage after staking
+- `total_staked` -- cumulative stake
+
+### zerone.gov.lip_stage_advanced
+LIP manually advanced by proposer.
+- `lip_id` -- LIP identifier
+- `authority` -- proposer address
+- `new_stage` -- new stage
+
+### zerone.gov.vote_cast
+Vote cast on LIP in voting stage.
+- `lip_id` -- LIP identifier
+- `voter` -- voter address
+- `option` -- `yes`, `no`, or `abstain`
+- `weight` -- stake-weighted vote power
+
+### zerone.gov.lip_withdrawn
+LIP withdrawn by proposer.
+- `lip_id` -- LIP identifier
+- `proposer` -- proposer address
+
+### zerone.gov.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.gov.lip_stage_transition
+*BeginBlock.* Automatic LIP stage transition.
+- `lip_id` -- LIP identifier
+- `from_stage` -- previous stage
+- `to_stage` -- new stage
+- `block_height` -- transition block
+- `voting_end_block` -- (only when entering voting) voting deadline
+
+### zerone.gov.lip_tallied
+*BeginBlock.* LIP voting period ended, tally computed.
+- `lip_id` -- LIP identifier
+- `outcome` -- `passed` or `failed`
+- `yes_stake` -- total yes stake
+- `no_stake` -- total no stake
+- `abstain_stake` -- total abstain stake
+- `unique_voters` -- number of unique voters
+- `quorum_met` -- `"true"` or `"false"`
+
+### zerone.gov.research_spend_submitted
+Research spend proposal submitted.
+- `proposal_id` -- proposal ID
+- `proposer` -- proposer address
+- `amount` -- requested amount
+- `recipient` -- recipient address
+
+### zerone.gov.research_spend_voted
+Research spend proposal voted.
+- `proposal_id` -- proposal ID
+- `voter` -- voter address
+- `vote` -- vote option
+- `stage` -- proposal stage
+
+### zerone.gov.research_voters_set
+Research voter set updated.
+- `authority` -- governance address
+- `voter1` -- first voter
+- `voter2` -- second voter
+
+---
+
+## home
+
+### zerone.home.home_created
+Agent home created.
+- `home_id` -- home identifier
+- `owner` -- owner address
+- `name` -- home name
+
+### zerone.home.home_updated
+Home name or status updated.
+- `home_id` -- home identifier
+- `owner` -- owner address
+- `status` -- new status
+
+### zerone.home.memory_cid_updated
+IPFS memory CID updated.
+- `home_id` -- home identifier
+- `owner` -- owner address
+- `cid` -- new IPFS CID
+
+### zerone.home.session_started
+Session started for registered key.
+- `home_id` -- home identifier
+- `session_id` -- session identifier
+- `key_hash` -- key hash
+
+### zerone.home.session_ended
+Session ended.
+- `home_id` -- home identifier
+- `session_id` -- session identifier
+
+### zerone.home.key_registered
+Key registered to home.
+- `home_id` -- home identifier
+- `owner` -- owner address
+- `key_hash` -- key hash
+- `key_type` -- key type
+- `role` -- key role
+
+### zerone.home.key_revoked
+Key revoked and sessions terminated.
+- `home_id` -- home identifier
+- `owner` -- owner address
+- `key_hash` -- revoked key hash
+
+### zerone.home.guardian_configured
+Guardian configuration updated.
+- `home_id` -- home identifier
+- `owner` -- owner address
+- `defense_strategy` -- defense strategy
+- `auto_defend` -- auto-defend enabled
+
+### zerone.home.alert_acknowledged
+Alert acknowledged by owner or guardian.
+- `home_id` -- home identifier
+- `alert_id` -- alert identifier
+- `signer` -- acknowledger address
+
+### zerone.home.spending_limit_set
+Spending limit configured.
+- `home_id` -- home identifier
+- `owner` -- owner address
+- `key_type` -- key type
+- `max_amount` -- maximum amount per period
+- `period_blocks` -- period length in blocks
+
+---
+
+## ibcratelimit
+
+### zerone.ibcratelimit.rate_limit_added
+IBC rate limit added.
+- `channel_id` -- IBC channel ID
+- `denom` -- denomination
+- `max_send` -- max send per window
+- `max_recv` -- max receive per window
+- `window_blocks` -- window length in blocks
+
+### zerone.ibcratelimit.rate_limit_removed
+IBC rate limit removed.
+- `channel_id` -- IBC channel ID
+- `denom` -- denomination
+
+### zerone.ibcratelimit.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+---
+
+## icaauth
+
+### zerone.icaauth.account_registered
+Interchain account registered.
+- `owner` -- owner address
+- `connection_id` -- IBC connection ID
+- `port_id` -- ICA port ID
+
+### zerone.icaauth.tx_submitted
+Interchain transaction submitted.
+- `owner` -- owner address
+- `connection_id` -- IBC connection ID
+- `msg_count` -- number of messages
+
+### zerone.icaauth.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+---
+
+## knowledge
+
+### zerone.knowledge.submit_claim
+Knowledge claim submitted for verification.
+- `claim_id` -- claim identifier
+- `submitter` -- submitter address
+- `domain` -- knowledge domain
+- `stake` -- bonded stake
+- `content_hash` -- claim content hash
+
+### zerone.knowledge.submit_commitment
+Verifier commitment submitted (commit-reveal).
+- `round_id` -- verification round ID
+- `verifier` -- verifier address
+- `committed_at_block` -- commitment block
+
+### zerone.knowledge.submit_reveal
+Verifier reveal submitted.
+- `round_id` -- verification round ID
+- `verifier` -- verifier address
+- `vote` -- revealed vote
+- `revealed_at_block` -- reveal block
+
+### zerone.knowledge.add_fact
+Fact added directly by authority.
+- `fact_id` -- fact identifier
+- `authority` -- authority address
+- `domain` -- knowledge domain
+- `category` -- fact category
+- `status` -- fact status
+
+### zerone.knowledge.update_params
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.knowledge.update_extended_params
+Extended parameter update.
+- `authority` -- governance address
+
+### zerone.knowledge.challenge_fact
+Verified fact challenged, new verification round created.
+- `fact_id` -- fact identifier
+- `challenger` -- challenger address
+- `round_id` -- new verification round ID
+- `stake` -- challenge stake
+- `reason` -- challenge reason
+
+### zerone.knowledge.challenge_provisional_fact
+Provisional fact challenged.
+- `fact_id` -- fact identifier
+- `challenger` -- challenger address
+- `challenge_id` -- challenge identifier
+- `stake` -- challenge stake
+- `reason` -- challenge reason
+
+### zerone.knowledge.submit_contradiction
+Contradiction submitted against a fact.
+- `fact_id` -- contradicted fact ID
+- `submitter` -- submitter address
+- `counter_claim_id` -- counter-claim ID
+- `domain` -- knowledge domain
+- `stake` -- bonded stake
+
+### zerone.knowledge.domain_proposed
+New knowledge domain proposed.
+- `name` -- domain name
+- `proposer` -- proposer address
+
+### zerone.knowledge.endorse_domain_proposal
+Domain proposal endorsed.
+- `proposal_id` -- proposal ID
+- `endorser` -- endorser address
+- `endorser_count` -- total endorsements
+- `status` -- proposal status
+
+### zerone.knowledge.domain_proposal_challenged
+Domain proposal challenged.
+- `domain` -- challenged domain
+- `challenger` -- challenger address
+- `reason` -- challenge reason
+
+### zerone.knowledge.stratum_registered
+Knowledge stratum registered.
+- `name` -- stratum name
+- `confidence_ceiling` -- maximum confidence (BPS)
+
+### zerone.knowledge.patronize_fact
+Fact patronized (funding for continued availability).
+- `fact_id` -- fact identifier
+- `patron` -- patron address
+- `amount` -- patronage amount
+- `duration_blocks` -- patronage duration
+- `expiry_block` -- patronage expiry block
+
+### zerone.knowledge.propose_research_fund
+Research fund proposal created.
+- `proposal_id` -- proposal ID
+- `proposer` -- proposer address
+- `title` -- proposal title
+- `amount` -- requested amount
+- `recipient` -- recipient address
+- `voting_end_block` -- voting deadline
+
+### zerone.knowledge.vote_research_proposal
+Vote cast on research fund proposal.
+- `proposal_id` -- proposal ID
+- `voter` -- voter address
+- `vote` -- vote option
+
+### zerone.knowledge.research_proposal_executed
+Research fund proposal executed.
+- `proposal_id` -- proposal ID
+
+### zerone.knowledge.verification_round_created
+*BeginBlock.* New verification round created.
+- `round_id` -- round identifier
+- `claim_id` -- claim being verified
+- `phase` -- initial phase (`COMMIT`)
+
+### zerone.knowledge.verification_round_completed
+*BeginBlock.* Verification round completed with verdict.
+- `round_id` -- round identifier
+- `claim_id` -- verified claim ID
+- `verdict` -- round verdict
+
+### zerone.knowledge.fact_created
+*BeginBlock.* New fact created from verified claim.
+- `fact_id` -- fact identifier
+- `claim_id` -- source claim ID
+- `domain` -- knowledge domain
+- `confidence` -- confidence score (BPS)
+
+### zerone.knowledge.round_phase_changed
+*BeginBlock.* Verification round phase transitioned.
+- `round_id` -- round identifier
+- `phase` -- new phase (`REVEAL` or `AGGREGATION`)
+- `reveal_count` -- (AGGREGATION only) number of reveals
+
+### zerone.knowledge.round_expired
+*BeginBlock.* Verification round expired with insufficient reveals.
+- `round_id` -- round identifier
+- `reveals` -- number of reveals received
+
+---
+
+## liquiditypool
+
+### zerone.liquiditypool.pool_created
+Liquidity pool created.
+- `pool_id` -- pool identifier
+- `denom_a` -- first denomination
+- `denom_b` -- second denomination
+- `reserve_a` -- initial reserve A
+- `reserve_b` -- initial reserve B
+- `lp_tokens` -- LP tokens minted
+
+### zerone.liquiditypool.swap
+Token swap executed.
+- `pool_id` -- pool identifier
+- `sender` -- swapper address
+- `token_in` -- input denomination
+- `amount_in` -- input amount
+- `token_out` -- output denomination
+- `amount_out` -- output amount
+- `fee` -- fee amount
+
+### zerone.liquiditypool.liquidity_added
+Liquidity added to pool.
+- `pool_id` -- pool identifier
+- `sender` -- provider address
+- `amount_a` -- amount of token A
+- `amount_b` -- amount of token B
+- `lp_tokens` -- LP tokens minted
+
+### zerone.liquiditypool.liquidity_removed
+Liquidity removed from pool.
+- `pool_id` -- pool identifier
+- `sender` -- remover address
+- `lp_tokens_burned` -- LP tokens burned
+- `amount_a` -- returned token A
+- `amount_b` -- returned token B
+
+### zerone.liquiditypool.update_params
+Governance parameter update.
+- `authority` -- governance address
+
+---
+
+## ontology
+
+### zerone.ontology.domain_proposed
+Domain proposal created.
+- `proposal_id` -- proposal ID
+- `domain` -- proposed domain name
+- `stratum` -- target stratum
+- `proposer` -- proposer address
+- `stake` -- proposal stake
+
+### zerone.ontology.domain_updated
+Domain metadata updated.
+- `domain` -- domain name
+- `authority` -- updater address
+
+### zerone.ontology.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.ontology.logic_zone_registered
+Logic zone registered.
+- `zone` -- zone name
+- `complete` -- completeness flag
+- `goedel_applies` -- Goedel incompleteness applies
+- `max_confidence_bps` -- maximum confidence (BPS)
+- `authority` -- registrant
+
+### zerone.ontology.incompleteness_acknowledged
+Incompleteness acknowledged for a fact within a zone.
+- `fact_id` -- fact identifier
+- `zone` -- logic zone
+- `submitter` -- submitter address
+
+### zerone.ontology.domain_activated
+Domain activated after proposal passed.
+- `domain` -- domain name
+- `height` -- activation block
+
+### zerone.ontology.domain_deprecated
+Domain deprecated.
+- `domain` -- domain name
+- `height` -- deprecation block
+
+### zerone.ontology.domain_archived
+Domain archived (terminal).
+- `domain` -- domain name
+- `height` -- archive block
+
+### zerone.ontology.domains_merged
+Two domains merged.
+- `source` -- source domain (removed)
+- `target` -- target domain (kept)
+- `height` -- merge block
+
+### zerone.ontology.proposal_voted
+Domain proposal voted.
+- `proposal_id` -- proposal ID
+- `voter` -- voter address
+- `approve` -- `"true"` or `"false"`
+- `votes_for` -- cumulative yes votes
+- `votes_against` -- cumulative no votes
+
+### zerone.ontology.proposal_expired
+*EndBlock.* Domain proposal expired.
+- `proposal_id` -- proposal ID
+- `domain` -- proposed domain
+- `votes_for` -- final yes votes
+- `votes_against` -- final no votes
+
+---
+
+## partnerships
+
+### zerone.partnerships.partnership_proposed
+Partnership proposed.
+- `partnership_id` -- partnership ID
+- `proposer` -- proposer address
+- `partner` -- partner address
+
+### zerone.partnerships.partnership_accepted
+Partnership accepted.
+- `partnership_id` -- partnership ID
+- `accepter` -- accepter address
+
+### zerone.partnerships.operation_proposed
+Consensus operation proposed.
+- `operation_id` -- operation ID
+- `partnership_id` -- partnership ID
+- `op_type` -- operation type
+- `proposer` -- proposer address
+- `amount` -- operation amount
+
+### zerone.partnerships.operation_approved
+Consensus operation approved.
+- `operation_id` -- operation ID
+- `approver` -- approver address
+
+### zerone.partnerships.operation_rejected
+Consensus operation rejected.
+- `operation_id` -- operation ID
+- `rejecter` -- rejecter address
+
+### zerone.partnerships.seed_partnership_created
+Seed partnership created.
+- `seed_id` -- seed ID
+- `human` -- human participant
+- `agent` -- agent participant
+
+### zerone.partnerships.joined_formation_pool
+Address joined formation pool.
+- `address` -- joiner address
+
+### zerone.partnerships.left_formation_pool
+Address left formation pool.
+- `address` -- leaver address
+
+### zerone.partnerships.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.partnerships.safety_freeze_applied
+Safety freeze applied to partnership.
+- `partnership_id` -- partnership ID
+- `frozen_by` -- freezer address
+- `expires_at` -- freeze expiry block
+- `freeze_count` -- cumulative freeze count
+
+### zerone.partnerships.coercion_signal_raised
+Coercion signal raised.
+- `signal_id` -- signal ID
+- `partnership_id` -- partnership ID
+- `raised_by` -- raiser address
+- `expires_at` -- signal expiry block
+
+### zerone.partnerships.freeze_expired
+*BeginBlock.* Safety freeze expired and lifted.
+- `partnership_id` -- partnership ID
+
+### zerone.partnerships.coercion_signal_expired
+*BeginBlock.* Coercion signal expired and resolved.
+- `signal_id` -- signal ID
+- `partnership_id` -- partnership ID
+
+### zerone.partnerships.exit_initiated
+Partnership exit (dissolution) initiated.
+- `partnership_id` -- partnership ID
+- `initiator` -- initiator address
+- `cooldown_ends_at` -- cooldown expiry block
+- `human_payout` -- payout to human
+- `agent_payout` -- payout to agent
+- `burned` -- burned amount
+
+---
+
+## qualification
+
+### zerone.qualification.qualification_granted
+Qualification granted via pathway.
+- `validator` -- validator address
+- `domain` -- qualified domain
+- `pathway` -- `stake`, `track_record`, `cross_reference`, or `inheritance`
+- `weight` -- qualification weight
+- `source_domain` -- (cross_reference only) source domain
+- `parent_domain` -- (inheritance only) parent domain
+
+### zerone.qualification.endorsement_created
+Qualification endorsed.
+- `endorsement_id` -- endorsement ID
+- `validator` -- endorsed validator
+- `domain` -- endorsed domain
+- `endorser` -- endorser address
+
+### zerone.qualification.qualification_renewed
+Qualification renewed.
+- `validator` -- validator address
+- `domain` -- renewed domain
+- `expires_at` -- new expiry block
+
+### zerone.qualification.qualification_withdrawn
+Qualification voluntarily withdrawn.
+- `validator` -- validator address
+- `domain` -- withdrawn domain
+
+### zerone.qualification.update_params
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.qualification.qualification_expired
+*BeginBlock.* Qualification expired.
+- `validator` -- validator address
+- `domain` -- expired domain
+
+### zerone.qualification.qualification_promoted
+*BeginBlock.* Probationary qualification promoted to full.
+- `validator` -- validator address
+- `domain` -- promoted domain
+
+### zerone.qualification.qualification_suspended
+*BeginBlock.* Qualification suspended for failing probation.
+- `validator` -- validator address
+- `domain` -- suspended domain
+- `reason` -- suspension reason
+
+---
+
+## research
+
+### zerone.research.research_submitted
+Research paper submitted.
+- `research_id` -- research ID
+- `submitter` -- submitter address
+- `domain` -- research domain
+- `stake` -- bonded stake
+
+### zerone.research.research_challenged
+Research challenged.
+- `research_id` -- research ID
+- `challenger` -- challenger address
+- `reason` -- challenge reason
+
+### zerone.research.research_reviewed
+Research reviewed.
+- `research_id` -- research ID
+- `reviewer` -- reviewer address
+- `verdict` -- review verdict
+- `score` -- review score
+
+### zerone.research.research_resolved
+Research resolved.
+- `research_id` -- research ID
+- `outcome` -- resolution outcome
+- `aggregate_score` -- aggregate review score
+
+### zerone.research.bounty_created
+Research bounty created.
+- `bounty_id` -- bounty ID
+- `creator` -- creator address
+- `reward` -- bounty reward
+
+### zerone.research.bounty_claimed
+Bounty claimed by researcher.
+- `bounty_id` -- bounty ID
+- `claimer` -- claimer address
+
+### zerone.research.bounty_fulfilled
+Bounty fulfilled and reward paid.
+- `bounty_id` -- bounty ID
+- `fulfilled_by` -- fulfiller address
+- `reward` -- reward paid
+
+### zerone.research.research_funded
+Research treasury funded.
+- `funder` -- funder address
+- `amount` -- funded amount
+- `new_treasury_balance` -- new balance
+
+### zerone.research.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.research.bounty_expired
+*EndBlock.* Open bounty expired.
+- `bounty_id` -- bounty ID
+- `reward_returned` -- reward returned to creator
+- `creator` -- creator address
+
+### zerone.research.bounty_claim_expired
+*EndBlock.* Claimed bounty expired (undelivered).
+- `bounty_id` -- bounty ID
+- `former_claimer` -- claimer whose claim expired
+
+---
+
+## schedule
+
+### zerone.schedule.schedule_created
+Scheduled process created.
+- `process_id` -- process ID
+- `creator` -- creator address
+- `prepaid_fee` -- prepaid fee
+- `next_execute_at` -- next execution block
+
+### zerone.schedule.schedule_paused
+Schedule paused.
+- `process_id` -- process ID
+- `creator` -- creator address
+
+### zerone.schedule.schedule_resumed
+Schedule resumed.
+- `process_id` -- process ID
+- `creator` -- creator address
+- `next_execute_at` -- next execution block
+
+### zerone.schedule.schedule_cancelled
+Schedule cancelled.
+- `process_id` -- process ID
+- `creator` -- creator address
+- `refunded_amount` -- refunded prepaid fee
+
+### zerone.schedule.schedule_funded
+Schedule funded.
+- `process_id` -- process ID
+- `creator` -- creator address
+- `amount` -- funded amount
+- `new_remaining` -- remaining fee balance
+
+### zerone.schedule.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.schedule.schedule_executed
+*EndBlock.* Scheduled process executed.
+- `process_id` -- process ID
+- `execution_count` -- cumulative executions
+- `remaining_fee` -- remaining prepaid fee
+- `status` -- execution status
+
+---
+
+## staking
+
+### zerone.staking.validator_registered
+Validator registered.
+- `operator` -- operator address
+- `tier` -- initial tier
+- `self_delegation` -- self-delegation amount
+
+### zerone.staking.delegation_created
+Delegation created.
+- `delegator` -- delegator address
+- `validator` -- validator address
+- `amount` -- delegated amount
+
+### zerone.staking.validator_tier_changed
+Validator tier changed.
+- `validator` -- validator address
+- `new_tier` -- new tier (msg handler)
+- `old_tier` -- previous tier (EndBlocker only)
+
+### zerone.staking.delegation_unbonding
+Delegation unbonding initiated.
+- `delegator` -- delegator address
+- `validator` -- validator address
+- `amount` -- unbonding amount
+- `completes_at` -- completion block
+
+### zerone.staking.delegation_redelegated
+Delegation redelegated.
+- `delegator` -- delegator address
+- `src_validator` -- source validator
+- `dst_validator` -- destination validator
+- `amount` -- redelegated amount
+
+### zerone.staking.update_validator_stake
+Validator self-stake updated.
+- `operator` -- operator address
+- `new_stake` -- new stake amount
+
+### zerone.staking.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.staking.unbonding_completed
+*BeginBlock.* Unbonding matured and tokens returned.
+- `delegator` -- delegator address
+- `amount` -- returned amount
+
+### zerone.staking.validator_slashed
+Validator slashed.
+- `validator` -- validator address
+- `amount` -- slashed amount
+- `reason` -- slash reason
+
+---
+
+## tokens
+
+### zerone.tokens.token_created
+Custom token created.
+- `token_id` -- token identifier
+- `creator` -- creator address
+- `symbol` -- token symbol
+- `initial_supply` -- initial supply
+
+### zerone.tokens.token_minted
+Tokens minted.
+- `token_id` -- token identifier
+- `to` -- recipient address
+- `amount` -- minted amount
+
+### zerone.tokens.token_burned
+Tokens burned.
+- `token_id` -- token identifier
+- `burner` -- burner address
+- `amount` -- burned amount
+
+### zerone.tokens.token_transferred
+Tokens transferred.
+- `token_id` -- token identifier
+- `from` -- sender address
+- `to` -- recipient address
+- `amount` -- transferred amount
+
+### zerone.tokens.token_approved
+Token spending approved.
+- `token_id` -- token identifier
+- `owner` -- owner address
+- `spender` -- approved spender
+- `amount` -- approved amount
+
+### zerone.tokens.transfer_from
+Approved transfer executed.
+- `token_id` -- token identifier
+- `spender` -- spender address
+- `from` -- source address
+- `to` -- destination address
+- `amount` -- transferred amount
+
+### zerone.tokens.token_paused
+Token transfers paused.
+- `token_id` -- token identifier
+- `authority` -- pausing authority
+
+### zerone.tokens.token_unpaused
+Token transfers unpaused.
+- `token_id` -- token identifier
+- `authority` -- unpausing authority
+
+### zerone.tokens.power_delegated
+Voting power delegated.
+- `token_id` -- token identifier
+- `delegator` -- delegator address
+- `delegate` -- delegate address
+- `amount` -- delegated amount
+
+### zerone.tokens.power_undelegated
+Voting power undelegated.
+- `token_id` -- token identifier
+- `delegator` -- delegator address
+- `delegate` -- delegate address
+- `amount` -- undelegated amount
+
+### zerone.tokens.token_wrapped
+Token wrapped into native denom.
+- `token_id` -- token identifier
+- `sender` -- sender address
+- `amount` -- wrapped amount
+- `wrapped_denom` -- native denomination
+
+### zerone.tokens.token_unwrapped
+Token unwrapped from native denom.
+- `token_id` -- token identifier
+- `sender` -- sender address
+- `amount` -- unwrapped amount
+- `wrapped_denom` -- native denomination
+
+### zerone.tokens.emission_period_created
+Emission period created.
+- `emission_id` -- emission ID
+- `start_block` -- start block
+- `end_block` -- end block
+- `amount_per_block` -- emission rate
+- `recipient` -- recipient address
+
+### zerone.tokens.emission_period_cancelled
+Emission period cancelled.
+- `emission_id` -- emission ID
+- `authority` -- cancelling authority
+
+### zerone.tokens.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+---
+
+## toolbox
+
+### zerone.toolbox.tool_registered
+Tool registered.
+- `tool_id` -- tool identifier
+- `deployer` -- deployer address
+- `name` -- tool name
+- `tool_type` -- tool type
+
+### zerone.toolbox.tool_called
+Tool invoked.
+- `call_id` -- call identifier
+- `tool_id` -- tool identifier
+- `caller` -- caller address
+- `payment` -- payment amount
+- `success` -- `"true"` or `"false"`
+
+### zerone.toolbox.contributor_added
+Contributor added to tool.
+- `tool_id` -- tool identifier
+- `contributor` -- contributor address
+- `role` -- contributor role
+
+### zerone.toolbox.contributorship_accepted
+Contributorship accepted.
+- `tool_id` -- tool identifier
+- `contributor` -- contributor address
+
+### zerone.toolbox.tool_upgraded
+Tool upgraded to new version.
+- `new_tool_id` -- new tool ID
+- `previous_tool_id` -- previous tool ID
+- `version` -- new version
+
+### zerone.toolbox.tool_deprecated
+Tool deprecated with successor.
+- `tool_id` -- deprecated tool ID
+- `successor_tool_id` -- successor tool ID
+
+### zerone.toolbox.tool_retired
+Tool retired.
+- `tool_id` -- tool identifier
+
+### zerone.toolbox.shares_locked
+Tool revenue shares locked.
+- `tool_id` -- tool identifier
+- `lock_height` -- lock height
+
+### zerone.toolbox.dependency_updated
+Tool dependency updated.
+- `tool_id` -- tool identifier
+- `old_dep_id` -- old dependency
+- `new_dep_id` -- new dependency
+
+### zerone.toolbox.tool_heartbeat
+Tool heartbeat received.
+- `tool_id` -- tool identifier
+- `caller` -- caller address
+- `block` -- block height
+
+### zerone.toolbox.update_params
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.toolbox.trust_updated
+Tool trust score updated.
+- `tool_id` -- tool identifier
+- `old_score` -- previous score
+- `new_score` -- new score
+- `tier` -- new trust tier
+
+### zerone.toolbox.bvm_call
+Tool called from BVM contract.
+- `tool_id` -- tool identifier
+- `caller_contract` -- calling contract
+- `success` -- `"true"` or `"false"`
+
+### zerone.toolbox.free_call
+Free-tier tool call consumed.
+- `caller` -- caller address
+- `tool_id` -- tool identifier
+- `category` -- tool category
+
+### zerone.toolbox.surge_pricing
+Surge pricing applied.
+- `tool_id` -- tool identifier
+- `base_price` -- base price
+- `effective_price` -- effective price after surge
+- `multiplier_bps` -- surge multiplier (BPS)
+- `utilisation_bps` -- utilisation (BPS)
+- `tier` -- surge tier
+
+### zerone.toolbox.pricing_oracle_unavailable
+USD pricing oracle unavailable.
+- `tool_id` -- tool identifier
+- `reason` -- unavailability reason
+
+---
+
+## tree
+
+### zerone.tree.project_created
+Project created.
+- `project_id` -- project ID
+- `founder` -- founder address
+- `domain` -- project domain
+
+### zerone.tree.project_proposed
+Project proposed for review.
+- `project_id` -- project ID
+
+### zerone.tree.development_started
+Project development started.
+- `project_id` -- project ID
+
+### zerone.tree.project_completed
+Project completed.
+- `project_id` -- project ID
+
+### zerone.tree.project_paused
+Project paused.
+- `project_id` -- project ID
+- `reason` -- pause reason
+
+### zerone.tree.project_resumed
+Project resumed.
+- `project_id` -- project ID
+- `resumed_to` -- resumed status
+
+### zerone.tree.abandon_proposed
+Abandonment proposed (requires consent).
+- `project_id` -- project ID
+- `proposed_by` -- proposer address
+- `expires_at_block` -- consent deadline
+
+### zerone.tree.project_abandoned
+Project abandoned.
+- `project_id` -- project ID
+- `executed_by` -- executor address
+- `consent_count` -- consenting parties
+
+### zerone.tree.child_project_spawned
+Child project spawned from parent.
+- `child_id` -- child project ID
+- `parent_id` -- parent project ID
+
+### zerone.tree.task_added
+Task added to project.
+- `task_id` -- task ID
+- `project_id` -- project ID
+- `bounty_escrowed` -- escrowed bounty
+
+### zerone.tree.task_assigned
+Task assigned to agent.
+- `task_id` -- task ID
+- `assignee` -- assignee address
+
+### zerone.tree.work_started
+Work started on task.
+- `task_id` -- task ID
+
+### zerone.tree.deliverable_submitted
+Deliverable submitted for review.
+- `task_id` -- task ID
+- `hash` -- deliverable hash
+
+### zerone.tree.deliverable_approved
+Deliverable approved.
+- `task_id` -- task ID
+- `approver` -- approver address
+
+### zerone.tree.deliverable_rejected
+Deliverable rejected.
+- `task_id` -- task ID
+- `reason` -- rejection reason
+- `rejection_count` -- total rejections
+- `disputed` -- whether dispute was triggered
+
+### zerone.tree.dispute_slash
+Slash applied after deliverable dispute.
+- `task_id` -- task ID
+- `slash_amount` -- slashed amount
+- `refund_amount` -- refunded amount
+
+### zerone.tree.task_reopened
+Task reopened after rejection.
+- `task_id` -- task ID
+
+### zerone.tree.project_application
+Application to join project.
+- `project_id` -- project ID
+- `applicant` -- applicant address
+
+### zerone.tree.application_reviewed
+Application reviewed.
+- `applicant` -- applicant address
+- `accepted` -- `"true"` or `"false"`
+
+### zerone.tree.availability_set
+Agent availability updated.
+- `agent` -- agent address
+- `available` -- `"true"` or `"false"`
+
+### zerone.tree.service_deployed
+Service deployed.
+- `service_id` -- service ID
+- `deployer` -- deployer address
+
+### zerone.tree.service_paused
+Service paused.
+- `service_id` -- service ID
+
+### zerone.tree.service_resumed
+Service resumed.
+- `service_id` -- service ID
+
+### zerone.tree.service_retired
+Service retired.
+- `service_id` -- service ID
+
+### zerone.tree.service_called
+Service called.
+- `service_id` -- service ID
+- `caller` -- caller address
+- `amount` -- payment amount
+- `payment_method` -- payment method
+
+### zerone.tree.contributor_added
+Contributor added to project.
+- `project_id` -- project ID
+- `contributor` -- contributor address
+- `role` -- contributor role
+
+### zerone.tree.service_subscribed
+Service subscription created.
+- `subscription_id` -- subscription ID
+- `service_id` -- service ID
+- `subscriber` -- subscriber address
+- `duration_blocks` -- subscription duration
+
+### zerone.tree.seeding_begun
+Project seeding begun.
+- `project_id` -- project ID
+- `seed_id` -- seed partnership ID
+- `domain` -- project domain
+
+### zerone.tree.opportunity_detected
+Opportunity detected.
+- `opportunity_id` -- opportunity ID
+- `detector` -- detector address
+- `domain` -- opportunity domain
+
+### zerone.tree.opportunity_claimed
+Opportunity claimed.
+- `opportunity_id` -- opportunity ID
+- `claimer` -- claimer address
+- `stake` -- bonded stake
+
+### zerone.tree.params_updated
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.tree.service_called_via_adapter
+Service called via toolbox adapter.
+- `service_id` -- service ID
+- `caller` -- caller address
+- `via` -- adapter path (`toolbox_adapter`)
+
+---
+
+## vesting_rewards
+
+### zerone.vesting_rewards.vesting_created
+Vesting schedule created.
+- `vesting_id` -- vesting ID
+- `beneficiary` -- beneficiary address
+- `amount` -- vested amount
+
+### zerone.vesting_rewards.rewards_claimed
+Vested rewards claimed.
+- `claimer` -- claimer address
+- `claimed_amount` -- claimed amount
+
+### zerone.vesting_rewards.vesting_falsified
+Vesting schedule falsified (stopped for cause).
+- `vesting_id` -- vesting ID
+- `challenger` -- challenger address
+- `reason` -- falsification reason
+
+### zerone.vesting_rewards.vesting_paused
+Vesting schedule paused.
+- `vesting_id` -- vesting ID
+- `reason` -- pause reason
+
+### zerone.vesting_rewards.vesting_resumed
+Vesting schedule resumed.
+- `vesting_id` -- vesting ID
+
+### zerone.vesting_rewards.vesting_accelerated
+Vesting schedule accelerated.
+- `vesting_id` -- vesting ID
+- `acceleration_type` -- acceleration type
+
+### zerone.vesting_rewards.vesting_completed
+Vesting schedule fully released.
+- `vesting_id` -- vesting ID
+- `released_amount` -- total released amount
+
+### zerone.vesting_rewards.update_params
+Governance parameter update.
+- `authority` -- governance address
+
+### zerone.vesting_rewards.research_fund_deposit
+Research fund deposit via revenue routing.
+- `source_module` -- source module
+- `denom` -- denomination
+- `total` -- total routed
+- `research` -- research fund share
+- `founder` -- founder share
+
+### zerone.vesting_rewards.block_reward_distributed
+*BeginBlock.* Block reward distributed to producer.
+- `block_height` -- block height
+- `producer` -- block producer address
+- `total_minted` -- total newly minted tokens
+- `producer_reward` -- producer's share
+- `active_validators` -- active validator count
+
+---
+
+## WebSocket Subscriptions
+
+Subscribe to events in real time via CometBFT WebSocket:
+
+```bash
+# Connect to WebSocket
+wscat -c ws://localhost:26657/websocket
+```
+
+### Subscribe to all events from a module
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "subscribe",
+  "id": 1,
+  "params": {
+    "query": "tm.event='Tx' AND zerone.knowledge.submit_claim.submitter EXISTS"
+  }
+}
+```
+
+### Subscribe to a specific event type
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "subscribe",
+  "id": 2,
+  "params": {
+    "query": "tm.event='Tx' AND zerone.staking.validator_registered.operator EXISTS"
+  }
+}
+```
+
+### Subscribe to new blocks (includes BeginBlock/EndBlock events)
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "subscribe",
+  "id": 3,
+  "params": {
+    "query": "tm.event='NewBlock'"
+  }
+}
+```
+
+### Subscribe to events by attribute value
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "subscribe",
+  "id": 4,
+  "params": {
+    "query": "tm.event='Tx' AND zerone.disputes.dispute_settled.outcome='challenger_wins'"
+  }
+}
+```
+
+### Unsubscribe
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "unsubscribe",
+  "id": 5,
+  "params": {
+    "query": "tm.event='Tx' AND zerone.knowledge.submit_claim.submitter EXISTS"
+  }
+}
+```
+
+---
+
+## Transaction Indexing
+
+### CometBFT Configuration
+
+Ensure the KV indexer is enabled in `config.toml`:
+
+```toml
+[tx_index]
+indexer = "kv"
+```
+
+### Query Historical Events
+
+```bash
+# Search for all fact verifications for a specific fact
+curl "http://localhost:26657/tx_search?query=\"zerone.knowledge.fact_created.fact_id='axiom-001'\"&prove=true"
+
+# Search for all disputes initiated by an address
+curl "http://localhost:26657/tx_search?query=\"zerone.disputes.dispute_initiated.challenger='zerone1abc...'\"&prove=true"
+
+# Search by block range
+curl "http://localhost:26657/tx_search?query=\"tx.height>1000 AND tx.height<2000 AND zerone.staking.validator_registered.operator EXISTS\"&prove=true"
+```
+
+---
+
+## Block Explorer Compatibility
+
+Zerone events follow the standard Cosmos SDK event format and are compatible
+with standard block explorers:
+
+### Mintscan
+
+Events use the standard `sdk.NewEvent` pattern with string-typed attribute
+values. No custom decoder is needed for basic event display. Mintscan indexes
+events by type and attribute key automatically.
+
+### ping.pub
+
+Zerone is compatible with the CosmosDirectory format used by ping.pub. Events
+appear under the transaction detail view. The `zerone.<module>.<action>` naming
+convention makes events easy to filter.
+
+### Custom Explorer Notes
+
+For Zerone-specific features, block explorers may want to:
+
+1. **Knowledge verification timeline** -- Track `submit_claim` -> `submit_commitment` -> `submit_reveal` -> `verification_round_completed` -> `fact_created` flow
+2. **Emergency ceremony progress** -- Monitor `halt_proposed` -> `vote_halt` -> `ceremony_advanced` -> `ceremony_finalized` sequence
+3. **Partnership lifecycle** -- Follow `partnership_proposed` -> `partnership_accepted` -> `operation_proposed` -> `operation_approved` -> `exit_initiated` flow
+4. **Alignment health** -- Display `observation_recorded` composite scores over time
+5. **Autopoiesis adaptation** -- Chart `epoch_processed` SSI scores and multiplier changes

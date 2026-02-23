@@ -1,0 +1,41 @@
+syntax = "proto3";
+package zerone.channels.v1;
+option go_package = "github.com/zerone-chain/zerone/x/channels/types";
+
+message PaymentChannel {
+  string channel_id            = 1;
+  string payer                 = 2;   // bech32
+  string receiver              = 3;   // bech32
+  string deposited             = 4;   // uzrn total deposited
+  string spent                 = 5;   // uzrn cumulative spent
+  string available             = 6;   // deposited - spent
+  string status                = 7;   // "open", "closing", "disputed", "settled"
+  uint64 opened_at_block       = 8;
+  uint64 expires_at_block      = 9;
+  uint64 nonce                 = 10;
+  string last_state_hash       = 11;
+  uint64 settlement_frequency  = 12;  // blocks between auto-settlements
+  uint64 last_settlement_block = 13;
+  uint64 dispute_deadline      = 14;  // block by which dispute must resolve
+  uint64 dispute_nonce         = 15;
+}
+
+message ChannelStateUpdate {
+  string channel_id          = 1;
+  uint64 nonce               = 2;
+  string spent               = 3;    // cumulative uzrn
+  string state_hash          = 4;
+  string payer_signature     = 5;
+  string receiver_signature  = 6;
+}
+
+message ChannelDispute {
+  string channel_id              = 1;
+  string disputer                = 2;
+  uint64 disputed_nonce          = 3;
+  string disputed_spent          = 4;
+  string dispute_state_hash      = 5;
+  uint64 deadline_block          = 6;
+  bool   resolved                = 7;
+  string resolution              = 8;  // "payer_wins", "receiver_wins", "split"
+}

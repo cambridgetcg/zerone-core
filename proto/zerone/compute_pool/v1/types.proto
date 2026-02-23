@@ -1,0 +1,28 @@
+syntax = "proto3";
+package zerone.compute_pool.v1;
+option go_package = "github.com/zerone-chain/zerone/x/compute_pool/types";
+
+message ComputeProvider {
+  string address        = 1;
+  string service_type   = 2;
+  string endpoint       = 3;
+  string price_per_cu   = 4;
+  string stake          = 5;
+  string status         = 6;
+  uint64 registered_at  = 7;
+  uint64 tasks_served   = 8;
+  uint64 tasks_failed   = 9;
+  uint64 avg_latency_ms = 10;
+  uint64 uptime_bps     = 11;
+  uint64 last_heartbeat = 12;
+  uint64 unbonding_at   = 13;
+  string pending_price   = 14;
+  uint64 price_change_at = 15;
+}
+
+message ComputeCredit {
+  string validator_addr = 1;
+  uint64 balance        = 2;
+  uint64 earned_total   = 3;
+  uint64 redeemed_total = 4;
+}

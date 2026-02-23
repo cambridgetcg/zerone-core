@@ -1,0 +1,25 @@
+syntax = "proto3";
+package zerone.capture_defense.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/capture_defense/types";
+
+import "zerone/capture_defense/v1/types.proto";
+
+message Params {
+  uint64 decay_epoch_blocks          = 1; // half-life for reputation decay
+  uint64 min_verifications_for_score = 2; // min verifications before domain rep is used
+  uint64 hhi_threshold               = 3; // HHI above which domain is flagged
+  uint64 risk_analysis_interval      = 4; // blocks between auto-analysis
+  uint64 history_retention_blocks    = 5; // how long verification history is kept
+  uint64 base_reputation_score       = 6; // floor for decayed scores
+  uint64 max_history_per_domain      = 7; // max rounds kept per domain
+}
+
+message GenesisState {
+  Params                          params                   = 1;
+  repeated GlobalReputation       global_reputations       = 2;
+  repeated StratumReputation      stratum_reputations      = 3;
+  repeated DomainReputation       domain_reputations       = 4;
+  repeated CaptureMetrics         capture_metrics          = 5;
+  repeated CrossStratumRequirement cross_stratum_requirements = 6;
+}

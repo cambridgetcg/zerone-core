@@ -44,7 +44,7 @@ func (m msgServer) CreateVesting(
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"vesting_created",
+			"zerone.vesting_rewards.vesting_created",
 			sdk.NewAttribute("vesting_id", schedule.Id),
 			sdk.NewAttribute("beneficiary", msg.Beneficiary),
 			sdk.NewAttribute("amount", msg.Amount),
@@ -73,7 +73,7 @@ func (m msgServer) ClaimVesting(
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"claim_vested_rewards",
+			"zerone.vesting_rewards.rewards_claimed",
 			sdk.NewAttribute("claimer", msg.Claimer),
 			sdk.NewAttribute("claimed_amount", claimed),
 		),
@@ -110,7 +110,7 @@ func (m msgServer) FalsifyVesting(
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"falsify_vesting",
+			"zerone.vesting_rewards.vesting_falsified",
 			sdk.NewAttribute("vesting_id", msg.VestingId),
 			sdk.NewAttribute("challenger", msg.Challenger),
 			sdk.NewAttribute("reason", msg.Reason),
@@ -140,7 +140,7 @@ func (m msgServer) PauseVesting(
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"vesting_paused",
+			"zerone.vesting_rewards.vesting_paused",
 			sdk.NewAttribute("vesting_id", msg.VestingId),
 			sdk.NewAttribute("reason", msg.Reason),
 		),
@@ -167,7 +167,7 @@ func (m msgServer) ResumeVesting(
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"vesting_resumed",
+			"zerone.vesting_rewards.vesting_resumed",
 			sdk.NewAttribute("vesting_id", msg.VestingId),
 		),
 	)
@@ -222,7 +222,7 @@ func (m msgServer) AccelerateVesting(
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"vesting_accelerated",
+			"zerone.vesting_rewards.vesting_accelerated",
 			sdk.NewAttribute("vesting_id", msg.VestingId),
 			sdk.NewAttribute("acceleration_type", accelType),
 		),
@@ -267,7 +267,7 @@ func (m msgServer) CompleteVesting(
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"vesting_completed",
+			"zerone.vesting_rewards.vesting_completed",
 			sdk.NewAttribute("vesting_id", msg.VestingId),
 			sdk.NewAttribute("released_amount", schedule.ReleasedAmount),
 		),
@@ -293,6 +293,12 @@ func (m msgServer) UpdateParams(
 	if msg.Params != nil {
 		m.Keeper.SetParams(ctx, msg.Params)
 	}
+
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.vesting_rewards.update_params",
+			sdk.NewAttribute("authority", msg.Authority),
+		),
+	)
 
 	return &types.MsgUpdateParamsResponse{}, nil
 }

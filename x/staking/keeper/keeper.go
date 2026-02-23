@@ -603,7 +603,7 @@ func (k Keeper) SlashValidator(ctx sdk.Context, validatorAddr string, amount *bi
 	k.SetValidator(ctx, val)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"validator_slashed",
+		"zerone.staking.validator_slashed",
 		sdk.NewAttribute("validator", validatorAddr),
 		sdk.NewAttribute("amount", slashInt.String()),
 		sdk.NewAttribute("reason", reason),
@@ -707,7 +707,7 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 		k.SetUnbonding(ctx, entry)
 
 		ctx.EventManager().EmitEvent(sdk.NewEvent(
-			"unbonding_completed",
+			"zerone.staking.unbonding_completed",
 			sdk.NewAttribute("delegator", entry.DelegatorAddress),
 			sdk.NewAttribute("amount", entry.Amount),
 		))
@@ -723,7 +723,7 @@ func (k Keeper) EndBlocker(ctx sdk.Context) {
 			val.Tier = newTier
 			k.SetValidator(ctx, val)
 			ctx.EventManager().EmitEvent(sdk.NewEvent(
-				"validator_tier_changed",
+				"zerone.staking.validator_tier_changed",
 				sdk.NewAttribute("validator", val.OperatorAddress),
 				sdk.NewAttribute("old_tier", types.ValidatorTierString(oldTier)),
 				sdk.NewAttribute("new_tier", types.ValidatorTierString(newTier)),

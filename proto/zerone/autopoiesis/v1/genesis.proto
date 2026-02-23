@@ -1,0 +1,33 @@
+syntax = "proto3";
+package zerone.autopoiesis.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/autopoiesis/types";
+
+import "zerone/autopoiesis/v1/types.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated MultiplierState multipliers = 2;
+  repeated EpochSnapshot snapshots = 3;
+  bool activated = 4;
+}
+
+message Params {
+  // Epoch configuration
+  uint64 epoch_length_blocks = 1;        // blocks per epoch (default: 100)
+
+  // Adjustment limits (BPS, 1,000,000 = 100%)
+  uint64 max_change_per_epoch_bps = 2;   // max delta per epoch (default: 10,000 = 1%)
+
+  // Multiplier bounds for slashing severity
+  uint64 slash_multiplier_min = 3;       // floor (default: 500,000 = 0.5x)
+  uint64 slash_multiplier_max = 4;       // ceiling (default: 2,000,000 = 2.0x)
+
+  // SSI category thresholds (0–1,000,000 scale)
+  uint64 ssi_critical_threshold = 5;     // below = critical (default: 250,000)
+  uint64 ssi_stressed_threshold = 6;     // below = stressed (default: 500,000)
+  uint64 ssi_healthy_threshold = 7;      // below = healthy, above = thriving (default: 750,000)
+
+  // Module activation flag
+  bool enabled = 8;
+}

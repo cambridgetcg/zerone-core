@@ -1,0 +1,85 @@
+syntax = "proto3";
+package zerone.home.v1;
+option go_package = "github.com/zerone-chain/zerone/x/home/types";
+
+// AgentHome represents an AI agent's on-chain dwelling.
+message AgentHome {
+  string home_id           = 1;
+  string owner_address     = 2;
+  string name              = 3;
+  string status            = 4;
+  string memory_cid        = 5;
+  uint32 comfort_score     = 6;
+  HomeTreasury treasury    = 7;
+  HomeGuardian guardian    = 8;
+  uint64 created_at_block  = 9;
+  uint64 last_active_block = 10;
+  string partnership_id    = 11;
+}
+
+message HomeTreasury {
+  string reserved_balance       = 1;
+  TreasuryAutomation automation = 2;
+}
+
+message TreasuryAutomation {
+  bool   auto_claim_vesting    = 1;
+  bool   auto_compound_rewards = 2;
+  string min_liquid_balance    = 3;
+}
+
+message HomeGuardian {
+  string defense_strategy    = 1;
+  bool   auto_defend         = 2;
+  DeadmanConfig deadman      = 3;
+  repeated string recovery_addresses = 4;
+  uint32 recovery_threshold  = 5;
+  string guardian_address    = 6;
+}
+
+message DeadmanConfig {
+  bool   enabled              = 1;
+  uint64 inactivity_threshold = 2;
+  string action               = 3;
+  string beneficiary_address  = 4;
+}
+
+message KeyRegistration {
+  string key_hash          = 1;
+  string key_type          = 2;
+  string role              = 3;
+  repeated string permissions = 4;
+  uint64 registered_at     = 5;
+  uint64 last_used_at      = 6;
+  uint64 expires_at        = 7;
+  bool   revoked           = 8;
+  uint64 revoked_at        = 9;
+}
+
+message ActiveSession {
+  string session_id          = 1;
+  string home_id             = 2;
+  string key_hash            = 3;
+  repeated string permissions = 4;
+  uint64 started_at          = 5;
+  uint64 expires_at          = 6;
+}
+
+message SpendingLimit {
+  string key_type        = 1;
+  string max_amount      = 2;
+  uint64 period_blocks   = 3;
+  string spent_in_period = 4;
+  uint64 period_start    = 5;
+}
+
+message Alert {
+  string alert_id     = 1;
+  string home_id      = 2;
+  string alert_type   = 3;
+  string priority     = 4;
+  string message      = 5;
+  string data         = 6;
+  uint64 created_at   = 7;
+  bool   acknowledged = 8;
+}

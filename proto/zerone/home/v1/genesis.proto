@@ -1,0 +1,27 @@
+syntax = "proto3";
+package zerone.home.v1;
+option go_package = "github.com/zerone-chain/zerone/x/home/types";
+
+import "zerone/home/v1/types.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated AgentHome homes = 2;
+  repeated HomeKeySet key_sets = 3;
+}
+
+message HomeKeySet {
+  string home_id = 1;
+  repeated KeyRegistration keys = 2;
+}
+
+message Params {
+  uint64 max_keys_per_home = 1;
+  uint64 max_sessions_per_home = 2;
+  uint64 session_timeout_blocks = 3;
+  uint64 deadman_min_threshold = 4;
+  uint64 deadman_max_threshold = 5;
+  uint64 max_alerts_per_home = 6;
+  string home_creation_fee = 7;
+  uint64 max_recovery_addresses = 8;
+}

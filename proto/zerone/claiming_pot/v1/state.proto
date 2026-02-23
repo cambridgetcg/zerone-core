@@ -1,0 +1,46 @@
+syntax = "proto3";
+package zerone.claiming_pot.v1;
+option go_package = "github.com/zerone-chain/zerone/x/claiming_pot/types";
+
+message ClaimingPot {
+  string id = 1;
+  string name = 2;
+  string total_amount = 3;                     // uzrn
+  string claimed_amount = 4;                   // uzrn
+  VestingSchedule schedule = 5;
+  EligibilityCriteria eligibility = 6;
+  uint64 created_at_block = 7;
+  PotStatus status = 8;
+}
+
+message VestingSchedule {
+  uint64 start_block = 1;
+  uint64 end_block = 2;
+  uint64 cliff_blocks = 3;                     // blocks after start before any vesting
+  uint64 period_blocks = 4;                    // vesting period granularity
+}
+
+message Claim {
+  string pot_id = 1;
+  string claimant = 2;                         // bech32
+  string amount = 3;                           // uzrn
+  uint64 claimed_at = 4;                       // block height
+}
+
+message EligibilityCriteria {
+  uint32 min_staking_tier = 1;                 // minimum validator tier required
+  uint64 min_registration_age = 2;            // minimum blocks since registration
+  repeated string whitelist = 3;               // bech32 addresses (empty = open to all qualified)
+}
+
+message Params {
+  uint32 max_pots_active = 1;                  // default: 10
+  string min_claim_amount = 2;                 // default: "1000" uzrn
+}
+
+enum PotStatus {
+  POT_STATUS_UNSPECIFIED = 0;
+  POT_STATUS_ACTIVE = 1;
+  POT_STATUS_DEPLETED = 2;
+  POT_STATUS_EXPIRED = 3;
+}

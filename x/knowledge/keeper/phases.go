@@ -47,7 +47,7 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 				k.Logger(ctx).Error("failed to transition round to REVEAL", "round_id", round.Id, "error", err)
 			}
 			sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-				"round_phase_changed",
+				"zerone.knowledge.round_phase_changed",
 				sdk.NewAttribute("round_id", round.Id),
 				sdk.NewAttribute("phase", "REVEAL"),
 			))
@@ -59,6 +59,12 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 				k.Logger(ctx).Error("failed to transition round to AGGREGATION", "round_id", round.Id, "error", err)
 				continue
 			}
+			sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+				"zerone.knowledge.round_phase_changed",
+				sdk.NewAttribute("round_id", round.Id),
+				sdk.NewAttribute("phase", "AGGREGATION"),
+				sdk.NewAttribute("reveal_count", fmt.Sprintf("%d", len(round.Reveals))),
+			))
 			// Perform aggregation immediately
 			if err := k.performAggregation(ctx, round); err != nil {
 				k.Logger(ctx).Error("aggregation failed", "round_id", round.Id, "error", err)
@@ -90,7 +96,7 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 					_ = k.returnClaimStake(ctx, claim)
 				}
 				sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-					"round_expired",
+					"zerone.knowledge.round_expired",
 					sdk.NewAttribute("round_id", round.Id),
 					sdk.NewAttribute("reveals", fmt.Sprintf("%d", len(round.Reveals))),
 				))

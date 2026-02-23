@@ -96,7 +96,7 @@ func (k msgServer) ProposeDomain(goCtx context.Context, msg *types.MsgProposeDom
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"domain_proposed",
+			"zerone.ontology.domain_proposed",
 			sdk.NewAttribute("proposal_id", proposalID),
 			sdk.NewAttribute("domain", msg.Name),
 			sdk.NewAttribute("stratum", fmt.Sprintf("%d", msg.Stratum)),
@@ -148,7 +148,7 @@ func (k msgServer) UpdateDomain(goCtx context.Context, msg *types.MsgUpdateDomai
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"domain_updated",
+			"zerone.ontology.domain_updated",
 			sdk.NewAttribute("domain", msg.DomainName),
 			sdk.NewAttribute("authority", msg.Authority),
 		),
@@ -176,7 +176,7 @@ func (k msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"params_updated",
+			"zerone.ontology.params_updated",
 			sdk.NewAttribute("authority", msg.Authority),
 		),
 	)
@@ -205,7 +205,7 @@ func (k msgServer) RegisterLogicZone(goCtx context.Context, msg *types.MsgRegist
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"logic_zone_registered",
+			"zerone.ontology.logic_zone_registered",
 			sdk.NewAttribute("zone", msg.ZoneProperties.Zone),
 			sdk.NewAttribute("complete", fmt.Sprintf("%v", msg.ZoneProperties.Complete)),
 			sdk.NewAttribute("goedel_applies", fmt.Sprintf("%v", msg.ZoneProperties.GoedelApplies)),
@@ -243,7 +243,7 @@ func (k msgServer) AcknowledgeIncompleteness(goCtx context.Context, msg *types.M
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"incompleteness_acknowledged",
+			"zerone.ontology.incompleteness_acknowledged",
 			sdk.NewAttribute("fact_id", msg.FactId),
 			sdk.NewAttribute("zone", msg.Zone),
 			sdk.NewAttribute("submitter", msg.Submitter),

@@ -122,7 +122,7 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, msg *types.MsgRegiste
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"account_registered",
+			"zerone.auth.account_registered",
 			sdk.NewAttribute("address", msg.Sender),
 			sdk.NewAttribute("did", msg.Did),
 			sdk.NewAttribute("account_type", msg.AccountType),
@@ -179,7 +179,7 @@ func (ms msgServer) RotateKey(goCtx context.Context, msg *types.MsgRotateKey) (*
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"key_rotated",
+			"zerone.auth.key_rotated",
 			sdk.NewAttribute("sender", msg.Sender),
 			sdk.NewAttribute("key_type", "operational"),
 			sdk.NewAttribute("version", fmt.Sprintf("%d", account.OperationalKeyVersion)),
@@ -240,7 +240,7 @@ func (ms msgServer) CreateSession(goCtx context.Context, msg *types.MsgCreateSes
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"session_created",
+			"zerone.auth.session_created",
 			sdk.NewAttribute("owner", msg.Owner),
 			sdk.NewAttribute("key_hash", keyHash),
 			sdk.NewAttribute("expires_at", fmt.Sprintf("%d", expiresAt)),
@@ -276,7 +276,7 @@ func (ms msgServer) RevokeSession(goCtx context.Context, msg *types.MsgRevokeSes
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"session_revoked",
+			"zerone.auth.session_revoked",
 			sdk.NewAttribute("owner", msg.Owner),
 			sdk.NewAttribute("key_hash", msg.SessionId),
 		),
@@ -311,7 +311,7 @@ func (ms msgServer) FreezeAccount(goCtx context.Context, msg *types.MsgFreezeAcc
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"account_frozen",
+			"zerone.auth.account_frozen",
 			sdk.NewAttribute("address", msg.Address),
 			sdk.NewAttribute("frozen_by", msg.Sender),
 			sdk.NewAttribute("reason", msg.Reason),
@@ -344,7 +344,7 @@ func (ms msgServer) UnfreezeAccount(goCtx context.Context, msg *types.MsgUnfreez
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"account_unfrozen",
+			"zerone.auth.account_unfrozen",
 			sdk.NewAttribute("address", msg.Address),
 			sdk.NewAttribute("unfrozen_by", msg.Authority),
 		),
@@ -365,7 +365,7 @@ func (ms msgServer) SetRecoveryConfig(goCtx context.Context, msg *types.MsgSetRe
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"recovery_config_set",
+			"zerone.auth.recovery_config_set",
 			sdk.NewAttribute("address", msg.Sender),
 			sdk.NewAttribute("threshold", fmt.Sprintf("%d", msg.Config.Threshold)),
 			sdk.NewAttribute("total_shards", fmt.Sprintf("%d", msg.Config.TotalShards)),
@@ -436,7 +436,7 @@ func (ms msgServer) InitiateRecovery(goCtx context.Context, msg *types.MsgInitia
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"recovery_initiated",
+			"zerone.auth.recovery_initiated",
 			sdk.NewAttribute("account", msg.AccountAddress),
 			sdk.NewAttribute("initiated_by", msg.Sender),
 			sdk.NewAttribute("delay_expires_at", fmt.Sprintf("%d", req.DelayExpiresAt)),
@@ -503,7 +503,7 @@ func (ms msgServer) SubmitRecoveryShard(goCtx context.Context, msg *types.MsgSub
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"recovery_shard_submitted",
+			"zerone.auth.recovery_shard_submitted",
 			sdk.NewAttribute("account", msg.AccountAddress),
 			sdk.NewAttribute("shard_index", fmt.Sprintf("%d", msg.ShardIndex)),
 			sdk.NewAttribute("shards_count", fmt.Sprintf("%d/%d", len(req.ShardsProvided), req.ShardsRequired)),
@@ -547,7 +547,7 @@ func (ms msgServer) ChallengeRecovery(goCtx context.Context, msg *types.MsgChall
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"recovery_challenged",
+			"zerone.auth.recovery_challenged",
 			sdk.NewAttribute("account", msg.AccountAddress),
 			sdk.NewAttribute("challenger", msg.Sender),
 			sdk.NewAttribute("reason", msg.Reason),
@@ -613,7 +613,7 @@ func (ms msgServer) ExecuteRecovery(goCtx context.Context, msg *types.MsgExecute
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"recovery_executed",
+			"zerone.auth.recovery_executed",
 			sdk.NewAttribute("account", msg.AccountAddress),
 			sdk.NewAttribute("executed_by", msg.Sender),
 			sdk.NewAttribute("new_key_version", fmt.Sprintf("%d", account.OperationalKeyVersion)),
@@ -640,7 +640,7 @@ func (ms msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePara
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"params_updated",
+			"zerone.auth.params_updated",
 			sdk.NewAttribute("authority", msg.Authority),
 		),
 	)

@@ -1,0 +1,54 @@
+syntax = "proto3";
+package zerone.emergency.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/emergency/types";
+
+import "zerone/emergency/v1/types.proto";
+
+// GenesisState defines the emergency module's genesis state.
+message GenesisState {
+  Params params = 1;
+  string status = 2;
+  repeated EmergencyCeremony ceremonies = 3;
+  repeated EmergencyAuditEntry audit_log = 4;
+}
+
+// Params defines the emergency module parameters.
+message Params {
+  // Quorum thresholds (1,000,000 = 100%).
+  uint64 halt_quorum = 1;
+  uint64 revert_quorum = 2;
+  uint64 resume_quorum = 3;
+
+  // Ceremony timing (blocks).
+  uint64 halt_prevote_blocks = 4;
+  uint64 halt_precommit_blocks = 5;
+  uint64 halt_timeout_blocks = 6;
+  uint64 revert_prevote_blocks = 7;
+  uint64 revert_precommit_blocks = 8;
+  uint64 revert_timeout_blocks = 9;
+  uint64 resume_prevote_blocks = 10;
+  uint64 resume_precommit_blocks = 11;
+  uint64 resume_timeout_blocks = 12;
+
+  // Anti-abuse limits.
+  uint64 max_proposals_per_epoch = 13;
+  uint64 max_proposals_per_guardian_per_epoch = 14;
+  uint64 cooldown_blocks = 15;
+  string min_guardian_stake = 16;   // uzrn bigint string
+  uint64 min_distinct_voters = 17;
+
+  // Revert constraints.
+  uint64 max_revert_depth = 18;
+
+  // Epoch length (blocks).
+  uint64 epoch_blocks = 19;
+
+  // Genesis emergency council (H-5 bootstrap).
+  repeated string genesis_council = 20;
+  uint64 council_expiry_block = 21;
+  string council_virtual_stake = 22;  // uzrn bigint string
+
+  // Auto-resume: max halt duration before automatic resume.
+  uint64 max_halt_duration_blocks = 23;
+}

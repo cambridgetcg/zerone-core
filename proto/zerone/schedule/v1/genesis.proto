@@ -1,0 +1,19 @@
+syntax = "proto3";
+package zerone.schedule.v1;
+option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
+
+import "zerone/schedule/v1/types.proto";
+
+message Params {
+  uint32 max_active_per_account = 1;
+  uint64 max_gas_per_block      = 2;
+  uint64 min_interval_blocks    = 3;
+  string min_fee_per_execution  = 4;
+  uint64 max_compound_depth     = 5;
+}
+
+message GenesisState {
+  Params params                     = 1;
+  repeated ScheduleProcess processes = 2;
+  uint64 sequence                   = 3;
+}

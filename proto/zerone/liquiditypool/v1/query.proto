@@ -1,0 +1,73 @@
+syntax = "proto3";
+package zerone.liquiditypool.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/liquiditypool/types";
+
+import "google/api/annotations.proto";
+import "zerone/liquiditypool/v1/types.proto";
+import "zerone/liquiditypool/v1/genesis.proto";
+
+// Query defines the liquiditypool module query service.
+service Query {
+  rpc Pool(QueryPoolRequest) returns (QueryPoolResponse) {
+    option (google.api.http).get = "/zerone/liquiditypool/v1/pools/{pool_id}";
+  }
+  rpc Pools(QueryPoolsRequest) returns (QueryPoolsResponse) {
+    option (google.api.http).get = "/zerone/liquiditypool/v1/pools";
+  }
+  rpc TWAP(QueryTWAPRequest) returns (QueryTWAPResponse) {
+    option (google.api.http).get = "/zerone/liquiditypool/v1/twap/{pool_id}";
+  }
+  rpc SimulateSwap(QuerySimulateSwapRequest) returns (QuerySimulateSwapResponse) {
+    option (google.api.http).get = "/zerone/liquiditypool/v1/simulate/{pool_id}";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/liquiditypool/v1/params";
+  }
+}
+
+// --- Pool ---
+
+message QueryPoolRequest {
+  string pool_id = 1;
+}
+message QueryPoolResponse {
+  Pool pool = 1;
+}
+
+// --- Pools ---
+
+message QueryPoolsRequest {}
+message QueryPoolsResponse {
+  repeated Pool pools = 1;
+}
+
+// --- TWAP ---
+
+message QueryTWAPRequest {
+  string pool_id     = 1;
+  string base_denom  = 2;
+  uint64 window      = 3; // 0 = use default from params
+}
+message QueryTWAPResponse {
+  string twap        = 1; // price scaled by 1e6
+  uint64 window_used = 2; // actual blocks used
+}
+
+// --- SimulateSwap ---
+
+message QuerySimulateSwapRequest {
+  string pool_id         = 1;
+  string token_in_denom  = 2;
+  string token_in_amount = 3; // bigint string
+}
+message QuerySimulateSwapResponse {
+  SwapResult result = 1;
+}
+
+// --- Params ---
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}

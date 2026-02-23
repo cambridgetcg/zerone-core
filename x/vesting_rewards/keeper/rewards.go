@@ -234,7 +234,7 @@ func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amou
 		}
 
 		ctx.EventManager().EmitEvent(sdk.NewEvent(
-			"research_fund_deposit",
+			"zerone.vesting_rewards.research_fund_deposit",
 			sdk.NewAttribute("source_module", sourceModule),
 			sdk.NewAttribute("denom", coin.Denom),
 			sdk.NewAttribute("total", coin.Amount.String()),

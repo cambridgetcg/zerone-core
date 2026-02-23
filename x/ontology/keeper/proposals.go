@@ -108,7 +108,7 @@ func (k Keeper) VoteProposal(ctx sdk.Context, proposalId string, voter string, a
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"proposal_voted",
+			"zerone.ontology.proposal_voted",
 			sdk.NewAttribute("proposal_id", proposalId),
 			sdk.NewAttribute("voter", voter),
 			sdk.NewAttribute("approve", fmt.Sprintf("%t", approve)),
@@ -146,7 +146,7 @@ func (k Keeper) ProcessExpiredProposals(ctx sdk.Context) error {
 
 		ctx.EventManager().EmitEvent(
 			sdk.NewEvent(
-				"proposal_expired",
+				"zerone.ontology.proposal_expired",
 				sdk.NewAttribute("proposal_id", proposal.Id),
 				sdk.NewAttribute("domain", proposal.Domain.Name),
 				sdk.NewAttribute("votes_for", fmt.Sprintf("%d", proposal.VotesFor)),

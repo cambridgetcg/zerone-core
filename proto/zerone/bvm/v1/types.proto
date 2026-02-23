@@ -1,0 +1,88 @@
+syntax = "proto3";
+package zerone.bvm.v1;
+option go_package = "github.com/zerone-chain/zerone/x/bvm/types";
+
+message DeployedContract {
+  string address           = 1;
+  string code_hash         = 2;
+  string creator           = 3;
+  uint64 deployed_at_block = 4;
+  bool   is_agent          = 5;
+  string agent_home_id     = 6;
+  uint64 bytecode_size     = 7;
+  string label             = 8;
+  uint32 bvm_version       = 9;
+}
+
+message ContractCode {
+  string code_hash = 1;
+  bytes  bytecode  = 2;
+  uint64 ref_count = 3;
+}
+
+message ContractStateEntry {
+  string contract_address = 1;
+  string key              = 2;
+  string value            = 3;
+}
+
+message ContractSchedule {
+  string schedule_id      = 1;
+  string contract_address = 2;
+  string caller           = 3;
+  string method           = 4;
+  string payload          = 5;
+  uint64 execute_at_block = 6;
+  uint64 max_gas          = 7;
+  bool   executed         = 8;
+  bool   cancelled        = 9;
+}
+
+message ContractCallRecord {
+  string tx_hash          = 1;
+  string contract_address = 2;
+  string caller           = 3;
+  string method           = 4;
+  uint64 gas_used         = 5;
+  bool   success          = 6;
+  string return_data      = 7;
+  string error            = 8;
+  uint64 block_number     = 9;
+}
+
+message ContractConfig {
+  uint64 max_gas_per_invocation = 1;
+  bool   self_invoking          = 2;
+  string schedule_pattern       = 3;
+}
+
+message ScheduleCondition {
+  oneof condition {
+    BlockInterval block_interval   = 1;
+    TimeCondition time_condition   = 2;
+    StateCondition state_condition = 3;
+  }
+}
+
+message BlockInterval {
+  uint64 every_n_blocks = 1;
+  uint64 start_height   = 2;
+  uint64 end_height     = 3;
+}
+
+message TimeCondition {
+  uint64 after_timestamp      = 1;
+  uint64 repeat_interval_ms   = 2;
+}
+
+message StateCondition {
+  string key      = 1;
+  string operator = 2;
+  bytes  value    = 3;
+}
+
+message ContractEvent {
+  string contract_address       = 1;
+  string event_type             = 2;
+  map<string, string> attributes = 3;
+}

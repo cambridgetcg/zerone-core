@@ -1,0 +1,69 @@
+syntax = "proto3";
+package zerone.capture_defense.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/capture_defense/types";
+
+// IsolatedReputation tracks a validator's reputation at a single scope level.
+message IsolatedReputation {
+  string validator = 1;
+  string scope     = 2; // "global", stratum name, or domain ID
+  uint64 score     = 3; // 0–1_000_000 BPS
+  uint64 verifications = 4;
+  uint64 last_updated_block = 5;
+}
+
+// GlobalReputation is a validator's chain-wide reputation.
+message GlobalReputation {
+  string validator = 1;
+  uint64 score     = 2;
+  uint64 total_verifications = 3;
+  uint64 last_updated_block  = 4;
+}
+
+// StratumReputation is a validator's reputation within a knowledge stratum.
+message StratumReputation {
+  string validator = 1;
+  string stratum   = 2;
+  uint64 score     = 3;
+  uint64 verifications = 4;
+  uint64 last_updated_block = 5;
+}
+
+// DomainReputation is a validator's reputation for a specific domain.
+message DomainReputation {
+  string validator = 1;
+  string domain    = 2;
+  uint64 score     = 3;
+  uint64 verifications = 4;
+  uint64 last_updated_block = 5;
+}
+
+// CaptureMetrics holds computed capture risk analysis for a domain.
+message CaptureMetrics {
+  string domain               = 1;
+  uint64 herfindahl_index     = 2; // 0–1_000_000 BPS
+  uint64 timing_correlation   = 3; // 0–1_000_000 BPS
+  uint64 verdict_correlation  = 4; // 0–1_000_000 BPS
+  uint64 top3_share           = 5; // 0–1_000_000 BPS
+  uint64 risk_score           = 6; // composite 0–1_000_000
+  uint64 total_participations = 7;
+  uint64 analyzed_at_block    = 8;
+  bool   flagged              = 9;
+}
+
+// VerificationHistoryEntry records one verification round for detection.
+message VerificationHistoryEntry {
+  string domain          = 1;
+  string round_id        = 2;
+  repeated string validators = 3;
+  repeated bool   verdicts   = 4; // true = approved, false = rejected
+  repeated uint64 submit_blocks = 5;
+  uint64 block_height    = 6;
+}
+
+// CrossStratumRequirement defines cross-stratum validation rules.
+message CrossStratumRequirement {
+  string target_stratum     = 1;
+  repeated string required_strata = 2;
+  uint64 min_validators_per_stratum = 3;
+}

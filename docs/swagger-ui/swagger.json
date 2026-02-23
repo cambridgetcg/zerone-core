@@ -1,0 +1,13 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Zerone API",
+    "description": "REST API for the Zerone blockchain. Run 'make proto-swagger-gen' to populate.",
+    "version": "1.0.0"
+  },
+  "host": "localhost:1317",
+  "basePath": "/",
+  "schemes": ["http", "https"],
+  "paths": {},
+  "definitions": {}
+}

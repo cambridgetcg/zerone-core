@@ -1,0 +1,114 @@
+syntax = "proto3";
+package zerone.home.v1;
+option go_package = "github.com/zerone-chain/zerone/x/home/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/home/v1/types.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc CreateHome(MsgCreateHome) returns (MsgCreateHomeResponse);
+  rpc UpdateHome(MsgUpdateHome) returns (MsgUpdateHomeResponse);
+  rpc UpdateMemoryCID(MsgUpdateMemoryCID) returns (MsgUpdateMemoryCIDResponse);
+  rpc StartSession(MsgStartSession) returns (MsgStartSessionResponse);
+  rpc EndSession(MsgEndSession) returns (MsgEndSessionResponse);
+  rpc RegisterKey(MsgRegisterKey) returns (MsgRegisterKeyResponse);
+  rpc RevokeKey(MsgRevokeKey) returns (MsgRevokeKeyResponse);
+  rpc ConfigureGuardian(MsgConfigureGuardian) returns (MsgConfigureGuardianResponse);
+  rpc AcknowledgeAlert(MsgAcknowledgeAlert) returns (MsgAcknowledgeAlertResponse);
+  rpc SetSpendingLimit(MsgSetSpendingLimit) returns (MsgSetSpendingLimitResponse);
+}
+
+message MsgCreateHome {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner = 1;
+  string name  = 2;
+  HomeGuardian initial_guardian_config = 3;
+}
+message MsgCreateHomeResponse { string home_id = 1; }
+
+message MsgUpdateHome {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner   = 1;
+  string home_id = 2;
+  string name    = 3;
+  string status  = 4;
+}
+message MsgUpdateHomeResponse {}
+
+message MsgUpdateMemoryCID {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner   = 1;
+  string home_id = 2;
+  string cid     = 3;
+}
+message MsgUpdateMemoryCIDResponse {}
+
+message MsgStartSession {
+  option (cosmos.msg.v1.signer) = "signer";
+  string signer  = 1;
+  string home_id = 2;
+  string key_hash = 3;
+  repeated string requested_permissions = 4;
+}
+message MsgStartSessionResponse { string session_id = 1; }
+
+message MsgEndSession {
+  option (cosmos.msg.v1.signer) = "signer";
+  string signer     = 1;
+  string home_id    = 2;
+  string session_id = 3;
+}
+message MsgEndSessionResponse {}
+
+message MsgRegisterKey {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner    = 1;
+  string home_id  = 2;
+  string key_hash = 3;
+  string key_type = 4;
+  string role     = 5;
+  repeated string permissions = 6;
+  uint64 expires_at = 7;
+}
+message MsgRegisterKeyResponse {}
+
+message MsgRevokeKey {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner    = 1;
+  string home_id  = 2;
+  string key_hash = 3;
+}
+message MsgRevokeKeyResponse {}
+
+message MsgConfigureGuardian {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner    = 1;
+  string home_id  = 2;
+  string defense_strategy = 3;
+  bool   auto_defend      = 4;
+  DeadmanConfig deadman   = 5;
+  repeated string recovery_addresses = 6;
+  uint32 recovery_threshold = 7;
+  string guardian_address = 8;
+}
+message MsgConfigureGuardianResponse {}
+
+message MsgAcknowledgeAlert {
+  option (cosmos.msg.v1.signer) = "signer";
+  string signer   = 1;
+  string home_id  = 2;
+  string alert_id = 3;
+}
+message MsgAcknowledgeAlertResponse {}
+
+message MsgSetSpendingLimit {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner    = 1;
+  string home_id  = 2;
+  string key_type     = 3;
+  string max_amount   = 4;
+  uint64 period_blocks = 5;
+}
+message MsgSetSpendingLimitResponse {}

@@ -1,0 +1,88 @@
+syntax = "proto3";
+package zerone.liquiditypool.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/liquiditypool/types";
+
+import "zerone/liquiditypool/v1/types.proto";
+import "zerone/liquiditypool/v1/genesis.proto";
+
+// Msg defines the liquiditypool module transaction service.
+service Msg {
+  // Pool lifecycle
+  rpc CreatePool(MsgCreatePool) returns (MsgCreatePoolResponse);
+
+  // Swap
+  rpc Swap(MsgSwap) returns (MsgSwapResponse);
+
+  // Liquidity management
+  rpc AddLiquidity(MsgAddLiquidity) returns (MsgAddLiquidityResponse);
+  rpc RemoveLiquidity(MsgRemoveLiquidity) returns (MsgRemoveLiquidityResponse);
+
+  // Governance
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// --- CreatePool ---
+
+message MsgCreatePool {
+  string creator      = 1; // governance authority address
+  string denom_a      = 2;
+  string denom_b      = 3;
+  string amount_a     = 4; // bigint string
+  string amount_b     = 5; // bigint string
+  uint64 swap_fee_bps = 6; // 0 = use default
+}
+message MsgCreatePoolResponse {
+  string pool_id = 1;
+}
+
+// --- Swap ---
+
+message MsgSwap {
+  string sender         = 1;
+  string pool_id        = 2;
+  string token_in_denom = 3;
+  string token_in_amount = 4; // bigint string
+  string min_token_out  = 5;  // slippage protection (bigint string, optional)
+}
+message MsgSwapResponse {
+  string token_out_amount = 1; // bigint string
+  string fee_amount       = 2; // bigint string
+}
+
+// --- AddLiquidity ---
+
+message MsgAddLiquidity {
+  string sender       = 1;
+  string pool_id      = 2;
+  string amount_a     = 3; // desired bigint string
+  string amount_b     = 4; // desired bigint string
+  string min_lp_tokens = 5; // slippage protection (bigint string, optional)
+}
+message MsgAddLiquidityResponse {
+  string lp_tokens_minted = 1; // bigint string
+  string actual_a         = 2; // bigint string
+  string actual_b         = 3; // bigint string
+}
+
+// --- RemoveLiquidity ---
+
+message MsgRemoveLiquidity {
+  string sender      = 1;
+  string pool_id     = 2;
+  string lp_tokens   = 3; // bigint string
+  string min_amount_a = 4; // slippage protection (bigint string, optional)
+  string min_amount_b = 5; // slippage protection (bigint string, optional)
+}
+message MsgRemoveLiquidityResponse {
+  string amount_a = 1; // bigint string
+  string amount_b = 2; // bigint string
+}
+
+// --- UpdateParams ---
+
+message MsgUpdateParams {
+  string authority = 1;
+  Params params    = 2;
+}
+message MsgUpdateParamsResponse {}

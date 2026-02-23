@@ -1,0 +1,68 @@
+syntax = "proto3";
+package zerone.capture_challenge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/capture_challenge/types";
+
+// ChallengeStatus represents the lifecycle of a capture challenge.
+enum ChallengeStatus {
+  CHALLENGE_STATUS_UNSPECIFIED  = 0;
+  CHALLENGE_STATUS_OPEN         = 1;
+  CHALLENGE_STATUS_EVIDENCE     = 2;
+  CHALLENGE_STATUS_UNDER_REVIEW = 3;
+  CHALLENGE_STATUS_RESOLVED     = 4;
+  CHALLENGE_STATUS_EXPIRED      = 5;
+}
+
+// ChallengeOutcome represents the resolution of a challenge.
+enum ChallengeOutcome {
+  CHALLENGE_OUTCOME_UNSPECIFIED = 0;
+  CHALLENGE_OUTCOME_UPHELD      = 1;
+  CHALLENGE_OUTCOME_REJECTED    = 2;
+  CHALLENGE_OUTCOME_PARTIAL     = 3;
+}
+
+// CaptureEvidence is a piece of evidence attached to a challenge.
+message CaptureEvidence {
+  string description    = 1;
+  string data_hash      = 2;
+  uint64 submitted_block = 3;
+}
+
+// CaptureResolution records how a challenge was resolved.
+message CaptureResolution {
+  ChallengeOutcome outcome         = 1;
+  string           resolver        = 2; // authority address
+  string           reason          = 3;
+  uint64           resolved_block  = 4;
+  string           reward_amount   = 5; // uzrn
+  string           slash_amount    = 6; // uzrn
+}
+
+// ValidatorSlash records a slash applied to an accused validator.
+message ValidatorSlash {
+  string validator    = 1;
+  string slash_amount = 2; // uzrn
+  string reason       = 3;
+}
+
+// CaptureChallenge is the main challenge record.
+message CaptureChallenge {
+  string           id               = 1;
+  string           challenger       = 2;
+  string           domain           = 3;
+  repeated string  accused_validators = 4;
+  string           stake            = 5; // uzrn
+  ChallengeStatus  status           = 6;
+  repeated CaptureEvidence evidence = 7;
+  uint64           created_block    = 8;
+  uint64           evidence_deadline = 9;
+  uint64           review_deadline  = 10;
+  CaptureResolution resolution      = 11;
+  repeated ValidatorSlash slashes   = 12;
+}
+
+// DomainBountyPool holds the bounty fund for a domain.
+message DomainBountyPool {
+  string domain  = 1;
+  string balance = 2; // uzrn
+}

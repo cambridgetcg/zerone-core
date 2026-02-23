@@ -1,0 +1,39 @@
+syntax = "proto3";
+package zerone.ibcratelimit.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/ibcratelimit/types";
+
+import "google/api/annotations.proto";
+import "zerone/ibcratelimit/v1/genesis.proto";
+import "zerone/ibcratelimit/v1/types.proto";
+
+// Query defines the ibcratelimit module Query service.
+service Query {
+  rpc RateLimit(QueryRateLimitRequest) returns (QueryRateLimitResponse) {
+    option (google.api.http).get = "/zerone/ibcratelimit/v1/limits/{channel_id}/{denom}";
+  }
+  rpc RateLimits(QueryRateLimitsRequest) returns (QueryRateLimitsResponse) {
+    option (google.api.http).get = "/zerone/ibcratelimit/v1/limits";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/ibcratelimit/v1/params";
+  }
+}
+
+message QueryRateLimitRequest {
+  string channel_id = 1;
+  string denom      = 2;
+}
+message QueryRateLimitResponse {
+  RateLimit rate_limit = 1;
+}
+
+message QueryRateLimitsRequest {}
+message QueryRateLimitsResponse {
+  repeated RateLimit rate_limits = 1;
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}

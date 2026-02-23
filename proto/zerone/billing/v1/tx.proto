@@ -1,0 +1,54 @@
+syntax = "proto3";
+package zerone.billing.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/billing/types";
+
+import "zerone/billing/v1/types.proto";
+import "zerone/billing/v1/genesis.proto";
+
+// Msg defines the billing module transaction service.
+service Msg {
+  rpc RegisterProvider(MsgRegisterProvider) returns (MsgRegisterProviderResponse);
+  rpc DeregisterProvider(MsgDeregisterProvider) returns (MsgDeregisterProviderResponse);
+  rpc QueryFact(MsgQueryFact) returns (MsgQueryFactResponse);
+  rpc BatchQueryFacts(MsgBatchQueryFacts) returns (MsgBatchQueryFactsResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgRegisterProvider {
+  string sender            = 1;
+  string name              = 2;
+  repeated string domains  = 3;
+  string stake             = 4;  // uzrn bigint string
+}
+message MsgRegisterProviderResponse {}
+
+message MsgDeregisterProvider {
+  string sender = 1;
+}
+message MsgDeregisterProviderResponse {}
+
+message MsgQueryFact {
+  string sender   = 1;
+  string provider = 2;
+  string fact_id  = 3;
+}
+message MsgQueryFactResponse {
+  QueryQuote quote = 1;
+}
+
+message MsgBatchQueryFacts {
+  string sender            = 1;
+  string provider          = 2;
+  repeated string fact_ids = 3;
+}
+message MsgBatchQueryFactsResponse {
+  repeated QueryQuote quotes = 1;
+  string total_price         = 2;  // uzrn bigint string
+}
+
+message MsgUpdateParams {
+  string authority = 1;
+  Params params    = 2;
+}
+message MsgUpdateParamsResponse {}

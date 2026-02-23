@@ -1,0 +1,40 @@
+syntax = "proto3";
+package zerone.icaauth.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/icaauth/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "google/protobuf/any.proto";
+import "zerone/icaauth/v1/genesis.proto";
+
+// Msg defines the icaauth module Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc RegisterAccount(MsgRegisterAccount) returns (MsgRegisterAccountResponse);
+  rpc SubmitTx(MsgSubmitTx) returns (MsgSubmitTxResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgRegisterAccount {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner         = 1;
+  string connection_id = 2;
+}
+message MsgRegisterAccountResponse {}
+
+message MsgSubmitTx {
+  option (cosmos.msg.v1.signer) = "owner";
+  string owner          = 1;
+  string connection_id  = 2;
+  repeated google.protobuf.Any msgs = 3; // cosmos.tx.v1beta1 messages
+  uint64 timeout_ns     = 4; // relative timeout in nanoseconds
+}
+message MsgSubmitTxResponse {}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1; // governance address
+  Params params    = 2;
+}
+message MsgUpdateParamsResponse {}

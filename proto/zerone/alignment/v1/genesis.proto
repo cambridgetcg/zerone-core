@@ -1,0 +1,37 @@
+syntax = "proto3";
+package zerone.alignment.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/alignment/types";
+
+import "zerone/alignment/v1/types.proto";
+
+// GenesisState defines the alignment module's genesis state.
+message GenesisState {
+  Params params = 1;
+  AlignmentState state = 2;
+  repeated AlignmentObservation observations = 3;
+  repeated DimensionScores scores = 4;
+  repeated AlignmentHealthIndex health_indices = 5;
+  repeated CorrectionRecord corrections = 6;
+}
+
+// Params defines the alignment module parameters.
+message Params {
+  // How often to observe (in blocks).
+  uint64 observation_interval_blocks = 1;
+
+  // Dimension weights (BPS, must sum to 1,000,000).
+  uint64 weight_knowledge_quality = 2;
+  uint64 weight_economic_stability = 3;
+  uint64 weight_governance_participation = 4;
+  uint64 weight_network_security = 5;
+  uint64 weight_staking_ratio = 6;
+
+  // Health category thresholds (BPS).
+  uint64 critical_threshold = 7;
+  uint64 degraded_threshold = 8;
+  uint64 healthy_threshold = 9;
+
+  // Module enabled flag.
+  bool enabled = 10;
+}

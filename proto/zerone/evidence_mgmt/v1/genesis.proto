@@ -1,0 +1,13 @@
+syntax = "proto3";
+package zerone.evidence_mgmt.v1;
+option go_package = "github.com/zerone-chain/zerone/x/evidence_mgmt/types";
+
+import "zerone/evidence_mgmt/v1/state.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated Evidence evidences = 2;
+  repeated VerificationResult verifications = 3;
+  uint64 next_evidence_id = 4;
+  uint64 next_verification_id = 5;
+}

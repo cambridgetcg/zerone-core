@@ -1,0 +1,24 @@
+syntax = "proto3";
+package zerone.autopoiesis.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/autopoiesis/types";
+
+// MultiplierState tracks a single adaptive multiplier.
+message MultiplierState {
+  string path = 1;           // e.g. "rewards.block", "slashing.severity", "fees.base"
+  uint64 current_bps = 2;    // current value in BPS (1,000,000 = 1.0x)
+  uint64 target_bps = 3;     // target value computed from SSI
+  uint64 min_bps = 4;        // floor
+  uint64 max_bps = 5;        // ceiling
+  bool frozen = 6;           // governance freeze flag
+  uint64 last_updated = 7;   // block height of last adjustment
+}
+
+// EpochSnapshot records the state at an epoch boundary.
+message EpochSnapshot {
+  uint64 epoch = 1;
+  uint64 block_height = 2;
+  repeated MultiplierState multipliers = 3;
+  uint64 ssi_score = 4;      // System Stability Index (0–1,000,000)
+  string ssi_category = 5;   // "critical", "stressed", "healthy", "thriving"
+}

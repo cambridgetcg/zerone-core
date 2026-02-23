@@ -103,6 +103,16 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		return nil, fmt.Errorf("failed to create verification round: %w", err)
 	}
 
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.submit_claim",
+			sdk.NewAttribute("claim_id", claimID),
+			sdk.NewAttribute("submitter", msg.Submitter),
+			sdk.NewAttribute("domain", msg.Domain),
+			sdk.NewAttribute("stake", msg.Stake),
+			sdk.NewAttribute("content_hash", contentHash),
+		),
+	)
+
 	return &types.MsgSubmitClaimResponse{ClaimId: claimID}, nil
 }
 
@@ -140,6 +150,14 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 	if err := m.keeper.SetVerificationRound(ctx, round); err != nil {
 		return nil, err
 	}
+
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.submit_commitment",
+			sdk.NewAttribute("round_id", msg.RoundId),
+			sdk.NewAttribute("verifier", msg.Verifier),
+			sdk.NewAttribute("committed_at_block", fmt.Sprintf("%d", height)),
+		),
+	)
 
 	return &types.MsgSubmitCommitmentResponse{}, nil
 }
@@ -205,6 +223,15 @@ func (m *msgServer) SubmitReveal(ctx context.Context, msg *types.MsgSubmitReveal
 		return nil, err
 	}
 
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.submit_reveal",
+			sdk.NewAttribute("round_id", msg.RoundId),
+			sdk.NewAttribute("verifier", msg.Verifier),
+			sdk.NewAttribute("vote", msg.Vote),
+			sdk.NewAttribute("revealed_at_block", fmt.Sprintf("%d", height)),
+		),
+	)
+
 	return &types.MsgSubmitRevealResponse{}, nil
 }
 
@@ -237,6 +264,16 @@ func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact) (*types.
 		return nil, err
 	}
 
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.add_fact",
+			sdk.NewAttribute("fact_id", factID),
+			sdk.NewAttribute("authority", msg.Authority),
+			sdk.NewAttribute("domain", msg.Domain),
+			sdk.NewAttribute("category", msg.Category),
+			sdk.NewAttribute("status", types.FactStatus_FACT_STATUS_VERIFIED.String()),
+		),
+	)
+
 	return &types.MsgAddFactResponse{FactId: factID}, nil
 }
 
@@ -255,6 +292,14 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	if err := m.keeper.SetParams(ctx, msg.Params); err != nil {
 		return nil, err
 	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.update_params",
+			sdk.NewAttribute("authority", msg.Authority),
+		),
+	)
+
 	return &types.MsgUpdateParamsResponse{}, nil
 }
 
@@ -267,6 +312,14 @@ func (m *msgServer) UpdateExtendedParams(ctx context.Context, msg *types.MsgUpda
 	if err := store.Set(types.ExtendedParamsKey, []byte(msg.ParamsJson)); err != nil {
 		return nil, err
 	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.update_extended_params",
+			sdk.NewAttribute("authority", msg.Authority),
+		),
+	)
+
 	return &types.MsgUpdateExtendedParamsResponse{}, nil
 }
 
@@ -330,6 +383,16 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		return nil, err
 	}
 
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.challenge_fact",
+			sdk.NewAttribute("fact_id", msg.FactId),
+			sdk.NewAttribute("challenger", msg.Challenger),
+			sdk.NewAttribute("round_id", round.Id),
+			sdk.NewAttribute("stake", msg.Stake),
+			sdk.NewAttribute("reason", msg.Reason),
+		),
+	)
+
 	return &types.MsgChallengeFactResponse{RoundId: round.Id}, nil
 }
 
@@ -381,6 +444,16 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 	if err != nil {
 		return nil, err
 	}
+
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.challenge_provisional_fact",
+			sdk.NewAttribute("fact_id", msg.FactId),
+			sdk.NewAttribute("challenger", msg.Challenger),
+			sdk.NewAttribute("challenge_id", round.Id),
+			sdk.NewAttribute("stake", msg.Stake),
+			sdk.NewAttribute("reason", msg.Reason),
+		),
+	)
 
 	return &types.MsgChallengeProvisionalFactResponse{ChallengeId: round.Id}, nil
 }
@@ -442,6 +515,16 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
 	_ = m.keeper.SetFact(ctx, targetFact)
 
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.submit_contradiction",
+			sdk.NewAttribute("fact_id", msg.FactId),
+			sdk.NewAttribute("submitter", msg.Submitter),
+			sdk.NewAttribute("counter_claim_id", counterClaimID),
+			sdk.NewAttribute("domain", domain),
+			sdk.NewAttribute("stake", msg.Stake),
+		),
+	)
+
 	return &types.MsgSubmitContradictionResponse{CounterFactId: counterClaimID}, nil
 }
 
@@ -485,7 +568,7 @@ func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDoma
 	}
 
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"domain_proposed",
+		"zerone.knowledge.domain_proposed",
 		sdk.NewAttribute("name", msg.Name),
 		sdk.NewAttribute("proposer", msg.Proposer),
 	))
@@ -521,6 +604,16 @@ func (m *msgServer) EndorseDomainProposal(ctx context.Context, msg *types.MsgEnd
 		return nil, err
 	}
 
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.endorse_domain_proposal",
+			sdk.NewAttribute("proposal_id", msg.ProposalId),
+			sdk.NewAttribute("endorser", msg.Endorser),
+			sdk.NewAttribute("endorser_count", fmt.Sprintf("%d", len(domain.Endorsers))),
+			sdk.NewAttribute("status", domain.Status.String()),
+		),
+	)
+
 	return &types.MsgEndorseDomainProposalResponse{}, nil
 }
 
@@ -537,7 +630,7 @@ func (m *msgServer) ChallengeDomainProposal(ctx context.Context, msg *types.MsgC
 	// For now, emit event — full challenge resolution deferred
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"domain_proposal_challenged",
+		"zerone.knowledge.domain_proposal_challenged",
 		sdk.NewAttribute("domain", msg.ProposalId),
 		sdk.NewAttribute("challenger", msg.Challenger),
 		sdk.NewAttribute("reason", msg.Reason),
@@ -554,7 +647,7 @@ func (m *msgServer) RegisterStratum(ctx context.Context, msg *types.MsgRegisterS
 	// For now, emit event only.
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"stratum_registered",
+		"zerone.knowledge.stratum_registered",
 		sdk.NewAttribute("name", msg.Name),
 		sdk.NewAttribute("confidence_ceiling", fmt.Sprintf("%d", msg.ConfidenceCeiling)),
 	))
@@ -592,6 +685,16 @@ func (m *msgServer) PatronizeFact(ctx context.Context, msg *types.MsgPatronizeFa
 	fact.PatronageExpiryBlock = height + msg.DurationBlocks
 	_ = m.keeper.SetFact(ctx, fact)
 
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.patronize_fact",
+			sdk.NewAttribute("fact_id", msg.FactId),
+			sdk.NewAttribute("patron", msg.Patron),
+			sdk.NewAttribute("amount", msg.Amount),
+			sdk.NewAttribute("duration_blocks", fmt.Sprintf("%d", msg.DurationBlocks)),
+			sdk.NewAttribute("expiry_block", fmt.Sprintf("%d", fact.PatronageExpiryBlock)),
+		),
+	)
+
 	return &types.MsgPatronizeFactResponse{}, nil
 }
 
@@ -610,6 +713,17 @@ func (m *msgServer) ProposeResearchFund(ctx context.Context, msg *types.MsgPropo
 		return nil, err
 	}
 
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.propose_research_fund",
+			sdk.NewAttribute("proposal_id", proposalID),
+			sdk.NewAttribute("proposer", msg.Proposer),
+			sdk.NewAttribute("title", msg.Title),
+			sdk.NewAttribute("amount", msg.Amount),
+			sdk.NewAttribute("recipient", msg.Recipient),
+			sdk.NewAttribute("voting_end_block", fmt.Sprintf("%d", height+msg.VotingPeriodBlocks)),
+		),
+	)
+
 	return &types.MsgProposeResearchFundResponse{ProposalId: proposalID}, nil
 }
 
@@ -625,6 +739,15 @@ func (m *msgServer) VoteResearchProposal(ctx context.Context, msg *types.MsgVote
 		return nil, err
 	}
 
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.vote_research_proposal",
+			sdk.NewAttribute("proposal_id", msg.ProposalId),
+			sdk.NewAttribute("voter", msg.Voter),
+			sdk.NewAttribute("vote", voteVal),
+		),
+	)
+
 	return &types.MsgVoteResearchProposalResponse{}, nil
 }
 
@@ -637,7 +760,7 @@ func (m *msgServer) ExecuteResearchProposal(ctx context.Context, msg *types.MsgE
 	// For now, emit event.
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"research_proposal_executed",
+		"zerone.knowledge.research_proposal_executed",
 		sdk.NewAttribute("proposal_id", msg.ProposalId),
 	))
 

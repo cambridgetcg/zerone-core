@@ -1,0 +1,21 @@
+syntax = "proto3";
+package zerone.channels.v1;
+option go_package = "github.com/zerone-chain/zerone/x/channels/types";
+
+import "zerone/channels/v1/types.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated PaymentChannel channels = 2;
+  repeated ChannelDispute disputes = 3;
+}
+
+message Params {
+  string min_deposit = 1;               // default: "1000000" (1 ZRN)
+  uint64 min_timeout_blocks = 2;        // default: 100
+  uint64 max_timeout_blocks = 3;        // default: 1000000
+  uint64 dispute_window_blocks = 4;     // default: 500
+  uint64 default_settlement_freq = 5;   // default: 100 blocks
+  uint64 max_channels_per_pair = 6;     // default: 10
+  string channel_open_fee = 7;          // default: "100000" (0.1 ZRN)
+}

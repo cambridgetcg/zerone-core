@@ -1641,7 +1641,7 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 	events := ctx.EventManager().Events()
 	found := false
 	for _, event := range events {
-		if event.Type == "research_fund_deposit" {
+		if event.Type == "zerone.vesting_rewards.research_fund_deposit" {
 			found = true
 			attrs := make(map[string]string)
 			for _, attr := range event.Attributes {

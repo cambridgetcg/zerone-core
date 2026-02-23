@@ -1,0 +1,35 @@
+syntax = "proto3";
+package zerone.evidence_mgmt.v1;
+option go_package = "github.com/zerone-chain/zerone/x/evidence_mgmt/types";
+
+import "google/api/annotations.proto";
+import "zerone/evidence_mgmt/v1/state.proto";
+
+service Query {
+  rpc QueryEvidence(QueryEvidenceRequest) returns (QueryEvidenceResponse) {
+    option (google.api.http).get = "/zerone/evidence_mgmt/v1/evidence/{id}";
+  }
+  rpc QueryEvidenceBySubmitter(QueryEvidenceBySubmitterRequest) returns (QueryEvidenceBySubmitterResponse) {
+    option (google.api.http).get = "/zerone/evidence_mgmt/v1/by_submitter/{submitter}";
+  }
+  rpc QueryCustodyChain(QueryCustodyChainRequest) returns (QueryCustodyChainResponse) {
+    option (google.api.http).get = "/zerone/evidence_mgmt/v1/custody/{evidence_id}";
+  }
+  rpc QueryVerifications(QueryVerificationsRequest) returns (QueryVerificationsResponse) {
+    option (google.api.http).get = "/zerone/evidence_mgmt/v1/verifications/{evidence_id}";
+  }
+  rpc QueryParams(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/evidence_mgmt/v1/params";
+  }
+}
+
+message QueryEvidenceRequest { string id = 1; }
+message QueryEvidenceResponse { Evidence evidence = 1; }
+message QueryEvidenceBySubmitterRequest { string submitter = 1; }
+message QueryEvidenceBySubmitterResponse { repeated Evidence evidences = 1; }
+message QueryCustodyChainRequest { string evidence_id = 1; }
+message QueryCustodyChainResponse { repeated ChainOfCustodyEntry entries = 1; }
+message QueryVerificationsRequest { string evidence_id = 1; }
+message QueryVerificationsResponse { repeated VerificationResult verifications = 1; }
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }

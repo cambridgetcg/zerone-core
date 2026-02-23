@@ -1,0 +1,66 @@
+syntax = "proto3";
+package zerone.tree.v1;
+option go_package = "github.com/zerone-chain/zerone/x/tree/types";
+
+import "google/api/annotations.proto";
+import "zerone/tree/v1/types.proto";
+import "zerone/tree/v1/genesis.proto";
+
+service Query {
+  rpc Project(QueryProjectRequest) returns (QueryProjectResponse) {
+    option (google.api.http).get = "/zerone/tree/v1/project/{project_id}";
+  }
+  rpc ProjectsByFounder(QueryProjectsByFounderRequest) returns (QueryProjectsByFounderResponse) {
+    option (google.api.http).get = "/zerone/tree/v1/projects/{founder}";
+  }
+  rpc Task(QueryTaskRequest) returns (QueryTaskResponse) {
+    option (google.api.http).get = "/zerone/tree/v1/task/{task_id}";
+  }
+  rpc TasksByProject(QueryTasksByProjectRequest) returns (QueryTasksByProjectResponse) {
+    option (google.api.http).get = "/zerone/tree/v1/tasks/{project_id}";
+  }
+  rpc Service(QueryServiceRequest) returns (QueryServiceResponse) {
+    option (google.api.http).get = "/zerone/tree/v1/service/{service_id}";
+  }
+  rpc Seed(QuerySeedRequest) returns (QuerySeedResponse) {
+    option (google.api.http).get = "/zerone/tree/v1/seed/{seed_id}";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/tree/v1/params";
+  }
+}
+
+message QueryProjectRequest { string project_id = 1; }
+message QueryProjectResponse { ProductProject project = 1; }
+
+message QueryProjectsByFounderRequest {
+  string founder = 1;
+  uint32 offset = 2;
+  uint32 limit = 3;
+}
+message QueryProjectsByFounderResponse {
+  repeated ProductProject projects = 1;
+  uint64 total = 2;
+}
+
+message QueryTaskRequest { string task_id = 1; }
+message QueryTaskResponse { ProjectTask task = 1; }
+
+message QueryTasksByProjectRequest {
+  string project_id = 1;
+  uint32 offset = 2;
+  uint32 limit = 3;
+}
+message QueryTasksByProjectResponse {
+  repeated ProjectTask tasks = 1;
+  uint64 total = 2;
+}
+
+message QueryServiceRequest { string service_id = 1; }
+message QueryServiceResponse { ServiceLeaf service = 1; }
+
+message QuerySeedRequest { string seed_id = 1; }
+message QuerySeedResponse { OpportunitySeed seed = 1; }
+
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }

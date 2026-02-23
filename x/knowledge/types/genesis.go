@@ -182,6 +182,40 @@ func (gs *GenesisState) Validate() error {
 	return nil
 }
 
+// SeedAxiomFacts loads embedded genesis axioms and converts them to Facts.
+// Called by prepare-genesis CLI, not by DefaultGenesis (which stays empty).
+func SeedAxiomFacts() ([]*Fact, error) {
+	axioms, err := ParseAxioms(GenesisAxiomsJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse embedded axioms: %w", err)
+	}
+
+	// Collect domain names for validation
+	domainNames := make([]string, 0, len(DefaultDomains()))
+	for _, d := range DefaultDomains() {
+		domainNames = append(domainNames, d.Name)
+	}
+	// Add axiom-only domains not in DefaultDomains
+	for _, n := range AxiomDomainNames() {
+		found := false
+		for _, dn := range domainNames {
+			if dn == n {
+				found = true
+				break
+			}
+		}
+		if !found {
+			domainNames = append(domainNames, n)
+		}
+	}
+
+	if err := ValidateAxioms(axioms, domainNames); err != nil {
+		return nil, fmt.Errorf("axiom validation failed: %w", err)
+	}
+
+	return AxiomsToFacts(axioms), nil
+}
+
 // Validate validates the Params struct.
 func (p *Params) Validate() error {
 	// Slash params MUST be non-zero (B22-3 audit fix).

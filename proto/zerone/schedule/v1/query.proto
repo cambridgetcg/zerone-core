@@ -1,0 +1,38 @@
+syntax = "proto3";
+package zerone.schedule.v1;
+option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
+
+import "google/api/annotations.proto";
+import "zerone/schedule/v1/types.proto";
+import "zerone/schedule/v1/genesis.proto";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/schedule/v1/params";
+  }
+  rpc Process(QueryProcessRequest) returns (QueryProcessResponse) {
+    option (google.api.http).get = "/zerone/schedule/v1/processes/{process_id}";
+  }
+  rpc ProcessesByCreator(QueryProcessesByCreatorRequest) returns (QueryProcessesByCreatorResponse) {
+    option (google.api.http).get = "/zerone/schedule/v1/processes/creator/{creator}";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}
+
+message QueryProcessRequest {
+  string process_id = 1;
+}
+message QueryProcessResponse {
+  ScheduleProcess process = 1;
+}
+
+message QueryProcessesByCreatorRequest {
+  string creator = 1;
+}
+message QueryProcessesByCreatorResponse {
+  repeated ScheduleProcess processes = 1;
+}

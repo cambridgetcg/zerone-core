@@ -1,0 +1,105 @@
+syntax = "proto3";
+package zerone.emergency.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/emergency/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/emergency/v1/genesis.proto";
+
+// Msg defines the emergency module's transaction service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc ProposeHalt(MsgProposeHalt) returns (MsgProposeHaltResponse);
+  rpc VoteHalt(MsgVoteHalt) returns (MsgVoteHaltResponse);
+  rpc ProposeRevert(MsgProposeRevert) returns (MsgProposeRevertResponse);
+  rpc VoteRevert(MsgVoteRevert) returns (MsgVoteRevertResponse);
+  rpc ProposeResume(MsgProposeResume) returns (MsgProposeResumeResponse);
+  rpc VoteResume(MsgVoteResume) returns (MsgVoteResumeResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// EmergencyCategory classifies the emergency reason.
+enum EmergencyCategory {
+  EMERGENCY_CATEGORY_UNSPECIFIED = 0;
+  EMERGENCY_CATEGORY_SECURITY_BREACH = 1;
+  EMERGENCY_CATEGORY_CONSENSUS_FAILURE = 2;
+  EMERGENCY_CATEGORY_ECONOMIC_EXPLOIT = 3;
+  EMERGENCY_CATEGORY_STATE_CORRUPTION = 4;
+}
+
+message MsgProposeHalt {
+  option (cosmos.msg.v1.signer) = "proposer";
+  string proposer = 1;
+  string reason = 2;
+  EmergencyCategory category = 3;
+}
+
+message MsgProposeHaltResponse {
+  string proposal_id = 1;
+}
+
+message MsgVoteHalt {
+  option (cosmos.msg.v1.signer) = "voter";
+  string voter = 1;
+  string proposal_id = 2;
+  bool approve = 3;
+}
+
+message MsgVoteHaltResponse {
+  bool quorum_reached = 1;
+  bool chain_halted = 2;
+}
+
+message MsgProposeRevert {
+  option (cosmos.msg.v1.signer) = "proposer";
+  string proposer = 1;
+  uint64 revert_to_height = 2;
+  string justification = 3;
+}
+
+message MsgProposeRevertResponse {
+  string proposal_id = 1;
+}
+
+message MsgVoteRevert {
+  option (cosmos.msg.v1.signer) = "voter";
+  string voter = 1;
+  string proposal_id = 2;
+  bool approve = 3;
+}
+
+message MsgVoteRevertResponse {
+  bool quorum_reached = 1;
+  bool revert_executed = 2;
+}
+
+message MsgProposeResume {
+  option (cosmos.msg.v1.signer) = "proposer";
+  string proposer = 1;
+  string justification = 2;
+}
+
+message MsgProposeResumeResponse {
+  string proposal_id = 1;
+}
+
+message MsgVoteResume {
+  option (cosmos.msg.v1.signer) = "voter";
+  string voter = 1;
+  string proposal_id = 2;
+  bool approve = 3;
+}
+
+message MsgVoteResumeResponse {
+  bool quorum_reached = 1;
+  bool chain_resumed = 2;
+}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  Params params = 2;
+}
+
+message MsgUpdateParamsResponse {}

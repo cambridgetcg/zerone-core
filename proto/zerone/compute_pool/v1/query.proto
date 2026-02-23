@@ -1,0 +1,48 @@
+syntax = "proto3";
+package zerone.compute_pool.v1;
+option go_package = "github.com/zerone-chain/zerone/x/compute_pool/types";
+
+import "google/api/annotations.proto";
+import "zerone/compute_pool/v1/types.proto";
+import "zerone/compute_pool/v1/genesis.proto";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/compute_pool/v1/params";
+  }
+  rpc Provider(QueryProviderRequest) returns (QueryProviderResponse) {
+    option (google.api.http).get = "/zerone/compute_pool/v1/providers/{address}";
+  }
+  rpc Providers(QueryProvidersRequest) returns (QueryProvidersResponse) {
+    option (google.api.http).get = "/zerone/compute_pool/v1/providers";
+  }
+  rpc Credit(QueryCreditRequest) returns (QueryCreditResponse) {
+    option (google.api.http).get = "/zerone/compute_pool/v1/credits/{validator_addr}";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}
+
+message QueryProviderRequest {
+  string address = 1;
+}
+message QueryProviderResponse {
+  ComputeProvider provider = 1;
+}
+
+message QueryProvidersRequest {
+  string service_type = 1;
+}
+message QueryProvidersResponse {
+  repeated ComputeProvider providers = 1;
+}
+
+message QueryCreditRequest {
+  string validator_addr = 1;
+}
+message QueryCreditResponse {
+  ComputeCredit credit = 1;
+}

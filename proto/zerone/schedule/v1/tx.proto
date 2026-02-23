@@ -1,0 +1,65 @@
+syntax = "proto3";
+package zerone.schedule.v1;
+option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
+
+import "zerone/schedule/v1/types.proto";
+import "zerone/schedule/v1/genesis.proto";
+
+service Msg {
+  rpc CreateSchedule(MsgCreateSchedule) returns (MsgCreateScheduleResponse);
+  rpc PauseSchedule(MsgPauseSchedule) returns (MsgPauseScheduleResponse);
+  rpc ResumeSchedule(MsgResumeSchedule) returns (MsgResumeScheduleResponse);
+  rpc CancelSchedule(MsgCancelSchedule) returns (MsgCancelScheduleResponse);
+  rpc FundSchedule(MsgFundSchedule) returns (MsgFundScheduleResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgCreateSchedule {
+  string creator             = 1;
+  ScheduleCondition condition = 2;
+  uint64 max_executions      = 3;
+  string fee_per_execution   = 4;
+  string prepaid_fee         = 5;
+  string target_address      = 6;
+  string call_data           = 7;
+  string transfer_value      = 8;
+  string linked_entity_type  = 9;
+  string linked_entity_id    = 10;
+  uint64 expires_at_block    = 11;
+}
+message MsgCreateScheduleResponse {
+  string process_id = 1;
+}
+
+message MsgPauseSchedule {
+  string creator    = 1;
+  string process_id = 2;
+}
+message MsgPauseScheduleResponse {}
+
+message MsgResumeSchedule {
+  string creator    = 1;
+  string process_id = 2;
+}
+message MsgResumeScheduleResponse {}
+
+message MsgCancelSchedule {
+  string creator    = 1;
+  string process_id = 2;
+}
+message MsgCancelScheduleResponse {
+  string refunded_amount = 1;
+}
+
+message MsgFundSchedule {
+  string creator    = 1;
+  string process_id = 2;
+  string amount     = 3;
+}
+message MsgFundScheduleResponse {}
+
+message MsgUpdateParams {
+  string authority = 1;
+  Params params    = 2;
+}
+message MsgUpdateParamsResponse {}

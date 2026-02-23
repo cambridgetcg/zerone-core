@@ -85,8 +85,7 @@ type InjectedReveal struct {
 // MaxVEXInjectionBytes is the maximum size of a vote extension injection pseudo-tx.
 const MaxVEXInjectionBytes = 2 * 1024 * 1024
 
-// BlockGasLimit is the default gas limit per block.
-const BlockGasLimit uint64 = 33_333_333
+// BlockGasLimit is defined in gas.go alongside other gas constants.
 
 // IsVoteExtInjectionTx checks if a tx has the vote extension injection prefix.
 func IsVoteExtInjectionTx(tx []byte) bool {

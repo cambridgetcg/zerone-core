@@ -16,6 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/x/vesting_rewards/client/cli"
 	"github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	"github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -71,12 +72,12 @@ func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.Ser
 
 // GetTxCmd returns the module's tx CLI command.
 func (a AppModuleBasic) GetTxCmd() *cobra.Command {
-	return nil
+	return cli.NewTxCmd()
 }
 
 // GetQueryCmd returns the module's query CLI command.
 func (AppModuleBasic) GetQueryCmd() *cobra.Command {
-	return nil
+	return cli.NewQueryCmd()
 }
 
 // AppModule implements the AppModule interface.
@@ -170,10 +171,20 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 	// Check if block has transactions (PoT: 0% for empty blocks)
 	hasTransactions := am.keeper.GetBlockTxCount() > 0 && activeValidatorCount > 0
 
-	_, err := am.keeper.DistributeBlockReward(sdkCtx, producer, activeValidatorCount, hasTransactions)
+	dist, err := am.keeper.DistributeBlockReward(sdkCtx, producer, activeValidatorCount, hasTransactions)
 	if err != nil {
 		am.keeper.Logger(sdkCtx).Error("failed to distribute block reward",
 			"block", height, "error", err)
+	} else if hasTransactions && dist != nil {
+		sdkCtx.EventManager().EmitEvent(
+			sdk.NewEvent("zerone.vesting_rewards.block_reward_distributed",
+				sdk.NewAttribute("block_height", fmt.Sprintf("%d", height)),
+				sdk.NewAttribute("producer", producer),
+				sdk.NewAttribute("total_minted", dist.TotalMinted),
+				sdk.NewAttribute("producer_reward", dist.ProducerReward),
+				sdk.NewAttribute("active_validators", fmt.Sprintf("%d", activeValidatorCount)),
+			),
+		)
 	}
 
 	return nil

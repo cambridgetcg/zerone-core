@@ -1,0 +1,36 @@
+syntax = "proto3";
+package zerone.liquiditypool.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/liquiditypool/types";
+
+// Pool represents a constant-product AMM liquidity pool.
+message Pool {
+  string pool_id         = 1;
+  string denom_a         = 2;
+  string denom_b         = 3;
+  string reserve_a       = 4;  // bigint string
+  string reserve_b       = 5;  // bigint string
+  uint64 swap_fee_bps    = 6;  // 1M bps scale (1,000,000 = 100%)
+  string lp_token_supply = 7;  // bigint string
+  string lp_denom        = 8;  // "lp/{pool_id}"
+  string creator         = 9;
+  uint64 created_at_block = 10;
+  bool   locked          = 11; // reentrancy guard
+}
+
+// TWAPAccumulator stores cumulative price data for TWAP oracle.
+// One record per pool, O(1) updates.
+message TWAPAccumulator {
+  string pool_id         = 1;
+  uint64 last_block      = 2;
+  string cum_price_a_to_b = 3; // bigint string (1e12 scale)
+  string cum_price_b_to_a = 4; // bigint string (1e12 scale)
+}
+
+// SwapResult contains the output of a swap calculation.
+message SwapResult {
+  string token_out_denom  = 1;
+  string token_out_amount = 2; // bigint string
+  string fee_amount       = 3; // bigint string
+  uint64 price_impact_bps = 4; // 1M bps scale
+}

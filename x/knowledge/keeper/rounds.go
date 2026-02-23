@@ -45,7 +45,7 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 	}
 
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"verification_round_created",
+		"zerone.knowledge.verification_round_created",
 		sdk.NewAttribute("round_id", roundID),
 		sdk.NewAttribute("claim_id", claim.Id),
 		sdk.NewAttribute("phase", "COMMIT"),
@@ -114,7 +114,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	}
 
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"verification_round_completed",
+		"zerone.knowledge.verification_round_completed",
 		sdk.NewAttribute("round_id", round.Id),
 		sdk.NewAttribute("claim_id", round.ClaimId),
 		sdk.NewAttribute("verdict", round.Verdict.String()),
@@ -221,7 +221,7 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	}
 
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"fact_created",
+		"zerone.knowledge.fact_created",
 		sdk.NewAttribute("fact_id", factID),
 		sdk.NewAttribute("claim_id", claim.Id),
 		sdk.NewAttribute("domain", claim.Domain),

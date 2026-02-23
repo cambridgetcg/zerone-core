@@ -1,0 +1,122 @@
+syntax = "proto3";
+package zerone.gov.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/gov/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/gov/v1/types.proto";
+import "zerone/gov/v1/genesis.proto";
+
+// Msg defines the governance module's message service.
+service Msg {
+  rpc SubmitLIP(MsgSubmitLIP) returns (MsgSubmitLIPResponse);
+  rpc StakeLIP(MsgStakeLIP) returns (MsgStakeLIPResponse);
+  rpc AdvanceLIPStage(MsgAdvanceLIPStage) returns (MsgAdvanceLIPStageResponse);
+  rpc CastVote(MsgCastVote) returns (MsgCastVoteResponse);
+  rpc WithdrawLIP(MsgWithdrawLIP) returns (MsgWithdrawLIPResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  rpc SubmitResearchSpend(MsgSubmitResearchSpend) returns (MsgSubmitResearchSpendResponse);
+  rpc VoteResearchSpend(MsgVoteResearchSpend) returns (MsgVoteResearchSpendResponse);
+  rpc SetResearchVoters(MsgSetResearchVoters) returns (MsgSetResearchVotersResponse);
+}
+
+// MsgSubmitLIP creates a new LIP proposal.
+message MsgSubmitLIP {
+  option (cosmos.msg.v1.signer) = "proposer";
+  string proposer     = 1;
+  string title        = 2;
+  string description  = 3;
+  string category     = 4;
+  string initial_stake = 5; // uzrn
+  repeated ParamChange param_changes = 6;
+}
+
+message MsgSubmitLIPResponse {
+  string lip_id = 1;
+}
+
+// MsgStakeLIP adds stake to an existing LIP.
+message MsgStakeLIP {
+  option (cosmos.msg.v1.signer) = "staker";
+  string staker = 1;
+  string lip_id = 2;
+  string amount = 3; // uzrn
+}
+
+message MsgStakeLIPResponse {}
+
+// MsgAdvanceLIPStage advances a LIP to its next stage.
+message MsgAdvanceLIPStage {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1; // proposer address
+  string lip_id    = 2;
+}
+
+message MsgAdvanceLIPStageResponse {
+  string new_stage = 1;
+}
+
+// MsgCastVote casts a stake-weighted vote on a LIP.
+message MsgCastVote {
+  option (cosmos.msg.v1.signer) = "voter";
+  string voter  = 1;
+  string lip_id = 2;
+  string option = 3; // "yes", "no", "abstain"
+}
+
+message MsgCastVoteResponse {
+  string effective_weight = 1; // voter's bonded stake used as weight
+}
+
+// MsgWithdrawLIP withdraws a LIP (proposer only, before voting).
+message MsgWithdrawLIP {
+  option (cosmos.msg.v1.signer) = "proposer";
+  string proposer = 1;
+  string lip_id   = 2;
+}
+
+message MsgWithdrawLIPResponse {}
+
+// MsgUpdateParams updates governance parameters (authority only).
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  Params params    = 2;
+}
+
+message MsgUpdateParamsResponse {}
+
+// MsgSubmitResearchSpend creates a new research fund spend proposal.
+message MsgSubmitResearchSpend {
+  option (cosmos.msg.v1.signer) = "proposer";
+  string proposer      = 1;
+  string title         = 2;
+  string description   = 3;
+  string recipient     = 4;
+  string amount        = 5; // uzrn
+  string justification = 6;
+}
+
+message MsgSubmitResearchSpendResponse {
+  uint64 proposal_id = 1;
+}
+
+// MsgVoteResearchSpend casts a vote on a research spend proposal.
+message MsgVoteResearchSpend {
+  option (cosmos.msg.v1.signer) = "voter";
+  string voter       = 1;
+  uint64 proposal_id = 2;
+  string vote        = 3; // "yes" or "no"
+  string reasoning   = 4;
+}
+
+message MsgVoteResearchSpendResponse {}
+
+// MsgSetResearchVoters configures the 2-of-2 research fund voters (authority only).
+message MsgSetResearchVoters {
+  option (cosmos.msg.v1.signer) = "authority";
+  string             authority = 1;
+  ResearchFundVoters voters    = 2;
+}
+
+message MsgSetResearchVotersResponse {}

@@ -1,0 +1,38 @@
+syntax = "proto3";
+package zerone.claiming_pot.v1;
+option go_package = "github.com/zerone-chain/zerone/x/claiming_pot/types";
+
+import "google/api/annotations.proto";
+import "zerone/claiming_pot/v1/state.proto";
+
+service Query {
+  rpc QueryPot(QueryPotRequest) returns (QueryPotResponse) {
+    option (google.api.http).get = "/zerone/claiming_pot/v1/pot/{id}";
+  }
+  rpc QueryAllPots(QueryAllPotsRequest) returns (QueryAllPotsResponse) {
+    option (google.api.http).get = "/zerone/claiming_pot/v1/pots";
+  }
+  rpc QueryClaimable(QueryClaimableRequest) returns (QueryClaimableResponse) {
+    option (google.api.http).get = "/zerone/claiming_pot/v1/claimable/{pot_id}/{address}";
+  }
+  rpc QueryClaims(QueryClaimsRequest) returns (QueryClaimsResponse) {
+    option (google.api.http).get = "/zerone/claiming_pot/v1/claims/{pot_id}";
+  }
+  rpc QueryParams(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/claiming_pot/v1/params";
+  }
+}
+
+message QueryPotRequest { string id = 1; }
+message QueryPotResponse { ClaimingPot pot = 1; }
+message QueryAllPotsRequest {}
+message QueryAllPotsResponse { repeated ClaimingPot pots = 1; }
+message QueryClaimableRequest {
+  string pot_id = 1;
+  string address = 2;
+}
+message QueryClaimableResponse { string amount = 1; }
+message QueryClaimsRequest { string pot_id = 1; }
+message QueryClaimsResponse { repeated Claim claims = 1; }
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }

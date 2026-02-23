@@ -1,0 +1,82 @@
+syntax = "proto3";
+package zerone.qualification.v1;
+option go_package = "github.com/zerone-chain/zerone/x/qualification/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/qualification/v1/types.proto";
+import "zerone/qualification/v1/genesis.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc QualifyByStake(MsgQualifyByStake) returns (MsgQualifyByStakeResponse);
+  rpc QualifyByTrackRecord(MsgQualifyByTrackRecord) returns (MsgQualifyByTrackRecordResponse);
+  rpc QualifyByCrossReference(MsgQualifyByCrossReference) returns (MsgQualifyByCrossReferenceResponse);
+  rpc QualifyByInheritance(MsgQualifyByInheritance) returns (MsgQualifyByInheritanceResponse);
+  rpc EndorseQualification(MsgEndorseQualification) returns (MsgEndorseQualificationResponse);
+  rpc RenewQualification(MsgRenewQualification) returns (MsgRenewQualificationResponse);
+  rpc WithdrawQualification(MsgWithdrawQualification) returns (MsgWithdrawQualificationResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgQualifyByStake {
+  option (cosmos.msg.v1.signer) = "validator";
+  string validator = 1;
+  string domain = 2;
+  string stake_amount = 3;           // uzrn
+}
+message MsgQualifyByStakeResponse {}
+
+message MsgQualifyByTrackRecord {
+  option (cosmos.msg.v1.signer) = "validator";
+  string validator = 1;
+  string domain = 2;
+}
+message MsgQualifyByTrackRecordResponse {}
+
+message MsgQualifyByCrossReference {
+  option (cosmos.msg.v1.signer) = "validator";
+  string validator = 1;
+  string target_domain = 2;
+  string source_domain = 3;
+}
+message MsgQualifyByCrossReferenceResponse {}
+
+message MsgQualifyByInheritance {
+  option (cosmos.msg.v1.signer) = "validator";
+  string validator = 1;
+  string target_domain = 2;
+  string parent_domain = 3;
+}
+message MsgQualifyByInheritanceResponse {}
+
+message MsgEndorseQualification {
+  option (cosmos.msg.v1.signer) = "endorser";
+  string endorser = 1;
+  string validator = 2;
+  string domain = 3;
+  string reason = 4;
+  uint32 weight = 5;
+}
+message MsgEndorseQualificationResponse { uint64 endorsement_id = 1; }
+
+message MsgRenewQualification {
+  option (cosmos.msg.v1.signer) = "validator";
+  string validator = 1;
+  string domain = 2;
+}
+message MsgRenewQualificationResponse {}
+
+message MsgWithdrawQualification {
+  option (cosmos.msg.v1.signer) = "validator";
+  string validator = 1;
+  string domain = 2;
+}
+message MsgWithdrawQualificationResponse {}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  Params params = 2;
+}
+message MsgUpdateParamsResponse {}

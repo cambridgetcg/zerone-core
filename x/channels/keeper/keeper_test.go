@@ -1,0 +1,1399 @@
+package keeper_test
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/sha256"
+	"testing"
+
+	"cosmossdk.io/log"
+	"cosmossdk.io/store"
+	storemetrics "cosmossdk.io/store/metrics"
+	storetypes "cosmossdk.io/store/types"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/runtime"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+
+	"github.com/zerone-chain/zerone/x/channels/keeper"
+	"github.com/zerone-chain/zerone/x/channels/types"
+)
+
+func init() {
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("zrn", "zrnpub")
+	config.SetBech32PrefixForValidator("zrnvaloper", "zrnvaloperpub")
+	config.SetBech32PrefixForConsensusNode("zrnvalcons", "zrnvalconspub")
+}
+
+const testChainID = "zerone-test-1"
+
+// ---------- Ed25519 Test Key Infrastructure ----------
+
+type testParty struct {
+	Name    string
+	PubKey  ed25519.PublicKey
+	PrivKey ed25519.PrivateKey
+	Addr    string
+}
+
+func newTestParty(name string) testParty {
+	seed := sha256.Sum256([]byte("test_seed:" + name))
+	privKey := ed25519.NewKeyFromSeed(seed[:])
+	pubKey := privKey.Public().(ed25519.PublicKey)
+	addrHash := sha256.Sum256(pubKey)
+	addr := sdk.AccAddress(addrHash[:20]).String()
+	return testParty{Name: name, PubKey: pubKey, PrivKey: privKey, Addr: addr}
+}
+
+func signPacked(party testParty, operation, channelId string, nonce uint64, spent string) []byte {
+	payload := types.ChannelSigningPayload(operation, testChainID, channelId, nonce, spent)
+	sig := ed25519.Sign(party.PrivKey, payload)
+	return types.PackSignature(party.PubKey, sig)
+}
+
+// ---------- Mock BankKeeper ----------
+
+type mockBankKeeper struct {
+	balances       map[string]map[string]int64
+	moduleBalances map[string]map[string]int64
+}
+
+func newMockBankKeeper() *mockBankKeeper {
+	return &mockBankKeeper{
+		balances:       make(map[string]map[string]int64),
+		moduleBalances: make(map[string]map[string]int64),
+	}
+}
+
+func (m *mockBankKeeper) setBalance(addr, denom string, amount int64) {
+	if m.balances[addr] == nil {
+		m.balances[addr] = make(map[string]int64)
+	}
+	m.balances[addr][denom] = amount
+}
+
+func (m *mockBankKeeper) SendCoinsFromAccountToModule(_ context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error {
+	for _, coin := range amt {
+		from := senderAddr.String()
+		if m.balances[from] == nil {
+			m.balances[from] = make(map[string]int64)
+		}
+		if m.moduleBalances[recipientModule] == nil {
+			m.moduleBalances[recipientModule] = make(map[string]int64)
+		}
+		m.balances[from][coin.Denom] -= coin.Amount.Int64()
+		m.moduleBalances[recipientModule][coin.Denom] += coin.Amount.Int64()
+	}
+	return nil
+}
+
+func (m *mockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error {
+	for _, coin := range amt {
+		to := recipientAddr.String()
+		if m.moduleBalances[senderModule] == nil {
+			m.moduleBalances[senderModule] = make(map[string]int64)
+		}
+		if m.balances[to] == nil {
+			m.balances[to] = make(map[string]int64)
+		}
+		m.moduleBalances[senderModule][coin.Denom] -= coin.Amount.Int64()
+		m.balances[to][coin.Denom] += coin.Amount.Int64()
+	}
+	return nil
+}
+
+// ---------- Test Setup ----------
+
+func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
+	t.Helper()
+
+	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
+
+	db := dbm.NewMemDB()
+	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
+	stateStore.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
+	if err := stateStore.LoadLatestVersion(); err != nil {
+		t.Fatalf("failed to load latest version: %v", err)
+	}
+
+	registry := codectypes.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(registry)
+
+	mockBK := newMockBankKeeper()
+
+	storeService := runtime.NewKVStoreService(storeKey)
+	k := keeper.NewKeeper(storeService, cdc, "zrn1authority", mockBK)
+
+	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100, ChainID: testChainID}, false, log.NewNopLogger())
+
+	return k, ctx, mockBK
+}
+
+func setupMsgServer(t *testing.T) (types.MsgServer, keeper.Keeper, sdk.Context, *mockBankKeeper) {
+	t.Helper()
+	k, ctx, bk := setupKeeper(t)
+	return keeper.NewMsgServerImpl(k), k, ctx, bk
+}
+
+// ---------- Params Tests ----------
+
+func TestDefaultParams(t *testing.T) {
+	params := types.DefaultParams()
+	if params.MinDeposit != "1000000" {
+		t.Errorf("expected min deposit 1000000, got %s", params.MinDeposit)
+	}
+	if params.DisputeWindowBlocks != 500 {
+		t.Errorf("expected dispute window 500, got %d", params.DisputeWindowBlocks)
+	}
+	if params.MaxChannelsPerPair != 10 {
+		t.Errorf("expected max channels per pair 10, got %d", params.MaxChannelsPerPair)
+	}
+}
+
+func TestSetGetParams(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	params := &types.Params{
+		MinDeposit:           "5000000",
+		MinTimeoutBlocks:     200,
+		MaxTimeoutBlocks:     500000,
+		DisputeWindowBlocks:  1000,
+		DefaultSettlementFreq: 50,
+		MaxChannelsPerPair:   5,
+		ChannelOpenFee:       "200000",
+	}
+	k.SetParams(ctx, params)
+
+	got := k.GetParams(ctx)
+	if got.MinDeposit != "5000000" {
+		t.Errorf("expected min deposit 5000000, got %s", got.MinDeposit)
+	}
+	if got.MaxChannelsPerPair != 5 {
+		t.Errorf("expected max channels per pair 5, got %d", got.MaxChannelsPerPair)
+	}
+}
+
+// ---------- Channel CRUD Tests ----------
+
+func TestSetGetChannel(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	ch := &types.PaymentChannel{
+		ChannelId: "pc-100-1",
+		Payer:     "zrn1payer",
+		Receiver:  "zrn1receiver",
+		Deposited: "1000000",
+		Spent:     "0",
+		Available: "1000000",
+		Status:    types.ChannelStatusOpen,
+	}
+
+	k.SetChannel(ctx, ch)
+
+	got, found := k.GetChannel(ctx, "pc-100-1")
+	if !found {
+		t.Fatal("channel not found")
+	}
+	if got.Payer != "zrn1payer" {
+		t.Errorf("expected payer zrn1payer, got %s", got.Payer)
+	}
+	if got.Deposited != "1000000" {
+		t.Errorf("expected deposited 1000000, got %s", got.Deposited)
+	}
+}
+
+func TestGetChannelNotFound(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	_, found := k.GetChannel(ctx, "nonexistent")
+	if found {
+		t.Fatal("expected channel not found")
+	}
+}
+
+func TestGetChannelsByPayer(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	for i := 0; i < 3; i++ {
+		ch := &types.PaymentChannel{
+			ChannelId: "pc-100-" + string(rune('1'+i)),
+			Payer:     "zrn1payer",
+			Receiver:  "zrn1receiver",
+			Deposited: "1000000",
+			Status:    types.ChannelStatusOpen,
+		}
+		k.SetChannel(ctx, ch)
+	}
+
+	channels := k.GetChannelsByPayer(ctx, "zrn1payer")
+	if len(channels) != 3 {
+		t.Errorf("expected 3 channels, got %d", len(channels))
+	}
+}
+
+func TestGetChannelsByReceiver(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	for i := 0; i < 2; i++ {
+		ch := &types.PaymentChannel{
+			ChannelId: "pc-100-" + string(rune('1'+i)),
+			Payer:     "zrn1payer",
+			Receiver:  "zrn1receiver",
+			Deposited: "1000000",
+			Status:    types.ChannelStatusOpen,
+		}
+		k.SetChannel(ctx, ch)
+	}
+
+	channels := k.GetChannelsByReceiver(ctx, "zrn1receiver")
+	if len(channels) != 2 {
+		t.Errorf("expected 2 channels, got %d", len(channels))
+	}
+}
+
+func TestDeleteChannel(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	ch := &types.PaymentChannel{
+		ChannelId: "pc-100-1",
+		Payer:     "zrn1payer",
+		Receiver:  "zrn1receiver",
+		Deposited: "1000000",
+		Status:    types.ChannelStatusOpen,
+	}
+	k.SetChannel(ctx, ch)
+
+	// Verify it exists
+	_, found := k.GetChannel(ctx, "pc-100-1")
+	if !found {
+		t.Fatal("channel should exist before delete")
+	}
+
+	k.DeleteChannel(ctx, ch)
+
+	// Verify it's gone
+	_, found = k.GetChannel(ctx, "pc-100-1")
+	if found {
+		t.Fatal("channel should not exist after delete")
+	}
+
+	// Verify indexes are cleaned up
+	channels := k.GetChannelsByPayer(ctx, "zrn1payer")
+	if len(channels) != 0 {
+		t.Errorf("expected 0 channels after delete, got %d", len(channels))
+	}
+}
+
+func TestIterateChannels(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	for i := 0; i < 5; i++ {
+		ch := &types.PaymentChannel{
+			ChannelId: "pc-100-" + string(rune('a'+i)),
+			Payer:     "zrn1payer",
+			Receiver:  "zrn1receiver",
+			Deposited: "1000000",
+			Status:    types.ChannelStatusOpen,
+		}
+		k.SetChannel(ctx, ch)
+	}
+
+	var count int
+	k.IterateChannels(ctx, func(ch *types.PaymentChannel) bool {
+		count++
+		return false
+	})
+	if count != 5 {
+		t.Errorf("expected 5 channels during iteration, got %d", count)
+	}
+}
+
+// ---------- Dispute CRUD Tests ----------
+
+func TestSetGetDispute(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	d := &types.ChannelDispute{
+		ChannelId:     "pc-100-1",
+		Disputer:      "zrn1payer",
+		DisputedNonce: 5,
+		DisputedSpent: "500000",
+		DeadlineBlock: 600,
+	}
+	k.SetDispute(ctx, d)
+
+	got, found := k.GetDispute(ctx, "pc-100-1")
+	if !found {
+		t.Fatal("dispute not found")
+	}
+	if got.DisputedNonce != 5 {
+		t.Errorf("expected nonce 5, got %d", got.DisputedNonce)
+	}
+}
+
+func TestDeleteDispute(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	d := &types.ChannelDispute{ChannelId: "pc-100-1", Disputer: "zrn1payer"}
+	k.SetDispute(ctx, d)
+
+	k.DeleteDispute(ctx, "pc-100-1")
+
+	_, found := k.GetDispute(ctx, "pc-100-1")
+	if found {
+		t.Fatal("dispute should not exist after delete")
+	}
+}
+
+// ---------- Channel Counter Tests ----------
+
+func TestGetNextChannelId(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	id1 := k.GetNextChannelId(ctx)
+	id2 := k.GetNextChannelId(ctx)
+	id3 := k.GetNextChannelId(ctx)
+
+	if id1 != 1 || id2 != 2 || id3 != 3 {
+		t.Errorf("expected sequential IDs 1,2,3 - got %d,%d,%d", id1, id2, id3)
+	}
+}
+
+// ---------- Genesis Tests ----------
+
+func TestInitExportGenesis(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	genState := &types.GenesisState{
+		Params: &types.Params{
+			MinDeposit:           "2000000",
+			MinTimeoutBlocks:     50,
+			MaxTimeoutBlocks:     100000,
+			DisputeWindowBlocks:  200,
+			DefaultSettlementFreq: 50,
+			MaxChannelsPerPair:   20,
+			ChannelOpenFee:       "50000",
+		},
+		Channels: []*types.PaymentChannel{
+			{
+				ChannelId: "pc-1-1",
+				Payer:     "zrn1payer",
+				Receiver:  "zrn1receiver",
+				Deposited: "5000000",
+				Spent:     "1000000",
+				Available: "4000000",
+				Status:    types.ChannelStatusOpen,
+			},
+		},
+	}
+
+	k.InitGenesis(ctx, genState)
+
+	exported := k.ExportGenesis(ctx)
+	if exported.Params.MinDeposit != "2000000" {
+		t.Errorf("expected min deposit 2000000, got %s", exported.Params.MinDeposit)
+	}
+	if len(exported.Channels) != 1 {
+		t.Fatalf("expected 1 channel, got %d", len(exported.Channels))
+	}
+	if exported.Channels[0].ChannelId != "pc-1-1" {
+		t.Errorf("expected channel pc-1-1, got %s", exported.Channels[0].ChannelId)
+	}
+}
+
+// ---------- OpenChannel Tests ----------
+
+func TestOpenChannel(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 10_000_000)
+
+	resp, err := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+	if err != nil {
+		t.Fatalf("OpenChannel failed: %v", err)
+	}
+	if resp.ChannelId == "" {
+		t.Fatal("expected non-empty channel ID")
+	}
+
+	ch, found := k.GetChannel(ctx, resp.ChannelId)
+	if !found {
+		t.Fatal("channel not found after opening")
+	}
+	if ch.Payer != payer.Addr {
+		t.Errorf("expected payer %s, got %s", payer.Addr, ch.Payer)
+	}
+	if ch.Receiver != receiver.Addr {
+		t.Errorf("expected receiver %s, got %s", receiver.Addr, ch.Receiver)
+	}
+	if ch.Deposited != "5000000" {
+		t.Errorf("expected deposited 5000000, got %s", ch.Deposited)
+	}
+	if ch.Status != types.ChannelStatusOpen {
+		t.Errorf("expected status open, got %s", ch.Status)
+	}
+	if ch.Available != "5000000" {
+		t.Errorf("expected available 5000000, got %s", ch.Available)
+	}
+	if ch.Nonce != 0 {
+		t.Errorf("expected nonce 0, got %d", ch.Nonce)
+	}
+}
+
+func TestOpenChannelInsufficientDeposit(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 10_000_000)
+
+	_, err := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "100", // Below minimum of 1000000
+		TimeoutBlocks: 1000,
+	})
+	if err == nil {
+		t.Fatal("expected error for insufficient deposit")
+	}
+}
+
+func TestOpenChannelSameAddress(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	bk.setBalance(payer.Addr, "uzrn", 10_000_000)
+
+	_, err := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      payer.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+	if err == nil {
+		t.Fatal("expected error for same payer and receiver")
+	}
+}
+
+func TestOpenChannelTimeoutExceedsMax(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 10_000_000)
+
+	_, err := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 2000000, // Exceeds default max of 1000000
+	})
+	if err == nil {
+		t.Fatal("expected error for timeout exceeding max")
+	}
+}
+
+func TestOpenChannelMaxPerPair(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 1_000_000_000)
+
+	// Open max channels (default 10)
+	for i := 0; i < 10; i++ {
+		_, err := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+			Payer:         payer.Addr,
+			Receiver:      receiver.Addr,
+			Deposit:       "1000000",
+			TimeoutBlocks: 1000,
+		})
+		if err != nil {
+			t.Fatalf("OpenChannel %d failed: %v", i, err)
+		}
+	}
+
+	// 11th should fail
+	_, err := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "1000000",
+		TimeoutBlocks: 1000,
+	})
+	if err == nil {
+		t.Fatal("expected error for exceeding max channels per pair")
+	}
+}
+
+// ---------- DepositChannel Tests ----------
+
+func TestDepositChannel(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	_, err := msgSrv.DepositChannel(ctx, &types.MsgDepositChannel{
+		Depositor: payer.Addr,
+		ChannelId: resp.ChannelId,
+		Amount:    "3000000",
+	})
+	if err != nil {
+		t.Fatalf("DepositChannel failed: %v", err)
+	}
+
+	ch, _ := k.GetChannel(ctx, resp.ChannelId)
+	if ch.Deposited != "8000000" {
+		t.Errorf("expected deposited 8000000, got %s", ch.Deposited)
+	}
+	if ch.Available != "8000000" {
+		t.Errorf("expected available 8000000, got %s", ch.Available)
+	}
+}
+
+func TestDepositChannelNotPayer(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+	bk.setBalance(receiver.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	_, err := msgSrv.DepositChannel(ctx, &types.MsgDepositChannel{
+		Depositor: receiver.Addr,
+		ChannelId: resp.ChannelId,
+		Amount:    "3000000",
+	})
+	if err == nil {
+		t.Fatal("expected error for non-payer depositing")
+	}
+}
+
+// ---------- UpdateState Tests ----------
+
+func TestUpdateState(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	payerSig := string(signPacked(payer, "state", resp.ChannelId, 1, "1000000"))
+	receiverSig := string(signPacked(receiver, "state", resp.ChannelId, 1, "1000000"))
+
+	_, err := msgSrv.UpdateState(ctx, &types.MsgUpdateState{
+		Sender:    payer.Addr,
+		ChannelId: resp.ChannelId,
+		Update: &types.ChannelStateUpdate{
+			ChannelId:          resp.ChannelId,
+			Nonce:              1,
+			Spent:              "1000000",
+			StateHash:          "abc123",
+			PayerSignature:     payerSig,
+			ReceiverSignature:  receiverSig,
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateState failed: %v", err)
+	}
+
+	ch, _ := k.GetChannel(ctx, resp.ChannelId)
+	if ch.Nonce != 1 {
+		t.Errorf("expected nonce 1, got %d", ch.Nonce)
+	}
+	if ch.Spent != "1000000" {
+		t.Errorf("expected spent 1000000, got %s", ch.Spent)
+	}
+	if ch.Available != "4000000" {
+		t.Errorf("expected available 4000000, got %s", ch.Available)
+	}
+}
+
+func TestUpdateStateNonceRollback(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	// First update with nonce=5
+	payerSig5 := string(signPacked(payer, "state", resp.ChannelId, 5, "1000000"))
+	receiverSig5 := string(signPacked(receiver, "state", resp.ChannelId, 5, "1000000"))
+	_, err := msgSrv.UpdateState(ctx, &types.MsgUpdateState{
+		Sender:    payer.Addr,
+		ChannelId: resp.ChannelId,
+		Update: &types.ChannelStateUpdate{
+			Nonce:             5,
+			Spent:             "1000000",
+			PayerSignature:    payerSig5,
+			ReceiverSignature: receiverSig5,
+		},
+	})
+	if err != nil {
+		t.Fatalf("first UpdateState failed: %v", err)
+	}
+
+	// Try nonce=3 (rollback attack) — should fail
+	payerSig3 := string(signPacked(payer, "state", resp.ChannelId, 3, "500000"))
+	receiverSig3 := string(signPacked(receiver, "state", resp.ChannelId, 3, "500000"))
+	_, err = msgSrv.UpdateState(ctx, &types.MsgUpdateState{
+		Sender:    payer.Addr,
+		ChannelId: resp.ChannelId,
+		Update: &types.ChannelStateUpdate{
+			Nonce:             3,
+			Spent:             "500000",
+			PayerSignature:    payerSig3,
+			ReceiverSignature: receiverSig3,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for nonce rollback")
+	}
+}
+
+func TestUpdateStateSpentExceedsDeposit(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	// Try spending more than deposited
+	payerSig := string(signPacked(payer, "state", resp.ChannelId, 1, "9999999"))
+	receiverSig := string(signPacked(receiver, "state", resp.ChannelId, 1, "9999999"))
+	_, err := msgSrv.UpdateState(ctx, &types.MsgUpdateState{
+		Sender:    payer.Addr,
+		ChannelId: resp.ChannelId,
+		Update: &types.ChannelStateUpdate{
+			Nonce:             1,
+			Spent:             "9999999",
+			PayerSignature:    payerSig,
+			ReceiverSignature: receiverSig,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for spent exceeding deposit")
+	}
+}
+
+func TestUpdateStateNotParty(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	thirdParty := newTestParty("thirdparty")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	payerSig := string(signPacked(payer, "state", resp.ChannelId, 1, "1000000"))
+	receiverSig := string(signPacked(receiver, "state", resp.ChannelId, 1, "1000000"))
+	_, err := msgSrv.UpdateState(ctx, &types.MsgUpdateState{
+		Sender:    thirdParty.Addr,
+		ChannelId: resp.ChannelId,
+		Update: &types.ChannelStateUpdate{
+			Nonce:             1,
+			Spent:             "1000000",
+			PayerSignature:    payerSig,
+			ReceiverSignature: receiverSig,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for non-party sender")
+	}
+}
+
+// ---------- CloseChannel Tests ----------
+
+func TestCloseChannelCooperative(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	// Cooperative close: closer is payer, needs receiver's signature
+	counterpartySig := signPacked(receiver, "close", resp.ChannelId, 10, "3000000")
+
+	_, err := msgSrv.CloseChannel(ctx, &types.MsgCloseChannel{
+		Closer:                payer.Addr,
+		ChannelId:             resp.ChannelId,
+		FinalSpent:            "3000000",
+		FinalNonce:            10,
+		CounterpartySignature: counterpartySig,
+	})
+	if err != nil {
+		t.Fatalf("CloseChannel failed: %v", err)
+	}
+
+	ch, _ := k.GetChannel(ctx, resp.ChannelId)
+	if ch.Status != types.ChannelStatusSettled {
+		t.Errorf("expected status settled, got %s", ch.Status)
+	}
+	if ch.Spent != "3000000" {
+		t.Errorf("expected spent 3000000, got %s", ch.Spent)
+	}
+
+	// Verify fund distribution
+	if bk.balances[receiver.Addr]["uzrn"] != 3000000 {
+		t.Errorf("expected receiver balance 3000000, got %d", bk.balances[receiver.Addr]["uzrn"])
+	}
+}
+
+func TestCloseChannelNotParty(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	thirdParty := newTestParty("thirdparty")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	_, err := msgSrv.CloseChannel(ctx, &types.MsgCloseChannel{
+		Closer:    thirdParty.Addr,
+		ChannelId: resp.ChannelId,
+		FinalSpent: "0",
+		FinalNonce: 0,
+	})
+	if err == nil {
+		t.Fatal("expected error for non-party closer")
+	}
+}
+
+// ---------- DisputeChannel Tests ----------
+
+func TestDisputeChannel(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	// Payer disputes with receiver's signature
+	proofSig := signPacked(receiver, "dispute", resp.ChannelId, 5, "2000000")
+	_, err := msgSrv.DisputeChannel(ctx, &types.MsgDisputeChannel{
+		Disputer:       payer.Addr,
+		ChannelId:      resp.ChannelId,
+		ClaimedSpent:   "2000000",
+		ClaimedNonce:   5,
+		ProofSignature: proofSig,
+	})
+	if err != nil {
+		t.Fatalf("DisputeChannel failed: %v", err)
+	}
+
+	ch, _ := k.GetChannel(ctx, resp.ChannelId)
+	if ch.Status != types.ChannelStatusDisputed {
+		t.Errorf("expected status disputed, got %s", ch.Status)
+	}
+	if ch.DisputeDeadline != uint64(ctx.BlockHeight())+500 {
+		t.Errorf("expected deadline %d, got %d", uint64(ctx.BlockHeight())+500, ch.DisputeDeadline)
+	}
+
+	dispute, found := k.GetDispute(ctx, resp.ChannelId)
+	if !found {
+		t.Fatal("dispute not found")
+	}
+	if dispute.DisputedNonce != 5 {
+		t.Errorf("expected disputed nonce 5, got %d", dispute.DisputedNonce)
+	}
+	if dispute.DisputedSpent != "2000000" {
+		t.Errorf("expected disputed spent 2000000, got %s", dispute.DisputedSpent)
+	}
+}
+
+func TestDisputeHigherNonceWins(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	// First dispute with nonce=3
+	proofSig3 := signPacked(receiver, "dispute", resp.ChannelId, 3, "1000000")
+	_, _ = msgSrv.DisputeChannel(ctx, &types.MsgDisputeChannel{
+		Disputer:       payer.Addr,
+		ChannelId:      resp.ChannelId,
+		ClaimedSpent:   "1000000",
+		ClaimedNonce:   3,
+		ProofSignature: proofSig3,
+	})
+
+	// Counter-dispute with higher nonce=7
+	proofSig7 := signPacked(payer, "dispute", resp.ChannelId, 7, "3000000")
+	_, err := msgSrv.DisputeChannel(ctx, &types.MsgDisputeChannel{
+		Disputer:       receiver.Addr,
+		ChannelId:      resp.ChannelId,
+		ClaimedSpent:   "3000000",
+		ClaimedNonce:   7,
+		ProofSignature: proofSig7,
+	})
+	if err != nil {
+		t.Fatalf("counter-dispute failed: %v", err)
+	}
+
+	dispute, _ := k.GetDispute(ctx, resp.ChannelId)
+	if dispute.DisputedNonce != 7 {
+		t.Errorf("expected dispute nonce 7 (higher wins), got %d", dispute.DisputedNonce)
+	}
+	if dispute.DisputedSpent != "3000000" {
+		t.Errorf("expected disputed spent 3000000, got %s", dispute.DisputedSpent)
+	}
+}
+
+func TestDisputeLowerNonceRejected(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	// Dispute with nonce=5
+	proofSig5 := signPacked(receiver, "dispute", resp.ChannelId, 5, "2000000")
+	_, _ = msgSrv.DisputeChannel(ctx, &types.MsgDisputeChannel{
+		Disputer:       payer.Addr,
+		ChannelId:      resp.ChannelId,
+		ClaimedSpent:   "2000000",
+		ClaimedNonce:   5,
+		ProofSignature: proofSig5,
+	})
+
+	// Counter-dispute with lower nonce=3 should fail
+	proofSig3 := signPacked(payer, "dispute", resp.ChannelId, 3, "1000000")
+	_, err := msgSrv.DisputeChannel(ctx, &types.MsgDisputeChannel{
+		Disputer:       receiver.Addr,
+		ChannelId:      resp.ChannelId,
+		ClaimedSpent:   "1000000",
+		ClaimedNonce:   3,
+		ProofSignature: proofSig3,
+	})
+	if err == nil {
+		t.Fatal("expected error for dispute with lower nonce")
+	}
+}
+
+// ---------- ClaimExpired Tests ----------
+
+func TestClaimExpired(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 200,
+	})
+
+	// Move past expiration (block 100 + 200 = 300, need > 300)
+	expiredCtx := ctx.WithBlockHeight(301)
+
+	claimResp, err := msgSrv.ClaimExpired(expiredCtx, &types.MsgClaimExpired{
+		Claimer:   payer.Addr,
+		ChannelId: resp.ChannelId,
+	})
+	if err != nil {
+		t.Fatalf("ClaimExpired failed: %v", err)
+	}
+	if claimResp.RefundedAmount != "5000000" {
+		t.Errorf("expected refunded 5000000, got %s", claimResp.RefundedAmount)
+	}
+
+	ch, _ := k.GetChannel(expiredCtx, resp.ChannelId)
+	if ch.Status != types.ChannelStatusSettled {
+		t.Errorf("expected status settled, got %s", ch.Status)
+	}
+}
+
+func TestClaimExpiredNotExpired(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+
+	// Try claiming before expiration
+	_, err := msgSrv.ClaimExpired(ctx, &types.MsgClaimExpired{
+		Claimer:   payer.Addr,
+		ChannelId: resp.ChannelId,
+	})
+	if err == nil {
+		t.Fatal("expected error for claiming before expiration")
+	}
+}
+
+func TestClaimExpiredNotPayer(t *testing.T) {
+	msgSrv, _, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 200,
+	})
+
+	expiredCtx := ctx.WithBlockHeight(301)
+
+	_, err := msgSrv.ClaimExpired(expiredCtx, &types.MsgClaimExpired{
+		Claimer:   receiver.Addr,
+		ChannelId: resp.ChannelId,
+	})
+	if err == nil {
+		t.Fatal("expected error for non-payer claiming expired")
+	}
+}
+
+// ---------- AutoSettle Tests ----------
+
+func TestAutoSettleDisputedChannel(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 10000,
+	})
+
+	// Open dispute
+	proofSig := signPacked(receiver, "dispute", resp.ChannelId, 5, "2000000")
+	_, _ = msgSrv.DisputeChannel(ctx, &types.MsgDisputeChannel{
+		Disputer:       payer.Addr,
+		ChannelId:      resp.ChannelId,
+		ClaimedSpent:   "2000000",
+		ClaimedNonce:   5,
+		ProofSignature: proofSig,
+	})
+
+	// Move past dispute deadline
+	pastDeadline := uint64(ctx.BlockHeight()) + 501
+
+	expired := k.GetExpiredChannels(ctx.WithBlockHeight(int64(pastDeadline)), pastDeadline)
+	if len(expired) != 1 {
+		t.Fatalf("expected 1 expired channel, got %d", len(expired))
+	}
+
+	// Auto-settle
+	k.AutoSettleChannel(ctx.WithBlockHeight(int64(pastDeadline)), expired[0])
+
+	ch, _ := k.GetChannel(ctx, resp.ChannelId)
+	if ch.Status != types.ChannelStatusSettled {
+		t.Errorf("expected status settled, got %s", ch.Status)
+	}
+
+	// Verify dispute was resolved
+	dispute, _ := k.GetDispute(ctx, resp.ChannelId)
+	if !dispute.Resolved {
+		t.Error("expected dispute to be resolved")
+	}
+	if dispute.Resolution != "auto_settled" {
+		t.Errorf("expected resolution auto_settled, got %s", dispute.Resolution)
+	}
+}
+
+// ---------- UpdateParams Tests ----------
+
+func TestUpdateParams(t *testing.T) {
+	msgSrv, k, ctx, _ := setupMsgServer(t)
+
+	newParams := &types.Params{
+		MinDeposit:           "2000000",
+		MinTimeoutBlocks:     50,
+		MaxTimeoutBlocks:     500000,
+		DisputeWindowBlocks:  1000,
+		DefaultSettlementFreq: 200,
+		MaxChannelsPerPair:   20,
+		ChannelOpenFee:       "500000",
+	}
+
+	_, err := msgSrv.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "zrn1authority",
+		Params:    newParams,
+	})
+	if err != nil {
+		t.Fatalf("UpdateParams failed: %v", err)
+	}
+
+	got := k.GetParams(ctx)
+	if got.MinDeposit != "2000000" {
+		t.Errorf("expected min deposit 2000000, got %s", got.MinDeposit)
+	}
+	if got.MaxChannelsPerPair != 20 {
+		t.Errorf("expected max channels 20, got %d", got.MaxChannelsPerPair)
+	}
+}
+
+func TestUpdateParamsUnauthorized(t *testing.T) {
+	msgSrv, _, ctx, _ := setupMsgServer(t)
+
+	_, err := msgSrv.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "zrn1unauthorized",
+		Params:    types.DefaultParams(),
+	})
+	if err == nil {
+		t.Fatal("expected error for unauthorized params update")
+	}
+}
+
+// ---------- Full Lifecycle Test ----------
+
+func TestFullLifecycle_OpenDepositUpdateClose(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	// 1. Open channel
+	openResp, err := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	})
+	if err != nil {
+		t.Fatalf("OpenChannel: %v", err)
+	}
+
+	// 2. Deposit more
+	_, err = msgSrv.DepositChannel(ctx, &types.MsgDepositChannel{
+		Depositor: payer.Addr,
+		ChannelId: openResp.ChannelId,
+		Amount:    "3000000",
+	})
+	if err != nil {
+		t.Fatalf("DepositChannel: %v", err)
+	}
+
+	ch, _ := k.GetChannel(ctx, openResp.ChannelId)
+	if ch.Deposited != "8000000" {
+		t.Fatalf("expected deposited 8000000 after deposit, got %s", ch.Deposited)
+	}
+
+	// 3. Update state (off-chain payments)
+	payerSig := string(signPacked(payer, "state", openResp.ChannelId, 1, "2000000"))
+	receiverSig := string(signPacked(receiver, "state", openResp.ChannelId, 1, "2000000"))
+	_, err = msgSrv.UpdateState(ctx, &types.MsgUpdateState{
+		Sender:    payer.Addr,
+		ChannelId: openResp.ChannelId,
+		Update: &types.ChannelStateUpdate{
+			Nonce:             1,
+			Spent:             "2000000",
+			PayerSignature:    payerSig,
+			ReceiverSignature: receiverSig,
+		},
+	})
+	if err != nil {
+		t.Fatalf("UpdateState: %v", err)
+	}
+
+	ch, _ = k.GetChannel(ctx, openResp.ChannelId)
+	if ch.Spent != "2000000" || ch.Available != "6000000" {
+		t.Fatalf("state update failed: spent=%s available=%s", ch.Spent, ch.Available)
+	}
+
+	// 4. Cooperative close
+	counterpartySig := signPacked(receiver, "close", openResp.ChannelId, 1, "2000000")
+	_, err = msgSrv.CloseChannel(ctx, &types.MsgCloseChannel{
+		Closer:                payer.Addr,
+		ChannelId:             openResp.ChannelId,
+		FinalSpent:            "2000000",
+		FinalNonce:            1,
+		CounterpartySignature: counterpartySig,
+	})
+	if err != nil {
+		t.Fatalf("CloseChannel: %v", err)
+	}
+
+	ch, _ = k.GetChannel(ctx, openResp.ChannelId)
+	if ch.Status != types.ChannelStatusSettled {
+		t.Errorf("expected settled, got %s", ch.Status)
+	}
+
+	// Verify fund distribution
+	// Receiver should have gotten 2000000
+	if bk.balances[receiver.Addr]["uzrn"] != 2000000 {
+		t.Errorf("expected receiver balance 2000000, got %d", bk.balances[receiver.Addr]["uzrn"])
+	}
+}
+
+// ---------- DepositChannel to Closed Channel ----------
+
+func TestDepositToClosedChannel(t *testing.T) {
+	msgSrv, k, ctx, bk := setupMsgServer(t)
+
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+	bk.setBalance(payer.Addr, "uzrn", 100_000_000)
+
+	resp, _ := msgSrv.OpenChannel(ctx, &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 200,
+	})
+
+	// Close it
+	ch, _ := k.GetChannel(ctx, resp.ChannelId)
+	ch.Status = types.ChannelStatusSettled
+	k.SetChannel(ctx, ch)
+
+	_, err := msgSrv.DepositChannel(ctx, &types.MsgDepositChannel{
+		Depositor: payer.Addr,
+		ChannelId: resp.ChannelId,
+		Amount:    "1000000",
+	})
+	if err == nil {
+		t.Fatal("expected error for depositing to closed channel")
+	}
+}
+
+// ---------- Signature Verification Tests ----------
+
+func TestSignatureVerification(t *testing.T) {
+	party := newTestParty("alice")
+
+	payload := types.ChannelSigningPayload("state", testChainID, "pc-100-1", 5, "3000000")
+	sig := ed25519.Sign(party.PrivKey, payload)
+	packed := types.PackSignature(party.PubKey, sig)
+
+	err := types.VerifyPackedSignature(payload, packed, party.Addr)
+	if err != nil {
+		t.Fatalf("signature verification should succeed: %v", err)
+	}
+}
+
+func TestSignatureVerificationWrongAddress(t *testing.T) {
+	alice := newTestParty("alice")
+	bob := newTestParty("bob")
+
+	payload := types.ChannelSigningPayload("state", testChainID, "pc-100-1", 5, "3000000")
+	sig := ed25519.Sign(alice.PrivKey, payload)
+	packed := types.PackSignature(alice.PubKey, sig)
+
+	// Verify against bob's address — should fail
+	err := types.VerifyPackedSignature(payload, packed, bob.Addr)
+	if err == nil {
+		t.Fatal("expected error for wrong address")
+	}
+}
+
+func TestSignatureVerificationTamperedPayload(t *testing.T) {
+	party := newTestParty("alice")
+
+	payload := types.ChannelSigningPayload("state", testChainID, "pc-100-1", 5, "3000000")
+	sig := ed25519.Sign(party.PrivKey, payload)
+	packed := types.PackSignature(party.PubKey, sig)
+
+	// Tamper with payload
+	tamperedPayload := types.ChannelSigningPayload("state", testChainID, "pc-100-1", 5, "9999999")
+	err := types.VerifyPackedSignature(tamperedPayload, packed, party.Addr)
+	if err == nil {
+		t.Fatal("expected error for tampered payload")
+	}
+}
+
+// ---------- Query Server Tests ----------
+
+func TestQueryChannel(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	ch := &types.PaymentChannel{
+		ChannelId: "pc-100-1",
+		Payer:     "zrn1payer",
+		Receiver:  "zrn1receiver",
+		Deposited: "5000000",
+		Status:    types.ChannelStatusOpen,
+	}
+	k.SetChannel(ctx, ch)
+
+	resp, err := qs.Channel(ctx, &types.QueryChannelRequest{ChannelId: "pc-100-1"})
+	if err != nil {
+		t.Fatalf("Query Channel failed: %v", err)
+	}
+	if resp.Channel.Deposited != "5000000" {
+		t.Errorf("expected deposited 5000000, got %s", resp.Channel.Deposited)
+	}
+}
+
+func TestQueryChannelNotFound(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	_, err := qs.Channel(ctx, &types.QueryChannelRequest{ChannelId: "nonexistent"})
+	if err == nil {
+		t.Fatal("expected error for nonexistent channel")
+	}
+}
+
+func TestQueryParams(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	resp, err := qs.Params(ctx, &types.QueryParamsRequest{})
+	if err != nil {
+		t.Fatalf("Query Params failed: %v", err)
+	}
+	if resp.Params.MinDeposit != "1000000" {
+		t.Errorf("expected default min deposit 1000000, got %s", resp.Params.MinDeposit)
+	}
+}
+
+// ---------- ValidateBasic Tests ----------
+
+func TestMsgOpenChannelValidateBasic(t *testing.T) {
+	payer := newTestParty("payer")
+	receiver := newTestParty("receiver")
+
+	msg := &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		t.Errorf("ValidateBasic should pass: %v", err)
+	}
+
+	// Empty deposit
+	msg2 := &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      receiver.Addr,
+		Deposit:       "",
+		TimeoutBlocks: 1000,
+	}
+	if err := msg2.ValidateBasic(); err == nil {
+		t.Error("ValidateBasic should fail for empty deposit")
+	}
+
+	// Same payer and receiver
+	msg3 := &types.MsgOpenChannel{
+		Payer:         payer.Addr,
+		Receiver:      payer.Addr,
+		Deposit:       "5000000",
+		TimeoutBlocks: 1000,
+	}
+	if err := msg3.ValidateBasic(); err == nil {
+		t.Error("ValidateBasic should fail for same payer/receiver")
+	}
+}
+
+func TestGenesisValidation(t *testing.T) {
+	// Valid genesis
+	gs := types.DefaultGenesis()
+	if err := gs.Validate(); err != nil {
+		t.Errorf("default genesis should be valid: %v", err)
+	}
+
+	// Nil params
+	gs2 := &types.GenesisState{Params: nil}
+	if err := gs2.Validate(); err == nil {
+		t.Error("genesis with nil params should be invalid")
+	}
+}

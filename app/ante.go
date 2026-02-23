@@ -6,21 +6,36 @@ import (
 	ibcante "github.com/cosmos/ibc-go/v8/modules/core/ante"
 )
 
-// NewAnteHandler returns the standard Cosmos SDK ante handler chain.
-// Custom Zerone decorators will be added here in later batches:
-//   - R1-3: ZeroneAccount decorator (frozen check, LastActiveBlock)
-//   - R1-3: ZeroneCapability decorator (session key enforcement)
-//   - R1-3: ZeroneDID decorator (DID resolution from memo)
-//   - R6-1: EmergencyHalt decorator (block non-emergency txs when halted)
+// NewAnteHandler returns an AnteHandler with:
+// 1. Standard Cosmos SDK decorators (explicit chain, not wrapped)
+// 2. ZRN-specific gas cost validation
+// 3. Fee routing: 7% to research fund, 93% to validators
+// 4. Zerone custom decorators:
+//   - Bootstrap gas-free period for PoT bootstrap
+//   - Emergency halt gate (block non-emergency txs when halted)
+//   - DID resolution and validation
+//   - Frozen account enforcement + LastActiveBlock tracking
+//   - Session key capability enforcement
+//   - Sybil funding tracker for vote-weight decay
 func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 	return sdk.ChainAnteDecorators(
-		// IBC redundant relay prevention (must be before gas meter init)
+		// --- IBC ---
 		ibcante.NewRedundantRelayDecorator(app.IBCKeeper),
 
-		// Gas meter init (must be before any gas consumption)
+		// --- Gas Meter Init (must be before any gas consumption) ---
 		ante.NewSetUpContextDecorator(),
 
-		// Standard Cosmos SDK decorators
+		// --- Bootstrap Gas-Free (waives gas for PoT txs during first ~14 days) ---
+		NewBootstrapGasFreeDecorator(),
+
+		// --- Emergency Halt Gate (blocks non-emergency txs when chain is halted) ---
+		NewEmergencyHaltDecorator(app.EmergencyKeeper),
+
+		// --- ZRN Pre-Auth (gas meter available) ---
+		NewZRNGasDecorator(),
+		NewFeeRouterDecorator(app.BankKeeper),
+
+		// --- Standard Cosmos SDK Decorators ---
 		ante.NewExtensionOptionsDecorator(nil),
 		ante.NewValidateBasicDecorator(),
 		ante.NewTxTimeoutHeightDecorator(),
@@ -32,5 +47,13 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 		ante.NewSigGasConsumeDecorator(app.AccountKeeper, ante.DefaultSigVerificationGasConsumer),
 		ante.NewSigVerificationDecorator(app.AccountKeeper, app.txConfig.SignModeHandler()),
 		ante.NewIncrementSequenceDecorator(app.AccountKeeper),
+
+		// --- Sybil Funding Tracker (records MsgSend sender->recipient for vote decay) ---
+		NewSybilFundingDecorator(&app.ZeroneGovKeeper),
+
+		// --- Zerone Post-Auth (signer authenticated) ---
+		NewZeroneDIDDecorator(app.ZeroneAuthKeeper),
+		NewZeroneAccountDecorator(app.ZeroneAuthKeeper),
+		NewZeroneCapabilityDecorator(app.ZeroneAuthKeeper, app.AccountKeeper),
 	)
 }

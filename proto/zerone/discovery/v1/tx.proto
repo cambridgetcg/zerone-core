@@ -1,0 +1,51 @@
+syntax = "proto3";
+package zerone.discovery.v1;
+option go_package = "github.com/zerone-chain/zerone/x/discovery/types";
+
+import "zerone/discovery/v1/types.proto";
+import "zerone/discovery/v1/genesis.proto";
+
+service Msg {
+  rpc RegisterProfile(MsgRegisterProfile) returns (MsgRegisterProfileResponse);
+  rpc UpdateProfile(MsgUpdateProfile) returns (MsgUpdateProfileResponse);
+  rpc Heartbeat(MsgHeartbeat) returns (MsgHeartbeatResponse);
+  rpc DeregisterProfile(MsgDeregisterProfile) returns (MsgDeregisterProfileResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgRegisterProfile {
+  string sender                        = 1;
+  string display_name                  = 2;
+  repeated AgentCapability capabilities = 3;
+  repeated string domains              = 4;
+  string stake                         = 5;
+  string description                   = 6;
+  string metadata                      = 7;
+}
+message MsgRegisterProfileResponse {}
+
+message MsgUpdateProfile {
+  string sender       = 1;
+  string display_name = 2;
+  string description  = 3;
+  string metadata     = 4;
+}
+message MsgUpdateProfileResponse {}
+
+message MsgHeartbeat {
+  string sender = 1;
+}
+message MsgHeartbeatResponse {}
+
+message MsgDeregisterProfile {
+  string sender = 1;
+}
+message MsgDeregisterProfileResponse {
+  string refunded_amount = 1;
+}
+
+message MsgUpdateParams {
+  string authority = 1;
+  Params params    = 2;
+}
+message MsgUpdateParamsResponse {}

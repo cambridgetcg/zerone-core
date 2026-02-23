@@ -1,0 +1,36 @@
+syntax = "proto3";
+package zerone.channels.v1;
+option go_package = "github.com/zerone-chain/zerone/x/channels/types";
+
+import "google/api/annotations.proto";
+import "zerone/channels/v1/types.proto";
+import "zerone/channels/v1/genesis.proto";
+
+service Query {
+  rpc Channel(QueryChannelRequest) returns (QueryChannelResponse) {
+    option (google.api.http).get = "/zerone/channels/v1/channel/{channel_id}";
+  }
+  rpc ChannelsByPayer(QueryByPayerRequest) returns (QueryByPayerResponse) {
+    option (google.api.http).get = "/zerone/channels/v1/by_payer/{payer}";
+  }
+  rpc ChannelsByReceiver(QueryByReceiverRequest) returns (QueryByReceiverResponse) {
+    option (google.api.http).get = "/zerone/channels/v1/by_receiver/{receiver}";
+  }
+  rpc Dispute(QueryDisputeRequest) returns (QueryDisputeResponse) {
+    option (google.api.http).get = "/zerone/channels/v1/dispute/{channel_id}";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/channels/v1/params";
+  }
+}
+
+message QueryChannelRequest { string channel_id = 1; }
+message QueryChannelResponse { PaymentChannel channel = 1; }
+message QueryByPayerRequest { string payer = 1; }
+message QueryByPayerResponse { repeated PaymentChannel channels = 1; }
+message QueryByReceiverRequest { string receiver = 1; }
+message QueryByReceiverResponse { repeated PaymentChannel channels = 1; }
+message QueryDisputeRequest { string channel_id = 1; }
+message QueryDisputeResponse { ChannelDispute dispute = 1; }
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }

@@ -1,0 +1,157 @@
+# Zerone Testnet — CometBFT Configuration Template
+#
+# Copy this file to $HOME/.zeroned/config/config.toml and edit as needed.
+# Values marked with "# CHANGE" should be customized for your node.
+#
+# Reference: https://docs.cometbft.com/v0.38/core/configuration
+
+# ─── Base Configuration ─────────────────────────────────────────────────
+
+# A custom human-readable name for this node.
+moniker = "my-zerone-node"  # CHANGE: set your validator moniker
+
+# TCP or UNIX socket address of the ABCI application.
+proxy_app = "tcp://127.0.0.1:26658"
+
+# Database backend: goleveldb | cleveldb | boltdb | rocksdb | badgerdb
+db_backend = "goleveldb"
+
+# Database directory (relative to $TMHOME/data).
+db_dir = "data"
+
+# Output level for logging (log|info|debug|error|none).
+log_level = "info"
+
+# Output format (plain|json).
+log_format = "plain"
+
+# ─── RPC Server ──────────────────────────────────────────────────────────
+
+[rpc]
+
+# TCP or UNIX socket address for the RPC server to listen on.
+laddr = "tcp://127.0.0.1:26657"
+
+# A list of origins a cross-domain request can be executed from.
+# Set to ["*"] to allow any origin.
+cors_allowed_origins = []
+
+# Maximum number of simultaneous connections (including WebSocket).
+max_open_connections = 900
+
+# Maximum number of unique clientIDs that can /subscribe.
+max_subscription_clients = 100
+
+# Maximum number of unique queries a given client can /subscribe to.
+max_subscriptions_per_client = 5
+
+# Timeout for broadcast_tx_commit (in seconds). 0 = no timeout.
+timeout_broadcast_tx_commit = "10s"
+
+# Maximum request body size (in bytes). 0 = unlimited.
+max_body_bytes = 1000000
+
+# ─── P2P Configuration ──────────────────────────────────────────────────
+
+[p2p]
+
+# Address to listen for incoming connections.
+laddr = "tcp://0.0.0.0:26656"
+
+# Address to advertise to peers for them to dial.
+# If empty, will use the same port as the laddr, and will introspect the
+# listener to figure out the address.
+external_address = ""  # CHANGE: set to your public IP:26656 if behind NAT
+
+# Comma-separated list of seed nodes to connect to.
+# Populated from seeds.txt at genesis ceremony time.
+seeds = ""  # CHANGE: paste seed node list from seeds.txt
+
+# Comma-separated list of nodes to keep persistent connections to.
+persistent_peers = ""  # CHANGE: add trusted peer node IDs
+
+# Maximum number of inbound peers.
+max_num_inbound_peers = 40
+
+# Maximum number of outbound peers to connect to, excluding persistent peers.
+max_num_outbound_peers = 10
+
+# Toggle to disable guard against peers connecting from the same IP.
+allow_duplicate_ip = false
+
+# Peer connection configuration.
+handshake_timeout = "20s"
+dial_timeout = "3s"
+
+# Seed mode: node only crawls the network and does not answer peer requests.
+seed_mode = false
+
+# ─── Mempool Configuration ──────────────────────────────────────────────
+
+[mempool]
+
+# Maximum number of transactions in the mempool.
+size = 5000
+
+# Maximum size of a single transaction (in bytes).
+max_tx_bytes = 1048576
+
+# Maximum size of the mempool in bytes. 0 = unlimited.
+max_txs_bytes = 1073741824
+
+# Size of the cache (used to filter transactions we saw earlier).
+cache_size = 10000
+
+# ─── State Sync Configuration ───────────────────────────────────────────
+
+[statesync]
+
+# State sync rapidly bootstraps a new node by discovering, fetching, and
+# restoring a state machine snapshot from peers instead of fetching and
+# replaying historical blocks.
+enable = false
+
+# RPC servers (comma-separated) for light client verification of the
+# synced state machine and target block height.
+rpc_servers = ""
+
+# Block height and hash from which to start state sync.
+trust_height = 0
+trust_hash = ""
+
+# Period during which validators can be trusted (in blocks).
+trust_period = "168h0m0s"
+
+# ─── Consensus Configuration ────────────────────────────────────────────
+
+[consensus]
+
+# Zerone targets 2521ms blocks. These timeouts are tuned accordingly.
+
+timeout_propose = "3s"
+timeout_propose_delta = "500ms"
+timeout_prevote = "1s"
+timeout_prevote_delta = "500ms"
+timeout_precommit = "1s"
+timeout_precommit_delta = "500ms"
+timeout_commit = "2521ms"
+
+# Make progress as soon as we have all precommits (true is recommended).
+skip_timeout_commit = false
+
+# ─── Instrumentation ────────────────────────────────────────────────────
+
+[instrumentation]
+
+# When true, Prometheus metrics are served under /metrics on
+# PrometheusListenAddr.
+prometheus = true
+
+# Address to listen for Prometheus collector(s) connections.
+prometheus_listen_addr = ":26660"
+
+# Maximum number of simultaneous connections.
+max_open_connections = 3
+
+# Instrumentation namespace.
+namespace = "cometbft"

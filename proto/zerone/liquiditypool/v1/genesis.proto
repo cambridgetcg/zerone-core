@@ -1,0 +1,23 @@
+syntax = "proto3";
+package zerone.liquiditypool.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/liquiditypool/types";
+
+import "zerone/liquiditypool/v1/types.proto";
+
+// Params defines the liquiditypool module parameters.
+message Params {
+  uint64 default_swap_fee_bps  = 1; // default swap fee (1M bps scale)
+  uint64 max_pools             = 2; // maximum number of active pools
+  string min_initial_liquidity = 3; // minimum per-side liquidity in base units (bigint string)
+  uint64 twap_window_blocks    = 4; // default TWAP window in blocks
+  uint64 protocol_fee_bps      = 5; // protocol's share of swap fees (1M bps scale)
+  string min_reserve           = 6; // minimum reserve after swap (bigint string, default "1")
+}
+
+// GenesisState defines the liquiditypool module genesis state.
+message GenesisState {
+  Params params                            = 1;
+  repeated Pool pools                      = 2;
+  repeated TWAPAccumulator twap_accumulators = 3;
+}

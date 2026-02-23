@@ -1,0 +1,50 @@
+syntax = "proto3";
+package zerone.capture_challenge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/capture_challenge/types";
+
+import "google/api/annotations.proto";
+import "zerone/capture_challenge/v1/types.proto";
+import "zerone/capture_challenge/v1/genesis.proto";
+
+// Query defines the capture_challenge module query service.
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/capture_challenge/v1/params";
+  }
+  rpc Challenge(QueryChallengeRequest) returns (QueryChallengeResponse) {
+    option (google.api.http).get = "/zerone/capture_challenge/v1/challenge/{id}";
+  }
+  rpc BountyPool(QueryBountyPoolRequest) returns (QueryBountyPoolResponse) {
+    option (google.api.http).get = "/zerone/capture_challenge/v1/bounty_pool/{domain}";
+  }
+  rpc ChallengesByDomain(QueryChallengesByDomainRequest) returns (QueryChallengesByDomainResponse) {
+    option (google.api.http).get = "/zerone/capture_challenge/v1/challenges/{domain}";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}
+
+message QueryChallengeRequest {
+  string id = 1;
+}
+message QueryChallengeResponse {
+  CaptureChallenge challenge = 1;
+}
+
+message QueryBountyPoolRequest {
+  string domain = 1;
+}
+message QueryBountyPoolResponse {
+  DomainBountyPool pool = 1;
+}
+
+message QueryChallengesByDomainRequest {
+  string domain = 1;
+}
+message QueryChallengesByDomainResponse {
+  repeated CaptureChallenge challenges = 1;
+}

@@ -1,0 +1,87 @@
+syntax = "proto3";
+package zerone.bvm.v1;
+option go_package = "github.com/zerone-chain/zerone/x/bvm/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/bvm/v1/types.proto";
+import "zerone/bvm/v1/genesis.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc DeployContract(MsgDeployContract) returns (MsgDeployContractResponse);
+  rpc CallContract(MsgCallContract) returns (MsgCallContractResponse);
+  rpc ScheduleExecution(MsgScheduleExecution) returns (MsgScheduleExecutionResponse);
+  rpc ScheduleContract(MsgScheduleContract) returns (MsgScheduleContractResponse);
+  rpc CancelSchedule(MsgCancelSchedule) returns (MsgCancelScheduleResponse);
+  rpc UpdateContractState(MsgUpdateContractState) returns (MsgUpdateContractStateResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgDeployContract {
+  option (cosmos.msg.v1.signer) = "deployer";
+  string deployer          = 1;
+  bytes  bytecode          = 2;
+  bytes  constructor_args  = 3;
+  string initial_deposit   = 4;
+  ContractConfig config    = 5;
+}
+message MsgDeployContractResponse { string contract_address = 1; }
+
+message MsgCallContract {
+  option (cosmos.msg.v1.signer) = "caller";
+  string caller            = 1;
+  string contract_address  = 2;
+  bytes  input_data        = 3;
+  string value             = 4;
+  uint64 gas_limit         = 5;
+  bool   static_call       = 6;
+}
+message MsgCallContractResponse {
+  bytes  return_data = 1;
+  uint64 gas_used    = 2;
+  repeated ContractEvent events = 3;
+}
+
+message MsgScheduleExecution {
+  option (cosmos.msg.v1.signer) = "scheduler";
+  string scheduler         = 1;
+  string contract_address  = 2;
+  bytes  input_data        = 3;
+  ScheduleCondition condition = 4;
+}
+message MsgScheduleExecutionResponse { string schedule_id = 1; }
+
+message MsgScheduleContract {
+  option (cosmos.msg.v1.signer) = "caller";
+  string caller            = 1;
+  string contract_address  = 2;
+  string method            = 3;
+  string payload           = 4;
+  uint64 execute_at_block  = 5;
+  uint64 max_gas           = 6;
+}
+message MsgScheduleContractResponse { string schedule_id = 1; }
+
+message MsgCancelSchedule {
+  option (cosmos.msg.v1.signer) = "caller";
+  string caller      = 1;
+  string schedule_id = 2;
+}
+message MsgCancelScheduleResponse {}
+
+message MsgUpdateContractState {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority        = 1;
+  string contract_address = 2;
+  string key              = 3;
+  string value            = 4;
+}
+message MsgUpdateContractStateResponse {}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  Params params    = 2;
+}
+message MsgUpdateParamsResponse {}

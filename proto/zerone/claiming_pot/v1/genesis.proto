@@ -1,0 +1,11 @@
+syntax = "proto3";
+package zerone.claiming_pot.v1;
+option go_package = "github.com/zerone-chain/zerone/x/claiming_pot/types";
+
+import "zerone/claiming_pot/v1/state.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated ClaimingPot pots = 2;
+  repeated Claim claims = 3;
+}

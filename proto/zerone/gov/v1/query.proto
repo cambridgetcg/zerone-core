@@ -1,0 +1,120 @@
+syntax = "proto3";
+package zerone.gov.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/gov/types";
+
+import "google/api/annotations.proto";
+import "zerone/gov/v1/types.proto";
+import "zerone/gov/v1/genesis.proto";
+
+// Query defines the governance module's query service.
+service Query {
+  rpc LIP(QueryLIPRequest) returns (QueryLIPResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/lip/{lip_id}";
+  }
+  rpc LIPs(QueryLIPsRequest) returns (QueryLIPsResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/lips";
+  }
+  rpc Vote(QueryVoteRequest) returns (QueryVoteResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/lip/{lip_id}/vote/{voter}";
+  }
+  rpc Votes(QueryVotesRequest) returns (QueryVotesResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/lip/{lip_id}/votes";
+  }
+  rpc TallyResult(QueryTallyResultRequest) returns (QueryTallyResultResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/lip/{lip_id}/tally";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/params";
+  }
+  rpc ResearchSpend(QueryResearchSpendRequest) returns (QueryResearchSpendResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/research_spend/{proposal_id}";
+  }
+  rpc ResearchSpends(QueryResearchSpendsRequest) returns (QueryResearchSpendsResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/research_spends";
+  }
+  rpc ResearchVoters(QueryResearchVotersRequest) returns (QueryResearchVotersResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/research_voters";
+  }
+}
+
+message QueryLIPRequest {
+  string lip_id = 1;
+}
+
+message QueryLIPResponse {
+  LIP            lip   = 1;
+  repeated Vote  votes = 2;
+}
+
+message QueryLIPsRequest {
+  string status   = 1; // filter by stage (optional)
+  string category = 2; // filter by category (optional)
+  uint64 limit    = 3;
+  uint64 offset   = 4;
+}
+
+message QueryLIPsResponse {
+  repeated LIP lips  = 1;
+  uint64       total = 2;
+}
+
+message QueryVoteRequest {
+  string lip_id = 1;
+  string voter  = 2;
+}
+
+message QueryVoteResponse {
+  Vote vote = 1;
+}
+
+message QueryVotesRequest {
+  string lip_id = 1;
+}
+
+message QueryVotesResponse {
+  repeated Vote votes = 1;
+}
+
+message QueryTallyResultRequest {
+  string lip_id = 1;
+}
+
+message QueryTallyResultResponse {
+  string yes_stake     = 1;
+  string no_stake      = 2;
+  string abstain_stake = 3;
+  bool   quorum_met    = 4;
+  bool   passed        = 5;
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1;
+}
+
+message QueryResearchSpendRequest {
+  uint64 proposal_id = 1;
+}
+
+message QueryResearchSpendResponse {
+  ResearchSpendProposal proposal = 1;
+}
+
+message QueryResearchSpendsRequest {
+  string stage  = 1;
+  uint64 limit  = 2;
+  uint64 offset = 3;
+}
+
+message QueryResearchSpendsResponse {
+  repeated ResearchSpendProposal proposals = 1;
+  uint64 total = 2;
+}
+
+message QueryResearchVotersRequest {}
+
+message QueryResearchVotersResponse {
+  ResearchFundVoters voters = 1;
+}

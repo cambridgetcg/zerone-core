@@ -1,0 +1,46 @@
+syntax = "proto3";
+package zerone.qualification.v1;
+option go_package = "github.com/zerone-chain/zerone/x/qualification/types";
+
+import "google/api/annotations.proto";
+import "zerone/qualification/v1/types.proto";
+import "zerone/qualification/v1/genesis.proto";
+
+service Query {
+  rpc Qualification(QueryQualificationRequest) returns (QueryQualificationResponse) {
+    option (google.api.http).get = "/zerone/qualification/v1/qualification/{validator}/{domain}";
+  }
+  rpc QualificationsByDomain(QueryByDomainRequest) returns (QueryByDomainResponse) {
+    option (google.api.http).get = "/zerone/qualification/v1/domain/{domain}";
+  }
+  rpc QualificationsByValidator(QueryByValidatorRequest) returns (QueryByValidatorResponse) {
+    option (google.api.http).get = "/zerone/qualification/v1/validator/{validator}";
+  }
+  rpc Endorsements(QueryEndorsementsRequest) returns (QueryEndorsementsResponse) {
+    option (google.api.http).get = "/zerone/qualification/v1/endorsements/{validator}/{domain}";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/qualification/v1/params";
+  }
+}
+
+message QueryQualificationRequest {
+  string validator = 1;
+  string domain = 2;
+}
+message QueryQualificationResponse { DomainQualification qualification = 1; }
+
+message QueryByDomainRequest { string domain = 1; }
+message QueryByDomainResponse { repeated DomainQualification qualifications = 1; }
+
+message QueryByValidatorRequest { string validator = 1; }
+message QueryByValidatorResponse { repeated DomainQualification qualifications = 1; }
+
+message QueryEndorsementsRequest {
+  string validator = 1;
+  string domain = 2;
+}
+message QueryEndorsementsResponse { repeated QualificationEndorsement endorsements = 1; }
+
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }

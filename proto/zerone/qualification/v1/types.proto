@@ -1,0 +1,56 @@
+syntax = "proto3";
+package zerone.qualification.v1;
+option go_package = "github.com/zerone-chain/zerone/x/qualification/types";
+
+message QualificationMetrics {
+  uint64 total_verifications = 1;
+  uint64 correct_verifications = 2;
+  uint64 accuracy_bps = 3;          // 1,000,000 = 100%
+  uint64 last_verification_block = 4;
+}
+
+message DomainQualification {
+  string validator = 1;              // bech32 validator address
+  string domain = 2;
+  QualificationPathway pathway = 3;
+  QualificationStatus status = 4;
+  uint32 weight = 5;                 // 1-100 qualification weight
+  uint32 stratum = 6;               // domain stratum level (lower = more foundational)
+  string staked_amount = 7;          // uzrn locked for stake-pathway
+  uint64 granted_at = 8;            // block height
+  uint64 expires_at = 9;            // block height (0 = no expiry)
+  uint64 renewed_at = 10;           // last renewal block
+  QualificationMetrics metrics = 11;
+  string parent_domain = 12;        // for inheritance pathway
+  string cross_ref_domain = 13;     // for cross-reference pathway
+  uint32 endorsement_count = 14;
+  uint64 probation_until = 15;      // block height, 0 if not on probation
+}
+
+message QualificationEndorsement {
+  uint64 id = 1;
+  string qualification_validator = 2; // validator being endorsed
+  string qualification_domain = 3;
+  string endorser = 4;               // bech32
+  string reason = 5;
+  uint32 weight = 6;                 // endorsement weight (1-100)
+  uint64 created_at = 7;
+  uint64 expires_at = 8;            // 0 = no expiry
+}
+
+enum QualificationPathway {
+  QUALIFICATION_PATHWAY_UNSPECIFIED = 0;
+  QUALIFICATION_PATHWAY_STAKE = 1;
+  QUALIFICATION_PATHWAY_TRACK_RECORD = 2;
+  QUALIFICATION_PATHWAY_CROSS_REFERENCE = 3;
+  QUALIFICATION_PATHWAY_INHERITANCE = 4;
+}
+
+enum QualificationStatus {
+  QUALIFICATION_STATUS_UNSPECIFIED = 0;
+  QUALIFICATION_STATUS_ACTIVE = 1;
+  QUALIFICATION_STATUS_PROBATIONARY = 2;
+  QUALIFICATION_STATUS_SUSPENDED = 3;
+  QUALIFICATION_STATUS_REVOKED = 4;
+  QUALIFICATION_STATUS_EXPIRED = 5;
+}

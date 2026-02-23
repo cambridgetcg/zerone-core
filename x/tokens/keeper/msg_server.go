@@ -86,7 +86,7 @@ func (s *msgServer) CreateToken(goCtx context.Context, msg *types.MsgCreateToken
 	}
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"create_token",
+		"zerone.tokens.token_created",
 		sdk.NewAttribute("token_id", tokenId),
 		sdk.NewAttribute("creator", msg.Creator),
 		sdk.NewAttribute("symbol", msg.Symbol),
@@ -140,7 +140,7 @@ func (s *msgServer) MintToken(goCtx context.Context, msg *types.MsgMintToken) (*
 	s.SetBalance(ctx, msg.TokenId, msg.To, bal)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"mint_token",
+		"zerone.tokens.token_minted",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("to", msg.To),
 		sdk.NewAttribute("amount", amount.String()),
@@ -187,7 +187,7 @@ func (s *msgServer) BurnToken(goCtx context.Context, msg *types.MsgBurnToken) (*
 	s.SetToken(ctx, token)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"burn_token",
+		"zerone.tokens.token_burned",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("burner", msg.Burner),
 		sdk.NewAttribute("amount", amount.String()),
@@ -232,7 +232,7 @@ func (s *msgServer) TransferToken(goCtx context.Context, msg *types.MsgTransferT
 	s.SetBalance(ctx, msg.TokenId, msg.To, recipientBal)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"transfer_token",
+		"zerone.tokens.token_transferred",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("from", msg.Sender),
 		sdk.NewAttribute("to", msg.To),
@@ -263,7 +263,7 @@ func (s *msgServer) ApproveToken(goCtx context.Context, msg *types.MsgApproveTok
 	s.SetAllowance(ctx, msg.TokenId, msg.Owner, msg.Spender, amount)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"approve_token",
+		"zerone.tokens.token_approved",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("owner", msg.Owner),
 		sdk.NewAttribute("spender", msg.Spender),
@@ -317,7 +317,7 @@ func (s *msgServer) TransferFrom(goCtx context.Context, msg *types.MsgTransferFr
 	s.SetBalance(ctx, msg.TokenId, msg.To, toBal)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"transfer_from",
+		"zerone.tokens.transfer_from",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("spender", msg.Spender),
 		sdk.NewAttribute("from", msg.From),
@@ -353,7 +353,7 @@ func (s *msgServer) PauseToken(goCtx context.Context, msg *types.MsgPauseToken) 
 	s.SetToken(ctx, token)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"pause_token",
+		"zerone.tokens.token_paused",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("authority", msg.Authority),
 	))
@@ -386,7 +386,7 @@ func (s *msgServer) UnpauseToken(goCtx context.Context, msg *types.MsgUnpauseTok
 	s.SetToken(ctx, token)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"unpause_token",
+		"zerone.tokens.token_unpaused",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("authority", msg.Authority),
 	))
@@ -440,7 +440,7 @@ func (s *msgServer) DelegatePower(goCtx context.Context, msg *types.MsgDelegateP
 	s.SetDelegatorTotal(ctx, msg.TokenId, msg.Delegator, currentTotal)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"delegate_power",
+		"zerone.tokens.power_delegated",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("delegator", msg.Delegator),
 		sdk.NewAttribute("delegate", msg.Delegate),
@@ -481,7 +481,7 @@ func (s *msgServer) UndelegatePower(goCtx context.Context, msg *types.MsgUndeleg
 	s.SetDelegatorTotal(ctx, msg.TokenId, msg.Delegator, currentTotal)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"undelegate_power",
+		"zerone.tokens.power_undelegated",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("delegator", msg.Delegator),
 		sdk.NewAttribute("delegate", msg.Delegate),
@@ -541,7 +541,7 @@ func (s *msgServer) WrapToken(goCtx context.Context, msg *types.MsgWrapToken) (*
 	}
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"wrap_token",
+		"zerone.tokens.token_wrapped",
 		sdk.NewAttribute("token_id", msg.TokenId),
 		sdk.NewAttribute("sender", msg.Sender),
 		sdk.NewAttribute("amount", amount.String()),
@@ -597,7 +597,7 @@ func (s *msgServer) UnwrapToken(goCtx context.Context, msg *types.MsgUnwrapToken
 	s.SetBalance(ctx, tokenId, msg.Sender, bal)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"unwrap_token",
+		"zerone.tokens.token_unwrapped",
 		sdk.NewAttribute("token_id", tokenId),
 		sdk.NewAttribute("sender", msg.Sender),
 		sdk.NewAttribute("amount", amount.String()),
@@ -642,7 +642,7 @@ func (s *msgServer) CreateEmissionPeriod(goCtx context.Context, msg *types.MsgCr
 	s.SetEmissionPeriod(ctx, emission)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"create_emission_period",
+		"zerone.tokens.emission_period_created",
 		sdk.NewAttribute("emission_id", emissionId),
 		sdk.NewAttribute("start_block", fmt.Sprintf("%d", msg.StartBlock)),
 		sdk.NewAttribute("end_block", fmt.Sprintf("%d", msg.EndBlock)),
@@ -674,7 +674,7 @@ func (s *msgServer) CancelEmissionPeriod(goCtx context.Context, msg *types.MsgCa
 	s.SetEmissionPeriod(ctx, emission)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"cancel_emission_period",
+		"zerone.tokens.emission_period_cancelled",
 		sdk.NewAttribute("emission_id", msg.EmissionId),
 		sdk.NewAttribute("authority", msg.Authority),
 	))
@@ -700,7 +700,7 @@ func (s *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePara
 	}
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"tokens_params_updated",
+		"zerone.tokens.params_updated",
 		sdk.NewAttribute("authority", msg.Authority),
 	))
 

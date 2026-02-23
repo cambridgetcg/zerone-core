@@ -110,7 +110,7 @@ func (k Keeper) DeprecateDomain(ctx sdk.Context, domainName string) error {
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"domain_deprecated",
+			"zerone.ontology.domain_deprecated",
 			sdk.NewAttribute("domain", domainName),
 			sdk.NewAttribute("height", fmt.Sprintf("%d", ctx.BlockHeight())),
 		),
@@ -132,7 +132,7 @@ func (k Keeper) ArchiveDomain(ctx sdk.Context, domainName string) error {
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"domain_archived",
+			"zerone.ontology.domain_archived",
 			sdk.NewAttribute("domain", domainName),
 			sdk.NewAttribute("height", fmt.Sprintf("%d", ctx.BlockHeight())),
 		),
@@ -175,7 +175,7 @@ func (k Keeper) MergeDomains(ctx sdk.Context, proposal *types.DomainProposal) er
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"domains_merged",
+			"zerone.ontology.domains_merged",
 			sdk.NewAttribute("source", sourceName),
 			sdk.NewAttribute("target", targetName),
 			sdk.NewAttribute("height", fmt.Sprintf("%d", ctx.BlockHeight())),
@@ -197,7 +197,7 @@ func (k Keeper) ActivateDomain(ctx sdk.Context, domainName string) error {
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
-			"domain_activated",
+			"zerone.ontology.domain_activated",
 			sdk.NewAttribute("domain", domainName),
 			sdk.NewAttribute("height", fmt.Sprintf("%d", ctx.BlockHeight())),
 		),

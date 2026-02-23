@@ -1,0 +1,35 @@
+syntax = "proto3";
+package zerone.gov.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/gov/types";
+
+import "zerone/gov/v1/types.proto";
+
+// Params defines the governance module parameters.
+message Params {
+  uint64 voting_period_blocks       = 1;  // blocks for voting stage (default 102816)
+  uint64 discussion_period_blocks   = 2;  // blocks for last_call stage (default 68544)
+  uint64 quorum_threshold_bps       = 3;  // on 1,000,000 scale (default 334000 = 33.4%)
+  uint64 support_threshold_bps      = 4;  // on 1,000,000 scale (default 500000 = 50%)
+  string min_lip_stake              = 5;  // uzrn minimum to submit a LIP
+  string min_vote_stake             = 6;  // uzrn minimum bonded stake to vote
+  repeated CategoryConfig category_configs = 7;
+  ResearchFundVoters research_fund_voters  = 8;
+  uint64 research_discussion_blocks       = 9;  // discussion period for research proposals
+  uint64 research_voting_blocks           = 10; // voting period for research proposals
+}
+
+// CategoryConfig defines per-category stake and review requirements.
+message CategoryConfig {
+  string category          = 1; // "parameter", "upgrade", "text", "research_spend"
+  string required_stake_bps = 2; // uzrn required to advance from draft to review
+  uint64 review_blocks     = 3; // blocks required in review stage before last_call
+}
+
+// GenesisState defines the governance module's genesis state.
+message GenesisState {
+  Params          params          = 1;
+  repeated LIP    lips            = 2;
+  repeated Vote   votes           = 3;
+  uint64          next_lip_number = 4;
+}

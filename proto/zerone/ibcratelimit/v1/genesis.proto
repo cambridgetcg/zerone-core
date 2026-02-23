@@ -1,0 +1,17 @@
+syntax = "proto3";
+package zerone.ibcratelimit.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/ibcratelimit/types";
+
+import "zerone/ibcratelimit/v1/types.proto";
+
+// Params defines the ibcratelimit module parameters.
+message Params {
+  bool enabled = 1; // global kill switch for rate limiting
+}
+
+// GenesisState defines the ibcratelimit module genesis state.
+message GenesisState {
+  Params params                 = 1;
+  repeated RateLimit rate_limits = 2;
+}

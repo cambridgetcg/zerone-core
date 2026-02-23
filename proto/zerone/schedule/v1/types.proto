@@ -1,0 +1,48 @@
+syntax = "proto3";
+package zerone.schedule.v1;
+option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
+
+message TimeCondition {
+  string type              = 1;  // "at_block", "every_n_blocks"
+  uint64 execute_at_block  = 2;
+  uint64 interval_blocks   = 3;
+  uint64 start_block       = 4;
+  uint64 end_block         = 5;
+}
+
+message LogicCondition {
+  string type          = 1;  // "state_compare"
+  string state_key     = 2;
+  string comparator    = 3;  // "eq", "gt", "lt", "gte", "lte"
+  string compare_value = 4;
+}
+
+message CompoundCondition {
+  string operator = 1;  // "and", "or"
+  repeated ScheduleCondition conditions = 2;
+}
+
+message ScheduleCondition {
+  TimeCondition time_condition         = 1;
+  LogicCondition logic_condition       = 2;
+  CompoundCondition compound_condition = 3;
+}
+
+message ScheduleProcess {
+  string id                  = 1;
+  string creator             = 2;
+  ScheduleCondition condition = 3;
+  string status              = 4;
+  uint64 execution_count     = 5;
+  uint64 max_executions      = 6;
+  string remaining_fee       = 7;
+  string fee_per_execution   = 8;
+  string target_address      = 9;
+  string call_data           = 10;
+  string transfer_value      = 11;
+  string linked_entity_type  = 12;
+  string linked_entity_id    = 13;
+  uint64 created_at_block    = 14;
+  uint64 expires_at_block    = 15;
+  uint64 next_execute_at     = 16;
+}

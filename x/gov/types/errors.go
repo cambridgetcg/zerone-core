@@ -1,0 +1,26 @@
+package types
+
+import "cosmossdk.io/errors"
+
+var (
+	ErrLIPNotFound        = errors.Register(ModuleName, 2, "LIP not found")
+	ErrInvalidStatus      = errors.Register(ModuleName, 3, "invalid LIP status transition")
+	ErrAlreadyVoted       = errors.Register(ModuleName, 4, "voter has already voted on this LIP")
+	ErrNotProposer        = errors.Register(ModuleName, 5, "only the proposer can perform this action")
+	ErrTerminalState      = errors.Register(ModuleName, 6, "LIP is in a terminal state")
+	ErrInsufficientStake  = errors.Register(ModuleName, 7, "insufficient stake")
+	ErrVotingPeriodEnded  = errors.Register(ModuleName, 8, "voting period has ended")
+	ErrNotInVotingStage   = errors.Register(ModuleName, 9, "LIP is not in voting stage")
+	ErrInvalidCategory    = errors.Register(ModuleName, 10, "invalid LIP category")
+	ErrUnauthorized       = errors.Register(ModuleName, 11, "unauthorized")
+	ErrInvalidParams      = errors.Register(ModuleName, 12, "invalid parameters")
+	ErrVoteNotFound       = errors.Register(ModuleName, 13, "vote not found")
+	ErrQuorumNotMet       = errors.Register(ModuleName, 14, "quorum not met")
+	ErrInvalidAddress     = errors.Register(ModuleName, 15, "invalid address")
+	ErrModuleNotFound           = errors.Register(ModuleName, 16, "module not found in param router")
+	ErrNotDesignatedVoter       = errors.Register(ModuleName, 17, "not a designated research fund voter")
+	ErrResearchProposalNotFound = errors.Register(ModuleName, 18, "research spend proposal not found")
+	ErrDiscussionPeriodActive   = errors.Register(ModuleName, 19, "cannot vote during discussion period")
+	ErrResearchAlreadyVoted     = errors.Register(ModuleName, 20, "voter has already voted")
+	ErrResearchVotersNotSet     = errors.Register(ModuleName, 21, "research fund voters not configured")
+)

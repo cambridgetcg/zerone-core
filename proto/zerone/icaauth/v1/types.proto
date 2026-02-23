@@ -1,0 +1,21 @@
+syntax = "proto3";
+package zerone.icaauth.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/icaauth/types";
+
+// RemoteAccount represents a registered interchain account on a remote chain.
+message RemoteAccount {
+  string connection_id         = 1;
+  string port_id               = 2;
+  string remote_address        = 3; // set after ICA registration callback
+  string owner_address         = 4;
+  uint64 registered_block      = 5;
+  repeated string allowed_msg_types = 6; // per-account allowlist (subset of global)
+  bool   active                = 7;
+}
+
+// InterchainAccountRecord stores all remote accounts for an owner.
+message InterchainAccountRecord {
+  string owner                      = 1;
+  repeated RemoteAccount accounts   = 2;
+}

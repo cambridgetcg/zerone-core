@@ -1,0 +1,38 @@
+syntax = "proto3";
+package zerone.claiming_pot.v1;
+option go_package = "github.com/zerone-chain/zerone/x/claiming_pot/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/claiming_pot/v1/state.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc CreatePot(MsgCreatePot) returns (MsgCreatePotResponse);
+  rpc Claim(MsgClaim) returns (MsgClaimResponse);
+  rpc UpdatePotParams(MsgUpdatePotParams) returns (MsgUpdatePotParamsResponse);
+}
+
+message MsgCreatePot {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  string name = 2;
+  string total_amount = 3;
+  VestingSchedule schedule = 4;
+  EligibilityCriteria eligibility = 5;
+}
+message MsgCreatePotResponse { string pot_id = 1; }
+
+message MsgClaim {
+  option (cosmos.msg.v1.signer) = "claimant";
+  string claimant = 1;
+  string pot_id = 2;
+}
+message MsgClaimResponse { string amount = 1; }
+
+message MsgUpdatePotParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  Params params = 2;
+}
+message MsgUpdatePotParamsResponse {}

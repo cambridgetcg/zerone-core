@@ -1,0 +1,23 @@
+syntax = "proto3";
+package zerone.capture_challenge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/capture_challenge/types";
+
+import "zerone/capture_challenge/v1/types.proto";
+
+message Params {
+  string min_challenge_stake       = 1; // minimum uzrn to stake a challenge
+  uint64 evidence_period_blocks    = 2; // blocks allowed for evidence submission
+  uint64 review_period_blocks      = 3; // blocks allowed for governance review
+  uint64 domain_pause_blocks       = 4; // blocks domain is paused on challenge
+  uint64 reward_rate_bps           = 5; // reward from bounty pool (BPS of pool)
+  uint64 slash_rate_bps            = 6; // slash of accused validators (BPS of stake)
+  string bounty_contribution_per_fact = 7; // uzrn per fact creation auto-funded
+  uint64 risk_analysis_interval    = 8; // blocks between auto risk analysis
+}
+
+message GenesisState {
+  Params                      params       = 1;
+  repeated CaptureChallenge   challenges   = 2;
+  repeated DomainBountyPool   bounty_pools = 3;
+}

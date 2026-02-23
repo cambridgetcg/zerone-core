@@ -1,0 +1,145 @@
+# Zerone Testnet — Application Configuration Template
+#
+# Copy this file to $HOME/.zeroned/config/app.toml and edit as needed.
+# Values marked with "# CHANGE" should be customized for your node.
+
+# ─── Base Configuration ─────────────────────────────────────────────────
+
+# The minimum gas prices a validator is willing to accept for processing a
+# transaction. A transaction's fees must meet this minimum for it to be
+# accepted into the validator's mempool.
+#
+# Zerone recommends 0.025uzrn. During the bootstrap period (first 480,000
+# blocks, ~14 days), essential PoT transactions are gas-free.
+minimum-gas-prices = "0.025uzrn"
+
+# Amount of state to retain. "default" retains last 362880 states.
+# "nothing" retains all states. "everything" prunes all but the current state.
+# "custom" lets you set pruning-keep-recent and pruning-interval.
+pruning = "default"
+
+# Number of recent states to keep (only used with pruning = "custom").
+pruning-keep-recent = "100"
+
+# Interval of state pruning (only used with pruning = "custom").
+pruning-interval = "10"
+
+# HaltHeight specifies the block height at which the node will gracefully
+# halt and shutdown. Useful for coordinating upgrades. Set to 0 to disable.
+halt-height = 0
+
+# HaltTime specifies the minimum block time at which the node will gracefully
+# halt. Set to 0 to disable.
+halt-time = 0
+
+# MinRetainBlocks defines the minimum block height offset from the current
+# block being committed, such that all blocks past this offset are pruned
+# from CometBFT. 0 = retain all blocks.
+min-retain-blocks = 0
+
+# IAVLCacheSize sets the size of the IAVL tree cache.
+iavl-cache-size = 781250
+
+# IAVLDisableFastNode enables or disables the fast node feature of IAVL.
+iavl-disable-fastnode = false
+
+# ─── Telemetry ───────────────────────────────────────────────────────────
+
+[telemetry]
+
+# Prefixed with keys to separate services.
+service-name = ""
+
+# Enabled enables the application telemetry functionality. When enabled,
+# an in-memory sink is also enabled by default. Operators may also enable
+# other sinks such as Prometheus.
+enabled = true
+
+# Enable prefixing gauge values with hostname.
+enable-hostname = false
+
+# Enable adding hostname to labels.
+enable-hostname-label = false
+
+# Enable adding service to labels.
+enable-service-label = false
+
+# PrometheusRetentionTime defines the retention time for Prometheus metrics
+# (in seconds). 0 = Prometheus metrics disabled.
+prometheus-retention-time = 60
+
+# GlobalLabels defines a global set of name/value label tuples applied to
+# all metrics emitted using the wrapper functions defined in telemetry package.
+global-labels = []
+
+# ─── API Configuration ──────────────────────────────────────────────────
+
+[api]
+
+# Enable defines if the API server should be enabled.
+enable = true
+
+# Swagger defines if swagger documentation should be registered.
+swagger = false
+
+# Address defines the API server to listen on.
+address = "tcp://0.0.0.0:1317"
+
+# MaxOpenConnections defines the maximum number of open connections.
+max-open-connections = 1000
+
+# RPCReadTimeout defines the CometBFT RPC read timeout (in seconds).
+rpc-read-timeout = 10
+
+# RPCWriteTimeout defines the CometBFT RPC write timeout (in seconds).
+rpc-write-timeout = 10
+
+# RPCMaxBodyBytes defines the max body bytes allowed in a REST request.
+rpc-max-body-bytes = 1000000
+
+# EnableUnsafeCORS defines if CORS should be enabled (unsafe - use with care).
+enabled-unsafe-cors = false
+
+# ─── gRPC Configuration ─────────────────────────────────────────────────
+
+[grpc]
+
+# Enable defines if the gRPC server should be enabled.
+enable = true
+
+# Address defines the gRPC server address to bind to.
+address = "0.0.0.0:9090"
+
+# MaxRecvMsgSize defines the max message size in bytes the server can receive.
+max-recv-msg-size = "10485760"
+
+# MaxSendMsgSize defines the max message size in bytes the server can send.
+max-send-msg-size = "2147483647"
+
+# ─── gRPC Web Configuration ─────────────────────────────────────────────
+
+[grpc-web]
+
+# Enable defines if the gRPC-web should be enabled.
+enable = true
+
+# Address defines the gRPC-web server address to bind to.
+address = "0.0.0.0:9091"
+
+# EnableUnsafeCORS defines if CORS should be enabled (unsafe - use with care).
+enable-unsafe-cors = false
+
+# ─── State Streaming ────────────────────────────────────────────────────
+
+[store]
+
+streamers = []
+
+[streamers]
+  [streamers.file]
+    keys = ["*"]
+    write_dir = ""
+    prefix = ""
+    output-metadata = "true"
+    stop-node-on-error = "true"
+    fsync = "false"

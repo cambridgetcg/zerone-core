@@ -1,0 +1,69 @@
+syntax = "proto3";
+package zerone.disputes.v1;
+option go_package = "github.com/zerone-chain/zerone/x/disputes/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/disputes/v1/types.proto";
+import "zerone/disputes/v1/genesis.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc InitiateDispute(MsgInitiateDispute) returns (MsgInitiateDisputeResponse);
+  rpc CommitEvidence(MsgCommitEvidence) returns (MsgCommitEvidenceResponse);
+  rpc RevealEvidence(MsgRevealEvidence) returns (MsgRevealEvidenceResponse);
+  rpc ArbiterVote(MsgArbiterVote) returns (MsgArbiterVoteResponse);
+  rpc EscalateDispute(MsgEscalateDispute) returns (MsgEscalateDisputeResponse);
+  rpc SettleDispute(MsgSettleDispute) returns (MsgSettleDisputeResponse);
+}
+
+message MsgInitiateDispute {
+  option (cosmos.msg.v1.signer) = "challenger";
+  string challenger = 1;
+  DisputeTargetType target_type = 2;
+  string target_id = 3;
+  string reason = 4;
+  string bond = 5;
+}
+message MsgInitiateDisputeResponse { string dispute_id = 1; }
+
+message MsgCommitEvidence {
+  option (cosmos.msg.v1.signer) = "submitter";
+  string submitter = 1;
+  string dispute_id = 2;
+  string commitment_hash = 3;
+}
+message MsgCommitEvidenceResponse {}
+
+message MsgRevealEvidence {
+  option (cosmos.msg.v1.signer) = "submitter";
+  string submitter = 1;
+  string dispute_id = 2;
+  string content = 3;
+  string nonce = 4;
+}
+message MsgRevealEvidenceResponse {}
+
+message MsgArbiterVote {
+  option (cosmos.msg.v1.signer) = "arbiter";
+  string arbiter = 1;
+  string dispute_id = 2;
+  ArbiterDecision vote = 3;
+  string reasoning = 4;
+}
+message MsgArbiterVoteResponse {}
+
+message MsgEscalateDispute {
+  option (cosmos.msg.v1.signer) = "requester";
+  string requester = 1;
+  string dispute_id = 2;
+  string additional_bond = 3;
+}
+message MsgEscalateDisputeResponse { uint32 new_tier = 1; }
+
+message MsgSettleDispute {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  string dispute_id = 2;
+}
+message MsgSettleDisputeResponse { DisputeOutcome outcome = 1; }

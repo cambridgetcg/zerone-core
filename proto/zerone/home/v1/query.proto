@@ -1,0 +1,46 @@
+syntax = "proto3";
+package zerone.home.v1;
+option go_package = "github.com/zerone-chain/zerone/x/home/types";
+
+import "google/api/annotations.proto";
+import "zerone/home/v1/types.proto";
+import "zerone/home/v1/genesis.proto";
+
+service Query {
+  rpc Home(QueryHomeRequest) returns (QueryHomeResponse) {
+    option (google.api.http).get = "/zerone/home/v1/home/{home_id}";
+  }
+  rpc HomesByOwner(QueryHomesByOwnerRequest) returns (QueryHomesByOwnerResponse) {
+    option (google.api.http).get = "/zerone/home/v1/homes/{owner}";
+  }
+  rpc Keys(QueryKeysRequest) returns (QueryKeysResponse) {
+    option (google.api.http).get = "/zerone/home/v1/keys/{home_id}";
+  }
+  rpc Sessions(QuerySessionsRequest) returns (QuerySessionsResponse) {
+    option (google.api.http).get = "/zerone/home/v1/sessions/{home_id}";
+  }
+  rpc Alerts(QueryAlertsRequest) returns (QueryAlertsResponse) {
+    option (google.api.http).get = "/zerone/home/v1/alerts/{home_id}";
+  }
+  rpc SpendingLimits(QuerySpendingLimitsRequest) returns (QuerySpendingLimitsResponse) {
+    option (google.api.http).get = "/zerone/home/v1/spending/{home_id}";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/home/v1/params";
+  }
+}
+
+message QueryHomeRequest { string home_id = 1; }
+message QueryHomeResponse { AgentHome home = 1; }
+message QueryHomesByOwnerRequest { string owner = 1; }
+message QueryHomesByOwnerResponse { repeated AgentHome homes = 1; }
+message QueryKeysRequest { string home_id = 1; }
+message QueryKeysResponse { repeated KeyRegistration keys = 1; }
+message QuerySessionsRequest { string home_id = 1; }
+message QuerySessionsResponse { repeated ActiveSession sessions = 1; }
+message QueryAlertsRequest { string home_id = 1; bool unacknowledged_only = 2; }
+message QueryAlertsResponse { repeated Alert alerts = 1; }
+message QuerySpendingLimitsRequest { string home_id = 1; }
+message QuerySpendingLimitsResponse { repeated SpendingLimit limits = 1; }
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }

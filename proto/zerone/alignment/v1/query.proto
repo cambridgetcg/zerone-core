@@ -1,0 +1,73 @@
+syntax = "proto3";
+package zerone.alignment.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/alignment/types";
+
+import "google/api/annotations.proto";
+import "zerone/alignment/v1/types.proto";
+import "zerone/alignment/v1/genesis.proto";
+
+// Query defines the alignment module's query service.
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/alignment/v1/params";
+  }
+  rpc State(QueryStateRequest) returns (QueryStateResponse) {
+    option (google.api.http).get = "/zerone/alignment/v1/state";
+  }
+  rpc Observation(QueryObservationRequest) returns (QueryObservationResponse) {
+    option (google.api.http).get = "/zerone/alignment/v1/observations/{height}";
+  }
+  rpc Scores(QueryScoresRequest) returns (QueryScoresResponse) {
+    option (google.api.http).get = "/zerone/alignment/v1/scores/{height}";
+  }
+  rpc HealthIndex(QueryHealthIndexRequest) returns (QueryHealthIndexResponse) {
+    option (google.api.http).get = "/zerone/alignment/v1/health/{height}";
+  }
+  rpc CorrectionHistory(QueryCorrectionHistoryRequest) returns (QueryCorrectionHistoryResponse) {
+    option (google.api.http).get = "/zerone/alignment/v1/corrections";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}
+
+message QueryStateRequest {}
+message QueryStateResponse {
+  AlignmentState state = 1;
+}
+
+message QueryObservationRequest {
+  uint64 height = 1;
+}
+message QueryObservationResponse {
+  AlignmentObservation observation = 1;
+  bool found = 2;
+}
+
+message QueryScoresRequest {
+  uint64 height = 1;
+}
+message QueryScoresResponse {
+  DimensionScores scores = 1;
+  bool found = 2;
+}
+
+message QueryHealthIndexRequest {
+  uint64 height = 1;
+}
+message QueryHealthIndexResponse {
+  AlignmentHealthIndex health_index = 1;
+  bool found = 2;
+}
+
+message QueryCorrectionHistoryRequest {
+  uint32 limit = 1;
+  uint32 offset = 2;
+}
+message QueryCorrectionHistoryResponse {
+  repeated CorrectionRecord corrections = 1;
+  uint64 total = 2;
+}

@@ -110,7 +110,7 @@ func (ms *msgServer) RegisterValidator(goCtx context.Context, msg *types.MsgRegi
 	}
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"validator_registered",
+		"zerone.staking.validator_registered",
 		sdk.NewAttribute("operator", msg.Operator),
 		sdk.NewAttribute("tier", types.ValidatorTierString(initialTier)),
 		sdk.NewAttribute("self_delegation", selfDel.String()),
@@ -188,7 +188,7 @@ func (ms *msgServer) Delegate(goCtx context.Context, msg *types.MsgDelegate) (*t
 	if changed {
 		val.Tier = newTier
 		ctx.EventManager().EmitEvent(sdk.NewEvent(
-			"validator_tier_changed",
+			"zerone.staking.validator_tier_changed",
 			sdk.NewAttribute("validator", msg.Validator),
 			sdk.NewAttribute("new_tier", types.ValidatorTierString(newTier)),
 		))
@@ -196,7 +196,7 @@ func (ms *msgServer) Delegate(goCtx context.Context, msg *types.MsgDelegate) (*t
 	ms.SetValidator(ctx, val)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"delegation_created",
+		"zerone.staking.delegation_created",
 		sdk.NewAttribute("delegator", msg.Delegator),
 		sdk.NewAttribute("validator", msg.Validator),
 		sdk.NewAttribute("amount", msg.Amount),
@@ -280,7 +280,7 @@ func (ms *msgServer) Undelegate(goCtx context.Context, msg *types.MsgUndelegate)
 	}
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"delegation_unbonding",
+		"zerone.staking.delegation_unbonding",
 		sdk.NewAttribute("delegator", msg.Delegator),
 		sdk.NewAttribute("validator", msg.Validator),
 		sdk.NewAttribute("amount", msg.Amount),
@@ -403,7 +403,7 @@ func (ms *msgServer) Redelegate(goCtx context.Context, msg *types.MsgRedelegate)
 	ms.SetLastRedelegationHeight(ctx, msg.Delegator, currentHeight)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"delegation_redelegated",
+		"zerone.staking.delegation_redelegated",
 		sdk.NewAttribute("delegator", msg.Delegator),
 		sdk.NewAttribute("src_validator", msg.SrcValidator),
 		sdk.NewAttribute("dst_validator", msg.DstValidator),
@@ -521,6 +521,13 @@ func (ms *msgServer) UpdateValidatorStake(goCtx context.Context, msg *types.MsgU
 	}
 	ms.SetValidator(ctx, val)
 
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.staking.update_validator_stake",
+			sdk.NewAttribute("operator", msg.Operator),
+			sdk.NewAttribute("new_stake", selfStake.String()),
+		),
+	)
+
 	return &types.MsgUpdateValidatorStakeResponse{}, nil
 }
 
@@ -535,7 +542,7 @@ func (ms *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePar
 	ms.SetParams(ctx, msg.Params)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
-		"staking_params_updated",
+		"zerone.staking.params_updated",
 		sdk.NewAttribute("authority", msg.Authority),
 	))
 

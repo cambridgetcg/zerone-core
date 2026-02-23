@@ -1,0 +1,31 @@
+syntax = "proto3";
+package zerone.alignment.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/alignment/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/alignment/v1/genesis.proto";
+
+// Msg defines the alignment module's transaction service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  rpc Activate(MsgActivate) returns (MsgActivateResponse);
+}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  Params params = 2;
+}
+
+message MsgUpdateParamsResponse {}
+
+message MsgActivate {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  bool enabled = 2;
+}
+
+message MsgActivateResponse {}

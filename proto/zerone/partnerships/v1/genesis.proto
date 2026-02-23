@@ -1,0 +1,31 @@
+syntax = "proto3";
+package zerone.partnerships.v1;
+option go_package = "github.com/zerone-chain/zerone/x/partnerships/types";
+
+import "zerone/partnerships/v1/types.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated Partnership partnerships = 2;
+  repeated ConsensusOperation consensus_operations = 3;
+  repeated SafetyFreeze safety_freezes = 4;
+  repeated CoercionSignal coercion_signals = 5;
+  repeated SeedPartnership seed_partnerships = 6;
+  repeated PoolEntry pool_entries = 7;
+}
+
+message Params {
+  uint64 formation_window_blocks = 1;
+  uint64 cooling_period_blocks = 2;
+  uint64 common_pot_share_bps = 3;
+  uint64 safety_freeze_duration_blocks = 4;
+  uint32 max_freezes_per_epoch = 5;
+  uint64 coercion_review_blocks = 6;
+  uint64 base_cooldown_blocks = 7;
+  uint32 max_counter_proposal_depth = 8;
+  uint64 default_human_split_bps = 9;
+  uint64 default_agent_split_bps = 10;
+  string min_partnership_stake = 11;
+  uint64 seed_partnership_duration = 12;
+  string seed_common_pot_cap = 13;
+}

@@ -510,7 +510,7 @@ func (k Keeper) PauseAllVestingByRecipient(ctx sdk.Context, recipient string) in
 	}
 	if paused > 0 {
 		ctx.EventManager().EmitEvent(
-			sdk.NewEvent("vesting_paused_misbehavior",
+			sdk.NewEvent("zerone.vesting_rewards.vesting_paused_misbehavior",
 				sdk.NewAttribute("recipient", recipient),
 				sdk.NewAttribute("count", fmt.Sprintf("%d", paused)),
 			),

@@ -1,0 +1,20 @@
+syntax = "proto3";
+package zerone.icaauth.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/icaauth/types";
+
+import "zerone/icaauth/v1/types.proto";
+
+// Params defines the icaauth module parameters.
+message Params {
+  uint64 max_remote_accounts_per_owner = 1;
+  repeated string allowed_host_msg_types = 2; // global allowlist for ICA tx messages
+  uint64 registration_cooldown        = 3; // blocks between registrations per owner
+  uint64 max_messages_per_tx          = 4; // max messages in a single ICA tx
+}
+
+// GenesisState defines the icaauth module genesis state.
+message GenesisState {
+  Params params                                = 1;
+  repeated InterchainAccountRecord records     = 2;
+}

@@ -1,0 +1,27 @@
+# Zerone Testnet Seed Nodes
+#
+# Format: <node-id>@<ip>:<port>
+#
+# Each line contains a CometBFT node ID (40-char hex), the node's public IP
+# address, and its P2P port (default 26656). Node IDs are derived from the
+# node's ed25519 key and can be obtained by running:
+#
+#   zeroned comet show-node-id --home $HOME/.zeroned
+#
+# Lines starting with '#' are comments and are ignored.
+#
+# To use these seeds, add them to your config.toml:
+#
+#   [p2p]
+#   seeds = "id1@ip1:port1,id2@ip2:port2"
+#
+# Or use the join-testnet.sh script which reads this file automatically:
+#
+#   scripts/join-testnet.sh --seeds seeds.txt
+#
+# ─── Seed nodes (populated at genesis ceremony) ─────────────────────────
+#
+# Example entry:
+# a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2@seeds.zerone.network:26656
+#
+# TODO: Replace with actual seed node entries after genesis ceremony.

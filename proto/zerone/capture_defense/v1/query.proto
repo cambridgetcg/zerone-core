@@ -1,0 +1,52 @@
+syntax = "proto3";
+package zerone.capture_defense.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/capture_defense/types";
+
+import "google/api/annotations.proto";
+import "zerone/capture_defense/v1/types.proto";
+import "zerone/capture_defense/v1/genesis.proto";
+
+// Query defines the capture_defense module query service.
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/capture_defense/v1/params";
+  }
+  rpc Reputation(QueryReputationRequest) returns (QueryReputationResponse) {
+    option (google.api.http).get = "/zerone/capture_defense/v1/reputation/{validator}";
+  }
+  rpc CaptureMetrics(QueryCaptureMetricsRequest) returns (QueryCaptureMetricsResponse) {
+    option (google.api.http).get = "/zerone/capture_defense/v1/metrics/{domain}";
+  }
+  rpc CrossStratumRequirements(QueryCrossStratumRequirementsRequest) returns (QueryCrossStratumRequirementsResponse) {
+    option (google.api.http).get = "/zerone/capture_defense/v1/cross_stratum";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}
+
+message QueryReputationRequest {
+  string validator = 1;
+  string domain    = 2; // optional: if set, return domain-specific rep
+}
+message QueryReputationResponse {
+  GlobalReputation  global  = 1;
+  StratumReputation stratum = 2;
+  DomainReputation  domain  = 3;
+  uint64 effective_score    = 4;
+}
+
+message QueryCaptureMetricsRequest {
+  string domain = 1;
+}
+message QueryCaptureMetricsResponse {
+  CaptureMetrics metrics = 1;
+}
+
+message QueryCrossStratumRequirementsRequest {}
+message QueryCrossStratumRequirementsResponse {
+  repeated CrossStratumRequirement requirements = 1;
+}

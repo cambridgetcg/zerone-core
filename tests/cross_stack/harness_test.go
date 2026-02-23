@@ -30,6 +30,19 @@ import (
 	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
 	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
 	zeronestakingkeeper "github.com/zerone-chain/zerone/x/staking/keeper"
+
+	// R7 module keepers
+	zeroneapkeeper "github.com/zerone-chain/zerone/x/autopoiesis/keeper"
+	zeronealignmentkeeper "github.com/zerone-chain/zerone/x/alignment/keeper"
+	zeroneresearchkeeper "github.com/zerone-chain/zerone/x/research/keeper"
+	zeronetreekeeper "github.com/zerone-chain/zerone/x/tree/keeper"
+	zeroneemkeeper "github.com/zerone-chain/zerone/x/evidence_mgmt/keeper"
+	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
+	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
+	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
+	zeronedisputeskeeper "github.com/zerone-chain/zerone/x/disputes/keeper"
+	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
+	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
 )
 
 const testChainID = "zerone-test-1"
@@ -46,6 +59,23 @@ type TestHarness struct {
 	// Zerone custom module keepers
 	AuthKeeper    zeroneauthkeeper.Keeper
 	StakingKeeper zeronestakingkeeper.Keeper
+
+	// Knowledge keeper
+	KnowledgeKeeper zeroneknowledgekeeper.Keeper
+
+	// R7 module keepers
+	AutopoiesisKeeper    zeroneapkeeper.Keeper
+	AlignmentKeeper      zeronealignmentkeeper.Keeper
+	ResearchKeeper       zeroneresearchkeeper.Keeper
+	TreeKeeper           zeronetreekeeper.Keeper
+	EvidenceMgmtKeeper   zeroneemkeeper.Keeper
+	ClaimingPotKeeper    zeronecpotkeeper.Keeper
+	EmergencyKeeper      zeroneemergencykeeper.Keeper
+	VestingRewardsKeeper vestingrewardskeeper.Keeper
+	DisputesKeeper       zeronedisputeskeeper.Keeper
+
+	// Governance keeper
+	GovKeeper zeronegovkeeper.Keeper
 
 	// Standard Cosmos SDK keepers
 	BankKeeper    bankkeeper.Keeper
@@ -199,8 +229,22 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		App:           app,
 		AuthKeeper:    app.ZeroneAuthKeeper,
 		StakingKeeper: app.ZeroneStakingKeeper,
-		BankKeeper:    app.BankKeeper,
-		AccountKeeper: app.AccountKeeper,
+		BankKeeper:      app.BankKeeper,
+		AccountKeeper:   app.AccountKeeper,
+		KnowledgeKeeper: app.KnowledgeKeeper,
+		GovKeeper:       app.ZeroneGovKeeper,
+
+		// R7 keepers
+		AutopoiesisKeeper:    app.AutopoiesisKeeper,
+		AlignmentKeeper:      app.AlignmentKeeper,
+		ResearchKeeper:       app.ResearchKeeper,
+		TreeKeeper:           app.TreeKeeper,
+		EvidenceMgmtKeeper:   app.EvidenceMgmtKeeper,
+		ClaimingPotKeeper:    app.ClaimingPotKeeper,
+		EmergencyKeeper:      app.EmergencyKeeper,
+		VestingRewardsKeeper: app.VestingRewardsKeeper,
+		DisputesKeeper:       app.DisputesKeeper,
+
 		currentHeight: 1,
 	}
 

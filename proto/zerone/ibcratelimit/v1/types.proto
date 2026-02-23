@@ -1,0 +1,24 @@
+syntax = "proto3";
+package zerone.ibcratelimit.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/ibcratelimit/types";
+
+// RateLimit defines a per-(channel, denom) flow cap with a sliding window.
+message RateLimit {
+  string channel_id   = 1;
+  string denom        = 2;
+  string max_send     = 3; // bigint string (uzrn)
+  string max_recv     = 4; // bigint string (uzrn)
+  uint64 window_blocks = 5;
+  string current_send = 6; // bigint string — accumulated in current window
+  string current_recv = 7; // bigint string — accumulated in current window
+  uint64 window_start = 8; // block height at which the current window began
+}
+
+// PacketFlow records an outbound packet for quota reversal on timeout/error ack.
+message PacketFlow {
+  string channel_id = 1;
+  uint64 sequence   = 2;
+  string denom      = 3;
+  string amount     = 4; // bigint string
+}

@@ -1,0 +1,55 @@
+syntax = "proto3";
+package zerone.research.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/research/types";
+
+// Research represents a research submission on-chain.
+message Research {
+  string id              = 1;  // unique research ID
+  string submitter       = 2;  // bech32 submitter address
+  string title           = 3;  // research title
+  string description     = 4;  // research description
+  string domain          = 5;  // knowledge domain
+  string research_type   = 6;  // "replication", "fraud_investigation", "methodology_audit", "data_validation"
+  string target_fact_id  = 7;  // target fact being researched
+  string stake           = 8;  // staked amount (bigint as string)
+  string status          = 9;  // "submitted", "under_review", "accepted", "rejected", "challenged"
+  uint32 review_count    = 10; // total reviews received
+  uint32 approve_count   = 11; // approval votes
+  uint32 reject_count    = 12; // rejection votes
+  uint32 revise_count    = 13; // revision requests
+  uint32 aggregate_score = 14; // aggregate quality score (0-100)
+  uint64 created_at      = 15; // block height when created
+  uint64 updated_at      = 16; // block height when last updated
+}
+
+// Bounty represents a research bounty.
+message Bounty {
+  string id              = 1;  // unique bounty ID
+  string creator         = 2;  // bech32 creator address
+  string title           = 3;  // bounty title
+  string description     = 4;  // bounty description
+  string domain          = 5;  // knowledge domain
+  string reward          = 6;  // reward amount (bigint as string)
+  uint64 deadline_height = 7;  // block height deadline
+  string status          = 8;  // "open", "claimed", "fulfilled", "expired"
+  string claimed_by      = 9;  // bech32 claimer address
+  string fulfilled_by    = 10; // bech32 fulfiller address
+  uint64 created_at      = 11; // block height when created
+}
+
+// PeerReview represents a review of a research submission.
+message PeerReview {
+  string id          = 1; // unique review ID
+  string research_id = 2; // research being reviewed
+  string reviewer    = 3; // bech32 reviewer address
+  string verdict     = 4; // "approve", "reject", "revise"
+  uint32 score       = 5; // quality score (0-100)
+  string reasoning   = 6; // review reasoning
+  uint64 reviewed_at = 7; // block height when reviewed
+}
+
+// TreasuryBalance tracks the research treasury balance.
+message TreasuryBalance {
+  string balance = 1; // current treasury balance (bigint as string)
+}

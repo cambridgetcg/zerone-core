@@ -1,0 +1,68 @@
+syntax = "proto3";
+package zerone.gov.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/gov/types";
+
+// LIP represents a Legible Improvement Proposal.
+message LIP {
+  string id              = 1;  // "LIP-1", "LIP-2", ...
+  string title           = 2;
+  string description     = 3;
+  string category        = 4;  // "parameter", "upgrade", "text", "research_spend"
+  string proposer        = 5;  // bech32 address
+  string stage           = 6;  // "draft", "review", "last_call", "voting", "passed", "failed", "withdrawn"
+  string staked_amount   = 7;  // uzrn total staked for this LIP
+  string yes_stake       = 8;  // total yes vote weight (delegator bonded stake)
+  string no_stake        = 9;  // total no vote weight
+  string abstain_stake   = 10; // total abstain vote weight
+  uint64 unique_voters   = 11;
+  uint64 created_at_block     = 12;
+  uint64 review_started_block = 13;
+  uint64 last_call_started_block = 14;
+  uint64 voting_end_block     = 15;
+  repeated ParamChange param_changes = 16;
+}
+
+// ParamChange describes a single parameter modification.
+message ParamChange {
+  string module = 1; // target module name
+  string key    = 2; // parameter key
+  string value  = 3; // new value (JSON-encoded)
+}
+
+// Vote records a single vote on a LIP.
+message Vote {
+  string lip_id = 1;
+  string voter  = 2; // bech32 address
+  string option = 3; // "yes", "no", "abstain"
+  string weight = 4; // voter's total bonded stake at time of vote
+}
+
+// ResearchFundVoters holds the 2-of-2 multisig addresses for research fund governance.
+message ResearchFundVoters {
+  string voter1 = 1; // bech32 address
+  string voter2 = 2; // bech32 address
+}
+
+// ResearchSpendProposal represents a 2-of-2 research fund spending proposal.
+message ResearchSpendProposal {
+  uint64 proposal_id     = 1;
+  string proposer        = 2;
+  string title           = 3;
+  string description     = 4;
+  string recipient       = 5;
+  string amount          = 6;
+  string justification   = 7;
+  string stage           = 8;
+  uint64 created_at      = 9;
+  uint64 voting_starts_at = 10;
+  uint64 voting_ends_at  = 11;
+  string voter1_vote     = 12;
+  string voter1_reason   = 13;
+  uint64 voter1_voted_at = 14;
+  string voter2_vote     = 15;
+  string voter2_reason   = 16;
+  uint64 voter2_voted_at = 17;
+  uint64 executed_at     = 18;
+  string execution_err   = 19;
+}

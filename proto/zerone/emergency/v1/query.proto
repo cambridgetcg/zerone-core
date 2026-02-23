@@ -1,0 +1,63 @@
+syntax = "proto3";
+package zerone.emergency.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/emergency/types";
+
+import "google/api/annotations.proto";
+import "zerone/emergency/v1/types.proto";
+import "zerone/emergency/v1/genesis.proto";
+
+// Query defines the emergency module's query service.
+service Query {
+  rpc Status(QueryStatusRequest) returns (QueryStatusResponse) {
+    option (google.api.http).get = "/zerone/emergency/v1/status";
+  }
+  rpc ActiveCeremony(QueryActiveCeremonyRequest) returns (QueryActiveCeremonyResponse) {
+    option (google.api.http).get = "/zerone/emergency/v1/ceremonies/active";
+  }
+  rpc CompletedCeremonies(QueryCompletedCeremoniesRequest) returns (QueryCompletedCeremoniesResponse) {
+    option (google.api.http).get = "/zerone/emergency/v1/ceremonies/completed";
+  }
+  rpc AuditLog(QueryAuditLogRequest) returns (QueryAuditLogResponse) {
+    option (google.api.http).get = "/zerone/emergency/v1/audit";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/emergency/v1/params";
+  }
+}
+
+message QueryStatusRequest {}
+message QueryStatusResponse {
+  string status = 1;
+  bool is_halted = 2;
+  string active_halt_ceremony_id = 3;
+}
+
+message QueryActiveCeremonyRequest {}
+message QueryActiveCeremonyResponse {
+  EmergencyCeremony ceremony = 1;
+  bool found = 2;
+}
+
+message QueryCompletedCeremoniesRequest {
+  uint32 limit = 1;
+  uint32 offset = 2;
+}
+message QueryCompletedCeremoniesResponse {
+  repeated EmergencyCeremony ceremonies = 1;
+  uint64 total = 2;
+}
+
+message QueryAuditLogRequest {
+  uint32 limit = 1;
+  uint32 offset = 2;
+}
+message QueryAuditLogResponse {
+  repeated EmergencyAuditEntry entries = 1;
+  uint64 total = 2;
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1;
+}

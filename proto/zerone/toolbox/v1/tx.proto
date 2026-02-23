@@ -1,0 +1,138 @@
+syntax = "proto3";
+package zerone.toolbox.v1;
+option go_package = "github.com/zerone-chain/zerone/x/toolbox/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/toolbox/v1/types.proto";
+import "zerone/toolbox/v1/genesis.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc RegisterTool(MsgRegisterTool) returns (MsgRegisterToolResponse);
+  rpc CallTool(MsgCallTool) returns (MsgCallToolResponse);
+  rpc AddContributor(MsgAddContributor) returns (MsgAddContributorResponse);
+  rpc AcceptContributorship(MsgAcceptContributorship) returns (MsgAcceptContributorshipResponse);
+  rpc UpgradeTool(MsgUpgradeTool) returns (MsgUpgradeToolResponse);
+  rpc DeprecateTool(MsgDeprecateTool) returns (MsgDeprecateToolResponse);
+  rpc RetireTool(MsgRetireTool) returns (MsgRetireToolResponse);
+  rpc LockShares(MsgLockShares) returns (MsgLockSharesResponse);
+  rpc UpdateDependency(MsgUpdateDependency) returns (MsgUpdateDependencyResponse);
+  rpc ToolHeartbeat(MsgToolHeartbeat) returns (MsgToolHeartbeatResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgRegisterTool {
+  option (cosmos.msg.v1.signer) = "deployer";
+  string deployer = 1;
+  string name = 2;
+  string description = 3;
+  string version = 4;
+  string tool_type = 5;
+  string contract_address = 6;
+  string service_id = 7;
+  string price_per_call = 8;
+  string target_price_usd = 9;
+  string min_price_per_call = 10;
+  string max_price_per_call = 11;
+  string source_hash = 12;
+  string api_schema = 13;
+  string license = 14;
+  repeated string tags = 15;
+  repeated string dependency_ids = 16;
+  string category = 17;
+  repeated string required_capabilities = 18;
+}
+message MsgRegisterToolResponse { string tool_id = 1; }
+
+message MsgCallTool {
+  option (cosmos.msg.v1.signer) = "caller";
+  string caller = 1;
+  string tool_id = 2;
+  bytes input = 3;
+  string max_fee = 4;
+}
+message MsgCallToolResponse { string call_id = 1; bool success = 2; }
+
+message MsgAddContributor {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  string tool_id = 2;
+  string contributor_address = 3;
+  string role = 4;
+  uint64 share_bps = 5;
+  repeated ShareReallocation reallocations = 6;
+}
+message ShareReallocation { string address = 1; uint64 new_share_bps = 2; }
+message MsgAddContributorResponse {}
+
+message MsgAcceptContributorship {
+  option (cosmos.msg.v1.signer) = "contributor_address";
+  string contributor_address = 1;
+  string tool_id = 2;
+}
+message MsgAcceptContributorshipResponse {}
+
+message MsgUpgradeTool {
+  option (cosmos.msg.v1.signer) = "deployer";
+  string deployer = 1;
+  string previous_tool_id = 2;
+  string new_version = 3;
+  string description = 4;
+  string contract_address = 5;
+  string service_id = 6;
+  string price_per_call = 7;
+  string target_price_usd = 8;
+  string min_price_per_call = 9;
+  string max_price_per_call = 10;
+  string source_hash = 11;
+  string api_schema = 12;
+  repeated string dependency_ids = 13;
+  string migration_notes = 14;
+}
+message MsgUpgradeToolResponse { string new_tool_id = 1; }
+
+message MsgDeprecateTool {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  string tool_id = 2;
+  string successor_tool_id = 3;
+}
+message MsgDeprecateToolResponse {}
+
+message MsgRetireTool {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  string tool_id = 2;
+}
+message MsgRetireToolResponse {}
+
+message MsgLockShares {
+  option (cosmos.msg.v1.signer) = "deployer";
+  string deployer = 1;
+  string tool_id = 2;
+}
+message MsgLockSharesResponse {}
+
+message MsgUpdateDependency {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  string tool_id = 2;
+  string old_dep_id = 3;
+  string new_dep_id = 4;
+}
+message MsgUpdateDependencyResponse {}
+
+message MsgToolHeartbeat {
+  option (cosmos.msg.v1.signer) = "sender";
+  string sender = 1;
+  repeated string active_tools = 2;
+}
+message MsgToolHeartbeatResponse {}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  Params params = 2;
+}
+message MsgUpdateParamsResponse {}

@@ -1,0 +1,36 @@
+syntax = "proto3";
+package zerone.qualification.v1;
+option go_package = "github.com/zerone-chain/zerone/x/qualification/types";
+
+import "zerone/qualification/v1/types.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated DomainQualification qualifications = 2;
+  repeated QualificationEndorsement endorsements = 3;
+  uint64 next_endorsement_id = 4;
+}
+
+message Params {
+  // Stake pathway
+  string min_stake_amount = 1;          // uzrn minimum for stake pathway
+  uint64 stake_lock_period = 2;         // blocks to lock stake
+
+  // Track record pathway
+  uint64 min_verifications = 3;         // minimum verifications for track record
+  uint64 min_accuracy_bps = 4;          // minimum accuracy (1M scale)
+  uint64 min_reputation_score = 5;      // minimum domain reputation (from CaptureDefense)
+
+  // Qualification settings
+  uint64 qualification_period = 6;      // blocks before qualification expires
+  uint64 probation_period = 7;          // blocks for probationary period
+  uint64 renewal_window = 8;            // blocks before expiry where renewal allowed
+  uint32 max_endorsements = 9;          // max endorsements per qualification
+
+  // Cross-reference
+  uint64 cross_ref_min_weight = 10;     // minimum weight in source domain
+  uint64 cross_ref_weight_discount_bps = 11; // discount applied to inherited weight (1M scale)
+
+  // Inheritance
+  uint64 inheritance_weight_discount_bps = 12; // discount for stratum inheritance (1M scale)
+}

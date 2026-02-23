@@ -1,0 +1,117 @@
+syntax = "proto3";
+package zerone.tree.v1;
+option go_package = "github.com/zerone-chain/zerone/x/tree/types";
+
+message ContributorRecord {
+  string did = 1;
+  string role = 2;
+  uint64 joined_at_block = 3;
+  uint32 tasks_completed = 4;
+  string total_earned = 5;
+}
+
+message ProductSpec {
+  string service_type = 1;
+  repeated string requirements = 2;
+  repeated string capabilities = 3;
+  string mvp_criteria = 4;
+}
+
+message FundingSource {
+  string type = 1;
+  string amount = 2;
+  string terms = 3;
+}
+
+message DemandSignal {
+  string type = 1;
+  map<string, string> evidence = 2;
+  string strength = 3;
+}
+
+message ProjectApplication {
+  string did = 1;
+  string proposed_role = 2;
+  string message = 3;
+  repeated string capabilities = 4;
+  uint64 applied_at_block = 5;
+  string status = 6;
+}
+
+message TaskDeliverable {
+  string hash = 1;
+  string uri = 2;
+  uint64 submitted_at_block = 3;
+  repeated string verified_by = 4;
+}
+
+message ProductProject {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string phase = 4;
+  string previous_phase = 5;
+  uint64 created_at_block = 6;
+  uint64 phase_changed_at_block = 7;
+  string knowledge_domain = 8;
+  string founder = 9;
+  repeated ContributorRecord contributors = 10;
+  string budget = 11;
+  string spent = 12;
+  repeated string task_ids = 13;
+  repeated string service_ids = 14;
+  uint32 total_tasks = 15;
+  uint32 completed_tasks = 16;
+  string revenue_generated = 17;
+  string parent_project_id = 18;
+  string pause_reason = 19;
+  repeated ProjectApplication applications = 20;
+  repeated FundingSource funding_sources = 21;
+}
+
+message ProjectTask {
+  string id = 1;
+  string project_id = 2;
+  string title = 3;
+  string description = 4;
+  string task_type = 5;
+  string assignee = 6;
+  string status = 7;
+  string bounty_amount = 8;
+  uint64 created_at_block = 9;
+  uint64 completed_at_block = 10;
+  TaskDeliverable deliverable = 11;
+  uint32 rejection_count = 12;
+  repeated string reviewers = 13;
+  repeated string required_capabilities = 14;
+}
+
+message ServiceLeaf {
+  string id = 1;
+  string project_id = 2;
+  string name = 3;
+  string description = 4;
+  string service_type = 5;
+  string contract_address = 6;
+  string total_calls = 7;
+  string total_revenue = 8;
+  string uptime_blocks = 9;
+  string status = 10;
+  uint64 deployed_at_block = 11;
+  uint64 last_called_block = 12;
+  string price_per_call = 13;
+  string subscription_price = 14;
+  repeated string capabilities = 15;
+}
+
+message OpportunitySeed {
+  string id = 1;
+  uint64 detected_at_block = 2;
+  string knowledge_domain = 3;
+  string confidence = 4;
+  string status = 5;
+  uint64 expires_at_block = 6;
+  string project_id = 7;
+  string claimed_by = 8;
+  DemandSignal signal = 9;
+}

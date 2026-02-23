@@ -1,0 +1,87 @@
+syntax = "proto3";
+package zerone.emergency.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/emergency/types";
+
+// EmergencyHaltProposal is the data attached to a halt ceremony.
+message EmergencyHaltProposal {
+  string id = 1;
+  string proposer = 2;
+  string reason = 3;
+  string evidence_hash = 4;
+  uint64 proposed_at_block = 5;
+  uint64 suggested_revert_block = 6;
+}
+
+// EmergencyRevertProposal is the data attached to a revert ceremony.
+message EmergencyRevertProposal {
+  string id = 1;
+  string proposer = 2;
+  uint64 target_block_number = 3;
+  string target_block_hash = 4;
+  string target_state_root = 5;
+  string justification = 6;
+  string halt_ceremony_id = 7;
+}
+
+// EmergencyResumeProposal is the data attached to a resume ceremony.
+message EmergencyResumeProposal {
+  string id = 1;
+  string proposer = 2;
+  uint64 resume_from_block = 3;
+  string resume_from_hash = 4;
+  string resume_state_root = 5;
+  string halt_ceremony_id = 6;
+  string revert_ceremony_id = 7;
+}
+
+// EmergencyVote represents a prevote (yes/no).
+message EmergencyVote {
+  string voter = 1;
+  bool approve = 2;
+}
+
+// EmergencyPrecommit represents a precommit (commit to yes prevote).
+message EmergencyPrecommit {
+  string voter = 1;
+}
+
+// PrevoteEntry is a map entry for ceremony prevotes.
+message PrevoteEntry {
+  string key = 1;
+  EmergencyVote value = 2;
+}
+
+// PrecommitEntry is a map entry for ceremony precommits.
+message PrecommitEntry {
+  string key = 1;
+  EmergencyPrecommit value = 2;
+}
+
+// EmergencyCeremony tracks a 2-phase BFT ceremony (prevote → precommit).
+message EmergencyCeremony {
+  string id = 1;
+  string type = 2;          // halt, revert, resume
+  string phase = 3;         // prevote, precommit, finalized, failed
+  bytes proposal_data = 4;
+  uint64 start_block = 5;
+  uint64 prevote_deadline = 6;
+  uint64 precommit_deadline = 7;
+  uint64 timeout_deadline = 8;
+  repeated PrevoteEntry prevotes = 9;
+  repeated PrecommitEntry precommits = 10;
+  string yes_prevote_stake = 11;   // bigint string
+  string no_prevote_stake = 12;    // bigint string
+  string precommit_stake = 13;     // bigint string
+  string failure_reason = 14;
+}
+
+// EmergencyAuditEntry records a single emergency action for the audit trail.
+message EmergencyAuditEntry {
+  int64 timestamp = 1;
+  uint64 block_number = 2;
+  string action = 3;
+  string actor = 4;
+  string ceremony_id = 5;
+  string details = 6;
+}
