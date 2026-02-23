@@ -545,6 +545,77 @@ func TestDecayAllReputations(t *testing.T) {
 	}
 }
 
+// ---------- Tests: UpdateParams ----------
+
+func TestUpdateParams(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	authority := k.GetAuthority()
+
+	srv := keeper.NewMsgServerImpl(k)
+	newParams := types.DefaultParams()
+	newParams.DecayEpochBlocks = 20000
+	newParams.HhiThreshold = 300000
+
+	_, err := srv.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: authority,
+		Params:    newParams,
+	})
+	if err != nil {
+		t.Fatalf("UpdateParams failed: %v", err)
+	}
+
+	got := k.GetParams(ctx)
+	if got.DecayEpochBlocks != 20000 {
+		t.Errorf("expected DecayEpochBlocks 20000, got %d", got.DecayEpochBlocks)
+	}
+	if got.HhiThreshold != 300000 {
+		t.Errorf("expected HhiThreshold 300000, got %d", got.HhiThreshold)
+	}
+}
+
+func TestUpdateParamsUnauthorized(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	srv := keeper.NewMsgServerImpl(k)
+
+	_, err := srv.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: testAddr(99),
+		Params:    types.DefaultParams(),
+	})
+	if err == nil {
+		t.Fatal("expected unauthorized error")
+	}
+}
+
+func TestUpdateParamsNilParams(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	authority := k.GetAuthority()
+	srv := keeper.NewMsgServerImpl(k)
+	_, err := srv.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: authority,
+		Params:    nil,
+	})
+	if err == nil {
+		t.Fatal("expected nil params error")
+	}
+}
+
+func TestUpdateParamsInvalid(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	authority := k.GetAuthority()
+	srv := keeper.NewMsgServerImpl(k)
+
+	badParams := types.DefaultParams()
+	badParams.DecayEpochBlocks = 0 // invalid: must be > 0
+
+	_, err := srv.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: authority,
+		Params:    badParams,
+	})
+	if err == nil {
+		t.Fatal("expected validation error for invalid params")
+	}
+}
+
 // ---------- Tests: CrossStratum ----------
 
 func TestCrossStratum(t *testing.T) {
