@@ -68,10 +68,16 @@ The decay uses exponentiation by squaring in fixed-point arithmetic (no floating
 
 ## Long-Term Supply Projections
 
+### Phase 0: Genesis (Block 0)
+- **0 ZRN in circulation** — no pre-mine, no bootstrap allocations
+- Validators participate via virtual stake (11 ZRN virtual weight)
+- Research fund, foundation, faucet all start empty
+
 ### Phase 1: Rapid Emission (Months 1–3)
-- ~8M ZRN minted
+- ~8M ZRN minted from block rewards alone
 - Rewards decrease rapidly (15%/epoch)
-- Establishes initial knowledge base
+- Research fund fills organically (13% of all rewards = ~1M ZRN)
+- Establishes initial knowledge base and economic activity
 
 ### Phase 2: Floor Emission (Month 3+)
 - 0.1 ZRN/block = ~10,000 ZRN per epoch (~2.9 days)

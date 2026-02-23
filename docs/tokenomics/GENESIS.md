@@ -1,35 +1,31 @@
 # Genesis Distribution
 
-## No Pre-Mine, No ICO
+## Zero Genesis Supply — Pure PoT Minting
 
-Zero ZRN is sold before launch. All genesis balances are **bootstrap allocations** for operational purposes:
+**No pre-mine. No ICO. No foundation allocation. No treasury bootstrap.**
 
-| Account | Mainnet Balance | Testnet Balance | Purpose |
-|---------|----------------|----------------|---------|
-| **Foundation** | 10,000,000 ZRN | 1,000,000 ZRN | Protocol development, grants, ecosystem |
-| **Research Treasury** | 5,000,000 ZRN | 500,000 ZRN | 2-of-2 multisig research fund |
-| **Faucet** | 500,000 ZRN | 100,000 ZRN | Testnet distribution, new user onboarding |
-| **Per Validator** | 1,000,000 ZRN | 100,000 ZRN | Validator operations |
-| **Per Validator Stake** | 100,000 ZRN | 10,000 ZRN | Initial self-delegation |
+Genesis circulating supply: **0 ZRN.**
 
-### Total Genesis Supply (Mainnet)
+Every single ZRN in existence is minted through Proof-of-Truth block rewards. The foundation, research treasury, and all participants start with nothing and earn everything through the protocol's own economic engine.
 
-With 3 validators at launch:
+This is a deliberate design choice. Most chains pre-fund insiders and call it "no pre-mine" with asterisks. Zerone has no asterisks.
 
-```
-Foundation:         10,000,000 ZRN
-Research Treasury:   5,000,000 ZRN
-Faucet:                500,000 ZRN
-Validators (3×1M):   3,000,000 ZRN
-────────────────────────────────
-Total:              18,500,000 ZRN  (8.3% of max supply)
-```
+### Bootstrap Problem
 
-With 22 validators (target):
+If nobody starts with ZRN, how do validators stake?
 
-```
-Total:              37,500,000 ZRN  (16.9% of max supply)
-```
+**Solution: Virtual Stake.** The `virtual_stake` parameter (11 ZRN) gives genesis validators VRF participation weight without real tokens. Apprentice-tier validators can produce blocks and earn rewards with zero self-delegation. As block rewards accumulate, validators self-delegate from earnings and progress through tiers organically.
+
+> **Open design question:** The Cosmos SDK `gentx` flow traditionally requires bonded tokens. The genesis ceremony may need modification to support virtual-only validators, or a minimal seed (e.g., 1 uzrn per validator — purely for gas, not capital) could bootstrap the first transactions.
+
+### Genesis Accounts
+
+| Account | Balance | Purpose |
+|---------|---------|---------|
+| **Genesis Validators** | 0 ZRN | Participate via virtual stake, earn from block 1 |
+| **Foundation** | 0 ZRN | Funded by governance proposals over time |
+| **Research Treasury** | 0 ZRN | Fills organically from 13% revenue share |
+| **Faucet** | 0 ZRN | Optional — funded by governance or validator tips |
 
 ## Genesis Ceremony
 

@@ -30,14 +30,11 @@ The SSI-based adaptive parameters are genuinely innovative — the chain adjusti
 
 ## What Needs Work
 
-### 1. Genesis Bootstrap Is Top-Heavy
+### 1. ~~Genesis Bootstrap Is Top-Heavy~~ → RESOLVED
 
-The foundation account holding 10M ZRN (4.5% of max supply) is concerning for decentralisation claims. The research treasury adds another 5M (2.25%). Combined with validator allocations, genesis insiders control 8–17% of max supply.
+**Decision: Zero genesis supply.** No foundation allocation, no research treasury bootstrap. Every ZRN minted through PoT block rewards. This eliminates the centralisation concern entirely.
 
-**Mitigation ideas:**
-- Time-lock the foundation allocation with on-chain vesting
-- Publish a transparent disbursement plan before launch
-- Consider reducing foundation allocation and increasing faucet/airdrop
+**New concern: Bootstrap friction.** With 0 ZRN at genesis, validators rely on virtual stake and earn from block 1. The research fund starts empty and fills organically from 13% revenue share. This is philosophically clean but means early-stage funding for ecosystem development depends entirely on block reward accumulation speed.
 
 ### 2. The Founder Share Is Uncomfortably Manual
 
@@ -126,7 +123,7 @@ The tokenomics are **significantly more thoughtful than typical crypto projects*
 
 The main risks are:
 - **Early validator wealth concentration** from aggressive decay
-- **Bootstrap centralisation** from large genesis allocations
+- **Bootstrap friction** — zero genesis supply means slow early funding for ecosystem
 - **Complexity** — 32 modules with independent parameters create a large governance surface area
 
 The main strengths are:

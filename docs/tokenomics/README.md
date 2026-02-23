@@ -25,7 +25,7 @@ Zerone is a **Proof-of-Truth** (PoT) blockchain where all tokens are minted thro
 | Metric | Value |
 |--------|-------|
 | **Max Supply** | 222,222,222 ZRN (hard cap, enforced in code) |
-| **Genesis Circulating** | 15,500,000 ZRN (bootstrap accounts, no pre-mine) |
+| **Genesis Circulating** | 0 ZRN (pure PoT — everything minted from block 1) |
 | **Initial Block Reward** | 10 ZRN/block |
 | **Block Time** | ~2.521 seconds |
 | **Epoch Length** | 100,000 blocks (~2.9 days) |

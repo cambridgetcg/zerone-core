@@ -7,7 +7,7 @@ A complete map of where ZRN is created, destroyed, locked, and moves through the
 | Source | Module | Mechanism | Cap |
 |--------|--------|-----------|-----|
 | **Block Rewards** | `vesting_rewards` | Minted per-block via PoT consensus | 222,222,222 ZRN total |
-| **Genesis Bootstrap** | genesis | Pre-funded accounts | One-time, ~15.5M–37.5M |
+| **Genesis Bootstrap** | genesis | None — 0 ZRN at genesis | 0 |
 
 There is only one ongoing source of new ZRN: block reward minting. All other token movement is redistribution of existing supply.
 
