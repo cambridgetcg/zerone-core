@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -133,7 +134,81 @@ func runValidate(args []string) error {
 
 	return nil
 }
-func runInject(args []string) error   { return fmt.Errorf("not implemented") }
+func runInject(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: axiom-loader inject <axioms.json> <genesis.json>")
+	}
+
+	axiomPath := args[0]
+	genesisPath := args[1]
+
+	axioms, err := ktypes.LoadAxiomsFromFile(axiomPath)
+	if err != nil {
+		return err
+	}
+
+	// Validate before injecting
+	domainNames := ktypes.AxiomDomainNames()
+	if err := ktypes.ValidateAxioms(axioms, domainNames); err != nil {
+		return fmt.Errorf("axiom validation failed: %w", err)
+	}
+
+	// Convert axioms to facts
+	facts := ktypes.AxiomsToFacts(axioms)
+
+	// Read genesis.json
+	genesisData, err := os.ReadFile(genesisPath)
+	if err != nil {
+		return fmt.Errorf("failed to read genesis: %w", err)
+	}
+
+	var genesis map[string]json.RawMessage
+	if err := json.Unmarshal(genesisData, &genesis); err != nil {
+		return fmt.Errorf("failed to parse genesis: %w", err)
+	}
+
+	var appState map[string]json.RawMessage
+	if err := json.Unmarshal(genesis["app_state"], &appState); err != nil {
+		return fmt.Errorf("failed to parse app_state: %w", err)
+	}
+
+	var knowledgeState map[string]json.RawMessage
+	if err := json.Unmarshal(appState["knowledge"], &knowledgeState); err != nil {
+		return fmt.Errorf("failed to parse knowledge state: %w", err)
+	}
+
+	// Marshal facts and inject
+	factsJSON, err := json.Marshal(facts)
+	if err != nil {
+		return fmt.Errorf("failed to marshal facts: %w", err)
+	}
+	knowledgeState["facts"] = factsJSON
+
+	// Reassemble
+	knowledgeJSON, err := json.Marshal(knowledgeState)
+	if err != nil {
+		return fmt.Errorf("failed to marshal knowledge: %w", err)
+	}
+	appState["knowledge"] = knowledgeJSON
+
+	appStateJSON, err := json.Marshal(appState)
+	if err != nil {
+		return fmt.Errorf("failed to marshal app_state: %w", err)
+	}
+	genesis["app_state"] = appStateJSON
+
+	result, err := json.MarshalIndent(genesis, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal genesis: %w", err)
+	}
+
+	if err := os.WriteFile(genesisPath, result, 0644); err != nil {
+		return fmt.Errorf("failed to write genesis: %w", err)
+	}
+
+	fmt.Printf("✓ Injected %d axioms into %s\n", len(facts), genesisPath)
+	return nil
+}
 func runStats(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: axiom-loader stats <axioms.json>")
