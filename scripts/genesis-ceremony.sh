@@ -149,11 +149,11 @@ cmd_init() {
 
   # Governance — production voting periods (~3 days voting, ~2 days discussion)
   patch '
-    .app_state.gov.params.voting_period_blocks = 102816 |
-    .app_state.gov.params.discussion_period_blocks = 68544 |
-    .app_state.gov.params.quorum_threshold_bps = 334000 |
-    .app_state.gov.params.support_threshold_bps = 500000 |
-    .app_state.gov.params.min_lip_stake = "1000000"
+    .app_state.zerone_gov.params.voting_period_blocks = 102816 |
+    .app_state.zerone_gov.params.discussion_period_blocks = 68544 |
+    .app_state.zerone_gov.params.quorum_threshold_bps = 334000 |
+    .app_state.zerone_gov.params.support_threshold_bps = 500000 |
+    .app_state.zerone_gov.params.min_lip_stake = "1000000"
   '
 
   # Emergency — production halt/revert quorums
@@ -165,6 +165,22 @@ cmd_init() {
     .app_state.emergency.params.min_distinct_voters = 4 |
     .app_state.emergency.params.max_halt_duration_blocks = 34272
   '
+
+  # Zerone staking — production tier system and slashing
+  patch '
+    .app_state.zerone_staking.params.unbonding_period = 268560 |
+    .app_state.zerone_staking.params.max_validators = 100 |
+    .app_state.zerone_staking.params.min_self_delegation = "111000" |
+    .app_state.zerone_staking.params.virtual_stake = "11000000" |
+    .app_state.zerone_staking.params.max_slashes_per_epoch = 2 |
+    .app_state.zerone_staking.params.slash_decay_period_blocks = 34272 |
+    .app_state.zerone_staking.params.max_slash_count_deactivate = 3 |
+    .app_state.zerone_staking.params.min_stake_for_verification = "111000" |
+    .app_state.zerone_staking.params.slash_escalation_bps = 100000 |
+    .app_state.zerone_staking.params.redelegation_cooldown_blocks = 1111
+  '
+  # NOTE: tier_configs use production defaults from DefaultTierConfigs()
+  # (4 tiers: Apprentice → Verified → Scholar → Guardian)
 
   # Vesting rewards — production block rewards and decay
   patch '
