@@ -19,16 +19,17 @@ New revenue split (must sum to 1,000,000 BPS):
 
 | Session | Focus | Depends On |
 |---------|-------|-----------|
+| R16-0 | Reward decay redesign: 850,000 → 994,478 (1-year half-life) | — |
 | R16-1 | Proto + generated code + common types | — |
 | R16-2 | vesting_rewards module (core revenue engine) | R16-1 |
 | R16-3 | Module-level revenue splits (billing, toolbox, tree, etc.) | R16-1 |
 | R16-4 | Tests — unit + integration + simulation | R16-2, R16-3 |
-| R16-5 | Genesis configs, parameter docs, CLI | R16-2 |
-| R16-6 | Audit pass — grep-verify zero remaining old references | R16-1–5 |
+| R16-5 | Genesis configs, parameter docs, CLI | R16-0, R16-2 |
+| R16-6 | Audit pass — grep-verify zero remaining old references | R16-0–5 |
 
 ## Wave Structure
 
-**Wave 1** (parallel): R16-1
+**Wave 1** (parallel): R16-0, R16-1
 **Wave 2** (parallel after R16-1): R16-2, R16-3
 **Wave 3** (parallel after Wave 2): R16-4, R16-5
 **Wave 4** (sequential, final): R16-6
