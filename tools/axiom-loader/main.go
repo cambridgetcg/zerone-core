@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	ktypes "github.com/zerone-chain/zerone/x/knowledge/types"
@@ -133,5 +134,118 @@ func runValidate(args []string) error {
 	return nil
 }
 func runInject(args []string) error   { return fmt.Errorf("not implemented") }
-func runStats(args []string) error    { return fmt.Errorf("not implemented") }
+func runStats(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: axiom-loader stats <axioms.json>")
+	}
+
+	axioms, err := ktypes.LoadAxiomsFromFile(args[0])
+	if err != nil {
+		return err
+	}
+
+	dagStats, err := ktypes.ComputeDAGStats(axioms)
+	if err != nil {
+		return err
+	}
+
+	// Group by domain
+	type domainInfo struct {
+		count    int
+		roots    int
+		types    map[string]bool
+		maxDepth int
+	}
+
+	depthOf := computeDepthMap(axioms)
+
+	domainMap := make(map[string]*domainInfo)
+	for _, a := range axioms {
+		di, ok := domainMap[a.Domain]
+		if !ok {
+			di = &domainInfo{types: make(map[string]bool)}
+			domainMap[a.Domain] = di
+		}
+		di.count++
+		di.types[a.ClaimType] = true
+		if len(a.Dependencies) == 0 {
+			di.roots++
+		}
+		d := depthOf[a.AxiomID]
+		if d > di.maxDepth {
+			di.maxDepth = d
+		}
+	}
+
+	var domainNames []string
+	for d := range domainMap {
+		domainNames = append(domainNames, d)
+	}
+	sort.Strings(domainNames)
+
+	fmt.Printf("%-20s %5s %5s %9s   %s\n", "Domain", "Count", "Roots", "Max Depth", "Types")
+	fmt.Println(strings.Repeat("─", 78))
+	for _, d := range domainNames {
+		di := domainMap[d]
+		var typeNames []string
+		for t := range di.types {
+			typeNames = append(typeNames, t)
+		}
+		sort.Strings(typeNames)
+		fmt.Printf("%-20s %5d %5d %9d   %s\n", d, di.count, di.roots, di.maxDepth, strings.Join(typeNames, ", "))
+	}
+
+	crossMatrix := ktypes.ComputeCrossDomainMatrix(axioms)
+	totalCross := 0
+	for _, e := range crossMatrix.Entries {
+		totalCross += e.Count
+	}
+
+	fmt.Printf("\n%-20s %5d %5d %9d\n", "Total:", len(axioms), dagStats.RootCount, dagStats.MaxDepth)
+	fmt.Printf("Cross-domain deps: %d\n", totalCross)
+
+	return nil
+}
+
+// computeDepthMap returns the DAG depth for each axiom ID via topological sort.
+func computeDepthMap(axioms []*ktypes.GenesisAxiom) map[string]int {
+	inDegree := make(map[string]int, len(axioms))
+	dependents := make(map[string][]string, len(axioms))
+
+	for _, a := range axioms {
+		if _, ok := inDegree[a.AxiomID]; !ok {
+			inDegree[a.AxiomID] = 0
+		}
+		for _, dep := range a.Dependencies {
+			inDegree[a.AxiomID]++
+			dependents[dep] = append(dependents[dep], a.AxiomID)
+		}
+	}
+
+	depth := make(map[string]int, len(axioms))
+	queue := make([]string, 0)
+	for id, deg := range inDegree {
+		if deg == 0 {
+			queue = append(queue, id)
+			depth[id] = 0
+		}
+	}
+
+	for len(queue) > 0 {
+		node := queue[0]
+		queue = queue[1:]
+		for _, dependent := range dependents[node] {
+			candidate := depth[node] + 1
+			if candidate > depth[dependent] {
+				depth[dependent] = candidate
+			}
+			inDegree[dependent]--
+			if inDegree[dependent] == 0 {
+				queue = append(queue, dependent)
+			}
+		}
+	}
+
+	return depth
+}
 func runEdges(args []string) error    { return fmt.Errorf("not implemented") }
