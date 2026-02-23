@@ -150,6 +150,33 @@ func (m msgServer) CallContract(goCtx context.Context, msg *types.MsgCallContrac
 
 	contractBytes := []byte(msg.ContractAddress)
 
+	// Resolve caller DID and session capabilities
+	var callerDID string
+	var caps *vm.SessionCapabilities
+	if m.authKeeper != nil {
+		if did, found := m.authKeeper.GetAccountDID(ctx, msg.Caller); found {
+			callerDID = did
+		}
+	}
+	if m.authKeeper != nil && callerDID != "" {
+		if sc, found := m.authKeeper.GetSessionCapabilities(ctx, msg.Caller, uint64(ctx.BlockHeight())); found {
+			// Session key: use restricted capabilities
+			caps = &vm.SessionCapabilities{
+				CanTransfer:     sc.CanTransfer,
+				CanStake:        sc.CanStake,
+				CanSubmitClaims: sc.CanSubmitClaims,
+				CanVote:         sc.CanVote,
+			}
+		} else {
+			// Identity/operational key with no session key → full access
+			caps = &vm.SessionCapabilities{
+				CanTransfer: true, CanStake: true,
+				CanSubmitClaims: true, CanVote: true,
+			}
+		}
+	}
+	// Anonymous caller (no DID): caps stays nil → all agent ops denied (C-1 secure default)
+
 	// Execution mode
 	mode := vm.ModeCall
 	if msg.StaticCall {
@@ -170,6 +197,8 @@ func (m msgServer) CallContract(goCtx context.Context, msg *types.MsgCallContrac
 		Bytecode:           code.Bytecode,
 		ChainID:            big.NewInt(2521),
 		ContractBvmVersion: contract.BvmVersion,
+		CallerDID:          callerDID,
+		Capabilities:       caps,
 	}
 
 	stateDB := vm.NewMemoryStateDB()
@@ -344,6 +373,27 @@ func (m msgServer) ScheduleContract(goCtx context.Context, msg *types.MsgSchedul
 	}
 	m.SetSchedule(ctx, schedule)
 
+	// Snapshot caller's capabilities at schedule creation time (P1-2).
+	if m.authKeeper != nil {
+		var callerDID string
+		if did, didFound := m.authKeeper.GetAccountDID(ctx, msg.Caller); didFound {
+			callerDID = did
+		}
+		if callerDID != "" {
+			var caps types.SessionCapabilities
+			if sc, scFound := m.authKeeper.GetSessionCapabilities(ctx, msg.Caller, currentBlock); scFound {
+				caps = sc
+			} else {
+				// Identity/operational key → full access
+				caps = types.SessionCapabilities{
+					CanTransfer: true, CanStake: true,
+					CanSubmitClaims: true, CanVote: true,
+				}
+			}
+			m.SetScheduleCapabilities(ctx, scheduleId, caps)
+		}
+	}
+
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.bvm.contract_scheduled",
 		sdk.NewAttribute("schedule_id", scheduleId),
@@ -459,6 +509,32 @@ func (k Keeper) ExecutePendingSchedules(ctx sdk.Context) {
 				callerBytes := make([]byte, 20)
 				copy(callerBytes, callerAddr)
 
+				// Resolve scheduler's DID and use stored capabilities (P1-2).
+				// Stored caps take priority (snapshot at creation time).
+				// Fallback to full access for backwards compat (pre-P1-2 schedules).
+				var schedCallerDID string
+				var schedCaps *vm.SessionCapabilities
+				if k.authKeeper != nil {
+					if did, found := k.authKeeper.GetAccountDID(ctx, schedule.Caller); found {
+						schedCallerDID = did
+					}
+				}
+				if storedCaps, hasCaps := k.GetScheduleCapabilities(ctx, schedule.ScheduleId); hasCaps {
+					// Use capabilities stored at schedule creation time
+					schedCaps = &vm.SessionCapabilities{
+						CanTransfer:     storedCaps.CanTransfer,
+						CanStake:        storedCaps.CanStake,
+						CanSubmitClaims: storedCaps.CanSubmitClaims,
+						CanVote:         storedCaps.CanVote,
+					}
+				} else if k.authKeeper != nil && schedCallerDID != "" {
+					// Backwards compat: no stored caps → full access (pre-P1-2 schedule)
+					schedCaps = &vm.SessionCapabilities{
+						CanTransfer: true, CanStake: true,
+						CanSubmitClaims: true, CanVote: true,
+					}
+				}
+
 				execCtx := &vm.ExecutionContext{
 					Caller:             callerBytes,
 					Origin:             callerBytes,
@@ -473,6 +549,8 @@ func (k Keeper) ExecutePendingSchedules(ctx sdk.Context) {
 					Bytecode:           code.Bytecode,
 					ChainID:            big.NewInt(2521),
 					ContractBvmVersion: contract.BvmVersion,
+					CallerDID:          schedCallerDID,
+					Capabilities:       schedCaps,
 				}
 
 				stateDB := vm.NewMemoryStateDB()

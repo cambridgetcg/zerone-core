@@ -142,6 +142,40 @@ func (m *mockKnowledgeKeeper) GetFactConfidence(_ context.Context, factId string
 	return conf, found
 }
 
+// ---------- Mock AuthKeeper ----------
+
+type mockAuthKeeper struct {
+	dids     map[string]string      // address -> DID
+	sessions map[string]mockSession // address -> session capabilities
+}
+
+type mockSession struct {
+	caps           types.SessionCapabilities
+	expiresAtBlock uint64
+}
+
+func newMockAuthKeeper() *mockAuthKeeper {
+	return &mockAuthKeeper{
+		dids:     make(map[string]string),
+		sessions: make(map[string]mockSession),
+	}
+}
+
+func (m *mockAuthKeeper) GetAccountDID(_ context.Context, address string) (string, bool) {
+	did, ok := m.dids[address]
+	return did, ok
+}
+
+func (m *mockAuthKeeper) GetSessionCapabilities(_ context.Context, owner string, blockHeight uint64) (types.SessionCapabilities, bool) {
+	sess, ok := m.sessions[owner]
+	if !ok || sess.expiresAtBlock <= blockHeight {
+		return types.SessionCapabilities{}, false
+	}
+	return sess.caps, true
+}
+
+var _ types.AuthKeeper = (*mockAuthKeeper)(nil)
+
 // ---------- Test Setup ----------
 
 func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
@@ -176,6 +210,39 @@ func setupMsgServer(t *testing.T) (types.MsgServer, keeper.Keeper, sdk.Context, 
 	t.Helper()
 	k, ctx, bk := setupKeeper(t)
 	return keeper.NewMsgServerImpl(k), k, ctx, bk
+}
+
+func setupKeeperWithAuth(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper, *mockAuthKeeper) {
+	t.Helper()
+
+	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
+
+	db := dbm.NewMemDB()
+	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
+	stateStore.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
+	if err := stateStore.LoadLatestVersion(); err != nil {
+		t.Fatalf("failed to load latest version: %v", err)
+	}
+
+	registry := codectypes.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(registry)
+
+	mockBK := newMockBankKeeper()
+	mockAuth := newMockAuthKeeper()
+
+	storeService := runtime.NewKVStoreService(storeKey)
+	k := keeper.NewKeeper(cdc, storeService, mockBK, testAuthority)
+	k.SetAuthKeeper(mockAuth)
+
+	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100, ChainID: testChainID}, false, log.NewNopLogger())
+
+	p := types.DefaultParams()
+	k.SetParams(ctx, &p)
+
+	// Fund deployer for deploy cost (all auth tests need to deploy contracts)
+	mockBK.setBalance(testDeployer, "uzrn", 100000000)
+
+	return k, ctx, mockBK, mockAuth
 }
 
 // ---------- Bytecode Helpers ----------

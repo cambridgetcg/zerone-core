@@ -60,8 +60,8 @@ patch() {
 
 # Validate genesis after a mutation
 validate_genesis() {
-  if ! ${BINARY} validate --home "${CEREMONY_HOME}" 2>/dev/null; then
-    if ! ${BINARY} validate-genesis --home "${CEREMONY_HOME}" 2>/dev/null; then
+  if ! ${BINARY} genesis validate-genesis --home "${CEREMONY_HOME}" 2>/dev/null; then
+    if ! ${BINARY} genesis validate --home "${CEREMONY_HOME}" 2>/dev/null; then
       die "Genesis validation FAILED after: $1"
     fi
   fi
@@ -320,7 +320,7 @@ cmd_add_validator() {
   info "Generating gentx (stake: 100K ZRN)..."
   mkdir -p "${CEREMONY_HOME}/config/gentx"
 
-  ${BINARY} gentx "${name}" "${VALIDATOR_STAKE}" \
+  ${BINARY} genesis gentx "${name}" "${VALIDATOR_STAKE}" \
     --chain-id "${CHAIN_ID}" \
     --keyring-backend ${KEYRING} \
     --home "${val_home}" \
@@ -387,7 +387,7 @@ cmd_finalize() {
 
   # ── Step 1: Collect all gentxs ───────────────────────────────────────
   info "Collecting ${gentx_count} gentxs..."
-  ${BINARY} collect-gentxs --home "${CEREMONY_HOME}" 2>/dev/null
+  ${BINARY} genesis collect-gentxs --home "${CEREMONY_HOME}" 2>/dev/null
   ok "Gentxs collected"
 
   # ── Step 2: Validate genesis ─────────────────────────────────────────

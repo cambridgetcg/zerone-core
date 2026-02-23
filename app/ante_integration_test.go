@@ -421,7 +421,9 @@ func TestAnteIntegration_BootstrapGasFreeAtHeight1(t *testing.T) {
 		0,
 	)
 
-	// The decorator should set infinite gas meter
+	// The decorator should set gas meter to BlockGasLimit so bootstrap txs
+	// can consume gas freely. We use BlockGasLimit (not infinite) because
+	// CometBFT's mempool rejects txs with gas_wanted > ConsensusParams.Block.MaxGas.
 	var receivedCtx sdk.Context
 	handler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		receivedCtx = ctx
@@ -433,10 +435,10 @@ func TestAnteIntegration_BootstrapGasFreeAtHeight1(t *testing.T) {
 		t.Fatalf("bootstrap gas-free should pass at height 1, got: %v", err)
 	}
 
-	// Check for infinite gas meter
-	if receivedCtx.GasMeter().Limit() != math.MaxUint64 {
-		t.Errorf("expected infinite gas meter (limit=%d), got limit=%d",
-			uint64(math.MaxUint64), receivedCtx.GasMeter().Limit())
+	// Check for BlockGasLimit gas meter
+	if receivedCtx.GasMeter().Limit() != BlockGasLimit {
+		t.Errorf("expected BlockGasLimit gas meter (limit=%d), got limit=%d",
+			BlockGasLimit, receivedCtx.GasMeter().Limit())
 	}
 }
 

@@ -29,3 +29,20 @@ type BillingKeeper interface {
 type HomeKeeper interface {
 	// Placeholder — home integration for BVM is future work.
 }
+
+// SessionCapabilities defines what a session key is allowed to do within BVM.
+// BVM-local copy to avoid cross-module type import from x/auth/types.
+type SessionCapabilities struct {
+	CanTransfer     bool
+	CanStake        bool
+	CanSubmitClaims bool
+	CanVote         bool
+}
+
+// AuthKeeper defines the expected auth module keeper interface for BVM.
+type AuthKeeper interface {
+	// GetAccountDID resolves a bech32 address to its DID. Returns ("", false) if unknown.
+	GetAccountDID(ctx context.Context, address string) (string, bool)
+	// GetSessionCapabilities returns active session capabilities for an owner at a block height.
+	GetSessionCapabilities(ctx context.Context, owner string, blockHeight uint64) (SessionCapabilities, bool)
+}

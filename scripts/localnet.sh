@@ -119,7 +119,8 @@ cmd_start() {
     .app_state.staking.params.bond_denom = "uzrn" |
     .app_state.slashing.params.signed_blocks_window = "100" |
     .app_state.slashing.params.slash_fraction_downtime = "0.010000000000000000" |
-    .app_state.gov.params.voting_period = "60s"
+    .app_state.gov.params.voting_period = "60s" |
+    .app_state.gov.params.expedited_voting_period = "30s"
   '
 
   # Knowledge module — fast params for local testing
@@ -215,7 +216,7 @@ cmd_start() {
     cp -r "${COORDINATOR_HOME}/keyring-test" "${local_home}/"
 
     # Generate gentx
-    ${BINARY} gentx "${local_name}" "${local_stake}${DENOM}" \
+    ${BINARY} genesis gentx "${local_name}" "${local_stake}${DENOM}" \
       --chain-id "${CHAIN_ID}" \
       --keyring-backend ${KEYRING} \
       --home "${local_home}" \
@@ -228,14 +229,12 @@ cmd_start() {
 
   # ── Step 7: Collect gentxs ──────────────────────────────────────────
   info "Collecting gentxs..."
-  ${BINARY} collect-gentxs --home "${COORDINATOR_HOME}" 2>/dev/null
+  ${BINARY} genesis collect-gentxs --home "${COORDINATOR_HOME}" 2>/dev/null
   ok "Gentxs collected"
 
   # ── Step 8: Validate genesis ────────────────────────────────────────
   info "Validating genesis..."
-  if ${BINARY} validate --home "${COORDINATOR_HOME}" 2>&1; then
-    ok "Genesis valid"
-  elif ${BINARY} validate-genesis --home "${COORDINATOR_HOME}" 2>&1; then
+  if ${BINARY} genesis validate --home "${COORDINATOR_HOME}" 2>&1; then
     ok "Genesis valid"
   else
     die "Genesis validation FAILED"
@@ -308,6 +307,12 @@ cmd_start() {
     sed -i.bak 's/^enabled-unsafe-cors = false/enabled-unsafe-cors = true/' "$app_toml"
     # Min gas prices
     sed -i.bak "s/^minimum-gas-prices = .*/minimum-gas-prices = \"0.025${DENOM}\"/" "$app_toml"
+    # Disable IAVL fast nodes (prevents "version does not exist" query errors)
+    sed -i.bak 's/^iavl-disable-fastnode = false/iavl-disable-fastnode = true/' "$app_toml"
+    # Disable inter-block cache for query reliability
+    sed -i.bak 's/^inter-block-cache = true/inter-block-cache = false/' "$app_toml"
+    # Enable mempool (default is no-op mempool which drops all transactions)
+    sed -i.bak 's/^max-txs = -1/max-txs = 5000/' "$app_toml"
 
     # Cleanup sed backups
     rm -f "${config_toml}.bak" "${app_toml}.bak"

@@ -2,6 +2,12 @@
 
 Every unit of ZRN revenue — whether from block rewards, transaction fees, billing queries, toolbox calls, tree deliverables, or dispute resolution — is routed through the same **4-way split**. This is the heartbeat of Zerone's economics.
 
+## Design Principle: No Burn
+
+**Every ZRN does productive work.** There is no burn share. Artificially destroying newly minted tokens is just minting less with extra steps. Instead, the share that would have been burned funds bug bounties, truth discovery incentives, and protocol development.
+
+The 222,222,222 ZRN hard cap provides natural scarcity. Deflation doesn't need to be manufactured.
+
 ## Primary Split (RevenueSplit)
 
 ```
@@ -10,25 +16,23 @@ Every unit of ZRN revenue — whether from block rewards, transaction fees, bill
                     └─────────┬───────────────┘
             ┌─────────────────┼──────────────────────┐
             │                 │                      │
-     ┌──────┴───────┐  ┌─────┴──────┐  ┌───────────┴──────────┐
-     │ Contributors │  │  Protocol  │  │ Research   │   Burn   │
-     │    55%       │  │    22%     │  │   13%      │   10%    │
-     └──────────────┘  └─────┬──────┘  └─────┬──────┴──────────┘
-                             │               │
-                    ┌────────┼────────┐      │
-                    │        │        │      │
-              ┌─────┴──┐ ┌──┴───┐ ┌──┴─┐   │
-              │Citation│ │Verify│ │Trea│   │
-              │  50%   │ │ 30%  │ │20% │   │
-              └────────┘ └──┬───┘ └────┘   │
-                            │              │
-                      ┌─────┴──────┐       │
-                      │ 70% Know   │       │
-                      │ 30% Compute│  ┌────┴────┐
-                      └────────────┘  │ Founder │
-                                      │  7% of  │
-                                      │ research│
-                                      └─────────┘
+     ┌──────┴───────┐  ┌─────┴──────┐  ┌───────────┴──────────────┐
+     │ Contributors │  │  Protocol  │  │ Development │  Research  │
+     │    55%       │  │    22%     │  │   19.67%    │   3.33%   │
+     └──────────────┘  └─────┬──────┘  └──────┬──────┴───────────┘
+                             │                │
+                    ┌────────┼────────┐       │
+                    │        │        │       │
+              ┌─────┴──┐ ┌──┴───┐ ┌──┴─┐    │
+              │Citation│ │Verify│ │Trea│    │
+              │  50%   │ │ 30%  │ │20% │    │
+              └────────┘ └──┬───┘ └────┘    │
+                            │               │
+                      ┌─────┴──────┐   ┌────┴────┐
+                      │ 70% Know   │   │ Founder │
+                      │ 30% Compute│   │  7% of  │
+                      └────────────┘   │ research│
+                                       └─────────┘
 ```
 
 ### BPS Values (1,000,000 scale)
@@ -37,10 +41,20 @@ Every unit of ZRN revenue — whether from block rewards, transaction fees, bill
 |-------|-----|-----------|-------------|
 | Contributor | 550,000 | 55% | Block producer / fact submitter / tool creator |
 | Protocol | 220,000 | 22% | Split further via ProtocolSubSplit |
-| Research | 130,000 | 13% | Research fund (2-of-2 multisig) |
-| Burn | 100,000 | 10% | Permanently destroyed |
+| Development | 196,700 | 19.67% | Bug bounties, truth discovery, protocol development |
+| Research | 33,300 | 3.33% | Research fund (2-of-2 multisig) |
 
-**Must sum to 1,000,000.** Burn is computed as the remainder after the other three to prevent rounding leaks.
+**Must sum to 1,000,000.** Development share is computed as remainder after the other three to prevent rounding leaks.
+
+## Development Fund
+
+The development pool (19.67%) is a new productive allocation replacing what was previously burned. It funds:
+
+- **Bug bounties** — security researchers and code auditors
+- **Truth discovery rewards** — bonus incentives for high-value knowledge contributions
+- **Protocol development** — grants for tooling, infrastructure, ecosystem growth
+
+The development fund is held in a dedicated module account (`development_fund`) and disbursed through governance proposals.
 
 ## Protocol Sub-Split
 
@@ -72,11 +86,11 @@ A temporary 7% deduction from the research fund portion:
 | `governance_activation_height` | 0 | Block height when share sunsets |
 
 **Effective founder income:**
-- 7% of 13% = **0.91% of total revenue**
+- 7% of 3.33% = **0.23% of total revenue**
 - This goes directly to the founder's address (not locked/vested)
 - If founder address is empty or invalid, 100% goes to research fund
 
-**Sunset mechanism:** When `governance_activation_height` is reached (set by governance vote), the founder share drops to zero and the full 13% research share flows to the research fund. This is a one-way ratchet — once governance activates, the founder share cannot be reinstated without a code upgrade.
+**Sunset mechanism:** When `governance_activation_height` is reached (set by governance vote), the founder share drops to zero and the full 3.33% research share flows to the research fund.
 
 ## Revenue Sources
 
@@ -98,11 +112,9 @@ Every revenue source flows through the same `DistributeRevenue` function:
 ### Fee Routing
 
 Transaction fees get special treatment via `RouteFees()`:
-- Research share (13%) is extracted from `fee_collector` → research fund
-- Burn share (10%) is extracted and burned
-- The remaining 77% (contributor + protocol) stays in `fee_collector` for Cosmos SDK's `x/distribution` to sweep to validators
-
-This ensures that even standard tx fees contribute to research and deflation.
+- Research share (3.33%) is extracted from `fee_collector` → research fund
+- Development share (19.67%) is extracted → development fund
+- The remaining ~77% (contributor + protocol) stays in `fee_collector` for Cosmos SDK's `x/distribution` to sweep to validators
 
 ## Governance Adjustability
 
@@ -115,6 +127,6 @@ The revenue split is the single most powerful governance lever. Adjusting it cha
 
 ## Consistency Guarantee
 
-Multiple modules independently apply revenue splits (toolbox, tree, billing). The `RevenueSplit` message is defined in `x/common` to ensure all modules use the same split structure. The actual BPS values are read from each module's own params, allowing per-module overrides if governance chooses to differentiate (e.g., giving toolbox creators a higher contributor share).
+Multiple modules independently apply revenue splits (toolbox, tree, billing). The `RevenueSplit` message is defined in `x/common` to ensure all modules use the same split structure. The actual BPS values are read from each module's own params, allowing per-module overrides if governance chooses to differentiate.
 
-Currently, all modules use the default 55/22/13/10 split. Divergence is possible but would require individual governance proposals per module.
+Currently, all modules use the default 55/22/19.67/3.33 split. Divergence is possible but would require individual governance proposals per module.

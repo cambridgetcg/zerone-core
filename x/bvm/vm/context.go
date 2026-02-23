@@ -33,6 +33,17 @@ type ExecutionContext struct {
 
 	ContractBvmVersion uint32
 	GasSchedule        *GasSchedule
+
+	CallerDID    string               // DID of the caller (empty if anonymous)
+	Capabilities *SessionCapabilities // nil = deny all agent opcodes (secure default)
+}
+
+// SessionCapabilities restricts what a session key can do within BVM execution.
+type SessionCapabilities struct {
+	CanTransfer     bool
+	CanStake        bool
+	CanSubmitClaims bool
+	CanVote         bool
 }
 
 // ExecutionResult is returned after bytecode execution completes.

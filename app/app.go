@@ -893,6 +893,8 @@ func NewZeroneApp(
 	)
 	bvmKnowledgeAdapter := zeroneknowledgekeeper.NewBVMKnowledgeAdapter(app.KnowledgeKeeper)
 	app.BVMKeeper.SetKnowledgeKeeper(bvmKnowledgeAdapter)
+	bvmAuthAdapter := zeroneauthkeeper.NewBVMAuthAdapter(app.ZeroneAuthKeeper)
+	app.BVMKeeper.SetAuthKeeper(bvmAuthAdapter)
 
 	disputesStakingAdapter := zeronestakingkeeper.NewDisputesStakingKeeperAdapter(app.ZeroneStakingKeeper)
 	disputesKnowledgeAdapter := zeroneknowledgekeeper.NewDisputesKnowledgeAdapter(app.KnowledgeKeeper)
@@ -1320,7 +1322,8 @@ func NewZeroneApp(
 			logger.Error("error loading latest version", "err", err)
 			os.Exit(1)
 		}
-	}
+
+		}
 
 	return app
 }
@@ -1345,7 +1348,22 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 	}
 
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap())
-	return app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
+	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
+	if err != nil {
+		return nil, err
+	}
+
+	// Write a sentinel key to every IAVL store so that none remain empty.
+	// Empty IAVL stores cause CacheMultiStoreWithVersion to fail because
+	// GetImmutable returns ErrVersionDoesNotExist for trees with a nil root.
+	for _, key := range app.keys {
+		store := ctx.KVStore(key)
+		if !store.Has([]byte("_iavl_init")) {
+			store.Set([]byte("_iavl_init"), []byte{0x01})
+		}
+	}
+
+	return resp, nil
 }
 
 // zrnDenomMetadata returns the canonical ZRN token denomination metadata.

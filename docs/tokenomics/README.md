@@ -31,16 +31,17 @@ Zerone is a **Proof-of-Truth** (PoT) blockchain where all tokens are minted thro
 | **Epoch Length** | 100,000 blocks (~2.9 days) |
 | **Decay Rate** | 0.85× per epoch |
 | **Floor Reward** | 0.1 ZRN/block |
-| **Burn Rate** | 10% of all revenue |
 | **Revenue to Contributors** | 55% |
 | **Revenue to Protocol** | 22% |
-| **Revenue to Research Fund** | 13% |
+| **Revenue to Development** | 19.67% (bug bounties, truth discovery, protocol dev) |
+| **Revenue to Research Fund** | 3.33% |
+| **Burn** | 0% — every ZRN does productive work |
 
 ## Design Philosophy
 
 1. **Truth creates value, not computation.** Block rewards flow only when the chain produces verified knowledge. Empty blocks earn nothing.
 
-2. **Deflationary by design.** 10% of all revenue is burned. The supply cap plus burning means the effective circulating supply will peak and decline over time.
+2. **Every token works.** No burn — all revenue goes to productive purposes. The 222M supply cap provides natural scarcity; artificial deflation through burning is unnecessary when you can fund bug bounties and truth discovery instead.
 
 3. **Knowledge has memory.** Rewards vest according to epistemic category — mathematical proofs vest slowly (because they should last forever), oracle feeds vest quickly (because they expire). If a claim is falsified, rewards are clawed back.
 

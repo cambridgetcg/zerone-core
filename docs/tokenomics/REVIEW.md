@@ -8,9 +8,9 @@
 
 The core loop is tight: **truth creates tokens → tokens fund more truth-seeking → better truth increases token value**. Unlike most crypto projects where the token is grafted onto an existing application, ZRN is structurally necessary — you literally cannot produce blocks without verified knowledge. The token isn't an afterthought; it's the substrate.
 
-### 2. Burn Mechanics Create Real Deflation
+### 2. No Burn — Every Token Works
 
-10% burn on all revenue isn't a gimmick — it's embedded at the protocol level and applies uniformly to block rewards, tx fees, billing queries, tool calls, dispute resolution. Combined with the supply cap and floor emission, the math converges to a deflationary equilibrium once economic activity reaches a certain threshold. This is more credible than most "deflationary token" claims because the burn is structural, not discretionary.
+Most chains burn tokens as a deflationary signal to markets. Zerone takes the opposite position: burning freshly minted tokens is just minting less with ceremony. The 19.67% that would have been burned instead funds bug bounties, truth discovery, and protocol development. The hard cap provides scarcity; artificial deflation is unnecessary when you can fund productive work instead.
 
 ### 3. Truth-Linked Vesting Is Novel
 
@@ -95,9 +95,9 @@ The 2-of-2 multisig between Yu and AI for the research fund is philosophically b
 
 1. **What's the equilibrium circulating supply?** With burns, vesting locks, staking, and the supply cap, the actual liquid supply at any given time is hard to model. A simulation would help.
 
-2. **Is the floor reward sustainable?** At 0.1 ZRN/block perpetually, that's ~1.26M ZRN/year. If the chain is still running in 100 years, that's 126M ZRN minted at floor rate — over half the cap (minus burns). Is the burn rate high enough to keep this sustainable?
+2. **When does the cap bind?** With no burn, the supply monotonically increases. At floor rate (~1.26M/year) plus early rapid emission (~8M in first 3 months), the cap could bind in decades. When `MintWithCap` starts clamping, block producers earn less. The transition is smooth (it mints whatever headroom remains) but the economic shift from minting-based to fee-based incentives needs testing.
 
-3. **What happens when the cap binds?** When `MintWithCap` starts clamping rewards, block producers suddenly earn less. Is there a smooth transition, or does it cliff? (Current code: smooth — it mints whatever headroom remains.)
+3. **Is the development fund governance-ready?** 19.67% of all revenue is a substantial fund. The governance mechanism for disbursing it (LIP proposals) needs to be robust from day 1. Without clear disbursement criteria, the fund could become a political football or sit idle.
 
 4. **Are knowledge query prices viable?** Base price of 1 ZRN per query is high. Even with the $0.01 target in dynamic pricing, early ZRN will likely be worth less than $0.01, making queries effectively free. Is that the intent?
 
@@ -127,7 +127,7 @@ The main risks are:
 - **Complexity** — 32 modules with independent parameters create a large governance surface area
 
 The main strengths are:
-- **Structural deflation** that doesn't rely on discretionary burning
+- **No-burn philosophy** — every token does productive work, scarcity from hard cap
 - **Knowledge-aligned incentives** that reward truth production over capital accumulation
 - **Self-healing economics** via autopoiesis/alignment
 

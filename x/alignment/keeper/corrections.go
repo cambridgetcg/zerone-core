@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -14,7 +13,7 @@ func (k Keeper) GenerateCorrections(ctx context.Context, scores *types.Dimension
 	params := k.GetParams(ctx)
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
-	now := time.Now().Unix()
+	now := sdkCtx.BlockTime().Unix()
 
 	var corrections []*types.CorrectionRecord
 

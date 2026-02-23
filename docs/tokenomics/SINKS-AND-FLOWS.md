@@ -13,25 +13,19 @@ There is only one ongoing source of new ZRN: block reward minting. All other tok
 
 ## Token Destruction (Sinks)
 
-| Sink | Module | BPS Rate | Trigger |
-|------|--------|----------|---------|
-| **Revenue Burn** | `vesting_rewards` | 100,000 (10%) | Every revenue distribution |
-| **Fee Burn** | `vesting_rewards` (RouteFees) | 100,000 (10%) | Every transaction fee |
-| **Falsification Burn** | `vesting_rewards` | Variable | Portion of clawback may be burned |
-| **Failed Challenge Slash** | `knowledge` | 220,000 (22%) | Challenger loses challenge |
-| **Slashing** | `staking` | Variable (5–22%) | Validator misbehaviour |
+**No burn.** Zerone does not destroy tokens. Every minted ZRN enters productive circulation.
+
+Slashing penalties and failed challenge stakes are redistributed (to challengers, arbiters, protocol pools) — not burned. The hard supply cap (222,222,222 ZRN) provides natural scarcity.
 
 ### Net Emission Rate
 
 At epoch 0 with full validator participation:
 - Minted per block: 10 ZRN
-- Burned per block: ~1 ZRN (10% of revenue)
-- **Net emission: ~9 ZRN/block**
+- **Net emission: 10 ZRN/block** (all enters circulation)
 
-At floor reward with mature fee economy:
+At floor reward:
 - Minted per block: 0.1 ZRN
-- Burned from fees: potentially > 0.1 ZRN
-- **Net emission: potentially negative** (deflationary)
+- **Net emission: 0.1 ZRN/block** (until cap binds)
 
 ## Locked ZRN (Not Circulating)
 
@@ -65,21 +59,21 @@ At floor reward with mature fee economy:
                     ║    4-WAY REVENUE SPLIT      ║
                     ╚═══╤═══╤════════╤════════╤═══╝
                         │   │        │        │
-                   55%  │   │ 22%    │ 13%    │ 10%
+                   55%  │   │ 22%    │19.67%  │ 3.33%
                         │   │        │        │
                   ┌─────┘   │   ┌────┘   ┌────┘
                   ▼         ▼   ▼        ▼
-            ┌──────────┐ ┌─────────┐ ┌────────┐ ╔══════════╗
-            │CONTRIBUTOR│ │PROTOCOL │ │RESEARCH│ ║  BURNED  ║
-            │(producer) │ │ POOLS   │ │ FUND   │ ║(forever) ║
-            └─────┬────┘ └────┬────┘ └───┬────┘ ╚══════════╝
-                  │           │           │
-                  │      ┌────┼────┐      │
-                  │      │    │    │   ┌──┴──┐
-                  │      ▼    ▼    ▼   ▼     ▼
-                  │   Citation  Verify  Research Founder
-                  │   Pool     Pool    Treasury (7% of
-                  │   (11%)   (6.6%)  (12.1%) research)
+            ┌──────────┐ ┌─────────┐ ┌───────────┐ ┌────────┐
+            │CONTRIBUTOR│ │PROTOCOL │ │DEVELOPMENT│ │RESEARCH│
+            │(producer) │ │ POOLS   │ │  FUND     │ │ FUND   │
+            └─────┬────┘ └────┬────┘ └───────────┘ └───┬────┘
+                  │           │                         │
+                  │      ┌────┼────┐                ┌───┴──┐
+                  │      │    │    │                ▼      ▼
+                  │      ▼    ▼    ▼           Research  Founder
+                  │   Citation  Verify         Treasury  (7% of
+                  │   Pool     Pool            (3.1%)  research)
+                  │   (11%)   (6.6%)
                   │            │
                   │       ┌────┴────┐
                   │       ▼         ▼
@@ -91,8 +85,8 @@ At floor reward with mature fee economy:
           ┌──────────────────────────┐
           │    CIRCULATING ECONOMY   │
           │                          │
-          │  tx fees → RouteFees()   │──── 10% burned
-          │  billing queries         │──── 13% to research
+          │  tx fees → RouteFees()   │──── 19.67% to development
+          │  billing queries         │──── 3.33% to research
           │  toolbox calls           │──── 55% to creators
           │  tree deliverables       │──── 22% to protocol
           │  channel operations      │
@@ -109,7 +103,8 @@ Key module accounts that hold ZRN:
 | Module Account | Purpose | Typical Balance |
 |----------------|---------|----------------|
 | `vesting_rewards` | Staging for minted rewards before distribution | Transient (per-block) |
-| `research_fund` | Accumulated research treasury | Growing (13% of all revenue) |
+| `development_fund` | Bug bounties, truth discovery, protocol dev | Growing (19.67% of all revenue) |
+| `research_fund` | Accumulated research treasury | Growing (3.33% of all revenue) |
 | `knowledge` | Verification reward pool | Variable |
 | `compute_pool` | Compute credits and rewards | Variable |
 | `fee_collector` (SDK) | Accumulated tx fees before distribution | Transient (per-block) |

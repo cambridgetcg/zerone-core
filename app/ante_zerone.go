@@ -107,8 +107,11 @@ func (bgd BootstrapGasFreeDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 		return next(ctx, tx, simulate)
 	}
 
-	// Set infinite gas meter — bootstrap tx pays no gas
-	ctx = ctx.WithGasMeter(storetypes.NewInfiniteGasMeter())
+	// Set gas meter to the block gas limit so bootstrap txs can consume
+	// gas freely without hitting out-of-gas errors. We can't use
+	// InfiniteGasMeter or math.MaxInt64 because CometBFT's mempool
+	// rejects txs with gas_wanted exceeding ConsensusParams.Block.MaxGas.
+	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(BlockGasLimit))
 
 	return next(ctx, tx, simulate)
 }

@@ -63,8 +63,8 @@ patch() {
 
 # Validate genesis after a mutation
 validate_genesis() {
-  if ! ${BINARY} validate --home "${CEREMONY_HOME}" 2>/dev/null; then
-    if ! ${BINARY} validate-genesis --home "${CEREMONY_HOME}" 2>/dev/null; then
+  if ! ${BINARY} genesis validate-genesis --home "${CEREMONY_HOME}" 2>/dev/null; then
+    if ! ${BINARY} genesis validate --home "${CEREMONY_HOME}" 2>/dev/null; then
       die "Genesis validation FAILED after: $1"
     fi
   fi
@@ -442,10 +442,10 @@ cmd_init() {
     .app_state.disputes.params.reward_rate_winner_bps = 400000 |
     .app_state.disputes.params.arbiter_reward_bps = 100000 |
     .app_state.disputes.params.tier_configs = [
-      {"arbiter_count":3,"min_bond":"1000000","evidence_period":500,"voting_period":1000,"quorum_bps":500000,"majority_bps":666667},
-      {"arbiter_count":7,"min_bond":"10000000","evidence_period":1000,"voting_period":2000,"quorum_bps":500000,"majority_bps":666667},
-      {"arbiter_count":13,"min_bond":"100000000","evidence_period":2000,"voting_period":5000,"quorum_bps":600000,"majority_bps":750000},
-      {"arbiter_count":21,"min_bond":"1000000000","evidence_period":5000,"voting_period":10000,"quorum_bps":666000,"majority_bps":800000}
+      {"tier":1,"arbiter_count":3,"min_bond":"1000000","evidence_period":500,"voting_period":1000,"quorum_bps":500000,"majority_bps":666667},
+      {"tier":2,"arbiter_count":7,"min_bond":"10000000","evidence_period":1000,"voting_period":2000,"quorum_bps":500000,"majority_bps":666667},
+      {"tier":3,"arbiter_count":13,"min_bond":"100000000","evidence_period":2000,"voting_period":5000,"quorum_bps":600000,"majority_bps":750000},
+      {"tier":4,"arbiter_count":21,"min_bond":"1000000000","evidence_period":5000,"voting_period":10000,"quorum_bps":666000,"majority_bps":800000}
     ]
   '
   ok "Disputes: escalation_delay=250 + 4 tier configs (halved from prod)"
@@ -760,7 +760,7 @@ cmd_add_validator() {
   info "Generating gentx (stake: 10K ZRN)..."
   mkdir -p "${CEREMONY_HOME}/config/gentx"
 
-  ${BINARY} gentx "${name}" "${VALIDATOR_STAKE}" \
+  ${BINARY} genesis gentx "${name}" "${VALIDATOR_STAKE}" \
     --chain-id "${CHAIN_ID}" \
     --keyring-backend ${KEYRING} \
     --home "${val_home}" \
@@ -827,7 +827,7 @@ cmd_finalize() {
 
   # ── Step 1: Collect all gentxs ───────────────────────────────────────
   info "Collecting ${gentx_count} gentxs..."
-  ${BINARY} collect-gentxs --home "${CEREMONY_HOME}" 2>/dev/null
+  ${BINARY} genesis collect-gentxs --home "${CEREMONY_HOME}" 2>/dev/null
   ok "Gentxs collected"
 
   # ── Step 2: Validate genesis ─────────────────────────────────────────

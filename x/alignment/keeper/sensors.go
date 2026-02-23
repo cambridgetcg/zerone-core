@@ -3,7 +3,6 @@ package keeper
 import (
 	"context"
 	"math/big"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -17,7 +16,7 @@ func (k Keeper) ObserveAll(ctx context.Context) *types.AlignmentObservation {
 
 	return &types.AlignmentObservation{
 		Height:                  height,
-		Timestamp:               time.Now().Unix(),
+		Timestamp:               sdkCtx.BlockTime().Unix(),
 		KnowledgeQuality:        k.senseKnowledgeQuality(ctx),
 		EconomicStability:       k.senseEconomicStability(ctx),
 		GovernanceParticipation: k.senseGovernanceParticipation(ctx),

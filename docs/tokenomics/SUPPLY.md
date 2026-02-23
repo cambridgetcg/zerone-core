@@ -82,11 +82,12 @@ The decay uses exponentiation by squaring in fixed-point arithmetic (no floating
 ### Phase 2: Floor Emission (Month 3+)
 - 0.1 ZRN/block = ~10,000 ZRN per epoch (~2.9 days)
 - ~1.26M ZRN/year at floor rate
-- Counterbalanced by 10% burn on all revenue
+- No burn — all minted ZRN enters productive circulation
 
-### Phase 3: Net Deflationary (Long-term)
-- As on-chain economic activity (billing, toolbox, disputes, channels) grows, fee-based burns may exceed floor minting
-- The cap of 222M ZRN is unlikely to ever be reached; practical circulating supply will be much lower
+### Phase 3: Cap Approach (Long-term)
+- At ~1.26M ZRN/year floor rate, reaching 222M takes ~170 years from genesis
+- In practice, higher early emission means cap approaches sooner (decades, not centuries)
+- When cap binds, economy transitions to pure fee-based incentives
 
 ### Effective Circulating Supply
 
@@ -94,18 +95,13 @@ Not all minted ZRN is immediately liquid:
 - **Vesting locks**: Rewards vest over time linked to epistemic category (months to years)
 - **Staking locks**: Validators stake ZRN with 7-day unbonding
 - **Challenge reserves**: 5–20% of vesting rewards held as permanent reserve
-- **Burns**: 10% of every revenue event is permanently destroyed
+- **Development fund**: 19.67% of revenue held for governance-directed disbursement
 
-## Burn Recycling
+## Supply Cap Mechanics
 
-A critical design choice: `MintWithCap` checks current bank supply, not cumulative minted. This means:
+`MintWithCap` checks **current bank supply** (not cumulative minted). Since Zerone has no burn mechanism, the supply monotonically increases toward the hard cap. The cap will bind when total circulating + locked ZRN reaches 222,222,222 ZRN.
 
-1. Block rewards mint 10 ZRN at block 1
-2. 1 ZRN (10%) is burned
-3. The supply cap headroom is now slightly higher
-4. Future blocks can mint into that headroom
-
-This creates a **sustainable long-term emission** even with a hard cap, as long as economic activity generates enough burning. The system is designed so that the cap binds only if burning stops — which would mean economic activity has stopped, at which point new minting isn't needed anyway.
+At that point, block reward minting stops and the economy runs purely on transaction fees and existing token velocity. This is a deliberate end-state: the knowledge base is mature enough that new minting isn't needed to incentivise participation.
 
 ## Comparison to Other Chains
 
@@ -117,4 +113,4 @@ This creates a **sustainable long-term emission** even with a hard cap, as long 
 | Cosmos Hub | PoS inflation | Variable | Dynamic | No cap |
 | Osmosis | Thirdening | Variable | 33%/year | 1,000,000,000 |
 
-Zerone's decay is faster than Bitcoin's halvings but reaches a permanent floor rather than zero. Combined with active burning, this creates a deflationary equilibrium that Bitcoin's model doesn't achieve until ~2140.
+Zerone's decay is faster than Bitcoin's halvings but reaches a permanent floor rather than zero. Unlike Bitcoin (and most chains), Zerone has no burn — every minted token does productive work. The hard cap provides scarcity; deflation doesn't need to be manufactured.
