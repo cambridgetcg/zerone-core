@@ -14,6 +14,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgArbiterVote{}, "zerone_disputes/ArbiterVote", nil)
 	cdc.RegisterConcrete(&MsgEscalateDispute{}, "zerone_disputes/EscalateDispute", nil)
 	cdc.RegisterConcrete(&MsgSettleDispute{}, "zerone_disputes/SettleDispute", nil)
+	cdc.RegisterConcrete(&MsgUpdateParams{}, "zerone_disputes/UpdateParams", nil)
 }
 
 // RegisterInterfaces registers the disputes module interface implementations.
@@ -25,5 +26,6 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgArbiterVote{},
 		&MsgEscalateDispute{},
 		&MsgSettleDispute{},
+		&MsgUpdateParams{},
 	)
 }

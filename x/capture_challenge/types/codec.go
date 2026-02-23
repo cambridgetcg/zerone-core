@@ -11,6 +11,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgAddEvidence{}, "zerone_capture_challenge/AddEvidence", nil)
 	cdc.RegisterConcrete(&MsgResolveChallenge{}, "zerone_capture_challenge/ResolveChallenge", nil)
 	cdc.RegisterConcrete(&MsgFundBountyPool{}, "zerone_capture_challenge/FundBountyPool", nil)
+	cdc.RegisterConcrete(&MsgUpdateParams{}, "zerone_capture_challenge/UpdateParams", nil)
 }
 
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
@@ -19,5 +20,6 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgAddEvidence{},
 		&MsgResolveChallenge{},
 		&MsgFundBountyPool{},
+		&MsgUpdateParams{},
 	)
 }

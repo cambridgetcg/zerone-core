@@ -18,6 +18,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgConfigureGuardian{}, "zerone_home/ConfigureGuardian", nil)
 	cdc.RegisterConcrete(&MsgAcknowledgeAlert{}, "zerone_home/AcknowledgeAlert", nil)
 	cdc.RegisterConcrete(&MsgSetSpendingLimit{}, "zerone_home/SetSpendingLimit", nil)
+	cdc.RegisterConcrete(&MsgUpdateParams{}, "zerone_home/UpdateParams", nil)
 }
 
 // RegisterInterfaces registers the home module interface implementations.
@@ -33,5 +34,6 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgConfigureGuardian{},
 		&MsgAcknowledgeAlert{},
 		&MsgSetSpendingLimit{},
+		&MsgUpdateParams{},
 	)
 }
