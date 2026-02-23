@@ -532,3 +532,28 @@ func (k msgServer) SetSpendingLimit(goCtx context.Context, msg *types.MsgSetSpen
 
 	return &types.MsgSetSpendingLimitResponse{}, nil
 }
+
+// UpdateParams handles MsgUpdateParams — governance-gated parameter update.
+func (k msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	if k.GetAuthority() != msg.Authority {
+		return nil, fmt.Errorf("unauthorized: expected %s, got %s", k.GetAuthority(), msg.Authority)
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg.Params == nil {
+		return nil, fmt.Errorf("params cannot be nil")
+	}
+	if err := msg.Params.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid params: %w", err)
+	}
+	k.SetParams(ctx, msg.Params)
+
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent(
+			"zerone.home.params_updated",
+			sdk.NewAttribute("authority", msg.Authority),
+		),
+	)
+
+	return &types.MsgUpdateParamsResponse{}, nil
+}

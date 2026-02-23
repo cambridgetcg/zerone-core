@@ -384,3 +384,28 @@ func (m msgServer) FundBountyPool(goCtx context.Context, msg *types.MsgFundBount
 
 	return &types.MsgFundBountyPoolResponse{}, nil
 }
+
+// UpdateParams handles MsgUpdateParams — governance-gated parameter update.
+func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	if m.GetAuthority() != msg.Authority {
+		return nil, fmt.Errorf("unauthorized: expected %s, got %s", m.GetAuthority(), msg.Authority)
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg.Params == nil {
+		return nil, fmt.Errorf("params cannot be nil")
+	}
+	if err := msg.Params.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid params: %w", err)
+	}
+	m.SetParams(ctx, msg.Params)
+
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent(
+			"zerone.capture_challenge.params_updated",
+			sdk.NewAttribute("authority", msg.Authority),
+		),
+	)
+
+	return &types.MsgUpdateParamsResponse{}, nil
+}
