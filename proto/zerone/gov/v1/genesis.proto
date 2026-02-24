@@ -39,4 +39,8 @@ message GenesisState {
   repeated Vote   votes           = 3;
   uint64          next_lip_number = 4;
   repeated GenesisUpgradePlan upgrade_plans = 5;
+  ResearchFundGovernanceState research_fund_governance = 6;
+  repeated SeatElectionProposal seat_elections = 7;
+  repeated SeatElectionVote seat_election_votes = 8;
+  uint64 next_seat_election_number = 9;
 }
