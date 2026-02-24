@@ -135,6 +135,19 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 		return nil, fmt.Errorf("commit phase has ended at block %d", round.CommitDeadline)
 	}
 
+	// Verifier minimum balance gate (stopgap until full qualification module)
+	if m.keeper.bankKeeper != nil {
+		verifierAddr, err := sdk.AccAddressFromBech32(msg.Verifier)
+		if err != nil {
+			return nil, fmt.Errorf("invalid verifier address: %w", err)
+		}
+		bal := m.keeper.bankKeeper.GetBalance(ctx, verifierAddr, "uzrn")
+		minBalance := sdkmath.NewInt(100_000_000) // 100 ZRN
+		if bal.Amount.LT(minBalance) {
+			return nil, fmt.Errorf("verifier does not meet minimum balance requirement")
+		}
+	}
+
 	// Check for duplicate commitment
 	if existing := findCommitByVerifier(round.Commits, msg.Verifier); existing != nil {
 		return nil, fmt.Errorf("verifier %s already committed to round %s", msg.Verifier, msg.RoundId)

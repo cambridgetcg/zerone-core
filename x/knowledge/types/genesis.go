@@ -9,9 +9,9 @@ func DefaultParams() Params {
 		// ─── Core verification ────────────────────────────────────────────────
 		MinVerifiers:          3,
 		MaxVerifiers:          22,
-		CommitPhaseBlocks:     4,
-		RevealPhaseBlocks:     4,
-		AggregationPhaseBlocks: 3,
+		CommitPhaseBlocks:     200,
+		RevealPhaseBlocks:     200,
+		AggregationPhaseBlocks: 50,
 		ClaimCooldownBlocks:   50,
 
 		// ─── Confidence scoring ───────────────────────────────────────────────

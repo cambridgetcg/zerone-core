@@ -122,9 +122,9 @@ func TestDefaultParams_CoreVerification(t *testing.T) {
 
 	require.Equal(t, uint64(3), p.MinVerifiers)
 	require.Equal(t, uint64(22), p.MaxVerifiers)
-	require.Equal(t, uint64(4), p.CommitPhaseBlocks)
-	require.Equal(t, uint64(4), p.RevealPhaseBlocks)
-	require.Equal(t, uint64(3), p.AggregationPhaseBlocks)
+	require.Equal(t, uint64(200), p.CommitPhaseBlocks)
+	require.Equal(t, uint64(200), p.RevealPhaseBlocks)
+	require.Equal(t, uint64(50), p.AggregationPhaseBlocks)
 	require.Equal(t, uint64(50), p.ClaimCooldownBlocks)
 }
 

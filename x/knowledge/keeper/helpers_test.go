@@ -315,9 +315,9 @@ func makeRoundInPhase(id, claimID string, phase types.VerificationPhase, startBl
 		ClaimId:             claimID,
 		StartedAtBlock:      startBlock,
 		Phase:               phase,
-		CommitDeadline:      startBlock + 4,
-		RevealDeadline:      startBlock + 8,
-		AggregationDeadline: startBlock + 11,
+		CommitDeadline:      startBlock + 200,
+		RevealDeadline:      startBlock + 400,
+		AggregationDeadline: startBlock + 450,
 	}
 }
 

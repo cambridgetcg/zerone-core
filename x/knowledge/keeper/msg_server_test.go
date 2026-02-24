@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
@@ -182,17 +183,20 @@ func TestMsgServer_SubmitClaim_EmptyDomainAllowed(t *testing.T) {
 // ─── SubmitCommitment ───────────────────────────────────────────────────────
 
 func TestMsgServer_SubmitCommitment_Success(t *testing.T) {
-	k, ctx := setupKnowledgeTest(t)
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
 	ms := keeper.NewMsgServerImpl(k)
 
-	// Create a round with commit deadline in the future (98+4=102 > 100)
+	// Fund verifier with sufficient balance (100 ZRN = 100_000_000 uzrn)
+	verifier := makeValidBech32Addr("validator1")
+	bk.balances[verifier] = sdk.NewCoins(sdk.NewInt64Coin("uzrn", 200_000_000))
+
 	round := makeRoundInPhase("commit-round-1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 98)
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
 	hash := computeMsgServerCommitHash("accept", []byte("salt123"))
 
 	resp, err := ms.SubmitCommitment(ctx, &types.MsgSubmitCommitment{
-		Verifier:   "zrn1validator1",
+		Verifier:   verifier,
 		RoundId:    "commit-round-1",
 		CommitHash: hash,
 	})
@@ -203,7 +207,7 @@ func TestMsgServer_SubmitCommitment_Success(t *testing.T) {
 	updated, found := k.GetVerificationRound(ctx, "commit-round-1")
 	require.True(t, found)
 	require.Len(t, updated.Commits, 1)
-	require.Equal(t, "zrn1validator1", updated.Commits[0].Verifier)
+	require.Equal(t, verifier, updated.Commits[0].Verifier)
 }
 
 func TestMsgServer_SubmitCommitment_RoundNotFound(t *testing.T) {
@@ -239,8 +243,16 @@ func TestMsgServer_SubmitCommitment_PastDeadline(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 	ms := keeper.NewMsgServerImpl(k)
 
-	// Round with commit deadline at 90+4=94, context at block 100
-	round := makeRoundInPhase("expired-commit", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 90)
+	// Manually construct round with commit deadline in the past (94 < 100)
+	round := &types.VerificationRound{
+		Id:                  "expired-commit",
+		ClaimId:             "c1",
+		Phase:               types.VerificationPhase_VERIFICATION_PHASE_COMMIT,
+		StartedAtBlock:      90,
+		CommitDeadline:      94,
+		RevealDeadline:      298,
+		AggregationDeadline: 348,
+	}
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
 	_, err := ms.SubmitCommitment(ctx, &types.MsgSubmitCommitment{
@@ -253,29 +265,53 @@ func TestMsgServer_SubmitCommitment_PastDeadline(t *testing.T) {
 }
 
 func TestMsgServer_SubmitCommitment_DuplicateVerifier(t *testing.T) {
-	k, ctx := setupKnowledgeTest(t)
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
 	ms := keeper.NewMsgServerImpl(k)
 
-	// Deadline at 98+4=102 > 100
+	verifier := makeValidBech32Addr("validator1")
+	bk.balances[verifier] = sdk.NewCoins(sdk.NewInt64Coin("uzrn", 200_000_000))
+
 	round := makeRoundInPhase("dup-commit", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 98)
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
 	hash := computeMsgServerCommitHash("accept", []byte("salt1"))
 
 	_, err := ms.SubmitCommitment(ctx, &types.MsgSubmitCommitment{
-		Verifier:   "zrn1validator1",
+		Verifier:   verifier,
 		RoundId:    "dup-commit",
 		CommitHash: hash,
 	})
 	require.NoError(t, err)
 
 	_, err = ms.SubmitCommitment(ctx, &types.MsgSubmitCommitment{
-		Verifier:   "zrn1validator1",
+		Verifier:   verifier,
 		RoundId:    "dup-commit",
 		CommitHash: hash,
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "already committed")
+}
+
+func TestMsgServer_SubmitCommitment_InsufficientBalance(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	ms := keeper.NewMsgServerImpl(k)
+
+	// Verifier with only 50 ZRN (below 100 ZRN minimum)
+	verifier := makeValidBech32Addr("poorval1")
+	bk.balances[verifier] = sdk.NewCoins(sdk.NewInt64Coin("uzrn", 50_000_000))
+
+	round := makeRoundInPhase("bal-gate-round", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 98)
+	require.NoError(t, k.SetVerificationRound(ctx, round))
+
+	hash := computeMsgServerCommitHash("accept", []byte("salt1"))
+
+	_, err := ms.SubmitCommitment(ctx, &types.MsgSubmitCommitment{
+		Verifier:   verifier,
+		RoundId:    "bal-gate-round",
+		CommitHash: hash,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "verifier does not meet minimum balance requirement")
 }
 
 // ─── SubmitReveal ───────────────────────────────────────────────────────────

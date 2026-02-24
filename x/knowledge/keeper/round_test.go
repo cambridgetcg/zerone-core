@@ -95,9 +95,9 @@ func TestCreateVerificationRound_Success(t *testing.T) {
 	require.Equal(t, uint64(100), round.StartedAtBlock) // ctx height is 100
 
 	// Deadlines based on DefaultParams
-	require.Equal(t, uint64(104), round.CommitDeadline)  // +4
-	require.Equal(t, uint64(108), round.RevealDeadline)  // +8
-	require.Equal(t, uint64(111), round.AggregationDeadline) // +11
+	require.Equal(t, uint64(300), round.CommitDeadline)  // +200
+	require.Equal(t, uint64(500), round.RevealDeadline)  // +400
+	require.Equal(t, uint64(550), round.AggregationDeadline) // +450
 
 	// Claim should be updated
 	updatedClaim, found := k.GetClaim(ctx, "claim-create-round")
@@ -349,10 +349,10 @@ func TestGetExpectedPhase_Reveal(t *testing.T) {
 	params := types.DefaultParams()
 	round := makeRoundInPhase("r1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 100)
 
-	phase := keeper.GetExpectedPhase(round, 104, &params) // at commit deadline
+	phase := keeper.GetExpectedPhase(round, round.CommitDeadline, &params) // at commit deadline
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_REVEAL, phase)
 
-	phase = keeper.GetExpectedPhase(round, 107, &params) // before reveal deadline
+	phase = keeper.GetExpectedPhase(round, round.RevealDeadline-1, &params) // before reveal deadline
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_REVEAL, phase)
 }
 
@@ -360,10 +360,10 @@ func TestGetExpectedPhase_Aggregation(t *testing.T) {
 	params := types.DefaultParams()
 	round := makeRoundInPhase("r1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 100)
 
-	phase := keeper.GetExpectedPhase(round, 108, &params) // at reveal deadline
+	phase := keeper.GetExpectedPhase(round, round.RevealDeadline, &params) // at reveal deadline
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, phase)
 
-	phase = keeper.GetExpectedPhase(round, 110, &params) // before aggregation deadline
+	phase = keeper.GetExpectedPhase(round, round.AggregationDeadline-1, &params) // before aggregation deadline
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, phase)
 }
 
@@ -371,10 +371,10 @@ func TestGetExpectedPhase_Expired(t *testing.T) {
 	params := types.DefaultParams()
 	round := makeRoundInPhase("r1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 100)
 
-	phase := keeper.GetExpectedPhase(round, 111, &params) // at aggregation deadline
+	phase := keeper.GetExpectedPhase(round, round.AggregationDeadline, &params) // at aggregation deadline
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_EXPIRED, phase)
 
-	phase = keeper.GetExpectedPhase(round, 200, &params) // way past deadline
+	phase = keeper.GetExpectedPhase(round, round.AggregationDeadline+100, &params) // way past deadline
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_EXPIRED, phase)
 }
 
@@ -406,9 +406,8 @@ func TestAdvanceRoundPhases_CommitToReveal(t *testing.T) {
 	round := makeRoundInPhase("r-advance-1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 90)
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
-	// Advance context past commit deadline (90+4 = 94)
-	ctx = advanceBlocks(ctx, -6) // height = 94
-	ctx = ctx.WithBlockHeight(94)
+	// Advance context to commit deadline
+	ctx = ctx.WithBlockHeight(int64(round.CommitDeadline))
 	require.NoError(t, k.AdvanceRoundPhases(ctx))
 
 	got, _ := k.GetVerificationRound(ctx, "r-advance-1")
@@ -445,8 +444,8 @@ func TestAdvanceRoundPhases_ExpiredWithInsufficientReveals(t *testing.T) {
 	round := makeRoundInPhase("r-expire", "claim-expire", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 80)
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
-	// Jump well past aggregation deadline (80+11=91)
-	ctx = ctx.WithBlockHeight(95)
+	// Jump well past aggregation deadline
+	ctx = ctx.WithBlockHeight(int64(round.AggregationDeadline) + 5)
 	require.NoError(t, k.AdvanceRoundPhases(ctx))
 
 	got, _ := k.GetVerificationRound(ctx, "r-expire")
@@ -490,16 +489,17 @@ func TestConcurrentRounds_NoInterference(t *testing.T) {
 func TestConcurrentRounds_IndependentPhases(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
-	// Round 1: just started (commit phase, deadline far away)
-	round1 := makeRoundInPhase("r-ind-1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 100)
-	// Round 2: nearly expired (started much earlier)
+	// Round 1: starts later (commit phase, deadline far away)
+	round1 := makeRoundInPhase("r-ind-1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 1000)
+	// Round 2: started much earlier (will expire first)
 	round2 := makeRoundInPhase("r-ind-2", "c2", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 80)
 
 	require.NoError(t, k.SetVerificationRound(ctx, round1))
 	require.NoError(t, k.SetVerificationRound(ctx, round2))
 
-	// At height 91, round2 should expire (80+11=91), round1 should stay in commit
-	ctx = ctx.WithBlockHeight(91)
+	// At a height past round2's aggregation deadline but before round1's commit deadline
+	testHeight := int64(round2.AggregationDeadline) + 5
+	ctx = ctx.WithBlockHeight(testHeight)
 	require.NoError(t, k.AdvanceRoundPhases(ctx))
 
 	got1, _ := k.GetVerificationRound(ctx, "r-ind-1")
@@ -868,8 +868,8 @@ func TestRound_CleanupExpiredRounds(t *testing.T) {
 	active := k.GetActiveRounds(ctx)
 	require.Len(t, active, 1)
 
-	// Jump well past aggregation deadline (80+11=91), triggers expiration
-	ctx = ctx.WithBlockHeight(95)
+	// Jump well past aggregation deadline, triggers expiration
+	ctx = ctx.WithBlockHeight(int64(round.AggregationDeadline) + 5)
 	require.NoError(t, k.AdvanceRoundPhases(ctx))
 
 	// Should no longer appear in active rounds
