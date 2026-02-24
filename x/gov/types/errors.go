@@ -23,4 +23,7 @@ var (
 	ErrDiscussionPeriodActive   = errors.Register(ModuleName, 19, "cannot vote during discussion period")
 	ErrResearchAlreadyVoted     = errors.Register(ModuleName, 20, "voter has already voted")
 	ErrResearchVotersNotSet     = errors.Register(ModuleName, 21, "research fund voters not configured")
+	ErrInsufficientApprovals    = errors.Register(ModuleName, 22, "insufficient approvals for research spend")
+	ErrNotResearchFundVoter     = errors.Register(ModuleName, 23, "not an authorized research fund voter for current phase")
+	ErrPhaseFullGovernance      = errors.Register(ModuleName, 24, "research fund is in full governance phase; use standard LIP process")
 )
