@@ -1668,3 +1668,53 @@ func TestGetResearchFundThreshold_FullGovernance(t *testing.T) {
 		t.Errorf("Phase 3: expected 0-of-0, got %d-of-%d", required, total)
 	}
 }
+
+// ---------- Phase State Tests ----------
+
+func TestGetResearchFundPhase_Default(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	phase := k.GetResearchFundPhase(ctx)
+	if phase != types.ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR {
+		t.Errorf("expected default GENESIS_PAIR, got %v", phase)
+	}
+}
+
+func TestSetResearchFundPhase(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	k.SetResearchFundPhase(ctx, types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER)
+	phase := k.GetResearchFundPhase(ctx)
+	if phase != types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER {
+		t.Errorf("expected OBSERVER, got %v", phase)
+	}
+
+	// Verify full state is updated correctly.
+	state := k.GetResearchFundGovernanceState(ctx)
+	if state.CurrentPhase != types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER {
+		t.Error("state.CurrentPhase not updated")
+	}
+	if state.PhaseStartedAtBlock != 100 {
+		t.Errorf("expected phase_started_at_block=100, got %d", state.PhaseStartedAtBlock)
+	}
+	if state.ProposalsExecutedInPhase != 0 {
+		t.Error("expected proposals counter to reset on phase transition")
+	}
+}
+
+func TestIncrementProposalsExecuted(t *testing.T) {
+	k, ctx := setupKeeper(t)
+
+	// Initial count should be 0.
+	state := k.GetResearchFundGovernanceState(ctx)
+	if state.ProposalsExecutedInPhase != 0 {
+		t.Errorf("expected 0, got %d", state.ProposalsExecutedInPhase)
+	}
+
+	// Increment twice.
+	k.IncrementProposalsExecuted(ctx)
+	k.IncrementProposalsExecuted(ctx)
+
+	state = k.GetResearchFundGovernanceState(ctx)
+	if state.ProposalsExecutedInPhase != 2 {
+		t.Errorf("expected 2, got %d", state.ProposalsExecutedInPhase)
+	}
+}

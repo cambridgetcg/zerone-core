@@ -3,6 +3,7 @@ package keeper
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -244,6 +245,66 @@ func (k Keeper) IterateUpgradePlans(ctx sdk.Context, cb func(lipID string, plan 
 	}
 }
 
+// ---------- Research Fund Governance State ----------
+
+// SetResearchFundGovernanceState stores the research fund governance state.
+func (k Keeper) SetResearchFundGovernanceState(ctx sdk.Context, state *types.ResearchFundGovernanceState) {
+	store := ctx.KVStore(k.storeKey)
+	bz, err := json.Marshal(state)
+	if err != nil {
+		panic(err)
+	}
+	store.Set(types.ResearchFundGovernanceKey, bz)
+}
+
+// GetResearchFundGovernanceState retrieves the research fund governance state.
+func (k Keeper) GetResearchFundGovernanceState(ctx sdk.Context) *types.ResearchFundGovernanceState {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.ResearchFundGovernanceKey)
+	if bz == nil {
+		return types.DefaultResearchFundGovernanceState()
+	}
+	var state types.ResearchFundGovernanceState
+	if err := json.Unmarshal(bz, &state); err != nil {
+		panic(err)
+	}
+	return &state
+}
+
+// GetResearchFundPhase returns the current research fund governance phase.
+func (k Keeper) GetResearchFundPhase(ctx sdk.Context) types.ResearchFundPhase {
+	state := k.GetResearchFundGovernanceState(ctx)
+	return state.CurrentPhase
+}
+
+// SetResearchFundPhase stores the current phase, resets the proposals counter,
+// records the transition block, and emits a transition event.
+func (k Keeper) SetResearchFundPhase(ctx sdk.Context, phase types.ResearchFundPhase) {
+	state := k.GetResearchFundGovernanceState(ctx)
+	oldPhase := state.CurrentPhase
+	state.CurrentPhase = phase
+	state.PhaseStartedAtBlock = uint64(ctx.BlockHeight())
+	state.LastTransitionBlock = uint64(ctx.BlockHeight())
+	state.ProposalsExecutedInPhase = 0
+	k.SetResearchFundGovernanceState(ctx, state)
+
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent(
+			"zerone.gov.research_fund_phase_transition",
+			sdk.NewAttribute("from_phase", oldPhase.String()),
+			sdk.NewAttribute("to_phase", phase.String()),
+			sdk.NewAttribute("block_height", fmt.Sprintf("%d", ctx.BlockHeight())),
+		),
+	)
+}
+
+// IncrementProposalsExecuted increments the executed proposal counter for the current phase.
+func (k Keeper) IncrementProposalsExecuted(ctx sdk.Context) {
+	state := k.GetResearchFundGovernanceState(ctx)
+	state.ProposalsExecutedInPhase++
+	k.SetResearchFundGovernanceState(ctx, state)
+}
+
 // ---------- Genesis ----------
 
 // InitGenesis initializes the module's state from a genesis state.
@@ -268,6 +329,13 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 		if v.Voter1 != "" && v.Voter2 != "" {
 			k.SetResearchFundVoters(ctx, v)
 		}
+	}
+
+	// Restore research fund governance state.
+	if gs.ResearchFundGovernance != nil {
+		k.SetResearchFundGovernanceState(ctx, gs.ResearchFundGovernance)
+	} else {
+		k.SetResearchFundGovernanceState(ctx, types.DefaultResearchFundGovernanceState())
 	}
 }
 
@@ -297,10 +365,11 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	})
 
 	return &types.GenesisState{
-		Params:        params,
-		Lips:          allLIPs,
-		Votes:         k.GetAllVotes(ctx),
-		NextLipNumber: k.GetNextLIPNumber(ctx),
-		UpgradePlans:  upgradePlans,
+		Params:                 params,
+		Lips:                   allLIPs,
+		Votes:                  k.GetAllVotes(ctx),
+		NextLipNumber:          k.GetNextLIPNumber(ctx),
+		UpgradePlans:           upgradePlans,
+		ResearchFundGovernance: k.GetResearchFundGovernanceState(ctx),
 	}
 }
