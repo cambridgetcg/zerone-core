@@ -305,6 +305,158 @@ func (k Keeper) IncrementProposalsExecuted(ctx sdk.Context) {
 	k.SetResearchFundGovernanceState(ctx, state)
 }
 
+// ---------- Seat Election Proposal CRUD ----------
+
+// GetSeatElection retrieves a seat election proposal by ID.
+func (k Keeper) GetSeatElection(ctx sdk.Context, id uint64) (*types.SeatElectionProposal, bool) {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.SeatElectionKey(id))
+	if bz == nil {
+		return nil, false
+	}
+	var prop types.SeatElectionProposal
+	if err := json.Unmarshal(bz, &prop); err != nil {
+		return nil, false
+	}
+	return &prop, true
+}
+
+// SetSeatElection stores a seat election proposal.
+func (k Keeper) SetSeatElection(ctx sdk.Context, prop *types.SeatElectionProposal) {
+	store := ctx.KVStore(k.storeKey)
+	bz, err := json.Marshal(prop)
+	if err != nil {
+		panic("failed to marshal seat election proposal: " + err.Error())
+	}
+	store.Set(types.SeatElectionKey(prop.ProposalId), bz)
+}
+
+// GetNextSeatElectionID returns the next seat election proposal ID.
+func (k Keeper) GetNextSeatElectionID(ctx sdk.Context) uint64 {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.SeatElectionCounterKey)
+	if bz == nil {
+		return 1
+	}
+	return binary.BigEndian.Uint64(bz)
+}
+
+// SetNextSeatElectionID sets the next seat election proposal ID.
+func (k Keeper) SetNextSeatElectionID(ctx sdk.Context, id uint64) {
+	store := ctx.KVStore(k.storeKey)
+	bz := make([]byte, 8)
+	binary.BigEndian.PutUint64(bz, id)
+	store.Set(types.SeatElectionCounterKey, bz)
+}
+
+// IterateSeatElections iterates over all seat election proposals.
+func (k Keeper) IterateSeatElections(ctx sdk.Context, cb func(*types.SeatElectionProposal) bool) {
+	store := ctx.KVStore(k.storeKey)
+	iter := storetypes.KVStorePrefixIterator(store, types.SeatElectionKeyPrefix)
+	defer iter.Close()
+
+	for ; iter.Valid(); iter.Next() {
+		var prop types.SeatElectionProposal
+		if err := json.Unmarshal(iter.Value(), &prop); err != nil {
+			continue
+		}
+		if cb(&prop) {
+			break
+		}
+	}
+}
+
+// GetSeatElectionsByStage returns all seat election proposals with the given stage.
+func (k Keeper) GetSeatElectionsByStage(ctx sdk.Context, stage string) []*types.SeatElectionProposal {
+	var result []*types.SeatElectionProposal
+	k.IterateSeatElections(ctx, func(prop *types.SeatElectionProposal) bool {
+		if prop.Stage == stage {
+			result = append(result, prop)
+		}
+		return false
+	})
+	return result
+}
+
+// GetAllSeatElections returns all seat election proposals.
+func (k Keeper) GetAllSeatElections(ctx sdk.Context) []*types.SeatElectionProposal {
+	var result []*types.SeatElectionProposal
+	k.IterateSeatElections(ctx, func(prop *types.SeatElectionProposal) bool {
+		result = append(result, prop)
+		return false
+	})
+	return result
+}
+
+// ---------- Seat Election Vote CRUD ----------
+
+// SetSeatElectionVote stores a seat election vote and sets the dedupe key.
+func (k Keeper) SetSeatElectionVote(ctx sdk.Context, vote *types.SeatElectionVote) {
+	store := ctx.KVStore(k.storeKey)
+	bz, err := json.Marshal(vote)
+	if err != nil {
+		panic("failed to marshal seat election vote: " + err.Error())
+	}
+	store.Set(types.SeatElectionVoteKey(vote.ProposalId, vote.Voter), bz)
+	// Set dedupe key.
+	store.Set(types.SeatElectionVoteDedupeKey(vote.ProposalId, vote.Voter), []byte{1})
+}
+
+// GetSeatElectionVote retrieves a seat election vote by proposal ID and voter.
+func (k Keeper) GetSeatElectionVote(ctx sdk.Context, proposalID uint64, voter string) (*types.SeatElectionVote, bool) {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.SeatElectionVoteKey(proposalID, voter))
+	if bz == nil {
+		return nil, false
+	}
+	var vote types.SeatElectionVote
+	if err := json.Unmarshal(bz, &vote); err != nil {
+		return nil, false
+	}
+	return &vote, true
+}
+
+// HasSeatElectionVoted checks if a voter has already voted on a seat election.
+func (k Keeper) HasSeatElectionVoted(ctx sdk.Context, proposalID uint64, voter string) bool {
+	store := ctx.KVStore(k.storeKey)
+	return store.Has(types.SeatElectionVoteDedupeKey(proposalID, voter))
+}
+
+// GetVotesForSeatElection returns all votes for a given seat election proposal.
+func (k Keeper) GetVotesForSeatElection(ctx sdk.Context, proposalID uint64) []*types.SeatElectionVote {
+	store := ctx.KVStore(k.storeKey)
+	prefix := types.SeatElectionVotePrefixForProposal(proposalID)
+	iter := storetypes.KVStorePrefixIterator(store, prefix)
+	defer iter.Close()
+
+	var result []*types.SeatElectionVote
+	for ; iter.Valid(); iter.Next() {
+		var vote types.SeatElectionVote
+		if err := json.Unmarshal(iter.Value(), &vote); err != nil {
+			continue
+		}
+		result = append(result, &vote)
+	}
+	return result
+}
+
+// GetAllSeatElectionVotes returns all seat election votes in the store.
+func (k Keeper) GetAllSeatElectionVotes(ctx sdk.Context) []*types.SeatElectionVote {
+	store := ctx.KVStore(k.storeKey)
+	iter := storetypes.KVStorePrefixIterator(store, types.SeatElectionVoteKeyPrefix)
+	defer iter.Close()
+
+	var result []*types.SeatElectionVote
+	for ; iter.Valid(); iter.Next() {
+		var vote types.SeatElectionVote
+		if err := json.Unmarshal(iter.Value(), &vote); err != nil {
+			continue
+		}
+		result = append(result, &vote)
+	}
+	return result
+}
+
 // ---------- Distinct Voter Tracking ----------
 
 // RecordDistinctVoter records a unique governance participant. Append-only:

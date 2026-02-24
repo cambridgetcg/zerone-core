@@ -62,3 +62,13 @@ func (a *GovStakingKeeperAdapter) CountActiveGuardians(ctx context.Context) (uin
 	})
 	return count, nil
 }
+
+// IsGuardian returns true if the address is a Guardian-tier active validator.
+func (a *GovStakingKeeperAdapter) IsGuardian(ctx context.Context, addr string) (bool, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	val, found := a.k.GetValidator(sdkCtx, addr)
+	if !found {
+		return false, nil
+	}
+	return val.Tier == types.TierGuardian && val.IsActive, nil
+}

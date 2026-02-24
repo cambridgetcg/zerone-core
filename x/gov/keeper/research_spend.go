@@ -169,15 +169,21 @@ func (k Keeper) countResearchSpendApprovals(ctx sdk.Context, prop *types.Researc
 	return count
 }
 
-// CountCommunitySeatVotes counts how many community seat votes exist in the store.
+// CountCommunitySeatVotes counts community seat votes cast on proposals
+// created during the current phase (since PhaseStartedAtBlock).
 func (k Keeper) CountCommunitySeatVotes(ctx sdk.Context, state *types.ResearchFundGovernanceState) uint64 {
 	var count uint64
-	store := ctx.KVStore(k.storeKey)
-	iter := storetypes.KVStorePrefixIterator(store, types.ResearchCommunityVotePrefix)
-	defer iter.Close()
-	for ; iter.Valid(); iter.Next() {
-		count++
-	}
+	k.IterateResearchSpendProposals(ctx, func(prop *types.ResearchSpendProposal) bool {
+		if prop.CreatedAt < state.PhaseStartedAtBlock {
+			return false // skip proposals from previous phases
+		}
+		for _, seat := range state.CommunitySeats {
+			if k.GetResearchCommunityVote(ctx, prop.ProposalId, seat) != "" {
+				count++
+			}
+		}
+		return false
+	})
 	return count
 }
 

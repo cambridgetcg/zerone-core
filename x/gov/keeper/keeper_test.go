@@ -1846,3 +1846,76 @@ func TestCheckPhaseExitConditions_FullGovernance(t *testing.T) {
 		t.Error("full governance should not have exit conditions met")
 	}
 }
+
+func TestCheckPhaseExitConditions_AllMet(t *testing.T) {
+	k, ctx, mockSK := setupWithStaking(t, "1000000000000")
+
+	// Wire mocks.
+	mockSK.guardianCount = 10
+	mockEK := &mockEmergencyKeeper{halts: map[string]uint64{}}
+	k.SetEmergencyKeeper(mockEK)
+
+	// Record enough distinct voters.
+	for i := 0; i < 15; i++ {
+		k.RecordDistinctVoter(ctx, testAddr(fmt.Sprintf("voter%d", i)))
+	}
+
+	// Use a high block height to satisfy chain age.
+	ctx = ctx.WithBlockHeight(3_000_000)
+
+	conditions, allMet := k.CheckPhaseExitConditions(ctx)
+
+	if conditions.DistinctLipVoters != 15 {
+		t.Errorf("expected 15 distinct voters, got %d", conditions.DistinctLipVoters)
+	}
+	if conditions.ActiveGuardians != 10 {
+		t.Errorf("expected 10 active guardians, got %d", conditions.ActiveGuardians)
+	}
+	if conditions.ChainAgeBlocks != 3_000_000 {
+		t.Errorf("expected chain age 3000000, got %d", conditions.ChainAgeBlocks)
+	}
+
+	// Should NOT be met — research fund balance is 0, needs 100,000 ZRN.
+	if allMet {
+		t.Error("conditions should NOT all be met (zero research fund balance)")
+	}
+}
+
+func TestGenesisRoundtrip_ResearchFundGovernance(t *testing.T) {
+	k, ctx := setupKeeper(t)
+
+	// Set non-default governance state.
+	state := &types.ResearchFundGovernanceState{
+		CurrentPhase:            types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER,
+		CommunitySeats:          []string{testAddr("seat1"), testAddr("seat2")},
+		ProposalsExecutedInPhase: 3,
+		PhaseStartedAtBlock:     50000,
+		LastTransitionBlock:     50000,
+	}
+	k.SetResearchFundGovernanceState(ctx, state)
+
+	// Export genesis.
+	gs := k.ExportGenesis(ctx)
+	if gs.ResearchFundGovernance == nil {
+		t.Fatal("exported genesis has nil ResearchFundGovernance")
+	}
+
+	// Create a fresh keeper and import.
+	k2, ctx2 := setupKeeper(t)
+	k2.InitGenesis(ctx2, gs)
+
+	// Verify roundtrip.
+	got := k2.GetResearchFundGovernanceState(ctx2)
+	if got.CurrentPhase != types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER {
+		t.Errorf("phase: got %v, want OBSERVER", got.CurrentPhase)
+	}
+	if len(got.CommunitySeats) != 2 {
+		t.Errorf("community seats: got %d, want 2", len(got.CommunitySeats))
+	}
+	if got.ProposalsExecutedInPhase != 3 {
+		t.Errorf("proposals executed: got %d, want 3", got.ProposalsExecutedInPhase)
+	}
+	if got.PhaseStartedAtBlock != 50000 {
+		t.Errorf("phase started at: got %d, want 50000", got.PhaseStartedAtBlock)
+	}
+}

@@ -657,6 +657,118 @@ func TestResearchSpend_NonDesignatedVoter_PhaseBased(t *testing.T) {
 	}
 }
 
+func TestResearchSpend_PhaseBalanced_3of5(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	voter1, _ := setupResearchVoters(t, k, ctx)
+	mock := &mockVestingKeeper{}
+	k.SetVestingKeeper(mock)
+
+	// Set phase to Balanced (3-of-5) with three community seats.
+	community1 := testAddr("community1")
+	community2 := testAddr("community2")
+	community3 := testAddr("community3")
+	state := k.GetResearchFundGovernanceState(ctx)
+	state.CurrentPhase = types.ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED
+	state.CommunitySeats = []string{community1, community2, community3}
+	k.SetResearchFundGovernanceState(ctx, state)
+
+	// Submit proposal.
+	resp, err := k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "Phase 2 balanced test",
+		Recipient: testAddr("recipient"),
+		Amount:    "100000000",
+	})
+	if err != nil {
+		t.Fatalf("submit failed: %v", err)
+	}
+
+	// Advance to voting.
+	prop, _ := k.GetResearchSpendProposal(ctx, resp.ProposalId)
+	prop.Stage = string(types.ResearchStageVoting)
+	k.SetResearchSpendProposal(ctx, prop)
+
+	// Voter1 votes yes — 1-of-5, not enough.
+	k.VoteResearchSpend(ctx, &types.MsgVoteResearchSpend{
+		Voter: voter1, ProposalId: resp.ProposalId, Vote: "yes",
+	})
+	prop, _ = k.GetResearchSpendProposal(ctx, resp.ProposalId)
+	if prop.Stage == string(types.ResearchStageExecuted) {
+		t.Error("should not execute with only 1-of-5")
+	}
+
+	// Community1 votes yes — 2-of-5, still not enough.
+	k.VoteResearchSpend(ctx, &types.MsgVoteResearchSpend{
+		Voter: community1, ProposalId: resp.ProposalId, Vote: "yes",
+	})
+	prop, _ = k.GetResearchSpendProposal(ctx, resp.ProposalId)
+	if prop.Stage == string(types.ResearchStageExecuted) {
+		t.Error("should not execute with only 2-of-5")
+	}
+
+	// Community2 votes yes — 3-of-5, should execute.
+	k.VoteResearchSpend(ctx, &types.MsgVoteResearchSpend{
+		Voter: community2, ProposalId: resp.ProposalId, Vote: "yes",
+	})
+	prop, _ = k.GetResearchSpendProposal(ctx, resp.ProposalId)
+	if prop.Stage != string(types.ResearchStageExecuted) {
+		t.Errorf("expected executed with 3-of-5 (voter1+community1+community2), got %s", prop.Stage)
+	}
+}
+
+func TestCountCommunitySeatVotes_ScopedToPhase(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	voter1, _ := setupResearchVoters(t, k, ctx)
+
+	// Set phase to Observer with one community seat, phase started at block 100.
+	community1 := testAddr("community1")
+	state := k.GetResearchFundGovernanceState(ctx)
+	state.CurrentPhase = types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER
+	state.CommunitySeats = []string{community1}
+	state.PhaseStartedAtBlock = 100
+	k.SetResearchFundGovernanceState(ctx, state)
+
+	// Submit a proposal at block 100 (in current phase).
+	resp, _ := k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "Current phase proposal",
+		Recipient: testAddr("recipient"),
+		Amount:    "100000000",
+	})
+
+	// Record a community vote on it.
+	k.SetResearchCommunityVote(ctx, resp.ProposalId, community1, "yes")
+
+	// Count should include this vote.
+	state = k.GetResearchFundGovernanceState(ctx)
+	count := k.CountCommunitySeatVotes(ctx, state)
+	if count != 1 {
+		t.Errorf("expected 1 community seat vote in current phase, got %d", count)
+	}
+
+	// Now simulate a proposal from a previous phase (CreatedAt < PhaseStartedAtBlock).
+	oldProp := k.GetAllResearchSpendProposals(ctx)
+	if len(oldProp) != 1 {
+		t.Fatalf("expected 1 proposal, got %d", len(oldProp))
+	}
+	// Manually create an older proposal with CreatedAt=50 (before phase started).
+	k.SetNextResearchSpendID(ctx, 10)
+	ctx2 := ctx.WithBlockHeight(50)
+	resp2, _ := k.SubmitResearchSpend(ctx2, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "Old phase proposal",
+		Recipient: testAddr("recipient2"),
+		Amount:    "200000000",
+	})
+	k.SetResearchCommunityVote(ctx, resp2.ProposalId, community1, "yes")
+
+	// Count should still be 1 — the old proposal's vote shouldn't be counted.
+	count = k.CountCommunitySeatVotes(ctx, state)
+	if count != 1 {
+		t.Errorf("expected 1 community seat vote (old proposal excluded), got %d", count)
+	}
+}
+
 func TestResearchSpend_CommunityVoterDoubleVote(t *testing.T) {
 	k, ctx := setupKeeper(t)
 	voter1, _ := setupResearchVoters(t, k, ctx)

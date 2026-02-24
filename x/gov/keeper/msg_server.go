@@ -410,3 +410,23 @@ func (ms *msgServer) SetResearchVoters(goCtx context.Context, msg *types.MsgSetR
 	return ms.Keeper.SetResearchVoters(ctx, msg)
 }
 
+// --- Seat Election Message Handlers ---
+
+// NominateSeatElection delegates to the keeper's NominateSeatElection method.
+func (ms *msgServer) NominateSeatElection(goCtx context.Context, msg *types.MsgNominateSeatElection) (*types.MsgNominateSeatElectionResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	return ms.Keeper.NominateSeatElection(ctx, msg)
+}
+
+// AcceptSeatNomination delegates to the keeper's AcceptSeatNomination method.
+func (ms *msgServer) AcceptSeatNomination(goCtx context.Context, msg *types.MsgAcceptSeatNomination) (*types.MsgAcceptSeatNominationResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	return ms.Keeper.AcceptSeatNomination(ctx, msg)
+}
+
+// VoteSeatElection delegates to the keeper's VoteSeatElection method.
+func (ms *msgServer) VoteSeatElection(goCtx context.Context, msg *types.MsgVoteSeatElection) (*types.MsgVoteSeatElectionResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	return ms.Keeper.VoteSeatElection(ctx, msg)
+}
+
