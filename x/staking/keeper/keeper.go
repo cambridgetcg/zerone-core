@@ -541,16 +541,15 @@ func (k Keeper) SlashValidator(ctx sdk.Context, validatorAddr string, amount *bi
 		slashInt.Add(slashInt, overflow)
 	}
 
-	// Burn slashed tokens
+	// Route slashed tokens to development fund
 	if slashInt.Sign() > 0 {
 		slashCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(slashInt)))
-		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, slashCoins); err != nil {
-			// Abort slash on burn failure
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", slashCoins); err != nil {
+			// Abort slash on routing failure
 			return
 		}
 
 		selfStake.Sub(selfStake, new(big.Int).Sub(slashInt, new(big.Int)))
-		// Recalculate after burn
 		if selfStake.Sign() < 0 {
 			selfStake.SetInt64(0)
 		}

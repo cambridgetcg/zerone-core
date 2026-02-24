@@ -158,4 +158,4 @@ When tool demand exceeds capacity, surge pricing activates:
 | Max Surge Multiplier | 10× | Maximum price multiplier |
 | Free Calls/Epoch | 50 | Free tool calls per epoch per home |
 
-Surge revenue flows through the standard 4-way split, creating a natural demand-based burn mechanism.
+Surge revenue flows through the standard 4-way split (contributors, protocol, research, development fund).

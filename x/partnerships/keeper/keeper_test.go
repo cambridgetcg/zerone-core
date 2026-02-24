@@ -59,8 +59,8 @@ var (
 type mockBankKeeper struct {
 	balances       map[string]map[string]int64
 	moduleBalances map[string]map[string]int64
-	burnCalled     bool
-	burnAmount     int64
+	modToModCalled bool
+	modToModAmount int64
 }
 
 func newMockBankKeeper() *mockBankKeeper {
@@ -130,14 +130,18 @@ func (m *mockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, senderM
 	return nil
 }
 
-func (m *mockBankKeeper) BurnCoins(_ context.Context, moduleName string, amt sdk.Coins) error {
-	m.burnCalled = true
+func (m *mockBankKeeper) SendCoinsFromModuleToModule(_ context.Context, senderModule string, recipientModule string, amt sdk.Coins) error {
+	m.modToModCalled = true
 	for _, coin := range amt {
-		m.burnAmount += coin.Amount.Int64()
-		if m.moduleBalances[moduleName] == nil {
-			m.moduleBalances[moduleName] = make(map[string]int64)
+		m.modToModAmount += coin.Amount.Int64()
+		if m.moduleBalances[senderModule] == nil {
+			m.moduleBalances[senderModule] = make(map[string]int64)
 		}
-		m.moduleBalances[moduleName][coin.Denom] -= coin.Amount.Int64()
+		if m.moduleBalances[recipientModule] == nil {
+			m.moduleBalances[recipientModule] = make(map[string]int64)
+		}
+		m.moduleBalances[senderModule][coin.Denom] -= coin.Amount.Int64()
+		m.moduleBalances[recipientModule][coin.Denom] += coin.Amount.Int64()
 	}
 	return nil
 }
@@ -1661,9 +1665,9 @@ func TestExitSettlement_BankTransfers(t *testing.T) {
 		t.Fatalf("InitiateDissolution failed: %v", err)
 	}
 
-	// Verify burn was called
-	if !bk.burnCalled {
-		t.Error("expected burn to be called during exit settlement")
+	// Verify module-to-module send was called during exit settlement
+	if !bk.modToModCalled {
+		t.Error("expected SendCoinsFromModuleToModule to be called during exit settlement")
 	}
 
 	p, _ := k.GetPartnership(futureCtx, pid)

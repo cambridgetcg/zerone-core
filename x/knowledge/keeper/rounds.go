@@ -152,12 +152,12 @@ func (k Keeper) slashAndBurnClaimStake(ctx context.Context, claim *types.Claim, 
 		return nil
 	}
 
-	// Calculate slash amount
+	// Calculate slash amount — route to development fund
 	slashAmt := safeMulDiv(stakeAmt.Uint64(), slashBps, 1_000_000)
 	if slashAmt > 0 {
-		burnCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(new(big.Int).SetUint64(slashAmt))))
-		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoins); err != nil {
-			return fmt.Errorf("failed to burn slashed stake: %w", err)
+		slashCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(new(big.Int).SetUint64(slashAmt))))
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", slashCoins); err != nil {
+			return fmt.Errorf("failed to route slashed stake to development fund: %w", err)
 		}
 	}
 

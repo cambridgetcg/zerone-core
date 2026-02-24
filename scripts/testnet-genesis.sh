@@ -285,14 +285,15 @@ cmd_init() {
     .app_state.vesting_rewards.params.blocks_per_reward_epoch = 50000 |
     .app_state.vesting_rewards.params.founder_share_bps = 70000 |
     .app_state.vesting_rewards.params.founder_address = "" |
-    .app_state.vesting_rewards.params.governance_activation_height = 0 |
+    # governance_activation_height DEPRECATED — founder share is governance-immune
+
     .app_state.vesting_rewards.params.vesting_enabled = true |
     .app_state.vesting_rewards.params.released_clawback_rate = 3300 |
     .app_state.vesting_rewards.params.min_validators_for_full_reward = 11 |
     .app_state.vesting_rewards.params.empty_block_reward_rate = 0 |
     .app_state.vesting_rewards.params.floor_reward = "100000" |
     .app_state.vesting_rewards.params.initial_fund_balance = "0" |
-    .app_state.vesting_rewards.params.revenue_split = {"contributor_bps":550000,"protocol_bps":220000,"research_bps":130000,"burn_bps":100000} |
+    .app_state.vesting_rewards.params.revenue_split = {"contributor_bps":550000,"protocol_bps":220000,"research_bps":33300,"development_bps":196700} |
     .app_state.vesting_rewards.params.protocol_sub_split = {"citation_bps":500000,"verification_bps":300000,"treasury_bps":200000} |
     .app_state.vesting_rewards.params.category_reward_configs = [
       {"category":"axiomatic","reward_multiplier_bps":1200000},
@@ -359,7 +360,7 @@ cmd_init() {
     .app_state.billing.params.confidence_threshold = 500000 |
     .app_state.billing.params.freshness_window_blocks = 1000 |
     .app_state.billing.params.quote_validity_blocks = 100 |
-    .app_state.billing.params.revenue_split = {"contributor_bps":550000,"protocol_bps":220000,"research_bps":130000,"burn_bps":100000} |
+    .app_state.billing.params.revenue_split = {"contributor_bps":550000,"protocol_bps":220000,"research_bps":33300,"development_bps":196700} |
     .app_state.billing.params.dynamic_pricing_config = {"enabled":false,"target_query_cost_usd":"10000","manual_zrn_price_usd":"0","twap_window_blocks":1000,"staleness_blocks":5000,"min_cost_per_fact":"1000","max_cost_per_fact":"100000000"}
   '
   ok "Billing: 10 params (dynamic pricing disabled for testnet)"
@@ -612,8 +613,8 @@ cmd_init() {
     .app_state.toolbox.params.free_calls_enabled = true |
     .app_state.toolbox.params.tool_revenue_bps = 550000 |
     .app_state.toolbox.params.protocol_bps = 220000 |
-    .app_state.toolbox.params.research_bps = 130000 |
-    .app_state.toolbox.params.burn_bps = 100000 |
+    .app_state.toolbox.params.research_bps = 33300 |
+    .app_state.toolbox.params.development_bps = 196700 |
     .app_state.toolbox.params.protocol_citation_bps = 500000 |
     .app_state.toolbox.params.protocol_verification_bps = 300000 |
     .app_state.toolbox.params.protocol_treasury_bps = 200000
@@ -633,8 +634,8 @@ cmd_init() {
     .app_state.tree.params.min_contributors_to_start = 1 |
     .app_state.tree.params.contributors_bp = 550000 |
     .app_state.tree.params.protocol_treasury_bp = 220000 |
-    .app_state.tree.params.research_fund_bp = 130000 |
-    .app_state.tree.params.burn_bp = 100000 |
+    .app_state.tree.params.research_fund_bp = 33300 |
+    .app_state.tree.params.development_bp = 196700 |
     .app_state.tree.params.evidence_tax_bp = 220000
   '
   ok "Tree: deadline_max=518400 seed_expiry=86400 (halved from prod)"

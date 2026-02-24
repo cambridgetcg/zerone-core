@@ -592,9 +592,9 @@ func TestCompleteRound_RejectSlashesStake(t *testing.T) {
 	updatedClaim, _ := k.GetClaim(ctx, "claim-reject")
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_REJECTED, updatedClaim.Status)
 
-	// Bank should burn some coins
-	require.True(t, bk.burned.IsAllPositive() || len(bk.sendCalls) > 0,
-		"rejected claim should trigger burn or return remainder")
+	// Bank should send coins (slash to development fund or return remainder)
+	require.True(t, len(bk.sendCalls) > 0,
+		"rejected claim should trigger send to development fund or return remainder")
 }
 
 func TestCompleteRound_Inconclusive(t *testing.T) {

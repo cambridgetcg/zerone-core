@@ -11,7 +11,7 @@ import (
 // ============================================================
 
 // TestRevenue_BasicSplit verifies that 1000 uzrn is split according to the
-// default governance percentages: 55% contributor, 22% protocol, 13% research, 10% burn.
+// default governance percentages: 55% contributor, 22% protocol, 3.33% research, 19.67% development.
 func TestRevenue_BasicSplit(t *testing.T) {
 	k, ctx, bk, rf := setupKeeper(t)
 	deployer := testAddr("rev-deployer")
@@ -39,28 +39,32 @@ func TestRevenue_BasicSplit(t *testing.T) {
 	// Protocol: safeMulDiv(1000, 220000, 1000000) = 220
 	var protocolTotal uint64
 	for _, s := range bk.modToModSends {
-		protocolTotal += s.amount
+		if s.to != "development_fund" {
+			protocolTotal += s.amount
+		}
 	}
 	if protocolTotal != 220 {
 		t.Errorf("protocol total: expected 220, got %d", protocolTotal)
 	}
 
-	// Research: safeMulDiv(1000, 130000, 1000000) = 130
+	// Research: safeMulDiv(1000, 33300, 1000000) = 33
 	var researchTotal uint64
 	for _, d := range rf.deposits {
 		researchTotal += d.amount
 	}
-	if researchTotal != 130 {
-		t.Errorf("research fund: expected 130, got %d", researchTotal)
+	if researchTotal != 33 {
+		t.Errorf("research fund: expected 33, got %d", researchTotal)
 	}
 
-	// Burn: safeMulDiv(1000, 100000, 1000000) = 100
-	var burnTotal uint64
-	for _, b := range bk.burns {
-		burnTotal += b
+	// Development fund: safeMulDiv(1000, 196700, 1000000) = 196
+	var devFundTotal uint64
+	for _, s := range bk.modToModSends {
+		if s.to == "development_fund" {
+			devFundTotal += s.amount
+		}
 	}
-	if burnTotal != 100 {
-		t.Errorf("burn: expected 100, got %d", burnTotal)
+	if devFundTotal != 196 {
+		t.Errorf("development fund: expected 196, got %d", devFundTotal)
 	}
 }
 
@@ -210,8 +214,10 @@ func TestRevenue_ZeroPrice(t *testing.T) {
 	if len(rf.deposits) != 0 {
 		t.Error("expected no research deposits for zero distribution")
 	}
-	if len(bk.burns) != 0 {
-		t.Error("expected no burns for zero distribution")
+	for _, s := range bk.modToModSends {
+		if s.to == "development_fund" {
+			t.Error("expected no development fund sends for zero distribution")
+		}
 	}
 }
 
@@ -235,15 +241,19 @@ func TestRevenue_LargeAmount(t *testing.T) {
 		t.Fatalf("DistributeRevenue: %v", err)
 	}
 
-	// 55% = 550,000, 22% = 220,000, 13% = 130,000, 10% = 100,000
+	// 55% = 550,000, 22% = 220,000, 3.33% = 33,300, 19.67% = 196,700
 	contribGot := bk.totalModToAcc()
 	if contribGot != 550_000 {
 		t.Errorf("contributor: expected 550000, got %d", contribGot)
 	}
 
-	var protocolTotal uint64
+	var protocolTotal, devFundTotal uint64
 	for _, s := range bk.modToModSends {
-		protocolTotal += s.amount
+		if s.to == "development_fund" {
+			devFundTotal += s.amount
+		} else {
+			protocolTotal += s.amount
+		}
 	}
 	if protocolTotal != 220_000 {
 		t.Errorf("protocol: expected 220000, got %d", protocolTotal)
@@ -253,20 +263,16 @@ func TestRevenue_LargeAmount(t *testing.T) {
 	for _, d := range rf.deposits {
 		researchTotal += d.amount
 	}
-	if researchTotal != 130_000 {
-		t.Errorf("research: expected 130000, got %d", researchTotal)
+	if researchTotal != 33_300 {
+		t.Errorf("research: expected 33300, got %d", researchTotal)
 	}
 
-	var burnTotal uint64
-	for _, b := range bk.burns {
-		burnTotal += b
-	}
-	if burnTotal != 100_000 {
-		t.Errorf("burn: expected 100000, got %d", burnTotal)
+	if devFundTotal != 196_700 {
+		t.Errorf("development fund: expected 196700, got %d", devFundTotal)
 	}
 
 	// Verify conservation: sum of all distributed equals total.
-	distributed := contribGot + protocolTotal + researchTotal + burnTotal
+	distributed := contribGot + protocolTotal + researchTotal + devFundTotal
 	if distributed != total {
 		t.Errorf("conservation: distributed %d != total %d", distributed, total)
 	}
@@ -294,8 +300,8 @@ func TestRevenue_SmallAmount(t *testing.T) {
 
 	// safeMulDiv(1, 550000, 1000000) = 0 (integer truncation)
 	// safeMulDiv(1, 220000, 1000000) = 0
-	// safeMulDiv(1, 130000, 1000000) = 0
-	// safeMulDiv(1, 100000, 1000000) = 0
+	// safeMulDiv(1, 33300, 1000000) = 0
+	// safeMulDiv(1, 196700, 1000000) = 0
 	// All splits round to 0 for 1 uzrn — nothing gets distributed.
 	contribGot := bk.totalModToAcc()
 	var protocolTotal uint64
@@ -306,12 +312,7 @@ func TestRevenue_SmallAmount(t *testing.T) {
 	for _, d := range rf.deposits {
 		researchTotal += d.amount
 	}
-	var burnTotal uint64
-	for _, b := range bk.burns {
-		burnTotal += b
-	}
-
-	total := contribGot + protocolTotal + researchTotal + burnTotal
+	total := contribGot + protocolTotal + researchTotal
 	// With 1 uzrn and integer division, all splits truncate to 0.
 	if total != 0 {
 		t.Errorf("expected 0 distributed for 1 uzrn, got %d", total)
@@ -354,20 +355,15 @@ func TestRevenue_RoundingDoesNotLoseTokens(t *testing.T) {
 		for _, d := range rf.deposits {
 			researchTotal += d.amount
 		}
-		var burnTotal uint64
-		for _, b := range bk.burns {
-			burnTotal += b
-		}
-
-		distributed := contribGot + protocolTotal + researchTotal + burnTotal
+		distributed := contribGot + protocolTotal + researchTotal
 		if distributed > amount {
 			t.Errorf("amount=%d: distributed %d > total (token creation!)", amount, distributed)
 		}
 	}
 }
 
-// TestRevenue_BurnTracking verifies that the burned amount matches ~10% of the total.
-func TestRevenue_BurnTracking(t *testing.T) {
+// TestRevenue_DevFundTracking verifies that the development fund amount matches ~19.67% of the total.
+func TestRevenue_DevFundTracking(t *testing.T) {
 	k, ctx, bk, _ := setupKeeper(t)
 	deployer := testAddr("burn-deployer")
 
@@ -385,17 +381,19 @@ func TestRevenue_BurnTracking(t *testing.T) {
 		t.Fatalf("DistributeRevenue: %v", err)
 	}
 
-	// safeMulDiv(10000, 100000, 1000000) = 1000
-	var burnTotal uint64
-	for _, b := range bk.burns {
-		burnTotal += b
+	// safeMulDiv(10000, 196700, 1000000) = 1967
+	var devFundTotal uint64
+	for _, s := range bk.modToModSends {
+		if s.to == "development_fund" {
+			devFundTotal += s.amount
+		}
 	}
-	if burnTotal != 1000 {
-		t.Errorf("burn: expected 1000, got %d", burnTotal)
+	if devFundTotal != 1967 {
+		t.Errorf("development fund: expected 1967, got %d", devFundTotal)
 	}
 }
 
-// TestRevenue_ResearchFundDeposit verifies that the research fund receives ~13%.
+// TestRevenue_ResearchFundDeposit verifies that the research fund receives ~3.33%.
 func TestRevenue_ResearchFundDeposit(t *testing.T) {
 	k, ctx, _, rf := setupKeeper(t)
 	deployer := testAddr("research-deployer")
@@ -414,13 +412,13 @@ func TestRevenue_ResearchFundDeposit(t *testing.T) {
 		t.Fatalf("DistributeRevenue: %v", err)
 	}
 
-	// safeMulDiv(10000, 130000, 1000000) = 1300
+	// safeMulDiv(10000, 33300, 1000000) = 333
 	var researchTotal uint64
 	for _, d := range rf.deposits {
 		researchTotal += d.amount
 	}
-	if researchTotal != 1300 {
-		t.Errorf("research fund: expected 1300, got %d", researchTotal)
+	if researchTotal != 333 {
+		t.Errorf("research fund: expected 333, got %d", researchTotal)
 	}
 }
 
@@ -597,7 +595,7 @@ func TestRevenue_CollectPayment_DynamicPrice(t *testing.T) {
 }
 
 // TestRevenue_EconomicConservation verifies that every uzrn is accounted for
-// across all buckets (contributor + protocol + research + burn).
+// across all buckets (contributor + protocol + research + development).
 func TestRevenue_EconomicConservation(t *testing.T) {
 	k, ctx, bk, rf := setupKeeper(t)
 	deployer := testAddr("conserv-deployer")
@@ -632,12 +630,7 @@ func TestRevenue_EconomicConservation(t *testing.T) {
 		for _, d := range rf.deposits {
 			researchTotal += d.amount
 		}
-		var burnTotal uint64
-		for _, b := range bk.burns {
-			burnTotal += b
-		}
-
-		distributed := contribGot + protocolTotal + researchTotal + burnTotal
+		distributed := contribGot + protocolTotal + researchTotal
 		if distributed > total {
 			t.Errorf("total=%d: distributed %d exceeds total (token creation)", total, distributed)
 		}

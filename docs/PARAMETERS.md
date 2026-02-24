@@ -183,7 +183,7 @@ Proof of Truth knowledge verification parameters — the largest parameter set.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `research_fund_share_bps` | uint64 | 130,000 (13%) | Share of knowledge rewards to research fund |
+| `research_fund_share_bps` | uint64 | 130,000 (13%) | Share of knowledge rewards to research fund (knowledge module only; global research split is 3.33%) |
 
 ---
 
@@ -217,9 +217,8 @@ Block rewards, vesting curves, and revenue distribution.
 | `block_reward` | string | "10000000" (10 ZRN) | Base block reward |
 | `reward_decay_bps` | uint64 | 994,478 (~1-year half-life) | Reward decay per epoch (0.994478x) |
 | `blocks_per_reward_epoch` | uint64 | 100,000 (~2.9 days) | Blocks per reward epoch |
-| `founder_share_bps` | uint64 | 70,000 (7%) | Founder share of research fund |
-| `founder_address` | string | "" (disabled) | Founder address for share distribution |
-| `governance_activation_height` | uint64 | 0 | Height at which governance takes over |
+| `founder_share_bps` | uint64 | 70,000 (7%) | Founder share of research fund (**governance-immune**) |
+| `founder_address` | string | "" (disabled) | Founder address for share distribution (**governance-immune**) |
 | `vesting_enabled` | bool | true | Enable vesting mechanics |
 | `released_clawback_rate` | uint64 | 3,300 (33%) | Clawback rate on released vesting |
 | `min_validators_for_full_reward` | uint32 | 22 | Minimum validators for full block reward |
@@ -233,8 +232,10 @@ Block rewards, vesting curves, and revenue distribution.
 |-----------|---------|-------------|
 | `contributor_bps` | 550,000 (55%) | Share to fact contributors |
 | `protocol_bps` | 220,000 (22%) | Share to protocol |
-| `research_bps` | 130,000 (13%) | Share to research fund |
-| `burn_bps` | 100,000 (10%) | Share burned |
+| `research_bps` | 33,300 (3.33%) | Share to research fund |
+| `development_bps` | 196,700 (19.67%) | Share to development fund |
+
+> No burn — every ZRN does productive work.
 
 ### Protocol Sub-Split
 
@@ -264,6 +265,10 @@ Block rewards, vesting curves, and revenue distribution.
 ## gov
 
 Governance and Living Improvement Proposals (LIPs).
+
+**Governance-immune parameters** (cannot be modified via `MsgUpdateParams`):
+- `vesting_rewards.founder_share_bps`
+- `vesting_rewards.founder_address`
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -599,8 +604,8 @@ Tree of Life — project, task, and service management.
 |-----------|---------|-------------|
 | `contributors_bp` | 550,000 (55%) | Contributor share |
 | `protocol_treasury_bp` | 220,000 (22%) | Protocol treasury share |
-| `research_fund_bp` | 130,000 (13%) | Research fund share |
-| `burn_bp` | 100,000 (10%) | Burn share |
+| `research_fund_bp` | 33,300 (3.33%) | Research fund share |
+| `development_bp` | 196,700 (19.67%) | Development fund share |
 | `evidence_tax_bp` | 220,000 (22%) | Evidence tax on deliverables |
 
 ---
@@ -637,8 +642,8 @@ Tool registry and marketplace.
 |-----------|---------|-------------|
 | `tool_revenue_bps` | 550,000 (55%) | Tool creator share |
 | `protocol_bps` | 220,000 (22%) | Protocol share |
-| `research_bps` | 130,000 (13%) | Research fund share |
-| `burn_bps` | 100,000 (10%) | Burn share |
+| `research_bps` | 33,300 (3.33%) | Research fund share |
+| `development_bps` | 196,700 (19.67%) | Development fund share |
 
 ---
 

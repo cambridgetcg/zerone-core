@@ -509,12 +509,7 @@ func TestToolSecurity_EconomicConservation(t *testing.T) {
 		for _, d := range rf.deposits {
 			researchTotal += d.amount
 		}
-		var burnTotal uint64
-		for _, b := range bk.burns {
-			burnTotal += b
-		}
-
-		distributed := contribGot + protocolTotal + researchTotal + burnTotal
+		distributed := contribGot + protocolTotal + researchTotal
 
 		// Conservation: distributed must NEVER exceed total (no token creation).
 		if distributed > total {

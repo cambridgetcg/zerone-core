@@ -41,11 +41,11 @@ func TestCompleteRevenueMap(t *testing.T) {
 		t.Fatal("expected non-zero block reward mint")
 	}
 
-	// 4-way revenue split: contributor 55%, protocol 22%, research 13%, burn 10%
+	// 4-way revenue split: contributor 55%, protocol 22%, development 19.67%, research 3.33%
 	bps := big.NewInt(1000000)
 
-	// Gross research = 13% of total
-	grossResearch := new(big.Int).Mul(totalMinted, big.NewInt(130000))
+	// Gross research = 3.33% of total
+	grossResearch := new(big.Int).Mul(totalMinted, big.NewInt(33300))
 	grossResearch.Div(grossResearch, bps)
 
 	// Founder = 7% of gross research
@@ -98,7 +98,7 @@ func TestCompleteRevenueMap(t *testing.T) {
 		t.Errorf("compute_pool received %s, want %s", computeSent, computePool)
 	}
 
-	// SOURCE 2: Billing Service Revenue (55% provider / 22% knowledge / 13% research / 10% protocol)
+	// SOURCE 2: Billing Service Revenue (55% provider / 22% knowledge / 3.33% research / 19.67% development)
 	billingPayment := big.NewInt(1000000)
 	billingDist := h.billingKeeper.CalculateDistribution(h.ctx, billingPayment, []string{"fact-1"})
 
@@ -111,21 +111,21 @@ func TestCompleteRevenueMap(t *testing.T) {
 		t.Errorf("billing provider share: got %s, want %s", providerAmt, expectedProvider)
 	}
 
-	// Verify 13% research
+	// Verify 3.33% research
 	researchAmt := new(big.Int)
 	researchAmt.SetString(billingDist.ResearchShare, 10)
-	expectedBillingResearch := new(big.Int).Mul(billingPayment, big.NewInt(130000))
+	expectedBillingResearch := new(big.Int).Mul(billingPayment, big.NewInt(33300))
 	expectedBillingResearch.Div(expectedBillingResearch, big.NewInt(1000000))
 	if researchAmt.Cmp(expectedBillingResearch) != 0 {
 		t.Errorf("billing research share: got %s, want %s", researchAmt, expectedBillingResearch)
 	}
 
 	// Verify full accounting: all components sum to total payment
-	burnAmt := new(big.Int)
-	burnAmt.SetString(billingDist.ProtocolBurn, 10)
+	devAmt := new(big.Int)
+	devAmt.SetString(billingDist.ProtocolBurn, 10) // field still named ProtocolBurn in proto
 	treasuryAmt := new(big.Int)
 	treasuryAmt.SetString(billingDist.ProtocolTreasury, 10)
-	protocolTotal := new(big.Int).Add(burnAmt, treasuryAmt)
+	protocolTotal := new(big.Int).Add(devAmt, treasuryAmt)
 	knowledgeAmt := new(big.Int)
 	knowledgeAmt.SetString(billingDist.KnowledgePool[0].Amount, 10)
 	allAccountedFor := new(big.Int).Add(expectedProvider, expectedBillingResearch)
@@ -145,13 +145,13 @@ func TestCompleteRevenueMap(t *testing.T) {
 		1000000,
 		550000, // 55% contributors
 		100000, // 10% treasury
-		130000, // 13% research
-		100000, // 10% burn
+		33300,  // 3.33% research
+		196700, // 19.67% development
 		[]*treetypes.ContributorRecord{
 			{Did: "did:zrn:contributor1", TasksCompleted: 10},
 		},
 	)
-	protocolAlloc := int64(1000000) - treeDist.ContributorPool - treeDist.ResearchFund - treeDist.Burn
+	protocolAlloc := int64(1000000) - treeDist.ContributorPool - treeDist.ResearchFund - treeDist.DevelopmentFund
 	expectedTreeTreasury := protocolAlloc - treeDist.VerificationPool
 	if treeDist.ProtocolTreasury != expectedTreeTreasury {
 		t.Errorf("tree treasury: got %d, want %d", treeDist.ProtocolTreasury, expectedTreeTreasury)
@@ -159,8 +159,8 @@ func TestCompleteRevenueMap(t *testing.T) {
 	if treeDist.VerificationPool <= 0 {
 		t.Errorf("tree verification pool should be positive, got %d", treeDist.VerificationPool)
 	}
-	if treeDist.Burn != 100000 {
-		t.Errorf("tree burn: got %d, want 100000", treeDist.Burn)
+	if treeDist.DevelopmentFund != 196700 {
+		t.Errorf("tree development fund: got %d, want 196700", treeDist.DevelopmentFund)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestNoDoubleTaxation(t *testing.T) {
 	totalMinted := new(big.Int)
 	totalMinted.SetString(dist.TotalMinted, 10)
 
-	// 4-way split: contributor 55%, protocol 22%, research 13%, burn 10%
+	// 4-way split: contributor 55%, protocol 22%, development 19.67%, research 3.33%
 	bps := big.NewInt(1000000)
 
 	researchNet := new(big.Int)
@@ -287,40 +287,40 @@ func TestNoDoubleTaxation(t *testing.T) {
 	}
 }
 
-// ---------- Test 4: Service Revenue Burn ----------
+// ---------- Test 4: Service Revenue Development Fund ----------
 
-func TestServiceRevenueBurn(t *testing.T) {
-	t.Run("tree_burn_10pct", func(t *testing.T) {
+func TestServiceRevenueDevelopmentFund(t *testing.T) {
+	t.Run("tree_development_19.67pct", func(t *testing.T) {
 		total := int64(1000000)
 		dist := treekeeper.CalculateRevenue(
 			total,
 			550000, // 55% contributors
 			100000, // 10% treasury
-			130000, // 13% research
-			100000, // 10% burn
+			33300,  // 3.33% research
+			196700, // 19.67% development
 			[]*treetypes.ContributorRecord{
 				{Did: "did:zrn:alice", TasksCompleted: 5},
 			},
 		)
 
-		expectedBurn := total * 100000 / 1000000
-		if dist.Burn != expectedBurn {
-			t.Errorf("tree burn: got %d, want %d", dist.Burn, expectedBurn)
+		expectedDev := total * 196700 / 1000000
+		if dist.DevelopmentFund != expectedDev {
+			t.Errorf("tree development fund: got %d, want %d", dist.DevelopmentFund, expectedDev)
 		}
 
-		sum := dist.ContributorPool + dist.ResearchFund + dist.ProtocolTreasury + dist.VerificationPool + dist.Burn
+		sum := dist.ContributorPool + dist.ResearchFund + dist.ProtocolTreasury + dist.VerificationPool + dist.DevelopmentFund
 		if sum != total {
 			t.Errorf("tree sum %d != total %d (dust: %d)", sum, total, total-sum)
 		}
 	})
 
-	t.Run("billing_burn_10pct", func(t *testing.T) {
+	t.Run("billing_development_fund", func(t *testing.T) {
 		h := setupRevenueHarness(t)
 		payment := big.NewInt(1000000)
 		dist := h.billingKeeper.CalculateDistribution(h.ctx, payment, []string{"fact-1"})
 
-		burnAmt := new(big.Int)
-		burnAmt.SetString(dist.ProtocolBurn, 10)
+		devAmt := new(big.Int)
+		devAmt.SetString(dist.ProtocolBurn, 10) // field still named ProtocolBurn in proto
 
 		providerAmt := new(big.Int)
 		providerAmt.SetString(dist.ProviderShare, 10)
@@ -337,7 +337,7 @@ func TestServiceRevenueBurn(t *testing.T) {
 		accounted := new(big.Int).Add(providerAmt, researchAmt)
 		accounted.Add(accounted, knowledgeTotal)
 		accounted.Add(accounted, treasuryAmt2)
-		accounted.Add(accounted, burnAmt)
+		accounted.Add(accounted, devAmt)
 		implicitVerif := new(big.Int).Sub(payment, accounted)
 
 		fullAccounted := new(big.Int).Add(accounted, implicitVerif)
@@ -345,18 +345,21 @@ func TestServiceRevenueBurn(t *testing.T) {
 			t.Errorf("billing distribution doesn't sum: got %s, want %s", fullAccounted, payment)
 		}
 
-		if burnAmt.Cmp(big.NewInt(90000)) < 0 || burnAmt.Cmp(big.NewInt(110000)) > 0 {
-			t.Errorf("billing burn outside expected range [90000, 110000]: got %s", burnAmt)
-		}
-
 		err := h.billingKeeper.ExecuteDistribution(h.ctx, h.callerAddr, h.providerAddr, dist)
 		if err != nil {
 			t.Fatalf("execute distribution failed: %v", err)
 		}
 
+		// Development fund receives tokens (no burn)
+		devSent := h.bk.totalSentToModule("development_fund")
+		if !devSent.Equal(sdkmath.NewIntFromBigInt(devAmt)) {
+			t.Errorf("development_fund received: got %s, want %s", devSent, devAmt)
+		}
+
+		// No tokens should be burned
 		actualBurned := h.bk.totalBurned()
-		if !actualBurned.Equal(sdkmath.NewIntFromBigInt(burnAmt)) {
-			t.Errorf("bank burn: got %s, want %s", actualBurned, burnAmt)
+		if actualBurned.IsPositive() {
+			t.Errorf("expected no burn, got %s", actualBurned)
 		}
 	})
 }
@@ -387,9 +390,10 @@ func TestDeadAccountsRemoved(t *testing.T) {
 	}
 
 	activeAccounts := map[string]bool{
-		"research_fund": true,
-		"knowledge":     true,
-		"compute_pool":  true,
+		"research_fund":    true,
+		"knowledge":        true,
+		"compute_pool":     true,
+		"development_fund": true,
 	}
 	for name := range activeAccounts {
 		sent := h.bk.totalSentToModule(name)
@@ -509,30 +513,37 @@ func TestBillingResearchRoutedThroughDepositor(t *testing.T) {
 		t.Fatalf("execute distribution failed: %v", err)
 	}
 
-	// Research share (13% = 130,000 uzrn) → DepositToResearchFund
-	// 7% founder split: founder gets 9,100, research_fund gets 120,900
+	// Research share (3.33% = 33,300 uzrn) → DepositToResearchFund
+	// 7% founder split: founder gets 2,331, research_fund gets 30,969
 	researchAmt := new(big.Int)
 	researchAmt.SetString(dist.ResearchShare, 10)
-	expectedResearch := int64(130000)
+	expectedResearch := int64(33300)
 	if researchAmt.Int64() != expectedResearch {
 		t.Errorf("research amount: got %s, want %d", researchAmt, expectedResearch)
 	}
 
-	expectedFounderFromBilling := sdkmath.NewInt(9100)
+	expectedFounderFromBilling := sdkmath.NewInt(2331)
 	founderGot := h.bk.totalSentToAddr(h.founderAddr.String())
 	if !founderGot.Equal(expectedFounderFromBilling) {
 		t.Errorf("billing founder split: got %s, want %s", founderGot, expectedFounderFromBilling)
 	}
 
-	expectedResearchNet := sdkmath.NewInt(120900)
+	expectedResearchNet := sdkmath.NewInt(30969)
 	researchGot := h.bk.totalSentToModule("research_fund")
 	if !researchGot.Equal(expectedResearchNet) {
 		t.Errorf("billing research_fund: got %s, want %s", researchGot, expectedResearchNet)
 	}
 
+	// Development fund receives tokens (no burn)
+	devSent := h.bk.totalSentToModule("development_fund")
+	if !devSent.IsPositive() {
+		t.Error("expected positive development_fund deposit from billing execution")
+	}
+
+	// No tokens should be burned
 	burnedAmt := h.bk.totalBurned()
-	if !burnedAmt.IsPositive() {
-		t.Error("expected positive burn from billing execution")
+	if burnedAmt.IsPositive() {
+		t.Errorf("expected no burn, got %s", burnedAmt)
 	}
 
 	treasurySent := h.bk.totalSentToModule("treasury_protocol")
@@ -663,10 +674,10 @@ func TestFullRevenueFlow_WithVerificationPool(t *testing.T) {
 	// --- Part C: Tree revenue verification pool ---
 	treeDist := treekeeper.CalculateRevenue(
 		1000000,
-		550000,
-		100000,
-		130000,
-		100000,
+		550000, // 55% contributors
+		100000, // 10% treasury
+		33300,  // 3.33% research
+		196700, // 19.67% development
 		[]*treetypes.ContributorRecord{
 			{Did: "did:zrn:contributor1", TasksCompleted: 10},
 			{Did: "did:zrn:contributor2", TasksCompleted: 5},
@@ -678,12 +689,14 @@ func TestFullRevenueFlow_WithVerificationPool(t *testing.T) {
 	}
 
 	treeSum := treeDist.ContributorPool + treeDist.ResearchFund +
-		treeDist.ProtocolTreasury + treeDist.VerificationPool + treeDist.Burn
+		treeDist.ProtocolTreasury + treeDist.VerificationPool + treeDist.DevelopmentFund
 	if treeSum != 1000000 {
 		t.Errorf("tree distribution doesn't sum to total: got %d, want 1000000 (dust: %d)",
 			treeSum, 1000000-treeSum)
 	}
 
+	// Protocol allocation = total - contrib - research - development = 1M - 550K - 33.3K - 196.7K = 220K
+	// Verification = 30% of protocol = 66,000
 	expectedVerifPool := int64(66000)
 	if treeDist.VerificationPool != expectedVerifPool {
 		t.Errorf("tree verification pool: got %d, want %d", treeDist.VerificationPool, expectedVerifPool)

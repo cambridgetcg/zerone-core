@@ -24,7 +24,7 @@ If nobody starts with ZRN, how do validators stake?
 |---------|---------|---------|
 | **Genesis Validators** | 0 ZRN | Participate via virtual stake, earn from block 1 |
 | **Foundation** | 0 ZRN | Funded by governance proposals over time |
-| **Research Treasury** | 0 ZRN | Fills organically from 13% revenue share |
+| **Research Treasury** | 0 ZRN | Fills organically from 3.33% revenue share |
 | **Faucet** | 0 ZRN | Optional — funded by governance or validator tips |
 
 ## Genesis Ceremony

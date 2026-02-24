@@ -27,14 +27,14 @@ import (
 // -----------------------------------------------------------------------
 
 type mockBankKeeper struct {
-	balances map[string]sdkmath.Int
-	burned   sdkmath.Int
+	balances   map[string]sdkmath.Int
+	moduleSent sdkmath.Int
 }
 
 func newMockBankKeeper() *mockBankKeeper {
 	return &mockBankKeeper{
-		balances: make(map[string]sdkmath.Int),
-		burned:   sdkmath.ZeroInt(),
+		balances:   make(map[string]sdkmath.Int),
+		moduleSent: sdkmath.ZeroInt(),
 	}
 }
 
@@ -108,18 +108,25 @@ func (m *mockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, senderM
 	return nil
 }
 
-func (m *mockBankKeeper) BurnCoins(_ context.Context, moduleName string, amt sdk.Coins) error {
+func (m *mockBankKeeper) SendCoinsFromModuleToModule(_ context.Context, senderModule string, recipientModule string, amt sdk.Coins) error {
 	for _, coin := range amt {
-		key := moduleName + "/" + coin.Denom
-		bal, ok := m.balances[key]
+		senderKey := senderModule + "/" + coin.Denom
+		senderBal, ok := m.balances[senderKey]
 		if !ok {
-			bal = sdkmath.ZeroInt()
+			senderBal = sdkmath.ZeroInt()
 		}
-		if bal.LT(coin.Amount) {
-			return fmt.Errorf("insufficient balance to burn")
+		if senderBal.LT(coin.Amount) {
+			return fmt.Errorf("insufficient module balance to send")
 		}
-		m.balances[key] = bal.Sub(coin.Amount)
-		m.burned = m.burned.Add(coin.Amount)
+		m.balances[senderKey] = senderBal.Sub(coin.Amount)
+
+		recipientKey := recipientModule + "/" + coin.Denom
+		recipientBal, ok := m.balances[recipientKey]
+		if !ok {
+			recipientBal = sdkmath.ZeroInt()
+		}
+		m.balances[recipientKey] = recipientBal.Add(coin.Amount)
+		m.moduleSent = m.moduleSent.Add(coin.Amount)
 	}
 	return nil
 }
@@ -396,7 +403,7 @@ func TestResolveResearchRejected(t *testing.T) {
 	// 3 reviews with scores averaging < 70 (threshold)
 	researchId := submitAndReview(t, k, ctx, bk, []uint32{50, 60, 55})
 
-	bk.burned = sdkmath.ZeroInt()
+	bk.moduleSent = sdkmath.ZeroInt()
 
 	msgServer := keeper.NewMsgServerImpl(k)
 	resolveResp, err := msgServer.ResolveResearch(ctx, &types.MsgResolveResearch{
@@ -416,9 +423,9 @@ func TestResolveResearchRejected(t *testing.T) {
 		t.Errorf("expected status 'rejected', got %q", research.Status)
 	}
 
-	// Some amount burned (33% of 1000000 = 330000)
-	if bk.burned.IsZero() {
-		t.Error("expected some tokens to be burned on rejection")
+	// Some amount sent to development fund (33% of 1000000 = 330000)
+	if bk.moduleSent.IsZero() {
+		t.Error("expected some tokens to be sent to development fund on rejection")
 	}
 }
 

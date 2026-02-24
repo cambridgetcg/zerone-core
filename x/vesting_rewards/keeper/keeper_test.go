@@ -507,7 +507,6 @@ func TestMsgAccelerateVesting_ValidateBasic(t *testing.T) {
 
 type mockBankKeeper struct {
 	mintedCoins   sdk.Coins
-	burnedCoins   sdk.Coins
 	sentToAccount map[string]sdk.Coins
 	sentToModule  map[string]sdk.Coins
 	balances      map[string]sdk.Coins
@@ -540,17 +539,7 @@ func (m *mockBankKeeper) MintCoins(_ context.Context, _ string, amounts sdk.Coin
 	return nil
 }
 
-func (m *mockBankKeeper) BurnCoins(_ context.Context, _ string, amounts sdk.Coins) error {
-	m.burnedCoins = m.burnedCoins.Add(amounts...)
-	for _, coin := range amounts {
-		cur, ok := m.supply[coin.Denom]
-		if !ok {
-			cur = sdkmath.ZeroInt()
-		}
-		m.supply[coin.Denom] = cur.Sub(coin.Amount)
-	}
-	return nil
-}
+
 
 func (m *mockBankKeeper) GetSupply(_ context.Context, denom string) sdk.Coin {
 	if amt, ok := m.supply[denom]; ok {
@@ -869,12 +858,12 @@ func TestDistributeRevenue_SplitSumsToTotal(t *testing.T) {
 	protocol.SetString(routing.ProtocolShare, 10)
 	research := new(big.Int)
 	research.SetString(routing.ResearchShare, 10)
-	burn := new(big.Int)
-	burn.SetString(routing.DevelopmentAmount, 10)
+	development := new(big.Int)
+	development.SetString(routing.DevelopmentAmount, 10)
 
 	total := new(big.Int).Add(contributor, protocol)
 	total.Add(total, research)
-	total.Add(total, burn)
+	total.Add(total, development)
 
 	if total.Int64() != 999999 {
 		t.Errorf("expected split to sum to 999999, got %s", total.String())
@@ -905,10 +894,6 @@ func TestDistributeBlockReward_DepositsToDevelopmentFund(t *testing.T) {
 		t.Errorf("expected 1967000 uzrn to development_fund, got %d", devCoins.AmountOf("uzrn").Int64())
 	}
 
-	// No coins should be burned
-	if !bk.burnedCoins.IsZero() {
-		t.Errorf("expected no coins burned, got %v", bk.burnedCoins)
-	}
 }
 
 // ---------- Falsify Claim Tests ----------
@@ -1146,7 +1131,6 @@ func TestMintWithCap_SupplyExhausted(t *testing.T) {
 	bk := newMockBankKeeper()
 	maxSupply := "222222222000000"
 	// Set supply to exactly maxSupply so remaining = 0 from the start.
-	// (nearCap won't work because BurnCoins reduces supply, opening room for more minting.)
 	k, ctx := setupMintKeeper(t, bk, maxSupply, 0)
 
 	producer := sdk.AccAddress("producer____________").String()
@@ -1191,11 +1175,14 @@ func TestMintWithCap_EnforcesSupplyLimit(t *testing.T) {
 	}
 }
 
-func TestMintWithCap_BurnRecycling(t *testing.T) {
+func TestMintWithCap_SupplyMonotonic(t *testing.T) {
+	// No burn recycling in the new model: supply monotonically increases to cap.
+	// Once the cap is reached, no further minting is possible.
 	bk := newMockBankKeeper()
 	nearCap := "222222221999500"
 	k, ctx := setupMintKeeper(t, bk, nearCap, 0)
 
+	// Mint exactly the remaining 500
 	actual, err := k.MintWithCap(ctx, big.NewInt(500))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1204,6 +1191,7 @@ func TestMintWithCap_BurnRecycling(t *testing.T) {
 		t.Errorf("expected 500 minted, got %s", actual.String())
 	}
 
+	// Supply exhausted — no more minting possible
 	actual2, err := k.MintWithCap(ctx, big.NewInt(1000))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1212,22 +1200,13 @@ func TestMintWithCap_BurnRecycling(t *testing.T) {
 		t.Errorf("expected 0 mint when supply exhausted, got %s", actual2.String())
 	}
 
-	bk.BurnCoins(ctx, "knowledge", sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(200))))
-
-	actual3, err := k.MintWithCap(ctx, big.NewInt(1000))
+	// Repeated attempts also yield zero (no burn recycling to free headroom)
+	actual3, err := k.MintWithCap(ctx, big.NewInt(1))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if actual3.Int64() != 200 {
-		t.Errorf("expected 200 minted after burn freed headroom, got %s", actual3.String())
-	}
-
-	actual4, err := k.MintWithCap(ctx, big.NewInt(1))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if actual4.Sign() != 0 {
-		t.Errorf("expected 0 after re-exhaustion, got %s", actual4.String())
+	if actual3.Sign() != 0 {
+		t.Errorf("expected 0 after cap permanently reached, got %s", actual3.String())
 	}
 }
 
@@ -1413,10 +1392,6 @@ func TestRouteFees_SweepsFeeCollector(t *testing.T) {
 		t.Errorf("expected 19670 uzrn to development_fund, got %d", devCoins.AmountOf("uzrn").Int64())
 	}
 
-	// No coins should be burned
-	if !bk.burnedCoins.IsZero() {
-		t.Errorf("expected no coins burned, got %v", bk.burnedCoins)
-	}
 }
 
 func TestRouteFees_EmptyFeeCollector(t *testing.T) {
@@ -1682,6 +1657,145 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 	}
 }
 
+// ==================== Founder Share Immutability Tests ====================
+
+func TestFounderShareImmutability_RejectBpsChange(t *testing.T) {
+	bk := newMockBankKeeper()
+	founderAddr := sdk.AccAddress("founder_____________").String()
+	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
+
+	ms := keeper.NewMsgServerImpl(k)
+
+	// Current: FounderShareBps=70000. Attempt to change to 50000.
+	newParams := types.DefaultParams()
+	newParams.FounderShareBps = 50000
+	newParams.FounderAddress = founderAddr
+
+	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "authority",
+		Params:    newParams,
+	})
+	if err == nil {
+		t.Fatal("expected error when changing FounderShareBps")
+	}
+	if err != types.ErrFounderShareImmutable {
+		t.Errorf("expected ErrFounderShareImmutable, got %v", err)
+	}
+}
+
+func TestFounderShareImmutability_RejectAddressChange(t *testing.T) {
+	bk := newMockBankKeeper()
+	founderAddr := sdk.AccAddress("founder_____________").String()
+	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
+
+	ms := keeper.NewMsgServerImpl(k)
+
+	// Current: FounderAddress is set. Attempt to change to a different address.
+	newParams := types.DefaultParams()
+	newParams.FounderShareBps = 70000
+	newParams.FounderAddress = sdk.AccAddress("another_founder_____").String()
+
+	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "authority",
+		Params:    newParams,
+	})
+	if err == nil {
+		t.Fatal("expected error when changing FounderAddress")
+	}
+	if err != types.ErrFounderShareImmutable {
+		t.Errorf("expected ErrFounderShareImmutable, got %v", err)
+	}
+}
+
+func TestFounderShareImmutability_AllowInitialSet(t *testing.T) {
+	// When founder params are empty/zero, setting them for the first time should succeed.
+	bk := newMockBankKeeper()
+	k, ctx := setupFounderKeeper(t, bk, "", 0) // empty founder
+
+	ms := keeper.NewMsgServerImpl(k)
+
+	newParams := types.DefaultParams()
+	newParams.FounderShareBps = 70000
+	newParams.FounderAddress = sdk.AccAddress("new_founder_________").String()
+
+	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "authority",
+		Params:    newParams,
+	})
+	if err != nil {
+		t.Fatalf("expected initial set to succeed, got: %v", err)
+	}
+
+	// Verify params were set
+	params := k.GetParams(ctx)
+	if params.FounderShareBps != 70000 {
+		t.Errorf("expected FounderShareBps 70000, got %d", params.FounderShareBps)
+	}
+	if params.FounderAddress != newParams.FounderAddress {
+		t.Errorf("expected FounderAddress %s, got %s", newParams.FounderAddress, params.FounderAddress)
+	}
+}
+
+func TestFounderShareImmutability_AllowIdenticalValues(t *testing.T) {
+	bk := newMockBankKeeper()
+	founderAddr := sdk.AccAddress("founder_____________").String()
+	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
+
+	ms := keeper.NewMsgServerImpl(k)
+
+	// Setting the same values should succeed (no change = no violation).
+	newParams := types.DefaultParams()
+	newParams.FounderShareBps = 70000
+	newParams.FounderAddress = founderAddr
+
+	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "authority",
+		Params:    newParams,
+	})
+	if err != nil {
+		t.Fatalf("expected identical values to succeed, got: %v", err)
+	}
+}
+
+func TestNoGovernanceSunset(t *testing.T) {
+	// Governance sunset was removed. isFounderShareActive returns true regardless
+	// of block height when founder address is set.
+	bk := newMockBankKeeper()
+	founderAddr := sdk.AccAddress("founder_____________").String()
+
+	// Set GovernanceActivationHeight to 500 — should be ignored.
+	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
+
+	// Test at block 1 (before activation height)
+	ctx1 := ctx.WithBlockHeight(1)
+	producer := sdk.AccAddress("producer____________").String()
+	dist1, err := k.DistributeBlockReward(ctx1, producer, 22, true)
+	if err != nil {
+		t.Fatalf("block 1 reward failed: %v", err)
+	}
+	if dist1.FounderShare == "0" {
+		t.Error("expected founder share active at block 1 (no sunset)")
+	}
+
+	// Test at block 10000 (well after activation height)
+	bk2 := newMockBankKeeper()
+	k2, ctx2 := setupFounderKeeper(t, bk2, founderAddr, 500)
+	ctx2 = ctx2.WithBlockHeight(10000)
+	dist2, err := k2.DistributeBlockReward(ctx2, producer, 22, true)
+	if err != nil {
+		t.Fatalf("block 10000 reward failed: %v", err)
+	}
+	if dist2.FounderShare == "0" {
+		t.Error("expected founder share active at block 10000 (no sunset)")
+	}
+
+	// Both should yield the same founder share amount
+	if dist1.FounderShare != dist2.FounderShare {
+		t.Errorf("founder share should be consistent regardless of block height: block1=%s, block10000=%s",
+			dist1.FounderShare, dist2.FounderShare)
+	}
+}
+
 // ==================== New Query Tests ====================
 
 func TestQueryResearchFundBalance(t *testing.T) {
@@ -1776,7 +1890,7 @@ func TestDistributeRevenue_CustomSplit(t *testing.T) {
 		t.Errorf("expected research 200000, got %s", routing.ResearchShare)
 	}
 	if routing.DevelopmentAmount != "100000" {
-		t.Errorf("expected burn 100000, got %s", routing.DevelopmentAmount)
+		t.Errorf("expected development 100000, got %s", routing.DevelopmentAmount)
 	}
 	if routing.CitationPool != "180000" {
 		t.Errorf("expected citation pool 180000, got %s", routing.CitationPool)

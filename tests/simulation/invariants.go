@@ -284,6 +284,8 @@ func FinalInvariants() []Invariant {
 		{"RewardDistributionFairness", checkRewardDistributionFairness},
 		{"KnowledgeTreeGrowth", checkKnowledgeTreeGrowth},
 		{"ToolRevenueGenerated", checkToolRevenueGenerated},
+		{"FounderShareImmutable", checkFounderShareImmutable},
+		{"NoBurn", checkNoBurn},
 	}
 }
 
@@ -469,6 +471,31 @@ func checkKnowledgeTreeGrowth(s *SimState) error {
 func checkToolRevenueGenerated(s *SimState) error {
 	if s.toolRevenue.IsZero() {
 		return fmt.Errorf("no tool revenue generated during simulation")
+	}
+	return nil
+}
+
+func checkFounderShareImmutable(s *SimState) error {
+	params := s.vestingKeeper.GetParams(s.ctx)
+	// Founder share params must match genesis values (70000 BPS, founder_sim address).
+	if params.FounderShareBps != 70000 {
+		return fmt.Errorf("founder share BPS changed: expected 70000, got %d", params.FounderShareBps)
+	}
+	if s.founderAddr != nil && params.FounderAddress != s.founderAddr.String() {
+		return fmt.Errorf("founder address changed: expected %s, got %s",
+			s.founderAddr.String(), params.FounderAddress)
+	}
+	return nil
+}
+
+func checkNoBurn(s *SimState) error {
+	// In the new model, no tokens are burned. Total supply == total minted.
+	s.bank.mu.Lock()
+	cumulBurned := s.bank.cumulBurned
+	s.bank.mu.Unlock()
+
+	if cumulBurned.IsPositive() {
+		return fmt.Errorf("tokens were burned: %s uzrn (no-burn invariant violated)", cumulBurned)
 	}
 	return nil
 }

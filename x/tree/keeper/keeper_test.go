@@ -102,16 +102,6 @@ func (m *mockBankKeeper) SendCoinsFromModuleToModule(_ context.Context, senderMo
 	return nil
 }
 
-func (m *mockBankKeeper) BurnCoins(_ context.Context, moduleName string, amt sdk.Coins) error {
-	for _, coin := range amt {
-		if m.moduleBalances[moduleName] == nil {
-			m.moduleBalances[moduleName] = make(map[string]int64)
-		}
-		m.moduleBalances[moduleName][coin.Denom] -= coin.Amount.Int64()
-	}
-	return nil
-}
-
 // ---------- NoOpResearchFundDepositor ----------
 
 type noOpResearchFundDepositor struct {
@@ -1404,22 +1394,22 @@ func TestCalculateRevenue(t *testing.T) {
 		1_000_000,
 		550000, // 55% contributor
 		220000, // 22% treasury
-		130000, // 13% research
-		100000, // 10% burn
+		33300,  // 3.33% research
+		196700, // 19.67% development fund
 		contributors,
 	)
 
 	if dist.ContributorPool != 550000 {
 		t.Errorf("expected contributor pool 550000, got %d", dist.ContributorPool)
 	}
-	if dist.Burn != 100000 {
-		t.Errorf("expected burn 100000, got %d", dist.Burn)
+	if dist.DevelopmentFund != 196700 {
+		t.Errorf("expected development fund 196700, got %d", dist.DevelopmentFund)
 	}
-	if dist.ResearchFund != 130000 {
-		t.Errorf("expected research fund 130000, got %d", dist.ResearchFund)
+	if dist.ResearchFund != 33300 {
+		t.Errorf("expected research fund 33300, got %d", dist.ResearchFund)
 	}
 
-	// Treasury allocation = 1M - 550K - 130K - 100K = 220K
+	// Treasury allocation = 1M - 550K - 33.3K - 196.7K = 220K
 	// Verification pool = 220K * 300000 / 1000000 = 66K
 	// Protocol treasury = 220K - 66K = 154K
 	if dist.ProtocolTreasury != 154000 {
@@ -1430,7 +1420,7 @@ func TestCalculateRevenue(t *testing.T) {
 	}
 
 	// Check lossless: all allocations sum to total
-	total := dist.ContributorPool + dist.ResearchFund + dist.ProtocolTreasury + dist.VerificationPool + dist.Burn
+	total := dist.ContributorPool + dist.ResearchFund + dist.ProtocolTreasury + dist.VerificationPool + dist.DevelopmentFund
 	if total != 1_000_000 {
 		t.Errorf("expected total 1000000, got %d (lossless violation)", total)
 	}
@@ -1442,14 +1432,14 @@ func TestCalculateRevenue(t *testing.T) {
 }
 
 func TestCalculateRevenue_ZeroAmount(t *testing.T) {
-	dist := keeper.CalculateRevenue(0, 550000, 220000, 130000, 100000, nil)
+	dist := keeper.CalculateRevenue(0, 550000, 220000, 33300, 196700, nil)
 	if dist.ContributorPool != 0 || dist.ProtocolTreasury != 0 {
 		t.Error("expected zero distribution for zero total")
 	}
 }
 
 func TestCalculateRevenue_NoContributors(t *testing.T) {
-	dist := keeper.CalculateRevenue(1_000_000, 550000, 220000, 130000, 100000, nil)
+	dist := keeper.CalculateRevenue(1_000_000, 550000, 220000, 33300, 196700, nil)
 	if dist.ContributorPool != 0 {
 		t.Errorf("expected contributor pool redirected to treasury, got %d", dist.ContributorPool)
 	}
@@ -1465,7 +1455,7 @@ func TestCalculateRevenue_EqualSplitNoTasks(t *testing.T) {
 		{Did: agent1, TasksCompleted: 0},
 	}
 
-	dist := keeper.CalculateRevenue(1_000_000, 550000, 220000, 130000, 100000, contributors)
+	dist := keeper.CalculateRevenue(1_000_000, 550000, 220000, 33300, 196700, contributors)
 	if len(dist.ContributorShares) != 2 {
 		t.Fatalf("expected 2 shares, got %d", len(dist.ContributorShares))
 	}

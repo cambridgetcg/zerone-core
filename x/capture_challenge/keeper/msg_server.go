@@ -239,15 +239,15 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 		}
 
 	case types.ChallengeOutcome_CHALLENGE_OUTCOME_REJECTED:
-		// Burn challenger stake
+		// Route rejected challenger stake to development fund
 		if stakeAmt.Sign() > 0 {
-			burnCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-			if err := m.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoins); err != nil {
-				return nil, fmt.Errorf("failed to burn stake: %w", err)
+			stakeCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
+			if err := m.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", stakeCoins); err != nil {
+				return nil, fmt.Errorf("failed to route stake to development fund: %w", err)
 			}
 		}
 
-		// Add burned stake to bounty pool
+		// Add slashed stake to bounty pool
 		pool, poolFound := m.GetBountyPool(ctx, challenge.Domain)
 		if !poolFound {
 			pool = &types.DomainBountyPool{
@@ -265,7 +265,7 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 		slashAmount = "0"
 
 	case types.ChallengeOutcome_CHALLENGE_OUTCOME_PARTIAL:
-		// Return half the stake, burn the other half
+		// Return half the stake, route the other half to development fund
 		halfStake := new(big.Int).Div(stakeAmt, big.NewInt(2))
 		remainder := new(big.Int).Sub(stakeAmt, halfStake)
 
@@ -276,9 +276,9 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 			}
 		}
 		if remainder.Sign() > 0 {
-			burnCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remainder)))
-			if err := m.bankKeeper.BurnCoins(ctx, types.ModuleName, burnCoins); err != nil {
-				return nil, fmt.Errorf("failed to burn partial stake: %w", err)
+			devCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remainder)))
+			if err := m.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", devCoins); err != nil {
+				return nil, fmt.Errorf("failed to route partial stake to development fund: %w", err)
 			}
 		}
 

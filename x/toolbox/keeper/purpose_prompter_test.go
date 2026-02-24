@@ -55,7 +55,6 @@ func (m *ppMockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, _ str
 func (m *ppMockBankKeeper) SendCoinsFromModuleToModule(_ context.Context, _ string, _ string, _ sdk.Coins) error {
 	return nil
 }
-func (m *ppMockBankKeeper) BurnCoins(_ context.Context, _ string, _ sdk.Coins) error { return nil }
 func (m *ppMockBankKeeper) GetBalance(_ context.Context, _ sdk.AccAddress, _ string) sdk.Coin {
 	return sdk.NewCoin("uzrn", sdkmath.ZeroInt())
 }

@@ -35,8 +35,8 @@ func init() {
 // ---------- Mock BankKeeper ----------
 
 type mockBankKeeper struct {
-	balances map[string]sdk.Coins
-	burned   sdk.Coins
+	balances   map[string]sdk.Coins
+	moduleSent sdk.Coins
 }
 
 func newMockBankKeeper() *mockBankKeeper {
@@ -73,8 +73,8 @@ func (m *mockBankKeeper) MintCoins(_ context.Context, _ string, _ sdk.Coins) err
 	return nil
 }
 
-func (m *mockBankKeeper) BurnCoins(_ context.Context, _ string, amt sdk.Coins) error {
-	m.burned = m.burned.Add(amt...)
+func (m *mockBankKeeper) SendCoinsFromModuleToModule(_ context.Context, senderModule string, recipientModule string, amt sdk.Coins) error {
+	m.moduleSent = m.moduleSent.Add(amt...)
 	return nil
 }
 

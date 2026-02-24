@@ -82,8 +82,7 @@ func (k Keeper) DistributeRevenue(ctx context.Context, tool *types.Tool, totalAm
 	// 4. Development fund.
 	devAmount := safeMulDiv(total, params.DevelopmentBps, types.BpsDenominator)
 	if devAmount > 0 {
-		// TODO(R16): route to development fund instead of burning
-		if err := k.bankKeeper.BurnCoins(ctx, ToolboxModuleName, sdk.NewCoins(uzrnCoin(devAmount))); err != nil {
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, ToolboxModuleName, "development_fund", sdk.NewCoins(uzrnCoin(devAmount))); err != nil {
 			return fmt.Errorf("development fund: %w", err)
 		}
 	}

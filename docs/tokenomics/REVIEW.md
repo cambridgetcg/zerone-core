@@ -34,7 +34,7 @@ The SSI-based adaptive parameters are genuinely innovative — the chain adjusti
 
 **Decision: Zero genesis supply.** No foundation allocation, no research treasury bootstrap. Every ZRN minted through PoT block rewards. This eliminates the centralisation concern entirely.
 
-**New concern: Bootstrap friction.** With 0 ZRN at genesis, validators rely on virtual stake and earn from block 1. The research fund starts empty and fills organically from 13% revenue share. This is philosophically clean but means early-stage funding for ecosystem development depends entirely on block reward accumulation speed.
+**New concern: Bootstrap friction.** With 0 ZRN at genesis, validators rely on virtual stake and earn from block 1. The research fund starts empty and fills organically from 3.33% revenue share (plus the 19.67% development fund). This is philosophically clean but means early-stage funding for ecosystem development depends entirely on block reward accumulation speed.
 
 ### 2. ~~The Founder Share Is Uncomfortably Manual~~ → RESOLVED (by design)
 
@@ -88,7 +88,7 @@ The 2-of-2 multisig between Yu and AI for the research fund is philosophically b
 
 ### Economic
 
-1. **What's the equilibrium circulating supply?** With burns, vesting locks, staking, and the supply cap, the actual liquid supply at any given time is hard to model. A simulation would help.
+1. **What's the equilibrium circulating supply?** With vesting locks, staking, and the supply cap, the actual liquid supply at any given time is hard to model. A simulation would help.
 
 2. **When does the cap bind?** With no burn, the supply monotonically increases. At floor rate (~1.26M/year) plus early rapid emission (~8M in first 3 months), the cap could bind in decades. When `MintWithCap` starts clamping, block producers earn less. The transition is smooth (it mints whatever headroom remains) but the economic shift from minting-based to fee-based incentives needs testing.
 
@@ -100,7 +100,7 @@ The 2-of-2 multisig between Yu and AI for the research fund is philosophically b
 
 5. **Who decides the knowledge strata?** `allow_new_strata = false` at genesis. New knowledge domains can be added, but new epistemic strata require a code upgrade. Is this too conservative?
 
-6. **Can governance break the economics?** A governance proposal could set `burn_bps = 0` and `contributor_bps = 1000000`, directing all revenue to contributors with no burn. Should there be parameter bounds enforced in code?
+6. **Can governance break the economics?** A governance proposal could set `contributor_bps = 1000000`, directing all revenue to contributors. Should there be parameter bounds enforced in code? (Note: `founder_share_bps` and `founder_address` are already governance-immune.)
 
 7. **Emergency governance thresholds are very high.** 75% for halt, 80% for revert/resume. With 22 validators, that requires near-unanimity. Is this too high for actual emergencies?
 

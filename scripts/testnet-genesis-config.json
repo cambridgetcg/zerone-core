@@ -263,7 +263,7 @@
         "blocks_per_reward_epoch_[TESTNET]": "prod=100000, halved for faster epoch cycling",
         "founder_share_bps": 70000,
         "founder_address": "",
-        "governance_activation_height": 0,
+        "governance_activation_height_DEPRECATED": "removed — founder share is governance-immune",
         "vesting_enabled": true,
         "released_clawback_rate": 3300,
         "min_validators_for_full_reward": 11,
@@ -274,8 +274,8 @@
         "revenue_split": {
           "contributor_bps": 550000,
           "protocol_bps": 220000,
-          "research_bps": 130000,
-          "burn_bps": 100000
+          "research_bps": 33300,
+          "development_bps": 196700
         },
         "protocol_sub_split": {
           "citation_bps": 500000,
@@ -350,8 +350,8 @@
         "revenue_split": {
           "contributor_bps": 550000,
           "protocol_bps": 220000,
-          "research_bps": 130000,
-          "burn_bps": 100000
+          "research_bps": 33300,
+          "development_bps": 196700
         },
         "dynamic_pricing_config": {
           "enabled": false,
@@ -669,8 +669,8 @@
         "free_calls_enabled": true,
         "tool_revenue_bps": 550000,
         "protocol_bps": 220000,
-        "research_bps": 130000,
-        "burn_bps": 100000,
+        "research_bps": 33300,
+        "development_bps": 196700,
         "protocol_citation_bps": 500000,
         "protocol_verification_bps": 300000,
         "protocol_treasury_bps": 200000
@@ -692,8 +692,8 @@
         "min_contributors_to_start": 1,
         "contributors_bp": 550000,
         "protocol_treasury_bp": 220000,
-        "research_fund_bp": 130000,
-        "burn_bp": 100000,
+        "research_fund_bp": 33300,
+        "development_bp": 196700,
         "evidence_tax_bp": 220000
       }
     }

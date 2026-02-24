@@ -12,7 +12,7 @@ Enforced in code at `x/vesting_rewards/types/keys.go`:
 MaxSupplyUzrn = "222222222000000"
 ```
 
-The cap is checked against **current bank supply** (not cumulative minted). This means burned tokens free headroom — the cap is on circulating + locked supply, not on total-ever-created. This is intentional: it creates a soft recycling effect where the protocol can continue minting block rewards even after significant cumulative issuance, as long as enough ZRN has been burned.
+The cap is checked against **current bank supply** (not cumulative minted). The cap is on circulating + locked supply, not on total-ever-created. Since Zerone has no burn mechanism, the supply monotonically increases toward the hard cap.
 
 ## Why 222,222,222?
 
