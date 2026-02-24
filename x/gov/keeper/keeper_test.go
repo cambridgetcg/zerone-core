@@ -31,8 +31,9 @@ func init() {
 // ---------- Mock Staking Keeper ----------
 
 type mockStakingKeeper struct {
-	totalBonded string
-	delegations map[string]string // addr -> bonded amount
+	totalBonded   string
+	delegations   map[string]string // addr -> bonded amount
+	guardianCount uint64
 }
 
 func newMockStakingKeeper(totalBonded string) *mockStakingKeeper {
@@ -51,6 +52,10 @@ func (m *mockStakingKeeper) GetDelegatorTotalBonded(_ context.Context, addr stri
 		return amt, nil
 	}
 	return "0", nil
+}
+
+func (m *mockStakingKeeper) CountActiveGuardians(_ context.Context) (uint64, error) {
+	return m.guardianCount, nil
 }
 
 // ---------- Mock Upgrade Keeper ----------
