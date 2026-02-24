@@ -35,8 +35,8 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 		return nil, err
 	}
 
-	// Count stake-weighted accept/reject votes from reveals
-	var acceptStake, rejectStake, totalVoteStake uint64
+	// Count stake-weighted accept/reject/malformed votes from reveals
+	var acceptStake, rejectStake, malformedStake, totalVoteStake uint64
 
 	for _, reveal := range round.Reveals {
 		var stake uint64
@@ -56,6 +56,8 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 			acceptStake += stake
 		case "reject":
 			rejectStake += stake
+		case "malformed":
+			malformedStake += stake
 		}
 	}
 
@@ -69,14 +71,19 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 	}
 
 	// Calculate vote ratios (BPS scale)
-	var acceptRatio, rejectRatio uint64
+	var acceptRatio, rejectRatio, malformedRatio uint64
 	if totalVoteStake > 0 {
 		acceptRatio = safeMulDiv(acceptStake, 1_000_000, totalVoteStake)
 		rejectRatio = safeMulDiv(rejectStake, 1_000_000, totalVoteStake)
+		malformedRatio = safeMulDiv(malformedStake, 1_000_000, totalVoteStake)
 	}
 
-	// Determine verdict
-	if acceptRatio >= params.ConfidenceThreshold {
+	// Determine verdict — check malformed FIRST: a malformed claim should
+	// never become a fact regardless of accept votes
+	if malformedRatio >= params.ConfidenceThreshold {
+		result.Verdict = types.Verdict_VERDICT_MALFORMED
+		result.Confidence = malformedRatio
+	} else if acceptRatio >= params.ConfidenceThreshold {
 		result.Verdict = types.Verdict_VERDICT_ACCEPT
 		result.Confidence = acceptRatio
 	} else if rejectRatio >= params.ConfidenceThreshold {
@@ -111,11 +118,18 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 func (k Keeper) calculateRewardsAndSlashes(ctx context.Context, round *types.VerificationRound, result *VerificationResult, params *types.Params) {
 	// Determine which vote is "correct" based on verdict
 	var correctVote string
+	var partialRewardVote string      // vote that gets reduced reward instead of slash
+	var partialRewardRatio uint64     // BPS ratio of base reward for partial (0 = no partial)
 	switch result.Verdict {
 	case types.Verdict_VERDICT_ACCEPT:
 		correctVote = "accept"
 	case types.Verdict_VERDICT_REJECT:
 		correctVote = "reject"
+	case types.Verdict_VERDICT_MALFORMED:
+		correctVote = "malformed"
+		// "reject" voters are directionally correct but imprecise — half reward
+		partialRewardVote = "reject"
+		partialRewardRatio = 500_000 // 50% of base reward
 	default:
 		// Inconclusive — no rewards or slashes
 		return
@@ -150,12 +164,23 @@ func (k Keeper) calculateRewardsAndSlashes(ctx context.Context, round *types.Ver
 		}
 
 		if vote == correctVote {
-			// Correct vote — reward
+			// Correct vote — full reward
 			if baseReward.IsUint64() {
 				result.Rewards = append(result.Rewards, VerifierReward{
 					Verifier: commit.Verifier,
 					Amount:   baseReward.Uint64(),
 				})
+			}
+		} else if partialRewardVote != "" && vote == partialRewardVote {
+			// Partially correct vote — reduced reward
+			if baseReward.IsUint64() {
+				partialAmt := safeMulDiv(baseReward.Uint64(), partialRewardRatio, 1_000_000)
+				if partialAmt > 0 {
+					result.Rewards = append(result.Rewards, VerifierReward{
+						Verifier: commit.Verifier,
+						Amount:   partialAmt,
+					})
+				}
 			}
 		} else {
 			// Incorrect vote — slash

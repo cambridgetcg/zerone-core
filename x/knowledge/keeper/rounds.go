@@ -88,6 +88,14 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		}
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_REJECTED
 
+	case types.Verdict_VERDICT_MALFORMED:
+		// Slash submitter harder than invalid claims — they wasted verifier time with nonsense
+		params, _ := k.GetParams(ctx)
+		if err := k.slashAndBurnClaimStake(ctx, claim, params.MalformedClaimSlashBps); err != nil {
+			k.Logger(ctx).Error("failed to slash malformed claim", "claim_id", claim.Id, "error", err)
+		}
+		claim.Status = types.ClaimStatus_CLAIM_STATUS_MALFORMED
+
 	case types.Verdict_VERDICT_INCONCLUSIVE:
 		// Return claim stake — insufficient evidence
 		if err := k.returnClaimStake(ctx, claim); err != nil {

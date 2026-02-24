@@ -571,3 +571,90 @@ func TestSecurity_RevealInCommitPhase(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrRoundNotInRevealPhase,
 		"reveal during commit phase must return ErrRoundNotInRevealPhase")
 }
+
+func TestMalformed_SybilCostAnalysis(t *testing.T) {
+	// N sybils voting malformed on a legitimate claim: verify they all get slashed
+	// when the legitimate claim passes ACCEPT from honest validators.
+	k, ctx, _, sk := setupKnowledgeTestFull(t)
+
+	// 5 honest validators with high stake
+	for i := 0; i < 5; i++ {
+		sk.addValidator(fmt.Sprintf("zrn1honest%d", i), 200_000, "bonded")
+	}
+	// 3 sybil validators with low stake
+	for i := 0; i < 3; i++ {
+		sk.addValidator(fmt.Sprintf("zrn1sybil%d", i), 10_000, "apprentice")
+	}
+
+	params, _ := k.GetParams(ctx)
+	params.MinVerifiers = 8
+	params.ConfidenceThreshold = 600_000 // 60%
+	require.NoError(t, k.SetParams(ctx, params))
+
+	claim := &types.Claim{
+		Id:          "claim-sybil-mal",
+		FactContent: "Legitimate claim that sybils try to mark malformed",
+		Domain:      "mathematics",
+		Category:    "formal",
+		Submitter:   "zrn1sub",
+		Stake:       "1000000",
+		Status:      types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+	}
+	require.NoError(t, k.SetClaim(ctx, claim))
+
+	round := makeRoundInPhase("r-sybil-mal", "claim-sybil-mal", types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, 80)
+	for i := 0; i < 5; i++ {
+		round.Commits = append(round.Commits, &types.CommitEntry{
+			Verifier: fmt.Sprintf("zrn1honest%d", i), CommitHash: []byte(fmt.Sprintf("h%d", i)), CommittedAtBlock: 85,
+		})
+		round.Reveals = append(round.Reveals, &types.RevealEntry{
+			Verifier: fmt.Sprintf("zrn1honest%d", i), Vote: "accept", Salt: []byte(fmt.Sprintf("s%d", i)), RevealedAtBlock: 90,
+		})
+	}
+	for i := 0; i < 3; i++ {
+		round.Commits = append(round.Commits, &types.CommitEntry{
+			Verifier: fmt.Sprintf("zrn1sybil%d", i), CommitHash: []byte(fmt.Sprintf("sh%d", i)), CommittedAtBlock: 85,
+		})
+		round.Reveals = append(round.Reveals, &types.RevealEntry{
+			Verifier: fmt.Sprintf("zrn1sybil%d", i), Vote: "malformed", Salt: []byte(fmt.Sprintf("ss%d", i)), RevealedAtBlock: 90,
+		})
+	}
+	require.NoError(t, k.SetVerificationRound(ctx, round))
+
+	result, err := k.AggregateVerificationResult(ctx, round)
+	require.NoError(t, err)
+
+	// Honest: 5 × 200k = 1,000k accept stake
+	// Sybil: 3 × 10k = 30k malformed stake
+	// Total: 1,030k
+	// Accept ratio = 1,000k/1,030k ≈ 970,874 bps → above 60% threshold
+	// Malformed ratio = 30k/1,030k ≈ 29,126 bps → well below threshold
+	require.Equal(t, types.Verdict_VERDICT_ACCEPT, result.Verdict,
+		"sybil malformed votes must not override honest accept majority")
+
+	// All sybils should be slashed for wrong vote
+	slashMap := make(map[string]uint64)
+	for _, s := range result.Slashes {
+		slashMap[s.Verifier] = s.SlashBps
+	}
+	for i := 0; i < 3; i++ {
+		sybilAddr := fmt.Sprintf("zrn1sybil%d", i)
+		require.Contains(t, slashMap, sybilAddr,
+			"sybil %s must be slashed for wrong malformed vote", sybilAddr)
+		require.Equal(t, params.WrongVerificationSlashBps, slashMap[sybilAddr],
+			"sybil slash must use WrongVerificationSlashBps")
+	}
+
+	// All honest validators should be rewarded
+	rewardMap := make(map[string]uint64)
+	for _, r := range result.Rewards {
+		rewardMap[r.Verifier] = r.Amount
+	}
+	for i := 0; i < 5; i++ {
+		honestAddr := fmt.Sprintf("zrn1honest%d", i)
+		require.Contains(t, rewardMap, honestAddr,
+			"honest validator %s must be rewarded", honestAddr)
+		require.Equal(t, uint64(3_000_000), rewardMap[honestAddr],
+			"honest validator reward must match VerificationReward")
+	}
+}

@@ -215,8 +215,8 @@ func (m *msgServer) SubmitReveal(ctx context.Context, msg *types.MsgSubmitReveal
 	}
 
 	// Validate vote value
-	if msg.Vote != "accept" && msg.Vote != "reject" {
-		return nil, fmt.Errorf("invalid vote: must be 'accept' or 'reject'")
+	if msg.Vote != "accept" && msg.Vote != "reject" && msg.Vote != "malformed" {
+		return nil, fmt.Errorf("invalid vote: must be 'accept', 'reject', or 'malformed'")
 	}
 
 	// Check for duplicate reveal

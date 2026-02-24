@@ -84,8 +84,10 @@ type Params struct {
 	ChallengeStakeRatioMinBps       uint64 `protobuf:"varint,48,opt,name=challenge_stake_ratio_min_bps,json=challengeStakeRatioMinBps,proto3" json:"challenge_stake_ratio_min_bps,omitempty"`                   // default: 500,000 (FARM-9)
 	// ─── Research fund ───────────────────────────────────────────────────────
 	ResearchFundShareBps uint64 `protobuf:"varint,49,opt,name=research_fund_share_bps,json=researchFundShareBps,proto3" json:"research_fund_share_bps,omitempty"` // default: 130,000 (13%)
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// ─── Malformed claim slashing ──────────────────────────────────────────
+	MalformedClaimSlashBps uint64 `protobuf:"varint,50,opt,name=malformed_claim_slash_bps,json=malformedClaimSlashBps,proto3" json:"malformed_claim_slash_bps,omitempty"` // default: 500,000 (50%) — harsher than invalid_claim (22%)
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -461,6 +463,13 @@ func (x *Params) GetResearchFundShareBps() uint64 {
 	return 0
 }
 
+func (x *Params) GetMalformedClaimSlashBps() uint64 {
+	if x != nil {
+		return x.MalformedClaimSlashBps
+	}
+	return 0
+}
+
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -542,7 +551,7 @@ var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xcd\x15\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\x88\x16\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -593,7 +602,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"#min_domain_contributors_for_novelty\x18. \x01(\x04R\x1fminDomainContributorsForNovelty\x12;\n" +
 	"\x1amin_participation_rate_bps\x18/ \x01(\x04R\x17minParticipationRateBps\x12@\n" +
 	"\x1dchallenge_stake_ratio_min_bps\x180 \x01(\x04R\x19challengeStakeRatioMinBps\x125\n" +
-	"\x17research_fund_share_bps\x181 \x01(\x04R\x14researchFundShareBps\"\xbb\x02\n" +
+	"\x17research_fund_share_bps\x181 \x01(\x04R\x14researchFundShareBps\x129\n" +
+	"\x19malformed_claim_slash_bps\x182 \x01(\x04R\x16malformedClaimSlashBps\"\xbb\x02\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +

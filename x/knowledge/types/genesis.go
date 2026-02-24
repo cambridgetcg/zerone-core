@@ -32,7 +32,7 @@ func DefaultParams() Params {
 
 		// ─── Claim validation ─────────────────────────────────────────────────
 		MinClaimTextLength: 20,
-		MaxClaimTextLength: 10_000,
+		MaxClaimTextLength: 1_000,
 		MinClaimStake:      "1000000", // 1 ZRN in uzrn
 
 		// ─── Adversarial verification ─────────────────────────────────────────
@@ -74,6 +74,9 @@ func DefaultParams() Params {
 
 		// ─── Research fund ────────────────────────────────────────────────────
 		ResearchFundShareBps: 130_000, // 13%
+
+		// ─── Malformed claim slashing ────────────────────────────────────────
+		MalformedClaimSlashBps: 500_000, // 50% — submitting garbage wastes verifier time
 	}
 }
 
@@ -230,6 +233,9 @@ func (p *Params) Validate() error {
 	}
 	if p.InvalidClaimSlashBps == 0 {
 		return fmt.Errorf("invalid_claim_slash_bps must be > 0")
+	}
+	if p.MalformedClaimSlashBps == 0 {
+		return fmt.Errorf("malformed_claim_slash_bps must be > 0")
 	}
 
 	// Confidence values must be within BPS range.

@@ -34,6 +34,7 @@ enum ClaimStatus {
   CLAIM_STATUS_EXPIRED            = 9;
   CLAIM_STATUS_INSUFFICIENT       = 10;
   CLAIM_STATUS_CONTESTED          = 11;
+  CLAIM_STATUS_MALFORMED          = 12; // Rejected as not truth-apt
 }
 
 // VerificationPhase tracks progress of a commit-reveal verification round.
@@ -52,6 +53,7 @@ enum Verdict {
   VERDICT_ACCEPT       = 1;
   VERDICT_REJECT       = 2;
   VERDICT_INCONCLUSIVE = 3;
+  VERDICT_MALFORMED    = 4; // Claim is not truth-apt (paradox, category error, nonsense)
 }
 
 // DomainStatus tracks whether an epistemic domain is active or proposed.
@@ -137,7 +139,7 @@ message CommitEntry {
 // RevealEntry records a validator's revealed vote and salt.
 message RevealEntry {
   string verifier         = 1;
-  string vote             = 2; // "accept" or "reject"
+  string vote             = 2; // "accept", "reject", or "malformed"
   bytes  salt             = 3;
   uint64 revealed_at_block = 4;
 }

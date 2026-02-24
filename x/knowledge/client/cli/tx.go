@@ -121,7 +121,7 @@ func NewSubmitRevealCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "submit-reveal [round-id] [vote] [salt-hex]",
 		Short: "Submit a verification reveal (commit-reveal phase 2)",
-		Long:  `Vote must be "accept" or "reject". Salt is the hex-encoded salt used in commitment.`,
+		Long:  `Vote must be "accept", "reject", or "malformed". Salt is the hex-encoded salt used in commitment.`,
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)

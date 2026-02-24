@@ -117,6 +117,7 @@ const (
 	ClaimStatus_CLAIM_STATUS_EXPIRED            ClaimStatus = 9
 	ClaimStatus_CLAIM_STATUS_INSUFFICIENT       ClaimStatus = 10
 	ClaimStatus_CLAIM_STATUS_CONTESTED          ClaimStatus = 11
+	ClaimStatus_CLAIM_STATUS_MALFORMED          ClaimStatus = 12 // Rejected as not truth-apt
 )
 
 // Enum value maps for ClaimStatus.
@@ -134,6 +135,7 @@ var (
 		9:  "CLAIM_STATUS_EXPIRED",
 		10: "CLAIM_STATUS_INSUFFICIENT",
 		11: "CLAIM_STATUS_CONTESTED",
+		12: "CLAIM_STATUS_MALFORMED",
 	}
 	ClaimStatus_value = map[string]int32{
 		"CLAIM_STATUS_UNSPECIFIED":        0,
@@ -148,6 +150,7 @@ var (
 		"CLAIM_STATUS_EXPIRED":            9,
 		"CLAIM_STATUS_INSUFFICIENT":       10,
 		"CLAIM_STATUS_CONTESTED":          11,
+		"CLAIM_STATUS_MALFORMED":          12,
 	}
 )
 
@@ -245,6 +248,7 @@ const (
 	Verdict_VERDICT_ACCEPT       Verdict = 1
 	Verdict_VERDICT_REJECT       Verdict = 2
 	Verdict_VERDICT_INCONCLUSIVE Verdict = 3
+	Verdict_VERDICT_MALFORMED    Verdict = 4 // Claim is not truth-apt (paradox, category error, nonsense)
 )
 
 // Enum value maps for Verdict.
@@ -254,12 +258,14 @@ var (
 		1: "VERDICT_ACCEPT",
 		2: "VERDICT_REJECT",
 		3: "VERDICT_INCONCLUSIVE",
+		4: "VERDICT_MALFORMED",
 	}
 	Verdict_value = map[string]int32{
 		"VERDICT_UNSPECIFIED":  0,
 		"VERDICT_ACCEPT":       1,
 		"VERDICT_REJECT":       2,
 		"VERDICT_INCONCLUSIVE": 3,
+		"VERDICT_MALFORMED":    4,
 	}
 )
 
@@ -915,7 +921,7 @@ func (x *CommitEntry) GetCommittedAtBlock() uint64 {
 type RevealEntry struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Verifier        string                 `protobuf:"bytes,1,opt,name=verifier,proto3" json:"verifier,omitempty"`
-	Vote            string                 `protobuf:"bytes,2,opt,name=vote,proto3" json:"vote,omitempty"` // "accept" or "reject"
+	Vote            string                 `protobuf:"bytes,2,opt,name=vote,proto3" json:"vote,omitempty"` // "accept", "reject", or "malformed"
 	Salt            []byte                 `protobuf:"bytes,3,opt,name=salt,proto3" json:"salt,omitempty"`
 	RevealedAtBlock uint64                 `protobuf:"varint,4,opt,name=revealed_at_block,json=revealedAtBlock,proto3" json:"revealed_at_block,omitempty"`
 	unknownFields   protoimpl.UnknownFields
@@ -1519,7 +1525,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x13FACT_STATUS_REVOKED\x10\n" +
 	"\x12\x17\n" +
 	"\x13FACT_STATUS_AT_RISK\x10\v\x12\x16\n" +
-	"\x12FACT_STATUS_PRUNED\x10\f*\xee\x02\n" +
+	"\x12FACT_STATUS_PRUNED\x10\f*\x8a\x03\n" +
 	"\vClaimStatus\x12\x1c\n" +
 	"\x18CLAIM_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14CLAIM_STATUS_PENDING\x10\x01\x12#\n" +
@@ -1533,19 +1539,21 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x14CLAIM_STATUS_EXPIRED\x10\t\x12\x1d\n" +
 	"\x19CLAIM_STATUS_INSUFFICIENT\x10\n" +
 	"\x12\x1a\n" +
-	"\x16CLAIM_STATUS_CONTESTED\x10\v*\xda\x01\n" +
+	"\x16CLAIM_STATUS_CONTESTED\x10\v\x12\x1a\n" +
+	"\x16CLAIM_STATUS_MALFORMED\x10\f*\xda\x01\n" +
 	"\x11VerificationPhase\x12\"\n" +
 	"\x1eVERIFICATION_PHASE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19VERIFICATION_PHASE_COMMIT\x10\x01\x12\x1d\n" +
 	"\x19VERIFICATION_PHASE_REVEAL\x10\x02\x12\"\n" +
 	"\x1eVERIFICATION_PHASE_AGGREGATION\x10\x03\x12\x1f\n" +
 	"\x1bVERIFICATION_PHASE_COMPLETE\x10\x04\x12\x1e\n" +
-	"\x1aVERIFICATION_PHASE_EXPIRED\x10\x05*d\n" +
+	"\x1aVERIFICATION_PHASE_EXPIRED\x10\x05*{\n" +
 	"\aVerdict\x12\x17\n" +
 	"\x13VERDICT_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eVERDICT_ACCEPT\x10\x01\x12\x12\n" +
 	"\x0eVERDICT_REJECT\x10\x02\x12\x18\n" +
-	"\x14VERDICT_INCONCLUSIVE\x10\x03*\x81\x01\n" +
+	"\x14VERDICT_INCONCLUSIVE\x10\x03\x12\x15\n" +
+	"\x11VERDICT_MALFORMED\x10\x04*\x81\x01\n" +
 	"\fDomainStatus\x12\x1d\n" +
 	"\x19DOMAIN_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14DOMAIN_STATUS_ACTIVE\x10\x01\x12\x1c\n" +

@@ -76,6 +76,9 @@ message Params {
 
   // ─── Research fund ───────────────────────────────────────────────────────
   uint64 research_fund_share_bps = 49; // default: 130,000 (13%)
+
+  // ─── Malformed claim slashing ──────────────────────────────────────────
+  uint64 malformed_claim_slash_bps = 50; // default: 500,000 (50%) — harsher than invalid_claim (22%)
 }
 
 // GenesisState is the genesis state of the knowledge module.
