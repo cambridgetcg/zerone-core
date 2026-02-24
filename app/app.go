@@ -8,6 +8,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/gogoproto/proto"
+	gwv2runtime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/gorilla/mux"
 	"github.com/spf13/cast"
 
@@ -1444,6 +1446,49 @@ func (app *ZeroneApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.API
 	clientCtx := apiSvr.ClientCtx
 	authtypes.RegisterInterfaces(clientCtx.InterfaceRegistry)
 	ModuleBasics.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+
+	// Register gRPC-gateway v2 routes for all Zerone custom modules.
+	// The generated query.pb.gw.go files use grpc-gateway/v2, while the SDK's
+	// GRPCGatewayRouter uses v1 — incompatible types. We create a separate v2
+	// mux and mount it for /zerone/ paths.
+	gwmux := gwv2runtime.NewServeMux()
+	ctx := context.Background()
+	must := func(err error) {
+		if err != nil {
+			panic(err)
+		}
+	}
+	must(zeroneauthtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneauthtypes.NewQueryClient(clientCtx)))
+	must(zeroneknowledgetypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneknowledgetypes.NewQueryClient(clientCtx)))
+	must(zeroneontologytypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneontologytypes.NewQueryClient(clientCtx)))
+	must(zeronestakingtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronestakingtypes.NewQueryClient(clientCtx)))
+	must(zeronebillingtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronebillingtypes.NewQueryClient(clientCtx)))
+	must(zeronelptypes.RegisterQueryHandlerClient(ctx, gwmux, zeronelptypes.NewQueryClient(clientCtx)))
+	must(zeronetokenstypes.RegisterQueryHandlerClient(ctx, gwmux, zeronetokenstypes.NewQueryClient(clientCtx)))
+	must(zeronechannelstypes.RegisterQueryHandlerClient(ctx, gwmux, zeronechannelstypes.NewQueryClient(clientCtx)))
+	must(zeronegovtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronegovtypes.NewQueryClient(clientCtx)))
+	must(zeronehometypes.RegisterQueryHandlerClient(ctx, gwmux, zeronehometypes.NewQueryClient(clientCtx)))
+	must(zeronepartnershipstypes.RegisterQueryHandlerClient(ctx, gwmux, zeronepartnershipstypes.NewQueryClient(clientCtx)))
+	must(zeronescheduletypes.RegisterQueryHandlerClient(ctx, gwmux, zeronescheduletypes.NewQueryClient(clientCtx)))
+	must(zeronecptypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecptypes.NewQueryClient(clientCtx)))
+	must(zeronediscoverytypes.RegisterQueryHandlerClient(ctx, gwmux, zeronediscoverytypes.NewQueryClient(clientCtx)))
+	must(zeronebvmtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronebvmtypes.NewQueryClient(clientCtx)))
+	must(vestingrewardstypes.RegisterQueryHandlerClient(ctx, gwmux, vestingrewardstypes.NewQueryClient(clientCtx)))
+	must(zeronedisputestypes.RegisterQueryHandlerClient(ctx, gwmux, zeronedisputestypes.NewQueryClient(clientCtx)))
+	must(zeronequalificationtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronequalificationtypes.NewQueryClient(clientCtx)))
+	must(zeroneemergencytypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneemergencytypes.NewQueryClient(clientCtx)))
+	must(zeroneibcrltypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneibcrltypes.NewQueryClient(clientCtx)))
+	must(zeroneicaauthtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneicaauthtypes.NewQueryClient(clientCtx)))
+	must(zeronecdtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecdtypes.NewQueryClient(clientCtx)))
+	must(zeronecctypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecctypes.NewQueryClient(clientCtx)))
+	must(zeronealignmenttypes.RegisterQueryHandlerClient(ctx, gwmux, zeronealignmenttypes.NewQueryClient(clientCtx)))
+	must(zeroneresearchtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneresearchtypes.NewQueryClient(clientCtx)))
+	must(zeroneaptypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneaptypes.NewQueryClient(clientCtx)))
+	must(zeroneemtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneemtypes.NewQueryClient(clientCtx)))
+	must(zeronecpottypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecpottypes.NewQueryClient(clientCtx)))
+	must(zeronetoolboxtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronetoolboxtypes.NewQueryClient(clientCtx)))
+	must(zeronettreetypes.RegisterQueryHandlerClient(ctx, gwmux, zeronettreetypes.NewQueryClient(clientCtx)))
+	apiSvr.Router.PathPrefix("/zerone/").Handler(gwmux)
 
 	// Swagger UI placeholder — full OpenAPI served from proto-generated spec (R10-2)
 	if apiConfig.Swagger {
