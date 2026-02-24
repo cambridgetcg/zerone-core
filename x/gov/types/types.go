@@ -209,6 +209,78 @@ func (m *MsgAttachUpgradePlan) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{addr}
 }
 
+// --- Research Fund Governance Phase Exit Conditions ---
+
+// PhaseExitConditions defines the thresholds required to transition out of a phase.
+type PhaseExitConditions struct {
+	MinDistinctVoters      uint64
+	MinActiveGuardians     uint64
+	MinResearchFundBalance string // uzrn
+	MinChainAgeBlocks      uint64
+	MinProposalsExecuted   uint64
+	MinCommunitySeatVotes  uint64
+	MaxEmergencyHalts      uint64
+}
+
+// DefaultPhaseExitConditions returns the exit conditions for each phase transition.
+// Key: phase being exited → conditions to enter the next phase.
+var DefaultPhaseExitConditions = map[ResearchFundPhase]PhaseExitConditions{
+	// Phase 0 → Phase 1
+	ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR: {
+		MinDistinctVoters:      10,
+		MinActiveGuardians:     5,
+		MinResearchFundBalance: "100000000000", // 100,000 ZRN
+		MinChainAgeBlocks:      2_200_000,      // ~6 months
+		MinProposalsExecuted:   0,
+		MinCommunitySeatVotes:  0,
+		MaxEmergencyHalts:      0, // not checked in Phase 0
+	},
+	// Phase 1 → Phase 2
+	ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER: {
+		MinDistinctVoters:      25,
+		MinActiveGuardians:     10,
+		MinResearchFundBalance: "0",
+		MinChainAgeBlocks:      5_700_000,  // ~18 months
+		MinProposalsExecuted:   3,
+		MinCommunitySeatVotes:  2,
+		MaxEmergencyHalts:      0, // not checked in Phase 1
+	},
+	// Phase 2 → Phase 3
+	ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED: {
+		MinDistinctVoters:      50,
+		MinActiveGuardians:     22,
+		MinResearchFundBalance: "0",
+		MinChainAgeBlocks:      12_600_000, // ~3 years
+		MinProposalsExecuted:   10,
+		MinCommunitySeatVotes:  0, // not checked in Phase 2 (multiple seats)
+		MaxEmergencyHalts:      0, // must be zero emergency halts
+	},
+}
+
+// GetResearchFundThreshold returns the required approvals and total voters for a phase.
+func GetResearchFundThreshold(phase ResearchFundPhase) (required uint32, total uint32) {
+	switch phase {
+	case ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR:
+		return 2, 2
+	case ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER:
+		return 2, 3
+	case ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED:
+		return 3, 5
+	case ResearchFundPhase_RESEARCH_FUND_PHASE_FULL_GOVERNANCE:
+		return 0, 0 // not used — standard LIP
+	default:
+		return 0, 0
+	}
+}
+
+// Transition protocol constants.
+const (
+	TransitionDiscussionBlocks = uint64(1_030_000) // ~30 days
+	TransitionActivationDelay  = uint64(240_000)   // ~7 days
+	TransitionSupermajorityBps = uint64(667_000)    // 66.7% on 1M scale
+	RollbackCooldownBlocks     = uint64(3_700_000)  // ~3 months
+)
+
 // --- Research Spend Stage Constants ---
 
 type ResearchSpendStage string

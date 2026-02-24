@@ -1638,3 +1638,33 @@ func TestUpgradePlan_NoScheduleWithoutPlan(t *testing.T) {
 		t.Error("ScheduleUpgrade should not be called when no plan is attached")
 	}
 }
+
+// ---------- Research Fund Threshold Tests ----------
+
+func TestGetResearchFundThreshold_GenesisPair(t *testing.T) {
+	required, total := types.GetResearchFundThreshold(types.ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR)
+	if required != 2 || total != 2 {
+		t.Errorf("Phase 0: expected 2-of-2, got %d-of-%d", required, total)
+	}
+}
+
+func TestGetResearchFundThreshold_Observer(t *testing.T) {
+	required, total := types.GetResearchFundThreshold(types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER)
+	if required != 2 || total != 3 {
+		t.Errorf("Phase 1: expected 2-of-3, got %d-of-%d", required, total)
+	}
+}
+
+func TestGetResearchFundThreshold_Balanced(t *testing.T) {
+	required, total := types.GetResearchFundThreshold(types.ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED)
+	if required != 3 || total != 5 {
+		t.Errorf("Phase 2: expected 3-of-5, got %d-of-%d", required, total)
+	}
+}
+
+func TestGetResearchFundThreshold_FullGovernance(t *testing.T) {
+	required, total := types.GetResearchFundThreshold(types.ResearchFundPhase_RESEARCH_FUND_PHASE_FULL_GOVERNANCE)
+	if required != 0 || total != 0 {
+		t.Errorf("Phase 3: expected 0-of-0, got %d-of-%d", required, total)
+	}
+}
