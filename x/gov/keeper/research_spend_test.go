@@ -6,6 +6,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/zerone-chain/zerone/x/gov/keeper"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
@@ -810,5 +811,169 @@ func TestResearchSpend_CommunityVoterDoubleVote(t *testing.T) {
 	}
 	if err != types.ErrResearchAlreadyVoted {
 		t.Errorf("expected ErrResearchAlreadyVoted, got %v", err)
+	}
+}
+
+// ========== Ported Tests: Research Spend Edge Cases ==========
+
+// TestResearchSpend_GenesisRoundtrip verifies research spend proposals survive
+// genesis export/import via the research_fund_voters param path.
+func TestResearchSpend_GenesisRoundtrip(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	voter1, voter2 := setupResearchVoters(t, k, ctx)
+
+	// Submit a proposal.
+	k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "Genesis Roundtrip",
+		Recipient: testAddr("recipient"),
+		Amount:    "100000000",
+	})
+
+	// Export genesis.
+	gs := k.ExportGenesis(ctx)
+
+	// Verify research voters are exported in params.
+	if gs.Params.ResearchFundVoters == nil {
+		t.Fatal("expected research_fund_voters in exported params")
+	}
+	if gs.Params.ResearchFundVoters.Voter1 != voter1 {
+		t.Errorf("voter1 mismatch: got %s, want %s", gs.Params.ResearchFundVoters.Voter1, voter1)
+	}
+	if gs.Params.ResearchFundVoters.Voter2 != voter2 {
+		t.Errorf("voter2 mismatch: got %s, want %s", gs.Params.ResearchFundVoters.Voter2, voter2)
+	}
+
+	// Import into fresh keeper.
+	k2, ctx2 := setupKeeper(t)
+	k2.InitGenesis(ctx2, gs)
+
+	voters := k2.GetResearchFundVoters(ctx2)
+	if voters == nil {
+		t.Fatal("research voters lost after genesis roundtrip")
+	}
+	if voters.Voter1 != voter1 || voters.Voter2 != voter2 {
+		t.Error("voter addresses do not match after roundtrip")
+	}
+}
+
+// TestResearchSpend_MultipleProposals verifies multiple research spend
+// proposals can exist simultaneously with incrementing IDs.
+func TestResearchSpend_MultipleProposals(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	voter1, _ := setupResearchVoters(t, k, ctx)
+
+	for i := 0; i < 3; i++ {
+		resp, err := k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+			Proposer:  voter1,
+			Title:     fmt.Sprintf("Proposal %d", i+1),
+			Recipient: testAddr("recipient"),
+			Amount:    "100000000",
+		})
+		if err != nil {
+			t.Fatalf("submit #%d failed: %v", i+1, err)
+		}
+		if resp.ProposalId != uint64(i+1) {
+			t.Errorf("expected id=%d, got %d", i+1, resp.ProposalId)
+		}
+	}
+
+	all := k.GetAllResearchSpendProposals(ctx)
+	if len(all) != 3 {
+		t.Errorf("expected 3 proposals, got %d", len(all))
+	}
+}
+
+// TestResearchSpend_VoteOnTerminal verifies that voting on an already-rejected
+// or executed proposal fails.
+func TestResearchSpend_VoteOnTerminal(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	voter1, voter2 := setupResearchVoters(t, k, ctx)
+
+	k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "Terminal vote test",
+		Recipient: testAddr("recipient"),
+		Amount:    "100000000",
+	})
+
+	// Advance to voting and reject.
+	prop, _ := k.GetResearchSpendProposal(ctx, 1)
+	prop.Stage = string(types.ResearchStageVoting)
+	k.SetResearchSpendProposal(ctx, prop)
+
+	k.VoteResearchSpend(ctx, &types.MsgVoteResearchSpend{
+		Voter: voter1, ProposalId: 1, Vote: "no",
+	})
+
+	prop, _ = k.GetResearchSpendProposal(ctx, 1)
+	if prop.Stage != string(types.ResearchStageRejected) {
+		t.Fatalf("expected rejected, got %s", prop.Stage)
+	}
+
+	// Try to vote on rejected proposal.
+	_, err := k.VoteResearchSpend(ctx, &types.MsgVoteResearchSpend{
+		Voter: voter2, ProposalId: 1, Vote: "yes",
+	})
+	if err == nil {
+		t.Error("expected error for voting on rejected proposal")
+	}
+}
+
+// TestResearchSpend_QueryByStage verifies the ResearchSpends query filters
+// by stage correctly.
+func TestResearchSpend_QueryByStage(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	voter1, _ := setupResearchVoters(t, k, ctx)
+	qs := keeper.NewQueryServerImpl(k)
+
+	// Create two proposals.
+	k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "Discussion Prop",
+		Recipient: testAddr("recipient"),
+		Amount:    "100000000",
+	})
+	k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "Voting Prop",
+		Recipient: testAddr("recipient"),
+		Amount:    "200000000",
+	})
+
+	// Move second to voting.
+	prop2, _ := k.GetResearchSpendProposal(ctx, 2)
+	prop2.Stage = string(types.ResearchStageVoting)
+	k.SetResearchSpendProposal(ctx, prop2)
+
+	// Query discussion stage.
+	resp, err := qs.ResearchSpends(ctx, &types.QueryResearchSpendsRequest{
+		Stage: string(types.ResearchStageDiscussion),
+	})
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if resp.Total != 1 {
+		t.Errorf("expected 1 discussion, got %d", resp.Total)
+	}
+
+	// Query voting stage.
+	resp, err = qs.ResearchSpends(ctx, &types.QueryResearchSpendsRequest{
+		Stage: string(types.ResearchStageVoting),
+	})
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if resp.Total != 1 {
+		t.Errorf("expected 1 voting, got %d", resp.Total)
+	}
+
+	// Query all.
+	resp, err = qs.ResearchSpends(ctx, &types.QueryResearchSpendsRequest{})
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if resp.Total != 2 {
+		t.Errorf("expected 2 total, got %d", resp.Total)
 	}
 }
