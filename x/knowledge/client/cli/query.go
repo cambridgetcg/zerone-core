@@ -59,6 +59,8 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryFactConfidenceCmd(),
 		NewQueryFactCitationCountCmd(),
 		NewQueryFactRelationsCmd(),
+		NewQueryFactsBySubjectCmd(),
+		NewQueryFactsByTagCmd(),
 	)
 
 	return queryCmd
@@ -399,6 +401,50 @@ func NewQueryFactRelationsCmd() *cobra.Command {
 	}
 	cmd.Flags().String("type", "", "Filter by relation type: supports, contradicts, requires, refines, generalizes, supersedes")
 	cmd.Flags().String("direction", "both", "Direction: outgoing, incoming, or both")
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+func NewQueryFactsBySubjectCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "facts-by-subject [domain] [subject]",
+		Short: "Query facts by structured subject within a domain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			req := &types.QueryFactsBySubjectRequest{Domain: args[0], Subject: args[1]}
+			resp := &types.QueryFactsBySubjectResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/FactsBySubject", req, resp); err != nil {
+				return fmt.Errorf("failed to query facts by subject: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+func NewQueryFactsByTagCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "facts-by-tag [tag]",
+		Short: "Query facts by a searchable tag",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			req := &types.QueryFactsByTagRequest{Tag: args[0]}
+			resp := &types.QueryFactsByTagResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/FactsByTag", req, resp); err != nil {
+				return fmt.Errorf("failed to query facts by tag: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }

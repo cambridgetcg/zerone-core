@@ -74,33 +74,19 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		if err := k.createFactFromClaim(ctx, claim, round, result.Confidence); err != nil {
 			return err
 		}
-		// Return claim stake to submitter
-		if err := k.returnClaimStake(ctx, claim); err != nil {
-			k.Logger(ctx).Error("failed to return claim stake", "claim_id", claim.Id, "error", err)
-		}
+		// Review fee already distributed at submission time — no refund.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_ACCEPTED
 
 	case types.Verdict_VERDICT_REJECT:
-		// Slash and burn the claim stake
-		params, _ := k.GetParams(ctx)
-		if err := k.slashAndBurnClaimStake(ctx, claim, params.InvalidClaimSlashBps); err != nil {
-			k.Logger(ctx).Error("failed to slash claim stake", "claim_id", claim.Id, "error", err)
-		}
+		// Review fee already distributed at submission time — the fee IS the cost of rejection.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_REJECTED
 
 	case types.Verdict_VERDICT_MALFORMED:
-		// Slash submitter harder than invalid claims — they wasted verifier time with nonsense
-		params, _ := k.GetParams(ctx)
-		if err := k.slashAndBurnClaimStake(ctx, claim, params.MalformedClaimSlashBps); err != nil {
-			k.Logger(ctx).Error("failed to slash malformed claim", "claim_id", claim.Id, "error", err)
-		}
+		// Review fee already distributed at submission time — no additional slashing needed.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_MALFORMED
 
 	case types.Verdict_VERDICT_INCONCLUSIVE:
-		// Return claim stake — insufficient evidence
-		if err := k.returnClaimStake(ctx, claim); err != nil {
-			k.Logger(ctx).Error("failed to return claim stake", "claim_id", claim.Id, "error", err)
-		}
+		// Review fee is non-refundable — verifiers still did work even if inconclusive.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT
 	}
 
@@ -111,10 +97,8 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		return err
 	}
 
-	// Distribute rewards and slashes to verifiers
-	for _, reward := range result.Rewards {
-		k.distributeVerifierReward(ctx, reward.Verifier, reward.Amount)
-	}
+	// Distribute verifier rewards from the 55% fee pool
+	k.distributeVerifierRewardsFromPool(ctx, claim, result)
 	for _, slash := range result.Slashes {
 		if k.stakingKeeper != nil {
 			_ = k.stakingKeeper.SlashValidator(ctx, slash.Verifier, slash.SlashBps)
@@ -131,56 +115,33 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	return nil
 }
 
-// returnClaimStake sends the locked claim stake back to the submitter.
-func (k Keeper) returnClaimStake(ctx context.Context, claim *types.Claim) error {
-	if k.bankKeeper == nil || claim.Stake == "" {
-		return nil
-	}
-	stakeAmt, ok := new(big.Int).SetString(claim.Stake, 10)
-	if !ok || stakeAmt.Sign() <= 0 {
-		return nil
+// distributeVerifierRewardsFromPool distributes the 55% verifier pool among correct verifiers.
+func (k Keeper) distributeVerifierRewardsFromPool(ctx context.Context, claim *types.Claim, result *VerificationResult) {
+	if k.bankKeeper == nil || len(result.Rewards) == 0 {
+		return
 	}
 
-	recipientAddr, err := sdk.AccAddressFromBech32(claim.Submitter)
-	if err != nil {
-		return fmt.Errorf("invalid submitter address: %w", err)
+	// Calculate pool: 55% of the original review fee
+	feeAmt, ok := new(big.Int).SetString(claim.Stake, 10)
+	if !ok || feeAmt.Sign() <= 0 {
+		return
+	}
+	poolAmount := verifierPoolFromFee(feeAmt.Uint64())
+	if poolAmount == 0 {
+		return
 	}
 
-	coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-	return k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipientAddr, coins)
-}
+	// Divide pool equally among rewarded verifiers
+	perVerifier := poolAmount / uint64(len(result.Rewards))
+	remainder := poolAmount - (perVerifier * uint64(len(result.Rewards)))
 
-// slashAndBurnClaimStake burns a portion of the claim stake and returns the remainder.
-func (k Keeper) slashAndBurnClaimStake(ctx context.Context, claim *types.Claim, slashBps uint64) error {
-	if k.bankKeeper == nil || claim.Stake == "" {
-		return nil
-	}
-	stakeAmt, ok := new(big.Int).SetString(claim.Stake, 10)
-	if !ok || stakeAmt.Sign() <= 0 {
-		return nil
-	}
-
-	// Calculate slash amount — route to development fund
-	slashAmt := safeMulDiv(stakeAmt.Uint64(), slashBps, 1_000_000)
-	if slashAmt > 0 {
-		slashCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(new(big.Int).SetUint64(slashAmt))))
-		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", slashCoins); err != nil {
-			return fmt.Errorf("failed to route slashed stake to development fund: %w", err)
+	for i, reward := range result.Rewards {
+		amount := perVerifier
+		if i == 0 {
+			amount += remainder // first verifier gets dust
 		}
+		k.distributeVerifierReward(ctx, reward.Verifier, amount)
 	}
-
-	// Return remainder to submitter
-	remainder := stakeAmt.Uint64() - slashAmt
-	if remainder > 0 {
-		recipientAddr, err := sdk.AccAddressFromBech32(claim.Submitter)
-		if err != nil {
-			return err
-		}
-		returnCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(new(big.Int).SetUint64(remainder))))
-		return k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipientAddr, returnCoins)
-	}
-
-	return nil
 }
 
 // createFactFromClaim creates a new Fact from an accepted claim.

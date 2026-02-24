@@ -104,15 +104,20 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		}
 	}
 
-	// Lock stake via BankKeeper
+	// Collect non-refundable review fee and distribute immediately via revenue split.
 	if m.keeper.bankKeeper != nil {
 		submitterAddr, err := sdk.AccAddressFromBech32(msg.Submitter)
 		if err != nil {
 			return nil, fmt.Errorf("invalid submitter address: %w", err)
 		}
-		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-		if err := m.keeper.bankKeeper.SendCoinsFromAccountToModule(ctx, submitterAddr, types.ModuleName, coins); err != nil {
-			return nil, fmt.Errorf("failed to lock stake: %w", err)
+		feeCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
+		if err := m.keeper.bankKeeper.SendCoinsFromAccountToModule(ctx, submitterAddr, types.ModuleName, feeCoins); err != nil {
+			return nil, fmt.Errorf("failed to collect review fee: %w", err)
+		}
+
+		// Distribute: 55% verifier pool (stays in module), 22% protocol, 19.67% dev, 3.33% research
+		if err := m.keeper.distributeReviewFee(ctx, stakeAmt.Uint64()); err != nil {
+			m.keeper.Logger(ctx).Error("failed to distribute review fee", "error", err)
 		}
 	}
 
@@ -163,14 +168,25 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		return nil, fmt.Errorf("failed to create verification round: %w", err)
 	}
 
+	feeAmt := stakeAmt.Uint64()
 	sdkCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.knowledge.submit_claim",
 			sdk.NewAttribute("claim_id", claimID),
 			sdk.NewAttribute("submitter", msg.Submitter),
 			sdk.NewAttribute("domain", msg.Domain),
-			sdk.NewAttribute("stake", msg.Stake),
+			sdk.NewAttribute("review_fee", msg.Stake),
 			sdk.NewAttribute("content_hash", contentHash),
 			sdk.NewAttribute("claim_type", claimType.String()),
+		),
+	)
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.review_fee_distributed",
+			sdk.NewAttribute("claim_id", claimID),
+			sdk.NewAttribute("fee_amount", msg.Stake),
+			sdk.NewAttribute("verifier_pool", fmt.Sprintf("%d", verifierPoolFromFee(feeAmt))),
+			sdk.NewAttribute("protocol", fmt.Sprintf("%d", safeMulDiv(feeAmt, reviewFeeProtocolBps, 1_000_000))),
+			sdk.NewAttribute("development", fmt.Sprintf("%d", safeMulDiv(feeAmt, reviewFeeDevelopmentBps, 1_000_000))),
+			sdk.NewAttribute("research", fmt.Sprintf("%d", feeAmt-verifierPoolFromFee(feeAmt)-safeMulDiv(feeAmt, reviewFeeProtocolBps, 1_000_000)-safeMulDiv(feeAmt, reviewFeeDevelopmentBps, 1_000_000))),
 		),
 	)
 

@@ -149,7 +149,7 @@ func TestDefaultParams_ClaimValidation(t *testing.T) {
 
 	require.Equal(t, uint64(20), p.MinClaimTextLength)
 	require.Equal(t, uint64(10_000), p.MaxClaimTextLength)
-	require.Equal(t, "1000000", p.MinClaimStake)
+	require.Equal(t, "100000", p.MinReviewFee)
 }
 
 func TestDefaultParams_AdversarialVerification(t *testing.T) {

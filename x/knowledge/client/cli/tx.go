@@ -89,8 +89,8 @@ func GetTxCmd() *cobra.Command {
 // NewSubmitClaimCmd creates a CLI command for MsgSubmitClaim.
 func NewSubmitClaimCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "submit-claim [fact-content] [domain] [category] [stake]",
-		Short: "Submit a knowledge claim for verification",
+		Use:   "submit-claim [fact-content] [domain] [category] [review-fee]",
+		Short: "Submit a knowledge claim for verification (review fee is non-refundable)",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -132,6 +132,31 @@ func NewSubmitClaimCmd() *cobra.Command {
 				}
 			}
 
+			// Parse structured claim fields
+			var structure *types.ClaimStructure
+			subject, _ := cmd.Flags().GetString("subject")
+			predicate, _ := cmd.Flags().GetString("predicate")
+			if subject != "" || predicate != "" {
+				object, _ := cmd.Flags().GetString("object")
+				scope, _ := cmd.Flags().GetString("scope")
+				temporalScope, _ := cmd.Flags().GetString("temporal-scope")
+				negatable, _ := cmd.Flags().GetBool("negatable")
+				tagsStr, _ := cmd.Flags().GetString("tags")
+				var tags []string
+				if tagsStr != "" {
+					tags = strings.Split(tagsStr, ",")
+				}
+				structure = &types.ClaimStructure{
+					Subject:       subject,
+					Predicate:     predicate,
+					Object:        object,
+					Scope:         scope,
+					TemporalScope: temporalScope,
+					Negatable:     negatable,
+					Tags:          tags,
+				}
+			}
+
 			msg := &types.MsgSubmitClaim{
 				Submitter:     clientCtx.GetFromAddress().String(),
 				FactContent:   args[0],
@@ -142,6 +167,7 @@ func NewSubmitClaimCmd() *cobra.Command {
 				PartnershipId: partnershipId,
 				ClaimType:     claimType,
 				Relations:     relations,
+				Structure:     structure,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -152,6 +178,13 @@ func NewSubmitClaimCmd() *cobra.Command {
 	cmd.Flags().String("partnership-id", "", "Partnership ID for collaborative claims")
 	cmd.Flags().String("claim-type", "assertion", "Claim type: assertion (default), relation, definition, constraint, negation, observation")
 	cmd.Flags().String("relations", "", "Typed relations: supports:FACT_ID,contradicts:FACT_ID,requires:FACT_ID")
+	cmd.Flags().String("subject", "", "Claim subject (structured)")
+	cmd.Flags().String("predicate", "", "Claim predicate (structured)")
+	cmd.Flags().String("object", "", "Claim object (structured, optional)")
+	cmd.Flags().String("scope", "", "Claim scope/conditions (structured, optional)")
+	cmd.Flags().String("temporal-scope", "", "Time bounds (structured, optional)")
+	cmd.Flags().Bool("negatable", true, "Mark claim as negatable (default true)")
+	cmd.Flags().String("tags", "", "Comma-separated tags")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }

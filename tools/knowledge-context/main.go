@@ -31,18 +31,29 @@ var (
 
 // ─── On-chain types ──────────────────────────────────────────────────────────
 
+type ClaimStructure struct {
+	Subject       string   `json:"subject,omitempty"`
+	Predicate     string   `json:"predicate,omitempty"`
+	Object        string   `json:"object,omitempty"`
+	Scope         string   `json:"scope,omitempty"`
+	TemporalScope string   `json:"temporal_scope,omitempty"`
+	Negatable     bool     `json:"negatable,omitempty"`
+	Tags          []string `json:"tags,omitempty"`
+}
+
 type Fact struct {
-	ID         string   `json:"id"`
-	Content    string   `json:"content"`
-	Domain     string   `json:"domain"`
-	Category   string   `json:"category"`
-	Confidence string   `json:"confidence"`
-	Status     string   `json:"status"`
-	Submitter  string   `json:"submitter"`
-	Stratum    string   `json:"stratum,omitempty"`
-	References []string `json:"references,omitempty"`
-	ClaimID    string   `json:"claim_id,omitempty"`
-	ClaimType  string   `json:"claim_type,omitempty"`
+	ID         string          `json:"id"`
+	Content    string          `json:"content"`
+	Domain     string          `json:"domain"`
+	Category   string          `json:"category"`
+	Confidence string          `json:"confidence"`
+	Status     string          `json:"status"`
+	Submitter  string          `json:"submitter"`
+	Stratum    string          `json:"stratum,omitempty"`
+	References []string        `json:"references,omitempty"`
+	ClaimID    string          `json:"claim_id,omitempty"`
+	ClaimType  string          `json:"claim_type,omitempty"`
+	Structure  *ClaimStructure `json:"structure,omitempty"`
 }
 
 type FactRelation struct {
@@ -240,7 +251,29 @@ func formatXML(facts []Fact, query string) string {
 		ct := humanClaimType(f.ClaimType)
 		b.WriteString(fmt.Sprintf("  <fact id=\"%s\" domain=\"%s\" confidence=\"%.1f%%\" status=\"%s\" category=\"%s\" type=\"%s\">\n",
 			f.ID, f.Domain, conf, status, f.Category, ct))
-		b.WriteString(fmt.Sprintf("    %s\n", f.Content))
+		b.WriteString(fmt.Sprintf("    <content>%s</content>\n", f.Content))
+		if f.Structure != nil {
+			b.WriteString("    <structure>\n")
+			if f.Structure.Subject != "" {
+				b.WriteString(fmt.Sprintf("      <subject>%s</subject>\n", f.Structure.Subject))
+			}
+			if f.Structure.Predicate != "" {
+				b.WriteString(fmt.Sprintf("      <predicate>%s</predicate>\n", f.Structure.Predicate))
+			}
+			if f.Structure.Object != "" {
+				b.WriteString(fmt.Sprintf("      <object>%s</object>\n", f.Structure.Object))
+			}
+			if f.Structure.Scope != "" {
+				b.WriteString(fmt.Sprintf("      <scope>%s</scope>\n", f.Structure.Scope))
+			}
+			if f.Structure.TemporalScope != "" {
+				b.WriteString(fmt.Sprintf("      <temporal_scope>%s</temporal_scope>\n", f.Structure.TemporalScope))
+			}
+			if len(f.Structure.Tags) > 0 {
+				b.WriteString(fmt.Sprintf("      <tags>%s</tags>\n", strings.Join(f.Structure.Tags, ",")))
+			}
+			b.WriteString("    </structure>\n")
+		}
 		if len(f.References) > 0 {
 			b.WriteString(fmt.Sprintf("    <references>%s</references>\n", strings.Join(f.References, ",")))
 		}
@@ -274,6 +307,15 @@ func formatJSON(facts []Fact) string {
 		Generalizes []string `json:"generalizes,omitempty"`
 		Supersedes  []string `json:"supersedes,omitempty"`
 	}
+	type structureOut struct {
+		Subject       string   `json:"subject,omitempty"`
+		Predicate     string   `json:"predicate,omitempty"`
+		Object        string   `json:"object,omitempty"`
+		Scope         string   `json:"scope,omitempty"`
+		TemporalScope string   `json:"temporal_scope,omitempty"`
+		Negatable     bool     `json:"negatable,omitempty"`
+		Tags          []string `json:"tags,omitempty"`
+	}
 	type factOut struct {
 		ID            string        `json:"id"`
 		Domain        string        `json:"domain"`
@@ -283,6 +325,7 @@ func formatJSON(facts []Fact) string {
 		Category      string        `json:"category"`
 		ClaimType     string        `json:"claim_type"`
 		References    []string      `json:"references,omitempty"`
+		Structure     *structureOut `json:"structure,omitempty"`
 		Relations     *relationsOut `json:"relations,omitempty"`
 	}
 	type output struct {
@@ -311,6 +354,17 @@ func formatJSON(facts []Fact) string {
 			Category:      f.Category,
 			ClaimType:     humanClaimType(f.ClaimType),
 			References:    f.References,
+		}
+		if f.Structure != nil {
+			fo.Structure = &structureOut{
+				Subject:       f.Structure.Subject,
+				Predicate:     f.Structure.Predicate,
+				Object:        f.Structure.Object,
+				Scope:         f.Structure.Scope,
+				TemporalScope: f.Structure.TemporalScope,
+				Negatable:     f.Structure.Negatable,
+				Tags:          f.Structure.Tags,
+			}
 		}
 		// Fetch and group typed relations
 		if rels, err := fetchFactRelations(f.ID, "outgoing"); err == nil && len(rels) > 0 {
@@ -354,6 +408,19 @@ func formatToolResponse(facts []Fact) string {
 	return string(data)
 }
 
+// matchesAnyTag returns true if any of the fact's tags match any of the filter tags (OR match).
+func matchesAnyTag(factTags []string, filterTags []string) bool {
+	for _, ft := range factTags {
+		normalized := strings.ToLower(strings.TrimSpace(ft))
+		for _, filter := range filterTags {
+			if normalized == filter {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // ─── HTTP handler ────────────────────────────────────────────────────────────
 
 func contextHandler(w http.ResponseWriter, r *http.Request) {
@@ -395,6 +462,15 @@ func contextHandler(w http.ResponseWriter, r *http.Request) {
 	// Optional query for prompt wrapping
 	query := q.Get("query")
 
+	// Subject and tag filters (structured claims)
+	subjectFilter := strings.ToLower(strings.TrimSpace(q.Get("subject")))
+	var tagFilters []string
+	if t := q.Get("tags"); t != "" {
+		for _, tag := range strings.Split(t, ",") {
+			tagFilters = append(tagFilters, strings.ToLower(strings.TrimSpace(tag)))
+		}
+	}
+
 	// Fetch and filter
 	facts, err := fetchFacts()
 	if err != nil {
@@ -403,6 +479,28 @@ func contextHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filtered := filterFacts(facts, domains, minConf, includeChallenged, claimTypes)
+
+	// Apply subject filter
+	if subjectFilter != "" {
+		var subjectFiltered []Fact
+		for _, f := range filtered {
+			if f.Structure != nil && strings.Contains(strings.ToLower(f.Structure.Subject), subjectFilter) {
+				subjectFiltered = append(subjectFiltered, f)
+			}
+		}
+		filtered = subjectFiltered
+	}
+
+	// Apply tag filter (OR match)
+	if len(tagFilters) > 0 {
+		var tagFiltered []Fact
+		for _, f := range filtered {
+			if f.Structure != nil && matchesAnyTag(f.Structure.Tags, tagFilters) {
+				tagFiltered = append(tagFiltered, f)
+			}
+		}
+		filtered = tagFiltered
+	}
 
 	// Format response
 	var body string
