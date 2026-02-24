@@ -10,6 +10,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
@@ -356,4 +357,12 @@ func (k Keeper) ProcessResearchSpendExpiry(ctx sdk.Context, currentHeight uint64
 
 		return false
 	})
+}
+
+// GetResearchFundBalance returns the research fund module account balance.
+func (k Keeper) GetResearchFundBalance(ctx sdk.Context) sdk.Coins {
+	if k.bankKeeper == nil {
+		return sdk.NewCoins()
+	}
+	return k.bankKeeper.GetAllBalances(ctx, authtypes.NewModuleAddress("research_fund"))
 }

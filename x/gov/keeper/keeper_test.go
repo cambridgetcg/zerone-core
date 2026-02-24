@@ -1758,3 +1758,13 @@ func TestDistinctVoterTracking_Deduplication(t *testing.T) {
 		t.Errorf("expected 1 (deduped), got %d", count)
 	}
 }
+
+// ---------- Research Fund Balance Tests ----------
+
+func TestGetResearchFundBalance_NilBankKeeper(t *testing.T) {
+	k, ctx := setupKeeper(t) // bankKeeper is nil
+	balance := k.GetResearchFundBalance(ctx)
+	if !balance.IsZero() {
+		t.Errorf("expected zero balance with nil bank keeper, got %s", balance)
+	}
+}
