@@ -87,6 +87,22 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		}
 	}
 
+	// Auto-derive or normalize canonical form
+	canonicalForm := msg.CanonicalForm
+	if canonicalForm == "" && msg.Structure != nil {
+		canonicalForm = types.BuildCanonicalForm(msg.ClaimType, msg.Structure, msg.Domain)
+	}
+	var canonicalHash string
+	if canonicalForm != "" {
+		canonicalForm = types.NormalizeCanonicalForm(canonicalForm)
+		canonicalHash = types.HashCanonicalForm(canonicalForm)
+
+		// Dedup against canonical hash (stronger than content_hash)
+		if existingID, exists := m.keeper.GetClaimByCanonicalHash(ctx, canonicalHash); exists {
+			return nil, fmt.Errorf("canonical duplicate: matches existing claim %s", existingID)
+		}
+	}
+
 	// Check content hash dedup
 	contentHash := ComputeClaimContentHash(msg.FactContent, msg.Domain)
 	if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
@@ -145,6 +161,8 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		ClaimType:        claimType,
 		Relations:        msg.Relations,
 		Structure:        msg.Structure,
+		CanonicalForm:    canonicalForm,
+		CanonicalHash:    canonicalHash,
 	}
 
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {

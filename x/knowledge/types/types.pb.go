@@ -733,6 +733,8 @@ type Fact struct {
 	OutgoingRelations     []*FactRelation `protobuf:"bytes,25,rep,name=outgoing_relations,json=outgoingRelations,proto3" json:"outgoing_relations,omitempty"` // Relations this fact declares
 	IncomingRelations     []*FactRelation `protobuf:"bytes,26,rep,name=incoming_relations,json=incomingRelations,proto3" json:"incoming_relations,omitempty"` // Relations pointing to this fact
 	Structure             *ClaimStructure `protobuf:"bytes,27,opt,name=structure,proto3" json:"structure,omitempty"`                                          // Machine-readable decomposition (optional)
+	CanonicalForm         string          `protobuf:"bytes,28,opt,name=canonical_form,json=canonicalForm,proto3" json:"canonical_form,omitempty"`             // Machine-readable normalized form
+	CanonicalHash         string          `protobuf:"bytes,29,opt,name=canonical_hash,json=canonicalHash,proto3" json:"canonical_hash,omitempty"`             // SHA-256 of canonical_form for dedup
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -956,6 +958,20 @@ func (x *Fact) GetStructure() *ClaimStructure {
 	return nil
 }
 
+func (x *Fact) GetCanonicalForm() string {
+	if x != nil {
+		return x.CanonicalForm
+	}
+	return ""
+}
+
+func (x *Fact) GetCanonicalHash() string {
+	if x != nil {
+		return x.CanonicalHash
+	}
+	return ""
+}
+
 // Claim is an unverified submission awaiting or undergoing verification.
 type Claim struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
@@ -974,8 +990,10 @@ type Claim struct {
 	ProvisionalFactId   string                 `protobuf:"bytes,13,opt,name=provisional_fact_id,json=provisionalFactId,proto3" json:"provisional_fact_id,omitempty"`
 	ContentHash         string                 `protobuf:"bytes,14,opt,name=content_hash,json=contentHash,proto3" json:"content_hash,omitempty"` // SHA-256 of fact_content for duplicate detection
 	ClaimType           ClaimType              `protobuf:"varint,15,opt,name=claim_type,json=claimType,proto3,enum=zerone.knowledge.v1.ClaimType" json:"claim_type,omitempty"`
-	Relations           []*ClaimRelation       `protobuf:"bytes,16,rep,name=relations,proto3" json:"relations,omitempty"` // Typed relationships to existing facts
-	Structure           *ClaimStructure        `protobuf:"bytes,17,opt,name=structure,proto3" json:"structure,omitempty"` // Machine-readable decomposition (optional)
+	Relations           []*ClaimRelation       `protobuf:"bytes,16,rep,name=relations,proto3" json:"relations,omitempty"`                              // Typed relationships to existing facts
+	Structure           *ClaimStructure        `protobuf:"bytes,17,opt,name=structure,proto3" json:"structure,omitempty"`                              // Machine-readable decomposition (optional)
+	CanonicalForm       string                 `protobuf:"bytes,18,opt,name=canonical_form,json=canonicalForm,proto3" json:"canonical_form,omitempty"` // Machine-readable normalized form
+	CanonicalHash       string                 `protobuf:"bytes,19,opt,name=canonical_hash,json=canonicalHash,proto3" json:"canonical_hash,omitempty"` // SHA-256 of canonical_form for dedup
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -1127,6 +1145,20 @@ func (x *Claim) GetStructure() *ClaimStructure {
 		return x.Structure
 	}
 	return nil
+}
+
+func (x *Claim) GetCanonicalForm() string {
+	if x != nil {
+		return x.CanonicalForm
+	}
+	return ""
+}
+
+func (x *Claim) GetCanonicalHash() string {
+	if x != nil {
+		return x.CanonicalHash
+	}
+	return ""
 }
 
 // VerificationRound tracks one commit-reveal verification cycle.
@@ -1820,7 +1852,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\x91\t\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\xdf\t\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -1854,7 +1886,9 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"claim_type\x18\x18 \x01(\x0e2\x1e.zerone.knowledge.v1.ClaimTypeR\tclaimType\x12P\n" +
 	"\x12outgoing_relations\x18\x19 \x03(\v2!.zerone.knowledge.v1.FactRelationR\x11outgoingRelations\x12P\n" +
 	"\x12incoming_relations\x18\x1a \x03(\v2!.zerone.knowledge.v1.FactRelationR\x11incomingRelations\x12A\n" +
-	"\tstructure\x18\x1b \x01(\v2#.zerone.knowledge.v1.ClaimStructureR\tstructure\"\xce\x05\n" +
+	"\tstructure\x18\x1b \x01(\v2#.zerone.knowledge.v1.ClaimStructureR\tstructure\x12%\n" +
+	"\x0ecanonical_form\x18\x1c \x01(\tR\rcanonicalForm\x12%\n" +
+	"\x0ecanonical_hash\x18\x1d \x01(\tR\rcanonicalHash\"\x9c\x06\n" +
 	"\x05Claim\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\ffact_content\x18\x02 \x01(\tR\vfactContent\x12\x16\n" +
@@ -1876,7 +1910,9 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"claim_type\x18\x0f \x01(\x0e2\x1e.zerone.knowledge.v1.ClaimTypeR\tclaimType\x12@\n" +
 	"\trelations\x18\x10 \x03(\v2\".zerone.knowledge.v1.ClaimRelationR\trelations\x12A\n" +
-	"\tstructure\x18\x11 \x01(\v2#.zerone.knowledge.v1.ClaimStructureR\tstructure\"\xaf\x04\n" +
+	"\tstructure\x18\x11 \x01(\v2#.zerone.knowledge.v1.ClaimStructureR\tstructure\x12%\n" +
+	"\x0ecanonical_form\x18\x12 \x01(\tR\rcanonicalForm\x12%\n" +
+	"\x0ecanonical_hash\x18\x13 \x01(\tR\rcanonicalHash\"\xaf\x04\n" +
 	"\x11VerificationRound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bclaim_id\x18\x02 \x01(\tR\aclaimId\x12(\n" +

@@ -163,6 +163,10 @@ func (k Keeper) SetClaim(ctx context.Context, claim *types.Claim) error {
 	if claim.ContentHash != "" {
 		_ = store.Set(types.ContentHashKey(claim.ContentHash), []byte(claim.Id))
 	}
+	// Canonical hash dedup index
+	if claim.CanonicalHash != "" {
+		_ = store.Set(types.CanonicalHashKey(claim.CanonicalHash), []byte(claim.Id))
+	}
 	return nil
 }
 
@@ -624,6 +628,24 @@ func (k Keeper) FindFactsByTag(ctx context.Context, tag string) ([]string, error
 		factIDs = append(factIDs, factID)
 	}
 	return factIDs, nil
+}
+
+// ─── Canonical hash index ─────────────────────────────────────────────────
+
+// SetCanonicalHash stores a canonical hash → id mapping for dedup.
+func (k Keeper) SetCanonicalHash(ctx context.Context, hash string, id string) error {
+	store := k.storeService.OpenKVStore(ctx)
+	return store.Set(types.CanonicalHashKey(hash), []byte(id))
+}
+
+// GetClaimByCanonicalHash looks up a claim/fact ID by its canonical hash.
+func (k Keeper) GetClaimByCanonicalHash(ctx context.Context, hash string) (string, bool) {
+	store := k.storeService.OpenKVStore(ctx)
+	bz, err := store.Get(types.CanonicalHashKey(hash))
+	if err != nil || bz == nil {
+		return "", false
+	}
+	return string(bz), true
 }
 
 // ─── Store helpers ───────────────────────────────────────────────────────────

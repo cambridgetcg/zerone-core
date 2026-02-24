@@ -78,6 +78,9 @@ var (
 	// ─── Structured claim indexes ────────────────────────────────────────────
 	FactSubjectPrefix = []byte{0x32} // 0x32 | domain / subject_hash → fact_id
 	FactTagPrefix     = []byte{0x33} // 0x33 | tag / fact_id → []byte{1}
+
+	// ─── Canonical form dedup ────────────────────────────────────────────────
+	CanonicalHashPrefix = []byte{0x34} // 0x34 | canonical_hash → claim_id/fact_id
 )
 
 // ─── Key constructors ─────────────────────────────────────────────────────────
@@ -171,4 +174,9 @@ func FactTagKey(tag, factID string) []byte {
 func FactTagsByTagPrefix(tag string) []byte {
 	key := append(append([]byte{}, FactTagPrefix...), []byte(tag)...)
 	return append(key, '/')
+}
+
+// CanonicalHashKey returns the index key for a canonical form hash.
+func CanonicalHashKey(hash string) []byte {
+	return append(append([]byte{}, CanonicalHashPrefix...), []byte(hash)...)
 }

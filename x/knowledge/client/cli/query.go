@@ -61,6 +61,7 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryFactRelationsCmd(),
 		NewQueryFactsBySubjectCmd(),
 		NewQueryFactsByTagCmd(),
+		NewQueryFactByCanonicalCmd(),
 	)
 
 	return queryCmd
@@ -447,4 +448,44 @@ func NewQueryFactsByTagCmd() *cobra.Command {
 	}
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
+}
+
+func NewQueryFactByCanonicalCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "fact-by-canonical [canonical-form-or-hash]",
+		Short: "Query a fact by canonical form or canonical hash",
+		Long:  "Looks up a fact by its canonical form (auto-hashed server-side) or by SHA-256 hex hash directly.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			input := args[0]
+			req := &types.QueryFactByCanonicalRequest{}
+			// If input looks like a hex hash (64 chars, all hex), treat as hash
+			if len(input) == 64 && isHex(input) {
+				req.CanonicalHash = input
+			} else {
+				req.CanonicalForm = input
+			}
+			resp := &types.QueryFactByCanonicalResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/FactByCanonical", req, resp); err != nil {
+				return fmt.Errorf("failed to query fact by canonical: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// isHex returns true if s contains only hexadecimal characters.
+func isHex(s string) bool {
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }

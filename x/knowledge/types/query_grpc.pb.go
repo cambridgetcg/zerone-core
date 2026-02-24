@@ -34,6 +34,7 @@ const (
 	Query_FactRelations_FullMethodName     = "/zerone.knowledge.v1.Query/FactRelations"
 	Query_FactsBySubject_FullMethodName    = "/zerone.knowledge.v1.Query/FactsBySubject"
 	Query_FactsByTag_FullMethodName        = "/zerone.knowledge.v1.Query/FactsByTag"
+	Query_FactByCanonical_FullMethodName   = "/zerone.knowledge.v1.Query/FactByCanonical"
 )
 
 // QueryClient is the client API for Query service.
@@ -72,6 +73,8 @@ type QueryClient interface {
 	FactsBySubject(ctx context.Context, in *QueryFactsBySubjectRequest, opts ...grpc.CallOption) (*QueryFactsBySubjectResponse, error)
 	// FactsByTag queries facts by a searchable tag.
 	FactsByTag(ctx context.Context, in *QueryFactsByTagRequest, opts ...grpc.CallOption) (*QueryFactsByTagResponse, error)
+	// FactByCanonical queries a fact by its canonical form hash.
+	FactByCanonical(ctx context.Context, in *QueryFactByCanonicalRequest, opts ...grpc.CallOption) (*QueryFactByCanonicalResponse, error)
 }
 
 type queryClient struct {
@@ -232,6 +235,16 @@ func (c *queryClient) FactsByTag(ctx context.Context, in *QueryFactsByTagRequest
 	return out, nil
 }
 
+func (c *queryClient) FactByCanonical(ctx context.Context, in *QueryFactByCanonicalRequest, opts ...grpc.CallOption) (*QueryFactByCanonicalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryFactByCanonicalResponse)
+	err := c.cc.Invoke(ctx, Query_FactByCanonical_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -268,6 +281,8 @@ type QueryServer interface {
 	FactsBySubject(context.Context, *QueryFactsBySubjectRequest) (*QueryFactsBySubjectResponse, error)
 	// FactsByTag queries facts by a searchable tag.
 	FactsByTag(context.Context, *QueryFactsByTagRequest) (*QueryFactsByTagResponse, error)
+	// FactByCanonical queries a fact by its canonical form hash.
+	FactByCanonical(context.Context, *QueryFactByCanonicalRequest) (*QueryFactByCanonicalResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -322,6 +337,9 @@ func (UnimplementedQueryServer) FactsBySubject(context.Context, *QueryFactsBySub
 }
 func (UnimplementedQueryServer) FactsByTag(context.Context, *QueryFactsByTagRequest) (*QueryFactsByTagResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FactsByTag not implemented")
+}
+func (UnimplementedQueryServer) FactByCanonical(context.Context, *QueryFactByCanonicalRequest) (*QueryFactByCanonicalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FactByCanonical not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -614,6 +632,24 @@ func _Query_FactsByTag_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_FactByCanonical_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryFactByCanonicalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).FactByCanonical(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_FactByCanonical_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).FactByCanonical(ctx, req.(*QueryFactByCanonicalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -680,6 +716,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FactsByTag",
 			Handler:    _Query_FactsByTag_Handler,
+		},
+		{
+			MethodName: "FactByCanonical",
+			Handler:    _Query_FactByCanonical_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

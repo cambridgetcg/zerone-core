@@ -157,6 +157,8 @@ func NewSubmitClaimCmd() *cobra.Command {
 				}
 			}
 
+			canonicalForm, _ := cmd.Flags().GetString("canonical")
+
 			msg := &types.MsgSubmitClaim{
 				Submitter:     clientCtx.GetFromAddress().String(),
 				FactContent:   args[0],
@@ -168,6 +170,7 @@ func NewSubmitClaimCmd() *cobra.Command {
 				ClaimType:     claimType,
 				Relations:     relations,
 				Structure:     structure,
+				CanonicalForm: canonicalForm,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -185,6 +188,7 @@ func NewSubmitClaimCmd() *cobra.Command {
 	cmd.Flags().String("temporal-scope", "", "Time bounds (structured, optional)")
 	cmd.Flags().Bool("negatable", true, "Mark claim as negatable (default true)")
 	cmd.Flags().String("tags", "", "Comma-separated tags")
+	cmd.Flags().String("canonical", "", "Explicit canonical form (auto-derived from structure if omitted)")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }

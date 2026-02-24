@@ -42,18 +42,20 @@ type ClaimStructure struct {
 }
 
 type Fact struct {
-	ID         string          `json:"id"`
-	Content    string          `json:"content"`
-	Domain     string          `json:"domain"`
-	Category   string          `json:"category"`
-	Confidence string          `json:"confidence"`
-	Status     string          `json:"status"`
-	Submitter  string          `json:"submitter"`
-	Stratum    string          `json:"stratum,omitempty"`
-	References []string        `json:"references,omitempty"`
-	ClaimID    string          `json:"claim_id,omitempty"`
-	ClaimType  string          `json:"claim_type,omitempty"`
-	Structure  *ClaimStructure `json:"structure,omitempty"`
+	ID            string          `json:"id"`
+	Content       string          `json:"content"`
+	Domain        string          `json:"domain"`
+	Category      string          `json:"category"`
+	Confidence    string          `json:"confidence"`
+	Status        string          `json:"status"`
+	Submitter     string          `json:"submitter"`
+	Stratum       string          `json:"stratum,omitempty"`
+	References    []string        `json:"references,omitempty"`
+	ClaimID       string          `json:"claim_id,omitempty"`
+	ClaimType     string          `json:"claim_type,omitempty"`
+	Structure     *ClaimStructure `json:"structure,omitempty"`
+	CanonicalForm string          `json:"canonical_form,omitempty"`
+	CanonicalHash string          `json:"canonical_hash,omitempty"`
 }
 
 type FactRelation struct {
@@ -235,7 +237,7 @@ func parseConfidence(s string) float64 {
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 
-func formatXML(facts []Fact, query string) string {
+func formatXML(facts []Fact, query string, showCanonical bool) string {
 	var b strings.Builder
 	b.WriteString("<knowledge_context>\n")
 	b.WriteString(fmt.Sprintf("  <source>ZERONE Tree of Knowledge</source>\n"))
@@ -273,6 +275,9 @@ func formatXML(facts []Fact, query string) string {
 				b.WriteString(fmt.Sprintf("      <tags>%s</tags>\n", strings.Join(f.Structure.Tags, ",")))
 			}
 			b.WriteString("    </structure>\n")
+		}
+		if showCanonical && f.CanonicalForm != "" {
+			b.WriteString(fmt.Sprintf("    <canonical>%s</canonical>\n", f.CanonicalForm))
 		}
 		if len(f.References) > 0 {
 			b.WriteString(fmt.Sprintf("    <references>%s</references>\n", strings.Join(f.References, ",")))
@@ -324,6 +329,8 @@ func formatJSON(facts []Fact) string {
 		Status        string        `json:"status"`
 		Category      string        `json:"category"`
 		ClaimType     string        `json:"claim_type"`
+		CanonicalForm string        `json:"canonical_form,omitempty"`
+		CanonicalHash string        `json:"canonical_hash,omitempty"`
 		References    []string      `json:"references,omitempty"`
 		Structure     *structureOut `json:"structure,omitempty"`
 		Relations     *relationsOut `json:"relations,omitempty"`
@@ -353,6 +360,8 @@ func formatJSON(facts []Fact) string {
 			Status:        status,
 			Category:      f.Category,
 			ClaimType:     humanClaimType(f.ClaimType),
+			CanonicalForm: f.CanonicalForm,
+			CanonicalHash: f.CanonicalHash,
 			References:    f.References,
 		}
 		if f.Structure != nil {
@@ -402,7 +411,7 @@ type ToolResponse struct {
 }
 
 func formatToolResponse(facts []Fact) string {
-	ctx := formatXML(facts, "")
+	ctx := formatXML(facts, "", false)
 	tr := ToolResponse{Role: "tool", Content: ctx}
 	data, _ := json.Marshal(tr)
 	return string(data)
@@ -462,6 +471,9 @@ func contextHandler(w http.ResponseWriter, r *http.Request) {
 	// Optional query for prompt wrapping
 	query := q.Get("query")
 
+	// Include canonical forms in output?
+	showCanonical := q.Get("canonical") == "true" || q.Get("canonical") == "1"
+
 	// Subject and tag filters (structured claims)
 	subjectFilter := strings.ToLower(strings.TrimSpace(q.Get("subject")))
 	var tagFilters []string
@@ -513,7 +525,7 @@ func contextHandler(w http.ResponseWriter, r *http.Request) {
 		body = formatToolResponse(filtered)
 	default:
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		body = formatXML(filtered, query)
+		body = formatXML(filtered, query, showCanonical)
 	}
 
 	w.Header().Set("X-Fact-Count", strconv.Itoa(len(filtered)))

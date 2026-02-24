@@ -264,6 +264,53 @@ func (q *queryServer) FactsByTag(ctx context.Context, req *types.QueryFactsByTag
 	return &types.QueryFactsByTagResponse{Facts: facts}, nil
 }
 
+func (q *queryServer) FactByCanonical(ctx context.Context, req *types.QueryFactByCanonicalRequest) (*types.QueryFactByCanonicalResponse, error) {
+	canonicalHash := req.CanonicalHash
+	if canonicalHash == "" && req.CanonicalForm != "" {
+		// Hash the provided form server-side
+		normalized := types.NormalizeCanonicalForm(req.CanonicalForm)
+		canonicalHash = types.HashCanonicalForm(normalized)
+	}
+	if canonicalHash == "" {
+		return nil, status.Error(codes.InvalidArgument, "canonical_hash or canonical_form is required")
+	}
+
+	id, found := q.keeper.GetClaimByCanonicalHash(ctx, canonicalHash)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "no fact/claim found for canonical hash %s", canonicalHash)
+	}
+
+	// Try fact first, then claim's provisional fact
+	fact, found := q.keeper.GetFact(ctx, id)
+	if found {
+		return &types.QueryFactByCanonicalResponse{Fact: fact}, nil
+	}
+
+	// The index might point to a claim ID — check if that claim has a fact
+	claim, found := q.keeper.GetClaim(ctx, id)
+	if found && claim.ProvisionalFactId != "" {
+		fact, found = q.keeper.GetFact(ctx, claim.ProvisionalFactId)
+		if found {
+			return &types.QueryFactByCanonicalResponse{Fact: fact}, nil
+		}
+	}
+
+	// Search for fact with matching canonical hash
+	var matchedFact *types.Fact
+	q.keeper.IterateFacts(ctx, func(f *types.Fact) bool {
+		if f.CanonicalHash == canonicalHash {
+			matchedFact = f
+			return true
+		}
+		return false
+	})
+	if matchedFact != nil {
+		return &types.QueryFactByCanonicalResponse{Fact: matchedFact}, nil
+	}
+
+	return nil, status.Errorf(codes.NotFound, "no fact found for canonical hash %s", canonicalHash)
+}
+
 // matchesFactFilters checks if a fact passes optional status, category, and claim type filters.
 func matchesFactFilters(fact *types.Fact, statusFilter, categoryFilter string, claimTypeFilter types.ClaimType) bool {
 	if statusFilter != "" {

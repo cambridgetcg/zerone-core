@@ -166,6 +166,8 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		ClaimId:           claim.Id,
 		ClaimType:         claim.ClaimType,
 		Structure:         claim.Structure,
+		CanonicalForm:     claim.CanonicalForm,
+		CanonicalHash:     claim.CanonicalHash,
 	}
 
 	// Apply stratum confidence ceiling if ontology keeper is available
@@ -188,6 +190,13 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	if fact.Structure != nil {
 		if err := k.IndexFactBySubject(ctx, fact); err != nil {
 			return fmt.Errorf("failed to index fact by subject: %w", err)
+		}
+	}
+
+	// Index fact by canonical hash
+	if fact.CanonicalHash != "" {
+		if err := k.SetCanonicalHash(ctx, fact.CanonicalHash, fact.Id); err != nil {
+			return fmt.Errorf("failed to index fact by canonical hash: %w", err)
 		}
 	}
 
