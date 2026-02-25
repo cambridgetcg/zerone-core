@@ -95,6 +95,12 @@ type Fact struct {
 	FitnessScore  string          `json:"fitness_score,omitempty"`
 	Energy        string          `json:"energy,omitempty"`
 	EnergyCap     string          `json:"energy_cap,omitempty"`
+	// Niche fields
+	NicheKey      string `json:"niche_key,omitempty"`
+	NicheLeader   bool   `json:"niche_leader,omitempty"`
+	NicheRank     string `json:"niche_rank,omitempty"`
+	NicheSize     string `json:"niche_size,omitempty"`
+	CompetitionTax string `json:"competition_tax,omitempty"`
 	// Lineage fields
 	ParentFactId  string   `json:"parent_fact_id,omitempty"`
 	ChildFactIds  []string `json:"child_fact_ids,omitempty"`
@@ -322,6 +328,13 @@ func formatXML(facts []Fact, query string, showCanonical bool) string {
 		if f.Energy != "" && f.Energy != "0" {
 			energyAttr = fmt.Sprintf(" energy=\"%s/%s\"", f.Energy, f.EnergyCap)
 		}
+		nicheAttr := ""
+		if f.NicheRank != "" && f.NicheRank != "0" {
+			nicheAttr = fmt.Sprintf(" niche_rank=\"%s\" niche_size=\"%s\"", f.NicheRank, f.NicheSize)
+			if f.NicheLeader {
+				nicheAttr += " niche_leader=\"true\""
+			}
+		}
 		lineageAttr := ""
 		if f.ParentFactId != "" {
 			lineageAttr += fmt.Sprintf(" parent=\"%s\"", f.ParentFactId)
@@ -338,8 +351,8 @@ func formatXML(facts []Fact, query string, showCanonical bool) string {
 		if f.LineageRootId != "" {
 			lineageAttr += fmt.Sprintf(" lineage_root=\"%s\"", f.LineageRootId)
 		}
-		b.WriteString(fmt.Sprintf("  <fact id=\"%s\" domain=\"%s\" confidence=\"%.1f%%\" status=\"%s\" category=\"%s\" type=\"%s\" fitness=\"%.0f\" fitness_label=\"%s\"%s%s>\n",
-			f.ID, f.Domain, conf, status, f.Category, ct, fitness, fl, energyAttr, lineageAttr))
+		b.WriteString(fmt.Sprintf("  <fact id=\"%s\" domain=\"%s\" confidence=\"%.1f%%\" status=\"%s\" category=\"%s\" type=\"%s\" fitness=\"%.0f\" fitness_label=\"%s\"%s%s%s>\n",
+			f.ID, f.Domain, conf, status, f.Category, ct, fitness, fl, energyAttr, nicheAttr, lineageAttr))
 		b.WriteString(fmt.Sprintf("    <content>%s</content>\n", f.Content))
 		if f.Structure != nil {
 			b.WriteString("    <structure>\n")
@@ -427,6 +440,12 @@ func formatJSON(facts []Fact) string {
 		Energy        uint64        `json:"energy,omitempty"`
 		EnergyCap     uint64        `json:"energy_cap,omitempty"`
 		EnergyPct     float64       `json:"energy_pct,omitempty"`
+		// Niche
+		NicheKey       string `json:"niche_key,omitempty"`
+		NicheLeader    bool   `json:"niche_leader,omitempty"`
+		NicheRank      uint64 `json:"niche_rank,omitempty"`
+		NicheSize      uint64 `json:"niche_size,omitempty"`
+		CompetitionTax uint64 `json:"competition_tax,omitempty"`
 		// Lineage
 		ParentFactId  string   `json:"parent_fact_id,omitempty"`
 		ChildFactIds  []string `json:"child_fact_ids,omitempty"`
@@ -475,10 +494,22 @@ func formatJSON(facts []Fact) string {
 			Energy:        energy,
 			EnergyCap:     energyCap,
 			EnergyPct:     energyPct,
+			// Niche
+			NicheKey:    f.NicheKey,
+			NicheLeader: f.NicheLeader,
 			// Lineage
 			ParentFactId:  f.ParentFactId,
 			ChildFactIds:  f.ChildFactIds,
 			LineageRootId: f.LineageRootId,
+		}
+		if nr, err := strconv.ParseUint(f.NicheRank, 10, 64); err == nil {
+			fo.NicheRank = nr
+		}
+		if ns, err := strconv.ParseUint(f.NicheSize, 10, 64); err == nil {
+			fo.NicheSize = ns
+		}
+		if ct, err := strconv.ParseUint(f.CompetitionTax, 10, 64); err == nil {
+			fo.CompetitionTax = ct
 		}
 		if d, err := strconv.ParseUint(f.LineageDepth, 10, 64); err == nil {
 			fo.LineageDepth = d
@@ -659,6 +690,17 @@ func contextHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		filtered = fitnessFiltered
+	}
+
+	// Niche leader filter
+	if q.Get("niche_leader_only") == "true" || q.Get("niche_leader_only") == "1" {
+		var leaderFiltered []Fact
+		for _, f := range filtered {
+			if f.NicheLeader || f.NicheRank == "" || f.NicheRank == "0" || f.NicheRank == "1" {
+				leaderFiltered = append(leaderFiltered, f)
+			}
+		}
+		filtered = leaderFiltered
 	}
 
 	// Sort by fitness if requested

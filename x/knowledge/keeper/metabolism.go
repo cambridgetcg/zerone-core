@@ -111,7 +111,9 @@ func (k Keeper) calculateMaintenanceCost(fact *types.Fact, params *types.Params,
 	domainCount := domainCounts[fact.Domain]
 	competitionFactor := safeMulDiv(base, params.MetabolismDomainCompetitionBps*(domainCount/100), 1_000_000)
 
-	return base + contentFactor + competitionFactor
+	// Add competition tax from niche dynamics
+	totalCost := base + contentFactor + competitionFactor + fact.CompetitionTax
+	return totalCost
 }
 
 // calculateEnergyIncome returns the energy gained this epoch.

@@ -133,6 +133,12 @@ func DefaultParams() Params {
 		DemandMultiplierCap:       10_000_000,   // 10x demand multiplier cap (BPS)
 		DemandTrackingEnabled:     true,         // Demand tracking enabled by default
 		AuthorizedDemandReporters: []string{},   // Empty — governance adds reporters
+
+		// ─── Competition (niche dynamics) ────────────────────────────────
+		CompetitionNicheDominanceBonusBps: 100_000, // +10% fitness for niche leader
+		CompetitionRedundancyThresholdBps: 200_000, // Below 20% of leader = redundant
+		CompetitionMaxNicheSize:           10,       // Max 10 facts per niche
+		CompetitionSymbiosisBonusBps:      50_000,  // +5% fitness per healthy SUPPORTS link
 	}
 }
 
@@ -403,6 +409,20 @@ func (p *Params) Validate() error {
 		if p.DemandMultiplierCap == 0 {
 			return fmt.Errorf("demand_multiplier_cap must be > 0 when demand tracking is enabled")
 		}
+	}
+
+	// ─── Competition params ─────────────────────────────────────────────
+	if p.CompetitionNicheDominanceBonusBps > 1_000_000 {
+		return fmt.Errorf("competition_niche_dominance_bonus_bps must be <= 1,000,000")
+	}
+	if p.CompetitionRedundancyThresholdBps > 1_000_000 {
+		return fmt.Errorf("competition_redundancy_threshold_bps must be <= 1,000,000")
+	}
+	if p.CompetitionMaxNicheSize == 0 {
+		return fmt.Errorf("competition_max_niche_size must be > 0")
+	}
+	if p.CompetitionSymbiosisBonusBps > 1_000_000 {
+		return fmt.Errorf("competition_symbiosis_bonus_bps must be <= 1,000,000")
 	}
 
 	// ─── Bootstrap fund params ──────────────────────────────────────────

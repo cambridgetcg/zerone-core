@@ -135,6 +135,12 @@ message Params {
   uint64 demand_multiplier_cap           = 92;  // Max demand multiplier for energy (BPS)
   bool   demand_tracking_enabled         = 93;  // Enable/disable demand tracking
   repeated string authorized_demand_reporters = 94; // Addresses allowed to report demand
+
+  // ─── Competition (niche dynamics) ──────────────────────────────────
+  uint64 competition_niche_dominance_bonus_bps = 95;  // Fitness bonus for niche leader (BPS)
+  uint64 competition_redundancy_threshold_bps  = 96;  // Below this ratio of leader fitness = redundant (BPS)
+  uint64 competition_max_niche_size            = 97;  // Max facts per niche before forced pruning
+  uint64 competition_symbiosis_bonus_bps       = 98;  // Fitness bonus per SUPPORTS link to healthy fact (BPS)
 }
 
 // GenesisState is the genesis state of the knowledge module.

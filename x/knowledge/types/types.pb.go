@@ -746,6 +746,12 @@ type Fact struct {
 	EnergyCap         uint64 `protobuf:"varint,36,opt,name=energy_cap,json=energyCap,proto3" json:"energy_cap,omitempty"`                           // Maximum energy (governance-adjustable per domain)
 	EnergyLastUpdated uint64 `protobuf:"varint,37,opt,name=energy_last_updated,json=energyLastUpdated,proto3" json:"energy_last_updated,omitempty"` // Block height of last energy update
 	AtRiskSinceEpoch  uint64 `protobuf:"varint,38,opt,name=at_risk_since_epoch,json=atRiskSinceEpoch,proto3" json:"at_risk_since_epoch,omitempty"`  // Epoch when energy first hit 0 (0 = not at risk)
+	// ─── Competition (niche dynamics) ────────────────────────────────────
+	NicheKey       string `protobuf:"bytes,39,opt,name=niche_key,json=nicheKey,proto3" json:"niche_key,omitempty"`                    // Computed: hash(domain + subject + claim_type)
+	NicheLeader    bool   `protobuf:"varint,40,opt,name=niche_leader,json=nicheLeader,proto3" json:"niche_leader,omitempty"`          // Is this the top-ranked fact in its niche?
+	NicheRank      uint64 `protobuf:"varint,41,opt,name=niche_rank,json=nicheRank,proto3" json:"niche_rank,omitempty"`                // Rank within niche (1 = leader)
+	NicheSize      uint64 `protobuf:"varint,42,opt,name=niche_size,json=nicheSize,proto3" json:"niche_size,omitempty"`                // How many facts in this niche
+	CompetitionTax uint64 `protobuf:"varint,43,opt,name=competition_tax,json=competitionTax,proto3" json:"competition_tax,omitempty"` // Extra maintenance from competition (energy units)
 	// ─── Reproduction (lineage tracking) ──────────────────────────────────
 	ParentFactId  string   `protobuf:"bytes,44,opt,name=parent_fact_id,json=parentFactId,proto3" json:"parent_fact_id,omitempty"`    // Direct parent (empty if original)
 	ChildFactIds  []string `protobuf:"bytes,45,rep,name=child_fact_ids,json=childFactIds,proto3" json:"child_fact_ids,omitempty"`    // Direct children
@@ -1050,6 +1056,41 @@ func (x *Fact) GetEnergyLastUpdated() uint64 {
 func (x *Fact) GetAtRiskSinceEpoch() uint64 {
 	if x != nil {
 		return x.AtRiskSinceEpoch
+	}
+	return 0
+}
+
+func (x *Fact) GetNicheKey() string {
+	if x != nil {
+		return x.NicheKey
+	}
+	return ""
+}
+
+func (x *Fact) GetNicheLeader() bool {
+	if x != nil {
+		return x.NicheLeader
+	}
+	return false
+}
+
+func (x *Fact) GetNicheRank() uint64 {
+	if x != nil {
+		return x.NicheRank
+	}
+	return 0
+}
+
+func (x *Fact) GetNicheSize() uint64 {
+	if x != nil {
+		return x.NicheSize
+	}
+	return 0
+}
+
+func (x *Fact) GetCompetitionTax() uint64 {
+	if x != nil {
+		return x.CompetitionTax
 	}
 	return 0
 }
@@ -2272,7 +2313,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\xae\x0e\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\xd5\x0f\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -2320,7 +2361,14 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"energy_cap\x18$ \x01(\x04R\tenergyCap\x12.\n" +
 	"\x13energy_last_updated\x18% \x01(\x04R\x11energyLastUpdated\x12-\n" +
-	"\x13at_risk_since_epoch\x18& \x01(\x04R\x10atRiskSinceEpoch\x12$\n" +
+	"\x13at_risk_since_epoch\x18& \x01(\x04R\x10atRiskSinceEpoch\x12\x1b\n" +
+	"\tniche_key\x18' \x01(\tR\bnicheKey\x12!\n" +
+	"\fniche_leader\x18( \x01(\bR\vnicheLeader\x12\x1d\n" +
+	"\n" +
+	"niche_rank\x18) \x01(\x04R\tnicheRank\x12\x1d\n" +
+	"\n" +
+	"niche_size\x18* \x01(\x04R\tnicheSize\x12'\n" +
+	"\x0fcompetition_tax\x18+ \x01(\x04R\x0ecompetitionTax\x12$\n" +
 	"\x0eparent_fact_id\x18, \x01(\tR\fparentFactId\x12$\n" +
 	"\x0echild_fact_ids\x18- \x03(\tR\fchildFactIds\x12#\n" +
 	"\rlineage_depth\x18. \x01(\x04R\flineageDepth\x12#\n" +

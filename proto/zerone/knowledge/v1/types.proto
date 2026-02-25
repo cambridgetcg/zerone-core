@@ -164,6 +164,13 @@ message Fact {
   uint64 energy_last_updated     = 37;  // Block height of last energy update
   uint64 at_risk_since_epoch     = 38;  // Epoch when energy first hit 0 (0 = not at risk)
 
+  // ─── Competition (niche dynamics) ────────────────────────────────────
+  string niche_key               = 39;  // Computed: hash(domain + subject + claim_type)
+  bool   niche_leader            = 40;  // Is this the top-ranked fact in its niche?
+  uint64 niche_rank              = 41;  // Rank within niche (1 = leader)
+  uint64 niche_size              = 42;  // How many facts in this niche
+  uint64 competition_tax         = 43;  // Extra maintenance from competition (energy units)
+
   // ─── Reproduction (lineage tracking) ──────────────────────────────────
   string parent_fact_id          = 44;  // Direct parent (empty if original)
   repeated string child_fact_ids = 45;  // Direct children

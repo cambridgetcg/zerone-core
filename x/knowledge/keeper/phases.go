@@ -25,18 +25,27 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	}
 	if params.FitnessEpochBlocks > 0 && height > 0 && height%params.FitnessEpochBlocks == 0 {
 		epoch := height / params.FitnessEpochBlocks
-		// Metabolism processing at epoch boundaries (runs before fitness so energy state is current)
-		if err := k.ProcessMetabolism(ctx, epoch); err != nil {
-			k.Logger(ctx).Error("metabolism processing failed", "epoch", epoch, "error", err)
-		}
+
+		// Order matters:
+		// 1. Update fitness scores (current usage data)
 		if err := k.UpdateAllFitnessScores(ctx); err != nil {
 			k.Logger(ctx).Error("fitness update failed", "error", err)
 		}
-		// Process agent demand bounties at epoch boundaries
+		// 2. Process competition (uses fitness to rank niches)
+		if err := k.ProcessCompetition(ctx, epoch); err != nil {
+			k.Logger(ctx).Error("competition processing failed", "epoch", epoch, "error", err)
+		}
+		// 3. Process symbiosis (adjusts fitness based on relationships)
+		k.ProcessSymbiosis(ctx, params)
+		// 4. Process metabolism (uses fitness + competition tax to drain/replenish energy)
+		if err := k.ProcessMetabolism(ctx, epoch); err != nil {
+			k.Logger(ctx).Error("metabolism processing failed", "epoch", epoch, "error", err)
+		}
+		// 5. Process agent demand bounties
 		if err := k.ProcessDemandBounties(ctx, epoch); err != nil {
 			k.Logger(ctx).Error("demand bounty processing failed", "epoch", epoch, "error", err)
 		}
-		// Clean up expired bounties
+		// 6. Clean up expired bounties
 		k.ProcessExpiredBounties(ctx)
 	}
 

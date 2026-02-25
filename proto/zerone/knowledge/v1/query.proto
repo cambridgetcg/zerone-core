@@ -143,6 +143,18 @@ service Query {
   rpc TopDemandGaps(QueryTopDemandGapsRequest) returns (QueryTopDemandGapsResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/demand_gaps";
   }
+
+  // ─── Niche competition queries ─────────────────────────────────────
+
+  // NicheInfo queries members and metadata for a specific niche.
+  rpc NicheInfo(QueryNicheInfoRequest) returns (QueryNicheInfoResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/niche/{niche_key}";
+  }
+
+  // NichesByDomain queries all niches within a domain.
+  rpc NichesByDomain(QueryNichesByDomainRequest) returns (QueryNichesByDomainResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/niches/{domain}";
+  }
 }
 
 // ─── Request / Response messages ─────────────────────────────────────────────
@@ -394,4 +406,27 @@ message QueryTopDemandGapsRequest {
 
 message QueryTopDemandGapsResponse {
   repeated DemandSignal gaps = 1;  // Sorted by unfulfilled count desc
+}
+
+// ─── Niche competition query messages ────────────────────────────────────────
+
+message QueryNicheInfoRequest {
+  string niche_key = 1;
+}
+
+message QueryNicheInfoResponse {
+  string niche_key         = 1;
+  string domain            = 2;
+  string subject           = 3;
+  Fact leader              = 4;
+  repeated Fact members    = 5;  // Sorted by fitness desc
+  uint64 total_energy      = 6;  // Sum of all member energy
+}
+
+message QueryNichesByDomainRequest {
+  string domain = 1;
+}
+
+message QueryNichesByDomainResponse {
+  repeated QueryNicheInfoResponse niches = 1;
 }

@@ -725,6 +725,113 @@ func activeRoundKey(roundID string) []byte {
 	return append(append([]byte{}, types.ActiveRoundIndexPrefix...), []byte(roundID)...)
 }
 
+// ─── Niche Index CRUD ─────────────────────────────────────────────────────────
+
+// ComputeNicheKey returns hash(domain + subject + claim_type) for a fact.
+// Facts without structure are each in their own niche (no competition).
+func (k Keeper) ComputeNicheKey(fact *types.Fact) string {
+	if fact.Structure == nil || fact.Structure.Subject == "" {
+		// Unstructured facts: solo niche keyed by fact ID
+		return "solo:" + fact.Id
+	}
+	h := sha256.New()
+	h.Write([]byte("ZRN.niche.v1:"))
+	h.Write([]byte(fact.Domain))
+	h.Write([]byte(":"))
+	h.Write([]byte(normalizeSubject(fact.Structure.Subject)))
+	h.Write([]byte(":"))
+	h.Write([]byte(fact.ClaimType.String()))
+	// Scope differentiates sub-niches
+	if fact.Structure.Scope != "" {
+		h.Write([]byte(":"))
+		h.Write([]byte(strings.ToLower(strings.TrimSpace(fact.Structure.Scope))))
+	}
+	return hex.EncodeToString(h.Sum(nil))[:32]
+}
+
+// UpdateNicheIndex registers a fact in its niche index.
+func (k Keeper) UpdateNicheIndex(ctx context.Context, fact *types.Fact) error {
+	nicheKey := k.ComputeNicheKey(fact)
+	fact.NicheKey = nicheKey
+	store := k.storeService.OpenKVStore(ctx)
+	// Register fact in niche
+	if err := store.Set(types.NicheIndexKey(nicheKey, fact.Id), []byte{0x01}); err != nil {
+		return err
+	}
+	// Register niche existence
+	if err := store.Set(types.NicheMembersKey(nicheKey), []byte{0x01}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveFromNicheIndex removes a fact from its niche index.
+func (k Keeper) RemoveFromNicheIndex(ctx context.Context, nicheKey, factID string) {
+	store := k.storeService.OpenKVStore(ctx)
+	_ = store.Delete(types.NicheIndexKey(nicheKey, factID))
+}
+
+// GetNicheMembers returns all active facts in a niche, sorted by fitness descending.
+func (k Keeper) GetNicheMembers(ctx context.Context, nicheKey string) []*types.Fact {
+	store := k.storeService.OpenKVStore(ctx)
+	pfx := types.NicheIndexByNichePrefix(nicheKey)
+	iter, err := store.Iterator(pfx, prefixEndBytes(pfx))
+	if err != nil {
+		return nil
+	}
+	defer iter.Close()
+
+	var members []*types.Fact
+	for ; iter.Valid(); iter.Next() {
+		factID := string(iter.Key()[len(pfx):])
+		fact, found := k.GetFact(ctx, factID)
+		if !found {
+			continue
+		}
+		// Only include active/verified/provisional facts
+		if fact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
+			fact.Status == types.FactStatus_FACT_STATUS_ACTIVE ||
+			fact.Status == types.FactStatus_FACT_STATUS_PROVISIONAL ||
+			fact.Status == types.FactStatus_FACT_STATUS_AT_RISK {
+			members = append(members, fact)
+		}
+	}
+	return members
+}
+
+// GetNicheLeader returns the highest-fitness fact in a niche.
+func (k Keeper) GetNicheLeader(ctx context.Context, nicheKey string) (*types.Fact, bool) {
+	members := k.GetNicheMembers(ctx, nicheKey)
+	if len(members) == 0 {
+		return nil, false
+	}
+	// Find highest fitness
+	leader := members[0]
+	for _, m := range members[1:] {
+		if m.FitnessScore > leader.FitnessScore {
+			leader = m
+		}
+	}
+	return leader, true
+}
+
+// GetAllNiches returns all registered niche keys.
+func (k Keeper) GetAllNiches(ctx context.Context) []string {
+	store := k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(types.NicheMembersPrefix, prefixEndBytes(types.NicheMembersPrefix))
+	if err != nil {
+		return nil
+	}
+	defer iter.Close()
+
+	var niches []string
+	for ; iter.Valid(); iter.Next() {
+		nicheKey := string(iter.Key()[len(types.NicheMembersPrefix):])
+		niches = append(niches, nicheKey)
+	}
+	return niches
+}
+
 // prefixEndBytes returns the exclusive end key for prefix iteration.
 func prefixEndBytes(pfx []byte) []byte {
 	if len(pfx) == 0 {

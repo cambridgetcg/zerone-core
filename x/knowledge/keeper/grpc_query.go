@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"google.golang.org/grpc/codes"
@@ -552,4 +553,91 @@ func (q *queryServer) DemandSignals(ctx context.Context, req *types.QueryDemandS
 func (q *queryServer) TopDemandGaps(ctx context.Context, req *types.QueryTopDemandGapsRequest) (*types.QueryTopDemandGapsResponse, error) {
 	gaps := q.keeper.GetTopDemandGaps(ctx, req.Limit)
 	return &types.QueryTopDemandGapsResponse{Gaps: gaps}, nil
+}
+
+// ─── Niche competition queries ────────────────────────────────────────────────
+
+func (q *queryServer) NicheInfo(ctx context.Context, req *types.QueryNicheInfoRequest) (*types.QueryNicheInfoResponse, error) {
+	if req.NicheKey == "" {
+		return nil, status.Error(codes.InvalidArgument, "niche_key is required")
+	}
+
+	members := q.keeper.GetNicheMembers(ctx, req.NicheKey)
+	if len(members) == 0 {
+		return nil, status.Errorf(codes.NotFound, "niche %s not found or empty", req.NicheKey)
+	}
+
+	// Sort by fitness desc
+	sort.Slice(members, func(i, j int) bool {
+		return members[i].FitnessScore > members[j].FitnessScore
+	})
+
+	leader := members[0]
+	domain := leader.Domain
+	subject := ""
+	if leader.Structure != nil {
+		subject = leader.Structure.Subject
+	}
+
+	totalEnergy := uint64(0)
+	for _, m := range members {
+		totalEnergy += m.Energy
+	}
+
+	return &types.QueryNicheInfoResponse{
+		NicheKey:    req.NicheKey,
+		Domain:      domain,
+		Subject:     subject,
+		Leader:      leader,
+		Members:     members,
+		TotalEnergy: totalEnergy,
+	}, nil
+}
+
+func (q *queryServer) NichesByDomain(ctx context.Context, req *types.QueryNichesByDomainRequest) (*types.QueryNichesByDomainResponse, error) {
+	if req.Domain == "" {
+		return nil, status.Error(codes.InvalidArgument, "domain is required")
+	}
+
+	allNiches := q.keeper.GetAllNiches(ctx)
+	var result []*types.QueryNicheInfoResponse
+
+	for _, nicheKey := range allNiches {
+		members := q.keeper.GetNicheMembers(ctx, nicheKey)
+		if len(members) == 0 {
+			continue
+		}
+
+		// Filter by domain
+		if members[0].Domain != req.Domain {
+			continue
+		}
+
+		// Sort by fitness desc
+		sort.Slice(members, func(i, j int) bool {
+			return members[i].FitnessScore > members[j].FitnessScore
+		})
+
+		leader := members[0]
+		subject := ""
+		if leader.Structure != nil {
+			subject = leader.Structure.Subject
+		}
+
+		totalEnergy := uint64(0)
+		for _, m := range members {
+			totalEnergy += m.Energy
+		}
+
+		result = append(result, &types.QueryNicheInfoResponse{
+			NicheKey:    nicheKey,
+			Domain:      req.Domain,
+			Subject:     subject,
+			Leader:      leader,
+			Members:     members,
+			TotalEnergy: totalEnergy,
+		})
+	}
+
+	return &types.QueryNichesByDomainResponse{Niches: result}, nil
 }

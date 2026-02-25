@@ -98,6 +98,10 @@ var (
 	DemandSignalPrefix          = []byte{0x39} // domain / subject_hash → DemandSignal
 	BountyPrefix                = []byte{0x3a} // bounty_id → KnowledgeBounty
 	BountyByDomainSubjectPrefix = []byte{0x3b} // domain / subject_hash → bounty_id (active index)
+
+	// ─── Niche competition ──────────────────────────────────────────────
+	NicheIndexPrefix   = []byte{0x3c} // 0x3c | niche_key | fact_id → []byte{1}
+	NicheMembersPrefix = []byte{0x3d} // 0x3d | niche_key → []byte{1} (niche existence)
 )
 
 // ─── Key constructors ─────────────────────────────────────────────────────────
@@ -228,4 +232,22 @@ func BountyByDomainSubjectKey(domain, subjectHash string) []byte {
 	key := append(append([]byte{}, BountyByDomainSubjectPrefix...), []byte(domain)...)
 	key = append(key, '/')
 	return append(key, []byte(subjectHash)...)
+}
+
+// NicheIndexKey returns the composite index key for a fact within a niche.
+func NicheIndexKey(nicheKey, factID string) []byte {
+	key := append(append([]byte{}, NicheIndexPrefix...), []byte(nicheKey)...)
+	key = append(key, '/')
+	return append(key, []byte(factID)...)
+}
+
+// NicheIndexByNichePrefix returns the prefix for iterating all facts in a niche.
+func NicheIndexByNichePrefix(nicheKey string) []byte {
+	key := append(append([]byte{}, NicheIndexPrefix...), []byte(nicheKey)...)
+	return append(key, '/')
+}
+
+// NicheMembersKey returns the key for registering a niche's existence.
+func NicheMembersKey(nicheKey string) []byte {
+	return append(append([]byte{}, NicheMembersPrefix...), []byte(nicheKey)...)
 }

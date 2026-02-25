@@ -210,6 +210,32 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		}
 	}
 
+	// ─── Niche registration (competitive dynamics) ─────────────────────
+	nicheKey := k.ComputeNicheKey(fact)
+	fact.NicheKey = nicheKey
+	fact.NicheLeader = true // new fact starts as leader-candidate
+	fact.NicheRank = 1
+	fact.NicheSize = 1
+	currentLeader, hasLeader := k.GetNicheLeader(ctx, nicheKey)
+	if hasLeader {
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.niche_challenger",
+			sdk.NewAttribute("new_fact", fact.Id),
+			sdk.NewAttribute("current_leader", currentLeader.Id),
+			sdk.NewAttribute("niche", nicheKey),
+			sdk.NewAttribute("domain", fact.Domain),
+		))
+		fact.NicheLeader = false // not leader yet — competition will decide
+		fact.NicheSize = uint64(len(k.GetNicheMembers(ctx, nicheKey))) + 1
+	}
+	if err := k.UpdateNicheIndex(ctx, fact); err != nil {
+		return fmt.Errorf("failed to update niche index: %w", err)
+	}
+	// Re-save fact with niche fields set
+	if err := k.SetFact(ctx, fact); err != nil {
+		return fmt.Errorf("failed to save fact with niche fields: %w", err)
+	}
+
 	// Index fact by canonical hash
 	if fact.CanonicalHash != "" {
 		if err := k.SetCanonicalHash(ctx, fact.CanonicalHash, fact.Id); err != nil {

@@ -45,6 +45,8 @@ const (
 	Query_ActiveBounties_FullMethodName      = "/zerone.knowledge.v1.Query/ActiveBounties"
 	Query_DemandSignals_FullMethodName       = "/zerone.knowledge.v1.Query/DemandSignals"
 	Query_TopDemandGaps_FullMethodName       = "/zerone.knowledge.v1.Query/TopDemandGaps"
+	Query_NicheInfo_FullMethodName           = "/zerone.knowledge.v1.Query/NicheInfo"
+	Query_NichesByDomain_FullMethodName      = "/zerone.knowledge.v1.Query/NichesByDomain"
 )
 
 // QueryClient is the client API for Query service.
@@ -105,6 +107,10 @@ type QueryClient interface {
 	DemandSignals(ctx context.Context, in *QueryDemandSignalsRequest, opts ...grpc.CallOption) (*QueryDemandSignalsResponse, error)
 	// TopDemandGaps queries the top unfulfilled demand gaps.
 	TopDemandGaps(ctx context.Context, in *QueryTopDemandGapsRequest, opts ...grpc.CallOption) (*QueryTopDemandGapsResponse, error)
+	// NicheInfo queries members and metadata for a specific niche.
+	NicheInfo(ctx context.Context, in *QueryNicheInfoRequest, opts ...grpc.CallOption) (*QueryNicheInfoResponse, error)
+	// NichesByDomain queries all niches within a domain.
+	NichesByDomain(ctx context.Context, in *QueryNichesByDomainRequest, opts ...grpc.CallOption) (*QueryNichesByDomainResponse, error)
 }
 
 type queryClient struct {
@@ -375,6 +381,26 @@ func (c *queryClient) TopDemandGaps(ctx context.Context, in *QueryTopDemandGapsR
 	return out, nil
 }
 
+func (c *queryClient) NicheInfo(ctx context.Context, in *QueryNicheInfoRequest, opts ...grpc.CallOption) (*QueryNicheInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryNicheInfoResponse)
+	err := c.cc.Invoke(ctx, Query_NicheInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) NichesByDomain(ctx context.Context, in *QueryNichesByDomainRequest, opts ...grpc.CallOption) (*QueryNichesByDomainResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryNichesByDomainResponse)
+	err := c.cc.Invoke(ctx, Query_NichesByDomain_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -433,6 +459,10 @@ type QueryServer interface {
 	DemandSignals(context.Context, *QueryDemandSignalsRequest) (*QueryDemandSignalsResponse, error)
 	// TopDemandGaps queries the top unfulfilled demand gaps.
 	TopDemandGaps(context.Context, *QueryTopDemandGapsRequest) (*QueryTopDemandGapsResponse, error)
+	// NicheInfo queries members and metadata for a specific niche.
+	NicheInfo(context.Context, *QueryNicheInfoRequest) (*QueryNicheInfoResponse, error)
+	// NichesByDomain queries all niches within a domain.
+	NichesByDomain(context.Context, *QueryNichesByDomainRequest) (*QueryNichesByDomainResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -520,6 +550,12 @@ func (UnimplementedQueryServer) DemandSignals(context.Context, *QueryDemandSigna
 }
 func (UnimplementedQueryServer) TopDemandGaps(context.Context, *QueryTopDemandGapsRequest) (*QueryTopDemandGapsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TopDemandGaps not implemented")
+}
+func (UnimplementedQueryServer) NicheInfo(context.Context, *QueryNicheInfoRequest) (*QueryNicheInfoResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NicheInfo not implemented")
+}
+func (UnimplementedQueryServer) NichesByDomain(context.Context, *QueryNichesByDomainRequest) (*QueryNichesByDomainResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NichesByDomain not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -1010,6 +1046,42 @@ func _Query_TopDemandGaps_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_NicheInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryNicheInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).NicheInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_NicheInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).NicheInfo(ctx, req.(*QueryNicheInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_NichesByDomain_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryNichesByDomainRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).NichesByDomain(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_NichesByDomain_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).NichesByDomain(ctx, req.(*QueryNichesByDomainRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1120,6 +1192,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TopDemandGaps",
 			Handler:    _Query_TopDemandGaps_Handler,
+		},
+		{
+			MethodName: "NicheInfo",
+			Handler:    _Query_NicheInfo_Handler,
+		},
+		{
+			MethodName: "NichesByDomain",
+			Handler:    _Query_NichesByDomain_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
