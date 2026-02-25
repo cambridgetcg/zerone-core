@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,6 +29,41 @@ var (
 	nodeURL = flag.String("node", "http://localhost:1317", "ZERONE node REST endpoint")
 	port    = flag.Int("port", 8222, "Server port")
 )
+
+var demandBuffer struct {
+	mu      sync.Mutex
+	reports map[string]*demandReport
+}
+
+type demandReport struct {
+	Domain      string
+	Subject     string
+	Queries     uint64
+	Fulfilled   uint64
+	Unfulfilled uint64
+}
+
+func init() {
+	demandBuffer.reports = make(map[string]*demandReport)
+}
+
+func trackDemand(domain, subject string, factCount int) {
+	demandBuffer.mu.Lock()
+	defer demandBuffer.mu.Unlock()
+
+	key := domain + "|" + subject
+	report, ok := demandBuffer.reports[key]
+	if !ok {
+		report = &demandReport{Domain: domain, Subject: subject}
+		demandBuffer.reports[key] = report
+	}
+	report.Queries++
+	if factCount == 0 {
+		report.Unfulfilled++
+	} else {
+		report.Fulfilled++
+	}
+}
 
 // ─── On-chain types ──────────────────────────────────────────────────────────
 
@@ -587,6 +623,11 @@ func contextHandler(w http.ResponseWriter, r *http.Request) {
 
 	filtered := filterFacts(facts, domains, minConf, includeChallenged, claimTypes)
 
+	// Track demand for each queried domain/subject
+	for dom := range domains {
+		trackDemand(dom, subjectFilter, len(filtered))
+	}
+
 	// Apply subject filter
 	if subjectFilter != "" {
 		var subjectFiltered []Fact
@@ -776,6 +817,40 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `{"status":"healthy"}`)
 }
 
+func bountiesHandler(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	url := *nodeURL + "/zerone/knowledge/v1/bounties"
+	if domain != "" {
+		url += "?domain=" + domain
+	}
+	resp, err := http.Get(url)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+	body, _ := io.ReadAll(resp.Body)
+	w.Write(body)
+}
+
+func demandGapsHandler(w http.ResponseWriter, r *http.Request) {
+	limit := r.URL.Query().Get("limit")
+	url := *nodeURL + "/zerone/knowledge/v1/demand_gaps"
+	if limit != "" {
+		url += "?limit=" + limit
+	}
+	resp, err := http.Get(url)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+	body, _ := io.ReadAll(resp.Body)
+	w.Write(body)
+}
+
 func main() {
 	flag.Parse()
 
@@ -783,6 +858,8 @@ func main() {
 	http.HandleFunc("/domains", domainsHandler)
 	http.HandleFunc("/graph", graphHandler)
 	http.HandleFunc("/health", healthHandler)
+	http.HandleFunc("/bounties", bountiesHandler)
+	http.HandleFunc("/demand_gaps", demandGapsHandler)
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("Knowledge context server starting on %s (node: %s)", addr, *nodeURL)
@@ -791,5 +868,7 @@ func main() {
 	log.Printf("  GET /graph?fact_id=abc123&depth=2&relation=supports,requires")
 	log.Printf("  GET /domains")
 	log.Printf("  GET /health")
+	log.Printf("  GET /bounties?domain=physics")
+	log.Printf("  GET /demand_gaps?limit=20")
 	log.Fatal(http.ListenAndServe(addr, nil))
 }

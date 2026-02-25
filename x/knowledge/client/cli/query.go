@@ -66,6 +66,9 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryFactsAtRiskCmd(),
 		NewQueryCheckNoveltyCmd(),
 		NewQueryCommonKnowledgeCmd(),
+		NewQueryBountiesCmd(),
+		NewQueryDemandSignalsCmd(),
+		NewQueryDemandGapsCmd(),
 	)
 
 	return queryCmd
@@ -596,6 +599,86 @@ func NewQueryCommonKnowledgeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("domain", "", "Filter by domain")
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryBountiesCmd creates a CLI command for querying active knowledge bounties.
+func NewQueryBountiesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bounties",
+		Short: "Query active knowledge bounties",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			domain, _ := cmd.Flags().GetString("domain")
+			req := &types.QueryActiveBountiesRequest{Domain: domain}
+			resp := &types.QueryActiveBountiesResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/ActiveBounties", req, resp); err != nil {
+				return fmt.Errorf("failed to query active bounties: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	cmd.Flags().String("domain", "", "Filter by domain")
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryDemandSignalsCmd creates a CLI command for querying demand signals.
+func NewQueryDemandSignalsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "demand-signals",
+		Short: "Query demand signals",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			domain, _ := cmd.Flags().GetString("domain")
+			minUnfulfilled, _ := cmd.Flags().GetUint64("min-unfulfilled")
+			req := &types.QueryDemandSignalsRequest{
+				Domain:         domain,
+				MinUnfulfilled: minUnfulfilled,
+			}
+			resp := &types.QueryDemandSignalsResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/DemandSignals", req, resp); err != nil {
+				return fmt.Errorf("failed to query demand signals: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	cmd.Flags().String("domain", "", "Filter by domain")
+	cmd.Flags().Uint64("min-unfulfilled", 0, "Minimum unfulfilled count")
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryDemandGapsCmd creates a CLI command for querying top knowledge gaps.
+func NewQueryDemandGapsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "demand-gaps",
+		Short: "Query top knowledge gaps sorted by unfulfilled demand",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			limit, _ := cmd.Flags().GetUint64("limit")
+			req := &types.QueryTopDemandGapsRequest{Limit: limit}
+			resp := &types.QueryTopDemandGapsResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/TopDemandGaps", req, resp); err != nil {
+				return fmt.Errorf("failed to query demand gaps: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	cmd.Flags().Uint64("limit", 20, "Max results")
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }

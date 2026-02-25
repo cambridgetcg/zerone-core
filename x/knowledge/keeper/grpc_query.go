@@ -526,3 +526,30 @@ func (q queryServer) CheckNovelty(ctx context.Context, req *types.QueryCheckNove
 		SubjectOverlapCount:  overlapCount,
 	}, nil
 }
+
+// ─── Agent demand queries ────────────────────────────────────────────────────
+
+func (q *queryServer) ActiveBounties(ctx context.Context, req *types.QueryActiveBountiesRequest) (*types.QueryActiveBountiesResponse, error) {
+	bounties := q.keeper.GetActiveBounties(ctx, req.Domain)
+	return &types.QueryActiveBountiesResponse{Bounties: bounties}, nil
+}
+
+func (q *queryServer) DemandSignals(ctx context.Context, req *types.QueryDemandSignalsRequest) (*types.QueryDemandSignalsResponse, error) {
+	var signals []*types.DemandSignal
+	q.keeper.IterateDemandSignals(ctx, func(signal *types.DemandSignal) bool {
+		if req.Domain != "" && signal.Domain != req.Domain {
+			return false
+		}
+		if req.MinUnfulfilled > 0 && signal.UnfulfilledCount < req.MinUnfulfilled {
+			return false
+		}
+		signals = append(signals, signal)
+		return false
+	})
+	return &types.QueryDemandSignalsResponse{Signals: signals}, nil
+}
+
+func (q *queryServer) TopDemandGaps(ctx context.Context, req *types.QueryTopDemandGapsRequest) (*types.QueryTopDemandGapsResponse, error) {
+	gaps := q.keeper.GetTopDemandGaps(ctx, req.Limit)
+	return &types.QueryTopDemandGapsResponse{Gaps: gaps}, nil
+}
