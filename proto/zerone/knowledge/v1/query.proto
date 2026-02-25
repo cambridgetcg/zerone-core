@@ -126,6 +126,23 @@ service Query {
   rpc CheckNovelty(QueryCheckNoveltyRequest) returns (QueryCheckNoveltyResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/check_novelty";
   }
+
+  // ─── Agent demand queries ──────────────────────────────────────────
+
+  // ActiveBounties queries active (unclaimed) knowledge bounties.
+  rpc ActiveBounties(QueryActiveBountiesRequest) returns (QueryActiveBountiesResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/bounties";
+  }
+
+  // DemandSignals queries demand signal data for a domain.
+  rpc DemandSignals(QueryDemandSignalsRequest) returns (QueryDemandSignalsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/demand";
+  }
+
+  // TopDemandGaps queries the top unfulfilled demand gaps.
+  rpc TopDemandGaps(QueryTopDemandGapsRequest) returns (QueryTopDemandGapsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/demand_gaps";
+  }
 }
 
 // ─── Request / Response messages ─────────────────────────────────────────────
@@ -350,4 +367,31 @@ message QueryCheckNoveltyResponse {
   bool   common_knowledge_match = 2;
   string matched_entry          = 3;  // ID of matched common knowledge entry (if any)
   uint64 subject_overlap_count  = 4;
+}
+
+// ─── Agent demand query messages ─────────────────────────────────────────────
+
+message QueryActiveBountiesRequest {
+  string domain = 1;  // Optional domain filter
+}
+
+message QueryActiveBountiesResponse {
+  repeated KnowledgeBounty bounties = 1;
+}
+
+message QueryDemandSignalsRequest {
+  string domain          = 1;  // Optional domain filter
+  uint64 min_unfulfilled = 2;  // Optional minimum unfulfilled count filter
+}
+
+message QueryDemandSignalsResponse {
+  repeated DemandSignal signals = 1;
+}
+
+message QueryTopDemandGapsRequest {
+  uint64 limit = 1;  // Max results (default 20)
+}
+
+message QueryTopDemandGapsResponse {
+  repeated DemandSignal gaps = 1;  // Sorted by unfulfilled count desc
 }

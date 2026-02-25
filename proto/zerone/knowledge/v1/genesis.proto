@@ -126,6 +126,15 @@ message Params {
   uint64 novelty_precision_bonus_bps          = 85;  // Bonus if more precise than existing
   uint64 novelty_cross_domain_bonus_bps       = 86;  // Bonus if subject spans multiple domains
   uint64 novelty_max_overlap_facts            = 87;  // Cap on overlap penalty (after N, no more penalty)
+
+  // ─── Agent demand ────────────────────────────────────────────────
+  uint64 demand_bounty_threshold         = 88;  // Unfulfilled queries per epoch to trigger bounty
+  string demand_bounty_base_reward       = 89;  // Base bounty reward (uzrn)
+  string demand_bounty_per_query_bonus   = 90;  // Additional reward per unfulfilled query (uzrn)
+  uint64 demand_bounty_expiry_epochs     = 91;  // Epochs before unclaimed bounty expires
+  uint64 demand_multiplier_cap           = 92;  // Max demand multiplier for energy (BPS)
+  bool   demand_tracking_enabled         = 93;  // Enable/disable demand tracking
+  repeated string authorized_demand_reporters = 94; // Addresses allowed to report demand
 }
 
 // GenesisState is the genesis state of the knowledge module.

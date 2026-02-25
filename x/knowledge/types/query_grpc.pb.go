@@ -42,6 +42,9 @@ const (
 	Query_FactProgeny_FullMethodName         = "/zerone.knowledge.v1.Query/FactProgeny"
 	Query_CommonKnowledge_FullMethodName     = "/zerone.knowledge.v1.Query/CommonKnowledge"
 	Query_CheckNovelty_FullMethodName        = "/zerone.knowledge.v1.Query/CheckNovelty"
+	Query_ActiveBounties_FullMethodName      = "/zerone.knowledge.v1.Query/ActiveBounties"
+	Query_DemandSignals_FullMethodName       = "/zerone.knowledge.v1.Query/DemandSignals"
+	Query_TopDemandGaps_FullMethodName       = "/zerone.knowledge.v1.Query/TopDemandGaps"
 )
 
 // QueryClient is the client API for Query service.
@@ -96,6 +99,12 @@ type QueryClient interface {
 	CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
 	CheckNovelty(ctx context.Context, in *QueryCheckNoveltyRequest, opts ...grpc.CallOption) (*QueryCheckNoveltyResponse, error)
+	// ActiveBounties queries active (unclaimed) knowledge bounties.
+	ActiveBounties(ctx context.Context, in *QueryActiveBountiesRequest, opts ...grpc.CallOption) (*QueryActiveBountiesResponse, error)
+	// DemandSignals queries demand signal data for a domain.
+	DemandSignals(ctx context.Context, in *QueryDemandSignalsRequest, opts ...grpc.CallOption) (*QueryDemandSignalsResponse, error)
+	// TopDemandGaps queries the top unfulfilled demand gaps.
+	TopDemandGaps(ctx context.Context, in *QueryTopDemandGapsRequest, opts ...grpc.CallOption) (*QueryTopDemandGapsResponse, error)
 }
 
 type queryClient struct {
@@ -336,6 +345,36 @@ func (c *queryClient) CheckNovelty(ctx context.Context, in *QueryCheckNoveltyReq
 	return out, nil
 }
 
+func (c *queryClient) ActiveBounties(ctx context.Context, in *QueryActiveBountiesRequest, opts ...grpc.CallOption) (*QueryActiveBountiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryActiveBountiesResponse)
+	err := c.cc.Invoke(ctx, Query_ActiveBounties_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) DemandSignals(ctx context.Context, in *QueryDemandSignalsRequest, opts ...grpc.CallOption) (*QueryDemandSignalsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryDemandSignalsResponse)
+	err := c.cc.Invoke(ctx, Query_DemandSignals_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TopDemandGaps(ctx context.Context, in *QueryTopDemandGapsRequest, opts ...grpc.CallOption) (*QueryTopDemandGapsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryTopDemandGapsResponse)
+	err := c.cc.Invoke(ctx, Query_TopDemandGaps_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -388,6 +427,12 @@ type QueryServer interface {
 	CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
 	CheckNovelty(context.Context, *QueryCheckNoveltyRequest) (*QueryCheckNoveltyResponse, error)
+	// ActiveBounties queries active (unclaimed) knowledge bounties.
+	ActiveBounties(context.Context, *QueryActiveBountiesRequest) (*QueryActiveBountiesResponse, error)
+	// DemandSignals queries demand signal data for a domain.
+	DemandSignals(context.Context, *QueryDemandSignalsRequest) (*QueryDemandSignalsResponse, error)
+	// TopDemandGaps queries the top unfulfilled demand gaps.
+	TopDemandGaps(context.Context, *QueryTopDemandGapsRequest) (*QueryTopDemandGapsResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -466,6 +511,15 @@ func (UnimplementedQueryServer) CommonKnowledge(context.Context, *QueryCommonKno
 }
 func (UnimplementedQueryServer) CheckNovelty(context.Context, *QueryCheckNoveltyRequest) (*QueryCheckNoveltyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CheckNovelty not implemented")
+}
+func (UnimplementedQueryServer) ActiveBounties(context.Context, *QueryActiveBountiesRequest) (*QueryActiveBountiesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ActiveBounties not implemented")
+}
+func (UnimplementedQueryServer) DemandSignals(context.Context, *QueryDemandSignalsRequest) (*QueryDemandSignalsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DemandSignals not implemented")
+}
+func (UnimplementedQueryServer) TopDemandGaps(context.Context, *QueryTopDemandGapsRequest) (*QueryTopDemandGapsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TopDemandGaps not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -902,6 +956,60 @@ func _Query_CheckNovelty_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_ActiveBounties_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryActiveBountiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ActiveBounties(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ActiveBounties_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ActiveBounties(ctx, req.(*QueryActiveBountiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_DemandSignals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryDemandSignalsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).DemandSignals(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_DemandSignals_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).DemandSignals(ctx, req.(*QueryDemandSignalsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TopDemandGaps_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTopDemandGapsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TopDemandGaps(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TopDemandGaps_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TopDemandGaps(ctx, req.(*QueryTopDemandGapsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1000,6 +1108,18 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CheckNovelty",
 			Handler:    _Query_CheckNovelty_Handler,
+		},
+		{
+			MethodName: "ActiveBounties",
+			Handler:    _Query_ActiveBounties_Handler,
+		},
+		{
+			MethodName: "DemandSignals",
+			Handler:    _Query_DemandSignals_Handler,
+		},
+		{
+			MethodName: "TopDemandGaps",
+			Handler:    _Query_TopDemandGaps_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -83,6 +83,11 @@ service Msg {
 
   // RemoveCommonKnowledge removes an entry from the common knowledge registry (authority-only).
   rpc RemoveCommonKnowledge(MsgRemoveCommonKnowledge) returns (MsgRemoveCommonKnowledgeResponse);
+
+  // ─── Agent demand ──────────────────────────────────────────────────
+
+  // ReportDemand reports agent query demand (authorized reporters only).
+  rpc ReportDemand(MsgReportDemand) returns (MsgReportDemandResponse);
 }
 
 // ─── PoT lifecycle messages ───────────────────────────────────────────────────
@@ -337,3 +342,22 @@ message MsgRemoveCommonKnowledge {
 }
 
 message MsgRemoveCommonKnowledgeResponse {}
+
+// ─── Agent demand messages ───────────────────────────────────────────────────
+
+message MsgReportDemand {
+    option (cosmos.msg.v1.signer) = "reporter";
+
+    string reporter = 1;  // Context server address (whitelisted)
+    repeated DemandReport reports = 2;
+}
+
+message DemandReport {
+    string domain     = 1;
+    string subject    = 2;
+    uint64 queries    = 3;  // Total queries in this batch
+    uint64 fulfilled  = 4;  // How many returned results
+    uint64 unfulfilled = 5;
+}
+
+message MsgReportDemandResponse {}

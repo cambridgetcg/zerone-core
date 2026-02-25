@@ -128,8 +128,16 @@ type Params struct {
 	NoveltyPrecisionBonusBps         uint64 `protobuf:"varint,85,opt,name=novelty_precision_bonus_bps,json=noveltyPrecisionBonusBps,proto3" json:"novelty_precision_bonus_bps,omitempty"`                           // Bonus if more precise than existing
 	NoveltyCrossDomainBonusBps       uint64 `protobuf:"varint,86,opt,name=novelty_cross_domain_bonus_bps,json=noveltyCrossDomainBonusBps,proto3" json:"novelty_cross_domain_bonus_bps,omitempty"`                   // Bonus if subject spans multiple domains
 	NoveltyMaxOverlapFacts           uint64 `protobuf:"varint,87,opt,name=novelty_max_overlap_facts,json=noveltyMaxOverlapFacts,proto3" json:"novelty_max_overlap_facts,omitempty"`                                 // Cap on overlap penalty (after N, no more penalty)
-	unknownFields                    protoimpl.UnknownFields
-	sizeCache                        protoimpl.SizeCache
+	// ─── Agent demand ────────────────────────────────────────────────
+	DemandBountyThreshold     uint64   `protobuf:"varint,88,opt,name=demand_bounty_threshold,json=demandBountyThreshold,proto3" json:"demand_bounty_threshold,omitempty"`                // Unfulfilled queries per epoch to trigger bounty
+	DemandBountyBaseReward    string   `protobuf:"bytes,89,opt,name=demand_bounty_base_reward,json=demandBountyBaseReward,proto3" json:"demand_bounty_base_reward,omitempty"`            // Base bounty reward (uzrn)
+	DemandBountyPerQueryBonus string   `protobuf:"bytes,90,opt,name=demand_bounty_per_query_bonus,json=demandBountyPerQueryBonus,proto3" json:"demand_bounty_per_query_bonus,omitempty"` // Additional reward per unfulfilled query (uzrn)
+	DemandBountyExpiryEpochs  uint64   `protobuf:"varint,91,opt,name=demand_bounty_expiry_epochs,json=demandBountyExpiryEpochs,proto3" json:"demand_bounty_expiry_epochs,omitempty"`     // Epochs before unclaimed bounty expires
+	DemandMultiplierCap       uint64   `protobuf:"varint,92,opt,name=demand_multiplier_cap,json=demandMultiplierCap,proto3" json:"demand_multiplier_cap,omitempty"`                      // Max demand multiplier for energy (BPS)
+	DemandTrackingEnabled     bool     `protobuf:"varint,93,opt,name=demand_tracking_enabled,json=demandTrackingEnabled,proto3" json:"demand_tracking_enabled,omitempty"`                // Enable/disable demand tracking
+	AuthorizedDemandReporters []string `protobuf:"bytes,94,rep,name=authorized_demand_reporters,json=authorizedDemandReporters,proto3" json:"authorized_demand_reporters,omitempty"`     // Addresses allowed to report demand
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -771,6 +779,55 @@ func (x *Params) GetNoveltyMaxOverlapFacts() uint64 {
 	return 0
 }
 
+func (x *Params) GetDemandBountyThreshold() uint64 {
+	if x != nil {
+		return x.DemandBountyThreshold
+	}
+	return 0
+}
+
+func (x *Params) GetDemandBountyBaseReward() string {
+	if x != nil {
+		return x.DemandBountyBaseReward
+	}
+	return ""
+}
+
+func (x *Params) GetDemandBountyPerQueryBonus() string {
+	if x != nil {
+		return x.DemandBountyPerQueryBonus
+	}
+	return ""
+}
+
+func (x *Params) GetDemandBountyExpiryEpochs() uint64 {
+	if x != nil {
+		return x.DemandBountyExpiryEpochs
+	}
+	return 0
+}
+
+func (x *Params) GetDemandMultiplierCap() uint64 {
+	if x != nil {
+		return x.DemandMultiplierCap
+	}
+	return 0
+}
+
+func (x *Params) GetDemandTrackingEnabled() bool {
+	if x != nil {
+		return x.DemandTrackingEnabled
+	}
+	return false
+}
+
+func (x *Params) GetAuthorizedDemandReporters() []string {
+	if x != nil {
+		return x.AuthorizedDemandReporters
+	}
+	return nil
+}
+
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
 	state                   protoimpl.MessageState  `protogen:"open.v1"`
@@ -868,7 +925,7 @@ var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xb9(\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xd9+\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -957,7 +1014,14 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"#novelty_subject_overlap_penalty_bps\x18T \x01(\x04R\x1fnoveltySubjectOverlapPenaltyBps\x12=\n" +
 	"\x1bnovelty_precision_bonus_bps\x18U \x01(\x04R\x18noveltyPrecisionBonusBps\x12B\n" +
 	"\x1enovelty_cross_domain_bonus_bps\x18V \x01(\x04R\x1anoveltyCrossDomainBonusBps\x129\n" +
-	"\x19novelty_max_overlap_facts\x18W \x01(\x04R\x16noveltyMaxOverlapFacts\"\xcd\x03\n" +
+	"\x19novelty_max_overlap_facts\x18W \x01(\x04R\x16noveltyMaxOverlapFacts\x126\n" +
+	"\x17demand_bounty_threshold\x18X \x01(\x04R\x15demandBountyThreshold\x129\n" +
+	"\x19demand_bounty_base_reward\x18Y \x01(\tR\x16demandBountyBaseReward\x12@\n" +
+	"\x1ddemand_bounty_per_query_bonus\x18Z \x01(\tR\x19demandBountyPerQueryBonus\x12=\n" +
+	"\x1bdemand_bounty_expiry_epochs\x18[ \x01(\x04R\x18demandBountyExpiryEpochs\x122\n" +
+	"\x15demand_multiplier_cap\x18\\ \x01(\x04R\x13demandMultiplierCap\x126\n" +
+	"\x17demand_tracking_enabled\x18] \x01(\bR\x15demandTrackingEnabled\x12>\n" +
+	"\x1bauthorized_demand_reporters\x18^ \x03(\tR\x19authorizedDemandReporters\"\xcd\x03\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +

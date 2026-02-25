@@ -2041,6 +2041,216 @@ func (x *ProvisionalChallenge) GetAttemptNumber() uint32 {
 	return 0
 }
 
+// DemandSignal tracks aggregate query demand for a domain/subject pair.
+type DemandSignal struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Domain           string                 `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"`
+	Subject          string                 `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`                                            // Normalized query subject
+	QueryCount       uint64                 `protobuf:"varint,3,opt,name=query_count,json=queryCount,proto3" json:"query_count,omitempty"`                   // Total queries (lifetime)
+	FulfilledCount   uint64                 `protobuf:"varint,4,opt,name=fulfilled_count,json=fulfilledCount,proto3" json:"fulfilled_count,omitempty"`       // Queries that returned results
+	UnfulfilledCount uint64                 `protobuf:"varint,5,opt,name=unfulfilled_count,json=unfulfilledCount,proto3" json:"unfulfilled_count,omitempty"` // Queries that returned nothing
+	LastQueryBlock   uint64                 `protobuf:"varint,6,opt,name=last_query_block,json=lastQueryBlock,proto3" json:"last_query_block,omitempty"`
+	EpochQueryCount  uint64                 `protobuf:"varint,7,opt,name=epoch_query_count,json=epochQueryCount,proto3" json:"epoch_query_count,omitempty"`  // Queries this epoch (resets)
+	EpochUnfulfilled uint64                 `protobuf:"varint,8,opt,name=epoch_unfulfilled,json=epochUnfulfilled,proto3" json:"epoch_unfulfilled,omitempty"` // Unfulfilled this epoch (resets)
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *DemandSignal) Reset() {
+	*x = DemandSignal{}
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DemandSignal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DemandSignal) ProtoMessage() {}
+
+func (x *DemandSignal) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DemandSignal.ProtoReflect.Descriptor instead.
+func (*DemandSignal) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *DemandSignal) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *DemandSignal) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *DemandSignal) GetQueryCount() uint64 {
+	if x != nil {
+		return x.QueryCount
+	}
+	return 0
+}
+
+func (x *DemandSignal) GetFulfilledCount() uint64 {
+	if x != nil {
+		return x.FulfilledCount
+	}
+	return 0
+}
+
+func (x *DemandSignal) GetUnfulfilledCount() uint64 {
+	if x != nil {
+		return x.UnfulfilledCount
+	}
+	return 0
+}
+
+func (x *DemandSignal) GetLastQueryBlock() uint64 {
+	if x != nil {
+		return x.LastQueryBlock
+	}
+	return 0
+}
+
+func (x *DemandSignal) GetEpochQueryCount() uint64 {
+	if x != nil {
+		return x.EpochQueryCount
+	}
+	return 0
+}
+
+func (x *DemandSignal) GetEpochUnfulfilled() uint64 {
+	if x != nil {
+		return x.EpochUnfulfilled
+	}
+	return 0
+}
+
+// KnowledgeBounty is an auto-generated reward for filling a knowledge gap.
+type KnowledgeBounty struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Domain          string                 `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
+	Subject         string                 `protobuf:"bytes,3,opt,name=subject,proto3" json:"subject,omitempty"`
+	RewardAmount    string                 `protobuf:"bytes,4,opt,name=reward_amount,json=rewardAmount,proto3" json:"reward_amount,omitempty"` // uzrn
+	CreatedAtBlock  uint64                 `protobuf:"varint,5,opt,name=created_at_block,json=createdAtBlock,proto3" json:"created_at_block,omitempty"`
+	ExpiresAtBlock  uint64                 `protobuf:"varint,6,opt,name=expires_at_block,json=expiresAtBlock,proto3" json:"expires_at_block,omitempty"`
+	Claimed         bool                   `protobuf:"varint,7,opt,name=claimed,proto3" json:"claimed,omitempty"`
+	ClaimedByFactId string                 `protobuf:"bytes,8,opt,name=claimed_by_fact_id,json=claimedByFactId,proto3" json:"claimed_by_fact_id,omitempty"`
+	DemandCount     uint64                 `protobuf:"varint,9,opt,name=demand_count,json=demandCount,proto3" json:"demand_count,omitempty"` // Demand that triggered this bounty
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *KnowledgeBounty) Reset() {
+	*x = KnowledgeBounty{}
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KnowledgeBounty) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KnowledgeBounty) ProtoMessage() {}
+
+func (x *KnowledgeBounty) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KnowledgeBounty.ProtoReflect.Descriptor instead.
+func (*KnowledgeBounty) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *KnowledgeBounty) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *KnowledgeBounty) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *KnowledgeBounty) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *KnowledgeBounty) GetRewardAmount() string {
+	if x != nil {
+		return x.RewardAmount
+	}
+	return ""
+}
+
+func (x *KnowledgeBounty) GetCreatedAtBlock() uint64 {
+	if x != nil {
+		return x.CreatedAtBlock
+	}
+	return 0
+}
+
+func (x *KnowledgeBounty) GetExpiresAtBlock() uint64 {
+	if x != nil {
+		return x.ExpiresAtBlock
+	}
+	return 0
+}
+
+func (x *KnowledgeBounty) GetClaimed() bool {
+	if x != nil {
+		return x.Claimed
+	}
+	return false
+}
+
+func (x *KnowledgeBounty) GetClaimedByFactId() string {
+	if x != nil {
+		return x.ClaimedByFactId
+	}
+	return ""
+}
+
+func (x *KnowledgeBounty) GetDemandCount() uint64 {
+	if x != nil {
+		return x.DemandCount
+	}
+	return 0
+}
+
 var File_zerone_knowledge_v1_types_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
@@ -2214,7 +2424,27 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x11created_at_height\x18\f \x01(\x04R\x0fcreatedAtHeight\x12,\n" +
 	"\x12resolved_at_height\x18\r \x01(\x04R\x10resolvedAtHeight\x12\x18\n" +
 	"\aoutcome\x18\x0e \x01(\tR\aoutcome\x12%\n" +
-	"\x0eattempt_number\x18\x0f \x01(\rR\rattemptNumber*\xe2\x02\n" +
+	"\x0eattempt_number\x18\x0f \x01(\rR\rattemptNumber\"\xba\x02\n" +
+	"\fDemandSignal\x12\x16\n" +
+	"\x06domain\x18\x01 \x01(\tR\x06domain\x12\x18\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\x12\x1f\n" +
+	"\vquery_count\x18\x03 \x01(\x04R\n" +
+	"queryCount\x12'\n" +
+	"\x0ffulfilled_count\x18\x04 \x01(\x04R\x0efulfilledCount\x12+\n" +
+	"\x11unfulfilled_count\x18\x05 \x01(\x04R\x10unfulfilledCount\x12(\n" +
+	"\x10last_query_block\x18\x06 \x01(\x04R\x0elastQueryBlock\x12*\n" +
+	"\x11epoch_query_count\x18\a \x01(\x04R\x0fepochQueryCount\x12+\n" +
+	"\x11epoch_unfulfilled\x18\b \x01(\x04R\x10epochUnfulfilled\"\xb6\x02\n" +
+	"\x0fKnowledgeBounty\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x18\n" +
+	"\asubject\x18\x03 \x01(\tR\asubject\x12#\n" +
+	"\rreward_amount\x18\x04 \x01(\tR\frewardAmount\x12(\n" +
+	"\x10created_at_block\x18\x05 \x01(\x04R\x0ecreatedAtBlock\x12(\n" +
+	"\x10expires_at_block\x18\x06 \x01(\x04R\x0eexpiresAtBlock\x12\x18\n" +
+	"\aclaimed\x18\a \x01(\bR\aclaimed\x12+\n" +
+	"\x12claimed_by_fact_id\x18\b \x01(\tR\x0fclaimedByFactId\x12!\n" +
+	"\fdemand_count\x18\t \x01(\x04R\vdemandCount*\xe2\x02\n" +
 	"\n" +
 	"FactStatus\x12\x1b\n" +
 	"\x17FACT_STATUS_UNSPECIFIED\x10\x00\x12\x17\n" +
@@ -2294,7 +2524,7 @@ func file_zerone_knowledge_v1_types_proto_rawDescGZIP() []byte {
 }
 
 var file_zerone_knowledge_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_zerone_knowledge_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_zerone_knowledge_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(FactStatus)(0),              // 0: zerone.knowledge.v1.FactStatus
 	(ClaimStatus)(0),             // 1: zerone.knowledge.v1.ClaimStatus
@@ -2316,6 +2546,8 @@ var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(*Domain)(nil),               // 17: zerone.knowledge.v1.Domain
 	(*ValidatorInfo)(nil),        // 18: zerone.knowledge.v1.ValidatorInfo
 	(*ProvisionalChallenge)(nil), // 19: zerone.knowledge.v1.ProvisionalChallenge
+	(*DemandSignal)(nil),         // 20: zerone.knowledge.v1.DemandSignal
+	(*KnowledgeBounty)(nil),      // 21: zerone.knowledge.v1.KnowledgeBounty
 }
 var file_zerone_knowledge_v1_types_proto_depIdxs = []int32{
 	5,  // 0: zerone.knowledge.v1.FactRelation.relation:type_name -> zerone.knowledge.v1.RelationType
@@ -2352,7 +2584,7 @@ func file_zerone_knowledge_v1_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_types_proto_rawDesc), len(file_zerone_knowledge_v1_types_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   13,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

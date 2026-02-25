@@ -290,3 +290,28 @@ message ProvisionalChallenge {
   string outcome             = 14;
   uint32 attempt_number      = 15;
 }
+
+// DemandSignal tracks aggregate query demand for a domain/subject pair.
+message DemandSignal {
+    string domain               = 1;
+    string subject              = 2;  // Normalized query subject
+    uint64 query_count          = 3;  // Total queries (lifetime)
+    uint64 fulfilled_count      = 4;  // Queries that returned results
+    uint64 unfulfilled_count    = 5;  // Queries that returned nothing
+    uint64 last_query_block     = 6;
+    uint64 epoch_query_count    = 7;  // Queries this epoch (resets)
+    uint64 epoch_unfulfilled    = 8;  // Unfulfilled this epoch (resets)
+}
+
+// KnowledgeBounty is an auto-generated reward for filling a knowledge gap.
+message KnowledgeBounty {
+    string id                   = 1;
+    string domain               = 2;
+    string subject              = 3;
+    string reward_amount        = 4;  // uzrn
+    uint64 created_at_block     = 5;
+    uint64 expires_at_block     = 6;
+    bool   claimed              = 7;
+    string claimed_by_fact_id   = 8;
+    uint64 demand_count         = 9;  // Demand that triggered this bounty
+}

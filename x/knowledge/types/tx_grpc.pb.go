@@ -38,6 +38,7 @@ const (
 	Msg_ExecuteResearchProposal_FullMethodName  = "/zerone.knowledge.v1.Msg/ExecuteResearchProposal"
 	Msg_AddCommonKnowledge_FullMethodName       = "/zerone.knowledge.v1.Msg/AddCommonKnowledge"
 	Msg_RemoveCommonKnowledge_FullMethodName    = "/zerone.knowledge.v1.Msg/RemoveCommonKnowledge"
+	Msg_ReportDemand_FullMethodName             = "/zerone.knowledge.v1.Msg/ReportDemand"
 )
 
 // MsgClient is the client API for Msg service.
@@ -84,6 +85,8 @@ type MsgClient interface {
 	AddCommonKnowledge(ctx context.Context, in *MsgAddCommonKnowledge, opts ...grpc.CallOption) (*MsgAddCommonKnowledgeResponse, error)
 	// RemoveCommonKnowledge removes an entry from the common knowledge registry (authority-only).
 	RemoveCommonKnowledge(ctx context.Context, in *MsgRemoveCommonKnowledge, opts ...grpc.CallOption) (*MsgRemoveCommonKnowledgeResponse, error)
+	// ReportDemand reports agent query demand (authorized reporters only).
+	ReportDemand(ctx context.Context, in *MsgReportDemand, opts ...grpc.CallOption) (*MsgReportDemandResponse, error)
 }
 
 type msgClient struct {
@@ -284,6 +287,16 @@ func (c *msgClient) RemoveCommonKnowledge(ctx context.Context, in *MsgRemoveComm
 	return out, nil
 }
 
+func (c *msgClient) ReportDemand(ctx context.Context, in *MsgReportDemand, opts ...grpc.CallOption) (*MsgReportDemandResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgReportDemandResponse)
+	err := c.cc.Invoke(ctx, Msg_ReportDemand_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility.
@@ -328,6 +341,8 @@ type MsgServer interface {
 	AddCommonKnowledge(context.Context, *MsgAddCommonKnowledge) (*MsgAddCommonKnowledgeResponse, error)
 	// RemoveCommonKnowledge removes an entry from the common knowledge registry (authority-only).
 	RemoveCommonKnowledge(context.Context, *MsgRemoveCommonKnowledge) (*MsgRemoveCommonKnowledgeResponse, error)
+	// ReportDemand reports agent query demand (authorized reporters only).
+	ReportDemand(context.Context, *MsgReportDemand) (*MsgReportDemandResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -394,6 +409,9 @@ func (UnimplementedMsgServer) AddCommonKnowledge(context.Context, *MsgAddCommonK
 }
 func (UnimplementedMsgServer) RemoveCommonKnowledge(context.Context, *MsgRemoveCommonKnowledge) (*MsgRemoveCommonKnowledgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveCommonKnowledge not implemented")
+}
+func (UnimplementedMsgServer) ReportDemand(context.Context, *MsgReportDemand) (*MsgReportDemandResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReportDemand not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 func (UnimplementedMsgServer) testEmbeddedByValue()             {}
@@ -758,6 +776,24 @@ func _Msg_RemoveCommonKnowledge_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_ReportDemand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgReportDemand)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).ReportDemand(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_ReportDemand_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).ReportDemand(ctx, req.(*MsgReportDemand))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -840,6 +876,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveCommonKnowledge",
 			Handler:    _Msg_RemoveCommonKnowledge_Handler,
+		},
+		{
+			MethodName: "ReportDemand",
+			Handler:    _Msg_ReportDemand_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
