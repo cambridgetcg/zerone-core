@@ -118,9 +118,28 @@ cmd_start() {
   patch_genesis '
     .app_state.staking.params.bond_denom = "uzrn" |
     .app_state.slashing.params.signed_blocks_window = "100" |
+    .app_state.slashing.params.min_signed_per_window = "0.500000000000000000" |
+    .app_state.slashing.params.downtime_jail_duration = "60s" |
     .app_state.slashing.params.slash_fraction_downtime = "0.010000000000000000" |
     .app_state.gov.params.voting_period = "60s" |
     .app_state.gov.params.expedited_voting_period = "30s"
+  '
+
+  # Zerone governance — fast params for local testing
+  patch_genesis '
+    .app_state.zerone_gov.params.voting_period_blocks = 10 |
+    .app_state.zerone_gov.params.discussion_period_blocks = 5 |
+    .app_state.zerone_gov.params.category_configs = [
+      {"category":"parameter","required_stake_bps":"1000000","review_blocks":5},
+      {"category":"upgrade","required_stake_bps":"1000000","review_blocks":5},
+      {"category":"text","required_stake_bps":"1000000","review_blocks":5},
+      {"category":"research_spend","required_stake_bps":"1000000","review_blocks":5},
+      {"category":"research_seat_election","required_stake_bps":"1000000","review_blocks":5},
+      {"category":"research_phase_transition","required_stake_bps":"1000000","review_blocks":5},
+      {"category":"research_phase_rollback","required_stake_bps":"1000000","review_blocks":5}
+    ] |
+    .app_state.zerone_gov.params.research_discussion_blocks = 5 |
+    .app_state.zerone_gov.params.research_voting_blocks = 10
   '
 
   # Knowledge module — fast params for local testing
@@ -306,7 +325,7 @@ cmd_start() {
     sed -i.bak "s|^address = \"tcp://0.0.0.0:1317\"|address = \"tcp://0.0.0.0:${local_api}\"|" "$app_toml"
     sed -i.bak 's/^enabled-unsafe-cors = false/enabled-unsafe-cors = true/' "$app_toml"
     # Min gas prices
-    sed -i.bak "s/^minimum-gas-prices = .*/minimum-gas-prices = \"0.025${DENOM}\"/" "$app_toml"
+    sed -i.bak "s/^minimum-gas-prices = .*/minimum-gas-prices = \"1${DENOM}\"/" "$app_toml"
     # Disable IAVL fast nodes (prevents "version does not exist" query errors)
     sed -i.bak 's/^iavl-disable-fastnode = false/iavl-disable-fastnode = true/' "$app_toml"
     # Disable inter-block cache for query reliability
@@ -330,7 +349,7 @@ cmd_start() {
 
     ${BINARY} start \
       --home "${local_home}" \
-      --minimum-gas-prices "0.025${DENOM}" \
+      --minimum-gas-prices "1${DENOM}" \
       > "${local_log}" 2>&1 &
 
     local_pid=$!
