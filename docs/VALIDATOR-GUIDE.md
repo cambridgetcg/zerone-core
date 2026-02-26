@@ -29,7 +29,7 @@ This guide covers everything you need to join **zerone-testnet-1** as a validato
 
 ### Software Requirements
 
-- **Go** 1.22+ ([install guide](https://go.dev/doc/install))
+- **Go** 1.24+ ([install guide](https://go.dev/doc/install))
 - **jq** 1.6+ (`brew install jq` on macOS, `apt install jq` on Ubuntu)
 - **make**
 - **git**
@@ -138,7 +138,7 @@ Copy the official genesis file to your config directory:
 
 ```bash
 cp genesis.json $HOME/.zeroned/config/genesis.json
-zeroned validate-genesis
+zeroned genesis validate
 ```
 
 #### 3. Configure seed nodes
@@ -324,11 +324,11 @@ three-phase knowledge verification process.
 
 <!-- Source: x/knowledge/types/genesis.go:7-16 -->
 
-1. **Commit phase** (4 blocks) — Validators submit a hash commitment of
+1. **Commit phase** (10 blocks) — Validators submit a hash commitment of
    their verification judgment.
-2. **Reveal phase** (4 blocks) — Validators reveal their actual judgment.
+2. **Reveal phase** (10 blocks) — Validators reveal their actual judgment.
    Missing a reveal is slashed at 10%.
-3. **Aggregation phase** (3 blocks) — The network aggregates all revealed
+3. **Aggregation phase** (5 blocks) — The network aggregates all revealed
    judgments to determine the claim's truth status.
 
 ### Claim lifecycle
@@ -437,7 +437,7 @@ zeroned query slashing signing-info "$(zeroned comet show-validator)"
 ls -la $HOME/.zeroned/config/genesis.json
 
 # Re-validate
-zeroned validate-genesis
+zeroned genesis validate
 ```
 
 **"Address already in use"**
@@ -491,6 +491,19 @@ zeroned tx slashing unjail \
   --chain-id zerone-testnet-1 \
   --fees 5000uzrn
 ```
+
+**"Transactions are not being processed"**
+
+SDK v0.50 defaults `max-txs = -1` in `app.toml`, which activates the
+NoOpMempool (silently dropping all transactions). Fix:
+
+```toml
+# $HOME/.zeroned/config/app.toml
+[mempool]
+max-txs = 5000
+```
+
+Or run `configure-node.sh` which sets this automatically.
 
 ### Common errors
 
