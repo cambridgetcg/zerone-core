@@ -55,6 +55,49 @@ Verify:
 zeroned version
 ```
 
+### Docker (easiest)
+
+Build and run with Docker — no Go toolchain required:
+
+```bash
+# Build the image
+docker build -t zerone:latest .
+
+# Verify
+docker run --rm zerone:latest version
+
+# Initialize and run a node
+docker run -v ~/.zeroned:/root/.zeroned zerone:latest init my-node --chain-id zerone-testnet-1
+docker compose up -d
+```
+
+For validators with Cosmovisor auto-upgrades:
+
+```bash
+docker build -f Dockerfile.validator -t zerone-validator:latest .
+```
+
+### Pre-built binary
+
+Download the binary for your platform from the releases page:
+
+```bash
+# Linux amd64
+curl -L https://github.com/zerone-chain/zerone/releases/latest/download/zeroned-linux-amd64 -o zeroned
+
+# Linux arm64
+curl -L https://github.com/zerone-chain/zerone/releases/latest/download/zeroned-linux-arm64 -o zeroned
+
+# macOS arm64 (Apple Silicon)
+curl -L https://github.com/zerone-chain/zerone/releases/latest/download/zeroned-darwin-arm64 -o zeroned
+
+chmod +x zeroned
+sudo mv zeroned /usr/local/bin/
+zeroned version
+```
+
+Verify the checksum against the `.sha256` file published with each release.
+
 ---
 
 ## Node Setup
