@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -214,8 +215,8 @@ func (m msgServer) CallContract(goCtx context.Context, msg *types.MsgCallContrac
 
 	// Build host functions
 	var host vm.HostFunctions
-	if m.knowledgeKeeper != nil {
-		host = &knowledgeBridgeHost{kk: m.knowledgeKeeper, ctx: ctx}
+	if m.knowledgeKeeper != nil || m.homeKeeper != nil {
+		host = &zeroneHost{kk: m.knowledgeKeeper, hk: m.homeKeeper, ctx: ctx}
 	}
 
 	// Execute with panic recovery
@@ -555,8 +556,8 @@ func (k Keeper) ExecutePendingSchedules(ctx sdk.Context) {
 
 				stateDB := vm.NewMemoryStateDB()
 				var host vm.HostFunctions
-				if k.knowledgeKeeper != nil {
-					host = &knowledgeBridgeHost{kk: k.knowledgeKeeper, ctx: ctx}
+				if k.knowledgeKeeper != nil || k.homeKeeper != nil {
+					host = &zeroneHost{kk: k.knowledgeKeeper, hk: k.homeKeeper, ctx: ctx}
 				}
 
 				interp := vm.NewInterpreter()
@@ -602,13 +603,17 @@ func (k Keeper) ExecutePendingSchedules(ctx sdk.Context) {
 	}
 }
 
-// knowledgeBridgeHost implements vm.HostFunctions by delegating to the knowledge keeper.
-type knowledgeBridgeHost struct {
+// zeroneHost implements vm.HostFunctions by delegating to knowledge and home keepers.
+type zeroneHost struct {
 	kk  types.KnowledgeKeeper
+	hk  types.HomeKeeper
 	ctx sdk.Context
 }
 
-func (h *knowledgeBridgeHost) KQuery(factId []byte) (bool, uint64, []byte) {
+func (h *zeroneHost) KQuery(factId []byte) (bool, uint64, []byte) {
+	if h.kk == nil {
+		return false, 0, nil
+	}
 	factIdStr := hex.EncodeToString(factId)
 	confidence, found := h.kk.GetFactConfidence(h.ctx, factIdStr)
 	if !found {
@@ -617,10 +622,40 @@ func (h *knowledgeBridgeHost) KQuery(factId []byte) (bool, uint64, []byte) {
 	return true, confidence, []byte(factIdStr)
 }
 
-func (h *knowledgeBridgeHost) KVerify(_ string, _ []byte, _ []byte) bool {
+func (h *zeroneHost) KVerify(_ string, _ []byte, _ []byte) bool {
 	return false // Stub: verification voting requires full round integration
 }
 
-func (h *knowledgeBridgeHost) KCite(_ string, _ []byte) bool {
+func (h *zeroneHost) KCite(_ string, _ []byte) bool {
 	return true // Citation recording is fire-and-forget
+}
+
+func (h *zeroneHost) HQuery(callerAddr []byte) (bool, []byte, []byte) {
+	if h.hk == nil {
+		return false, nil, nil
+	}
+	addr := sdk.AccAddress(callerAddr).String()
+	homeIDs := h.hk.GetHomesByOwner(h.ctx, addr)
+	if len(homeIDs) == 0 {
+		return false, nil, nil
+	}
+	homeID := homeIDs[0]
+	status := h.hk.GetHomeStatus(h.ctx, homeID)
+	return true, []byte(homeID), []byte(status)
+}
+
+func (h *zeroneHost) HMemory(homeId []byte) []byte {
+	if h.hk == nil {
+		return nil
+	}
+	homeIDStr := string(bytes.TrimRight(homeId, "\x00"))
+	return []byte(h.hk.GetMemoryCID(h.ctx, homeIDStr))
+}
+
+func (h *zeroneHost) HPartner(homeId []byte) []byte {
+	if h.hk == nil {
+		return nil
+	}
+	homeIDStr := string(bytes.TrimRight(homeId, "\x00"))
+	return []byte(h.hk.GetPartnershipID(h.ctx, homeIDStr))
 }

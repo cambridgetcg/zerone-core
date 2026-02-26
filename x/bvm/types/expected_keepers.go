@@ -27,7 +27,31 @@ type BillingKeeper interface {
 
 // HomeKeeper defines the expected home module keeper interface.
 type HomeKeeper interface {
-	// Placeholder — home integration for BVM is future work.
+	// GetHome returns an agent's home by ID.
+	GetHome(ctx context.Context, homeID string) (HomeInfo, bool)
+	// GetHomesByOwner returns all home IDs for an owner address.
+	GetHomesByOwner(ctx context.Context, owner string) []string
+	// GetHomeStatus returns the status of a home ("active", "dormant", "guarded", "archived").
+	GetHomeStatus(ctx context.Context, homeID string) string
+	// GetMemoryCID returns the IPFS memory CID for a home.
+	GetMemoryCID(ctx context.Context, homeID string) string
+	// GetPartnershipID returns the partnership ID linked to a home (empty if none).
+	GetPartnershipID(ctx context.Context, homeID string) string
+	// GetComfortScore returns the home's comfort score (0-100).
+	GetComfortScore(ctx context.Context, homeID string) uint32
+}
+
+// HomeInfo is a BVM-safe view of an AgentHome (no proto import).
+type HomeInfo struct {
+	HomeID          string
+	OwnerAddress    string
+	Name            string
+	Status          string
+	MemoryCID       string
+	ComfortScore    uint32
+	PartnershipID   string
+	CreatedAtBlock  uint64
+	LastActiveBlock uint64
 }
 
 // SessionCapabilities defines what a session key is allowed to do within BVM.

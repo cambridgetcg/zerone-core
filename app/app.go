@@ -900,6 +900,7 @@ func NewZeroneApp(
 	app.BVMKeeper.SetKnowledgeKeeper(bvmKnowledgeAdapter)
 	bvmAuthAdapter := zeroneauthkeeper.NewBVMAuthAdapter(app.ZeroneAuthKeeper)
 	app.BVMKeeper.SetAuthKeeper(bvmAuthAdapter)
+	app.BVMKeeper.SetHomeKeeper(zeronehomekeeper.NewBVMHomeAdapter(app.HomeKeeper))
 
 	disputesStakingAdapter := zeronestakingkeeper.NewDisputesStakingKeeperAdapter(app.ZeroneStakingKeeper)
 	disputesKnowledgeAdapter := zeroneknowledgekeeper.NewDisputesKnowledgeAdapter(app.KnowledgeKeeper)
