@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -77,6 +78,8 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryDomainDiversityHistoryCmd(),
 		NewQueryValidatorIndependenceCmd(),
 		NewQueryConformityAlertsCmd(),
+		NewQueryVindicationPendingCmd(),
+		NewQueryVindicationRecordCmd(),
 	)
 
 	return queryCmd
@@ -871,6 +874,89 @@ func NewQueryConformityAlertsCmd() *cobra.Command {
 				return fmt.Errorf("failed to query conformity alerts: %w", err)
 			}
 			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryVindicationPendingCmd queries pending vindication entries for a fact
+// using a raw ABCI store query (no proto gRPC endpoint registered).
+func NewQueryVindicationPendingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "vindication-pending [fact-id]",
+		Short: "Query pending vindication entries for a fact",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			factId := args[0]
+			key := types.VindicationPendingKey(factId)
+
+			bz, _, err := clientCtx.QueryStore(key, types.StoreKey)
+			if err != nil {
+				return fmt.Errorf("failed to query vindication pending: %w", err)
+			}
+			if len(bz) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "No pending vindication entries for fact %s\n", factId)
+				return nil
+			}
+
+			var entries []types.VindicationEntry
+			if err := json.Unmarshal(bz, &entries); err != nil {
+				return fmt.Errorf("failed to unmarshal vindication entries: %w", err)
+			}
+
+			out, err := json.MarshalIndent(entries, "", "  ")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
+			return nil
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryVindicationRecordCmd queries vindication records for a specific fact and verifier
+// using a raw ABCI store query (no proto gRPC endpoint registered).
+func NewQueryVindicationRecordCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "vindication-record [fact-id] [verifier]",
+		Short: "Query vindication record for a fact and verifier",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			factId := args[0]
+			verifier := args[1]
+			key := types.VindicationRecordKey(factId, verifier)
+
+			bz, _, err := clientCtx.QueryStore(key, types.StoreKey)
+			if err != nil {
+				return fmt.Errorf("failed to query vindication record: %w", err)
+			}
+			if len(bz) == 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "No vindication record for fact %s verifier %s\n", factId, verifier)
+				return nil
+			}
+
+			var record types.VindicationRecord
+			if err := json.Unmarshal(bz, &record); err != nil {
+				return fmt.Errorf("failed to unmarshal vindication record: %w", err)
+			}
+
+			out, err := json.MarshalIndent(record, "", "  ")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
+			return nil
 		},
 	}
 	flags.AddQueryFlagsToCmd(cmd)
