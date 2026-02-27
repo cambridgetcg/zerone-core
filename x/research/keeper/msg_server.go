@@ -392,6 +392,7 @@ func (m msgServer) ClaimBounty(
 
 	bounty.Status = string(types.BountyStatusClaimed)
 	bounty.ClaimedBy = msg.Claimer
+	bounty.ClaimedAt = uint64(ctx.BlockHeight())
 	m.Keeper.SetBounty(ctx, bounty)
 
 	ctx.EventManager().EmitEvent(
