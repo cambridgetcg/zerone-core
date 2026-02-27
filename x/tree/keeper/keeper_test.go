@@ -1,7 +1,9 @@
 package keeper_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -1581,5 +1583,195 @@ func TestSetAvailability(t *testing.T) {
 	}
 	if len(avail.Capabilities) != 2 {
 		t.Errorf("expected 2 capabilities, got %d", len(avail.Capabilities))
+	}
+}
+
+// ---------- Determinism Tests ----------
+
+// setupDeterministicKeeper creates an independent keeper+store pair for
+// determinism comparison testing. Each call returns a fresh, isolated
+// instance backed by its own in-memory DB.
+func setupDeterministicKeeper(t *testing.T) (keeper.Keeper, sdk.Context, storetypes.CommitMultiStore) {
+	t.Helper()
+	initAddresses()
+
+	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
+	db := dbm.NewMemDB()
+	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
+	stateStore.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
+	if err := stateStore.LoadLatestVersion(); err != nil {
+		t.Fatalf("failed to load latest version: %v", err)
+	}
+
+	registry := codectypes.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(registry)
+	mockBK := newMockBankKeeper()
+	noop := &noOpResearchFundDepositor{bk: mockBK}
+	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(storeKey), mockBK, "zrn1authority", noop)
+	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100}, false, log.NewNopLogger())
+
+	return k, ctx, stateStore
+}
+
+// TestDeterminism_ProjectCRUD verifies that the same project operations on
+// two independent stores produce identical IAVL commit hashes.
+func TestDeterminism_ProjectCRUD(t *testing.T) {
+	// Run identical operations on two independent stores
+	hashes := make([][]byte, 2)
+	for run := 0; run < 2; run++ {
+		k, ctx, cms := setupDeterministicKeeper(t)
+
+		// Create 5 projects
+		for i := 1; i <= 5; i++ {
+			p := &types.ProductProject{
+				Id:              fmt.Sprintf("proj-%d", i),
+				Name:            fmt.Sprintf("Project %d", i),
+				Description:     fmt.Sprintf("Description for project %d", i),
+				Phase:           string(types.PhaseSeed),
+				CreatedAtBlock:  100,
+				Founder:         founder1,
+				KnowledgeDomain: "general",
+				Budget:          "1000000",
+				Spent:           "0",
+				TaskIds:         []string{},
+				ServiceIds:      []string{},
+				Contributors: []*types.ContributorRecord{
+					{Did: founder1, Role: string(types.RoleFounder), JoinedAtBlock: 100},
+				},
+			}
+			k.SetProject(ctx, p)
+		}
+
+		// Update one
+		p, _ := k.GetProject(ctx, "proj-3")
+		p.Phase = string(types.PhaseGrowing)
+		k.SetProject(ctx, p)
+
+		// Delete one
+		p2, _ := k.GetProject(ctx, "proj-5")
+		k.DeleteProject(ctx, p2)
+
+		commitID := cms.Commit()
+		hashes[run] = commitID.Hash
+	}
+
+	if !bytes.Equal(hashes[0], hashes[1]) {
+		t.Fatalf("non-deterministic state: hash1=%x hash2=%x", hashes[0], hashes[1])
+	}
+}
+
+// TestDeterminism_SeedWithMapEvidence verifies that seeds containing
+// DemandSignal.Evidence (a proto map<string,string>) produce identical
+// bytes across independent serialization runs. This is the critical
+// test: proto map serialization must be deterministic for consensus.
+func TestDeterminism_SeedWithMapEvidence(t *testing.T) {
+	hashes := make([][]byte, 2)
+	for run := 0; run < 2; run++ {
+		k, ctx, cms := setupDeterministicKeeper(t)
+
+		// Create seeds with map evidence in varying key insertion order.
+		// If marshaling is non-deterministic, different runs may produce
+		// different bytes for the same logical map content.
+		for i := 1; i <= 3; i++ {
+			evidence := make(map[string]string)
+			// Insert keys in different "logical" groups to stress map ordering.
+			evidence["description"] = fmt.Sprintf("Opportunity %d detected", i)
+			evidence["related_fact_0"] = fmt.Sprintf("fact-alpha-%d", i)
+			evidence["related_fact_1"] = fmt.Sprintf("fact-beta-%d", i)
+			evidence["related_fact_2"] = fmt.Sprintf("fact-gamma-%d", i)
+			evidence["source"] = "agent_detection"
+			evidence["confidence"] = "0.85"
+
+			seed := &types.OpportunitySeed{
+				Id:              fmt.Sprintf("seed-%d", i),
+				DetectedAtBlock: 100,
+				KnowledgeDomain: "general",
+				Confidence:      "0.5",
+				Status:          string(types.SeedDetected),
+				ExpiresAtBlock:  200,
+				Signal: &types.DemandSignal{
+					Type:     "agent_detection",
+					Evidence: evidence,
+					Strength: "0.5",
+				},
+			}
+			k.SetSeed(ctx, seed)
+		}
+
+		commitID := cms.Commit()
+		hashes[run] = commitID.Hash
+	}
+
+	if !bytes.Equal(hashes[0], hashes[1]) {
+		t.Fatalf("non-deterministic state from map evidence: hash1=%x hash2=%x",
+			hashes[0], hashes[1])
+	}
+}
+
+// TestDeterminism_FullWorkflow runs a comprehensive workflow (projects, tasks,
+// services, seeds, params) on two independent stores and verifies the commit
+// hashes match. This catches any non-determinism in the complete state machine.
+func TestDeterminism_FullWorkflow(t *testing.T) {
+	hashes := make([][]byte, 2)
+	for run := 0; run < 2; run++ {
+		k, ctx, cms := setupDeterministicKeeper(t)
+
+		// Set params
+		k.SetParams(ctx, &types.Params{
+			MinBudget:              "100000",
+			MaxTasksPerProject:     100,
+			MaxContributors:        20,
+			MaxApplications:        50,
+			TaskDeadlineMinBlocks:  100,
+			TaskDeadlineMaxBlocks:  100000,
+			MaxRejections:          3,
+			SeedExpiryBlocks:       50000,
+			MinContributorsToStart: 2,
+		})
+
+		// Create project
+		k.SetProject(ctx, &types.ProductProject{
+			Id: "proj-100-1", Name: "Workflow Test", Phase: string(types.PhaseSeed),
+			CreatedAtBlock: 100, Founder: founder1, KnowledgeDomain: "general",
+			Budget: "5000000", Spent: "0", TaskIds: []string{"task-100-1"},
+			ServiceIds: []string{}, Contributors: []*types.ContributorRecord{
+				{Did: founder1, Role: string(types.RoleFounder), JoinedAtBlock: 100},
+				{Did: agent1, Role: "developer", JoinedAtBlock: 101},
+			},
+		})
+
+		// Create task
+		k.SetTask(ctx, &types.ProjectTask{
+			Id: "task-100-1", ProjectId: "proj-100-1", Title: "Build API",
+			Status: string(types.TaskAssigned), CreatedAtBlock: 100,
+			Assignee: agent1, BountyAmount: "1000000",
+		})
+
+		// Create service
+		k.SetService(ctx, &types.ServiceLeaf{
+			Id: "svc-100-1", Name: "API Service", Description: "REST API",
+			ContractAddress: "https://api.example.com", Status: string(types.ServiceActive),
+			DeployedAtBlock: 100, PricePerCall: "1000",
+			TotalCalls: "0", TotalRevenue: "0", UptimeBlocks: "0",
+		})
+
+		// Create seed with evidence map
+		k.SetSeed(ctx, &types.OpportunitySeed{
+			Id: "seed-100-1", DetectedAtBlock: 100, KnowledgeDomain: "general",
+			Status: string(types.SeedDetected), ExpiresAtBlock: 200,
+			Signal: &types.DemandSignal{
+				Type:     "agent_detection",
+				Evidence: map[string]string{"desc": "opportunity", "fact_0": "evidence"},
+				Strength: "0.7",
+			},
+		})
+
+		commitID := cms.Commit()
+		hashes[run] = commitID.Hash
+	}
+
+	if !bytes.Equal(hashes[0], hashes[1]) {
+		t.Fatalf("non-deterministic state in full workflow: hash1=%x hash2=%x",
+			hashes[0], hashes[1])
 	}
 }
