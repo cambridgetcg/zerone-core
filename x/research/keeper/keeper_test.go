@@ -1767,3 +1767,187 @@ func TestBountyClaimAfterExpiry(t *testing.T) {
 		t.Errorf("expected no claimer, got %q", bounty.ClaimedBy)
 	}
 }
+
+// -----------------------------------------------------------------------
+// Tests: Auto-Resolution
+// -----------------------------------------------------------------------
+
+func TestAutoResolveResearchAccepted(t *testing.T) {
+	k, ctx, bk := setupKeeper(t)
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.ReviewPeriodBlocks = 10
+	params.MinReviewerCount = 2
+	params.AcceptanceScoreThreshold = 70
+	k.SetParams(ctx, &params)
+
+	submitter := testAddr(1)
+	bk.setBalance(submitter, "uzrn", sdkmath.NewInt(5000000))
+
+	resp, err := msgServer.SubmitResearch(ctx, &types.MsgSubmitResearch{
+		Submitter:   submitter.String(),
+		Title:       "Auto-Resolve Test",
+		Description: "Testing auto-resolution",
+		Domain:      "physics",
+		Stake:       "1000000",
+	})
+	if err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+
+	for i := 2; i <= 3; i++ {
+		_, err := msgServer.ReviewResearch(ctx, &types.MsgReviewResearch{
+			ResearchId:   resp.ResearchId,
+			Reviewer:     testAddrStr(i),
+			Verdict:      types.ReviewVerdict_REVIEW_VERDICT_APPROVE,
+			QualityScore: 80,
+			Reasoning:    "Good work",
+		})
+		if err != nil {
+			t.Fatalf("review %d: %v", i, err)
+		}
+	}
+
+	research, _ := k.GetResearch(ctx, resp.ResearchId)
+	if research.Status != "under_review" {
+		t.Fatalf("expected under_review, got %s", research.Status)
+	}
+
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 11)
+
+	err = k.AutoResolveResearch(ctx)
+	if err != nil {
+		t.Fatalf("auto-resolve: %v", err)
+	}
+
+	research, _ = k.GetResearch(ctx, resp.ResearchId)
+	if research.Status != "accepted" {
+		t.Fatalf("expected accepted, got %s", research.Status)
+	}
+
+	bal := bk.balances[submitter.String()+"/uzrn"]
+	if !bal.Equal(sdkmath.NewInt(5000000)) {
+		t.Fatalf("expected stake returned, balance: %s", bal)
+	}
+}
+
+func TestAutoResolveResearchRejected(t *testing.T) {
+	k, ctx, bk := setupKeeper(t)
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.ReviewPeriodBlocks = 10
+	params.MinReviewerCount = 2
+	params.AcceptanceScoreThreshold = 70
+	params.RejectionSlashBps = 330000
+	k.SetParams(ctx, &params)
+
+	submitter := testAddr(1)
+	bk.setBalance(submitter, "uzrn", sdkmath.NewInt(5000000))
+	resp, _ := msgServer.SubmitResearch(ctx, &types.MsgSubmitResearch{
+		Submitter:   submitter.String(),
+		Title:       "Low Score Research",
+		Description: "Will be rejected",
+		Domain:      "physics",
+		Stake:       "1000000",
+	})
+
+	for i := 2; i <= 3; i++ {
+		msgServer.ReviewResearch(ctx, &types.MsgReviewResearch{
+			ResearchId:   resp.ResearchId,
+			Reviewer:     testAddrStr(i),
+			Verdict:      types.ReviewVerdict_REVIEW_VERDICT_REJECT,
+			QualityScore: 30,
+			Reasoning:    "Poor quality",
+		})
+	}
+
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 11)
+	k.AutoResolveResearch(ctx)
+
+	research, _ := k.GetResearch(ctx, resp.ResearchId)
+	if research.Status != "rejected" {
+		t.Fatalf("expected rejected, got %s", research.Status)
+	}
+
+	// Submitter: started 5M, staked 1M (balance 4M), gets back 1M - 33% = 670000 → 4670000
+	bal := bk.balances[submitter.String()+"/uzrn"]
+	if !bal.Equal(sdkmath.NewInt(4670000)) {
+		t.Fatalf("expected 4670000 after slash, got %s", bal)
+	}
+}
+
+func TestAutoResolveResearchInsufficientReviews(t *testing.T) {
+	k, ctx, bk := setupKeeper(t)
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.ReviewPeriodBlocks = 10
+	params.MinReviewerCount = 3
+	k.SetParams(ctx, &params)
+
+	submitter := testAddr(1)
+	bk.setBalance(submitter, "uzrn", sdkmath.NewInt(5000000))
+	resp, _ := msgServer.SubmitResearch(ctx, &types.MsgSubmitResearch{
+		Submitter:   submitter.String(),
+		Title:       "Not Enough Reviews",
+		Description: "Only 1 review",
+		Domain:      "physics",
+		Stake:       "1000000",
+	})
+
+	msgServer.ReviewResearch(ctx, &types.MsgReviewResearch{
+		ResearchId:   resp.ResearchId,
+		Reviewer:     testAddrStr(2),
+		Verdict:      types.ReviewVerdict_REVIEW_VERDICT_APPROVE,
+		QualityScore: 90,
+		Reasoning:    "Great",
+	})
+
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 11)
+	k.AutoResolveResearch(ctx)
+
+	research, _ := k.GetResearch(ctx, resp.ResearchId)
+	if research.Status != "under_review" {
+		t.Fatalf("expected under_review (insufficient reviews), got %s", research.Status)
+	}
+}
+
+func TestAutoResolveResearchWithinPeriod(t *testing.T) {
+	k, ctx, bk := setupKeeper(t)
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.ReviewPeriodBlocks = 100
+	params.MinReviewerCount = 2
+	k.SetParams(ctx, &params)
+
+	submitter := testAddr(1)
+	bk.setBalance(submitter, "uzrn", sdkmath.NewInt(5000000))
+	resp, _ := msgServer.SubmitResearch(ctx, &types.MsgSubmitResearch{
+		Submitter:   submitter.String(),
+		Title:       "Too Early",
+		Description: "Not enough time",
+		Domain:      "physics",
+		Stake:       "1000000",
+	})
+
+	for i := 2; i <= 3; i++ {
+		msgServer.ReviewResearch(ctx, &types.MsgReviewResearch{
+			ResearchId:   resp.ResearchId,
+			Reviewer:     testAddrStr(i),
+			Verdict:      types.ReviewVerdict_REVIEW_VERDICT_APPROVE,
+			QualityScore: 90,
+			Reasoning:    "Excellent",
+		})
+	}
+
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 5)
+	k.AutoResolveResearch(ctx)
+
+	research, _ := k.GetResearch(ctx, resp.ResearchId)
+	if research.Status != "under_review" {
+		t.Fatalf("expected under_review (within period), got %s", research.Status)
+	}
+}

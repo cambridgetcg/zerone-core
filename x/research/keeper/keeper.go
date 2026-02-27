@@ -2,9 +2,11 @@ package keeper
 
 import (
 	"fmt"
+	"math/big"
 
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -85,6 +87,88 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState *types.GenesisState) {
 			k.SetPeerReview(ctx, review)
 		}
 	}
+}
+
+// AutoResolveResearch resolves research submissions that have met review conditions.
+func (k Keeper) AutoResolveResearch(ctx sdk.Context) error {
+	params := k.GetParams(ctx)
+	currentBlock := uint64(ctx.BlockHeight())
+
+	researches := k.GetResearchesByStatus(ctx, types.ResearchStatusUnderReview)
+	for _, research := range researches {
+		if currentBlock-research.UpdatedAt < params.ReviewPeriodBlocks {
+			continue
+		}
+		if research.ReviewCount < params.MinReviewerCount {
+			continue
+		}
+
+		stakeInt := new(big.Int)
+		stakeInt.SetString(research.Stake, 10)
+
+		if research.AggregateScore >= params.AcceptanceScoreThreshold {
+			research.Status = string(types.ResearchStatusAccepted)
+
+			submitterAddr, err := sdk.AccAddressFromBech32(research.Submitter)
+			if err != nil {
+				k.Logger(ctx).Error("invalid submitter address", "research_id", research.Id, "error", err)
+				continue
+			}
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeInt)))
+			if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, submitterAddr, coins); err != nil {
+				k.Logger(ctx).Error("failed to return stake", "research_id", research.Id, "error", err)
+				continue
+			}
+		} else {
+			research.Status = string(types.ResearchStatusRejected)
+
+			slashRate := new(big.Int).SetUint64(params.RejectionSlashBps)
+			slashAmount := new(big.Int).Mul(stakeInt, slashRate)
+			slashAmount.Div(slashAmount, new(big.Int).SetUint64(1000000))
+
+			if slashAmount.Sign() > 0 {
+				slashCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(slashAmount)))
+				if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", slashCoins); err != nil {
+					k.Logger(ctx).Error("failed to slash to dev fund", "research_id", research.Id, "error", err)
+					continue
+				}
+			}
+
+			remainder := new(big.Int).Sub(stakeInt, slashAmount)
+			if remainder.Sign() > 0 {
+				submitterAddr, err := sdk.AccAddressFromBech32(research.Submitter)
+				if err != nil {
+					k.Logger(ctx).Error("invalid submitter address", "research_id", research.Id, "error", err)
+					continue
+				}
+				returnCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remainder)))
+				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, submitterAddr, returnCoins); err != nil {
+					k.Logger(ctx).Error("failed to return remainder", "research_id", research.Id, "error", err)
+					continue
+				}
+			}
+		}
+
+		research.UpdatedAt = currentBlock
+		k.SetResearch(ctx, research)
+
+		var outcomeStr string
+		if research.Status == string(types.ResearchStatusAccepted) {
+			outcomeStr = "accepted"
+		} else {
+			outcomeStr = "rejected"
+		}
+
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent(
+				"zerone.research.research_auto_resolved",
+				sdk.NewAttribute("research_id", research.Id),
+				sdk.NewAttribute("outcome", outcomeStr),
+				sdk.NewAttribute("aggregate_score", fmt.Sprintf("%d", research.AggregateScore)),
+			),
+		)
+	}
+	return nil
 }
 
 // ExportGenesis exports the module's state.
