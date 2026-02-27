@@ -48,6 +48,8 @@ func (k Keeper) DeleteVindicationPending(ctx context.Context, factId string) {
 
 // GetAllVindicationPending iterates all pending vindication entries across all facts.
 // Returns a map of factId -> entries. Used by pruning logic in BeginBlocker.
+// NOTE: Map iteration order is non-deterministic. Safe for pruning (each entry is
+// processed independently), but do not use where ordering affects consensus state.
 func (k Keeper) GetAllVindicationPending(ctx context.Context) map[string][]types.VindicationEntry {
 	store := k.storeService.OpenKVStore(ctx)
 	iter, err := store.Iterator(types.VindicationPendingPrefix, prefixEndBytes(types.VindicationPendingPrefix))
@@ -127,9 +129,11 @@ func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, win
 		if len(entries) == 0 {
 			continue
 		}
+		// All entries for a fact are created atomically in CompleteRound at the same
+		// block height, so checking entries[0].Height is sufficient.
 		entryHeight := entries[0].Height
-		if currentHeight-entryHeight <= windowBlocks {
-			continue // still within window
+		if currentHeight <= entryHeight || currentHeight-entryHeight <= windowBlocks {
+			continue // still within window (or defensive guard against underflow)
 		}
 
 		// Expired: transfer escrowed tokens to treasury
@@ -143,7 +147,9 @@ func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, win
 			}
 			if totalEscrowed.Sign() > 0 {
 				coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(totalEscrowed)))
-				_ = k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.VindicationEscrowModuleName, "development_fund", coins)
+				if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.VindicationEscrowModuleName, "development_fund", coins); err != nil {
+					k.Logger(ctx).Error("failed to transfer expired escrow to treasury", "fact_id", factId, "error", err)
+				}
 			}
 		}
 
@@ -254,7 +260,9 @@ func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy stri
 	// Send remainder to treasury (development_fund)
 	if remainder.IsPositive() && k.bankKeeper != nil {
 		treasuryCoins := sdk.NewCoins(sdk.NewCoin("uzrn", remainder))
-		_ = k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", treasuryCoins)
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", treasuryCoins); err != nil {
+			k.Logger(ctx).Error("failed to send vindication remainder to treasury", "fact_id", factId, "error", err)
+		}
 	}
 
 	// Calculate total minority slash for proportional bonus distribution
@@ -275,10 +283,12 @@ func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy stri
 
 		// Refund original slash from escrow back to the validator
 		if k.bankKeeper != nil {
-			addr, err := sdk.AccAddressFromBech32(entry.Verifier)
-			if err == nil {
+			addr, addrErr := sdk.AccAddressFromBech32(entry.Verifier)
+			if addrErr == nil {
 				refundCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(refundAmt)))
-				_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.VindicationEscrowModuleName, addr, refundCoins)
+				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.VindicationEscrowModuleName, addr, refundCoins); err != nil {
+					k.Logger(ctx).Error("failed to refund escrowed slash", "verifier", entry.Verifier, "amount", refundAmt.String(), "error", err)
+				}
 			}
 		}
 
@@ -288,10 +298,12 @@ func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy stri
 			bonusAmt.Mul(bonusPool.BigInt(), refundAmt)
 			bonusAmt.Div(bonusAmt, totalMinoritySlash)
 			if bonusAmt.Sign() > 0 && k.bankKeeper != nil {
-				addr, err := sdk.AccAddressFromBech32(entry.Verifier)
-				if err == nil {
+				addr, addrErr := sdk.AccAddressFromBech32(entry.Verifier)
+				if addrErr == nil {
 					bonusCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(bonusAmt)))
-					_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, addr, bonusCoins)
+					if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, addr, bonusCoins); err != nil {
+						k.Logger(ctx).Error("failed to distribute vindication bonus", "verifier", entry.Verifier, "amount", bonusAmt.String(), "error", err)
+					}
 				}
 			}
 		}

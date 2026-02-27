@@ -668,11 +668,6 @@ func (k Keeper) SlashValidatorToModule(ctx sdk.Context, validatorAddr string, am
 			// Abort slash on routing failure
 			return new(big.Int)
 		}
-
-		selfStake.Sub(selfStake, new(big.Int).Sub(slashInt, new(big.Int)))
-		if selfStake.Sign() < 0 {
-			selfStake.SetInt64(0)
-		}
 	}
 
 	// R4: only increment slash count if actual slash > 0
