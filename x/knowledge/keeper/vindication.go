@@ -116,6 +116,48 @@ func (k Keeper) GetVindicationRecordsForFact(ctx context.Context, factId string)
 	return records
 }
 
+// ─── Pruning ─────────────────────────────────────────────────────────────────
+
+// PruneExpiredVindications removes pending vindication entries older than the window.
+// Expired escrowed tokens are sent to protocol treasury.
+func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, windowBlocks uint64) {
+	allPending := k.GetAllVindicationPending(ctx)
+
+	for factId, entries := range allPending {
+		if len(entries) == 0 {
+			continue
+		}
+		entryHeight := entries[0].Height
+		if currentHeight-entryHeight <= windowBlocks {
+			continue // still within window
+		}
+
+		// Expired: transfer escrowed tokens to treasury
+		if k.bankKeeper != nil {
+			totalEscrowed := new(big.Int)
+			for _, entry := range entries {
+				amt, _ := new(big.Int).SetString(entry.SlashAmount, 10)
+				if amt != nil {
+					totalEscrowed.Add(totalEscrowed, amt)
+				}
+			}
+			if totalEscrowed.Sign() > 0 {
+				coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(totalEscrowed)))
+				_ = k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.VindicationEscrowModuleName, "development_fund", coins)
+			}
+		}
+
+		k.DeleteVindicationPending(ctx, factId)
+
+		sdkCtx := sdk.UnwrapSDKContext(ctx)
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.vindication_expired",
+			sdk.NewAttribute("fact_id", factId),
+			sdk.NewAttribute("entry_count", fmt.Sprintf("%d", len(entries))),
+		))
+	}
+}
+
 // ─── Challenge Disproven Transition ──────────────────────────────────────────
 
 // handleChallengeDisproven transitions the challenged fact to DISPROVEN

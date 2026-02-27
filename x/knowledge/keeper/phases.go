@@ -23,6 +23,11 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	if err != nil {
 		return nil // non-fatal: don't block consensus for param read failure
 	}
+	// Prune expired vindication entries every 1000 blocks
+	if height > 0 && height%1000 == 0 && params.VindicationRefundEnabled {
+		k.PruneExpiredVindications(ctx, height, params.VindicationWindowBlocks)
+	}
+
 	if params.FitnessEpochBlocks > 0 && height > 0 && height%params.FitnessEpochBlocks == 0 {
 		epoch := height / params.FitnessEpochBlocks
 
