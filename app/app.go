@@ -473,6 +473,10 @@ type ZeroneApp struct {
 	// ABCI++ vote extension config (nil until validator is configured)
 	VoteExtConfig *VoteExtensionConfig
 
+	// Oracle client for querying the evaluation sidecar (nil if disabled).
+	// Stored here so it can be attached to VoteExtConfig when the validator is configured.
+	oracleClient OracleClient
+
 	// Module manager
 	ModuleManager *module.Manager
 
@@ -1333,6 +1337,22 @@ func NewZeroneApp(
 	app.SetProcessProposal(app.ProcessProposalHandler())
 	app.SetExtendVoteHandler(app.ExtendVoteHandler())
 	app.SetVerifyVoteExtensionHandler(app.VerifyVoteExtensionHandler())
+
+	// Wire oracle client if configured via app.toml [oracle] section.
+	oracleEnabled := cast.ToBool(appOpts.Get("oracle.enabled"))
+	if oracleEnabled {
+		oracleEndpoint := cast.ToString(appOpts.Get("oracle.endpoint"))
+		oracleTimeout := cast.ToDuration(appOpts.Get("oracle.timeout"))
+		oracleMinConf := cast.ToFloat64(appOpts.Get("oracle.min-confidence"))
+		if oracleEndpoint != "" {
+			logger.Info("oracle sidecar enabled",
+				"endpoint", oracleEndpoint,
+				"timeout", oracleTimeout,
+				"min_confidence", oracleMinConf,
+			)
+			app.oracleClient = NewHTTPOracleClient(oracleEndpoint, oracleTimeout, oracleMinConf)
+		}
+	}
 
 	if loadLatest {
 		if err := app.LoadLatestVersion(); err != nil {
