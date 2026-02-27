@@ -3,6 +3,10 @@ package keeper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math/big"
+
+	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -153,7 +157,125 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 // ExecuteVindication refunds minority voters from escrow, slashes the majority,
 // distributes a bonus from the majority slash pool, and records immutable
 // vindication records. Called when a fact is disproven via challenge.
-// Stub: full implementation in next commit (Task 10).
 func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy string) {
-	// TODO(R28-1): implement full vindication execution logic
+	pending := k.GetVindicationPending(ctx, factId)
+	if len(pending) == 0 {
+		return
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	height := uint64(sdkCtx.BlockHeight())
+	params, _ := k.GetParams(ctx)
+
+	// Find the original round to identify majority voters
+	roundId := pending[0].RoundId
+	round, found := k.GetVerificationRound(ctx, roundId)
+	if !found {
+		return
+	}
+
+	// Build minority set
+	minoritySet := make(map[string]bool)
+	for _, entry := range pending {
+		minoritySet[entry.Verifier] = true
+	}
+
+	// Identify majority voters: revealed voters NOT in minority
+	var majorityVoters []string
+	for _, reveal := range round.Reveals {
+		if !minoritySet[reveal.Verifier] {
+			majorityVoters = append(majorityVoters, reveal.Verifier)
+		}
+	}
+
+	// Slash majority at VindicationSlashBps
+	totalMajoritySlash := sdkmath.ZeroInt()
+	if k.stakingKeeper != nil && params.VindicationSlashBps > 0 {
+		for _, voter := range majorityVoters {
+			slashed, err := k.stakingKeeper.SlashValidatorToModule(ctx, voter, params.VindicationSlashBps, types.ModuleName)
+			if err == nil {
+				totalMajoritySlash = totalMajoritySlash.Add(slashed)
+			}
+		}
+	}
+
+	// Calculate bonus pool: VindicationBonusBps percent of majority slash goes to minority
+	bonusPool := sdkmath.ZeroInt()
+	remainder := sdkmath.ZeroInt()
+	if totalMajoritySlash.IsPositive() && params.VindicationBonusBps > 0 {
+		bonusPool = totalMajoritySlash.MulRaw(int64(params.VindicationBonusBps)).QuoRaw(10_000)
+		remainder = totalMajoritySlash.Sub(bonusPool)
+	} else {
+		remainder = totalMajoritySlash
+	}
+
+	// Send remainder to treasury (development_fund)
+	if remainder.IsPositive() && k.bankKeeper != nil {
+		treasuryCoins := sdk.NewCoins(sdk.NewCoin("uzrn", remainder))
+		_ = k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", treasuryCoins)
+	}
+
+	// Calculate total minority slash for proportional bonus distribution
+	totalMinoritySlash := new(big.Int)
+	for _, entry := range pending {
+		amt, ok := new(big.Int).SetString(entry.SlashAmount, 10)
+		if ok && amt != nil {
+			totalMinoritySlash.Add(totalMinoritySlash, amt)
+		}
+	}
+
+	// Refund each minority voter from escrow + distribute proportional bonus
+	for _, entry := range pending {
+		refundAmt, ok := new(big.Int).SetString(entry.SlashAmount, 10)
+		if !ok || refundAmt == nil || refundAmt.Sign() <= 0 {
+			continue
+		}
+
+		// Refund original slash from escrow back to the validator
+		if k.bankKeeper != nil {
+			addr, err := sdk.AccAddressFromBech32(entry.Verifier)
+			if err == nil {
+				refundCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(refundAmt)))
+				_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.VindicationEscrowModuleName, addr, refundCoins)
+			}
+		}
+
+		// Calculate proportional share of bonus pool
+		bonusAmt := new(big.Int)
+		if bonusPool.IsPositive() && totalMinoritySlash.Sign() > 0 {
+			bonusAmt.Mul(bonusPool.BigInt(), refundAmt)
+			bonusAmt.Div(bonusAmt, totalMinoritySlash)
+			if bonusAmt.Sign() > 0 && k.bankKeeper != nil {
+				addr, err := sdk.AccAddressFromBech32(entry.Verifier)
+				if err == nil {
+					bonusCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(bonusAmt)))
+					_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, addr, bonusCoins)
+				}
+			}
+		}
+
+		// Record immutable vindication outcome
+		_ = k.SetVindicationRecord(ctx, factId, types.VindicationRecord{
+			Verifier:     entry.Verifier,
+			FactId:       factId,
+			RefundAmount: refundAmt.String(),
+			BonusAmount:  bonusAmt.String(),
+			VindicatedAt: height,
+			DisprovenBy:  disprovenBy,
+			RoundId:      entry.RoundId,
+		})
+	}
+
+	// Clean up pending entries — vindication is complete
+	k.DeleteVindicationPending(ctx, factId)
+
+	// Emit summary event
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.vindication_executed",
+		sdk.NewAttribute("fact_id", factId),
+		sdk.NewAttribute("disproven_by", disprovenBy),
+		sdk.NewAttribute("minority_count", fmt.Sprintf("%d", len(pending))),
+		sdk.NewAttribute("majority_slashed", totalMajoritySlash.String()),
+		sdk.NewAttribute("bonus_pool", bonusPool.String()),
+	))
 }
