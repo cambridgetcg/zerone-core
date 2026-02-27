@@ -14,6 +14,9 @@ type VerificationResult struct {
 	Confidence uint64 // 0-1,000,000
 	Rewards    []VerifierReward
 	Slashes    []VerifierSlash
+
+	AcceptCount uint64 // raw headcount (not stake-weighted) for diversity
+	RejectCount uint64 // raw headcount (not stake-weighted) for diversity
 }
 
 // VerifierReward records a reward amount for a correct verifier.
@@ -58,6 +61,17 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 			rejectStake += stake
 		case "malformed":
 			malformedStake += stake
+		}
+	}
+
+	// Count raw headcounts for diversity (1 validator = 1 signal)
+	var rawAccept, rawReject uint64
+	for _, reveal := range round.Reveals {
+		switch reveal.Vote {
+		case "accept":
+			rawAccept++
+		case "reject":
+			rawReject++
 		}
 	}
 
@@ -110,6 +124,9 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 
 	// Calculate rewards and slashes
 	k.calculateRewardsAndSlashes(ctx, round, result, params)
+
+	result.AcceptCount = rawAccept
+	result.RejectCount = rawReject
 
 	return result, nil
 }

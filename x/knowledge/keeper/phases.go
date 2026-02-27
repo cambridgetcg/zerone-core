@@ -49,6 +49,10 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		k.ProcessExpiredBounties(ctx)
 		// 7. Clear query receipts (bound receipt storage to one epoch)
 		k.ClearQueryReceipts(ctx)
+		// 8. Aggregate diversity metrics and check conformity alerts (R28-2)
+		if err := k.ProcessDiversity(ctx, epoch); err != nil {
+			k.Logger(ctx).Error("diversity processing failed", "epoch", epoch, "error", err)
+		}
 	}
 
 	return nil

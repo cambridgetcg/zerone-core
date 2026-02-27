@@ -538,6 +538,20 @@ func (k Keeper) GetGlobalConsensusDiversity(ctx context.Context) uint64 {
 	return NeutralBPS
 }
 
+// verdictToVoteString maps a verdict enum to the corresponding vote string.
+func verdictToVoteString(v types.Verdict) string {
+	switch v {
+	case types.Verdict_VERDICT_ACCEPT:
+		return "accept"
+	case types.Verdict_VERDICT_REJECT:
+		return "reject"
+	case types.Verdict_VERDICT_MALFORMED:
+		return "malformed"
+	default:
+		return ""
+	}
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // indexRoundInDomainEpoch stores roundID in the domain/epoch/roundID index.

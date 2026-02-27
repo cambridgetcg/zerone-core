@@ -123,6 +123,21 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		}
 	}
 
+	// Record round diversity metrics (R28-2)
+	if err := k.RecordRoundDiversity(ctx, round.Id, claim.Domain, result.AcceptCount, result.RejectCount); err != nil {
+		k.Logger(ctx).Error("failed to record round diversity", "round_id", round.Id, "error", err)
+	}
+
+	// Update validator independence for each revealed voter
+	majorityVote := verdictToVoteString(result.Verdict)
+	if majorityVote != "" {
+		for _, reveal := range round.Reveals {
+			if err := k.UpdateValidatorIndependence(ctx, reveal.Verifier, reveal.Vote, majorityVote); err != nil {
+				k.Logger(ctx).Debug("failed to update validator independence", "verifier", reveal.Verifier, "error", err)
+			}
+		}
+	}
+
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.knowledge.verification_round_completed",
 		sdk.NewAttribute("round_id", round.Id),
