@@ -171,6 +171,58 @@ func (k Keeper) AutoResolveResearch(ctx sdk.Context) error {
 	return nil
 }
 
+// AutoFulfillBounties fulfills bounties that have been claimed for longer than
+// the fulfillment period.
+func (k Keeper) AutoFulfillBounties(ctx sdk.Context) error {
+	params := k.GetParams(ctx)
+	currentBlock := uint64(ctx.BlockHeight())
+
+	k.IterateBounties(ctx, func(b *types.Bounty) bool {
+		if b.Status != string(types.BountyStatusClaimed) {
+			return false
+		}
+
+		if b.ClaimedAt == 0 || currentBlock-b.ClaimedAt < params.BountyFulfillmentPeriodBlocks {
+			return false
+		}
+
+		rewardInt := new(big.Int)
+		if _, ok := rewardInt.SetString(b.Reward, 10); !ok || rewardInt.Sign() <= 0 {
+			k.Logger(ctx).Error("invalid bounty reward", "bounty_id", b.Id)
+			return false
+		}
+
+		claimerAddr, err := sdk.AccAddressFromBech32(b.ClaimedBy)
+		if err != nil {
+			k.Logger(ctx).Error("invalid claimer address", "bounty_id", b.Id, "error", err)
+			return false
+		}
+
+		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(rewardInt)))
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, claimerAddr, coins); err != nil {
+			k.Logger(ctx).Error("failed to pay bounty reward", "bounty_id", b.Id, "error", err)
+			return false
+		}
+
+		b.Status = string(types.BountyStatusFulfilled)
+		b.FulfilledBy = b.ClaimedBy
+		k.SetBounty(ctx, b)
+
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent(
+				"zerone.research.bounty_auto_fulfilled",
+				sdk.NewAttribute("bounty_id", b.Id),
+				sdk.NewAttribute("fulfilled_by", b.ClaimedBy),
+				sdk.NewAttribute("reward", b.Reward),
+			),
+		)
+
+		return false
+	})
+
+	return nil
+}
+
 // ExportGenesis exports the module's state.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	var researches []*types.Research

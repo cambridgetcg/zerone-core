@@ -1951,3 +1951,139 @@ func TestAutoResolveResearchWithinPeriod(t *testing.T) {
 		t.Fatalf("expected under_review (within period), got %s", research.Status)
 	}
 }
+
+// -----------------------------------------------------------------------
+// Tests: Auto-Fulfillment
+// -----------------------------------------------------------------------
+
+func TestAutoFulfillBountyAccepted(t *testing.T) {
+	k, ctx, bk := setupKeeper(t)
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.BountyFulfillmentPeriodBlocks = 10
+	params.BountyMinDeadlineBlocks = 5
+	k.SetParams(ctx, &params)
+
+	creator := testAddr(1)
+	claimer := testAddr(2)
+	bk.setBalance(creator, "uzrn", sdkmath.NewInt(50000000))
+
+	bResp, err := msgServer.CreateBounty(ctx, &types.MsgCreateBounty{
+		Creator:        creator.String(),
+		Title:          "Test Bounty",
+		Description:    "Auto-fulfill test",
+		Reward:         "5000000",
+		DeadlineHeight: uint64(ctx.BlockHeight()) + 1000,
+	})
+	if err != nil {
+		t.Fatalf("create bounty: %v", err)
+	}
+
+	_, err = msgServer.ClaimBounty(ctx, &types.MsgClaimBounty{
+		BountyId: bResp.BountyId,
+		Claimer:  claimer.String(),
+	})
+	if err != nil {
+		t.Fatalf("claim bounty: %v", err)
+	}
+
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 11)
+
+	err = k.AutoFulfillBounties(ctx)
+	if err != nil {
+		t.Fatalf("auto-fulfill: %v", err)
+	}
+
+	bounty, _ := k.GetBounty(ctx, bResp.BountyId)
+	if bounty.Status != "fulfilled" {
+		t.Fatalf("expected fulfilled, got %s", bounty.Status)
+	}
+	if bounty.FulfilledBy != claimer.String() {
+		t.Fatalf("expected fulfilled_by = %s, got %s", claimer.String(), bounty.FulfilledBy)
+	}
+
+	bal := bk.balances[claimer.String()+"/uzrn"]
+	if !bal.Equal(sdkmath.NewInt(5000000)) {
+		t.Fatalf("expected claimer to have 5000000, got %s", bal)
+	}
+}
+
+func TestAutoFulfillBountyWithinPeriod(t *testing.T) {
+	k, ctx, bk := setupKeeper(t)
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.BountyFulfillmentPeriodBlocks = 100
+	params.BountyMinDeadlineBlocks = 5
+	k.SetParams(ctx, &params)
+
+	creator := testAddr(1)
+	claimer := testAddr(2)
+	bk.setBalance(creator, "uzrn", sdkmath.NewInt(50000000))
+
+	bResp, _ := msgServer.CreateBounty(ctx, &types.MsgCreateBounty{
+		Creator:        creator.String(),
+		Title:          "Too Early Bounty",
+		Description:    "Within period",
+		Reward:         "5000000",
+		DeadlineHeight: uint64(ctx.BlockHeight()) + 1000,
+	})
+
+	msgServer.ClaimBounty(ctx, &types.MsgClaimBounty{
+		BountyId: bResp.BountyId,
+		Claimer:  claimer.String(),
+	})
+
+	ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 5)
+	k.AutoFulfillBounties(ctx)
+
+	bounty, _ := k.GetBounty(ctx, bResp.BountyId)
+	if bounty.Status != "claimed" {
+		t.Fatalf("expected claimed (within period), got %s", bounty.Status)
+	}
+}
+
+func TestGovernanceOverrideStillWorks(t *testing.T) {
+	k, ctx, bk := setupKeeper(t)
+	msgServer := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.ReviewPeriodBlocks = 1000
+	params.MinReviewerCount = 2
+	k.SetParams(ctx, &params)
+
+	submitter := testAddr(1)
+	bk.setBalance(submitter, "uzrn", sdkmath.NewInt(5000000))
+	resp, _ := msgServer.SubmitResearch(ctx, &types.MsgSubmitResearch{
+		Submitter:   submitter.String(),
+		Title:       "Governance Override",
+		Description: "Force resolve via authority",
+		Domain:      "physics",
+		Stake:       "1000000",
+	})
+
+	for i := 2; i <= 3; i++ {
+		msgServer.ReviewResearch(ctx, &types.MsgReviewResearch{
+			ResearchId:   resp.ResearchId,
+			Reviewer:     testAddrStr(i),
+			Verdict:      types.ReviewVerdict_REVIEW_VERDICT_APPROVE,
+			QualityScore: 80,
+			Reasoning:    "Good",
+		})
+	}
+
+	// Fund the module account so SendCoinsFromModuleToAccount works
+	bk.balances["research/uzrn"] = sdkmath.NewInt(1000000)
+
+	resolveResp, err := msgServer.ResolveResearch(ctx, &types.MsgResolveResearch{
+		Authority:  testAuthority,
+		ResearchId: resp.ResearchId,
+	})
+	if err != nil {
+		t.Fatalf("governance resolve: %v", err)
+	}
+	if resolveResp.Outcome != types.ResearchOutcome_RESEARCH_OUTCOME_ACCEPTED {
+		t.Fatal("expected accepted via governance override")
+	}
+}
