@@ -273,6 +273,34 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 		return nil, fmt.Errorf("verifier %s already committed to round %s", msg.Verifier, msg.RoundId)
 	}
 
+	// Check domain qualification
+	if m.keeper.domainQualificationKeeper != nil {
+		claim, found := m.keeper.GetClaim(ctx, round.ClaimId)
+		if !found {
+			return nil, fmt.Errorf("claim %s not found for round %s", round.ClaimId, msg.RoundId)
+		}
+		if claim.Domain != "" {
+			qualified, err := m.keeper.domainQualificationKeeper.IsQualified(ctx, msg.Verifier, claim.Domain)
+			if err != nil {
+				return nil, fmt.Errorf("qualification check failed: %w", err)
+			}
+			if !qualified {
+				// Check if fallback applies: if no qualified validators exist for this domain,
+				// allow unqualified ones through
+				qualifiedVals, _ := m.keeper.domainQualificationKeeper.GetQualifiedValidators(ctx, claim.Domain)
+				params, _ := m.keeper.GetParams(ctx)
+				if uint64(len(qualifiedVals)) >= params.MinVerifiers {
+					return nil, types.ErrUnqualifiedVerifier.Wrapf(
+						"validator %s is not qualified for domain %s", msg.Verifier, claim.Domain)
+				}
+				// Insufficient qualified validators — allow through with warning
+				m.keeper.Logger(ctx).Warn("allowing unqualified verifier due to insufficient qualified validators",
+					"verifier", msg.Verifier, "domain", claim.Domain,
+					"qualified_count", len(qualifiedVals), "min_verifiers", params.MinVerifiers)
+			}
+		}
+	}
+
 	// Add commitment
 	round.Commits = append(round.Commits, &types.CommitEntry{
 		Verifier:        msg.Verifier,

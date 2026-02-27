@@ -73,4 +73,7 @@ var (
 	ErrDuplicateChallenge    = errors.Register(ModuleName, 64, "challenge already exists")
 	ErrStratumNotFound       = errors.Register(ModuleName, 65, "stratum not found")
 	ErrProposalNotFound      = errors.Register(ModuleName, 66, "proposal not found")
+
+	// ─── Domain qualification (70) ────────────────────────────────────────
+	ErrUnqualifiedVerifier = errors.Register(ModuleName, 70, "verifier not qualified for domain")
 )

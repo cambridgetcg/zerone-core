@@ -107,6 +107,22 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		}
 	}
 
+	// Record verification outcomes for domain qualification tracking (R26-3).
+	// Rewarded verifiers voted correctly; slashed verifiers voted incorrectly.
+	if k.domainQualificationKeeper != nil && claim.Domain != "" &&
+		result.Verdict != types.Verdict_VERDICT_INCONCLUSIVE {
+		for _, reward := range result.Rewards {
+			if err := k.domainQualificationKeeper.RecordVerificationOutcome(ctx, reward.Verifier, claim.Domain, true); err != nil {
+				k.Logger(ctx).Debug("failed to record correct verification outcome", "verifier", reward.Verifier, "error", err)
+			}
+		}
+		for _, slash := range result.Slashes {
+			if err := k.domainQualificationKeeper.RecordVerificationOutcome(ctx, slash.Verifier, claim.Domain, false); err != nil {
+				k.Logger(ctx).Debug("failed to record incorrect verification outcome", "verifier", slash.Verifier, "error", err)
+			}
+		}
+	}
+
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.knowledge.verification_round_completed",
 		sdk.NewAttribute("round_id", round.Id),

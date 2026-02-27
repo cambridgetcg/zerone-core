@@ -924,6 +924,11 @@ func NewZeroneApp(
 	// TODO: wire CaptureDefenseKeeper when x/capture_defense is available:
 	// app.QualificationKeeper.SetCaptureDefenseKeeper(captureDefenseAdapter)
 
+	// Wire domain qualification into knowledge verification flow (R26-3).
+	app.KnowledgeKeeper.SetDomainQualificationKeeper(
+		zeronequalificationkeeper.NewKnowledgeDomainQualificationAdapter(app.QualificationKeeper),
+	)
+
 	emergencyStakingAdapter := zeronestakingkeeper.NewEmergencyStakingAdapter(app.ZeroneStakingKeeper)
 	app.EmergencyKeeper = zeroneemergencykeeper.NewKeeper(
 		sdkruntime.NewKVStoreService(keys[zeroneemergencytypes.StoreKey]),

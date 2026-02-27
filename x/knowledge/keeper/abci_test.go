@@ -765,7 +765,7 @@ func TestGetEligibleValidators_ReturnsAll(t *testing.T) {
 		AccuracyBps:       850_000,
 	}
 
-	vals, err := k.GetEligibleValidators(ctx)
+	vals, err := k.GetEligibleValidators(ctx, "")
 	require.NoError(t, err)
 	require.Len(t, vals, 2)
 
@@ -782,7 +782,7 @@ func TestGetEligibleValidators_Empty(t *testing.T) {
 	k, ctx := setupKnowledgeKeeper(t)
 
 	// Mock staking keeper has no validators by default
-	vals, err := k.GetEligibleValidators(ctx)
+	vals, err := k.GetEligibleValidators(ctx, "")
 	require.NoError(t, err)
 	require.Empty(t, vals)
 }
@@ -799,7 +799,7 @@ func TestGetEligibleValidators_PreservesValidatorInfo(t *testing.T) {
 		AccuracyBps:       950_000,
 	}
 
-	vals, err := k.GetEligibleValidators(ctx)
+	vals, err := k.GetEligibleValidators(ctx, "")
 	require.NoError(t, err)
 	require.Len(t, vals, 1)
 
