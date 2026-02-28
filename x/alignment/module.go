@@ -145,9 +145,9 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 		return nil
 	}
 
-	// Compute effective interval (halved when degraded frequency is active).
+	// Compute effective interval: confidence-modulated, then halved when degraded frequency is active.
 	state := am.keeper.GetState(ctx)
-	effectiveInterval := params.ObservationIntervalBlocks
+	effectiveInterval := am.keeper.GetEffectiveObservationInterval(ctx)
 	if state.DegradedFrequencyActive && effectiveInterval > 1 {
 		effectiveInterval = effectiveInterval / 2
 	}
@@ -164,6 +164,9 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	scores := am.keeper.ComputeScores(ctx, obs)
 	am.keeper.SetScores(ctx, scores)
 
+	// 2.5 Evaluate pending correction outcomes from previous observation (R29-4).
+	am.keeper.EvaluatePendingCorrections(ctx, scores)
+
 	// 3. Corrections
 	corrections := am.keeper.GenerateCorrections(ctx, scores)
 	am.keeper.ApplyCorrections(ctx, corrections)
@@ -172,6 +175,17 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	category := am.keeper.CategorizeHealth(ctx, scores.Composite)
 	hi := am.keeper.BuildHealthIndex(scores, category, uint32(len(corrections)))
 	am.keeper.SetHealthIndex(ctx, hi)
+
+	// 4.5 Emit correction confidence event (R29-4).
+	confidence := am.keeper.GetCorrectionConfidence(ctx)
+	effectiveMaxMag := am.keeper.GetEffectiveMaxMagnitude(ctx)
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.alignment.correction_confidence_updated",
+			sdk.NewAttribute("confidence_bps", fmt.Sprintf("%d", confidence)),
+			sdk.NewAttribute("effective_max_magnitude", fmt.Sprintf("%d", effectiveMaxMag)),
+			sdk.NewAttribute("category", keeper.CategorizeConfidence(confidence)),
+		),
+	)
 
 	// 5. Health transition responses
 	previousCategory := state.PreviousCategory
@@ -209,6 +223,9 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	state.LastObservationHeight = height
 	state.ObservationCount++
 	am.keeper.SetState(ctx, state)
+
+	// 6.5 Prune old correction outcomes (R29-4).
+	am.keeper.PruneOldOutcomes(ctx)
 
 	sdkCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.alignment.observation_recorded",
