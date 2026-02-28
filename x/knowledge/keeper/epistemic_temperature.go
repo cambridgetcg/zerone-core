@@ -176,3 +176,66 @@ func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string) e
 	state.LastTemperatureUpdate = height
 	return k.SetDomainEpistemicState(ctx, &state)
 }
+
+// AdvanceConfidence grows confidence for all active/verified facts by
+// ConfidenceGrowthPerEpochBps, modulated by epistemic temperature.
+// Called from BeginBlocker at ConfidenceGrowthEpoch intervals.
+func (k Keeper) AdvanceConfidence(ctx context.Context) error {
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return err
+	}
+
+	baseGrowthRate := params.ConfidenceGrowthPerEpochBps
+	if baseGrowthRate == 0 {
+		return nil // growth disabled
+	}
+
+	// Cache epistemic states per domain to avoid repeated lookups
+	domainGrowthRates := make(map[string]uint64)
+
+	k.IterateFacts(ctx, func(fact *types.Fact) bool {
+		// Only grow confidence for active/verified/provisional facts
+		switch fact.Status {
+		case types.FactStatus_FACT_STATUS_VERIFIED,
+			types.FactStatus_FACT_STATUS_ACTIVE,
+			types.FactStatus_FACT_STATUS_PROVISIONAL:
+		default:
+			return false
+		}
+
+		growthRate, ok := domainGrowthRates[fact.Domain]
+		if !ok {
+			growthRate = baseGrowthRate
+			epistemicState, found, err := k.GetDomainEpistemicState(ctx, fact.Domain)
+			if err == nil && found {
+				// Hot domains: confidence grows faster
+				if epistemicState.Temperature > 700_000 && params.EpistemicHotConfidenceGrowthBps > 0 {
+					growthRate = safeMulDiv(growthRate, params.EpistemicHotConfidenceGrowthBps, BPS)
+				}
+				// Cold domains: confidence grows slower (50% rate)
+				if epistemicState.Temperature < 300_000 {
+					growthRate = safeMulDiv(growthRate, 500_000, BPS)
+				}
+			}
+			domainGrowthRates[fact.Domain] = growthRate
+		}
+
+		// Apply growth: confidence += confidence * growthRate / BPS
+		growth := safeMulDiv(fact.Confidence, growthRate, BPS)
+		if growth == 0 {
+			growth = 1 // minimum 1 BPS growth per epoch
+		}
+		fact.Confidence += growth
+
+		// Clamp to effective cap (includes epistemic temperature modulation)
+		fact.Confidence = k.ClampConfidence(ctx, fact.Confidence, fact.Domain)
+
+		if setErr := k.SetFact(ctx, fact); setErr != nil {
+			return false
+		}
+		return false
+	})
+
+	return nil
+}

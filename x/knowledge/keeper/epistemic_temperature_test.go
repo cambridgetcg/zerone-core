@@ -230,3 +230,83 @@ func TestClampConfidence_NeutralDomainUnchanged(t *testing.T) {
 	clamped := k.ClampConfidence(ctx, 750_000, "physics")
 	require.Equal(t, uint64(750_000), clamped)
 }
+
+func TestAdvanceConfidence_NeutralDomain(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	// Create a verified fact
+	makeTestFact(t, k, ctx, "f1", "verified fact", "physics", "general", "zrn1submitter1", 500_000)
+	fact, _ := k.GetFact(ctx, "f1")
+	fact.Status = types.FactStatus_FACT_STATUS_VERIFIED
+	require.NoError(t, k.SetFact(ctx, fact))
+
+	// No epistemic state → neutral → normal growth
+	require.NoError(t, k.AdvanceConfidence(ctx))
+
+	updated, _ := k.GetFact(ctx, "f1")
+	// Default growth: 11,000 BPS (1.1%) of 500,000 = 5,500
+	// New confidence = 500,000 + 5,500 = 505,500
+	require.Equal(t, uint64(505_500), updated.Confidence)
+}
+
+func TestAdvanceConfidence_HotDomainFasterGrowth(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	makeTestFact(t, k, ctx, "f1", "verified fact", "physics", "general", "zrn1submitter1", 500_000)
+	fact, _ := k.GetFact(ctx, "f1")
+	fact.Status = types.FactStatus_FACT_STATUS_VERIFIED
+	require.NoError(t, k.SetFact(ctx, fact))
+
+	// Set hot temperature
+	require.NoError(t, k.SetDomainEpistemicState(ctx, &types.DomainEpistemicState{
+		Domain:      "physics",
+		Temperature: 800_000, // Hot (> 700,000)
+	}))
+
+	require.NoError(t, k.AdvanceConfidence(ctx))
+
+	updated, _ := k.GetFact(ctx, "f1")
+	// Hot growth: 11,000 * 1,500,000 / 1,000,000 = 16,500 BPS
+	// Growth amount: 500,000 * 16,500 / 1,000,000 = 8,250
+	// New confidence = 500,000 + 8,250 = 508,250
+	require.Equal(t, uint64(508_250), updated.Confidence)
+}
+
+func TestAdvanceConfidence_ColdDomainSlowerGrowth(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	makeTestFact(t, k, ctx, "f1", "verified fact", "physics", "general", "zrn1submitter1", 500_000)
+	fact, _ := k.GetFact(ctx, "f1")
+	fact.Status = types.FactStatus_FACT_STATUS_VERIFIED
+	require.NoError(t, k.SetFact(ctx, fact))
+
+	// Set cold temperature
+	require.NoError(t, k.SetDomainEpistemicState(ctx, &types.DomainEpistemicState{
+		Domain:      "physics",
+		Temperature: 200_000, // Cold (< 300,000)
+	}))
+
+	require.NoError(t, k.AdvanceConfidence(ctx))
+
+	updated, _ := k.GetFact(ctx, "f1")
+	// Cold growth: 11,000 * 500,000 / 1,000,000 = 5,500 BPS (50% rate)
+	// Growth amount: 500,000 * 5,500 / 1,000,000 = 2,750
+	// New confidence = 500,000 + 2,750 = 502,750
+	require.Equal(t, uint64(502_750), updated.Confidence)
+}
+
+func TestAdvanceConfidence_SkipsNonActiveFacts(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	// Create a fact (defaults to VERIFIED), then change to EXPIRED
+	makeTestFact(t, k, ctx, "f1", "rejected fact", "physics", "general", "zrn1submitter1", 500_000)
+	fact, _ := k.GetFact(ctx, "f1")
+	fact.Status = types.FactStatus_FACT_STATUS_EXPIRED
+	require.NoError(t, k.SetFact(ctx, fact))
+
+	require.NoError(t, k.AdvanceConfidence(ctx))
+
+	// Should not have changed
+	updated, _ := k.GetFact(ctx, "f1")
+	require.Equal(t, uint64(500_000), updated.Confidence)
+}
