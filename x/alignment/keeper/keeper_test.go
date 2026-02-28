@@ -1019,6 +1019,89 @@ func TestEffectiveObservationIntervalLowConfidence(t *testing.T) {
 	}
 }
 
+// --- Test: Correction confidence full lifecycle ---
+
+func TestCorrectionConfidenceFullLifecycle(t *testing.T) {
+	k, mocks, ctx := setupKeeper(t)
+
+	autoMock := &mockAutopoiesisKeeper{}
+	k.SetAutopoiesisKeeper(autoMock)
+
+	am := alignment.NewAppModule(nil, k)
+
+	// --- Phase 1: Boot — neutral confidence, base bounds ---
+	confidence := k.GetCorrectionConfidence(ctx)
+	if confidence != 500_000 {
+		t.Fatalf("expected neutral confidence at boot, got %d", confidence)
+	}
+
+	params := k.GetParams(ctx)
+	effectiveMax := k.GetEffectiveMaxMagnitude(ctx)
+	if effectiveMax == 0 {
+		t.Fatal("expected non-zero effective max at boot")
+	}
+	_ = params
+
+	// --- Phase 2: Run observations with degraded dimensions to generate corrections ---
+	mocks.knowledge.verificationRate = 300_000
+	mocks.knowledge.consensusDiversity = 300_000
+	mocks.staking.totalStaked = big.NewInt(400_000_000_000)
+	mocks.staking.activeValidators = 50
+	mocks.staking.targetValidators = 111
+	mocks.ontology.domainCount = 30
+	mocks.vestingRewards.totalSupply = big.NewInt(1_000_000_000_000)
+
+	ctx = ctx.WithBlockHeight(100)
+	if err := am.EndBlock(ctx); err != nil {
+		t.Fatalf("EndBlock at 100 failed: %v", err)
+	}
+
+	// Verify outcomes were recorded at height 100.
+	outcomes100 := k.GetCorrectionsAtHeight(ctx, 100)
+	if len(outcomes100) == 0 {
+		t.Fatal("expected correction outcomes recorded at height 100")
+	}
+
+	// --- Phase 3: Improve dimensions — corrections "succeed" ---
+	mocks.knowledge.verificationRate = 800_000
+	mocks.knowledge.consensusDiversity = 700_000
+	mocks.staking.totalStaked = big.NewInt(800_000_000_000)
+	mocks.staking.activeValidators = 100
+	mocks.ontology.domainCount = 80
+
+	ctx = ctx.WithBlockHeight(200)
+	if err := am.EndBlock(ctx); err != nil {
+		t.Fatalf("EndBlock at 200 failed: %v", err)
+	}
+
+	// Check that outcomes at height 100 were evaluated.
+	outcomes100After := k.GetCorrectionsAtHeight(ctx, 100)
+	evaluatedCount := 0
+	successCount := 0
+	for _, o := range outcomes100After {
+		if o.ScoreAfter > 0 {
+			evaluatedCount++
+			if o.Successful {
+				successCount++
+			}
+		}
+	}
+	if evaluatedCount == 0 {
+		t.Fatal("expected at least one evaluated outcome")
+	}
+	t.Logf("Evaluated: %d, Successful: %d out of %d total outcomes", evaluatedCount, successCount, len(outcomes100After))
+
+	// Query the confidence via gRPC.
+	qs := keeper.NewQueryServerImpl(k)
+	resp, err := qs.CorrectionConfidence(ctx, &types.QueryCorrectionConfidenceRequest{})
+	if err != nil {
+		t.Fatalf("CorrectionConfidence query failed: %v", err)
+	}
+	t.Logf("Confidence: %d BPS, Total: %d, Successful: %d, EffectiveMax: %d, EffectiveInterval: %d",
+		resp.ConfidenceBps, resp.TotalCorrections, resp.SuccessfulCorrections,
+		resp.EffectiveMaxMagnitude, resp.EffectiveObservationInterval)
+}
+
 // --- Test: ApplyCorrections records correction outcomes ---
 
 func TestApplyCorrectionsRecordsOutcomes(t *testing.T) {

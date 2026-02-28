@@ -2,6 +2,9 @@ package keeper
 
 import (
 	"context"
+	"fmt"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/x/alignment/types"
 )
@@ -101,6 +104,18 @@ func (k Keeper) EvaluatePendingCorrections(ctx context.Context, currentScores *t
 		outcome.Successful = distAfter < distBefore
 
 		k.SetCorrectionOutcome(ctx, outcome)
+
+		sdkCtx := sdk.UnwrapSDKContext(ctx)
+		sdkCtx.EventManager().EmitEvent(
+			sdk.NewEvent("zerone.alignment.correction_outcome_recorded",
+				sdk.NewAttribute("height", fmt.Sprintf("%d", outcome.Height)),
+				sdk.NewAttribute("dimension", outcome.Dimension),
+				sdk.NewAttribute("magnitude", fmt.Sprintf("%d", outcome.Magnitude)),
+				sdk.NewAttribute("score_before", fmt.Sprintf("%d", outcome.ScoreBefore)),
+				sdk.NewAttribute("score_after", fmt.Sprintf("%d", outcome.ScoreAfter)),
+				sdk.NewAttribute("successful", fmt.Sprintf("%t", outcome.Successful)),
+			),
+		)
 	}
 }
 
