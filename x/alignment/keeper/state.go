@@ -419,3 +419,13 @@ func (k Keeper) GetLastObservationHeight(ctx context.Context) uint64 {
 	state := k.GetState(ctx)
 	return state.LastObservationHeight
 }
+
+// GetHealthCategory returns the health category from the most recent health index.
+// Returns "healthy" if no health index has been recorded yet.
+func (k Keeper) GetHealthCategory(ctx context.Context) string {
+	indices := k.GetRecentHealthIndices(ctx, 1)
+	if len(indices) == 0 {
+		return types.CategoryHealthy
+	}
+	return indices[0].Category
+}
