@@ -1018,3 +1018,42 @@ func TestEffectiveObservationIntervalLowConfidence(t *testing.T) {
 		t.Fatalf("expected interval %d (67%%), got %d", expected, interval)
 	}
 }
+
+// --- Test: ApplyCorrections records correction outcomes ---
+
+func TestApplyCorrectionsRecordsOutcomes(t *testing.T) {
+	k, mocks, ctx := setupKeeper(t)
+
+	autoMock := &mockAutopoiesisKeeper{}
+	mocks.autopoiesis = autoMock
+	k.SetAutopoiesisKeeper(autoMock)
+
+	// Set scores so we know pre-correction state.
+	k.SetScores(ctx, &types.DimensionScores{
+		Height:           100,
+		KnowledgeQuality: 300_000,
+	})
+
+	corrections := []*types.CorrectionRecord{{
+		Height:    100,
+		Dimension: types.DimKnowledgeQuality,
+		Parameter: "knowledge.reward_multiplier",
+		Direction: "increase",
+		Magnitude: 100_000,
+		Timestamp: 1000,
+	}}
+
+	k.ApplyCorrections(ctx, corrections)
+
+	// Verify outcome was recorded.
+	outcome, found := k.GetCorrectionOutcome(ctx, 100, types.DimKnowledgeQuality)
+	if !found {
+		t.Fatal("expected correction outcome to be recorded")
+	}
+	if outcome.ScoreBefore != 300_000 {
+		t.Fatalf("expected score_before=300000, got %d", outcome.ScoreBefore)
+	}
+	if outcome.ScoreAfter != 0 {
+		t.Fatal("expected score_after=0 (not yet evaluated)")
+	}
+}
