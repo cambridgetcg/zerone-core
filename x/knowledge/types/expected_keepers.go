@@ -113,3 +113,8 @@ type CaptureDefenseKeeper interface {
 	RecordVerificationHistory(ctx context.Context, domain, roundId string, validators []string, verdicts []bool, submitBlocks []uint64)
 	UpdateReputation(ctx context.Context, validator string, domain string, stratum string, approved bool)
 }
+
+// PacingKeeper provides global pacing signals from the alignment module (R29-6).
+type PacingKeeper interface {
+	GetGlobalPacingMultiplier(ctx context.Context) (creationBps, analysisBps uint64)
+}

@@ -112,8 +112,9 @@ func TestSponsoredClaim_PerAddressLimit(t *testing.T) {
 
 	submitter := makeValidBech32Addr("sponsor-lim")
 
-	// Submit 10 claims (at limit)
+	// Submit 10 claims (at limit) — advance blocks between claims to avoid cooldown (R29-6)
 	for i := 0; i < 10; i++ {
+		ctx = advanceBlocks(ctx, 51) // exceed default cooldown of 50
 		_, err := ms.SubmitClaim(ctx, &types.MsgSubmitClaim{
 			Submitter:   submitter,
 			FactContent: makeUniqueContent("Per-address limit test claim", i),
@@ -126,6 +127,7 @@ func TestSponsoredClaim_PerAddressLimit(t *testing.T) {
 	}
 
 	// 11th should fail
+	ctx = advanceBlocks(ctx, 51)
 	_, err := ms.SubmitClaim(ctx, &types.MsgSubmitClaim{
 		Submitter:   submitter,
 		FactContent: "This is the eleventh claim which should exceed the per-address lifetime limit",
@@ -240,8 +242,9 @@ func TestBootstrapFundStatus_Query(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(k)
 	qs := keeper.NewQueryServerImpl(k)
 
-	// Submit 3 sponsored claims
+	// Submit 3 sponsored claims — advance blocks between claims to avoid cooldown (R29-6)
 	for i := 0; i < 3; i++ {
+		ctx = advanceBlocks(ctx, 51) // exceed default cooldown of 50
 		_, err := ms.SubmitClaim(ctx, &types.MsgSubmitClaim{
 			Submitter:   makeValidBech32Addr(makeUniqueContent("query-sub", i)),
 			FactContent: makeUniqueContent("Bootstrap fund status query test claim", i),

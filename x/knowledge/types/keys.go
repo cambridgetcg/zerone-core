@@ -130,6 +130,9 @@ var (
 
 	// ─── Domain role elasticity (R29-3) ────────────────────────────────
 	DomainRoleRecordPrefix = []byte{0x55} // 0x55 | domain → DomainRoleRecord (JSON)
+
+	// ─── Adaptive pacing (R29-6) ───────────────────────────────────────
+	LastClaimHeightKeyPrefix = []byte{0x56} // 0x56 | submitter → uint64 (last claim block height)
 )
 
 // ─── Key constructors ─────────────────────────────────────────────────────────
@@ -373,4 +376,9 @@ func DomainStatsKey(domain string) []byte {
 // DomainRoleRecordKey returns the store key for a domain's role track record.
 func DomainRoleRecordKey(domain string) []byte {
 	return append(append([]byte{}, DomainRoleRecordPrefix...), []byte(domain)...)
+}
+
+// LastClaimHeightKey returns the store key for a submitter's last claim height.
+func LastClaimHeightKey(submitter string) []byte {
+	return append(append([]byte{}, LastClaimHeightKeyPrefix...), []byte(submitter)...)
 }

@@ -30,6 +30,7 @@ type Keeper struct {
 	partnershipKeeper         types.PartnershipKeeper         // nil until R26-4
 	zeroneAuthKeeper           types.ZeroneAuthKeeper           // nil until R28-5
 	captureDefenseKeeper       types.CaptureDefenseKeeper       // nil until R28-8
+	pacingKeeper               types.PacingKeeper               // nil until R29-6
 }
 
 // NewKeeper creates a new knowledge Keeper.
@@ -92,6 +93,11 @@ func (k *Keeper) SetZeroneAuthKeeper(ak types.ZeroneAuthKeeper) {
 // SetCaptureDefenseKeeper sets the capture defense keeper post-initialization.
 func (k *Keeper) SetCaptureDefenseKeeper(cdk types.CaptureDefenseKeeper) {
 	k.captureDefenseKeeper = cdk
+}
+
+// SetPacingKeeper sets the pacing keeper for adaptive timing (R29-6).
+func (k *Keeper) SetPacingKeeper(pk types.PacingKeeper) {
+	k.pacingKeeper = pk
 }
 
 // Logger returns a module-scoped logger.

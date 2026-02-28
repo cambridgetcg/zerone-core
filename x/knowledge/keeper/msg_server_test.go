@@ -837,6 +837,7 @@ func TestMsgServer_SubmitClaim_ExplicitType(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		ctx = advanceBlocks(ctx, 51) // exceed default cooldown of 50 (R29-6)
 		t.Run(tc.name, func(t *testing.T) {
 			resp, err := ms.SubmitClaim(ctx, &types.MsgSubmitClaim{
 				Submitter:   submitter,

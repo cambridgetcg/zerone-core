@@ -79,9 +79,10 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 	if !ok || stakeAmt.Sign() <= 0 {
 		return nil, fmt.Errorf("invalid review fee amount: %s", msg.Stake)
 	}
-	minFee, _ := new(big.Int).SetString(params.MinReviewFee, 10)
+	effectiveMinFee := m.keeper.GetEffectiveMinReviewFee(ctx)
+	minFee, _ := new(big.Int).SetString(effectiveMinFee, 10)
 	if minFee != nil && stakeAmt.Cmp(minFee) < 0 {
-		return nil, fmt.Errorf("review fee %s below minimum %s", msg.Stake, params.MinReviewFee)
+		return nil, fmt.Errorf("review fee %s below minimum %s (effective)", msg.Stake, effectiveMinFee)
 	}
 
 	// Validate typed relations — target facts must exist
@@ -145,6 +146,16 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		}
 	}
 
+	// Adaptive cooldown check (R29-6)
+	effectiveCooldown := m.keeper.GetEffectiveCooldown(ctx, msg.Domain)
+	if effectiveCooldown > 0 {
+		lastClaimHeight := m.keeper.GetLastClaimHeight(ctx, msg.Submitter)
+		if lastClaimHeight > 0 && height-lastClaimHeight < effectiveCooldown {
+			return nil, fmt.Errorf("claim cooldown active: %d blocks remaining (effective cooldown: %d)",
+				effectiveCooldown-(height-lastClaimHeight), effectiveCooldown)
+		}
+	}
+
 	// Collect non-refundable review fee and distribute immediately via revenue split.
 	sponsored := msg.Sponsored
 	feeAmount := stakeAmt.Uint64()
@@ -205,6 +216,9 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
 		return nil, err
 	}
+
+	// Record last claim height for adaptive cooldown (R29-6)
+	m.keeper.SetLastClaimHeight(ctx, msg.Submitter, height)
 
 	// Contradiction detection: auto-mark target facts as CONTESTED
 	for _, rel := range msg.Relations {
