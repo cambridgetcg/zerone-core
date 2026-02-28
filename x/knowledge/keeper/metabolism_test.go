@@ -647,6 +647,76 @@ func TestMetabolismStatus_Query(t *testing.T) {
 	require.Equal(t, uint64(326_250), resp.AvgEnergy)
 }
 
+func TestMetabolism_FullLifecycle(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ctx = ctx.WithBlockHeader(cmtproto.Header{Height: 500})
+
+	params, _ := k.GetParams(ctx)
+
+	// ─── Phase 1: Birth ───────────────────────────────────────────
+	// Create a fact with initial energy (500K = 50% of cap)
+	fact := &types.Fact{
+		Id:           "fact-life",
+		Content:      "Full lifecycle test fact!!",
+		Domain:       "physics",
+		Status:       types.FactStatus_FACT_STATUS_VERIFIED,
+		Confidence:   700_000,
+		Energy:       params.MetabolismInitialEnergy,
+		EnergyCap:    params.MetabolismEnergyCap,
+		FitnessScore: params.FitnessInitialScore,
+		Submitter:    "zrn1test",
+	}
+	require.NoError(t, k.SetFact(ctx, fact))
+	require.Equal(t, uint64(500_000), fact.Energy)
+
+	// ─── Phase 2: Sustained drain → AT_RISK ──────────────────────
+	// Base cost = 10,000/epoch. No income sources. 500K / 10K = 50 epochs to drain.
+	// But we need to cross below 300K threshold: (500K - 300K) / 10K = 20 epochs
+	for epoch := uint64(1); epoch <= 25; epoch++ {
+		require.NoError(t, k.ProcessMetabolism(ctx, epoch))
+	}
+	updated, found := k.GetFact(ctx, "fact-life")
+	require.True(t, found)
+	// After 25 epochs: 500K - (25 * 10K) = 250K < 300K → AT_RISK
+	require.Equal(t, uint64(250_000), updated.Energy)
+	require.Equal(t, types.FactStatus_FACT_STATUS_AT_RISK, updated.Status,
+		"fact should be AT_RISK after sustained drain below threshold")
+	require.Greater(t, updated.AtRiskSinceEpoch, uint64(0))
+
+	// ─── Phase 3: Patronage saves it ─────────────────────────────
+	// Apply patronage with enough boost to cross 300K threshold
+	k.ApplyPatronageEnergyBoost(ctx, updated, 500_000) // big patronage
+	updated, _ = k.GetFact(ctx, "fact-life")
+	require.Equal(t, types.FactStatus_FACT_STATUS_ACTIVE, updated.Status,
+		"patronage should recover fact to ACTIVE")
+	require.Equal(t, uint64(0), updated.AtRiskSinceEpoch,
+		"at-risk epoch should be cleared on recovery")
+	require.GreaterOrEqual(t, updated.Energy, params.MetabolismActiveThreshold,
+		"energy should be above active threshold after patronage")
+
+	// ─── Phase 4: Confidence cap enforcement ─────────────────────
+	require.LessOrEqual(t, updated.Confidence, params.MaxConfidence,
+		"confidence should never exceed MaxConfidence")
+
+	// ─── Phase 5: Confidence growth ──────────────────────────────
+	oldConfidence := updated.Confidence
+	require.NoError(t, k.UpdateAllFitnessScores(ctx))
+	updated, _ = k.GetFact(ctx, "fact-life")
+	if params.ConfidenceGrowthPerEpochBps > 0 && oldConfidence < params.MaxConfidence {
+		require.Greater(t, updated.Confidence, oldConfidence,
+			"confidence should grow for healthy facts")
+	}
+	require.LessOrEqual(t, updated.Confidence, params.MaxConfidence,
+		"confidence growth should be capped at MaxConfidence")
+
+	// ─── Phase 6: Metabolism dashboard query ──────────────────────
+	qs := keeper.NewQueryServerImpl(k)
+	resp, err := qs.MetabolismStatus(ctx, &types.QueryMetabolismStatusRequest{})
+	require.NoError(t, err)
+	require.Greater(t, resp.TotalFacts, uint64(0))
+	require.Greater(t, resp.ActiveCount, uint64(0))
+}
+
 func TestConfidence_NoGrowthWhenAtRisk(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
