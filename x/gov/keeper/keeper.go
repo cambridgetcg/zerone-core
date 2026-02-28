@@ -22,6 +22,7 @@ type Keeper struct {
 	upgradeKeeper types.UpgradeKeeper       // set post-init to break circular deps
 	paramRouter    types.ParamRouter    // set post-init to break circular deps
 	emergencyKeeper types.EmergencyKeeper // set post-init (circular dep break)
+	alignmentKeeper types.AlignmentKeeper // set post-init (R31-3, Wood→Earth)
 }
 
 // SetVestingKeeper sets the vesting rewards keeper (post-init to break circular deps).
@@ -52,6 +53,11 @@ func (k Keeper) GetParamRouter() types.ParamRouter {
 // SetEmergencyKeeper sets the emergency keeper (post-init to break circular deps).
 func (k *Keeper) SetEmergencyKeeper(ek types.EmergencyKeeper) {
 	k.emergencyKeeper = ek
+}
+
+// SetAlignmentKeeper sets the alignment keeper (post-init to break circular deps).
+func (k *Keeper) SetAlignmentKeeper(ak types.AlignmentKeeper) {
+	k.alignmentKeeper = ak
 }
 
 // NewKeeper creates a new governance keeper.

@@ -43,7 +43,7 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 	for _, lip := range lastCallLIPs {
 		if currentHeight >= lip.LastCallStartedBlock+params.DiscussionPeriodBlocks {
 			lip.Stage = types.StatusVoting
-			lip.VotingEndBlock = currentHeight + params.VotingPeriodBlocks
+			lip.VotingEndBlock = currentHeight + k.getEffectiveVotingPeriod(ctx, lip, params)
 			k.SetLIP(ctx, lip)
 
 			ctx.EventManager().EmitEvent(

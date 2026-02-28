@@ -197,7 +197,7 @@ func (ms *msgServer) AdvanceLIPStage(goCtx context.Context, msg *types.MsgAdvanc
 
 	case types.StatusLastCall:
 		lip.Stage = types.StatusVoting
-		lip.VotingEndBlock = currentHeight + params.VotingPeriodBlocks
+		lip.VotingEndBlock = currentHeight + ms.getEffectiveVotingPeriod(ctx, lip, params)
 
 	default:
 		return nil, types.ErrInvalidStatus

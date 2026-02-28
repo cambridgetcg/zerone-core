@@ -53,3 +53,8 @@ type FundingRecorder interface {
 type EmergencyKeeper interface {
 	CountHaltsForReason(ctx context.Context, reason string) uint64
 }
+
+// AlignmentKeeper defines the alignment module interface for health-aware governance.
+type AlignmentKeeper interface {
+	GetHealthCategory(ctx context.Context) string
+}
