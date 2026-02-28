@@ -1148,6 +1148,13 @@ func NewZeroneApp(
 		zeronepartnershipskeeper.NewKnowledgeDividendAdapter(app.KnowledgeKeeper),
 	)
 
+	// R31-3: Wire alignment health signal into governance for expedited voting.
+	app.ZeroneGovKeeper.SetAlignmentKeeper(&app.AlignmentKeeper)
+	// R31-3: Wire partnerships keeper into governance for domain formation freezes.
+	app.ZeroneGovKeeper.SetPartnershipsKeeper(
+		zeronepartnershipskeeper.NewGovPartnershipsAdapter(app.PartnershipsKeeper),
+	)
+
 	// ---- Toolbox keeper (R8-1) ----
 	toolboxRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)
 	app.ToolboxKeeper = zeronetoolboxkeeper.NewKeeper(
