@@ -77,6 +77,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	// IBC modules
+	capability "github.com/cosmos/ibc-go/modules/capability"
 	capabilitykeeper "github.com/cosmos/ibc-go/modules/capability/keeper"
 	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
 	ibctransfer "github.com/cosmos/ibc-go/v8/modules/apps/transfer"
@@ -1181,6 +1182,7 @@ func NewZeroneApp(
 		upgrade.NewAppModule(app.UpgradeKeeper, addresscodec.NewBech32Codec(AccountAddressPrefix)),
 		evidence.NewAppModule(app.EvidenceKeeper),
 		consensus.NewAppModule(appCodec, app.ConsensusKeeper),
+		capability.NewAppModule(appCodec, *app.CapabilityKeeper, false),
 		ibc.NewAppModule(app.IBCKeeper),
 		ibctransfer.NewAppModule(app.TransferKeeper),
 		ibcfee.NewAppModule(app.IBCFeeKeeper),
