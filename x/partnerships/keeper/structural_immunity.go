@@ -8,6 +8,20 @@ import (
 	"github.com/zerone-chain/zerone/x/partnerships/types"
 )
 
+// ---------- Domain Social Benefit Status (R31-5) ----------
+
+// GetDomainSocialBenefitStatus returns true when a domain's social density
+// meets or exceeds the SocialSaturationThreshold (R31-5: Water → Fire).
+func (k Keeper) GetDomainSocialBenefitStatus(ctx sdk.Context, domain string) bool {
+	params := k.GetParams(ctx)
+	threshold := params.SocialSaturationThreshold
+	if threshold == 0 {
+		threshold = 4 // safety default
+	}
+	density := k.GetDomainPartnershipDensity(ctx, domain)
+	return density >= threshold
+}
+
 // ---------- Domain Partnership Density (R29-5) ----------
 
 // GetDomainPartnershipDensity counts unique participants in active partnerships
