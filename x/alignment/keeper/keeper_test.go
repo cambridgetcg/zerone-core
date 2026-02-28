@@ -551,6 +551,109 @@ func TestBoundedCorrectionLargeBlocked(t *testing.T) {
 	}
 }
 
+// --- Test: Health transition to degraded enables double frequency ---
+
+func TestHealthTransitionDegradedDoubleFrequency(t *testing.T) {
+	k, mocks, ctx := setupKeeper(t)
+
+	k.SetState(ctx, &types.AlignmentState{
+		Enabled:          true,
+		PreviousCategory: types.CategoryHealthy,
+	})
+
+	// Set dimensions to produce degraded composite (< 700k healthy threshold).
+	mocks.knowledge.verificationRate = 300_000
+	mocks.knowledge.consensusDiversity = 300_000
+	mocks.staking.totalStaked = big.NewInt(400_000_000_000)
+	mocks.staking.activeValidators = 50
+	mocks.staking.targetValidators = 111
+	mocks.ontology.domainCount = 30
+	mocks.vestingRewards.totalSupply = big.NewInt(1_000_000_000_000)
+
+	ctx = ctx.WithBlockHeight(100)
+	am := alignment.NewAppModule(nil, k)
+	if err := am.EndBlock(ctx); err != nil {
+		t.Fatalf("EndBlock failed: %v", err)
+	}
+
+	state := k.GetState(ctx)
+	if !state.DegradedFrequencyActive {
+		t.Error("expected DegradedFrequencyActive=true after transition to degraded")
+	}
+	if state.PreviousCategory != types.CategoryDegraded && state.PreviousCategory != types.CategoryCritical {
+		t.Errorf("expected PreviousCategory degraded or critical, got %s", state.PreviousCategory)
+	}
+}
+
+// --- Test: Health transition recovery resets frequency ---
+
+func TestHealthTransitionRecoveryResetsFrequency(t *testing.T) {
+	k, mocks, ctx := setupKeeper(t)
+
+	k.SetState(ctx, &types.AlignmentState{
+		Enabled:                 true,
+		PreviousCategory:        types.CategoryDegraded,
+		DegradedFrequencyActive: true,
+	})
+
+	// Set all dimensions high to produce healthy composite.
+	mocks.knowledge.verificationRate = 900_000
+	mocks.knowledge.consensusDiversity = 900_000
+	mocks.staking.totalStaked = big.NewInt(800_000_000_000)
+	mocks.staking.activeValidators = 111
+	mocks.staking.targetValidators = 111
+	mocks.ontology.domainCount = 100
+	mocks.vestingRewards.totalSupply = big.NewInt(1_000_000_000_000)
+
+	ctx = ctx.WithBlockHeight(100)
+	am := alignment.NewAppModule(nil, k)
+	if err := am.EndBlock(ctx); err != nil {
+		t.Fatalf("EndBlock failed: %v", err)
+	}
+
+	state := k.GetState(ctx)
+	if state.DegradedFrequencyActive {
+		t.Error("expected DegradedFrequencyActive=false after recovery to healthy")
+	}
+	if state.PreviousCategory != types.CategoryHealthy {
+		t.Errorf("expected PreviousCategory=healthy, got %s", state.PreviousCategory)
+	}
+}
+
+// --- Test: Degraded frequency affects interval ---
+
+func TestDegradedFrequencyAffectsInterval(t *testing.T) {
+	k, mocks, ctx := setupKeeper(t)
+
+	// Pre-set degraded state with frequency active.
+	k.SetState(ctx, &types.AlignmentState{
+		Enabled:                 true,
+		DegradedFrequencyActive: true,
+		PreviousCategory:        types.CategoryDegraded,
+	})
+
+	mocks.knowledge.verificationRate = 300_000
+	mocks.knowledge.consensusDiversity = 300_000
+	mocks.staking.totalStaked = big.NewInt(400_000_000_000)
+	mocks.staking.activeValidators = 50
+	mocks.staking.targetValidators = 111
+	mocks.ontology.domainCount = 30
+	mocks.vestingRewards.totalSupply = big.NewInt(1_000_000_000_000)
+
+	// Default interval = 100, degraded = 50.
+	// Height 50 should trigger (50 % 50 == 0).
+	ctx = ctx.WithBlockHeight(50)
+	am := alignment.NewAppModule(nil, k)
+	if err := am.EndBlock(ctx); err != nil {
+		t.Fatalf("EndBlock failed: %v", err)
+	}
+
+	_, found := k.GetObservation(ctx, 50)
+	if !found {
+		t.Error("expected observation at height 50 (degraded frequency: interval=50)")
+	}
+}
+
 // --- Test 9: Param validation rejects invalid configs ---
 
 func TestParamValidation(t *testing.T) {

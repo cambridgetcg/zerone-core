@@ -17,6 +17,17 @@ type BankKeeper interface {
 // CaptureDefenseKeeper provides capture risk analysis.
 type CaptureDefenseKeeper interface {
 	GetCaptureMetrics(ctx context.Context, domain string) (*CaptureMetricsData, bool)
+	ClearCaptureFlag(ctx context.Context, domain string)
+}
+
+// DomainQualificationKeeper allows reducing qualification weight on confirmed capture.
+type DomainQualificationKeeper interface {
+	ReduceQualificationWeight(ctx context.Context, validator string, domain string, reductionBps uint64, expiryHeight uint64) error
+}
+
+// KnowledgeKeeper allows adjusting verification thresholds on confirmed capture.
+type KnowledgeKeeper interface {
+	IncreaseVerificationThreshold(ctx context.Context, domain string, additionalVerifiers uint32, expiryHeight uint64) error
 }
 
 // CaptureMetricsData is a plain struct to avoid circular imports with capture_defense/types.

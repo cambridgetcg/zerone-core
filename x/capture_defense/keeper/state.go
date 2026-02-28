@@ -283,6 +283,28 @@ func (k Keeper) IterateCaptureMetrics(ctx context.Context, cb func(*types.Captur
 	}
 }
 
+// ClearCaptureFlag unflags a domain by setting Flagged=false on its metrics.
+func (k Keeper) ClearCaptureFlag(ctx context.Context, domain string) {
+	metrics, found := k.GetCaptureMetrics(ctx, domain)
+	if !found {
+		return
+	}
+	metrics.Flagged = false
+	k.SetCaptureMetrics(ctx, metrics)
+}
+
+// GetFlaggedDomainCount returns the number of domains currently flagged for capture risk.
+func (k Keeper) GetFlaggedDomainCount(ctx context.Context) uint64 {
+	var count uint64
+	k.IterateCaptureMetrics(ctx, func(m *types.CaptureMetrics) bool {
+		if m.Flagged {
+			count++
+		}
+		return false
+	})
+	return count
+}
+
 // ---------- VerificationHistory ----------
 
 // SetVerificationHistory stores a verification history entry.

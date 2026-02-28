@@ -118,6 +118,9 @@ var (
 	// ─── Retroactive vindication (R28-1) ────────────────────────────────
 	VindicationPendingPrefix = []byte{0x50} // 0x50 | factID → []VindicationEntry (JSON)
 	VindicationRecordPrefix  = []byte{0x51} // 0x51 | factID / verifier → VindicationRecord (JSON)
+
+	// ─── Capture defense overrides (R28-8) ──────────────────────────────
+	VerificationThresholdOverrideKeyPrefix = []byte{0x52} // 0x52 | domain → threshold override (binary)
 )
 
 // ─── Key constructors ─────────────────────────────────────────────────────────

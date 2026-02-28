@@ -238,6 +238,34 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 			}
 		}
 
+		// Apply capture consequences (R28-8)
+		expiryHeight := uint64(ctx.BlockHeight()) + 50000 // ~35 hours temporary
+
+		// Reduce qualification weight for accused validators
+		if m.qualificationKeeper != nil {
+			for _, accused := range challenge.AccusedValidators {
+				if err := m.qualificationKeeper.ReduceQualificationWeight(ctx, accused, challenge.Domain, 500000, expiryHeight); err != nil {
+					m.Logger(ctx).Error("failed to reduce qualification weight", "validator", accused, "err", err)
+				}
+			}
+		}
+
+		// Increase verification threshold for the domain temporarily
+		if m.knowledgeKeeper != nil {
+			if err := m.knowledgeKeeper.IncreaseVerificationThreshold(ctx, challenge.Domain, 2, expiryHeight); err != nil {
+				m.Logger(ctx).Error("failed to increase verification threshold", "domain", challenge.Domain, "err", err)
+			}
+		}
+
+		// Emit capture_confirmed event for alignment module
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent(
+				"zerone.capture_challenge.capture_confirmed",
+				sdk.NewAttribute("domain", challenge.Domain),
+				sdk.NewAttribute("challenge_id", challenge.Id),
+			),
+		)
+
 	case types.ChallengeOutcome_CHALLENGE_OUTCOME_REJECTED:
 		// Route rejected challenger stake to development fund
 		if stakeAmt.Sign() > 0 {
@@ -263,6 +291,11 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 
 		rewardAmount = "0"
 		slashAmount = "0"
+
+		// Clear capture flag on rejected challenge (R28-8)
+		if m.captureDefenseKeeper != nil {
+			m.captureDefenseKeeper.ClearCaptureFlag(ctx, challenge.Domain)
+		}
 
 	case types.ChallengeOutcome_CHALLENGE_OUTCOME_PARTIAL:
 		// Return half the stake, route the other half to development fund

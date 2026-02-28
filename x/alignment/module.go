@@ -126,6 +126,8 @@ func (am AppModule) BeginBlock(_ context.Context) error {
 
 // EndBlock runs observation→scoring→corrections every ObservationIntervalBlocks.
 // Skips if module is disabled or chain is emergency-halted.
+// When health degrades, enables 2x observation frequency (halved interval).
+// When health recovers to healthy, restores normal frequency.
 func (am AppModule) EndBlock(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -143,8 +145,14 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 		return nil
 	}
 
-	// Only observe at interval boundaries.
-	if height%params.ObservationIntervalBlocks != 0 {
+	// Compute effective interval (halved when degraded frequency is active).
+	state := am.keeper.GetState(ctx)
+	effectiveInterval := params.ObservationIntervalBlocks
+	if state.DegradedFrequencyActive && effectiveInterval > 1 {
+		effectiveInterval = effectiveInterval / 2
+	}
+
+	if height%effectiveInterval != 0 {
 		return nil
 	}
 
@@ -165,8 +173,39 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	hi := am.keeper.BuildHealthIndex(scores, category, uint32(len(corrections)))
 	am.keeper.SetHealthIndex(ctx, hi)
 
-	// 5. Update state
-	state := am.keeper.GetState(ctx)
+	// 5. Health transition responses
+	previousCategory := state.PreviousCategory
+	if previousCategory != "" && previousCategory != category {
+		switch {
+		case category == types.CategoryDegraded && previousCategory == types.CategoryHealthy:
+			state.DegradedFrequencyActive = true
+			sdkCtx.EventManager().EmitEvent(
+				sdk.NewEvent("zerone.alignment.network_health_degraded",
+					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
+					sdk.NewAttribute("composite", fmt.Sprintf("%d", scores.Composite)),
+				),
+			)
+		case category == types.CategoryCritical:
+			state.DegradedFrequencyActive = true
+			sdkCtx.EventManager().EmitEvent(
+				sdk.NewEvent("zerone.alignment.network_health_critical",
+					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
+					sdk.NewAttribute("composite", fmt.Sprintf("%d", scores.Composite)),
+				),
+			)
+		case category == types.CategoryHealthy && (previousCategory == types.CategoryDegraded || previousCategory == types.CategoryCritical):
+			state.DegradedFrequencyActive = false
+			sdkCtx.EventManager().EmitEvent(
+				sdk.NewEvent("zerone.alignment.network_health_recovered",
+					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
+					sdk.NewAttribute("composite", fmt.Sprintf("%d", scores.Composite)),
+				),
+			)
+		}
+	}
+	state.PreviousCategory = category
+
+	// 6. Update state
 	state.LastObservationHeight = height
 	state.ObservationCount++
 	am.keeper.SetState(ctx, state)

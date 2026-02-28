@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"encoding/binary"
 
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/log"
@@ -97,4 +98,18 @@ func (k *Keeper) SetCaptureDefenseKeeper(cdk types.CaptureDefenseKeeper) {
 func (k Keeper) Logger(ctx context.Context) log.Logger {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	return sdkCtx.Logger().With("module", "x/"+types.ModuleName)
+}
+
+// IncreaseVerificationThreshold temporarily requires more verifiers for a domain.
+// The override is stored as 20 bytes: additionalVerifiers (4) + expiryHeight (8) + createdAt (8).
+func (k Keeper) IncreaseVerificationThreshold(ctx context.Context, domain string, additionalVerifiers uint32, expiryHeight uint64) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	kvStore := k.storeService.OpenKVStore(ctx)
+
+	key := append(append([]byte{}, types.VerificationThresholdOverrideKeyPrefix...), []byte(domain)...)
+	buf := make([]byte, 20)
+	binary.BigEndian.PutUint32(buf[0:4], additionalVerifiers)
+	binary.BigEndian.PutUint64(buf[4:12], expiryHeight)
+	binary.BigEndian.PutUint64(buf[12:20], uint64(sdkCtx.BlockHeight()))
+	return kvStore.Set(key, buf)
 }
