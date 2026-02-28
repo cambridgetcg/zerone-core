@@ -455,6 +455,9 @@ func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact) (*types.
 		EnergyLastUpdated: height,
 	}
 
+	// Apply domain carrying capacity birth pressure (R29-1)
+	fact.Energy = m.keeper.ApplyBirthPressure(ctx, msg.Domain, fact.Energy)
+
 	if err := m.keeper.SetFact(ctx, fact); err != nil {
 		return nil, err
 	}

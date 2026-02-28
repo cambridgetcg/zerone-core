@@ -129,6 +129,29 @@ func (k Keeper) GetInboundCrossDomainCitationCount(ctx context.Context, domain s
 	return count
 }
 
+// ─── Birth and death pressure ───────────────────────────────────────────────
+
+// ApplyBirthPressure adjusts initial energy based on domain pressure.
+// Sparse domains give an energy bonus; overcrowded domains give no bonus.
+func (k Keeper) ApplyBirthPressure(ctx context.Context, domain string, baseEnergy uint64) uint64 {
+	params, err := k.GetParams(ctx)
+	if err != nil || params.DomainBaseCapacity == 0 {
+		return baseEnergy
+	}
+	pressure := k.GetDomainPressure(ctx, domain)
+	if pressure >= BPSCapacity {
+		return baseEnergy // at or over capacity — no bonus
+	}
+	// Under capacity: bonus proportional to sparseness
+	sparseness := BPSCapacity - pressure
+	bonus := safeMulDiv(
+		safeMulDiv(baseEnergy, sparseness, BPSCapacity),
+		params.UnderpopulationBirthBonusBps,
+		BPSCapacity,
+	)
+	return baseEnergy + bonus
+}
+
 // PressureCategory returns a human-readable category for the pressure level.
 func PressureCategory(pressureBps uint64) string {
 	switch {

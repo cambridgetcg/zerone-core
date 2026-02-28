@@ -118,3 +118,44 @@ func TestPressureCategory(t *testing.T) {
 	require.Equal(t, "crowded", keeper.PressureCategory(1_000_000))
 	require.Equal(t, "overcrowded", keeper.PressureCategory(1_500_000))
 }
+
+// ─── Birth pressure tests ───────────────────────────────────────────────────
+
+func TestBirthPressure_SparseBonus(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	// Empty domain = sparse = energy bonus
+	params, _ := k.GetParams(ctx)
+	energy := k.ApplyBirthPressure(ctx, "physics", params.MetabolismInitialEnergy)
+	require.Greater(t, energy, params.MetabolismInitialEnergy)
+}
+
+func TestBirthPressure_OvercrowdedNoBonus(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	stats := keeper.DomainStats{Domain: "physics", ActiveCount: 2000}
+	k.SetDomainStats(ctx, &stats)
+	params, _ := k.GetParams(ctx)
+	energy := k.ApplyBirthPressure(ctx, "physics", params.MetabolismInitialEnergy)
+	require.Equal(t, params.MetabolismInitialEnergy, energy) // no bonus when overcrowded
+}
+
+func TestBirthPressure_AtCapacityNoBonus(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	stats := keeper.DomainStats{Domain: "physics", ActiveCount: 1000}
+	k.SetDomainStats(ctx, &stats)
+	params, _ := k.GetParams(ctx)
+	energy := k.ApplyBirthPressure(ctx, "physics", params.MetabolismInitialEnergy)
+	require.Equal(t, params.MetabolismInitialEnergy, energy) // no bonus at exact capacity
+}
+
+func TestBirthPressure_HalfCapacity(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	stats := keeper.DomainStats{Domain: "physics", ActiveCount: 500}
+	k.SetDomainStats(ctx, &stats)
+	params, _ := k.GetParams(ctx)
+	energy := k.ApplyBirthPressure(ctx, "physics", params.MetabolismInitialEnergy)
+	// 50% sparseness, 20% bonus cap → ~10% bonus
+	require.Greater(t, energy, params.MetabolismInitialEnergy)
+	// But less than full sparse bonus
+	fullSparseEnergy := k.ApplyBirthPressure(ctx, "theology", params.MetabolismInitialEnergy) // empty domain
+	require.Less(t, energy, fullSparseEnergy)
+}

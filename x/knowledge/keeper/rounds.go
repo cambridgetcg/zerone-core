@@ -285,6 +285,8 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		EnergyLastUpdated: height,
 	}
 
+	// Apply domain carrying capacity birth pressure (R29-1)
+	fact.Energy = k.ApplyBirthPressure(ctx, claim.Domain, fact.Energy)
 
 	// Apply role bonus — claim type × account type (R28-5)
 	accountType := k.getAccountType(ctx, claim.Submitter)
