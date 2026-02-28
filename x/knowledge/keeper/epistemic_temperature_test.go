@@ -231,6 +231,29 @@ func TestClampConfidence_NeutralDomainUnchanged(t *testing.T) {
 	require.Equal(t, uint64(750_000), clamped)
 }
 
+func TestBeginBlocker_UpdatesTemperatureAtFitnessEpoch(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	// Set a domain with hot temperature ("physics" exists via DefaultGenesis domains)
+	require.NoError(t, k.SetDomainEpistemicState(ctx, &types.DomainEpistemicState{
+		Domain:      "physics",
+		Temperature: 800_000,
+	}))
+
+	// Advance to a fitness epoch boundary (default FitnessEpochBlocks = 10,000)
+	// setupKnowledgeTest starts at height 100, so +9,900 = 10,000
+	ctx = advanceBlocks(ctx, 9_900)
+
+	err := k.BeginBlocker(ctx)
+	require.NoError(t, err)
+
+	// Temperature should have been updated (decayed toward neutral)
+	state, found, err := k.GetDomainEpistemicState(ctx, "physics")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Less(t, state.Temperature, uint64(800_000))
+}
+
 func TestAdvanceConfidence_NeutralDomain(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 

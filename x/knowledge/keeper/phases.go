@@ -58,6 +58,20 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		if err := k.ProcessDiversity(ctx, epoch); err != nil {
 			k.Logger(ctx).Error("diversity processing failed", "epoch", epoch, "error", err)
 		}
+		// 9. Update epistemic temperature for all domains (R29-2)
+		k.IterateDomains(ctx, func(domain *types.Domain) bool {
+			if dErr := k.UpdateEpistemicTemperature(ctx, domain.Name); dErr != nil {
+				k.Logger(ctx).Error("epistemic temperature update failed", "domain", domain.Name, "error", dErr)
+			}
+			return false
+		})
+	}
+
+	// Advance fact confidence at ConfidenceGrowthEpoch intervals (R29-2)
+	if params.ConfidenceGrowthEpoch > 0 && height > 0 && height%params.ConfidenceGrowthEpoch == 0 {
+		if err := k.AdvanceConfidence(ctx); err != nil {
+			k.Logger(ctx).Error("confidence growth failed", "error", err)
+		}
 	}
 
 	return nil
