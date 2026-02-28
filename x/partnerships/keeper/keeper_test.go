@@ -1915,6 +1915,46 @@ func TestGenesis_InitExportRoundtrip(t *testing.T) {
 	}
 }
 
+func TestGenesis_MentorshipRoundTrip(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	k.SetMentorship(ctx, &types.Mentorship{
+		Id: "m-1", MentorAddr: humanAddr, MenteeAddr: agentAddr,
+		Domain: "physics", Status: "active", StartBlock: 100, DurationBlocks: 1000,
+	})
+	k.SetFormationMatch(ctx, &types.FormationMatch{
+		Id: "match-1", Addr1: humanAddr, Addr2: agentAddr,
+		Score: 8000, ProposedAt: 100, ExpiresAt: 300, Status: "proposed",
+	})
+
+	exported := k.ExportGenesis(ctx)
+	if len(exported.Mentorships) != 1 {
+		t.Errorf("expected 1 mentorship in export, got %d", len(exported.Mentorships))
+	}
+	if len(exported.FormationMatches) != 1 {
+		t.Errorf("expected 1 formation match in export, got %d", len(exported.FormationMatches))
+	}
+
+	k2, ctx2, _ := setupKeeper(t)
+	k2.InitGenesis(ctx2, exported)
+
+	m, found := k2.GetMentorship(ctx2, "m-1")
+	if !found {
+		t.Fatal("mentorship not found after import")
+	}
+	if m.Domain != "physics" {
+		t.Errorf("expected physics, got %s", m.Domain)
+	}
+
+	fm, found := k2.GetFormationMatch(ctx2, "match-1")
+	if !found {
+		t.Fatal("formation match not found after import")
+	}
+	if fm.Score != 8000 {
+		t.Errorf("expected score 8000, got %d", fm.Score)
+	}
+}
+
 // ==================== GOVERNANCE TESTS ====================
 
 func TestUpdateParams_AuthorityOnly(t *testing.T) {

@@ -178,6 +178,16 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState *types.GenesisState) {
 			k.SetPoolEntry(ctx, pe)
 		}
 	}
+	for _, m := range genState.Mentorships {
+		if m != nil {
+			k.SetMentorship(ctx, m)
+		}
+	}
+	for _, fm := range genState.FormationMatches {
+		if fm != nil {
+			k.SetFormationMatch(ctx, fm)
+		}
+	}
 }
 
 // ExportGenesis exports the module's state.
@@ -191,5 +201,7 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		CoercionSignals:     k.GetAllCoercionSignals(ctx),
 		SeedPartnerships:    k.GetAllSeedPartnerships(ctx),
 		PoolEntries:         k.GetAllPoolEntries(ctx),
+		Mentorships:         k.GetAllMentorships(ctx),
+		FormationMatches:    k.GetAllFormationMatches(ctx),
 	}
 }
