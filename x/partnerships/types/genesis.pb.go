@@ -30,6 +30,8 @@ type GenesisState struct {
 	CoercionSignals     []*CoercionSignal      `protobuf:"bytes,5,rep,name=coercion_signals,json=coercionSignals,proto3" json:"coercion_signals,omitempty"`
 	SeedPartnerships    []*SeedPartnership     `protobuf:"bytes,6,rep,name=seed_partnerships,json=seedPartnerships,proto3" json:"seed_partnerships,omitempty"`
 	PoolEntries         []*PoolEntry           `protobuf:"bytes,7,rep,name=pool_entries,json=poolEntries,proto3" json:"pool_entries,omitempty"`
+	Mentorships         []*Mentorship          `protobuf:"bytes,8,rep,name=mentorships,proto3" json:"mentorships,omitempty"`
+	FormationMatches    []*FormationMatch      `protobuf:"bytes,9,rep,name=formation_matches,json=formationMatches,proto3" json:"formation_matches,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -113,6 +115,20 @@ func (x *GenesisState) GetPoolEntries() []*PoolEntry {
 	return nil
 }
 
+func (x *GenesisState) GetMentorships() []*Mentorship {
+	if x != nil {
+		return x.Mentorships
+	}
+	return nil
+}
+
+func (x *GenesisState) GetFormationMatches() []*FormationMatch {
+	if x != nil {
+		return x.FormationMatches
+	}
+	return nil
+}
+
 type Params struct {
 	state                            protoimpl.MessageState `protogen:"open.v1"`
 	FormationWindowBlocks            uint64                 `protobuf:"varint,1,opt,name=formation_window_blocks,json=formationWindowBlocks,proto3" json:"formation_window_blocks,omitempty"`
@@ -129,6 +145,12 @@ type Params struct {
 	SeedPartnershipDuration          uint64                 `protobuf:"varint,12,opt,name=seed_partnership_duration,json=seedPartnershipDuration,proto3" json:"seed_partnership_duration,omitempty"`
 	SeedCommonPotCap                 string                 `protobuf:"bytes,13,opt,name=seed_common_pot_cap,json=seedCommonPotCap,proto3" json:"seed_common_pot_cap,omitempty"`
 	HumanCoercionFreezeMultiplierBps uint64                 `protobuf:"varint,14,opt,name=human_coercion_freeze_multiplier_bps,json=humanCoercionFreezeMultiplierBps,proto3" json:"human_coercion_freeze_multiplier_bps,omitempty"`
+	GraduationVerifications          uint64                 `protobuf:"varint,15,opt,name=graduation_verifications,json=graduationVerifications,proto3" json:"graduation_verifications,omitempty"`
+	GraduationClaims                 uint64                 `protobuf:"varint,16,opt,name=graduation_claims,json=graduationClaims,proto3" json:"graduation_claims,omitempty"`
+	MaxMentorshipsPerMentor          uint64                 `protobuf:"varint,17,opt,name=max_mentorships_per_mentor,json=maxMentorshipsPerMentor,proto3" json:"max_mentorships_per_mentor,omitempty"`
+	FormationMatchIntervalBlocks     uint64                 `protobuf:"varint,18,opt,name=formation_match_interval_blocks,json=formationMatchIntervalBlocks,proto3" json:"formation_match_interval_blocks,omitempty"`
+	MatchAcceptanceBlocks            uint64                 `protobuf:"varint,19,opt,name=match_acceptance_blocks,json=matchAcceptanceBlocks,proto3" json:"match_acceptance_blocks,omitempty"`
+	AutoProposePartnershipOnGraduation bool                 `protobuf:"varint,20,opt,name=auto_propose_partnership_on_graduation,json=autoProposePartnershipOnGraduation,proto3" json:"auto_propose_partnership_on_graduation,omitempty"`
 	unknownFields                    protoimpl.UnknownFields
 	sizeCache                        protoimpl.SizeCache
 }
@@ -261,35 +283,81 @@ func (x *Params) GetHumanCoercionFreezeMultiplierBps() uint64 {
 	return 0
 }
 
+func (x *Params) GetGraduationVerifications() uint64 {
+	if x != nil {
+		return x.GraduationVerifications
+	}
+	return 0
+}
+
+func (x *Params) GetGraduationClaims() uint64 {
+	if x != nil {
+		return x.GraduationClaims
+	}
+	return 0
+}
+
+func (x *Params) GetMaxMentorshipsPerMentor() uint64 {
+	if x != nil {
+		return x.MaxMentorshipsPerMentor
+	}
+	return 0
+}
+
+func (x *Params) GetFormationMatchIntervalBlocks() uint64 {
+	if x != nil {
+		return x.FormationMatchIntervalBlocks
+	}
+	return 0
+}
+
+func (x *Params) GetMatchAcceptanceBlocks() uint64 {
+	if x != nil {
+		return x.MatchAcceptanceBlocks
+	}
+	return 0
+}
+
+func (x *Params) GetAutoProposePartnershipOnGraduation() bool {
+	if x != nil {
+		return x.AutoProposePartnershipOnGraduation
+	}
+	return false
+}
+
 var File_zerone_partnerships_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_partnerships_v1_genesis_proto_rawDesc = "" +
-	"\n" +
-	"$zerone/partnerships/v1/genesis.proto\x12\x16zerone.partnerships.v1\x1a\"zerone/partnerships/v1/types.proto\"\xaa\x04\n" +
-	"\fGenesisState\x126\n" +
-	"\x06params\x18\x01 \x01(\v2\x1e.zerone.partnerships.v1.ParamsR\x06params\x12G\n" +
-	"\fpartnerships\x18\x02 \x03(\v2#.zerone.partnerships.v1.PartnershipR\fpartnerships\x12]\n" +
-	"\x14consensus_operations\x18\x03 \x03(\v2*.zerone.partnerships.v1.ConsensusOperationR\x13consensusOperations\x12K\n" +
-	"\x0esafety_freezes\x18\x04 \x03(\v2$.zerone.partnerships.v1.SafetyFreezeR\rsafetyFreezes\x12Q\n" +
-	"\x10coercion_signals\x18\x05 \x03(\v2&.zerone.partnerships.v1.CoercionSignalR\x0fcoercionSignals\x12T\n" +
-	"\x11seed_partnerships\x18\x06 \x03(\v2'.zerone.partnerships.v1.SeedPartnershipR\x10seedPartnerships\x12D\n" +
-	"\fpool_entries\x18\a \x03(\v2!.zerone.partnerships.v1.PoolEntryR\vpoolEntries\"\x9d\x06\n" +
-	"\x06Params\x126\n" +
-	"\x17formation_window_blocks\x18\x01 \x01(\x04R\x15formationWindowBlocks\x122\n" +
-	"\x15cooling_period_blocks\x18\x02 \x01(\x04R\x13coolingPeriodBlocks\x12/\n" +
-	"\x14common_pot_share_bps\x18\x03 \x01(\x04R\x11commonPotShareBps\x12A\n" +
-	"\x1dsafety_freeze_duration_blocks\x18\x04 \x01(\x04R\x1asafetyFreezeDurationBlocks\x121\n" +
-	"\x15max_freezes_per_epoch\x18\x05 \x01(\rR\x12maxFreezesPerEpoch\x124\n" +
-	"\x16coercion_review_blocks\x18\x06 \x01(\x04R\x14coercionReviewBlocks\x120\n" +
-	"\x14base_cooldown_blocks\x18\a \x01(\x04R\x12baseCooldownBlocks\x12;\n" +
-	"\x1amax_counter_proposal_depth\x18\b \x01(\rR\x17maxCounterProposalDepth\x125\n" +
-	"\x17default_human_split_bps\x18\t \x01(\x04R\x14defaultHumanSplitBps\x125\n" +
-	"\x17default_agent_split_bps\x18\n" +
-	" \x01(\x04R\x14defaultAgentSplitBps\x122\n" +
-	"\x15min_partnership_stake\x18\v \x01(\tR\x13minPartnershipStake\x12:\n" +
-	"\x19seed_partnership_duration\x18\f \x01(\x04R\x17seedPartnershipDuration\x12-\n" +
-	"\x13seed_common_pot_cap\x18\r \x01(\tR\x10seedCommonPotCap\x12N\n" +
-	"$human_coercion_freeze_multiplier_bps\x18\x0e \x01(\x04R humanCoercionFreezeMultiplierBpsB5Z3github.com/zerone-chain/zerone/x/partnerships/typesb\x06proto3"
+	"\n$zerone/partnerships/v1/genesis.proto\x12\x16zerone.partnerships.v1\x1a\"zerone" +
+	"/partnerships/v1/types.proto\"\xc5\x05\n\x0cGenesisState\x126\n\x06params\x18\x01 \x01(\x0b2\x1e.zerone" +
+	".partnerships.v1.ParamsR\x06params\x12G\n\x0cpartnerships\x18\x02 \x03(\x0b2#.zerone.partner" +
+	"ships.v1.PartnershipR\x0cpartnerships\x12]\n\x14consensus_operations\x18\x03 \x03(\x0b2*.zer" +
+	"one.partnerships.v1.ConsensusOperationR\x13consensusOperations\x12K\n\x0esafety_" +
+	"freezes\x18\x04 \x03(\x0b2$.zerone.partnerships.v1.SafetyFreezeR\rsafetyFreezes\x12Q\n\x10" +
+	"coercion_signals\x18\x05 \x03(\x0b2&.zerone.partnerships.v1.CoercionSignalR\x0fcoerci" +
+	"onSignals\x12T\n\x11seed_partnerships\x18\x06 \x03(\x0b2'.zerone.partnerships.v1.SeedPart" +
+	"nershipR\x10seedPartnerships\x12D\n\x0cpool_entries\x18\x07 \x03(\x0b2!.zerone.partnerships." +
+	"v1.PoolEntryR\x0bpoolEntries\x12D\n\x0bmentorships\x18\x08 \x03(\x0b2\".zerone.partnerships.v" +
+	"1.MentorshipR\x0bmentorships\x12S\n\x11formation_matches\x18\t \x03(\x0b2&.zerone.partners" +
+	"hips.v1.FormationMatchR\x10formationMatches\"\x95\t\n\x06Params\x126\n\x17formation_windo" +
+	"w_blocks\x18\x01 \x01(\x04R\x15formationWindowBlocks\x122\n\x15cooling_period_blocks\x18\x02 \x01(\x04R\x13" +
+	"coolingPeriodBlocks\x12/\n\x14common_pot_share_bps\x18\x03 \x01(\x04R\x11commonPotShareBps\x12A" +
+	"\n\x1dsafety_freeze_duration_blocks\x18\x04 \x01(\x04R\x1asafetyFreezeDurationBlocks\x121\n\x15m" +
+	"ax_freezes_per_epoch\x18\x05 \x01(\rR\x12maxFreezesPerEpoch\x124\n\x16coercion_review_bloc" +
+	"ks\x18\x06 \x01(\x04R\x14coercionReviewBlocks\x120\n\x14base_cooldown_blocks\x18\x07 \x01(\x04R\x12baseCool" +
+	"downBlocks\x12;\n\x1amax_counter_proposal_depth\x18\x08 \x01(\rR\x17maxCounterProposalDept" +
+	"h\x125\n\x17default_human_split_bps\x18\t \x01(\x04R\x14defaultHumanSplitBps\x125\n\x17default_ag" +
+	"ent_split_bps\x18\n \x01(\x04R\x14defaultAgentSplitBps\x122\n\x15min_partnership_stake\x18\x0b \x01" +
+	"(\tR\x13minPartnershipStake\x12:\n\x19seed_partnership_duration\x18\x0c \x01(\x04R\x17seedPartne" +
+	"rshipDuration\x12-\n\x13seed_common_pot_cap\x18\r \x01(\tR\x10seedCommonPotCap\x12N\n$human_" +
+	"coercion_freeze_multiplier_bps\x18\x0e \x01(\x04R humanCoercionFreezeMultiplierBps" +
+	"\x129\n\x18graduation_verifications\x18\x0f \x01(\x04R\x17graduationVerifications\x12+\n\x11graduat" +
+	"ion_claims\x18\x10 \x01(\x04R\x10graduationClaims\x12;\n\x1amax_mentorships_per_mentor\x18\x11 \x01(\x04" +
+	"R\x17maxMentorshipsPerMentor\x12E\n\x1fformation_match_interval_blocks\x18\x12 \x01(\x04R\x1cfo" +
+	"rmationMatchIntervalBlocks\x126\n\x17match_acceptance_blocks\x18\x13 \x01(\x04R\x15matchAcce" +
+	"ptanceBlocks\x12R\n&auto_propose_partnership_on_graduation\x18\x14 \x01(\x08R\"autoProp" +
+	"osePartnershipOnGraduationB5Z3github.com/zerone-chain/zerone/x/partner" +
+	"ships/typesb\x06proto3"
 
 var (
 	file_zerone_partnerships_v1_genesis_proto_rawDescOnce sync.Once
@@ -313,6 +381,8 @@ var file_zerone_partnerships_v1_genesis_proto_goTypes = []any{
 	(*CoercionSignal)(nil),     // 5: zerone.partnerships.v1.CoercionSignal
 	(*SeedPartnership)(nil),    // 6: zerone.partnerships.v1.SeedPartnership
 	(*PoolEntry)(nil),          // 7: zerone.partnerships.v1.PoolEntry
+	(*Mentorship)(nil),         // 8: zerone.partnerships.v1.Mentorship
+	(*FormationMatch)(nil),     // 9: zerone.partnerships.v1.FormationMatch
 }
 var file_zerone_partnerships_v1_genesis_proto_depIdxs = []int32{
 	1, // 0: zerone.partnerships.v1.GenesisState.params:type_name -> zerone.partnerships.v1.Params
@@ -322,11 +392,13 @@ var file_zerone_partnerships_v1_genesis_proto_depIdxs = []int32{
 	5, // 4: zerone.partnerships.v1.GenesisState.coercion_signals:type_name -> zerone.partnerships.v1.CoercionSignal
 	6, // 5: zerone.partnerships.v1.GenesisState.seed_partnerships:type_name -> zerone.partnerships.v1.SeedPartnership
 	7, // 6: zerone.partnerships.v1.GenesisState.pool_entries:type_name -> zerone.partnerships.v1.PoolEntry
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	8, // 7: zerone.partnerships.v1.GenesisState.mentorships:type_name -> zerone.partnerships.v1.Mentorship
+	9, // 8: zerone.partnerships.v1.GenesisState.formation_matches:type_name -> zerone.partnerships.v1.FormationMatch
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_zerone_partnerships_v1_genesis_proto_init() }
