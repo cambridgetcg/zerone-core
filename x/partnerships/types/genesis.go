@@ -17,7 +17,8 @@ func DefaultParams() *Params {
 		DefaultAgentSplitBps:       500000, // 50%
 		MinPartnershipStake:        "1000000",  // 1 ZRN
 		SeedPartnershipDuration:    10000,
-		SeedCommonPotCap:           "100000000", // 100 ZRN
+		SeedCommonPotCap:                   "100000000", // 100 ZRN
+		HumanCoercionFreezeMultiplierBps:   1_500_000, // 1.5x freeze duration for human coercion signals (R28-5)
 	}
 }
 

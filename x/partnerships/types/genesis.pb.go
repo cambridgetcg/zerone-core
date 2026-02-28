@@ -127,7 +127,8 @@ type Params struct {
 	DefaultAgentSplitBps       uint64                 `protobuf:"varint,10,opt,name=default_agent_split_bps,json=defaultAgentSplitBps,proto3" json:"default_agent_split_bps,omitempty"`
 	MinPartnershipStake        string                 `protobuf:"bytes,11,opt,name=min_partnership_stake,json=minPartnershipStake,proto3" json:"min_partnership_stake,omitempty"`
 	SeedPartnershipDuration    uint64                 `protobuf:"varint,12,opt,name=seed_partnership_duration,json=seedPartnershipDuration,proto3" json:"seed_partnership_duration,omitempty"`
-	SeedCommonPotCap           string                 `protobuf:"bytes,13,opt,name=seed_common_pot_cap,json=seedCommonPotCap,proto3" json:"seed_common_pot_cap,omitempty"`
+	SeedCommonPotCap                   string                 `protobuf:"bytes,13,opt,name=seed_common_pot_cap,json=seedCommonPotCap,proto3" json:"seed_common_pot_cap,omitempty"`
+	HumanCoercionFreezeMultiplierBps   uint64                 `protobuf:"varint,14,opt,name=human_coercion_freeze_multiplier_bps,json=humanCoercionFreezeMultiplierBps,proto3" json:"human_coercion_freeze_multiplier_bps,omitempty"` // 1.5x — human coercion signals freeze longer (R28-5)
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
@@ -251,6 +252,13 @@ func (x *Params) GetSeedCommonPotCap() string {
 		return x.SeedCommonPotCap
 	}
 	return ""
+}
+
+func (x *Params) GetHumanCoercionFreezeMultiplierBps() uint64 {
+	if x != nil {
+		return x.HumanCoercionFreezeMultiplierBps
+	}
+	return 0
 }
 
 var File_zerone_partnerships_v1_genesis_proto protoreflect.FileDescriptor
