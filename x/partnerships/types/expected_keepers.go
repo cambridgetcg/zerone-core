@@ -34,3 +34,8 @@ type CaptureDefenseKeeper interface {
 type PacingKeeper interface {
 	GetGlobalPacingMultiplier(ctx context.Context) (creationBps, analysisBps uint64)
 }
+
+// OntologyKeeper provides stratum information for cross-stratum partnership matching (R31-4).
+type OntologyKeeper interface {
+	GetRelatedStrata(ctx context.Context, domain string) []string
+}

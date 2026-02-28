@@ -51,6 +51,9 @@ type OntologyKeeper interface {
 	AcknowledgesIncompleteness(ctx context.Context, domain string) (bool, error)
 	// GetStratumForDomain returns the stratum associated with a domain.
 	GetStratumForDomain(ctx context.Context, domain string) (string, error)
+	// GetDepthForDomain returns the tree depth of a domain (R31-4: Metal→Wood).
+	// Root domains have depth 1; deeper strata have higher depth values.
+	GetDepthForDomain(ctx context.Context, domainName string) (uint32, error)
 }
 
 // DomainQualificationKeeper defines the expected domain qualification keeper interface.

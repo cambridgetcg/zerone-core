@@ -100,7 +100,57 @@ func (k Keeper) GetDomainCarryingCapacity(ctx context.Context, domain string) ui
 	}
 	inbound := k.GetInboundCrossDomainCitationCount(ctx, domain)
 	bonus := inbound * params.DomainCapacityGrowthPerCitation
-	return base + bonus
+	capacity := base + bonus
+
+	// R31-4: Metal controls Wood — stratum depth constrains carrying capacity.
+	stratumMultiplier := k.getStratumCapacityMultiplier(ctx, domain)
+	if stratumMultiplier < BPSCapacity {
+		effectiveCapacity := capacity * stratumMultiplier / BPSCapacity
+
+		sdkCtx := sdk.UnwrapSDKContext(ctx)
+		depth := uint32(1)
+		if k.ontologyKeeper != nil {
+			if d, err := k.ontologyKeeper.GetDepthForDomain(ctx, domain); err == nil {
+				depth = d
+			}
+		}
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.stratum_capacity_applied",
+			sdk.NewAttribute("domain", domain),
+			sdk.NewAttribute("stratum_depth", fmt.Sprintf("%d", depth)),
+			sdk.NewAttribute("capacity_multiplier_bps", fmt.Sprintf("%d", stratumMultiplier)),
+			sdk.NewAttribute("effective_capacity", fmt.Sprintf("%d", effectiveCapacity)),
+		))
+
+		return effectiveCapacity
+	}
+
+	return capacity
+}
+
+// getStratumCapacityMultiplier returns a BPS multiplier based on domain depth.
+// Deeper strata (higher depth) have naturally lower carrying capacity (R31-4: Metal controls Wood).
+// Depth 1 (root): 100%, Depth 2: 80%, Depth 3: 60%, Depth 4+: 50%.
+func (k Keeper) getStratumCapacityMultiplier(ctx context.Context, domain string) uint64 {
+	if k.ontologyKeeper == nil {
+		return BPSCapacity // 1x — no ontology module wired
+	}
+
+	depth, err := k.ontologyKeeper.GetDepthForDomain(ctx, domain)
+	if err != nil {
+		return BPSCapacity // 1x on error (domain not found, etc.)
+	}
+
+	switch {
+	case depth <= 1:
+		return BPSCapacity // 100%
+	case depth == 2:
+		return 800_000 // 80%
+	case depth == 3:
+		return 600_000 // 60%
+	default:
+		return 500_000 // 50% floor for depth 4+
+	}
 }
 
 func (k Keeper) GetDomainPressure(ctx context.Context, domain string) uint64 {

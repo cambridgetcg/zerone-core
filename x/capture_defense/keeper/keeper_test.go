@@ -50,6 +50,10 @@ func (m *mockKnowledgeKeeper) GetFactSubmitter(_ context.Context, factId string)
 	return s, ok
 }
 
+func (m *mockKnowledgeKeeper) GetDomainVerificationActivity(_ context.Context, _ string) uint64 {
+	return 0
+}
+
 // ---------- Mock StakingKeeper ----------
 
 type mockStakingKeeper struct {

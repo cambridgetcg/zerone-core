@@ -45,6 +45,7 @@ type StructuralImmunityParams struct {
 	MinDensityForAcceleratedClear            uint64 // Min participants for accelerated flag clearing (default: 10)
 	CapturedDomainFormationBonusBps          uint64 // Match priority boost for flagged domains (default: 300,000 = 30%)
 	FormationBonusDurationBlocks             uint64 // How long formation bonus lasts (default: 50,000 = ~35 hours)
+	ActivityThresholdRelaxationBps           uint64 // max HHI threshold relaxation from verification activity (R31-4, default: 200,000 = 20%)
 }
 
 // DefaultStructuralImmunityParams returns default structural immunity parameters.
@@ -57,6 +58,7 @@ func DefaultStructuralImmunityParams() *StructuralImmunityParams {
 		MinDensityForAcceleratedClear:            10,
 		CapturedDomainFormationBonusBps:          300_000, // 30% match priority boost
 		FormationBonusDurationBlocks:             50_000,  // ~35 hours
+		ActivityThresholdRelaxationBps:           200_000, // max 20% HHI threshold relaxation (R31-4)
 	}
 }
 

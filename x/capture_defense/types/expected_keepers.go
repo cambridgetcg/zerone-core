@@ -8,6 +8,7 @@ import (
 type KnowledgeKeeper interface {
 	GetFactDomain(ctx context.Context, factId string) (string, bool)
 	GetFactSubmitter(ctx context.Context, factId string) (string, bool)
+	GetDomainVerificationActivity(ctx context.Context, domain string) uint64 // R31-4
 }
 
 // StakingKeeper provides access to staking module state for validator info.

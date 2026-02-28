@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -215,6 +216,39 @@ func (k Keeper) GetDomainDepth(ctx sdk.Context, domainName string) (uint32, erro
 		return 1, nil // legacy domains default to depth 1
 	}
 	return domain.Depth, nil
+}
+
+// GetRelatedStrata returns stratum names of domains related to the given domain
+// via cross-links (R31-4). This enables cross-stratum partnership matching.
+// Accepts context.Context so it directly satisfies the partnerships OntologyKeeper interface.
+func (k Keeper) GetRelatedStrata(ctx context.Context, domain string) []string {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	links := k.GetLinksBySource(sdkCtx, domain)
+	strataSet := make(map[string]bool)
+
+	// Include the source domain's own stratum name
+	if srcDomain, found := k.GetDomain(sdkCtx, domain); found {
+		if stratum, found := k.GetStratum(sdkCtx, types.Stratum(srcDomain.Stratum)); found {
+			strataSet[stratum.Name] = true
+		}
+	}
+
+	// Add strata of all linked target domains
+	for _, link := range links {
+		targetDomain, found := k.GetDomain(sdkCtx, link.TargetDomain)
+		if found {
+			if stratum, found := k.GetStratum(sdkCtx, types.Stratum(targetDomain.Stratum)); found {
+				strataSet[stratum.Name] = true
+			}
+		}
+	}
+
+	strata := make([]string, 0, len(strataSet))
+	for s := range strataSet {
+		strata = append(strata, s)
+	}
+	return strata
 }
 
 // ActivateDomain transitions a proposed domain to active status.

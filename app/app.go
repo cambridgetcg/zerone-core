@@ -994,6 +994,11 @@ func NewZeroneApp(
 		zeronecdkeeper.NewKnowledgeCaptureDefenseAdapter(app.CaptureDefenseKeeper),
 	)
 
+	// R31-4: capture_defense → knowledge (verification activity for HHI threshold relaxation)
+	app.CaptureDefenseKeeper.SetKnowledgeKeeper(
+		zeroneknowledgekeeper.NewCaptureDefenseKnowledgeAdapter(app.KnowledgeKeeper),
+	)
+
 	// alignment → capture_defense (read flagged domain count for security sensor)
 	app.AlignmentKeeper.SetCaptureDefenseKeeper(
 		zeronecdkeeper.NewAlignmentCaptureDefenseAdapter(app.CaptureDefenseKeeper),
@@ -1131,6 +1136,12 @@ func NewZeroneApp(
 	app.PartnershipsKeeper.SetCaptureDefenseKeeper(
 		zeronecdkeeper.NewPartnershipsCaptureDefenseAdapter(app.CaptureDefenseKeeper),
 	)
+
+	// R31-4: Wire Metal→Water cross-module dependencies.
+	// discovery → qualification (qualified domains for match scoring)
+	app.DiscoveryKeeper.SetQualificationKeeper(app.QualificationKeeper)
+	// partnerships → ontology (related strata for cross-stratum matching)
+	app.PartnershipsKeeper.SetOntologyKeeper(&app.ZeroneOntologyKeeper)
 
 	// ---- Toolbox keeper (R8-1) ----
 	toolboxRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)

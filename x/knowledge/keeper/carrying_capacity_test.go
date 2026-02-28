@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -9,6 +10,45 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
+
+// ─── Mock OntologyKeeper for stratum depth tests ─────────────────────────────
+
+// capacityMockOntologyKeeper implements types.OntologyKeeper for carrying capacity tests.
+type capacityMockOntologyKeeper struct {
+	depths map[string]uint32
+}
+
+func newCapacityMockOntologyKeeper() *capacityMockOntologyKeeper {
+	return &capacityMockOntologyKeeper{depths: make(map[string]uint32)}
+}
+
+func (m *capacityMockOntologyKeeper) setDepth(domain string, depth uint32) {
+	m.depths[domain] = depth
+}
+
+func (m *capacityMockOntologyKeeper) GetDepthForDomain(_ context.Context, domainName string) (uint32, error) {
+	d, ok := m.depths[domainName]
+	if !ok {
+		return 0, fmt.Errorf("domain %s not found", domainName)
+	}
+	return d, nil
+}
+
+func (m *capacityMockOntologyKeeper) GetConfidenceCeiling(_ context.Context, _ string) (uint64, error) {
+	return 1_000_000, nil
+}
+
+func (m *capacityMockOntologyKeeper) IsValidLogicZone(_ context.Context, _ string) (bool, error) {
+	return true, nil
+}
+
+func (m *capacityMockOntologyKeeper) AcknowledgesIncompleteness(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
+func (m *capacityMockOntologyKeeper) GetStratumForDomain(_ context.Context, _ string) (string, error) {
+	return "empirical", nil
+}
 
 func TestDomainStats_SetGet(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
@@ -256,4 +296,199 @@ func TestCarryingCapacity_Integration(t *testing.T) {
 	sparsePressure := k.GetDomainPressure(ctx, "theology")
 	require.Equal(t, uint64(0), sparsePressure)
 	require.Equal(t, "sparse", keeper.PressureCategory(sparsePressure))
+}
+
+// ─── R31-4: Metal→Wood stratum depth constrains carrying capacity ───────────
+
+func TestStratumCapacity_NoOntologyKeeper(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	// Without ontology keeper, capacity should be unchanged (base default)
+	cap := k.GetDomainCarryingCapacity(ctx, "physics")
+	require.Equal(t, uint64(1000), cap) // DomainBaseCapacity default, no reduction
+}
+
+func TestStratumCapacity_Depth1_FullCapacity(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("physics", 1) // root domain
+	k.SetOntologyKeeper(ok)
+
+	cap := k.GetDomainCarryingCapacity(ctx, "physics")
+	require.Equal(t, uint64(1000), cap) // 100% of base — no reduction for depth 1
+}
+
+func TestStratumCapacity_Depth2_80Percent(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("quantum_physics", 2)
+	k.SetOntologyKeeper(ok)
+
+	cap := k.GetDomainCarryingCapacity(ctx, "quantum_physics")
+	// 1000 * 800_000 / 1_000_000 = 800
+	require.Equal(t, uint64(800), cap)
+}
+
+func TestStratumCapacity_Depth3_60Percent(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("quantum_chromodynamics", 3)
+	k.SetOntologyKeeper(ok)
+
+	cap := k.GetDomainCarryingCapacity(ctx, "quantum_chromodynamics")
+	// 1000 * 600_000 / 1_000_000 = 600
+	require.Equal(t, uint64(600), cap)
+}
+
+func TestStratumCapacity_Depth4_50PercentFloor(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("deep_subdomain", 4)
+	k.SetOntologyKeeper(ok)
+
+	cap := k.GetDomainCarryingCapacity(ctx, "deep_subdomain")
+	// 1000 * 500_000 / 1_000_000 = 500
+	require.Equal(t, uint64(500), cap)
+}
+
+func TestStratumCapacity_Depth5_50PercentFloor(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("very_deep", 5) // max depth — same 50% floor as depth 4
+	k.SetOntologyKeeper(ok)
+
+	cap := k.GetDomainCarryingCapacity(ctx, "very_deep")
+	// 1000 * 500_000 / 1_000_000 = 500
+	require.Equal(t, uint64(500), cap)
+}
+
+func TestStratumCapacity_ErrorFallback(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	// Don't set depth for "unknown_domain" — GetDepthForDomain returns error
+	k.SetOntologyKeeper(ok)
+
+	cap := k.GetDomainCarryingCapacity(ctx, "unknown_domain")
+	require.Equal(t, uint64(1000), cap) // Falls back to full capacity on error
+}
+
+func TestStratumCapacity_PressureAffectedByDepth(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("deep_domain", 3) // 60% capacity → 600 effective capacity
+	k.SetOntologyKeeper(ok)
+
+	// Set 600 active facts — should be exactly at capacity for depth-3 domain
+	stats := keeper.DomainStats{Domain: "deep_domain", ActiveCount: 600}
+	k.SetDomainStats(ctx, &stats)
+
+	pressure := k.GetDomainPressure(ctx, "deep_domain")
+	require.Equal(t, uint64(1_000_000), pressure) // exactly at capacity
+
+	// Same 600 facts in a root domain (depth 1, capacity 1000) = only 60% pressure
+	ok.setDepth("root_domain", 1)
+	stats2 := keeper.DomainStats{Domain: "root_domain", ActiveCount: 600}
+	k.SetDomainStats(ctx, &stats2)
+
+	pressure2 := k.GetDomainPressure(ctx, "root_domain")
+	require.Equal(t, uint64(600_000), pressure2) // 60% of capacity
+}
+
+func TestStratumCapacity_DeepDomainOvercrowdsFaster(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("shallow", 1) // capacity: 1000
+	ok.setDepth("deep", 3)    // capacity: 600
+	k.SetOntologyKeeper(ok)
+
+	// 800 facts in each domain
+	for _, domain := range []string{"shallow", "deep"} {
+		stats := keeper.DomainStats{Domain: domain, ActiveCount: 800}
+		k.SetDomainStats(ctx, &stats)
+	}
+
+	shallowPressure := k.GetDomainPressure(ctx, "shallow")
+	deepPressure := k.GetDomainPressure(ctx, "deep")
+
+	// Shallow: 800/1000 = 80% — normal
+	require.Equal(t, uint64(800_000), shallowPressure)
+	require.Equal(t, "crowded", keeper.PressureCategory(shallowPressure))
+
+	// Deep: 800/600 > 100% — overcrowded
+	require.Greater(t, deepPressure, uint64(keeper.BPSCapacity))
+	require.Equal(t, "overcrowded", keeper.PressureCategory(deepPressure))
+}
+
+func TestStratumCapacity_EventEmitted(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("deep_domain", 3)
+	k.SetOntologyKeeper(ok)
+
+	// Call GetDomainCarryingCapacity — should emit stratum_capacity_applied event
+	cap := k.GetDomainCarryingCapacity(ctx, "deep_domain")
+	require.Equal(t, uint64(600), cap)
+
+	// Check that the event was emitted
+	events := ctx.EventManager().Events()
+	found := false
+	for _, event := range events {
+		if event.Type == "zerone.knowledge.stratum_capacity_applied" {
+			found = true
+			attrs := make(map[string]string)
+			for _, attr := range event.Attributes {
+				attrs[attr.Key] = attr.Value
+			}
+			require.Equal(t, "deep_domain", attrs["domain"])
+			require.Equal(t, "3", attrs["stratum_depth"])
+			require.Equal(t, "600000", attrs["capacity_multiplier_bps"])
+			require.Equal(t, "600", attrs["effective_capacity"])
+		}
+	}
+	require.True(t, found, "stratum_capacity_applied event should be emitted for depth > 1")
+}
+
+func TestStratumCapacity_NoEventForDepth1(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ok := newCapacityMockOntologyKeeper()
+	ok.setDepth("root_domain", 1)
+	k.SetOntologyKeeper(ok)
+
+	cap := k.GetDomainCarryingCapacity(ctx, "root_domain")
+	require.Equal(t, uint64(1000), cap)
+
+	// No event should be emitted for depth 1 (no reduction applied)
+	events := ctx.EventManager().Events()
+	for _, event := range events {
+		require.NotEqual(t, "zerone.knowledge.stratum_capacity_applied", event.Type,
+			"no event should be emitted when depth=1 (no capacity reduction)")
+	}
+}
+
+func TestStratumCapacity_AllDepthMultipliers(t *testing.T) {
+	tests := []struct {
+		depth    uint32
+		expected uint64 // expected BPS multiplier
+	}{
+		{0, 1_000_000}, // depth 0 treated as <= 1
+		{1, 1_000_000}, // root: 100%
+		{2, 800_000},   // 80%
+		{3, 600_000},   // 60%
+		{4, 500_000},   // 50% floor
+		{5, 500_000},   // 50% floor
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("depth_%d", tt.depth), func(t *testing.T) {
+			k, ctx := setupKnowledgeTest(t)
+			ok := newCapacityMockOntologyKeeper()
+			domain := fmt.Sprintf("domain_d%d", tt.depth)
+			ok.setDepth(domain, tt.depth)
+			k.SetOntologyKeeper(ok)
+
+			cap := k.GetDomainCarryingCapacity(ctx, domain)
+			expectedCap := uint64(1000) * tt.expected / keeper.BPSCapacity
+			require.Equal(t, expectedCap, cap,
+				"depth %d: expected capacity %d, got %d", tt.depth, expectedCap, cap)
+		})
+	}
 }

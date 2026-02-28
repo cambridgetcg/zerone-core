@@ -16,3 +16,8 @@ type BankKeeper interface {
 type PacingKeeper interface {
 	GetGlobalPacingMultiplier(ctx context.Context) (creationBps, analysisBps uint64)
 }
+
+// DomainQualificationKeeper provides qualified domains for match scoring (R31-4).
+type DomainQualificationKeeper interface {
+	GetQualifiedDomains(ctx context.Context, account string) []string
+}
