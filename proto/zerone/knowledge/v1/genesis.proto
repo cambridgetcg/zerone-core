@@ -187,6 +187,10 @@ message Params {
   uint64 role_elasticity_max_multiplier_bps = 126; // Max bonus scaling (default: 2,000,000 = 200%)
   uint64 role_elasticity_min_multiplier_bps = 127; // Min bonus scaling (default: 500,000 = 50%)
   uint64 role_elasticity_decay_epochs       = 128; // Blocks between 5% decay cycles (default: 100)
+
+  // ─── Mentorship dividends (R31-5: Water → Wood) ──────────────────────
+  uint64 mentorship_dividend_energy   = 129; // Energy added to domain on mentorship graduation (default: 50,000)
+  uint64 mentorship_capacity_bonus    = 130; // Carrying capacity bonus per graduation (default: 5)
 }
 
 // GenesisState is the genesis state of the knowledge module.

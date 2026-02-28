@@ -179,8 +179,11 @@ type Params struct {
 	RoleElasticityMaxMultiplierBps uint64 `protobuf:"varint,126,opt,name=role_elasticity_max_multiplier_bps,json=roleElasticityMaxMultiplierBps,proto3" json:"role_elasticity_max_multiplier_bps,omitempty"` // Max bonus scaling (default: 2,000,000 = 200%)
 	RoleElasticityMinMultiplierBps uint64 `protobuf:"varint,127,opt,name=role_elasticity_min_multiplier_bps,json=roleElasticityMinMultiplierBps,proto3" json:"role_elasticity_min_multiplier_bps,omitempty"` // Min bonus scaling (default: 500,000 = 50%)
 	RoleElasticityDecayEpochs      uint64 `protobuf:"varint,128,opt,name=role_elasticity_decay_epochs,json=roleElasticityDecayEpochs,proto3" json:"role_elasticity_decay_epochs,omitempty"`                  // Blocks between 5% decay cycles (default: 100)
-	unknownFields                  protoimpl.UnknownFields
-	sizeCache                      protoimpl.SizeCache
+	// ─── Mentorship dividends (R31-5: Water → Wood) ──────────────────────
+	MentorshipDividendEnergy uint64 `protobuf:"varint,129,opt,name=mentorship_dividend_energy,json=mentorshipDividendEnergy,proto3" json:"mentorship_dividend_energy,omitempty"` // Energy added to domain on mentorship graduation (default: 50,000)
+	MentorshipCapacityBonus  uint64 `protobuf:"varint,130,opt,name=mentorship_capacity_bonus,json=mentorshipCapacityBonus,proto3" json:"mentorship_capacity_bonus,omitempty"`    // Carrying capacity bonus per graduation (default: 5)
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -1109,6 +1112,20 @@ func (x *Params) GetRoleElasticityDecayEpochs() uint64 {
 	return 0
 }
 
+func (x *Params) GetMentorshipDividendEnergy() uint64 {
+	if x != nil {
+		return x.MentorshipDividendEnergy
+	}
+	return 0
+}
+
+func (x *Params) GetMentorshipCapacityBonus() uint64 {
+	if x != nil {
+		return x.MentorshipCapacityBonus
+	}
+	return 0
+}
+
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
 	state                   protoimpl.MessageState  `protogen:"open.v1"`
@@ -1206,7 +1223,7 @@ var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xcc=\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xc8>\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -1336,7 +1353,9 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x19role_elasticity_min_calls\x18} \x01(\x04R\x16roleElasticityMinCalls\x12J\n" +
 	"\"role_elasticity_max_multiplier_bps\x18~ \x01(\x04R\x1eroleElasticityMaxMultiplierBps\x12J\n" +
 	"\"role_elasticity_min_multiplier_bps\x18\x7f \x01(\x04R\x1eroleElasticityMinMultiplierBps\x12@\n" +
-	"\x1crole_elasticity_decay_epochs\x18\x80\x01 \x01(\x04R\x19roleElasticityDecayEpochs\"\xcd\x03\n" +
+	"\x1crole_elasticity_decay_epochs\x18\x80\x01 \x01(\x04R\x19roleElasticityDecayEpochs\x12=\n" +
+	"\x1amentorship_dividend_energy\x18\x81\x01 \x01(\x04R\x18mentorshipDividendEnergy\x12;\n" +
+	"\x19mentorship_capacity_bonus\x18\x82\x01 \x01(\x04R\x17mentorshipCapacityBonus\"\xcd\x03\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +

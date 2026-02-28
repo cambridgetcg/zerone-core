@@ -183,6 +183,10 @@ func DefaultParams() Params {
 		RoleElasticityMaxMultiplierBps: 2_000_000, // 200% max bonus scaling
 		RoleElasticityMinMultiplierBps: 500_000,   // 50% min bonus scaling
 		RoleElasticityDecayEpochs:      100,        // decay every 100 fitness epochs
+
+		// ─── Mentorship dividends (R31-5: Water → Wood) ──────────────────────
+		MentorshipDividendEnergy: 50_000,  // 50,000 energy (5% of cap)
+		MentorshipCapacityBonus:  5,       // +5 carrying capacity per graduation
 	}
 }
 
