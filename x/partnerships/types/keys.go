@@ -22,4 +22,7 @@ var (
 	PoolEntryKeyPrefix         = []byte{0x11}
 	MentorshipKeyPrefix        = []byte{0x13}
 	ByDIDSeedIndexPrefix       = []byte{0x14}
+	ByMentorIndexPrefix        = []byte{0x15}
+	ByMenteeIndexPrefix        = []byte{0x16}
+	FormationMatchKeyPrefix    = []byte{0x17}
 )
