@@ -112,3 +112,18 @@ func (k Keeper) RunAutoAnalysis(ctx sdk.Context, params *types.Params) {
 		k.AnalyzeCaptureRisk(ctx, domain, params)
 	}
 }
+
+// RecordVerificationFromKnowledge records verification history from the knowledge module.
+// This is the internal method called by the adapter — it writes directly to state
+// without requiring a message transaction.
+func (k Keeper) RecordVerificationFromKnowledge(ctx sdk.Context, domain, roundId string, validators []string, verdicts []bool, submitBlocks []uint64) {
+	entry := &types.VerificationHistoryEntry{
+		Domain:       domain,
+		RoundId:      roundId,
+		Validators:   validators,
+		Verdicts:     verdicts,
+		SubmitBlocks: submitBlocks,
+		BlockHeight:  uint64(ctx.BlockHeight()),
+	}
+	k.SetVerificationHistory(ctx, entry)
+}

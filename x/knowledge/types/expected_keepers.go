@@ -107,3 +107,9 @@ type ZeroneAuthKeeper interface {
 	// for a given bech32 address. Returns "" and false if not found.
 	GetAccountType(ctx context.Context, address string) (string, bool)
 }
+
+// CaptureDefenseKeeper feeds verification history and reputation updates to capture defense.
+type CaptureDefenseKeeper interface {
+	RecordVerificationHistory(ctx context.Context, domain, roundId string, validators []string, verdicts []bool, submitBlocks []uint64)
+	UpdateReputation(ctx context.Context, validator string, domain string, stratum string, approved bool)
+}
