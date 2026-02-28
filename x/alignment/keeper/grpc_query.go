@@ -57,3 +57,38 @@ func (q queryServer) HealthHistory(ctx context.Context, req *types.QueryHealthHi
 	entries := q.Keeper.GetRecentHealthIndices(ctx, req.Limit)
 	return &types.QueryHealthHistoryResponse{Entries: entries}, nil
 }
+
+func (q queryServer) CorrectionConfidence(ctx context.Context, req *types.QueryCorrectionConfidenceRequest) (*types.QueryCorrectionConfidenceResponse, error) {
+	confidence := q.Keeper.GetCorrectionConfidence(ctx)
+	effectiveMax := q.Keeper.GetEffectiveMaxMagnitude(ctx)
+	effectiveInterval := q.Keeper.GetEffectiveObservationInterval(ctx)
+
+	params := q.Keeper.GetParams(ctx)
+	windowSize := params.CorrectionConfidenceWindowSize
+	if windowSize == 0 {
+		windowSize = 50
+	}
+	outcomes := q.Keeper.GetRecentCorrectionOutcomes(ctx, windowSize)
+
+	total := uint64(len(outcomes))
+	successful := uint64(0)
+	for _, o := range outcomes {
+		if o.Successful {
+			successful++
+		}
+	}
+
+	// Cap recent outcomes for response to 20.
+	if len(outcomes) > 20 {
+		outcomes = outcomes[:20]
+	}
+
+	return &types.QueryCorrectionConfidenceResponse{
+		ConfidenceBps:                confidence,
+		TotalCorrections:             total,
+		SuccessfulCorrections:        successful,
+		EffectiveMaxMagnitude:        effectiveMax,
+		EffectiveObservationInterval: effectiveInterval,
+		RecentOutcomes:               outcomes,
+	}, nil
+}

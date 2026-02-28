@@ -30,6 +30,7 @@ func NewQueryCmd() *cobra.Command {
 		NewQueryHealthIndexCmd(),
 		NewQueryCorrectionHistoryCmd(),
 		NewQueryHealthHistoryCmd(),
+		NewQueryCorrectionConfidenceCmd(),
 	)
 
 	return queryCmd
@@ -206,6 +207,28 @@ func NewQueryHealthHistoryCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Uint32("limit", 20, "Maximum number of entries to return (max 100)")
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+func NewQueryCorrectionConfidenceCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "correction-confidence",
+		Short: "Query correction confidence score and effective bounds",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			req := &types.QueryCorrectionConfidenceRequest{}
+			resp := &types.QueryCorrectionConfidenceResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.alignment.v1.Query/CorrectionConfidence", req, resp); err != nil {
+				return fmt.Errorf("failed to query correction confidence: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }

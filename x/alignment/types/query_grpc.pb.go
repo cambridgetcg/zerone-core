@@ -25,7 +25,8 @@ const (
 	Query_Scores_FullMethodName            = "/zerone.alignment.v1.Query/Scores"
 	Query_HealthIndex_FullMethodName       = "/zerone.alignment.v1.Query/HealthIndex"
 	Query_CorrectionHistory_FullMethodName = "/zerone.alignment.v1.Query/CorrectionHistory"
-	Query_HealthHistory_FullMethodName     = "/zerone.alignment.v1.Query/HealthHistory"
+	Query_HealthHistory_FullMethodName          = "/zerone.alignment.v1.Query/HealthHistory"
+	Query_CorrectionConfidence_FullMethodName   = "/zerone.alignment.v1.Query/CorrectionConfidence"
 )
 
 // QueryClient is the client API for Query service.
@@ -41,6 +42,7 @@ type QueryClient interface {
 	HealthIndex(ctx context.Context, in *QueryHealthIndexRequest, opts ...grpc.CallOption) (*QueryHealthIndexResponse, error)
 	CorrectionHistory(ctx context.Context, in *QueryCorrectionHistoryRequest, opts ...grpc.CallOption) (*QueryCorrectionHistoryResponse, error)
 	HealthHistory(ctx context.Context, in *QueryHealthHistoryRequest, opts ...grpc.CallOption) (*QueryHealthHistoryResponse, error)
+	CorrectionConfidence(ctx context.Context, in *QueryCorrectionConfidenceRequest, opts ...grpc.CallOption) (*QueryCorrectionConfidenceResponse, error)
 }
 
 type queryClient struct {
@@ -121,6 +123,16 @@ func (c *queryClient) HealthHistory(ctx context.Context, in *QueryHealthHistoryR
 	return out, nil
 }
 
+func (c *queryClient) CorrectionConfidence(ctx context.Context, in *QueryCorrectionConfidenceRequest, opts ...grpc.CallOption) (*QueryCorrectionConfidenceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryCorrectionConfidenceResponse)
+	err := c.cc.Invoke(ctx, Query_CorrectionConfidence_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -134,6 +146,7 @@ type QueryServer interface {
 	HealthIndex(context.Context, *QueryHealthIndexRequest) (*QueryHealthIndexResponse, error)
 	CorrectionHistory(context.Context, *QueryCorrectionHistoryRequest) (*QueryCorrectionHistoryResponse, error)
 	HealthHistory(context.Context, *QueryHealthHistoryRequest) (*QueryHealthHistoryResponse, error)
+	CorrectionConfidence(context.Context, *QueryCorrectionConfidenceRequest) (*QueryCorrectionConfidenceResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -164,6 +177,9 @@ func (UnimplementedQueryServer) CorrectionHistory(context.Context, *QueryCorrect
 }
 func (UnimplementedQueryServer) HealthHistory(context.Context, *QueryHealthHistoryRequest) (*QueryHealthHistoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method HealthHistory not implemented")
+}
+func (UnimplementedQueryServer) CorrectionConfidence(context.Context, *QueryCorrectionConfidenceRequest) (*QueryCorrectionConfidenceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CorrectionConfidence not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -312,6 +328,24 @@ func _Query_HealthHistory_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_CorrectionConfidence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryCorrectionConfidenceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).CorrectionConfidence(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_CorrectionConfidence_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).CorrectionConfidence(ctx, req.(*QueryCorrectionConfidenceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -346,6 +380,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HealthHistory",
 			Handler:    _Query_HealthHistory_Handler,
+		},
+		{
+			MethodName: "CorrectionConfidence",
+			Handler:    _Query_CorrectionConfidence_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
