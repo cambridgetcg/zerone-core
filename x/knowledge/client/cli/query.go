@@ -83,6 +83,7 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryMetabolismStatusCmd(),
 		NewQueryDomainCapacityCmd(),
 		NewQueryEpistemicTemperatureCmd(),
+		NewQueryRoleElasticityCmd(),
 	)
 
 	return queryCmd
@@ -1007,6 +1008,29 @@ func NewQueryEpistemicTemperatureCmd() *cobra.Command {
 			resp := &types.QueryEpistemicTemperatureResponse{}
 			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/EpistemicTemperature", req, resp); err != nil {
 				return fmt.Errorf("failed to query epistemic temperature: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryRoleElasticityCmd queries domain role elasticity (R29-3).
+func NewQueryRoleElasticityCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "role-elasticity [domain]",
+		Short: "Query role elasticity and track record for a domain",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			req := &types.QueryRoleElasticityRequest{Domain: args[0]}
+			resp := &types.QueryRoleElasticityResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/RoleElasticity", req, resp); err != nil {
+				return fmt.Errorf("failed to query role elasticity: %w", err)
 			}
 			return clientCtx.PrintObjectLegacy(resp)
 		},

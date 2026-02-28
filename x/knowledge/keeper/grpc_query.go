@@ -880,6 +880,34 @@ func (q *queryServer) EpistemicTemperature(ctx context.Context, req *types.Query
 	}, nil
 }
 
+// RoleElasticity queries domain role elasticity and track record (R29-3).
+func (q *queryServer) RoleElasticity(ctx context.Context, req *types.QueryRoleElasticityRequest) (*types.QueryRoleElasticityResponse, error) {
+	if req.Domain == "" {
+		return nil, status.Error(codes.InvalidArgument, "domain is required")
+	}
+
+	record, _ := q.keeper.GetDomainRoleRecord(ctx, req.Domain)
+	agentBonus, humanBonus := q.keeper.GetRoleElasticity(ctx, req.Domain)
+	agentAcc, humanAcc := q.keeper.GetRoleAccuracies(ctx, req.Domain)
+
+	resp := &types.QueryRoleElasticityResponse{
+		Domain:           req.Domain,
+		AgentBonusBps:    agentBonus,
+		HumanBonusBps:    humanBonus,
+		AgentAccuracyBps: agentAcc,
+		HumanAccuracyBps: humanAcc,
+	}
+
+	if record != nil {
+		resp.AgentCorrect = record.AgentCorrectCalls
+		resp.AgentIncorrect = record.AgentIncorrectCalls
+		resp.HumanCorrect = record.HumanCorrectCalls
+		resp.HumanIncorrect = record.HumanIncorrectCalls
+	}
+
+	return resp, nil
+}
+
 // DomainCapacity queries carrying capacity and pressure for a domain (R29-1).
 func (q *queryServer) DomainCapacity(ctx context.Context, req *types.QueryDomainCapacityRequest) (*types.QueryDomainCapacityResponse, error) {
 	if req.Domain == "" {

@@ -190,6 +190,11 @@ service Query {
   rpc EpistemicTemperature(QueryEpistemicTemperatureRequest) returns (QueryEpistemicTemperatureResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/epistemic_temperature/{domain}";
   }
+
+  // RoleElasticity queries domain role elasticity and track record (R29-3).
+  rpc RoleElasticity(QueryRoleElasticityRequest) returns (QueryRoleElasticityResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/role_elasticity/{domain}";
+  }
 }
 
 // ─── Request / Response messages ─────────────────────────────────────────────
@@ -561,4 +566,22 @@ message QueryEpistemicTemperatureResponse {
   uint64 recent_vindications       = 5;
   uint64 effective_confidence_cap  = 6;
   uint64 effective_growth_rate     = 7;
+}
+
+// ─── Role elasticity query messages (R29-3) ──────────────────────────────────
+
+message QueryRoleElasticityRequest {
+  string domain = 1;
+}
+
+message QueryRoleElasticityResponse {
+  string domain              = 1;
+  uint64 agent_correct       = 2;
+  uint64 agent_incorrect     = 3;
+  uint64 human_correct       = 4;
+  uint64 human_incorrect     = 5;
+  uint64 agent_bonus_bps     = 6;
+  uint64 human_bonus_bps     = 7;
+  uint64 agent_accuracy_bps  = 8;
+  uint64 human_accuracy_bps  = 9;
 }
