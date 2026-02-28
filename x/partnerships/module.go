@@ -141,6 +141,7 @@ func (AppModule) ConsensusVersion() uint64 { return 1 }
 //   - Expire consensus operations past their deliberation window
 //   - Expire pool entries past their TTL
 //   - Expire seed partnerships past their duration
+//   - Expire formation matches past their acceptance window
 func (am AppModule) BeginBlock(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
@@ -150,6 +151,7 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 	am.keeper.ExpireConsensusOps(sdkCtx)
 	am.keeper.ExpirePoolEntries(sdkCtx)
 	am.keeper.ExpireSeedPartnerships(sdkCtx)
+	am.keeper.ExpireFormationMatches(sdkCtx)
 
 	return nil
 }
@@ -157,8 +159,12 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 // EndBlock executes end-block logic.
 //
 //   - Settle cooling partnerships that have completed their cooling period
+//   - Auto-graduate mentorships that have reached their duration
+//   - Run formation matching engine at configured intervals
 func (am AppModule) EndBlock(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	am.keeper.SettleCoolingPartnerships(sdkCtx)
+	am.keeper.AutoGraduateMentorships(sdkCtx)
+	am.keeper.RunFormationMatching(sdkCtx)
 	return nil
 }

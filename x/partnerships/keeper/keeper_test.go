@@ -3690,3 +3690,59 @@ func TestFormation_AcceptByOutsiderFails(t *testing.T) {
 	}
 	_ = k // suppress unused
 }
+
+// ==================== AUTO-GRADUATION TESTS ====================
+
+func TestMentorship_AutoGraduation(t *testing.T) {
+	ms, k, ctx, _ := setupMsgServer(t)
+
+	resp, _ := ms.ProposeMentorship(ctx, &types.MsgProposeMentorship{
+		Mentor: humanAddr, Mentee: agentAddr, Domain: "physics", DurationBlocks: 500,
+	})
+	ms.AcceptMentorship(ctx, &types.MsgAcceptMentorship{
+		Mentee: agentAddr, MentorshipId: resp.MentorshipId,
+	})
+
+	ctx400 := ctxAtHeight(ctx, 100+400)
+	k.AutoGraduateMentorships(ctx400)
+	m, _ := k.GetMentorship(ctx400, resp.MentorshipId)
+	if m.Status != "active" {
+		t.Errorf("expected active before duration, got %s", m.Status)
+	}
+
+	ctx601 := ctxAtHeight(ctx, 100+501)
+	k.AutoGraduateMentorships(ctx601)
+	m, _ = k.GetMentorship(ctx601, resp.MentorshipId)
+	if m.Status != "graduated" {
+		t.Errorf("expected graduated after duration, got %s", m.Status)
+	}
+}
+
+func TestMentorship_AutoProposePartnership(t *testing.T) {
+	ms, k, ctx, _ := setupMsgServer(t)
+
+	resp, _ := ms.ProposeMentorship(ctx, &types.MsgProposeMentorship{
+		Mentor: humanAddr, Mentee: agentAddr, Domain: "physics", DurationBlocks: 100,
+	})
+	ms.AcceptMentorship(ctx, &types.MsgAcceptMentorship{
+		Mentee: agentAddr, MentorshipId: resp.MentorshipId,
+	})
+
+	ms.GraduateMentee(ctx, &types.MsgGraduateMentee{
+		Mentor: humanAddr, MentorshipId: resp.MentorshipId,
+	})
+
+	partnerships := k.GetAllPartnerships(ctx)
+	found := false
+	for _, p := range partnerships {
+		if p.HumanAddr == humanAddr && p.AgentAddr == agentAddr {
+			found = true
+			if p.Status != types.StatusPending {
+				t.Errorf("expected pending, got %s", p.Status)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected partnership to be auto-proposed on graduation")
+	}
+}
