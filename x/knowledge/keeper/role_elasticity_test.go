@@ -282,3 +282,58 @@ func TestVindicationRoleImpact_HumanMajority(t *testing.T) {
 	require.Equal(t, uint64(0), record.AgentIncorrectCalls)
 	require.Equal(t, uint64(1), record.HumanIncorrectCalls)
 }
+
+// ─── Full Lifecycle Integration Test ─────────────────────────────────────
+
+func TestFullLifecycle_VindicationUpdatesElasticity(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	mockAuth := newMockZeroneAuthKeeper()
+	mockAuth.accounts["agent1"] = "agent"
+	mockAuth.accounts["agent2"] = "agent"
+	mockAuth.accounts["human1"] = "human"
+	k.SetZeroneAuthKeeper(mockAuth)
+
+	params, _ := k.GetParams(ctx)
+
+	// Initially: no track record, base bonuses
+	agentBonus, humanBonus := k.GetRoleElasticity(ctx, "physics")
+	require.Equal(t, params.AgentVerificationBonusBps, agentBonus)
+	require.Equal(t, params.HumanPatronageBonusBps, humanBonus)
+
+	// Simulate 15 vindications where agents were the majority (and wrong)
+	round := &types.VerificationRound{
+		Id:      "round1",
+		ClaimId: "claim1",
+		Reveals: []*types.RevealEntry{
+			{Verifier: "agent1", Vote: "accept"},
+			{Verifier: "agent2", Vote: "accept"},
+			{Verifier: "human1", Vote: "reject"},
+		},
+	}
+
+	for i := 0; i < 15; i++ {
+		k.RecordVindicationRoleImpact(ctx, round, "physics")
+	}
+
+	record, found := k.GetDomainRoleRecord(ctx, "physics")
+	require.True(t, found)
+	require.Equal(t, uint64(15), record.AgentIncorrectCalls)
+	require.Equal(t, uint64(0), record.AgentCorrectCalls)
+
+	// Now add enough human data: 10 correct
+	record.HumanCorrectCalls = 10
+	require.NoError(t, k.SetDomainRoleRecord(ctx, record))
+
+	// Now elasticity activates: agent accuracy = 0%, human accuracy = 100%
+	// Agent should get min (50%), human should get max (200%)
+	agentBonus, humanBonus = k.GetRoleElasticity(ctx, "physics")
+	require.Equal(t, params.AgentVerificationBonusBps/2, agentBonus)  // 50% of base
+	require.Equal(t, params.HumanPatronageBonusBps*2, humanBonus)     // 200% of base
+
+	// Decay should reduce counts
+	k.DecayRoleRecords(ctx)
+	record, _ = k.GetDomainRoleRecord(ctx, "physics")
+	require.Less(t, record.AgentIncorrectCalls, uint64(15))
+	require.Less(t, record.HumanCorrectCalls, uint64(10))
+}
