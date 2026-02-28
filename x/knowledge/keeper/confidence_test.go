@@ -305,10 +305,10 @@ func TestConfidence_CategoryBaseline(t *testing.T) {
 	result, err := k.AggregateVerificationResult(ctx, round)
 	require.NoError(t, err)
 
-	// All accept with known stakes → exact confidence = 1,000,000
+	// All accept with known stakes → raw ratio = 1,000,000, capped at MaxConfidence (880,000)
 	require.Equal(t, types.Verdict_VERDICT_ACCEPT, result.Verdict)
-	require.Equal(t, uint64(1_000_000), result.Confidence,
-		"confidence must be exactly the stake-weighted accept ratio")
+	require.Equal(t, uint64(880_000), result.Confidence,
+		"confidence must be capped at MaxConfidence")
 }
 
 // ─── Security: Reward matches param exactly ─────────────────────────────────

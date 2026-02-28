@@ -432,18 +432,27 @@ func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact) (*types.
 
 	factID := GenerateFactID(msg.Content, height)
 
+	params, err := m.keeper.GetParams(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get params: %w", err)
+	}
+
 	fact := &types.Fact{
-		Id:               factID,
-		Content:          msg.Content,
-		Domain:           msg.Domain,
-		Category:         msg.Category,
-		Confidence:       msg.Confidence,
-		Submitter:        msg.Authority,
-		SubmittedAtBlock: height,
-		VerifiedAtBlock:  height,
+		Id:                factID,
+		Content:           msg.Content,
+		Domain:            msg.Domain,
+		Category:          msg.Category,
+		Confidence:        m.keeper.ClampConfidence(ctx, msg.Confidence, msg.Domain),
+		Submitter:         msg.Authority,
+		SubmittedAtBlock:  height,
+		VerifiedAtBlock:   height,
 		LastVerifiedBlock: height,
-		References:       msg.References,
-		Status:           types.FactStatus_FACT_STATUS_VERIFIED,
+		References:        msg.References,
+		Status:            types.FactStatus_FACT_STATUS_VERIFIED,
+		// Initialize metabolism fields
+		Energy:            params.MetabolismInitialEnergy,
+		EnergyCap:         params.MetabolismEnergyCap,
+		EnergyLastUpdated: height,
 	}
 
 	if err := m.keeper.SetFact(ctx, fact); err != nil {

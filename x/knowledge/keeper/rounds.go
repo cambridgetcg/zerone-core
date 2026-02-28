@@ -263,14 +263,11 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		EnergyLastUpdated: height,
 	}
 
-	// Apply stratum confidence ceiling if ontology keeper is available
+	// Apply confidence ceiling (stratum + global MaxConfidence hard cap)
+	fact.Confidence = k.ClampConfidence(ctx, fact.Confidence, claim.Domain)
 	if k.ontologyKeeper != nil && claim.Domain != "" {
 		stratum, err := k.ontologyKeeper.GetStratumForDomain(ctx, claim.Domain)
 		if err == nil && stratum != "" {
-			ceiling, err := k.ontologyKeeper.GetConfidenceCeiling(ctx, stratum)
-			if err == nil && ceiling > 0 && fact.Confidence > ceiling {
-				fact.Confidence = ceiling
-			}
 			fact.Stratum = stratum
 		}
 	}

@@ -123,6 +123,11 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 		}
 	}
 
+	// Apply global MaxConfidence hard cap
+	if params.MaxConfidence > 0 && result.Confidence > params.MaxConfidence {
+		result.Confidence = params.MaxConfidence
+	}
+
 	// Calculate rewards and slashes
 	k.calculateRewardsAndSlashes(ctx, round, result, params)
 
@@ -209,6 +214,32 @@ func (k Keeper) calculateRewardsAndSlashes(ctx context.Context, round *types.Ver
 			})
 		}
 	}
+}
+
+// ClampConfidence enforces the MaxConfidence hard cap and optional stratum ceiling.
+func (k Keeper) ClampConfidence(ctx context.Context, confidence uint64, domain string) uint64 {
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return confidence
+	}
+
+	// Apply stratum ceiling if ontology keeper is available
+	if k.ontologyKeeper != nil && domain != "" {
+		stratum, err := k.ontologyKeeper.GetStratumForDomain(ctx, domain)
+		if err == nil && stratum != "" {
+			ceiling, err := k.ontologyKeeper.GetConfidenceCeiling(ctx, stratum)
+			if err == nil && ceiling > 0 && confidence > ceiling {
+				confidence = ceiling
+			}
+		}
+	}
+
+	// Apply global hard cap
+	if params.MaxConfidence > 0 && confidence > params.MaxConfidence {
+		confidence = params.MaxConfidence
+	}
+
+	return confidence
 }
 
 // safeMulDiv computes (a * b / c) using big.Int to prevent overflow.

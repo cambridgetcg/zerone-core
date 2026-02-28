@@ -477,6 +477,57 @@ func TestPatronage_EnergyCapped(t *testing.T) {
 	require.Equal(t, uint64(1_000_000), updated.Energy, "energy should be capped at 1M")
 }
 
+func TestConfidence_ClampConfidence(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	params, _ := k.GetParams(ctx)
+
+	// Test various confidence values — all should be capped at MaxConfidence
+	testCases := []struct {
+		name     string
+		input    uint64
+		expected uint64
+	}{
+		{"below cap", 500_000, 500_000},
+		{"at cap", 880_000, 880_000},
+		{"above cap", 950_000, 880_000},
+		{"way above cap", 1_000_000, 880_000},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := k.ClampConfidence(ctx, tc.input, "physics")
+			require.Equal(t, tc.expected, result,
+				"ClampConfidence(%d) should return %d", tc.input, tc.expected)
+		})
+	}
+	_ = params
+}
+
+func TestConfidence_MsgAddFactClamped(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	params, _ := k.GetParams(ctx)
+
+	// Simulate a governance-added fact with confidence above MaxConfidence
+	fact := &types.Fact{
+		Id:         "fact-cap1",
+		Content:    "Governance fact with high confidence",
+		Domain:     "physics",
+		Confidence: k.ClampConfidence(ctx, 950_000, "physics"),
+		Status:     types.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter:  "zrn1authority",
+		Energy:     params.MetabolismInitialEnergy,
+		EnergyCap:  params.MetabolismEnergyCap,
+	}
+	require.NoError(t, k.SetFact(ctx, fact))
+
+	updated, _ := k.GetFact(ctx, "fact-cap1")
+	require.LessOrEqual(t, updated.Confidence, params.MaxConfidence,
+		"confidence should not exceed MaxConfidence")
+	require.Equal(t, uint64(880_000), updated.Confidence)
+}
+
 func TestMetabolism_RecoveryEvent(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
