@@ -230,3 +230,106 @@ func TestAgentVoteWeightNoAuthKeeper(t *testing.T) {
 	// Total = 300k, accept = 300k → ratio = 1M → capped at MaxConfidence (880k)
 	require.Equal(t, uint64(880_000), result.Confidence)
 }
+
+// ─── Integration Tests ─────────────────────────────────────────────────────
+
+func TestRoleBonusIntegration_FullLifecycle(t *testing.T) {
+	k, ctx, _, sk := setupKnowledgeTestFull(t)
+	authKeeper := newMockZeroneAuthKeeper()
+	authKeeper.accounts["zrn1human1"] = "human"
+	authKeeper.accounts["zrn1agent1"] = "agent"
+	authKeeper.accounts["zrn1validator1"] = "agent"
+	authKeeper.accounts["zrn1validator2"] = "human"
+	authKeeper.accounts["zrn1validator3"] = "human"
+	k.SetZeroneAuthKeeper(authKeeper)
+
+	sk.addValidator("zrn1validator1", 100_000, "genesis")
+	sk.addValidator("zrn1validator2", 100_000, "genesis")
+	sk.addValidator("zrn1validator3", 100_000, "genesis")
+
+	params, _ := k.GetParams(ctx)
+
+	// ─── Test 1: Human empirical claim gets +15% ────────────────────
+	humanConf := keeper.ApplyRoleBonusToConfidence(770_000, types.ClaimType_CLAIM_TYPE_OBSERVATION, "human", params)
+	require.Equal(t, uint64(885_500), humanConf, "human OBSERVATION: 770k * 1.15 = 885,500")
+
+	// ─── Test 2: Agent computational claim gets +15% ────────────────
+	agentConf := keeper.ApplyRoleBonusToConfidence(770_000, types.ClaimType_CLAIM_TYPE_COMPUTATIONAL, "agent", params)
+	require.Equal(t, uint64(885_500), agentConf, "agent COMPUTATIONAL: 770k * 1.15 = 885,500")
+
+	// ─── Test 3: Cross-type claims get no bonus ─────────────────────
+	humanCompConf := keeper.ApplyRoleBonusToConfidence(770_000, types.ClaimType_CLAIM_TYPE_COMPUTATIONAL, "human", params)
+	require.Equal(t, uint64(770_000), humanCompConf, "human COMPUTATIONAL: no bonus")
+
+	agentObsConf := keeper.ApplyRoleBonusToConfidence(770_000, types.ClaimType_CLAIM_TYPE_OBSERVATION, "agent", params)
+	require.Equal(t, uint64(770_000), agentObsConf, "agent OBSERVATION: no bonus")
+
+	// ─── Test 4: Dual validation stacks with role bonus ─────────────
+	dualConf := keeper.ApplyDualValidationBonus(humanConf, params)
+	// 885,500 * 1.25 = 1,106,875 (will be clamped to MaxConfidence by caller)
+	require.Equal(t, uint64(1_106_875), dualConf, "human empirical + partnership: stacked bonuses")
+
+	// ─── Test 5: Clamping after bonus ───────────────────────────────
+	clamped := k.ClampConfidence(ctx, dualConf, "physics")
+	require.Equal(t, params.MaxConfidence, clamped, "bonused confidence clamped to MaxConfidence")
+
+	// ─── Test 6: Assertion claims get no bonus for anyone ───────────
+	humanAssert := keeper.ApplyRoleBonusToConfidence(770_000, types.ClaimType_CLAIM_TYPE_ASSERTION, "human", params)
+	require.Equal(t, uint64(770_000), humanAssert, "ASSERTION claims: no role bonus")
+
+	agentAssert := keeper.ApplyRoleBonusToConfidence(770_000, types.ClaimType_CLAIM_TYPE_ASSERTION, "agent", params)
+	require.Equal(t, uint64(770_000), agentAssert, "ASSERTION claims: no role bonus")
+
+	// ─── Test 7: Vote weight bonus in aggregation ───────────────────
+	_, round := makeTestClaim(t, k, ctx, "zrn1human1", "Integration test claim for full lifecycle verification", "general", "empirical", "1000000")
+	// Move the round to aggregation phase for AggregateVerificationResult
+	round.Phase = types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION
+	round.Reveals = []*types.RevealEntry{
+		{Verifier: "zrn1validator1", Vote: "accept", Salt: []byte("s1"), RevealedAtBlock: 110}, // agent: 100k → 120k
+		{Verifier: "zrn1validator2", Vote: "accept", Salt: []byte("s2"), RevealedAtBlock: 110}, // human: 100k
+		{Verifier: "zrn1validator3", Vote: "reject", Salt: []byte("s3"), RevealedAtBlock: 110}, // human: 100k
+	}
+	round.Commits = []*types.CommitEntry{
+		{Verifier: "zrn1validator1", CommitHash: []byte("h1"), CommittedAtBlock: 105},
+		{Verifier: "zrn1validator2", CommitHash: []byte("h2"), CommittedAtBlock: 105},
+		{Verifier: "zrn1validator3", CommitHash: []byte("h3"), CommittedAtBlock: 105},
+	}
+	require.NoError(t, k.SetVerificationRound(ctx, round))
+
+	result, err := k.AggregateVerificationResult(ctx, round)
+	require.NoError(t, err)
+	// Accept: 120k + 100k = 220k, Reject: 100k, Total: 320k
+	// Accept ratio: 220k/320k * 1M = 687,500 — below threshold (770k) → INCONCLUSIVE
+	require.Equal(t, types.Verdict_VERDICT_INCONCLUSIVE, result.Verdict,
+		"agent bonus shifts ratio but doesn't change verdict here")
+
+	t.Log("Full lifecycle integration test passed")
+}
+
+func TestRoleBonusGovernanceConfigurable(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	// Modify params via governance
+	params, _ := k.GetParams(ctx)
+	params.HumanEmpiricalBonusBps = 300_000 // +30%
+	params.AgentComputationalBonusBps = 0    // disabled
+	params.DualValidationBonusBps = 500_000  // +50%
+	require.NoError(t, k.SetParams(ctx, params))
+
+	newParams, _ := k.GetParams(ctx)
+	require.Equal(t, uint64(300_000), newParams.HumanEmpiricalBonusBps)
+	require.Equal(t, uint64(0), newParams.AgentComputationalBonusBps)
+	require.Equal(t, uint64(500_000), newParams.DualValidationBonusBps)
+
+	// Human empirical with increased bonus
+	boosted := keeper.ApplyRoleBonusToConfidence(700_000, types.ClaimType_CLAIM_TYPE_OBSERVATION, "human", newParams)
+	require.Equal(t, uint64(910_000), boosted, "700k * 1.3 = 910k")
+
+	// Agent computational disabled
+	noBoosted := keeper.ApplyRoleBonusToConfidence(700_000, types.ClaimType_CLAIM_TYPE_COMPUTATIONAL, "agent", newParams)
+	require.Equal(t, uint64(700_000), noBoosted, "disabled")
+
+	// Dual validation with increased bonus
+	dualBoosted := keeper.ApplyDualValidationBonus(700_000, newParams)
+	require.Equal(t, uint64(1_050_000), dualBoosted, "700k * 1.5 = 1,050k")
+}
