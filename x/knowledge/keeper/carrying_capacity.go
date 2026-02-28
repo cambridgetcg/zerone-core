@@ -251,6 +251,32 @@ func PressureCategory(pressureBps uint64) string {
 	}
 }
 
+// ─── Pending verification ratio (R31-1: Wood controls Earth) ────────────────
+
+// GetPendingVerificationRatio returns pending claims / active facts in BPS.
+// Used by alignment module to detect knowledge growth pressure.
+func (k Keeper) GetPendingVerificationRatio(ctx context.Context) uint64 {
+	var pending, active uint64
+	k.IterateClaims(ctx, func(claim *types.Claim) bool {
+		switch claim.Status {
+		case types.ClaimStatus_CLAIM_STATUS_PENDING,
+			types.ClaimStatus_CLAIM_STATUS_PENDING_EVALUATION,
+			types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION:
+			pending++
+		case types.ClaimStatus_CLAIM_STATUS_ACCEPTED:
+			active++
+		}
+		return false
+	})
+	if active == 0 {
+		if pending > 0 {
+			return BPSCapacity * 2 // infinite ratio capped at 200%
+		}
+		return BPSCapacity // 1:1 when both zero
+	}
+	return safeMulDiv(pending, BPSCapacity, active)
+}
+
 // ─── Events ─────────────────────────────────────────────────────────────────
 
 // EmitCapacityPenaltyEvent emits a capacity_penalty_applied event when capture penalty reduces capacity (R31-1).

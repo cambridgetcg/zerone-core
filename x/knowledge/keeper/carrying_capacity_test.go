@@ -575,6 +575,47 @@ func TestCarryingCapacity_CapturePenaltyEvent(t *testing.T) {
 	require.True(t, found, "expected capacity_penalty_applied event")
 }
 
+// ─── Pending verification ratio tests (R31-1: Wood controls Earth) ──────────
+
+func TestGetPendingVerificationRatio_NoClaims(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ratio := k.GetPendingVerificationRatio(ctx)
+	require.Equal(t, uint64(1_000_000), ratio) // both zero → 1:1
+}
+
+func TestGetPendingVerificationRatio_OnlyPending(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	for i := 0; i < 3; i++ {
+		require.NoError(t, k.SetClaim(ctx, &types.Claim{
+			Id:     fmt.Sprintf("claim-%d", i),
+			Status: types.ClaimStatus_CLAIM_STATUS_PENDING,
+			Domain: "physics",
+		}))
+	}
+	ratio := k.GetPendingVerificationRatio(ctx)
+	require.Equal(t, uint64(2_000_000), ratio) // capped at 200%
+}
+
+func TestGetPendingVerificationRatio_HealthyRatio(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	for i := 0; i < 2; i++ {
+		require.NoError(t, k.SetClaim(ctx, &types.Claim{
+			Id:     fmt.Sprintf("pending-%d", i),
+			Status: types.ClaimStatus_CLAIM_STATUS_PENDING,
+			Domain: "physics",
+		}))
+	}
+	for i := 0; i < 10; i++ {
+		require.NoError(t, k.SetClaim(ctx, &types.Claim{
+			Id:     fmt.Sprintf("active-%d", i),
+			Status: types.ClaimStatus_CLAIM_STATUS_ACCEPTED,
+			Domain: "physics",
+		}))
+	}
+	ratio := k.GetPendingVerificationRatio(ctx)
+	require.Equal(t, uint64(200_000), ratio) // 2/10 = 20%
+}
+
 func TestStratumCapacity_AllDepthMultipliers(t *testing.T) {
 	tests := []struct {
 		depth    uint32

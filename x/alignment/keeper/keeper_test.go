@@ -26,9 +26,10 @@ import (
 // --- Mock Keepers ---
 
 type mockKnowledgeKeeper struct {
-	verificationRate    uint64
-	totalFacts          uint64
-	consensusDiversity  uint64
+	verificationRate         uint64
+	totalFacts               uint64
+	consensusDiversity       uint64
+	pendingVerificationRatio uint64
 }
 
 func (m *mockKnowledgeKeeper) GetVerificationRate(_ context.Context) uint64 {
@@ -41,6 +42,10 @@ func (m *mockKnowledgeKeeper) GetTotalFacts(_ context.Context) uint64 {
 
 func (m *mockKnowledgeKeeper) GetConsensusDiversity(_ context.Context) uint64 {
 	return m.consensusDiversity
+}
+
+func (m *mockKnowledgeKeeper) GetPendingVerificationRatio(_ context.Context) uint64 {
+	return m.pendingVerificationRatio
 }
 
 type mockStakingKeeper struct {
