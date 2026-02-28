@@ -26,8 +26,10 @@ type AlignmentState struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	Enabled               bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	LastObservationHeight uint64                 `protobuf:"varint,2,opt,name=last_observation_height,json=lastObservationHeight,proto3" json:"last_observation_height,omitempty"`
-	ObservationCount      uint64                 `protobuf:"varint,3,opt,name=observation_count,json=observationCount,proto3" json:"observation_count,omitempty"`
-	unknownFields         protoimpl.UnknownFields
+	ObservationCount        uint64                 `protobuf:"varint,3,opt,name=observation_count,json=observationCount,proto3" json:"observation_count,omitempty"`
+	DegradedFrequencyActive bool                   `protobuf:"varint,4,opt,name=degraded_frequency_active,json=degradedFrequencyActive,proto3" json:"degraded_frequency_active,omitempty"`
+	PreviousCategory        string                 `protobuf:"bytes,5,opt,name=previous_category,json=previousCategory,proto3" json:"previous_category,omitempty"`
+	unknownFields           protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
 
@@ -80,6 +82,20 @@ func (x *AlignmentState) GetObservationCount() uint64 {
 		return x.ObservationCount
 	}
 	return 0
+}
+
+func (x *AlignmentState) GetDegradedFrequencyActive() bool {
+	if x != nil {
+		return x.DegradedFrequencyActive
+	}
+	return false
+}
+
+func (x *AlignmentState) GetPreviousCategory() string {
+	if x != nil {
+		return x.PreviousCategory
+	}
+	return ""
 }
 
 // AlignmentObservation records sensor readings at a given height.

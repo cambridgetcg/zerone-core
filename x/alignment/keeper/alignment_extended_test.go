@@ -317,6 +317,27 @@ func TestCorrectionsAllDimensionsBelowDegraded(t *testing.T) {
 
 // ========== State CRUD ==========
 
+func TestStateRoundtripWithNewFields(t *testing.T) {
+	k, _, ctx := setupKeeper(t)
+
+	state := &types.AlignmentState{
+		Enabled:                 true,
+		LastObservationHeight:   500,
+		ObservationCount:        42,
+		DegradedFrequencyActive: true,
+		PreviousCategory:        types.CategoryDegraded,
+	}
+	k.SetState(ctx, state)
+
+	got := k.GetState(ctx)
+	if !got.DegradedFrequencyActive {
+		t.Error("expected DegradedFrequencyActive=true")
+	}
+	if got.PreviousCategory != types.CategoryDegraded {
+		t.Errorf("expected PreviousCategory=%s, got %s", types.CategoryDegraded, got.PreviousCategory)
+	}
+}
+
 func TestStateRoundtrip(t *testing.T) {
 	k, _, ctx := setupKeeper(t)
 
