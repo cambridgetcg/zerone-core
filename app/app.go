@@ -970,6 +970,34 @@ func NewZeroneApp(
 		app.BankKeeper,
 	)
 
+	// R28-8: Wire capture defense immune system cross-module dependencies.
+
+	// capture_defense → capture_challenge (auto-submit challenges when flagged)
+	app.CaptureDefenseKeeper.SetChallengeKeeper(
+		zeronecckeeper.NewCaptureDefenseAutoChallenger(app.CaptureChallengeKeeper),
+	)
+
+	// capture_challenge → capture_defense (read metrics, clear flags)
+	app.CaptureChallengeKeeper.SetCaptureDefenseKeeper(
+		zeronecdkeeper.NewChallengeCaptureDefenseAdapter(app.CaptureDefenseKeeper),
+	)
+
+	// capture_challenge → qualification (reduce weight on upheld challenge)
+	app.CaptureChallengeKeeper.SetQualificationKeeper(app.QualificationKeeper)
+
+	// capture_challenge → knowledge (increase threshold on upheld challenge)
+	app.CaptureChallengeKeeper.SetKnowledgeKeeper(app.KnowledgeKeeper)
+
+	// knowledge → capture_defense (feed verification history + reputation)
+	app.KnowledgeKeeper.SetCaptureDefenseKeeper(
+		zeronecdkeeper.NewKnowledgeCaptureDefenseAdapter(app.CaptureDefenseKeeper),
+	)
+
+	// alignment → capture_defense (read flagged domain count for security sensor)
+	app.AlignmentKeeper.SetCaptureDefenseKeeper(
+		zeronecdkeeper.NewAlignmentCaptureDefenseAdapter(app.CaptureDefenseKeeper),
+	)
+
 	// IBCRateLimitKeeper already created above (before TransferKeeper).
 
 	app.ICAAuthKeeper = zeroneicaauthkeeper.NewKeeper(
