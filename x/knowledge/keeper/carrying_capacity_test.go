@@ -1,11 +1,13 @@
 package keeper_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
+	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
 func TestDomainStats_SetGet(t *testing.T) {
@@ -191,4 +193,67 @@ func TestDeathPressure_Empty(t *testing.T) {
 	// Empty domain = 0 pressure < 50% threshold → 75% decay
 	multiplier := k.GetDeathPressureMultiplier(ctx, "physics")
 	require.Equal(t, uint64(750_000), multiplier) // 75% = slower decay
+}
+
+// ─── Integration test ───────────────────────────────────────────────────────
+
+func TestCarryingCapacity_Integration(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	params, _ := k.GetParams(ctx)
+
+	// 1. Create 1200 facts in "physics" (over capacity of 1000)
+	for i := 0; i < 1200; i++ {
+		factID := fmt.Sprintf("fact-%04d", i)
+		fact := &types.Fact{
+			Id:                factID,
+			Content:           fmt.Sprintf("Physics fact number %d with enough content", i),
+			Domain:            "physics",
+			Category:          "observation",
+			Confidence:        500_000,
+			Submitter:         "zrn1test",
+			SubmittedAtBlock:  100,
+			VerifiedAtBlock:   100,
+			LastVerifiedBlock: 100,
+			Status:            types.FactStatus_FACT_STATUS_ACTIVE,
+			Energy:            params.MetabolismInitialEnergy,
+			EnergyCap:         params.MetabolismEnergyCap,
+		}
+		require.NoError(t, k.SetFact(ctx, fact))
+		k.IncrementDomainFactCount(ctx, fact.Domain, true, fact.Energy)
+	}
+
+	// 2. Verify pressure > 1M BPS (overcrowded)
+	pressure := k.GetDomainPressure(ctx, "physics")
+	require.Greater(t, pressure, uint64(keeper.BPSCapacity))
+	require.Equal(t, "overcrowded", keeper.PressureCategory(pressure))
+
+	// 3. Verify death pressure multiplier > 1M (faster decay)
+	multiplier := k.GetDeathPressureMultiplier(ctx, "physics")
+	require.Greater(t, multiplier, uint64(keeper.BPSCapacity))
+
+	// 4. Verify birth pressure gives no bonus
+	energy := k.ApplyBirthPressure(ctx, "physics", params.MetabolismInitialEnergy)
+	require.Equal(t, params.MetabolismInitialEnergy, energy)
+
+	// 5. Create fact in sparse domain — verify bonus energy
+	sparseEnergy := k.ApplyBirthPressure(ctx, "theology", params.MetabolismInitialEnergy)
+	require.Greater(t, sparseEnergy, params.MetabolismInitialEnergy)
+
+	// 6. Verify stats are correct
+	stats, found := k.GetDomainStats(ctx, "physics")
+	require.True(t, found)
+	require.Equal(t, uint64(1200), stats.ActiveCount)
+	require.Equal(t, uint64(0), stats.AtRiskCount)
+
+	// 7. Verify capacity
+	cap := k.GetDomainCarryingCapacity(ctx, "physics")
+	require.Equal(t, uint64(1000), cap)
+
+	// 8. Verify sparse domain
+	sparseStats, found := k.GetDomainStats(ctx, "theology")
+	require.False(t, found) // not yet populated
+	require.Equal(t, uint64(0), sparseStats.ActiveCount)
+	sparsePressure := k.GetDomainPressure(ctx, "theology")
+	require.Equal(t, uint64(0), sparsePressure)
+	require.Equal(t, "sparse", keeper.PressureCategory(sparsePressure))
 }
