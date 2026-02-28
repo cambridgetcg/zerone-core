@@ -253,6 +253,37 @@ func PressureCategory(pressureBps uint64) string {
 
 // ─── Events ─────────────────────────────────────────────────────────────────
 
+// EmitCapacityPenaltyEvent emits a capacity_penalty_applied event when capture penalty reduces capacity (R31-1).
+func (k Keeper) EmitCapacityPenaltyEvent(ctx context.Context, domain string) {
+	if k.captureDefenseKeeper == nil {
+		return
+	}
+	flagged, penaltyBps := k.captureDefenseKeeper.GetDomainCapturePenalty(ctx, domain)
+	if !flagged {
+		return
+	}
+
+	params, _ := k.GetParams(ctx)
+	base := params.DomainBaseCapacity
+	if base == 0 {
+		base = 1000
+	}
+	inbound := k.GetInboundCrossDomainCitationCount(ctx, domain)
+	bonus := inbound * params.DomainCapacityGrowthPerCitation
+	baseTotal := base + bonus
+	effective := k.GetDomainCarryingCapacity(ctx, domain)
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.capacity_penalty_applied",
+		sdk.NewAttribute("domain", domain),
+		sdk.NewAttribute("base_capacity", fmt.Sprintf("%d", baseTotal)),
+		sdk.NewAttribute("effective_capacity", fmt.Sprintf("%d", effective)),
+		sdk.NewAttribute("capture_penalty_bps", fmt.Sprintf("%d", penaltyBps)),
+		sdk.NewAttribute("reason", "capture_flagged"),
+	))
+}
+
 // EmitDomainPressureEvent emits a domain_pressure_changed event.
 func (k Keeper) EmitDomainPressureEvent(ctx context.Context, domain string) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)

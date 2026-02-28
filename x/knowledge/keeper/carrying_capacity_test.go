@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -536,6 +538,41 @@ func TestCarryingCapacity_UnflagRestoresCapacity(t *testing.T) {
 	mockCD.flagged["physics"] = false
 
 	require.Equal(t, uint64(1000), k.GetDomainCarryingCapacity(ctx, "physics"))
+}
+
+func TestCarryingCapacity_CapturePenaltyEvent(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	mockCD := &mockCaptureDefenseForCapacity{
+		flagged:   map[string]bool{"physics": true},
+		penalties: map[string]uint64{"physics": 400_000},
+	}
+	k.SetCaptureDefenseKeeper(mockCD)
+
+	k.EmitCapacityPenaltyEvent(ctx, "physics")
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	events := sdkCtx.EventManager().Events()
+	found := false
+	for _, e := range events {
+		if e.Type == "zerone.knowledge.capacity_penalty_applied" {
+			found = true
+			for _, attr := range e.Attributes {
+				switch attr.Key {
+				case "domain":
+					require.Equal(t, "physics", attr.Value)
+				case "base_capacity":
+					require.Equal(t, "1000", attr.Value)
+				case "effective_capacity":
+					require.Equal(t, "600", attr.Value)
+				case "capture_penalty_bps":
+					require.Equal(t, "400000", attr.Value)
+				case "reason":
+					require.Equal(t, "capture_flagged", attr.Value)
+				}
+			}
+		}
+	}
+	require.True(t, found, "expected capacity_penalty_applied event")
 }
 
 func TestStratumCapacity_AllDepthMultipliers(t *testing.T) {
