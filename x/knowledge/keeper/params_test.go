@@ -177,3 +177,13 @@ func TestDefaultParams_MinEqualsMax(t *testing.T) {
 	p.MaxVerifiers = 5
 	require.NoError(t, p.Validate(), "min == max should be valid")
 }
+
+
+func TestRoleBonusParamsDefaults(t *testing.T) {
+	params := types.DefaultParams()
+	require.Equal(t, uint64(150_000), params.HumanEmpiricalBonusBps, "human empirical bonus should be +15%")
+	require.Equal(t, uint64(150_000), params.AgentComputationalBonusBps, "agent computational bonus should be +15%")
+	require.Equal(t, uint64(200_000), params.AgentVerificationBonusBps, "agent verification bonus should be +20%")
+	require.Equal(t, uint64(100_000), params.HumanPatronageBonusBps, "human patronage bonus should be +10%")
+	require.Equal(t, uint64(250_000), params.DualValidationBonusBps, "dual validation bonus should be +25%")
+}

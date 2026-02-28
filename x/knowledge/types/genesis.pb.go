@@ -156,6 +156,12 @@ type Params struct {
 	MetabolismActiveThreshold     uint64 `protobuf:"varint,107,opt,name=metabolism_active_threshold,json=metabolismActiveThreshold,proto3" json:"metabolism_active_threshold,omitempty"`             // Energy below which fact → AT_RISK (default: 300,000 = 30%)
 	MetabolismExtinctionThreshold uint64 `protobuf:"varint,108,opt,name=metabolism_extinction_threshold,json=metabolismExtinctionThreshold,proto3" json:"metabolism_extinction_threshold,omitempty"` // Energy below which (for N epochs) → EXTINCT (default: 10,000 = 1%)
 	MaxConfidence                 uint64 `protobuf:"varint,109,opt,name=max_confidence,json=maxConfidence,proto3" json:"max_confidence,omitempty"`                                                   // Hard cap on confidence (default: 880,000 = 88%)
+	// ─── Role bonuses (R28-5) — additive BPS multipliers, NOT thresholds ────
+	HumanEmpiricalBonusBps     uint64 `protobuf:"varint,110,opt,name=human_empirical_bonus_bps,json=humanEmpiricalBonusBps,proto3" json:"human_empirical_bonus_bps,omitempty"`           // +15% confidence for human empirical claims
+	AgentComputationalBonusBps uint64 `protobuf:"varint,111,opt,name=agent_computational_bonus_bps,json=agentComputationalBonusBps,proto3" json:"agent_computational_bonus_bps,omitempty"` // +15% confidence for agent computational claims
+	AgentVerificationBonusBps  uint64 `protobuf:"varint,112,opt,name=agent_verification_bonus_bps,json=agentVerificationBonusBps,proto3" json:"agent_verification_bonus_bps,omitempty"`    // +20% vote weight for agent verifiers
+	HumanPatronageBonusBps     uint64 `protobuf:"varint,113,opt,name=human_patronage_bonus_bps,json=humanPatronageBonusBps,proto3" json:"human_patronage_bonus_bps,omitempty"`             // +10% energy boost for human patrons
+	DualValidationBonusBps     uint64 `protobuf:"varint,114,opt,name=dual_validation_bonus_bps,json=dualValidationBonusBps,proto3" json:"dual_validation_bonus_bps,omitempty"`             // +25% confidence for partnership (human+agent) claims
 	unknownFields                 protoimpl.UnknownFields
 	sizeCache                     protoimpl.SizeCache
 }
@@ -949,6 +955,41 @@ func (x *Params) GetMetabolismExtinctionThreshold() uint64 {
 func (x *Params) GetMaxConfidence() uint64 {
 	if x != nil {
 		return x.MaxConfidence
+	}
+	return 0
+}
+
+func (x *Params) GetHumanEmpiricalBonusBps() uint64 {
+	if x != nil {
+		return x.HumanEmpiricalBonusBps
+	}
+	return 0
+}
+
+func (x *Params) GetAgentComputationalBonusBps() uint64 {
+	if x != nil {
+		return x.AgentComputationalBonusBps
+	}
+	return 0
+}
+
+func (x *Params) GetAgentVerificationBonusBps() uint64 {
+	if x != nil {
+		return x.AgentVerificationBonusBps
+	}
+	return 0
+}
+
+func (x *Params) GetHumanPatronageBonusBps() uint64 {
+	if x != nil {
+		return x.HumanPatronageBonusBps
+	}
+	return 0
+}
+
+func (x *Params) GetDualValidationBonusBps() uint64 {
+	if x != nil {
+		return x.DualValidationBonusBps
 	}
 	return 0
 }

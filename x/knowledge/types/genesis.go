@@ -156,6 +156,13 @@ func DefaultParams() Params {
 		VindicationBonusBps:      2_000,    // 20% of majority slash pool as bonus
 		VindicationSlashBps:      500,      // 5% slash rate for majority on disproven fact
 		VindicationWindowBlocks:  100_000,  // ~3 days at 2.5s blocks
+
+		// ─── Role bonuses (R28-5) — additive BPS, NOT thresholds ──────────
+		HumanEmpiricalBonusBps:     150_000, // +15% confidence for human OBSERVATION claims
+		AgentComputationalBonusBps: 150_000, // +15% confidence for agent COMPUTATIONAL claims
+		AgentVerificationBonusBps:  200_000, // +20% vote weight for agent verifiers
+		HumanPatronageBonusBps:     100_000, // +10% energy boost for human patrons
+		DualValidationBonusBps:     250_000, // +25% confidence for partnership claims
 	}
 }
 
@@ -497,5 +504,22 @@ func (p *Params) Validate() error {
 		return fmt.Errorf("vindication_window_blocks must be > 0 when vindication is enabled")
 	}
 
+
+	// ─── Role bonus params (R28-5) ──────────────────────────────────
+	if p.HumanEmpiricalBonusBps > 1_000_000 {
+		return fmt.Errorf("human_empirical_bonus_bps must be <= 1,000,000")
+	}
+	if p.AgentComputationalBonusBps > 1_000_000 {
+		return fmt.Errorf("agent_computational_bonus_bps must be <= 1,000,000")
+	}
+	if p.AgentVerificationBonusBps > 1_000_000 {
+		return fmt.Errorf("agent_verification_bonus_bps must be <= 1,000,000")
+	}
+	if p.HumanPatronageBonusBps > 1_000_000 {
+		return fmt.Errorf("human_patronage_bonus_bps must be <= 1,000,000")
+	}
+	if p.DualValidationBonusBps > 1_000_000 {
+		return fmt.Errorf("dual_validation_bonus_bps must be <= 1,000,000")
+	}
 	return nil
 }
