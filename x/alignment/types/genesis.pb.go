@@ -122,8 +122,10 @@ type Params struct {
 	DegradedThreshold uint64 `protobuf:"varint,8,opt,name=degraded_threshold,json=degradedThreshold,proto3" json:"degraded_threshold,omitempty"`
 	HealthyThreshold  uint64 `protobuf:"varint,9,opt,name=healthy_threshold,json=healthyThreshold,proto3" json:"healthy_threshold,omitempty"`
 	// Module enabled flag.
-	Enabled       bool `protobuf:"varint,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	unknownFields protoimpl.UnknownFields
+	Enabled bool `protobuf:"varint,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Maximum correction magnitude for auto-apply (BPS).
+	MaxAutoApplyMagnitudeBps uint64 `protobuf:"varint,11,opt,name=max_auto_apply_magnitude_bps,json=maxAutoApplyMagnitudeBps,proto3" json:"max_auto_apply_magnitude_bps,omitempty"`
+	unknownFields            protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
@@ -225,6 +227,13 @@ func (x *Params) GetEnabled() bool {
 		return x.Enabled
 	}
 	return false
+}
+
+func (x *Params) GetMaxAutoApplyMagnitudeBps() uint64 {
+	if x != nil {
+		return x.MaxAutoApplyMagnitudeBps
+	}
+	return 0
 }
 
 var File_zerone_alignment_v1_genesis_proto protoreflect.FileDescriptor

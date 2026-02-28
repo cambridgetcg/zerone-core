@@ -16,6 +16,7 @@ func DefaultParams() Params {
 		DegradedThreshold:            400_000, // 40%
 		HealthyThreshold:             700_000, // 70%
 		Enabled:                      true,
+		MaxAutoApplyMagnitudeBps:     500_000, // 50% — conservative testnet default
 	}
 }
 
@@ -61,6 +62,10 @@ func (p *Params) Validate() error {
 
 	if p.CriticalThreshold >= p.DegradedThreshold || p.DegradedThreshold >= p.HealthyThreshold {
 		return ErrThresholdOrder
+	}
+
+	if p.MaxAutoApplyMagnitudeBps > BPS {
+		return ErrInvalidMaxAutoApply
 	}
 
 	return nil

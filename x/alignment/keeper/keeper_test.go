@@ -531,6 +531,13 @@ func TestParamValidation(t *testing.T) {
 			},
 			errMsg: "threshold",
 		},
+		{
+			name: "max_auto_apply exceeds BPS",
+			modify: func(p *types.Params) {
+				p.MaxAutoApplyMagnitudeBps = types.BPS + 1
+			},
+			errMsg: "max_auto_apply",
+		},
 	}
 
 	for _, tt := range tests {
