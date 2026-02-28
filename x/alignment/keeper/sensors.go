@@ -28,6 +28,7 @@ func (k Keeper) ObserveAll(ctx context.Context) *types.AlignmentObservation {
 // senseKnowledgeQuality reads verification rate and consensus diversity from x/knowledge.
 // Weighted: 60% verification rate, 40% diversity.
 // A system that verifies everything unanimously scores LOWER on knowledge quality.
+// Growth pressure (R31-1): if pending/active ratio exceeds 150%, apply 20% penalty (Wood overwhelming Earth).
 // Returns BPS. Nil-safe: returns NeutralBPS if keeper is nil.
 func (k Keeper) senseKnowledgeQuality(ctx context.Context) uint64 {
 	if k.knowledgeKeeper == nil {
@@ -42,7 +43,15 @@ func (k Keeper) senseKnowledgeQuality(ctx context.Context) uint64 {
 		diversity = types.BPS
 	}
 	// Weighted: 60% verification rate, 40% diversity
-	return (rate*6 + diversity*4) / 10
+	qualityScore := (rate*6 + diversity*4) / 10
+
+	// Growth pressure penalty (R31-1: Wood controls Earth)
+	pendingRatio := k.knowledgeKeeper.GetPendingVerificationRatio(ctx)
+	if pendingRatio > 1_500_000 { // 150% — verification backlog
+		qualityScore = qualityScore * 800_000 / types.BPS // 20% penalty
+	}
+
+	return qualityScore
 }
 
 // senseEconomicStability computes staked/supply ratio as BPS.

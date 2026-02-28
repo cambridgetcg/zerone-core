@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
@@ -1144,4 +1146,32 @@ func TestApplyCorrectionsRecordsOutcomes(t *testing.T) {
 	if outcome.ScoreAfter != 0 {
 		t.Fatal("expected score_after=0 (not yet evaluated)")
 	}
+}
+
+// --- Test: Growth pressure penalty applied when pending ratio exceeds 150% ---
+
+func TestSenseKnowledgeQuality_GrowthPressurePenalty(t *testing.T) {
+	k, mocks, ctx := setupKeeper(t)
+
+	mocks.knowledge.verificationRate = 800_000
+	mocks.knowledge.consensusDiversity = 600_000
+	mocks.knowledge.pendingVerificationRatio = 1_600_000 // 160% — exceeds 150% threshold
+
+	obs := k.ObserveAll(ctx)
+	// Base quality: (800_000*6 + 600_000*4) / 10 = 720_000
+	// After 20% penalty: 720_000 * 800_000 / 1_000_000 = 576_000
+	require.Equal(t, uint64(576_000), obs.KnowledgeQuality)
+}
+
+// --- Test: No growth pressure penalty when below 150% threshold ---
+
+func TestSenseKnowledgeQuality_NoGrowthPressureBelowThreshold(t *testing.T) {
+	k, mocks, ctx := setupKeeper(t)
+
+	mocks.knowledge.verificationRate = 800_000
+	mocks.knowledge.consensusDiversity = 600_000
+	mocks.knowledge.pendingVerificationRatio = 1_400_000 // 140% — below 150% threshold
+
+	obs := k.ObserveAll(ctx)
+	require.Equal(t, uint64(720_000), obs.KnowledgeQuality) // no penalty
 }
