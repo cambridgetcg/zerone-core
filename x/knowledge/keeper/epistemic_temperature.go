@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -71,4 +73,74 @@ func (k Keeper) CountVindicationsInWindow(ctx context.Context, domain string, cu
 		return false
 	})
 	return count
+}
+
+// UpdateEpistemicTemperature recalculates a domain's epistemic temperature.
+// Called from BeginBlocker at fitness epoch boundaries.
+func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string) error {
+	state, err := k.GetOrInitDomainEpistemicState(ctx, domain)
+	if err != nil {
+		return err
+	}
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return err
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	height := uint64(sdkCtx.BlockHeight())
+	neutral := uint64(NeutralBPS) // 500,000
+
+	// 1. Decay toward neutral (500,000)
+	if state.Temperature > neutral {
+		diff := state.Temperature - neutral
+		state.Temperature = neutral + safeMulDiv(diff, params.EpistemicTemperatureDecayBps, BPS)
+	} else if state.Temperature < neutral {
+		diff := neutral - state.Temperature
+		state.Temperature = neutral - safeMulDiv(diff, params.EpistemicTemperatureDecayBps, BPS)
+	}
+
+	// 2. Conformity cooling — check current epoch diversity
+	epoch := uint64(0)
+	if params.FitnessEpochBlocks > 0 {
+		epoch = height / params.FitnessEpochBlocks
+	}
+	rec, found, err := k.GetDomainDiversity(ctx, domain, epoch)
+	if err != nil {
+		return err
+	}
+	if found && rec.RoundCount > 0 && rec.AvgEntropy < params.DiversityConformityAlertThreshold {
+		state.ConformityStreak++
+		// Scale cooling by streak (capped at 10 for max effect)
+		streak := state.ConformityStreak
+		if streak > 10 {
+			streak = 10
+		}
+		cooling := safeMulDiv(params.EpistemicConformityCoolingBps, streak, 10)
+		if state.Temperature > cooling {
+			state.Temperature -= cooling
+		} else {
+			state.Temperature = 0
+		}
+	} else {
+		state.ConformityStreak = 0
+	}
+
+	// 3. Vindication heating
+	windowBlocks := params.EpistemicTemperatureWindowBlocks
+	if windowBlocks == 0 {
+		windowBlocks = 10_000
+	}
+	recentVindications := k.CountVindicationsInWindow(ctx, domain, height, windowBlocks)
+	if recentVindications > state.VindicationCount {
+		newVindications := recentVindications - state.VindicationCount
+		heating := params.EpistemicVindicationHeatingBps * newVindications
+		state.Temperature += heating
+		if state.Temperature > BPS {
+			state.Temperature = BPS
+		}
+	}
+	state.VindicationCount = recentVindications
+
+	state.LastTemperatureUpdate = height
+	return k.SetDomainEpistemicState(ctx, &state)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -107,4 +108,62 @@ func TestCountVindicationsInWindow(t *testing.T) {
 	// Empty domain
 	count = k.CountVindicationsInWindow(ctx, "logic", 10000, 10000)
 	require.Equal(t, uint64(0), count)
+}
+
+func TestUpdateEpistemicTemperature_DecayToNeutral(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ctx = advanceBlocks(ctx, 9_900) // height 100 + 9900 = 10,000 (first fitness epoch)
+
+	// Start hot
+	require.NoError(t, k.SetDomainEpistemicState(ctx, &types.DomainEpistemicState{
+		Domain:      "physics",
+		Temperature: 800_000,
+	}))
+
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics"))
+
+	state, found, err := k.GetDomainEpistemicState(ctx, "physics")
+	require.NoError(t, err)
+	require.True(t, found)
+	// Decay: neutral + (800,000 - 500,000) * 995,000 / 1,000,000
+	// = 500,000 + 298,500 = 798,500
+	require.Equal(t, uint64(798_500), state.Temperature)
+}
+
+func TestUpdateEpistemicTemperature_ConformityCooling(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ctx = advanceBlocks(ctx, 9_900) // height = 10,000, epoch 1
+
+	require.NoError(t, k.SetDomainEpistemicState(ctx, &types.DomainEpistemicState{
+		Domain:      "physics",
+		Temperature: 500_000, // neutral
+	}))
+
+	// Create low-diversity epoch data
+	require.NoError(t, k.SetDomainDiversity(ctx, "physics", 1, keeper.DomainDiversityRecord{
+		Domain:     "physics",
+		Epoch:      1,
+		AvgEntropy: 10_000, // Very low (below 50,000 threshold)
+		RoundCount: 5,
+	}))
+
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics"))
+
+	state, found, err := k.GetDomainEpistemicState(ctx, "physics")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Less(t, state.Temperature, uint64(500_000)) // Cooled below neutral
+	require.Equal(t, uint64(1), state.ConformityStreak)
+}
+
+func TestUpdateEpistemicTemperature_NewDomainStartsNeutral(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ctx = advanceBlocks(ctx, 9_900) // height = 10,000
+
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "new_domain"))
+
+	state, found, err := k.GetDomainEpistemicState(ctx, "new_domain")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, uint64(500_000), state.Temperature) // neutral, no decay for neutral
 }
