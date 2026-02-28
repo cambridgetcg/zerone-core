@@ -188,6 +188,9 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	)
 
 	// 5. Health transition responses
+	// Compute pacing for event enrichment (R29-6).
+	creationPacing, analysisPacing := am.keeper.GetGlobalPacingMultiplier(ctx)
+
 	previousCategory := state.PreviousCategory
 	if previousCategory != "" && previousCategory != category {
 		switch {
@@ -197,6 +200,8 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 				sdk.NewEvent("zerone.alignment.network_health_degraded",
 					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
 					sdk.NewAttribute("composite", fmt.Sprintf("%d", scores.Composite)),
+					sdk.NewAttribute("creation_multiplier_bps", fmt.Sprintf("%d", creationPacing)),
+					sdk.NewAttribute("analysis_multiplier_bps", fmt.Sprintf("%d", analysisPacing)),
 				),
 			)
 		case category == types.CategoryCritical:
@@ -205,6 +210,8 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 				sdk.NewEvent("zerone.alignment.network_health_critical",
 					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
 					sdk.NewAttribute("composite", fmt.Sprintf("%d", scores.Composite)),
+					sdk.NewAttribute("creation_multiplier_bps", fmt.Sprintf("%d", creationPacing)),
+					sdk.NewAttribute("analysis_multiplier_bps", fmt.Sprintf("%d", analysisPacing)),
 				),
 			)
 		case category == types.CategoryHealthy && (previousCategory == types.CategoryDegraded || previousCategory == types.CategoryCritical):
@@ -213,6 +220,8 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 				sdk.NewEvent("zerone.alignment.network_health_recovered",
 					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
 					sdk.NewAttribute("composite", fmt.Sprintf("%d", scores.Composite)),
+					sdk.NewAttribute("creation_multiplier_bps", fmt.Sprintf("%d", creationPacing)),
+					sdk.NewAttribute("analysis_multiplier_bps", fmt.Sprintf("%d", analysisPacing)),
 				),
 			)
 		}
@@ -234,6 +243,8 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 			sdk.NewAttribute("category", category),
 			sdk.NewAttribute("correction_count", fmt.Sprintf("%d", len(corrections))),
 			sdk.NewAttribute("observation_count", fmt.Sprintf("%d", state.ObservationCount)),
+			sdk.NewAttribute("creation_multiplier_bps", fmt.Sprintf("%d", creationPacing)),
+			sdk.NewAttribute("analysis_multiplier_bps", fmt.Sprintf("%d", analysisPacing)),
 		),
 	)
 
