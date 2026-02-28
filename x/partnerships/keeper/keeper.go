@@ -26,6 +26,7 @@ type Keeper struct {
 	captureDefenseKeeper types.CaptureDefenseKeeper // nil until R29-5
 	pacingKeeper         types.PacingKeeper         // nil-safe, R29-6
 	ontologyKeeper       types.OntologyKeeper       // nil-safe, R31-4
+	knowledgeKeeper      types.KnowledgeKeeper      // nil-safe, R31-5
 
 	authority string
 }
@@ -88,6 +89,9 @@ func (k *Keeper) SetPacingKeeper(pk types.PacingKeeper) {
 
 // SetOntologyKeeper sets the ontology keeper (post-init, R31-4).
 func (k *Keeper) SetOntologyKeeper(ok types.OntologyKeeper) { k.ontologyKeeper = ok }
+
+// SetKnowledgeKeeper sets the knowledge keeper for mentorship dividends (post-init, R31-5).
+func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) { k.knowledgeKeeper = kk }
 
 // GetAuthority returns the module authority address.
 func (k Keeper) GetAuthority() string {

@@ -39,3 +39,8 @@ type PacingKeeper interface {
 type OntologyKeeper interface {
 	GetRelatedStrata(ctx context.Context, domain string) []string
 }
+
+// KnowledgeKeeper provides access to knowledge module for mentorship dividends (R31-5).
+type KnowledgeKeeper interface {
+	ApplyMentorshipDividend(ctx context.Context, domain, mentor, mentee string)
+}

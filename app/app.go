@@ -1143,6 +1143,11 @@ func NewZeroneApp(
 	// partnerships → ontology (related strata for cross-stratum matching)
 	app.PartnershipsKeeper.SetOntologyKeeper(&app.ZeroneOntologyKeeper)
 
+	// R31-5: Wire Water → Wood — mentorship dividends flow to knowledge.
+	app.PartnershipsKeeper.SetKnowledgeKeeper(
+		zeronepartnershipskeeper.NewKnowledgeDividendAdapter(app.KnowledgeKeeper),
+	)
+
 	// ---- Toolbox keeper (R8-1) ----
 	toolboxRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)
 	app.ToolboxKeeper = zeronetoolboxkeeper.NewKeeper(

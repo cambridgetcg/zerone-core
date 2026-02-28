@@ -134,6 +134,11 @@ func (k Keeper) graduateMentorship(ctx sdk.Context, m *types.Mentorship) {
 	m.Status = "graduated"
 	k.SetMentorship(ctx, m)
 
+	// R31-5: Water → Wood — mentorship graduation produces knowledge dividends.
+	if k.knowledgeKeeper != nil {
+		k.knowledgeKeeper.ApplyMentorshipDividend(ctx, m.Domain, m.MentorAddr, m.MenteeAddr)
+	}
+
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.partnerships.mentorship_graduated",
 			sdk.NewAttribute("mentorship_id", m.Id),
