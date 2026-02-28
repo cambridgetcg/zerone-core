@@ -20,8 +20,12 @@ type Keeper struct {
 	cdc          codec.BinaryCodec
 	authority    string
 
-	bankKeeper types.BankKeeper
+	bankKeeper   types.BankKeeper
+	pacingKeeper types.PacingKeeper // nil-safe, R29-6
 }
+
+// SetPacingKeeper sets the pacing keeper for adaptive expiry timing (post-init, R29-6).
+func (k *Keeper) SetPacingKeeper(pk types.PacingKeeper) { k.pacingKeeper = pk }
 
 // NewKeeper creates a new discovery module Keeper.
 func NewKeeper(
