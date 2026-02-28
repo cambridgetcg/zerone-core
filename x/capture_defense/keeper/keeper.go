@@ -15,13 +15,14 @@ import (
 
 // Keeper manages the capture_defense module's state.
 type Keeper struct {
-	storeService    store.KVStoreService
-	cdc             codec.BinaryCodec
-	authority       string
-	knowledgeKeeper types.KnowledgeKeeper
-	stakingKeeper   types.StakingKeeper
-	ontologyKeeper  types.OntologyKeeper          // nil-safe, set post-init
-	challengeKeeper types.CaptureChallengeKeeper // nil-safe, set post-init
+	storeService       store.KVStoreService
+	cdc                codec.BinaryCodec
+	authority          string
+	knowledgeKeeper    types.KnowledgeKeeper
+	stakingKeeper      types.StakingKeeper
+	ontologyKeeper     types.OntologyKeeper          // nil-safe, set post-init
+	challengeKeeper    types.CaptureChallengeKeeper   // nil-safe, set post-init
+	partnershipsKeeper types.PartnershipsKeeper       // nil-safe, set post-init (R29-5)
 }
 
 // NewKeeper creates a new capture_defense module Keeper.
@@ -57,6 +58,9 @@ func (k *Keeper) SetOntologyKeeper(ok types.OntologyKeeper) { k.ontologyKeeper =
 
 // SetChallengeKeeper sets the capture challenge keeper post-initialization.
 func (k *Keeper) SetChallengeKeeper(ck types.CaptureChallengeKeeper) { k.challengeKeeper = ck }
+
+// SetPartnershipsKeeper sets the partnerships keeper post-initialization (R29-5).
+func (k *Keeper) SetPartnershipsKeeper(pk types.PartnershipsKeeper) { k.partnershipsKeeper = pk }
 
 // InitGenesis sets initial state from genesis.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
@@ -119,10 +123,15 @@ func (k Keeper) RunAutoAnalysis(ctx sdk.Context, params *types.Params) {
 		if metrics == nil {
 			continue
 		}
-		if metrics.Flagged && k.challengeKeeper != nil {
-			evidence := formatMetricsAsEvidence(metrics)
-			if err := k.challengeKeeper.AutoSubmitChallenge(ctx, domain, metrics.RiskScore, metrics.HerfindahlIndex, evidence); err != nil {
-				k.Logger(ctx).Error("auto-challenge submission failed", "domain", domain, "err", err)
+		if metrics.Flagged {
+			// R29-5: Signal partnerships module to boost formation in flagged domains.
+			k.OnDomainFlagged(ctx, domain)
+
+			if k.challengeKeeper != nil {
+				evidence := formatMetricsAsEvidence(metrics)
+				if err := k.challengeKeeper.AutoSubmitChallenge(ctx, domain, metrics.RiskScore, metrics.HerfindahlIndex, evidence); err != nil {
+					k.Logger(ctx).Error("auto-challenge submission failed", "domain", domain, "err", err)
+				}
 			}
 		}
 	}

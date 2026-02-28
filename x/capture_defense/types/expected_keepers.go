@@ -25,3 +25,10 @@ type OntologyKeeper interface {
 type CaptureChallengeKeeper interface {
 	AutoSubmitChallenge(ctx context.Context, domain string, riskScore uint64, hhi uint64, evidence string) error
 }
+
+// PartnershipsKeeper provides access to partnerships module for structural immunity (R29-5).
+type PartnershipsKeeper interface {
+	GetDomainPartnershipDensity(ctx context.Context, domain string) uint64
+	SetDomainFormationBonus(ctx context.Context, domain string, bonusBps uint64, reason string, expiryHeight uint64)
+	GetPartnershipCountByParticipant(ctx context.Context, addr string, domain string) uint64
+}

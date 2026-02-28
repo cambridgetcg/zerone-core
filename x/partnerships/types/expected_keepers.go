@@ -24,3 +24,8 @@ type HomeKeeper interface {
 type ZeroneAuthKeeper interface {
 	GetAccountType(ctx context.Context, address string) (string, bool)
 }
+
+// CaptureDefenseKeeper provides access to capture_defense module for structural immunity (R29-5).
+type CaptureDefenseKeeper interface {
+	IsDomainFlagged(ctx context.Context, domain string) bool
+}

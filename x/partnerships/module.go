@@ -152,6 +152,7 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 	am.keeper.ExpirePoolEntries(sdkCtx)
 	am.keeper.ExpireSeedPartnerships(sdkCtx)
 	am.keeper.ExpireFormationMatches(sdkCtx)
+	am.keeper.ExpireFormationBonuses(sdkCtx) // R29-5: expire structural immunity bonuses
 
 	return nil
 }

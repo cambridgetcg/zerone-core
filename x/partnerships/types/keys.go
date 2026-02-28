@@ -25,4 +25,6 @@ var (
 	ByMentorIndexPrefix        = []byte{0x15}
 	ByMenteeIndexPrefix        = []byte{0x16}
 	FormationMatchKeyPrefix    = []byte{0x17}
+	FormationBonusKeyPrefix    = []byte{0x18} // R29-5: domain formation bonuses
+	FormationBonusParamsKey    = []byte{0x19} // R29-5: formation bonus params
 )

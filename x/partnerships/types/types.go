@@ -7,6 +7,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// FormationBonus represents a priority boost for partnership formation in a domain (R29-5).
+type FormationBonus struct {
+	Domain       string
+	BonusBps     uint64
+	Reason       string
+	ExpiryHeight uint64
+}
+
 type PartnershipStatus = string
 
 const (

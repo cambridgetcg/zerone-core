@@ -21,8 +21,9 @@ type Keeper struct {
 	bankKeeper types.BankKeeper
 
 	// Cross-module keepers (set via setter to avoid circular deps)
-	homeKeeper       types.HomeKeeper
-	zeroneAuthKeeper types.ZeroneAuthKeeper // nil until R28-5
+	homeKeeper           types.HomeKeeper
+	zeroneAuthKeeper     types.ZeroneAuthKeeper     // nil until R28-5
+	captureDefenseKeeper types.CaptureDefenseKeeper // nil until R29-5
 
 	authority string
 }
@@ -71,6 +72,11 @@ func (k *Keeper) SetHomeKeeper(hk types.HomeKeeper) {
 // SetZeroneAuthKeeper sets the zerone auth keeper (post-init, R28-5).
 func (k *Keeper) SetZeroneAuthKeeper(ak types.ZeroneAuthKeeper) {
 	k.zeroneAuthKeeper = ak
+}
+
+// SetCaptureDefenseKeeper sets the capture defense keeper (post-init, R29-5).
+func (k *Keeper) SetCaptureDefenseKeeper(ck types.CaptureDefenseKeeper) {
+	k.captureDefenseKeeper = ck
 }
 
 // GetAuthority returns the module authority address.

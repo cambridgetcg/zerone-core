@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -49,6 +50,10 @@ func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types
 	// 6. Composite risk score: weighted average
 	riskScore := (hhi*40 + timing*20 + verdict*20 + top3*20) / 100
 
+	// R29-5: Adjust HHI based on partnership density (structural immunity).
+	// Distributed social structure reduces effective HHI.
+	adjustedHHI := k.CalculateAdjustedHHI(ctx, domain, hhi)
+
 	// Adjust HHI threshold by domain depth: deeper (more specific) domains
 	// get a more lenient threshold. +50,000 BPS per depth level above 1.
 	adjustedThreshold := params.HhiThreshold
@@ -58,7 +63,13 @@ func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types
 		}
 	}
 
-	flagged := hhi > adjustedThreshold
+	// R29-5: Check for accelerated clearing — if domain has enough partnership
+	// density while flagged, unflag it.
+	if k.ShouldAccelerateClearFlag(ctx, domain) {
+		adjustedHHI = adjustedHHI * 80 / 100 // additional 20% reduction for accelerated clearing
+	}
+
+	flagged := adjustedHHI > adjustedThreshold
 
 	metrics := &types.CaptureMetrics{
 		Domain:              domain,
@@ -72,6 +83,25 @@ func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types
 		Flagged:             flagged,
 	}
 	k.SetCaptureMetrics(ctx, metrics)
+
+	// R29-5: Emit structural immunity event when partnership density affects HHI.
+	if k.partnershipsKeeper != nil {
+		density := k.partnershipsKeeper.GetDomainPartnershipDensity(ctx, domain)
+		formationBonusActive := false
+		if flagged {
+			formationBonusActive = true
+		}
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent("zerone.capture_defense.structural_immunity_updated",
+				sdk.NewAttribute("domain", domain),
+				sdk.NewAttribute("partnership_density", fmt.Sprintf("%d", density)),
+				sdk.NewAttribute("raw_hhi", fmt.Sprintf("%d", hhi)),
+				sdk.NewAttribute("adjusted_hhi", fmt.Sprintf("%d", adjustedHHI)),
+				sdk.NewAttribute("formation_bonus_active", fmt.Sprintf("%t", formationBonusActive)),
+			),
+		)
+	}
+
 	return metrics
 }
 

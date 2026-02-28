@@ -1115,6 +1115,16 @@ func NewZeroneApp(
 	app.KnowledgeKeeper.SetZeroneAuthKeeper(knowledgeAuthAdapter)
 	app.PartnershipsKeeper.SetZeroneAuthKeeper(knowledgeAuthAdapter)
 
+	// R29-5: Wire structural immunity cross-module dependencies.
+	// capture_defense → partnerships (read density, set formation bonus)
+	app.CaptureDefenseKeeper.SetPartnershipsKeeper(
+		zeronepartnershipskeeper.NewCaptureDefensePartnershipsAdapter(app.PartnershipsKeeper),
+	)
+	// partnerships → capture_defense (read flagged status)
+	app.PartnershipsKeeper.SetCaptureDefenseKeeper(
+		zeronecdkeeper.NewPartnershipsCaptureDefenseAdapter(app.CaptureDefenseKeeper),
+	)
+
 	// ---- Toolbox keeper (R8-1) ----
 	toolboxRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)
 	app.ToolboxKeeper = zeronetoolboxkeeper.NewKeeper(

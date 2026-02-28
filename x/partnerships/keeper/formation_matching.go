@@ -115,6 +115,9 @@ func (k Keeper) RunFormationMatching(ctx sdk.Context) {
 
 		if bestIdx >= 0 && bestScore > 0 {
 			e2 := entries[bestIdx]
+
+			// R29-5: Boost match score for domains with active formation bonuses.
+			bestScore = k.applyFormationBonus(ctx, e1, e2, bestScore)
 			matched[e1.Address] = true
 			matched[e2.Address] = true
 
@@ -198,6 +201,34 @@ func scoreCompatibility(e1, e2 *types.PoolEntry, currentBlock uint64) uint64 {
 
 func isComplementary(r1, r2 string) bool {
 	return (r1 == "human" && r2 == "agent") || (r1 == "agent" && r2 == "human")
+}
+
+// applyFormationBonus boosts match scores when either entry's domains have an active
+// formation bonus (R29-5). Flagged domains attract more partnerships.
+func (k Keeper) applyFormationBonus(ctx sdk.Context, e1, e2 *types.PoolEntry, baseScore uint64) uint64 {
+	currentBlock := uint64(ctx.BlockHeight())
+	bestBonusBps := uint64(0)
+
+	// Check all domains from both entries for active bonuses.
+	allDomains := make(map[string]bool)
+	for _, d := range e1.Domains {
+		allDomains[d] = true
+	}
+	for _, d := range e2.Domains {
+		allDomains[d] = true
+	}
+
+	for domain := range allDomains {
+		bonus := k.GetDomainFormationBonus(ctx, domain)
+		if bonus != nil && bonus.ExpiryHeight > currentBlock && bonus.BonusBps > bestBonusBps {
+			bestBonusBps = bonus.BonusBps
+		}
+	}
+
+	if bestBonusBps > 0 {
+		return baseScore * (1_000_000 + bestBonusBps) / 1_000_000
+	}
+	return baseScore
 }
 
 // ---------- Expiry ----------
