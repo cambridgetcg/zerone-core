@@ -1082,6 +1082,11 @@ func NewZeroneApp(
 		zeronepartnershipskeeper.NewKnowledgePartnershipAdapter(app.PartnershipsKeeper),
 	)
 
+	// Wire zerone auth into knowledge and partnerships for role bonuses (R28-5).
+	knowledgeAuthAdapter := zeroneauthkeeper.NewKnowledgeAuthAdapter(app.ZeroneAuthKeeper)
+	app.KnowledgeKeeper.SetZeroneAuthKeeper(knowledgeAuthAdapter)
+	app.PartnershipsKeeper.SetZeroneAuthKeeper(knowledgeAuthAdapter)
+
 	// ---- Toolbox keeper (R8-1) ----
 	toolboxRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)
 	app.ToolboxKeeper = zeronetoolboxkeeper.NewKeeper(

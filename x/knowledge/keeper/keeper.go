@@ -27,6 +27,7 @@ type Keeper struct {
 	domainQualificationKeeper types.DomainQualificationKeeper // nil until R6-5
 	autopoiesisKeeper         types.AutopoiesisKeeper         // nil until R7-1
 	partnershipKeeper         types.PartnershipKeeper         // nil until R26-4
+	zeroneAuthKeeper           types.ZeroneAuthKeeper           // nil until R28-5
 }
 
 // NewKeeper creates a new knowledge Keeper.
@@ -79,6 +80,11 @@ func (k *Keeper) SetAutopoiesisKeeper(ak types.AutopoiesisKeeper) {
 // SetPartnershipKeeper sets the partnership keeper (post-init, R26-4).
 func (k *Keeper) SetPartnershipKeeper(pk types.PartnershipKeeper) {
 	k.partnershipKeeper = pk
+}
+
+// SetZeroneAuthKeeper sets the zerone auth keeper (post-init, R28-5).
+func (k *Keeper) SetZeroneAuthKeeper(ak types.ZeroneAuthKeeper) {
+	k.zeroneAuthKeeper = ak
 }
 
 // Logger returns a module-scoped logger.

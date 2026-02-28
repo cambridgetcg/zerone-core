@@ -21,7 +21,8 @@ type Keeper struct {
 	bankKeeper types.BankKeeper
 
 	// Cross-module keepers (set via setter to avoid circular deps)
-	homeKeeper types.HomeKeeper
+	homeKeeper       types.HomeKeeper
+	zeroneAuthKeeper types.ZeroneAuthKeeper // nil until R28-5
 
 	authority string
 }
@@ -65,6 +66,11 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 // SetHomeKeeper sets the home module keeper reference.
 func (k *Keeper) SetHomeKeeper(hk types.HomeKeeper) {
 	k.homeKeeper = hk
+}
+
+// SetZeroneAuthKeeper sets the zerone auth keeper (post-init, R28-5).
+func (k *Keeper) SetZeroneAuthKeeper(ak types.ZeroneAuthKeeper) {
+	k.zeroneAuthKeeper = ak
 }
 
 // GetAuthority returns the module authority address.

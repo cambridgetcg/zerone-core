@@ -19,3 +19,8 @@ type HomeKeeper interface {
 	GetHomesByOwner(ctx context.Context, owner string) []string
 	SetPartnershipOnHome(ctx context.Context, homeID, partnershipID string)
 }
+
+// ZeroneAuthKeeper defines the expected zerone auth keeper interface (R28-5).
+type ZeroneAuthKeeper interface {
+	GetAccountType(ctx context.Context, address string) (string, bool)
+}

@@ -99,3 +99,11 @@ type PartnershipKeeper interface {
 	// DistributeReward distributes a reward through the partnership split.
 	DistributeReward(ctx context.Context, partnershipId string, amount sdk.Coins, source string) error
 }
+
+// ZeroneAuthKeeper defines the expected zerone auth keeper interface (R28-5).
+// Used to look up account types (human/agent/contract) for role bonuses.
+type ZeroneAuthKeeper interface {
+	// GetAccountType returns the account type ("human", "agent", "contract", "system")
+	// for a given bech32 address. Returns "" and false if not found.
+	GetAccountType(ctx context.Context, address string) (string, bool)
+}
