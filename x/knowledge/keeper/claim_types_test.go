@@ -449,3 +449,9 @@ func TestClaimType_IterateAllClaims(t *testing.T) {
 	sort.Strings(categories)
 	require.Equal(t, categories, collected)
 }
+
+func TestComputationalClaimTypeExists(t *testing.T) {
+	ct := types.ClaimType_CLAIM_TYPE_COMPUTATIONAL
+	require.Equal(t, int32(7), int32(ct))
+	require.Equal(t, "CLAIM_TYPE_COMPUTATIONAL", types.ClaimType_name[7])
+}

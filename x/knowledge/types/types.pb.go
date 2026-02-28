@@ -307,7 +307,8 @@ const (
 	ClaimType_CLAIM_TYPE_DEFINITION  ClaimType = 3 // "X means Y" — term/concept definition
 	ClaimType_CLAIM_TYPE_CONSTRAINT  ClaimType = 4 // "X must/cannot Y" — rule or boundary
 	ClaimType_CLAIM_TYPE_NEGATION    ClaimType = 5 // "X is NOT true" — explicit falsity marker
-	ClaimType_CLAIM_TYPE_OBSERVATION ClaimType = 6 // "X was observed at time/place" — empirical data point
+	ClaimType_CLAIM_TYPE_OBSERVATION    ClaimType = 6 // "X was observed at time/place" — empirical data point
+	ClaimType_CLAIM_TYPE_COMPUTATIONAL ClaimType = 7 // Derived from computation/inference — agent specialty
 )
 
 // Enum value maps for ClaimType.
@@ -320,6 +321,7 @@ var (
 		4: "CLAIM_TYPE_CONSTRAINT",
 		5: "CLAIM_TYPE_NEGATION",
 		6: "CLAIM_TYPE_OBSERVATION",
+		7: "CLAIM_TYPE_COMPUTATIONAL",
 	}
 	ClaimType_value = map[string]int32{
 		"CLAIM_TYPE_UNSPECIFIED": 0,
@@ -328,7 +330,8 @@ var (
 		"CLAIM_TYPE_DEFINITION":  3,
 		"CLAIM_TYPE_CONSTRAINT":  4,
 		"CLAIM_TYPE_NEGATION":    5,
-		"CLAIM_TYPE_OBSERVATION": 6,
+		"CLAIM_TYPE_OBSERVATION":    6,
+		"CLAIM_TYPE_COMPUTATIONAL": 7,
 	}
 )
 
