@@ -133,6 +133,9 @@ var (
 
 	// ─── Adaptive pacing (R29-6) ───────────────────────────────────────
 	LastClaimHeightKeyPrefix = []byte{0x56} // 0x56 | submitter → uint64 (last claim block height)
+
+	// ─── Completion index (R31-2: Fire activity metrics) ──────────────
+	CompletedRoundIndexPrefix = []byte{0x57} // 0x57 | verdictBlock(8) | roundID → CompletedRoundMeta (proto)
 )
 
 // ─── Key constructors ─────────────────────────────────────────────────────────
@@ -381,4 +384,26 @@ func DomainRoleRecordKey(domain string) []byte {
 // LastClaimHeightKey returns the store key for a submitter's last claim height.
 func LastClaimHeightKey(submitter string) []byte {
 	return append(append([]byte{}, LastClaimHeightKeyPrefix...), []byte(submitter)...)
+}
+
+// CompletedRoundKey returns the index key for a completed round by verdict block.
+func CompletedRoundKey(verdictBlock uint64, roundID string) []byte {
+	key := make([]byte, 0, 1+8+len(roundID))
+	key = append(key, CompletedRoundIndexPrefix...)
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, verdictBlock)
+	key = append(key, buf...)
+	key = append(key, []byte(roundID)...)
+	return key
+}
+
+// CompletedRoundBlockPrefix returns the prefix for iterating completed rounds starting at a block.
+// Use with start=CompletedRoundBlockPrefix(startBlock) and end=CompletedRoundBlockPrefix(endBlock+1).
+func CompletedRoundBlockPrefix(block uint64) []byte {
+	key := make([]byte, 0, 1+8)
+	key = append(key, CompletedRoundIndexPrefix...)
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, block)
+	key = append(key, buf...)
+	return key
 }
