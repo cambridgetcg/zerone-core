@@ -1394,7 +1394,7 @@ Claim novelty assessment completed.
 ### zerone.knowledge.qualification_fallback
 Insufficient qualified verifiers for a domain; fallback used.
 - `domain` -- knowledge domain
-- `min_verifiers` -- minimum verifiers required
+- `effective_min_verifiers` -- effective minimum (base `MinVerifiers` adjusted for partnership density and capture-challenge overrides)
 - `qualified_count` -- number of qualified verifiers found
 
 ### zerone.knowledge.review_fee_distributed
