@@ -126,3 +126,25 @@ func (k Keeper) IncreaseVerificationThreshold(ctx context.Context, domain string
 	binary.BigEndian.PutUint64(buf[12:20], uint64(sdkCtx.BlockHeight()))
 	return kvStore.Set(key, buf)
 }
+
+// GetVerificationThresholdOverride returns (additionalVerifiers, active) for a domain.
+// An override is "active" iff it exists and current block height <= expiryHeight.
+// Expired overrides return (0, false) but are left in the store for later pruning.
+func (k Keeper) GetVerificationThresholdOverride(ctx context.Context, domain string) (uint32, bool) {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	key := append(append([]byte{}, types.VerificationThresholdOverrideKeyPrefix...), []byte(domain)...)
+
+	buf, err := kvStore.Get(key)
+	if err != nil || len(buf) != 20 {
+		return 0, false
+	}
+
+	additionalVerifiers := binary.BigEndian.Uint32(buf[0:4])
+	expiryHeight := binary.BigEndian.Uint64(buf[4:12])
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if uint64(sdkCtx.BlockHeight()) > expiryHeight {
+		return 0, false
+	}
+	return additionalVerifiers, true
+}
