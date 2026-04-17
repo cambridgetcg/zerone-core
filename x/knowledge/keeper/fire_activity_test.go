@@ -116,3 +116,32 @@ func TestGetEffectiveMinVerifiers_ExpiredOverrideIgnored(t *testing.T) {
 	require.Equal(t, uint32(params.MinVerifiers+1), effective,
 		"expired override ignored → base+1 (nil partnership keeper path)")
 }
+
+func TestGetEffectiveMinVerifiers_DensityRelaxedPlusOverride(t *testing.T) {
+	// Default MinVerifiers=3. With 5 active partnerships (10 unique participants)
+	// density (10) >= SocialSaturationThreshold (10) and base (3) > 2, so partnership
+	// relaxes base-1 = 2. Add override +2 → effective = 4.
+	k, ctx := setupKnowledgeTest(t)
+	ctx = advanceBlocks(ctx, 100)
+
+	pk := newMockPartnershipKeeper()
+	for i := 0; i < 5; i++ {
+		pk.addPartnership(
+			fmt.Sprintf("p%d", i),
+			makeValidBech32Addr(fmt.Sprintf("h%d", i)),
+			makeValidBech32Addr(fmt.Sprintf("a%d", i)),
+			true,  // active
+			false, // not suspended
+		)
+	}
+	k.SetPartnershipKeeper(pk)
+
+	// Sanity: density should be 10 (5 partnerships × 2 unique addrs each)
+	require.Equal(t, uint64(10), pk.GetDomainPartnershipDensity(ctx, "physics"))
+
+	require.NoError(t, k.IncreaseVerificationThreshold(ctx, "physics", 2, 500))
+
+	effective := k.GetEffectiveMinVerifiers(ctx, "physics")
+	require.Equal(t, uint32(4), effective,
+		"base (3) - partnership relax (1) + override (2) = 4")
+}
