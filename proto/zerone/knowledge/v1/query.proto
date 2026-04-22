@@ -115,6 +115,15 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/fact/{fact_id}/progeny";
   }
 
+  // ProofTree walks the supporting-evidence ancestry of a fact, returning the
+  // full derivation graph up to max_depth. Follows SUPPORTS / REQUIRES / REFINES
+  // / CITES edges outward from the fact; excludes CONTRADICTS. Each returned
+  // node carries its inference type and strength so auditors can verify
+  // the derivation chain (ToK Wave 3).
+  rpc ProofTree(QueryProofTreeRequest) returns (QueryProofTreeResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/fact/{fact_id}/proof_tree";
+  }
+
   // ─── Novelty detection ─────────────────────────────────────────────────
 
   // CommonKnowledge queries the common knowledge registry.
@@ -397,6 +406,36 @@ message QueryFactProgenyResponse {
 message FactWithChildren {
   Fact fact = 1;
   repeated FactWithChildren children = 2;
+}
+
+// ─── Proof tree (ToK Wave 3) ───────────────────────────────────────────────
+
+message QueryProofTreeRequest {
+  string fact_id  = 1;
+  uint32 max_depth = 2;       // 0 = default 5; caller-configurable
+  bool include_axioms = 3;    // Default true; set false to terminate at non-axiom leaves
+}
+
+// ProofTreeNode is the recursive return shape for ProofTree. Each node names
+// the fact plus the typed edge by which it supports its parent in the tree.
+message ProofTreeNode {
+  Fact fact = 1;
+  // Edge from parent_in_tree → this fact. Empty for the root.
+  RelationType edge_relation        = 2;
+  InferenceType edge_inference      = 3;
+  uint64 edge_inference_strength_bps = 4;
+  // Children of this node in the proof tree = facts this one depends on.
+  repeated ProofTreeNode supports   = 5;
+  uint32 depth                      = 6;   // Distance from root (0 = root)
+  bool is_axiom                     = 7;   // axiom_distance == 0
+  bool truncated                    = 8;   // true if max_depth reached before leaves
+}
+
+message QueryProofTreeResponse {
+  ProofTreeNode root = 1;
+  uint32 total_nodes = 2;
+  uint32 max_depth_reached = 3;
+  uint64 minimum_confidence_in_tree = 4; // Weakest link in support chain
 }
 
 // ─── Novelty detection queries ──────────────────────────────────────────────

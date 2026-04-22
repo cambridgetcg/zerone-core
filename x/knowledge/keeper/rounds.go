@@ -387,6 +387,25 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		}
 	}
 
+	// ─── Epistemic provenance (ToK Wave 2) ─────────────────────────────
+	// axiom_distance = min(cited_facts.axiom_distance) + 1, or 0 if no cites
+	// (the fact is foundational). dependency_confidence_floor inherits the
+	// weakest cited support's effective confidence so proof chains can't
+	// claim more confidence than their foundations.
+	dist, floor := k.computeProvenance(ctx, claim)
+	fact.AxiomDistance = dist
+	fact.DependencyConfidenceFloor = floor
+	// Clamp the fact's own confidence to the inherited floor if it exists.
+	if floor > 0 && fact.Confidence > floor {
+		fact.Confidence = floor
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.confidence_clamped_to_floor",
+			sdk.NewAttribute("fact_id", factID),
+			sdk.NewAttribute("dependency_floor_bps", fmt.Sprintf("%d", floor)),
+			sdk.NewAttribute("axiom_distance", fmt.Sprintf("%d", dist)),
+		))
+	}
+
 	if err := k.SetFact(ctx, fact); err != nil {
 		return "", err
 	}
@@ -434,14 +453,18 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		}
 	}
 
-	// Convert claim relations to fact relations and store in graph index
+	// Convert claim relations to fact relations and store in graph index.
+	// Inference type/strength (ToK Wave 1) propagate from ClaimRelation to
+	// FactRelation so proof-tree auditors can see HOW each edge was derived.
 	for _, claimRel := range claim.Relations {
 		factRel := &types.FactRelation{
-			SourceFactId:   factID,
-			TargetFactId:   claimRel.TargetFactId,
-			Relation:       claimRel.Relation,
-			CreatedAtBlock: height,
-			Creator:        claim.Submitter,
+			SourceFactId:             factID,
+			TargetFactId:             claimRel.TargetFactId,
+			Relation:                 claimRel.Relation,
+			CreatedAtBlock:           height,
+			Creator:                  claim.Submitter,
+			Inference:                claimRel.Inference,
+			InferenceStrengthBps:     claimRel.InferenceStrengthBps,
 		}
 		if err := k.SetFactRelation(ctx, factRel); err != nil {
 			return "", fmt.Errorf("failed to store fact relation: %w", err)
@@ -599,6 +622,76 @@ func (k Keeper) hasOtherLiveContradiction(ctx context.Context, excludeClaimId, t
 		return false
 	})
 	return found
+}
+
+// computeProvenance walks the claim's citations (References + Relations) and
+// returns the axiom distance and dependency confidence floor for the new
+// fact (ToK Wave 2).
+//
+//   - axiom_distance: min of cited facts' axiom_distance, plus 1. Facts with no
+//     cites become foundational (distance 0). Missing cites are ignored.
+//   - dependency_confidence_floor: min of cited facts' effective confidence
+//     (either the fact's clamped-to-floor confidence or its dependency_floor,
+//     whichever is lower). Facts with no cites have floor 0 (= no cap).
+func (k Keeper) computeProvenance(ctx context.Context, claim *types.Claim) (uint32, uint64) {
+	// Collect unique cited fact IDs from References + Relations.
+	seen := make(map[string]struct{})
+	var cited []string
+	for _, ref := range claim.References {
+		if ref == "" {
+			continue
+		}
+		if _, ok := seen[ref]; !ok {
+			seen[ref] = struct{}{}
+			cited = append(cited, ref)
+		}
+	}
+	for _, rel := range claim.Relations {
+		// CONTRADICTS edges express disagreement, not dependence — exclude.
+		if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
+			continue
+		}
+		if rel.TargetFactId == "" {
+			continue
+		}
+		if _, ok := seen[rel.TargetFactId]; !ok {
+			seen[rel.TargetFactId] = struct{}{}
+			cited = append(cited, rel.TargetFactId)
+		}
+	}
+
+	if len(cited) == 0 {
+		return 0, 0
+	}
+
+	var minDist uint32 = ^uint32(0) // max uint32; any real fact lowers it
+	var minFloor uint64             // initialized to max on first fact seen
+	var floorInitialized bool
+
+	for _, factID := range cited {
+		target, found := k.GetFact(ctx, factID)
+		if !found {
+			continue
+		}
+		if target.AxiomDistance < minDist {
+			minDist = target.AxiomDistance
+		}
+		// Effective confidence is min(own confidence, inherited floor).
+		eff := target.Confidence
+		if target.DependencyConfidenceFloor > 0 && target.DependencyConfidenceFloor < eff {
+			eff = target.DependencyConfidenceFloor
+		}
+		if !floorInitialized || eff < minFloor {
+			minFloor = eff
+			floorInitialized = true
+		}
+	}
+
+	if minDist == ^uint32(0) {
+		// All cited facts were missing (unusual). Treat as foundational.
+		return 0, 0
+	}
+	return minDist + 1, minFloor
 }
 
 // handleChallengeSurvival restores a challenged fact and grants survival energy

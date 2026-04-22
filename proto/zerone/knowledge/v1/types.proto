@@ -78,21 +78,43 @@ enum RelationType {
   RELATION_TYPE_REFINES      = 4;  // This fact is a more precise version of the target
   RELATION_TYPE_GENERALIZES  = 5;  // This fact is a broader version of the target
   RELATION_TYPE_SUPERSEDES   = 6;  // This fact replaces the target (newer/better)
+  RELATION_TYPE_CITES        = 7;  // This fact cites the target as source material
+}
+
+// InferenceType names HOW the source fact was derived from the target.
+// Orthogonal to RelationType: RelationType is structural ("A supports B"),
+// InferenceType is epistemic ("A deductively entails B"). Used for proof-tree
+// audit and confidence propagation.
+enum InferenceType {
+  INFERENCE_TYPE_UNSPECIFIED = 0;
+  INFERENCE_TYPE_DEDUCTIVE   = 1;  // Necessary consequence (truth-preserving)
+  INFERENCE_TYPE_INDUCTIVE   = 2;  // Probabilistic generalization from instances
+  INFERENCE_TYPE_ABDUCTIVE   = 3;  // Best explanation for the observation
+  INFERENCE_TYPE_EMPIRICAL   = 4;  // Derived from observation / measurement
+  INFERENCE_TYPE_ANALOGICAL  = 5;  // Cross-domain structural mapping
+  INFERENCE_TYPE_CITATION    = 6;  // Plain citation without an inference claim
 }
 
 // FactRelation is a typed, directional edge in the knowledge graph.
 message FactRelation {
   string source_fact_id   = 1;  // The fact declaring the relationship
   string target_fact_id   = 2;  // The fact being referenced
-  RelationType relation   = 3;  // How source relates to target
+  RelationType relation   = 3;  // How source relates to target (structural)
   uint64 created_at_block = 4;
   string creator          = 5;  // Address that declared this relation
+  InferenceType inference = 6;  // Epistemic derivation type (optional; UNSPECIFIED allowed)
+  // Strength of the inference in BPS, self-declared by the claim submitter.
+  // Verification weighs this against inference type; deductive claims with
+  // strength < 1_000_000 are flagged as informal.
+  uint64 inference_strength_bps = 7;
 }
 
 // ClaimRelation declares a typed relationship from a claim to an existing fact.
 message ClaimRelation {
   string target_fact_id = 1;
   RelationType relation = 2;
+  InferenceType inference = 3;
+  uint64 inference_strength_bps = 4;
 }
 
 // DomainStatus tracks whether an epistemic domain is active or proposed.
@@ -187,6 +209,18 @@ message Fact {
   uint64 satisfaction_down       = 61;  // Lifetime negative ratings
   uint64 satisfaction_up_epoch   = 62;  // Positive ratings this epoch (resets)
   uint64 satisfaction_down_epoch = 63;  // Negative ratings this epoch (resets)
+
+  // ─── Epistemic provenance (ToK Wave 2) ─────────────────────────────────
+  // Minimum number of inference hops separating this fact from a genesis axiom.
+  // Axioms = 0; directly derived = 1; chain-of-five proofs = 5. Computed at
+  // fact creation from the minimum over cited facts' axiom_distance + 1.
+  // uint32 packs distances up to 4B hops, which is more than enough.
+  uint32 axiom_distance          = 64;
+  // Ceiling on effective confidence inherited from the weakest cited support.
+  // At creation: min(own_confidence, min(cited.effective_confidence)). Used
+  // to prevent high-confidence claims from floating on weak foundations.
+  // 0 means "no floor computed" (e.g. axioms with no cites).
+  uint64 dependency_confidence_floor = 65;
 }
 
 // CommonKnowledgeEntry represents a subject that LLMs already know.

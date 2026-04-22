@@ -546,6 +546,131 @@ func (q *queryServer) buildProgenyTree(ctx context.Context, parent *types.Fact, 
 	return result
 }
 
+// ProofTree returns the transitive support ancestry for a fact (ToK Wave 3).
+// Walks SUPPORTS / REQUIRES / REFINES / GENERALIZES / CITES edges outward
+// (excludes CONTRADICTS / SUPERSEDES). Each node carries the typed edge by
+// which it supports its parent in the tree, so auditors can trace HOW a
+// derivation was made — not merely WHICH facts are connected.
+func (q *queryServer) ProofTree(ctx context.Context, req *types.QueryProofTreeRequest) (*types.QueryProofTreeResponse, error) {
+	if req == nil || req.FactId == "" {
+		return nil, status.Error(codes.InvalidArgument, "fact_id is required")
+	}
+
+	root, found := q.keeper.GetFact(ctx, req.FactId)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "fact %s not found", req.FactId)
+	}
+
+	maxDepth := req.MaxDepth
+	if maxDepth == 0 {
+		maxDepth = 5
+	}
+
+	// Traversal state: track visited to avoid cycles (DAG is acyclic in
+	// principle but the store allows cycles in practice).
+	visited := make(map[string]bool)
+	nodeCount := uint32(0)
+	minConf := root.Confidence
+	if root.DependencyConfidenceFloor > 0 && root.DependencyConfidenceFloor < minConf {
+		minConf = root.DependencyConfidenceFloor
+	}
+	maxDepthReached := uint32(0)
+
+	rootNode := q.buildProofNode(ctx, root,
+		types.RelationType_RELATION_TYPE_UNSPECIFIED,
+		types.InferenceType_INFERENCE_TYPE_UNSPECIFIED,
+		0, 0, maxDepth, req.IncludeAxioms, visited,
+		&nodeCount, &minConf, &maxDepthReached)
+
+	return &types.QueryProofTreeResponse{
+		Root:                    rootNode,
+		TotalNodes:              nodeCount,
+		MaxDepthReached:         maxDepthReached,
+		MinimumConfidenceInTree: minConf,
+	}, nil
+}
+
+// buildProofNode recursively constructs a ProofTreeNode. Only outgoing
+// edges that represent support are followed. CONTRADICTS and SUPERSEDES
+// are intentionally excluded — they are disagreement, not derivation.
+func (q *queryServer) buildProofNode(
+	ctx context.Context,
+	fact *types.Fact,
+	edgeRelation types.RelationType,
+	edgeInference types.InferenceType,
+	edgeStrengthBps uint64,
+	currentDepth uint32,
+	maxDepth uint32,
+	includeAxioms bool,
+	visited map[string]bool,
+	nodeCount *uint32,
+	minConf *uint64,
+	maxDepthReached *uint32,
+) *types.ProofTreeNode {
+	*nodeCount++
+	if currentDepth > *maxDepthReached {
+		*maxDepthReached = currentDepth
+	}
+
+	isAxiom := fact.AxiomDistance == 0
+	node := &types.ProofTreeNode{
+		Fact:                    fact,
+		EdgeRelation:            edgeRelation,
+		EdgeInference:           edgeInference,
+		EdgeInferenceStrengthBps: edgeStrengthBps,
+		Depth:                   currentDepth,
+		IsAxiom:                 isAxiom,
+	}
+
+	if fact.Confidence > 0 && fact.Confidence < *minConf {
+		*minConf = fact.Confidence
+	}
+
+	// Stop conditions.
+	if currentDepth >= maxDepth {
+		node.Truncated = true
+		return node
+	}
+	if isAxiom && !includeAxioms {
+		return node
+	}
+	if visited[fact.Id] {
+		// Already expanded this fact elsewhere in the tree — return as leaf
+		// to avoid exponential duplication.
+		return node
+	}
+	visited[fact.Id] = true
+
+	// Follow outgoing support edges.
+	rels, err := q.keeper.GetFactRelations(ctx, fact.Id)
+	if err != nil {
+		return node
+	}
+	for _, rel := range rels {
+		switch rel.Relation {
+		case types.RelationType_RELATION_TYPE_SUPPORTS,
+			types.RelationType_RELATION_TYPE_REQUIRES,
+			types.RelationType_RELATION_TYPE_REFINES,
+			types.RelationType_RELATION_TYPE_GENERALIZES,
+			types.RelationType_RELATION_TYPE_CITES:
+			// support-bearing edge — follow
+		default:
+			// CONTRADICTS / SUPERSEDES / UNSPECIFIED — skip
+			continue
+		}
+		target, ok := q.keeper.GetFact(ctx, rel.TargetFactId)
+		if !ok {
+			continue
+		}
+		child := q.buildProofNode(ctx, target,
+			rel.Relation, rel.Inference, rel.InferenceStrengthBps,
+			currentDepth+1, maxDepth, includeAxioms, visited,
+			nodeCount, minConf, maxDepthReached)
+		node.Supports = append(node.Supports, child)
+	}
+	return node
+}
+
 // ─── Novelty detection queries ────────────────────────────────────────────────
 
 func (q queryServer) CommonKnowledge(ctx context.Context, req *types.QueryCommonKnowledgeRequest) (*types.QueryCommonKnowledgeResponse, error) {

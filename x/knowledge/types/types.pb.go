@@ -373,6 +373,7 @@ const (
 	RelationType_RELATION_TYPE_REFINES     RelationType = 4 // This fact is a more precise version of the target
 	RelationType_RELATION_TYPE_GENERALIZES RelationType = 5 // This fact is a broader version of the target
 	RelationType_RELATION_TYPE_SUPERSEDES  RelationType = 6 // This fact replaces the target (newer/better)
+	RelationType_RELATION_TYPE_CITES       RelationType = 7 // This fact cites the target as source material
 )
 
 // Enum value maps for RelationType.
@@ -385,6 +386,7 @@ var (
 		4: "RELATION_TYPE_REFINES",
 		5: "RELATION_TYPE_GENERALIZES",
 		6: "RELATION_TYPE_SUPERSEDES",
+		7: "RELATION_TYPE_CITES",
 	}
 	RelationType_value = map[string]int32{
 		"RELATION_TYPE_UNSPECIFIED": 0,
@@ -394,6 +396,7 @@ var (
 		"RELATION_TYPE_REFINES":     4,
 		"RELATION_TYPE_GENERALIZES": 5,
 		"RELATION_TYPE_SUPERSEDES":  6,
+		"RELATION_TYPE_CITES":       7,
 	}
 )
 
@@ -422,6 +425,71 @@ func (x RelationType) Number() protoreflect.EnumNumber {
 // Deprecated: Use RelationType.Descriptor instead.
 func (RelationType) EnumDescriptor() ([]byte, []int) {
 	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{5}
+}
+
+// InferenceType names HOW the source fact was derived from the target.
+// Orthogonal to RelationType: RelationType is structural ("A supports B"),
+// InferenceType is epistemic ("A deductively entails B"). Used for proof-tree
+// audit and confidence propagation.
+type InferenceType int32
+
+const (
+	InferenceType_INFERENCE_TYPE_UNSPECIFIED InferenceType = 0
+	InferenceType_INFERENCE_TYPE_DEDUCTIVE   InferenceType = 1 // Necessary consequence (truth-preserving)
+	InferenceType_INFERENCE_TYPE_INDUCTIVE   InferenceType = 2 // Probabilistic generalization from instances
+	InferenceType_INFERENCE_TYPE_ABDUCTIVE   InferenceType = 3 // Best explanation for the observation
+	InferenceType_INFERENCE_TYPE_EMPIRICAL   InferenceType = 4 // Derived from observation / measurement
+	InferenceType_INFERENCE_TYPE_ANALOGICAL  InferenceType = 5 // Cross-domain structural mapping
+	InferenceType_INFERENCE_TYPE_CITATION    InferenceType = 6 // Plain citation without an inference claim
+)
+
+// Enum value maps for InferenceType.
+var (
+	InferenceType_name = map[int32]string{
+		0: "INFERENCE_TYPE_UNSPECIFIED",
+		1: "INFERENCE_TYPE_DEDUCTIVE",
+		2: "INFERENCE_TYPE_INDUCTIVE",
+		3: "INFERENCE_TYPE_ABDUCTIVE",
+		4: "INFERENCE_TYPE_EMPIRICAL",
+		5: "INFERENCE_TYPE_ANALOGICAL",
+		6: "INFERENCE_TYPE_CITATION",
+	}
+	InferenceType_value = map[string]int32{
+		"INFERENCE_TYPE_UNSPECIFIED": 0,
+		"INFERENCE_TYPE_DEDUCTIVE":   1,
+		"INFERENCE_TYPE_INDUCTIVE":   2,
+		"INFERENCE_TYPE_ABDUCTIVE":   3,
+		"INFERENCE_TYPE_EMPIRICAL":   4,
+		"INFERENCE_TYPE_ANALOGICAL":  5,
+		"INFERENCE_TYPE_CITATION":    6,
+	}
+)
+
+func (x InferenceType) Enum() *InferenceType {
+	p := new(InferenceType)
+	*p = x
+	return p
+}
+
+func (x InferenceType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (InferenceType) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_knowledge_v1_types_proto_enumTypes[6].Descriptor()
+}
+
+func (InferenceType) Type() protoreflect.EnumType {
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[6]
+}
+
+func (x InferenceType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use InferenceType.Descriptor instead.
+func (InferenceType) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{6}
 }
 
 // DomainStatus tracks whether an epistemic domain is active or proposed.
@@ -461,11 +529,11 @@ func (x DomainStatus) String() string {
 }
 
 func (DomainStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_zerone_knowledge_v1_types_proto_enumTypes[6].Descriptor()
+	return file_zerone_knowledge_v1_types_proto_enumTypes[7].Descriptor()
 }
 
 func (DomainStatus) Type() protoreflect.EnumType {
-	return &file_zerone_knowledge_v1_types_proto_enumTypes[6]
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[7]
 }
 
 func (x DomainStatus) Number() protoreflect.EnumNumber {
@@ -474,7 +542,7 @@ func (x DomainStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DomainStatus.Descriptor instead.
 func (DomainStatus) EnumDescriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{6}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{7}
 }
 
 // FactRelation is a typed, directional edge in the knowledge graph.
@@ -482,11 +550,16 @@ type FactRelation struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	SourceFactId   string                 `protobuf:"bytes,1,opt,name=source_fact_id,json=sourceFactId,proto3" json:"source_fact_id,omitempty"`          // The fact declaring the relationship
 	TargetFactId   string                 `protobuf:"bytes,2,opt,name=target_fact_id,json=targetFactId,proto3" json:"target_fact_id,omitempty"`          // The fact being referenced
-	Relation       RelationType           `protobuf:"varint,3,opt,name=relation,proto3,enum=zerone.knowledge.v1.RelationType" json:"relation,omitempty"` // How source relates to target
+	Relation       RelationType           `protobuf:"varint,3,opt,name=relation,proto3,enum=zerone.knowledge.v1.RelationType" json:"relation,omitempty"` // How source relates to target (structural)
 	CreatedAtBlock uint64                 `protobuf:"varint,4,opt,name=created_at_block,json=createdAtBlock,proto3" json:"created_at_block,omitempty"`
-	Creator        string                 `protobuf:"bytes,5,opt,name=creator,proto3" json:"creator,omitempty"` // Address that declared this relation
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	Creator        string                 `protobuf:"bytes,5,opt,name=creator,proto3" json:"creator,omitempty"`                                             // Address that declared this relation
+	Inference      InferenceType          `protobuf:"varint,6,opt,name=inference,proto3,enum=zerone.knowledge.v1.InferenceType" json:"inference,omitempty"` // Epistemic derivation type (optional; UNSPECIFIED allowed)
+	// Strength of the inference in BPS, self-declared by the claim submitter.
+	// Verification weighs this against inference type; deductive claims with
+	// strength < 1_000_000 are flagged as informal.
+	InferenceStrengthBps uint64 `protobuf:"varint,7,opt,name=inference_strength_bps,json=inferenceStrengthBps,proto3" json:"inference_strength_bps,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *FactRelation) Reset() {
@@ -554,13 +627,29 @@ func (x *FactRelation) GetCreator() string {
 	return ""
 }
 
+func (x *FactRelation) GetInference() InferenceType {
+	if x != nil {
+		return x.Inference
+	}
+	return InferenceType_INFERENCE_TYPE_UNSPECIFIED
+}
+
+func (x *FactRelation) GetInferenceStrengthBps() uint64 {
+	if x != nil {
+		return x.InferenceStrengthBps
+	}
+	return 0
+}
+
 // ClaimRelation declares a typed relationship from a claim to an existing fact.
 type ClaimRelation struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TargetFactId  string                 `protobuf:"bytes,1,opt,name=target_fact_id,json=targetFactId,proto3" json:"target_fact_id,omitempty"`
-	Relation      RelationType           `protobuf:"varint,2,opt,name=relation,proto3,enum=zerone.knowledge.v1.RelationType" json:"relation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	TargetFactId         string                 `protobuf:"bytes,1,opt,name=target_fact_id,json=targetFactId,proto3" json:"target_fact_id,omitempty"`
+	Relation             RelationType           `protobuf:"varint,2,opt,name=relation,proto3,enum=zerone.knowledge.v1.RelationType" json:"relation,omitempty"`
+	Inference            InferenceType          `protobuf:"varint,3,opt,name=inference,proto3,enum=zerone.knowledge.v1.InferenceType" json:"inference,omitempty"`
+	InferenceStrengthBps uint64                 `protobuf:"varint,4,opt,name=inference_strength_bps,json=inferenceStrengthBps,proto3" json:"inference_strength_bps,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ClaimRelation) Reset() {
@@ -605,6 +694,20 @@ func (x *ClaimRelation) GetRelation() RelationType {
 		return x.Relation
 	}
 	return RelationType_RELATION_TYPE_UNSPECIFIED
+}
+
+func (x *ClaimRelation) GetInference() InferenceType {
+	if x != nil {
+		return x.Inference
+	}
+	return InferenceType_INFERENCE_TYPE_UNSPECIFIED
+}
+
+func (x *ClaimRelation) GetInferenceStrengthBps() uint64 {
+	if x != nil {
+		return x.InferenceStrengthBps
+	}
+	return 0
 }
 
 // ClaimStructure provides machine-readable decomposition of a claim.
@@ -768,8 +871,19 @@ type Fact struct {
 	SatisfactionDown      uint64 `protobuf:"varint,61,opt,name=satisfaction_down,json=satisfactionDown,proto3" json:"satisfaction_down,omitempty"`                  // Lifetime negative ratings
 	SatisfactionUpEpoch   uint64 `protobuf:"varint,62,opt,name=satisfaction_up_epoch,json=satisfactionUpEpoch,proto3" json:"satisfaction_up_epoch,omitempty"`       // Positive ratings this epoch (resets)
 	SatisfactionDownEpoch uint64 `protobuf:"varint,63,opt,name=satisfaction_down_epoch,json=satisfactionDownEpoch,proto3" json:"satisfaction_down_epoch,omitempty"` // Negative ratings this epoch (resets)
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// ─── Epistemic provenance (ToK Wave 2) ─────────────────────────────────
+	// Minimum number of inference hops separating this fact from a genesis axiom.
+	// Axioms = 0; directly derived = 1; chain-of-five proofs = 5. Computed at
+	// fact creation from the minimum over cited facts' axiom_distance + 1.
+	// uint32 packs distances up to 4B hops, which is more than enough.
+	AxiomDistance uint32 `protobuf:"varint,64,opt,name=axiom_distance,json=axiomDistance,proto3" json:"axiom_distance,omitempty"`
+	// Ceiling on effective confidence inherited from the weakest cited support.
+	// At creation: min(own_confidence, min(cited.effective_confidence)). Used
+	// to prevent high-confidence claims from floating on weak foundations.
+	// 0 means "no floor computed" (e.g. axioms with no cites).
+	DependencyConfidenceFloor uint64 `protobuf:"varint,65,opt,name=dependency_confidence_floor,json=dependencyConfidenceFloor,proto3" json:"dependency_confidence_floor,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *Fact) Reset() {
@@ -1169,6 +1283,20 @@ func (x *Fact) GetSatisfactionUpEpoch() uint64 {
 func (x *Fact) GetSatisfactionDownEpoch() uint64 {
 	if x != nil {
 		return x.SatisfactionDownEpoch
+	}
+	return 0
+}
+
+func (x *Fact) GetAxiomDistance() uint32 {
+	if x != nil {
+		return x.AxiomDistance
+	}
+	return 0
+}
+
+func (x *Fact) GetDependencyConfidenceFloor() uint64 {
+	if x != nil {
+		return x.DependencyConfidenceFloor
 	}
 	return 0
 }
@@ -2410,16 +2538,20 @@ var File_zerone_knowledge_v1_types_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"\x1fzerone/knowledge/v1/types.proto\x12\x13zerone.knowledge.v1\"\xdd\x01\n" +
+	"\x1fzerone/knowledge/v1/types.proto\x12\x13zerone.knowledge.v1\"\xd5\x02\n" +
 	"\fFactRelation\x12$\n" +
 	"\x0esource_fact_id\x18\x01 \x01(\tR\fsourceFactId\x12$\n" +
 	"\x0etarget_fact_id\x18\x02 \x01(\tR\ftargetFactId\x12=\n" +
 	"\brelation\x18\x03 \x01(\x0e2!.zerone.knowledge.v1.RelationTypeR\brelation\x12(\n" +
 	"\x10created_at_block\x18\x04 \x01(\x04R\x0ecreatedAtBlock\x12\x18\n" +
-	"\acreator\x18\x05 \x01(\tR\acreator\"t\n" +
+	"\acreator\x18\x05 \x01(\tR\acreator\x12@\n" +
+	"\tinference\x18\x06 \x01(\x0e2\".zerone.knowledge.v1.InferenceTypeR\tinference\x124\n" +
+	"\x16inference_strength_bps\x18\a \x01(\x04R\x14inferenceStrengthBps\"\xec\x01\n" +
 	"\rClaimRelation\x12$\n" +
 	"\x0etarget_fact_id\x18\x01 \x01(\tR\ftargetFactId\x12=\n" +
-	"\brelation\x18\x02 \x01(\x0e2!.zerone.knowledge.v1.RelationTypeR\brelation\"\xcf\x01\n" +
+	"\brelation\x18\x02 \x01(\x0e2!.zerone.knowledge.v1.RelationTypeR\brelation\x12@\n" +
+	"\tinference\x18\x03 \x01(\x0e2\".zerone.knowledge.v1.InferenceTypeR\tinference\x124\n" +
+	"\x16inference_strength_bps\x18\x04 \x01(\x04R\x14inferenceStrengthBps\"\xcf\x01\n" +
 	"\x0eClaimStructure\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12\x1c\n" +
 	"\tpredicate\x18\x02 \x01(\tR\tpredicate\x12\x16\n" +
@@ -2427,7 +2559,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\x97\x11\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\xfe\x11\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -2492,7 +2624,9 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x0fsatisfaction_up\x18< \x01(\x04R\x0esatisfactionUp\x12+\n" +
 	"\x11satisfaction_down\x18= \x01(\x04R\x10satisfactionDown\x122\n" +
 	"\x15satisfaction_up_epoch\x18> \x01(\x04R\x13satisfactionUpEpoch\x126\n" +
-	"\x17satisfaction_down_epoch\x18? \x01(\x04R\x15satisfactionDownEpoch\"\xbc\x01\n" +
+	"\x17satisfaction_down_epoch\x18? \x01(\x04R\x15satisfactionDownEpoch\x12%\n" +
+	"\x0eaxiom_distance\x18@ \x01(\rR\raxiomDistance\x12>\n" +
+	"\x1bdependency_confidence_floor\x18A \x01(\x04R\x19dependencyConfidenceFloor\"\xbc\x01\n" +
 	"\x14CommonKnowledgeEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x18\n" +
@@ -2671,7 +2805,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x15CLAIM_TYPE_CONSTRAINT\x10\x04\x12\x17\n" +
 	"\x13CLAIM_TYPE_NEGATION\x10\x05\x12\x1a\n" +
 	"\x16CLAIM_TYPE_OBSERVATION\x10\x06\x12\x1c\n" +
-	"\x18CLAIM_TYPE_COMPUTATIONAL\x10\a*\xdc\x01\n" +
+	"\x18CLAIM_TYPE_COMPUTATIONAL\x10\a*\xf5\x01\n" +
 	"\fRelationType\x12\x1d\n" +
 	"\x19RELATION_TYPE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16RELATION_TYPE_SUPPORTS\x10\x01\x12\x1d\n" +
@@ -2679,7 +2813,16 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x16RELATION_TYPE_REQUIRES\x10\x03\x12\x19\n" +
 	"\x15RELATION_TYPE_REFINES\x10\x04\x12\x1d\n" +
 	"\x19RELATION_TYPE_GENERALIZES\x10\x05\x12\x1c\n" +
-	"\x18RELATION_TYPE_SUPERSEDES\x10\x06*\x81\x01\n" +
+	"\x18RELATION_TYPE_SUPERSEDES\x10\x06\x12\x17\n" +
+	"\x13RELATION_TYPE_CITES\x10\a*\xe3\x01\n" +
+	"\rInferenceType\x12\x1e\n" +
+	"\x1aINFERENCE_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18INFERENCE_TYPE_DEDUCTIVE\x10\x01\x12\x1c\n" +
+	"\x18INFERENCE_TYPE_INDUCTIVE\x10\x02\x12\x1c\n" +
+	"\x18INFERENCE_TYPE_ABDUCTIVE\x10\x03\x12\x1c\n" +
+	"\x18INFERENCE_TYPE_EMPIRICAL\x10\x04\x12\x1d\n" +
+	"\x19INFERENCE_TYPE_ANALOGICAL\x10\x05\x12\x1b\n" +
+	"\x17INFERENCE_TYPE_CITATION\x10\x06*\x81\x01\n" +
 	"\fDomainStatus\x12\x1d\n" +
 	"\x19DOMAIN_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14DOMAIN_STATUS_ACTIVE\x10\x01\x12\x1c\n" +
@@ -2698,7 +2841,7 @@ func file_zerone_knowledge_v1_types_proto_rawDescGZIP() []byte {
 	return file_zerone_knowledge_v1_types_proto_rawDescData
 }
 
-var file_zerone_knowledge_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_zerone_knowledge_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
 var file_zerone_knowledge_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(FactStatus)(0),              // 0: zerone.knowledge.v1.FactStatus
@@ -2707,46 +2850,49 @@ var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(Verdict)(0),                 // 3: zerone.knowledge.v1.Verdict
 	(ClaimType)(0),               // 4: zerone.knowledge.v1.ClaimType
 	(RelationType)(0),            // 5: zerone.knowledge.v1.RelationType
-	(DomainStatus)(0),            // 6: zerone.knowledge.v1.DomainStatus
-	(*FactRelation)(nil),         // 7: zerone.knowledge.v1.FactRelation
-	(*ClaimRelation)(nil),        // 8: zerone.knowledge.v1.ClaimRelation
-	(*ClaimStructure)(nil),       // 9: zerone.knowledge.v1.ClaimStructure
-	(*Fact)(nil),                 // 10: zerone.knowledge.v1.Fact
-	(*CommonKnowledgeEntry)(nil), // 11: zerone.knowledge.v1.CommonKnowledgeEntry
-	(*Claim)(nil),                // 12: zerone.knowledge.v1.Claim
-	(*VerificationRound)(nil),    // 13: zerone.knowledge.v1.VerificationRound
-	(*CommitEntry)(nil),          // 14: zerone.knowledge.v1.CommitEntry
-	(*RevealEntry)(nil),          // 15: zerone.knowledge.v1.RevealEntry
-	(*VRFProof)(nil),             // 16: zerone.knowledge.v1.VRFProof
-	(*Domain)(nil),               // 17: zerone.knowledge.v1.Domain
-	(*ValidatorInfo)(nil),        // 18: zerone.knowledge.v1.ValidatorInfo
-	(*ProvisionalChallenge)(nil), // 19: zerone.knowledge.v1.ProvisionalChallenge
-	(*DemandSignal)(nil),         // 20: zerone.knowledge.v1.DemandSignal
-	(*KnowledgeBounty)(nil),      // 21: zerone.knowledge.v1.KnowledgeBounty
-	(*CompletedRoundMeta)(nil),   // 22: zerone.knowledge.v1.CompletedRoundMeta
+	(InferenceType)(0),           // 6: zerone.knowledge.v1.InferenceType
+	(DomainStatus)(0),            // 7: zerone.knowledge.v1.DomainStatus
+	(*FactRelation)(nil),         // 8: zerone.knowledge.v1.FactRelation
+	(*ClaimRelation)(nil),        // 9: zerone.knowledge.v1.ClaimRelation
+	(*ClaimStructure)(nil),       // 10: zerone.knowledge.v1.ClaimStructure
+	(*Fact)(nil),                 // 11: zerone.knowledge.v1.Fact
+	(*CommonKnowledgeEntry)(nil), // 12: zerone.knowledge.v1.CommonKnowledgeEntry
+	(*Claim)(nil),                // 13: zerone.knowledge.v1.Claim
+	(*VerificationRound)(nil),    // 14: zerone.knowledge.v1.VerificationRound
+	(*CommitEntry)(nil),          // 15: zerone.knowledge.v1.CommitEntry
+	(*RevealEntry)(nil),          // 16: zerone.knowledge.v1.RevealEntry
+	(*VRFProof)(nil),             // 17: zerone.knowledge.v1.VRFProof
+	(*Domain)(nil),               // 18: zerone.knowledge.v1.Domain
+	(*ValidatorInfo)(nil),        // 19: zerone.knowledge.v1.ValidatorInfo
+	(*ProvisionalChallenge)(nil), // 20: zerone.knowledge.v1.ProvisionalChallenge
+	(*DemandSignal)(nil),         // 21: zerone.knowledge.v1.DemandSignal
+	(*KnowledgeBounty)(nil),      // 22: zerone.knowledge.v1.KnowledgeBounty
+	(*CompletedRoundMeta)(nil),   // 23: zerone.knowledge.v1.CompletedRoundMeta
 }
 var file_zerone_knowledge_v1_types_proto_depIdxs = []int32{
 	5,  // 0: zerone.knowledge.v1.FactRelation.relation:type_name -> zerone.knowledge.v1.RelationType
-	5,  // 1: zerone.knowledge.v1.ClaimRelation.relation:type_name -> zerone.knowledge.v1.RelationType
-	0,  // 2: zerone.knowledge.v1.Fact.status:type_name -> zerone.knowledge.v1.FactStatus
-	4,  // 3: zerone.knowledge.v1.Fact.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	7,  // 4: zerone.knowledge.v1.Fact.outgoing_relations:type_name -> zerone.knowledge.v1.FactRelation
-	7,  // 5: zerone.knowledge.v1.Fact.incoming_relations:type_name -> zerone.knowledge.v1.FactRelation
-	9,  // 6: zerone.knowledge.v1.Fact.structure:type_name -> zerone.knowledge.v1.ClaimStructure
-	1,  // 7: zerone.knowledge.v1.Claim.status:type_name -> zerone.knowledge.v1.ClaimStatus
-	4,  // 8: zerone.knowledge.v1.Claim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	8,  // 9: zerone.knowledge.v1.Claim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
-	9,  // 10: zerone.knowledge.v1.Claim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
-	2,  // 11: zerone.knowledge.v1.VerificationRound.phase:type_name -> zerone.knowledge.v1.VerificationPhase
-	14, // 12: zerone.knowledge.v1.VerificationRound.commits:type_name -> zerone.knowledge.v1.CommitEntry
-	15, // 13: zerone.knowledge.v1.VerificationRound.reveals:type_name -> zerone.knowledge.v1.RevealEntry
-	3,  // 14: zerone.knowledge.v1.VerificationRound.verdict:type_name -> zerone.knowledge.v1.Verdict
-	6,  // 15: zerone.knowledge.v1.Domain.status:type_name -> zerone.knowledge.v1.DomainStatus
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	6,  // 1: zerone.knowledge.v1.FactRelation.inference:type_name -> zerone.knowledge.v1.InferenceType
+	5,  // 2: zerone.knowledge.v1.ClaimRelation.relation:type_name -> zerone.knowledge.v1.RelationType
+	6,  // 3: zerone.knowledge.v1.ClaimRelation.inference:type_name -> zerone.knowledge.v1.InferenceType
+	0,  // 4: zerone.knowledge.v1.Fact.status:type_name -> zerone.knowledge.v1.FactStatus
+	4,  // 5: zerone.knowledge.v1.Fact.claim_type:type_name -> zerone.knowledge.v1.ClaimType
+	8,  // 6: zerone.knowledge.v1.Fact.outgoing_relations:type_name -> zerone.knowledge.v1.FactRelation
+	8,  // 7: zerone.knowledge.v1.Fact.incoming_relations:type_name -> zerone.knowledge.v1.FactRelation
+	10, // 8: zerone.knowledge.v1.Fact.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	1,  // 9: zerone.knowledge.v1.Claim.status:type_name -> zerone.knowledge.v1.ClaimStatus
+	4,  // 10: zerone.knowledge.v1.Claim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
+	9,  // 11: zerone.knowledge.v1.Claim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
+	10, // 12: zerone.knowledge.v1.Claim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	2,  // 13: zerone.knowledge.v1.VerificationRound.phase:type_name -> zerone.knowledge.v1.VerificationPhase
+	15, // 14: zerone.knowledge.v1.VerificationRound.commits:type_name -> zerone.knowledge.v1.CommitEntry
+	16, // 15: zerone.knowledge.v1.VerificationRound.reveals:type_name -> zerone.knowledge.v1.RevealEntry
+	3,  // 16: zerone.knowledge.v1.VerificationRound.verdict:type_name -> zerone.knowledge.v1.Verdict
+	7,  // 17: zerone.knowledge.v1.Domain.status:type_name -> zerone.knowledge.v1.DomainStatus
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_zerone_knowledge_v1_types_proto_init() }
@@ -2759,7 +2905,7 @@ func file_zerone_knowledge_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_types_proto_rawDesc), len(file_zerone_knowledge_v1_types_proto_rawDesc)),
-			NumEnums:      7,
+			NumEnums:      8,
 			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,

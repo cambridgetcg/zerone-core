@@ -1456,6 +1456,12 @@ Target fact restored from CONTESTED to VERIFIED after the contradicting claim fa
 - `fact_id` -- fact whose status was restored
 - `reverted_by_claim` -- rejected/malformed/inconclusive claim whose side-effect was reversed
 
+### zerone.knowledge.confidence_clamped_to_floor
+On fact creation, the new fact's confidence was capped to its `dependency_confidence_floor` (ToK Wave 2). Emitted when a proof chain inherits a weaker ceiling than its own verification would give it.
+- `fact_id` -- newly created fact
+- `dependency_floor_bps` -- inherited floor in BPS
+- `axiom_distance` -- minimum hops to a genesis axiom
+
 
 ## liquiditypool
 

@@ -401,6 +401,10 @@ func AxiomsToFacts(axioms []*GenesisAxiom) []*Fact {
 			LastVerifiedBlock: 0,
 			Stratum:         stratum,
 			Maturity:        MaturityCanonical,
+			// Axioms are the bedrock — distance 0 from themselves. Derived
+			// claims inherit distance+1 from their minimum-distance citation.
+			// (ToK Wave 2)
+			AxiomDistance: 0,
 		}
 		facts = append(facts, fact)
 	}
