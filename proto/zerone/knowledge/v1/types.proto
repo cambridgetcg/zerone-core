@@ -255,6 +255,15 @@ message Fact {
   // originating claim at acceptance. Empty = "M-LEGACY" (pre-Phase-1 facts
   // or claims that did not declare a method).
   string method_id               = 66;
+
+  // ─── Popperian corroboration (Phase 2) ─────────────────────────────────
+  // Number of failed falsification attempts this fact has survived. Each
+  // rejected challenge increments this counter — not each accepted
+  // verification. Popper's insight: a claim's robustness is not how many
+  // times it has been verified, but how many times it could have been
+  // falsified and wasn't.
+  uint64 corroboration_count     = 67;
+  uint64 last_corroborated_block = 68;
 }
 
 // CommonKnowledgeEntry represents a subject that LLMs already know.

@@ -658,6 +658,9 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 		MinimumConfidenceInAncestry:   minInAncestry,
 		Status:                        fact.Status,
 		GroundedScoreBps:              grounded,
+		MethodId:                      fact.MethodId,
+		CorroborationCount:            fact.CorroborationCount,
+		LastCorroboratedBlock:         fact.LastCorroboratedBlock,
 	}, nil
 }
 

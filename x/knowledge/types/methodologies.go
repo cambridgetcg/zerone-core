@@ -2,14 +2,48 @@ package types
 
 // Methodology ID constants. Stable identifiers referenced on-chain by every
 // claim and fact submitted under the "methodology over statement" model.
+//
+// The bootstrap methodologies are grounded in recognized epistemic traditions:
+//
+//   M-FORMAL          — foundationalism (Frege, Russell, Hilbert): truth-
+//                       preserving inference from stated premises in a named
+//                       formal system.
+//   M-EMPIRICAL       — logical empiricism + Popper: hypothesis, prediction,
+//                       test, replication. Corroboration as failed falsification.
+//   M-COMPUTATIONAL   — algorithmic verification: Turing-decidable claims.
+//   M-TESTIMONIAL     — social epistemology (Goldman, Fricker): trust in
+//                       independent primary sources with lineage.
+//   M-ANALOGICAL      — structural mapping (Hofstadter, Gentner): invariant-
+//                       preserving analogies with counterexample testing.
+//   M-DIALECTICAL     — Habermasian discourse + Popper: survival under
+//                       adversarial challenge over time.
+//   M-PRAGMATIC       — pragmatism (Peirce, Dewey, James): truth as what
+//                       generates reliable practical consequences.
+//   M-COHERENTIST     — coherentism (BonJour, Lehrer): truth by fit in a web
+//                       of mutually-supporting beliefs.
+//   M-PHENOMENOLOGICAL — phenomenology (Husserl, Merleau-Ponty, Varela):
+//                       first-person structured description of experience.
+//   M-HISTORICAL      — historical method (Ranke, Collingwood): truth by
+//                       documented primary-source record with provenance.
+//   M-ECOLOGICAL      — situated knowing (Haraway, Longino, TEK): relational
+//                       truth explicit about its context.
+//   M-PRACTICE        — tacit / consensus-of-practitioners (Polanyi,
+//                       Wittgenstein, Kuhn's "normal science"): valid in a
+//                       domain if engaged practitioners agree.
 const (
-	MethodologyFormal        = "M-FORMAL"
-	MethodologyEmpirical     = "M-EMPIRICAL"
-	MethodologyComputational = "M-COMPUTATIONAL"
-	MethodologyTestimonial   = "M-TESTIMONIAL"
-	MethodologyAnalogical    = "M-ANALOGICAL"
-	MethodologyDialectical   = "M-DIALECTICAL"
-	MethodologyLegacy        = "M-LEGACY" // transitional; sunsetted
+	MethodologyFormal         = "M-FORMAL"
+	MethodologyEmpirical      = "M-EMPIRICAL"
+	MethodologyComputational  = "M-COMPUTATIONAL"
+	MethodologyTestimonial    = "M-TESTIMONIAL"
+	MethodologyAnalogical     = "M-ANALOGICAL"
+	MethodologyDialectical    = "M-DIALECTICAL"
+	MethodologyPragmatic      = "M-PRAGMATIC"
+	MethodologyCoherentist    = "M-COHERENTIST"
+	MethodologyPhenomenologic = "M-PHENOMENOLOGICAL"
+	MethodologyHistorical     = "M-HISTORICAL"
+	MethodologyEcological     = "M-ECOLOGICAL"
+	MethodologyPractice       = "M-PRACTICE"
+	MethodologyLegacy         = "M-LEGACY" // transitional; sunsetted
 )
 
 const BPS uint64 = 1_000_000
@@ -166,6 +200,144 @@ func DefaultMethodologies() []*Methodology {
 			MinQualificationWeight: 40,
 			Version:                1,
 		},
+		// ─── Pragmatism (Peirce, Dewey, James) ──────────────────────────────
+		{
+			Id:          MethodologyPragmatic,
+			Name:        "Pragmatic consequence",
+			Description: "Claim is validated by the reliability of its practical consequences across contexts. A true belief is one whose implications hold up in use. Distinct from M-EMPIRICAL: no controlled experiment is required; observable downstream behaviour over time is the test.",
+			ComplianceCriteria: []string{
+				"The claim names its stated practical consequences",
+				"Consequences are observable in the on-chain or off-chain record",
+				"A track record of at least N instances where the predicted consequence held",
+			},
+			FalsificationPaths: []string{
+				"A documented instance where the predicted consequence failed",
+				"A counter-practice where the claim's use produced an opposite result",
+			},
+			CrossMethodDiscountBps: map[string]uint64{
+				MethodologyFormal:        400_000, // pragmatic claims cannot ground formal proofs
+				MethodologyEmpirical:     800_000,
+				MethodologyComputational: 500_000,
+				MethodologyTestimonial:   900_000,
+			},
+			MinQualificationWeight: 35,
+			Version:                1,
+		},
+		// ─── Coherentism (BonJour, Lehrer) ──────────────────────────────────
+		{
+			Id:          MethodologyCoherentist,
+			Name:        "Coherentist fit",
+			Description: "Claim earns support by fitting into a web of mutually-supporting beliefs, rather than by derivation from foundations. The test is mutual coherence with an existing, independently-verified body of claims.",
+			ComplianceCriteria: []string{
+				"Claim cites at least N facts that also cite each other (a mutual cluster)",
+				"No cited fact contradicts another cited fact",
+				"The web's coherence score exceeds the stated threshold",
+			},
+			FalsificationPaths: []string{
+				"A coherence-breaking contradiction within the cited web",
+				"Discovery that the web isolates itself from independent verification",
+			},
+			CrossMethodDiscountBps: map[string]uint64{
+				MethodologyFormal:     500_000, // coherence cannot ground formal proof
+				MethodologyEmpirical:  700_000,
+				MethodologyHistorical: 800_000,
+			},
+			MinQualificationWeight: 35,
+			Version:                1,
+		},
+		// ─── Phenomenology (Husserl, Merleau-Ponty, Varela) ─────────────────
+		{
+			Id:          MethodologyPhenomenologic,
+			Name:        "Phenomenological description",
+			Description: "First-person structured description of experience following a stated phenomenological method (e.g. epoché + eidetic reduction). Used for claims about the structure of subjective experience that cannot be accessed third-person.",
+			ComplianceCriteria: []string{
+				"A specific phenomenological method is named (classical, hermeneutic, neurophenomenological, etc.)",
+				"The description follows the method's structured protocol",
+				"Intersubjective corroboration by at least N independent phenomenologists",
+			},
+			FalsificationPaths: []string{
+				"Systematic failure to replicate the described structure under the stated method",
+				"Demonstrated methodological error in the reduction",
+			},
+			CrossMethodDiscountBps: map[string]uint64{
+				MethodologyFormal:        200_000, // phenomenology cannot ground formal proof
+				MethodologyEmpirical:     500_000,
+				MethodologyComputational: 200_000,
+				MethodologyTestimonial:   700_000,
+			},
+			MinQualificationWeight: 40,
+			Version:                1,
+		},
+		// ─── Historical method (Ranke, Collingwood) ─────────────────────────
+		{
+			Id:          MethodologyHistorical,
+			Name:        "Historical method",
+			Description: "Truth by primary-source documentation with explicit provenance chain. Distinct from M-TESTIMONIAL: relies on documented records, not live witnesses. Standard tools of historiography (textual criticism, provenance auditing, source triangulation) apply.",
+			ComplianceCriteria: []string{
+				"At least N primary documentary sources cited with location and access path",
+				"Provenance chain documented for each source",
+				"Source dating and authenticity addressed",
+			},
+			FalsificationPaths: []string{
+				"A primary source is shown to be forged or misdated",
+				"A previously unknown source materially contradicts the claim",
+				"The provenance chain contains a gap that cannot be closed",
+			},
+			CrossMethodDiscountBps: map[string]uint64{
+				MethodologyFormal:      400_000,
+				MethodologyEmpirical:   700_000,
+				MethodologyTestimonial: 900_000,
+			},
+			MinQualificationWeight: 40,
+			Version:                1,
+		},
+		// ─── Ecological / situated (Haraway, Longino, TEK) ──────────────────
+		{
+			Id:          MethodologyEcological,
+			Name:        "Situated / relational",
+			Description: "Knowledge that is inseparable from its context and the relationships within it. Honours traditional ecological knowledge, indigenous epistemologies, and feminist standpoint theory without conflating or appropriating them. The claim is valid within the stated relational context.",
+			ComplianceCriteria: []string{
+				"The relational context is stated explicitly (community, practice, place, tradition)",
+				"The relationship between the claimant and the context is named",
+				"Intersection with other methodologies is documented, not erased",
+			},
+			FalsificationPaths: []string{
+				"The stated context disowns the claim",
+				"A context-independent test consistent with the claim yields a contradictory result and the context-dependence does not explain it",
+			},
+			CrossMethodDiscountBps: map[string]uint64{
+				MethodologyFormal:        200_000, // situated knowledge is not a substitute for formal proof
+				MethodologyEmpirical:     400_000,
+				MethodologyComputational: 200_000,
+				MethodologyPhenomenologic: 900_000,
+				MethodologyHistorical:    700_000,
+			},
+			MinQualificationWeight: 30,
+			Version:                1,
+		},
+		// ─── Consensus of practice (Polanyi, Wittgenstein, Kuhn) ────────────
+		{
+			Id:          MethodologyPractice,
+			Name:        "Practitioner consensus",
+			Description: "Valid in a domain if practitioners actively engaged in the practice agree that it is. Captures tacit knowledge and the knowledge-in-practice that cannot be fully explicated. Weaker than count-based consensus: requires demonstrated practice, not just opinion.",
+			ComplianceCriteria: []string{
+				"Practitioners identified with demonstrable engagement in the practice",
+				"At least N practitioners agree the claim is valid within the practice",
+				"The practice itself is named and bounded",
+			},
+			FalsificationPaths: []string{
+				"The practice boundary shifts such that the claim no longer applies",
+				"Engaged practitioners who hold the claim as invalid exceed the agreement threshold",
+			},
+			CrossMethodDiscountBps: map[string]uint64{
+				MethodologyFormal:        300_000,
+				MethodologyEmpirical:     500_000,
+				MethodologyComputational: 400_000,
+				MethodologyTestimonial:   700_000,
+			},
+			MinQualificationWeight: 30,
+			Version:                1,
+		},
 		{
 			Id:          MethodologyLegacy,
 			Name:        "Legacy (transitional)",
@@ -201,6 +373,8 @@ func IsValidMethodologyID(id string) bool {
 	switch id {
 	case MethodologyFormal, MethodologyEmpirical, MethodologyComputational,
 		MethodologyTestimonial, MethodologyAnalogical, MethodologyDialectical,
+		MethodologyPragmatic, MethodologyCoherentist, MethodologyPhenomenologic,
+		MethodologyHistorical, MethodologyEcological, MethodologyPractice,
 		MethodologyLegacy:
 		return true
 	}

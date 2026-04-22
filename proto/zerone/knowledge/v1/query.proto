@@ -520,6 +520,16 @@ message QueryTrustProfileResponse {
   // Score is capped at own_confidence — a fact can never be MORE trustworthy
   // than its own verification claimed.
   uint64 grounded_score_bps          = 9;
+
+  // Methodology under which the fact was adjudicated (Phase 1).
+  string method_id                   = 10;
+
+  // Popperian corroboration count: failed falsification attempts survived
+  // (Phase 2). This is the Popperian antipode to "how confidently verified"
+  // — instead, "how many tests has this withstood?" A high number is
+  // epistemically meaningful in a way high own_confidence is not.
+  uint64 corroboration_count         = 11;
+  uint64 last_corroborated_block     = 12;
 }
 
 // ─── Methodology registry (Phase 1) ────────────────────────────────────────

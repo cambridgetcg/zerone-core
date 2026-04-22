@@ -2653,8 +2653,16 @@ type QueryTrustProfileResponse struct {
 	// Score is capped at own_confidence — a fact can never be MORE trustworthy
 	// than its own verification claimed.
 	GroundedScoreBps uint64 `protobuf:"varint,9,opt,name=grounded_score_bps,json=groundedScoreBps,proto3" json:"grounded_score_bps,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Methodology under which the fact was adjudicated (Phase 1).
+	MethodId string `protobuf:"bytes,10,opt,name=method_id,json=methodId,proto3" json:"method_id,omitempty"`
+	// Popperian corroboration count: failed falsification attempts survived
+	// (Phase 2). This is the Popperian antipode to "how confidently verified"
+	// — instead, "how many tests has this withstood?" A high number is
+	// epistemically meaningful in a way high own_confidence is not.
+	CorroborationCount    uint64 `protobuf:"varint,11,opt,name=corroboration_count,json=corroborationCount,proto3" json:"corroboration_count,omitempty"`
+	LastCorroboratedBlock uint64 `protobuf:"varint,12,opt,name=last_corroborated_block,json=lastCorroboratedBlock,proto3" json:"last_corroborated_block,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *QueryTrustProfileResponse) Reset() {
@@ -2746,6 +2754,27 @@ func (x *QueryTrustProfileResponse) GetStatus() FactStatus {
 func (x *QueryTrustProfileResponse) GetGroundedScoreBps() uint64 {
 	if x != nil {
 		return x.GroundedScoreBps
+	}
+	return 0
+}
+
+func (x *QueryTrustProfileResponse) GetMethodId() string {
+	if x != nil {
+		return x.MethodId
+	}
+	return ""
+}
+
+func (x *QueryTrustProfileResponse) GetCorroborationCount() uint64 {
+	if x != nil {
+		return x.CorroborationCount
+	}
+	return 0
+}
+
+func (x *QueryTrustProfileResponse) GetLastCorroboratedBlock() uint64 {
+	if x != nil {
+		return x.LastCorroboratedBlock
 	}
 	return 0
 }
@@ -4899,7 +4928,7 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	"totalNodes\x12*\n" +
 	"\x11max_depth_reached\x18\x04 \x01(\rR\x0fmaxDepthReached\"3\n" +
 	"\x18QueryTrustProfileRequest\x12\x17\n" +
-	"\afact_id\x18\x01 \x01(\tR\x06factId\"\xe7\x03\n" +
+	"\afact_id\x18\x01 \x01(\tR\x06factId\"\xed\x04\n" +
 	"\x19QueryTrustProfileResponse\x12-\n" +
 	"\x04fact\x18\x01 \x01(\v2\x19.zerone.knowledge.v1.FactR\x04fact\x12,\n" +
 	"\x12own_confidence_bps\x18\x02 \x01(\x04R\x10ownConfidenceBps\x12>\n" +
@@ -4909,7 +4938,11 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	"\x12direct_descendants\x18\x06 \x01(\rR\x11directDescendants\x12C\n" +
 	"\x1eminimum_confidence_in_ancestry\x18\a \x01(\x04R\x1bminimumConfidenceInAncestry\x127\n" +
 	"\x06status\x18\b \x01(\x0e2\x1f.zerone.knowledge.v1.FactStatusR\x06status\x12,\n" +
-	"\x12grounded_score_bps\x18\t \x01(\x04R\x10groundedScoreBps\"\x1b\n" +
+	"\x12grounded_score_bps\x18\t \x01(\x04R\x10groundedScoreBps\x12\x1b\n" +
+	"\tmethod_id\x18\n" +
+	" \x01(\tR\bmethodId\x12/\n" +
+	"\x13corroboration_count\x18\v \x01(\x04R\x12corroborationCount\x126\n" +
+	"\x17last_corroborated_block\x18\f \x01(\x04R\x15lastCorroboratedBlock\"\x1b\n" +
 	"\x19QueryMethodologiesRequest\"d\n" +
 	"\x1aQueryMethodologiesResponse\x12F\n" +
 	"\rmethodologies\x18\x01 \x03(\v2 .zerone.knowledge.v1.MethodologyR\rmethodologies\")\n" +

@@ -721,16 +721,33 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 		return
 	}
 	params, _ := k.GetParams(ctx)
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	height := uint64(sdkCtx.BlockHeight())
 
 	// Energy boost for surviving a challenge
 	originalFact.Energy += params.MetabolismEnergyChallengeSurvival
 	if originalFact.Energy > params.MetabolismEnergyCap {
 		originalFact.Energy = params.MetabolismEnergyCap
 	}
+	// Popperian corroboration (Phase 2): the fact has survived a declared
+	// falsification attempt. Count it. This is the epistemically meaningful
+	// counter in Popper's sense — a fact's robustness is not "how confidently
+	// verified" but "how many tests has it withstood."
+	originalFact.CorroborationCount++
+	originalFact.LastCorroboratedBlock = height
+
 	// Restore from challenged status
 	originalFact.Status = types.FactStatus_FACT_STATUS_ACTIVE
 	originalFact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, originalFact)
+
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.corroboration_incremented",
+		sdk.NewAttribute("fact_id", originalFact.Id),
+		sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
+		sdk.NewAttribute("new_count", fmt.Sprintf("%d", originalFact.CorroborationCount)),
+		sdk.NewAttribute("block_height", fmt.Sprintf("%d", height)),
+	))
 }
 
 // distributeVerifierReward sends a verification reward to a verifier.

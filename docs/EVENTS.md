@@ -1474,6 +1474,13 @@ Emitted once at the end of a falsification cascade with the total count of affec
 - `disproven_fact_id` -- the fact that was disproven
 - `descendants_contested` -- how many direct descendants were flipped
 
+### zerone.knowledge.corroboration_incremented
+Popperian survival counter incremented: a fact withstood a falsification attempt (Phase 2). The fact's `corroboration_count` is epistemically meaningful in a way `confidence` is not — it names the tests the claim has already passed.
+- `fact_id` -- fact that survived the challenge
+- `challenge_claim_id` -- the (rejected) challenge claim
+- `new_count` -- corroboration_count after increment
+- `block_height` -- height at which the challenge was resolved
+
 
 ## liquiditypool
 

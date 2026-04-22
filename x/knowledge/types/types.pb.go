@@ -1032,9 +1032,17 @@ type Fact struct {
 	// The methodology under which this fact was adjudicated. Copied from the
 	// originating claim at acceptance. Empty = "M-LEGACY" (pre-Phase-1 facts
 	// or claims that did not declare a method).
-	MethodId      string `protobuf:"bytes,66,opt,name=method_id,json=methodId,proto3" json:"method_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MethodId string `protobuf:"bytes,66,opt,name=method_id,json=methodId,proto3" json:"method_id,omitempty"`
+	// ─── Popperian corroboration (Phase 2) ─────────────────────────────────
+	// Number of failed falsification attempts this fact has survived. Each
+	// rejected challenge increments this counter — not each accepted
+	// verification. Popper's insight: a claim's robustness is not how many
+	// times it has been verified, but how many times it could have been
+	// falsified and wasn't.
+	CorroborationCount    uint64 `protobuf:"varint,67,opt,name=corroboration_count,json=corroborationCount,proto3" json:"corroboration_count,omitempty"`
+	LastCorroboratedBlock uint64 `protobuf:"varint,68,opt,name=last_corroborated_block,json=lastCorroboratedBlock,proto3" json:"last_corroborated_block,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Fact) Reset() {
@@ -1457,6 +1465,20 @@ func (x *Fact) GetMethodId() string {
 		return x.MethodId
 	}
 	return ""
+}
+
+func (x *Fact) GetCorroborationCount() uint64 {
+	if x != nil {
+		return x.CorroborationCount
+	}
+	return 0
+}
+
+func (x *Fact) GetLastCorroboratedBlock() uint64 {
+	if x != nil {
+		return x.LastCorroboratedBlock
+	}
+	return 0
 }
 
 // CommonKnowledgeEntry represents a subject that LLMs already know.
@@ -2746,7 +2768,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\x9b\x12\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\x84\x13\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -2814,7 +2836,9 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x17satisfaction_down_epoch\x18? \x01(\x04R\x15satisfactionDownEpoch\x12%\n" +
 	"\x0eaxiom_distance\x18@ \x01(\rR\raxiomDistance\x12>\n" +
 	"\x1bdependency_confidence_floor\x18A \x01(\x04R\x19dependencyConfidenceFloor\x12\x1b\n" +
-	"\tmethod_id\x18B \x01(\tR\bmethodId\"\xbc\x01\n" +
+	"\tmethod_id\x18B \x01(\tR\bmethodId\x12/\n" +
+	"\x13corroboration_count\x18C \x01(\x04R\x12corroborationCount\x126\n" +
+	"\x17last_corroborated_block\x18D \x01(\x04R\x15lastCorroboratedBlock\"\xbc\x01\n" +
 	"\x14CommonKnowledgeEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x18\n" +

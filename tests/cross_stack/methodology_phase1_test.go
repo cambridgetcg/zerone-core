@@ -23,8 +23,9 @@ func TestMethodologyPhase1_RegistrySeeded(t *testing.T) {
 
 	resp, err := qs.Methodologies(h.Ctx, &knowledgetypes.QueryMethodologiesRequest{})
 	require.NoError(t, err)
-	require.Len(t, resp.Methodologies, 7,
-		"seven methodologies (6 + legacy) expected in registry")
+	// Phase 1 seeded 7 (6 + legacy); Phase 2 added 6 more → 13 total.
+	require.Len(t, resp.Methodologies, 13,
+		"13 methodologies expected (Phase 1 bootstrap + Phase 2 philosophical)")
 
 	ids := make(map[string]bool)
 	for _, m := range resp.Methodologies {
