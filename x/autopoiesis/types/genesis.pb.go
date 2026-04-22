@@ -103,9 +103,29 @@ type Params struct {
 	SsiStressedThreshold uint64 `protobuf:"varint,6,opt,name=ssi_stressed_threshold,json=ssiStressedThreshold,proto3" json:"ssi_stressed_threshold,omitempty"` // below = stressed (default: 500,000)
 	SsiHealthyThreshold  uint64 `protobuf:"varint,7,opt,name=ssi_healthy_threshold,json=ssiHealthyThreshold,proto3" json:"ssi_healthy_threshold,omitempty"`    // below = healthy, above = thriving (default: 750,000)
 	// Module activation flag
-	Enabled       bool `protobuf:"varint,8,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Enabled bool `protobuf:"varint,8,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// ─── Damping & oscillation control (T8) ──────────────────────────────
+	// EWMA smoothing coefficient applied to SSI before target computation.
+	// alpha in BPS; higher = more responsive, lower = more damped.
+	// Default: 200,000 (0.2) — heavy damping.
+	SsiSmoothingAlphaBps uint64 `protobuf:"varint,9,opt,name=ssi_smoothing_alpha_bps,json=ssiSmoothingAlphaBps,proto3" json:"ssi_smoothing_alpha_bps,omitempty"`
+	// Dead-zone around current value: if |target - current| < dead_zone,
+	// skip the adjustment entirely. Prevents micro-oscillation around target.
+	// Default: 50,000 (5% of BPS scale).
+	TargetDeadZoneBps uint64 `protobuf:"varint,10,opt,name=target_dead_zone_bps,json=targetDeadZoneBps,proto3" json:"target_dead_zone_bps,omitempty"`
+	// Oscillation detection: count sign-flips of SSI delta over the last
+	// oscillation_window_epochs epochs. If flips >= threshold, freeze
+	// adjustments for oscillation_freeze_epochs.
+	OscillationWindowEpochs      uint64 `protobuf:"varint,11,opt,name=oscillation_window_epochs,json=oscillationWindowEpochs,proto3" json:"oscillation_window_epochs,omitempty"`                  // default: 20
+	OscillationSignFlipThreshold uint64 `protobuf:"varint,12,opt,name=oscillation_sign_flip_threshold,json=oscillationSignFlipThreshold,proto3" json:"oscillation_sign_flip_threshold,omitempty"` // default: 10 (50% flip rate)
+	OscillationFreezeEpochs      uint64 `protobuf:"varint,13,opt,name=oscillation_freeze_epochs,json=oscillationFreezeEpochs,proto3" json:"oscillation_freeze_epochs,omitempty"`                  // default: 50
+	// Cross-module change budget (L7): maximum total adjustment across all
+	// multipliers in a single epoch (BPS). When the sum of absolute deltas
+	// exceeds this budget, each delta is scaled down proportionally.
+	// Defence against cascading adjustments that compound across loops.
+	MaxTotalChangeBpsPerEpoch uint64 `protobuf:"varint,14,opt,name=max_total_change_bps_per_epoch,json=maxTotalChangeBpsPerEpoch,proto3" json:"max_total_change_bps_per_epoch,omitempty"` // default: 20,000 (2% total)
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -194,6 +214,48 @@ func (x *Params) GetEnabled() bool {
 	return false
 }
 
+func (x *Params) GetSsiSmoothingAlphaBps() uint64 {
+	if x != nil {
+		return x.SsiSmoothingAlphaBps
+	}
+	return 0
+}
+
+func (x *Params) GetTargetDeadZoneBps() uint64 {
+	if x != nil {
+		return x.TargetDeadZoneBps
+	}
+	return 0
+}
+
+func (x *Params) GetOscillationWindowEpochs() uint64 {
+	if x != nil {
+		return x.OscillationWindowEpochs
+	}
+	return 0
+}
+
+func (x *Params) GetOscillationSignFlipThreshold() uint64 {
+	if x != nil {
+		return x.OscillationSignFlipThreshold
+	}
+	return 0
+}
+
+func (x *Params) GetOscillationFreezeEpochs() uint64 {
+	if x != nil {
+		return x.OscillationFreezeEpochs
+	}
+	return 0
+}
+
+func (x *Params) GetMaxTotalChangeBpsPerEpoch() uint64 {
+	if x != nil {
+		return x.MaxTotalChangeBpsPerEpoch
+	}
+	return 0
+}
+
 var File_zerone_autopoiesis_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_autopoiesis_v1_genesis_proto_rawDesc = "" +
@@ -203,7 +265,7 @@ const file_zerone_autopoiesis_v1_genesis_proto_rawDesc = "" +
 	"\x06params\x18\x01 \x01(\v2\x1d.zerone.autopoiesis.v1.ParamsR\x06params\x12H\n" +
 	"\vmultipliers\x18\x02 \x03(\v2&.zerone.autopoiesis.v1.MultiplierStateR\vmultipliers\x12B\n" +
 	"\tsnapshots\x18\x03 \x03(\v2$.zerone.autopoiesis.v1.EpochSnapshotR\tsnapshots\x12\x1c\n" +
-	"\tactivated\x18\x04 \x01(\bR\tactivated\"\x8e\x03\n" +
+	"\tactivated\x18\x04 \x01(\bR\tactivated\"\xf8\x05\n" +
 	"\x06Params\x12.\n" +
 	"\x13epoch_length_blocks\x18\x01 \x01(\x04R\x11epochLengthBlocks\x126\n" +
 	"\x18max_change_per_epoch_bps\x18\x02 \x01(\x04R\x14maxChangePerEpochBps\x120\n" +
@@ -212,7 +274,14 @@ const file_zerone_autopoiesis_v1_genesis_proto_rawDesc = "" +
 	"\x16ssi_critical_threshold\x18\x05 \x01(\x04R\x14ssiCriticalThreshold\x124\n" +
 	"\x16ssi_stressed_threshold\x18\x06 \x01(\x04R\x14ssiStressedThreshold\x122\n" +
 	"\x15ssi_healthy_threshold\x18\a \x01(\x04R\x13ssiHealthyThreshold\x12\x18\n" +
-	"\aenabled\x18\b \x01(\bR\aenabledB4Z2github.com/zerone-chain/zerone/x/autopoiesis/typesb\x06proto3"
+	"\aenabled\x18\b \x01(\bR\aenabled\x125\n" +
+	"\x17ssi_smoothing_alpha_bps\x18\t \x01(\x04R\x14ssiSmoothingAlphaBps\x12/\n" +
+	"\x14target_dead_zone_bps\x18\n" +
+	" \x01(\x04R\x11targetDeadZoneBps\x12:\n" +
+	"\x19oscillation_window_epochs\x18\v \x01(\x04R\x17oscillationWindowEpochs\x12E\n" +
+	"\x1foscillation_sign_flip_threshold\x18\f \x01(\x04R\x1coscillationSignFlipThreshold\x12:\n" +
+	"\x19oscillation_freeze_epochs\x18\r \x01(\x04R\x17oscillationFreezeEpochs\x12A\n" +
+	"\x1emax_total_change_bps_per_epoch\x18\x0e \x01(\x04R\x19maxTotalChangeBpsPerEpochB4Z2github.com/zerone-chain/zerone/x/autopoiesis/typesb\x06proto3"
 
 var (
 	file_zerone_autopoiesis_v1_genesis_proto_rawDescOnce sync.Once

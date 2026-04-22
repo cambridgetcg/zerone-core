@@ -16,6 +16,16 @@ func DefaultParams() Params {
 		SsiStressedThreshold: 500_000,
 		SsiHealthyThreshold:  750_000,
 		Enabled:              true,
+
+		// Damping & oscillation control (T8).
+		SsiSmoothingAlphaBps:        200_000, // 0.2 = heavy smoothing
+		TargetDeadZoneBps:           50_000,  // 5% dead zone
+		OscillationWindowEpochs:     20,
+		OscillationSignFlipThreshold: 10,     // 50% flip rate in window
+		OscillationFreezeEpochs:     50,
+
+		// Cross-module change budget (L7).
+		MaxTotalChangeBpsPerEpoch: 20_000, // 2% total adjustment across all multipliers
 	}
 }
 
@@ -112,4 +122,10 @@ type AutopoiesisState struct {
 	Activated       bool   `json:"activated"`
 	CurrentEpoch    uint64 `json:"current_epoch"`
 	LastEpochHeight uint64 `json:"last_epoch_height"`
+
+	// Damping / oscillation state (T8).
+	SmoothedSsi                  uint64 `json:"smoothed_ssi,omitempty"`
+	LastRawSsi                   uint64 `json:"last_raw_ssi,omitempty"`
+	DeltaSignBitmap              uint64 `json:"delta_sign_bitmap,omitempty"` // bit i = 1 if epoch-i delta > 0
+	OscillationFrozenUntilEpoch  uint64 `json:"oscillation_frozen_until_epoch,omitempty"`
 }

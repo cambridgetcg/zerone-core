@@ -510,6 +510,12 @@ func TestMultipleEpochsConvergeToTarget(t *testing.T) {
 	mockSK.activeValCount = 21
 	mockKK.verificationRate = 1_000_000
 
+	// Disable the cross-module change budget for this test so we isolate the
+	// per-multiplier convergence under pure damping.
+	params := k.GetParams(ctx)
+	params.MaxTotalChangeBpsPerEpoch = 0
+	k.SetParams(ctx, params)
+
 	k.CollectAndAdapt(ctx) // baseline
 	for i := 0; i < 60; i++ {
 		ctx = advanceBlocks(ctx, 101)
@@ -518,8 +524,18 @@ func TestMultipleEpochsConvergeToTarget(t *testing.T) {
 
 	ms, _ := k.GetMultiplierState(ctx, "rewards.block")
 	target := types.ComputeTarget(1_000_000, "rewards.block") // 1_500_000
-	if ms.CurrentBps != target {
-		t.Errorf("expected convergence to %d after 60 epochs, got %d", target, ms.CurrentBps)
+	// With the T8 damping dead-zone the controller intentionally stops inside
+	// params.TargetDeadZoneBps of the target rather than hitting it exactly.
+	// Verify CurrentBps is within dead-zone of target.
+	var delta uint64
+	if ms.CurrentBps > target {
+		delta = ms.CurrentBps - target
+	} else {
+		delta = target - ms.CurrentBps
+	}
+	if delta > params.TargetDeadZoneBps {
+		t.Errorf("expected convergence within dead-zone %d of target %d after 60 epochs, got %d (delta %d)",
+			params.TargetDeadZoneBps, target, ms.CurrentBps, delta)
 	}
 }
 
@@ -547,6 +563,12 @@ func TestOverrideThenEpochAdjusts(t *testing.T) {
 	k, mockSK, mockKK, _, ctx := setupKeeper(t)
 	mockSK.activeValCount = 21
 	mockKK.verificationRate = 1_000_000
+
+	// Disable cross-module change budget so we test per-multiplier adjustment
+	// in isolation.
+	params := k.GetParams(ctx)
+	params.MaxTotalChangeBpsPerEpoch = 0
+	k.SetParams(ctx, params)
 
 	// Override to 800_000.
 	msgServer := keeper.NewMsgServerImpl(k)

@@ -222,10 +222,25 @@ Multiplier freeze toggled.
 ### zerone.autopoiesis.epoch_processed
 *EndBlock.* Epoch boundary reached, SSI computed, multipliers adjusted.
 - `epoch` -- epoch number
-- `ssi_score` -- system sustainability index (BPS)
+- `ssi_score` -- system sustainability index (BPS, EWMA-smoothed per T8)
+- `raw_ssi_score` -- raw SSI before smoothing
 - `ssi_category` -- category (`healthy`, `caution`, `stressed`, `critical`)
 - `block_height` -- block height
 - `multiplier_count` -- number of multipliers in snapshot
+- `oscillation_frozen` -- `"true"` if adjustments suppressed this epoch due to oscillation detection
+
+### zerone.autopoiesis.oscillation_detected
+Sign-flip count of SSI delta over the observation window exceeded the threshold (T8); multiplier adjustments are frozen for a cooling period.
+- `epoch` -- epoch number
+- `flips` -- number of sign flips detected in the window
+- `window_epochs` -- configured observation window
+- `frozen_until_epoch` -- epoch at which adjustments resume
+
+### zerone.autopoiesis.change_budget_scaled
+Total desired adjustment across all multipliers exceeded `MaxTotalChangeBpsPerEpoch`; each delta was scaled proportionally (L7).
+- `epoch` -- epoch number
+- `requested_total_bps` -- unscaled total absolute delta in BPS
+- `budget_bps` -- configured budget
 
 ---
 

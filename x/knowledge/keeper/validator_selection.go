@@ -34,6 +34,7 @@ func (k Keeper) GetEligibleValidators(ctx context.Context, domain string) ([]typ
 	}
 
 	var qualified []types.ValidatorInfo
+	qualifiedSet := make(map[string]struct{})
 	for _, v := range validators {
 		ok, err := k.domainQualificationKeeper.IsQualified(ctx, v.Address, domain)
 		if err != nil {
@@ -42,24 +43,58 @@ func (k Keeper) GetEligibleValidators(ctx context.Context, domain string) ([]typ
 		}
 		if ok {
 			qualified = append(qualified, v)
+			qualifiedSet[v.Address] = struct{}{}
 		}
 	}
 
-	// Fallback: if fewer than MinVerifiers are qualified, allow all validators
-	if uint64(len(qualified)) < params.MinVerifiers {
-		sdkCtx := sdk.UnwrapSDKContext(ctx)
+	// Strict path: enough qualified validators to meet the quorum on their own.
+	if uint64(len(qualified)) >= params.MinVerifiers {
+		return qualified, nil
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	// Scaled fallback (T6): when at least ceil(MinVerifiers/2) are qualified,
+	// return qualified + enough unqualified to reach MinVerifiers. This keeps
+	// expertise in the pool while allowing quorum to be met in thin domains.
+	// When fewer than that floor, use the emergency fallback (all validators).
+	expertiseFloor := (params.MinVerifiers + 1) / 2 // ceil(MinVerifiers / 2)
+	if uint64(len(qualified)) >= expertiseFloor {
+		needed := int(params.MinVerifiers) - len(qualified)
+		pool := append([]types.ValidatorInfo(nil), qualified...)
+		for _, v := range validators {
+			if needed <= 0 {
+				break
+			}
+			if _, already := qualifiedSet[v.Address]; already {
+				continue
+			}
+			pool = append(pool, v)
+			needed--
+		}
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.qualification_fallback",
 			sdk.NewAttribute("domain", domain),
 			sdk.NewAttribute("qualified_count", fmt.Sprintf("%d", len(qualified))),
 			sdk.NewAttribute("min_verifiers", fmt.Sprintf("%d", params.MinVerifiers)),
+			sdk.NewAttribute("mode", "scaled"),
+			sdk.NewAttribute("pool_size", fmt.Sprintf("%d", len(pool))),
 		))
-		k.Logger(ctx).Warn("insufficient qualified verifiers, falling back to all",
-			"qualified", len(qualified), "min", params.MinVerifiers, "domain", domain)
-		return validators, nil
+		k.Logger(ctx).Info("scaled qualification fallback — qualified + padded unqualified",
+			"qualified", len(qualified), "pool", len(pool), "domain", domain)
+		return pool, nil
 	}
 
-	return qualified, nil
+	// Emergency fallback: fewer than half the quorum qualified. Open to all.
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.qualification_fallback",
+		sdk.NewAttribute("domain", domain),
+		sdk.NewAttribute("qualified_count", fmt.Sprintf("%d", len(qualified))),
+		sdk.NewAttribute("min_verifiers", fmt.Sprintf("%d", params.MinVerifiers)),
+		sdk.NewAttribute("mode", "emergency"),
+	))
+	k.Logger(ctx).Warn("insufficient qualified verifiers (below half quorum), emergency fallback to all",
+		"qualified", len(qualified), "min", params.MinVerifiers, "domain", domain)
+	return validators, nil
 }
 
 // VerifyValidatorVRFSelection verifies that a validator was properly selected
