@@ -152,6 +152,18 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/methodology/{id}";
   }
 
+  // NormativeCommitments lists every registered commitment (Phase 6:
+  // is-ought wall). Commitments are values the chain holds — schema-distinct
+  // from facts.
+  rpc NormativeCommitments(QueryNormativeCommitmentsRequest) returns (QueryNormativeCommitmentsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/commitments";
+  }
+
+  // NormativeCommitment returns a single commitment by id.
+  rpc NormativeCommitment(QueryNormativeCommitmentRequest) returns (QueryNormativeCommitmentResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/commitment/{id}";
+  }
+
   // ─── Novelty detection ─────────────────────────────────────────────────
 
   // CommonKnowledge queries the common knowledge registry.
@@ -546,6 +558,21 @@ message QueryMethodologyRequest {
 
 message QueryMethodologyResponse {
   Methodology methodology = 1;
+  bool found = 2;
+}
+
+message QueryNormativeCommitmentsRequest {}
+
+message QueryNormativeCommitmentsResponse {
+  repeated NormativeCommitment commitments = 1;
+}
+
+message QueryNormativeCommitmentRequest {
+  string id = 1;
+}
+
+message QueryNormativeCommitmentResponse {
+  NormativeCommitment commitment = 1;
   bool found = 2;
 }
 

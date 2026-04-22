@@ -45,6 +45,8 @@ const (
 	Query_TrustProfile_FullMethodName           = "/zerone.knowledge.v1.Query/TrustProfile"
 	Query_Methodologies_FullMethodName          = "/zerone.knowledge.v1.Query/Methodologies"
 	Query_Methodology_FullMethodName            = "/zerone.knowledge.v1.Query/Methodology"
+	Query_NormativeCommitments_FullMethodName   = "/zerone.knowledge.v1.Query/NormativeCommitments"
+	Query_NormativeCommitment_FullMethodName    = "/zerone.knowledge.v1.Query/NormativeCommitment"
 	Query_CommonKnowledge_FullMethodName        = "/zerone.knowledge.v1.Query/CommonKnowledge"
 	Query_CheckNovelty_FullMethodName           = "/zerone.knowledge.v1.Query/CheckNovelty"
 	Query_ActiveBounties_FullMethodName         = "/zerone.knowledge.v1.Query/ActiveBounties"
@@ -132,6 +134,12 @@ type QueryClient interface {
 	Methodologies(ctx context.Context, in *QueryMethodologiesRequest, opts ...grpc.CallOption) (*QueryMethodologiesResponse, error)
 	// Methodology returns a single methodology by id.
 	Methodology(ctx context.Context, in *QueryMethodologyRequest, opts ...grpc.CallOption) (*QueryMethodologyResponse, error)
+	// NormativeCommitments lists every registered commitment (Phase 6:
+	// is-ought wall). Commitments are values the chain holds — schema-distinct
+	// from facts.
+	NormativeCommitments(ctx context.Context, in *QueryNormativeCommitmentsRequest, opts ...grpc.CallOption) (*QueryNormativeCommitmentsResponse, error)
+	// NormativeCommitment returns a single commitment by id.
+	NormativeCommitment(ctx context.Context, in *QueryNormativeCommitmentRequest, opts ...grpc.CallOption) (*QueryNormativeCommitmentResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -431,6 +439,26 @@ func (c *queryClient) Methodology(ctx context.Context, in *QueryMethodologyReque
 	return out, nil
 }
 
+func (c *queryClient) NormativeCommitments(ctx context.Context, in *QueryNormativeCommitmentsRequest, opts ...grpc.CallOption) (*QueryNormativeCommitmentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryNormativeCommitmentsResponse)
+	err := c.cc.Invoke(ctx, Query_NormativeCommitments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) NormativeCommitment(ctx context.Context, in *QueryNormativeCommitmentRequest, opts ...grpc.CallOption) (*QueryNormativeCommitmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryNormativeCommitmentResponse)
+	err := c.cc.Invoke(ctx, Query_NormativeCommitment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryCommonKnowledgeResponse)
@@ -651,6 +679,12 @@ type QueryServer interface {
 	Methodologies(context.Context, *QueryMethodologiesRequest) (*QueryMethodologiesResponse, error)
 	// Methodology returns a single methodology by id.
 	Methodology(context.Context, *QueryMethodologyRequest) (*QueryMethodologyResponse, error)
+	// NormativeCommitments lists every registered commitment (Phase 6:
+	// is-ought wall). Commitments are values the chain holds — schema-distinct
+	// from facts.
+	NormativeCommitments(context.Context, *QueryNormativeCommitmentsRequest) (*QueryNormativeCommitmentsResponse, error)
+	// NormativeCommitment returns a single commitment by id.
+	NormativeCommitment(context.Context, *QueryNormativeCommitmentRequest) (*QueryNormativeCommitmentResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -767,6 +801,12 @@ func (UnimplementedQueryServer) Methodologies(context.Context, *QueryMethodologi
 }
 func (UnimplementedQueryServer) Methodology(context.Context, *QueryMethodologyRequest) (*QueryMethodologyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Methodology not implemented")
+}
+func (UnimplementedQueryServer) NormativeCommitments(context.Context, *QueryNormativeCommitmentsRequest) (*QueryNormativeCommitmentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NormativeCommitments not implemented")
+}
+func (UnimplementedQueryServer) NormativeCommitment(context.Context, *QueryNormativeCommitmentRequest) (*QueryNormativeCommitmentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NormativeCommitment not implemented")
 }
 func (UnimplementedQueryServer) CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CommonKnowledge not implemented")
@@ -1302,6 +1342,42 @@ func _Query_Methodology_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_NormativeCommitments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryNormativeCommitmentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).NormativeCommitments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_NormativeCommitments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).NormativeCommitments(ctx, req.(*QueryNormativeCommitmentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_NormativeCommitment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryNormativeCommitmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).NormativeCommitment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_NormativeCommitment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).NormativeCommitment(ctx, req.(*QueryNormativeCommitmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_CommonKnowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryCommonKnowledgeRequest)
 	if err := dec(in); err != nil {
@@ -1682,6 +1758,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Methodology",
 			Handler:    _Query_Methodology_Handler,
+		},
+		{
+			MethodName: "NormativeCommitments",
+			Handler:    _Query_NormativeCommitments_Handler,
+		},
+		{
+			MethodName: "NormativeCommitment",
+			Handler:    _Query_NormativeCommitment_Handler,
 		},
 		{
 			MethodName: "CommonKnowledge",

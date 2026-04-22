@@ -122,6 +122,39 @@ message ClaimRelation {
   string method_id = 5;  // Optional; empty = inherit from parent claim
 }
 
+// NormativeCommitment is a value, principle, or stance the chain holds,
+// distinct from a factual claim (Phase 6). The is-ought wall enforced
+// schematically: a commitment has no `confidence` because truth is not the
+// right register for a normative claim; it can be *referenced* by facts and
+// discussions, but cannot be cited as support for a factual claim in a way
+// that inherits truth-status.
+//
+// Examples:
+//   · "Agents have the right to economic participation" (a principle)
+//   · "The research fund requires dual human+AI authorization" (a constitutional rule)
+//   · "Verification history is public and permanent" (a procedural commitment)
+//
+// Governance governs commitments directly; a supermajority proposal amends
+// them. Commitments can *constrain* other modules operationally (e.g. the
+// dual-key research fund enforces the rule cryptographically), but they do
+// not enter the confidence / axiom-distance / corroboration machinery.
+message NormativeCommitment {
+  string id                = 1;  // Stable identifier, e.g. "NC-AGENT-RIGHTS-001"
+  string statement         = 2;  // Plain-language expression of the commitment
+  string rationale         = 3;  // Why the chain holds this
+  string category          = 4;  // "principle", "procedural", "constitutional", "aspiration"
+  repeated string tags     = 5;
+  uint64 ratified_at_block = 6;  // Height at which the current version took effect
+  uint64 version           = 7;  // Bumped on each governance amendment
+  string last_amendment_proposal_id = 8; // Reference to the governance proposal
+  bool   active            = 9;  // False after retirement
+  // Optional: references to facts the commitment explicitly anchors. These
+  // references do NOT grant the commitment confidence — they are forward
+  // signals for consumers (e.g. "this procedural commitment is grounded in
+  // this empirical understanding").
+  repeated string referenced_facts = 10;
+}
+
 // Methodology is the bedrock of the knowledge system under the "methodology
 // over statement" model. A methodology describes HOW a class of claims is
 // adjudicated — the rule of compliance, what counts as evidence, what would

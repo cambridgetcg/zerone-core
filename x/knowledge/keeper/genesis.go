@@ -25,6 +25,13 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.SeedDefaultMethodologies(ctx); err != nil {
 		return err
 	}
+	// Seed the normative commitment registry (Phase 6: is-ought wall).
+	// Commitments are values the chain has adopted — schema-distinct from
+	// facts so the chain cannot mint currency from normative claims dressed
+	// as factual ones.
+	if err := k.SeedDefaultCommitments(ctx); err != nil {
+		return err
+	}
 
 	for _, domain := range gs.Domains {
 		if domain == nil {

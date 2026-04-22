@@ -565,6 +565,25 @@ func (q *queryServer) Methodology(ctx context.Context, req *types.QueryMethodolo
 	}, nil
 }
 
+// NormativeCommitments returns every registered commitment (Phase 6).
+func (q *queryServer) NormativeCommitments(ctx context.Context, _ *types.QueryNormativeCommitmentsRequest) (*types.QueryNormativeCommitmentsResponse, error) {
+	return &types.QueryNormativeCommitmentsResponse{
+		Commitments: q.keeper.GetAllNormativeCommitments(ctx),
+	}, nil
+}
+
+// NormativeCommitment returns a single commitment by id.
+func (q *queryServer) NormativeCommitment(ctx context.Context, req *types.QueryNormativeCommitmentRequest) (*types.QueryNormativeCommitmentResponse, error) {
+	if req == nil || req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	c, found := q.keeper.GetNormativeCommitment(ctx, req.Id)
+	return &types.QueryNormativeCommitmentResponse{
+		Commitment: c,
+		Found:      found,
+	}, nil
+}
+
 // TrustProfile returns the consolidated provenance view for a single fact:
 // own confidence, inherited floor, axiom distance, direct supporter /
 // descendant counts, min confidence found in the support chain, and a

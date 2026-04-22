@@ -139,11 +139,19 @@ var (
 
 	// ─── Methodology registry (Phase 1: methodology over statement) ──
 	MethodologyKeyPrefix = []byte{0x58} // 0x58 | methodID → Methodology (proto)
+
+	// ─── Normative commitment registry (Phase 6: is-ought wall) ──────
+	NormativeCommitmentKeyPrefix = []byte{0x59} // 0x59 | commitmentID → NormativeCommitment (proto)
 )
 
 // MethodologyKey returns the store key for a methodology by ID.
 func MethodologyKey(id string) []byte {
 	return append(append([]byte{}, MethodologyKeyPrefix...), []byte(id)...)
+}
+
+// NormativeCommitmentKey returns the store key for a normative commitment.
+func NormativeCommitmentKey(id string) []byte {
+	return append(append([]byte{}, NormativeCommitmentKeyPrefix...), []byte(id)...)
 }
 
 // ─── Key constructors ─────────────────────────────────────────────────────────
