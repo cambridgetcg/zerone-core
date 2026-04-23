@@ -1656,6 +1656,30 @@ Automatic heartbeat event (Route B Wave 8). An older FINALIZED manifest for a pi
 - `pipeline_id`
 - `superseded_by` -- the newer manifest's id
 
+### zerone.knowledge.incident_opened
+A formal bug report was opened on-chain (Route B Wave 11). Authority-gated; stamps severity + SLA target at open time. Triage begins; no remediation yet.
+- `incident_id`
+- `severity` -- P0 / P1 / P2 / P3
+- `title` -- one-line summary
+- `sla_target_block` -- block height by which the incident should be resolved (frozen at open time)
+
+### zerone.knowledge.incident_remediation_recorded
+A remediation action was attached to an incident (Route B Wave 11). First remediation transitions the incident OPEN → MITIGATING. Subsequent remediations accrue; the lineage is append-only.
+- `incident_id`
+- `remediation_type` -- PARAM_AMENDMENT / NAMED_UPGRADE / EMERGENCY_HALT / EMERGENCY_RESUME / STATE_CORRECTION / SCHEMA_AMENDMENT / DOCUMENTATION
+- `reference` -- mechanism-specific identifier (upgrade_name, ceremony_id, param_path, schema_version, …)
+- `total_remediations` -- count after this append
+
+### zerone.knowledge.incident_resolved
+An incident transitions MITIGATING → RESOLVED (Route B Wave 11). Requires ≥1 recorded remediation; stamps post-mortem URI; records whether the SLA was met.
+- `incident_id`
+- `post_mortem_uri` -- IPFS or HTTPS link to post-mortem
+- `sla_met` -- bool: `resolved_at_block ≤ sla_target_block`
+
+### zerone.knowledge.incident_closed
+A RESOLVED incident is permanently archived (Route B Wave 11). Terminal state; drops out of the operator dashboard but remains queryable by id.
+- `incident_id`
+
 
 ## liquiditypool
 

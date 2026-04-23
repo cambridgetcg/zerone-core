@@ -1345,3 +1345,78 @@ message RouteBCapabilities {
   uint64 snapshot_block_height                = 50;
   string chain_id                             = 51;
 }
+
+// ─── Wave 11: Incident Response ──────────────────────────────────────────
+//
+// On-chain incident log. Every bug found on a live chain that warrants a
+// formal response gets an IncidentRecord. The record carries the severity,
+// the status, and the lineage of remediations — each remediation pointing
+// at the concrete mechanism that was fired (named upgrade, param amendment,
+// emergency ceremony, schema amendment, or structured state correction).
+//
+// This is the connective tissue between "we found a bug" and "the chain
+// resolved it". Tied to the upgrade protocol (Wave 10) via upgrade_name
+// references, to the emergency ceremony module via ceremony_id, and to
+// the governance params via param_path.
+
+enum IncidentSeverity {
+  INCIDENT_SEVERITY_UNSPECIFIED = 0;
+  INCIDENT_SEVERITY_P0          = 1;  // consensus break / chain halt required
+  INCIDENT_SEVERITY_P1          = 2;  // high-impact; immediate fix via param amendment or emergency upgrade
+  INCIDENT_SEVERITY_P2          = 3;  // scheduled upgrade; no halt needed
+  INCIDENT_SEVERITY_P3          = 4;  // low-impact; next-release or documentation-only
+}
+
+enum IncidentStatus {
+  INCIDENT_STATUS_UNSPECIFIED = 0;
+  INCIDENT_STATUS_OPEN        = 1;  // triaging; no remediation yet
+  INCIDENT_STATUS_MITIGATING  = 2;  // remediation(s) applied, still monitoring
+  INCIDENT_STATUS_RESOLVED    = 3;  // fix verified; monitoring window closed
+  INCIDENT_STATUS_CLOSED      = 4;  // post-mortem published; permanently archived
+}
+
+enum RemediationType {
+  REMEDIATION_TYPE_UNSPECIFIED      = 0;
+  REMEDIATION_TYPE_PARAM_AMENDMENT  = 1;  // MsgUpdateParams; reference = param_path
+  REMEDIATION_TYPE_NAMED_UPGRADE    = 2;  // UpgradeKeeper handler; reference = upgrade_name
+  REMEDIATION_TYPE_EMERGENCY_HALT   = 3;  // x/emergency ceremony; reference = ceremony_id
+  REMEDIATION_TYPE_EMERGENCY_RESUME = 4;  // x/emergency ceremony; reference = ceremony_id
+  REMEDIATION_TYPE_STATE_CORRECTION = 5;  // authority-gated structured msg; reference = msg_type_url
+  REMEDIATION_TYPE_SCHEMA_AMENDMENT = 6;  // TokenizerSpec or TraceSchema amend; reference = schema_name + version
+  REMEDIATION_TYPE_DOCUMENTATION    = 7;  // no on-chain change; reference = post_mortem_uri
+}
+
+// Remediation is one recorded action taken against an incident. Multiple
+// remediations may attach to a single incident (e.g., P1 bug gets a param
+// amendment for immediate relief, then a named upgrade for the permanent
+// fix, then documentation).
+message Remediation {
+  RemediationType type     = 1;
+  string          reference = 2;   // mechanism-specific identifier (see enum comments)
+  uint64          applied_at_block = 3;
+  string          operator = 4;    // authority address that applied it
+  string          note     = 5;
+}
+
+// IncidentRecord is the structured, auditable log entry for a single bug
+// or incident. Authority-gated CRUD; the record is append-only from the
+// perspective of resolution (remediations can be added, status can advance,
+// but never retract).
+message IncidentRecord {
+  string           id                  = 1;   // client-chosen stable ID (e.g. "ZR-2026-0042")
+  IncidentSeverity severity            = 2;
+  IncidentStatus   status              = 3;
+  string           title               = 4;   // one-line summary
+  string           description         = 5;   // detailed problem statement
+  string           reporter            = 6;   // discovery credit
+  uint64           reported_at_block   = 7;
+  uint64           resolved_at_block   = 8;   // 0 while not RESOLVED
+  uint64           closed_at_block     = 9;   // 0 while not CLOSED
+  repeated Remediation remediations    = 10;
+  repeated string  affected_modules    = 11;  // which modules need attention
+  string           post_mortem_uri     = 12;  // IPFS/HTTPS; set on RESOLVED
+  // The response-time SLA this incident is being held to, inherited from
+  // severity at open time. Freezes so later severity reclassification
+  // cannot alter the measured SLA.
+  uint64 sla_target_block              = 13;
+}

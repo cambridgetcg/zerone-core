@@ -361,6 +361,21 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/training/capabilities";
   }
 
+  // ─── Route B Wave 11: incident response queries ──────────────────────
+  // Incident returns a single incident record by id.
+  rpc Incident(QueryIncidentRequest) returns (QueryIncidentResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/incidents/{id}";
+  }
+  // Incidents lists incidents with optional filters (severity, status).
+  rpc Incidents(QueryIncidentsRequest) returns (QueryIncidentsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/incidents";
+  }
+  // OpenIncidents lists only OPEN + MITIGATING incidents — the operator's
+  // "live dashboard" query.
+  rpc OpenIncidents(QueryOpenIncidentsRequest) returns (QueryOpenIncidentsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/incidents/open";
+  }
+
   // ─── Novelty detection ─────────────────────────────────────────────────
 
   // CommonKnowledge queries the common knowledge registry.
@@ -1441,4 +1456,34 @@ message QueryTrainingManifestBundleResponse {
 message QueryRouteBCapabilitiesRequest {}
 message QueryRouteBCapabilitiesResponse {
   RouteBCapabilities capabilities = 1;
+}
+
+// ─── Route B Wave 11: incident response queries ──────────────────────────
+
+message QueryIncidentRequest {
+  string id = 1;
+}
+message QueryIncidentResponse {
+  IncidentRecord incident = 1;
+  bool found = 2;
+}
+
+message QueryIncidentsRequest {
+  IncidentSeverity severity = 1;   // UNSPECIFIED = all
+  IncidentStatus status     = 2;   // UNSPECIFIED = all
+  uint32 limit              = 3;
+  uint32 offset             = 4;
+}
+message QueryIncidentsResponse {
+  repeated IncidentRecord incidents = 1;
+  uint32 total                      = 2;
+  uint64 snapshot_block_height      = 3;
+}
+
+message QueryOpenIncidentsRequest {
+  IncidentSeverity severity = 1;  // UNSPECIFIED = all
+}
+message QueryOpenIncidentsResponse {
+  repeated IncidentRecord incidents = 1;
+  uint64 snapshot_block_height      = 2;
 }

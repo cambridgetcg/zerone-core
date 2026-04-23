@@ -60,6 +60,10 @@ const (
 	Msg_CreateTrainingManifest_FullMethodName        = "/zerone.knowledge.v1.Msg/CreateTrainingManifest"
 	Msg_FinalizeTrainingManifest_FullMethodName      = "/zerone.knowledge.v1.Msg/FinalizeTrainingManifest"
 	Msg_BindManifestToAttestation_FullMethodName     = "/zerone.knowledge.v1.Msg/BindManifestToAttestation"
+	Msg_OpenIncident_FullMethodName                  = "/zerone.knowledge.v1.Msg/OpenIncident"
+	Msg_RecordRemediation_FullMethodName             = "/zerone.knowledge.v1.Msg/RecordRemediation"
+	Msg_ResolveIncident_FullMethodName               = "/zerone.knowledge.v1.Msg/ResolveIncident"
+	Msg_CloseIncident_FullMethodName                 = "/zerone.knowledge.v1.Msg/CloseIncident"
 )
 
 // MsgClient is the client API for Msg service.
@@ -169,6 +173,20 @@ type MsgClient interface {
 	// TrainingAttestation so on-chain attestations name the bundle they
 	// reference. Promotes the manifest to ATTESTED.
 	BindManifestToAttestation(ctx context.Context, in *MsgBindManifestToAttestation, opts ...grpc.CallOption) (*MsgBindManifestToAttestationResponse, error)
+	// ─── Route B Wave 11: incident response pipeline ──────────────────────
+	// OpenIncident records a newly-discovered bug with severity + initial
+	// triage. Authority-gated.
+	OpenIncident(ctx context.Context, in *MsgOpenIncident, opts ...grpc.CallOption) (*MsgOpenIncidentResponse, error)
+	// RecordRemediation attaches a remediation action to an incident.
+	// Callable multiple times; each call is appended, never replaces.
+	RecordRemediation(ctx context.Context, in *MsgRecordRemediation, opts ...grpc.CallOption) (*MsgRecordRemediationResponse, error)
+	// ResolveIncident marks an incident RESOLVED and stamps the post-mortem
+	// URI. Subsequent CloseIncident transitions to CLOSED; until then the
+	// incident remains observable as "in monitoring".
+	ResolveIncident(ctx context.Context, in *MsgResolveIncident, opts ...grpc.CallOption) (*MsgResolveIncidentResponse, error)
+	// CloseIncident permanently archives an incident after the monitoring
+	// window and post-mortem publication.
+	CloseIncident(ctx context.Context, in *MsgCloseIncident, opts ...grpc.CallOption) (*MsgCloseIncidentResponse, error)
 }
 
 type msgClient struct {
@@ -589,6 +607,46 @@ func (c *msgClient) BindManifestToAttestation(ctx context.Context, in *MsgBindMa
 	return out, nil
 }
 
+func (c *msgClient) OpenIncident(ctx context.Context, in *MsgOpenIncident, opts ...grpc.CallOption) (*MsgOpenIncidentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgOpenIncidentResponse)
+	err := c.cc.Invoke(ctx, Msg_OpenIncident_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) RecordRemediation(ctx context.Context, in *MsgRecordRemediation, opts ...grpc.CallOption) (*MsgRecordRemediationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgRecordRemediationResponse)
+	err := c.cc.Invoke(ctx, Msg_RecordRemediation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) ResolveIncident(ctx context.Context, in *MsgResolveIncident, opts ...grpc.CallOption) (*MsgResolveIncidentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgResolveIncidentResponse)
+	err := c.cc.Invoke(ctx, Msg_ResolveIncident_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) CloseIncident(ctx context.Context, in *MsgCloseIncident, opts ...grpc.CallOption) (*MsgCloseIncidentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgCloseIncidentResponse)
+	err := c.cc.Invoke(ctx, Msg_CloseIncident_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility.
@@ -696,6 +754,20 @@ type MsgServer interface {
 	// TrainingAttestation so on-chain attestations name the bundle they
 	// reference. Promotes the manifest to ATTESTED.
 	BindManifestToAttestation(context.Context, *MsgBindManifestToAttestation) (*MsgBindManifestToAttestationResponse, error)
+	// ─── Route B Wave 11: incident response pipeline ──────────────────────
+	// OpenIncident records a newly-discovered bug with severity + initial
+	// triage. Authority-gated.
+	OpenIncident(context.Context, *MsgOpenIncident) (*MsgOpenIncidentResponse, error)
+	// RecordRemediation attaches a remediation action to an incident.
+	// Callable multiple times; each call is appended, never replaces.
+	RecordRemediation(context.Context, *MsgRecordRemediation) (*MsgRecordRemediationResponse, error)
+	// ResolveIncident marks an incident RESOLVED and stamps the post-mortem
+	// URI. Subsequent CloseIncident transitions to CLOSED; until then the
+	// incident remains observable as "in monitoring".
+	ResolveIncident(context.Context, *MsgResolveIncident) (*MsgResolveIncidentResponse, error)
+	// CloseIncident permanently archives an incident after the monitoring
+	// window and post-mortem publication.
+	CloseIncident(context.Context, *MsgCloseIncident) (*MsgCloseIncidentResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -828,6 +900,18 @@ func (UnimplementedMsgServer) FinalizeTrainingManifest(context.Context, *MsgFina
 }
 func (UnimplementedMsgServer) BindManifestToAttestation(context.Context, *MsgBindManifestToAttestation) (*MsgBindManifestToAttestationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BindManifestToAttestation not implemented")
+}
+func (UnimplementedMsgServer) OpenIncident(context.Context, *MsgOpenIncident) (*MsgOpenIncidentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method OpenIncident not implemented")
+}
+func (UnimplementedMsgServer) RecordRemediation(context.Context, *MsgRecordRemediation) (*MsgRecordRemediationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecordRemediation not implemented")
+}
+func (UnimplementedMsgServer) ResolveIncident(context.Context, *MsgResolveIncident) (*MsgResolveIncidentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveIncident not implemented")
+}
+func (UnimplementedMsgServer) CloseIncident(context.Context, *MsgCloseIncident) (*MsgCloseIncidentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CloseIncident not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 func (UnimplementedMsgServer) testEmbeddedByValue()             {}
@@ -1588,6 +1672,78 @@ func _Msg_BindManifestToAttestation_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_OpenIncident_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgOpenIncident)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).OpenIncident(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_OpenIncident_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).OpenIncident(ctx, req.(*MsgOpenIncident))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_RecordRemediation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRecordRemediation)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RecordRemediation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_RecordRemediation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RecordRemediation(ctx, req.(*MsgRecordRemediation))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_ResolveIncident_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgResolveIncident)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).ResolveIncident(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_ResolveIncident_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).ResolveIncident(ctx, req.(*MsgResolveIncident))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_CloseIncident_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgCloseIncident)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).CloseIncident(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_CloseIncident_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).CloseIncident(ctx, req.(*MsgCloseIncident))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1758,6 +1914,22 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BindManifestToAttestation",
 			Handler:    _Msg_BindManifestToAttestation_Handler,
+		},
+		{
+			MethodName: "OpenIncident",
+			Handler:    _Msg_OpenIncident_Handler,
+		},
+		{
+			MethodName: "RecordRemediation",
+			Handler:    _Msg_RecordRemediation_Handler,
+		},
+		{
+			MethodName: "ResolveIncident",
+			Handler:    _Msg_ResolveIncident_Handler,
+		},
+		{
+			MethodName: "CloseIncident",
+			Handler:    _Msg_CloseIncident_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

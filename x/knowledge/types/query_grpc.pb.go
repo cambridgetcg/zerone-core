@@ -85,6 +85,9 @@ const (
 	Query_TrainingManifests_FullMethodName            = "/zerone.knowledge.v1.Query/TrainingManifests"
 	Query_TrainingManifestBundle_FullMethodName       = "/zerone.knowledge.v1.Query/TrainingManifestBundle"
 	Query_RouteBCapabilities_FullMethodName           = "/zerone.knowledge.v1.Query/RouteBCapabilities"
+	Query_Incident_FullMethodName                     = "/zerone.knowledge.v1.Query/Incident"
+	Query_Incidents_FullMethodName                    = "/zerone.knowledge.v1.Query/Incidents"
+	Query_OpenIncidents_FullMethodName                = "/zerone.knowledge.v1.Query/OpenIncidents"
 	Query_CommonKnowledge_FullMethodName              = "/zerone.knowledge.v1.Query/CommonKnowledge"
 	Query_CheckNovelty_FullMethodName                 = "/zerone.knowledge.v1.Query/CheckNovelty"
 	Query_ActiveBounties_FullMethodName               = "/zerone.knowledge.v1.Query/ActiveBounties"
@@ -287,6 +290,14 @@ type QueryClient interface {
 	// training surface — versions, counts, seed status, financial pins,
 	// available corpora. The first query a trainer runs.
 	RouteBCapabilities(ctx context.Context, in *QueryRouteBCapabilitiesRequest, opts ...grpc.CallOption) (*QueryRouteBCapabilitiesResponse, error)
+	// ─── Route B Wave 11: incident response queries ──────────────────────
+	// Incident returns a single incident record by id.
+	Incident(ctx context.Context, in *QueryIncidentRequest, opts ...grpc.CallOption) (*QueryIncidentResponse, error)
+	// Incidents lists incidents with optional filters (severity, status).
+	Incidents(ctx context.Context, in *QueryIncidentsRequest, opts ...grpc.CallOption) (*QueryIncidentsResponse, error)
+	// OpenIncidents lists only OPEN + MITIGATING incidents — the operator's
+	// "live dashboard" query.
+	OpenIncidents(ctx context.Context, in *QueryOpenIncidentsRequest, opts ...grpc.CallOption) (*QueryOpenIncidentsResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -986,6 +997,36 @@ func (c *queryClient) RouteBCapabilities(ctx context.Context, in *QueryRouteBCap
 	return out, nil
 }
 
+func (c *queryClient) Incident(ctx context.Context, in *QueryIncidentRequest, opts ...grpc.CallOption) (*QueryIncidentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryIncidentResponse)
+	err := c.cc.Invoke(ctx, Query_Incident_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) Incidents(ctx context.Context, in *QueryIncidentsRequest, opts ...grpc.CallOption) (*QueryIncidentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryIncidentsResponse)
+	err := c.cc.Invoke(ctx, Query_Incidents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) OpenIncidents(ctx context.Context, in *QueryOpenIncidentsRequest, opts ...grpc.CallOption) (*QueryOpenIncidentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryOpenIncidentsResponse)
+	err := c.cc.Invoke(ctx, Query_OpenIncidents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryCommonKnowledgeResponse)
@@ -1321,6 +1362,14 @@ type QueryServer interface {
 	// training surface — versions, counts, seed status, financial pins,
 	// available corpora. The first query a trainer runs.
 	RouteBCapabilities(context.Context, *QueryRouteBCapabilitiesRequest) (*QueryRouteBCapabilitiesResponse, error)
+	// ─── Route B Wave 11: incident response queries ──────────────────────
+	// Incident returns a single incident record by id.
+	Incident(context.Context, *QueryIncidentRequest) (*QueryIncidentResponse, error)
+	// Incidents lists incidents with optional filters (severity, status).
+	Incidents(context.Context, *QueryIncidentsRequest) (*QueryIncidentsResponse, error)
+	// OpenIncidents lists only OPEN + MITIGATING incidents — the operator's
+	// "live dashboard" query.
+	OpenIncidents(context.Context, *QueryOpenIncidentsRequest) (*QueryOpenIncidentsResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -1557,6 +1606,15 @@ func (UnimplementedQueryServer) TrainingManifestBundle(context.Context, *QueryTr
 }
 func (UnimplementedQueryServer) RouteBCapabilities(context.Context, *QueryRouteBCapabilitiesRequest) (*QueryRouteBCapabilitiesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RouteBCapabilities not implemented")
+}
+func (UnimplementedQueryServer) Incident(context.Context, *QueryIncidentRequest) (*QueryIncidentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Incident not implemented")
+}
+func (UnimplementedQueryServer) Incidents(context.Context, *QueryIncidentsRequest) (*QueryIncidentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Incidents not implemented")
+}
+func (UnimplementedQueryServer) OpenIncidents(context.Context, *QueryOpenIncidentsRequest) (*QueryOpenIncidentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method OpenIncidents not implemented")
 }
 func (UnimplementedQueryServer) CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CommonKnowledge not implemented")
@@ -2812,6 +2870,60 @@ func _Query_RouteBCapabilities_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_Incident_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryIncidentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Incident(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_Incident_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Incident(ctx, req.(*QueryIncidentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_Incidents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryIncidentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Incidents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_Incidents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Incidents(ctx, req.(*QueryIncidentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_OpenIncidents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryOpenIncidentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).OpenIncidents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_OpenIncidents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).OpenIncidents(ctx, req.(*QueryOpenIncidentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_CommonKnowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryCommonKnowledgeRequest)
 	if err := dec(in); err != nil {
@@ -3352,6 +3464,18 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RouteBCapabilities",
 			Handler:    _Query_RouteBCapabilities_Handler,
+		},
+		{
+			MethodName: "Incident",
+			Handler:    _Query_Incident_Handler,
+		},
+		{
+			MethodName: "Incidents",
+			Handler:    _Query_Incidents_Handler,
+		},
+		{
+			MethodName: "OpenIncidents",
+			Handler:    _Query_OpenIncidents_Handler,
 		},
 		{
 			MethodName: "CommonKnowledge",

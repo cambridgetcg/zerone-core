@@ -157,6 +157,21 @@ service Msg {
   // TrainingAttestation so on-chain attestations name the bundle they
   // reference. Promotes the manifest to ATTESTED.
   rpc BindManifestToAttestation(MsgBindManifestToAttestation) returns (MsgBindManifestToAttestationResponse);
+
+  // ─── Route B Wave 11: incident response pipeline ──────────────────────
+  // OpenIncident records a newly-discovered bug with severity + initial
+  // triage. Authority-gated.
+  rpc OpenIncident(MsgOpenIncident) returns (MsgOpenIncidentResponse);
+  // RecordRemediation attaches a remediation action to an incident.
+  // Callable multiple times; each call is appended, never replaces.
+  rpc RecordRemediation(MsgRecordRemediation) returns (MsgRecordRemediationResponse);
+  // ResolveIncident marks an incident RESOLVED and stamps the post-mortem
+  // URI. Subsequent CloseIncident transitions to CLOSED; until then the
+  // incident remains observable as "in monitoring".
+  rpc ResolveIncident(MsgResolveIncident) returns (MsgResolveIncidentResponse);
+  // CloseIncident permanently archives an incident after the monitoring
+  // window and post-mortem publication.
+  rpc CloseIncident(MsgCloseIncident) returns (MsgCloseIncidentResponse);
 }
 
 // ─── PoT lifecycle messages ───────────────────────────────────────────────────
@@ -702,3 +717,52 @@ message MsgBindManifestToAttestation {
   string attestation_id = 3;  // references TrainingAttestation.pipeline_id (1:1 with pipeline)
 }
 message MsgBindManifestToAttestationResponse {}
+
+// ─── Route B Wave 11: incident response ──────────────────────────────────
+message MsgOpenIncident {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority              = 1;
+  string id                     = 2;
+  IncidentSeverity severity     = 3;
+  string title                  = 4;
+  string description            = 5;
+  string reporter               = 6;
+  repeated string affected_modules = 7;
+  // Optional override of the SLA window (blocks). 0 → use the default
+  // inferred from severity.
+  uint64 sla_window_blocks      = 8;
+}
+message MsgOpenIncidentResponse {
+  uint64 sla_target_block = 1;
+}
+
+message MsgRecordRemediation {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority       = 1;
+  string incident_id     = 2;
+  RemediationType type   = 3;
+  string reference       = 4;
+  string note            = 5;
+}
+message MsgRecordRemediationResponse {
+  uint32 total_remediations = 1;
+}
+
+message MsgResolveIncident {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority       = 1;
+  string incident_id     = 2;
+  string post_mortem_uri = 3;
+}
+message MsgResolveIncidentResponse {}
+
+message MsgCloseIncident {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority       = 1;
+  string incident_id     = 2;
+}
+message MsgCloseIncidentResponse {}

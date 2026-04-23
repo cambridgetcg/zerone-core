@@ -53,6 +53,11 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgCreateTrainingManifest{}, "zerone_knowledge/CreateTrainingManifest", nil)
 	cdc.RegisterConcrete(&MsgFinalizeTrainingManifest{}, "zerone_knowledge/FinalizeTrainingManifest", nil)
 	cdc.RegisterConcrete(&MsgBindManifestToAttestation{}, "zerone_knowledge/BindManifestToAttestation", nil)
+	// Route B Wave 11
+	cdc.RegisterConcrete(&MsgOpenIncident{}, "zerone_knowledge/OpenIncident", nil)
+	cdc.RegisterConcrete(&MsgRecordRemediation{}, "zerone_knowledge/RecordRemediation", nil)
+	cdc.RegisterConcrete(&MsgResolveIncident{}, "zerone_knowledge/ResolveIncident", nil)
+	cdc.RegisterConcrete(&MsgCloseIncident{}, "zerone_knowledge/CloseIncident", nil)
 }
 
 // RegisterInterfaces registers the knowledge module's interface implementations.
@@ -104,6 +109,11 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgCreateTrainingManifest{},
 		&MsgFinalizeTrainingManifest{},
 		&MsgBindManifestToAttestation{},
+		// Route B Wave 11
+		&MsgOpenIncident{},
+		&MsgRecordRemediation{},
+		&MsgResolveIncident{},
+		&MsgCloseIncident{},
 	)
 }
 

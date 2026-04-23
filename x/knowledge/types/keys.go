@@ -181,6 +181,12 @@ var (
 	TrainingManifestByPipelineKeyPrefix  = []byte{0x70} // 0x70 | pipeline_id | manifest_id → 1 (reverse index)
 	TrainingManifestByCreatorKeyPrefix   = []byte{0x71} // 0x71 | creator | manifest_id → 1 (reverse index)
 	TrainingManifestByStatusKeyPrefix    = []byte{0x72} // 0x72 | be8(status) | manifest_id → 1 (reverse index)
+
+	// ─── Route B Wave 11: incident response ──────────────────────────
+	IncidentRecordKeyPrefix         = []byte{0x73} // 0x73 | incident_id → IncidentRecord
+	IncidentBySeverityKeyPrefix     = []byte{0x74} // 0x74 | be8(severity) | incident_id → 1
+	IncidentByStatusKeyPrefix       = []byte{0x75} // 0x75 | be8(status) | incident_id → 1
+	OpenIncidentKeyPrefix           = []byte{0x76} // 0x76 | incident_id → 1 (open-only set)
 )
 
 // MethodologyKey returns the store key for a methodology by ID.
@@ -660,4 +666,32 @@ func TrainingManifestByStatusKey(status byte, manifestID string) []byte {
 	out = append(out, status)
 	out = append(out, []byte(manifestID)...)
 	return out
+}
+
+// ─── Route B Wave 11: incident response key constructors ──────────────────
+
+// IncidentRecordKey returns the store key for an incident by id.
+func IncidentRecordKey(id string) []byte {
+	return append(append([]byte{}, IncidentRecordKeyPrefix...), []byte(id)...)
+}
+
+// IncidentBySeverityKey returns the (severity, incident_id) reverse key.
+func IncidentBySeverityKey(severity byte, incidentID string) []byte {
+	out := append([]byte{}, IncidentBySeverityKeyPrefix...)
+	out = append(out, severity)
+	out = append(out, []byte(incidentID)...)
+	return out
+}
+
+// IncidentByStatusKey returns the (status, incident_id) reverse key.
+func IncidentByStatusKey(status byte, incidentID string) []byte {
+	out := append([]byte{}, IncidentByStatusKeyPrefix...)
+	out = append(out, status)
+	out = append(out, []byte(incidentID)...)
+	return out
+}
+
+// OpenIncidentKey returns the set key marking an incident as live (OPEN or MITIGATING).
+func OpenIncidentKey(id string) []byte {
+	return append(append([]byte{}, OpenIncidentKeyPrefix...), []byte(id)...)
 }

@@ -2380,3 +2380,72 @@ func (q *queryServer) RouteBCapabilities(ctx context.Context, _ *types.QueryRout
 		Capabilities: q.keeper.BuildRouteBCapabilities(ctx),
 	}, nil
 }
+
+// ─── Route B Wave 11: incident response queries ──────────────────────────
+
+// Incident returns a single incident record by id.
+func (q *queryServer) Incident(ctx context.Context, req *types.QueryIncidentRequest) (*types.QueryIncidentResponse, error) {
+	if req == nil || req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id required")
+	}
+	r, found := q.keeper.GetIncidentRecord(ctx, req.Id)
+	return &types.QueryIncidentResponse{Incident: r, Found: found}, nil
+}
+
+// Incidents lists incidents with optional filters.
+func (q *queryServer) Incidents(ctx context.Context, req *types.QueryIncidentsRequest) (*types.QueryIncidentsResponse, error) {
+	if req == nil {
+		req = &types.QueryIncidentsRequest{}
+	}
+	limit := req.Limit
+	if limit == 0 || limit > 500 {
+		limit = 100
+	}
+	offset := req.Offset
+	var out []*types.IncidentRecord
+	var total uint32
+	var seen uint32
+	q.keeper.IterateIncidents(ctx, func(r *types.IncidentRecord) bool {
+		if req.Severity != types.IncidentSeverity_INCIDENT_SEVERITY_UNSPECIFIED && r.Severity != req.Severity {
+			return false
+		}
+		if req.Status != types.IncidentStatus_INCIDENT_STATUS_UNSPECIFIED && r.Status != req.Status {
+			return false
+		}
+		total++
+		if seen < offset {
+			seen++
+			return false
+		}
+		if uint32(len(out)) >= limit {
+			return false
+		}
+		out = append(out, r)
+		seen++
+		return false
+	})
+	return &types.QueryIncidentsResponse{
+		Incidents:           out,
+		Total:               total,
+		SnapshotBlockHeight: uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()),
+	}, nil
+}
+
+// OpenIncidents returns OPEN + MITIGATING incidents — the operator dashboard.
+func (q *queryServer) OpenIncidents(ctx context.Context, req *types.QueryOpenIncidentsRequest) (*types.QueryOpenIncidentsResponse, error) {
+	if req == nil {
+		req = &types.QueryOpenIncidentsRequest{}
+	}
+	var out []*types.IncidentRecord
+	q.keeper.IterateOpenIncidents(ctx, func(r *types.IncidentRecord) bool {
+		if req.Severity != types.IncidentSeverity_INCIDENT_SEVERITY_UNSPECIFIED && r.Severity != req.Severity {
+			return false
+		}
+		out = append(out, r)
+		return false
+	})
+	return &types.QueryOpenIncidentsResponse{
+		Incidents:           out,
+		SnapshotBlockHeight: uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()),
+	}, nil
+}
