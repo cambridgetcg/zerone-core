@@ -584,6 +584,176 @@ func (q *queryServer) NormativeCommitment(ctx context.Context, req *types.QueryN
 	}, nil
 }
 
+// ─── Training pipeline exports (Phase 9) ───────────────────────────────────
+
+// MethodCorpus exports method-stamped facts for positive-exemplar training.
+func (q *queryServer) MethodCorpus(ctx context.Context, req *types.QueryMethodCorpusRequest) (*types.QueryMethodCorpusResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	limit := req.Limit
+	if limit == 0 || limit > 1000 {
+		limit = 100
+	}
+	offset := req.Offset
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	snapshotHeight := uint64(sdkCtx.BlockHeight())
+
+	var entries []*types.MethodCorpusEntry
+	var total uint32
+	var skipped uint32
+
+	q.keeper.IterateFactsForTraining(ctx, req.MethodId, req.MinCorroboration, req.MinTier,
+		func(fact *types.Fact, tier types.TrainingQualityTier) bool {
+			total++
+			if skipped < offset {
+				skipped++
+				return false
+			}
+			if uint32(len(entries)) >= limit {
+				return false
+			}
+			// Support edges for training: typed inference chain out of this fact.
+			edges, _ := q.keeper.GetFactRelations(ctx, fact.Id)
+			// Only support-bearing edges are useful as reasoning training.
+			filtered := edges[:0]
+			for _, rel := range edges {
+				if isSupportBearing(rel.Relation) {
+					filtered = append(filtered, rel)
+				}
+			}
+			entries = append(entries, &types.MethodCorpusEntry{
+				Fact:         fact,
+				Tier:         tier,
+				SupportEdges: filtered,
+			})
+			return false
+		})
+
+	return &types.QueryMethodCorpusResponse{
+		Entries:             entries,
+		Total:               total,
+		SnapshotBlockHeight: snapshotHeight,
+	}, nil
+}
+
+// DisprovenCorpus exports DISPROVEN facts — the negative-example dataset.
+func (q *queryServer) DisprovenCorpus(ctx context.Context, req *types.QueryDisprovenCorpusRequest) (*types.QueryDisprovenCorpusResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	limit := req.Limit
+	if limit == 0 || limit > 1000 {
+		limit = 100
+	}
+	offset := req.Offset
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	snapshotHeight := uint64(sdkCtx.BlockHeight())
+
+	var entries []*types.DisprovenCorpusEntry
+	var total uint32
+	var skipped uint32
+
+	q.keeper.IterateFacts(ctx, func(fact *types.Fact) bool {
+		if fact == nil || fact.Status != types.FactStatus_FACT_STATUS_DISPROVEN {
+			return false
+		}
+		total++
+		if skipped < offset {
+			skipped++
+			return false
+		}
+		if uint32(len(entries)) >= limit {
+			return false
+		}
+		entries = append(entries, &types.DisprovenCorpusEntry{
+			DisprovenFact:    fact,
+			MethodId:         fact.MethodId,
+			DisprovenAtBlock: fact.LastVerifiedBlock, // closest available stamp; full tracking in Phase 9 follow-up
+		})
+		return false
+	})
+
+	return &types.QueryDisprovenCorpusResponse{
+		Entries:             entries,
+		Total:               total,
+		SnapshotBlockHeight: snapshotHeight,
+	}, nil
+}
+
+// VindicationCorpus exports vindication records — correct-dissent examples.
+func (q *queryServer) VindicationCorpus(ctx context.Context, req *types.QueryVindicationCorpusRequest) (*types.QueryVindicationCorpusResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	limit := req.Limit
+	if limit == 0 || limit > 1000 {
+		limit = 100
+	}
+	offset := req.Offset
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	snapshotHeight := uint64(sdkCtx.BlockHeight())
+
+	var entries []*types.VindicationCorpusEntry
+	var total uint32
+	var skipped uint32
+
+	q.keeper.IterateAllVindicationRecords(ctx, func(rec *types.VindicationRecord) bool {
+		if rec == nil {
+			return false
+		}
+		total++
+		if skipped < offset {
+			skipped++
+			return false
+		}
+		if uint32(len(entries)) >= limit {
+			return false
+		}
+		entries = append(entries, &types.VindicationCorpusEntry{
+			FactId:             rec.FactId,
+			Verifier:           rec.Verifier,
+			// Vote is captured in VindicationEntry (pending) but not retained
+			// on the executed record; training-pipeline consumers reconstruct
+			// it from the round reveals if needed.
+			Vote:              "",
+			RefundAmount:      rec.RefundAmount,
+			BonusAmount:       rec.BonusAmount,
+			VindicatedAtBlock: rec.VindicatedAt,
+			DisprovenByFactId: rec.DisprovenBy,
+		})
+		return false
+	})
+
+	return &types.QueryVindicationCorpusResponse{
+		Entries:             entries,
+		Total:               total,
+		SnapshotBlockHeight: snapshotHeight,
+	}, nil
+}
+
+// TrainingQuality returns the computed tier for a single fact, with reason.
+func (q *queryServer) TrainingQuality(ctx context.Context, req *types.QueryTrainingQualityRequest) (*types.QueryTrainingQualityResponse, error) {
+	if req == nil || req.FactId == "" {
+		return nil, status.Error(codes.InvalidArgument, "fact_id required")
+	}
+	fact, found := q.keeper.GetFact(ctx, req.FactId)
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "fact %s not found", req.FactId)
+	}
+	tier, reason := ClassifyTrainingQuality(fact)
+	return &types.QueryTrainingQualityResponse{
+		Tier:               tier,
+		CorroborationCount: fact.CorroborationCount,
+		MethodId:           fact.MethodId,
+		Status:             fact.Status,
+		Reason:             reason,
+	}, nil
+}
+
 // TrustProfile returns the consolidated provenance view for a single fact:
 // own confidence, inherited floor, axiom distance, direct supporter /
 // descendant counts, min confidence found in the support chain, and a

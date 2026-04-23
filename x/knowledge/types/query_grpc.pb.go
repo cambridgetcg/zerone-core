@@ -47,6 +47,10 @@ const (
 	Query_Methodology_FullMethodName            = "/zerone.knowledge.v1.Query/Methodology"
 	Query_NormativeCommitments_FullMethodName   = "/zerone.knowledge.v1.Query/NormativeCommitments"
 	Query_NormativeCommitment_FullMethodName    = "/zerone.knowledge.v1.Query/NormativeCommitment"
+	Query_MethodCorpus_FullMethodName           = "/zerone.knowledge.v1.Query/MethodCorpus"
+	Query_DisprovenCorpus_FullMethodName        = "/zerone.knowledge.v1.Query/DisprovenCorpus"
+	Query_VindicationCorpus_FullMethodName      = "/zerone.knowledge.v1.Query/VindicationCorpus"
+	Query_TrainingQuality_FullMethodName        = "/zerone.knowledge.v1.Query/TrainingQuality"
 	Query_CommonKnowledge_FullMethodName        = "/zerone.knowledge.v1.Query/CommonKnowledge"
 	Query_CheckNovelty_FullMethodName           = "/zerone.knowledge.v1.Query/CheckNovelty"
 	Query_ActiveBounties_FullMethodName         = "/zerone.knowledge.v1.Query/ActiveBounties"
@@ -140,6 +144,21 @@ type QueryClient interface {
 	NormativeCommitments(ctx context.Context, in *QueryNormativeCommitmentsRequest, opts ...grpc.CallOption) (*QueryNormativeCommitmentsResponse, error)
 	// NormativeCommitment returns a single commitment by id.
 	NormativeCommitment(ctx context.Context, in *QueryNormativeCommitmentRequest, opts ...grpc.CallOption) (*QueryNormativeCommitmentResponse, error)
+	// ─── Training pipeline exports (Phase 9) ─────────────────────────────
+	// Every query below is deterministic and paginated; responses include
+	// the snapshot block_height so training runs can pin to a specific state.
+	//
+	// MethodCorpus: method-stamped accepted facts filtered by corroboration
+	// threshold. Primary positive-exemplar dataset for SFT fine-tuning.
+	MethodCorpus(ctx context.Context, in *QueryMethodCorpusRequest, opts ...grpc.CallOption) (*QueryMethodCorpusResponse, error)
+	// DisprovenCorpus: facts that went DISPROVEN, with disproof reasoning.
+	// The negative-example dataset. Most underused epistemic asset on-chain.
+	DisprovenCorpus(ctx context.Context, in *QueryDisprovenCorpusRequest, opts ...grpc.CallOption) (*QueryDisprovenCorpusResponse, error)
+	// VindicationCorpus: minority voters who turned out correct. Rarest and
+	// most valuable dataset — records of correct dissent.
+	VindicationCorpus(ctx context.Context, in *QueryVindicationCorpusRequest, opts ...grpc.CallOption) (*QueryVindicationCorpusResponse, error)
+	// TrainingQuality: returns the computed training-quality tier for a fact.
+	TrainingQuality(ctx context.Context, in *QueryTrainingQualityRequest, opts ...grpc.CallOption) (*QueryTrainingQualityResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -459,6 +478,46 @@ func (c *queryClient) NormativeCommitment(ctx context.Context, in *QueryNormativ
 	return out, nil
 }
 
+func (c *queryClient) MethodCorpus(ctx context.Context, in *QueryMethodCorpusRequest, opts ...grpc.CallOption) (*QueryMethodCorpusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryMethodCorpusResponse)
+	err := c.cc.Invoke(ctx, Query_MethodCorpus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) DisprovenCorpus(ctx context.Context, in *QueryDisprovenCorpusRequest, opts ...grpc.CallOption) (*QueryDisprovenCorpusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryDisprovenCorpusResponse)
+	err := c.cc.Invoke(ctx, Query_DisprovenCorpus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) VindicationCorpus(ctx context.Context, in *QueryVindicationCorpusRequest, opts ...grpc.CallOption) (*QueryVindicationCorpusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryVindicationCorpusResponse)
+	err := c.cc.Invoke(ctx, Query_VindicationCorpus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TrainingQuality(ctx context.Context, in *QueryTrainingQualityRequest, opts ...grpc.CallOption) (*QueryTrainingQualityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryTrainingQualityResponse)
+	err := c.cc.Invoke(ctx, Query_TrainingQuality_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryCommonKnowledgeResponse)
@@ -685,6 +744,21 @@ type QueryServer interface {
 	NormativeCommitments(context.Context, *QueryNormativeCommitmentsRequest) (*QueryNormativeCommitmentsResponse, error)
 	// NormativeCommitment returns a single commitment by id.
 	NormativeCommitment(context.Context, *QueryNormativeCommitmentRequest) (*QueryNormativeCommitmentResponse, error)
+	// ─── Training pipeline exports (Phase 9) ─────────────────────────────
+	// Every query below is deterministic and paginated; responses include
+	// the snapshot block_height so training runs can pin to a specific state.
+	//
+	// MethodCorpus: method-stamped accepted facts filtered by corroboration
+	// threshold. Primary positive-exemplar dataset for SFT fine-tuning.
+	MethodCorpus(context.Context, *QueryMethodCorpusRequest) (*QueryMethodCorpusResponse, error)
+	// DisprovenCorpus: facts that went DISPROVEN, with disproof reasoning.
+	// The negative-example dataset. Most underused epistemic asset on-chain.
+	DisprovenCorpus(context.Context, *QueryDisprovenCorpusRequest) (*QueryDisprovenCorpusResponse, error)
+	// VindicationCorpus: minority voters who turned out correct. Rarest and
+	// most valuable dataset — records of correct dissent.
+	VindicationCorpus(context.Context, *QueryVindicationCorpusRequest) (*QueryVindicationCorpusResponse, error)
+	// TrainingQuality: returns the computed training-quality tier for a fact.
+	TrainingQuality(context.Context, *QueryTrainingQualityRequest) (*QueryTrainingQualityResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -807,6 +881,18 @@ func (UnimplementedQueryServer) NormativeCommitments(context.Context, *QueryNorm
 }
 func (UnimplementedQueryServer) NormativeCommitment(context.Context, *QueryNormativeCommitmentRequest) (*QueryNormativeCommitmentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method NormativeCommitment not implemented")
+}
+func (UnimplementedQueryServer) MethodCorpus(context.Context, *QueryMethodCorpusRequest) (*QueryMethodCorpusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MethodCorpus not implemented")
+}
+func (UnimplementedQueryServer) DisprovenCorpus(context.Context, *QueryDisprovenCorpusRequest) (*QueryDisprovenCorpusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DisprovenCorpus not implemented")
+}
+func (UnimplementedQueryServer) VindicationCorpus(context.Context, *QueryVindicationCorpusRequest) (*QueryVindicationCorpusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VindicationCorpus not implemented")
+}
+func (UnimplementedQueryServer) TrainingQuality(context.Context, *QueryTrainingQualityRequest) (*QueryTrainingQualityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TrainingQuality not implemented")
 }
 func (UnimplementedQueryServer) CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CommonKnowledge not implemented")
@@ -1378,6 +1464,78 @@ func _Query_NormativeCommitment_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_MethodCorpus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryMethodCorpusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).MethodCorpus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_MethodCorpus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).MethodCorpus(ctx, req.(*QueryMethodCorpusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_DisprovenCorpus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryDisprovenCorpusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).DisprovenCorpus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_DisprovenCorpus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).DisprovenCorpus(ctx, req.(*QueryDisprovenCorpusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_VindicationCorpus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryVindicationCorpusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).VindicationCorpus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_VindicationCorpus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).VindicationCorpus(ctx, req.(*QueryVindicationCorpusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TrainingQuality_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTrainingQualityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TrainingQuality(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TrainingQuality_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TrainingQuality(ctx, req.(*QueryTrainingQualityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_CommonKnowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryCommonKnowledgeRequest)
 	if err := dec(in); err != nil {
@@ -1766,6 +1924,22 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NormativeCommitment",
 			Handler:    _Query_NormativeCommitment_Handler,
+		},
+		{
+			MethodName: "MethodCorpus",
+			Handler:    _Query_MethodCorpus_Handler,
+		},
+		{
+			MethodName: "DisprovenCorpus",
+			Handler:    _Query_DisprovenCorpus_Handler,
+		},
+		{
+			MethodName: "VindicationCorpus",
+			Handler:    _Query_VindicationCorpus_Handler,
+		},
+		{
+			MethodName: "TrainingQuality",
+			Handler:    _Query_TrainingQuality_Handler,
 		},
 		{
 			MethodName: "CommonKnowledge",

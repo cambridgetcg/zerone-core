@@ -346,6 +346,9 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		CanonicalHash:     claim.CanonicalHash,
 		// Methodology (Phase 1): copy from claim; default to M-LEGACY if unset.
 		MethodId: ResolveMethodId(claim.MethodId),
+		// Reasoning trace (Phase 9): structured derivation flows through to
+		// the accepted Fact as first-class training data.
+		ReasoningTrace: claim.ReasoningTrace,
 		// Fitness fields
 		FitnessScore:       params.FitnessInitialScore,
 		FitnessUpdatedBlock: height,

@@ -97,6 +97,27 @@ func (k Keeper) GetVindicationRecord(ctx context.Context, factId, verifier strin
 	return record, true
 }
 
+// IterateAllVindicationRecords yields every vindication record across all
+// facts. Used by the training corpus exporter (Phase 9) — correct-dissent
+// records are the rarest positive training signal on-chain.
+func (k Keeper) IterateAllVindicationRecords(ctx context.Context, cb func(*types.VindicationRecord) bool) {
+	store := k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(types.VindicationRecordPrefix, prefixEndBytes(types.VindicationRecordPrefix))
+	if err != nil {
+		return
+	}
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		var record types.VindicationRecord
+		if err := json.Unmarshal(iter.Value(), &record); err != nil {
+			continue
+		}
+		if cb(&record) {
+			return
+		}
+	}
+}
+
 // GetVindicationRecordsForFact returns all vindication records for a given fact.
 func (k Keeper) GetVindicationRecordsForFact(ctx context.Context, factId string) []types.VindicationRecord {
 	store := k.storeService.OpenKVStore(ctx)

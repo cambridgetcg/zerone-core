@@ -545,6 +545,66 @@ func (DomainStatus) EnumDescriptor() ([]byte, []int) {
 	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{7}
 }
 
+// TrainingQualityTier segments facts by suitability as training examples.
+// Computed on demand from corroboration, methodology, and status.
+type TrainingQualityTier int32
+
+const (
+	TrainingQualityTier_TRAINING_QUALITY_TIER_UNSPECIFIED TrainingQualityTier = 0
+	TrainingQualityTier_TRAINING_QUALITY_TIER_GOLD        TrainingQualityTier = 1 // High-corroboration, non-legacy, verified — positive exemplar
+	TrainingQualityTier_TRAINING_QUALITY_TIER_SILVER      TrainingQualityTier = 2 // Non-legacy, corroborated, verified
+	TrainingQualityTier_TRAINING_QUALITY_TIER_BRONZE      TrainingQualityTier = 3 // Accepted but uncorroborated / legacy method
+	TrainingQualityTier_TRAINING_QUALITY_TIER_NEGATIVE    TrainingQualityTier = 4 // DISPROVEN — valuable as negative example
+	TrainingQualityTier_TRAINING_QUALITY_TIER_UNSUITABLE  TrainingQualityTier = 5 // CONTESTED / EXPIRED / MALFORMED — exclude from training
+)
+
+// Enum value maps for TrainingQualityTier.
+var (
+	TrainingQualityTier_name = map[int32]string{
+		0: "TRAINING_QUALITY_TIER_UNSPECIFIED",
+		1: "TRAINING_QUALITY_TIER_GOLD",
+		2: "TRAINING_QUALITY_TIER_SILVER",
+		3: "TRAINING_QUALITY_TIER_BRONZE",
+		4: "TRAINING_QUALITY_TIER_NEGATIVE",
+		5: "TRAINING_QUALITY_TIER_UNSUITABLE",
+	}
+	TrainingQualityTier_value = map[string]int32{
+		"TRAINING_QUALITY_TIER_UNSPECIFIED": 0,
+		"TRAINING_QUALITY_TIER_GOLD":        1,
+		"TRAINING_QUALITY_TIER_SILVER":      2,
+		"TRAINING_QUALITY_TIER_BRONZE":      3,
+		"TRAINING_QUALITY_TIER_NEGATIVE":    4,
+		"TRAINING_QUALITY_TIER_UNSUITABLE":  5,
+	}
+)
+
+func (x TrainingQualityTier) Enum() *TrainingQualityTier {
+	p := new(TrainingQualityTier)
+	*p = x
+	return p
+}
+
+func (x TrainingQualityTier) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TrainingQualityTier) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_knowledge_v1_types_proto_enumTypes[8].Descriptor()
+}
+
+func (TrainingQualityTier) Type() protoreflect.EnumType {
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[8]
+}
+
+func (x TrainingQualityTier) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TrainingQualityTier.Descriptor instead.
+func (TrainingQualityTier) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{8}
+}
+
 // FactRelation is a typed, directional edge in the knowledge graph.
 type FactRelation struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -1178,8 +1238,15 @@ type Fact struct {
 	// falsified and wasn't.
 	CorroborationCount    uint64 `protobuf:"varint,67,opt,name=corroboration_count,json=corroborationCount,proto3" json:"corroboration_count,omitempty"`
 	LastCorroboratedBlock uint64 `protobuf:"varint,68,opt,name=last_corroborated_block,json=lastCorroboratedBlock,proto3" json:"last_corroborated_block,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// ─── Training pipeline (Phase 9) ────────────────────────────────────────
+	// Submitter-provided structured derivation. Optional. Non-empty traces
+	// become gold-standard chain-of-thought training material when the claim
+	// is accepted. Format is a list of ordered reasoning steps; the wire
+	// format is a string (JSON-encoded steps) so training pipelines can
+	// schema-evolve without proto churn.
+	ReasoningTrace string `protobuf:"bytes,69,opt,name=reasoning_trace,json=reasoningTrace,proto3" json:"reasoning_trace,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Fact) Reset() {
@@ -1618,6 +1685,13 @@ func (x *Fact) GetLastCorroboratedBlock() uint64 {
 	return 0
 }
 
+func (x *Fact) GetReasoningTrace() string {
+	if x != nil {
+		return x.ReasoningTrace
+	}
+	return ""
+}
+
 // CommonKnowledgeEntry represents a subject that LLMs already know.
 // Claims matching these subjects receive a novelty penalty.
 type CommonKnowledgeEntry struct {
@@ -1730,9 +1804,12 @@ type Claim struct {
 	// (transitional; claims without declared method are adjudicated under a
 	// permissive rule-set). Governance-amendable set of valid values lives in
 	// the knowledge module's methodology registry.
-	MethodId      string `protobuf:"bytes,20,opt,name=method_id,json=methodId,proto3" json:"method_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	MethodId string `protobuf:"bytes,20,opt,name=method_id,json=methodId,proto3" json:"method_id,omitempty"`
+	// Structured reasoning trace. Optional. When populated, it flows through
+	// to the accepted Fact as first-class training data (Phase 9).
+	ReasoningTrace string `protobuf:"bytes,21,opt,name=reasoning_trace,json=reasoningTrace,proto3" json:"reasoning_trace,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Claim) Reset() {
@@ -1901,6 +1978,13 @@ func (x *Claim) GetCanonicalHash() string {
 func (x *Claim) GetMethodId() string {
 	if x != nil {
 		return x.MethodId
+	}
+	return ""
+}
+
+func (x *Claim) GetReasoningTrace() string {
+	if x != nil {
+		return x.ReasoningTrace
 	}
 	return ""
 }
@@ -2917,7 +3001,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\x84\x13\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\xad\x13\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -2987,7 +3071,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x1bdependency_confidence_floor\x18A \x01(\x04R\x19dependencyConfidenceFloor\x12\x1b\n" +
 	"\tmethod_id\x18B \x01(\tR\bmethodId\x12/\n" +
 	"\x13corroboration_count\x18C \x01(\x04R\x12corroborationCount\x126\n" +
-	"\x17last_corroborated_block\x18D \x01(\x04R\x15lastCorroboratedBlock\"\xbc\x01\n" +
+	"\x17last_corroborated_block\x18D \x01(\x04R\x15lastCorroboratedBlock\x12'\n" +
+	"\x0freasoning_trace\x18E \x01(\tR\x0ereasoningTrace\"\xbc\x01\n" +
 	"\x14CommonKnowledgeEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x18\n" +
@@ -2996,7 +3081,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\vpenalty_bps\x18\x05 \x01(\x04R\n" +
 	"penaltyBps\x12\x1f\n" +
 	"\vadded_block\x18\x06 \x01(\x04R\n" +
-	"addedBlock\"\xb9\x06\n" +
+	"addedBlock\"\xe2\x06\n" +
 	"\x05Claim\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\ffact_content\x18\x02 \x01(\tR\vfactContent\x12\x16\n" +
@@ -3021,7 +3106,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\tstructure\x18\x11 \x01(\v2#.zerone.knowledge.v1.ClaimStructureR\tstructure\x12%\n" +
 	"\x0ecanonical_form\x18\x12 \x01(\tR\rcanonicalForm\x12%\n" +
 	"\x0ecanonical_hash\x18\x13 \x01(\tR\rcanonicalHash\x12\x1b\n" +
-	"\tmethod_id\x18\x14 \x01(\tR\bmethodId\"\xaf\x04\n" +
+	"\tmethod_id\x18\x14 \x01(\tR\bmethodId\x12'\n" +
+	"\x0freasoning_trace\x18\x15 \x01(\tR\x0ereasoningTrace\"\xaf\x04\n" +
 	"\x11VerificationRound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bclaim_id\x18\x02 \x01(\tR\aclaimId\x12(\n" +
@@ -3189,7 +3275,14 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x19DOMAIN_STATUS_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14DOMAIN_STATUS_ACTIVE\x10\x01\x12\x1c\n" +
 	"\x18DOMAIN_STATUS_DEPRECATED\x10\x02\x12\x1a\n" +
-	"\x16DOMAIN_STATUS_PROPOSED\x10\x03B2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
+	"\x16DOMAIN_STATUS_PROPOSED\x10\x03*\xea\x01\n" +
+	"\x13TrainingQualityTier\x12%\n" +
+	"!TRAINING_QUALITY_TIER_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aTRAINING_QUALITY_TIER_GOLD\x10\x01\x12 \n" +
+	"\x1cTRAINING_QUALITY_TIER_SILVER\x10\x02\x12 \n" +
+	"\x1cTRAINING_QUALITY_TIER_BRONZE\x10\x03\x12\"\n" +
+	"\x1eTRAINING_QUALITY_TIER_NEGATIVE\x10\x04\x12$\n" +
+	" TRAINING_QUALITY_TIER_UNSUITABLE\x10\x05B2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
 
 var (
 	file_zerone_knowledge_v1_types_proto_rawDescOnce sync.Once
@@ -3203,7 +3296,7 @@ func file_zerone_knowledge_v1_types_proto_rawDescGZIP() []byte {
 	return file_zerone_knowledge_v1_types_proto_rawDescData
 }
 
-var file_zerone_knowledge_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
+var file_zerone_knowledge_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
 var file_zerone_knowledge_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(FactStatus)(0),              // 0: zerone.knowledge.v1.FactStatus
@@ -3214,44 +3307,45 @@ var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(RelationType)(0),            // 5: zerone.knowledge.v1.RelationType
 	(InferenceType)(0),           // 6: zerone.knowledge.v1.InferenceType
 	(DomainStatus)(0),            // 7: zerone.knowledge.v1.DomainStatus
-	(*FactRelation)(nil),         // 8: zerone.knowledge.v1.FactRelation
-	(*ClaimRelation)(nil),        // 9: zerone.knowledge.v1.ClaimRelation
-	(*NormativeCommitment)(nil),  // 10: zerone.knowledge.v1.NormativeCommitment
-	(*Methodology)(nil),          // 11: zerone.knowledge.v1.Methodology
-	(*ClaimStructure)(nil),       // 12: zerone.knowledge.v1.ClaimStructure
-	(*Fact)(nil),                 // 13: zerone.knowledge.v1.Fact
-	(*CommonKnowledgeEntry)(nil), // 14: zerone.knowledge.v1.CommonKnowledgeEntry
-	(*Claim)(nil),                // 15: zerone.knowledge.v1.Claim
-	(*VerificationRound)(nil),    // 16: zerone.knowledge.v1.VerificationRound
-	(*CommitEntry)(nil),          // 17: zerone.knowledge.v1.CommitEntry
-	(*RevealEntry)(nil),          // 18: zerone.knowledge.v1.RevealEntry
-	(*VRFProof)(nil),             // 19: zerone.knowledge.v1.VRFProof
-	(*Domain)(nil),               // 20: zerone.knowledge.v1.Domain
-	(*ValidatorInfo)(nil),        // 21: zerone.knowledge.v1.ValidatorInfo
-	(*ProvisionalChallenge)(nil), // 22: zerone.knowledge.v1.ProvisionalChallenge
-	(*DemandSignal)(nil),         // 23: zerone.knowledge.v1.DemandSignal
-	(*KnowledgeBounty)(nil),      // 24: zerone.knowledge.v1.KnowledgeBounty
-	(*CompletedRoundMeta)(nil),   // 25: zerone.knowledge.v1.CompletedRoundMeta
-	nil,                          // 26: zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
+	(TrainingQualityTier)(0),     // 8: zerone.knowledge.v1.TrainingQualityTier
+	(*FactRelation)(nil),         // 9: zerone.knowledge.v1.FactRelation
+	(*ClaimRelation)(nil),        // 10: zerone.knowledge.v1.ClaimRelation
+	(*NormativeCommitment)(nil),  // 11: zerone.knowledge.v1.NormativeCommitment
+	(*Methodology)(nil),          // 12: zerone.knowledge.v1.Methodology
+	(*ClaimStructure)(nil),       // 13: zerone.knowledge.v1.ClaimStructure
+	(*Fact)(nil),                 // 14: zerone.knowledge.v1.Fact
+	(*CommonKnowledgeEntry)(nil), // 15: zerone.knowledge.v1.CommonKnowledgeEntry
+	(*Claim)(nil),                // 16: zerone.knowledge.v1.Claim
+	(*VerificationRound)(nil),    // 17: zerone.knowledge.v1.VerificationRound
+	(*CommitEntry)(nil),          // 18: zerone.knowledge.v1.CommitEntry
+	(*RevealEntry)(nil),          // 19: zerone.knowledge.v1.RevealEntry
+	(*VRFProof)(nil),             // 20: zerone.knowledge.v1.VRFProof
+	(*Domain)(nil),               // 21: zerone.knowledge.v1.Domain
+	(*ValidatorInfo)(nil),        // 22: zerone.knowledge.v1.ValidatorInfo
+	(*ProvisionalChallenge)(nil), // 23: zerone.knowledge.v1.ProvisionalChallenge
+	(*DemandSignal)(nil),         // 24: zerone.knowledge.v1.DemandSignal
+	(*KnowledgeBounty)(nil),      // 25: zerone.knowledge.v1.KnowledgeBounty
+	(*CompletedRoundMeta)(nil),   // 26: zerone.knowledge.v1.CompletedRoundMeta
+	nil,                          // 27: zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
 }
 var file_zerone_knowledge_v1_types_proto_depIdxs = []int32{
 	5,  // 0: zerone.knowledge.v1.FactRelation.relation:type_name -> zerone.knowledge.v1.RelationType
 	6,  // 1: zerone.knowledge.v1.FactRelation.inference:type_name -> zerone.knowledge.v1.InferenceType
 	5,  // 2: zerone.knowledge.v1.ClaimRelation.relation:type_name -> zerone.knowledge.v1.RelationType
 	6,  // 3: zerone.knowledge.v1.ClaimRelation.inference:type_name -> zerone.knowledge.v1.InferenceType
-	26, // 4: zerone.knowledge.v1.Methodology.cross_method_discount_bps:type_name -> zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
+	27, // 4: zerone.knowledge.v1.Methodology.cross_method_discount_bps:type_name -> zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
 	0,  // 5: zerone.knowledge.v1.Fact.status:type_name -> zerone.knowledge.v1.FactStatus
 	4,  // 6: zerone.knowledge.v1.Fact.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	8,  // 7: zerone.knowledge.v1.Fact.outgoing_relations:type_name -> zerone.knowledge.v1.FactRelation
-	8,  // 8: zerone.knowledge.v1.Fact.incoming_relations:type_name -> zerone.knowledge.v1.FactRelation
-	12, // 9: zerone.knowledge.v1.Fact.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	9,  // 7: zerone.knowledge.v1.Fact.outgoing_relations:type_name -> zerone.knowledge.v1.FactRelation
+	9,  // 8: zerone.knowledge.v1.Fact.incoming_relations:type_name -> zerone.knowledge.v1.FactRelation
+	13, // 9: zerone.knowledge.v1.Fact.structure:type_name -> zerone.knowledge.v1.ClaimStructure
 	1,  // 10: zerone.knowledge.v1.Claim.status:type_name -> zerone.knowledge.v1.ClaimStatus
 	4,  // 11: zerone.knowledge.v1.Claim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	9,  // 12: zerone.knowledge.v1.Claim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
-	12, // 13: zerone.knowledge.v1.Claim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	10, // 12: zerone.knowledge.v1.Claim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
+	13, // 13: zerone.knowledge.v1.Claim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
 	2,  // 14: zerone.knowledge.v1.VerificationRound.phase:type_name -> zerone.knowledge.v1.VerificationPhase
-	17, // 15: zerone.knowledge.v1.VerificationRound.commits:type_name -> zerone.knowledge.v1.CommitEntry
-	18, // 16: zerone.knowledge.v1.VerificationRound.reveals:type_name -> zerone.knowledge.v1.RevealEntry
+	18, // 15: zerone.knowledge.v1.VerificationRound.commits:type_name -> zerone.knowledge.v1.CommitEntry
+	19, // 16: zerone.knowledge.v1.VerificationRound.reveals:type_name -> zerone.knowledge.v1.RevealEntry
 	3,  // 17: zerone.knowledge.v1.VerificationRound.verdict:type_name -> zerone.knowledge.v1.Verdict
 	7,  // 18: zerone.knowledge.v1.Domain.status:type_name -> zerone.knowledge.v1.DomainStatus
 	19, // [19:19] is the sub-list for method output_type
@@ -3271,7 +3365,7 @@ func file_zerone_knowledge_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_types_proto_rawDesc), len(file_zerone_knowledge_v1_types_proto_rawDesc)),
-			NumEnums:      8,
+			NumEnums:      9,
 			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,

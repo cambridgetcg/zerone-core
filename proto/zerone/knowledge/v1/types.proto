@@ -297,6 +297,25 @@ message Fact {
   // falsified and wasn't.
   uint64 corroboration_count     = 67;
   uint64 last_corroborated_block = 68;
+
+  // ─── Training pipeline (Phase 9) ────────────────────────────────────────
+  // Submitter-provided structured derivation. Optional. Non-empty traces
+  // become gold-standard chain-of-thought training material when the claim
+  // is accepted. Format is a list of ordered reasoning steps; the wire
+  // format is a string (JSON-encoded steps) so training pipelines can
+  // schema-evolve without proto churn.
+  string reasoning_trace         = 69;
+}
+
+// TrainingQualityTier segments facts by suitability as training examples.
+// Computed on demand from corroboration, methodology, and status.
+enum TrainingQualityTier {
+  TRAINING_QUALITY_TIER_UNSPECIFIED = 0;
+  TRAINING_QUALITY_TIER_GOLD        = 1;   // High-corroboration, non-legacy, verified — positive exemplar
+  TRAINING_QUALITY_TIER_SILVER      = 2;   // Non-legacy, corroborated, verified
+  TRAINING_QUALITY_TIER_BRONZE      = 3;   // Accepted but uncorroborated / legacy method
+  TRAINING_QUALITY_TIER_NEGATIVE    = 4;   // DISPROVEN — valuable as negative example
+  TRAINING_QUALITY_TIER_UNSUITABLE  = 5;   // CONTESTED / EXPIRED / MALFORMED — exclude from training
 }
 
 // CommonKnowledgeEntry represents a subject that LLMs already know.
@@ -336,6 +355,9 @@ message Claim {
   // permissive rule-set). Governance-amendable set of valid values lives in
   // the knowledge module's methodology registry.
   string method_id           = 20;
+  // Structured reasoning trace. Optional. When populated, it flows through
+  // to the accepted Fact as first-class training data (Phase 9).
+  string reasoning_trace     = 21;
 }
 
 // VerificationRound tracks one commit-reveal verification cycle.

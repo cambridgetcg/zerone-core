@@ -164,6 +164,33 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/commitment/{id}";
   }
 
+  // ─── Training pipeline exports (Phase 9) ─────────────────────────────
+  // Every query below is deterministic and paginated; responses include
+  // the snapshot block_height so training runs can pin to a specific state.
+  //
+  // MethodCorpus: method-stamped accepted facts filtered by corroboration
+  // threshold. Primary positive-exemplar dataset for SFT fine-tuning.
+  rpc MethodCorpus(QueryMethodCorpusRequest) returns (QueryMethodCorpusResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/method_corpus";
+  }
+
+  // DisprovenCorpus: facts that went DISPROVEN, with disproof reasoning.
+  // The negative-example dataset. Most underused epistemic asset on-chain.
+  rpc DisprovenCorpus(QueryDisprovenCorpusRequest) returns (QueryDisprovenCorpusResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/disproven_corpus";
+  }
+
+  // VindicationCorpus: minority voters who turned out correct. Rarest and
+  // most valuable dataset — records of correct dissent.
+  rpc VindicationCorpus(QueryVindicationCorpusRequest) returns (QueryVindicationCorpusResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/vindication_corpus";
+  }
+
+  // TrainingQuality: returns the computed training-quality tier for a fact.
+  rpc TrainingQuality(QueryTrainingQualityRequest) returns (QueryTrainingQualityResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/quality/{fact_id}";
+  }
+
   // ─── Novelty detection ─────────────────────────────────────────────────
 
   // CommonKnowledge queries the common knowledge registry.
@@ -574,6 +601,80 @@ message QueryNormativeCommitmentRequest {
 message QueryNormativeCommitmentResponse {
   NormativeCommitment commitment = 1;
   bool found = 2;
+}
+
+// ─── Training pipeline exports (Phase 9) ──────────────────────────────────
+
+message QueryMethodCorpusRequest {
+  string method_id = 1;         // Empty = all methods
+  uint64 min_corroboration = 2; // Floor on corroboration_count
+  TrainingQualityTier min_tier = 3; // Minimum tier (e.g. GOLD-only)
+  uint32 limit = 4;             // default 100, max 1000
+  uint32 offset = 5;
+}
+
+message MethodCorpusEntry {
+  Fact fact = 1;
+  TrainingQualityTier tier = 2;
+  repeated FactRelation support_edges = 3; // The typed inference chain
+}
+
+message QueryMethodCorpusResponse {
+  repeated MethodCorpusEntry entries = 1;
+  uint32 total = 2;
+  uint64 snapshot_block_height = 3; // Pin for reproducibility
+}
+
+message QueryDisprovenCorpusRequest {
+  uint32 limit = 1;
+  uint32 offset = 2;
+}
+
+message DisprovenCorpusEntry {
+  Fact disproven_fact = 1;
+  string disproven_by_fact_id = 2;      // The fact that contradicted it
+  string disproven_by_claim_id = 3;     // The challenge claim id
+  string method_id = 4;                 // methodology under which it was disproven
+  uint64 disproven_at_block = 5;
+}
+
+message QueryDisprovenCorpusResponse {
+  repeated DisprovenCorpusEntry entries = 1;
+  uint32 total = 2;
+  uint64 snapshot_block_height = 3;
+}
+
+message QueryVindicationCorpusRequest {
+  uint32 limit = 1;
+  uint32 offset = 2;
+}
+
+message VindicationCorpusEntry {
+  string fact_id = 1;
+  string verifier = 2;                  // The minority voter who was vindicated
+  string vote = 3;                      // Their vote ("reject", "malformed", etc.)
+  string refund_amount = 4;
+  string bonus_amount = 5;
+  uint64 vindicated_at_block = 6;
+  string disproven_by_fact_id = 7;
+}
+
+message QueryVindicationCorpusResponse {
+  repeated VindicationCorpusEntry entries = 1;
+  uint32 total = 2;
+  uint64 snapshot_block_height = 3;
+}
+
+message QueryTrainingQualityRequest {
+  string fact_id = 1;
+}
+
+message QueryTrainingQualityResponse {
+  TrainingQualityTier tier = 1;
+  uint64 corroboration_count = 2;
+  string method_id = 3;
+  FactStatus status = 4;
+  string reason = 5;  // Human-readable classification reason
 }
 
 // ─── Novelty detection queries ──────────────────────────────────────────────
