@@ -28,6 +28,12 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgAddCommonKnowledge{}, "zerone_knowledge/AddCommonKnowledge", nil)
 	cdc.RegisterConcrete(&MsgRemoveCommonKnowledge{}, "zerone_knowledge/RemoveCommonKnowledge", nil)
 	cdc.RegisterConcrete(&MsgRateFact{}, "zerone_knowledge/RateFact", nil)
+	// Route B: training infrastructure
+	cdc.RegisterConcrete(&MsgRegisterTrainingPipeline{}, "zerone_knowledge/RegisterTrainingPipeline", nil)
+	cdc.RegisterConcrete(&MsgUpdateTrainingPipeline{}, "zerone_knowledge/UpdateTrainingPipeline", nil)
+	cdc.RegisterConcrete(&MsgRegisterModelCard{}, "zerone_knowledge/RegisterModelCard", nil)
+	cdc.RegisterConcrete(&MsgUpdateModelCard{}, "zerone_knowledge/UpdateModelCard", nil)
+	cdc.RegisterConcrete(&MsgRetireModelCard{}, "zerone_knowledge/RetireModelCard", nil)
 }
 
 // RegisterInterfaces registers the knowledge module's interface implementations.
@@ -54,6 +60,12 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgRemoveCommonKnowledge{},
 		&MsgReportDemand{},
 		&MsgRateFact{},
+		// Route B: training infrastructure
+		&MsgRegisterTrainingPipeline{},
+		&MsgUpdateTrainingPipeline{},
+		&MsgRegisterModelCard{},
+		&MsgUpdateModelCard{},
+		&MsgRetireModelCard{},
 	)
 }
 

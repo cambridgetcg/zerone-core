@@ -1507,6 +1507,14 @@ ModelCard re-written (Route B) — eval updates or metadata amendment. Attribute
 ModelCard flipped to inactive (Route B). Emitted when a model is formally retired from active deployment.
 - `model_id`, `pipeline_id`, `route`, `deployment_address`, `owner_address`
 
+### zerone.knowledge.training_pipeline_registered
+New training pipeline declared on-chain (Route B Wave 2b). An operator has pinned a corpus snapshot, tokenizer version, and recipe hash for a new training run.
+- `pipeline_id`, `operator`, `corpus_snapshot_height`, `tokenizer_version`, `recipe_hash`
+
+### zerone.knowledge.training_pipeline_updated
+Training pipeline status or completion amended by its operator (Route B Wave 2b).
+- `pipeline_id`, `operator`, `new_status`
+
 
 ## liquiditypool
 

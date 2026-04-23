@@ -93,6 +93,18 @@ service Msg {
 
   // RateFact allows a querier to provide relevance feedback on a fact.
   rpc RateFact(MsgRateFact) returns (MsgRateFactResponse);
+
+  // ─── Route B: training infrastructure ─────────────────────────────
+  // RegisterTrainingPipeline creates a new pipeline declaration (operator-auth).
+  rpc RegisterTrainingPipeline(MsgRegisterTrainingPipeline) returns (MsgRegisterTrainingPipelineResponse);
+  // UpdateTrainingPipeline amends the pipeline's status / completed_at_block (operator-auth).
+  rpc UpdateTrainingPipeline(MsgUpdateTrainingPipeline) returns (MsgUpdateTrainingPipelineResponse);
+  // RegisterModelCard creates a ModelCard for a trained model (owner-auth).
+  rpc RegisterModelCard(MsgRegisterModelCard) returns (MsgRegisterModelCardResponse);
+  // UpdateModelCard amends eval scores or metadata (owner-auth).
+  rpc UpdateModelCard(MsgUpdateModelCard) returns (MsgUpdateModelCardResponse);
+  // RetireModelCard flips the card's active flag and records retirement (owner-auth).
+  rpc RetireModelCard(MsgRetireModelCard) returns (MsgRetireModelCardResponse);
 }
 
 // ─── PoT lifecycle messages ───────────────────────────────────────────────────
@@ -382,3 +394,69 @@ message MsgRateFact {
 }
 
 message MsgRateFactResponse {}
+
+// ─── Route B: training infrastructure messages ────────────────────────────
+
+message MsgRegisterTrainingPipeline {
+  option (cosmos.msg.v1.signer) = "operator";
+
+  string operator               = 1;
+  string id                     = 2;
+  uint64 corpus_snapshot_height = 3;
+  uint64 tokenizer_version      = 4;
+  uint64 methodology_set_version = 5;
+  string recipe_hash            = 6;
+  string description            = 7;
+  string corpus_filter          = 8;
+}
+message MsgRegisterTrainingPipelineResponse {}
+
+message MsgUpdateTrainingPipeline {
+  option (cosmos.msg.v1.signer) = "operator";
+
+  string operator           = 1;
+  string id                 = 2;
+  // new_status: "declared" | "running" | "completed" | "failed" | "superseded"
+  string new_status         = 3;
+  uint64 completed_at_block = 4;  // set when transitioning to "completed"
+}
+message MsgUpdateTrainingPipelineResponse {}
+
+message MsgRegisterModelCard {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner                       = 1;
+  string id                          = 2;
+  string name                        = 3;
+  string pipeline_id                 = 4;
+  string deployment_address          = 5;
+  uint64 parameter_count             = 6;
+  string route                       = 7;  // "openweight_fine_tune" | "from_scratch" | "distilled"
+  string base_model                  = 8;
+  uint64 eval_acceptance_rate_bps    = 9;
+  uint64 eval_corroboration_rate_bps = 10;
+  uint64 eval_sample_size            = 11;
+  string specialised_method_id       = 12;
+}
+message MsgRegisterModelCardResponse {}
+
+message MsgUpdateModelCard {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner                       = 1;
+  string id                          = 2;
+  uint64 eval_acceptance_rate_bps    = 3;
+  uint64 eval_corroboration_rate_bps = 4;
+  uint64 eval_sample_size            = 5;
+  string name                        = 6;  // optional re-naming
+}
+message MsgUpdateModelCardResponse {}
+
+message MsgRetireModelCard {
+  option (cosmos.msg.v1.signer) = "owner";
+
+  string owner  = 1;
+  string id     = 2;
+  string reason = 3;
+}
+message MsgRetireModelCardResponse {}

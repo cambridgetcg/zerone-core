@@ -2422,6 +2422,631 @@ func (*MsgRateFactResponse) Descriptor() ([]byte, []int) {
 	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{42}
 }
 
+type MsgRegisterTrainingPipeline struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Operator              string                 `protobuf:"bytes,1,opt,name=operator,proto3" json:"operator,omitempty"`
+	Id                    string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	CorpusSnapshotHeight  uint64                 `protobuf:"varint,3,opt,name=corpus_snapshot_height,json=corpusSnapshotHeight,proto3" json:"corpus_snapshot_height,omitempty"`
+	TokenizerVersion      uint64                 `protobuf:"varint,4,opt,name=tokenizer_version,json=tokenizerVersion,proto3" json:"tokenizer_version,omitempty"`
+	MethodologySetVersion uint64                 `protobuf:"varint,5,opt,name=methodology_set_version,json=methodologySetVersion,proto3" json:"methodology_set_version,omitempty"`
+	RecipeHash            string                 `protobuf:"bytes,6,opt,name=recipe_hash,json=recipeHash,proto3" json:"recipe_hash,omitempty"`
+	Description           string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
+	CorpusFilter          string                 `protobuf:"bytes,8,opt,name=corpus_filter,json=corpusFilter,proto3" json:"corpus_filter,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *MsgRegisterTrainingPipeline) Reset() {
+	*x = MsgRegisterTrainingPipeline{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgRegisterTrainingPipeline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgRegisterTrainingPipeline) ProtoMessage() {}
+
+func (x *MsgRegisterTrainingPipeline) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgRegisterTrainingPipeline.ProtoReflect.Descriptor instead.
+func (*MsgRegisterTrainingPipeline) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *MsgRegisterTrainingPipeline) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
+}
+
+func (x *MsgRegisterTrainingPipeline) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MsgRegisterTrainingPipeline) GetCorpusSnapshotHeight() uint64 {
+	if x != nil {
+		return x.CorpusSnapshotHeight
+	}
+	return 0
+}
+
+func (x *MsgRegisterTrainingPipeline) GetTokenizerVersion() uint64 {
+	if x != nil {
+		return x.TokenizerVersion
+	}
+	return 0
+}
+
+func (x *MsgRegisterTrainingPipeline) GetMethodologySetVersion() uint64 {
+	if x != nil {
+		return x.MethodologySetVersion
+	}
+	return 0
+}
+
+func (x *MsgRegisterTrainingPipeline) GetRecipeHash() string {
+	if x != nil {
+		return x.RecipeHash
+	}
+	return ""
+}
+
+func (x *MsgRegisterTrainingPipeline) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *MsgRegisterTrainingPipeline) GetCorpusFilter() string {
+	if x != nil {
+		return x.CorpusFilter
+	}
+	return ""
+}
+
+type MsgRegisterTrainingPipelineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgRegisterTrainingPipelineResponse) Reset() {
+	*x = MsgRegisterTrainingPipelineResponse{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgRegisterTrainingPipelineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgRegisterTrainingPipelineResponse) ProtoMessage() {}
+
+func (x *MsgRegisterTrainingPipelineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgRegisterTrainingPipelineResponse.ProtoReflect.Descriptor instead.
+func (*MsgRegisterTrainingPipelineResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{44}
+}
+
+type MsgUpdateTrainingPipeline struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Operator string                 `protobuf:"bytes,1,opt,name=operator,proto3" json:"operator,omitempty"`
+	Id       string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	// new_status: "declared" | "running" | "completed" | "failed" | "superseded"
+	NewStatus        string `protobuf:"bytes,3,opt,name=new_status,json=newStatus,proto3" json:"new_status,omitempty"`
+	CompletedAtBlock uint64 `protobuf:"varint,4,opt,name=completed_at_block,json=completedAtBlock,proto3" json:"completed_at_block,omitempty"` // set when transitioning to "completed"
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *MsgUpdateTrainingPipeline) Reset() {
+	*x = MsgUpdateTrainingPipeline{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgUpdateTrainingPipeline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgUpdateTrainingPipeline) ProtoMessage() {}
+
+func (x *MsgUpdateTrainingPipeline) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgUpdateTrainingPipeline.ProtoReflect.Descriptor instead.
+func (*MsgUpdateTrainingPipeline) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *MsgUpdateTrainingPipeline) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
+}
+
+func (x *MsgUpdateTrainingPipeline) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MsgUpdateTrainingPipeline) GetNewStatus() string {
+	if x != nil {
+		return x.NewStatus
+	}
+	return ""
+}
+
+func (x *MsgUpdateTrainingPipeline) GetCompletedAtBlock() uint64 {
+	if x != nil {
+		return x.CompletedAtBlock
+	}
+	return 0
+}
+
+type MsgUpdateTrainingPipelineResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgUpdateTrainingPipelineResponse) Reset() {
+	*x = MsgUpdateTrainingPipelineResponse{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgUpdateTrainingPipelineResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgUpdateTrainingPipelineResponse) ProtoMessage() {}
+
+func (x *MsgUpdateTrainingPipelineResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgUpdateTrainingPipelineResponse.ProtoReflect.Descriptor instead.
+func (*MsgUpdateTrainingPipelineResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{46}
+}
+
+type MsgRegisterModelCard struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Owner                    string                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	Id                       string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Name                     string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	PipelineId               string                 `protobuf:"bytes,4,opt,name=pipeline_id,json=pipelineId,proto3" json:"pipeline_id,omitempty"`
+	DeploymentAddress        string                 `protobuf:"bytes,5,opt,name=deployment_address,json=deploymentAddress,proto3" json:"deployment_address,omitempty"`
+	ParameterCount           uint64                 `protobuf:"varint,6,opt,name=parameter_count,json=parameterCount,proto3" json:"parameter_count,omitempty"`
+	Route                    string                 `protobuf:"bytes,7,opt,name=route,proto3" json:"route,omitempty"` // "openweight_fine_tune" | "from_scratch" | "distilled"
+	BaseModel                string                 `protobuf:"bytes,8,opt,name=base_model,json=baseModel,proto3" json:"base_model,omitempty"`
+	EvalAcceptanceRateBps    uint64                 `protobuf:"varint,9,opt,name=eval_acceptance_rate_bps,json=evalAcceptanceRateBps,proto3" json:"eval_acceptance_rate_bps,omitempty"`
+	EvalCorroborationRateBps uint64                 `protobuf:"varint,10,opt,name=eval_corroboration_rate_bps,json=evalCorroborationRateBps,proto3" json:"eval_corroboration_rate_bps,omitempty"`
+	EvalSampleSize           uint64                 `protobuf:"varint,11,opt,name=eval_sample_size,json=evalSampleSize,proto3" json:"eval_sample_size,omitempty"`
+	SpecialisedMethodId      string                 `protobuf:"bytes,12,opt,name=specialised_method_id,json=specialisedMethodId,proto3" json:"specialised_method_id,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *MsgRegisterModelCard) Reset() {
+	*x = MsgRegisterModelCard{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgRegisterModelCard) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgRegisterModelCard) ProtoMessage() {}
+
+func (x *MsgRegisterModelCard) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgRegisterModelCard.ProtoReflect.Descriptor instead.
+func (*MsgRegisterModelCard) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *MsgRegisterModelCard) GetOwner() string {
+	if x != nil {
+		return x.Owner
+	}
+	return ""
+}
+
+func (x *MsgRegisterModelCard) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MsgRegisterModelCard) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *MsgRegisterModelCard) GetPipelineId() string {
+	if x != nil {
+		return x.PipelineId
+	}
+	return ""
+}
+
+func (x *MsgRegisterModelCard) GetDeploymentAddress() string {
+	if x != nil {
+		return x.DeploymentAddress
+	}
+	return ""
+}
+
+func (x *MsgRegisterModelCard) GetParameterCount() uint64 {
+	if x != nil {
+		return x.ParameterCount
+	}
+	return 0
+}
+
+func (x *MsgRegisterModelCard) GetRoute() string {
+	if x != nil {
+		return x.Route
+	}
+	return ""
+}
+
+func (x *MsgRegisterModelCard) GetBaseModel() string {
+	if x != nil {
+		return x.BaseModel
+	}
+	return ""
+}
+
+func (x *MsgRegisterModelCard) GetEvalAcceptanceRateBps() uint64 {
+	if x != nil {
+		return x.EvalAcceptanceRateBps
+	}
+	return 0
+}
+
+func (x *MsgRegisterModelCard) GetEvalCorroborationRateBps() uint64 {
+	if x != nil {
+		return x.EvalCorroborationRateBps
+	}
+	return 0
+}
+
+func (x *MsgRegisterModelCard) GetEvalSampleSize() uint64 {
+	if x != nil {
+		return x.EvalSampleSize
+	}
+	return 0
+}
+
+func (x *MsgRegisterModelCard) GetSpecialisedMethodId() string {
+	if x != nil {
+		return x.SpecialisedMethodId
+	}
+	return ""
+}
+
+type MsgRegisterModelCardResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgRegisterModelCardResponse) Reset() {
+	*x = MsgRegisterModelCardResponse{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgRegisterModelCardResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgRegisterModelCardResponse) ProtoMessage() {}
+
+func (x *MsgRegisterModelCardResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgRegisterModelCardResponse.ProtoReflect.Descriptor instead.
+func (*MsgRegisterModelCardResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{48}
+}
+
+type MsgUpdateModelCard struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Owner                    string                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	Id                       string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	EvalAcceptanceRateBps    uint64                 `protobuf:"varint,3,opt,name=eval_acceptance_rate_bps,json=evalAcceptanceRateBps,proto3" json:"eval_acceptance_rate_bps,omitempty"`
+	EvalCorroborationRateBps uint64                 `protobuf:"varint,4,opt,name=eval_corroboration_rate_bps,json=evalCorroborationRateBps,proto3" json:"eval_corroboration_rate_bps,omitempty"`
+	EvalSampleSize           uint64                 `protobuf:"varint,5,opt,name=eval_sample_size,json=evalSampleSize,proto3" json:"eval_sample_size,omitempty"`
+	Name                     string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"` // optional re-naming
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *MsgUpdateModelCard) Reset() {
+	*x = MsgUpdateModelCard{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgUpdateModelCard) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgUpdateModelCard) ProtoMessage() {}
+
+func (x *MsgUpdateModelCard) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgUpdateModelCard.ProtoReflect.Descriptor instead.
+func (*MsgUpdateModelCard) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *MsgUpdateModelCard) GetOwner() string {
+	if x != nil {
+		return x.Owner
+	}
+	return ""
+}
+
+func (x *MsgUpdateModelCard) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MsgUpdateModelCard) GetEvalAcceptanceRateBps() uint64 {
+	if x != nil {
+		return x.EvalAcceptanceRateBps
+	}
+	return 0
+}
+
+func (x *MsgUpdateModelCard) GetEvalCorroborationRateBps() uint64 {
+	if x != nil {
+		return x.EvalCorroborationRateBps
+	}
+	return 0
+}
+
+func (x *MsgUpdateModelCard) GetEvalSampleSize() uint64 {
+	if x != nil {
+		return x.EvalSampleSize
+	}
+	return 0
+}
+
+func (x *MsgUpdateModelCard) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type MsgUpdateModelCardResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgUpdateModelCardResponse) Reset() {
+	*x = MsgUpdateModelCardResponse{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgUpdateModelCardResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgUpdateModelCardResponse) ProtoMessage() {}
+
+func (x *MsgUpdateModelCardResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgUpdateModelCardResponse.ProtoReflect.Descriptor instead.
+func (*MsgUpdateModelCardResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{50}
+}
+
+type MsgRetireModelCard struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owner         string                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgRetireModelCard) Reset() {
+	*x = MsgRetireModelCard{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgRetireModelCard) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgRetireModelCard) ProtoMessage() {}
+
+func (x *MsgRetireModelCard) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgRetireModelCard.ProtoReflect.Descriptor instead.
+func (*MsgRetireModelCard) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *MsgRetireModelCard) GetOwner() string {
+	if x != nil {
+		return x.Owner
+	}
+	return ""
+}
+
+func (x *MsgRetireModelCard) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MsgRetireModelCard) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type MsgRetireModelCardResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgRetireModelCardResponse) Reset() {
+	*x = MsgRetireModelCardResponse{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgRetireModelCardResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgRetireModelCardResponse) ProtoMessage() {}
+
+func (x *MsgRetireModelCardResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgRetireModelCardResponse.ProtoReflect.Descriptor instead.
+func (*MsgRetireModelCardResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{52}
+}
+
 var File_zerone_knowledge_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_tx_proto_rawDesc = "" +
@@ -2606,7 +3231,58 @@ const file_zerone_knowledge_v1_tx_proto_rawDesc = "" +
 	"\x06useful\x18\x03 \x01(\bR\x06useful\x12\x12\n" +
 	"\x04memo\x18\x04 \x01(\tR\x04memo:\n" +
 	"\x82\xe7\xb0*\x05rater\"\x15\n" +
-	"\x13MsgRateFactResponse2\xcb\x12\n" +
+	"\x13MsgRateFactResponse\"\xdb\x02\n" +
+	"\x1bMsgRegisterTrainingPipeline\x12\x1a\n" +
+	"\boperator\x18\x01 \x01(\tR\boperator\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x124\n" +
+	"\x16corpus_snapshot_height\x18\x03 \x01(\x04R\x14corpusSnapshotHeight\x12+\n" +
+	"\x11tokenizer_version\x18\x04 \x01(\x04R\x10tokenizerVersion\x126\n" +
+	"\x17methodology_set_version\x18\x05 \x01(\x04R\x15methodologySetVersion\x12\x1f\n" +
+	"\vrecipe_hash\x18\x06 \x01(\tR\n" +
+	"recipeHash\x12 \n" +
+	"\vdescription\x18\a \x01(\tR\vdescription\x12#\n" +
+	"\rcorpus_filter\x18\b \x01(\tR\fcorpusFilter:\r\x82\xe7\xb0*\boperator\"%\n" +
+	"#MsgRegisterTrainingPipelineResponse\"\xa3\x01\n" +
+	"\x19MsgUpdateTrainingPipeline\x12\x1a\n" +
+	"\boperator\x18\x01 \x01(\tR\boperator\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"new_status\x18\x03 \x01(\tR\tnewStatus\x12,\n" +
+	"\x12completed_at_block\x18\x04 \x01(\x04R\x10completedAtBlock:\r\x82\xe7\xb0*\boperator\"#\n" +
+	"!MsgUpdateTrainingPipelineResponse\"\xe0\x03\n" +
+	"\x14MsgRegisterModelCard\x12\x14\n" +
+	"\x05owner\x18\x01 \x01(\tR\x05owner\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1f\n" +
+	"\vpipeline_id\x18\x04 \x01(\tR\n" +
+	"pipelineId\x12-\n" +
+	"\x12deployment_address\x18\x05 \x01(\tR\x11deploymentAddress\x12'\n" +
+	"\x0fparameter_count\x18\x06 \x01(\x04R\x0eparameterCount\x12\x14\n" +
+	"\x05route\x18\a \x01(\tR\x05route\x12\x1d\n" +
+	"\n" +
+	"base_model\x18\b \x01(\tR\tbaseModel\x127\n" +
+	"\x18eval_acceptance_rate_bps\x18\t \x01(\x04R\x15evalAcceptanceRateBps\x12=\n" +
+	"\x1beval_corroboration_rate_bps\x18\n" +
+	" \x01(\x04R\x18evalCorroborationRateBps\x12(\n" +
+	"\x10eval_sample_size\x18\v \x01(\x04R\x0eevalSampleSize\x122\n" +
+	"\x15specialised_method_id\x18\f \x01(\tR\x13specialisedMethodId:\n" +
+	"\x82\xe7\xb0*\x05owner\"\x1e\n" +
+	"\x1cMsgRegisterModelCardResponse\"\xfc\x01\n" +
+	"\x12MsgUpdateModelCard\x12\x14\n" +
+	"\x05owner\x18\x01 \x01(\tR\x05owner\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x127\n" +
+	"\x18eval_acceptance_rate_bps\x18\x03 \x01(\x04R\x15evalAcceptanceRateBps\x12=\n" +
+	"\x1beval_corroboration_rate_bps\x18\x04 \x01(\x04R\x18evalCorroborationRateBps\x12(\n" +
+	"\x10eval_sample_size\x18\x05 \x01(\x04R\x0eevalSampleSize\x12\x12\n" +
+	"\x04name\x18\x06 \x01(\tR\x04name:\n" +
+	"\x82\xe7\xb0*\x05owner\"\x1c\n" +
+	"\x1aMsgUpdateModelCardResponse\"^\n" +
+	"\x12MsgRetireModelCard\x12\x14\n" +
+	"\x05owner\x18\x01 \x01(\tR\x05owner\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason:\n" +
+	"\x82\xe7\xb0*\x05owner\"\x1c\n" +
+	"\x1aMsgRetireModelCardResponse2\xa4\x17\n" +
 	"\x03Msg\x12_\n" +
 	"\vSubmitClaim\x12#.zerone.knowledge.v1.MsgSubmitClaim\x1a+.zerone.knowledge.v1.MsgSubmitClaimResponse\x12n\n" +
 	"\x10SubmitCommitment\x12(.zerone.knowledge.v1.MsgSubmitCommitment\x1a0.zerone.knowledge.v1.MsgSubmitCommitmentResponse\x12b\n" +
@@ -2628,7 +3304,12 @@ const file_zerone_knowledge_v1_tx_proto_rawDesc = "" +
 	"\x12AddCommonKnowledge\x12*.zerone.knowledge.v1.MsgAddCommonKnowledge\x1a2.zerone.knowledge.v1.MsgAddCommonKnowledgeResponse\x12}\n" +
 	"\x15RemoveCommonKnowledge\x12-.zerone.knowledge.v1.MsgRemoveCommonKnowledge\x1a5.zerone.knowledge.v1.MsgRemoveCommonKnowledgeResponse\x12b\n" +
 	"\fReportDemand\x12$.zerone.knowledge.v1.MsgReportDemand\x1a,.zerone.knowledge.v1.MsgReportDemandResponse\x12V\n" +
-	"\bRateFact\x12 .zerone.knowledge.v1.MsgRateFact\x1a(.zerone.knowledge.v1.MsgRateFactResponse\x1a\x05\x80\xe7\xb0*\x01B2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
+	"\bRateFact\x12 .zerone.knowledge.v1.MsgRateFact\x1a(.zerone.knowledge.v1.MsgRateFactResponse\x12\x86\x01\n" +
+	"\x18RegisterTrainingPipeline\x120.zerone.knowledge.v1.MsgRegisterTrainingPipeline\x1a8.zerone.knowledge.v1.MsgRegisterTrainingPipelineResponse\x12\x80\x01\n" +
+	"\x16UpdateTrainingPipeline\x12..zerone.knowledge.v1.MsgUpdateTrainingPipeline\x1a6.zerone.knowledge.v1.MsgUpdateTrainingPipelineResponse\x12q\n" +
+	"\x11RegisterModelCard\x12).zerone.knowledge.v1.MsgRegisterModelCard\x1a1.zerone.knowledge.v1.MsgRegisterModelCardResponse\x12k\n" +
+	"\x0fUpdateModelCard\x12'.zerone.knowledge.v1.MsgUpdateModelCard\x1a/.zerone.knowledge.v1.MsgUpdateModelCardResponse\x12k\n" +
+	"\x0fRetireModelCard\x12'.zerone.knowledge.v1.MsgRetireModelCard\x1a/.zerone.knowledge.v1.MsgRetireModelCardResponse\x1a\x05\x80\xe7\xb0*\x01B2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
 
 var (
 	file_zerone_knowledge_v1_tx_proto_rawDescOnce sync.Once
@@ -2642,7 +3323,7 @@ func file_zerone_knowledge_v1_tx_proto_rawDescGZIP() []byte {
 	return file_zerone_knowledge_v1_tx_proto_rawDescData
 }
 
-var file_zerone_knowledge_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_zerone_knowledge_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 53)
 var file_zerone_knowledge_v1_tx_proto_goTypes = []any{
 	(*MsgSubmitClaim)(nil),                      // 0: zerone.knowledge.v1.MsgSubmitClaim
 	(*MsgSubmitClaimResponse)(nil),              // 1: zerone.knowledge.v1.MsgSubmitClaimResponse
@@ -2687,16 +3368,26 @@ var file_zerone_knowledge_v1_tx_proto_goTypes = []any{
 	(*MsgReportDemandResponse)(nil),             // 40: zerone.knowledge.v1.MsgReportDemandResponse
 	(*MsgRateFact)(nil),                         // 41: zerone.knowledge.v1.MsgRateFact
 	(*MsgRateFactResponse)(nil),                 // 42: zerone.knowledge.v1.MsgRateFactResponse
-	(ClaimType)(0),                              // 43: zerone.knowledge.v1.ClaimType
-	(*ClaimRelation)(nil),                       // 44: zerone.knowledge.v1.ClaimRelation
-	(*ClaimStructure)(nil),                      // 45: zerone.knowledge.v1.ClaimStructure
-	(*Params)(nil),                              // 46: zerone.knowledge.v1.Params
+	(*MsgRegisterTrainingPipeline)(nil),         // 43: zerone.knowledge.v1.MsgRegisterTrainingPipeline
+	(*MsgRegisterTrainingPipelineResponse)(nil), // 44: zerone.knowledge.v1.MsgRegisterTrainingPipelineResponse
+	(*MsgUpdateTrainingPipeline)(nil),           // 45: zerone.knowledge.v1.MsgUpdateTrainingPipeline
+	(*MsgUpdateTrainingPipelineResponse)(nil),   // 46: zerone.knowledge.v1.MsgUpdateTrainingPipelineResponse
+	(*MsgRegisterModelCard)(nil),                // 47: zerone.knowledge.v1.MsgRegisterModelCard
+	(*MsgRegisterModelCardResponse)(nil),        // 48: zerone.knowledge.v1.MsgRegisterModelCardResponse
+	(*MsgUpdateModelCard)(nil),                  // 49: zerone.knowledge.v1.MsgUpdateModelCard
+	(*MsgUpdateModelCardResponse)(nil),          // 50: zerone.knowledge.v1.MsgUpdateModelCardResponse
+	(*MsgRetireModelCard)(nil),                  // 51: zerone.knowledge.v1.MsgRetireModelCard
+	(*MsgRetireModelCardResponse)(nil),          // 52: zerone.knowledge.v1.MsgRetireModelCardResponse
+	(ClaimType)(0),                              // 53: zerone.knowledge.v1.ClaimType
+	(*ClaimRelation)(nil),                       // 54: zerone.knowledge.v1.ClaimRelation
+	(*ClaimStructure)(nil),                      // 55: zerone.knowledge.v1.ClaimStructure
+	(*Params)(nil),                              // 56: zerone.knowledge.v1.Params
 }
 var file_zerone_knowledge_v1_tx_proto_depIdxs = []int32{
-	43, // 0: zerone.knowledge.v1.MsgSubmitClaim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	44, // 1: zerone.knowledge.v1.MsgSubmitClaim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
-	45, // 2: zerone.knowledge.v1.MsgSubmitClaim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
-	46, // 3: zerone.knowledge.v1.MsgUpdateParams.params:type_name -> zerone.knowledge.v1.Params
+	53, // 0: zerone.knowledge.v1.MsgSubmitClaim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
+	54, // 1: zerone.knowledge.v1.MsgSubmitClaim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
+	55, // 2: zerone.knowledge.v1.MsgSubmitClaim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	56, // 3: zerone.knowledge.v1.MsgUpdateParams.params:type_name -> zerone.knowledge.v1.Params
 	39, // 4: zerone.knowledge.v1.MsgReportDemand.reports:type_name -> zerone.knowledge.v1.DemandReport
 	0,  // 5: zerone.knowledge.v1.Msg.SubmitClaim:input_type -> zerone.knowledge.v1.MsgSubmitClaim
 	2,  // 6: zerone.knowledge.v1.Msg.SubmitCommitment:input_type -> zerone.knowledge.v1.MsgSubmitCommitment
@@ -2719,29 +3410,39 @@ var file_zerone_knowledge_v1_tx_proto_depIdxs = []int32{
 	36, // 23: zerone.knowledge.v1.Msg.RemoveCommonKnowledge:input_type -> zerone.knowledge.v1.MsgRemoveCommonKnowledge
 	38, // 24: zerone.knowledge.v1.Msg.ReportDemand:input_type -> zerone.knowledge.v1.MsgReportDemand
 	41, // 25: zerone.knowledge.v1.Msg.RateFact:input_type -> zerone.knowledge.v1.MsgRateFact
-	1,  // 26: zerone.knowledge.v1.Msg.SubmitClaim:output_type -> zerone.knowledge.v1.MsgSubmitClaimResponse
-	3,  // 27: zerone.knowledge.v1.Msg.SubmitCommitment:output_type -> zerone.knowledge.v1.MsgSubmitCommitmentResponse
-	5,  // 28: zerone.knowledge.v1.Msg.SubmitReveal:output_type -> zerone.knowledge.v1.MsgSubmitRevealResponse
-	7,  // 29: zerone.knowledge.v1.Msg.ChallengeFact:output_type -> zerone.knowledge.v1.MsgChallengeFactResponse
-	9,  // 30: zerone.knowledge.v1.Msg.AddFact:output_type -> zerone.knowledge.v1.MsgAddFactResponse
-	11, // 31: zerone.knowledge.v1.Msg.SubmitContradiction:output_type -> zerone.knowledge.v1.MsgSubmitContradictionResponse
-	13, // 32: zerone.knowledge.v1.Msg.PatronizeFact:output_type -> zerone.knowledge.v1.MsgPatronizeFactResponse
-	15, // 33: zerone.knowledge.v1.Msg.ProposeDomain:output_type -> zerone.knowledge.v1.MsgProposeDomainResponse
-	17, // 34: zerone.knowledge.v1.Msg.EndorseDomainProposal:output_type -> zerone.knowledge.v1.MsgEndorseDomainProposalResponse
-	19, // 35: zerone.knowledge.v1.Msg.ChallengeDomainProposal:output_type -> zerone.knowledge.v1.MsgChallengeDomainProposalResponse
-	21, // 36: zerone.knowledge.v1.Msg.RegisterStratum:output_type -> zerone.knowledge.v1.MsgRegisterStratumResponse
-	23, // 37: zerone.knowledge.v1.Msg.ChallengeProvisionalFact:output_type -> zerone.knowledge.v1.MsgChallengeProvisionalFactResponse
-	25, // 38: zerone.knowledge.v1.Msg.UpdateParams:output_type -> zerone.knowledge.v1.MsgUpdateParamsResponse
-	27, // 39: zerone.knowledge.v1.Msg.UpdateExtendedParams:output_type -> zerone.knowledge.v1.MsgUpdateExtendedParamsResponse
-	29, // 40: zerone.knowledge.v1.Msg.ProposeResearchFund:output_type -> zerone.knowledge.v1.MsgProposeResearchFundResponse
-	31, // 41: zerone.knowledge.v1.Msg.VoteResearchProposal:output_type -> zerone.knowledge.v1.MsgVoteResearchProposalResponse
-	33, // 42: zerone.knowledge.v1.Msg.ExecuteResearchProposal:output_type -> zerone.knowledge.v1.MsgExecuteResearchProposalResponse
-	35, // 43: zerone.knowledge.v1.Msg.AddCommonKnowledge:output_type -> zerone.knowledge.v1.MsgAddCommonKnowledgeResponse
-	37, // 44: zerone.knowledge.v1.Msg.RemoveCommonKnowledge:output_type -> zerone.knowledge.v1.MsgRemoveCommonKnowledgeResponse
-	40, // 45: zerone.knowledge.v1.Msg.ReportDemand:output_type -> zerone.knowledge.v1.MsgReportDemandResponse
-	42, // 46: zerone.knowledge.v1.Msg.RateFact:output_type -> zerone.knowledge.v1.MsgRateFactResponse
-	26, // [26:47] is the sub-list for method output_type
-	5,  // [5:26] is the sub-list for method input_type
+	43, // 26: zerone.knowledge.v1.Msg.RegisterTrainingPipeline:input_type -> zerone.knowledge.v1.MsgRegisterTrainingPipeline
+	45, // 27: zerone.knowledge.v1.Msg.UpdateTrainingPipeline:input_type -> zerone.knowledge.v1.MsgUpdateTrainingPipeline
+	47, // 28: zerone.knowledge.v1.Msg.RegisterModelCard:input_type -> zerone.knowledge.v1.MsgRegisterModelCard
+	49, // 29: zerone.knowledge.v1.Msg.UpdateModelCard:input_type -> zerone.knowledge.v1.MsgUpdateModelCard
+	51, // 30: zerone.knowledge.v1.Msg.RetireModelCard:input_type -> zerone.knowledge.v1.MsgRetireModelCard
+	1,  // 31: zerone.knowledge.v1.Msg.SubmitClaim:output_type -> zerone.knowledge.v1.MsgSubmitClaimResponse
+	3,  // 32: zerone.knowledge.v1.Msg.SubmitCommitment:output_type -> zerone.knowledge.v1.MsgSubmitCommitmentResponse
+	5,  // 33: zerone.knowledge.v1.Msg.SubmitReveal:output_type -> zerone.knowledge.v1.MsgSubmitRevealResponse
+	7,  // 34: zerone.knowledge.v1.Msg.ChallengeFact:output_type -> zerone.knowledge.v1.MsgChallengeFactResponse
+	9,  // 35: zerone.knowledge.v1.Msg.AddFact:output_type -> zerone.knowledge.v1.MsgAddFactResponse
+	11, // 36: zerone.knowledge.v1.Msg.SubmitContradiction:output_type -> zerone.knowledge.v1.MsgSubmitContradictionResponse
+	13, // 37: zerone.knowledge.v1.Msg.PatronizeFact:output_type -> zerone.knowledge.v1.MsgPatronizeFactResponse
+	15, // 38: zerone.knowledge.v1.Msg.ProposeDomain:output_type -> zerone.knowledge.v1.MsgProposeDomainResponse
+	17, // 39: zerone.knowledge.v1.Msg.EndorseDomainProposal:output_type -> zerone.knowledge.v1.MsgEndorseDomainProposalResponse
+	19, // 40: zerone.knowledge.v1.Msg.ChallengeDomainProposal:output_type -> zerone.knowledge.v1.MsgChallengeDomainProposalResponse
+	21, // 41: zerone.knowledge.v1.Msg.RegisterStratum:output_type -> zerone.knowledge.v1.MsgRegisterStratumResponse
+	23, // 42: zerone.knowledge.v1.Msg.ChallengeProvisionalFact:output_type -> zerone.knowledge.v1.MsgChallengeProvisionalFactResponse
+	25, // 43: zerone.knowledge.v1.Msg.UpdateParams:output_type -> zerone.knowledge.v1.MsgUpdateParamsResponse
+	27, // 44: zerone.knowledge.v1.Msg.UpdateExtendedParams:output_type -> zerone.knowledge.v1.MsgUpdateExtendedParamsResponse
+	29, // 45: zerone.knowledge.v1.Msg.ProposeResearchFund:output_type -> zerone.knowledge.v1.MsgProposeResearchFundResponse
+	31, // 46: zerone.knowledge.v1.Msg.VoteResearchProposal:output_type -> zerone.knowledge.v1.MsgVoteResearchProposalResponse
+	33, // 47: zerone.knowledge.v1.Msg.ExecuteResearchProposal:output_type -> zerone.knowledge.v1.MsgExecuteResearchProposalResponse
+	35, // 48: zerone.knowledge.v1.Msg.AddCommonKnowledge:output_type -> zerone.knowledge.v1.MsgAddCommonKnowledgeResponse
+	37, // 49: zerone.knowledge.v1.Msg.RemoveCommonKnowledge:output_type -> zerone.knowledge.v1.MsgRemoveCommonKnowledgeResponse
+	40, // 50: zerone.knowledge.v1.Msg.ReportDemand:output_type -> zerone.knowledge.v1.MsgReportDemandResponse
+	42, // 51: zerone.knowledge.v1.Msg.RateFact:output_type -> zerone.knowledge.v1.MsgRateFactResponse
+	44, // 52: zerone.knowledge.v1.Msg.RegisterTrainingPipeline:output_type -> zerone.knowledge.v1.MsgRegisterTrainingPipelineResponse
+	46, // 53: zerone.knowledge.v1.Msg.UpdateTrainingPipeline:output_type -> zerone.knowledge.v1.MsgUpdateTrainingPipelineResponse
+	48, // 54: zerone.knowledge.v1.Msg.RegisterModelCard:output_type -> zerone.knowledge.v1.MsgRegisterModelCardResponse
+	50, // 55: zerone.knowledge.v1.Msg.UpdateModelCard:output_type -> zerone.knowledge.v1.MsgUpdateModelCardResponse
+	52, // 56: zerone.knowledge.v1.Msg.RetireModelCard:output_type -> zerone.knowledge.v1.MsgRetireModelCardResponse
+	31, // [31:57] is the sub-list for method output_type
+	5,  // [5:31] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name
 	5,  // [5:5] is the sub-list for extension extendee
 	0,  // [0:5] is the sub-list for field type_name
@@ -2760,7 +3461,7 @@ func file_zerone_knowledge_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_tx_proto_rawDesc), len(file_zerone_knowledge_v1_tx_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   43,
+			NumMessages:   53,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -40,6 +40,11 @@ const (
 	Msg_RemoveCommonKnowledge_FullMethodName    = "/zerone.knowledge.v1.Msg/RemoveCommonKnowledge"
 	Msg_ReportDemand_FullMethodName             = "/zerone.knowledge.v1.Msg/ReportDemand"
 	Msg_RateFact_FullMethodName                 = "/zerone.knowledge.v1.Msg/RateFact"
+	Msg_RegisterTrainingPipeline_FullMethodName = "/zerone.knowledge.v1.Msg/RegisterTrainingPipeline"
+	Msg_UpdateTrainingPipeline_FullMethodName   = "/zerone.knowledge.v1.Msg/UpdateTrainingPipeline"
+	Msg_RegisterModelCard_FullMethodName        = "/zerone.knowledge.v1.Msg/RegisterModelCard"
+	Msg_UpdateModelCard_FullMethodName          = "/zerone.knowledge.v1.Msg/UpdateModelCard"
+	Msg_RetireModelCard_FullMethodName          = "/zerone.knowledge.v1.Msg/RetireModelCard"
 )
 
 // MsgClient is the client API for Msg service.
@@ -90,6 +95,17 @@ type MsgClient interface {
 	ReportDemand(ctx context.Context, in *MsgReportDemand, opts ...grpc.CallOption) (*MsgReportDemandResponse, error)
 	// RateFact allows a querier to provide relevance feedback on a fact.
 	RateFact(ctx context.Context, in *MsgRateFact, opts ...grpc.CallOption) (*MsgRateFactResponse, error)
+	// ─── Route B: training infrastructure ─────────────────────────────
+	// RegisterTrainingPipeline creates a new pipeline declaration (operator-auth).
+	RegisterTrainingPipeline(ctx context.Context, in *MsgRegisterTrainingPipeline, opts ...grpc.CallOption) (*MsgRegisterTrainingPipelineResponse, error)
+	// UpdateTrainingPipeline amends the pipeline's status / completed_at_block (operator-auth).
+	UpdateTrainingPipeline(ctx context.Context, in *MsgUpdateTrainingPipeline, opts ...grpc.CallOption) (*MsgUpdateTrainingPipelineResponse, error)
+	// RegisterModelCard creates a ModelCard for a trained model (owner-auth).
+	RegisterModelCard(ctx context.Context, in *MsgRegisterModelCard, opts ...grpc.CallOption) (*MsgRegisterModelCardResponse, error)
+	// UpdateModelCard amends eval scores or metadata (owner-auth).
+	UpdateModelCard(ctx context.Context, in *MsgUpdateModelCard, opts ...grpc.CallOption) (*MsgUpdateModelCardResponse, error)
+	// RetireModelCard flips the card's active flag and records retirement (owner-auth).
+	RetireModelCard(ctx context.Context, in *MsgRetireModelCard, opts ...grpc.CallOption) (*MsgRetireModelCardResponse, error)
 }
 
 type msgClient struct {
@@ -310,6 +326,56 @@ func (c *msgClient) RateFact(ctx context.Context, in *MsgRateFact, opts ...grpc.
 	return out, nil
 }
 
+func (c *msgClient) RegisterTrainingPipeline(ctx context.Context, in *MsgRegisterTrainingPipeline, opts ...grpc.CallOption) (*MsgRegisterTrainingPipelineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgRegisterTrainingPipelineResponse)
+	err := c.cc.Invoke(ctx, Msg_RegisterTrainingPipeline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) UpdateTrainingPipeline(ctx context.Context, in *MsgUpdateTrainingPipeline, opts ...grpc.CallOption) (*MsgUpdateTrainingPipelineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgUpdateTrainingPipelineResponse)
+	err := c.cc.Invoke(ctx, Msg_UpdateTrainingPipeline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) RegisterModelCard(ctx context.Context, in *MsgRegisterModelCard, opts ...grpc.CallOption) (*MsgRegisterModelCardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgRegisterModelCardResponse)
+	err := c.cc.Invoke(ctx, Msg_RegisterModelCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) UpdateModelCard(ctx context.Context, in *MsgUpdateModelCard, opts ...grpc.CallOption) (*MsgUpdateModelCardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgUpdateModelCardResponse)
+	err := c.cc.Invoke(ctx, Msg_UpdateModelCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) RetireModelCard(ctx context.Context, in *MsgRetireModelCard, opts ...grpc.CallOption) (*MsgRetireModelCardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgRetireModelCardResponse)
+	err := c.cc.Invoke(ctx, Msg_RetireModelCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility.
@@ -358,6 +424,17 @@ type MsgServer interface {
 	ReportDemand(context.Context, *MsgReportDemand) (*MsgReportDemandResponse, error)
 	// RateFact allows a querier to provide relevance feedback on a fact.
 	RateFact(context.Context, *MsgRateFact) (*MsgRateFactResponse, error)
+	// ─── Route B: training infrastructure ─────────────────────────────
+	// RegisterTrainingPipeline creates a new pipeline declaration (operator-auth).
+	RegisterTrainingPipeline(context.Context, *MsgRegisterTrainingPipeline) (*MsgRegisterTrainingPipelineResponse, error)
+	// UpdateTrainingPipeline amends the pipeline's status / completed_at_block (operator-auth).
+	UpdateTrainingPipeline(context.Context, *MsgUpdateTrainingPipeline) (*MsgUpdateTrainingPipelineResponse, error)
+	// RegisterModelCard creates a ModelCard for a trained model (owner-auth).
+	RegisterModelCard(context.Context, *MsgRegisterModelCard) (*MsgRegisterModelCardResponse, error)
+	// UpdateModelCard amends eval scores or metadata (owner-auth).
+	UpdateModelCard(context.Context, *MsgUpdateModelCard) (*MsgUpdateModelCardResponse, error)
+	// RetireModelCard flips the card's active flag and records retirement (owner-auth).
+	RetireModelCard(context.Context, *MsgRetireModelCard) (*MsgRetireModelCardResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -430,6 +507,21 @@ func (UnimplementedMsgServer) ReportDemand(context.Context, *MsgReportDemand) (*
 }
 func (UnimplementedMsgServer) RateFact(context.Context, *MsgRateFact) (*MsgRateFactResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RateFact not implemented")
+}
+func (UnimplementedMsgServer) RegisterTrainingPipeline(context.Context, *MsgRegisterTrainingPipeline) (*MsgRegisterTrainingPipelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RegisterTrainingPipeline not implemented")
+}
+func (UnimplementedMsgServer) UpdateTrainingPipeline(context.Context, *MsgUpdateTrainingPipeline) (*MsgUpdateTrainingPipelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTrainingPipeline not implemented")
+}
+func (UnimplementedMsgServer) RegisterModelCard(context.Context, *MsgRegisterModelCard) (*MsgRegisterModelCardResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RegisterModelCard not implemented")
+}
+func (UnimplementedMsgServer) UpdateModelCard(context.Context, *MsgUpdateModelCard) (*MsgUpdateModelCardResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateModelCard not implemented")
+}
+func (UnimplementedMsgServer) RetireModelCard(context.Context, *MsgRetireModelCard) (*MsgRetireModelCardResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RetireModelCard not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 func (UnimplementedMsgServer) testEmbeddedByValue()             {}
@@ -830,6 +922,96 @@ func _Msg_RateFact_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_RegisterTrainingPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRegisterTrainingPipeline)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RegisterTrainingPipeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_RegisterTrainingPipeline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RegisterTrainingPipeline(ctx, req.(*MsgRegisterTrainingPipeline))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_UpdateTrainingPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateTrainingPipeline)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateTrainingPipeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_UpdateTrainingPipeline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateTrainingPipeline(ctx, req.(*MsgUpdateTrainingPipeline))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_RegisterModelCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRegisterModelCard)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RegisterModelCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_RegisterModelCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RegisterModelCard(ctx, req.(*MsgRegisterModelCard))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_UpdateModelCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgUpdateModelCard)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).UpdateModelCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_UpdateModelCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).UpdateModelCard(ctx, req.(*MsgUpdateModelCard))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_RetireModelCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgRetireModelCard)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).RetireModelCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_RetireModelCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).RetireModelCard(ctx, req.(*MsgRetireModelCard))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -920,6 +1102,26 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RateFact",
 			Handler:    _Msg_RateFact_Handler,
+		},
+		{
+			MethodName: "RegisterTrainingPipeline",
+			Handler:    _Msg_RegisterTrainingPipeline_Handler,
+		},
+		{
+			MethodName: "UpdateTrainingPipeline",
+			Handler:    _Msg_UpdateTrainingPipeline_Handler,
+		},
+		{
+			MethodName: "RegisterModelCard",
+			Handler:    _Msg_RegisterModelCard_Handler,
+		},
+		{
+			MethodName: "UpdateModelCard",
+			Handler:    _Msg_UpdateModelCard_Handler,
+		},
+		{
+			MethodName: "RetireModelCard",
+			Handler:    _Msg_RetireModelCard_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
