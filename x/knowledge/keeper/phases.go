@@ -12,6 +12,12 @@ import (
 // BeginBlocker runs knowledge module begin-block logic.
 // Advances verification round phases by deadline and triggers fitness epoch updates.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	// Route B Wave 8: the heartbeat. Self-maintenance of the training
+	// infrastructure — bounty expiry / vesting release / manifest
+	// supersession. Runs first so a round-advance error cannot silently
+	// starve Route B lifecycle progression. Non-fatal: errors logged inside.
+	k.ProcessRouteBLifecycle(ctx)
+
 	if err := k.AdvanceRoundPhases(ctx); err != nil {
 		return err
 	}

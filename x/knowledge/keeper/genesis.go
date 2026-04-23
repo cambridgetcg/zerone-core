@@ -100,6 +100,136 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		}
 	}
 
+	// ─── Route B Wave 8: import Route B state (survivable upgrades) ──────
+	// Order matters: singletons first, then registries, then records that
+	// depend on them. Seed calls above are idempotent — they only run when
+	// the exported state is empty (fresh genesis). If the genesis payload
+	// carries explicit methodologies/commitments/specs, we overwrite the
+	// seeded defaults so an upgrade preserves exact prior state.
+
+	for _, m := range gs.Methodologies {
+		if m != nil {
+			if err := k.SetMethodology(ctx, m); err != nil {
+				return fmt.Errorf("import methodology %s: %w", m.Id, err)
+			}
+		}
+	}
+	for _, c := range gs.NormativeCommitments {
+		if c != nil {
+			if err := k.SetNormativeCommitment(ctx, c); err != nil {
+				return fmt.Errorf("import commitment %s: %w", c.Id, err)
+			}
+		}
+	}
+	// Historical tokenizer specs BEFORE current, so current overwrites
+	// singleton and history fills out.
+	for _, s := range gs.TokenizerSpecHistory {
+		if s != nil {
+			if err := k.SetTokenizerSpecHistory(ctx, s); err != nil {
+				return fmt.Errorf("import tokenizer_spec v%d history: %w", s.Version, err)
+			}
+		}
+	}
+	if gs.TokenizerSpec != nil {
+		if err := k.SetTokenizerSpec(ctx, gs.TokenizerSpec); err != nil {
+			return fmt.Errorf("import tokenizer_spec current: %w", err)
+		}
+	}
+	for _, s := range gs.TraceSchemaHistory {
+		if s != nil {
+			if err := k.SetTraceSchemaHistory(ctx, s); err != nil {
+				return fmt.Errorf("import trace_schema v%d history: %w", s.Version, err)
+			}
+		}
+	}
+	if gs.TraceSchema != nil {
+		if err := k.SetTraceSchema(ctx, gs.TraceSchema); err != nil {
+			return fmt.Errorf("import trace_schema current: %w", err)
+		}
+	}
+
+	for _, p := range gs.TrainingPipelines {
+		if p != nil {
+			if err := k.SetTrainingPipeline(ctx, p); err != nil {
+				return fmt.Errorf("import pipeline %s: %w", p.Id, err)
+			}
+		}
+	}
+	for _, card := range gs.ModelCards {
+		if card != nil {
+			if err := k.SetModelCard(ctx, card); err != nil {
+				return fmt.Errorf("import model_card %s: %w", card.Id, err)
+			}
+		}
+	}
+	for _, a := range gs.TrainingAttestations {
+		if a != nil {
+			if err := k.SetTrainingAttestation(ctx, a); err != nil {
+				return fmt.Errorf("import attestation %s: %w", a.PipelineId, err)
+			}
+		}
+	}
+	for _, cr := range gs.ContributionRecords {
+		if cr != nil {
+			if err := k.SetContributionRecord(ctx, cr); err != nil {
+				return fmt.Errorf("import contribution record %s: %w", cr.ModelId, err)
+			}
+		}
+	}
+	for _, b := range gs.AugmentationBounties {
+		if b != nil {
+			if err := k.SetAugmentationBounty(ctx, b); err != nil {
+				return fmt.Errorf("import bounty %s: %w", b.Id, err)
+			}
+		}
+	}
+	for _, aug := range gs.Augmentations {
+		if aug != nil {
+			if err := k.SetAugmentation(ctx, aug); err != nil {
+				return fmt.Errorf("import augmentation %s: %w", aug.Id, err)
+			}
+		}
+	}
+	for _, ch := range gs.ContributionChallenges {
+		if ch != nil {
+			if err := k.SetContributionChallenge(ctx, ch); err != nil {
+				return fmt.Errorf("import challenge %s: %w", ch.Id, err)
+			}
+		}
+	}
+	for _, d := range gs.TrainingFundDisbursements {
+		if d != nil {
+			if err := k.SetTrainingFundDisbursement(ctx, d); err != nil {
+				return fmt.Errorf("import disbursement %s: %w", d.Id, err)
+			}
+		}
+	}
+	for _, m := range gs.TrainingManifests {
+		if m != nil {
+			if err := k.SetTrainingManifest(ctx, m); err != nil {
+				return fmt.Errorf("import manifest %s: %w", m.ManifestId, err)
+			}
+		}
+	}
+	for _, c := range gs.AgentCalibrations {
+		if c != nil {
+			if err := k.SetAgentCalibration(ctx, c); err != nil {
+				return fmt.Errorf("import calibration %s: %w", c.Address, err)
+			}
+		}
+	}
+
+	// Fund the training fund if an allocation is declared (Wave 4 +).
+	if gs.TrainingFundAllocation != "" && gs.TrainingFundAllocation != "0" {
+		alloc, ok := new(big.Int).SetString(gs.TrainingFundAllocation, 10)
+		if ok && alloc.Sign() > 0 && k.bankKeeper != nil {
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(alloc)))
+			if err := k.bankKeeper.MintCoins(ctx, types.TrainingFundModuleName, coins); err != nil {
+				return fmt.Errorf("failed to mint training fund: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -142,13 +272,121 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	// Export common knowledge entries
 	commonKnowledge := k.GetAllCommonKnowledge(ctx)
 
+	// ─── Route B Wave 8: full state export ───────────────────────────────
+	var methodologies []*types.Methodology
+	k.IterateMethodologies(ctx, func(m *types.Methodology) bool {
+		methodologies = append(methodologies, m)
+		return false
+	})
+
+	commitments := k.GetAllNormativeCommitments(ctx)
+
+	var tokenizerSpec *types.TokenizerSpec
+	if s, ok := k.GetTokenizerSpec(ctx); ok {
+		tokenizerSpec = s
+	}
+	var tokenizerHistory []*types.TokenizerSpec
+	k.IterateTokenizerSpecHistory(ctx, func(s *types.TokenizerSpec) bool {
+		tokenizerHistory = append(tokenizerHistory, s)
+		return false
+	})
+
+	var traceSchema *types.TraceSchema
+	if s, ok := k.GetTraceSchema(ctx); ok {
+		traceSchema = s
+	}
+	var traceHistory []*types.TraceSchema
+	k.IterateTraceSchemaHistory(ctx, func(s *types.TraceSchema) bool {
+		traceHistory = append(traceHistory, s)
+		return false
+	})
+
+	var pipelines []*types.TrainingPipeline
+	k.IterateTrainingPipelines(ctx, func(p *types.TrainingPipeline) bool {
+		pipelines = append(pipelines, p)
+		return false
+	})
+	var cards []*types.ModelCard
+	k.IterateModelCards(ctx, func(c *types.ModelCard) bool {
+		cards = append(cards, c)
+		return false
+	})
+	var attestations []*types.TrainingAttestation
+	k.IterateTrainingAttestations(ctx, func(a *types.TrainingAttestation) bool {
+		attestations = append(attestations, a)
+		return false
+	})
+	var contribRecords []*types.ContributionRecord
+	k.IterateContributionRecords(ctx, func(r *types.ContributionRecord) bool {
+		contribRecords = append(contribRecords, r)
+		return false
+	})
+	var bounties []*types.AugmentationBounty
+	k.IterateAugmentationBounties(ctx, func(b *types.AugmentationBounty) bool {
+		bounties = append(bounties, b)
+		return false
+	})
+	var augmentations []*types.Augmentation
+	k.IterateAugmentations(ctx, func(a *types.Augmentation) bool {
+		augmentations = append(augmentations, a)
+		return false
+	})
+	var challenges []*types.ContributionChallenge
+	k.IterateAllContributionChallenges(ctx, func(c *types.ContributionChallenge) bool {
+		challenges = append(challenges, c)
+		return false
+	})
+	var disbursements []*types.TrainingFundDisbursement
+	k.IterateTrainingFundDisbursements(ctx, func(d *types.TrainingFundDisbursement) bool {
+		disbursements = append(disbursements, d)
+		return false
+	})
+	var manifests []*types.TrainingManifest
+	k.IterateTrainingManifests(ctx, func(m *types.TrainingManifest) bool {
+		manifests = append(manifests, m)
+		return false
+	})
+	var calibrations []*types.AgentCalibration
+	k.IterateAgentCalibrations(ctx, func(c *types.AgentCalibration) bool {
+		calibrations = append(calibrations, c)
+		return false
+	})
+
+	// Training fund balance — round-trip the module account.
+	var trainingFundAllocation string
+	if k.bankKeeper != nil {
+		addr := sdk.AccAddress(authtypesNewModuleAddress(types.TrainingFundModuleName))
+		bal := k.bankKeeper.GetBalance(ctx, addr, "uzrn")
+		trainingFundAllocation = bal.Amount.String()
+	}
+
 	return &types.GenesisState{
-		Params:                  params,
-		Facts:                   facts,
-		PendingClaims:           claims,
-		Domains:                 domains,
-		ActiveRounds:            rounds,
-		BootstrapFundAllocation: allocation,
-		CommonKnowledge:         commonKnowledge,
+		Params:                    params,
+		Facts:                     facts,
+		PendingClaims:             claims,
+		Domains:                   domains,
+		ActiveRounds:              rounds,
+		BootstrapFundAllocation:   allocation,
+		CommonKnowledge:           commonKnowledge,
+		Methodologies:             methodologies,
+		NormativeCommitments:      commitments,
+		TokenizerSpec:             tokenizerSpec,
+		TokenizerSpecHistory:      tokenizerHistory,
+		TraceSchema:               traceSchema,
+		TraceSchemaHistory:        traceHistory,
+		TrainingPipelines:         pipelines,
+		ModelCards:                cards,
+		TrainingAttestations:      attestations,
+		ContributionRecords:       contribRecords,
+		AugmentationBounties:      bounties,
+		Augmentations:             augmentations,
+		ContributionChallenges:    challenges,
+		TrainingFundDisbursements: disbursements,
+		TrainingManifests:         manifests,
+		AgentCalibrations:         calibrations,
+		TrainingFundAllocation:    trainingFundAllocation,
 	}
 }
+
+// authtypesNewModuleAddress is a local shim to avoid importing authtypes at
+// genesis.go top-level; declared in genesis_iterators.go.

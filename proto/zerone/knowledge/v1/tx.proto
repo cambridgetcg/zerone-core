@@ -670,6 +670,10 @@ message MsgCreateTrainingManifest {
   string pipeline_id                = 3;
   CorpusSelector corpus_selector    = 4;
   string description                = 5;
+  // Wave 8: optional parent manifest this run builds on. When set, the
+  // child's corpus_selector is applied ONLY over IDs NOT already present
+  // in the parent — the child captures the delta. Bundle assembly unions.
+  string parent_manifest_id         = 6;
 }
 message MsgCreateTrainingManifestResponse {
   uint32 total_included             = 1;

@@ -20,9 +20,10 @@ import (
 )
 
 var (
-	_ module.AppModuleBasic = AppModuleBasic{}
-	_ module.AppModule      = AppModule{}
-	_ appmodule.AppModule   = AppModule{}
+	_ module.AppModuleBasic     = AppModuleBasic{}
+	_ module.AppModule          = AppModule{}
+	_ appmodule.AppModule       = AppModule{}
+	_ appmodule.HasBeginBlocker = AppModule{} // wired in app.go; also honoured by test harness
 )
 
 // AppModuleBasic implements module.AppModuleBasic for the knowledge module.

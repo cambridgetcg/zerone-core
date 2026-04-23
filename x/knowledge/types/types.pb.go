@@ -6899,6 +6899,23 @@ type TrainingManifest struct {
 	FinalizedAtBlock uint64         `protobuf:"varint,51,opt,name=finalized_at_block,json=finalizedAtBlock,proto3" json:"finalized_at_block,omitempty"`
 	AttestationId    string         `protobuf:"bytes,52,opt,name=attestation_id,json=attestationId,proto3" json:"attestation_id,omitempty"` // references TrainingAttestation when bound
 	AttestedAtBlock  uint64         `protobuf:"varint,53,opt,name=attested_at_block,json=attestedAtBlock,proto3" json:"attested_at_block,omitempty"`
+	// ─── Wave 8: composable manifests (DAG) ─────────────────────────────
+	// parent_manifest_id names a FINALIZED or ATTESTED predecessor manifest
+	// whose ID sets this manifest inherits. The child carries only the delta
+	// IDs (what's new in this run vs. the parent); bundle assembly unions
+	// parent's IDs into the child's resolution. The Merkle root binds to
+	// (parent.merkle_root, child.delta_ids) so verification stays local.
+	//
+	// Use case: a fine-tune run that builds on an SFT bundle references the
+	// SFT manifest as parent and adds only its adversarial-examples delta.
+	ParentManifestId string `protobuf:"bytes,60,opt,name=parent_manifest_id,json=parentManifestId,proto3" json:"parent_manifest_id,omitempty"`
+	// Parent's committed merkle_root — snapshotted at create time so the
+	// child's commitment is self-contained. If parent is superseded later,
+	// the child's root remains valid.
+	ParentMerkleRoot string `protobuf:"bytes,61,opt,name=parent_merkle_root,json=parentMerkleRoot,proto3" json:"parent_merkle_root,omitempty"`
+	// Depth in the composition chain. 0 for root manifests; 1 for direct
+	// children; etc. Bounded by the handler to prevent pathological chains.
+	CompositionDepth uint32 `protobuf:"varint,62,opt,name=composition_depth,json=compositionDepth,proto3" json:"composition_depth,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -7125,6 +7142,27 @@ func (x *TrainingManifest) GetAttestationId() string {
 func (x *TrainingManifest) GetAttestedAtBlock() uint64 {
 	if x != nil {
 		return x.AttestedAtBlock
+	}
+	return 0
+}
+
+func (x *TrainingManifest) GetParentManifestId() string {
+	if x != nil {
+		return x.ParentManifestId
+	}
+	return ""
+}
+
+func (x *TrainingManifest) GetParentMerkleRoot() string {
+	if x != nil {
+		return x.ParentMerkleRoot
+	}
+	return ""
+}
+
+func (x *TrainingManifest) GetCompositionDepth() uint32 {
+	if x != nil {
+		return x.CompositionDepth
 	}
 	return 0
 }
@@ -7967,7 +8005,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x10domain_whitelist\x18\n" +
 	" \x03(\tR\x0fdomainWhitelist\x12)\n" +
 	"\x10domain_blacklist\x18\v \x03(\tR\x0fdomainBlacklist\x12A\n" +
-	"\x1dmin_submitter_calibration_bps\x18\f \x01(\x04R\x1aminSubmitterCalibrationBps\"\xfd\t\n" +
+	"\x1dmin_submitter_calibration_bps\x18\f \x01(\x04R\x1aminSubmitterCalibrationBps\"\x86\v\n" +
 	"\x10TrainingManifest\x12\x1f\n" +
 	"\vmanifest_id\x18\x01 \x01(\tR\n" +
 	"manifestId\x12\x1f\n" +
@@ -8004,7 +8042,10 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x06status\x182 \x01(\x0e2#.zerone.knowledge.v1.ManifestStatusR\x06status\x12,\n" +
 	"\x12finalized_at_block\x183 \x01(\x04R\x10finalizedAtBlock\x12%\n" +
 	"\x0eattestation_id\x184 \x01(\tR\rattestationId\x12*\n" +
-	"\x11attested_at_block\x185 \x01(\x04R\x0fattestedAtBlock\"\xd2\x01\n" +
+	"\x11attested_at_block\x185 \x01(\x04R\x0fattestedAtBlock\x12,\n" +
+	"\x12parent_manifest_id\x18< \x01(\tR\x10parentManifestId\x12,\n" +
+	"\x12parent_merkle_root\x18= \x01(\tR\x10parentMerkleRoot\x12+\n" +
+	"\x11composition_depth\x18> \x01(\rR\x10compositionDepth\"\xd2\x01\n" +
 	"\n" +
 	"SeedStatus\x121\n" +
 	"\x14methodologies_seeded\x18\x01 \x01(\bR\x13methodologiesSeeded\x122\n" +

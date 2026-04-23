@@ -266,6 +266,13 @@ func (k Keeper) ForfeitAugmentationDeposit(ctx context.Context, bountyID string,
 
 // ReturnEscrowToSponsor refunds any unused escrow on bounty expiry, minus
 // the kept-market-open fee.
+//
+// Atomicity note: the sponsor refund is the primary obligation; the fee
+// garnishment is secondary and failure-tolerant. If the fee deposit fails
+// (e.g. the research-fund module isn't wired in a test harness), we log
+// and continue — the sponsor is made whole and the bookkeeping stays
+// consistent. This prevents bounties from being re-processed in an
+// infinite loop across heartbeats.
 func (k Keeper) ReturnEscrowToSponsor(ctx context.Context, bountyID, sponsor string, amount sdkmath.Int, feeBps uint64) error {
 	if amount.IsZero() {
 		return nil
@@ -282,8 +289,12 @@ func (k Keeper) ReturnEscrowToSponsor(ctx context.Context, bountyID, sponsor str
 		}
 	}
 	if !fee.IsZero() && k.vestingRewardsKeeper != nil {
+		// Non-blocking: fee deposit is a garnishment, not a primary obligation.
+		// A failure here (e.g. research fund not wired) must not invalidate
+		// the refund that already succeeded.
 		if err := k.vestingRewardsKeeper.DepositToResearchFund(ctx, types.TrainingFundModuleName, sdk.NewCoins(sdk.NewCoin("uzrn", fee))); err != nil {
-			return err
+			k.Logger(ctx).Warn("augmentation expiry fee forfeiture skipped",
+				"bounty_id", bountyID, "fee", fee.String(), "error", err.Error())
 		}
 	}
 	return k.reduceEscrowLocked(ctx, bountyID, amount)

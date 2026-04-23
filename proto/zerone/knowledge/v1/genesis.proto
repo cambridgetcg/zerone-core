@@ -259,4 +259,36 @@ message GenesisState {
   repeated Domain           domains       = 5;
   string bootstrap_fund_allocation                 = 6; // Initial fund allocation (uzrn) — one-time genesis mint
   repeated CommonKnowledgeEntry common_knowledge   = 7; // Seeded common knowledge entries
+
+  // ─── Route B Wave 8: full state round-trip ─────────────────────────────
+  // Every type the Route B training infrastructure writes is exported here
+  // so a chain upgrade (or genesis restart) preserves the substrate. The
+  // alignment principle: the chain is survivable — past manifests,
+  // attestations, calibrations, and disbursements outlive any single run.
+
+  repeated Methodology          methodologies          = 20;
+  repeated NormativeCommitment  normative_commitments  = 21;
+
+  TokenizerSpec                 tokenizer_spec         = 30; // current
+  repeated TokenizerSpec        tokenizer_spec_history = 31; // historical versions
+  TraceSchema                   trace_schema           = 32; // current
+  repeated TraceSchema          trace_schema_history   = 33; // historical versions
+
+  repeated TrainingPipeline     training_pipelines     = 40;
+  repeated ModelCard            model_cards            = 41;
+  repeated TrainingAttestation  training_attestations  = 42;
+  repeated ContributionRecord   contribution_records   = 43;
+  repeated AugmentationBounty   augmentation_bounties  = 44;
+  repeated Augmentation         augmentations          = 45;
+  repeated ContributionChallenge contribution_challenges = 46;
+  repeated TrainingFundDisbursement training_fund_disbursements = 47;
+  repeated TrainingManifest     training_manifests     = 48;
+
+  // Agent calibration (Phase 5) — also Route-B-adjacent.
+  repeated AgentCalibration     agent_calibrations     = 50;
+
+  // Training fund initial balance (uzrn, minted on InitGenesis; analogous
+  // to bootstrap_fund_allocation but for the KnowledgeTrainingFund module
+  // account).
+  string training_fund_allocation                      = 60;
 }

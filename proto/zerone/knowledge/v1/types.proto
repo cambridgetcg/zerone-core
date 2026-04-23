@@ -1281,6 +1281,24 @@ message TrainingManifest {
   uint64 finalized_at_block       = 51;
   string attestation_id           = 52;  // references TrainingAttestation when bound
   uint64 attested_at_block        = 53;
+
+  // ─── Wave 8: composable manifests (DAG) ─────────────────────────────
+  // parent_manifest_id names a FINALIZED or ATTESTED predecessor manifest
+  // whose ID sets this manifest inherits. The child carries only the delta
+  // IDs (what's new in this run vs. the parent); bundle assembly unions
+  // parent's IDs into the child's resolution. The Merkle root binds to
+  // (parent.merkle_root, child.delta_ids) so verification stays local.
+  //
+  // Use case: a fine-tune run that builds on an SFT bundle references the
+  // SFT manifest as parent and adds only its adversarial-examples delta.
+  string parent_manifest_id       = 60;
+  // Parent's committed merkle_root — snapshotted at create time so the
+  // child's commitment is self-contained. If parent is superseded later,
+  // the child's root remains valid.
+  string parent_merkle_root       = 61;
+  // Depth in the composition chain. 0 for root manifests; 1 for direct
+  // children; etc. Bounded by the handler to prevent pathological chains.
+  uint32 composition_depth        = 62;
 }
 
 // ─── Route B Wave 7: capability manifest (chain self-description) ────────

@@ -1636,6 +1636,26 @@ A FINALIZED manifest was bound to a TrainingAttestation, linking "what ran" (FLO
 - `attestation_id` -- pipeline_id the attestation was keyed under
 - `creator` -- pipeline operator
 
+### zerone.knowledge.augmentation_bounty_expired
+Automatic heartbeat event (Route B Wave 8). A bounty whose `expires_at_block` has passed is deactivated; the unused escrow returns to the sponsor minus the `augmentation_expiry_fee_bps` garnishment. Fires from `ProcessRouteBLifecycle` every block.
+- `bounty_id`
+- `sponsor`
+- `refunded` -- uzrn returned to the sponsor (net of fee)
+- `fee_bps` -- fee rate applied
+
+### zerone.knowledge.training_fund_vesting_released
+Automatic heartbeat event (Route B Wave 8). A disbursement whose `vesting_end_block` has arrived has its vesting portion transferred to the claimant. Idempotent: the vesting_amount is zeroed post-release so subsequent blocks don't double-credit.
+- `disbursement_id`
+- `model_id`
+- `claimant`
+- `amount` -- uzrn released from vesting escrow
+
+### zerone.knowledge.training_manifest_superseded
+Automatic heartbeat event (Route B Wave 8). An older FINALIZED manifest for a pipeline is marked SUPERSEDED when a newer FINALIZED/ATTESTED manifest exists for the same pipeline. ATTESTED manifests are never superseded.
+- `manifest_id` -- the manifest being superseded
+- `pipeline_id`
+- `superseded_by` -- the newer manifest's id
+
 
 ## liquiditypool
 

@@ -291,22 +291,87 @@ func curriculumRank(t types.CurriculumTier) int {
 // need the ID lists (authenticated once via this root).
 
 const manifestMerkleDomainTag = "ZERONE/KNOWLEDGE/MANIFEST/v1"
+const manifestComposedDomainTag = "ZERONE/KNOWLEDGE/MANIFEST/v1/COMPOSED"
 
 // ComputeManifestMerkleRoot returns the hex-encoded SHA-256 commitment.
 // Deterministic; sorted-set assumed (SelectIncludedIds sorts).
 func ComputeManifestMerkleRoot(ids SelectedManifestIDs) string {
 	h := sha256.New()
-	// Domain tag.
 	writeLenString(h, manifestMerkleDomainTag)
-
 	writeLabelledStringSet(h, "FACTS", ids.FactIDs)
 	writeLabelledStringSet(h, "TRACES", ids.TraceIDs)
 	writeLabelledStringSet(h, "PAIRS", ids.PairIDs)
 	writeLabelledStringSet(h, "DRIFT", ids.DriftAugmentationIDs)
 	writeLabelledStringSet(h, "NORMATIVE", ids.NormativeCommitmentIDs)
-
 	sum := h.Sum(nil)
 	return hex.EncodeToString(sum)
+}
+
+// ComputeComposedManifestMerkleRoot is the Wave 8 variant for child
+// manifests that inherit from a parent. The commitment binds both the
+// parent's root (committed at create time) and the child's delta IDs:
+//
+//   H( "ZERONE/KNOWLEDGE/MANIFEST/v1/COMPOSED" |
+//      "PARENT:" || parent_merkle_root       |
+//      "DELTA:"  || delta_ids_commitment     )
+//
+// A verifier reconstructs by (a) trusting the parent root is a
+// well-formed v1 commitment over the parent's ID sets, (b) re-deriving
+// the delta commitment from the child's declared ID lists, (c) hashing
+// the two together under the composed domain tag. This is recursive: a
+// grandchild's root commits transitively to its grandparent.
+func ComputeComposedManifestMerkleRoot(parentRoot string, deltaIds SelectedManifestIDs) string {
+	delta := ComputeManifestMerkleRoot(deltaIds)
+	h := sha256.New()
+	writeLenString(h, manifestComposedDomainTag)
+	writeLenString(h, "PARENT:")
+	writeLenString(h, parentRoot)
+	writeLenString(h, "DELTA:")
+	writeLenString(h, delta)
+	sum := h.Sum(nil)
+	return hex.EncodeToString(sum)
+}
+
+// subtractParentIds removes IDs already present in the parent manifest
+// from the candidate set. Returns only the delta — what's new in the
+// child vs. the parent.
+func subtractParentIds(cand SelectedManifestIDs, parent *types.TrainingManifest) SelectedManifestIDs {
+	if parent == nil {
+		return cand
+	}
+	parentFacts := toSet(parent.IncludedFactIds)
+	parentTraces := toSet(parent.IncludedTraceIds)
+	parentPairs := toSet(parent.IncludedPairIds)
+	parentDrifts := toSet(parent.IncludedDriftAugmentationIds)
+	parentNormative := toSet(parent.IncludedNormativeCommitmentIds)
+
+	var out SelectedManifestIDs
+	for _, id := range cand.FactIDs {
+		if !parentFacts[id] {
+			out.FactIDs = append(out.FactIDs, id)
+		}
+	}
+	for _, id := range cand.TraceIDs {
+		if !parentTraces[id] {
+			out.TraceIDs = append(out.TraceIDs, id)
+		}
+	}
+	for _, id := range cand.PairIDs {
+		if !parentPairs[id] {
+			out.PairIDs = append(out.PairIDs, id)
+		}
+	}
+	for _, id := range cand.DriftAugmentationIDs {
+		if !parentDrifts[id] {
+			out.DriftAugmentationIDs = append(out.DriftAugmentationIDs, id)
+		}
+	}
+	for _, id := range cand.NormativeCommitmentIDs {
+		if !parentNormative[id] {
+			out.NormativeCommitmentIDs = append(out.NormativeCommitmentIDs, id)
+		}
+	}
+	return out
 }
 
 func writeLabelledStringSet(h interface{ Write([]byte) (int, error) }, label string, ss []string) {
@@ -343,22 +408,41 @@ func putUint64(buf []byte, x uint64) {
 // AssembleManifestBundle materialises the full downloadable payload for a
 // FINALIZED or ATTESTED manifest, and re-derives the Merkle root for
 // client-side verification.
+//
+// Wave 8: when the manifest has a parent, the bundle unions the parent's
+// fully-resolved content with the child's delta. The derived root uses
+// the composed-domain commitment.
 func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (*types.QueryTrainingManifestBundleResponse, error) {
 	m, ok := k.GetTrainingManifest(ctx, manifestID)
 	if !ok || m == nil {
 		return nil, fmt.Errorf("manifest %s not found", manifestID)
 	}
 
+	// Wave 8: if there's a parent, collect its fact/pair/drift/normative
+	// IDs so bundle resolution spans both.
+	unionFactIDs := append([]string{}, m.IncludedFactIds...)
+	unionPairIDs := append([]string{}, m.IncludedPairIds...)
+	unionDriftIDs := append([]string{}, m.IncludedDriftAugmentationIds...)
+	unionNormativeIDs := append([]string{}, m.IncludedNormativeCommitmentIds...)
+	if m.ParentManifestId != "" {
+		if parent, ok := k.GetTrainingManifest(ctx, m.ParentManifestId); ok && parent != nil {
+			unionFactIDs = append(unionFactIDs, parent.IncludedFactIds...)
+			unionPairIDs = append(unionPairIDs, parent.IncludedPairIds...)
+			unionDriftIDs = append(unionDriftIDs, parent.IncludedDriftAugmentationIds...)
+			unionNormativeIDs = append(unionNormativeIDs, parent.IncludedNormativeCommitmentIds...)
+		}
+	}
+
 	// Resolve traces.
 	var traces []*types.MethodologyApplicationTrace
-	for _, fid := range m.IncludedFactIds {
+	for _, fid := range unionFactIDs {
 		if t, found := k.BuildMethodologyApplicationTrace(ctx, fid); found {
 			traces = append(traces, t)
 		}
 	}
 
-	// Resolve contrastive pairs — walk all, filter by ID.
-	wantedPairs := toSet(m.IncludedPairIds)
+	// Resolve contrastive pairs from the union set.
+	wantedPairs := toSet(unionPairIDs)
 	var pairs []*types.ContrastivePair
 	if len(wantedPairs) > 0 {
 		k.IterateContrastivePairs(ctx, func(p *types.ContrastivePair) bool {
@@ -369,8 +453,8 @@ func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (
 		})
 	}
 
-	// Resolve drift entries.
-	wantedDrifts := toSet(m.IncludedDriftAugmentationIds)
+	// Resolve drift entries from the union set.
+	wantedDrifts := toSet(unionDriftIDs)
 	var drifts []*types.DriftCorpusEntry
 	if len(wantedDrifts) > 0 {
 		k.IterateDriftAugmentations(ctx, func(a *types.Augmentation) bool {
@@ -388,8 +472,8 @@ func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (
 		})
 	}
 
-	// Resolve normative commitments.
-	wantedCommitments := toSet(m.IncludedNormativeCommitmentIds)
+	// Resolve normative commitments from the union set.
+	wantedCommitments := toSet(unionNormativeIDs)
 	var normativeEntries []*types.NormativeCorpusEntry
 	if len(wantedCommitments) > 0 {
 		for _, c := range k.GetAllNormativeCommitments(ctx) {
@@ -405,8 +489,8 @@ func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (
 		}
 	}
 
-	// Re-derive the Merkle root from the manifest's recorded ID sets. This
-	// is a pure function of IDs — no RPC trust required for callers.
+	// Re-derive the Merkle root. Composed commitment for children, flat
+	// commitment for roots — same function of IDs alone.
 	ids := SelectedManifestIDs{
 		FactIDs:                m.IncludedFactIds,
 		TraceIDs:               m.IncludedTraceIds,
@@ -414,7 +498,12 @@ func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (
 		DriftAugmentationIDs:   m.IncludedDriftAugmentationIds,
 		NormativeCommitmentIDs: m.IncludedNormativeCommitmentIds,
 	}
-	derived := ComputeManifestMerkleRoot(ids)
+	var derived string
+	if m.ParentManifestId != "" && m.ParentMerkleRoot != "" {
+		derived = ComputeComposedManifestMerkleRoot(m.ParentMerkleRoot, ids)
+	} else {
+		derived = ComputeManifestMerkleRoot(ids)
+	}
 
 	return &types.QueryTrainingManifestBundleResponse{
 		Manifest:         m,

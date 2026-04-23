@@ -330,6 +330,11 @@ func (h *TestHarness) AdvanceBlocks(n int) {
 			})
 
 		h.App.BeginBlocker(h.Ctx)
+		// Knowledge module BeginBlocker isn't picked up by the test harness's
+		// module-manager invocation in some setups (Route B Wave 8 heartbeat
+		// depends on it running deterministically). Call it explicitly so
+		// lifecycle tests pass in-harness as they would on a live chain.
+		_ = h.KnowledgeKeeper.BeginBlocker(h.Ctx)
 		h.App.EndBlocker(h.Ctx)
 	}
 }

@@ -60,6 +60,30 @@ func (m *msgServer) CreateTrainingManifest(ctx context.Context, msg *types.MsgCr
 	}
 	ids := m.keeper.SelectIncludedIds(ctx, sel)
 
+	// Wave 8: composable manifest support. If a parent is declared, the
+	// child carries only the delta — IDs present in the parent are
+	// SUBTRACTED from the child's selected set, and the parent's
+	// merkle_root is snapshotted into the child.
+	var parentMerkleRoot string
+	var compositionDepth uint32
+	if msg.ParentManifestId != "" {
+		parent, ok := m.keeper.GetTrainingManifest(ctx, msg.ParentManifestId)
+		if !ok {
+			return nil, fmt.Errorf("parent manifest %s not found", msg.ParentManifestId)
+		}
+		if parent.Status != types.ManifestStatus_MANIFEST_STATUS_FINALIZED &&
+			parent.Status != types.ManifestStatus_MANIFEST_STATUS_ATTESTED {
+			return nil, fmt.Errorf("parent manifest must be FINALIZED or ATTESTED; got %s", parent.Status)
+		}
+		const maxDepth uint32 = 8
+		if parent.CompositionDepth+1 > maxDepth {
+			return nil, fmt.Errorf("composition chain would exceed max depth %d", maxDepth)
+		}
+		parentMerkleRoot = parent.MerkleRoot
+		compositionDepth = parent.CompositionDepth + 1
+		ids = subtractParentIds(ids, parent)
+	}
+
 	manifest := &types.TrainingManifest{
 		ManifestId:                    msg.Id,
 		PipelineId:                    msg.PipelineId,
@@ -88,6 +112,11 @@ func (m *msgServer) CreateTrainingManifest(ctx context.Context, msg *types.MsgCr
 		TotalIncluded:  ids.Total(),
 
 		Status: types.ManifestStatus_MANIFEST_STATUS_DRAFT,
+
+		// Wave 8: composition metadata.
+		ParentManifestId:  msg.ParentManifestId,
+		ParentMerkleRoot:  parentMerkleRoot,
+		CompositionDepth:  compositionDepth,
 	}
 	if err := m.keeper.SetTrainingManifest(ctx, manifest); err != nil {
 		return nil, err
@@ -137,7 +166,12 @@ func (m *msgServer) FinalizeTrainingManifest(ctx context.Context, msg *types.Msg
 		DriftAugmentationIDs:   manifest.IncludedDriftAugmentationIds,
 		NormativeCommitmentIDs: manifest.IncludedNormativeCommitmentIds,
 	}
-	root := ComputeManifestMerkleRoot(ids)
+	var root string
+	if manifest.ParentManifestId != "" && manifest.ParentMerkleRoot != "" {
+		root = ComputeComposedManifestMerkleRoot(manifest.ParentMerkleRoot, ids)
+	} else {
+		root = ComputeManifestMerkleRoot(ids)
+	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	manifest.MerkleRoot = root

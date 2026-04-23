@@ -4419,8 +4419,12 @@ type MsgCreateTrainingManifest struct {
 	PipelineId     string                 `protobuf:"bytes,3,opt,name=pipeline_id,json=pipelineId,proto3" json:"pipeline_id,omitempty"`
 	CorpusSelector *CorpusSelector        `protobuf:"bytes,4,opt,name=corpus_selector,json=corpusSelector,proto3" json:"corpus_selector,omitempty"`
 	Description    string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Wave 8: optional parent manifest this run builds on. When set, the
+	// child's corpus_selector is applied ONLY over IDs NOT already present
+	// in the parent — the child captures the delta. Bundle assembly unions.
+	ParentManifestId string `protobuf:"bytes,6,opt,name=parent_manifest_id,json=parentManifestId,proto3" json:"parent_manifest_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *MsgCreateTrainingManifest) Reset() {
@@ -4484,6 +4488,13 @@ func (x *MsgCreateTrainingManifest) GetCorpusSelector() *CorpusSelector {
 func (x *MsgCreateTrainingManifest) GetDescription() string {
 	if x != nil {
 		return x.Description
+	}
+	return ""
+}
+
+func (x *MsgCreateTrainingManifest) GetParentManifestId() string {
+	if x != nil {
+		return x.ParentManifestId
 	}
 	return ""
 }
@@ -5092,14 +5103,15 @@ const file_zerone_knowledge_v1_tx_proto_rawDesc = "" +
 	"\x06schema\x18\x02 \x01(\v2 .zerone.knowledge.v1.TraceSchemaR\x06schema:\x0e\x82\xe7\xb0*\tauthority\">\n" +
 	"\x1bMsgAmendTraceSchemaResponse\x12\x1f\n" +
 	"\vnew_version\x18\x01 \x01(\x04R\n" +
-	"newVersion\"\xe4\x01\n" +
+	"newVersion\"\x92\x02\n" +
 	"\x19MsgCreateTrainingManifest\x12\x18\n" +
 	"\acreator\x18\x01 \x01(\tR\acreator\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12\x1f\n" +
 	"\vpipeline_id\x18\x03 \x01(\tR\n" +
 	"pipelineId\x12L\n" +
 	"\x0fcorpus_selector\x18\x04 \x01(\v2#.zerone.knowledge.v1.CorpusSelectorR\x0ecorpusSelector\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription:\f\x82\xe7\xb0*\acreator\"\xf3\x01\n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
+	"\x12parent_manifest_id\x18\x06 \x01(\tR\x10parentManifestId:\f\x82\xe7\xb0*\acreator\"\xf3\x01\n" +
 	"!MsgCreateTrainingManifestResponse\x12%\n" +
 	"\x0etotal_included\x18\x01 \x01(\rR\rtotalIncluded\x12\x1d\n" +
 	"\n" +
