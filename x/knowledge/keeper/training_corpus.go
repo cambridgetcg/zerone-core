@@ -77,6 +77,35 @@ func tierAtLeast(actual, floor types.TrainingQualityTier) bool {
 	return rank[actual] >= rank[floor]
 }
 
+// ─── Curriculum ordering (Route B) ────────────────────────────────────
+
+// ClassifyCurriculumTier orders facts by foundational depth + method
+// complexity. Route B pretraining loads FOUNDATION tier first, advances
+// through INTERMEDIATE / ADVANCED, and ends with SPECIALISED methods that
+// require more prior context to make sense.
+func ClassifyCurriculumTier(fact *types.Fact) types.CurriculumTier {
+	if fact == nil {
+		return types.CurriculumTier_CURRICULUM_TIER_UNSPECIFIED
+	}
+	// SPECIALISED methodologies are intentionally excluded from early
+	// curriculum because they presuppose capabilities the model won't have.
+	switch fact.MethodId {
+	case types.MethodologyPhenomenologic,
+		types.MethodologyEcological,
+		types.MethodologyPractice,
+		types.MethodologyAnalogical:
+		return types.CurriculumTier_CURRICULUM_TIER_SPECIALISED
+	}
+	switch {
+	case fact.AxiomDistance <= 1 && fact.CorroborationCount >= 2:
+		return types.CurriculumTier_CURRICULUM_TIER_FOUNDATION
+	case fact.AxiomDistance <= 3:
+		return types.CurriculumTier_CURRICULUM_TIER_INTERMEDIATE
+	default:
+		return types.CurriculumTier_CURRICULUM_TIER_ADVANCED
+	}
+}
+
 // IterateFactsForTraining walks all facts, computing each tier, and invokes
 // cb for those that pass the filter. Used by the corpus export queries.
 func (k Keeper) IterateFactsForTraining(

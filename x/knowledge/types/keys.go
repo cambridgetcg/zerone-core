@@ -145,6 +145,12 @@ var (
 
 	// ─── Agent calibration (Phase 5: feedback loop) ──────────────────
 	AgentCalibrationKeyPrefix = []byte{0x5A} // 0x5A | address → AgentCalibration (proto)
+
+	// ─── Route B: model training infrastructure ──────────────────────
+	TokenizerSpecKey               = []byte{0x5B} // singleton: current TokenizerSpec
+	TokenizerSpecHistoryKeyPrefix  = []byte{0x5C} // 0x5C | be64(version) → TokenizerSpec (historical)
+	TrainingPipelineKeyPrefix      = []byte{0x5D} // 0x5D | pipelineID → TrainingPipeline
+	ModelCardKeyPrefix             = []byte{0x5E} // 0x5E | modelID → ModelCard
 )
 
 // MethodologyKey returns the store key for a methodology by ID.
@@ -160,6 +166,25 @@ func NormativeCommitmentKey(id string) []byte {
 // AgentCalibrationKey returns the store key for a submitter's calibration record.
 func AgentCalibrationKey(addr string) []byte {
 	return append(append([]byte{}, AgentCalibrationKeyPrefix...), []byte(addr)...)
+}
+
+// TokenizerSpecHistoryKey returns the store key for a historical tokenizer spec.
+func TokenizerSpecHistoryKey(version uint64) []byte {
+	key := make([]byte, 0, 1+8)
+	key = append(key, TokenizerSpecHistoryKeyPrefix...)
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, version)
+	return append(key, buf...)
+}
+
+// TrainingPipelineKey returns the store key for a training pipeline record.
+func TrainingPipelineKey(id string) []byte {
+	return append(append([]byte{}, TrainingPipelineKeyPrefix...), []byte(id)...)
+}
+
+// ModelCardKey returns the store key for a model card record.
+func ModelCardKey(id string) []byte {
+	return append(append([]byte{}, ModelCardKeyPrefix...), []byte(id)...)
 }
 
 // ─── Key constructors ─────────────────────────────────────────────────────────

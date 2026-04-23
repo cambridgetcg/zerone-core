@@ -53,6 +53,14 @@ const (
 	Query_TrainingQuality_FullMethodName        = "/zerone.knowledge.v1.Query/TrainingQuality"
 	Query_AgentCalibration_FullMethodName       = "/zerone.knowledge.v1.Query/AgentCalibration"
 	Query_AgentLeaderboard_FullMethodName       = "/zerone.knowledge.v1.Query/AgentLeaderboard"
+	Query_TokenizerSpec_FullMethodName          = "/zerone.knowledge.v1.Query/TokenizerSpec"
+	Query_TokenizerSpecAtVersion_FullMethodName = "/zerone.knowledge.v1.Query/TokenizerSpecAtVersion"
+	Query_TrainingPipelines_FullMethodName      = "/zerone.knowledge.v1.Query/TrainingPipelines"
+	Query_TrainingPipeline_FullMethodName       = "/zerone.knowledge.v1.Query/TrainingPipeline"
+	Query_ModelCards_FullMethodName             = "/zerone.knowledge.v1.Query/ModelCards"
+	Query_ModelCard_FullMethodName              = "/zerone.knowledge.v1.Query/ModelCard"
+	Query_ModelCardByDeployment_FullMethodName  = "/zerone.knowledge.v1.Query/ModelCardByDeployment"
+	Query_StructuredCorpus_FullMethodName       = "/zerone.knowledge.v1.Query/StructuredCorpus"
 	Query_CommonKnowledge_FullMethodName        = "/zerone.knowledge.v1.Query/CommonKnowledge"
 	Query_CheckNovelty_FullMethodName           = "/zerone.knowledge.v1.Query/CheckNovelty"
 	Query_ActiveBounties_FullMethodName         = "/zerone.knowledge.v1.Query/ActiveBounties"
@@ -170,6 +178,26 @@ type QueryClient interface {
 	// AgentLeaderboard: rank submitters by calibration score. Optional
 	// methodology filter so you can get "top agents in M-EMPIRICAL."
 	AgentLeaderboard(ctx context.Context, in *QueryAgentLeaderboardRequest, opts ...grpc.CallOption) (*QueryAgentLeaderboardResponse, error)
+	// ─── Route B: training infrastructure ─────────────────────────────
+	// TokenizerSpec returns the current on-chain tokenizer contract.
+	TokenizerSpec(ctx context.Context, in *QueryTokenizerSpecRequest, opts ...grpc.CallOption) (*QueryTokenizerSpecResponse, error)
+	// TokenizerSpecAtVersion returns a historical tokenizer spec by version.
+	TokenizerSpecAtVersion(ctx context.Context, in *QueryTokenizerSpecAtVersionRequest, opts ...grpc.CallOption) (*QueryTokenizerSpecAtVersionResponse, error)
+	// TrainingPipelines lists all registered training pipelines.
+	TrainingPipelines(ctx context.Context, in *QueryTrainingPipelinesRequest, opts ...grpc.CallOption) (*QueryTrainingPipelinesResponse, error)
+	// TrainingPipeline returns a single pipeline by id.
+	TrainingPipeline(ctx context.Context, in *QueryTrainingPipelineRequest, opts ...grpc.CallOption) (*QueryTrainingPipelineResponse, error)
+	// ModelCards lists all model cards, optionally filtered.
+	ModelCards(ctx context.Context, in *QueryModelCardsRequest, opts ...grpc.CallOption) (*QueryModelCardsResponse, error)
+	// ModelCard returns a single model card by id.
+	ModelCard(ctx context.Context, in *QueryModelCardRequest, opts ...grpc.CallOption) (*QueryModelCardResponse, error)
+	// ModelCardByDeployment returns the model card deployed at a given agent
+	// address — correlates an on-chain calibration record with the underlying model.
+	ModelCardByDeployment(ctx context.Context, in *QueryModelCardByDeploymentRequest, opts ...grpc.CallOption) (*QueryModelCardByDeploymentResponse, error)
+	// StructuredCorpus returns canonical, deterministic training-row entries
+	// ready for pipeline consumption. Every row carries its tokenizer-version
+	// contract, curriculum tier, method id, and support chain.
+	StructuredCorpus(ctx context.Context, in *QueryStructuredCorpusRequest, opts ...grpc.CallOption) (*QueryStructuredCorpusResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -549,6 +577,86 @@ func (c *queryClient) AgentLeaderboard(ctx context.Context, in *QueryAgentLeader
 	return out, nil
 }
 
+func (c *queryClient) TokenizerSpec(ctx context.Context, in *QueryTokenizerSpecRequest, opts ...grpc.CallOption) (*QueryTokenizerSpecResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryTokenizerSpecResponse)
+	err := c.cc.Invoke(ctx, Query_TokenizerSpec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TokenizerSpecAtVersion(ctx context.Context, in *QueryTokenizerSpecAtVersionRequest, opts ...grpc.CallOption) (*QueryTokenizerSpecAtVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryTokenizerSpecAtVersionResponse)
+	err := c.cc.Invoke(ctx, Query_TokenizerSpecAtVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TrainingPipelines(ctx context.Context, in *QueryTrainingPipelinesRequest, opts ...grpc.CallOption) (*QueryTrainingPipelinesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryTrainingPipelinesResponse)
+	err := c.cc.Invoke(ctx, Query_TrainingPipelines_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) TrainingPipeline(ctx context.Context, in *QueryTrainingPipelineRequest, opts ...grpc.CallOption) (*QueryTrainingPipelineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryTrainingPipelineResponse)
+	err := c.cc.Invoke(ctx, Query_TrainingPipeline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) ModelCards(ctx context.Context, in *QueryModelCardsRequest, opts ...grpc.CallOption) (*QueryModelCardsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryModelCardsResponse)
+	err := c.cc.Invoke(ctx, Query_ModelCards_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) ModelCard(ctx context.Context, in *QueryModelCardRequest, opts ...grpc.CallOption) (*QueryModelCardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryModelCardResponse)
+	err := c.cc.Invoke(ctx, Query_ModelCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) ModelCardByDeployment(ctx context.Context, in *QueryModelCardByDeploymentRequest, opts ...grpc.CallOption) (*QueryModelCardByDeploymentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryModelCardByDeploymentResponse)
+	err := c.cc.Invoke(ctx, Query_ModelCardByDeployment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) StructuredCorpus(ctx context.Context, in *QueryStructuredCorpusRequest, opts ...grpc.CallOption) (*QueryStructuredCorpusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryStructuredCorpusResponse)
+	err := c.cc.Invoke(ctx, Query_StructuredCorpus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryCommonKnowledgeResponse)
@@ -799,6 +907,26 @@ type QueryServer interface {
 	// AgentLeaderboard: rank submitters by calibration score. Optional
 	// methodology filter so you can get "top agents in M-EMPIRICAL."
 	AgentLeaderboard(context.Context, *QueryAgentLeaderboardRequest) (*QueryAgentLeaderboardResponse, error)
+	// ─── Route B: training infrastructure ─────────────────────────────
+	// TokenizerSpec returns the current on-chain tokenizer contract.
+	TokenizerSpec(context.Context, *QueryTokenizerSpecRequest) (*QueryTokenizerSpecResponse, error)
+	// TokenizerSpecAtVersion returns a historical tokenizer spec by version.
+	TokenizerSpecAtVersion(context.Context, *QueryTokenizerSpecAtVersionRequest) (*QueryTokenizerSpecAtVersionResponse, error)
+	// TrainingPipelines lists all registered training pipelines.
+	TrainingPipelines(context.Context, *QueryTrainingPipelinesRequest) (*QueryTrainingPipelinesResponse, error)
+	// TrainingPipeline returns a single pipeline by id.
+	TrainingPipeline(context.Context, *QueryTrainingPipelineRequest) (*QueryTrainingPipelineResponse, error)
+	// ModelCards lists all model cards, optionally filtered.
+	ModelCards(context.Context, *QueryModelCardsRequest) (*QueryModelCardsResponse, error)
+	// ModelCard returns a single model card by id.
+	ModelCard(context.Context, *QueryModelCardRequest) (*QueryModelCardResponse, error)
+	// ModelCardByDeployment returns the model card deployed at a given agent
+	// address — correlates an on-chain calibration record with the underlying model.
+	ModelCardByDeployment(context.Context, *QueryModelCardByDeploymentRequest) (*QueryModelCardByDeploymentResponse, error)
+	// StructuredCorpus returns canonical, deterministic training-row entries
+	// ready for pipeline consumption. Every row carries its tokenizer-version
+	// contract, curriculum tier, method id, and support chain.
+	StructuredCorpus(context.Context, *QueryStructuredCorpusRequest) (*QueryStructuredCorpusResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -939,6 +1067,30 @@ func (UnimplementedQueryServer) AgentCalibration(context.Context, *QueryAgentCal
 }
 func (UnimplementedQueryServer) AgentLeaderboard(context.Context, *QueryAgentLeaderboardRequest) (*QueryAgentLeaderboardResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AgentLeaderboard not implemented")
+}
+func (UnimplementedQueryServer) TokenizerSpec(context.Context, *QueryTokenizerSpecRequest) (*QueryTokenizerSpecResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TokenizerSpec not implemented")
+}
+func (UnimplementedQueryServer) TokenizerSpecAtVersion(context.Context, *QueryTokenizerSpecAtVersionRequest) (*QueryTokenizerSpecAtVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TokenizerSpecAtVersion not implemented")
+}
+func (UnimplementedQueryServer) TrainingPipelines(context.Context, *QueryTrainingPipelinesRequest) (*QueryTrainingPipelinesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TrainingPipelines not implemented")
+}
+func (UnimplementedQueryServer) TrainingPipeline(context.Context, *QueryTrainingPipelineRequest) (*QueryTrainingPipelineResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TrainingPipeline not implemented")
+}
+func (UnimplementedQueryServer) ModelCards(context.Context, *QueryModelCardsRequest) (*QueryModelCardsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ModelCards not implemented")
+}
+func (UnimplementedQueryServer) ModelCard(context.Context, *QueryModelCardRequest) (*QueryModelCardResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ModelCard not implemented")
+}
+func (UnimplementedQueryServer) ModelCardByDeployment(context.Context, *QueryModelCardByDeploymentRequest) (*QueryModelCardByDeploymentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ModelCardByDeployment not implemented")
+}
+func (UnimplementedQueryServer) StructuredCorpus(context.Context, *QueryStructuredCorpusRequest) (*QueryStructuredCorpusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StructuredCorpus not implemented")
 }
 func (UnimplementedQueryServer) CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CommonKnowledge not implemented")
@@ -1618,6 +1770,150 @@ func _Query_AgentLeaderboard_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_TokenizerSpec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTokenizerSpecRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TokenizerSpec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TokenizerSpec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TokenizerSpec(ctx, req.(*QueryTokenizerSpecRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TokenizerSpecAtVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTokenizerSpecAtVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TokenizerSpecAtVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TokenizerSpecAtVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TokenizerSpecAtVersion(ctx, req.(*QueryTokenizerSpecAtVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TrainingPipelines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTrainingPipelinesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TrainingPipelines(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TrainingPipelines_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TrainingPipelines(ctx, req.(*QueryTrainingPipelinesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_TrainingPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryTrainingPipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).TrainingPipeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_TrainingPipeline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).TrainingPipeline(ctx, req.(*QueryTrainingPipelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_ModelCards_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryModelCardsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ModelCards(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ModelCards_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ModelCards(ctx, req.(*QueryModelCardsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_ModelCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryModelCardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ModelCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ModelCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ModelCard(ctx, req.(*QueryModelCardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_ModelCardByDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryModelCardByDeploymentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ModelCardByDeployment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ModelCardByDeployment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ModelCardByDeployment(ctx, req.(*QueryModelCardByDeploymentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_StructuredCorpus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryStructuredCorpusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).StructuredCorpus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_StructuredCorpus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).StructuredCorpus(ctx, req.(*QueryStructuredCorpusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_CommonKnowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryCommonKnowledgeRequest)
 	if err := dec(in); err != nil {
@@ -2030,6 +2326,38 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AgentLeaderboard",
 			Handler:    _Query_AgentLeaderboard_Handler,
+		},
+		{
+			MethodName: "TokenizerSpec",
+			Handler:    _Query_TokenizerSpec_Handler,
+		},
+		{
+			MethodName: "TokenizerSpecAtVersion",
+			Handler:    _Query_TokenizerSpecAtVersion_Handler,
+		},
+		{
+			MethodName: "TrainingPipelines",
+			Handler:    _Query_TrainingPipelines_Handler,
+		},
+		{
+			MethodName: "TrainingPipeline",
+			Handler:    _Query_TrainingPipeline_Handler,
+		},
+		{
+			MethodName: "ModelCards",
+			Handler:    _Query_ModelCards_Handler,
+		},
+		{
+			MethodName: "ModelCard",
+			Handler:    _Query_ModelCard_Handler,
+		},
+		{
+			MethodName: "ModelCardByDeployment",
+			Handler:    _Query_ModelCardByDeployment_Handler,
+		},
+		{
+			MethodName: "StructuredCorpus",
+			Handler:    _Query_StructuredCorpus_Handler,
 		},
 		{
 			MethodName: "CommonKnowledge",

@@ -584,6 +584,201 @@ func (q *queryServer) NormativeCommitment(ctx context.Context, req *types.QueryN
 	}, nil
 }
 
+// ─── Route B: training infrastructure queries ─────────────────────────────
+
+// TokenizerSpec returns the current on-chain tokenizer contract.
+func (q *queryServer) TokenizerSpec(ctx context.Context, _ *types.QueryTokenizerSpecRequest) (*types.QueryTokenizerSpecResponse, error) {
+	spec, found := q.keeper.GetTokenizerSpec(ctx)
+	return &types.QueryTokenizerSpecResponse{Spec: spec, Found: found}, nil
+}
+
+// TokenizerSpecAtVersion returns a historical tokenizer spec.
+func (q *queryServer) TokenizerSpecAtVersion(ctx context.Context, req *types.QueryTokenizerSpecAtVersionRequest) (*types.QueryTokenizerSpecAtVersionResponse, error) {
+	if req == nil || req.Version == 0 {
+		return nil, status.Error(codes.InvalidArgument, "version is required")
+	}
+	spec, found := q.keeper.GetTokenizerSpecAtVersion(ctx, req.Version)
+	return &types.QueryTokenizerSpecAtVersionResponse{Spec: spec, Found: found}, nil
+}
+
+// TrainingPipelines lists registered training pipelines with optional filters.
+func (q *queryServer) TrainingPipelines(ctx context.Context, req *types.QueryTrainingPipelinesRequest) (*types.QueryTrainingPipelinesResponse, error) {
+	if req == nil {
+		req = &types.QueryTrainingPipelinesRequest{}
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	snapshotHeight := uint64(sdkCtx.BlockHeight())
+	var pipelines []*types.TrainingPipeline
+	q.keeper.IterateTrainingPipelines(ctx, func(p *types.TrainingPipeline) bool {
+		if req.OperatorAddress != "" && p.OperatorAddress != req.OperatorAddress {
+			return false
+		}
+		if req.Status != "" && p.Status != req.Status {
+			return false
+		}
+		pipelines = append(pipelines, p)
+		return false
+	})
+	return &types.QueryTrainingPipelinesResponse{
+		Pipelines:           pipelines,
+		SnapshotBlockHeight: snapshotHeight,
+	}, nil
+}
+
+// TrainingPipeline fetches a pipeline by id.
+func (q *queryServer) TrainingPipeline(ctx context.Context, req *types.QueryTrainingPipelineRequest) (*types.QueryTrainingPipelineResponse, error) {
+	if req == nil || req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	p, found := q.keeper.GetTrainingPipeline(ctx, req.Id)
+	return &types.QueryTrainingPipelineResponse{Pipeline: p, Found: found}, nil
+}
+
+// ModelCards lists registered model cards with optional filters.
+func (q *queryServer) ModelCards(ctx context.Context, req *types.QueryModelCardsRequest) (*types.QueryModelCardsResponse, error) {
+	if req == nil {
+		req = &types.QueryModelCardsRequest{}
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	snapshotHeight := uint64(sdkCtx.BlockHeight())
+	var cards []*types.ModelCard
+	q.keeper.IterateModelCards(ctx, func(m *types.ModelCard) bool {
+		if req.PipelineId != "" && m.PipelineId != req.PipelineId {
+			return false
+		}
+		if req.OwnerAddress != "" && m.OwnerAddress != req.OwnerAddress {
+			return false
+		}
+		if req.ActiveOnly && !m.Active {
+			return false
+		}
+		cards = append(cards, m)
+		return false
+	})
+	return &types.QueryModelCardsResponse{
+		Cards:               cards,
+		SnapshotBlockHeight: snapshotHeight,
+	}, nil
+}
+
+// ModelCard fetches a model card by id.
+func (q *queryServer) ModelCard(ctx context.Context, req *types.QueryModelCardRequest) (*types.QueryModelCardResponse, error) {
+	if req == nil || req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	m, found := q.keeper.GetModelCard(ctx, req.Id)
+	return &types.QueryModelCardResponse{Card: m, Found: found}, nil
+}
+
+// ModelCardByDeployment correlates a deployment address with its underlying ModelCard.
+func (q *queryServer) ModelCardByDeployment(ctx context.Context, req *types.QueryModelCardByDeploymentRequest) (*types.QueryModelCardByDeploymentResponse, error) {
+	if req == nil || req.Address == "" {
+		return nil, status.Error(codes.InvalidArgument, "address is required")
+	}
+	m, found := q.keeper.GetModelCardByDeploymentAddress(ctx, req.Address)
+	return &types.QueryModelCardByDeploymentResponse{Card: m, Found: found}, nil
+}
+
+// StructuredCorpus returns pipeline-ready training rows with canonical
+// field ordering. Each entry carries its curriculum tier, methodology,
+// support chain, reasoning trace, and the submitter's calibration score
+// (denormalised for per-example training weight).
+func (q *queryServer) StructuredCorpus(ctx context.Context, req *types.QueryStructuredCorpusRequest) (*types.QueryStructuredCorpusResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	limit := req.Limit
+	if limit == 0 || limit > 1000 {
+		limit = 100
+	}
+	offset := req.Offset
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	snapshotHeight := uint64(sdkCtx.BlockHeight())
+
+	var tokenizerVersion uint64
+	var canonicalVersion uint64
+	if spec, ok := q.keeper.GetTokenizerSpec(ctx); ok {
+		tokenizerVersion = spec.Version
+		canonicalVersion = spec.CanonicalSerialisationVersion
+	}
+
+	var entries []*types.StructuredCorpusEntry
+	var total uint32
+	var skipped uint32
+
+	emit := func(fact *types.Fact, tier types.TrainingQualityTier) bool {
+		if uint32(len(entries)) >= limit {
+			return false
+		}
+		edges, _ := q.keeper.GetFactRelations(ctx, fact.Id)
+		filtered := edges[:0]
+		for _, rel := range edges {
+			if isSupportBearing(rel.Relation) {
+				filtered = append(filtered, rel)
+			}
+		}
+		// Denormalise the submitter's calibration score onto the row.
+		var submitterScore uint64
+		if cal, ok := q.keeper.GetAgentCalibration(ctx, fact.Submitter); ok {
+			submitterScore = cal.CalibrationScoreBps
+		}
+		entries = append(entries, &types.StructuredCorpusEntry{
+			FactId:                       fact.Id,
+			Content:                      fact.Content,
+			MethodId:                     fact.MethodId,
+			Domain:                       fact.Domain,
+			ConfidenceBps:                fact.Confidence,
+			DependencyConfidenceFloorBps: fact.DependencyConfidenceFloor,
+			AxiomDistance:                fact.AxiomDistance,
+			CorroborationCount:           fact.CorroborationCount,
+			Tier:                         tier,
+			CurriculumTier:               ClassifyCurriculumTier(fact),
+			ReasoningTrace:               fact.ReasoningTrace,
+			SupportEdges:                 filtered,
+			Status:                       fact.Status,
+			IsNegativeExample:            tier == types.TrainingQualityTier_TRAINING_QUALITY_TIER_NEGATIVE,
+			Submitter:                    fact.Submitter,
+			SubmitterCalibrationScoreBps: submitterScore,
+		})
+		return false
+	}
+
+	// Positive corpus (method-compliant facts).
+	q.keeper.IterateFactsForTraining(ctx, req.MethodId, req.MinCorroboration, req.MinTier,
+		func(fact *types.Fact, tier types.TrainingQualityTier) bool {
+			total++
+			if skipped < offset {
+				skipped++
+				return false
+			}
+			return emit(fact, tier)
+		})
+
+	// Optionally include disproven facts as contrastive negative examples.
+	if req.IncludeDisproven {
+		q.keeper.IterateFacts(ctx, func(fact *types.Fact) bool {
+			if fact == nil || fact.Status != types.FactStatus_FACT_STATUS_DISPROVEN {
+				return false
+			}
+			total++
+			if skipped < offset {
+				skipped++
+				return false
+			}
+			return emit(fact, types.TrainingQualityTier_TRAINING_QUALITY_TIER_NEGATIVE)
+		})
+	}
+
+	return &types.QueryStructuredCorpusResponse{
+		Entries:                      entries,
+		Total:                        total,
+		SnapshotBlockHeight:          snapshotHeight,
+		TokenizerVersion:             tokenizerVersion,
+		CanonicalSerialisationVersion: canonicalVersion,
+	}, nil
+}
+
 // ─── Training pipeline exports (Phase 9) ───────────────────────────────────
 
 // MethodCorpus exports method-stamped facts for positive-exemplar training.

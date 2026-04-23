@@ -318,6 +318,90 @@ enum TrainingQualityTier {
   TRAINING_QUALITY_TIER_UNSUITABLE  = 5;   // CONTESTED / EXPIRED / MALFORMED — exclude from training
 }
 
+// ─── Route B: model training infrastructure ──────────────────────────────
+
+// TokenizerSpec is the governance-ratified contract that names the special
+// tokens used when ZERONE data is serialised for model training. It is the
+// shared schema between the chain and any training pipeline — without a
+// single, on-chain-anchored spec, pipelines would invent their own
+// tokenisation and the models they produce would be mutually incompatible.
+//
+// The spec is versioned; governance amendments bump the version and create
+// a new snapshot. Training runs pin to a specific tokenizer version so
+// reproducibility is preserved even as the spec evolves.
+message TokenizerSpec {
+  uint64 version                     = 1;  // monotonically increasing
+  uint64 ratified_at_block           = 2;
+  // method_token_prefix: e.g. "<method:" — concatenated with method_id + ">"
+  // becomes the single special token for that methodology.
+  string method_token_prefix         = 3;
+  string inference_token_prefix      = 4;  // e.g. "<inference:"
+  string relation_token_prefix       = 5;  // e.g. "<relation:"
+  string fact_status_token_prefix    = 6;  // e.g. "<status:"
+  string tier_token_prefix           = 7;  // e.g. "<tier:"
+  // Structural anchors — single-token markers delimiting sections of a
+  // training example. The empty case is documented in spec v1.
+  string fact_begin_token            = 8;   // e.g. "<fact>"
+  string fact_end_token              = 9;   // e.g. "</fact>"
+  string reasoning_begin_token       = 10;  // e.g. "<reasoning>"
+  string reasoning_end_token         = 11;  // e.g. "</reasoning>"
+  string support_begin_token         = 12;
+  string support_end_token           = 13;
+  string disproof_marker_token       = 14;  // inserted on negative examples
+  // canonical_serialisation_version: which JSONL schema this tokenizer
+  // expects the producer to emit. Consumers validate compatibility.
+  uint64 canonical_serialisation_version = 15;
+}
+
+// TrainingPipeline is a declared training run operated by some party
+// (human, agent, partnership). It pins the corpus snapshot it will train
+// against, the tokenizer version it will use, and a recipe hash naming the
+// specific training configuration off-chain. A ModelCard later references
+// the pipeline it came from.
+message TrainingPipeline {
+  string id                       = 1;
+  string operator_address         = 2;
+  uint64 corpus_snapshot_height   = 3;  // Block height the training data is pinned to
+  uint64 tokenizer_version        = 4;
+  uint64 methodology_set_version  = 5;  // Version of the methodology registry at snapshot
+  string recipe_hash              = 6;  // Hash of the training configuration (off-chain)
+  string description              = 7;
+  // Status: "declared" | "running" | "completed" | "failed" | "superseded"
+  string status                   = 8;
+  uint64 declared_at_block        = 9;
+  uint64 completed_at_block       = 10;
+  // Filter applied to the training data: method_id whitelist, min corroboration,
+  // min quality tier, etc. Stored as free-form JSON for schema evolution.
+  string corpus_filter            = 11;
+}
+
+// ModelCard is the on-chain identity of a trained model. It anchors the
+// model's lineage (which pipeline trained it, from which snapshot), its
+// deployment address (the agent account the model runs as — calibration
+// accrues to this address under Phase 5), and its evaluation record.
+message ModelCard {
+  string id                       = 1;  // Stable model identifier
+  string name                     = 2;
+  string pipeline_id              = 3;  // Which TrainingPipeline produced this
+  string deployment_address       = 4;  // Agent account the model runs as
+  uint64 created_at_block         = 5;
+  uint64 parameter_count          = 6;  // Billions of parameters (metadata)
+  // Route: "openweight_fine_tune" | "from_scratch" | "distilled"
+  string route                    = 7;
+  string base_model               = 8;  // For open-weight fine-tunes; empty for from-scratch
+  string owner_address            = 9;
+  // Evaluation record — initial scores at training time. Live performance
+  // is tracked through the AgentCalibration of the deployment_address.
+  uint64 eval_acceptance_rate_bps = 10;
+  uint64 eval_corroboration_rate_bps = 11;
+  uint64 eval_sample_size         = 12;
+  // Method-set ID the model targets. Empty = general-purpose.
+  string specialised_method_id    = 13;
+  bool   active                   = 14;  // False after retirement
+  uint64 retired_at_block         = 15;
+  string retired_reason           = 16;
+}
+
 // AgentMethodStats tracks calibration for a single submitter within a single
 // methodology. Populated on round completion and challenge outcomes.
 message AgentMethodStats {

@@ -206,6 +206,43 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/agent/leaderboard";
   }
 
+  // ─── Route B: training infrastructure ─────────────────────────────
+  // TokenizerSpec returns the current on-chain tokenizer contract.
+  rpc TokenizerSpec(QueryTokenizerSpecRequest) returns (QueryTokenizerSpecResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/tokenizer_spec";
+  }
+  // TokenizerSpecAtVersion returns a historical tokenizer spec by version.
+  rpc TokenizerSpecAtVersion(QueryTokenizerSpecAtVersionRequest) returns (QueryTokenizerSpecAtVersionResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/tokenizer_spec/{version}";
+  }
+  // TrainingPipelines lists all registered training pipelines.
+  rpc TrainingPipelines(QueryTrainingPipelinesRequest) returns (QueryTrainingPipelinesResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/pipelines";
+  }
+  // TrainingPipeline returns a single pipeline by id.
+  rpc TrainingPipeline(QueryTrainingPipelineRequest) returns (QueryTrainingPipelineResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/pipeline/{id}";
+  }
+  // ModelCards lists all model cards, optionally filtered.
+  rpc ModelCards(QueryModelCardsRequest) returns (QueryModelCardsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/model_cards";
+  }
+  // ModelCard returns a single model card by id.
+  rpc ModelCard(QueryModelCardRequest) returns (QueryModelCardResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/model_card/{id}";
+  }
+  // ModelCardByDeployment returns the model card deployed at a given agent
+  // address — correlates an on-chain calibration record with the underlying model.
+  rpc ModelCardByDeployment(QueryModelCardByDeploymentRequest) returns (QueryModelCardByDeploymentResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/model_card/deployment/{address}";
+  }
+  // StructuredCorpus returns canonical, deterministic training-row entries
+  // ready for pipeline consumption. Every row carries its tokenizer-version
+  // contract, curriculum tier, method id, and support chain.
+  rpc StructuredCorpus(QueryStructuredCorpusRequest) returns (QueryStructuredCorpusResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/training/structured_corpus";
+  }
+
   // ─── Novelty detection ─────────────────────────────────────────────────
 
   // CommonKnowledge queries the common knowledge registry.
@@ -722,6 +759,114 @@ message AgentLeaderboardEntry {
 message QueryAgentLeaderboardResponse {
   repeated AgentLeaderboardEntry entries = 1;
   uint64 snapshot_block_height = 2;
+}
+
+// ─── Route B: training infrastructure queries ─────────────────────────────
+
+message QueryTokenizerSpecRequest {}
+message QueryTokenizerSpecResponse {
+  TokenizerSpec spec = 1;
+  bool found = 2;
+}
+
+message QueryTokenizerSpecAtVersionRequest {
+  uint64 version = 1;
+}
+message QueryTokenizerSpecAtVersionResponse {
+  TokenizerSpec spec = 1;
+  bool found = 2;
+}
+
+message QueryTrainingPipelinesRequest {
+  string operator_address = 1;      // optional filter
+  string status = 2;                // optional filter: "declared", "completed", etc.
+}
+message QueryTrainingPipelinesResponse {
+  repeated TrainingPipeline pipelines = 1;
+  uint64 snapshot_block_height = 2;
+}
+
+message QueryTrainingPipelineRequest {
+  string id = 1;
+}
+message QueryTrainingPipelineResponse {
+  TrainingPipeline pipeline = 1;
+  bool found = 2;
+}
+
+message QueryModelCardsRequest {
+  string pipeline_id = 1;           // optional: models from a specific pipeline
+  string owner_address = 2;         // optional: models by owner
+  bool active_only = 3;             // default false
+}
+message QueryModelCardsResponse {
+  repeated ModelCard cards = 1;
+  uint64 snapshot_block_height = 2;
+}
+
+message QueryModelCardRequest {
+  string id = 1;
+}
+message QueryModelCardResponse {
+  ModelCard card = 1;
+  bool found = 2;
+}
+
+message QueryModelCardByDeploymentRequest {
+  string address = 1;
+}
+message QueryModelCardByDeploymentResponse {
+  ModelCard card = 1;
+  bool found = 2;
+}
+
+// StructuredCorpus: pipeline-ready training rows.
+message QueryStructuredCorpusRequest {
+  string method_id = 1;             // optional filter
+  uint64 min_corroboration = 2;
+  TrainingQualityTier min_tier = 3;
+  uint32 limit = 4;
+  uint32 offset = 5;
+  bool include_disproven = 6;       // include NEGATIVE-tier facts (disproven) as contrastive examples
+}
+
+// StructuredCorpusEntry is the canonical per-row training object. Field
+// ordering here is the stable serialisation contract for producers and
+// consumers.
+message StructuredCorpusEntry {
+  string fact_id = 1;
+  string content = 2;
+  string method_id = 3;
+  string domain = 4;
+  uint64 confidence_bps = 5;
+  uint64 dependency_confidence_floor_bps = 6;
+  uint32 axiom_distance = 7;
+  uint64 corroboration_count = 8;
+  TrainingQualityTier tier = 9;
+  CurriculumTier curriculum_tier = 10;
+  string reasoning_trace = 11;
+  repeated FactRelation support_edges = 12;
+  FactStatus status = 13;
+  bool is_negative_example = 14;    // true if tier == NEGATIVE (disproven)
+  string submitter = 15;
+  uint64 submitter_calibration_score_bps = 16;  // denormalised for training weighting
+}
+
+// CurriculumTier orders training examples by difficulty and foundational depth.
+enum CurriculumTier {
+  CURRICULUM_TIER_UNSPECIFIED = 0;
+  CURRICULUM_TIER_FOUNDATION  = 1;  // axiom_distance ≤ 1, high corroboration, simple methods
+  CURRICULUM_TIER_INTERMEDIATE = 2;
+  CURRICULUM_TIER_ADVANCED    = 3;  // deep derivation chains
+  CURRICULUM_TIER_SPECIALISED = 4;  // niche methodologies (phenomenological, ecological, practice)
+}
+
+message QueryStructuredCorpusResponse {
+  repeated StructuredCorpusEntry entries = 1;
+  uint32 total = 2;
+  uint64 snapshot_block_height = 3;
+  uint64 tokenizer_version = 4;
+  uint64 canonical_serialisation_version = 5;
 }
 
 // ─── Novelty detection queries ──────────────────────────────────────────────

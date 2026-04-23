@@ -1491,6 +1491,22 @@ Submitter's track record changed — Phase 5 feedback loop. Emitted after round 
 - `corroborations_earned` -- sum across submitter's facts
 - `calibration_score_bps` -- computed score in BPS
 
+### zerone.knowledge.model_card_registered
+New ModelCard stored (Route B). A trained model has been registered against its TrainingPipeline, naming its deployment agent account and initial eval scores.
+- `model_id` -- stable model identifier
+- `pipeline_id` -- TrainingPipeline that produced this model
+- `route` -- "openweight_fine_tune" | "from_scratch" | "distilled"
+- `deployment_address` -- agent account the model runs as
+- `owner_address` -- model owner
+
+### zerone.knowledge.model_card_updated
+ModelCard re-written (Route B) — eval updates or metadata amendment. Attributes mirror model_card_registered.
+- `model_id`, `pipeline_id`, `route`, `deployment_address`, `owner_address`
+
+### zerone.knowledge.model_card_retired
+ModelCard flipped to inactive (Route B). Emitted when a model is formally retired from active deployment.
+- `model_id`, `pipeline_id`, `route`, `deployment_address`, `owner_address`
+
 
 ## liquiditypool
 

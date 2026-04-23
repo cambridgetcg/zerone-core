@@ -32,6 +32,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.SeedDefaultCommitments(ctx); err != nil {
 		return err
 	}
+	// Seed the default tokenizer spec v1 (Route B). Training pipelines pin
+	// to a specific version for reproducibility; amendments bump version.
+	if err := k.SeedDefaultTokenizerSpec(ctx); err != nil {
+		return err
+	}
 
 	for _, domain := range gs.Domains {
 		if domain == nil {
