@@ -384,6 +384,15 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/resilience/paused_modules";
   }
 
+  // ─── Wave 13: SLA dashboard ──────────────────────────────────────────
+  // SlaBreachedIncidents returns every incident whose sla_target_block
+  // has passed and whose status is still OPEN or MITIGATING. The
+  // operator's paging-worthy query — wire it to alerting so the response
+  // team is notified when a tier-appropriate recovery window is missed.
+  rpc SlaBreachedIncidents(QuerySlaBreachedIncidentsRequest) returns (QuerySlaBreachedIncidentsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/incidents/sla_breached";
+  }
+
   // ─── Novelty detection ─────────────────────────────────────────────────
 
   // CommonKnowledge queries the common knowledge registry.
@@ -1502,4 +1511,13 @@ message QueryPausedModulesRequest {}
 message QueryPausedModulesResponse {
   repeated ModulePause paused = 1;
   uint64 snapshot_block_height = 2;
+}
+
+// ─── Wave 13: SLA dashboard ──────────────────────────────────────────────
+
+message QuerySlaBreachedIncidentsRequest {}
+message QuerySlaBreachedIncidentsResponse {
+  repeated IncidentRecord incidents = 1;
+  uint64 snapshot_block_height      = 2;
+  uint64 current_block_height       = 3;
 }

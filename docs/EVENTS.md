@@ -1692,6 +1692,15 @@ The circuit breaker for a named module cleared (Route B Wave 12). Writes resume.
 - `module_name`
 - `note` -- free-form; typically references completion of the fix
 
+### zerone.knowledge.manifest_merkle_corrected
+An authority-gated surgical correction recomputed and rewrote a finalized manifest's Merkle root after external-exploit corruption (Route B Wave 13). Incident-bound; requires an OPEN or MITIGATING incident at call time.
+- `manifest_id`
+- `incident_id` -- the audit trail binding
+- `prior_root` -- what was stored before the correction
+- `recomputed_root` -- the canonical root the handler derived
+- `was_corrupted` -- bool: `prior_root != recomputed_root`. `false` means no-op.
+- `authority` -- governance address that applied the correction
+
 
 ## liquiditypool
 

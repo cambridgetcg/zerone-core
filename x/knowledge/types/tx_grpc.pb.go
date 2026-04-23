@@ -66,6 +66,7 @@ const (
 	Msg_CloseIncident_FullMethodName                 = "/zerone.knowledge.v1.Msg/CloseIncident"
 	Msg_PauseModule_FullMethodName                   = "/zerone.knowledge.v1.Msg/PauseModule"
 	Msg_UnpauseModule_FullMethodName                 = "/zerone.knowledge.v1.Msg/UnpauseModule"
+	Msg_CorrectManifestMerkleRoot_FullMethodName     = "/zerone.knowledge.v1.Msg/CorrectManifestMerkleRoot"
 )
 
 // MsgClient is the client API for Msg service.
@@ -196,6 +197,18 @@ type MsgClient interface {
 	PauseModule(ctx context.Context, in *MsgPauseModule, opts ...grpc.CallOption) (*MsgPauseModuleResponse, error)
 	// UnpauseModule lifts the gate; writes resume.
 	UnpauseModule(ctx context.Context, in *MsgUnpauseModule, opts ...grpc.CallOption) (*MsgUnpauseModuleResponse, error)
+	// ─── Route B Wave 13: surgical state corrections ──────────────────
+	// CorrectManifestMerkleRoot is the authority-gated escape hatch for
+	// repairing a finalized manifest whose merkle_root was corrupted by
+	// an external exploit (direct state write, RPC compromise, etc.).
+	// Recomputes the root from the manifest's stored canonical ID sets
+	// and rewrites it. Requires an open incident_id so the correction
+	// is always bound to its audit trail. Emits a structured event.
+	//
+	// This is explicitly NOT a "re-finalize" — no new IDs are admitted,
+	// no version bumps, no supersession. Pure recomputation from data
+	// already committed to by the manifest's own ID lists.
+	CorrectManifestMerkleRoot(ctx context.Context, in *MsgCorrectManifestMerkleRoot, opts ...grpc.CallOption) (*MsgCorrectManifestMerkleRootResponse, error)
 }
 
 type msgClient struct {
@@ -676,6 +689,16 @@ func (c *msgClient) UnpauseModule(ctx context.Context, in *MsgUnpauseModule, opt
 	return out, nil
 }
 
+func (c *msgClient) CorrectManifestMerkleRoot(ctx context.Context, in *MsgCorrectManifestMerkleRoot, opts ...grpc.CallOption) (*MsgCorrectManifestMerkleRootResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgCorrectManifestMerkleRootResponse)
+	err := c.cc.Invoke(ctx, Msg_CorrectManifestMerkleRoot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility.
@@ -804,6 +827,18 @@ type MsgServer interface {
 	PauseModule(context.Context, *MsgPauseModule) (*MsgPauseModuleResponse, error)
 	// UnpauseModule lifts the gate; writes resume.
 	UnpauseModule(context.Context, *MsgUnpauseModule) (*MsgUnpauseModuleResponse, error)
+	// ─── Route B Wave 13: surgical state corrections ──────────────────
+	// CorrectManifestMerkleRoot is the authority-gated escape hatch for
+	// repairing a finalized manifest whose merkle_root was corrupted by
+	// an external exploit (direct state write, RPC compromise, etc.).
+	// Recomputes the root from the manifest's stored canonical ID sets
+	// and rewrites it. Requires an open incident_id so the correction
+	// is always bound to its audit trail. Emits a structured event.
+	//
+	// This is explicitly NOT a "re-finalize" — no new IDs are admitted,
+	// no version bumps, no supersession. Pure recomputation from data
+	// already committed to by the manifest's own ID lists.
+	CorrectManifestMerkleRoot(context.Context, *MsgCorrectManifestMerkleRoot) (*MsgCorrectManifestMerkleRootResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -954,6 +989,9 @@ func (UnimplementedMsgServer) PauseModule(context.Context, *MsgPauseModule) (*Ms
 }
 func (UnimplementedMsgServer) UnpauseModule(context.Context, *MsgUnpauseModule) (*MsgUnpauseModuleResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UnpauseModule not implemented")
+}
+func (UnimplementedMsgServer) CorrectManifestMerkleRoot(context.Context, *MsgCorrectManifestMerkleRoot) (*MsgCorrectManifestMerkleRootResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CorrectManifestMerkleRoot not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 func (UnimplementedMsgServer) testEmbeddedByValue()             {}
@@ -1822,6 +1860,24 @@ func _Msg_UnpauseModule_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_CorrectManifestMerkleRoot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgCorrectManifestMerkleRoot)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).CorrectManifestMerkleRoot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_CorrectManifestMerkleRoot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).CorrectManifestMerkleRoot(ctx, req.(*MsgCorrectManifestMerkleRoot))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2016,6 +2072,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UnpauseModule",
 			Handler:    _Msg_UnpauseModule_Handler,
+		},
+		{
+			MethodName: "CorrectManifestMerkleRoot",
+			Handler:    _Msg_CorrectManifestMerkleRoot_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

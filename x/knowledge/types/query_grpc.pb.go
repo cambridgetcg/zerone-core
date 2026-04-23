@@ -89,6 +89,7 @@ const (
 	Query_Incidents_FullMethodName                    = "/zerone.knowledge.v1.Query/Incidents"
 	Query_OpenIncidents_FullMethodName                = "/zerone.knowledge.v1.Query/OpenIncidents"
 	Query_PausedModules_FullMethodName                = "/zerone.knowledge.v1.Query/PausedModules"
+	Query_SlaBreachedIncidents_FullMethodName         = "/zerone.knowledge.v1.Query/SlaBreachedIncidents"
 	Query_CommonKnowledge_FullMethodName              = "/zerone.knowledge.v1.Query/CommonKnowledge"
 	Query_CheckNovelty_FullMethodName                 = "/zerone.knowledge.v1.Query/CheckNovelty"
 	Query_ActiveBounties_FullMethodName               = "/zerone.knowledge.v1.Query/ActiveBounties"
@@ -304,6 +305,12 @@ type QueryClient interface {
 	// operator dashboard query; any handler can self-check via keeper's
 	// IsModulePaused helper.
 	PausedModules(ctx context.Context, in *QueryPausedModulesRequest, opts ...grpc.CallOption) (*QueryPausedModulesResponse, error)
+	// ─── Wave 13: SLA dashboard ──────────────────────────────────────────
+	// SlaBreachedIncidents returns every incident whose sla_target_block
+	// has passed and whose status is still OPEN or MITIGATING. The
+	// operator's paging-worthy query — wire it to alerting so the response
+	// team is notified when a tier-appropriate recovery window is missed.
+	SlaBreachedIncidents(ctx context.Context, in *QuerySlaBreachedIncidentsRequest, opts ...grpc.CallOption) (*QuerySlaBreachedIncidentsResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -1043,6 +1050,16 @@ func (c *queryClient) PausedModules(ctx context.Context, in *QueryPausedModulesR
 	return out, nil
 }
 
+func (c *queryClient) SlaBreachedIncidents(ctx context.Context, in *QuerySlaBreachedIncidentsRequest, opts ...grpc.CallOption) (*QuerySlaBreachedIncidentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QuerySlaBreachedIncidentsResponse)
+	err := c.cc.Invoke(ctx, Query_SlaBreachedIncidents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryCommonKnowledgeResponse)
@@ -1391,6 +1408,12 @@ type QueryServer interface {
 	// operator dashboard query; any handler can self-check via keeper's
 	// IsModulePaused helper.
 	PausedModules(context.Context, *QueryPausedModulesRequest) (*QueryPausedModulesResponse, error)
+	// ─── Wave 13: SLA dashboard ──────────────────────────────────────────
+	// SlaBreachedIncidents returns every incident whose sla_target_block
+	// has passed and whose status is still OPEN or MITIGATING. The
+	// operator's paging-worthy query — wire it to alerting so the response
+	// team is notified when a tier-appropriate recovery window is missed.
+	SlaBreachedIncidents(context.Context, *QuerySlaBreachedIncidentsRequest) (*QuerySlaBreachedIncidentsResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -1639,6 +1662,9 @@ func (UnimplementedQueryServer) OpenIncidents(context.Context, *QueryOpenInciden
 }
 func (UnimplementedQueryServer) PausedModules(context.Context, *QueryPausedModulesRequest) (*QueryPausedModulesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PausedModules not implemented")
+}
+func (UnimplementedQueryServer) SlaBreachedIncidents(context.Context, *QuerySlaBreachedIncidentsRequest) (*QuerySlaBreachedIncidentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SlaBreachedIncidents not implemented")
 }
 func (UnimplementedQueryServer) CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CommonKnowledge not implemented")
@@ -2966,6 +2992,24 @@ func _Query_PausedModules_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_SlaBreachedIncidents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuerySlaBreachedIncidentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).SlaBreachedIncidents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_SlaBreachedIncidents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).SlaBreachedIncidents(ctx, req.(*QuerySlaBreachedIncidentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_CommonKnowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryCommonKnowledgeRequest)
 	if err := dec(in); err != nil {
@@ -3522,6 +3566,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PausedModules",
 			Handler:    _Query_PausedModules_Handler,
+		},
+		{
+			MethodName: "SlaBreachedIncidents",
+			Handler:    _Query_SlaBreachedIncidents_Handler,
 		},
 		{
 			MethodName: "CommonKnowledge",

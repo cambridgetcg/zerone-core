@@ -180,6 +180,19 @@ service Msg {
   rpc PauseModule(MsgPauseModule) returns (MsgPauseModuleResponse);
   // UnpauseModule lifts the gate; writes resume.
   rpc UnpauseModule(MsgUnpauseModule) returns (MsgUnpauseModuleResponse);
+
+  // ─── Route B Wave 13: surgical state corrections ──────────────────
+  // CorrectManifestMerkleRoot is the authority-gated escape hatch for
+  // repairing a finalized manifest whose merkle_root was corrupted by
+  // an external exploit (direct state write, RPC compromise, etc.).
+  // Recomputes the root from the manifest's stored canonical ID sets
+  // and rewrites it. Requires an open incident_id so the correction
+  // is always bound to its audit trail. Emits a structured event.
+  //
+  // This is explicitly NOT a "re-finalize" — no new IDs are admitted,
+  // no version bumps, no supersession. Pure recomputation from data
+  // already committed to by the manifest's own ID lists.
+  rpc CorrectManifestMerkleRoot(MsgCorrectManifestMerkleRoot) returns (MsgCorrectManifestMerkleRootResponse);
 }
 
 // ─── PoT lifecycle messages ───────────────────────────────────────────────────
@@ -797,3 +810,26 @@ message MsgUnpauseModule {
   string note        = 3;
 }
 message MsgUnpauseModuleResponse {}
+
+// ─── Route B Wave 13: surgical state corrections ─────────────────────────
+
+message MsgCorrectManifestMerkleRoot {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority      = 1;
+  string manifest_id    = 2;
+  // Required: the incident_id this correction is recorded under. A
+  // correction without an open incident is rejected so no authority-gated
+  // state edit can happen without an audit trail.
+  string incident_id    = 3;
+  // Optional caller-provided expected root. When set, the handler asserts
+  // the recomputed root matches — prevents the handler from silently
+  // overwriting a NON-corrupted manifest due to an operator error.
+  string expected_recomputed_root = 4;
+  string note           = 5;
+}
+message MsgCorrectManifestMerkleRootResponse {
+  string prior_root        = 1;  // what was there before correction
+  string recomputed_root   = 2;  // what the handler wrote
+  bool   was_corrupted     = 3;  // true iff prior != recomputed (else no-op)
+}

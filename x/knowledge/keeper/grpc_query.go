@@ -2464,3 +2464,24 @@ func (q *queryServer) PausedModules(ctx context.Context, _ *types.QueryPausedMod
 		SnapshotBlockHeight: uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()),
 	}, nil
 }
+
+// ─── Wave 13: SLA dashboard ──────────────────────────────────────────────
+
+// SlaBreachedIncidents returns every open incident whose sla_target_block
+// has already passed at the query height. Wire to alerting / pager.
+func (q *queryServer) SlaBreachedIncidents(ctx context.Context, _ *types.QuerySlaBreachedIncidentsRequest) (*types.QuerySlaBreachedIncidentsResponse, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	height := uint64(sdkCtx.BlockHeight())
+	var out []*types.IncidentRecord
+	q.keeper.IterateOpenIncidents(ctx, func(r *types.IncidentRecord) bool {
+		if r.SlaTargetBlock > 0 && height > r.SlaTargetBlock {
+			out = append(out, r)
+		}
+		return false
+	})
+	return &types.QuerySlaBreachedIncidentsResponse{
+		Incidents:           out,
+		SnapshotBlockHeight: height,
+		CurrentBlockHeight:  height,
+	}, nil
+}
