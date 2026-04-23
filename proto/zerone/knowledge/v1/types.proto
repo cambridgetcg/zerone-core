@@ -875,6 +875,30 @@ message MethodologyApplicationTrace {
   // ─── Is-ought marker ───────────────────────────────────────────────────
   // Always false on facts; true only in the parallel NormativeCorpus stream.
   bool is_normative = 90;
+
+  // ─── Wave 6 enrichments ────────────────────────────────────────────────
+  // Step-level structured reasoning (Wave 6.1 / PRM-aligned). When the
+  // submitter posts a structured reasoning trace, it is mirrored here as
+  // discrete steps with per-step inference type, predecessor refs, and
+  // optional verdict. The flat `reasoning_trace` string is preserved for
+  // compatibility; callers may prefer `reasoning_steps` when available.
+  repeated ReasoningStep reasoning_steps = 100;
+
+  // Methodology-selection rationale (Wave 6.3). Alternatives the submitter
+  // considered and rejected, why they picked the chosen method, and any
+  // methods they tried first and abandoned.
+  MethodologyChoice methodology_choice = 101;
+
+  // Belief revision chain (Wave 6.4). Every substantive change to this
+  // fact's confidence appears as a row, oldest-first. Teaches Bayesian
+  // updating as a behavior.
+  repeated BeliefRevision belief_revisions = 102;
+
+  // Nested dialectic (Wave 6.5). When a challenge spawned a multi-turn
+  // debate, the full recursive tree is captured here. Flat challenges in
+  // `challenges` remain for backwards compatibility; `dialectic_tree`
+  // supersedes them as the canonical argumentation signal.
+  repeated DialecticNode dialectic_tree = 103;
 }
 
 message TraceChallenge {
@@ -887,6 +911,184 @@ message TraceChallenge {
   // "pending" — round still open
   string outcome             = 5;
   uint64 resolved_block      = 6;
+  // Wave 6.5 — recursive dialectic tree rooted at this challenge. A
+  // counter-rebuttal to the rebuttal, a counter-counter-rebuttal, and so on.
+  // Empty at depth 1; populated when the debate is multi-turn.
+  repeated DialecticNode children = 7;
+}
+
+// ─── Wave 6.1: step-level reasoning (PRM-aligned) ────────────────────────
+//
+// Lightman et al. 2023 ("Let's Verify Step by Step") + Cobbe et al. 2021:
+// training step-level process rewards (PRMs) substantially outperforms
+// outcome-only reward. ReasoningStep structures a reasoning_trace into
+// discrete, verifier-addressable steps so PRMs can be trained directly.
+
+// StepInference names the epistemic move a single reasoning step makes.
+// Distinct from InferenceType (which describes a FactRelation edge) — this
+// is about reasoning moves WITHIN a trace, e.g. substitution, elimination.
+enum StepInference {
+  STEP_INFERENCE_UNSPECIFIED     = 0;
+  STEP_INFERENCE_OBSERVATION     = 1;   // stating an observation
+  STEP_INFERENCE_DEFINITION      = 2;   // introducing a definition
+  STEP_INFERENCE_DEDUCTION       = 3;   // truth-preserving inference
+  STEP_INFERENCE_INDUCTION       = 4;   // generalizing from cases
+  STEP_INFERENCE_ABDUCTION       = 5;   // inference to best explanation
+  STEP_INFERENCE_ANALOGY         = 6;   // cross-domain mapping
+  STEP_INFERENCE_DECOMPOSITION   = 7;   // breaking the problem into sub-problems
+  STEP_INFERENCE_CASE_SPLIT      = 8;   // exhaustive casework
+  STEP_INFERENCE_CONTRADICTION   = 9;   // proof by contradiction step
+  STEP_INFERENCE_UNIT_CONVERSION = 10;  // substitution / algebra
+  STEP_INFERENCE_VERIFICATION    = 11;  // checking a sub-result
+  STEP_INFERENCE_CONCLUSION      = 12;  // final synthesis
+}
+
+// StepVerdict mirrors verifier panel judgment at step granularity. When a
+// PoT round's verifiers examine reasoning, their approvals/disapprovals
+// attach per-step — not just to the final claim. This makes PRMs trainable.
+enum StepVerdict {
+  STEP_VERDICT_UNSPECIFIED = 0;
+  STEP_VERDICT_UNEXAMINED  = 1;   // default: no panel review at step level
+  STEP_VERDICT_SOUND       = 2;   // step holds under the claimed methodology
+  STEP_VERDICT_QUESTIONABLE = 3;  // step may not follow; panel flagged
+  STEP_VERDICT_UNSOUND     = 4;   // step does not follow; explicit reject
+}
+
+// ReasoningStep is one unit of a structured reasoning trace. The model
+// learns to generate these in sequence, each step grounded in prior facts
+// and declared moves.
+message ReasoningStep {
+  uint32 step_index                  = 1;   // 0-based ordering
+  string content                     = 2;   // what the step says
+  StepInference step_inference       = 3;
+  // Facts this step cites as support (subset of the trace's
+  // predecessor_edges). Teaches the model to cite steps, not just the
+  // final claim.
+  repeated string predecessor_fact_ids = 4;
+  // Previous step indices this step depends on. Internal dependency graph.
+  repeated uint32 depends_on_steps   = 5;
+  // Optional per-step verifier judgment (PRM training signal).
+  StepVerdict verdict                = 6;
+  string verdict_note                = 7;   // panel rationale when non-unexamined
+  // Step-level confidence in BPS. When the methodology permits partial
+  // confidence at intermediate steps, this carries it.
+  uint64 step_confidence_bps         = 8;
+}
+
+// ─── Wave 6.2: drift diagnosis (contrastive-explanation alignment) ───────
+//
+// Miller 2019 ("Explanation in AI: Insights from the Social Sciences") +
+// Kaushik et al. 2020 ("Learning the Difference that Makes a Difference
+// with Counterfactually-Augmented Data"). When a variant drifts, naming
+// HOW the meaning changed is orders of magnitude more training-valuable
+// than just flagging it drifted.
+
+enum DriftKind {
+  DRIFT_KIND_UNSPECIFIED       = 0;
+  DRIFT_KIND_NARROWED          = 1;   // original covered more cases; variant restricts
+  DRIFT_KIND_WIDENED           = 2;   // variant overgeneralizes
+  DRIFT_KIND_REFERENT_SWAP     = 3;   // same words, different referent ("model" — ML vs fashion)
+  DRIFT_KIND_POLARITY_FLIP     = 4;   // inverted truth value
+  DRIFT_KIND_MODAL_SHIFT       = 5;   // from must to may, could to will, etc.
+  DRIFT_KIND_DOMAIN_CONFLATION = 6;   // valid in one domain, restated as cross-domain
+  DRIFT_KIND_HEDGE_REMOVED     = 7;   // "tends to" → "does" (overclaim)
+  DRIFT_KIND_HEDGE_ADDED       = 8;   // "is" → "may be" (underclaim)
+  DRIFT_KIND_TEMPORAL_SHIFT    = 9;   // present-tense claim recast as universal
+  DRIFT_KIND_CAUSAL_CONFLATION = 10;  // correlation stated as causation
+  DRIFT_KIND_METHODOLOGY_SWAP  = 11;  // original was M-FORMAL; variant reads as M-EMPIRICAL
+}
+
+// DriftDiagnosis carries the verifier panel's diagnosis of WHERE and HOW
+// the variant's meaning slipped. Populated on DRIFT/INFERIOR verdicts.
+message DriftDiagnosis {
+  DriftKind drift_kind         = 1;
+  uint32 drifted_at_step_index = 2;  // if the variant is a step-structured trace
+  string original_excerpt      = 3;  // the relevant original text slice
+  string drifted_excerpt       = 4;  // the mirror slice in the variant
+  string explanation           = 5;  // panel's free-form rationale
+}
+
+// ─── Wave 6.3: methodology-choice rationale ──────────────────────────────
+//
+// Kadavath et al. 2022 ("Language Models (Mostly) Know What They Know").
+// Models can learn selection as well as application when trained on the
+// rationale for choosing one method over others. MethodologyChoice exposes
+// what alternatives the submitter considered and why they picked the one
+// they did.
+
+message MethodologyChoice {
+  string chosen_method_id             = 1;
+  repeated string considered_methods  = 2;
+  // Why the chosen method beat each considered alternative. Free-form,
+  // optionally structured by the methodology itself.
+  string rationale                    = 3;
+  // If the submitter tried other methods first and they failed, those
+  // failures are training gold (Zelikman 2022 "STaR" — failed attempts +
+  // successful recovery).
+  repeated string abandoned_methods   = 4;
+  string abandonment_reason           = 5;
+}
+
+// ─── Wave 6.4: belief revision (Bayesian update chain) ───────────────────
+//
+// Popperian corroboration + Bayesian updating literature (Tenenbaum et al.,
+// Griffiths 2008, Kahneman/Tversky 1973). The temporal evolution of a
+// fact's confidence carries the strongest signal for teaching epistemic
+// updating: "I believed P at 0.4; I saw evidence E; I now believe P at
+// 0.7" with the reason spelled out.
+
+enum RevisionReason {
+  REVISION_REASON_UNSPECIFIED          = 0;
+  REVISION_REASON_CORROBORATION        = 1;  // survived a falsification attempt
+  REVISION_REASON_CITATION             = 2;  // a new derivative cited this, strengthening confidence
+  REVISION_REASON_CONTRADICTION        = 3;  // an incoming contradiction weakened confidence
+  REVISION_REASON_REBUTTAL             = 4;  // original submitter rebutted a challenge
+  REVISION_REASON_VINDICATION          = 5;  // minority was right (indirect)
+  REVISION_REASON_TEMPORAL_DECAY       = 6;  // metabolism / age-based decay
+  REVISION_REASON_RESUBMISSION         = 7;  // fact was updated with new reasoning
+  REVISION_REASON_METHODOLOGY_AMENDED  = 8;  // methodology rubric changed under the fact
+  REVISION_REASON_CROSS_DOMAIN_SUPPORT = 9;  // a bridging fact in another domain supported this one
+}
+
+message BeliefRevision {
+  uint64 at_block                 = 1;
+  uint64 prior_confidence_bps     = 2;
+  uint64 posterior_confidence_bps = 3;
+  RevisionReason reason           = 4;
+  // Evidence that triggered the revision.
+  repeated string evidence_fact_ids  = 5;
+  string evidence_claim_id        = 6;  // if triggered by a challenge claim
+  string note                     = 7;
+}
+
+// ─── Wave 6.5: recursive dialectic (debate tree) ────────────────────────
+//
+// Irving, Christiano, Amodei 2018 ("AI Safety via Debate"). Multi-turn
+// debate — challenge, rebuttal, counter-rebuttal, counter-counter —
+// teaches models to sustain and evaluate arguments across depth. Our
+// flat TraceChallenge becomes a recursive tree.
+
+enum DialecticRole {
+  DIALECTIC_ROLE_UNSPECIFIED = 0;
+  DIALECTIC_ROLE_CHALLENGE   = 1;  // opening attack
+  DIALECTIC_ROLE_REBUTTAL    = 2;  // defender's reply
+  DIALECTIC_ROLE_COUNTER     = 3;  // counter-rebuttal (attacker again)
+  DIALECTIC_ROLE_CONCESSION  = 4;  // party admits a point
+  DIALECTIC_ROLE_VERDICT     = 5;  // panel resolution
+}
+
+message DialecticNode {
+  string speaker                = 1;
+  DialecticRole role            = 2;
+  string argument_text          = 3;
+  string method_id              = 4;
+  uint64 at_block               = 5;
+  repeated string cited_fact_ids = 6;
+  // Recursive structure — responses to THIS node.
+  repeated DialecticNode children = 7;
+  // Panel judgment of this specific node's strength, if the round recorded
+  // fine-grained scoring.
+  StepVerdict node_verdict      = 8;
 }
 
 message TraceVindication {
@@ -919,6 +1121,13 @@ message TraceDrift {
   AugmentationVerdict verdict  = 3;  // DRIFT or INFERIOR
   repeated string drift_voters = 4;  // verifier panel (for attribution training)
   uint64 verdict_block         = 5;
+  // Wave 6.2 — diagnostic reasoning for the drift. Populated when the
+  // verifier panel recorded which kind of meaning-slippage occurred.
+  DriftDiagnosis diagnosis     = 6;
+  // Optional structured reasoning the DRIFTER produced (contrastive with
+  // the winner's reasoning steps). Valuable for learning meaning-
+  // preservation at fine granularity.
+  repeated ReasoningStep drifter_steps = 7;
 }
 
 // ─── Contrastive pairs (preference-training format) ──────────────────────

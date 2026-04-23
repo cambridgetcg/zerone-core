@@ -721,6 +721,350 @@ func (AugmentationVerdict) EnumDescriptor() ([]byte, []int) {
 	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{10}
 }
 
+// StepInference names the epistemic move a single reasoning step makes.
+// Distinct from InferenceType (which describes a FactRelation edge) — this
+// is about reasoning moves WITHIN a trace, e.g. substitution, elimination.
+type StepInference int32
+
+const (
+	StepInference_STEP_INFERENCE_UNSPECIFIED     StepInference = 0
+	StepInference_STEP_INFERENCE_OBSERVATION     StepInference = 1  // stating an observation
+	StepInference_STEP_INFERENCE_DEFINITION      StepInference = 2  // introducing a definition
+	StepInference_STEP_INFERENCE_DEDUCTION       StepInference = 3  // truth-preserving inference
+	StepInference_STEP_INFERENCE_INDUCTION       StepInference = 4  // generalizing from cases
+	StepInference_STEP_INFERENCE_ABDUCTION       StepInference = 5  // inference to best explanation
+	StepInference_STEP_INFERENCE_ANALOGY         StepInference = 6  // cross-domain mapping
+	StepInference_STEP_INFERENCE_DECOMPOSITION   StepInference = 7  // breaking the problem into sub-problems
+	StepInference_STEP_INFERENCE_CASE_SPLIT      StepInference = 8  // exhaustive casework
+	StepInference_STEP_INFERENCE_CONTRADICTION   StepInference = 9  // proof by contradiction step
+	StepInference_STEP_INFERENCE_UNIT_CONVERSION StepInference = 10 // substitution / algebra
+	StepInference_STEP_INFERENCE_VERIFICATION    StepInference = 11 // checking a sub-result
+	StepInference_STEP_INFERENCE_CONCLUSION      StepInference = 12 // final synthesis
+)
+
+// Enum value maps for StepInference.
+var (
+	StepInference_name = map[int32]string{
+		0:  "STEP_INFERENCE_UNSPECIFIED",
+		1:  "STEP_INFERENCE_OBSERVATION",
+		2:  "STEP_INFERENCE_DEFINITION",
+		3:  "STEP_INFERENCE_DEDUCTION",
+		4:  "STEP_INFERENCE_INDUCTION",
+		5:  "STEP_INFERENCE_ABDUCTION",
+		6:  "STEP_INFERENCE_ANALOGY",
+		7:  "STEP_INFERENCE_DECOMPOSITION",
+		8:  "STEP_INFERENCE_CASE_SPLIT",
+		9:  "STEP_INFERENCE_CONTRADICTION",
+		10: "STEP_INFERENCE_UNIT_CONVERSION",
+		11: "STEP_INFERENCE_VERIFICATION",
+		12: "STEP_INFERENCE_CONCLUSION",
+	}
+	StepInference_value = map[string]int32{
+		"STEP_INFERENCE_UNSPECIFIED":     0,
+		"STEP_INFERENCE_OBSERVATION":     1,
+		"STEP_INFERENCE_DEFINITION":      2,
+		"STEP_INFERENCE_DEDUCTION":       3,
+		"STEP_INFERENCE_INDUCTION":       4,
+		"STEP_INFERENCE_ABDUCTION":       5,
+		"STEP_INFERENCE_ANALOGY":         6,
+		"STEP_INFERENCE_DECOMPOSITION":   7,
+		"STEP_INFERENCE_CASE_SPLIT":      8,
+		"STEP_INFERENCE_CONTRADICTION":   9,
+		"STEP_INFERENCE_UNIT_CONVERSION": 10,
+		"STEP_INFERENCE_VERIFICATION":    11,
+		"STEP_INFERENCE_CONCLUSION":      12,
+	}
+)
+
+func (x StepInference) Enum() *StepInference {
+	p := new(StepInference)
+	*p = x
+	return p
+}
+
+func (x StepInference) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StepInference) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_knowledge_v1_types_proto_enumTypes[11].Descriptor()
+}
+
+func (StepInference) Type() protoreflect.EnumType {
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[11]
+}
+
+func (x StepInference) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StepInference.Descriptor instead.
+func (StepInference) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{11}
+}
+
+// StepVerdict mirrors verifier panel judgment at step granularity. When a
+// PoT round's verifiers examine reasoning, their approvals/disapprovals
+// attach per-step — not just to the final claim. This makes PRMs trainable.
+type StepVerdict int32
+
+const (
+	StepVerdict_STEP_VERDICT_UNSPECIFIED  StepVerdict = 0
+	StepVerdict_STEP_VERDICT_UNEXAMINED   StepVerdict = 1 // default: no panel review at step level
+	StepVerdict_STEP_VERDICT_SOUND        StepVerdict = 2 // step holds under the claimed methodology
+	StepVerdict_STEP_VERDICT_QUESTIONABLE StepVerdict = 3 // step may not follow; panel flagged
+	StepVerdict_STEP_VERDICT_UNSOUND      StepVerdict = 4 // step does not follow; explicit reject
+)
+
+// Enum value maps for StepVerdict.
+var (
+	StepVerdict_name = map[int32]string{
+		0: "STEP_VERDICT_UNSPECIFIED",
+		1: "STEP_VERDICT_UNEXAMINED",
+		2: "STEP_VERDICT_SOUND",
+		3: "STEP_VERDICT_QUESTIONABLE",
+		4: "STEP_VERDICT_UNSOUND",
+	}
+	StepVerdict_value = map[string]int32{
+		"STEP_VERDICT_UNSPECIFIED":  0,
+		"STEP_VERDICT_UNEXAMINED":   1,
+		"STEP_VERDICT_SOUND":        2,
+		"STEP_VERDICT_QUESTIONABLE": 3,
+		"STEP_VERDICT_UNSOUND":      4,
+	}
+)
+
+func (x StepVerdict) Enum() *StepVerdict {
+	p := new(StepVerdict)
+	*p = x
+	return p
+}
+
+func (x StepVerdict) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StepVerdict) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_knowledge_v1_types_proto_enumTypes[12].Descriptor()
+}
+
+func (StepVerdict) Type() protoreflect.EnumType {
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[12]
+}
+
+func (x StepVerdict) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StepVerdict.Descriptor instead.
+func (StepVerdict) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{12}
+}
+
+type DriftKind int32
+
+const (
+	DriftKind_DRIFT_KIND_UNSPECIFIED       DriftKind = 0
+	DriftKind_DRIFT_KIND_NARROWED          DriftKind = 1  // original covered more cases; variant restricts
+	DriftKind_DRIFT_KIND_WIDENED           DriftKind = 2  // variant overgeneralizes
+	DriftKind_DRIFT_KIND_REFERENT_SWAP     DriftKind = 3  // same words, different referent ("model" — ML vs fashion)
+	DriftKind_DRIFT_KIND_POLARITY_FLIP     DriftKind = 4  // inverted truth value
+	DriftKind_DRIFT_KIND_MODAL_SHIFT       DriftKind = 5  // from must to may, could to will, etc.
+	DriftKind_DRIFT_KIND_DOMAIN_CONFLATION DriftKind = 6  // valid in one domain, restated as cross-domain
+	DriftKind_DRIFT_KIND_HEDGE_REMOVED     DriftKind = 7  // "tends to" → "does" (overclaim)
+	DriftKind_DRIFT_KIND_HEDGE_ADDED       DriftKind = 8  // "is" → "may be" (underclaim)
+	DriftKind_DRIFT_KIND_TEMPORAL_SHIFT    DriftKind = 9  // present-tense claim recast as universal
+	DriftKind_DRIFT_KIND_CAUSAL_CONFLATION DriftKind = 10 // correlation stated as causation
+	DriftKind_DRIFT_KIND_METHODOLOGY_SWAP  DriftKind = 11 // original was M-FORMAL; variant reads as M-EMPIRICAL
+)
+
+// Enum value maps for DriftKind.
+var (
+	DriftKind_name = map[int32]string{
+		0:  "DRIFT_KIND_UNSPECIFIED",
+		1:  "DRIFT_KIND_NARROWED",
+		2:  "DRIFT_KIND_WIDENED",
+		3:  "DRIFT_KIND_REFERENT_SWAP",
+		4:  "DRIFT_KIND_POLARITY_FLIP",
+		5:  "DRIFT_KIND_MODAL_SHIFT",
+		6:  "DRIFT_KIND_DOMAIN_CONFLATION",
+		7:  "DRIFT_KIND_HEDGE_REMOVED",
+		8:  "DRIFT_KIND_HEDGE_ADDED",
+		9:  "DRIFT_KIND_TEMPORAL_SHIFT",
+		10: "DRIFT_KIND_CAUSAL_CONFLATION",
+		11: "DRIFT_KIND_METHODOLOGY_SWAP",
+	}
+	DriftKind_value = map[string]int32{
+		"DRIFT_KIND_UNSPECIFIED":       0,
+		"DRIFT_KIND_NARROWED":          1,
+		"DRIFT_KIND_WIDENED":           2,
+		"DRIFT_KIND_REFERENT_SWAP":     3,
+		"DRIFT_KIND_POLARITY_FLIP":     4,
+		"DRIFT_KIND_MODAL_SHIFT":       5,
+		"DRIFT_KIND_DOMAIN_CONFLATION": 6,
+		"DRIFT_KIND_HEDGE_REMOVED":     7,
+		"DRIFT_KIND_HEDGE_ADDED":       8,
+		"DRIFT_KIND_TEMPORAL_SHIFT":    9,
+		"DRIFT_KIND_CAUSAL_CONFLATION": 10,
+		"DRIFT_KIND_METHODOLOGY_SWAP":  11,
+	}
+)
+
+func (x DriftKind) Enum() *DriftKind {
+	p := new(DriftKind)
+	*p = x
+	return p
+}
+
+func (x DriftKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DriftKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_knowledge_v1_types_proto_enumTypes[13].Descriptor()
+}
+
+func (DriftKind) Type() protoreflect.EnumType {
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[13]
+}
+
+func (x DriftKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DriftKind.Descriptor instead.
+func (DriftKind) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{13}
+}
+
+type RevisionReason int32
+
+const (
+	RevisionReason_REVISION_REASON_UNSPECIFIED          RevisionReason = 0
+	RevisionReason_REVISION_REASON_CORROBORATION        RevisionReason = 1 // survived a falsification attempt
+	RevisionReason_REVISION_REASON_CITATION             RevisionReason = 2 // a new derivative cited this, strengthening confidence
+	RevisionReason_REVISION_REASON_CONTRADICTION        RevisionReason = 3 // an incoming contradiction weakened confidence
+	RevisionReason_REVISION_REASON_REBUTTAL             RevisionReason = 4 // original submitter rebutted a challenge
+	RevisionReason_REVISION_REASON_VINDICATION          RevisionReason = 5 // minority was right (indirect)
+	RevisionReason_REVISION_REASON_TEMPORAL_DECAY       RevisionReason = 6 // metabolism / age-based decay
+	RevisionReason_REVISION_REASON_RESUBMISSION         RevisionReason = 7 // fact was updated with new reasoning
+	RevisionReason_REVISION_REASON_METHODOLOGY_AMENDED  RevisionReason = 8 // methodology rubric changed under the fact
+	RevisionReason_REVISION_REASON_CROSS_DOMAIN_SUPPORT RevisionReason = 9 // a bridging fact in another domain supported this one
+)
+
+// Enum value maps for RevisionReason.
+var (
+	RevisionReason_name = map[int32]string{
+		0: "REVISION_REASON_UNSPECIFIED",
+		1: "REVISION_REASON_CORROBORATION",
+		2: "REVISION_REASON_CITATION",
+		3: "REVISION_REASON_CONTRADICTION",
+		4: "REVISION_REASON_REBUTTAL",
+		5: "REVISION_REASON_VINDICATION",
+		6: "REVISION_REASON_TEMPORAL_DECAY",
+		7: "REVISION_REASON_RESUBMISSION",
+		8: "REVISION_REASON_METHODOLOGY_AMENDED",
+		9: "REVISION_REASON_CROSS_DOMAIN_SUPPORT",
+	}
+	RevisionReason_value = map[string]int32{
+		"REVISION_REASON_UNSPECIFIED":          0,
+		"REVISION_REASON_CORROBORATION":        1,
+		"REVISION_REASON_CITATION":             2,
+		"REVISION_REASON_CONTRADICTION":        3,
+		"REVISION_REASON_REBUTTAL":             4,
+		"REVISION_REASON_VINDICATION":          5,
+		"REVISION_REASON_TEMPORAL_DECAY":       6,
+		"REVISION_REASON_RESUBMISSION":         7,
+		"REVISION_REASON_METHODOLOGY_AMENDED":  8,
+		"REVISION_REASON_CROSS_DOMAIN_SUPPORT": 9,
+	}
+)
+
+func (x RevisionReason) Enum() *RevisionReason {
+	p := new(RevisionReason)
+	*p = x
+	return p
+}
+
+func (x RevisionReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RevisionReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_knowledge_v1_types_proto_enumTypes[14].Descriptor()
+}
+
+func (RevisionReason) Type() protoreflect.EnumType {
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[14]
+}
+
+func (x RevisionReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RevisionReason.Descriptor instead.
+func (RevisionReason) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{14}
+}
+
+type DialecticRole int32
+
+const (
+	DialecticRole_DIALECTIC_ROLE_UNSPECIFIED DialecticRole = 0
+	DialecticRole_DIALECTIC_ROLE_CHALLENGE   DialecticRole = 1 // opening attack
+	DialecticRole_DIALECTIC_ROLE_REBUTTAL    DialecticRole = 2 // defender's reply
+	DialecticRole_DIALECTIC_ROLE_COUNTER     DialecticRole = 3 // counter-rebuttal (attacker again)
+	DialecticRole_DIALECTIC_ROLE_CONCESSION  DialecticRole = 4 // party admits a point
+	DialecticRole_DIALECTIC_ROLE_VERDICT     DialecticRole = 5 // panel resolution
+)
+
+// Enum value maps for DialecticRole.
+var (
+	DialecticRole_name = map[int32]string{
+		0: "DIALECTIC_ROLE_UNSPECIFIED",
+		1: "DIALECTIC_ROLE_CHALLENGE",
+		2: "DIALECTIC_ROLE_REBUTTAL",
+		3: "DIALECTIC_ROLE_COUNTER",
+		4: "DIALECTIC_ROLE_CONCESSION",
+		5: "DIALECTIC_ROLE_VERDICT",
+	}
+	DialecticRole_value = map[string]int32{
+		"DIALECTIC_ROLE_UNSPECIFIED": 0,
+		"DIALECTIC_ROLE_CHALLENGE":   1,
+		"DIALECTIC_ROLE_REBUTTAL":    2,
+		"DIALECTIC_ROLE_COUNTER":     3,
+		"DIALECTIC_ROLE_CONCESSION":  4,
+		"DIALECTIC_ROLE_VERDICT":     5,
+	}
+)
+
+func (x DialecticRole) Enum() *DialecticRole {
+	p := new(DialecticRole)
+	*p = x
+	return p
+}
+
+func (x DialecticRole) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DialecticRole) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_knowledge_v1_types_proto_enumTypes[15].Descriptor()
+}
+
+func (DialecticRole) Type() protoreflect.EnumType {
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[15]
+}
+
+func (x DialecticRole) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DialecticRole.Descriptor instead.
+func (DialecticRole) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{15}
+}
+
 // ContrastivePairType enumerates the epistemic relationship between the two
 // members of a contrastive pair. The (type, method_id, distinguishing
 // argument) triple tells a trainer WHY the positive beat the negative.
@@ -763,11 +1107,11 @@ func (x ContrastivePairType) String() string {
 }
 
 func (ContrastivePairType) Descriptor() protoreflect.EnumDescriptor {
-	return file_zerone_knowledge_v1_types_proto_enumTypes[11].Descriptor()
+	return file_zerone_knowledge_v1_types_proto_enumTypes[16].Descriptor()
 }
 
 func (ContrastivePairType) Type() protoreflect.EnumType {
-	return &file_zerone_knowledge_v1_types_proto_enumTypes[11]
+	return &file_zerone_knowledge_v1_types_proto_enumTypes[16]
 }
 
 func (x ContrastivePairType) Number() protoreflect.EnumNumber {
@@ -776,7 +1120,7 @@ func (x ContrastivePairType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContrastivePairType.Descriptor instead.
 func (ContrastivePairType) EnumDescriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{11}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{16}
 }
 
 // FactRelation is a typed, directional edge in the knowledge graph.
@@ -4821,7 +5165,27 @@ type MethodologyApplicationTrace struct {
 	QualityTier                         TrainingQualityTier `protobuf:"varint,86,opt,name=quality_tier,json=qualityTier,proto3,enum=zerone.knowledge.v1.TrainingQualityTier" json:"quality_tier,omitempty"`
 	// ─── Is-ought marker ───────────────────────────────────────────────────
 	// Always false on facts; true only in the parallel NormativeCorpus stream.
-	IsNormative   bool `protobuf:"varint,90,opt,name=is_normative,json=isNormative,proto3" json:"is_normative,omitempty"`
+	IsNormative bool `protobuf:"varint,90,opt,name=is_normative,json=isNormative,proto3" json:"is_normative,omitempty"`
+	// ─── Wave 6 enrichments ────────────────────────────────────────────────
+	// Step-level structured reasoning (Wave 6.1 / PRM-aligned). When the
+	// submitter posts a structured reasoning trace, it is mirrored here as
+	// discrete steps with per-step inference type, predecessor refs, and
+	// optional verdict. The flat `reasoning_trace` string is preserved for
+	// compatibility; callers may prefer `reasoning_steps` when available.
+	ReasoningSteps []*ReasoningStep `protobuf:"bytes,100,rep,name=reasoning_steps,json=reasoningSteps,proto3" json:"reasoning_steps,omitempty"`
+	// Methodology-selection rationale (Wave 6.3). Alternatives the submitter
+	// considered and rejected, why they picked the chosen method, and any
+	// methods they tried first and abandoned.
+	MethodologyChoice *MethodologyChoice `protobuf:"bytes,101,opt,name=methodology_choice,json=methodologyChoice,proto3" json:"methodology_choice,omitempty"`
+	// Belief revision chain (Wave 6.4). Every substantive change to this
+	// fact's confidence appears as a row, oldest-first. Teaches Bayesian
+	// updating as a behavior.
+	BeliefRevisions []*BeliefRevision `protobuf:"bytes,102,rep,name=belief_revisions,json=beliefRevisions,proto3" json:"belief_revisions,omitempty"`
+	// Nested dialectic (Wave 6.5). When a challenge spawned a multi-turn
+	// debate, the full recursive tree is captured here. Flat challenges in
+	// `challenges` remain for backwards compatibility; `dialectic_tree`
+	// supersedes them as the canonical argumentation signal.
+	DialecticTree []*DialecticNode `protobuf:"bytes,103,rep,name=dialectic_tree,json=dialecticTree,proto3" json:"dialectic_tree,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5136,6 +5500,34 @@ func (x *MethodologyApplicationTrace) GetIsNormative() bool {
 	return false
 }
 
+func (x *MethodologyApplicationTrace) GetReasoningSteps() []*ReasoningStep {
+	if x != nil {
+		return x.ReasoningSteps
+	}
+	return nil
+}
+
+func (x *MethodologyApplicationTrace) GetMethodologyChoice() *MethodologyChoice {
+	if x != nil {
+		return x.MethodologyChoice
+	}
+	return nil
+}
+
+func (x *MethodologyApplicationTrace) GetBeliefRevisions() []*BeliefRevision {
+	if x != nil {
+		return x.BeliefRevisions
+	}
+	return nil
+}
+
+func (x *MethodologyApplicationTrace) GetDialecticTree() []*DialecticNode {
+	if x != nil {
+		return x.DialecticTree
+	}
+	return nil
+}
+
 type TraceChallenge struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Challenger        string                 `protobuf:"bytes,1,opt,name=challenger,proto3" json:"challenger,omitempty"`
@@ -5147,6 +5539,10 @@ type TraceChallenge struct {
 	// "pending" — round still open
 	Outcome       string `protobuf:"bytes,5,opt,name=outcome,proto3" json:"outcome,omitempty"`
 	ResolvedBlock uint64 `protobuf:"varint,6,opt,name=resolved_block,json=resolvedBlock,proto3" json:"resolved_block,omitempty"`
+	// Wave 6.5 — recursive dialectic tree rooted at this challenge. A
+	// counter-rebuttal to the rebuttal, a counter-counter-rebuttal, and so on.
+	// Empty at depth 1; populated when the debate is multi-turn.
+	Children      []*DialecticNode `protobuf:"bytes,7,rep,name=children,proto3" json:"children,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5223,6 +5619,478 @@ func (x *TraceChallenge) GetResolvedBlock() uint64 {
 	return 0
 }
 
+func (x *TraceChallenge) GetChildren() []*DialecticNode {
+	if x != nil {
+		return x.Children
+	}
+	return nil
+}
+
+// ReasoningStep is one unit of a structured reasoning trace. The model
+// learns to generate these in sequence, each step grounded in prior facts
+// and declared moves.
+type ReasoningStep struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StepIndex     uint32                 `protobuf:"varint,1,opt,name=step_index,json=stepIndex,proto3" json:"step_index,omitempty"` // 0-based ordering
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`                       // what the step says
+	StepInference StepInference          `protobuf:"varint,3,opt,name=step_inference,json=stepInference,proto3,enum=zerone.knowledge.v1.StepInference" json:"step_inference,omitempty"`
+	// Facts this step cites as support (subset of the trace's
+	// predecessor_edges). Teaches the model to cite steps, not just the
+	// final claim.
+	PredecessorFactIds []string `protobuf:"bytes,4,rep,name=predecessor_fact_ids,json=predecessorFactIds,proto3" json:"predecessor_fact_ids,omitempty"`
+	// Previous step indices this step depends on. Internal dependency graph.
+	DependsOnSteps []uint32 `protobuf:"varint,5,rep,packed,name=depends_on_steps,json=dependsOnSteps,proto3" json:"depends_on_steps,omitempty"`
+	// Optional per-step verifier judgment (PRM training signal).
+	Verdict     StepVerdict `protobuf:"varint,6,opt,name=verdict,proto3,enum=zerone.knowledge.v1.StepVerdict" json:"verdict,omitempty"`
+	VerdictNote string      `protobuf:"bytes,7,opt,name=verdict_note,json=verdictNote,proto3" json:"verdict_note,omitempty"` // panel rationale when non-unexamined
+	// Step-level confidence in BPS. When the methodology permits partial
+	// confidence at intermediate steps, this carries it.
+	StepConfidenceBps uint64 `protobuf:"varint,8,opt,name=step_confidence_bps,json=stepConfidenceBps,proto3" json:"step_confidence_bps,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ReasoningStep) Reset() {
+	*x = ReasoningStep{}
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReasoningStep) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReasoningStep) ProtoMessage() {}
+
+func (x *ReasoningStep) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReasoningStep.ProtoReflect.Descriptor instead.
+func (*ReasoningStep) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ReasoningStep) GetStepIndex() uint32 {
+	if x != nil {
+		return x.StepIndex
+	}
+	return 0
+}
+
+func (x *ReasoningStep) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *ReasoningStep) GetStepInference() StepInference {
+	if x != nil {
+		return x.StepInference
+	}
+	return StepInference_STEP_INFERENCE_UNSPECIFIED
+}
+
+func (x *ReasoningStep) GetPredecessorFactIds() []string {
+	if x != nil {
+		return x.PredecessorFactIds
+	}
+	return nil
+}
+
+func (x *ReasoningStep) GetDependsOnSteps() []uint32 {
+	if x != nil {
+		return x.DependsOnSteps
+	}
+	return nil
+}
+
+func (x *ReasoningStep) GetVerdict() StepVerdict {
+	if x != nil {
+		return x.Verdict
+	}
+	return StepVerdict_STEP_VERDICT_UNSPECIFIED
+}
+
+func (x *ReasoningStep) GetVerdictNote() string {
+	if x != nil {
+		return x.VerdictNote
+	}
+	return ""
+}
+
+func (x *ReasoningStep) GetStepConfidenceBps() uint64 {
+	if x != nil {
+		return x.StepConfidenceBps
+	}
+	return 0
+}
+
+// DriftDiagnosis carries the verifier panel's diagnosis of WHERE and HOW
+// the variant's meaning slipped. Populated on DRIFT/INFERIOR verdicts.
+type DriftDiagnosis struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	DriftKind          DriftKind              `protobuf:"varint,1,opt,name=drift_kind,json=driftKind,proto3,enum=zerone.knowledge.v1.DriftKind" json:"drift_kind,omitempty"`
+	DriftedAtStepIndex uint32                 `protobuf:"varint,2,opt,name=drifted_at_step_index,json=driftedAtStepIndex,proto3" json:"drifted_at_step_index,omitempty"` // if the variant is a step-structured trace
+	OriginalExcerpt    string                 `protobuf:"bytes,3,opt,name=original_excerpt,json=originalExcerpt,proto3" json:"original_excerpt,omitempty"`               // the relevant original text slice
+	DriftedExcerpt     string                 `protobuf:"bytes,4,opt,name=drifted_excerpt,json=driftedExcerpt,proto3" json:"drifted_excerpt,omitempty"`                  // the mirror slice in the variant
+	Explanation        string                 `protobuf:"bytes,5,opt,name=explanation,proto3" json:"explanation,omitempty"`                                              // panel's free-form rationale
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *DriftDiagnosis) Reset() {
+	*x = DriftDiagnosis{}
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DriftDiagnosis) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DriftDiagnosis) ProtoMessage() {}
+
+func (x *DriftDiagnosis) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DriftDiagnosis.ProtoReflect.Descriptor instead.
+func (*DriftDiagnosis) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *DriftDiagnosis) GetDriftKind() DriftKind {
+	if x != nil {
+		return x.DriftKind
+	}
+	return DriftKind_DRIFT_KIND_UNSPECIFIED
+}
+
+func (x *DriftDiagnosis) GetDriftedAtStepIndex() uint32 {
+	if x != nil {
+		return x.DriftedAtStepIndex
+	}
+	return 0
+}
+
+func (x *DriftDiagnosis) GetOriginalExcerpt() string {
+	if x != nil {
+		return x.OriginalExcerpt
+	}
+	return ""
+}
+
+func (x *DriftDiagnosis) GetDriftedExcerpt() string {
+	if x != nil {
+		return x.DriftedExcerpt
+	}
+	return ""
+}
+
+func (x *DriftDiagnosis) GetExplanation() string {
+	if x != nil {
+		return x.Explanation
+	}
+	return ""
+}
+
+type MethodologyChoice struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ChosenMethodId    string                 `protobuf:"bytes,1,opt,name=chosen_method_id,json=chosenMethodId,proto3" json:"chosen_method_id,omitempty"`
+	ConsideredMethods []string               `protobuf:"bytes,2,rep,name=considered_methods,json=consideredMethods,proto3" json:"considered_methods,omitempty"`
+	// Why the chosen method beat each considered alternative. Free-form,
+	// optionally structured by the methodology itself.
+	Rationale string `protobuf:"bytes,3,opt,name=rationale,proto3" json:"rationale,omitempty"`
+	// If the submitter tried other methods first and they failed, those
+	// failures are training gold (Zelikman 2022 "STaR" — failed attempts +
+	// successful recovery).
+	AbandonedMethods  []string `protobuf:"bytes,4,rep,name=abandoned_methods,json=abandonedMethods,proto3" json:"abandoned_methods,omitempty"`
+	AbandonmentReason string   `protobuf:"bytes,5,opt,name=abandonment_reason,json=abandonmentReason,proto3" json:"abandonment_reason,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *MethodologyChoice) Reset() {
+	*x = MethodologyChoice{}
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MethodologyChoice) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MethodologyChoice) ProtoMessage() {}
+
+func (x *MethodologyChoice) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MethodologyChoice.ProtoReflect.Descriptor instead.
+func (*MethodologyChoice) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *MethodologyChoice) GetChosenMethodId() string {
+	if x != nil {
+		return x.ChosenMethodId
+	}
+	return ""
+}
+
+func (x *MethodologyChoice) GetConsideredMethods() []string {
+	if x != nil {
+		return x.ConsideredMethods
+	}
+	return nil
+}
+
+func (x *MethodologyChoice) GetRationale() string {
+	if x != nil {
+		return x.Rationale
+	}
+	return ""
+}
+
+func (x *MethodologyChoice) GetAbandonedMethods() []string {
+	if x != nil {
+		return x.AbandonedMethods
+	}
+	return nil
+}
+
+func (x *MethodologyChoice) GetAbandonmentReason() string {
+	if x != nil {
+		return x.AbandonmentReason
+	}
+	return ""
+}
+
+type BeliefRevision struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	AtBlock                uint64                 `protobuf:"varint,1,opt,name=at_block,json=atBlock,proto3" json:"at_block,omitempty"`
+	PriorConfidenceBps     uint64                 `protobuf:"varint,2,opt,name=prior_confidence_bps,json=priorConfidenceBps,proto3" json:"prior_confidence_bps,omitempty"`
+	PosteriorConfidenceBps uint64                 `protobuf:"varint,3,opt,name=posterior_confidence_bps,json=posteriorConfidenceBps,proto3" json:"posterior_confidence_bps,omitempty"`
+	Reason                 RevisionReason         `protobuf:"varint,4,opt,name=reason,proto3,enum=zerone.knowledge.v1.RevisionReason" json:"reason,omitempty"`
+	// Evidence that triggered the revision.
+	EvidenceFactIds []string `protobuf:"bytes,5,rep,name=evidence_fact_ids,json=evidenceFactIds,proto3" json:"evidence_fact_ids,omitempty"`
+	EvidenceClaimId string   `protobuf:"bytes,6,opt,name=evidence_claim_id,json=evidenceClaimId,proto3" json:"evidence_claim_id,omitempty"` // if triggered by a challenge claim
+	Note            string   `protobuf:"bytes,7,opt,name=note,proto3" json:"note,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *BeliefRevision) Reset() {
+	*x = BeliefRevision{}
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeliefRevision) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeliefRevision) ProtoMessage() {}
+
+func (x *BeliefRevision) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeliefRevision.ProtoReflect.Descriptor instead.
+func (*BeliefRevision) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *BeliefRevision) GetAtBlock() uint64 {
+	if x != nil {
+		return x.AtBlock
+	}
+	return 0
+}
+
+func (x *BeliefRevision) GetPriorConfidenceBps() uint64 {
+	if x != nil {
+		return x.PriorConfidenceBps
+	}
+	return 0
+}
+
+func (x *BeliefRevision) GetPosteriorConfidenceBps() uint64 {
+	if x != nil {
+		return x.PosteriorConfidenceBps
+	}
+	return 0
+}
+
+func (x *BeliefRevision) GetReason() RevisionReason {
+	if x != nil {
+		return x.Reason
+	}
+	return RevisionReason_REVISION_REASON_UNSPECIFIED
+}
+
+func (x *BeliefRevision) GetEvidenceFactIds() []string {
+	if x != nil {
+		return x.EvidenceFactIds
+	}
+	return nil
+}
+
+func (x *BeliefRevision) GetEvidenceClaimId() string {
+	if x != nil {
+		return x.EvidenceClaimId
+	}
+	return ""
+}
+
+func (x *BeliefRevision) GetNote() string {
+	if x != nil {
+		return x.Note
+	}
+	return ""
+}
+
+type DialecticNode struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Speaker      string                 `protobuf:"bytes,1,opt,name=speaker,proto3" json:"speaker,omitempty"`
+	Role         DialecticRole          `protobuf:"varint,2,opt,name=role,proto3,enum=zerone.knowledge.v1.DialecticRole" json:"role,omitempty"`
+	ArgumentText string                 `protobuf:"bytes,3,opt,name=argument_text,json=argumentText,proto3" json:"argument_text,omitempty"`
+	MethodId     string                 `protobuf:"bytes,4,opt,name=method_id,json=methodId,proto3" json:"method_id,omitempty"`
+	AtBlock      uint64                 `protobuf:"varint,5,opt,name=at_block,json=atBlock,proto3" json:"at_block,omitempty"`
+	CitedFactIds []string               `protobuf:"bytes,6,rep,name=cited_fact_ids,json=citedFactIds,proto3" json:"cited_fact_ids,omitempty"`
+	// Recursive structure — responses to THIS node.
+	Children []*DialecticNode `protobuf:"bytes,7,rep,name=children,proto3" json:"children,omitempty"`
+	// Panel judgment of this specific node's strength, if the round recorded
+	// fine-grained scoring.
+	NodeVerdict   StepVerdict `protobuf:"varint,8,opt,name=node_verdict,json=nodeVerdict,proto3,enum=zerone.knowledge.v1.StepVerdict" json:"node_verdict,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DialecticNode) Reset() {
+	*x = DialecticNode{}
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DialecticNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DialecticNode) ProtoMessage() {}
+
+func (x *DialecticNode) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DialecticNode.ProtoReflect.Descriptor instead.
+func (*DialecticNode) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *DialecticNode) GetSpeaker() string {
+	if x != nil {
+		return x.Speaker
+	}
+	return ""
+}
+
+func (x *DialecticNode) GetRole() DialecticRole {
+	if x != nil {
+		return x.Role
+	}
+	return DialecticRole_DIALECTIC_ROLE_UNSPECIFIED
+}
+
+func (x *DialecticNode) GetArgumentText() string {
+	if x != nil {
+		return x.ArgumentText
+	}
+	return ""
+}
+
+func (x *DialecticNode) GetMethodId() string {
+	if x != nil {
+		return x.MethodId
+	}
+	return ""
+}
+
+func (x *DialecticNode) GetAtBlock() uint64 {
+	if x != nil {
+		return x.AtBlock
+	}
+	return 0
+}
+
+func (x *DialecticNode) GetCitedFactIds() []string {
+	if x != nil {
+		return x.CitedFactIds
+	}
+	return nil
+}
+
+func (x *DialecticNode) GetChildren() []*DialecticNode {
+	if x != nil {
+		return x.Children
+	}
+	return nil
+}
+
+func (x *DialecticNode) GetNodeVerdict() StepVerdict {
+	if x != nil {
+		return x.NodeVerdict
+	}
+	return StepVerdict_STEP_VERDICT_UNSPECIFIED
+}
+
 type TraceVindication struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Verifiers         []string               `protobuf:"bytes,1,rep,name=verifiers,proto3" json:"verifiers,omitempty"`                        // minority voters who were vindicated
@@ -5235,7 +6103,7 @@ type TraceVindication struct {
 
 func (x *TraceVindication) Reset() {
 	*x = TraceVindication{}
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[31]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5247,7 +6115,7 @@ func (x *TraceVindication) String() string {
 func (*TraceVindication) ProtoMessage() {}
 
 func (x *TraceVindication) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[31]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5260,7 +6128,7 @@ func (x *TraceVindication) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TraceVindication.ProtoReflect.Descriptor instead.
 func (*TraceVindication) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{31}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *TraceVindication) GetVerifiers() []string {
@@ -5304,7 +6172,7 @@ type TraceDisproval struct {
 
 func (x *TraceDisproval) Reset() {
 	*x = TraceDisproval{}
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[32]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5316,7 +6184,7 @@ func (x *TraceDisproval) String() string {
 func (*TraceDisproval) ProtoMessage() {}
 
 func (x *TraceDisproval) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[32]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5329,7 +6197,7 @@ func (x *TraceDisproval) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TraceDisproval.ProtoReflect.Descriptor instead.
 func (*TraceDisproval) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{32}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *TraceDisproval) GetDisprovenByFactId() string {
@@ -5381,7 +6249,7 @@ type TraceReformulation struct {
 
 func (x *TraceReformulation) Reset() {
 	*x = TraceReformulation{}
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[33]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5393,7 +6261,7 @@ func (x *TraceReformulation) String() string {
 func (*TraceReformulation) ProtoMessage() {}
 
 func (x *TraceReformulation) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[33]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5406,7 +6274,7 @@ func (x *TraceReformulation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TraceReformulation.ProtoReflect.Descriptor instead.
 func (*TraceReformulation) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{33}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *TraceReformulation) GetAugmentationId() string {
@@ -5458,13 +6326,20 @@ type TraceDrift struct {
 	Verdict        AugmentationVerdict    `protobuf:"varint,3,opt,name=verdict,proto3,enum=zerone.knowledge.v1.AugmentationVerdict" json:"verdict,omitempty"` // DRIFT or INFERIOR
 	DriftVoters    []string               `protobuf:"bytes,4,rep,name=drift_voters,json=driftVoters,proto3" json:"drift_voters,omitempty"`                    // verifier panel (for attribution training)
 	VerdictBlock   uint64                 `protobuf:"varint,5,opt,name=verdict_block,json=verdictBlock,proto3" json:"verdict_block,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Wave 6.2 — diagnostic reasoning for the drift. Populated when the
+	// verifier panel recorded which kind of meaning-slippage occurred.
+	Diagnosis *DriftDiagnosis `protobuf:"bytes,6,opt,name=diagnosis,proto3" json:"diagnosis,omitempty"`
+	// Optional structured reasoning the DRIFTER produced (contrastive with
+	// the winner's reasoning steps). Valuable for learning meaning-
+	// preservation at fine granularity.
+	DrifterSteps  []*ReasoningStep `protobuf:"bytes,7,rep,name=drifter_steps,json=drifterSteps,proto3" json:"drifter_steps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TraceDrift) Reset() {
 	*x = TraceDrift{}
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[34]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5476,7 +6351,7 @@ func (x *TraceDrift) String() string {
 func (*TraceDrift) ProtoMessage() {}
 
 func (x *TraceDrift) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[34]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5489,7 +6364,7 @@ func (x *TraceDrift) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TraceDrift.ProtoReflect.Descriptor instead.
 func (*TraceDrift) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{34}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *TraceDrift) GetAugmentationId() string {
@@ -5527,6 +6402,20 @@ func (x *TraceDrift) GetVerdictBlock() uint64 {
 	return 0
 }
 
+func (x *TraceDrift) GetDiagnosis() *DriftDiagnosis {
+	if x != nil {
+		return x.Diagnosis
+	}
+	return nil
+}
+
+func (x *TraceDrift) GetDrifterSteps() []*ReasoningStep {
+	if x != nil {
+		return x.DrifterSteps
+	}
+	return nil
+}
+
 // ContrastivePair is a (positive, negative, verdict) training row for
 // preference learning. ZERONE's unique lever: web crawl only has survivors;
 // this format ships the LOSING side with the adjudication that beat it.
@@ -5555,7 +6444,7 @@ type ContrastivePair struct {
 
 func (x *ContrastivePair) Reset() {
 	*x = ContrastivePair{}
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[35]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5567,7 +6456,7 @@ func (x *ContrastivePair) String() string {
 func (*ContrastivePair) ProtoMessage() {}
 
 func (x *ContrastivePair) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[35]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5580,7 +6469,7 @@ func (x *ContrastivePair) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContrastivePair.ProtoReflect.Descriptor instead.
 func (*ContrastivePair) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{35}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ContrastivePair) GetPairId() string {
@@ -5686,7 +6575,7 @@ type TraceSchema struct {
 
 func (x *TraceSchema) Reset() {
 	*x = TraceSchema{}
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[36]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5698,7 +6587,7 @@ func (x *TraceSchema) String() string {
 func (*TraceSchema) ProtoMessage() {}
 
 func (x *TraceSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[36]
+	mi := &file_zerone_knowledge_v1_types_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5711,7 +6600,7 @@ func (x *TraceSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TraceSchema.ProtoReflect.Descriptor instead.
 func (*TraceSchema) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{36}
+	return file_zerone_knowledge_v1_types_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *TraceSchema) GetVersion() uint64 {
@@ -6188,7 +7077,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x06domain\x18\x01 \x01(\tR\x06domain\x12\x1f\n" +
 	"\vhas_dissent\x18\x02 \x01(\bR\n" +
 	"hasDissent\x12'\n" +
-	"\x0fduration_blocks\x18\x03 \x01(\x04R\x0edurationBlocks\"\xc8\x10\n" +
+	"\x0fduration_blocks\x18\x03 \x01(\x04R\x0edurationBlocks\"\x87\x13\n" +
 	"\x1bMethodologyApplicationTrace\x12\x19\n" +
 	"\btrace_id\x18\x01 \x01(\tR\atraceId\x12\x17\n" +
 	"\afact_id\x18\x02 \x01(\tR\x06factId\x122\n" +
@@ -6232,7 +7121,11 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x19training_value_weight_bps\x18T \x01(\x04R\x16trainingValueWeightBps\x12L\n" +
 	"\x0fcurriculum_tier\x18U \x01(\x0e2#.zerone.knowledge.v1.CurriculumTierR\x0ecurriculumTier\x12K\n" +
 	"\fquality_tier\x18V \x01(\x0e2(.zerone.knowledge.v1.TrainingQualityTierR\vqualityTier\x12!\n" +
-	"\fis_normative\x18Z \x01(\bR\visNormative\"\xeb\x01\n" +
+	"\fis_normative\x18Z \x01(\bR\visNormative\x12K\n" +
+	"\x0freasoning_steps\x18d \x03(\v2\".zerone.knowledge.v1.ReasoningStepR\x0ereasoningSteps\x12U\n" +
+	"\x12methodology_choice\x18e \x01(\v2&.zerone.knowledge.v1.MethodologyChoiceR\x11methodologyChoice\x12N\n" +
+	"\x10belief_revisions\x18f \x03(\v2#.zerone.knowledge.v1.BeliefRevisionR\x0fbeliefRevisions\x12I\n" +
+	"\x0edialectic_tree\x18g \x03(\v2\".zerone.knowledge.v1.DialecticNodeR\rdialecticTree\"\xab\x02\n" +
 	"\x0eTraceChallenge\x12\x1e\n" +
 	"\n" +
 	"challenger\x18\x01 \x01(\tR\n" +
@@ -6241,7 +7134,48 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x13challenge_method_id\x18\x03 \x01(\tR\x11challengeMethodId\x12#\n" +
 	"\rrebuttal_text\x18\x04 \x01(\tR\frebuttalText\x12\x18\n" +
 	"\aoutcome\x18\x05 \x01(\tR\aoutcome\x12%\n" +
-	"\x0eresolved_block\x18\x06 \x01(\x04R\rresolvedBlock\"\xb4\x01\n" +
+	"\x0eresolved_block\x18\x06 \x01(\x04R\rresolvedBlock\x12>\n" +
+	"\bchildren\x18\a \x03(\v2\".zerone.knowledge.v1.DialecticNodeR\bchildren\"\xfe\x02\n" +
+	"\rReasoningStep\x12\x1d\n" +
+	"\n" +
+	"step_index\x18\x01 \x01(\rR\tstepIndex\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12I\n" +
+	"\x0estep_inference\x18\x03 \x01(\x0e2\".zerone.knowledge.v1.StepInferenceR\rstepInference\x120\n" +
+	"\x14predecessor_fact_ids\x18\x04 \x03(\tR\x12predecessorFactIds\x12(\n" +
+	"\x10depends_on_steps\x18\x05 \x03(\rR\x0edependsOnSteps\x12:\n" +
+	"\averdict\x18\x06 \x01(\x0e2 .zerone.knowledge.v1.StepVerdictR\averdict\x12!\n" +
+	"\fverdict_note\x18\a \x01(\tR\vverdictNote\x12.\n" +
+	"\x13step_confidence_bps\x18\b \x01(\x04R\x11stepConfidenceBps\"\xf8\x01\n" +
+	"\x0eDriftDiagnosis\x12=\n" +
+	"\n" +
+	"drift_kind\x18\x01 \x01(\x0e2\x1e.zerone.knowledge.v1.DriftKindR\tdriftKind\x121\n" +
+	"\x15drifted_at_step_index\x18\x02 \x01(\rR\x12driftedAtStepIndex\x12)\n" +
+	"\x10original_excerpt\x18\x03 \x01(\tR\x0foriginalExcerpt\x12'\n" +
+	"\x0fdrifted_excerpt\x18\x04 \x01(\tR\x0edriftedExcerpt\x12 \n" +
+	"\vexplanation\x18\x05 \x01(\tR\vexplanation\"\xe6\x01\n" +
+	"\x11MethodologyChoice\x12(\n" +
+	"\x10chosen_method_id\x18\x01 \x01(\tR\x0echosenMethodId\x12-\n" +
+	"\x12considered_methods\x18\x02 \x03(\tR\x11consideredMethods\x12\x1c\n" +
+	"\trationale\x18\x03 \x01(\tR\trationale\x12+\n" +
+	"\x11abandoned_methods\x18\x04 \x03(\tR\x10abandonedMethods\x12-\n" +
+	"\x12abandonment_reason\x18\x05 \x01(\tR\x11abandonmentReason\"\xc0\x02\n" +
+	"\x0eBeliefRevision\x12\x19\n" +
+	"\bat_block\x18\x01 \x01(\x04R\aatBlock\x120\n" +
+	"\x14prior_confidence_bps\x18\x02 \x01(\x04R\x12priorConfidenceBps\x128\n" +
+	"\x18posterior_confidence_bps\x18\x03 \x01(\x04R\x16posteriorConfidenceBps\x12;\n" +
+	"\x06reason\x18\x04 \x01(\x0e2#.zerone.knowledge.v1.RevisionReasonR\x06reason\x12*\n" +
+	"\x11evidence_fact_ids\x18\x05 \x03(\tR\x0fevidenceFactIds\x12*\n" +
+	"\x11evidence_claim_id\x18\x06 \x01(\tR\x0fevidenceClaimId\x12\x12\n" +
+	"\x04note\x18\a \x01(\tR\x04note\"\xe9\x02\n" +
+	"\rDialecticNode\x12\x18\n" +
+	"\aspeaker\x18\x01 \x01(\tR\aspeaker\x126\n" +
+	"\x04role\x18\x02 \x01(\x0e2\".zerone.knowledge.v1.DialecticRoleR\x04role\x12#\n" +
+	"\rargument_text\x18\x03 \x01(\tR\fargumentText\x12\x1b\n" +
+	"\tmethod_id\x18\x04 \x01(\tR\bmethodId\x12\x19\n" +
+	"\bat_block\x18\x05 \x01(\x04R\aatBlock\x12$\n" +
+	"\x0ecited_fact_ids\x18\x06 \x03(\tR\fcitedFactIds\x12>\n" +
+	"\bchildren\x18\a \x03(\v2\".zerone.knowledge.v1.DialecticNodeR\bchildren\x12C\n" +
+	"\fnode_verdict\x18\b \x01(\x0e2 .zerone.knowledge.v1.StepVerdictR\vnodeVerdict\"\xb4\x01\n" +
 	"\x10TraceVindication\x12\x1c\n" +
 	"\tverifiers\x18\x01 \x03(\tR\tverifiers\x12!\n" +
 	"\frefund_total\x18\x02 \x01(\tR\vrefundTotal\x12.\n" +
@@ -6259,14 +7193,16 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\averdict\x18\x03 \x01(\x0e2(.zerone.knowledge.v1.AugmentationVerdictR\averdict\x12%\n" +
 	"\x0everifier_count\x18\x04 \x01(\rR\rverifierCount\x12#\n" +
 	"\rverdict_block\x18\x05 \x01(\x04R\fverdictBlock\x12%\n" +
-	"\x0emethodology_id\x18\x06 \x01(\tR\rmethodologyId\"\xea\x01\n" +
+	"\x0emethodology_id\x18\x06 \x01(\tR\rmethodologyId\"\xf6\x02\n" +
 	"\n" +
 	"TraceDrift\x12'\n" +
 	"\x0faugmentation_id\x18\x01 \x01(\tR\x0eaugmentationId\x12'\n" +
 	"\x0fvariant_content\x18\x02 \x01(\tR\x0evariantContent\x12B\n" +
 	"\averdict\x18\x03 \x01(\x0e2(.zerone.knowledge.v1.AugmentationVerdictR\averdict\x12!\n" +
 	"\fdrift_voters\x18\x04 \x03(\tR\vdriftVoters\x12#\n" +
-	"\rverdict_block\x18\x05 \x01(\x04R\fverdictBlock\"\xbd\x04\n" +
+	"\rverdict_block\x18\x05 \x01(\x04R\fverdictBlock\x12A\n" +
+	"\tdiagnosis\x18\x06 \x01(\v2#.zerone.knowledge.v1.DriftDiagnosisR\tdiagnosis\x12G\n" +
+	"\rdrifter_steps\x18\a \x03(\v2\".zerone.knowledge.v1.ReasoningStepR\fdrifterSteps\"\xbd\x04\n" +
 	"\x0fContrastivePair\x12\x17\n" +
 	"\apair_id\x18\x01 \x01(\tR\x06pairId\x12E\n" +
 	"\tpair_type\x18\x02 \x01(\x0e2(.zerone.knowledge.v1.ContrastivePairTypeR\bpairType\x12(\n" +
@@ -6384,7 +7320,60 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x1fAUGMENTATION_VERDICT_EQUIVALENT\x10\x01\x12!\n" +
 	"\x1dAUGMENTATION_VERDICT_SUPERIOR\x10\x02\x12!\n" +
 	"\x1dAUGMENTATION_VERDICT_INFERIOR\x10\x03\x12\x1e\n" +
-	"\x1aAUGMENTATION_VERDICT_DRIFT\x10\x04*\xe4\x01\n" +
+	"\x1aAUGMENTATION_VERDICT_DRIFT\x10\x04*\xab\x03\n" +
+	"\rStepInference\x12\x1e\n" +
+	"\x1aSTEP_INFERENCE_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aSTEP_INFERENCE_OBSERVATION\x10\x01\x12\x1d\n" +
+	"\x19STEP_INFERENCE_DEFINITION\x10\x02\x12\x1c\n" +
+	"\x18STEP_INFERENCE_DEDUCTION\x10\x03\x12\x1c\n" +
+	"\x18STEP_INFERENCE_INDUCTION\x10\x04\x12\x1c\n" +
+	"\x18STEP_INFERENCE_ABDUCTION\x10\x05\x12\x1a\n" +
+	"\x16STEP_INFERENCE_ANALOGY\x10\x06\x12 \n" +
+	"\x1cSTEP_INFERENCE_DECOMPOSITION\x10\a\x12\x1d\n" +
+	"\x19STEP_INFERENCE_CASE_SPLIT\x10\b\x12 \n" +
+	"\x1cSTEP_INFERENCE_CONTRADICTION\x10\t\x12\"\n" +
+	"\x1eSTEP_INFERENCE_UNIT_CONVERSION\x10\n" +
+	"\x12\x1f\n" +
+	"\x1bSTEP_INFERENCE_VERIFICATION\x10\v\x12\x1d\n" +
+	"\x19STEP_INFERENCE_CONCLUSION\x10\f*\x99\x01\n" +
+	"\vStepVerdict\x12\x1c\n" +
+	"\x18STEP_VERDICT_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17STEP_VERDICT_UNEXAMINED\x10\x01\x12\x16\n" +
+	"\x12STEP_VERDICT_SOUND\x10\x02\x12\x1d\n" +
+	"\x19STEP_VERDICT_QUESTIONABLE\x10\x03\x12\x18\n" +
+	"\x14STEP_VERDICT_UNSOUND\x10\x04*\xee\x02\n" +
+	"\tDriftKind\x12\x1a\n" +
+	"\x16DRIFT_KIND_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13DRIFT_KIND_NARROWED\x10\x01\x12\x16\n" +
+	"\x12DRIFT_KIND_WIDENED\x10\x02\x12\x1c\n" +
+	"\x18DRIFT_KIND_REFERENT_SWAP\x10\x03\x12\x1c\n" +
+	"\x18DRIFT_KIND_POLARITY_FLIP\x10\x04\x12\x1a\n" +
+	"\x16DRIFT_KIND_MODAL_SHIFT\x10\x05\x12 \n" +
+	"\x1cDRIFT_KIND_DOMAIN_CONFLATION\x10\x06\x12\x1c\n" +
+	"\x18DRIFT_KIND_HEDGE_REMOVED\x10\a\x12\x1a\n" +
+	"\x16DRIFT_KIND_HEDGE_ADDED\x10\b\x12\x1d\n" +
+	"\x19DRIFT_KIND_TEMPORAL_SHIFT\x10\t\x12 \n" +
+	"\x1cDRIFT_KIND_CAUSAL_CONFLATION\x10\n" +
+	"\x12\x1f\n" +
+	"\x1bDRIFT_KIND_METHODOLOGY_SWAP\x10\v*\xed\x02\n" +
+	"\x0eRevisionReason\x12\x1f\n" +
+	"\x1bREVISION_REASON_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dREVISION_REASON_CORROBORATION\x10\x01\x12\x1c\n" +
+	"\x18REVISION_REASON_CITATION\x10\x02\x12!\n" +
+	"\x1dREVISION_REASON_CONTRADICTION\x10\x03\x12\x1c\n" +
+	"\x18REVISION_REASON_REBUTTAL\x10\x04\x12\x1f\n" +
+	"\x1bREVISION_REASON_VINDICATION\x10\x05\x12\"\n" +
+	"\x1eREVISION_REASON_TEMPORAL_DECAY\x10\x06\x12 \n" +
+	"\x1cREVISION_REASON_RESUBMISSION\x10\a\x12'\n" +
+	"#REVISION_REASON_METHODOLOGY_AMENDED\x10\b\x12(\n" +
+	"$REVISION_REASON_CROSS_DOMAIN_SUPPORT\x10\t*\xc1\x01\n" +
+	"\rDialecticRole\x12\x1e\n" +
+	"\x1aDIALECTIC_ROLE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18DIALECTIC_ROLE_CHALLENGE\x10\x01\x12\x1b\n" +
+	"\x17DIALECTIC_ROLE_REBUTTAL\x10\x02\x12\x1a\n" +
+	"\x16DIALECTIC_ROLE_COUNTER\x10\x03\x12\x1d\n" +
+	"\x19DIALECTIC_ROLE_CONCESSION\x10\x04\x12\x1a\n" +
+	"\x16DIALECTIC_ROLE_VERDICT\x10\x05*\xe4\x01\n" +
 	"\x13ContrastivePairType\x12 \n" +
 	"\x1cCONTRASTIVE_PAIR_UNSPECIFIED\x10\x00\x12*\n" +
 	"&CONTRASTIVE_PAIR_SURVIVED_VS_DISPROVEN\x10\x01\x12(\n" +
@@ -6404,8 +7393,8 @@ func file_zerone_knowledge_v1_types_proto_rawDescGZIP() []byte {
 	return file_zerone_knowledge_v1_types_proto_rawDescData
 }
 
-var file_zerone_knowledge_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 12)
-var file_zerone_knowledge_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_zerone_knowledge_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 17)
+var file_zerone_knowledge_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 44)
 var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(FactStatus)(0),                     // 0: zerone.knowledge.v1.FactStatus
 	(ClaimStatus)(0),                    // 1: zerone.knowledge.v1.ClaimStatus
@@ -6418,89 +7407,113 @@ var file_zerone_knowledge_v1_types_proto_goTypes = []any{
 	(CurriculumTier)(0),                 // 8: zerone.knowledge.v1.CurriculumTier
 	(TrainingQualityTier)(0),            // 9: zerone.knowledge.v1.TrainingQualityTier
 	(AugmentationVerdict)(0),            // 10: zerone.knowledge.v1.AugmentationVerdict
-	(ContrastivePairType)(0),            // 11: zerone.knowledge.v1.ContrastivePairType
-	(*FactRelation)(nil),                // 12: zerone.knowledge.v1.FactRelation
-	(*ClaimRelation)(nil),               // 13: zerone.knowledge.v1.ClaimRelation
-	(*NormativeCommitment)(nil),         // 14: zerone.knowledge.v1.NormativeCommitment
-	(*Methodology)(nil),                 // 15: zerone.knowledge.v1.Methodology
-	(*ClaimStructure)(nil),              // 16: zerone.knowledge.v1.ClaimStructure
-	(*Fact)(nil),                        // 17: zerone.knowledge.v1.Fact
-	(*TokenizerSpec)(nil),               // 18: zerone.knowledge.v1.TokenizerSpec
-	(*TrainingPipeline)(nil),            // 19: zerone.knowledge.v1.TrainingPipeline
-	(*ModelCard)(nil),                   // 20: zerone.knowledge.v1.ModelCard
-	(*TrainingAttestation)(nil),         // 21: zerone.knowledge.v1.TrainingAttestation
-	(*ContributionRecord)(nil),          // 22: zerone.knowledge.v1.ContributionRecord
-	(*AugmentationBounty)(nil),          // 23: zerone.knowledge.v1.AugmentationBounty
-	(*Augmentation)(nil),                // 24: zerone.knowledge.v1.Augmentation
-	(*ContributionChallenge)(nil),       // 25: zerone.knowledge.v1.ContributionChallenge
-	(*TrainingFundDisbursement)(nil),    // 26: zerone.knowledge.v1.TrainingFundDisbursement
-	(*AgentMethodStats)(nil),            // 27: zerone.knowledge.v1.AgentMethodStats
-	(*AgentCalibration)(nil),            // 28: zerone.knowledge.v1.AgentCalibration
-	(*CommonKnowledgeEntry)(nil),        // 29: zerone.knowledge.v1.CommonKnowledgeEntry
-	(*Claim)(nil),                       // 30: zerone.knowledge.v1.Claim
-	(*VerificationRound)(nil),           // 31: zerone.knowledge.v1.VerificationRound
-	(*CommitEntry)(nil),                 // 32: zerone.knowledge.v1.CommitEntry
-	(*RevealEntry)(nil),                 // 33: zerone.knowledge.v1.RevealEntry
-	(*VRFProof)(nil),                    // 34: zerone.knowledge.v1.VRFProof
-	(*Domain)(nil),                      // 35: zerone.knowledge.v1.Domain
-	(*ValidatorInfo)(nil),               // 36: zerone.knowledge.v1.ValidatorInfo
-	(*ProvisionalChallenge)(nil),        // 37: zerone.knowledge.v1.ProvisionalChallenge
-	(*DemandSignal)(nil),                // 38: zerone.knowledge.v1.DemandSignal
-	(*KnowledgeBounty)(nil),             // 39: zerone.knowledge.v1.KnowledgeBounty
-	(*CompletedRoundMeta)(nil),          // 40: zerone.knowledge.v1.CompletedRoundMeta
-	(*MethodologyApplicationTrace)(nil), // 41: zerone.knowledge.v1.MethodologyApplicationTrace
-	(*TraceChallenge)(nil),              // 42: zerone.knowledge.v1.TraceChallenge
-	(*TraceVindication)(nil),            // 43: zerone.knowledge.v1.TraceVindication
-	(*TraceDisproval)(nil),              // 44: zerone.knowledge.v1.TraceDisproval
-	(*TraceReformulation)(nil),          // 45: zerone.knowledge.v1.TraceReformulation
-	(*TraceDrift)(nil),                  // 46: zerone.knowledge.v1.TraceDrift
-	(*ContrastivePair)(nil),             // 47: zerone.knowledge.v1.ContrastivePair
-	(*TraceSchema)(nil),                 // 48: zerone.knowledge.v1.TraceSchema
-	nil,                                 // 49: zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
-	nil,                                 // 50: zerone.knowledge.v1.AgentCalibration.PerMethodEntry
+	(StepInference)(0),                  // 11: zerone.knowledge.v1.StepInference
+	(StepVerdict)(0),                    // 12: zerone.knowledge.v1.StepVerdict
+	(DriftKind)(0),                      // 13: zerone.knowledge.v1.DriftKind
+	(RevisionReason)(0),                 // 14: zerone.knowledge.v1.RevisionReason
+	(DialecticRole)(0),                  // 15: zerone.knowledge.v1.DialecticRole
+	(ContrastivePairType)(0),            // 16: zerone.knowledge.v1.ContrastivePairType
+	(*FactRelation)(nil),                // 17: zerone.knowledge.v1.FactRelation
+	(*ClaimRelation)(nil),               // 18: zerone.knowledge.v1.ClaimRelation
+	(*NormativeCommitment)(nil),         // 19: zerone.knowledge.v1.NormativeCommitment
+	(*Methodology)(nil),                 // 20: zerone.knowledge.v1.Methodology
+	(*ClaimStructure)(nil),              // 21: zerone.knowledge.v1.ClaimStructure
+	(*Fact)(nil),                        // 22: zerone.knowledge.v1.Fact
+	(*TokenizerSpec)(nil),               // 23: zerone.knowledge.v1.TokenizerSpec
+	(*TrainingPipeline)(nil),            // 24: zerone.knowledge.v1.TrainingPipeline
+	(*ModelCard)(nil),                   // 25: zerone.knowledge.v1.ModelCard
+	(*TrainingAttestation)(nil),         // 26: zerone.knowledge.v1.TrainingAttestation
+	(*ContributionRecord)(nil),          // 27: zerone.knowledge.v1.ContributionRecord
+	(*AugmentationBounty)(nil),          // 28: zerone.knowledge.v1.AugmentationBounty
+	(*Augmentation)(nil),                // 29: zerone.knowledge.v1.Augmentation
+	(*ContributionChallenge)(nil),       // 30: zerone.knowledge.v1.ContributionChallenge
+	(*TrainingFundDisbursement)(nil),    // 31: zerone.knowledge.v1.TrainingFundDisbursement
+	(*AgentMethodStats)(nil),            // 32: zerone.knowledge.v1.AgentMethodStats
+	(*AgentCalibration)(nil),            // 33: zerone.knowledge.v1.AgentCalibration
+	(*CommonKnowledgeEntry)(nil),        // 34: zerone.knowledge.v1.CommonKnowledgeEntry
+	(*Claim)(nil),                       // 35: zerone.knowledge.v1.Claim
+	(*VerificationRound)(nil),           // 36: zerone.knowledge.v1.VerificationRound
+	(*CommitEntry)(nil),                 // 37: zerone.knowledge.v1.CommitEntry
+	(*RevealEntry)(nil),                 // 38: zerone.knowledge.v1.RevealEntry
+	(*VRFProof)(nil),                    // 39: zerone.knowledge.v1.VRFProof
+	(*Domain)(nil),                      // 40: zerone.knowledge.v1.Domain
+	(*ValidatorInfo)(nil),               // 41: zerone.knowledge.v1.ValidatorInfo
+	(*ProvisionalChallenge)(nil),        // 42: zerone.knowledge.v1.ProvisionalChallenge
+	(*DemandSignal)(nil),                // 43: zerone.knowledge.v1.DemandSignal
+	(*KnowledgeBounty)(nil),             // 44: zerone.knowledge.v1.KnowledgeBounty
+	(*CompletedRoundMeta)(nil),          // 45: zerone.knowledge.v1.CompletedRoundMeta
+	(*MethodologyApplicationTrace)(nil), // 46: zerone.knowledge.v1.MethodologyApplicationTrace
+	(*TraceChallenge)(nil),              // 47: zerone.knowledge.v1.TraceChallenge
+	(*ReasoningStep)(nil),               // 48: zerone.knowledge.v1.ReasoningStep
+	(*DriftDiagnosis)(nil),              // 49: zerone.knowledge.v1.DriftDiagnosis
+	(*MethodologyChoice)(nil),           // 50: zerone.knowledge.v1.MethodologyChoice
+	(*BeliefRevision)(nil),              // 51: zerone.knowledge.v1.BeliefRevision
+	(*DialecticNode)(nil),               // 52: zerone.knowledge.v1.DialecticNode
+	(*TraceVindication)(nil),            // 53: zerone.knowledge.v1.TraceVindication
+	(*TraceDisproval)(nil),              // 54: zerone.knowledge.v1.TraceDisproval
+	(*TraceReformulation)(nil),          // 55: zerone.knowledge.v1.TraceReformulation
+	(*TraceDrift)(nil),                  // 56: zerone.knowledge.v1.TraceDrift
+	(*ContrastivePair)(nil),             // 57: zerone.knowledge.v1.ContrastivePair
+	(*TraceSchema)(nil),                 // 58: zerone.knowledge.v1.TraceSchema
+	nil,                                 // 59: zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
+	nil,                                 // 60: zerone.knowledge.v1.AgentCalibration.PerMethodEntry
 }
 var file_zerone_knowledge_v1_types_proto_depIdxs = []int32{
 	5,  // 0: zerone.knowledge.v1.FactRelation.relation:type_name -> zerone.knowledge.v1.RelationType
 	6,  // 1: zerone.knowledge.v1.FactRelation.inference:type_name -> zerone.knowledge.v1.InferenceType
 	5,  // 2: zerone.knowledge.v1.ClaimRelation.relation:type_name -> zerone.knowledge.v1.RelationType
 	6,  // 3: zerone.knowledge.v1.ClaimRelation.inference:type_name -> zerone.knowledge.v1.InferenceType
-	49, // 4: zerone.knowledge.v1.Methodology.cross_method_discount_bps:type_name -> zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
+	59, // 4: zerone.knowledge.v1.Methodology.cross_method_discount_bps:type_name -> zerone.knowledge.v1.Methodology.CrossMethodDiscountBpsEntry
 	0,  // 5: zerone.knowledge.v1.Fact.status:type_name -> zerone.knowledge.v1.FactStatus
 	4,  // 6: zerone.knowledge.v1.Fact.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	12, // 7: zerone.knowledge.v1.Fact.outgoing_relations:type_name -> zerone.knowledge.v1.FactRelation
-	12, // 8: zerone.knowledge.v1.Fact.incoming_relations:type_name -> zerone.knowledge.v1.FactRelation
-	16, // 9: zerone.knowledge.v1.Fact.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	17, // 7: zerone.knowledge.v1.Fact.outgoing_relations:type_name -> zerone.knowledge.v1.FactRelation
+	17, // 8: zerone.knowledge.v1.Fact.incoming_relations:type_name -> zerone.knowledge.v1.FactRelation
+	21, // 9: zerone.knowledge.v1.Fact.structure:type_name -> zerone.knowledge.v1.ClaimStructure
 	10, // 10: zerone.knowledge.v1.Augmentation.verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
 	10, // 11: zerone.knowledge.v1.Augmentation.verdict_votes:type_name -> zerone.knowledge.v1.AugmentationVerdict
-	50, // 12: zerone.knowledge.v1.AgentCalibration.per_method:type_name -> zerone.knowledge.v1.AgentCalibration.PerMethodEntry
+	60, // 12: zerone.knowledge.v1.AgentCalibration.per_method:type_name -> zerone.knowledge.v1.AgentCalibration.PerMethodEntry
 	1,  // 13: zerone.knowledge.v1.Claim.status:type_name -> zerone.knowledge.v1.ClaimStatus
 	4,  // 14: zerone.knowledge.v1.Claim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	13, // 15: zerone.knowledge.v1.Claim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
-	16, // 16: zerone.knowledge.v1.Claim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	18, // 15: zerone.knowledge.v1.Claim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
+	21, // 16: zerone.knowledge.v1.Claim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
 	2,  // 17: zerone.knowledge.v1.VerificationRound.phase:type_name -> zerone.knowledge.v1.VerificationPhase
-	32, // 18: zerone.knowledge.v1.VerificationRound.commits:type_name -> zerone.knowledge.v1.CommitEntry
-	33, // 19: zerone.knowledge.v1.VerificationRound.reveals:type_name -> zerone.knowledge.v1.RevealEntry
+	37, // 18: zerone.knowledge.v1.VerificationRound.commits:type_name -> zerone.knowledge.v1.CommitEntry
+	38, // 19: zerone.knowledge.v1.VerificationRound.reveals:type_name -> zerone.knowledge.v1.RevealEntry
 	3,  // 20: zerone.knowledge.v1.VerificationRound.verdict:type_name -> zerone.knowledge.v1.Verdict
 	7,  // 21: zerone.knowledge.v1.Domain.status:type_name -> zerone.knowledge.v1.DomainStatus
-	12, // 22: zerone.knowledge.v1.MethodologyApplicationTrace.predecessor_edges:type_name -> zerone.knowledge.v1.FactRelation
-	12, // 23: zerone.knowledge.v1.MethodologyApplicationTrace.descendant_edges:type_name -> zerone.knowledge.v1.FactRelation
-	42, // 24: zerone.knowledge.v1.MethodologyApplicationTrace.challenges:type_name -> zerone.knowledge.v1.TraceChallenge
+	17, // 22: zerone.knowledge.v1.MethodologyApplicationTrace.predecessor_edges:type_name -> zerone.knowledge.v1.FactRelation
+	17, // 23: zerone.knowledge.v1.MethodologyApplicationTrace.descendant_edges:type_name -> zerone.knowledge.v1.FactRelation
+	47, // 24: zerone.knowledge.v1.MethodologyApplicationTrace.challenges:type_name -> zerone.knowledge.v1.TraceChallenge
 	0,  // 25: zerone.knowledge.v1.MethodologyApplicationTrace.status:type_name -> zerone.knowledge.v1.FactStatus
-	43, // 26: zerone.knowledge.v1.MethodologyApplicationTrace.vindication:type_name -> zerone.knowledge.v1.TraceVindication
-	44, // 27: zerone.knowledge.v1.MethodologyApplicationTrace.disproval:type_name -> zerone.knowledge.v1.TraceDisproval
-	45, // 28: zerone.knowledge.v1.MethodologyApplicationTrace.reformulations:type_name -> zerone.knowledge.v1.TraceReformulation
-	46, // 29: zerone.knowledge.v1.MethodologyApplicationTrace.drift_examples:type_name -> zerone.knowledge.v1.TraceDrift
+	53, // 26: zerone.knowledge.v1.MethodologyApplicationTrace.vindication:type_name -> zerone.knowledge.v1.TraceVindication
+	54, // 27: zerone.knowledge.v1.MethodologyApplicationTrace.disproval:type_name -> zerone.knowledge.v1.TraceDisproval
+	55, // 28: zerone.knowledge.v1.MethodologyApplicationTrace.reformulations:type_name -> zerone.knowledge.v1.TraceReformulation
+	56, // 29: zerone.knowledge.v1.MethodologyApplicationTrace.drift_examples:type_name -> zerone.knowledge.v1.TraceDrift
 	8,  // 30: zerone.knowledge.v1.MethodologyApplicationTrace.curriculum_tier:type_name -> zerone.knowledge.v1.CurriculumTier
 	9,  // 31: zerone.knowledge.v1.MethodologyApplicationTrace.quality_tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
-	10, // 32: zerone.knowledge.v1.TraceReformulation.verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
-	10, // 33: zerone.knowledge.v1.TraceDrift.verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
-	11, // 34: zerone.knowledge.v1.ContrastivePair.pair_type:type_name -> zerone.knowledge.v1.ContrastivePairType
-	27, // 35: zerone.knowledge.v1.AgentCalibration.PerMethodEntry.value:type_name -> zerone.knowledge.v1.AgentMethodStats
-	36, // [36:36] is the sub-list for method output_type
-	36, // [36:36] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	48, // 32: zerone.knowledge.v1.MethodologyApplicationTrace.reasoning_steps:type_name -> zerone.knowledge.v1.ReasoningStep
+	50, // 33: zerone.knowledge.v1.MethodologyApplicationTrace.methodology_choice:type_name -> zerone.knowledge.v1.MethodologyChoice
+	51, // 34: zerone.knowledge.v1.MethodologyApplicationTrace.belief_revisions:type_name -> zerone.knowledge.v1.BeliefRevision
+	52, // 35: zerone.knowledge.v1.MethodologyApplicationTrace.dialectic_tree:type_name -> zerone.knowledge.v1.DialecticNode
+	52, // 36: zerone.knowledge.v1.TraceChallenge.children:type_name -> zerone.knowledge.v1.DialecticNode
+	11, // 37: zerone.knowledge.v1.ReasoningStep.step_inference:type_name -> zerone.knowledge.v1.StepInference
+	12, // 38: zerone.knowledge.v1.ReasoningStep.verdict:type_name -> zerone.knowledge.v1.StepVerdict
+	13, // 39: zerone.knowledge.v1.DriftDiagnosis.drift_kind:type_name -> zerone.knowledge.v1.DriftKind
+	14, // 40: zerone.knowledge.v1.BeliefRevision.reason:type_name -> zerone.knowledge.v1.RevisionReason
+	15, // 41: zerone.knowledge.v1.DialecticNode.role:type_name -> zerone.knowledge.v1.DialecticRole
+	52, // 42: zerone.knowledge.v1.DialecticNode.children:type_name -> zerone.knowledge.v1.DialecticNode
+	12, // 43: zerone.knowledge.v1.DialecticNode.node_verdict:type_name -> zerone.knowledge.v1.StepVerdict
+	10, // 44: zerone.knowledge.v1.TraceReformulation.verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
+	10, // 45: zerone.knowledge.v1.TraceDrift.verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
+	49, // 46: zerone.knowledge.v1.TraceDrift.diagnosis:type_name -> zerone.knowledge.v1.DriftDiagnosis
+	48, // 47: zerone.knowledge.v1.TraceDrift.drifter_steps:type_name -> zerone.knowledge.v1.ReasoningStep
+	16, // 48: zerone.knowledge.v1.ContrastivePair.pair_type:type_name -> zerone.knowledge.v1.ContrastivePairType
+	32, // 49: zerone.knowledge.v1.AgentCalibration.PerMethodEntry.value:type_name -> zerone.knowledge.v1.AgentMethodStats
+	50, // [50:50] is the sub-list for method output_type
+	50, // [50:50] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_zerone_knowledge_v1_types_proto_init() }
@@ -6513,8 +7526,8 @@ func file_zerone_knowledge_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_types_proto_rawDesc), len(file_zerone_knowledge_v1_types_proto_rawDesc)),
-			NumEnums:      12,
-			NumMessages:   39,
+			NumEnums:      17,
+			NumMessages:   44,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
