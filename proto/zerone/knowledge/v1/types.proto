@@ -486,6 +486,14 @@ message Claim {
   // Structured reasoning trace. Optional. When populated, it flows through
   // to the accepted Fact as first-class training data (Phase 9).
   string reasoning_trace     = 21;
+  // Dialectical argument text. For challenge claims (provisional_fact_id != ""),
+  // this is the free-form argument against the challenged fact. Preserves the
+  // reasoning of the challenge as argumentation training data (Route B Wave 2).
+  string argument_text       = 22;
+  // Optional rebuttal text. Attached when the original fact's submitter (or
+  // partnership) formally rebuts a challenge. Stored on the challenge claim
+  // so the full dispute is reconstructible from one record.
+  string rebuttal_text       = 23;
 }
 
 // VerificationRound tracks one commit-reveal verification cycle.

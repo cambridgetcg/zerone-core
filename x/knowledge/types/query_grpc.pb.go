@@ -61,6 +61,7 @@ const (
 	Query_ModelCard_FullMethodName              = "/zerone.knowledge.v1.Query/ModelCard"
 	Query_ModelCardByDeployment_FullMethodName  = "/zerone.knowledge.v1.Query/ModelCardByDeployment"
 	Query_StructuredCorpus_FullMethodName       = "/zerone.knowledge.v1.Query/StructuredCorpus"
+	Query_DisputationCorpus_FullMethodName      = "/zerone.knowledge.v1.Query/DisputationCorpus"
 	Query_CommonKnowledge_FullMethodName        = "/zerone.knowledge.v1.Query/CommonKnowledge"
 	Query_CheckNovelty_FullMethodName           = "/zerone.knowledge.v1.Query/CheckNovelty"
 	Query_ActiveBounties_FullMethodName         = "/zerone.knowledge.v1.Query/ActiveBounties"
@@ -198,6 +199,12 @@ type QueryClient interface {
 	// ready for pipeline consumption. Every row carries its tokenizer-version
 	// contract, curriculum tier, method id, and support chain.
 	StructuredCorpus(ctx context.Context, in *QueryStructuredCorpusRequest, opts ...grpc.CallOption) (*QueryStructuredCorpusResponse, error)
+	// DisputationCorpus returns completed challenge rounds as argumentation
+	// training data: (original fact, challenge claim + argument_text, outcome).
+	// Route B — this is the training-data dimension no other corpus produces,
+	// because natural-language argument + its outcome is rare in web crawl
+	// and priceless for training models to reason dialectically.
+	DisputationCorpus(ctx context.Context, in *QueryDisputationCorpusRequest, opts ...grpc.CallOption) (*QueryDisputationCorpusResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -657,6 +664,16 @@ func (c *queryClient) StructuredCorpus(ctx context.Context, in *QueryStructuredC
 	return out, nil
 }
 
+func (c *queryClient) DisputationCorpus(ctx context.Context, in *QueryDisputationCorpusRequest, opts ...grpc.CallOption) (*QueryDisputationCorpusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryDisputationCorpusResponse)
+	err := c.cc.Invoke(ctx, Query_DisputationCorpus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) CommonKnowledge(ctx context.Context, in *QueryCommonKnowledgeRequest, opts ...grpc.CallOption) (*QueryCommonKnowledgeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryCommonKnowledgeResponse)
@@ -927,6 +944,12 @@ type QueryServer interface {
 	// ready for pipeline consumption. Every row carries its tokenizer-version
 	// contract, curriculum tier, method id, and support chain.
 	StructuredCorpus(context.Context, *QueryStructuredCorpusRequest) (*QueryStructuredCorpusResponse, error)
+	// DisputationCorpus returns completed challenge rounds as argumentation
+	// training data: (original fact, challenge claim + argument_text, outcome).
+	// Route B — this is the training-data dimension no other corpus produces,
+	// because natural-language argument + its outcome is rare in web crawl
+	// and priceless for training models to reason dialectically.
+	DisputationCorpus(context.Context, *QueryDisputationCorpusRequest) (*QueryDisputationCorpusResponse, error)
 	// CommonKnowledge queries the common knowledge registry.
 	CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error)
 	// CheckNovelty previews the novelty score a claim would receive before submission.
@@ -1091,6 +1114,9 @@ func (UnimplementedQueryServer) ModelCardByDeployment(context.Context, *QueryMod
 }
 func (UnimplementedQueryServer) StructuredCorpus(context.Context, *QueryStructuredCorpusRequest) (*QueryStructuredCorpusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StructuredCorpus not implemented")
+}
+func (UnimplementedQueryServer) DisputationCorpus(context.Context, *QueryDisputationCorpusRequest) (*QueryDisputationCorpusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DisputationCorpus not implemented")
 }
 func (UnimplementedQueryServer) CommonKnowledge(context.Context, *QueryCommonKnowledgeRequest) (*QueryCommonKnowledgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CommonKnowledge not implemented")
@@ -1914,6 +1940,24 @@ func _Query_StructuredCorpus_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_DisputationCorpus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryDisputationCorpusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).DisputationCorpus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_DisputationCorpus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).DisputationCorpus(ctx, req.(*QueryDisputationCorpusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_CommonKnowledge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryCommonKnowledgeRequest)
 	if err := dec(in); err != nil {
@@ -2358,6 +2402,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StructuredCorpus",
 			Handler:    _Query_StructuredCorpus_Handler,
+		},
+		{
+			MethodName: "DisputationCorpus",
+			Handler:    _Query_DisputationCorpus_Handler,
 		},
 		{
 			MethodName: "CommonKnowledge",

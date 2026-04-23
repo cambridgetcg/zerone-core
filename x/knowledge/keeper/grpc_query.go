@@ -779,6 +779,90 @@ func (q *queryServer) StructuredCorpus(ctx context.Context, req *types.QueryStru
 	}, nil
 }
 
+// DisputationCorpus returns challenge-round records as (fact, challenge,
+// outcome) tuples. Provides argumentation training data — the dialectical
+// dimension no other corpus exposes (Route B Wave 2).
+func (q *queryServer) DisputationCorpus(ctx context.Context, req *types.QueryDisputationCorpusRequest) (*types.QueryDisputationCorpusResponse, error) {
+	if req == nil {
+		req = &types.QueryDisputationCorpusRequest{}
+	}
+	limit := req.Limit
+	if limit == 0 || limit > 1000 {
+		limit = 100
+	}
+	offset := req.Offset
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	snapshotHeight := uint64(sdkCtx.BlockHeight())
+
+	var entries []*types.DisputationCorpusEntry
+	var total uint32
+	var skipped uint32
+
+	q.keeper.IterateClaims(ctx, func(claim *types.Claim) bool {
+		if claim == nil || claim.ProvisionalFactId == "" {
+			return false
+		}
+		var outcome string
+		switch claim.Status {
+		case types.ClaimStatus_CLAIM_STATUS_ACCEPTED:
+			outcome = "disproven" // challenge accepted → fact disproven
+		case types.ClaimStatus_CLAIM_STATUS_REJECTED:
+			outcome = "survived" // challenge rejected → fact survived
+		case types.ClaimStatus_CLAIM_STATUS_MALFORMED,
+			types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT:
+			outcome = "inconclusive"
+		default:
+			outcome = "pending"
+		}
+
+		if req.OnlySuccessfulChallenges && outcome != "disproven" {
+			return false
+		}
+
+		total++
+		if skipped < offset {
+			skipped++
+			return false
+		}
+		if uint32(len(entries)) >= limit {
+			return false
+		}
+
+		var factContent, factMethod string
+		var corrAfter uint64
+		if targetFact, ok := q.keeper.GetFact(ctx, claim.ProvisionalFactId); ok {
+			factContent = targetFact.Content
+			factMethod = targetFact.MethodId
+			corrAfter = targetFact.CorroborationCount
+		}
+		resolvedAt := uint64(0)
+		if round, ok := q.keeper.GetVerificationRound(ctx, claim.VerificationRoundId); ok {
+			resolvedAt = round.VerdictBlock
+		}
+
+		entries = append(entries, &types.DisputationCorpusEntry{
+			ChallengedFactId:   claim.ProvisionalFactId,
+			ChallengeClaimId:   claim.Id,
+			ArgumentText:       claim.ArgumentText,
+			RebuttalText:       claim.RebuttalText,
+			ChallengeMethodId:  claim.MethodId,
+			Outcome:            outcome,
+			ResolvedAtBlock:    resolvedAt,
+			FactContent:        factContent,
+			FactMethodId:       factMethod,
+			ChallengerAddress:  claim.Submitter,
+			CorroborationAfter: corrAfter,
+		})
+		return false
+	})
+
+	return &types.QueryDisputationCorpusResponse{
+		Entries:             entries,
+		Total:               total,
+		SnapshotBlockHeight: snapshotHeight,
+	}, nil
+}
+
 // ─── Training pipeline exports (Phase 9) ───────────────────────────────────
 
 // MethodCorpus exports method-stamped facts for positive-exemplar training.

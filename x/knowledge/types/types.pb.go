@@ -2542,8 +2542,16 @@ type Claim struct {
 	// Structured reasoning trace. Optional. When populated, it flows through
 	// to the accepted Fact as first-class training data (Phase 9).
 	ReasoningTrace string `protobuf:"bytes,21,opt,name=reasoning_trace,json=reasoningTrace,proto3" json:"reasoning_trace,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Dialectical argument text. For challenge claims (provisional_fact_id != ""),
+	// this is the free-form argument against the challenged fact. Preserves the
+	// reasoning of the challenge as argumentation training data (Route B Wave 2).
+	ArgumentText string `protobuf:"bytes,22,opt,name=argument_text,json=argumentText,proto3" json:"argument_text,omitempty"`
+	// Optional rebuttal text. Attached when the original fact's submitter (or
+	// partnership) formally rebuts a challenge. Stored on the challenge claim
+	// so the full dispute is reconstructible from one record.
+	RebuttalText  string `protobuf:"bytes,23,opt,name=rebuttal_text,json=rebuttalText,proto3" json:"rebuttal_text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Claim) Reset() {
@@ -2719,6 +2727,20 @@ func (x *Claim) GetMethodId() string {
 func (x *Claim) GetReasoningTrace() string {
 	if x != nil {
 		return x.ReasoningTrace
+	}
+	return ""
+}
+
+func (x *Claim) GetArgumentText() string {
+	if x != nil {
+		return x.ArgumentText
+	}
+	return ""
+}
+
+func (x *Claim) GetRebuttalText() string {
+	if x != nil {
+		return x.RebuttalText
 	}
 	return ""
 }
@@ -3895,7 +3917,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\vpenalty_bps\x18\x05 \x01(\x04R\n" +
 	"penaltyBps\x12\x1f\n" +
 	"\vadded_block\x18\x06 \x01(\x04R\n" +
-	"addedBlock\"\xe2\x06\n" +
+	"addedBlock\"\xac\a\n" +
 	"\x05Claim\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\ffact_content\x18\x02 \x01(\tR\vfactContent\x12\x16\n" +
@@ -3921,7 +3943,9 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x0ecanonical_form\x18\x12 \x01(\tR\rcanonicalForm\x12%\n" +
 	"\x0ecanonical_hash\x18\x13 \x01(\tR\rcanonicalHash\x12\x1b\n" +
 	"\tmethod_id\x18\x14 \x01(\tR\bmethodId\x12'\n" +
-	"\x0freasoning_trace\x18\x15 \x01(\tR\x0ereasoningTrace\"\xaf\x04\n" +
+	"\x0freasoning_trace\x18\x15 \x01(\tR\x0ereasoningTrace\x12#\n" +
+	"\rargument_text\x18\x16 \x01(\tR\fargumentText\x12#\n" +
+	"\rrebuttal_text\x18\x17 \x01(\tR\frebuttalText\"\xaf\x04\n" +
 	"\x11VerificationRound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bclaim_id\x18\x02 \x01(\tR\aclaimId\x12(\n" +
