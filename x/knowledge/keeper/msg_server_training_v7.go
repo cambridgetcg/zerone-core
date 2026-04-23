@@ -75,8 +75,12 @@ func (m *msgServer) CreateTrainingManifest(ctx context.Context, msg *types.MsgCr
 			parent.Status != types.ManifestStatus_MANIFEST_STATUS_ATTESTED {
 			return nil, fmt.Errorf("parent manifest must be FINALIZED or ATTESTED; got %s", parent.Status)
 		}
+		// Cap composition depth to prevent DAG-bomb DoS. MaxDepth is the
+		// hard cap; allowed child depths are 1..MaxDepth-1 (inclusive), so
+		// the deepest admissible chain has MaxDepth levels (root at depth
+		// 0 plus MaxDepth-1 children).
 		const maxDepth uint32 = 8
-		if parent.CompositionDepth+1 > maxDepth {
+		if parent.CompositionDepth+1 >= maxDepth {
 			return nil, fmt.Errorf("composition chain would exceed max depth %d", maxDepth)
 		}
 		parentMerkleRoot = parent.MerkleRoot
