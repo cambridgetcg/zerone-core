@@ -3,6 +3,8 @@ package cross_stack_test
 import (
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
@@ -141,6 +143,135 @@ func TestMoat_ModelCardEvalRangeBound(t *testing.T) {
 		EvalAcceptanceRateBps: 1_500_000,
 	})
 	require.Error(t, err, "out-of-range update must also reject")
+}
+
+// SubmitterCalibrationSnapshotBps must be frozen at fact acceptance so
+// a submitter cannot boost calibration after the fact is live and
+// retroactively harvest more training value. The snapshot is the Popper-
+// weighting gate that makes TVW non-gameable; if future calibration
+// drift leaks into this fact's TVW, the gate is open.
+func TestMoat_CalibrationSnapshotFrozenAtAcceptance(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	submitter := testAddr("moat_cal_sub").String()
+	require.NoError(t, h.KnowledgeKeeper.SetAgentCalibration(h.Ctx, &knowledgetypes.AgentCalibration{
+		Address: submitter, CalibrationScoreBps: 400_000,
+		Accepted: 4, TotalSubmissions: 10,
+	}))
+
+	claim := &knowledgetypes.Claim{
+		Id:          "claim-moat-cal",
+		Submitter:   submitter,
+		FactContent: "moat calibration freeze subject — a verified empirical finding",
+		Domain:      "sciences",
+		Category:    "empirical",
+		Status:      knowledgetypes.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		Stake:       "1000000",
+	}
+	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, claim))
+	round := &knowledgetypes.VerificationRound{
+		Id:             "round-moat-cal",
+		ClaimId:        claim.Id,
+		Phase:          knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
+		StartedAtBlock: 1,
+	}
+	result := &knowledgekeeper.VerificationResult{
+		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
+	}
+	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
+
+	var fact *knowledgetypes.Fact
+	h.KnowledgeKeeper.IterateFacts(h.Ctx, func(f *knowledgetypes.Fact) bool {
+		if f.ClaimId == claim.Id {
+			fact = f
+			return true
+		}
+		return false
+	})
+	require.NotNil(t, fact, "fact must be created from accepted claim")
+	require.Greater(t, fact.SubmitterCalibrationSnapshotBps, uint64(0),
+		"snapshot must be populated at acceptance — never left zero")
+
+	frozen := fact.SubmitterCalibrationSnapshotBps
+
+	// Submitter later boosts calibration to the ceiling via unrelated activity.
+	require.NoError(t, h.KnowledgeKeeper.SetAgentCalibration(h.Ctx, &knowledgetypes.AgentCalibration{
+		Address: submitter, CalibrationScoreBps: 1_000_000,
+		Accepted: 40, TotalSubmissions: 40,
+	}))
+
+	// The previously-accepted fact's TVW must still use the frozen snapshot,
+	// not the boosted current score — no retroactive farming.
+	qs := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
+	resp, err := qs.TrainingValueWeight(h.Ctx, &knowledgetypes.QueryTrainingValueWeightRequest{FactId: fact.Id})
+	require.NoError(t, err)
+	require.Equal(t, frozen, resp.SubmitterCalibrationBps,
+		"TVW must read the frozen snapshot, not the current calibration")
+	require.NotEqual(t, uint64(1_000_000), resp.SubmitterCalibrationBps,
+		"TVW must NOT reflect the submitter's post-acceptance calibration boost")
+}
+
+// Successful challenges must refund the challenger's stake remainder
+// after the verifier pool; failed challenges must route the remainder
+// to protocol treasury (not orphan it in the knowledge module). Without
+// this, legitimate falsification is economically irrational (lose 100%
+// either way) and truth-discovery is disincentivized — the core signal
+// the moat depends on.
+func TestMoat_ChallengeStakeSettled(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	// Successful-challenge path: ACCEPT verdict on a challenge claim must
+	// refund the remainder to the challenger. (The verifier pool has
+	// already been deducted via distributeVerifierRewardsFromPool.)
+	challenger := testAddr("moat_chal_ok")
+	challengerStr := challenger.String()
+	victimFact := &knowledgetypes.Fact{
+		Id: "F-MOAT-VICTIM", Content: "a bad fact that will be disproven",
+		Domain: "sciences", Category: "empirical",
+		Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter: testAddr("moat_chal_victim_sub").String(),
+		MethodId: knowledgetypes.MethodologyEmpirical,
+		Confidence: 800_000,
+	}
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, victimFact))
+
+	// Fund the challenger, then route the challenge through MsgChallengeFact
+	// so the stake is locked exactly as production does.
+	require.NoError(t, h.FundAccount(challenger, sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(50_000_000)))))
+	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
+	// Challenge stake is risk-scaled by target-fact confidence; 20M clears
+	// the 19.8M effective minimum at confidence 800k.
+	chalResp, err := ms.ChallengeFact(h.Ctx, &knowledgetypes.MsgChallengeFact{
+		Challenger: challengerStr, FactId: victimFact.Id,
+		Stake: "20000000", Reason: "moat test — challenge stakes must settle",
+	})
+	require.NoError(t, err)
+
+	balAfterLock := h.GetBalance(challenger, "uzrn")
+	require.Equal(t, sdkmath.NewInt(30_000_000), balAfterLock.Amount,
+		"50M funded − 20M locked = 30M remaining")
+
+	// Force the challenge round to complete with ACCEPT verdict (challenge
+	// succeeds, victimFact is disproven).
+	round, ok := h.KnowledgeKeeper.GetVerificationRound(h.Ctx, chalResp.RoundId)
+	require.True(t, ok)
+	round.Phase = knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE
+	result := &knowledgekeeper.VerificationResult{
+		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
+	}
+	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
+
+	// After settlement the challenger should have at least the 45% remainder
+	// back (verifier pool already took the other 55%). Exact amount depends
+	// on whether the protocol treasury has the bonus funds, but the
+	// remainder must show up.
+	balAfterSettle := h.GetBalance(challenger, "uzrn")
+	require.True(t, balAfterSettle.Amount.GT(balAfterLock.Amount),
+		"successful challenger must receive the stake remainder refund")
 }
 
 // MsgAddFact bypasses the verifier-panel trust chain by design (genesis

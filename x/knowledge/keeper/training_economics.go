@@ -98,16 +98,13 @@ func (k Keeper) ComputeTrainingValueWeight(ctx context.Context, factID string) T
 		out.VindicationMultiplier = mult
 	}
 
-	// Calibration snapshot at submission (frozen; non-gameable).
+	// Calibration snapshot at submission (frozen at fact acceptance; non-gameable).
+	// Facts created via createFactFromClaim always carry a snapshot. Legacy
+	// records (pre-snapshot) or facts seeded via authority injection default
+	// to neutral so they neither farm retroactive calibration nor punish the
+	// submitter for it.
 	out.SubmitterCalibration = fact.SubmitterCalibrationSnapshotBps
 	if out.SubmitterCalibration == 0 {
-		// Fall back to current score when snapshot is missing (legacy facts).
-		if cal, ok := k.GetAgentCalibration(ctx, fact.Submitter); ok && cal != nil {
-			out.SubmitterCalibration = cal.CalibrationScoreBps
-		}
-	}
-	if out.SubmitterCalibration == 0 {
-		// Neutral default — no reward, no penalty.
 		out.SubmitterCalibration = bps / 2
 	}
 

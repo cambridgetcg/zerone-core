@@ -1481,6 +1481,15 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `new_count` -- corroboration_count after increment
 - `block_height` -- height at which the challenge was resolved
 
+### zerone.knowledge.challenge_settled
+Emitted when a challenge claim's stake is settled after the verification round completes (Wave 14b moat-integrity audit). The verifier reward pool (55%) is distributed separately via `verifier_reward`; this event covers the remaining 45% of the challenger's stake. Successful challenges refund the remainder and pay `SuccessfulChallengeRewardBps` as a bonus from the protocol treasury; failed challenges route the remainder to the protocol treasury.
+- `claim_id` -- the challenge claim id
+- `challenger` -- challenger address
+- `outcome` -- "accepted" (challenge succeeded, fact disproven) or "rejected" (challenge failed)
+- `refund` -- uzrn returned to the challenger (accepted path only)
+- `reward_bps` -- successful-challenge bonus rate at settlement (accepted path only)
+- `slashed` -- uzrn routed to protocol treasury (rejected path only)
+
 ### zerone.knowledge.agent_calibration_updated
 Submitter's track record changed — Phase 5 feedback loop. Emitted after round outcomes, corroborations earned, and disprovals. Closes the loop between training-pipeline output and on-chain evaluation.
 - `address` -- submitter address

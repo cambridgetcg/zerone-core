@@ -168,6 +168,16 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		k.handleChallengeDisproven(ctx, claim, factId)
 	}
 
+	// Settle the challenger's staked escrow. Legitimate falsification is the
+	// engine of truth-discovery on this chain; if successful challenges earn
+	// nothing and failed challenges confiscate the full stake, no rational
+	// actor challenges bad facts. Wire the SuccessfulChallengeRewardBps /
+	// FailedChallengeSlashBps params that were defined in Wave ~2 but never
+	// connected. See also the Wave 14b moat-integrity audit.
+	if claim.ProvisionalFactId != "" {
+		k.settleChallengeStake(ctx, claim, result.Verdict, params)
+	}
+
 	// Record verification outcomes for domain qualification tracking (R26-3).
 	// Rewarded verifiers voted correctly; slashed verifiers voted incorrectly.
 	if k.domainQualificationKeeper != nil && claim.Domain != "" &&
@@ -336,6 +346,19 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		epochBorn = height / params.FitnessEpochBlocks
 	}
 
+	// Freeze the submitter's calibration at acceptance time. This is the
+	// TVW snapshot that Popper-weights the fact's future revenue. Reading
+	// it fresh at query time would let a submitter inflate calibration
+	// after the fact lands and retroactively harvest more training value
+	// — the gate has to bite at creation, not at payout.
+	var calibrationSnapshot uint64
+	if cal, ok := k.GetAgentCalibration(ctx, claim.Submitter); ok && cal != nil {
+		calibrationSnapshot = cal.CalibrationScoreBps
+	}
+	if calibrationSnapshot == 0 {
+		calibrationSnapshot = 500_000 // neutral — no reward, no penalty
+	}
+
 	fact := &types.Fact{
 		Id:                factID,
 		Content:           claim.FactContent,
@@ -366,6 +389,9 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		Energy:           params.MetabolismInitialEnergy,
 		EnergyCap:        params.MetabolismEnergyCap,
 		EnergyLastUpdated: height,
+		// Popper-weighted TVW: calibration snapshot frozen here. Any future
+		// calibration drift has no retroactive effect on this fact's TVW.
+		SubmitterCalibrationSnapshotBps: calibrationSnapshot,
 	}
 
 	// Apply domain carrying capacity birth pressure (R29-1)
@@ -763,6 +789,90 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 		sdk.NewAttribute("new_count", fmt.Sprintf("%d", originalFact.CorroborationCount)),
 		sdk.NewAttribute("block_height", fmt.Sprintf("%d", height)),
 	))
+}
+
+// settleChallengeStake applies the challenge economic parameters to a
+// finalized challenge claim. The verifier reward pool (55% of the stake)
+// was already paid out in distributeVerifierRewardsFromPool; this function
+// handles the remaining 45% that otherwise sits orphaned in the module
+// account.
+//
+//	VERDICT_ACCEPT (challenge succeeded, bad fact disproven):
+//	  - refund the 45% remainder to the challenger
+//	  - pay SuccessfulChallengeRewardBps × stake as bonus, drawn from
+//	    protocol treasury — the reward-for-finding-bad-facts signal
+//	VERDICT_REJECT (challenge failed, fact survived):
+//	  - route the 45% remainder to protocol treasury instead of leaving it
+//	    stranded; this is the FailedChallengeSlashBps the fact's defender
+//	    pays via the verifier pool plus what the chain absorbs from the
+//	    collusion-farming attacker
+//	other verdicts: funds stay in the knowledge module account as a no-op.
+func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, verdict types.Verdict, params *types.Params) {
+	if k.bankKeeper == nil || claim == nil || claim.Stake == "" {
+		return
+	}
+	stakeAmt, ok := new(big.Int).SetString(claim.Stake, 10)
+	if !ok || stakeAmt.Sign() <= 0 {
+		return
+	}
+	// Verifier pool consumed reviewFeeContributorBps of the stake. Remainder
+	// is what the module still holds for this challenge.
+	verifierPool := safeMulDiv(stakeAmt.Uint64(), reviewFeeContributorBps, 1_000_000)
+	remainder := new(big.Int).Sub(stakeAmt, new(big.Int).SetUint64(verifierPool))
+	if remainder.Sign() <= 0 {
+		return
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	switch verdict {
+	case types.Verdict_VERDICT_ACCEPT:
+		challengerAddr, err := sdk.AccAddressFromBech32(claim.Submitter)
+		if err != nil {
+			return
+		}
+		refund := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remainder)))
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, challengerAddr, refund); err != nil {
+			k.Logger(ctx).Error("challenge refund failed", "claim", claim.Id, "err", err)
+			return
+		}
+		bonusBps := params.SuccessfulChallengeRewardBps
+		if bonusBps > 0 {
+			bonusAmt := new(big.Int).Mul(stakeAmt, new(big.Int).SetUint64(bonusBps))
+			bonusAmt.Div(bonusAmt, new(big.Int).SetUint64(1_000_000))
+			if bonusAmt.Sign() > 0 {
+				bonusCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(bonusAmt)))
+				// Best-effort draw from protocol treasury; if empty, skip.
+				// Treasury balance is governance-funded; if it runs dry the
+				// challenge still wins at break-even vs current state.
+				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, protocolTreasuryModule, challengerAddr, bonusCoins); err != nil {
+					k.Logger(ctx).Info("challenge bonus unfunded; skipping",
+						"claim", claim.Id, "bonus", bonusAmt.String())
+				}
+			}
+		}
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.challenge_settled",
+			sdk.NewAttribute("claim_id", claim.Id),
+			sdk.NewAttribute("challenger", claim.Submitter),
+			sdk.NewAttribute("outcome", "accepted"),
+			sdk.NewAttribute("refund", remainder.String()),
+			sdk.NewAttribute("reward_bps", fmt.Sprintf("%d", bonusBps)),
+		))
+
+	case types.Verdict_VERDICT_REJECT:
+		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remainder)))
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, protocolTreasuryModule, coins); err != nil {
+			k.Logger(ctx).Error("failed-challenge stake → treasury failed", "claim", claim.Id, "err", err)
+			return
+		}
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.challenge_settled",
+			sdk.NewAttribute("claim_id", claim.Id),
+			sdk.NewAttribute("challenger", claim.Submitter),
+			sdk.NewAttribute("outcome", "rejected"),
+			sdk.NewAttribute("slashed", remainder.String()),
+		))
+	}
 }
 
 // distributeVerifierReward sends a verification reward to a verifier.

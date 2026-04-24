@@ -394,26 +394,34 @@ func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *type
 	}, nil
 }
 
-// countPipelineMethodologyDiversity — helper: walks the pipeline's corpus of
-// GOLD-tier facts and returns the count of distinct methodology_ids.
-// Conservative O(n) scan; pipeline runs are infrequent.
+// countPipelineMethodologyDiversity — walks THIS pipeline's finalized /
+// attested manifests and counts the distinct methodology_ids across the
+// facts those manifests actually committed to. The earlier implementation
+// ignored the pipelineID and scanned every GOLD-tier fact globally, which
+// made the diversity-bonus a public good that every pipeline harvested
+// equally regardless of what it trained on — a farming vector by default.
+// Scoping to the pipeline's own manifests makes the bonus proportional to
+// the operator's real methodological breadth.
 func (k Keeper) countPipelineMethodologyDiversity(ctx context.Context, pipelineID string) uint32 {
-	_ = pipelineID
+	if pipelineID == "" {
+		return 0
+	}
 	methods := make(map[string]struct{})
-	k.IterateFacts(ctx, func(f *types.Fact) bool {
-		if f == nil {
+	k.IterateTrainingManifests(ctx, func(m *types.TrainingManifest) bool {
+		if m == nil || m.PipelineId != pipelineID {
 			return false
 		}
-		if f.Status != types.FactStatus_FACT_STATUS_ACTIVE {
+		if m.Status != types.ManifestStatus_MANIFEST_STATUS_FINALIZED &&
+			m.Status != types.ManifestStatus_MANIFEST_STATUS_ATTESTED {
 			return false
 		}
-		if f.CorroborationCount < 3 { // GOLD-ish
-			return false
+		for _, factID := range m.IncludedFactIds {
+			fact, ok := k.GetFact(ctx, factID)
+			if !ok || fact == nil || fact.MethodId == "" {
+				continue
+			}
+			methods[fact.MethodId] = struct{}{}
 		}
-		if f.MethodId == "" {
-			return false
-		}
-		methods[f.MethodId] = struct{}{}
 		return false
 	})
 	if len(methods) > int(^uint32(0)) {
