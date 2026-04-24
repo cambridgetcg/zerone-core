@@ -2,7 +2,7 @@
 
 > **Scope:** adversarial stress test of the Route B training infrastructure (Waves 1–8). Attacks were launched against the most valuable structures first — the manifest/Merkle commitment, the economic layer, the is-ought wall, the verifier panel, the heartbeat. Every attack is a concrete test; every verdict is either "survived", "hardened", or "known gap — flagged for later wave".
 
-**File:** [`tests/cross_stack/route_b_wave9_adversarial_test.go`](../tests/cross_stack/route_b_wave9_adversarial_test.go)
+**File:** [`tests/cross_stack/route_b_adversarial_test.go`](../tests/cross_stack/route_b_adversarial_test.go)
 
 ---
 
