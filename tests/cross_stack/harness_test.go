@@ -46,6 +46,7 @@ import (
 	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
 	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
+	zeronecckeeper "github.com/zerone-chain/zerone/x/capture_challenge/keeper"
 	zeronepartnershipskeeper "github.com/zerone-chain/zerone/x/partnerships/keeper"
 	zeronediscoverykeeper "github.com/zerone-chain/zerone/x/discovery/keeper"
 )
@@ -83,9 +84,10 @@ type TestHarness struct {
 	GovKeeper zeronegovkeeper.Keeper
 
 	// R28/R29 keepers
-	CaptureDefenseKeeper  zeronecdkeeper.Keeper
-	PartnershipsKeeper    zeronepartnershipskeeper.Keeper
-	DiscoveryKeeper       zeronediscoverykeeper.Keeper
+	CaptureDefenseKeeper   zeronecdkeeper.Keeper
+	CaptureChallengeKeeper zeronecckeeper.Keeper
+	PartnershipsKeeper     zeronepartnershipskeeper.Keeper
+	DiscoveryKeeper        zeronediscoverykeeper.Keeper
 
 	// Standard Cosmos SDK keepers
 	BankKeeper    bankkeeper.Keeper
@@ -245,9 +247,10 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		GovKeeper:       app.ZeroneGovKeeper,
 
 		// R28/R29 keepers
-		CaptureDefenseKeeper:  app.CaptureDefenseKeeper,
-		PartnershipsKeeper:    app.PartnershipsKeeper,
-		DiscoveryKeeper:       app.DiscoveryKeeper,
+		CaptureDefenseKeeper:   app.CaptureDefenseKeeper,
+		CaptureChallengeKeeper: app.CaptureChallengeKeeper,
+		PartnershipsKeeper:     app.PartnershipsKeeper,
+		DiscoveryKeeper:        app.DiscoveryKeeper,
 
 		// R7 keepers
 		AutopoiesisKeeper:    app.AutopoiesisKeeper,
