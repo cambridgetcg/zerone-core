@@ -1316,6 +1316,7 @@ message QueryTrainingValueWeightResponse {
   uint64 axiom_proximity_bps           = 6;
   bool   blocked_is_ought              = 7;  // true if id resolved to NormativeCommitment
   bool   disproven                     = 8;  // true if revenue has been clawed back
+  bool   status_ineligible             = 9;  // true if the fact's status bars it from training-value accrual
 }
 
 message QueryContributionChallengeRequest {

@@ -7942,8 +7942,9 @@ type QueryTrainingValueWeightResponse struct {
 	VindicationMultiplierBps uint64                 `protobuf:"varint,4,opt,name=vindication_multiplier_bps,json=vindicationMultiplierBps,proto3" json:"vindication_multiplier_bps,omitempty"`
 	SubmitterCalibrationBps  uint64                 `protobuf:"varint,5,opt,name=submitter_calibration_bps,json=submitterCalibrationBps,proto3" json:"submitter_calibration_bps,omitempty"`
 	AxiomProximityBps        uint64                 `protobuf:"varint,6,opt,name=axiom_proximity_bps,json=axiomProximityBps,proto3" json:"axiom_proximity_bps,omitempty"`
-	BlockedIsOught           bool                   `protobuf:"varint,7,opt,name=blocked_is_ought,json=blockedIsOught,proto3" json:"blocked_is_ought,omitempty"` // true if id resolved to NormativeCommitment
-	Disproven                bool                   `protobuf:"varint,8,opt,name=disproven,proto3" json:"disproven,omitempty"`                                   // true if revenue has been clawed back
+	BlockedIsOught           bool                   `protobuf:"varint,7,opt,name=blocked_is_ought,json=blockedIsOught,proto3" json:"blocked_is_ought,omitempty"`     // true if id resolved to NormativeCommitment
+	Disproven                bool                   `protobuf:"varint,8,opt,name=disproven,proto3" json:"disproven,omitempty"`                                       // true if revenue has been clawed back
+	StatusIneligible         bool                   `protobuf:"varint,9,opt,name=status_ineligible,json=statusIneligible,proto3" json:"status_ineligible,omitempty"` // true if the fact's status bars it from training-value accrual
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -8030,6 +8031,13 @@ func (x *QueryTrainingValueWeightResponse) GetBlockedIsOught() bool {
 func (x *QueryTrainingValueWeightResponse) GetDisproven() bool {
 	if x != nil {
 		return x.Disproven
+	}
+	return false
+}
+
+func (x *QueryTrainingValueWeightResponse) GetStatusIneligible() bool {
+	if x != nil {
+		return x.StatusIneligible
 	}
 	return false
 }
@@ -10980,7 +10988,7 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	" QueryAugmentationsByFactResponse\x12G\n" +
 	"\raugmentations\x18\x01 \x03(\v2!.zerone.knowledge.v1.AugmentationR\raugmentations\":\n" +
 	"\x1fQueryTrainingValueWeightRequest\x12\x17\n" +
-	"\afact_id\x18\x01 \x01(\tR\x06factId\"\x8c\x03\n" +
+	"\afact_id\x18\x01 \x01(\tR\x06factId\"\xb9\x03\n" +
 	" QueryTrainingValueWeightResponse\x12\x17\n" +
 	"\atvw_bps\x18\x01 \x01(\x04R\x06tvwBps\x12\x1f\n" +
 	"\vbase_weight\x18\x02 \x01(\x04R\n" +
@@ -10990,7 +10998,8 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	"\x19submitter_calibration_bps\x18\x05 \x01(\x04R\x17submitterCalibrationBps\x12.\n" +
 	"\x13axiom_proximity_bps\x18\x06 \x01(\x04R\x11axiomProximityBps\x12(\n" +
 	"\x10blocked_is_ought\x18\a \x01(\bR\x0eblockedIsOught\x12\x1c\n" +
-	"\tdisproven\x18\b \x01(\bR\tdisproven\"3\n" +
+	"\tdisproven\x18\b \x01(\bR\tdisproven\x12+\n" +
+	"\x11status_ineligible\x18\t \x01(\bR\x10statusIneligible\"3\n" +
 	"!QueryContributionChallengeRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x84\x01\n" +
 	"\"QueryContributionChallengeResponse\x12H\n" +

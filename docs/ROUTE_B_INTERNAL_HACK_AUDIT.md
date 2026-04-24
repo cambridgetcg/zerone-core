@@ -44,7 +44,7 @@ The simplest internal attack on the circuit breaker: call `MsgPauseModule` with 
 
 ### Iter 3 — `PrivilegedActionLog`
 
-**Fix:** a new proto record (`PrivilegedAction`), one new query (`QueryPrivilegedActions`), and wiring into every authority-gated handler. Every call to `MsgPauseModule`, `MsgUnpauseModule`, `MsgCorrectManifestMerkleRoot`, `MsgOpenIncident`, `MsgResolveIncident`, `MsgCloseIncident`, `MsgAmendTokenizerSpec`, `MsgAmendTraceSchema` emits a structured record with monotonic sequence, invoker, target, incident binding.
+**Fix:** a new proto record (`PrivilegedAction`), one new query (`QueryPrivilegedActions`), and wiring into every authority-gated handler. Every call to `MsgPauseModule`, `MsgUnpauseModule`, `MsgCorrectManifestMerkleRoot`, `MsgOpenIncident`, `MsgResolveIncident`, `MsgCloseIncident`, `MsgAmendTokenizerSpec`, `MsgAmendTraceSchema`, and `MsgAddFact` emits a structured record with monotonic sequence, invoker, target, incident binding. (`MsgAddFact` was added to the log as part of the Wave 14b moat-integrity audit — authority-gated fact injection bypasses the verification round and therefore must be queryable through the same admin-action surface as the other privileged calls.)
 
 **Attack scenario:** compromised authority amends `TraceSchema` maliciously. The handler accepts (this IS the attack surface — there's no way to prevent a legitimate-looking amendment), but the action lands in the log. External monitors polling `PrivilegedActions(type=SCHEMA_AMEND_TRACE)` detect the amendment; community inspects the new schema; if malicious, governance amends BACK to a sanitised version.
 

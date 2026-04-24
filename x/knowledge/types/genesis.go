@@ -399,8 +399,19 @@ func (p *Params) Validate() error {
 	if p.InitialConfidence > 1_000_000 {
 		return fmt.Errorf("initial_confidence must be <= 1,000,000")
 	}
+	// ConfidenceThreshold is the gate that decides whether a verification
+	// round accepts a claim. Setting it to zero would accept every claim
+	// regardless of verifier consensus — an unbounded governance loophole
+	// that would poison the training substrate. Enforce a floor.
+	if p.ConfidenceThreshold == 0 {
+		return fmt.Errorf("confidence_threshold must be > 0")
+	}
 	if p.ConfidenceThreshold > 1_000_000 {
 		return fmt.Errorf("confidence_threshold must be <= 1,000,000")
+	}
+	// QuorumThreshold zero would let a single verifier decide any round.
+	if p.QuorumThreshold == 0 {
+		return fmt.Errorf("quorum_threshold must be > 0")
 	}
 	if p.QuorumThreshold > 1_000_000 {
 		return fmt.Errorf("quorum_threshold must be <= 1,000,000")

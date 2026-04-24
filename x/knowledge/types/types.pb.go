@@ -1365,6 +1365,7 @@ const (
 	PrivilegedActionType_PRIVILEGED_ACTION_TYPE_INCIDENT_CLOSE         PrivilegedActionType = 6
 	PrivilegedActionType_PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TOKENIZER PrivilegedActionType = 7
 	PrivilegedActionType_PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TRACE     PrivilegedActionType = 8
+	PrivilegedActionType_PRIVILEGED_ACTION_TYPE_FACT_AUTHORITY_INJECT  PrivilegedActionType = 9 // authority-gated MsgAddFact bypasses the verification round
 )
 
 // Enum value maps for PrivilegedActionType.
@@ -1379,6 +1380,7 @@ var (
 		6: "PRIVILEGED_ACTION_TYPE_INCIDENT_CLOSE",
 		7: "PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TOKENIZER",
 		8: "PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TRACE",
+		9: "PRIVILEGED_ACTION_TYPE_FACT_AUTHORITY_INJECT",
 	}
 	PrivilegedActionType_value = map[string]int32{
 		"PRIVILEGED_ACTION_TYPE_UNSPECIFIED":            0,
@@ -1390,6 +1392,7 @@ var (
 		"PRIVILEGED_ACTION_TYPE_INCIDENT_CLOSE":         6,
 		"PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TOKENIZER": 7,
 		"PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TRACE":     8,
+		"PRIVILEGED_ACTION_TYPE_FACT_AUTHORITY_INJECT":  9,
 	}
 )
 
@@ -8941,7 +8944,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"!REMEDIATION_TYPE_EMERGENCY_RESUME\x10\x04\x12%\n" +
 	"!REMEDIATION_TYPE_STATE_CORRECTION\x10\x05\x12%\n" +
 	"!REMEDIATION_TYPE_SCHEMA_AMENDMENT\x10\x06\x12\"\n" +
-	"\x1eREMEDIATION_TYPE_DOCUMENTATION\x10\a*\xa3\x03\n" +
+	"\x1eREMEDIATION_TYPE_DOCUMENTATION\x10\a*\xd5\x03\n" +
 	"\x14PrivilegedActionType\x12&\n" +
 	"\"PRIVILEGED_ACTION_TYPE_UNSPECIFIED\x10\x00\x12'\n" +
 	"#PRIVILEGED_ACTION_TYPE_MODULE_PAUSE\x10\x01\x12)\n" +
@@ -8951,7 +8954,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"'PRIVILEGED_ACTION_TYPE_INCIDENT_RESOLVE\x10\x05\x12)\n" +
 	"%PRIVILEGED_ACTION_TYPE_INCIDENT_CLOSE\x10\x06\x121\n" +
 	"-PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TOKENIZER\x10\a\x12-\n" +
-	")PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TRACE\x10\bB2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
+	")PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TRACE\x10\b\x120\n" +
+	",PRIVILEGED_ACTION_TYPE_FACT_AUTHORITY_INJECT\x10\tB2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
 
 var (
 	file_zerone_knowledge_v1_types_proto_rawDescOnce sync.Once

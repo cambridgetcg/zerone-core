@@ -36,6 +36,7 @@ type TrainingValueWeightBreakdown struct {
 	AxiomProximity         uint64 // BPS (closer to axiom → higher)
 	Disproven              bool
 	BlockedByIsOught       bool
+	StatusIneligible       bool   // true if fact status bars training-value accrual
 	Final                  uint64 // composed TVW
 }
 
@@ -59,6 +60,24 @@ func (k Keeper) ComputeTrainingValueWeight(ctx context.Context, factID string) T
 	// Clawback state: disproven → revenue zeroed.
 	if fact.Status == types.FactStatus_FACT_STATUS_DISPROVEN || fact.RevenueClawbackBlock > 0 {
 		out.Disproven = true
+		return out
+	}
+
+	// Status gate: only facts whose truth-chain cleared verification (or
+	// survive mid-adjudication) can accrue training value. PENDING and
+	// PROVISIONAL never passed a round; REVOKED / EXPIRED / PRUNED /
+	// SUPERSEDED / AT_RISK have been invalidated or retired. UNSPECIFIED
+	// is a malformed record. All earn zero TVW. CONTESTED and CHALLENGED
+	// remain payable during their adjudication window — falsification
+	// closes the door via the DISPROVEN branch above.
+	switch fact.Status {
+	case types.FactStatus_FACT_STATUS_VERIFIED,
+		types.FactStatus_FACT_STATUS_ACTIVE,
+		types.FactStatus_FACT_STATUS_CONTESTED,
+		types.FactStatus_FACT_STATUS_CHALLENGED:
+		// eligible
+	default:
+		out.StatusIneligible = true
 		return out
 	}
 

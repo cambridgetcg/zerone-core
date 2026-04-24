@@ -121,6 +121,17 @@ func (m *msgServer) RegisterModelCard(ctx context.Context, msg *types.MsgRegiste
 		return nil, fmt.Errorf("invalid route %q", msg.Route)
 	}
 
+	// Eval metrics are BPS-scaled (0..1,000,000). Out-of-range values
+	// either come from a buggy submitter or an owner inflating/deflating
+	// their own self-reported performance — both corrupt downstream
+	// model-trust dashboards. Bound them at the handler.
+	if msg.EvalAcceptanceRateBps > 1_000_000 {
+		return nil, fmt.Errorf("eval_acceptance_rate_bps must be <= 1,000,000")
+	}
+	if msg.EvalCorroborationRateBps > 1_000_000 {
+		return nil, fmt.Errorf("eval_corroboration_rate_bps must be <= 1,000,000")
+	}
+
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -160,6 +171,12 @@ func (m *msgServer) UpdateModelCard(ctx context.Context, msg *types.MsgUpdateMod
 	}
 	if !card.Active {
 		return nil, fmt.Errorf("cannot update retired model card")
+	}
+	if msg.EvalAcceptanceRateBps > 1_000_000 {
+		return nil, fmt.Errorf("eval_acceptance_rate_bps must be <= 1,000,000")
+	}
+	if msg.EvalCorroborationRateBps > 1_000_000 {
+		return nil, fmt.Errorf("eval_corroboration_rate_bps must be <= 1,000,000")
 	}
 	if msg.EvalAcceptanceRateBps != 0 {
 		card.EvalAcceptanceRateBps = msg.EvalAcceptanceRateBps

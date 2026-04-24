@@ -1472,6 +1472,7 @@ enum PrivilegedActionType {
   PRIVILEGED_ACTION_TYPE_INCIDENT_CLOSE    = 6;
   PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TOKENIZER = 7;
   PRIVILEGED_ACTION_TYPE_SCHEMA_AMEND_TRACE     = 8;
+  PRIVILEGED_ACTION_TYPE_FACT_AUTHORITY_INJECT  = 9;  // authority-gated MsgAddFact bypasses the verification round
 }
 
 message PrivilegedAction {

@@ -1993,6 +1993,7 @@ func (q *queryServer) TrainingValueWeight(ctx context.Context, req *types.QueryT
 		AxiomProximityBps:         b.AxiomProximity,
 		BlockedIsOught:            b.BlockedByIsOught,
 		Disproven:                 b.Disproven,
+		StatusIneligible:          b.StatusIneligible,
 	}, nil
 }
 

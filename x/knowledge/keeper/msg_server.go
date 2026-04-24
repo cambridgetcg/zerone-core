@@ -446,6 +446,20 @@ func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact) (*types.
 	// Update domain stats for carrying capacity (R29-1)
 	m.keeper.IncrementDomainFactCount(ctx, fact.Domain, true, fact.Energy)
 
+	// AddFact bypasses the verifier-panel trust chain (stake →
+	// qualification → round → methodology-weighted acceptance). It is
+	// deliberately retained for genesis seeding and authority-gated
+	// corrective injection, but every call must be recorded in the
+	// privileged-action log so that compromised-authority abuse is
+	// queryable rather than buried in the generic block event stream.
+	m.keeper.RecordPrivilegedAction(ctx,
+		types.PrivilegedActionType_PRIVILEGED_ACTION_TYPE_FACT_AUTHORITY_INJECT,
+		msg.Authority,
+		factID,
+		"",
+		fmt.Sprintf("domain=%s category=%s", msg.Domain, msg.Category),
+	)
+
 	sdkCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.knowledge.add_fact",
 			sdk.NewAttribute("fact_id", factID),
