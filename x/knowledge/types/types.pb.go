@@ -2080,8 +2080,18 @@ type Fact struct {
 	// Block height at which disproval triggered the clawback; 0 = not disproven
 	// for revenue purposes. Prevents double-clawing.
 	RevenueClawbackBlock uint64 `protobuf:"varint,73,opt,name=revenue_clawback_block,json=revenueClawbackBlock,proto3" json:"revenue_clawback_block,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// ─── Wave 15: chain-driven stress-test invitation ──────────────────────
+	// When the chain's heartbeat detects that this fact has gone idle —
+	// high-confidence but untested for longer than
+	// ProbeInvitationIdleThresholdBlocks — the invitation heartbeat stamps
+	// this field with the current block. Signals to external prober agents
+	// that the chain is actively seeking stress-tests of this claim. Zero
+	// means never invited (either because the fact is too fresh, too low
+	// confidence, or already recently challenged). An invitation expires
+	// when the fact's status/confidence changes or the heartbeat re-invites.
+	ProbeInvitedAtBlock uint64 `protobuf:"varint,74,opt,name=probe_invited_at_block,json=probeInvitedAtBlock,proto3" json:"probe_invited_at_block,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Fact) Reset() {
@@ -2551,6 +2561,13 @@ func (x *Fact) GetTrainingRevenueEarnedRecent() string {
 func (x *Fact) GetRevenueClawbackBlock() uint64 {
 	if x != nil {
 		return x.RevenueClawbackBlock
+	}
+	return 0
+}
+
+func (x *Fact) GetProbeInvitedAtBlock() uint64 {
+	if x != nil {
+		return x.ProbeInvitedAtBlock
 	}
 	return 0
 }
@@ -8136,7 +8153,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\xad\x15\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\xe2\x15\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -8211,7 +8228,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\"submitter_calibration_snapshot_bps\x18F \x01(\x04R\x1fsubmitterCalibrationSnapshotBps\x126\n" +
 	"\x17training_revenue_earned\x18G \x01(\tR\x15trainingRevenueEarned\x12C\n" +
 	"\x1etraining_revenue_earned_recent\x18H \x01(\tR\x1btrainingRevenueEarnedRecent\x124\n" +
-	"\x16revenue_clawback_block\x18I \x01(\x04R\x14revenueClawbackBlock\"\xe0\x05\n" +
+	"\x16revenue_clawback_block\x18I \x01(\x04R\x14revenueClawbackBlock\x123\n" +
+	"\x16probe_invited_at_block\x18J \x01(\x04R\x13probeInvitedAtBlock\"\xe0\x05\n" +
 	"\rTokenizerSpec\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x04R\aversion\x12*\n" +
 	"\x11ratified_at_block\x18\x02 \x01(\x04R\x0fratifiedAtBlock\x12.\n" +

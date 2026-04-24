@@ -571,6 +571,125 @@ func TestMoat_AugmentationPanelStakeWeighted(t *testing.T) {
 	require.Equal(t, 1, stakedCount, "one stake-bearing voter recorded")
 }
 
+// Chain-driven probe invitation heartbeat (Wave 15). High-confidence
+// facts that have gone idle are nominated by the chain for stress-
+// testing — the substrate actively seeks audit rather than waiting for
+// audit to arrive. This pins the full invitation flow: eligible facts
+// get stamped and emit probe_invited events; fresh facts and low-
+// confidence facts don't.
+func TestMoat_HeartbeatInvitesIdleHighConfidenceFacts(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	// Shrink thresholds so we don't need to advance a full day of blocks.
+	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+	require.NoError(t, err)
+	params.ProbeInvitationIdleThresholdBlocks = 100
+	params.ProbeInvitationMinConfidenceBps = 700_000
+	params.ProbeInvitationBatchSize = 10
+	params.ProbeInvitationReinviteCooldown = 500
+	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, params))
+
+	submitter := testAddr("moat_probe_sub").String()
+	mkFact := func(id string, confidence uint64, verifiedAtBlock uint64) {
+		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+			Id: id, Content: "probe candidate",
+			Domain: "sciences",
+			Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+			Submitter: submitter,
+			MethodId: knowledgetypes.MethodologyEmpirical,
+			Confidence: confidence,
+			VerifiedAtBlock: verifiedAtBlock,
+		}))
+	}
+	// Eligible: high confidence, verified long ago.
+	mkFact("F-IDLE-HIGH", 900_000, 1)
+	// Ineligible: old but low confidence.
+	mkFact("F-IDLE-LOW", 500_000, 1)
+
+	// Advance past the idle threshold; the heartbeat runs on each block.
+	h.AdvanceBlocks(150)
+
+	// Now add a fresh high-confidence fact AFTER the advance, so its
+	// VerifiedAtBlock is current and it hasn't had time to go idle.
+	mkFact("F-FRESH-HIGH", 900_000, uint64(h.Height()))
+	h.AdvanceBlocks(10)
+
+	// Only the eligible fact got stamped.
+	idleHigh, _ := h.KnowledgeKeeper.GetFact(h.Ctx, "F-IDLE-HIGH")
+	require.Greater(t, idleHigh.ProbeInvitedAtBlock, uint64(0),
+		"high-confidence idle fact must be invited for probing")
+	freshHigh, _ := h.KnowledgeKeeper.GetFact(h.Ctx, "F-FRESH-HIGH")
+	require.Equal(t, uint64(0), freshHigh.ProbeInvitedAtBlock,
+		"too-fresh facts must not be invited")
+	idleLow, _ := h.KnowledgeKeeper.GetFact(h.Ctx, "F-IDLE-LOW")
+	require.Equal(t, uint64(0), idleLow.ProbeInvitedAtBlock,
+		"low-confidence facts must not be invited (verifier panel handles those)")
+
+	// Query exposes the invited fact as work for probers.
+	qs := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
+	resp, err := qs.IdleFacts(h.Ctx, &knowledgetypes.QueryIdleFactsRequest{})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Facts, "idle facts query must surface the invited fact")
+	foundInvited := false
+	for _, f := range resp.Facts {
+		if f.Id == "F-IDLE-HIGH" {
+			foundInvited = true
+			require.Greater(t, f.BlocksSinceInvited, uint64(0))
+		}
+	}
+	require.True(t, foundInvited)
+}
+
+// Corroboration clears a prior invitation: once a probe has actually
+// happened, the chain stops asking for more probes on that fact (it
+// already got the audit). This confirms the invitation is a demand
+// signal, not a permanent flag.
+func TestMoat_ProbeInvitationClearsOnCorroboration(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+	require.NoError(t, err)
+	params.ProbeInvitationIdleThresholdBlocks = 100
+	params.ProbeInvitationMinConfidenceBps = 700_000
+	params.ProbeInvitationBatchSize = 10
+	params.ProbeInvitationReinviteCooldown = 500
+	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, params))
+
+	submitter := testAddr("moat_probe_cleared").String()
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+		Id: "F-PROBE-CLEARED", Content: "will be probed",
+		Domain: "sciences",
+		Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter: submitter,
+		MethodId: knowledgetypes.MethodologyEmpirical,
+		Confidence: 900_000,
+		VerifiedAtBlock: 1,
+	}))
+
+	h.AdvanceBlocks(150)
+	f, _ := h.KnowledgeKeeper.GetFact(h.Ctx, "F-PROBE-CLEARED")
+	require.Greater(t, f.ProbeInvitedAtBlock, uint64(0))
+
+	// Simulate a corroboration landing (e.g., a challenge was rejected
+	// so the fact survived; LastCorroboratedBlock advances).
+	f.LastCorroboratedBlock = uint64(h.Height())
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, f))
+
+	// Now the invitation should be considered stale — the query filters
+	// out facts whose last corroboration is after the invitation.
+	qs := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
+	resp, err := qs.IdleFacts(h.Ctx, &knowledgetypes.QueryIdleFactsRequest{})
+	require.NoError(t, err)
+	for _, idle := range resp.Facts {
+		require.NotEqual(t, "F-PROBE-CLEARED", idle.Id,
+			"after corroboration the invitation must clear — the fact was just audited")
+	}
+}
+
 // MsgAddFact bypasses the verifier-panel trust chain by design (genesis
 // seeding and authority-gated corrections need it). Every call must emit
 // a PrivilegedAction log entry so compromised-authority abuse is

@@ -106,6 +106,7 @@ const (
 	Query_DomainCapacity_FullMethodName               = "/zerone.knowledge.v1.Query/DomainCapacity"
 	Query_EpistemicTemperature_FullMethodName         = "/zerone.knowledge.v1.Query/EpistemicTemperature"
 	Query_RoleElasticity_FullMethodName               = "/zerone.knowledge.v1.Query/RoleElasticity"
+	Query_IdleFacts_FullMethodName                    = "/zerone.knowledge.v1.Query/IdleFacts"
 )
 
 // QueryClient is the client API for Query service.
@@ -344,6 +345,12 @@ type QueryClient interface {
 	EpistemicTemperature(ctx context.Context, in *QueryEpistemicTemperatureRequest, opts ...grpc.CallOption) (*QueryEpistemicTemperatureResponse, error)
 	// RoleElasticity queries domain role elasticity and track record (R29-3).
 	RoleElasticity(ctx context.Context, in *QueryRoleElasticityRequest, opts ...grpc.CallOption) (*QueryRoleElasticityResponse, error)
+	// IdleFacts returns facts the chain has invited for stress-testing
+	// (Wave 15). High-confidence facts that have gone idle for longer than
+	// ProbeInvitationIdleThresholdBlocks are surfaced here so external
+	// prober agents can compete to probe them. Sorted by time-since-invite
+	// descending (oldest invitations first — they're the most under-tested).
+	IdleFacts(ctx context.Context, in *QueryIdleFactsRequest, opts ...grpc.CallOption) (*QueryIdleFactsResponse, error)
 }
 
 type queryClient struct {
@@ -1224,6 +1231,16 @@ func (c *queryClient) RoleElasticity(ctx context.Context, in *QueryRoleElasticit
 	return out, nil
 }
 
+func (c *queryClient) IdleFacts(ctx context.Context, in *QueryIdleFactsRequest, opts ...grpc.CallOption) (*QueryIdleFactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryIdleFactsResponse)
+	err := c.cc.Invoke(ctx, Query_IdleFacts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -1460,6 +1477,12 @@ type QueryServer interface {
 	EpistemicTemperature(context.Context, *QueryEpistemicTemperatureRequest) (*QueryEpistemicTemperatureResponse, error)
 	// RoleElasticity queries domain role elasticity and track record (R29-3).
 	RoleElasticity(context.Context, *QueryRoleElasticityRequest) (*QueryRoleElasticityResponse, error)
+	// IdleFacts returns facts the chain has invited for stress-testing
+	// (Wave 15). High-confidence facts that have gone idle for longer than
+	// ProbeInvitationIdleThresholdBlocks are surfaced here so external
+	// prober agents can compete to probe them. Sorted by time-since-invite
+	// descending (oldest invitations first — they're the most under-tested).
+	IdleFacts(context.Context, *QueryIdleFactsRequest) (*QueryIdleFactsResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -1730,6 +1753,9 @@ func (UnimplementedQueryServer) EpistemicTemperature(context.Context, *QueryEpis
 }
 func (UnimplementedQueryServer) RoleElasticity(context.Context, *QueryRoleElasticityRequest) (*QueryRoleElasticityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RoleElasticity not implemented")
+}
+func (UnimplementedQueryServer) IdleFacts(context.Context, *QueryIdleFactsRequest) (*QueryIdleFactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method IdleFacts not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -3318,6 +3344,24 @@ func _Query_RoleElasticity_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_IdleFacts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryIdleFactsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).IdleFacts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_IdleFacts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).IdleFacts(ctx, req.(*QueryIdleFactsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3672,6 +3716,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RoleElasticity",
 			Handler:    _Query_RoleElasticity_Handler,
+		},
+		{
+			MethodName: "IdleFacts",
+			Handler:    _Query_IdleFacts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

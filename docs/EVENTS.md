@@ -1481,6 +1481,15 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `new_count` -- corroboration_count after increment
 - `block_height` -- height at which the challenge was resolved
 
+### zerone.knowledge.probe_invited
+Emitted by the Wave 15 stress-test invitation heartbeat. Each block the chain scans for high-confidence facts that have gone idle longer than `ProbeInvitationIdleThresholdBlocks` and nominates them for external probing. The chain manufactures demand for its own epistemic audit — truth stands firm under challenge because of its nature, and the architecture now actively invites challenge rather than waiting for it.
+- `fact_id` -- the fact being nominated for stress-testing
+- `domain` -- fact domain (enables domain-scoped prober subscription)
+- `confidence` -- current confidence (BPS)
+- `corroboration_count` -- survived attacks so far
+- `idle_since_block` -- block height of the last probe (or acceptance if never probed)
+- `invited_at_block` -- current block height
+
 ### zerone.knowledge.challenge_settled
 Emitted when a challenge claim's stake is settled after the verification round completes. The verifier reward pool (55%) is distributed separately via `verifier_reward`; this event covers the remaining 45% of the challenger's stake.
 

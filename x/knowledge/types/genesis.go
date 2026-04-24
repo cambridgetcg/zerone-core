@@ -234,6 +234,14 @@ func DefaultParams() Params {
 
 		// ─── Wave 14: internal-hack resilience ────────────────────────
 		MaxPauseDurationBlocks: 28_800, // ~40h at 5s blocks — ample hotfix window; caps DoS impact.
+
+		// ─── Wave 15: chain-driven stress-test invitation ─────────────
+		// The chain doesn't wait for probes; it nominates its own
+		// high-confidence facts for stress-testing every heartbeat.
+		ProbeInvitationIdleThresholdBlocks: 34_272,  // ~1 day at 2.5s blocks
+		ProbeInvitationMinConfidenceBps:    700_000, // only invite probes on facts ≥ 70% confidence
+		ProbeInvitationBatchSize:           10,      // bound BeginBlocker work
+		ProbeInvitationReinviteCooldown:    100_000, // don't re-invite the same fact back-to-back
 	}
 }
 
@@ -665,6 +673,11 @@ func (p *Params) Validate() error {
 	// Role elasticity × agent bonus must not exceed 100% vote weight.
 	if p.RoleElasticityMaxMultiplierBps*p.AgentVerificationBonusBps/1_000_000 > 1_000_000 {
 		return fmt.Errorf("role_elasticity_max_multiplier * agent_verification_bonus would exceed 100%% vote weight")
+	}
+
+	// Wave 15 probe invitation parameters.
+	if p.ProbeInvitationMinConfidenceBps > 1_000_000 {
+		return fmt.Errorf("probe_invitation_min_confidence_bps must be <= 1,000,000")
 	}
 
 	return nil

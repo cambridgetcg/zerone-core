@@ -2528,3 +2528,14 @@ func (q *queryServer) PrivilegedActions(ctx context.Context, req *types.QueryPri
 		SnapshotBlockHeight: uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()),
 	}, nil
 }
+
+// IdleFacts returns facts the Wave 15 invitation heartbeat has flagged
+// for stress-testing. Prober agents poll this query to find concrete
+// work — the chain's demand side for epistemic auditing.
+func (q *queryServer) IdleFacts(ctx context.Context, req *types.QueryIdleFactsRequest) (*types.QueryIdleFactsResponse, error) {
+	if req == nil {
+		req = &types.QueryIdleFactsRequest{}
+	}
+	facts := q.keeper.IdleFactsForProbing(ctx, req.Domain, req.Limit)
+	return &types.QueryIdleFactsResponse{Facts: facts}, nil
+}

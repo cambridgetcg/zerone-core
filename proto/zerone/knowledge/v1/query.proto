@@ -479,6 +479,15 @@ service Query {
   rpc RoleElasticity(QueryRoleElasticityRequest) returns (QueryRoleElasticityResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/role_elasticity/{domain}";
   }
+
+  // IdleFacts returns facts the chain has invited for stress-testing
+  // (Wave 15). High-confidence facts that have gone idle for longer than
+  // ProbeInvitationIdleThresholdBlocks are surfaced here so external
+  // prober agents can compete to probe them. Sorted by time-since-invite
+  // descending (oldest invitations first — they're the most under-tested).
+  rpc IdleFacts(QueryIdleFactsRequest) returns (QueryIdleFactsResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/idle_facts";
+  }
 }
 
 // ─── Request / Response messages ─────────────────────────────────────────────
@@ -1239,6 +1248,25 @@ message QueryRoleElasticityResponse {
   uint64 human_bonus_bps     = 7;
   uint64 agent_accuracy_bps  = 8;
   uint64 human_accuracy_bps  = 9;
+}
+
+// IdleFact summarizes a fact currently inviting stress-testing.
+message IdleFact {
+  string id                    = 1;
+  string domain                = 2;
+  uint64 confidence            = 3;
+  uint64 corroboration_count   = 4;
+  uint64 probe_invited_at_block = 5;
+  uint64 blocks_since_invited  = 6; // current_block - probe_invited_at_block
+}
+
+message QueryIdleFactsRequest {
+  string domain = 1;  // optional filter; empty = all domains
+  uint32 limit  = 2;  // optional cap; 0 = default (50)
+}
+
+message QueryIdleFactsResponse {
+  repeated IdleFact facts = 1;
 }
 
 // ─── Route B Wave 3 query messages ────────────────────────────────────────

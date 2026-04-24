@@ -324,6 +324,17 @@ message Fact {
   // Block height at which disproval triggered the clawback; 0 = not disproven
   // for revenue purposes. Prevents double-clawing.
   uint64 revenue_clawback_block = 73;
+
+  // ─── Wave 15: chain-driven stress-test invitation ──────────────────────
+  // When the chain's heartbeat detects that this fact has gone idle —
+  // high-confidence but untested for longer than
+  // ProbeInvitationIdleThresholdBlocks — the invitation heartbeat stamps
+  // this field with the current block. Signals to external prober agents
+  // that the chain is actively seeking stress-tests of this claim. Zero
+  // means never invited (either because the fact is too fresh, too low
+  // confidence, or already recently challenged). An invitation expires
+  // when the fact's status/confidence changes or the heartbeat re-invites.
+  uint64 probe_invited_at_block = 74;
 }
 
 // CurriculumTier orders training examples by difficulty and foundational depth.

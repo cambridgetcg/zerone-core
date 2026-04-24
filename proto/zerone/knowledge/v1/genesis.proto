@@ -259,6 +259,18 @@ message Params {
   // authority's DoS to self-resolve within a governance-configured
   // window rather than persisting indefinitely.
   uint64 max_pause_duration_blocks = 151; // default: 28,800 (~40h at 5s blocks)
+
+  // ─── Wave 15: chain-driven stress-test invitation ──────────────────────
+  // Truth stands firm under challenge because of its nature — and the
+  // chain no longer waits for challenges to arrive. A per-block heartbeat
+  // scans for high-confidence facts that have gone idle (no challenge in
+  // threshold blocks) and emits invitation events, signaling to external
+  // prober agents that the substrate is actively seeking stress-tests of
+  // those claims. The chain manufactures demand for its own audit.
+  uint64 probe_invitation_idle_threshold_blocks = 152; // default: 34,272 (~1 day at 2.5s blocks)
+  uint64 probe_invitation_min_confidence_bps    = 153; // default: 700,000 (70%) — only invite probes on facts worth testing
+  uint32 probe_invitation_batch_size            = 154; // default: 10 — max invitations emitted per block (bounds BeginBlocker work)
+  uint64 probe_invitation_reinvite_cooldown     = 155; // default: 100_000 blocks — don't re-invite the same fact back-to-back
 }
 
 // GenesisState is the genesis state of the knowledge module.

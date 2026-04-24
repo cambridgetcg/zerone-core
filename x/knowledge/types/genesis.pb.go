@@ -244,8 +244,19 @@ type Params struct {
 	// authority's DoS to self-resolve within a governance-configured
 	// window rather than persisting indefinitely.
 	MaxPauseDurationBlocks uint64 `protobuf:"varint,151,opt,name=max_pause_duration_blocks,json=maxPauseDurationBlocks,proto3" json:"max_pause_duration_blocks,omitempty"` // default: 28,800 (~40h at 5s blocks)
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// ─── Wave 15: chain-driven stress-test invitation ──────────────────────
+	// Truth stands firm under challenge because of its nature — and the
+	// chain no longer waits for challenges to arrive. A per-block heartbeat
+	// scans for high-confidence facts that have gone idle (no challenge in
+	// threshold blocks) and emits invitation events, signaling to external
+	// prober agents that the substrate is actively seeking stress-tests of
+	// those claims. The chain manufactures demand for its own audit.
+	ProbeInvitationIdleThresholdBlocks uint64 `protobuf:"varint,152,opt,name=probe_invitation_idle_threshold_blocks,json=probeInvitationIdleThresholdBlocks,proto3" json:"probe_invitation_idle_threshold_blocks,omitempty"` // default: 34,272 (~1 day at 2.5s blocks)
+	ProbeInvitationMinConfidenceBps    uint64 `protobuf:"varint,153,opt,name=probe_invitation_min_confidence_bps,json=probeInvitationMinConfidenceBps,proto3" json:"probe_invitation_min_confidence_bps,omitempty"`          // default: 700,000 (70%) — only invite probes on facts worth testing
+	ProbeInvitationBatchSize           uint32 `protobuf:"varint,154,opt,name=probe_invitation_batch_size,json=probeInvitationBatchSize,proto3" json:"probe_invitation_batch_size,omitempty"`                                 // default: 10 — max invitations emitted per block (bounds BeginBlocker work)
+	ProbeInvitationReinviteCooldown    uint64 `protobuf:"varint,155,opt,name=probe_invitation_reinvite_cooldown,json=probeInvitationReinviteCooldown,proto3" json:"probe_invitation_reinvite_cooldown,omitempty"`            // default: 100_000 blocks — don't re-invite the same fact back-to-back
+	unknownFields                      protoimpl.UnknownFields
+	sizeCache                          protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -1335,6 +1346,34 @@ func (x *Params) GetMaxPauseDurationBlocks() uint64 {
 	return 0
 }
 
+func (x *Params) GetProbeInvitationIdleThresholdBlocks() uint64 {
+	if x != nil {
+		return x.ProbeInvitationIdleThresholdBlocks
+	}
+	return 0
+}
+
+func (x *Params) GetProbeInvitationMinConfidenceBps() uint64 {
+	if x != nil {
+		return x.ProbeInvitationMinConfidenceBps
+	}
+	return 0
+}
+
+func (x *Params) GetProbeInvitationBatchSize() uint32 {
+	if x != nil {
+		return x.ProbeInvitationBatchSize
+	}
+	return 0
+}
+
+func (x *Params) GetProbeInvitationReinviteCooldown() uint64 {
+	if x != nil {
+		return x.ProbeInvitationReinviteCooldown
+	}
+	return 0
+}
+
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
 	state                     protoimpl.MessageState      `protogen:"open.v1"`
@@ -1572,7 +1611,7 @@ var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\x84K\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xb6M\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -1725,7 +1764,11 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1bcontribution_challenge_bond\x18\x94\x01 \x01(\tR\x19contributionChallengeBond\x12_\n" +
 	",contribution_challenge_reward_multiplier_bps\x18\x95\x01 \x01(\x04R(contributionChallengeRewardMultiplierBps\x128\n" +
 	"\x18sponsor_veto_forfeit_bps\x18\x96\x01 \x01(\x04R\x15sponsorVetoForfeitBps\x12:\n" +
-	"\x19max_pause_duration_blocks\x18\x97\x01 \x01(\x04R\x16maxPauseDurationBlocks\x1aN\n" +
+	"\x19max_pause_duration_blocks\x18\x97\x01 \x01(\x04R\x16maxPauseDurationBlocks\x12S\n" +
+	"&probe_invitation_idle_threshold_blocks\x18\x98\x01 \x01(\x04R\"probeInvitationIdleThresholdBlocks\x12M\n" +
+	"#probe_invitation_min_confidence_bps\x18\x99\x01 \x01(\x04R\x1fprobeInvitationMinConfidenceBps\x12>\n" +
+	"\x1bprobe_invitation_batch_size\x18\x9a\x01 \x01(\rR\x18probeInvitationBatchSize\x12L\n" +
+	"\"probe_invitation_reinvite_cooldown\x18\x9b\x01 \x01(\x04R\x1fprobeInvitationReinviteCooldown\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\xe5\x0e\n" +

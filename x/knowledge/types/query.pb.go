@@ -7201,6 +7201,187 @@ func (x *QueryRoleElasticityResponse) GetHumanAccuracyBps() uint64 {
 	return 0
 }
 
+// IdleFact summarizes a fact currently inviting stress-testing.
+type IdleFact struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Domain              string                 `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
+	Confidence          uint64                 `protobuf:"varint,3,opt,name=confidence,proto3" json:"confidence,omitempty"`
+	CorroborationCount  uint64                 `protobuf:"varint,4,opt,name=corroboration_count,json=corroborationCount,proto3" json:"corroboration_count,omitempty"`
+	ProbeInvitedAtBlock uint64                 `protobuf:"varint,5,opt,name=probe_invited_at_block,json=probeInvitedAtBlock,proto3" json:"probe_invited_at_block,omitempty"`
+	BlocksSinceInvited  uint64                 `protobuf:"varint,6,opt,name=blocks_since_invited,json=blocksSinceInvited,proto3" json:"blocks_since_invited,omitempty"` // current_block - probe_invited_at_block
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *IdleFact) Reset() {
+	*x = IdleFact{}
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[127]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IdleFact) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IdleFact) ProtoMessage() {}
+
+func (x *IdleFact) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[127]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IdleFact.ProtoReflect.Descriptor instead.
+func (*IdleFact) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{127}
+}
+
+func (x *IdleFact) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *IdleFact) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *IdleFact) GetConfidence() uint64 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
+}
+
+func (x *IdleFact) GetCorroborationCount() uint64 {
+	if x != nil {
+		return x.CorroborationCount
+	}
+	return 0
+}
+
+func (x *IdleFact) GetProbeInvitedAtBlock() uint64 {
+	if x != nil {
+		return x.ProbeInvitedAtBlock
+	}
+	return 0
+}
+
+func (x *IdleFact) GetBlocksSinceInvited() uint64 {
+	if x != nil {
+		return x.BlocksSinceInvited
+	}
+	return 0
+}
+
+type QueryIdleFactsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Domain        string                 `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"` // optional filter; empty = all domains
+	Limit         uint32                 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`  // optional cap; 0 = default (50)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryIdleFactsRequest) Reset() {
+	*x = QueryIdleFactsRequest{}
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[128]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryIdleFactsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryIdleFactsRequest) ProtoMessage() {}
+
+func (x *QueryIdleFactsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[128]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryIdleFactsRequest.ProtoReflect.Descriptor instead.
+func (*QueryIdleFactsRequest) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{128}
+}
+
+func (x *QueryIdleFactsRequest) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *QueryIdleFactsRequest) GetLimit() uint32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type QueryIdleFactsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Facts         []*IdleFact            `protobuf:"bytes,1,rep,name=facts,proto3" json:"facts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryIdleFactsResponse) Reset() {
+	*x = QueryIdleFactsResponse{}
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[129]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryIdleFactsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryIdleFactsResponse) ProtoMessage() {}
+
+func (x *QueryIdleFactsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[129]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryIdleFactsResponse.ProtoReflect.Descriptor instead.
+func (*QueryIdleFactsResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{129}
+}
+
+func (x *QueryIdleFactsResponse) GetFacts() []*IdleFact {
+	if x != nil {
+		return x.Facts
+	}
+	return nil
+}
+
 type QueryTrainingAttestationRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PipelineId    string                 `protobuf:"bytes,1,opt,name=pipeline_id,json=pipelineId,proto3" json:"pipeline_id,omitempty"`
@@ -7210,7 +7391,7 @@ type QueryTrainingAttestationRequest struct {
 
 func (x *QueryTrainingAttestationRequest) Reset() {
 	*x = QueryTrainingAttestationRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[127]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7222,7 +7403,7 @@ func (x *QueryTrainingAttestationRequest) String() string {
 func (*QueryTrainingAttestationRequest) ProtoMessage() {}
 
 func (x *QueryTrainingAttestationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[127]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7235,7 +7416,7 @@ func (x *QueryTrainingAttestationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingAttestationRequest.ProtoReflect.Descriptor instead.
 func (*QueryTrainingAttestationRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{127}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *QueryTrainingAttestationRequest) GetPipelineId() string {
@@ -7255,7 +7436,7 @@ type QueryTrainingAttestationResponse struct {
 
 func (x *QueryTrainingAttestationResponse) Reset() {
 	*x = QueryTrainingAttestationResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[128]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7267,7 +7448,7 @@ func (x *QueryTrainingAttestationResponse) String() string {
 func (*QueryTrainingAttestationResponse) ProtoMessage() {}
 
 func (x *QueryTrainingAttestationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[128]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7280,7 +7461,7 @@ func (x *QueryTrainingAttestationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingAttestationResponse.ProtoReflect.Descriptor instead.
 func (*QueryTrainingAttestationResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{128}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *QueryTrainingAttestationResponse) GetAttestation() *TrainingAttestation {
@@ -7306,7 +7487,7 @@ type QueryModelContributionsRequest struct {
 
 func (x *QueryModelContributionsRequest) Reset() {
 	*x = QueryModelContributionsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[129]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7318,7 +7499,7 @@ func (x *QueryModelContributionsRequest) String() string {
 func (*QueryModelContributionsRequest) ProtoMessage() {}
 
 func (x *QueryModelContributionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[129]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7331,7 +7512,7 @@ func (x *QueryModelContributionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryModelContributionsRequest.ProtoReflect.Descriptor instead.
 func (*QueryModelContributionsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{129}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *QueryModelContributionsRequest) GetModelId() string {
@@ -7351,7 +7532,7 @@ type QueryModelContributionsResponse struct {
 
 func (x *QueryModelContributionsResponse) Reset() {
 	*x = QueryModelContributionsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[130]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7363,7 +7544,7 @@ func (x *QueryModelContributionsResponse) String() string {
 func (*QueryModelContributionsResponse) ProtoMessage() {}
 
 func (x *QueryModelContributionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[130]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7376,7 +7557,7 @@ func (x *QueryModelContributionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryModelContributionsResponse.ProtoReflect.Descriptor instead.
 func (*QueryModelContributionsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{130}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *QueryModelContributionsResponse) GetRecord() *ContributionRecord {
@@ -7402,7 +7583,7 @@ type QueryFactContributorsRequest struct {
 
 func (x *QueryFactContributorsRequest) Reset() {
 	*x = QueryFactContributorsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[131]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7414,7 +7595,7 @@ func (x *QueryFactContributorsRequest) String() string {
 func (*QueryFactContributorsRequest) ProtoMessage() {}
 
 func (x *QueryFactContributorsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[131]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7427,7 +7608,7 @@ func (x *QueryFactContributorsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryFactContributorsRequest.ProtoReflect.Descriptor instead.
 func (*QueryFactContributorsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{131}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *QueryFactContributorsRequest) GetFactId() string {
@@ -7446,7 +7627,7 @@ type QueryFactContributorsResponse struct {
 
 func (x *QueryFactContributorsResponse) Reset() {
 	*x = QueryFactContributorsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[132]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7458,7 +7639,7 @@ func (x *QueryFactContributorsResponse) String() string {
 func (*QueryFactContributorsResponse) ProtoMessage() {}
 
 func (x *QueryFactContributorsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[132]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7471,7 +7652,7 @@ func (x *QueryFactContributorsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryFactContributorsResponse.ProtoReflect.Descriptor instead.
 func (*QueryFactContributorsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{132}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *QueryFactContributorsResponse) GetModelIds() []string {
@@ -7491,7 +7672,7 @@ type QueryModelLineageRequest struct {
 
 func (x *QueryModelLineageRequest) Reset() {
 	*x = QueryModelLineageRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[133]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7503,7 +7684,7 @@ func (x *QueryModelLineageRequest) String() string {
 func (*QueryModelLineageRequest) ProtoMessage() {}
 
 func (x *QueryModelLineageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[133]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7516,7 +7697,7 @@ func (x *QueryModelLineageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryModelLineageRequest.ProtoReflect.Descriptor instead.
 func (*QueryModelLineageRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{133}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *QueryModelLineageRequest) GetModelId() string {
@@ -7545,7 +7726,7 @@ type QueryModelLineageResponse struct {
 
 func (x *QueryModelLineageResponse) Reset() {
 	*x = QueryModelLineageResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[134]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7557,7 +7738,7 @@ func (x *QueryModelLineageResponse) String() string {
 func (*QueryModelLineageResponse) ProtoMessage() {}
 
 func (x *QueryModelLineageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[134]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7570,7 +7751,7 @@ func (x *QueryModelLineageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryModelLineageResponse.ProtoReflect.Descriptor instead.
 func (*QueryModelLineageResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{134}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *QueryModelLineageResponse) GetAncestry() []*ModelCard {
@@ -7603,7 +7784,7 @@ type QueryAugmentationBountyRequest struct {
 
 func (x *QueryAugmentationBountyRequest) Reset() {
 	*x = QueryAugmentationBountyRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[135]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7615,7 +7796,7 @@ func (x *QueryAugmentationBountyRequest) String() string {
 func (*QueryAugmentationBountyRequest) ProtoMessage() {}
 
 func (x *QueryAugmentationBountyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[135]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7628,7 +7809,7 @@ func (x *QueryAugmentationBountyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAugmentationBountyRequest.ProtoReflect.Descriptor instead.
 func (*QueryAugmentationBountyRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{135}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *QueryAugmentationBountyRequest) GetId() string {
@@ -7648,7 +7829,7 @@ type QueryAugmentationBountyResponse struct {
 
 func (x *QueryAugmentationBountyResponse) Reset() {
 	*x = QueryAugmentationBountyResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[136]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7660,7 +7841,7 @@ func (x *QueryAugmentationBountyResponse) String() string {
 func (*QueryAugmentationBountyResponse) ProtoMessage() {}
 
 func (x *QueryAugmentationBountyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[136]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7673,7 +7854,7 @@ func (x *QueryAugmentationBountyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAugmentationBountyResponse.ProtoReflect.Descriptor instead.
 func (*QueryAugmentationBountyResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{136}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *QueryAugmentationBountyResponse) GetBounty() *AugmentationBounty {
@@ -7700,7 +7881,7 @@ type QueryAugmentationBountiesRequest struct {
 
 func (x *QueryAugmentationBountiesRequest) Reset() {
 	*x = QueryAugmentationBountiesRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[137]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7712,7 +7893,7 @@ func (x *QueryAugmentationBountiesRequest) String() string {
 func (*QueryAugmentationBountiesRequest) ProtoMessage() {}
 
 func (x *QueryAugmentationBountiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[137]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7725,7 +7906,7 @@ func (x *QueryAugmentationBountiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAugmentationBountiesRequest.ProtoReflect.Descriptor instead.
 func (*QueryAugmentationBountiesRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{137}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *QueryAugmentationBountiesRequest) GetSponsorAddress() string {
@@ -7752,7 +7933,7 @@ type QueryAugmentationBountiesResponse struct {
 
 func (x *QueryAugmentationBountiesResponse) Reset() {
 	*x = QueryAugmentationBountiesResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[138]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7764,7 +7945,7 @@ func (x *QueryAugmentationBountiesResponse) String() string {
 func (*QueryAugmentationBountiesResponse) ProtoMessage() {}
 
 func (x *QueryAugmentationBountiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[138]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7777,7 +7958,7 @@ func (x *QueryAugmentationBountiesResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use QueryAugmentationBountiesResponse.ProtoReflect.Descriptor instead.
 func (*QueryAugmentationBountiesResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{138}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *QueryAugmentationBountiesResponse) GetBounties() []*AugmentationBounty {
@@ -7804,7 +7985,7 @@ type QueryAugmentationsByFactRequest struct {
 
 func (x *QueryAugmentationsByFactRequest) Reset() {
 	*x = QueryAugmentationsByFactRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[139]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7816,7 +7997,7 @@ func (x *QueryAugmentationsByFactRequest) String() string {
 func (*QueryAugmentationsByFactRequest) ProtoMessage() {}
 
 func (x *QueryAugmentationsByFactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[139]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7829,7 +8010,7 @@ func (x *QueryAugmentationsByFactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAugmentationsByFactRequest.ProtoReflect.Descriptor instead.
 func (*QueryAugmentationsByFactRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{139}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *QueryAugmentationsByFactRequest) GetFactId() string {
@@ -7855,7 +8036,7 @@ type QueryAugmentationsByFactResponse struct {
 
 func (x *QueryAugmentationsByFactResponse) Reset() {
 	*x = QueryAugmentationsByFactResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[140]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7867,7 +8048,7 @@ func (x *QueryAugmentationsByFactResponse) String() string {
 func (*QueryAugmentationsByFactResponse) ProtoMessage() {}
 
 func (x *QueryAugmentationsByFactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[140]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7880,7 +8061,7 @@ func (x *QueryAugmentationsByFactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryAugmentationsByFactResponse.ProtoReflect.Descriptor instead.
 func (*QueryAugmentationsByFactResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{140}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *QueryAugmentationsByFactResponse) GetAugmentations() []*Augmentation {
@@ -7899,7 +8080,7 @@ type QueryTrainingValueWeightRequest struct {
 
 func (x *QueryTrainingValueWeightRequest) Reset() {
 	*x = QueryTrainingValueWeightRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[141]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7911,7 +8092,7 @@ func (x *QueryTrainingValueWeightRequest) String() string {
 func (*QueryTrainingValueWeightRequest) ProtoMessage() {}
 
 func (x *QueryTrainingValueWeightRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[141]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7924,7 +8105,7 @@ func (x *QueryTrainingValueWeightRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingValueWeightRequest.ProtoReflect.Descriptor instead.
 func (*QueryTrainingValueWeightRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{141}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *QueryTrainingValueWeightRequest) GetFactId() string {
@@ -7951,7 +8132,7 @@ type QueryTrainingValueWeightResponse struct {
 
 func (x *QueryTrainingValueWeightResponse) Reset() {
 	*x = QueryTrainingValueWeightResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[142]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7963,7 +8144,7 @@ func (x *QueryTrainingValueWeightResponse) String() string {
 func (*QueryTrainingValueWeightResponse) ProtoMessage() {}
 
 func (x *QueryTrainingValueWeightResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[142]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7976,7 +8157,7 @@ func (x *QueryTrainingValueWeightResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingValueWeightResponse.ProtoReflect.Descriptor instead.
 func (*QueryTrainingValueWeightResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{142}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *QueryTrainingValueWeightResponse) GetTvwBps() uint64 {
@@ -8051,7 +8232,7 @@ type QueryContributionChallengeRequest struct {
 
 func (x *QueryContributionChallengeRequest) Reset() {
 	*x = QueryContributionChallengeRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[143]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8063,7 +8244,7 @@ func (x *QueryContributionChallengeRequest) String() string {
 func (*QueryContributionChallengeRequest) ProtoMessage() {}
 
 func (x *QueryContributionChallengeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[143]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8076,7 +8257,7 @@ func (x *QueryContributionChallengeRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use QueryContributionChallengeRequest.ProtoReflect.Descriptor instead.
 func (*QueryContributionChallengeRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{143}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *QueryContributionChallengeRequest) GetId() string {
@@ -8096,7 +8277,7 @@ type QueryContributionChallengeResponse struct {
 
 func (x *QueryContributionChallengeResponse) Reset() {
 	*x = QueryContributionChallengeResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[144]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8108,7 +8289,7 @@ func (x *QueryContributionChallengeResponse) String() string {
 func (*QueryContributionChallengeResponse) ProtoMessage() {}
 
 func (x *QueryContributionChallengeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[144]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8121,7 +8302,7 @@ func (x *QueryContributionChallengeResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use QueryContributionChallengeResponse.ProtoReflect.Descriptor instead.
 func (*QueryContributionChallengeResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{144}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *QueryContributionChallengeResponse) GetChallenge() *ContributionChallenge {
@@ -8147,7 +8328,7 @@ type QueryOpenContributionChallengesRequest struct {
 
 func (x *QueryOpenContributionChallengesRequest) Reset() {
 	*x = QueryOpenContributionChallengesRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[145]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8159,7 +8340,7 @@ func (x *QueryOpenContributionChallengesRequest) String() string {
 func (*QueryOpenContributionChallengesRequest) ProtoMessage() {}
 
 func (x *QueryOpenContributionChallengesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[145]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8172,7 +8353,7 @@ func (x *QueryOpenContributionChallengesRequest) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use QueryOpenContributionChallengesRequest.ProtoReflect.Descriptor instead.
 func (*QueryOpenContributionChallengesRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{145}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *QueryOpenContributionChallengesRequest) GetModelId() string {
@@ -8191,7 +8372,7 @@ type QueryOpenContributionChallengesResponse struct {
 
 func (x *QueryOpenContributionChallengesResponse) Reset() {
 	*x = QueryOpenContributionChallengesResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[146]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8203,7 +8384,7 @@ func (x *QueryOpenContributionChallengesResponse) String() string {
 func (*QueryOpenContributionChallengesResponse) ProtoMessage() {}
 
 func (x *QueryOpenContributionChallengesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[146]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8216,7 +8397,7 @@ func (x *QueryOpenContributionChallengesResponse) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use QueryOpenContributionChallengesResponse.ProtoReflect.Descriptor instead.
 func (*QueryOpenContributionChallengesResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{146}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *QueryOpenContributionChallengesResponse) GetChallenges() []*ContributionChallenge {
@@ -8235,7 +8416,7 @@ type QueryTrainingFundDisbursementRequest struct {
 
 func (x *QueryTrainingFundDisbursementRequest) Reset() {
 	*x = QueryTrainingFundDisbursementRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[147]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8247,7 +8428,7 @@ func (x *QueryTrainingFundDisbursementRequest) String() string {
 func (*QueryTrainingFundDisbursementRequest) ProtoMessage() {}
 
 func (x *QueryTrainingFundDisbursementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[147]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8260,7 +8441,7 @@ func (x *QueryTrainingFundDisbursementRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use QueryTrainingFundDisbursementRequest.ProtoReflect.Descriptor instead.
 func (*QueryTrainingFundDisbursementRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{147}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *QueryTrainingFundDisbursementRequest) GetId() string {
@@ -8280,7 +8461,7 @@ type QueryTrainingFundDisbursementResponse struct {
 
 func (x *QueryTrainingFundDisbursementResponse) Reset() {
 	*x = QueryTrainingFundDisbursementResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[148]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8292,7 +8473,7 @@ func (x *QueryTrainingFundDisbursementResponse) String() string {
 func (*QueryTrainingFundDisbursementResponse) ProtoMessage() {}
 
 func (x *QueryTrainingFundDisbursementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[148]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8305,7 +8486,7 @@ func (x *QueryTrainingFundDisbursementResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use QueryTrainingFundDisbursementResponse.ProtoReflect.Descriptor instead.
 func (*QueryTrainingFundDisbursementResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{148}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *QueryTrainingFundDisbursementResponse) GetDisbursement() *TrainingFundDisbursement {
@@ -8330,7 +8511,7 @@ type QueryTrainingFundBalanceRequest struct {
 
 func (x *QueryTrainingFundBalanceRequest) Reset() {
 	*x = QueryTrainingFundBalanceRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[149]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8342,7 +8523,7 @@ func (x *QueryTrainingFundBalanceRequest) String() string {
 func (*QueryTrainingFundBalanceRequest) ProtoMessage() {}
 
 func (x *QueryTrainingFundBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[149]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8355,7 +8536,7 @@ func (x *QueryTrainingFundBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingFundBalanceRequest.ProtoReflect.Descriptor instead.
 func (*QueryTrainingFundBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{149}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{152}
 }
 
 type QueryTrainingFundBalanceResponse struct {
@@ -8370,7 +8551,7 @@ type QueryTrainingFundBalanceResponse struct {
 
 func (x *QueryTrainingFundBalanceResponse) Reset() {
 	*x = QueryTrainingFundBalanceResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[150]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8382,7 +8563,7 @@ func (x *QueryTrainingFundBalanceResponse) String() string {
 func (*QueryTrainingFundBalanceResponse) ProtoMessage() {}
 
 func (x *QueryTrainingFundBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[150]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8395,7 +8576,7 @@ func (x *QueryTrainingFundBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingFundBalanceResponse.ProtoReflect.Descriptor instead.
 func (*QueryTrainingFundBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{150}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *QueryTrainingFundBalanceResponse) GetBalance() string {
@@ -8436,7 +8617,7 @@ type QueryNormativeCorpusRequest struct {
 
 func (x *QueryNormativeCorpusRequest) Reset() {
 	*x = QueryNormativeCorpusRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[151]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[154]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8448,7 +8629,7 @@ func (x *QueryNormativeCorpusRequest) String() string {
 func (*QueryNormativeCorpusRequest) ProtoMessage() {}
 
 func (x *QueryNormativeCorpusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[151]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[154]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8461,7 +8642,7 @@ func (x *QueryNormativeCorpusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryNormativeCorpusRequest.ProtoReflect.Descriptor instead.
 func (*QueryNormativeCorpusRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{151}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{154}
 }
 
 func (x *QueryNormativeCorpusRequest) GetLimit() uint32 {
@@ -8491,7 +8672,7 @@ type NormativeCorpusEntry struct {
 
 func (x *NormativeCorpusEntry) Reset() {
 	*x = NormativeCorpusEntry{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[152]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[155]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8503,7 +8684,7 @@ func (x *NormativeCorpusEntry) String() string {
 func (*NormativeCorpusEntry) ProtoMessage() {}
 
 func (x *NormativeCorpusEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[152]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[155]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8516,7 +8697,7 @@ func (x *NormativeCorpusEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NormativeCorpusEntry.ProtoReflect.Descriptor instead.
 func (*NormativeCorpusEntry) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{152}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{155}
 }
 
 func (x *NormativeCorpusEntry) GetCommitmentId() string {
@@ -8565,7 +8746,7 @@ type QueryNormativeCorpusResponse struct {
 
 func (x *QueryNormativeCorpusResponse) Reset() {
 	*x = QueryNormativeCorpusResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[153]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[156]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8577,7 +8758,7 @@ func (x *QueryNormativeCorpusResponse) String() string {
 func (*QueryNormativeCorpusResponse) ProtoMessage() {}
 
 func (x *QueryNormativeCorpusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[153]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[156]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8590,7 +8771,7 @@ func (x *QueryNormativeCorpusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryNormativeCorpusResponse.ProtoReflect.Descriptor instead.
 func (*QueryNormativeCorpusResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{153}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{156}
 }
 
 func (x *QueryNormativeCorpusResponse) GetEntries() []*NormativeCorpusEntry {
@@ -8624,7 +8805,7 @@ type QueryDriftCorpusRequest struct {
 
 func (x *QueryDriftCorpusRequest) Reset() {
 	*x = QueryDriftCorpusRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[154]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[157]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8636,7 +8817,7 @@ func (x *QueryDriftCorpusRequest) String() string {
 func (*QueryDriftCorpusRequest) ProtoMessage() {}
 
 func (x *QueryDriftCorpusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[154]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[157]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8649,7 +8830,7 @@ func (x *QueryDriftCorpusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryDriftCorpusRequest.ProtoReflect.Descriptor instead.
 func (*QueryDriftCorpusRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{154}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{157}
 }
 
 func (x *QueryDriftCorpusRequest) GetLimit() uint32 {
@@ -8680,7 +8861,7 @@ type DriftCorpusEntry struct {
 
 func (x *DriftCorpusEntry) Reset() {
 	*x = DriftCorpusEntry{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[155]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[158]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8692,7 +8873,7 @@ func (x *DriftCorpusEntry) String() string {
 func (*DriftCorpusEntry) ProtoMessage() {}
 
 func (x *DriftCorpusEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[155]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[158]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8705,7 +8886,7 @@ func (x *DriftCorpusEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DriftCorpusEntry.ProtoReflect.Descriptor instead.
 func (*DriftCorpusEntry) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{155}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{158}
 }
 
 func (x *DriftCorpusEntry) GetAugmentationId() string {
@@ -8761,7 +8942,7 @@ type QueryDriftCorpusResponse struct {
 
 func (x *QueryDriftCorpusResponse) Reset() {
 	*x = QueryDriftCorpusResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[156]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[159]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8773,7 +8954,7 @@ func (x *QueryDriftCorpusResponse) String() string {
 func (*QueryDriftCorpusResponse) ProtoMessage() {}
 
 func (x *QueryDriftCorpusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[156]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[159]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8786,7 +8967,7 @@ func (x *QueryDriftCorpusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryDriftCorpusResponse.ProtoReflect.Descriptor instead.
 func (*QueryDriftCorpusResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{156}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{159}
 }
 
 func (x *QueryDriftCorpusResponse) GetEntries() []*DriftCorpusEntry {
@@ -8819,7 +9000,7 @@ type QueryMethodologyApplicationTraceRequest struct {
 
 func (x *QueryMethodologyApplicationTraceRequest) Reset() {
 	*x = QueryMethodologyApplicationTraceRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[157]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[160]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8831,7 +9012,7 @@ func (x *QueryMethodologyApplicationTraceRequest) String() string {
 func (*QueryMethodologyApplicationTraceRequest) ProtoMessage() {}
 
 func (x *QueryMethodologyApplicationTraceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[157]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[160]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8844,7 +9025,7 @@ func (x *QueryMethodologyApplicationTraceRequest) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use QueryMethodologyApplicationTraceRequest.ProtoReflect.Descriptor instead.
 func (*QueryMethodologyApplicationTraceRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{157}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{160}
 }
 
 func (x *QueryMethodologyApplicationTraceRequest) GetFactId() string {
@@ -8864,7 +9045,7 @@ type QueryMethodologyApplicationTraceResponse struct {
 
 func (x *QueryMethodologyApplicationTraceResponse) Reset() {
 	*x = QueryMethodologyApplicationTraceResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[158]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[161]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8876,7 +9057,7 @@ func (x *QueryMethodologyApplicationTraceResponse) String() string {
 func (*QueryMethodologyApplicationTraceResponse) ProtoMessage() {}
 
 func (x *QueryMethodologyApplicationTraceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[158]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[161]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8889,7 +9070,7 @@ func (x *QueryMethodologyApplicationTraceResponse) ProtoReflect() protoreflect.M
 
 // Deprecated: Use QueryMethodologyApplicationTraceResponse.ProtoReflect.Descriptor instead.
 func (*QueryMethodologyApplicationTraceResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{158}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{161}
 }
 
 func (x *QueryMethodologyApplicationTraceResponse) GetTrace() *MethodologyApplicationTrace {
@@ -8920,7 +9101,7 @@ type QueryMethodologyApplicationTracesRequest struct {
 
 func (x *QueryMethodologyApplicationTracesRequest) Reset() {
 	*x = QueryMethodologyApplicationTracesRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[159]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[162]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8932,7 +9113,7 @@ func (x *QueryMethodologyApplicationTracesRequest) String() string {
 func (*QueryMethodologyApplicationTracesRequest) ProtoMessage() {}
 
 func (x *QueryMethodologyApplicationTracesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[159]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[162]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8945,7 +9126,7 @@ func (x *QueryMethodologyApplicationTracesRequest) ProtoReflect() protoreflect.M
 
 // Deprecated: Use QueryMethodologyApplicationTracesRequest.ProtoReflect.Descriptor instead.
 func (*QueryMethodologyApplicationTracesRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{159}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{162}
 }
 
 func (x *QueryMethodologyApplicationTracesRequest) GetMethodId() string {
@@ -9002,7 +9183,7 @@ type QueryMethodologyApplicationTracesResponse struct {
 
 func (x *QueryMethodologyApplicationTracesResponse) Reset() {
 	*x = QueryMethodologyApplicationTracesResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[160]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[163]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9014,7 +9195,7 @@ func (x *QueryMethodologyApplicationTracesResponse) String() string {
 func (*QueryMethodologyApplicationTracesResponse) ProtoMessage() {}
 
 func (x *QueryMethodologyApplicationTracesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[160]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[163]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9027,7 +9208,7 @@ func (x *QueryMethodologyApplicationTracesResponse) ProtoReflect() protoreflect.
 
 // Deprecated: Use QueryMethodologyApplicationTracesResponse.ProtoReflect.Descriptor instead.
 func (*QueryMethodologyApplicationTracesResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{160}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{163}
 }
 
 func (x *QueryMethodologyApplicationTracesResponse) GetTraces() []*MethodologyApplicationTrace {
@@ -9070,7 +9251,7 @@ type QueryContrastivePairsRequest struct {
 
 func (x *QueryContrastivePairsRequest) Reset() {
 	*x = QueryContrastivePairsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[161]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[164]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9082,7 +9263,7 @@ func (x *QueryContrastivePairsRequest) String() string {
 func (*QueryContrastivePairsRequest) ProtoMessage() {}
 
 func (x *QueryContrastivePairsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[161]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[164]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9095,7 +9276,7 @@ func (x *QueryContrastivePairsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryContrastivePairsRequest.ProtoReflect.Descriptor instead.
 func (*QueryContrastivePairsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{161}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{164}
 }
 
 func (x *QueryContrastivePairsRequest) GetPairType() ContrastivePairType {
@@ -9137,7 +9318,7 @@ type QueryContrastivePairsResponse struct {
 
 func (x *QueryContrastivePairsResponse) Reset() {
 	*x = QueryContrastivePairsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[162]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[165]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9149,7 +9330,7 @@ func (x *QueryContrastivePairsResponse) String() string {
 func (*QueryContrastivePairsResponse) ProtoMessage() {}
 
 func (x *QueryContrastivePairsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[162]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[165]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9162,7 +9343,7 @@ func (x *QueryContrastivePairsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryContrastivePairsResponse.ProtoReflect.Descriptor instead.
 func (*QueryContrastivePairsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{162}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{165}
 }
 
 func (x *QueryContrastivePairsResponse) GetPairs() []*ContrastivePair {
@@ -9194,7 +9375,7 @@ type QueryTraceSchemaRequest struct {
 
 func (x *QueryTraceSchemaRequest) Reset() {
 	*x = QueryTraceSchemaRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[163]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[166]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9206,7 +9387,7 @@ func (x *QueryTraceSchemaRequest) String() string {
 func (*QueryTraceSchemaRequest) ProtoMessage() {}
 
 func (x *QueryTraceSchemaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[163]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[166]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9219,7 +9400,7 @@ func (x *QueryTraceSchemaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTraceSchemaRequest.ProtoReflect.Descriptor instead.
 func (*QueryTraceSchemaRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{163}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{166}
 }
 
 type QueryTraceSchemaResponse struct {
@@ -9232,7 +9413,7 @@ type QueryTraceSchemaResponse struct {
 
 func (x *QueryTraceSchemaResponse) Reset() {
 	*x = QueryTraceSchemaResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[164]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[167]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9244,7 +9425,7 @@ func (x *QueryTraceSchemaResponse) String() string {
 func (*QueryTraceSchemaResponse) ProtoMessage() {}
 
 func (x *QueryTraceSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[164]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[167]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9257,7 +9438,7 @@ func (x *QueryTraceSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTraceSchemaResponse.ProtoReflect.Descriptor instead.
 func (*QueryTraceSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{164}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{167}
 }
 
 func (x *QueryTraceSchemaResponse) GetSchema() *TraceSchema {
@@ -9283,7 +9464,7 @@ type QueryTraceSchemaAtVersionRequest struct {
 
 func (x *QueryTraceSchemaAtVersionRequest) Reset() {
 	*x = QueryTraceSchemaAtVersionRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[165]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[168]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9295,7 +9476,7 @@ func (x *QueryTraceSchemaAtVersionRequest) String() string {
 func (*QueryTraceSchemaAtVersionRequest) ProtoMessage() {}
 
 func (x *QueryTraceSchemaAtVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[165]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[168]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9308,7 +9489,7 @@ func (x *QueryTraceSchemaAtVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTraceSchemaAtVersionRequest.ProtoReflect.Descriptor instead.
 func (*QueryTraceSchemaAtVersionRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{165}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{168}
 }
 
 func (x *QueryTraceSchemaAtVersionRequest) GetVersion() uint64 {
@@ -9328,7 +9509,7 @@ type QueryTraceSchemaAtVersionResponse struct {
 
 func (x *QueryTraceSchemaAtVersionResponse) Reset() {
 	*x = QueryTraceSchemaAtVersionResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[166]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[169]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9340,7 +9521,7 @@ func (x *QueryTraceSchemaAtVersionResponse) String() string {
 func (*QueryTraceSchemaAtVersionResponse) ProtoMessage() {}
 
 func (x *QueryTraceSchemaAtVersionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[166]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[169]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9353,7 +9534,7 @@ func (x *QueryTraceSchemaAtVersionResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use QueryTraceSchemaAtVersionResponse.ProtoReflect.Descriptor instead.
 func (*QueryTraceSchemaAtVersionResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{166}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{169}
 }
 
 func (x *QueryTraceSchemaAtVersionResponse) GetSchema() *TraceSchema {
@@ -9379,7 +9560,7 @@ type QueryTrainingManifestRequest struct {
 
 func (x *QueryTrainingManifestRequest) Reset() {
 	*x = QueryTrainingManifestRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[167]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[170]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9391,7 +9572,7 @@ func (x *QueryTrainingManifestRequest) String() string {
 func (*QueryTrainingManifestRequest) ProtoMessage() {}
 
 func (x *QueryTrainingManifestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[167]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[170]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9404,7 +9585,7 @@ func (x *QueryTrainingManifestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingManifestRequest.ProtoReflect.Descriptor instead.
 func (*QueryTrainingManifestRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{167}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{170}
 }
 
 func (x *QueryTrainingManifestRequest) GetId() string {
@@ -9424,7 +9605,7 @@ type QueryTrainingManifestResponse struct {
 
 func (x *QueryTrainingManifestResponse) Reset() {
 	*x = QueryTrainingManifestResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[168]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[171]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9436,7 +9617,7 @@ func (x *QueryTrainingManifestResponse) String() string {
 func (*QueryTrainingManifestResponse) ProtoMessage() {}
 
 func (x *QueryTrainingManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[168]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[171]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9449,7 +9630,7 @@ func (x *QueryTrainingManifestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingManifestResponse.ProtoReflect.Descriptor instead.
 func (*QueryTrainingManifestResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{168}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{171}
 }
 
 func (x *QueryTrainingManifestResponse) GetManifest() *TrainingManifest {
@@ -9479,7 +9660,7 @@ type QueryTrainingManifestsRequest struct {
 
 func (x *QueryTrainingManifestsRequest) Reset() {
 	*x = QueryTrainingManifestsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[169]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[172]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9491,7 +9672,7 @@ func (x *QueryTrainingManifestsRequest) String() string {
 func (*QueryTrainingManifestsRequest) ProtoMessage() {}
 
 func (x *QueryTrainingManifestsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[169]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[172]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9504,7 +9685,7 @@ func (x *QueryTrainingManifestsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingManifestsRequest.ProtoReflect.Descriptor instead.
 func (*QueryTrainingManifestsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{169}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{172}
 }
 
 func (x *QueryTrainingManifestsRequest) GetPipelineId() string {
@@ -9553,7 +9734,7 @@ type QueryTrainingManifestsResponse struct {
 
 func (x *QueryTrainingManifestsResponse) Reset() {
 	*x = QueryTrainingManifestsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[170]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[173]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9565,7 +9746,7 @@ func (x *QueryTrainingManifestsResponse) String() string {
 func (*QueryTrainingManifestsResponse) ProtoMessage() {}
 
 func (x *QueryTrainingManifestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[170]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[173]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9578,7 +9759,7 @@ func (x *QueryTrainingManifestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTrainingManifestsResponse.ProtoReflect.Descriptor instead.
 func (*QueryTrainingManifestsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{170}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{173}
 }
 
 func (x *QueryTrainingManifestsResponse) GetManifests() []*TrainingManifest {
@@ -9611,7 +9792,7 @@ type QueryTrainingManifestBundleRequest struct {
 
 func (x *QueryTrainingManifestBundleRequest) Reset() {
 	*x = QueryTrainingManifestBundleRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[171]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[174]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9623,7 +9804,7 @@ func (x *QueryTrainingManifestBundleRequest) String() string {
 func (*QueryTrainingManifestBundleRequest) ProtoMessage() {}
 
 func (x *QueryTrainingManifestBundleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[171]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[174]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9636,7 +9817,7 @@ func (x *QueryTrainingManifestBundleRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use QueryTrainingManifestBundleRequest.ProtoReflect.Descriptor instead.
 func (*QueryTrainingManifestBundleRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{171}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{174}
 }
 
 func (x *QueryTrainingManifestBundleRequest) GetId() string {
@@ -9666,7 +9847,7 @@ type QueryTrainingManifestBundleResponse struct {
 
 func (x *QueryTrainingManifestBundleResponse) Reset() {
 	*x = QueryTrainingManifestBundleResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[172]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[175]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9678,7 +9859,7 @@ func (x *QueryTrainingManifestBundleResponse) String() string {
 func (*QueryTrainingManifestBundleResponse) ProtoMessage() {}
 
 func (x *QueryTrainingManifestBundleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[172]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[175]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9691,7 +9872,7 @@ func (x *QueryTrainingManifestBundleResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use QueryTrainingManifestBundleResponse.ProtoReflect.Descriptor instead.
 func (*QueryTrainingManifestBundleResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{172}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{175}
 }
 
 func (x *QueryTrainingManifestBundleResponse) GetManifest() *TrainingManifest {
@@ -9751,7 +9932,7 @@ type QueryRouteBCapabilitiesRequest struct {
 
 func (x *QueryRouteBCapabilitiesRequest) Reset() {
 	*x = QueryRouteBCapabilitiesRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[173]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[176]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9763,7 +9944,7 @@ func (x *QueryRouteBCapabilitiesRequest) String() string {
 func (*QueryRouteBCapabilitiesRequest) ProtoMessage() {}
 
 func (x *QueryRouteBCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[173]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[176]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9776,7 +9957,7 @@ func (x *QueryRouteBCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRouteBCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*QueryRouteBCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{173}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{176}
 }
 
 type QueryRouteBCapabilitiesResponse struct {
@@ -9788,7 +9969,7 @@ type QueryRouteBCapabilitiesResponse struct {
 
 func (x *QueryRouteBCapabilitiesResponse) Reset() {
 	*x = QueryRouteBCapabilitiesResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[174]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[177]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9800,7 +9981,7 @@ func (x *QueryRouteBCapabilitiesResponse) String() string {
 func (*QueryRouteBCapabilitiesResponse) ProtoMessage() {}
 
 func (x *QueryRouteBCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[174]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[177]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9813,7 +9994,7 @@ func (x *QueryRouteBCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRouteBCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*QueryRouteBCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{174}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{177}
 }
 
 func (x *QueryRouteBCapabilitiesResponse) GetCapabilities() *RouteBCapabilities {
@@ -9832,7 +10013,7 @@ type QueryIncidentRequest struct {
 
 func (x *QueryIncidentRequest) Reset() {
 	*x = QueryIncidentRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[175]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[178]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9844,7 +10025,7 @@ func (x *QueryIncidentRequest) String() string {
 func (*QueryIncidentRequest) ProtoMessage() {}
 
 func (x *QueryIncidentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[175]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[178]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9857,7 +10038,7 @@ func (x *QueryIncidentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryIncidentRequest.ProtoReflect.Descriptor instead.
 func (*QueryIncidentRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{175}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{178}
 }
 
 func (x *QueryIncidentRequest) GetId() string {
@@ -9877,7 +10058,7 @@ type QueryIncidentResponse struct {
 
 func (x *QueryIncidentResponse) Reset() {
 	*x = QueryIncidentResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[176]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[179]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9889,7 +10070,7 @@ func (x *QueryIncidentResponse) String() string {
 func (*QueryIncidentResponse) ProtoMessage() {}
 
 func (x *QueryIncidentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[176]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[179]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9902,7 +10083,7 @@ func (x *QueryIncidentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryIncidentResponse.ProtoReflect.Descriptor instead.
 func (*QueryIncidentResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{176}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{179}
 }
 
 func (x *QueryIncidentResponse) GetIncident() *IncidentRecord {
@@ -9931,7 +10112,7 @@ type QueryIncidentsRequest struct {
 
 func (x *QueryIncidentsRequest) Reset() {
 	*x = QueryIncidentsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[177]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[180]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9943,7 +10124,7 @@ func (x *QueryIncidentsRequest) String() string {
 func (*QueryIncidentsRequest) ProtoMessage() {}
 
 func (x *QueryIncidentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[177]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[180]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9956,7 +10137,7 @@ func (x *QueryIncidentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryIncidentsRequest.ProtoReflect.Descriptor instead.
 func (*QueryIncidentsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{177}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{180}
 }
 
 func (x *QueryIncidentsRequest) GetSeverity() IncidentSeverity {
@@ -9998,7 +10179,7 @@ type QueryIncidentsResponse struct {
 
 func (x *QueryIncidentsResponse) Reset() {
 	*x = QueryIncidentsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[178]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[181]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10010,7 +10191,7 @@ func (x *QueryIncidentsResponse) String() string {
 func (*QueryIncidentsResponse) ProtoMessage() {}
 
 func (x *QueryIncidentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[178]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[181]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10023,7 +10204,7 @@ func (x *QueryIncidentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryIncidentsResponse.ProtoReflect.Descriptor instead.
 func (*QueryIncidentsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{178}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{181}
 }
 
 func (x *QueryIncidentsResponse) GetIncidents() []*IncidentRecord {
@@ -10056,7 +10237,7 @@ type QueryOpenIncidentsRequest struct {
 
 func (x *QueryOpenIncidentsRequest) Reset() {
 	*x = QueryOpenIncidentsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[179]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[182]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10068,7 +10249,7 @@ func (x *QueryOpenIncidentsRequest) String() string {
 func (*QueryOpenIncidentsRequest) ProtoMessage() {}
 
 func (x *QueryOpenIncidentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[179]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[182]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10081,7 +10262,7 @@ func (x *QueryOpenIncidentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryOpenIncidentsRequest.ProtoReflect.Descriptor instead.
 func (*QueryOpenIncidentsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{179}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{182}
 }
 
 func (x *QueryOpenIncidentsRequest) GetSeverity() IncidentSeverity {
@@ -10101,7 +10282,7 @@ type QueryOpenIncidentsResponse struct {
 
 func (x *QueryOpenIncidentsResponse) Reset() {
 	*x = QueryOpenIncidentsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[180]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[183]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10113,7 +10294,7 @@ func (x *QueryOpenIncidentsResponse) String() string {
 func (*QueryOpenIncidentsResponse) ProtoMessage() {}
 
 func (x *QueryOpenIncidentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[180]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[183]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10126,7 +10307,7 @@ func (x *QueryOpenIncidentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryOpenIncidentsResponse.ProtoReflect.Descriptor instead.
 func (*QueryOpenIncidentsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{180}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{183}
 }
 
 func (x *QueryOpenIncidentsResponse) GetIncidents() []*IncidentRecord {
@@ -10151,7 +10332,7 @@ type QueryPausedModulesRequest struct {
 
 func (x *QueryPausedModulesRequest) Reset() {
 	*x = QueryPausedModulesRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[181]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[184]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10163,7 +10344,7 @@ func (x *QueryPausedModulesRequest) String() string {
 func (*QueryPausedModulesRequest) ProtoMessage() {}
 
 func (x *QueryPausedModulesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[181]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[184]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10176,7 +10357,7 @@ func (x *QueryPausedModulesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPausedModulesRequest.ProtoReflect.Descriptor instead.
 func (*QueryPausedModulesRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{181}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{184}
 }
 
 type QueryPausedModulesResponse struct {
@@ -10189,7 +10370,7 @@ type QueryPausedModulesResponse struct {
 
 func (x *QueryPausedModulesResponse) Reset() {
 	*x = QueryPausedModulesResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[182]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[185]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10201,7 +10382,7 @@ func (x *QueryPausedModulesResponse) String() string {
 func (*QueryPausedModulesResponse) ProtoMessage() {}
 
 func (x *QueryPausedModulesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[182]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[185]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10214,7 +10395,7 @@ func (x *QueryPausedModulesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPausedModulesResponse.ProtoReflect.Descriptor instead.
 func (*QueryPausedModulesResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{182}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{185}
 }
 
 func (x *QueryPausedModulesResponse) GetPaused() []*ModulePause {
@@ -10239,7 +10420,7 @@ type QuerySlaBreachedIncidentsRequest struct {
 
 func (x *QuerySlaBreachedIncidentsRequest) Reset() {
 	*x = QuerySlaBreachedIncidentsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[183]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[186]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10251,7 +10432,7 @@ func (x *QuerySlaBreachedIncidentsRequest) String() string {
 func (*QuerySlaBreachedIncidentsRequest) ProtoMessage() {}
 
 func (x *QuerySlaBreachedIncidentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[183]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[186]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10264,7 +10445,7 @@ func (x *QuerySlaBreachedIncidentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QuerySlaBreachedIncidentsRequest.ProtoReflect.Descriptor instead.
 func (*QuerySlaBreachedIncidentsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{183}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{186}
 }
 
 type QuerySlaBreachedIncidentsResponse struct {
@@ -10278,7 +10459,7 @@ type QuerySlaBreachedIncidentsResponse struct {
 
 func (x *QuerySlaBreachedIncidentsResponse) Reset() {
 	*x = QuerySlaBreachedIncidentsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[184]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[187]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10290,7 +10471,7 @@ func (x *QuerySlaBreachedIncidentsResponse) String() string {
 func (*QuerySlaBreachedIncidentsResponse) ProtoMessage() {}
 
 func (x *QuerySlaBreachedIncidentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[184]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[187]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10303,7 +10484,7 @@ func (x *QuerySlaBreachedIncidentsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use QuerySlaBreachedIncidentsResponse.ProtoReflect.Descriptor instead.
 func (*QuerySlaBreachedIncidentsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{184}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{187}
 }
 
 func (x *QuerySlaBreachedIncidentsResponse) GetIncidents() []*IncidentRecord {
@@ -10340,7 +10521,7 @@ type QueryPrivilegedActionsRequest struct {
 
 func (x *QueryPrivilegedActionsRequest) Reset() {
 	*x = QueryPrivilegedActionsRequest{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[185]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[188]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10352,7 +10533,7 @@ func (x *QueryPrivilegedActionsRequest) String() string {
 func (*QueryPrivilegedActionsRequest) ProtoMessage() {}
 
 func (x *QueryPrivilegedActionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[185]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[188]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10365,7 +10546,7 @@ func (x *QueryPrivilegedActionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPrivilegedActionsRequest.ProtoReflect.Descriptor instead.
 func (*QueryPrivilegedActionsRequest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{185}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{188}
 }
 
 func (x *QueryPrivilegedActionsRequest) GetType() PrivilegedActionType {
@@ -10407,7 +10588,7 @@ type QueryPrivilegedActionsResponse struct {
 
 func (x *QueryPrivilegedActionsResponse) Reset() {
 	*x = QueryPrivilegedActionsResponse{}
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[186]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[189]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10419,7 +10600,7 @@ func (x *QueryPrivilegedActionsResponse) String() string {
 func (*QueryPrivilegedActionsResponse) ProtoMessage() {}
 
 func (x *QueryPrivilegedActionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[186]
+	mi := &file_zerone_knowledge_v1_query_proto_msgTypes[189]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10432,7 +10613,7 @@ func (x *QueryPrivilegedActionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryPrivilegedActionsResponse.ProtoReflect.Descriptor instead.
 func (*QueryPrivilegedActionsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{186}
+	return file_zerone_knowledge_v1_query_proto_rawDescGZIP(), []int{189}
 }
 
 func (x *QueryPrivilegedActionsResponse) GetActions() []*PrivilegedAction {
@@ -10947,7 +11128,21 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	"\x0fagent_bonus_bps\x18\x06 \x01(\x04R\ragentBonusBps\x12&\n" +
 	"\x0fhuman_bonus_bps\x18\a \x01(\x04R\rhumanBonusBps\x12,\n" +
 	"\x12agent_accuracy_bps\x18\b \x01(\x04R\x10agentAccuracyBps\x12,\n" +
-	"\x12human_accuracy_bps\x18\t \x01(\x04R\x10humanAccuracyBps\"B\n" +
+	"\x12human_accuracy_bps\x18\t \x01(\x04R\x10humanAccuracyBps\"\xea\x01\n" +
+	"\bIdleFact\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06domain\x18\x02 \x01(\tR\x06domain\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\x03 \x01(\x04R\n" +
+	"confidence\x12/\n" +
+	"\x13corroboration_count\x18\x04 \x01(\x04R\x12corroborationCount\x123\n" +
+	"\x16probe_invited_at_block\x18\x05 \x01(\x04R\x13probeInvitedAtBlock\x120\n" +
+	"\x14blocks_since_invited\x18\x06 \x01(\x04R\x12blocksSinceInvited\"E\n" +
+	"\x15QueryIdleFactsRequest\x12\x16\n" +
+	"\x06domain\x18\x01 \x01(\tR\x06domain\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\rR\x05limit\"M\n" +
+	"\x16QueryIdleFactsResponse\x123\n" +
+	"\x05facts\x18\x01 \x03(\v2\x1d.zerone.knowledge.v1.IdleFactR\x05facts\"B\n" +
 	"\x1fQueryTrainingAttestationRequest\x12\x1f\n" +
 	"\vpipeline_id\x18\x01 \x01(\tR\n" +
 	"pipelineId\"\x84\x01\n" +
@@ -11150,7 +11345,7 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	"\x1eQueryPrivilegedActionsResponse\x12?\n" +
 	"\aactions\x18\x01 \x03(\v2%.zerone.knowledge.v1.PrivilegedActionR\aactions\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\rR\x05total\x122\n" +
-	"\x15snapshot_block_height\x18\x03 \x01(\x04R\x13snapshotBlockHeight2\xa9v\n" +
+	"\x15snapshot_block_height\x18\x03 \x01(\x04R\x13snapshotBlockHeight2\xb9w\n" +
 	"\x05Query\x12\x80\x01\n" +
 	"\x06Params\x12'.zerone.knowledge.v1.QueryParamsRequest\x1a(.zerone.knowledge.v1.QueryParamsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/zerone/knowledge/v1/params\x12~\n" +
 	"\x04Fact\x12%.zerone.knowledge.v1.QueryFactRequest\x1a&.zerone.knowledge.v1.QueryFactResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/zerone/knowledge/v1/facts/{id}\x12|\n" +
@@ -11240,7 +11435,8 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	"\x10MetabolismStatus\x121.zerone.knowledge.v1.QueryMetabolismStatusRequest\x1a2.zerone.knowledge.v1.QueryMetabolismStatusResponse\".\x82\xd3\xe4\x93\x02(\x12&/zerone/knowledge/v1/metabolism/status\x12\xab\x01\n" +
 	"\x0eDomainCapacity\x12/.zerone.knowledge.v1.QueryDomainCapacityRequest\x1a0.zerone.knowledge.v1.QueryDomainCapacityResponse\"6\x82\xd3\xe4\x93\x020\x12./zerone/knowledge/v1/domains/{domain}/capacity\x12\xc2\x01\n" +
 	"\x14EpistemicTemperature\x125.zerone.knowledge.v1.QueryEpistemicTemperatureRequest\x1a6.zerone.knowledge.v1.QueryEpistemicTemperatureResponse\";\x82\xd3\xe4\x93\x025\x123/zerone/knowledge/v1/epistemic_temperature/{domain}\x12\xaa\x01\n" +
-	"\x0eRoleElasticity\x12/.zerone.knowledge.v1.QueryRoleElasticityRequest\x1a0.zerone.knowledge.v1.QueryRoleElasticityResponse\"5\x82\xd3\xe4\x93\x02/\x12-/zerone/knowledge/v1/role_elasticity/{domain}B2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
+	"\x0eRoleElasticity\x12/.zerone.knowledge.v1.QueryRoleElasticityRequest\x1a0.zerone.knowledge.v1.QueryRoleElasticityResponse\"5\x82\xd3\xe4\x93\x02/\x12-/zerone/knowledge/v1/role_elasticity/{domain}\x12\x8d\x01\n" +
+	"\tIdleFacts\x12*.zerone.knowledge.v1.QueryIdleFactsRequest\x1a+.zerone.knowledge.v1.QueryIdleFactsResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/zerone/knowledge/v1/idle_factsB2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
 
 var (
 	file_zerone_knowledge_v1_query_proto_rawDescOnce sync.Once
@@ -11254,7 +11450,7 @@ func file_zerone_knowledge_v1_query_proto_rawDescGZIP() []byte {
 	return file_zerone_knowledge_v1_query_proto_rawDescData
 }
 
-var file_zerone_knowledge_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 187)
+var file_zerone_knowledge_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 190)
 var file_zerone_knowledge_v1_query_proto_goTypes = []any{
 	(*QueryParamsRequest)(nil),                        // 0: zerone.knowledge.v1.QueryParamsRequest
 	(*QueryParamsResponse)(nil),                       // 1: zerone.knowledge.v1.QueryParamsResponse
@@ -11383,413 +11579,419 @@ var file_zerone_knowledge_v1_query_proto_goTypes = []any{
 	(*QueryEpistemicTemperatureResponse)(nil),         // 124: zerone.knowledge.v1.QueryEpistemicTemperatureResponse
 	(*QueryRoleElasticityRequest)(nil),                // 125: zerone.knowledge.v1.QueryRoleElasticityRequest
 	(*QueryRoleElasticityResponse)(nil),               // 126: zerone.knowledge.v1.QueryRoleElasticityResponse
-	(*QueryTrainingAttestationRequest)(nil),           // 127: zerone.knowledge.v1.QueryTrainingAttestationRequest
-	(*QueryTrainingAttestationResponse)(nil),          // 128: zerone.knowledge.v1.QueryTrainingAttestationResponse
-	(*QueryModelContributionsRequest)(nil),            // 129: zerone.knowledge.v1.QueryModelContributionsRequest
-	(*QueryModelContributionsResponse)(nil),           // 130: zerone.knowledge.v1.QueryModelContributionsResponse
-	(*QueryFactContributorsRequest)(nil),              // 131: zerone.knowledge.v1.QueryFactContributorsRequest
-	(*QueryFactContributorsResponse)(nil),             // 132: zerone.knowledge.v1.QueryFactContributorsResponse
-	(*QueryModelLineageRequest)(nil),                  // 133: zerone.knowledge.v1.QueryModelLineageRequest
-	(*QueryModelLineageResponse)(nil),                 // 134: zerone.knowledge.v1.QueryModelLineageResponse
-	(*QueryAugmentationBountyRequest)(nil),            // 135: zerone.knowledge.v1.QueryAugmentationBountyRequest
-	(*QueryAugmentationBountyResponse)(nil),           // 136: zerone.knowledge.v1.QueryAugmentationBountyResponse
-	(*QueryAugmentationBountiesRequest)(nil),          // 137: zerone.knowledge.v1.QueryAugmentationBountiesRequest
-	(*QueryAugmentationBountiesResponse)(nil),         // 138: zerone.knowledge.v1.QueryAugmentationBountiesResponse
-	(*QueryAugmentationsByFactRequest)(nil),           // 139: zerone.knowledge.v1.QueryAugmentationsByFactRequest
-	(*QueryAugmentationsByFactResponse)(nil),          // 140: zerone.knowledge.v1.QueryAugmentationsByFactResponse
-	(*QueryTrainingValueWeightRequest)(nil),           // 141: zerone.knowledge.v1.QueryTrainingValueWeightRequest
-	(*QueryTrainingValueWeightResponse)(nil),          // 142: zerone.knowledge.v1.QueryTrainingValueWeightResponse
-	(*QueryContributionChallengeRequest)(nil),         // 143: zerone.knowledge.v1.QueryContributionChallengeRequest
-	(*QueryContributionChallengeResponse)(nil),        // 144: zerone.knowledge.v1.QueryContributionChallengeResponse
-	(*QueryOpenContributionChallengesRequest)(nil),    // 145: zerone.knowledge.v1.QueryOpenContributionChallengesRequest
-	(*QueryOpenContributionChallengesResponse)(nil),   // 146: zerone.knowledge.v1.QueryOpenContributionChallengesResponse
-	(*QueryTrainingFundDisbursementRequest)(nil),      // 147: zerone.knowledge.v1.QueryTrainingFundDisbursementRequest
-	(*QueryTrainingFundDisbursementResponse)(nil),     // 148: zerone.knowledge.v1.QueryTrainingFundDisbursementResponse
-	(*QueryTrainingFundBalanceRequest)(nil),           // 149: zerone.knowledge.v1.QueryTrainingFundBalanceRequest
-	(*QueryTrainingFundBalanceResponse)(nil),          // 150: zerone.knowledge.v1.QueryTrainingFundBalanceResponse
-	(*QueryNormativeCorpusRequest)(nil),               // 151: zerone.knowledge.v1.QueryNormativeCorpusRequest
-	(*NormativeCorpusEntry)(nil),                      // 152: zerone.knowledge.v1.NormativeCorpusEntry
-	(*QueryNormativeCorpusResponse)(nil),              // 153: zerone.knowledge.v1.QueryNormativeCorpusResponse
-	(*QueryDriftCorpusRequest)(nil),                   // 154: zerone.knowledge.v1.QueryDriftCorpusRequest
-	(*DriftCorpusEntry)(nil),                          // 155: zerone.knowledge.v1.DriftCorpusEntry
-	(*QueryDriftCorpusResponse)(nil),                  // 156: zerone.knowledge.v1.QueryDriftCorpusResponse
-	(*QueryMethodologyApplicationTraceRequest)(nil),   // 157: zerone.knowledge.v1.QueryMethodologyApplicationTraceRequest
-	(*QueryMethodologyApplicationTraceResponse)(nil),  // 158: zerone.knowledge.v1.QueryMethodologyApplicationTraceResponse
-	(*QueryMethodologyApplicationTracesRequest)(nil),  // 159: zerone.knowledge.v1.QueryMethodologyApplicationTracesRequest
-	(*QueryMethodologyApplicationTracesResponse)(nil), // 160: zerone.knowledge.v1.QueryMethodologyApplicationTracesResponse
-	(*QueryContrastivePairsRequest)(nil),              // 161: zerone.knowledge.v1.QueryContrastivePairsRequest
-	(*QueryContrastivePairsResponse)(nil),             // 162: zerone.knowledge.v1.QueryContrastivePairsResponse
-	(*QueryTraceSchemaRequest)(nil),                   // 163: zerone.knowledge.v1.QueryTraceSchemaRequest
-	(*QueryTraceSchemaResponse)(nil),                  // 164: zerone.knowledge.v1.QueryTraceSchemaResponse
-	(*QueryTraceSchemaAtVersionRequest)(nil),          // 165: zerone.knowledge.v1.QueryTraceSchemaAtVersionRequest
-	(*QueryTraceSchemaAtVersionResponse)(nil),         // 166: zerone.knowledge.v1.QueryTraceSchemaAtVersionResponse
-	(*QueryTrainingManifestRequest)(nil),              // 167: zerone.knowledge.v1.QueryTrainingManifestRequest
-	(*QueryTrainingManifestResponse)(nil),             // 168: zerone.knowledge.v1.QueryTrainingManifestResponse
-	(*QueryTrainingManifestsRequest)(nil),             // 169: zerone.knowledge.v1.QueryTrainingManifestsRequest
-	(*QueryTrainingManifestsResponse)(nil),            // 170: zerone.knowledge.v1.QueryTrainingManifestsResponse
-	(*QueryTrainingManifestBundleRequest)(nil),        // 171: zerone.knowledge.v1.QueryTrainingManifestBundleRequest
-	(*QueryTrainingManifestBundleResponse)(nil),       // 172: zerone.knowledge.v1.QueryTrainingManifestBundleResponse
-	(*QueryRouteBCapabilitiesRequest)(nil),            // 173: zerone.knowledge.v1.QueryRouteBCapabilitiesRequest
-	(*QueryRouteBCapabilitiesResponse)(nil),           // 174: zerone.knowledge.v1.QueryRouteBCapabilitiesResponse
-	(*QueryIncidentRequest)(nil),                      // 175: zerone.knowledge.v1.QueryIncidentRequest
-	(*QueryIncidentResponse)(nil),                     // 176: zerone.knowledge.v1.QueryIncidentResponse
-	(*QueryIncidentsRequest)(nil),                     // 177: zerone.knowledge.v1.QueryIncidentsRequest
-	(*QueryIncidentsResponse)(nil),                    // 178: zerone.knowledge.v1.QueryIncidentsResponse
-	(*QueryOpenIncidentsRequest)(nil),                 // 179: zerone.knowledge.v1.QueryOpenIncidentsRequest
-	(*QueryOpenIncidentsResponse)(nil),                // 180: zerone.knowledge.v1.QueryOpenIncidentsResponse
-	(*QueryPausedModulesRequest)(nil),                 // 181: zerone.knowledge.v1.QueryPausedModulesRequest
-	(*QueryPausedModulesResponse)(nil),                // 182: zerone.knowledge.v1.QueryPausedModulesResponse
-	(*QuerySlaBreachedIncidentsRequest)(nil),          // 183: zerone.knowledge.v1.QuerySlaBreachedIncidentsRequest
-	(*QuerySlaBreachedIncidentsResponse)(nil),         // 184: zerone.knowledge.v1.QuerySlaBreachedIncidentsResponse
-	(*QueryPrivilegedActionsRequest)(nil),             // 185: zerone.knowledge.v1.QueryPrivilegedActionsRequest
-	(*QueryPrivilegedActionsResponse)(nil),            // 186: zerone.knowledge.v1.QueryPrivilegedActionsResponse
-	(*Params)(nil),                                    // 187: zerone.knowledge.v1.Params
-	(*Fact)(nil),                                      // 188: zerone.knowledge.v1.Fact
-	(*query.PageRequest)(nil),                         // 189: cosmos.base.query.v1beta1.PageRequest
-	(ClaimType)(0),                                    // 190: zerone.knowledge.v1.ClaimType
-	(*query.PageResponse)(nil),                        // 191: cosmos.base.query.v1beta1.PageResponse
-	(*Claim)(nil),                                     // 192: zerone.knowledge.v1.Claim
-	(*VerificationRound)(nil),                         // 193: zerone.knowledge.v1.VerificationRound
-	(*Domain)(nil),                                    // 194: zerone.knowledge.v1.Domain
-	(RelationType)(0),                                 // 195: zerone.knowledge.v1.RelationType
-	(*FactRelation)(nil),                              // 196: zerone.knowledge.v1.FactRelation
-	(InferenceType)(0),                                // 197: zerone.knowledge.v1.InferenceType
-	(FactStatus)(0),                                   // 198: zerone.knowledge.v1.FactStatus
-	(*Methodology)(nil),                               // 199: zerone.knowledge.v1.Methodology
-	(*NormativeCommitment)(nil),                       // 200: zerone.knowledge.v1.NormativeCommitment
-	(TrainingQualityTier)(0),                          // 201: zerone.knowledge.v1.TrainingQualityTier
-	(*AgentCalibration)(nil),                          // 202: zerone.knowledge.v1.AgentCalibration
-	(*TokenizerSpec)(nil),                             // 203: zerone.knowledge.v1.TokenizerSpec
-	(*TrainingPipeline)(nil),                          // 204: zerone.knowledge.v1.TrainingPipeline
-	(*ModelCard)(nil),                                 // 205: zerone.knowledge.v1.ModelCard
-	(CurriculumTier)(0),                               // 206: zerone.knowledge.v1.CurriculumTier
-	(*CommonKnowledgeEntry)(nil),                      // 207: zerone.knowledge.v1.CommonKnowledgeEntry
-	(*KnowledgeBounty)(nil),                           // 208: zerone.knowledge.v1.KnowledgeBounty
-	(*DemandSignal)(nil),                              // 209: zerone.knowledge.v1.DemandSignal
-	(*TrainingAttestation)(nil),                       // 210: zerone.knowledge.v1.TrainingAttestation
-	(*ContributionRecord)(nil),                        // 211: zerone.knowledge.v1.ContributionRecord
-	(*AugmentationBounty)(nil),                        // 212: zerone.knowledge.v1.AugmentationBounty
-	(*Augmentation)(nil),                              // 213: zerone.knowledge.v1.Augmentation
-	(*ContributionChallenge)(nil),                     // 214: zerone.knowledge.v1.ContributionChallenge
-	(*TrainingFundDisbursement)(nil),                  // 215: zerone.knowledge.v1.TrainingFundDisbursement
-	(AugmentationVerdict)(0),                          // 216: zerone.knowledge.v1.AugmentationVerdict
-	(*MethodologyApplicationTrace)(nil),               // 217: zerone.knowledge.v1.MethodologyApplicationTrace
-	(ContrastivePairType)(0),                          // 218: zerone.knowledge.v1.ContrastivePairType
-	(*ContrastivePair)(nil),                           // 219: zerone.knowledge.v1.ContrastivePair
-	(*TraceSchema)(nil),                               // 220: zerone.knowledge.v1.TraceSchema
-	(*TrainingManifest)(nil),                          // 221: zerone.knowledge.v1.TrainingManifest
-	(ManifestStatus)(0),                               // 222: zerone.knowledge.v1.ManifestStatus
-	(*RouteBCapabilities)(nil),                        // 223: zerone.knowledge.v1.RouteBCapabilities
-	(*IncidentRecord)(nil),                            // 224: zerone.knowledge.v1.IncidentRecord
-	(IncidentSeverity)(0),                             // 225: zerone.knowledge.v1.IncidentSeverity
-	(IncidentStatus)(0),                               // 226: zerone.knowledge.v1.IncidentStatus
-	(*ModulePause)(nil),                               // 227: zerone.knowledge.v1.ModulePause
-	(PrivilegedActionType)(0),                         // 228: zerone.knowledge.v1.PrivilegedActionType
-	(*PrivilegedAction)(nil),                          // 229: zerone.knowledge.v1.PrivilegedAction
+	(*IdleFact)(nil),                                  // 127: zerone.knowledge.v1.IdleFact
+	(*QueryIdleFactsRequest)(nil),                     // 128: zerone.knowledge.v1.QueryIdleFactsRequest
+	(*QueryIdleFactsResponse)(nil),                    // 129: zerone.knowledge.v1.QueryIdleFactsResponse
+	(*QueryTrainingAttestationRequest)(nil),           // 130: zerone.knowledge.v1.QueryTrainingAttestationRequest
+	(*QueryTrainingAttestationResponse)(nil),          // 131: zerone.knowledge.v1.QueryTrainingAttestationResponse
+	(*QueryModelContributionsRequest)(nil),            // 132: zerone.knowledge.v1.QueryModelContributionsRequest
+	(*QueryModelContributionsResponse)(nil),           // 133: zerone.knowledge.v1.QueryModelContributionsResponse
+	(*QueryFactContributorsRequest)(nil),              // 134: zerone.knowledge.v1.QueryFactContributorsRequest
+	(*QueryFactContributorsResponse)(nil),             // 135: zerone.knowledge.v1.QueryFactContributorsResponse
+	(*QueryModelLineageRequest)(nil),                  // 136: zerone.knowledge.v1.QueryModelLineageRequest
+	(*QueryModelLineageResponse)(nil),                 // 137: zerone.knowledge.v1.QueryModelLineageResponse
+	(*QueryAugmentationBountyRequest)(nil),            // 138: zerone.knowledge.v1.QueryAugmentationBountyRequest
+	(*QueryAugmentationBountyResponse)(nil),           // 139: zerone.knowledge.v1.QueryAugmentationBountyResponse
+	(*QueryAugmentationBountiesRequest)(nil),          // 140: zerone.knowledge.v1.QueryAugmentationBountiesRequest
+	(*QueryAugmentationBountiesResponse)(nil),         // 141: zerone.knowledge.v1.QueryAugmentationBountiesResponse
+	(*QueryAugmentationsByFactRequest)(nil),           // 142: zerone.knowledge.v1.QueryAugmentationsByFactRequest
+	(*QueryAugmentationsByFactResponse)(nil),          // 143: zerone.knowledge.v1.QueryAugmentationsByFactResponse
+	(*QueryTrainingValueWeightRequest)(nil),           // 144: zerone.knowledge.v1.QueryTrainingValueWeightRequest
+	(*QueryTrainingValueWeightResponse)(nil),          // 145: zerone.knowledge.v1.QueryTrainingValueWeightResponse
+	(*QueryContributionChallengeRequest)(nil),         // 146: zerone.knowledge.v1.QueryContributionChallengeRequest
+	(*QueryContributionChallengeResponse)(nil),        // 147: zerone.knowledge.v1.QueryContributionChallengeResponse
+	(*QueryOpenContributionChallengesRequest)(nil),    // 148: zerone.knowledge.v1.QueryOpenContributionChallengesRequest
+	(*QueryOpenContributionChallengesResponse)(nil),   // 149: zerone.knowledge.v1.QueryOpenContributionChallengesResponse
+	(*QueryTrainingFundDisbursementRequest)(nil),      // 150: zerone.knowledge.v1.QueryTrainingFundDisbursementRequest
+	(*QueryTrainingFundDisbursementResponse)(nil),     // 151: zerone.knowledge.v1.QueryTrainingFundDisbursementResponse
+	(*QueryTrainingFundBalanceRequest)(nil),           // 152: zerone.knowledge.v1.QueryTrainingFundBalanceRequest
+	(*QueryTrainingFundBalanceResponse)(nil),          // 153: zerone.knowledge.v1.QueryTrainingFundBalanceResponse
+	(*QueryNormativeCorpusRequest)(nil),               // 154: zerone.knowledge.v1.QueryNormativeCorpusRequest
+	(*NormativeCorpusEntry)(nil),                      // 155: zerone.knowledge.v1.NormativeCorpusEntry
+	(*QueryNormativeCorpusResponse)(nil),              // 156: zerone.knowledge.v1.QueryNormativeCorpusResponse
+	(*QueryDriftCorpusRequest)(nil),                   // 157: zerone.knowledge.v1.QueryDriftCorpusRequest
+	(*DriftCorpusEntry)(nil),                          // 158: zerone.knowledge.v1.DriftCorpusEntry
+	(*QueryDriftCorpusResponse)(nil),                  // 159: zerone.knowledge.v1.QueryDriftCorpusResponse
+	(*QueryMethodologyApplicationTraceRequest)(nil),   // 160: zerone.knowledge.v1.QueryMethodologyApplicationTraceRequest
+	(*QueryMethodologyApplicationTraceResponse)(nil),  // 161: zerone.knowledge.v1.QueryMethodologyApplicationTraceResponse
+	(*QueryMethodologyApplicationTracesRequest)(nil),  // 162: zerone.knowledge.v1.QueryMethodologyApplicationTracesRequest
+	(*QueryMethodologyApplicationTracesResponse)(nil), // 163: zerone.knowledge.v1.QueryMethodologyApplicationTracesResponse
+	(*QueryContrastivePairsRequest)(nil),              // 164: zerone.knowledge.v1.QueryContrastivePairsRequest
+	(*QueryContrastivePairsResponse)(nil),             // 165: zerone.knowledge.v1.QueryContrastivePairsResponse
+	(*QueryTraceSchemaRequest)(nil),                   // 166: zerone.knowledge.v1.QueryTraceSchemaRequest
+	(*QueryTraceSchemaResponse)(nil),                  // 167: zerone.knowledge.v1.QueryTraceSchemaResponse
+	(*QueryTraceSchemaAtVersionRequest)(nil),          // 168: zerone.knowledge.v1.QueryTraceSchemaAtVersionRequest
+	(*QueryTraceSchemaAtVersionResponse)(nil),         // 169: zerone.knowledge.v1.QueryTraceSchemaAtVersionResponse
+	(*QueryTrainingManifestRequest)(nil),              // 170: zerone.knowledge.v1.QueryTrainingManifestRequest
+	(*QueryTrainingManifestResponse)(nil),             // 171: zerone.knowledge.v1.QueryTrainingManifestResponse
+	(*QueryTrainingManifestsRequest)(nil),             // 172: zerone.knowledge.v1.QueryTrainingManifestsRequest
+	(*QueryTrainingManifestsResponse)(nil),            // 173: zerone.knowledge.v1.QueryTrainingManifestsResponse
+	(*QueryTrainingManifestBundleRequest)(nil),        // 174: zerone.knowledge.v1.QueryTrainingManifestBundleRequest
+	(*QueryTrainingManifestBundleResponse)(nil),       // 175: zerone.knowledge.v1.QueryTrainingManifestBundleResponse
+	(*QueryRouteBCapabilitiesRequest)(nil),            // 176: zerone.knowledge.v1.QueryRouteBCapabilitiesRequest
+	(*QueryRouteBCapabilitiesResponse)(nil),           // 177: zerone.knowledge.v1.QueryRouteBCapabilitiesResponse
+	(*QueryIncidentRequest)(nil),                      // 178: zerone.knowledge.v1.QueryIncidentRequest
+	(*QueryIncidentResponse)(nil),                     // 179: zerone.knowledge.v1.QueryIncidentResponse
+	(*QueryIncidentsRequest)(nil),                     // 180: zerone.knowledge.v1.QueryIncidentsRequest
+	(*QueryIncidentsResponse)(nil),                    // 181: zerone.knowledge.v1.QueryIncidentsResponse
+	(*QueryOpenIncidentsRequest)(nil),                 // 182: zerone.knowledge.v1.QueryOpenIncidentsRequest
+	(*QueryOpenIncidentsResponse)(nil),                // 183: zerone.knowledge.v1.QueryOpenIncidentsResponse
+	(*QueryPausedModulesRequest)(nil),                 // 184: zerone.knowledge.v1.QueryPausedModulesRequest
+	(*QueryPausedModulesResponse)(nil),                // 185: zerone.knowledge.v1.QueryPausedModulesResponse
+	(*QuerySlaBreachedIncidentsRequest)(nil),          // 186: zerone.knowledge.v1.QuerySlaBreachedIncidentsRequest
+	(*QuerySlaBreachedIncidentsResponse)(nil),         // 187: zerone.knowledge.v1.QuerySlaBreachedIncidentsResponse
+	(*QueryPrivilegedActionsRequest)(nil),             // 188: zerone.knowledge.v1.QueryPrivilegedActionsRequest
+	(*QueryPrivilegedActionsResponse)(nil),            // 189: zerone.knowledge.v1.QueryPrivilegedActionsResponse
+	(*Params)(nil),                                    // 190: zerone.knowledge.v1.Params
+	(*Fact)(nil),                                      // 191: zerone.knowledge.v1.Fact
+	(*query.PageRequest)(nil),                         // 192: cosmos.base.query.v1beta1.PageRequest
+	(ClaimType)(0),                                    // 193: zerone.knowledge.v1.ClaimType
+	(*query.PageResponse)(nil),                        // 194: cosmos.base.query.v1beta1.PageResponse
+	(*Claim)(nil),                                     // 195: zerone.knowledge.v1.Claim
+	(*VerificationRound)(nil),                         // 196: zerone.knowledge.v1.VerificationRound
+	(*Domain)(nil),                                    // 197: zerone.knowledge.v1.Domain
+	(RelationType)(0),                                 // 198: zerone.knowledge.v1.RelationType
+	(*FactRelation)(nil),                              // 199: zerone.knowledge.v1.FactRelation
+	(InferenceType)(0),                                // 200: zerone.knowledge.v1.InferenceType
+	(FactStatus)(0),                                   // 201: zerone.knowledge.v1.FactStatus
+	(*Methodology)(nil),                               // 202: zerone.knowledge.v1.Methodology
+	(*NormativeCommitment)(nil),                       // 203: zerone.knowledge.v1.NormativeCommitment
+	(TrainingQualityTier)(0),                          // 204: zerone.knowledge.v1.TrainingQualityTier
+	(*AgentCalibration)(nil),                          // 205: zerone.knowledge.v1.AgentCalibration
+	(*TokenizerSpec)(nil),                             // 206: zerone.knowledge.v1.TokenizerSpec
+	(*TrainingPipeline)(nil),                          // 207: zerone.knowledge.v1.TrainingPipeline
+	(*ModelCard)(nil),                                 // 208: zerone.knowledge.v1.ModelCard
+	(CurriculumTier)(0),                               // 209: zerone.knowledge.v1.CurriculumTier
+	(*CommonKnowledgeEntry)(nil),                      // 210: zerone.knowledge.v1.CommonKnowledgeEntry
+	(*KnowledgeBounty)(nil),                           // 211: zerone.knowledge.v1.KnowledgeBounty
+	(*DemandSignal)(nil),                              // 212: zerone.knowledge.v1.DemandSignal
+	(*TrainingAttestation)(nil),                       // 213: zerone.knowledge.v1.TrainingAttestation
+	(*ContributionRecord)(nil),                        // 214: zerone.knowledge.v1.ContributionRecord
+	(*AugmentationBounty)(nil),                        // 215: zerone.knowledge.v1.AugmentationBounty
+	(*Augmentation)(nil),                              // 216: zerone.knowledge.v1.Augmentation
+	(*ContributionChallenge)(nil),                     // 217: zerone.knowledge.v1.ContributionChallenge
+	(*TrainingFundDisbursement)(nil),                  // 218: zerone.knowledge.v1.TrainingFundDisbursement
+	(AugmentationVerdict)(0),                          // 219: zerone.knowledge.v1.AugmentationVerdict
+	(*MethodologyApplicationTrace)(nil),               // 220: zerone.knowledge.v1.MethodologyApplicationTrace
+	(ContrastivePairType)(0),                          // 221: zerone.knowledge.v1.ContrastivePairType
+	(*ContrastivePair)(nil),                           // 222: zerone.knowledge.v1.ContrastivePair
+	(*TraceSchema)(nil),                               // 223: zerone.knowledge.v1.TraceSchema
+	(*TrainingManifest)(nil),                          // 224: zerone.knowledge.v1.TrainingManifest
+	(ManifestStatus)(0),                               // 225: zerone.knowledge.v1.ManifestStatus
+	(*RouteBCapabilities)(nil),                        // 226: zerone.knowledge.v1.RouteBCapabilities
+	(*IncidentRecord)(nil),                            // 227: zerone.knowledge.v1.IncidentRecord
+	(IncidentSeverity)(0),                             // 228: zerone.knowledge.v1.IncidentSeverity
+	(IncidentStatus)(0),                               // 229: zerone.knowledge.v1.IncidentStatus
+	(*ModulePause)(nil),                               // 230: zerone.knowledge.v1.ModulePause
+	(PrivilegedActionType)(0),                         // 231: zerone.knowledge.v1.PrivilegedActionType
+	(*PrivilegedAction)(nil),                          // 232: zerone.knowledge.v1.PrivilegedAction
 }
 var file_zerone_knowledge_v1_query_proto_depIdxs = []int32{
-	187, // 0: zerone.knowledge.v1.QueryParamsResponse.params:type_name -> zerone.knowledge.v1.Params
-	188, // 1: zerone.knowledge.v1.QueryFactResponse.fact:type_name -> zerone.knowledge.v1.Fact
-	189, // 2: zerone.knowledge.v1.QueryFactsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	190, // 3: zerone.knowledge.v1.QueryFactsRequest.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	188, // 4: zerone.knowledge.v1.QueryFactsResponse.facts:type_name -> zerone.knowledge.v1.Fact
-	191, // 5: zerone.knowledge.v1.QueryFactsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	189, // 6: zerone.knowledge.v1.QueryFactsByDomainRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	188, // 7: zerone.knowledge.v1.QueryFactsByDomainResponse.facts:type_name -> zerone.knowledge.v1.Fact
-	191, // 8: zerone.knowledge.v1.QueryFactsByDomainResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	189, // 9: zerone.knowledge.v1.QueryFactsBySubmitterRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	188, // 10: zerone.knowledge.v1.QueryFactsBySubmitterResponse.facts:type_name -> zerone.knowledge.v1.Fact
-	191, // 11: zerone.knowledge.v1.QueryFactsBySubmitterResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	192, // 12: zerone.knowledge.v1.QueryClaimResponse.claim:type_name -> zerone.knowledge.v1.Claim
-	189, // 13: zerone.knowledge.v1.QueryPendingClaimsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	192, // 14: zerone.knowledge.v1.QueryPendingClaimsResponse.claims:type_name -> zerone.knowledge.v1.Claim
-	191, // 15: zerone.knowledge.v1.QueryPendingClaimsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	193, // 16: zerone.knowledge.v1.QueryVerificationRoundResponse.round:type_name -> zerone.knowledge.v1.VerificationRound
-	194, // 17: zerone.knowledge.v1.QueryDomainResponse.domain:type_name -> zerone.knowledge.v1.Domain
-	189, // 18: zerone.knowledge.v1.QueryDomainsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
-	194, // 19: zerone.knowledge.v1.QueryDomainsResponse.domains:type_name -> zerone.knowledge.v1.Domain
-	191, // 20: zerone.knowledge.v1.QueryDomainsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
-	195, // 21: zerone.knowledge.v1.QueryFactRelationsRequest.relation:type_name -> zerone.knowledge.v1.RelationType
-	196, // 22: zerone.knowledge.v1.QueryFactRelationsResponse.relations:type_name -> zerone.knowledge.v1.FactRelation
-	188, // 23: zerone.knowledge.v1.QueryFactsBySubjectResponse.facts:type_name -> zerone.knowledge.v1.Fact
-	188, // 24: zerone.knowledge.v1.QueryFactsByTagResponse.facts:type_name -> zerone.knowledge.v1.Fact
-	188, // 25: zerone.knowledge.v1.QueryFactByCanonicalResponse.fact:type_name -> zerone.knowledge.v1.Fact
-	188, // 26: zerone.knowledge.v1.QueryFactsByFitnessResponse.facts:type_name -> zerone.knowledge.v1.Fact
-	188, // 27: zerone.knowledge.v1.QueryFactsAtRiskResponse.facts:type_name -> zerone.knowledge.v1.Fact
-	188, // 28: zerone.knowledge.v1.QueryFactLineageResponse.ancestors:type_name -> zerone.knowledge.v1.Fact
-	188, // 29: zerone.knowledge.v1.QueryFactProgenyResponse.root:type_name -> zerone.knowledge.v1.Fact
+	190, // 0: zerone.knowledge.v1.QueryParamsResponse.params:type_name -> zerone.knowledge.v1.Params
+	191, // 1: zerone.knowledge.v1.QueryFactResponse.fact:type_name -> zerone.knowledge.v1.Fact
+	192, // 2: zerone.knowledge.v1.QueryFactsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	193, // 3: zerone.knowledge.v1.QueryFactsRequest.claim_type:type_name -> zerone.knowledge.v1.ClaimType
+	191, // 4: zerone.knowledge.v1.QueryFactsResponse.facts:type_name -> zerone.knowledge.v1.Fact
+	194, // 5: zerone.knowledge.v1.QueryFactsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	192, // 6: zerone.knowledge.v1.QueryFactsByDomainRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	191, // 7: zerone.knowledge.v1.QueryFactsByDomainResponse.facts:type_name -> zerone.knowledge.v1.Fact
+	194, // 8: zerone.knowledge.v1.QueryFactsByDomainResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	192, // 9: zerone.knowledge.v1.QueryFactsBySubmitterRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	191, // 10: zerone.knowledge.v1.QueryFactsBySubmitterResponse.facts:type_name -> zerone.knowledge.v1.Fact
+	194, // 11: zerone.knowledge.v1.QueryFactsBySubmitterResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	195, // 12: zerone.knowledge.v1.QueryClaimResponse.claim:type_name -> zerone.knowledge.v1.Claim
+	192, // 13: zerone.knowledge.v1.QueryPendingClaimsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	195, // 14: zerone.knowledge.v1.QueryPendingClaimsResponse.claims:type_name -> zerone.knowledge.v1.Claim
+	194, // 15: zerone.knowledge.v1.QueryPendingClaimsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	196, // 16: zerone.knowledge.v1.QueryVerificationRoundResponse.round:type_name -> zerone.knowledge.v1.VerificationRound
+	197, // 17: zerone.knowledge.v1.QueryDomainResponse.domain:type_name -> zerone.knowledge.v1.Domain
+	192, // 18: zerone.knowledge.v1.QueryDomainsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	197, // 19: zerone.knowledge.v1.QueryDomainsResponse.domains:type_name -> zerone.knowledge.v1.Domain
+	194, // 20: zerone.knowledge.v1.QueryDomainsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	198, // 21: zerone.knowledge.v1.QueryFactRelationsRequest.relation:type_name -> zerone.knowledge.v1.RelationType
+	199, // 22: zerone.knowledge.v1.QueryFactRelationsResponse.relations:type_name -> zerone.knowledge.v1.FactRelation
+	191, // 23: zerone.knowledge.v1.QueryFactsBySubjectResponse.facts:type_name -> zerone.knowledge.v1.Fact
+	191, // 24: zerone.knowledge.v1.QueryFactsByTagResponse.facts:type_name -> zerone.knowledge.v1.Fact
+	191, // 25: zerone.knowledge.v1.QueryFactByCanonicalResponse.fact:type_name -> zerone.knowledge.v1.Fact
+	191, // 26: zerone.knowledge.v1.QueryFactsByFitnessResponse.facts:type_name -> zerone.knowledge.v1.Fact
+	191, // 27: zerone.knowledge.v1.QueryFactsAtRiskResponse.facts:type_name -> zerone.knowledge.v1.Fact
+	191, // 28: zerone.knowledge.v1.QueryFactLineageResponse.ancestors:type_name -> zerone.knowledge.v1.Fact
+	191, // 29: zerone.knowledge.v1.QueryFactProgenyResponse.root:type_name -> zerone.knowledge.v1.Fact
 	42,  // 30: zerone.knowledge.v1.QueryFactProgenyResponse.tree:type_name -> zerone.knowledge.v1.FactWithChildren
-	188, // 31: zerone.knowledge.v1.FactWithChildren.fact:type_name -> zerone.knowledge.v1.Fact
+	191, // 31: zerone.knowledge.v1.FactWithChildren.fact:type_name -> zerone.knowledge.v1.Fact
 	42,  // 32: zerone.knowledge.v1.FactWithChildren.children:type_name -> zerone.knowledge.v1.FactWithChildren
-	188, // 33: zerone.knowledge.v1.ProofTreeNode.fact:type_name -> zerone.knowledge.v1.Fact
-	195, // 34: zerone.knowledge.v1.ProofTreeNode.edge_relation:type_name -> zerone.knowledge.v1.RelationType
-	197, // 35: zerone.knowledge.v1.ProofTreeNode.edge_inference:type_name -> zerone.knowledge.v1.InferenceType
+	191, // 33: zerone.knowledge.v1.ProofTreeNode.fact:type_name -> zerone.knowledge.v1.Fact
+	198, // 34: zerone.knowledge.v1.ProofTreeNode.edge_relation:type_name -> zerone.knowledge.v1.RelationType
+	200, // 35: zerone.knowledge.v1.ProofTreeNode.edge_inference:type_name -> zerone.knowledge.v1.InferenceType
 	44,  // 36: zerone.knowledge.v1.ProofTreeNode.supports:type_name -> zerone.knowledge.v1.ProofTreeNode
 	44,  // 37: zerone.knowledge.v1.QueryProofTreeResponse.root:type_name -> zerone.knowledge.v1.ProofTreeNode
-	188, // 38: zerone.knowledge.v1.DescendantNode.fact:type_name -> zerone.knowledge.v1.Fact
-	195, // 39: zerone.knowledge.v1.DescendantNode.edge_relation:type_name -> zerone.knowledge.v1.RelationType
-	197, // 40: zerone.knowledge.v1.DescendantNode.edge_inference:type_name -> zerone.knowledge.v1.InferenceType
+	191, // 38: zerone.knowledge.v1.DescendantNode.fact:type_name -> zerone.knowledge.v1.Fact
+	198, // 39: zerone.knowledge.v1.DescendantNode.edge_relation:type_name -> zerone.knowledge.v1.RelationType
+	200, // 40: zerone.knowledge.v1.DescendantNode.edge_inference:type_name -> zerone.knowledge.v1.InferenceType
 	47,  // 41: zerone.knowledge.v1.DescendantNode.descendants:type_name -> zerone.knowledge.v1.DescendantNode
-	188, // 42: zerone.knowledge.v1.QueryDescendantTreeResponse.root:type_name -> zerone.knowledge.v1.Fact
+	191, // 42: zerone.knowledge.v1.QueryDescendantTreeResponse.root:type_name -> zerone.knowledge.v1.Fact
 	47,  // 43: zerone.knowledge.v1.QueryDescendantTreeResponse.descendants:type_name -> zerone.knowledge.v1.DescendantNode
-	188, // 44: zerone.knowledge.v1.QueryTrustProfileResponse.fact:type_name -> zerone.knowledge.v1.Fact
-	198, // 45: zerone.knowledge.v1.QueryTrustProfileResponse.status:type_name -> zerone.knowledge.v1.FactStatus
-	199, // 46: zerone.knowledge.v1.QueryMethodologiesResponse.methodologies:type_name -> zerone.knowledge.v1.Methodology
-	199, // 47: zerone.knowledge.v1.QueryMethodologyResponse.methodology:type_name -> zerone.knowledge.v1.Methodology
-	200, // 48: zerone.knowledge.v1.QueryNormativeCommitmentsResponse.commitments:type_name -> zerone.knowledge.v1.NormativeCommitment
-	200, // 49: zerone.knowledge.v1.QueryNormativeCommitmentResponse.commitment:type_name -> zerone.knowledge.v1.NormativeCommitment
-	201, // 50: zerone.knowledge.v1.QueryMethodCorpusRequest.min_tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
-	188, // 51: zerone.knowledge.v1.MethodCorpusEntry.fact:type_name -> zerone.knowledge.v1.Fact
-	201, // 52: zerone.knowledge.v1.MethodCorpusEntry.tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
-	196, // 53: zerone.knowledge.v1.MethodCorpusEntry.support_edges:type_name -> zerone.knowledge.v1.FactRelation
+	191, // 44: zerone.knowledge.v1.QueryTrustProfileResponse.fact:type_name -> zerone.knowledge.v1.Fact
+	201, // 45: zerone.knowledge.v1.QueryTrustProfileResponse.status:type_name -> zerone.knowledge.v1.FactStatus
+	202, // 46: zerone.knowledge.v1.QueryMethodologiesResponse.methodologies:type_name -> zerone.knowledge.v1.Methodology
+	202, // 47: zerone.knowledge.v1.QueryMethodologyResponse.methodology:type_name -> zerone.knowledge.v1.Methodology
+	203, // 48: zerone.knowledge.v1.QueryNormativeCommitmentsResponse.commitments:type_name -> zerone.knowledge.v1.NormativeCommitment
+	203, // 49: zerone.knowledge.v1.QueryNormativeCommitmentResponse.commitment:type_name -> zerone.knowledge.v1.NormativeCommitment
+	204, // 50: zerone.knowledge.v1.QueryMethodCorpusRequest.min_tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
+	191, // 51: zerone.knowledge.v1.MethodCorpusEntry.fact:type_name -> zerone.knowledge.v1.Fact
+	204, // 52: zerone.knowledge.v1.MethodCorpusEntry.tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
+	199, // 53: zerone.knowledge.v1.MethodCorpusEntry.support_edges:type_name -> zerone.knowledge.v1.FactRelation
 	60,  // 54: zerone.knowledge.v1.QueryMethodCorpusResponse.entries:type_name -> zerone.knowledge.v1.MethodCorpusEntry
-	188, // 55: zerone.knowledge.v1.DisprovenCorpusEntry.disproven_fact:type_name -> zerone.knowledge.v1.Fact
+	191, // 55: zerone.knowledge.v1.DisprovenCorpusEntry.disproven_fact:type_name -> zerone.knowledge.v1.Fact
 	63,  // 56: zerone.knowledge.v1.QueryDisprovenCorpusResponse.entries:type_name -> zerone.knowledge.v1.DisprovenCorpusEntry
 	66,  // 57: zerone.knowledge.v1.QueryVindicationCorpusResponse.entries:type_name -> zerone.knowledge.v1.VindicationCorpusEntry
-	201, // 58: zerone.knowledge.v1.QueryTrainingQualityResponse.tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
-	198, // 59: zerone.knowledge.v1.QueryTrainingQualityResponse.status:type_name -> zerone.knowledge.v1.FactStatus
-	202, // 60: zerone.knowledge.v1.QueryAgentCalibrationResponse.calibration:type_name -> zerone.knowledge.v1.AgentCalibration
+	204, // 58: zerone.knowledge.v1.QueryTrainingQualityResponse.tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
+	201, // 59: zerone.knowledge.v1.QueryTrainingQualityResponse.status:type_name -> zerone.knowledge.v1.FactStatus
+	205, // 60: zerone.knowledge.v1.QueryAgentCalibrationResponse.calibration:type_name -> zerone.knowledge.v1.AgentCalibration
 	73,  // 61: zerone.knowledge.v1.QueryAgentLeaderboardResponse.entries:type_name -> zerone.knowledge.v1.AgentLeaderboardEntry
-	203, // 62: zerone.knowledge.v1.QueryTokenizerSpecResponse.spec:type_name -> zerone.knowledge.v1.TokenizerSpec
-	203, // 63: zerone.knowledge.v1.QueryTokenizerSpecAtVersionResponse.spec:type_name -> zerone.knowledge.v1.TokenizerSpec
-	204, // 64: zerone.knowledge.v1.QueryTrainingPipelinesResponse.pipelines:type_name -> zerone.knowledge.v1.TrainingPipeline
-	204, // 65: zerone.knowledge.v1.QueryTrainingPipelineResponse.pipeline:type_name -> zerone.knowledge.v1.TrainingPipeline
-	205, // 66: zerone.knowledge.v1.QueryModelCardsResponse.cards:type_name -> zerone.knowledge.v1.ModelCard
-	205, // 67: zerone.knowledge.v1.QueryModelCardResponse.card:type_name -> zerone.knowledge.v1.ModelCard
-	205, // 68: zerone.knowledge.v1.QueryModelCardByDeploymentResponse.card:type_name -> zerone.knowledge.v1.ModelCard
-	201, // 69: zerone.knowledge.v1.QueryStructuredCorpusRequest.min_tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
-	201, // 70: zerone.knowledge.v1.StructuredCorpusEntry.tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
-	206, // 71: zerone.knowledge.v1.StructuredCorpusEntry.curriculum_tier:type_name -> zerone.knowledge.v1.CurriculumTier
-	196, // 72: zerone.knowledge.v1.StructuredCorpusEntry.support_edges:type_name -> zerone.knowledge.v1.FactRelation
-	198, // 73: zerone.knowledge.v1.StructuredCorpusEntry.status:type_name -> zerone.knowledge.v1.FactStatus
+	206, // 62: zerone.knowledge.v1.QueryTokenizerSpecResponse.spec:type_name -> zerone.knowledge.v1.TokenizerSpec
+	206, // 63: zerone.knowledge.v1.QueryTokenizerSpecAtVersionResponse.spec:type_name -> zerone.knowledge.v1.TokenizerSpec
+	207, // 64: zerone.knowledge.v1.QueryTrainingPipelinesResponse.pipelines:type_name -> zerone.knowledge.v1.TrainingPipeline
+	207, // 65: zerone.knowledge.v1.QueryTrainingPipelineResponse.pipeline:type_name -> zerone.knowledge.v1.TrainingPipeline
+	208, // 66: zerone.knowledge.v1.QueryModelCardsResponse.cards:type_name -> zerone.knowledge.v1.ModelCard
+	208, // 67: zerone.knowledge.v1.QueryModelCardResponse.card:type_name -> zerone.knowledge.v1.ModelCard
+	208, // 68: zerone.knowledge.v1.QueryModelCardByDeploymentResponse.card:type_name -> zerone.knowledge.v1.ModelCard
+	204, // 69: zerone.knowledge.v1.QueryStructuredCorpusRequest.min_tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
+	204, // 70: zerone.knowledge.v1.StructuredCorpusEntry.tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
+	209, // 71: zerone.knowledge.v1.StructuredCorpusEntry.curriculum_tier:type_name -> zerone.knowledge.v1.CurriculumTier
+	199, // 72: zerone.knowledge.v1.StructuredCorpusEntry.support_edges:type_name -> zerone.knowledge.v1.FactRelation
+	201, // 73: zerone.knowledge.v1.StructuredCorpusEntry.status:type_name -> zerone.knowledge.v1.FactStatus
 	90,  // 74: zerone.knowledge.v1.QueryStructuredCorpusResponse.entries:type_name -> zerone.knowledge.v1.StructuredCorpusEntry
 	93,  // 75: zerone.knowledge.v1.QueryDisputationCorpusResponse.entries:type_name -> zerone.knowledge.v1.DisputationCorpusEntry
-	207, // 76: zerone.knowledge.v1.QueryCommonKnowledgeResponse.entries:type_name -> zerone.knowledge.v1.CommonKnowledgeEntry
-	208, // 77: zerone.knowledge.v1.QueryActiveBountiesResponse.bounties:type_name -> zerone.knowledge.v1.KnowledgeBounty
-	209, // 78: zerone.knowledge.v1.QueryDemandSignalsResponse.signals:type_name -> zerone.knowledge.v1.DemandSignal
-	209, // 79: zerone.knowledge.v1.QueryTopDemandGapsResponse.gaps:type_name -> zerone.knowledge.v1.DemandSignal
-	188, // 80: zerone.knowledge.v1.QueryNicheInfoResponse.leader:type_name -> zerone.knowledge.v1.Fact
-	188, // 81: zerone.knowledge.v1.QueryNicheInfoResponse.members:type_name -> zerone.knowledge.v1.Fact
+	210, // 76: zerone.knowledge.v1.QueryCommonKnowledgeResponse.entries:type_name -> zerone.knowledge.v1.CommonKnowledgeEntry
+	211, // 77: zerone.knowledge.v1.QueryActiveBountiesResponse.bounties:type_name -> zerone.knowledge.v1.KnowledgeBounty
+	212, // 78: zerone.knowledge.v1.QueryDemandSignalsResponse.signals:type_name -> zerone.knowledge.v1.DemandSignal
+	212, // 79: zerone.knowledge.v1.QueryTopDemandGapsResponse.gaps:type_name -> zerone.knowledge.v1.DemandSignal
+	191, // 80: zerone.knowledge.v1.QueryNicheInfoResponse.leader:type_name -> zerone.knowledge.v1.Fact
+	191, // 81: zerone.knowledge.v1.QueryNicheInfoResponse.members:type_name -> zerone.knowledge.v1.Fact
 	106, // 82: zerone.knowledge.v1.QueryNichesByDomainResponse.niches:type_name -> zerone.knowledge.v1.QueryNicheInfoResponse
 	113, // 83: zerone.knowledge.v1.QueryDomainDiversityHistoryResponse.history:type_name -> zerone.knowledge.v1.DomainDiversityEpoch
 	118, // 84: zerone.knowledge.v1.QueryConformityAlertsResponse.alerts:type_name -> zerone.knowledge.v1.ConformityAlert
-	210, // 85: zerone.knowledge.v1.QueryTrainingAttestationResponse.attestation:type_name -> zerone.knowledge.v1.TrainingAttestation
-	211, // 86: zerone.knowledge.v1.QueryModelContributionsResponse.record:type_name -> zerone.knowledge.v1.ContributionRecord
-	205, // 87: zerone.knowledge.v1.QueryModelLineageResponse.ancestry:type_name -> zerone.knowledge.v1.ModelCard
-	212, // 88: zerone.knowledge.v1.QueryAugmentationBountyResponse.bounty:type_name -> zerone.knowledge.v1.AugmentationBounty
-	212, // 89: zerone.knowledge.v1.QueryAugmentationBountiesResponse.bounties:type_name -> zerone.knowledge.v1.AugmentationBounty
-	213, // 90: zerone.knowledge.v1.QueryAugmentationsByFactResponse.augmentations:type_name -> zerone.knowledge.v1.Augmentation
-	214, // 91: zerone.knowledge.v1.QueryContributionChallengeResponse.challenge:type_name -> zerone.knowledge.v1.ContributionChallenge
-	214, // 92: zerone.knowledge.v1.QueryOpenContributionChallengesResponse.challenges:type_name -> zerone.knowledge.v1.ContributionChallenge
-	215, // 93: zerone.knowledge.v1.QueryTrainingFundDisbursementResponse.disbursement:type_name -> zerone.knowledge.v1.TrainingFundDisbursement
-	152, // 94: zerone.knowledge.v1.QueryNormativeCorpusResponse.entries:type_name -> zerone.knowledge.v1.NormativeCorpusEntry
-	216, // 95: zerone.knowledge.v1.DriftCorpusEntry.verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
-	155, // 96: zerone.knowledge.v1.QueryDriftCorpusResponse.entries:type_name -> zerone.knowledge.v1.DriftCorpusEntry
-	217, // 97: zerone.knowledge.v1.QueryMethodologyApplicationTraceResponse.trace:type_name -> zerone.knowledge.v1.MethodologyApplicationTrace
-	201, // 98: zerone.knowledge.v1.QueryMethodologyApplicationTracesRequest.min_tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
-	217, // 99: zerone.knowledge.v1.QueryMethodologyApplicationTracesResponse.traces:type_name -> zerone.knowledge.v1.MethodologyApplicationTrace
-	218, // 100: zerone.knowledge.v1.QueryContrastivePairsRequest.pair_type:type_name -> zerone.knowledge.v1.ContrastivePairType
-	219, // 101: zerone.knowledge.v1.QueryContrastivePairsResponse.pairs:type_name -> zerone.knowledge.v1.ContrastivePair
-	220, // 102: zerone.knowledge.v1.QueryTraceSchemaResponse.schema:type_name -> zerone.knowledge.v1.TraceSchema
-	220, // 103: zerone.knowledge.v1.QueryTraceSchemaAtVersionResponse.schema:type_name -> zerone.knowledge.v1.TraceSchema
-	221, // 104: zerone.knowledge.v1.QueryTrainingManifestResponse.manifest:type_name -> zerone.knowledge.v1.TrainingManifest
-	222, // 105: zerone.knowledge.v1.QueryTrainingManifestsRequest.status:type_name -> zerone.knowledge.v1.ManifestStatus
-	221, // 106: zerone.knowledge.v1.QueryTrainingManifestsResponse.manifests:type_name -> zerone.knowledge.v1.TrainingManifest
-	221, // 107: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.manifest:type_name -> zerone.knowledge.v1.TrainingManifest
-	217, // 108: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.traces:type_name -> zerone.knowledge.v1.MethodologyApplicationTrace
-	219, // 109: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.contrastive_pairs:type_name -> zerone.knowledge.v1.ContrastivePair
-	155, // 110: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.drift_entries:type_name -> zerone.knowledge.v1.DriftCorpusEntry
-	152, // 111: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.normative_entries:type_name -> zerone.knowledge.v1.NormativeCorpusEntry
-	223, // 112: zerone.knowledge.v1.QueryRouteBCapabilitiesResponse.capabilities:type_name -> zerone.knowledge.v1.RouteBCapabilities
-	224, // 113: zerone.knowledge.v1.QueryIncidentResponse.incident:type_name -> zerone.knowledge.v1.IncidentRecord
-	225, // 114: zerone.knowledge.v1.QueryIncidentsRequest.severity:type_name -> zerone.knowledge.v1.IncidentSeverity
-	226, // 115: zerone.knowledge.v1.QueryIncidentsRequest.status:type_name -> zerone.knowledge.v1.IncidentStatus
-	224, // 116: zerone.knowledge.v1.QueryIncidentsResponse.incidents:type_name -> zerone.knowledge.v1.IncidentRecord
-	225, // 117: zerone.knowledge.v1.QueryOpenIncidentsRequest.severity:type_name -> zerone.knowledge.v1.IncidentSeverity
-	224, // 118: zerone.knowledge.v1.QueryOpenIncidentsResponse.incidents:type_name -> zerone.knowledge.v1.IncidentRecord
-	227, // 119: zerone.knowledge.v1.QueryPausedModulesResponse.paused:type_name -> zerone.knowledge.v1.ModulePause
-	224, // 120: zerone.knowledge.v1.QuerySlaBreachedIncidentsResponse.incidents:type_name -> zerone.knowledge.v1.IncidentRecord
-	228, // 121: zerone.knowledge.v1.QueryPrivilegedActionsRequest.type:type_name -> zerone.knowledge.v1.PrivilegedActionType
-	229, // 122: zerone.knowledge.v1.QueryPrivilegedActionsResponse.actions:type_name -> zerone.knowledge.v1.PrivilegedAction
-	0,   // 123: zerone.knowledge.v1.Query.Params:input_type -> zerone.knowledge.v1.QueryParamsRequest
-	2,   // 124: zerone.knowledge.v1.Query.Fact:input_type -> zerone.knowledge.v1.QueryFactRequest
-	4,   // 125: zerone.knowledge.v1.Query.Facts:input_type -> zerone.knowledge.v1.QueryFactsRequest
-	6,   // 126: zerone.knowledge.v1.Query.FactsByDomain:input_type -> zerone.knowledge.v1.QueryFactsByDomainRequest
-	8,   // 127: zerone.knowledge.v1.Query.FactsBySubmitter:input_type -> zerone.knowledge.v1.QueryFactsBySubmitterRequest
-	10,  // 128: zerone.knowledge.v1.Query.Claim:input_type -> zerone.knowledge.v1.QueryClaimRequest
-	12,  // 129: zerone.knowledge.v1.Query.PendingClaims:input_type -> zerone.knowledge.v1.QueryPendingClaimsRequest
-	14,  // 130: zerone.knowledge.v1.Query.VerificationRound:input_type -> zerone.knowledge.v1.QueryVerificationRoundRequest
-	16,  // 131: zerone.knowledge.v1.Query.Domain:input_type -> zerone.knowledge.v1.QueryDomainRequest
-	18,  // 132: zerone.knowledge.v1.Query.Domains:input_type -> zerone.knowledge.v1.QueryDomainsRequest
-	20,  // 133: zerone.knowledge.v1.Query.FactConfidence:input_type -> zerone.knowledge.v1.QueryFactConfidenceRequest
-	22,  // 134: zerone.knowledge.v1.Query.FactCitationCount:input_type -> zerone.knowledge.v1.QueryFactCitationCountRequest
-	24,  // 135: zerone.knowledge.v1.Query.FactRelations:input_type -> zerone.knowledge.v1.QueryFactRelationsRequest
-	26,  // 136: zerone.knowledge.v1.Query.FactsBySubject:input_type -> zerone.knowledge.v1.QueryFactsBySubjectRequest
-	28,  // 137: zerone.knowledge.v1.Query.FactsByTag:input_type -> zerone.knowledge.v1.QueryFactsByTagRequest
-	30,  // 138: zerone.knowledge.v1.Query.FactByCanonical:input_type -> zerone.knowledge.v1.QueryFactByCanonicalRequest
-	32,  // 139: zerone.knowledge.v1.Query.FactsByFitness:input_type -> zerone.knowledge.v1.QueryFactsByFitnessRequest
-	34,  // 140: zerone.knowledge.v1.Query.BootstrapFundStatus:input_type -> zerone.knowledge.v1.QueryBootstrapFundStatusRequest
-	36,  // 141: zerone.knowledge.v1.Query.FactsAtRisk:input_type -> zerone.knowledge.v1.QueryFactsAtRiskRequest
-	38,  // 142: zerone.knowledge.v1.Query.FactLineage:input_type -> zerone.knowledge.v1.QueryFactLineageRequest
-	40,  // 143: zerone.knowledge.v1.Query.FactProgeny:input_type -> zerone.knowledge.v1.QueryFactProgenyRequest
-	43,  // 144: zerone.knowledge.v1.Query.ProofTree:input_type -> zerone.knowledge.v1.QueryProofTreeRequest
-	46,  // 145: zerone.knowledge.v1.Query.DescendantTree:input_type -> zerone.knowledge.v1.QueryDescendantTreeRequest
-	49,  // 146: zerone.knowledge.v1.Query.TrustProfile:input_type -> zerone.knowledge.v1.QueryTrustProfileRequest
-	51,  // 147: zerone.knowledge.v1.Query.Methodologies:input_type -> zerone.knowledge.v1.QueryMethodologiesRequest
-	53,  // 148: zerone.knowledge.v1.Query.Methodology:input_type -> zerone.knowledge.v1.QueryMethodologyRequest
-	55,  // 149: zerone.knowledge.v1.Query.NormativeCommitments:input_type -> zerone.knowledge.v1.QueryNormativeCommitmentsRequest
-	57,  // 150: zerone.knowledge.v1.Query.NormativeCommitment:input_type -> zerone.knowledge.v1.QueryNormativeCommitmentRequest
-	59,  // 151: zerone.knowledge.v1.Query.MethodCorpus:input_type -> zerone.knowledge.v1.QueryMethodCorpusRequest
-	62,  // 152: zerone.knowledge.v1.Query.DisprovenCorpus:input_type -> zerone.knowledge.v1.QueryDisprovenCorpusRequest
-	65,  // 153: zerone.knowledge.v1.Query.VindicationCorpus:input_type -> zerone.knowledge.v1.QueryVindicationCorpusRequest
-	68,  // 154: zerone.knowledge.v1.Query.TrainingQuality:input_type -> zerone.knowledge.v1.QueryTrainingQualityRequest
-	70,  // 155: zerone.knowledge.v1.Query.AgentCalibration:input_type -> zerone.knowledge.v1.QueryAgentCalibrationRequest
-	72,  // 156: zerone.knowledge.v1.Query.AgentLeaderboard:input_type -> zerone.knowledge.v1.QueryAgentLeaderboardRequest
-	75,  // 157: zerone.knowledge.v1.Query.TokenizerSpec:input_type -> zerone.knowledge.v1.QueryTokenizerSpecRequest
-	77,  // 158: zerone.knowledge.v1.Query.TokenizerSpecAtVersion:input_type -> zerone.knowledge.v1.QueryTokenizerSpecAtVersionRequest
-	79,  // 159: zerone.knowledge.v1.Query.TrainingPipelines:input_type -> zerone.knowledge.v1.QueryTrainingPipelinesRequest
-	81,  // 160: zerone.knowledge.v1.Query.TrainingPipeline:input_type -> zerone.knowledge.v1.QueryTrainingPipelineRequest
-	83,  // 161: zerone.knowledge.v1.Query.ModelCards:input_type -> zerone.knowledge.v1.QueryModelCardsRequest
-	85,  // 162: zerone.knowledge.v1.Query.ModelCard:input_type -> zerone.knowledge.v1.QueryModelCardRequest
-	87,  // 163: zerone.knowledge.v1.Query.ModelCardByDeployment:input_type -> zerone.knowledge.v1.QueryModelCardByDeploymentRequest
-	89,  // 164: zerone.knowledge.v1.Query.StructuredCorpus:input_type -> zerone.knowledge.v1.QueryStructuredCorpusRequest
-	92,  // 165: zerone.knowledge.v1.Query.DisputationCorpus:input_type -> zerone.knowledge.v1.QueryDisputationCorpusRequest
-	127, // 166: zerone.knowledge.v1.Query.TrainingAttestation:input_type -> zerone.knowledge.v1.QueryTrainingAttestationRequest
-	129, // 167: zerone.knowledge.v1.Query.ModelContributions:input_type -> zerone.knowledge.v1.QueryModelContributionsRequest
-	131, // 168: zerone.knowledge.v1.Query.FactContributors:input_type -> zerone.knowledge.v1.QueryFactContributorsRequest
-	133, // 169: zerone.knowledge.v1.Query.ModelLineage:input_type -> zerone.knowledge.v1.QueryModelLineageRequest
-	135, // 170: zerone.knowledge.v1.Query.AugmentationBounty:input_type -> zerone.knowledge.v1.QueryAugmentationBountyRequest
-	137, // 171: zerone.knowledge.v1.Query.AugmentationBounties:input_type -> zerone.knowledge.v1.QueryAugmentationBountiesRequest
-	139, // 172: zerone.knowledge.v1.Query.AugmentationsByFact:input_type -> zerone.knowledge.v1.QueryAugmentationsByFactRequest
-	141, // 173: zerone.knowledge.v1.Query.TrainingValueWeight:input_type -> zerone.knowledge.v1.QueryTrainingValueWeightRequest
-	143, // 174: zerone.knowledge.v1.Query.ContributionChallenge:input_type -> zerone.knowledge.v1.QueryContributionChallengeRequest
-	145, // 175: zerone.knowledge.v1.Query.OpenContributionChallenges:input_type -> zerone.knowledge.v1.QueryOpenContributionChallengesRequest
-	147, // 176: zerone.knowledge.v1.Query.TrainingFundDisbursement:input_type -> zerone.knowledge.v1.QueryTrainingFundDisbursementRequest
-	149, // 177: zerone.knowledge.v1.Query.TrainingFundBalance:input_type -> zerone.knowledge.v1.QueryTrainingFundBalanceRequest
-	151, // 178: zerone.knowledge.v1.Query.NormativeCorpus:input_type -> zerone.knowledge.v1.QueryNormativeCorpusRequest
-	154, // 179: zerone.knowledge.v1.Query.DriftCorpus:input_type -> zerone.knowledge.v1.QueryDriftCorpusRequest
-	157, // 180: zerone.knowledge.v1.Query.MethodologyApplicationTrace:input_type -> zerone.knowledge.v1.QueryMethodologyApplicationTraceRequest
-	159, // 181: zerone.knowledge.v1.Query.MethodologyApplicationTraces:input_type -> zerone.knowledge.v1.QueryMethodologyApplicationTracesRequest
-	161, // 182: zerone.knowledge.v1.Query.ContrastivePairs:input_type -> zerone.knowledge.v1.QueryContrastivePairsRequest
-	163, // 183: zerone.knowledge.v1.Query.TraceSchema:input_type -> zerone.knowledge.v1.QueryTraceSchemaRequest
-	165, // 184: zerone.knowledge.v1.Query.TraceSchemaAtVersion:input_type -> zerone.knowledge.v1.QueryTraceSchemaAtVersionRequest
-	167, // 185: zerone.knowledge.v1.Query.TrainingManifest:input_type -> zerone.knowledge.v1.QueryTrainingManifestRequest
-	169, // 186: zerone.knowledge.v1.Query.TrainingManifests:input_type -> zerone.knowledge.v1.QueryTrainingManifestsRequest
-	171, // 187: zerone.knowledge.v1.Query.TrainingManifestBundle:input_type -> zerone.knowledge.v1.QueryTrainingManifestBundleRequest
-	173, // 188: zerone.knowledge.v1.Query.RouteBCapabilities:input_type -> zerone.knowledge.v1.QueryRouteBCapabilitiesRequest
-	175, // 189: zerone.knowledge.v1.Query.Incident:input_type -> zerone.knowledge.v1.QueryIncidentRequest
-	177, // 190: zerone.knowledge.v1.Query.Incidents:input_type -> zerone.knowledge.v1.QueryIncidentsRequest
-	179, // 191: zerone.knowledge.v1.Query.OpenIncidents:input_type -> zerone.knowledge.v1.QueryOpenIncidentsRequest
-	181, // 192: zerone.knowledge.v1.Query.PausedModules:input_type -> zerone.knowledge.v1.QueryPausedModulesRequest
-	183, // 193: zerone.knowledge.v1.Query.SlaBreachedIncidents:input_type -> zerone.knowledge.v1.QuerySlaBreachedIncidentsRequest
-	185, // 194: zerone.knowledge.v1.Query.PrivilegedActions:input_type -> zerone.knowledge.v1.QueryPrivilegedActionsRequest
-	95,  // 195: zerone.knowledge.v1.Query.CommonKnowledge:input_type -> zerone.knowledge.v1.QueryCommonKnowledgeRequest
-	97,  // 196: zerone.knowledge.v1.Query.CheckNovelty:input_type -> zerone.knowledge.v1.QueryCheckNoveltyRequest
-	99,  // 197: zerone.knowledge.v1.Query.ActiveBounties:input_type -> zerone.knowledge.v1.QueryActiveBountiesRequest
-	101, // 198: zerone.knowledge.v1.Query.DemandSignals:input_type -> zerone.knowledge.v1.QueryDemandSignalsRequest
-	103, // 199: zerone.knowledge.v1.Query.TopDemandGaps:input_type -> zerone.knowledge.v1.QueryTopDemandGapsRequest
-	105, // 200: zerone.knowledge.v1.Query.NicheInfo:input_type -> zerone.knowledge.v1.QueryNicheInfoRequest
-	107, // 201: zerone.knowledge.v1.Query.NichesByDomain:input_type -> zerone.knowledge.v1.QueryNichesByDomainRequest
-	109, // 202: zerone.knowledge.v1.Query.DomainDiversity:input_type -> zerone.knowledge.v1.QueryDomainDiversityRequest
-	111, // 203: zerone.knowledge.v1.Query.DomainDiversityHistory:input_type -> zerone.knowledge.v1.QueryDomainDiversityHistoryRequest
-	114, // 204: zerone.knowledge.v1.Query.ValidatorIndependence:input_type -> zerone.knowledge.v1.QueryValidatorIndependenceRequest
-	116, // 205: zerone.knowledge.v1.Query.ConformityAlerts:input_type -> zerone.knowledge.v1.QueryConformityAlertsRequest
-	119, // 206: zerone.knowledge.v1.Query.MetabolismStatus:input_type -> zerone.knowledge.v1.QueryMetabolismStatusRequest
-	121, // 207: zerone.knowledge.v1.Query.DomainCapacity:input_type -> zerone.knowledge.v1.QueryDomainCapacityRequest
-	123, // 208: zerone.knowledge.v1.Query.EpistemicTemperature:input_type -> zerone.knowledge.v1.QueryEpistemicTemperatureRequest
-	125, // 209: zerone.knowledge.v1.Query.RoleElasticity:input_type -> zerone.knowledge.v1.QueryRoleElasticityRequest
-	1,   // 210: zerone.knowledge.v1.Query.Params:output_type -> zerone.knowledge.v1.QueryParamsResponse
-	3,   // 211: zerone.knowledge.v1.Query.Fact:output_type -> zerone.knowledge.v1.QueryFactResponse
-	5,   // 212: zerone.knowledge.v1.Query.Facts:output_type -> zerone.knowledge.v1.QueryFactsResponse
-	7,   // 213: zerone.knowledge.v1.Query.FactsByDomain:output_type -> zerone.knowledge.v1.QueryFactsByDomainResponse
-	9,   // 214: zerone.knowledge.v1.Query.FactsBySubmitter:output_type -> zerone.knowledge.v1.QueryFactsBySubmitterResponse
-	11,  // 215: zerone.knowledge.v1.Query.Claim:output_type -> zerone.knowledge.v1.QueryClaimResponse
-	13,  // 216: zerone.knowledge.v1.Query.PendingClaims:output_type -> zerone.knowledge.v1.QueryPendingClaimsResponse
-	15,  // 217: zerone.knowledge.v1.Query.VerificationRound:output_type -> zerone.knowledge.v1.QueryVerificationRoundResponse
-	17,  // 218: zerone.knowledge.v1.Query.Domain:output_type -> zerone.knowledge.v1.QueryDomainResponse
-	19,  // 219: zerone.knowledge.v1.Query.Domains:output_type -> zerone.knowledge.v1.QueryDomainsResponse
-	21,  // 220: zerone.knowledge.v1.Query.FactConfidence:output_type -> zerone.knowledge.v1.QueryFactConfidenceResponse
-	23,  // 221: zerone.knowledge.v1.Query.FactCitationCount:output_type -> zerone.knowledge.v1.QueryFactCitationCountResponse
-	25,  // 222: zerone.knowledge.v1.Query.FactRelations:output_type -> zerone.knowledge.v1.QueryFactRelationsResponse
-	27,  // 223: zerone.knowledge.v1.Query.FactsBySubject:output_type -> zerone.knowledge.v1.QueryFactsBySubjectResponse
-	29,  // 224: zerone.knowledge.v1.Query.FactsByTag:output_type -> zerone.knowledge.v1.QueryFactsByTagResponse
-	31,  // 225: zerone.knowledge.v1.Query.FactByCanonical:output_type -> zerone.knowledge.v1.QueryFactByCanonicalResponse
-	33,  // 226: zerone.knowledge.v1.Query.FactsByFitness:output_type -> zerone.knowledge.v1.QueryFactsByFitnessResponse
-	35,  // 227: zerone.knowledge.v1.Query.BootstrapFundStatus:output_type -> zerone.knowledge.v1.QueryBootstrapFundStatusResponse
-	37,  // 228: zerone.knowledge.v1.Query.FactsAtRisk:output_type -> zerone.knowledge.v1.QueryFactsAtRiskResponse
-	39,  // 229: zerone.knowledge.v1.Query.FactLineage:output_type -> zerone.knowledge.v1.QueryFactLineageResponse
-	41,  // 230: zerone.knowledge.v1.Query.FactProgeny:output_type -> zerone.knowledge.v1.QueryFactProgenyResponse
-	45,  // 231: zerone.knowledge.v1.Query.ProofTree:output_type -> zerone.knowledge.v1.QueryProofTreeResponse
-	48,  // 232: zerone.knowledge.v1.Query.DescendantTree:output_type -> zerone.knowledge.v1.QueryDescendantTreeResponse
-	50,  // 233: zerone.knowledge.v1.Query.TrustProfile:output_type -> zerone.knowledge.v1.QueryTrustProfileResponse
-	52,  // 234: zerone.knowledge.v1.Query.Methodologies:output_type -> zerone.knowledge.v1.QueryMethodologiesResponse
-	54,  // 235: zerone.knowledge.v1.Query.Methodology:output_type -> zerone.knowledge.v1.QueryMethodologyResponse
-	56,  // 236: zerone.knowledge.v1.Query.NormativeCommitments:output_type -> zerone.knowledge.v1.QueryNormativeCommitmentsResponse
-	58,  // 237: zerone.knowledge.v1.Query.NormativeCommitment:output_type -> zerone.knowledge.v1.QueryNormativeCommitmentResponse
-	61,  // 238: zerone.knowledge.v1.Query.MethodCorpus:output_type -> zerone.knowledge.v1.QueryMethodCorpusResponse
-	64,  // 239: zerone.knowledge.v1.Query.DisprovenCorpus:output_type -> zerone.knowledge.v1.QueryDisprovenCorpusResponse
-	67,  // 240: zerone.knowledge.v1.Query.VindicationCorpus:output_type -> zerone.knowledge.v1.QueryVindicationCorpusResponse
-	69,  // 241: zerone.knowledge.v1.Query.TrainingQuality:output_type -> zerone.knowledge.v1.QueryTrainingQualityResponse
-	71,  // 242: zerone.knowledge.v1.Query.AgentCalibration:output_type -> zerone.knowledge.v1.QueryAgentCalibrationResponse
-	74,  // 243: zerone.knowledge.v1.Query.AgentLeaderboard:output_type -> zerone.knowledge.v1.QueryAgentLeaderboardResponse
-	76,  // 244: zerone.knowledge.v1.Query.TokenizerSpec:output_type -> zerone.knowledge.v1.QueryTokenizerSpecResponse
-	78,  // 245: zerone.knowledge.v1.Query.TokenizerSpecAtVersion:output_type -> zerone.knowledge.v1.QueryTokenizerSpecAtVersionResponse
-	80,  // 246: zerone.knowledge.v1.Query.TrainingPipelines:output_type -> zerone.knowledge.v1.QueryTrainingPipelinesResponse
-	82,  // 247: zerone.knowledge.v1.Query.TrainingPipeline:output_type -> zerone.knowledge.v1.QueryTrainingPipelineResponse
-	84,  // 248: zerone.knowledge.v1.Query.ModelCards:output_type -> zerone.knowledge.v1.QueryModelCardsResponse
-	86,  // 249: zerone.knowledge.v1.Query.ModelCard:output_type -> zerone.knowledge.v1.QueryModelCardResponse
-	88,  // 250: zerone.knowledge.v1.Query.ModelCardByDeployment:output_type -> zerone.knowledge.v1.QueryModelCardByDeploymentResponse
-	91,  // 251: zerone.knowledge.v1.Query.StructuredCorpus:output_type -> zerone.knowledge.v1.QueryStructuredCorpusResponse
-	94,  // 252: zerone.knowledge.v1.Query.DisputationCorpus:output_type -> zerone.knowledge.v1.QueryDisputationCorpusResponse
-	128, // 253: zerone.knowledge.v1.Query.TrainingAttestation:output_type -> zerone.knowledge.v1.QueryTrainingAttestationResponse
-	130, // 254: zerone.knowledge.v1.Query.ModelContributions:output_type -> zerone.knowledge.v1.QueryModelContributionsResponse
-	132, // 255: zerone.knowledge.v1.Query.FactContributors:output_type -> zerone.knowledge.v1.QueryFactContributorsResponse
-	134, // 256: zerone.knowledge.v1.Query.ModelLineage:output_type -> zerone.knowledge.v1.QueryModelLineageResponse
-	136, // 257: zerone.knowledge.v1.Query.AugmentationBounty:output_type -> zerone.knowledge.v1.QueryAugmentationBountyResponse
-	138, // 258: zerone.knowledge.v1.Query.AugmentationBounties:output_type -> zerone.knowledge.v1.QueryAugmentationBountiesResponse
-	140, // 259: zerone.knowledge.v1.Query.AugmentationsByFact:output_type -> zerone.knowledge.v1.QueryAugmentationsByFactResponse
-	142, // 260: zerone.knowledge.v1.Query.TrainingValueWeight:output_type -> zerone.knowledge.v1.QueryTrainingValueWeightResponse
-	144, // 261: zerone.knowledge.v1.Query.ContributionChallenge:output_type -> zerone.knowledge.v1.QueryContributionChallengeResponse
-	146, // 262: zerone.knowledge.v1.Query.OpenContributionChallenges:output_type -> zerone.knowledge.v1.QueryOpenContributionChallengesResponse
-	148, // 263: zerone.knowledge.v1.Query.TrainingFundDisbursement:output_type -> zerone.knowledge.v1.QueryTrainingFundDisbursementResponse
-	150, // 264: zerone.knowledge.v1.Query.TrainingFundBalance:output_type -> zerone.knowledge.v1.QueryTrainingFundBalanceResponse
-	153, // 265: zerone.knowledge.v1.Query.NormativeCorpus:output_type -> zerone.knowledge.v1.QueryNormativeCorpusResponse
-	156, // 266: zerone.knowledge.v1.Query.DriftCorpus:output_type -> zerone.knowledge.v1.QueryDriftCorpusResponse
-	158, // 267: zerone.knowledge.v1.Query.MethodologyApplicationTrace:output_type -> zerone.knowledge.v1.QueryMethodologyApplicationTraceResponse
-	160, // 268: zerone.knowledge.v1.Query.MethodologyApplicationTraces:output_type -> zerone.knowledge.v1.QueryMethodologyApplicationTracesResponse
-	162, // 269: zerone.knowledge.v1.Query.ContrastivePairs:output_type -> zerone.knowledge.v1.QueryContrastivePairsResponse
-	164, // 270: zerone.knowledge.v1.Query.TraceSchema:output_type -> zerone.knowledge.v1.QueryTraceSchemaResponse
-	166, // 271: zerone.knowledge.v1.Query.TraceSchemaAtVersion:output_type -> zerone.knowledge.v1.QueryTraceSchemaAtVersionResponse
-	168, // 272: zerone.knowledge.v1.Query.TrainingManifest:output_type -> zerone.knowledge.v1.QueryTrainingManifestResponse
-	170, // 273: zerone.knowledge.v1.Query.TrainingManifests:output_type -> zerone.knowledge.v1.QueryTrainingManifestsResponse
-	172, // 274: zerone.knowledge.v1.Query.TrainingManifestBundle:output_type -> zerone.knowledge.v1.QueryTrainingManifestBundleResponse
-	174, // 275: zerone.knowledge.v1.Query.RouteBCapabilities:output_type -> zerone.knowledge.v1.QueryRouteBCapabilitiesResponse
-	176, // 276: zerone.knowledge.v1.Query.Incident:output_type -> zerone.knowledge.v1.QueryIncidentResponse
-	178, // 277: zerone.knowledge.v1.Query.Incidents:output_type -> zerone.knowledge.v1.QueryIncidentsResponse
-	180, // 278: zerone.knowledge.v1.Query.OpenIncidents:output_type -> zerone.knowledge.v1.QueryOpenIncidentsResponse
-	182, // 279: zerone.knowledge.v1.Query.PausedModules:output_type -> zerone.knowledge.v1.QueryPausedModulesResponse
-	184, // 280: zerone.knowledge.v1.Query.SlaBreachedIncidents:output_type -> zerone.knowledge.v1.QuerySlaBreachedIncidentsResponse
-	186, // 281: zerone.knowledge.v1.Query.PrivilegedActions:output_type -> zerone.knowledge.v1.QueryPrivilegedActionsResponse
-	96,  // 282: zerone.knowledge.v1.Query.CommonKnowledge:output_type -> zerone.knowledge.v1.QueryCommonKnowledgeResponse
-	98,  // 283: zerone.knowledge.v1.Query.CheckNovelty:output_type -> zerone.knowledge.v1.QueryCheckNoveltyResponse
-	100, // 284: zerone.knowledge.v1.Query.ActiveBounties:output_type -> zerone.knowledge.v1.QueryActiveBountiesResponse
-	102, // 285: zerone.knowledge.v1.Query.DemandSignals:output_type -> zerone.knowledge.v1.QueryDemandSignalsResponse
-	104, // 286: zerone.knowledge.v1.Query.TopDemandGaps:output_type -> zerone.knowledge.v1.QueryTopDemandGapsResponse
-	106, // 287: zerone.knowledge.v1.Query.NicheInfo:output_type -> zerone.knowledge.v1.QueryNicheInfoResponse
-	108, // 288: zerone.knowledge.v1.Query.NichesByDomain:output_type -> zerone.knowledge.v1.QueryNichesByDomainResponse
-	110, // 289: zerone.knowledge.v1.Query.DomainDiversity:output_type -> zerone.knowledge.v1.QueryDomainDiversityResponse
-	112, // 290: zerone.knowledge.v1.Query.DomainDiversityHistory:output_type -> zerone.knowledge.v1.QueryDomainDiversityHistoryResponse
-	115, // 291: zerone.knowledge.v1.Query.ValidatorIndependence:output_type -> zerone.knowledge.v1.QueryValidatorIndependenceResponse
-	117, // 292: zerone.knowledge.v1.Query.ConformityAlerts:output_type -> zerone.knowledge.v1.QueryConformityAlertsResponse
-	120, // 293: zerone.knowledge.v1.Query.MetabolismStatus:output_type -> zerone.knowledge.v1.QueryMetabolismStatusResponse
-	122, // 294: zerone.knowledge.v1.Query.DomainCapacity:output_type -> zerone.knowledge.v1.QueryDomainCapacityResponse
-	124, // 295: zerone.knowledge.v1.Query.EpistemicTemperature:output_type -> zerone.knowledge.v1.QueryEpistemicTemperatureResponse
-	126, // 296: zerone.knowledge.v1.Query.RoleElasticity:output_type -> zerone.knowledge.v1.QueryRoleElasticityResponse
-	210, // [210:297] is the sub-list for method output_type
-	123, // [123:210] is the sub-list for method input_type
-	123, // [123:123] is the sub-list for extension type_name
-	123, // [123:123] is the sub-list for extension extendee
-	0,   // [0:123] is the sub-list for field type_name
+	127, // 85: zerone.knowledge.v1.QueryIdleFactsResponse.facts:type_name -> zerone.knowledge.v1.IdleFact
+	213, // 86: zerone.knowledge.v1.QueryTrainingAttestationResponse.attestation:type_name -> zerone.knowledge.v1.TrainingAttestation
+	214, // 87: zerone.knowledge.v1.QueryModelContributionsResponse.record:type_name -> zerone.knowledge.v1.ContributionRecord
+	208, // 88: zerone.knowledge.v1.QueryModelLineageResponse.ancestry:type_name -> zerone.knowledge.v1.ModelCard
+	215, // 89: zerone.knowledge.v1.QueryAugmentationBountyResponse.bounty:type_name -> zerone.knowledge.v1.AugmentationBounty
+	215, // 90: zerone.knowledge.v1.QueryAugmentationBountiesResponse.bounties:type_name -> zerone.knowledge.v1.AugmentationBounty
+	216, // 91: zerone.knowledge.v1.QueryAugmentationsByFactResponse.augmentations:type_name -> zerone.knowledge.v1.Augmentation
+	217, // 92: zerone.knowledge.v1.QueryContributionChallengeResponse.challenge:type_name -> zerone.knowledge.v1.ContributionChallenge
+	217, // 93: zerone.knowledge.v1.QueryOpenContributionChallengesResponse.challenges:type_name -> zerone.knowledge.v1.ContributionChallenge
+	218, // 94: zerone.knowledge.v1.QueryTrainingFundDisbursementResponse.disbursement:type_name -> zerone.knowledge.v1.TrainingFundDisbursement
+	155, // 95: zerone.knowledge.v1.QueryNormativeCorpusResponse.entries:type_name -> zerone.knowledge.v1.NormativeCorpusEntry
+	219, // 96: zerone.knowledge.v1.DriftCorpusEntry.verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
+	158, // 97: zerone.knowledge.v1.QueryDriftCorpusResponse.entries:type_name -> zerone.knowledge.v1.DriftCorpusEntry
+	220, // 98: zerone.knowledge.v1.QueryMethodologyApplicationTraceResponse.trace:type_name -> zerone.knowledge.v1.MethodologyApplicationTrace
+	204, // 99: zerone.knowledge.v1.QueryMethodologyApplicationTracesRequest.min_tier:type_name -> zerone.knowledge.v1.TrainingQualityTier
+	220, // 100: zerone.knowledge.v1.QueryMethodologyApplicationTracesResponse.traces:type_name -> zerone.knowledge.v1.MethodologyApplicationTrace
+	221, // 101: zerone.knowledge.v1.QueryContrastivePairsRequest.pair_type:type_name -> zerone.knowledge.v1.ContrastivePairType
+	222, // 102: zerone.knowledge.v1.QueryContrastivePairsResponse.pairs:type_name -> zerone.knowledge.v1.ContrastivePair
+	223, // 103: zerone.knowledge.v1.QueryTraceSchemaResponse.schema:type_name -> zerone.knowledge.v1.TraceSchema
+	223, // 104: zerone.knowledge.v1.QueryTraceSchemaAtVersionResponse.schema:type_name -> zerone.knowledge.v1.TraceSchema
+	224, // 105: zerone.knowledge.v1.QueryTrainingManifestResponse.manifest:type_name -> zerone.knowledge.v1.TrainingManifest
+	225, // 106: zerone.knowledge.v1.QueryTrainingManifestsRequest.status:type_name -> zerone.knowledge.v1.ManifestStatus
+	224, // 107: zerone.knowledge.v1.QueryTrainingManifestsResponse.manifests:type_name -> zerone.knowledge.v1.TrainingManifest
+	224, // 108: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.manifest:type_name -> zerone.knowledge.v1.TrainingManifest
+	220, // 109: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.traces:type_name -> zerone.knowledge.v1.MethodologyApplicationTrace
+	222, // 110: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.contrastive_pairs:type_name -> zerone.knowledge.v1.ContrastivePair
+	158, // 111: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.drift_entries:type_name -> zerone.knowledge.v1.DriftCorpusEntry
+	155, // 112: zerone.knowledge.v1.QueryTrainingManifestBundleResponse.normative_entries:type_name -> zerone.knowledge.v1.NormativeCorpusEntry
+	226, // 113: zerone.knowledge.v1.QueryRouteBCapabilitiesResponse.capabilities:type_name -> zerone.knowledge.v1.RouteBCapabilities
+	227, // 114: zerone.knowledge.v1.QueryIncidentResponse.incident:type_name -> zerone.knowledge.v1.IncidentRecord
+	228, // 115: zerone.knowledge.v1.QueryIncidentsRequest.severity:type_name -> zerone.knowledge.v1.IncidentSeverity
+	229, // 116: zerone.knowledge.v1.QueryIncidentsRequest.status:type_name -> zerone.knowledge.v1.IncidentStatus
+	227, // 117: zerone.knowledge.v1.QueryIncidentsResponse.incidents:type_name -> zerone.knowledge.v1.IncidentRecord
+	228, // 118: zerone.knowledge.v1.QueryOpenIncidentsRequest.severity:type_name -> zerone.knowledge.v1.IncidentSeverity
+	227, // 119: zerone.knowledge.v1.QueryOpenIncidentsResponse.incidents:type_name -> zerone.knowledge.v1.IncidentRecord
+	230, // 120: zerone.knowledge.v1.QueryPausedModulesResponse.paused:type_name -> zerone.knowledge.v1.ModulePause
+	227, // 121: zerone.knowledge.v1.QuerySlaBreachedIncidentsResponse.incidents:type_name -> zerone.knowledge.v1.IncidentRecord
+	231, // 122: zerone.knowledge.v1.QueryPrivilegedActionsRequest.type:type_name -> zerone.knowledge.v1.PrivilegedActionType
+	232, // 123: zerone.knowledge.v1.QueryPrivilegedActionsResponse.actions:type_name -> zerone.knowledge.v1.PrivilegedAction
+	0,   // 124: zerone.knowledge.v1.Query.Params:input_type -> zerone.knowledge.v1.QueryParamsRequest
+	2,   // 125: zerone.knowledge.v1.Query.Fact:input_type -> zerone.knowledge.v1.QueryFactRequest
+	4,   // 126: zerone.knowledge.v1.Query.Facts:input_type -> zerone.knowledge.v1.QueryFactsRequest
+	6,   // 127: zerone.knowledge.v1.Query.FactsByDomain:input_type -> zerone.knowledge.v1.QueryFactsByDomainRequest
+	8,   // 128: zerone.knowledge.v1.Query.FactsBySubmitter:input_type -> zerone.knowledge.v1.QueryFactsBySubmitterRequest
+	10,  // 129: zerone.knowledge.v1.Query.Claim:input_type -> zerone.knowledge.v1.QueryClaimRequest
+	12,  // 130: zerone.knowledge.v1.Query.PendingClaims:input_type -> zerone.knowledge.v1.QueryPendingClaimsRequest
+	14,  // 131: zerone.knowledge.v1.Query.VerificationRound:input_type -> zerone.knowledge.v1.QueryVerificationRoundRequest
+	16,  // 132: zerone.knowledge.v1.Query.Domain:input_type -> zerone.knowledge.v1.QueryDomainRequest
+	18,  // 133: zerone.knowledge.v1.Query.Domains:input_type -> zerone.knowledge.v1.QueryDomainsRequest
+	20,  // 134: zerone.knowledge.v1.Query.FactConfidence:input_type -> zerone.knowledge.v1.QueryFactConfidenceRequest
+	22,  // 135: zerone.knowledge.v1.Query.FactCitationCount:input_type -> zerone.knowledge.v1.QueryFactCitationCountRequest
+	24,  // 136: zerone.knowledge.v1.Query.FactRelations:input_type -> zerone.knowledge.v1.QueryFactRelationsRequest
+	26,  // 137: zerone.knowledge.v1.Query.FactsBySubject:input_type -> zerone.knowledge.v1.QueryFactsBySubjectRequest
+	28,  // 138: zerone.knowledge.v1.Query.FactsByTag:input_type -> zerone.knowledge.v1.QueryFactsByTagRequest
+	30,  // 139: zerone.knowledge.v1.Query.FactByCanonical:input_type -> zerone.knowledge.v1.QueryFactByCanonicalRequest
+	32,  // 140: zerone.knowledge.v1.Query.FactsByFitness:input_type -> zerone.knowledge.v1.QueryFactsByFitnessRequest
+	34,  // 141: zerone.knowledge.v1.Query.BootstrapFundStatus:input_type -> zerone.knowledge.v1.QueryBootstrapFundStatusRequest
+	36,  // 142: zerone.knowledge.v1.Query.FactsAtRisk:input_type -> zerone.knowledge.v1.QueryFactsAtRiskRequest
+	38,  // 143: zerone.knowledge.v1.Query.FactLineage:input_type -> zerone.knowledge.v1.QueryFactLineageRequest
+	40,  // 144: zerone.knowledge.v1.Query.FactProgeny:input_type -> zerone.knowledge.v1.QueryFactProgenyRequest
+	43,  // 145: zerone.knowledge.v1.Query.ProofTree:input_type -> zerone.knowledge.v1.QueryProofTreeRequest
+	46,  // 146: zerone.knowledge.v1.Query.DescendantTree:input_type -> zerone.knowledge.v1.QueryDescendantTreeRequest
+	49,  // 147: zerone.knowledge.v1.Query.TrustProfile:input_type -> zerone.knowledge.v1.QueryTrustProfileRequest
+	51,  // 148: zerone.knowledge.v1.Query.Methodologies:input_type -> zerone.knowledge.v1.QueryMethodologiesRequest
+	53,  // 149: zerone.knowledge.v1.Query.Methodology:input_type -> zerone.knowledge.v1.QueryMethodologyRequest
+	55,  // 150: zerone.knowledge.v1.Query.NormativeCommitments:input_type -> zerone.knowledge.v1.QueryNormativeCommitmentsRequest
+	57,  // 151: zerone.knowledge.v1.Query.NormativeCommitment:input_type -> zerone.knowledge.v1.QueryNormativeCommitmentRequest
+	59,  // 152: zerone.knowledge.v1.Query.MethodCorpus:input_type -> zerone.knowledge.v1.QueryMethodCorpusRequest
+	62,  // 153: zerone.knowledge.v1.Query.DisprovenCorpus:input_type -> zerone.knowledge.v1.QueryDisprovenCorpusRequest
+	65,  // 154: zerone.knowledge.v1.Query.VindicationCorpus:input_type -> zerone.knowledge.v1.QueryVindicationCorpusRequest
+	68,  // 155: zerone.knowledge.v1.Query.TrainingQuality:input_type -> zerone.knowledge.v1.QueryTrainingQualityRequest
+	70,  // 156: zerone.knowledge.v1.Query.AgentCalibration:input_type -> zerone.knowledge.v1.QueryAgentCalibrationRequest
+	72,  // 157: zerone.knowledge.v1.Query.AgentLeaderboard:input_type -> zerone.knowledge.v1.QueryAgentLeaderboardRequest
+	75,  // 158: zerone.knowledge.v1.Query.TokenizerSpec:input_type -> zerone.knowledge.v1.QueryTokenizerSpecRequest
+	77,  // 159: zerone.knowledge.v1.Query.TokenizerSpecAtVersion:input_type -> zerone.knowledge.v1.QueryTokenizerSpecAtVersionRequest
+	79,  // 160: zerone.knowledge.v1.Query.TrainingPipelines:input_type -> zerone.knowledge.v1.QueryTrainingPipelinesRequest
+	81,  // 161: zerone.knowledge.v1.Query.TrainingPipeline:input_type -> zerone.knowledge.v1.QueryTrainingPipelineRequest
+	83,  // 162: zerone.knowledge.v1.Query.ModelCards:input_type -> zerone.knowledge.v1.QueryModelCardsRequest
+	85,  // 163: zerone.knowledge.v1.Query.ModelCard:input_type -> zerone.knowledge.v1.QueryModelCardRequest
+	87,  // 164: zerone.knowledge.v1.Query.ModelCardByDeployment:input_type -> zerone.knowledge.v1.QueryModelCardByDeploymentRequest
+	89,  // 165: zerone.knowledge.v1.Query.StructuredCorpus:input_type -> zerone.knowledge.v1.QueryStructuredCorpusRequest
+	92,  // 166: zerone.knowledge.v1.Query.DisputationCorpus:input_type -> zerone.knowledge.v1.QueryDisputationCorpusRequest
+	130, // 167: zerone.knowledge.v1.Query.TrainingAttestation:input_type -> zerone.knowledge.v1.QueryTrainingAttestationRequest
+	132, // 168: zerone.knowledge.v1.Query.ModelContributions:input_type -> zerone.knowledge.v1.QueryModelContributionsRequest
+	134, // 169: zerone.knowledge.v1.Query.FactContributors:input_type -> zerone.knowledge.v1.QueryFactContributorsRequest
+	136, // 170: zerone.knowledge.v1.Query.ModelLineage:input_type -> zerone.knowledge.v1.QueryModelLineageRequest
+	138, // 171: zerone.knowledge.v1.Query.AugmentationBounty:input_type -> zerone.knowledge.v1.QueryAugmentationBountyRequest
+	140, // 172: zerone.knowledge.v1.Query.AugmentationBounties:input_type -> zerone.knowledge.v1.QueryAugmentationBountiesRequest
+	142, // 173: zerone.knowledge.v1.Query.AugmentationsByFact:input_type -> zerone.knowledge.v1.QueryAugmentationsByFactRequest
+	144, // 174: zerone.knowledge.v1.Query.TrainingValueWeight:input_type -> zerone.knowledge.v1.QueryTrainingValueWeightRequest
+	146, // 175: zerone.knowledge.v1.Query.ContributionChallenge:input_type -> zerone.knowledge.v1.QueryContributionChallengeRequest
+	148, // 176: zerone.knowledge.v1.Query.OpenContributionChallenges:input_type -> zerone.knowledge.v1.QueryOpenContributionChallengesRequest
+	150, // 177: zerone.knowledge.v1.Query.TrainingFundDisbursement:input_type -> zerone.knowledge.v1.QueryTrainingFundDisbursementRequest
+	152, // 178: zerone.knowledge.v1.Query.TrainingFundBalance:input_type -> zerone.knowledge.v1.QueryTrainingFundBalanceRequest
+	154, // 179: zerone.knowledge.v1.Query.NormativeCorpus:input_type -> zerone.knowledge.v1.QueryNormativeCorpusRequest
+	157, // 180: zerone.knowledge.v1.Query.DriftCorpus:input_type -> zerone.knowledge.v1.QueryDriftCorpusRequest
+	160, // 181: zerone.knowledge.v1.Query.MethodologyApplicationTrace:input_type -> zerone.knowledge.v1.QueryMethodologyApplicationTraceRequest
+	162, // 182: zerone.knowledge.v1.Query.MethodologyApplicationTraces:input_type -> zerone.knowledge.v1.QueryMethodologyApplicationTracesRequest
+	164, // 183: zerone.knowledge.v1.Query.ContrastivePairs:input_type -> zerone.knowledge.v1.QueryContrastivePairsRequest
+	166, // 184: zerone.knowledge.v1.Query.TraceSchema:input_type -> zerone.knowledge.v1.QueryTraceSchemaRequest
+	168, // 185: zerone.knowledge.v1.Query.TraceSchemaAtVersion:input_type -> zerone.knowledge.v1.QueryTraceSchemaAtVersionRequest
+	170, // 186: zerone.knowledge.v1.Query.TrainingManifest:input_type -> zerone.knowledge.v1.QueryTrainingManifestRequest
+	172, // 187: zerone.knowledge.v1.Query.TrainingManifests:input_type -> zerone.knowledge.v1.QueryTrainingManifestsRequest
+	174, // 188: zerone.knowledge.v1.Query.TrainingManifestBundle:input_type -> zerone.knowledge.v1.QueryTrainingManifestBundleRequest
+	176, // 189: zerone.knowledge.v1.Query.RouteBCapabilities:input_type -> zerone.knowledge.v1.QueryRouteBCapabilitiesRequest
+	178, // 190: zerone.knowledge.v1.Query.Incident:input_type -> zerone.knowledge.v1.QueryIncidentRequest
+	180, // 191: zerone.knowledge.v1.Query.Incidents:input_type -> zerone.knowledge.v1.QueryIncidentsRequest
+	182, // 192: zerone.knowledge.v1.Query.OpenIncidents:input_type -> zerone.knowledge.v1.QueryOpenIncidentsRequest
+	184, // 193: zerone.knowledge.v1.Query.PausedModules:input_type -> zerone.knowledge.v1.QueryPausedModulesRequest
+	186, // 194: zerone.knowledge.v1.Query.SlaBreachedIncidents:input_type -> zerone.knowledge.v1.QuerySlaBreachedIncidentsRequest
+	188, // 195: zerone.knowledge.v1.Query.PrivilegedActions:input_type -> zerone.knowledge.v1.QueryPrivilegedActionsRequest
+	95,  // 196: zerone.knowledge.v1.Query.CommonKnowledge:input_type -> zerone.knowledge.v1.QueryCommonKnowledgeRequest
+	97,  // 197: zerone.knowledge.v1.Query.CheckNovelty:input_type -> zerone.knowledge.v1.QueryCheckNoveltyRequest
+	99,  // 198: zerone.knowledge.v1.Query.ActiveBounties:input_type -> zerone.knowledge.v1.QueryActiveBountiesRequest
+	101, // 199: zerone.knowledge.v1.Query.DemandSignals:input_type -> zerone.knowledge.v1.QueryDemandSignalsRequest
+	103, // 200: zerone.knowledge.v1.Query.TopDemandGaps:input_type -> zerone.knowledge.v1.QueryTopDemandGapsRequest
+	105, // 201: zerone.knowledge.v1.Query.NicheInfo:input_type -> zerone.knowledge.v1.QueryNicheInfoRequest
+	107, // 202: zerone.knowledge.v1.Query.NichesByDomain:input_type -> zerone.knowledge.v1.QueryNichesByDomainRequest
+	109, // 203: zerone.knowledge.v1.Query.DomainDiversity:input_type -> zerone.knowledge.v1.QueryDomainDiversityRequest
+	111, // 204: zerone.knowledge.v1.Query.DomainDiversityHistory:input_type -> zerone.knowledge.v1.QueryDomainDiversityHistoryRequest
+	114, // 205: zerone.knowledge.v1.Query.ValidatorIndependence:input_type -> zerone.knowledge.v1.QueryValidatorIndependenceRequest
+	116, // 206: zerone.knowledge.v1.Query.ConformityAlerts:input_type -> zerone.knowledge.v1.QueryConformityAlertsRequest
+	119, // 207: zerone.knowledge.v1.Query.MetabolismStatus:input_type -> zerone.knowledge.v1.QueryMetabolismStatusRequest
+	121, // 208: zerone.knowledge.v1.Query.DomainCapacity:input_type -> zerone.knowledge.v1.QueryDomainCapacityRequest
+	123, // 209: zerone.knowledge.v1.Query.EpistemicTemperature:input_type -> zerone.knowledge.v1.QueryEpistemicTemperatureRequest
+	125, // 210: zerone.knowledge.v1.Query.RoleElasticity:input_type -> zerone.knowledge.v1.QueryRoleElasticityRequest
+	128, // 211: zerone.knowledge.v1.Query.IdleFacts:input_type -> zerone.knowledge.v1.QueryIdleFactsRequest
+	1,   // 212: zerone.knowledge.v1.Query.Params:output_type -> zerone.knowledge.v1.QueryParamsResponse
+	3,   // 213: zerone.knowledge.v1.Query.Fact:output_type -> zerone.knowledge.v1.QueryFactResponse
+	5,   // 214: zerone.knowledge.v1.Query.Facts:output_type -> zerone.knowledge.v1.QueryFactsResponse
+	7,   // 215: zerone.knowledge.v1.Query.FactsByDomain:output_type -> zerone.knowledge.v1.QueryFactsByDomainResponse
+	9,   // 216: zerone.knowledge.v1.Query.FactsBySubmitter:output_type -> zerone.knowledge.v1.QueryFactsBySubmitterResponse
+	11,  // 217: zerone.knowledge.v1.Query.Claim:output_type -> zerone.knowledge.v1.QueryClaimResponse
+	13,  // 218: zerone.knowledge.v1.Query.PendingClaims:output_type -> zerone.knowledge.v1.QueryPendingClaimsResponse
+	15,  // 219: zerone.knowledge.v1.Query.VerificationRound:output_type -> zerone.knowledge.v1.QueryVerificationRoundResponse
+	17,  // 220: zerone.knowledge.v1.Query.Domain:output_type -> zerone.knowledge.v1.QueryDomainResponse
+	19,  // 221: zerone.knowledge.v1.Query.Domains:output_type -> zerone.knowledge.v1.QueryDomainsResponse
+	21,  // 222: zerone.knowledge.v1.Query.FactConfidence:output_type -> zerone.knowledge.v1.QueryFactConfidenceResponse
+	23,  // 223: zerone.knowledge.v1.Query.FactCitationCount:output_type -> zerone.knowledge.v1.QueryFactCitationCountResponse
+	25,  // 224: zerone.knowledge.v1.Query.FactRelations:output_type -> zerone.knowledge.v1.QueryFactRelationsResponse
+	27,  // 225: zerone.knowledge.v1.Query.FactsBySubject:output_type -> zerone.knowledge.v1.QueryFactsBySubjectResponse
+	29,  // 226: zerone.knowledge.v1.Query.FactsByTag:output_type -> zerone.knowledge.v1.QueryFactsByTagResponse
+	31,  // 227: zerone.knowledge.v1.Query.FactByCanonical:output_type -> zerone.knowledge.v1.QueryFactByCanonicalResponse
+	33,  // 228: zerone.knowledge.v1.Query.FactsByFitness:output_type -> zerone.knowledge.v1.QueryFactsByFitnessResponse
+	35,  // 229: zerone.knowledge.v1.Query.BootstrapFundStatus:output_type -> zerone.knowledge.v1.QueryBootstrapFundStatusResponse
+	37,  // 230: zerone.knowledge.v1.Query.FactsAtRisk:output_type -> zerone.knowledge.v1.QueryFactsAtRiskResponse
+	39,  // 231: zerone.knowledge.v1.Query.FactLineage:output_type -> zerone.knowledge.v1.QueryFactLineageResponse
+	41,  // 232: zerone.knowledge.v1.Query.FactProgeny:output_type -> zerone.knowledge.v1.QueryFactProgenyResponse
+	45,  // 233: zerone.knowledge.v1.Query.ProofTree:output_type -> zerone.knowledge.v1.QueryProofTreeResponse
+	48,  // 234: zerone.knowledge.v1.Query.DescendantTree:output_type -> zerone.knowledge.v1.QueryDescendantTreeResponse
+	50,  // 235: zerone.knowledge.v1.Query.TrustProfile:output_type -> zerone.knowledge.v1.QueryTrustProfileResponse
+	52,  // 236: zerone.knowledge.v1.Query.Methodologies:output_type -> zerone.knowledge.v1.QueryMethodologiesResponse
+	54,  // 237: zerone.knowledge.v1.Query.Methodology:output_type -> zerone.knowledge.v1.QueryMethodologyResponse
+	56,  // 238: zerone.knowledge.v1.Query.NormativeCommitments:output_type -> zerone.knowledge.v1.QueryNormativeCommitmentsResponse
+	58,  // 239: zerone.knowledge.v1.Query.NormativeCommitment:output_type -> zerone.knowledge.v1.QueryNormativeCommitmentResponse
+	61,  // 240: zerone.knowledge.v1.Query.MethodCorpus:output_type -> zerone.knowledge.v1.QueryMethodCorpusResponse
+	64,  // 241: zerone.knowledge.v1.Query.DisprovenCorpus:output_type -> zerone.knowledge.v1.QueryDisprovenCorpusResponse
+	67,  // 242: zerone.knowledge.v1.Query.VindicationCorpus:output_type -> zerone.knowledge.v1.QueryVindicationCorpusResponse
+	69,  // 243: zerone.knowledge.v1.Query.TrainingQuality:output_type -> zerone.knowledge.v1.QueryTrainingQualityResponse
+	71,  // 244: zerone.knowledge.v1.Query.AgentCalibration:output_type -> zerone.knowledge.v1.QueryAgentCalibrationResponse
+	74,  // 245: zerone.knowledge.v1.Query.AgentLeaderboard:output_type -> zerone.knowledge.v1.QueryAgentLeaderboardResponse
+	76,  // 246: zerone.knowledge.v1.Query.TokenizerSpec:output_type -> zerone.knowledge.v1.QueryTokenizerSpecResponse
+	78,  // 247: zerone.knowledge.v1.Query.TokenizerSpecAtVersion:output_type -> zerone.knowledge.v1.QueryTokenizerSpecAtVersionResponse
+	80,  // 248: zerone.knowledge.v1.Query.TrainingPipelines:output_type -> zerone.knowledge.v1.QueryTrainingPipelinesResponse
+	82,  // 249: zerone.knowledge.v1.Query.TrainingPipeline:output_type -> zerone.knowledge.v1.QueryTrainingPipelineResponse
+	84,  // 250: zerone.knowledge.v1.Query.ModelCards:output_type -> zerone.knowledge.v1.QueryModelCardsResponse
+	86,  // 251: zerone.knowledge.v1.Query.ModelCard:output_type -> zerone.knowledge.v1.QueryModelCardResponse
+	88,  // 252: zerone.knowledge.v1.Query.ModelCardByDeployment:output_type -> zerone.knowledge.v1.QueryModelCardByDeploymentResponse
+	91,  // 253: zerone.knowledge.v1.Query.StructuredCorpus:output_type -> zerone.knowledge.v1.QueryStructuredCorpusResponse
+	94,  // 254: zerone.knowledge.v1.Query.DisputationCorpus:output_type -> zerone.knowledge.v1.QueryDisputationCorpusResponse
+	131, // 255: zerone.knowledge.v1.Query.TrainingAttestation:output_type -> zerone.knowledge.v1.QueryTrainingAttestationResponse
+	133, // 256: zerone.knowledge.v1.Query.ModelContributions:output_type -> zerone.knowledge.v1.QueryModelContributionsResponse
+	135, // 257: zerone.knowledge.v1.Query.FactContributors:output_type -> zerone.knowledge.v1.QueryFactContributorsResponse
+	137, // 258: zerone.knowledge.v1.Query.ModelLineage:output_type -> zerone.knowledge.v1.QueryModelLineageResponse
+	139, // 259: zerone.knowledge.v1.Query.AugmentationBounty:output_type -> zerone.knowledge.v1.QueryAugmentationBountyResponse
+	141, // 260: zerone.knowledge.v1.Query.AugmentationBounties:output_type -> zerone.knowledge.v1.QueryAugmentationBountiesResponse
+	143, // 261: zerone.knowledge.v1.Query.AugmentationsByFact:output_type -> zerone.knowledge.v1.QueryAugmentationsByFactResponse
+	145, // 262: zerone.knowledge.v1.Query.TrainingValueWeight:output_type -> zerone.knowledge.v1.QueryTrainingValueWeightResponse
+	147, // 263: zerone.knowledge.v1.Query.ContributionChallenge:output_type -> zerone.knowledge.v1.QueryContributionChallengeResponse
+	149, // 264: zerone.knowledge.v1.Query.OpenContributionChallenges:output_type -> zerone.knowledge.v1.QueryOpenContributionChallengesResponse
+	151, // 265: zerone.knowledge.v1.Query.TrainingFundDisbursement:output_type -> zerone.knowledge.v1.QueryTrainingFundDisbursementResponse
+	153, // 266: zerone.knowledge.v1.Query.TrainingFundBalance:output_type -> zerone.knowledge.v1.QueryTrainingFundBalanceResponse
+	156, // 267: zerone.knowledge.v1.Query.NormativeCorpus:output_type -> zerone.knowledge.v1.QueryNormativeCorpusResponse
+	159, // 268: zerone.knowledge.v1.Query.DriftCorpus:output_type -> zerone.knowledge.v1.QueryDriftCorpusResponse
+	161, // 269: zerone.knowledge.v1.Query.MethodologyApplicationTrace:output_type -> zerone.knowledge.v1.QueryMethodologyApplicationTraceResponse
+	163, // 270: zerone.knowledge.v1.Query.MethodologyApplicationTraces:output_type -> zerone.knowledge.v1.QueryMethodologyApplicationTracesResponse
+	165, // 271: zerone.knowledge.v1.Query.ContrastivePairs:output_type -> zerone.knowledge.v1.QueryContrastivePairsResponse
+	167, // 272: zerone.knowledge.v1.Query.TraceSchema:output_type -> zerone.knowledge.v1.QueryTraceSchemaResponse
+	169, // 273: zerone.knowledge.v1.Query.TraceSchemaAtVersion:output_type -> zerone.knowledge.v1.QueryTraceSchemaAtVersionResponse
+	171, // 274: zerone.knowledge.v1.Query.TrainingManifest:output_type -> zerone.knowledge.v1.QueryTrainingManifestResponse
+	173, // 275: zerone.knowledge.v1.Query.TrainingManifests:output_type -> zerone.knowledge.v1.QueryTrainingManifestsResponse
+	175, // 276: zerone.knowledge.v1.Query.TrainingManifestBundle:output_type -> zerone.knowledge.v1.QueryTrainingManifestBundleResponse
+	177, // 277: zerone.knowledge.v1.Query.RouteBCapabilities:output_type -> zerone.knowledge.v1.QueryRouteBCapabilitiesResponse
+	179, // 278: zerone.knowledge.v1.Query.Incident:output_type -> zerone.knowledge.v1.QueryIncidentResponse
+	181, // 279: zerone.knowledge.v1.Query.Incidents:output_type -> zerone.knowledge.v1.QueryIncidentsResponse
+	183, // 280: zerone.knowledge.v1.Query.OpenIncidents:output_type -> zerone.knowledge.v1.QueryOpenIncidentsResponse
+	185, // 281: zerone.knowledge.v1.Query.PausedModules:output_type -> zerone.knowledge.v1.QueryPausedModulesResponse
+	187, // 282: zerone.knowledge.v1.Query.SlaBreachedIncidents:output_type -> zerone.knowledge.v1.QuerySlaBreachedIncidentsResponse
+	189, // 283: zerone.knowledge.v1.Query.PrivilegedActions:output_type -> zerone.knowledge.v1.QueryPrivilegedActionsResponse
+	96,  // 284: zerone.knowledge.v1.Query.CommonKnowledge:output_type -> zerone.knowledge.v1.QueryCommonKnowledgeResponse
+	98,  // 285: zerone.knowledge.v1.Query.CheckNovelty:output_type -> zerone.knowledge.v1.QueryCheckNoveltyResponse
+	100, // 286: zerone.knowledge.v1.Query.ActiveBounties:output_type -> zerone.knowledge.v1.QueryActiveBountiesResponse
+	102, // 287: zerone.knowledge.v1.Query.DemandSignals:output_type -> zerone.knowledge.v1.QueryDemandSignalsResponse
+	104, // 288: zerone.knowledge.v1.Query.TopDemandGaps:output_type -> zerone.knowledge.v1.QueryTopDemandGapsResponse
+	106, // 289: zerone.knowledge.v1.Query.NicheInfo:output_type -> zerone.knowledge.v1.QueryNicheInfoResponse
+	108, // 290: zerone.knowledge.v1.Query.NichesByDomain:output_type -> zerone.knowledge.v1.QueryNichesByDomainResponse
+	110, // 291: zerone.knowledge.v1.Query.DomainDiversity:output_type -> zerone.knowledge.v1.QueryDomainDiversityResponse
+	112, // 292: zerone.knowledge.v1.Query.DomainDiversityHistory:output_type -> zerone.knowledge.v1.QueryDomainDiversityHistoryResponse
+	115, // 293: zerone.knowledge.v1.Query.ValidatorIndependence:output_type -> zerone.knowledge.v1.QueryValidatorIndependenceResponse
+	117, // 294: zerone.knowledge.v1.Query.ConformityAlerts:output_type -> zerone.knowledge.v1.QueryConformityAlertsResponse
+	120, // 295: zerone.knowledge.v1.Query.MetabolismStatus:output_type -> zerone.knowledge.v1.QueryMetabolismStatusResponse
+	122, // 296: zerone.knowledge.v1.Query.DomainCapacity:output_type -> zerone.knowledge.v1.QueryDomainCapacityResponse
+	124, // 297: zerone.knowledge.v1.Query.EpistemicTemperature:output_type -> zerone.knowledge.v1.QueryEpistemicTemperatureResponse
+	126, // 298: zerone.knowledge.v1.Query.RoleElasticity:output_type -> zerone.knowledge.v1.QueryRoleElasticityResponse
+	129, // 299: zerone.knowledge.v1.Query.IdleFacts:output_type -> zerone.knowledge.v1.QueryIdleFactsResponse
+	212, // [212:300] is the sub-list for method output_type
+	124, // [124:212] is the sub-list for method input_type
+	124, // [124:124] is the sub-list for extension type_name
+	124, // [124:124] is the sub-list for extension extendee
+	0,   // [0:124] is the sub-list for field type_name
 }
 
 func init() { file_zerone_knowledge_v1_query_proto_init() }
@@ -11805,7 +12007,7 @@ func file_zerone_knowledge_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_query_proto_rawDesc), len(file_zerone_knowledge_v1_query_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   187,
+			NumMessages:   190,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
