@@ -316,10 +316,34 @@ func safeMulDiv(a, b, c uint64) uint64 {
 	return result.Uint64()
 }
 
-// EffectiveMinChallengeStake computes the risk-scaled minimum challenge stake
-// for a target fact (T12). Formula: base × (1 + confidence × scaling / BPS²).
-// At scaling=1,000,000 and confidence=880,000 → ~1.88× base stake.
-// At confidence=0 → 1× base stake.
+// ChallengeStakeFloorBps bounds how cheap a probe can get. A single
+// nonzero floor prevents axiom-level facts from being challengeable for
+// dust while preserving the Popperian invitation: everyone should probe
+// our most-trusted claims the most.
+const ChallengeStakeFloorBps uint64 = 100_000 // 10% of base
+
+// EffectiveMinChallengeStake computes the confidence-weighted minimum
+// challenge stake for a target fact.
+//
+// Popperian antifragility: truth stands firm under challenge because of
+// its nature, so the substrate must invite probing of high-confidence
+// claims rather than tax it. This function scales the stake INVERSELY
+// with the target fact's confidence — the more the community trusts a
+// claim, the cheaper it is to stress-test it. Low-confidence facts pay
+// the full base stake (they're easy pickings; no subsidy needed). High-
+// confidence facts approach the ChallengeStakeFloorBps floor.
+//
+// Formula: base × max(floor, 1 - confidence × scaling / BPS) / BPS
+//
+//	confidence=0            → 1.00× base  (full price; nothing to prove)
+//	confidence=0.5, scale=1 → 0.50× base  (half-price; worth testing)
+//	confidence=0.9, scale=1 → 0.10× base  (floor; probe aggressively)
+//	confidence=1.0, scale=1 → floor       (clamped; still costs something)
+//
+// A param ChallengeConfidenceScalingBps = 0 disables the discount (all
+// probes cost the full base stake) — provides a governance escape hatch
+// if this antifragile posture needs temporary tightening during an
+// active attack.
 func EffectiveMinChallengeStake(params *types.Params, targetConfidence uint64) *big.Int {
 	if params == nil {
 		return big.NewInt(0)
@@ -332,11 +356,15 @@ func EffectiveMinChallengeStake(params *types.Params, targetConfidence uint64) *
 	if params.ChallengeConfidenceScalingBps == 0 || targetConfidence == 0 {
 		return base
 	}
-	// multiplierBps = BPS + (confidence × scaling / BPS)
 	const bps uint64 = 1_000_000
-	bonusBps := safeMulDiv(targetConfidence, params.ChallengeConfidenceScalingBps, bps)
-	multiplierBps := bps + bonusBps
-	// scaled = base × multiplierBps / BPS
+	discountBps := safeMulDiv(targetConfidence, params.ChallengeConfidenceScalingBps, bps)
+	if discountBps > bps {
+		discountBps = bps
+	}
+	multiplierBps := bps - discountBps
+	if multiplierBps < ChallengeStakeFloorBps {
+		multiplierBps = ChallengeStakeFloorBps
+	}
 	scaled := new(big.Int).Mul(base, new(big.Int).SetUint64(multiplierBps))
 	scaled.Div(scaled, new(big.Int).SetUint64(bps))
 	return scaled

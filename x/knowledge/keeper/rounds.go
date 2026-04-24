@@ -762,22 +762,34 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
-	// Energy boost for surviving a challenge
+	// Energy boost for surviving a challenge — always credit, even if the
+	// corroboration counter is rate-limited below. Energy reflects demand-
+	// side engagement; the counter reflects epistemic hardening.
 	originalFact.Energy += params.MetabolismEnergyChallengeSurvival
 	if originalFact.Energy > params.MetabolismEnergyCap {
 		originalFact.Energy = params.MetabolismEnergyCap
 	}
-	// Popperian corroboration (Phase 2): the fact has survived a declared
-	// falsification attempt. Count it. This is the epistemically meaningful
-	// counter in Popper's sense — a fact's robustness is not "how confidently
-	// verified" but "how many tests has it withstood."
-	originalFact.CorroborationCount++
-	originalFact.LastCorroboratedBlock = height
+	// Popperian corroboration with rate limit. Inverted challenge
+	// economics make high-confidence facts cheap to probe, which is the
+	// point — we want them stress-tested. But cheap probes also make
+	// collusive corroboration-farming cheap: an attacker controlling N
+	// addresses could fire N rapid challenges on their own fact to pump
+	// BaseWeight. The cooldown caps the counter to one survival per
+	// CorroborationCooldownBlocks per fact. Attackers can still probe
+	// cheaply; they just can't farm credit for it. Organic probing from
+	// independent challengers spread over time remains fully credited.
+	const corroborationCooldownBlocks uint64 = 1_000
+	eligible := originalFact.LastCorroboratedBlock == 0 ||
+		height >= originalFact.LastCorroboratedBlock+corroborationCooldownBlocks
+	if eligible {
+		originalFact.CorroborationCount++
+		originalFact.LastCorroboratedBlock = height
+		// Phase 5: credit submitter only when the counter moves.
+		k.RecordCorroborationForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+	}
 
-	// Phase 5: a corroboration accrues for the submitter of the surviving fact.
-	k.RecordCorroborationForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
-
-	// Restore from challenged status
+	// Restore from challenged status regardless of cooldown — the fact
+	// survived the probe either way.
 	originalFact.Status = types.FactStatus_FACT_STATUS_ACTIVE
 	originalFact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, originalFact)
@@ -788,6 +800,7 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 		sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
 		sdk.NewAttribute("new_count", fmt.Sprintf("%d", originalFact.CorroborationCount)),
 		sdk.NewAttribute("block_height", fmt.Sprintf("%d", height)),
+		sdk.NewAttribute("counter_incremented", fmt.Sprintf("%t", eligible)),
 	))
 }
 
@@ -835,20 +848,64 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 			k.Logger(ctx).Error("challenge refund failed", "claim", claim.Id, "err", err)
 			return
 		}
-		bonusBps := params.SuccessfulChallengeRewardBps
-		if bonusBps > 0 {
-			bonusAmt := new(big.Int).Mul(stakeAmt, new(big.Int).SetUint64(bonusBps))
-			bonusAmt.Div(bonusAmt, new(big.Int).SetUint64(1_000_000))
-			if bonusAmt.Sign() > 0 {
-				bonusCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(bonusAmt)))
-				// Best-effort draw from protocol treasury; if empty, skip.
-				// Treasury balance is governance-funded; if it runs dry the
-				// challenge still wins at break-even vs current state.
-				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, protocolTreasuryModule, challengerAddr, bonusCoins); err != nil {
-					k.Logger(ctx).Info("challenge bonus unfunded; skipping",
-						"claim", claim.Id, "bonus", bonusAmt.String())
+		// Popperian amplification: the more confident the community was
+		// in the disproven fact, the larger the paradigm shift and the
+		// bigger the reward. Disproving a 90%-confidence claim is the
+		// rarest, most-valuable signal the substrate produces; disproving
+		// a 10% fact is routine cleanup. Reward scales with target
+		// confidence.
+		//
+		// Reward is computed on the BASE MinChallengeStake, not the
+		// (discounted) effective stake the challenger paid. Otherwise the
+		// high-confidence discount would swallow the amplification: the
+		// challenger who probed cheaply would also be rewarded cheaply
+		// and the incentive to probe trusted facts would vanish.
+		//
+		//   effective_bonus_bps = base_reward + amp_bps × target_conf / BPS
+		//   bonus = base_min_challenge_stake × effective_bonus_bps
+		//
+		// At target_conf = 0  → bonus = base × 30%      (routine cleanup)
+		// At target_conf = 1  → bonus = base × 230%     (paradigm shift)
+		const bonusAmplificationBps uint64 = 2_000_000
+		const bps uint64 = 1_000_000
+		rewardBps := params.SuccessfulChallengeRewardBps
+		if rewardBps > 0 {
+			effectiveBonusBps := rewardBps
+			if claim.ProvisionalFactId != "" {
+				if disproven, found := k.GetFact(ctx, claim.ProvisionalFactId); found && disproven != nil {
+					conf := disproven.Confidence
+					if conf > bps {
+						conf = bps
+					}
+					amp := safeMulDiv(conf, bonusAmplificationBps, bps)
+					effectiveBonusBps = rewardBps + amp
 				}
 			}
+			// Compute the bonus from the base stake so the amplification
+			// is measured against the un-discounted cost of probing.
+			baseStake, ok := new(big.Int).SetString(params.MinChallengeStake, 10)
+			if ok && baseStake.Sign() > 0 {
+				bonusAmt := new(big.Int).Mul(baseStake, new(big.Int).SetUint64(effectiveBonusBps))
+				bonusAmt.Div(bonusAmt, new(big.Int).SetUint64(bps))
+				if bonusAmt.Sign() > 0 {
+					bonusCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(bonusAmt)))
+					// Best-effort draw from protocol treasury; if unfunded,
+					// log and skip. Treasury balance is governance-funded.
+					if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, protocolTreasuryModule, challengerAddr, bonusCoins); err != nil {
+						k.Logger(ctx).Info("challenge bonus unfunded; skipping",
+							"claim", claim.Id, "bonus", bonusAmt.String())
+					}
+				}
+			}
+			sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+				"zerone.knowledge.challenge_settled",
+				sdk.NewAttribute("claim_id", claim.Id),
+				sdk.NewAttribute("challenger", claim.Submitter),
+				sdk.NewAttribute("outcome", "accepted"),
+				sdk.NewAttribute("refund", remainder.String()),
+				sdk.NewAttribute("reward_bps", fmt.Sprintf("%d", effectiveBonusBps)),
+			))
+			break
 		}
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.challenge_settled",
@@ -856,7 +913,7 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 			sdk.NewAttribute("challenger", claim.Submitter),
 			sdk.NewAttribute("outcome", "accepted"),
 			sdk.NewAttribute("refund", remainder.String()),
-			sdk.NewAttribute("reward_bps", fmt.Sprintf("%d", bonusBps)),
+			sdk.NewAttribute("reward_bps", "0"),
 		))
 
 	case types.Verdict_VERDICT_REJECT:

@@ -202,11 +202,14 @@ message Params {
   // large-stake coalition from promoting claims past consensus.
   uint64 min_headcount_agreement = 133; // default: 3
 
-  // ─── Risk-scaled challenge stake (T12 mitigation) ───────────────────────
-  // Effective MinChallengeStake = base × (1 + target.Confidence × scaling / BPS²).
-  // Prevents flat-fee griefing on low-confidence facts and properly prices
-  // challenges against high-confidence bedrock facts.
-  uint64 challenge_confidence_scaling_bps = 134; // default: 1,000,000 (1× linear)
+  // ─── Popperian challenge stake (Wave 14c: stress-test, don't shield) ────
+  // Effective MinChallengeStake = base × max(floor, 1 - target.Confidence ×
+  // scaling / BPS). Scales INVERSELY with target confidence: the more the
+  // community trusts a claim, the cheaper it is to probe it. Truth stands
+  // firm under challenge because of its nature — the chain invites the
+  // testing of high-confidence facts rather than taxing it.
+  // See keeper.ChallengeStakeFloorBps (10% floor) for the spam guard.
+  uint64 challenge_confidence_scaling_bps = 134; // default: 1,000,000 (full inversion)
 
   // ─── Schelling-point mitigation (T3) ────────────────────────────────────
   // Verifier reward is multiplied by (1 - conformity_bps × strength / BPS²)

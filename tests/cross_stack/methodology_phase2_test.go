@@ -144,16 +144,23 @@ func TestMethodologyPhase2_PopperianCorroboration(t *testing.T) {
 		require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, rejectResult))
 	}
 
-	// Three challenges, all rejected — the fact should accrue three
-	// corroboration counts.
+	// Three challenges spaced across the corroboration cooldown — each is
+	// a distinct stress-test, so each corroborates. Probes fired inside a
+	// single cooldown window collapse to one corroboration (the Wave 14c
+	// rate-limit guards against collusive same-address farming now that
+	// high-confidence probes are cheap). Advance past the cooldown window
+	// between each probe so the test exercises the organic path.
+	const corroborationCooldownBlocks = 1_000
 	issueChallenge("challenge-1")
+	h.AdvanceBlocks(corroborationCooldownBlocks + 1)
 	issueChallenge("challenge-2")
+	h.AdvanceBlocks(corroborationCooldownBlocks + 1)
 	issueChallenge("challenge-3")
 
 	updatedFact, found := h.KnowledgeKeeper.GetFact(h.Ctx, targetFact.Id)
 	require.True(t, found)
 	require.Equal(t, uint64(3), updatedFact.CorroborationCount,
-		"three failed falsifications → corroboration count 3")
+		"three failed falsifications spread across the cooldown → corroboration count 3")
 	require.Greater(t, updatedFact.LastCorroboratedBlock, uint64(0),
 		"last_corroborated_block must be set to the most recent survival")
 

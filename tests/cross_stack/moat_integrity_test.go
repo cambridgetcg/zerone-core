@@ -274,6 +274,108 @@ func TestMoat_ChallengeStakeSettled(t *testing.T) {
 		"successful challenger must receive the stake remainder refund")
 }
 
+// Popperian antifragility: high-confidence facts must be CHEAPER to
+// probe than low-confidence facts. Truth stands firm under challenge
+// because of its nature — the substrate invites stress-testing of the
+// claims we trust most rather than taxing it. If this invariant breaks,
+// the architecture has reverted to "protect consensus" and the moat's
+// core epistemology is compromised.
+func TestMoat_HighConfidenceFactsCheaperToProbe(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+	require.NoError(t, err)
+
+	stakeAt := func(conf uint64) uint64 {
+		return knowledgekeeper.EffectiveMinChallengeStake(params, conf).Uint64()
+	}
+	lowConfStake := stakeAt(0)
+	midConfStake := stakeAt(500_000)
+	highConfStake := stakeAt(900_000)
+	maxConfStake := stakeAt(1_000_000)
+
+	require.Greater(t, lowConfStake, midConfStake,
+		"mid-confidence facts must be cheaper to probe than unproven ones")
+	require.Greater(t, midConfStake, highConfStake,
+		"high-confidence facts must be cheaper to probe than mid-confidence ones")
+	require.GreaterOrEqual(t, highConfStake, maxConfStake,
+		"max-confidence facts reach the floor; still non-zero to deter pure spam")
+
+	// Floor guarantees some minimum probe cost — axioms are not free to
+	// challenge, only invitingly cheap.
+	require.Greater(t, maxConfStake, uint64(0),
+		"ChallengeStakeFloorBps must keep even axiom-level facts costly enough to deter spam")
+}
+
+// Successful-challenge reward amplifies with the disproven fact's
+// confidence. Disproving a 90%-confidence claim is a paradigm shift;
+// disproving a 10%-confidence claim is routine cleanup. The chain's
+// reward schedule must mirror that asymmetry — the signal worth paying
+// for is the one the community didn't see coming.
+func TestMoat_SuccessfulChallengeRewardScalesWithTargetConfidence(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	// Mint directly into the protocol treasury so the bonus amplification
+	// path has funds to draw from. Without this the bonus silently
+	// skips (the code logs and continues) and the two probes would
+	// return identical refunds, defeating the test.
+	treasuryFeed := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1_000_000_000)))
+	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, "zerone_auth", treasuryFeed))
+	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx,
+		"zerone_auth", "protocol_treasury", treasuryFeed))
+
+	probe := func(targetConf uint64, challengerTag string) sdkmath.Int {
+		challenger := testAddr(challengerTag)
+		require.NoError(t, h.FundAccount(challenger,
+			sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(50_000_000)))))
+		submitter := testAddr(challengerTag + "_sub").String()
+
+		victim := &knowledgetypes.Fact{
+			Id:         "F-MOAT-SCALED-" + challengerTag,
+			Content:    "a fact that will be disproven",
+			Domain:     "sciences",
+			Category:   "empirical",
+			Status:     knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+			Submitter:  submitter,
+			MethodId:   knowledgetypes.MethodologyEmpirical,
+			Confidence: targetConf,
+		}
+		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, victim))
+
+		params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+		require.NoError(t, err)
+		stake := knowledgekeeper.EffectiveMinChallengeStake(params, targetConf)
+		ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
+		resp, err := ms.ChallengeFact(h.Ctx, &knowledgetypes.MsgChallengeFact{
+			Challenger: challenger.String(), FactId: victim.Id,
+			Stake: stake.String(), Reason: "moat reward-scaling test",
+		})
+		require.NoError(t, err)
+
+		preBal := h.GetBalance(challenger, "uzrn")
+
+		round, ok := h.KnowledgeKeeper.GetVerificationRound(h.Ctx, resp.RoundId)
+		require.True(t, ok)
+		require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
+			Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
+		}))
+
+		postBal := h.GetBalance(challenger, "uzrn")
+		return postBal.Amount.Sub(preBal.Amount)
+	}
+
+	lowReward := probe(100_000, "lowconf")
+	highReward := probe(900_000, "highconf")
+
+	require.True(t, highReward.GT(lowReward),
+		"disproving a high-confidence fact must pay more than disproving a low-confidence one — paradigm shifts are the signal that matters most (low=%s high=%s)",
+		lowReward.String(), highReward.String())
+}
+
 // MsgAddFact bypasses the verifier-panel trust chain by design (genesis
 // seeding and authority-gated corrections need it). Every call must emit
 // a PrivilegedAction log entry so compromised-authority abuse is

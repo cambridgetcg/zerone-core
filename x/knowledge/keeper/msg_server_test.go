@@ -579,16 +579,39 @@ func TestMsgServer_ChallengeFact_BelowRiskScaledStake(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 	ms := keeper.NewMsgServerImpl(k)
 
-	makeTestFact(t, k, ctx, "challenge-expensive", "High-confidence fact", "physics", "empirical", "zrn1sub", 800_000)
+	// Low-confidence facts still require the full base stake under the
+	// inverted-Popperian challenge economics: the discount only applies
+	// once the community has invested confidence worth stress-testing.
+	// Nothing to prove = pay full price.
+	makeTestFact(t, k, ctx, "challenge-lowconf", "unproven claim", "physics", "empirical", "zrn1sub", 0)
 
 	_, err := ms.ChallengeFact(ctx, &types.MsgChallengeFact{
 		Challenger: makeValidBech32Addr("challenger1"),
-		FactId:     "challenge-expensive",
-		Stake:      "11000000", // base stake, insufficient for 800k confidence
+		FactId:     "challenge-lowconf",
+		Stake:      "5000000", // below the 11 ZRN base stake
 		Reason:     "under-priced challenge attempt",
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "below effective minimum")
+}
+
+func TestMsgServer_ChallengeFact_HighConfidenceCheaperToProbe(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	ms := keeper.NewMsgServerImpl(k)
+
+	// Truth stands firm under challenge: a 90%-confidence fact is cheaper
+	// to probe than a 0%-confidence fact. The same stake that fails on
+	// an unproven claim succeeds on a highly-trusted one. Scaling=1.0 at
+	// conf=0.9 gives an effective minimum of base × 0.1 = 1.1 ZRN.
+	makeTestFact(t, k, ctx, "challenge-highconf", "highly-trusted claim", "physics", "empirical", "zrn1sub", 900_000)
+
+	_, err := ms.ChallengeFact(ctx, &types.MsgChallengeFact{
+		Challenger: makeValidBech32Addr("challenger2"),
+		FactId:     "challenge-highconf",
+		Stake:      "2000000", // 2 ZRN — clears the ~1.1 ZRN minimum
+		Reason:     "stress-testing a confident claim",
+	})
+	require.NoError(t, err)
 }
 
 func TestMsgServer_ChallengeFact_NotFound(t *testing.T) {

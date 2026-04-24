@@ -190,11 +190,14 @@ type Params struct {
 	// addition to the stake-weighted ConfidenceThreshold. Prevents a single
 	// large-stake coalition from promoting claims past consensus.
 	MinHeadcountAgreement uint64 `protobuf:"varint,133,opt,name=min_headcount_agreement,json=minHeadcountAgreement,proto3" json:"min_headcount_agreement,omitempty"` // default: 3
-	// ─── Risk-scaled challenge stake (T12 mitigation) ───────────────────────
-	// Effective MinChallengeStake = base × (1 + target.Confidence × scaling / BPS²).
-	// Prevents flat-fee griefing on low-confidence facts and properly prices
-	// challenges against high-confidence bedrock facts.
-	ChallengeConfidenceScalingBps uint64 `protobuf:"varint,134,opt,name=challenge_confidence_scaling_bps,json=challengeConfidenceScalingBps,proto3" json:"challenge_confidence_scaling_bps,omitempty"` // default: 1,000,000 (1× linear)
+	// ─── Popperian challenge stake (Wave 14c: stress-test, don't shield) ────
+	// Effective MinChallengeStake = base × max(floor, 1 - target.Confidence ×
+	// scaling / BPS). Scales INVERSELY with target confidence: the more the
+	// community trusts a claim, the cheaper it is to probe it. Truth stands
+	// firm under challenge because of its nature — the chain invites the
+	// testing of high-confidence facts rather than taxing it.
+	// See keeper.ChallengeStakeFloorBps (10% floor) for the spam guard.
+	ChallengeConfidenceScalingBps uint64 `protobuf:"varint,134,opt,name=challenge_confidence_scaling_bps,json=challengeConfidenceScalingBps,proto3" json:"challenge_confidence_scaling_bps,omitempty"` // default: 1,000,000 (full inversion)
 	// ─── Schelling-point mitigation (T3) ────────────────────────────────────
 	// Verifier reward is multiplied by (1 - conformity_bps × strength / BPS²)
 	// so crowd-followers earn less than independent investigators.
