@@ -6,6 +6,14 @@ vendor/
 *.so
 *.dylib
 /zeroned
+/axiom-loader
+/faucet
+/knowledge-context
+/oracle
+
+# Test runs / logs
+/dress-rehearsal.log
+*.log
 
 # IDE
 .idea/
@@ -28,5 +36,3 @@ coverage.out
 # Vault binary
 vault/vault-*
 .worktrees/
-node.log
-node.log
