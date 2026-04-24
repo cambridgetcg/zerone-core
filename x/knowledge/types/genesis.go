@@ -242,6 +242,12 @@ func DefaultParams() Params {
 		ProbeInvitationMinConfidenceBps:    700_000, // only invite probes on facts ≥ 70% confidence
 		ProbeInvitationBatchSize:           10,      // bound BeginBlocker work
 		ProbeInvitationReinviteCooldown:    100_000, // don't re-invite the same fact back-to-back
+
+		// ─── Wave 15: probe bounty pool ───────────────────────────────
+		// Per-block mint into the pool. Caps at max pool size so issuance
+		// throttles naturally once the chain has enough auditing budget.
+		ProbeBountyMintPerBlock: "1000000",        // 1 ZRN/block
+		ProbeBountyMaxPoolSize:  "1000000000000",  // 1,000,000 ZRN cap
 	}
 }
 

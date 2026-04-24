@@ -888,12 +888,19 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 				bonusAmt := new(big.Int).Mul(baseStake, new(big.Int).SetUint64(effectiveBonusBps))
 				bonusAmt.Div(bonusAmt, new(big.Int).SetUint64(bps))
 				if bonusAmt.Sign() > 0 {
-					bonusCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(bonusAmt)))
-					// Best-effort draw from protocol treasury; if unfunded,
-					// log and skip. Treasury balance is governance-funded.
-					if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, protocolTreasuryModule, challengerAddr, bonusCoins); err != nil {
-						k.Logger(ctx).Info("challenge bonus unfunded; skipping",
-							"claim", claim.Id, "bonus", bonusAmt.String())
+					// Wave 15: draw from the dedicated probe bounty
+					// pool (per-block-minted audit budget) first; only
+					// fall back to protocol treasury for any remainder
+					// the pool can't cover. Purpose-built funding path
+					// for continuous epistemic auditing.
+					paid := k.PayProbeBountyFromPool(ctx, challengerAddr, bonusAmt)
+					remaining := new(big.Int).Sub(bonusAmt, paid)
+					if remaining.Sign() > 0 {
+						bonusCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remaining)))
+						if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, protocolTreasuryModule, challengerAddr, bonusCoins); err != nil {
+							k.Logger(ctx).Info("challenge bonus partially unfunded; probe pool paid what it could",
+								"claim", claim.Id, "pool_paid", paid.String(), "treasury_short", remaining.String())
+						}
 					}
 				}
 			}

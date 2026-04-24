@@ -690,6 +690,71 @@ func TestMoat_ProbeInvitationClearsOnCorroboration(t *testing.T) {
 	}
 }
 
+// The probe bounty pool (Wave 15) must accumulate uzrn per block and
+// fund successful-probe bonuses. Decouples epistemic-auditing budget
+// from protocol treasury so continuous auditing has its own funding
+// stream that doesn't compete with other governance priorities.
+func TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	// Starting balance should be zero.
+	require.Equal(t, int64(0), h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64(),
+		"probe bounty pool starts empty")
+
+	// Heartbeat runs on each block; with default mint of 1 ZRN/block,
+	// 100 blocks should yield 100 ZRN (100_000_000 uzrn).
+	h.AdvanceBlocks(100)
+	pool := h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64()
+	require.GreaterOrEqual(t, pool, int64(100_000_000),
+		"100 blocks of 1 ZRN mints should accumulate ≥ 100 ZRN in the pool")
+
+	// Now simulate a successful challenge that draws from the pool.
+	// We exercise only the pool-draw function directly to keep the test
+	// focused on the funding decoupling, not the full challenge flow
+	// (which is covered by TestMoat_ChallengeStakeSettled).
+	challenger := testAddr("moat_pool_drawer")
+	require.NoError(t, h.FundAccount(challenger, sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1)))))
+	preBal := h.GetBalance(challenger, "uzrn").Amount.Int64()
+
+	requested := sdkmath.NewInt(30_000_000).BigInt() // 30 ZRN bonus
+	paid := h.KnowledgeKeeper.PayProbeBountyFromPool(h.Ctx, challenger, requested)
+	require.Equal(t, requested.Int64(), paid.Int64(),
+		"pool is well-funded; full bonus must be paid from the pool")
+
+	postBal := h.GetBalance(challenger, "uzrn").Amount.Int64()
+	require.Equal(t, preBal+requested.Int64(), postBal)
+
+	// Pool shrinks by the paid amount.
+	require.Equal(t, pool-requested.Int64(), h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64(),
+		"pool balance decreases by exactly the paid amount")
+}
+
+// Pool cap: once ProbeBountyMaxPoolSize is reached, issuance throttles.
+// Stops unbounded inflation from a perpetually-minting heartbeat.
+func TestMoat_ProbeBountyPoolRespectsCap(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	// Shrink the cap so the test can reach it quickly.
+	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+	require.NoError(t, err)
+	params.ProbeBountyMaxPoolSize = "10000000" // 10 ZRN cap
+	params.ProbeBountyMintPerBlock = "1000000" // 1 ZRN/block
+	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, params))
+
+	// Advance 50 blocks — with a 10 ZRN cap and 1 ZRN/block, the pool
+	// should level off at 10 ZRN regardless.
+	h.AdvanceBlocks(50)
+	pool := h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64()
+	require.LessOrEqual(t, pool, int64(10_000_000),
+		"pool balance must not exceed ProbeBountyMaxPoolSize")
+	require.GreaterOrEqual(t, pool, int64(9_000_000),
+		"pool should still be near the cap — issuance throttles but doesn't stop mid-block")
+}
+
 // MsgAddFact bypasses the verifier-panel trust chain by design (genesis
 // seeding and authority-gated corrections need it). Every call must emit
 // a PrivilegedAction log entry so compromised-authority abuse is

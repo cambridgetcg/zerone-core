@@ -271,6 +271,15 @@ message Params {
   uint64 probe_invitation_min_confidence_bps    = 153; // default: 700,000 (70%) — only invite probes on facts worth testing
   uint32 probe_invitation_batch_size            = 154; // default: 10 — max invitations emitted per block (bounds BeginBlocker work)
   uint64 probe_invitation_reinvite_cooldown     = 155; // default: 100_000 blocks — don't re-invite the same fact back-to-back
+
+  // ─── Wave 15: probe bounty pool ───────────────────────────────────────
+  // A purpose-built minting stream that funds probe rewards. Moves
+  // epistemic-auditing funding out of general governance (protocol
+  // treasury) into a dedicated pool so the chain self-sustains its own
+  // audit economy. successful-probe bonuses draw from this pool first;
+  // if the pool is empty, fall back to protocol treasury.
+  string probe_bounty_mint_per_block = 156; // uzrn minted per block (default "1000000" = 1 ZRN)
+  string probe_bounty_max_pool_size  = 157; // cap on pool balance (default "1000000000000" = 1,000,000 ZRN)
 }
 
 // GenesisState is the genesis state of the knowledge module.

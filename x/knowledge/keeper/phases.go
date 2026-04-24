@@ -91,6 +91,13 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		k.InviteIdleFactsForProbing(ctx, height, params)
 	}
 
+	// Wave 15: probe bounty pool mint. Per-block issuance into the pool
+	// that funds successful-probe bonuses, capped at ProbeBountyMaxPoolSize
+	// so minting throttles naturally.
+	if params.ProbeBountyMintPerBlock != "" && params.ProbeBountyMintPerBlock != "0" {
+		k.MintToProbeBountyPool(ctx, params)
+	}
+
 	return nil
 }
 

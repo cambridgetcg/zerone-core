@@ -1481,6 +1481,11 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `new_count` -- corroboration_count after increment
 - `block_height` -- height at which the challenge was resolved
 
+### zerone.knowledge.probe_bounty_minted
+Emitted each block that the Wave 15 BeginBlocker mints uzrn into the dedicated probe bounty pool (`knowledge_probe_bounty_pool` module account). The pool funds successful-probe bonuses via `PayProbeBountyFromPool` — decoupling epistemic-auditing budget from general governance. Minting throttles when the pool reaches `ProbeBountyMaxPoolSize`; the event carries the actual minted amount (may be less than `ProbeBountyMintPerBlock` when the cap clamps issuance).
+- `amount` -- uzrn minted this block
+- `block` -- block height
+
 ### zerone.knowledge.probe_invited
 Emitted by the Wave 15 stress-test invitation heartbeat. Each block the chain scans for high-confidence facts that have gone idle longer than `ProbeInvitationIdleThresholdBlocks` and nominates them for external probing. The chain manufactures demand for its own epistemic audit — truth stands firm under challenge because of its nature, and the architecture now actively invites challenge rather than waiting for it.
 - `fact_id` -- the fact being nominated for stress-testing

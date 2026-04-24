@@ -21,6 +21,13 @@ const (
 	// escrow, training fund disbursements (with vesting), and research fund
 	// forfeitures collected under Route B Wave 4.
 	TrainingFundModuleName = "knowledge_training_fund"
+	// ProbeBountyPoolModuleName is the module account that holds the
+	// probe-bounty stream introduced in Wave 15. Each block the chain
+	// mints a small amount into this pool (capped); successful-challenge
+	// bonuses draw from it before falling back to the protocol treasury.
+	// Purpose-built funding stream for continuous epistemic auditing —
+	// decouples probe rewards from general governance.
+	ProbeBountyPoolModuleName = "knowledge_probe_bounty_pool"
 )
 
 // Store key prefixes — one byte per sub-namespace.

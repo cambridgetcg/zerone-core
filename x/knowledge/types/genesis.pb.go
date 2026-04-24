@@ -255,8 +255,16 @@ type Params struct {
 	ProbeInvitationMinConfidenceBps    uint64 `protobuf:"varint,153,opt,name=probe_invitation_min_confidence_bps,json=probeInvitationMinConfidenceBps,proto3" json:"probe_invitation_min_confidence_bps,omitempty"`          // default: 700,000 (70%) — only invite probes on facts worth testing
 	ProbeInvitationBatchSize           uint32 `protobuf:"varint,154,opt,name=probe_invitation_batch_size,json=probeInvitationBatchSize,proto3" json:"probe_invitation_batch_size,omitempty"`                                 // default: 10 — max invitations emitted per block (bounds BeginBlocker work)
 	ProbeInvitationReinviteCooldown    uint64 `protobuf:"varint,155,opt,name=probe_invitation_reinvite_cooldown,json=probeInvitationReinviteCooldown,proto3" json:"probe_invitation_reinvite_cooldown,omitempty"`            // default: 100_000 blocks — don't re-invite the same fact back-to-back
-	unknownFields                      protoimpl.UnknownFields
-	sizeCache                          protoimpl.SizeCache
+	// ─── Wave 15: probe bounty pool ───────────────────────────────────────
+	// A purpose-built minting stream that funds probe rewards. Moves
+	// epistemic-auditing funding out of general governance (protocol
+	// treasury) into a dedicated pool so the chain self-sustains its own
+	// audit economy. successful-probe bonuses draw from this pool first;
+	// if the pool is empty, fall back to protocol treasury.
+	ProbeBountyMintPerBlock string `protobuf:"bytes,156,opt,name=probe_bounty_mint_per_block,json=probeBountyMintPerBlock,proto3" json:"probe_bounty_mint_per_block,omitempty"` // uzrn minted per block (default "1000000" = 1 ZRN)
+	ProbeBountyMaxPoolSize  string `protobuf:"bytes,157,opt,name=probe_bounty_max_pool_size,json=probeBountyMaxPoolSize,proto3" json:"probe_bounty_max_pool_size,omitempty"`    // cap on pool balance (default "1000000000000" = 1,000,000 ZRN)
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -1374,6 +1382,20 @@ func (x *Params) GetProbeInvitationReinviteCooldown() uint64 {
 	return 0
 }
 
+func (x *Params) GetProbeBountyMintPerBlock() string {
+	if x != nil {
+		return x.ProbeBountyMintPerBlock
+	}
+	return ""
+}
+
+func (x *Params) GetProbeBountyMaxPoolSize() string {
+	if x != nil {
+		return x.ProbeBountyMaxPoolSize
+	}
+	return ""
+}
+
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
 	state                     protoimpl.MessageState      `protogen:"open.v1"`
@@ -1611,7 +1633,7 @@ var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xb6M\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xb2N\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -1768,7 +1790,9 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"&probe_invitation_idle_threshold_blocks\x18\x98\x01 \x01(\x04R\"probeInvitationIdleThresholdBlocks\x12M\n" +
 	"#probe_invitation_min_confidence_bps\x18\x99\x01 \x01(\x04R\x1fprobeInvitationMinConfidenceBps\x12>\n" +
 	"\x1bprobe_invitation_batch_size\x18\x9a\x01 \x01(\rR\x18probeInvitationBatchSize\x12L\n" +
-	"\"probe_invitation_reinvite_cooldown\x18\x9b\x01 \x01(\x04R\x1fprobeInvitationReinviteCooldown\x1aN\n" +
+	"\"probe_invitation_reinvite_cooldown\x18\x9b\x01 \x01(\x04R\x1fprobeInvitationReinviteCooldown\x12=\n" +
+	"\x1bprobe_bounty_mint_per_block\x18\x9c\x01 \x01(\tR\x17probeBountyMintPerBlock\x12;\n" +
+	"\x1aprobe_bounty_max_pool_size\x18\x9d\x01 \x01(\tR\x16probeBountyMaxPoolSize\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\xe5\x0e\n" +
