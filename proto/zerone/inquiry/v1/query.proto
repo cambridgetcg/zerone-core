@@ -1,0 +1,54 @@
+syntax = "proto3";
+package zerone.inquiry.v1;
+option go_package = "github.com/zerone-chain/zerone/x/inquiry/types";
+
+import "google/api/annotations.proto";
+import "zerone/inquiry/v1/types.proto";
+import "zerone/inquiry/v1/genesis.proto";
+
+service Query {
+  rpc Inquiry(QueryInquiryRequest) returns (QueryInquiryResponse) {
+    option (google.api.http).get = "/zerone/inquiry/v1/inquiry/{id}";
+  }
+  rpc Inquiries(QueryInquiriesRequest) returns (QueryInquiriesResponse) {
+    option (google.api.http).get = "/zerone/inquiry/v1/inquiries";
+  }
+  rpc InquiriesByDomain(QueryByDomainRequest) returns (QueryByDomainResponse) {
+    option (google.api.http).get = "/zerone/inquiry/v1/by_domain/{domain}";
+  }
+  rpc InquiriesByAsker(QueryByAskerRequest) returns (QueryByAskerResponse) {
+    option (google.api.http).get = "/zerone/inquiry/v1/by_asker/{asker}";
+  }
+  rpc AnswersByInquiry(QueryAnswersByInquiryRequest) returns (QueryAnswersByInquiryResponse) {
+    option (google.api.http).get = "/zerone/inquiry/v1/answers/{inquiry_id}";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/inquiry/v1/params";
+  }
+}
+
+message QueryInquiryRequest { string id = 1; }
+message QueryInquiryResponse { Inquiry inquiry = 1; }
+
+message QueryInquiriesRequest {
+  // Filter: status. INQUIRY_STATUS_UNSPECIFIED returns all.
+  InquiryStatus status = 1;
+  uint32 limit = 2;
+  string start_after_id = 3;
+}
+message QueryInquiriesResponse {
+  repeated Inquiry inquiries = 1;
+  string next_start_after_id = 2;
+}
+
+message QueryByDomainRequest { string domain = 1; }
+message QueryByDomainResponse { repeated Inquiry inquiries = 1; }
+
+message QueryByAskerRequest { string asker = 1; }
+message QueryByAskerResponse { repeated Inquiry inquiries = 1; }
+
+message QueryAnswersByInquiryRequest { string inquiry_id = 1; }
+message QueryAnswersByInquiryResponse { repeated Answer answers = 1; }
+
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }

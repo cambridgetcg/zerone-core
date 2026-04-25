@@ -204,6 +204,9 @@ import (
 	zeronecounterex "github.com/zerone-chain/zerone/x/counterexamples"
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecounterextypes "github.com/zerone-chain/zerone/x/counterexamples/types"
+	zeroneinquiry "github.com/zerone-chain/zerone/x/inquiry"
+	zeroneinquirykeeper "github.com/zerone-chain/zerone/x/inquiry/keeper"
+	zeroneinquirytypes "github.com/zerone-chain/zerone/x/inquiry/types"
 	zeroneautopoiesis "github.com/zerone-chain/zerone/x/autopoiesis"
 	zeroneapkeeper "github.com/zerone-chain/zerone/x/autopoiesis/keeper"
 	zeroneaptypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
@@ -306,6 +309,7 @@ var (
 		zeronetoolbox.AppModuleBasic{},      // R8-1: x/toolbox
 		zeroneprivatecorpus.AppModuleBasic{}, // x/private_corpus: off-chain vault references
 		zeronecounterex.AppModuleBasic{},     // x/counterexamples: alignment-by-structure
+		zeroneinquiry.AppModuleBasic{},       // x/inquiry: open-question market for unmapped territory
 	)
 
 	// Module account permissions.
@@ -330,6 +334,7 @@ var (
 		zeroneknowledgetypes.TrainingFundModuleName:      {authtypes.Minter},              // knowledge_training_fund: Wave 4 augmentation escrow + post-hoc disbursements + vesting
 		zeroneknowledgetypes.ProbeBountyPoolModuleName:   {authtypes.Minter},              // knowledge_probe_bounty_pool: Wave 15 per-block-minted probe rewards
 		zeroneknowledgetypes.VindicationEscrowModuleName: nil,                           // vindication_escrow: holds minority slashes until vindication or expiry
+		zeroneinquirytypes.BountyPoolModuleName:          nil,                           // inquiry_bounty_pool: receive-only escrow for inquiry bounties
 		zeronetokenstypes.ModuleName:               {authtypes.Minter, authtypes.Burner}, // tokens: mint/burn for wrap/unwrap + emissions
 		zeronebillingtypes.ModuleName:              {authtypes.Burner},                        // billing: revenue split
 		zeronelptypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // liquiditypool: mint/burn LP tokens
@@ -495,6 +500,7 @@ type ZeroneApp struct {
 	TreeKeeper              zeronetreekeeper.Keeper // R7-5: x/tree
 	PrivateCorpusKeeper     zeroneprivatecorpuskeeper.Keeper // x/private_corpus: off-chain vault references
 	CounterexamplesKeeper   zeronecounterexkeeper.Keeper     // x/counterexamples: alignment-by-structure (commitment 15)
+	InquiryKeeper           zeroneinquirykeeper.Keeper       // x/inquiry: open-question market (commitment 16)
 
 	// ABCI++ vote extension config (nil until validator is configured)
 	VoteExtConfig *VoteExtensionConfig
@@ -613,6 +619,7 @@ func NewZeroneApp(
 		zeronettreetypes.StoreKey,
 		zeroneprivatecorpustypes.StoreKey,
 		zeronecounterextypes.StoreKey,
+		zeroneinquirytypes.StoreKey,
 	)
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	memKeys := storetypes.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
@@ -1075,6 +1082,22 @@ func NewZeroneApp(
 	)
 	app.KnowledgeKeeper.SetCounterexampleKeeper(&app.CounterexamplesKeeper)
 
+	// x/inquiry: open-question market for unmapped territory
+	// (commitment 16). Asker escrows bounty into the inquiry-bounty-pool
+	// module account; first answerer whose claim accepts wins. Bounty
+	// returns on expiry or asker-cancel.
+	app.InquiryKeeper = zeroneinquirykeeper.NewKeeper(
+		sdkruntime.NewKVStoreService(keys[zeroneinquirytypes.StoreKey]),
+		appCodec,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		app.BankKeeper,
+	)
+	// Wire knowledge → inquiry so the auto-resolver can detect when
+	// a linked claim has produced an accepted fact.
+	app.InquiryKeeper.SetKnowledgeKeeper(
+		zeroneknowledgekeeper.NewInquiryKnowledgeAdapter(app.KnowledgeKeeper),
+	)
+
 	// knowledge → capture_defense (feed verification history + reputation)
 	app.KnowledgeKeeper.SetCaptureDefenseKeeper(
 		zeronecdkeeper.NewKnowledgeCaptureDefenseAdapter(app.CaptureDefenseKeeper),
@@ -1335,6 +1358,7 @@ func NewZeroneApp(
 		zeronetoolbox.NewAppModule(appCodec, app.ToolboxKeeper),          // R8-1: x/toolbox
 		zeroneprivatecorpus.NewAppModule(appCodec, app.PrivateCorpusKeeper),
 		zeronecounterex.NewAppModule(appCodec, app.CounterexamplesKeeper),
+		zeroneinquiry.NewAppModule(appCodec, app.InquiryKeeper),
 	)
 
 	app.ModuleManager.SetOrderBeginBlockers(
@@ -1390,6 +1414,7 @@ func NewZeroneApp(
 		zeronetoolboxtypes.ModuleName,               // toolbox: no-op BeginBlock
 		zeroneprivatecorpustypes.ModuleName,         // private_corpus: no-op BeginBlock (operator-driven)
 		zeronecounterextypes.ModuleName,             // counterexamples: no-op BeginBlock (proposal-driven)
+		zeroneinquirytypes.ModuleName,               // inquiry: scan OPEN/ANSWERED inquiries for resolution + expiry
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1444,6 +1469,7 @@ func NewZeroneApp(
 		zeronetoolboxtypes.ModuleName,               // EndBlocker: no-op
 		zeroneprivatecorpustypes.ModuleName,         // EndBlocker: no-op
 		zeronecounterextypes.ModuleName,             // EndBlocker: no-op
+		zeroneinquirytypes.ModuleName,               // EndBlocker: no-op
 	)
 
 	genesisOrder := []string{
@@ -1499,6 +1525,7 @@ func NewZeroneApp(
 		zeronetoolboxtypes.ModuleName,               // Genesis: after discovery + billing + home + tree (needs all)
 		zeroneprivatecorpustypes.ModuleName,         // Genesis: standalone, no cross-module deps
 		zeronecounterextypes.ModuleName,             // Genesis: after knowledge (uses fact-existence adapter)
+		zeroneinquirytypes.ModuleName,               // Genesis: after knowledge (auto-resolver reads facts)
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisOrder...)

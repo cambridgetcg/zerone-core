@@ -30,6 +30,8 @@ import (
 
 	counterexampleskeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	counterexamplestypes "github.com/zerone-chain/zerone/x/counterexamples/types"
+	inquirykeeper "github.com/zerone-chain/zerone/x/inquiry/keeper"
+	inquirytypes "github.com/zerone-chain/zerone/x/inquiry/types"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
@@ -655,6 +657,87 @@ func TestTruthSeeking_CounterexamplesRaiseTVW(t *testing.T) {
 		"validated counterexample must raise the multiplier above 1.0x")
 	require.Greater(t, boosted.Final, baseline.Final,
 		"a fact with a validated counterexample must earn STRICTLY MORE training-data value than the same fact without one — alignment-by-structure must be paid for, not declared")
+}
+
+// Commitment 16: the chain pays for exploration of the unknown.
+// Without an open-question market, the corpus grows only along paths
+// that interest current contributors. x/inquiry creates the dual of
+// commitment 5: pay for facts that don't yet exist. This test asserts
+// the BOUNTY PATH — that an inquiry resolves and pays the answerer
+// when their linked claim produces an accepted fact, end-to-end.
+func TestTruthSeeking_ChainPaysForExploration(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	asker := testAddr("ts_inquiry_asker")
+	answerer := testAddr("ts_inquiry_answerer")
+
+	// Fund the asker so they can escrow the bounty.
+	bountyAmount := int64(2_000_000) // 2 ZRN
+	require.NoError(t, h.FundAccount(asker, sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(bountyAmount)))))
+
+	// Submit the inquiry. Bounty is escrowed in the pool.
+	inquiryMs := inquirykeeper.NewMsgServerImpl(h.InquiryKeeper)
+	inqResp, err := inquiryMs.SubmitInquiry(h.Ctx, &inquirytypes.MsgSubmitInquiry{
+		Asker:    asker.String(),
+		Question: "What follows from premise X under methodology Y?",
+		Domain:   "sciences",
+		Bounty:   fmt.Sprintf("%d", bountyAmount),
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, inqResp.InquiryId)
+
+	// Asker's balance should be drained to escrow.
+	require.Equal(t, int64(0), h.GetBalance(asker, "uzrn").Amount.Int64(),
+		"bounty must be escrowed out of the asker's account on submission")
+
+	// The answerer creates a knowledge claim normally — this is the
+	// answer body. Then they link it to the inquiry.
+	claim := &knowledgetypes.Claim{
+		Id:          "claim-ts-inquiry-answer",
+		Submitter:   answerer.String(),
+		FactContent: "the answer to the inquiry, derived empirically",
+		Domain:      "sciences",
+		Category:    "empirical",
+		MethodId:    knowledgetypes.MethodologyEmpirical,
+		Status:      knowledgetypes.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		Stake:       "1000000",
+	}
+	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, claim))
+
+	_, err = inquiryMs.SubmitAnswer(h.Ctx, &inquirytypes.MsgSubmitAnswer{
+		Answerer:  answerer.String(),
+		InquiryId: inqResp.InquiryId,
+		ClaimId:   claim.Id,
+	})
+	require.NoError(t, err)
+
+	// Verify the claim — produces an accepted fact.
+	round := &knowledgetypes.VerificationRound{
+		Id: "round-ts-inquiry", ClaimId: claim.Id,
+		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
+	}
+	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
+		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
+	}))
+
+	// Manually resolve. The auto-resolver in BeginBlocker would do
+	// this on the next block; manual is faster for the test.
+	resolveResp, err := inquiryMs.ResolveInquiry(h.Ctx, &inquirytypes.MsgResolveInquiry{
+		Caller:    answerer.String(),
+		InquiryId: inqResp.InquiryId,
+	})
+	require.NoError(t, err)
+	require.Equal(t, inquirytypes.InquiryStatus_INQUIRY_STATUS_RESOLVED, resolveResp.Status,
+		"with an accepted fact linked, the inquiry must resolve")
+	require.NotEmpty(t, resolveResp.WinningFactId,
+		"the winning fact id must be recorded on resolve — exploration is auditable")
+
+	// The answerer must now hold the bounty. The chain has paid for
+	// exploration: bounty moved from pool → answerer.
+	require.Equal(t, bountyAmount, h.GetBalance(answerer, "uzrn").Amount.Int64(),
+		"the chain must pay the bounty to the answerer when their linked claim accepts — without payment, 'we believe in exploration' is slogan, not commitment")
 }
 
 // ════════════════════════════════════════════════════════════════════

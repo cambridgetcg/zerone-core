@@ -1,0 +1,50 @@
+syntax = "proto3";
+package zerone.inquiry.v1;
+option go_package = "github.com/zerone-chain/zerone/x/inquiry/types";
+
+import "zerone/inquiry/v1/types.proto";
+
+message GenesisState {
+  Params params = 1;
+  repeated Inquiry inquiries = 2;
+  repeated Answer answers = 3;
+  uint64 next_inquiry_seq = 4;
+  uint64 next_answer_id = 5;
+}
+
+message Params {
+  // Minimum bounty (uzrn) required when submitting an inquiry. Below
+  // this, the inquiry is rejected — prevents zero-bounty spam.
+  // Default: 1 ZRN.
+  string min_bounty = 1;
+
+  // Maximum length of question text. Default: 4096.
+  uint32 max_question_bytes = 2;
+
+  // Maximum length of context text. Default: 8192.
+  uint32 max_context_bytes = 3;
+
+  // Default expiry window in blocks. If asker doesn't specify an
+  // expiry, this is added to the submission block. Default: 100,000
+  // blocks (~3 days at 2.5s blocks). Configurable per-inquiry up
+  // to max_expiry_blocks.
+  uint64 default_expiry_blocks = 4;
+
+  // Maximum allowed expiry window in blocks. Prevents bounties from
+  // being locked indefinitely. Default: 1,000,000 (~30 days).
+  uint64 max_expiry_blocks = 5;
+
+  // Maximum number of answers that can be linked to a single
+  // inquiry. Bounds the BeginBlocker's resolution-check work and
+  // prevents griefing by spamming worthless answers. Default: 32.
+  uint32 max_answers_per_inquiry = 6;
+
+  // Per-block cap on the number of inquiries the auto-resolver
+  // BeginBlocker scans. Bounds work; older inquiries are still
+  // resolvable manually via MsgResolveInquiry. Default: 100.
+  uint32 begin_blocker_scan_limit = 7;
+
+  // Whether new inquiry submissions are accepted. Governance can
+  // pause without affecting open inquiries. Default: true.
+  bool submissions_enabled = 8;
+}

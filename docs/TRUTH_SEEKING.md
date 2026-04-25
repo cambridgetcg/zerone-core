@@ -192,6 +192,18 @@ We believe: a model trained on conclusions alone learns the predictor; a model t
 
 ---
 
+### 16. The chain pays for exploration of the unknown
+
+We believe: stress-testing what we already think we know is necessary but not sufficient. The chain must also pay for the work of filling territory the corpus does not yet contain a fact about. Without a market for OPEN QUESTIONS, the corpus grows only along paths that interest current contributors; with one, the chain can direct attention into sparse domains and unmapped subjects. Knowledge that nobody is paid to reach stays unreached.
+
+**Code expression**: `x/inquiry` registers open questions with escrowed bounties. `MsgSubmitInquiry` locks the asker's bounty in the `inquiry_bounty_pool` module account; `MsgSubmitAnswer` links a knowledge claim to an inquiry; `BeginBlocker` scans OPEN/ANSWERED inquiries each block — paying the bounty to the first answerer whose claim accepts (via `InquiryKnowledgeAdapter.AcceptedFactForClaim`), and refunding askers on expiry. `MsgCancelInquiry` lets askers retract before any answer is in flight. Inquiry-funded answers go through normal verification, inheriting every alignment-by-structure property the public corpus already enforces (methodology validation, is-ought wall, Popper-weighted TVW, counterexample multiplier).
+
+**What would break it**: a bounty pool that depends on user funding rather than asker escrow; an answer path that bypasses normal verification (allowing cheap, unaudited answers to win); an expiry policy that locks bounties indefinitely; an auto-resolver that became too expensive to run, silently disabling the bounty path; an inquiry mechanism that pays for stress-testing existing facts (which is what commitment 5 already does — the categories must remain distinct).
+
+**Echoes**: commitment 5 (chain manufactures probe demand — inquiry extends demand into unmapped territory; together they cover both stress-testing and exploration); commitment 12 (chain pays for own audit — the audit budget is parallel infrastructure to the bounty pool, both expressing the chain-pays-for-its-own-work principle); commitment 4 (substrate stress-tests its truth — answers entering through inquiry still face full stress-testing).
+
+---
+
 ## How the commitments echo
 
 The creed is enforced at five layers, each one mechanically synced to the others by `TestTruthSeeking_CreedAndContractStayInSync`. Adding a commitment to one layer without the others fails CI.
