@@ -175,6 +175,76 @@ func TestCartelDetection_EndToEndCaptureChallengeFlow(t *testing.T) {
 	}
 }
 
+// Cartel UPHELD writes a qualification penalty (R28-8); the penalty
+// must reduce the validator's effective panel weight on the next vote.
+// Pattern instance: ReduceQualificationWeight has always written
+// penalties; GetQualificationWeight had never read them. With the
+// Wave 16b wire, a confirmed cartel member's vote weight on the
+// affected domain is halved for the penalty window — the cartel
+// detection layer finally has teeth on the panel layer.
+func TestCartelDetection_UpheldPenaltyReducesPanelWeight(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	// Validator with active math qualification at weight 80.
+	implicated := testAddr("cartel_pen_implicated").String()
+	h.SetDomainQualification(implicated, "mathematics", 80)
+
+	// Pre-penalty: GetQualificationWeight returns the full 80.
+	pre := h.QualificationKeeper.GetQualificationWeight(h.Ctx, implicated, "mathematics")
+	require.Equal(t, uint32(80), pre, "before cartel resolution, weight is unmodified")
+
+	// Capture-challenge resolution path applies a 50% penalty.
+	require.NoError(t, h.QualificationKeeper.ReduceQualificationWeight(
+		h.Ctx, implicated, "mathematics", 500_000, uint64(h.Height())+10_000,
+	))
+
+	// Post-penalty: weight is halved (80 × 0.5 = 40).
+	post := h.QualificationKeeper.GetQualificationWeight(h.Ctx, implicated, "mathematics")
+	require.Equal(t, uint32(40), post,
+		"penalty reduces effective qualification weight by ReductionBps")
+
+	// Now wire it through to the panel: the implicated validator's
+	// next math vote carries half-weight, not full weight. Validate
+	// that the recorded VerdictVoteCalibrationBps reflects the
+	// post-penalty weight.
+	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
+	sponsor := testAddr("cartel_pen_sponsor")
+	require.NoError(t, h.FundAccount(sponsor, sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(50_000_000)))))
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+		Id: "F-PEN", Domain: "mathematics",
+		Status:     knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
+		Submitter:  sponsor.String(),
+		MethodId:   knowledgetypes.MethodologyFormal,
+		Confidence: 900_000,
+		Content:    "penalty wire test",
+	}))
+	_, err = ms.CreateAugmentationBounty(h.Ctx, &knowledgetypes.MsgCreateAugmentationBounty{
+		Sponsor: sponsor.String(), Id: "b-pen", TargetFactId: "F-PEN",
+		RewardPerVariant: 1_000_000, MaxVariants: 1,
+	})
+	require.NoError(t, err)
+	_, err = ms.SubmitAugmentation(h.Ctx, &knowledgetypes.MsgSubmitAugmentation{
+		Submitter: testAddr("cartel_pen_sub").String(), Id: "aug-pen", BountyId: "b-pen",
+		OriginalFactId: "F-PEN", VariantContent: "post-penalty variant",
+	})
+	require.NoError(t, err)
+
+	h.BondTestValidator(implicated, 50_000_000)
+	_, err = ms.VoteOnAugmentation(h.Ctx, &knowledgetypes.MsgVoteOnAugmentation{
+		Verifier: implicated, AugmentationId: "aug-pen",
+		Vote: knowledgetypes.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT,
+	})
+	require.NoError(t, err)
+
+	aug, _ := h.KnowledgeKeeper.GetAugmentation(h.Ctx, "aug-pen")
+	require.Len(t, aug.VerdictVoteCalibrationBps, 1)
+	// Penalty-adjusted weight 40 × 10_000 = 400_000 BPS recorded.
+	require.Equal(t, uint64(400_000), aug.VerdictVoteCalibrationBps[0],
+		"cartel-implicated voter's panel weight reflects the penalty (40 × 10_000), not the base 80")
+}
+
 // Negative path: a challenge against innocent validators must be
 // REJECTED by authority and the challenger's stake SLASHED. The
 // whistleblower economics cannot be "free to accuse anyone" — the

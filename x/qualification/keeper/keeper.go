@@ -134,7 +134,22 @@ func (k Keeper) IsQualified(ctx context.Context, validator string, domain string
 	return q.Status == types.QualificationStatus_QUALIFICATION_STATUS_ACTIVE
 }
 
-// GetQualificationWeight returns the weight of a validator's qualification in a domain.
+// GetQualificationWeight returns the EFFECTIVE weight of a validator's
+// qualification in a domain — the base Weight reduced by any active
+// penalty written by capture_challenge on UPHELD cartel allegations.
+//
+// The penalty pathway is the soft, time-bounded counterpart to outright
+// suspension. A validator implicated in a cartel doesn't necessarily
+// lose their qualification entirely (UPHELDs may be partial; evidence
+// may be ambiguous in scope); the penalty halves their weight for a
+// configurable expiry window. After expiry the penalty is naturally
+// ignored. Hard suspension (full status transition) remains an option
+// for severe cases.
+//
+// Wiring this read closed a latent integration: ReduceQualificationWeight
+// has been writing penalties since R28-8 but no consumer read them, so
+// confirmed cartel members continued voting at full strength on the
+// next panel.
 func (k Keeper) GetQualificationWeight(ctx context.Context, validator string, domain string) uint32 {
 	q, found := k.GetQualification(ctx, validator, domain)
 	if !found {
@@ -143,7 +158,46 @@ func (k Keeper) GetQualificationWeight(ctx context.Context, validator string, do
 	if q.Status != types.QualificationStatus_QUALIFICATION_STATUS_ACTIVE {
 		return 0
 	}
-	return q.Weight
+	base := q.Weight
+	penalty, ok := k.GetActiveQualificationPenalty(ctx, validator, domain)
+	if !ok || penalty == nil {
+		return base
+	}
+	// reduction is in BPS (0..1_000_000); apply: effective = base × (BPS - reduction) / BPS
+	const bps uint64 = 1_000_000
+	if penalty.ReductionBps >= bps {
+		return 0
+	}
+	remaining := bps - penalty.ReductionBps
+	effective := uint64(base) * remaining / bps
+	if effective > uint64(^uint32(0)) {
+		return ^uint32(0)
+	}
+	return uint32(effective)
+}
+
+// GetActiveQualificationPenalty returns the current penalty for a
+// (validator, domain) pair if one exists and has not expired. Returns
+// nil if no penalty is recorded or the recorded one has expired.
+func (k Keeper) GetActiveQualificationPenalty(ctx context.Context, validator, domain string) (*types.QualificationPenalty, bool) {
+	store := k.storeService.OpenKVStore(ctx)
+	key := append(append([]byte{}, types.QualificationPenaltyKeyPrefix...), []byte(validator+"/"+domain)...)
+	bz, err := store.Get(key)
+	if err != nil || bz == nil {
+		return nil, false
+	}
+	var p types.QualificationPenalty
+	if err := json.Unmarshal(bz, &p); err != nil {
+		return nil, false
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if p.ExpiryHeight > 0 && uint64(sdkCtx.BlockHeight()) >= p.ExpiryHeight {
+		// Expired — caller will ignore. (Cleanup happens in BeginBlocker
+		// or lazily on the next write; we don't delete here to keep the
+		// read path read-only.)
+		return nil, false
+	}
+	return &p, true
 }
 
 // GetQualifiedValidators returns all validators with active qualifications in a domain.
