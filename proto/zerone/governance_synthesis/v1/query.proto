@@ -1,0 +1,22 @@
+syntax = "proto3";
+package zerone.governance_synthesis.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/governance_synthesis/types";
+
+import "google/api/annotations.proto";
+import "zerone/governance_synthesis/v1/types.proto";
+
+service Query {
+  // SystemHealth synthesises the chain's accumulated stress state
+  // from incidents, pauses, pending injections, privileged-action
+  // log, cartel allegations, and alignment pacing.
+  rpc SystemHealth(QuerySystemHealthRequest) returns (QuerySystemHealthResponse) {
+    option (google.api.http).get = "/zerone/governance_synthesis/v1/system_health";
+  }
+}
+
+message QuerySystemHealthRequest {}
+
+message QuerySystemHealthResponse {
+  SystemHealth health = 1;
+}

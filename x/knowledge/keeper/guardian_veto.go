@@ -58,6 +58,28 @@ func (k Keeper) DeletePendingFactInjection(ctx context.Context, id string) error
 	return store.Delete(types.PendingFactInjectionByExecuteKey(p.ExecuteAtBlock, id))
 }
 
+// IterateAllPendingFactInjections yields every pending fact injection
+// regardless of execute_at_block. Used by external synthesizers (e.g.,
+// x/governance_synthesis.SystemHealth) that need to count the queue
+// without filtering by maturity.
+func (k Keeper) IterateAllPendingFactInjections(ctx context.Context, cb func(*types.PendingFactInjection) bool) {
+	store := k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(types.PendingFactInjectionKeyPrefix, prefixEndBytes(types.PendingFactInjectionKeyPrefix))
+	if err != nil {
+		return
+	}
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		var p types.PendingFactInjection
+		if err := proto.Unmarshal(iter.Value(), &p); err != nil {
+			continue
+		}
+		if cb(&p) {
+			return
+		}
+	}
+}
+
 // IteratePendingFactInjectionsDue yields every pending injection whose
 // execute_at_block is ≤ height, in ascending order (oldest first).
 // BeginBlocker uses this to materialize matured proposals.

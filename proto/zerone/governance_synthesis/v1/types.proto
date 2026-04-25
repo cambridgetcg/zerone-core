@@ -1,0 +1,58 @@
+syntax = "proto3";
+package zerone.governance_synthesis.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/governance_synthesis/types";
+
+// SystemHealth is the chain's accumulated stress state, synthesised
+// across every module that produces a "things are not normal" signal:
+//
+//   x/knowledge.IncidentRecord (P0–P3 incidents that have been opened)
+//   x/knowledge.ModulePause    (active circuit-breaker pauses)
+//   x/knowledge.PendingFactInjection (authority proposals awaiting
+//                                     guardian veto window)
+//   x/knowledge.PrivilegedAction log (authority interventions, last N)
+//   x/capture_challenge       (open + recently-resolved allegations)
+//   x/alignment               (global pacing multipliers — the
+//                              chain's autonomous-throttle signal)
+//
+// Each component is reported individually so dashboards can drill in;
+// a composite stress_level (NORMAL / ELEVATED / CRITICAL) is computed
+// from a fixed rubric. The signal is current — re-querying gives the
+// fresh state each time.
+//
+// Where x/training_provenance is per-manifest and x/trust_score is
+// per-address, this synthesizer is per-SYSTEM. Same shape: zero state,
+// one query, deterministic synthesis from upstream.
+message SystemHealth {
+  // ── Incident posture ─────────────────────────────────────────────
+  uint32 open_incidents          = 1;   // not yet RESOLVED
+  uint32 p0_open                 = 2;   // critical incidents specifically
+  uint32 p1_open                 = 3;   // high-severity
+
+  // ── Circuit breakers ─────────────────────────────────────────────
+  uint32 paused_modules          = 4;   // currently pause-gated
+
+  // ── Authority activity ───────────────────────────────────────────
+  uint32 pending_fact_injections = 5;   // awaiting veto window
+  uint32 privileged_actions_recent = 6; // log entries in last 1024 blocks
+  // (sliding window — chosen to be small enough that "recent burst"
+  // shows up but not so small that one tx dominates)
+
+  // ── Cartel posture ───────────────────────────────────────────────
+  uint32 open_cartel_challenges  = 7;   // submitted/under-review
+  uint32 resolved_cartel_recent  = 8;   // UPHELDs in last 4096 blocks
+
+  // ── Autonomous throttle ──────────────────────────────────────────
+  // x/alignment publishes per-block creation/analysis pacing
+  // multipliers that the rest of the chain only weakly consumes.
+  // Surfacing them here makes the throttle visible at the
+  // governance level: a low pacing multiplier means alignment thinks
+  // the chain is in epistemic distress and creation should slow.
+  uint64 creation_pacing_bps     = 9;
+  uint64 analysis_pacing_bps     = 10;
+
+  // ── Composite ────────────────────────────────────────────────────
+  string stress_level            = 11;  // "NORMAL" / "ELEVATED" / "CRITICAL"
+  string explanation             = 12;
+  uint64 computed_at_block       = 13;
+}
