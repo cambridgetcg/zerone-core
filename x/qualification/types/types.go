@@ -8,12 +8,31 @@ import (
 )
 
 // DefaultParams returns the default qualification module parameters.
+//
+// These values are not tuning knobs; they are this module's
+// expression of two truth-seeking commitments. See doc.go and
+// docs/TRUTH_SEEKING.md for the binding tests.
 func DefaultParams() *Params {
 	return &Params{
-		MinStakeAmount:               "100000000", // 100 ZRN
-		StakeLockPeriod:              100800,      // ~7 days at 6s blocks
-		MinVerifications:             100,
-		MinAccuracyBps:              800000, // 80%
+		// MinStakeAmount + MinVerifications + MinAccuracyBps form the
+		// initial qualification bar. Commitment 7 (skill is current):
+		// no validator earns qualification by stake alone — they must
+		// have done the work and done it accurately. 100 ZRN is the
+		// price of admission; 100 verifications and 80% accuracy is
+		// the demonstration.
+		MinStakeAmount:               "100000000", // 100 ZRN — admission, not skill
+		StakeLockPeriod:              100800,      // ~7 days — stake must commit before counting
+		MinVerifications:             100,         // demonstrate the work, not just pay for entry
+		MinAccuracyBps:              800000, // 80% — initial bar; decay below this triggers state machine
+
+		// MinReputationScore + EndorsementMaxOverlapBps are the
+		// commitment 8 (panel weights skill, not bond) shape: stake +
+		// reputation + endorsement-network-shape, all bounded so that
+		// no single dimension can carry a validator past the bar.
+		// EndorsementMaxOverlapBps caps how much endorsement weight
+		// can come from a tightly-clustered ring; without that cap,
+		// a small group of colluding validators could amplify each
+		// other's qualification with no external signal.
 		MinReputationScore:          500000, // 50%
 		QualificationPeriod:         1209600, // ~84 days at 6s blocks
 		ProbationPeriod:             302400,  // ~21 days
@@ -22,16 +41,25 @@ func DefaultParams() *Params {
 		CrossRefMinWeight:           30,
 		CrossRefWeightDiscountBps:   200000, // 20% discount
 		InheritanceWeightDiscountBps: 300000, // 30% discount
-		EndorsementMaxOverlapBps:    600000, // 60% — anti-ring guard (L3)
+		EndorsementMaxOverlapBps:    600000, // 60% — anti-ring guard (L3) for commitment 8
 
-		// Wave 16: accuracy-based qualification decay. Skill is current,
-		// not historical. Once a record accumulates enough samples,
-		// transitions are driven by accuracy crossing these thresholds.
-		DecayCheckIntervalBlocks: 10_000, // ~7 hours at 2.5s blocks
-		DecayMinSamples:          20,     // bare minimum signal before decay applies
-		DecayProbationBps:        600_000, // 60% — drop below = PROBATIONARY
-		DecaySuspensionBps:       400_000, // 40% — drop below = SUSPENDED
-		DecayRecoveryBps:         750_000, // 75% — climb above = back to ACTIVE
+		// Wave 16: accuracy-based qualification decay. Commitment 7
+		// (skill is current, not historical) made into a state
+		// machine. A validator who was excellent two years ago and
+		// has since been wrong on every recent vote should not still
+		// be voting with full weight today. The thresholds form a
+		// hysteresis loop: drop below 60% → PROBATIONARY (warning,
+		// reduced weight); drop below 40% → SUSPENDED (no weight);
+		// climb back above 75% → ACTIVE. The gap between probation
+		// (60%) and recovery (75%) prevents flapping at the boundary.
+		// DecayMinSamples is the floor against decay-from-noise —
+		// 20 samples is the smallest count where accuracy is a real
+		// statistic rather than a recent streak.
+		DecayCheckIntervalBlocks: 10_000,  // ~7 hours at 2.5s blocks — frequent enough to react
+		DecayMinSamples:          20,      // 20 samples — decay is a statistic, not a streak
+		DecayProbationBps:        600_000, // 60% — fall below: warning state, weight reduced
+		DecaySuspensionBps:       400_000, // 40% — fall below: skill is gone, weight is zero
+		DecayRecoveryBps:         750_000, // 75% — climb above: skill is current again
 	}
 }
 

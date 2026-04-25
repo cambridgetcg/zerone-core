@@ -6,26 +6,58 @@ import "fmt"
 const BPSScale = uint64(1_000_000)
 
 // DefaultParams returns the default autopoiesis module parameters.
+//
+// These values express commitments 5 (chain manufactures probe demand)
+// and 12 (chain pays for own audit). The chain reacts, but it does not
+// whipsaw — overreaction is a louder lie than no reaction at all. See
+// doc.go for the contract; the values below are the rate of belief.
 func DefaultParams() Params {
 	return Params{
-		EpochLengthBlocks:    100,
-		MaxChangePerEpochBps: 10_000,    // 1% per epoch
-		SlashMultiplierMin:   500_000,   // 0.5x floor
-		SlashMultiplierMax:   2_000_000, // 2.0x ceiling
-		SsiCriticalThreshold: 250_000,
-		SsiStressedThreshold: 500_000,
-		SsiHealthyThreshold:  750_000,
+		// EpochLength + MaxChangePerEpoch are the chain's metabolism.
+		// Every 100 blocks the chain looks at itself and adjusts; the
+		// adjustment is capped at 1% so a single noisy epoch cannot
+		// reshape the chain's emission posture. Slow self-correction
+		// is the belief, not fast re-tuning.
+		EpochLengthBlocks:    100,        // ~4 minutes — frequent enough to be responsive
+		MaxChangePerEpochBps: 10_000,     // 1% per epoch — slow self-correction beats whiplash
+
+		// SlashMultiplier bounds: the multipliers can move within
+		// [0.5×, 2.0×]. Outside these bounds, the chain does not
+		// trust autonomous adjustment — it would mean a single sensor
+		// reading could halve or double slashing, which is the kind
+		// of magnitude that needs governance, not a controller.
+		SlashMultiplierMin:   500_000,    // 0.5× floor — controller cannot disable slashing
+		SlashMultiplierMax:   2_000_000,  // 2.0× ceiling — controller cannot weaponise it
+
+		// SSI thresholds carve the chain's self-perceived health into
+		// CRITICAL / STRESSED / HEALTHY. Below 25% — the chain is in
+		// trouble; below 50% — stressed; above 75% — healthy. These
+		// boundaries are read by governance_synthesis to compose the
+		// per-system stress level, satisfying commitment 11.
+		SsiCriticalThreshold: 250_000,    // < 25% — chain in trouble
+		SsiStressedThreshold: 500_000,    // < 50% — chain stressed
+		SsiHealthyThreshold:  750_000,    // > 75% — chain healthy
 		Enabled:              true,
 
-		// Damping & oscillation control (T8).
-		SsiSmoothingAlphaBps:        200_000, // 0.2 = heavy smoothing
-		TargetDeadZoneBps:           50_000,  // 5% dead zone
+		// Damping & oscillation control (T8): a controller that
+		// reacts to every sensor reading produces feedback noise, not
+		// signal. SsiSmoothingAlphaBps of 0.2 = heavy EWMA damping.
+		// OscillationFreezeEpochs is the cooling-off period when
+		// detected oscillation freezes adjustments — the chain
+		// admits "I am confused right now" rather than continuing to
+		// whipsaw. This is commitment 11 honesty: report your own
+		// confusion as a fact about state.
+		SsiSmoothingAlphaBps:        200_000, // 0.2 — heavy smoothing, signal over noise
+		TargetDeadZoneBps:           50_000,  // 5% dead zone — no movement near the target
 		OscillationWindowEpochs:     20,
-		OscillationSignFlipThreshold: 10,     // 50% flip rate in window
-		OscillationFreezeEpochs:     50,
+		OscillationSignFlipThreshold: 10,     // 50% flip rate in window — that is whipsawing
+		OscillationFreezeEpochs:     50,      // freeze for 50 epochs when whipsawing detected
 
-		// Cross-module change budget (L7).
-		MaxTotalChangeBpsPerEpoch: 20_000, // 2% total adjustment across all multipliers
+		// Cross-module change budget (L7): no more than 2% total
+		// adjustment across all multipliers in one epoch. Even if
+		// every individual multiplier wants to change, the chain
+		// caps how much of itself it is willing to rewrite per tick.
+		MaxTotalChangeBpsPerEpoch: 20_000, // 2% total — the chain rewrites itself slowly
 	}
 }
 
