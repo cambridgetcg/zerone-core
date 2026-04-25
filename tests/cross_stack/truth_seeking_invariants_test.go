@@ -18,6 +18,7 @@ package cross_stack_test
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"testing"
@@ -615,6 +616,52 @@ func TestTruthSeeking_CreedAndContractStayInSync(t *testing.T) {
 	for n := range citedNumbers {
 		require.True(t, creedNumbers[n],
 			"a binding test cites commitment %d which does not appear in the creed; either add the commitment to TRUTH_SEEKING.md or remove the citation. The creed and the contract must stay in sync.", n)
+	}
+
+	// ─── Architecture echo ───────────────────────────────────────────
+	// The creed binds tests; the tests bind code. The third leg is
+	// position: every commitment must also be DECLARED at the package
+	// level by at least one x/*/doc.go file. Belief is not a property
+	// of the test suite alone; the chain itself must say "this is what
+	// I am about to do."
+	//
+	// Walk x/*/doc.go and collect every cited commitment number. The
+	// citation pattern matches both leading-capital ("Commitment 5")
+	// and lower-case ("commitment 5") references, since both forms
+	// appear in existing package declarations.
+
+	declaredNumbers := make(map[int]bool)
+	docCitationRe := regexp.MustCompile(`(?i)\bcommitment (\d+)\b`)
+	xRoot := "../../x"
+	err = filepath.Walk(xRoot, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() || filepath.Base(path) != "doc.go" {
+			return nil
+		}
+		body, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		for _, m := range docCitationRe.FindAllStringSubmatch(string(body), -1) {
+			n, convErr := strconv.Atoi(m[1])
+			if convErr != nil {
+				continue
+			}
+			declaredNumbers[n] = true
+		}
+		return nil
+	})
+	require.NoError(t, err, "walking x/ for doc.go failed")
+
+	for n := range creedNumbers {
+		require.True(t, declaredNumbers[n],
+			"commitment %d in the creed is not declared in any x/*/doc.go; the architecture does not echo this commitment back. Add a doc.go that names this commitment in the module that preserves it.", n)
+	}
+	for n := range declaredNumbers {
+		require.True(t, creedNumbers[n],
+			"an x/*/doc.go declares commitment %d which does not appear in the creed; either add the commitment to TRUTH_SEEKING.md or remove the declaration. Position must match creed.", n)
 	}
 }
 
