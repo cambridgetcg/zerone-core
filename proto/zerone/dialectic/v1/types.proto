@@ -1,0 +1,74 @@
+syntax = "proto3";
+package zerone.dialectic.v1;
+option go_package = "github.com/zerone-chain/zerone/x/dialectic/types";
+
+// VoterPosition is one validator's stance in a verification round,
+// classified relative to the round's final verdict.
+message VoterPosition {
+  string voter                = 1; // bech32
+  string vote                 = 2; // "accept" / "reject" / "malformed"
+  bool   aligned_with_verdict = 3; // true if vote == verdict
+}
+
+// DialecticSignature is the structural shape of how a fact arrived
+// at its current state — not just "was it accepted" but "with what
+// disagreement structure." Two facts both ACCEPTED can have very
+// different signatures: 5-0 vs 5-4. Downstream consumers (training
+// pipelines, analysts) treat them differently.
+message DialecticSignature {
+  string fact_id  = 1;
+  string round_id = 2;
+
+  // Vote tally.
+  uint32 total_voters    = 3;
+  uint32 accept_count    = 4;
+  uint32 reject_count    = 5;
+  uint32 malformed_count = 6;
+
+  // Verdict that won. "accept" / "reject" / "malformed" /
+  // "unspecified" if the round produced no verdict.
+  string verdict = 7;
+
+  // Winning-side fraction in basis points (1,000,000 = unanimous).
+  // < 700k indicates contested-but-resolved territory.
+  uint64 agreement_bps = 8;
+
+  // Voters whose vote did NOT align with the verdict.
+  uint32 minority_size = 9;
+
+  // Per-voter breakdown. Sorted by voter for determinism.
+  repeated VoterPosition voter_positions = 10;
+
+  // Computed stress label for quick interpretation:
+  //   "UNANIMOUS"   — agreement_bps == 1,000,000
+  //   "STRONG"      — >= 0.85 agreement
+  //   "CONTESTED"   — 0.55..0.85
+  //   "BARE"        — < 0.55 (barely passed)
+  //   "NO_VERDICT"  — round did not resolve
+  string stress_label = 11;
+}
+
+// DomainDialectic rolls up per-domain disagreement statistics.
+// Computed at query time over all facts in the domain.
+message DomainDialectic {
+  string domain               = 1;
+  uint64 facts_examined       = 2;
+  uint64 unanimous_facts      = 3;
+  uint64 contested_facts      = 4; // agreement_bps < 850k
+  uint64 bare_majority_facts  = 5; // agreement_bps < 550k
+  // Average agreement BPS across all facts examined. 0 if no facts.
+  uint64 avg_agreement_bps    = 6;
+}
+
+// AgentPairwiseDisagreement: how often two agents have disagreed
+// when they both voted on the same round. The chain doesn't pass
+// judgment — high disagreement might mean two agents see the world
+// differently in productive ways. The signature is data for
+// downstream analysis.
+message AgentPairwiseDisagreement {
+  string agent_a              = 1;
+  string agent_b              = 2;
+  uint32 rounds_both_voted    = 3;
+  uint32 disagreements        = 4;
+  uint64 disagreement_rate_bps = 5; // disagreements / rounds_both_voted × 1M
+}

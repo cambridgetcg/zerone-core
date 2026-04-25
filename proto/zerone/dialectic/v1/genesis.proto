@@ -1,0 +1,21 @@
+syntax = "proto3";
+package zerone.dialectic.v1;
+option go_package = "github.com/zerone-chain/zerone/x/dialectic/types";
+
+// GenesisState is minimal — dialectic is a pure synthesizer.
+message GenesisState {
+  Params params = 1;
+}
+
+message Params {
+  // Threshold below which a fact is classified as "contested." In
+  // basis points (1,000,000 = 100%). Default: 850,000 (85% — so a
+  // 5-1 vote is contested).
+  uint64 contested_threshold_bps = 1;
+  // Threshold below which a fact is classified as "bare majority."
+  // Default: 550,000 (55%).
+  uint64 bare_majority_threshold_bps = 2;
+  // Maximum facts walked per DomainDialectic call. Bounds query cost.
+  // Default: 1000.
+  uint32 max_facts_per_domain_query = 3;
+}

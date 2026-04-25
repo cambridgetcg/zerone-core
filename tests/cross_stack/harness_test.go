@@ -53,6 +53,7 @@ import (
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeroneinquirykeeper "github.com/zerone-chain/zerone/x/inquiry/keeper"
 	zeroneagentukeeper "github.com/zerone-chain/zerone/x/agent_understanding/keeper"
+	zeronedialectickeeper "github.com/zerone-chain/zerone/x/dialectic/keeper"
 	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
 	zeronegovsynthkeeper "github.com/zerone-chain/zerone/x/governance_synthesis/keeper"
 	zeronepartnershipskeeper "github.com/zerone-chain/zerone/x/partnerships/keeper"
@@ -103,6 +104,7 @@ type TestHarness struct {
 	CounterexamplesKeeper     zeronecounterexkeeper.Keeper
 	InquiryKeeper             zeroneinquirykeeper.Keeper
 	AgentUnderstandingKeeper  zeroneagentukeeper.Keeper
+	DialecticKeeper           zeronedialectickeeper.Keeper
 
 	// Standard Cosmos SDK keepers
 	BankKeeper    bankkeeper.Keeper
@@ -273,6 +275,7 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		CounterexamplesKeeper:     app.CounterexamplesKeeper,
 		InquiryKeeper:             app.InquiryKeeper,
 		AgentUnderstandingKeeper:  app.AgentUnderstandingKeeper,
+		DialecticKeeper:           app.DialecticKeeper,
 
 		// R7 keepers
 		AutopoiesisKeeper:    app.AutopoiesisKeeper,

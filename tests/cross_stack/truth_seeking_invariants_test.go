@@ -740,6 +740,75 @@ func TestTruthSeeking_ChainPaysForExploration(t *testing.T) {
 		"the chain must pay the bounty to the answerer when their linked claim accepts — without payment, 'we believe in exploration' is slogan, not commitment")
 }
 
+// Commitment 17: disagreement is structure, not noise. A fact's
+// dialectic signature reflects the SHAPE of the verification that
+// produced it — not just verdict, but vote tally, minority size,
+// per-voter alignment. Two facts both accepted are structurally
+// distinct if one was 5-0 and the other was 3-2. This test asserts
+// the SHAPE PATH: a fact whose round had reveals must produce a
+// non-empty DialecticSignature with a vote tally that matches the
+// reveals, and a stress label that reflects the agreement margin.
+func TestTruthSeeking_DialecticSignatureCarriesVoteShape(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	submitter := testAddr("ts_dialectic").String()
+	claim := &knowledgetypes.Claim{
+		Id:          "claim-ts-dialectic",
+		Submitter:   submitter,
+		FactContent: "claim with structured disagreement",
+		Domain:      "sciences",
+		Category:    "empirical",
+		MethodId:    knowledgetypes.MethodologyEmpirical,
+		Status:      knowledgetypes.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		Stake:       "1000000",
+	}
+	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, claim))
+
+	// Build a round with three reveals: 2 accept, 1 reject. The
+	// fact accepts but with a structured 2-1 split — the
+	// "contested-but-resolved" shape commitment 17 must capture.
+	round := &knowledgetypes.VerificationRound{
+		Id:             "round-ts-dialectic",
+		ClaimId:        claim.Id,
+		Phase:          knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
+		StartedAtBlock: 1,
+		Reveals: []*knowledgetypes.RevealEntry{
+			{Verifier: testAddr("dlc_v1").String(), Vote: "accept"},
+			{Verifier: testAddr("dlc_v2").String(), Vote: "accept"},
+			{Verifier: testAddr("dlc_v3").String(), Vote: "reject"},
+		},
+	}
+	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
+		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 800_000, AcceptCount: 2,
+	}))
+
+	var fact *knowledgetypes.Fact
+	h.KnowledgeKeeper.IterateFacts(h.Ctx, func(f *knowledgetypes.Fact) bool {
+		if f.ClaimId == claim.Id {
+			fact = f
+			return true
+		}
+		return false
+	})
+	require.NotNil(t, fact, "fact must exist for dialectic signature")
+
+	sig := h.DialecticKeeper.ComposeSignature(h.Ctx, fact.Id)
+	require.NotNil(t, sig)
+	require.Equal(t, uint32(3), sig.TotalVoters,
+		"signature must reflect every voter — including those who voted against the verdict")
+	require.Equal(t, uint32(2), sig.AcceptCount)
+	require.Equal(t, uint32(1), sig.RejectCount)
+	require.Equal(t, uint32(1), sig.MinoritySize,
+		"minority_size must report the dissenter — without this, '5-0' and '5-4' are indistinguishable")
+	require.Equal(t, "accept", sig.Verdict)
+	require.Less(t, sig.AgreementBps, uint64(850_000),
+		"a 2-1 verdict must register below the contested threshold")
+	require.Equal(t, "CONTESTED", sig.StressLabel,
+		"a 2-1 verdict must label CONTESTED — settled and contested-but-resolved are different shapes the chain must distinguish")
+}
+
 // ════════════════════════════════════════════════════════════════════
 // Meta-invariant: the creed and the contract stay in sync.
 //

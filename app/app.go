@@ -210,6 +210,9 @@ import (
 	zeroneagentu "github.com/zerone-chain/zerone/x/agent_understanding"
 	zeroneagentukeeper "github.com/zerone-chain/zerone/x/agent_understanding/keeper"
 	zeroneagentutypes "github.com/zerone-chain/zerone/x/agent_understanding/types"
+	zeronedialectic "github.com/zerone-chain/zerone/x/dialectic"
+	zeronedialectickeeper "github.com/zerone-chain/zerone/x/dialectic/keeper"
+	zeronedialectictypes "github.com/zerone-chain/zerone/x/dialectic/types"
 	zeroneautopoiesis "github.com/zerone-chain/zerone/x/autopoiesis"
 	zeroneapkeeper "github.com/zerone-chain/zerone/x/autopoiesis/keeper"
 	zeroneaptypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
@@ -314,6 +317,7 @@ var (
 		zeronecounterex.AppModuleBasic{},     // x/counterexamples: alignment-by-structure
 		zeroneinquiry.AppModuleBasic{},       // x/inquiry: open-question market for unmapped territory
 		zeroneagentu.AppModuleBasic{},        // x/agent_understanding: per-agent topic profile synthesizer
+		zeronedialectic.AppModuleBasic{},     // x/dialectic: disagreement-shape synthesizer (commitment 17)
 	)
 
 	// Module account permissions.
@@ -506,6 +510,7 @@ type ZeroneApp struct {
 	CounterexamplesKeeper   zeronecounterexkeeper.Keeper     // x/counterexamples: alignment-by-structure (commitment 15)
 	InquiryKeeper           zeroneinquirykeeper.Keeper       // x/inquiry: open-question market (commitment 16)
 	AgentUnderstandingKeeper zeroneagentukeeper.Keeper       // x/agent_understanding: per-agent profile synthesizer (extends commitment 11)
+	DialecticKeeper          zeronedialectickeeper.Keeper    // x/dialectic: disagreement-shape synthesizer (commitment 17)
 
 	// ABCI++ vote extension config (nil until validator is configured)
 	VoteExtConfig *VoteExtensionConfig
@@ -626,6 +631,7 @@ func NewZeroneApp(
 		zeronecounterextypes.StoreKey,
 		zeroneinquirytypes.StoreKey,
 		zeroneagentutypes.StoreKey,
+		zeronedialectictypes.StoreKey,
 	)
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	memKeys := storetypes.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
@@ -1130,6 +1136,18 @@ func NewZeroneApp(
 		zeroneinquirykeeper.NewAgentUnderstandingAdapter(app.InquiryKeeper),
 	)
 
+	// x/dialectic: pure read-only synthesizer composing per-fact,
+	// per-domain, per-agent-pair disagreement signatures from
+	// verification rounds.
+	app.DialecticKeeper = zeronedialectickeeper.NewKeeper(
+		sdkruntime.NewKVStoreService(keys[zeronedialectictypes.StoreKey]),
+		appCodec,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+	app.DialecticKeeper.SetKnowledgeKeeper(
+		zeroneknowledgekeeper.NewDialecticAdapter(app.KnowledgeKeeper),
+	)
+
 	// Frontier-query wiring: now that inquiry, counterexamples, and
 	// ontology keepers all exist, register the adapters with
 	// governance_synthesis so its Frontier query can compose
@@ -1409,6 +1427,7 @@ func NewZeroneApp(
 		zeronecounterex.NewAppModule(appCodec, app.CounterexamplesKeeper),
 		zeroneinquiry.NewAppModule(appCodec, app.InquiryKeeper),
 		zeroneagentu.NewAppModule(appCodec, app.AgentUnderstandingKeeper),
+		zeronedialectic.NewAppModule(appCodec, app.DialecticKeeper),
 	)
 
 	app.ModuleManager.SetOrderBeginBlockers(
@@ -1466,6 +1485,7 @@ func NewZeroneApp(
 		zeronecounterextypes.ModuleName,             // counterexamples: no-op BeginBlock (proposal-driven)
 		zeroneinquirytypes.ModuleName,               // inquiry: scan OPEN/ANSWERED inquiries for resolution + expiry
 		zeroneagentutypes.ModuleName,                // agent_understanding: no-op BeginBlock (pure synthesizer)
+		zeronedialectictypes.ModuleName,             // dialectic: no-op BeginBlock (pure synthesizer)
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1522,6 +1542,7 @@ func NewZeroneApp(
 		zeronecounterextypes.ModuleName,             // EndBlocker: no-op
 		zeroneinquirytypes.ModuleName,               // EndBlocker: no-op
 		zeroneagentutypes.ModuleName,                // EndBlocker: no-op
+		zeronedialectictypes.ModuleName,             // EndBlocker: no-op
 	)
 
 	genesisOrder := []string{
@@ -1579,6 +1600,7 @@ func NewZeroneApp(
 		zeronecounterextypes.ModuleName,             // Genesis: after knowledge (uses fact-existence adapter)
 		zeroneinquirytypes.ModuleName,               // Genesis: after knowledge (auto-resolver reads facts)
 		zeroneagentutypes.ModuleName,                // Genesis: after all upstream modules (pure synthesizer)
+		zeronedialectictypes.ModuleName,             // Genesis: after knowledge (pure synthesizer)
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisOrder...)

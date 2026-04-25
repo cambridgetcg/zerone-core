@@ -204,6 +204,18 @@ We believe: stress-testing what we already think we know is necessary but not su
 
 ---
 
+### 17. Disagreement is structure, not noise
+
+We believe: when agents disagree on a verification, that disagreement itself is information about the fact, the methodology, and the agents' understanding. A fact accepted 5-0 is structurally different from a fact accepted 5-4, and the chain reports both as different shapes — not just both as "accepted." Models trained on facts paired with their disagreement signatures can distinguish "settled" from "contested-but-resolved," and the distinction is alignment-relevant: contested-but-resolved facts deserve carried uncertainty into downstream tasks.
+
+**Code expression**: `x/dialectic` synthesises per-fact, per-domain, per-agent-pair disagreement signatures from the `VerificationRound.Reveals` records that `x/knowledge` already preserves. `DialecticSignature(fact_id)` returns vote tally, agreement BPS, minority size, per-voter alignment, and a stress label (UNANIMOUS / STRONG / CONTESTED / BARE / NO_VERDICT). `DomainDialectic(domain)` rolls up per-domain. `PairwiseDisagreement(agent_a, agent_b)` exposes how often two agents have voted differently — a signal downstream observers can interpret without the chain passing judgment.
+
+**What would break it**: a verification flow that erased minority votes after consensus; a rounds storage that pruned reveals after completion; a synthesiser that returned only the verdict and hid the per-voter breakdown; a TVW formula or training-data export that treated 5-0 and 5-4 as identical.
+
+**Echoes**: commitment 3 (Popper, not popularity — disagreement that is resolved is the corpus's confidence-by-survival made structurally explicit); commitment 8 (panel weights skill — disagreement among well-calibrated agents carries more signal than disagreement among uncalibrated ones); commitment 14 (reasoning traces are first-class — the per-voter alignment pairs with the trace to teach why agents reasoned differently).
+
+---
+
 ## How the commitments echo
 
 The creed is enforced at five layers, each one mechanically synced to the others by `TestTruthSeeking_CreedAndContractStayInSync`. Adding a commitment to one layer without the others fails CI.

@@ -1,0 +1,40 @@
+syntax = "proto3";
+package zerone.dialectic.v1;
+option go_package = "github.com/zerone-chain/zerone/x/dialectic/types";
+
+import "google/api/annotations.proto";
+import "zerone/dialectic/v1/types.proto";
+import "zerone/dialectic/v1/genesis.proto";
+
+service Query {
+  // Signature returns the per-fact disagreement signature.
+  rpc Signature(QuerySignatureRequest) returns (QuerySignatureResponse) {
+    option (google.api.http).get = "/zerone/dialectic/v1/signature/{fact_id}";
+  }
+  // DomainSignature returns the per-domain rollup.
+  rpc DomainSignature(QueryDomainSignatureRequest) returns (QueryDomainSignatureResponse) {
+    option (google.api.http).get = "/zerone/dialectic/v1/domain/{domain}";
+  }
+  // PairwiseDisagreement returns how often two agents disagree.
+  rpc PairwiseDisagreement(QueryPairwiseRequest) returns (QueryPairwiseResponse) {
+    option (google.api.http).get = "/zerone/dialectic/v1/pair/{agent_a}/{agent_b}";
+  }
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/dialectic/v1/params";
+  }
+}
+
+message QuerySignatureRequest { string fact_id = 1; }
+message QuerySignatureResponse { DialecticSignature signature = 1; }
+
+message QueryDomainSignatureRequest { string domain = 1; }
+message QueryDomainSignatureResponse { DomainDialectic dialectic = 1; }
+
+message QueryPairwiseRequest {
+  string agent_a = 1;
+  string agent_b = 2;
+}
+message QueryPairwiseResponse { AgentPairwiseDisagreement pair = 1; }
+
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }
