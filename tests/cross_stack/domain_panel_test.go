@@ -9,6 +9,7 @@ import (
 
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
 )
 
 // Per-domain panel voting (Wave 15c). The augmentation verifier panel
@@ -204,6 +205,146 @@ func TestDomainPanel_VerdictFeedbackLoopUpdatesQualification(t *testing.T) {
 		"dissenter still participated and should be recorded")
 	require.Equal(t, uint64(0), dq.Metrics.CorrectVerifications,
 		"dissenter voted against consensus — 0 correct")
+}
+
+// Wave 16 qualification decay (Phase B). The feedback loop now
+// closes: a voter whose AccuracyBps drops below the probation
+// threshold is demoted ACTIVE → PROBATIONARY. If accuracy keeps
+// falling, PROBATIONARY → SUSPENDED. If accuracy recovers above the
+// recovery threshold, PROBATIONARY → ACTIVE. Skill is current, not
+// historical; the chain runs an ongoing competency assessment, not
+// a one-time qualification exam.
+func TestDomainPanel_QualificationDecaysOnLowAccuracy(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	// Shrink the decay-check interval so the test doesn't have to
+	// advance 10K blocks to trigger the BeginBlocker scan.
+	qParams := h.QualificationKeeper.GetParams(h.Ctx)
+	qParams.DecayCheckIntervalBlocks = 5
+	qParams.DecayMinSamples = 10
+	h.QualificationKeeper.SetParams(h.Ctx, qParams)
+
+	// Seed an ACTIVE math qualification with low accuracy: 30 verifications,
+	// 12 correct → 40% accuracy. Below the 60% probation threshold.
+	bad := testAddr("decay_low_accuracy").String()
+	h.SetDomainQualification(bad, "mathematics", 80)
+	q, _ := h.QualificationKeeper.GetQualification(h.Ctx, bad, "mathematics")
+	q.Metrics = &qualificationtypes.QualificationMetrics{
+		TotalVerifications:   30,
+		CorrectVerifications: 12,
+		AccuracyBps:          400_000,
+	}
+	h.QualificationKeeper.SetQualification(h.Ctx, q)
+
+	// Advance past the next decay check.
+	h.AdvanceBlocks(10)
+
+	q, _ = h.QualificationKeeper.GetQualification(h.Ctx, bad, "mathematics")
+	require.Equal(t, qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_PROBATIONARY, q.Status,
+		"low-accuracy ACTIVE must decay to PROBATIONARY")
+	require.Greater(t, q.ProbationUntil, uint64(0), "probation deadline must be set")
+}
+
+// Recovery: a voter whose accuracy improves while probationary climbs
+// back to ACTIVE. The feedback loop is bidirectional.
+func TestDomainPanel_QualificationRecoversFromProbation(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	qParams := h.QualificationKeeper.GetParams(h.Ctx)
+	qParams.DecayCheckIntervalBlocks = 5
+	qParams.DecayMinSamples = 10
+	h.QualificationKeeper.SetParams(h.Ctx, qParams)
+
+	// Seed a PROBATIONARY qualification with HIGH accuracy: 50 verifications,
+	// 40 correct → 80% accuracy. Above the 75% recovery threshold.
+	improver := testAddr("decay_recovers").String()
+	h.SetDomainQualification(improver, "mathematics", 80)
+	q, _ := h.QualificationKeeper.GetQualification(h.Ctx, improver, "mathematics")
+	q.Status = qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_PROBATIONARY
+	q.ProbationUntil = uint64(h.Height()) + 1_000_000 // far in the future, not auto-promoted
+	q.Metrics = &qualificationtypes.QualificationMetrics{
+		TotalVerifications:   50,
+		CorrectVerifications: 40,
+		AccuracyBps:          800_000,
+	}
+	h.QualificationKeeper.SetQualification(h.Ctx, q)
+
+	h.AdvanceBlocks(10)
+
+	q, _ = h.QualificationKeeper.GetQualification(h.Ctx, improver, "mathematics")
+	require.Equal(t, qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE, q.Status,
+		"high-accuracy PROBATIONARY must recover to ACTIVE")
+	require.Equal(t, uint64(0), q.ProbationUntil, "probation deadline cleared on recovery")
+}
+
+// Suspension: PROBATIONARY voter whose accuracy falls further below
+// the suspension threshold loses status entirely. They must re-qualify
+// to vote effectively again.
+func TestDomainPanel_QualificationSuspendsOnContinuedFailure(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	qParams := h.QualificationKeeper.GetParams(h.Ctx)
+	qParams.DecayCheckIntervalBlocks = 5
+	qParams.DecayMinSamples = 10
+	h.QualificationKeeper.SetParams(h.Ctx, qParams)
+
+	// PROBATIONARY voter with very low accuracy: 50 verifications, 15 correct
+	// → 30% accuracy. Below the 40% suspension threshold.
+	terrible := testAddr("decay_suspends").String()
+	h.SetDomainQualification(terrible, "mathematics", 80)
+	q, _ := h.QualificationKeeper.GetQualification(h.Ctx, terrible, "mathematics")
+	q.Status = qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_PROBATIONARY
+	q.ProbationUntil = uint64(h.Height()) + 1_000_000
+	q.Metrics = &qualificationtypes.QualificationMetrics{
+		TotalVerifications:   50,
+		CorrectVerifications: 15,
+		AccuracyBps:          300_000,
+	}
+	h.QualificationKeeper.SetQualification(h.Ctx, q)
+
+	h.AdvanceBlocks(10)
+
+	q, _ = h.QualificationKeeper.GetQualification(h.Ctx, terrible, "mathematics")
+	require.Equal(t, qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_SUSPENDED, q.Status,
+		"sustained low accuracy in PROBATIONARY must suspend")
+}
+
+// Sample-size guard: a qualification with very few verifications is
+// NOT decayed even if accuracy looks bad. Early-life noise must not
+// drive transitions; the loop only fires once enough signal exists.
+func TestDomainPanel_QualificationDoesNotDecayBelowMinSamples(t *testing.T) {
+	h := NewTestHarness(t)
+	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	require.NoError(t, err)
+
+	qParams := h.QualificationKeeper.GetParams(h.Ctx)
+	qParams.DecayCheckIntervalBlocks = 5
+	qParams.DecayMinSamples = 20
+	h.QualificationKeeper.SetParams(h.Ctx, qParams)
+
+	// Only 5 verifications, 0 correct — looks terrible, but below the
+	// minimum sample threshold. Status stays ACTIVE.
+	rookie := testAddr("decay_rookie").String()
+	h.SetDomainQualification(rookie, "mathematics", 80)
+	q, _ := h.QualificationKeeper.GetQualification(h.Ctx, rookie, "mathematics")
+	q.Metrics = &qualificationtypes.QualificationMetrics{
+		TotalVerifications:   5,
+		CorrectVerifications: 0,
+		AccuracyBps:          0,
+	}
+	h.QualificationKeeper.SetQualification(h.Ctx, q)
+
+	h.AdvanceBlocks(10)
+
+	q, _ = h.QualificationKeeper.GetQualification(h.Ctx, rookie, "mathematics")
+	require.Equal(t, qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE, q.Status,
+		"insufficient samples → no decay; early-life noise must not drive transitions")
 }
 
 // Negative path: a validator qualified in the RIGHT domain but with

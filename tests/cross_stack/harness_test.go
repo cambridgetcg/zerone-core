@@ -344,6 +344,9 @@ func (h *TestHarness) AdvanceBlocks(n int) {
 		// depends on it running deterministically). Call it explicitly so
 		// lifecycle tests pass in-harness as they would on a live chain.
 		_ = h.KnowledgeKeeper.BeginBlocker(h.Ctx)
+		// Qualification module BeginBlocker — same harness limitation;
+		// Wave 16 accuracy-decay tests depend on it running deterministically.
+		_ = h.QualificationKeeper.BeginBlocker(h.Ctx)
 		h.App.EndBlocker(h.Ctx)
 	}
 }

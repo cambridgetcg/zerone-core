@@ -23,6 +23,15 @@ func DefaultParams() *Params {
 		CrossRefWeightDiscountBps:   200000, // 20% discount
 		InheritanceWeightDiscountBps: 300000, // 30% discount
 		EndorsementMaxOverlapBps:    600000, // 60% — anti-ring guard (L3)
+
+		// Wave 16: accuracy-based qualification decay. Skill is current,
+		// not historical. Once a record accumulates enough samples,
+		// transitions are driven by accuracy crossing these thresholds.
+		DecayCheckIntervalBlocks: 10_000, // ~7 hours at 2.5s blocks
+		DecayMinSamples:          20,     // bare minimum signal before decay applies
+		DecayProbationBps:        600_000, // 60% — drop below = PROBATIONARY
+		DecaySuspensionBps:       400_000, // 40% — drop below = SUSPENDED
+		DecayRecoveryBps:         750_000, // 75% — climb above = back to ACTIVE
 	}
 }
 
@@ -34,6 +43,19 @@ func (p *Params) Validate() error {
 	}
 	if p.MinAccuracyBps > 1000000 {
 		return fmt.Errorf("min_accuracy_bps cannot exceed 1000000, got %d", p.MinAccuracyBps)
+	}
+	// Wave 16 decay-threshold ordering must hold for the state machine
+	// to make sense: SUSPENSION ≤ PROBATION ≤ RECOVERY.
+	if p.DecaySuspensionBps > p.DecayProbationBps {
+		return fmt.Errorf("decay_suspension_bps (%d) must be <= decay_probation_bps (%d)",
+			p.DecaySuspensionBps, p.DecayProbationBps)
+	}
+	if p.DecayProbationBps > p.DecayRecoveryBps && p.DecayRecoveryBps > 0 {
+		return fmt.Errorf("decay_probation_bps (%d) must be <= decay_recovery_bps (%d)",
+			p.DecayProbationBps, p.DecayRecoveryBps)
+	}
+	if p.DecayRecoveryBps > 1_000_000 {
+		return fmt.Errorf("decay_recovery_bps cannot exceed 1,000,000, got %d", p.DecayRecoveryBps)
 	}
 	if p.CrossRefWeightDiscountBps > 1000000 {
 		return fmt.Errorf("cross_ref_weight_discount_bps cannot exceed 1000000, got %d", p.CrossRefWeightDiscountBps)

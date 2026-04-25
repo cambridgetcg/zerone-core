@@ -12,11 +12,21 @@ import (
 )
 
 // BeginBlocker processes qualification expiry, probation promotion, endorsement expiry,
-// and stake unlocking.
+// stake unlocking, and (Wave 16) accuracy-based decay.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	currentBlock := uint64(sdkCtx.BlockHeight())
 	params := k.GetParams(ctx)
+
+	// Wave 16: accuracy-based decay scan. Skill is current, not
+	// historical. Run periodically (not every block) to bound cost.
+	// Iterates qualifications and transitions state when accuracy
+	// crosses thresholds — closing the feedback loop the per-domain
+	// panel writes into via RecordVerificationOutcome.
+	if params.DecayCheckIntervalBlocks > 0 && currentBlock > 0 &&
+		currentBlock%params.DecayCheckIntervalBlocks == 0 {
+		k.RunAccuracyDecay(ctx, currentBlock, params)
+	}
 
 	k.IterateQualifications(ctx, func(q *types.DomainQualification) bool {
 		switch q.Status {

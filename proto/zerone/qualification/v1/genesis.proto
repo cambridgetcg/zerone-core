@@ -40,4 +40,19 @@ message Params {
   // where a small group of heavily-overlapped validators repeatedly endorses
   // each other. "0" disables the guard.
   uint64 endorsement_max_overlap_bps = 13;    // default: 600,000 (60%)
+
+  // ─── Wave 16: accuracy-based decay ────────────────────────────────────
+  // Skill is current, not historical. Once a qualification accumulates
+  // enough samples (decay_min_samples), the BeginBlocker checks accuracy
+  // every decay_check_interval_blocks and transitions state when it
+  // crosses thresholds. ACTIVE → PROBATIONARY when accuracy slips below
+  // decay_probation_bps; PROBATIONARY → SUSPENDED when below
+  // decay_suspension_bps; PROBATIONARY → ACTIVE when accuracy recovers
+  // above decay_recovery_bps. Without these thresholds qualification is
+  // a one-time grant, not an ongoing competency assessment.
+  uint64 decay_check_interval_blocks = 14; // default: 10,000 — how often the decay scan runs
+  uint64 decay_min_samples           = 15; // default: 20 — minimum verifications before decay applies
+  uint64 decay_probation_bps         = 16; // default: 600,000 (60%) — ACTIVE → PROBATIONARY
+  uint64 decay_suspension_bps        = 17; // default: 400,000 (40%) — PROBATIONARY → SUSPENDED
+  uint64 decay_recovery_bps          = 18; // default: 750,000 (75%) — PROBATIONARY → ACTIVE
 }

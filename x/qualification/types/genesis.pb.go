@@ -114,6 +114,20 @@ type Params struct {
 	// where a small group of heavily-overlapped validators repeatedly endorses
 	// each other. "0" disables the guard.
 	EndorsementMaxOverlapBps uint64 `protobuf:"varint,13,opt,name=endorsement_max_overlap_bps,json=endorsementMaxOverlapBps,proto3" json:"endorsement_max_overlap_bps,omitempty"` // default: 600,000 (60%)
+	// ─── Wave 16: accuracy-based decay ────────────────────────────────────
+	// Skill is current, not historical. Once a qualification accumulates
+	// enough samples (decay_min_samples), the BeginBlocker checks accuracy
+	// every decay_check_interval_blocks and transitions state when it
+	// crosses thresholds. ACTIVE → PROBATIONARY when accuracy slips below
+	// decay_probation_bps; PROBATIONARY → SUSPENDED when below
+	// decay_suspension_bps; PROBATIONARY → ACTIVE when accuracy recovers
+	// above decay_recovery_bps. Without these thresholds qualification is
+	// a one-time grant, not an ongoing competency assessment.
+	DecayCheckIntervalBlocks uint64 `protobuf:"varint,14,opt,name=decay_check_interval_blocks,json=decayCheckIntervalBlocks,proto3" json:"decay_check_interval_blocks,omitempty"` // default: 10,000 — how often the decay scan runs
+	DecayMinSamples          uint64 `protobuf:"varint,15,opt,name=decay_min_samples,json=decayMinSamples,proto3" json:"decay_min_samples,omitempty"`                              // default: 20 — minimum verifications before decay applies
+	DecayProbationBps        uint64 `protobuf:"varint,16,opt,name=decay_probation_bps,json=decayProbationBps,proto3" json:"decay_probation_bps,omitempty"`                        // default: 600,000 (60%) — ACTIVE → PROBATIONARY
+	DecaySuspensionBps       uint64 `protobuf:"varint,17,opt,name=decay_suspension_bps,json=decaySuspensionBps,proto3" json:"decay_suspension_bps,omitempty"`                     // default: 400,000 (40%) — PROBATIONARY → SUSPENDED
+	DecayRecoveryBps         uint64 `protobuf:"varint,18,opt,name=decay_recovery_bps,json=decayRecoveryBps,proto3" json:"decay_recovery_bps,omitempty"`                           // default: 750,000 (75%) — PROBATIONARY → ACTIVE
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -239,6 +253,41 @@ func (x *Params) GetEndorsementMaxOverlapBps() uint64 {
 	return 0
 }
 
+func (x *Params) GetDecayCheckIntervalBlocks() uint64 {
+	if x != nil {
+		return x.DecayCheckIntervalBlocks
+	}
+	return 0
+}
+
+func (x *Params) GetDecayMinSamples() uint64 {
+	if x != nil {
+		return x.DecayMinSamples
+	}
+	return 0
+}
+
+func (x *Params) GetDecayProbationBps() uint64 {
+	if x != nil {
+		return x.DecayProbationBps
+	}
+	return 0
+}
+
+func (x *Params) GetDecaySuspensionBps() uint64 {
+	if x != nil {
+		return x.DecaySuspensionBps
+	}
+	return 0
+}
+
+func (x *Params) GetDecayRecoveryBps() uint64 {
+	if x != nil {
+		return x.DecayRecoveryBps
+	}
+	return 0
+}
+
 var File_zerone_qualification_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_qualification_v1_genesis_proto_rawDesc = "" +
@@ -248,7 +297,7 @@ const file_zerone_qualification_v1_genesis_proto_rawDesc = "" +
 	"\x06params\x18\x01 \x01(\v2\x1f.zerone.qualification.v1.ParamsR\x06params\x12T\n" +
 	"\x0equalifications\x18\x02 \x03(\v2,.zerone.qualification.v1.DomainQualificationR\x0equalifications\x12U\n" +
 	"\fendorsements\x18\x03 \x03(\v21.zerone.qualification.v1.QualificationEndorsementR\fendorsements\x12.\n" +
-	"\x13next_endorsement_id\x18\x04 \x01(\x04R\x11nextEndorsementId\"\x90\x05\n" +
+	"\x13next_endorsement_id\x18\x04 \x01(\x04R\x11nextEndorsementId\"\x8b\a\n" +
 	"\x06Params\x12(\n" +
 	"\x10min_stake_amount\x18\x01 \x01(\tR\x0eminStakeAmount\x12*\n" +
 	"\x11stake_lock_period\x18\x02 \x01(\x04R\x0fstakeLockPeriod\x12+\n" +
@@ -263,7 +312,12 @@ const file_zerone_qualification_v1_genesis_proto_rawDesc = "" +
 	" \x01(\x04R\x11crossRefMinWeight\x12@\n" +
 	"\x1dcross_ref_weight_discount_bps\x18\v \x01(\x04R\x19crossRefWeightDiscountBps\x12E\n" +
 	"\x1finheritance_weight_discount_bps\x18\f \x01(\x04R\x1cinheritanceWeightDiscountBps\x12=\n" +
-	"\x1bendorsement_max_overlap_bps\x18\r \x01(\x04R\x18endorsementMaxOverlapBpsB6Z4github.com/zerone-chain/zerone/x/qualification/typesb\x06proto3"
+	"\x1bendorsement_max_overlap_bps\x18\r \x01(\x04R\x18endorsementMaxOverlapBps\x12=\n" +
+	"\x1bdecay_check_interval_blocks\x18\x0e \x01(\x04R\x18decayCheckIntervalBlocks\x12*\n" +
+	"\x11decay_min_samples\x18\x0f \x01(\x04R\x0fdecayMinSamples\x12.\n" +
+	"\x13decay_probation_bps\x18\x10 \x01(\x04R\x11decayProbationBps\x120\n" +
+	"\x14decay_suspension_bps\x18\x11 \x01(\x04R\x12decaySuspensionBps\x12,\n" +
+	"\x12decay_recovery_bps\x18\x12 \x01(\x04R\x10decayRecoveryBpsB6Z4github.com/zerone-chain/zerone/x/qualification/typesb\x06proto3"
 
 var (
 	file_zerone_qualification_v1_genesis_proto_rawDescOnce sync.Once

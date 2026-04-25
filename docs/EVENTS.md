@@ -2100,6 +2100,25 @@ Governance parameter update.
 - `domain` -- suspended domain
 - `reason` -- suspension reason
 
+### zerone.qualification.decay_probation
+*BeginBlock.* Wave 16 accuracy-based decay. ACTIVE qualification with sufficient samples whose AccuracyBps fell below `decay_probation_bps` is demoted to PROBATIONARY. Skill is current, not historical: a qualified voter who consistently votes against verified consensus loses status until accuracy recovers.
+- `validator` -- validator address
+- `domain` -- demoted domain
+- `accuracy_bps` -- current accuracy at demotion (BPS)
+- `threshold_bps` -- the probation threshold that was crossed
+
+### zerone.qualification.decay_suspension
+*BeginBlock.* Wave 16 accuracy-based decay. PROBATIONARY qualification whose accuracy fell further below `decay_suspension_bps` is suspended. Suspended qualifications carry zero panel weight; voters must re-qualify (stake / track-record / endorsement) to vote effectively again.
+- `validator` -- validator address
+- `domain` -- suspended domain
+- `accuracy_bps`, `threshold_bps` -- same semantics as decay_probation
+
+### zerone.qualification.decay_recovered
+*BeginBlock.* Wave 16 accuracy-based decay. PROBATIONARY qualification whose accuracy climbed back above `decay_recovery_bps` is reinstated to ACTIVE. The feedback loop is bidirectional: voters who improve their record reclaim full panel weight without re-qualifying.
+- `validator` -- validator address
+- `domain` -- recovered domain
+- `accuracy_bps`, `threshold_bps` -- same semantics as decay_probation
+
 ---
 
 ## research
