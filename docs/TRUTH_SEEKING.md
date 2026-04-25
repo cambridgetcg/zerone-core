@@ -6,7 +6,7 @@ Every architectural decision in this codebase either expresses our commitment to
 
 **We speak through intentions.** Every line of code, every comment, every parameter, every event name is a declaration of what we believe. A decision that contradicts a commitment is not a feature trade-off. It is a failure of the chain to be what we said it would be.
 
-The bindings below are not aspirations. They are tested. The test suite at `tests/integration/truth_seeking_invariants_test.go` is the executable form of this document — each test names a commitment, drives the chain through a scenario where the commitment could be violated, and asserts the violation cannot occur. If a commitment breaks, the test breaks. The creed and the contract are one.
+The bindings below are not aspirations. They are tested. The test suite at `tests/cross_stack/truth_seeking_invariants_test.go` is the executable form of this document — each test names a commitment, drives the chain through a scenario where the commitment could be violated, and asserts the violation cannot occur. If a commitment breaks, the test breaks. The creed and the contract are one.
 
 ---
 
@@ -20,6 +20,8 @@ We believe: a claim's value comes from *how* it can be tested, not from *what* i
 
 **What would break it**: facts entering `FACT_STATUS_VERIFIED` with empty `MethodId`, or TVW computation that ignored methodology, or training pipelines that consumed claims without their reasoning trace.
 
+**Echoes**: commitment 14 (reasoning traces are first-class — methodology without trace is just labelling); commitment 3 (Popper, not popularity — methodology is what makes a claim *testable*).
+
 ---
 
 ### 2. Is-ought wall
@@ -29,6 +31,8 @@ We believe: descriptive facts and normative commitments are categorically differ
 **Code expression**: `NormativeCommitment` is a separate proto type, stored under a distinct key prefix (`0x59`), with no `confidence` field. `FilterIsOughtIds` blocks commitment IDs from `ContributionRecord.fact_ids`. `ComputeTrainingValueWeight` returns `BlockedByIsOught=true` for any ID resolving to a commitment.
 
 **What would break it**: a `NormativeCommitment` ID that successfully accrued TVW, or a Fact accepted with content that is structurally a value-claim, or any path that conflates the two registries.
+
+**Echoes**: commitment 13 (training corpus is not for sale — the wall is what keeps the corpus *categorically* clean, not just curated); commitment 1 (methodology over statement — the methodology of an ought-claim is normatively distinct from the methodology of an is-claim).
 
 ---
 
@@ -40,6 +44,8 @@ We believe: truth is what survives falsification, not what is most asserted. A c
 
 **What would break it**: TVW formulas that read raw acceptance count over corroboration count; reward paths that pay for being verified rather than for surviving challenge; hardening that flattens (linear-only) instead of compounding.
 
+**Echoes**: commitment 4 (substrate stress-tests its truth — Popper is the principle, stress-testing is the operationalisation); commitment 13 (training corpus not for sale — survived disproof is the only currency that buys a place).
+
 ---
 
 ### 4. The substrate stress-tests its own truth
@@ -49,6 +55,8 @@ We believe: the chain does not protect its trusted claims — it invites their f
 **Code expression**: `EffectiveMinChallengeStake` scales *inversely* with target confidence (`x/knowledge/keeper/confidence.go`). `SuccessfulChallengeRewardBps` amplifies with the disproven fact's confidence — paradigm shifts pay more than routine cleanup. Failed probes earn a 15% participation refund. The probe bounty pool mints uzrn per block to fund probing of the chain's most-trusted claims.
 
 **What would break it**: stake scaling that punishes probing of confident claims; reward schedules where disproving a 10% fact pays the same as disproving a 90% fact; failed probes that confiscate full stake.
+
+**Echoes**: commitment 3 (Popper — this commitment puts a price on the falsification opportunity); commitment 5 (chain manufactures probe demand — stress-testing requires both invitation and reward); commitment 12 (chain pays for own audit — without dedicated funding, stress-testing is rhetoric).
 
 ---
 
@@ -60,6 +68,8 @@ We believe: waiting for probers to arrive is not enough. The substrate names its
 
 **What would break it**: heartbeat that only fires when triggered externally; bounty pool that depends on user funding rather than chain mint; invitations that pay nothing, making them rhetoric.
 
+**Echoes**: commitment 4 (substrate stress-tests its truth — invitation is the substrate's voice doing the asking); commitment 12 (chain pays for own audit — the bounty pool that funds invitation bonuses is the same pool that funds successful-probe rewards).
+
 ---
 
 ### 6. No individual can unilaterally inject truth
@@ -69,6 +79,8 @@ We believe: a single key — even the legitimate authority key — must not be a
 **Code expression**: `MsgAddFact` queues a `PendingFactInjection` when `AddFactVetoWindowBlocks > 0` and a guardian set is configured (Wave 16). Any registered guardian can call `MsgVetoFactInjection` during the window. The `PrivilegedAction` log captures every authority-gated call across the chain.
 
 **What would break it**: an authority path that bypasses the privileged-action log; a guardian set that defaults to a single address; a veto window that defaults to zero in production deployments.
+
+**Echoes**: commitment 10 (forward-only audit — the privileged-action log is what makes "no unilateral injection" verifiable to outside observers); commitment 13 (training corpus not for sale — the corpus must not silently grow by authority).
 
 ---
 
@@ -80,6 +92,8 @@ We believe: the chain does not issue diplomas. A voter who was once domain-quali
 
 **What would break it**: a qualification status that never transitions on metrics; a `GetQualificationWeight` that returns the historical weight for SUSPENDED qualifications; a feedback loop that writes metrics nobody reads.
 
+**Echoes**: commitment 8 (panel weights skill, not bond — skill is what is weighted; "current" is the qualifier that makes "skill" honest); commitment 9 (cartel detection has consequence — penalties from cartel detection are read at the same point where current skill is read).
+
 ---
 
 ### 8. The panel weights skill, not bond
@@ -89,6 +103,8 @@ We believe: the augmentation panel's verdict carries the chain's training judgem
 **Code expression**: `RecordAugmentationVote` snapshots both stake and calibration at vote time; the consensus tally weights each vote by `stake × calibration`, with a 20% floor on calibration so liveness holds. When the target fact has a domain, the calibration source is the *domain-specific* qualification weight via `x/qualification`. Cross-domain credentials earn no credit.
 
 **What would break it**: a panel tally that uses raw stake; a calibration default that lets unproven validators carry full weight; a per-domain panel that falls back to global calibration when domain qualification is absent.
+
+**Echoes**: commitment 7 (skill is current — without current skill, "weight by skill" is a historical artefact); commitment 9 (cartel detection has consequence — cartel penalties enter the same calibration weight that the panel tally consumes).
 
 ---
 
@@ -100,6 +116,8 @@ We believe: confirmation that a validator participated in cartel behaviour must 
 
 **What would break it**: a penalty pathway that writes records nobody reads; a panel tally that ignores active penalties; a cartel resolution that produces no downstream consequence.
 
+**Echoes**: commitment 8 (panel weights skill — the cartel penalty path enters the calibration weight at the same read point); commitment 10 (forward-only audit — cartel resolutions are immutable post-resolve, so the consequence cannot be retroactively withdrawn).
+
 ---
 
 ### 10. Forward-only audit
@@ -109,6 +127,8 @@ We believe: the chain's history is append-only and verifiable. A fact's status c
 **Code expression**: `PrivilegedAction` log keyed by monotonic seq (`x/knowledge/keeper/privileged_action_log.go`). `Augmentation.VerdictVoters / VerdictVotes / VerdictVoteStakes / VerdictVoteCalibrationBps` parallel arrays preserve every vote with its frozen-at-time stake and calibration. `IncidentRecord` and `CaptureChallenge` resolutions are immutable post-resolve.
 
 **What would break it**: a privileged-action handler that emits an event without writing to the log; a panel that overwrites votes after consensus; a manifest that lets its IncludedFactIds list be revised after finalization.
+
+**Echoes**: commitment 6 (no unilateral injection — the privileged-action log is what makes that promise auditable); commitment 9 (cartel detection has consequence — the immutability of resolutions is what makes the consequence permanent); commitment 13 (training corpus not for sale — append-only is the structural form of "not negotiable").
 
 ---
 
@@ -120,6 +140,8 @@ We believe: the chain's trustworthiness must be inspectable by anyone. Every sig
 
 **What would break it**: a trust signal that lives only in keeper state with no query surface; a synthesiser that hides component breakdowns; an audit pathway that depends on off-chain stitching.
 
+**Echoes**: commitment 7 (skill is current — current skill is one of the synthesised signals); commitment 8 (panel weights skill — calibration weights are surfaced through the per-address synthesiser); commitment 9 (cartel detection has consequence — penalty posture is a tracked component); commitment 10 (forward-only audit — without immutability, synthesised signals are not trustworthy).
+
 ---
 
 ### 12. The chain pays for its own audit
@@ -129,6 +151,8 @@ We believe: epistemic auditing is the chain's most important ongoing process. It
 **Code expression**: `ProbeBountyPoolModuleName` is a registered module account with Minter permission. `MintToProbeBountyPool` runs each block, capped at `ProbeBountyMaxPoolSize`. `PayProbeBountyFromPool` is the primary payer for successful-probe bonuses, with protocol treasury as fallback. Invitation bonuses pay flat from the same pool to anyone who answers.
 
 **What would break it**: a probe pool that depends on user-funded deposits; a successful-probe path that draws from general treasury without a dedicated audit budget; invitation rewards that come from nowhere or fall back to nothing.
+
+**Echoes**: commitment 4 (substrate stress-tests its truth — the audit budget is what makes stress-testing a chain-funded process); commitment 5 (chain manufactures probe demand — the same pool funds the invitation bonuses that drive demand).
 
 ---
 
@@ -140,6 +164,8 @@ We believe: the chain's training data is a substrate good, not a tradeable asset
 
 **What would break it**: a path that retroactively modifies a finalised manifest's IncludedFactIds; a clawback that doesn't fire on disprove; a fact whose acceptance becomes negotiable post-finalisation.
 
+**Echoes**: commitment 3 (Popper, not popularity — corpus membership is *earned* by survival, not granted by curation); commitment 10 (forward-only audit — the corpus's append-only structure is what makes "not for sale" mechanically true); commitment 6 (no unilateral injection — the corpus cannot be silently expanded by authority).
+
 ---
 
 ### 14. Reasoning traces are first-class
@@ -150,12 +176,14 @@ We believe: the chain trains not just on conclusions but on derivations. The pat
 
 **What would break it**: claim acceptance that drops the reasoning trace; trace assembly that omits methodology; export paths that train on facts but ignore the structured derivations attached to them.
 
+**Echoes**: commitment 1 (methodology over statement — methodology and reasoning trace are two halves of the same proof of derivation); commitment 13 (training corpus not for sale — derivations enter the corpus alongside conclusions).
+
 ---
 
 ## How the commitments echo
 
 ### Architecture
-Every commitment above is enforced by a code path. Every code path is exercised by an invariant test in `tests/integration/truth_seeking_invariants_test.go`. The test names read as creed lines — they're a contract between the document and the substrate.
+Every commitment above is enforced by a code path. Every code path is exercised by an invariant test in `tests/cross_stack/truth_seeking_invariants_test.go`. The test names read as creed lines — they're a contract between the document and the substrate.
 
 ### Infrastructure
 - **Param defaults** are chosen as expressions of the values, not for plausibility. ConfidenceThreshold rejects zero; AccuracyBps thresholds are tiered for ACTIVE/PROBATIONARY/SUSPENDED; ProbeBountyMintPerBlock is non-zero by default in genesis.

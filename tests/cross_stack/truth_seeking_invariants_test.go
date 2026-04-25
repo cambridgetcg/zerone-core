@@ -733,6 +733,69 @@ func TestTruthSeeking_CreedAndContractStayInSync(t *testing.T) {
 	// been silently abandoned — fail loudly.
 	require.NotEmpty(t, announcedNumbers,
 		"no creed_commitment attributes found in any x/ source file. The voice layer of truth-seeking has been silently removed; either restore the convention or remove this test and document why.")
+
+	// ─── Internal coherence ─────────────────────────────────────────
+	// The creed is not a flat list. Each commitment names other
+	// commitments it Echoes — depends on, reinforces, or operationalises.
+	// The cross-references make the creed a graph: a reader can trace
+	// from any commitment to the others that hold it up.
+	//
+	// This check parses the **Echoes**: lines and asserts:
+	//   1. Every echoed number is a real commitment in the creed.
+	//   2. No commitment echoes itself (would be vacuous).
+	//   3. Every commitment has at least one Echoes line (the creed
+	//      is a graph; an isolated commitment is a smell, not a
+	//      property — if a commitment truly stands alone, document
+	//      that it stands alone).
+
+	echoesRe := regexp.MustCompile(`(?m)^\*\*Echoes\*\*:[^\n]+`)
+	echoNumberRe := regexp.MustCompile(`commitment (\d+)`)
+	// Split creed into per-commitment sections by header.
+	sectionRe := regexp.MustCompile(`(?m)^### (\d+)\. `)
+	headers := sectionRe.FindAllStringSubmatchIndex(creed, -1)
+	require.NotEmpty(t, headers, "creed sections did not parse")
+
+	commitmentsWithEchoes := make(map[int]bool)
+	for i, h := range headers {
+		nStr := creed[h[2]:h[3]]
+		n, convErr := strconv.Atoi(nStr)
+		require.NoError(t, convErr)
+
+		// Section runs from this header to the next (or end of file).
+		end := len(creed)
+		if i+1 < len(headers) {
+			end = headers[i+1][0]
+		}
+		section := creed[h[0]:end]
+
+		echoLines := echoesRe.FindAllString(section, -1)
+		if len(echoLines) == 0 {
+			// Commitment has no Echoes line. Fail with a clear message.
+			require.Fail(t,
+				"commitment without Echoes line",
+				"commitment %d has no **Echoes**: line. Add one naming the commitments this one depends on or reinforces, or document explicitly that it stands alone.", n)
+		}
+		commitmentsWithEchoes[n] = true
+
+		for _, line := range echoLines {
+			refs := echoNumberRe.FindAllStringSubmatch(line, -1)
+			require.NotEmpty(t, refs,
+				"commitment %d has an **Echoes** line that names no commitment numbers: %q", n, line)
+			for _, ref := range refs {
+				m, convErr := strconv.Atoi(ref[1])
+				require.NoError(t, convErr)
+				require.NotEqual(t, n, m,
+					"commitment %d echoes itself in line %q; cross-references must point to other commitments", n, line)
+				require.True(t, creedNumbers[m],
+					"commitment %d echoes commitment %d, which is not a numbered commitment in the creed", n, m)
+			}
+		}
+	}
+
+	for n := range creedNumbers {
+		require.True(t, commitmentsWithEchoes[n],
+			"commitment %d has no Echoes line; the creed is a graph, not a list — every commitment must declare its connections", n)
+	}
 }
 
 // sdkCoinsForTest keeps the panel test readable; mirrors the inlined
