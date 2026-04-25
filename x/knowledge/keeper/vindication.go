@@ -177,10 +177,14 @@ func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, win
 		k.DeleteVindicationPending(ctx, factId)
 
 		sdkCtx := sdk.UnwrapSDKContext(ctx)
+		// Forward-only audit: vindication windows close on schedule;
+		// expiry is part of the immutable audit trail. See
+		// TRUTH_SEEKING.md commitment 10.
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.vindication_expired",
 			sdk.NewAttribute("fact_id", factId),
 			sdk.NewAttribute("entry_count", fmt.Sprintf("%d", len(entries))),
+			sdk.NewAttribute("creed_commitment", "10"),
 		))
 	}
 }
@@ -278,19 +282,29 @@ func (k Keeper) cascadeFalsification(ctx context.Context, disprovenFactId, chall
 		descendant.Status = types.FactStatus_FACT_STATUS_CONTESTED
 		_ = k.SetFact(ctx, descendant)
 		affectedCount++
+		// Popper, not popularity: when a fact falls, the chain
+		// announces which facts inherited its provisional truth and
+		// must be re-examined. The cascade is the substrate
+		// admitting that what depended on a wrong fact also might
+		// be wrong. See TRUTH_SEEKING.md commitment 3.
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.falsification_cascade",
 			sdk.NewAttribute("descendant_fact_id", descendant.Id),
 			sdk.NewAttribute("disproven_fact_id", disprovenFactId),
 			sdk.NewAttribute("challenge_claim_id", challengeClaimId),
 			sdk.NewAttribute("edge_relation", rel.Relation.String()),
+			sdk.NewAttribute("creed_commitment", "3"),
 		))
 	}
 	if affectedCount > 0 {
+		// Aggregate cascade announcement for off-chain observers
+		// that want one summary record per disproof. Same commitment
+		// as per-descendant events above.
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.falsification_cascade_summary",
 			sdk.NewAttribute("disproven_fact_id", disprovenFactId),
 			sdk.NewAttribute("descendants_contested", fmt.Sprintf("%d", affectedCount)),
+			sdk.NewAttribute("creed_commitment", "3"),
 		))
 	}
 }

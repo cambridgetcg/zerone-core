@@ -357,12 +357,18 @@ func (k Keeper) HandleCeremonyFinalization(ctx context.Context, ceremonyId strin
 			CeremonyId:  ceremony.Id,
 			Details:     "halt ceremony finalized and executed",
 		})
+		// Forward-only audit: halt ceremonies are immutable
+		// post-resolve. The chain announces the moment the halt
+		// takes effect so off-chain observers know this is a
+		// chain-recognised emergency, not a private decision. See
+		// TRUTH_SEEKING.md commitment 10.
 		sdkCtx.EventManager().EmitEvent(
 			sdk.NewEvent("zerone.emergency.ceremony_finalized",
 				sdk.NewAttribute("ceremony_id", ceremony.Id),
 				sdk.NewAttribute("ceremony_type", string(types.CeremonyHalt)),
 				sdk.NewAttribute("status", string(types.StatusHalted)),
 				sdk.NewAttribute("block_height", fmt.Sprintf("%d", sdkCtx.BlockHeight())),
+				sdk.NewAttribute("creed_commitment", "10"),
 			),
 		)
 
@@ -377,6 +383,11 @@ func (k Keeper) HandleCeremonyFinalization(ctx context.Context, ceremonyId strin
 		}
 		k.SetRevertTarget(ctx, revertHeight, revertHash, ceremony.Id)
 
+		// Forward-only audit: revert ceremonies are immutable. The
+		// announcement specifies the target height precisely so the
+		// rollback target itself is part of the chain's permanent
+		// record, not a private operator decision. See
+		// TRUTH_SEEKING.md commitment 10.
 		sdkCtx.EventManager().EmitEvent(
 			sdk.NewEvent(
 				"zerone.emergency.revert_required",
@@ -384,6 +395,7 @@ func (k Keeper) HandleCeremonyFinalization(ctx context.Context, ceremonyId strin
 				sdk.NewAttribute("target_height", fmt.Sprintf("%d", revertHeight)),
 				sdk.NewAttribute("target_hash", revertHash),
 				sdk.NewAttribute("action", "STOP nodes → rollback to target height → RESTART"),
+				sdk.NewAttribute("creed_commitment", "10"),
 			),
 		)
 
@@ -409,12 +421,18 @@ func (k Keeper) HandleCeremonyFinalization(ctx context.Context, ceremonyId strin
 			CeremonyId:  ceremony.Id,
 			Details:     "resume ceremony finalized and executed",
 		})
+		// Forward-only audit: resume ceremonies close the halt
+		// record. The announcement marks the chain as having
+		// re-entered normal status; the halt-to-resume transition
+		// is a public, dated, signed fact. See TRUTH_SEEKING.md
+		// commitment 10.
 		sdkCtx.EventManager().EmitEvent(
 			sdk.NewEvent("zerone.emergency.ceremony_finalized",
 				sdk.NewAttribute("ceremony_id", ceremony.Id),
 				sdk.NewAttribute("ceremony_type", string(types.CeremonyResume)),
 				sdk.NewAttribute("status", string(types.StatusNormal)),
 				sdk.NewAttribute("block_height", fmt.Sprintf("%d", sdkCtx.BlockHeight())),
+				sdk.NewAttribute("creed_commitment", "10"),
 			),
 		)
 	}
