@@ -24,7 +24,7 @@ func (m *msgServer) ProposeCounterexample(ctx context.Context, msg *types.MsgPro
 	}
 	params := m.keeper.GetParams(ctx)
 	if !params.ProposalsEnabled {
-		return nil, types.ErrProposalsDisabled
+		return nil, fmt.Errorf("%w (commitment 15: counterexamples are part of the corpus — disabling proposals suspends the alignment-by-structure economy and must be a deliberate, governance-witnessed pause, not a silent default)", types.ErrProposalsDisabled)
 	}
 	if uint32(len(msg.WrongClaim)) > params.MaxReasonBytes {
 		return nil, fmt.Errorf("%w: wrong_claim %d > %d", types.ErrTextTooLong, len(msg.WrongClaim), params.MaxReasonBytes)
@@ -39,7 +39,7 @@ func (m *msgServer) ProposeCounterexample(ctx context.Context, msg *types.MsgPro
 	// non-existent facts.
 	if m.keeper.factKeeper != nil {
 		if !m.keeper.factKeeper.FactExists(ctx, msg.FactId) {
-			return nil, fmt.Errorf("%w: %s", types.ErrFactNotFound, msg.FactId)
+			return nil, fmt.Errorf("%w: %s (commitment 15: counterexamples are structural negations OF facts — a wrong-claim with no parent fact is a free-floating assertion, not the discriminator signal a model needs to learn from)", types.ErrFactNotFound, msg.FactId)
 		}
 	}
 
@@ -93,10 +93,10 @@ func (m *msgServer) Validate(ctx context.Context, msg *types.MsgValidate) (*type
 		return nil, fmt.Errorf("%w: %s", types.ErrCounterexampleNotFound, msg.CounterexampleId)
 	}
 	if c.Status != types.CounterexampleStatus_COUNTEREXAMPLE_STATUS_PROPOSED {
-		return nil, types.ErrAlreadyResolved
+		return nil, fmt.Errorf("%w (commitment 15: a resolved counterexample's outcome is the corpus's record — reopening it for further votes would distort the alignment signal that downstream training reads)", types.ErrAlreadyResolved)
 	}
 	if m.keeper.HasValidatorVoted(ctx, c.Id, msg.Validator) {
-		return nil, types.ErrAlreadyVoted
+		return nil, fmt.Errorf("%w (commitment 15: one validator, one vote per counterexample — vote-stuffing would inflate the alignment-by-structure signal without adding judgment)", types.ErrAlreadyVoted)
 	}
 
 	id, err := m.keeper.NextValidationID(ctx)
