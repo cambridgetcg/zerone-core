@@ -28,7 +28,7 @@ func (m *msgServer) SubmitInquiry(ctx context.Context, msg *types.MsgSubmitInqui
 	}
 	params := m.keeper.GetParams(ctx)
 	if !params.SubmissionsEnabled {
-		return nil, types.ErrSubmissionsDisabled
+		return nil, fmt.Errorf("%w (commitment 16: the chain pays for exploration of the unknown — disabling inquiry submissions silences the demand side of the exploration market and must be a deliberate, governance-witnessed pause, not a silent default)", types.ErrSubmissionsDisabled)
 	}
 	if uint32(len(msg.Question)) > params.MaxQuestionBytes {
 		return nil, fmt.Errorf("%w: question %d > %d", types.ErrTextTooLong, len(msg.Question), params.MaxQuestionBytes)
@@ -42,7 +42,7 @@ func (m *msgServer) SubmitInquiry(ctx context.Context, msg *types.MsgSubmitInqui
 	}
 	minBounty, _ := types.ParseBounty(params.MinBounty)
 	if bountyAmt.Cmp(minBounty) < 0 {
-		return nil, fmt.Errorf("%w: %s < %s", types.ErrBountyTooLow, msg.Bounty, params.MinBounty)
+		return nil, fmt.Errorf("%w: %s < %s (commitment 16: the bounty is the chain's price signal for exploration — bounties below the minimum would let the unknown be claimed for nothing, eroding the exploration market the chain pays to maintain)", types.ErrBountyTooLow, msg.Bounty, params.MinBounty)
 	}
 
 	expiry := msg.ExpiryBlocks
@@ -111,10 +111,10 @@ func (m *msgServer) SubmitAnswer(ctx context.Context, msg *types.MsgSubmitAnswer
 	}
 	if q.Status != types.InquiryStatus_INQUIRY_STATUS_OPEN &&
 		q.Status != types.InquiryStatus_INQUIRY_STATUS_ANSWERED {
-		return nil, types.ErrInquiryNotOpen
+		return nil, fmt.Errorf("%w (commitment 16: an inquiry's resolution is the corpus's record of which exploration the chain paid for — answers cannot be appended to a closed call)", types.ErrInquiryNotOpen)
 	}
 	if m.keeper.CountAnswers(ctx, q.Id) >= params.MaxAnswersPerInquiry {
-		return nil, types.ErrTooManyAnswers
+		return nil, fmt.Errorf("%w (commitment 16: the answer cap protects the resolution from being flooded; the chain pays the first whose claim accepts, not whoever spams the most attempts)", types.ErrTooManyAnswers)
 	}
 	if m.keeper.ClaimAlreadyLinked(ctx, msg.ClaimId) {
 		return nil, types.ErrClaimAlreadyLinked
@@ -181,7 +181,7 @@ func (m *msgServer) ResolveInquiry(ctx context.Context, msg *types.MsgResolveInq
 	if q.Status == types.InquiryStatus_INQUIRY_STATUS_RESOLVED ||
 		q.Status == types.InquiryStatus_INQUIRY_STATUS_EXPIRED ||
 		q.Status == types.InquiryStatus_INQUIRY_STATUS_CANCELLED {
-		return nil, types.ErrInquiryAlreadyResolved
+		return nil, fmt.Errorf("%w (commitment 16: an inquiry resolves once — the resolution is the corpus's permanent record of which exploration the chain bought, not a draft to be re-attempted)", types.ErrInquiryAlreadyResolved)
 	}
 	if err := m.keeper.tryResolveInquiry(ctx, q); err != nil {
 		return nil, err
@@ -201,11 +201,18 @@ func (m *msgServer) CancelInquiry(ctx context.Context, msg *types.MsgCancelInqui
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", types.ErrInquiryNotFound, msg.InquiryId)
 	}
+	// Commitment 18: system-sponsored inquiries cannot be cancelled.
+	// The chain does not withdraw its own asks — that withdrawal
+	// would silently retract a publicly-posted exploration commitment
+	// and let the chain pretend it never asked. Refuse structurally.
+	if q.SystemInitiated {
+		return nil, types.ErrSystemInitiated
+	}
 	if q.Asker != msg.Asker {
 		return nil, types.ErrNotAsker
 	}
 	if q.Status != types.InquiryStatus_INQUIRY_STATUS_OPEN {
-		return nil, types.ErrAnswersInFlight
+		return nil, fmt.Errorf("%w (commitment 16: once answers are in flight, withdrawing the call would silently retract a publicly-posted exploration commitment — the chain honours the work already underway)", types.ErrAnswersInFlight)
 	}
 
 	if err := m.keeper.refundBounty(ctx, q); err != nil {
@@ -348,16 +355,40 @@ func (k Keeper) expireInquiry(ctx context.Context, q *types.Inquiry) error {
 	return nil
 }
 
+// refundBounty returns an unspent bounty to its source. For
+// user-asked inquiries (commitment 16), the source is the asker's
+// account. For system-sponsored inquiries (commitment 18), the
+// source is the FrontierBountyPool — the chain's exploration audit
+// budget conserves itself across unanswered cycles, so an expired
+// system inquiry replenishes the pool rather than leaking into
+// general circulation.
 func (k Keeper) refundBounty(ctx context.Context, q *types.Inquiry) error {
 	bountyAmt, err := types.ParseBounty(q.Bounty)
 	if err != nil {
 		return err
 	}
+	coins := sdk.NewCoins(sdk.NewCoin(denomZRN, sdkmath.NewIntFromBigInt(bountyAmt)))
+
+	if q.SystemInitiated {
+		// Round-trip back to the frontier pool. Preserves the
+		// "the chain pays for its own audit" commitment (12) at the
+		// audit-budget layer: mints in, mints out, balance reflects
+		// outstanding chain-driven exploration spend.
+		if err := k.bankKeeper.SendCoinsFromModuleToModule(
+			ctx,
+			types.BountyPoolModuleName,
+			types.FrontierBountyPoolModuleName,
+			coins,
+		); err != nil {
+			return fmt.Errorf("return system-initiated bounty to frontier pool: %w", err)
+		}
+		return nil
+	}
+
 	askerAddr, err := sdk.AccAddressFromBech32(q.Asker)
 	if err != nil {
 		return err
 	}
-	coins := sdk.NewCoins(sdk.NewCoin(denomZRN, sdkmath.NewIntFromBigInt(bountyAmt)))
 	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.BountyPoolModuleName, askerAddr, coins); err != nil {
 		return fmt.Errorf("refund bounty: %w", err)
 	}
