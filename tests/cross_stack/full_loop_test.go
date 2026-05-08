@@ -19,7 +19,10 @@ import (
 func TestFullLoop_HappyPath(t *testing.T) {
 	h := NewTestHarness(t)
 
-	// ─── Loosen gates so a single-validator harness can run a round ──────
+	// ─── Loosen gates so a two-verifier harness can run a round ─────────
+	// Effective min = MinVerifiers + 1 under nil partnership density for
+	// non-empty domain (R31-2: Water -> Fire), so MinVerifiers=1 still
+	// requires 2 commits/reveals to reach quorum.
 	kParams, err := h.KnowledgeKeeper.GetParams(h.Ctx)
 	require.NoError(t, err)
 	kParams.MinVerifiers = 1
@@ -45,15 +48,18 @@ func TestFullLoop_HappyPath(t *testing.T) {
 		Depth:   1,
 	})
 
-	// ─── Fund submitter and verifier (each needs ≥100 ZRN for commit gate) ─
+	// ─── Fund submitter and verifiers (each needs ≥100 ZRN for commit gate) ─
 	submitterAcc := sdk.AccAddress([]byte("fullloop-submitter00"))
 	verifierAcc := sdk.AccAddress([]byte("fullloop-verifier001"))
+	verifierAcc2 := sdk.AccAddress([]byte("fullloop-verifier002"))
 	submitterAddr := submitterAcc.String()
 	verifierAddr := verifierAcc.String()
+	verifierAddr2 := verifierAcc2.String()
 
 	fund := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(500_000_000))) // 500 ZRN
 	require.NoError(t, h.FundAccount(submitterAcc, fund))
 	require.NoError(t, h.FundAccount(verifierAcc, fund))
+	require.NoError(t, h.FundAccount(verifierAcc2, fund))
 
 	// ─── Phase 1: Submit claim ──────────────────────────────────────────
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
@@ -82,7 +88,9 @@ func TestFullLoop_HappyPath(t *testing.T) {
 	// ─── Phase 2: Commit ────────────────────────────────────────────────
 	vote := "accept"
 	salt := []byte("fullloop-salt-001")
+	salt2 := []byte("fullloop-salt-002")
 	commitHash := knowledgetypes.ComputeCommitmentHash(roundID, vote, 0, salt)
+	commitHash2 := knowledgetypes.ComputeCommitmentHash(roundID, vote, 0, salt2)
 
 	_, err = ms.SubmitCommitment(h.Ctx, &knowledgetypes.MsgSubmitCommitment{
 		Verifier:   verifierAddr,
@@ -91,10 +99,19 @@ func TestFullLoop_HappyPath(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	_, err = ms.SubmitCommitment(h.Ctx, &knowledgetypes.MsgSubmitCommitment{
+		Verifier:   verifierAddr2,
+		RoundId:    roundID,
+		CommitHash: commitHash2,
+	})
+	require.NoError(t, err)
+
 	round, _ = h.KnowledgeKeeper.GetVerificationRound(h.Ctx, roundID)
-	require.Len(t, round.Commits, 1, "commit must be recorded")
+	require.Len(t, round.Commits, 2, "both commits must be recorded")
 	require.Contains(t, round.SelectedVerifiers, verifierAddr,
 		"unified path should populate SelectedVerifiers (T-i1)")
+	require.Contains(t, round.SelectedVerifiers, verifierAddr2,
+		"second verifier must also enter SelectedVerifiers via unified path")
 
 	// ─── Phase 3: Advance height past CommitDeadline and run phase transition ─
 	h.Ctx = h.Ctx.WithBlockHeight(int64(round.CommitDeadline) + 1)
@@ -114,9 +131,19 @@ func TestFullLoop_HappyPath(t *testing.T) {
 	})
 	require.NoError(t, err, "canonical ComputeCommitmentHash must validate on tx path (T-i2)")
 
+	_, err = ms.SubmitReveal(h.Ctx, &knowledgetypes.MsgSubmitReveal{
+		Verifier:   verifierAddr2,
+		RoundId:    roundID,
+		Vote:       vote,
+		Salt:       salt2,
+		Confidence: 0,
+	})
+	require.NoError(t, err)
+
 	round, _ = h.KnowledgeKeeper.GetVerificationRound(h.Ctx, roundID)
-	require.Len(t, round.Reveals, 1)
+	require.Len(t, round.Reveals, 2)
 	require.Equal(t, "accept", round.Reveals[0].Vote)
+	require.Equal(t, "accept", round.Reveals[1].Vote)
 
 	// ─── Phase 5: Advance past RevealDeadline → aggregation + completion ─
 	h.Ctx = h.Ctx.WithBlockHeight(int64(round.RevealDeadline) + 1)
