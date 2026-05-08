@@ -126,8 +126,35 @@ type Params struct {
 	// Whether new inquiry submissions are accepted. Governance can
 	// pause without affecting open inquiries. Default: true.
 	SubmissionsEnabled bool `protobuf:"varint,8,opt,name=submissions_enabled,json=submissionsEnabled,proto3" json:"submissions_enabled,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Cadence in blocks. The frontier-sponsorship scan runs once every
+	// this-many blocks (specifically: when block_height %
+	// cadence == 0). Default: 600 blocks (~25 min at 2.5s blocks). 0
+	// disables.
+	FrontierInvitationCadenceBlocks uint64 `protobuf:"varint,9,opt,name=frontier_invitation_cadence_blocks,json=frontierInvitationCadenceBlocks,proto3" json:"frontier_invitation_cadence_blocks,omitempty"`
+	// Maximum number of system-sponsored inquiries the BeginBlocker
+	// creates per cadence-tick, taken from the top of the frontier in
+	// sparsity order. Bounds per-block work AND the chain's per-tick
+	// exploration spend. Default: 3.
+	FrontierInvitationTopK uint32 `protobuf:"varint,10,opt,name=frontier_invitation_top_k,json=frontierInvitationTopK,proto3" json:"frontier_invitation_top_k,omitempty"`
+	// Minimum sparsity_score_bps a domain must reach before it qualifies
+	// for chain sponsorship. Filters out domains the chain has already
+	// mapped. Default: 700_000 (top tercile of the 0..1M score).
+	FrontierInvitationSparsityThresholdBps uint64 `protobuf:"varint,11,opt,name=frontier_invitation_sparsity_threshold_bps,json=frontierInvitationSparsityThresholdBps,proto3" json:"frontier_invitation_sparsity_threshold_bps,omitempty"`
+	// Per-inquiry chain-sponsored bounty in uzrn (string-encoded big
+	// integer, same shape as min_bounty). Minted from the
+	// inquiry-frontier-bounty-pool when the system inquiry is created.
+	// Default: 5 ZRN ("5000000") — five times min_bounty so frontier
+	// questions attract attention without distorting the wider bounty
+	// market.
+	FrontierInvitationBounty string `protobuf:"bytes,12,opt,name=frontier_invitation_bounty,json=frontierInvitationBounty,proto3" json:"frontier_invitation_bounty,omitempty"`
+	// Default expiry window (in blocks) for system-sponsored inquiries.
+	// Distinct from default_expiry_blocks so chain-asked questions can
+	// sit longer than user-asked ones — the corpus does not need to
+	// give up on a sparse domain after 3 days. Default: 600_000 blocks
+	// (~17 days). Bounded by max_expiry_blocks.
+	FrontierInvitationExpiryBlocks uint64 `protobuf:"varint,13,opt,name=frontier_invitation_expiry_blocks,json=frontierInvitationExpiryBlocks,proto3" json:"frontier_invitation_expiry_blocks,omitempty"`
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -216,6 +243,41 @@ func (x *Params) GetSubmissionsEnabled() bool {
 	return false
 }
 
+func (x *Params) GetFrontierInvitationCadenceBlocks() uint64 {
+	if x != nil {
+		return x.FrontierInvitationCadenceBlocks
+	}
+	return 0
+}
+
+func (x *Params) GetFrontierInvitationTopK() uint32 {
+	if x != nil {
+		return x.FrontierInvitationTopK
+	}
+	return 0
+}
+
+func (x *Params) GetFrontierInvitationSparsityThresholdBps() uint64 {
+	if x != nil {
+		return x.FrontierInvitationSparsityThresholdBps
+	}
+	return 0
+}
+
+func (x *Params) GetFrontierInvitationBounty() string {
+	if x != nil {
+		return x.FrontierInvitationBounty
+	}
+	return ""
+}
+
+func (x *Params) GetFrontierInvitationExpiryBlocks() uint64 {
+	if x != nil {
+		return x.FrontierInvitationExpiryBlocks
+	}
+	return 0
+}
+
 var File_zerone_inquiry_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_inquiry_v1_genesis_proto_rawDesc = "" +
@@ -226,7 +288,7 @@ const file_zerone_inquiry_v1_genesis_proto_rawDesc = "" +
 	"\tinquiries\x18\x02 \x03(\v2\x1a.zerone.inquiry.v1.InquiryR\tinquiries\x123\n" +
 	"\aanswers\x18\x03 \x03(\v2\x19.zerone.inquiry.v1.AnswerR\aanswers\x12(\n" +
 	"\x10next_inquiry_seq\x18\x04 \x01(\x04R\x0enextInquirySeq\x12$\n" +
-	"\x0enext_answer_id\x18\x05 \x01(\x04R\fnextAnswerId\"\x82\x03\n" +
+	"\x0enext_answer_id\x18\x05 \x01(\x04R\fnextAnswerId\"\xef\x05\n" +
 	"\x06Params\x12\x1d\n" +
 	"\n" +
 	"min_bounty\x18\x01 \x01(\tR\tminBounty\x12,\n" +
@@ -236,7 +298,13 @@ const file_zerone_inquiry_v1_genesis_proto_rawDesc = "" +
 	"\x11max_expiry_blocks\x18\x05 \x01(\x04R\x0fmaxExpiryBlocks\x125\n" +
 	"\x17max_answers_per_inquiry\x18\x06 \x01(\rR\x14maxAnswersPerInquiry\x127\n" +
 	"\x18begin_blocker_scan_limit\x18\a \x01(\rR\x15beginBlockerScanLimit\x12/\n" +
-	"\x13submissions_enabled\x18\b \x01(\bR\x12submissionsEnabledB0Z.github.com/zerone-chain/zerone/x/inquiry/typesb\x06proto3"
+	"\x13submissions_enabled\x18\b \x01(\bR\x12submissionsEnabled\x12K\n" +
+	"\"frontier_invitation_cadence_blocks\x18\t \x01(\x04R\x1ffrontierInvitationCadenceBlocks\x129\n" +
+	"\x19frontier_invitation_top_k\x18\n" +
+	" \x01(\rR\x16frontierInvitationTopK\x12Z\n" +
+	"*frontier_invitation_sparsity_threshold_bps\x18\v \x01(\x04R&frontierInvitationSparsityThresholdBps\x12<\n" +
+	"\x1afrontier_invitation_bounty\x18\f \x01(\tR\x18frontierInvitationBounty\x12I\n" +
+	"!frontier_invitation_expiry_blocks\x18\r \x01(\x04R\x1efrontierInvitationExpiryBlocksB0Z.github.com/zerone-chain/zerone/x/inquiry/typesb\x06proto3"
 
 var (
 	file_zerone_inquiry_v1_genesis_proto_rawDescOnce sync.Once

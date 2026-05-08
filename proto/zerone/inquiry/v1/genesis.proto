@@ -47,4 +47,49 @@ message Params {
   // Whether new inquiry submissions are accepted. Governance can
   // pause without affecting open inquiries. Default: true.
   bool submissions_enabled = 8;
+
+  // ── Commitment 18: chain-manufactured exploration demand ──────────
+  //
+  // These params govern the BeginBlocker path that surveys the chain's
+  // frontier (where the corpus is sparse) and SPONSORS open inquiries
+  // there at chain expense. They are the dual of the probe-invitation
+  // params in x/knowledge: commitment 5 funds stress-testing what is
+  // known; commitment 18 funds exploration of what is not.
+  //
+  // Setting frontier_invitation_cadence_blocks to 0 disables the
+  // path entirely without affecting the rest of x/inquiry — governance
+  // can pause exploration sponsorship while keeping user-asked
+  // inquiries running.
+
+  // Cadence in blocks. The frontier-sponsorship scan runs once every
+  // this-many blocks (specifically: when block_height %
+  // cadence == 0). Default: 600 blocks (~25 min at 2.5s blocks). 0
+  // disables.
+  uint64 frontier_invitation_cadence_blocks = 9;
+
+  // Maximum number of system-sponsored inquiries the BeginBlocker
+  // creates per cadence-tick, taken from the top of the frontier in
+  // sparsity order. Bounds per-block work AND the chain's per-tick
+  // exploration spend. Default: 3.
+  uint32 frontier_invitation_top_k = 10;
+
+  // Minimum sparsity_score_bps a domain must reach before it qualifies
+  // for chain sponsorship. Filters out domains the chain has already
+  // mapped. Default: 700_000 (top tercile of the 0..1M score).
+  uint64 frontier_invitation_sparsity_threshold_bps = 11;
+
+  // Per-inquiry chain-sponsored bounty in uzrn (string-encoded big
+  // integer, same shape as min_bounty). Minted from the
+  // inquiry-frontier-bounty-pool when the system inquiry is created.
+  // Default: 5 ZRN ("5000000") — five times min_bounty so frontier
+  // questions attract attention without distorting the wider bounty
+  // market.
+  string frontier_invitation_bounty = 12;
+
+  // Default expiry window (in blocks) for system-sponsored inquiries.
+  // Distinct from default_expiry_blocks so chain-asked questions can
+  // sit longer than user-asked ones — the corpus does not need to
+  // give up on a sparse domain after 3 days. Default: 600_000 blocks
+  // (~17 days). Bounded by max_expiry_blocks.
+  uint64 frontier_invitation_expiry_blocks = 13;
 }

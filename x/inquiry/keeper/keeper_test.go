@@ -71,6 +71,21 @@ func (s *stubBank) SendCoinsFromModuleToAccount(_ context.Context, senderModule 
 	return nil
 }
 
+func (s *stubBank) SendCoinsFromModuleToModule(_ context.Context, senderModule, recipientModule string, amt sdk.Coins) error {
+	val := amt.AmountOf("uzrn").Int64()
+	if s.modules[senderModule] < val {
+		return fmt.Errorf("insufficient module funds: %s has %d, needs %d", senderModule, s.modules[senderModule], val)
+	}
+	s.modules[senderModule] -= val
+	s.modules[recipientModule] += val
+	return nil
+}
+
+func (s *stubBank) MintCoins(_ context.Context, moduleName string, amt sdk.Coins) error {
+	s.modules[moduleName] += amt.AmountOf("uzrn").Int64()
+	return nil
+}
+
 func (s *stubBank) GetBalance(_ context.Context, addr sdk.AccAddress, _ string) sdk.Coin {
 	return sdk.NewCoin("uzrn", sdkmath.NewInt(s.accounts[addr.String()]))
 }

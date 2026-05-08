@@ -343,6 +343,7 @@ var (
 		zeroneknowledgetypes.ProbeBountyPoolModuleName:   {authtypes.Minter},              // knowledge_probe_bounty_pool: Wave 15 per-block-minted probe rewards
 		zeroneknowledgetypes.VindicationEscrowModuleName: nil,                           // vindication_escrow: holds minority slashes until vindication or expiry
 		zeroneinquirytypes.BountyPoolModuleName:          nil,                           // inquiry_bounty_pool: receive-only escrow for inquiry bounties
+		zeroneinquirytypes.FrontierBountyPoolModuleName:  {authtypes.Minter},              // inquiry_frontier_bounty_pool: commitment 18 — chain-minted exploration audit budget
 		zeronetokenstypes.ModuleName:               {authtypes.Minter, authtypes.Burner}, // tokens: mint/burn for wrap/unwrap + emissions
 		zeronebillingtypes.ModuleName:              {authtypes.Burner},                        // billing: revenue split
 		zeronelptypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // liquiditypool: mint/burn LP tokens
@@ -1163,6 +1164,35 @@ func NewZeroneApp(
 	)
 	app.GovernanceSynthesisKeeper.SetFrontierCounterexamplesKeeper(
 		zeronecounterexkeeper.NewGovernanceSynthesisAdapter(app.CounterexamplesKeeper),
+	)
+
+	// Commitment 18 wiring: inquiry's BeginBlocker walks the chain's
+	// frontier each cadence-tick and SPONSORS open inquiries in the
+	// sparsest domains. The FrontierProvider closure projects
+	// governance_synthesis.ComposeFrontier into the narrow
+	// DomainSparsity shape inquiry reads — this preserves the
+	// dependency direction (inquiry does not import
+	// governance_synthesis types).
+	//
+	// Also publish the resolved bech32 of the frontier bounty pool
+	// so SystemSponsorInquiry can stamp it as the "asker" field of
+	// chain-sponsored inquiries — a stable, queryable identifier
+	// that downstream observers can recognise as "the chain itself."
+	zeroneinquirykeeper.SetFrontierBountyPoolBech32(
+		authtypes.NewModuleAddress(zeroneinquirytypes.FrontierBountyPoolModuleName).String(),
+	)
+	app.InquiryKeeper.SetFrontierProvider(
+		func(ctx context.Context, limit uint32) []zeroneinquirytypes.DomainSparsity {
+			f := app.GovernanceSynthesisKeeper.ComposeFrontier(ctx, limit)
+			out := make([]zeroneinquirytypes.DomainSparsity, 0, len(f.Domains))
+			for _, d := range f.Domains {
+				out = append(out, zeroneinquirytypes.DomainSparsity{
+					Domain:      d.Domain,
+					SparsityBps: d.SparsityScoreBps,
+				})
+			}
+			return out
+		},
 	)
 
 	// knowledge → capture_defense (feed verification history + reputation)

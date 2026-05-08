@@ -20,6 +20,12 @@ type Keeper struct {
 
 	bankKeeper      types.BankKeeper
 	knowledgeKeeper types.KnowledgeKeeper // optional; nil = manual-resolve only
+
+	// frontierProvider is wired post-init from x/governance_synthesis
+	// (or any equivalent composer). When nil, the commitment 18
+	// frontier-invitation BeginBlocker path is silently inactive —
+	// the rest of the module continues to function.
+	frontierProvider types.FrontierProvider
 }
 
 func NewKeeper(
@@ -37,6 +43,13 @@ func NewKeeper(
 }
 
 func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) { k.knowledgeKeeper = kk }
+
+// SetFrontierProvider wires the chain's frontier composer into the
+// inquiry keeper. Called post-init in app.go from a closure that
+// projects x/governance_synthesis.ComposeFrontier into the narrow
+// DomainSparsity shape this module reads. Optional: nil disables
+// the commitment 18 path without otherwise affecting the module.
+func (k *Keeper) SetFrontierProvider(fn types.FrontierProvider) { k.frontierProvider = fn }
 
 func (k Keeper) Logger(ctx context.Context) log.Logger {
 	return sdk.UnwrapSDKContext(ctx).Logger().With("module", "x/"+types.ModuleName)

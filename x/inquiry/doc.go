@@ -70,4 +70,39 @@
 // We speak through intentions. This package's intention is that
 // "the unknown" is a category the chain handles explicitly, not a
 // silence the chain pretends does not exist.
+//
+// ── Commitment 18: the chain manufactures exploration demand ────
+//
+// docs/TRUTH_SEEKING.md, commitment 18: commitment 16 lets askers
+// escrow bounties for the questions that interest them; commitment 5
+// has the chain mint to stress-test what it already thinks it knows.
+// Neither covers the case where the chain SEES that a domain is
+// sparse and yet waits for an outside party to ask. Knowing where
+// you are sparse without funding work to fill the sparseness is
+// observation without commitment.
+//
+// This module is also the home of commitment 18's BeginBlocker
+// path: every Params.frontier_invitation_cadence_blocks, the chain
+// reads its own frontier (composed by x/governance_synthesis), takes
+// the top-K sparsest domains above a configurable sparsity threshold,
+// and SPONSORS open inquiries in those domains — funded by mint
+// into the inquiry-frontier-bounty-pool, paid out via the same
+// payout flow that user-asked inquiries use.
+//
+// What this means for the module's identity:
+//
+//   - The asker field of an Inquiry no longer always belongs to a
+//     human-controlled account; for system-sponsored inquiries it
+//     is the bech32 of the frontier-bounty-pool's module account —
+//     a stable, queryable identifier for "the chain itself."
+//   - Inquiry.SystemInitiated and Inquiry.SystemInitiationReason
+//     mark records that originated from the chain's exploration
+//     budget rather than from a user's escrow.
+//   - Cancellation refuses on system-initiated inquiries: the chain
+//     does not withdraw its own asks. If the answer never arrives,
+//     the bounty returns to the frontier pool on expiry — the audit
+//     budget conserves itself across unanswered cycles.
+//   - Together with commitment 5 (probe demand) and commitment 16
+//     (asker demand), commitment 18 closes the demand triad: probe
+//     what's known, ask what you want, fund what's missing.
 package inquiry

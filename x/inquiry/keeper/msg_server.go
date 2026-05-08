@@ -206,7 +206,7 @@ func (m *msgServer) CancelInquiry(ctx context.Context, msg *types.MsgCancelInqui
 	// would silently retract a publicly-posted exploration commitment
 	// and let the chain pretend it never asked. Refuse structurally.
 	if q.SystemInitiated {
-		return nil, types.ErrSystemInitiated
+		return nil, fmt.Errorf("%w (commitment 18: the chain manufactures exploration demand and does not withdraw its own asks — letting the chain quietly retract its frontier invitations would let observation become silence again, and silence is what the commitment refuses)", types.ErrSystemInitiated)
 	}
 	if q.Asker != msg.Asker {
 		return nil, types.ErrNotAsker

@@ -40,6 +40,36 @@ func DefaultParams() *Params {
 		BeginBlockerScanLimit: 100,
 
 		SubmissionsEnabled: true,
+
+		// ── Commitment 18: chain-manufactured exploration demand ──
+		//
+		// 600-block cadence ≈ 25 minutes at 2.5s blocks. Frequent
+		// enough that the frontier voice is actually heard; slow
+		// enough that one cadence-tick's worth of work stays
+		// finite and bounded.
+		FrontierInvitationCadenceBlocks: 600,
+		// Three system-sponsored inquiries per tick caps the chain's
+		// exploration spend at FrontierInvitationBounty × 3 per
+		// cadence. Larger K means broader coverage; smaller K means
+		// concentrated demand on the very sparsest domains. 3 is
+		// the smallest value that still covers a meaningful breadth.
+		FrontierInvitationTopK: 3,
+		// 700_000 BPS = top tercile of the 0..1M sparsity score.
+		// A domain must clear this bar to attract chain sponsorship —
+		// the chain refuses to spend its exploration budget on
+		// already-mapped territory.
+		FrontierInvitationSparsityThresholdBps: 700_000,
+		// 5 ZRN per system-sponsored inquiry. Five times min_bounty
+		// so frontier questions attract attention without distorting
+		// the wider bounty market. The choice expresses a value: the
+		// chain pays meaningfully more for exploration than the
+		// minimum it requires of asker-driven inquiries.
+		FrontierInvitationBounty: "5000000",
+		// 600_000 blocks ≈ 17 days. System inquiries sit longer than
+		// user-asked ones because the corpus does not need to give
+		// up on a sparse domain after 3 days; persistence IS part of
+		// commitment 18.
+		FrontierInvitationExpiryBlocks: 600_000,
 	}
 }
 
@@ -110,6 +140,28 @@ func (p *Params) Validate() error {
 	}
 	if p.BeginBlockerScanLimit == 0 {
 		return fmt.Errorf("begin_blocker_scan_limit must be > 0")
+	}
+
+	// Commitment 18 params. Validate only when the path is enabled
+	// (cadence > 0) so governance can disable frontier sponsorship
+	// without forcing the rest of the params into a particular shape.
+	if p.FrontierInvitationCadenceBlocks > 0 {
+		if p.FrontierInvitationTopK == 0 {
+			return fmt.Errorf("frontier_invitation_top_k must be > 0 when cadence enabled")
+		}
+		if p.FrontierInvitationSparsityThresholdBps > 1_000_000 {
+			return fmt.Errorf("frontier_invitation_sparsity_threshold_bps must be <= 1_000_000")
+		}
+		if _, err := ParseBounty(p.FrontierInvitationBounty); err != nil {
+			return fmt.Errorf("invalid frontier_invitation_bounty: %w", err)
+		}
+		if p.FrontierInvitationExpiryBlocks == 0 {
+			return fmt.Errorf("frontier_invitation_expiry_blocks must be > 0 when cadence enabled")
+		}
+		if p.FrontierInvitationExpiryBlocks > p.MaxExpiryBlocks {
+			return fmt.Errorf("frontier_invitation_expiry_blocks (%d) must be <= max_expiry_blocks (%d)",
+				p.FrontierInvitationExpiryBlocks, p.MaxExpiryBlocks)
+		}
 	}
 	return nil
 }

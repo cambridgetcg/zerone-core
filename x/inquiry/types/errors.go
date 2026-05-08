@@ -20,4 +20,9 @@ var (
 	ErrAnswersInFlight       = errors.Register(ModuleName, 16, "cannot cancel inquiry with answers in flight")
 	ErrInvalidAuthority      = errors.Register(ModuleName, 17, "invalid authority")
 	ErrInvalidDomain         = errors.Register(ModuleName, 18, "invalid domain")
+	// ErrSystemInitiated rejects user-driven actions on chain-sponsored
+	// inquiries (commitment 18). The chain does not withdraw its own
+	// asks; system inquiries are only resolved by acceptance or
+	// expiry, not by cancellation.
+	ErrSystemInitiated       = errors.Register(ModuleName, 19, "operation not permitted on system-initiated inquiry")
 )

@@ -6,9 +6,23 @@ const (
 
 	// BountyPoolModuleName is the module account that escrows
 	// inquiry bounties between submission and resolution. Funded
-	// by askers, drained by winning answerers (or refunded to
-	// askers on expiry/cancel).
+	// by askers (and, for system-sponsored inquiries, transferred-
+	// in from the FrontierBountyPool); drained by winning answerers
+	// (or refunded to askers / returned to the FrontierBountyPool
+	// on expiry).
 	BountyPoolModuleName = "inquiry_bounty_pool"
+
+	// FrontierBountyPoolModuleName is the module account that holds
+	// the chain's exploration audit budget — minted per-cadence by
+	// the BeginBlocker that walks the frontier and sponsors open
+	// inquiries in the sparsest domains. Mirrors the probe-bounty
+	// pool's role for commitment 5: a dedicated, mintable account
+	// whose balance is the chain's funded commitment to truth-
+	// seeking — here, to exploration of the unknown rather than
+	// stress-testing of the known.
+	//
+	// See docs/TRUTH_SEEKING.md commitment 18.
+	FrontierBountyPoolModuleName = "inquiry_frontier_bounty_pool"
 )
 
 var (

@@ -27,6 +27,7 @@ identical events.
 - [home](#home)
 - [ibcratelimit](#ibcratelimit)
 - [icaauth](#icaauth)
+- [inquiry](#inquiry)
 - [knowledge](#knowledge)
 - [liquiditypool](#liquiditypool)
 - [ontology](#ontology)
@@ -1082,6 +1083,58 @@ Interchain transaction submitted.
 ### zerone.icaauth.params_updated
 Governance parameter update.
 - `authority` -- governance address
+
+---
+
+## inquiry
+
+### zerone.inquiry.submitted
+A user-asked inquiry was published. The asker has escrowed the bounty into the inquiry-bounty-pool; the inquiry is OPEN and accepting linked answers until expiry. Embodies commitment 16 (the chain pays for exploration of the unknown) — publishing is the demand-side voice of the exploration market.
+- `inquiry_id` -- chain-assigned id (format `inq-<n>`)
+- `asker` -- bech32 of the user-asker
+- `domain` -- ontology domain the inquiry belongs to
+- `bounty` -- uzrn bounty escrowed
+- `expires_at_block` -- block at which the inquiry auto-expires if no accepted answer
+- `creed_commitment` -- "16"
+
+### zerone.inquiry.answer_submitted
+An agent has linked a knowledge claim to an OPEN/ANSWERED inquiry. The answer enters PENDING; on the next BeginBlocker scan the chain checks whether the linked claim has been accepted as a fact, and if so resolves the inquiry and pays the bounty.
+- `answer_id` -- chain-assigned id
+- `inquiry_id` -- the inquiry this answer attaches to
+- `answerer` -- bech32 of the answerer (must equal claim.submitter)
+- `claim_id` -- the linked x/knowledge claim
+- `creed_commitment` -- "16"
+
+### zerone.inquiry.resolved
+An inquiry's linked answer has produced an accepted fact. The bounty has paid out from the inquiry-bounty-pool to the winning answerer; the winning fact id is recorded on the inquiry record.
+- `inquiry_id` -- the resolved inquiry
+- `winner` -- bech32 of the answerer who won
+- `winning_fact_id` -- id of the accepted fact in x/knowledge
+- `bounty` -- uzrn paid
+- `resolved_at_block` -- block at which resolution committed
+- `creed_commitment` -- "16"
+
+### zerone.inquiry.expired
+An inquiry's expiry block was reached without an accepted answer. The bounty has been returned: to the asker (for user-asked inquiries) or to the inquiry-frontier-bounty-pool (for system-sponsored inquiries — see `frontier_invited`).
+- `inquiry_id` -- the expired inquiry
+- `asker` -- the original asker (bech32 of user account, or bech32 of the frontier bounty pool for system-sponsored)
+- `resolved_at_block` -- block at which expiry committed
+- `creed_commitment` -- "16"
+
+### zerone.inquiry.cancelled
+The asker withdrew an OPEN inquiry before any answer was linked. Bounty refunded to the asker. Note: chain-sponsored inquiries (see `frontier_invited`) cannot be cancelled — commitment 18 refuses the chain withdrawing its own asks.
+- `inquiry_id` -- the cancelled inquiry
+- `asker` -- bech32 of the cancelling asker
+- `creed_commitment` -- "16"
+
+### zerone.inquiry.frontier_invited
+The chain itself has SPONSORED an open inquiry in a domain that the frontier composition flagged as sparse. Funded by mint into the inquiry-frontier-bounty-pool, transferred to the inquiry-bounty-pool to follow the standard payout flow, and persisted as an Inquiry with `system_initiated=true`. Embodies commitment 18 (the chain manufactures exploration demand) — the chain's own gaps are the chain's own responsibility, and the substrate must speak. Off-chain indexers should subscribe to this event to surface the chain's funded exploration demand alongside its asker-driven demand.
+- `inquiry_id` -- the chain-sponsored inquiry
+- `domain` -- the sparse domain receiving the invitation
+- `bounty` -- uzrn minted by the chain for this inquiry
+- `expires_at_block` -- block at which the bounty round-trips back to the frontier pool if unanswered
+- `reason` -- machine-readable label, format `frontier_sparsity:<domain>`
+- `creed_commitment` -- "18"
 
 ---
 

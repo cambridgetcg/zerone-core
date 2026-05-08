@@ -184,8 +184,25 @@ type Inquiry struct {
 	Winner string `protobuf:"bytes,11,opt,name=winner,proto3" json:"winner,omitempty"`
 	// Block the inquiry resolved. 0 while still OPEN/ANSWERED.
 	ResolvedAtBlock uint64 `protobuf:"varint,12,opt,name=resolved_at_block,json=resolvedAtBlock,proto3" json:"resolved_at_block,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// True iff this inquiry was created by the chain itself rather than
+	// by a user-asker. System-initiated inquiries are funded by mint
+	// from the inquiry-frontier-bounty-pool, not by escrow from a user
+	// account; their bounty is returned to that pool on expiry rather
+	// than refunded to the asker; and they cannot be cancelled (the
+	// chain does not withdraw its own asks).
+	//
+	// See docs/TRUTH_SEEKING.md commitment 18: the chain manufactures
+	// exploration demand. Where commitment 5 has the chain paying to
+	// stress-test what it already thinks it knows, this field marks
+	// the dual: the chain paying to fill what it does not yet know.
+	SystemInitiated bool `protobuf:"varint,13,opt,name=system_initiated,json=systemInitiated,proto3" json:"system_initiated,omitempty"`
+	// For system_initiated inquiries: a stable, machine-readable label
+	// identifying which chain process sponsored the inquiry. Format:
+	// "<source>:<details>", e.g. "frontier_sparsity:philosophy". Empty
+	// for user-asked inquiries.
+	SystemInitiationReason string `protobuf:"bytes,14,opt,name=system_initiation_reason,json=systemInitiationReason,proto3" json:"system_initiation_reason,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Inquiry) Reset() {
@@ -302,6 +319,20 @@ func (x *Inquiry) GetResolvedAtBlock() uint64 {
 	return 0
 }
 
+func (x *Inquiry) GetSystemInitiated() bool {
+	if x != nil {
+		return x.SystemInitiated
+	}
+	return false
+}
+
+func (x *Inquiry) GetSystemInitiationReason() string {
+	if x != nil {
+		return x.SystemInitiationReason
+	}
+	return ""
+}
+
 // Answer links a knowledge Claim to an Inquiry. When the linked
 // claim's verification accepts (becomes a fact), the inquiry resolves
 // and pays the bounty to the answerer.
@@ -403,7 +434,7 @@ var File_zerone_inquiry_v1_types_proto protoreflect.FileDescriptor
 
 const file_zerone_inquiry_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"\x1dzerone/inquiry/v1/types.proto\x12\x11zerone.inquiry.v1\"\x93\x03\n" +
+	"\x1dzerone/inquiry/v1/types.proto\x12\x11zerone.inquiry.v1\"\xf8\x03\n" +
 	"\aInquiry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05asker\x18\x02 \x01(\tR\x05asker\x12\x1a\n" +
@@ -417,7 +448,9 @@ const file_zerone_inquiry_v1_types_proto_rawDesc = "" +
 	"\x0fwinning_fact_id\x18\n" +
 	" \x01(\tR\rwinningFactId\x12\x16\n" +
 	"\x06winner\x18\v \x01(\tR\x06winner\x12*\n" +
-	"\x11resolved_at_block\x18\f \x01(\x04R\x0fresolvedAtBlock\"\xee\x01\n" +
+	"\x11resolved_at_block\x18\f \x01(\x04R\x0fresolvedAtBlock\x12)\n" +
+	"\x10system_initiated\x18\r \x01(\bR\x0fsystemInitiated\x128\n" +
+	"\x18system_initiation_reason\x18\x0e \x01(\tR\x16systemInitiationReason\"\xee\x01\n" +
 	"\x06Answer\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1d\n" +
 	"\n" +

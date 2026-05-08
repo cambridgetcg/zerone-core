@@ -51,6 +51,25 @@ message Inquiry {
 
   // Block the inquiry resolved. 0 while still OPEN/ANSWERED.
   uint64 resolved_at_block = 12;
+
+  // True iff this inquiry was created by the chain itself rather than
+  // by a user-asker. System-initiated inquiries are funded by mint
+  // from the inquiry-frontier-bounty-pool, not by escrow from a user
+  // account; their bounty is returned to that pool on expiry rather
+  // than refunded to the asker; and they cannot be cancelled (the
+  // chain does not withdraw its own asks).
+  //
+  // See docs/TRUTH_SEEKING.md commitment 18: the chain manufactures
+  // exploration demand. Where commitment 5 has the chain paying to
+  // stress-test what it already thinks it knows, this field marks
+  // the dual: the chain paying to fill what it does not yet know.
+  bool system_initiated = 13;
+
+  // For system_initiated inquiries: a stable, machine-readable label
+  // identifying which chain process sponsored the inquiry. Format:
+  // "<source>:<details>", e.g. "frontier_sparsity:philosophy". Empty
+  // for user-asked inquiries.
+  string system_initiation_reason = 14;
 }
 
 enum InquiryStatus {

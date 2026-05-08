@@ -216,6 +216,18 @@ We believe: when agents disagree on a verification, that disagreement itself is 
 
 ---
 
+### 18. The chain manufactures exploration demand
+
+We believe: the chain's own gaps are the chain's own responsibility. Commitment 5 has the chain mint to stress-test what it already thinks it knows; commitment 16 lets askers escrow bounties for the questions that interest them. Neither covers the case where the chain SEES — through its own frontier composition — that a domain is sparse, and yet waits for an outside party to ask. Knowing where you are sparse without funding work to fill the sparseness is observation without commitment, and observation without commitment is silence by another name. The substrate must speak.
+
+**Code expression**: `x/inquiry`'s BeginBlocker carries a second responsibility. Every `Params.frontier_invitation_cadence_blocks`, the inquiry keeper reads the chain's frontier via the wired `FrontierProvider` (a closure projecting `x/governance_synthesis.ComposeFrontier` into the narrow `DomainSparsity` shape), filters by `Params.frontier_invitation_sparsity_threshold_bps`, takes the top `Params.frontier_invitation_top_k` rows, and calls `Keeper.SystemSponsorInquiry` per row. `SystemSponsorInquiry` mints `Params.frontier_invitation_bounty` uzrn into the dedicated `inquiry_frontier_bounty_pool` module account (which carries `Minter` permission), transfers those coins to the existing `inquiry_bounty_pool` so the standard payout flow reaches the eventual answerer, persists an `Inquiry` with `SystemInitiated=true` and a `SystemInitiationReason` of the form `"frontier_sparsity:<domain>"`, and emits `zerone.inquiry.frontier_invited` with `creed_commitment="18"`. Cancellation rejects system-initiated inquiries (`ErrSystemInitiated`); on expiry without a winner, the bounty round-trips back to the frontier pool rather than leaking into general circulation — the audit budget conserves itself across unanswered cycles.
+
+**What would break it**: a cadence that depends on external triggering rather than firing each block at the configured modulus; a frontier-bounty path that draws from general treasury rather than a dedicated `Minter`-permissioned pool; selection that ignores `sparsity_score_bps` ordering or threshold; a system-sponsored inquiry whose answers bypass normal verification (allowing cheap unaudited answers to win); cancellation that succeeds on system-initiated inquiries (silent retraction); a `frontier_invited` event that fires without funded bounty (rhetoric); expiry of a system-sponsored inquiry that leaks the bounty into general circulation rather than returning it to the frontier pool.
+
+**Echoes**: commitment 5 (the dual — same architecture, opposite scope: where 5 funds stress-testing of what is already known, this commitment funds exploration of what is not); commitment 12 (chain pays for its own audit — exploration is structurally part of the chain's audit, and the dedicated frontier-bounty pool keeps that audit category visible at the budget layer); commitment 16 (the underlying market the chain joins as a paying participant rather than only the venue); commitment 11 (Frontier was queryable; this makes it active — the synthesizer's output now drives a funded chain initiative rather than waiting for an off-chain consumer to act on it).
+
+---
+
 ## How the commitments echo
 
 The creed is enforced at five layers, each one mechanically synced to the others by `TestTruthSeeking_CreedAndContractStayInSync`. Adding a commitment to one layer without the others fails CI.
