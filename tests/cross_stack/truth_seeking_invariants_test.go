@@ -34,6 +34,8 @@ import (
 	autopoiesistypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
 	counterexampleskeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	counterexamplestypes "github.com/zerone-chain/zerone/x/counterexamples/types"
+	creedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
+	creedtypes "github.com/zerone-chain/zerone/x/creed/types"
 	disputeskeeper "github.com/zerone-chain/zerone/x/disputes/keeper"
 	disputestypes "github.com/zerone-chain/zerone/x/disputes/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
@@ -587,6 +589,182 @@ func TestTruthSeeking_PrivilegedActionsLogMonotonically(t *testing.T) {
 		require.Greater(t, a.InvokedAtBlock, uint64(0),
 			"every log entry must carry the block it was invoked at — time-stamped, not post-dateable")
 	}
+}
+
+// Commitment 6 + 10: the creed itself is governance-gated.
+// x/creed extends "no unilateral injection" from facts to the
+// chain's voice itself. AnchorPin requires the gov authority and
+// (once direct_anchor_enabled is false) a source LIP. Without these
+// gates, the chain's stated beliefs could shift silently — the
+// foundation under every other layer of the truth-seeking
+// architecture would be unbound.
+//
+// Bound here AND by: TestTruthSeeking_PrivilegedActionsLogMonotonically
+// (forward-only audit at the privileged-action layer; this test
+// extends the same shape to the creed-amendment layer).
+func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
+	h := NewTestHarness(t)
+	ms := creedkeeper.NewMsgServerImpl(h.CreedKeeper)
+	authority := h.CreedKeeper.GetAuthority()
+
+	// Pin a baseline version 1 record. This stands in for the
+	// genesis pin in a chain that started fresh; the assertions
+	// below are about how subsequent amendments are gated.
+	v1 := &creedtypes.PinnedCreed{
+		Version:       1,
+		CanonicalHash: []byte("hash-v1"),
+		Commitments: []*creedtypes.CommitmentEntry{
+			{Number: 1, Name: "Methodology over statement"},
+			{Number: 2, Name: "Is-ought wall is structural"},
+		},
+	}
+	_, err := ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin:       v1,
+	})
+	require.NoError(t, err, "the authority can pin a fresh creed version under default params; otherwise genesis bootstrap is impossible")
+
+	// 1. Non-authority caller is refused.
+	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: testAddr("ts_creed_imposter").String(),
+		Pin: &creedtypes.PinnedCreed{
+			Version:       2,
+			CanonicalHash: []byte("hash-v2-imposter"),
+			Commitments:   v1.Commitments,
+		},
+	})
+	require.Error(t, err, "an imposter must not be able to amend the chain's voice")
+	require.Contains(t, err.Error(), "unauthorized",
+		"refusal must name the protection — silent rejection erases the principle from the chain's record")
+
+	// 2. Authority cannot land a non-monotonic version.
+	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version:       1, // attempting to overwrite v1
+			CanonicalHash: []byte("hash-v1-rewrite"),
+			Commitments:   v1.Commitments,
+		},
+	})
+	require.Error(t, err, "version must be strictly current+1 — past pins cannot be rewritten under any authority")
+	require.Contains(t, err.Error(), "commitment 10",
+		"refusal must cite forward-only audit so observers see which principle is protected")
+
+	// 3. Authority cannot land an empty hash.
+	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version:       2,
+			CanonicalHash: nil,
+			Commitments:   v1.Commitments,
+		},
+	})
+	require.Error(t, err, "a pin with no hash anchors nothing; commitment 6's protection collapses without a content binding")
+
+	// 4. Authority cannot land a registry that drops commitment N
+	// without archiving it. Forward-only forbids silent removal.
+	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version:       2,
+			CanonicalHash: []byte("hash-v2-with-gap"),
+			Commitments: []*creedtypes.CommitmentEntry{
+				{Number: 1, Name: "Methodology over statement"},
+				// Number 2 is silently dropped. Should fail.
+				{Number: 3, Name: "New thing"},
+			},
+		},
+	})
+	require.Error(t, err, "a registry with a gap is interpretation drift in disguise; archive entries rather than dropping numbers")
+
+	// 5. Disable direct-anchor and require source_lip.
+	params := h.CreedKeeper.GetParams(h.Ctx)
+	params.DirectAnchorEnabled = false
+	require.NoError(t, h.CreedKeeper.SetParams(h.Ctx, params))
+
+	// Without source_lip: refused.
+	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version:       2,
+			CanonicalHash: []byte("hash-v2-no-lip"),
+			Commitments:   v1.Commitments,
+		},
+		// SourceLip intentionally empty
+	})
+	require.Error(t, err, "post-launch path requires LIP authorization; an unsourced amendment must be refused")
+	require.Contains(t, err.Error(), "commitment 6",
+		"refusal must cite the no-unilateral-injection commitment")
+
+	// Even with source_lip, the chain refuses while direct-anchor
+	// is disabled and the LIP class hasn't shipped — this is the
+	// pre-LIP-class lockdown. The chain refuses ALL writes until
+	// the gov path is wired.
+	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version:       2,
+			CanonicalHash: []byte("hash-v2-with-lip"),
+			Commitments:   v1.Commitments,
+		},
+		SourceLip: "LIP-1",
+	})
+	require.Error(t, err, "until the Creed Amendment LIP class lands and wires the gov authority through, the chain is sealed against direct amendment")
+}
+
+// Commitment 10 (forward-only audit, creed side): the pin history
+// is append-only and queryable. A v2 pin does not erase v1; the
+// chain's record of how its voice has evolved remains visible to
+// off-chain observers and downstream synthesisers.
+func TestTruthSeeking_CreedHistoryIsForwardOnly(t *testing.T) {
+	h := NewTestHarness(t)
+	ms := creedkeeper.NewMsgServerImpl(h.CreedKeeper)
+	qs := creedkeeper.NewQueryServerImpl(h.CreedKeeper)
+	authority := h.CreedKeeper.GetAuthority()
+
+	v1Hash := []byte("genesis-creed-hash")
+	v1Commitments := []*creedtypes.CommitmentEntry{
+		{Number: 1, Name: "Methodology over statement"},
+		{Number: 2, Name: "Is-ought wall is structural"},
+	}
+	_, err := ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version: 1, CanonicalHash: v1Hash, Commitments: v1Commitments,
+		},
+	})
+	require.NoError(t, err)
+
+	v2Hash := []byte("amended-creed-hash")
+	v2Commitments := []*creedtypes.CommitmentEntry{
+		{Number: 1, Name: "Methodology over statement"},
+		{Number: 2, Name: "Is-ought wall is structural"},
+		{Number: 3, Name: "Popper, not popularity"},
+	}
+	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version: 2, CanonicalHash: v2Hash, Commitments: v2Commitments,
+		},
+	})
+	require.NoError(t, err)
+
+	// Current pin is v2.
+	cur, err := qs.Pinned(h.Ctx, &creedtypes.QueryPinnedRequest{})
+	require.NoError(t, err)
+	require.Equal(t, uint32(2), cur.Pin.Version)
+	require.Equal(t, v2Hash, cur.Pin.CanonicalHash)
+
+	// v1 is queryable byte-identically — the amendment did not
+	// rewrite history. This is what "forward-only audit" buys at
+	// the creed layer.
+	historical, err := qs.PinAtVersion(h.Ctx, &creedtypes.QueryPinAtVersionRequest{Version: 1})
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), historical.Pin.Version)
+	require.Equal(t, v1Hash, historical.Pin.CanonicalHash,
+		"v1 hash must remain byte-identical after v2 lands; commitment 10 forbids rewriting prior versions")
+	require.Len(t, historical.Pin.Commitments, 2,
+		"v1's commitment registry must reflect what the chain pinned then, not what it pins now")
 }
 
 // ════════════════════════════════════════════════════════════════════
