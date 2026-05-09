@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -174,6 +175,19 @@ func (k Keeper) AssembleToKBundle(
 	}
 	bundle.SerialisedPayload = payload
 
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeToKBundleExtracted,
+		sdk.NewAttribute(AttrToKCommitment, "TC1,TC5"),
+		sdk.NewAttribute(AttrToKSelectorKind, selectorKind(capped)),
+		sdk.NewAttribute(AttrToKBundleSize, fmt.Sprintf("%d", len(nodeIDs))),
+		sdk.NewAttribute(AttrToKSnapshotBlock, fmt.Sprintf("%d", atBlockHeight)),
+	))
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeToKSnapshotRootPinned,
+		sdk.NewAttribute(AttrToKCommitment, "TC2"),
+		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(root)),
+	))
+
 	return bundle, nil
 }
 
@@ -191,5 +205,20 @@ func (k Keeper) SelectToKIds(
 		return k.GatherFrontier(ctx, v.Frontier)
 	default:
 		return nil, nil, fmt.Errorf("selector variant not recognised: %T", sel.Variant)
+	}
+}
+
+// selectorKind returns a human-readable tag for the selector variant, used as
+// the selector_kind event attribute on tok_bundle_extracted events.
+func selectorKind(s *types.ToKSelector) string {
+	switch s.Variant.(type) {
+	case *types.ToKSelector_RootedSubtree:
+		return "rooted_subtree"
+	case *types.ToKSelector_AncestorCone:
+		return "ancestor_cone"
+	case *types.ToKSelector_Frontier:
+		return "frontier"
+	default:
+		return "unknown"
 	}
 }

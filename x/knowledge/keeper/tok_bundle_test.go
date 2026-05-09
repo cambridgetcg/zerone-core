@@ -388,6 +388,37 @@ func TestQueryBundleToK_RejectsMissingRoot(t *testing.T) {
 	require.Equal(t, codes.NotFound, st.Code())
 }
 
+// ─── Event emission tests ────────────────────────────────────────────────────
+
+func TestAssembleToKBundle_EmitsEvents(t *testing.T) {
+	k, ctx := setupKnowledgeWithFacts(t, []factSpec{
+		{id: "axiom", domain: "physics"},
+	})
+	sel := &types.ToKSelector{Variant: &types.ToKSelector_RootedSubtree{
+		RootedSubtree: &types.RootedSubtreeSelector{RootFactId: "axiom", MaxDepth: 1},
+	}}
+	_, err := k.AssembleToKBundle(ctx, sel, 0)
+	require.NoError(t, err)
+
+	events := sdk.UnwrapSDKContext(ctx).EventManager().Events()
+	var sawBundle, sawRoot bool
+	for _, e := range events {
+		if e.Type == keeper.EventTypeToKBundleExtracted {
+			sawBundle = true
+			for _, a := range e.Attributes {
+				if a.Key == keeper.AttrToKCommitment {
+					require.Contains(t, a.Value, "TC1")
+				}
+			}
+		}
+		if e.Type == keeper.EventTypeToKSnapshotRootPinned {
+			sawRoot = true
+		}
+	}
+	require.True(t, sawBundle, "TC1: tok_bundle_extracted must be emitted")
+	require.True(t, sawRoot, "TC2: tok_snapshot_root_pinned must be emitted")
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 type factSpec struct {
