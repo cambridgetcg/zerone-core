@@ -150,6 +150,89 @@ func (k Keeper) gatherDescendantsRecursive(
 	return nil
 }
 
+// GatherAncestorCone walks ancestors from the leaf up to max_depth, capped
+// at max_paths distinct paths. Mirror of GatherRootedSubtree but follows
+// outgoing relations (source→target) instead of incoming.
+func (k Keeper) GatherAncestorCone(
+	ctx context.Context,
+	sel *types.AncestorConeSelector,
+) (nodeIDs []string, edges []*types.ToKEdge, err error) {
+	leaf, found := k.GetFact(ctx, sel.LeafFactId)
+	if !found {
+		return nil, nil, fmt.Errorf("leaf fact %s not found", sel.LeafFactId)
+	}
+	visited := map[string]bool{leaf.Id: true}
+	edgeSet := map[string]*types.ToKEdge{}
+	pathCount := uint32(0)
+	if err := k.gatherAncestorsRecursive(ctx, leaf.Id, 1, sel.MaxDepth, sel.MaxPaths, &pathCount, visited, edgeSet); err != nil {
+		return nil, nil, err
+	}
+	for id := range visited {
+		nodeIDs = append(nodeIDs, id)
+	}
+	sort.Strings(nodeIDs)
+	for _, e := range edgeSet {
+		edges = append(edges, e)
+	}
+	sortToKEdges(edges)
+	return nodeIDs, edges, nil
+}
+
+func (k Keeper) gatherAncestorsRecursive(
+	ctx context.Context,
+	factID string,
+	depth, maxDepth, maxPaths uint32,
+	pathCount *uint32,
+	visited map[string]bool,
+	edges map[string]*types.ToKEdge,
+) error {
+	if depth > maxDepth || *pathCount >= maxPaths {
+		return nil
+	}
+	// GetFactRelations returns all outgoing relations from factID (source → target).
+	outgoing, err := k.GetFactRelations(ctx, factID)
+	if err != nil {
+		return err
+	}
+	for _, rel := range outgoing {
+		// FILTER: only support-bearing relations — mirror of gatherDescendantsRecursive.
+		// CONTRADICTS, SUPERSEDES, UNSPECIFIED, REFORMULATES must not appear in an ancestor bundle.
+		switch rel.Relation {
+		case types.RelationType_RELATION_TYPE_SUPPORTS,
+			types.RelationType_RELATION_TYPE_REQUIRES,
+			types.RelationType_RELATION_TYPE_REFINES,
+			types.RelationType_RELATION_TYPE_GENERALIZES,
+			types.RelationType_RELATION_TYPE_CITES:
+		default:
+			continue
+		}
+		// GUARD: skip if target fact missing (ghost node).
+		if _, ok := k.GetFact(ctx, rel.TargetFactId); !ok {
+			continue
+		}
+		*pathCount++
+		if *pathCount > maxPaths {
+			return nil
+		}
+		edgeKey := rel.SourceFactId + "->" + rel.TargetFactId + "|" + rel.Relation.String()
+		if _, ok := edges[edgeKey]; !ok {
+			edges[edgeKey] = &types.ToKEdge{
+				FromFactId: rel.SourceFactId,
+				ToFactId:   rel.TargetFactId,
+				Relation:   rel.Relation.String(),
+				Inference:  rel.Inference.String(),
+			}
+		}
+		if !visited[rel.TargetFactId] {
+			visited[rel.TargetFactId] = true
+			if err := k.gatherAncestorsRecursive(ctx, rel.TargetFactId, depth+1, maxDepth, maxPaths, pathCount, visited, edges); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func sortToKEdges(edges []*types.ToKEdge) {
 	sort.Slice(edges, func(i, j int) bool {
 		if edges[i].FromFactId != edges[j].FromFactId {

@@ -86,6 +86,25 @@ func TestGatherRootedSubtree_FiltersContradictsRelations(t *testing.T) {
 	require.Equal(t, []string{"axiom", "b"}, nodeIDs)
 }
 
+func TestGatherAncestorCone_LinearChain(t *testing.T) {
+	k, ctx := setupKnowledgeWithFacts(t, []factSpec{
+		{id: "axiom", domain: "physics"},
+		{id: "b", domain: "physics", supports: []string{"axiom"}},
+		{id: "c", domain: "physics", supports: []string{"b"}},
+	})
+	sel := &types.AncestorConeSelector{LeafFactId: "c", MaxDepth: 5, MaxPaths: 10}
+	nodeIDs, edges, err := k.GatherAncestorCone(ctx, sel)
+	require.NoError(t, err)
+	require.Equal(t, []string{"axiom", "b", "c"}, nodeIDs)
+	require.Len(t, edges, 2)
+	// sortToKEdges sorts by FromFactId: "b" < "c" lexicographically
+	// edges[0]: b→axiom, edges[1]: c→b
+	require.Equal(t, "b", edges[0].FromFactId)
+	require.Equal(t, "axiom", edges[0].ToFactId)
+	require.Equal(t, "c", edges[1].FromFactId)
+	require.Equal(t, "b", edges[1].ToFactId)
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 type factSpec struct {
