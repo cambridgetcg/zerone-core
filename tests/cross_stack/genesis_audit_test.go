@@ -11,6 +11,7 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	autopoiesistypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
+	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -260,25 +261,55 @@ func TestScenario13b_AllowedAppConstants(t *testing.T) {
 
 // TestScenario13c_ClaimingPotMinterPermission asserts that the claiming_pot
 // module account is registered with Minter permission, enabling the
-// bootstrap-claim emission pathway.
-//
-// Skipped until Phase 2 of docs/plans/2026-05-09-zero-team-allocation-plan.md
-// lands; remove the t.Skip when claiming_pot.MsgClaim mints rather than
-// transfers from a pre-funded module account.
+// bootstrap-claim emission pathway. Without Minter permission, the
+// bootstrap pathway cannot mint and the doctrine collapses back to the
+// pre-fund-then-transfer model. The permission is the structural form of
+// commitment 20 (issuance follows participation) at the module-account
+// layer.
 func TestScenario13c_ClaimingPotMinterPermission(t *testing.T) {
-	t.Skip("pending phase 2 of zero-team-allocation plan — claiming_pot mint-on-claim rework")
+	h := NewTestHarness(t)
+
+	moduleAcc := h.App.AccountKeeper.GetModuleAccount(h.Ctx, claimingpottypes.ModuleName)
+	require.NotNil(t, moduleAcc, "claiming_pot module account must exist post-InitChain")
+
+	require.True(t, moduleAcc.HasPermission(authtypes.Minter),
+		"claiming_pot module account must hold Minter permission to drive the bootstrap mint pathway (commitment 20: issuance follows participation)")
 }
 
-// TestScenario13d_BootstrapPotConfigured asserts that a bootstrap pot
-// exists in claiming_pot DefaultGenesis with the expected configuration:
-// per-agent claim amount = 222,000 uzrn (0.222 ZRN), eligibility carries
-// a whitelist seam, vesting schedule defined.
+// TestScenario13d_BootstrapPotForAgent asserts the bootstrap-pot helper
+// produces a doctrine-aligned pot for an arbitrary agent: per-agent
+// amount = 222,000 uzrn (0.222 ZRN), single-claimant whitelist, instant
+// vest, ACTIVE status. The genesis ceremony will call this helper once
+// per whitelisted address in the operator's whitelist file (Phase 5).
 //
-// Skipped until Phase 4 of docs/plans/2026-05-09-zero-team-allocation-plan.md
-// lands; remove the t.Skip when claiming_pot DefaultGenesis returns the
-// bootstrap pot.
-func TestScenario13d_BootstrapPotConfigured(t *testing.T) {
-	t.Skip("pending phase 4 of zero-team-allocation plan — bootstrap pot in genesis state")
+// The pot model is shared-bucket-vesting, so "per-agent fixed amount"
+// is expressed structurally as one pot per agent. This test pins the
+// shape of those per-agent pots — a contract change here is a doctrine
+// change.
+func TestScenario13d_BootstrapPotForAgent(t *testing.T) {
+	const sampleAgent = "zrn1exampleagentaddressforbootstraptest"
+	const blockHeight = uint64(1)
+
+	pot := claimingpottypes.MakeBootstrapPotForAgent(sampleAgent, blockHeight)
+
+	require.Equal(t, claimingpottypes.BootstrapPotIDPrefix+sampleAgent, pot.Id,
+		"bootstrap pot ID must carry the prefix so ceremony tooling can enumerate them")
+	require.Equal(t, claimingpottypes.PerAgentBootstrapUzrn, pot.TotalAmount,
+		"per-agent amount must be 222000 uzrn (0.222 ZRN) per commitment 20 doctrine")
+	require.Equal(t, "0", pot.ClaimedAmount,
+		"freshly created pot must have ClaimedAmount = 0")
+
+	require.NotNil(t, pot.Schedule, "schedule must be set so CalculateClaimable can vest")
+	require.Equal(t, blockHeight, pot.Schedule.StartBlock)
+	require.Equal(t, blockHeight+claimingpottypes.BootstrapPotInstantVestBlocks, pot.Schedule.EndBlock)
+
+	require.NotNil(t, pot.Eligibility)
+	require.Equal(t, []string{sampleAgent}, pot.Eligibility.Whitelist,
+		"single-agent whitelist binds the pot to exactly the recipient (no surface for cross-claim)")
+	require.Equal(t, uint32(0), pot.Eligibility.MinStakingTier,
+		"bootstrap is the participation seed — agents have not yet staked")
+
+	require.Equal(t, claimingpottypes.PotStatus_POT_STATUS_ACTIVE, pot.Status)
 }
 
 // TestScenario14_GenesisRoundTripWithAxioms verifies that a genesis state

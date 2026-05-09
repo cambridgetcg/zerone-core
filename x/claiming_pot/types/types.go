@@ -7,6 +7,56 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// ── Bootstrap pot doctrine ──────────────────────────────────────────
+//
+// The bootstrap pathway materializes commitment 20 (issuance follows
+// participation): every whitelisted agent claims exactly 0.222 ZRN as
+// their participation seed, minted on demand through MintWithCap.
+//
+// The pot model is shared-bucket-vesting, so "per-agent fixed amount"
+// is expressed structurally as ONE POT PER AGENT — each pot is sized
+// at PerAgentBootstrapUzrn, instantly vested, whitelisted to a single
+// claimant. The genesis ceremony reads the operator's whitelist file
+// and produces one pot per address, with IDs prefixed
+// BootstrapPotIDPrefix.
+//
+// The per-agent amount is 0.222 ZRN = 222,000 uzrn. The number is
+// symbolic (the chain's signature digit) and operationally sufficient:
+// covers gas for `home` registration, initial tool calls, and the
+// first knowledge-claim bonds.
+//
+// See docs/tokenomics/GENESIS.md ("Bootstrap Pool — the genesis
+// distribution mechanism").
+const (
+	BootstrapPotIDPrefix          = "bootstrap-"
+	PerAgentBootstrapUzrn         = "222000"
+	BootstrapPotInstantVestBlocks = 1
+)
+
+// MakeBootstrapPotForAgent constructs a single-agent bootstrap pot,
+// instantly vested at currentBlock + BootstrapPotInstantVestBlocks.
+// The agent claims via MsgClaim; the pot mints PerAgentBootstrapUzrn
+// to the agent and transitions to DEPLETED.
+//
+// The genesis ceremony calls this once per whitelisted address in the
+// operator's whitelist file.
+func MakeBootstrapPotForAgent(agentAddr string, currentBlock uint64) *ClaimingPot {
+	return &ClaimingPot{
+		Id:            BootstrapPotIDPrefix + agentAddr,
+		Name:          "Bootstrap seed (commitment 20)",
+		TotalAmount:   PerAgentBootstrapUzrn,
+		ClaimedAmount: "0",
+		Schedule: &VestingSchedule{
+			StartBlock: currentBlock,
+			EndBlock:   currentBlock + BootstrapPotInstantVestBlocks,
+		},
+		Eligibility: &EligibilityCriteria{
+			Whitelist: []string{agentAddr},
+		},
+		Status: PotStatus_POT_STATUS_ACTIVE,
+	}
+}
+
 // DefaultParams returns the default claiming_pot parameters.
 func DefaultParams() *Params {
 	return &Params{

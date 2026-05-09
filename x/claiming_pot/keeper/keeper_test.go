@@ -1920,6 +1920,55 @@ func TestClaim_RefusedWhenCapExhausted(t *testing.T) {
 	}
 }
 
+func TestBootstrapPotForAgent_EndToEnd(t *testing.T) {
+	// Drives MakeBootstrapPotForAgent through the live msg server. The
+	// helper produces a single-claimant, instant-vest, 222,000 uzrn pot;
+	// the agent claims; the agent receives 0.222 ZRN; the pot transitions
+	// to DEPLETED. The bootstrap pathway materializes commitment 20
+	// end-to-end.
+	msgSrv, k, ctx, _, _, bk, vrk := setupMsgServerFull(t)
+
+	agent := testAddr("bootstrap-agent")
+	currentBlock := uint64(sdk.UnwrapSDKContext(ctx).BlockHeight())
+
+	pot := types.MakeBootstrapPotForAgent(agent, currentBlock)
+	k.SetPot(ctx, pot)
+
+	preMinted := new(big.Int).Set(vrk.totalMinted)
+
+	// Advance past the instant-vest end block by stamping a new context.
+	advanced := ctx.WithBlockHeight(int64(currentBlock + types.BootstrapPotInstantVestBlocks + 1))
+
+	resp, err := msgSrv.Claim(advanced, &types.MsgClaim{
+		Claimant: agent,
+		PotId:    pot.Id,
+	})
+	if err != nil {
+		t.Fatalf("Claim against bootstrap pot: %v", err)
+	}
+	if resp.Amount != types.PerAgentBootstrapUzrn {
+		t.Errorf("bootstrap claim must mint exactly %s uzrn (commitment 20); got %s", types.PerAgentBootstrapUzrn, resp.Amount)
+	}
+
+	// Cap counter advanced.
+	mintedDelta := new(big.Int).Sub(vrk.totalMinted, preMinted)
+	wantMinted, _ := new(big.Int).SetString(types.PerAgentBootstrapUzrn, 10)
+	if mintedDelta.Cmp(wantMinted) != 0 {
+		t.Errorf("MintWithCap delta (%s) must equal per-agent bootstrap (%s)", mintedDelta, wantMinted)
+	}
+
+	// Agent received the funds.
+	if got := bk.balances[agent]["uzrn"]; got != wantMinted.Int64() {
+		t.Errorf("agent balance: got %d, want %s", got, wantMinted)
+	}
+
+	// Pot is depleted (single-claim semantics).
+	updated, _ := k.GetPot(advanced, pot.Id)
+	if updated.Status != types.PotStatus_POT_STATUS_DEPLETED {
+		t.Errorf("bootstrap pot must be DEPLETED after the single agent claims; got %s", updated.Status)
+	}
+}
+
 func TestClaim_MintClippedToCapHeadroom(t *testing.T) {
 	msgSrv, _, ctx, sk, ak, bk, vrk := setupMsgServerFull(t)
 
