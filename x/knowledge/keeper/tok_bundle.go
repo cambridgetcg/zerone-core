@@ -138,14 +138,13 @@ func (k Keeper) AssembleToKBundle(
 		atBlockHeight = uint64(sdkCtx.BlockHeight())
 	}
 
-	return &types.ToKBundle{
+	bundle := &types.ToKBundle{
 		SnapshotBlock:       atBlockHeight,
 		SnapshotRoot:        root,
 		IncludedNodeIds:     nodeIDs,
 		IncludedEdges:       edges,
 		Nodes:               nodes,
 		SerialisationFormat: tokSerialisationFormatJSONL,
-		// SerialisedPayload omitted — Task 9 fills this when format requested.
 		Provenance: &types.ToKBundleProvenance{
 			ChainId: sdkCtx.ChainID(),
 			// GetTraceSchemaVersion / GetTokenizerVersion do not exist on the
@@ -159,7 +158,15 @@ func (k Keeper) AssembleToKBundle(
 			CapMaxPaths:                   ToKMaxPathsCap,
 			CapLimit:                      ToKFrontierCap,
 		},
-	}, nil
+	}
+
+	payload, err := SerialiseToK_JSONL(bundle)
+	if err != nil {
+		return nil, err
+	}
+	bundle.SerialisedPayload = payload
+
+	return bundle, nil
 }
 
 // SelectToKIds dispatches on the validated selector variant.

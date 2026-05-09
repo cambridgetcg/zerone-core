@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -322,6 +323,23 @@ func TestValidateAndCapToKSelector_DoesNotMutateInput_Frontier(t *testing.T) {
 	_, err := keeper.ValidateAndCapToKSelector(sel)
 	require.NoError(t, err)
 	require.Equal(t, uint32(9999), sel.GetFrontier().Limit, "Frontier.Limit must not be mutated")
+}
+
+// ─── SerialiseToK_JSONL tests ────────────────────────────────────────────────
+
+func TestSerialiseToK_JSONL_RoundTrip(t *testing.T) {
+	bundle := &types.ToKBundle{
+		IncludedNodeIds: []string{"a", "b"},
+		IncludedEdges:   []*types.ToKEdge{{FromFactId: "b", ToFactId: "a", Relation: "SUPPORTS"}},
+		Nodes:           []*types.Fact{{Id: "a", Domain: "physics"}, {Id: "b", Domain: "physics"}},
+	}
+	payload, err := keeper.SerialiseToK_JSONL(bundle)
+	require.NoError(t, err)
+	lines := bytes.Split(payload, []byte("\n"))
+	if len(lines[len(lines)-1]) == 0 {
+		lines = lines[:len(lines)-1]
+	}
+	require.Len(t, lines, 3) // 2 nodes + 1 edge
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
