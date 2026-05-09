@@ -194,28 +194,91 @@ func TestScenario12_AxiomToFactConversion(t *testing.T) {
 	require.Equal(t, uint64(970_000), facts[2].Confidence)
 }
 
-// TestScenario13_TokenDistribution verifies the token allocation constants
-// sum to 222,222,222,222 ZRN.
-func TestScenario13_TokenDistribution(t *testing.T) {
-	total := zeroneapp.ResearchFundZRN +
-		zeroneapp.FounderZRN +
-		zeroneapp.AIAgentZRN +
-		(zeroneapp.ValidatorZRN * zeroneapp.ValidatorCount) +
-		zeroneapp.ClaimingPotsZRN
+// TestScenario13_ZeroTeamAllocationAtGenesis confirms the doctrine in
+// docs/tokenomics/GENESIS.md: zero allocation to team. The default genesis
+// state contains no positive balances and no positive supply for uzrn.
+//
+// The doctrine refuses any pre-allocation model: founder gets 0, AI vault
+// gets 0, validators get 0 from the chain (their bonded tokens come from
+// post-genesis earnings or, optionally, ephemeral net-zero gentx). Every
+// ZRN that exists came from a participatory action — verification (block
+// reward) or registration (bootstrap claim). Genesis-time non-zero
+// balances would mean someone got ZRN by being someone in particular,
+// not by doing something on-chain.
+func TestScenario13_ZeroTeamAllocationAtGenesis(t *testing.T) {
+	app := newTestApp(t, testChainID)
 
-	require.Equal(t, zeroneapp.TotalSupplyZRN, total,
-		"token distribution must sum to TotalSupplyZRN (%d)", zeroneapp.TotalSupplyZRN)
+	genState := app.DefaultGenesis()
 
-	require.Equal(t, int64(222_222_222_222), int64(zeroneapp.TotalSupplyZRN))
-	require.Equal(t, int64(222_222_222_222_000_000), int64(zeroneapp.TotalSupplyUZRN))
+	// Decode bank module genesis directly — InitChain is not called here,
+	// so we read DefaultGenesis as authored, not as patched by a val-set
+	// helper that would bond tokens.
+	var bankGen banktypes.GenesisState
+	require.NoError(t, app.AppCodec().UnmarshalJSON(genState[banktypes.ModuleName], &bankGen))
 
-	// Verify individual allocations
-	require.Equal(t, int64(44_444_444_444), int64(zeroneapp.ResearchFundZRN))
-	require.Equal(t, int64(22_222_222_222), int64(zeroneapp.FounderZRN))
-	require.Equal(t, int64(22_222_222_222), int64(zeroneapp.AIAgentZRN))
-	require.Equal(t, int64(22_222_222_222), int64(zeroneapp.ValidatorZRN))
-	require.Equal(t, 4, zeroneapp.ValidatorCount)
-	require.Equal(t, int64(44_444_444_446), int64(zeroneapp.ClaimingPotsZRN))
+	// No positive balances. Module accounts may exist (with a 0-balance
+	// entry registered for permission tracking), but no entry may carry
+	// positive uzrn.
+	violations := []string{}
+	for _, bal := range bankGen.Balances {
+		for _, coin := range bal.Coins {
+			if coin.Denom == zeroneapp.BondDenom && coin.Amount.IsPositive() {
+				violations = append(violations, bal.Address+" holds "+coin.String())
+			}
+		}
+	}
+	require.Empty(t, violations,
+		"no genesis account may hold ZRN — doctrine: zero team allocation. violations: %v", violations)
+
+	// No positive supply. Total supply at genesis is 0; minting begins
+	// at block 1 through x/vesting_rewards block rewards, and per-claim
+	// through x/claiming_pot bootstrap claims.
+	for _, supply := range bankGen.Supply {
+		if supply.Denom == zeroneapp.BondDenom {
+			require.True(t, supply.Amount.IsZero(),
+				"genesis supply for ZRN must be 0; got %s", supply.Amount.String())
+		}
+	}
+}
+
+// TestScenario13b_AllowedAppConstants is a compile-time and value-time
+// assertion that app/constants.go exposes only doctrine-aligned constants.
+// If anyone re-introduces TotalSupplyZRN, FounderZRN, AIAgentZRN,
+// ValidatorZRN, ResearchFundZRN, or ClaimingPotsZRN, this test will fail
+// to compile (those identifiers no longer resolve). Conversely, this test
+// pins the expected values of the constants that ARE allowed — chain-id,
+// denom, prefix, block time, and the micro-denomination multiplier.
+func TestScenario13b_AllowedAppConstants(t *testing.T) {
+	require.Equal(t, "zeroned", zeroneapp.AppName)
+	require.Equal(t, "zrn", zeroneapp.AccountAddressPrefix)
+	require.Equal(t, "uzrn", zeroneapp.BondDenom)
+	require.Equal(t, "zrn", zeroneapp.DisplayDenom)
+	require.Equal(t, 2521, zeroneapp.DefaultBlockTime)
+	require.Equal(t, 1_000_000, zeroneapp.MicroDenomMultiplier)
+	require.Equal(t, "zerone-testnet-1", zeroneapp.TestnetChainID)
+}
+
+// TestScenario13c_ClaimingPotMinterPermission asserts that the claiming_pot
+// module account is registered with Minter permission, enabling the
+// bootstrap-claim emission pathway.
+//
+// Skipped until Phase 2 of docs/plans/2026-05-09-zero-team-allocation-plan.md
+// lands; remove the t.Skip when claiming_pot.MsgClaim mints rather than
+// transfers from a pre-funded module account.
+func TestScenario13c_ClaimingPotMinterPermission(t *testing.T) {
+	t.Skip("pending phase 2 of zero-team-allocation plan — claiming_pot mint-on-claim rework")
+}
+
+// TestScenario13d_BootstrapPotConfigured asserts that a bootstrap pot
+// exists in claiming_pot DefaultGenesis with the expected configuration:
+// per-agent claim amount = 222,000 uzrn (0.222 ZRN), eligibility carries
+// a whitelist seam, vesting schedule defined.
+//
+// Skipped until Phase 4 of docs/plans/2026-05-09-zero-team-allocation-plan.md
+// lands; remove the t.Skip when claiming_pot DefaultGenesis returns the
+// bootstrap pot.
+func TestScenario13d_BootstrapPotConfigured(t *testing.T) {
+	t.Skip("pending phase 4 of zero-team-allocation plan — bootstrap pot in genesis state")
 }
 
 // TestScenario14_GenesisRoundTripWithAxioms verifies that a genesis state

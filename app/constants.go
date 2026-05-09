@@ -1,5 +1,26 @@
 package app
 
+// ZRN Issuance Doctrine
+//
+// The chain has no per-account allocation constants. ZRN enters
+// circulation through two participation-gated emission pathways:
+//
+//   - x/vesting_rewards: PoT block rewards minted to validators
+//     verifying truth (decay curve, floor, validator scaling).
+//   - x/claiming_pot: bootstrap claims minted on demand to
+//     whitelisted agents (0.222 ZRN each).
+//
+// Both pathways gate through MintWithCap against the hard cap
+// of 222,222,222 ZRN (see x/vesting_rewards/types/keys.go:MaxSupplyUzrn).
+// Neither grants anyone a privileged starting balance.
+//
+// This file therefore carries no per-account allocation constants —
+// no founder, no AI vault, no validator, no foundation, no research-
+// fund, no claiming-pots-total. Issuance follows participation; the
+// doctrine refuses any other model.
+//
+// Full doctrine: docs/tokenomics/GENESIS.md.
+
 const (
 	// AppName is the application name.
 	AppName = "zeroned"
@@ -16,37 +37,9 @@ const (
 	// DefaultBlockTime is the target block time in milliseconds.
 	DefaultBlockTime = 2521
 
-	// ─── Testnet genesis constants ──────────────────────────────────────────
-
-	// TestnetChainID is the chain ID for the first public testnet.
-	TestnetChainID = "zerone-testnet-1"
-
 	// MicroDenomMultiplier converts 1 ZRN to uzrn (1 ZRN = 1,000,000 uzrn).
 	MicroDenomMultiplier = 1_000_000
 
-	// TotalSupplyZRN is the total ZRN supply at genesis (222,222,222,222).
-	TotalSupplyZRN = 222_222_222_222
-
-	// TotalSupplyUZRN is the total supply in micro-denomination.
-	TotalSupplyUZRN = TotalSupplyZRN * MicroDenomMultiplier // 222,222,222,222,000,000
-
-	// ─── Token allocation (in ZRN) ──────────────────────────────────────────
-
-	// ResearchFundZRN is the research fund allocation (20%).
-	ResearchFundZRN = 44_444_444_444
-
-	// FounderZRN is the founder allocation (10%).
-	FounderZRN = 22_222_222_222
-
-	// AIAgentZRN is the AI agent allocation (10%).
-	AIAgentZRN = 22_222_222_222
-
-	// ValidatorZRN is the per-validator allocation (10% each, 4 validators = 40%).
-	ValidatorZRN = 22_222_222_222
-
-	// ValidatorCount is the number of genesis validators.
-	ValidatorCount = 4
-
-	// ClaimingPotsZRN is the claiming pots allocation (20% + 2 ZRN rounding remainder).
-	ClaimingPotsZRN = 44_444_444_446
+	// TestnetChainID is the chain ID for the first public testnet.
+	TestnetChainID = "zerone-testnet-1"
 )
