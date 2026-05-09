@@ -26,6 +26,15 @@ const (
 	CategorySeatElection    = "research_seat_election"
 	CategoryPhaseTransition = "research_phase_transition"
 	CategoryPhaseRollback   = "research_phase_rollback"
+
+	// CategoryCreedAmendment is the LIP class that authorizes
+	// changes to the chain's canonical TRUTH_SEEKING.md (commitment
+	// 19). On pass, x/gov calls x/creed.AnchorPin with the
+	// attached pin payload. The category carries longer review
+	// windows and higher pass thresholds than parameter LIPs
+	// because amending the chain's voice is the highest-stakes
+	// governance act.
+	CategoryCreedAmendment = "creed_amendment"
 )
 
 // Vote option constants.
@@ -230,6 +239,29 @@ func (m *MsgWithdrawLIP) ValidateBasic() error {
 
 // GetSigners returns the expected signers for MsgWithdrawLIP.
 func (m *MsgWithdrawLIP) GetSigners() []sdk.AccAddress {
+	addr, _ := sdk.AccAddressFromBech32(m.Proposer)
+	return []sdk.AccAddress{addr}
+}
+
+// ValidateBasic performs stateless validation on MsgAttachCreedAmendmentPin.
+func (m *MsgAttachCreedAmendmentPin) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Proposer); err != nil {
+		return ErrInvalidAddress
+	}
+	if m.LipId == "" {
+		return ErrInvalidParams
+	}
+	if len(m.CanonicalHash) == 0 {
+		return ErrInvalidParams
+	}
+	if len(m.CommitmentsJson) == 0 {
+		return ErrInvalidParams
+	}
+	return nil
+}
+
+// GetSigners returns the expected signers for MsgAttachCreedAmendmentPin.
+func (m *MsgAttachCreedAmendmentPin) GetSigners() []sdk.AccAddress {
 	addr, _ := sdk.AccAddressFromBech32(m.Proposer)
 	return []sdk.AccAddress{addr}
 }

@@ -1382,6 +1382,10 @@ func NewZeroneApp(
 	app.ZeroneGovKeeper.SetPartnershipsKeeper(
 		zeronepartnershipskeeper.NewGovPartnershipsAdapter(app.PartnershipsKeeper),
 	)
+	// Commitment 19: wire creed keeper into governance so the
+	// CategoryCreedAmendment LIP class calls AnchorPinFromBytes on
+	// pass. x/creed.Keeper satisfies x/gov.types.CreedKeeper directly.
+	app.ZeroneGovKeeper.SetCreedKeeper(&app.CreedKeeper)
 
 	// ---- Toolbox keeper (R8-1) ----
 	toolboxRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)

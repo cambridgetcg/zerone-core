@@ -27,6 +27,7 @@ var (
 	SeatElectionCounterKey         = []byte{0x12}
 	SeatElectionVoteDedupePrefix       = []byte{0x13}
 	PhaseTransitionKeyPrefix = []byte{0x14} // lip_id -> PhaseTransitionProposal
+	CreedAmendmentPinPrefix  = []byte{0x15} // lip_id -> attached creed-amendment payload
 )
 
 // LIPKey returns the store key for a LIP by id.
@@ -186,4 +187,10 @@ func SeatElectionVotePrefixForProposal(proposalID uint64) []byte {
 // PhaseTransitionKey returns the store key for phase transition metadata by LIP ID.
 func PhaseTransitionKey(lipID string) []byte {
 	return append(PhaseTransitionKeyPrefix, []byte(lipID)...)
+}
+
+// CreedAmendmentPinKey returns the store key for an attached
+// creed-amendment payload by LIP ID.
+func CreedAmendmentPinKey(lipID string) []byte {
+	return append(CreedAmendmentPinPrefix, []byte(lipID)...)
 }

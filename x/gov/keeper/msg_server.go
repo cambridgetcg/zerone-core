@@ -428,6 +428,59 @@ func (ms *msgServer) AttachUpgradePlan(goCtx context.Context, msg *types.MsgAtta
 	return &types.MsgAttachUpgradePlanResponse{}, nil
 }
 
+// AttachCreedAmendmentPin attaches a candidate PinnedCreed payload
+// to a CategoryCreedAmendment LIP. On LIP pass, x/gov calls
+// x/creed.AnchorPinFromBytes with this payload — the LIP body
+// becomes the chain's record of what the new creed is to be, and
+// the gov vote is the structural protection commitment 19 names.
+func (ms *msgServer) AttachCreedAmendmentPin(goCtx context.Context, msg *types.MsgAttachCreedAmendmentPin) (*types.MsgAttachCreedAmendmentPinResponse, error) {
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	lip, found := ms.GetLIP(ctx, msg.LipId)
+	if !found {
+		return nil, types.ErrLIPNotFound
+	}
+	if lip.Proposer != msg.Proposer {
+		return nil, fmt.Errorf("only the LIP proposer can attach a creed-amendment pin")
+	}
+	if lip.Category != types.CategoryCreedAmendment {
+		return nil, fmt.Errorf("only creed-amendment LIPs can carry a creed-amendment pin (commitment 19: the chain's voice is governance-gated, but only through the dedicated LIP class)")
+	}
+	if types.IsTerminal(lip.Stage) {
+		return nil, fmt.Errorf("cannot attach creed-amendment pin to terminal LIP")
+	}
+	// Once voting starts, the body is locked — voters voted on the
+	// payload as it was when the vote opened. Mid-flight payload
+	// swaps would break that promise.
+	if lip.Stage == types.StatusVoting {
+		return nil, fmt.Errorf("cannot attach creed-amendment pin once voting has started; voters consented to the prior body")
+	}
+	if _, exists := ms.GetCreedAmendmentPin(ctx, msg.LipId); exists {
+		return nil, fmt.Errorf("creed-amendment pin already attached to LIP %s", msg.LipId)
+	}
+
+	pin := &CreedAmendmentPin{
+		CanonicalHash:   msg.CanonicalHash,
+		CommitmentsJSON: msg.CommitmentsJson,
+	}
+	ms.SetCreedAmendmentPin(ctx, msg.LipId, pin)
+
+	// Voice layer: announce attachment so off-chain observers can
+	// compose pre-vote dashboards showing the proposed new creed.
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.gov.creed_amendment_pin_attached",
+			sdk.NewAttribute("lip_id", msg.LipId),
+			sdk.NewAttribute("canonical_hash", fmt.Sprintf("%x", msg.CanonicalHash)),
+			sdk.NewAttribute("creed_commitment", "10,19"),
+		),
+	)
+
+	return &types.MsgAttachCreedAmendmentPinResponse{}, nil
+}
+
 // --- Domain Formation Freeze Handler ---
 
 // DomainFormationFreeze imposes a formation cooldown on a domain (authority only).

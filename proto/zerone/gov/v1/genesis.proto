@@ -32,6 +32,14 @@ message GenesisUpgradePlan {
   UpgradePlan plan   = 2;
 }
 
+// GenesisCreedAmendmentPin pairs a LIP ID with its attached
+// creed-amendment payload for genesis export/import.
+message GenesisCreedAmendmentPin {
+  string lip_id           = 1;
+  bytes  canonical_hash   = 2;
+  bytes  commitments_json = 3;
+}
+
 // GenesisState defines the governance module's genesis state.
 message GenesisState {
   Params          params          = 1;
@@ -43,4 +51,5 @@ message GenesisState {
   repeated SeatElectionProposal seat_elections = 7;
   repeated SeatElectionVote seat_election_votes = 8;
   uint64 next_seat_election_number = 9;
+  repeated GenesisCreedAmendmentPin creed_amendment_pins = 10;
 }

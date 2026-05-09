@@ -63,3 +63,25 @@ type AlignmentKeeper interface {
 type PartnershipsKeeper interface {
 	SetDomainFormationFreeze(ctx context.Context, domain string, expiryHeight uint64, reason string)
 }
+
+// CreedKeeper defines the x/creed interface required by governance
+// for the CategoryCreedAmendment LIP class. On a passed creed-
+// amendment LIP, x/gov calls AnchorPinFromBytes with the pinned
+// payload that was attached to the LIP body. The keeper rebuilds
+// the PinnedCreed shape internally.
+//
+// IsActiveCouncilMember exposes the AI-side voter pool so future
+// two-pool quorum tracking (a natural progression of this stage)
+// can route votes to the correct pool at tally time.
+type CreedKeeper interface {
+	// AnchorPinFromBytes records a new pin from the canonical
+	// hash + JSON-encoded commitment registry that the LIP carried.
+	// The current version is auto-incremented; the LIP id is
+	// recorded as the source.
+	AnchorPinFromBytes(ctx context.Context, sourceLip string, canonicalHash []byte, commitmentsJSON []byte) error
+
+	// IsActiveCouncilMember returns true if the address holds an
+	// active Creed Council seat. Used to route votes to the AI-
+	// side pool when two-pool quorum is enabled.
+	IsActiveCouncilMember(ctx context.Context, address string) bool
+}

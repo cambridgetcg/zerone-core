@@ -242,7 +242,7 @@ We believe: the chain's voice cannot drift faster than its governance. Every oth
 
 ## How the commitments echo
 
-The creed is enforced at five layers, each one mechanically synced to the others by `TestTruthSeeking_CreedAndContractStayInSync`. Adding a commitment to one layer without the others fails CI.
+The creed is enforced at six layers, each mechanically synced by tests in `tests/cross_stack/truth_seeking_invariants_test.go`. Adding a commitment to one layer without the others fails CI.
 
 #### Test layer — every commitment has a binding scenario
 Every commitment above is exercised by an invariant test in `tests/cross_stack/truth_seeking_invariants_test.go`. Each test header reads `// Commitment N: ...` and the scenario drives the chain through a path where the commitment could be violated. If the test fails, the commitment is broken — not the test.
@@ -252,6 +252,9 @@ Every commitment is declared by at least one `x/*/doc.go` file in the module tha
 
 #### Voice layer — events announce the commitment they preserve
 Truth-seeking events emitted to off-chain observers carry a `creed_commitment` attribute whose value is one or more commitment numbers. `probe_invited` announces commitment 5; `fact_disproven` announces commitment 3; `capture_confirmed` announces commitment 9; `privileged_action_recorded` announces commitments 6 and 10. Indexers and dashboards filter on this attribute to surface truth-seeking activity in the same vocabulary the creed uses.
+
+#### Doc layer — EVENTS.md echoes the voice
+The voice reaches off-chain observers through two channels: the `creed_commitment` attribute on emission, and the `### zerone.module.action` entries in `docs/EVENTS.md` that indexers and dashboards subscribe against. Both must say the same thing — `probe_invited` announces commitment 5 in code AND in the doc; `frontier_invited` announces commitment 18 in both. If the doc drifts from emission, the chain's announcement and its published vocabulary tell observers different stories about which commitment each event preserves. Two voice-layer doc-mirror tests bind the channels: every emitted event must have an EVENTS.md heading (and vice versa); every emitted `creed_commitment` value must equal the value declared in the entry.
 
 #### Refusal layer — rejections cite the protecting commitment
 When the chain refuses an action because of a truth-seeking commitment, the error message names the commitment and explains the protection in the chain's voice. "Insufficient challenge stake (commitment 4: probe cost scales with confidence)." "Veto window closed (commitment 6: the veto window is the chain's promise that authority injection is reviewable)." The chain speaks through intentions whether saying yes or saying no.

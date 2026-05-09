@@ -245,6 +245,69 @@ func (k Keeper) IterateUpgradePlans(ctx sdk.Context, cb func(lipID string, plan 
 	}
 }
 
+// ---------- Creed Amendment Pin CRUD ----------
+
+// CreedAmendmentPin is the on-disk representation of an attached
+// creed-amendment payload — paired with its LIP id, the canonical
+// hash that the new pin will carry, and the JSON-encoded
+// commitment registry the pin will install. Stored keyed by
+// LIP id under CreedAmendmentPinPrefix.
+type CreedAmendmentPin struct {
+	CanonicalHash   []byte `json:"canonical_hash"`
+	CommitmentsJSON []byte `json:"commitments_json"`
+}
+
+// SetCreedAmendmentPin stores an attached creed-amendment payload
+// for a LIP. Mirrors UpgradePlan storage: pre-pass attachment, on
+// pass the keeper reads it and calls x/creed.AnchorPinFromBytes.
+func (k Keeper) SetCreedAmendmentPin(ctx sdk.Context, lipID string, pin *CreedAmendmentPin) {
+	store := ctx.KVStore(k.storeKey)
+	bz, err := json.Marshal(pin)
+	if err != nil {
+		panic("failed to marshal creed amendment pin: " + err.Error())
+	}
+	store.Set(types.CreedAmendmentPinKey(lipID), bz)
+}
+
+// GetCreedAmendmentPin retrieves the attached pin payload for a LIP.
+func (k Keeper) GetCreedAmendmentPin(ctx sdk.Context, lipID string) (*CreedAmendmentPin, bool) {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.CreedAmendmentPinKey(lipID))
+	if bz == nil {
+		return nil, false
+	}
+	var pin CreedAmendmentPin
+	if err := json.Unmarshal(bz, &pin); err != nil {
+		return nil, false
+	}
+	return &pin, true
+}
+
+// DeleteCreedAmendmentPin removes the attached pin for a LIP.
+func (k Keeper) DeleteCreedAmendmentPin(ctx sdk.Context, lipID string) {
+	store := ctx.KVStore(k.storeKey)
+	store.Delete(types.CreedAmendmentPinKey(lipID))
+}
+
+// IterateCreedAmendmentPins iterates over all stored attached pins.
+// Return true from cb to stop.
+func (k Keeper) IterateCreedAmendmentPins(ctx sdk.Context, cb func(lipID string, pin *CreedAmendmentPin) bool) {
+	store := ctx.KVStore(k.storeKey)
+	iter := storetypes.KVStorePrefixIterator(store, types.CreedAmendmentPinPrefix)
+	defer iter.Close()
+
+	for ; iter.Valid(); iter.Next() {
+		lipID := string(iter.Key()[len(types.CreedAmendmentPinPrefix):])
+		var pin CreedAmendmentPin
+		if err := json.Unmarshal(iter.Value(), &pin); err != nil {
+			panic("failed to unmarshal creed amendment pin: " + err.Error())
+		}
+		if cb(lipID, &pin) {
+			break
+		}
+	}
+}
+
 // ---------- Research Fund Governance State ----------
 
 // SetResearchFundGovernanceState stores the research fund governance state.

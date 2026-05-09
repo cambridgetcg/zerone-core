@@ -24,6 +24,7 @@ type Keeper struct {
 	emergencyKeeper types.EmergencyKeeper // set post-init (circular dep break)
 	alignmentKeeper    types.AlignmentKeeper    // set post-init (R31-3, Wood→Earth)
 	partnershipsKeeper types.PartnershipsKeeper // set post-init (R31-3, Earth→Water)
+	creedKeeper        types.CreedKeeper        // set post-init (commitment 19 — gov ↔ creed)
 }
 
 // SetVestingKeeper sets the vesting rewards keeper (post-init to break circular deps).
@@ -64,6 +65,18 @@ func (k *Keeper) SetAlignmentKeeper(ak types.AlignmentKeeper) {
 // SetPartnershipsKeeper sets the partnerships keeper (post-init to break circular deps).
 func (k *Keeper) SetPartnershipsKeeper(pk types.PartnershipsKeeper) {
 	k.partnershipsKeeper = pk
+}
+
+// SetCreedKeeper sets the creed keeper (post-init to break circular deps).
+// Required for the CategoryCreedAmendment LIP class to call
+// AnchorPinFromBytes on pass.
+func (k *Keeper) SetCreedKeeper(ck types.CreedKeeper) {
+	k.creedKeeper = ck
+}
+
+// GetCreedKeeper returns the creed keeper, or nil if not wired.
+func (k Keeper) GetCreedKeeper() types.CreedKeeper {
+	return k.creedKeeper
 }
 
 // NewKeeper creates a new governance keeper.

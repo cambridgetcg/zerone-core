@@ -18,6 +18,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgVoteResearchSpend{}, "zerone_gov/MsgVoteResearchSpend", nil)
 	cdc.RegisterConcrete(&MsgSetResearchVoters{}, "zerone_gov/MsgSetResearchVoters", nil)
 	cdc.RegisterConcrete(&MsgAttachUpgradePlan{}, "zerone_gov/MsgAttachUpgradePlan", nil)
+	cdc.RegisterConcrete(&MsgAttachCreedAmendmentPin{}, "zerone_gov/MsgAttachCreedAmendmentPin", nil)
 	cdc.RegisterConcrete(&MsgNominateSeatElection{}, "zerone_gov/MsgNominateSeatElection", nil)
 	cdc.RegisterConcrete(&MsgAcceptSeatNomination{}, "zerone_gov/MsgAcceptSeatNomination", nil)
 	cdc.RegisterConcrete(&MsgVoteSeatElection{}, "zerone_gov/MsgVoteSeatElection", nil)
@@ -37,6 +38,7 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		&MsgVoteResearchSpend{},
 		&MsgSetResearchVoters{},
 		&MsgAttachUpgradePlan{},
+		&MsgAttachCreedAmendmentPin{},
 		&MsgNominateSeatElection{},
 		&MsgAcceptSeatNomination{},
 		&MsgVoteSeatElection{},

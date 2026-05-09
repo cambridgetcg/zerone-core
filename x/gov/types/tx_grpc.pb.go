@@ -19,20 +19,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Msg_SubmitLIP_FullMethodName             = "/zerone.gov.v1.Msg/SubmitLIP"
-	Msg_StakeLIP_FullMethodName              = "/zerone.gov.v1.Msg/StakeLIP"
-	Msg_AdvanceLIPStage_FullMethodName       = "/zerone.gov.v1.Msg/AdvanceLIPStage"
-	Msg_CastVote_FullMethodName              = "/zerone.gov.v1.Msg/CastVote"
-	Msg_WithdrawLIP_FullMethodName           = "/zerone.gov.v1.Msg/WithdrawLIP"
-	Msg_UpdateParams_FullMethodName          = "/zerone.gov.v1.Msg/UpdateParams"
-	Msg_SubmitResearchSpend_FullMethodName   = "/zerone.gov.v1.Msg/SubmitResearchSpend"
-	Msg_VoteResearchSpend_FullMethodName     = "/zerone.gov.v1.Msg/VoteResearchSpend"
-	Msg_SetResearchVoters_FullMethodName     = "/zerone.gov.v1.Msg/SetResearchVoters"
-	Msg_AttachUpgradePlan_FullMethodName     = "/zerone.gov.v1.Msg/AttachUpgradePlan"
-	Msg_NominateSeatElection_FullMethodName  = "/zerone.gov.v1.Msg/NominateSeatElection"
-	Msg_AcceptSeatNomination_FullMethodName  = "/zerone.gov.v1.Msg/AcceptSeatNomination"
-	Msg_VoteSeatElection_FullMethodName      = "/zerone.gov.v1.Msg/VoteSeatElection"
-	Msg_DomainFormationFreeze_FullMethodName = "/zerone.gov.v1.Msg/DomainFormationFreeze"
+	Msg_SubmitLIP_FullMethodName               = "/zerone.gov.v1.Msg/SubmitLIP"
+	Msg_StakeLIP_FullMethodName                = "/zerone.gov.v1.Msg/StakeLIP"
+	Msg_AdvanceLIPStage_FullMethodName         = "/zerone.gov.v1.Msg/AdvanceLIPStage"
+	Msg_CastVote_FullMethodName                = "/zerone.gov.v1.Msg/CastVote"
+	Msg_WithdrawLIP_FullMethodName             = "/zerone.gov.v1.Msg/WithdrawLIP"
+	Msg_UpdateParams_FullMethodName            = "/zerone.gov.v1.Msg/UpdateParams"
+	Msg_SubmitResearchSpend_FullMethodName     = "/zerone.gov.v1.Msg/SubmitResearchSpend"
+	Msg_VoteResearchSpend_FullMethodName       = "/zerone.gov.v1.Msg/VoteResearchSpend"
+	Msg_SetResearchVoters_FullMethodName       = "/zerone.gov.v1.Msg/SetResearchVoters"
+	Msg_AttachUpgradePlan_FullMethodName       = "/zerone.gov.v1.Msg/AttachUpgradePlan"
+	Msg_AttachCreedAmendmentPin_FullMethodName = "/zerone.gov.v1.Msg/AttachCreedAmendmentPin"
+	Msg_NominateSeatElection_FullMethodName    = "/zerone.gov.v1.Msg/NominateSeatElection"
+	Msg_AcceptSeatNomination_FullMethodName    = "/zerone.gov.v1.Msg/AcceptSeatNomination"
+	Msg_VoteSeatElection_FullMethodName        = "/zerone.gov.v1.Msg/VoteSeatElection"
+	Msg_DomainFormationFreeze_FullMethodName   = "/zerone.gov.v1.Msg/DomainFormationFreeze"
 )
 
 // MsgClient is the client API for Msg service.
@@ -51,6 +52,7 @@ type MsgClient interface {
 	VoteResearchSpend(ctx context.Context, in *MsgVoteResearchSpend, opts ...grpc.CallOption) (*MsgVoteResearchSpendResponse, error)
 	SetResearchVoters(ctx context.Context, in *MsgSetResearchVoters, opts ...grpc.CallOption) (*MsgSetResearchVotersResponse, error)
 	AttachUpgradePlan(ctx context.Context, in *MsgAttachUpgradePlan, opts ...grpc.CallOption) (*MsgAttachUpgradePlanResponse, error)
+	AttachCreedAmendmentPin(ctx context.Context, in *MsgAttachCreedAmendmentPin, opts ...grpc.CallOption) (*MsgAttachCreedAmendmentPinResponse, error)
 	NominateSeatElection(ctx context.Context, in *MsgNominateSeatElection, opts ...grpc.CallOption) (*MsgNominateSeatElectionResponse, error)
 	AcceptSeatNomination(ctx context.Context, in *MsgAcceptSeatNomination, opts ...grpc.CallOption) (*MsgAcceptSeatNominationResponse, error)
 	VoteSeatElection(ctx context.Context, in *MsgVoteSeatElection, opts ...grpc.CallOption) (*MsgVoteSeatElectionResponse, error)
@@ -165,6 +167,16 @@ func (c *msgClient) AttachUpgradePlan(ctx context.Context, in *MsgAttachUpgradeP
 	return out, nil
 }
 
+func (c *msgClient) AttachCreedAmendmentPin(ctx context.Context, in *MsgAttachCreedAmendmentPin, opts ...grpc.CallOption) (*MsgAttachCreedAmendmentPinResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgAttachCreedAmendmentPinResponse)
+	err := c.cc.Invoke(ctx, Msg_AttachCreedAmendmentPin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) NominateSeatElection(ctx context.Context, in *MsgNominateSeatElection, opts ...grpc.CallOption) (*MsgNominateSeatElectionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MsgNominateSeatElectionResponse)
@@ -221,6 +233,7 @@ type MsgServer interface {
 	VoteResearchSpend(context.Context, *MsgVoteResearchSpend) (*MsgVoteResearchSpendResponse, error)
 	SetResearchVoters(context.Context, *MsgSetResearchVoters) (*MsgSetResearchVotersResponse, error)
 	AttachUpgradePlan(context.Context, *MsgAttachUpgradePlan) (*MsgAttachUpgradePlanResponse, error)
+	AttachCreedAmendmentPin(context.Context, *MsgAttachCreedAmendmentPin) (*MsgAttachCreedAmendmentPinResponse, error)
 	NominateSeatElection(context.Context, *MsgNominateSeatElection) (*MsgNominateSeatElectionResponse, error)
 	AcceptSeatNomination(context.Context, *MsgAcceptSeatNomination) (*MsgAcceptSeatNominationResponse, error)
 	VoteSeatElection(context.Context, *MsgVoteSeatElection) (*MsgVoteSeatElectionResponse, error)
@@ -264,6 +277,9 @@ func (UnimplementedMsgServer) SetResearchVoters(context.Context, *MsgSetResearch
 }
 func (UnimplementedMsgServer) AttachUpgradePlan(context.Context, *MsgAttachUpgradePlan) (*MsgAttachUpgradePlanResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AttachUpgradePlan not implemented")
+}
+func (UnimplementedMsgServer) AttachCreedAmendmentPin(context.Context, *MsgAttachCreedAmendmentPin) (*MsgAttachCreedAmendmentPinResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AttachCreedAmendmentPin not implemented")
 }
 func (UnimplementedMsgServer) NominateSeatElection(context.Context, *MsgNominateSeatElection) (*MsgNominateSeatElectionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method NominateSeatElection not implemented")
@@ -478,6 +494,24 @@ func _Msg_AttachUpgradePlan_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_AttachCreedAmendmentPin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAttachCreedAmendmentPin)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AttachCreedAmendmentPin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_AttachCreedAmendmentPin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AttachCreedAmendmentPin(ctx, req.(*MsgAttachCreedAmendmentPin))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_NominateSeatElection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgNominateSeatElection)
 	if err := dec(in); err != nil {
@@ -596,6 +630,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AttachUpgradePlan",
 			Handler:    _Msg_AttachUpgradePlan_Handler,
+		},
+		{
+			MethodName: "AttachCreedAmendmentPin",
+			Handler:    _Msg_AttachCreedAmendmentPin_Handler,
 		},
 		{
 			MethodName: "NominateSeatElection",

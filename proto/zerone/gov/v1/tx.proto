@@ -19,6 +19,7 @@ service Msg {
   rpc VoteResearchSpend(MsgVoteResearchSpend) returns (MsgVoteResearchSpendResponse);
   rpc SetResearchVoters(MsgSetResearchVoters) returns (MsgSetResearchVotersResponse);
   rpc AttachUpgradePlan(MsgAttachUpgradePlan) returns (MsgAttachUpgradePlanResponse);
+  rpc AttachCreedAmendmentPin(MsgAttachCreedAmendmentPin) returns (MsgAttachCreedAmendmentPinResponse);
   rpc NominateSeatElection(MsgNominateSeatElection) returns (MsgNominateSeatElectionResponse);
   rpc AcceptSeatNomination(MsgAcceptSeatNomination) returns (MsgAcceptSeatNominationResponse);
   rpc VoteSeatElection(MsgVoteSeatElection) returns (MsgVoteSeatElectionResponse);
@@ -138,6 +139,33 @@ message MsgAttachUpgradePlan {
 }
 
 message MsgAttachUpgradePlanResponse {}
+
+// MsgAttachCreedAmendmentPin attaches a candidate PinnedCreed to a
+// creed-amendment LIP. On LIP pass, x/gov calls
+// x/creed.AnchorPin with this payload — the LIP body becomes the
+// chain's record of what the new creed is to be, and the gov vote
+// is the structural protection commitment 19 names.
+//
+// The pin is encoded as canonical sha256 + JSON-serialized
+// commitment registry to keep this message x/gov-internal (no
+// cross-module proto import required at this layer; the keeper
+// rebuilds the creed PinnedCreed from these fields when calling
+// x/creed.AnchorPin).
+message MsgAttachCreedAmendmentPin {
+  option (cosmos.msg.v1.signer) = "proposer";
+
+  string proposer        = 1; // must be the LIP proposer
+  string lip_id          = 2; // target LIP (must be creed_amendment category, non-terminal)
+  bytes  canonical_hash  = 3; // sha256 of normalized TRUTH_SEEKING.md as it would land
+  // commitments_json carries the JSON-encoded list of commitment
+  // entries (number, name, archived, etc.) that the new pin should
+  // contain. The keeper unmarshals this on attach for validation
+  // and again on pass to construct the PinnedCreed argument to
+  // x/creed.AnchorPin. The shape mirrors x/creed.CommitmentEntry.
+  bytes  commitments_json = 4;
+}
+
+message MsgAttachCreedAmendmentPinResponse {}
 
 // MsgNominateSeatElection nominates a candidate for a community seat.
 message MsgNominateSeatElection {

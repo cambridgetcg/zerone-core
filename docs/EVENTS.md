@@ -1048,6 +1048,18 @@ Software upgrade scheduled for execution.
 - `lip_id` -- originating LIP identifier
 - `upgrade_name` -- upgrade plan name
 
+### zerone.gov.creed_amendment_pin_attached
+A candidate `PinnedCreed` payload was attached to a `creed_amendment` LIP. On LIP pass, x/gov will call `x/creed.AnchorPinFromBytes` with this payload (commitment 19: the chain's voice is governance-gated). Voters consent to the payload as it stands at vote-time; mid-flight payload swaps are refused.
+- `lip_id` -- LIP this pin attached to
+- `canonical_hash` -- hex sha256 of the proposed new TRUTH_SEEKING.md
+- `creed_commitment` -- "10,19"
+
+### zerone.gov.creed_amendment_anchored
+A passed `creed_amendment` LIP successfully called `x/creed.AnchorPinFromBytes`; the new pin is now canonical. Off-chain observers can compose creed-drift dashboards from this event paired with `zerone.creed.pinned`.
+- `lip_id` -- LIP that authorized the amendment
+- `canonical_hash` -- hex sha256 of the now-canonical TRUTH_SEEKING.md
+- `creed_commitment` -- "10,19"
+
 ### zerone.gov.expedited_voting
 LIP voting period shortened in response to system health category (R31-2).
 - `lip_id` -- LIP identifier

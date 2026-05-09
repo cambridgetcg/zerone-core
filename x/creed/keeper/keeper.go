@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 
 	"cosmossdk.io/core/store"
@@ -190,6 +191,40 @@ func (k Keeper) AnchorPin(ctx context.Context, p *types.PinnedCreed) error {
 		return types.ErrVersionNotMonotonic.Wrapf("expected version %d, got %d", cur+1, p.Version)
 	}
 	return k.SetPin(ctx, p)
+}
+
+// AnchorPinFromBytes is the cross-module entry point used by
+// x/gov when a CategoryCreedAmendment LIP passes. The LIP carries
+// the canonical hash and a JSON-encoded list of CommitmentEntry
+// records; the keeper rebuilds the PinnedCreed locally and writes
+// it under the next version with sourceLip recorded as the
+// authorizer.
+//
+// docs/TRUTH_SEEKING.md commitment 19: this is the structural form
+// of the post-launch creed-amendment path. direct_anchor_enabled
+// can be false at that point — this entry is gov-mediated, so the
+// gov authority's call counts whether or not the direct path is
+// open.
+func (k Keeper) AnchorPinFromBytes(ctx context.Context, sourceLip string, canonicalHash []byte, commitmentsJSON []byte) error {
+	if len(canonicalHash) == 0 {
+		return types.ErrEmptyHash
+	}
+	var commitments []*types.CommitmentEntry
+	if len(commitmentsJSON) > 0 {
+		if err := json.Unmarshal(commitmentsJSON, &commitments); err != nil {
+			return fmt.Errorf("decode commitments_json: %w", err)
+		}
+	}
+	cur := k.GetCurrentVersion(ctx)
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	pin := &types.PinnedCreed{
+		Version:        cur + 1,
+		CanonicalHash:  canonicalHash,
+		PinnedAtHeight: uint64(sdkCtx.BlockHeight()),
+		PinnedViaLip:   sourceLip,
+		Commitments:    commitments,
+	}
+	return k.SetPin(ctx, pin)
 }
 
 // ── Council registry ───────────────────────────────────────────────

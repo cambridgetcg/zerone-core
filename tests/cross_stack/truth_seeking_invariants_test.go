@@ -834,6 +834,60 @@ func TestTruthSeeking_GenesisCreedReflectsCurrentTruthSeeking(t *testing.T) {
 		"genesis-installed commitments carry no source LIP — no LIP precedes genesis")
 }
 
+// Commitment 19 (creed governance-gated, gov ↔ creed wiring):
+// the post-launch creed-amendment path is a CategoryCreedAmendment
+// LIP whose pass triggers x/creed.AnchorPinFromBytes via the wired
+// CreedKeeper. This test exercises the cross-module call directly
+// (the full LIP-pass flow is exercised in x/gov tests; this binds
+// the structural promise that the keeper interface, when invoked,
+// produces a valid pin tagged with the source LIP).
+func TestTruthSeeking_GovCanAnchorCreedAmendments(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Pin v1 first so subsequent amendments are well-defined.
+	ms := creedkeeper.NewMsgServerImpl(h.CreedKeeper)
+	authority := h.CreedKeeper.GetAuthority()
+	_, err := ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
+		Authority: authority,
+		Pin: &creedtypes.PinnedCreed{
+			Version:       1,
+			CanonicalHash: []byte("v1-hash"),
+			Commitments: []*creedtypes.CommitmentEntry{
+				{Number: 1, Name: "Methodology over statement"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// Simulate gov calling AnchorPinFromBytes after a passed LIP.
+	// The interface is what x/gov holds; here we invoke it directly
+	// to bind the cross-module contract.
+	commitmentsJSON := []byte(`[
+		{"number": 1, "name": "Methodology over statement"},
+		{"number": 2, "name": "Is-ought wall"}
+	]`)
+	err = h.CreedKeeper.AnchorPinFromBytes(h.Ctx, "LIP-42", []byte("v2-hash"), commitmentsJSON)
+	require.NoError(t, err, "the gov→creed call must succeed; without it, the CategoryCreedAmendment LIP class cannot land amendments")
+
+	// Verify the new pin is canonical and carries the LIP id.
+	qs := creedkeeper.NewQueryServerImpl(h.CreedKeeper)
+	res, err := qs.Pinned(h.Ctx, &creedtypes.QueryPinnedRequest{})
+	require.NoError(t, err)
+	require.Equal(t, uint32(2), res.Pin.Version,
+		"AnchorPinFromBytes must produce version+1 — gov-mediated amendment is forward-only same as direct AnchorPin")
+	require.Equal(t, []byte("v2-hash"), res.Pin.CanonicalHash)
+	require.Equal(t, "LIP-42", res.Pin.PinnedViaLip,
+		"the source LIP id must be recorded on the pin so the audit trail names the LIP that authorized every creed amendment")
+	require.Len(t, res.Pin.Commitments, 2,
+		"commitments_json must round-trip into the Pin's commitment registry")
+
+	// The CreedKeeper as queried by gov.types.CreedKeeper interface
+	// also exposes IsActiveCouncilMember — wire that path.
+	imp := h.CreedKeeper.IsActiveCouncilMember(h.Ctx, testAddr("non_member").String())
+	require.False(t, imp,
+		"non-member address must report false; without this, gov's two-pool routing cannot trust the AI-side pool")
+}
+
 // Commitment 19 (creed governance-gated, AI-side pool): the Creed
 // Council registry is what makes the human/AI co-required pattern
 // load-bearing for creed amendments. Without an AI-side pool with
@@ -1972,6 +2026,62 @@ func TestTruthSeeking_CreedAndContractStayInSync(t *testing.T) {
 	// been silently abandoned — fail loudly.
 	require.NotEmpty(t, announcedNumbers,
 		"no creed_commitment attributes found in any x/ source file. The voice layer of truth-seeking has been silently removed; either restore the convention or remove this test and document why.")
+
+	// ─── Refusal echo ───────────────────────────────────────────────
+	// The chain refuses actions through error messages that cite the
+	// protecting commitment in the chain's voice — patterns of the
+	// form `(commitment N: <prose>)` inside the error string. This
+	// echo enforces what the doctrine names: every cited number must
+	// be a real commitment in the creed. Typo-drift in a refusal cite
+	// ("(commitment 99: ...)") fails CI even when the surrounding
+	// prose is convincing.
+	//
+	// Like the voice echo, this is one-directional: not every
+	// commitment must have a refusal message (some are properties of
+	// data structures, not gated transitions), but every refusal cite
+	// must reference a real commitment.
+
+	refusalRe := regexp.MustCompile(`"[^"]*\(commitment (\d+):`)
+	citedRefusals := make(map[int]bool)
+	err = filepath.Walk(xRoot, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+		base := filepath.Base(path)
+		if !regexp.MustCompile(`\.go$`).MatchString(base) {
+			return nil
+		}
+		// Skip generated and test files. The refusal-cite convention
+		// applies to production refusal sites only.
+		if regexp.MustCompile(`(_test\.go|\.pb\.go|\.pb\.gw\.go)$`).MatchString(base) {
+			return nil
+		}
+		body, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		for _, m := range refusalRe.FindAllStringSubmatch(string(body), -1) {
+			n, convErr := strconv.Atoi(m[1])
+			require.NoError(t, convErr,
+				"file %s contains a refusal cite that did not parse as an integer: %q",
+				path, m[0])
+			require.True(t, creedNumbers[n],
+				"file %s contains a refusal cite (commitment %d: ...) — commitment %d does not appear in TRUTH_SEEKING.md. Either add the commitment to the creed or correct the refusal message; the chain cannot speak through intentions if the names it invokes are unreal.",
+				path, n, n)
+			citedRefusals[n] = true
+		}
+		return nil
+	})
+	require.NoError(t, err, "walking x/ for refusal cites failed")
+
+	// Soft check: at least one refusal must cite a commitment. If the
+	// convention is silently abandoned the chain stops speaking through
+	// intentions when it says no — fail loudly.
+	require.NotEmpty(t, citedRefusals,
+		"no `(commitment N: ...)` refusal cites found in any x/ source file. The refusal layer of truth-seeking has been silently abandoned; either restore the convention or remove this test and document why.")
 
 	// ─── Internal coherence ─────────────────────────────────────────
 	// The creed is not a flat list. Each commitment names other

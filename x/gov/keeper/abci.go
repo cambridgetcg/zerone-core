@@ -131,6 +131,33 @@ func (k Keeper) tallyAndResolve(ctx sdk.Context, lip *types.LIP, params *types.P
 		case types.CategoryPhaseTransition, types.CategoryPhaseRollback:
 			// Phase transitions don't execute immediately — enter activation delay.
 			k.HandlePhaseTransitionPass(ctx, lip.Id)
+		case types.CategoryCreedAmendment:
+			// Commitment 19 (the creed is governance-gated): on
+			// pass, ship the attached pin payload to x/creed via
+			// AnchorPinFromBytes. The LIP id is recorded as the
+			// source so the post-launch audit trail names the LIP
+			// that authorized every creed amendment.
+			if pin, found := k.GetCreedAmendmentPin(ctx, lip.Id); found {
+				if ck := k.GetCreedKeeper(); ck != nil {
+					if err := ck.AnchorPinFromBytes(ctx, lip.Id, pin.CanonicalHash, pin.CommitmentsJSON); err != nil {
+						k.Logger(ctx).Error("failed to anchor creed amendment from passed LIP",
+							"lip_id", lip.Id,
+							"error", err,
+						)
+					} else {
+						ctx.EventManager().EmitEvent(
+							sdk.NewEvent("zerone.gov.creed_amendment_anchored",
+								sdk.NewAttribute("lip_id", lip.Id),
+								sdk.NewAttribute("canonical_hash", fmt.Sprintf("%x", pin.CanonicalHash)),
+								sdk.NewAttribute("creed_commitment", "10,19"),
+							),
+						)
+						k.Logger(ctx).Info("creed amendment anchored via LIP governance",
+							"lip_id", lip.Id,
+						)
+					}
+				}
+			}
 		}
 	} else {
 		lip.Stage = types.StatusFailed
