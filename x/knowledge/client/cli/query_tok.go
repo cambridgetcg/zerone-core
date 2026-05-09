@@ -60,7 +60,10 @@ func cmdBundleToKAncestorCone() *cobra.Command {
 		Short: "Bundle the ancestor cone from a leaf",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx, _ := client.GetClientQueryContext(cmd)
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
 			depth, _ := cmd.Flags().GetUint32("max-depth")
 			paths, _ := cmd.Flags().GetUint32("max-paths")
 			req := &types.QueryBundleToKRequest{
@@ -89,7 +92,10 @@ func cmdBundleToKFrontier() *cobra.Command {
 		Short: "Bundle the latest facts in a domain",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx, _ := client.GetClientQueryContext(cmd)
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
 			sinceStr, _ := cmd.Flags().GetString("since-block")
 			limit, _ := cmd.Flags().GetUint32("limit")
 			since, err := strconv.ParseUint(sinceStr, 10, 64)
