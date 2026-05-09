@@ -84,6 +84,7 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryDomainCapacityCmd(),
 		NewQueryEpistemicTemperatureCmd(),
 		NewQueryRoleElasticityCmd(),
+		CmdBundleToK(),
 	)
 
 	return queryCmd
