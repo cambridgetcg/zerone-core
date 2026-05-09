@@ -1,0 +1,78 @@
+syntax = "proto3";
+package zerone.knowledge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
+
+import "zerone/knowledge/v1/types.proto";
+
+// ToKSelector is the union of supported subgraph extraction modes.
+// Plan 1 binds RootedSubtree, AncestorCone, Frontier. Plan 2 adds
+// CascadeReplay; Plan 4 adds ForkAndDecide.
+message ToKSelector {
+  oneof variant {
+    RootedSubtreeSelector rooted_subtree = 1;
+    AncestorConeSelector  ancestor_cone  = 2;
+    FrontierSelector      frontier       = 3;
+    // Reserved: 4 = cascade_replay (Plan 2), 5 = fork_and_decide (Plan 4).
+  }
+}
+
+// RootedSubtreeSelector: walk descendants from an axiom or interior node
+// up to max_depth. Returns the rooted node + all reachable descendants.
+message RootedSubtreeSelector {
+  string root_fact_id = 1;
+  uint32 max_depth    = 2;  // 0 = unbounded; chain caps at 32.
+}
+
+// AncestorConeSelector: walk ancestors from a leaf claim up to k paths.
+// Useful for "show me everything this conclusion depends on."
+message AncestorConeSelector {
+  string leaf_fact_id = 1;
+  uint32 max_paths    = 2;  // 0 = all; chain caps at 256.
+  uint32 max_depth    = 3;  // 0 = unbounded; chain caps at 32.
+}
+
+// FrontierSelector: latest-N facts in a domain since block. Useful for
+// incremental/streaming training updates.
+message FrontierSelector {
+  string domain      = 1;
+  uint64 since_block = 2;
+  uint32 limit       = 3;  // 0 = chain default (1024); cap 8192.
+}
+
+// ToKBundle is the response of BundleToK. The Merkle root commits to
+// the included node and edge IDs domain-tagged separately. A trainer
+// who has the IDs can re-derive the root locally without trusting the
+// RPC to faithfully serialise payloads.
+message ToKBundle {
+  uint64 snapshot_block            = 1;
+  bytes  snapshot_root             = 2;  // 32-byte Merkle root.
+  repeated string included_node_ids = 3; // sorted, deterministic.
+  repeated ToKEdge included_edges  = 4;  // sorted by (from,to,relation).
+  repeated Fact   nodes            = 5;  // full payloads, in node-id order.
+  string serialisation_format      = 6;  // "jsonl_adjacency_v1" by default.
+  bytes  serialised_payload        = 7;  // optional; large bundles may omit.
+  ToKBundleProvenance provenance   = 8;
+}
+
+// ToKEdge mirrors the existing relation-graph edges but ships them as
+// first-class bundle entries (not nested under nodes), so trainers can
+// load topology without touching node payloads.
+message ToKEdge {
+  string from_fact_id = 1;
+  string to_fact_id   = 2;
+  string relation     = 3;  // SUPPORTS, CONTRADICTS, GENERALIZES, etc.
+  string inference    = 4;  // typed reasoning move (Wave 5 vocab).
+}
+
+// ToKBundleProvenance carries the version pins required by TC2.
+message ToKBundleProvenance {
+  string chain_id                       = 1;
+  string trace_schema_version           = 2;
+  string canonical_serialisation_version = 3;
+  string tokenizer_version              = 4;
+  ToKSelector selector_used             = 5;
+  uint32 cap_max_depth                  = 6;  // chain-side caps applied.
+  uint32 cap_max_paths                  = 7;
+  uint32 cap_limit                      = 8;
+}
