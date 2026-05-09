@@ -142,7 +142,7 @@ func (m msgServer) CommitEvidence(goCtx context.Context, msg *types.MsgCommitEvi
 	}
 
 	if dispute.Phase != types.DisputePhase_DISPUTE_PHASE_EVIDENCE_COMMIT {
-		return nil, fmt.Errorf("%w: expected EVIDENCE_COMMIT, got %s", types.ErrWrongPhase, dispute.Phase.String())
+		return nil, fmt.Errorf("%w: expected EVIDENCE_COMMIT, got %s (commitment 10: dispute phases progress forward only — once the commit window has closed, the chain refuses to re-enter it)", types.ErrWrongPhase, dispute.Phase.String())
 	}
 
 	currentBlock := uint64(ctx.BlockHeight())
@@ -201,7 +201,7 @@ func (m msgServer) RevealEvidence(goCtx context.Context, msg *types.MsgRevealEvi
 	}
 
 	if dispute.Phase != types.DisputePhase_DISPUTE_PHASE_EVIDENCE_REVEAL {
-		return nil, fmt.Errorf("%w: expected EVIDENCE_REVEAL, got %s", types.ErrWrongPhase, dispute.Phase.String())
+		return nil, fmt.Errorf("%w: expected EVIDENCE_REVEAL, got %s (commitment 10: reveal can only happen during the reveal phase — after, the bound commitment hash stands without its content, which the chain reads as the submitter declining to reveal)", types.ErrWrongPhase, dispute.Phase.String())
 	}
 
 	currentBlock := uint64(ctx.BlockHeight())
@@ -272,7 +272,7 @@ func (m msgServer) ArbiterVote(goCtx context.Context, msg *types.MsgArbiterVote)
 	}
 
 	if dispute.Phase != types.DisputePhase_DISPUTE_PHASE_ARBITRATION {
-		return nil, fmt.Errorf("%w: expected ARBITRATION, got %s", types.ErrWrongPhase, dispute.Phase.String())
+		return nil, fmt.Errorf("%w: expected ARBITRATION, got %s (commitment 10: arbiter votes can only be cast during arbitration — votes outside the window are not part of the chain's permanent record of how this dispute resolved)", types.ErrWrongPhase, dispute.Phase.String())
 	}
 
 	currentBlock := uint64(ctx.BlockHeight())
@@ -335,7 +335,7 @@ func (m msgServer) EscalateDispute(goCtx context.Context, msg *types.MsgEscalate
 
 	// Can only escalate from settled/draw outcomes or active arbitration
 	if dispute.Phase == types.DisputePhase_DISPUTE_PHASE_TIMED_OUT {
-		return nil, fmt.Errorf("%w: cannot escalate timed-out dispute", types.ErrWrongPhase)
+		return nil, fmt.Errorf("%w: cannot escalate timed-out dispute (commitment 10: a timed-out dispute's record is closed; escalation must open a new dispute with its own forward-only lineage rather than re-animate one whose audit trail has already terminated)", types.ErrWrongPhase)
 	}
 
 	// Check max tier
