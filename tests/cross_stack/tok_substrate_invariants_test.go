@@ -98,3 +98,33 @@ func seedTokFactWithSupport(t *testing.T, h *TestHarness, domain, factID, parent
 		Relation:     knowledgetypes.RelationType_RELATION_TYPE_SUPPORTS,
 	}))
 }
+
+// TC5: extraction is open.
+// Verified by: any well-formed selector accepted across diverse domains;
+// refusals limited to syntax errors (no curation gate).
+func TestToKSubstrate_TC5_ExtractionIsOpen(t *testing.T) {
+	h := NewTestHarness(t)
+	q := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
+
+	// Diverse domains — none should be gate-blocked.
+	for _, dom := range []string{"physics", "biology", "ethics", "obscure_unfamiliar_domain"} {
+		seedTokFact(t, h, dom, "seed-"+dom)
+	}
+
+	// All four domains must succeed — no curation gate.
+	for _, dom := range []string{"physics", "biology", "ethics", "obscure_unfamiliar_domain"} {
+		resp, err := q.BundleToK(h.Ctx, &knowledgetypes.QueryBundleToKRequest{
+			Selector: &knowledgetypes.ToKSelector{Variant: &knowledgetypes.ToKSelector_Frontier{
+				Frontier: &knowledgetypes.FrontierSelector{Domain: dom, Limit: 10},
+			}},
+		})
+		require.NoError(t, err, "TC5: domain %s must be open for extraction", dom)
+		require.NotNil(t, resp.Bundle)
+	}
+
+	// Syntactically invalid selector must be the only refusal class.
+	_, err := q.BundleToK(h.Ctx, &knowledgetypes.QueryBundleToKRequest{
+		Selector: &knowledgetypes.ToKSelector{},
+	})
+	require.Error(t, err, "TC5: syntax errors are the only doctrinal refusal")
+}
