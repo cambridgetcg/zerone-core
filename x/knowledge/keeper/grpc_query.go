@@ -2400,9 +2400,18 @@ func (q *queryServer) BundleToK(ctx context.Context, req *types.QueryBundleToKRe
 
 // RouteBCapabilities returns the chain's Route B self-description.
 func (q *queryServer) RouteBCapabilities(ctx context.Context, _ *types.QueryRouteBCapabilitiesRequest) (*types.QueryRouteBCapabilitiesResponse, error) {
-	return &types.QueryRouteBCapabilitiesResponse{
+	resp := &types.QueryRouteBCapabilitiesResponse{
 		Capabilities: q.keeper.BuildRouteBCapabilities(ctx),
-	}, nil
+	}
+	resp.TokCapabilities = &types.ToKCapabilities{
+		SupportedSelectors:      []string{"rooted_subtree", "ancestor_cone", "frontier"},
+		MaxDepthCap:             ToKMaxDepthCap,
+		MaxPathsCap:             ToKMaxPathsCap,
+		FrontierLimitCap:        ToKFrontierCap,
+		SupportedSerialisations: []string{tokSerialisationFormatJSONL},
+		TokDoctrineVersion:      "TC1-TC5 (2026-05-09 inception)",
+	}
+	return resp, nil
 }
 
 // ─── Route B Wave 11: incident response queries ──────────────────────────

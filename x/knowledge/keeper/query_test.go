@@ -452,3 +452,17 @@ func TestQuery_Facts_FilterByClaimType(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.Facts, 3)
 }
+
+// ─── RouteBCapabilities: tok_capabilities advertisement ──────────────────────
+
+func TestRouteBCapabilities_AdvertisesToK(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+	q := keeper.NewQueryServerImpl(k)
+	resp, err := q.RouteBCapabilities(ctx, &types.QueryRouteBCapabilitiesRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp.TokCapabilities, "TC1: tok_capabilities must be advertised")
+	require.Contains(t, resp.TokCapabilities.SupportedSelectors, "rooted_subtree")
+	require.Contains(t, resp.TokCapabilities.SupportedSelectors, "ancestor_cone")
+	require.Contains(t, resp.TokCapabilities.SupportedSelectors, "frontier")
+	require.NotEmpty(t, resp.TokCapabilities.TokDoctrineVersion)
+}
