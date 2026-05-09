@@ -21,7 +21,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -1155,6 +1157,305 @@ func TestTruthSeeking_FrontierBountyRoundTripsOnExpiry(t *testing.T) {
 		"commitment 18 + commitment 12: the bounty of an unanswered chain-sponsored inquiry must round-trip back to the frontier pool — anything less is leakage of the chain's audit budget")
 	require.True(t, h.GetBalance(inquiryAddr, "uzrn").Amount.IsZero(),
 		"inquiry pool must release the system-sponsored bounty on expiry — leaving it would let chain-mint silently subsidise unrelated user-asked inquiries")
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Voice-layer doc mirror: events that fire from source must have an
+// entry in docs/EVENTS.md, and vice versa. The chain's voice reaches
+// off-chain observers through two channels:
+//
+//   1. The creed_commitment attribute on emitted events — already
+//      enforced by TestTruthSeeking_CreedAndContractStayInSync's
+//      voice-echo clause.
+//   2. docs/EVENTS.md — the published surface that indexers and
+//      dashboards subscribe against.
+//
+// If (2) drifts from emission, the voice has fragmented even when (1)
+// still binds: indexers read the wrong attribute names, dashboards
+// surface wrong data, and "the chain speaks" becomes uneven. This
+// test promotes the doc-mirror to a creed-bound invariant rather than
+// a separate hygiene audit, since drift here breaks the same promise
+// — declarations match emission — that the rest of the file enforces
+// for commitments.
+//
+// Bound here AND by: TestEventAudit_DocumentationCompleteness in
+// tests/integration (same check, layered for redundancy).
+// ════════════════════════════════════════════════════════════════════
+
+func TestTruthSeeking_VoiceLayerDocMirror(t *testing.T) {
+	codeEvents := walkCodeEventNames(t)
+	docEvents := parseDocEventNames(t)
+
+	var undocumented []string
+	for ev := range codeEvents {
+		if !docEvents[ev] {
+			undocumented = append(undocumented, ev)
+		}
+	}
+	sort.Strings(undocumented)
+	require.Empty(t, undocumented,
+		"events emitted in source but missing from docs/EVENTS.md (%d):\n  %s\n\nthe chain emits these events but does not document them — off-chain indexers and dashboards have no entry to subscribe against. The voice has fragmented; either add the missing entries to EVENTS.md or remove the emission.",
+		len(undocumented), strings.Join(undocumented, "\n  "))
+
+	var phantom []string
+	for ev := range docEvents {
+		if !codeEvents[ev] {
+			phantom = append(phantom, ev)
+		}
+	}
+	sort.Strings(phantom)
+	require.Empty(t, phantom,
+		"events documented in docs/EVENTS.md but never emitted in source (%d):\n  %s\n\nthe doc claims the chain announces these but no emission site exists — observers subscribing to them will hear silence. Either add the emission or remove the doc entry.",
+		len(phantom), strings.Join(phantom, "\n  "))
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Voice-layer attribute integrity: the creed_commitment value claimed
+// in EVENTS.md must equal the value the code emits, for every event.
+//
+// The doc-mirror test above catches missing entries; this catches the
+// subtler drift the existing audit cannot see — an event that exists
+// in both code and doc but disagrees on which commitment it preserves.
+// Without this bind, the chain could announce creed_commitment="5"
+// while EVENTS.md cites the same event as commitment 3, and off-chain
+// observers reading the doc would build dashboards subscribing to a
+// promise that the chain never made.
+//
+// Compared as sets, since multi-commitment events use comma-separated
+// values (e.g. "6, 10"). Order-insensitive.
+// ════════════════════════════════════════════════════════════════════
+
+func TestTruthSeeking_CreedCommitmentDocMatchesCode(t *testing.T) {
+	codeMap := walkCodeCreedAttributes(t)
+	docMap := parseDocCreedAttributes(t)
+
+	type mismatch struct {
+		event string
+		code  []string
+		doc   []string
+		kind  string
+	}
+	var mismatches []mismatch
+
+	for event, codeVals := range codeMap {
+		docVals, hasDoc := docMap[event]
+		if !hasDoc {
+			mismatches = append(mismatches, mismatch{
+				event: event, code: sortedKeys(codeVals), doc: nil,
+				kind: "code emits creed_commitment, doc has no creed_commitment line",
+			})
+			continue
+		}
+		if !sameSet(codeVals, docVals) {
+			mismatches = append(mismatches, mismatch{
+				event: event, code: sortedKeys(codeVals), doc: sortedKeys(docVals),
+				kind: "code and doc disagree on creed_commitment value",
+			})
+		}
+	}
+
+	for event, docVals := range docMap {
+		if _, ok := codeMap[event]; !ok {
+			mismatches = append(mismatches, mismatch{
+				event: event, code: nil, doc: sortedKeys(docVals),
+				kind: "doc claims creed_commitment, code emit site does not carry that attribute",
+			})
+		}
+	}
+
+	if len(mismatches) > 0 {
+		sort.Slice(mismatches, func(i, j int) bool { return mismatches[i].event < mismatches[j].event })
+		var msg strings.Builder
+		fmt.Fprintf(&msg, "creed_commitment drift between source and docs/EVENTS.md (%d):\n", len(mismatches))
+		for _, m := range mismatches {
+			fmt.Fprintf(&msg, "  %s\n    %s\n    code: %v\n    doc:  %v\n",
+				m.event, m.kind, m.code, m.doc)
+		}
+		msg.WriteString("\nthe chain's announcement and its documentation must tell observers the same story about which commitment each event preserves. Update EVENTS.md to match the emitted values, or update the emit site to match the doc — but they cannot disagree.")
+		t.Error(msg.String())
+	}
+}
+
+// ─── helpers for voice-layer doc-mirror tests ────────────────────────
+
+// walkCodeEventNames returns the set of zerone.<module>.<action> event
+// names emitted anywhere under x/. Detection scans for the first
+// quoted zerone string in the ~200 chars after each `sdk.NewEvent(`
+// call site — same heuristic as tests/integration/events_audit_test.go's
+// extractEventTypes, kept self-contained here so this binder does not
+// depend on the integration package.
+func walkCodeEventNames(t *testing.T) map[string]bool {
+	t.Helper()
+	eventTypeRe := regexp.MustCompile(`"(zerone\.[a-z_]+\.[a-z_]+)"`)
+	events := make(map[string]bool)
+	err := filepath.Walk("../../x", func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, ".pb.go") {
+			return nil
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		text := string(body)
+		parts := strings.Split(text, "sdk.NewEvent(")
+		for i := 1; i < len(parts); i++ {
+			snippet := parts[i]
+			if len(snippet) > 200 {
+				snippet = snippet[:200]
+			}
+			if m := eventTypeRe.FindStringSubmatch(snippet); m != nil {
+				events[m[1]] = true
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err, "walking x/ for event names failed")
+	return events
+}
+
+// parseDocEventNames returns the set of `### zerone.<module>.<action>`
+// headings in docs/EVENTS.md.
+func parseDocEventNames(t *testing.T) map[string]bool {
+	t.Helper()
+	body, err := os.ReadFile("../../docs/EVENTS.md")
+	require.NoError(t, err, "EVENTS.md must exist")
+	headingRe := regexp.MustCompile(`(?m)^### (zerone\.[a-z_]+\.[a-z_]+)`)
+	events := make(map[string]bool)
+	for _, m := range headingRe.FindAllStringSubmatch(string(body), -1) {
+		events[m[1]] = true
+	}
+	return events
+}
+
+// walkCodeCreedAttributes returns event_name → set of creed_commitment
+// values, derived by pairing each `sdk.NewAttribute("creed_commitment",
+// "X")` call with the most-recent enclosing `sdk.NewEvent("zerone.Y",`
+// call in the same file. Multi-commitment values like "6, 10" are
+// split on comma.
+//
+// Pairing relies on source order: both the event-start match and the
+// creed-attribute match positions are returned in order by FindAll*Index,
+// so we walk creed positions and advance an event pointer.
+func walkCodeCreedAttributes(t *testing.T) map[string]map[string]bool {
+	t.Helper()
+	eventStartRe := regexp.MustCompile(`sdk\.NewEvent\(\s*"(zerone\.[a-z_]+\.[a-z_]+)"`)
+	creedAttrRe := regexp.MustCompile(`sdk\.NewAttribute\("creed_commitment",\s*"([^"]+)"\)`)
+
+	out := make(map[string]map[string]bool)
+	err := filepath.Walk("../../x", func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, ".pb.go") {
+			return nil
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		text := string(body)
+
+		eventMatches := eventStartRe.FindAllStringSubmatchIndex(text, -1)
+		creedMatches := creedAttrRe.FindAllStringSubmatchIndex(text, -1)
+		if len(eventMatches) == 0 || len(creedMatches) == 0 {
+			return nil
+		}
+
+		ei := 0
+		for _, c := range creedMatches {
+			creedStart := c[0]
+			for ei+1 < len(eventMatches) && eventMatches[ei+1][0] < creedStart {
+				ei++
+			}
+			if eventMatches[ei][0] >= creedStart {
+				continue
+			}
+			eventName := text[eventMatches[ei][2]:eventMatches[ei][3]]
+			rawValue := text[c[2]:c[3]]
+			if out[eventName] == nil {
+				out[eventName] = make(map[string]bool)
+			}
+			for _, v := range strings.Split(rawValue, ",") {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					out[eventName][v] = true
+				}
+			}
+		}
+		return nil
+	})
+	require.NoError(t, err, "walking x/ for creed attributes failed")
+	return out
+}
+
+// parseDocCreedAttributes returns event_name → set of creed_commitment
+// values claimed in docs/EVENTS.md. Each `### zerone.X.Y` heading
+// defines a section running until the next `### ` heading; within
+// that section, a line of the form `- \`creed_commitment\` -- "VALUE"`
+// declares the claimed value.
+func parseDocCreedAttributes(t *testing.T) map[string]map[string]bool {
+	t.Helper()
+	body, err := os.ReadFile("../../docs/EVENTS.md")
+	require.NoError(t, err)
+	text := string(body)
+
+	headingRe := regexp.MustCompile(`(?m)^### (zerone\.[a-z_]+\.[a-z_]+)`)
+	creedDocRe := regexp.MustCompile("(?m)^- `creed_commitment`\\s*--\\s*\"([^\"]+)\"")
+
+	matches := headingRe.FindAllStringSubmatchIndex(text, -1)
+	out := make(map[string]map[string]bool)
+	for i, m := range matches {
+		eventName := text[m[2]:m[3]]
+		sectionStart := m[1]
+		sectionEnd := len(text)
+		if i+1 < len(matches) {
+			sectionEnd = matches[i+1][0]
+		}
+		section := text[sectionStart:sectionEnd]
+		creedMatch := creedDocRe.FindStringSubmatch(section)
+		if creedMatch == nil {
+			continue
+		}
+		value := creedMatch[1]
+		out[eventName] = make(map[string]bool)
+		for _, v := range strings.Split(value, ",") {
+			v = strings.TrimSpace(v)
+			if v != "" {
+				out[eventName][v] = true
+			}
+		}
+	}
+	return out
+}
+
+func sameSet(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if !b[k] {
+			return false
+		}
+	}
+	return true
+}
+
+func sortedKeys(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ════════════════════════════════════════════════════════════════════

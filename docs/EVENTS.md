@@ -58,6 +58,7 @@ Governance parameter update.
 Module enabled or disabled.
 - `authority` -- governance address
 - `enabled` -- `"true"` or `"false"`
+- `creed_commitment` -- "11, 12"
 
 ### zerone.alignment.observation_recorded
 *EndBlock.* Periodic AHI observation completed.
@@ -83,6 +84,7 @@ Correction magnitude exceeds auto-apply threshold; governance proposal required.
 - `magnitude` -- proposed magnitude
 - `parameter` -- target parameter
 - `reason` -- why governance is required
+- `creed_commitment` -- "11"
 
 ### zerone.alignment.correction_outcome_recorded
 Result of a correction recorded for confidence tracking.
@@ -92,6 +94,7 @@ Result of a correction recorded for confidence tracking.
 - `score_after` -- score after correction
 - `score_before` -- score before correction
 - `successful` -- `"true"` or `"false"`
+- `creed_commitment` -- "11"
 
 ### zerone.alignment.network_health_critical
 Network health composite dropped to critical level; defensive pacing activated.
@@ -118,6 +121,7 @@ Network health composite returned to healthy range.
 Verification backlog exceeded 150% of active facts; knowledge quality penalty applied (R31-1 Wood→Earth).
 - `pending_ratio_bps` -- pending-to-active claim ratio in BPS
 - `quality_penalty_applied` -- `"true"` or `"false"`
+- `creed_commitment` -- "4"
 
 ### zerone.alignment.correction_advisory
 Correction magnitude is below `AdvisoryMagnitudeBps`; logged but not forwarded to autopoiesis (L7 banding).
@@ -126,11 +130,13 @@ Correction magnitude is below `AdvisoryMagnitudeBps`; logged but not forwarded t
 - `direction` -- correction direction
 - `magnitude` -- proposed magnitude
 - `advisory_threshold` -- configured advisory ceiling
+- `creed_commitment` -- "11"
 
 ### zerone.alignment.verification_health_observed
 Verification throughput and dispute rate observed by the governance sensor (R31-2 Fire→Earth).
 - `throughput_bps` -- verification throughput in BPS
 - `dispute_rate_bps` -- dispute rate in BPS
+- `creed_commitment` -- "4"
 
 
 ## auth
@@ -217,18 +223,21 @@ Governance parameter update.
 Module activated or deactivated.
 - `authority` -- governance address
 - `activated` -- `"true"` or `"false"`
+- `creed_commitment` -- "12"
 
 ### zerone.autopoiesis.multiplier_overridden
 Multiplier force-set by governance.
 - `authority` -- governance address
 - `path` -- multiplier path
 - `value` -- new BPS value
+- `creed_commitment` -- "12"
 
 ### zerone.autopoiesis.multiplier_frozen
 Multiplier freeze toggled.
 - `authority` -- governance address
 - `path` -- multiplier path
 - `frozen` -- `"true"` or `"false"`
+- `creed_commitment` -- "12"
 
 ### zerone.autopoiesis.epoch_processed
 *EndBlock.* Epoch boundary reached, SSI computed, multipliers adjusted.
@@ -239,6 +248,7 @@ Multiplier freeze toggled.
 - `block_height` -- block height
 - `multiplier_count` -- number of multipliers in snapshot
 - `oscillation_frozen` -- `"true"` if adjustments suppressed this epoch due to oscillation detection
+- `creed_commitment` -- "5, 12"
 
 ### zerone.autopoiesis.oscillation_detected
 Sign-flip count of SSI delta over the observation window exceeded the threshold (T8); multiplier adjustments are frozen for a cooling period.
@@ -246,12 +256,14 @@ Sign-flip count of SSI delta over the observation window exceeded the threshold 
 - `flips` -- number of sign flips detected in the window
 - `window_epochs` -- configured observation window
 - `frozen_until_epoch` -- epoch at which adjustments resume
+- `creed_commitment` -- "12"
 
 ### zerone.autopoiesis.change_budget_scaled
 Total desired adjustment across all multipliers exceeded `MaxTotalChangeBpsPerEpoch`; each delta was scaled proportionally (L7).
 - `epoch` -- epoch number
 - `requested_total_bps` -- unscaled total absolute delta in BPS
 - `budget_bps` -- configured budget
+- `creed_commitment` -- "12"
 
 ---
 
@@ -389,6 +401,7 @@ Automatic capture challenge triggered by detection module.
 Capture challenge resolved with capture confirmed.
 - `challenge_id` -- unique challenge identifier
 - `domain` -- confirmed-captured domain
+- `creed_commitment` -- "9"
 
 ### zerone.capture_challenge.params_updated
 Governance parameter update.
@@ -403,6 +416,7 @@ Verification round recorded.
 - `round_id` -- round ID
 - `validator_count` -- participating validators
 - `block_height` -- block height
+- `creed_commitment` -- "9"
 
 ### zerone.capture_defense.domain_analyzed
 Domain analysis completed.
@@ -410,6 +424,7 @@ Domain analysis completed.
 - `risk_score` -- computed risk score
 - `hhi` -- Herfindahl-Hirschman Index
 - `flagged` -- `"true"` or `"false"`
+- `creed_commitment` -- "9"
 
 ---
 
@@ -419,6 +434,7 @@ Partnership formation bonus applied to a flagged domain to encourage decentralis
 - `domain` -- target domain
 - `expiry_height` -- block height when bonus expires
 - `reason` -- why bonus was set
+- `creed_commitment` -- "9"
 
 ### zerone.capture_defense.params_updated
 Governance parameter update.
@@ -431,6 +447,7 @@ Domain structural immunity recalculated based on partnership density.
 - `formation_bonus_active` -- `"true"` or `"false"`
 - `partnership_density` -- partnership count in domain
 - `raw_hhi` -- HHI before adjustment
+- `creed_commitment` -- "9"
 
 ### zerone.capture_defense.activity_threshold_relaxation
 Effective HHI threshold raised for a high-activity domain (R31-2 Fire→Metal).
@@ -438,6 +455,7 @@ Effective HHI threshold raised for a high-activity domain (R31-2 Fire→Metal).
 - `base_hhi_threshold` -- base HHI threshold
 - `effective_hhi_threshold` -- relaxed HHI threshold actually used
 - `verification_activity_bps` -- measured activity in BPS
+- `creed_commitment` -- "9"
 
 
 ## channels
@@ -647,24 +665,28 @@ Dispute initiated.
 - `target_id` -- disputed target ID
 - `bond` -- bond amount
 - `tier` -- dispute tier
+- `creed_commitment` -- "3"
 
 ### zerone.disputes.evidence_committed
 Evidence commitment submitted.
 - `dispute_id` -- dispute ID
 - `submitter` -- submitter address
 - `side` -- `challenger` or `defender`
+- `creed_commitment` -- "10"
 
 ### zerone.disputes.evidence_revealed
 Evidence revealed.
 - `dispute_id` -- dispute ID
 - `submitter` -- submitter address
 - `evidence_id` -- evidence ID
+- `creed_commitment` -- "10"
 
 ### zerone.disputes.arbiter_voted
 Arbiter cast vote.
 - `dispute_id` -- dispute ID
 - `arbiter` -- arbiter address
 - `vote` -- vote cast
+- `creed_commitment` -- "3, 10"
 
 ### zerone.disputes.dispute_escalated
 Dispute escalated to higher tier.
@@ -672,11 +694,13 @@ Dispute escalated to higher tier.
 - `new_tier` -- new tier
 - `additional_bond` -- additional bond
 - `total_bond` -- cumulative bond
+- `creed_commitment` -- "10"
 
 ### zerone.disputes.dispute_settled
 Dispute settled.
 - `dispute_id` -- dispute ID
 - `outcome` -- settlement outcome
+- `creed_commitment` -- "3, 10"
 
 ---
 
@@ -739,6 +763,7 @@ Ceremony finalized and executed.
 - `ceremony_type` -- `halt`, `revert`, or `resume`
 - `status` -- resulting chain status
 - `block_height` -- finalization block
+- `creed_commitment` -- "10"
 
 ### zerone.emergency.revert_required
 Revert ceremony finalized; operator action required.
@@ -746,6 +771,7 @@ Revert ceremony finalized; operator action required.
 - `target_height` -- rollback target height
 - `target_hash` -- rollback target hash
 - `action` -- operator instructions
+- `creed_commitment` -- "10"
 
 ---
 
@@ -756,12 +782,14 @@ Evidence submitted to chain.
 - `evidence_id` -- evidence ID
 - `submitter` -- submitter address
 - `evidence_type` -- evidence type
+- `creed_commitment` -- "1"
 
 ### zerone.evidence_mgmt.custody_transferred
 Evidence custody transferred.
 - `evidence_id` -- evidence ID
 - `from` -- previous custodian
 - `to` -- new custodian
+- `creed_commitment` -- "10"
 
 ### zerone.evidence_mgmt.evidence_verified
 Evidence verified.
@@ -769,6 +797,7 @@ Evidence verified.
 - `verifier` -- verifier address
 - `outcome` -- verification outcome
 - `confidence` -- confidence score
+- `creed_commitment` -- "1, 10"
 
 ### zerone.evidence_mgmt.evidence_challenged
 Evidence challenged.
@@ -776,6 +805,7 @@ Evidence challenged.
 - `challenger` -- challenger address
 - `dispute_id` -- linked dispute ID
 - `bond` -- challenge bond
+- `creed_commitment` -- "10"
 
 ### zerone.evidence_mgmt.update_params
 Governance parameter update.
@@ -791,6 +821,7 @@ LIP (Living Improvement Proposal) created.
 - `proposer` -- proposer address
 - `category` -- proposal category
 - `initial_stake` -- initial stake amount
+- `creed_commitment` -- "10, 11"
 
 ### zerone.gov.lip_staked
 Stake added to LIP.
@@ -805,6 +836,7 @@ LIP manually advanced by proposer.
 - `lip_id` -- LIP identifier
 - `authority` -- proposer address
 - `new_stage` -- new stage
+- `creed_commitment` -- "10"
 
 ### zerone.gov.vote_cast
 Vote cast on LIP in voting stage.
@@ -812,11 +844,13 @@ Vote cast on LIP in voting stage.
 - `voter` -- voter address
 - `option` -- `yes`, `no`, or `abstain`
 - `weight` -- stake-weighted vote power
+- `creed_commitment` -- "10, 11"
 
 ### zerone.gov.lip_withdrawn
 LIP withdrawn by proposer.
 - `lip_id` -- LIP identifier
 - `proposer` -- proposer address
+- `creed_commitment` -- "10"
 
 ### zerone.gov.params_updated
 Governance parameter update.
@@ -980,6 +1014,7 @@ Software upgrade plan attached to a LIP.
 - `height` -- scheduled upgrade height
 - `lip_id` -- originating LIP identifier
 - `upgrade_name` -- upgrade plan name
+- `creed_commitment` -- "10"
 
 ### zerone.gov.upgrade_scheduled
 Software upgrade scheduled for execution.
@@ -1028,11 +1063,13 @@ Session started for registered key.
 - `home_id` -- home identifier
 - `session_id` -- session identifier
 - `key_hash` -- key hash
+- `creed_commitment` -- "7"
 
 ### zerone.home.session_ended
 Session ended.
 - `home_id` -- home identifier
 - `session_id` -- session identifier
+- `creed_commitment` -- "7"
 
 ### zerone.home.key_registered
 Key registered to home.
@@ -1047,6 +1084,7 @@ Key revoked and sessions terminated.
 - `home_id` -- home identifier
 - `owner` -- owner address
 - `key_hash` -- revoked key hash
+- `creed_commitment` -- "7"
 
 ### zerone.home.guardian_configured
 Guardian configuration updated.
@@ -1397,6 +1435,7 @@ Established fact disproven via vindication.
 - `challenge_claim_id` -- claim ID that disproved the fact
 - `disproven_by` -- address that submitted disproving claim
 - `fact_id` -- disproven fact identifier
+- `creed_commitment` -- "3"
 
 ### zerone.knowledge.fact_rated
 User rated a fact as useful or not.
@@ -1510,6 +1549,7 @@ Vindication process completed; majority slashed, minority rewarded.
 Vindication window expired without resolution.
 - `entry_count` -- number of entries in vindication queue
 - `fact_id` -- fact identifier
+- `creed_commitment` -- "10"
 
 ### zerone.knowledge.capacity_penalty_applied
 Domain carrying capacity reduced by capture-defense penalty (R31-1 Metal→Wood).
@@ -1552,11 +1592,13 @@ A direct descendant of a disproven fact was flipped from VERIFIED/ACTIVE/AT_RISK
 - `disproven_fact_id` -- the fact that was disproven
 - `challenge_claim_id` -- the challenge claim that triggered disproof
 - `edge_relation` -- which support-bearing edge linked them (e.g. `RELATION_TYPE_REQUIRES`)
+- `creed_commitment` -- "3"
 
 ### zerone.knowledge.falsification_cascade_summary
 Emitted once at the end of a falsification cascade with the total count of affected descendants (ToK Wave 5).
 - `disproven_fact_id` -- the fact that was disproven
 - `descendants_contested` -- how many direct descendants were flipped
+- `creed_commitment` -- "3"
 
 ### zerone.knowledge.corroboration_incremented
 Popperian survival counter incremented: a fact withstood a falsification attempt (Phase 2). The fact's `corroboration_count` is epistemically meaningful in a way `confidence` is not — it names the tests the claim has already passed.
@@ -1564,6 +1606,7 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `challenge_claim_id` -- the (rejected) challenge claim
 - `new_count` -- corroboration_count after increment
 - `block_height` -- height at which the challenge was resolved
+- `creed_commitment` -- "3"
 
 ### zerone.knowledge.add_fact_proposed
 Wave 16 guardian-veto path. Authority called MsgAddFact while a guardian set is configured and the veto window is positive — instead of materializing the fact immediately, the proposal is queued. Guardians have until `execute_at_block` to call MsgVetoFactInjection. Without veto, the BeginBlocker emits `pending_fact_materialized` when the window closes.
@@ -1592,6 +1635,7 @@ Emitted when the probe bounty pool pays the flat `InvitationBonusAmount` to a pr
 - `challenger` -- challenger address (bonus recipient)
 - `fact_id` -- target fact whose invitation was answered
 - `amount` -- uzrn paid from the pool (may be less than `InvitationBonusAmount` if the pool is underfunded)
+- `creed_commitment` -- "5, 12"
 
 ### zerone.knowledge.probe_bounty_minted
 Emitted each block that the Wave 15 BeginBlocker mints uzrn into the dedicated probe bounty pool (`knowledge_probe_bounty_pool` module account). The pool funds successful-probe bonuses via `PayProbeBountyFromPool` — decoupling epistemic-auditing budget from general governance. Minting throttles when the pool reaches `ProbeBountyMaxPoolSize`; the event carries the actual minted amount (may be less than `ProbeBountyMintPerBlock` when the cap clamps issuance).
@@ -1606,6 +1650,7 @@ Emitted by the Wave 15 stress-test invitation heartbeat. Each block the chain sc
 - `corroboration_count` -- survived attacks so far
 - `idle_since_block` -- block height of the last probe (or acceptance if never probed)
 - `invited_at_block` -- current block height
+- `creed_commitment` -- "5"
 
 ### zerone.knowledge.challenge_settled
 Emitted when a challenge claim's stake is settled after the verification round completes. The verifier reward pool (55%) is distributed separately via `verifier_reward`; this event covers the remaining 45% of the challenger's stake.
@@ -1619,6 +1664,7 @@ Wave 14c inverted the challenge economics to stress-test truth instead of shield
 - `reward_bps` -- amplified success bonus; scales with the disproven fact's confidence, peaking at (base + 200%) for max-confidence disproofs (accepted path only)
 - `participation_refund` -- 15% of the stake returned to the challenger on failed probes; the chain thanks every audit attempt, not only successful disproofs (rejected path only)
 - `to_treasury` -- remainder routed to protocol treasury on failed probes (rejected path only)
+- `creed_commitment` -- "4"
 
 ### zerone.knowledge.agent_calibration_updated
 Submitter's track record changed — Phase 5 feedback loop. Emitted after round outcomes, corroborations earned, and disprovals. Closes the loop between training-pipeline output and on-chain evaluation.
@@ -1825,6 +1871,7 @@ A named module's circuit breaker engaged (Route B Wave 12). Write-path handlers 
 - `reason` -- free-form; references incident_id when applicable
 - `incident_id` -- empty when the pause isn't incident-driven
 - `auto_unpause_at_block` -- 0 means manual unpause only
+- `creed_commitment` -- "4, 10"
 
 ### zerone.knowledge.module_unpaused
 The circuit breaker for a named module cleared (Route B Wave 12). Writes resume. Authority-gated.
@@ -1847,6 +1894,7 @@ An authority-gated handler wrote an entry to the privileged-action audit log (Ro
 - `invoker` -- authority address that issued the call
 - `target` -- module_name, manifest_id, incident_id, or schema@version
 - `incident_id` -- audit binding when applicable (empty otherwise)
+- `creed_commitment` -- "6, 10"
 
 
 ## liquiditypool
@@ -2231,18 +2279,21 @@ Governance parameter update.
 - `domain` -- demoted domain
 - `accuracy_bps` -- current accuracy at demotion (BPS)
 - `threshold_bps` -- the probation threshold that was crossed
+- `creed_commitment` -- "7"
 
 ### zerone.qualification.decay_suspension
 *BeginBlock.* Wave 16 accuracy-based decay. PROBATIONARY qualification whose accuracy fell further below `decay_suspension_bps` is suspended. Suspended qualifications carry zero panel weight; voters must re-qualify (stake / track-record / endorsement) to vote effectively again.
 - `validator` -- validator address
 - `domain` -- suspended domain
 - `accuracy_bps`, `threshold_bps` -- same semantics as decay_probation
+- `creed_commitment` -- "7"
 
 ### zerone.qualification.decay_recovered
 *BeginBlock.* Wave 16 accuracy-based decay. PROBATIONARY qualification whose accuracy climbed back above `decay_recovery_bps` is reinstated to ACTIVE. The feedback loop is bidirectional: voters who improve their record reclaim full panel weight without re-qualifying.
 - `validator` -- validator address
 - `domain` -- recovered domain
 - `accuracy_bps`, `threshold_bps` -- same semantics as decay_probation
+- `creed_commitment` -- "7"
 
 ---
 
@@ -2260,6 +2311,7 @@ Research challenged.
 - `research_id` -- research ID
 - `challenger` -- challenger address
 - `reason` -- challenge reason
+- `creed_commitment` -- "3"
 
 ### zerone.research.research_reviewed
 Research reviewed.
@@ -2273,6 +2325,7 @@ Research resolved.
 - `research_id` -- research ID
 - `outcome` -- resolution outcome
 - `aggregate_score` -- aggregate review score
+- `creed_commitment` -- "13"
 
 ### zerone.research.bounty_created
 Research bounty created.
@@ -2290,6 +2343,7 @@ Bounty fulfilled and reward paid.
 - `bounty_id` -- bounty ID
 - `fulfilled_by` -- fulfiller address
 - `reward` -- reward paid
+- `creed_commitment` -- "13"
 
 ### zerone.research.research_funded
 Research treasury funded.
