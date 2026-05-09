@@ -53,6 +53,25 @@ func TestToKSubstrate_TC2_EveryViewIsGraphPinned(t *testing.T) {
 	require.Equal(t, resp.Bundle.SnapshotRoot, rederived, "TC2: root must be re-derivable from IDs")
 }
 
+// TC3: topology is signal.
+// Verified by: bundle ships edges (not just nodes), and SerialisedPayload
+// includes the topology in native form.
+func TestToKSubstrate_TC3_TopologyIsSignal(t *testing.T) {
+	h := NewTestHarness(t)
+	seedTokFact(t, h, "physics", "axiom-tc3")
+	seedTokFactWithSupport(t, h, "physics", "leaf-tc3", "axiom-tc3")
+	q := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
+	resp, err := q.BundleToK(h.Ctx, &knowledgetypes.QueryBundleToKRequest{
+		Selector: &knowledgetypes.ToKSelector{Variant: &knowledgetypes.ToKSelector_RootedSubtree{
+			RootedSubtree: &knowledgetypes.RootedSubtreeSelector{RootFactId: "axiom-tc3", MaxDepth: 5},
+		}},
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Bundle.IncludedEdges, "TC3: edges are first-class, not metadata")
+	require.Equal(t, "RELATION_TYPE_SUPPORTS", resp.Bundle.IncludedEdges[0].Relation, "TC3: edges carry their relation type")
+	require.NotEmpty(t, resp.Bundle.SerialisedPayload, "TC3: native serialisation ships topology")
+}
+
 // seedTokFact registers a fact + its domain so it can be bundled.
 func seedTokFact(t *testing.T, h *TestHarness, domain, factID string) {
 	t.Helper()
@@ -65,5 +84,17 @@ func seedTokFact(t *testing.T, h *TestHarness, domain, factID string) {
 		Domain:          domain,
 		Status:          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
 		VerifiedAtBlock: 1,
+	}))
+}
+
+// seedTokFactWithSupport seeds a fact AND a SUPPORTS relation pointing
+// from this fact to the named parent fact.
+func seedTokFactWithSupport(t *testing.T, h *TestHarness, domain, factID, parentID string) {
+	t.Helper()
+	seedTokFact(t, h, domain, factID)
+	require.NoError(t, h.KnowledgeKeeper.SetFactRelation(h.Ctx, &knowledgetypes.FactRelation{
+		SourceFactId: factID,
+		TargetFactId: parentID,
+		Relation:     knowledgetypes.RelationType_RELATION_TYPE_SUPPORTS,
 	}))
 }
