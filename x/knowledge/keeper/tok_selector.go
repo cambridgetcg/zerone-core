@@ -235,7 +235,8 @@ func (k Keeper) gatherAncestorsRecursive(
 //
 // "Accepted at block" is approximated by Fact.VerifiedAtBlock — the height at
 // which the chain accepted a fact into the knowledge graph. Facts with
-// VerifiedAtBlock < sel.SinceBlock (or == 0, meaning unverified) are excluded.
+// VerifiedAtBlock == 0 (never verified) are always excluded; among the rest,
+// facts with VerifiedAtBlock < sel.SinceBlock are also excluded.
 // Results are capped at sel.Limit (chain cap: ToKFrontierCap).
 func (k Keeper) GatherFrontier(
 	ctx context.Context,
@@ -262,7 +263,11 @@ func (k Keeper) GatherFrontier(
 		if !ok {
 			return false // ghost — skip
 		}
-		// Filter: only facts verified at or after sinceBlock.
+		// Filter: exclude unverified facts (VerifiedAtBlock == 0) unconditionally.
+		if fact.VerifiedAtBlock == 0 {
+			return false // never verified — not part of the knowledge substrate
+		}
+		// Filter: exclude facts older than the since-block cutoff.
 		if fact.VerifiedAtBlock < sel.SinceBlock {
 			return false
 		}

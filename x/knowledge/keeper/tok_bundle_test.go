@@ -198,6 +198,27 @@ func TestGatherFrontier_InterSetEdgesIncluded(t *testing.T) {
 	require.Equal(t, "f1", edges[0].ToFactId)
 }
 
+func TestGatherFrontier_ExcludesUnverifiedFacts(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	// One verified fact and one unverified fact in the same domain.
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "verified1", Domain: "science",
+		Status: types.FactStatus_FACT_STATUS_VERIFIED, VerifiedAtBlock: 100,
+	}))
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "unverified1", Domain: "science",
+		Status: types.FactStatus_FACT_STATUS_PENDING, VerifiedAtBlock: 0,
+	}))
+
+	// SinceBlock=0: this is the case where the old filter (VerifiedAtBlock < 0)
+	// was never true for uint64, causing unverified facts to leak into results.
+	sel := &types.FrontierSelector{Domain: "science", SinceBlock: 0, Limit: 10}
+	nodeIDs, _, err := k.GatherFrontier(ctx, sel)
+	require.NoError(t, err)
+	require.Equal(t, []string{"verified1"}, nodeIDs, "unverified1 (VerifiedAtBlock==0) must be excluded")
+}
+
 func TestGatherFrontier_ExcludesDifferentDomain(t *testing.T) {
 	k, ctx, _, _ := setupKnowledgeTestFull(t)
 
