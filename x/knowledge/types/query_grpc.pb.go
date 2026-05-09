@@ -107,6 +107,7 @@ const (
 	Query_EpistemicTemperature_FullMethodName         = "/zerone.knowledge.v1.Query/EpistemicTemperature"
 	Query_RoleElasticity_FullMethodName               = "/zerone.knowledge.v1.Query/RoleElasticity"
 	Query_IdleFacts_FullMethodName                    = "/zerone.knowledge.v1.Query/IdleFacts"
+	Query_BundleToK_FullMethodName                    = "/zerone.knowledge.v1.Query/BundleToK"
 )
 
 // QueryClient is the client API for Query service.
@@ -351,6 +352,9 @@ type QueryClient interface {
 	// prober agents can compete to probe them. Sorted by time-since-invite
 	// descending (oldest invitations first — they're the most under-tested).
 	IdleFacts(ctx context.Context, in *QueryIdleFactsRequest, opts ...grpc.CallOption) (*QueryIdleFactsResponse, error)
+	// BundleToK is the headline trainer-facing endpoint (TC1).
+	// Extracts a deterministic, snapshot-pinned subgraph per selector.
+	BundleToK(ctx context.Context, in *QueryBundleToKRequest, opts ...grpc.CallOption) (*QueryBundleToKResponse, error)
 }
 
 type queryClient struct {
@@ -1241,6 +1245,16 @@ func (c *queryClient) IdleFacts(ctx context.Context, in *QueryIdleFactsRequest, 
 	return out, nil
 }
 
+func (c *queryClient) BundleToK(ctx context.Context, in *QueryBundleToKRequest, opts ...grpc.CallOption) (*QueryBundleToKResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryBundleToKResponse)
+	err := c.cc.Invoke(ctx, Query_BundleToK_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -1483,6 +1497,9 @@ type QueryServer interface {
 	// prober agents can compete to probe them. Sorted by time-since-invite
 	// descending (oldest invitations first — they're the most under-tested).
 	IdleFacts(context.Context, *QueryIdleFactsRequest) (*QueryIdleFactsResponse, error)
+	// BundleToK is the headline trainer-facing endpoint (TC1).
+	// Extracts a deterministic, snapshot-pinned subgraph per selector.
+	BundleToK(context.Context, *QueryBundleToKRequest) (*QueryBundleToKResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -1756,6 +1773,9 @@ func (UnimplementedQueryServer) RoleElasticity(context.Context, *QueryRoleElasti
 }
 func (UnimplementedQueryServer) IdleFacts(context.Context, *QueryIdleFactsRequest) (*QueryIdleFactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method IdleFacts not implemented")
+}
+func (UnimplementedQueryServer) BundleToK(context.Context, *QueryBundleToKRequest) (*QueryBundleToKResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BundleToK not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -3362,6 +3382,24 @@ func _Query_IdleFacts_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_BundleToK_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryBundleToKRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).BundleToK(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_BundleToK_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).BundleToK(ctx, req.(*QueryBundleToKRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -3720,6 +3758,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IdleFacts",
 			Handler:    _Query_IdleFacts_Handler,
+		},
+		{
+			MethodName: "BundleToK",
+			Handler:    _Query_BundleToK_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

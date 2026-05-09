@@ -5,8 +5,9 @@ option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
 
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "google/api/annotations.proto";
-import "zerone/knowledge/v1/types.proto";
 import "zerone/knowledge/v1/genesis.proto";
+import "zerone/knowledge/v1/tok.proto";
+import "zerone/knowledge/v1/types.proto";
 
 // Query defines the gRPC query service for the knowledge module.
 service Query {
@@ -487,6 +488,12 @@ service Query {
   // descending (oldest invitations first — they're the most under-tested).
   rpc IdleFacts(QueryIdleFactsRequest) returns (QueryIdleFactsResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/idle_facts";
+  }
+
+  // BundleToK is the headline trainer-facing endpoint (TC1).
+  // Extracts a deterministic, snapshot-pinned subgraph per selector.
+  rpc BundleToK(QueryBundleToKRequest) returns (QueryBundleToKResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/tok/bundle";
   }
 }
 
@@ -1508,6 +1515,7 @@ message QueryTrainingManifestBundleResponse {
 message QueryRouteBCapabilitiesRequest {}
 message QueryRouteBCapabilitiesResponse {
   RouteBCapabilities capabilities = 1;
+  ToKCapabilities tok_capabilities = 2;  // TC1: advertise the substrate first.
 }
 
 // ─── Route B Wave 11: incident response queries ──────────────────────────
@@ -1570,4 +1578,24 @@ message QueryPrivilegedActionsResponse {
   repeated PrivilegedAction actions = 1;
   uint32 total                      = 2;
   uint64 snapshot_block_height      = 3;
+}
+
+// ─── ToK Foundation queries (TC1) ────────────────────────────────────────────
+
+message QueryBundleToKRequest {
+  ToKSelector selector        = 1;
+  uint64      at_block_height = 2;  // 0 = current; specific block enables historical replay.
+}
+
+message QueryBundleToKResponse {
+  ToKBundle bundle = 1;
+}
+
+message ToKCapabilities {
+  repeated string supported_selectors      = 1;  // ["rooted_subtree","ancestor_cone","frontier"]
+  uint32          max_depth_cap            = 2;
+  uint32          max_paths_cap            = 3;
+  uint32          frontier_limit_cap       = 4;
+  repeated string supported_serialisations = 5;  // ["jsonl_adjacency_v1"]
+  string          tok_doctrine_version     = 6;  // "TC1-TC5 (2026-05-09)"
 }
