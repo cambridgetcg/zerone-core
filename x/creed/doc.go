@@ -5,6 +5,15 @@
 //
 // Truth-seeking position:
 //
+// docs/TRUTH_SEEKING.md, commitment 19 (the creed is governance-
+// gated): this module IS the structural mechanism commitment 19
+// names. Every other layer of the truth-seeking architecture is
+// CI-synced to the creed; commitment 19 closes the loop by binding
+// the creed itself to on-chain governance. Without this module the
+// 5-layer enforcement protected a foundation that could move
+// underneath it. With it, the chain's voice cannot drift faster
+// than its governance.
+//
 // docs/TRUTH_SEEKING.md, commitment 6 (no individual can unilaterally
 // inject truth): the original commitment binds AT THE FACT LAYER.
 // This module extends the same shape ONE LAYER UP — the chain's

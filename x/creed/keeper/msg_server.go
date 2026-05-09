@@ -95,7 +95,7 @@ func (m *msgServer) AnchorPin(ctx context.Context, msg *types.MsgAnchorPin) (*ty
 		sdk.NewAttribute("canonical_hash", hashAttr),
 		sdk.NewAttribute("source_lip", pin.PinnedViaLip),
 		sdk.NewAttribute("commitment_count", fmt.Sprintf("%d", len(pin.Commitments))),
-		sdk.NewAttribute("creed_commitment", "6,10"),
+		sdk.NewAttribute("creed_commitment", "6,10,19"),
 	))
 
 	return &types.MsgAnchorPinResponse{NewVersion: pin.Version}, nil

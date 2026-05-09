@@ -228,6 +228,18 @@ We believe: the chain's own gaps are the chain's own responsibility. Commitment 
 
 ---
 
+### 19. The creed is governance-gated.
+
+We believe: the chain's voice cannot drift faster than its governance. Every other layer (code, tests, package docs, events, refusals) is mechanically synced to the creed by CI; the creed itself must enter that sync, or the substrate it claims to bind has a foundation that can move underneath it. An asymmetry in which every architectural surface is enforced except the document they all reference is not protection — it is protection layered on uncertainty. Commitment 6 protects the corpus from unilateral injection at the fact layer; this commitment extends the same shape one layer up to the document that tells the chain how to protect the corpus.
+
+**Code expression**: `x/creed.PinnedCreed` records the canonical hash and per-commitment registry on chain; pin storage is append-only by monotonic version, with prior pins remaining queryable via `QueryPinAtVersion`. `MsgAnchorPin` is gov-authority-gated and refuses non-monotonic versions, empty hashes, gapped commitment registries, and (post-launch, when `direct_anchor_enabled` is false) any pin that does not cite a passed Creed Amendment LIP. See `x/creed/keeper/msg_server.go:AnchorPin` and `x/creed/types/genesis_creed.go:BuildGenesisCreed`. Off-chain, `scripts/check_creed_hash.sh` (wired into `make pr-check`) refuses any merge whose normalized `docs/TRUTH_SEEKING.md` does not match `.creed-hash`, surfacing creed-text changes alongside the hash bump in every PR diff.
+
+**What would break it**: a build that ships with `TRUTH_SEEKING.md` whose normalized hash differs from `PinnedCreed.canonical_hash` (CI catches this pre-merge); a creed amendment that landed without a `CategoryCreedAmendment` LIP id once that class ships; a single-pool quorum-pass on a creed amendment (both human-side and AI-side pools must reach quorum independently); direct-authority writes after `direct_anchor_enabled` flips to false at mainnet; a Genesis Creed whose `Commitments` registry omits a commitment that appears in the file's `### N.` headers.
+
+**Echoes**: commitment 6 (no unilateral injection — extends from facts to the chain's voice itself, the same shape one layer up); commitment 10 (forward-only audit — pin history is append-only, prior versions byte-identical post-amendment); commitment 11 (trust queryable — the canonical creed is a chain-readable surface via x/creed's gRPC, so observers compose creed-drift dashboards in the same vocabulary the creed itself uses).
+
+---
+
 ## How the commitments echo
 
 The creed is enforced at five layers, each one mechanically synced to the others by `TestTruthSeeking_CreedAndContractStayInSync`. Adding a commitment to one layer without the others fails CI.

@@ -591,17 +591,23 @@ func TestTruthSeeking_PrivilegedActionsLogMonotonically(t *testing.T) {
 	}
 }
 
-// Commitment 6 + 10: the creed itself is governance-gated.
-// x/creed extends "no unilateral injection" from facts to the
-// chain's voice itself. AnchorPin requires the gov authority and
-// (once direct_anchor_enabled is false) a source LIP. Without these
-// gates, the chain's stated beliefs could shift silently — the
-// foundation under every other layer of the truth-seeking
-// architecture would be unbound.
+// ════════════════════════════════════════════════════════════════════
+// Commitment 19: The creed is governance-gated.
 //
-// Bound here AND by: TestTruthSeeking_PrivilegedActionsLogMonotonically
-// (forward-only audit at the privileged-action layer; this test
-// extends the same shape to the creed-amendment layer).
+// "The chain's voice cannot drift faster than its governance.
+// Every other layer is mechanically synced to the creed by CI;
+// the creed itself must enter that sync."
+//
+// This test exercises the structural protection: AnchorPin
+// requires the gov authority, refuses non-monotonic version,
+// refuses empty hashes, refuses gapped commitment registries,
+// and (post-disable) refuses any unsourced amendment.
+//
+// Bound here AND by: TestTruthSeeking_CreedHistoryIsForwardOnly
+// (forward-only side), TestTruthSeeking_GenesisCreedReflectsCurrentTruthSeeking
+// (Genesis Creed ↔ on-disk file binding).
+// ════════════════════════════════════════════════════════════════════
+
 func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
 	h := NewTestHarness(t)
 	ms := creedkeeper.NewMsgServerImpl(h.CreedKeeper)
@@ -765,6 +771,67 @@ func TestTruthSeeking_CreedHistoryIsForwardOnly(t *testing.T) {
 		"v1 hash must remain byte-identical after v2 lands; commitment 10 forbids rewriting prior versions")
 	require.Len(t, historical.Pin.Commitments, 2,
 		"v1's commitment registry must reflect what the chain pinned then, not what it pins now")
+}
+
+// Commitment 19 (creed governance-gated, Genesis Creed binding):
+// the in-memory canonical commitment registry MUST match the
+// numbered headers in docs/TRUTH_SEEKING.md. If a commitment is
+// added to the markdown without a corresponding entry in
+// CanonicalCommitments, the Genesis Creed silently omits it; if
+// CanonicalCommitments cites a number not in the markdown, the
+// chain pins commitments the file doesn't describe. Either drift
+// breaks commitment 19's foundation.
+//
+// The canonical hash check is kept off-chain in
+// scripts/check_creed_hash.sh; this test ensures the in-binary
+// list of commitment numbers stays aligned with the file.
+func TestTruthSeeking_GenesisCreedReflectsCurrentTruthSeeking(t *testing.T) {
+	body, err := os.ReadFile("../../docs/TRUTH_SEEKING.md")
+	require.NoError(t, err, "TRUTH_SEEKING.md must exist for this binding to be meaningful")
+
+	// Parse commitment numbers from the markdown.
+	headerRe := regexp.MustCompile(`(?m)^### (\d+)\. `)
+	matches := headerRe.FindAllStringSubmatch(string(body), -1)
+	require.NotEmpty(t, matches, "creed headers did not parse")
+
+	creedNumbers := make(map[uint32]bool)
+	for _, m := range matches {
+		n, err := strconv.Atoi(m[1])
+		require.NoError(t, err)
+		creedNumbers[uint32(n)] = true
+	}
+
+	// Build the canonical registry from CanonicalCommitments.
+	registryNumbers := make(map[uint32]bool)
+	for _, c := range creedtypes.CanonicalCommitments {
+		require.False(t, registryNumbers[c.Number],
+			"CanonicalCommitments contains duplicate number %d — registry must be a set", c.Number)
+		registryNumbers[c.Number] = true
+		require.NotEmpty(t, c.Name,
+			"commitment %d has an empty name — every entry must carry its title", c.Number)
+	}
+
+	for n := range creedNumbers {
+		require.True(t, registryNumbers[n],
+			"docs/TRUTH_SEEKING.md declares commitment %d but x/creed/types.CanonicalCommitments does not — Genesis Creed would silently omit it", n)
+	}
+	for n := range registryNumbers {
+		require.True(t, creedNumbers[n],
+			"x/creed/types.CanonicalCommitments cites commitment %d which does not appear in TRUTH_SEEKING.md — chain would pin a commitment the file doesn't describe", n)
+	}
+
+	// BuildGenesisCreed produces a v1 pin with the canonical
+	// registry. Using a placeholder hash here — the actual hash
+	// binding is enforced by scripts/check_creed_hash.sh against
+	// .creed-hash, not by this test (which would otherwise have
+	// to recompute and re-validate the file's normalization).
+	pin := creedtypes.BuildGenesisCreed([]byte("placeholder"), 1)
+	require.Equal(t, uint32(1), pin.Version,
+		"Genesis Creed must always be version 1 — there is no zero-version chain")
+	require.Equal(t, len(creedtypes.CanonicalCommitments), len(pin.Commitments),
+		"BuildGenesisCreed must materialize every entry in CanonicalCommitments")
+	require.Empty(t, pin.PinnedViaLip,
+		"genesis-installed commitments carry no source LIP — no LIP precedes genesis")
 }
 
 // ════════════════════════════════════════════════════════════════════
