@@ -11,6 +11,7 @@ service Msg {
   rpc CreatePot(MsgCreatePot) returns (MsgCreatePotResponse);
   rpc Claim(MsgClaim) returns (MsgClaimResponse);
   rpc UpdatePotParams(MsgUpdatePotParams) returns (MsgUpdatePotParamsResponse);
+  rpc AddBootstrapEntry(MsgAddBootstrapEntry) returns (MsgAddBootstrapEntryResponse);
 }
 
 message MsgCreatePot {
@@ -36,3 +37,27 @@ message MsgUpdatePotParams {
   Params params = 2;
 }
 message MsgUpdatePotParamsResponse {}
+
+// MsgAddBootstrapEntry adds one or more bootstrap pots to the claiming_pot
+// module after genesis. Authority-gated — the governance account is the
+// only valid signer. Each address gets a single-claimant ClaimingPot sized
+// PerAgentBootstrapUzrn (0.222 ZRN) at the current block height, instant
+// vest, ACTIVE status, ID = BootstrapPotIDPrefix + addr.
+//
+// Idempotent semantics: addresses with an existing bootstrap pot are
+// silently skipped (counted in skipped_count). Re-running the same LIP
+// does not double-mint or double-create.
+//
+// Doctrine: commitment 20 (issuance follows participation) extended from
+// "at genesis" to "continuously, governance-gated". The participant set
+// is plural and growing, not closed at genesis.
+message MsgAddBootstrapEntry {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  repeated string addresses = 2;
+}
+
+message MsgAddBootstrapEntryResponse {
+  uint32 added_count = 1;
+  uint32 skipped_count = 2;
+}

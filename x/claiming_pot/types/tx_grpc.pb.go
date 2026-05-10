@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Msg_CreatePot_FullMethodName       = "/zerone.claiming_pot.v1.Msg/CreatePot"
-	Msg_Claim_FullMethodName           = "/zerone.claiming_pot.v1.Msg/Claim"
-	Msg_UpdatePotParams_FullMethodName = "/zerone.claiming_pot.v1.Msg/UpdatePotParams"
+	Msg_CreatePot_FullMethodName         = "/zerone.claiming_pot.v1.Msg/CreatePot"
+	Msg_Claim_FullMethodName             = "/zerone.claiming_pot.v1.Msg/Claim"
+	Msg_UpdatePotParams_FullMethodName   = "/zerone.claiming_pot.v1.Msg/UpdatePotParams"
+	Msg_AddBootstrapEntry_FullMethodName = "/zerone.claiming_pot.v1.Msg/AddBootstrapEntry"
 )
 
 // MsgClient is the client API for Msg service.
@@ -31,6 +32,7 @@ type MsgClient interface {
 	CreatePot(ctx context.Context, in *MsgCreatePot, opts ...grpc.CallOption) (*MsgCreatePotResponse, error)
 	Claim(ctx context.Context, in *MsgClaim, opts ...grpc.CallOption) (*MsgClaimResponse, error)
 	UpdatePotParams(ctx context.Context, in *MsgUpdatePotParams, opts ...grpc.CallOption) (*MsgUpdatePotParamsResponse, error)
+	AddBootstrapEntry(ctx context.Context, in *MsgAddBootstrapEntry, opts ...grpc.CallOption) (*MsgAddBootstrapEntryResponse, error)
 }
 
 type msgClient struct {
@@ -71,6 +73,16 @@ func (c *msgClient) UpdatePotParams(ctx context.Context, in *MsgUpdatePotParams,
 	return out, nil
 }
 
+func (c *msgClient) AddBootstrapEntry(ctx context.Context, in *MsgAddBootstrapEntry, opts ...grpc.CallOption) (*MsgAddBootstrapEntryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgAddBootstrapEntryResponse)
+	err := c.cc.Invoke(ctx, Msg_AddBootstrapEntry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type MsgServer interface {
 	CreatePot(context.Context, *MsgCreatePot) (*MsgCreatePotResponse, error)
 	Claim(context.Context, *MsgClaim) (*MsgClaimResponse, error)
 	UpdatePotParams(context.Context, *MsgUpdatePotParams) (*MsgUpdatePotParamsResponse, error)
+	AddBootstrapEntry(context.Context, *MsgAddBootstrapEntry) (*MsgAddBootstrapEntryResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedMsgServer) Claim(context.Context, *MsgClaim) (*MsgClaimRespon
 }
 func (UnimplementedMsgServer) UpdatePotParams(context.Context, *MsgUpdatePotParams) (*MsgUpdatePotParamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdatePotParams not implemented")
+}
+func (UnimplementedMsgServer) AddBootstrapEntry(context.Context, *MsgAddBootstrapEntry) (*MsgAddBootstrapEntryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddBootstrapEntry not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 func (UnimplementedMsgServer) testEmbeddedByValue()             {}
@@ -172,6 +188,24 @@ func _Msg_UpdatePotParams_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_AddBootstrapEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgAddBootstrapEntry)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).AddBootstrapEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_AddBootstrapEntry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).AddBootstrapEntry(ctx, req.(*MsgAddBootstrapEntry))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdatePotParams",
 			Handler:    _Msg_UpdatePotParams_Handler,
+		},
+		{
+			MethodName: "AddBootstrapEntry",
+			Handler:    _Msg_AddBootstrapEntry_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

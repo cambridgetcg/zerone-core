@@ -326,6 +326,123 @@ func (*MsgUpdatePotParamsResponse) Descriptor() ([]byte, []int) {
 	return file_zerone_claiming_pot_v1_tx_proto_rawDescGZIP(), []int{5}
 }
 
+// MsgAddBootstrapEntry adds one or more bootstrap pots to the claiming_pot
+// module after genesis. Authority-gated — the governance account is the
+// only valid signer. Each address gets a single-claimant ClaimingPot sized
+// PerAgentBootstrapUzrn (0.222 ZRN) at the current block height, instant
+// vest, ACTIVE status, ID = BootstrapPotIDPrefix + addr.
+//
+// Idempotent semantics: addresses with an existing bootstrap pot are
+// silently skipped (counted in skipped_count). Re-running the same LIP
+// does not double-mint or double-create.
+//
+// Doctrine: commitment 20 (issuance follows participation) extended from
+// "at genesis" to "continuously, governance-gated". The participant set
+// is plural and growing, not closed at genesis.
+type MsgAddBootstrapEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Authority     string                 `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	Addresses     []string               `protobuf:"bytes,2,rep,name=addresses,proto3" json:"addresses,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgAddBootstrapEntry) Reset() {
+	*x = MsgAddBootstrapEntry{}
+	mi := &file_zerone_claiming_pot_v1_tx_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgAddBootstrapEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgAddBootstrapEntry) ProtoMessage() {}
+
+func (x *MsgAddBootstrapEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_claiming_pot_v1_tx_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgAddBootstrapEntry.ProtoReflect.Descriptor instead.
+func (*MsgAddBootstrapEntry) Descriptor() ([]byte, []int) {
+	return file_zerone_claiming_pot_v1_tx_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *MsgAddBootstrapEntry) GetAuthority() string {
+	if x != nil {
+		return x.Authority
+	}
+	return ""
+}
+
+func (x *MsgAddBootstrapEntry) GetAddresses() []string {
+	if x != nil {
+		return x.Addresses
+	}
+	return nil
+}
+
+type MsgAddBootstrapEntryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AddedCount    uint32                 `protobuf:"varint,1,opt,name=added_count,json=addedCount,proto3" json:"added_count,omitempty"`
+	SkippedCount  uint32                 `protobuf:"varint,2,opt,name=skipped_count,json=skippedCount,proto3" json:"skipped_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgAddBootstrapEntryResponse) Reset() {
+	*x = MsgAddBootstrapEntryResponse{}
+	mi := &file_zerone_claiming_pot_v1_tx_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgAddBootstrapEntryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgAddBootstrapEntryResponse) ProtoMessage() {}
+
+func (x *MsgAddBootstrapEntryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_claiming_pot_v1_tx_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgAddBootstrapEntryResponse.ProtoReflect.Descriptor instead.
+func (*MsgAddBootstrapEntryResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_claiming_pot_v1_tx_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *MsgAddBootstrapEntryResponse) GetAddedCount() uint32 {
+	if x != nil {
+		return x.AddedCount
+	}
+	return 0
+}
+
+func (x *MsgAddBootstrapEntryResponse) GetSkippedCount() uint32 {
+	if x != nil {
+		return x.SkippedCount
+	}
+	return 0
+}
+
 var File_zerone_claiming_pot_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_claiming_pot_v1_tx_proto_rawDesc = "" +
@@ -347,11 +464,19 @@ const file_zerone_claiming_pot_v1_tx_proto_rawDesc = "" +
 	"\x12MsgUpdatePotParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x126\n" +
 	"\x06params\x18\x02 \x01(\v2\x1e.zerone.claiming_pot.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x1c\n" +
-	"\x1aMsgUpdatePotParamsResponse2\xb5\x02\n" +
+	"\x1aMsgUpdatePotParamsResponse\"b\n" +
+	"\x14MsgAddBootstrapEntry\x12\x1c\n" +
+	"\tauthority\x18\x01 \x01(\tR\tauthority\x12\x1c\n" +
+	"\taddresses\x18\x02 \x03(\tR\taddresses:\x0e\x82\xe7\xb0*\tauthority\"d\n" +
+	"\x1cMsgAddBootstrapEntryResponse\x12\x1f\n" +
+	"\vadded_count\x18\x01 \x01(\rR\n" +
+	"addedCount\x12#\n" +
+	"\rskipped_count\x18\x02 \x01(\rR\fskippedCount2\xae\x03\n" +
 	"\x03Msg\x12_\n" +
 	"\tCreatePot\x12$.zerone.claiming_pot.v1.MsgCreatePot\x1a,.zerone.claiming_pot.v1.MsgCreatePotResponse\x12S\n" +
 	"\x05Claim\x12 .zerone.claiming_pot.v1.MsgClaim\x1a(.zerone.claiming_pot.v1.MsgClaimResponse\x12q\n" +
-	"\x0fUpdatePotParams\x12*.zerone.claiming_pot.v1.MsgUpdatePotParams\x1a2.zerone.claiming_pot.v1.MsgUpdatePotParamsResponse\x1a\x05\x80\xe7\xb0*\x01B5Z3github.com/zerone-chain/zerone/x/claiming_pot/typesb\x06proto3"
+	"\x0fUpdatePotParams\x12*.zerone.claiming_pot.v1.MsgUpdatePotParams\x1a2.zerone.claiming_pot.v1.MsgUpdatePotParamsResponse\x12w\n" +
+	"\x11AddBootstrapEntry\x12,.zerone.claiming_pot.v1.MsgAddBootstrapEntry\x1a4.zerone.claiming_pot.v1.MsgAddBootstrapEntryResponse\x1a\x05\x80\xe7\xb0*\x01B5Z3github.com/zerone-chain/zerone/x/claiming_pot/typesb\x06proto3"
 
 var (
 	file_zerone_claiming_pot_v1_tx_proto_rawDescOnce sync.Once
@@ -365,33 +490,37 @@ func file_zerone_claiming_pot_v1_tx_proto_rawDescGZIP() []byte {
 	return file_zerone_claiming_pot_v1_tx_proto_rawDescData
 }
 
-var file_zerone_claiming_pot_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_zerone_claiming_pot_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_zerone_claiming_pot_v1_tx_proto_goTypes = []any{
-	(*MsgCreatePot)(nil),               // 0: zerone.claiming_pot.v1.MsgCreatePot
-	(*MsgCreatePotResponse)(nil),       // 1: zerone.claiming_pot.v1.MsgCreatePotResponse
-	(*MsgClaim)(nil),                   // 2: zerone.claiming_pot.v1.MsgClaim
-	(*MsgClaimResponse)(nil),           // 3: zerone.claiming_pot.v1.MsgClaimResponse
-	(*MsgUpdatePotParams)(nil),         // 4: zerone.claiming_pot.v1.MsgUpdatePotParams
-	(*MsgUpdatePotParamsResponse)(nil), // 5: zerone.claiming_pot.v1.MsgUpdatePotParamsResponse
-	(*VestingSchedule)(nil),            // 6: zerone.claiming_pot.v1.VestingSchedule
-	(*EligibilityCriteria)(nil),        // 7: zerone.claiming_pot.v1.EligibilityCriteria
-	(*Params)(nil),                     // 8: zerone.claiming_pot.v1.Params
+	(*MsgCreatePot)(nil),                 // 0: zerone.claiming_pot.v1.MsgCreatePot
+	(*MsgCreatePotResponse)(nil),         // 1: zerone.claiming_pot.v1.MsgCreatePotResponse
+	(*MsgClaim)(nil),                     // 2: zerone.claiming_pot.v1.MsgClaim
+	(*MsgClaimResponse)(nil),             // 3: zerone.claiming_pot.v1.MsgClaimResponse
+	(*MsgUpdatePotParams)(nil),           // 4: zerone.claiming_pot.v1.MsgUpdatePotParams
+	(*MsgUpdatePotParamsResponse)(nil),   // 5: zerone.claiming_pot.v1.MsgUpdatePotParamsResponse
+	(*MsgAddBootstrapEntry)(nil),         // 6: zerone.claiming_pot.v1.MsgAddBootstrapEntry
+	(*MsgAddBootstrapEntryResponse)(nil), // 7: zerone.claiming_pot.v1.MsgAddBootstrapEntryResponse
+	(*VestingSchedule)(nil),              // 8: zerone.claiming_pot.v1.VestingSchedule
+	(*EligibilityCriteria)(nil),          // 9: zerone.claiming_pot.v1.EligibilityCriteria
+	(*Params)(nil),                       // 10: zerone.claiming_pot.v1.Params
 }
 var file_zerone_claiming_pot_v1_tx_proto_depIdxs = []int32{
-	6, // 0: zerone.claiming_pot.v1.MsgCreatePot.schedule:type_name -> zerone.claiming_pot.v1.VestingSchedule
-	7, // 1: zerone.claiming_pot.v1.MsgCreatePot.eligibility:type_name -> zerone.claiming_pot.v1.EligibilityCriteria
-	8, // 2: zerone.claiming_pot.v1.MsgUpdatePotParams.params:type_name -> zerone.claiming_pot.v1.Params
-	0, // 3: zerone.claiming_pot.v1.Msg.CreatePot:input_type -> zerone.claiming_pot.v1.MsgCreatePot
-	2, // 4: zerone.claiming_pot.v1.Msg.Claim:input_type -> zerone.claiming_pot.v1.MsgClaim
-	4, // 5: zerone.claiming_pot.v1.Msg.UpdatePotParams:input_type -> zerone.claiming_pot.v1.MsgUpdatePotParams
-	1, // 6: zerone.claiming_pot.v1.Msg.CreatePot:output_type -> zerone.claiming_pot.v1.MsgCreatePotResponse
-	3, // 7: zerone.claiming_pot.v1.Msg.Claim:output_type -> zerone.claiming_pot.v1.MsgClaimResponse
-	5, // 8: zerone.claiming_pot.v1.Msg.UpdatePotParams:output_type -> zerone.claiming_pot.v1.MsgUpdatePotParamsResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	8,  // 0: zerone.claiming_pot.v1.MsgCreatePot.schedule:type_name -> zerone.claiming_pot.v1.VestingSchedule
+	9,  // 1: zerone.claiming_pot.v1.MsgCreatePot.eligibility:type_name -> zerone.claiming_pot.v1.EligibilityCriteria
+	10, // 2: zerone.claiming_pot.v1.MsgUpdatePotParams.params:type_name -> zerone.claiming_pot.v1.Params
+	0,  // 3: zerone.claiming_pot.v1.Msg.CreatePot:input_type -> zerone.claiming_pot.v1.MsgCreatePot
+	2,  // 4: zerone.claiming_pot.v1.Msg.Claim:input_type -> zerone.claiming_pot.v1.MsgClaim
+	4,  // 5: zerone.claiming_pot.v1.Msg.UpdatePotParams:input_type -> zerone.claiming_pot.v1.MsgUpdatePotParams
+	6,  // 6: zerone.claiming_pot.v1.Msg.AddBootstrapEntry:input_type -> zerone.claiming_pot.v1.MsgAddBootstrapEntry
+	1,  // 7: zerone.claiming_pot.v1.Msg.CreatePot:output_type -> zerone.claiming_pot.v1.MsgCreatePotResponse
+	3,  // 8: zerone.claiming_pot.v1.Msg.Claim:output_type -> zerone.claiming_pot.v1.MsgClaimResponse
+	5,  // 9: zerone.claiming_pot.v1.Msg.UpdatePotParams:output_type -> zerone.claiming_pot.v1.MsgUpdatePotParamsResponse
+	7,  // 10: zerone.claiming_pot.v1.Msg.AddBootstrapEntry:output_type -> zerone.claiming_pot.v1.MsgAddBootstrapEntryResponse
+	7,  // [7:11] is the sub-list for method output_type
+	3,  // [3:7] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_zerone_claiming_pot_v1_tx_proto_init() }
@@ -406,7 +535,7 @@ func file_zerone_claiming_pot_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_claiming_pot_v1_tx_proto_rawDesc), len(file_zerone_claiming_pot_v1_tx_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
