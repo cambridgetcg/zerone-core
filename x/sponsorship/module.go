@@ -16,6 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/x/sponsorship/client/cli"
 	"github.com/zerone-chain/zerone/x/sponsorship/keeper"
 	"github.com/zerone-chain/zerone/x/sponsorship/types"
 )
@@ -49,8 +50,8 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, config client.TxEncod
 }
 
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
-func (AppModuleBasic) GetTxCmd() *cobra.Command                                        { return nil }
-func (AppModuleBasic) GetQueryCmd() *cobra.Command                                     { return nil }
+func (AppModuleBasic) GetTxCmd() *cobra.Command                                        { return cli.NewTxCmd() }
+func (AppModuleBasic) GetQueryCmd() *cobra.Command                                     { return cli.NewQueryCmd() }
 
 type AppModule struct {
 	AppModuleBasic
