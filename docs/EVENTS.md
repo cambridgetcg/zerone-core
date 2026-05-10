@@ -2478,6 +2478,38 @@ Governance parameter update.
 
 ---
 
+## sponsorship
+
+### zerone.sponsorship.bounty_created
+A sponsor escrowed external value against a typed bounty for verified work in a specific domain. Commitment 12 (chain pays for its own audit), extended scope: the chain mediates external payment for the work it audits — sponsors fund, the chain verifies.
+- `bounty_id` -- assigned bounty identifier
+- `sponsor` -- bech32 of the sponsor
+- `domain` -- target epistemic domain
+- `price_per_artifact` -- payout per fulfillment (uzrn)
+- `target_count` -- maximum fulfillments
+- `total_escrow` -- price × target_count (uzrn)
+- `end_block` -- bounty window deadline
+- `creed_commitment` -- "20"
+
+### zerone.sponsorship.bounty_fulfilled
+A verified fact in the bounty's domain triggered payout from escrow to the fact's submitter. The chain enforced eligibility (status, domain, window, no double-fulfill); the sponsor had no editorial role in the payout decision (commitment 8: panel weights skill, not bond — sponsor cannot buy verification).
+- `bounty_id`
+- `fact_id`
+- `worker` -- fact.Submitter (the recipient)
+- `amount_paid` -- price_per_artifact (uzrn)
+- `fulfilled_count` -- new count after this payout
+- `target_count`
+- `creed_commitment` -- "20"
+
+### zerone.sponsorship.bounty_canceled
+A sponsor reclaimed the remaining escrow of an ACTIVE or EXPIRED bounty.
+- `bounty_id`
+- `sponsor`
+- `refunded_amount` -- remaining escrow returned (uzrn; may be "0")
+- `creed_commitment` -- "20"
+
+---
+
 ## staking
 
 ### zerone.staking.validator_registered
