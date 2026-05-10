@@ -11,7 +11,7 @@ import (
 // for deriving the inception pins from the build-time
 // CanonicalSubCreeds + .sub-creed-hashes; Phase 1+ may also call
 // SetSubCreedPin via msg handlers post-genesis.
-func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) {
+func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) {
 	for _, p := range gs.PinnedSubCreeds {
 		if p == nil {
 			continue
@@ -26,11 +26,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs types.GenesisState) {
 // pin per phase by definition; Phase 1+ when versions accumulate, this
 // will export only the LATEST pin (history retrieval needs explicit
 // queries via grpc_query).
-func (k Keeper) ExportGenesis(ctx context.Context) types.GenesisState {
+func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	gs := types.DefaultGenesis()
 	k.IterateSubCreedPins(ctx, func(p *types.PinnedSubCreed) bool {
 		gs.PinnedSubCreeds = append(gs.PinnedSubCreeds, p)
 		return false
 	})
-	return *gs
+	return gs
 }

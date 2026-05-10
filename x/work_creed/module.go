@@ -56,7 +56,7 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, config client.TxEncod
 	if err := json.Unmarshal(bz, &genState); err != nil {
 		return fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err)
 	}
-	return genState.Validate()
+	return (&genState).Validate()
 }
 
 // RegisterGRPCGatewayRoutes is a no-op at Phase 0 (no query server yet).
@@ -93,7 +93,7 @@ func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.
 	if err := json.Unmarshal(data, &genState); err != nil {
 		panic("failed to unmarshal genesis: " + err.Error())
 	}
-	am.keeper.InitGenesis(ctx, genState)
+	am.keeper.InitGenesis(ctx, &genState)
 }
 
 // ExportGenesis returns the current pin set.

@@ -21,7 +21,7 @@ func DefaultGenesis() *GenesisState {
 //     pin per version, no gaps)
 //   - canonical_hash is exactly 32 bytes
 //   - phase + version pair is unique
-func (g GenesisState) Validate() error {
+func (g *GenesisState) Validate() error {
 	versionsByPhase := map[uint32]map[uint32]bool{}
 	for i, p := range g.PinnedSubCreeds {
 		if p.Phase > 8 {
@@ -54,7 +54,7 @@ func (g GenesisState) Validate() error {
 
 // Equal compares two GenesisState values byte-for-byte over their
 // PinnedSubCreed entries.
-func (g GenesisState) Equal(other GenesisState) bool {
+func (g *GenesisState) Equal(other *GenesisState) bool {
 	if len(g.PinnedSubCreeds) != len(other.PinnedSubCreeds) {
 		return false
 	}

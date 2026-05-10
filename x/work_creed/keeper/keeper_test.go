@@ -111,7 +111,7 @@ func TestIterateSubCreedPins_OrdersByPhase(t *testing.T) {
 
 func TestInitExportGenesis_Roundtrip(t *testing.T) {
 	k, ctx := setupKeeper(t)
-	gs := types.GenesisState{
+	gs := &types.GenesisState{
 		PinnedSubCreeds: []*types.PinnedSubCreed{
 			samplePin(0, "foundation", 1, []string{"F1", "F2", "F3"}),
 			samplePin(2, "curation", 1, []string{"C1", "C2", "C3"}),
