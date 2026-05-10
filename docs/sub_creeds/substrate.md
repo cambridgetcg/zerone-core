@@ -18,7 +18,7 @@ A `MODULE_PROPOSAL` or `PIPELINE_IMPROVEMENT` Contribution must declare:
 
 A change with no declared depends_on_marker is unrecoverable; a change with no declared revert path is irreversible by design.
 
-**Why:** Substrate work compounds. Without depends_on_marker, the chain cannot tell which modifications power which behaviors. Without revert path, recursion-conferral is one-way and capture risk is uncapped. Commitment 10 (forward-only audit) requires the change be visible; the audit also requires the change be reversible.
+**Why:** Substrate work compounds. Without depends_on_marker, the chain cannot tell which modifications power which behaviors. Without revert path, recursion-conferral is one-way and capture risk is uncapped. Commitment 10 (forward-only audit) requires the change be visible; the revert path is S1's own discipline on top of that visibility.
 
 **Echoes:** truth-seeking 10, 12.
 

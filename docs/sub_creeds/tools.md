@@ -22,7 +22,7 @@ A Tool Contribution that raises its per-call fee by more than the governance-set
 
 **Why:** Fee surprise is a capture vector — a tool with sticky users can extract by ramping fees once dependence is established. The notice window converts surprise into negotiation.
 
-**Echoes:** truth-seeking 9, commitment 6 (no unilateral injection — fee bumps are an injection on user costs).
+**Echoes:** truth-seeking 9, truth-seeking 6 (no unilateral injection — fee bumps are an injection on user costs).
 
 ## TL3. No tool may bypass the truth-floor on outputs it claims as verified
 

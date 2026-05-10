@@ -30,4 +30,4 @@ When an Evaluation Contribution is shown to be gameable (a model achieves high s
 
 **Why:** Evals decay. The chain must respond to that decay without erasing history. Commitment 10 (forward-only audit) extended to evaluation work.
 
-**Echoes:** truth-seeking 10, 17.
+**Echoes:** truth-seeking 10.

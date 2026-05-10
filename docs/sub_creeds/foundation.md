@@ -2,9 +2,9 @@
 
 > Lifecycle phase: `Foundation` — axioms, ontology, epistemic domains, methodology primitives.
 >
-> Parent: [USEFUL_WORK.md](../USEFUL_WORK.md). Truth-floor: all 20 truth-seeking commitments apply (`TRUTH_SEEKING.md`).
+> Parent: [USEFUL_WORK.md](../USEFUL_WORK.md). Truth-floor: all 20 truth-seeking commitments apply.
 >
-> Status at inception (2026-05-10): three commitments. The sub-creed grows by adding new numbered commitments via `CategoryUsefulWorkAmendment` LIP (M3 governance gate).
+> Status at inception (2026-05-10): three commitments.
 
 ---
 
