@@ -1,5 +1,9 @@
 # Useful Work Doctrine — Design Spec
 
+> **SUPERSEDED 2026-05-10** by [`2026-05-10-recursive-useful-work-merged-design.md`](./2026-05-10-recursive-useful-work-merged-design.md). The merged spec preserves the UW commitment, six recursive axes, mechanisms M1–M7, the reward formula `R = base + L × W × Q`, and the five-layer enforcement discipline of this document (now in §2, §3, §9, §12 of the merge), and adds a second classification coordinate (lifecycle phase), per-phase sub-creeds, the truth-floor invariant, and the deepest-recursion mechanism (categories-are-Artifacts).
+>
+> This file is preserved for history. Edits should land in the merged spec.
+
 **Status:** Brainstormed and ready for implementation planning. This spec is the draft of `docs/USEFUL_WORK.md`. Phase 0 implementation = adopt this content as the doctrine document, anchor its hash on-chain via `x/creed`, and stub `tests/cross_stack/useful_work_invariants_test.go` as the future binding harness.
 
 **Inception:** 2026-05-10.
