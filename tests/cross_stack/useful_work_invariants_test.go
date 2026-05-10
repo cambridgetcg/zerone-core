@@ -206,4 +206,175 @@ func TestUsefulWork_DoctrineAndContractStayInSync(t *testing.T) {
 			"creedtypes.UsefulWorkStatement (UW is doctrinally indivisible — "+
 			"this should require a governance-gated doctrine amendment)",
 		creedtypes.UsefulWorkStatement)
+
+	// ─── Check 6: lifecycle phases ───────────────────────────────────
+	require.Len(t, creedtypes.CanonicalLifecyclePhases, 9,
+		"useful-work doctrine pins 9 lifecycle phases; CanonicalLifecyclePhases must match")
+
+	expectedPhaseNames := []string{
+		"foundation", "knowledge", "curation", "augmentation",
+		"training", "evaluation", "alignment", "substrate", "tools",
+	}
+	for i, p := range creedtypes.CanonicalLifecyclePhases {
+		require.Equal(t, expectedPhaseNames[i], p.Name,
+			"phase index %d name drift", i)
+	}
+
+	// ─── Check 7: sub-creed hashes match on-disk hashes ──────────────
+	subCreedHashesPath := "../../.sub-creed-hashes"
+	subCreedDir := "../../docs/sub_creeds"
+
+	hashFileBytes, err := os.ReadFile(subCreedHashesPath)
+	require.NoError(t, err, ".sub-creed-hashes must exist")
+
+	expectedHashes := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(string(hashFileBytes)), "\n") {
+		parts := strings.Fields(line)
+		require.Len(t, parts, 2, "malformed line in .sub-creed-hashes: %q", line)
+		expectedHashes[parts[0]] = parts[1]
+	}
+	require.Len(t, expectedHashes, 8,
+		"8 non-Knowledge phases × 1 hash each = 8 hash records")
+
+	for _, phase := range creedtypes.CanonicalLifecyclePhases {
+		if !phase.HasSubCreedDoc {
+			require.NotContains(t, expectedHashes, phase.Name,
+				"Knowledge delegates; should NOT appear in .sub-creed-hashes")
+			continue
+		}
+
+		docBytes, err := os.ReadFile(subCreedDir + "/" + phase.Name + ".md")
+		require.NoError(t, err, "sub-creed doc for %s must exist", phase.Name)
+
+		normalized := strings.ReplaceAll(string(docBytes), "\r", "")
+		sum := sha256.Sum256([]byte(normalized))
+		actualHash := hex.EncodeToString(sum[:])
+
+		expectedHash, ok := expectedHashes[phase.Name]
+		require.True(t, ok, "phase %s missing from .sub-creed-hashes", phase.Name)
+		require.Equal(t, expectedHash, actualHash,
+			"sub-creed hash drift for %s: doc hashes to %s but .sub-creed-hashes says %s",
+			phase.Name, actualHash, expectedHash)
+	}
+
+	// ─── Check 8: every non-Knowledge phase has a TestSubCreed_<Phase>_StaysInSync ──
+	for _, phase := range creedtypes.CanonicalLifecyclePhases {
+		if !phase.HasSubCreedDoc {
+			continue
+		}
+		// Capitalize first letter for Go test name convention
+		titleCase := strings.ToUpper(phase.Name[:1]) + phase.Name[1:]
+		needle := "func TestSubCreed_" + titleCase + "_StaysInSync"
+		require.Contains(t, testContent, needle,
+			"phase %s has no TestSubCreed_%s_StaysInSync function in this file",
+			phase.Name, titleCase)
+	}
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Per-phase sub-creed meta-tests. Each verifies: doc exists; commitment
+// count matches CanonicalSubCreeds; commitment codes + names match;
+// hash matches .sub-creed-hashes line for the phase. Hash check is
+// redundant with TestUsefulWork_DoctrineAndContractStayInSync's Check 7
+// but per-phase tests give clearer failure attribution.
+// ════════════════════════════════════════════════════════════════════
+
+func TestSubCreed_Foundation_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseFoundation, "foundation")
+}
+
+func TestSubCreed_Curation_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseCuration, "curation")
+}
+
+func TestSubCreed_Augmentation_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseAugmentation, "augmentation")
+}
+
+func TestSubCreed_Training_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseTraining, "training")
+}
+
+func TestSubCreed_Evaluation_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseEvaluation, "evaluation")
+}
+
+func TestSubCreed_Alignment_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseAlignment, "alignment")
+}
+
+func TestSubCreed_Substrate_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseSubstrate, "substrate")
+}
+
+func TestSubCreed_Tools_StaysInSync(t *testing.T) {
+	checkSubCreedInSync(t, creedtypes.LifecyclePhaseTools, "tools")
+}
+
+// checkSubCreedInSync is the shared body of the per-phase meta-tests.
+// It verifies four things about a sub-creed: (1) the markdown doc exists
+// and is readable; (2) the canonical Go SubCreedDef for the phase has
+// the same commitment count as the markdown's "## Code. Name" headers;
+// (3) each commitment's Code and Name match the corresponding header;
+// (4) the doc's normalized hash matches the line in .sub-creed-hashes.
+//
+// Phase 0 ships 3 commitments per non-Knowledge phase; the test
+// adapts to the canonical count automatically as future amendment
+// LIPs grow the sub-creed.
+func checkSubCreedInSync(t *testing.T, phase creedtypes.LifecyclePhase, phaseName string) {
+	t.Helper()
+
+	docPath := "../../docs/sub_creeds/" + phaseName + ".md"
+	hashFilePath := "../../.sub-creed-hashes"
+
+	// (1) Doc exists.
+	docBytes, err := os.ReadFile(docPath)
+	require.NoError(t, err, "sub-creed doc for %s must exist", phaseName)
+	doc := string(docBytes)
+
+	// (2) Commitment count matches Go canonical.
+	def, ok := creedtypes.SubCreedFor(phase)
+	require.True(t, ok, "no SubCreedDef for phase %s", phaseName)
+
+	headerRe := regexp.MustCompile(`(?m)^## ([A-Z]+\d+)\. (.+)$`)
+	matches := headerRe.FindAllStringSubmatch(doc, -1)
+	require.Len(t, matches, len(def.Commitments),
+		"%s: doc has %d '## Code. Name' headers but CanonicalSubCreeds has %d commitments",
+		phaseName, len(matches), len(def.Commitments))
+
+	// (3) Per-commitment Code + Name agreement.
+	for i, m := range matches {
+		expectedCode := def.Commitments[i].Code
+		expectedName := def.Commitments[i].Name
+		actualCode := m[1]
+		actualName := strings.TrimSpace(m[2])
+		require.Equal(t, expectedCode, actualCode,
+			"%s commitment %d code drift: doc=%s canonical=%s",
+			phaseName, i+1, actualCode, expectedCode)
+		require.Equal(t, expectedName, actualName,
+			"%s commitment %s name drift: doc=%q canonical=%q",
+			phaseName, expectedCode, actualName, expectedName)
+	}
+
+	// (4) Hash agreement.
+	hashFileBytes, err := os.ReadFile(hashFilePath)
+	require.NoError(t, err, ".sub-creed-hashes must exist")
+
+	var expectedHash string
+	for _, line := range strings.Split(strings.TrimSpace(string(hashFileBytes)), "\n") {
+		parts := strings.Fields(line)
+		if len(parts) == 2 && parts[0] == phaseName {
+			expectedHash = parts[1]
+			break
+		}
+	}
+	require.NotEmpty(t, expectedHash,
+		"%s: not found in .sub-creed-hashes", phaseName)
+
+	normalized := strings.ReplaceAll(doc, "\r", "")
+	sum := sha256.Sum256([]byte(normalized))
+	actualHash := hex.EncodeToString(sum[:])
+	require.Equal(t, expectedHash, actualHash,
+		"%s hash drift: doc hashes to %s but .sub-creed-hashes says %s",
+		phaseName, actualHash, expectedHash)
 }
