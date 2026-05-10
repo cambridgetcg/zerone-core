@@ -10,6 +10,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgCreatePot{}, "zerone_claiming_pot/CreatePot", nil)
 	cdc.RegisterConcrete(&MsgClaim{}, "zerone_claiming_pot/Claim", nil)
 	cdc.RegisterConcrete(&MsgUpdatePotParams{}, "zerone_claiming_pot/UpdatePotParams", nil)
+	cdc.RegisterConcrete(&MsgAddBootstrapEntry{}, "zerone_claiming_pot/AddBootstrapEntry", nil)
 }
 
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
@@ -17,5 +18,6 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgCreatePot{},
 		&MsgClaim{},
 		&MsgUpdatePotParams{},
+		&MsgAddBootstrapEntry{},
 	)
 }

@@ -168,3 +168,34 @@ func (msg *MsgUpdatePotParams) ValidateBasic() error {
 	}
 	return msg.Params.Validate()
 }
+
+func (msg *MsgAddBootstrapEntry) GetSigners() []sdk.AccAddress {
+	addr, _ := sdk.AccAddressFromBech32(msg.Authority)
+	return []sdk.AccAddress{addr}
+}
+
+func (msg *MsgAddBootstrapEntry) ValidateBasic() error {
+	if msg.Authority == "" {
+		return fmt.Errorf("authority cannot be empty")
+	}
+	if _, err := sdk.AccAddressFromBech32(msg.Authority); err != nil {
+		return fmt.Errorf("invalid authority address: %w", err)
+	}
+	if len(msg.Addresses) == 0 {
+		return fmt.Errorf("addresses list cannot be empty — provide at least one bech32 address")
+	}
+	seen := make(map[string]bool, len(msg.Addresses))
+	for i, addr := range msg.Addresses {
+		if addr == "" {
+			return fmt.Errorf("addresses[%d] cannot be empty", i)
+		}
+		if _, err := sdk.AccAddressFromBech32(addr); err != nil {
+			return fmt.Errorf("addresses[%d] (%q): invalid bech32: %w", i, addr, err)
+		}
+		if seen[addr] {
+			return fmt.Errorf("addresses[%d] (%q): duplicate within request payload", i, addr)
+		}
+		seen[addr] = true
+	}
+	return nil
+}
