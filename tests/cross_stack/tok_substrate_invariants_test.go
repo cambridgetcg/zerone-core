@@ -1,5 +1,47 @@
 package cross_stack_test
 
+// ════════════════════════════════════════════════════════════════════
+// FOLLOW-UP NOTE for Plan 5 of the ToK series
+// ════════════════════════════════════════════════════════════════════
+//
+// When Plan 5 lands TestToKSubstrate_DoctrineAndContractStayInSync, it
+// must extend its scope to ALSO check the third doctrine
+// (docs/USEFUL_WORK.md) for the same five-layer integrity it enforces
+// on TOK_SUBSTRATE.md. The two doctrines are mutually constitutive
+// (TRUTH_SEEKING, TOK_SUBSTRATE, USEFUL_WORK) and should not drift
+// independently.
+//
+// Specifically, Plan 5 should add (or coordinate with the existing
+// TestUsefulWork_DoctrineAndContractStayInSync in
+// useful_work_invariants_test.go):
+//
+//   - Cross-doctrine echo verification: every "Echoes:" reference in
+//     USEFUL_WORK.md UW (currently citing commitments 11, 12, TC1,
+//     TC6) must point to a real commitment in the cited doctrine. If
+//     UW.Echoes mentions TC6 but TOK_SUBSTRATE.md no longer has TC6,
+//     fail.
+//
+//   - Hash-bundle integrity: a single make target (or extension of
+//     make creed-check) that fails fast on ANY of the three hashes
+//     drifting. Today make creed-check covers .creed-hash and
+//     .useful-work-hash; Plan 5 should add .tok-substrate-hash and
+//     verify all three together.
+//
+//   - Position-layer cross-coverage: every commitment in the unified
+//     registry (truth-seeking 1-20 + TC1-TC6 + UW + M1-M7) is
+//     declared in at least one x/*/doc.go.
+//
+// This marker is not a TODO comment in the conventional sense — Phase 0
+// of USEFUL_WORK does not ship Plan 5; Plan 5 is the closure plan for
+// the ToK series and will be authored separately. This marker exists so
+// the Plan 5 author finds the cross-doctrine integration requirement
+// without having to grep across plans.
+//
+// Reference: docs/superpowers/specs/2026-05-10-useful-work-doctrine-
+// design.md, section 5 ("Graph layer"), and docs/USEFUL_WORK.md
+// "How the commitment echoes" section.
+// ════════════════════════════════════════════════════════════════════
+
 import (
 	"testing"
 
