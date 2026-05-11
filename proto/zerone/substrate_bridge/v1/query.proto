@@ -1,0 +1,49 @@
+syntax = "proto3";
+package zerone.substrate_bridge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/substrate_bridge/types";
+
+import "google/api/annotations.proto";
+import "zerone/substrate_bridge/v1/adapter.proto";
+import "zerone/substrate_bridge/v1/attestation.proto";
+import "zerone/substrate_bridge/v1/lineage.proto";
+import "zerone/substrate_bridge/v1/params.proto";
+
+service Query {
+  rpc Params (QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/substrate_bridge/v1/params";
+  }
+  rpc Adapter (QueryAdapterRequest) returns (QueryAdapterResponse) {
+    option (google.api.http).get = "/zerone/substrate_bridge/v1/adapters/{adapter_id}";
+  }
+  rpc Adapters (QueryAdaptersRequest) returns (QueryAdaptersResponse) {
+    option (google.api.http).get = "/zerone/substrate_bridge/v1/adapters";
+  }
+  rpc Attestation (QueryAttestationRequest) returns (QueryAttestationResponse) {
+    option (google.api.http).get = "/zerone/substrate_bridge/v1/attestations/{attestation_id}";
+  }
+  rpc LineageForwardWalk (QueryLineageForwardWalkRequest) returns (QueryLineageForwardWalkResponse) {
+    option (google.api.http).get = "/zerone/substrate_bridge/v1/lineage/forward/{attestation_id}";
+  }
+  rpc LineageBackwardWalk (QueryLineageBackwardWalkRequest) returns (QueryLineageBackwardWalkResponse) {
+    option (google.api.http).get = "/zerone/substrate_bridge/v1/lineage/backward/{attestation_id}";
+  }
+  rpc LineageAccumulator (QueryLineageAccumulatorRequest) returns (QueryLineageAccumulatorResponse) {
+    option (google.api.http).get = "/zerone/substrate_bridge/v1/lineage/accumulator/{attestation_id}";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }
+message QueryAdapterRequest { string adapter_id = 1; }
+message QueryAdapterResponse { AdapterRegistration adapter = 1; }
+message QueryAdaptersRequest { AdapterStatus status_filter = 1; }
+message QueryAdaptersResponse { repeated AdapterRegistration adapters = 1; }
+message QueryAttestationRequest { string attestation_id = 1; }
+message QueryAttestationResponse { ExternalAttestation attestation = 1; }
+message QueryLineageForwardWalkRequest { string attestation_id = 1; }
+message QueryLineageForwardWalkResponse { repeated LineageEdge edges = 1; }
+message QueryLineageBackwardWalkRequest { string attestation_id = 1; }
+message QueryLineageBackwardWalkResponse { repeated LineageEdge edges = 1; }
+message QueryLineageAccumulatorRequest { string attestation_id = 1; }
+message QueryLineageAccumulatorResponse { LineageRoyaltyAccumulator accumulator = 1; }
