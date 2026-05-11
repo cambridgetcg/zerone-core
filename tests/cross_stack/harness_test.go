@@ -60,6 +60,7 @@ import (
 	zeronegovsynthkeeper "github.com/zerone-chain/zerone/x/governance_synthesis/keeper"
 	zeronepartnershipskeeper "github.com/zerone-chain/zerone/x/partnerships/keeper"
 	zeronediscoverykeeper "github.com/zerone-chain/zerone/x/discovery/keeper"
+	zeronesubstratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 )
 
 const testChainID = "zerone-test-1"
@@ -109,6 +110,7 @@ type TestHarness struct {
 	AgentUnderstandingKeeper  zeroneagentukeeper.Keeper
 	DialecticKeeper           zeronedialectickeeper.Keeper
 	CreedKeeper               zeronecreedkeeper.Keeper
+	SubstrateBridgeKeeper     zeronesubstratebridgekeeper.Keeper
 
 	// Standard Cosmos SDK keepers
 	BankKeeper    bankkeeper.Keeper
@@ -281,6 +283,7 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		AgentUnderstandingKeeper:  app.AgentUnderstandingKeeper,
 		DialecticKeeper:           app.DialecticKeeper,
 		CreedKeeper:               app.CreedKeeper,
+		SubstrateBridgeKeeper:     app.SubstrateBridgeKeeper,
 
 		// R7 keepers
 		AutopoiesisKeeper:    app.AutopoiesisKeeper,
