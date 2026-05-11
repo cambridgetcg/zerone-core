@@ -19,6 +19,12 @@ func DefaultParams() *Params {
 			{Category: CategorySeatElection, RequiredStakeUzrn: "500000000", ReviewBlocks: 34272},           // 500 ZRN, ~1 day
 			{Category: CategoryPhaseTransition, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000},  // 1,000 ZRN, ~30 days
 			{Category: CategoryPhaseRollback, RequiredStakeUzrn: "500000000000", ReviewBlocks: 240000},      // 500 ZRN, ~7 days
+			// CategoryAdapterRegistration: same stake + review window as CategoryCreedAmendment
+			// (not yet in this list — see commitment 20 rationale in types.go). Requires
+			// 1,000 ZRN stake and ~30-day review, identical to phase-transition weight,
+			// because expanding the trusted external-source surface is as consequential
+			// as altering governance phase. Mirrors the high bar of CategoryCreedAmendment.
+			{Category: CategoryAdapterRegistration, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000}, // 1,000 ZRN, ~30 days
 		},
 		ResearchFundVoters:       nil,
 		ResearchDiscussionBlocks: 68544,

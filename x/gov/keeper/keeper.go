@@ -24,7 +24,8 @@ type Keeper struct {
 	emergencyKeeper types.EmergencyKeeper // set post-init (circular dep break)
 	alignmentKeeper    types.AlignmentKeeper    // set post-init (R31-3, Wood→Earth)
 	partnershipsKeeper types.PartnershipsKeeper // set post-init (R31-3, Earth→Water)
-	creedKeeper        types.CreedKeeper        // set post-init (commitment 19 — gov ↔ creed)
+	creedKeeper           types.CreedKeeper           // set post-init (commitment 19 — gov ↔ creed)
+	substrateBridgeKeeper types.SubstrateBridgeKeeper // set post-init (commitment 20 — adapter registration LIPs)
 }
 
 // SetVestingKeeper sets the vesting rewards keeper (post-init to break circular deps).
@@ -77,6 +78,19 @@ func (k *Keeper) SetCreedKeeper(ck types.CreedKeeper) {
 // GetCreedKeeper returns the creed keeper, or nil if not wired.
 func (k Keeper) GetCreedKeeper() types.CreedKeeper {
 	return k.creedKeeper
+}
+
+// SetSubstrateBridgeKeeper sets the substrate_bridge keeper (post-init to
+// break circular deps). Required for the CategoryAdapterRegistration LIP
+// class to dispatch WriteAdapterFromGov on pass (commitment 20).
+func (k *Keeper) SetSubstrateBridgeKeeper(sbk types.SubstrateBridgeKeeper) {
+	k.substrateBridgeKeeper = sbk
+}
+
+// GetSubstrateBridgeKeeper returns the substrate_bridge keeper, or nil if
+// not wired.
+func (k Keeper) GetSubstrateBridgeKeeper() types.SubstrateBridgeKeeper {
+	return k.substrateBridgeKeeper
 }
 
 // NewKeeper creates a new governance keeper.

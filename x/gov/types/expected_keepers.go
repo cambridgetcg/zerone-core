@@ -85,3 +85,22 @@ type CreedKeeper interface {
 	// side pool when two-pool quorum is enabled.
 	IsActiveCouncilMember(ctx context.Context, address string) bool
 }
+
+// SubstrateBridgeKeeper defines the x/substrate_bridge interface required
+// by governance for the CategoryAdapterRegistration LIP class (commitment
+// 20 — issuance follows participation). On a passed adapter-registration
+// LIP, x/gov calls WriteAdapter with the adapter spec carried by the LIP.
+//
+// Phase-0 note: this interface is declared now to establish the vocabulary
+// and allow the gov keeper to hold a typed reference. Full dispatch wiring
+// (adapter payload attachment to LIP body, on-pass WriteAdapter call) will
+// be completed when the generic LIP-dispatch mechanism stabilises.
+type SubstrateBridgeKeeper interface {
+	// WriteAdapter persists or overwrites an adapter registration.
+	// adapterID is the stable, canonical identifier for the adapter
+	// (e.g., "github-commits-v1"). lipID is the governance LIP that
+	// authorised the write; it is stored on the adapter record for
+	// on-chain audit. The adapter proto bytes are the serialised
+	// substrate_bridge.AdapterRegistration payload attached to the LIP.
+	WriteAdapterFromGov(ctx context.Context, lipID string, adapterProtoBytes []byte) error
+}
