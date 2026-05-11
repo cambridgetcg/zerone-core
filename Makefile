@@ -10,6 +10,9 @@ LDFLAGS := -s -w \
            -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
            -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT)
 
+# The Makefile is itself a Substrate Contribution (PIPELINE_IMPROVEMENT/Substrate).
+# Its hash is pinned at .makefile-hash; drift fails make creed-check.
+
 build:
 	mkdir -p build
 	go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned ./cmd/zeroned
@@ -44,6 +47,9 @@ creed-check:
 	@bash scripts/check_recursion_doctrine_hash.sh
 	@bash scripts/check_phase_1_spec_hash.sh
 	@bash scripts/check_specs_and_plans_hashes.sh
+	@bash scripts/check_makefile_hash.sh
+	@bash scripts/check_readme_hash.sh
+	@bash scripts/check_contribution_protos_hashes.sh
 	@bash scripts/check_recursion_manifest.sh
 
 recursion-check:

@@ -1,0 +1,4 @@
+genesis.proto 97e0e6c5aaf064bd2950b61c5a08a2dcf92958f74f0c583c801d3ec72debeb49 proto/zerone/contribution/v1/genesis.proto
+query.proto a5d1e38fcf7edd7fd9f244210aa4acb052796d2bb0a590110594eadc5daedb39 proto/zerone/contribution/v1/query.proto
+tx.proto 4621ba37a1df7ece4e1a261ddfee17e2c4394b5017a8e5e543d9532863ea8fbe proto/zerone/contribution/v1/tx.proto
+types.proto ee51e535dd4c809bd7db977ca380e14acc8256aa0ab430cac82981ec1e07dcbd proto/zerone/contribution/v1/types.proto

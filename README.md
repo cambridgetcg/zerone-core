@@ -241,3 +241,9 @@ make proto-gen
 ## License
 
 BUSL-1.1
+
+---
+
+## This README is a Contribution
+
+The README is itself a `Contribution` of class `MODULE_PROPOSAL`, lifecycle phase `SUBSTRATE`. Its content-hash is pinned at `.readme-hash`. The chain's outward-facing introduction is part of the substrate the chain produces; drift in this document fails `make creed-check`.
