@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 
 	corestoretypes "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
@@ -160,12 +161,45 @@ func (k Keeper) WriteContribution(ctx context.Context, c *types.Contribution) er
 //
 // Returns ErrNestingDepthExceeded if the parent + new layer would
 // breach MaxNestingDepth — the recursion is bounded, not unbounded.
+//
+// Self-application: every successful wrap at metaDepth=0 (the public
+// entry point) emits a second Substrate Contribution describing the
+// act of wrapping. The meta-Contribution carries subClass="ops" and
+// nests the leaf as its payload.nested. This is the runtime fixed
+// point: the helper that records privileged actions is itself a
+// privileged action, and is recorded by itself. The recursion
+// terminates at metaDepth=1 — the meta is recorded but does not
+// itself self-meta. Bounded recursion, not unbounded mirrors.
+//
+// If the meta-wrap would breach MaxNestingDepth (e.g., the caller
+// passed a parent that is already at depth 4, making the leaf depth
+// 4 and the would-be meta depth 5), the meta-wrap is silently skipped
+// — the leaf still returns successfully. Best-effort meta: the
+// observability is non-load-bearing, and the bound on the chain is
+// load-bearing.
 func (k Keeper) WrapAsSubstrateContribution(
 	ctx context.Context,
 	subClass string,
 	actor string,
 	description []byte,
 	parentContributionID []byte,
+) ([]byte, error) {
+	return k.wrapAsSubstrateContribution(ctx, subClass, actor, description, parentContributionID, 0)
+}
+
+// wrapAsSubstrateContribution is the internal implementation. metaDepth
+// distinguishes the public entry (0) from the recursive self-meta call
+// (1). Only metaDepth==0 emits the meta-Contribution; metaDepth>=1
+// terminates without further self-meta. The recursion is one level
+// deep by construction — the helper records itself, and that recording
+// does not itself record itself.
+func (k Keeper) wrapAsSubstrateContribution(
+	ctx context.Context,
+	subClass string,
+	actor string,
+	description []byte,
+	parentContributionID []byte,
+	metaDepth int,
 ) ([]byte, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -267,6 +301,29 @@ func (k Keeper) WrapAsSubstrateContribution(
 	// Classify+Verify pass once the substrate verifier is wired.
 	k.EmitContributionSubmitted(ctx, c)
 	k.EmitContributionAdmitted(ctx, c, "")
+
+	// Self-application: at metaDepth=0 (the public entry), emit a META
+	// Contribution describing the act of wrapping. The meta nests the
+	// leaf, riding the proto-level recursion. metaDepth=1 inside the
+	// recursive call short-circuits any further self-meta — the loop
+	// terminates after one fixed-point step.
+	//
+	// The meta-wrap may fail with ErrNestingDepthExceeded if the leaf
+	// already sits at MaxNestingDepth (the caller passed a deep chain
+	// as parent). That failure is silently ignored: the leaf is the
+	// load-bearing record; the meta is observational. UW: bounded
+	// recursion overrides aspirational completeness.
+	if metaDepth == 0 {
+		metaDesc := []byte("meta: wrapped contribution " + hex.EncodeToString(id))
+		_, _ = k.wrapAsSubstrateContribution(
+			ctx,
+			"ops",
+			k.authority,
+			metaDesc,
+			id,
+			1,
+		)
+	}
 	return id, nil
 }
 
