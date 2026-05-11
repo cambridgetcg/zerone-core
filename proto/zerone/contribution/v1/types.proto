@@ -1,0 +1,114 @@
+syntax = "proto3";
+package zerone.contribution.v1;
+
+import "cosmos/base/v1beta1/coin.proto";
+import "zerone/contribution/v1/payloads.proto";
+
+option go_package = "github.com/zerone-chain/zerone/x/contribution/types";
+
+// Contribution is the canonical envelope for every piece of useful
+// work absorbed by the chain. Field tags are stable; see Phase 1 spec.
+message Contribution {
+  bytes  id                                = 1;
+  string contributor                       = 2;
+  repeated string contributors_extra       = 3;
+  ContributionClass class                  = 4;
+  LifecyclePhase phase                     = 5;
+  string manifest_cid                      = 6;
+  repeated LineageRef lineage              = 7;
+  cosmos.base.v1beta1.Coin stake           = 8;
+  ContributionStatus status                = 9;
+  bytes  claims_about_self                 = 10;
+  TruthFloorAttestation truth_floor_attestation = 11;
+  uint32 declared_sub_creed_version        = 12;
+  uint64 created_at_block                  = 13;
+  uint64 admitted_at_block                 = 14;
+  bool   royalty_stream_open               = 15;
+  RecursionImpact recursion                = 16;
+  ContributionPayload payload              = 17;
+  uint32 verification_score_bps            = 18;
+  uint32 substrate_link_bps               = 19;
+  string back_ref                          = 20;
+}
+
+enum ContributionClass {
+  KNOWLEDGE_CLAIM      = 0;
+  IDEA                 = 1;
+  TOOL                 = 2;
+  DATASET              = 3;
+  EVAL_SUITE           = 4;
+  MODEL_ARTIFACT       = 5;
+  REASONING_TRACE      = 6;
+  COUNTEREXAMPLE       = 7;
+  ORCHESTRATION        = 8;
+  MODULE_PROPOSAL      = 9;
+  PIPELINE_IMPROVEMENT = 10;
+}
+
+enum LifecyclePhase {
+  PHASE_FOUNDATION   = 0;
+  PHASE_KNOWLEDGE    = 1;
+  PHASE_CURATION     = 2;
+  PHASE_AUGMENTATION = 3;
+  PHASE_TRAINING     = 4;
+  PHASE_EVALUATION   = 5;
+  PHASE_ALIGNMENT    = 6;
+  PHASE_SUBSTRATE    = 7;
+  PHASE_TOOLS        = 8;
+}
+
+enum ContributionStatus {
+  STATUS_UNSPECIFIED            = 0;
+  STATUS_SUBMITTED              = 1;
+  STATUS_CLASSIFIED             = 2;
+  STATUS_VERIFIED               = 3;
+  STATUS_ADMITTED               = 4;
+  STATUS_REVOKED                = 5;
+  STATUS_CLASSIFICATION_FAILED  = 6;
+  STATUS_VERIFICATION_FAILED    = 7;
+  STATUS_ADMISSION_FAILED       = 8;
+}
+
+message LineageRef {
+  bytes  parent_id    = 1;
+  string relationship = 2;
+  uint32 weight_bps   = 3;
+}
+
+message TruthFloorAttestation {
+  uint32 creed_version              = 1;
+  bytes  creed_hash                 = 2;
+  repeated uint32 commitments_invoked = 3;
+  bytes  attestor_signature         = 4;
+}
+
+message RecursionImpact {
+  RecursionType type        = 1;
+  string ratifying_lip_id   = 2;
+  uint64 ratified_at_block  = 3;
+  uint32 multiplier_bps     = 4;
+  string depends_on_marker  = 5;
+  bool   revocable          = 6;
+  RecursionAxisScores axes  = 7;
+}
+
+enum RecursionType {
+  NONE                   = 0;
+  EVAL_ADOPTION          = 1;
+  TOOL_INTEGRATION       = 2;
+  VERIFICATION_PRIMITIVE = 3;
+  CATEGORY_CREATION      = 4;
+  MODULE_ADOPTION        = 5;
+  CREED_CONTRIBUTION     = 6;
+  PIPELINE_IMPROVEMENT   = 7;
+}
+
+message RecursionAxisScores {
+  uint32 substrate_bps      = 1;
+  uint32 verification_bps   = 2;
+  uint32 classification_bps = 3;
+  uint32 attribution_bps    = 4;
+  uint32 tooling_bps        = 5;
+  uint32 interface_bps      = 6;
+  uint32 total_bps          = 7;
+}
