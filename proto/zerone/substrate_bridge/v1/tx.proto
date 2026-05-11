@@ -1,0 +1,54 @@
+syntax = "proto3";
+package zerone.substrate_bridge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/substrate_bridge/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "gogoproto/gogo.proto";
+import "zerone/substrate_bridge/v1/adapter.proto";
+import "zerone/substrate_bridge/v1/substrate_link.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc RegisterAdapter   (MsgRegisterAdapter)   returns (MsgRegisterAdapterResponse);
+  rpc SuspendAdapter    (MsgSuspendAdapter)    returns (MsgSuspendAdapterResponse);
+  rpc TombstoneAdapter  (MsgTombstoneAdapter)  returns (MsgTombstoneAdapterResponse);
+
+  rpc SubmitExternalAttestation (MsgSubmitExternalAttestation) returns (MsgSubmitExternalAttestationResponse);
+}
+
+message MsgRegisterAdapter {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority = 1;
+  AdapterRegistration adapter = 2;
+}
+message MsgRegisterAdapterResponse {}
+
+message MsgSuspendAdapter {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority   = 1;
+  string adapter_id  = 2;
+  string reason      = 3;
+}
+message MsgSuspendAdapterResponse {}
+
+message MsgTombstoneAdapter {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority   = 1;
+  string adapter_id  = 2;
+  string reason      = 3;
+}
+message MsgTombstoneAdapterResponse {}
+
+message MsgSubmitExternalAttestation {
+  option (cosmos.msg.v1.signer) = "submitter";
+  string submitter       = 1;
+  string adapter_id      = 2;
+  string work_class_id   = 3;
+  SubstrateLink link     = 4;
+  string bond_uzrn       = 5;
+}
+message MsgSubmitExternalAttestationResponse {
+  string attestation_id = 1;
+}
