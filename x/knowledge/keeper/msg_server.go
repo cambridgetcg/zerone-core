@@ -216,6 +216,16 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		return nil, err
 	}
 
+	// Hook: notify external consumers that a new claim has been submitted.
+	// Errors are swallowed — consumer misbehavior must not break the claim flow.
+	_ = m.keeper.Hooks().AfterClaimSubmitted(ctx, claimID, types.ClaimSnapshot{
+		Submitter:        claim.Submitter,
+		Domain:           claim.Domain,
+		StatementHash:    []byte(claim.ContentHash),
+		AxiomRefs:        claim.References,
+		SubmittedAtBlock: claim.SubmittedAtBlock,
+	})
+
 	// Record last claim height for adaptive cooldown (R29-6)
 	m.keeper.SetLastClaimHeight(ctx, msg.Submitter, height)
 

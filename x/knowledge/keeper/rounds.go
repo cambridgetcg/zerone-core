@@ -94,6 +94,8 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		}
 		// Review fee already distributed at submission time — no refund.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_ACCEPTED
+		// Hook: claim accepted and became a Fact. Errors swallowed.
+		_ = k.Hooks().AfterClaimAccepted(ctx, claim.Id, factId)
 
 	case types.Verdict_VERDICT_REJECT:
 		// Review fee already distributed at submission time — the fee IS the cost of rejection.
@@ -124,6 +126,17 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	if err := k.SetVerificationRound(ctx, round); err != nil {
 		return err
 	}
+
+	// Hook: verification finalized — fire regardless of verdict so consumers
+	// can react to all outcomes. scoreBps = result.Confidence (0 for non-ACCEPT
+	// verdicts). Errors are swallowed.
+	var scoreBps uint32
+	if result.Confidence <= 1_000_000 {
+		scoreBps = uint32(result.Confidence)
+	} else {
+		scoreBps = 1_000_000
+	}
+	_ = k.Hooks().AfterClaimVerificationFinalized(ctx, claim.Id, scoreBps)
 
 	// Distribute verifier rewards from the 55% fee pool
 	k.distributeVerifierRewardsFromPool(ctx, claim, result)

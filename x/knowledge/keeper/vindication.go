@@ -213,6 +213,10 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 	originalFact.Status = types.FactStatus_FACT_STATUS_DISPROVEN
 	_ = k.SetFact(ctx, originalFact)
 
+	// Hook: claim (via fact) has been disproven. disproverArtifactID is the
+	// newly created counter-fact that replaced it. Errors are swallowed.
+	_ = k.Hooks().AfterClaimDisproven(ctx, originalFact.ClaimId, newFactId)
+
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Popper, not popularity: a fact stops being a fact when a serious
 	// attempt to disprove it succeeds. The chain announces the verdict
