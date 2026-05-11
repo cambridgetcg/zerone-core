@@ -1,16 +1,19 @@
 package types
 
-// Event type names emitted by the x/contribution module.
+// Event type names emitted by the x/contribution module. Names follow
+// the `zerone.<module>.<action>` convention used elsewhere in the
+// chain (e.g., x/creed, x/knowledge), so off-chain indexers can route
+// by module prefix.
 const (
-	EventTypeContributionSubmitted            = "contribution_submitted"
-	EventTypeContributionClassified           = "contribution_classified"
-	EventTypeUsefulWorkAttested               = "useful_work_attested"
-	EventTypeUsefulWorkSettled                = "useful_work_settled"
-	EventTypeRecursionWeightComputed          = "recursion_weight_computed"
-	EventTypeContributionAdmitted             = "contribution_admitted"
-	EventTypeContributionRevoked              = "contribution_revoked"
-	EventTypeContributionClassificationFailed = "contribution_classification_failed"
-	EventTypeContributionVerificationFailed   = "contribution_verification_failed"
+	EventTypeContributionSubmitted            = "zerone.contribution.submitted"
+	EventTypeContributionClassified           = "zerone.contribution.classified"
+	EventTypeUsefulWorkAttested               = "zerone.contribution.useful_work_attested"
+	EventTypeUsefulWorkSettled                = "zerone.contribution.useful_work_settled"
+	EventTypeRecursionWeightComputed          = "zerone.contribution.recursion_weight_computed"
+	EventTypeContributionAdmitted             = "zerone.contribution.admitted"
+	EventTypeContributionRevoked              = "zerone.contribution.revoked"
+	EventTypeContributionClassificationFailed = "zerone.contribution.classification_failed"
+	EventTypeContributionVerificationFailed   = "zerone.contribution.verification_failed"
 )
 
 // Attribute keys used across events.
@@ -23,6 +26,7 @@ const (
 	AttributeKeyVerificationScoreBps = "verification_score_bps"
 	AttributeKeyAdmittedAtBlock      = "admitted_at_block"
 	AttributeKeyBackRef              = "back_ref"
+	AttributeKeyFactRef              = "fact_ref"
 	AttributeKeyDisproverArtifactID  = "disprover_artifact_id"
 	AttributeKeyCascadeFlag          = "cascade_flag"
 	AttributeKeyReason               = "reason"

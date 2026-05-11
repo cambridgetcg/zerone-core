@@ -95,7 +95,12 @@ func (k Keeper) EmitRecursionWeightComputed(ctx context.Context, c *types.Contri
 	))
 }
 
-func (k Keeper) EmitContributionAdmitted(ctx context.Context, c *types.Contribution) {
+// EmitContributionAdmitted publishes the admission event. factRef carries
+// the resulting source-module artifact id (e.g., x/knowledge fact_id) so
+// off-chain consumers can join Contribution back_ref (claim_id, stable
+// across lifecycle) with the admitted artifact (fact_id). May be empty
+// for classes whose admission produces no separate artifact.
+func (k Keeper) EmitContributionAdmitted(ctx context.Context, c *types.Contribution, factRef string) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		types.EventTypeContributionAdmitted,
@@ -104,6 +109,7 @@ func (k Keeper) EmitContributionAdmitted(ctx context.Context, c *types.Contribut
 		sdk.NewAttribute(types.AttributeKeyPhase, c.Phase.String()),
 		sdk.NewAttribute(types.AttributeKeyAdmittedAtBlock, strconv.FormatUint(c.AdmittedAtBlock, 10)),
 		sdk.NewAttribute(types.AttributeKeyBackRef, c.BackRef),
+		sdk.NewAttribute(types.AttributeKeyFactRef, factRef),
 		sdk.NewAttribute(types.AttributeKeyCreedCommitment, types.CommitmentIssuance),
 		sdk.NewAttribute(types.AttributeKeyUsefulWorkCommitment, types.UsefulWorkCommitmentValue),
 	))

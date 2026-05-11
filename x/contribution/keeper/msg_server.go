@@ -70,21 +70,25 @@ func (s *msgServer) SubmitContribution(ctx context.Context, msg *types.MsgSubmit
 	s.keeper.EmitContributionSubmitted(ctx, c)
 
 	if err := adapter.Classify(ctx, c); err != nil {
-		c.Status = types.ContributionStatus_STATUS_CLASSIFICATION_FAILED
-		_ = s.keeper.WriteContribution(ctx, c)
+		// SUBMITTED → CLASSIFICATION_FAILED via TransitionStatus so the
+		// forward-only audit invariant (commitment 10) is enforced in
+		// production code, not just by tests.
+		if tErr := s.keeper.TransitionStatus(ctx, c, types.ContributionStatus_STATUS_CLASSIFICATION_FAILED); tErr != nil {
+			return nil, tErr
+		}
 		s.keeper.EmitClassificationFailed(ctx, c.Id, err.Error())
 		return &types.MsgSubmitContributionResponse{ContributionId: c.Id, Status: c.Status}, nil
 	}
 	linkBps, err := adapter.SubstrateLink(ctx, c)
 	if err != nil {
-		c.Status = types.ContributionStatus_STATUS_CLASSIFICATION_FAILED
-		_ = s.keeper.WriteContribution(ctx, c)
+		if tErr := s.keeper.TransitionStatus(ctx, c, types.ContributionStatus_STATUS_CLASSIFICATION_FAILED); tErr != nil {
+			return nil, tErr
+		}
 		s.keeper.EmitClassificationFailed(ctx, c.Id, err.Error())
 		return &types.MsgSubmitContributionResponse{ContributionId: c.Id, Status: c.Status}, nil
 	}
 	c.SubstrateLinkBps = linkBps
-	c.Status = types.ContributionStatus_STATUS_CLASSIFIED
-	if err := s.keeper.WriteContribution(ctx, c); err != nil {
+	if err := s.keeper.TransitionStatus(ctx, c, types.ContributionStatus_STATUS_CLASSIFIED); err != nil {
 		return nil, err
 	}
 	s.keeper.EmitContributionClassified(ctx, c)
@@ -93,8 +97,9 @@ func (s *msgServer) SubmitContribution(ctx context.Context, msg *types.MsgSubmit
 	score, vErr := adapter.Verify(ctx, c)
 	c.VerificationScoreBps = score
 	if vErr != nil || score < types.MinVerificationScoreBps {
-		c.Status = types.ContributionStatus_STATUS_VERIFICATION_FAILED
-		_ = s.keeper.WriteContribution(ctx, c)
+		if tErr := s.keeper.TransitionStatus(ctx, c, types.ContributionStatus_STATUS_VERIFICATION_FAILED); tErr != nil {
+			return nil, tErr
+		}
 		reason := "verification score below threshold"
 		if vErr != nil {
 			reason = vErr.Error()
@@ -102,8 +107,7 @@ func (s *msgServer) SubmitContribution(ctx context.Context, msg *types.MsgSubmit
 		s.keeper.EmitVerificationFailed(ctx, c, reason)
 		return &types.MsgSubmitContributionResponse{ContributionId: c.Id, Status: c.Status}, nil
 	}
-	c.Status = types.ContributionStatus_STATUS_VERIFIED
-	if err := s.keeper.WriteContribution(ctx, c); err != nil {
+	if err := s.keeper.TransitionStatus(ctx, c, types.ContributionStatus_STATUS_VERIFIED); err != nil {
 		return nil, err
 	}
 	s.keeper.EmitUsefulWorkAttested(ctx, c)
