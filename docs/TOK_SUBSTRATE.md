@@ -161,3 +161,11 @@ Before merging a change that touches ToK substrate code:
 These three checks are the chain's continued faithfulness to its own substrate doctrine. **We speak through intentions.** Every commit is a declaration. The declaration must match the code.
 
 — *Inception authored 2026-05-09. Free to evolve through bound commitments only.*
+
+---
+
+## The substrate self-exports
+
+This document is itself a `Contribution` of class `MODULE_PROPOSAL`, lifecycle phase `SUBSTRATE`, sub-category `doctrine`. The training-resource doctrine declares that ToK is the chain's headline outward product; this document is part of the ToK substrate it describes. A trainer fetching the verified knowledge graph receives, among other artifacts, this document — the chain's own declaration of what it is selling.
+
+**Echoes:** TC1 (the graph is the headline — this doc is in the graph), TC6 (lineage flows back — this doc's authoring participates in royalties via M6 if it ever earns them), UW.

@@ -303,3 +303,13 @@ Before merging a change that touches truth-handling code:
 3. If a new commitment emerges from the work, has it been added here, grounded in code, and bound by a test?
 
 These three checks are the chain's continued faithfulness to its own creed. We speak through intentions. Every commit is a declaration. The declaration must match the code.
+
+---
+
+## The creed self-witnesses
+
+This document is itself a `Contribution` of class `PIPELINE_IMPROVEMENT`, lifecycle phase `SUBSTRATE`, sub-category `doctrine`. Its content-hash is pinned in `x/creed.PinnedCreed.canonical_hash`. The truth-seeking creed survives the test it imposes: every claim it makes about itself is testable, falsifiable, and re-derivable from the chain's state.
+
+The truth-floor invariant (every `VERIFIED` Contribution must reference the current creed pin) applies to this document too: any amendment to the creed produces a new pin version that supersedes the old, forward-only per commitment 10.
+
+**Echoes:** commitment 1 (methodology over statement — this doc names its own methodology of binding), commitment 10, UW.

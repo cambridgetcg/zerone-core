@@ -237,3 +237,13 @@ Illustrative only (no new commitments, formulas, or modules). Shows UW + M1–M7
 7. **Audit (M7)**: the `useful_work_audit_bounty_pool` advertises a standing bounty for falsifying the tool's claims. A red-teamer who finds a regression earns from the pool; the tool transitions to REVOKED, residual bond slashes (M1 graduated, post-settle), royalty stream closes forward-only.
 
 The example uses every mechanism (M1 stake + M2 substrate-link + M3 lifecycle + M4 formula + M5 axes + M6 recursive lineage + M7 audit) without altering any of them. UW is upheld throughout.
+
+---
+
+## The doctrine self-instances
+
+This document is itself a `Contribution` of class `MODULE_PROPOSAL`, lifecycle phase `SUBSTRATE`, sub-category `doctrine`. Its content-hash is pinned in `x/work_creed.PinnedSubCreed` under phase Foundation (because the doctrine is foundational to all useful work). The doctrine instantiates the type it defines: useful work is described by a Contribution whose existence is itself useful work.
+
+UW is recursive at every layer: in the reward formula (`R = base + L × W × Q` where recursion is the dominant signal), in the work taxonomy (`SUBSTRATE` includes self-modification), in the proto envelope (`ContributionPayload.nested` permits a Contribution about a Contribution), and in this document, which describes the doctrine that this document instantiates.
+
+**Echoes:** UW (self), commitment 10 (forward-only audit applies to this doc), TC1 (this doc is in the graph it describes).
