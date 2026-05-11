@@ -120,6 +120,23 @@ func (k Keeper) finalizeSettle(
 		}
 	}
 
+	// Emit settlement event (SETTLED, PARTIAL, or REJECTED).
+	eventType := EventTypeExternalAttestationSettled
+	mechanism := "M4" // M4: reward formula R = base + L × W × Q
+	if finalStatus == types.AttestationStatus_ATTESTATION_STATUS_PARTIAL {
+		eventType = EventTypeExternalAttestationPartial
+		mechanism = "M1,M4" // M1 for slash, M4 for partial reward
+	} else if finalStatus == types.AttestationStatus_ATTESTATION_STATUS_REJECTED {
+		eventType = EventTypeExternalAttestationRejected
+		mechanism = "M1" // M1: full bond slash (fraud tier)
+	}
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		eventType,
+		sdk.NewAttribute(AttrAttestationID, att.AttestationId),
+		sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
+		sdk.NewAttribute(AttrMechanism, mechanism),
+	))
+
 	// Trigger lineage propagation if this is a paid settle (not REJECTED).
 	if finalStatus != types.AttestationStatus_ATTESTATION_STATUS_REJECTED && reward.GT(sdkmath.ZeroInt()) {
 		_ = k.PropagateLineage(ctx, att.AttestationId, reward)

@@ -18,4 +18,5 @@ const (
 	// Attributes.
 	AttrUsefulWorkCommitment = "useful_work_commitment" // value: "UW"
 	AttrMechanism            = "mechanism"              // value: "M1" | "M2,M3" | etc.
+	AttrAttestationID        = "attestation_id"
 )

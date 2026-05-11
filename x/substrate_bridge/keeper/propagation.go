@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -102,8 +103,22 @@ func (k Keeper) propagateRecursive(
 		}
 		newEdgePayment := curEdgePayment.Add(share)
 		e.SettlementPaymentUzrn = newEdgePayment.String()
-		store := sdk.UnwrapSDKContext(ctx).KVStore(k.storeKey)
+		sdkCtx := sdk.UnwrapSDKContext(ctx)
+		store := sdkCtx.KVStore(k.storeKey)
 		store.Set(types.LineageEdgeKey(types.EdgeID(e.UpstreamAttestationId, e.DownstreamAttestationId)), k.cdc.MustMarshal(e))
+
+		// Emit lineage_royalty_paid event (M6: propagation hop).
+		edgeID := types.EdgeID(e.UpstreamAttestationId, e.DownstreamAttestationId)
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			EventTypeLineageRoyaltyPaid,
+			sdk.NewAttribute("edge_id", edgeID),
+			sdk.NewAttribute("upstream_attestation_id", e.UpstreamAttestationId),
+			sdk.NewAttribute("downstream_attestation_id", e.DownstreamAttestationId),
+			sdk.NewAttribute("royalty_amount", share.String()),
+			sdk.NewAttribute("propagation_depth", fmt.Sprintf("%d", depth)),
+			sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
+			sdk.NewAttribute(AttrMechanism, "M6"),
+		))
 
 		// Recursively propagate further up.
 		propagatedShare := share.Mul(sdkmath.NewIntFromUint64(uint64(decayBpsPerHop))).Quo(sdkmath.NewInt(10000))

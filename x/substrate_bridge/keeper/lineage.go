@@ -58,6 +58,18 @@ func (k Keeper) CreateLineageEdge(ctx context.Context, e *types.LineageEdge) err
 	store.Set(types.LineageEdgeKey(edgeID), k.cdc.MustMarshal(e))
 	store.Set(types.LineageByUpstreamKey(e.UpstreamAttestationId, edgeID), []byte{0x01})
 	store.Set(types.LineageByDownstreamKey(e.DownstreamAttestationId, edgeID), []byte{0x01})
+
+	// Emit lineage_edge_created event (M6: cross-class DAG).
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeLineageEdgeCreated,
+		sdk.NewAttribute("edge_id", edgeID),
+		sdk.NewAttribute("upstream_attestation_id", e.UpstreamAttestationId),
+		sdk.NewAttribute("downstream_attestation_id", e.DownstreamAttestationId),
+		sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
+		sdk.NewAttribute(AttrMechanism, "M6"),
+	))
+
 	return nil
 }
 
