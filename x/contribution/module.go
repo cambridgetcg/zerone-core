@@ -6,6 +6,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"cosmossdk.io/core/appmodule"
 
@@ -46,8 +47,19 @@ func (AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
 	types.RegisterInterfaces(reg)
 }
 
+// DefaultGenesis returns the module's default genesis as protojson.
+//
+// Why protojson, not encoding/json: Contribution carries a protobuf
+// oneof (ContributionPayload.Payload). Stdlib encoding/json cannot
+// unmarshal into the oneof interface field on round-trip — it would
+// emit object-shaped JSON for the variant and then fail on decode.
+// protojson is the canonical JSON form for modern protoc-gen-go
+// messages and handles oneofs correctly. This is load-bearing the
+// moment the chain writes non-empty Contributions into genesis (which
+// happens once any adapter is registered and InitGenesis emits a
+// Substrate-class Contribution per Layer 2 of the UW recursion stack).
 func (a AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
-	bz, err := json.Marshal(types.DefaultGenesis())
+	bz, err := protojson.Marshal(types.DefaultGenesis())
 	if err != nil {
 		panic("failed to marshal default genesis: " + err.Error())
 	}
@@ -55,8 +67,9 @@ func (a AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
 }
 
 func (a AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingConfig, raw json.RawMessage) error {
-	var gs types.GenesisState
-	if err := json.Unmarshal(raw, &gs); err != nil {
+	gs := &types.GenesisState{}
+	opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err := opts.Unmarshal(raw, gs); err != nil {
 		return fmt.Errorf("failed to unmarshal x/%s genesis: %w", types.ModuleName, err)
 	}
 	return gs.Validate()
@@ -88,18 +101,22 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 }
 
 // InitGenesis writes the contribution records from genesis state.
+//
+// Decoded via protojson — see DefaultGenesis for rationale.
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, raw json.RawMessage) {
-	var gs types.GenesisState
-	if err := json.Unmarshal(raw, &gs); err != nil {
+	gs := &types.GenesisState{}
+	opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err := opts.Unmarshal(raw, gs); err != nil {
 		panic("failed to unmarshal x/contribution genesis: " + err.Error())
 	}
-	am.keeper.InitGenesis(ctx, &gs)
+	am.keeper.InitGenesis(ctx, gs)
 }
 
-// ExportGenesis returns the current contribution set.
+// ExportGenesis returns the current contribution set as protojson —
+// see DefaultGenesis for rationale.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage {
 	gs := am.keeper.ExportGenesis(ctx)
-	bz, err := json.Marshal(gs)
+	bz, err := protojson.Marshal(gs)
 	if err != nil {
 		panic("failed to marshal x/contribution genesis: " + err.Error())
 	}
