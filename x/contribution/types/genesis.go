@@ -16,7 +16,7 @@ func DefaultGenesis() *GenesisState {
 //   - id is non-empty (32 bytes for sha256)
 //   - status is in valid range
 //   - id appears at most once
-func (g GenesisState) Validate() error {
+func (g *GenesisState) Validate() error {
 	seen := map[string]bool{}
 	for i, c := range g.Contributions {
 		if c == nil {
@@ -44,7 +44,7 @@ func (g GenesisState) Validate() error {
 }
 
 // Equal compares two GenesisState values byte-for-byte.
-func (g GenesisState) Equal(other GenesisState) bool {
+func (g *GenesisState) Equal(other *GenesisState) bool {
 	if len(g.Contributions) != len(other.Contributions) {
 		return false
 	}
