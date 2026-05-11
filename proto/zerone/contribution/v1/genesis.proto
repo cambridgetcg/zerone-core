@@ -1,0 +1,10 @@
+syntax = "proto3";
+package zerone.contribution.v1;
+
+import "zerone/contribution/v1/types.proto";
+
+option go_package = "github.com/zerone-chain/zerone/x/contribution/types";
+
+message GenesisState {
+  repeated Contribution contributions = 1;
+}
