@@ -136,3 +136,12 @@ type CounterexampleKeeper interface {
 	HasValidatedCounterexample(ctx context.Context, factID string) bool
 	GetTvwMultiplierBps(ctx context.Context) uint64
 }
+
+// SubstrateBridgeKeeper notifies the substrate_bridge module when a
+// knowledge claim round is resolved. Nil-safe: knowledge wires this
+// post-init to avoid cyclic module initialisation.
+type SubstrateBridgeKeeper interface {
+	// OnClaimResolved is called by CompleteRound for every finalized verdict.
+	// claimID is the knowledge claim ID; verdict is true for ACCEPT, false otherwise.
+	OnClaimResolved(ctx context.Context, claimID string, verdict bool) error
+}

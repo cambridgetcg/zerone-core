@@ -32,6 +32,7 @@ type Keeper struct {
 	captureDefenseKeeper       types.CaptureDefenseKeeper       // nil until R28-8
 	pacingKeeper               types.PacingKeeper               // nil until R29-6
 	counterexampleKeeper       types.CounterexampleKeeper       // nil until counterexamples wired
+	substrateBridgeKeeper      types.SubstrateBridgeKeeper      // nil until substrate_bridge wired (SB-22)
 }
 
 // NewKeeper creates a new knowledge Keeper.
@@ -105,6 +106,12 @@ func (k *Keeper) SetCounterexampleKeeper(ck types.CounterexampleKeeper) {
 // SetPacingKeeper sets the pacing keeper for adaptive timing (R29-6).
 func (k *Keeper) SetPacingKeeper(pk types.PacingKeeper) {
 	k.pacingKeeper = pk
+}
+
+// SetSubstrateBridgeKeeper wires the substrate_bridge notification hook
+// (post-init to break cyclic module initialisation, SB-22).
+func (k *Keeper) SetSubstrateBridgeKeeper(sbk types.SubstrateBridgeKeeper) {
+	k.substrateBridgeKeeper = sbk
 }
 
 // Logger returns a module-scoped logger.

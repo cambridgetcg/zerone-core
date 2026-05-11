@@ -260,6 +260,15 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		sdk.NewAttribute("verdict", round.Verdict.String()),
 	))
 
+	// Notify substrate_bridge of the claim resolution so attestations
+	// awaiting this verdict can transition state eagerly (SB-22).
+	// Nil-gated: substrate_bridge is wired post-init; tests that don't
+	// wire it operate normally with no hook call.
+	if k.substrateBridgeKeeper != nil {
+		verdict := result.Verdict == types.Verdict_VERDICT_ACCEPT
+		_ = k.substrateBridgeKeeper.OnClaimResolved(ctx, claim.Id, verdict)
+	}
+
 	return nil
 }
 
