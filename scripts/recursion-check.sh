@@ -68,6 +68,10 @@ run_recursion 1 "chain attests to its own becoming" \
 run_recursion 2 "chain pays for its own self-documentation" \
   "TestZeroneSelf_FullEconomicLoop|TestZeroneSelf_MultipleFulfillmentsCompoundEarnings"
 
+# Recursion 3: chain pays its builders twice for the same verified work
+run_recursion 3 "chain pays builders twice for one verified self-attestation" \
+  "TestRecursiveDoublePayment_SelfAttestationEarnsTwice"
+
 # Recursion 4: chain's lineage graph includes its own commits
 run_recursion 4 "lineage graph includes the chain's own commits" \
   "TestRecursiveLineage_DownstreamWorkPaysUpstreamSelfAttester|TestRecursiveLineage_MultipleCitationsCompound"

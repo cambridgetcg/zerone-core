@@ -24,7 +24,7 @@ The chain pays its own historians out of sponsor escrow. No new mint. No inflati
 
 ## 3. The chain pays its builders twice for the same verified work
 
-**Closed by:** `x/substrate_bridge` settlement (M4) + `x/sponsorship` fulfill, sharing the same verified fact.
+**Closed by:** `x/substrate_bridge` settlement (M4) + `x/sponsorship` fulfill, sharing the same verified fact; binding test `TestRecursiveDoublePayment_SelfAttestationEarnsTwice`.
 
 When a substrate-bridge attestation settles, the submitter earns from the audit-bounty pool (`useful_work_audit_bounty_pool`) per UW M4. When the underlying fact also fulfills a sponsorship bounty, the same submitter (because `fact.Submitter == attestation.Submitter`) earns again from sponsor escrow.
 
