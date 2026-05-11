@@ -1,0 +1,64 @@
+syntax = "proto3";
+package zerone.substrate_bridge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/substrate_bridge/types";
+
+import "zerone/substrate_bridge/v1/types.proto";
+
+// AdapterStatus governs registration lifecycle. ACTIVE accepts new
+// attestations; SUSPENDED refuses new but in-flight settle;
+// TOMBSTONED is permanent retirement (commitment 10 forward-only).
+enum AdapterStatus {
+  ADAPTER_STATUS_UNSPECIFIED = 0;
+  ADAPTER_STATUS_ACTIVE      = 1;
+  ADAPTER_STATUS_SUSPENDED   = 2;
+  ADAPTER_STATUS_TOMBSTONED  = 3;
+}
+
+// QualificationStatus mirrors x/qualification's status enum so an
+// adapter can specify the minimum status a submitter must hold in the
+// required domain. Imported here as a uint32 for proto isolation;
+// keeper resolves to x/qualification's enum at query time.
+enum QualificationStatus {
+  QUALIFICATION_STATUS_UNSPECIFIED   = 0;
+  QUALIFICATION_STATUS_PROBATIONARY  = 1;
+  QUALIFICATION_STATUS_ACTIVE        = 2;
+  QUALIFICATION_STATUS_DISTINGUISHED = 3;
+}
+
+// SlashGradient mirrors M1's graduated slashing — different failure
+// modes carry different bps slash weights. Values stored at adapter
+// registration and applied at attestation rejection paths.
+message SlashGradient {
+  uint32 compiler_drift_bps = 1;  // adapter-binary mismatch — typically 10000 (full)
+  uint32 axis_overflow_bps  = 2;  // axis claim exceeds bounds — typically pro-rata
+  uint32 fraud_bps          = 3;  // > rejection threshold reached — typically 10000
+}
+
+// AdapterRegistration is the gov-approved metadata for one adapter.
+// Adapter is a recipe (binary hash + bounds + slash); no operator role.
+// Anyone who runs the registered binary AND submits an attestation
+// earns via the UW formula.
+message AdapterRegistration {
+  string adapter_id  = 1;     // canonical, gov-approved (e.g. "wikipedia-en-v1")
+  string source_type = 2;     // "wikipedia" | "arxiv" | "ibc_packet" | etc.
+  string version     = 3;     // semver
+
+  bytes      compiler_binary_hash = 4;  // determinism guarantee
+  AxisBounds axis_bounds          = 5;
+
+  string min_attestation_bond_uzrn = 6;
+  string min_per_claim_bond_uzrn   = 7;
+
+  SlashGradient slash_gradient = 8;
+
+  string               required_qualification_domain = 9;
+  QualificationStatus  min_qualification_status      = 10;
+
+  repeated string allowed_class_ids = 11;  // empty = any class allowed
+
+  AdapterStatus status               = 12;
+  string        registered_via_lip_id = 13;
+  uint64        registered_at_block  = 14;
+  uint64        tombstoned_at_block  = 15;  // 0 if not tombstoned
+}
