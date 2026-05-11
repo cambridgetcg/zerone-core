@@ -102,6 +102,16 @@ func setupSubstrateBridgeKeeperWithBank(t *testing.T) (keeper.Keeper, sdk.Contex
 	return k, ctx
 }
 
+// setupSubstrateBridgeKeeperWithKnowledge is a variant of setupSubstrateBridgeKeeper
+// that wires a nil KnowledgeKeeper (the LinkHashMismatch test fails before any
+// knowledge lookup, so no stub is required).
+func setupSubstrateBridgeKeeperWithKnowledge(t *testing.T) (keeper.Keeper, sdk.Context) {
+	t.Helper()
+	// Re-use the base setup; knowledge keeper is nil — tests that exercise the
+	// link-hash check never reach knowledge queries.
+	return setupSubstrateBridgeKeeper(t)
+}
+
 // setupTwoAttestations writes "att-upstream" (block 10) and "att-downstream"
 // (block 20) into the keeper for tests that need a pre-populated pair.
 func setupTwoAttestations(t *testing.T, k keeper.Keeper, ctx sdk.Context) {
