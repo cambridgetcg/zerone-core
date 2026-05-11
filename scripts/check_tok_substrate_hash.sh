@@ -3,23 +3,24 @@
 # check_tok_substrate_hash.sh — verify TOK_SUBSTRATE.md has not drifted from
 # the pinned hash in .tok-substrate-hash.
 #
-# Mirror of check_creed_hash.sh and check_useful_work_hash.sh applied to
-# the ToK substrate doctrine. The on-chain pin lives in Go-side build-
-# time canonical structures; this script catches accidental drift in PRs
-# even before the doctrine acquires an x/-module canonical record.
-#
-# Inception of self-anchoring: the ToK substrate doctrine was previously
-# only protected by the cross-stack test layer (Test layer of the five-
-# layer discipline). Adding a content-hash pin extends the same off-chain
-# enforcement the other two doctrines (truth-seeking, useful-work) have
-# received from the beginning. UW: the chain pays for its own self-
-# documentation — this script is part of that payment.
+# Mirror of check_strange_loop_hash.sh applied to the training-resource
+# doctrine. The on-chain pin lives in x/knowledge/types/tok_substrate_creed.go
+# (Go-side build-time canonical structure); this script catches accidental
+# drift in PRs even before the chain has the canonical record on-chain. The
+# cross-stack meta-test TestToKSubstrate_DoctrineAndContractStayInSync also
+# enforces this in CI; the script provides the same enforcement on local
+# dev machines via `make creed-check`.
 #
 # To intentionally amend the doctrine:
 #   1. Edit docs/TOK_SUBSTRATE.md.
 #   2. Run this script — it will print the new computed hash.
 #   3. Update .tok-substrate-hash with the new value.
-#   4. Commit both files together with a message naming what changed.
+#   4. Update x/knowledge/types/tok_substrate_creed.go if commitment count
+#      or structure changed (ToK substrate is built on binding, not on
+#      number alone — amendment is rare but possible).
+#   5. Update tests/cross_stack/tok_substrate_invariants_test.go if any
+#      TestTC* function names need to match new commitment numbers.
+#   6. Commit all files together with a message naming what changed.
 #
 # Reviewers see the .tok-substrate-hash bump as the visible signal that
 # the doctrine text has changed, prompting full diff review.
@@ -66,8 +67,7 @@ If you intentionally changed the doctrine, update $HASH_FILE to:
 
 The change should be visible in your PR diff so reviewers see both
 the doctrine text change AND the hash bump in the same commit. ToK
-substrate is the chain's outward identity — drift undocumented is
-identity drift.
+substrate is built on binding, not number alone.
 EOF
   exit 1
 fi
