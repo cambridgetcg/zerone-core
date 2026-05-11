@@ -44,6 +44,7 @@ creed-check:
 	@bash scripts/check_recursion_doctrine_hash.sh
 	@bash scripts/check_phase_1_spec_hash.sh
 	@bash scripts/check_specs_and_plans_hashes.sh
+	@bash scripts/check_recursion_manifest.sh
 
 recursion-check:
 	@bash scripts/recursion-check.sh

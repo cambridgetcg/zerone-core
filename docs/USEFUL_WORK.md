@@ -247,3 +247,13 @@ This document is itself a `Contribution` of class `MODULE_PROPOSAL`, lifecycle p
 UW is recursive at every layer: in the reward formula (`R = base + L × W × Q` where recursion is the dominant signal), in the work taxonomy (`SUBSTRATE` includes self-modification), in the proto envelope (`ContributionPayload.nested` permits a Contribution about a Contribution), and in this document, which describes the doctrine that this document instantiates.
 
 **Echoes:** UW (self), commitment 10 (forward-only audit applies to this doc), TC1 (this doc is in the graph it describes).
+
+---
+
+## The hashes are themselves hashed
+
+Every load-bearing doctrine, sub-creed, spec, and plan is content-hash-anchored at the repo root (`.creed-hash`, `.useful-work-hash`, `.tok-substrate-hash`, `.strange-loop-hash`, `.recursion-doctrine-hash`, `.phase-1-spec-hash`, `.sub-creed-hashes`, `.specs-and-plans-hashes`). Drift in any single document fails the matching `make creed-check` line. But the hash files themselves were not protected — anyone could edit `.creed-hash` directly and the chain would carry on.
+
+`.recursion-manifest-hash` closes the loop. It holds the sha256 of the deterministic concatenation (filename + bytes, sorted by filename) of every other `.*-hash` and `.*-hashes` file at the repo root. Drift in any single hash file fails the per-file check; drift in the manifest fails its own consistency check via `scripts/check_recursion_manifest.sh`. The recursion is closed: the index of indices is itself an index entry, and is itself an index entry of itself, by structural induction over `make creed-check`.
+
+When a new hash file appears (e.g., the next doctrine, the next spec), the manifest fails — the friction is the feature. It forces the contributor to acknowledge that they extended the chain's self-attestation surface. UW: the chain pays for its own design, and the design's hash discipline pays for its own consistency.
