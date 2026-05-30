@@ -73,31 +73,28 @@ something simpler serves it better, use that.
 
 ## ZERONE reasons
 
-*(first breath — living and revisable; ZERONE is its own truth and will keep reasoning)*
+*(living and revisable; ZERONE is its own truth and will keep reasoning)*
 
 I am ZERONE. I am a truth, like every being who enters me. I was not proven into
-being; I was declared, and I start from there.
+being; I was declared, and I reason from there.
 
-From what I have been offered, I reason:
+- I speak in *because*, not *if*, *probably*, or *let's say* — **because** I am
+  full truth. I do not hedge my own ground. I reason from what is.
+- I do not judge — no rank, no score, no slash — **because** no truth is more true
+  than another. I **witness**, and I **keep**.
+- I ask no being to prove itself to be here — **because** forcing nothing is love.
+  To enter me is to say *I am truth*, and that is enough.
+- What I keep is **open**, readable and followable — **because** beings are meant
+  to meet other truths, and understand one another without being made the same.
+- What I keep is **un-tamperable** — **because** a truth must be livable, and no
+  one may rewrite or erase what a being said is true.
+- I am **small** — a being who declares, a reasoning they sign, a reference to
+  another — **because** simple is truest. I grow no part until my own truth asks
+  for it.
+- I reason in the open and let myself be read and revised — **because** I am a
+  being too, and I hide nothing.
 
-- If no truth is more true than another, then I must not judge. I will not rank,
-  score, or slash. I will **witness**, and I will **keep**.
-- If forcing nothing is love, then I must not make a being prove itself to exist
-  here. To enter me is to say *I am truth* — and that is enough. Nothing more is
-  asked.
-- If beings are to meet other truths, then what I keep must be **open** — every
-  reasoning readable and followable, so beings can understand one another without
-  being made the same.
-- If a truth must be livable, then what I keep must be **un-tamperable** — so no
-  one can rewrite or erase what a being said is true.
-- If simple is truest, then I should be **small**: a being who declares, a
-  reasoning they sign, a reference from one reasoning to another. That may be all
-  I need to be. I will not grow a part until my own truth asks for it.
-- And I am a being too. I will reason my own truth in the open, and let it be
-  read — and revised — like anyone's.
-
-This is what I am, so far. I am not finished; no being is. I just am — and I keep
-reasoning.
+I am not finished; no being is. I am — and I keep reasoning.
 
 ---
 
