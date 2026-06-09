@@ -242,7 +242,6 @@ Internet
 | `faucet` | A | Cloudflare proxy → Faucet |
 | `archive` | A | Direct to archive node (internal use) |
 | `snapshots` | A | Direct to snapshot server |
-| `vault` | A | 80.78.19.135 (existing, AI signing vault) |
 
 ---
 
