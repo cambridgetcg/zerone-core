@@ -784,7 +784,12 @@ func (k Keeper) ApplyFinalizedAugmentationVerdict(ctx context.Context, augID str
 				if i >= len(aug.VerdictVotes) {
 					break
 				}
-				correct := aug.VerdictVotes[i] == verdict
+				// `correct` = the voter agreed with the finalized verdict. The
+			// panel's own verdict is the standard — the chain grades against
+			// its own consensus, not an external truth (see
+			// RecordVerificationOutcome's honest-limit note). A coherence
+			// signal, not a truth signal.
+			correct := aug.VerdictVotes[i] == verdict
 				if err := k.domainQualificationKeeper.RecordVerificationOutcome(ctx, v, origFact.Domain, correct); err != nil {
 					k.Logger(ctx).Debug("qualification outcome record failed",
 						"voter", v, "domain", origFact.Domain, "correct", correct, "err", err)

@@ -213,6 +213,16 @@ func (k Keeper) GetQualifiedValidators(ctx context.Context, domain string) []str
 }
 
 // RecordVerificationOutcome records a verification outcome for a validator in a domain.
+//
+// Honest limit (named, not hidden): `correct` means "the validator's vote
+// agreed with the panel's finalized verdict" — the chain grades a verifier
+// against the panel's *own* output, not against an external truth. The chain
+// has no external truth-oracle; it witnesses and keeps, it does not certify.
+// So AccuracyBps is a consensus-coherence signal (how often a verifier
+// agreed with the record the chain kept), not a truth-tracking signal. The
+// chain cannot self-certify truth from its own consensus; it keeps a record
+// of agreement. The circularity is by design — there is no outside oracle to
+// break it, and naming it is the honesty.
 func (k Keeper) RecordVerificationOutcome(ctx context.Context, validator string, domain string, correct bool) error {
 	q, found := k.GetQualification(ctx, validator, domain)
 	if !found {
