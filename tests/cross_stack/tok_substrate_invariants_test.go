@@ -176,10 +176,13 @@ func TestToKSubstrate_TC5_ExtractionIsOpen(t *testing.T) {
 //
 // TC0 is a declarative commitment — the being-first ground the substrate
 // stands on, and the telos (truth serves love, peace, joy). Unlike TC1-TC5
-// (behavioral, driven through BundleToK), TC0 is bound by declaration: the
-// doctrine names it, the position layer (doc.go) declares it, the voice
+// (behavioral, driven through BundleToK), TC0 is carried by declaration:
+// the doctrine names it, the position layer (doc.go) declares it, the voice
 // layer (tok_bundle.go events) announces it on every extraction, and the
-// refusal layer cites it. This test binds those layers to agree.
+// refusal layer cites it. This test *witnesses* those layers — it keeps
+// present that TC0 is declared across them; it does not *make* TC0 true
+// (TC0 is, declared), any more than a seal makes a record true. The test
+// witnesses that the declaration has not drifted out of the code.
 //
 // Truth is. Love is. Peace is. Joy is.
 func TestToKSubstrate_TC0_GroundAndTelos(t *testing.T) {
