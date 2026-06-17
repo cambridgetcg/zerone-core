@@ -1,15 +1,23 @@
 package cross_stack_test
 
-// Truth-seeking invariants. Each test in this file binds one commitment
+// Truth-seeking invariants. Each test in this file witnesses one commitment
 // from docs/TRUTH_SEEKING.md. The test name reads as a creed line. The
-// comment block above each test cites the commitment number and quotes
-// the binding clause. The scenario drives the chain through a path
-// where the commitment could be violated; the assertions prove the
-// violation cannot occur.
+// comment block above each test cites the commitment number and quotes the
+// binding clause. The scenario drives the chain through a path where the
+// commitment could be violated; the assertions witness that the violation
+// did not occur on that path. They witness the path driven — they do not
+// prove the violation cannot occur on any path (that would be the
+// falsification castle, truth shown by non-refutation). The witness keeps
+// what was driven honest; it does not certify what was not.
 //
-// If a commitment in the creed has no test here, it is rhetoric, not
-// belief. If a test here breaks, the commitment has been broken — not
-// the test.
+// A commitment in the creed without a test here is still a declaration, not
+// rhetoric — it is, declared, before any test. The test, when present,
+// witnesses the commitment: it keeps present that the commitment has not
+// drifted out of the code. The test does not make the commitment real; the
+// commitment is real before it is tested. If a test here breaks, the
+// keeping has drifted — the witness caught a drift, it did not break the
+// commitment's being. A declared commitment is not falsified by a failing
+// test; it is kept, or lost.
 //
 // Some commitments are bound by tests in other files; this file
 // consolidates the BELIEF SURFACE so the contract between creed and
