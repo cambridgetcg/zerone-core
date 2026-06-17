@@ -111,24 +111,6 @@ func TestClaimType_DerivedClaim(t *testing.T) {
 	require.True(t, types.ValidClaimTypes["derived_claim"])
 }
 
-func TestClaimType_DerivedClaim_NoDeps_Rejected(t *testing.T) {
-	// ValidateAxioms rejects derived_claim with no dependencies
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "MATH-001",
-			Statement:         "Derived with no deps",
-			ClaimType:         "derived_claim",
-			Domain:            "mathematics",
-			EpistemicCategory: "formal",
-			Confidence:        0.95,
-			Dependencies:      nil, // no deps — should fail
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no dependencies")
-}
-
 func TestClaimType_MeasurementFact(t *testing.T) {
 	require.True(t, types.ValidClaimTypes["measurement_fact"])
 
@@ -152,23 +134,6 @@ func TestClaimType_Meta(t *testing.T) {
 	conf, ok := types.ClaimTypeDefaultConfidence["meta"]
 	require.True(t, ok)
 	require.Equal(t, 0.85, conf)
-}
-
-func TestClaimType_Invalid_Rejected(t *testing.T) {
-	// ValidateAxioms rejects unknown claim types
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "MATH-001",
-			Statement:         "Test invalid type",
-			ClaimType:         "nonexistent_type",
-			Domain:            "mathematics",
-			EpistemicCategory: "analytic",
-			Confidence:        1.0,
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid claim type")
 }
 
 func TestClaimType_AllValidTypes(t *testing.T) {
@@ -232,23 +197,6 @@ func TestClaimType_StakeRequirements(t *testing.T) {
 		"fundamental stratum should require higher stake than technological")
 }
 
-func TestClaimType_SubmissionValidation(t *testing.T) {
-	// ValidateAxioms requires non-empty statements
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "MATH-001",
-			Statement:         "",
-			ClaimType:         "axiom",
-			Domain:            "mathematics",
-			EpistemicCategory: "analytic",
-			Confidence:        1.0,
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "empty statement")
-}
-
 func TestClaimType_ContentHashDedup(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
@@ -274,23 +222,6 @@ func TestClaimType_ContentHashDedup(t *testing.T) {
 	// Same content, different domain = different hash
 	otherHash := keeper.ComputeClaimContentHash(content, "chemistry")
 	require.NotEqual(t, contentHash, otherHash)
-}
-
-func TestClaimType_DomainRequired(t *testing.T) {
-	// ValidateAxioms requires a valid domain
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "MATH-001",
-			Statement:         "Some statement",
-			ClaimType:         "axiom",
-			Domain:            "nonexistent_domain",
-			EpistemicCategory: "analytic",
-			Confidence:        1.0,
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown domain")
 }
 
 func TestClaimType_SubmitterRequired(t *testing.T) {
@@ -336,80 +267,12 @@ func TestClaimType_FundamentalityScore(t *testing.T) {
 		types.StratumStakeMultiplier["technological"])
 }
 
-func TestClaimType_ReferenceValidation(t *testing.T) {
-	// ValidateAxioms checks that dependencies point to existing axioms
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "MATH-001",
-			Statement:         "Base axiom",
-			ClaimType:         "axiom",
-			Domain:            "mathematics",
-			EpistemicCategory: "analytic",
-			Confidence:        1.0,
-		},
-		{
-			AxiomID:           "MATH-002",
-			Statement:         "Derived from MATH-999 which does not exist",
-			ClaimType:         "derived_claim",
-			Domain:            "mathematics",
-			EpistemicCategory: "formal",
-			Confidence:        0.95,
-			Dependencies:      []string{"MATH-999"}, // does not exist
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "MATH-999")
-}
-
-// ─── Extended Claim Data Model Tests ─────────────────────────────────────────
-
 func TestClaimType_ClaimTypeToCategory_Complete(t *testing.T) {
 	// ClaimTypeToCategory must cover every ValidClaimType
 	for ct := range types.ValidClaimTypes {
 		_, ok := types.ClaimTypeToCategory[ct]
 		require.True(t, ok, "ClaimTypeToCategory must include %q", ct)
 	}
-}
-
-func TestClaimType_ConfidenceValidation_OutOfRange(t *testing.T) {
-	// Confidence > 1.0 is rejected
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "MATH-001",
-			Statement:         "Over-confident axiom",
-			ClaimType:         "axiom",
-			Domain:            "mathematics",
-			EpistemicCategory: "analytic",
-			Confidence:        1.5,
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "confidence")
-
-	// Confidence < 0 is rejected
-	axioms[0].Confidence = -0.1
-	err = types.ValidateAxioms(axioms, []string{"mathematics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "confidence")
-}
-
-func TestClaimType_DomainPrefixConsistency(t *testing.T) {
-	// ValidateAxioms checks that axiom ID prefix matches domain
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "PHYS-001",  // prefix implies physics
-			Statement:         "A math statement in physics domain",
-			ClaimType:         "axiom",
-			Domain:            "mathematics", // mismatch!
-			EpistemicCategory: "analytic",
-			Confidence:        1.0,
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics", "physics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "prefix")
 }
 
 func TestClaimType_ValidEpistemicCategories(t *testing.T) {

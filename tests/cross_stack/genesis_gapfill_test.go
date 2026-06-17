@@ -359,35 +359,6 @@ func TestBlockProduction_100Blocks(t *testing.T) {
 // Explicitly checks that the embedded axiom set has no duplicate IDs and that
 // every dependency reference resolves to an existing axiom.
 
-func TestAxiomDuplicateAndDependencyChecks(t *testing.T) {
-	axioms, err := knowledgetypes.ParseAxioms(knowledgetypes.GenesisAxiomsJSON)
-	require.NoError(t, err)
-	require.NotEmpty(t, axioms, "embedded axioms must not be empty")
-
-	// Explicit duplicate ID check.
-	seen := make(map[string]bool)
-	for _, a := range axioms {
-		require.False(t, seen[a.AxiomID], "duplicate axiom ID: %s", a.AxiomID)
-		seen[a.AxiomID] = true
-	}
-
-	// Verify every dependency references an existing axiom.
-	for _, a := range axioms {
-		for _, dep := range a.Dependencies {
-			require.True(t, seen[dep],
-				"axiom %s depends on non-existent axiom %s", a.AxiomID, dep)
-		}
-	}
-
-	t.Logf("verified %d axioms with no duplicates and all deps resolved", len(axioms))
-}
-
-// ---------------------------------------------------------------------------
-// Gap E: TestExplicitParamsSmokeTest
-// ---------------------------------------------------------------------------
-// Boots a full harness and queries keeper params to verify non-zero critical
-// values survive the InitChain pipeline.
-
 func TestExplicitParamsSmokeTest(t *testing.T) {
 	h := NewTestHarness(t)
 

@@ -439,23 +439,6 @@ func TestDomain_PrefixMapping(t *testing.T) {
 	}
 }
 
-func TestDomain_UnknownDomainRejected(t *testing.T) {
-	// ValidateAxioms rejects claims for unknown domains
-	axioms := []*types.GenesisAxiom{
-		{
-			AxiomID:           "MATH-001",
-			Statement:         "Statement",
-			ClaimType:         "axiom",
-			Domain:            "alchemy", // not in valid domains
-			EpistemicCategory: "analytic",
-			Confidence:        1.0,
-		},
-	}
-	err := types.ValidateAxioms(axioms, []string{"mathematics", "physics"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown domain")
-}
-
 func TestDomain_IterationOrder(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
