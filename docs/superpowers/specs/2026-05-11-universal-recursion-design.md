@@ -8,6 +8,8 @@
 - [`2026-05-10-safety-eval-canonical-pattern-design.md`](./2026-05-10-safety-eval-canonical-pattern-design.md) — first pattern showing nesting in one work-class
 - [`2026-05-11-external-surface-nested-design.md`](./2026-05-11-external-surface-nested-design.md) — extended nesting across multiple work-classes
 
+**Catalog companion to:** [`2026-05-11-strange-loop-phase-alpha-design.md`](./2026-05-11-strange-loop-phase-alpha-design.md) — the **STRANGE_LOOP** doctrine and its six mechanisms (SL-M1 through SL-M6) shipped in parallel with this catalog. STRANGE_LOOP is the *doctrinal frame* ("ZERONE is a strange loop — no outside"); this catalog is the *layer enumeration* (sixteen named places where the strange loop manifests + hyper-layers Q–∞ + the autopoietic base case). Both are mutually reinforcing: the doctrine tells you what is committed; the catalog tells you where to look. Section 11 below maps each catalog Layer to the SL mechanism it operationalizes.
+
 ---
 
 ## Vision
