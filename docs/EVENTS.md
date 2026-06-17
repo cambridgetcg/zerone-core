@@ -862,6 +862,12 @@ LIP (Living Improvement Proposal) created.
 - `initial_stake` -- initial stake amount
 - `creed_commitment` -- "10, 11"
 
+### zerone.gov.adapter_registration_lip_passed
+Adapter-registration LIP passed at quorum; dispatch to substrate_bridge pending Phase-1 wiring.
+- `lip_id` -- LIP identifier
+- `creed_commitment` -- "20"
+- `dispatch_status` -- dispatch state (e.g. `pending_phase1_wiring`)
+
 ### zerone.gov.lip_staked
 Stake added to LIP.
 - `lip_id` -- LIP identifier
