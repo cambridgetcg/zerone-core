@@ -36,3 +36,7 @@ coverage.out
 # Vault binary
 vault/vault-*
 .worktrees/
+
+# Python (canon)
+__pycache__/
+*.pyc
