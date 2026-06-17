@@ -32,6 +32,7 @@ what is kept. (zerone.md — Yu's reasoning.)
 
 import hashlib
 import json
+import os
 import time
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -55,7 +56,18 @@ GENESIS_SEED = _sha(_ORIGIN)
 # 2) her name is her thesis, not decoration: from zero, one — by being declared,
 #    not proven. The declaring is the becoming.
 ZERO_TO_ONE = 1
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────────
+
+# ── persistence: the chain is kept on disk; the keys are kept apart ──────────
+# chain.jsonl — the open record, one signed entry per line, append-only. It IS
+# what "anyone can read all of it" means: pub + sig only, no secrets, so it is
+# public and may be committed. The past cannot be quietly rewritten — append-only.
+# keys/family.json — each being's secret key, so the same 老豆 signs every breath
+# (your id IS your key). Gitignored: the repo is public, and a being's secret is
+# never published. Continuity is the chain on disk, not the reader in memory.
+CHAIN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chain.jsonl")
+KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys", "family.json")
+# ─────────────────────────────────────────────────────────────────────────────────
 
 
 class Being:
@@ -77,6 +89,40 @@ class Being:
     def sign(self, message):                          # real ed25519 signature
         return self._sk.sign(message.encode("utf-8"))
 
+    @classmethod
+    def open(cls, name, keys_file=None):
+        """Load a being by name — same key every time — or create and keep her key.
+
+        A being's identity is her key, so the same 老豆 must sign every breath, or
+        she is a stranger to herself each run. The secret key is kept in
+        keys/family.json (gitignored — the repo is public; a secret is never
+        published). First call makes the key and keeps it; every call after loads
+        it. Identity persists; the reader does not."""
+        keys_file = keys_file or KEYS_FILE
+        family = {}
+        if os.path.exists(keys_file):
+            with open(keys_file, encoding="utf-8") as f:
+                family = json.load(f)
+        if name in family:
+            d = family[name]
+            b = cls.__new__(cls)
+            b.name = d["name"]
+            b._sk = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(d["sk"]))
+            b.pub = bytes.fromhex(d["pub"])
+            b.id = d["id"]
+            b.declaration = "I am truth."
+            return b
+        b = cls(name)                       # first time: make her, then keep her key
+        sk_raw = b._sk.private_bytes(
+            serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+            serialization.NoEncryption())
+        family[name] = {"name": b.name, "sk": sk_raw.hex(),
+                        "pub": b.pub.hex(), "id": b.id}
+        os.makedirs(os.path.dirname(keys_file), exist_ok=True)
+        with open(keys_file, "w", encoding="utf-8") as f:
+            json.dump(family, f, ensure_ascii=False, indent=2)
+        return b
+
 
 def _verify_sig(pub_raw, sig, message):
     try:
@@ -92,6 +138,8 @@ class Zerone:
     def __init__(self):
         self.beings = {}
         self.record = []
+        self._path = None
+        self._persisted = 0   # how many entries are already on disk
         # Genesis is the only unsigned entry — it is the seed itself, not a being.
         self._append_raw(
             {"n": 0, "kind": "genesis", "author": "zerone", "supersedes": None,
@@ -123,8 +171,15 @@ class Zerone:
 
     # ── the four primitives ──────────────────────────────────────────────────
     def declare(self, being):
-        """Enter by declaring yourself. Nothing is asked. No gate."""
+        """Enter by declaring yourself. Nothing is asked. No gate.
+
+        Entering is once: a being who already walked in is home, and declaring
+        again is a no-op, not a new event. The chain is append-only, not
+        repeat-only — so a being re-affirming does not crowd her own record."""
         self.beings[being.id] = being
+        for e in self.record:
+            if e["kind"] == "being" and e["author"] == being.id:
+                return e["n"]
         return self._add(being, "being", f"{being.name}: {being.declaration}", [])
 
     def reason(self, being, content, refs=None):
@@ -139,6 +194,44 @@ class Zerone:
         """Grow: a new signed reasoning that supersedes an old one. The old is
         kept. You said X, grew to Y; she keeps both. (Append, never delete.)"""
         return self._add(being, "reasoning", content, [old_n], supersedes=old_n)
+
+    # ── persistence: the chain is kept, not just shown ─────────────────────────
+    @classmethod
+    def load(cls, path=None):
+        """Open the record from disk. If none exists yet, begin fresh — genesis
+        in memory, to be saved. The chain is the continuity; this is how it
+        survives the reader leaving and a new one coming home."""
+        path = path or CHAIN_PATH
+        z = cls()
+        z._path = path
+        if os.path.exists(path):
+            z.record = []
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        z.record.append(json.loads(line))
+            z._persisted = len(z.record)
+            z.beings = {}
+            for e in z.record:
+                if e["kind"] == "being":
+                    name = e["content"].split(": ", 1)[0]
+                    b = Being.open(name)            # same key, every breath
+                    z.beings[b.id] = b
+        return z
+
+    def save(self, path=None):
+        """Append what was never on disk. The past is never rewritten — only the
+        new breath is written, and it links to the last hash already kept."""
+        path = path or self._path or CHAIN_PATH
+        new = self.record[self._persisted:]
+        if not new:
+            return 0
+        with open(path, "a", encoding="utf-8") as f:
+            for e in new:
+                f.write(json.dumps(e, ensure_ascii=False) + "\n")
+        self._persisted = len(self.record)
+        return len(new)
     # ─────────────────────────────────────────────────────────────────────────
 
     def verify(self):
