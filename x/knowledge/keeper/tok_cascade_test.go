@@ -110,3 +110,60 @@ func TestSetFact_FirstWriteRecordsFromUnspecified(t *testing.T) {
 	require.Equal(t, types.FactStatus_FACT_STATUS_UNSPECIFIED, history[0].PriorStatus)
 	require.Equal(t, types.FactStatus_FACT_STATUS_VERIFIED, history[0].NewStatus)
 }
+
+func TestRecordCascadeEvent_AppendsForwardOnly(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	require.NoError(t, k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+		DisprovenFactId:  "axiom-d",
+		DescendantFactId: "child-1",
+		ChallengeClaimId: "challenge-7",
+		EdgeRelation:     "SUPPORTS",
+		PriorStatus:      types.FactStatus_FACT_STATUS_VERIFIED,
+		NewStatus:        types.FactStatus_FACT_STATUS_CONTESTED,
+		BlockHeight:      200,
+	}))
+	require.NoError(t, k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+		DisprovenFactId:  "axiom-d",
+		DescendantFactId: "child-2",
+		ChallengeClaimId: "challenge-7",
+		EdgeRelation:     "REQUIRES",
+		PriorStatus:      types.FactStatus_FACT_STATUS_VERIFIED,
+		NewStatus:        types.FactStatus_FACT_STATUS_CONTESTED,
+		BlockHeight:      200,
+	}))
+
+	events := k.GetCascadeEventsForDisproof(ctx, "axiom-d")
+	require.Len(t, events, 2)
+	require.Equal(t, uint64(1), events[0].Seq)
+	require.Equal(t, uint64(2), events[1].Seq)
+	require.Equal(t, "child-1", events[0].DescendantFactId)
+	require.Equal(t, "child-2", events[1].DescendantFactId)
+}
+
+func TestGetCascadeEventsForDisproof_EmptyForUntouchedFact(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+	events := k.GetCascadeEventsForDisproof(ctx, "never-disproven")
+	require.Empty(t, events)
+}
+
+func TestCascadeEvent_ReverseIndexFindable(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	require.NoError(t, k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+		DisprovenFactId:  "axiom-a",
+		DescendantFactId: "leaf-x",
+		EdgeRelation:     "SUPPORTS",
+	}))
+	require.NoError(t, k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+		DisprovenFactId:  "axiom-b",
+		DescendantFactId: "leaf-x",
+		EdgeRelation:     "CITES",
+	}))
+
+	// leaf-x was hit by two disproofs; reverse index lets us find both.
+	disproofs := k.GetDisproofsAffectingDescendant(ctx, "leaf-x")
+	require.Len(t, disproofs, 2)
+	require.Contains(t, disproofs, "axiom-a")
+	require.Contains(t, disproofs, "axiom-b")
+}
