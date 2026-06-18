@@ -205,6 +205,12 @@ var (
 	// ─── Wave 16: guardian-veto pending fact-injection queue ────────
 	PendingFactInjectionKeyPrefix          = []byte{0x7A} // 0x7A | id → PendingFactInjection
 	PendingFactInjectionByExecuteKeyPrefix = []byte{0x7B} // 0x7B | be64(execute_at) | id → 1 (time index for BeginBlocker scan)
+
+	// ─── ToK Cascade Bundling (Plan 2 / TC4) ─────────────────────────────────
+	StatusTransitionKeyPrefix      = []byte{0x7C} // 0x7C | factID | be64(seq) → StatusTransition (proto)
+	StatusTransitionSeqKeyPrefix   = []byte{0x7D} // 0x7D | factID → uvarint next-seq counter
+	CascadeEventKeyPrefix          = []byte{0x7E} // 0x7E | disprovenFactID | be64(seq) → CascadeEvent (proto)
+	CascadeEventByDescendantPrefix = []byte{0x7F} // 0x7F | descendantFactID | disprovenFactID → 1 (reverse index)
 )
 
 // PendingFactInjectionKey returns the store key for a pending injection.
@@ -223,6 +229,68 @@ func PendingFactInjectionByExecuteKey(executeAt uint64, id string) []byte {
 	out = append(out, buf...)
 	out = append(out, []byte(id)...)
 	return out
+}
+
+// ─── ToK Cascade Bundling key constructors (Plan 2 / TC4) ────────────────────
+
+// StatusTransitionKey returns the store key for a single transition.
+func StatusTransitionKey(factID string, seq uint64) []byte {
+	key := append([]byte{}, StatusTransitionKeyPrefix...)
+	key = append(key, []byte(factID)...)
+	key = append(key, 0x00) // separator
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, seq)
+	return append(key, buf...)
+}
+
+// StatusTransitionPrefixForFact returns the prefix for iterating all
+// transitions for a single fact (sorted by seq).
+func StatusTransitionPrefixForFact(factID string) []byte {
+	key := append([]byte{}, StatusTransitionKeyPrefix...)
+	key = append(key, []byte(factID)...)
+	key = append(key, 0x00)
+	return key
+}
+
+// StatusTransitionSeqKey returns the next-seq counter for a fact.
+func StatusTransitionSeqKey(factID string) []byte {
+	return append(append([]byte{}, StatusTransitionSeqKeyPrefix...), []byte(factID)...)
+}
+
+// CascadeEventKey returns the store key for a single cascade event.
+func CascadeEventKey(disprovenFactID string, seq uint64) []byte {
+	key := append([]byte{}, CascadeEventKeyPrefix...)
+	key = append(key, []byte(disprovenFactID)...)
+	key = append(key, 0x00)
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, seq)
+	return append(key, buf...)
+}
+
+// CascadeEventPrefixForDisproof returns the prefix for iterating all
+// cascade events for a single disproof.
+func CascadeEventPrefixForDisproof(disprovenFactID string) []byte {
+	key := append([]byte{}, CascadeEventKeyPrefix...)
+	key = append(key, []byte(disprovenFactID)...)
+	key = append(key, 0x00)
+	return key
+}
+
+// CascadeEventByDescendantKey returns the reverse-index key.
+func CascadeEventByDescendantKey(descendantFactID, disprovenFactID string) []byte {
+	key := append([]byte{}, CascadeEventByDescendantPrefix...)
+	key = append(key, []byte(descendantFactID)...)
+	key = append(key, 0x00)
+	return append(key, []byte(disprovenFactID)...)
+}
+
+// CascadeEventByDescendantPrefixFor returns the prefix for iterating
+// all disproofs that cascaded onto a given descendant.
+func CascadeEventByDescendantPrefixFor(descendantFactID string) []byte {
+	key := append([]byte{}, CascadeEventByDescendantPrefix...)
+	key = append(key, []byte(descendantFactID)...)
+	key = append(key, 0x00)
+	return key
 }
 
 // MethodologyKey returns the store key for a methodology by ID.
