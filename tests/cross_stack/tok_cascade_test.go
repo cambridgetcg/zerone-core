@@ -142,3 +142,59 @@ func TestToK_FalsificationCascade(t *testing.T) {
 	require.Equal(t, knowledgetypes.FactStatus_FACT_STATUS_CONTESTED,
 		descAfter.Descendants[0].Fact.Status)
 }
+
+// TestCascadeFalsification_WritesCascadeEventRecords verifies that the cascade
+// persists a CascadeEvent record (TC4) for every cascaded descendant, with full
+// cause attribution in the StatusTransition log. Task 7.
+func TestCascadeFalsification_WritesCascadeEventRecords(t *testing.T) {
+	h := NewTestHarness(t)
+	domain := "test_cascade_record_domain"
+	require.NoError(t, h.KnowledgeKeeper.SetDomain(h.Ctx, &knowledgetypes.Domain{
+		Name: domain, Status: knowledgetypes.DomainStatus_DOMAIN_STATUS_ACTIVE,
+	}))
+
+	axiom := &knowledgetypes.Fact{
+		Id: "test-axiom", Domain: domain,
+		Status:     knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Confidence: 900_000,
+	}
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, axiom))
+
+	factB := submitAndAcceptChainedClaim(t, h, domain, "depends on axiom",
+		[]*knowledgetypes.ClaimRelation{{
+			TargetFactId:         axiom.Id,
+			Relation:             knowledgetypes.RelationType_RELATION_TYPE_REQUIRES,
+			Inference:            knowledgetypes.InferenceType_INFERENCE_TYPE_DEDUCTIVE,
+			InferenceStrengthBps: 1_000_000,
+		}}, "factB-rec")
+
+	// Disprove axiom (driven by harness path).
+	challengeClaim := &knowledgetypes.Claim{
+		Id: "challenge-rec", Submitter: "challenger", Domain: domain,
+		FactContent:       "axiom is wrong",
+		Category:          "empirical",
+		Status:            knowledgetypes.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		Stake:             "11000000",
+		ProvisionalFactId: axiom.Id,
+		Relations: []*knowledgetypes.ClaimRelation{{
+			TargetFactId: axiom.Id,
+			Relation:     knowledgetypes.RelationType_RELATION_TYPE_CONTRADICTS,
+		}},
+	}
+	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, challengeClaim))
+	round := &knowledgetypes.VerificationRound{
+		Id: "round-rec", ClaimId: challengeClaim.Id,
+		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
+	}
+	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
+		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
+	}))
+
+	// CascadeEvent record must exist for factB.
+	events := h.KnowledgeKeeper.GetCascadeEventsForDisproof(h.Ctx, axiom.Id)
+	require.Len(t, events, 1)
+	require.Equal(t, factB.Id, events[0].DescendantFactId)
+	require.Equal(t, "RELATION_TYPE_REQUIRES", events[0].EdgeRelation)
+	require.Equal(t, knowledgetypes.FactStatus_FACT_STATUS_VERIFIED, events[0].PriorStatus)
+	require.Equal(t, knowledgetypes.FactStatus_FACT_STATUS_CONTESTED, events[0].NewStatus)
+}
