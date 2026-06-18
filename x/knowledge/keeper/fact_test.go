@@ -107,7 +107,8 @@ func TestFact_Iterate(t *testing.T) {
 		collected = append(collected, fact.Id)
 		return false
 	})
-	require.Len(t, collected, 3)
+	// 47 doctrine facts seeded at genesis + 3 test facts
+	require.Len(t, collected, 50)
 }
 
 func TestFact_IterateEarlyBreak(t *testing.T) {

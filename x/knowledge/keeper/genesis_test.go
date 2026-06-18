@@ -40,7 +40,7 @@ func TestInitGenesis_CustomParams(t *testing.T) {
 	require.Equal(t, uint64(10), got.CommitPhaseBlocks)
 }
 
-func TestInitGenesis_18DefaultDomains(t *testing.T) {
+func TestInitGenesis_DefaultDomains(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
 	var count int
@@ -48,7 +48,9 @@ func TestInitGenesis_18DefaultDomains(t *testing.T) {
 		count++
 		return false
 	})
-	require.Equal(t, 18, count)
+	// 16 epistemic domains from DefaultGenesis + 4 doctrine domains
+	// seeded by LoadDoctrineFacts (SL-M1).
+	require.Equal(t, 22, count)
 }
 
 func TestInitGenesis_WithPreexistingFacts(t *testing.T) {

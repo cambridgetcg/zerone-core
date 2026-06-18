@@ -1088,6 +1088,12 @@ Governance froze new partnership/domain formation in a domain (R31-3 Earth stabi
 - `expiry_height` -- height at which the freeze expires
 - `reason` -- governance-supplied reason
 
+### zerone.gov.adapter_registration_lip_passed
+A governance LIP of class `adapter_registration` passed at the correct quorum bar. The LIP is recorded on-chain; dispatch to `x/substrate_bridge` is pending Phase-1 wiring. Commitment 20 (issuance follows participation) — the adapter registration pathway is participation-gated.
+- `creed_commitment` -- "20"
+- `lip_id` -- the passed LIP identifier
+- `dispatch_status` -- "pending_phase1_wiring" — substrate_bridge dispatch not yet wired
+
 
 ## home
 

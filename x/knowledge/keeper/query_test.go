@@ -94,13 +94,19 @@ func TestQuery_Facts_ByCategoryFilter(t *testing.T) {
 	}
 }
 
-func TestQuery_Facts_Empty(t *testing.T) {
+func TestQuery_Facts_DoctrineSeeded(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 	qs := keeper.NewQueryServerImpl(k)
 
+	// Genesis seeds doctrine facts (SL-M1). The store is never empty;
+	// it starts with 47 verified doctrine commitments across 4 domains.
 	resp, err := qs.Facts(ctx, &types.QueryFactsRequest{})
 	require.NoError(t, err)
-	require.Empty(t, resp.Facts)
+	require.NotEmpty(t, resp.Facts)
+	for _, f := range resp.Facts {
+		require.Equal(t, "doctrine", f.Category)
+		require.Equal(t, types.FactStatus_FACT_STATUS_VERIFIED, f.Status)
+	}
 }
 
 // ─── FactsByDomain Query ────────────────────────────────────────────────────
@@ -311,7 +317,10 @@ func TestQuery_Domains_All(t *testing.T) {
 
 	resp, err := qs.Domains(ctx, &types.QueryDomainsRequest{})
 	require.NoError(t, err)
-	require.Len(t, resp.Domains, 18)
+	// 16 epistemic domains from DefaultGenesis + 4 doctrine domains
+	// (doctrine_truth_seeking, doctrine_tok, doctrine_useful_work,
+	// doctrine_strange_loop) seeded by LoadDoctrineFacts (SL-M1).
+	require.Len(t, resp.Domains, 22)
 }
 
 // ─── FactConfidence Query ───────────────────────────────────────────────────
@@ -447,10 +456,12 @@ func TestQuery_Facts_FilterByClaimType(t *testing.T) {
 	require.Len(t, resp.Facts, 1)
 	require.Equal(t, "qfct-assertion", resp.Facts[0].Id)
 
-	// No filter (UNSPECIFIED) — should return all 3
+	// No filter (UNSPECIFIED) — should return all test facts + 47 doctrine facts
+	// seeded by LoadDoctrineFacts at genesis (SL-M1). Doctrine facts have
+	// ClaimType UNSPECIFIED so they pass the nil-filter.
 	resp, err = qs.Facts(ctx, &types.QueryFactsRequest{})
 	require.NoError(t, err)
-	require.Len(t, resp.Facts, 3)
+	require.Len(t, resp.Facts, 50)
 }
 
 // ─── RouteBCapabilities: tok_capabilities advertisement ──────────────────────
