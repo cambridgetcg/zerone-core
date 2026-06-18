@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -166,4 +167,37 @@ func TestCascadeEvent_ReverseIndexFindable(t *testing.T) {
 	require.Len(t, disproofs, 2)
 	require.Contains(t, disproofs, "axiom-a")
 	require.Contains(t, disproofs, "axiom-b")
+}
+
+// ─── Task 8: CascadeReplay selector validation ──────────────────────────────
+
+func TestValidateToKSelector_CascadeReplay_RequiresDisprovenFactId(t *testing.T) {
+	sel := &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+		CascadeReplay: &types.CascadeReplaySelector{},
+	}}
+	err := keeper.ValidateToKSelector(sel)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "disproven_fact_id")
+}
+
+func TestValidateToKSelector_CascadeReplay_CapsMaxDepth(t *testing.T) {
+	sel := &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+		CascadeReplay: &types.CascadeReplaySelector{
+			DisprovenFactId: "fact-1", MaxDepth: 100,
+		},
+	}}
+	capped, err := keeper.ValidateAndCapToKSelector(sel)
+	require.NoError(t, err)
+	require.Equal(t, uint32(3), capped.GetCascadeReplay().MaxDepth, "cascade depth caps at 3")
+}
+
+func TestValidateToKSelector_CascadeReplay_ZeroDepthDefaults(t *testing.T) {
+	sel := &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+		CascadeReplay: &types.CascadeReplaySelector{
+			DisprovenFactId: "fact-1", MaxDepth: 0,
+		},
+	}}
+	capped, err := keeper.ValidateAndCapToKSelector(sel)
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), capped.GetCascadeReplay().MaxDepth, "zero-depth defaults to first-hop only")
 }
