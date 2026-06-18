@@ -201,3 +201,70 @@ func TestValidateToKSelector_CascadeReplay_ZeroDepthDefaults(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), capped.GetCascadeReplay().MaxDepth, "zero-depth defaults to first-hop only")
 }
+
+// ─── Task 9: GatherCascade ───────────────────────────────────────────────────
+
+func TestGatherCascade_ReturnsDisproofPlusCascadedDescendants(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	// Pre-seed: disproven axiom + 2 cascaded descendants.
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "disproven-x", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_DISPROVEN, VerifiedAtBlock: 100,
+	}))
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "child-1", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_CONTESTED, VerifiedAtBlock: 100,
+	}))
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "child-2", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_CONTESTED, VerifiedAtBlock: 100,
+	}))
+
+	// Pre-seed: cascade events.
+	require.NoError(t, k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+		DisprovenFactId: "disproven-x", DescendantFactId: "child-1",
+		EdgeRelation: "RELATION_TYPE_SUPPORTS", BlockHeight: 200,
+	}))
+	require.NoError(t, k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+		DisprovenFactId: "disproven-x", DescendantFactId: "child-2",
+		EdgeRelation: "RELATION_TYPE_REQUIRES", BlockHeight: 200,
+	}))
+
+	// Pre-seed: relations (child-1 SUPPORTS disproven-x, child-2 REQUIRES disproven-x).
+	require.NoError(t, k.SetFactRelation(ctx, &types.FactRelation{
+		SourceFactId: "child-1", TargetFactId: "disproven-x",
+		Relation: types.RelationType_RELATION_TYPE_SUPPORTS,
+	}))
+	require.NoError(t, k.SetFactRelation(ctx, &types.FactRelation{
+		SourceFactId: "child-2", TargetFactId: "disproven-x",
+		Relation: types.RelationType_RELATION_TYPE_REQUIRES,
+	}))
+
+	sel := &types.CascadeReplaySelector{
+		DisprovenFactId: "disproven-x", MaxDepth: 1,
+	}
+	nodeIDs, edges, cascadeEvents, _, _, err := k.GatherCascade(ctx, sel)
+	require.NoError(t, err)
+	require.Equal(t, []string{"child-1", "child-2", "disproven-x"}, nodeIDs)
+	require.Len(t, cascadeEvents, 2)
+	// Edges include the CONTRADICTS that flipped the axiom (if recorded
+	// as a relation) and the SUPPORTS/REQUIRES edges that cascaded.
+	require.NotEmpty(t, edges)
+}
+
+func TestGatherCascade_RejectsNonDisprovenRoot(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "still-verified", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_VERIFIED,
+	}))
+
+	sel := &types.CascadeReplaySelector{
+		DisprovenFactId: "still-verified", MaxDepth: 1,
+	}
+	_, _, _, _, _, err := k.GatherCascade(ctx, sel)
+	require.Error(t, err, "TC4: cascade replay must reject non-DISPROVEN roots")
+	require.Contains(t, err.Error(), "DISPROVEN")
+}
