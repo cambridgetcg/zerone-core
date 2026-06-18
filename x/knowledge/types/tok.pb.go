@@ -31,6 +31,7 @@ type ToKSelector struct {
 	//	*ToKSelector_RootedSubtree
 	//	*ToKSelector_AncestorCone
 	//	*ToKSelector_Frontier
+	//	*ToKSelector_CascadeReplay
 	Variant       isToKSelector_Variant `protobuf_oneof:"variant"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -100,6 +101,15 @@ func (x *ToKSelector) GetFrontier() *FrontierSelector {
 	return nil
 }
 
+func (x *ToKSelector) GetCascadeReplay() *CascadeReplaySelector {
+	if x != nil {
+		if x, ok := x.Variant.(*ToKSelector_CascadeReplay); ok {
+			return x.CascadeReplay
+		}
+	}
+	return nil
+}
+
 type isToKSelector_Variant interface {
 	isToKSelector_Variant()
 }
@@ -113,7 +123,11 @@ type ToKSelector_AncestorCone struct {
 }
 
 type ToKSelector_Frontier struct {
-	Frontier *FrontierSelector `protobuf:"bytes,3,opt,name=frontier,proto3,oneof"` // Reserved: 4 = cascade_replay (Plan 2), 5 = fork_and_decide (Plan 4).
+	Frontier *FrontierSelector `protobuf:"bytes,3,opt,name=frontier,proto3,oneof"`
+}
+
+type ToKSelector_CascadeReplay struct {
+	CascadeReplay *CascadeReplaySelector `protobuf:"bytes,4,opt,name=cascade_replay,json=cascadeReplay,proto3,oneof"` // Plan 2 (TC4)
 }
 
 func (*ToKSelector_RootedSubtree) isToKSelector_Variant() {}
@@ -121,6 +135,8 @@ func (*ToKSelector_RootedSubtree) isToKSelector_Variant() {}
 func (*ToKSelector_AncestorCone) isToKSelector_Variant() {}
 
 func (*ToKSelector_Frontier) isToKSelector_Variant() {}
+
+func (*ToKSelector_CascadeReplay) isToKSelector_Variant() {}
 
 // RootedSubtreeSelector: walk descendants from an axiom or interior node
 // up to max_depth. Returns the rooted node + all reachable descendants.
@@ -314,8 +330,17 @@ type ToKBundle struct {
 	SerialisationFormat string                 `protobuf:"bytes,6,opt,name=serialisation_format,json=serialisationFormat,proto3" json:"serialisation_format,omitempty"` // "jsonl_adjacency_v1" by default.
 	SerialisedPayload   []byte                 `protobuf:"bytes,7,opt,name=serialised_payload,json=serialisedPayload,proto3" json:"serialised_payload,omitempty"`       // optional; large bundles may omit.
 	Provenance          *ToKBundleProvenance   `protobuf:"bytes,8,opt,name=provenance,proto3" json:"provenance,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// ─── TC4: the graph carries its disprovals ──────────────────────────
+	// Populated only when selector is CascadeReplay or when other selectors
+	// touch DISPROVEN nodes whose history was requested via
+	// CascadeReplaySelector.include_status_history. Empty for pure Plan 1
+	// bundles.
+	CascadeEvents     []*CascadeEvent         `protobuf:"bytes,9,rep,name=cascade_events,json=cascadeEvents,proto3" json:"cascade_events,omitempty"`
+	Vindications      []*ToKVindicationRecord `protobuf:"bytes,10,rep,name=vindications,proto3" json:"vindications,omitempty"`
+	SupersessionChain []string                `protobuf:"bytes,11,rep,name=supersession_chain,json=supersessionChain,proto3" json:"supersession_chain,omitempty"` // factIDs, root → leaf
+	StatusHistory     []*StatusTransition     `protobuf:"bytes,12,rep,name=status_history,json=statusHistory,proto3" json:"status_history,omitempty"`             // sorted by (fact_id, seq)
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ToKBundle) Reset() {
@@ -404,6 +429,34 @@ func (x *ToKBundle) GetProvenance() *ToKBundleProvenance {
 	return nil
 }
 
+func (x *ToKBundle) GetCascadeEvents() []*CascadeEvent {
+	if x != nil {
+		return x.CascadeEvents
+	}
+	return nil
+}
+
+func (x *ToKBundle) GetVindications() []*ToKVindicationRecord {
+	if x != nil {
+		return x.Vindications
+	}
+	return nil
+}
+
+func (x *ToKBundle) GetSupersessionChain() []string {
+	if x != nil {
+		return x.SupersessionChain
+	}
+	return nil
+}
+
+func (x *ToKBundle) GetStatusHistory() []*StatusTransition {
+	if x != nil {
+		return x.StatusHistory
+	}
+	return nil
+}
+
 // ToKEdge mirrors the existing relation-graph edges but ships them as
 // first-class bundle entries (not nested under nodes), so trainers can
 // load topology without touching node payloads.
@@ -486,6 +539,7 @@ type ToKBundleProvenance struct {
 	CapMaxDepth                   uint32                 `protobuf:"varint,6,opt,name=cap_max_depth,json=capMaxDepth,proto3" json:"cap_max_depth,omitempty"` // chain-side caps applied.
 	CapMaxPaths                   uint32                 `protobuf:"varint,7,opt,name=cap_max_paths,json=capMaxPaths,proto3" json:"cap_max_paths,omitempty"`
 	CapLimit                      uint32                 `protobuf:"varint,8,opt,name=cap_limit,json=capLimit,proto3" json:"cap_limit,omitempty"`
+	TokRootVersion                string                 `protobuf:"bytes,9,opt,name=tok_root_version,json=tokRootVersion,proto3" json:"tok_root_version,omitempty"` // "v1" (Plan 1) | "v2" (Plan 2 cascade)
 	unknownFields                 protoimpl.UnknownFields
 	sizeCache                     protoimpl.SizeCache
 }
@@ -576,15 +630,23 @@ func (x *ToKBundleProvenance) GetCapLimit() uint32 {
 	return 0
 }
 
+func (x *ToKBundleProvenance) GetTokRootVersion() string {
+	if x != nil {
+		return x.TokRootVersion
+	}
+	return ""
+}
+
 var File_zerone_knowledge_v1_tok_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_tok_proto_rawDesc = "" +
 	"\n" +
-	"\x1dzerone/knowledge/v1/tok.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\x84\x02\n" +
+	"\x1dzerone/knowledge/v1/tok.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\x1a%zerone/knowledge/v1/tok_cascade.proto\"\xd9\x02\n" +
 	"\vToKSelector\x12S\n" +
 	"\x0erooted_subtree\x18\x01 \x01(\v2*.zerone.knowledge.v1.RootedSubtreeSelectorH\x00R\rrootedSubtree\x12P\n" +
 	"\rancestor_cone\x18\x02 \x01(\v2).zerone.knowledge.v1.AncestorConeSelectorH\x00R\fancestorCone\x12C\n" +
-	"\bfrontier\x18\x03 \x01(\v2%.zerone.knowledge.v1.FrontierSelectorH\x00R\bfrontierB\t\n" +
+	"\bfrontier\x18\x03 \x01(\v2%.zerone.knowledge.v1.FrontierSelectorH\x00R\bfrontier\x12S\n" +
+	"\x0ecascade_replay\x18\x04 \x01(\v2*.zerone.knowledge.v1.CascadeReplaySelectorH\x00R\rcascadeReplayB\t\n" +
 	"\avariant\"V\n" +
 	"\x15RootedSubtreeSelector\x12 \n" +
 	"\froot_fact_id\x18\x01 \x01(\tR\n" +
@@ -599,7 +661,7 @@ const file_zerone_knowledge_v1_tok_proto_rawDesc = "" +
 	"\x06domain\x18\x01 \x01(\tR\x06domain\x12\x1f\n" +
 	"\vsince_block\x18\x02 \x01(\x04R\n" +
 	"sinceBlock\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\rR\x05limit\"\xa5\x03\n" +
+	"\x05limit\x18\x03 \x01(\rR\x05limit\"\xbb\x05\n" +
 	"\tToKBundle\x12%\n" +
 	"\x0esnapshot_block\x18\x01 \x01(\x04R\rsnapshotBlock\x12#\n" +
 	"\rsnapshot_root\x18\x02 \x01(\fR\fsnapshotRoot\x12*\n" +
@@ -610,14 +672,19 @@ const file_zerone_knowledge_v1_tok_proto_rawDesc = "" +
 	"\x12serialised_payload\x18\a \x01(\fR\x11serialisedPayload\x12H\n" +
 	"\n" +
 	"provenance\x18\b \x01(\v2(.zerone.knowledge.v1.ToKBundleProvenanceR\n" +
-	"provenance\"\x83\x01\n" +
+	"provenance\x12H\n" +
+	"\x0ecascade_events\x18\t \x03(\v2!.zerone.knowledge.v1.CascadeEventR\rcascadeEvents\x12M\n" +
+	"\fvindications\x18\n" +
+	" \x03(\v2).zerone.knowledge.v1.ToKVindicationRecordR\fvindications\x12-\n" +
+	"\x12supersession_chain\x18\v \x03(\tR\x11supersessionChain\x12L\n" +
+	"\x0estatus_history\x18\f \x03(\v2%.zerone.knowledge.v1.StatusTransitionR\rstatusHistory\"\x83\x01\n" +
 	"\aToKEdge\x12 \n" +
 	"\ffrom_fact_id\x18\x01 \x01(\tR\n" +
 	"fromFactId\x12\x1c\n" +
 	"\n" +
 	"to_fact_id\x18\x02 \x01(\tR\btoFactId\x12\x1a\n" +
 	"\brelation\x18\x03 \x01(\tR\brelation\x12\x1c\n" +
-	"\tinference\x18\x04 \x01(\tR\tinference\"\x83\x03\n" +
+	"\tinference\x18\x04 \x01(\tR\tinference\"\xad\x03\n" +
 	"\x13ToKBundleProvenance\x12\x19\n" +
 	"\bchain_id\x18\x01 \x01(\tR\achainId\x120\n" +
 	"\x14trace_schema_version\x18\x02 \x01(\tR\x12traceSchemaVersion\x12F\n" +
@@ -626,7 +693,8 @@ const file_zerone_knowledge_v1_tok_proto_rawDesc = "" +
 	"\rselector_used\x18\x05 \x01(\v2 .zerone.knowledge.v1.ToKSelectorR\fselectorUsed\x12\"\n" +
 	"\rcap_max_depth\x18\x06 \x01(\rR\vcapMaxDepth\x12\"\n" +
 	"\rcap_max_paths\x18\a \x01(\rR\vcapMaxPaths\x12\x1b\n" +
-	"\tcap_limit\x18\b \x01(\rR\bcapLimitB2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
+	"\tcap_limit\x18\b \x01(\rR\bcapLimit\x12(\n" +
+	"\x10tok_root_version\x18\t \x01(\tR\x0etokRootVersionB2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
 
 var (
 	file_zerone_knowledge_v1_tok_proto_rawDescOnce sync.Once
@@ -649,21 +717,29 @@ var file_zerone_knowledge_v1_tok_proto_goTypes = []any{
 	(*ToKBundle)(nil),             // 4: zerone.knowledge.v1.ToKBundle
 	(*ToKEdge)(nil),               // 5: zerone.knowledge.v1.ToKEdge
 	(*ToKBundleProvenance)(nil),   // 6: zerone.knowledge.v1.ToKBundleProvenance
-	(*Fact)(nil),                  // 7: zerone.knowledge.v1.Fact
+	(*CascadeReplaySelector)(nil), // 7: zerone.knowledge.v1.CascadeReplaySelector
+	(*Fact)(nil),                  // 8: zerone.knowledge.v1.Fact
+	(*CascadeEvent)(nil),          // 9: zerone.knowledge.v1.CascadeEvent
+	(*ToKVindicationRecord)(nil),  // 10: zerone.knowledge.v1.ToKVindicationRecord
+	(*StatusTransition)(nil),      // 11: zerone.knowledge.v1.StatusTransition
 }
 var file_zerone_knowledge_v1_tok_proto_depIdxs = []int32{
-	1, // 0: zerone.knowledge.v1.ToKSelector.rooted_subtree:type_name -> zerone.knowledge.v1.RootedSubtreeSelector
-	2, // 1: zerone.knowledge.v1.ToKSelector.ancestor_cone:type_name -> zerone.knowledge.v1.AncestorConeSelector
-	3, // 2: zerone.knowledge.v1.ToKSelector.frontier:type_name -> zerone.knowledge.v1.FrontierSelector
-	5, // 3: zerone.knowledge.v1.ToKBundle.included_edges:type_name -> zerone.knowledge.v1.ToKEdge
-	7, // 4: zerone.knowledge.v1.ToKBundle.nodes:type_name -> zerone.knowledge.v1.Fact
-	6, // 5: zerone.knowledge.v1.ToKBundle.provenance:type_name -> zerone.knowledge.v1.ToKBundleProvenance
-	0, // 6: zerone.knowledge.v1.ToKBundleProvenance.selector_used:type_name -> zerone.knowledge.v1.ToKSelector
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	1,  // 0: zerone.knowledge.v1.ToKSelector.rooted_subtree:type_name -> zerone.knowledge.v1.RootedSubtreeSelector
+	2,  // 1: zerone.knowledge.v1.ToKSelector.ancestor_cone:type_name -> zerone.knowledge.v1.AncestorConeSelector
+	3,  // 2: zerone.knowledge.v1.ToKSelector.frontier:type_name -> zerone.knowledge.v1.FrontierSelector
+	7,  // 3: zerone.knowledge.v1.ToKSelector.cascade_replay:type_name -> zerone.knowledge.v1.CascadeReplaySelector
+	5,  // 4: zerone.knowledge.v1.ToKBundle.included_edges:type_name -> zerone.knowledge.v1.ToKEdge
+	8,  // 5: zerone.knowledge.v1.ToKBundle.nodes:type_name -> zerone.knowledge.v1.Fact
+	6,  // 6: zerone.knowledge.v1.ToKBundle.provenance:type_name -> zerone.knowledge.v1.ToKBundleProvenance
+	9,  // 7: zerone.knowledge.v1.ToKBundle.cascade_events:type_name -> zerone.knowledge.v1.CascadeEvent
+	10, // 8: zerone.knowledge.v1.ToKBundle.vindications:type_name -> zerone.knowledge.v1.ToKVindicationRecord
+	11, // 9: zerone.knowledge.v1.ToKBundle.status_history:type_name -> zerone.knowledge.v1.StatusTransition
+	0,  // 10: zerone.knowledge.v1.ToKBundleProvenance.selector_used:type_name -> zerone.knowledge.v1.ToKSelector
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_zerone_knowledge_v1_tok_proto_init() }
@@ -672,10 +748,12 @@ func file_zerone_knowledge_v1_tok_proto_init() {
 		return
 	}
 	file_zerone_knowledge_v1_types_proto_init()
+	file_zerone_knowledge_v1_tok_cascade_proto_init()
 	file_zerone_knowledge_v1_tok_proto_msgTypes[0].OneofWrappers = []any{
 		(*ToKSelector_RootedSubtree)(nil),
 		(*ToKSelector_AncestorCone)(nil),
 		(*ToKSelector_Frontier)(nil),
+		(*ToKSelector_CascadeReplay)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
