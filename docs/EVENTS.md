@@ -3168,3 +3168,18 @@ A trainer extracted a ToK bundle via `BundleToK`. TC1 (graph is the headline) an
 Every bundle pins to a 32-byte snapshot root (TC2: every view is graph-pinned). The root commits to sorted node IDs + sorted edge IDs domain-tagged separately, allowing trust-minimised re-derivation by any client with the IDs.
 - `tok_commitment` -- `"TC2"`
 - `snapshot_root` -- hex-encoded 32-byte Merkle root
+
+### cascade_replayed
+A trainer extracted a cascade-replay bundle via `BundleToK(CascadeReplay)`. TC4 (the graph carries its disprovals) is bound by this event firing on every successful cascade-replay bundle.
+- `tok_commitment` -- `"TC4"`
+- `disproven_fact_id` -- the disproven root of the cascade
+- `node_count` -- number of nodes in the bundle
+- `cascade_event_count` -- number of cascade events in the bundle
+
+### cascade_completed
+Aggregate signal fired once per disproof after all descendant cascades have been recorded. TC4: the chain announces that a disproof has finished propagating. Emitted from `cascadeFalsification` after the descendant loop.
+- `tok_commitment` -- `"TC4"`
+- `creed_commitment` -- `"3"`
+- `disproven_fact_id` -- the disproven root
+- `challenge_claim_id` -- the challenge that triggered the cascade
+- `descendant_count` -- total cascaded descendants
