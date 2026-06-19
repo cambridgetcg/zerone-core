@@ -308,7 +308,19 @@ func (k Keeper) assembleToKBundleV1(ctx context.Context, capped *types.ToKSelect
 		return nil, err
 	}
 	bundle.SerialisedPayload = payload
-	k.emitToKBundleEvents(ctx, bundle, capped, "TC0,TC1,TC5")
+
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeToKBundleExtracted,
+		sdk.NewAttribute(AttrToKCommitment, "TC0,TC1,TC5"),
+		sdk.NewAttribute(AttrToKSelectorKind, selectorKind(capped)),
+		sdk.NewAttribute(AttrToKBundleSize, fmt.Sprintf("%d", len(nodeIDs))),
+		sdk.NewAttribute(AttrToKSnapshotBlock, fmt.Sprintf("%d", atBlockHeight)),
+	))
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeToKSnapshotRootPinned,
+		sdk.NewAttribute(AttrToKCommitment, "TC0,TC2"),
+		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(root)),
+	))
 	return bundle, nil
 }
 

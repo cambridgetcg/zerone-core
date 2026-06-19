@@ -1651,12 +1651,6 @@ A direct descendant of a disproven fact was flipped from VERIFIED/ACTIVE/AT_RISK
 - `edge_relation` -- which support-bearing edge linked them (e.g. `RELATION_TYPE_REQUIRES`)
 - `creed_commitment` -- "3"
 
-### zerone.knowledge.falsification_cascade_summary
-Emitted once at the end of a falsification cascade with the total count of affected descendants (ToK Wave 5).
-- `disproven_fact_id` -- the fact that was disproven
-- `descendants_contested` -- how many direct descendants were flipped
-- `creed_commitment` -- "3"
-
 ### zerone.knowledge.corroboration_incremented
 Popperian survival counter incremented: a fact withstood a falsification attempt (Phase 2). The fact's `corroboration_count` is epistemically meaningful in a way `confidence` is not — it names the tests the claim has already passed.
 - `fact_id` -- fact that survived the challenge
