@@ -2389,6 +2389,8 @@ func (q *queryServer) BundleToK(ctx context.Context, req *types.QueryBundleToKRe
 		switch {
 		case errors.Is(err, ErrToKRootFactNotFound), errors.Is(err, ErrToKLeafFactNotFound):
 			return nil, status.Errorf(codes.NotFound, "%v", err)
+		case errors.Is(err, ErrToKCascadeNotDisproven):
+			return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
 		case errors.Is(err, ErrToKInconsistentState):
 			return nil, status.Errorf(codes.Internal, "%v", err)
 		default:
@@ -2404,12 +2406,12 @@ func (q *queryServer) RouteBCapabilities(ctx context.Context, _ *types.QueryRout
 		Capabilities: q.keeper.BuildRouteBCapabilities(ctx),
 	}
 	resp.TokCapabilities = &types.ToKCapabilities{
-		SupportedSelectors:      []string{"rooted_subtree", "ancestor_cone", "frontier"},
+		SupportedSelectors:      []string{"rooted_subtree", "ancestor_cone", "frontier", "cascade_replay"},
 		MaxDepthCap:             ToKMaxDepthCap,
 		MaxPathsCap:             ToKMaxPathsCap,
 		FrontierLimitCap:        ToKFrontierCap,
 		SupportedSerialisations: []string{tokSerialisationFormatJSONL},
-		TokDoctrineVersion:      "TC1-TC5 (2026-05-09 inception)",
+		TokDoctrineVersion:      "TC1-TC5,TC4 (cascade-bundling 2026-05-10)",
 	}
 	return resp, nil
 }

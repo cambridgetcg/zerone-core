@@ -1,11 +1,15 @@
 package keeper_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
-	"github.com/zerone-chain/zerone/x/knowledge/keeper"
+	keeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -301,4 +305,172 @@ func TestComputeToKSnapshotRootV2_Deterministic(t *testing.T) {
 	r1 := keeper.ComputeToKSnapshotRootV2(nodeIDs, nil, cascade, nil, nil)
 	r2 := keeper.ComputeToKSnapshotRootV2(nodeIDs, nil, cascade, nil, nil)
 	require.Equal(t, r1, r2)
+}
+
+// ─── Task 11: AssembleToKBundle V1/V2 dispatch ──────────────────────────────
+
+func TestAssembleToKBundle_CascadeReplay(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "axiom-c", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_DISPROVEN, VerifiedAtBlock: 100,
+	}))
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "child-c", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_CONTESTED, VerifiedAtBlock: 100,
+	}))
+	require.NoError(t, k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+		DisprovenFactId: "axiom-c", DescendantFactId: "child-c",
+		EdgeRelation: "RELATION_TYPE_SUPPORTS", BlockHeight: 200,
+	}))
+
+	sel := &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+		CascadeReplay: &types.CascadeReplaySelector{
+			DisprovenFactId: "axiom-c", MaxDepth: 1,
+		},
+	}}
+	bundle, err := k.AssembleToKBundle(ctx, sel, 0)
+	require.NoError(t, err)
+	require.NotEmpty(t, bundle.SnapshotRoot)
+	require.Len(t, bundle.SnapshotRoot, 32)
+	require.Len(t, bundle.CascadeEvents, 1)
+	require.Equal(t, "child-c", bundle.CascadeEvents[0].DescendantFactId)
+	require.Equal(t, "v2", bundle.Provenance.TokRootVersion)
+
+	rederived := keeper.ComputeToKSnapshotRootV2(
+		bundle.IncludedNodeIds, bundle.IncludedEdges,
+		bundle.CascadeEvents, bundle.Vindications, bundle.StatusHistory,
+	)
+	require.Equal(t, bundle.SnapshotRoot, rederived)
+}
+
+func TestAssembleToKBundle_RootedSubtree_StaysV1(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "axiom-v1", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_VERIFIED,
+	}))
+	sel := &types.ToKSelector{Variant: &types.ToKSelector_RootedSubtree{
+		RootedSubtree: &types.RootedSubtreeSelector{RootFactId: "axiom-v1", MaxDepth: 1},
+	}}
+	bundle, err := k.AssembleToKBundle(ctx, sel, 0)
+	require.NoError(t, err)
+	require.Equal(t, "v1", bundle.Provenance.TokRootVersion, "non-cascade selectors stay V1")
+	require.Empty(t, bundle.CascadeEvents)
+}
+
+// ─── Task 12: JSONL cascade fields ────────────────────────────────────────────
+
+func TestSerialiseToK_JSONL_IncludesCascadeFields(t *testing.T) {
+	bundle := &types.ToKBundle{
+		IncludedNodeIds: []string{"a", "b"},
+		IncludedEdges:   []*types.ToKEdge{{FromFactId: "b", ToFactId: "a", Relation: "CONTRADICTS"}},
+		Nodes:           []*types.Fact{{Id: "a"}, {Id: "b"}},
+		CascadeEvents: []*types.CascadeEvent{{
+			DisprovenFactId: "a", DescendantFactId: "b", EdgeRelation: "SUPPORTS",
+		}},
+		Vindications: []*types.ToKVindicationRecord{{
+			FactId: "a", Verifier: "v1", RefundAmount: "100", BonusAmount: "10",
+		}},
+		StatusHistory: []*types.StatusTransition{{
+			FactId: "a", PriorStatus: types.FactStatus_FACT_STATUS_VERIFIED,
+			NewStatus: types.FactStatus_FACT_STATUS_DISPROVEN,
+		}},
+	}
+	payload, err := keeper.SerialiseToK_JSONL(bundle)
+	require.NoError(t, err)
+	lines := bytes.Split(payload, []byte("\n"))
+	if len(lines[len(lines)-1]) == 0 {
+		lines = lines[:len(lines)-1]
+	}
+	require.Len(t, lines, 6)
+	require.Contains(t, string(lines[3]), `"kind":"cascade_event"`)
+	require.Contains(t, string(lines[4]), `"kind":"vindication"`)
+	require.Contains(t, string(lines[5]), `"kind":"transition"`)
+}
+
+// ─── Task 13: BundleToK gRPC handler ─────────────────────────────────────────
+
+func TestQueryBundleToK_CascadeReplay(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "axiom-rpc", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_DISPROVEN,
+	}))
+
+	q := keeper.NewQueryServerImpl(k)
+	resp, err := q.BundleToK(ctx, &types.QueryBundleToKRequest{
+		Selector: &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+			CascadeReplay: &types.CascadeReplaySelector{DisprovenFactId: "axiom-rpc", MaxDepth: 1},
+		}},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Bundle)
+	require.Equal(t, "v2", resp.Bundle.Provenance.TokRootVersion)
+}
+
+func TestQueryBundleToK_CascadeReplay_NotDisprovenReturnsFailedPrecondition(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "still-active", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_VERIFIED,
+	}))
+
+	q := keeper.NewQueryServerImpl(k)
+	_, err := q.BundleToK(ctx, &types.QueryBundleToKRequest{
+		Selector: &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+			CascadeReplay: &types.CascadeReplaySelector{DisprovenFactId: "still-active", MaxDepth: 1},
+		}},
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, codes.FailedPrecondition, st.Code(), "non-DISPROVEN root → FailedPrecondition")
+}
+
+// ─── Task 14: RouteBCapabilities ──────────────────────────────────────────────
+
+func TestRouteBCapabilities_AdvertisesCascadeReplay(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+	q := keeper.NewQueryServerImpl(k)
+	resp, err := q.RouteBCapabilities(ctx, &types.QueryRouteBCapabilitiesRequest{})
+	require.NoError(t, err)
+	require.Contains(t, resp.TokCapabilities.SupportedSelectors, "cascade_replay",
+		"TC4: cascade_replay must be advertised")
+	require.Contains(t, resp.TokCapabilities.TokDoctrineVersion, "TC4",
+		"doctrine version must reflect TC4 binding")
+}
+
+// ─── Task 16: cascade_replayed event ──────────────────────────────────────────
+
+func TestCascadeReplay_EmitsCascadeReplayedEvent(t *testing.T) {
+	k, ctx, _, _ := setupKnowledgeTestFull(t)
+
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: "axiom-voice", Domain: "physics",
+		Status: types.FactStatus_FACT_STATUS_DISPROVEN,
+	}))
+
+	sel := &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+		CascadeReplay: &types.CascadeReplaySelector{DisprovenFactId: "axiom-voice", MaxDepth: 1},
+	}}
+	_, err := k.AssembleToKBundle(ctx, sel, 0)
+	require.NoError(t, err)
+
+	events := sdk.UnwrapSDKContext(ctx).EventManager().Events()
+	var sawReplayed bool
+	for _, e := range events {
+		if e.Type == keeper.EventTypeCascadeReplayed {
+			sawReplayed = true
+			for _, a := range e.Attributes {
+				if a.Key == keeper.AttrToKCommitment {
+					require.Equal(t, "TC4", a.Value)
+				}
+			}
+		}
+	}
+	require.True(t, sawReplayed, "TC4: cascade_replayed must be emitted on cascade-replay bundle")
 }

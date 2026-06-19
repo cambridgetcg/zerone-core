@@ -21,6 +21,7 @@ func CmdBundleToK() *cobra.Command {
 	cmd.AddCommand(cmdBundleToKRootedSubtree())
 	cmd.AddCommand(cmdBundleToKAncestorCone())
 	cmd.AddCommand(cmdBundleToKFrontier())
+	cmd.AddCommand(cmdBundleToKCascadeReplay())
 	return cmd
 }
 
@@ -118,6 +119,47 @@ func cmdBundleToKFrontier() *cobra.Command {
 	}
 	cmd.Flags().String("since-block", "0", "include facts accepted at/after this block")
 	cmd.Flags().Uint32("limit", 1024, "max facts (capped at 8192)")
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+func cmdBundleToKCascadeReplay() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cascade-replay [disproven-fact-id]",
+		Short: "Bundle the disproval-graph from a DISPROVEN root (TC4: the graph carries its disprovals)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			depth, _ := cmd.Flags().GetUint32("max-depth")
+			withVind, _ := cmd.Flags().GetBool("include-vindications")
+			withSup, _ := cmd.Flags().GetBool("include-supersessions")
+			withHist, _ := cmd.Flags().GetBool("include-status-history")
+
+			req := &types.QueryBundleToKRequest{
+				Selector: &types.ToKSelector{Variant: &types.ToKSelector_CascadeReplay{
+					CascadeReplay: &types.CascadeReplaySelector{
+						DisprovenFactId:      args[0],
+						MaxDepth:             depth,
+						IncludeVindications:  withVind,
+						IncludeSupersessions: withSup,
+						IncludeStatusHistory: withHist,
+					},
+				}},
+			}
+			res, err := types.NewQueryClient(clientCtx).BundleToK(cmd.Context(), req)
+			if err != nil {
+				return err
+			}
+			return clientCtx.PrintProto(res)
+		},
+	}
+	cmd.Flags().Uint32("max-depth", 1, "cascade depth (1 = first-hop only; cap 3)")
+	cmd.Flags().Bool("include-vindications", false, "ship VindicationRecord entries")
+	cmd.Flags().Bool("include-supersessions", false, "walk SUPERSEDES chain")
+	cmd.Flags().Bool("include-status-history", false, "ship StatusTransition timelines per node")
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }

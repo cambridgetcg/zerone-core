@@ -254,13 +254,21 @@ func (k Keeper) AssembleToKBundle(
 	if err != nil {
 		return nil, err
 	}
+
+	if _, isCascade := capped.Variant.(*types.ToKSelector_CascadeReplay); isCascade {
+		return k.assembleToKBundleV2(ctx, capped, atBlockHeight)
+	}
+	return k.assembleToKBundleV1(ctx, capped, atBlockHeight)
+}
+
+// assembleToKBundleV1 is the Plan 1 path. Preserved unchanged.
+func (k Keeper) assembleToKBundleV1(ctx context.Context, capped *types.ToKSelector, atBlockHeight uint64) (*types.ToKBundle, error) {
 	nodeIDs, edges, err := k.SelectToKIds(ctx, capped)
 	if err != nil {
 		return nil, err
 	}
 	root := ComputeToKSnapshotRoot(nodeIDs, edges)
 
-	// Materialise node payloads.
 	var nodes []*types.Fact
 	for _, id := range nodeIDs {
 		f, ok := k.GetFact(ctx, id)
@@ -283,10 +291,7 @@ func (k Keeper) AssembleToKBundle(
 		Nodes:               nodes,
 		SerialisationFormat: tokSerialisationFormatJSONL,
 		Provenance: &types.ToKBundleProvenance{
-			ChainId: sdkCtx.ChainID(),
-			// GetTraceSchemaVersion / GetTokenizerVersion do not exist on the
-			// keeper; use the deployed-version constants until a param or
-			// getter is added.
+			ChainId:                       sdkCtx.ChainID(),
 			TraceSchemaVersion:            tokTraceSchemaVersion,
 			CanonicalSerialisationVersion: "v1",
 			TokenizerVersion:              tokTokenizerVersion,
@@ -294,6 +299,7 @@ func (k Keeper) AssembleToKBundle(
 			CapMaxDepth:                   ToKMaxDepthCap,
 			CapMaxPaths:                   ToKMaxPathsCap,
 			CapLimit:                      ToKFrontierCap,
+			TokRootVersion:                "v1",
 		},
 	}
 
@@ -302,21 +308,105 @@ func (k Keeper) AssembleToKBundle(
 		return nil, err
 	}
 	bundle.SerialisedPayload = payload
+	k.emitToKBundleEvents(ctx, bundle, capped, "TC0,TC1,TC5")
+	return bundle, nil
+}
 
+// assembleToKBundleV2 is the cascade-replay path. Populates cascade_events,
+// vindications, status_history. Computes V2 root.
+func (k Keeper) assembleToKBundleV2(ctx context.Context, capped *types.ToKSelector, atBlockHeight uint64) (*types.ToKBundle, error) {
+	cascadeSel := capped.GetCascadeReplay()
+
+	nodeIDs, edges, cascadeEvents, vindications, supersession, err := k.GatherCascade(ctx, cascadeSel)
+	if err != nil {
+		return nil, err
+	}
+
+	var statusHistory []*types.StatusTransition
+	if cascadeSel.IncludeStatusHistory {
+		for _, id := range nodeIDs {
+			statusHistory = append(statusHistory, k.GetStatusHistory(ctx, id)...)
+		}
+	}
+
+	root := ComputeToKSnapshotRootV2(nodeIDs, edges, cascadeEvents, vindications, statusHistory)
+
+	var nodes []*types.Fact
+	for _, id := range nodeIDs {
+		f, ok := k.GetFact(ctx, id)
+		if !ok {
+			return nil, fmt.Errorf("%w: selected fact %s not found", ErrToKInconsistentState, id)
+		}
+		nodes = append(nodes, f)
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if atBlockHeight == 0 {
+		atBlockHeight = uint64(sdkCtx.BlockHeight())
+	}
+
+	bundle := &types.ToKBundle{
+		SnapshotBlock:       atBlockHeight,
+		SnapshotRoot:        root,
+		IncludedNodeIds:     nodeIDs,
+		IncludedEdges:       edges,
+		Nodes:               nodes,
+		CascadeEvents:       cascadeEvents,
+		Vindications:        vindications,
+		SupersessionChain:   supersession,
+		StatusHistory:       statusHistory,
+		SerialisationFormat: tokSerialisationFormatJSONL,
+		Provenance: &types.ToKBundleProvenance{
+			ChainId:                       sdkCtx.ChainID(),
+			TraceSchemaVersion:            tokTraceSchemaVersion,
+			CanonicalSerialisationVersion: "v1",
+			TokenizerVersion:              tokTokenizerVersion,
+			SelectorUsed:                  capped,
+			CapMaxDepth:                   ToKMaxDepthCap,
+			CapMaxPaths:                   ToKMaxPathsCap,
+			CapLimit:                      ToKFrontierCap,
+			TokRootVersion:                "v2",
+		},
+	}
+
+	payload, err := SerialiseToK_JSONL(bundle)
+	if err != nil {
+		return nil, err
+	}
+	bundle.SerialisedPayload = payload
+	k.emitToKBundleEvents(ctx, bundle, capped, "TC0,TC1,TC4,TC5")
+	k.emitCascadeReplayedEvent(ctx, cascadeSel, bundle)
+	return bundle, nil
+}
+
+// emitToKBundleEvents factors the V1 emission so V2 can call it with an
+// extended commitment list.
+func (k Keeper) emitToKBundleEvents(ctx context.Context, bundle *types.ToKBundle, capped *types.ToKSelector, commitments string) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		EventTypeToKBundleExtracted,
-		sdk.NewAttribute(AttrToKCommitment, "TC0,TC1,TC5"),
+		sdk.NewAttribute(AttrToKCommitment, commitments),
 		sdk.NewAttribute(AttrToKSelectorKind, selectorKind(capped)),
-		sdk.NewAttribute(AttrToKBundleSize, fmt.Sprintf("%d", len(nodeIDs))),
-		sdk.NewAttribute(AttrToKSnapshotBlock, fmt.Sprintf("%d", atBlockHeight)),
+		sdk.NewAttribute(AttrToKBundleSize, fmt.Sprintf("%d", len(bundle.IncludedNodeIds))),
+		sdk.NewAttribute(AttrToKSnapshotBlock, fmt.Sprintf("%d", bundle.SnapshotBlock)),
 	))
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		EventTypeToKSnapshotRootPinned,
 		sdk.NewAttribute(AttrToKCommitment, "TC0,TC2"),
-		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(root)),
+		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(bundle.SnapshotRoot)),
 	))
+}
 
-	return bundle, nil
+// emitCascadeReplayedEvent fires the TC4-specific bundle-extraction signal.
+func (k Keeper) emitCascadeReplayedEvent(ctx context.Context, sel *types.CascadeReplaySelector, bundle *types.ToKBundle) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeCascadeReplayed,
+		sdk.NewAttribute(AttrToKCommitment, "TC4"),
+		sdk.NewAttribute("disproven_fact_id", sel.DisprovenFactId),
+		sdk.NewAttribute("node_count", fmt.Sprintf("%d", len(bundle.IncludedNodeIds))),
+		sdk.NewAttribute("cascade_event_count", fmt.Sprintf("%d", len(bundle.CascadeEvents))),
+	))
 }
 
 // SelectToKIds dispatches on the validated selector variant.
@@ -346,6 +436,8 @@ func selectorKind(s *types.ToKSelector) string {
 		return "ancestor_cone"
 	case *types.ToKSelector_Frontier:
 		return "frontier"
+	case *types.ToKSelector_CascadeReplay:
+		return "cascade_replay"
 	default:
 		return "unknown"
 	}
