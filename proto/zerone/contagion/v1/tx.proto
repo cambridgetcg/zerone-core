@@ -1,0 +1,70 @@
+syntax = "proto3";
+package zerone.contagion.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/contagion/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/contagion/v1/types.proto";
+
+// Msg defines the contagion module's transaction service.
+//
+// Two messages:
+//   * MsgSneeze   — the explicit "wrapper" transfer+sneeze path. A user who
+//                   wants the sneeze reward sends ZO through this message; it
+//                   delegates the real ZRN-20 transfer to the tokens keeper and
+//                   then runs the contagion check. (Answers DEPLOY-DEVNET open
+//                   question: "do we wrap the standard transfer in a custom
+//                   function?" — yes, this is the wrapper. The alternative hook
+//                   path is exposed via keeper.OnTokenTransfer, see DESIGN.md.)
+//   * MsgSetContagion — ONE-TIME configuration of ZO + reserve + reward formula.
+//                   Governance-gated and self-disabling (renounce-on-first-set).
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // Sneeze transfers `amount` of ZO from `sender` to `to` via the tokens module
+  // and, if `to` is not yet infected and the reserve can fund a full sneeze,
+  // mints `reward_sender` to the sender and `reward_receiver` to the receiver
+  // from the contagion reserve. This is the user-facing contagion entrypoint.
+  rpc Sneeze(MsgSneeze) returns (MsgSneezeResponse);
+
+  // SetContagion configures the ZO token id, reserve size, and reward amounts.
+  // Callable by `authority` ONLY while the module is not yet configured. After
+  // it returns, the module is frozen and `authority` is cleared on-chain — the
+  // sneeze formula can never be changed, matching PARAMETERS.md anti-rug rules.
+  rpc SetContagion(MsgSetContagion) returns (MsgSetContagionResponse);
+}
+
+// ─── Sneeze ──────────────────────────────────────────────────────────────────
+
+message MsgSneeze {
+  option (cosmos.msg.v1.signer) = "sender";
+  string sender   = 1; // ZO holder initiating the transfer (potential spreader)
+  string to       = 2; // recipient; if not yet infected, a sneeze may fire
+  string amount   = 3; // ZO amount to transfer, in BASE units (bigint string)
+  // token_id is optional: if empty, the module's configured ZO token id is used.
+  // If set, it must match the configured ZO token id (defence against cross-token
+  // confusion once multiple ZRN-20 tokens exist).
+  string token_id = 4;
+}
+
+message MsgSneezeResponse {
+  bool   sneezed            = 1; // true if a reward was minted this call
+  string reward_sender      = 2; // base units credited to sender (0 if !sneezed)
+  string reward_receiver    = 3; // base units credited to receiver (0 if !sneezed)
+  string reserve_remaining  = 4; // reserve after this call (base units)
+  uint64 sneeze_index       = 5; // global sneeze counter after this call
+}
+
+// ─── SetContagion (one-time) ──────────────────────────────────────────────────
+
+message MsgSetContagion {
+  option (cosmos.msg.v1.signer) = "authority";
+  string authority       = 1; // governance module address (cleared after set)
+  string token_id        = 2; // ZRN-20 id of ZO
+  string reserve_initial = 3; // reserve in BASE units (60,433,333 * 10^dec)
+  string reward_sender   = 4; // per-sneeze sender reward, BASE units (77 * 10^dec)
+  string reward_receiver = 5; // per-sneeze receiver reward, BASE units (77 * 10^dec)
+  uint32 decimals        = 6; // ZO decimals (cached for display; must match token)
+}
+
+message MsgSetContagionResponse {}
