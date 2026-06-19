@@ -100,7 +100,7 @@ The ToK Substrate doctrine, declared at [`docs/TOK_SUBSTRATE.md`](TOK_SUBSTRATE.
 | TC1 | The graph is the headline | Plan 1 | Bound (2026-05-09) |
 | TC2 | Every view is graph-pinned | Plan 1 | Bound (2026-05-09) |
 | TC3 | Topology is signal | Plan 1 | Bound (2026-05-09) |
-| TC4 | The graph carries its disprovals | Plan 2 | Partial — cascade selector + falsification test wired; TC4 doctrine invariant owed |
+| TC4 | The graph carries its disprovals | Plan 2 | Bound — cascade bundling shipped (CascadeReplay selector, V2 snapshot root, cross-stack invariants) |
 | TC5 | Extraction is open | Plan 1 | Bound (2026-05-09) |
 | TC6 | Lineage flows back | Plan 4 | Partial — lineage code present; royalty-disbursal binding owed |
 | — | Doctrine closure (meta-test, trainer docs) | Plan 5 | Planned |
@@ -127,7 +127,7 @@ Plan 1 (ToK Foundation) is **bound since 2026-05-09** — [`docs/plans/2026-05-0
 - Cross-stack invariants for TC1, TC2, TC3, TC5 — `tests/cross_stack/tok_substrate_invariants_test.go`
 - `docs/EVENTS.md` updates
 
-Plan 1 bound TC1, TC2, TC3, and TC5; with TC0 (2026-06-17), five ToK commitments are bound. The remaining work: TC4 (Plan 2, partially wired — cascade selector + falsification test in place; the TC4 doctrine invariant is owed), TC6 (Plan 4, partially wired — lineage code present; royalty-disbursal binding owed), and doctrine closure (Plan 5 — `TestToKSubstrate_DoctrineAndContractStayInSync` meta-test + `docs/TRAINING_ON_TOK.md`).
+Plan 1 bound TC1, TC2, TC3, and TC5; with TC0 (2026-06-17), five ToK commitments are bound. Plan 2 (TC4 cascade bundling) shipped 2026-06-18 — CascadeReplay selector, V2 snapshot root, CascadeEvent/StatusTransition stores, cross-stack invariants all green. The remaining work: TC6 (Plan 4, partially wired — lineage code present; royalty-disbursal binding owed), and doctrine closure (Plan 5 — `TestToKSubstrate_DoctrineAndContractStayInSync` meta-test + `docs/TRAINING_ON_TOK.md`).
 
 ---
 
@@ -135,7 +135,7 @@ Plan 1 bound TC1, TC2, TC3, and TC5; with TC0 (2026-06-17), five ToK commitments
 
 | Plan | Scope | Doctrine binding |
 |---|---|---|
-| **Plan 2** | TC4 cascade bundling — replay disprovals on a pinned snapshot, ship as first-class view. *Partially wired*: `CascadeReplay` selector + `TestToK_FalsificationCascade` exist; TC4 doctrine invariant + first-class view binding owed | TC4 |
+| **Plan 2** | ~~TC4 cascade bundling~~ — **shipped 2026-06-18**. CascadeReplay selector, V2 snapshot root, CascadeEvent/StatusTransition stores, cross-stack invariants | TC4 (bound) |
 | **Plan 3** | (open — likely operator-surface or trainer-facing doc work) | — |
 | **Plan 4** | TC6 lineage royalties — split training revenue along contribution graph. *Partially wired*: lineage code present (`reproduction.go`, `msg_server_training_v7.go`); `LineageShare`-on-extraction + settlement-on-attestation binding owed | TC6 |
 | **Plan 5** | Doctrine closure — meta-test (`TestToKSubstrate_DoctrineAndContractStayInSync`), `docs/TRAINING_ON_TOK.md` trainer-facing front door, refusal-layer audit | doctrine integrity |
