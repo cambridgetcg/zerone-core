@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -38,6 +39,12 @@ const (
 	tokDomainNodes = "TOK_NODES"
 	tokDomainEdges = "TOK_EDGES"
 	tokDomainRoot  = "TOK_ROOT"
+
+	// V2 domain tags (TC4: the graph carries its disprovals).
+	tokDomainCascade      = "TOK_CASCADE"
+	tokDomainVindications = "TOK_VINDICATIONS"
+	tokDomainTransitions  = "TOK_TRANSITIONS"
+	tokDomainRootV2       = "TOK_ROOT_V2"
 )
 
 // ComputeToKSnapshotRoot returns a 32-byte Merkle commitment over the
@@ -103,6 +110,127 @@ func tokDomainHash(domain string, write func(interface{ Write([]byte) (int, erro
 	writeLenString(h, domain)
 	write(h)
 	return h.Sum(nil)
+}
+
+// ComputeToKSnapshotRootV2 returns a 32-byte Merkle commitment over the full
+// (nodes, edges, cascade_events, vindications, transitions) bundle. Each
+// component is independently domain-tagged; the V2 root tag distinguishes
+// V2 bundles from V1 bundles even when cascade fields are empty.
+//
+// TC4: the disproval-graph is bundled with the support-graph under one root.
+// A trainer who has the IDs + cascade event canon can re-derive the root
+// without trusting the RPC.
+func ComputeToKSnapshotRootV2(
+	nodeIDs []string,
+	edges []*types.ToKEdge,
+	cascadeEvents []*types.CascadeEvent,
+	vindications []*types.ToKVindicationRecord,
+	transitions []*types.StatusTransition,
+) []byte {
+	sortedNodes := append([]string{}, nodeIDs...)
+	sort.Strings(sortedNodes)
+	sortedEdges := append([]*types.ToKEdge{}, edges...)
+	sortToKEdges(sortedEdges)
+	sortedCascade := sortCascadeEvents(cascadeEvents)
+	sortedVind := sortVindications(vindications)
+	sortedTrans := sortStatusTransitions(transitions)
+
+	nodesH := tokDomainHash(tokDomainNodes, func(h interface{ Write([]byte) (int, error) }) {
+		for _, id := range sortedNodes {
+			writeLenString(h, id)
+		}
+	})
+	edgesH := tokDomainHash(tokDomainEdges, func(h interface{ Write([]byte) (int, error) }) {
+		for _, e := range sortedEdges {
+			writeLenString(h, e.FromFactId)
+			writeLenString(h, e.ToFactId)
+			writeLenString(h, e.Relation)
+			writeLenString(h, e.Inference)
+		}
+	})
+	cascadeH := tokDomainHash(tokDomainCascade, func(h interface{ Write([]byte) (int, error) }) {
+		for _, ev := range sortedCascade {
+			writeLenString(h, ev.DisprovenFactId)
+			writeLenString(h, ev.DescendantFactId)
+			writeLenString(h, ev.ChallengeClaimId)
+			writeLenString(h, ev.EdgeRelation)
+			writeLenUint64(h, ev.Seq)
+			writeLenUint64(h, ev.BlockHeight)
+			writeLenUint64(h, uint64(ev.PriorStatus))
+			writeLenUint64(h, uint64(ev.NewStatus))
+		}
+	})
+	vindH := tokDomainHash(tokDomainVindications, func(h interface{ Write([]byte) (int, error) }) {
+		for _, v := range sortedVind {
+			writeLenString(h, v.Verifier)
+			writeLenString(h, v.FactId)
+			writeLenString(h, v.RefundAmount)
+			writeLenString(h, v.BonusAmount)
+			writeLenUint64(h, v.VindicatedAt)
+			writeLenString(h, v.DisprovenBy)
+			writeLenString(h, v.RoundId)
+		}
+	})
+	transH := tokDomainHash(tokDomainTransitions, func(h interface{ Write([]byte) (int, error) }) {
+		for _, t := range sortedTrans {
+			writeLenString(h, t.FactId)
+			writeLenUint64(h, t.Seq)
+			writeLenUint64(h, uint64(t.PriorStatus))
+			writeLenUint64(h, uint64(t.NewStatus))
+			writeLenUint64(h, t.BlockHeight)
+			writeLenString(h, t.CauseEventType)
+			writeLenString(h, t.CauseId)
+		}
+	})
+
+	final := sha256.New()
+	writeLenString(final, tokDomainRootV2)
+	_, _ = final.Write(nodesH)
+	_, _ = final.Write(edgesH)
+	_, _ = final.Write(cascadeH)
+	_, _ = final.Write(vindH)
+	_, _ = final.Write(transH)
+	return final.Sum(nil)
+}
+
+// writeLenUint64 writes 8-byte big-endian for fixed-width safety.
+func writeLenUint64(h interface{ Write([]byte) (int, error) }, v uint64) {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], v)
+	_, _ = h.Write(buf[:])
+}
+
+func sortCascadeEvents(events []*types.CascadeEvent) []*types.CascadeEvent {
+	out := append([]*types.CascadeEvent{}, events...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].DisprovenFactId != out[j].DisprovenFactId {
+			return out[i].DisprovenFactId < out[j].DisprovenFactId
+		}
+		return out[i].Seq < out[j].Seq
+	})
+	return out
+}
+
+func sortVindications(records []*types.ToKVindicationRecord) []*types.ToKVindicationRecord {
+	out := append([]*types.ToKVindicationRecord{}, records...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].FactId != out[j].FactId {
+			return out[i].FactId < out[j].FactId
+		}
+		return out[i].Verifier < out[j].Verifier
+	})
+	return out
+}
+
+func sortStatusTransitions(transitions []*types.StatusTransition) []*types.StatusTransition {
+	out := append([]*types.StatusTransition{}, transitions...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].FactId != out[j].FactId {
+			return out[i].FactId < out[j].FactId
+		}
+		return out[i].Seq < out[j].Seq
+	})
+	return out
 }
 
 // AssembleToKBundle is the headline ToK extraction primitive. It validates

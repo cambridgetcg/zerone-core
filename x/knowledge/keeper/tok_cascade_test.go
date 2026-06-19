@@ -268,3 +268,37 @@ func TestGatherCascade_RejectsNonDisprovenRoot(t *testing.T) {
 	require.Error(t, err, "TC4: cascade replay must reject non-DISPROVEN roots")
 	require.Contains(t, err.Error(), "DISPROVEN")
 }
+
+// ─── Task 10: ComputeToKSnapshotRootV2 ───────────────────────────────────────
+
+func TestComputeToKSnapshotRootV2_DistinctFromV1(t *testing.T) {
+	nodeIDs := []string{"a", "b"}
+	edges := []*types.ToKEdge{{FromFactId: "b", ToFactId: "a", Relation: "SUPPORTS"}}
+
+	v1 := keeper.ComputeToKSnapshotRoot(nodeIDs, edges)
+	v2 := keeper.ComputeToKSnapshotRootV2(nodeIDs, edges, nil, nil, nil)
+
+	require.NotEqual(t, v1, v2, "V1 and V2 roots must differ even with empty cascade fields")
+	require.Len(t, v2, 32)
+}
+
+func TestComputeToKSnapshotRootV2_DomainSeparated(t *testing.T) {
+	cascadeEvent := []*types.CascadeEvent{{
+		DisprovenFactId: "x", DescendantFactId: "y", EdgeRelation: "SUPPORTS",
+	}}
+
+	rWithCascade := keeper.ComputeToKSnapshotRootV2([]string{"x", "y"}, nil, cascadeEvent, nil, nil)
+	rWithoutCascade := keeper.ComputeToKSnapshotRootV2([]string{"x", "y"}, nil, nil, nil, nil)
+
+	require.NotEqual(t, rWithCascade, rWithoutCascade, "cascade events must affect root")
+}
+
+func TestComputeToKSnapshotRootV2_Deterministic(t *testing.T) {
+	nodeIDs := []string{"a", "b"}
+	cascade := []*types.CascadeEvent{{
+		DisprovenFactId: "a", DescendantFactId: "b", EdgeRelation: "SUPPORTS", BlockHeight: 100,
+	}}
+	r1 := keeper.ComputeToKSnapshotRootV2(nodeIDs, nil, cascade, nil, nil)
+	r2 := keeper.ComputeToKSnapshotRootV2(nodeIDs, nil, cascade, nil, nil)
+	require.Equal(t, r1, r2)
+}
