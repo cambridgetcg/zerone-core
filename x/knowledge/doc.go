@@ -62,6 +62,13 @@
 // - TC5 (extraction is open) — ValidateAndCapToKSelector accepts any
 //   well-formed selector and applies uniform caps. Refusals are limited
 //   to syntax errors and snapshot-out-of-range; no curation gate exists.
+// - TC4 (the graph carries its disprovals) — CascadeReplaySelector returns
+//   the disproval-graph from a DISPROVEN root: cascade events, vindication
+//   records, supersession chains, and per-node status-transition timelines.
+//   The chain emits cascade_replayed (bundle extraction) and cascade_completed
+//   (per-disproof aggregate) events. DISPROVEN nodes are not pruned from
+//   non-cascade selectors. See keeper/tok_cascade.go (GatherCascade) and
+//   keeper/cascade_events.go (CascadeEvent store).
 //
 // What would break these: see the corresponding "What would break it"
 // sections in docs/TOK_SUBSTRATE.md.
