@@ -12,4 +12,8 @@ const (
 	AttrToKBundleSize    = "node_count"
 	AttrToKSnapshotRoot  = "snapshot_root"
 	AttrToKSnapshotBlock = "snapshot_block"
+
+	// ─── ToK cascade bundling (TC4) ─────────────────────────────────────
+	EventTypeCascadeReplayed   = "cascade_replayed"   // TC4: bundle extraction signal
+	EventTypeCascadeCompleted  = "cascade_completed"   // TC4: aggregate end-of-cascade signal
 )

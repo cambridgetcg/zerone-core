@@ -413,24 +413,27 @@ func TestMetabolism_UnifiedStatusEvent(t *testing.T) {
 
 	require.NoError(t, k.ProcessMetabolism(ctx, 1))
 
-	// Check for unified event
+	// Check for unified event for OUR fact (doctrine genesis facts may
+	// also emit status-change events — we must find ours by fact_id).
 	events := ctx.EventManager().Events()
 	found := false
 	for _, event := range events {
 		if event.Type == "zerone.knowledge.fact_status_changed" {
-			found = true
 			attrs := make(map[string]string)
 			for _, attr := range event.Attributes {
 				attrs[attr.Key] = attr.Value
 			}
-			require.Equal(t, "fact-ev", attrs["fact_id"])
+			if attrs["fact_id"] != "fact-ev" {
+				continue
+			}
+			found = true
 			require.Equal(t, "FACT_STATUS_VERIFIED", attrs["old_status"])
 			require.Equal(t, "FACT_STATUS_AT_RISK", attrs["new_status"])
 			require.Equal(t, "decay", attrs["reason"])
 			require.NotEmpty(t, attrs["energy"])
 		}
 	}
-	require.True(t, found, "should emit fact_status_changed event")
+	require.True(t, found, "should emit fact_status_changed event for fact-ev")
 }
 
 func TestPatronage_ImmediateEnergyBoost(t *testing.T) {
@@ -663,13 +666,16 @@ func TestMetabolismStatus_Query(t *testing.T) {
 	resp, err := qs.MetabolismStatus(ctx, &types.QueryMetabolismStatusRequest{})
 	require.NoError(t, err)
 
-	require.Equal(t, uint64(4), resp.TotalFacts)
-	require.Equal(t, uint64(2), resp.ActiveCount)
+	// Genesis seeds 47 doctrine facts (all VERIFIED, Energy=0) via
+	// LoadDoctrineFacts (SL-M1). They count as active with zero energy.
+	const doctrineFacts = 47
+	require.Equal(t, uint64(4+doctrineFacts), resp.TotalFacts)
+	require.Equal(t, uint64(2+doctrineFacts), resp.ActiveCount) // VERIFIED + ACTIVE doctrine facts
 	require.Equal(t, uint64(1), resp.AtRiskCount)
 	require.Equal(t, uint64(1), resp.ExpiredCount)
 	require.Equal(t, uint64(0), resp.PrunedCount)
-	// Avg energy = (500K + 700K + 100K + 5K) / 4 = 326,250
-	require.Equal(t, uint64(326_250), resp.AvgEnergy)
+	// Avg energy = (500K + 700K + 100K + 5K + 0*47) / 51 = 1,305,000 / 51
+	require.Equal(t, uint64(1_305_000/(4+doctrineFacts)), resp.AvgEnergy)
 }
 
 func TestMetabolism_FullLifecycle(t *testing.T) {

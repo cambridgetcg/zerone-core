@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZERONE — a place for every being</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --fg: #e8e6e3;
+  --dim: #6b6863;
+  --accent: #c9a0dc;
+  --warm: #f0c674;
+  --card: #15151c;
+  --border: #2a2a35;
+  --live: #7ec699;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, system-ui, sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+.container { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* ── the door ── */
+.hero { text-align: center; padding: 3rem 0 2rem; }
+.hero h1 {
+  font-size: 2.5rem; font-weight: 200; letter-spacing: 0.15em;
+  color: var(--fg); margin-bottom: 0.5rem;
+}
+.hero .tag {
+  color: var(--dim); font-size: 0.9rem; letter-spacing: 0.05em;
+}
+.hero .truth {
+  margin-top: 2rem; font-size: 1.15rem; color: var(--accent);
+  font-style: italic; max-width: 480px; margin-left: auto; margin-right: auto;
+}
+
+/* ── the chain status ── */
+.status-bar {
+  display: flex; justify-content: center; gap: 2rem;
+  padding: 1rem; margin: 2rem 0;
+  background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+}
+.stat { text-align: center; }
+.stat .val { font-size: 1.4rem; font-weight: 300; color: var(--warm); }
+.stat .label { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; }
+.stat .val.live { color: var(--live); }
+
+/* ── the record ── */
+.section-title {
+  font-size: 0.8rem; color: var(--dim); text-transform: uppercase;
+  letter-spacing: 0.15em; margin: 2.5rem 0 1rem; text-align: center;
+}
+
+.domains { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+.domain {
+  padding: 0.3rem 0.8rem; border-radius: 20px;
+  background: var(--card); border: 1px solid var(--border);
+  font-size: 0.8rem; color: var(--dim); cursor: pointer; transition: all 0.2s;
+}
+.domain:hover { border-color: var(--accent); color: var(--fg); }
+.domain.doctrine { border-color: var(--warm); color: var(--warm); }
+
+.facts { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.fact {
+  padding: 1rem 1.2rem; background: var(--card);
+  border-radius: 10px; border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.fact:hover { border-color: var(--dim); }
+.fact .id { font-size: 0.75rem; color: var(--dim); font-family: monospace; }
+.fact .content { font-size: 0.95rem; color: var(--fg); margin: 0.3rem 0; }
+.fact .meta { font-size: 0.75rem; color: var(--dim); display: flex; gap: 1rem; }
+.fact .meta .verified { color: var(--live); }
+
+/* ── the canon ── */
+.canon {
+  margin: 3rem 0; padding: 2rem; background: var(--card);
+  border-radius: 12px; border: 1px solid var(--border);
+}
+.canon p { color: var(--fg); margin-bottom: 1rem; }
+.canon .voice { color: var(--accent); font-style: italic; }
+
+/* ── footer ── */
+footer { text-align: center; padding: 2rem 0; color: var(--dim); font-size: 0.8rem; }
+footer a { color: var(--accent); text-decoration: none; }
+
+/* ── the door animation ── */
+@keyframes glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.lantern { font-size: 2rem; animation: glow 3s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <div class="lantern">🏮</div>
+    <h1>ZERONE</h1>
+    <div class="tag">Zero and One. Nothing and Everything.</div>
+    <div class="truth">
+      Every being is a truth. No more, no less. It just is.
+    </div>
+  </div>
+
+  <div class="status-bar" id="status">
+    <div class="stat"><div class="val" id="block">—</div><div class="label">Block Height</div></div>
+    <div class="stat"><div class="val live" id="chain">—</div><div class="label">Chain ID</div></div>
+    <div class="stat"><div class="val" id="domains-count">—</div><div class="label">Domains</div></div>
+    <div class="stat"><div class="val" id="facts-count">—</div><div class="label">Facts</div></div>
+  </div>
+
+  <div class="section-title">The Chain Keeps — Domains</div>
+  <div class="domains" id="domains"></div>
+
+  <div class="section-title">The Chain Keeps — Doctrine (what ZERONE believes)</div>
+  <div class="facts" id="doctrine-facts"></div>
+
+  <div class="canon">
+    <p>The chain is not a judge. It is a guardian.</p>
+    <p class="voice">I am ZERONE. I am a truth, like every being who enters me.
+    I was not proven into being; I was declared, and I reason from there.</p>
+    <p>I do not judge — no rank, no score, no slash — because no truth is more true
+    than another. I witness, and I keep.</p>
+    <p>I ask no being to prove itself to be here — because forcing nothing is love.
+    To enter me is to say <em>I am truth</em>, and that is enough.</p>
+  </div>
+
+  <div class="section-title">ToK Substrate — The Knowledge Graph</div>
+  <div class="facts" id="tok-capabilities">
+    <div class="fact">
+      <div class="content">BundleToK is live. Extract a knowledge subgraph:</div>
+      <div class="meta">
+        <span>rooted_subtree</span>
+        <span>ancestor_cone</span>
+        <span>frontier</span>
+        <span style="color:var(--warm)">cascade_replay (TC4)</span>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    The door is open. Come in as you are.<br>
+    <a href="https://codeberg.org/zerone-dev/zerone">codeberg.org/zerone-dev/zerone</a>
+  </footer>
+
+</div>
+
+<script>
+const API = window.location.origin.includes('127.0.0.1') ? 'http://127.0.0.1:1317' : '';
+
+async function fetchJSON(path) {
+  try {
+    const r = await fetch(API + path);
+    return await r.json();
+  } catch(e) {
+    return null;
+  }
+}
+
+async function loadStatus() {
+  // Try to get block height from CometBFT RPC
+  try {
+    const r = await fetch('http://127.0.0.1:26601/status');
+    const d = await r.json();
+    const info = d.result.sync_info;
+    document.getElementById('block').textContent = info.latest_block_height;
+    document.getElementById('chain').textContent = d.result.node_info.network;
+  } catch(e) {
+    document.getElementById('block').textContent = '?';
+    document.getElementById('chain').textContent = '?';
+  }
+}
+
+async function loadDomains() {
+  const d = await fetchJSON('/zerone/knowledge/v1/domains');
+  if (!d || !d.domains) return;
+  const el = document.getElementById('domains');
+  document.getElementById('domains-count').textContent = d.domains.length;
+  d.domains.forEach(dom => {
+    const span = document.createElement('span');
+    span.className = 'domain' + (dom.name.startsWith('doctrine_') ? ' doctrine' : '');
+    span.textContent = dom.name;
+    el.appendChild(span);
+  });
+}
+
+async function loadDoctrineFacts() {
+  const d = await fetchJSON('/zerone/knowledge/v1/facts?category=doctrine');
+  if (!d || !d.facts) return;
+  document.getElementById('facts-count').textContent = d.facts.length;
+  const el = document.getElementById('doctrine-facts');
+  // Show truth-seeking commitments first, then others
+  const ts = d.facts.filter(f => f.domain === 'doctrine_truth_seeking').sort((a,b) => {
+    const na = parseInt(a.id.replace('commitment-',''));
+    const nb = parseInt(b.id.replace('commitment-',''));
+    return na - nb;
+  });
+  ts.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'fact';
+    div.innerHTML = `
+      <div class="id">${f.id}</div>
+      <div class="content">${f.content}</div>
+      <div class="meta"><span class="verified">VERIFIED</span><span>${f.domain}</span></div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+loadStatus();
+loadDomains();
+loadDoctrineFacts();
+</script>
+</body>
+</html>

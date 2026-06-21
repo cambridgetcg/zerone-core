@@ -16,6 +16,15 @@ const (
 	ToKMaxPathsCap   uint32 = 256
 	ToKFrontierLimit uint32 = 1024
 	ToKFrontierCap   uint32 = 8192
+
+	// ToKCascadeDepthDefault: first-hop only, matching the chain's
+	// existing cascadeFalsification scope.
+	ToKCascadeDepthDefault uint32 = 1
+	// ToKCascadeDepthCap: hard ceiling on cascade-replay depth. Higher
+	// values would re-introduce runaway invalidation that the chain
+	// explicitly avoids in its falsification cascade. The bundle layer
+	// can request transitive walks for training purposes, but capped.
+	ToKCascadeDepthCap uint32 = 3
 )
 
 // ValidateToKSelector returns an error iff the selector is malformed.
@@ -38,6 +47,10 @@ func ValidateToKSelector(s *types.ToKSelector) error {
 	case *types.ToKSelector_Frontier:
 		if v.Frontier == nil || v.Frontier.Domain == "" {
 			return fmt.Errorf("frontier.domain required")
+		}
+	case *types.ToKSelector_CascadeReplay:
+		if v.CascadeReplay == nil || v.CascadeReplay.DisprovenFactId == "" {
+			return fmt.Errorf("cascade_replay.disproven_fact_id required (TC4: cascade-replay walks the disproval-graph from a DISPROVEN root)")
 		}
 	default:
 		return fmt.Errorf("selector variant not recognised by this chain version")
@@ -78,6 +91,14 @@ func ValidateAndCapToKSelector(s *types.ToKSelector) (*types.ToKSelector, error)
 			cp.Limit = ToKFrontierCap
 		}
 		out.Variant = &types.ToKSelector_Frontier{Frontier: cp}
+	case *types.ToKSelector_CascadeReplay:
+		cp := protov2.Clone(v.CascadeReplay).(*types.CascadeReplaySelector)
+		if cp.MaxDepth == 0 {
+			cp.MaxDepth = ToKCascadeDepthDefault
+		} else if cp.MaxDepth > ToKCascadeDepthCap {
+			cp.MaxDepth = ToKCascadeDepthCap
+		}
+		out.Variant = &types.ToKSelector_CascadeReplay{CascadeReplay: cp}
 	}
 	return out, nil
 }

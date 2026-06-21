@@ -1,0 +1,72 @@
+syntax = "proto3";
+package zerone.knowledge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
+
+import "zerone/knowledge/v1/types.proto";
+
+// CascadeReplaySelector walks the disproval-graph from a DISPROVEN root.
+// Returns the disproven fact + first-hop cascaded descendants + every
+// CascadeEvent the chain recorded when the disproof landed. Optionally
+// includes vindication records and supersession-chain pointers.
+//
+// TC4 (the graph carries its disprovals) is the doctrinal binding.
+// Plan 1's RootedSubtree/AncestorCone deliberately filter out
+// CONTRADICTS|SUPERSEDES edges; CascadeReplay deliberately includes them.
+// The two selectors compose: a trainer that wants both the support-graph
+// and the disproval-graph for a fact issues two BundleToK calls.
+message CascadeReplaySelector {
+  string disproven_fact_id    = 1;  // must reference a fact with Status=DISPROVEN
+  uint32 max_depth            = 2;  // cascade depth; 0 = chain default 1; cap 3
+  bool   include_vindications = 3;  // ship VindicationRecord entries
+  bool   include_supersessions = 4; // walk SUPERSEDES chain (8-deep cap)
+  bool   include_status_history = 5; // ship StatusTransition timeline per node
+}
+
+// CascadeEvent is the persistent record of a single descendant status flip
+// during a falsification cascade. The chain emits a `falsification_cascade`
+// voice event when this fires; the record is what makes TC4 bundle-able.
+//
+// One CascadeEvent is written per descendant per disproof. Forward-only
+// (commitment 10): records are append-only, never amended in place.
+message CascadeEvent {
+  uint64 seq                  = 1;  // monotonic per disproven_fact_id
+  string disproven_fact_id    = 2;  // root of the cascade
+  string descendant_fact_id   = 3;  // direct descendant whose status flipped
+  string challenge_claim_id   = 4;  // challenge that triggered the cascade
+  string edge_relation        = 5;  // SUPPORTS|REQUIRES|REFINES|GENERALIZES|CITES
+  FactStatus prior_status     = 6;  // VERIFIED|ACTIVE|AT_RISK
+  FactStatus new_status       = 7;  // CONTESTED (current cascade always)
+  uint64 block_height         = 8;  // height the cascade fired
+}
+
+// StatusTransition is the persistent record of a single status change on
+// a fact. Forward-only: once written, never modified. The full history of
+// a fact's status is reconstructable by iterating these records by factID.
+//
+// TC4: "Fact.status is preserved in graph manifests with full transition
+// history." This is the record that makes "full transition history" real.
+message StatusTransition {
+  uint64 seq                = 1;  // monotonic per fact_id
+  string fact_id            = 2;
+  FactStatus prior_status   = 3;  // status before this transition
+  FactStatus new_status     = 4;  // status after this transition
+  uint64 block_height       = 5;
+  string cause_event_type   = 6;  // "verification" | "challenge_disproven" | "cascade" | "supersession"
+  string cause_id           = 7;  // round_id | challenge_claim_id | disproven_fact_id | superseding_fact_id
+}
+
+// ToKVindicationRecord is the proto mirror of the existing Go struct
+// VindicationRecord in x/knowledge/types/vindication.go. The keeper
+// writes/reads JSON for backward compatibility but converts to/from this
+// proto for bundle assembly (TC4). Named with a ToK prefix to avoid a
+// collision with the pre-existing Go struct in the same package.
+message ToKVindicationRecord {
+  string verifier      = 1;
+  string fact_id       = 2;
+  string refund_amount = 3;
+  string bonus_amount  = 4;
+  uint64 vindicated_at = 5;
+  string disproven_by  = 6;
+  string round_id      = 7;
+}

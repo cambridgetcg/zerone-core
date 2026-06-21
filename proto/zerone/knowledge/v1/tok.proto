@@ -4,6 +4,7 @@ package zerone.knowledge.v1;
 option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
 
 import "zerone/knowledge/v1/types.proto";
+import "zerone/knowledge/v1/tok_cascade.proto";
 
 // ToKSelector is the union of supported subgraph extraction modes.
 // Plan 1 binds RootedSubtree, AncestorCone, Frontier. Plan 2 adds
@@ -13,7 +14,8 @@ message ToKSelector {
     RootedSubtreeSelector rooted_subtree = 1;
     AncestorConeSelector  ancestor_cone  = 2;
     FrontierSelector      frontier       = 3;
-    // Reserved: 4 = cascade_replay (Plan 2), 5 = fork_and_decide (Plan 4).
+    CascadeReplaySelector cascade_replay = 4;  // Plan 2 (TC4)
+    // Reserved: 5 = fork_and_decide (Plan 4).
   }
 }
 
@@ -53,6 +55,21 @@ message ToKBundle {
   string serialisation_format      = 6;  // "jsonl_adjacency_v1" by default.
   bytes  serialised_payload        = 7;  // optional; large bundles may omit.
   ToKBundleProvenance provenance   = 8;
+
+  // ─── TC4: the graph carries its disprovals ──────────────────────────
+  // Populated only when selector is CascadeReplay or when other selectors
+  // touch DISPROVEN nodes whose history was requested via
+  // CascadeReplaySelector.include_status_history. Empty for pure Plan 1
+  // bundles.
+  repeated CascadeEvent      cascade_events     = 9;
+  repeated ToKVindicationRecord vindications     = 10;
+  repeated string            supersession_chain = 11;  // factIDs, root → leaf
+  repeated StatusTransition  status_history     = 12;  // sorted by (fact_id, seq)
+
+  // V2 root: when cascade fields are non-empty, snapshot_root commits
+  // to all of (nodes, edges, cascade_events, vindications, transitions).
+  // V1 root semantics (Plan 1) preserved when cascade fields are empty.
+  // Provenance.tok_root_version distinguishes "v1" / "v2".
 }
 
 // ToKEdge mirrors the existing relation-graph edges but ships them as
@@ -75,4 +92,5 @@ message ToKBundleProvenance {
   uint32 cap_max_depth                  = 6;  // chain-side caps applied.
   uint32 cap_max_paths                  = 7;
   uint32 cap_limit                      = 8;
+  string tok_root_version               = 9;  // "v1" (Plan 1) | "v2" (Plan 2 cascade)
 }

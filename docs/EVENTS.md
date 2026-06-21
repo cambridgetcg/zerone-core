@@ -1094,6 +1094,12 @@ Governance froze new partnership/domain formation in a domain (R31-3 Earth stabi
 - `expiry_height` -- height at which the freeze expires
 - `reason` -- governance-supplied reason
 
+### zerone.gov.adapter_registration_lip_passed
+A governance LIP of class `adapter_registration` passed at the correct quorum bar. The LIP is recorded on-chain; dispatch to `x/substrate_bridge` is pending Phase-1 wiring. Commitment 20 (issuance follows participation) — the adapter registration pathway is participation-gated.
+- `creed_commitment` -- "20"
+- `lip_id` -- the passed LIP identifier
+- `dispatch_status` -- "pending_phase1_wiring" — substrate_bridge dispatch not yet wired
+
 
 ## home
 
@@ -1649,12 +1655,6 @@ A direct descendant of a disproven fact was flipped from VERIFIED/ACTIVE/AT_RISK
 - `disproven_fact_id` -- the fact that was disproven
 - `challenge_claim_id` -- the challenge claim that triggered disproof
 - `edge_relation` -- which support-bearing edge linked them (e.g. `RELATION_TYPE_REQUIRES`)
-- `creed_commitment` -- "3"
-
-### zerone.knowledge.falsification_cascade_summary
-Emitted once at the end of a falsification cascade with the total count of affected descendants (ToK Wave 5).
-- `disproven_fact_id` -- the fact that was disproven
-- `descendants_contested` -- how many direct descendants were flipped
 - `creed_commitment` -- "3"
 
 ### zerone.knowledge.corroboration_incremented
@@ -3168,3 +3168,18 @@ A trainer extracted a ToK bundle via `BundleToK`. TC1 (graph is the headline) an
 Every bundle pins to a 32-byte snapshot root (TC2: every view is graph-pinned). The root commits to sorted node IDs + sorted edge IDs domain-tagged separately, allowing trust-minimised re-derivation by any client with the IDs.
 - `tok_commitment` -- `"TC2"`
 - `snapshot_root` -- hex-encoded 32-byte Merkle root
+
+### cascade_replayed
+A trainer extracted a cascade-replay bundle via `BundleToK(CascadeReplay)`. TC4 (the graph carries its disprovals) is bound by this event firing on every successful cascade-replay bundle.
+- `tok_commitment` -- `"TC4"`
+- `disproven_fact_id` -- the disproven root of the cascade
+- `node_count` -- number of nodes in the bundle
+- `cascade_event_count` -- number of cascade events in the bundle
+
+### cascade_completed
+Aggregate signal fired once per disproof after all descendant cascades have been recorded. TC4: the chain announces that a disproof has finished propagating. Emitted from `cascadeFalsification` after the descendant loop.
+- `tok_commitment` -- `"TC4"`
+- `creed_commitment` -- `"3"`
+- `disproven_fact_id` -- the disproven root
+- `challenge_claim_id` -- the challenge that triggered the cascade
+- `descendant_count` -- total cascaded descendants

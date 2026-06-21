@@ -51,6 +51,28 @@ func (k Keeper) GetParams(ctx context.Context) (*types.Params, error) {
 // ─── Fact CRUD ───────────────────────────────────────────────────────────────
 
 func (k Keeper) SetFact(ctx context.Context, fact *types.Fact) error {
+	if fact == nil || fact.Id == "" {
+		return fmt.Errorf("fact requires id")
+	}
+
+	// TC4: record status transition forward-only when status differs from prior.
+	var priorStatus types.FactStatus
+	if existing, ok := k.GetFact(ctx, fact.Id); ok {
+		priorStatus = existing.Status
+	}
+	if priorStatus != fact.Status {
+		sdkCtx := sdk.UnwrapSDKContext(ctx)
+		cause, causeID := inferStatusTransitionCause(sdkCtx, fact)
+		_ = k.RecordStatusTransition(ctx, &types.StatusTransition{
+			FactId:         fact.Id,
+			PriorStatus:    priorStatus,
+			NewStatus:      fact.Status,
+			BlockHeight:    uint64(sdkCtx.BlockHeight()),
+			CauseEventType: cause,
+			CauseId:        causeID,
+		})
+	}
+
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := marshalOpts.Marshal(fact)
 	if err != nil {

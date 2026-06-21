@@ -214,19 +214,21 @@ func TestQueryByFitness_Sorted(t *testing.T) {
 		require.NoError(t, k.SetFact(ctx, f))
 	}
 
-	// Query sorted descending
+	// Query sorted descending — includes 47 doctrine facts (fitness=0)
 	result := k.GetFactsByFitness(ctx, "", 0, 50, false)
-	require.Len(t, result, 3)
+	require.Len(t, result, 50)
 	require.Equal(t, "high", result[0].Id)
 	require.Equal(t, "mid", result[1].Id)
 	require.Equal(t, "low", result[2].Id)
 
-	// Query sorted ascending
+	// Query sorted ascending — 47 doctrine facts (fitness=0) come first,
+	// then our test facts in ascending fitness order.
 	resultAsc := k.GetFactsByFitness(ctx, "", 0, 50, true)
-	require.Len(t, resultAsc, 3)
-	require.Equal(t, "low", resultAsc[0].Id)
+	require.Len(t, resultAsc, 50)
+	// First non-doctrine fact is "low" at index 47
+	require.Equal(t, "low", resultAsc[47].Id)
 
-	// Query with min_fitness filter
+	// Query with min_fitness filter — excludes doctrine facts (fitness=0)
 	resultFiltered := k.GetFactsByFitness(ctx, "", 400_000, 50, false)
 	require.Len(t, resultFiltered, 2)
 	require.Equal(t, "high", resultFiltered[0].Id)

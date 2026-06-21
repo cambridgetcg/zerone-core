@@ -283,8 +283,32 @@ func (k Keeper) cascadeFalsification(ctx context.Context, disprovenFactId, chall
 		default:
 			continue
 		}
+		priorStatus := descendant.Status
 		descendant.Status = types.FactStatus_FACT_STATUS_CONTESTED
-		_ = k.SetFact(ctx, descendant)
+
+		// Write the precise StatusTransition with full cause attribution
+		// before SetFact (which would otherwise auto-record with imprecise cause).
+		_ = k.RecordStatusTransition(ctx, &types.StatusTransition{
+			FactId:         descendant.Id,
+			PriorStatus:    priorStatus,
+			NewStatus:      types.FactStatus_FACT_STATUS_CONTESTED,
+			BlockHeight:    uint64(sdkCtx.BlockHeight()),
+			CauseEventType: "cascade",
+			CauseId:        disprovenFactId,
+		})
+		_ = k.SetFactSkipTransition(ctx, descendant)
+
+		// Persist the cascade event for TC4 bundling.
+		_ = k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+			DisprovenFactId:  disprovenFactId,
+			DescendantFactId: descendant.Id,
+			ChallengeClaimId: challengeClaimId,
+			EdgeRelation:     rel.Relation.String(),
+			PriorStatus:      priorStatus,
+			NewStatus:        types.FactStatus_FACT_STATUS_CONTESTED,
+			BlockHeight:      uint64(sdkCtx.BlockHeight()),
+		})
+
 		affectedCount++
 		// Popper, not popularity: when a fact falls, the chain
 		// announces which facts inherited its provisional truth and
@@ -298,6 +322,7 @@ func (k Keeper) cascadeFalsification(ctx context.Context, disprovenFactId, chall
 			sdk.NewAttribute("challenge_claim_id", challengeClaimId),
 			sdk.NewAttribute("edge_relation", rel.Relation.String()),
 			sdk.NewAttribute("creed_commitment", "3"),
+			sdk.NewAttribute("tok_commitment", "TC4"),
 		))
 	}
 	if affectedCount > 0 {
@@ -305,9 +330,11 @@ func (k Keeper) cascadeFalsification(ctx context.Context, disprovenFactId, chall
 		// that want one summary record per disproof. Same commitment
 		// as per-descendant events above.
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-			"zerone.knowledge.falsification_cascade_summary",
+			EventTypeCascadeCompleted,
 			sdk.NewAttribute("disproven_fact_id", disprovenFactId),
-			sdk.NewAttribute("descendants_contested", fmt.Sprintf("%d", affectedCount)),
+			sdk.NewAttribute("challenge_claim_id", challengeClaimId),
+			sdk.NewAttribute("descendant_count", fmt.Sprintf("%d", affectedCount)),
+			sdk.NewAttribute("tok_commitment", "TC4"),
 			sdk.NewAttribute("creed_commitment", "3"),
 		))
 	}

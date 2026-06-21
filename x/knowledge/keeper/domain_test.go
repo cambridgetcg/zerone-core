@@ -62,13 +62,13 @@ func TestDomain_Update(t *testing.T) {
 func TestDomain_Iterate(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
-	// After InitGenesis, 18 default domains exist
+	// After InitGenesis, 16 epistemic + 4 doctrine domains exist (22 total)
 	var count int
 	k.IterateDomains(ctx, func(domain *types.Domain) bool {
 		count++
 		return false
 	})
-	require.Equal(t, 18, count)
+	require.Equal(t, 22, count)
 }
 
 func TestDomain_GenesisDefaults_18Domains(t *testing.T) {
@@ -111,13 +111,13 @@ func TestDomain_AddCustom(t *testing.T) {
 	}
 	require.NoError(t, k.SetDomain(ctx, custom))
 
-	// Should now have 19 domains (18 + 1 custom)
+	// Should now have 23 domains (22 genesis + 1 custom)
 	var count int
 	k.IterateDomains(ctx, func(domain *types.Domain) bool {
 		count++
 		return false
 	})
-	require.Equal(t, 19, count)
+	require.Equal(t, 23, count)
 }
 
 func TestDomain_ProposedStatus(t *testing.T) {

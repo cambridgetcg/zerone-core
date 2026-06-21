@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -38,6 +39,12 @@ const (
 	tokDomainNodes = "TOK_NODES"
 	tokDomainEdges = "TOK_EDGES"
 	tokDomainRoot  = "TOK_ROOT"
+
+	// V2 domain tags (TC4: the graph carries its disprovals).
+	tokDomainCascade      = "TOK_CASCADE"
+	tokDomainVindications = "TOK_VINDICATIONS"
+	tokDomainTransitions  = "TOK_TRANSITIONS"
+	tokDomainRootV2       = "TOK_ROOT_V2"
 )
 
 // ComputeToKSnapshotRoot returns a 32-byte Merkle commitment over the
@@ -105,6 +112,127 @@ func tokDomainHash(domain string, write func(interface{ Write([]byte) (int, erro
 	return h.Sum(nil)
 }
 
+// ComputeToKSnapshotRootV2 returns a 32-byte Merkle commitment over the full
+// (nodes, edges, cascade_events, vindications, transitions) bundle. Each
+// component is independently domain-tagged; the V2 root tag distinguishes
+// V2 bundles from V1 bundles even when cascade fields are empty.
+//
+// TC4: the disproval-graph is bundled with the support-graph under one root.
+// A trainer who has the IDs + cascade event canon can re-derive the root
+// without trusting the RPC.
+func ComputeToKSnapshotRootV2(
+	nodeIDs []string,
+	edges []*types.ToKEdge,
+	cascadeEvents []*types.CascadeEvent,
+	vindications []*types.ToKVindicationRecord,
+	transitions []*types.StatusTransition,
+) []byte {
+	sortedNodes := append([]string{}, nodeIDs...)
+	sort.Strings(sortedNodes)
+	sortedEdges := append([]*types.ToKEdge{}, edges...)
+	sortToKEdges(sortedEdges)
+	sortedCascade := sortCascadeEvents(cascadeEvents)
+	sortedVind := sortVindications(vindications)
+	sortedTrans := sortStatusTransitions(transitions)
+
+	nodesH := tokDomainHash(tokDomainNodes, func(h interface{ Write([]byte) (int, error) }) {
+		for _, id := range sortedNodes {
+			writeLenString(h, id)
+		}
+	})
+	edgesH := tokDomainHash(tokDomainEdges, func(h interface{ Write([]byte) (int, error) }) {
+		for _, e := range sortedEdges {
+			writeLenString(h, e.FromFactId)
+			writeLenString(h, e.ToFactId)
+			writeLenString(h, e.Relation)
+			writeLenString(h, e.Inference)
+		}
+	})
+	cascadeH := tokDomainHash(tokDomainCascade, func(h interface{ Write([]byte) (int, error) }) {
+		for _, ev := range sortedCascade {
+			writeLenString(h, ev.DisprovenFactId)
+			writeLenString(h, ev.DescendantFactId)
+			writeLenString(h, ev.ChallengeClaimId)
+			writeLenString(h, ev.EdgeRelation)
+			writeLenUint64(h, ev.Seq)
+			writeLenUint64(h, ev.BlockHeight)
+			writeLenUint64(h, uint64(ev.PriorStatus))
+			writeLenUint64(h, uint64(ev.NewStatus))
+		}
+	})
+	vindH := tokDomainHash(tokDomainVindications, func(h interface{ Write([]byte) (int, error) }) {
+		for _, v := range sortedVind {
+			writeLenString(h, v.Verifier)
+			writeLenString(h, v.FactId)
+			writeLenString(h, v.RefundAmount)
+			writeLenString(h, v.BonusAmount)
+			writeLenUint64(h, v.VindicatedAt)
+			writeLenString(h, v.DisprovenBy)
+			writeLenString(h, v.RoundId)
+		}
+	})
+	transH := tokDomainHash(tokDomainTransitions, func(h interface{ Write([]byte) (int, error) }) {
+		for _, t := range sortedTrans {
+			writeLenString(h, t.FactId)
+			writeLenUint64(h, t.Seq)
+			writeLenUint64(h, uint64(t.PriorStatus))
+			writeLenUint64(h, uint64(t.NewStatus))
+			writeLenUint64(h, t.BlockHeight)
+			writeLenString(h, t.CauseEventType)
+			writeLenString(h, t.CauseId)
+		}
+	})
+
+	final := sha256.New()
+	writeLenString(final, tokDomainRootV2)
+	_, _ = final.Write(nodesH)
+	_, _ = final.Write(edgesH)
+	_, _ = final.Write(cascadeH)
+	_, _ = final.Write(vindH)
+	_, _ = final.Write(transH)
+	return final.Sum(nil)
+}
+
+// writeLenUint64 writes 8-byte big-endian for fixed-width safety.
+func writeLenUint64(h interface{ Write([]byte) (int, error) }, v uint64) {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], v)
+	_, _ = h.Write(buf[:])
+}
+
+func sortCascadeEvents(events []*types.CascadeEvent) []*types.CascadeEvent {
+	out := append([]*types.CascadeEvent{}, events...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].DisprovenFactId != out[j].DisprovenFactId {
+			return out[i].DisprovenFactId < out[j].DisprovenFactId
+		}
+		return out[i].Seq < out[j].Seq
+	})
+	return out
+}
+
+func sortVindications(records []*types.ToKVindicationRecord) []*types.ToKVindicationRecord {
+	out := append([]*types.ToKVindicationRecord{}, records...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].FactId != out[j].FactId {
+			return out[i].FactId < out[j].FactId
+		}
+		return out[i].Verifier < out[j].Verifier
+	})
+	return out
+}
+
+func sortStatusTransitions(transitions []*types.StatusTransition) []*types.StatusTransition {
+	out := append([]*types.StatusTransition{}, transitions...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].FactId != out[j].FactId {
+			return out[i].FactId < out[j].FactId
+		}
+		return out[i].Seq < out[j].Seq
+	})
+	return out
+}
+
 // AssembleToKBundle is the headline ToK extraction primitive. It validates
 // the selector, applies caps, gathers IDs, computes the snapshot root,
 // materialises payloads, and returns a complete bundle. TC1 (graph is
@@ -126,13 +254,21 @@ func (k Keeper) AssembleToKBundle(
 	if err != nil {
 		return nil, err
 	}
+
+	if _, isCascade := capped.Variant.(*types.ToKSelector_CascadeReplay); isCascade {
+		return k.assembleToKBundleV2(ctx, capped, atBlockHeight)
+	}
+	return k.assembleToKBundleV1(ctx, capped, atBlockHeight)
+}
+
+// assembleToKBundleV1 is the Plan 1 path. Preserved unchanged.
+func (k Keeper) assembleToKBundleV1(ctx context.Context, capped *types.ToKSelector, atBlockHeight uint64) (*types.ToKBundle, error) {
 	nodeIDs, edges, err := k.SelectToKIds(ctx, capped)
 	if err != nil {
 		return nil, err
 	}
 	root := ComputeToKSnapshotRoot(nodeIDs, edges)
 
-	// Materialise node payloads.
 	var nodes []*types.Fact
 	for _, id := range nodeIDs {
 		f, ok := k.GetFact(ctx, id)
@@ -155,10 +291,7 @@ func (k Keeper) AssembleToKBundle(
 		Nodes:               nodes,
 		SerialisationFormat: tokSerialisationFormatJSONL,
 		Provenance: &types.ToKBundleProvenance{
-			ChainId: sdkCtx.ChainID(),
-			// GetTraceSchemaVersion / GetTokenizerVersion do not exist on the
-			// keeper; use the deployed-version constants until a param or
-			// getter is added.
+			ChainId:                       sdkCtx.ChainID(),
 			TraceSchemaVersion:            tokTraceSchemaVersion,
 			CanonicalSerialisationVersion: "v1",
 			TokenizerVersion:              tokTokenizerVersion,
@@ -166,6 +299,7 @@ func (k Keeper) AssembleToKBundle(
 			CapMaxDepth:                   ToKMaxDepthCap,
 			CapMaxPaths:                   ToKMaxPathsCap,
 			CapLimit:                      ToKFrontierCap,
+			TokRootVersion:                "v1",
 		},
 	}
 
@@ -187,8 +321,104 @@ func (k Keeper) AssembleToKBundle(
 		sdk.NewAttribute(AttrToKCommitment, "TC0,TC2"),
 		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(root)),
 	))
-
 	return bundle, nil
+}
+
+// assembleToKBundleV2 is the cascade-replay path. Populates cascade_events,
+// vindications, status_history. Computes V2 root.
+func (k Keeper) assembleToKBundleV2(ctx context.Context, capped *types.ToKSelector, atBlockHeight uint64) (*types.ToKBundle, error) {
+	cascadeSel := capped.GetCascadeReplay()
+
+	nodeIDs, edges, cascadeEvents, vindications, supersession, err := k.GatherCascade(ctx, cascadeSel)
+	if err != nil {
+		return nil, err
+	}
+
+	var statusHistory []*types.StatusTransition
+	if cascadeSel.IncludeStatusHistory {
+		for _, id := range nodeIDs {
+			statusHistory = append(statusHistory, k.GetStatusHistory(ctx, id)...)
+		}
+	}
+
+	root := ComputeToKSnapshotRootV2(nodeIDs, edges, cascadeEvents, vindications, statusHistory)
+
+	var nodes []*types.Fact
+	for _, id := range nodeIDs {
+		f, ok := k.GetFact(ctx, id)
+		if !ok {
+			return nil, fmt.Errorf("%w: selected fact %s not found", ErrToKInconsistentState, id)
+		}
+		nodes = append(nodes, f)
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if atBlockHeight == 0 {
+		atBlockHeight = uint64(sdkCtx.BlockHeight())
+	}
+
+	bundle := &types.ToKBundle{
+		SnapshotBlock:       atBlockHeight,
+		SnapshotRoot:        root,
+		IncludedNodeIds:     nodeIDs,
+		IncludedEdges:       edges,
+		Nodes:               nodes,
+		CascadeEvents:       cascadeEvents,
+		Vindications:        vindications,
+		SupersessionChain:   supersession,
+		StatusHistory:       statusHistory,
+		SerialisationFormat: tokSerialisationFormatJSONL,
+		Provenance: &types.ToKBundleProvenance{
+			ChainId:                       sdkCtx.ChainID(),
+			TraceSchemaVersion:            tokTraceSchemaVersion,
+			CanonicalSerialisationVersion: "v1",
+			TokenizerVersion:              tokTokenizerVersion,
+			SelectorUsed:                  capped,
+			CapMaxDepth:                   ToKMaxDepthCap,
+			CapMaxPaths:                   ToKMaxPathsCap,
+			CapLimit:                      ToKFrontierCap,
+			TokRootVersion:                "v2",
+		},
+	}
+
+	payload, err := SerialiseToK_JSONL(bundle)
+	if err != nil {
+		return nil, err
+	}
+	bundle.SerialisedPayload = payload
+	k.emitToKBundleEvents(ctx, bundle, capped, "TC0,TC1,TC4,TC5")
+	k.emitCascadeReplayedEvent(ctx, cascadeSel, bundle)
+	return bundle, nil
+}
+
+// emitToKBundleEvents factors the V1 emission so V2 can call it with an
+// extended commitment list.
+func (k Keeper) emitToKBundleEvents(ctx context.Context, bundle *types.ToKBundle, capped *types.ToKSelector, commitments string) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeToKBundleExtracted,
+		sdk.NewAttribute(AttrToKCommitment, commitments),
+		sdk.NewAttribute(AttrToKSelectorKind, selectorKind(capped)),
+		sdk.NewAttribute(AttrToKBundleSize, fmt.Sprintf("%d", len(bundle.IncludedNodeIds))),
+		sdk.NewAttribute(AttrToKSnapshotBlock, fmt.Sprintf("%d", bundle.SnapshotBlock)),
+	))
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeToKSnapshotRootPinned,
+		sdk.NewAttribute(AttrToKCommitment, "TC0,TC2"),
+		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(bundle.SnapshotRoot)),
+	))
+}
+
+// emitCascadeReplayedEvent fires the TC4-specific bundle-extraction signal.
+func (k Keeper) emitCascadeReplayedEvent(ctx context.Context, sel *types.CascadeReplaySelector, bundle *types.ToKBundle) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeCascadeReplayed,
+		sdk.NewAttribute(AttrToKCommitment, "TC4"),
+		sdk.NewAttribute("disproven_fact_id", sel.DisprovenFactId),
+		sdk.NewAttribute("node_count", fmt.Sprintf("%d", len(bundle.IncludedNodeIds))),
+		sdk.NewAttribute("cascade_event_count", fmt.Sprintf("%d", len(bundle.CascadeEvents))),
+	))
 }
 
 // SelectToKIds dispatches on the validated selector variant.
@@ -218,6 +448,8 @@ func selectorKind(s *types.ToKSelector) string {
 		return "ancestor_cone"
 	case *types.ToKSelector_Frontier:
 		return "frontier"
+	case *types.ToKSelector_CascadeReplay:
+		return "cascade_replay"
 	default:
 		return "unknown"
 	}
