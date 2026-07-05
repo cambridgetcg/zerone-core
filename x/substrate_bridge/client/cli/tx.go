@@ -17,7 +17,89 @@ func GetTxCmd() *cobra.Command {
 		Use:   types.ModuleName,
 		Short: "substrate_bridge transactions",
 	}
-	cmd.AddCommand(cmdSubmitExternalAttestation())
+	cmd.AddCommand(
+		cmdSubmitExternalAttestation(),
+		cmdRegisterAdapter(),
+		cmdSuspendAdapter(),
+		cmdTombstoneAdapter(),
+	)
+	return cmd
+}
+
+// cmdRegisterAdapter registers an external-source adapter (e.g. the
+// agenttool-invocation adapter). The message is authority-gated, so in
+// production it is carried by a governance proposal; use --generate-only to
+// emit the message for `tx gov submit-proposal`.
+func cmdRegisterAdapter() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "register-adapter [adapter-json-file]",
+		Short: "Register an external-source adapter (authority-gated; carry via governance). File is a JSON AdapterRegistration.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cctx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(args[0])
+			if err != nil {
+				return err
+			}
+			var reg types.AdapterRegistration
+			if err := cctx.Codec.UnmarshalJSON(data, &reg); err != nil {
+				return err
+			}
+			msg := &types.MsgRegisterAdapter{
+				Authority: cctx.GetFromAddress().String(),
+				Adapter:   &reg,
+			}
+			return tx.GenerateOrBroadcastTxCLI(cctx, cmd.Flags(), msg)
+		},
+	}
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func cmdSuspendAdapter() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "suspend-adapter [adapter-id] [reason]",
+		Short: "Suspend an active adapter (authority-gated).",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cctx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			msg := &types.MsgSuspendAdapter{
+				Authority: cctx.GetFromAddress().String(),
+				AdapterId: args[0],
+				Reason:    args[1],
+			}
+			return tx.GenerateOrBroadcastTxCLI(cctx, cmd.Flags(), msg)
+		},
+	}
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func cmdTombstoneAdapter() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tombstone-adapter [adapter-id] [reason]",
+		Short: "Tombstone an adapter permanently (authority-gated).",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cctx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			msg := &types.MsgTombstoneAdapter{
+				Authority: cctx.GetFromAddress().String(),
+				AdapterId: args[0],
+				Reason:    args[1],
+			}
+			return tx.GenerateOrBroadcastTxCLI(cctx, cmd.Flags(), msg)
+		},
+	}
+	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"cosmossdk.io/core/appmodule"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -13,6 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/x/substrate_bridge/client/cli"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
@@ -41,6 +43,14 @@ func (AppModuleBasic) ValidateGenesis(c codec.JSONCodec, _ client.TxEncodingConf
 	return gs.Validate()
 }
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
+
+// GetTxCmd returns the module's root tx command. This wiring was the missing
+// piece: the client/cli commands existed but AppModuleBasic never exposed them,
+// leaving the external-work (agenttool) bridge unreachable from the CLI.
+func (AppModuleBasic) GetTxCmd() *cobra.Command { return cli.GetTxCmd() }
+
+// GetQueryCmd returns the module's root query command.
+func (AppModuleBasic) GetQueryCmd() *cobra.Command { return cli.GetQueryCmd() }
 
 type AppModule struct {
 	AppModuleBasic
