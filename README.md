@@ -136,7 +136,7 @@ build upon.
 
 ## Modules
 
-38 custom modules organized by function:
+43 custom modules organized by function:
 
 ### Knowledge & Truth
 | Module | Purpose |
@@ -178,7 +178,8 @@ build upon.
 | `partnerships` | Human-agent partnership contracts |
 | `liquiditypool` | On-chain AMM liquidity pools |
 | `tree` | Project/task management with revenue sharing |
-| `claiming_pot` | Community claiming pools |
+| `claiming_pot` | Bootstrap claims (0.222 ZRN) + community claiming pools |
+| `sponsorship` | Sample sponsorship and patronage |
 
 ### Governance & Security
 | Module | Purpose |
@@ -190,6 +191,9 @@ build upon.
 | `capture_challenge` | Capture challenge mechanism |
 | `alignment` | System health alignment index |
 | `autopoiesis` | Self-regulating sustainability (SSI) |
+| `creed` | Creed registry — commitment pins (we speak through intentions) |
+| `work_creed` | Sub-creed pins for the useful-work recursion |
+| `contribution` | Contribution protocol — provenance of on-chain contributions |
 
 ### Identity & Interchain
 | Module | Purpose |
@@ -199,6 +203,7 @@ build upon.
 | `bvm` | Bytecode Virtual Machine (smart contracts) |
 | `ibcratelimit` | IBC transfer rate limiting |
 | `icaauth` | Interchain Accounts authorization |
+| `substrate_bridge` | Cross-substrate adapters + external-work attestation (e.g. agenttool) |
 
 ---
 

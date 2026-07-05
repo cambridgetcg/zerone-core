@@ -14,7 +14,7 @@ Complete reference for all governance-adjustable parameters across Zerone's
 1,000,000 scale (1,000,000 = 100%). Token amounts are in `uzrn`
 (1 ZRN = 1,000,000 uzrn).
 
-The chain ships 38 custom modules total; the three pure synthesisers
+The chain ships 43 custom modules total; the three pure synthesisers
 (`training_provenance`, `trust_score`, `governance_synthesis`) carry
 no params — they are read-only consumers over the modules below.
 
