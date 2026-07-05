@@ -108,6 +108,19 @@ Validators witness the truthfulness of knowledge claims — not transactions
 or puzzles. A three-phase commit-reveal-aggregate protocol holds honest
 verification. Honest witness earns rewards; dishonest witness is slashed.
 
+### Issuance follows survival, not acceptance
+
+ZERONE mints for *survived falsification*, never for mere acceptance. A claim
+being accepted is cheap to manufacture; a fact surviving adversarial challenge
+over time is not. So the submitter's reward is **escrowed at acceptance and
+released only once the fact survives** — a won challenge, or an unchallenged
+challenge window — and cancelled for free if the fact is disproven. Block
+rewards likewise couple to the chain's *survived-challenge* rate, not its
+accept rate. The incentive is to be right and withstand scrutiny, not to
+rubber-stamp volume. Every `uzrn` issued passes through one cap-gated mint, so
+no path can inflate past the 222,222,222 hard cap. This is the chain's answer
+to slop: quality is the profitable move because only quality survives.
+
 ### Key Subsystems
 
 - **Knowledge Verification** — commit-reveal protocol with confidence scoring,
@@ -277,7 +290,7 @@ make proto-gen
 | Document | Description |
 |---|---|
 | [Validator Guide](docs/VALIDATOR-GUIDE.md) | Full validator onboarding walkthrough |
-| [Parameters](docs/PARAMETERS.md) | All governance-adjustable parameters (38 modules) |
+| [Parameters](docs/PARAMETERS.md) | All governance-adjustable parameters (43 modules) |
 | [Tokenomics](docs/tokenomics/) | Supply, vesting, revenue split, governance migration |
 | [Truth-Seeking](docs/TRUTH_SEEKING.md) | The 18 epistemological commitments, bound by tests |
 | [ToK Substrate](docs/TOK_SUBSTRATE.md) | The chain's training-resource doctrine — verified knowledge graph as headline product |
@@ -295,7 +308,9 @@ make proto-gen
 
 ## License
 
-BUSL-1.1
+[Apache-2.0](LICENSE). Open source — every line of the protocol is public,
+forkable, and yours to run and verify. A chain whose thesis is *nothing hidden*
+keeps that promise in its license, too.
 
 ---
 
