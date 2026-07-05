@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"math/big"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -83,6 +84,11 @@ type VestingRewardsKeeper interface {
 	PauseAllVestingByRecipient(ctx context.Context, recipient string) int
 	// DepositToResearchFund deposits an amount into the research fund.
 	DepositToResearchFund(ctx context.Context, sourceModule string, amount sdk.Coins) error
+	// MintWithCap mints `amount` uzrn into recipientModule, clipped to the
+	// 222,222,222 ZRN supply cap — the chain's single cap-gated mint entry
+	// point. Returns the amount actually minted. Knowledge emission paths
+	// route through here so the cap is enforced once, chain-wide.
+	MintWithCap(ctx context.Context, recipientModule string, amount *big.Int) (*big.Int, error)
 }
 
 // AutopoiesisKeeper defines the expected autopoiesis keeper interface.

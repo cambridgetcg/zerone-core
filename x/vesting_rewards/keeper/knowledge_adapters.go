@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -45,4 +46,8 @@ func (a *VestingRewardsKeeperAdapter) PauseAllVestingByRecipient(ctx context.Con
 
 func (a *VestingRewardsKeeperAdapter) DepositToResearchFund(ctx context.Context, sourceModule string, amount sdk.Coins) error {
 	return a.k.DepositToResearchFund(sdk.UnwrapSDKContext(ctx), sourceModule, amount)
+}
+
+func (a *VestingRewardsKeeperAdapter) MintWithCap(ctx context.Context, recipientModule string, amount *big.Int) (*big.Int, error) {
+	return a.k.MintWithCap(sdk.UnwrapSDKContext(ctx), recipientModule, amount)
 }

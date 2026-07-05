@@ -221,9 +221,12 @@ func (m *msgServer) ResolveContributionChallenge(ctx context.Context, msg *types
 		// registry doesn't yet expose — use mint-as-reward until that lands).
 		rewardPortion := payout.Sub(bond)
 		if rewardPortion.IsPositive() {
-			if err := m.keeper.bankKeeper.MintCoins(ctx, types.TrainingFundModuleName, sdk.NewCoins(sdk.NewCoin("uzrn", rewardPortion))); err != nil {
+			minted, err := m.keeper.mintCappedUzrn(ctx, types.TrainingFundModuleName, rewardPortion.BigInt())
+			if err != nil {
 				return nil, err
 			}
+			// Honour any supply-cap clip: pay bond + actually-minted reward.
+			payout = bond.Add(sdkmath.NewIntFromBigInt(minted))
 		}
 		challengerAddr, err := sdk.AccAddressFromBech32(challenge.Challenger)
 		if err != nil {
@@ -332,10 +335,13 @@ func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *type
 		scaled = scaled.Add(extra)
 	}
 
-	// Mint into the training fund, then split 50/50 released/vesting.
-	if err := m.keeper.bankKeeper.MintCoins(ctx, types.TrainingFundModuleName, sdk.NewCoins(sdk.NewCoin("uzrn", scaled))); err != nil {
+	// Mint into the training fund through the cap-gated entry point, then
+	// split 50/50 released/vesting on the actually-minted amount.
+	minted, err := m.keeper.mintCappedUzrn(ctx, types.TrainingFundModuleName, scaled.BigInt())
+	if err != nil {
 		return nil, fmt.Errorf("mint to training fund failed: %w", err)
 	}
+	scaled = sdkmath.NewIntFromBigInt(minted) // honour any supply-cap clip below
 	released := scaled.Quo(sdkmath.NewInt(2))
 	vesting := scaled.Sub(released)
 

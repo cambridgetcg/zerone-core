@@ -922,6 +922,8 @@ func NewZeroneApp(
 		app.BankKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
+	// Emission-period minting gates through the chain's single cap-gated mint.
+	app.TokensKeeper.SetVestingRewardsKeeper(app.VestingRewardsKeeper)
 
 	billingKnowledgeAdapter := zeroneknowledgekeeper.NewBillingKnowledgeAdapter(app.KnowledgeKeeper)
 	vestingRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)
@@ -1149,6 +1151,8 @@ func NewZeroneApp(
 	app.InquiryKeeper.SetKnowledgeKeeper(
 		zeroneknowledgekeeper.NewInquiryKnowledgeAdapter(app.KnowledgeKeeper),
 	)
+	// Chain-sponsored (frontier) inquiry minting gates through the cap.
+	app.InquiryKeeper.SetVestingRewardsKeeper(app.VestingRewardsKeeper)
 
 	// x/agent_understanding: pure read-only synthesizer composing
 	// per-agent, per-domain understanding profiles. Wires adapters

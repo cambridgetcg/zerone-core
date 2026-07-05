@@ -26,6 +26,12 @@ type Keeper struct {
 	// frontier-invitation BeginBlocker path is silently inactive —
 	// the rest of the module continues to function.
 	frontierProvider types.FrontierProvider
+
+	// vestingRewardsKeeper is the chain's single cap-gated mint entry point,
+	// wired post-init in app.go. Chain-sponsored inquiry minting routes through
+	// it so the 222,222,222 ZRN cap is enforced once, chain-wide. Optional:
+	// when nil (isolated unit tests) minting falls back to a direct bank mint.
+	vestingRewardsKeeper types.VestingRewardsKeeper
 }
 
 func NewKeeper(
@@ -50,6 +56,10 @@ func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) { k.knowledgeKeepe
 // DomainSparsity shape this module reads. Optional: nil disables
 // the commitment 18 path without otherwise affecting the module.
 func (k *Keeper) SetFrontierProvider(fn types.FrontierProvider) { k.frontierProvider = fn }
+
+// SetVestingRewardsKeeper wires the chain's cap-gated mint entry point into the
+// inquiry keeper (post-init, app.go). Frontier-sponsor minting gates through it.
+func (k *Keeper) SetVestingRewardsKeeper(vrk types.VestingRewardsKeeper) { k.vestingRewardsKeeper = vrk }
 
 func (k Keeper) Logger(ctx context.Context) log.Logger {
 	return sdk.UnwrapSDKContext(ctx).Logger().With("module", "x/"+types.ModuleName)

@@ -1723,6 +1723,17 @@ Wave 14c inverted the challenge economics to stress-test truth instead of shield
 - `to_treasury` -- remainder routed to protocol treasury on failed probes (rejected path only)
 - `creed_commitment` -- "4"
 
+### zerone.knowledge.survival_reward_released
+Emitted when a fact's escrowed submitter reward is issued because the fact *survived* — either by winning an adversarial challenge or by outlasting its challenge window unchallenged (swept by the knowledge BeginBlocker). Under the survival-gate, nothing mints at acceptance; the submitter reward is escrowed and released only once the fact has withstood falsification, so issuance attaches to survived truth rather than to mere acceptance. The released amount routes through the original accept-time path (partnership split or knowledge vesting).
+- `fact_id` -- the fact whose escrowed reward was released
+- `recipient` -- the submitter address receiving the reward
+- `amount` -- uzrn released
+
+### zerone.knowledge.survival_reward_cancelled
+Emitted when a fact's escrowed submitter reward is cancelled because the fact was disproven before its challenge window closed. Because nothing was minted at acceptance, the clawback is free: the escrow entry is simply deleted and no ZRN ever entered circulation for a claim that did not survive.
+- `fact_id` -- the disproven fact whose escrowed reward was cancelled
+- `recipient` -- the submitter address that will not be paid
+
 ### zerone.knowledge.agent_calibration_updated
 Submitter's track record changed — Phase 5 feedback loop. Emitted after round outcomes, corroborations earned, and disprovals. Closes the loop between training-pipeline output and on-chain evaluation.
 - `address` -- submitter address

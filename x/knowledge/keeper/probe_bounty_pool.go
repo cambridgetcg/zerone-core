@@ -12,6 +12,28 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
+// mintCappedUzrn issues `amount` uzrn into module through the chain's single
+// cap-gated mint entry point (x/vesting_rewards.MintWithCap), so no knowledge
+// emission path can push total supply past the 222,222,222 ZRN cap. Returns the
+// amount actually minted (clipped to remaining cap headroom). Falls back to a
+// direct mint only when the vesting-rewards keeper is unwired — which happens
+// only in isolated unit tests; production always routes through the cap.
+func (k Keeper) mintCappedUzrn(ctx context.Context, module string, amount *big.Int) (*big.Int, error) {
+	if amount == nil || amount.Sign() <= 0 {
+		return new(big.Int), nil
+	}
+	if k.vestingRewardsKeeper != nil {
+		return k.vestingRewardsKeeper.MintWithCap(ctx, module, amount)
+	}
+	if k.bankKeeper != nil {
+		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(amount)))
+		if err := k.bankKeeper.MintCoins(ctx, module, coins); err != nil {
+			return nil, err
+		}
+	}
+	return amount, nil
+}
+
 // MintToProbeBountyPool issues the per-block allocation into the probe
 // bounty pool (Wave 15), respecting the max-pool-size cap. Called from
 // BeginBlocker. Failure is logged and non-fatal — pool can refill next
@@ -48,11 +70,15 @@ func (k Keeper) MintToProbeBountyPool(ctx context.Context, params *types.Params)
 		}
 	}
 
-	coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(mintAmt)))
-	if err := k.bankKeeper.MintCoins(ctx, types.ProbeBountyPoolModuleName, coins); err != nil {
+	minted, err := k.mintCappedUzrn(ctx, types.ProbeBountyPoolModuleName, mintAmt)
+	if err != nil {
 		k.Logger(ctx).Error("probe bounty pool mint failed", "amount", mintAmt.String(), "err", err)
 		return
 	}
+	if minted.Sign() <= 0 {
+		return // supply cap reached — nothing minted this block
+	}
+	mintAmt = minted // event + accounting reflect the actually-minted amount
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.knowledge.probe_bounty_minted",

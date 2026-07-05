@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -16,6 +17,15 @@ type BankKeeper interface {
 	SendCoinsFromModuleToModule(ctx context.Context, senderModule, recipientModule string, amt sdk.Coins) error
 	MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
+}
+
+// VestingRewardsKeeper is the chain's single cap-gated mint entry point
+// (x/vesting_rewards.MintWithCap). Chain-sponsored inquiry minting routes
+// through it so no emission path can push total supply past the
+// 222,222,222 ZRN cap. Wired post-init in app.go; nil = direct-mint fallback
+// (isolated unit tests only).
+type VestingRewardsKeeper interface {
+	MintWithCap(ctx sdk.Context, recipientModule string, amount *big.Int) (*big.Int, error)
 }
 
 // DomainSparsity is the narrow per-row read of the chain's frontier

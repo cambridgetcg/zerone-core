@@ -32,6 +32,29 @@ import (
 // is responsible for cadence enforcement, top-K selection, and
 // sparsity threshold filtering — this method just creates the
 // record once those decisions have been made.
+// mintCappedUzrn mints `amount` uzrn into module through the chain's single
+// cap-gated entry point (x/vesting_rewards.MintWithCap) so chain-sponsored
+// inquiries cannot push total supply past the 222,222,222 ZRN cap. Returns the
+// amount actually minted. Falls back to a direct mint only when the vesting-
+// rewards keeper is unwired (isolated unit tests).
+func (k Keeper) mintCappedUzrn(ctx context.Context, module string, amount sdkmath.Int) (sdkmath.Int, error) {
+	if !amount.IsPositive() {
+		return sdkmath.ZeroInt(), nil
+	}
+	if k.vestingRewardsKeeper != nil {
+		minted, err := k.vestingRewardsKeeper.MintWithCap(sdk.UnwrapSDKContext(ctx), module, amount.BigInt())
+		if err != nil {
+			return sdkmath.ZeroInt(), err
+		}
+		return sdkmath.NewIntFromBigInt(minted), nil
+	}
+	coins := sdk.NewCoins(sdk.NewCoin(denomZRN, amount))
+	if err := k.bankKeeper.MintCoins(ctx, module, coins); err != nil {
+		return sdkmath.ZeroInt(), err
+	}
+	return amount, nil
+}
+
 func (k Keeper) SystemSponsorInquiry(
 	ctx context.Context,
 	domain string,
@@ -46,11 +69,18 @@ func (k Keeper) SystemSponsorInquiry(
 	}
 	params := k.GetParams(ctx)
 
-	// 1. Mint into the frontier bounty pool.
-	coins := sdk.NewCoins(sdk.NewCoin(denomZRN, bountyUzrn))
-	if err := k.bankKeeper.MintCoins(ctx, types.FrontierBountyPoolModuleName, coins); err != nil {
+	// 1. Mint into the frontier bounty pool through the chain's single
+	// cap-gated entry point — the 222,222,222 ZRN cap is enforced once,
+	// chain-wide, so chain-sponsored inquiries cannot inflate supply.
+	minted, err := k.mintCappedUzrn(ctx, types.FrontierBountyPoolModuleName, bountyUzrn)
+	if err != nil {
 		return "", fmt.Errorf("mint into frontier bounty pool: %w", err)
 	}
+	if !minted.IsPositive() {
+		return "", fmt.Errorf("frontier bounty mint clipped to zero at supply cap")
+	}
+	bountyUzrn = minted // honour any cap clip in the transfer + record below
+	coins := sdk.NewCoins(sdk.NewCoin(denomZRN, bountyUzrn))
 
 	// 2. Transfer to the inquiry bounty pool so the existing payout
 	// path can pay the eventual winner without modification.

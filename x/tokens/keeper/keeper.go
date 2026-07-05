@@ -24,6 +24,12 @@ type Keeper struct {
 
 	bankKeeper types.BankKeeper
 
+	// vestingRewardsKeeper is the chain's single cap-gated mint entry point,
+	// wired post-init in app.go. Emission-period minting routes through it so
+	// the 222,222,222 ZRN cap is enforced once, chain-wide. Optional: when nil
+	// (isolated unit tests) minting falls back to a direct bank mint.
+	vestingRewardsKeeper types.VestingRewardsKeeper
+
 	// Module authority (typically governance module address)
 	authority string
 }
@@ -42,6 +48,10 @@ func NewKeeper(
 		authority:    authority,
 	}
 }
+
+// SetVestingRewardsKeeper wires the chain's cap-gated mint entry point into the
+// tokens keeper (post-init, app.go). Emission-period minting gates through it.
+func (k *Keeper) SetVestingRewardsKeeper(vrk types.VestingRewardsKeeper) { k.vestingRewardsKeeper = vrk }
 
 // Logger returns a module-specific logger.
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
@@ -305,6 +315,25 @@ func (k Keeper) ExportGenesisJSON(ctx sdk.Context) json.RawMessage {
 	return bz
 }
 
+// mintCappedUzrn issues `amount` uzrn into module through the chain's single
+// cap-gated mint entry point (x/vesting_rewards.MintWithCap), so emission
+// schedules cannot push total supply past the 222,222,222 ZRN cap. Returns the
+// amount actually minted. Falls back to a direct mint only when the vesting-
+// rewards keeper is unwired (isolated unit tests).
+func (k Keeper) mintCappedUzrn(ctx sdk.Context, module string, amount *big.Int) (*big.Int, error) {
+	if amount == nil || amount.Sign() <= 0 {
+		return new(big.Int), nil
+	}
+	if k.vestingRewardsKeeper != nil {
+		return k.vestingRewardsKeeper.MintWithCap(ctx, module, amount)
+	}
+	coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(amount)))
+	if err := k.bankKeeper.MintCoins(ctx, module, coins); err != nil {
+		return nil, err
+	}
+	return amount, nil
+}
+
 // ---------- BeginBlocker ----------
 
 // BeginBlocker processes active emission periods, minting tokens for the current block.
@@ -336,20 +365,21 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 			return false
 		}
 
-		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(amountPerBlock)))
-		if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
+		minted, err := k.mintCappedUzrn(ctx, types.ModuleName, amountPerBlock)
+		if err != nil || minted.Sign() <= 0 {
 			return false
 		}
+		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(minted)))
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipientAddr, coins); err != nil {
 			return false
 		}
 
-		// Track total emitted
+		// Track total emitted (actually-minted, honouring the supply cap)
 		totalEmitted := new(big.Int)
 		if emission.TotalEmitted != "" {
 			totalEmitted.SetString(emission.TotalEmitted, 10)
 		}
-		totalEmitted.Add(totalEmitted, amountPerBlock)
+		totalEmitted.Add(totalEmitted, minted)
 		emission.TotalEmitted = totalEmitted.String()
 		k.SetEmissionPeriod(ctx, emission)
 
