@@ -24,5 +24,11 @@ type StakingKeeper interface {
 // coupled to knowledge throughput (T9 / thesis claim 1). Nil-safe: when this
 // keeper is not wired, block rewards fall back to the pure decay schedule.
 type KnowledgeKeeper interface {
+	// GetVerificationRate is the legacy accept-rate (accepted/terminal). Retained
+	// for the supply-coupling audit query; no longer drives block emission.
 	GetVerificationRate(ctx context.Context) uint64
+	// GetSurvivedChallengeRate is the survival-gate coupling signal:
+	// survived/(survived+disproven) facts in BPS. Block emission couples to this,
+	// so issuance follows truth surviving challenge, not acceptance volume.
+	GetSurvivedChallengeRate(ctx context.Context) uint64
 }

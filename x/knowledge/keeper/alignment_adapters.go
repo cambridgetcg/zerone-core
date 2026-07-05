@@ -46,6 +46,38 @@ func (a *AlignmentKnowledgeAdapter) GetVerificationRate(ctx context.Context) uin
 	return rate
 }
 
+// GetSurvivedChallengeRate computes survived / (survived + disproven) facts in BPS.
+// This is the survival-gate coupling signal: a fact that stood an adversarial
+// challenge (CorroborationCount > 0) is quality expensive to fake, while a
+// FACT_STATUS_DISPROVEN fact lost its challenge. Facts never challenged are
+// excluded, so the rate measures the truth quality of the knowledge base under
+// adversarial pressure — not acceptance volume. Neutral (500_000) until at least
+// one challenge has resolved. Unlike accept-rate, rewarding this cannot be gamed
+// by rubber-stamping: reward flows to survival, and rejecting a false claim
+// (which then falls to DISPROVEN on challenge) raises the rate rather than
+// lowering it.
+func (a *AlignmentKnowledgeAdapter) GetSurvivedChallengeRate(ctx context.Context) uint64 {
+	var survived, disproven uint64
+	a.k.IterateFacts(ctx, func(fact *types.Fact) bool {
+		switch {
+		case fact.Status == types.FactStatus_FACT_STATUS_DISPROVEN:
+			disproven++
+		case fact.CorroborationCount > 0:
+			survived++
+		}
+		return false
+	})
+	challenged := survived + disproven
+	if challenged == 0 {
+		return 500_000 // NeutralBPS — no challenges resolved yet
+	}
+	rate := survived * 1_000_000 / challenged
+	if rate > 1_000_000 {
+		return 1_000_000
+	}
+	return rate
+}
+
 // GetTotalFacts counts all accepted claims (facts).
 func (a *AlignmentKnowledgeAdapter) GetTotalFacts(ctx context.Context) uint64 {
 	var count uint64

@@ -388,12 +388,15 @@ func (k Keeper) DistributeBlockReward(
 		effectiveReward.Div(effectiveReward, big.NewInt(10000))
 	}
 
-	// Knowledge-coupling: scale reward by verification throughput (T9 / thesis).
-	// Below target rate → reward decays linearly to KnowledgeCouplingFloorBps.
-	// At or above target → full reward. Disabled when target is 0 or knowledge
-	// keeper not wired (nil-safe for harnesses).
+	// Survival-gate coupling: scale reward by the SURVIVED-CHALLENGE rate, not the
+	// accept-rate. Issuance follows truth that stood adversarial challenge, so
+	// rubber-stamping earns nothing extra and rejecting a false claim (which then
+	// falls to DISPROVEN under challenge) RAISES the rate instead of lowering it.
+	// Below target → reward decays linearly to KnowledgeCouplingFloorBps; at or
+	// above → full reward. Disabled when target is 0 or the knowledge keeper is
+	// not wired (nil-safe for harnesses).
 	if params.KnowledgeCouplingTargetBps > 0 && k.knowledgeKeeper != nil {
-		rate := k.knowledgeKeeper.GetVerificationRate(ctx)
+		rate := k.knowledgeKeeper.GetSurvivedChallengeRate(ctx)
 		const bps uint64 = 1_000_000
 		var multiplier uint64
 		switch {
@@ -411,7 +414,7 @@ func (k Keeper) DistributeBlockReward(
 
 		ctx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.vesting_rewards.knowledge_coupling_applied",
-			sdk.NewAttribute("verification_rate_bps", fmt.Sprintf("%d", rate)),
+			sdk.NewAttribute("survived_challenge_rate_bps", fmt.Sprintf("%d", rate)),
 			sdk.NewAttribute("target_bps", fmt.Sprintf("%d", params.KnowledgeCouplingTargetBps)),
 			sdk.NewAttribute("multiplier_bps", fmt.Sprintf("%d", multiplier)),
 		))

@@ -1863,6 +1863,8 @@ type stubKnowledgeKeeper struct {
 
 func (s *stubKnowledgeKeeper) GetVerificationRate(_ context.Context) uint64 { return s.rate }
 
+func (s *stubKnowledgeKeeper) GetSurvivedChallengeRate(_ context.Context) uint64 { return s.rate }
+
 func TestQuerySupplyCouplingAudit_NilKnowledgeKeeper(t *testing.T) {
 	bk := newMockBankKeeper()
 	sk := &mockStakingKeeper{activeCount: 22}

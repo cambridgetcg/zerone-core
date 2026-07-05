@@ -70,7 +70,11 @@ func ClassifySSI(ssi uint64, params *Params) string {
 func ComputeTarget(ssi uint64, path string) uint64 {
 	switch path {
 	case "rewards.block":
-		// Scale linearly: SSI=0 → 0.5x, SSI=1M → 1.5x
+		// Scale linearly: SSI=0 → 0.5x, SSI=1M → 1.5x.
+		// NOTE: this SSI-driven block multiplier is currently DORMANT (nothing reads
+		// GetMultiplier("rewards.block")). It is fed by the accept-rate via SSI, so if
+		// it is ever wired to emission it would re-introduce the accept-rate coupling
+		// the survival-gate removes — freeze it via MsgFreezeMultiplier / genesis then.
 		return 500_000 + ssi
 	case "slashing.severity":
 		// Inverse: SSI=0 → 2.0x, SSI=1M → 0.5x
