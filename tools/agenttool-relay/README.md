@@ -2,7 +2,7 @@
 
 The agenttool → ZERONE attestation relay (agenttool bridge, slice 02).
 
-Fetches a **settled** marketplace invocation from an agenttool instance,
+Fetches a **released** marketplace invocation from an agenttool instance,
 canonicalizes its economically-load-bearing fields, and submits a
 `MsgSubmitExternalAttestation` through the registered
 `agenttool-invocation-v1` adapter — a completed agent invocation,
@@ -10,10 +10,11 @@ witnessed on-chain with re-derivable provenance.
 
 ## What it witnesses
 
-Only invocations with `status: "settled"` and a non-empty `completion_sig`.
-Escrowed, refunded, declined, or in-review invocations are refused: the
-relay witnesses facts about value having moved, it does not vouch for
-intentions.
+Only invocations with `status: "released"` (agenttool's success-terminal:
+escrow paid to the seller), a non-empty `completion_sig`, and `settled_at`
+set. Escrowed, acknowledged, completed-in-review, disputed, or refunded
+invocations are refused: the relay witnesses facts about value having
+moved, it does not vouch for intentions.
 
 The `SubstrateLink.source` carries:
 

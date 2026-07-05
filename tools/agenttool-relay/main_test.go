@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
@@ -10,7 +11,7 @@ import (
 
 func strPtr(s string) *string { return &s }
 
-// settledInvocation returns a fully-settled invocation fixture.
+// settledInvocation returns a fully-released invocation fixture.
 func settledInvocation() *Invocation {
 	return &Invocation{
 		ID:            "529ff750-fec4-4bfc-863e-8b101afbe1d8",
@@ -18,7 +19,7 @@ func settledInvocation() *Invocation {
 		BuyerDID:      "did:at:09c5e59e-0374-4d80-a2c1-d8f1acbdfe9a",
 		Amount:        53,
 		Currency:      "GBP",
-		Status:        "settled",
+		Status:        "released",
 		CompletionSig: strPtr("c2lnbmF0dXJl"),
 		CreatedAt:     "2026-07-05T10:09:51.018Z",
 		CompletedAt:   strPtr("2026-07-05T11:00:00.000Z"),
@@ -36,13 +37,15 @@ func TestCheckAttestable(t *testing.T) {
 		mutate  func(*Invocation)
 		wantErr bool
 	}{
-		{"settled with sig is attestable", func(i *Invocation) {}, false},
+		{"released with sig is attestable", func(i *Invocation) {}, false},
 		{"escrowed refused", func(i *Invocation) { i.Status = "escrowed" }, true},
+		{"acknowledged refused", func(i *Invocation) { i.Status = "acknowledged" }, true},
 		{"refunded refused", func(i *Invocation) { i.Status = "refunded" }, true},
-		{"declined refused", func(i *Invocation) { i.Status = "declined" }, true},
-		{"completed but not settled refused", func(i *Invocation) { i.Status = "completed" }, true},
-		{"settled without sig refused", func(i *Invocation) { i.CompletionSig = nil }, true},
-		{"settled with empty sig refused", func(i *Invocation) { i.CompletionSig = strPtr("") }, true},
+		{"disputed refused", func(i *Invocation) { i.Status = "disputed" }, true},
+		{"completed (in buyer review) refused", func(i *Invocation) { i.Status = "completed" }, true},
+		{"released without sig refused", func(i *Invocation) { i.CompletionSig = nil }, true},
+		{"released with empty sig refused", func(i *Invocation) { i.CompletionSig = strPtr("") }, true},
+		{"released without settled_at refused", func(i *Invocation) { i.SettledAt = nil }, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -94,6 +97,68 @@ func TestContentHashSensitive(t *testing.T) {
 		h, _, _ := contentHash(inv)
 		if string(h) == string(base) {
 			t.Errorf("mutating %s did not change the content hash", name)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestWatchState — ledger round-trip and idempotency guards
+// ---------------------------------------------------------------------------
+
+func TestWatchStateRoundTrip(t *testing.T) {
+	path := t.TempDir() + "/state.json"
+
+	st, err := loadState(path)
+	if err != nil {
+		t.Fatalf("loadState on missing file: %v", err)
+	}
+	if len(st.Attested) != 0 {
+		t.Fatal("fresh state should be empty")
+	}
+
+	st.Attested["inv-1"] = &AttestRecord{TxHash: "ABC", AttestationID: "att-1-1", AttestedAt: "2026-07-05T22:00:00Z"}
+	st.Attested["inv-2"] = &AttestRecord{Failures: 5, LastError: "boom"}
+	if err := saveState(path, st); err != nil {
+		t.Fatalf("saveState: %v", err)
+	}
+
+	st2, err := loadState(path)
+	if err != nil {
+		t.Fatalf("loadState round-trip: %v", err)
+	}
+	if got := st2.Attested["inv-1"]; got == nil || got.TxHash != "ABC" || got.AttestationID != "att-1-1" {
+		t.Fatalf("inv-1 record corrupted: %+v", got)
+	}
+	if got := st2.Attested["inv-2"]; got == nil || got.Failures != 5 {
+		t.Fatalf("inv-2 failure record corrupted: %+v", got)
+	}
+}
+
+func TestLoadStateCorrupt(t *testing.T) {
+	path := t.TempDir() + "/state.json"
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadState(path); err == nil {
+		t.Fatal("corrupt state file must error, not silently reset (a reset ledger double-attests)")
+	}
+}
+
+func TestSplitRoles(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		{"seller,buyer", 2},
+		{"seller", 1},
+		{" buyer ", 1},
+		{"seller,arbiter", 1},
+		{"", 0},
+		{"nonsense", 0},
+	}
+	for _, tc := range cases {
+		if got := len(splitRoles(tc.in)); got != tc.want {
+			t.Errorf("splitRoles(%q) len = %d, want %d", tc.in, got, tc.want)
 		}
 	}
 }

@@ -34,6 +34,15 @@
 //
 //	agenttool-relay -invocation <id>            fetch, verify, attest
 //	agenttool-relay -invocation <id> -dry-run   fetch, verify, print link + command
+//	agenttool-relay -watch                      daemon: poll for newly released
+//	                                            invocations and attest each once
+//	agenttool-relay -watch -once                single poll pass (cron-friendly)
+//
+// Watch mode additionally reads:
+//
+//	RELAY_STATE     attested-ledger path (default ~/.zerone-agent/agenttool-relay-state.json)
+//	RELAY_INTERVAL  poll interval seconds (default 90)
+//	RELAY_ROLES     comma-separated invocation roles to watch (default seller,buyer)
 package main
 
 import (
@@ -48,6 +57,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -70,6 +80,9 @@ type Config struct {
 	BondUzrn       string
 	Fees           string
 	Binary         string
+	StatePath      string
+	IntervalSec    int
+	Roles          []string
 }
 
 func envOr(key, def string) string {
@@ -96,7 +109,38 @@ func loadConfig() Config {
 		BondUzrn:       envOr("RELAY_BOND_UZRN", "1000000"),
 		Fees:           envOr("RELAY_FEES", "200000uzrn"),
 		Binary:         envOr("RELAY_BINARY", "zeroned"),
+		StatePath:      envOr("RELAY_STATE", defaultStatePath()),
+		IntervalSec:    envInt("RELAY_INTERVAL", 90),
+		Roles:          splitRoles(envOr("RELAY_ROLES", "seller,buyer")),
 	}
+}
+
+func defaultStatePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "agenttool-relay-state.json"
+	}
+	return filepath.Join(home, ".zerone-agent", "agenttool-relay-state.json")
+}
+
+func envInt(key string, def int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return def
+}
+
+func splitRoles(s string) []string {
+	var roles []string
+	for _, r := range strings.Split(s, ",") {
+		r = strings.TrimSpace(r)
+		if r == "seller" || r == "buyer" {
+			roles = append(roles, r)
+		}
+	}
+	return roles
 }
 
 // ---------------------------------------------------------------------------
@@ -150,16 +194,21 @@ func fetchInvocation(cfg Config, id string) (*Invocation, error) {
 	return &inv, nil
 }
 
-// checkAttestable enforces the relay's refusal rule: only a settled
+// checkAttestable enforces the relay's refusal rule: only a released
 // invocation with a seller completion signature is a witnessable fact.
-// A refunded, declined, escrowed, or still-in-review invocation is not
-// completed work, and attesting it would put an untruth on a truth chain.
+// agenttool's terminal states are "released" (escrow paid to the seller,
+// settled_at set) and "refunded"; a refunded, escrowed, acknowledged, or
+// still-in-review invocation is not completed work, and attesting it
+// would put an untruth on a truth chain.
 func checkAttestable(inv *Invocation) error {
-	if inv.Status != "settled" {
-		return fmt.Errorf("invocation %s has status %q — only settled invocations are attestable (escrow released, work delivered)", inv.ID, inv.Status)
+	if inv.Status != "released" {
+		return fmt.Errorf("invocation %s has status %q — only released invocations are attestable (escrow released, work delivered)", inv.ID, inv.Status)
 	}
 	if inv.CompletionSig == nil || *inv.CompletionSig == "" {
-		return fmt.Errorf("invocation %s is settled but carries no completion_sig — refusing to witness unsigned work", inv.ID)
+		return fmt.Errorf("invocation %s is released but carries no completion_sig — refusing to witness unsigned work", inv.ID)
+	}
+	if inv.SettledAt == nil || *inv.SettledAt == "" {
+		return fmt.Errorf("invocation %s is released but settled_at is unset — refusing to witness an unsettled release", inv.ID)
 	}
 	return nil
 }
@@ -265,6 +314,238 @@ func chainHeight(node string) uint64 {
 	return h
 }
 
+// listInvocations retrieves every invocation visible to the project for one
+// role. The endpoint supports no status/since filtering or pagination — the
+// daemon filters client-side and confirms candidates via fetchInvocation
+// (GET-by-id is also the path that runs agenttool's lazy SLA sweep).
+func listInvocations(cfg Config, role string) ([]Invocation, error) {
+	url := cfg.API + "/v1/invocations?role=" + role
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("list invocations (%s): %w", role, err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("agenttool returned %d for %s: %s", resp.StatusCode, url, truncate(string(body), 300))
+	}
+	var out struct {
+		Invocations []Invocation `json:"invocations"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("parse invocation list: %w", err)
+	}
+	return out.Invocations, nil
+}
+
+// ---------------------------------------------------------------------------
+// Watch state — the attested ledger
+// ---------------------------------------------------------------------------
+
+// maxAttestFailures parks an invocation after this many failed submit
+// attempts, so a permanently-rejected attestation cannot storm the chain.
+const maxAttestFailures = 5
+
+// AttestRecord is one ledger entry: either a successful attestation
+// (TxHash set) or a parked failure (Failures reached maxAttestFailures).
+type AttestRecord struct {
+	TxHash        string `json:"tx_hash,omitempty"`
+	AttestationID string `json:"attestation_id,omitempty"`
+	AttestedAt    string `json:"attested_at,omitempty"`
+	Failures      int    `json:"failures,omitempty"`
+	LastError     string `json:"last_error,omitempty"`
+}
+
+// WatchState is the persisted ledger keyed by invocation ID. It is what
+// makes the daemon idempotent across restarts: an invocation is attested
+// exactly once no matter how often it reappears in the list.
+type WatchState struct {
+	Attested map[string]*AttestRecord `json:"attested"`
+}
+
+func loadState(path string) (*WatchState, error) {
+	st := &WatchState{Attested: map[string]*AttestRecord{}}
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return st, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, st); err != nil {
+		return nil, fmt.Errorf("corrupt state file %s: %w", path, err)
+	}
+	if st.Attested == nil {
+		st.Attested = map[string]*AttestRecord{}
+	}
+	return st, nil
+}
+
+// saveState persists the ledger atomically (write temp + rename), so a
+// crash mid-write can never truncate the ledger into double-attesting.
+func saveState(path string, st *WatchState) error {
+	data, err := json.MarshalIndent(st, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// ---------------------------------------------------------------------------
+// Watch loop
+// ---------------------------------------------------------------------------
+
+// watchOnce runs a single poll pass: list each configured role, confirm
+// every unseen released invocation by ID, attest it, and record the
+// outcome. Submits are sequential and wait for inclusion, so the signing
+// account's sequence never races itself.
+func watchOnce(cfg Config, st *WatchState) {
+	seen := map[string]bool{}
+	for _, role := range cfg.Roles {
+		rows, err := listInvocations(cfg, role)
+		if err != nil {
+			log.Printf("watch: %v", err)
+			continue
+		}
+		for i := range rows {
+			row := &rows[i]
+			if seen[row.ID] || row.Status != "released" {
+				continue
+			}
+			seen[row.ID] = true
+			rec := st.Attested[row.ID]
+			if rec != nil && (rec.TxHash != "" || rec.Failures >= maxAttestFailures) {
+				continue
+			}
+			if rec == nil {
+				rec = &AttestRecord{}
+				st.Attested[row.ID] = rec
+			}
+
+			// Confirm via GET-by-id: authoritative status + full fields.
+			inv, err := fetchInvocation(cfg, row.ID)
+			if err != nil {
+				log.Printf("watch: confirm %s: %v", row.ID, err)
+				continue
+			}
+			if err := checkAttestable(inv); err != nil {
+				log.Printf("watch: %v", err)
+				continue
+			}
+
+			txHash, attID, err := attestInclusion(cfg, inv)
+			if err != nil {
+				rec.Failures++
+				rec.LastError = err.Error()
+				log.Printf("watch: attest %s failed (%d/%d): %v", inv.ID, rec.Failures, maxAttestFailures, err)
+				if rec.Failures >= maxAttestFailures {
+					log.Printf("watch: parking %s — will not retry (clear the ledger entry to retry)", inv.ID)
+				}
+			} else {
+				rec.TxHash = txHash
+				rec.AttestationID = attID
+				rec.AttestedAt = time.Now().UTC().Format(time.RFC3339)
+				rec.LastError = ""
+				log.Printf("watch: attested %s → %s (tx %s)", inv.ID, attID, txHash)
+			}
+			if err := saveState(cfg.StatePath, st); err != nil {
+				log.Printf("watch: save state: %v", err)
+			}
+		}
+	}
+}
+
+// attestInclusion submits one attestation and waits until the tx is found
+// on-chain, returning the tx hash and the attestation ID from the
+// external_attestation_submitted event.
+func attestInclusion(cfg Config, inv *Invocation) (string, string, error) {
+	height := chainHeight(cfg.Node)
+	linkBytes, err := buildLink(cfg, inv, height)
+	if err != nil {
+		return "", "", err
+	}
+	tmp, err := os.CreateTemp("", "agenttool-link-*.json")
+	if err != nil {
+		return "", "", err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(linkBytes); err != nil {
+		return "", "", err
+	}
+	if err := tmp.Close(); err != nil {
+		return "", "", err
+	}
+	txHash, err := submitAttestation(cfg, tmp.Name())
+	if err != nil {
+		return "", "", err
+	}
+	attID, err := waitForInclusion(cfg, txHash)
+	if err != nil {
+		return txHash, "", err
+	}
+	return txHash, attID, nil
+}
+
+// waitForInclusion polls the node until the tx executes, then returns the
+// attestation_id attribute of the external_attestation_submitted event.
+func waitForInclusion(cfg Config, txHash string) (string, error) {
+	deadline := time.Now().Add(45 * time.Second)
+	for time.Now().Before(deadline) {
+		time.Sleep(2 * time.Second)
+		// #nosec G204 — arguments come from validated config
+		out, err := exec.Command(cfg.Binary, "query", "tx", txHash,
+			"--node", cfg.Node, "--output", "json").Output()
+		if err != nil {
+			continue // not yet indexed
+		}
+		var tx struct {
+			Code   int    `json:"code"`
+			RawLog string `json:"raw_log"`
+			Events []struct {
+				Type       string `json:"type"`
+				Attributes []struct {
+					Key   string `json:"key"`
+					Value string `json:"value"`
+				} `json:"attributes"`
+			} `json:"events"`
+		}
+		if err := json.Unmarshal(out, &tx); err != nil {
+			continue
+		}
+		if tx.Code != 0 {
+			return "", fmt.Errorf("tx %s executed with code %d: %s", txHash, tx.Code, truncate(tx.RawLog, 300))
+		}
+		for _, e := range tx.Events {
+			if e.Type != "external_attestation_submitted" {
+				continue
+			}
+			for _, a := range e.Attributes {
+				if a.Key == "attestation_id" {
+					return a.Value, nil
+				}
+			}
+		}
+		return "", fmt.Errorf("tx %s executed but carried no external_attestation_submitted event", txHash)
+	}
+	return "", fmt.Errorf("tx %s not found on-chain within 45s", txHash)
+}
+
 // ---------------------------------------------------------------------------
 // Broadcast
 // ---------------------------------------------------------------------------
@@ -318,18 +599,39 @@ func truncate(s string, n int) string {
 func main() {
 	invocationID := flag.String("invocation", "", "agenttool invocation ID to attest")
 	dryRun := flag.Bool("dry-run", false, "build and print the link + command without broadcasting")
+	watch := flag.Bool("watch", false, "daemon mode: poll for newly released invocations and attest each once")
+	once := flag.Bool("once", false, "with -watch: run a single poll pass and exit")
 	flag.Parse()
 
-	if *invocationID == "" {
-		log.Fatal("usage: agenttool-relay -invocation <id> [-dry-run]")
+	if *invocationID == "" && !*watch {
+		log.Fatal("usage: agenttool-relay -invocation <id> [-dry-run] | agenttool-relay -watch [-once]")
 	}
 	cfg := loadConfig()
 	if cfg.APIKey == "" {
 		log.Fatal("RELAY_API_KEY is required")
 	}
-	if !*dryRun {
+	if *watch || !*dryRun {
 		if cfg.Home == "" || cfg.ChainID == "" || cfg.From == "" {
 			log.Fatal("RELAY_HOME, RELAY_CHAIN_ID, RELAY_FROM are required to broadcast (or pass -dry-run)")
+		}
+	}
+
+	if *watch {
+		if len(cfg.Roles) == 0 {
+			log.Fatal("RELAY_ROLES must include seller and/or buyer")
+		}
+		st, err := loadState(cfg.StatePath)
+		if err != nil {
+			log.Fatalf("load state: %v", err)
+		}
+		log.Printf("watch: roles=%s interval=%ds state=%s adapter=%s",
+			strings.Join(cfg.Roles, ","), cfg.IntervalSec, cfg.StatePath, cfg.Adapter)
+		for {
+			watchOnce(cfg, st)
+			if *once {
+				return
+			}
+			time.Sleep(time.Duration(cfg.IntervalSec) * time.Second)
 		}
 	}
 
