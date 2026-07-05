@@ -22,6 +22,10 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		return err
 	}
 
+	// Survival-gate: issue escrowed submitter rewards for facts whose challenge
+	// window closed while still VERIFIED (survived unchallenged).
+	k.SweepSurvivedRewards(ctx)
+
 	// Check if we're at a fitness epoch boundary
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())

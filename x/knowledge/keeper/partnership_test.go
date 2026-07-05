@@ -326,7 +326,28 @@ func TestRewardRouting_ThroughPartnership(t *testing.T) {
 	err := k.CompleteRound(ctx, round, result)
 	require.NoError(t, err)
 
-	// Verify reward was routed through partnership
+	// Survival-gate: the reward is ESCROWED at accept, not distributed yet.
+	require.Empty(t, pk.distributed, "reward must be escrowed until the fact survives, not paid at accept")
+
+	// Locate the created fact and confirm its reward is pending, carrying the partnership.
+	var factID string
+	k.IterateFacts(ctx, func(f *types.Fact) bool {
+		if f.ClaimId == claim.Id {
+			factID = f.Id
+			return true
+		}
+		return false
+	})
+	require.NotEmpty(t, factID, "accepted claim must have created a fact")
+	pr, pending := k.GetSurvivalPendingReward(ctx, factID)
+	require.True(t, pending, "submitter reward must be escrowed pending survival")
+	require.Equal(t, partnershipID, pr.PartnershipId)
+
+	// The fact sits unchallenged past its challenge window → it survives → the
+	// escrowed reward is released through the partnership split, exactly as before.
+	ctx = ctx.WithBlockHeight(int64(pr.Deadline) + 1)
+	k.SweepSurvivedRewards(ctx)
+
 	require.Len(t, pk.distributed, 1)
 	require.Equal(t, partnershipID, pk.distributed[0].PartnershipID)
 	require.Equal(t, "knowledge_verification", pk.distributed[0].Source)

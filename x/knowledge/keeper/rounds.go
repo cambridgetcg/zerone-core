@@ -608,29 +608,13 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		}
 	}
 
-	// Route submitter reward: through partnership split or direct vesting (R26-4)
-	if claim.PartnershipId != "" && k.partnershipKeeper != nil {
-		stakeAmt, ok := new(big.Int).SetString(claim.Stake, 10)
-		if ok && stakeAmt.Sign() > 0 {
-			rewardCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-			err := k.partnershipKeeper.DistributeReward(ctx, claim.PartnershipId, rewardCoins, "knowledge_verification")
-			if err != nil {
-				// Fallback to direct vesting on partnership error
-				k.Logger(ctx).Error("partnership reward routing failed, falling back to vesting",
-					"partnership_id", claim.PartnershipId, "err", err)
-				if k.vestingRewardsKeeper != nil {
-					_ = k.vestingRewardsKeeper.CreateVestingScheduleFromKnowledge(
-						ctx, claim.Id, factID, claim.Submitter, claim.Stake, claim.Category,
-					)
-				}
-			}
-		}
-	} else if k.vestingRewardsKeeper != nil {
-		// Direct vesting (no partnership — existing behavior)
-		_ = k.vestingRewardsKeeper.CreateVestingScheduleFromKnowledge(
-			ctx, claim.Id, factID, claim.Submitter, claim.Stake, claim.Category,
-		)
-	}
+	// Survival-gate: ESCROW the submitter reward until the fact survives its
+	// challenge window. Nothing is minted at accept — the reward is issued only on a
+	// challenge-win or an unchallenged window expiry (releaseSurvivalReward), and
+	// cancelled if the fact is disproven (cancelSurvivalReward). Issuance follows
+	// survival, not acceptance. The original partnership-split / direct-vesting
+	// routing runs unchanged at release time (routeSubmitterReward).
+	k.EscrowSubmitterReward(ctx, fact, claim)
 
 	// Check if this fact fills an active knowledge bounty
 	k.ClaimBountyForFact(ctx, fact, claim)
@@ -825,6 +809,9 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	originalFact.Status = types.FactStatus_FACT_STATUS_ACTIVE
 	originalFact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, originalFact)
+
+	// Survival-gate: the fact won its challenge — issue its escrowed submitter reward.
+	k.releaseSurvivalReward(ctx, originalFact.Id)
 
 	// Popper, not popularity: a fact's standing comes from how many
 	// serious challenges it has survived. This event records one more

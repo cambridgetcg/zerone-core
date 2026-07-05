@@ -126,6 +126,11 @@ var (
 	ConformityStreakPrefix       = []byte{0x43} // 0x43 | domain → ConformityStreak (JSON)
 	DomainEpochRoundIndexPrefix = []byte{0x44} // 0x44 | domain / epoch_bytes / roundID → 0x01
 
+	// Survival-gate escrow: the submitter reward is held until the fact survives its
+	// challenge window — released on challenge-win / unchallenged expiry, cancelled on DISPROVEN.
+	SurvivalPendingRewardPrefix = []byte{0x45} // 0x45 | factID → SurvivalPendingReward (JSON)
+	SurvivalDeadlineIndexPrefix = []byte{0x46} // 0x46 | be64(deadline) | factID → 0x01 (survival-sweep time index)
+
 	// ─── Retroactive vindication (R28-1) ────────────────────────────────
 	VindicationPendingPrefix = []byte{0x50} // 0x50 | factID → []VindicationEntry (JSON)
 	VindicationRecordPrefix  = []byte{0x51} // 0x51 | factID / verifier → VindicationRecord (JSON)
