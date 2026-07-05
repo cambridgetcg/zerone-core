@@ -55,30 +55,23 @@ message Params {
   uint64 max_facts_per_domain        = 30; // default: 100,000
   uint64 fact_expiry_blocks          = 31; // default: 0 (no expiry)
   uint64 cross_stratum_discount_bps  = 32; // default: 0
-  uint64 novelty_bonus_bps           = 33; // default: 0
   uint64 max_validators_per_round    = 34; // default: 22
-  uint64 max_citations_per_claim     = 35; // default: 50
-  uint64 citation_decay_per_level    = 36; // default: 500,000 (50% per ancestor level)
-  uint64 self_citation_discount_bps  = 37; // default: 500,000 (50%)
   uint64 confidence_growth_epoch     = 38; // default: 1,111 blocks
   uint64 confidence_growth_per_epoch_bps = 39; // default: 11,000 (1.1%)
   uint64 max_survival_confidence     = 40; // default: 770,000 (77%)
   uint64 survived_challenge_confidence_cap = 41; // default: 880,000 (88%)
   uint64 max_apprentice_validators   = 42; // default: 111 (Sybil cap)
 
-  // ─── FARM anti-gaming params ─────────────────────────────────────────────
-  uint64 conformity_threshold_bps          = 43; // default: 950,000 (FARM-1)
-  uint64 calibration_trivial_threshold     = 44; // default: 950,000 (FARM-2)
-  uint64 misbehavior_rejection_threshold   = 45; // default: 300,000 (FARM-6)
-  uint64 min_domain_contributors_for_novelty = 46; // default: 3 (FARM-7)
-  uint64 min_participation_rate_bps        = 47; // default: 500,000 (FARM-8)
-  uint64 challenge_stake_ratio_min_bps     = 48; // default: 500,000 (FARM-9)
+  // ─── Removed (v4→v5): dead anti-slop / FARM & citation-gaming params ──────
+  // Field 33/35/36/37 (citation-gaming), 43–48 (FARM anti-gaming) and 50
+  // (malformed-claim slash) were defined with confident defaults but read by
+  // NO keeper logic — the chain advertised a quality gate it never enforced.
+  // Removed and reserved so the numbers/names are never silently reused.
+  reserved 33, 35, 36, 37, 43, 44, 45, 46, 47, 48, 50;
+  reserved "novelty_bonus_bps", "max_citations_per_claim", "citation_decay_per_level", "self_citation_discount_bps", "conformity_threshold_bps", "calibration_trivial_threshold", "misbehavior_rejection_threshold", "min_domain_contributors_for_novelty", "min_participation_rate_bps", "challenge_stake_ratio_min_bps", "malformed_claim_slash_bps";
 
   // ─── Research fund ───────────────────────────────────────────────────────
   uint64 research_fund_share_bps = 49; // default: 130,000 (13%)
-
-  // ─── Malformed claim slashing ──────────────────────────────────────────
-  uint64 malformed_claim_slash_bps = 50; // default: 500,000 (50%) — harsher than invalid_claim (22%)
 
   // ─── Fitness scoring ─────────────────────────────────────────────────────
   uint64 fitness_epoch_blocks        = 51;  // Blocks per fitness epoch

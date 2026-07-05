@@ -36,12 +36,12 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 			"handler for %q must be registered to match the lineage entry", n)
 	}
 
-	// Knowledge module is at ConsensusVersion 4 (post-Wave 10 bump).
+	// Knowledge module is at ConsensusVersion 5 (v5: dead-param removal).
 	var sawKnowledge bool
 	for _, m := range report.Modules {
 		if m.ModuleName == "knowledge" {
 			sawKnowledge = true
-			require.Equal(t, uint64(4), m.ConsensusVersion,
+			require.Equal(t, uint64(5), m.ConsensusVersion,
 				"knowledge module advertises its current ConsensusVersion")
 		}
 	}
@@ -68,14 +68,16 @@ func TestUpgrade_V1ToV2MigrationPipeline(t *testing.T) {
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
 	require.NoError(t, err, "v1.0.1-testnet handler completes without error")
-	require.Equal(t, uint64(4), toVM["knowledge"],
-		"knowledge module advances to its current ConsensusVersion (4) via full migration chain")
+	require.Equal(t, uint64(5), toVM["knowledge"],
+		"knowledge module advances to its current ConsensusVersion (5) via full migration chain")
 
-	// All three migrations ran in sequence — each wrote its marker.
+	// All migrations ran in sequence — each wrote its marker.
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v2_complete"),
 		"v1→v2 migration marker proves Migrate1to2 ran")
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
-		"v3→v4 migration marker proves Migrate3to4 ran at the end of the chain")
+		"v3→v4 migration marker proves Migrate3to4 ran mid-chain")
+	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
+		"v4→v5 migration marker proves Migrate4to5 ran at the end of the chain")
 
 	// The v1.0.1 handler-level marker was written by the upgrade handler itself.
 	handlerMarker := h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1")
@@ -105,12 +107,14 @@ func TestUpgrade_V3ToV4KnowledgeMigrationPipeline(t *testing.T) {
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
 	require.NoError(t, err)
-	require.Equal(t, uint64(4), toVM["knowledge"],
-		"knowledge module is now at ConsensusVersion 4 post-migration")
+	require.Equal(t, uint64(5), toVM["knowledge"],
+		"knowledge module is now at ConsensusVersion 5 post-migration (chain now extends 3→4→5)")
 
-	// v4 migration marker proves Migrate3to4 ran.
+	// v4 + v5 migration markers prove Migrate3to4 and Migrate4to5 both ran.
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
 		"v4 migration marker present")
+	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
+		"v5 migration marker present")
 
 	// TraceSchema is present post-upgrade.
 	schema, ok := h.KnowledgeKeeper.GetTraceSchema(h.Ctx)

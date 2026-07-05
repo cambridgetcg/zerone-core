@@ -107,10 +107,11 @@ func TestResilience_FullDrillP0(t *testing.T) {
 	fromVM["knowledge"] = 3 // simulate chain at pre-upgrade state
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
 	require.NoError(t, err, "named upgrade runs despite the module being paused (handlers, not migrations, gate writes)")
-	require.Equal(t, uint64(4), toVM["knowledge"])
+	require.Equal(t, uint64(5), toVM["knowledge"])
 
 	// ── STEP 7: migration marker present — fix "deployed" ─────────────
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"))
+	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"))
 
 	// ── STEP 8: record the named-upgrade remediation ──────────────────
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{

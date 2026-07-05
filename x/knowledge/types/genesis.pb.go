@@ -65,27 +65,14 @@ type Params struct {
 	MaxFactsPerDomain              uint64 `protobuf:"varint,30,opt,name=max_facts_per_domain,json=maxFactsPerDomain,proto3" json:"max_facts_per_domain,omitempty"`                                        // default: 100,000
 	FactExpiryBlocks               uint64 `protobuf:"varint,31,opt,name=fact_expiry_blocks,json=factExpiryBlocks,proto3" json:"fact_expiry_blocks,omitempty"`                                             // default: 0 (no expiry)
 	CrossStratumDiscountBps        uint64 `protobuf:"varint,32,opt,name=cross_stratum_discount_bps,json=crossStratumDiscountBps,proto3" json:"cross_stratum_discount_bps,omitempty"`                      // default: 0
-	NoveltyBonusBps                uint64 `protobuf:"varint,33,opt,name=novelty_bonus_bps,json=noveltyBonusBps,proto3" json:"novelty_bonus_bps,omitempty"`                                                // default: 0
 	MaxValidatorsPerRound          uint64 `protobuf:"varint,34,opt,name=max_validators_per_round,json=maxValidatorsPerRound,proto3" json:"max_validators_per_round,omitempty"`                            // default: 22
-	MaxCitationsPerClaim           uint64 `protobuf:"varint,35,opt,name=max_citations_per_claim,json=maxCitationsPerClaim,proto3" json:"max_citations_per_claim,omitempty"`                               // default: 50
-	CitationDecayPerLevel          uint64 `protobuf:"varint,36,opt,name=citation_decay_per_level,json=citationDecayPerLevel,proto3" json:"citation_decay_per_level,omitempty"`                            // default: 500,000 (50% per ancestor level)
-	SelfCitationDiscountBps        uint64 `protobuf:"varint,37,opt,name=self_citation_discount_bps,json=selfCitationDiscountBps,proto3" json:"self_citation_discount_bps,omitempty"`                      // default: 500,000 (50%)
 	ConfidenceGrowthEpoch          uint64 `protobuf:"varint,38,opt,name=confidence_growth_epoch,json=confidenceGrowthEpoch,proto3" json:"confidence_growth_epoch,omitempty"`                              // default: 1,111 blocks
 	ConfidenceGrowthPerEpochBps    uint64 `protobuf:"varint,39,opt,name=confidence_growth_per_epoch_bps,json=confidenceGrowthPerEpochBps,proto3" json:"confidence_growth_per_epoch_bps,omitempty"`        // default: 11,000 (1.1%)
 	MaxSurvivalConfidence          uint64 `protobuf:"varint,40,opt,name=max_survival_confidence,json=maxSurvivalConfidence,proto3" json:"max_survival_confidence,omitempty"`                              // default: 770,000 (77%)
 	SurvivedChallengeConfidenceCap uint64 `protobuf:"varint,41,opt,name=survived_challenge_confidence_cap,json=survivedChallengeConfidenceCap,proto3" json:"survived_challenge_confidence_cap,omitempty"` // default: 880,000 (88%)
 	MaxApprenticeValidators        uint64 `protobuf:"varint,42,opt,name=max_apprentice_validators,json=maxApprenticeValidators,proto3" json:"max_apprentice_validators,omitempty"`                        // default: 111 (Sybil cap)
-	// ─── FARM anti-gaming params ─────────────────────────────────────────────
-	ConformityThresholdBps          uint64 `protobuf:"varint,43,opt,name=conformity_threshold_bps,json=conformityThresholdBps,proto3" json:"conformity_threshold_bps,omitempty"`                                // default: 950,000 (FARM-1)
-	CalibrationTrivialThreshold     uint64 `protobuf:"varint,44,opt,name=calibration_trivial_threshold,json=calibrationTrivialThreshold,proto3" json:"calibration_trivial_threshold,omitempty"`                 // default: 950,000 (FARM-2)
-	MisbehaviorRejectionThreshold   uint64 `protobuf:"varint,45,opt,name=misbehavior_rejection_threshold,json=misbehaviorRejectionThreshold,proto3" json:"misbehavior_rejection_threshold,omitempty"`           // default: 300,000 (FARM-6)
-	MinDomainContributorsForNovelty uint64 `protobuf:"varint,46,opt,name=min_domain_contributors_for_novelty,json=minDomainContributorsForNovelty,proto3" json:"min_domain_contributors_for_novelty,omitempty"` // default: 3 (FARM-7)
-	MinParticipationRateBps         uint64 `protobuf:"varint,47,opt,name=min_participation_rate_bps,json=minParticipationRateBps,proto3" json:"min_participation_rate_bps,omitempty"`                           // default: 500,000 (FARM-8)
-	ChallengeStakeRatioMinBps       uint64 `protobuf:"varint,48,opt,name=challenge_stake_ratio_min_bps,json=challengeStakeRatioMinBps,proto3" json:"challenge_stake_ratio_min_bps,omitempty"`                   // default: 500,000 (FARM-9)
 	// ─── Research fund ───────────────────────────────────────────────────────
 	ResearchFundShareBps uint64 `protobuf:"varint,49,opt,name=research_fund_share_bps,json=researchFundShareBps,proto3" json:"research_fund_share_bps,omitempty"` // default: 130,000 (13%)
-	// ─── Malformed claim slashing ──────────────────────────────────────────
-	MalformedClaimSlashBps uint64 `protobuf:"varint,50,opt,name=malformed_claim_slash_bps,json=malformedClaimSlashBps,proto3" json:"malformed_claim_slash_bps,omitempty"` // default: 500,000 (50%) — harsher than invalid_claim (22%)
 	// ─── Fitness scoring ─────────────────────────────────────────────────────
 	FitnessEpochBlocks       uint64 `protobuf:"varint,51,opt,name=fitness_epoch_blocks,json=fitnessEpochBlocks,proto3" json:"fitness_epoch_blocks,omitempty"`                     // Blocks per fitness epoch
 	FitnessWeightQueryBps    uint64 `protobuf:"varint,52,opt,name=fitness_weight_query_bps,json=fitnessWeightQueryBps,proto3" json:"fitness_weight_query_bps,omitempty"`          // Weight for query rate
@@ -546,37 +533,9 @@ func (x *Params) GetCrossStratumDiscountBps() uint64 {
 	return 0
 }
 
-func (x *Params) GetNoveltyBonusBps() uint64 {
-	if x != nil {
-		return x.NoveltyBonusBps
-	}
-	return 0
-}
-
 func (x *Params) GetMaxValidatorsPerRound() uint64 {
 	if x != nil {
 		return x.MaxValidatorsPerRound
-	}
-	return 0
-}
-
-func (x *Params) GetMaxCitationsPerClaim() uint64 {
-	if x != nil {
-		return x.MaxCitationsPerClaim
-	}
-	return 0
-}
-
-func (x *Params) GetCitationDecayPerLevel() uint64 {
-	if x != nil {
-		return x.CitationDecayPerLevel
-	}
-	return 0
-}
-
-func (x *Params) GetSelfCitationDiscountBps() uint64 {
-	if x != nil {
-		return x.SelfCitationDiscountBps
 	}
 	return 0
 }
@@ -616,58 +575,9 @@ func (x *Params) GetMaxApprenticeValidators() uint64 {
 	return 0
 }
 
-func (x *Params) GetConformityThresholdBps() uint64 {
-	if x != nil {
-		return x.ConformityThresholdBps
-	}
-	return 0
-}
-
-func (x *Params) GetCalibrationTrivialThreshold() uint64 {
-	if x != nil {
-		return x.CalibrationTrivialThreshold
-	}
-	return 0
-}
-
-func (x *Params) GetMisbehaviorRejectionThreshold() uint64 {
-	if x != nil {
-		return x.MisbehaviorRejectionThreshold
-	}
-	return 0
-}
-
-func (x *Params) GetMinDomainContributorsForNovelty() uint64 {
-	if x != nil {
-		return x.MinDomainContributorsForNovelty
-	}
-	return 0
-}
-
-func (x *Params) GetMinParticipationRateBps() uint64 {
-	if x != nil {
-		return x.MinParticipationRateBps
-	}
-	return 0
-}
-
-func (x *Params) GetChallengeStakeRatioMinBps() uint64 {
-	if x != nil {
-		return x.ChallengeStakeRatioMinBps
-	}
-	return 0
-}
-
 func (x *Params) GetResearchFundShareBps() uint64 {
 	if x != nil {
 		return x.ResearchFundShareBps
-	}
-	return 0
-}
-
-func (x *Params) GetMalformedClaimSlashBps() uint64 {
-	if x != nil {
-		return x.MalformedClaimSlashBps
 	}
 	return 0
 }
@@ -1679,7 +1589,7 @@ var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xdaO\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xacM\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -1713,25 +1623,14 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x16cross_domain_bonus_bps\x18\x1d \x01(\x04R\x13crossDomainBonusBps\x12/\n" +
 	"\x14max_facts_per_domain\x18\x1e \x01(\x04R\x11maxFactsPerDomain\x12,\n" +
 	"\x12fact_expiry_blocks\x18\x1f \x01(\x04R\x10factExpiryBlocks\x12;\n" +
-	"\x1across_stratum_discount_bps\x18  \x01(\x04R\x17crossStratumDiscountBps\x12*\n" +
-	"\x11novelty_bonus_bps\x18! \x01(\x04R\x0fnoveltyBonusBps\x127\n" +
-	"\x18max_validators_per_round\x18\" \x01(\x04R\x15maxValidatorsPerRound\x125\n" +
-	"\x17max_citations_per_claim\x18# \x01(\x04R\x14maxCitationsPerClaim\x127\n" +
-	"\x18citation_decay_per_level\x18$ \x01(\x04R\x15citationDecayPerLevel\x12;\n" +
-	"\x1aself_citation_discount_bps\x18% \x01(\x04R\x17selfCitationDiscountBps\x126\n" +
+	"\x1across_stratum_discount_bps\x18  \x01(\x04R\x17crossStratumDiscountBps\x127\n" +
+	"\x18max_validators_per_round\x18\" \x01(\x04R\x15maxValidatorsPerRound\x126\n" +
 	"\x17confidence_growth_epoch\x18& \x01(\x04R\x15confidenceGrowthEpoch\x12D\n" +
 	"\x1fconfidence_growth_per_epoch_bps\x18' \x01(\x04R\x1bconfidenceGrowthPerEpochBps\x126\n" +
 	"\x17max_survival_confidence\x18( \x01(\x04R\x15maxSurvivalConfidence\x12I\n" +
 	"!survived_challenge_confidence_cap\x18) \x01(\x04R\x1esurvivedChallengeConfidenceCap\x12:\n" +
-	"\x19max_apprentice_validators\x18* \x01(\x04R\x17maxApprenticeValidators\x128\n" +
-	"\x18conformity_threshold_bps\x18+ \x01(\x04R\x16conformityThresholdBps\x12B\n" +
-	"\x1dcalibration_trivial_threshold\x18, \x01(\x04R\x1bcalibrationTrivialThreshold\x12F\n" +
-	"\x1fmisbehavior_rejection_threshold\x18- \x01(\x04R\x1dmisbehaviorRejectionThreshold\x12L\n" +
-	"#min_domain_contributors_for_novelty\x18. \x01(\x04R\x1fminDomainContributorsForNovelty\x12;\n" +
-	"\x1amin_participation_rate_bps\x18/ \x01(\x04R\x17minParticipationRateBps\x12@\n" +
-	"\x1dchallenge_stake_ratio_min_bps\x180 \x01(\x04R\x19challengeStakeRatioMinBps\x125\n" +
-	"\x17research_fund_share_bps\x181 \x01(\x04R\x14researchFundShareBps\x129\n" +
-	"\x19malformed_claim_slash_bps\x182 \x01(\x04R\x16malformedClaimSlashBps\x120\n" +
+	"\x19max_apprentice_validators\x18* \x01(\x04R\x17maxApprenticeValidators\x125\n" +
+	"\x17research_fund_share_bps\x181 \x01(\x04R\x14researchFundShareBps\x120\n" +
 	"\x14fitness_epoch_blocks\x183 \x01(\x04R\x12fitnessEpochBlocks\x127\n" +
 	"\x18fitness_weight_query_bps\x184 \x01(\x04R\x15fitnessWeightQueryBps\x12=\n" +
 	"\x1bfitness_weight_citation_bps\x185 \x01(\x04R\x18fitnessWeightCitationBps\x129\n" +
@@ -1844,7 +1743,7 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01\"\xe5\x0e\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xe5\x0e\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +

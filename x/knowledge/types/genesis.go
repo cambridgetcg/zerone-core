@@ -87,30 +87,15 @@ func DefaultParams() Params {
 		MaxFactsPerDomain:           100_000,
 		FactExpiryBlocks:            0,       // no expiry
 		CrossStratumDiscountBps:     0,
-		NoveltyBonusBps:             0,
 		MaxValidatorsPerRound:       22,
-		MaxCitationsPerClaim:        50,
-		CitationDecayPerLevel:       500_000, // 50% per ancestor level
-		SelfCitationDiscountBps:     500_000, // 50%
 		ConfidenceGrowthEpoch:       1_111,   // blocks
 		ConfidenceGrowthPerEpochBps: 11_000,  // 1.1%
 		MaxSurvivalConfidence:       770_000, // 77%
 		SurvivedChallengeConfidenceCap: 880_000, // 88%
 		MaxApprenticeValidators:     111,     // Sybil cap
 
-		// ─── FARM anti-gaming params ──────────────────────────────────────────
-		ConformityThresholdBps:          950_000, // FARM-1
-		CalibrationTrivialThreshold:     950_000, // FARM-2
-		MisbehaviorRejectionThreshold:   300_000, // FARM-6
-		MinDomainContributorsForNovelty: 3,        // FARM-7
-		MinParticipationRateBps:         500_000, // FARM-8
-		ChallengeStakeRatioMinBps:       500_000, // FARM-9
-
 		// ─── Research fund ────────────────────────────────────────────────────
 		ResearchFundShareBps: 130_000, // 13%
-
-		// ─── Malformed claim slashing ────────────────────────────────────────
-		MalformedClaimSlashBps: 500_000, // 50% — submitting garbage wastes verifier time
 
 		// ─── Fitness scoring ─────────────────────────────────────────────────
 		FitnessEpochBlocks:       10_000,  // ~7 hours at 2.5s blocks
@@ -450,10 +435,9 @@ func (p *Params) Validate() error {
 	if p.EquivocationSlashBps == 0 {
 		return fmt.Errorf("equivocation_slash_bps must be > 0")
 	}
-	// InvalidClaimSlashBps deprecated (R19-6): review fee is non-refundable, no stake to slash.
-	if p.MalformedClaimSlashBps == 0 {
-		return fmt.Errorf("malformed_claim_slash_bps must be > 0")
-	}
+	// InvalidClaimSlashBps / MalformedClaimSlashBps deprecated & removed (v5):
+	// the review fee is non-refundable and the malformed-claim slash was never
+	// applied by any keeper path — so there is nothing left to validate here.
 
 	// Confidence values must be within BPS range.
 	if p.InitialConfidence > 1_000_000 {

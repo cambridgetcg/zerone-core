@@ -5,6 +5,7 @@ import (
 
 	v3 "github.com/zerone-chain/zerone/x/knowledge/migrations/v3"
 	v4 "github.com/zerone-chain/zerone/x/knowledge/migrations/v4"
+	v5 "github.com/zerone-chain/zerone/x/knowledge/migrations/v5"
 )
 
 // Migrator handles in-place store migrations.
@@ -34,4 +35,11 @@ func (m Migrator) Migrate2to3(ctx sdk.Context) error {
 // See docs/UPGRADE_PROTOCOL.md for the canonical pattern this follows.
 func (m Migrator) Migrate3to4(ctx sdk.Context) error {
 	return v4.Migrate(ctx, m.keeper)
+}
+
+// Migrate4to5 migrates from version 4 to version 5.
+// Drops eleven dead anti-slop / FARM / citation-gaming params from Params
+// (defined but never read by any keeper path) and records a verifiable marker.
+func (m Migrator) Migrate4to5(ctx sdk.Context) error {
+	return v5.Migrate(ctx, m.keeper)
 }
