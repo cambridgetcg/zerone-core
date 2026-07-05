@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/spf13/cobra"
 
+	"github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
@@ -118,6 +119,11 @@ func cmdSubmitExternalAttestation() *cobra.Command {
 			if err := readJSONFile(args[2], &link); err != nil {
 				return err
 			}
+			// The link's adapter_id must match the message; set it, then fill the
+			// M2 re-derivable integrity hash so a caller never hand-computes the
+			// sha256 canonical form — the keeper re-derives and verifies it.
+			link.AdapterId = args[0]
+			link.LinkHash = keeper.ComputeLinkHash(&link)
 			msg := &types.MsgSubmitExternalAttestation{
 				Submitter:   cctx.GetFromAddress().String(),
 				AdapterId:   args[0],
