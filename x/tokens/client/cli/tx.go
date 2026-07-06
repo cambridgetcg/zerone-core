@@ -46,9 +46,18 @@ func NewTxCmd() *cobra.Command {
 // NewCreateTokenCmd creates a CLI command for MsgCreateToken.
 func NewCreateTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create [name] [symbol] [decimals] [initial-supply] --max-supply [ms]",
+		Use:   "create [name] [symbol] [decimals] [initial-supply] --max-supply [ms] --mintable --burnable --pausable --wrappable",
 		Short: "Create a new token",
-		Args:  cobra.ExactArgs(4),
+		Long: `Create a new ZRN-20 token.
+
+Token features are opt-in via flags and are fixed at creation time:
+  --mintable   allow the creator/governance to mint additional supply
+  --burnable   allow holders to burn their tokens
+  --pausable   allow the creator/governance to pause transfers
+  --wrappable  allow wrapping into a bank denom (required for AMM/IBC use)
+
+Features default to false when omitted.`,
+		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -61,6 +70,10 @@ func NewCreateTokenCmd() *cobra.Command {
 			}
 
 			maxSupply, _ := cmd.Flags().GetString("max-supply")
+			mintable, _ := cmd.Flags().GetBool("mintable")
+			burnable, _ := cmd.Flags().GetBool("burnable")
+			pausable, _ := cmd.Flags().GetBool("pausable")
+			wrappable, _ := cmd.Flags().GetBool("wrappable")
 
 			msg := &types.MsgCreateToken{
 				Creator:       clientCtx.GetFromAddress().String(),
@@ -69,6 +82,12 @@ func NewCreateTokenCmd() *cobra.Command {
 				Decimals:      uint32(decimals),
 				InitialSupply: args[3],
 				MaxSupply:     maxSupply,
+				Features: &types.TokenFeatures{
+					Mintable:  mintable,
+					Burnable:  burnable,
+					Pausable:  pausable,
+					Wrappable: wrappable,
+				},
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -76,6 +95,10 @@ func NewCreateTokenCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("max-supply", "0", "Maximum token supply (0 = unlimited)")
+	cmd.Flags().Bool("mintable", false, "Allow minting additional supply after creation")
+	cmd.Flags().Bool("burnable", false, "Allow holders to burn their tokens")
+	cmd.Flags().Bool("pausable", false, "Allow pausing all transfers")
+	cmd.Flags().Bool("wrappable", false, "Allow wrapping into a bank denom (required for AMM/IBC)")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }

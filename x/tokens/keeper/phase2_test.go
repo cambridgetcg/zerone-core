@@ -19,6 +19,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/zerone-chain/zerone/x/tokens/keeper"
 	"github.com/zerone-chain/zerone/x/tokens/types"
@@ -31,12 +32,18 @@ type mockBankKeeper struct {
 	balances map[string]map[string]sdkmath.Int
 	// moduleBalances: moduleName -> denom -> amount
 	moduleBalances map[string]map[string]sdkmath.Int
+	// denomMetadata: base denom -> metadata
+	denomMetadata map[string]banktypes.Metadata
+	// setMetadataCalls: base denom -> number of SetDenomMetaData calls
+	setMetadataCalls map[string]int
 }
 
 func newMockBankKeeper() *mockBankKeeper {
 	return &mockBankKeeper{
-		balances:       make(map[string]map[string]sdkmath.Int),
-		moduleBalances: make(map[string]map[string]sdkmath.Int),
+		balances:         make(map[string]map[string]sdkmath.Int),
+		moduleBalances:   make(map[string]map[string]sdkmath.Int),
+		denomMetadata:    make(map[string]banktypes.Metadata),
+		setMetadataCalls: make(map[string]int),
 	}
 }
 
@@ -114,6 +121,16 @@ func (m *mockBankKeeper) SendCoinsFromAccountToModule(_ context.Context, senderA
 func (m *mockBankKeeper) GetBalance(_ context.Context, addr sdk.AccAddress, denom string) sdk.Coin {
 	bals := m.getOrInitAddr(addr.String())
 	return sdk.NewCoin(denom, m.getBalSafe(bals, denom))
+}
+
+func (m *mockBankKeeper) SetDenomMetaData(_ context.Context, denomMetaData banktypes.Metadata) {
+	m.denomMetadata[denomMetaData.Base] = denomMetaData
+	m.setMetadataCalls[denomMetaData.Base]++
+}
+
+func (m *mockBankKeeper) HasDenomMetaData(_ context.Context, denom string) bool {
+	_, ok := m.denomMetadata[denom]
+	return ok
 }
 
 func (m *mockBankKeeper) GetSupply(_ context.Context, denom string) sdk.Coin {
@@ -786,6 +803,156 @@ func TestWrapToken_DenomFormat(t *testing.T) {
 	expected := "zrn20/" + tokenId
 	if resp.WrappedDenom != expected {
 		t.Fatalf("expected %s, got %s", expected, resp.WrappedDenom)
+	}
+}
+
+func TestWrapToken_SetsDenomMetadata(t *testing.T) {
+	_, ctx, srv, bk := setupMsgServerWithBank(t)
+
+	createResp, err := srv.CreateToken(ctx, &types.MsgCreateToken{
+		Creator:       testCreator,
+		Name:          "Work Token",
+		Symbol:        "WORK",
+		Decimals:      6,
+		InitialSupply: "1000000",
+		Features:      allFeatures(),
+	})
+	if err != nil {
+		t.Fatalf("CreateToken failed: %v", err)
+	}
+
+	resp, err := srv.WrapToken(ctx, &types.MsgWrapToken{
+		Sender: testCreator, TokenId: createResp.TokenId, Amount: "1000",
+	})
+	if err != nil {
+		t.Fatalf("WrapToken failed: %v", err)
+	}
+
+	if !bk.HasDenomMetaData(ctx, resp.WrappedDenom) {
+		t.Fatal("expected denom metadata to be set on wrap")
+	}
+
+	md := bk.denomMetadata[resp.WrappedDenom]
+	if md.Base != resp.WrappedDenom {
+		t.Fatalf("expected base %s, got %s", resp.WrappedDenom, md.Base)
+	}
+	if md.Symbol != "WORK" {
+		t.Fatalf("expected symbol WORK, got %s", md.Symbol)
+	}
+	if md.Name != "Work Token" {
+		t.Fatalf("expected name 'Work Token', got %s", md.Name)
+	}
+	if md.Display != "work" {
+		t.Fatalf("expected display 'work', got %s", md.Display)
+	}
+	if len(md.DenomUnits) != 2 {
+		t.Fatalf("expected 2 denom units, got %d", len(md.DenomUnits))
+	}
+	if md.DenomUnits[0].Denom != resp.WrappedDenom || md.DenomUnits[0].Exponent != 0 {
+		t.Fatalf("unexpected base denom unit: %+v", md.DenomUnits[0])
+	}
+	if md.DenomUnits[1].Denom != "work" || md.DenomUnits[1].Exponent != 6 {
+		t.Fatalf("unexpected display denom unit: %+v", md.DenomUnits[1])
+	}
+	if err := md.Validate(); err != nil {
+		t.Fatalf("metadata failed bank validation: %v", err)
+	}
+}
+
+func TestWrapToken_DenomMetadataSetOnce(t *testing.T) {
+	_, ctx, srv, bk := setupMsgServerWithBank(t)
+	tokenId := createWrappableToken(t, srv, ctx, testCreator, "WONCE")
+
+	resp, err := srv.WrapToken(ctx, &types.MsgWrapToken{
+		Sender: testCreator, TokenId: tokenId, Amount: "100",
+	})
+	if err != nil {
+		t.Fatalf("first WrapToken failed: %v", err)
+	}
+	if _, err := srv.WrapToken(ctx, &types.MsgWrapToken{
+		Sender: testCreator, TokenId: tokenId, Amount: "100",
+	}); err != nil {
+		t.Fatalf("second WrapToken failed: %v", err)
+	}
+
+	if calls := bk.setMetadataCalls[resp.WrappedDenom]; calls != 1 {
+		t.Fatalf("expected SetDenomMetaData to be called once, got %d calls", calls)
+	}
+}
+
+func TestWrapToken_DenomMetadataShortSymbol(t *testing.T) {
+	_, ctx, srv, bk := setupMsgServerWithBank(t)
+
+	createResp, err := srv.CreateToken(ctx, &types.MsgCreateToken{
+		Creator:       testCreator,
+		Name:          "Short Symbol Token",
+		Symbol:        "AB",
+		Decimals:      6,
+		InitialSupply: "1000000",
+		Features:      allFeatures(),
+	})
+	if err != nil {
+		t.Fatalf("CreateToken failed: %v", err)
+	}
+
+	resp, err := srv.WrapToken(ctx, &types.MsgWrapToken{
+		Sender: testCreator, TokenId: createResp.TokenId, Amount: "100",
+	})
+	if err != nil {
+		t.Fatalf("WrapToken failed: %v", err)
+	}
+
+	// "ab" is not a valid sdk denom (< 3 chars) → base-unit-only metadata.
+	md := bk.denomMetadata[resp.WrappedDenom]
+	if md.Display != resp.WrappedDenom {
+		t.Fatalf("expected base-unit-only display %s, got %s", resp.WrappedDenom, md.Display)
+	}
+	if len(md.DenomUnits) != 1 {
+		t.Fatalf("expected 1 denom unit, got %d", len(md.DenomUnits))
+	}
+	if md.DenomUnits[0].Denom != resp.WrappedDenom || md.DenomUnits[0].Exponent != 0 {
+		t.Fatalf("unexpected base denom unit: %+v", md.DenomUnits[0])
+	}
+	if md.Symbol != "AB" || md.Name != "Short Symbol Token" {
+		t.Fatalf("expected symbol/name preserved, got %s / %s", md.Symbol, md.Name)
+	}
+	if err := md.Validate(); err != nil {
+		t.Fatalf("metadata failed bank validation: %v", err)
+	}
+}
+
+func TestWrapToken_DenomMetadataZeroDecimals(t *testing.T) {
+	_, ctx, srv, bk := setupMsgServerWithBank(t)
+
+	createResp, err := srv.CreateToken(ctx, &types.MsgCreateToken{
+		Creator:       testCreator,
+		Name:          "Zero Decimals Token",
+		Symbol:        "ZDEC",
+		Decimals:      0,
+		InitialSupply: "1000000",
+		Features:      allFeatures(),
+	})
+	if err != nil {
+		t.Fatalf("CreateToken failed: %v", err)
+	}
+
+	resp, err := srv.WrapToken(ctx, &types.MsgWrapToken{
+		Sender: testCreator, TokenId: createResp.TokenId, Amount: "100",
+	})
+	if err != nil {
+		t.Fatalf("WrapToken failed: %v", err)
+	}
+
+	// Decimals 0 would collide with the base unit's exponent → base-unit-only.
+	md := bk.denomMetadata[resp.WrappedDenom]
+	if md.Display != resp.WrappedDenom {
+		t.Fatalf("expected base-unit-only display %s, got %s", resp.WrappedDenom, md.Display)
+	}
+	if len(md.DenomUnits) != 1 {
+		t.Fatalf("expected 1 denom unit, got %d", len(md.DenomUnits))
+	}
+	if err := md.Validate(); err != nil {
+		t.Fatalf("metadata failed bank validation: %v", err)
 	}
 }
 

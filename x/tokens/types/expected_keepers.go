@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
 // BankKeeper defines the expected bank keeper interface for wrap/unwrap operations.
@@ -15,6 +16,8 @@ type BankKeeper interface {
 	SendCoinsFromAccountToModule(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 	GetSupply(ctx context.Context, denom string) sdk.Coin
+	SetDenomMetaData(ctx context.Context, denomMetaData banktypes.Metadata)
+	HasDenomMetaData(ctx context.Context, denom string) bool
 }
 
 // VestingRewardsKeeper is the chain's single cap-gated mint entry point

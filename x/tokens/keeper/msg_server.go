@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	"github.com/zerone-chain/zerone/x/tokens/types"
 )
@@ -526,6 +528,7 @@ func (s *msgServer) WrapToken(goCtx context.Context, msg *types.MsgWrapToken) (*
 
 	wrappedDenom := WrappedDenom(msg.TokenId)
 	s.SetWrapRecord(ctx, msg.TokenId, wrappedDenom)
+	s.setWrappedDenomMetadata(ctx, token, wrappedDenom)
 
 	senderAddr, err := sdk.AccAddressFromBech32(msg.Sender)
 	if err != nil {
@@ -549,6 +552,41 @@ func (s *msgServer) WrapToken(goCtx context.Context, msg *types.MsgWrapToken) (*
 	))
 
 	return &types.MsgWrapTokenResponse{WrappedDenom: wrappedDenom}, nil
+}
+
+// setWrappedDenomMetadata registers bank denom metadata for a wrapped denom the
+// first time the token is wrapped, so wallets and explorers can display the
+// token's symbol instead of the raw "zrn20/{hash}" denom.
+func (s *msgServer) setWrappedDenomMetadata(ctx sdk.Context, token *types.TokenDefinition, wrappedDenom string) {
+	if s.bankKeeper.HasDenomMetaData(ctx, wrappedDenom) {
+		return
+	}
+
+	metadata := banktypes.Metadata{
+		Base:   wrappedDenom,
+		Name:   token.Name,
+		Symbol: token.Symbol,
+	}
+
+	display := strings.ToLower(token.Symbol)
+	if token.Decimals == 0 || len(token.Symbol) < 3 || display == wrappedDenom {
+		// A display unit that would collide with the base unit (same exponent
+		// or same denom) or fail sdk.ValidateDenom (symbols shorter than 3
+		// characters) would brick bank genesis Validate() round-trips.
+		// Collapse to base-unit-only metadata in those cases.
+		metadata.Display = wrappedDenom
+		metadata.DenomUnits = []*banktypes.DenomUnit{
+			{Denom: wrappedDenom, Exponent: 0},
+		}
+	} else {
+		metadata.Display = display
+		metadata.DenomUnits = []*banktypes.DenomUnit{
+			{Denom: wrappedDenom, Exponent: 0},
+			{Denom: display, Exponent: token.Decimals},
+		}
+	}
+
+	s.bankKeeper.SetDenomMetaData(ctx, metadata)
 }
 
 // UnwrapToken unwraps an IBC-compatible sdk.Coin back into the original ZRN-20 token.
