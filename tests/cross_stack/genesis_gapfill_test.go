@@ -58,7 +58,7 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 			require.NotNil(t, gs.Params)
-			require.Greater(t, gs.Params.MaxSessionKeys, uint32(0), "max session keys must be positive")
+			require.Greater(t, gs.Params.MaxMetadataLength, uint32(0), "max metadata length must be positive")
 		}},
 		{capturechallengetypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs capturechallengetypes.GenesisState

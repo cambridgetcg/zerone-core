@@ -248,208 +248,6 @@ func (x *MsgRotateKeyResponse) GetNewKeyVersion() uint32 {
 	return 0
 }
 
-// MsgCreateSession creates an ephemeral session key.
-type MsgCreateSession struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Owner           string                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
-	SessionPubKey   []byte                 `protobuf:"bytes,2,opt,name=session_pub_key,json=sessionPubKey,proto3" json:"session_pub_key,omitempty"`
-	Capabilities    *SessionCapabilities   `protobuf:"bytes,3,opt,name=capabilities,proto3" json:"capabilities,omitempty"`
-	ExpiresAtHeight uint64                 `protobuf:"varint,4,opt,name=expires_at_height,json=expiresAtHeight,proto3" json:"expires_at_height,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *MsgCreateSession) Reset() {
-	*x = MsgCreateSession{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgCreateSession) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgCreateSession) ProtoMessage() {}
-
-func (x *MsgCreateSession) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgCreateSession.ProtoReflect.Descriptor instead.
-func (*MsgCreateSession) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *MsgCreateSession) GetOwner() string {
-	if x != nil {
-		return x.Owner
-	}
-	return ""
-}
-
-func (x *MsgCreateSession) GetSessionPubKey() []byte {
-	if x != nil {
-		return x.SessionPubKey
-	}
-	return nil
-}
-
-func (x *MsgCreateSession) GetCapabilities() *SessionCapabilities {
-	if x != nil {
-		return x.Capabilities
-	}
-	return nil
-}
-
-func (x *MsgCreateSession) GetExpiresAtHeight() uint64 {
-	if x != nil {
-		return x.ExpiresAtHeight
-	}
-	return 0
-}
-
-type MsgCreateSessionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgCreateSessionResponse) Reset() {
-	*x = MsgCreateSessionResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgCreateSessionResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgCreateSessionResponse) ProtoMessage() {}
-
-func (x *MsgCreateSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgCreateSessionResponse.ProtoReflect.Descriptor instead.
-func (*MsgCreateSessionResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *MsgCreateSessionResponse) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
-}
-
-// MsgRevokeSession revokes a session key.
-type MsgRevokeSession struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Owner         string                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
-	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgRevokeSession) Reset() {
-	*x = MsgRevokeSession{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgRevokeSession) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgRevokeSession) ProtoMessage() {}
-
-func (x *MsgRevokeSession) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgRevokeSession.ProtoReflect.Descriptor instead.
-func (*MsgRevokeSession) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *MsgRevokeSession) GetOwner() string {
-	if x != nil {
-		return x.Owner
-	}
-	return ""
-}
-
-func (x *MsgRevokeSession) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
-}
-
-type MsgRevokeSessionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgRevokeSessionResponse) Reset() {
-	*x = MsgRevokeSessionResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgRevokeSessionResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgRevokeSessionResponse) ProtoMessage() {}
-
-func (x *MsgRevokeSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgRevokeSessionResponse.ProtoReflect.Descriptor instead.
-func (*MsgRevokeSessionResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{7}
-}
-
 // MsgFreezeAccount freezes an account.
 type MsgFreezeAccount struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -462,7 +260,7 @@ type MsgFreezeAccount struct {
 
 func (x *MsgFreezeAccount) Reset() {
 	*x = MsgFreezeAccount{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[8]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -474,7 +272,7 @@ func (x *MsgFreezeAccount) String() string {
 func (*MsgFreezeAccount) ProtoMessage() {}
 
 func (x *MsgFreezeAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[8]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,7 +285,7 @@ func (x *MsgFreezeAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgFreezeAccount.ProtoReflect.Descriptor instead.
 func (*MsgFreezeAccount) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{8}
+	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *MsgFreezeAccount) GetSender() string {
@@ -519,7 +317,7 @@ type MsgFreezeAccountResponse struct {
 
 func (x *MsgFreezeAccountResponse) Reset() {
 	*x = MsgFreezeAccountResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[9]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -531,7 +329,7 @@ func (x *MsgFreezeAccountResponse) String() string {
 func (*MsgFreezeAccountResponse) ProtoMessage() {}
 
 func (x *MsgFreezeAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[9]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -544,7 +342,7 @@ func (x *MsgFreezeAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgFreezeAccountResponse.ProtoReflect.Descriptor instead.
 func (*MsgFreezeAccountResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{9}
+	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{5}
 }
 
 // MsgUnfreezeAccount unfreezes a frozen account.
@@ -558,7 +356,7 @@ type MsgUnfreezeAccount struct {
 
 func (x *MsgUnfreezeAccount) Reset() {
 	*x = MsgUnfreezeAccount{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[10]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -570,7 +368,7 @@ func (x *MsgUnfreezeAccount) String() string {
 func (*MsgUnfreezeAccount) ProtoMessage() {}
 
 func (x *MsgUnfreezeAccount) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[10]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -583,7 +381,7 @@ func (x *MsgUnfreezeAccount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUnfreezeAccount.ProtoReflect.Descriptor instead.
 func (*MsgUnfreezeAccount) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{10}
+	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *MsgUnfreezeAccount) GetAuthority() string {
@@ -608,7 +406,7 @@ type MsgUnfreezeAccountResponse struct {
 
 func (x *MsgUnfreezeAccountResponse) Reset() {
 	*x = MsgUnfreezeAccountResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[11]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -620,7 +418,7 @@ func (x *MsgUnfreezeAccountResponse) String() string {
 func (*MsgUnfreezeAccountResponse) ProtoMessage() {}
 
 func (x *MsgUnfreezeAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[11]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -633,484 +431,7 @@ func (x *MsgUnfreezeAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUnfreezeAccountResponse.ProtoReflect.Descriptor instead.
 func (*MsgUnfreezeAccountResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{11}
-}
-
-// MsgSetRecoveryConfig sets recovery configuration for an account.
-type MsgSetRecoveryConfig struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Sender        string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	Config        *RecoveryConfig        `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgSetRecoveryConfig) Reset() {
-	*x = MsgSetRecoveryConfig{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgSetRecoveryConfig) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgSetRecoveryConfig) ProtoMessage() {}
-
-func (x *MsgSetRecoveryConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgSetRecoveryConfig.ProtoReflect.Descriptor instead.
-func (*MsgSetRecoveryConfig) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *MsgSetRecoveryConfig) GetSender() string {
-	if x != nil {
-		return x.Sender
-	}
-	return ""
-}
-
-func (x *MsgSetRecoveryConfig) GetConfig() *RecoveryConfig {
-	if x != nil {
-		return x.Config
-	}
-	return nil
-}
-
-type MsgSetRecoveryConfigResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgSetRecoveryConfigResponse) Reset() {
-	*x = MsgSetRecoveryConfigResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgSetRecoveryConfigResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgSetRecoveryConfigResponse) ProtoMessage() {}
-
-func (x *MsgSetRecoveryConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[13]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgSetRecoveryConfigResponse.ProtoReflect.Descriptor instead.
-func (*MsgSetRecoveryConfigResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{13}
-}
-
-// MsgInitiateRecovery begins account recovery.
-type MsgInitiateRecovery struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Sender            string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	AccountAddress    string                 `protobuf:"bytes,2,opt,name=account_address,json=accountAddress,proto3" json:"account_address,omitempty"`
-	NewOperationalKey string                 `protobuf:"bytes,3,opt,name=new_operational_key,json=newOperationalKey,proto3" json:"new_operational_key,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *MsgInitiateRecovery) Reset() {
-	*x = MsgInitiateRecovery{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgInitiateRecovery) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgInitiateRecovery) ProtoMessage() {}
-
-func (x *MsgInitiateRecovery) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[14]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgInitiateRecovery.ProtoReflect.Descriptor instead.
-func (*MsgInitiateRecovery) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *MsgInitiateRecovery) GetSender() string {
-	if x != nil {
-		return x.Sender
-	}
-	return ""
-}
-
-func (x *MsgInitiateRecovery) GetAccountAddress() string {
-	if x != nil {
-		return x.AccountAddress
-	}
-	return ""
-}
-
-func (x *MsgInitiateRecovery) GetNewOperationalKey() string {
-	if x != nil {
-		return x.NewOperationalKey
-	}
-	return ""
-}
-
-type MsgInitiateRecoveryResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgInitiateRecoveryResponse) Reset() {
-	*x = MsgInitiateRecoveryResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgInitiateRecoveryResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgInitiateRecoveryResponse) ProtoMessage() {}
-
-func (x *MsgInitiateRecoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgInitiateRecoveryResponse.ProtoReflect.Descriptor instead.
-func (*MsgInitiateRecoveryResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{15}
-}
-
-// MsgSubmitRecoveryShard provides a shard to an active recovery request.
-type MsgSubmitRecoveryShard struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Sender         string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	AccountAddress string                 `protobuf:"bytes,2,opt,name=account_address,json=accountAddress,proto3" json:"account_address,omitempty"`
-	ShardIndex     uint32                 `protobuf:"varint,3,opt,name=shard_index,json=shardIndex,proto3" json:"shard_index,omitempty"`
-	EncryptedShard []byte                 `protobuf:"bytes,4,opt,name=encrypted_shard,json=encryptedShard,proto3" json:"encrypted_shard,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *MsgSubmitRecoveryShard) Reset() {
-	*x = MsgSubmitRecoveryShard{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgSubmitRecoveryShard) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgSubmitRecoveryShard) ProtoMessage() {}
-
-func (x *MsgSubmitRecoveryShard) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgSubmitRecoveryShard.ProtoReflect.Descriptor instead.
-func (*MsgSubmitRecoveryShard) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{16}
-}
-
-func (x *MsgSubmitRecoveryShard) GetSender() string {
-	if x != nil {
-		return x.Sender
-	}
-	return ""
-}
-
-func (x *MsgSubmitRecoveryShard) GetAccountAddress() string {
-	if x != nil {
-		return x.AccountAddress
-	}
-	return ""
-}
-
-func (x *MsgSubmitRecoveryShard) GetShardIndex() uint32 {
-	if x != nil {
-		return x.ShardIndex
-	}
-	return 0
-}
-
-func (x *MsgSubmitRecoveryShard) GetEncryptedShard() []byte {
-	if x != nil {
-		return x.EncryptedShard
-	}
-	return nil
-}
-
-type MsgSubmitRecoveryShardResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgSubmitRecoveryShardResponse) Reset() {
-	*x = MsgSubmitRecoveryShardResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgSubmitRecoveryShardResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgSubmitRecoveryShardResponse) ProtoMessage() {}
-
-func (x *MsgSubmitRecoveryShardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[17]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgSubmitRecoveryShardResponse.ProtoReflect.Descriptor instead.
-func (*MsgSubmitRecoveryShardResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{17}
-}
-
-// MsgChallengeRecovery challenges an active recovery request.
-type MsgChallengeRecovery struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Sender         string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	AccountAddress string                 `protobuf:"bytes,2,opt,name=account_address,json=accountAddress,proto3" json:"account_address,omitempty"`
-	Reason         string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *MsgChallengeRecovery) Reset() {
-	*x = MsgChallengeRecovery{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgChallengeRecovery) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgChallengeRecovery) ProtoMessage() {}
-
-func (x *MsgChallengeRecovery) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[18]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgChallengeRecovery.ProtoReflect.Descriptor instead.
-func (*MsgChallengeRecovery) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{18}
-}
-
-func (x *MsgChallengeRecovery) GetSender() string {
-	if x != nil {
-		return x.Sender
-	}
-	return ""
-}
-
-func (x *MsgChallengeRecovery) GetAccountAddress() string {
-	if x != nil {
-		return x.AccountAddress
-	}
-	return ""
-}
-
-func (x *MsgChallengeRecovery) GetReason() string {
-	if x != nil {
-		return x.Reason
-	}
-	return ""
-}
-
-type MsgChallengeRecoveryResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgChallengeRecoveryResponse) Reset() {
-	*x = MsgChallengeRecoveryResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgChallengeRecoveryResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgChallengeRecoveryResponse) ProtoMessage() {}
-
-func (x *MsgChallengeRecoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[19]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgChallengeRecoveryResponse.ProtoReflect.Descriptor instead.
-func (*MsgChallengeRecoveryResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{19}
-}
-
-// MsgExecuteRecovery completes a recovery after delay + challenge period.
-type MsgExecuteRecovery struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Sender         string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	AccountAddress string                 `protobuf:"bytes,2,opt,name=account_address,json=accountAddress,proto3" json:"account_address,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *MsgExecuteRecovery) Reset() {
-	*x = MsgExecuteRecovery{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgExecuteRecovery) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgExecuteRecovery) ProtoMessage() {}
-
-func (x *MsgExecuteRecovery) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[20]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgExecuteRecovery.ProtoReflect.Descriptor instead.
-func (*MsgExecuteRecovery) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{20}
-}
-
-func (x *MsgExecuteRecovery) GetSender() string {
-	if x != nil {
-		return x.Sender
-	}
-	return ""
-}
-
-func (x *MsgExecuteRecovery) GetAccountAddress() string {
-	if x != nil {
-		return x.AccountAddress
-	}
-	return ""
-}
-
-type MsgExecuteRecoveryResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MsgExecuteRecoveryResponse) Reset() {
-	*x = MsgExecuteRecoveryResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MsgExecuteRecoveryResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MsgExecuteRecoveryResponse) ProtoMessage() {}
-
-func (x *MsgExecuteRecoveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MsgExecuteRecoveryResponse.ProtoReflect.Descriptor instead.
-func (*MsgExecuteRecoveryResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{21}
+	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{7}
 }
 
 // MsgUpdateParams updates auth module parameters.
@@ -1124,7 +445,7 @@ type MsgUpdateParams struct {
 
 func (x *MsgUpdateParams) Reset() {
 	*x = MsgUpdateParams{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[22]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1136,7 +457,7 @@ func (x *MsgUpdateParams) String() string {
 func (*MsgUpdateParams) ProtoMessage() {}
 
 func (x *MsgUpdateParams) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[22]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1149,7 +470,7 @@ func (x *MsgUpdateParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateParams.ProtoReflect.Descriptor instead.
 func (*MsgUpdateParams) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{22}
+	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MsgUpdateParams) GetAuthority() string {
@@ -1174,7 +495,7 @@ type MsgUpdateParamsResponse struct {
 
 func (x *MsgUpdateParamsResponse) Reset() {
 	*x = MsgUpdateParamsResponse{}
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[23]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1186,7 +507,7 @@ func (x *MsgUpdateParamsResponse) String() string {
 func (*MsgUpdateParamsResponse) ProtoMessage() {}
 
 func (x *MsgUpdateParamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_tx_proto_msgTypes[23]
+	mi := &file_zerone_auth_v1_tx_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1199,7 +520,7 @@ func (x *MsgUpdateParamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateParamsResponse.ProtoReflect.Descriptor instead.
 func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{23}
+	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{9}
 }
 
 var File_zerone_auth_v1_tx_proto protoreflect.FileDescriptor
@@ -1221,22 +542,7 @@ const file_zerone_auth_v1_tx_proto_rawDesc = "" +
 	"\x13new_operational_key\x18\x02 \x01(\fR\x11newOperationalKey\x127\n" +
 	"\x17authorization_signature\x18\x03 \x01(\fR\x16authorizationSignature:\v\x82\xe7\xb0*\x06sender\">\n" +
 	"\x14MsgRotateKeyResponse\x12&\n" +
-	"\x0fnew_key_version\x18\x01 \x01(\rR\rnewKeyVersion\"\xd1\x01\n" +
-	"\x10MsgCreateSession\x12\x14\n" +
-	"\x05owner\x18\x01 \x01(\tR\x05owner\x12&\n" +
-	"\x0fsession_pub_key\x18\x02 \x01(\fR\rsessionPubKey\x12G\n" +
-	"\fcapabilities\x18\x03 \x01(\v2#.zerone.auth.v1.SessionCapabilitiesR\fcapabilities\x12*\n" +
-	"\x11expires_at_height\x18\x04 \x01(\x04R\x0fexpiresAtHeight:\n" +
-	"\x82\xe7\xb0*\x05owner\"9\n" +
-	"\x18MsgCreateSessionResponse\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\"S\n" +
-	"\x10MsgRevokeSession\x12\x14\n" +
-	"\x05owner\x18\x01 \x01(\tR\x05owner\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId:\n" +
-	"\x82\xe7\xb0*\x05owner\"\x1a\n" +
-	"\x18MsgRevokeSessionResponse\"i\n" +
+	"\x0fnew_key_version\x18\x01 \x01(\rR\rnewKeyVersion\"i\n" +
 	"\x10MsgFreezeAccount\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x16\n" +
@@ -1245,48 +551,16 @@ const file_zerone_auth_v1_tx_proto_rawDesc = "" +
 	"\x12MsgUnfreezeAccount\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress:\x0e\x82\xe7\xb0*\tauthority\"\x1c\n" +
-	"\x1aMsgUnfreezeAccountResponse\"s\n" +
-	"\x14MsgSetRecoveryConfig\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\x126\n" +
-	"\x06config\x18\x02 \x01(\v2\x1e.zerone.auth.v1.RecoveryConfigR\x06config:\v\x82\xe7\xb0*\x06sender\"\x1e\n" +
-	"\x1cMsgSetRecoveryConfigResponse\"\x93\x01\n" +
-	"\x13MsgInitiateRecovery\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\x12'\n" +
-	"\x0faccount_address\x18\x02 \x01(\tR\x0eaccountAddress\x12.\n" +
-	"\x13new_operational_key\x18\x03 \x01(\tR\x11newOperationalKey:\v\x82\xe7\xb0*\x06sender\"\x1d\n" +
-	"\x1bMsgInitiateRecoveryResponse\"\xb0\x01\n" +
-	"\x16MsgSubmitRecoveryShard\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\x12'\n" +
-	"\x0faccount_address\x18\x02 \x01(\tR\x0eaccountAddress\x12\x1f\n" +
-	"\vshard_index\x18\x03 \x01(\rR\n" +
-	"shardIndex\x12'\n" +
-	"\x0fencrypted_shard\x18\x04 \x01(\fR\x0eencryptedShard:\v\x82\xe7\xb0*\x06sender\" \n" +
-	"\x1eMsgSubmitRecoveryShardResponse\"|\n" +
-	"\x14MsgChallengeRecovery\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\x12'\n" +
-	"\x0faccount_address\x18\x02 \x01(\tR\x0eaccountAddress\x12\x16\n" +
-	"\x06reason\x18\x03 \x01(\tR\x06reason:\v\x82\xe7\xb0*\x06sender\"\x1e\n" +
-	"\x1cMsgChallengeRecoveryResponse\"b\n" +
-	"\x12MsgExecuteRecovery\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\x12'\n" +
-	"\x0faccount_address\x18\x02 \x01(\tR\x0eaccountAddress:\v\x82\xe7\xb0*\x06sender\"\x1c\n" +
-	"\x1aMsgExecuteRecoveryResponse\"o\n" +
+	"\x1aMsgUnfreezeAccountResponse\"o\n" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x12.\n" +
 	"\x06params\x18\x02 \x01(\v2\x16.zerone.auth.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
-	"\x17MsgUpdateParamsResponse2\x9e\t\n" +
+	"\x17MsgUpdateParamsResponse2\xda\x03\n" +
 	"\x03Msg\x12a\n" +
 	"\x0fRegisterAccount\x12\".zerone.auth.v1.MsgRegisterAccount\x1a*.zerone.auth.v1.MsgRegisterAccountResponse\x12O\n" +
 	"\tRotateKey\x12\x1c.zerone.auth.v1.MsgRotateKey\x1a$.zerone.auth.v1.MsgRotateKeyResponse\x12[\n" +
-	"\rCreateSession\x12 .zerone.auth.v1.MsgCreateSession\x1a(.zerone.auth.v1.MsgCreateSessionResponse\x12[\n" +
-	"\rRevokeSession\x12 .zerone.auth.v1.MsgRevokeSession\x1a(.zerone.auth.v1.MsgRevokeSessionResponse\x12[\n" +
 	"\rFreezeAccount\x12 .zerone.auth.v1.MsgFreezeAccount\x1a(.zerone.auth.v1.MsgFreezeAccountResponse\x12a\n" +
-	"\x0fUnfreezeAccount\x12\".zerone.auth.v1.MsgUnfreezeAccount\x1a*.zerone.auth.v1.MsgUnfreezeAccountResponse\x12g\n" +
-	"\x11SetRecoveryConfig\x12$.zerone.auth.v1.MsgSetRecoveryConfig\x1a,.zerone.auth.v1.MsgSetRecoveryConfigResponse\x12d\n" +
-	"\x10InitiateRecovery\x12#.zerone.auth.v1.MsgInitiateRecovery\x1a+.zerone.auth.v1.MsgInitiateRecoveryResponse\x12m\n" +
-	"\x13SubmitRecoveryShard\x12&.zerone.auth.v1.MsgSubmitRecoveryShard\x1a..zerone.auth.v1.MsgSubmitRecoveryShardResponse\x12g\n" +
-	"\x11ChallengeRecovery\x12$.zerone.auth.v1.MsgChallengeRecovery\x1a,.zerone.auth.v1.MsgChallengeRecoveryResponse\x12a\n" +
-	"\x0fExecuteRecovery\x12\".zerone.auth.v1.MsgExecuteRecovery\x1a*.zerone.auth.v1.MsgExecuteRecoveryResponse\x12X\n" +
+	"\x0fUnfreezeAccount\x12\".zerone.auth.v1.MsgUnfreezeAccount\x1a*.zerone.auth.v1.MsgUnfreezeAccountResponse\x12X\n" +
 	"\fUpdateParams\x12\x1f.zerone.auth.v1.MsgUpdateParams\x1a'.zerone.auth.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B-Z+github.com/zerone-chain/zerone/x/auth/typesb\x06proto3"
 
 var (
@@ -1301,69 +575,37 @@ func file_zerone_auth_v1_tx_proto_rawDescGZIP() []byte {
 	return file_zerone_auth_v1_tx_proto_rawDescData
 }
 
-var file_zerone_auth_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_zerone_auth_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_zerone_auth_v1_tx_proto_goTypes = []any{
-	(*MsgRegisterAccount)(nil),             // 0: zerone.auth.v1.MsgRegisterAccount
-	(*MsgRegisterAccountResponse)(nil),     // 1: zerone.auth.v1.MsgRegisterAccountResponse
-	(*MsgRotateKey)(nil),                   // 2: zerone.auth.v1.MsgRotateKey
-	(*MsgRotateKeyResponse)(nil),           // 3: zerone.auth.v1.MsgRotateKeyResponse
-	(*MsgCreateSession)(nil),               // 4: zerone.auth.v1.MsgCreateSession
-	(*MsgCreateSessionResponse)(nil),       // 5: zerone.auth.v1.MsgCreateSessionResponse
-	(*MsgRevokeSession)(nil),               // 6: zerone.auth.v1.MsgRevokeSession
-	(*MsgRevokeSessionResponse)(nil),       // 7: zerone.auth.v1.MsgRevokeSessionResponse
-	(*MsgFreezeAccount)(nil),               // 8: zerone.auth.v1.MsgFreezeAccount
-	(*MsgFreezeAccountResponse)(nil),       // 9: zerone.auth.v1.MsgFreezeAccountResponse
-	(*MsgUnfreezeAccount)(nil),             // 10: zerone.auth.v1.MsgUnfreezeAccount
-	(*MsgUnfreezeAccountResponse)(nil),     // 11: zerone.auth.v1.MsgUnfreezeAccountResponse
-	(*MsgSetRecoveryConfig)(nil),           // 12: zerone.auth.v1.MsgSetRecoveryConfig
-	(*MsgSetRecoveryConfigResponse)(nil),   // 13: zerone.auth.v1.MsgSetRecoveryConfigResponse
-	(*MsgInitiateRecovery)(nil),            // 14: zerone.auth.v1.MsgInitiateRecovery
-	(*MsgInitiateRecoveryResponse)(nil),    // 15: zerone.auth.v1.MsgInitiateRecoveryResponse
-	(*MsgSubmitRecoveryShard)(nil),         // 16: zerone.auth.v1.MsgSubmitRecoveryShard
-	(*MsgSubmitRecoveryShardResponse)(nil), // 17: zerone.auth.v1.MsgSubmitRecoveryShardResponse
-	(*MsgChallengeRecovery)(nil),           // 18: zerone.auth.v1.MsgChallengeRecovery
-	(*MsgChallengeRecoveryResponse)(nil),   // 19: zerone.auth.v1.MsgChallengeRecoveryResponse
-	(*MsgExecuteRecovery)(nil),             // 20: zerone.auth.v1.MsgExecuteRecovery
-	(*MsgExecuteRecoveryResponse)(nil),     // 21: zerone.auth.v1.MsgExecuteRecoveryResponse
-	(*MsgUpdateParams)(nil),                // 22: zerone.auth.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),        // 23: zerone.auth.v1.MsgUpdateParamsResponse
-	(*SessionCapabilities)(nil),            // 24: zerone.auth.v1.SessionCapabilities
-	(*RecoveryConfig)(nil),                 // 25: zerone.auth.v1.RecoveryConfig
-	(*Params)(nil),                         // 26: zerone.auth.v1.Params
+	(*MsgRegisterAccount)(nil),         // 0: zerone.auth.v1.MsgRegisterAccount
+	(*MsgRegisterAccountResponse)(nil), // 1: zerone.auth.v1.MsgRegisterAccountResponse
+	(*MsgRotateKey)(nil),               // 2: zerone.auth.v1.MsgRotateKey
+	(*MsgRotateKeyResponse)(nil),       // 3: zerone.auth.v1.MsgRotateKeyResponse
+	(*MsgFreezeAccount)(nil),           // 4: zerone.auth.v1.MsgFreezeAccount
+	(*MsgFreezeAccountResponse)(nil),   // 5: zerone.auth.v1.MsgFreezeAccountResponse
+	(*MsgUnfreezeAccount)(nil),         // 6: zerone.auth.v1.MsgUnfreezeAccount
+	(*MsgUnfreezeAccountResponse)(nil), // 7: zerone.auth.v1.MsgUnfreezeAccountResponse
+	(*MsgUpdateParams)(nil),            // 8: zerone.auth.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),    // 9: zerone.auth.v1.MsgUpdateParamsResponse
+	(*Params)(nil),                     // 10: zerone.auth.v1.Params
 }
 var file_zerone_auth_v1_tx_proto_depIdxs = []int32{
-	24, // 0: zerone.auth.v1.MsgCreateSession.capabilities:type_name -> zerone.auth.v1.SessionCapabilities
-	25, // 1: zerone.auth.v1.MsgSetRecoveryConfig.config:type_name -> zerone.auth.v1.RecoveryConfig
-	26, // 2: zerone.auth.v1.MsgUpdateParams.params:type_name -> zerone.auth.v1.Params
-	0,  // 3: zerone.auth.v1.Msg.RegisterAccount:input_type -> zerone.auth.v1.MsgRegisterAccount
-	2,  // 4: zerone.auth.v1.Msg.RotateKey:input_type -> zerone.auth.v1.MsgRotateKey
-	4,  // 5: zerone.auth.v1.Msg.CreateSession:input_type -> zerone.auth.v1.MsgCreateSession
-	6,  // 6: zerone.auth.v1.Msg.RevokeSession:input_type -> zerone.auth.v1.MsgRevokeSession
-	8,  // 7: zerone.auth.v1.Msg.FreezeAccount:input_type -> zerone.auth.v1.MsgFreezeAccount
-	10, // 8: zerone.auth.v1.Msg.UnfreezeAccount:input_type -> zerone.auth.v1.MsgUnfreezeAccount
-	12, // 9: zerone.auth.v1.Msg.SetRecoveryConfig:input_type -> zerone.auth.v1.MsgSetRecoveryConfig
-	14, // 10: zerone.auth.v1.Msg.InitiateRecovery:input_type -> zerone.auth.v1.MsgInitiateRecovery
-	16, // 11: zerone.auth.v1.Msg.SubmitRecoveryShard:input_type -> zerone.auth.v1.MsgSubmitRecoveryShard
-	18, // 12: zerone.auth.v1.Msg.ChallengeRecovery:input_type -> zerone.auth.v1.MsgChallengeRecovery
-	20, // 13: zerone.auth.v1.Msg.ExecuteRecovery:input_type -> zerone.auth.v1.MsgExecuteRecovery
-	22, // 14: zerone.auth.v1.Msg.UpdateParams:input_type -> zerone.auth.v1.MsgUpdateParams
-	1,  // 15: zerone.auth.v1.Msg.RegisterAccount:output_type -> zerone.auth.v1.MsgRegisterAccountResponse
-	3,  // 16: zerone.auth.v1.Msg.RotateKey:output_type -> zerone.auth.v1.MsgRotateKeyResponse
-	5,  // 17: zerone.auth.v1.Msg.CreateSession:output_type -> zerone.auth.v1.MsgCreateSessionResponse
-	7,  // 18: zerone.auth.v1.Msg.RevokeSession:output_type -> zerone.auth.v1.MsgRevokeSessionResponse
-	9,  // 19: zerone.auth.v1.Msg.FreezeAccount:output_type -> zerone.auth.v1.MsgFreezeAccountResponse
-	11, // 20: zerone.auth.v1.Msg.UnfreezeAccount:output_type -> zerone.auth.v1.MsgUnfreezeAccountResponse
-	13, // 21: zerone.auth.v1.Msg.SetRecoveryConfig:output_type -> zerone.auth.v1.MsgSetRecoveryConfigResponse
-	15, // 22: zerone.auth.v1.Msg.InitiateRecovery:output_type -> zerone.auth.v1.MsgInitiateRecoveryResponse
-	17, // 23: zerone.auth.v1.Msg.SubmitRecoveryShard:output_type -> zerone.auth.v1.MsgSubmitRecoveryShardResponse
-	19, // 24: zerone.auth.v1.Msg.ChallengeRecovery:output_type -> zerone.auth.v1.MsgChallengeRecoveryResponse
-	21, // 25: zerone.auth.v1.Msg.ExecuteRecovery:output_type -> zerone.auth.v1.MsgExecuteRecoveryResponse
-	23, // 26: zerone.auth.v1.Msg.UpdateParams:output_type -> zerone.auth.v1.MsgUpdateParamsResponse
-	15, // [15:27] is the sub-list for method output_type
-	3,  // [3:15] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	10, // 0: zerone.auth.v1.MsgUpdateParams.params:type_name -> zerone.auth.v1.Params
+	0,  // 1: zerone.auth.v1.Msg.RegisterAccount:input_type -> zerone.auth.v1.MsgRegisterAccount
+	2,  // 2: zerone.auth.v1.Msg.RotateKey:input_type -> zerone.auth.v1.MsgRotateKey
+	4,  // 3: zerone.auth.v1.Msg.FreezeAccount:input_type -> zerone.auth.v1.MsgFreezeAccount
+	6,  // 4: zerone.auth.v1.Msg.UnfreezeAccount:input_type -> zerone.auth.v1.MsgUnfreezeAccount
+	8,  // 5: zerone.auth.v1.Msg.UpdateParams:input_type -> zerone.auth.v1.MsgUpdateParams
+	1,  // 6: zerone.auth.v1.Msg.RegisterAccount:output_type -> zerone.auth.v1.MsgRegisterAccountResponse
+	3,  // 7: zerone.auth.v1.Msg.RotateKey:output_type -> zerone.auth.v1.MsgRotateKeyResponse
+	5,  // 8: zerone.auth.v1.Msg.FreezeAccount:output_type -> zerone.auth.v1.MsgFreezeAccountResponse
+	7,  // 9: zerone.auth.v1.Msg.UnfreezeAccount:output_type -> zerone.auth.v1.MsgUnfreezeAccountResponse
+	9,  // 10: zerone.auth.v1.Msg.UpdateParams:output_type -> zerone.auth.v1.MsgUpdateParamsResponse
+	6,  // [6:11] is the sub-list for method output_type
+	1,  // [1:6] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_zerone_auth_v1_tx_proto_init() }
@@ -1379,7 +621,7 @@ func file_zerone_auth_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_auth_v1_tx_proto_rawDesc), len(file_zerone_auth_v1_tx_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   24,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

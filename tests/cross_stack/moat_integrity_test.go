@@ -324,9 +324,9 @@ func TestMoat_SuccessfulChallengeRewardScalesWithTargetConfidence(t *testing.T) 
 	// skips (the code logs and continues) and the two probes would
 	// return identical refunds, defeating the test.
 	treasuryFeed := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1_000_000_000)))
-	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, "zerone_auth", treasuryFeed))
+	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, "tokens", treasuryFeed))
 	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx,
-		"zerone_auth", "protocol_treasury", treasuryFeed))
+		"tokens", "protocol_treasury", treasuryFeed))
 
 	probe := func(targetConf uint64, challengerTag string) sdkmath.Int {
 		challenger := testAddr(challengerTag)

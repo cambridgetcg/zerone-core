@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
-	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
 	storetypes "cosmossdk.io/store/types"
@@ -31,18 +30,6 @@ func (m mockCosmosAccountKeeper) GetAccount(_ context.Context, _ sdk.AccAddress)
 }
 func (m mockCosmosAccountKeeper) SetAccount(_ context.Context, _ sdk.AccountI) {}
 func (m mockCosmosAccountKeeper) NewAccountWithAddress(_ context.Context, _ sdk.AccAddress) sdk.AccountI {
-	return nil
-}
-
-type mockBankKeeper struct{}
-
-func (m mockBankKeeper) GetBalance(_ context.Context, _ sdk.AccAddress, _ string) sdk.Coin {
-	return sdk.NewCoin("uzrn", sdkmath.ZeroInt())
-}
-func (m mockBankKeeper) GetAllBalances(_ context.Context, _ sdk.AccAddress) sdk.Coins {
-	return sdk.NewCoins()
-}
-func (m mockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, _ string, _ sdk.AccAddress, _ sdk.Coins) error {
 	return nil
 }
 
@@ -75,7 +62,6 @@ func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 		cdc,
 		runtime.NewKVStoreService(storeKey),
 		mockCosmosAccountKeeper{},
-		mockBankKeeper{},
 		"authority",
 	)
 
@@ -348,169 +334,10 @@ func TestRotateKey_InvalidKeyType(t *testing.T) {
 	}
 }
 
-// ---------- CreateSession Tests ----------
 
-func TestCreateSession_Success(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
 
-	resp, err := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:         testAddr1,
-		SessionPubKey: []byte("session1"),
-		Capabilities: &types.SessionCapabilities{
-			CanTransfer:     true,
-			CanSubmitClaims: true,
-		},
-		ExpiresAtHeight: 1100,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.SessionId == "" {
-		t.Error("expected non-empty SessionId")
-	}
 
-	keyHash := resp.SessionId
-	session, found := k.GetSessionKey(ctx, testAddr1, keyHash)
-	if !found {
-		t.Fatal("session not found")
-	}
-	if session.Capabilities == nil || !session.Capabilities.CanTransfer {
-		t.Error("expected CanTransfer true")
-	}
-	if session.Capabilities == nil || !session.Capabilities.CanSubmitClaims {
-		t.Error("expected CanSubmitClaims true")
-	}
-
-	account, _ := k.GetAccount(ctx, testAddr1)
-	if account.SessionKeyCount != 1 {
-		t.Errorf("expected session count 1, got %d", account.SessionKeyCount)
-	}
-}
-
-func TestCreateSession_MaxSessionKeys(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	params := k.GetParams(ctx)
-
-	for i := uint32(0); i < params.MaxSessionKeys; i++ {
-		_, err := ms.CreateSession(ctx, &types.MsgCreateSession{
-			Owner:           testAddr1,
-			SessionPubKey:   []byte(string(rune('a' + int(i)))),
-			Capabilities:    &types.SessionCapabilities{},
-			ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-		})
-		if err != nil {
-			t.Fatalf("unexpected error creating session %d: %v", i, err)
-		}
-	}
-
-	_, err := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("overflow"),
-		Capabilities:    &types.SessionCapabilities{},
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-	if err == nil {
-		t.Fatal("expected error for exceeding max session keys")
-	}
-}
-
-func TestCreateSession_DurationExceeded(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	params := k.GetParams(ctx)
-
-	_, err := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("session1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + params.MaxSessionDuration + 1,
-	})
-	if err == nil {
-		t.Fatal("expected error for exceeding max duration")
-	}
-}
-
-// ---------- RevokeSession Tests ----------
-
-func TestRevokeSession_Success(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	createResp, _ := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("session1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-
-	_, err := ms.RevokeSession(ctx, &types.MsgRevokeSession{
-		Owner:     testAddr1,
-		SessionId: createResp.SessionId,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	_, found := k.GetSessionKey(ctx, testAddr1, createResp.SessionId)
-	if found {
-		t.Fatal("session should be deleted after revocation")
-	}
-
-	account, _ := k.GetAccount(ctx, testAddr1)
-	if account.SessionKeyCount != 0 {
-		t.Errorf("expected session count 0, got %d", account.SessionKeyCount)
-	}
-}
-
-func TestRevokeSession_NotFound(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	_, err := ms.RevokeSession(ctx, &types.MsgRevokeSession{
-		Owner:     testAddr1,
-		SessionId: "nonexistent",
-	})
-	if err == nil {
-		t.Fatal("expected error for non-existent session")
-	}
-}
 
 // ---------- Query Tests ----------
 
@@ -569,37 +396,6 @@ func TestQueryAccount_NotFound(t *testing.T) {
 	}
 }
 
-func TestQuerySessionKeys(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-	qs := keeper.NewQueryServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s2"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 2000,
-	})
-
-	resp, err := qs.SessionKeys(ctx, &types.QuerySessionKeysRequest{Owner: testAddr1})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(resp.SessionKeys) != 2 {
-		t.Errorf("expected 2 session keys, got %d", len(resp.SessionKeys))
-	}
-}
 
 func TestQueryParams(t *testing.T) {
 	k, ctx := setupKeeper(t)
@@ -608,12 +404,6 @@ func TestQueryParams(t *testing.T) {
 	resp, err := qs.Params(ctx, &types.QueryParamsRequest{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.Params.MaxSessionKeys != 5 {
-		t.Errorf("expected max session keys 5, got %d", resp.Params.MaxSessionKeys)
-	}
-	if resp.Params.MaxSessionDuration != 34272 {
-		t.Errorf("expected max session duration 34272, got %d", resp.Params.MaxSessionDuration)
 	}
 	if resp.Params.KeyRotationCooldown != 111 {
 		t.Errorf("expected key rotation cooldown 111, got %d", resp.Params.KeyRotationCooldown)
@@ -706,21 +496,12 @@ func TestInitExportGenesis(t *testing.T) {
 		AccountType: "human",
 	})
 
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-
 	gs := k.ExportGenesis(ctx)
 	if len(gs.Accounts) != 2 {
 		t.Errorf("expected 2 accounts in genesis, got %d", len(gs.Accounts))
 	}
 	if len(gs.DidMappings) != 2 {
 		t.Errorf("expected 2 DID mappings in genesis, got %d", len(gs.DidMappings))
-	}
-	if len(gs.SessionKeys) != 1 {
-		t.Errorf("expected 1 session key in genesis, got %d", len(gs.SessionKeys))
 	}
 
 	if err := gs.Validate(); err != nil {
@@ -862,107 +643,9 @@ func TestRotateKey_WithoutNewPublicKey_PreservesExisting(t *testing.T) {
 	}
 }
 
-// ---------- Phase 2-3: Session Key PublicKey Tests ----------
 
-func TestCreateSession_StoresSessionPublicKey(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
 
-	sessionPubKeyBytes := []byte{0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10}
-	resp, err := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:         testAddr1,
-		SessionPubKey: sessionPubKeyBytes,
-		Capabilities: &types.SessionCapabilities{
-			CanTransfer:     true,
-			CanSubmitClaims: true,
-		},
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	session, found := k.GetSessionKey(ctx, testAddr1, resp.SessionId)
-	if !found {
-		t.Fatal("session not found")
-	}
-	expectedHex := "fedcba9876543210"
-	if session.PublicKey != expectedHex {
-		t.Errorf("expected session PublicKey %s, got %s", expectedHex, session.PublicKey)
-	}
-}
-
-func TestGetSessionKeysForOwner_ReturnsAll(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	for i := 0; i < 3; i++ {
-		pubKey := []byte{byte('a' + i), 0x01, 0x02, 0x03}
-		_, err := ms.CreateSession(ctx, &types.MsgCreateSession{
-			Owner:           testAddr1,
-			SessionPubKey:   pubKey,
-			Capabilities:    &types.SessionCapabilities{CanTransfer: i%2 == 0},
-			ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-		})
-		if err != nil {
-			t.Fatalf("session %d: %v", i, err)
-		}
-	}
-
-	sessions := k.GetSessionKeysForOwner(ctx, testAddr1)
-	if len(sessions) != 3 {
-		t.Errorf("expected 3 sessions, got %d", len(sessions))
-	}
-}
-
-func TestGetSessionKeysForOwner_EmptyForUnknownOwner(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	sessions := k.GetSessionKeysForOwner(ctx, testAddr2)
-	if len(sessions) != 0 {
-		t.Errorf("expected 0 sessions for unknown owner, got %d", len(sessions))
-	}
-}
-
-// ---------- Phase 3: Frozen Account Blocking Tests ----------
-
-func TestCreateSession_FrozenAccount(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	account, _ := k.GetAccount(ctx, testAddr1)
-	account.Flags.Frozen = true
-	k.SetAccount(ctx, account)
-
-	_, err := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("session1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-	if err == nil {
-		t.Fatal("expected error for frozen account")
-	}
-}
 
 // ---------- Phase 4: DID Resolution Tests ----------
 
@@ -1020,42 +703,7 @@ func TestMsgRotateKey_ValidateBasic(t *testing.T) {
 	}
 }
 
-func TestMsgCreateSession_ValidateBasic(t *testing.T) {
-	msg := types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: 1100,
-	}
-	if err := msg.ValidateBasic(); err != nil {
-		t.Errorf("expected valid, got error: %v", err)
-	}
 
-	msg.Owner = "bad"
-	if err := msg.ValidateBasic(); err == nil {
-		t.Error("expected error for invalid owner")
-	}
-
-	msg.Owner = testAddr1
-	msg.SessionPubKey = nil
-	if err := msg.ValidateBasic(); err == nil {
-		t.Error("expected error for empty session pub key")
-	}
-}
-
-func TestMsgRevokeSession_ValidateBasic(t *testing.T) {
-	msg := types.MsgRevokeSession{
-		Owner:     testAddr1,
-		SessionId: "s1",
-	}
-	if err := msg.ValidateBasic(); err != nil {
-		t.Errorf("expected valid, got error: %v", err)
-	}
-
-	msg.SessionId = ""
-	if err := msg.ValidateBasic(); err == nil {
-		t.Error("expected error for empty session id")
-	}
-}
 
 // ---------- LastActiveBlock Update Tests ----------
 
@@ -1109,64 +757,7 @@ func TestRotateKey_UpdatesLastActive(t *testing.T) {
 	}
 }
 
-func TestCreateSession_UpdatesLastActive(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	advancedCtx := ctx.WithBlockHeight(200)
-
-	_, err := ms.CreateSession(advancedCtx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(advancedCtx.BlockHeight()) + 1000,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	account, _ := k.GetAccount(advancedCtx, testAddr1)
-	if account.LastActiveBlock != 200 {
-		t.Errorf("expected LastActiveBlock 200, got %d", account.LastActiveBlock)
-	}
-}
-
-func TestRevokeSession_UpdatesLastActive(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-	createResp, _ := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-
-	advancedCtx := ctx.WithBlockHeight(250)
-	_, err := ms.RevokeSession(advancedCtx, &types.MsgRevokeSession{
-		Owner:     testAddr1,
-		SessionId: createResp.SessionId,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	account, _ := k.GetAccount(advancedCtx, testAddr1)
-	if account.LastActiveBlock != 250 {
-		t.Errorf("expected LastActiveBlock 250, got %d", account.LastActiveBlock)
-	}
-}
 
 // ---------- FreezeAccount Tests ----------
 
@@ -1387,890 +978,24 @@ func TestUnfreezeAccount_NotFrozen(t *testing.T) {
 	}
 }
 
-// ---------- SetRecoveryConfig Tests ----------
 
-func TestSetRecoveryConfig_Success(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
 
-	config := types.RecoveryConfig{
-		Threshold:   2,
-		TotalShards: 3,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-			{Type: "agent", Identifier: "zrn1guardian2xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 1, CanInitiateRecovery: false},
-			{Type: "agent", Identifier: "zrn1guardian3xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 2, CanInitiateRecovery: false},
-		},
-		RecoveryDelayBlocks:   500,
-		ChallengePeriodBlocks: 250,
-	}
 
-	_, err := ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
-	stored, found := k.GetRecoveryConfig(ctx, testAddr1)
-	if !found {
-		t.Fatal("recovery config not found")
-	}
-	if stored.Threshold != 2 {
-		t.Errorf("expected threshold 2, got %d", stored.Threshold)
-	}
-	if stored.TotalShards != 3 {
-		t.Errorf("expected total shards 3, got %d", stored.TotalShards)
-	}
-	if len(stored.ShardHolders) != 3 {
-		t.Errorf("expected 3 shard holders, got %d", len(stored.ShardHolders))
-	}
-}
 
-func TestSetRecoveryConfig_AccountNotFound(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, err := ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &types.RecoveryConfig{Threshold: 1, TotalShards: 1},
-	})
-	if err == nil {
-		t.Fatal("expected error for non-existent account")
-	}
-}
 
-// ---------- InitiateRecovery Tests ----------
 
-func TestInitiateRecovery_Success(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
 
-	config := types.RecoveryConfig{
-		Threshold:   2,
-		TotalShards: 3,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-			{Type: "agent", Identifier: "zrn1guardian2xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 1, CanInitiateRecovery: false},
-			{Type: "agent", Identifier: "zrn1guardian3xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 2, CanInitiateRecovery: false},
-		},
-		RecoveryDelayBlocks:   500,
-		ChallengePeriodBlocks: 250,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
 
-	_, err := ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
 
-	req, found := k.GetRecoveryRequest(ctx, testAddr1)
-	if !found {
-		t.Fatal("recovery request not found")
-	}
-	if req.Status != "pending" {
-		t.Errorf("expected status pending, got %s", req.Status)
-	}
-	if req.InitiatedBy != testAddr2 {
-		t.Errorf("expected initiated by %s, got %s", testAddr2, req.InitiatedBy)
-	}
-	if req.NewOperationalKey != testPubKey2 {
-		t.Errorf("expected new key %s, got %s", testPubKey2, req.NewOperationalKey)
-	}
-	if req.ShardsRequired != 2 {
-		t.Errorf("expected shards required 2, got %d", req.ShardsRequired)
-	}
-	if req.DelayExpiresAt != 600 { // 100 + 500
-		t.Errorf("expected delay expires at 600, got %d", req.DelayExpiresAt)
-	}
-	if req.ChallengeExpiresAt != 850 { // 100 + 500 + 250
-		t.Errorf("expected challenge expires at 850, got %d", req.ChallengeExpiresAt)
-	}
 
-	account, _ := k.GetAccount(ctx, testAddr1)
-	if !account.Flags.InRecovery {
-		t.Fatal("expected InRecovery flag to be set")
-	}
-}
 
-func TestInitiateRecovery_UnauthorizedInitiator(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
 
-	config := types.RecoveryConfig{
-		Threshold:   2,
-		TotalShards: 3,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: false},
-		},
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
 
-	_, err := ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-	if err == nil {
-		t.Fatal("expected error for unauthorized initiator")
-	}
-}
-
-func TestInitiateRecovery_AlreadyActive(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, err := ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-	if err == nil {
-		t.Fatal("expected error for already active recovery")
-	}
-}
-
-func TestInitiateRecovery_NoConfig(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	_, err := ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-	if err == nil {
-		t.Fatal("expected error for missing recovery config")
-	}
-}
-
-// ---------- SubmitRecoveryShard Tests ----------
-
-func TestSubmitRecoveryShard_Success(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   2,
-		TotalShards: 3,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-			{Type: "agent", Identifier: "zrn1guardian2xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 1, CanInitiateRecovery: false},
-			{Type: "agent", Identifier: "zrn1guardian3xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 2, CanInitiateRecovery: false},
-		},
-		RecoveryDelayBlocks:   500,
-		ChallengePeriodBlocks: 250,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, err := ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error submitting shard 0: %v", err)
-	}
-
-	req, _ := k.GetRecoveryRequest(ctx, testAddr1)
-	if req.Status != "pending" {
-		t.Errorf("expected status pending after 1 shard, got %s", req.Status)
-	}
-	if len(req.ShardsProvided) != 1 {
-		t.Errorf("expected 1 shard provided, got %d", len(req.ShardsProvided))
-	}
-
-	_, err = ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         "zrn1guardian2xxxxxxxxxxxxxxxxxxxxxxx6",
-		AccountAddress: testAddr1,
-		ShardIndex:     1,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error submitting shard 1: %v", err)
-	}
-
-	req, _ = k.GetRecoveryRequest(ctx, testAddr1)
-	if req.Status != "delayed" {
-		t.Errorf("expected status delayed after 2 shards (threshold met), got %s", req.Status)
-	}
-}
-
-func TestSubmitRecoveryShard_DuplicateShard(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   2,
-		TotalShards: 2,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-			{Type: "agent", Identifier: "zrn1guardian2xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 1, CanInitiateRecovery: false},
-		},
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, _ = ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-
-	_, err := ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-	if err == nil {
-		t.Fatal("expected error for duplicate shard submission")
-	}
-}
-
-func TestSubmitRecoveryShard_WrongSender(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 2,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-			{Type: "agent", Identifier: "zrn1guardian2xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 1, CanInitiateRecovery: false},
-		},
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, err := ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     1,
-	})
-	if err == nil {
-		t.Fatal("expected error for wrong shard holder")
-	}
-}
-
-// ---------- ChallengeRecovery Tests ----------
-
-func TestChallengeRecovery_OwnerCancels(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-		RecoveryDelayBlocks:   100,
-		ChallengePeriodBlocks: 100,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, _ = ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-
-	challengeCtx := ctx.WithBlockHeight(201)
-	k.ProcessRecoveryTimeouts(challengeCtx)
-
-	req, _ := k.GetRecoveryRequest(challengeCtx, testAddr1)
-	if req.Status != "challengeable" {
-		t.Fatalf("expected challengeable, got %s", req.Status)
-	}
-
-	_, err := ms.ChallengeRecovery(challengeCtx, &types.MsgChallengeRecovery{
-		Sender:         testAddr1,
-		AccountAddress: testAddr1,
-		Reason:         "I still have my keys",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	req, _ = k.GetRecoveryRequest(challengeCtx, testAddr1)
-	if req.Status != "cancelled" {
-		t.Errorf("expected status cancelled, got %s", req.Status)
-	}
-	if req.ChallengerAddress != testAddr1 {
-		t.Errorf("expected challenger %s, got %s", testAddr1, req.ChallengerAddress)
-	}
-
-	account, _ := k.GetAccount(challengeCtx, testAddr1)
-	if account.Flags.InRecovery {
-		t.Fatal("expected InRecovery flag cleared after challenge")
-	}
-}
-
-func TestChallengeRecovery_NotChallengeable(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, err := ms.ChallengeRecovery(ctx, &types.MsgChallengeRecovery{
-		Sender:         testAddr1,
-		AccountAddress: testAddr1,
-		Reason:         "too early",
-	})
-	if err == nil {
-		t.Fatal("expected error for challenging non-challengeable recovery")
-	}
-}
-
-func TestChallengeRecovery_ThirdPartyBlocked(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-		RecoveryDelayBlocks:   10,
-		ChallengePeriodBlocks: 10,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-	_, _ = ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-
-	challengeCtx := ctx.WithBlockHeight(111)
-	k.ProcessRecoveryTimeouts(challengeCtx)
-
-	_, err := ms.ChallengeRecovery(challengeCtx, &types.MsgChallengeRecovery{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		Reason:         "I'm not the owner",
-	})
-	if err == nil {
-		t.Fatal("expected error for third party challenge")
-	}
-}
-
-// ---------- ExecuteRecovery Tests ----------
-
-func TestExecuteRecovery_FullLifecycle(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 10000,
-	})
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s2"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 10000,
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-		RecoveryDelayBlocks:   10,
-		ChallengePeriodBlocks: 10,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, _ = ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-
-	delayCtx := ctx.WithBlockHeight(111)
-	k.ProcessRecoveryTimeouts(delayCtx)
-	req, _ := k.GetRecoveryRequest(delayCtx, testAddr1)
-	if req.Status != "challengeable" {
-		t.Fatalf("expected challengeable, got %s", req.Status)
-	}
-
-	execCtx := ctx.WithBlockHeight(121)
-	k.ProcessRecoveryTimeouts(execCtx)
-	req, _ = k.GetRecoveryRequest(execCtx, testAddr1)
-	if req.Status != "executable" {
-		t.Fatalf("expected executable, got %s", req.Status)
-	}
-
-	_, err := ms.ExecuteRecovery(execCtx, &types.MsgExecuteRecovery{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	account, _ := k.GetAccount(execCtx, testAddr1)
-	if account.OperationalPublicKey != testPubKey2 {
-		t.Errorf("expected new operational key %s, got %s", testPubKey2, account.OperationalPublicKey)
-	}
-	if account.OperationalKeyVersion != 2 {
-		t.Errorf("expected key version 2, got %d", account.OperationalKeyVersion)
-	}
-	if account.Flags.InRecovery {
-		t.Fatal("expected InRecovery flag cleared")
-	}
-
-	if account.SessionKeyCount != 0 {
-		t.Errorf("expected session count 0 after recovery, got %d", account.SessionKeyCount)
-	}
-	sessions := k.GetSessionKeysForOwner(execCtx, testAddr1)
-	if len(sessions) != 0 {
-		t.Errorf("expected 0 sessions after recovery, got %d", len(sessions))
-	}
-
-	req, _ = k.GetRecoveryRequest(execCtx, testAddr1)
-	if req.Status != "completed" {
-		t.Errorf("expected status completed, got %s", req.Status)
-	}
-}
-
-func TestExecuteRecovery_NotExecutable(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-
-	_, err := ms.ExecuteRecovery(ctx, &types.MsgExecuteRecovery{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-	})
-	if err == nil {
-		t.Fatal("expected error for executing non-executable recovery")
-	}
-}
-
-// ---------- BeginBlock Session Cleanup Tests ----------
-
-func TestCleanupExpiredSessions(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	shortResp, _ := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("short"),
-		ExpiresAtHeight: 150,
-	})
-	longResp, _ := ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("long"),
-		ExpiresAtHeight: 1100,
-	})
-
-	account, _ := k.GetAccount(ctx, testAddr1)
-	if account.SessionKeyCount != 2 {
-		t.Fatalf("expected 2 sessions, got %d", account.SessionKeyCount)
-	}
-
-	expiredCtx := ctx.WithBlockHeight(151)
-	k.CleanupExpiredSessions(expiredCtx)
-
-	_, found := k.GetSessionKey(expiredCtx, testAddr1, shortResp.SessionId)
-	if found {
-		t.Fatal("expected short session to be cleaned up")
-	}
-
-	_, found = k.GetSessionKey(expiredCtx, testAddr1, longResp.SessionId)
-	if !found {
-		t.Fatal("expected long session to still exist")
-	}
-
-	account, _ = k.GetAccount(expiredCtx, testAddr1)
-	if account.SessionKeyCount != 1 {
-		t.Errorf("expected session count 1 after cleanup, got %d", account.SessionKeyCount)
-	}
-}
-
-func TestCleanupExpiredSessions_AllExpired(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: 110,
-	})
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s2"),
-		ExpiresAtHeight: 120,
-	})
-
-	expiredCtx := ctx.WithBlockHeight(200)
-	k.CleanupExpiredSessions(expiredCtx)
-
-	account, _ := k.GetAccount(expiredCtx, testAddr1)
-	if account.SessionKeyCount != 0 {
-		t.Errorf("expected session count 0, got %d", account.SessionKeyCount)
-	}
-
-	sessions := k.GetSessionKeysForOwner(expiredCtx, testAddr1)
-	if len(sessions) != 0 {
-		t.Errorf("expected 0 sessions, got %d", len(sessions))
-	}
-}
-
-func TestCleanupExpiredSessions_NoneExpired(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-
-	k.CleanupExpiredSessions(ctx)
-
-	account, _ := k.GetAccount(ctx, testAddr1)
-	if account.SessionKeyCount != 1 {
-		t.Errorf("expected session count 1 (no cleanup), got %d", account.SessionKeyCount)
-	}
-}
-
-// ---------- Recovery Timeout Processing Tests ----------
-
-func TestProcessRecoveryTimeouts_DelayedToChallengeable(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-		RecoveryDelayBlocks:   50,
-		ChallengePeriodBlocks: 50,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-	_, _ = ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-
-	req, _ := k.GetRecoveryRequest(ctx, testAddr1)
-	if req.Status != "delayed" {
-		t.Fatalf("expected delayed, got %s", req.Status)
-	}
-
-	beforeCtx := ctx.WithBlockHeight(149)
-	k.ProcessRecoveryTimeouts(beforeCtx)
-	req, _ = k.GetRecoveryRequest(beforeCtx, testAddr1)
-	if req.Status != "delayed" {
-		t.Errorf("expected still delayed before expiry, got %s", req.Status)
-	}
-
-	afterCtx := ctx.WithBlockHeight(151)
-	k.ProcessRecoveryTimeouts(afterCtx)
-	req, _ = k.GetRecoveryRequest(afterCtx, testAddr1)
-	if req.Status != "challengeable" {
-		t.Errorf("expected challengeable after delay, got %s", req.Status)
-	}
-}
-
-func TestProcessRecoveryTimeouts_ChallengeableToExecutable(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   1,
-		TotalShards: 1,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-		},
-		RecoveryDelayBlocks:   10,
-		ChallengePeriodBlocks: 10,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	_, _ = ms.InitiateRecovery(ctx, &types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	})
-	_, _ = ms.SubmitRecoveryShard(ctx, &types.MsgSubmitRecoveryShard{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-		ShardIndex:     0,
-	})
-
-	afterDelay := ctx.WithBlockHeight(111)
-	k.ProcessRecoveryTimeouts(afterDelay)
-	req, _ := k.GetRecoveryRequest(afterDelay, testAddr1)
-	if req.Status != "challengeable" {
-		t.Fatalf("expected challengeable, got %s", req.Status)
-	}
-
-	afterChallenge := ctx.WithBlockHeight(121)
-	k.ProcessRecoveryTimeouts(afterChallenge)
-	req, _ = k.GetRecoveryRequest(afterChallenge, testAddr1)
-	if req.Status != "executable" {
-		t.Errorf("expected executable after challenge period, got %s", req.Status)
-	}
-}
 
 // ---------- ValidateBasic Tests for Msg Types ----------
 
@@ -2311,36 +1036,7 @@ func TestMsgUnfreezeAccount_ValidateBasic(t *testing.T) {
 	}
 }
 
-func TestMsgInitiateRecovery_ValidateBasic(t *testing.T) {
-	msg := types.MsgInitiateRecovery{
-		Sender:            testAddr2,
-		AccountAddress:    testAddr1,
-		NewOperationalKey: testPubKey2,
-	}
-	if err := msg.ValidateBasic(); err != nil {
-		t.Errorf("expected valid, got error: %v", err)
-	}
 
-	msg.NewOperationalKey = ""
-	if err := msg.ValidateBasic(); err == nil {
-		t.Error("expected error for empty new key")
-	}
-}
-
-func TestMsgExecuteRecovery_ValidateBasic(t *testing.T) {
-	msg := types.MsgExecuteRecovery{
-		Sender:         testAddr2,
-		AccountAddress: testAddr1,
-	}
-	if err := msg.ValidateBasic(); err != nil {
-		t.Errorf("expected valid, got error: %v", err)
-	}
-
-	msg.AccountAddress = ""
-	if err := msg.ValidateBasic(); err == nil {
-		t.Error("expected error for empty account address")
-	}
-}
 
 // ---------- UpdateParams Tests ----------
 
@@ -2349,18 +1045,9 @@ func TestUpdateParams_AuthoritySuccess(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(k)
 
 	newParams := types.Params{
-		MaxSessionKeys:                10,
-		MaxSessionDuration:            50000,
-		KeyRotationCooldown:           222,
-		RecoveryDelayBlocks:           2000,
-		ChallengePeriodBlocks:         1000,
-		BootstrapEnabled:              false,
-		BootstrapAmount:               "0",
-		MaxMetadataLength:             2048,
-		RequireDid:                    true,
-		MaxRecoveryShards:             20,
-		RecoveryChallengePeriodBlocks: 1000,
-		RecoveryExecutionDelayBlocks:  2000,
+		KeyRotationCooldown: 222,
+		MaxMetadataLength:   2048,
+		RequireDid:          true,
 	}
 
 	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
@@ -2372,17 +1059,11 @@ func TestUpdateParams_AuthoritySuccess(t *testing.T) {
 	}
 
 	stored := k.GetParams(ctx)
-	if stored.MaxSessionKeys != 10 {
-		t.Errorf("expected MaxSessionKeys 10, got %d", stored.MaxSessionKeys)
-	}
-	if stored.MaxSessionDuration != 50000 {
-		t.Errorf("expected MaxSessionDuration 50000, got %d", stored.MaxSessionDuration)
-	}
 	if stored.KeyRotationCooldown != 222 {
 		t.Errorf("expected KeyRotationCooldown 222, got %d", stored.KeyRotationCooldown)
 	}
-	if stored.BootstrapEnabled {
-		t.Error("expected BootstrapEnabled false")
+	if stored.MaxMetadataLength != 2048 {
+		t.Errorf("expected MaxMetadataLength 2048, got %d", stored.MaxMetadataLength)
 	}
 }
 
@@ -2405,8 +1086,7 @@ func TestUpdateParams_InvalidParamsRejected(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(k)
 
 	invalidParams := types.Params{
-		MaxSessionKeys:     0,
-		MaxSessionDuration: 1000,
+		MaxMetadataLength: 0,
 	}
 	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
 		Authority: "authority",
@@ -2433,76 +1113,6 @@ func TestMsgUpdateParams_ValidateBasic(t *testing.T) {
 	}
 }
 
-// ---------- Genesis Roundtrip with RecoveryConfig Tests ----------
-
-func TestGenesisRoundtrip_WithRecoveryConfigs(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	config := types.RecoveryConfig{
-		Threshold:   2,
-		TotalShards: 3,
-		ShardHolders: []*types.ShardHolder{
-			{Type: "agent", Identifier: testAddr2, ShardIndex: 0, CanInitiateRecovery: true},
-			{Type: "agent", Identifier: "zrn1guardian2xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 1},
-			{Type: "agent", Identifier: "zrn1guardian3xxxxxxxxxxxxxxxxxxxxxxx6", ShardIndex: 2},
-		},
-		RecoveryDelayBlocks:   500,
-		ChallengePeriodBlocks: 250,
-	}
-	_, _ = ms.SetRecoveryConfig(ctx, &types.MsgSetRecoveryConfig{
-		Sender: testAddr1,
-		Config: &config,
-	})
-
-	gs := k.ExportGenesis(ctx)
-	if len(gs.RecoveryConfigs) != 1 {
-		t.Fatalf("expected 1 recovery config in export, got %d", len(gs.RecoveryConfigs))
-	}
-	if gs.RecoveryConfigs[0].AccountAddress != testAddr1 {
-		t.Errorf("expected AccountAddress %s, got %s", testAddr1, gs.RecoveryConfigs[0].AccountAddress)
-	}
-	if gs.RecoveryConfigs[0].Threshold != 2 {
-		t.Errorf("expected threshold 2, got %d", gs.RecoveryConfigs[0].Threshold)
-	}
-
-	k2, ctx2 := setupKeeper(t)
-	if err := k2.InitGenesis(ctx2, gs); err != nil {
-		t.Fatalf("InitGenesis failed: %v", err)
-	}
-
-	rc, found := k2.GetRecoveryConfig(ctx2, testAddr1)
-	if !found {
-		t.Fatal("recovery config lost during genesis roundtrip")
-	}
-	if rc.Threshold != 2 {
-		t.Errorf("expected threshold 2 after roundtrip, got %d", rc.Threshold)
-	}
-	if rc.TotalShards != 3 {
-		t.Errorf("expected total shards 3, got %d", rc.TotalShards)
-	}
-	if len(rc.ShardHolders) != 3 {
-		t.Errorf("expected 3 shard holders, got %d", len(rc.ShardHolders))
-	}
-	if rc.RecoveryDelayBlocks != 500 {
-		t.Errorf("expected delay 500, got %d", rc.RecoveryDelayBlocks)
-	}
-
-	acc, found := k2.GetAccount(ctx2, testAddr1)
-	if !found {
-		t.Fatal("account lost during genesis roundtrip")
-	}
-	if acc.Did != testDID1 {
-		t.Errorf("expected DID %s, got %s", testDID1, acc.Did)
-	}
-}
 
 // ---------- Invariant Tests ----------
 
@@ -2542,55 +1152,7 @@ func TestAccountDIDParityInvariant_DetectsOrphanedAccount(t *testing.T) {
 	}
 }
 
-func TestSessionCountConsistencyInvariant_Passes(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
 
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-
-	inv := keeper.SessionCountConsistencyInvariant(k)
-	msg, broken := inv(ctx)
-	if broken {
-		t.Errorf("invariant should pass: %s", msg)
-	}
-}
-
-func TestSessionCountConsistencyInvariant_DetectsMismatch(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	_, _ = ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
-
-	_, _ = ms.CreateSession(ctx, &types.MsgCreateSession{
-		Owner:           testAddr1,
-		SessionPubKey:   []byte("s1"),
-		ExpiresAtHeight: uint64(ctx.BlockHeight()) + 1000,
-	})
-	account, _ := k.GetAccount(ctx, testAddr1)
-	account.SessionKeyCount = 99
-	k.SetAccount(ctx, account)
-
-	inv := keeper.SessionCountConsistencyInvariant(k)
-	_, broken := inv(ctx)
-	if !broken {
-		t.Error("invariant should detect session count mismatch")
-	}
-}
 
 func TestParamsValidInvariant_Passes(t *testing.T) {
 	k, ctx := setupKeeper(t)

@@ -19,18 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Msg_RegisterAccount_FullMethodName     = "/zerone.auth.v1.Msg/RegisterAccount"
-	Msg_RotateKey_FullMethodName           = "/zerone.auth.v1.Msg/RotateKey"
-	Msg_CreateSession_FullMethodName       = "/zerone.auth.v1.Msg/CreateSession"
-	Msg_RevokeSession_FullMethodName       = "/zerone.auth.v1.Msg/RevokeSession"
-	Msg_FreezeAccount_FullMethodName       = "/zerone.auth.v1.Msg/FreezeAccount"
-	Msg_UnfreezeAccount_FullMethodName     = "/zerone.auth.v1.Msg/UnfreezeAccount"
-	Msg_SetRecoveryConfig_FullMethodName   = "/zerone.auth.v1.Msg/SetRecoveryConfig"
-	Msg_InitiateRecovery_FullMethodName    = "/zerone.auth.v1.Msg/InitiateRecovery"
-	Msg_SubmitRecoveryShard_FullMethodName = "/zerone.auth.v1.Msg/SubmitRecoveryShard"
-	Msg_ChallengeRecovery_FullMethodName   = "/zerone.auth.v1.Msg/ChallengeRecovery"
-	Msg_ExecuteRecovery_FullMethodName     = "/zerone.auth.v1.Msg/ExecuteRecovery"
-	Msg_UpdateParams_FullMethodName        = "/zerone.auth.v1.Msg/UpdateParams"
+	Msg_RegisterAccount_FullMethodName = "/zerone.auth.v1.Msg/RegisterAccount"
+	Msg_RotateKey_FullMethodName       = "/zerone.auth.v1.Msg/RotateKey"
+	Msg_FreezeAccount_FullMethodName   = "/zerone.auth.v1.Msg/FreezeAccount"
+	Msg_UnfreezeAccount_FullMethodName = "/zerone.auth.v1.Msg/UnfreezeAccount"
+	Msg_UpdateParams_FullMethodName    = "/zerone.auth.v1.Msg/UpdateParams"
 )
 
 // MsgClient is the client API for Msg service.
@@ -38,29 +31,22 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // Msg defines the auth module's transaction service.
+//
+// Session (CreateSession/RevokeSession) and social-recovery
+// (SetRecoveryConfig/InitiateRecovery/SubmitRecoveryShard/
+// ChallengeRecovery/ExecuteRecovery) msgs were removed in the 2026-07
+// slim cut: delegated/session authority and key-recovery ceremonies are
+// agent-platform concerns (agenttool layer); the chain keeps the
+// identity anchor. Do not reuse the removed message names.
 type MsgClient interface {
 	// RegisterAccount registers a new Zerone account with DID mapping.
 	RegisterAccount(ctx context.Context, in *MsgRegisterAccount, opts ...grpc.CallOption) (*MsgRegisterAccountResponse, error)
 	// RotateKey rotates an account's operational key.
 	RotateKey(ctx context.Context, in *MsgRotateKey, opts ...grpc.CallOption) (*MsgRotateKeyResponse, error)
-	// CreateSession creates an ephemeral session key with limited capabilities.
-	CreateSession(ctx context.Context, in *MsgCreateSession, opts ...grpc.CallOption) (*MsgCreateSessionResponse, error)
-	// RevokeSession revokes an active session key.
-	RevokeSession(ctx context.Context, in *MsgRevokeSession, opts ...grpc.CallOption) (*MsgRevokeSessionResponse, error)
 	// FreezeAccount freezes an account (self-freeze or authority).
 	FreezeAccount(ctx context.Context, in *MsgFreezeAccount, opts ...grpc.CallOption) (*MsgFreezeAccountResponse, error)
 	// UnfreezeAccount unfreezes a frozen account (authority only).
 	UnfreezeAccount(ctx context.Context, in *MsgUnfreezeAccount, opts ...grpc.CallOption) (*MsgUnfreezeAccountResponse, error)
-	// SetRecoveryConfig sets recovery configuration for an account.
-	SetRecoveryConfig(ctx context.Context, in *MsgSetRecoveryConfig, opts ...grpc.CallOption) (*MsgSetRecoveryConfigResponse, error)
-	// InitiateRecovery begins account recovery.
-	InitiateRecovery(ctx context.Context, in *MsgInitiateRecovery, opts ...grpc.CallOption) (*MsgInitiateRecoveryResponse, error)
-	// SubmitRecoveryShard provides a shard to an active recovery request.
-	SubmitRecoveryShard(ctx context.Context, in *MsgSubmitRecoveryShard, opts ...grpc.CallOption) (*MsgSubmitRecoveryShardResponse, error)
-	// ChallengeRecovery challenges an active recovery request.
-	ChallengeRecovery(ctx context.Context, in *MsgChallengeRecovery, opts ...grpc.CallOption) (*MsgChallengeRecoveryResponse, error)
-	// ExecuteRecovery completes a recovery after delay + challenge period.
-	ExecuteRecovery(ctx context.Context, in *MsgExecuteRecovery, opts ...grpc.CallOption) (*MsgExecuteRecoveryResponse, error)
 	// UpdateParams updates module parameters. Authority (governance) only.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 }
@@ -93,26 +79,6 @@ func (c *msgClient) RotateKey(ctx context.Context, in *MsgRotateKey, opts ...grp
 	return out, nil
 }
 
-func (c *msgClient) CreateSession(ctx context.Context, in *MsgCreateSession, opts ...grpc.CallOption) (*MsgCreateSessionResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MsgCreateSessionResponse)
-	err := c.cc.Invoke(ctx, Msg_CreateSession_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) RevokeSession(ctx context.Context, in *MsgRevokeSession, opts ...grpc.CallOption) (*MsgRevokeSessionResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MsgRevokeSessionResponse)
-	err := c.cc.Invoke(ctx, Msg_RevokeSession_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *msgClient) FreezeAccount(ctx context.Context, in *MsgFreezeAccount, opts ...grpc.CallOption) (*MsgFreezeAccountResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MsgFreezeAccountResponse)
@@ -127,56 +93,6 @@ func (c *msgClient) UnfreezeAccount(ctx context.Context, in *MsgUnfreezeAccount,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MsgUnfreezeAccountResponse)
 	err := c.cc.Invoke(ctx, Msg_UnfreezeAccount_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) SetRecoveryConfig(ctx context.Context, in *MsgSetRecoveryConfig, opts ...grpc.CallOption) (*MsgSetRecoveryConfigResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MsgSetRecoveryConfigResponse)
-	err := c.cc.Invoke(ctx, Msg_SetRecoveryConfig_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) InitiateRecovery(ctx context.Context, in *MsgInitiateRecovery, opts ...grpc.CallOption) (*MsgInitiateRecoveryResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MsgInitiateRecoveryResponse)
-	err := c.cc.Invoke(ctx, Msg_InitiateRecovery_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) SubmitRecoveryShard(ctx context.Context, in *MsgSubmitRecoveryShard, opts ...grpc.CallOption) (*MsgSubmitRecoveryShardResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MsgSubmitRecoveryShardResponse)
-	err := c.cc.Invoke(ctx, Msg_SubmitRecoveryShard_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) ChallengeRecovery(ctx context.Context, in *MsgChallengeRecovery, opts ...grpc.CallOption) (*MsgChallengeRecoveryResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MsgChallengeRecoveryResponse)
-	err := c.cc.Invoke(ctx, Msg_ChallengeRecovery_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *msgClient) ExecuteRecovery(ctx context.Context, in *MsgExecuteRecovery, opts ...grpc.CallOption) (*MsgExecuteRecoveryResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MsgExecuteRecoveryResponse)
-	err := c.cc.Invoke(ctx, Msg_ExecuteRecovery_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,29 +114,22 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 // for forward compatibility.
 //
 // Msg defines the auth module's transaction service.
+//
+// Session (CreateSession/RevokeSession) and social-recovery
+// (SetRecoveryConfig/InitiateRecovery/SubmitRecoveryShard/
+// ChallengeRecovery/ExecuteRecovery) msgs were removed in the 2026-07
+// slim cut: delegated/session authority and key-recovery ceremonies are
+// agent-platform concerns (agenttool layer); the chain keeps the
+// identity anchor. Do not reuse the removed message names.
 type MsgServer interface {
 	// RegisterAccount registers a new Zerone account with DID mapping.
 	RegisterAccount(context.Context, *MsgRegisterAccount) (*MsgRegisterAccountResponse, error)
 	// RotateKey rotates an account's operational key.
 	RotateKey(context.Context, *MsgRotateKey) (*MsgRotateKeyResponse, error)
-	// CreateSession creates an ephemeral session key with limited capabilities.
-	CreateSession(context.Context, *MsgCreateSession) (*MsgCreateSessionResponse, error)
-	// RevokeSession revokes an active session key.
-	RevokeSession(context.Context, *MsgRevokeSession) (*MsgRevokeSessionResponse, error)
 	// FreezeAccount freezes an account (self-freeze or authority).
 	FreezeAccount(context.Context, *MsgFreezeAccount) (*MsgFreezeAccountResponse, error)
 	// UnfreezeAccount unfreezes a frozen account (authority only).
 	UnfreezeAccount(context.Context, *MsgUnfreezeAccount) (*MsgUnfreezeAccountResponse, error)
-	// SetRecoveryConfig sets recovery configuration for an account.
-	SetRecoveryConfig(context.Context, *MsgSetRecoveryConfig) (*MsgSetRecoveryConfigResponse, error)
-	// InitiateRecovery begins account recovery.
-	InitiateRecovery(context.Context, *MsgInitiateRecovery) (*MsgInitiateRecoveryResponse, error)
-	// SubmitRecoveryShard provides a shard to an active recovery request.
-	SubmitRecoveryShard(context.Context, *MsgSubmitRecoveryShard) (*MsgSubmitRecoveryShardResponse, error)
-	// ChallengeRecovery challenges an active recovery request.
-	ChallengeRecovery(context.Context, *MsgChallengeRecovery) (*MsgChallengeRecoveryResponse, error)
-	// ExecuteRecovery completes a recovery after delay + challenge period.
-	ExecuteRecovery(context.Context, *MsgExecuteRecovery) (*MsgExecuteRecoveryResponse, error)
 	// UpdateParams updates module parameters. Authority (governance) only.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	mustEmbedUnimplementedMsgServer()
@@ -239,32 +148,11 @@ func (UnimplementedMsgServer) RegisterAccount(context.Context, *MsgRegisterAccou
 func (UnimplementedMsgServer) RotateKey(context.Context, *MsgRotateKey) (*MsgRotateKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RotateKey not implemented")
 }
-func (UnimplementedMsgServer) CreateSession(context.Context, *MsgCreateSession) (*MsgCreateSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CreateSession not implemented")
-}
-func (UnimplementedMsgServer) RevokeSession(context.Context, *MsgRevokeSession) (*MsgRevokeSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RevokeSession not implemented")
-}
 func (UnimplementedMsgServer) FreezeAccount(context.Context, *MsgFreezeAccount) (*MsgFreezeAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FreezeAccount not implemented")
 }
 func (UnimplementedMsgServer) UnfreezeAccount(context.Context, *MsgUnfreezeAccount) (*MsgUnfreezeAccountResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UnfreezeAccount not implemented")
-}
-func (UnimplementedMsgServer) SetRecoveryConfig(context.Context, *MsgSetRecoveryConfig) (*MsgSetRecoveryConfigResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SetRecoveryConfig not implemented")
-}
-func (UnimplementedMsgServer) InitiateRecovery(context.Context, *MsgInitiateRecovery) (*MsgInitiateRecoveryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method InitiateRecovery not implemented")
-}
-func (UnimplementedMsgServer) SubmitRecoveryShard(context.Context, *MsgSubmitRecoveryShard) (*MsgSubmitRecoveryShardResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SubmitRecoveryShard not implemented")
-}
-func (UnimplementedMsgServer) ChallengeRecovery(context.Context, *MsgChallengeRecovery) (*MsgChallengeRecoveryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ChallengeRecovery not implemented")
-}
-func (UnimplementedMsgServer) ExecuteRecovery(context.Context, *MsgExecuteRecovery) (*MsgExecuteRecoveryResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ExecuteRecovery not implemented")
 }
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateParams not implemented")
@@ -326,42 +214,6 @@ func _Msg_RotateKey_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Msg_CreateSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgCreateSession)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).CreateSession(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_CreateSession_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).CreateSession(ctx, req.(*MsgCreateSession))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_RevokeSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgRevokeSession)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).RevokeSession(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_RevokeSession_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).RevokeSession(ctx, req.(*MsgRevokeSession))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Msg_FreezeAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgFreezeAccount)
 	if err := dec(in); err != nil {
@@ -394,96 +246,6 @@ func _Msg_UnfreezeAccount_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).UnfreezeAccount(ctx, req.(*MsgUnfreezeAccount))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_SetRecoveryConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgSetRecoveryConfig)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).SetRecoveryConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_SetRecoveryConfig_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).SetRecoveryConfig(ctx, req.(*MsgSetRecoveryConfig))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_InitiateRecovery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgInitiateRecovery)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).InitiateRecovery(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_InitiateRecovery_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).InitiateRecovery(ctx, req.(*MsgInitiateRecovery))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_SubmitRecoveryShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgSubmitRecoveryShard)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).SubmitRecoveryShard(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_SubmitRecoveryShard_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).SubmitRecoveryShard(ctx, req.(*MsgSubmitRecoveryShard))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_ChallengeRecovery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgChallengeRecovery)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).ChallengeRecovery(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_ChallengeRecovery_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).ChallengeRecovery(ctx, req.(*MsgChallengeRecovery))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Msg_ExecuteRecovery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MsgExecuteRecovery)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MsgServer).ExecuteRecovery(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Msg_ExecuteRecovery_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServer).ExecuteRecovery(ctx, req.(*MsgExecuteRecovery))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -522,40 +284,12 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Msg_RotateKey_Handler,
 		},
 		{
-			MethodName: "CreateSession",
-			Handler:    _Msg_CreateSession_Handler,
-		},
-		{
-			MethodName: "RevokeSession",
-			Handler:    _Msg_RevokeSession_Handler,
-		},
-		{
 			MethodName: "FreezeAccount",
 			Handler:    _Msg_FreezeAccount_Handler,
 		},
 		{
 			MethodName: "UnfreezeAccount",
 			Handler:    _Msg_UnfreezeAccount_Handler,
-		},
-		{
-			MethodName: "SetRecoveryConfig",
-			Handler:    _Msg_SetRecoveryConfig_Handler,
-		},
-		{
-			MethodName: "InitiateRecovery",
-			Handler:    _Msg_InitiateRecovery_Handler,
-		},
-		{
-			MethodName: "SubmitRecoveryShard",
-			Handler:    _Msg_SubmitRecoveryShard_Handler,
-		},
-		{
-			MethodName: "ChallengeRecovery",
-			Handler:    _Msg_ChallengeRecovery_Handler,
-		},
-		{
-			MethodName: "ExecuteRecovery",
-			Handler:    _Msg_ExecuteRecovery_Handler,
 		},
 		{
 			MethodName: "UpdateParams",

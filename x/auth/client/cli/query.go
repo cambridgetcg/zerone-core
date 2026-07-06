@@ -24,7 +24,6 @@ func GetQueryCmd() *cobra.Command {
 		CmdQueryParams(),
 		CmdQueryAccount(),
 		CmdQueryAccountByDID(),
-		CmdQuerySessionKeys(),
 		CmdQueryFrozenAccounts(),
 	)
 
@@ -99,32 +98,6 @@ func CmdQueryAccountByDID() *cobra.Command {
 			res, err := queryClient.AccountByDID(cmd.Context(), &types.QueryAccountByDIDRequest{Did: args[0]})
 			if err != nil {
 				return fmt.Errorf("failed to query account by DID: %w", err)
-			}
-
-			return clientCtx.PrintProto(res)
-		},
-	}
-
-	flags.AddQueryFlagsToCmd(cmd)
-	return cmd
-}
-
-// CmdQuerySessionKeys queries session keys for an owner.
-func CmdQuerySessionKeys() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "session-keys [owner-address]",
-		Short: "Query all session keys for an owner",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return err
-			}
-
-			queryClient := types.NewQueryClient(clientCtx)
-			res, err := queryClient.SessionKeys(cmd.Context(), &types.QuerySessionKeysRequest{Owner: args[0]})
-			if err != nil {
-				return fmt.Errorf("failed to query session keys: %w", err)
 			}
 
 			return clientCtx.PrintProto(res)

@@ -11,7 +11,6 @@ import (
 // RegisterInvariants registers all auth module invariants.
 func RegisterInvariants(ir sdk.InvariantRegistry, k Keeper) {
 	ir.RegisterRoute(types.ModuleName, "account-did-parity", AccountDIDParityInvariant(k))
-	ir.RegisterRoute(types.ModuleName, "session-count-consistency", SessionCountConsistencyInvariant(k))
 	ir.RegisterRoute(types.ModuleName, "params-valid", ParamsValidInvariant(k))
 }
 
@@ -38,34 +37,6 @@ func AccountDIDParityInvariant(k Keeper) sdk.Invariant {
 		})
 
 		return sdk.FormatInvariant(types.ModuleName, "account-did-parity", msg), broken
-	}
-}
-
-// SessionCountConsistencyInvariant checks that each account's SessionKeyCount
-// matches the actual number of stored (non-expired) session keys.
-func SessionCountConsistencyInvariant(k Keeper) sdk.Invariant {
-	return func(ctx sdk.Context) (string, bool) {
-		var msg string
-		broken := false
-		currentHeight := uint64(ctx.BlockHeight())
-
-		k.IterateAccounts(ctx, func(account *types.Account) bool {
-			sessions := k.GetSessionKeysForOwner(ctx, account.Address)
-			activeCount := uint32(0)
-			for _, s := range sessions {
-				if s.ExpiresAtBlock > currentHeight {
-					activeCount++
-				}
-			}
-			if account.SessionKeyCount != activeCount {
-				msg += fmt.Sprintf("account %s: SessionKeyCount=%d but actual active sessions=%d\n",
-					account.Address, account.SessionKeyCount, activeCount)
-				broken = true
-			}
-			return false
-		})
-
-		return sdk.FormatInvariant(types.ModuleName, "session-count-consistency", msg), broken
 	}
 }
 

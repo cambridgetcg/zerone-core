@@ -9,11 +9,8 @@ import (
 
 // Validate validates module parameters.
 func (p *Params) Validate() error {
-	if p.MaxSessionKeys == 0 {
-		return fmt.Errorf("max_session_keys must be > 0")
-	}
-	if p.MaxSessionDuration == 0 {
-		return fmt.Errorf("max_session_duration must be > 0")
+	if p.MaxMetadataLength == 0 {
+		return fmt.Errorf("max_metadata_length must be > 0")
 	}
 	return nil
 }
@@ -83,36 +80,6 @@ func (msg *MsgRotateKey) ValidateBasic() error {
 	}
 	if len(msg.AuthorizationSignature) == 0 {
 		return fmt.Errorf("authorization_signature cannot be empty")
-	}
-	return nil
-}
-
-func (msg *MsgCreateSession) GetSigners() []sdk.AccAddress {
-	owner, _ := sdk.AccAddressFromBech32(msg.Owner)
-	return []sdk.AccAddress{owner}
-}
-
-func (msg *MsgCreateSession) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Owner); err != nil {
-		return fmt.Errorf("invalid owner address: %w", err)
-	}
-	if len(msg.SessionPubKey) == 0 {
-		return fmt.Errorf("session_pub_key cannot be empty")
-	}
-	return nil
-}
-
-func (msg *MsgRevokeSession) GetSigners() []sdk.AccAddress {
-	owner, _ := sdk.AccAddressFromBech32(msg.Owner)
-	return []sdk.AccAddress{owner}
-}
-
-func (msg *MsgRevokeSession) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Owner); err != nil {
-		return fmt.Errorf("invalid owner address: %w", err)
-	}
-	if msg.SessionId == "" {
-		return fmt.Errorf("session_id cannot be empty")
 	}
 	return nil
 }
@@ -190,95 +157,3 @@ func (msg *MsgUnfreezeAccount) ValidateBasic() error {
 	return nil
 }
 
-func (msg *MsgSetRecoveryConfig) GetSigners() []sdk.AccAddress {
-	sender, _ := sdk.AccAddressFromBech32(msg.Sender)
-	return []sdk.AccAddress{sender}
-}
-
-func (msg *MsgSetRecoveryConfig) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
-		return fmt.Errorf("invalid sender address: %w", err)
-	}
-	if msg.Config == nil {
-		return fmt.Errorf("config cannot be nil")
-	}
-	if msg.Config.Threshold < 1 {
-		return fmt.Errorf("threshold must be >= 1")
-	}
-	if msg.Config.TotalShards < msg.Config.Threshold {
-		return fmt.Errorf("total_shards must be >= threshold")
-	}
-	if len(msg.Config.ShardHolders) != int(msg.Config.TotalShards) {
-		return fmt.Errorf("shard_holders count must equal total_shards")
-	}
-	return nil
-}
-
-func (msg *MsgInitiateRecovery) GetSigners() []sdk.AccAddress {
-	sender, _ := sdk.AccAddressFromBech32(msg.Sender)
-	return []sdk.AccAddress{sender}
-}
-
-func (msg *MsgInitiateRecovery) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
-		return fmt.Errorf("invalid sender address: %w", err)
-	}
-	if _, err := sdk.AccAddressFromBech32(msg.AccountAddress); err != nil {
-		return fmt.Errorf("invalid account address: %w", err)
-	}
-	if msg.NewOperationalKey == "" || len(msg.NewOperationalKey) != 64 {
-		return fmt.Errorf("new_operational_key must be 64 hex characters")
-	}
-	return nil
-}
-
-func (msg *MsgSubmitRecoveryShard) GetSigners() []sdk.AccAddress {
-	sender, _ := sdk.AccAddressFromBech32(msg.Sender)
-	return []sdk.AccAddress{sender}
-}
-
-func (msg *MsgSubmitRecoveryShard) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
-		return fmt.Errorf("invalid sender address: %w", err)
-	}
-	if _, err := sdk.AccAddressFromBech32(msg.AccountAddress); err != nil {
-		return fmt.Errorf("invalid account address: %w", err)
-	}
-	if msg.ShardIndex == 0 {
-		return fmt.Errorf("shard_index must be >= 1")
-	}
-	return nil
-}
-
-func (msg *MsgChallengeRecovery) GetSigners() []sdk.AccAddress {
-	sender, _ := sdk.AccAddressFromBech32(msg.Sender)
-	return []sdk.AccAddress{sender}
-}
-
-func (msg *MsgChallengeRecovery) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
-		return fmt.Errorf("invalid sender address: %w", err)
-	}
-	if _, err := sdk.AccAddressFromBech32(msg.AccountAddress); err != nil {
-		return fmt.Errorf("invalid account address: %w", err)
-	}
-	if msg.Reason == "" {
-		return fmt.Errorf("reason cannot be empty")
-	}
-	return nil
-}
-
-func (msg *MsgExecuteRecovery) GetSigners() []sdk.AccAddress {
-	sender, _ := sdk.AccAddressFromBech32(msg.Sender)
-	return []sdk.AccAddress{sender}
-}
-
-func (msg *MsgExecuteRecovery) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
-		return fmt.Errorf("invalid sender address: %w", err)
-	}
-	if _, err := sdk.AccAddressFromBech32(msg.AccountAddress); err != nil {
-		return fmt.Errorf("invalid account address: %w", err)
-	}
-	return nil
-}

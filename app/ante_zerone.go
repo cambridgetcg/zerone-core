@@ -266,11 +266,9 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.knowledge.v1.MsgChallengeProvisionalFact": TransactionGasCosts["challenge_provisional_fact"],
 	"/zerone.knowledge.v1.MsgUpdateExtendedParams":     TransactionGasCosts["update_extended_params"],
 
-	// Auth module (agent keys)
+	// Auth module (agent identity)
 	"/zerone.auth.v1.MsgRegisterAccount": TransactionGasCosts["register_account"],
 	"/zerone.auth.v1.MsgRotateKey":       TransactionGasCosts["rotate_key"],
-	"/zerone.auth.v1.MsgCreateSession":   TransactionGasCosts["create_session"],
-	"/zerone.auth.v1.MsgRevokeSession":   TransactionGasCosts["revoke_session"],
 
 	// Staking module (extended)
 	"/zerone.staking.v1.MsgRegisterValidator":    TransactionGasCosts["register_validator"],
@@ -339,15 +337,9 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.qualification.v1.MsgRenewQualification":    TransactionGasCosts["renew_qualification"],
 	"/zerone.qualification.v1.MsgWithdrawQualification": TransactionGasCosts["withdraw_qualification"],
 
-	// Auth recovery (hand-written ExtendedMsg service)
-	"/zerone.auth.v1.MsgRecoverAccount":      TransactionGasCosts["recover_account"],
-	"/zerone.auth.v1.MsgFreezeAccount":       TransactionGasCosts["freeze_account"],
-	"/zerone.auth.v1.MsgUnfreezeAccount":     TransactionGasCosts["unfreeze_account"],
-	"/zerone.auth.v1.MsgSetRecoveryConfig":   TransactionGasCosts["set_recovery_config"],
-	"/zerone.auth.v1.MsgInitiateRecovery":    TransactionGasCosts["initiate_recovery"],
-	"/zerone.auth.v1.MsgSubmitRecoveryShard": TransactionGasCosts["submit_recovery_shard"],
-	"/zerone.auth.v1.MsgChallengeRecovery":   TransactionGasCosts["challenge_recovery"],
-	"/zerone.auth.v1.MsgExecuteRecovery":     TransactionGasCosts["execute_recovery"],
+	// Auth account freeze controls
+	"/zerone.auth.v1.MsgFreezeAccount":   TransactionGasCosts["freeze_account"],
+	"/zerone.auth.v1.MsgUnfreezeAccount": TransactionGasCosts["unfreeze_account"],
 
 	// Governance extras
 	"/zerone.gov.v1.MsgAttachUpgradePlan":   TransactionGasCosts["attach_upgrade_plan"],
@@ -581,10 +573,11 @@ func (zad ZeroneAccountDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 
 // ---------- ZeroneCapabilityDecorator ----------
 
-// ZeroneCapabilityDecorator enforces session key capabilities.
-// If a tx is signed with a pubkey matching a registered session key,
-// the decorator checks that the session key has the required capabilities
-// for ALL message types in the tx.
+// ZeroneCapabilityDecorator enforces account-level capabilities for every
+// signer of a tx. The session-key path (delegated ephemeral keys with
+// default-deny capabilities) was removed in the 2026-07 slim cut: delegated
+// agent authority is an agenttool-platform concern; the chain keeps the
+// account-flag gates (claims/challenges) on the identity anchor.
 //
 // Runs AFTER signature verification and ZeroneAccountDecorator.
 //
@@ -612,82 +605,21 @@ func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 	}
 
 	msgs := tx.GetMsgs()
-	currentHeight := uint64(ctx.BlockHeight())
 
 	// Extract signers with pubkeys from tx signature data (works for ALL message types).
 	signers := getTxSigners(tx)
 	for _, signer := range signers {
 		address := signer.Address.String()
 
-		// Check if the signing pubkey matches a registered session key
-		session := zcd.findSessionByPubKey(ctx, address, signer.PubKeyHex, currentHeight)
-		if session != nil {
-			// Session key: enforce session capabilities (default-deny)
-			for _, msg := range msgs {
-				if err := zcd.checkCapability(session, msg); err != nil {
-					return ctx, err
-				}
-			}
-		} else {
-			// Primary key: enforce account-level capabilities (default-allow)
-			for _, msg := range msgs {
-				if err := zcd.checkAccountCapability(ctx, address, msg); err != nil {
-					return ctx, err
-				}
+		// Enforce account-level capabilities (default-allow for unrecognized types).
+		for _, msg := range msgs {
+			if err := zcd.checkAccountCapability(ctx, address, msg); err != nil {
+				return ctx, err
 			}
 		}
 	}
 
 	return next(ctx, tx, simulate)
-}
-
-// findSessionByPubKey checks if the given pubkey matches any active session key for the owner.
-func (zcd ZeroneCapabilityDecorator) findSessionByPubKey(ctx sdk.Context, owner, pubKeyHex string, height uint64) *zeroneauthtypes.SessionKey {
-	sessions := zcd.zak.GetSessionKeysForOwner(ctx, owner)
-	for _, session := range sessions {
-		if session.ExpiresAtBlock <= height {
-			continue // expired
-		}
-		if session.PublicKey == pubKeyHex {
-			return session
-		}
-	}
-	return nil
-}
-
-// checkCapability verifies the session key has capability for the given message type.
-// Default-deny: unrecognized message types are rejected for session keys.
-func (zcd ZeroneCapabilityDecorator) checkCapability(session *zeroneauthtypes.SessionKey, msg sdk.Msg) error {
-	if session.Capabilities == nil {
-		return zeroneauthtypes.ErrSessionCapabilityDenied
-	}
-	msgType := sdk.MsgTypeURL(msg)
-
-	switch {
-	case isTransferMsg(msgType):
-		if !session.Capabilities.CanTransfer {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
-	case isStakeMsg(msgType):
-		if !session.Capabilities.CanStake {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
-	case isClaimMsg(msgType):
-		if !session.Capabilities.CanSubmitClaims {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
-	case isVoteMsg(msgType):
-		if !session.Capabilities.CanVote {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
-	default:
-		// Default deny: session keys cannot perform unrecognized message types
-		return zeroneauthtypes.ErrSessionCapabilityDenied
-	}
 }
 
 // checkAccountCapability enforces account-level capabilities for primary key signers.
@@ -781,16 +713,8 @@ func isClaimMsg(msgType string) bool {
 func isAuthManagementMsg(msgType string) bool {
 	return msgType == "/zerone.auth.v1.MsgRegisterAccount" ||
 		msgType == "/zerone.auth.v1.MsgRotateKey" ||
-		msgType == "/zerone.auth.v1.MsgCreateSession" ||
-		msgType == "/zerone.auth.v1.MsgRevokeSession" ||
-		msgType == "/zerone.auth.v1.MsgRecoverAccount" ||
 		msgType == "/zerone.auth.v1.MsgFreezeAccount" ||
-		msgType == "/zerone.auth.v1.MsgUnfreezeAccount" ||
-		msgType == "/zerone.auth.v1.MsgSetRecoveryConfig" ||
-		msgType == "/zerone.auth.v1.MsgInitiateRecovery" ||
-		msgType == "/zerone.auth.v1.MsgSubmitRecoveryShard" ||
-		msgType == "/zerone.auth.v1.MsgChallengeRecovery" ||
-		msgType == "/zerone.auth.v1.MsgExecuteRecovery"
+		msgType == "/zerone.auth.v1.MsgUnfreezeAccount"
 }
 
 // isZeroneSpecificMsg checks if a message is a Zerone-specific operation
@@ -806,36 +730,6 @@ func isVoteMsg(msgType string) bool {
 		msgType == "/zerone.emergency.v1.MsgVoteHalt" ||
 		msgType == "/zerone.emergency.v1.MsgVoteRevert" ||
 		msgType == "/zerone.emergency.v1.MsgVoteResume"
-}
-
-// ---------- Capability Presets ----------
-
-// CapabilityPresets defines common session key capability bundles for agent roles.
-var CapabilityPresets = map[string]*zeroneauthtypes.SessionCapabilities{
-	"knowledge-worker": {
-		CanSubmitClaims: true,
-		CanVote:         true,
-	},
-	"autonomous-agent": {
-		CanSubmitClaims: true,
-		CanVote:         true,
-		CanTransfer:     true, // subject to spending limits
-	},
-}
-
-// ResolvePreset returns the SessionCapabilities for a named preset.
-// Returns nil if the preset name is not recognized.
-func ResolvePreset(name string) *zeroneauthtypes.SessionCapabilities {
-	caps, ok := CapabilityPresets[name]
-	if !ok {
-		return nil
-	}
-	return &zeroneauthtypes.SessionCapabilities{
-		CanTransfer:     caps.CanTransfer,
-		CanStake:        caps.CanStake,
-		CanSubmitClaims: caps.CanSubmitClaims,
-		CanVote:         caps.CanVote,
-	}
 }
 
 // ---------- Helpers ----------

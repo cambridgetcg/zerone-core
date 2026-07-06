@@ -60,18 +60,10 @@ var TransactionGasCosts = map[string]uint64{
 	"block_reward":        0,
 
 	// Agent identity
-	"register_account":      50_000,
-	"rotate_key":            30_000,
-	"create_session":        40_000,
-	"revoke_session":        25_000,
-	"recover_account":       80_000,
-	"freeze_account":        30_000,
-	"unfreeze_account":      30_000,
-	"set_recovery_config":   60_000,
-	"initiate_recovery":     80_000,
-	"submit_recovery_shard": 40_000,
-	"challenge_recovery":    50_000,
-	"execute_recovery":      80_000,
+	"register_account": 50_000,
+	"rotate_key":       30_000,
+	"freeze_account":   30_000,
+	"unfreeze_account": 30_000,
 
 	// Knowledge pruning
 	"patronize_fact": 50_000,

@@ -124,7 +124,6 @@ Verification throughput and dispute rate observed by the governance sensor (R31-
 - `dispute_rate_bps` -- dispute rate in BPS
 - `creed_commitment` -- "4"
 
-
 ## auth
 
 ### zerone.auth.account_registered
@@ -132,24 +131,12 @@ New account registered on-chain.
 - `address` -- bech32 address
 - `did` -- decentralized identifier
 - `account_type` -- `human` or `agent`
-- `bootstrap_claimed` -- `"true"` or `"false"`
 
 ### zerone.auth.key_rotated
 Key rotation performed.
 - `sender` -- account address
 - `key_type` -- key type rotated
 - `version` -- new key version
-
-### zerone.auth.session_created
-Ephemeral session key created.
-- `owner` -- account address
-- `key_hash` -- hash of session key
-- `expires_at` -- expiry block height
-
-### zerone.auth.session_revoked
-Session key revoked.
-- `owner` -- account address
-- `key_hash` -- hash of revoked key
 
 ### zerone.auth.account_frozen
 Account frozen by authority.
@@ -162,45 +149,11 @@ Account unfrozen.
 - `address` -- unfrozen account
 - `unfrozen_by` -- unfreezer address
 
-### zerone.auth.recovery_config_set
-Recovery configuration updated.
-- `address` -- account address
-- `threshold` -- recovery threshold
-- `total_shards` -- total shard count
-
-### zerone.auth.recovery_initiated
-Account recovery initiated.
-- `account` -- target account
-- `initiated_by` -- initiator address
-- `delay_expires_at` -- delay expiry block
-
-### zerone.auth.recovery_shard_submitted
-Recovery shard submitted.
-- `account` -- target account
-- `shard_index` -- shard index
-- `shards_count` -- total shards submitted
-- `status` -- recovery status
-
-### zerone.auth.recovery_challenged
-Recovery challenged.
-- `account` -- target account
-- `challenger` -- challenger address
-- `reason` -- challenge reason
-
-### zerone.auth.recovery_executed
-Recovery executed.
-- `account` -- recovered account
-- `executed_by` -- executor address
-- `new_key_version` -- new key version
-
 ### zerone.auth.params_updated
 Governance parameter update.
 - `authority` -- governance address
 
 ---
-
-
-
 
 ## capture_challenge
 
@@ -252,7 +205,6 @@ Capture challenge resolved with capture confirmed.
 Governance parameter update.
 - `authority` -- governance address
 
-
 ## capture_defense
 
 ### zerone.capture_defense.verification_recorded
@@ -301,7 +253,6 @@ Effective HHI threshold raised for a high-activity domain (R31-2 Fire→Metal).
 - `effective_hhi_threshold` -- relaxed HHI threshold actually used
 - `verification_activity_bps` -- measured activity in BPS
 - `creed_commitment` -- "9"
-
 
 ## claiming_pot
 
@@ -704,7 +655,6 @@ A governance LIP of class `adapter_registration` passed at the correct quorum ba
 - `lip_id` -- the passed LIP identifier
 - `dispatch_status` -- "pending_phase1_wiring" — substrate_bridge dispatch not yet wired
 
-
 ## home
 
 ### zerone.home.home_created
@@ -779,7 +729,6 @@ Spending limit configured.
 ### zerone.home.params_updated
 Governance parameter update.
 - `authority` -- governance address
-
 
 ## ibcratelimit
 
@@ -1496,7 +1445,6 @@ An authority-gated handler wrote an entry to the privileged-action audit log (Ro
 - `incident_id` -- audit binding when applicable (empty otherwise)
 - `creed_commitment` -- "6, 10"
 
-
 ## liquiditypool
 
 ### zerone.liquiditypool.pool_created
@@ -1618,7 +1566,6 @@ Unified lifecycle event for any domain status change (L1). Indexers can subscrib
 - `height` -- block height at transition
 
 ---
-
 
 ## qualification
 
@@ -1752,7 +1699,6 @@ Unified tier-change event (L3) emitted at every site that mutates a validator's 
 - `to_tier` -- new tier
 - `direction` -- `promotion` or `demotion`
 - `trigger` -- transaction or condition that caused the transition (e.g. `stake_delegate`, `redelegate_src`, `update_validator_stake`)
-
 
 ### zerone.staking.delegation_unbonding
 Delegation unbonding initiated.
@@ -1997,7 +1943,6 @@ Governance parameter update.
 
 ---
 
-
 ## vesting_rewards
 
 ### zerone.vesting_rewards.vesting_created
@@ -2068,8 +2013,6 @@ Research fund deposit via revenue routing.
 Vesting paused due to validator misbehaviour.
 - `count` -- number of misbehaviours
 - `recipient` -- vesting recipient address
-
-
 
 ## WebSocket Subscriptions
 

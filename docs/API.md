@@ -160,7 +160,6 @@ The interactive UI lists all endpoints with request/response schemas.
 |--------|----------|-------------|
 | GET | `/zerone/auth/v1/accounts/{address}` | Account by address |
 | GET | `/zerone/auth/v1/accounts/did/{did}` | Account by DID |
-| GET | `/zerone/auth/v1/session_keys/{address}` | Session keys |
 | GET | `/zerone/auth/v1/params` | Module parameters |
 | GET | `/zerone/auth/v1/frozen` | Frozen accounts |
 

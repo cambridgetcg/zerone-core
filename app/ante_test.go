@@ -214,16 +214,8 @@ func TestIsAuthManagementMsg(t *testing.T) {
 	trueCases := []string{
 		"/zerone.auth.v1.MsgRegisterAccount",
 		"/zerone.auth.v1.MsgRotateKey",
-		"/zerone.auth.v1.MsgCreateSession",
-		"/zerone.auth.v1.MsgRevokeSession",
-		"/zerone.auth.v1.MsgRecoverAccount",
 		"/zerone.auth.v1.MsgFreezeAccount",
 		"/zerone.auth.v1.MsgUnfreezeAccount",
-		"/zerone.auth.v1.MsgSetRecoveryConfig",
-		"/zerone.auth.v1.MsgInitiateRecovery",
-		"/zerone.auth.v1.MsgSubmitRecoveryShard",
-		"/zerone.auth.v1.MsgChallengeRecovery",
-		"/zerone.auth.v1.MsgExecuteRecovery",
 	}
 	for _, tc := range trueCases {
 		if !isAuthManagementMsg(tc) {
@@ -509,52 +501,3 @@ func TestZRNGasDecorator_InsufficientFee(t *testing.T) {
 	}
 }
 
-// ---------- Capability Preset Tests ----------
-
-func TestResolvePreset_Known(t *testing.T) {
-	presets := []string{"knowledge-worker", "autonomous-agent"}
-	for _, name := range presets {
-		caps := ResolvePreset(name)
-		if caps == nil {
-			t.Errorf("ResolvePreset(%q) = nil, want non-nil", name)
-		}
-	}
-}
-
-func TestResolvePreset_Unknown(t *testing.T) {
-	caps := ResolvePreset("nonexistent")
-	if caps != nil {
-		t.Error("ResolvePreset(nonexistent) should return nil")
-	}
-}
-
-func TestResolvePreset_ReturnsCopy(t *testing.T) {
-	caps1 := ResolvePreset("knowledge-worker")
-	caps2 := ResolvePreset("knowledge-worker")
-	if caps1 == caps2 {
-		t.Error("ResolvePreset should return a copy, not the same pointer")
-	}
-}
-
-func TestResolvePreset_KnowledgeWorker(t *testing.T) {
-	caps := ResolvePreset("knowledge-worker")
-	if !caps.CanSubmitClaims {
-		t.Error("knowledge-worker should have CanSubmitClaims")
-	}
-	if !caps.CanVote {
-		t.Error("knowledge-worker should have CanVote")
-	}
-	if caps.CanTransfer {
-		t.Error("knowledge-worker should not have CanTransfer")
-	}
-}
-
-func TestResolvePreset_AutonomousAgent(t *testing.T) {
-	caps := ResolvePreset("autonomous-agent")
-	if !caps.CanSubmitClaims || !caps.CanVote || !caps.CanTransfer {
-		t.Error("autonomous-agent should have full operational capabilities")
-	}
-	if caps.CanStake {
-		t.Error("autonomous-agent should not have CanStake")
-	}
-}

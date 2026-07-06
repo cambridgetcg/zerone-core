@@ -9,7 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
-	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
+	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	substratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
@@ -127,11 +127,11 @@ func TestSubstrateBridge_PendingClaimResolutionMachinery(t *testing.T) {
 	require.NoError(t, h.SubstrateBridgeKeeper.LinkPendingClaim(h.Ctx, "mc-claim-b", attID))
 
 	// Escrow the bond the msg server would have locked: mint via the
-	// auth module and move module-to-module (module accounts are blocked
-	// receivers for account-to-module user sends).
+	// tokens module (test faucet) and move module-to-module (module
+	// accounts are blocked receivers for account-to-module user sends).
 	bond := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1_000_000))
-	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, zeroneauthtypes.ModuleName, bond))
-	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx, zeroneauthtypes.ModuleName, substratebridgetypes.ModuleName, bond))
+	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, zeronetokenstypes.ModuleName, bond))
+	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx, zeronetokenstypes.ModuleName, substratebridgetypes.ModuleName, bond))
 
 	for _, claimID := range []string{"mc-claim-a", "mc-claim-b"} {
 		require.NoError(t, h.SubstrateBridgeKeeper.OnClaimResolved(h.Ctx, claimID, true))
@@ -184,8 +184,8 @@ func TestSubstrateBridge_RejectionThreshold(t *testing.T) {
 	// Escrow the bond the msg server would have locked — the slash burns
 	// it from module escrow, so it must actually be there.
 	bond := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1_000_000))
-	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, zeroneauthtypes.ModuleName, bond))
-	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx, zeroneauthtypes.ModuleName, substratebridgetypes.ModuleName, bond))
+	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, zeronetokenstypes.ModuleName, bond))
+	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx, zeronetokenstypes.ModuleName, substratebridgetypes.ModuleName, bond))
 	supplyBefore := h.App.BankKeeper.GetSupply(h.Ctx, "uzrn")
 
 	require.NoError(t, h.SubstrateBridgeKeeper.SettleAttestation(h.Ctx, "fraud-att"))

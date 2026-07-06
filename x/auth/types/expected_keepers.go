@@ -13,9 +13,6 @@ type CosmosAccountKeeper interface {
 	NewAccountWithAddress(ctx context.Context, addr sdk.AccAddress) sdk.AccountI
 }
 
-// BankKeeper defines the expected interface for the x/bank keeper.
-type BankKeeper interface {
-	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
-	GetAllBalances(ctx context.Context, addr sdk.AccAddress) sdk.Coins
-	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
-}
+// The BankKeeper dependency was removed with the dormant bootstrap
+// auto-claim (2026-07 slim cut): the identity module holds no funds and
+// disburses nothing — the real bootstrap path is x/claiming_pot.

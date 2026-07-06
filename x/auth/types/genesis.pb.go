@@ -22,15 +22,17 @@ const (
 )
 
 // GenesisState defines the auth module's genesis state.
+//
+// Fields 4 (session_keys) and 5 (recovery_configs) were removed with
+// sessions and social recovery in the 2026-07 slim cut; their numbers
+// are reserved and must not be reused.
 type GenesisState struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Params          *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Accounts        []*Account             `protobuf:"bytes,2,rep,name=accounts,proto3" json:"accounts,omitempty"`
-	DidMappings     []*DIDMapping          `protobuf:"bytes,3,rep,name=did_mappings,json=didMappings,proto3" json:"did_mappings,omitempty"`
-	SessionKeys     []*SessionKey          `protobuf:"bytes,4,rep,name=session_keys,json=sessionKeys,proto3" json:"session_keys,omitempty"`
-	RecoveryConfigs []*RecoveryConfig      `protobuf:"bytes,5,rep,name=recovery_configs,json=recoveryConfigs,proto3" json:"recovery_configs,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Accounts      []*Account             `protobuf:"bytes,2,rep,name=accounts,proto3" json:"accounts,omitempty"`
+	DidMappings   []*DIDMapping          `protobuf:"bytes,3,rep,name=did_mappings,json=didMappings,proto3" json:"did_mappings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -84,43 +86,21 @@ func (x *GenesisState) GetDidMappings() []*DIDMapping {
 	return nil
 }
 
-func (x *GenesisState) GetSessionKeys() []*SessionKey {
-	if x != nil {
-		return x.SessionKeys
-	}
-	return nil
-}
-
-func (x *GenesisState) GetRecoveryConfigs() []*RecoveryConfig {
-	if x != nil {
-		return x.RecoveryConfigs
-	}
-	return nil
-}
-
 // Params defines the auth module parameters.
+//
+// Session params (1, 2), recovery params (4, 5, 10, 11, 12) and the
+// dormant bootstrap auto-claim params (6, 7 — the real bootstrap path
+// is x/claiming_pot through MintWithCap) were removed in the 2026-07
+// slim cut; their numbers are reserved and must not be reused.
 type Params struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	MaxSessionKeys        uint32                 `protobuf:"varint,1,opt,name=max_session_keys,json=maxSessionKeys,proto3" json:"max_session_keys,omitempty"`
-	MaxSessionDuration    uint64                 `protobuf:"varint,2,opt,name=max_session_duration,json=maxSessionDuration,proto3" json:"max_session_duration,omitempty"`
-	KeyRotationCooldown   uint64                 `protobuf:"varint,3,opt,name=key_rotation_cooldown,json=keyRotationCooldown,proto3" json:"key_rotation_cooldown,omitempty"`
-	RecoveryDelayBlocks   uint64                 `protobuf:"varint,4,opt,name=recovery_delay_blocks,json=recoveryDelayBlocks,proto3" json:"recovery_delay_blocks,omitempty"`
-	ChallengePeriodBlocks uint64                 `protobuf:"varint,5,opt,name=challenge_period_blocks,json=challengePeriodBlocks,proto3" json:"challenge_period_blocks,omitempty"`
-	// Bootstrap fund settings for new account registration
-	BootstrapEnabled bool   `protobuf:"varint,6,opt,name=bootstrap_enabled,json=bootstrapEnabled,proto3" json:"bootstrap_enabled,omitempty"`
-	BootstrapAmount  string `protobuf:"bytes,7,opt,name=bootstrap_amount,json=bootstrapAmount,proto3" json:"bootstrap_amount,omitempty"` // uzrn amount as string (bigint)
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	KeyRotationCooldown uint64                 `protobuf:"varint,3,opt,name=key_rotation_cooldown,json=keyRotationCooldown,proto3" json:"key_rotation_cooldown,omitempty"`
 	// Max metadata length in bytes (default 1024)
 	MaxMetadataLength uint32 `protobuf:"varint,8,opt,name=max_metadata_length,json=maxMetadataLength,proto3" json:"max_metadata_length,omitempty"`
 	// Whether DID is required for registration
-	RequireDid bool `protobuf:"varint,9,opt,name=require_did,json=requireDid,proto3" json:"require_did,omitempty"`
-	// Max recovery shards per account
-	MaxRecoveryShards uint32 `protobuf:"varint,10,opt,name=max_recovery_shards,json=maxRecoveryShards,proto3" json:"max_recovery_shards,omitempty"`
-	// Recovery challenge period in blocks
-	RecoveryChallengePeriodBlocks uint64 `protobuf:"varint,11,opt,name=recovery_challenge_period_blocks,json=recoveryChallengePeriodBlocks,proto3" json:"recovery_challenge_period_blocks,omitempty"`
-	// Recovery execution delay in blocks
-	RecoveryExecutionDelayBlocks uint64 `protobuf:"varint,12,opt,name=recovery_execution_delay_blocks,json=recoveryExecutionDelayBlocks,proto3" json:"recovery_execution_delay_blocks,omitempty"`
-	unknownFields                protoimpl.UnknownFields
-	sizeCache                    protoimpl.SizeCache
+	RequireDid    bool `protobuf:"varint,9,opt,name=require_did,json=requireDid,proto3" json:"require_did,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -153,53 +133,11 @@ func (*Params) Descriptor() ([]byte, []int) {
 	return file_zerone_auth_v1_genesis_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Params) GetMaxSessionKeys() uint32 {
-	if x != nil {
-		return x.MaxSessionKeys
-	}
-	return 0
-}
-
-func (x *Params) GetMaxSessionDuration() uint64 {
-	if x != nil {
-		return x.MaxSessionDuration
-	}
-	return 0
-}
-
 func (x *Params) GetKeyRotationCooldown() uint64 {
 	if x != nil {
 		return x.KeyRotationCooldown
 	}
 	return 0
-}
-
-func (x *Params) GetRecoveryDelayBlocks() uint64 {
-	if x != nil {
-		return x.RecoveryDelayBlocks
-	}
-	return 0
-}
-
-func (x *Params) GetChallengePeriodBlocks() uint64 {
-	if x != nil {
-		return x.ChallengePeriodBlocks
-	}
-	return 0
-}
-
-func (x *Params) GetBootstrapEnabled() bool {
-	if x != nil {
-		return x.BootstrapEnabled
-	}
-	return false
-}
-
-func (x *Params) GetBootstrapAmount() string {
-	if x != nil {
-		return x.BootstrapAmount
-	}
-	return ""
 }
 
 func (x *Params) GetMaxMetadataLength() uint32 {
@@ -216,53 +154,21 @@ func (x *Params) GetRequireDid() bool {
 	return false
 }
 
-func (x *Params) GetMaxRecoveryShards() uint32 {
-	if x != nil {
-		return x.MaxRecoveryShards
-	}
-	return 0
-}
-
-func (x *Params) GetRecoveryChallengePeriodBlocks() uint64 {
-	if x != nil {
-		return x.RecoveryChallengePeriodBlocks
-	}
-	return 0
-}
-
-func (x *Params) GetRecoveryExecutionDelayBlocks() uint64 {
-	if x != nil {
-		return x.RecoveryExecutionDelayBlocks
-	}
-	return 0
-}
-
 var File_zerone_auth_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_auth_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"\x1czerone/auth/v1/genesis.proto\x12\x0ezerone.auth.v1\x1a\x1azerone/auth/v1/types.proto\"\xbc\x02\n" +
+	"\x1czerone/auth/v1/genesis.proto\x12\x0ezerone.auth.v1\x1a\x1azerone/auth/v1/types.proto\"\xde\x01\n" +
 	"\fGenesisState\x12.\n" +
 	"\x06params\x18\x01 \x01(\v2\x16.zerone.auth.v1.ParamsR\x06params\x123\n" +
 	"\baccounts\x18\x02 \x03(\v2\x17.zerone.auth.v1.AccountR\baccounts\x12=\n" +
-	"\fdid_mappings\x18\x03 \x03(\v2\x1a.zerone.auth.v1.DIDMappingR\vdidMappings\x12=\n" +
-	"\fsession_keys\x18\x04 \x03(\v2\x1a.zerone.auth.v1.SessionKeyR\vsessionKeys\x12I\n" +
-	"\x10recovery_configs\x18\x05 \x03(\v2\x1e.zerone.auth.v1.RecoveryConfigR\x0frecoveryConfigs\"\xed\x04\n" +
-	"\x06Params\x12(\n" +
-	"\x10max_session_keys\x18\x01 \x01(\rR\x0emaxSessionKeys\x120\n" +
-	"\x14max_session_duration\x18\x02 \x01(\x04R\x12maxSessionDuration\x122\n" +
-	"\x15key_rotation_cooldown\x18\x03 \x01(\x04R\x13keyRotationCooldown\x122\n" +
-	"\x15recovery_delay_blocks\x18\x04 \x01(\x04R\x13recoveryDelayBlocks\x126\n" +
-	"\x17challenge_period_blocks\x18\x05 \x01(\x04R\x15challengePeriodBlocks\x12+\n" +
-	"\x11bootstrap_enabled\x18\x06 \x01(\bR\x10bootstrapEnabled\x12)\n" +
-	"\x10bootstrap_amount\x18\a \x01(\tR\x0fbootstrapAmount\x12.\n" +
+	"\fdid_mappings\x18\x03 \x03(\v2\x1a.zerone.auth.v1.DIDMappingR\vdidMappingsJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\fsession_keysR\x10recovery_configs\"\x98\x03\n" +
+	"\x06Params\x122\n" +
+	"\x15key_rotation_cooldown\x18\x03 \x01(\x04R\x13keyRotationCooldown\x12.\n" +
 	"\x13max_metadata_length\x18\b \x01(\rR\x11maxMetadataLength\x12\x1f\n" +
 	"\vrequire_did\x18\t \x01(\bR\n" +
-	"requireDid\x12.\n" +
-	"\x13max_recovery_shards\x18\n" +
-	" \x01(\rR\x11maxRecoveryShards\x12G\n" +
-	" recovery_challenge_period_blocks\x18\v \x01(\x04R\x1drecoveryChallengePeriodBlocks\x12E\n" +
-	"\x1frecovery_execution_delay_blocks\x18\f \x01(\x04R\x1crecoveryExecutionDelayBlocksB-Z+github.com/zerone-chain/zerone/x/auth/typesb\x06proto3"
+	"requireDidJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\a\x10\bJ\x04\b\n" +
+	"\x10\vJ\x04\b\v\x10\fJ\x04\b\f\x10\rR\x10max_session_keysR\x14max_session_durationR\x15recovery_delay_blocksR\x17challenge_period_blocksR\x11bootstrap_enabledR\x10bootstrap_amountR\x13max_recovery_shardsR recovery_challenge_period_blocksR\x1frecovery_execution_delay_blocksB-Z+github.com/zerone-chain/zerone/x/auth/typesb\x06proto3"
 
 var (
 	file_zerone_auth_v1_genesis_proto_rawDescOnce sync.Once
@@ -278,24 +184,20 @@ func file_zerone_auth_v1_genesis_proto_rawDescGZIP() []byte {
 
 var file_zerone_auth_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_zerone_auth_v1_genesis_proto_goTypes = []any{
-	(*GenesisState)(nil),   // 0: zerone.auth.v1.GenesisState
-	(*Params)(nil),         // 1: zerone.auth.v1.Params
-	(*Account)(nil),        // 2: zerone.auth.v1.Account
-	(*DIDMapping)(nil),     // 3: zerone.auth.v1.DIDMapping
-	(*SessionKey)(nil),     // 4: zerone.auth.v1.SessionKey
-	(*RecoveryConfig)(nil), // 5: zerone.auth.v1.RecoveryConfig
+	(*GenesisState)(nil), // 0: zerone.auth.v1.GenesisState
+	(*Params)(nil),       // 1: zerone.auth.v1.Params
+	(*Account)(nil),      // 2: zerone.auth.v1.Account
+	(*DIDMapping)(nil),   // 3: zerone.auth.v1.DIDMapping
 }
 var file_zerone_auth_v1_genesis_proto_depIdxs = []int32{
 	1, // 0: zerone.auth.v1.GenesisState.params:type_name -> zerone.auth.v1.Params
 	2, // 1: zerone.auth.v1.GenesisState.accounts:type_name -> zerone.auth.v1.Account
 	3, // 2: zerone.auth.v1.GenesisState.did_mappings:type_name -> zerone.auth.v1.DIDMapping
-	4, // 3: zerone.auth.v1.GenesisState.session_keys:type_name -> zerone.auth.v1.SessionKey
-	5, // 4: zerone.auth.v1.GenesisState.recovery_configs:type_name -> zerone.auth.v1.RecoveryConfig
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_zerone_auth_v1_genesis_proto_init() }

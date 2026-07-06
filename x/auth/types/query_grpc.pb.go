@@ -21,7 +21,6 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Query_Account_FullMethodName        = "/zerone.auth.v1.Query/Account"
 	Query_AccountByDID_FullMethodName   = "/zerone.auth.v1.Query/AccountByDID"
-	Query_SessionKeys_FullMethodName    = "/zerone.auth.v1.Query/SessionKeys"
 	Query_Params_FullMethodName         = "/zerone.auth.v1.Query/Params"
 	Query_FrozenAccounts_FullMethodName = "/zerone.auth.v1.Query/FrozenAccounts"
 )
@@ -36,8 +35,6 @@ type QueryClient interface {
 	Account(ctx context.Context, in *QueryAccountRequest, opts ...grpc.CallOption) (*QueryAccountResponse, error)
 	// AccountByDID returns a Zerone account by DID.
 	AccountByDID(ctx context.Context, in *QueryAccountByDIDRequest, opts ...grpc.CallOption) (*QueryAccountByDIDResponse, error)
-	// SessionKeys returns all session keys for an owner.
-	SessionKeys(ctx context.Context, in *QuerySessionKeysRequest, opts ...grpc.CallOption) (*QuerySessionKeysResponse, error)
 	// Params returns the module parameters.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	// FrozenAccounts returns all frozen accounts.
@@ -66,16 +63,6 @@ func (c *queryClient) AccountByDID(ctx context.Context, in *QueryAccountByDIDReq
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryAccountByDIDResponse)
 	err := c.cc.Invoke(ctx, Query_AccountByDID_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *queryClient) SessionKeys(ctx context.Context, in *QuerySessionKeysRequest, opts ...grpc.CallOption) (*QuerySessionKeysResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(QuerySessionKeysResponse)
-	err := c.cc.Invoke(ctx, Query_SessionKeys_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +99,6 @@ type QueryServer interface {
 	Account(context.Context, *QueryAccountRequest) (*QueryAccountResponse, error)
 	// AccountByDID returns a Zerone account by DID.
 	AccountByDID(context.Context, *QueryAccountByDIDRequest) (*QueryAccountByDIDResponse, error)
-	// SessionKeys returns all session keys for an owner.
-	SessionKeys(context.Context, *QuerySessionKeysRequest) (*QuerySessionKeysResponse, error)
 	// Params returns the module parameters.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	// FrozenAccounts returns all frozen accounts.
@@ -133,9 +118,6 @@ func (UnimplementedQueryServer) Account(context.Context, *QueryAccountRequest) (
 }
 func (UnimplementedQueryServer) AccountByDID(context.Context, *QueryAccountByDIDRequest) (*QueryAccountByDIDResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AccountByDID not implemented")
-}
-func (UnimplementedQueryServer) SessionKeys(context.Context, *QuerySessionKeysRequest) (*QuerySessionKeysResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SessionKeys not implemented")
 }
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Params not implemented")
@@ -200,24 +182,6 @@ func _Query_AccountByDID_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Query_SessionKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(QuerySessionKeysRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(QueryServer).SessionKeys(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Query_SessionKeys_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(QueryServer).SessionKeys(ctx, req.(*QuerySessionKeysRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryParamsRequest)
 	if err := dec(in); err != nil {
@@ -268,10 +232,6 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AccountByDID",
 			Handler:    _Query_AccountByDID_Handler,
-		},
-		{
-			MethodName: "SessionKeys",
-			Handler:    _Query_SessionKeys_Handler,
 		},
 		{
 			MethodName: "Params",

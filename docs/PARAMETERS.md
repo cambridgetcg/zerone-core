@@ -186,22 +186,16 @@ Proof of Truth knowledge verification parameters — the largest parameter set.
 
 ## auth
 
-Account registration, session keys, and recovery.
+Account registration and identity anchoring. Session keys, social
+recovery, and the dormant bootstrap auto-claim were removed in the
+2026-07 slim cut (delegated authority and recovery ceremonies live on
+the agenttool platform; the real bootstrap path is x/claiming_pot).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `max_session_keys` | uint32 | 5 | Maximum active session keys per account |
-| `max_session_duration` | uint64 | 34,272 (~1 day) | Maximum session key duration in blocks |
 | `key_rotation_cooldown` | uint64 | 111 | Blocks between key rotations |
-| `recovery_delay_blocks` | uint64 | 1,000 (~42 min) | Delay before recovery can execute |
-| `challenge_period_blocks` | uint64 | 500 (~21 min) | Window to challenge a recovery |
-| `bootstrap_enabled` | bool | false | Enable account bootstrap funding |
-| `bootstrap_amount` | string | "0" | Bootstrap funding amount (uzrn) |
 | `max_metadata_length` | uint32 | 1,024 | Maximum account metadata length (bytes) |
 | `require_did` | bool | false | Require DID for account registration |
-| `max_recovery_shards` | uint32 | 10 | Maximum recovery shards per account |
-| `recovery_challenge_period_blocks` | uint64 | 500 | Recovery challenge period |
-| `recovery_execution_delay_blocks` | uint64 | 1,000 | Delay before recovery execution |
 
 ---
 

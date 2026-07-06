@@ -264,7 +264,11 @@ var (
 		ibcfeetypes.ModuleName:         nil,
 		icatypes.ModuleName:            nil,
 		// ===== Zerone custom module accounts — added by batch =====
-		zeroneauthtypes.ModuleName:    {authtypes.Minter}, // Minter for bootstrap fund
+		// zerone_auth: no permissions. The Minter perm was removed in the
+		// 2026-07 slim cut — it was an orphan mint surface outside the
+		// cap-gated MintWithCap path (the keeper structurally could not
+		// mint, but the standing permission bypassed the 222M cap census).
+		zeroneauthtypes.ModuleName:    nil,
 		zeronestakingtypes.ModuleName: {authtypes.Burner, authtypes.Staking},
 		vestingrewardstypes.ModuleName:        {authtypes.Minter, authtypes.Burner}, // Minter for block rewards, Burner retained for interface compat
 		vestingrewardstypes.ResearchFundModuleName:    nil,                           // research_fund: receive-only
@@ -743,7 +747,6 @@ func NewZeroneApp(
 		appCodec,
 		sdkruntime.NewKVStoreService(keys[zeroneauthtypes.StoreKey]),
 		app.AccountKeeper,
-		app.BankKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 

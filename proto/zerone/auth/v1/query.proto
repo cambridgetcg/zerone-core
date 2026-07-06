@@ -19,11 +19,6 @@ service Query {
     option (google.api.http).get = "/zerone/auth/v1/account_by_did/{did}";
   }
 
-  // SessionKeys returns all session keys for an owner.
-  rpc SessionKeys(QuerySessionKeysRequest) returns (QuerySessionKeysResponse) {
-    option (google.api.http).get = "/zerone/auth/v1/session_keys/{owner}";
-  }
-
   // Params returns the module parameters.
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
     option (google.api.http).get = "/zerone/auth/v1/params";
@@ -49,14 +44,6 @@ message QueryAccountByDIDRequest {
 
 message QueryAccountByDIDResponse {
   Account account = 1;
-}
-
-message QuerySessionKeysRequest {
-  string owner = 1;
-}
-
-message QuerySessionKeysResponse {
-  repeated SessionKey session_keys = 1;
 }
 
 message QueryParamsRequest {}

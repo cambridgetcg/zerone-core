@@ -29,7 +29,7 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
-	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
+	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	zeronestakingkeeper "github.com/zerone-chain/zerone/x/staking/keeper"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 
@@ -313,9 +313,10 @@ func initChainWithValSet(t *testing.T, app *zeroneapp.ZeroneApp, chainID string)
 }
 
 // FundAccount mints coins and sends them to the given address.
-// Uses the zerone_auth module account which has Minter permission.
+// Uses the tokens module account (Minter for wrap/unwrap + emissions) as the
+// test faucet — the zerone_auth Minter perm was removed in the slim cut.
 func (h *TestHarness) FundAccount(addr sdk.AccAddress, amount sdk.Coins) error {
-	moduleName := zeroneauthtypes.ModuleName // has Minter permission
+	moduleName := zeronetokenstypes.ModuleName // test faucet with Minter permission
 	if err := h.App.BankKeeper.MintCoins(h.Ctx, moduleName, amount); err != nil {
 		return err
 	}

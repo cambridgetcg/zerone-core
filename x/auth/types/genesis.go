@@ -5,18 +5,9 @@ import "fmt"
 // DefaultParams returns default module parameters.
 func DefaultParams() Params {
 	return Params{
-		MaxSessionKeys:                5,
-		MaxSessionDuration:            34272, // 1 day in blocks
-		KeyRotationCooldown:           111,
-		RecoveryDelayBlocks:           1000,  // ~42 min
-		ChallengePeriodBlocks:         500,   // ~21 min
-		BootstrapEnabled:              false,
-		BootstrapAmount:               "0",
-		MaxMetadataLength:             1024,
-		RequireDid:                    false,
-		MaxRecoveryShards:             10,
-		RecoveryChallengePeriodBlocks: 500,
-		RecoveryExecutionDelayBlocks:  1000,
+		KeyRotationCooldown: 111,
+		MaxMetadataLength:   1024,
+		RequireDid:          false,
 	}
 }
 
@@ -24,11 +15,9 @@ func DefaultParams() Params {
 func DefaultGenesis() *GenesisState {
 	params := DefaultParams()
 	return &GenesisState{
-		Params:          &params,
-		Accounts:        []*Account{},
-		DidMappings:     []*DIDMapping{},
-		SessionKeys:     []*SessionKey{},
-		RecoveryConfigs: []*RecoveryConfig{},
+		Params:      &params,
+		Accounts:    []*Account{},
+		DidMappings: []*DIDMapping{},
 	}
 }
 

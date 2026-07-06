@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -135,14 +134,6 @@ func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage {
 	gs := am.keeper.ExportGenesis(ctx)
 	return cdc.MustMarshalJSON(gs)
-}
-
-// BeginBlock runs at the beginning of every block.
-func (am AppModule) BeginBlock(goCtx context.Context) error {
-	ctx := sdk.UnwrapSDKContext(goCtx)
-	am.keeper.CleanupExpiredSessions(ctx)
-	am.keeper.ProcessRecoveryTimeouts(ctx)
-	return nil
 }
 
 // ConsensusVersion implements AppModule/ConsensusVersion.

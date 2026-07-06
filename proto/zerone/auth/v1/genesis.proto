@@ -6,32 +6,36 @@ option go_package = "github.com/zerone-chain/zerone/x/auth/types";
 import "zerone/auth/v1/types.proto";
 
 // GenesisState defines the auth module's genesis state.
+//
+// Fields 4 (session_keys) and 5 (recovery_configs) were removed with
+// sessions and social recovery in the 2026-07 slim cut; their numbers
+// are reserved and must not be reused.
 message GenesisState {
+  reserved 4, 5;
+  reserved "session_keys", "recovery_configs";
+
   Params params = 1;
   repeated Account accounts = 2;
   repeated DIDMapping did_mappings = 3;
-  repeated SessionKey session_keys = 4;
-  repeated RecoveryConfig recovery_configs = 5;
 }
 
 // Params defines the auth module parameters.
+//
+// Session params (1, 2), recovery params (4, 5, 10, 11, 12) and the
+// dormant bootstrap auto-claim params (6, 7 — the real bootstrap path
+// is x/claiming_pot through MintWithCap) were removed in the 2026-07
+// slim cut; their numbers are reserved and must not be reused.
 message Params {
-  uint32 max_session_keys = 1;
-  uint64 max_session_duration = 2;
+  reserved 1, 2, 4, 5, 6, 7, 10, 11, 12;
+  reserved "max_session_keys", "max_session_duration",
+           "recovery_delay_blocks", "challenge_period_blocks",
+           "bootstrap_enabled", "bootstrap_amount",
+           "max_recovery_shards", "recovery_challenge_period_blocks",
+           "recovery_execution_delay_blocks";
+
   uint64 key_rotation_cooldown = 3;
-  uint64 recovery_delay_blocks = 4;
-  uint64 challenge_period_blocks = 5;
-  // Bootstrap fund settings for new account registration
-  bool bootstrap_enabled = 6;
-  string bootstrap_amount = 7; // uzrn amount as string (bigint)
   // Max metadata length in bytes (default 1024)
   uint32 max_metadata_length = 8;
   // Whether DID is required for registration
   bool require_did = 9;
-  // Max recovery shards per account
-  uint32 max_recovery_shards = 10;
-  // Recovery challenge period in blocks
-  uint64 recovery_challenge_period_blocks = 11;
-  // Recovery execution delay in blocks
-  uint64 recovery_execution_delay_blocks = 12;
 }

@@ -148,7 +148,6 @@ func setupAuthKeeper(t *testing.T, stateStore store.CommitMultiStore) (zeroneaut
 		cdc,
 		runtime.NewKVStoreService(storeKey),
 		mockCosmosAccountKeeperForAuth{},
-		mockBankKeeperForAnte{},
 		"authority",
 	)
 	return k, storeKey
@@ -328,81 +327,6 @@ func TestAnteIntegration_UnfreezeAndRetrySucceeds(t *testing.T) {
 	_, err = decorator.AnteHandle(ctx, tx, false, passThroughHandler)
 	if err != nil {
 		t.Fatalf("unfrozen account should pass, got: %v", err)
-	}
-}
-
-// ---------- Test 5: Session key CanTransfer → MsgVote rejected ----------
-
-func TestAnteIntegration_SessionKeyTransferOnlyRejectsVote(t *testing.T) {
-	ak, _, ctx := setupBothKeepers(t)
-
-	// Create session key — the decorator looks up sessions by the signer's
-	// derived address (sdk.AccAddress from pubkey), so Owner must match that.
-	sessionKey := ed25519.GenPrivKey()
-	sessionAddr := sdk.AccAddress(sessionKey.PubKey().Address())
-	pubKeyHex := hex.EncodeToString(sessionKey.PubKey().Bytes())
-
-	// Register session key with CanTransfer only, stored under session key's address
-	ak.SetSessionKey(ctx, &zeroneauthtypes.SessionKey{
-		Owner:          sessionAddr.String(),
-		KeyHash:        "session1",
-		PublicKey:      pubKeyHex,
-		ExpiresAtBlock: 1_000_000,
-		Capabilities: &zeroneauthtypes.SessionCapabilities{
-			CanTransfer: true,
-		},
-	})
-
-	decorator := NewZeroneCapabilityDecorator(ak, mockCosmosAccountKeeperForAnte{})
-
-	// Sign with session key, try MsgVote → should be rejected
-	tx := newMockSignedTx(
-		[]*ed25519.PrivKey{sessionKey},
-		[]sdk.Msg{mockMsg{typeURL: "/cosmos.gov.v1.MsgVote"}},
-		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
-		100_000,
-	)
-
-	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
-	if err == nil {
-		t.Fatal("expected ErrSessionCapabilityDenied, got nil")
-	}
-	if !zeroneauthtypes.ErrSessionCapabilityDenied.Is(err) {
-		t.Fatalf("expected ErrSessionCapabilityDenied, got: %v", err)
-	}
-}
-
-// ---------- Test 6: Session key CanTransfer → MsgSend accepted ----------
-
-func TestAnteIntegration_SessionKeyTransferAllowsMsgSend(t *testing.T) {
-	ak, _, ctx := setupBothKeepers(t)
-
-	sessionKey := ed25519.GenPrivKey()
-	sessionAddr := sdk.AccAddress(sessionKey.PubKey().Address())
-	pubKeyHex := hex.EncodeToString(sessionKey.PubKey().Bytes())
-
-	ak.SetSessionKey(ctx, &zeroneauthtypes.SessionKey{
-		Owner:          sessionAddr.String(),
-		KeyHash:        "session1",
-		PublicKey:      pubKeyHex,
-		ExpiresAtBlock: 1_000_000,
-		Capabilities: &zeroneauthtypes.SessionCapabilities{
-			CanTransfer: true,
-		},
-	})
-
-	decorator := NewZeroneCapabilityDecorator(ak, mockCosmosAccountKeeperForAnte{})
-
-	tx := newMockSignedTx(
-		[]*ed25519.PrivKey{sessionKey},
-		[]sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
-		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
-		100_000,
-	)
-
-	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
-	if err != nil {
-		t.Fatalf("session key with CanTransfer should allow MsgSend, got: %v", err)
 	}
 }
 
@@ -805,39 +729,3 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 	}
 }
 
-// Test 18: Session key still uses default-deny for unknown msg types
-func TestAnteIntegration_SessionKeyStillDefaultDeny(t *testing.T) {
-	ak, _, ctx := setupBothKeepers(t)
-
-	sessionKey := ed25519.GenPrivKey()
-	sessionAddr := sdk.AccAddress(sessionKey.PubKey().Address())
-	pubKeyHex := hex.EncodeToString(sessionKey.PubKey().Bytes())
-
-	ak.SetSessionKey(ctx, &zeroneauthtypes.SessionKey{
-		Owner:          sessionAddr.String(),
-		KeyHash:        "session-default-deny",
-		PublicKey:      pubKeyHex,
-		ExpiresAtBlock: 1_000_000,
-		Capabilities: &zeroneauthtypes.SessionCapabilities{
-			CanTransfer: true,
-		},
-	})
-
-	decorator := NewZeroneCapabilityDecorator(ak, mockCosmosAccountKeeperForAnte{})
-
-	// Unknown msg type should be denied for session keys
-	tx := newMockSignedTx(
-		[]*ed25519.PrivKey{sessionKey},
-		[]sdk.Msg{mockMsg{typeURL: "/cosmos.unknown.v1.MsgDoSomething"}},
-		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
-		100_000,
-	)
-
-	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
-	if err == nil {
-		t.Fatal("expected ErrSessionCapabilityDenied for unknown msg type with session key, got nil")
-	}
-	if !zeroneauthtypes.ErrSessionCapabilityDenied.Is(err) {
-		t.Fatalf("expected ErrSessionCapabilityDenied, got: %v", err)
-	}
-}
