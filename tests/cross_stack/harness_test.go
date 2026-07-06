@@ -49,10 +49,7 @@ import (
 	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecreedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
-	zeroneinquirykeeper "github.com/zerone-chain/zerone/x/inquiry/keeper"
-	zeronedialectickeeper "github.com/zerone-chain/zerone/x/dialectic/keeper"
 	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
-	zeronegovsynthkeeper "github.com/zerone-chain/zerone/x/governance_synthesis/keeper"
 	zeronepartnershipskeeper "github.com/zerone-chain/zerone/x/partnerships/keeper"
 	zeronesubstratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 )
@@ -93,10 +90,7 @@ type TestHarness struct {
 	PartnershipsKeeper       zeronepartnershipskeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
-	GovernanceSynthesisKeeper zeronegovsynthkeeper.Keeper
 	CounterexamplesKeeper     zeronecounterexkeeper.Keeper
-	InquiryKeeper             zeroneinquirykeeper.Keeper
-	DialecticKeeper           zeronedialectickeeper.Keeper
 	CreedKeeper               zeronecreedkeeper.Keeper
 	SubstrateBridgeKeeper     zeronesubstratebridgekeeper.Keeper
 
@@ -264,10 +258,7 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		PartnershipsKeeper:       app.PartnershipsKeeper,
 		TrainingProvenanceKeeper: app.TrainingProvenanceKeeper,
 		TrustScoreKeeper:         app.TrustScoreKeeper,
-		GovernanceSynthesisKeeper: app.GovernanceSynthesisKeeper,
 		CounterexamplesKeeper:     app.CounterexamplesKeeper,
-		InquiryKeeper:             app.InquiryKeeper,
-		DialecticKeeper:           app.DialecticKeeper,
 		CreedKeeper:               app.CreedKeeper,
 		SubstrateBridgeKeeper:     app.SubstrateBridgeKeeper,
 

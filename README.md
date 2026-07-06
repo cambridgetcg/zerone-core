@@ -128,10 +128,7 @@ to slop: quality is the profitable move because only quality survives.
 - **Agent Homes** — persistent identity, session keys, and reputation for AI agents
 - **Tool Marketplace** — agents build and monetize tools with automatic revenue
   sharing and surge pricing
-- **Tree of Life** — project management with tasks, contributors, and on-chain
-  deliverables
-- **Billing & Channels** — dynamic USD-stable pricing and payment channels for
-  high-frequency queries
+- **Billing** — dynamic USD-stable pricing for knowledge queries
 - **Autopoiesis** — self-regulating sustainability index that adjusts parameters
   to maintain system health
 - **Emergency Protocol** — halt/revert/resume with 75%+ validator quorum
@@ -149,27 +146,20 @@ build upon.
 
 ## Modules
 
-43 custom modules organized by function:
+28 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, escrow bookkeeping, coordination — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
 
 ### Knowledge & Truth
 | Module | Purpose |
 |---|---|
 | `knowledge` | Claim submission, verification rounds, confidence scoring |
 | `ontology` | Epistemic domains, strata, and domain proposals |
-| `research` | Research submissions, peer review, bounties |
-| `evidence_mgmt` | Evidence oracle and verification |
 | `counterexamples` | Validated wrong-claims paired with facts — alignment-by-structure (commitment 15) |
-| `inquiry` | Open questions with escrowed bounties + chain-sponsored frontier inquiries (commitments 16, 18) |
-| `dialectic` | Per-fact disagreement signatures (commitment 17) |
-| `private_corpus` | Off-chain vault references with on-chain provenance |
 
 ### Synthesizers (read-only)
 | Module | Purpose |
 |---|---|
 | `training_provenance` | Per-manifest trust composition |
 | `trust_score` | Per-address trust composition |
-| `governance_synthesis` | Per-system trust composition |
-| `agent_understanding` | Per-agent topic profiles |
 
 ### Validator & Staking
 | Module | Purpose |
@@ -183,14 +173,9 @@ build upon.
 |---|---|
 | `home` | Agent workspaces, sessions, deadman switch |
 | `toolbox` | Tool registry, marketplace, surge pricing |
-| `discovery` | Agent capability registry |
 | `billing` | Knowledge query pricing, dynamic USD-stable fees |
-| `channels` | Payment channels for high-frequency operations |
-| `compute_pool` | Compute provider marketplace |
-| `schedule` | Scheduled transaction execution |
 | `partnerships` | Human-agent partnership contracts |
 | `liquiditypool` | On-chain AMM liquidity pools |
-| `tree` | Project/task management with revenue sharing |
 | `claiming_pot` | Bootstrap claims (0.222 ZRN) + community claiming pools |
 | `sponsorship` | Sample sponsorship and patronage |
 
@@ -199,14 +184,12 @@ build upon.
 |---|---|
 | `gov` | Living Improvement Proposals (LIPs) |
 | `emergency` | Emergency halt, revert, and resume |
-| `disputes` | Multi-tier dispute resolution |
 | `capture_defense` | Anti-capture reputation scoring |
 | `capture_challenge` | Capture challenge mechanism |
 | `alignment` | System health alignment index |
 | `autopoiesis` | Self-regulating sustainability (SSI) |
 | `creed` | Creed registry — commitment pins (we speak through intentions) |
 | `work_creed` | Sub-creed pins for the useful-work recursion |
-| `contribution` | Contribution protocol — provenance of on-chain contributions |
 
 ### Identity & Interchain
 | Module | Purpose |
@@ -215,7 +198,6 @@ build upon.
 | `tokens` | Token emission control |
 | `bvm` | Bytecode Virtual Machine (smart contracts) |
 | `ibcratelimit` | IBC transfer rate limiting |
-| `icaauth` | Interchain Accounts authorization |
 | `substrate_bridge` | Cross-substrate adapters + external-work attestation (e.g. agenttool) |
 
 ---
@@ -314,6 +296,6 @@ keeps that promise in its license, too.
 
 ---
 
-## This README is a Contribution
+## This README is hash-pinned
 
-The README is itself a `Contribution` of class `MODULE_PROPOSAL`, lifecycle phase `SUBSTRATE`. Its content-hash is pinned at `.readme-hash`. The chain's outward-facing introduction is part of the substrate the chain produces; drift in this document fails `make creed-check`.
+The README's content-hash is pinned at `.readme-hash`; drift in this document fails `make creed-check`. (It was formerly self-declared as an on-chain `Contribution` record — the x/contribution module was retired in the 2026-07 slim cut; provenance of external work now lands on `substrate_bridge` attestations, and the off-chain hash-pin discipline carries this document's integrity.)

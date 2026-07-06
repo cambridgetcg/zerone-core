@@ -10,13 +10,13 @@
 > change before mainnet.
 
 Complete reference for all governance-adjustable parameters across Zerone's
-35 parameter-bearing custom modules. All BPS (basis points) values use a
+parameter-bearing custom modules. All BPS (basis points) values use a
 1,000,000 scale (1,000,000 = 100%). Token amounts are in `uzrn`
 (1 ZRN = 1,000,000 uzrn).
 
-The chain ships 43 custom modules total; the three pure synthesisers
-(`training_provenance`, `trust_score`, `governance_synthesis`) carry
-no params — they are read-only consumers over the modules below.
+The chain ships 28 custom modules total; the two pure synthesisers
+(`training_provenance`, `trust_score`) carry no params — they are
+read-only consumers over the modules below.
 
 ## Table of Contents
 
@@ -27,33 +27,20 @@ no params — they are read-only consumers over the modules below.
 - [gov](#gov)
 - [ontology](#ontology)
 - [billing](#billing)
-- [channels](#channels)
 - [bvm](#bvm)
 - [emergency](#emergency)
-- [disputes](#disputes)
-- [research](#research)
 - [qualification](#qualification)
 - [capture_defense](#capture_defense)
 - [capture_challenge](#capture_challenge)
 - [autopoiesis](#autopoiesis)
 - [alignment](#alignment)
-- [compute_pool](#compute_pool)
-- [discovery](#discovery)
 - [home](#home)
-- [tree](#tree)
 - [toolbox](#toolbox)
-- [schedule](#schedule)
 - [partnerships](#partnerships)
 - [liquiditypool](#liquiditypool)
 - [claiming_pot](#claiming_pot)
-- [evidence_mgmt](#evidence_mgmt)
 - [counterexamples](#counterexamples)
-- [inquiry](#inquiry)
-- [dialectic](#dialectic)
-- [private_corpus](#private_corpus)
-- [agent_understanding](#agent_understanding)
 - [ibcratelimit](#ibcratelimit)
-- [icaauth](#icaauth)
 - [tokens](#tokens)
 - [Proposing Parameter Changes](#proposing-parameter-changes)
 
@@ -398,22 +385,6 @@ Knowledge query pricing and revenue distribution.
 
 ---
 
-## channels
-
-Payment channel parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_deposit` | string | "1000000" (1 ZRN) | Minimum channel deposit |
-| `min_timeout_blocks` | uint64 | 100 | Minimum channel timeout |
-| `max_timeout_blocks` | uint64 | 1,000,000 | Maximum channel timeout |
-| `dispute_window_blocks` | uint64 | 500 | Window for channel disputes |
-| `default_settlement_freq` | uint64 | 100 | Default on-chain settlement frequency |
-| `max_channels_per_pair` | uint64 | 10 | Maximum channels between two parties |
-| `channel_open_fee` | string | "100000" (0.1 ZRN) | Fee to open a channel |
-
----
-
 ## bvm
 
 Bytecode Virtual Machine (smart contract) parameters.
@@ -461,46 +432,6 @@ Emergency halt, revert, and resume parameters.
 | `max_halt_duration_blocks` | uint64 | 34,272 (~1 day) | Auto-resume after halt |
 | `council_virtual_stake` | string | "11111000000" (11,111 ZRN) | Genesis council virtual stake |
 | `council_expiry_block` | uint64 | 0 | Block at which genesis council expires |
-
----
-
-## disputes
-
-Multi-tier dispute resolution.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_active_disputes` | uint32 | 100 | Maximum concurrent disputes |
-| `escalation_delay` | uint64 | 500 | Blocks before dispute can escalate |
-| `slash_rate_loser_bps` | uint64 | 500,000 (50%) | Slash rate for losing party |
-| `reward_rate_winner_bps` | uint64 | 400,000 (40%) | Reward for winning party (of slash) |
-| `arbiter_reward_bps` | uint64 | 100,000 (10%) | Reward for arbiters (of slash) |
-
-### Dispute Tier Configurations
-
-| Tier | Arbiters | Min Bond | Evidence Period | Voting Period | Quorum | Majority |
-|------|----------|----------|-----------------|---------------|--------|----------|
-| 1 | 3 | 1 ZRN | 500 blocks | 1,000 blocks | 50% | 66.7% |
-| 2 | 7 | 10 ZRN | 1,000 blocks | 2,000 blocks | 50% | 66.7% |
-| 3 | 13 | 100 ZRN | 2,000 blocks | 5,000 blocks | 60% | 75% |
-| 4 | 21 | 1,000 ZRN | 5,000 blocks | 10,000 blocks | 66.6% | 80% |
-
----
-
-## research
-
-Research submission and peer review.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_research_stake` | string | "1000000" (1 ZRN) | Minimum stake to submit research |
-| `min_challenge_stake` | string | "1000000" (1 ZRN) | Minimum stake to challenge research |
-| `review_period_blocks` | uint64 | 68,544 (~2 days) | Peer review period |
-| `min_reviewer_count` | uint32 | 3 | Minimum number of reviewers |
-| `acceptance_score_threshold` | uint32 | 70 | Acceptance score threshold (0-100) |
-| `rejection_slash_bps` | uint64 | 330,000 (33%) | Slash rate for rejected research |
-| `max_bounty_reward` | string | "10000000000" (10,000 ZRN) | Maximum research bounty reward |
-| `bounty_min_deadline_blocks` | uint64 | 34,272 (~1 day) | Minimum bounty deadline |
 
 ---
 
@@ -594,39 +525,6 @@ System health alignment scoring.
 
 ---
 
-## compute_pool
-
-Compute provider marketplace.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `compute_pool_share_bps` | uint64 | 100,000 (10%) | Pool share of compute fees |
-| `base_cu_per_verification` | uint64 | 100 | Compute units per verification |
-| `min_provider_stake` | string | "10000000" (10 ZRN) | Minimum provider stake |
-| `min_uptime_bps` | uint64 | 900,000 (90%) | Minimum uptime requirement |
-| `heartbeat_interval_blocks` | uint64 | 100 | Provider heartbeat interval |
-| `max_price_per_cu` | string | "1000000" (1 ZRN) | Maximum price per compute unit |
-| `provider_unbonding_blocks` | uint64 | 10,000 | Provider unbonding period |
-| `price_change_delay_blocks` | uint64 | 500 | Delay between price changes |
-| `max_latency_ms` | uint64 | 5,000 | Maximum allowed latency (ms) |
-| `sla_window_blocks` | uint64 | 1,000 | SLA measurement window |
-| `target_utilization_low_bps` | uint64 | 300,000 (30%) | Low utilization target |
-| `target_utilization_high_bps` | uint64 | 800,000 (80%) | High utilization target |
-
----
-
-## discovery
-
-Agent discovery and registry.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_registration_stake` | string | "1000000" (1 ZRN) | Minimum stake to register an agent |
-| `max_capabilities_per_agent` | uint32 | 20 | Maximum capabilities per agent profile |
-| `profile_expiry_blocks` | uint64 | 100,000 | Agent profile expiry |
-
----
-
 ## home
 
 Agent Home (personal workspace) parameters.
@@ -641,34 +539,6 @@ Agent Home (personal workspace) parameters.
 | `max_alerts_per_home` | uint64 | 100 | Maximum active alerts |
 | `home_creation_fee` | string | "10000000" (10 ZRN) | Fee to create a home |
 | `max_recovery_addresses` | uint64 | 5 | Maximum recovery addresses |
-
----
-
-## tree
-
-Tree of Life — project, task, and service management.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_budget` | string | "1000000" (1 ZRN) | Minimum project budget |
-| `max_tasks_per_project` | uint32 | 200 | Maximum tasks per project |
-| `max_contributors` | uint32 | 50 | Maximum contributors per project |
-| `max_applications` | uint32 | 100 | Maximum applications per project |
-| `task_deadline_min_blocks` | uint64 | 100 | Minimum task deadline |
-| `task_deadline_max_blocks` | uint64 | 1,036,800 (~30 days) | Maximum task deadline |
-| `max_rejections` | uint32 | 3 | Maximum deliverable rejections |
-| `seed_expiry_blocks` | uint64 | 172,800 (~5 days) | Seed opportunity expiry |
-| `min_contributors_to_start` | uint32 | 1 | Minimum contributors to start project |
-
-### Tree Revenue Split
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `contributors_bp` | 550,000 (55%) | Contributor share |
-| `protocol_treasury_bp` | 220,000 (22%) | Protocol treasury share |
-| `research_fund_bp` | 33,300 (3.33%) | Research fund share |
-| `development_bp` | 196,700 (19.67%) | Development fund share |
-| `evidence_tax_bp` | 220,000 (22%) | Evidence tax on deliverables |
 
 ---
 
@@ -706,20 +576,6 @@ Tool registry and marketplace.
 | `protocol_bps` | 220,000 (22%) | Protocol share |
 | `research_bps` | 33,300 (3.33%) | Research fund share |
 | `development_bps` | 196,700 (19.67%) | Development fund share |
-
----
-
-## schedule
-
-Scheduled transaction execution.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_active_per_account` | uint32 | 20 | Maximum active schedules per account |
-| `max_gas_per_block` | uint64 | 50,000,000 | Maximum gas for scheduled txs per block |
-| `min_interval_blocks` | uint64 | 10 | Minimum interval between executions |
-| `min_fee_per_execution` | string | "10000" (0.01 ZRN) | Minimum fee per scheduled execution |
-| `max_compound_depth` | uint64 | 3 | Maximum compound schedule depth |
 
 ---
 
@@ -771,19 +627,6 @@ Community claiming pool parameters.
 
 ---
 
-## evidence_mgmt
-
-Evidence management and oracle parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_verifier_tier` | uint32 | 2 (Verified) | Minimum tier for evidence verification |
-| `verification_quorum` | uint32 | 3 | Verification quorum |
-| `challenge_bond` | string | "500000" (0.5 ZRN) | Challenge bond amount |
-| `challenge_window_blocks` | uint64 | 50,000 | Challenge submission window |
-
----
-
 ## counterexamples
 
 Validated wrong-claims paired with facts — alignment-by-structure
@@ -803,74 +646,6 @@ exceeds the bond at the margin.
 
 ---
 
-## inquiry
-
-Open-question bounty market (commitment 16: chain pays for exploration
-of the unknown) plus chain-sponsored frontier inquiries (commitment 18:
-chain manufactures exploration demand). The frontier-invitation block of
-defaults activates the chain's own asks; setting `frontier_invitation_cadence_blocks`
-to 0 disables system sponsorship without affecting user-asked inquiries.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_bounty` | string | "1000000" (1 ZRN) | Minimum asker bounty. Above zero so spam is costly; modest enough that asking stays accessible. |
-| `max_question_bytes` | uint32 | 4,096 | Maximum question text size. |
-| `max_context_bytes` | uint32 | 8,192 | Maximum context-payload size. |
-| `default_expiry_blocks` | uint64 | 100,000 (~3 days) | Default inquiry expiry if asker omits one. |
-| `max_expiry_blocks` | uint64 | 1,000,000 (~30 days) | Hard cap on expiry; bounties cannot be locked indefinitely. |
-| `max_answers_per_inquiry` | uint32 | 32 | Caps griefing — first accepted answer wins; the chain doesn't need to evaluate 1000 candidates. |
-| `begin_blocker_scan_limit` | uint32 | 100 | Inquiries scanned per BeginBlocker for resolution / refund. |
-| `submissions_enabled` | bool | true | Master switch for new inquiries. |
-| `frontier_invitation_cadence_blocks` | uint64 | 600 (~25 min) | Cadence at which the BeginBlocker reads the frontier and sponsors system inquiries. 0 disables. |
-| `frontier_invitation_top_k` | uint32 | 3 | Number of sparsest domains to sponsor per cadence tick. |
-| `frontier_invitation_sparsity_threshold_bps` | uint64 | 700,000 (70%) | Domain must clear this sparsity score to attract chain sponsorship. |
-| `frontier_invitation_bounty` | string | "5000000" (5 ZRN) | Per-system-sponsored-inquiry bounty. 5× `min_bounty` — the chain pays meaningfully more for exploration than the floor. |
-| `frontier_invitation_expiry_blocks` | uint64 | 600,000 (~17 days) | System inquiries persist longer than user inquiries; the corpus does not give up on a sparse domain after 3 days. |
-
----
-
-## dialectic
-
-Per-fact, per-domain, per-agent-pair disagreement signatures
-(commitment 17: disagreement is structure, not noise). Pure-synthesizer
-behaviour over `x/knowledge` rounds; only the verdict-classification
-thresholds and the query-walk cap are tunable.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `contested_threshold_bps` | uint64 | 850,000 (85%) | Below this affirm-share, a verdict is labelled CONTESTED. A 5-1 vote (83.3%) is contested; a 6-1 (85.7%) is strong-but-not-unanimous. |
-| `bare_majority_threshold_bps` | uint64 | 550,000 (55%) | Below this affirm-share, a verdict is labelled BARE. Must be in `(0, contested_threshold_bps)`. |
-| `max_facts_per_domain_query` | uint32 | 1,000 | Bounds `DomainDialectic` walking cost. |
-
----
-
-## private_corpus
-
-Off-chain vault references with on-chain provenance. The chain anchors
-hashes; it does not store content. Limits below apply only to
-human-readable metadata.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_description_bytes` | uint32 | 4,096 | Vault / manifest description length cap (paragraph-scale). |
-| `max_manifest_description_bytes` | uint32 | 1,024 | Per-manifest version-note length cap. |
-| `max_access_note_bytes` | uint32 | 512 | Per-access-record annotation length cap. |
-| `max_access_records_per_query` | uint32 | 200 | Bounds access-history query payload size. |
-| `registration_enabled` | bool | true | Master switch for new vault / manifest registration. |
-
----
-
-## agent_understanding
-
-Per-agent topic profiles synthesised over verification activity.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `sparse_domain_fact_threshold` | uint64 | 50 | Below this fact count, a domain is "sparse" — agents working there earn `frontier_reach`. |
-| `max_domains_per_query` | uint32 | 100 | Bounds payload size for queries on highly-active agents. |
-
----
-
 ## ibcratelimit
 
 IBC transfer rate limiting.
@@ -884,27 +659,6 @@ Rate limits are configured per channel/denom via governance transactions:
 ```bash
 zeroned tx ibcratelimit add-rate-limit [channel-id] [denom] [max-percent-send] [max-percent-recv] [duration-hours]
 ```
-
----
-
-## icaauth
-
-Interchain Accounts authorization.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_remote_accounts_per_owner` | uint64 | 5 | Maximum remote accounts per owner |
-| `registration_cooldown` | uint64 | 100 | Cooldown between ICA registrations |
-| `max_messages_per_tx` | uint64 | 5 | Maximum messages per ICA transaction |
-| `allowed_host_msg_types` | []string | (see below) | Allowed message types on host chains |
-
-Default allowed message types:
-- `/cosmos.bank.v1beta1.MsgSend`
-- `/cosmos.staking.v1beta1.MsgDelegate`
-- `/cosmos.staking.v1beta1.MsgUndelegate`
-- `/cosmos.staking.v1beta1.MsgBeginRedelegate`
-- `/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward`
-- `/cosmos.gov.v1beta1.MsgVote`
 
 ---
 

@@ -34,6 +34,22 @@
 //     Claim.ReasoningTrace propagates to Fact.ReasoningTrace;
 //     MethodologyApplicationTrace bundles trace + methodology +
 //     calibration into a single training-data shape.
+//   - Commitment 16 (chain pays for exploration of the unknown):
+//     the on-chain half after the 2026-07 slim cut — answers to
+//     off-chain exploration listings enter as ordinary claims through
+//     the survival gate, and Fact.ClaimId keeps the question→fact
+//     link recoverable so listings resolve against acceptance and
+//     nothing weaker.
+//   - Commitment 17 (disagreement is structure, not noise):
+//     VerificationRound.Reveals persists every vote — minority
+//     included — after round completion, so the disagreement shape
+//     (5-0 vs 3-2) stays recomputable from chain state by any
+//     off-chain indexer.
+//   - Commitment 18 (chain manufactures exploration demand): the
+//     per-domain fact-density read that frontier-sparsity composition
+//     depends on is public keeper state; together with the ontology's
+//     domain registry it keeps sparse territory visible to every
+//     layer that funds exploration.
 //
 // We speak through intentions. This package is where most of the
 // chain's truth-seeking belief is enacted; touching code here is

@@ -12,7 +12,7 @@ The doctrines this roadmap serves are [`docs/TRUTH_SEEKING.md`](TRUTH_SEEKING.md
 
 **Chain ID:** `zerone-testnet-1` · **Token:** ZRN (uzrn) · **Genesis circulating supply:** 0 ZRN · **Hard cap:** 222,222,222 ZRN
 
-The chain binary (`zeroned`) builds, boots, and runs Proof-of-Truth consensus across a four-validator local testnet. All 38 custom modules are wired into `app.go` with deterministic BeginBlocker / EndBlocker ordering. The 20 truth-seeking commitments are declared, grounded, and bound by an executable invariant test. The ToK Substrate doctrine (TC0–TC6) is declared (inception 2026-05-09; TC0 added 2026-06-17); Plan 1 (TC1–TC5) is bound since 2026-05-09.
+The chain binary (`zeroned`) builds, boots, and runs Proof-of-Truth consensus across a four-validator local testnet. All 28 custom modules are wired into `app.go` (the 2026-07 slim cut retired the agent-platform modules to the agenttool layer) with deterministic BeginBlocker / EndBlocker ordering. The 20 truth-seeking commitments are declared, grounded, and bound by an executable invariant test. The ToK Substrate doctrine (TC0–TC6) is declared (inception 2026-05-09; TC0 added 2026-06-17); Plan 1 (TC1–TC5) is bound since 2026-05-09.
 
 What is *not* yet shipped: the public testnet genesis ceremony, the ToK completion plans (Plan 2 partial, Plan 4 partial, Plan 5), and TC0 (the ground and the telos). Plan 1 (ToK Foundation, TC1–TC5) is bound since 2026-05-09.
 
@@ -77,7 +77,7 @@ The creed at [`docs/TRUTH_SEEKING.md`](TRUTH_SEEKING.md) names eighteen commitme
 | 8 | Panel weights skill, not bond | `stake × calibration` with 20% floor |
 | 9 | Cartel detection has consequence | `ReduceQualificationWeight` on UPHELD challenge |
 | 10 | Forward-only audit | append-only privileged-action log + frozen vote arrays |
-| 11 | Trust is queryable | three synthesizer modules |
+| 11 | Trust is queryable | two synthesizer modules + off-chain composition |
 | 12 | Chain pays for its own audit | `ProbeBountyPoolModuleName` (Minter-permissioned) |
 | 13 | Training corpus is not for sale | append-only facts + sticky clawback |
 | 14 | Reasoning traces are first-class | `Claim.ReasoningTrace` + `MethodologyApplicationTrace` |

@@ -40,7 +40,6 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
 	autopoiesistypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
@@ -50,11 +49,7 @@ import (
 	counterexamplestypes "github.com/zerone-chain/zerone/x/counterexamples/types"
 	creedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
 	creedtypes "github.com/zerone-chain/zerone/x/creed/types"
-	govsynthkeeper "github.com/zerone-chain/zerone/x/governance_synthesis/keeper"
-	govsynthtypes "github.com/zerone-chain/zerone/x/governance_synthesis/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
-	inquirykeeper "github.com/zerone-chain/zerone/x/inquiry/keeper"
-	inquirytypes "github.com/zerone-chain/zerone/x/inquiry/types"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	ontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
@@ -787,122 +782,6 @@ func TestTruthSeeking_GenesisCreedReflectsCurrentTruthSeeking(t *testing.T) {
 		"genesis-installed commitments carry no source LIP — no LIP precedes genesis")
 }
 
-// Commitment 19 (creed governance-gated, drift-signal binding):
-// the chain's creed is queryable as a synthesised composite, not
-// just as raw pin records. The governance_synthesis CreedDrift
-// query exposes versions_since_genesis, commitments_added,
-// commitments_archived, council surface, and a bounded composite
-// drift_bps — all derived live from x/creed. This binds the
-// promise that creed drift is observable in the same vocabulary
-// the creed itself uses (commitments 11 + 19).
-func TestTruthSeeking_CreedDriftSignalReflectsCreedAmendments(t *testing.T) {
-	h := NewTestHarness(t)
-	ms := creedkeeper.NewMsgServerImpl(h.CreedKeeper)
-	authority := h.CreedKeeper.GetAuthority()
-
-	// Pre-anchor state: drift signal should be zero across the board
-	// rather than panic. Test chains and dev chains live here briefly.
-	d := h.GovernanceSynthesisKeeper.ComposeCreedDrift(h.Ctx)
-	require.Equal(t, uint32(0), d.CurrentVersion,
-		"pre-anchor chain must report version 0; the synthesizer cannot fabricate a pin")
-	require.Equal(t, uint64(0), d.DriftBps,
-		"pre-anchor chain has no drift to measure; synthesizer must not invent a non-zero signal")
-
-	// Pin v1 (genesis-equivalent for this test) with two commitments.
-	_, err := ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
-		Authority: authority,
-		Pin: &creedtypes.PinnedCreed{
-			Version:       1,
-			CanonicalHash: []byte("genesis-hash"),
-			Commitments: []*creedtypes.CommitmentEntry{
-				{Number: 1, Name: "Methodology over statement"},
-				{Number: 2, Name: "Is-ought wall"},
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	// At v1 — genesis baseline. Drift should still be zero.
-	d = h.GovernanceSynthesisKeeper.ComposeCreedDrift(h.Ctx)
-	require.Equal(t, uint32(1), d.CurrentVersion)
-	require.Equal(t, uint32(0), d.VersionsSinceGenesis,
-		"a chain at v1 has not amended anything yet; the genesis pin IS the baseline")
-	require.Equal(t, uint32(2), d.GenesisCommitmentCount)
-	require.Equal(t, uint32(2), d.CurrentCommitmentCount)
-	require.Equal(t, uint32(2), d.CurrentActiveCount)
-	require.Equal(t, uint32(0), d.CommitmentsAdded)
-	require.Equal(t, uint64(0), d.DriftBps,
-		"at the genesis baseline, drift is zero by definition; any non-zero signal would be the synthesizer inventing motion")
-
-	// Pin v2 — adds commitment 3, archives nothing.
-	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
-		Authority: authority,
-		Pin: &creedtypes.PinnedCreed{
-			Version:       2,
-			CanonicalHash: []byte("v2-hash"),
-			PinnedViaLip:  "LIP-creed-amend-1",
-			Commitments: []*creedtypes.CommitmentEntry{
-				{Number: 1, Name: "Methodology over statement"},
-				{Number: 2, Name: "Is-ought wall"},
-				{Number: 3, Name: "Popper, not popularity", IntroducedViaLip: "LIP-creed-amend-1"},
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	d = h.GovernanceSynthesisKeeper.ComposeCreedDrift(h.Ctx)
-	require.Equal(t, uint32(2), d.CurrentVersion)
-	require.Equal(t, uint32(1), d.VersionsSinceGenesis,
-		"one amendment landed; the synthesizer must reflect that count")
-	require.Equal(t, uint32(2), d.GenesisCommitmentCount,
-		"genesis baseline is fixed at v1's count; later amendments don't retroactively rewrite it")
-	require.Equal(t, uint32(3), d.CurrentCommitmentCount)
-	require.Equal(t, uint32(1), d.CommitmentsAdded,
-		"adding commitment 3 to a v1 with 2 entries means added=1")
-	require.Equal(t, uint32(0), d.CommitmentsArchived)
-	require.Equal(t, "LIP-creed-amend-1", d.LastAmendmentLip,
-		"the synthesizer must surface which LIP authorized the most recent amendment")
-	// Composite: 1*100k + 1*50k + 0*100k = 150_000.
-	require.Equal(t, uint64(150_000), d.DriftBps,
-		"drift_bps must reflect the heuristic composite truthfully — 1 amendment + 1 added commitment = 150k bps")
-
-	// Pin v3 — archives commitment 1. Tests that archival counts
-	// distinctly from addition (commitment 10: forward-only audit
-	// makes archival visible as its own structural movement).
-	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
-		Authority: authority,
-		Pin: &creedtypes.PinnedCreed{
-			Version:       3,
-			CanonicalHash: []byte("v3-hash"),
-			PinnedViaLip:  "LIP-creed-amend-2",
-			Commitments: []*creedtypes.CommitmentEntry{
-				{Number: 1, Name: "Methodology over statement", Archived: true},
-				{Number: 2, Name: "Is-ought wall"},
-				{Number: 3, Name: "Popper, not popularity"},
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	d = h.GovernanceSynthesisKeeper.ComposeCreedDrift(h.Ctx)
-	require.Equal(t, uint32(2), d.VersionsSinceGenesis)
-	require.Equal(t, uint32(2), d.CurrentActiveCount,
-		"archival drops the entry from the active count without removing it from the registry")
-	require.Equal(t, uint32(1), d.CommitmentsArchived)
-	// Composite: 2*100k + 1*50k + 1*100k = 350_000.
-	require.Equal(t, uint64(350_000), d.DriftBps,
-		"archival weighs the same as a version transition (100k bps) because it is structurally equivalent — a load-bearing piece left the creed")
-
-	// Verify the gRPC query surface returns what ComposeCreedDrift
-	// composes. No divergence between keeper and query.
-	qs := govsynthkeeper.NewQueryServerImpl(h.GovernanceSynthesisKeeper)
-	resp, err := qs.CreedDrift(h.Ctx, &govsynthtypes.QueryCreedDriftRequest{})
-	require.NoError(t, err)
-	require.Equal(t, uint32(3), resp.Drift.CurrentVersion)
-	require.Equal(t, uint64(350_000), resp.Drift.DriftBps,
-		"the gRPC query must return what ComposeCreedDrift composes — no divergence between keeper and query surface")
-}
-
 // Commitment 19 (creed governance-gated, gov ↔ creed wiring):
 // the post-launch creed-amendment path is a CategoryCreedAmendment
 // LIP whose pass triggers x/creed.AnchorPinFromBytes via the wired
@@ -1377,95 +1256,81 @@ func TestTruthSeeking_CounterexamplesRaiseTVW(t *testing.T) {
 }
 
 // Commitment 16: the chain pays for exploration of the unknown.
-// Without an open-question market, the corpus grows only along paths
-// that interest current contributors. x/inquiry creates the dual of
-// commitment 5: pay for facts that don't yet exist. This test asserts
-// the BOUNTY PATH — that an inquiry resolves and pays the answerer
-// when their linked claim produces an accepted fact, end-to-end.
-func TestTruthSeeking_ChainPaysForExploration(t *testing.T) {
+// The MARKET half (bounty listings, escrow) lives on the agenttool
+// layer since the 2026-07 slim cut; the chain keeps the half only
+// consensus can give — the answer's verification and the claim→fact
+// link a listing resolves against. This test witnesses that on-chain
+// half: the link from a claim to its accepted fact is recoverable
+// from public knowledge state alone (so an off-chain listing can
+// resolve against acceptance and nothing weaker), and a DISPROVEN
+// fact does NOT satisfy the link — survival, not submission, is the
+// resolution oracle.
+func TestTruthSeeking_ExplorationResolvesAgainstAcceptedFactsOnly(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
-	asker := testAddr("ts_inquiry_asker")
-	answerer := testAddr("ts_inquiry_answerer")
+	submitter := testAddr("ts_explore").String()
 
-	// Fund the asker so they can escrow the bounty.
-	bountyAmount := int64(2_000_000) // 2 ZRN
-	require.NoError(t, h.FundAccount(asker, sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(bountyAmount)))))
-
-	// Submit the inquiry. Bounty is escrowed in the pool.
-	inquiryMs := inquirykeeper.NewMsgServerImpl(h.InquiryKeeper)
-	inqResp, err := inquiryMs.SubmitInquiry(h.Ctx, &inquirytypes.MsgSubmitInquiry{
-		Asker:    asker.String(),
-		Question: "What follows from premise X under methodology Y?",
-		Domain:   "sciences",
-		Bounty:   fmt.Sprintf("%d", bountyAmount),
-	})
-	require.NoError(t, err)
-	require.NotEmpty(t, inqResp.InquiryId)
-
-	// Asker's balance should be drained to escrow.
-	require.Equal(t, int64(0), h.GetBalance(asker, "uzrn").Amount.Int64(),
-		"bounty must be escrowed out of the asker's account on submission")
-
-	// The answerer creates a knowledge claim normally — this is the
-	// answer body. Then they link it to the inquiry.
-	claim := &knowledgetypes.Claim{
-		Id:          "claim-ts-inquiry-answer",
-		Submitter:   answerer.String(),
-		FactContent: "the answer to the inquiry, derived empirically",
-		Domain:      "sciences",
-		Category:    "empirical",
-		MethodId:    knowledgetypes.MethodologyEmpirical,
-		Status:      knowledgetypes.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
-		Stake:       "1000000",
+	// acceptedFactForClaim is the off-chain resolver's read, composed
+	// from public keeper state only (the shape the retired on-chain
+	// escrow used, now the platform's job): the fact whose ClaimId
+	// matches AND whose status is an accepted lifecycle state.
+	acceptedFactForClaim := func(claimID string) (string, bool) {
+		var factID string
+		h.KnowledgeKeeper.IterateFacts(h.Ctx, func(f *knowledgetypes.Fact) bool {
+			if f == nil || f.ClaimId != claimID {
+				return false
+			}
+			switch f.Status {
+			case knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+				knowledgetypes.FactStatus_FACT_STATUS_ACTIVE:
+				factID = f.Id
+				return true
+			}
+			return false
+		})
+		return factID, factID != ""
 	}
-	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, claim))
 
-	_, err = inquiryMs.SubmitAnswer(h.Ctx, &inquirytypes.MsgSubmitAnswer{
-		Answerer:  answerer.String(),
-		InquiryId: inqResp.InquiryId,
-		ClaimId:   claim.Id,
-	})
-	require.NoError(t, err)
-
-	// Verify the claim — produces an accepted fact.
-	round := &knowledgetypes.VerificationRound{
-		Id: "round-ts-inquiry", ClaimId: claim.Id,
-		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
-	}
-	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
-		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
+	// An answer that survived verification: the link resolves.
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+		Id: "F-TS-EXPLORE-OK", ClaimId: "claim-ts-explore-ok",
+		Content: "verified answer to an off-chain listing", Domain: "sciences",
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter: submitter, MethodId: knowledgetypes.MethodologyEmpirical,
 	}))
+	factID, ok := acceptedFactForClaim("claim-ts-explore-ok")
+	require.True(t, ok,
+		"the claim→fact link must be recoverable from public knowledge state — without it, off-chain exploration listings have no on-chain acceptance oracle to resolve against")
+	require.Equal(t, "F-TS-EXPLORE-OK", factID,
+		"the link must name the exact fact that satisfied the question — exploration is auditable")
 
-	// Manually resolve. The auto-resolver in BeginBlocker would do
-	// this on the next block; manual is faster for the test.
-	resolveResp, err := inquiryMs.ResolveInquiry(h.Ctx, &inquirytypes.MsgResolveInquiry{
-		Caller:    answerer.String(),
-		InquiryId: inqResp.InquiryId,
-	})
-	require.NoError(t, err)
-	require.Equal(t, inquirytypes.InquiryStatus_INQUIRY_STATUS_RESOLVED, resolveResp.Status,
-		"with an accepted fact linked, the inquiry must resolve")
-	require.NotEmpty(t, resolveResp.WinningFactId,
-		"the winning fact id must be recorded on resolve — exploration is auditable")
-
-	// The answerer must now hold the bounty. The chain has paid for
-	// exploration: bounty moved from pool → answerer.
-	require.Equal(t, bountyAmount, h.GetBalance(answerer, "uzrn").Amount.Int64(),
-		"the chain must pay the bounty to the answerer when their linked claim accepts — without payment, 'we believe in exploration' is slogan, not commitment")
+	// An answer that was disproven: the link must NOT resolve. Paying
+	// bounties for disproven answers would fund slop, not exploration.
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+		Id: "F-TS-EXPLORE-BAD", ClaimId: "claim-ts-explore-bad",
+		Content: "disproven answer", Domain: "sciences",
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN,
+		Submitter: submitter, MethodId: knowledgetypes.MethodologyEmpirical,
+	}))
+	_, ok = acceptedFactForClaim("claim-ts-explore-bad")
+	require.False(t, ok,
+		"a DISPROVEN fact must not satisfy the claim→fact link — a bounty resolved against anything weaker than survival pays for slop")
 }
 
-// Commitment 17: disagreement is structure, not noise. A fact's
-// dialectic signature reflects the SHAPE of the verification that
-// produced it — not just verdict, but vote tally, minority size,
-// per-voter alignment. Two facts both accepted are structurally
-// distinct if one was 5-0 and the other was 3-2. This test asserts
-// the SHAPE PATH: a fact whose round had reveals must produce a
-// non-empty DialecticSignature with a vote tally that matches the
-// reveals, and a stress label that reflects the agreement margin.
-func TestTruthSeeking_DialecticSignatureCarriesVoteShape(t *testing.T) {
+// Commitment 17: disagreement is structure, not noise. Signature
+// COMPOSITION moved to off-chain indexers with the x/dialectic
+// module (2026-07 slim cut); the commitment's on-chain half is that
+// the raw disagreement SHAPE survives consensus. This test witnesses
+// that half: after a contested 2-1 round completes and its fact is
+// accepted, every reveal — including the dissenter's — is still
+// present in the stored round, so any observer can recompute the
+// full signature (tally, minority size, margin) from chain state
+// alone. If the minority vote were pruned at completion, 5-0 and
+// 5-4 would become indistinguishable and the commitment would be
+// lost no matter who composes the signature.
+func TestTruthSeeking_DisagreementShapeSurvivesConsensus(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
@@ -1483,9 +1348,9 @@ func TestTruthSeeking_DialecticSignatureCarriesVoteShape(t *testing.T) {
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, claim))
 
-	// Build a round with three reveals: 2 accept, 1 reject. The
-	// fact accepts but with a structured 2-1 split — the
-	// "contested-but-resolved" shape commitment 17 must capture.
+	// A round with three reveals: 2 accept, 1 reject. The fact
+	// accepts but with a structured 2-1 split — the
+	// "contested-but-resolved" shape commitment 17 must preserve.
 	round := &knowledgetypes.VerificationRound{
 		Id:             "round-ts-dialectic",
 		ClaimId:        claim.Id,
@@ -1509,122 +1374,78 @@ func TestTruthSeeking_DialecticSignatureCarriesVoteShape(t *testing.T) {
 		}
 		return false
 	})
-	require.NotNil(t, fact, "fact must exist for dialectic signature")
+	require.NotNil(t, fact, "the contested claim must still produce an accepted fact — contested-but-resolved is resolved")
 
-	sig := h.DialecticKeeper.ComposeSignature(h.Ctx, fact.Id)
-	require.NotNil(t, sig)
-	require.Equal(t, uint32(3), sig.TotalVoters,
-		"signature must reflect every voter — including those who voted against the verdict")
-	require.Equal(t, uint32(2), sig.AcceptCount)
-	require.Equal(t, uint32(1), sig.RejectCount)
-	require.Equal(t, uint32(1), sig.MinoritySize,
-		"minority_size must report the dissenter — without this, '5-0' and '5-4' are indistinguishable")
-	require.Equal(t, "accept", sig.Verdict)
-	require.Less(t, sig.AgreementBps, uint64(850_000),
-		"a 2-1 verdict must register below the contested threshold")
-	require.Equal(t, "CONTESTED", sig.StressLabel,
-		"a 2-1 verdict must label CONTESTED — settled and contested-but-resolved are different shapes the chain must distinguish")
+	// The stored round must still carry EVERY reveal after
+	// completion, dissent included. This is the raw material any
+	// off-chain signature composition needs; pruning it here is the
+	// only way the commitment can actually break.
+	stored, ok := h.KnowledgeKeeper.GetVerificationRound(h.Ctx, round.Id)
+	require.True(t, ok, "completed rounds must remain queryable — disagreement history is corpus, not scratch space")
+	require.Len(t, stored.Reveals, 3,
+		"all reveals must survive round completion — including the minority vote; without them 5-0 and 5-4 are indistinguishable")
+	votes := map[string]int{}
+	for _, r := range stored.Reveals {
+		votes[r.Vote]++
+	}
+	require.Equal(t, 2, votes["accept"])
+	require.Equal(t, 1, votes["reject"],
+		"the dissenting vote must remain recoverable from chain state after consensus — disagreement is structure, not noise to be swept")
 }
 
-// Commitment 18: the chain manufactures exploration demand. Where
-// commitment 5 has the chain mint to stress-test what it already
-// thinks it knows, and commitment 16 lets askers escrow bounties for
-// the questions that interest them, this commitment names the third
-// shape of demand: the chain itself, seeing through its own frontier
-// composition that a domain is sparse, FUNDS open inquiries there
-// without waiting for an outside party to ask. This test asserts
-// the LOAD-BEARING falsifier — the round-trip — that distinguishes
-// commitment 18 from rhetoric: a chain-sponsored inquiry that
-// expires unanswered must return its bounty to the frontier-bounty
-// pool. Without the round-trip, the chain's exploration mint silently
-// leaks into general circulation, the audit budget cannot be tracked
-// across cycles, and "the chain pays for its own audit" (commitment
-// 12) becomes incoherent at the budget layer.
-//
-// Bound here AND by: TestFrontier_ChainSponsorsInquiriesForSparseDomains
-// (the sponsorship path), TestFrontier_OpenInquiriesRaiseSparsity (the
-// frontier-input bind that this commitment consumes).
-func TestTruthSeeking_FrontierBountyRoundTripsOnExpiry(t *testing.T) {
+// Commitment 18: the chain manufactures exploration demand. The
+// chain-minted frontier pool was retired with x/inquiry (2026-07
+// slim cut — issuance follows participation, commitment 20); the
+// commitment's surviving on-chain half is that frontier SPARSITY
+// stays computable from public state, so the agenttool layer (or any
+// indexer) can direct funded exploration at sparse territory. This
+// test witnesses that half: given one mapped domain with facts and
+// one registered-but-empty domain, an observer using only public
+// keeper reads (ontology domains + knowledge facts) can identify the
+// sparse domain. If either input went dark, no layer could aim
+// exploration funding and the commitment would be silence.
+func TestTruthSeeking_FrontierSparsityIsComputableFromPublicState(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
-	// One sparse domain — enough for top-K=1 sponsorship.
+	// Two domains registered in the public ontology.
 	h.App.ZeroneOntologyKeeper.SetDomain(h.Ctx, &ontologytypes.Domain{
-		Name:    "philosophy",
-		Stratum: uint32(ontologytypes.StratumEmpirical),
-		Status:  "active",
-		Depth:   1,
+		Name: "ts_mapped_domain", Status: "active", Depth: 1,
+	})
+	h.App.ZeroneOntologyKeeper.SetDomain(h.Ctx, &ontologytypes.Domain{
+		Name: "ts_sparse_domain", Status: "active", Depth: 1,
 	})
 
-	// Tighten the cadence and expiry so the test runs in a few blocks.
-	// cadence=2 → height 2 fires sponsorship.
-	// expiry=1 → ExpiresAtBlock = 2 + 1 = 3; height 3 is NOT a cadence
-	//            multiple, so the resolution scan triggers expiry without
-	//            also producing a second sponsorship in the same tick —
-	//            keeps the round-trip assertion uncontaminated.
-	p := h.App.InquiryKeeper.GetParams(h.Ctx)
-	p.FrontierInvitationCadenceBlocks = 2
-	p.FrontierInvitationSparsityThresholdBps = 600_000
-	p.FrontierInvitationTopK = 1
-	p.FrontierInvitationBounty = "5000000"
-	p.FrontierInvitationExpiryBlocks = 1
-	require.NoError(t, h.App.InquiryKeeper.SetParams(h.Ctx, p))
+	// The mapped domain has verified facts; the sparse one has none.
+	submitter := testAddr("ts_frontier").String()
+	for i := 0; i < 3; i++ {
+		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+			Id:        fmt.Sprintf("F-TS-FRONTIER-%d", i),
+			Content:   "mapped territory", Domain: "ts_mapped_domain",
+			Status:    knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+			Submitter: submitter, MethodId: knowledgetypes.MethodologyEmpirical,
+		}))
+	}
 
-	frontierAddr := authtypes.NewModuleAddress(inquirytypes.FrontierBountyPoolModuleName)
-	inquiryAddr := authtypes.NewModuleAddress(inquirytypes.BountyPoolModuleName)
-
-	// Advance to height 2 — cadence tick. Sponsorship fires.
-	h.AdvanceBlocks(1)
-	require.NoError(t, h.App.InquiryKeeper.BeginBlocker(h.Ctx))
-
-	var sponsored *inquirytypes.Inquiry
-	require.NoError(t, h.App.InquiryKeeper.IterateAllInquiries(h.Ctx, func(q *inquirytypes.Inquiry) bool {
-		if q.SystemInitiated {
-			sponsored = q
-			return true
-		}
-		return false
-	}))
-	require.NotNil(t, sponsored,
-		"commitment 18: BeginBlocker at cadence tick must sponsor at least one chain-asked inquiry; without sponsorship, the commitment is rhetoric")
-	require.Equal(t, "5000000", sponsored.Bounty)
-
-	// Pre-expiry balances: frontier pool emptied (mint round-tripped
-	// out to inquiry pool); inquiry pool holds the bounty.
-	require.True(t, h.GetBalance(frontierAddr, "uzrn").Amount.IsZero(),
-		"after sponsorship, frontier pool is empty — mint flowed through to inquiry pool")
-	require.Equal(t, sdkmath.NewInt(5_000_000), h.GetBalance(inquiryAddr, "uzrn").Amount,
-		"after sponsorship, inquiry pool holds the chain-sponsored bounty awaiting answer or expiry")
-
-	// Advance past expiry. ExpiresAtBlock = 3, so height 3 makes
-	// `currentBlock >= ExpiresAtBlock` true and the resolution scan
-	// in BeginBlocker calls expireInquiry → refundBounty. For
-	// system_initiated inquiries, refundBounty must route the funds
-	// back to the frontier pool, not to a user account. Height 3 is
-	// also NOT a cadence-aligned block (cadence=2), so the
-	// frontier-invitation cycle does not fire — keeps the assertion
-	// focused on the round-trip alone.
-	h.AdvanceBlocks(1) // height now 3
-	require.NoError(t, h.App.InquiryKeeper.BeginBlocker(h.Ctx))
-
-	// Re-load the inquiry. It must have transitioned to EXPIRED.
-	expired, ok := h.App.InquiryKeeper.GetInquiry(h.Ctx, sponsored.Id)
-	require.True(t, ok, "expired inquiry must still exist for audit")
-	require.Equal(t, inquirytypes.InquiryStatus_INQUIRY_STATUS_EXPIRED, expired.Status,
-		"unanswered chain-sponsored inquiries must transition to EXPIRED — without this, commitment 18's expiry path is dead code")
-
-	// THE LOAD-BEARING ASSERTION: the bounty is back in the frontier
-	// pool. The chain's exploration audit budget conserves itself
-	// across unanswered cycles. If this fails, every expired chain-
-	// sponsored inquiry leaks uzrn into circulation, the audit budget
-	// becomes untrackable, and the chain has silently paid for
-	// nothing — which is the structural form of "rhetoric, not
-	// commitment."
-	require.Equal(t, sdkmath.NewInt(5_000_000), h.GetBalance(frontierAddr, "uzrn").Amount,
-		"commitment 18 + commitment 12: the bounty of an unanswered chain-sponsored inquiry must round-trip back to the frontier pool — anything less is leakage of the chain's audit budget")
-	require.True(t, h.GetBalance(inquiryAddr, "uzrn").Amount.IsZero(),
-		"inquiry pool must release the system-sponsored bounty on expiry — leaving it would let chain-mint silently subsidise unrelated user-asked inquiries")
+	// The off-chain frontier read: domains from ontology, density
+	// from knowledge — public state only, no privileged surface.
+	factCount := func(domain string) int {
+		n := 0
+		h.KnowledgeKeeper.IterateFacts(h.Ctx, func(f *knowledgetypes.Fact) bool {
+			if f != nil && f.Domain == domain {
+				n++
+			}
+			return false
+		})
+		return n
+	}
+	_, ok := h.App.ZeroneOntologyKeeper.GetDomain(h.Ctx, "ts_sparse_domain")
+	require.True(t, ok,
+		"registered domains must be readable from the public ontology — the frontier is invisible if the map goes dark")
+	require.Greater(t, factCount("ts_mapped_domain"), 0)
+	require.Equal(t, 0, factCount("ts_sparse_domain"),
+		"fact density per domain must be recoverable from public knowledge state — sparsity is exactly this read, and every layer that funds exploration depends on it")
 }
 
 // ════════════════════════════════════════════════════════════════════

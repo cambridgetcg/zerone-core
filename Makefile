@@ -49,7 +49,6 @@ creed-check:
 	@bash scripts/check_specs_and_plans_hashes.sh
 	@bash scripts/check_makefile_hash.sh
 	@bash scripts/check_readme_hash.sh
-	@bash scripts/check_contribution_protos_hashes.sh
 	@bash scripts/check_recursion_manifest.sh
 
 recursion-check:

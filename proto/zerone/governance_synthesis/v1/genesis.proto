@@ -1,7 +1,0 @@
-syntax = "proto3";
-package zerone.governance_synthesis.v1;
-
-option go_package = "github.com/zerone-chain/zerone/x/governance_synthesis/types";
-
-// Empty: pure read-only synthesizer.
-message GenesisState {}

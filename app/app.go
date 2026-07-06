@@ -174,28 +174,15 @@ import (
 	zeronetrustscore "github.com/zerone-chain/zerone/x/trust_score"
 	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
 	zeronetrustscoretypes "github.com/zerone-chain/zerone/x/trust_score/types"
-	zeronegovsynth "github.com/zerone-chain/zerone/x/governance_synthesis"
-	zeronegovsynthkeeper "github.com/zerone-chain/zerone/x/governance_synthesis/keeper"
-	zeronegovsynthtypes "github.com/zerone-chain/zerone/x/governance_synthesis/types"
 	zeronecounterex "github.com/zerone-chain/zerone/x/counterexamples"
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecounterextypes "github.com/zerone-chain/zerone/x/counterexamples/types"
-	zeroneinquiry "github.com/zerone-chain/zerone/x/inquiry"
-	zeroneinquirykeeper "github.com/zerone-chain/zerone/x/inquiry/keeper"
-	zeroneinquirytypes "github.com/zerone-chain/zerone/x/inquiry/types"
 	zeronecreed "github.com/zerone-chain/zerone/x/creed"
 	zeronecreedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
 	zeronecreedtypes "github.com/zerone-chain/zerone/x/creed/types"
 	zeroneworkcreed "github.com/zerone-chain/zerone/x/work_creed"
 	zeroneworkcreedkeeper "github.com/zerone-chain/zerone/x/work_creed/keeper"
 	zeroneworkcreedtypes "github.com/zerone-chain/zerone/x/work_creed/types"
-	zerocontribmodule "github.com/zerone-chain/zerone/x/contribution"
-	zerocontribknowledge "github.com/zerone-chain/zerone/x/contribution/adapter/knowledgeclaim"
-	zerocontribkeeper "github.com/zerone-chain/zerone/x/contribution/keeper"
-	zerocontribtypes "github.com/zerone-chain/zerone/x/contribution/types"
-	zeronedialectic "github.com/zerone-chain/zerone/x/dialectic"
-	zeronedialectickeeper "github.com/zerone-chain/zerone/x/dialectic/keeper"
-	zeronedialectictypes "github.com/zerone-chain/zerone/x/dialectic/types"
 	zeroneautopoiesis "github.com/zerone-chain/zerone/x/autopoiesis"
 	zeroneapkeeper "github.com/zerone-chain/zerone/x/autopoiesis/keeper"
 	zeroneaptypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
@@ -285,11 +272,8 @@ var (
 		zeronepartnerships.AppModuleBasic{}, // R8-1: x/partnerships
 		zeronetoolbox.AppModuleBasic{},      // R8-1: x/toolbox
 		zeronecounterex.AppModuleBasic{},     // x/counterexamples: alignment-by-structure
-		zeroneinquiry.AppModuleBasic{},       // x/inquiry: open-question market for unmapped territory
-		zeronedialectic.AppModuleBasic{},     // x/dialectic: disagreement-shape synthesizer (commitment 17)
 		zeronecreed.AppModuleBasic{},         // x/creed: on-chain anchor for TRUTH_SEEKING.md (commitments 6, 10)
 		zeroneworkcreed.AppModuleBasic{},     // x/work_creed: on-chain anchor for per-phase docs/sub_creeds/*.md (commitments 6, 10 — useful-work scope)
-		zerocontribmodule.AppModuleBasic{},   // x/contribution: useful-work orchestrator (Phase 1 — KNOWLEDGE_CLAIM mirror)
 		substratebridge.AppModuleBasic{},    // x/substrate_bridge: Tier-1 external recursive work foundation
 	)
 
@@ -315,8 +299,6 @@ var (
 		zeroneknowledgetypes.TrainingFundModuleName:      {authtypes.Minter},              // knowledge_training_fund: Wave 4 augmentation escrow + post-hoc disbursements + vesting
 		zeroneknowledgetypes.ProbeBountyPoolModuleName:   {authtypes.Minter},              // knowledge_probe_bounty_pool: Wave 15 per-block-minted probe rewards
 		zeroneknowledgetypes.VindicationEscrowModuleName: nil,                           // vindication_escrow: holds minority slashes until vindication or expiry
-		zeroneinquirytypes.BountyPoolModuleName:          nil,                           // inquiry_bounty_pool: receive-only escrow for inquiry bounties
-		zeroneinquirytypes.FrontierBountyPoolModuleName:  {authtypes.Minter},              // inquiry_frontier_bounty_pool: commitment 18 — chain-minted exploration audit budget
 		zeronetokenstypes.ModuleName:               {authtypes.Minter, authtypes.Burner}, // tokens: mint/burn for wrap/unwrap + emissions
 		zeronebillingtypes.ModuleName:              {authtypes.Burner},                        // billing: revenue split
 		zeronelptypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // liquiditypool: mint/burn LP tokens
@@ -461,17 +443,13 @@ type ZeroneApp struct {
 	IBCRateLimitKeeper  zeroneibcrlkeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
-	GovernanceSynthesisKeeper zeronegovsynthkeeper.Keeper
 	AlignmentKeeper         zeronealignmentkeeper.Keeper
 	AutopoiesisKeeper       zeroneapkeeper.Keeper // R7-1: autopoiesis
 	ClaimingPotKeeper       zeronecpotkeeper.Keeper
 	SponsorshipKeeper       zeronesponsorshipkeeper.Keeper
 	CounterexamplesKeeper   zeronecounterexkeeper.Keeper     // x/counterexamples: alignment-by-structure (commitment 15)
-	InquiryKeeper           zeroneinquirykeeper.Keeper       // x/inquiry: open-question market (commitment 16)
-	DialecticKeeper          zeronedialectickeeper.Keeper    // x/dialectic: disagreement-shape synthesizer (commitment 17)
 	CreedKeeper              zeronecreedkeeper.Keeper        // x/creed: on-chain creed anchor (commitments 6, 10)
 	WorkCreedKeeper          zeroneworkcreedkeeper.Keeper    // x/work_creed: per-phase sub-creed anchor (commitments 6, 10 — useful-work scope)
-	ContributionKeeper       zerocontribkeeper.Keeper        // x/contribution: useful-work orchestrator (Phase 1 — KNOWLEDGE_CLAIM mirror)
 	SubstrateBridgeKeeper    substratebridgekeeper.Keeper    // x/substrate_bridge: Tier-1 external recursive work foundation
 
 	// ABCI++ vote extension config (nil until validator is configured)
@@ -582,11 +560,8 @@ func NewZeroneApp(
 		zeronecpottypes.StoreKey,
 		zeronesponsorshiptypes.StoreKey,
 		zeronecounterextypes.StoreKey,
-		zeroneinquirytypes.StoreKey,
-		zeronedialectictypes.StoreKey,
 		zeronecreedtypes.StoreKey,
 		zeroneworkcreedtypes.StoreKey,
-		zerocontribtypes.StoreKey,
 		substratebridgetypes.StoreKey,
 	)
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
@@ -982,22 +957,6 @@ func NewZeroneApp(
 		zeronecckeeper.NewTrustScoreAdapter(app.CaptureChallengeKeeper),
 	)
 
-	// governance_synthesis bundles system-stress signals from
-	// knowledge (incidents/pauses/pending injections/privileged log),
-	// capture_challenge (cartel posture), and alignment (autonomous-
-	// throttle pacing). Per-system synthesizer; same shape.
-	app.GovernanceSynthesisKeeper = zeronegovsynthkeeper.NewKeeper(appCodec)
-	app.GovernanceSynthesisKeeper.SetKnowledgeKeeper(app.KnowledgeKeeper)
-	app.GovernanceSynthesisKeeper.SetCaptureChallengeKeeper(
-		zeronecckeeper.NewGovernanceSynthesisAdapter(app.CaptureChallengeKeeper),
-	)
-	app.GovernanceSynthesisKeeper.SetAlignmentKeeper(&app.AlignmentKeeper)
-	// Frontier-query upstreams. Optional; absence degrades Frontier
-	// to an empty list rather than failing. Wired AFTER
-	// inquiry+counterexample keepers exist (their setters are below
-	// the gov-synth construction; we re-apply the frontier setters
-	// after those modules are constructed).
-
 	// x/counterexamples: alignment-by-structure. Commitment 15 says
 	// the corpus must include not just what is true but what is wrong
 	// AND WHY. The keeper holds counterexample state and exposes
@@ -1016,36 +975,6 @@ func NewZeroneApp(
 		zeroneknowledgekeeper.NewCounterexamplesFactAdapter(app.KnowledgeKeeper),
 	)
 	app.KnowledgeKeeper.SetCounterexampleKeeper(&app.CounterexamplesKeeper)
-
-	// x/inquiry: open-question market for unmapped territory
-	// (commitment 16). Asker escrows bounty into the inquiry-bounty-pool
-	// module account; first answerer whose claim accepts wins. Bounty
-	// returns on expiry or asker-cancel.
-	app.InquiryKeeper = zeroneinquirykeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeroneinquirytypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.BankKeeper,
-	)
-	// Wire knowledge → inquiry so the auto-resolver can detect when
-	// a linked claim has produced an accepted fact.
-	app.InquiryKeeper.SetKnowledgeKeeper(
-		zeroneknowledgekeeper.NewInquiryKnowledgeAdapter(app.KnowledgeKeeper),
-	)
-	// Chain-sponsored (frontier) inquiry minting gates through the cap.
-	app.InquiryKeeper.SetVestingRewardsKeeper(app.VestingRewardsKeeper)
-
-	// x/dialectic: pure read-only synthesizer composing per-fact,
-	// per-domain, per-agent-pair disagreement signatures from
-	// verification rounds.
-	app.DialecticKeeper = zeronedialectickeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeronedialectictypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-	app.DialecticKeeper.SetKnowledgeKeeper(
-		zeroneknowledgekeeper.NewDialecticAdapter(app.KnowledgeKeeper),
-	)
 
 	// x/creed: on-chain anchor for the canonical TRUTH_SEEKING.md.
 	// docs/TRUTH_SEEKING.md commitments 6 and 10: extends "no
@@ -1072,51 +1001,6 @@ func NewZeroneApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
-	// x/contribution: Phase 1 useful-work orchestrator. Owns the
-	// Contribution envelope + per-class adapter registry. Adapters
-	// (KNOWLEDGE_CLAIM here, others in later phases) implement the
-	// Classify → SubstrateLink → Verify pipeline against existing
-	// substrate-module state. Authority is the gov module account.
-	app.ContributionKeeper = zerocontribkeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zerocontribtypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-
-	// Wire x/contribution KNOWLEDGE_CLAIM adapter and register the
-	// claim-lifecycle hooks into x/knowledge so claim transitions
-	// mirror into Contribution records (Phase 1 useful-work scope).
-	{
-		knowledgeClaimAdapter := zerocontribknowledge.NewAdapter(
-			&app.KnowledgeKeeper,
-			&app.CreedKeeper,
-		)
-		app.ContributionKeeper.RegisterAdapter(knowledgeClaimAdapter)
-
-		knowledgeHooksAdapter := zerocontribknowledge.NewKnowledgeHooksAdapter(
-			&app.ContributionKeeper,
-			knowledgeClaimAdapter,
-		)
-		app.KnowledgeKeeper.SetHooks(knowledgeHooksAdapter)
-	}
-
-	// Layer 2 of the UW recursion stack (runtime self-application):
-	// x/work_creed and x/creed gain a back-reference to the contribution
-	// keeper so they can record their own privileged pin writes as
-	// Substrate-class Contributions. The wire is post-init to avoid the
-	// import cycle (x/contribution imports x/work_creed/x/creed via the
-	// contribution adapter path). The wrapper satisfies the
-	// ContributionWrapper interface declared in each module's types
-	// package.
-	//
-	// At Phase 1 the recording is observational: pin writes succeed
-	// even if the Contribution write fails. Phase 6 tightens this so
-	// wrap failures reject the action (paired with a real verifier
-	// and a revert window). UW: the chain is recursive structurally;
-	// at Phase 1 we land the wire so the structure is observable.
-	app.WorkCreedKeeper.SetContributionWrapper(&app.ContributionKeeper)
-	app.CreedKeeper.SetContributionWrapper(&app.ContributionKeeper)
-
 	// ---- Substrate Bridge keeper (SB-25) ----
 	// Depends on KnowledgeKeeper and QualificationKeeper (both already
 	// constructed above). The keeper takes a raw StoreKey (not KVStoreService)
@@ -1135,58 +1019,6 @@ func NewZeroneApp(
 	app.KnowledgeKeeper.SetSubstrateBridgeKeeper(&app.SubstrateBridgeKeeper)
 	// Wire substrate_bridge into governance for CategoryAdapterRegistration LIP dispatch.
 	app.ZeroneGovKeeper.SetSubstrateBridgeKeeper(&app.SubstrateBridgeKeeper)
-
-	// Frontier-query wiring: now that inquiry, counterexamples, and
-	// ontology keepers all exist, register the adapters with
-	// governance_synthesis so its Frontier query can compose
-	// per-domain sparsity from real chain state.
-	app.GovernanceSynthesisKeeper.SetOntologyKeeper(
-		zeroneontologykeeper.NewGovernanceSynthesisAdapter(app.ZeroneOntologyKeeper),
-	)
-	app.GovernanceSynthesisKeeper.SetFrontierKnowledgeKeeper(
-		zeroneknowledgekeeper.NewGovernanceSynthesisFrontierAdapter(app.KnowledgeKeeper),
-	)
-	app.GovernanceSynthesisKeeper.SetFrontierInquiryKeeper(
-		zeroneinquirykeeper.NewGovernanceSynthesisAdapter(app.InquiryKeeper),
-	)
-	app.GovernanceSynthesisKeeper.SetFrontierCounterexamplesKeeper(
-		zeronecounterexkeeper.NewGovernanceSynthesisAdapter(app.CounterexamplesKeeper),
-	)
-	// Commitment 19 wiring: governance_synthesis reads x/creed to
-	// compose the creed-drift signal (commitments 11 + 19). The
-	// keeper satisfies x/governance_synthesis.types.CreedKeeper
-	// directly via GetCurrentPin / GetPin / CouncilTotalActiveWeight
-	// / IterateCouncilMembers — no adapter required.
-	app.GovernanceSynthesisKeeper.SetCreedKeeper(&app.CreedKeeper)
-
-	// Commitment 18 wiring: inquiry's BeginBlocker walks the chain's
-	// frontier each cadence-tick and SPONSORS open inquiries in the
-	// sparsest domains. The FrontierProvider closure projects
-	// governance_synthesis.ComposeFrontier into the narrow
-	// DomainSparsity shape inquiry reads — this preserves the
-	// dependency direction (inquiry does not import
-	// governance_synthesis types).
-	//
-	// Also publish the resolved bech32 of the frontier bounty pool
-	// so SystemSponsorInquiry can stamp it as the "asker" field of
-	// chain-sponsored inquiries — a stable, queryable identifier
-	// that downstream observers can recognise as "the chain itself."
-	zeroneinquirykeeper.SetFrontierBountyPoolBech32(
-		authtypes.NewModuleAddress(zeroneinquirytypes.FrontierBountyPoolModuleName).String(),
-	)
-	app.InquiryKeeper.SetFrontierProvider(
-		func(ctx context.Context, limit uint32) []zeroneinquirytypes.DomainSparsity {
-			f := app.GovernanceSynthesisKeeper.ComposeFrontier(ctx, limit)
-			out := make([]zeroneinquirytypes.DomainSparsity, 0, len(f.Domains))
-			for _, d := range f.Domains {
-				out = append(out, zeroneinquirytypes.DomainSparsity{
-					Domain:      d.Domain,
-					SparsityBps: d.SparsityScoreBps,
-				})
-			}
-			return out
-		},
-	)
 
 	// knowledge → capture_defense (feed verification history + reputation)
 	app.KnowledgeKeeper.SetCaptureDefenseKeeper(
@@ -1406,7 +1238,6 @@ func NewZeroneApp(
 		zeroneibcratelimit.NewAppModule(appCodec, app.IBCRateLimitKeeper),
 		zeroneprovenance.NewAppModule(appCodec, app.TrainingProvenanceKeeper),
 		zeronetrustscore.NewAppModule(appCodec, app.TrustScoreKeeper),
-		zeronegovsynth.NewAppModule(appCodec, app.GovernanceSynthesisKeeper),
 		zeronealignment.NewAppModule(appCodec, app.AlignmentKeeper),
 		zeroneautopoiesis.NewAppModule(appCodec, app.AutopoiesisKeeper),
 		zeroneclaimingpot.NewAppModule(appCodec, app.ClaimingPotKeeper),
@@ -1415,11 +1246,8 @@ func NewZeroneApp(
 		zeronepartnerships.NewAppModule(appCodec, app.PartnershipsKeeper), // R8-1: x/partnerships
 		zeronetoolbox.NewAppModule(appCodec, app.ToolboxKeeper),          // R8-1: x/toolbox
 		zeronecounterex.NewAppModule(appCodec, app.CounterexamplesKeeper),
-		zeroneinquiry.NewAppModule(appCodec, app.InquiryKeeper),
 		zeronecreed.NewAppModule(appCodec, app.CreedKeeper),
 		zeroneworkcreed.NewAppModule(appCodec, app.WorkCreedKeeper),
-		zerocontribmodule.NewAppModule(appCodec, &app.ContributionKeeper),
-		zeronedialectic.NewAppModule(appCodec, app.DialecticKeeper),
 		substratebridge.NewAppModule(appCodec, app.SubstrateBridgeKeeper),
 	)
 
@@ -1465,7 +1293,6 @@ func NewZeroneApp(
 		zeronecctypes.ModuleName,                    // capture_challenge: phase advancement, risk analysis
 		zeroneprovenancetypes.ModuleName,            // training_provenance: no-op in BeginBlock (pure synthesizer)
 		zeronetrustscoretypes.ModuleName,            // trust_score: no-op in BeginBlock (pure synthesizer)
-		zeronegovsynthtypes.ModuleName,              // governance_synthesis: no-op in BeginBlock (pure synthesizer)
 		zeronealignmenttypes.ModuleName,             // alignment: no-op in BeginBlock
 		zeroneaptypes.ModuleName,                    // autopoiesis: no-op in BeginBlock
 		zeroneibcrltypes.ModuleName,                 // ibcratelimit: reset expired windows
@@ -1474,11 +1301,8 @@ func NewZeroneApp(
 		zeronesponsorshiptypes.ModuleName,           // sponsorship: bounty expiry
 		zeronetoolboxtypes.ModuleName,               // toolbox: no-op BeginBlock
 		zeronecounterextypes.ModuleName,             // counterexamples: no-op BeginBlock (proposal-driven)
-		zeroneinquirytypes.ModuleName,               // inquiry: scan OPEN/ANSWERED inquiries for resolution + expiry
-		zeronedialectictypes.ModuleName,             // dialectic: no-op BeginBlock (pure synthesizer)
 		zeronecreedtypes.ModuleName,                 // creed: no-op BeginBlock (pure registry)
 		zeroneworkcreedtypes.ModuleName,             // work_creed: no-op BeginBlock (pure registry)
-		zerocontribtypes.ModuleName,                 // contribution: no-op BeginBlock (Phase 1 — hooks-driven only)
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1517,7 +1341,6 @@ func NewZeroneApp(
 		zeronecctypes.ModuleName,                    // EndBlocker: no-op
 		zeroneprovenancetypes.ModuleName,            // EndBlocker: no-op
 		zeronetrustscoretypes.ModuleName,            // EndBlocker: no-op
-		zeronegovsynthtypes.ModuleName,              // EndBlocker: no-op
 		zeronealignmenttypes.ModuleName,             // EndBlocker: observation→scoring→corrections at interval
 		zeroneibcrltypes.ModuleName,                 // EndBlocker: no-op
 		zeronepartnershipstypes.ModuleName,          // EndBlocker: settle cooling partnerships
@@ -1525,11 +1348,8 @@ func NewZeroneApp(
 		zeronesponsorshiptypes.ModuleName,           // EndBlocker: no-op
 		zeronetoolboxtypes.ModuleName,               // EndBlocker: no-op
 		zeronecounterextypes.ModuleName,             // EndBlocker: no-op
-		zeroneinquirytypes.ModuleName,               // EndBlocker: no-op
-		zeronedialectictypes.ModuleName,             // EndBlocker: no-op
 		zeronecreedtypes.ModuleName,                 // EndBlocker: no-op (pure registry)
 		zeroneworkcreedtypes.ModuleName,             // EndBlocker: no-op (pure registry)
-		zerocontribtypes.ModuleName,                 // EndBlocker: no-op (Phase 1 — hooks-driven only)
 	)
 
 	genesisOrder := []string{
@@ -1569,7 +1389,6 @@ func NewZeroneApp(
 		zeronecctypes.ModuleName,                    // Genesis: after capture_defense
 		zeroneprovenancetypes.ModuleName,            // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
 		zeronetrustscoretypes.ModuleName,            // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
-		zeronegovsynthtypes.ModuleName,              // Genesis: after knowledge + capture_challenge + alignment (pure read consumer)
 		zeronealignmenttypes.ModuleName,             // Genesis: after emergency + staking + knowledge (needs all)
 		zeronepartnershipstypes.ModuleName,          // Genesis: after home (needs home for partnership links)
 		zeroneibcrltypes.ModuleName,                 // Genesis: after IBC
@@ -1577,11 +1396,8 @@ func NewZeroneApp(
 		zeronesponsorshiptypes.ModuleName,           // Genesis: after bank + knowledge
 		zeronetoolboxtypes.ModuleName,               // Genesis: after discovery + billing + home + tree (needs all)
 		zeronecounterextypes.ModuleName,             // Genesis: after knowledge (uses fact-existence adapter)
-		zeroneinquirytypes.ModuleName,               // Genesis: after knowledge (auto-resolver reads facts)
-		zeronedialectictypes.ModuleName,             // Genesis: after knowledge (pure synthesizer)
 		zeronecreedtypes.ModuleName,                 // Genesis: standalone (pure registry, no cross-module deps)
 		zeroneworkcreedtypes.ModuleName,             // Genesis: after creed (creed pin in place when sub-creed enforcement starts)
-		zerocontribtypes.ModuleName,                 // Genesis: after knowledge + creed (adapters and truth-floor reference must exist)
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisOrder...)
