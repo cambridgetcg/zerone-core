@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
@@ -150,15 +151,35 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	}
 }
 
-// ReconcileModuleAccountPerms rebuilds every module account whose STORED
-// permission list differs from the code's maccPerms. Idempotent and cheap;
-// run it in every named upgrade handler so permission drift can never
-// strand funds again (bank checks stored perms, not code).
+// ReconcileModuleAccountPerms rebuilds every EXISTING module account whose
+// STORED permission list differs from the code's maccPerms. Idempotent and
+// cheap; run it in every named upgrade handler so permission drift can
+// never strand funds again (bank checks stored perms, not code).
+//
+// Two determinism rules, learned from a live three-way AppHash divergence
+// on the localnet upgrade drill:
+//   - iterate maccPerms in SORTED order — Go map order differs per process;
+//   - never call GetModuleAccount here — it lazily CREATES missing accounts,
+//     consuming account numbers in iteration order. Accounts that don't
+//     exist yet are skipped; lazy creation on first real use already applies
+//     the current code's perms, so there is nothing to reconcile.
 func (app *ZeroneApp) ReconcileModuleAccountPerms(ctx context.Context) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	for name, perms := range maccPerms {
-		acc := app.AccountKeeper.GetModuleAccount(sdkCtx, name)
-		if acc == nil {
+
+	names := make([]string, 0, len(maccPerms))
+	for name := range maccPerms {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		perms := maccPerms[name]
+		existing := app.AccountKeeper.GetAccount(sdkCtx, authtypes.NewModuleAddress(name))
+		if existing == nil {
+			continue // not yet created — lazy creation will apply current perms
+		}
+		acc, ok := existing.(sdk.ModuleAccountI)
+		if !ok {
 			continue
 		}
 		if equalStringSets(acc.GetPermissions(), perms) {
