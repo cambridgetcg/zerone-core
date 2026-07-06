@@ -79,6 +79,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameTestnetV3,
 			Description: "v1.0.2-testnet — Wave 10 reference upgrade exercising knowledge v3→v4 (TraceSchema backfill + marker).",
 		},
+		{
+			UpgradeName: UpgradeNameTestnetV4,
+			Description: "v1.0.3-testnet — first height-executable upgrade (PreBlocker fix); carries knowledge v4→v5 + liquiditypool v1→v2 and reconciles module-account permissions.",
+		},
 	}
 
 	return ChainVersionReport{
