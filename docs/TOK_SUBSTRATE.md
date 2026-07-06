@@ -86,7 +86,7 @@ We believe: the verified knowledge graph is not a graph of *currently-believed* 
 
 We believe: any selector-valid subgraph is queryable by anyone. The chain does not curate which slices trainers should see, does not maintain an allowlist of permitted extractions, does not gate training-data access through editorial judgement. The substrate is open precisely because curation is centralisation, and a substrate the chain decides for trainers is not a substrate — it is a product. **The chain ships the graph; trainers select.**
 
-**Code expression**: `BundleToK(selector)` accepts any well-formed `ToKSelector` and returns the bundle deterministically — no curation gate, no allowlist consultation. Refusals are limited to syntax errors, snapshot-block-out-of-range, and explicit rate-limit exceedance — never to "this slice is not approved." Pricing applies via `x/billing` (the chain pays validators; trainers pay the chain), but the price floor is uniform, not per-selector or per-domain editorial. Privacy-preserving extractions go through `x/private_corpus` (off-chain vault references) by trainer choice, not chain mandate.
+**Code expression**: `BundleToK(selector)` accepts any well-formed `ToKSelector` and returns the bundle deterministically — no curation gate, no allowlist consultation. Refusals are limited to syntax errors, snapshot-block-out-of-range, and explicit rate-limit exceedance — never to "this slice is not approved." Reads are free; where extraction carries fees, they route through the `x/vesting_rewards` fee router (the chain's single revenue-split doctrine), uniform and never per-selector or per-domain editorial. Privacy-preserving corpora are custodied off-chain by trainer choice, not chain mandate, with on-chain content-hash witnessing available through `x/substrate_bridge` attestations.
 
 **What would break it**: a `BundleToK` implementation that consults an allowlist; a pricing schedule that gates certain selectors behind editorial approval; a refusal handler that returns "this domain not available for training" without a doctrinal basis; a curation pathway that silently filters DISPROVEN facts (this also breaks TC4) under the rubric of "quality control."
 
@@ -116,7 +116,7 @@ Every commitment above is exercised by an invariant test in `tests/cross_stack/t
 
 #### Position layer — every commitment is named in package docs
 
-Every TC is declared by at least one `x/*/doc.go` file in the module that preserves it (e.g., `x/knowledge/doc.go` for TC0-TC4, `x/billing/doc.go` for TC6, `x/private_corpus/doc.go` for the privacy posture under TC5). A reader running `go doc ./x/foo` sees the package's ToK substrate stance without having to chase down test files.
+Every TC is declared by at least one `x/*/doc.go` file in the module that preserves it (e.g., `x/knowledge/doc.go` for TC0-TC5; TC6's lineage settlement lives in the `x/substrate_bridge` propagation path). A reader running `go doc ./x/foo` sees the package's ToK substrate stance without having to chase down test files.
 
 #### Voice layer — events announce the commitment they preserve
 

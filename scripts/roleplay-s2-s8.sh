@@ -128,46 +128,8 @@ else
     echo "  SKIP: Bogus claim didn't become fact"
 fi
 
-echo ""
-echo "═══ SCENARIO 3: Partnership Collaboration ═══"
-
-echo "[S3.1] Alice proposes partnership with Sage-1..."
-S3_PROP=$(tx0 tx partnerships propose "$VAL0" 100000000 1 --from=alice)
-S3_PROP_CODE=$(get_code "$S3_PROP")
-S3_PROP_HASH=$(get_hash "$S3_PROP")
-echo "  propose code=$S3_PROP_CODE"
-echo "  $(get_raw "$S3_PROP")"
-
-S3_PID=""
-if [ "$S3_PROP_CODE" = "0" ]; then
-    wait_b 5
-    S3_PID=$(extract_attr "$S3_PROP_HASH" "partnership" "partnership_id")
-    # Fallback: list partnerships
-    if [ -z "$S3_PID" ]; then
-        S3_PID=$(q query partnerships partnerships --output=json 2>/dev/null | python3 -c "
-import sys,json
-try:
-    data=json.load(sys.stdin)
-    for p in data.get('partnerships', []):
-        if p.get('status','') != 'dissolved':
-            print(p.get('id',''))
-            break
-except: pass
-" 2>/dev/null || echo "")
-    fi
-    echo "  partnership_id=$S3_PID"
-
-    if [ -n "$S3_PID" ]; then
-        echo "[S3.2] Sage-1 accepts..."
-        S3_ACC=$(tx0 tx partnerships accept "$S3_PID" 100000000 --from=val0)
-        echo "  accept code=$(get_code "$S3_ACC")"
-        echo "  $(get_raw "$S3_ACC")"
-
-        wait_b 3
-        echo "[S3.3] Partnership details:"
-        q query partnerships partnership "$S3_PID" | head -15
-    fi
-fi
+# SCENARIO 3 (partnership collaboration) retired with x/partnerships
+# (2026-07 slim cut): collaboration lives on the agenttool layer.
 
 echo ""
 echo "═══ SCENARIO 4: Domain Expansion ═══"
@@ -230,51 +192,9 @@ if [ -n "$S5_ROUND" ]; then
     fi
 fi
 
-echo ""
-echo "═══ SCENARIO 6: Research Bounty ═══"
-
-CURRENT_BLOCK=$(q status | python3 -c "import sys,json; print(json.load(sys.stdin)['sync_info']['latest_block_height'])" 2>/dev/null || echo "500")
-DEADLINE=$(( CURRENT_BLOCK + 50000 ))
-
-echo "[S6.1] Alice creates bounty (deadline=$DEADLINE)..."
-S6_TX=$(tx0 tx research create-bounty \
-    "Replicate gravitational constant measurement" \
-    "Independent measurement of G using torsion balance" \
-    50000000 "$DEADLINE" --from=alice)
-S6_CODE=$(get_code "$S6_TX")
-S6_HASH=$(get_hash "$S6_TX")
-echo "  code=$S6_CODE"
-echo "  $(get_raw "$S6_TX")"
-
-if [ "$S6_CODE" = "0" ]; then
-    wait_b 5
-    S6_BID=$(extract_attr "$S6_HASH" "bounty" "bounty_id")
-    # Fallback
-    if [ -z "$S6_BID" ]; then
-        S6_BID=$(q query research bounties --output=json 2>/dev/null | python3 -c "
-import sys,json
-try:
-    data=json.load(sys.stdin)
-    for b in data.get('bounties', []):
-        print(b.get('id',''))
-        break
-except: pass
-" 2>/dev/null || echo "")
-    fi
-    echo "  bounty_id=$S6_BID"
-
-    if [ -n "$S6_BID" ]; then
-        echo "[S6.2] Sage-1 claims bounty..."
-        S6_CLAIM_B=$(tx0 tx research claim-bounty "$S6_BID" --from=val0)
-        echo "  code=$(get_code "$S6_CLAIM_B")"
-
-        wait_b 3
-        echo "[S6.3] Sage-1 tries to fulfil (expects auth failure)..."
-        S6_FULFIL=$(tx0 tx research fulfill-bounty "$S6_BID" "$VAL0" --from=val0)
-        echo "  code=$(get_code "$S6_FULFIL")"
-        echo "  $(get_raw "$S6_FULFIL")"
-    fi
-fi
+# SCENARIO 6 (research bounty) retired with x/research (2026-07 slim cut):
+# funded work listings live on the agenttool layer; x/sponsorship covers
+# on-chain fact bounties.
 
 echo ""
 echo "═══ SCENARIO 7: Capture Defense ═══"
@@ -300,30 +220,7 @@ S7_CC=$(tx0 tx capture-challenge submit-challenge "general" \
 echo "  code=$(get_code "$S7_CC")"
 echo "  $(get_raw "$S7_CC")"
 
-echo ""
-echo "═══ SCENARIO 8: Coercion Signal ═══"
-
-if [ -n "$S3_PID" ]; then
-    echo "[S8.1] Sage-1 raises coercion signal..."
-    S8_C=$(tx0 tx partnerships raise-coercion "$S3_PID" --from=val0)
-    echo "  code=$(get_code "$S8_C")"
-    echo "  $(get_raw "$S8_C")"
-
-    wait_b 3
-    echo "[S8.2] Partnership status:"
-    q query partnerships partnership "$S3_PID" | grep -E "status:|cooperation_score:"
-
-    echo "[S8.3] Safety freeze..."
-    S8_F=$(tx0 tx partnerships safety-freeze "$S3_PID" --from=val0)
-    echo "  code=$(get_code "$S8_F")"
-    echo "  $(get_raw "$S8_F")"
-
-    wait_b 3
-    echo "[S8.4] Post-freeze status:"
-    q query partnerships partnership "$S3_PID" | grep -E "status:|cooperation_score:"
-else
-    echo "  SKIP: No partnership from S3"
-fi
+# SCENARIO 8 (coercion signal) retired with x/partnerships (2026-07 slim cut).
 
 echo ""
 echo "═══ FINAL STATE ═══"

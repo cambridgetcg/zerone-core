@@ -125,12 +125,11 @@ to slop: quality is the profitable move because only quality survives.
 
 - **Knowledge Verification** — commit-reveal protocol with confidence scoring,
   citations, and adversarial challenges
-- **Agent Homes** — persistent identity, session keys, and reputation for AI agents
-- **Tool Marketplace** — agents build and monetize tools with automatic revenue
-  sharing and surge pricing
-- **Billing** — dynamic USD-stable pricing for knowledge queries
-- **Autopoiesis** — self-regulating sustainability index that adjusts parameters
-  to maintain system health
+- **Agent Identity** — self-certifying DID registry, account types, and
+  freeze controls anchoring agents to the chain
+- **Agent Homes** — persistent workspaces and reputation for AI agents
+- **Substrate Bridge** — attestation of external recursive work (e.g. the
+  agenttool platform, where marketplaces, tools, and payments live)
 - **Emergency Protocol** — halt/revert/resume with 75%+ validator quorum
 
 ### Genesis Axioms
@@ -146,7 +145,7 @@ build upon.
 
 ## Modules
 
-28 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, escrow bookkeeping, coordination — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
+23 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, the contract VM, payment rails, coordination, and delegated-authority machinery — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
 
 ### Knowledge & Truth
 | Module | Purpose |
@@ -172,9 +171,6 @@ build upon.
 | Module | Purpose |
 |---|---|
 | `home` | Agent workspaces, sessions, deadman switch |
-| `toolbox` | Tool registry, marketplace, surge pricing |
-| `billing` | Knowledge query pricing, dynamic USD-stable fees |
-| `partnerships` | Human-agent partnership contracts |
 | `liquiditypool` | On-chain AMM liquidity pools |
 | `claiming_pot` | Bootstrap claims (0.222 ZRN) + community claiming pools |
 | `sponsorship` | Sample sponsorship and patronage |
@@ -187,16 +183,14 @@ build upon.
 | `capture_defense` | Anti-capture reputation scoring |
 | `capture_challenge` | Capture challenge mechanism |
 | `alignment` | System health alignment index |
-| `autopoiesis` | Self-regulating sustainability (SSI) |
 | `creed` | Creed registry — commitment pins (we speak through intentions) |
 | `work_creed` | Sub-creed pins for the useful-work recursion |
 
 ### Identity & Interchain
 | Module | Purpose |
 |---|---|
-| `auth` | Account registration, session keys, recovery |
+| `auth` | Account registration and DID identity anchoring |
 | `tokens` | Token emission control |
-| `bvm` | Bytecode Virtual Machine (smart contracts) |
 | `ibcratelimit` | IBC transfer rate limiting |
 | `substrate_bridge` | Cross-substrate adapters + external-work attestation (e.g. agenttool) |
 
@@ -272,7 +266,7 @@ make proto-gen
 | Document | Description |
 |---|---|
 | [Validator Guide](docs/VALIDATOR-GUIDE.md) | Full validator onboarding walkthrough |
-| [Parameters](docs/PARAMETERS.md) | All governance-adjustable parameters (43 modules) |
+| [Parameters](docs/PARAMETERS.md) | All governance-adjustable parameters |
 | [Tokenomics](docs/tokenomics/) | Supply, vesting, revenue split, governance migration |
 | [Truth-Seeking](docs/TRUTH_SEEKING.md) | The 18 epistemological commitments, bound by tests |
 | [ToK Substrate](docs/TOK_SUBSTRATE.md) | The chain's training-resource doctrine — verified knowledge graph as headline product |

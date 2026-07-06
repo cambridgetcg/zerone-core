@@ -111,7 +111,7 @@ Chain ID: `zerone-testnet-1`
 - [ ] Verification rewards working (3 ZRN per correct verification)
 - [ ] Validator tiers computing correctly
 - [ ] No unexpected slashing events
-- [ ] Autopoiesis SSI tracking enabled and reporting
+- [ ] Alignment health index reporting (observations + queryable corrections)
 
 ### Economic Health
 

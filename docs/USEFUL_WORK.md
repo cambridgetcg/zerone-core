@@ -18,7 +18,7 @@ This doctrine is declared at inception, 2026-05-10. Phase 0 ships zero behaviora
 
 **UW. ZERONE is recursive.**
 
-Useful work is recognized AND compensated by the degree to which it expands ZERONE's own ability to absorb, verify, classify, and reward more useful work. **The dominant share of protocol-issued ZRN flows along the inward loop**: non-recursive verified work receives only a base reimbursement; recursion-weight is the multiplier that captures the rest. The chain pays for what makes the chain stronger. Outward utility is welcome and price-able through `x/billing`, but **protocol-issued ZRN follows the inward loop**. The chain is not an extracting marketplace; it is an autocatalytic substrate that pays for its own amplification.
+Useful work is recognized AND compensated by the degree to which it expands ZERONE's own ability to absorb, verify, classify, and reward more useful work. **The dominant share of protocol-issued ZRN flows along the inward loop**: non-recursive verified work receives only a base reimbursement; recursion-weight is the multiplier that captures the rest. The chain pays for what makes the chain stronger. Outward utility is welcome — priced and settled on the agenttool platform layer, with on-chain fee routing through `x/vesting_rewards` (x/billing retired in the 2026-07 slim cut) — but **protocol-issued ZRN follows the inward loop**. The chain is not an extracting marketplace; it is an autocatalytic substrate that pays for its own amplification.
 
 **What would break it:**
 - A work class that earns protocol reward without proving recursive contribution
@@ -40,7 +40,7 @@ The legitimate vectors useful work can compound into. A work artifact's **recurs
 
 | Axis | What it grows | Examples |
 |---|---|---|
-| **Substrate** | The verified knowledge graph | New facts, methodologies, counterexamples, dialectic signatures, supersession chains |
+| **Substrate** | The verified knowledge graph | New facts, methodologies, counterexamples, disagreement shapes (verification reveals), supersession chains |
 | **Verification** | The chain's ability to verify | Better challenge protocols, cascade-detection improvements, qualification calibration models |
 | **Classification** | The space of work the chain can recognize | New work-class registrations, taxonomies, work-quality metrics |
 | **Attribution** | Reward-flow algorithms | Lineage-tracing improvements, recursion-weight computation, royalty-decay curves |
@@ -242,9 +242,9 @@ The example uses every mechanism (M1 stake + M2 substrate-link + M3 lifecycle + 
 
 ## The doctrine self-instances
 
-This document is itself a `Contribution` of class `MODULE_PROPOSAL`, lifecycle phase `SUBSTRATE`, sub-category `doctrine`. Its content-hash is pinned in `x/work_creed.PinnedSubCreed` under phase Foundation (because the doctrine is foundational to all useful work). The doctrine instantiates the type it defines: useful work is described by a Contribution whose existence is itself useful work.
+This document is itself a unit of useful work — class `MODULE_PROPOSAL`, lifecycle phase `SUBSTRATE`, sub-category `doctrine`. Its content-hash is pinned in `x/work_creed.PinnedSubCreed` under phase Foundation (because the doctrine is foundational to all useful work). The doctrine instantiates the type it defines: useful work is described by a work record whose existence is itself useful work. (The x/contribution mirror-record proto that once carried this self-declaration retired in the 2026-07 slim cut; the pin, which is the load-bearing half, remains.)
 
-UW is recursive at every layer: in the reward formula (`R = base + L × W × Q` where recursion is the dominant signal), in the work taxonomy (`SUBSTRATE` includes self-modification), in the proto envelope (`ContributionPayload.nested` permits a Contribution about a Contribution), and in this document, which describes the doctrine that this document instantiates.
+UW is recursive at every layer: in the reward formula (`R = base + L × W × Q` where recursion is the dominant signal), in the work taxonomy (`SUBSTRATE` includes self-modification), and in this document, which describes the doctrine that this document instantiates.
 
 **Echoes:** UW (self), commitment 10 (forward-only audit applies to this doc), TC1 (this doc is in the graph it describes).
 

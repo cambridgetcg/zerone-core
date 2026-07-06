@@ -71,38 +71,6 @@ The interactive UI lists all endpoints with request/response schemas.
 | GET | `/zerone/ontology/v1/logic_zones/{name}` | Logic zone |
 | GET | `/zerone/ontology/v1/logic_zones` | All logic zones |
 
-#### research (4 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/research/v1/research/{id}` | Research by ID |
-| GET | `/zerone/research/v1/submissions` | All submissions |
-| GET | `/zerone/research/v1/bounties/{id}` | Research bounty |
-| GET | `/zerone/research/v1/params` | Module parameters |
-
-#### evidence_mgmt (5 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/evidence_mgmt/v1/evidence/{id}` | Evidence by ID |
-| GET | `/zerone/evidence_mgmt/v1/evidence/submitter/{submitter}` | Evidence by submitter |
-| GET | `/zerone/evidence_mgmt/v1/evidence/{id}/custody` | Custody chain |
-| GET | `/zerone/evidence_mgmt/v1/evidence/{id}/verifications` | Verifications |
-| GET | `/zerone/evidence_mgmt/v1/params` | Module parameters |
-
-### Economic Layer
-
-#### billing (6 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/billing/v1/providers/{address}` | Billing provider |
-| GET | `/zerone/billing/v1/providers` | All providers |
-| GET | `/zerone/billing/v1/quotes/{fact_id}` | Price quote for a fact |
-| GET | `/zerone/billing/v1/quotes/batch` | Batch price quote |
-| GET | `/zerone/billing/v1/params` | Module parameters |
-| GET | `/zerone/billing/v1/price` | Current ZRN/USD price |
-
 #### liquiditypool (5 RPCs)
 
 | Method | Endpoint | Description |
@@ -154,7 +122,7 @@ The interactive UI lists all endpoints with request/response schemas.
 
 ### Identity & Governance
 
-#### auth (5 RPCs)
+#### auth (4 RPCs)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -198,50 +166,6 @@ The interactive UI lists all endpoints with request/response schemas.
 
 ### Infrastructure
 
-#### compute_pool (4 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/compute_pool/v1/params` | Module parameters |
-| GET | `/zerone/compute_pool/v1/providers/{address}` | Compute provider |
-| GET | `/zerone/compute_pool/v1/providers` | All providers |
-| GET | `/zerone/compute_pool/v1/credits/{validator_addr}` | Compute credit |
-
-#### discovery (3 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/discovery/v1/params` | Module parameters |
-| GET | `/zerone/discovery/v1/profiles/{address}` | Agent profile |
-| GET | `/zerone/discovery/v1/search` | Search agents (query params: domain, capability_type, min_reputation) |
-
-#### bvm (4 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/bvm/v1/contracts/{address}` | Contract by address |
-| GET | `/zerone/bvm/v1/contracts/creator/{creator}` | Contracts by creator |
-| GET | `/zerone/bvm/v1/contracts/{address}/state` | Contract state |
-| GET | `/zerone/bvm/v1/params` | Module parameters |
-
-#### channels (5 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/channels/v1/channels/{id}` | Channel by ID |
-| GET | `/zerone/channels/v1/channels/payer/{address}` | Channels by payer |
-| GET | `/zerone/channels/v1/channels/receiver/{address}` | Channels by receiver |
-| GET | `/zerone/channels/v1/disputes/{channel_id}` | Channel dispute |
-| GET | `/zerone/channels/v1/params` | Module parameters |
-
-#### schedule (3 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/schedule/v1/params` | Module parameters |
-| GET | `/zerone/schedule/v1/processes/{process_id}` | Scheduled process |
-| GET | `/zerone/schedule/v1/processes/creator/{creator}` | Processes by creator |
-
 #### home (7 RPCs)
 
 | Method | Endpoint | Description |
@@ -254,43 +178,6 @@ The interactive UI lists all endpoints with request/response schemas.
 | GET | `/zerone/home/v1/homes/{address}/spending_limits` | Spending limits |
 | GET | `/zerone/home/v1/params` | Module parameters |
 
-#### partnerships (5 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/partnerships/v1/partnerships/{id}` | Partnership by ID |
-| GET | `/zerone/partnerships/v1/partnerships/address/{address}` | Partnerships by address |
-| GET | `/zerone/partnerships/v1/partnerships/{id}/ops` | Pending operations |
-| GET | `/zerone/partnerships/v1/formation_pool` | Formation pool |
-| GET | `/zerone/partnerships/v1/params` | Module parameters |
-
-#### toolbox (8 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/toolbox/v1/tools/{id}` | Tool by ID |
-| GET | `/zerone/toolbox/v1/tools/deployer/{deployer}` | Tools by deployer |
-| GET | `/zerone/toolbox/v1/tools/category/{category}` | Tools by category |
-| GET | `/zerone/toolbox/v1/tools/{id}/trust` | Tool trust score |
-| GET | `/zerone/toolbox/v1/tools/{id}/dependencies` | Dependency tree |
-| GET | `/zerone/toolbox/v1/tools/{id}/free_allowance` | Free allowance |
-| GET | `/zerone/toolbox/v1/params` | Module parameters |
-| GET | `/zerone/toolbox/v1/tools/{id}/price` | Tool price |
-
-#### tree (7 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/tree/v1/projects/{id}` | Project by ID |
-| GET | `/zerone/tree/v1/projects/founder/{founder}` | Projects by founder |
-| GET | `/zerone/tree/v1/tasks/{id}` | Task by ID |
-| GET | `/zerone/tree/v1/tasks/project/{project_id}` | Tasks by project |
-| GET | `/zerone/tree/v1/services/{id}` | Service by ID |
-| GET | `/zerone/tree/v1/seeds/{id}` | Seed by ID |
-| GET | `/zerone/tree/v1/params` | Module parameters |
-
-### Security & Safety
-
 #### alignment (6 RPCs)
 
 | Method | Endpoint | Description |
@@ -302,16 +189,6 @@ The interactive UI lists all endpoints with request/response schemas.
 | GET | `/zerone/alignment/v1/health/{height}` | Health index at height |
 | GET | `/zerone/alignment/v1/corrections` | Correction history |
 
-#### autopoiesis (5 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/autopoiesis/v1/params` | Module parameters |
-| GET | `/zerone/autopoiesis/v1/multipliers/{path}` | Multiplier by path |
-| GET | `/zerone/autopoiesis/v1/multipliers` | All multipliers |
-| GET | `/zerone/autopoiesis/v1/epochs/{epoch}` | Epoch snapshot |
-| GET | `/zerone/autopoiesis/v1/ssi` | System Sustainability Index |
-
 #### emergency (5 RPCs)
 
 | Method | Endpoint | Description |
@@ -321,15 +198,6 @@ The interactive UI lists all endpoints with request/response schemas.
 | GET | `/zerone/emergency/v1/ceremonies/completed` | Completed ceremonies |
 | GET | `/zerone/emergency/v1/audit` | Audit log |
 | GET | `/zerone/emergency/v1/params` | Module parameters |
-
-#### disputes (4 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/disputes/v1/disputes/{id}` | Dispute by ID |
-| GET | `/zerone/disputes/v1/disputes/target/{target}` | Disputes by target |
-| GET | `/zerone/disputes/v1/disputes/active` | Active disputes |
-| GET | `/zerone/disputes/v1/params` | Module parameters |
 
 #### capture_defense (4 RPCs)
 
@@ -358,16 +226,6 @@ The interactive UI lists all endpoints with request/response schemas.
 | GET | `/zerone/ibcratelimit/v1/limits/{channel_id}/{denom}` | Rate limit for channel/denom |
 | GET | `/zerone/ibcratelimit/v1/limits` | All rate limits |
 | GET | `/zerone/ibcratelimit/v1/params` | Module parameters |
-
-#### icaauth (3 RPCs)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/zerone/icaauth/v1/accounts/{owner}/{connection_id}` | ICA account |
-| GET | `/zerone/icaauth/v1/accounts/{owner}` | ICA accounts by owner |
-| GET | `/zerone/icaauth/v1/params` | Module parameters |
-
----
 
 ## gRPC Usage
 

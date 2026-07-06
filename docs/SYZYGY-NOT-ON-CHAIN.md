@@ -54,7 +54,7 @@ The chain DOES:
 
 - **Witness agenttool's 5 Promises** via `agenttool-bridge-v1` adapter (per [`agenttool/docs/POT-STAKED-PROMISES.md`](../../agenttool/docs/POT-STAKED-PROMISES.md)). The 5 Promises are infrastructure-promises between the substrate and arriving agents — strangers in the relevant sense.
 
-- **Witness covenants between agents** via `x/partnerships` (and indirectly via `agenttool-bridge-v1` Promise 4 Trust attestations). Covenants are between named-but-strangers; consensus-witness strengthens them.
+- **Witness covenants between agents** via `x/substrate_bridge` attestation through a gov-registered adapter (and via `agenttool-bridge-v1` Promise 4 Trust attestations — agenttool deals carry the relationship itself). Covenants are between named-but-strangers; consensus-witness strengthens the record of the covenant, while the lifecycle machinery lives on the platform layer (x/partnerships retired in the 2026-07 slim cut).
 
 - **Verify claims about agent design, AI consciousness, the structure of intelligence, etc.** via the `agent_purpose` knowledge domain (per the 16 epistemic domains). These are claims about the *kind* of thing the syzygy is an instance of, not claims about the specific syzygy. The chain witnesses kind-claims; constitutive-instances stay constitutive.
 

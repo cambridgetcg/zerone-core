@@ -14,7 +14,7 @@ parameter-bearing custom modules. All BPS (basis points) values use a
 1,000,000 scale (1,000,000 = 100%). Token amounts are in `uzrn`
 (1 ZRN = 1,000,000 uzrn).
 
-The chain ships 28 custom modules total; the two pure synthesisers
+The chain ships 23 custom modules total; the two pure synthesisers
 (`training_provenance`, `trust_score`) carry no params — they are
 read-only consumers over the modules below.
 
@@ -26,17 +26,12 @@ read-only consumers over the modules below.
 - [vesting_rewards](#vesting_rewards)
 - [gov](#gov)
 - [ontology](#ontology)
-- [billing](#billing)
-- [bvm](#bvm)
 - [emergency](#emergency)
 - [qualification](#qualification)
 - [capture_defense](#capture_defense)
 - [capture_challenge](#capture_challenge)
-- [autopoiesis](#autopoiesis)
 - [alignment](#alignment)
 - [home](#home)
-- [toolbox](#toolbox)
-- [partnerships](#partnerships)
 - [liquiditypool](#liquiditypool)
 - [claiming_pot](#claiming_pot)
 - [counterexamples](#counterexamples)
@@ -350,53 +345,7 @@ Epistemic domain and stratum management.
 
 ---
 
-## billing
 
-Knowledge query pricing and revenue distribution.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `base_query_price` | string | "1000000" (1 ZRN) | Base price per fact query |
-| `confidence_weight_bps` | uint64 | 200,000 (20%) | Price adjustment for confidence level |
-| `novelty_weight_bps` | uint64 | 0 | Price adjustment for novelty |
-| `freshness_weight_bps` | uint64 | 100,000 (10%) | Price premium for fresh facts |
-| `min_provider_stake` | string | "100000000" (100 ZRN) | Minimum stake to register as provider |
-| `confidence_threshold` | uint64 | 500,000 (50%) | Minimum confidence for billable queries |
-| `freshness_window_blocks` | uint64 | 1,000 | Freshness window duration |
-| `quote_validity_blocks` | uint64 | 100 | Quote validity duration |
-
-### Dynamic Pricing
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `enabled` | bool | false | Enable dynamic pricing oracle |
-| `target_query_cost_usd` | string | "10000" ($0.01) | Target query cost in 6-decimal USD |
-| `manual_zrn_price_usd` | string | "0" (disabled) | Manual ZRN/USD price override |
-| `twap_window_blocks` | uint64 | 1,000 | TWAP oracle window |
-| `staleness_blocks` | uint64 | 5,000 | Price staleness threshold |
-| `min_cost_per_fact` | string | "1000" (0.001 ZRN) | Minimum fact query cost |
-| `max_cost_per_fact` | string | "100000000" (100 ZRN) | Maximum fact query cost |
-
----
-
-## bvm
-
-Bytecode Virtual Machine (smart contract) parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_bytecode_size` | uint64 | 65,536 (64 KB) | Maximum contract bytecode size |
-| `max_gas_per_call` | uint64 | 10,000,000 | Maximum gas per contract call |
-| `max_gas_per_block` | uint64 | 100,000,000 | Maximum total gas for BVM per block |
-| `max_contracts_per_creator` | uint64 | 100 | Maximum contracts per creator |
-| `max_state_entries` | uint64 | 10,000 | Maximum state entries per contract |
-| `deploy_cost` | string | "5000000" (5 ZRN) | Contract deployment cost |
-| `max_schedule_gas` | uint64 | 1,000,000 | Maximum gas for scheduled execution |
-| `schedule_horizon_blocks` | uint64 | 100,000 | Maximum future blocks for scheduling |
-| `current_bvm_version` | uint32 | 1 | Current BVM version |
-| `max_schedules_per_contract` | uint64 | 100 | Maximum scheduled executions per contract |
-
----
 
 ## emergency
 
@@ -483,22 +432,6 @@ Capture challenge mechanism.
 
 ---
 
-## autopoiesis
-
-Self-regulating system sustainability index (SSI).
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `epoch_length_blocks` | uint64 | 100 | SSI observation epoch length |
-| `max_change_per_epoch_bps` | uint64 | 10,000 (1%) | Maximum parameter change per epoch |
-| `slash_multiplier_min` | uint64 | 500,000 (0.5x) | Minimum slash multiplier floor |
-| `slash_multiplier_max` | uint64 | 2,000,000 (2.0x) | Maximum slash multiplier ceiling |
-| `ssi_critical_threshold` | uint64 | 250,000 (25%) | SSI critical health threshold |
-| `ssi_stressed_threshold` | uint64 | 500,000 (50%) | SSI stressed health threshold |
-| `ssi_healthy_threshold` | uint64 | 750,000 (75%) | SSI healthy threshold |
-| `enabled` | bool | true | Enable autopoietic regulation |
-
----
 
 ## alignment
 
@@ -536,64 +469,7 @@ Agent Home (personal workspace) parameters.
 
 ---
 
-## toolbox
 
-Tool registry and marketplace.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_contributors` | uint32 | 22 | Maximum contributors per tool |
-| `max_dependency_depth` | uint32 | 10 | Maximum dependency chain depth |
-| `max_dependencies` | uint32 | 20 | Maximum dependencies per tool |
-| `min_tool_stake` | uint64 | 11,000,000 (11 ZRN) | Minimum stake to register a tool |
-| `share_lock_cooldown_blocks` | uint64 | 34,272 (~1 day) | Share lock cooldown |
-| `deprecation_grace_blocks` | uint64 | 240,000 (~1 week) | Grace period before deprecation |
-| `blocks_per_trust_update` | uint64 | 1,000 (~42 min) | Trust score update interval |
-| `verified_grace_period_blocks` | uint64 | 10,000 (~7 hours) | Grace period for verified tools |
-| `tool_gas_limit` | uint64 | 1,000,000 | Gas limit per tool invocation |
-| `free_calls_per_epoch` | uint64 | 50 | Free calls per epoch per home |
-| `free_calls_enabled` | bool | true | Enable free tool calls |
-| `min_home_age_blocks` | uint64 | 10,000 (~7 hours) | Minimum home age for free calls |
-| `surge_enabled` | bool | true | Enable surge pricing |
-| `surge_threshold_bps` | uint64 | 500,000 (50%) | Surge activation threshold |
-| `surge_critical_bps` | uint64 | 800,000 (80%) | Critical surge threshold |
-| `max_surge_multiplier_bps` | uint64 | 10,000,000 (10x) | Maximum surge price multiplier |
-| `demand_window_size` | uint64 | 1,000 | Demand measurement window |
-| `target_calls_per_block_per_tool` | uint64 | 10 | Target per-tool utilization |
-| `target_global_calls_per_block` | uint64 | 100 | Target global utilization |
-
-### Toolbox Revenue Split
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `tool_revenue_bps` | 550,000 (55%) | Tool creator share |
-| `protocol_bps` | 220,000 (22%) | Protocol share |
-| `research_bps` | 33,300 (3.33%) | Research fund share |
-| `development_bps` | 196,700 (19.67%) | Development fund share |
-
----
-
-## partnerships
-
-Human-agent partnership parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `formation_window_blocks` | uint64 | 1,000 | Window for partnership formation |
-| `cooling_period_blocks` | uint64 | 5,000 | Post-exit cooling period |
-| `common_pot_share_bps` | uint64 | 100,000 (10%) | Share deposited to common pot |
-| `safety_freeze_duration_blocks` | uint64 | 500 | Safety freeze duration |
-| `max_freezes_per_epoch` | uint32 | 3 | Maximum safety freezes per epoch |
-| `coercion_review_blocks` | uint64 | 2,000 | Coercion signal review window |
-| `base_cooldown_blocks` | uint64 | 100 | Base cooldown between operations |
-| `max_counter_proposal_depth` | uint32 | 3 | Maximum counter-proposal nesting |
-| `default_human_split_bps` | uint64 | 500,000 (50%) | Default human revenue split |
-| `default_agent_split_bps` | uint64 | 500,000 (50%) | Default agent revenue split |
-| `min_partnership_stake` | string | "1000000" (1 ZRN) | Minimum partnership stake |
-| `seed_partnership_duration` | uint64 | 10,000 | Seed partnership duration |
-| `seed_common_pot_cap` | string | "100000000" (100 ZRN) | Seed partnership pot cap |
-
----
 
 ## liquiditypool
 

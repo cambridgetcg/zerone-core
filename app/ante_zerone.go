@@ -646,7 +646,7 @@ func (zcd ZeroneCapabilityDecorator) checkAccountCapability(ctx sdk.Context, add
 
 // checkRegisteredAccountCapability enforces capabilities for registered accounts.
 // Flag-based capabilities (CanSubmitClaims, CanChallenge) are checked from AccountFlags.
-// Type-based restrictions (staking, voting, research, disputes) are derived from account_type.
+// Type-based restrictions (staking, voting) are derived from account_type.
 func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *zeroneauthtypes.Account, msgType string) error {
 	flags := account.Flags
 	accountType := account.AccountType

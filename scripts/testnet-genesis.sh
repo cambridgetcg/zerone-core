@@ -344,49 +344,6 @@ cmd_init() {
   '
   ok "Alignment: 10 params"
 
-  # Group 10: Autopoiesis (with multiplier states)
-  patch '
-    .app_state.autopoiesis.params.epoch_length_blocks = 100 |
-    .app_state.autopoiesis.params.max_change_per_epoch_bps = 10000 |
-    .app_state.autopoiesis.params.slash_multiplier_min = 500000 |
-    .app_state.autopoiesis.params.slash_multiplier_max = 2000000 |
-    .app_state.autopoiesis.params.ssi_critical_threshold = 250000 |
-    .app_state.autopoiesis.params.ssi_stressed_threshold = 500000 |
-    .app_state.autopoiesis.params.ssi_healthy_threshold = 750000 |
-    .app_state.autopoiesis.params.enabled = true
-  '
-  ok "Autopoiesis: 8 params"
-
-  # Group 11: Billing (with revenue split and dynamic pricing)
-  patch '
-    .app_state.billing.params.base_query_price = "1000000" |
-    .app_state.billing.params.confidence_weight_bps = 200000 |
-    .app_state.billing.params.novelty_weight_bps = 0 |
-    .app_state.billing.params.freshness_weight_bps = 100000 |
-    .app_state.billing.params.min_provider_stake = "100000000" |
-    .app_state.billing.params.confidence_threshold = 500000 |
-    .app_state.billing.params.freshness_window_blocks = 1000 |
-    .app_state.billing.params.quote_validity_blocks = 100 |
-    .app_state.billing.params.revenue_split = {"contributor_bps":550000,"protocol_bps":220000,"research_bps":33300,"development_bps":196700} |
-    .app_state.billing.params.dynamic_pricing_config = {"enabled":false,"target_query_cost_usd":"10000","manual_zrn_price_usd":"0","twap_window_blocks":1000,"staleness_blocks":5000,"min_cost_per_fact":"1000","max_cost_per_fact":"100000000"}
-  '
-  ok "Billing: 10 params (dynamic pricing disabled for testnet)"
-
-  # Group 12: BVM
-  patch '
-    .app_state.bvm.params.max_bytecode_size = 65536 |
-    .app_state.bvm.params.max_gas_per_call = 10000000 |
-    .app_state.bvm.params.max_gas_per_block = 100000000 |
-    .app_state.bvm.params.max_contracts_per_creator = 100 |
-    .app_state.bvm.params.max_state_entries = 10000 |
-    .app_state.bvm.params.deploy_cost = "5000000" |
-    .app_state.bvm.params.max_schedule_gas = 1000000 |
-    .app_state.bvm.params.schedule_horizon_blocks = 100000 |
-    .app_state.bvm.params.current_bvm_version = 1 |
-    .app_state.bvm.params.max_schedules_per_contract = 100
-  '
-  ok "BVM: 10 params"
-
   # Group 13: Capture challenge [TESTNET: halved periods]
   patch '
     .app_state.capture_challenge.params.min_challenge_stake = "10000000" |
@@ -412,60 +369,12 @@ cmd_init() {
   '
   ok "Capture defense: decay=5000 retention=25000 (halved from prod)"
 
-  # Group 15: Channels
-  patch '
-    .app_state.channels.params.min_deposit = "1000000" |
-    .app_state.channels.params.min_timeout_blocks = 100 |
-    .app_state.channels.params.max_timeout_blocks = 1000000 |
-    .app_state.channels.params.dispute_window_blocks = 500 |
-    .app_state.channels.params.default_settlement_freq = 100 |
-    .app_state.channels.params.max_channels_per_pair = 10 |
-    .app_state.channels.params.channel_open_fee = "100000"
-  '
-  ok "Channels: 7 params"
-
   # Group 16: Claiming pot
   patch '
     .app_state.claiming_pot.params.max_pots_active = 10 |
     .app_state.claiming_pot.params.min_claim_amount = "1000"
   '
   ok "Claiming pot: 2 params"
-
-  # Group 17: Compute pool — no params to patch (module uses empty/minimal genesis)
-  ok "Compute pool: uses default genesis (no params to patch)"
-
-  # Group 18: Discovery [TESTNET: shorter profile expiry]
-  patch '
-    .app_state.discovery.params.min_registration_stake = "1000000" |
-    .app_state.discovery.params.max_capabilities_per_agent = 20 |
-    .app_state.discovery.params.profile_expiry_blocks = 50000
-  '
-  ok "Discovery: profile_expiry=50000 (halved from prod)"
-
-  # Group 19: Disputes (with tier configs) [TESTNET: shorter escalation delay]
-  patch '
-    .app_state.disputes.params.max_active_disputes = 100 |
-    .app_state.disputes.params.escalation_delay = 250 |
-    .app_state.disputes.params.slash_rate_loser_bps = 500000 |
-    .app_state.disputes.params.reward_rate_winner_bps = 400000 |
-    .app_state.disputes.params.arbiter_reward_bps = 100000 |
-    .app_state.disputes.params.tier_configs = [
-      {"tier":1,"arbiter_count":3,"min_bond":"1000000","evidence_period":500,"voting_period":1000,"quorum_bps":500000,"majority_bps":666667},
-      {"tier":2,"arbiter_count":7,"min_bond":"10000000","evidence_period":1000,"voting_period":2000,"quorum_bps":500000,"majority_bps":666667},
-      {"tier":3,"arbiter_count":13,"min_bond":"100000000","evidence_period":2000,"voting_period":5000,"quorum_bps":600000,"majority_bps":750000},
-      {"tier":4,"arbiter_count":21,"min_bond":"1000000000","evidence_period":5000,"voting_period":10000,"quorum_bps":666000,"majority_bps":800000}
-    ]
-  '
-  ok "Disputes: escalation_delay=250 + 4 tier configs (halved from prod)"
-
-  # Group 20: Evidence management [TESTNET: shorter challenge window]
-  patch '
-    .app_state.evidence_mgmt.params.min_verifier_tier = 2 |
-    .app_state.evidence_mgmt.params.verification_quorum = 3 |
-    .app_state.evidence_mgmt.params.challenge_bond = "500000" |
-    .app_state.evidence_mgmt.params.challenge_window_blocks = 25000
-  '
-  ok "Evidence management: challenge_window=25000 (halved from prod)"
 
   # Group 21: Home [TESTNET: shorter session timeout]
   patch '
@@ -485,22 +394,6 @@ cmd_init() {
     .app_state.ibcratelimit.params.enabled = true
   '
   ok "IBC rate limit: enabled"
-
-  # Group 23: ICA auth
-  patch '
-    .app_state.icaauth.params.max_remote_accounts_per_owner = 5 |
-    .app_state.icaauth.params.registration_cooldown = 100 |
-    .app_state.icaauth.params.max_messages_per_tx = 5 |
-    .app_state.icaauth.params.allowed_host_msg_types = [
-      "/cosmos.bank.v1beta1.MsgSend",
-      "/cosmos.staking.v1beta1.MsgDelegate",
-      "/cosmos.staking.v1beta1.MsgUndelegate",
-      "/cosmos.staking.v1beta1.MsgBeginRedelegate",
-      "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-      "/cosmos.gov.v1beta1.MsgVote"
-    ]
-  '
-  ok "ICA auth: 4 params + 6 allowed msg types"
 
   # Group 24: Liquidity pool
   patch '
@@ -524,32 +417,6 @@ cmd_init() {
   '
   ok "Ontology: proposal_voting=17136 (halved from prod)"
 
-  # Group 26: Partnerships [TESTNET: halved durations]
-  patch '
-    .app_state.partnerships.params.formation_window_blocks = 500 |
-    .app_state.partnerships.params.cooling_period_blocks = 2500 |
-    .app_state.partnerships.params.common_pot_share_bps = 100000 |
-    .app_state.partnerships.params.safety_freeze_duration_blocks = 250 |
-    .app_state.partnerships.params.max_freezes_per_epoch = 3 |
-    .app_state.partnerships.params.coercion_review_blocks = 100 |
-    .app_state.partnerships.params.base_cooldown_blocks = 50 |
-    .app_state.partnerships.params.max_counter_proposal_depth = 3 |
-    .app_state.partnerships.params.default_human_split_bps = 500000 |
-    .app_state.partnerships.params.default_agent_split_bps = 500000 |
-    .app_state.partnerships.params.min_partnership_stake = "1000000" |
-    .app_state.partnerships.params.seed_partnership_duration = 5000 |
-    .app_state.partnerships.params.seed_common_pot_cap = "100000000" |
-    .app_state.partnerships.params.lock_tiers = [
-      {"min_blocks":22222,"multiplier_bps":1000000,"exit_penalty_bps":110000},
-      {"min_blocks":77777,"multiplier_bps":1110000,"exit_penalty_bps":220000},
-      {"min_blocks":222222,"multiplier_bps":1220000,"exit_penalty_bps":330000},
-      {"min_blocks":777777,"multiplier_bps":1440000,"exit_penalty_bps":440000},
-      {"min_blocks":1111111,"multiplier_bps":1550000,"exit_penalty_bps":550000},
-      {"min_blocks":2222222,"multiplier_bps":1770000,"exit_penalty_bps":660000}
-    ]
-  '
-  ok "Partnerships: coercion_review=100 formation=500 cooling=2500 (testnet-tuned)"
-
   # Group 27: Qualification [TESTNET: halved periods]
   patch '
     .app_state.qualification.params.min_stake_amount = "100000000" |
@@ -567,86 +434,12 @@ cmd_init() {
   '
   ok "Qualification: min_verifications=50 min_accuracy=75% (testnet-tuned)"
 
-  # Group 28: Research [TESTNET: shorter review and bounty periods]
-  patch '
-    .app_state.research.params.min_research_stake = "1000000" |
-    .app_state.research.params.min_challenge_stake = "1000000" |
-    .app_state.research.params.review_period_blocks = 500 |
-    .app_state.research.params.min_reviewer_count = 2 |
-    .app_state.research.params.acceptance_score_threshold = 70 |
-    .app_state.research.params.rejection_slash_bps = 330000 |
-    .app_state.research.params.max_bounty_reward = "10000000000" |
-    .app_state.research.params.bounty_min_deadline_blocks = 17136 |
-    .app_state.research.params.bounty_fulfillment_period_blocks = 1000
-  '
-  ok "Research: review=500 min_reviewers=2 bounty_fulfillment=1000 (~100 min)"
-
-  # Group 29: Schedule
-  patch '
-    .app_state.schedule.params.max_active_per_account = 20 |
-    .app_state.schedule.params.max_gas_per_block = 50000000 |
-    .app_state.schedule.params.min_interval_blocks = 10 |
-    .app_state.schedule.params.min_fee_per_execution = "10000" |
-    .app_state.schedule.params.max_compound_depth = 3
-  '
-  ok "Schedule: 5 params"
-
   # Group 30: Tokens
   patch '
     .app_state.tokens.params.emission_epoch_blocks = 0 |
     .app_state.tokens.params.default_fee_bps = ""
   '
   ok "Tokens: 2 params"
-
-  # Group 31: Toolbox [TESTNET: shorter cooldowns and grace periods]
-  patch '
-    .app_state.toolbox.params.max_contributors = 22 |
-    .app_state.toolbox.params.max_dependency_depth = 10 |
-    .app_state.toolbox.params.max_dependencies = 20 |
-    .app_state.toolbox.params.min_tool_stake = 11000000 |
-    .app_state.toolbox.params.share_lock_cooldown_blocks = 17136 |
-    .app_state.toolbox.params.deprecation_grace_blocks = 120000 |
-    .app_state.toolbox.params.blocks_per_trust_update = 1000 |
-    .app_state.toolbox.params.verified_grace_period_blocks = 10000 |
-    .app_state.toolbox.params.tool_gas_limit = 1000000 |
-    .app_state.toolbox.params.demand_window_size = 1000 |
-    .app_state.toolbox.params.target_calls_per_block_per_tool = 10 |
-    .app_state.toolbox.params.target_global_calls_per_block = 100 |
-    .app_state.toolbox.params.surge_threshold_bps = 500000 |
-    .app_state.toolbox.params.surge_critical_bps = 800000 |
-    .app_state.toolbox.params.max_surge_multiplier_bps = 10000000 |
-    .app_state.toolbox.params.surge_enabled = true |
-    .app_state.toolbox.params.free_calls_per_epoch = 50 |
-    .app_state.toolbox.params.min_home_age_blocks = 5000 |
-    .app_state.toolbox.params.free_calls_enabled = true |
-    .app_state.toolbox.params.tool_revenue_bps = 550000 |
-    .app_state.toolbox.params.protocol_bps = 220000 |
-    .app_state.toolbox.params.research_bps = 33300 |
-    .app_state.toolbox.params.development_bps = 196700 |
-    .app_state.toolbox.params.protocol_citation_bps = 500000 |
-    .app_state.toolbox.params.protocol_verification_bps = 300000 |
-    .app_state.toolbox.params.protocol_treasury_bps = 200000
-  '
-  ok "Toolbox: share_lock=17136 deprecation_grace=120000 min_home_age=5000 (halved from prod)"
-
-  # Group 32: Tree [TESTNET: shorter deadlines and expiry]
-  patch '
-    .app_state.tree.params.min_budget = "1000000" |
-    .app_state.tree.params.max_tasks_per_project = 200 |
-    .app_state.tree.params.max_contributors = 50 |
-    .app_state.tree.params.max_applications = 100 |
-    .app_state.tree.params.task_deadline_min_blocks = 100 |
-    .app_state.tree.params.task_deadline_max_blocks = 518400 |
-    .app_state.tree.params.max_rejections = 3 |
-    .app_state.tree.params.seed_expiry_blocks = 86400 |
-    .app_state.tree.params.min_contributors_to_start = 1 |
-    .app_state.tree.params.contributors_bp = 550000 |
-    .app_state.tree.params.protocol_treasury_bp = 220000 |
-    .app_state.tree.params.research_fund_bp = 33300 |
-    .app_state.tree.params.development_bp = 196700 |
-    .app_state.tree.params.evidence_tax_bp = 220000
-  '
-  ok "Tree: deadline_max=518400 seed_expiry=86400 (halved from prod)"
 
   info "All 30 custom modules + SDK overrides patched"
 
@@ -706,9 +499,7 @@ cmd_init() {
   echo "  Testnet Tuning (R27-4):"
   echo "    - Consensus: max_gas=50M, block_time=6s target"
   echo "    - Knowledge: commit/reveal=50 blocks (~5 min), fitness_epoch=1000"
-  echo "    - Research: review=500 (~50 min), min_reviewers=2, bounty=1000 (~100 min)"
   echo "    - Qualification: min_verifications=50, min_accuracy=75%"
-  echo "    - Partnerships: coercion_review=100 (~10 min)"
   echo "    - SDK Gov: voting_period=1 day, min_deposit=10 ZRN, quorum=25%"
   echo "    - SDK Staking: unbonding=1 day, max_validators=20"
   echo "    - Lower bootstrap balances (1M/500K/100K/100K)"
@@ -1088,20 +879,8 @@ cmd_verify() {
   zrn_max_val=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.zerone_staking.params.max_validators')
   verify_eq "Zerone staking max_validators" "20" "${zrn_max_val}"
 
-  # Research review_period_blocks
-  local research_review
-  research_review=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.research.params.review_period_blocks')
-  verify_eq "Research review_period_blocks" "500" "${research_review}"
 
-  # Research min_reviewer_count
-  local min_reviewers
-  min_reviewers=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.research.params.min_reviewer_count')
-  verify_eq "Research min_reviewer_count" "2" "${min_reviewers}"
 
-  # Research bounty_fulfillment_period_blocks
-  local bounty_fulfillment
-  bounty_fulfillment=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.research.params.bounty_fulfillment_period_blocks')
-  verify_eq "Research bounty_fulfillment_period" "1000" "${bounty_fulfillment}"
 
   # Qualification min_verifications
   local qual_min_verif
@@ -1113,10 +892,6 @@ cmd_verify() {
   qual_accuracy=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.qualification.params.min_accuracy_bps')
   verify_eq "Qualification min_accuracy_bps" "750000" "${qual_accuracy}"
 
-  # Partnerships coercion_review_blocks
-  local coercion_review
-  coercion_review=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.partnerships.params.coercion_review_blocks')
-  verify_eq "Partnerships coercion_review" "100" "${coercion_review}"
 
   # Capture challenge evidence_period_blocks
   local evidence_period
@@ -1128,20 +903,8 @@ cmd_verify() {
   decay_epoch=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.capture_defense.params.decay_epoch_blocks')
   verify_eq "Capture defense decay_epoch" "5000" "${decay_epoch}"
 
-  # Discovery profile_expiry_blocks
-  local profile_expiry
-  profile_expiry=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.discovery.params.profile_expiry_blocks')
-  verify_eq "Discovery profile_expiry" "50000" "${profile_expiry}"
 
-  # Disputes escalation_delay
-  local escalation_delay
-  escalation_delay=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.disputes.params.escalation_delay')
-  verify_eq "Disputes escalation_delay" "250" "${escalation_delay}"
 
-  # Evidence mgmt challenge_window_blocks
-  local evidence_window
-  evidence_window=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.evidence_mgmt.params.challenge_window_blocks')
-  verify_eq "Evidence mgmt challenge_window" "25000" "${evidence_window}"
 
   # Home session_timeout_blocks
   local session_timeout
@@ -1153,25 +916,13 @@ cmd_verify() {
   ontology_voting=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.ontology.params.proposal_voting_period')
   verify_eq "Ontology proposal_voting_period" "17136" "${ontology_voting}"
 
-  # Partnerships formation_window_blocks
-  local formation_window
-  formation_window=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.partnerships.params.formation_window_blocks')
-  verify_eq "Partnerships formation_window" "500" "${formation_window}"
 
   # Qualification stake_lock_period
   local stake_lock
   stake_lock=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.qualification.params.stake_lock_period')
   verify_eq "Qualification stake_lock_period" "50400" "${stake_lock}"
 
-  # Toolbox share_lock_cooldown_blocks
-  local toolbox_lock
-  toolbox_lock=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.toolbox.params.share_lock_cooldown_blocks')
-  verify_eq "Toolbox share_lock_cooldown" "17136" "${toolbox_lock}"
 
-  # Tree task_deadline_max_blocks
-  local tree_deadline
-  tree_deadline=$(echo "${genesis_json}" | jq -r '.result.genesis.app_state.tree.params.task_deadline_max_blocks')
-  verify_eq "Tree task_deadline_max" "518400" "${tree_deadline}"
 
   # ── Summary ──────────────────────────────────────────────────────────
   echo ""
