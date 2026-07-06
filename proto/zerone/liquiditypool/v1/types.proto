@@ -25,6 +25,7 @@ message TWAPAccumulator {
   uint64 last_block      = 2;
   string cum_price_a_to_b = 3; // bigint string (1e12 scale)
   string cum_price_b_to_a = 4; // bigint string (1e12 scale)
+  uint64 start_block     = 5; // height accumulation began — TWAP divisor is last_block - start_block
 }
 
 // SwapResult contains the output of a swap calculation.

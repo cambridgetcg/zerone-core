@@ -7,6 +7,7 @@
 package types
 
 import (
+	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -513,7 +514,7 @@ var File_zerone_discovery_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_discovery_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	"\x1czerone/discovery/v1/tx.proto\x12\x13zerone.discovery.v1\x1a\x1fzerone/discovery/v1/types.proto\x1a!zerone/discovery/v1/genesis.proto\"\x87\x02\n" +
+	"\x1czerone/discovery/v1/tx.proto\x12\x13zerone.discovery.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a\x1fzerone/discovery/v1/types.proto\x1a!zerone/discovery/v1/genesis.proto\"\x94\x02\n" +
 	"\x12MsgRegisterProfile\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12H\n" +
@@ -521,31 +522,31 @@ const file_zerone_discovery_v1_tx_proto_rawDesc = "" +
 	"\adomains\x18\x04 \x03(\tR\adomains\x12\x14\n" +
 	"\x05stake\x18\x05 \x01(\tR\x05stake\x12 \n" +
 	"\vdescription\x18\x06 \x01(\tR\vdescription\x12\x1a\n" +
-	"\bmetadata\x18\a \x01(\tR\bmetadata\"\x1c\n" +
-	"\x1aMsgRegisterProfileResponse\"\x8b\x01\n" +
+	"\bmetadata\x18\a \x01(\tR\bmetadata:\v\x82\xe7\xb0*\x06sender\"\x1c\n" +
+	"\x1aMsgRegisterProfileResponse\"\x98\x01\n" +
 	"\x10MsgUpdateProfile\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
-	"\bmetadata\x18\x04 \x01(\tR\bmetadata\"\x1a\n" +
-	"\x18MsgUpdateProfileResponse\"&\n" +
+	"\bmetadata\x18\x04 \x01(\tR\bmetadata:\v\x82\xe7\xb0*\x06sender\"\x1a\n" +
+	"\x18MsgUpdateProfileResponse\"3\n" +
 	"\fMsgHeartbeat\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\"\x16\n" +
-	"\x14MsgHeartbeatResponse\".\n" +
+	"\x06sender\x18\x01 \x01(\tR\x06sender:\v\x82\xe7\xb0*\x06sender\"\x16\n" +
+	"\x14MsgHeartbeatResponse\";\n" +
 	"\x14MsgDeregisterProfile\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\"G\n" +
+	"\x06sender\x18\x01 \x01(\tR\x06sender:\v\x82\xe7\xb0*\x06sender\"G\n" +
 	"\x1cMsgDeregisterProfileResponse\x12'\n" +
-	"\x0frefunded_amount\x18\x01 \x01(\tR\x0erefundedAmount\"d\n" +
+	"\x0frefunded_amount\x18\x01 \x01(\tR\x0erefundedAmount\"t\n" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x123\n" +
-	"\x06params\x18\x02 \x01(\v2\x1b.zerone.discovery.v1.ParamsR\x06params\"\x19\n" +
-	"\x17MsgUpdateParamsResponse2\x8b\x04\n" +
+	"\x06params\x18\x02 \x01(\v2\x1b.zerone.discovery.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
+	"\x17MsgUpdateParamsResponse2\x92\x04\n" +
 	"\x03Msg\x12k\n" +
 	"\x0fRegisterProfile\x12'.zerone.discovery.v1.MsgRegisterProfile\x1a/.zerone.discovery.v1.MsgRegisterProfileResponse\x12e\n" +
 	"\rUpdateProfile\x12%.zerone.discovery.v1.MsgUpdateProfile\x1a-.zerone.discovery.v1.MsgUpdateProfileResponse\x12Y\n" +
 	"\tHeartbeat\x12!.zerone.discovery.v1.MsgHeartbeat\x1a).zerone.discovery.v1.MsgHeartbeatResponse\x12q\n" +
 	"\x11DeregisterProfile\x12).zerone.discovery.v1.MsgDeregisterProfile\x1a1.zerone.discovery.v1.MsgDeregisterProfileResponse\x12b\n" +
-	"\fUpdateParams\x12$.zerone.discovery.v1.MsgUpdateParams\x1a,.zerone.discovery.v1.MsgUpdateParamsResponseB2Z0github.com/zerone-chain/zerone/x/discovery/typesb\x06proto3"
+	"\fUpdateParams\x12$.zerone.discovery.v1.MsgUpdateParams\x1a,.zerone.discovery.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B2Z0github.com/zerone-chain/zerone/x/discovery/typesb\x06proto3"
 
 var (
 	file_zerone_discovery_v1_tx_proto_rawDescOnce sync.Once

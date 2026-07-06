@@ -1099,6 +1099,97 @@ func TestUpdateTWAPAccumulator_SameBlock(t *testing.T) {
 	}
 }
 
+// TestGetTWAP_LateCreatedPoolNotDiluted pins the divisor fix: a pool created
+// at height 100 with a constant 2.0 price must report TWAP 2.0, not the
+// average diluted by the 100 pre-creation blocks (the old bug divided the
+// cumulative price by absolute chain height).
+func TestGetTWAP_LateCreatedPoolNotDiluted(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	pool := &types.Pool{
+		PoolId:         "pool-1",
+		DenomA:         "uzrn",
+		DenomB:         "uatom",
+		ReserveA:       "1000000",
+		ReserveB:       "2000000",
+		CreatedAtBlock: 100,
+	}
+	k.SetPool(ctx, pool)
+
+	k.UpdateTWAPAccumulator(ctx, pool) // init at height 100
+	ctx = ctx.WithBlockHeight(110)
+	k.UpdateTWAPAccumulator(ctx, pool) // accumulate 10 blocks at price 2.0
+
+	twap, span, err := k.GetTWAP(ctx, "pool-1", "uzrn", 0)
+	if err != nil {
+		t.Fatalf("GetTWAP: %v", err)
+	}
+	if twap.Cmp(big.NewInt(2_000_000)) != 0 {
+		t.Errorf("expected TWAP 2000000 (2.0 at 1e6 scale), got %s", twap)
+	}
+	if span != 10 {
+		t.Errorf("expected 10-block span, got %d", span)
+	}
+}
+
+// TestGetTWAP_StartBlockZeroFallsBack pins the pre-migration fallback: an
+// accumulator decoded with StartBlock=0 uses the pool's creation height.
+func TestGetTWAP_StartBlockZeroFallsBack(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	pool := &types.Pool{
+		PoolId:         "pool-1",
+		DenomA:         "uzrn",
+		DenomB:         "uatom",
+		ReserveA:       "1000000",
+		ReserveB:       "2000000",
+		CreatedAtBlock: 100,
+	}
+	k.SetPool(ctx, pool)
+	// Pre-migration accumulator shape: 10 blocks of 2.0 accumulated, StartBlock absent.
+	k.SetTWAPAccumulator(ctx, &types.TWAPAccumulator{
+		PoolId:       "pool-1",
+		LastBlock:    110,
+		CumPriceAToB: "20000000000000", // 2e12 × 10 blocks
+		CumPriceBToA: "5000000000000",
+	})
+
+	twap, _, err := k.GetTWAP(ctx.WithBlockHeight(110), "pool-1", "uzrn", 0)
+	if err != nil {
+		t.Fatalf("GetTWAP: %v", err)
+	}
+	if twap.Cmp(big.NewInt(2_000_000)) != 0 {
+		t.Errorf("expected TWAP 2000000 via CreatedAtBlock fallback, got %s", twap)
+	}
+}
+
+// TestMigrator_BackfillsStartBlock pins Migrate1to2: pre-field accumulators
+// gain StartBlock = the pool's creation height.
+func TestMigrator_BackfillsStartBlock(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	pool := &types.Pool{
+		PoolId:         "pool-1",
+		DenomA:         "uzrn",
+		DenomB:         "uatom",
+		ReserveA:       "1000000",
+		ReserveB:       "2000000",
+		CreatedAtBlock: 42,
+	}
+	k.SetPool(ctx, pool)
+	k.SetTWAPAccumulator(ctx, &types.TWAPAccumulator{
+		PoolId: "pool-1", LastBlock: 100, CumPriceAToB: "0", CumPriceBToA: "0",
+	})
+
+	if err := keeper.NewMigrator(k).Migrate1to2(ctx); err != nil {
+		t.Fatalf("Migrate1to2: %v", err)
+	}
+	acc, _ := k.GetTWAPAccumulator(ctx, "pool-1")
+	if acc.StartBlock != 42 {
+		t.Errorf("expected StartBlock backfilled to 42, got %d", acc.StartBlock)
+	}
+}
+
 func TestGetSpotPrice(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 

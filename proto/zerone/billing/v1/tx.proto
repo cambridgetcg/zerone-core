@@ -3,11 +3,15 @@ package zerone.billing.v1;
 
 option go_package = "github.com/zerone-chain/zerone/x/billing/types";
 
+import "cosmos/msg/v1/msg.proto";
+
 import "zerone/billing/v1/types.proto";
 import "zerone/billing/v1/genesis.proto";
 
 // Msg defines the billing module transaction service.
 service Msg {
+  option (cosmos.msg.v1.service) = true;
+
   rpc RegisterProvider(MsgRegisterProvider) returns (MsgRegisterProviderResponse);
   rpc DeregisterProvider(MsgDeregisterProvider) returns (MsgDeregisterProviderResponse);
   rpc QueryFact(MsgQueryFact) returns (MsgQueryFactResponse);
@@ -16,6 +20,8 @@ service Msg {
 }
 
 message MsgRegisterProvider {
+  option (cosmos.msg.v1.signer) = "sender";
+
   string sender            = 1;
   string name              = 2;
   repeated string domains  = 3;
@@ -24,11 +30,15 @@ message MsgRegisterProvider {
 message MsgRegisterProviderResponse {}
 
 message MsgDeregisterProvider {
+  option (cosmos.msg.v1.signer) = "sender";
+
   string sender = 1;
 }
 message MsgDeregisterProviderResponse {}
 
 message MsgQueryFact {
+  option (cosmos.msg.v1.signer) = "sender";
+
   string sender   = 1;
   string provider = 2;
   string fact_id  = 3;
@@ -38,6 +48,8 @@ message MsgQueryFactResponse {
 }
 
 message MsgBatchQueryFacts {
+  option (cosmos.msg.v1.signer) = "sender";
+
   string sender            = 1;
   string provider          = 2;
   repeated string fact_ids = 3;
@@ -48,6 +60,8 @@ message MsgBatchQueryFactsResponse {
 }
 
 message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
   string authority = 1;
   Params params    = 2;
 }

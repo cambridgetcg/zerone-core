@@ -21,6 +21,7 @@ func (k Keeper) UpdateTWAPAccumulator(ctx sdk.Context, pool *types.Pool) {
 		acc = &types.TWAPAccumulator{
 			PoolId:       pool.PoolId,
 			LastBlock:    currentBlock,
+			StartBlock:   currentBlock,
 			CumPriceAToB: "0",
 			CumPriceBToA: "0",
 		}
@@ -67,10 +68,17 @@ func (k Keeper) UpdateTWAPAccumulator(ctx sdk.Context, pool *types.Pool) {
 	k.SetTWAPAccumulator(ctx, acc)
 }
 
-// GetTWAP computes the time-weighted average price over a window of blocks.
-// Returns the TWAP for baseDenom (price of baseDenom in terms of quote), scaled by 1e6.
-// Falls back to spot price if insufficient history.
+// GetTWAP computes the time-weighted average price since the accumulator
+// began (pool creation). Returns the price of baseDenom in quote terms,
+// scaled by 1e6, plus the span of blocks the average covers.
+//
+// The `window` argument is accepted for interface stability but the result
+// is a since-inception average — true windowed TWAP needs historical
+// snapshots the accumulator does not store. Falls back to spot price when
+// there is no accumulated history yet.
 func (k Keeper) GetTWAP(ctx sdk.Context, poolId string, baseDenom string, window uint64) (*big.Int, uint64, error) {
+	_ = window // since-inception average; see doc comment
+
 	pool, found := k.GetPool(ctx, poolId)
 	if !found {
 		return nil, 0, types.ErrPoolNotFound
@@ -82,23 +90,18 @@ func (k Keeper) GetTWAP(ctx sdk.Context, poolId string, baseDenom string, window
 		return k.getSpotPrice(pool, baseDenom)
 	}
 
-	currentBlock := uint64(ctx.BlockHeight())
-	if window == 0 {
-		params := k.GetParams(ctx)
-		window = params.TwapWindowBlocks
+	// Blocks actually accumulated: LastBlock - StartBlock. Pre-migration
+	// accumulators decode StartBlock=0 — fall back to the pool's creation
+	// height, which CreatePool seeds in the same block as the accumulator.
+	start := acc.StartBlock
+	if start == 0 {
+		start = pool.CreatedAtBlock
 	}
-
-	// TWAP is the accumulator delta / block delta
-	startBlock := acc.LastBlock
-	if currentBlock > window && startBlock < currentBlock-window {
-		startBlock = currentBlock - window
-	}
-	actualWindow := currentBlock - startBlock
-	if actualWindow == 0 {
+	if acc.LastBlock <= start {
 		return k.getSpotPrice(pool, baseDenom)
 	}
+	blocksDelta := acc.LastBlock - start
 
-	// Use the current accumulator value divided by blocks elapsed
 	var cumPrice *big.Int
 	if baseDenom == pool.DenomA {
 		cumPrice = new(big.Int)
@@ -113,17 +116,12 @@ func (k Keeper) GetTWAP(ctx sdk.Context, poolId string, baseDenom string, window
 	}
 
 	// TWAP = cumPrice * 1e6 / (blocksDelta * twapScale)
-	blocksDelta := acc.LastBlock // total blocks accumulated
-	if blocksDelta == 0 {
-		return k.getSpotPrice(pool, baseDenom)
-	}
-
 	scale1e6 := big.NewInt(1_000_000)
 	twap := new(big.Int).Mul(cumPrice, scale1e6)
 	divisor := new(big.Int).Mul(new(big.Int).SetUint64(blocksDelta), twapScale)
 	twap.Div(twap, divisor)
 
-	return twap, actualWindow, nil
+	return twap, blocksDelta, nil
 }
 
 // getSpotPrice returns spot price of baseDenom in quote terms, scaled by 1e6.

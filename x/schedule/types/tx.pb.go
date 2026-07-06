@@ -7,6 +7,7 @@
 package types
 
 import (
+	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -649,7 +650,7 @@ var File_zerone_schedule_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_schedule_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	"\x1bzerone/schedule/v1/tx.proto\x12\x12zerone.schedule.v1\x1a\x1ezerone/schedule/v1/types.proto\x1a zerone/schedule/v1/genesis.proto\"\xd3\x03\n" +
+	"\x1bzerone/schedule/v1/tx.proto\x12\x12zerone.schedule.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a\x1ezerone/schedule/v1/types.proto\x1a zerone/schedule/v1/genesis.proto\"\xe1\x03\n" +
 	"\x11MsgCreateSchedule\x12\x18\n" +
 	"\acreator\x18\x01 \x01(\tR\acreator\x12C\n" +
 	"\tcondition\x18\x02 \x01(\v2%.zerone.schedule.v1.ScheduleConditionR\tcondition\x12%\n" +
@@ -663,43 +664,43 @@ const file_zerone_schedule_v1_tx_proto_rawDesc = "" +
 	"\x12linked_entity_type\x18\t \x01(\tR\x10linkedEntityType\x12(\n" +
 	"\x10linked_entity_id\x18\n" +
 	" \x01(\tR\x0elinkedEntityId\x12(\n" +
-	"\x10expires_at_block\x18\v \x01(\x04R\x0eexpiresAtBlock\":\n" +
+	"\x10expires_at_block\x18\v \x01(\x04R\x0eexpiresAtBlock:\f\x82\xe7\xb0*\acreator\":\n" +
 	"\x19MsgCreateScheduleResponse\x12\x1d\n" +
 	"\n" +
-	"process_id\x18\x01 \x01(\tR\tprocessId\"K\n" +
+	"process_id\x18\x01 \x01(\tR\tprocessId\"Y\n" +
 	"\x10MsgPauseSchedule\x12\x18\n" +
 	"\acreator\x18\x01 \x01(\tR\acreator\x12\x1d\n" +
 	"\n" +
-	"process_id\x18\x02 \x01(\tR\tprocessId\"\x1a\n" +
-	"\x18MsgPauseScheduleResponse\"L\n" +
+	"process_id\x18\x02 \x01(\tR\tprocessId:\f\x82\xe7\xb0*\acreator\"\x1a\n" +
+	"\x18MsgPauseScheduleResponse\"Z\n" +
 	"\x11MsgResumeSchedule\x12\x18\n" +
 	"\acreator\x18\x01 \x01(\tR\acreator\x12\x1d\n" +
 	"\n" +
-	"process_id\x18\x02 \x01(\tR\tprocessId\"\x1b\n" +
-	"\x19MsgResumeScheduleResponse\"L\n" +
+	"process_id\x18\x02 \x01(\tR\tprocessId:\f\x82\xe7\xb0*\acreator\"\x1b\n" +
+	"\x19MsgResumeScheduleResponse\"Z\n" +
 	"\x11MsgCancelSchedule\x12\x18\n" +
 	"\acreator\x18\x01 \x01(\tR\acreator\x12\x1d\n" +
 	"\n" +
-	"process_id\x18\x02 \x01(\tR\tprocessId\"D\n" +
+	"process_id\x18\x02 \x01(\tR\tprocessId:\f\x82\xe7\xb0*\acreator\"D\n" +
 	"\x19MsgCancelScheduleResponse\x12'\n" +
-	"\x0frefunded_amount\x18\x01 \x01(\tR\x0erefundedAmount\"b\n" +
+	"\x0frefunded_amount\x18\x01 \x01(\tR\x0erefundedAmount\"p\n" +
 	"\x0fMsgFundSchedule\x12\x18\n" +
 	"\acreator\x18\x01 \x01(\tR\acreator\x12\x1d\n" +
 	"\n" +
 	"process_id\x18\x02 \x01(\tR\tprocessId\x12\x16\n" +
-	"\x06amount\x18\x03 \x01(\tR\x06amount\"\x19\n" +
-	"\x17MsgFundScheduleResponse\"c\n" +
+	"\x06amount\x18\x03 \x01(\tR\x06amount:\f\x82\xe7\xb0*\acreator\"\x19\n" +
+	"\x17MsgFundScheduleResponse\"s\n" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x122\n" +
-	"\x06params\x18\x02 \x01(\v2\x1a.zerone.schedule.v1.ParamsR\x06params\"\x19\n" +
-	"\x17MsgUpdateParamsResponse2\xe6\x04\n" +
+	"\x06params\x18\x02 \x01(\v2\x1a.zerone.schedule.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
+	"\x17MsgUpdateParamsResponse2\xed\x04\n" +
 	"\x03Msg\x12f\n" +
 	"\x0eCreateSchedule\x12%.zerone.schedule.v1.MsgCreateSchedule\x1a-.zerone.schedule.v1.MsgCreateScheduleResponse\x12c\n" +
 	"\rPauseSchedule\x12$.zerone.schedule.v1.MsgPauseSchedule\x1a,.zerone.schedule.v1.MsgPauseScheduleResponse\x12f\n" +
 	"\x0eResumeSchedule\x12%.zerone.schedule.v1.MsgResumeSchedule\x1a-.zerone.schedule.v1.MsgResumeScheduleResponse\x12f\n" +
 	"\x0eCancelSchedule\x12%.zerone.schedule.v1.MsgCancelSchedule\x1a-.zerone.schedule.v1.MsgCancelScheduleResponse\x12`\n" +
 	"\fFundSchedule\x12#.zerone.schedule.v1.MsgFundSchedule\x1a+.zerone.schedule.v1.MsgFundScheduleResponse\x12`\n" +
-	"\fUpdateParams\x12#.zerone.schedule.v1.MsgUpdateParams\x1a+.zerone.schedule.v1.MsgUpdateParamsResponseB1Z/github.com/zerone-chain/zerone/x/schedule/typesb\x06proto3"
+	"\fUpdateParams\x12#.zerone.schedule.v1.MsgUpdateParams\x1a+.zerone.schedule.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B1Z/github.com/zerone-chain/zerone/x/schedule/typesb\x06proto3"
 
 var (
 	file_zerone_schedule_v1_tx_proto_rawDescOnce sync.Once

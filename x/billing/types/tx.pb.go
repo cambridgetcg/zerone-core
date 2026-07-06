@@ -7,6 +7,7 @@
 package types
 
 import (
+	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -513,40 +514,40 @@ var File_zerone_billing_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_billing_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	"\x1azerone/billing/v1/tx.proto\x12\x11zerone.billing.v1\x1a\x1dzerone/billing/v1/types.proto\x1a\x1fzerone/billing/v1/genesis.proto\"q\n" +
+	"\x1azerone/billing/v1/tx.proto\x12\x11zerone.billing.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a\x1dzerone/billing/v1/types.proto\x1a\x1fzerone/billing/v1/genesis.proto\"~\n" +
 	"\x13MsgRegisterProvider\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\adomains\x18\x03 \x03(\tR\adomains\x12\x14\n" +
-	"\x05stake\x18\x04 \x01(\tR\x05stake\"\x1d\n" +
-	"\x1bMsgRegisterProviderResponse\"/\n" +
+	"\x05stake\x18\x04 \x01(\tR\x05stake:\v\x82\xe7\xb0*\x06sender\"\x1d\n" +
+	"\x1bMsgRegisterProviderResponse\"<\n" +
 	"\x15MsgDeregisterProvider\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\"\x1f\n" +
-	"\x1dMsgDeregisterProviderResponse\"[\n" +
+	"\x06sender\x18\x01 \x01(\tR\x06sender:\v\x82\xe7\xb0*\x06sender\"\x1f\n" +
+	"\x1dMsgDeregisterProviderResponse\"h\n" +
 	"\fMsgQueryFact\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x1a\n" +
 	"\bprovider\x18\x02 \x01(\tR\bprovider\x12\x17\n" +
-	"\afact_id\x18\x03 \x01(\tR\x06factId\"K\n" +
+	"\afact_id\x18\x03 \x01(\tR\x06factId:\v\x82\xe7\xb0*\x06sender\"K\n" +
 	"\x14MsgQueryFactResponse\x123\n" +
-	"\x05quote\x18\x01 \x01(\v2\x1d.zerone.billing.v1.QueryQuoteR\x05quote\"c\n" +
+	"\x05quote\x18\x01 \x01(\v2\x1d.zerone.billing.v1.QueryQuoteR\x05quote\"p\n" +
 	"\x12MsgBatchQueryFacts\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x1a\n" +
 	"\bprovider\x18\x02 \x01(\tR\bprovider\x12\x19\n" +
-	"\bfact_ids\x18\x03 \x03(\tR\afactIds\"t\n" +
+	"\bfact_ids\x18\x03 \x03(\tR\afactIds:\v\x82\xe7\xb0*\x06sender\"t\n" +
 	"\x1aMsgBatchQueryFactsResponse\x125\n" +
 	"\x06quotes\x18\x01 \x03(\v2\x1d.zerone.billing.v1.QueryQuoteR\x06quotes\x12\x1f\n" +
 	"\vtotal_price\x18\x02 \x01(\tR\n" +
-	"totalPrice\"b\n" +
+	"totalPrice\"r\n" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x121\n" +
-	"\x06params\x18\x02 \x01(\v2\x19.zerone.billing.v1.ParamsR\x06params\"\x19\n" +
-	"\x17MsgUpdateParamsResponse2\x83\x04\n" +
+	"\x06params\x18\x02 \x01(\v2\x19.zerone.billing.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
+	"\x17MsgUpdateParamsResponse2\x8a\x04\n" +
 	"\x03Msg\x12j\n" +
 	"\x10RegisterProvider\x12&.zerone.billing.v1.MsgRegisterProvider\x1a..zerone.billing.v1.MsgRegisterProviderResponse\x12p\n" +
 	"\x12DeregisterProvider\x12(.zerone.billing.v1.MsgDeregisterProvider\x1a0.zerone.billing.v1.MsgDeregisterProviderResponse\x12U\n" +
 	"\tQueryFact\x12\x1f.zerone.billing.v1.MsgQueryFact\x1a'.zerone.billing.v1.MsgQueryFactResponse\x12g\n" +
 	"\x0fBatchQueryFacts\x12%.zerone.billing.v1.MsgBatchQueryFacts\x1a-.zerone.billing.v1.MsgBatchQueryFactsResponse\x12^\n" +
-	"\fUpdateParams\x12\".zerone.billing.v1.MsgUpdateParams\x1a*.zerone.billing.v1.MsgUpdateParamsResponseB0Z.github.com/zerone-chain/zerone/x/billing/typesb\x06proto3"
+	"\fUpdateParams\x12\".zerone.billing.v1.MsgUpdateParams\x1a*.zerone.billing.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B0Z.github.com/zerone-chain/zerone/x/billing/typesb\x06proto3"
 
 var (
 	file_zerone_billing_v1_tx_proto_rawDescOnce sync.Once

@@ -2,10 +2,14 @@ syntax = "proto3";
 package zerone.schedule.v1;
 option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
 
+import "cosmos/msg/v1/msg.proto";
+
 import "zerone/schedule/v1/types.proto";
 import "zerone/schedule/v1/genesis.proto";
 
 service Msg {
+  option (cosmos.msg.v1.service) = true;
+
   rpc CreateSchedule(MsgCreateSchedule) returns (MsgCreateScheduleResponse);
   rpc PauseSchedule(MsgPauseSchedule) returns (MsgPauseScheduleResponse);
   rpc ResumeSchedule(MsgResumeSchedule) returns (MsgResumeScheduleResponse);
@@ -15,6 +19,8 @@ service Msg {
 }
 
 message MsgCreateSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
   string creator             = 1;
   ScheduleCondition condition = 2;
   uint64 max_executions      = 3;
@@ -32,18 +38,24 @@ message MsgCreateScheduleResponse {
 }
 
 message MsgPauseSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
   string creator    = 1;
   string process_id = 2;
 }
 message MsgPauseScheduleResponse {}
 
 message MsgResumeSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
   string creator    = 1;
   string process_id = 2;
 }
 message MsgResumeScheduleResponse {}
 
 message MsgCancelSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
   string creator    = 1;
   string process_id = 2;
 }
@@ -52,6 +64,8 @@ message MsgCancelScheduleResponse {
 }
 
 message MsgFundSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
   string creator    = 1;
   string process_id = 2;
   string amount     = 3;
@@ -59,6 +73,8 @@ message MsgFundSchedule {
 message MsgFundScheduleResponse {}
 
 message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
   string authority = 1;
   Params params    = 2;
 }

@@ -7,6 +7,7 @@
 package types
 
 import (
+	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -569,41 +570,41 @@ var File_zerone_compute_pool_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_compute_pool_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	"\x1fzerone/compute_pool/v1/tx.proto\x12\x16zerone.compute_pool.v1\x1a$zerone/compute_pool/v1/genesis.proto\"\xa4\x01\n" +
+	"\x1fzerone/compute_pool/v1/tx.proto\x12\x16zerone.compute_pool.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a$zerone/compute_pool/v1/genesis.proto\"\xb1\x01\n" +
 	"\x13MsgRegisterProvider\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12!\n" +
 	"\fservice_type\x18\x02 \x01(\tR\vserviceType\x12\x1a\n" +
 	"\bendpoint\x18\x03 \x01(\tR\bendpoint\x12 \n" +
 	"\fprice_per_cu\x18\x04 \x01(\tR\n" +
 	"pricePerCu\x12\x14\n" +
-	"\x05stake\x18\x05 \x01(\tR\x05stake\"\x1d\n" +
-	"\x1bMsgRegisterProviderResponse\"/\n" +
+	"\x05stake\x18\x05 \x01(\tR\x05stake:\v\x82\xe7\xb0*\x06sender\"\x1d\n" +
+	"\x1bMsgRegisterProviderResponse\"<\n" +
 	"\x15MsgUnregisterProvider\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\"\x1f\n" +
-	"\x1dMsgUnregisterProviderResponse\"&\n" +
+	"\x06sender\x18\x01 \x01(\tR\x06sender:\v\x82\xe7\xb0*\x06sender\"\x1f\n" +
+	"\x1dMsgUnregisterProviderResponse\"3\n" +
 	"\fMsgHeartbeat\x12\x16\n" +
-	"\x06sender\x18\x01 \x01(\tR\x06sender\"\x16\n" +
-	"\x14MsgHeartbeatResponse\"E\n" +
+	"\x06sender\x18\x01 \x01(\tR\x06sender:\v\x82\xe7\xb0*\x06sender\"\x16\n" +
+	"\x14MsgHeartbeatResponse\"R\n" +
 	"\x0eMsgUpdatePrice\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x1b\n" +
-	"\tnew_price\x18\x02 \x01(\tR\bnewPrice\"\x18\n" +
-	"\x16MsgUpdatePriceResponse\"B\n" +
+	"\tnew_price\x18\x02 \x01(\tR\bnewPrice:\v\x82\xe7\xb0*\x06sender\"\x18\n" +
+	"\x16MsgUpdatePriceResponse\"O\n" +
 	"\x10MsgRedeemCredits\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x04R\x06amount\"?\n" +
+	"\x06amount\x18\x02 \x01(\x04R\x06amount:\v\x82\xe7\xb0*\x06sender\"?\n" +
 	"\x18MsgRedeemCreditsResponse\x12#\n" +
-	"\rredeemed_uzrn\x18\x01 \x01(\tR\fredeemedUzrn\"g\n" +
+	"\rredeemed_uzrn\x18\x01 \x01(\tR\fredeemedUzrn\"w\n" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x126\n" +
-	"\x06params\x18\x02 \x01(\v2\x1e.zerone.compute_pool.v1.ParamsR\x06params\"\x19\n" +
-	"\x17MsgUpdateParamsResponse2\x96\x05\n" +
+	"\x06params\x18\x02 \x01(\v2\x1e.zerone.compute_pool.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
+	"\x17MsgUpdateParamsResponse2\x9d\x05\n" +
 	"\x03Msg\x12t\n" +
 	"\x10RegisterProvider\x12+.zerone.compute_pool.v1.MsgRegisterProvider\x1a3.zerone.compute_pool.v1.MsgRegisterProviderResponse\x12z\n" +
 	"\x12UnregisterProvider\x12-.zerone.compute_pool.v1.MsgUnregisterProvider\x1a5.zerone.compute_pool.v1.MsgUnregisterProviderResponse\x12_\n" +
 	"\tHeartbeat\x12$.zerone.compute_pool.v1.MsgHeartbeat\x1a,.zerone.compute_pool.v1.MsgHeartbeatResponse\x12e\n" +
 	"\vUpdatePrice\x12&.zerone.compute_pool.v1.MsgUpdatePrice\x1a..zerone.compute_pool.v1.MsgUpdatePriceResponse\x12k\n" +
 	"\rRedeemCredits\x12(.zerone.compute_pool.v1.MsgRedeemCredits\x1a0.zerone.compute_pool.v1.MsgRedeemCreditsResponse\x12h\n" +
-	"\fUpdateParams\x12'.zerone.compute_pool.v1.MsgUpdateParams\x1a/.zerone.compute_pool.v1.MsgUpdateParamsResponseB5Z3github.com/zerone-chain/zerone/x/compute_pool/typesb\x06proto3"
+	"\fUpdateParams\x12'.zerone.compute_pool.v1.MsgUpdateParams\x1a/.zerone.compute_pool.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B5Z3github.com/zerone-chain/zerone/x/compute_pool/typesb\x06proto3"
 
 var (
 	file_zerone_compute_pool_v1_tx_proto_rawDescOnce sync.Once

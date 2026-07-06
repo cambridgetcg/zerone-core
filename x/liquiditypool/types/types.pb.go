@@ -154,6 +154,7 @@ type TWAPAccumulator struct {
 	LastBlock     uint64                 `protobuf:"varint,2,opt,name=last_block,json=lastBlock,proto3" json:"last_block,omitempty"`
 	CumPriceAToB  string                 `protobuf:"bytes,3,opt,name=cum_price_a_to_b,json=cumPriceAToB,proto3" json:"cum_price_a_to_b,omitempty"` // bigint string (1e12 scale)
 	CumPriceBToA  string                 `protobuf:"bytes,4,opt,name=cum_price_b_to_a,json=cumPriceBToA,proto3" json:"cum_price_b_to_a,omitempty"` // bigint string (1e12 scale)
+	StartBlock    uint64                 `protobuf:"varint,5,opt,name=start_block,json=startBlock,proto3" json:"start_block,omitempty"`            // height accumulation began — TWAP divisor is last_block - start_block
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -214,6 +215,13 @@ func (x *TWAPAccumulator) GetCumPriceBToA() string {
 		return x.CumPriceBToA
 	}
 	return ""
+}
+
+func (x *TWAPAccumulator) GetStartBlock() uint64 {
+	if x != nil {
+		return x.StartBlock
+	}
+	return 0
 }
 
 // SwapResult contains the output of a swap calculation.
@@ -303,13 +311,15 @@ const file_zerone_liquiditypool_v1_types_proto_rawDesc = "" +
 	"\acreator\x18\t \x01(\tR\acreator\x12(\n" +
 	"\x10created_at_block\x18\n" +
 	" \x01(\x04R\x0ecreatedAtBlock\x12\x16\n" +
-	"\x06locked\x18\v \x01(\bR\x06locked\"\x99\x01\n" +
+	"\x06locked\x18\v \x01(\bR\x06locked\"\xba\x01\n" +
 	"\x0fTWAPAccumulator\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12\x1d\n" +
 	"\n" +
 	"last_block\x18\x02 \x01(\x04R\tlastBlock\x12&\n" +
 	"\x10cum_price_a_to_b\x18\x03 \x01(\tR\fcumPriceAToB\x12&\n" +
-	"\x10cum_price_b_to_a\x18\x04 \x01(\tR\fcumPriceBToA\"\xa7\x01\n" +
+	"\x10cum_price_b_to_a\x18\x04 \x01(\tR\fcumPriceBToA\x12\x1f\n" +
+	"\vstart_block\x18\x05 \x01(\x04R\n" +
+	"startBlock\"\xa7\x01\n" +
 	"\n" +
 	"SwapResult\x12&\n" +
 	"\x0ftoken_out_denom\x18\x01 \x01(\tR\rtokenOutDenom\x12(\n" +

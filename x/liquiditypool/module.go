@@ -101,7 +101,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return am.keeper.ExportGenesisJSON(ctx)
 }
 
-func (AppModule) ConsensusVersion() uint64 { return 1 }
+// ConsensusVersion 2: TWAPAccumulator gains StartBlock (Migrate1to2 backfills
+// it from the pool's creation height so the TWAP divisor is exact).
+func (AppModule) ConsensusVersion() uint64 { return 2 }
 
 // BeginBlock updates TWAP accumulators for all pools each block.
 func (am AppModule) BeginBlock(goCtx context.Context) error {

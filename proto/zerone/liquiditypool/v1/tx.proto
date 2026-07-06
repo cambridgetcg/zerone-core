@@ -3,11 +3,14 @@ package zerone.liquiditypool.v1;
 
 option go_package = "github.com/zerone-chain/zerone/x/liquiditypool/types";
 
+import "cosmos/msg/v1/msg.proto";
 import "zerone/liquiditypool/v1/types.proto";
 import "zerone/liquiditypool/v1/genesis.proto";
 
 // Msg defines the liquiditypool module transaction service.
 service Msg {
+  option (cosmos.msg.v1.service) = true;
+
   // Pool lifecycle
   rpc CreatePool(MsgCreatePool) returns (MsgCreatePoolResponse);
 
@@ -25,6 +28,8 @@ service Msg {
 // --- CreatePool ---
 
 message MsgCreatePool {
+  option (cosmos.msg.v1.signer) = "creator";
+
   string creator      = 1; // governance authority address
   string denom_a      = 2;
   string denom_b      = 3;
@@ -39,6 +44,8 @@ message MsgCreatePoolResponse {
 // --- Swap ---
 
 message MsgSwap {
+  option (cosmos.msg.v1.signer) = "sender";
+
   string sender         = 1;
   string pool_id        = 2;
   string token_in_denom = 3;
@@ -53,6 +60,8 @@ message MsgSwapResponse {
 // --- AddLiquidity ---
 
 message MsgAddLiquidity {
+  option (cosmos.msg.v1.signer) = "sender";
+
   string sender       = 1;
   string pool_id      = 2;
   string amount_a     = 3; // desired bigint string
@@ -68,6 +77,8 @@ message MsgAddLiquidityResponse {
 // --- RemoveLiquidity ---
 
 message MsgRemoveLiquidity {
+  option (cosmos.msg.v1.signer) = "sender";
+
   string sender      = 1;
   string pool_id     = 2;
   string lp_tokens   = 3; // bigint string
@@ -82,6 +93,8 @@ message MsgRemoveLiquidityResponse {
 // --- UpdateParams ---
 
 message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
   string authority = 1;
   Params params    = 2;
 }

@@ -116,6 +116,7 @@ func (m msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (
 	m.Keeper.SetTWAPAccumulator(ctx, &types.TWAPAccumulator{
 		PoolId:       poolId,
 		LastBlock:    uint64(ctx.BlockHeight()),
+		StartBlock:   uint64(ctx.BlockHeight()),
 		CumPriceAToB: "0",
 		CumPriceBToA: "0",
 	})

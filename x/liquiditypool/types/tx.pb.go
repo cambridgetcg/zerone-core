@@ -7,6 +7,7 @@
 package types
 
 import (
+	_ "github.com/cosmos/cosmos-sdk/types/msgservice"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -633,7 +634,7 @@ var File_zerone_liquiditypool_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_liquiditypool_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	" zerone/liquiditypool/v1/tx.proto\x12\x17zerone.liquiditypool.v1\x1a#zerone/liquiditypool/v1/types.proto\x1a%zerone/liquiditypool/v1/genesis.proto\"\xb3\x01\n" +
+	" zerone/liquiditypool/v1/tx.proto\x12\x17zerone.liquiditypool.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a#zerone/liquiditypool/v1/types.proto\x1a%zerone/liquiditypool/v1/genesis.proto\"\xc1\x01\n" +
 	"\rMsgCreatePool\x12\x18\n" +
 	"\acreator\x18\x01 \x01(\tR\acreator\x12\x17\n" +
 	"\adenom_a\x18\x02 \x01(\tR\x06denomA\x12\x17\n" +
@@ -641,29 +642,29 @@ const file_zerone_liquiditypool_v1_tx_proto_rawDesc = "" +
 	"\bamount_a\x18\x04 \x01(\tR\aamountA\x12\x19\n" +
 	"\bamount_b\x18\x05 \x01(\tR\aamountB\x12 \n" +
 	"\fswap_fee_bps\x18\x06 \x01(\x04R\n" +
-	"swapFeeBps\"0\n" +
+	"swapFeeBps:\f\x82\xe7\xb0*\acreator\"0\n" +
 	"\x15MsgCreatePoolResponse\x12\x17\n" +
-	"\apool_id\x18\x01 \x01(\tR\x06poolId\"\xac\x01\n" +
+	"\apool_id\x18\x01 \x01(\tR\x06poolId\"\xb9\x01\n" +
 	"\aMsgSwap\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x17\n" +
 	"\apool_id\x18\x02 \x01(\tR\x06poolId\x12$\n" +
 	"\x0etoken_in_denom\x18\x03 \x01(\tR\ftokenInDenom\x12&\n" +
 	"\x0ftoken_in_amount\x18\x04 \x01(\tR\rtokenInAmount\x12\"\n" +
-	"\rmin_token_out\x18\x05 \x01(\tR\vminTokenOut\"Z\n" +
+	"\rmin_token_out\x18\x05 \x01(\tR\vminTokenOut:\v\x82\xe7\xb0*\x06sender\"Z\n" +
 	"\x0fMsgSwapResponse\x12(\n" +
 	"\x10token_out_amount\x18\x01 \x01(\tR\x0etokenOutAmount\x12\x1d\n" +
 	"\n" +
-	"fee_amount\x18\x02 \x01(\tR\tfeeAmount\"\x9c\x01\n" +
+	"fee_amount\x18\x02 \x01(\tR\tfeeAmount\"\xa9\x01\n" +
 	"\x0fMsgAddLiquidity\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x17\n" +
 	"\apool_id\x18\x02 \x01(\tR\x06poolId\x12\x19\n" +
 	"\bamount_a\x18\x03 \x01(\tR\aamountA\x12\x19\n" +
 	"\bamount_b\x18\x04 \x01(\tR\aamountB\x12\"\n" +
-	"\rmin_lp_tokens\x18\x05 \x01(\tR\vminLpTokens\"y\n" +
+	"\rmin_lp_tokens\x18\x05 \x01(\tR\vminLpTokens:\v\x82\xe7\xb0*\x06sender\"y\n" +
 	"\x17MsgAddLiquidityResponse\x12(\n" +
 	"\x10lp_tokens_minted\x18\x01 \x01(\tR\x0elpTokensMinted\x12\x19\n" +
 	"\bactual_a\x18\x02 \x01(\tR\aactualA\x12\x19\n" +
-	"\bactual_b\x18\x03 \x01(\tR\aactualB\"\xa6\x01\n" +
+	"\bactual_b\x18\x03 \x01(\tR\aactualB\"\xb3\x01\n" +
 	"\x12MsgRemoveLiquidity\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x17\n" +
 	"\apool_id\x18\x02 \x01(\tR\x06poolId\x12\x1b\n" +
@@ -671,21 +672,21 @@ const file_zerone_liquiditypool_v1_tx_proto_rawDesc = "" +
 	"\fmin_amount_a\x18\x04 \x01(\tR\n" +
 	"minAmountA\x12 \n" +
 	"\fmin_amount_b\x18\x05 \x01(\tR\n" +
-	"minAmountB\"R\n" +
+	"minAmountB:\v\x82\xe7\xb0*\x06sender\"R\n" +
 	"\x1aMsgRemoveLiquidityResponse\x12\x19\n" +
 	"\bamount_a\x18\x01 \x01(\tR\aamountA\x12\x19\n" +
-	"\bamount_b\x18\x02 \x01(\tR\aamountB\"h\n" +
+	"\bamount_b\x18\x02 \x01(\tR\aamountB\"x\n" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x127\n" +
-	"\x06params\x18\x02 \x01(\v2\x1f.zerone.liquiditypool.v1.ParamsR\x06params\"\x19\n" +
-	"\x17MsgUpdateParamsResponse2\x8c\x04\n" +
+	"\x06params\x18\x02 \x01(\v2\x1f.zerone.liquiditypool.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
+	"\x17MsgUpdateParamsResponse2\x93\x04\n" +
 	"\x03Msg\x12d\n" +
 	"\n" +
 	"CreatePool\x12&.zerone.liquiditypool.v1.MsgCreatePool\x1a..zerone.liquiditypool.v1.MsgCreatePoolResponse\x12R\n" +
 	"\x04Swap\x12 .zerone.liquiditypool.v1.MsgSwap\x1a(.zerone.liquiditypool.v1.MsgSwapResponse\x12j\n" +
 	"\fAddLiquidity\x12(.zerone.liquiditypool.v1.MsgAddLiquidity\x1a0.zerone.liquiditypool.v1.MsgAddLiquidityResponse\x12s\n" +
 	"\x0fRemoveLiquidity\x12+.zerone.liquiditypool.v1.MsgRemoveLiquidity\x1a3.zerone.liquiditypool.v1.MsgRemoveLiquidityResponse\x12j\n" +
-	"\fUpdateParams\x12(.zerone.liquiditypool.v1.MsgUpdateParams\x1a0.zerone.liquiditypool.v1.MsgUpdateParamsResponseB6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
+	"\fUpdateParams\x12(.zerone.liquiditypool.v1.MsgUpdateParams\x1a0.zerone.liquiditypool.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
 
 var (
 	file_zerone_liquiditypool_v1_tx_proto_rawDescOnce sync.Once
