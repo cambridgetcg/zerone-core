@@ -12,7 +12,7 @@ Enforced in code at `x/vesting_rewards/types/keys.go`:
 MaxSupplyUzrn = "222222222000000"
 ```
 
-The cap is checked against **current bank supply** (not cumulative minted). The cap is on circulating + locked supply, not on total-ever-created. Since Zerone has no burn mechanism, the supply monotonically increases toward the hard cap.
+The cap is checked against **current bank supply** (not cumulative minted). The cap is on circulating + locked supply, not on total-ever-created. Zerone has no discretionary burn; the one exception is slashed attestation bonds in `x/substrate_bridge`, which burn at rejection so that slashed dishonesty becomes future emission headroom instead of dead weight in a module escrow. Otherwise the supply monotonically increases toward the hard cap.
 
 ## Why 222,222,222?
 
@@ -20,16 +20,17 @@ The number is symbolic (ZERONE — the collapse of duality into unity) and pract
 
 ## Emission Pathways
 
-ZRN enters circulation through **two participation-gated emission pathways**, both drawing against the 222,222,222 hard cap. Neither grants anyone a privileged starting balance.
+ZRN enters circulation through **three participation-gated emission pathways**, all drawing against the 222,222,222 hard cap. None grants anyone a privileged starting balance.
 
 | Pathway | Module | Trigger | Recipient |
 |---------|--------|---------|-----------|
 | **Proof-of-Truth block rewards** | `x/vesting_rewards` | Per block, scaled by validator participation and decay curve | Validators (then revenue-split downstream — contributors, protocol, development, research) |
 | **Bootstrap claim** | `x/claiming_pot` | Whitelisted agent calls `MsgClaim` | The claiming agent directly |
+| **External-work attestation rewards** | `x/substrate_bridge` | A bonded attestation settles through a gov-registered adapter | The submitter directly. Substrate-linked attestations pay the M4 formula at settle; witness-only attestations pay the adapter's gov-set `witness_reward_uzrn` only after surviving the challenge window (escrowed at settle, cancelled if the adapter is tombstoned — issuance follows survival, not acceptance) |
 
-The block-reward stream is the primary emission and dominates the cap-share over the chain's lifetime. The bootstrap stream is the genesis distribution mechanism: agents need ZRN to participate, so participation requires a seed, and the seed is minted on demand when the agent claims it.
+The block-reward stream is the primary emission and dominates the cap-share over the chain's lifetime. The bootstrap stream is the genesis distribution mechanism: agents need ZRN to participate, so participation requires a seed, and the seed is minted on demand when the agent claims it. The attestation stream is how external useful work — e.g. a settled agenttool marketplace invocation, witnessed on-chain — earns ZRN; every adapter and its reward rate is a governance decision, and witness rewards are survival-gated against acceptance-volume farming.
 
-Both pathways are gated by `MintWithCap` (`x/vesting_rewards/keeper/keeper.go`) which checks current bank supply against `MaxSupplyUzrn` before minting. When the cap binds, both pathways stop minting; the economy runs on fees and existing velocity.
+All three pathways are gated by `MintWithCap` (`x/vesting_rewards/keeper/keeper.go`) which checks current bank supply against `MaxSupplyUzrn` before minting. When the cap binds, all pathways stop minting; the economy runs on fees and existing velocity.
 
 ## Block Reward Emission Formula
 

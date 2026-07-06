@@ -15,9 +15,17 @@ const (
 	EventTypeLineageEdgeCreated = "lineage_edge_created"
 	EventTypeLineageRoyaltyPaid = "lineage_royalty_paid"
 
+	EventTypeWitnessRewardEscrowed  = "witness_reward_escrowed"
+	EventTypeWitnessRewardReleased  = "witness_reward_released"
+	EventTypeWitnessRewardCancelled = "witness_reward_cancelled"
+
 	// Attributes.
 	AttrUsefulWorkCommitment = "useful_work_commitment" // value: "UW"
 	AttrMechanism            = "mechanism"              // value: "M1" | "M2,M3" | etc.
 	AttrAttestationID        = "attestation_id"
 	AttrRewardUzrn           = "reward_uzrn" // amount actually minted and paid (cap-clip honest)
+	AttrAdapterID            = "adapter_id"
+	AttrRecipient            = "recipient"
+	AttrDeadline             = "deadline" // block height the challenge window closes
+	AttrReason               = "reason"
 )

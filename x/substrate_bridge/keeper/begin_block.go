@@ -48,5 +48,8 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		}
 	}
 
+	// Witness-reward escrows whose challenge window closed.
+	k.SweepWitnessRewards(ctx)
+
 	return nil
 }

@@ -34,8 +34,12 @@ type Params struct {
 	MaxPropagationDepth               uint32                 `protobuf:"varint,9,opt,name=max_propagation_depth,json=maxPropagationDepth,proto3" json:"max_propagation_depth,omitempty"`
 	MinPropagationUzrn                string                 `protobuf:"bytes,10,opt,name=min_propagation_uzrn,json=minPropagationUzrn,proto3" json:"min_propagation_uzrn,omitempty"`
 	SelfCitationCapBps                uint32                 `protobuf:"varint,11,opt,name=self_citation_cap_bps,json=selfCitationCapBps,proto3" json:"self_citation_cap_bps,omitempty"`
-	unknownFields                     protoimpl.UnknownFields
-	sizeCache                         protoimpl.SizeCache
+	// Blocks between a witness-only settlement and its reward release.
+	// The escrow's challenge window: tombstoning the adapter inside it
+	// cancels pending rewards. 0 falls back to a ~1-day defensive default.
+	WitnessRewardChallengeWindowBlocks uint64 `protobuf:"varint,12,opt,name=witness_reward_challenge_window_blocks,json=witnessRewardChallengeWindowBlocks,proto3" json:"witness_reward_challenge_window_blocks,omitempty"`
+	unknownFields                      protoimpl.UnknownFields
+	sizeCache                          protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -145,11 +149,18 @@ func (x *Params) GetSelfCitationCapBps() uint32 {
 	return 0
 }
 
+func (x *Params) GetWitnessRewardChallengeWindowBlocks() uint64 {
+	if x != nil {
+		return x.WitnessRewardChallengeWindowBlocks
+	}
+	return 0
+}
+
 var File_zerone_substrate_bridge_v1_params_proto protoreflect.FileDescriptor
 
 const file_zerone_substrate_bridge_v1_params_proto_rawDesc = "" +
 	"\n" +
-	"'zerone/substrate_bridge/v1/params.proto\x12\x1azerone.substrate_bridge.v1\"\x93\x05\n" +
+	"'zerone/substrate_bridge/v1/params.proto\x12\x1azerone.substrate_bridge.v1\"\xe7\x05\n" +
 	"\x06Params\x12J\n" +
 	"\"max_pending_claims_per_attestation\x18\x01 \x01(\rR\x1emaxPendingClaimsPerAttestation\x12<\n" +
 	"\x1bper_pending_claim_bond_uzrn\x18\x02 \x01(\tR\x17perPendingClaimBondUzrn\x129\n" +
@@ -162,7 +173,8 @@ const file_zerone_substrate_bridge_v1_params_proto_rawDesc = "" +
 	"\x15max_propagation_depth\x18\t \x01(\rR\x13maxPropagationDepth\x120\n" +
 	"\x14min_propagation_uzrn\x18\n" +
 	" \x01(\tR\x12minPropagationUzrn\x121\n" +
-	"\x15self_citation_cap_bps\x18\v \x01(\rR\x12selfCitationCapBpsB9Z7github.com/zerone-chain/zerone/x/substrate_bridge/typesb\x06proto3"
+	"\x15self_citation_cap_bps\x18\v \x01(\rR\x12selfCitationCapBps\x12R\n" +
+	"&witness_reward_challenge_window_blocks\x18\f \x01(\x04R\"witnessRewardChallengeWindowBlocksB9Z7github.com/zerone-chain/zerone/x/substrate_bridge/typesb\x06proto3"
 
 var (
 	file_zerone_substrate_bridge_v1_params_proto_rawDescOnce sync.Once

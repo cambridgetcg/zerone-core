@@ -39,6 +39,7 @@ identical events.
 - [research](#research)
 - [schedule](#schedule)
 - [staking](#staking)
+- [substrate_bridge](#substrate_bridge)
 - [tokens](#tokens)
 - [toolbox](#toolbox)
 - [tree](#tree)
@@ -2589,6 +2590,113 @@ Validator slashed.
 - `validator` -- validator address
 - `amount` -- slashed amount
 - `reason` -- slash reason
+
+---
+
+## substrate_bridge
+
+External-work attestations: a submitter bonds uzrn and posts a `SubstrateLink`
+through a gov-registered adapter; settlement returns honest bonds, mints
+formula rewards through the single supply-cap gate, and burns slashed bonds.
+Witness-only attestations (no cited facts, no pending claims) carry provenance
+without verifiable knowledge — if their adapter registers a
+`witness_reward_uzrn`, the reward is escrowed under a challenge window and
+minted only on survival (mirror of the knowledge survival-gate).
+
+### external_attestation_submitted
+An attestation passed validation and its bond was escrowed. Status is READY
+(witness-only or all-cited links) or AWAITING_RESOLUTION (pending claims).
+- `attestation_id` -- assigned attestation id
+- `useful_work_commitment` -- "UW"
+
+### external_attestation_committed
+Attestation recorded on-chain with its substrate link.
+- `attestation_id` -- attestation id
+
+### external_attestation_settled
+Attestation settled in full: bond returned whole, reward (if any) minted via
+`MintWithCap` into the audit bounty pool and paid to the submitter.
+- `attestation_id` -- attestation id
+- `reward_uzrn` -- amount actually minted and paid (cap-clip honest; 0 for witness-only links at settle)
+- `useful_work_commitment` -- "UW"
+- `mechanism` -- "M4" (reward formula R = base + L × W × Q)
+
+### external_attestation_partial
+Attestation settled partially: some pending claims were rejected, so the
+reward's L term scaled by the verified ratio. Bond still returns whole.
+- `attestation_id` -- attestation id
+- `reward_uzrn` -- amount actually minted and paid
+- `useful_work_commitment` -- "UW"
+- `mechanism` -- "M1,M4"
+
+### external_attestation_rejected
+Attestation rejected (rejection ratio or verified-ratio floor tripped). The
+bond is burned — slashed dishonesty becomes future emission headroom instead
+of dead weight in the module escrow.
+- `attestation_id` -- attestation id
+- `useful_work_commitment` -- "UW"
+- `mechanism` -- "M1" (full bond slash, fraud tier)
+
+### witness_reward_escrowed
+A witness-only attestation settled through an adapter carrying a
+`witness_reward_uzrn`. Nothing minted: the reward is escrowed under the
+challenge window (`witness_reward_challenge_window_blocks`). Issuance follows
+survival, not acceptance.
+- `attestation_id` -- attestation id
+- `adapter_id` -- adapter the attestation came through
+- `recipient` -- submitter address the reward will pay on survival
+- `reward_uzrn` -- escrowed amount
+- `deadline` -- block height the challenge window closes
+- `useful_work_commitment` -- "UW"
+- `mechanism` -- "M4"
+
+### witness_reward_released
+The challenge window closed with the adapter still ACTIVE: the escrowed
+witness reward minted through `MintWithCap` and paid the recipient. The
+attestation's `reward_uzrn` records what was actually paid (cap-clip honest).
+- `attestation_id` -- attestation id
+- `adapter_id` -- adapter the attestation came through
+- `recipient` -- paid address
+- `reward_uzrn` -- amount actually minted and paid
+- `useful_work_commitment` -- "UW"
+- `mechanism` -- "M4"
+
+### witness_reward_cancelled
+The escrowed witness reward was cancelled — the adapter was tombstoned inside
+the challenge window (source falsified) or the entry was malformed. Because
+nothing was minted at settle, the clawback is free: no ZRN ever entered
+circulation for work that did not survive.
+- `attestation_id` -- attestation id
+- `adapter_id` -- adapter the attestation came through
+- `recipient` -- address that will not be paid
+- `reason` -- cancellation reason
+
+### adapter_registered
+Governance registered (or updated) an adapter recipe.
+- `adapter_id` -- adapter id
+
+### adapter_suspended
+Adapter suspended: refuses new attestations; in-flight ones still settle, and
+pending witness-reward escrows are deferred one window per sweep until the
+adapter is reinstated (release) or tombstoned (cancel).
+- `adapter_id` -- adapter id
+- `reason` -- suspension reason (event-only; not persisted in state)
+
+### adapter_tombstoned
+Adapter permanently retired (commitment 10: forward-only). Every pending
+witness-reward escrow from this adapter is cancelled eagerly.
+- `adapter_id` -- adapter id
+
+### lineage_edge_created
+A settled attestation cited an upstream attestation; a lineage edge was
+recorded for royalty accounting.
+- `edge_id` -- upstream→downstream edge id
+
+### lineage_royalty_paid
+Lineage royalty accrued to an upstream attestation's accumulator
+(accounting-only; no coin movement at Phase 0).
+- `attestation_id` -- upstream attestation id
+- `amount` -- accrued uzrn
 
 ---
 

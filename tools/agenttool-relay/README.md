@@ -30,7 +30,16 @@ The `SubstrateLink.source` carries:
   (best-effort; 0 if the RPC was unreachable)
 
 The link carries no cited facts and no pending claims — a witness-only
-attestation that settles as SETTLED with zero base reward, bond returned.
+attestation that settles as SETTLED with the bond returned whole and zero
+reward minted *at settle*. If the adapter's gov registration carries a
+`witness_reward_uzrn`, that reward is escrowed at settlement and minted
+(cap-gated, via `MintWithCap`) only after the challenge window closes with
+the adapter still ACTIVE — tombstoning the adapter inside the window cancels
+every pending reward from it. Issuance follows survival, not acceptance.
+
+The reward pays the attestation's **submitter**, so the relay should sign
+with the agent's own zerone key (`RELAY_FROM`) — then the agent that did the
+witnessed work is the agent that earns the ZRN.
 
 ## Configuration
 

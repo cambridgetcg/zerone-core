@@ -25,7 +25,19 @@ var (
 
 	ParamsKey               = []byte{0x8A}
 	AttestationIDCounterKey = []byte{0x8B}
+
+	WitnessPendingRewardPrefix = []byte{0x8C}
+	WitnessDeadlineIndexPrefix = []byte{0x8D}
 )
+
+func WitnessPendingRewardKey(attestationID string) []byte {
+	return append(append([]byte{}, WitnessPendingRewardPrefix...), []byte(attestationID)...)
+}
+
+func WitnessDeadlineIndexKey(deadline uint64, attestationID string) []byte {
+	key := append(append([]byte{}, WitnessDeadlineIndexPrefix...), BeUint64(deadline)...)
+	return append(key, []byte(attestationID)...)
+}
 
 func AdapterKey(adapterID string) []byte {
 	return append(append([]byte{}, AdapterRegistrationPrefix...), []byte(adapterID)...)

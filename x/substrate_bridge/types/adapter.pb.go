@@ -216,8 +216,14 @@ type AdapterRegistration struct {
 	RegisteredViaLipId          string                 `protobuf:"bytes,13,opt,name=registered_via_lip_id,json=registeredViaLipId,proto3" json:"registered_via_lip_id,omitempty"`
 	RegisteredAtBlock           uint64                 `protobuf:"varint,14,opt,name=registered_at_block,json=registeredAtBlock,proto3" json:"registered_at_block,omitempty"`
 	TombstonedAtBlock           uint64                 `protobuf:"varint,15,opt,name=tombstoned_at_block,json=tombstonedAtBlock,proto3" json:"tombstoned_at_block,omitempty"` // 0 if not tombstoned
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
+	// Witness reward: uzrn minted (cap-gated) per witness-only attestation
+	// settled through this adapter. Escrowed for the challenge window before
+	// release — tombstoning the adapter inside the window cancels unpaid
+	// rewards (issuance follows survival, not acceptance). Empty or "0"
+	// means witness-only attestations return their bond and pay nothing.
+	WitnessRewardUzrn string `protobuf:"bytes,16,opt,name=witness_reward_uzrn,json=witnessRewardUzrn,proto3" json:"witness_reward_uzrn,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *AdapterRegistration) Reset() {
@@ -355,6 +361,13 @@ func (x *AdapterRegistration) GetTombstonedAtBlock() uint64 {
 	return 0
 }
 
+func (x *AdapterRegistration) GetWitnessRewardUzrn() string {
+	if x != nil {
+		return x.WitnessRewardUzrn
+	}
+	return ""
+}
+
 var File_zerone_substrate_bridge_v1_adapter_proto protoreflect.FileDescriptor
 
 const file_zerone_substrate_bridge_v1_adapter_proto_rawDesc = "" +
@@ -363,7 +376,7 @@ const file_zerone_substrate_bridge_v1_adapter_proto_rawDesc = "" +
 	"\rSlashGradient\x12,\n" +
 	"\x12compiler_drift_bps\x18\x01 \x01(\rR\x10compilerDriftBps\x12*\n" +
 	"\x11axis_overflow_bps\x18\x02 \x01(\rR\x0faxisOverflowBps\x12\x1b\n" +
-	"\tfraud_bps\x18\x03 \x01(\rR\bfraudBps\"\xde\x06\n" +
+	"\tfraud_bps\x18\x03 \x01(\rR\bfraudBps\"\x8e\a\n" +
 	"\x13AdapterRegistration\x12\x1d\n" +
 	"\n" +
 	"adapter_id\x18\x01 \x01(\tR\tadapterId\x12\x1f\n" +
@@ -383,7 +396,8 @@ const file_zerone_substrate_bridge_v1_adapter_proto_rawDesc = "" +
 	"\x06status\x18\f \x01(\x0e2).zerone.substrate_bridge.v1.AdapterStatusR\x06status\x121\n" +
 	"\x15registered_via_lip_id\x18\r \x01(\tR\x12registeredViaLipId\x12.\n" +
 	"\x13registered_at_block\x18\x0e \x01(\x04R\x11registeredAtBlock\x12.\n" +
-	"\x13tombstoned_at_block\x18\x0f \x01(\x04R\x11tombstonedAtBlock*\x87\x01\n" +
+	"\x13tombstoned_at_block\x18\x0f \x01(\x04R\x11tombstonedAtBlock\x12.\n" +
+	"\x13witness_reward_uzrn\x18\x10 \x01(\tR\x11witnessRewardUzrn*\x87\x01\n" +
 	"\rAdapterStatus\x12\x1e\n" +
 	"\x1aADAPTER_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15ADAPTER_STATUS_ACTIVE\x10\x01\x12\x1c\n" +

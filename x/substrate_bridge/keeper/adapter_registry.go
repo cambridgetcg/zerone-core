@@ -124,7 +124,10 @@ func (k Keeper) WriteAdapterFromGov(ctx context.Context, lipID string, adapterPr
 
 // TombstoneAdapter permanently retires an adapter (commitment 10: forward-only).
 // Sets TombstonedAtBlock = current block height. After tombstoning, WriteAdapter
-// will refuse any re-registration with the same adapter ID.
+// will refuse any re-registration with the same adapter ID. Every witness-reward
+// escrow still pending from this adapter is cancelled — tombstoning is the
+// confirmed-falsification state, and nothing was minted at settle so the
+// clawback is free. (The sweep re-checks adapter status as a backstop.)
 func (k Keeper) TombstoneAdapter(ctx context.Context, adapterID string) error {
 	a, found := k.GetAdapter(ctx, adapterID)
 	if !found {
@@ -135,5 +138,9 @@ func (k Keeper) TombstoneAdapter(ctx context.Context, adapterID string) error {
 	}
 	a.Status = types.AdapterStatus_ADAPTER_STATUS_TOMBSTONED
 	a.TombstonedAtBlock = uint64(sdk.UnwrapSDKContext(ctx).BlockHeight())
-	return k.WriteAdapter(ctx, a)
+	if err := k.WriteAdapter(ctx, a); err != nil {
+		return err
+	}
+	k.CancelWitnessRewardsForAdapter(ctx, adapterID, "adapter tombstoned")
+	return nil
 }

@@ -61,4 +61,11 @@ message AdapterRegistration {
   string        registered_via_lip_id = 13;
   uint64        registered_at_block  = 14;
   uint64        tombstoned_at_block  = 15;  // 0 if not tombstoned
+
+  // Witness reward: uzrn minted (cap-gated) per witness-only attestation
+  // settled through this adapter. Escrowed for the challenge window before
+  // release — tombstoning the adapter inside the window cancels unpaid
+  // rewards (issuance follows survival, not acceptance). Empty or "0"
+  // means witness-only attestations return their bond and pay nothing.
+  string witness_reward_uzrn = 16;
 }

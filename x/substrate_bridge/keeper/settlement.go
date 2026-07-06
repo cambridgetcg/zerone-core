@@ -32,9 +32,15 @@ func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) err
 
 	totalCount := uint32(len(att.Link.CitedFacts)) + uint32(len(att.Link.PendingClaims))
 	if totalCount == 0 {
-		// Witness-only link: nothing to reward, but the bond was honest
-		// collateral and returns whole.
-		return k.finalizeSettle(ctx, att, sdkmath.ZeroInt(), types.AttestationStatus_ATTESTATION_STATUS_SETTLED)
+		// Witness-only link: no verifiable knowledge to reward at settle —
+		// the bond was honest collateral and returns whole. If the adapter
+		// carries a witness reward, it is escrowed under the challenge
+		// window and minted only on survival (see witness_escrow.go).
+		if err := k.finalizeSettle(ctx, att, sdkmath.ZeroInt(), types.AttestationStatus_ATTESTATION_STATUS_SETTLED); err != nil {
+			return err
+		}
+		k.EscrowWitnessReward(ctx, att)
+		return nil
 	}
 
 	// Rejection threshold check.

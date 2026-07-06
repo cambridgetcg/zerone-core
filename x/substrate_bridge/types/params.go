@@ -17,6 +17,8 @@ func DefaultParams() Params {
 		MaxPropagationDepth:               5,
 		MinPropagationUzrn:                "1000",
 		SelfCitationCapBps:                5000,
+		// ~1 day at 2.521s blocks — matches x/knowledge ChallengeDurationBlocks.
+		WitnessRewardChallengeWindowBlocks: 34_272,
 	}
 }
 

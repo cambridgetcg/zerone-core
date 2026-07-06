@@ -15,4 +15,9 @@ message Params {
   uint32 max_propagation_depth    = 9;
   string min_propagation_uzrn     = 10;
   uint32 self_citation_cap_bps    = 11;
+
+  // Blocks between a witness-only settlement and its reward release.
+  // The escrow's challenge window: tombstoning the adapter inside it
+  // cancels pending rewards. 0 falls back to a ~1-day defensive default.
+  uint64 witness_reward_challenge_window_blocks = 12;
 }
