@@ -410,6 +410,10 @@ func (x *SessionKey) GetCapabilityGrants() []*CapabilityGrant {
 }
 
 // SessionCapabilities defines what a session key can do.
+//
+// Fields 7 (can_ica), 11 (can_research), and 12 (can_dispute) were
+// removed with the x/icaauth, x/research, and x/disputes modules
+// (2026-07 slim cut); their numbers are reserved and must not be reused.
 type SessionCapabilities struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	CanTransfer       bool                   `protobuf:"varint,1,opt,name=can_transfer,json=canTransfer,proto3" json:"can_transfer,omitempty"`
@@ -418,14 +422,11 @@ type SessionCapabilities struct {
 	CanVote           bool                   `protobuf:"varint,4,opt,name=can_vote,json=canVote,proto3" json:"can_vote,omitempty"`
 	MaxTransferAmount string                 `protobuf:"bytes,5,opt,name=max_transfer_amount,json=maxTransferAmount,proto3" json:"max_transfer_amount,omitempty"`
 	AllowedRecipients []string               `protobuf:"bytes,6,rep,name=allowed_recipients,json=allowedRecipients,proto3" json:"allowed_recipients,omitempty"`
-	// ICA capabilities
-	CanIca                bool     `protobuf:"varint,7,opt,name=can_ica,json=canIca,proto3" json:"can_ica,omitempty"`
+	// ICA session config (dormant — retained for x/auth session trim to own)
 	AllowedIcaConnections []string `protobuf:"bytes,8,rep,name=allowed_ica_connections,json=allowedIcaConnections,proto3" json:"allowed_ica_connections,omitempty"`
 	AllowedIcaMsgTypes    []string `protobuf:"bytes,9,rep,name=allowed_ica_msg_types,json=allowedIcaMsgTypes,proto3" json:"allowed_ica_msg_types,omitempty"`
 	// Agent autonomy capabilities
 	CanPartnership bool `protobuf:"varint,10,opt,name=can_partnership,json=canPartnership,proto3" json:"can_partnership,omitempty"`
-	CanResearch    bool `protobuf:"varint,11,opt,name=can_research,json=canResearch,proto3" json:"can_research,omitempty"`
-	CanDispute     bool `protobuf:"varint,12,opt,name=can_dispute,json=canDispute,proto3" json:"can_dispute,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -502,13 +503,6 @@ func (x *SessionCapabilities) GetAllowedRecipients() []string {
 	return nil
 }
 
-func (x *SessionCapabilities) GetCanIca() bool {
-	if x != nil {
-		return x.CanIca
-	}
-	return false
-}
-
 func (x *SessionCapabilities) GetAllowedIcaConnections() []string {
 	if x != nil {
 		return x.AllowedIcaConnections
@@ -526,20 +520,6 @@ func (x *SessionCapabilities) GetAllowedIcaMsgTypes() []string {
 func (x *SessionCapabilities) GetCanPartnership() bool {
 	if x != nil {
 		return x.CanPartnership
-	}
-	return false
-}
-
-func (x *SessionCapabilities) GetCanResearch() bool {
-	if x != nil {
-		return x.CanResearch
-	}
-	return false
-}
-
-func (x *SessionCapabilities) GetCanDispute() bool {
-	if x != nil {
-		return x.CanDispute
 	}
 	return false
 }
@@ -1012,22 +992,18 @@ const file_zerone_auth_v1_types_proto_rawDesc = "" +
 	"\fcapabilities\x18\x04 \x01(\v2#.zerone.auth.v1.SessionCapabilitiesR\fcapabilities\x12(\n" +
 	"\x10expires_at_block\x18\x05 \x01(\x04R\x0eexpiresAtBlock\x12(\n" +
 	"\x10created_at_block\x18\x06 \x01(\x04R\x0ecreatedAtBlock\x12L\n" +
-	"\x11capability_grants\x18\a \x03(\v2\x1f.zerone.auth.v1.CapabilityGrantR\x10capabilityGrants\"\xec\x03\n" +
+	"\x11capability_grants\x18\a \x03(\v2\x1f.zerone.auth.v1.CapabilityGrantR\x10capabilityGrants\"\xc5\x03\n" +
 	"\x13SessionCapabilities\x12!\n" +
 	"\fcan_transfer\x18\x01 \x01(\bR\vcanTransfer\x12\x1b\n" +
 	"\tcan_stake\x18\x02 \x01(\bR\bcanStake\x12*\n" +
 	"\x11can_submit_claims\x18\x03 \x01(\bR\x0fcanSubmitClaims\x12\x19\n" +
 	"\bcan_vote\x18\x04 \x01(\bR\acanVote\x12.\n" +
 	"\x13max_transfer_amount\x18\x05 \x01(\tR\x11maxTransferAmount\x12-\n" +
-	"\x12allowed_recipients\x18\x06 \x03(\tR\x11allowedRecipients\x12\x17\n" +
-	"\acan_ica\x18\a \x01(\bR\x06canIca\x126\n" +
+	"\x12allowed_recipients\x18\x06 \x03(\tR\x11allowedRecipients\x126\n" +
 	"\x17allowed_ica_connections\x18\b \x03(\tR\x15allowedIcaConnections\x121\n" +
 	"\x15allowed_ica_msg_types\x18\t \x03(\tR\x12allowedIcaMsgTypes\x12'\n" +
 	"\x0fcan_partnership\x18\n" +
-	" \x01(\bR\x0ecanPartnership\x12!\n" +
-	"\fcan_research\x18\v \x01(\bR\vcanResearch\x12\x1f\n" +
-	"\vcan_dispute\x18\f \x01(\bR\n" +
-	"canDispute\"\x89\x01\n" +
+	" \x01(\bR\x0ecanPartnershipJ\x04\b\a\x10\bJ\x04\b\v\x10\fJ\x04\b\f\x10\rR\acan_icaR\fcan_researchR\vcan_dispute\"\x89\x01\n" +
 	"\x0fCapabilityGrant\x12\x1e\n" +
 	"\n" +
 	"capability\x18\x01 \x01(\tR\n" +

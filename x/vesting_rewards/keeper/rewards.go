@@ -506,25 +506,13 @@ func (k Keeper) DistributeBlockReward(
 		citationBig := new(big.Int)
 		citationBig.SetString(routing.CitationPool, 10)
 
-		// Send verification pool to knowledge module
+		// Send verification pool to knowledge module.
+		// (The former 30% x/compute_pool slice was removed with that module
+		// in the 2026-07 slim cut — the full pool now funds verification.)
 		if verificationBig.Sign() > 0 {
-			// Split verification pool: 70% to knowledge, 30% to compute_pool
-			computePoolBig := new(big.Int).Mul(verificationBig, big.NewInt(int64(types.ComputePoolShareBps)))
-			computePoolBig.Div(computePoolBig, big.NewInt(1000000))
-			actualVerificationBig := new(big.Int).Sub(verificationBig, computePoolBig)
-
-			if actualVerificationBig.Sign() > 0 {
-				verificationCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(actualVerificationBig)))
-				if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.KnowledgeModuleName, verificationCoins); err != nil {
-					k.Logger(ctx).Error("failed to send verification pool share", "error", err)
-				}
-			}
-
-			if computePoolBig.Sign() > 0 {
-				computeCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(computePoolBig)))
-				if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.ComputePoolModuleName, computeCoins); err != nil {
-					k.Logger(ctx).Error("failed to send compute pool share", "error", err)
-				}
+			verificationCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(verificationBig)))
+			if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.KnowledgeModuleName, verificationCoins); err != nil {
+				k.Logger(ctx).Error("failed to send verification pool share", "error", err)
 			}
 		}
 

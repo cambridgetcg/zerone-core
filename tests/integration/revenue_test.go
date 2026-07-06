@@ -18,8 +18,6 @@ import (
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
-	treekeeper "github.com/zerone-chain/zerone/x/tree/keeper"
-	treetypes "github.com/zerone-chain/zerone/x/tree/types"
 	vestingkeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	vestingtypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -81,21 +79,15 @@ func TestCompleteRevenueMap(t *testing.T) {
 	protocolAmt := new(big.Int).Mul(totalMinted, big.NewInt(220000))
 	protocolAmt.Div(protocolAmt, bps)
 
-	// Protocol sub-split: verification 30%, then split into knowledge 70% + compute_pool 30%
+	// Protocol sub-split: the verification pool (30% of protocol) funds
+	// knowledge in full (the former compute_pool slice was removed with
+	// x/compute_pool in the slim cut).
 	verificationPool := new(big.Int).Mul(protocolAmt, big.NewInt(300000))
 	verificationPool.Div(verificationPool, bps)
-	computePool := new(big.Int).Mul(verificationPool, big.NewInt(300000))
-	computePool.Div(computePool, bps)
-	expectedKnowledge := new(big.Int).Sub(verificationPool, computePool)
 
 	knowledgeSent := h.bk.totalSentToModule("knowledge")
-	if !knowledgeSent.Equal(sdkmath.NewIntFromBigInt(expectedKnowledge)) {
-		t.Errorf("knowledge module received %s, want %s", knowledgeSent, expectedKnowledge)
-	}
-
-	computeSent := h.bk.totalSentToModule("compute_pool")
-	if !computeSent.Equal(sdkmath.NewIntFromBigInt(computePool)) {
-		t.Errorf("compute_pool received %s, want %s", computeSent, computePool)
+	if !knowledgeSent.Equal(sdkmath.NewIntFromBigInt(verificationPool)) {
+		t.Errorf("knowledge module received %s, want %s", knowledgeSent, verificationPool)
 	}
 
 	// SOURCE 2: Billing Service Revenue (55% provider / 22% knowledge / 3.33% research / 19.67% development)
@@ -140,28 +132,6 @@ func TestCompleteRevenueMap(t *testing.T) {
 		t.Errorf("billing distribution doesn't sum to total: got %s, want %s", fullSum, billingPayment)
 	}
 
-	// SOURCE 3: Tree Service Revenue (pure function)
-	treeDist := treekeeper.CalculateRevenue(
-		1000000,
-		550000, // 55% contributors
-		100000, // 10% treasury
-		33300,  // 3.33% research
-		196700, // 19.67% development
-		[]*treetypes.ContributorRecord{
-			{Did: "did:zrn:contributor1", TasksCompleted: 10},
-		},
-	)
-	protocolAlloc := int64(1000000) - treeDist.ContributorPool - treeDist.ResearchFund - treeDist.DevelopmentFund
-	expectedTreeTreasury := protocolAlloc - treeDist.VerificationPool
-	if treeDist.ProtocolTreasury != expectedTreeTreasury {
-		t.Errorf("tree treasury: got %d, want %d", treeDist.ProtocolTreasury, expectedTreeTreasury)
-	}
-	if treeDist.VerificationPool <= 0 {
-		t.Errorf("tree verification pool should be positive, got %d", treeDist.VerificationPool)
-	}
-	if treeDist.DevelopmentFund != 196700 {
-		t.Errorf("tree development fund: got %d, want 196700", treeDist.DevelopmentFund)
-	}
 }
 
 // ---------- Test 2: Founder Split Consistency ----------
@@ -176,7 +146,6 @@ func TestFounderSplitAllSources(t *testing.T) {
 
 	sources := []string{
 		"vesting_rewards",
-		"tree",
 		"billing",
 		"knowledge",
 	}
@@ -252,9 +221,7 @@ func TestNoDoubleTaxation(t *testing.T) {
 	protocolAmt.Div(protocolAmt, bps)
 	verificationPool := new(big.Int).Mul(protocolAmt, big.NewInt(300000))
 	verificationPool.Div(verificationPool, bps)
-	computePool := new(big.Int).Mul(verificationPool, big.NewInt(300000))
-	computePool.Div(computePool, bps)
-	expectedKnowledgeBalance := new(big.Int).Sub(verificationPool, computePool)
+	expectedKnowledgeBalance := verificationPool
 
 	if !knowledgeModuleBalance.Equal(sdkmath.NewIntFromBigInt(expectedKnowledgeBalance)) {
 		t.Errorf("knowledge module balance %s != expected %s — possible double taxation",
@@ -290,30 +257,6 @@ func TestNoDoubleTaxation(t *testing.T) {
 // ---------- Test 4: Service Revenue Development Fund ----------
 
 func TestServiceRevenueDevelopmentFund(t *testing.T) {
-	t.Run("tree_development_19.67pct", func(t *testing.T) {
-		total := int64(1000000)
-		dist := treekeeper.CalculateRevenue(
-			total,
-			550000, // 55% contributors
-			100000, // 10% treasury
-			33300,  // 3.33% research
-			196700, // 19.67% development
-			[]*treetypes.ContributorRecord{
-				{Did: "did:zrn:alice", TasksCompleted: 5},
-			},
-		)
-
-		expectedDev := total * 196700 / 1000000
-		if dist.DevelopmentFund != expectedDev {
-			t.Errorf("tree development fund: got %d, want %d", dist.DevelopmentFund, expectedDev)
-		}
-
-		sum := dist.ContributorPool + dist.ResearchFund + dist.ProtocolTreasury + dist.VerificationPool + dist.DevelopmentFund
-		if sum != total {
-			t.Errorf("tree sum %d != total %d (dust: %d)", sum, total, total-sum)
-		}
-	})
-
 	t.Run("billing_development_fund", func(t *testing.T) {
 		h := setupRevenueHarness(t)
 		payment := big.NewInt(1000000)
@@ -392,7 +335,6 @@ func TestDeadAccountsRemoved(t *testing.T) {
 	activeAccounts := map[string]bool{
 		"research_fund":    true,
 		"knowledge":        true,
-		"compute_pool":     true,
 		"development_fund": true,
 	}
 	for name := range activeAccounts {
@@ -630,11 +572,6 @@ func TestFullRevenueFlow_WithVerificationPool(t *testing.T) {
 		t.Error("knowledge module received zero from block reward — verification pool missing")
 	}
 
-	computeSent := h.bk.totalSentToModule("compute_pool")
-	if !computeSent.IsPositive() {
-		t.Error("compute_pool received zero from block reward")
-	}
-
 	// --- Part B: Billing payment 3-way protocol split ---
 	billingPayment := big.NewInt(1000000)
 	billingDist := h.billingKeeper.CalculateDistribution(h.ctx, billingPayment, []string{"fact-1"})
@@ -671,34 +608,4 @@ func TestFullRevenueFlow_WithVerificationPool(t *testing.T) {
 			fullSum, billingPayment, new(big.Int).Sub(billingPayment, fullSum))
 	}
 
-	// --- Part C: Tree revenue verification pool ---
-	treeDist := treekeeper.CalculateRevenue(
-		1000000,
-		550000, // 55% contributors
-		100000, // 10% treasury
-		33300,  // 3.33% research
-		196700, // 19.67% development
-		[]*treetypes.ContributorRecord{
-			{Did: "did:zrn:contributor1", TasksCompleted: 10},
-			{Did: "did:zrn:contributor2", TasksCompleted: 5},
-		},
-	)
-
-	if treeDist.VerificationPool <= 0 {
-		t.Errorf("tree verification pool should be positive, got %d", treeDist.VerificationPool)
-	}
-
-	treeSum := treeDist.ContributorPool + treeDist.ResearchFund +
-		treeDist.ProtocolTreasury + treeDist.VerificationPool + treeDist.DevelopmentFund
-	if treeSum != 1000000 {
-		t.Errorf("tree distribution doesn't sum to total: got %d, want 1000000 (dust: %d)",
-			treeSum, 1000000-treeSum)
-	}
-
-	// Protocol allocation = total - contrib - research - development = 1M - 550K - 33.3K - 196.7K = 220K
-	// Verification = 30% of protocol = 66,000
-	expectedVerifPool := int64(66000)
-	if treeDist.VerificationPool != expectedVerifPool {
-		t.Errorf("tree verification pool: got %d, want %d", treeDist.VerificationPool, expectedVerifPool)
-	}
 }

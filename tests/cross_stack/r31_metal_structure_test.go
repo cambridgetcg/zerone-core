@@ -11,79 +11,7 @@ import (
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	ontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
 	partnershipstypes "github.com/zerone-chain/zerone/x/partnerships/types"
-	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
 )
-
-// ─── Test 1: Metal → Water: Discovery matches scored higher with complementary qualifications ──
-
-func TestR31_MetalWater_DiscoveryComplementaryQualifications(t *testing.T) {
-	h := NewTestHarness(t)
-
-	seeker := "zerone1seeker000000000000000000000000000"
-	candidate := "zerone1candidate0000000000000000000000"
-
-	// Seeker qualified in "physics" and "biology"
-	h.App.QualificationKeeper.SetQualification(h.Ctx, &qualificationtypes.DomainQualification{
-		Validator: seeker,
-		Domain:    "physics",
-		Status:    qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE,
-		Weight:    50,
-	})
-	h.App.QualificationKeeper.SetQualification(h.Ctx, &qualificationtypes.DomainQualification{
-		Validator: seeker,
-		Domain:    "biology",
-		Status:    qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE,
-		Weight:    50,
-	})
-
-	// Candidate qualified in "chemistry" and "mathematics" (no overlap → fully complementary)
-	h.App.QualificationKeeper.SetQualification(h.Ctx, &qualificationtypes.DomainQualification{
-		Validator: candidate,
-		Domain:    "chemistry",
-		Status:    qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE,
-		Weight:    50,
-	})
-	h.App.QualificationKeeper.SetQualification(h.Ctx, &qualificationtypes.DomainQualification{
-		Validator: candidate,
-		Domain:    "mathematics",
-		Status:    qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE,
-		Weight:    50,
-	})
-
-	baseScore := uint64(500_000)
-
-	// ScoreDiscoveryMatch should boost the score because qualifications are complementary
-	boostedScore := h.DiscoveryKeeper.ScoreDiscoveryMatch(h.Ctx, seeker, candidate, baseScore)
-	require.Greater(t, boostedScore, baseScore,
-		"complementary qualifications must boost discovery match score")
-
-	// Fully complementary (0 overlap, 4 unique): complementarity = 4/4 * BPS = 1_000_000
-	// bonus = 1_000_000 * 200_000 / 1_000_000 = 200_000 (20%)
-	// result = 500_000 * (1_000_000 + 200_000) / 1_000_000 = 600_000
-	require.Equal(t, uint64(600_000), boostedScore,
-		"fully complementary qualifications should give 20%% bonus")
-
-	// Now test with overlapping qualifications — score should be lower than fully complementary
-	overlapper := "zerone1overlapper000000000000000000000"
-	h.App.QualificationKeeper.SetQualification(h.Ctx, &qualificationtypes.DomainQualification{
-		Validator: overlapper,
-		Domain:    "physics", // same as seeker
-		Status:    qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE,
-		Weight:    50,
-	})
-	h.App.QualificationKeeper.SetQualification(h.Ctx, &qualificationtypes.DomainQualification{
-		Validator: overlapper,
-		Domain:    "chemistry", // different from seeker
-		Status:    qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE,
-		Weight:    50,
-	})
-
-	partialScore := h.DiscoveryKeeper.ScoreDiscoveryMatch(h.Ctx, seeker, overlapper, baseScore)
-	require.Greater(t, partialScore, baseScore,
-		"partially complementary qualifications must still boost score")
-	require.Less(t, partialScore, boostedScore,
-		"partial overlap must give smaller bonus than full complementarity")
-}
 
 // ─── Test 2: Metal → Water: Cross-stratum mentorship gets 20% priority bonus ─────────
 

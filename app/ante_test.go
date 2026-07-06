@@ -20,10 +20,6 @@ func TestLookupMsgGas_KnownTypes(t *testing.T) {
 		{"/zerone.knowledge.v1.MsgSubmitClaim", TransactionGasCosts["claim_submit"]},
 		{"/zerone.staking.v1.MsgRegisterValidator", TransactionGasCosts["register_validator"]},
 		{"/zerone.bvm.v1.MsgDeployContract", TransactionGasCosts["deploy_contract"]},
-		{"/zerone.tree.v1.MsgCreateProject", TransactionGasCosts["create_project"]},
-		{"/zerone.tree.v1.MsgPauseProject", TransactionGasCosts["pause_project"]},
-		{"/zerone.tree.v1.MsgSubscribeService", TransactionGasCosts["subscribe_service"]},
-		{"/zerone.tree.v1.MsgSetAvailability", TransactionGasCosts["set_availability"]},
 		{"/zerone.emergency.v1.MsgProposeHalt", TransactionGasCosts["propose_halt"]},
 		{"/zerone.toolbox.v1.MsgRegisterTool", TransactionGasCosts["register_tool"]},
 		{"/zerone.alignment.v1.MsgActivate", TransactionGasCosts["activate_alignment"]},
@@ -170,54 +166,6 @@ func TestIsPartnershipMsg(t *testing.T) {
 	}
 }
 
-func TestIsResearchMsg(t *testing.T) {
-	trueCases := []string{
-		"/zerone.research.v1.MsgSubmitResearch",
-		"/zerone.research.v1.MsgCreateBounty",
-		"/zerone.research.v1.MsgFundResearch",
-	}
-	for _, tc := range trueCases {
-		if !isResearchMsg(tc) {
-			t.Errorf("isResearchMsg(%q) = false, want true", tc)
-		}
-	}
-}
-
-func TestIsDisputeMsg(t *testing.T) {
-	trueCases := []string{
-		"/zerone.disputes.v1.MsgInitiateDispute",
-		"/zerone.disputes.v1.MsgOpenDispute",
-		"/zerone.disputes.v1.MsgArbiterVote",
-	}
-	for _, tc := range trueCases {
-		if !isDisputeMsg(tc) {
-			t.Errorf("isDisputeMsg(%q) = false, want true", tc)
-		}
-	}
-}
-
-func TestIsICAMsg(t *testing.T) {
-	trueCases := []string{
-		"/zerone.icaauth.v1.MsgRegisterInterchainAccount",
-		"/zerone.icaauth.v1.MsgSendICATransaction",
-	}
-	for _, tc := range trueCases {
-		if !isICAMsg(tc) {
-			t.Errorf("isICAMsg(%q) = false, want true", tc)
-		}
-	}
-
-	falseCases := []string{
-		"/cosmos.bank.v1beta1.MsgSend",
-		"/zerone.knowledge.v1.MsgSubmitClaim",
-	}
-	for _, tc := range falseCases {
-		if isICAMsg(tc) {
-			t.Errorf("isICAMsg(%q) = true, want false", tc)
-		}
-	}
-}
-
 func TestIsClaimSubmissionMsg(t *testing.T) {
 	trueCases := []string{
 		"/zerone.knowledge.v1.MsgSubmitClaim",
@@ -315,9 +263,6 @@ func TestIsZeroneSpecificMsg(t *testing.T) {
 		"/zerone.knowledge.v1.MsgSubmitClaim",
 		"/zerone.knowledge.v1.MsgChallengeFact",
 		"/zerone.partnerships.v1.MsgInitiatePartnership",
-		"/zerone.research.v1.MsgSubmitResearch",
-		"/zerone.disputes.v1.MsgInitiateDispute",
-		"/zerone.icaauth.v1.MsgRegisterInterchainAccount",
 	}
 	for _, tc := range trueCases {
 		if !isZeroneSpecificMsg(tc) {
@@ -468,45 +413,6 @@ func TestMsgTypeURLToGas_AllEntriesReferenceValidCosts(t *testing.T) {
 	}
 }
 
-func TestMsgTypeURLToGas_TreeModuleComplete(t *testing.T) {
-	treeMessages := []string{
-		"/zerone.tree.v1.MsgCreateProject",
-		"/zerone.tree.v1.MsgProposeProject",
-		"/zerone.tree.v1.MsgStartDevelopment",
-		"/zerone.tree.v1.MsgCompleteProject",
-		"/zerone.tree.v1.MsgPauseProject",
-		"/zerone.tree.v1.MsgResumeProject",
-		"/zerone.tree.v1.MsgAbandonProject",
-		"/zerone.tree.v1.MsgSpawnChildProject",
-		"/zerone.tree.v1.MsgAddTask",
-		"/zerone.tree.v1.MsgAssignTask",
-		"/zerone.tree.v1.MsgStartWork",
-		"/zerone.tree.v1.MsgSubmitDeliverable",
-		"/zerone.tree.v1.MsgApproveDeliverable",
-		"/zerone.tree.v1.MsgRejectDeliverable",
-		"/zerone.tree.v1.MsgReopenTask",
-		"/zerone.tree.v1.MsgDeployService",
-		"/zerone.tree.v1.MsgCallService",
-		"/zerone.tree.v1.MsgSubscribeService",
-		"/zerone.tree.v1.MsgPauseService",
-		"/zerone.tree.v1.MsgResumeService",
-		"/zerone.tree.v1.MsgRetireService",
-		"/zerone.tree.v1.MsgBeginSeeding",
-		"/zerone.tree.v1.MsgDetectOpportunity",
-		"/zerone.tree.v1.MsgClaimOpportunity",
-		"/zerone.tree.v1.MsgAddContributor",
-		"/zerone.tree.v1.MsgApplyToProject",
-		"/zerone.tree.v1.MsgReviewApplication",
-		"/zerone.tree.v1.MsgSetAvailability",
-	}
-
-	for _, msg := range treeMessages {
-		if _, ok := msgTypeURLToGas[msg]; !ok {
-			t.Errorf("missing gas mapping for tree message %q", msg)
-		}
-	}
-}
-
 func TestMsgTypeURLToGas_ToolboxModuleComplete(t *testing.T) {
 	toolboxMessages := []string{
 		"/zerone.toolbox.v1.MsgRegisterTool",
@@ -641,7 +547,7 @@ func TestZRNGasDecorator_InsufficientFee(t *testing.T) {
 // ---------- Capability Preset Tests ----------
 
 func TestResolvePreset_Known(t *testing.T) {
-	presets := []string{"knowledge-worker", "partnership-operator", "researcher", "autonomous-agent", "dispute-arbiter"}
+	presets := []string{"knowledge-worker", "partnership-operator", "autonomous-agent"}
 	for _, name := range presets {
 		caps := ResolvePreset(name)
 		if caps == nil {
@@ -680,10 +586,10 @@ func TestResolvePreset_KnowledgeWorker(t *testing.T) {
 
 func TestResolvePreset_AutonomousAgent(t *testing.T) {
 	caps := ResolvePreset("autonomous-agent")
-	if !caps.CanSubmitClaims || !caps.CanVote || !caps.CanPartnership || !caps.CanResearch || !caps.CanDispute || !caps.CanTransfer {
+	if !caps.CanSubmitClaims || !caps.CanVote || !caps.CanPartnership || !caps.CanTransfer {
 		t.Error("autonomous-agent should have full operational capabilities")
 	}
-	if caps.CanIca || caps.CanStake {
-		t.Error("autonomous-agent should not have CanIca or CanStake")
+	if caps.CanStake {
+		t.Error("autonomous-agent should not have CanStake")
 	}
 }

@@ -103,38 +103,6 @@ var TransactionGasCosts = map[string]uint64{
 	"submit_disbursement":  80_000,
 	"execute_disbursement": 100_000,
 
-	// Disputes
-	"initiate_dispute": 100_000,
-	"commit_evidence":  40_000,
-	"reveal_evidence":  50_000,
-	"arbiter_vote":     30_000,
-	"vote_dispute":     30_000,
-	"escalate_dispute": 60_000,
-	"settle_dispute":   80_000,
-	"timeout_dispute":  40_000,
-
-	// Disputes (extended — hand-written types)
-	"open_dispute":            100_000,
-	"dispute_submit_evidence": 50_000,
-
-	// Research
-	"submit_research":    80_000,
-	"challenge_research": 60_000,
-	"review_research":    40_000,
-	"resolve_research":   60_000,
-	"create_bounty":      80_000,
-	"claim_bounty":       40_000,
-	"fulfill_bounty":     60_000,
-	"fund_research":      50_000,
-
-	// Evidence management
-	"submit_evidence": 60_000,
-	"register_oracle": 80_000,
-
-	// Evidence management (extended)
-	"audit_evidence":     50_000,
-	"submit_oracle_data": 40_000,
-
 	// Vesting / rewards
 	"create_vesting":     80_000,
 	"claim_vesting":      40_000,
@@ -143,48 +111,6 @@ var TransactionGasCosts = map[string]uint64{
 	"accelerate_vesting": 50_000,
 	"falsify_vesting":    60_000,
 	"complete_vesting":   40_000,
-
-	// Payment channels
-	"open_channel":    80_000,
-	"update_channel":  30_000,
-	"close_channel":   50_000,
-	"settle_channel":  60_000,
-	"dispute_channel": 80_000,
-
-	// Payment channels (extended — hand-written types)
-	"deposit_channel":       40_000,
-	"update_channel_state":  30_000,
-	"claim_expired_channel": 40_000,
-
-	// Tree of Life (projects, tasks, services, seeds)
-	"create_project":      80_000,
-	"propose_project":     60_000,
-	"start_development":   40_000,
-	"complete_project":    60_000,
-	"pause_project":       25_000,
-	"resume_project":      25_000,
-	"abandon_project":     30_000,
-	"spawn_child_project": 80_000,
-	"add_task":            40_000,
-	"assign_task":         30_000,
-	"start_work":          25_000,
-	"submit_deliverable":  50_000,
-	"approve_deliverable": 30_000,
-	"reject_deliverable":  30_000,
-	"reopen_task":         25_000,
-	"deploy_service":      100_000,
-	"call_service":        40_000,
-	"subscribe_service":   50_000,
-	"pause_service":       25_000,
-	"resume_service":      25_000,
-	"retire_service":      30_000,
-	"begin_seeding":       60_000,
-	"detect_opportunity":  40_000,
-	"claim_opportunity":   50_000,
-	"add_contributor":     30_000,
-	"apply_to_project":    40_000,
-	"review_application":  30_000,
-	"set_availability":    25_000,
 
 	// BVM contracts
 	"deploy_contract":    200_000,
@@ -240,15 +166,6 @@ var TransactionGasCosts = map[string]uint64{
 	"resolve_capture_challenge":       80_000,
 	"update_capture_challenge_params": 40_000,
 
-	// Discovery
-	"register_agent":          60_000,
-	"update_profile":          30_000,
-	"add_capability":          25_000,
-	"remove_capability":       20_000,
-	"deregister_agent":        30_000,
-	"heartbeat":               15_000,
-	"update_discovery_params": 40_000,
-
 	// Partnerships
 	"initiate_partnership":       100_000,
 	"accept_partnership":         40_000,
@@ -268,34 +185,12 @@ var TransactionGasCosts = map[string]uint64{
 	"freeze_multiplier":         30_000,
 	"update_autopoiesis_params": 40_000,
 
-	// Compute pool
-	"register_compute_provider":   80_000,
-	"update_compute_provider":     30_000,
-	"deregister_compute_provider": 40_000,
-	"provider_heartbeat":          15_000,
-	"redeem_credits":              50_000,
-	"confirm_usage":               30_000,
-	"dispute_usage":               60_000,
-	"update_compute_params":       40_000,
-
 	// Ontology (extended)
 	"vote_domain_proposal":       30_000,
 	"update_domain":              40_000,
 	"register_logic_zone":        60_000,
 	"acknowledge_incompleteness": 30_000,
 	"update_ontology_params":     40_000,
-
-	// Schedule
-	"create_schedule":        80_000,
-	"pause_schedule":         20_000,
-	"resume_schedule":        20_000,
-	"cancel_schedule":        30_000,
-	"add_fee":                25_000,
-	"update_schedule_params": 40_000,
-
-	// ICA auth
-	"register_ica": 80_000,
-	"send_ica_tx":  60_000,
 
 	// Billing
 	"register_provider":     80_000,

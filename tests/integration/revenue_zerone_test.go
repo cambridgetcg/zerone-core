@@ -21,8 +21,6 @@ import (
 
 	toolboxkeeper "github.com/zerone-chain/zerone/x/toolbox/keeper"
 	toolboxtypes "github.com/zerone-chain/zerone/x/toolbox/types"
-	treekeeper "github.com/zerone-chain/zerone/x/tree/keeper"
-	treetypes "github.com/zerone-chain/zerone/x/tree/types"
 	vestingkeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	vestingtypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -162,121 +160,6 @@ func TestToolboxRevenueCascade(t *testing.T) {
 		t.Errorf("conservation violated: toolbox outflows %s != total %d (dust: %s)",
 			toolboxOut, totalAmt, sdkmath.NewInt(int64(totalAmt)).Sub(toolboxOut))
 	}
-}
-
-// ---------- Test 12: Tree Revenue Routing ----------
-
-func TestTreeRevenueRouting(t *testing.T) {
-	total := int64(1000000)
-
-	t.Run("proportional_split", func(t *testing.T) {
-		dist := treekeeper.CalculateRevenue(
-			total,
-			550000, 100000, 33300, 196700,
-			[]*treetypes.ContributorRecord{
-				{Did: "did:zrn:alice", TasksCompleted: 10},
-				{Did: "did:zrn:bob", TasksCompleted: 20},
-				{Did: "did:zrn:carol", TasksCompleted: 10},
-			},
-		)
-
-		// Total tasks = 40; alice=10/40=25%, bob=20/40=50%, carol=10/40=25%
-		contribPool := dist.ContributorPool // 550,000
-		if contribPool != 550000 {
-			t.Errorf("contributor pool: got %d, want 550000", contribPool)
-		}
-
-		// alice and carol should get equal shares; bob should get double
-		var aliceAmt, bobAmt, carolAmt int64
-		for _, cs := range dist.ContributorShares {
-			switch cs.Address {
-			case "did:zrn:alice":
-				aliceAmt = cs.Amount
-			case "did:zrn:bob":
-				bobAmt = cs.Amount
-			case "did:zrn:carol":
-				carolAmt = cs.Amount
-			}
-		}
-		if aliceAmt != carolAmt {
-			t.Errorf("alice %d != carol %d (expected equal)", aliceAmt, carolAmt)
-		}
-		// Bob should get ~2x alice (may vary by 1 due to rounding)
-		ratio := float64(bobAmt) / float64(aliceAmt)
-		if ratio < 1.9 || ratio > 2.1 {
-			t.Errorf("bob/alice ratio: got %.2f, want ~2.0", ratio)
-		}
-
-		shareSum := aliceAmt + bobAmt + carolAmt
-		if shareSum != contribPool {
-			t.Errorf("contributor shares sum %d != pool %d", shareSum, contribPool)
-		}
-	})
-
-	t.Run("no_contributors_redirect", func(t *testing.T) {
-		dist := treekeeper.CalculateRevenue(
-			total,
-			550000, 100000, 33300, 196700,
-			[]*treetypes.ContributorRecord{},
-		)
-
-		// With no contributors, contributor pool is redirected to treasury
-		if dist.ContributorPool != 0 {
-			t.Errorf("contributor pool should be 0, got %d", dist.ContributorPool)
-		}
-
-		// Verify all sums to total
-		sum := dist.ContributorPool + dist.ResearchFund + dist.ProtocolTreasury + dist.VerificationPool + dist.DevelopmentFund
-		if sum != total {
-			t.Errorf("sum %d != total %d", sum, total)
-		}
-	})
-
-	t.Run("zero_tasks_equal_split", func(t *testing.T) {
-		dist := treekeeper.CalculateRevenue(
-			total,
-			550000, 100000, 33300, 196700,
-			[]*treetypes.ContributorRecord{
-				{Did: "did:zrn:x", TasksCompleted: 0},
-				{Did: "did:zrn:y", TasksCompleted: 0},
-				{Did: "did:zrn:z", TasksCompleted: 0},
-			},
-		)
-
-		// With zero tasks, each gets equal share
-		contribPool := dist.ContributorPool
-		perContrib := contribPool / 3
-		for _, cs := range dist.ContributorShares {
-			// Last contributor gets remainder (no dust), others get perContrib
-			if cs.Amount < perContrib-1 || cs.Amount > perContrib+1 {
-				t.Errorf("contributor %s got %d, expected ~%d", cs.Address, cs.Amount, perContrib)
-			}
-		}
-
-		shareSum := int64(0)
-		for _, cs := range dist.ContributorShares {
-			shareSum += cs.Amount
-		}
-		if shareSum != contribPool {
-			t.Errorf("shares sum %d != pool %d", shareSum, contribPool)
-		}
-	})
-
-	t.Run("conservation_invariant", func(t *testing.T) {
-		for _, amount := range []int64{1, 100, 999999, 1000000, 7777777} {
-			dist := treekeeper.CalculateRevenue(
-				amount,
-				550000, 100000, 33300, 196700,
-				[]*treetypes.ContributorRecord{
-					{Did: "did:zrn:solo", TasksCompleted: 5},
-				},
-			)
-			sum := dist.ContributorPool + dist.ResearchFund + dist.ProtocolTreasury + dist.VerificationPool + dist.DevelopmentFund
-			if sum != amount {
-				t.Errorf("conservation violated for amount %d: sum %d", amount, sum)
-			}
-		}
-	})
 }
 
 // ---------- Test 13: Validator Participation Scales Reward ----------

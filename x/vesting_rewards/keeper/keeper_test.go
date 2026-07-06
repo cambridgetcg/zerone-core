@@ -1328,16 +1328,11 @@ func TestDistributeBlockReward_4WayAccounting(t *testing.T) {
 
 	// Verification pool split: protocol 22% = 2200000
 	// Verification (30% of protocol): 2200000 * 300000 / 1000000 = 660000
-	// Of which: 70% to knowledge, 30% to compute_pool
-	// Compute: 660000 * 300000 / 1000000 = 198000
-	// Knowledge: 660000 - 198000 = 462000
+	// All of it funds knowledge verification (the former compute_pool
+	// slice was removed with x/compute_pool in the slim cut).
 	knowledgeCoins := bk.sentToModule["knowledge"]
-	if knowledgeCoins.AmountOf("uzrn").Int64() != 462000 {
-		t.Errorf("expected 462000 to knowledge, got %d", knowledgeCoins.AmountOf("uzrn").Int64())
-	}
-	computeCoins := bk.sentToModule["compute_pool"]
-	if computeCoins.AmountOf("uzrn").Int64() != 198000 {
-		t.Errorf("expected 198000 to compute_pool, got %d", computeCoins.AmountOf("uzrn").Int64())
+	if knowledgeCoins.AmountOf("uzrn").Int64() != 660000 {
+		t.Errorf("expected 660000 to knowledge, got %d", knowledgeCoins.AmountOf("uzrn").Int64())
 	}
 
 	// Citation pool and treasury stay in the module account (not yet distributed to

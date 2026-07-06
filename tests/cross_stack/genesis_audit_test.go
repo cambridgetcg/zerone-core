@@ -373,9 +373,6 @@ func TestScenario18_ModuleAccountPermissions(t *testing.T) {
 		"emergency",
 		"autopoiesis",
 		"alignment",
-		"research",
-		"tree",
-		"disputes",
 		"vesting_rewards",
 	}
 	for _, name := range zeroneModules {

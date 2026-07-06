@@ -57,7 +57,6 @@ func TestEconomicSimulation(t *testing.T) {
 		vestingtypes.ModuleName,
 		vestingtypes.ResearchFundModuleName,
 		vestingtypes.KnowledgeModuleName,
-		vestingtypes.ComputePoolModuleName,
 		vestingtypes.DevelopmentFundModuleName,
 		authtypes.FeeCollectorName,
 		"staking",

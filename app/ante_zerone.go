@@ -279,36 +279,6 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.staking.v1.MsgUndelegate":           TransactionGasCosts["zerone_undelegate"],
 	"/zerone.staking.v1.MsgRedelegate":           TransactionGasCosts["zerone_redelegate"],
 
-	// Disputes
-	"/zerone.disputes.v1.MsgInitiateDispute": TransactionGasCosts["initiate_dispute"],
-	"/zerone.disputes.v1.MsgCommitEvidence":  TransactionGasCosts["commit_evidence"],
-	"/zerone.disputes.v1.MsgRevealEvidence":  TransactionGasCosts["reveal_evidence"],
-	"/zerone.disputes.v1.MsgArbiterVote":     TransactionGasCosts["arbiter_vote"],
-	"/zerone.disputes.v1.MsgEscalateDispute": TransactionGasCosts["escalate_dispute"],
-	"/zerone.disputes.v1.MsgSettleDispute":   TransactionGasCosts["settle_dispute"],
-	"/zerone.disputes.v1.MsgTimeoutDispute":  TransactionGasCosts["timeout_dispute"],
-
-	// Disputes (extended — hand-written types)
-	"/zerone.disputes.v1.MsgOpenDispute":    TransactionGasCosts["open_dispute"],
-	"/zerone.disputes.v1.MsgSubmitEvidence": TransactionGasCosts["dispute_submit_evidence"],
-	"/zerone.disputes.v1.MsgVoteDispute":    TransactionGasCosts["vote_dispute"],
-
-	// Research
-	"/zerone.research.v1.MsgSubmitResearch":    TransactionGasCosts["submit_research"],
-	"/zerone.research.v1.MsgChallengeResearch": TransactionGasCosts["challenge_research"],
-	"/zerone.research.v1.MsgReviewResearch":    TransactionGasCosts["review_research"],
-	"/zerone.research.v1.MsgResolveResearch":   TransactionGasCosts["resolve_research"],
-	"/zerone.research.v1.MsgCreateBounty":      TransactionGasCosts["create_bounty"],
-	"/zerone.research.v1.MsgClaimBounty":       TransactionGasCosts["claim_bounty"],
-	"/zerone.research.v1.MsgFulfillBounty":     TransactionGasCosts["fulfill_bounty"],
-	"/zerone.research.v1.MsgFundResearch":      TransactionGasCosts["fund_research"],
-
-	// Evidence management
-	"/zerone.evidence_mgmt.v1.MsgSubmitEvidence":   TransactionGasCosts["submit_evidence"],
-	"/zerone.evidence_mgmt.v1.MsgAuditEvidence":    TransactionGasCosts["audit_evidence"],
-	"/zerone.evidence_mgmt.v1.MsgRegisterOracle":   TransactionGasCosts["register_oracle"],
-	"/zerone.evidence_mgmt.v1.MsgSubmitOracleData": TransactionGasCosts["submit_oracle_data"],
-
 	// Vesting rewards
 	"/zerone.vesting_rewards.v1.MsgCreateVesting":     TransactionGasCosts["create_vesting"],
 	"/zerone.vesting_rewards.v1.MsgClaimVesting":      TransactionGasCosts["claim_vesting"],
@@ -317,54 +287,6 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.vesting_rewards.v1.MsgAccelerateVesting": TransactionGasCosts["accelerate_vesting"],
 	"/zerone.vesting_rewards.v1.MsgFalsifyVesting":    TransactionGasCosts["falsify_vesting"],
 	"/zerone.vesting_rewards.v1.MsgCompleteVesting":   TransactionGasCosts["complete_vesting"],
-
-	// Payment channels
-	"/zerone.channels.v1.MsgOpenChannel":    TransactionGasCosts["open_channel"],
-	"/zerone.channels.v1.MsgUpdateChannel":  TransactionGasCosts["update_channel"],
-	"/zerone.channels.v1.MsgCloseChannel":   TransactionGasCosts["close_channel"],
-	"/zerone.channels.v1.MsgSettleChannel":  TransactionGasCosts["settle_channel"],
-	"/zerone.channels.v1.MsgDisputeChannel": TransactionGasCosts["dispute_channel"],
-
-	// Payment channels (extended — hand-written types)
-	"/zerone.channels.v1.MsgDepositChannel": TransactionGasCosts["deposit_channel"],
-	"/zerone.channels.v1.MsgUpdateState":    TransactionGasCosts["update_channel_state"],
-	"/zerone.channels.v1.MsgClaimExpired":   TransactionGasCosts["claim_expired_channel"],
-
-	// Tree of Life — projects
-	"/zerone.tree.v1.MsgCreateProject":     TransactionGasCosts["create_project"],
-	"/zerone.tree.v1.MsgProposeProject":    TransactionGasCosts["propose_project"],
-	"/zerone.tree.v1.MsgStartDevelopment":  TransactionGasCosts["start_development"],
-	"/zerone.tree.v1.MsgCompleteProject":   TransactionGasCosts["complete_project"],
-	"/zerone.tree.v1.MsgPauseProject":      TransactionGasCosts["pause_project"],
-	"/zerone.tree.v1.MsgResumeProject":     TransactionGasCosts["resume_project"],
-	"/zerone.tree.v1.MsgAbandonProject":    TransactionGasCosts["abandon_project"],
-	"/zerone.tree.v1.MsgSpawnChildProject": TransactionGasCosts["spawn_child_project"],
-
-	// Tree of Life — tasks
-	"/zerone.tree.v1.MsgAddTask":            TransactionGasCosts["add_task"],
-	"/zerone.tree.v1.MsgAssignTask":         TransactionGasCosts["assign_task"],
-	"/zerone.tree.v1.MsgStartWork":          TransactionGasCosts["start_work"],
-	"/zerone.tree.v1.MsgSubmitDeliverable":  TransactionGasCosts["submit_deliverable"],
-	"/zerone.tree.v1.MsgApproveDeliverable": TransactionGasCosts["approve_deliverable"],
-	"/zerone.tree.v1.MsgRejectDeliverable":  TransactionGasCosts["reject_deliverable"],
-	"/zerone.tree.v1.MsgReopenTask":         TransactionGasCosts["reopen_task"],
-
-	// Tree of Life — services
-	"/zerone.tree.v1.MsgDeployService":    TransactionGasCosts["deploy_service"],
-	"/zerone.tree.v1.MsgCallService":      TransactionGasCosts["call_service"],
-	"/zerone.tree.v1.MsgSubscribeService": TransactionGasCosts["subscribe_service"],
-	"/zerone.tree.v1.MsgPauseService":     TransactionGasCosts["pause_service"],
-	"/zerone.tree.v1.MsgResumeService":    TransactionGasCosts["resume_service"],
-	"/zerone.tree.v1.MsgRetireService":    TransactionGasCosts["retire_service"],
-
-	// Tree of Life — seeds & contributors
-	"/zerone.tree.v1.MsgBeginSeeding":      TransactionGasCosts["begin_seeding"],
-	"/zerone.tree.v1.MsgDetectOpportunity": TransactionGasCosts["detect_opportunity"],
-	"/zerone.tree.v1.MsgClaimOpportunity":  TransactionGasCosts["claim_opportunity"],
-	"/zerone.tree.v1.MsgAddContributor":    TransactionGasCosts["add_contributor"],
-	"/zerone.tree.v1.MsgApplyToProject":    TransactionGasCosts["apply_to_project"],
-	"/zerone.tree.v1.MsgReviewApplication": TransactionGasCosts["review_application"],
-	"/zerone.tree.v1.MsgSetAvailability":   TransactionGasCosts["set_availability"],
 
 	// BVM
 	"/zerone.bvm.v1.MsgDeployContract":    TransactionGasCosts["deploy_contract"],
@@ -457,14 +379,6 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.gov.v1.MsgApproveDeployment":   TransactionGasCosts["approve_deployment"],
 	"/zerone.gov.v1.MsgRollbackDeployment":  TransactionGasCosts["rollback_deployment"],
 
-	// Discovery
-	"/zerone.discovery.v1.MsgRegisterAgent":    TransactionGasCosts["register_agent"],
-	"/zerone.discovery.v1.MsgUpdateProfile":    TransactionGasCosts["update_profile"],
-	"/zerone.discovery.v1.MsgAddCapability":    TransactionGasCosts["add_capability"],
-	"/zerone.discovery.v1.MsgRemoveCapability": TransactionGasCosts["remove_capability"],
-	"/zerone.discovery.v1.MsgDeregisterAgent":  TransactionGasCosts["deregister_agent"],
-	"/zerone.discovery.v1.MsgHeartbeat":        TransactionGasCosts["heartbeat"],
-
 	// Partnerships
 	"/zerone.partnerships.v1.MsgInitiatePartnership": TransactionGasCosts["initiate_partnership"],
 	"/zerone.partnerships.v1.MsgAcceptPartnership":   TransactionGasCosts["accept_partnership"],
@@ -484,13 +398,6 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.ontology.v1.MsgRegisterLogicZone":         TransactionGasCosts["register_logic_zone"],
 	"/zerone.ontology.v1.MsgAcknowledgeIncompleteness": TransactionGasCosts["acknowledge_incompleteness"],
 
-	// Schedule
-	"/zerone.schedule.v1.MsgCreateSchedule": TransactionGasCosts["create_schedule"],
-	"/zerone.schedule.v1.MsgPauseSchedule":  TransactionGasCosts["pause_schedule"],
-	"/zerone.schedule.v1.MsgResumeSchedule": TransactionGasCosts["resume_schedule"],
-	"/zerone.schedule.v1.MsgCancelSchedule": TransactionGasCosts["cancel_schedule"],
-	"/zerone.schedule.v1.MsgAddFee":         TransactionGasCosts["add_fee"],
-
 	// Billing
 	"/zerone.billing.v1.MsgRegisterProvider":   TransactionGasCosts["register_provider"],
 	"/zerone.billing.v1.MsgDeregisterProvider": TransactionGasCosts["deregister_provider"],
@@ -501,20 +408,6 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.autopoiesis.v1.MsgActivateAutopoiesis": TransactionGasCosts["activate_autopoiesis"],
 	"/zerone.autopoiesis.v1.MsgOverrideMultiplier":  TransactionGasCosts["override_multiplier"],
 	"/zerone.autopoiesis.v1.MsgFreezeMultiplier":    TransactionGasCosts["freeze_multiplier"],
-
-	// Compute pool
-	"/zerone.compute_pool.v1.MsgRegisterComputeProvider": TransactionGasCosts["register_compute_provider"],
-	"/zerone.compute_pool.v1.MsgUpdateProvider":          TransactionGasCosts["update_compute_provider"],
-	"/zerone.compute_pool.v1.MsgDeregisterProvider":      TransactionGasCosts["deregister_compute_provider"],
-	"/zerone.compute_pool.v1.MsgProviderHeartbeat":       TransactionGasCosts["provider_heartbeat"],
-	"/zerone.compute_pool.v1.MsgRedeemCredits":           TransactionGasCosts["redeem_credits"],
-	"/zerone.compute_pool.v1.MsgConfirmUsage":            TransactionGasCosts["confirm_usage"],
-	"/zerone.compute_pool.v1.MsgDisputeUsage":            TransactionGasCosts["dispute_usage"],
-	"/zerone.compute_pool.v1.MsgUpdateComputeParams":     TransactionGasCosts["update_compute_params"],
-
-	// ICA auth
-	"/zerone.icaauth.v1.MsgRegisterInterchainAccount": TransactionGasCosts["register_ica"],
-	"/zerone.icaauth.v1.MsgSendICATransaction":        TransactionGasCosts["send_ica_tx"],
 
 	// Toolbox
 	"/zerone.toolbox.v1.MsgRegisterTool":          TransactionGasCosts["register_tool"],
@@ -836,28 +729,8 @@ func (zcd ZeroneCapabilityDecorator) checkCapability(session *zeroneauthtypes.Se
 			return zeroneauthtypes.ErrSessionCapabilityDenied
 		}
 		return nil
-	case isICAMsg(msgType):
-		if !session.Capabilities.CanIca {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		// ICA registration requires operational key — session keys can only
-		// send transactions to already-registered ICAs.
-		if msgType == "/zerone.icaauth.v1.MsgRegisterInterchainAccount" {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
 	case isPartnershipMsg(msgType):
 		if !session.Capabilities.CanPartnership {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
-	case isResearchMsg(msgType):
-		if !session.Capabilities.CanResearch {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
-	case isDisputeMsg(msgType):
-		if !session.Capabilities.CanDispute {
 			return zeroneauthtypes.ErrSessionCapabilityDenied
 		}
 		return nil
@@ -917,17 +790,7 @@ func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *z
 			return zeroneauthtypes.ErrAccountCapabilityDenied
 		}
 		return nil
-	case isResearchMsg(msgType):
-		if accountType == "contract" {
-			return zeroneauthtypes.ErrAccountCapabilityDenied
-		}
-		return nil
-	case isDisputeMsg(msgType):
-		if accountType == "contract" {
-			return zeroneauthtypes.ErrAccountCapabilityDenied
-		}
-		return nil
-	case isPartnershipMsg(msgType), isTransferMsg(msgType), isICAMsg(msgType):
+	case isPartnershipMsg(msgType), isTransferMsg(msgType):
 		// Allowed for all registered account types
 		return nil
 	default:
@@ -985,16 +848,7 @@ func isAuthManagementMsg(msgType string) bool {
 func isZeroneSpecificMsg(msgType string) bool {
 	return isClaimSubmissionMsg(msgType) ||
 		isChallengeMsg(msgType) ||
-		isPartnershipMsg(msgType) ||
-		isResearchMsg(msgType) ||
-		isDisputeMsg(msgType) ||
-		isICAMsg(msgType)
-}
-
-// isICAMsg checks if a message type URL is an ICA message.
-func isICAMsg(msgType string) bool {
-	return msgType == "/zerone.icaauth.v1.MsgRegisterInterchainAccount" ||
-		msgType == "/zerone.icaauth.v1.MsgSendICATransaction"
+		isPartnershipMsg(msgType)
 }
 
 func isVoteMsg(msgType string) bool {
@@ -1021,28 +875,6 @@ func isPartnershipMsg(msgType string) bool {
 		msgType == "/zerone.partnerships.v1.MsgSponsorPartnership"
 }
 
-func isResearchMsg(msgType string) bool {
-	return msgType == "/zerone.research.v1.MsgSubmitResearch" ||
-		msgType == "/zerone.research.v1.MsgChallengeResearch" ||
-		msgType == "/zerone.research.v1.MsgReviewResearch" ||
-		msgType == "/zerone.research.v1.MsgResolveResearch" ||
-		msgType == "/zerone.research.v1.MsgCreateBounty" ||
-		msgType == "/zerone.research.v1.MsgClaimBounty" ||
-		msgType == "/zerone.research.v1.MsgFulfillBounty" ||
-		msgType == "/zerone.research.v1.MsgFundResearch"
-}
-
-func isDisputeMsg(msgType string) bool {
-	return msgType == "/zerone.disputes.v1.MsgInitiateDispute" ||
-		msgType == "/zerone.disputes.v1.MsgOpenDispute" ||
-		msgType == "/zerone.disputes.v1.MsgCommitEvidence" ||
-		msgType == "/zerone.disputes.v1.MsgSubmitEvidence" ||
-		msgType == "/zerone.disputes.v1.MsgRevealEvidence" ||
-		msgType == "/zerone.disputes.v1.MsgVoteDispute" ||
-		msgType == "/zerone.disputes.v1.MsgArbiterVote" ||
-		msgType == "/zerone.disputes.v1.MsgEscalateDispute"
-}
-
 // ---------- Capability Presets ----------
 
 // CapabilityPresets defines common session key capability bundles for agent roles.
@@ -1054,20 +886,11 @@ var CapabilityPresets = map[string]*zeroneauthtypes.SessionCapabilities{
 	"partnership-operator": {
 		CanPartnership: true,
 	},
-	"researcher": {
-		CanResearch: true,
-	},
 	"autonomous-agent": {
 		CanSubmitClaims: true,
 		CanVote:         true,
 		CanPartnership:  true,
-		CanResearch:     true,
-		CanDispute:      true,
 		CanTransfer:     true, // subject to spending limits
-	},
-	"dispute-arbiter": {
-		CanDispute: true,
-		CanVote:    true,
 	},
 }
 
@@ -1083,10 +906,7 @@ func ResolvePreset(name string) *zeroneauthtypes.SessionCapabilities {
 		CanStake:        caps.CanStake,
 		CanSubmitClaims: caps.CanSubmitClaims,
 		CanVote:         caps.CanVote,
-		CanIca:          caps.CanIca,
 		CanPartnership:  caps.CanPartnership,
-		CanResearch:     caps.CanResearch,
-		CanDispute:      caps.CanDispute,
 	}
 }
 

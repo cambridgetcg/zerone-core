@@ -679,15 +679,6 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 			errType:     zeroneauthtypes.ErrAccountCapabilityDenied,
 		},
 		{
-			name:        "ContractBlockedFromResearch",
-			accountType: "contract",
-			flags:       &zeroneauthtypes.AccountFlags{},
-			register:    true,
-			msgType:     "/zerone.research.v1.MsgSubmitResearch",
-			wantErr:     true,
-			errType:     zeroneauthtypes.ErrAccountCapabilityDenied,
-		},
-		{
 			name:        "ContractAllowsPartnership",
 			accountType: "contract",
 			flags:       &zeroneauthtypes.AccountFlags{},

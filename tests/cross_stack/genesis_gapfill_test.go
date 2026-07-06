@@ -16,28 +16,19 @@ import (
 	bvmtypes "github.com/zerone-chain/zerone/x/bvm/types"
 	capturechallengetypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
 	capturedefensetypes "github.com/zerone-chain/zerone/x/capture_defense/types"
-	channelstypes "github.com/zerone-chain/zerone/x/channels/types"
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
-	computepooltypes "github.com/zerone-chain/zerone/x/compute_pool/types"
-	discoverytypes "github.com/zerone-chain/zerone/x/discovery/types"
-	disputestypes "github.com/zerone-chain/zerone/x/disputes/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
-	evidencemgmttypes "github.com/zerone-chain/zerone/x/evidence_mgmt/types"
 	zeronegov "github.com/zerone-chain/zerone/x/gov/types"
 	hometypes "github.com/zerone-chain/zerone/x/home/types"
 	ibcratelimittypes "github.com/zerone-chain/zerone/x/ibcratelimit/types"
-	icaauthtypes "github.com/zerone-chain/zerone/x/icaauth/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
 	ontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
 	partnershipstypes "github.com/zerone-chain/zerone/x/partnerships/types"
 	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
-	researchtypes "github.com/zerone-chain/zerone/x/research/types"
-	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 	tokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	toolboxtypes "github.com/zerone-chain/zerone/x/toolbox/types"
-	treetypes "github.com/zerone-chain/zerone/x/tree/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -99,28 +90,8 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 		}},
-		{channelstypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs channelstypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
 		{claimingpottypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs claimingpottypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{computepooltypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs computepooltypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{discoverytypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs discoverytypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{disputestypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs disputestypes.GenesisState
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 		}},
@@ -130,11 +101,6 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 			require.NoError(t, gs.Validate())
 			require.NotNil(t, gs.Params)
 			require.Greater(t, gs.Params.HaltPrevoteBlocks, uint64(0), "halt prevote blocks must be positive")
-		}},
-		{evidencemgmttypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs evidencemgmttypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
 		}},
 		{zeronegov.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs zeronegov.GenesisState
@@ -151,11 +117,6 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 		}},
 		{ibcratelimittypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs ibcratelimittypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{icaauthtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs icaauthtypes.GenesisState
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 		}},
@@ -189,16 +150,6 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 		}},
-		{researchtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs researchtypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{scheduletypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs scheduletypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
 		{zeronestakingtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs zeronestakingtypes.GenesisState
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
@@ -214,11 +165,6 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 		}},
 		{toolboxtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs toolboxtypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{treetypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs treetypes.GenesisState
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 		}},

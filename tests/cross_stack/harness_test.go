@@ -36,14 +36,10 @@ import (
 	// R7 module keepers
 	zeroneapkeeper "github.com/zerone-chain/zerone/x/autopoiesis/keeper"
 	zeronealignmentkeeper "github.com/zerone-chain/zerone/x/alignment/keeper"
-	zeroneresearchkeeper "github.com/zerone-chain/zerone/x/research/keeper"
-	zeronetreekeeper "github.com/zerone-chain/zerone/x/tree/keeper"
-	zeroneemkeeper "github.com/zerone-chain/zerone/x/evidence_mgmt/keeper"
 	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
 	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
 	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
-	zeronedisputeskeeper "github.com/zerone-chain/zerone/x/disputes/keeper"
 	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
 	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
@@ -54,12 +50,10 @@ import (
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecreedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
 	zeroneinquirykeeper "github.com/zerone-chain/zerone/x/inquiry/keeper"
-	zeroneagentukeeper "github.com/zerone-chain/zerone/x/agent_understanding/keeper"
 	zeronedialectickeeper "github.com/zerone-chain/zerone/x/dialectic/keeper"
 	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
 	zeronegovsynthkeeper "github.com/zerone-chain/zerone/x/governance_synthesis/keeper"
 	zeronepartnershipskeeper "github.com/zerone-chain/zerone/x/partnerships/keeper"
-	zeronediscoverykeeper "github.com/zerone-chain/zerone/x/discovery/keeper"
 	zeronesubstratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 )
 
@@ -84,14 +78,10 @@ type TestHarness struct {
 	// R7 module keepers
 	AutopoiesisKeeper    zeroneapkeeper.Keeper
 	AlignmentKeeper      zeronealignmentkeeper.Keeper
-	ResearchKeeper       zeroneresearchkeeper.Keeper
-	TreeKeeper           zeronetreekeeper.Keeper
-	EvidenceMgmtKeeper   zeroneemkeeper.Keeper
 	ClaimingPotKeeper    zeronecpotkeeper.Keeper
 	SponsorshipKeeper    zeronesponsorshipkeeper.Keeper
 	EmergencyKeeper      zeroneemergencykeeper.Keeper
 	VestingRewardsKeeper vestingrewardskeeper.Keeper
-	DisputesKeeper       zeronedisputeskeeper.Keeper
 
 	// Governance keeper
 	GovKeeper zeronegovkeeper.Keeper
@@ -101,13 +91,11 @@ type TestHarness struct {
 	CaptureChallengeKeeper   zeronecckeeper.Keeper
 	QualificationKeeper      zeronequalificationkeeper.Keeper
 	PartnershipsKeeper       zeronepartnershipskeeper.Keeper
-	DiscoveryKeeper          zeronediscoverykeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
 	GovernanceSynthesisKeeper zeronegovsynthkeeper.Keeper
 	CounterexamplesKeeper     zeronecounterexkeeper.Keeper
 	InquiryKeeper             zeroneinquirykeeper.Keeper
-	AgentUnderstandingKeeper  zeroneagentukeeper.Keeper
 	DialecticKeeper           zeronedialectickeeper.Keeper
 	CreedKeeper               zeronecreedkeeper.Keeper
 	SubstrateBridgeKeeper     zeronesubstratebridgekeeper.Keeper
@@ -274,13 +262,11 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		CaptureChallengeKeeper:   app.CaptureChallengeKeeper,
 		QualificationKeeper:      app.QualificationKeeper,
 		PartnershipsKeeper:       app.PartnershipsKeeper,
-		DiscoveryKeeper:          app.DiscoveryKeeper,
 		TrainingProvenanceKeeper: app.TrainingProvenanceKeeper,
 		TrustScoreKeeper:         app.TrustScoreKeeper,
 		GovernanceSynthesisKeeper: app.GovernanceSynthesisKeeper,
 		CounterexamplesKeeper:     app.CounterexamplesKeeper,
 		InquiryKeeper:             app.InquiryKeeper,
-		AgentUnderstandingKeeper:  app.AgentUnderstandingKeeper,
 		DialecticKeeper:           app.DialecticKeeper,
 		CreedKeeper:               app.CreedKeeper,
 		SubstrateBridgeKeeper:     app.SubstrateBridgeKeeper,
@@ -288,14 +274,10 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		// R7 keepers
 		AutopoiesisKeeper:    app.AutopoiesisKeeper,
 		AlignmentKeeper:      app.AlignmentKeeper,
-		ResearchKeeper:       app.ResearchKeeper,
-		TreeKeeper:           app.TreeKeeper,
-		EvidenceMgmtKeeper:   app.EvidenceMgmtKeeper,
 		ClaimingPotKeeper:    app.ClaimingPotKeeper,
 		SponsorshipKeeper:    app.SponsorshipKeeper,
 		EmergencyKeeper:      app.EmergencyKeeper,
 		VestingRewardsKeeper: app.VestingRewardsKeeper,
-		DisputesKeeper:       app.DisputesKeeper,
 
 		currentHeight: 1,
 	}

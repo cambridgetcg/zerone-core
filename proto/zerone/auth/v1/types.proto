@@ -57,21 +57,25 @@ message SessionKey {
 }
 
 // SessionCapabilities defines what a session key can do.
+//
+// Fields 7 (can_ica), 11 (can_research), and 12 (can_dispute) were
+// removed with the x/icaauth, x/research, and x/disputes modules
+// (2026-07 slim cut); their numbers are reserved and must not be reused.
 message SessionCapabilities {
+  reserved 7, 11, 12;
+  reserved "can_ica", "can_research", "can_dispute";
+
   bool can_transfer = 1;
   bool can_stake = 2;
   bool can_submit_claims = 3;
   bool can_vote = 4;
   string max_transfer_amount = 5;
   repeated string allowed_recipients = 6;
-  // ICA capabilities
-  bool can_ica = 7;
+  // ICA session config (dormant — retained for x/auth session trim to own)
   repeated string allowed_ica_connections = 8;
   repeated string allowed_ica_msg_types = 9;
   // Agent autonomy capabilities
   bool can_partnership = 10;
-  bool can_research = 11;
-  bool can_dispute = 12;
 }
 
 // CapabilityGrant provides fine-grained control over individual capabilities.

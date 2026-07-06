@@ -135,9 +135,6 @@ import (
 	zeronetokens "github.com/zerone-chain/zerone/x/tokens"
 	zeronetokenskeeper "github.com/zerone-chain/zerone/x/tokens/keeper"
 	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
-	zeronechannels "github.com/zerone-chain/zerone/x/channels"
-	zeronechannelskeeper "github.com/zerone-chain/zerone/x/channels/keeper"
-	zeronechannelstypes "github.com/zerone-chain/zerone/x/channels/types"
 	zeronegov "github.com/zerone-chain/zerone/x/gov"
 	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
@@ -147,24 +144,12 @@ import (
 	zeronepartnerships "github.com/zerone-chain/zerone/x/partnerships"
 	zeronepartnershipskeeper "github.com/zerone-chain/zerone/x/partnerships/keeper"
 	zeronepartnershipstypes "github.com/zerone-chain/zerone/x/partnerships/types"
-	zeroneschedule "github.com/zerone-chain/zerone/x/schedule"
-	zeroneschedulekeeper "github.com/zerone-chain/zerone/x/schedule/keeper"
-	zeronescheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
-	zeronecomputepool "github.com/zerone-chain/zerone/x/compute_pool"
-	zeronecpkeeper "github.com/zerone-chain/zerone/x/compute_pool/keeper"
-	zeronecptypes "github.com/zerone-chain/zerone/x/compute_pool/types"
-	zeronediscovery "github.com/zerone-chain/zerone/x/discovery"
-	zeronediscoverykeeper "github.com/zerone-chain/zerone/x/discovery/keeper"
-	zeronediscoverytypes "github.com/zerone-chain/zerone/x/discovery/types"
 	zeronebvm "github.com/zerone-chain/zerone/x/bvm"
 	zeronebvmkeeper "github.com/zerone-chain/zerone/x/bvm/keeper"
 	zeronebvmtypes "github.com/zerone-chain/zerone/x/bvm/types"
 	vestingrewards "github.com/zerone-chain/zerone/x/vesting_rewards"
 	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
-	zeronedisputes "github.com/zerone-chain/zerone/x/disputes"
-	zeronedisputeskeeper "github.com/zerone-chain/zerone/x/disputes/keeper"
-	zeronedisputestypes "github.com/zerone-chain/zerone/x/disputes/types"
 	zeronequalification "github.com/zerone-chain/zerone/x/qualification"
 	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
 	zeronequalificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
@@ -174,9 +159,6 @@ import (
 	zeroneibcratelimit "github.com/zerone-chain/zerone/x/ibcratelimit"
 	zeroneibcrlkeeper "github.com/zerone-chain/zerone/x/ibcratelimit/keeper"
 	zeroneibcrltypes "github.com/zerone-chain/zerone/x/ibcratelimit/types"
-	zeroneicaauth "github.com/zerone-chain/zerone/x/icaauth"
-	zeroneicaauthkeeper "github.com/zerone-chain/zerone/x/icaauth/keeper"
-	zeroneicaauthtypes "github.com/zerone-chain/zerone/x/icaauth/types"
 	zeronecapturedefense "github.com/zerone-chain/zerone/x/capture_defense"
 	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
 	zeronecdtypes "github.com/zerone-chain/zerone/x/capture_defense/types"
@@ -186,9 +168,6 @@ import (
 	zeronealignment "github.com/zerone-chain/zerone/x/alignment"
 	zeronealignmentkeeper "github.com/zerone-chain/zerone/x/alignment/keeper"
 	zeronealignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
-	zeroneresearch "github.com/zerone-chain/zerone/x/research"
-	zeroneresearchkeeper "github.com/zerone-chain/zerone/x/research/keeper"
-	zeroneresearchtypes "github.com/zerone-chain/zerone/x/research/types"
 	zeroneprovenance "github.com/zerone-chain/zerone/x/training_provenance"
 	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
 	zeroneprovenancetypes "github.com/zerone-chain/zerone/x/training_provenance/types"
@@ -198,9 +177,6 @@ import (
 	zeronegovsynth "github.com/zerone-chain/zerone/x/governance_synthesis"
 	zeronegovsynthkeeper "github.com/zerone-chain/zerone/x/governance_synthesis/keeper"
 	zeronegovsynthtypes "github.com/zerone-chain/zerone/x/governance_synthesis/types"
-	zeroneprivatecorpus "github.com/zerone-chain/zerone/x/private_corpus"
-	zeroneprivatecorpuskeeper "github.com/zerone-chain/zerone/x/private_corpus/keeper"
-	zeroneprivatecorpustypes "github.com/zerone-chain/zerone/x/private_corpus/types"
 	zeronecounterex "github.com/zerone-chain/zerone/x/counterexamples"
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecounterextypes "github.com/zerone-chain/zerone/x/counterexamples/types"
@@ -217,18 +193,12 @@ import (
 	zerocontribknowledge "github.com/zerone-chain/zerone/x/contribution/adapter/knowledgeclaim"
 	zerocontribkeeper "github.com/zerone-chain/zerone/x/contribution/keeper"
 	zerocontribtypes "github.com/zerone-chain/zerone/x/contribution/types"
-	zeroneagentu "github.com/zerone-chain/zerone/x/agent_understanding"
-	zeroneagentukeeper "github.com/zerone-chain/zerone/x/agent_understanding/keeper"
-	zeroneagentutypes "github.com/zerone-chain/zerone/x/agent_understanding/types"
 	zeronedialectic "github.com/zerone-chain/zerone/x/dialectic"
 	zeronedialectickeeper "github.com/zerone-chain/zerone/x/dialectic/keeper"
 	zeronedialectictypes "github.com/zerone-chain/zerone/x/dialectic/types"
 	zeroneautopoiesis "github.com/zerone-chain/zerone/x/autopoiesis"
 	zeroneapkeeper "github.com/zerone-chain/zerone/x/autopoiesis/keeper"
 	zeroneaptypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
-	zeroneevidencemgmt "github.com/zerone-chain/zerone/x/evidence_mgmt"
-	zeroneemkeeper "github.com/zerone-chain/zerone/x/evidence_mgmt/keeper"
-	zeroneemtypes "github.com/zerone-chain/zerone/x/evidence_mgmt/types"
 	zeroneclaimingpot "github.com/zerone-chain/zerone/x/claiming_pot"
 	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	zeronecpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
@@ -238,9 +208,6 @@ import (
 	zeronetoolbox "github.com/zerone-chain/zerone/x/toolbox"
 	zeronetoolboxkeeper "github.com/zerone-chain/zerone/x/toolbox/keeper"
 	zeronetoolboxtypes "github.com/zerone-chain/zerone/x/toolbox/types"
-	zeronetree "github.com/zerone-chain/zerone/x/tree"
-	zeronetreekeeper "github.com/zerone-chain/zerone/x/tree/keeper"
-	zeronettreetypes "github.com/zerone-chain/zerone/x/tree/types"
 	substratebridge "github.com/zerone-chain/zerone/x/substrate_bridge"
 	substratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
@@ -291,13 +258,8 @@ var (
 		zeronebilling.AppModuleBasic{},
 		zeroneliquiditypool.AppModuleBasic{},
 		zeronegov.AppModuleBasic{},
-		zeronechannels.AppModuleBasic{},
 		zeronehome.AppModuleBasic{},
-		zeroneschedule.AppModuleBasic{},
-		zeronecomputepool.AppModuleBasic{},
-		zeronediscovery.AppModuleBasic{},
 		zeronebvm.AppModuleBasic{},
-		zeronedisputes.AppModuleBasic{},
 		zeronequalification.AppModuleBasic{},
 		zeroneemergency.AppModuleBasic{},
 		// R2-2: x/knowledge wired
@@ -308,32 +270,22 @@ var (
 		// R4-1: x/home
 		// R4-2: x/partnerships
 		// R4-3: x/bvm
-		// R4-4: x/channels
-		// R4-5: x/schedule, x/compute_pool, x/discovery
 		// R5-1: x/toolbox
 		// R6-1: x/emergency
-		// R6-2: x/evidence_mgmt
-		// R6-3: x/disputes
 		// R6-4: x/capture_challenge, x/capture_defense
 		// R6-5: x/qualification
-		// R6-6: x/ibcratelimit, x/icaauth — wired
+		// R6-6: x/ibcratelimit — wired
 		zeroneibcratelimit.AppModuleBasic{},
-		zeroneicaauth.AppModuleBasic{},
 		zeronecapturedefense.AppModuleBasic{},
 		zeronecapturechallenge.AppModuleBasic{},
-		zeroneresearch.AppModuleBasic{},
 		zeronealignment.AppModuleBasic{},
 		zeroneautopoiesis.AppModuleBasic{}, // R7-1: x/autopoiesis
-		zeroneevidencemgmt.AppModuleBasic{},
 		zeroneclaimingpot.AppModuleBasic{},
 		zeronesponsorship.AppModuleBasic{},
-		zeronetree.AppModuleBasic{},         // R7-5: x/tree
 		zeronepartnerships.AppModuleBasic{}, // R8-1: x/partnerships
 		zeronetoolbox.AppModuleBasic{},      // R8-1: x/toolbox
-		zeroneprivatecorpus.AppModuleBasic{}, // x/private_corpus: off-chain vault references
 		zeronecounterex.AppModuleBasic{},     // x/counterexamples: alignment-by-structure
 		zeroneinquiry.AppModuleBasic{},       // x/inquiry: open-question market for unmapped territory
-		zeroneagentu.AppModuleBasic{},        // x/agent_understanding: per-agent topic profile synthesizer
 		zeronedialectic.AppModuleBasic{},     // x/dialectic: disagreement-shape synthesizer (commitment 17)
 		zeronecreed.AppModuleBasic{},         // x/creed: on-chain anchor for TRUTH_SEEKING.md (commitments 6, 10)
 		zeroneworkcreed.AppModuleBasic{},     // x/work_creed: on-chain anchor for per-phase docs/sub_creeds/*.md (commitments 6, 10 — useful-work scope)
@@ -369,27 +321,18 @@ var (
 		zeronebillingtypes.ModuleName:              {authtypes.Burner},                        // billing: revenue split
 		zeronelptypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // liquiditypool: mint/burn LP tokens
 		zeronegovtypes.ModuleName:                  nil,                                  // gov: receive stake deposits
-		zeronechannelstypes.ModuleName:             nil,                                  // channels: escrow deposits
 		zeronehometypes.ModuleName:                 nil,                                  // home: no mint/burn
-		zeronescheduletypes.ModuleName:             nil,                                  // schedule: fee escrow
-		zeronecptypes.ModuleName:                   {authtypes.Burner, authtypes.Staking}, // compute_pool: stake escrow
-		zeronediscoverytypes.ModuleName:            nil,                                  // discovery: stake escrow
 		"protocol_treasury":                        nil,                                  // protocol_treasury: receive revenue split
 		zeronebvmtypes.ModuleName:                  {authtypes.Burner},                   // bvm: burn deploy fees
-		zeronedisputestypes.ModuleName:             {authtypes.Burner},                   // disputes: bond escrow + burn
 		zeronequalificationtypes.ModuleName:        nil,                                  // qualification: stake escrow
 		zeroneemergencytypes.ModuleName:            nil,                                  // emergency: no mint/burn — signal-only module
 		zeronecctypes.ModuleName:                   {authtypes.Burner},                   // capture_challenge: rejected stakes to dev fund
 		zeronecdtypes.ModuleName:                   nil,                                  // capture_defense: no mint/burn
 		zeroneibcrltypes.ModuleName:                nil,                                  // ibcratelimit: no mint/burn — middleware only
-		zeroneicaauthtypes.ModuleName:              nil,                                  // icaauth: no mint/burn — auth wrapper only
-		zeroneresearchtypes.ModuleName:             {authtypes.Burner},                   // research: stake slashing burns
 		zeronealignmenttypes.ModuleName:            nil,                                  // alignment: no mint/burn — signal-only module
 		zeroneaptypes.ModuleName:                   nil,                                  // autopoiesis: no mint/burn — signal-only module
-		zeroneemtypes.ModuleName:                   {authtypes.Burner},                   // evidence_mgmt: burn challenged bonds
 		zeronecpottypes.ModuleName:                 {authtypes.Minter},                   // claiming_pot: bootstrap claims mint on demand (commitment 20)
 		zeronesponsorshiptypes.ModuleName:          nil,                                  // sponsorship: escrow-only, no mint/burn — circulates existing supply
-		zeronettreetypes.ModuleName:                {authtypes.Burner},                   // tree: revenue split
 		zeronepartnershipstypes.ModuleName:         {authtypes.Burner},                   // partnerships: dissolved stakes to dev fund
 		zeronetoolboxtypes.ModuleName:              {authtypes.Burner},                   // toolbox: deregistration fees
 		"treasury_protocol":                        nil,                                  // treasury_protocol: receive-only
@@ -507,12 +450,7 @@ type ZeroneApp struct {
 	BillingKeeper           zeronebillingkeeper.Keeper
 	LiquidityPoolKeeper     zeronelpkeeper.Keeper
 	ZeroneGovKeeper         zeronegovkeeper.Keeper
-	ChannelsKeeper          zeronechannelskeeper.Keeper
-	ScheduleKeeper          zeroneschedulekeeper.Keeper
-	ComputePoolKeeper       zeronecpkeeper.Keeper
-	DiscoveryKeeper         zeronediscoverykeeper.Keeper
 	BVMKeeper               zeronebvmkeeper.Keeper
-	DisputesKeeper          zeronedisputeskeeper.Keeper
 	QualificationKeeper     zeronequalificationkeeper.Keeper
 	EmergencyKeeper         zeroneemergencykeeper.Keeper
 	CaptureDefenseKeeper    zeronecdkeeper.Keeper
@@ -521,21 +459,15 @@ type ZeroneApp struct {
 	PartnershipsKeeper      zeronepartnershipskeeper.Keeper
 	ToolboxKeeper           zeronetoolboxkeeper.Keeper
 	IBCRateLimitKeeper  zeroneibcrlkeeper.Keeper
-	ICAAuthKeeper       zeroneicaauthkeeper.Keeper
-	ResearchKeeper          zeroneresearchkeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
 	GovernanceSynthesisKeeper zeronegovsynthkeeper.Keeper
 	AlignmentKeeper         zeronealignmentkeeper.Keeper
 	AutopoiesisKeeper       zeroneapkeeper.Keeper // R7-1: autopoiesis
-	EvidenceMgmtKeeper      zeroneemkeeper.Keeper
 	ClaimingPotKeeper       zeronecpotkeeper.Keeper
 	SponsorshipKeeper       zeronesponsorshipkeeper.Keeper
-	TreeKeeper              zeronetreekeeper.Keeper // R7-5: x/tree
-	PrivateCorpusKeeper     zeroneprivatecorpuskeeper.Keeper // x/private_corpus: off-chain vault references
 	CounterexamplesKeeper   zeronecounterexkeeper.Keeper     // x/counterexamples: alignment-by-structure (commitment 15)
 	InquiryKeeper           zeroneinquirykeeper.Keeper       // x/inquiry: open-question market (commitment 16)
-	AgentUnderstandingKeeper zeroneagentukeeper.Keeper       // x/agent_understanding: per-agent profile synthesizer (extends commitment 11)
 	DialecticKeeper          zeronedialectickeeper.Keeper    // x/dialectic: disagreement-shape synthesizer (commitment 17)
 	CreedKeeper              zeronecreedkeeper.Keeper        // x/creed: on-chain creed anchor (commitments 6, 10)
 	WorkCreedKeeper          zeroneworkcreedkeeper.Keeper    // x/work_creed: per-phase sub-creed anchor (commitments 6, 10 — useful-work scope)
@@ -639,29 +571,18 @@ func NewZeroneApp(
 		zeronehometypes.StoreKey,
 		zeronepartnershipstypes.StoreKey,
 		zeronetoolboxtypes.StoreKey,
-		zeronechannelstypes.StoreKey,
-		zeronescheduletypes.StoreKey,
-		zeronecptypes.StoreKey,
-		zeronediscoverytypes.StoreKey,
 		zeronebvmtypes.StoreKey,
-		zeronedisputestypes.StoreKey,
 		zeronequalificationtypes.StoreKey,
 		zeroneemergencytypes.StoreKey,
 		zeronecdtypes.StoreKey,
 		zeronecctypes.StoreKey,
 		zeroneibcrltypes.StoreKey,
-		zeroneicaauthtypes.StoreKey,
-		zeroneresearchtypes.StoreKey,
 		zeronealignmenttypes.StoreKey,
 		zeroneaptypes.StoreKey,
-		zeroneemtypes.StoreKey,
 		zeronecpottypes.StoreKey,
 		zeronesponsorshiptypes.StoreKey,
-		zeronettreetypes.StoreKey,
-		zeroneprivatecorpustypes.StoreKey,
 		zeronecounterextypes.StoreKey,
 		zeroneinquirytypes.StoreKey,
-		zeroneagentutypes.StoreKey,
 		zeronedialectictypes.StoreKey,
 		zeronecreedtypes.StoreKey,
 		zeroneworkcreedtypes.StoreKey,
@@ -968,34 +889,6 @@ func NewZeroneApp(
 	app.ZeroneGovKeeper.SetUpgradeKeeper(NewGovUpgradeAdapter(app.UpgradeKeeper))
 	app.ZeroneGovKeeper.SetParamRouter(NewGovParamRouter())
 
-	app.ChannelsKeeper = zeronechannelskeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeronechannelstypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.BankKeeper,
-	)
-
-	app.ScheduleKeeper = zeroneschedulekeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeronescheduletypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.BankKeeper,
-	)
-
-	app.ComputePoolKeeper = zeronecpkeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeronecptypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.BankKeeper,
-	)
-
-	app.DiscoveryKeeper = zeronediscoverykeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeronediscoverytypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.BankKeeper,
-	)
-
 	app.BVMKeeper = zeronebvmkeeper.NewKeeper(
 		appCodec,
 		sdkruntime.NewKVStoreService(keys[zeronebvmtypes.StoreKey]),
@@ -1007,17 +900,6 @@ func NewZeroneApp(
 	bvmAuthAdapter := zeroneauthkeeper.NewBVMAuthAdapter(app.ZeroneAuthKeeper)
 	app.BVMKeeper.SetAuthKeeper(bvmAuthAdapter)
 	app.BVMKeeper.SetHomeKeeper(zeronehomekeeper.NewBVMHomeAdapter(app.HomeKeeper))
-
-	disputesStakingAdapter := zeronestakingkeeper.NewDisputesStakingKeeperAdapter(app.ZeroneStakingKeeper)
-	disputesKnowledgeAdapter := zeroneknowledgekeeper.NewDisputesKnowledgeAdapter(app.KnowledgeKeeper)
-	app.DisputesKeeper = zeronedisputeskeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeronedisputestypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.BankKeeper,
-		disputesStakingAdapter,
-		disputesKnowledgeAdapter,
-	)
 
 	qualificationStakingAdapter := zeronestakingkeeper.NewQualificationStakingKeeperAdapter(app.ZeroneStakingKeeper)
 	app.QualificationKeeper = zeronequalificationkeeper.NewKeeper(
@@ -1116,15 +998,6 @@ func NewZeroneApp(
 	// the gov-synth construction; we re-apply the frontier setters
 	// after those modules are constructed).
 
-	// x/private_corpus: hash-anchor for off-chain vaults. The keeper is
-	// stateful (vaults, manifests, access records) but does NOT read
-	// from any other module — by design, see x/private_corpus/doc.go.
-	app.PrivateCorpusKeeper = zeroneprivatecorpuskeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeroneprivatecorpustypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-
 	// x/counterexamples: alignment-by-structure. Commitment 15 says
 	// the corpus must include not just what is true but what is wrong
 	// AND WHY. The keeper holds counterexample state and exposes
@@ -1161,27 +1034,6 @@ func NewZeroneApp(
 	)
 	// Chain-sponsored (frontier) inquiry minting gates through the cap.
 	app.InquiryKeeper.SetVestingRewardsKeeper(app.VestingRewardsKeeper)
-
-	// x/agent_understanding: pure read-only synthesizer composing
-	// per-agent, per-domain understanding profiles. Wires adapters
-	// from each upstream module that holds agent activity data.
-	app.AgentUnderstandingKeeper = zeroneagentukeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeroneagentutypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-	app.AgentUnderstandingKeeper.SetKnowledgeKeeper(
-		zeroneknowledgekeeper.NewAgentUnderstandingKnowledgeAdapter(app.KnowledgeKeeper),
-	)
-	app.AgentUnderstandingKeeper.SetQualificationKeeper(
-		zeronequalificationkeeper.NewAgentUnderstandingQualificationAdapter(app.QualificationKeeper),
-	)
-	app.AgentUnderstandingKeeper.SetCounterexamplesKeeper(
-		zeronecounterexkeeper.NewAgentUnderstandingAdapter(app.CounterexamplesKeeper),
-	)
-	app.AgentUnderstandingKeeper.SetInquiryKeeper(
-		zeroneinquirykeeper.NewAgentUnderstandingAdapter(app.InquiryKeeper),
-	)
 
 	// x/dialectic: pure read-only synthesizer composing per-fact,
 	// per-domain, per-agent-pair disagreement signatures from
@@ -1353,20 +1205,6 @@ func NewZeroneApp(
 
 	// IBCRateLimitKeeper already created above (before TransferKeeper).
 
-	app.ICAAuthKeeper = zeroneicaauthkeeper.NewKeeper(
-		appCodec,
-		sdkruntime.NewKVStoreService(keys[zeroneicaauthtypes.StoreKey]),
-		app.ICAControllerKeeper,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-	)
-
-	app.ResearchKeeper = zeroneresearchkeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeroneresearchtypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		app.BankKeeper,
-	)
-
 	// ---- Alignment keeper (R7-2) ----
 	alignmentKnowledgeAdapter := zeroneknowledgekeeper.NewAlignmentKnowledgeAdapter(app.KnowledgeKeeper)
 	alignmentStakingAdapter := zeronestakingkeeper.NewAlignmentStakingAdapter(app.ZeroneStakingKeeper)
@@ -1388,7 +1226,6 @@ func NewZeroneApp(
 	app.KnowledgeKeeper.SetPacingKeeper(alignmentPacingAdapter)
 	app.CaptureDefenseKeeper.SetPacingKeeper(alignmentPacingAdapter)
 	app.PartnershipsKeeper.SetPacingKeeper(alignmentPacingAdapter)
-	app.DiscoveryKeeper.SetPacingKeeper(alignmentPacingAdapter)
 	// ---- Autopoiesis keeper (R7-1) ----
 	apStakingAdapter := zeronestakingkeeper.NewStakingForAutopoiesisAdapter(app.ZeroneStakingKeeper)
 	app.AutopoiesisKeeper = zeroneapkeeper.NewKeeper(
@@ -1414,17 +1251,6 @@ func NewZeroneApp(
 	app.VestingRewardsKeeper.SetKnowledgeKeeper(zeroneknowledgekeeper.NewVestingRewardsKnowledgeAdapter(app.KnowledgeKeeper))
 	app.AlignmentKeeper.SetAutopoiesisKeeper(&app.AutopoiesisKeeper)
 
-	// ---- Evidence Management keeper (R7-6) ----
-	emStakingAdapter := zeronestakingkeeper.NewEvidenceMgmtStakingAdapter(app.ZeroneStakingKeeper)
-	emDisputesAdapter := zeronedisputeskeeper.NewEvidenceMgmtDisputesAdapter(app.DisputesKeeper)
-	app.EvidenceMgmtKeeper = zeroneemkeeper.NewKeeper(
-		sdkruntime.NewKVStoreService(keys[zeroneemtypes.StoreKey]),
-		appCodec,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		emStakingAdapter,
-		emDisputesAdapter,
-	)
-
 	// ---- Claiming Pot keeper (R7-6) ----
 	cpotStakingAdapter := zeronestakingkeeper.NewClaimingPotStakingAdapter(app.ZeroneStakingKeeper)
 	cpotAuthAdapter := zeroneauthkeeper.NewClaimingPotAuthAdapter(app.ZeroneAuthKeeper)
@@ -1448,18 +1274,6 @@ func NewZeroneApp(
 		app.BankKeeper,
 		app.KnowledgeKeeper,
 	)
-
-	// ---- Tree keeper (R7-5) ----
-	treeRFDAdapter := vestingrewardskeeper.NewResearchFundDepositorAdapter(app.VestingRewardsKeeper)
-	app.TreeKeeper = zeronetreekeeper.NewKeeper(
-		appCodec,
-		sdkruntime.NewKVStoreService(keys[zeronettreetypes.StoreKey]),
-		app.BankKeeper,
-		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
-		treeRFDAdapter,
-	)
-	// TODO: Wire channels keeper when x/channels implements GetChannelInfo/SpendFromChannel:
-	// app.TreeKeeper.SetChannelsKeeper(channelsAdapter)
 
 	// ---- Home keeper (R8-1) ----
 	app.HomeKeeper = zeronehomekeeper.NewKeeper(
@@ -1500,8 +1314,6 @@ func NewZeroneApp(
 	)
 
 	// R31-4: Wire Metal→Water cross-module dependencies.
-	// discovery → qualification (qualified domains for match scoring)
-	app.DiscoveryKeeper.SetQualificationKeeper(app.QualificationKeeper)
 	// partnerships → ontology (related strata for cross-stratum matching)
 	app.PartnershipsKeeper.SetOntologyKeeper(&app.ZeroneOntologyKeeper)
 
@@ -1586,35 +1398,24 @@ func NewZeroneApp(
 		zeronebilling.NewAppModule(appCodec, app.BillingKeeper),
 		zeroneliquiditypool.NewAppModule(appCodec, app.LiquidityPoolKeeper),
 		zeronegov.NewAppModule(appCodec, app.ZeroneGovKeeper),
-		zeronechannels.NewAppModule(appCodec, app.ChannelsKeeper),
-		zeroneschedule.NewAppModule(appCodec, app.ScheduleKeeper),
-		zeronecomputepool.NewAppModule(appCodec, app.ComputePoolKeeper),
-		zeronediscovery.NewAppModule(appCodec, app.DiscoveryKeeper),
 		zeronebvm.NewAppModule(appCodec, app.BVMKeeper),
-		zeronedisputes.NewAppModule(appCodec, app.DisputesKeeper),
 		zeronequalification.NewAppModule(appCodec, app.QualificationKeeper),
 		zeroneemergency.NewAppModule(appCodec, app.EmergencyKeeper),
 		zeronecapturedefense.NewAppModule(appCodec, app.CaptureDefenseKeeper),
 		zeronecapturechallenge.NewAppModule(appCodec, app.CaptureChallengeKeeper),
 		zeroneibcratelimit.NewAppModule(appCodec, app.IBCRateLimitKeeper),
-		zeroneicaauth.NewAppModule(appCodec, app.ICAAuthKeeper),
-		zeroneresearch.NewAppModule(appCodec, app.ResearchKeeper),
 		zeroneprovenance.NewAppModule(appCodec, app.TrainingProvenanceKeeper),
 		zeronetrustscore.NewAppModule(appCodec, app.TrustScoreKeeper),
 		zeronegovsynth.NewAppModule(appCodec, app.GovernanceSynthesisKeeper),
 		zeronealignment.NewAppModule(appCodec, app.AlignmentKeeper),
 		zeroneautopoiesis.NewAppModule(appCodec, app.AutopoiesisKeeper),
-		zeroneevidencemgmt.NewAppModule(appCodec, app.EvidenceMgmtKeeper),
 		zeroneclaimingpot.NewAppModule(appCodec, app.ClaimingPotKeeper),
 		zeronesponsorship.NewAppModule(appCodec, app.SponsorshipKeeper),
-		zeronetree.NewAppModule(appCodec, app.TreeKeeper),               // R7-5: x/tree
 		zeronehome.NewAppModule(appCodec, app.HomeKeeper),                // R8-1: x/home
 		zeronepartnerships.NewAppModule(appCodec, app.PartnershipsKeeper), // R8-1: x/partnerships
 		zeronetoolbox.NewAppModule(appCodec, app.ToolboxKeeper),          // R8-1: x/toolbox
-		zeroneprivatecorpus.NewAppModule(appCodec, app.PrivateCorpusKeeper),
 		zeronecounterex.NewAppModule(appCodec, app.CounterexamplesKeeper),
 		zeroneinquiry.NewAppModule(appCodec, app.InquiryKeeper),
-		zeroneagentu.NewAppModule(appCodec, app.AgentUnderstandingKeeper),
 		zeronecreed.NewAppModule(appCodec, app.CreedKeeper),
 		zeroneworkcreed.NewAppModule(appCodec, app.WorkCreedKeeper),
 		zerocontribmodule.NewAppModule(appCodec, &app.ContributionKeeper),
@@ -1657,34 +1458,23 @@ func NewZeroneApp(
 		zeronetokenstypes.ModuleName,          // tokens: emission period processing
 		zeronebillingtypes.ModuleName,   // billing: no-op
 		zeronelptypes.ModuleName,        // liquiditypool: TWAP accumulator updates
-		zeronechannelstypes.ModuleName,      // channels: auto-settle expired + periodic settlements
-		zeronescheduletypes.ModuleName,      // schedule: no-op in BeginBlock
-		zeronecptypes.ModuleName,            // compute_pool: jail inactive, price changes, unbonding
-		zeronediscoverytypes.ModuleName,     // discovery: expire stale profiles
 		zeronebvmtypes.ModuleName,           // bvm: execute pending scheduled contracts
 		zeronehometypes.ModuleName,          // home: deadman switches, session cleanup
-		zeronedisputestypes.ModuleName,              // disputes: phase transitions based on deadlines
 		zeronequalificationtypes.ModuleName,         // qualification: expiry, promotion, stake unlock
 		zeronecdtypes.ModuleName,                    // capture_defense: decay + auto-analysis (before challenge)
 		zeronecctypes.ModuleName,                    // capture_challenge: phase advancement, risk analysis
-		zeroneresearchtypes.ModuleName,              // research: bounty expiry
 		zeroneprovenancetypes.ModuleName,            // training_provenance: no-op in BeginBlock (pure synthesizer)
 		zeronetrustscoretypes.ModuleName,            // trust_score: no-op in BeginBlock (pure synthesizer)
 		zeronegovsynthtypes.ModuleName,              // governance_synthesis: no-op in BeginBlock (pure synthesizer)
 		zeronealignmenttypes.ModuleName,             // alignment: no-op in BeginBlock
 		zeroneaptypes.ModuleName,                    // autopoiesis: no-op in BeginBlock
 		zeroneibcrltypes.ModuleName,                 // ibcratelimit: reset expired windows
-		zeroneicaauthtypes.ModuleName,               // icaauth: no-op
 		zeronepartnershipstypes.ModuleName,          // partnerships: expire formations, lift freezes
-		zeroneemtypes.ModuleName,                    // evidence_mgmt: no-op (event-driven)
 		zeronecpottypes.ModuleName,                  // claiming_pot: pot expiry
 		zeronesponsorshiptypes.ModuleName,           // sponsorship: bounty expiry
-		zeronettreetypes.ModuleName,                 // tree: expire seeds past expiry block
 		zeronetoolboxtypes.ModuleName,               // toolbox: no-op BeginBlock
-		zeroneprivatecorpustypes.ModuleName,         // private_corpus: no-op BeginBlock (operator-driven)
 		zeronecounterextypes.ModuleName,             // counterexamples: no-op BeginBlock (proposal-driven)
 		zeroneinquirytypes.ModuleName,               // inquiry: scan OPEN/ANSWERED inquiries for resolution + expiry
-		zeroneagentutypes.ModuleName,                // agent_understanding: no-op BeginBlock (pure synthesizer)
 		zeronedialectictypes.ModuleName,             // dialectic: no-op BeginBlock (pure synthesizer)
 		zeronecreedtypes.ModuleName,                 // creed: no-op BeginBlock (pure registry)
 		zeroneworkcreedtypes.ModuleName,             // work_creed: no-op BeginBlock (pure registry)
@@ -1718,35 +1508,24 @@ func NewZeroneApp(
 		zeronetokenstypes.ModuleName,          // EndBlocker: no-op
 		zeronebillingtypes.ModuleName,   // EndBlocker: no-op
 		zeronelptypes.ModuleName,        // EndBlocker: no-op
-		zeronechannelstypes.ModuleName,      // EndBlocker: no-op
-		zeronescheduletypes.ModuleName,      // EndBlocker: process due schedules
-		zeronecptypes.ModuleName,            // EndBlocker: no-op
-		zeronediscoverytypes.ModuleName,     // EndBlocker: no-op
 		zeronebvmtypes.ModuleName,           // EndBlocker: no-op
 		zeronehometypes.ModuleName,          // EndBlocker: cleanup old acknowledged alerts
-		zeronedisputestypes.ModuleName,              // EndBlocker: no-op
 		zeronequalificationtypes.ModuleName,         // EndBlocker: no-op
 		zeroneemergencytypes.ModuleName,             // EndBlocker: epoch counter reset
 		zeroneaptypes.ModuleName,                    // EndBlocker: epoch SSI processing + multiplier adjustment
 		zeronecdtypes.ModuleName,                    // EndBlocker: no-op
 		zeronecctypes.ModuleName,                    // EndBlocker: no-op
-		zeroneresearchtypes.ModuleName,              // EndBlocker: no-op
 		zeroneprovenancetypes.ModuleName,            // EndBlocker: no-op
 		zeronetrustscoretypes.ModuleName,            // EndBlocker: no-op
 		zeronegovsynthtypes.ModuleName,              // EndBlocker: no-op
 		zeronealignmenttypes.ModuleName,             // EndBlocker: observation→scoring→corrections at interval
 		zeroneibcrltypes.ModuleName,                 // EndBlocker: no-op
-		zeroneicaauthtypes.ModuleName,               // EndBlocker: no-op
 		zeronepartnershipstypes.ModuleName,          // EndBlocker: settle cooling partnerships
-		zeroneemtypes.ModuleName,                    // EndBlocker: no-op
 		zeronecpottypes.ModuleName,                  // EndBlocker: no-op
 		zeronesponsorshiptypes.ModuleName,           // EndBlocker: no-op
-		zeronettreetypes.ModuleName,                 // EndBlocker: no-op
 		zeronetoolboxtypes.ModuleName,               // EndBlocker: no-op
-		zeroneprivatecorpustypes.ModuleName,         // EndBlocker: no-op
 		zeronecounterextypes.ModuleName,             // EndBlocker: no-op
 		zeroneinquirytypes.ModuleName,               // EndBlocker: no-op
-		zeroneagentutypes.ModuleName,                // EndBlocker: no-op
 		zeronedialectictypes.ModuleName,             // EndBlocker: no-op
 		zeronecreedtypes.ModuleName,                 // EndBlocker: no-op (pure registry)
 		zeroneworkcreedtypes.ModuleName,             // EndBlocker: no-op (pure registry)
@@ -1781,35 +1560,24 @@ func NewZeroneApp(
 		zeronetokenstypes.ModuleName,          // Genesis: after bank (needs bank for wrap)
 		zeronebillingtypes.ModuleName,   // Genesis: after knowledge (depends on knowledge for fact queries)
 		zeronelptypes.ModuleName,        // Genesis: after bank (needs bank for LP minting)
-		zeronechannelstypes.ModuleName,      // Genesis: after bank (needs bank for escrow)
-		zeronescheduletypes.ModuleName,      // Genesis: after bank (needs bank for fee escrow)
-		zeronecptypes.ModuleName,            // Genesis: after bank (needs bank for stake escrow)
-		zeronediscoverytypes.ModuleName,     // Genesis: after bank (needs bank for stake escrow)
 		zeronebvmtypes.ModuleName,           // Genesis: after knowledge (needs knowledge for bridge)
 		zeronehometypes.ModuleName,          // Genesis: after bank (needs bank for sends)
-		zeronedisputestypes.ModuleName,              // Genesis: after knowledge + staking (needs both)
-		zeronequalificationtypes.ModuleName,         // Genesis: after disputes + staking
+		zeronequalificationtypes.ModuleName,         // Genesis: after staking
 		zeroneemergencytypes.ModuleName,             // Genesis: after staking (needs guardian tier info)
 		zeroneaptypes.ModuleName,                    // Genesis: after emergency + knowledge + staking
 		zeronecdtypes.ModuleName,                    // Genesis: after knowledge + staking
 		zeronecctypes.ModuleName,                    // Genesis: after capture_defense
-		zeroneresearchtypes.ModuleName,              // Genesis: after knowledge + bank (needs both)
 		zeroneprovenancetypes.ModuleName,            // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
 		zeronetrustscoretypes.ModuleName,            // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
 		zeronegovsynthtypes.ModuleName,              // Genesis: after knowledge + capture_challenge + alignment (pure read consumer)
 		zeronealignmenttypes.ModuleName,             // Genesis: after emergency + staking + knowledge (needs all)
 		zeronepartnershipstypes.ModuleName,          // Genesis: after home (needs home for partnership links)
 		zeroneibcrltypes.ModuleName,                 // Genesis: after IBC
-		zeroneicaauthtypes.ModuleName,               // Genesis: after ICA
-		zeroneemtypes.ModuleName,                    // Genesis: after disputes + staking
 		zeronecpottypes.ModuleName,                  // Genesis: after staking + auth + bank
 		zeronesponsorshiptypes.ModuleName,           // Genesis: after bank + knowledge
-		zeronettreetypes.ModuleName,                 // Genesis: after bank + channels + vesting_rewards
 		zeronetoolboxtypes.ModuleName,               // Genesis: after discovery + billing + home + tree (needs all)
-		zeroneprivatecorpustypes.ModuleName,         // Genesis: standalone, no cross-module deps
 		zeronecounterextypes.ModuleName,             // Genesis: after knowledge (uses fact-existence adapter)
 		zeroneinquirytypes.ModuleName,               // Genesis: after knowledge (auto-resolver reads facts)
-		zeroneagentutypes.ModuleName,                // Genesis: after all upstream modules (pure synthesizer)
 		zeronedialectictypes.ModuleName,             // Genesis: after knowledge (pure synthesizer)
 		zeronecreedtypes.ModuleName,                 // Genesis: standalone (pure registry, no cross-module deps)
 		zeroneworkcreedtypes.ModuleName,             // Genesis: after creed (creed pin in place when sub-creed enforcement starts)
@@ -2009,29 +1777,20 @@ func (app *ZeroneApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.API
 	must(zeronebillingtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronebillingtypes.NewQueryClient(clientCtx)))
 	must(zeronelptypes.RegisterQueryHandlerClient(ctx, gwmux, zeronelptypes.NewQueryClient(clientCtx)))
 	must(zeronetokenstypes.RegisterQueryHandlerClient(ctx, gwmux, zeronetokenstypes.NewQueryClient(clientCtx)))
-	must(zeronechannelstypes.RegisterQueryHandlerClient(ctx, gwmux, zeronechannelstypes.NewQueryClient(clientCtx)))
 	must(zeronegovtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronegovtypes.NewQueryClient(clientCtx)))
 	must(zeronehometypes.RegisterQueryHandlerClient(ctx, gwmux, zeronehometypes.NewQueryClient(clientCtx)))
 	must(zeronepartnershipstypes.RegisterQueryHandlerClient(ctx, gwmux, zeronepartnershipstypes.NewQueryClient(clientCtx)))
-	must(zeronescheduletypes.RegisterQueryHandlerClient(ctx, gwmux, zeronescheduletypes.NewQueryClient(clientCtx)))
-	must(zeronecptypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecptypes.NewQueryClient(clientCtx)))
-	must(zeronediscoverytypes.RegisterQueryHandlerClient(ctx, gwmux, zeronediscoverytypes.NewQueryClient(clientCtx)))
 	must(zeronebvmtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronebvmtypes.NewQueryClient(clientCtx)))
 	must(vestingrewardstypes.RegisterQueryHandlerClient(ctx, gwmux, vestingrewardstypes.NewQueryClient(clientCtx)))
-	must(zeronedisputestypes.RegisterQueryHandlerClient(ctx, gwmux, zeronedisputestypes.NewQueryClient(clientCtx)))
 	must(zeronequalificationtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronequalificationtypes.NewQueryClient(clientCtx)))
 	must(zeroneemergencytypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneemergencytypes.NewQueryClient(clientCtx)))
 	must(zeroneibcrltypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneibcrltypes.NewQueryClient(clientCtx)))
-	must(zeroneicaauthtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneicaauthtypes.NewQueryClient(clientCtx)))
 	must(zeronecdtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecdtypes.NewQueryClient(clientCtx)))
 	must(zeronecctypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecctypes.NewQueryClient(clientCtx)))
 	must(zeronealignmenttypes.RegisterQueryHandlerClient(ctx, gwmux, zeronealignmenttypes.NewQueryClient(clientCtx)))
-	must(zeroneresearchtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneresearchtypes.NewQueryClient(clientCtx)))
 	must(zeroneaptypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneaptypes.NewQueryClient(clientCtx)))
-	must(zeroneemtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneemtypes.NewQueryClient(clientCtx)))
 	must(zeronecpottypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecpottypes.NewQueryClient(clientCtx)))
 	must(zeronetoolboxtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronetoolboxtypes.NewQueryClient(clientCtx)))
-	must(zeronettreetypes.RegisterQueryHandlerClient(ctx, gwmux, zeronettreetypes.NewQueryClient(clientCtx)))
 	apiSvr.Router.PathPrefix("/zerone/").Handler(gwmux)
 
 	// Swagger UI placeholder — full OpenAPI served from proto-generated spec (R10-2)

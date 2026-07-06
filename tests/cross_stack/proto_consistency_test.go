@@ -16,28 +16,19 @@ import (
 	bvmtypes "github.com/zerone-chain/zerone/x/bvm/types"
 	capturechallengetypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
 	capturedefensetypes "github.com/zerone-chain/zerone/x/capture_defense/types"
-	channelstypes "github.com/zerone-chain/zerone/x/channels/types"
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
-	computepooltypes "github.com/zerone-chain/zerone/x/compute_pool/types"
-	discoverytypes "github.com/zerone-chain/zerone/x/discovery/types"
-	disputestypes "github.com/zerone-chain/zerone/x/disputes/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
-	evidencemgmttypes "github.com/zerone-chain/zerone/x/evidence_mgmt/types"
 	zeronegov "github.com/zerone-chain/zerone/x/gov/types"
 	hometypes "github.com/zerone-chain/zerone/x/home/types"
 	ibcratelimittypes "github.com/zerone-chain/zerone/x/ibcratelimit/types"
-	icaauthtypes "github.com/zerone-chain/zerone/x/icaauth/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
 	ontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
 	partnershipstypes "github.com/zerone-chain/zerone/x/partnerships/types"
 	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
-	researchtypes "github.com/zerone-chain/zerone/x/research/types"
-	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 	tokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	toolboxtypes "github.com/zerone-chain/zerone/x/toolbox/types"
-	treetypes "github.com/zerone-chain/zerone/x/tree/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 
 	gogoproto "github.com/cosmos/gogoproto/proto"
@@ -75,28 +66,19 @@ func TestProtoJSONRoundTrip_AllModuleParams(t *testing.T) {
 		{bvmtypes.ModuleName, bvmtypes.DefaultGenesisState(), func() gogoproto.Message { return &bvmtypes.GenesisState{} }},
 		{capturechallengetypes.ModuleName, capturechallengetypes.DefaultGenesis(), func() gogoproto.Message { return &capturechallengetypes.GenesisState{} }},
 		{capturedefensetypes.ModuleName, capturedefensetypes.DefaultGenesis(), func() gogoproto.Message { return &capturedefensetypes.GenesisState{} }},
-		{channelstypes.ModuleName, channelstypes.DefaultGenesis(), func() gogoproto.Message { return &channelstypes.GenesisState{} }},
 		{claimingpottypes.ModuleName, claimingpottypes.DefaultGenesis(), func() gogoproto.Message { return &claimingpottypes.GenesisState{} }},
-		{computepooltypes.ModuleName, computepooltypes.DefaultGenesis(), func() gogoproto.Message { return &computepooltypes.GenesisState{} }},
-		{discoverytypes.ModuleName, discoverytypes.DefaultGenesis(), func() gogoproto.Message { return &discoverytypes.GenesisState{} }},
-		{disputestypes.ModuleName, disputestypes.DefaultGenesis(), func() gogoproto.Message { return &disputestypes.GenesisState{} }},
 		{emergencytypes.ModuleName, emergencytypes.DefaultGenesis(), func() gogoproto.Message { return &emergencytypes.GenesisState{} }},
-		{evidencemgmttypes.ModuleName, evidencemgmttypes.DefaultGenesis(), func() gogoproto.Message { return &evidencemgmttypes.GenesisState{} }},
 		{zeronegov.ModuleName, zeronegov.DefaultGenesisState(), func() gogoproto.Message { return &zeronegov.GenesisState{} }},
 		{hometypes.ModuleName, hometypes.DefaultGenesis(), func() gogoproto.Message { return &hometypes.GenesisState{} }},
 		{ibcratelimittypes.ModuleName, ibcratelimittypes.DefaultGenesis(), func() gogoproto.Message { return &ibcratelimittypes.GenesisState{} }},
-		{icaauthtypes.ModuleName, icaauthtypes.DefaultGenesis(), func() gogoproto.Message { return &icaauthtypes.GenesisState{} }},
 		{knowledgetypes.ModuleName, knowledgetypes.DefaultGenesis(), func() gogoproto.Message { return &knowledgetypes.GenesisState{} }},
 		{liquiditypooltypes.ModuleName, liquiditypooltypes.DefaultGenesis(), func() gogoproto.Message { return &liquiditypooltypes.GenesisState{} }},
 		{ontologytypes.ModuleName, ontologytypes.DefaultGenesis(), func() gogoproto.Message { return &ontologytypes.GenesisState{} }},
 		{partnershipstypes.ModuleName, partnershipstypes.DefaultGenesis(), func() gogoproto.Message { return &partnershipstypes.GenesisState{} }},
 		{qualificationtypes.ModuleName, qualificationtypes.DefaultGenesis(), func() gogoproto.Message { return &qualificationtypes.GenesisState{} }},
-		{researchtypes.ModuleName, researchtypes.DefaultGenesis(), func() gogoproto.Message { return &researchtypes.GenesisState{} }},
-		{scheduletypes.ModuleName, scheduletypes.DefaultGenesis(), func() gogoproto.Message { return &scheduletypes.GenesisState{} }},
 		{zeronestakingtypes.ModuleName, zeronestakingtypes.DefaultGenesisState(), func() gogoproto.Message { return &zeronestakingtypes.GenesisState{} }},
 		{tokenstypes.ModuleName, tokenstypes.DefaultGenesis(), func() gogoproto.Message { return &tokenstypes.GenesisState{} }},
 		{toolboxtypes.ModuleName, toolboxtypes.DefaultGenesis(), func() gogoproto.Message { return &toolboxtypes.GenesisState{} }},
-		{treetypes.ModuleName, treetypes.DefaultGenesisState(), func() gogoproto.Message { return &treetypes.GenesisState{} }},
 		{vestingrewardstypes.ModuleName, vestingrewardstypes.DefaultGenesis(), func() gogoproto.Message { return &vestingrewardstypes.GenesisState{} }},
 	}
 

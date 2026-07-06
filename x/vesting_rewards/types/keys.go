@@ -33,13 +33,6 @@ const (
 
 	// KnowledgeModuleName is the module account name for the knowledge module.
 	KnowledgeModuleName = "knowledge"
-
-	// ComputePoolShareBps is the share of the verification pool allocated to
-	// the compute pool module. 300000 = 30% of the verification pool.
-	ComputePoolShareBps = 300000
-
-	// ComputePoolModuleName is the module account for the compute pool.
-	ComputePoolModuleName = "compute_pool"
 )
 
 // Store key prefixes.

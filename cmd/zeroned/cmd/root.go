@@ -44,28 +44,19 @@ import (
 	bvmcli "github.com/zerone-chain/zerone/x/bvm/client/cli"
 	capturechallengecli "github.com/zerone-chain/zerone/x/capture_challenge/client/cli"
 	capturedefensecli "github.com/zerone-chain/zerone/x/capture_defense/client/cli"
-	channelscli "github.com/zerone-chain/zerone/x/channels/client/cli"
 	claimingpotcli "github.com/zerone-chain/zerone/x/claiming_pot/client/cli"
-	computepoolcli "github.com/zerone-chain/zerone/x/compute_pool/client/cli"
-	discoverycli "github.com/zerone-chain/zerone/x/discovery/client/cli"
-	disputescli "github.com/zerone-chain/zerone/x/disputes/client/cli"
 	emergencycli "github.com/zerone-chain/zerone/x/emergency/client/cli"
-	evidencemgmtcli "github.com/zerone-chain/zerone/x/evidence_mgmt/client/cli"
 	govcli "github.com/zerone-chain/zerone/x/gov/client/cli"
 	homecli "github.com/zerone-chain/zerone/x/home/client/cli"
 	ibcratelimitcli "github.com/zerone-chain/zerone/x/ibcratelimit/client/cli"
-	icaauthcli "github.com/zerone-chain/zerone/x/icaauth/client/cli"
 	knowledgecli "github.com/zerone-chain/zerone/x/knowledge/client/cli"
 	liquiditypoolcli "github.com/zerone-chain/zerone/x/liquiditypool/client/cli"
 	ontologycli "github.com/zerone-chain/zerone/x/ontology/client/cli"
 	partnershipscli "github.com/zerone-chain/zerone/x/partnerships/client/cli"
 	qualificationcli "github.com/zerone-chain/zerone/x/qualification/client/cli"
-	researchcli "github.com/zerone-chain/zerone/x/research/client/cli"
-	schedulecli "github.com/zerone-chain/zerone/x/schedule/client/cli"
 	stakingcli "github.com/zerone-chain/zerone/x/staking/client/cli"
 	tokenscli "github.com/zerone-chain/zerone/x/tokens/client/cli"
 	toolboxcli "github.com/zerone-chain/zerone/x/toolbox/client/cli"
-	treecli "github.com/zerone-chain/zerone/x/tree/client/cli"
 	vestingrewardscli "github.com/zerone-chain/zerone/x/vesting_rewards/client/cli"
 )
 
@@ -243,28 +234,19 @@ func queryCommand(_ app.EncodingConfig) *cobra.Command {
 		bvmcli.NewQueryCmd(),
 		capturechallengecli.NewQueryCmd(),
 		capturedefensecli.NewQueryCmd(),
-		channelscli.NewQueryCmd(),
 		claimingpotcli.NewQueryCmd(),
-		computepoolcli.NewQueryCmd(),
-		discoverycli.NewQueryCmd(),
-		disputescli.NewQueryCmd(),
 		emergencycli.NewQueryCmd(),
-		evidencemgmtcli.NewQueryCmd(),
 		govcli.NewQueryCmd(),
 		homecli.NewQueryCmd(),
 		ibcratelimitcli.NewQueryCmd(),
-		icaauthcli.NewQueryCmd(),
 		knowledgecli.GetQueryCmd(),
 		liquiditypoolcli.NewQueryCmd(),
 		ontologycli.NewQueryCmd(),
 		partnershipscli.NewQueryCmd(),
 		qualificationcli.NewQueryCmd(),
-		researchcli.NewQueryCmd(),
-		schedulecli.NewQueryCmd(),
 		stakingcli.GetQueryCmd(),
 		tokenscli.NewQueryCmd(),
 		toolboxcli.NewQueryCmd(),
-		treecli.NewQueryCmd(),
 		vestingrewardscli.NewQueryCmd(),
 	)
 
@@ -320,28 +302,19 @@ func txCommand(encodingConfig app.EncodingConfig) *cobra.Command {
 		bvmcli.NewTxCmd(),
 		capturechallengecli.NewTxCmd(),
 		capturedefensecli.NewTxCmd(),
-		channelscli.NewTxCmd(),
 		claimingpotcli.NewTxCmd(),
-		computepoolcli.NewTxCmd(),
-		discoverycli.NewTxCmd(),
-		disputescli.NewTxCmd(),
 		emergencycli.NewTxCmd(),
-		evidencemgmtcli.NewTxCmd(),
 		govcli.NewTxCmd(),
 		homecli.NewTxCmd(),
 		ibcratelimitcli.NewTxCmd(),
-		icaauthcli.NewTxCmd(),
 		knowledgecli.GetTxCmd(),
 		liquiditypoolcli.NewTxCmd(),
 		ontologycli.NewTxCmd(),
 		partnershipscli.NewTxCmd(),
 		qualificationcli.NewTxCmd(),
-		researchcli.NewTxCmd(),
-		schedulecli.NewTxCmd(),
 		stakingcli.GetTxCmd(),
 		tokenscli.NewTxCmd(),
 		toolboxcli.NewTxCmd(),
-		treecli.NewTxCmd(),
 		vestingrewardscli.NewTxCmd(),
 	)
 
