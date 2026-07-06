@@ -77,16 +77,11 @@ func TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound(t *testing.T) {
 		TouchedFiles: []string{"x/sponsorship/keeper/msg_server.go"},
 	}, uint64(h.Ctx.BlockHeight()))
 	require.NoError(t, err)
-	_, err = sbSrv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
-		Submitter:   submitter.String(),
-		AdapterId:   selfcompile.AdapterID,
-		WorkClassId: "zerone_self_attestation",
-		Link:        link,
-		BondUzrn:    "1000000",
-	})
-	require.NoError(t, err)
 
-	// Stage 3: seed verified fact (simulate verification).
+	// Stage 2b: seed the verified fact FIRST (simulate verification), then
+	// cite it. Pending-claim links are fail-closed at the msg server until
+	// their x/knowledge translation is wired (ToK Plan 4) — the self-loop
+	// cites verified facts instead.
 	const selfFactID = "voice-audit-fact-1"
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id:               selfFactID,
@@ -96,6 +91,20 @@ func TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound(t *testing.T) {
 		SubmittedAtBlock: uint64(h.Ctx.BlockHeight()),
 		Status:           knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
 	}))
+	link.PendingClaims = nil
+	link.CitedFacts = []*substratebridgetypes.FactCitation{
+		{FactId: selfFactID, CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},
+	}
+	link.LinkHash = substratebridgekeeper.ComputeLinkHash(link)
+
+	_, err = sbSrv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
+		Submitter:   submitter.String(),
+		AdapterId:   selfcompile.AdapterID,
+		WorkClassId: "zerone_self_attestation",
+		Link:        link,
+		BondUzrn:    "1000000",
+	})
+	require.NoError(t, err)
 
 	// Stage 4: fulfillment.
 	_, err = spSrv.FulfillBounty(h.Ctx, &sponsorshiptypes.MsgFulfillBounty{

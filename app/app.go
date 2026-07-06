@@ -393,7 +393,7 @@ var (
 		zeronepartnershipstypes.ModuleName:         {authtypes.Burner},                   // partnerships: dissolved stakes to dev fund
 		zeronetoolboxtypes.ModuleName:              {authtypes.Burner},                   // toolbox: deregistration fees
 		"treasury_protocol":                        nil,                                  // treasury_protocol: receive-only
-		substratebridgetypes.ModuleName:              nil,                                  // substrate_bridge: bond escrow — no autonomous mint
+		substratebridgetypes.ModuleName:              {authtypes.Burner},                   // substrate_bridge: bond escrow — Burner burns slashed bonds (frees cap headroom); no mint
 		substratebridgetypes.AuditBountyPoolModuleName: {authtypes.Minter},                // useful_work_audit_bounty_pool: chain-minted audit rewards
 	}
 )
@@ -1269,6 +1269,7 @@ func NewZeroneApp(
 		zeronequalificationkeeper.NewSubstrateBridgeQualificationAdapter(app.QualificationKeeper),
 		app.BankKeeper,
 		app.AccountKeeper,
+		app.VestingRewardsKeeper,
 	)
 	// Post-init wire-back: knowledge calls OnClaimResolved on each completed round.
 	app.KnowledgeKeeper.SetSubstrateBridgeKeeper(&app.SubstrateBridgeKeeper)

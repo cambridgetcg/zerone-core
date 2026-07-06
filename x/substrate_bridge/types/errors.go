@@ -22,6 +22,7 @@ var (
 	ErrLinkHashMismatch          = errors.Register(codespace, 16, "substrate-link hash does not match recomputed canonical form (UW + M2: re-derivability is the link)")
 	ErrInvalidCitationType       = errors.Register(codespace, 17, "citation_type unspecified or unknown (UW + M6)")
 	ErrContributionSharesInvalid = errors.Register(codespace, 18, "contribution_share_bps does not sum to 10000 across cites (UW + M6)")
+	ErrPendingClaimsNotSupported = errors.Register(codespace, 19, "pending_claims are not accepted yet: translation into x/knowledge is unwired (ToK Plan 4), so an accepted pending claim could never resolve and the bond would slash on timeout — submit cited_facts only")
 
 	// State machine errors.
 	ErrAttestationNotFound    = errors.Register(codespace, 20, "attestation not found")

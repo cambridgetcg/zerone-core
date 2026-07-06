@@ -90,6 +90,16 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 		return nil, err
 	}
 
+	// 2b. Pending claims are fail-closed until their translation into
+	// x/knowledge is wired (ToK Plan 4): the auto-submit below records only
+	// a synthetic index entry, knowledge never learns of the claim, so it
+	// can never resolve — the attestation would sit AWAITING_RESOLUTION
+	// until timeout and slash the full bond. Refusing honestly at the door
+	// beats accepting a bond into a trap.
+	if len(msg.Link.PendingClaims) > 0 {
+		return nil, types.ErrPendingClaimsNotSupported
+	}
+
 	// 3. Get adapter for qualification + work-class allow-list check.
 	adapter, _ := m.GetAdapter(ctx, msg.AdapterId)
 	if len(adapter.AllowedClassIds) > 0 {

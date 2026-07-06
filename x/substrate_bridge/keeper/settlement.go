@@ -29,11 +29,11 @@ func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) err
 	}
 
 	params := k.GetParams(ctx)
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	totalCount := uint32(len(att.Link.CitedFacts)) + uint32(len(att.Link.PendingClaims))
 	if totalCount == 0 {
-		// Nothing to settle; close as SETTLED with base only.
+		// Witness-only link: nothing to reward, but the bond was honest
+		// collateral and returns whole.
 		return k.finalizeSettle(ctx, att, sdkmath.ZeroInt(), types.AttestationStatus_ATTESTATION_STATUS_SETTLED)
 	}
 
@@ -42,13 +42,8 @@ func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) err
 	if pendingTotal > 0 {
 		rejectionRatioBps := uint32(att.RejectedCount) * 10000 / pendingTotal
 		if rejectionRatioBps >= params.PendingClaimRejectionThresholdBps {
-			att.Status = types.AttestationStatus_ATTESTATION_STATUS_REJECTED
-			att.RejectionReason = fmt.Sprintf("rejection ratio %d bps >= threshold %d bps",
-				rejectionRatioBps, params.PendingClaimRejectionThresholdBps)
-			att.SettledAtBlock = uint64(sdkCtx.BlockHeight())
-			// Full bond slash (M1 fraud tier).
-			att.SlashUzrn = att.BondUzrn
-			return k.WriteAttestation(ctx, att)
+			return k.settleRejected(ctx, att, fmt.Sprintf("rejection ratio %d bps >= threshold %d bps",
+				rejectionRatioBps, params.PendingClaimRejectionThresholdBps))
 		}
 	}
 
@@ -58,11 +53,8 @@ func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) err
 
 	// Min-verified-ratio check.
 	if verifiedRatioBps < params.MinVerifiedRatioForSettleBps {
-		att.Status = types.AttestationStatus_ATTESTATION_STATUS_REJECTED
-		att.RejectionReason = fmt.Sprintf("verified ratio %d bps < min %d bps", verifiedRatioBps, params.MinVerifiedRatioForSettleBps)
-		att.SettledAtBlock = uint64(sdkCtx.BlockHeight())
-		att.SlashUzrn = att.BondUzrn
-		return k.WriteAttestation(ctx, att)
+		return k.settleRejected(ctx, att, fmt.Sprintf("verified ratio %d bps < min %d bps",
+			verifiedRatioBps, params.MinVerifiedRatioForSettleBps))
 	}
 
 	// Compute reward.
@@ -100,6 +92,54 @@ func (k Keeper) computeReward(att *types.ExternalAttestation, verifiedRatioBps u
 	return base.Add(prod)
 }
 
+// settleRejected closes the attestation as REJECTED and burns the slashed
+// bond (M1 fraud tier). Burning frees supply-cap headroom — slashed
+// dishonesty becomes future emission room instead of dead weight in the
+// module escrow. Atomic: state and coins move together or not at all.
+func (k Keeper) settleRejected(ctx context.Context, att *types.ExternalAttestation, reason string) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	cacheCtx, writeCache := sdkCtx.CacheContext()
+
+	att.Status = types.AttestationStatus_ATTESTATION_STATUS_REJECTED
+	att.RejectionReason = reason
+	att.SettledAtBlock = uint64(sdkCtx.BlockHeight())
+	att.SlashUzrn = att.BondUzrn
+
+	if k.bankKeeper != nil {
+		if bond, ok := sdkmath.NewIntFromString(att.BondUzrn); ok && bond.IsPositive() {
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", bond))
+			if err := k.bankKeeper.BurnCoins(cacheCtx, types.ModuleName, coins); err != nil {
+				return fmt.Errorf("burn slashed bond for %s: %w", att.AttestationId, err)
+			}
+		}
+	}
+
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		EventTypeExternalAttestationRejected,
+		sdk.NewAttribute(AttrAttestationID, att.AttestationId),
+		sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
+		sdk.NewAttribute(AttrMechanism, "M1"), // M1: full bond slash (fraud tier)
+	))
+
+	if err := k.WriteAttestation(cacheCtx, att); err != nil {
+		return err
+	}
+	writeCache()
+	return nil
+}
+
+// finalizeSettle closes a SETTLED or PARTIAL attestation. Two separate
+// money movements, both atomic with the state write via a cache context
+// (settlement runs from BeginBlocker and hooks, where a partial failure
+// would otherwise persist a half-paid settle and retry into double-pays):
+//
+//  1. The escrowed bond returns whole to the submitter — it was honest
+//     collateral, never payment.
+//  2. The reward mints fresh through vesting_rewards.MintWithCap into the
+//     audit bounty pool and pays out from there. Issuance follows
+//     participation; rewards are never other submitters' escrowed bonds.
+//     When the supply cap clips the mint, the attestation records what was
+//     actually paid.
 func (k Keeper) finalizeSettle(
 	ctx context.Context,
 	att *types.ExternalAttestation,
@@ -107,40 +147,67 @@ func (k Keeper) finalizeSettle(
 	finalStatus types.AttestationStatus,
 ) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	cacheCtx, writeCache := sdkCtx.CacheContext()
+
 	att.Status = finalStatus
 	att.SettledAtBlock = uint64(sdkCtx.BlockHeight())
-	att.RewardUzrn = reward.String()
 
-	// Pay the submitter (release bond + reward).
-	if k.bankKeeper != nil && reward.GT(sdkmath.ZeroInt()) {
-		submitterAddr, err := sdk.AccAddressFromBech32(att.Submitter)
-		if err == nil {
-			coins := sdk.NewCoins(sdk.NewCoin("uzrn", reward))
-			_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, submitterAddr, coins)
+	submitterAddr, addrErr := sdk.AccAddressFromBech32(att.Submitter)
+	if addrErr != nil {
+		return fmt.Errorf("settle %s: bad submitter address: %w", att.AttestationId, addrErr)
+	}
+
+	// 1. Return the escrowed bond.
+	if k.bankKeeper != nil {
+		if bond, ok := sdkmath.NewIntFromString(att.BondUzrn); ok && bond.IsPositive() {
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", bond))
+			if err := k.bankKeeper.SendCoinsFromModuleToAccount(cacheCtx, types.ModuleName, submitterAddr, coins); err != nil {
+				return fmt.Errorf("return bond for %s: %w", att.AttestationId, err)
+			}
 		}
 	}
 
-	// Emit settlement event (SETTLED, PARTIAL, or REJECTED).
+	// 2. Mint and pay the reward (cap-gated).
+	paid := sdkmath.ZeroInt()
+	if reward.GT(sdkmath.ZeroInt()) && k.vestingRewardsKeeper != nil && k.bankKeeper != nil {
+		minted, err := k.vestingRewardsKeeper.MintWithCap(cacheCtx, types.AuditBountyPoolModuleName, reward.BigInt())
+		if err != nil {
+			return fmt.Errorf("mint reward for %s: %w", att.AttestationId, err)
+		}
+		paid = sdkmath.NewIntFromBigInt(minted)
+		if paid.GT(sdkmath.ZeroInt()) {
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", paid))
+			if err := k.bankKeeper.SendCoinsFromModuleToAccount(cacheCtx, types.AuditBountyPoolModuleName, submitterAddr, coins); err != nil {
+				return fmt.Errorf("pay reward for %s: %w", att.AttestationId, err)
+			}
+		}
+	}
+	att.RewardUzrn = paid.String()
+
+	// Emit settlement event (SETTLED or PARTIAL; rejections go through
+	// settleRejected).
 	eventType := EventTypeExternalAttestationSettled
 	mechanism := "M4" // M4: reward formula R = base + L × W × Q
 	if finalStatus == types.AttestationStatus_ATTESTATION_STATUS_PARTIAL {
 		eventType = EventTypeExternalAttestationPartial
 		mechanism = "M1,M4" // M1 for slash, M4 for partial reward
-	} else if finalStatus == types.AttestationStatus_ATTESTATION_STATUS_REJECTED {
-		eventType = EventTypeExternalAttestationRejected
-		mechanism = "M1" // M1: full bond slash (fraud tier)
 	}
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		eventType,
 		sdk.NewAttribute(AttrAttestationID, att.AttestationId),
+		sdk.NewAttribute(AttrRewardUzrn, paid.String()),
 		sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
 		sdk.NewAttribute(AttrMechanism, mechanism),
 	))
 
-	// Trigger lineage propagation if this is a paid settle (not REJECTED).
-	if finalStatus != types.AttestationStatus_ATTESTATION_STATUS_REJECTED && reward.GT(sdkmath.ZeroInt()) {
-		_ = k.PropagateLineage(ctx, att.AttestationId, reward)
+	// Trigger lineage propagation on the amount actually paid.
+	if paid.GT(sdkmath.ZeroInt()) {
+		_ = k.PropagateLineage(cacheCtx, att.AttestationId, paid)
 	}
 
-	return k.WriteAttestation(ctx, att)
+	if err := k.WriteAttestation(cacheCtx, att); err != nil {
+		return err
+	}
+	writeCache()
+	return nil
 }

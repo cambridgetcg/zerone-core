@@ -122,19 +122,32 @@ func TestZeroneSelf_FullEconomicLoop(t *testing.T) {
 	link, err := selfcompile.Compile(meta, uint64(h.Ctx.BlockHeight()))
 	require.NoError(t, err)
 
+	// The live door refuses pending-claim links until ToK Plan 4 wires
+	// their x/knowledge translation (previously they were accepted into an
+	// unresolvable AWAITING state and slashed on timeout). The loop's
+	// remaining economics run off the verified FACT, so we build the
+	// post-submit attestation state via keeper primitives.
 	sbSrv := substratebridgekeeper.NewMsgServerImpl(h.SubstrateBridgeKeeper)
-	attResp, err := sbSrv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
+	_, err = sbSrv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
 		Submitter:   submitter.String(),
 		AdapterId:   selfcompile.AdapterID,
 		WorkClassId: "zerone_self_attestation",
 		Link:        link,
 		BondUzrn:    "1000000",
 	})
-	require.NoError(t, err)
+	require.ErrorIs(t, err, substratebridgetypes.ErrPendingClaimsNotSupported)
 
-	// Attestation in AWAITING_RESOLUTION — pending claim auto-submitted to
-	// x/knowledge by the substrate_bridge keeper.
-	att, found := h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attResp.AttestationId)
+	const loopAttID = "zerone-self-loop-att"
+	require.NoError(t, h.SubstrateBridgeKeeper.WriteAttestation(h.Ctx, &substratebridgetypes.ExternalAttestation{
+		AttestationId: loopAttID,
+		AdapterId:     selfcompile.AdapterID,
+		Submitter:     submitter.String(),
+		BondUzrn:      "1000000",
+		Status:        substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION,
+		Link:          link,
+	}))
+
+	att, found := h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, loopAttID)
 	require.True(t, found)
 	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION, att.Status)
 

@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -34,4 +35,13 @@ type BankKeeper interface {
 // AccountKeeper materializes the module account for bond escrow.
 type AccountKeeper interface {
 	GetModuleAddress(name string) sdk.AccAddress
+}
+
+// VestingRewardsKeeper is the chain's single cap-gated mint entry point.
+// Attestation rewards mint through it into the audit bounty pool —
+// issuance follows participation, and the 222,222,222 ZRN cap is enforced
+// once, chain-wide. Returns the amount actually minted, which may be
+// clipped below the request when the cap is nearly exhausted.
+type VestingRewardsKeeper interface {
+	MintWithCap(ctx sdk.Context, recipientModule string, amount *big.Int) (*big.Int, error)
 }

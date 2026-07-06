@@ -19,4 +19,5 @@ const (
 	AttrUsefulWorkCommitment = "useful_work_commitment" // value: "UW"
 	AttrMechanism            = "mechanism"              // value: "M1" | "M2,M3" | etc.
 	AttrAttestationID        = "attestation_id"
+	AttrRewardUzrn           = "reward_uzrn" // amount actually minted and paid (cap-clip honest)
 )

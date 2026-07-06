@@ -85,13 +85,11 @@ func TestRecursiveDoublePayment_SelfAttestationEarnsTwice(t *testing.T) {
 	require.NoError(t, err)
 
 	// Write the attestation directly in READY status. The reward is
-	// computed by M4 (base + L × W × Q) at settle-time; we measure the
-	// declared reward on the attestation rather than the bank delta to
-	// avoid coupling this test to bond/audit-pool funding (exercised
-	// independently by TestSubstrateBridge_HappyPathSettlement). What
-	// matters for recursion #3 is that the substrate_bridge mechanism
-	// computes a non-zero reward for the SAME work the sponsorship
-	// mechanism is about to pay for.
+	// computed by M4 (base + L × W × Q) at settle-time and — since the
+	// audit bounty pool mints through MintWithCap — actually paid to the
+	// submitter at settlement. What matters for recursion #3 is that the
+	// substrate_bridge mechanism pays a non-zero reward for the SAME work
+	// the sponsorship mechanism is about to pay for.
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAttestation(h.Ctx, &substratebridgetypes.ExternalAttestation{
 		AttestationId:    "dp-self-att",
 		AdapterId:        selfcompile.AdapterID,
@@ -116,6 +114,13 @@ func TestRecursiveDoublePayment_SelfAttestationEarnsTwice(t *testing.T) {
 		"M4 reward must be non-zero — the chain has declared substrate_bridge owes the submitter")
 	require.NotEmpty(t, att.RewardUzrn)
 	t.Logf("substrate_bridge M4 reward declared: %s uzrn", att.RewardUzrn)
+
+	// The reward is no longer merely declared — it mints through the cap
+	// and lands in the submitter's balance at settlement.
+	postSettleBalance := h.App.BankKeeper.GetBalance(h.Ctx, submitter, zeroneapp.BondDenom)
+	declaredReward, _ := sdkmath.NewIntFromString(att.RewardUzrn)
+	require.True(t, postSettleBalance.Amount.Equal(initialSubmitterBalance.Amount.Add(declaredReward)),
+		"M4 reward must be PAID at settlement, not merely declared")
 
 	// ── Step 4: seed the verified fact in knowledge (simulating          ─
 	//          successful verification of the pending claim)             ─
@@ -142,7 +147,7 @@ func TestRecursiveDoublePayment_SelfAttestationEarnsTwice(t *testing.T) {
 	require.Equal(t, "500000", fulfillResp.AmountPaid)
 
 	postFulfillBalance := h.App.BankKeeper.GetBalance(h.Ctx, submitter, zeroneapp.BondDenom)
-	sponsorshipPayout := postFulfillBalance.Amount.Sub(initialSubmitterBalance.Amount)
+	sponsorshipPayout := postFulfillBalance.Amount.Sub(postSettleBalance.Amount)
 	require.True(t, sponsorshipPayout.Equal(sdkmath.NewInt(500_000)),
 		"sponsorship payout must equal price_per_artifact exactly")
 	t.Logf("sponsorship payout received: %s uzrn", sponsorshipPayout.String())

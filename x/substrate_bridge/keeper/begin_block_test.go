@@ -25,6 +25,8 @@ func TestBeginBlocker_TimeoutTransitionsToPartial(t *testing.T) {
 	att := &types.ExternalAttestation{
 		AttestationId:    "old-att",
 		AdapterId:        "wiki-v1",
+		Submitter:        testSubmitter("old-att-submitter"),
+		BondUzrn:         "1000000",
 		Status:           types.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION,
 		SubmittedAtBlock: 0,
 		Link: &types.SubstrateLink{
@@ -86,7 +88,8 @@ func TestBeginBlocker_DrainsReadyQueue(t *testing.T) {
 		AttestationId: "ready-att",
 		AdapterId:     "wiki-v1",
 		Status:        types.AttestationStatus_ATTESTATION_STATUS_READY,
-		Submitter:     "cosmos1qypqxpq9qcrsszgszyfpx9q4zct3sxfq0fzduj",
+		Submitter:     testSubmitter("ready-att-submitter"),
+		BondUzrn:      "1000000",
 		Link: &types.SubstrateLink{
 			PendingClaims: []*types.PendingClaim{{}},
 		},

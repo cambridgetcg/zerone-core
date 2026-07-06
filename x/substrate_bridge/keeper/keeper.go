@@ -13,10 +13,11 @@ type Keeper struct {
 	storeKey storetypes.StoreKey
 	authority string
 
-	knowledgeKeeper     types.KnowledgeKeeper
-	qualificationKeeper types.QualificationKeeper
-	bankKeeper          types.BankKeeper
-	accountKeeper       types.AccountKeeper
+	knowledgeKeeper      types.KnowledgeKeeper
+	qualificationKeeper  types.QualificationKeeper
+	bankKeeper           types.BankKeeper
+	accountKeeper        types.AccountKeeper
+	vestingRewardsKeeper types.VestingRewardsKeeper
 }
 
 func NewKeeper(
@@ -27,9 +28,11 @@ func NewKeeper(
 	qk types.QualificationKeeper,
 	bk types.BankKeeper,
 	ak types.AccountKeeper,
+	vrk types.VestingRewardsKeeper,
 ) Keeper {
 	return Keeper{cdc: cdc, storeKey: storeKey, authority: authority,
-		knowledgeKeeper: kk, qualificationKeeper: qk, bankKeeper: bk, accountKeeper: ak}
+		knowledgeKeeper: kk, qualificationKeeper: qk, bankKeeper: bk, accountKeeper: ak,
+		vestingRewardsKeeper: vrk}
 }
 
 func (k Keeper) Authority() string { return k.authority }

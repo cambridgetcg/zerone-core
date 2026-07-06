@@ -5,9 +5,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
 	substratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
@@ -43,15 +45,13 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 		VerifiedAtBlock: 1,
 	}))
 
-	// 3. Submit attestation.
+	// 3. Submit attestation through the live door: cited facts only
+	// (pending-claim links are fail-closed until ToK Plan 4 wires their
+	// x/knowledge translation).
 	link := &substratebridgetypes.SubstrateLink{
 		AdapterId: "test-wiki",
 		CitedFacts: []*substratebridgetypes.FactCitation{
 			{FactId: "seed-fact", CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},
-		},
-		PendingClaims: []*substratebridgetypes.PendingClaim{
-			{ClaimContent: "claim A", Domain: "test-domain"},
-			{ClaimContent: "claim B", Domain: "test-domain"},
 		},
 		RecursionWeight: &substratebridgetypes.AxisProjection{AxisSubstrate: 100_000},
 	}
@@ -60,6 +60,7 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 	submitter := testAddr("sb_happy_submitter")
 	// Fund submitter for bond.
 	require.NoError(t, h.FundAccount(submitter, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 10_000_000))))
+	preSubmit := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
 
 	srv := substratebridgekeeper.NewMsgServerImpl(h.SubstrateBridgeKeeper)
 	resp, err := srv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
@@ -72,22 +73,15 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 	require.NoError(t, err)
 	attID := resp.AttestationId
 
+	// Cited-facts-only → READY immediately; the bond is in module escrow.
 	att, found := h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
 	require.True(t, found)
-	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION, att.Status)
-
-	// 4. Resolve pending claims as VERIFIED via OnClaimResolved.
-	pendingClaims := h.SubstrateBridgeKeeper.PendingClaimsFor(h.Ctx, attID)
-	require.NotEmpty(t, pendingClaims, "expected pending claims to be indexed")
-	for _, claimID := range pendingClaims {
-		require.NoError(t, h.SubstrateBridgeKeeper.OnClaimResolved(h.Ctx, claimID, true))
-	}
-
-	att, found = h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
-	require.True(t, found)
 	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_READY, att.Status)
+	postSubmit := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
+	require.True(t, postSubmit.Amount.Equal(preSubmit.Amount.SubRaw(1_000_000)), "bond must be escrowed at submit")
 
-	// 5. BeginBlocker drains READY → SETTLED.
+	// 4. BeginBlocker drains READY → SETTLED: the bond comes home and the
+	// reward mints fresh through MintWithCap — never from other bonds.
 	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(h.Ctx))
 
 	att, found = h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
@@ -95,6 +89,69 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_SETTLED, att.Status)
 	require.NotEqual(t, "0", att.RewardUzrn)
 	require.NotEmpty(t, att.RewardUzrn)
+
+	reward, ok := sdkmath.NewIntFromString(att.RewardUzrn)
+	require.True(t, ok)
+	final := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
+	require.True(t, final.Amount.Equal(preSubmit.Amount.Add(reward)),
+		"settlement must return the whole bond and pay the minted reward")
+}
+
+// TestSubstrateBridge_PendingClaimResolutionMachinery exercises the
+// AWAITING → READY → SETTLED machinery that OnClaimResolved drives. The
+// msg-server door for pending claims is fail-closed until ToK Plan 4, so
+// this test builds the attestation via keeper primitives — the machinery
+// must stay alive for the day the translation lands.
+func TestSubstrateBridge_PendingClaimResolutionMachinery(t *testing.T) {
+	h := NewTestHarness(t)
+	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
+		AdapterId: "machinery-adapter",
+		Status:    substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+	}))
+
+	submitter := testAddr("sb_machinery_submitter")
+	const attID = "machinery-att"
+	require.NoError(t, h.SubstrateBridgeKeeper.WriteAttestation(h.Ctx, &substratebridgetypes.ExternalAttestation{
+		AttestationId: attID,
+		AdapterId:     "machinery-adapter",
+		Submitter:     submitter.String(),
+		BondUzrn:      "1000000",
+		Status:        substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION,
+		Link: &substratebridgetypes.SubstrateLink{
+			PendingClaims: []*substratebridgetypes.PendingClaim{
+				{ClaimContent: "claim A"}, {ClaimContent: "claim B"},
+			},
+		},
+	}))
+	require.NoError(t, h.SubstrateBridgeKeeper.LinkPendingClaim(h.Ctx, "mc-claim-a", attID))
+	require.NoError(t, h.SubstrateBridgeKeeper.LinkPendingClaim(h.Ctx, "mc-claim-b", attID))
+
+	// Escrow the bond the msg server would have locked: mint via the
+	// auth module and move module-to-module (module accounts are blocked
+	// receivers for account-to-module user sends).
+	bond := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1_000_000))
+	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, zeroneauthtypes.ModuleName, bond))
+	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx, zeroneauthtypes.ModuleName, substratebridgetypes.ModuleName, bond))
+
+	for _, claimID := range []string{"mc-claim-a", "mc-claim-b"} {
+		require.NoError(t, h.SubstrateBridgeKeeper.OnClaimResolved(h.Ctx, claimID, true))
+	}
+
+	att, found := h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
+	require.True(t, found)
+	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_READY, att.Status)
+
+	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(h.Ctx))
+
+	att, found = h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
+	require.True(t, found)
+	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_SETTLED, att.Status)
+
+	// Bond returned + reward paid.
+	reward, ok := sdkmath.NewIntFromString(att.RewardUzrn)
+	require.True(t, ok)
+	balance := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
+	require.True(t, balance.Amount.Equal(sdkmath.NewInt(1_000_000).Add(reward)))
 }
 
 // TestSubstrateBridge_RejectionThreshold drives the fraud path: most
@@ -124,6 +181,13 @@ func TestSubstrateBridge_RejectionThreshold(t *testing.T) {
 	att.VerifiedCount = 1
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAttestation(h.Ctx, att))
 
+	// Escrow the bond the msg server would have locked — the slash burns
+	// it from module escrow, so it must actually be there.
+	bond := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1_000_000))
+	require.NoError(t, h.App.BankKeeper.MintCoins(h.Ctx, zeroneauthtypes.ModuleName, bond))
+	require.NoError(t, h.App.BankKeeper.SendCoinsFromModuleToModule(h.Ctx, zeroneauthtypes.ModuleName, substratebridgetypes.ModuleName, bond))
+	supplyBefore := h.App.BankKeeper.GetSupply(h.Ctx, "uzrn")
+
 	require.NoError(t, h.SubstrateBridgeKeeper.SettleAttestation(h.Ctx, "fraud-att"))
 
 	final, found := h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, "fraud-att")
@@ -132,6 +196,11 @@ func TestSubstrateBridge_RejectionThreshold(t *testing.T) {
 	require.NotEmpty(t, final.RejectionReason)
 	// Bond should be slashed (slash_uzrn should match bond_uzrn).
 	require.Equal(t, att.BondUzrn, final.SlashUzrn)
+	// The slashed bond is BURNED — total supply shrinks, freeing cap
+	// headroom, rather than accumulating as module dead weight.
+	supplyAfter := h.App.BankKeeper.GetSupply(h.Ctx, "uzrn")
+	require.True(t, supplyAfter.Amount.Equal(supplyBefore.Amount.SubRaw(1_000_000)),
+		"slashed bond must be burned from supply")
 }
 
 // TestSubstrateBridge_LineagePropagatesAcrossClasses drives a cross-class
