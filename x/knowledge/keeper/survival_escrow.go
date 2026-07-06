@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"math/big"
 
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
@@ -79,7 +77,7 @@ func (k Keeper) deleteSurvivalPending(ctx context.Context, pr SurvivalPendingRew
 // EscrowSubmitterReward records the submitter reward as pending (nothing minted)
 // and stamps the fact's challenge window. Replaces the accept-time reward routing.
 func (k Keeper) EscrowSubmitterReward(ctx context.Context, fact *types.Fact, claim *types.Claim) {
-	if k.vestingRewardsKeeper == nil && k.partnershipKeeper == nil {
+	if k.vestingRewardsKeeper == nil {
 		return
 	}
 	params, err := k.GetParams(ctx)
@@ -136,22 +134,12 @@ func (k Keeper) cancelSurvivalReward(ctx context.Context, factId string) {
 	))
 }
 
-// routeSubmitterReward runs the original accept-time routing (partnership split or
-// direct vesting) at RELEASE time — survivors are paid exactly as before, just
-// after they survive rather than on acceptance.
+// routeSubmitterReward runs the original accept-time routing (direct vesting) at
+// RELEASE time — survivors are paid exactly as before, just after they survive
+// rather than on acceptance. The partnership-split branch retired with
+// x/partnerships (slim cut); payment splits between collaborators are an
+// agenttool-escrow concern, not consensus.
 func (k Keeper) routeSubmitterReward(ctx context.Context, pr SurvivalPendingReward) {
-	if pr.PartnershipId != "" && k.partnershipKeeper != nil {
-		stakeAmt, ok := new(big.Int).SetString(pr.Amount, 10)
-		if ok && stakeAmt.Sign() > 0 {
-			rewardCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-			if err := k.partnershipKeeper.DistributeReward(ctx, pr.PartnershipId, rewardCoins, "knowledge_verification"); err != nil {
-				if k.vestingRewardsKeeper != nil {
-					_ = k.vestingRewardsKeeper.CreateVestingScheduleFromKnowledge(ctx, pr.ClaimId, pr.FactId, pr.Recipient, pr.Amount, pr.Category)
-				}
-			}
-		}
-		return
-	}
 	if k.vestingRewardsKeeper != nil {
 		_ = k.vestingRewardsKeeper.CreateVestingScheduleFromKnowledge(ctx, pr.ClaimId, pr.FactId, pr.Recipient, pr.Amount, pr.Category)
 	}

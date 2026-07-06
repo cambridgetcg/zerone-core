@@ -48,11 +48,6 @@ const (
 	SourceFalsification     RewardSource = "falsification"
 )
 
-// AutopoiesisKeeper defines the expected autopoiesis keeper interface.
-type AutopoiesisKeeper interface {
-	GetMultiplier(ctx sdk.Context, path string) uint64
-}
-
 // --- ValidateBasic methods for proto-generated message types ---
 
 func (m *MsgCreateVesting) ValidateBasic() error {

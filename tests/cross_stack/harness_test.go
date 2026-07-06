@@ -34,7 +34,6 @@ import (
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 
 	// R7 module keepers
-	zeroneapkeeper "github.com/zerone-chain/zerone/x/autopoiesis/keeper"
 	zeronealignmentkeeper "github.com/zerone-chain/zerone/x/alignment/keeper"
 	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
@@ -50,7 +49,6 @@ import (
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecreedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
 	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
-	zeronepartnershipskeeper "github.com/zerone-chain/zerone/x/partnerships/keeper"
 	zeronesubstratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 )
 
@@ -73,7 +71,6 @@ type TestHarness struct {
 	KnowledgeKeeper zeroneknowledgekeeper.Keeper
 
 	// R7 module keepers
-	AutopoiesisKeeper    zeroneapkeeper.Keeper
 	AlignmentKeeper      zeronealignmentkeeper.Keeper
 	ClaimingPotKeeper    zeronecpotkeeper.Keeper
 	SponsorshipKeeper    zeronesponsorshipkeeper.Keeper
@@ -87,7 +84,6 @@ type TestHarness struct {
 	CaptureDefenseKeeper     zeronecdkeeper.Keeper
 	CaptureChallengeKeeper   zeronecckeeper.Keeper
 	QualificationKeeper      zeronequalificationkeeper.Keeper
-	PartnershipsKeeper       zeronepartnershipskeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
 	CounterexamplesKeeper     zeronecounterexkeeper.Keeper
@@ -255,7 +251,6 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		CaptureDefenseKeeper:     app.CaptureDefenseKeeper,
 		CaptureChallengeKeeper:   app.CaptureChallengeKeeper,
 		QualificationKeeper:      app.QualificationKeeper,
-		PartnershipsKeeper:       app.PartnershipsKeeper,
 		TrainingProvenanceKeeper: app.TrainingProvenanceKeeper,
 		TrustScoreKeeper:         app.TrustScoreKeeper,
 		CounterexamplesKeeper:     app.CounterexamplesKeeper,
@@ -263,7 +258,6 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		SubstrateBridgeKeeper:     app.SubstrateBridgeKeeper,
 
 		// R7 keepers
-		AutopoiesisKeeper:    app.AutopoiesisKeeper,
 		AlignmentKeeper:      app.AlignmentKeeper,
 		ClaimingPotKeeper:    app.ClaimingPotKeeper,
 		SponsorshipKeeper:    app.SponsorshipKeeper,

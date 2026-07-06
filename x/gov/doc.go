@@ -51,9 +51,7 @@
 //
 // Integration with the truth-seeking spine:
 //
-//   - x/governance_synthesis reads gov state to compose the
-//     system-level trust surface (commitment 11).
-//   - x/knowledge / x/qualification / x/autopoiesis / x/alignment
+//   - x/knowledge / x/qualification / x/alignment
 //     all expose UpdateParams handlers; gov is the path through
 //     which authority-gated amendments to those modules are made.
 //     The "param defaults are expressions of belief" stance applies

@@ -56,15 +56,15 @@ func TestGetVerificationHealth_NoRounds(t *testing.T) {
 	require.Equal(t, uint64(0), avgDuration)
 }
 
-func TestGetEffectiveMinVerifiers_NilPartnershipKeeper(t *testing.T) {
+func TestGetEffectiveMinVerifiers_Base(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
-	// setupKnowledgeTest does NOT set partnershipKeeper, so it remains nil.
-	// With nil partnership keeper, GetEffectiveMinVerifiers returns base + 1.
+	// With x/partnerships retired (slim cut), GetEffectiveMinVerifiers always
+	// returns base + 1 (the documented no-social-structure behavior).
 	effective := k.GetEffectiveMinVerifiers(ctx, "physics")
 	params, err := k.GetParams(ctx)
 	require.NoError(t, err)
 	require.Equal(t, uint32(params.MinVerifiers+1), effective,
-		"nil partnership keeper = base + 1 verifiers required")
+		"no social structure = base + 1 verifiers required")
 }
 
 func TestGetDomainVerificationActivity_WithRounds(t *testing.T) {
@@ -95,13 +95,12 @@ func TestGetDomainVerificationActivity_NoRounds(t *testing.T) {
 func TestGetEffectiveMinVerifiers_WithThresholdOverride(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 	ctx = advanceBlocks(ctx, 100)
-	// Default MinVerifiers=3, nil partnershipKeeper → base+1=4
-	// Add override +2 → expect 4+2=6
+	// Default MinVerifiers=3 → base+1=4. Add override +2 → expect 4+2=6
 	require.NoError(t, k.IncreaseVerificationThreshold(ctx, "physics", 2, 500))
 
 	effective := k.GetEffectiveMinVerifiers(ctx, "physics")
 	require.Equal(t, uint32(6), effective,
-		"partnership-adjusted base (4) + override (2) = 6")
+		"base+1 (4) + override (2) = 6")
 }
 
 func TestGetEffectiveMinVerifiers_ExpiredOverrideIgnored(t *testing.T) {
@@ -114,34 +113,6 @@ func TestGetEffectiveMinVerifiers_ExpiredOverrideIgnored(t *testing.T) {
 	params, err := k.GetParams(ctx)
 	require.NoError(t, err)
 	require.Equal(t, uint32(params.MinVerifiers+1), effective,
-		"expired override ignored → base+1 (nil partnership keeper path)")
+		"expired override ignored → base+1")
 }
 
-func TestGetEffectiveMinVerifiers_DensityRelaxedPlusOverride(t *testing.T) {
-	// Default MinVerifiers=3. With 5 active partnerships (10 unique participants)
-	// density (10) >= SocialSaturationThreshold (10) and base (3) > 2, so partnership
-	// relaxes base-1 = 2. Add override +2 → effective = 4.
-	k, ctx := setupKnowledgeTest(t)
-	ctx = advanceBlocks(ctx, 100)
-
-	pk := newMockPartnershipKeeper()
-	for i := 0; i < 5; i++ {
-		pk.addPartnership(
-			fmt.Sprintf("p%d", i),
-			makeValidBech32Addr(fmt.Sprintf("h%d", i)),
-			makeValidBech32Addr(fmt.Sprintf("a%d", i)),
-			true,  // active
-			false, // not suspended
-		)
-	}
-	k.SetPartnershipKeeper(pk)
-
-	// Sanity: density should be 10 (5 partnerships × 2 unique addrs each)
-	require.Equal(t, uint64(10), pk.GetDomainPartnershipDensity(ctx, "physics"))
-
-	require.NoError(t, k.IncreaseVerificationThreshold(ctx, "physics", 2, 500))
-
-	effective := k.GetEffectiveMinVerifiers(ctx, "physics")
-	require.Equal(t, uint32(4), effective,
-		"base (3) - partnership relax (1) + override (2) = 4")
-}

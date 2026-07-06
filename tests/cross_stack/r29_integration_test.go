@@ -10,7 +10,6 @@ import (
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 
 	aligntypes "github.com/zerone-chain/zerone/x/alignment/types"
-	aptypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
 	cdtypes "github.com/zerone-chain/zerone/x/capture_defense/types"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
@@ -23,7 +22,7 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	h := NewTestHarness(t)
 	domain := "physics"
 
-	// ── Setup: Enable alignment and autopoiesis with short intervals ─────
+	// ── Setup: Enable alignment with short intervals ─────────────────────
 
 	h.AlignmentKeeper.SetState(h.Ctx, &aligntypes.AlignmentState{
 		Enabled:              true,
@@ -35,18 +34,6 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	alignParams.ObservationIntervalBlocks = 10
 	alignParams.MaxAutoApplyMagnitudeBps = 1_000_000
 	h.AlignmentKeeper.SetParams(h.Ctx, &alignParams)
-
-	h.AutopoiesisKeeper.SetState(h.Ctx, &aptypes.AutopoiesisState{
-		Activated:       true,
-		CurrentEpoch:    0,
-		LastEpochHeight: uint64(h.Height()),
-	})
-	apParams := aptypes.DefaultParams()
-	apParams.EpochLengthBlocks = 10
-	h.AutopoiesisKeeper.SetParams(h.Ctx, &apParams)
-	for _, m := range aptypes.DefaultMultipliers() {
-		h.AutopoiesisKeeper.SetMultiplierState(h.Ctx, m)
-	}
 
 	// ── Step 1: Populate domain past carrying capacity (R29-1) ───────────
 
@@ -169,9 +156,11 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 
 	// ── Step 7: Apply corrections → record outcomes → check confidence (R29-4)
 
+	// Corrections are recorded queryably with applied=false: the autopoiesis
+	// regulator retired in the slim cut, so nothing auto-applies.
 	h.AlignmentKeeper.ApplyCorrections(h.Ctx, corrections)
 	for _, c := range corrections {
-		require.True(t, c.Applied, "correction %s must be applied", c.Dimension)
+		require.False(t, c.Applied, "correction %s must be recorded, not auto-applied", c.Dimension)
 	}
 
 	// Record a successful outcome to build correction confidence.
@@ -202,7 +191,7 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	require.Equal(t, uint64(500_000), creationBps, "critical health → 50%% creation pacing")
 	require.Equal(t, uint64(2_000_000), analysisBps, "critical health → 200%% analysis pacing")
 
-	// ── Step 9: Flag domain for capture → verify partnership bonus (R29-5) ─
+	// ── Step 9: Flag domain for capture (R29-5) ──────────────────────────
 
 	h.CaptureDefenseKeeper.SetCaptureMetrics(h.Ctx, &cdtypes.CaptureMetrics{
 		Domain:          domain,
@@ -214,11 +203,9 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 
 	require.True(t, h.CaptureDefenseKeeper.IsDomainFlagged(h.Ctx, domain))
 
-	// OnDomainFlagged triggers partnership formation bonus.
+	// x/partnerships retired (slim cut): OnDomainFlagged degrades to a no-op
+	// (nil-guarded); the flag itself remains the queryable consequence signal.
 	h.CaptureDefenseKeeper.OnDomainFlagged(h.Ctx, domain)
-	bonus := h.PartnershipsKeeper.GetDomainFormationBonus(h.Ctx, domain)
-	require.NotNil(t, bonus, "flagged domain must get formation bonus")
-	require.Greater(t, bonus.BonusBps, uint64(0))
 
 	// ── Step 10: Recovery → verify pacing normalises ─────────────────────
 
@@ -341,7 +328,6 @@ func TestR29_AdversarialInteractions(t *testing.T) {
 		// Vindication in overcrowded domain with capture flag.
 		// Temperature heats (R29-2) + role record updates (R29-3)
 		// + carrying capacity still forces decay (R29-1)
-		// + capture defense reduces HHI via partnerships (R29-5)
 		h := NewTestHarness(t)
 		domain := "adversarial-vindication"
 
@@ -393,10 +379,8 @@ func TestR29_AdversarialInteractions(t *testing.T) {
 		pressure := h.KnowledgeKeeper.GetDomainPressure(h.Ctx, domain)
 		require.Greater(t, pressure, uint64(1_000_000))
 
-		// Trigger partnership bonus for flagged domain.
+		// x/partnerships retired: OnDomainFlagged degrades to a no-op.
 		h.CaptureDefenseKeeper.OnDomainFlagged(h.Ctx, domain)
-		bonus := h.PartnershipsKeeper.GetDomainFormationBonus(h.Ctx, domain)
-		require.NotNil(t, bonus)
 
 		// Advance blocks — no panics.
 		require.NotPanics(t, func() {
@@ -455,7 +439,7 @@ func TestBlockerOrdering_NoPanic(t *testing.T) {
 		})
 	}
 
-	// Enable alignment and autopoiesis with short intervals.
+	// Enable alignment with short intervals.
 	h.AlignmentKeeper.SetState(h.Ctx, &aligntypes.AlignmentState{
 		Enabled:              true,
 		PreviousCategory:     aligntypes.CategoryDegraded,
@@ -464,18 +448,6 @@ func TestBlockerOrdering_NoPanic(t *testing.T) {
 	alignParams := aligntypes.DefaultParams()
 	alignParams.ObservationIntervalBlocks = 10
 	h.AlignmentKeeper.SetParams(h.Ctx, &alignParams)
-
-	h.AutopoiesisKeeper.SetState(h.Ctx, &aptypes.AutopoiesisState{
-		Activated:       true,
-		CurrentEpoch:    0,
-		LastEpochHeight: uint64(h.Height()),
-	})
-	apParams := aptypes.DefaultParams()
-	apParams.EpochLengthBlocks = 10
-	h.AutopoiesisKeeper.SetParams(h.Ctx, &apParams)
-	for _, m := range aptypes.DefaultMultipliers() {
-		h.AutopoiesisKeeper.SetMultiplierState(h.Ctx, m)
-	}
 
 	// Seed some correction outcomes (R29-4).
 	for i := 0; i < 5; i++ {
@@ -496,13 +468,11 @@ func TestBlockerOrdering_NoPanic(t *testing.T) {
 	})
 
 	// Verify system is in a coherent state after 1000 blocks.
-	state := h.AutopoiesisKeeper.GetState(h.Ctx)
-	require.NotNil(t, state)
 	alignState := h.AlignmentKeeper.GetState(h.Ctx)
 	require.NotNil(t, alignState)
 
-	t.Logf("After 1000 blocks: height=%d, autopoiesis_epoch=%d, align_observations=%d",
-		h.Height(), state.CurrentEpoch, alignState.ObservationCount)
+	t.Logf("After 1000 blocks: height=%d, align_observations=%d",
+		h.Height(), alignState.ObservationCount)
 }
 
 // TestGenesisExportImport_WithR29State verifies that R29 state survives a
@@ -602,7 +572,7 @@ func TestGenesisExportImport_WithR29State(t *testing.T) {
 		AnalyzedAtBlock: 1,
 	})
 
-	// Enable alignment & autopoiesis with short intervals
+	// Enable alignment with short intervals
 	app1.AlignmentKeeper.SetState(seedCtx, &aligntypes.AlignmentState{
 		Enabled:          true,
 		PreviousCategory: aligntypes.CategoryDegraded,
@@ -610,15 +580,6 @@ func TestGenesisExportImport_WithR29State(t *testing.T) {
 	alignParams := aligntypes.DefaultParams()
 	alignParams.ObservationIntervalBlocks = 10
 	app1.AlignmentKeeper.SetParams(seedCtx, &alignParams)
-
-	app1.AutopoiesisKeeper.SetState(seedCtx, &aptypes.AutopoiesisState{
-		Activated:       true,
-		CurrentEpoch:    0,
-		LastEpochHeight: 1,
-	})
-	apParams := aptypes.DefaultParams()
-	apParams.EpochLengthBlocks = 10
-	app1.AutopoiesisKeeper.SetParams(seedCtx, &apParams)
 
 	// Advance 100 blocks. Use BeginBlocker/EndBlocker via the checkState
 	// context, since all seeded state is in checkState.

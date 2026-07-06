@@ -14,13 +14,13 @@ import (
 func TestResearchFundRestriction_BlocksUnauthorizedSpend(t *testing.T) {
 	ctx := sdk.Context{}.WithBlockHeight(10)
 
-	billingAddr := authtypes.NewModuleAddress("billing")
+	unauthorizedAddr := authtypes.NewModuleAddress("some_module")
 	researchAddr := authtypes.NewModuleAddress(ResearchFundName)
 	coins := sdk.NewCoins(sdk.NewCoin("uzrn", math.NewInt(1000)))
 
-	_, err := ResearchFundRestriction(ctx, billingAddr, researchAddr, coins)
+	_, err := ResearchFundRestriction(ctx, unauthorizedAddr, researchAddr, coins)
 	if err == nil {
-		t.Fatal("expected error for unauthorized deposit from billing to research_fund, got nil")
+		t.Fatal("expected error for unauthorized deposit to research_fund, got nil")
 	}
 
 	// Verify error message contains useful information.
@@ -82,11 +82,11 @@ func TestResearchFundRestriction_GenesisBypass(t *testing.T) {
 	// At block height 0 (genesis), all deposits to research_fund are allowed.
 	ctx := sdk.Context{}.WithBlockHeight(0)
 
-	billingAddr := authtypes.NewModuleAddress("billing")
+	unauthorizedAddr := authtypes.NewModuleAddress("some_module")
 	researchAddr := authtypes.NewModuleAddress(ResearchFundName)
 	coins := sdk.NewCoins(sdk.NewCoin("uzrn", math.NewInt(1000)))
 
-	retAddr, err := ResearchFundRestriction(ctx, billingAddr, researchAddr, coins)
+	retAddr, err := ResearchFundRestriction(ctx, unauthorizedAddr, researchAddr, coins)
 	if err != nil {
 		t.Fatalf("expected genesis bypass to allow any module -> research_fund, got error: %v", err)
 	}

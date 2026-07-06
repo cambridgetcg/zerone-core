@@ -42,7 +42,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
-	autopoiesistypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
 	claimingpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
 	counterexampleskeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
@@ -441,57 +440,6 @@ func TestTruthSeeking_AuditBudgetIsAutonomous(t *testing.T) {
 		"the chain must fund its own audit autonomously; without per-block mint, the budget depends on someone else's discipline")
 }
 
-// Commitment 12: the chain pays for its own audit (autopoiesis side).
-// The probe bounty pool is the budget; x/autopoiesis is the regulator
-// that scales the budget multipliers in response to the chain's own
-// stress signal (SSI). This test asserts the regulator's autonomy:
-// once activated, the multiplier system advances epochs, computes
-// SSI, and adjusts multipliers without anyone calling Override or
-// otherwise intervening. The autonomic loop is what makes the
-// budget responsive to chain state rather than fixed at deploy time.
-func TestTruthSeeking_AutopoiesisRegulatesItself(t *testing.T) {
-	h := NewTestHarness(t)
-
-	// Activate autopoiesis with short epochs so the test runs in a
-	// few blocks. The regulator must start from epoch 0 and advance
-	// through its own EndBlocker, with no external triggers.
-	h.AutopoiesisKeeper.SetState(h.Ctx, &autopoiesistypes.AutopoiesisState{
-		Activated:       true,
-		CurrentEpoch:    0,
-		LastEpochHeight: uint64(h.Height()),
-	})
-	params := autopoiesistypes.DefaultParams()
-	params.EpochLengthBlocks = 5
-	h.AutopoiesisKeeper.SetParams(h.Ctx, &params)
-
-	// Seed default multipliers — the budget paths the regulator
-	// adjusts. Without these the regulator has nothing to adjust and
-	// "autonomy" reduces to a no-op.
-	for _, m := range autopoiesistypes.DefaultMultipliers() {
-		h.AutopoiesisKeeper.SetMultiplierState(h.Ctx, m)
-	}
-
-	startEpoch := h.AutopoiesisKeeper.GetState(h.Ctx).CurrentEpoch
-
-	// Advance past several epoch boundaries. NO calls to Override,
-	// Freeze, Activate, or any external trigger. If the regulator
-	// is autonomous, the epoch counter advances on its own through
-	// EndBlocker; if not, this is a static counter masquerading as
-	// regulation.
-	h.AdvanceBlocks(20)
-
-	endEpoch := h.AutopoiesisKeeper.GetState(h.Ctx).CurrentEpoch
-	require.Greater(t, endEpoch, startEpoch,
-		"autopoiesis must advance epochs autonomously; without per-block self-regulation, 'the chain pays for its own audit' has no engine adjusting the budget paths")
-
-	// And SSI must be a queryable BPS value — the regulator computes
-	// it each epoch as the input to multiplier adjustment. A zero SSI
-	// would indicate the sensors never ran; a too-large value would
-	// indicate the BPS contract was violated.
-	ssi := h.AutopoiesisKeeper.GetSSI(h.Ctx)
-	require.LessOrEqual(t, ssi, autopoiesistypes.BPSScale,
-		"SSI must be a valid BPS value; the regulator's input signal cannot exceed 1,000,000 bps without the autonomic budget logic losing meaning")
-}
 
 // ════════════════════════════════════════════════════════════════════
 // Commitment 10: Forward-only audit.

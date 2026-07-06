@@ -23,7 +23,6 @@ type Keeper struct {
 	paramRouter    types.ParamRouter    // set post-init to break circular deps
 	emergencyKeeper types.EmergencyKeeper // set post-init (circular dep break)
 	alignmentKeeper    types.AlignmentKeeper    // set post-init (R31-3, Wood→Earth)
-	partnershipsKeeper types.PartnershipsKeeper // set post-init (R31-3, Earth→Water)
 	creedKeeper           types.CreedKeeper           // set post-init (commitment 19 — gov ↔ creed)
 	substrateBridgeKeeper types.SubstrateBridgeKeeper // set post-init (commitment 20 — adapter registration LIPs)
 }
@@ -61,11 +60,6 @@ func (k *Keeper) SetEmergencyKeeper(ek types.EmergencyKeeper) {
 // SetAlignmentKeeper sets the alignment keeper (post-init to break circular deps).
 func (k *Keeper) SetAlignmentKeeper(ak types.AlignmentKeeper) {
 	k.alignmentKeeper = ak
-}
-
-// SetPartnershipsKeeper sets the partnerships keeper (post-init to break circular deps).
-func (k *Keeper) SetPartnershipsKeeper(pk types.PartnershipsKeeper) {
-	k.partnershipsKeeper = pk
 }
 
 // SetCreedKeeper sets the creed keeper (post-init to break circular deps).

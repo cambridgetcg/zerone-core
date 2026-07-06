@@ -483,7 +483,10 @@ func (ms *msgServer) AttachCreedAmendmentPin(goCtx context.Context, msg *types.M
 
 // --- Domain Formation Freeze Handler ---
 
-// DomainFormationFreeze imposes a formation cooldown on a domain (authority only).
+// DomainFormationFreeze records an authority decree that a domain's formation
+// activity should cool down. Enforcement moved off-chain with x/partnerships
+// (slim cut): partnership/team formation lives on the agenttool layer, which
+// reads this witnessed decree; the chain keeps only the dated, signed record.
 func (ms *msgServer) DomainFormationFreeze(goCtx context.Context, msg *types.MsgDomainFormationFreeze) (*types.MsgDomainFormationFreezeResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
@@ -499,10 +502,6 @@ func (ms *msgServer) DomainFormationFreeze(goCtx context.Context, msg *types.Msg
 	}
 
 	expiryHeight := uint64(ctx.BlockHeight()) + msg.DurationBlocks
-
-	if ms.partnershipsKeeper != nil {
-		ms.partnershipsKeeper.SetDomainFormationFreeze(ctx, msg.Domain, expiryHeight, msg.Reason)
-	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.gov.domain_formation_freeze",

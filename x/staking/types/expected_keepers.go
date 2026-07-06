@@ -25,12 +25,6 @@ type BankKeeper interface {
 	SendCoinsFromModuleToModule(ctx context.Context, senderModule string, recipientModule string, amt sdk.Coins) error
 }
 
-// AutopoiesisKeeper defines the expected autopoiesis module keeper.
-// Set via post-init setter to break circular dependency.
-type AutopoiesisKeeper interface {
-	GetMultiplier(ctx context.Context, path string) uint64
-}
-
 // ZeroneAuthKeeper defines the expected Zerone auth module keeper.
 // Reserved for future use.
 type ZeroneAuthKeeper interface{}

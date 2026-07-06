@@ -20,7 +20,6 @@ type Keeper struct {
 	knowledgeKeeper     types.KnowledgeKeeper
 	stakingKeeper       types.StakingKeeper
 	ontologyKeeper      types.OntologyKeeper
-	autopoiesisKeeper   types.AutopoiesisKeeper
 	emergencyKeeper      types.EmergencyKeeper
 	vestingRewardsKeeper types.VestingRewardsKeeper
 	captureDefenseKeeper types.CaptureDefenseKeeper // nil-safe, set post-init
@@ -47,12 +46,6 @@ func NewKeeper(
 		emergencyKeeper:      emergencyKeeper,
 		vestingRewardsKeeper: vestingRewardsKeeper,
 	}
-}
-
-// SetAutopoiesisKeeper sets the autopoiesis keeper post-init.
-// This allows breaking circular dependencies during module wiring.
-func (k *Keeper) SetAutopoiesisKeeper(ak types.AutopoiesisKeeper) {
-	k.autopoiesisKeeper = ak
 }
 
 // SetCaptureDefenseKeeper sets the capture defense keeper post-initialization.

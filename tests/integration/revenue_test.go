@@ -90,48 +90,6 @@ func TestCompleteRevenueMap(t *testing.T) {
 		t.Errorf("knowledge module received %s, want %s", knowledgeSent, verificationPool)
 	}
 
-	// SOURCE 2: Billing Service Revenue (55% provider / 22% knowledge / 3.33% research / 19.67% development)
-	billingPayment := big.NewInt(1000000)
-	billingDist := h.billingKeeper.CalculateDistribution(h.ctx, billingPayment, []string{"fact-1"})
-
-	// Verify 55% provider
-	providerAmt := new(big.Int)
-	providerAmt.SetString(billingDist.ProviderShare, 10)
-	expectedProvider := new(big.Int).Mul(billingPayment, big.NewInt(550000))
-	expectedProvider.Div(expectedProvider, big.NewInt(1000000))
-	if providerAmt.Cmp(expectedProvider) != 0 {
-		t.Errorf("billing provider share: got %s, want %s", providerAmt, expectedProvider)
-	}
-
-	// Verify 3.33% research
-	researchAmt := new(big.Int)
-	researchAmt.SetString(billingDist.ResearchShare, 10)
-	expectedBillingResearch := new(big.Int).Mul(billingPayment, big.NewInt(33300))
-	expectedBillingResearch.Div(expectedBillingResearch, big.NewInt(1000000))
-	if researchAmt.Cmp(expectedBillingResearch) != 0 {
-		t.Errorf("billing research share: got %s, want %s", researchAmt, expectedBillingResearch)
-	}
-
-	// Verify full accounting: all components sum to total payment
-	devAmt := new(big.Int)
-	devAmt.SetString(billingDist.ProtocolBurn, 10) // field still named ProtocolBurn in proto
-	treasuryAmt := new(big.Int)
-	treasuryAmt.SetString(billingDist.ProtocolTreasury, 10)
-	protocolTotal := new(big.Int).Add(devAmt, treasuryAmt)
-	knowledgeAmt := new(big.Int)
-	knowledgeAmt.SetString(billingDist.KnowledgePool[0].Amount, 10)
-	allAccountedFor := new(big.Int).Add(expectedProvider, expectedBillingResearch)
-	allAccountedFor.Add(allAccountedFor, knowledgeAmt)
-	allAccountedFor.Add(allAccountedFor, protocolTotal)
-	billingVerifPool := new(big.Int).Sub(billingPayment, allAccountedFor)
-	if billingVerifPool.Sign() < 0 {
-		t.Errorf("billing verification pool is negative: %s", billingVerifPool)
-	}
-	fullSum := new(big.Int).Add(allAccountedFor, billingVerifPool)
-	if fullSum.Cmp(billingPayment) != 0 {
-		t.Errorf("billing distribution doesn't sum to total: got %s, want %s", fullSum, billingPayment)
-	}
-
 }
 
 // ---------- Test 2: Founder Split Consistency ----------
@@ -146,7 +104,6 @@ func TestFounderSplitAllSources(t *testing.T) {
 
 	sources := []string{
 		"vesting_rewards",
-		"billing",
 		"knowledge",
 	}
 
@@ -254,59 +211,6 @@ func TestNoDoubleTaxation(t *testing.T) {
 	}
 }
 
-// ---------- Test 4: Service Revenue Development Fund ----------
-
-func TestServiceRevenueDevelopmentFund(t *testing.T) {
-	t.Run("billing_development_fund", func(t *testing.T) {
-		h := setupRevenueHarness(t)
-		payment := big.NewInt(1000000)
-		dist := h.billingKeeper.CalculateDistribution(h.ctx, payment, []string{"fact-1"})
-
-		devAmt := new(big.Int)
-		devAmt.SetString(dist.ProtocolBurn, 10) // field still named ProtocolBurn in proto
-
-		providerAmt := new(big.Int)
-		providerAmt.SetString(dist.ProviderShare, 10)
-		researchAmt := new(big.Int)
-		researchAmt.SetString(dist.ResearchShare, 10)
-		knowledgeTotal := big.NewInt(0)
-		for _, e := range dist.KnowledgePool {
-			amt := new(big.Int)
-			amt.SetString(e.Amount, 10)
-			knowledgeTotal.Add(knowledgeTotal, amt)
-		}
-		treasuryAmt2 := new(big.Int)
-		treasuryAmt2.SetString(dist.ProtocolTreasury, 10)
-		accounted := new(big.Int).Add(providerAmt, researchAmt)
-		accounted.Add(accounted, knowledgeTotal)
-		accounted.Add(accounted, treasuryAmt2)
-		accounted.Add(accounted, devAmt)
-		implicitVerif := new(big.Int).Sub(payment, accounted)
-
-		fullAccounted := new(big.Int).Add(accounted, implicitVerif)
-		if fullAccounted.Cmp(payment) != 0 {
-			t.Errorf("billing distribution doesn't sum: got %s, want %s", fullAccounted, payment)
-		}
-
-		err := h.billingKeeper.ExecuteDistribution(h.ctx, h.callerAddr, h.providerAddr, dist)
-		if err != nil {
-			t.Fatalf("execute distribution failed: %v", err)
-		}
-
-		// Development fund receives tokens (no burn)
-		devSent := h.bk.totalSentToModule("development_fund")
-		if !devSent.Equal(sdkmath.NewIntFromBigInt(devAmt)) {
-			t.Errorf("development_fund received: got %s, want %s", devSent, devAmt)
-		}
-
-		// No tokens should be burned
-		actualBurned := h.bk.totalBurned()
-		if actualBurned.IsPositive() {
-			t.Errorf("expected no burn, got %s", actualBurned)
-		}
-	})
-}
-
 // ---------- Test 5: Dead Accounts Have Zero Balance ----------
 
 func TestDeadAccountsRemoved(t *testing.T) {
@@ -356,13 +260,6 @@ func TestLedgerBalance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("block %d reward failed: %v", 1000+i, err)
 		}
-	}
-
-	payment := big.NewInt(2000000)
-	billingDist := h.billingKeeper.CalculateDistribution(h.ctx, payment, []string{"fact-1"})
-	err := h.billingKeeper.ExecuteDistribution(h.ctx, h.callerAddr, h.providerAddr, billingDist)
-	if err != nil {
-		t.Fatalf("billing execution failed: %v", err)
 	}
 
 	totalMinted := h.bk.totalMinted()
@@ -418,7 +315,7 @@ func TestDepositToResearchFund_NoFounder(t *testing.T) {
 	vk.InitGenesis(ctx, gs)
 
 	deposit := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1000000)))
-	err := vk.DepositToResearchFund(ctx, "billing", deposit)
+	err := vk.DepositToResearchFund(ctx, "knowledge", deposit)
 	if err != nil {
 		t.Fatalf("deposit failed: %v", err)
 	}
@@ -432,65 +329,6 @@ func TestDepositToResearchFund_NoFounder(t *testing.T) {
 		if coins.AmountOf("uzrn").IsPositive() {
 			t.Errorf("unexpected transfer to account %s: %s (should be zero with no founder)", addr, coins)
 		}
-	}
-}
-
-// ---------- Test 8: Billing ExecuteDistribution Research Routes Through Depositor ----------
-
-func TestBillingResearchRoutedThroughDepositor(t *testing.T) {
-	h := setupRevenueHarness(t)
-
-	payment := big.NewInt(1000000)
-	dist := h.billingKeeper.CalculateDistribution(h.ctx, payment, []string{"fact-1"})
-
-	// Reset bank keeper to isolate billing execution
-	h.bk.sentToModule = make(map[string]sdk.Coins)
-	h.bk.sentToAccount = make(map[string]sdk.Coins)
-	h.bk.sentFromAcct = make(map[string]sdk.Coins)
-	h.bk.p2pSent = make(map[string]sdk.Coins)
-	h.bk.burnedCoins = nil
-
-	err := h.billingKeeper.ExecuteDistribution(h.ctx, h.callerAddr, h.providerAddr, dist)
-	if err != nil {
-		t.Fatalf("execute distribution failed: %v", err)
-	}
-
-	// Research share (3.33% = 33,300 uzrn) → DepositToResearchFund
-	// 7% founder split: founder gets 2,331, research_fund gets 30,969
-	researchAmt := new(big.Int)
-	researchAmt.SetString(dist.ResearchShare, 10)
-	expectedResearch := int64(33300)
-	if researchAmt.Int64() != expectedResearch {
-		t.Errorf("research amount: got %s, want %d", researchAmt, expectedResearch)
-	}
-
-	expectedFounderFromBilling := sdkmath.NewInt(2331)
-	founderGot := h.bk.totalSentToAddr(h.founderAddr.String())
-	if !founderGot.Equal(expectedFounderFromBilling) {
-		t.Errorf("billing founder split: got %s, want %s", founderGot, expectedFounderFromBilling)
-	}
-
-	expectedResearchNet := sdkmath.NewInt(30969)
-	researchGot := h.bk.totalSentToModule("research_fund")
-	if !researchGot.Equal(expectedResearchNet) {
-		t.Errorf("billing research_fund: got %s, want %s", researchGot, expectedResearchNet)
-	}
-
-	// Development fund receives tokens (no burn)
-	devSent := h.bk.totalSentToModule("development_fund")
-	if !devSent.IsPositive() {
-		t.Error("expected positive development_fund deposit from billing execution")
-	}
-
-	// No tokens should be burned
-	burnedAmt := h.bk.totalBurned()
-	if burnedAmt.IsPositive() {
-		t.Errorf("expected no burn, got %s", burnedAmt)
-	}
-
-	treasurySent := h.bk.totalSentToModule("treasury_protocol")
-	if !treasurySent.IsPositive() {
-		t.Error("expected positive treasury_protocol transfer from billing")
 	}
 }
 
@@ -571,41 +409,4 @@ func TestFullRevenueFlow_WithVerificationPool(t *testing.T) {
 	if !knowledgeSent.IsPositive() {
 		t.Error("knowledge module received zero from block reward — verification pool missing")
 	}
-
-	// --- Part B: Billing payment 3-way protocol split ---
-	billingPayment := big.NewInt(1000000)
-	billingDist := h.billingKeeper.CalculateDistribution(h.ctx, billingPayment, []string{"fact-1"})
-
-	providerAmt := new(big.Int)
-	providerAmt.SetString(billingDist.ProviderShare, 10)
-	researchAmt := new(big.Int)
-	researchAmt.SetString(billingDist.ResearchShare, 10)
-	burnAmt := new(big.Int)
-	burnAmt.SetString(billingDist.ProtocolBurn, 10)
-	treasuryAmt := new(big.Int)
-	treasuryAmt.SetString(billingDist.ProtocolTreasury, 10)
-
-	knowledgeTotal := big.NewInt(0)
-	for _, e := range billingDist.KnowledgePool {
-		amt := new(big.Int)
-		amt.SetString(e.Amount, 10)
-		knowledgeTotal.Add(knowledgeTotal, amt)
-	}
-
-	accounted := new(big.Int).Add(providerAmt, researchAmt)
-	accounted.Add(accounted, burnAmt)
-	accounted.Add(accounted, treasuryAmt)
-	accounted.Add(accounted, knowledgeTotal)
-	verifPool := new(big.Int).Sub(billingPayment, accounted)
-
-	if verifPool.Sign() <= 0 {
-		t.Errorf("billing verification pool is non-positive: %s", verifPool)
-	}
-
-	fullSum := new(big.Int).Add(accounted, verifPool)
-	if fullSum.Cmp(billingPayment) != 0 {
-		t.Errorf("billing distribution doesn't sum to total: got %s, want %s (dust: %s)",
-			fullSum, billingPayment, new(big.Int).Sub(billingPayment, fullSum))
-	}
-
 }

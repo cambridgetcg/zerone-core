@@ -26,8 +26,6 @@ type Keeper struct {
 	ontologyKeeper            types.OntologyKeeper
 	vestingRewardsKeeper      types.VestingRewardsKeeper
 	domainQualificationKeeper types.DomainQualificationKeeper // nil until R6-5
-	autopoiesisKeeper         types.AutopoiesisKeeper         // nil until R7-1
-	partnershipKeeper         types.PartnershipKeeper         // nil until R26-4
 	zeroneAuthKeeper           types.ZeroneAuthKeeper           // nil until R28-5
 	captureDefenseKeeper       types.CaptureDefenseKeeper       // nil until R28-8
 	pacingKeeper               types.PacingKeeper               // nil until R29-6
@@ -79,16 +77,6 @@ func (k *Keeper) SetVestingRewardsKeeper(vk types.VestingRewardsKeeper) {
 // SetDomainQualificationKeeper sets the domain qualification keeper (post-init, R6-5).
 func (k *Keeper) SetDomainQualificationKeeper(dk types.DomainQualificationKeeper) {
 	k.domainQualificationKeeper = dk
-}
-
-// SetAutopoiesisKeeper sets the autopoiesis keeper (post-init, R7-1).
-func (k *Keeper) SetAutopoiesisKeeper(ak types.AutopoiesisKeeper) {
-	k.autopoiesisKeeper = ak
-}
-
-// SetPartnershipKeeper sets the partnership keeper (post-init, R26-4).
-func (k *Keeper) SetPartnershipKeeper(pk types.PartnershipKeeper) {
-	k.partnershipKeeper = pk
 }
 
 // SetZeroneAuthKeeper sets the zerone auth keeper (post-init, R28-5).

@@ -35,13 +35,6 @@ type OntologyKeeper interface {
 	GetDomainCount(ctx context.Context) uint64
 }
 
-// AutopoiesisKeeper defines the expected autopoiesis module interface.
-// Nil-safe: alignment logs corrections but does not apply them until wired.
-type AutopoiesisKeeper interface {
-	// SuggestAdjustment proposes a parameter correction.
-	SuggestAdjustment(ctx context.Context, parameter, direction string, magnitude uint64) error
-}
-
 // EmergencyKeeper defines the expected emergency module interface.
 type EmergencyKeeper interface {
 	// IsHalted returns true if the chain is in emergency halt.

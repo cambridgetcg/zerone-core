@@ -59,11 +59,6 @@ type AlignmentKeeper interface {
 	GetHealthCategory(ctx context.Context) string
 }
 
-// PartnershipsKeeper defines the partnerships module interface for governance-controlled formation.
-type PartnershipsKeeper interface {
-	SetDomainFormationFreeze(ctx context.Context, domain string, expiryHeight uint64, reason string)
-}
-
 // CreedKeeper defines the x/creed interface required by governance
 // for the CategoryCreedAmendment LIP class. On a passed creed-
 // amendment LIP, x/gov calls AnchorPinFromBytes with the pinned

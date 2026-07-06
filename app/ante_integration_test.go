@@ -738,13 +738,6 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 			msgType:  "/zerone.auth.v1.MsgRegisterAccount",
 			wantErr:  false,
 		},
-		{
-			name:     "UnregisteredBlockedFromPartnership",
-			register: false,
-			msgType:  "/zerone.partnerships.v1.MsgInitiatePartnership",
-			wantErr:  true,
-			errType:  zeroneauthtypes.ErrAccountCapabilityDenied,
-		},
 		// Challenge split from claims
 		{
 			name:        "ChallengeSplitFromClaims",

@@ -38,8 +38,7 @@
 //     produced here when scoring an allegation.
 //   - x/alignment reads GetFlaggedDomainCount as one input into the
 //     network-security signal (sensors.go); a high flagged-domain
-//     ratio depresses the chain's overall security score and feeds
-//     downstream into autopoiesis multiplier dynamics.
+//     ratio depresses the chain's overall security score.
 //
 // We speak through intentions. This package's intention is that
 // "cartel detection" means a CURRENT, QUERYABLE signal — not a

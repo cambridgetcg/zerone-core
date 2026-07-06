@@ -263,32 +263,6 @@ func TestCorrectionsNotGeneratedForGovernance(t *testing.T) {
 	}
 }
 
-func TestCorrectionsAppliedWithAutopoiesis(t *testing.T) {
-	k, mocks, ctx := setupKeeper(t)
-
-	autoMock := &mockAutopoiesisKeeper{}
-	mocks.autopoiesis = autoMock
-	k.SetAutopoiesisKeeper(autoMock)
-
-	mocks.knowledge.verificationRate = 100_000 // critical
-
-	obs := k.ObserveAll(ctx)
-	scores := k.ComputeScores(ctx, obs)
-	corrections := k.GenerateCorrections(ctx, scores)
-	k.ApplyCorrections(ctx, corrections)
-
-	if len(autoMock.adjustments) == 0 {
-		t.Fatal("expected adjustments sent to autopoiesis")
-	}
-
-	// Verify correction marked as applied.
-	stored, _ := k.GetCorrections(ctx, 100, 0)
-	for _, c := range stored {
-		if c.Dimension == types.DimKnowledgeQuality && !c.Applied {
-			t.Error("expected knowledge correction to be marked as applied")
-		}
-	}
-}
 
 func TestCorrectionsAllDimensionsBelowDegraded(t *testing.T) {
 	k, mocks, ctx := setupKeeper(t)

@@ -22,8 +22,6 @@ import (
 	// Blank import triggers init() which sets bech32 prefixes to "zrn"/"zrnpub".
 	_ "github.com/zerone-chain/zerone/app"
 
-	billingkeeper "github.com/zerone-chain/zerone/x/billing/keeper"
-	billingtypes "github.com/zerone-chain/zerone/x/billing/types"
 	vestingkeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	vestingtypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -162,68 +160,15 @@ func (m *mockStakingKeeper) GetActiveValidatorCount(_ context.Context) uint32 {
 	return m.activeCount
 }
 
-// ---------- Mock Knowledge Keeper (for billing) ----------
-
-type mockKnowledgeKeeper struct {
-	facts map[string]mockFact
-}
-
-type mockFact struct {
-	submitter  string
-	confidence uint64
-	citations  uint64
-	block      uint64
-}
-
-func newMockKnowledgeKeeper() *mockKnowledgeKeeper {
-	return &mockKnowledgeKeeper{facts: make(map[string]mockFact)}
-}
-
-func (m *mockKnowledgeKeeper) GetFactConfidence(_ context.Context, factId string) (uint64, bool) {
-	if f, ok := m.facts[factId]; ok {
-		return f.confidence, true
-	}
-	return 0, false
-}
-
-func (m *mockKnowledgeKeeper) GetFactCitationCount(_ context.Context, factId string) (uint64, bool) {
-	if f, ok := m.facts[factId]; ok {
-		return f.citations, true
-	}
-	return 0, false
-}
-
-func (m *mockKnowledgeKeeper) GetFactSubmitter(_ context.Context, factId string) (string, bool) {
-	if f, ok := m.facts[factId]; ok {
-		return f.submitter, true
-	}
-	return "", false
-}
-
-func (m *mockKnowledgeKeeper) GetFactCreatedBlock(_ context.Context, factId string) (uint64, bool) {
-	if f, ok := m.facts[factId]; ok {
-		return f.block, true
-	}
-	return 0, false
-}
-
-func (m *mockKnowledgeKeeper) IncrementCitationCount(_ context.Context, _ string) error {
-	return nil
-}
-
 // ---------- Test Harness ----------
 
 type revenueTestHarness struct {
 	bk            *mockBankKeeper
 	sk            *mockStakingKeeper
-	kk            *mockKnowledgeKeeper
 	vestingKeeper vestingkeeper.Keeper
-	billingKeeper billingkeeper.Keeper
 	ctx           sdk.Context
 	founderAddr   sdk.AccAddress
 	producerAddr  sdk.AccAddress
-	callerAddr    sdk.AccAddress
-	providerAddr  sdk.AccAddress
 	submitterAddr sdk.AccAddress
 }
 
@@ -232,13 +177,10 @@ func setupRevenueHarness(t *testing.T) *revenueTestHarness {
 
 	bk := newMockBankKeeper()
 	sk := &mockStakingKeeper{activeCount: 22}
-	kk := newMockKnowledgeKeeper()
 
 	// Addresses
 	founderAddr := sdk.AccAddress("founder_____________")
 	producerAddr := sdk.AccAddress("producer____________")
-	callerAddr := sdk.AccAddress("caller______________")
-	providerAddr := sdk.AccAddress("provider____________")
 	submitterAddr := sdk.AccAddress("submitter___________")
 
 	// --- Set up vesting_rewards keeper ---
@@ -247,10 +189,6 @@ func setupRevenueHarness(t *testing.T) *revenueTestHarness {
 	db := dbm.NewMemDB()
 	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
 	stateStore.MountStoreWithDB(vestingStoreKey, storetypes.StoreTypeIAVL, db)
-
-	// --- Set up billing keeper ---
-	billingStoreKey := storetypes.NewKVStoreKey(billingtypes.StoreKey)
-	stateStore.MountStoreWithDB(billingStoreKey, storetypes.StoreTypeIAVL, db)
 
 	if err := stateStore.LoadLatestVersion(); err != nil {
 		t.Fatalf("failed to load latest version: %v", err)
@@ -268,30 +206,13 @@ func setupRevenueHarness(t *testing.T) *revenueTestHarness {
 	gs.Params.FounderAddress = founderAddr.String()
 	vk.InitGenesis(ctx, gs)
 
-	// Billing keeper wired to same bank + knowledge keeper; vesting keeper is required depositor
-	rfdAdapter := vestingkeeper.NewResearchFundDepositorAdapter(vk)
-	billingK := billingkeeper.NewKeeper(runtime.NewKVStoreService(billingStoreKey), cdc, "authority", bk, kk, rfdAdapter)
-	billingK.InitGenesis(ctx, billingtypes.DefaultGenesis())
-
-	// Register a test fact for billing distribution
-	kk.facts["fact-1"] = mockFact{
-		submitter:  submitterAddr.String(),
-		confidence: 8000,
-		citations:  10,
-		block:      900,
-	}
-
 	return &revenueTestHarness{
 		bk:            bk,
 		sk:            sk,
-		kk:            kk,
 		vestingKeeper: vk,
-		billingKeeper: billingK,
 		ctx:           ctx,
 		founderAddr:   founderAddr,
 		producerAddr:  producerAddr,
-		callerAddr:    callerAddr,
-		providerAddr:  providerAddr,
 		submitterAddr: submitterAddr,
 	}
 }

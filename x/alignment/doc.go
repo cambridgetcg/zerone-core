@@ -9,12 +9,12 @@
 // readings those queries depend on.
 //
 // docs/TRUTH_SEEKING.md, commitment 12 (chain pays for its own audit):
-// the alignment correction pipeline can adjust reward multipliers and
-// pacing in response to network state. When sensing detects that
-// knowledge quality is decaying, autopoiesis can read alignment's
-// pacing multipliers (GetGlobalPacingMultiplier) and slow down the
-// flows that depend on healthy verification — a feedback loop that
-// pays for its own auditing budget by throttling growth when the
+// the alignment correction pipeline records suggested corrections in
+// response to network state. When sensing detects that knowledge
+// quality is decaying, consuming modules read alignment's pacing
+// multipliers (GetGlobalPacingMultiplier) and slow down the flows
+// that depend on healthy verification — a feedback loop that pays
+// for its own auditing budget by throttling growth when the
 // substrate is stressed.
 //
 // Mechanics:

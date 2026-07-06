@@ -149,7 +149,7 @@ func (k Keeper) getSpotPrice(pool *types.Pool, baseDenom string) (*big.Int, uint
 	return price, 0, nil
 }
 
-// GetSpotPrice returns the spot price for external use (e.g., billing module).
+// GetSpotPrice returns the spot price for external use (e.g., off-chain price readers).
 func (k Keeper) GetSpotPrice(ctx sdk.Context, poolId, baseDenom string) (*big.Int, error) {
 	pool, found := k.GetPool(ctx, poolId)
 	if !found {

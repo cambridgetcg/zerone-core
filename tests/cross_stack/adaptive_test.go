@@ -5,67 +5,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	aptypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
 	aligntypes "github.com/zerone-chain/zerone/x/alignment/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
-	vestingkeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 )
 
-// TestScenario1_AutopoiesisVestingMultiplier verifies that autopoiesis
-// multiplier state is readable through the vesting rewards adapter.
-func TestScenario1_AutopoiesisVestingMultiplier(t *testing.T) {
-	h := NewTestHarness(t)
-
-	// 1. Activate autopoiesis.
-	h.AutopoiesisKeeper.SetState(h.Ctx, &aptypes.AutopoiesisState{
-		Activated:       true,
-		CurrentEpoch:    0,
-		LastEpochHeight: 0,
-	})
-	require.True(t, h.AutopoiesisKeeper.IsActive(h.Ctx))
-
-	// 2. Set rewards.block multiplier to 200,000 BPS (0.2x).
-	h.AutopoiesisKeeper.SetMultiplierState(h.Ctx, &aptypes.MultiplierState{
-		Path:       "rewards.block",
-		CurrentBps: 200_000,
-		TargetBps:  200_000,
-		MinBps:     500_000,
-		MaxBps:     2_000_000,
-	})
-
-	// 3. Read directly via keeper.GetMultiplier.
-	val, err := h.AutopoiesisKeeper.GetMultiplier(h.Ctx, "rewards.block")
-	require.NoError(t, err)
-	require.Equal(t, uint64(200_000), val, "direct GetMultiplier must return 200,000")
-
-	// 4. Read via the AutopoiesisVestingAdapter (the bridge the vesting module uses).
-	adapter := vestingkeeper.NewAutopoiesisVestingAdapter(h.AutopoiesisKeeper)
-	adapterVal := adapter.GetMultiplier(h.Ctx, "rewards.block")
-	require.Equal(t, uint64(200_000), adapterVal, "adapter GetMultiplier must return 200,000")
-
-	// 5. Verify unknown path returns BPSScale (1.0x default).
-	unknownVal, err := h.AutopoiesisKeeper.GetMultiplier(h.Ctx, "unknown.path")
-	require.NoError(t, err)
-	require.Equal(t, aptypes.BPSScale, unknownVal)
-}
-
 // TestScenario2_AlignmentCorrections verifies alignment generates corrections
-// when knowledge quality is below the degraded threshold, and dispatches them
-// to autopoiesis via SuggestAdjustment.
+// when knowledge quality is below the degraded threshold, and records them
+// queryably. Since the autopoiesis regulator retired (slim cut), corrections
+// are never auto-applied — the observation layer keeps speaking; nothing
+// adjusts multipliers.
 func TestScenario2_AlignmentCorrections(t *testing.T) {
 	h := NewTestHarness(t)
 
-	// 1. Enable alignment and activate autopoiesis.
+	// 1. Enable alignment.
 	h.AlignmentKeeper.SetState(h.Ctx, &aligntypes.AlignmentState{
-		Enabled:              true,
+		Enabled:               true,
 		LastObservationHeight: 0,
-		ObservationCount:     0,
-	})
-	h.AutopoiesisKeeper.SetState(h.Ctx, &aptypes.AutopoiesisState{
-		Activated: true,
+		ObservationCount:      0,
 	})
 
-	// 1b. Raise auto-apply magnitude cap so large corrections are applied in this test.
+	// 1b. Raise auto-apply magnitude cap: even inside bounds, nothing applies.
 	alignParamsInit := h.AlignmentKeeper.GetParams(h.Ctx)
 	alignParamsInit.MaxAutoApplyMagnitudeBps = 1_000_000
 	h.AlignmentKeeper.SetParams(h.Ctx, alignParamsInit)
@@ -101,101 +60,20 @@ func TestScenario2_AlignmentCorrections(t *testing.T) {
 	require.Equal(t, "increase", knowledgeCorrection.Direction)
 	require.False(t, knowledgeCorrection.Applied, "correction must not be applied yet")
 
-	// 6. Apply corrections — dispatches to autopoiesis SuggestAdjustment.
+	// 6. Apply corrections — records them with applied=false (no regulator).
 	h.AlignmentKeeper.ApplyCorrections(h.Ctx, corrections)
 
-	// Verify corrections are marked as applied (autopoiesis keeper is wired in the app).
-	for _, c := range corrections {
-		require.True(t, c.Applied, "correction %s must be marked applied", c.Dimension)
+	stored, total := h.AlignmentKeeper.GetCorrections(h.Ctx, 100, 0)
+	require.Greater(t, total, uint64(0), "corrections must be stored queryably")
+	for _, c := range stored {
+		require.False(t, c.Applied, "correction %s must be recorded, never auto-applied", c.Dimension)
 	}
-}
-
-// TestScenario7_FullAdaptiveLoop verifies the multi-epoch adaptive feedback loop
-// between alignment observation, correction dispatch, and autopoiesis epoch processing.
-func TestScenario7_FullAdaptiveLoop(t *testing.T) {
-	h := NewTestHarness(t)
-
-	// 1. Activate autopoiesis with short epochs for testing.
-	h.AutopoiesisKeeper.SetState(h.Ctx, &aptypes.AutopoiesisState{
-		Activated:       true,
-		CurrentEpoch:    0,
-		LastEpochHeight: uint64(h.Height()),
-	})
-	params := aptypes.DefaultParams()
-	params.EpochLengthBlocks = 10 // short epochs for testing
-	h.AutopoiesisKeeper.SetParams(h.Ctx, &params)
-
-	// Set default multipliers.
-	for _, m := range aptypes.DefaultMultipliers() {
-		h.AutopoiesisKeeper.SetMultiplierState(h.Ctx, m)
-	}
-
-	// 2. Enable alignment with short observation interval.
-	alignParams := aligntypes.DefaultParams()
-	alignParams.ObservationIntervalBlocks = 10
-	h.AlignmentKeeper.SetParams(h.Ctx, &alignParams)
-	h.AlignmentKeeper.SetState(h.Ctx, &aligntypes.AlignmentState{
-		Enabled:              true,
-		LastObservationHeight: 0,
-		ObservationCount:     0,
-	})
-
-	// 3. Record initial multiplier state.
-	initMS, found := h.AutopoiesisKeeper.GetMultiplierState(h.Ctx, "rewards.block")
-	require.True(t, found)
-	require.Equal(t, aptypes.BPSScale, initMS.CurrentBps, "initial multiplier must be 1.0x")
-
-	// 4. Advance blocks past epoch boundary — triggers both EndBlockers.
-	// The autopoiesis CollectAndAdapt runs in EndBlocker and the alignment
-	// module observes at interval boundaries.
-	h.AdvanceBlocks(15)
-
-	// 5. After advancing, check that autopoiesis processed at least one epoch.
-	state := h.AutopoiesisKeeper.GetState(h.Ctx)
-	require.NotNil(t, state)
-	// The first call to CollectAndAdapt sets the baseline (LastEpochHeight).
-	// After 15 blocks from height ~1, at least one epoch should process.
-
-	// 6. Verify SSI was computed.
-	ssi := h.AutopoiesisKeeper.GetSSI(h.Ctx)
-	// SSI depends on staking participation and verification rate.
-	// Even with minimal state it should be a valid BPS value.
-	require.LessOrEqual(t, ssi, aptypes.BPSScale, "SSI must be <= 1,000,000")
-
-	// 7. Advance more blocks for a second epoch.
-	h.AdvanceBlocks(15)
-	state2 := h.AutopoiesisKeeper.GetState(h.Ctx)
-	require.NotNil(t, state2)
-
-	// 8. Check alignment observation was recorded.
-	alignState := h.AlignmentKeeper.GetState(h.Ctx)
-	require.NotNil(t, alignState)
-	// ObservationCount may be 0 if the block height doesn't align exactly
-	// with the interval, but LastObservationHeight should advance if it did.
-
-	// 9. Verify the system doesn't panic over multiple epochs.
-	h.AdvanceBlocks(30) // 3 more epochs
-	finalState := h.AutopoiesisKeeper.GetState(h.Ctx)
-	require.NotNil(t, finalState)
 }
 
 // TestScenario10_EmergencyHaltStopsAdaptiveLayer verifies that the emergency
-// halt prevents both autopoiesis and alignment from processing.
+// halt prevents alignment from observing, and that it resumes afterwards.
 func TestScenario10_EmergencyHaltStopsAdaptiveLayer(t *testing.T) {
 	h := NewTestHarness(t)
-
-	// 1. Activate autopoiesis and alignment.
-	h.AutopoiesisKeeper.SetState(h.Ctx, &aptypes.AutopoiesisState{
-		Activated:       true,
-		CurrentEpoch:    0,
-		LastEpochHeight: uint64(h.Height()),
-	})
-	params := aptypes.DefaultParams()
-	params.EpochLengthBlocks = 5
-	h.AutopoiesisKeeper.SetParams(h.Ctx, &params)
-	for _, m := range aptypes.DefaultMultipliers() {
-		h.AutopoiesisKeeper.SetMultiplierState(h.Ctx, m)
-	}
 
 	alignParams := aligntypes.DefaultParams()
 	alignParams.ObservationIntervalBlocks = 5
@@ -204,37 +82,24 @@ func TestScenario10_EmergencyHaltStopsAdaptiveLayer(t *testing.T) {
 		Enabled: true,
 	})
 
-	// 2. Advance a few blocks to establish baseline.
+	// 1. Advance a few blocks to establish baseline.
 	h.AdvanceBlocks(6)
-	stateBeforeHalt := h.AutopoiesisKeeper.GetState(h.Ctx)
-	epochBeforeHalt := stateBeforeHalt.CurrentEpoch
 
-	// 3. Halt the chain via emergency module.
+	// 2. Halt the chain via emergency module.
 	h.EmergencyKeeper.SetEmergencyStatus(h.Ctx, emergencytypes.StatusHalted)
 	require.True(t, h.EmergencyKeeper.IsHalted(h.Ctx), "chain must be halted")
 
-	// 4. Advance blocks — autopoiesis and alignment should skip processing.
+	// 3. Advance blocks — alignment should skip processing.
 	h.AdvanceBlocks(20)
-
-	stateAfterHalt := h.AutopoiesisKeeper.GetState(h.Ctx)
-	require.Equal(t, epochBeforeHalt, stateAfterHalt.CurrentEpoch,
-		"autopoiesis epoch must not advance during halt")
-
-	// Alignment observation count should not change during halt.
 	alignStateHalted := h.AlignmentKeeper.GetState(h.Ctx)
 	obsCountDuringHalt := alignStateHalted.ObservationCount
 
-	// 5. Resume: set status back to normal.
+	// 4. Resume: set status back to normal.
 	h.EmergencyKeeper.SetEmergencyStatus(h.Ctx, emergencytypes.StatusNormal)
 	require.False(t, h.EmergencyKeeper.IsHalted(h.Ctx), "chain must be resumed")
 
-	// 6. Advance blocks — both modules should resume processing.
+	// 5. Advance blocks — alignment should resume processing.
 	h.AdvanceBlocks(20)
-
-	stateAfterResume := h.AutopoiesisKeeper.GetState(h.Ctx)
-	require.Greater(t, stateAfterResume.CurrentEpoch, epochBeforeHalt,
-		"autopoiesis must advance epochs after resume")
-
 	alignStateResumed := h.AlignmentKeeper.GetState(h.Ctx)
 	require.GreaterOrEqual(t, alignStateResumed.ObservationCount, obsCountDuringHalt,
 		"alignment must resume observations after emergency ends")

@@ -11,9 +11,6 @@ import (
 
 	alignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
 	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
-	autopoiesistypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
-	billingtypes "github.com/zerone-chain/zerone/x/billing/types"
-	bvmtypes "github.com/zerone-chain/zerone/x/bvm/types"
 	capturechallengetypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
 	capturedefensetypes "github.com/zerone-chain/zerone/x/capture_defense/types"
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
@@ -24,11 +21,9 @@ import (
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
 	ontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
-	partnershipstypes "github.com/zerone-chain/zerone/x/partnerships/types"
 	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 	tokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
-	toolboxtypes "github.com/zerone-chain/zerone/x/toolbox/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 
 	gogoproto "github.com/cosmos/gogoproto/proto"
@@ -61,9 +56,6 @@ func TestProtoJSONRoundTrip_AllModuleParams(t *testing.T) {
 	modules := []moduleRoundTrip{
 		{alignmenttypes.ModuleName, alignmenttypes.DefaultGenesis(), func() gogoproto.Message { return &alignmenttypes.GenesisState{} }},
 		{zeroneauthtypes.ModuleName, zeroneauthtypes.DefaultGenesis(), func() gogoproto.Message { return &zeroneauthtypes.GenesisState{} }},
-		{autopoiesistypes.ModuleName, autopoiesistypes.DefaultGenesis(), func() gogoproto.Message { return &autopoiesistypes.GenesisState{} }},
-		{billingtypes.ModuleName, billingtypes.DefaultGenesis(), func() gogoproto.Message { return &billingtypes.GenesisState{} }},
-		{bvmtypes.ModuleName, bvmtypes.DefaultGenesisState(), func() gogoproto.Message { return &bvmtypes.GenesisState{} }},
 		{capturechallengetypes.ModuleName, capturechallengetypes.DefaultGenesis(), func() gogoproto.Message { return &capturechallengetypes.GenesisState{} }},
 		{capturedefensetypes.ModuleName, capturedefensetypes.DefaultGenesis(), func() gogoproto.Message { return &capturedefensetypes.GenesisState{} }},
 		{claimingpottypes.ModuleName, claimingpottypes.DefaultGenesis(), func() gogoproto.Message { return &claimingpottypes.GenesisState{} }},
@@ -74,11 +66,9 @@ func TestProtoJSONRoundTrip_AllModuleParams(t *testing.T) {
 		{knowledgetypes.ModuleName, knowledgetypes.DefaultGenesis(), func() gogoproto.Message { return &knowledgetypes.GenesisState{} }},
 		{liquiditypooltypes.ModuleName, liquiditypooltypes.DefaultGenesis(), func() gogoproto.Message { return &liquiditypooltypes.GenesisState{} }},
 		{ontologytypes.ModuleName, ontologytypes.DefaultGenesis(), func() gogoproto.Message { return &ontologytypes.GenesisState{} }},
-		{partnershipstypes.ModuleName, partnershipstypes.DefaultGenesis(), func() gogoproto.Message { return &partnershipstypes.GenesisState{} }},
 		{qualificationtypes.ModuleName, qualificationtypes.DefaultGenesis(), func() gogoproto.Message { return &qualificationtypes.GenesisState{} }},
 		{zeronestakingtypes.ModuleName, zeronestakingtypes.DefaultGenesisState(), func() gogoproto.Message { return &zeronestakingtypes.GenesisState{} }},
 		{tokenstypes.ModuleName, tokenstypes.DefaultGenesis(), func() gogoproto.Message { return &tokenstypes.GenesisState{} }},
-		{toolboxtypes.ModuleName, toolboxtypes.DefaultGenesis(), func() gogoproto.Message { return &toolboxtypes.GenesisState{} }},
 		{vestingrewardstypes.ModuleName, vestingrewardstypes.DefaultGenesis(), func() gogoproto.Message { return &vestingrewardstypes.GenesisState{} }},
 	}
 

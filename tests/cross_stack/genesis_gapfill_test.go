@@ -11,9 +11,6 @@ import (
 	// All 30 Zerone custom module types for per-module genesis validation.
 	alignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
 	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
-	autopoiesistypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
-	billingtypes "github.com/zerone-chain/zerone/x/billing/types"
-	bvmtypes "github.com/zerone-chain/zerone/x/bvm/types"
 	capturechallengetypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
 	capturedefensetypes "github.com/zerone-chain/zerone/x/capture_defense/types"
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
@@ -24,11 +21,9 @@ import (
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
 	ontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
-	partnershipstypes "github.com/zerone-chain/zerone/x/partnerships/types"
 	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 	tokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
-	toolboxtypes "github.com/zerone-chain/zerone/x/toolbox/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -64,21 +59,6 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 			require.NoError(t, gs.Validate())
 			require.NotNil(t, gs.Params)
 			require.Greater(t, gs.Params.MaxSessionKeys, uint32(0), "max session keys must be positive")
-		}},
-		{autopoiesistypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs autopoiesistypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{billingtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs billingtypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{bvmtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs bvmtypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
 		}},
 		{capturechallengetypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs capturechallengetypes.GenesisState
@@ -140,11 +120,6 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 		}},
-		{partnershipstypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs partnershipstypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
 		{qualificationtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs qualificationtypes.GenesisState
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
@@ -160,11 +135,6 @@ func TestPerModuleGenesisValidation(t *testing.T) {
 		}},
 		{tokenstypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
 			var gs tokenstypes.GenesisState
-			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
-			require.NoError(t, gs.Validate())
-		}},
-		{toolboxtypes.ModuleName, func(t *testing.T, raw json.RawMessage) {
-			var gs toolboxtypes.GenesisState
 			require.NoError(t, codec.UnmarshalJSON(raw, &gs))
 			require.NoError(t, gs.Validate())
 		}},

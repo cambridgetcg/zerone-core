@@ -91,26 +91,6 @@ type VestingRewardsKeeper interface {
 	MintWithCap(ctx context.Context, recipientModule string, amount *big.Int) (*big.Int, error)
 }
 
-// AutopoiesisKeeper defines the expected autopoiesis keeper interface.
-type AutopoiesisKeeper interface {
-	// GetMultiplier returns the autopoiesis reward multiplier for a path (BPS, 1,000,000 = 1.0x).
-	GetMultiplier(ctx context.Context, path string) (uint64, error)
-}
-
-// PartnershipKeeper defines the expected partnership keeper interface.
-type PartnershipKeeper interface {
-	// IsActive checks if a partnership exists and is active (not frozen, dissolved, etc).
-	IsActive(ctx context.Context, partnershipId string) (bool, error)
-	// IsParticipant checks if an address is a participant in a partnership.
-	IsParticipant(ctx context.Context, partnershipId string, address string) (bool, error)
-	// IsSuspended checks if a partnership is suspended (coercion freeze).
-	IsSuspended(ctx context.Context, partnershipId string) (bool, error)
-	// DistributeReward distributes a reward through the partnership split.
-	DistributeReward(ctx context.Context, partnershipId string, amount sdk.Coins, source string) error
-	// GetDomainPartnershipDensity returns the count of unique partnership participants in a domain (R31-2).
-	GetDomainPartnershipDensity(ctx context.Context, domain string) uint64
-}
-
 // ZeroneAuthKeeper defines the expected zerone auth keeper interface (R28-5).
 // Used to look up account types (human/agent/contract) for role bonuses.
 type ZeroneAuthKeeper interface {

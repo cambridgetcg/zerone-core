@@ -27,7 +27,6 @@ type Keeper struct {
 
 	authority string
 
-	autopoiesisKeeper types.AutopoiesisKeeper
 
 	// blockTxCount is set by PotPreBlocker each block with the user transaction count
 	// (excluding vote extension injection pseudo-txs). Read by BeginBlock to determine
@@ -66,11 +65,6 @@ func prefixEndBytes(prefix []byte) []byte {
 		}
 	}
 	return nil
-}
-
-// SetAutopoiesisKeeper sets the autopoiesis keeper for adaptive reward multipliers.
-func (k *Keeper) SetAutopoiesisKeeper(ak types.AutopoiesisKeeper) {
-	k.autopoiesisKeeper = ak
 }
 
 // SetKnowledgeKeeper wires the knowledge keeper so block rewards can be

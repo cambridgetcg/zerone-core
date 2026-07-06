@@ -4,7 +4,7 @@
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # Tests the complete truth-seeking loop on a running localnet:
-#   Register → Partnership → Qualify → Claim → Verify → Reward → Research
+#   Register → Qualify → Claim → Verify → Reward
 #
 # Prerequisites:
 #   scripts/localnet.sh start   # chain must be running and producing blocks
@@ -41,7 +41,7 @@ TX_FLAGS="${COMMON_FLAGS} --gas 300000 --gas-prices 1${DENOM} --yes --broadcast-
 
 PASSED=0
 FAILED=0
-TOTAL_CHECKPOINTS=7
+TOTAL_CHECKPOINTS=5
 FAILURES=""
 START_TIME=$(date +%s)
 PHASE_TIMES=""
@@ -440,72 +440,12 @@ fi
 
 record_phase_time "Phase 3 (block rewards)" "$(($(date +%s) - PHASE3_START))"
 
-# ── Phase 4: Partnership Formation ───────────────────────────────────────
+# ── Phase 4: Domain Qualification ────────────────────────────────────────
 
-header "Phase 4: Partnership Formation"
+header "Phase 4: Domain Qualification"
 PHASE4_START=$(date +%s)
 
 CHECKPOINT3_PASS=true
-PARTNERSHIP_ID=""
-P_STATUS=""
-
-# Propose partnership: alice (human) + sage1 (agent), tier 0, deposit 1 ZRN
-info "Alice proposing partnership with sage1..."
-PROPOSE_RESULT=$(send_tx "${BINARY} tx partnerships propose ${SAGE1_ADDR} 1000000 0 --from alice ${TX_FLAGS}") || {
-  warn "Partnership proposal failed"
-  CHECKPOINT3_PASS=false
-}
-
-if [ "$CHECKPOINT3_PASS" = true ]; then
-  PARTNERSHIP_ID=$(get_event_attr "$PROPOSE_RESULT" "zerone.partnerships.partnership_proposed" "partnership_id")
-  if [ -z "$PARTNERSHIP_ID" ]; then
-    # Try alternative event format
-    PARTNERSHIP_ID=$(echo "$PROPOSE_RESULT" | jq -r '[.events[] | select(.type | contains("partnership")) | .attributes[] | select(.key | contains("partnership_id")) | .value] | first // empty' 2>/dev/null)
-  fi
-  info "Partnership ID: $PARTNERSHIP_ID"
-
-  if [ -z "$PARTNERSHIP_ID" ]; then
-    warn "Could not extract partnership_id from events"
-    CHECKPOINT3_PASS=false
-  fi
-fi
-
-if [ "$CHECKPOINT3_PASS" = true ]; then
-  # Accept partnership from sage1
-  info "Sage1 accepting partnership..."
-  sleep 3
-  if send_tx "${BINARY} tx partnerships accept ${PARTNERSHIP_ID} 1000000 --from sage1 ${TX_FLAGS}"; then
-    info "Partnership accepted"
-  else
-    warn "Partnership acceptance failed"
-    CHECKPOINT3_PASS=false
-  fi
-  sleep 3
-
-  # Verify partnership
-  P_RESULT=$(${BINARY} query partnerships partnership "$PARTNERSHIP_ID" ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
-  P_STATUS=$(echo "$P_RESULT" | jq -r '.partnership.status // "NOT_FOUND"' 2>/dev/null)
-  P_HUMAN=$(echo "$P_RESULT" | jq -r '.partnership.human_addr // empty' 2>/dev/null)
-  P_AGENT=$(echo "$P_RESULT" | jq -r '.partnership.agent_addr // empty' 2>/dev/null)
-  info "Partnership status: $P_STATUS"
-  info "Partnership human: $P_HUMAN"
-  info "Partnership agent: $P_AGENT"
-fi
-
-if [ "$CHECKPOINT3_PASS" = true ] && [ "$P_STATUS" = "active" ]; then
-  pass "3" "Partnership active: alice (human) + sage1 (agent)"
-else
-  fail "3" "Partnership formation failed (status: ${P_STATUS:-unknown})"
-fi
-
-record_phase_time "Phase 4 (partnership)" "$(($(date +%s) - PHASE4_START))"
-
-# ── Phase 5: Domain Qualification ────────────────────────────────────────
-
-header "Phase 5: Domain Qualification"
-PHASE5_START=$(date +%s)
-
-CHECKPOINT4_PASS=true
 
 # Qualify val0 and val1 for "general" domain (100 ZRN stake each)
 info "Qualifying val0 for 'general' domain..."
@@ -513,7 +453,7 @@ if send_tx "${BINARY} tx qualification qualify-by-stake general 100000000 --from
   info "val0 qualified"
 else
   warn "val0 qualification failed"
-  CHECKPOINT4_PASS=false
+  CHECKPOINT3_PASS=false
 fi
 sleep 2
 
@@ -522,7 +462,7 @@ if send_tx "${BINARY} tx qualification qualify-by-stake general 100000000 --from
   info "val1 qualified"
 else
   warn "val1 qualification failed"
-  CHECKPOINT4_PASS=false
+  CHECKPOINT3_PASS=false
 fi
 sleep 6
 
@@ -544,42 +484,36 @@ info "val2 qualification status: $VAL2_QUAL_STATUS (expected: NOT_FOUND)"
 
 # Note: qualification count from query is the ground truth (send_tx may report false failures)
 if [ "$QUAL_COUNT" -ge 2 ] 2>/dev/null; then
-  pass "4" "val0 and val1 qualified for 'general', val2/val3 not qualified (count: $QUAL_COUNT)"
+  pass "3" "val0 and val1 qualified for 'general', val2/val3 not qualified (count: $QUAL_COUNT)"
 else
-  fail "4" "Domain qualification incomplete (qualified count: $QUAL_COUNT)"
+  fail "3" "Domain qualification incomplete (qualified count: $QUAL_COUNT)"
 fi
 
-record_phase_time "Phase 5 (qualification)" "$(($(date +%s) - PHASE5_START))"
+record_phase_time "Phase 4 (qualification)" "$(($(date +%s) - PHASE4_START))"
 
-# ── Phase 6: Claim Through Partnership + Qualified Verification ──────────
+# ── Phase 5: Claim + Qualified Verification ──────────────────────────────
 
-header "Phase 6: Claim + Commit-Reveal Verification"
-PHASE6_START=$(date +%s)
+header "Phase 5: Claim + Commit-Reveal Verification"
+PHASE5_START=$(date +%s)
 
-CHECKPOINT5_PASS=true
+CHECKPOINT4_PASS=true
 CLAIM_ID=""
 ROUND_ID=""
 CLAIM_STATUS=""
 ROUND_VERDICT=""
 ROUND_FINAL_PHASE=""
 
-# Submit claim through partnership
+# Submit claim
 CLAIM_TEXT="The speed of light in vacuum is approximately 299792458 meters per second"
-if [ -z "$PARTNERSHIP_ID" ]; then
-  warn "No partnership_id — submitting claim without partnership"
-  CLAIM_PARTNERSHIP_FLAG=""
-else
-  CLAIM_PARTNERSHIP_FLAG="--partnership-id ${PARTNERSHIP_ID}"
-fi
 info "Alice submitting claim..."
-CLAIM_RESULT=$(send_tx "${BINARY} tx knowledge submit-claim '${CLAIM_TEXT}' general computational 1000000 ${CLAIM_PARTNERSHIP_FLAG} --from alice ${TX_FLAGS}") || {
+CLAIM_RESULT=$(send_tx "${BINARY} tx knowledge submit-claim '${CLAIM_TEXT}' general computational 1000000 --from alice ${TX_FLAGS}") || {
   warn "Claim submission failed"
-  CHECKPOINT5_PASS=false
+  CHECKPOINT4_PASS=false
 }
 
 CLAIM_ID=""
 ROUND_ID=""
-if [ "$CHECKPOINT5_PASS" = true ]; then
+if [ "$CHECKPOINT4_PASS" = true ]; then
   CLAIM_ID=$(get_event_attr "$CLAIM_RESULT" "zerone.knowledge.submit_claim" "claim_id")
   if [ -z "$CLAIM_ID" ]; then
     CLAIM_ID=$(echo "$CLAIM_RESULT" | jq -r '[.events[] | select(.type | contains("claim")) | .attributes[] | select(.key=="claim_id") | .value] | first // empty' 2>/dev/null)
@@ -588,22 +522,20 @@ if [ "$CHECKPOINT5_PASS" = true ]; then
 
   if [ -z "$CLAIM_ID" ]; then
     warn "Could not extract claim_id"
-    CHECKPOINT5_PASS=false
+    CHECKPOINT4_PASS=false
   fi
 fi
 
 # Get round ID from claim query
-if [ "$CHECKPOINT5_PASS" = true ]; then
+if [ "$CHECKPOINT4_PASS" = true ]; then
   sleep 3
   CLAIM_QUERY=$(${BINARY} query knowledge claim "$CLAIM_ID" ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
   ROUND_ID=$(echo "$CLAIM_QUERY" | jq -r '.claim.verification_round_id // empty' 2>/dev/null)
-  CLAIM_PARTNERSHIP=$(echo "$CLAIM_QUERY" | jq -r '.claim.partnership_id // empty' 2>/dev/null)
   info "Round ID: $ROUND_ID"
-  info "Claim partnership_id: $CLAIM_PARTNERSHIP"
 
   if [ -z "$ROUND_ID" ]; then
     warn "Could not get round_id from claim"
-    CHECKPOINT5_PASS=false
+    CHECKPOINT4_PASS=false
   fi
 fi
 
@@ -612,7 +544,7 @@ SALT_HEX="a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8"
 VOTE="accept"
 COMMIT_HASH=$(compute_commit_hash "$VOTE" "$SALT_HEX")
 
-if [ "$CHECKPOINT5_PASS" = true ]; then
+if [ "$CHECKPOINT4_PASS" = true ]; then
   info "Commit hash: $COMMIT_HASH"
 
   # val0 commits
@@ -621,7 +553,7 @@ if [ "$CHECKPOINT5_PASS" = true ]; then
     info "val0 committed"
   else
     warn "val0 commitment failed"
-    CHECKPOINT5_PASS=false
+    CHECKPOINT4_PASS=false
   fi
   sleep 2
 
@@ -631,7 +563,7 @@ if [ "$CHECKPOINT5_PASS" = true ]; then
     info "val1 committed"
   else
     warn "val1 commitment failed"
-    CHECKPOINT5_PASS=false
+    CHECKPOINT4_PASS=false
   fi
   sleep 2
 
@@ -641,12 +573,12 @@ if [ "$CHECKPOINT5_PASS" = true ]; then
     info "val2 correctly rejected (unqualified)"
   else
     warn "val2 commitment unexpectedly succeeded"
-    CHECKPOINT5_PASS=false
+    CHECKPOINT4_PASS=false
   fi
 fi
 
 # Wait for REVEAL phase (commit_phase_blocks = 10)
-if [ "$CHECKPOINT5_PASS" = true ]; then
+if [ "$CHECKPOINT4_PASS" = true ]; then
   info "Waiting for REVEAL phase..."
   # Query round to see commit deadline
   ROUND_QUERY=$(${BINARY} query knowledge verification-round "$ROUND_ID" ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
@@ -670,7 +602,7 @@ if [ "$CHECKPOINT5_PASS" = true ]; then
     info "val0 revealed"
   else
     warn "val0 reveal failed"
-    CHECKPOINT5_PASS=false
+    CHECKPOINT4_PASS=false
   fi
   sleep 2
 
@@ -679,12 +611,12 @@ if [ "$CHECKPOINT5_PASS" = true ]; then
     info "val1 revealed"
   else
     warn "val1 reveal failed"
-    CHECKPOINT5_PASS=false
+    CHECKPOINT4_PASS=false
   fi
 fi
 
 # Wait for aggregation (reveal_phase_blocks + aggregation)
-if [ "$CHECKPOINT5_PASS" = true ]; then
+if [ "$CHECKPOINT4_PASS" = true ]; then
   info "Waiting for aggregation..."
   REVEAL_DEADLINE=$(echo "$ROUND_QUERY" | jq -r '.round.reveal_deadline // empty' 2>/dev/null | tr -d '"')
   CURRENT_HEIGHT=$(get_height)
@@ -709,202 +641,44 @@ if [ "$CHECKPOINT5_PASS" = true ]; then
   info "Round phase: $ROUND_FINAL_PHASE"
 fi
 
-# Check if rewards were routed through partnership
-if [ "$CHECKPOINT5_PASS" = true ] && [ -n "$PARTNERSHIP_ID" ]; then
-  P_CHECK=$(${BINARY} query partnerships partnership "$PARTNERSHIP_ID" ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
-  COMMON_POT=$(echo "$P_CHECK" | jq -r '.partnership.common_pot_balance // "0"' 2>/dev/null)
-  TOTAL_EARNED=$(echo "$P_CHECK" | jq -r '.partnership.total_earned // "0"' 2>/dev/null)
-  info "Partnership common pot: $COMMON_POT"
-  info "Partnership total earned: $TOTAL_EARNED"
-fi
-
 # ClaimStatus: 6=ACCEPTED, Verdict: 1=ACCEPT, Phase: 4=COMPLETE (proto enum values)
-if [ "$CHECKPOINT5_PASS" = true ] && { [ "$CLAIM_STATUS" = "6" ] || echo "$CLAIM_STATUS" | grep -qi "accepted"; }; then
-  pass "5" "Claim ACCEPTED through partnership (status=$CLAIM_STATUS, verdict=$ROUND_VERDICT, pot=$COMMON_POT)"
-elif [ "$CHECKPOINT5_PASS" = true ] && { [ "$ROUND_VERDICT" = "1" ] || echo "$ROUND_VERDICT" | grep -qi "accept"; }; then
-  pass "5" "Round verdict ACCEPT (claim status=$CLAIM_STATUS, phase=$ROUND_FINAL_PHASE)"
-elif [ "$CHECKPOINT5_PASS" = true ] && { [ "$ROUND_FINAL_PHASE" = "4" ] || echo "$ROUND_FINAL_PHASE" | grep -qi "complete"; }; then
-  pass "5" "Round completed (verdict: $ROUND_VERDICT, claim: $CLAIM_STATUS)"
+if [ "$CHECKPOINT4_PASS" = true ] && { [ "$CLAIM_STATUS" = "6" ] || echo "$CLAIM_STATUS" | grep -qi "accepted"; }; then
+  pass "4" "Claim ACCEPTED (status=$CLAIM_STATUS, verdict=$ROUND_VERDICT)"
+elif [ "$CHECKPOINT4_PASS" = true ] && { [ "$ROUND_VERDICT" = "1" ] || echo "$ROUND_VERDICT" | grep -qi "accept"; }; then
+  pass "4" "Round verdict ACCEPT (claim status=$CLAIM_STATUS, phase=$ROUND_FINAL_PHASE)"
+elif [ "$CHECKPOINT4_PASS" = true ] && { [ "$ROUND_FINAL_PHASE" = "4" ] || echo "$ROUND_FINAL_PHASE" | grep -qi "complete"; }; then
+  pass "4" "Round completed (verdict: $ROUND_VERDICT, claim: $CLAIM_STATUS)"
 else
-  fail "5" "Claim verification incomplete (status: ${CLAIM_STATUS:-unknown}, verdict: ${ROUND_VERDICT:-unknown}, phase: ${ROUND_FINAL_PHASE:-unknown})"
+  fail "4" "Claim verification incomplete (status: ${CLAIM_STATUS:-unknown}, verdict: ${ROUND_VERDICT:-unknown}, phase: ${ROUND_FINAL_PHASE:-unknown})"
 fi
 
-record_phase_time "Phase 6 (claim+verification)" "$(($(date +%s) - PHASE6_START))"
+record_phase_time "Phase 5 (claim+verification)" "$(($(date +%s) - PHASE5_START))"
 
-# ── Phase 7: Research Auto-Resolution ────────────────────────────────────
+# ── Phase 6: Negative Tests ──────────────────────────────────────────────
 
-header "Phase 7: Research Auto-Resolution"
-PHASE7_START=$(date +%s)
+header "Phase 6: Negative Tests"
+PHASE6_START=$(date +%s)
 
-CHECKPOINT6_PASS=true
-RESEARCH_ID=""
-RESEARCH_STATUS=""
-RESEARCH_SCORE=""
-REVIEW_COUNT="0"
+CHECKPOINT5_PASS=true
 
-# Check research params
-RESEARCH_PARAMS=$(${BINARY} query research params ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
-REVIEW_PERIOD=$(echo "$RESEARCH_PARAMS" | jq -r '.params.review_period_blocks // "68544"' 2>/dev/null | tr -d '"')
-MIN_REVIEWERS=$(echo "$RESEARCH_PARAMS" | jq -r '.params.min_reviewer_count // "3"' 2>/dev/null | tr -d '"')
-info "Research params: review_period=$REVIEW_PERIOD blocks, min_reviewers=$MIN_REVIEWERS"
-
-# Submit research from sage1
-info "Sage1 submitting research..."
-RESEARCH_RESULT=$(send_tx "${BINARY} tx research submit 'Speed of Light Measurement Methodology' 'Replication study using modern interferometry techniques' general 10000000 --from sage1 ${TX_FLAGS}") || {
-  warn "Research submission failed"
-  CHECKPOINT6_PASS=false
-}
-
-RESEARCH_ID=""
-if [ "$CHECKPOINT6_PASS" = true ]; then
-  RESEARCH_ID=$(get_event_attr "$RESEARCH_RESULT" "zerone.research.research_submitted" "research_id")
-  if [ -z "$RESEARCH_ID" ]; then
-    RESEARCH_ID=$(echo "$RESEARCH_RESULT" | jq -r '[.events[] | select(.type | contains("research")) | .attributes[] | select(.key=="research_id") | .value] | first // empty' 2>/dev/null)
-  fi
-  info "Research ID: $RESEARCH_ID"
-
-  if [ -z "$RESEARCH_ID" ]; then
-    warn "Could not extract research_id"
-    CHECKPOINT6_PASS=false
-  fi
-fi
-
-# Submit reviews (verdict: 1=approve, quality score 0-100)
-if [ "$CHECKPOINT6_PASS" = true ]; then
-  sleep 3
-  info "Alice reviewing research (approve, score=80)..."
-  send_tx "${BINARY} tx research review ${RESEARCH_ID} 1 'Solid methodology and clear results' 80 --from alice ${TX_FLAGS}" || warn "Alice review failed"
-  sleep 2
-
-  info "val0 reviewing research (approve, score=85)..."
-  send_tx "${BINARY} tx research review ${RESEARCH_ID} 1 'Excellent replication study' 85 --from val0 ${TX_FLAGS}" || warn "val0 review failed"
-  sleep 2
-
-  if [ "$MIN_REVIEWERS" -ge 3 ]; then
-    info "val1 reviewing research (approve, score=90)..."
-    send_tx "${BINARY} tx research review ${RESEARCH_ID} 1 'Thorough and well-documented' 90 --from val1 ${TX_FLAGS}" || warn "val1 review failed"
-    sleep 2
-  fi
-
-  # Check research status
-  sleep 3
-  RESEARCH_QUERY=$(${BINARY} query research research "$RESEARCH_ID" ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
-  RESEARCH_STATUS=$(echo "$RESEARCH_QUERY" | jq -r '.research.status // "unknown"' 2>/dev/null)
-  REVIEW_COUNT=$(echo "$RESEARCH_QUERY" | jq -r '.research.review_count // "0"' 2>/dev/null)
-  info "Research status: $RESEARCH_STATUS"
-  info "Review count: $REVIEW_COUNT"
-
-  # If review period is short enough, wait for auto-resolution
-  if [ "$REVIEW_PERIOD" -le 50 ]; then
-    info "Review period is short ($REVIEW_PERIOD blocks), waiting for auto-resolution..."
-    wait_blocks "$((REVIEW_PERIOD + 5))"
-    sleep 3
-    RESEARCH_QUERY=$(${BINARY} query research research "$RESEARCH_ID" ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
-    RESEARCH_STATUS=$(echo "$RESEARCH_QUERY" | jq -r '.research.status // "unknown"' 2>/dev/null)
-    RESEARCH_SCORE=$(echo "$RESEARCH_QUERY" | jq -r '.research.aggregate_score // "0"' 2>/dev/null)
-    info "Research final status: $RESEARCH_STATUS"
-    info "Research aggregate score: $RESEARCH_SCORE"
-  else
-    warn "Review period ($REVIEW_PERIOD blocks) too long to wait — skipping auto-resolution wait"
-    info "Research is under review with $REVIEW_COUNT reviews submitted"
-  fi
-fi
-
-if [ "$CHECKPOINT6_PASS" = true ] && echo "$RESEARCH_STATUS" | grep -qi "accepted\|resolved\|approved"; then
-  pass "6" "Research auto-resolved with aggregate score $RESEARCH_SCORE"
-elif [ "$CHECKPOINT6_PASS" = true ] && [ "${REVIEW_COUNT:-0}" -ge "${MIN_REVIEWERS:-3}" ] 2>/dev/null; then
-  pass "6" "Research submitted, reviews collected ($REVIEW_COUNT/$MIN_REVIEWERS), awaiting resolution period"
-elif [ "$CHECKPOINT6_PASS" = true ]; then
-  pass "6" "Research submitted with reviews (status: $RESEARCH_STATUS, reviews: $REVIEW_COUNT)"
+# Test 1: Claim asserting the retired partnership_id wire field → rejected
+# (x/partnerships was cut in the slim cut; the wire slot is kept but any
+#  non-empty value must be refused rather than silently recorded).
+info "Test 1: Claim with retired partnership_id field..."
+if send_tx_expect_fail "${BINARY} tx knowledge submit-claim 'This should fail because the partnership field is retired' general computational 1000000 --partnership-id nonexistent-id-12345 --from alice ${TX_FLAGS}"; then
+  info "Retired partnership_id field correctly rejected"
 else
-  fail "6" "Research submission or review failed"
+  warn "Retired partnership_id field not rejected"
+  CHECKPOINT5_PASS=false
 fi
 
-record_phase_time "Phase 7 (research)" "$(($(date +%s) - PHASE7_START))"
-
-# ── Phase 8: Negative Tests ──────────────────────────────────────────────
-
-header "Phase 8: Negative Tests"
-PHASE8_START=$(date +%s)
-
-CHECKPOINT7_PASS=true
-
-# Test 1: Claim with fake partnership → rejected
-info "Test 1: Claim with nonexistent partnership..."
-if send_tx_expect_fail "${BINARY} tx knowledge submit-claim 'This should fail because partnership does not exist at all' general computational 1000000 --partnership-id nonexistent-id-12345 --from alice ${TX_FLAGS}"; then
-  info "Fake partnership correctly rejected"
+if [ "$CHECKPOINT5_PASS" = true ]; then
+  pass "5" "Negative tests passed: retired partnership_id field rejected"
 else
-  warn "Fake partnership not rejected"
-  CHECKPOINT7_PASS=false
+  fail "5" "Some negative tests failed"
 fi
 
-# Test 2: Coercion freeze → claim blocked
-if [ -n "${PARTNERSHIP_ID:-}" ]; then
-  info "Test 2: Raising coercion signal..."
-  if send_tx "${BINARY} tx partnerships raise-coercion ${PARTNERSHIP_ID} --from sage1 ${TX_FLAGS}"; then
-    info "Coercion signal raised"
-    sleep 6
-
-    # Try claim with frozen partnership
-    info "Attempting claim on frozen partnership..."
-    if send_tx_expect_fail "${BINARY} tx knowledge submit-claim 'This claim should fail because partnership is frozen by coercion' general computational 1000000 --partnership-id ${PARTNERSHIP_ID} --from alice ${TX_FLAGS}"; then
-      info "Frozen partnership correctly blocks claims"
-    else
-      warn "Frozen partnership did not block claims"
-      CHECKPOINT7_PASS=false
-    fi
-  else
-    warn "Coercion signal failed"
-    CHECKPOINT7_PASS=false
-  fi
-
-  # Test 3: Coercion auto-expiry
-  PARTNERSHIP_PARAMS=$(${BINARY} query partnerships params ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
-  COERCION_BLOCKS=$(echo "$PARTNERSHIP_PARAMS" | jq -r '.params.coercion_review_blocks // "2000"' 2>/dev/null | tr -d '"')
-  info "Coercion review blocks: $COERCION_BLOCKS"
-
-  if [ "$COERCION_BLOCKS" -le 50 ] 2>/dev/null; then
-    info "Waiting for coercion auto-expiry ($COERCION_BLOCKS blocks)..."
-    wait_blocks "$((COERCION_BLOCKS + 5))"
-    sleep 3
-    P_AFTER=$(${BINARY} query partnerships partnership "$PARTNERSHIP_ID" ${NODE_FLAG} --output json 2>/dev/null || echo "{}")
-    P_AFTER_STATUS=$(echo "$P_AFTER" | jq -r '.partnership.status // "unknown"' 2>/dev/null)
-    info "Partnership status after coercion expiry: $P_AFTER_STATUS"
-    if [ "$P_AFTER_STATUS" = "active" ]; then
-      info "Coercion auto-expired, partnership back to active"
-    else
-      warn "Partnership not back to active after coercion expiry: $P_AFTER_STATUS"
-    fi
-  else
-    warn "Coercion review period ($COERCION_BLOCKS blocks) too long — skipping auto-expiry test"
-  fi
-else
-  warn "No partnership_id — skipping coercion tests"
-fi
-
-# Test 4: Tree determinism check
-info "Test 4: Tree project determinism..."
-TREE_RESULT=$(send_tx "${BINARY} tx tree create-project 'E2E Test Project' 'Determinism verification across validators' --from alice ${TX_FLAGS}") || {
-  warn "Tree project creation failed"
-}
-sleep 6
-
-TREE_CONSISTENT=true
-TREE_COUNTS=""
-for port in 9090 9091 9092 9093; do
-  # Use gRPC query on each validator
-  COUNT=$(${BINARY} query tree projects-by-founder "$ALICE_ADDR" --grpc-addr "localhost:${port}" --grpc-insecure --output json 2>/dev/null | jq '.projects | length' 2>/dev/null || echo "err")
-  TREE_COUNTS="${TREE_COUNTS} gRPC:${port}=${COUNT}"
-done
-info "Tree project counts:$TREE_COUNTS"
-
-if [ "$CHECKPOINT7_PASS" = true ]; then
-  pass "7" "Negative tests passed: fake partnership rejected, coercion freeze works, tree consistent"
-else
-  fail "7" "Some negative tests failed"
-fi
-
-record_phase_time "Phase 8 (negative tests)" "$(($(date +%s) - PHASE8_START))"
+record_phase_time "Phase 6 (negative tests)" "$(($(date +%s) - PHASE6_START))"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Summary

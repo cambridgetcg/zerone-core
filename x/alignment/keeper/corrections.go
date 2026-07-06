@@ -92,9 +92,11 @@ func (k Keeper) GenerateCorrections(ctx context.Context, scores *types.Dimension
 	return corrections
 }
 
-// ApplyCorrections dispatches corrections to autopoiesis if within bounds.
+// ApplyCorrections records corrections within bounds. Since the autopoiesis
+// regulator retired (slim cut — its one live consumer was redundant with
+// staking's own SlashEscalationBps), corrections are recorded queryably with
+// applied=false: the observation layer keeps speaking; nothing auto-applies.
 // Uses dynamic effective max magnitude based on correction confidence (R29-4).
-// Nil-safe: if autopoiesisKeeper is nil, corrections are stored with applied=false.
 func (k Keeper) ApplyCorrections(ctx context.Context, corrections []*types.CorrectionRecord) {
 	params := k.GetParams(ctx)
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -196,25 +198,12 @@ func (k Keeper) ApplyCorrections(ctx context.Context, corrections []*types.Corre
 			continue
 		}
 
-		if k.autopoiesisKeeper != nil {
-			err := k.autopoiesisKeeper.SuggestAdjustment(ctx, c.Parameter, c.Direction, c.Magnitude)
-			if err == nil {
-				c.Applied = true
-			} else {
-				k.Logger(ctx).Error("failed to apply correction",
-					"dimension", c.Dimension,
-					"parameter", c.Parameter,
-					"error", err,
-				)
-			}
-		} else {
-			k.Logger(ctx).Info("correction logged (autopoiesis not wired)",
-				"dimension", c.Dimension,
-				"parameter", c.Parameter,
-				"direction", c.Direction,
-				"magnitude", c.Magnitude,
-			)
-		}
+		k.Logger(ctx).Info("correction logged (no regulator wired)",
+			"dimension", c.Dimension,
+			"parameter", c.Parameter,
+			"direction", c.Direction,
+			"magnitude", c.Magnitude,
+		)
 		k.AddCorrection(ctx, c)
 	}
 }

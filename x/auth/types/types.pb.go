@@ -411,9 +411,10 @@ func (x *SessionKey) GetCapabilityGrants() []*CapabilityGrant {
 
 // SessionCapabilities defines what a session key can do.
 //
-// Fields 7 (can_ica), 11 (can_research), and 12 (can_dispute) were
-// removed with the x/icaauth, x/research, and x/disputes modules
-// (2026-07 slim cut); their numbers are reserved and must not be reused.
+// Fields 7 (can_ica), 10 (can_partnership), 11 (can_research), and 12
+// (can_dispute) were removed with the x/icaauth, x/partnerships,
+// x/research, and x/disputes modules (2026-07 slim cut); their numbers
+// are reserved and must not be reused.
 type SessionCapabilities struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	CanTransfer       bool                   `protobuf:"varint,1,opt,name=can_transfer,json=canTransfer,proto3" json:"can_transfer,omitempty"`
@@ -425,10 +426,8 @@ type SessionCapabilities struct {
 	// ICA session config (dormant — retained for x/auth session trim to own)
 	AllowedIcaConnections []string `protobuf:"bytes,8,rep,name=allowed_ica_connections,json=allowedIcaConnections,proto3" json:"allowed_ica_connections,omitempty"`
 	AllowedIcaMsgTypes    []string `protobuf:"bytes,9,rep,name=allowed_ica_msg_types,json=allowedIcaMsgTypes,proto3" json:"allowed_ica_msg_types,omitempty"`
-	// Agent autonomy capabilities
-	CanPartnership bool `protobuf:"varint,10,opt,name=can_partnership,json=canPartnership,proto3" json:"can_partnership,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *SessionCapabilities) Reset() {
@@ -515,13 +514,6 @@ func (x *SessionCapabilities) GetAllowedIcaMsgTypes() []string {
 		return x.AllowedIcaMsgTypes
 	}
 	return nil
-}
-
-func (x *SessionCapabilities) GetCanPartnership() bool {
-	if x != nil {
-		return x.CanPartnership
-	}
-	return false
 }
 
 // CapabilityGrant provides fine-grained control over individual capabilities.
@@ -992,7 +984,7 @@ const file_zerone_auth_v1_types_proto_rawDesc = "" +
 	"\fcapabilities\x18\x04 \x01(\v2#.zerone.auth.v1.SessionCapabilitiesR\fcapabilities\x12(\n" +
 	"\x10expires_at_block\x18\x05 \x01(\x04R\x0eexpiresAtBlock\x12(\n" +
 	"\x10created_at_block\x18\x06 \x01(\x04R\x0ecreatedAtBlock\x12L\n" +
-	"\x11capability_grants\x18\a \x03(\v2\x1f.zerone.auth.v1.CapabilityGrantR\x10capabilityGrants\"\xc5\x03\n" +
+	"\x11capability_grants\x18\a \x03(\v2\x1f.zerone.auth.v1.CapabilityGrantR\x10capabilityGrants\"\xb3\x03\n" +
 	"\x13SessionCapabilities\x12!\n" +
 	"\fcan_transfer\x18\x01 \x01(\bR\vcanTransfer\x12\x1b\n" +
 	"\tcan_stake\x18\x02 \x01(\bR\bcanStake\x12*\n" +
@@ -1001,9 +993,8 @@ const file_zerone_auth_v1_types_proto_rawDesc = "" +
 	"\x13max_transfer_amount\x18\x05 \x01(\tR\x11maxTransferAmount\x12-\n" +
 	"\x12allowed_recipients\x18\x06 \x03(\tR\x11allowedRecipients\x126\n" +
 	"\x17allowed_ica_connections\x18\b \x03(\tR\x15allowedIcaConnections\x121\n" +
-	"\x15allowed_ica_msg_types\x18\t \x03(\tR\x12allowedIcaMsgTypes\x12'\n" +
-	"\x0fcan_partnership\x18\n" +
-	" \x01(\bR\x0ecanPartnershipJ\x04\b\a\x10\bJ\x04\b\v\x10\fJ\x04\b\f\x10\rR\acan_icaR\fcan_researchR\vcan_dispute\"\x89\x01\n" +
+	"\x15allowed_ica_msg_types\x18\t \x03(\tR\x12allowedIcaMsgTypesJ\x04\b\a\x10\bJ\x04\b\n" +
+	"\x10\vJ\x04\b\v\x10\fJ\x04\b\f\x10\rR\acan_icaR\x0fcan_partnershipR\fcan_researchR\vcan_dispute\"\x89\x01\n" +
 	"\x0fCapabilityGrant\x12\x1e\n" +
 	"\n" +
 	"capability\x18\x01 \x01(\tR\n" +

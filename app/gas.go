@@ -112,16 +112,6 @@ var TransactionGasCosts = map[string]uint64{
 	"falsify_vesting":    60_000,
 	"complete_vesting":   40_000,
 
-	// BVM contracts
-	"deploy_contract":    200_000,
-	"call_contract":      21_000,
-	"schedule_execution": 40_000,
-
-	// BVM (extended — hand-written types)
-	"schedule_contract":     40_000,
-	"cancel_bvm_schedule":   30_000,
-	"update_contract_state": 40_000,
-
 	// Emergency
 	"propose_halt":   50_000,
 	"vote_halt":      25_000,
@@ -166,38 +156,12 @@ var TransactionGasCosts = map[string]uint64{
 	"resolve_capture_challenge":       80_000,
 	"update_capture_challenge_params": 40_000,
 
-	// Partnerships
-	"initiate_partnership":       100_000,
-	"accept_partnership":         40_000,
-	"deposit_to_pot":             50_000,
-	"distribute_reward":          60_000,
-	"propose_operation":          80_000,
-	"approve_operation":          30_000,
-	"reject_operation":           30_000,
-	"safety_freeze":              80_000,
-	"raise_coercion_signal":      60_000,
-	"initiate_exit":              50_000,
-	"update_partnerships_params": 40_000,
-
-	// Autopoiesis
-	"activate_autopoiesis":      40_000,
-	"override_multiplier":       50_000,
-	"freeze_multiplier":         30_000,
-	"update_autopoiesis_params": 40_000,
-
 	// Ontology (extended)
 	"vote_domain_proposal":       30_000,
 	"update_domain":              40_000,
 	"register_logic_zone":        60_000,
 	"acknowledge_incompleteness": 30_000,
 	"update_ontology_params":     40_000,
-
-	// Billing
-	"register_provider":     80_000,
-	"deregister_provider":   30_000,
-	"request_quote":         20_000,
-	"execute_payment":       40_000,
-	"update_billing_params": 40_000,
 
 	// Governance (extended)
 	"attach_upgrade_plan":   60_000,
@@ -218,18 +182,6 @@ var TransactionGasCosts = map[string]uint64{
 	"advance_deployment":    40_000,
 	"approve_deployment":    40_000,
 	"rollback_deployment":   60_000,
-
-	// Toolbox
-	"register_tool":          100_000,
-	"call_tool":              40_000,
-	"toolbox_add_contributor": 30_000,
-	"accept_contributorship": 30_000,
-	"upgrade_tool":           60_000,
-	"deprecate_tool":         30_000,
-	"retire_tool":            30_000,
-	"lock_shares":            40_000,
-	"update_dependency":      30_000,
-	"tool_heartbeat":         15_000,
 
 	// Alignment
 	"activate_alignment": 40_000,
@@ -272,7 +224,10 @@ const (
 	BurnModuleName   = "burn"
 )
 
-// Billing treasury module account name.
+// Protocol treasury module account name. NOTE: the chain also carries a
+// "protocol_treasury" account (see app.go maccPerms) — a naming split-brain
+// documented in docs/plans/2026-07-06-slim-cut-migration-map.md; do not
+// "fix" one side without a coordinated state migration.
 const (
 	TreasuryProtocolName = "treasury_protocol"
 )

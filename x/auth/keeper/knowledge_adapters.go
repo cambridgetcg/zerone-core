@@ -6,22 +6,20 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
-	partnershipstypes "github.com/zerone-chain/zerone/x/partnerships/types"
 )
 
 // KnowledgeAuthAdapter wraps the zerone auth Keeper to satisfy
-// knowledgetypes.ZeroneAuthKeeper and partnershipstypes.ZeroneAuthKeeper.
+// knowledgetypes.ZeroneAuthKeeper.
 type KnowledgeAuthAdapter struct {
 	k Keeper
 }
 
-// NewKnowledgeAuthAdapter returns an adapter for the knowledge and partnerships modules.
+// NewKnowledgeAuthAdapter returns an adapter for the knowledge module.
 func NewKnowledgeAuthAdapter(k Keeper) *KnowledgeAuthAdapter {
 	return &KnowledgeAuthAdapter{k: k}
 }
 
 var _ knowledgetypes.ZeroneAuthKeeper = (*KnowledgeAuthAdapter)(nil)
-var _ partnershipstypes.ZeroneAuthKeeper = (*KnowledgeAuthAdapter)(nil)
 
 // GetAccountType returns the account type for a bech32 address.
 func (a *KnowledgeAuthAdapter) GetAccountType(goCtx context.Context, address string) (string, bool) {

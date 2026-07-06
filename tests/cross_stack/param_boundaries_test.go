@@ -8,11 +8,10 @@ import (
 	aligntypes "github.com/zerone-chain/zerone/x/alignment/types"
 	captypes "github.com/zerone-chain/zerone/x/capture_defense/types"
 	knowtypes "github.com/zerone-chain/zerone/x/knowledge/types"
-	partnertypes "github.com/zerone-chain/zerone/x/partnerships/types"
 )
 
 // TestGovernanceParamBoundaries iterates all uint64 fields on knowledge,
-// alignment, capture_defense, and partnerships Params structs. For each
+// alignment, and capture_defense Params structs. For each
 // field it clones DefaultParams and sets the field to 0, max uint64, 1,
 // and BPS (1M), verifying Validate() catches dangerous values.
 func TestGovernanceParamBoundaries(t *testing.T) {
@@ -37,11 +36,6 @@ func TestGovernanceParamBoundaries(t *testing.T) {
 			name:     "capture_defense",
 			defaults: *captypes.DefaultParams(),
 			validate: func(v interface{}) error { p := v.(captypes.Params); return p.Validate() },
-		},
-		{
-			name:     "partnerships",
-			defaults: *partnertypes.DefaultParams(),
-			validate: func(v interface{}) error { p := v.(partnertypes.Params); return p.Validate() },
 		},
 	}
 
@@ -151,15 +145,6 @@ func TestGovernanceParamInteractions(t *testing.T) {
 		}
 	})
 
-	t.Run("partnerships_splits_sum_wrong", func(t *testing.T) {
-		p := *partnertypes.DefaultParams()
-		p.DefaultHumanSplitBps = 700_000
-		p.DefaultAgentSplitBps = 700_000
-		err := p.Validate()
-		if err == nil {
-			t.Error("expected validation to reject splits > 100%")
-		}
-	})
 }
 
 // TestCrossParamValidation_KnowledgeDecay specifically tests the R30-2 cross-parameter
@@ -289,10 +274,4 @@ func TestDefaultGenesis_GovernableModules(t *testing.T) {
 		}
 	})
 
-	t.Run("partnerships", func(t *testing.T) {
-		gs := partnertypes.DefaultGenesis()
-		if err := gs.Validate(); err != nil {
-			t.Fatalf("partnerships default genesis should be valid: %v", err)
-		}
-	})
 }

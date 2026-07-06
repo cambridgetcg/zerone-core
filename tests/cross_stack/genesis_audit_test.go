@@ -10,7 +10,6 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
-	autopoiesistypes "github.com/zerone-chain/zerone/x/autopoiesis/types"
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
@@ -268,19 +267,6 @@ func TestScenario16_InvalidGenesisRejection(t *testing.T) {
 		t.Logf("rejected with: %v", err)
 	})
 
-	t.Run("Autopoiesis_InvertedBounds", func(t *testing.T) {
-		genState := app.DefaultGenesis()
-		apGen := autopoiesistypes.DefaultGenesis()
-		apGen.Params.SlashMultiplierMin = 3_000_000
-		apGen.Params.SlashMultiplierMax = 1_000_000
-		bz, err := codec.MarshalJSON(apGen)
-		require.NoError(t, err)
-		genState[autopoiesistypes.ModuleName] = bz
-
-		err = zeroneapp.ModuleBasics.ValidateGenesis(codec, txConfig, genState)
-		require.Error(t, err, "inverted slash multiplier bounds should be rejected")
-		t.Logf("rejected with: %v", err)
-	})
 
 	t.Run("Emergency_InvalidStatus", func(t *testing.T) {
 		genState := app.DefaultGenesis()
@@ -371,7 +357,6 @@ func TestScenario18_ModuleAccountPermissions(t *testing.T) {
 		"zerone_staking",
 		"knowledge",
 		"emergency",
-		"autopoiesis",
 		"alignment",
 		"vesting_rewards",
 	}

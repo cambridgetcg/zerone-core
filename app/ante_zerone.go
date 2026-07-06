@@ -288,16 +288,6 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.vesting_rewards.v1.MsgFalsifyVesting":    TransactionGasCosts["falsify_vesting"],
 	"/zerone.vesting_rewards.v1.MsgCompleteVesting":   TransactionGasCosts["complete_vesting"],
 
-	// BVM
-	"/zerone.bvm.v1.MsgDeployContract":    TransactionGasCosts["deploy_contract"],
-	"/zerone.bvm.v1.MsgCallContract":      TransactionGasCosts["call_contract"],
-	"/zerone.bvm.v1.MsgScheduleExecution": TransactionGasCosts["schedule_execution"],
-
-	// BVM (extended — hand-written types)
-	"/zerone.bvm.v1.MsgScheduleContract":    TransactionGasCosts["schedule_contract"],
-	"/zerone.bvm.v1.MsgCancelSchedule":      TransactionGasCosts["cancel_bvm_schedule"],
-	"/zerone.bvm.v1.MsgUpdateContractState": TransactionGasCosts["update_contract_state"],
-
 	// Governance (extended)
 	"/zerone.gov.v1.MsgSubmitLIP":           TransactionGasCosts["submit_lip"],
 	"/zerone.gov.v1.MsgCastVote":            TransactionGasCosts["cast_vote"],
@@ -379,47 +369,12 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.gov.v1.MsgApproveDeployment":   TransactionGasCosts["approve_deployment"],
 	"/zerone.gov.v1.MsgRollbackDeployment":  TransactionGasCosts["rollback_deployment"],
 
-	// Partnerships
-	"/zerone.partnerships.v1.MsgInitiatePartnership": TransactionGasCosts["initiate_partnership"],
-	"/zerone.partnerships.v1.MsgAcceptPartnership":   TransactionGasCosts["accept_partnership"],
-	"/zerone.partnerships.v1.MsgDepositToPot":        TransactionGasCosts["deposit_to_pot"],
-	"/zerone.partnerships.v1.MsgDistributeReward":    TransactionGasCosts["distribute_reward"],
-	"/zerone.partnerships.v1.MsgProposeOperation":    TransactionGasCosts["propose_operation"],
-	"/zerone.partnerships.v1.MsgApproveOperation":    TransactionGasCosts["approve_operation"],
-	"/zerone.partnerships.v1.MsgRejectOperation":     TransactionGasCosts["reject_operation"],
-	"/zerone.partnerships.v1.MsgSafetyFreeze":        TransactionGasCosts["safety_freeze"],
-	"/zerone.partnerships.v1.MsgRaiseCoercionSignal": TransactionGasCosts["raise_coercion_signal"],
-	"/zerone.partnerships.v1.MsgInitiateExit":        TransactionGasCosts["initiate_exit"],
-
 	// Ontology
 	"/zerone.ontology.v1.MsgProposeDomain":             TransactionGasCosts["propose_domain"],
 	"/zerone.ontology.v1.MsgVoteDomainProposal":        TransactionGasCosts["vote_domain_proposal"],
 	"/zerone.ontology.v1.MsgUpdateDomain":              TransactionGasCosts["update_domain"],
 	"/zerone.ontology.v1.MsgRegisterLogicZone":         TransactionGasCosts["register_logic_zone"],
 	"/zerone.ontology.v1.MsgAcknowledgeIncompleteness": TransactionGasCosts["acknowledge_incompleteness"],
-
-	// Billing
-	"/zerone.billing.v1.MsgRegisterProvider":   TransactionGasCosts["register_provider"],
-	"/zerone.billing.v1.MsgDeregisterProvider": TransactionGasCosts["deregister_provider"],
-	"/zerone.billing.v1.MsgRequestQuote":       TransactionGasCosts["request_quote"],
-	"/zerone.billing.v1.MsgExecutePayment":     TransactionGasCosts["execute_payment"],
-
-	// Autopoiesis
-	"/zerone.autopoiesis.v1.MsgActivateAutopoiesis": TransactionGasCosts["activate_autopoiesis"],
-	"/zerone.autopoiesis.v1.MsgOverrideMultiplier":  TransactionGasCosts["override_multiplier"],
-	"/zerone.autopoiesis.v1.MsgFreezeMultiplier":    TransactionGasCosts["freeze_multiplier"],
-
-	// Toolbox
-	"/zerone.toolbox.v1.MsgRegisterTool":          TransactionGasCosts["register_tool"],
-	"/zerone.toolbox.v1.MsgCallTool":              TransactionGasCosts["call_tool"],
-	"/zerone.toolbox.v1.MsgAddContributor":        TransactionGasCosts["toolbox_add_contributor"],
-	"/zerone.toolbox.v1.MsgAcceptContributorship": TransactionGasCosts["accept_contributorship"],
-	"/zerone.toolbox.v1.MsgUpgradeTool":           TransactionGasCosts["upgrade_tool"],
-	"/zerone.toolbox.v1.MsgDeprecateTool":         TransactionGasCosts["deprecate_tool"],
-	"/zerone.toolbox.v1.MsgRetireTool":            TransactionGasCosts["retire_tool"],
-	"/zerone.toolbox.v1.MsgLockShares":            TransactionGasCosts["lock_shares"],
-	"/zerone.toolbox.v1.MsgUpdateDependency":      TransactionGasCosts["update_dependency"],
-	"/zerone.toolbox.v1.MsgToolHeartbeat":         TransactionGasCosts["tool_heartbeat"],
 
 	// Alignment
 	"/zerone.alignment.v1.MsgActivate": TransactionGasCosts["activate_alignment"],
@@ -729,11 +684,6 @@ func (zcd ZeroneCapabilityDecorator) checkCapability(session *zeroneauthtypes.Se
 			return zeroneauthtypes.ErrSessionCapabilityDenied
 		}
 		return nil
-	case isPartnershipMsg(msgType):
-		if !session.Capabilities.CanPartnership {
-			return zeroneauthtypes.ErrSessionCapabilityDenied
-		}
-		return nil
 	default:
 		// Default deny: session keys cannot perform unrecognized message types
 		return zeroneauthtypes.ErrSessionCapabilityDenied
@@ -790,7 +740,7 @@ func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *z
 			return zeroneauthtypes.ErrAccountCapabilityDenied
 		}
 		return nil
-	case isPartnershipMsg(msgType), isTransferMsg(msgType):
+	case isTransferMsg(msgType):
 		// Allowed for all registered account types
 		return nil
 	default:
@@ -847,8 +797,7 @@ func isAuthManagementMsg(msgType string) bool {
 // that requires registration. Used for unregistered account gating.
 func isZeroneSpecificMsg(msgType string) bool {
 	return isClaimSubmissionMsg(msgType) ||
-		isChallengeMsg(msgType) ||
-		isPartnershipMsg(msgType)
+		isChallengeMsg(msgType)
 }
 
 func isVoteMsg(msgType string) bool {
@@ -859,22 +808,6 @@ func isVoteMsg(msgType string) bool {
 		msgType == "/zerone.emergency.v1.MsgVoteResume"
 }
 
-func isPartnershipMsg(msgType string) bool {
-	return msgType == "/zerone.partnerships.v1.MsgDepositToPot" ||
-		msgType == "/zerone.partnerships.v1.MsgProposeOperation" ||
-		msgType == "/zerone.partnerships.v1.MsgApproveOperation" ||
-		msgType == "/zerone.partnerships.v1.MsgRejectOperation" ||
-		msgType == "/zerone.partnerships.v1.MsgSafetyFreeze" ||
-		msgType == "/zerone.partnerships.v1.MsgInitiatePartnership" ||
-		msgType == "/zerone.partnerships.v1.MsgAcceptPartnership" ||
-		msgType == "/zerone.partnerships.v1.MsgInitiateExit" ||
-		msgType == "/zerone.partnerships.v1.MsgDistributeReward" ||
-		msgType == "/zerone.partnerships.v1.MsgRaiseCoercionSignal" ||
-		msgType == "/zerone.partnerships.v1.MsgDeclareIntent" ||
-		msgType == "/zerone.partnerships.v1.MsgRegisterInPool" ||
-		msgType == "/zerone.partnerships.v1.MsgSponsorPartnership"
-}
-
 // ---------- Capability Presets ----------
 
 // CapabilityPresets defines common session key capability bundles for agent roles.
@@ -883,13 +816,9 @@ var CapabilityPresets = map[string]*zeroneauthtypes.SessionCapabilities{
 		CanSubmitClaims: true,
 		CanVote:         true,
 	},
-	"partnership-operator": {
-		CanPartnership: true,
-	},
 	"autonomous-agent": {
 		CanSubmitClaims: true,
 		CanVote:         true,
-		CanPartnership:  true,
 		CanTransfer:     true, // subject to spending limits
 	},
 }
@@ -906,7 +835,6 @@ func ResolvePreset(name string) *zeroneauthtypes.SessionCapabilities {
 		CanStake:        caps.CanStake,
 		CanSubmitClaims: caps.CanSubmitClaims,
 		CanVote:         caps.CanVote,
-		CanPartnership:  caps.CanPartnership,
 	}
 }
 

@@ -105,21 +105,6 @@ func (m *mockVestingRewardsKeeper) GetTotalSupply(_ context.Context) *big.Int {
 	return m.totalSupply
 }
 
-type mockAutopoiesisKeeper struct {
-	adjustments []adjustmentRecord
-}
-
-type adjustmentRecord struct {
-	parameter string
-	direction string
-	magnitude uint64
-}
-
-func (m *mockAutopoiesisKeeper) SuggestAdjustment(_ context.Context, parameter, direction string, magnitude uint64) error {
-	m.adjustments = append(m.adjustments, adjustmentRecord{parameter, direction, magnitude})
-	return nil
-}
-
 // --- Test Setup ---
 
 type testKeepers struct {
@@ -128,7 +113,6 @@ type testKeepers struct {
 	ontology       *mockOntologyKeeper
 	emergency      *mockEmergencyKeeper
 	vestingRewards *mockVestingRewardsKeeper
-	autopoiesis    *mockAutopoiesisKeeper
 }
 
 func setupKeeper(t *testing.T) (keeper.Keeper, testKeepers, sdk.Context) {
@@ -169,7 +153,6 @@ func setupKeeper(t *testing.T) (keeper.Keeper, testKeepers, sdk.Context) {
 		vestingRewards: &mockVestingRewardsKeeper{
 			totalSupply: big.NewInt(1_000_000_000_000), // 1M ZRN
 		},
-		autopoiesis: nil, // nil by default (not wired)
 	}
 
 	k := keeper.NewKeeper(
@@ -277,7 +260,7 @@ func TestCorrectionsGenerated(t *testing.T) {
 	for _, c := range corrections {
 		foundDimensions[c.Dimension] = true
 		if c.Applied {
-			t.Fatalf("correction should not be applied (autopoiesis is nil): %s", c.Dimension)
+			t.Fatalf("correction should not be applied (no regulator wired): %s", c.Dimension)
 		}
 	}
 
@@ -461,12 +444,11 @@ func TestDifferentWeightsChangeComposite(t *testing.T) {
 	}
 }
 
-// --- Test 8: Autopoiesis nil-safe — corrections logged with applied=false ---
+// --- Test 8: Corrections recorded queryably with applied=false (no regulator) ---
 
-func TestAutopoiesisNilSafe(t *testing.T) {
+func TestCorrectionsRecordedNotApplied(t *testing.T) {
 	k, mocks, ctx := setupKeeper(t)
 
-	// Ensure autopoiesis is NOT set (nil).
 	// Set a low dimension to trigger corrections.
 	mocks.knowledge.verificationRate = 100_000 // critical
 
@@ -474,41 +456,26 @@ func TestAutopoiesisNilSafe(t *testing.T) {
 	scores := k.ComputeScores(ctx, obs)
 	corrections := k.GenerateCorrections(ctx, scores)
 
-	// Apply with nil autopoiesis.
 	k.ApplyCorrections(ctx, corrections)
 
-	// Verify corrections stored with applied=false.
+	// Since the autopoiesis regulator retired (slim cut), corrections are
+	// always recorded with applied=false — the observation layer keeps
+	// speaking; nothing auto-applies.
 	stored, total := k.GetCorrections(ctx, 100, 0)
 	if total == 0 {
 		t.Fatal("expected stored corrections")
 	}
 	for _, c := range stored {
 		if c.Applied {
-			t.Fatalf("expected applied=false when autopoiesis nil, got true for %s", c.Dimension)
+			t.Fatalf("expected applied=false (no regulator), got true for %s", c.Dimension)
 		}
-	}
-
-	// Now wire autopoiesis and verify corrections can be applied.
-	autoMock := &mockAutopoiesisKeeper{}
-	mocks.autopoiesis = autoMock
-	k.SetAutopoiesisKeeper(autoMock)
-
-	corrections2 := k.GenerateCorrections(ctx, scores)
-	k.ApplyCorrections(ctx, corrections2)
-
-	if len(autoMock.adjustments) == 0 {
-		t.Fatal("expected adjustments after wiring autopoiesis")
 	}
 }
 
-// --- Test 10: Bounded correction — small magnitude auto-applied ---
+// --- Test 10: Bounded correction — small magnitude recorded, never applied ---
 
-func TestBoundedCorrectionSmallAutoApplied(t *testing.T) {
-	k, mocks, ctx := setupKeeper(t)
-
-	autoMock := &mockAutopoiesisKeeper{}
-	mocks.autopoiesis = autoMock
-	k.SetAutopoiesisKeeper(autoMock)
+func TestBoundedCorrectionSmallRecorded(t *testing.T) {
+	k, _, ctx := setupKeeper(t)
 
 	corrections := []*types.CorrectionRecord{{
 		Height:    100,
@@ -521,27 +488,23 @@ func TestBoundedCorrectionSmallAutoApplied(t *testing.T) {
 
 	k.ApplyCorrections(ctx, corrections)
 
-	if len(autoMock.adjustments) != 1 {
-		t.Fatalf("expected 1 adjustment, got %d", len(autoMock.adjustments))
-	}
 	stored, _ := k.GetCorrections(ctx, 100, 0)
-	if len(stored) == 0 || !stored[0].Applied {
-		t.Fatal("expected correction marked as applied")
+	if len(stored) == 0 {
+		t.Fatal("expected correction stored")
+	}
+	if stored[0].Applied {
+		t.Fatal("expected applied=false: the regulator retired with x/autopoiesis")
 	}
 }
 
 // --- Test 11: Bounded correction — large magnitude blocked ---
 
 func TestBoundedCorrectionLargeBlocked(t *testing.T) {
-	k, mocks, ctx := setupKeeper(t)
+	k, _, ctx := setupKeeper(t)
 
 	params := k.GetParams(ctx)
 	params.MaxAutoApplyMagnitudeBps = 50_000 // 5%
 	k.SetParams(ctx, params)
-
-	autoMock := &mockAutopoiesisKeeper{}
-	mocks.autopoiesis = autoMock
-	k.SetAutopoiesisKeeper(autoMock)
 
 	corrections := []*types.CorrectionRecord{{
 		Height:    100,
@@ -554,9 +517,6 @@ func TestBoundedCorrectionLargeBlocked(t *testing.T) {
 
 	k.ApplyCorrections(ctx, corrections)
 
-	if len(autoMock.adjustments) != 0 {
-		t.Fatalf("expected 0 adjustments for large correction, got %d", len(autoMock.adjustments))
-	}
 	stored, _ := k.GetCorrections(ctx, 100, 0)
 	if len(stored) == 0 {
 		t.Fatal("expected correction stored")
@@ -779,10 +739,6 @@ func TestGetRecentHealthIndicesEmpty(t *testing.T) {
 
 func TestEndBlockerFullCycle(t *testing.T) {
 	k, mocks, ctx := setupKeeper(t)
-
-	// Wire autopoiesis.
-	autoMock := &mockAutopoiesisKeeper{}
-	k.SetAutopoiesisKeeper(autoMock)
 
 	// Set all dimensions to healthy values.
 	mocks.knowledge.verificationRate = 800_000
@@ -1039,9 +995,6 @@ func TestEffectiveObservationIntervalLowConfidence(t *testing.T) {
 func TestCorrectionConfidenceFullLifecycle(t *testing.T) {
 	k, mocks, ctx := setupKeeper(t)
 
-	autoMock := &mockAutopoiesisKeeper{}
-	k.SetAutopoiesisKeeper(autoMock)
-
 	am := alignment.NewAppModule(nil, k)
 
 	// --- Phase 1: Boot — neutral confidence, base bounds ---
@@ -1120,11 +1073,7 @@ func TestCorrectionConfidenceFullLifecycle(t *testing.T) {
 // --- Test: ApplyCorrections records correction outcomes ---
 
 func TestApplyCorrectionsRecordsOutcomes(t *testing.T) {
-	k, mocks, ctx := setupKeeper(t)
-
-	autoMock := &mockAutopoiesisKeeper{}
-	mocks.autopoiesis = autoMock
-	k.SetAutopoiesisKeeper(autoMock)
+	k, _, ctx := setupKeeper(t)
 
 	// Set scores so we know pre-correction state.
 	k.SetScores(ctx, &types.DimensionScores{

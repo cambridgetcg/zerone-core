@@ -39,9 +39,6 @@ import (
 	"github.com/zerone-chain/zerone/app"
 	alignmentcli "github.com/zerone-chain/zerone/x/alignment/client/cli"
 	zeroneauthcli "github.com/zerone-chain/zerone/x/auth/client/cli"
-	autopoiesiscli "github.com/zerone-chain/zerone/x/autopoiesis/client/cli"
-	billingcli "github.com/zerone-chain/zerone/x/billing/client/cli"
-	bvmcli "github.com/zerone-chain/zerone/x/bvm/client/cli"
 	capturechallengecli "github.com/zerone-chain/zerone/x/capture_challenge/client/cli"
 	capturedefensecli "github.com/zerone-chain/zerone/x/capture_defense/client/cli"
 	claimingpotcli "github.com/zerone-chain/zerone/x/claiming_pot/client/cli"
@@ -52,11 +49,9 @@ import (
 	knowledgecli "github.com/zerone-chain/zerone/x/knowledge/client/cli"
 	liquiditypoolcli "github.com/zerone-chain/zerone/x/liquiditypool/client/cli"
 	ontologycli "github.com/zerone-chain/zerone/x/ontology/client/cli"
-	partnershipscli "github.com/zerone-chain/zerone/x/partnerships/client/cli"
 	qualificationcli "github.com/zerone-chain/zerone/x/qualification/client/cli"
 	stakingcli "github.com/zerone-chain/zerone/x/staking/client/cli"
 	tokenscli "github.com/zerone-chain/zerone/x/tokens/client/cli"
-	toolboxcli "github.com/zerone-chain/zerone/x/toolbox/client/cli"
 	vestingrewardscli "github.com/zerone-chain/zerone/x/vesting_rewards/client/cli"
 )
 
@@ -229,9 +224,6 @@ func queryCommand(_ app.EncodingConfig) *cobra.Command {
 	cmd.AddCommand(
 		alignmentcli.NewQueryCmd(),
 		zeroneauthcli.GetQueryCmd(),
-		autopoiesiscli.NewQueryCmd(),
-		billingcli.NewQueryCmd(),
-		bvmcli.NewQueryCmd(),
 		capturechallengecli.NewQueryCmd(),
 		capturedefensecli.NewQueryCmd(),
 		claimingpotcli.NewQueryCmd(),
@@ -242,11 +234,9 @@ func queryCommand(_ app.EncodingConfig) *cobra.Command {
 		knowledgecli.GetQueryCmd(),
 		liquiditypoolcli.NewQueryCmd(),
 		ontologycli.NewQueryCmd(),
-		partnershipscli.NewQueryCmd(),
 		qualificationcli.NewQueryCmd(),
 		stakingcli.GetQueryCmd(),
 		tokenscli.NewQueryCmd(),
-		toolboxcli.NewQueryCmd(),
 		vestingrewardscli.NewQueryCmd(),
 	)
 
@@ -297,9 +287,6 @@ func txCommand(encodingConfig app.EncodingConfig) *cobra.Command {
 	cmd.AddCommand(
 		alignmentcli.NewTxCmd(),
 		zeroneauthcli.GetTxCmd(),
-		autopoiesiscli.NewTxCmd(),
-		billingcli.NewTxCmd(),
-		bvmcli.NewTxCmd(),
 		capturechallengecli.NewTxCmd(),
 		capturedefensecli.NewTxCmd(),
 		claimingpotcli.NewTxCmd(),
@@ -310,11 +297,9 @@ func txCommand(encodingConfig app.EncodingConfig) *cobra.Command {
 		knowledgecli.GetTxCmd(),
 		liquiditypoolcli.NewTxCmd(),
 		ontologycli.NewTxCmd(),
-		partnershipscli.NewTxCmd(),
 		qualificationcli.NewTxCmd(),
 		stakingcli.GetTxCmd(),
 		tokenscli.NewTxCmd(),
-		toolboxcli.NewTxCmd(),
 		vestingrewardscli.NewTxCmd(),
 	)
 

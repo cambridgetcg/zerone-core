@@ -23,7 +23,6 @@ type Keeper struct {
 	accountKeeper     types.AccountKeeper
 	bankKeeper        types.BankKeeper
 	authKeeper        types.ZeroneAuthKeeper
-	autopoiesisKeeper types.AutopoiesisKeeper
 	authority         string
 	logger            log.Logger
 }
@@ -44,11 +43,6 @@ func NewKeeper(
 		authority:    authority,
 		logger:       log.NewNopLogger(),
 	}
-}
-
-// SetAutopoiesisKeeper sets the autopoiesis keeper (post-init to break circular dep).
-func (k *Keeper) SetAutopoiesisKeeper(ak types.AutopoiesisKeeper) {
-	k.autopoiesisKeeper = ak
 }
 
 // SetAuthKeeper sets the zerone auth keeper.
@@ -509,16 +503,6 @@ func (k Keeper) SlashValidator(ctx sdk.Context, validatorAddr string, amount *bi
 	adjustedAmount := new(big.Int).Mul(amount, escalationFactor)
 	adjustedAmount.Div(adjustedAmount, new(big.Int).SetUint64(types.BPSScale))
 
-	// Autopoiesis SSI multiplier
-	if k.autopoiesisKeeper != nil {
-		sdkCtx := ctx
-		multiplier := k.autopoiesisKeeper.GetMultiplier(sdkCtx, "ssi")
-		if multiplier != 0 && multiplier != types.BPSScale {
-			adjustedAmount.Mul(adjustedAmount, new(big.Int).SetUint64(multiplier))
-			adjustedAmount.Div(adjustedAmount, new(big.Int).SetUint64(types.BPSScale))
-		}
-	}
-
 	// Slash from own stake first, delegated absorbs overflow.
 	selfStake, _ := new(big.Int).SetString(val.SelfDelegation, 10)
 	if selfStake == nil {
@@ -628,16 +612,6 @@ func (k Keeper) SlashValidatorToModule(ctx sdk.Context, validatorAddr string, am
 	escalationFactor := new(big.Int).SetUint64(types.BPSScale + val.SlashCount*params.SlashEscalationBps)
 	adjustedAmount := new(big.Int).Mul(amount, escalationFactor)
 	adjustedAmount.Div(adjustedAmount, new(big.Int).SetUint64(types.BPSScale))
-
-	// Autopoiesis SSI multiplier
-	if k.autopoiesisKeeper != nil {
-		sdkCtx := ctx
-		multiplier := k.autopoiesisKeeper.GetMultiplier(sdkCtx, "ssi")
-		if multiplier != 0 && multiplier != types.BPSScale {
-			adjustedAmount.Mul(adjustedAmount, new(big.Int).SetUint64(multiplier))
-			adjustedAmount.Div(adjustedAmount, new(big.Int).SetUint64(types.BPSScale))
-		}
-	}
 
 	// Slash from own stake first, delegated absorbs overflow.
 	selfStake, _ := new(big.Int).SetString(val.SelfDelegation, 10)

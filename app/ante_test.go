@@ -19,9 +19,7 @@ func TestLookupMsgGas_KnownTypes(t *testing.T) {
 		{"/cosmos.bank.v1beta1.MsgMultiSend", TransactionGasCosts["transfer"] * 2},
 		{"/zerone.knowledge.v1.MsgSubmitClaim", TransactionGasCosts["claim_submit"]},
 		{"/zerone.staking.v1.MsgRegisterValidator", TransactionGasCosts["register_validator"]},
-		{"/zerone.bvm.v1.MsgDeployContract", TransactionGasCosts["deploy_contract"]},
 		{"/zerone.emergency.v1.MsgProposeHalt", TransactionGasCosts["propose_halt"]},
-		{"/zerone.toolbox.v1.MsgRegisterTool", TransactionGasCosts["register_tool"]},
 		{"/zerone.alignment.v1.MsgActivate", TransactionGasCosts["activate_alignment"]},
 		{"/zerone.liquiditypool.v1.MsgCreatePool", TransactionGasCosts["create_pool"]},
 	}
@@ -153,18 +151,6 @@ func TestIsVoteMsg(t *testing.T) {
 	}
 }
 
-func TestIsPartnershipMsg(t *testing.T) {
-	trueCases := []string{
-		"/zerone.partnerships.v1.MsgInitiatePartnership",
-		"/zerone.partnerships.v1.MsgDepositToPot",
-		"/zerone.partnerships.v1.MsgSafetyFreeze",
-	}
-	for _, tc := range trueCases {
-		if !isPartnershipMsg(tc) {
-			t.Errorf("isPartnershipMsg(%q) = false, want true", tc)
-		}
-	}
-}
 
 func TestIsClaimSubmissionMsg(t *testing.T) {
 	trueCases := []string{
@@ -262,7 +248,6 @@ func TestIsZeroneSpecificMsg(t *testing.T) {
 	trueCases := []string{
 		"/zerone.knowledge.v1.MsgSubmitClaim",
 		"/zerone.knowledge.v1.MsgChallengeFact",
-		"/zerone.partnerships.v1.MsgInitiatePartnership",
 	}
 	for _, tc := range trueCases {
 		if !isZeroneSpecificMsg(tc) {
@@ -391,15 +376,15 @@ func TestGetMinimumFee_MultipleMessages(t *testing.T) {
 }
 
 func TestGetMinimumFee_ExpensiveMessage(t *testing.T) {
-	// deploy_contract = 200,000 gas
-	msgs := []sdk.Msg{mockMsg{typeURL: "/zerone.bvm.v1.MsgDeployContract"}}
+	// register_validator = 100,000 gas
+	msgs := []sdk.Msg{mockMsg{typeURL: "/zerone.staking.v1.MsgRegisterValidator"}}
 	fee := GetMinimumFee(msgs)
 
-	expectedGas := uint64(200_000)
+	expectedGas := TransactionGasCosts["register_validator"]
 	expectedFee := math.NewIntFromUint64(expectedGas * MinGasPrice)
 
 	if !fee.AmountOf(BondDenom).Equal(expectedFee) {
-		t.Errorf("GetMinimumFee for MsgDeployContract = %s, want %s uzrn", fee, expectedFee)
+		t.Errorf("GetMinimumFee for MsgRegisterValidator = %s, want %s uzrn", fee, expectedFee)
 	}
 }
 
@@ -413,26 +398,6 @@ func TestMsgTypeURLToGas_AllEntriesReferenceValidCosts(t *testing.T) {
 	}
 }
 
-func TestMsgTypeURLToGas_ToolboxModuleComplete(t *testing.T) {
-	toolboxMessages := []string{
-		"/zerone.toolbox.v1.MsgRegisterTool",
-		"/zerone.toolbox.v1.MsgCallTool",
-		"/zerone.toolbox.v1.MsgAddContributor",
-		"/zerone.toolbox.v1.MsgAcceptContributorship",
-		"/zerone.toolbox.v1.MsgUpgradeTool",
-		"/zerone.toolbox.v1.MsgDeprecateTool",
-		"/zerone.toolbox.v1.MsgRetireTool",
-		"/zerone.toolbox.v1.MsgLockShares",
-		"/zerone.toolbox.v1.MsgUpdateDependency",
-		"/zerone.toolbox.v1.MsgToolHeartbeat",
-	}
-
-	for _, msg := range toolboxMessages {
-		if _, ok := msgTypeURLToGas[msg]; !ok {
-			t.Errorf("missing gas mapping for toolbox message %q", msg)
-		}
-	}
-}
 
 // ---------- ZRNGasDecorator Tests ----------
 
@@ -499,11 +464,11 @@ func TestZRNGasDecorator_ExceedsTxGasLimit(t *testing.T) {
 func TestZRNGasDecorator_InsufficientGas(t *testing.T) {
 	decorator := NewZRNGasDecorator()
 	ctx := sdk.Context{}
-	// deploy_contract requires 200,000 gas, provide only 1000
+	// register_validator requires 100,000 gas, provide only 1000
 	tx := mockFeeTx{
 		gas:  1000,
 		fee:  sdk.NewCoins(sdk.NewCoin(BondDenom, math.NewInt(999999999))),
-		msgs: []sdk.Msg{mockMsg{typeURL: "/zerone.bvm.v1.MsgDeployContract"}},
+		msgs: []sdk.Msg{mockMsg{typeURL: "/zerone.staking.v1.MsgRegisterValidator"}},
 	}
 
 	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
@@ -547,7 +512,7 @@ func TestZRNGasDecorator_InsufficientFee(t *testing.T) {
 // ---------- Capability Preset Tests ----------
 
 func TestResolvePreset_Known(t *testing.T) {
-	presets := []string{"knowledge-worker", "partnership-operator", "autonomous-agent"}
+	presets := []string{"knowledge-worker", "autonomous-agent"}
 	for _, name := range presets {
 		caps := ResolvePreset(name)
 		if caps == nil {
@@ -586,7 +551,7 @@ func TestResolvePreset_KnowledgeWorker(t *testing.T) {
 
 func TestResolvePreset_AutonomousAgent(t *testing.T) {
 	caps := ResolvePreset("autonomous-agent")
-	if !caps.CanSubmitClaims || !caps.CanVote || !caps.CanPartnership || !caps.CanTransfer {
+	if !caps.CanSubmitClaims || !caps.CanVote || !caps.CanTransfer {
 		t.Error("autonomous-agent should have full operational capabilities")
 	}
 	if caps.CanStake {

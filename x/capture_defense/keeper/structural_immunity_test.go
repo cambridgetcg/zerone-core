@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zerone-chain/zerone/x/capture_defense/keeper"
 	"github.com/zerone-chain/zerone/x/capture_defense/types"
 )
 
@@ -446,29 +445,6 @@ func TestRunAutoAnalysis_NoFormationBonusForHealthy(t *testing.T) {
 	assert.False(t, found, "no formation bonus should be set for healthy domain")
 }
 
-// ======================================================================
-// Test 9: PartnershipsCaptureDefenseAdapter compile-time check
-// ======================================================================
-
-func TestPartnershipsCaptureDefenseAdapter(t *testing.T) {
-	k, ctx := setupKeeper(t)
-
-	adapter := keeper.NewPartnershipsCaptureDefenseAdapter(k)
-
-	// No metrics → not flagged
-	assert.False(t, adapter.IsDomainFlagged(ctx, "unknown_domain"))
-
-	// Set flagged metrics
-	k.SetCaptureMetrics(ctx, &types.CaptureMetrics{
-		Domain: "test_domain", Flagged: true,
-	})
-
-	assert.True(t, adapter.IsDomainFlagged(ctx, "test_domain"))
-
-	// Clear flag
-	k.ClearCaptureFlag(ctx, "test_domain")
-	assert.False(t, adapter.IsDomainFlagged(ctx, "test_domain"))
-}
 
 // ======================================================================
 // Test 10: Integration — full structural immunity lifecycle

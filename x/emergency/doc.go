@@ -13,9 +13,9 @@
 // docs/TRUTH_SEEKING.md, commitment 4 (substrate stress-tests its
 // truth): a chain that is halting because it is broken should not
 // continue stress-testing the broken state and producing junk audit
-// results. IsHalted is the gate: alignment, autopoiesis, and the
-// challenge engines all consult it. Stress-testing only runs against
-// state we believe is sane enough to test.
+// results. IsHalted is the gate: alignment and the challenge engines
+// consult it. Stress-testing only runs against state we believe is
+// sane enough to test.
 //
 // Mechanics:
 //

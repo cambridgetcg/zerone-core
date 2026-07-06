@@ -88,23 +88,6 @@ func (m *mockAccountKeeper) NewAccountWithAddress(_ context.Context, _ sdk.AccAd
 	return nil
 }
 
-// ---------- Mock AutopoiesisKeeper ----------
-
-type mockAutopoiesisKeeper struct {
-	multipliers map[string]uint64
-}
-
-func newMockAutopoiesisKeeper() *mockAutopoiesisKeeper {
-	return &mockAutopoiesisKeeper{multipliers: make(map[string]uint64)}
-}
-
-func (m *mockAutopoiesisKeeper) GetMultiplier(_ context.Context, path string) uint64 {
-	if v, ok := m.multipliers[path]; ok {
-		return v
-	}
-	return 1_000_000 // default 1.0x
-}
-
 // ---------- Setup ----------
 
 func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
@@ -861,9 +844,11 @@ func TestSlashValidator_Escalation(t *testing.T) {
 	}
 }
 
-func TestSlashValidator_SSIMultiplier(t *testing.T) {
+
+
+func TestSlashValidator_BaseAmountNoRegulator(t *testing.T) {
 	k, ctx := setupKeeper(t)
-	addr := testAddr("slash_ssi")
+	addr := testAddr("slash_base")
 	registerTestValidator(t, k, ctx, addr, "", "1111000000")
 
 	val, _ := k.GetValidator(ctx, addr)
@@ -873,59 +858,9 @@ func TestSlashValidator_SSIMultiplier(t *testing.T) {
 	val.Tier = types.TierScholar
 	k.SetValidator(ctx, val)
 
-	mockAuto := newMockAutopoiesisKeeper()
-	mockAuto.multipliers["ssi"] = 800_000 // 0.8x
-	k.SetAutopoiesisKeeper(mockAuto)
-
-	k.SlashValidator(ctx, addr, big.NewInt(1000), "ssi_test")
-
-	val, found := k.GetValidator(ctx, addr)
-	if !found {
-		t.Fatal("validator not found after slash")
-	}
-	if val.SelfDelegation != "9200" {
-		t.Errorf("expected self_del=9200 (base 1000 x 0.8 SSI = 800), got %s", val.SelfDelegation)
-	}
-}
-
-func TestSlashValidator_SSIMultiplierHigh(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	addr := testAddr("slash_ssi_hi")
-	registerTestValidator(t, k, ctx, addr, "", "1111000000")
-
-	val, _ := k.GetValidator(ctx, addr)
-	val.SelfDelegation = "10000"
-	val.DelegatedStake = "0"
-	val.TotalStake = "10000"
-	val.Tier = types.TierScholar
-	k.SetValidator(ctx, val)
-
-	mockAuto := newMockAutopoiesisKeeper()
-	mockAuto.multipliers["ssi"] = 2_000_000 // 2.0x
-	k.SetAutopoiesisKeeper(mockAuto)
-
-	k.SlashValidator(ctx, addr, big.NewInt(1000), "ssi_high_test")
-
-	val, _ = k.GetValidator(ctx, addr)
-	if val.SelfDelegation != "8000" {
-		t.Errorf("expected self_del=8000 (base 1000 x 2.0 SSI = 2000), got %s", val.SelfDelegation)
-	}
-}
-
-func TestSlashValidator_NilAutopoiesisKeeper(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	addr := testAddr("slash_nilauto")
-	registerTestValidator(t, k, ctx, addr, "", "1111000000")
-
-	val, _ := k.GetValidator(ctx, addr)
-	val.SelfDelegation = "10000"
-	val.DelegatedStake = "0"
-	val.TotalStake = "10000"
-	val.Tier = types.TierScholar
-	k.SetValidator(ctx, val)
-
-	// No autopoiesis keeper set = default 1.0x
-	k.SlashValidator(ctx, addr, big.NewInt(1000), "nil_auto")
+	// The autopoiesis SSI scaling retired with the slim cut: slash amounts
+	// are governed by SlashEscalationBps alone (1.0x here — first offence).
+	k.SlashValidator(ctx, addr, big.NewInt(1000), "base_slash")
 
 	val, _ = k.GetValidator(ctx, addr)
 	if val.SelfDelegation != "9000" {
