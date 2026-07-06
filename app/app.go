@@ -745,11 +745,19 @@ func NewZeroneApp(
 		app.AccountKeeper,
 	)
 
+	// homePath must be the node's REAL --home, not DefaultNodeHome: x/upgrade
+	// writes data/upgrade-info.json under it (cosmovisor's watch file) and
+	// RegisterStoreUpgrades reads it back for store loaders — a hardcoded
+	// default breaks both for any node with a custom home.
+	upgradeHomePath := cast.ToString(appOpts.Get("home"))
+	if upgradeHomePath == "" {
+		upgradeHomePath = DefaultNodeHome
+	}
 	app.UpgradeKeeper = upgradekeeper.NewKeeper(
 		skipUpgradeHeights(appOpts),
 		sdkruntime.NewKVStoreService(keys[upgradetypes.StoreKey]),
 		appCodec,
-		DefaultNodeHome,
+		upgradeHomePath,
 		app.BaseApp,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
@@ -1612,6 +1620,12 @@ func NewZeroneApp(
 		zerocontribmodule.NewAppModule(appCodec, &app.ContributionKeeper),
 		zeronedialectic.NewAppModule(appCodec, app.DialecticKeeper),
 		substratebridge.NewAppModule(appCodec, app.SubstrateBridgeKeeper),
+	)
+
+	// PreBlockers run from PotPreBlocker (app/abci.go) before BeginBlock —
+	// x/upgrade's plan execution/halt lives here in SDK v0.50.
+	app.ModuleManager.SetOrderPreBlockers(
+		upgradetypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderBeginBlockers(

@@ -298,7 +298,19 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 
 // PotPreBlocker processes vote extension injection data before BeginBlock.
 // Called by baseapp before module BeginBlockers run.
+//
+// It MUST run the module PreBlockers first: in SDK v0.50 the whole of
+// x/upgrade's plan machinery — ApplyUpgrade, the halt-at-height panic,
+// upgrade-info.json for cosmovisor — lives ONLY in the module's PreBlock.
+// Setting a custom app PreBlocker replaces the SDK default, so skipping
+// the module pass silently disables every scheduled upgrade: governance
+// stores the plan and the chain sails past the height.
 func (app *ZeroneApp) PotPreBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock) (*sdk.ResponsePreBlock, error) {
+	res, err := app.ModuleManager.PreBlock(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// Check first tx for VEX injection
 	if len(req.Txs) > 0 && IsVoteExtInjectionTx(req.Txs[0]) {
 		app.ProcessVoteExtInjection(ctx, req.Txs[0])
@@ -317,7 +329,7 @@ func (app *ZeroneApp) PotPreBlocker(ctx sdk.Context, req *abci.RequestFinalizeBl
 	}
 	app.VestingRewardsKeeper.SetBlockTxCount(userTxCount)
 
-	return &sdk.ResponsePreBlock{}, nil
+	return res, nil
 }
 
 // ---- Internal Methods ----
