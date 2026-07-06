@@ -1,0 +1,5 @@
+# Secrets — never commit. Regenerate with make-genesis.sh; the fly image
+# bakes these from the local artifacts dir at deploy time.
+artifacts/*.mnemonic
+artifacts/priv_validator_key.json
+artifacts/node_key.json

@@ -1,0 +1,51 @@
+# zerone-testnet-1 — single public validator on fly.io
+app = "zerone-testnet-1"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MONIKER = "zerone-testnet-fly-0"
+  ZERONE_HOME = "/data/.zeroned"
+  EXTERNAL_ADDRESS = "37.16.28.121:26656"
+
+[mounts]
+  source = "zerone_data"
+  destination = "/data"
+
+# CometBFT RPC (26657) — HTTP, public.
+[[services]]
+  internal_port = 26657
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 26657
+    handlers = ["http"]
+
+# REST / LCD (1317) — HTTP, public.
+[[services]]
+  internal_port = 1317
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 1317
+    handlers = ["http"]
+
+# P2P (26656) — raw TCP so other nodes can peer/sync.
+[[services]]
+  internal_port = 26656
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 26656
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"
