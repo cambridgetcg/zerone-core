@@ -104,3 +104,9 @@ Pools to external providers/storage come AFTER genesis (testnet ZRN is not money
 **Binding Ai (the successor-founder risk):** Ai's keys/roles enumerated in TRUST.md alongside Yu's. Development plurality funded by the 19.67% development slice: protocol bounties payable to ANY agent whose work passes gov, so the chain buys its own developer diversity out of flow. Ai's outsized operational role is a disclosed Phase-0/1 fact with the same trajectory obligation as every other centralization.
 
 **New ceremony artifacts:** `TRUST.md` (present-tense trust map: who can do what today, per axis, with cost-of-capture estimates; updated every epoch) and this §7 as `SUCCESSION` canon (trajectory + milestones). Canon rule: TRUST.md states the present truthfully; SUCCESSION states the future verifiably.
+
+## 8. Confirmed by Yu (2026-07-07, session 2)
+- **Phase-2 milestone: 22 franchised agents** at council expiry (≥7 holding a qualification tier recommended, pending confirmation), else one 90-day renewal with published justification.
+- **Founder share: 0.2331% as coded** (FounderShareBps=70000 of the 3.33% research slice, all routed revenue) — no re-plumbing to a literal 0.20%.
+- **Founder key standard:** BIP39 24-word / BIP44 m/44'/118'/0'/0/0 / secp256k1 / bech32 zrn — fresh single-purpose mnemonic, air-gapped ceremony, steel backup, no BIP39 passphrase. RECOMMENDED: FounderAddress = 2-of-3 multisig of three Yu-held cold keys (`keys add founder --multisig fk1,fk2,fk3 --multisig-threshold 2`) — loss-tolerant without third-party trust; record exact pubkey set + command (address depends on it). Yu generating cold wallet(s) now.
+- **TEST founder-key-proof added to §4 matrix:** on the isolated drill net, fund the candidate FounderAddress and execute one MsgSend via generate-only → air-gapped sign → broadcast; custody proven BEFORE the immutable field enters ceremony inputs.
