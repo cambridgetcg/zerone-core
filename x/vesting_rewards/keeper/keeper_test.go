@@ -17,10 +17,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	commontypes "github.com/zerone-chain/zerone/x/common/types"
+	vestingrewards "github.com/zerone-chain/zerone/x/vesting_rewards"
 	"github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	"github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -576,10 +578,32 @@ func (m *mockBankKeeper) GetAllBalances(_ context.Context, addr sdk.AccAddress) 
 
 type mockStakingKeeper struct {
 	activeCount uint32
+	// validators maps consensus address (bech32) → validator record.
+	validators map[string]stakingtypes.Validator
 }
 
 func (m *mockStakingKeeper) GetActiveValidatorCount(_ context.Context) uint32 {
 	return m.activeCount
+}
+
+func (m *mockStakingKeeper) GetValidatorByConsAddr(_ context.Context, consAddr sdk.ConsAddress) (stakingtypes.Validator, error) {
+	if v, ok := m.validators[consAddr.String()]; ok {
+		return v, nil
+	}
+	return stakingtypes.Validator{}, stakingtypes.ErrNoValidatorFound
+}
+
+// mockDistrKeeper mimics x/distribution's withdraw-address mapping:
+// returns the mapped address when set, else the delegator itself.
+type mockDistrKeeper struct {
+	withdrawAddrs map[string]sdk.AccAddress
+}
+
+func (m *mockDistrKeeper) GetDelegatorWithdrawAddr(_ context.Context, delAddr sdk.AccAddress) (sdk.AccAddress, error) {
+	if w, ok := m.withdrawAddrs[delAddr.String()]; ok {
+		return w, nil
+	}
+	return delAddr, nil
 }
 
 func setupKeeperWithBank(t *testing.T, bk *mockBankKeeper, sk *mockStakingKeeper) (keeper.Keeper, sdk.Context) {
@@ -1749,6 +1773,215 @@ func TestFounderShareImmutability_AllowIdenticalValues(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("expected identical values to succeed, got: %v", err)
+	}
+}
+
+// ==================== Founder Withdraw-Address Routing Tests ====================
+
+func TestDepositToResearchFund_FounderPaidAtWithdrawAddress(t *testing.T) {
+	// Design §8b: the founder share is paid to the x/distribution withdraw
+	// address of FounderAddress, not to FounderAddress directly.
+	bk := newMockBankKeeper()
+	founderAddr := sdk.AccAddress("founder_____________")
+	withdrawAddr := sdk.AccAddress("founder_withdraw____")
+	k, ctx := setupFounderKeeper(t, bk, founderAddr.String(), 0)
+	k.SetDistributionKeeper(&mockDistrKeeper{withdrawAddrs: map[string]sdk.AccAddress{
+		founderAddr.String(): withdrawAddr,
+	}})
+
+	depositCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(100000)))
+	if err := k.DepositToResearchFund(ctx, "billing", depositCoins); err != nil {
+		t.Fatalf("DepositToResearchFund failed: %v", err)
+	}
+
+	// Founder 7% of 100000 = 7000, routed to the withdraw address.
+	if got := bk.sentToAccount[withdrawAddr.String()].AmountOf("uzrn").Int64(); got != 7000 {
+		t.Errorf("expected 7000 uzrn at withdraw address, got %d", got)
+	}
+	if _, ok := bk.sentToAccount[founderAddr.String()]; ok {
+		t.Errorf("founder share paid to FounderAddress directly despite withdraw mapping: %v", bk.sentToAccount[founderAddr.String()])
+	}
+}
+
+func TestDepositToResearchFund_FounderDefaultWithdrawAddressIsSelf(t *testing.T) {
+	// When no withdraw mapping is set, x/distribution defaults to the
+	// delegator itself — the founder is paid directly.
+	bk := newMockBankKeeper()
+	founderAddr := sdk.AccAddress("founder_____________")
+	k, ctx := setupFounderKeeper(t, bk, founderAddr.String(), 0)
+	k.SetDistributionKeeper(&mockDistrKeeper{})
+
+	depositCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(100000)))
+	if err := k.DepositToResearchFund(ctx, "billing", depositCoins); err != nil {
+		t.Fatalf("DepositToResearchFund failed: %v", err)
+	}
+
+	if got := bk.sentToAccount[founderAddr.String()].AmountOf("uzrn").Int64(); got != 7000 {
+		t.Errorf("expected 7000 uzrn at founder address, got %d", got)
+	}
+}
+
+// ==================== Proposer Reward Resolution Tests ====================
+
+func TestResolveProposerRewardAddress_OperatorNotConsensus(t *testing.T) {
+	consAddr1 := sdk.ConsAddress("consaddr1___________")
+	consAddr2 := sdk.ConsAddress("consaddr2___________")
+	op1 := sdk.ValAddress("operator1___________")
+	op2 := sdk.ValAddress("operator2___________")
+
+	sk := &mockStakingKeeper{
+		activeCount: 22,
+		validators: map[string]stakingtypes.Validator{
+			consAddr1.String(): {OperatorAddress: op1.String()},
+			consAddr2.String(): {OperatorAddress: op2.String()},
+		},
+	}
+	k, ctx := setupKeeperWithBank(t, newMockBankKeeper(), sk)
+
+	tests := []struct {
+		name   string
+		cons   sdk.ConsAddress
+		wantOp sdk.ValAddress
+	}{
+		{"validator 1", consAddr1, op1},
+		{"validator 2", consAddr2, op2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := k.ResolveProposerRewardAddress(ctx, tt.cons)
+			if err != nil {
+				t.Fatalf("ResolveProposerRewardAddress failed: %v", err)
+			}
+			want := sdk.AccAddress(tt.wantOp)
+			if !got.Equals(want) {
+				t.Errorf("expected operator account %s, got %s", want, got)
+			}
+			if got.Equals(sdk.AccAddress(tt.cons)) {
+				t.Error("reward resolved to the unspendable consensus address")
+			}
+		})
+	}
+}
+
+func TestResolveProposerRewardAddress_WithdrawAddressHonored(t *testing.T) {
+	consAddr := sdk.ConsAddress("consaddr1___________")
+	op := sdk.ValAddress("operator1___________")
+	withdrawAddr := sdk.AccAddress("operator_withdraw___")
+
+	sk := &mockStakingKeeper{
+		activeCount: 22,
+		validators: map[string]stakingtypes.Validator{
+			consAddr.String(): {OperatorAddress: op.String()},
+		},
+	}
+	k, ctx := setupKeeperWithBank(t, newMockBankKeeper(), sk)
+	k.SetDistributionKeeper(&mockDistrKeeper{withdrawAddrs: map[string]sdk.AccAddress{
+		sdk.AccAddress(op).String(): withdrawAddr,
+	}})
+
+	got, err := k.ResolveProposerRewardAddress(ctx, consAddr)
+	if err != nil {
+		t.Fatalf("ResolveProposerRewardAddress failed: %v", err)
+	}
+	if !got.Equals(withdrawAddr) {
+		t.Errorf("expected withdraw address %s, got %s", withdrawAddr, got)
+	}
+}
+
+func TestResolveProposerRewardAddress_UnknownProposer(t *testing.T) {
+	sk := &mockStakingKeeper{activeCount: 22}
+	k, ctx := setupKeeperWithBank(t, newMockBankKeeper(), sk)
+
+	if _, err := k.ResolveProposerRewardAddress(ctx, sdk.ConsAddress("unknown_cons________")); err == nil {
+		t.Fatal("expected error for unknown consensus address")
+	}
+}
+
+func TestResolveProposerRewardAddress_NoStakingKeeper(t *testing.T) {
+	k, ctx := setupKeeper(t) // nil staking keeper
+
+	if _, err := k.ResolveProposerRewardAddress(ctx, sdk.ConsAddress("consaddr1___________")); err == nil {
+		t.Fatal("expected error when staking keeper is not wired")
+	}
+}
+
+// ==================== BeginBlock Proposer Remap Tests ====================
+
+func TestBeginBlock_ProposerRewardLandsAtOperator(t *testing.T) {
+	consAddr1 := sdk.ConsAddress("consaddr1___________")
+	consAddr2 := sdk.ConsAddress("consaddr2___________")
+	op1 := sdk.ValAddress("operator1___________")
+	op2 := sdk.ValAddress("operator2___________")
+
+	bk := newMockBankKeeper()
+	sk := &mockStakingKeeper{
+		activeCount: 22,
+		validators: map[string]stakingtypes.Validator{
+			consAddr1.String(): {OperatorAddress: op1.String()},
+			consAddr2.String(): {OperatorAddress: op2.String()},
+		},
+	}
+	k, ctx := setupKeeperWithBank(t, bk, sk)
+
+	registry := codectypes.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(registry)
+	am := vestingrewards.NewAppModule(cdc, k)
+
+	// PotPreBlocker equivalent: mark the block as carrying user transactions.
+	// Set AFTER NewAppModule copies the keeper — the count is shared state.
+	k.SetBlockTxCount(1)
+
+	blocks := []struct {
+		cons sdk.ConsAddress
+		op   sdk.ValAddress
+	}{
+		{consAddr1, op1},
+		{consAddr2, op2},
+	}
+	for _, blk := range blocks {
+		blockCtx := ctx.WithBlockHeader(cmtproto.Header{Height: 1000, ProposerAddress: blk.cons})
+		if err := am.BeginBlock(blockCtx); err != nil {
+			t.Fatalf("BeginBlock failed: %v", err)
+		}
+	}
+
+	// Contributor share: 10,000,000 * 55% = 5,500,000 uzrn per block, paid to
+	// each proposer's OPERATOR account.
+	for _, op := range []sdk.ValAddress{op1, op2} {
+		opAcc := sdk.AccAddress(op).String()
+		if got := bk.sentToAccount[opAcc].AmountOf("uzrn").Int64(); got != 5_500_000 {
+			t.Errorf("expected 5500000 uzrn producer reward at operator %s, got %d", opAcc, got)
+		}
+	}
+	// Nothing may land at the raw consensus addresses (unspendable).
+	for _, cons := range []sdk.ConsAddress{consAddr1, consAddr2} {
+		if coins, ok := bk.sentToAccount[sdk.AccAddress(cons).String()]; ok {
+			t.Errorf("reward paid to unspendable consensus address %s: %v", cons, coins)
+		}
+	}
+}
+
+func TestBeginBlock_UnresolvableProposerSkipsReward(t *testing.T) {
+	// Better to skip a block's emission than to mint coins nobody can spend.
+	bk := newMockBankKeeper()
+	sk := &mockStakingKeeper{activeCount: 22} // no validators registered
+	k, ctx := setupKeeperWithBank(t, bk, sk)
+
+	registry := codectypes.NewInterfaceRegistry()
+	cdc := codec.NewProtoCodec(registry)
+	am := vestingrewards.NewAppModule(cdc, k)
+	k.SetBlockTxCount(1)
+
+	blockCtx := ctx.WithBlockHeader(cmtproto.Header{Height: 1000, ProposerAddress: sdk.ConsAddress("unknown_cons________")})
+	if err := am.BeginBlock(blockCtx); err != nil {
+		t.Fatalf("BeginBlock should skip, not fail: %v", err)
+	}
+
+	if !bk.mintedCoins.IsZero() {
+		t.Errorf("expected no minting for unresolvable proposer, minted %v", bk.mintedCoins)
+	}
+	if len(bk.sentToAccount) != 0 {
+		t.Errorf("expected no account payouts, got %v", bk.sentToAccount)
 	}
 }
 

@@ -762,9 +762,16 @@ func NewZeroneApp(
 		appCodec,
 		sdkruntime.NewKVStoreService(keys[vestingrewardstypes.StoreKey]),
 		app.BankKeeper,
-		nil, // staking keeper set after x/staking wiring
+		// SDK staking adapter: active-validator count for reward scaling and
+		// consensus→operator resolution so block rewards land at spendable
+		// operator accounts.
+		vestingRewardsStakingAdapter{sk: app.StakingKeeper},
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
+	// Honor x/distribution withdraw-address mappings for reward payouts
+	// (validator block rewards + founder share, design §8b). Must be wired
+	// BEFORE any value copies of the keeper are handed to other modules.
+	app.VestingRewardsKeeper.SetDistributionKeeper(app.DistrKeeper)
 
 	app.ZeroneOntologyKeeper = zeroneontologykeeper.NewKeeper(
 		appCodec,

@@ -23,7 +23,8 @@ type Keeper struct {
 
 	bankKeeper      types.BankKeeper
 	stakingKeeper   types.StakingKeeper
-	knowledgeKeeper types.KnowledgeKeeper // optional; gates block reward by verification rate (thesis claim 1)
+	distrKeeper     types.DistributionKeeper // optional; honors withdraw-address mappings for reward payouts
+	knowledgeKeeper types.KnowledgeKeeper    // optional; gates block reward by verification rate (thesis claim 1)
 
 	authority string
 
@@ -31,7 +32,12 @@ type Keeper struct {
 	// blockTxCount is set by PotPreBlocker each block with the user transaction count
 	// (excluding vote extension injection pseudo-txs). Read by BeginBlock to determine
 	// if block rewards should be minted (PoT: 0% for empty blocks).
-	blockTxCount int
+	//
+	// Pointer, not value: the Keeper is copied by value into AppModule and
+	// other consumers at wiring time, while PotPreBlocker mutates the app's
+	// own Keeper field each block. A plain int on the copy would stay 0
+	// forever and silently disable all PoT emission.
+	blockTxCount *int
 }
 
 // NewKeeper creates a new vesting_rewards module Keeper.
@@ -48,6 +54,7 @@ func NewKeeper(
 		bankKeeper:   bk,
 		stakingKeeper: sk,
 		authority:    authority,
+		blockTxCount: new(int),
 	}
 }
 
@@ -74,6 +81,13 @@ func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) {
 	k.knowledgeKeeper = kk
 }
 
+// SetDistributionKeeper wires x/distribution so reward payouts (validator
+// block rewards, founder share) honor delegator withdraw-address mappings.
+// Nil-safe: when unset, rewards are paid to the account itself.
+func (k *Keeper) SetDistributionKeeper(dk types.DistributionKeeper) {
+	k.distrKeeper = dk
+}
+
 // Logger returns a module-specific logger.
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", fmt.Sprintf("x/%s", types.ModuleName))
@@ -90,13 +104,64 @@ func (k Keeper) GetStakingKeeper() types.StakingKeeper {
 }
 
 // SetBlockTxCount stores the transaction count for the current block.
-func (k *Keeper) SetBlockTxCount(count int) {
-	k.blockTxCount = count
+// The count is shared across all value copies of this Keeper (see the
+// blockTxCount field doc).
+func (k Keeper) SetBlockTxCount(count int) {
+	if k.blockTxCount == nil {
+		return
+	}
+	*k.blockTxCount = count
 }
 
 // GetBlockTxCount returns the transaction count for the current block.
 func (k Keeper) GetBlockTxCount() int {
-	return k.blockTxCount
+	if k.blockTxCount == nil {
+		return 0
+	}
+	return *k.blockTxCount
+}
+
+// ResolveProposerRewardAddress maps a block's consensus proposer address to
+// the account that should receive the producer reward:
+//
+//  1. Resolve the consensus address to the validator via x/staking
+//     (GetValidatorByConsAddr) and take the OPERATOR account. The raw
+//     consensus address is not controlled by any operator key — paying it
+//     directly would make all PoT emission unspendable.
+//  2. Honor the operator's x/distribution withdraw-address mapping when the
+//     distribution keeper is wired (defaults to the operator itself).
+func (k Keeper) ResolveProposerRewardAddress(ctx sdk.Context, consAddr sdk.ConsAddress) (sdk.AccAddress, error) {
+	if k.stakingKeeper == nil {
+		return nil, fmt.Errorf("staking keeper not wired; cannot resolve proposer %s to operator account", consAddr)
+	}
+
+	validator, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, consAddr)
+	if err != nil {
+		return nil, fmt.Errorf("resolve validator for consensus address %s: %w", consAddr, err)
+	}
+
+	valAddr, err := sdk.ValAddressFromBech32(validator.GetOperator())
+	if err != nil {
+		return nil, fmt.Errorf("invalid operator address %q for consensus address %s: %w", validator.GetOperator(), consAddr, err)
+	}
+
+	return k.RewardWithdrawAddress(ctx, sdk.AccAddress(valAddr)), nil
+}
+
+// RewardWithdrawAddress returns the x/distribution withdraw address for a
+// rewardee (design §8b: payout destination rotates by standard
+// MsgSetWithdrawAddress). Falls back to the rewardee itself when the
+// distribution keeper is not wired or the lookup fails — x/distribution's own
+// default is the delegator address, so the fallback matches its semantics.
+func (k Keeper) RewardWithdrawAddress(ctx sdk.Context, rewardee sdk.AccAddress) sdk.AccAddress {
+	if k.distrKeeper == nil {
+		return rewardee
+	}
+	withdrawAddr, err := k.distrKeeper.GetDelegatorWithdrawAddr(ctx, rewardee)
+	if err != nil || withdrawAddr.Empty() {
+		return rewardee
+	}
+	return withdrawAddr
 }
 
 // GetParams returns the module parameters.
@@ -144,9 +209,10 @@ func (k Keeper) GetProtocolSubSplit(ctx sdk.Context) *commontypes.ProtocolSubSpl
 }
 
 // isFounderShareActive returns whether the founder auto-split is active.
-// The founder share is immune to governance — it cannot be disabled via parameter
-// changes. It is only inactive if the founder address is not yet set.
-// The share percentage (FounderShareBps) is enforced as immutable in UpdateParams.
+// It is inactive when the founder address is not yet set or the share has been
+// governance-zeroed. Per design §10 the share (FounderShareBps) is gov-mutable
+// within [0, FounderShareCapBps]; the address is immutable once set. Both are
+// enforced by ValidateFounderShareChange in UpdateParams.
 func (k Keeper) isFounderShareActive(ctx sdk.Context, params *types.Params) bool {
 	if params.FounderShareBps == 0 || params.FounderAddress == "" {
 		return false

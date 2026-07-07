@@ -151,12 +151,22 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 			"block", height, "error", err)
 	}
 
-	// Get block proposer from header
+	// Get block proposer from header and remap the CONSENSUS address to the
+	// validator's OPERATOR account (honoring its x/distribution withdraw
+	// address). The consensus address is not controlled by any operator key;
+	// paying it directly would make all PoT emission unspendable.
 	proposerAddr := sdkCtx.BlockHeader().ProposerAddress
 	if len(proposerAddr) == 0 {
 		return nil
 	}
-	producer := sdk.AccAddress(proposerAddr).String()
+	producerAcc, err := am.keeper.ResolveProposerRewardAddress(sdkCtx, sdk.ConsAddress(proposerAddr))
+	if err != nil {
+		// Better to skip this block's emission than to mint coins nobody can spend.
+		am.keeper.Logger(sdkCtx).Error("failed to resolve proposer to operator account; skipping block reward",
+			"block", height, "proposer_cons_addr", sdk.ConsAddress(proposerAddr).String(), "error", err)
+		return nil
+	}
+	producer := producerAcc.String()
 
 	// Get active validator count for reward scaling
 	var activeValidatorCount uint32

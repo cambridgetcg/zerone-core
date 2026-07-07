@@ -8,6 +8,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	govkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
 	govtypes "github.com/zerone-chain/zerone/x/gov/types"
@@ -203,6 +204,10 @@ type simStakingKeeper struct {
 
 func (s *simStakingKeeper) GetActiveValidatorCount(_ context.Context) uint32 {
 	return s.activeCount
+}
+
+func (s *simStakingKeeper) GetValidatorByConsAddr(_ context.Context, _ sdk.ConsAddress) (stakingtypes.Validator, error) {
+	return stakingtypes.Validator{}, stakingtypes.ErrNoValidatorFound
 }
 
 // ---- Simulation Domain Types ----

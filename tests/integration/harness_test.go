@@ -16,6 +16,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
@@ -158,6 +159,10 @@ type mockStakingKeeper struct {
 
 func (m *mockStakingKeeper) GetActiveValidatorCount(_ context.Context) uint32 {
 	return m.activeCount
+}
+
+func (m *mockStakingKeeper) GetValidatorByConsAddr(_ context.Context, _ sdk.ConsAddress) (stakingtypes.Validator, error) {
+	return stakingtypes.Validator{}, stakingtypes.ErrNoValidatorFound
 }
 
 // ---------- Test Harness ----------

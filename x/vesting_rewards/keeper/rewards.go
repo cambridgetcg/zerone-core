@@ -208,7 +208,10 @@ func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amou
 			}
 		}
 
-		// Send founder portion directly to founder address
+		// Send founder portion to the founder's x/distribution withdraw address
+		// (design §8b): FounderAddress is the immutable identity anchor, but the
+		// payout DESTINATION rotates via standard MsgSetWithdrawAddress. Defaults
+		// to FounderAddress itself when no mapping is set.
 		if founderAmount.IsPositive() {
 			founderAddr, addrErr := sdk.AccAddressFromBech32(params.FounderAddress)
 			if addrErr != nil {
@@ -218,8 +221,9 @@ func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amou
 					return fmt.Errorf("research fund fallback deposit failed: %w", err)
 				}
 			} else {
+				payoutAddr := k.RewardWithdrawAddress(ctx, founderAddr)
 				founderCoins := sdk.NewCoins(sdk.NewCoin(coin.Denom, founderAmount))
-				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, founderAddr, founderCoins); err != nil {
+				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, payoutAddr, founderCoins); err != nil {
 					k.Logger(ctx).Warn("failed to send founder share, routing to research_fund",
 						"source", sourceModule, "error", err)
 					if err2 := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.ResearchFundModuleName, founderCoins); err2 != nil {
