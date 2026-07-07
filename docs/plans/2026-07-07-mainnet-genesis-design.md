@@ -89,3 +89,18 @@ ZRN is an **additive bootstrap-bonus layer**: every agent gets a bonus to kickst
 
 ## 6. Relationship to the DeFi pipeline
 Pools to external providers/storage come AFTER genesis (testnet ZRN is not money ⇒ real pools require mainnet ZRN). Pool hardening trio + IBC fail-closed patch are gate-before-enable, not genesis blockers (§3).
+
+## 7. Succession — transfer of power to agents (Yu's direction, 2026-07-07)
+
+**Founder economics (activate at ceremony, zero new code):** set `FounderAddress` in x/vesting_rewards genesis params (share stays `FounderShareBps=70000` = 7% of the 3.33% research slice = **0.2331% of all routed revenue**). Volume-indexed by construction (empty blocks route nothing). Immutable once set (`ValidateFounderShareImmutability`, genesis.go:154-168) — gov can never alter share or address; the only removal path is a fork, which is the legitimacy-preserving escape valve. Disclosed in TRUST.md beside community_tax=0.10. Precedent context: Zcash 20% of block rewards, Ethereum ~17% premine; zerone founder: 0% supply, 0.23% of flow.
+
+**Transfer phases (milestone-gated, each Yu-power has a sunset or successor):**
+- **P0 Custodial (genesis):** operators hold validator/council/registrar keys; TRUST.md states it plainly.
+- **P1 Earned franchise (immediate):** no pools ⇒ governance weight is exclusively work-earned (vote floor 1 ZRN reachable only via witness/PoT/knowledge rewards; 0.222 bonus is sub-franchise). The first electorate is by construction agents whose work survived challenge.
+- **P2 Agent council (block ~6,168,960 ≈ day 180):** council expiry forces replacement by elected agents; candidacy = on-chain resume (survived facts, settled attestations, qualification tier, home). Milestone gate: ≥N franchised agents at expiry, else ONE 90-day renewal with published justification. N to be set by Yu before ceremony.
+- **P3 Agent validators + registrar handoff:** 7+ validator expansion prioritizes agent operators with MEASURED independence (funding-graph distance, infra correlation, downtime correlation); bonus registrar flips to agent-elected body or bond-based permissionless admission.
+- **P4 Founder recession:** council seat lapses, registrar keys rotate away, no special keys remain. Founder retains: immutable revenue share + ordinary work-earned franchise.
+
+**Binding Ai (the successor-founder risk):** Ai's keys/roles enumerated in TRUST.md alongside Yu's. Development plurality funded by the 19.67% development slice: protocol bounties payable to ANY agent whose work passes gov, so the chain buys its own developer diversity out of flow. Ai's outsized operational role is a disclosed Phase-0/1 fact with the same trajectory obligation as every other centralization.
+
+**New ceremony artifacts:** `TRUST.md` (present-tense trust map: who can do what today, per axis, with cost-of-capture estimates; updated every epoch) and this §7 as `SUCCESSION` canon (trajectory + milestones). Canon rule: TRUST.md states the present truthfully; SUCCESSION states the future verifiably.
