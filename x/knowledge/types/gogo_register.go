@@ -13,11 +13,14 @@ import (
 // so a tx carrying a Msg with a nested concrete message fails to decode with
 // "failed to retrieve the message of type ...".
 //
-// For this module the carrier is the gov MsgUpdateParams: its Params field
-// embeds concrete messages (ClaimStructure, ClaimRelation, DemandReport,
-// TokenizerSpec, TraceSchema, CorpusSelector), which in turn are reached when
-// a governance proposal to update knowledge params is decoded. Register
-// Params plus every message it (transitively) embeds as a concrete field.
+// For this module the carriers are gov MsgUpdateParams (nested Params) and the
+// training-manifest txs. proto_register.go ALREADY registers Params,
+// ClaimStructure, ClaimRelation (and Claim, Fact); registering them again here
+// would double-register and spam "duplicate proto type registered" to stdout —
+// which corrupts any tooling that parses zeroned's tx JSON output (e.g. the
+// witness relay). So this file adds ONLY the four types proto_register.go omits:
+// DemandReport (MsgReportDemand), TokenizerSpec (MsgAmendTokenizerSpec),
+// TraceSchema (MsgAmendTraceSchema), CorpusSelector (MsgCreateTrainingManifest).
 //
 // Registration is EXPLICIT (not a protoregistry walk): Go runs a package's
 // init() functions in lexical file order, so a walk in this file can run
@@ -25,9 +28,6 @@ import (
 // references have no ordering dependence.
 func init() {
 	for name, m := range map[string]gogoproto.Message{
-		"zerone.knowledge.v1.Params":         (*Params)(nil),
-		"zerone.knowledge.v1.ClaimStructure": (*ClaimStructure)(nil),
-		"zerone.knowledge.v1.ClaimRelation":  (*ClaimRelation)(nil),
 		"zerone.knowledge.v1.DemandReport":   (*DemandReport)(nil),
 		"zerone.knowledge.v1.TokenizerSpec":  (*TokenizerSpec)(nil),
 		"zerone.knowledge.v1.TraceSchema":    (*TraceSchema)(nil),
