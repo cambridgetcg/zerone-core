@@ -50,4 +50,9 @@ if [ -n "${EXTERNAL_ADDRESS:-}" ]; then
   echo "[entrypoint] external_address = ${EXTERNAL_ADDRESS}"
 fi
 
+# The node requires minimum-gas-prices set in app.toml (not just the start flag).
+# Set it on EVERY boot so a resumed volume is correct too. 0.025uzrn is the
+# node mempool filter; consensus enforces the real 1uzrn/gas floor.
+sed -i "s|^minimum-gas-prices = .*|minimum-gas-prices = \"0.025uzrn\"|" "${HOME_DIR}/config/app.toml"
+
 exec zeroned start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn
