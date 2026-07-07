@@ -303,12 +303,12 @@ func TestScenario16_InvalidGenesisRejection(t *testing.T) {
 // scripts/mainnet-ceremony.sh together.
 const (
 	artifactEnvVar        = "ZERONE_GENESIS_ARTIFACT"
-	artifactNValidators   = 4
+	artifactNValidators   = 5             // Alpha, Beta, Gamma, Yu, Ai (design §10a)
 	artifactStakeUzrn     = "11111000000" // 11,111 ZRN permanently locked per validator
 	artifactFloatUzrn     = "111000000"   // 111 ZRN operator float
 	artifactOnboardUzrn   = "2222000000"  // 2,222 ZRN onboarding multisig
-	artifactTotalSupply   = "47110000000" // 47,110 ZRN — the §10 zero-ALLOCATION invariant
-	artifactNBalances     = 9
+	artifactTotalSupply   = "58332000000" // 58,332 ZRN — the §10a zero-ALLOCATION invariant
+	artifactNBalances     = 11
 	permanentLockedType   = "/cosmos.vesting.v1beta1.PermanentLockedAccount"
 	msgCreateValidatorURL = "/cosmos.staking.v1beta1.MsgCreateValidator"
 )
@@ -424,15 +424,15 @@ func loadCeremonyArtifact(t *testing.T) *artifactGenesis {
 func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 	g := loadCeremonyArtifact(t)
 
-	// ── bank supply: exactly 47,110 ZRN, single denom ────────────────────
+	// ── bank supply: exactly 58,332 ZRN, single denom ────────────────────
 	require.Len(t, g.AppState.Bank.Supply, 1, "genesis supply must carry exactly one denom")
 	require.Equal(t, zeroneapp.BondDenom, g.AppState.Bank.Supply[0].Denom)
 	require.Equal(t, artifactTotalSupply, g.AppState.Bank.Supply[0].Amount,
-		"§10 zero-ALLOCATION invariant: bank supply must be exactly 47,110 ZRN")
+		"§10a zero-ALLOCATION invariant: bank supply must be exactly 58,332 ZRN")
 
 	// ── exactly 9 balances in the canonical role buckets ─────────────────
 	require.Len(t, g.AppState.Bank.Balances, artifactNBalances,
-		"genesis must have exactly %d balances (4 stake + 4 float + 1 onboarding)", artifactNBalances)
+		"genesis must have exactly %d balances (5 stake + 5 float + 1 onboarding)", artifactNBalances)
 
 	balanceByAddr := map[string]string{}
 	buckets := map[string][]string{} // amount → addresses
@@ -501,7 +501,7 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 
 	// ── knowledge fund zeroed: no 22,222 ZRN InitGenesis mint ────────────
 	require.Equal(t, "0", g.AppState.Knowledge.BootstrapFundAllocation,
-		"knowledge.bootstrap_fund_allocation must be \"0\" — day-0 supply stays exactly 47,110 ZRN")
+		"knowledge.bootstrap_fund_allocation must be \"0\" — day-0 supply stays exactly 58,332 ZRN")
 
 	// ── SDK gov denominated in uzrn (default 'stake' would kill gov) ─────
 	require.Len(t, g.AppState.Gov.Params.MinDeposit, 1)

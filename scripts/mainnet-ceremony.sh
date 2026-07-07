@@ -8,15 +8,15 @@
 #
 # Pipeline (fixed order; every step is idempotent from a clean OUT_DIR):
 #   1. zeroned init
-#   2. add-genesis-account: 4 × 11,111 ZRN validator stake accounts,
-#      4 × 111 ZRN operator floats, 1 × 2,222 ZRN onboarding multisig
-#      (total bank supply exactly 47,110 ZRN = 47,110,000,000 uzrn)
-#   3. jq-patch the 4 stake accounts to
+#   2. add-genesis-account: 5 × 11,111 ZRN validator stake accounts,
+#      5 × 111 ZRN operator floats, 1 × 2,222 ZRN onboarding multisig
+#      (total bank supply exactly 58,332 ZRN = 58,332,000,000 uzrn)
+#   3. jq-patch the 5 stake accounts to
 #      /cosmos.vesting.v1beta1.PermanentLockedAccount — the
 #      add-genesis-account --vesting flags are dead code
 #      (cmd/zeroned/cmd/genesis.go:87-90 discards them)
 #   4. jq knowledge.bootstrap_fund_allocation = "0" (suppresses the default
-#      22,222 ZRN InitGenesis mint; day-0 supply stays exactly 47,110)
+#      22,222 ZRN InitGenesis mint; day-0 supply stays exactly 58,332)
 #   5. SDK-gov params to uzrn (default 'stake' denom would permanently kill
 #      the authority-message surface)
 #   6. substrate_bridge hardened economics + agenttool-invocation-v1
@@ -32,7 +32,7 @@
 #  10. creed genesis pin + 8 work_creed inception pins (tools/ceremony-inject)
 #  11. claiming_pot bootstrap whitelist injection (tools/bootstrap-loader)
 #      when a snapshot file is provided
-#  12. gentx (4 × fully-self-bonded 11,111 ZRN) → collect-gentxs → validate
+#  12. gentx (5 × fully-self-bonded 11,111 ZRN) → collect-gentxs → validate
 #  13. emit OUT_DIR/genesis.json + genesis.sha256 + GENESIS-MANIFEST.md
 #
 # Modes:
@@ -47,9 +47,9 @@
 #
 # ceremony.env (real mode) must define:
 #   CHAIN_ID GENESIS_TIME
-#   VAL1_NAME VAL1_STAKE_ADDR VAL1_FLOAT_ADDR PQ_COMMITMENT_1   (…through 4)
+#   VAL1_NAME VAL1_STAKE_ADDR VAL1_FLOAT_ADDR PQ_COMMITMENT_1   (…through 5)
 #   ONBOARDING_ADDR BOOTSTRAP_REGISTRAR AGENTTOOL_OPS_ADDR
-#   GENTX_DIR                     directory of 4 pre-signed gentx *.json
+#   GENTX_DIR                     directory of 5 pre-signed gentx *.json
 # and may define:
 #   WHITELIST_SNAPSHOT            day-0 agenttool DID snapshot (one bech32
 #                                 address per line) for bootstrap pots
@@ -71,8 +71,8 @@ KR=(--keyring-backend test)
 STAKE_UZRN=11111000000          # 11,111 ZRN per validator, permanently locked
 FLOAT_UZRN=111000000            # 111 ZRN operator float
 ONBOARD_UZRN=2222000000         # 2,222 ZRN onboarding 3-of-5 multisig
-TOTAL_SUPPLY_UZRN=47110000000   # 4×stake + 4×float + onboarding, exactly
-N_VALIDATORS=4
+TOTAL_SUPPLY_UZRN=58332000000   # 5×stake + 5×float + onboarding, exactly
+N_VALIDATORS=5                  # Alpha, Beta, Gamma, Yu, Ai (design §10a)
 
 # ── §2 canonical parameters ─────────────────────────────────────────────────
 GOV_MIN_DEPOSIT_UZRN=100000000            # 100 ZRN
@@ -211,7 +211,7 @@ for i in $(seq 1 ${N_VALIDATORS}); do
 done
 
 # ── 2. genesis accounts (the ONLY nine balances) ────────────────────────────
-info "adding the 9 genesis balances (4 stake + 4 float + onboarding)"
+info "adding the 11 genesis balances (5 stake + 5 float + onboarding)"
 for a in "${STAKE_ADDRS[@]}"; do
   "${BINARY}" add-genesis-account "${a}" "${STAKE_UZRN}uzrn" --home "${HOME_DIR}" >/dev/null
 done
@@ -222,7 +222,7 @@ done
 
 SUPPLY=$(jq -r '.app_state.bank.supply[] | select(.denom=="uzrn") | .amount' "${GENESIS}")
 [ "${SUPPLY}" = "${TOTAL_SUPPLY_UZRN}" ] || die "bank supply ${SUPPLY} != ${TOTAL_SUPPLY_UZRN}"
-ok "bank supply exactly ${TOTAL_SUPPLY_UZRN} uzrn (47,110 ZRN, 0.0212% of cap)"
+ok "bank supply exactly ${TOTAL_SUPPLY_UZRN} uzrn (58,332 ZRN, 0.0262% of cap)"
 
 # ── 3. PermanentLockedAccount patch ─────────────────────────────────────────
 # add-genesis-account's --vesting flags are dead code (verified:
@@ -247,7 +247,7 @@ for a in "${STAKE_ADDRS[@]}"; do
 done
 LOCKED=$(jq '[.app_state.auth.accounts[] | select(.["@type"]=="/cosmos.vesting.v1beta1.PermanentLockedAccount")] | length' "${GENESIS}")
 [ "${LOCKED}" = "${N_VALIDATORS}" ] || die "expected ${N_VALIDATORS} PermanentLockedAccounts, got ${LOCKED}"
-ok "${LOCKED} PermanentLockedAccounts (44,444 ZRN never transferable)"
+ok "${LOCKED} PermanentLockedAccounts (55,555 ZRN never transferable)"
 
 # ── 4. knowledge fund zero + guardian params ────────────────────────────────
 # "0" verified to skip the 22,222 ZRN InitGenesis mint (x/knowledge/keeper/genesis.go:93).
@@ -373,7 +373,7 @@ fi
 
 # ── 12. gentx / collect / validate ──────────────────────────────────────────
 if [ "${MODE}" = drill ]; then
-  info "drill: generating 4 self-bonded gentxs (11,111 ZRN each, locked stake)"
+  info "drill: generating ${N_VALIDATORS} self-bonded gentxs (11,111 ZRN each, locked stake)"
   for i in $(seq 1 ${N_VALIDATORS}); do
     VHOME="${OUT_DIR}/gentx-homes/val${i}"
     "${BINARY}" init "drill-val${i}" --chain-id "${CHAIN_ID}" --home "${VHOME}" >/dev/null 2>&1
@@ -404,7 +404,7 @@ info "collect-gentxs + validate"
 "${BINARY}" genesis validate "${GENESIS}" >/dev/null || die "genesis validation failed"
 GENTX_COUNT=$(jq '.app_state.genutil.gen_txs | length' "${GENESIS}")
 [ "${GENTX_COUNT}" = "${N_VALIDATORS}" ] || die "expected ${N_VALIDATORS} gen_txs, got ${GENTX_COUNT}"
-ok "genesis validates; ${GENTX_COUNT} gentxs collected (44,444 ZRN fully bonded at block 0)"
+ok "genesis validates; ${GENTX_COUNT} gentxs collected (55,555 ZRN fully bonded at block 0)"
 
 # ── 13. artifacts: genesis.json + sha256 + GENESIS-MANIFEST.md ──────────────
 cp "${GENESIS}" "${OUT_DIR}/genesis.json"
@@ -441,8 +441,8 @@ MANIFEST="${OUT_DIR}/GENESIS-MANIFEST.md"
 
 ## Supply invariant (design §4 / §10 zero-ALLOCATION clause)
 
-Total bank supply **exactly ${TOTAL_SUPPLY_UZRN} uzrn (47,110 ZRN = 0.0212% of the 222,222,222 cap)**:
-44,444 ZRN permanently-locked bonded validator collateral + 2,666 ZRN enumerated
+Total bank supply **exactly ${TOTAL_SUPPLY_UZRN} uzrn (58,332 ZRN = 0.0262% of the 222,222,222 cap)**:
+55,555 ZRN permanently-locked bonded validator collateral + 2,777 ZRN enumerated
 operational float. No team / foundation / investor / research / faucet balance.
 Everything else mints on participation under MintWithCap.
 
