@@ -12,8 +12,14 @@ import (
 
 var researchFundModuleAddr = authtypes.NewModuleAddress(ResearchFundName)
 
-var allowedResearchFundDepositors = map[string]bool{
-	authtypes.NewModuleAddress(vestingrewardstypes.ModuleName).String(): true,
+// allowedResearchFundDepositors holds the raw module-address BYTES permitted to
+// deposit into the research fund. Stored as AccAddress (never stringified at
+// package scope): calling .String() here would bech32-encode BEFORE app.init()
+// seals the "zrn" prefix, poisoning the SDK's process-wide address cache with a
+// "cosmos1…" form for these bytes — which corrupts the vesting_rewards module
+// account address and sends all producer rewards to an unspendable void.
+var allowedResearchFundDepositors = []sdk.AccAddress{
+	authtypes.NewModuleAddress(vestingrewardstypes.ModuleName),
 }
 
 // ResearchFundRestriction is a bank SendRestriction that rejects any send TO the
@@ -27,7 +33,14 @@ func ResearchFundRestriction(ctx context.Context, fromAddr, toAddr sdk.AccAddres
 		if sdkCtx.BlockHeight() == 0 {
 			return toAddr, nil // genesis bypass
 		}
-		if !allowedResearchFundDepositors[fromAddr.String()] {
+		allowed := false
+		for _, a := range allowedResearchFundDepositors {
+			if fromAddr.Equals(a) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
 			return toAddr, fmt.Errorf(
 				"unauthorized deposit to research_fund from %s: must route through DepositToResearchFund",
 				fromAddr.String(),

@@ -45,7 +45,7 @@ const (
 	adapterID                 = "agenttool-invocation-v1"
 	adapterSourceType         = "agenttool"
 	adapterVersion            = "1.1.0"
-	adapterMinAttestationBond = "1000000"
+	adapterMinAttestationBond = "22200000" // 22.2 ZRN — matches the chain param floor (§2); a lower adapter value would take precedence and undercut it
 	adapterMinPerClaimBond    = "100000"
 	adapterWitnessRewardUzrn  = "222000"
 )

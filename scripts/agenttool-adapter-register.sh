@@ -77,7 +77,7 @@ cat > "${PROP_FILE}" <<PROP
       "adapter_id": "${ADAPTER_ID}",
       "source_type": "agenttool",
       "version": "1.1.0",
-      "min_attestation_bond_uzrn": "1000000",
+      "min_attestation_bond_uzrn": "22200000",
       "min_per_claim_bond_uzrn": "100000",
       "allowed_class_ids": [],
       "status": 1,
