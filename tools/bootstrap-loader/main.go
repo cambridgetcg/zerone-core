@@ -20,8 +20,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cosmos/cosmos-sdk/codec"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	cpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
@@ -174,17 +172,18 @@ func runInject(args []string) error {
 		return fmt.Errorf("parse app_state: %w", err)
 	}
 
-	// Encode the pots through the codec so the JSON shape matches what
-	// the chain's GenesisState expects.
-	registry := codectypes.NewInterfaceRegistry()
-	cdc := codec.NewProtoCodec(registry)
-
+	// Encode the pots with plain encoding/json: x/claiming_pot's module
+	// (ValidateGenesis/InitGenesis) parses its genesis with encoding/json,
+	// NOT the proto codec. Protojson output (uint64 as strings, enums as
+	// names) fails the module's json.Unmarshal — e.g. the uint64
+	// bootstrap_daily_admission_cap param — so the loader must speak the
+	// module's own dialect.
 	cpotStateRaw, ok := appState[cpottypes.ModuleName]
 	if !ok {
 		return fmt.Errorf("genesis app_state has no %s module", cpottypes.ModuleName)
 	}
 	var cpotState cpottypes.GenesisState
-	if err := cdc.UnmarshalJSON(cpotStateRaw, &cpotState); err != nil {
+	if err := json.Unmarshal(cpotStateRaw, &cpotState); err != nil {
 		return fmt.Errorf("unmarshal claiming_pot genesis: %w", err)
 	}
 
@@ -199,7 +198,7 @@ func runInject(args []string) error {
 
 	cpotState.Pots = append(cpotState.Pots, pots...)
 
-	updated, err := cdc.MarshalJSON(&cpotState)
+	updated, err := json.Marshal(&cpotState)
 	if err != nil {
 		return fmt.Errorf("marshal claiming_pot genesis: %w", err)
 	}
