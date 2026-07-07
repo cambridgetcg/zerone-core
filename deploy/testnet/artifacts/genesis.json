@@ -1,7 +1,7 @@
 {
   "app_name": "zeroned",
-  "app_version": "",
-  "genesis_time": "2026-07-06T22:29:16.849192Z",
+  "app_version": "627ac03",
+  "genesis_time": "2026-07-07T15:46:17.69565Z",
   "chain_id": "zerone-testnet-1",
   "initial_height": 1,
   "app_hash": null,
@@ -134,7 +134,9 @@
     "claiming_pot": {
       "params": {
         "max_pots_active": 10,
-        "min_claim_amount": "1000"
+        "min_claim_amount": "1000",
+        "bootstrap_emission_cap_uzrn": "222222000000",
+        "bootstrap_daily_admission_cap": 5000
       }
     },
     "counterexamples": {
