@@ -151,22 +151,35 @@ func ValidateParams(p *Params) error {
 	return nil
 }
 
-// ValidateFounderShareImmutability ensures governance cannot modify founder share parameters.
-// The founder share is a permanent protocol commitment — once set, it cannot be changed.
-// Only the initial setting (from empty/zero to a value) is allowed.
-func ValidateFounderShareImmutability(current *Params, proposed *Params) error {
-	if current == nil || proposed == nil {
+// FounderShareCapBps is the founding-level cap on FounderShareBps (7% of the
+// research slice, on the 1,000,000 scale). Governance may lower, zero, or
+// restore the share anywhere within [0, FounderShareCapBps], but can never
+// raise it above the founding level — the cap protects agents from
+// capture-inflating the founder cut (design §10).
+const FounderShareCapBps = 70000
+
+// ValidateFounderShareChange enforces the founder-share governance contract
+// (design §10, supersedes the old full-immutability rule):
+//
+//   - FounderShareBps is GOV-MUTABLE within [0, FounderShareCapBps]. The
+//     founder submits to the government he created — the share can be lowered
+//     or zeroed if governance judges it unearned, and later restored — but a
+//     proposal can never push it above the founding cap.
+//   - FounderAddress remains IMMUTABLE once set. A mutable share plus a
+//     mutable address would be a theft surface, not accountability.
+func ValidateFounderShareChange(current *Params, proposed *Params) error {
+	if proposed == nil {
 		return nil
 	}
 
-	// If founder share BPS was already set (>0), it cannot be changed
-	if current.FounderShareBps > 0 && proposed.FounderShareBps != current.FounderShareBps {
-		return ErrFounderShareImmutable
+	// Founder share may move, but never above the founding cap.
+	if proposed.FounderShareBps > FounderShareCapBps {
+		return ErrFounderShareCapExceeded
 	}
 
-	// If founder address was already set (non-empty), it cannot be changed
-	if current.FounderAddress != "" && proposed.FounderAddress != current.FounderAddress {
-		return ErrFounderShareImmutable
+	// If founder address was already set (non-empty), it cannot be changed.
+	if current != nil && current.FounderAddress != "" && proposed.FounderAddress != current.FounderAddress {
+		return ErrFounderAddressImmutable
 	}
 
 	return nil

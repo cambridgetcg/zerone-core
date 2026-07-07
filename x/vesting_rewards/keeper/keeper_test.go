@@ -1676,103 +1676,139 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 	}
 }
 
-// ==================== Founder Share Immutability Tests ====================
+// ==================== Founder Share Governance Tests ====================
+// Design §10: FounderShareBps floats within [0, FounderShareCapBps] under
+// governance; FounderAddress stays immutable once set.
 
-func TestFounderShareImmutability_RejectBpsChange(t *testing.T) {
-	bk := newMockBankKeeper()
+func TestFounderShareGovernance(t *testing.T) {
 	founderAddr := sdk.AccAddress("founder_____________").String()
-	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
+	otherAddr := sdk.AccAddress("another_founder_____").String()
 
-	ms := keeper.NewMsgServerImpl(k)
-
-	// Current: FounderShareBps=70000. Attempt to change to 50000.
-	newParams := types.DefaultParams()
-	newParams.FounderShareBps = 50000
-	newParams.FounderAddress = founderAddr
-
-	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
-		Authority: "authority",
-		Params:    newParams,
-	})
-	if err == nil {
-		t.Fatal("expected error when changing FounderShareBps")
+	tests := []struct {
+		name        string
+		initialBps  uint64
+		initialAddr string
+		proposedBps uint64
+		proposedAddr string
+		wantErr     error
+	}{
+		{
+			name:        "lower share accepted",
+			initialBps:  70000,
+			initialAddr: founderAddr,
+			proposedBps: 50000,
+			proposedAddr: founderAddr,
+		},
+		{
+			name:        "zero share accepted",
+			initialBps:  70000,
+			initialAddr: founderAddr,
+			proposedBps: 0,
+			proposedAddr: founderAddr,
+		},
+		{
+			name:        "restore share to founding cap accepted",
+			initialBps:  0,
+			initialAddr: founderAddr,
+			proposedBps: types.FounderShareCapBps,
+			proposedAddr: founderAddr,
+		},
+		{
+			name:        "identical values accepted",
+			initialBps:  70000,
+			initialAddr: founderAddr,
+			proposedBps: 70000,
+			proposedAddr: founderAddr,
+		},
+		{
+			name:        "initial set accepted",
+			initialBps:  0,
+			initialAddr: "",
+			proposedBps: 70000,
+			proposedAddr: founderAddr,
+		},
+		{
+			name:        "raise above founding cap rejected",
+			initialBps:  70000,
+			initialAddr: founderAddr,
+			proposedBps: types.FounderShareCapBps + 1,
+			proposedAddr: founderAddr,
+			wantErr:     types.ErrFounderShareCapExceeded,
+		},
+		{
+			name:        "raise above cap from zeroed share rejected",
+			initialBps:  0,
+			initialAddr: founderAddr,
+			proposedBps: 80000,
+			proposedAddr: founderAddr,
+			wantErr:     types.ErrFounderShareCapExceeded,
+		},
+		{
+			name:        "address change rejected",
+			initialBps:  70000,
+			initialAddr: founderAddr,
+			proposedBps: 70000,
+			proposedAddr: otherAddr,
+			wantErr:     types.ErrFounderAddressImmutable,
+		},
+		{
+			name:        "address change alongside share lowering rejected",
+			initialBps:  70000,
+			initialAddr: founderAddr,
+			proposedBps: 10000,
+			proposedAddr: otherAddr,
+			wantErr:     types.ErrFounderAddressImmutable,
+		},
 	}
-	if err != types.ErrFounderShareImmutable {
-		t.Errorf("expected ErrFounderShareImmutable, got %v", err)
-	}
-}
 
-func TestFounderShareImmutability_RejectAddressChange(t *testing.T) {
-	bk := newMockBankKeeper()
-	founderAddr := sdk.AccAddress("founder_____________").String()
-	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bk := newMockBankKeeper()
+			gs := types.DefaultGenesis()
+			gs.Params.FounderShareBps = tt.initialBps
+			gs.Params.FounderAddress = tt.initialAddr
+			k, ctx := setupKeeperWithBankAndGenesis(t, bk, &mockStakingKeeper{activeCount: 22}, gs)
 
-	ms := keeper.NewMsgServerImpl(k)
+			ms := keeper.NewMsgServerImpl(k)
 
-	// Current: FounderAddress is set. Attempt to change to a different address.
-	newParams := types.DefaultParams()
-	newParams.FounderShareBps = 70000
-	newParams.FounderAddress = sdk.AccAddress("another_founder_____").String()
+			newParams := types.DefaultParams()
+			newParams.FounderShareBps = tt.proposedBps
+			newParams.FounderAddress = tt.proposedAddr
 
-	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
-		Authority: "authority",
-		Params:    newParams,
-	})
-	if err == nil {
-		t.Fatal("expected error when changing FounderAddress")
-	}
-	if err != types.ErrFounderShareImmutable {
-		t.Errorf("expected ErrFounderShareImmutable, got %v", err)
-	}
-}
+			_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+				Authority: "authority",
+				Params:    newParams,
+			})
 
-func TestFounderShareImmutability_AllowInitialSet(t *testing.T) {
-	// When founder params are empty/zero, setting them for the first time should succeed.
-	bk := newMockBankKeeper()
-	k, ctx := setupFounderKeeper(t, bk, "", 0) // empty founder
+			if tt.wantErr != nil {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if err != tt.wantErr {
+					t.Fatalf("expected %v, got %v", tt.wantErr, err)
+				}
+				// Rejected proposals must not mutate stored params.
+				params := k.GetParams(ctx)
+				if params.FounderShareBps != tt.initialBps {
+					t.Errorf("expected FounderShareBps unchanged at %d, got %d", tt.initialBps, params.FounderShareBps)
+				}
+				if params.FounderAddress != tt.initialAddr {
+					t.Errorf("expected FounderAddress unchanged at %q, got %q", tt.initialAddr, params.FounderAddress)
+				}
+				return
+			}
 
-	ms := keeper.NewMsgServerImpl(k)
-
-	newParams := types.DefaultParams()
-	newParams.FounderShareBps = 70000
-	newParams.FounderAddress = sdk.AccAddress("new_founder_________").String()
-
-	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
-		Authority: "authority",
-		Params:    newParams,
-	})
-	if err != nil {
-		t.Fatalf("expected initial set to succeed, got: %v", err)
-	}
-
-	// Verify params were set
-	params := k.GetParams(ctx)
-	if params.FounderShareBps != 70000 {
-		t.Errorf("expected FounderShareBps 70000, got %d", params.FounderShareBps)
-	}
-	if params.FounderAddress != newParams.FounderAddress {
-		t.Errorf("expected FounderAddress %s, got %s", newParams.FounderAddress, params.FounderAddress)
-	}
-}
-
-func TestFounderShareImmutability_AllowIdenticalValues(t *testing.T) {
-	bk := newMockBankKeeper()
-	founderAddr := sdk.AccAddress("founder_____________").String()
-	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
-
-	ms := keeper.NewMsgServerImpl(k)
-
-	// Setting the same values should succeed (no change = no violation).
-	newParams := types.DefaultParams()
-	newParams.FounderShareBps = 70000
-	newParams.FounderAddress = founderAddr
-
-	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
-		Authority: "authority",
-		Params:    newParams,
-	})
-	if err != nil {
-		t.Fatalf("expected identical values to succeed, got: %v", err)
+			if err != nil {
+				t.Fatalf("expected success, got: %v", err)
+			}
+			params := k.GetParams(ctx)
+			if params.FounderShareBps != tt.proposedBps {
+				t.Errorf("expected FounderShareBps %d, got %d", tt.proposedBps, params.FounderShareBps)
+			}
+			if params.FounderAddress != tt.proposedAddr {
+				t.Errorf("expected FounderAddress %s, got %s", tt.proposedAddr, params.FounderAddress)
+			}
+		})
 	}
 }
 

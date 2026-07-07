@@ -18,5 +18,6 @@ var (
 	ErrInvalidAccelerationType  = errors.Register(ModuleName, 14, "invalid acceleration type")
 	ErrScheduleAlreadyCompleted = errors.Register(ModuleName, 15, "vesting schedule already completed")
 	ErrNotRecipientOrAuthority  = errors.Register(ModuleName, 16, "sender is not recipient or authority")
-	ErrFounderShareImmutable    = errors.Register(ModuleName, 17, "founder share is governance-immune and cannot be modified")
+	ErrFounderAddressImmutable  = errors.Register(ModuleName, 17, "founder address is immutable once set")
+	ErrFounderShareCapExceeded  = errors.Register(ModuleName, 18, "founder share cannot exceed the founding cap (70000 bps)")
 )
