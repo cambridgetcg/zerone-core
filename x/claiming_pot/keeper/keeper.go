@@ -9,9 +9,12 @@ import (
 
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	"cosmossdk.io/store/prefix"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/claiming_pot/types"
@@ -112,6 +115,50 @@ func (k Keeper) GetNextPotID(ctx context.Context) uint64 {
 	return counter
 }
 
+// ---------- Bootstrap emission accounting ----------
+
+// GetBootstrapMintedEntries returns the number of bootstrap entries ever
+// created (genesis + admissions). Monotonic: pots are never deleted and
+// DEPLETED pots stay in state, so this never decreases.
+func (k Keeper) GetBootstrapMintedEntries(ctx context.Context) uint64 {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz, err := kvStore.Get(types.BootstrapMintedEntriesKey)
+	if err != nil || len(bz) != 8 {
+		return 0
+	}
+	return binary.BigEndian.Uint64(bz)
+}
+
+func (k Keeper) SetBootstrapMintedEntries(ctx context.Context, count uint64) {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz := make([]byte, 8)
+	binary.BigEndian.PutUint64(bz, count)
+	_ = kvStore.Set(types.BootstrapMintedEntriesKey, bz)
+}
+
+// GetBootstrapWindowCount returns the registrar admission count for the
+// given window index. A stored record for a different window reads as 0 —
+// the window has rolled and the counter implicitly resets.
+func (k Keeper) GetBootstrapWindowCount(ctx context.Context, windowIndex uint64) uint64 {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz, err := kvStore.Get(types.BootstrapAdmissionWindowKey)
+	if err != nil || len(bz) != 16 {
+		return 0
+	}
+	if binary.BigEndian.Uint64(bz[:8]) != windowIndex {
+		return 0
+	}
+	return binary.BigEndian.Uint64(bz[8:])
+}
+
+func (k Keeper) SetBootstrapWindowCount(ctx context.Context, windowIndex, count uint64) {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz := make([]byte, 16)
+	binary.BigEndian.PutUint64(bz[:8], windowIndex)
+	binary.BigEndian.PutUint64(bz[8:], count)
+	_ = kvStore.Set(types.BootstrapAdmissionWindowKey, bz)
+}
+
 // ---------- ClaimingPot CRUD ----------
 
 func (k Keeper) SetPot(ctx context.Context, pot *types.ClaimingPot) {
@@ -165,6 +212,46 @@ func (k Keeper) IteratePots(ctx context.Context, cb func(*types.ClaimingPot) boo
 			continue
 		}
 		if cb(&pot) {
+			break
+		}
+	}
+}
+
+// GetPotsPaginated returns one page of pots using standard SDK pagination
+// (nil pageReq → default limit). GetAllPots stays unpaginated for genesis
+// export, which must be exhaustive; queries go through this instead.
+func (k Keeper) GetPotsPaginated(ctx context.Context, pageReq *query.PageRequest) ([]*types.ClaimingPot, *query.PageResponse, error) {
+	adapter := runtime.KVStoreAdapter(k.storeService.OpenKVStore(ctx))
+	potStore := prefix.NewStore(adapter, types.PotKeyPrefix)
+
+	var pots []*types.ClaimingPot
+	pageRes, err := query.Paginate(potStore, pageReq, func(_, value []byte) error {
+		var pot types.ClaimingPot
+		if err := proto.Unmarshal(value, &pot); err != nil {
+			return err
+		}
+		pots = append(pots, &pot)
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return pots, pageRes, nil
+}
+
+// IterateActivePotIDs walks the ActivePotPrefix index only — O(active
+// pots), never touching (or unmarshalling) DEPLETED/EXPIRED pots. The
+// callback returns true to stop.
+func (k Keeper) IterateActivePotIDs(ctx context.Context, cb func(id string) bool) {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	iter, err := kvStore.Iterator(types.ActivePotPrefix, prefixEndBytes(types.ActivePotPrefix))
+	if err != nil {
+		return
+	}
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		id := string(iter.Key()[len(types.ActivePotPrefix):])
+		if cb(id) {
 			break
 		}
 	}
@@ -317,19 +404,33 @@ func CalculateClaimable(pot *types.ClaimingPot, currentBlock uint64) *big.Int {
 // Without this carve-out, the genesis bootstrap pathway is structurally
 // unclaimable — at the start of block 1, BeginBlocker would flip every
 // bootstrap pot to EXPIRED before any MsgClaim tx in block 1 could run.
+// Scale: this runs every block, so it iterates the ActivePotPrefix index
+// ONLY — cost is O(active pots), independent of how many DEPLETED/EXPIRED
+// pots have accumulated. Terminal pots are deliberately KEPT in state:
+// claim idempotency (and AddBootstrapEntry's skip-if-exists) depends on
+// their presence. Bootstrap pots are skipped by ID prefix before any store
+// read of the pot record itself.
 func (k Keeper) ProcessPotExpiry(ctx context.Context, currentBlock uint64) {
-	k.IteratePots(ctx, func(pot *types.ClaimingPot) bool {
-		if pot.Status == types.PotStatus_POT_STATUS_ACTIVE && pot.Schedule != nil {
-			if strings.HasPrefix(pot.Id, types.BootstrapPotIDPrefix) {
-				return false
-			}
-			if currentBlock >= pot.Schedule.EndBlock {
-				pot.Status = types.PotStatus_POT_STATUS_EXPIRED
-				k.SetPot(ctx, pot)
-			}
+	// Collect first, mutate after: SetPot deletes ActivePotPrefix entries,
+	// and deleting under a live iterator over that same prefix is unsafe.
+	var expired []*types.ClaimingPot
+	k.IterateActivePotIDs(ctx, func(id string) bool {
+		if strings.HasPrefix(id, types.BootstrapPotIDPrefix) {
+			return false // participation seeds never auto-expire (see doctrine above)
+		}
+		pot, found := k.GetPot(ctx, id)
+		if !found {
+			return false // tolerate a stale index entry
+		}
+		if pot.Status == types.PotStatus_POT_STATUS_ACTIVE && pot.Schedule != nil && currentBlock >= pot.Schedule.EndBlock {
+			expired = append(expired, pot)
 		}
 		return false
 	})
+	for _, pot := range expired {
+		pot.Status = types.PotStatus_POT_STATUS_EXPIRED
+		k.SetPot(ctx, pot) // also removes the pot from the active index
+	}
 }
 
 // ---------- Genesis ----------
@@ -338,8 +439,19 @@ func (k Keeper) InitGenesis(ctx context.Context, genState *types.GenesisState) {
 	if genState.Params != nil {
 		k.SetParams(ctx, genState.Params)
 	}
+	// Genesis bootstrap pots consume the same lifetime emission budget as
+	// post-genesis admissions, so seed the minted-entries counter from
+	// them. The counter is fully derivable (pots are never deleted), which
+	// keeps export → import round-trips consistent without a genesis field.
+	bootstrapEntries := uint64(0)
 	for _, pot := range genState.Pots {
 		k.SetPot(ctx, pot)
+		if strings.HasPrefix(pot.Id, types.BootstrapPotIDPrefix) {
+			bootstrapEntries++
+		}
+	}
+	if bootstrapEntries > 0 {
+		k.SetBootstrapMintedEntries(ctx, bootstrapEntries)
 	}
 	for _, claim := range genState.Claims {
 		k.SetClaim(ctx, claim)

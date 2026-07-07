@@ -3,6 +3,7 @@ package zerone.claiming_pot.v1;
 option go_package = "github.com/zerone-chain/zerone/x/claiming_pot/types";
 
 import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
 import "zerone/claiming_pot/v1/state.proto";
 
 service Query {
@@ -25,8 +26,13 @@ service Query {
 
 message QueryPotRequest { string id = 1; }
 message QueryPotResponse { ClaimingPot pot = 1; }
-message QueryAllPotsRequest {}
-message QueryAllPotsResponse { repeated ClaimingPot pots = 1; }
+message QueryAllPotsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+message QueryAllPotsResponse {
+  repeated ClaimingPot pots = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
 message QueryClaimableRequest {
   string pot_id = 1;
   string address = 2;

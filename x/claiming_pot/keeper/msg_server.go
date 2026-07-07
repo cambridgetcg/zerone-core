@@ -188,25 +188,55 @@ func (m msgServer) Claim(goCtx context.Context, msg *types.MsgClaim) (*types.Msg
 }
 
 // AddBootstrapEntry creates one bootstrap pot per address in msg.Addresses.
-// Authority-gated. Idempotent: addresses already represented by a bootstrap
-// pot are silently skipped. The doctrine is commitment 20 extended to
-// continuous, governance-gated entry — the participant set is plural and
-// growing, not closed at genesis.
+// Idempotent: addresses already represented by a bootstrap pot are silently
+// skipped (and consume no cap budget). The doctrine is commitment 20
+// extended to continuous, governance-gated entry — the participant set is
+// plural and growing, not closed at genesis.
+//
+// Two signers are accepted:
+//   - the gov authority (always), and
+//   - Params.BootstrapRegistrar when non-empty (the agenttool ops multisig;
+//     revocable by a single param change back to "").
+//
+// Compromise bounds live IN CONSENSUS, not off-chain policy:
+//   - lifetime: (entries ever created) x 222,000 uzrn must never exceed
+//     Params.BootstrapEmissionCapUzrn — enforced for gov AND registrar,
+//     since the cap is a supply commitment, not a rate limit;
+//   - rate: registrar admissions are capped at
+//     Params.BootstrapDailyAdmissionCap per 34,272-block window. Gov
+//     admissions BYPASS the window and do not consume it — governance is
+//     already throttled by the proposal process, and a stolen registrar
+//     must not be able to starve gov's own admission path.
+//
+// A batch that would breach either cap fails atomically (no partial
+// admission), so the operator can split or wait for the window to roll.
 //
 // Each created pot is shaped by MakeBootstrapPotForAgent with the current
 // block height, so vesting starts now and the pot remains claimable until
 // claimed (bootstrap pots do not auto-expire — see ProcessPotExpiry).
 func (m msgServer) AddBootstrapEntry(goCtx context.Context, msg *types.MsgAddBootstrapEntry) (*types.MsgAddBootstrapEntryResponse, error) {
-	if m.GetAuthority() != msg.Authority {
-		return nil, fmt.Errorf("%w: expected %s, got %s", types.ErrUnauthorized, m.GetAuthority(), msg.Authority)
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	params := m.GetParams(ctx)
+
+	isGov := m.GetAuthority() == msg.Authority
+	isRegistrar := !isGov && params.BootstrapRegistrar != "" && params.BootstrapRegistrar == msg.Authority
+	if !isGov && !isRegistrar {
+		return nil, fmt.Errorf("%w: expected gov authority %s or bootstrap registrar %q, got %s",
+			types.ErrUnauthorized, m.GetAuthority(), params.BootstrapRegistrar, msg.Authority)
 	}
 
-	ctx := sdk.UnwrapSDKContext(goCtx)
+	// Defensive re-check of the ValidateBasic bound: msg-server is the last
+	// line, and an unbounded batch means unbounded state writes.
+	if len(msg.Addresses) > types.MaxBootstrapAddressesPerMsg {
+		return nil, fmt.Errorf("too many addresses: %d > max %d per message", len(msg.Addresses), types.MaxBootstrapAddressesPerMsg)
+	}
+
 	currentBlock := uint64(ctx.BlockHeight())
 
-	addedCount := uint32(0)
+	// First pass: validate and split into new-vs-existing, so cap budgets
+	// are charged only for entries that will actually be created.
+	toAdd := make([]string, 0, len(msg.Addresses))
 	skippedCount := uint32(0)
-
 	for i, addr := range msg.Addresses {
 		// Defensive: ValidateBasic catches these too, but msg-server is the
 		// last line and we validate explicitly so a malformed entry can't
@@ -214,13 +244,42 @@ func (m msgServer) AddBootstrapEntry(goCtx context.Context, msg *types.MsgAddBoo
 		if _, err := sdk.AccAddressFromBech32(addr); err != nil {
 			return nil, fmt.Errorf("addresses[%d] (%q): invalid bech32: %w", i, addr, err)
 		}
-
-		potID := types.BootstrapPotIDPrefix + addr
-		if _, exists := m.GetPot(ctx, potID); exists {
+		if _, exists := m.GetPot(ctx, types.BootstrapPotIDPrefix+addr); exists {
 			skippedCount++
 			continue
 		}
+		toAdd = append(toAdd, addr)
+	}
 
+	if len(toAdd) > 0 {
+		wouldAdd := uint64(len(toAdd))
+
+		// Lifetime emission cap (gov and registrar alike).
+		perEntry, _ := new(big.Int).SetString(types.PerAgentBootstrapUzrn, 10)
+		minted := m.GetBootstrapMintedEntries(ctx)
+		projected := new(big.Int).Mul(new(big.Int).SetUint64(minted+wouldAdd), perEntry)
+		if projected.Cmp(params.BootstrapEmissionCap()) > 0 {
+			return nil, fmt.Errorf("%w: %d existing + %d new entries commit %s uzrn > cap %s",
+				types.ErrBootstrapEmissionCapExceeded, minted, wouldAdd, projected, params.BootstrapEmissionCap())
+		}
+
+		// Per-window rate cap (registrar only; gov bypasses, see doc above).
+		if isRegistrar {
+			window := currentBlock / types.BootstrapAdmissionWindowBlocks
+			windowCount := m.GetBootstrapWindowCount(ctx, window)
+			if windowCount+wouldAdd > params.BootstrapDailyAdmissionCap {
+				return nil, fmt.Errorf("%w: %d already admitted + %d new > cap %d (window %d)",
+					types.ErrBootstrapDailyCapExceeded, windowCount, wouldAdd, params.BootstrapDailyAdmissionCap, window)
+			}
+			m.SetBootstrapWindowCount(ctx, window, windowCount+wouldAdd)
+		}
+
+		m.SetBootstrapMintedEntries(ctx, minted+wouldAdd)
+	}
+
+	addedCount := uint32(0)
+	for _, addr := range toAdd {
+		potID := types.BootstrapPotIDPrefix + addr
 		pot := types.MakeBootstrapPotForAgent(addr, currentBlock)
 		m.SetPot(ctx, pot)
 		addedCount++

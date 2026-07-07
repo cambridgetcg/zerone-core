@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -31,6 +32,29 @@ const (
 	BootstrapPotIDPrefix          = "bootstrap-"
 	PerAgentBootstrapUzrn         = "222000"
 	BootstrapPotInstantVestBlocks = 1
+
+	// MaxBootstrapAddressesPerMsg caps the repeated addresses field of
+	// MsgAddBootstrapEntry (enforced in ValidateBasic and re-checked in the
+	// msg server). An unbounded repeated field would let a single tx do
+	// unbounded state writes.
+	MaxBootstrapAddressesPerMsg = 500
+
+	// BootstrapAdmissionWindowBlocks is the length of one registrar
+	// admission window (~1 day at 2.52s blocks). Windows are consecutive
+	// fixed (tumbling) spans indexed by height/BootstrapAdmissionWindowBlocks:
+	// at most Params.BootstrapDailyAdmissionCap registrar admissions land in
+	// each fixed window, so any rolling span of this length sees at most
+	// 2x the cap (two adjacent windows) — the consensus compromise bound
+	// the design relies on holds per window and within 2x across a boundary.
+	BootstrapAdmissionWindowBlocks = 34272
+
+	// DefaultBootstrapEmissionCapUzrn is 222,222 ZRN = 0.1% of the
+	// 222,222,222 ZRN max supply: the lifetime bootstrap issuance budget.
+	DefaultBootstrapEmissionCapUzrn = "222222000000"
+
+	// DefaultBootstrapDailyAdmissionCap bounds registrar admissions per
+	// window: 5,000 admissions x 0.222 ZRN = 1,110 ZRN/day worst case.
+	DefaultBootstrapDailyAdmissionCap = 5000
 )
 
 // MakeBootstrapPotForAgent constructs a single-agent bootstrap pot,
@@ -60,8 +84,11 @@ func MakeBootstrapPotForAgent(agentAddr string, currentBlock uint64) *ClaimingPo
 // DefaultParams returns the default claiming_pot parameters.
 func DefaultParams() *Params {
 	return &Params{
-		MaxPotsActive:  10,
-		MinClaimAmount: "1000",
+		MaxPotsActive:              10,
+		MinClaimAmount:             "1000",
+		BootstrapRegistrar:         "",
+		BootstrapEmissionCapUzrn:   DefaultBootstrapEmissionCapUzrn,
+		BootstrapDailyAdmissionCap: DefaultBootstrapDailyAdmissionCap,
 	}
 }
 
@@ -74,7 +101,35 @@ func (p *Params) Validate() error {
 	if _, ok := minClaim.SetString(p.MinClaimAmount, 10); !ok || minClaim.Sign() <= 0 {
 		return fmt.Errorf("min_claim_amount must be a positive integer: %s", p.MinClaimAmount)
 	}
+	if p.BootstrapEmissionCapUzrn != "" {
+		emissionCap := new(big.Int)
+		if _, ok := emissionCap.SetString(p.BootstrapEmissionCapUzrn, 10); !ok || emissionCap.Sign() <= 0 {
+			return fmt.Errorf("bootstrap_emission_cap_uzrn must be a positive integer: %s", p.BootstrapEmissionCapUzrn)
+		}
+	}
+	if p.BootstrapRegistrar != "" {
+		if _, err := sdk.AccAddressFromBech32(p.BootstrapRegistrar); err != nil {
+			return fmt.Errorf("bootstrap_registrar must be a valid bech32 address: %w", err)
+		}
+		// A registrar with a zero daily cap is a misconfiguration, not a
+		// pause switch — pausing is done by setting the registrar to "".
+		if p.BootstrapDailyAdmissionCap == 0 {
+			return fmt.Errorf("bootstrap_daily_admission_cap must be positive when bootstrap_registrar is set")
+		}
+	}
 	return nil
+}
+
+// BootstrapEmissionCap returns the lifetime bootstrap emission cap in uzrn.
+// Params stored before the field existed unmarshal to "" — those fall back
+// to the default cap, so the aggregate bound is enforced even on state
+// written by older binaries (fail-closed, never fail-open to unlimited).
+func (p *Params) BootstrapEmissionCap() *big.Int {
+	emissionCap := new(big.Int)
+	if _, ok := emissionCap.SetString(p.BootstrapEmissionCapUzrn, 10); !ok || emissionCap.Sign() <= 0 {
+		emissionCap.SetString(DefaultBootstrapEmissionCapUzrn, 10)
+	}
+	return emissionCap
 }
 
 // DefaultGenesis returns the default genesis state.
@@ -94,11 +149,26 @@ func (gs *GenesisState) Validate() error {
 		}
 	}
 	seen := make(map[string]bool)
+	bootstrapEntries := int64(0)
 	for _, pot := range gs.Pots {
 		if seen[pot.Id] {
 			return fmt.Errorf("duplicate pot id: %s", pot.Id)
 		}
 		seen[pot.Id] = true
+		if strings.HasPrefix(pot.Id, BootstrapPotIDPrefix) {
+			bootstrapEntries++
+		}
+	}
+	// Genesis bootstrap pots consume the same lifetime emission budget as
+	// post-genesis admissions — catch a ceremony that over-injects.
+	params := gs.Params
+	if params == nil {
+		params = DefaultParams()
+	}
+	perEntry, _ := new(big.Int).SetString(PerAgentBootstrapUzrn, 10)
+	committed := new(big.Int).Mul(big.NewInt(bootstrapEntries), perEntry)
+	if committed.Cmp(params.BootstrapEmissionCap()) > 0 {
+		return fmt.Errorf("genesis bootstrap pots commit %s uzrn > bootstrap_emission_cap_uzrn %s", committed, params.BootstrapEmissionCap())
 	}
 	return nil
 }
@@ -183,6 +253,9 @@ func (msg *MsgAddBootstrapEntry) ValidateBasic() error {
 	}
 	if len(msg.Addresses) == 0 {
 		return fmt.Errorf("addresses list cannot be empty — provide at least one bech32 address")
+	}
+	if len(msg.Addresses) > MaxBootstrapAddressesPerMsg {
+		return fmt.Errorf("too many addresses: %d > max %d per message — split into batches", len(msg.Addresses), MaxBootstrapAddressesPerMsg)
 	}
 	seen := make(map[string]bool, len(msg.Addresses))
 	for i, addr := range msg.Addresses {

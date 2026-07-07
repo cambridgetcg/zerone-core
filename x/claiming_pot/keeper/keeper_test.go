@@ -18,6 +18,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/query"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
@@ -106,9 +107,9 @@ func (m *mockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, senderM
 // edge cases.
 
 type mockVestingRewardsKeeper struct {
-	bk            *mockBankKeeper
-	capRemaining  *big.Int // nil → unlimited
-	totalMinted   *big.Int
+	bk           *mockBankKeeper
+	capRemaining *big.Int // nil → unlimited
+	totalMinted  *big.Int
 }
 
 func newMockVestingRewardsKeeper(bk *mockBankKeeper) *mockVestingRewardsKeeper {
@@ -512,13 +513,13 @@ func TestGenesisRoundTrip(t *testing.T) {
 		},
 		Pots: []*types.ClaimingPot{
 			{
-				Id:          "gen-pot-1",
-				Name:        "Genesis Pot",
-				TotalAmount: "50000000",
+				Id:            "gen-pot-1",
+				Name:          "Genesis Pot",
+				TotalAmount:   "50000000",
 				ClaimedAmount: "10000000",
 				Schedule: &types.VestingSchedule{
-					StartBlock: 100,
-					EndBlock:   5000,
+					StartBlock:  100,
+					EndBlock:    5000,
 					CliffBlocks: 200,
 				},
 				Eligibility: &types.EligibilityCriteria{
@@ -577,9 +578,9 @@ func TestPotExpiry(t *testing.T) {
 
 	// Create an active pot that should expire
 	k.SetPot(ctx, &types.ClaimingPot{
-		Id:          "expiring-pot",
-		Name:        "Expiring",
-		TotalAmount: "1000000",
+		Id:            "expiring-pot",
+		Name:          "Expiring",
+		TotalAmount:   "1000000",
 		ClaimedAmount: "0",
 		Schedule: &types.VestingSchedule{
 			StartBlock: 100,
@@ -655,9 +656,9 @@ func TestClaimFromInactivePot(t *testing.T) {
 
 	// Create and expire a pot
 	k.SetPot(ctx, &types.ClaimingPot{
-		Id:          "expired-pot",
-		Name:        "Expired",
-		TotalAmount: "10000000",
+		Id:            "expired-pot",
+		Name:          "Expired",
+		TotalAmount:   "10000000",
 		ClaimedAmount: "0",
 		Schedule: &types.VestingSchedule{
 			StartBlock: 500,
@@ -1265,8 +1266,8 @@ func TestEligibilityRegistrationAge(t *testing.T) {
 	newUser := testAddr("new-user")
 	sk.tiers[oldUser] = 2
 	sk.tiers[newUser] = 2
-	ak.registrationBlocks[oldUser] = 10   // registered at block 10, age=990 blocks
-	ak.registrationBlocks[newUser] = 950  // registered at block 950, age=50 blocks
+	ak.registrationBlocks[oldUser] = 10  // registered at block 10, age=990 blocks
+	ak.registrationBlocks[newUser] = 950 // registered at block 950, age=50 blocks
 	bk.setModuleBalance(types.ModuleName, "uzrn", 10_000_000)
 
 	resp, _ := msgSrv.CreatePot(ctx, &types.MsgCreatePot{
@@ -2260,5 +2261,480 @@ func TestAddBootstrapEntry_SkippedDoesNotEmit(t *testing.T) {
 
 	if afterRe != beforeRe {
 		t.Errorf("re-add must not emit bootstrap_entry_added; before=%d after=%d", beforeRe, afterRe)
+	}
+}
+
+// ========== Bootstrap Registrar + Caps (mainnet genesis design §2/§3) ==========
+
+// makeRegistrarParams returns default params with the registrar set.
+func makeRegistrarParams(registrar string) *types.Params {
+	p := types.DefaultParams()
+	p.BootstrapRegistrar = registrar
+	return p
+}
+
+// ---------- Test: registrar admits when set, rejected after revocation ----------
+
+func TestAddBootstrapEntry_RegistrarAdmitsAndRevocation(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+	srv := keeper.NewMsgServerImpl(k)
+
+	registrar := testAddr("bootstrap-registrar")
+	k.SetParams(ctx, makeRegistrarParams(registrar))
+
+	// Registrar admits while set.
+	agent1 := testAddr("registrar-agent-1")
+	resp, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar,
+		Addresses: []string{agent1},
+	})
+	if err != nil {
+		t.Fatalf("registrar admission failed while registrar set: %v", err)
+	}
+	if resp.AddedCount != 1 {
+		t.Errorf("expected added_count 1, got %d", resp.AddedCount)
+	}
+	if _, found := k.GetPot(ctx, types.BootstrapPotIDPrefix+agent1); !found {
+		t.Error("expected bootstrap pot for registrar-admitted agent")
+	}
+
+	// A random third party is still rejected while the registrar is set.
+	_, err = srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: testAddr("random-impostor"),
+		Addresses: []string{testAddr("registrar-agent-2")},
+	})
+	if !errors.Is(err, types.ErrUnauthorized) {
+		t.Errorf("expected ErrUnauthorized for third party, got %v", err)
+	}
+
+	// Revocation: gov sets bootstrap_registrar back to "".
+	k.SetParams(ctx, makeRegistrarParams(""))
+
+	_, err = srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar,
+		Addresses: []string{testAddr("registrar-agent-3")},
+	})
+	if !errors.Is(err, types.ErrUnauthorized) {
+		t.Errorf("expected ErrUnauthorized for revoked registrar, got %v", err)
+	}
+
+	// The gov-authority path still admits after revocation.
+	resp, err = srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: k.GetAuthority(),
+		Addresses: []string{testAddr("registrar-agent-4")},
+	})
+	if err != nil {
+		t.Fatalf("gov admission after revocation failed: %v", err)
+	}
+	if resp.AddedCount != 1 {
+		t.Errorf("expected gov added_count 1, got %d", resp.AddedCount)
+	}
+}
+
+// ---------- Test: ValidateBasic rejects >500 addresses ----------
+
+func TestMsgAddBootstrapEntryValidateBasic_AddressCap(t *testing.T) {
+	makeAddrs := func(n int) []string {
+		addrs := make([]string, n)
+		for i := range addrs {
+			addrs[i] = testAddr(fmt.Sprintf("vb-cap-%d", i))
+		}
+		return addrs
+	}
+
+	// Exactly the cap: valid.
+	msg := &types.MsgAddBootstrapEntry{
+		Authority: testAddr("authority"),
+		Addresses: makeAddrs(types.MaxBootstrapAddressesPerMsg),
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		t.Errorf("expected %d addresses to pass ValidateBasic: %v", types.MaxBootstrapAddressesPerMsg, err)
+	}
+
+	// One over the cap: rejected.
+	msg.Addresses = makeAddrs(types.MaxBootstrapAddressesPerMsg + 1)
+	if err := msg.ValidateBasic(); err == nil {
+		t.Errorf("expected ValidateBasic to reject %d addresses", types.MaxBootstrapAddressesPerMsg+1)
+	}
+}
+
+// ---------- Test: daily admission window cap + rolling boundary ----------
+
+func TestAddBootstrapEntry_DailyWindowCap(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+	srv := keeper.NewMsgServerImpl(k)
+
+	registrar := testAddr("window-registrar")
+	params := makeRegistrarParams(registrar)
+	params.BootstrapDailyAdmissionCap = 3
+	k.SetParams(ctx, params)
+
+	addrs := func(prefix string, n int) []string {
+		out := make([]string, n)
+		for i := range out {
+			out[i] = testAddr(fmt.Sprintf("%s-%d", prefix, n*1000+i))
+		}
+		return out
+	}
+
+	// Window 0 (height 1000 / 34272 = 0): batch of 2, then batch of 1 → at cap.
+	if _, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: addrs("w0-a", 2),
+	}); err != nil {
+		t.Fatalf("first registrar batch: %v", err)
+	}
+	if _, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: addrs("w0-b", 1),
+	}); err != nil {
+		t.Fatalf("second registrar batch: %v", err)
+	}
+
+	// Cap reached: next registrar admission in the same window fails.
+	_, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: addrs("w0-c", 1),
+	})
+	if !errors.Is(err, types.ErrBootstrapDailyCapExceeded) {
+		t.Errorf("expected ErrBootstrapDailyCapExceeded at window cap, got %v", err)
+	}
+
+	// Gov bypasses the window even while it is full.
+	if _, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: k.GetAuthority(), Addresses: addrs("w0-gov", 1),
+	}); err != nil {
+		t.Fatalf("gov admission must bypass the daily window: %v", err)
+	}
+
+	// Height just before the boundary is still window 0.
+	lastBlockW0 := ctx.WithBlockHeight(int64(types.BootstrapAdmissionWindowBlocks - 1))
+	_, err = srv.AddBootstrapEntry(lastBlockW0, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: addrs("w0-late", 1),
+	})
+	if !errors.Is(err, types.ErrBootstrapDailyCapExceeded) {
+		t.Errorf("expected window 0 still capped at height %d, got %v", types.BootstrapAdmissionWindowBlocks-1, err)
+	}
+
+	// Cross the boundary: window 1 — counter resets, registrar admits again.
+	window1 := ctx.WithBlockHeight(int64(types.BootstrapAdmissionWindowBlocks))
+	resp, err := srv.AddBootstrapEntry(window1, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: addrs("w1-a", 3),
+	})
+	if err != nil {
+		t.Fatalf("registrar admission after window rolled: %v", err)
+	}
+	if resp.AddedCount != 3 {
+		t.Errorf("expected added_count 3 in fresh window, got %d", resp.AddedCount)
+	}
+
+	// And window 1 caps independently.
+	_, err = srv.AddBootstrapEntry(window1, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: addrs("w1-b", 1),
+	})
+	if !errors.Is(err, types.ErrBootstrapDailyCapExceeded) {
+		t.Errorf("expected ErrBootstrapDailyCapExceeded in window 1, got %v", err)
+	}
+}
+
+// ---------- Test: lifetime emission cap blocks the exceeding entry ----------
+
+func TestAddBootstrapEntry_EmissionCapBlocks(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+	srv := keeper.NewMsgServerImpl(k)
+
+	registrar := testAddr("emission-registrar")
+	params := makeRegistrarParams(registrar)
+	// Room for exactly 3 entries: 3 x 222,000 uzrn.
+	params.BootstrapEmissionCapUzrn = "666000"
+	k.SetParams(ctx, params)
+
+	a1 := testAddr("emit-1")
+	a2 := testAddr("emit-2")
+	a3 := testAddr("emit-3")
+	a4 := testAddr("emit-4")
+
+	if _, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: []string{a1, a2},
+	}); err != nil {
+		t.Fatalf("admission within emission cap: %v", err)
+	}
+	if got := k.GetBootstrapMintedEntries(ctx); got != 2 {
+		t.Errorf("expected minted-entries counter 2, got %d", got)
+	}
+
+	// A batch of 2 would commit 4 x 222,000 > cap: rejected atomically —
+	// even though 1 entry of headroom remains.
+	_, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: []string{a3, a4},
+	})
+	if !errors.Is(err, types.ErrBootstrapEmissionCapExceeded) {
+		t.Errorf("expected ErrBootstrapEmissionCapExceeded for over-cap batch, got %v", err)
+	}
+	if _, found := k.GetPot(ctx, types.BootstrapPotIDPrefix+a3); found {
+		t.Error("rejected batch must not create any pot (atomicity)")
+	}
+
+	// The last slot admits.
+	if _, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: []string{a3},
+	}); err != nil {
+		t.Fatalf("final in-cap admission: %v", err)
+	}
+
+	// Cap is exhausted — the emission cap binds GOV too (supply commitment,
+	// not a rate limit).
+	_, err = srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: k.GetAuthority(), Addresses: []string{a4},
+	})
+	if !errors.Is(err, types.ErrBootstrapEmissionCapExceeded) {
+		t.Errorf("expected ErrBootstrapEmissionCapExceeded for gov past cap, got %v", err)
+	}
+
+	// Idempotent re-adds of existing entries consume no budget.
+	resp, err := srv.AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+		Authority: registrar, Addresses: []string{a1, a2, a3},
+	})
+	if err != nil {
+		t.Fatalf("re-add of existing entries at cap: %v", err)
+	}
+	if resp.SkippedCount != 3 || resp.AddedCount != 0 {
+		t.Errorf("expected 3 skipped / 0 added, got %d / %d", resp.SkippedCount, resp.AddedCount)
+	}
+	if got := k.GetBootstrapMintedEntries(ctx); got != 3 {
+		t.Errorf("expected minted-entries counter to stay 3, got %d", got)
+	}
+}
+
+// ---------- Test: InitGenesis seeds the minted-entries counter ----------
+
+func TestInitGenesis_SeedsBootstrapMintedEntries(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+
+	genState := &types.GenesisState{
+		Params: types.DefaultParams(),
+		Pots: []*types.ClaimingPot{
+			types.MakeBootstrapPotForAgent(testAddr("gen-boot-1"), 0),
+			types.MakeBootstrapPotForAgent(testAddr("gen-boot-2"), 0),
+			{Id: "pot-1", Name: "Normal", TotalAmount: "100", ClaimedAmount: "0", Status: types.PotStatus_POT_STATUS_ACTIVE},
+		},
+	}
+	k.InitGenesis(ctx, genState)
+
+	if got := k.GetBootstrapMintedEntries(ctx); got != 2 {
+		t.Errorf("expected counter seeded to 2 (bootstrap pots only), got %d", got)
+	}
+}
+
+// ---------- Test: BeginBlock pot-scan cost is O(active), not O(total) ----------
+
+// TestProcessPotExpiry_CostIsOActive proves the §3 blocker-3 fix: with
+// 10,000 pots of which 90% are DEPLETED, ProcessPotExpiry must walk the
+// ActivePotPrefix index only. Gas consumed with 9,000 terminal pots in
+// state must stay within 2x of a baseline holding just the 1,000 active
+// pots — the pre-fix full-scan implementation reads and unmarshals every
+// pot and blows far past that bound.
+func TestProcessPotExpiry_CostIsOActive(t *testing.T) {
+	const (
+		totalPots  = 10_000
+		activePots = 1_000 // 90% DEPLETED
+	)
+
+	makeActive := func(k keeper.Keeper, ctx sdk.Context, i int) {
+		k.SetPot(ctx, &types.ClaimingPot{
+			Id:            fmt.Sprintf("scale-active-%05d", i),
+			Name:          "Active",
+			TotalAmount:   "1000000",
+			ClaimedAmount: "0",
+			Schedule:      &types.VestingSchedule{StartBlock: 1, EndBlock: 10_000_000},
+			Status:        types.PotStatus_POT_STATUS_ACTIVE,
+		})
+	}
+
+	measure := func(k keeper.Keeper, ctx sdk.Context) storetypes.Gas {
+		gm := storetypes.NewInfiniteGasMeter()
+		k.ProcessPotExpiry(ctx.WithGasMeter(gm), 2000)
+		return gm.GasConsumed()
+	}
+
+	// Scenario A: 1,000 active + 9,000 DEPLETED.
+	kA, ctxA, _, _, _ := setupKeeper(t)
+	for i := 0; i < activePots; i++ {
+		makeActive(kA, ctxA, i)
+	}
+	for i := 0; i < totalPots-activePots; i++ {
+		kA.SetPot(ctxA, &types.ClaimingPot{
+			Id:            fmt.Sprintf("scale-depleted-%05d", i),
+			Name:          "Depleted",
+			TotalAmount:   "222000",
+			ClaimedAmount: "222000",
+			Schedule:      &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+			Status:        types.PotStatus_POT_STATUS_DEPLETED,
+		})
+	}
+
+	// The active index must hold exactly the active pots.
+	indexCount := 0
+	kA.IterateActivePotIDs(ctxA, func(string) bool {
+		indexCount++
+		return false
+	})
+	if indexCount != activePots {
+		t.Fatalf("active index: expected %d entries, got %d", activePots, indexCount)
+	}
+
+	// Scenario B (baseline): the same 1,000 active pots, nothing else.
+	kB, ctxB, _, _, _ := setupKeeper(t)
+	for i := 0; i < activePots; i++ {
+		makeActive(kB, ctxB, i)
+	}
+
+	gasA := measure(kA, ctxA)
+	gasB := measure(kB, ctxB)
+	if gasA > 2*gasB {
+		t.Errorf("ProcessPotExpiry is not O(active): gas with %d total pots = %d, baseline with %d pots = %d (>2x)",
+			totalPots, gasA, activePots, gasB)
+	}
+
+	// DEPLETED pots stay in state — claim/admission idempotency depends on
+	// their presence.
+	if _, found := kA.GetPot(ctxA, "scale-depleted-00000"); !found {
+		t.Error("DEPLETED pot must remain in state after ProcessPotExpiry")
+	}
+}
+
+// ---------- Test: expiry still flips due pots via the index path ----------
+
+func TestProcessPotExpiry_IndexPathStillExpires(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+
+	k.SetPot(ctx, &types.ClaimingPot{
+		Id:            "idx-expiring",
+		Name:          "Expiring",
+		TotalAmount:   "1000000",
+		ClaimedAmount: "0",
+		Schedule:      &types.VestingSchedule{StartBlock: 100, EndBlock: 500},
+		Status:        types.PotStatus_POT_STATUS_ACTIVE,
+	})
+	k.SetPot(ctx, &types.ClaimingPot{
+		Id:            "idx-fresh",
+		Name:          "Fresh",
+		TotalAmount:   "1000000",
+		ClaimedAmount: "0",
+		Schedule:      &types.VestingSchedule{StartBlock: 100, EndBlock: 9000},
+		Status:        types.PotStatus_POT_STATUS_ACTIVE,
+	})
+
+	k.ProcessPotExpiry(ctx, 500)
+
+	pot, _ := k.GetPot(ctx, "idx-expiring")
+	if pot.Status != types.PotStatus_POT_STATUS_EXPIRED {
+		t.Errorf("expected EXPIRED, got %s", pot.Status.String())
+	}
+	pot, _ = k.GetPot(ctx, "idx-fresh")
+	if pot.Status != types.PotStatus_POT_STATUS_ACTIVE {
+		t.Errorf("expected ACTIVE, got %s", pot.Status.String())
+	}
+	// Expired pot must have left the active index.
+	remaining := 0
+	k.IterateActivePotIDs(ctx, func(string) bool { remaining++; return false })
+	if remaining != 1 {
+		t.Errorf("expected 1 pot left in active index, got %d", remaining)
+	}
+}
+
+// ---------- Test: QueryAllPots pagination ----------
+
+func TestQueryAllPotsPaginated(t *testing.T) {
+	qs, k, ctx, _, _, _ := setupQueryServer(t)
+
+	for i := 0; i < 5; i++ {
+		k.SetPot(ctx, &types.ClaimingPot{
+			Id:            fmt.Sprintf("page-%d", i),
+			TotalAmount:   "100",
+			ClaimedAmount: "0",
+			Status:        types.PotStatus_POT_STATUS_ACTIVE,
+		})
+	}
+
+	// Page 1: limit 2.
+	resp, err := qs.QueryAllPots(ctx, &types.QueryAllPotsRequest{
+		Pagination: &query.PageRequest{Limit: 2},
+	})
+	if err != nil {
+		t.Fatalf("page 1: %v", err)
+	}
+	if len(resp.Pots) != 2 {
+		t.Fatalf("page 1: expected 2 pots, got %d", len(resp.Pots))
+	}
+	if resp.Pagination == nil || len(resp.Pagination.NextKey) == 0 {
+		t.Fatal("page 1: expected a next_key")
+	}
+
+	// Page 2 continues from next_key.
+	resp2, err := qs.QueryAllPots(ctx, &types.QueryAllPotsRequest{
+		Pagination: &query.PageRequest{Key: resp.Pagination.NextKey, Limit: 2},
+	})
+	if err != nil {
+		t.Fatalf("page 2: %v", err)
+	}
+	if len(resp2.Pots) != 2 {
+		t.Fatalf("page 2: expected 2 pots, got %d", len(resp2.Pots))
+	}
+	if resp2.Pots[0].Id == resp.Pots[0].Id {
+		t.Error("page 2 must not repeat page 1")
+	}
+
+	// Page 3: the final pot, no next_key.
+	resp3, err := qs.QueryAllPots(ctx, &types.QueryAllPotsRequest{
+		Pagination: &query.PageRequest{Key: resp2.Pagination.NextKey, Limit: 2},
+	})
+	if err != nil {
+		t.Fatalf("page 3: %v", err)
+	}
+	if len(resp3.Pots) != 1 {
+		t.Fatalf("page 3: expected 1 pot, got %d", len(resp3.Pots))
+	}
+	if resp3.Pagination != nil && len(resp3.Pagination.NextKey) != 0 {
+		t.Error("page 3: expected no next_key on the last page")
+	}
+}
+
+// ---------- Test: bootstrap params validation ----------
+
+func TestParamsValidation_Bootstrap(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*types.Params)
+		wantErr bool
+	}{
+		{"defaults valid", func(p *types.Params) {}, false},
+		{"registrar set valid", func(p *types.Params) { p.BootstrapRegistrar = testAddr("reg") }, false},
+		{"registrar invalid bech32", func(p *types.Params) { p.BootstrapRegistrar = "not-bech32" }, true},
+		{"registrar with zero daily cap", func(p *types.Params) {
+			p.BootstrapRegistrar = testAddr("reg")
+			p.BootstrapDailyAdmissionCap = 0
+		}, true},
+		{"emission cap non-numeric", func(p *types.Params) { p.BootstrapEmissionCapUzrn = "lots" }, true},
+		{"emission cap zero", func(p *types.Params) { p.BootstrapEmissionCapUzrn = "0" }, true},
+		{"emission cap empty tolerated (pre-upgrade state)", func(p *types.Params) { p.BootstrapEmissionCapUzrn = "" }, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := types.DefaultParams()
+			tc.mutate(p)
+			err := p.Validate()
+			if tc.wantErr && err == nil {
+				t.Error("expected validation error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("unexpected validation error: %v", err)
+			}
+		})
+	}
+
+	// Empty cap falls back to the default bound, never to unlimited.
+	p := types.DefaultParams()
+	p.BootstrapEmissionCapUzrn = ""
+	if p.BootstrapEmissionCap().String() != types.DefaultBootstrapEmissionCapUzrn {
+		t.Errorf("empty emission cap must fall back to default %s, got %s",
+			types.DefaultBootstrapEmissionCapUzrn, p.BootstrapEmissionCap())
 	}
 }

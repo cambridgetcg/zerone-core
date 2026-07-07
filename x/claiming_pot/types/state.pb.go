@@ -373,8 +373,23 @@ type Params struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	MaxPotsActive  uint32                 `protobuf:"varint,1,opt,name=max_pots_active,json=maxPotsActive,proto3" json:"max_pots_active,omitempty"`   // default: 10
 	MinClaimAmount string                 `protobuf:"bytes,2,opt,name=min_claim_amount,json=minClaimAmount,proto3" json:"min_claim_amount,omitempty"` // default: "1000" uzrn
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// bootstrap_registrar is an optional bech32 account (e.g. the agenttool
+	// 2-of-3 ops multisig) accepted alongside the gov authority as the signer
+	// of MsgAddBootstrapEntry. Empty string (default) disables the registrar
+	// pathway — governance remains the only admitter. Revocation is a single
+	// param change setting this back to "".
+	BootstrapRegistrar string `protobuf:"bytes,3,opt,name=bootstrap_registrar,json=bootstrapRegistrar,proto3" json:"bootstrap_registrar,omitempty"` // default: ""
+	// bootstrap_emission_cap_uzrn is the lifetime cap on total bootstrap
+	// issuance: (bootstrap entries ever created) x 222,000 uzrn must never
+	// exceed this value. Applies to gov-authority AND registrar admissions.
+	BootstrapEmissionCapUzrn string `protobuf:"bytes,4,opt,name=bootstrap_emission_cap_uzrn,json=bootstrapEmissionCapUzrn,proto3" json:"bootstrap_emission_cap_uzrn,omitempty"` // default: "222222000000" (222,222 ZRN = 0.1% of max supply)
+	// bootstrap_daily_admission_cap is the maximum number of registrar
+	// admissions per 34,272-block window (~1 day). Gov-authority admissions
+	// bypass this window (they remain bounded by the emission cap and the
+	// governance process itself).
+	BootstrapDailyAdmissionCap uint64 `protobuf:"varint,5,opt,name=bootstrap_daily_admission_cap,json=bootstrapDailyAdmissionCap,proto3" json:"bootstrap_daily_admission_cap,omitempty"` // default: 5000
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -421,6 +436,27 @@ func (x *Params) GetMinClaimAmount() string {
 	return ""
 }
 
+func (x *Params) GetBootstrapRegistrar() string {
+	if x != nil {
+		return x.BootstrapRegistrar
+	}
+	return ""
+}
+
+func (x *Params) GetBootstrapEmissionCapUzrn() string {
+	if x != nil {
+		return x.BootstrapEmissionCapUzrn
+	}
+	return ""
+}
+
+func (x *Params) GetBootstrapDailyAdmissionCap() uint64 {
+	if x != nil {
+		return x.BootstrapDailyAdmissionCap
+	}
+	return 0
+}
+
 var File_zerone_claiming_pot_v1_state_proto protoreflect.FileDescriptor
 
 const file_zerone_claiming_pot_v1_state_proto_rawDesc = "" +
@@ -450,10 +486,13 @@ const file_zerone_claiming_pot_v1_state_proto_rawDesc = "" +
 	"\x13EligibilityCriteria\x12(\n" +
 	"\x10min_staking_tier\x18\x01 \x01(\rR\x0eminStakingTier\x120\n" +
 	"\x14min_registration_age\x18\x02 \x01(\x04R\x12minRegistrationAge\x12\x1c\n" +
-	"\twhitelist\x18\x03 \x03(\tR\twhitelist\"Z\n" +
+	"\twhitelist\x18\x03 \x03(\tR\twhitelist\"\x8d\x02\n" +
 	"\x06Params\x12&\n" +
 	"\x0fmax_pots_active\x18\x01 \x01(\rR\rmaxPotsActive\x12(\n" +
-	"\x10min_claim_amount\x18\x02 \x01(\tR\x0eminClaimAmount*o\n" +
+	"\x10min_claim_amount\x18\x02 \x01(\tR\x0eminClaimAmount\x12/\n" +
+	"\x13bootstrap_registrar\x18\x03 \x01(\tR\x12bootstrapRegistrar\x12=\n" +
+	"\x1bbootstrap_emission_cap_uzrn\x18\x04 \x01(\tR\x18bootstrapEmissionCapUzrn\x12A\n" +
+	"\x1dbootstrap_daily_admission_cap\x18\x05 \x01(\x04R\x1abootstrapDailyAdmissionCap*o\n" +
 	"\tPotStatus\x12\x1a\n" +
 	"\x16POT_STATUS_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11POT_STATUS_ACTIVE\x10\x01\x12\x17\n" +

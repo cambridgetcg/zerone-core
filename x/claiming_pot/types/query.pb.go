@@ -7,6 +7,7 @@
 package types
 
 import (
+	query "github.com/cosmos/cosmos-sdk/types/query"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -112,6 +113,7 @@ func (x *QueryPotResponse) GetPot() *ClaimingPot {
 
 type QueryAllPotsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pagination    *query.PageRequest     `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -146,9 +148,17 @@ func (*QueryAllPotsRequest) Descriptor() ([]byte, []int) {
 	return file_zerone_claiming_pot_v1_query_proto_rawDescGZIP(), []int{2}
 }
 
+func (x *QueryAllPotsRequest) GetPagination() *query.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryAllPotsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pots          []*ClaimingPot         `protobuf:"bytes,1,rep,name=pots,proto3" json:"pots,omitempty"`
+	Pagination    *query.PageResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -186,6 +196,13 @@ func (*QueryAllPotsResponse) Descriptor() ([]byte, []int) {
 func (x *QueryAllPotsResponse) GetPots() []*ClaimingPot {
 	if x != nil {
 		return x.Pots
+	}
+	return nil
+}
+
+func (x *QueryAllPotsResponse) GetPagination() *query.PageResponse {
+	if x != nil {
+		return x.Pagination
 	}
 	return nil
 }
@@ -458,14 +475,20 @@ var File_zerone_claiming_pot_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_claiming_pot_v1_query_proto_rawDesc = "" +
 	"\n" +
-	"\"zerone/claiming_pot/v1/query.proto\x12\x16zerone.claiming_pot.v1\x1a\x1cgoogle/api/annotations.proto\x1a\"zerone/claiming_pot/v1/state.proto\"!\n" +
+	"\"zerone/claiming_pot/v1/query.proto\x12\x16zerone.claiming_pot.v1\x1a\x1cgoogle/api/annotations.proto\x1a*cosmos/base/query/v1beta1/pagination.proto\x1a\"zerone/claiming_pot/v1/state.proto\"!\n" +
 	"\x0fQueryPotRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"I\n" +
 	"\x10QueryPotResponse\x125\n" +
-	"\x03pot\x18\x01 \x01(\v2#.zerone.claiming_pot.v1.ClaimingPotR\x03pot\"\x15\n" +
-	"\x13QueryAllPotsRequest\"O\n" +
+	"\x03pot\x18\x01 \x01(\v2#.zerone.claiming_pot.v1.ClaimingPotR\x03pot\"]\n" +
+	"\x13QueryAllPotsRequest\x12F\n" +
+	"\n" +
+	"pagination\x18\x01 \x01(\v2&.cosmos.base.query.v1beta1.PageRequestR\n" +
+	"pagination\"\x98\x01\n" +
 	"\x14QueryAllPotsResponse\x127\n" +
-	"\x04pots\x18\x01 \x03(\v2#.zerone.claiming_pot.v1.ClaimingPotR\x04pots\"H\n" +
+	"\x04pots\x18\x01 \x03(\v2#.zerone.claiming_pot.v1.ClaimingPotR\x04pots\x12G\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2'.cosmos.base.query.v1beta1.PageResponseR\n" +
+	"pagination\"H\n" +
 	"\x15QueryClaimableRequest\x12\x15\n" +
 	"\x06pot_id\x18\x01 \x01(\tR\x05potId\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\tR\aaddress\"0\n" +
@@ -510,29 +533,33 @@ var file_zerone_claiming_pot_v1_query_proto_goTypes = []any{
 	(*QueryParamsRequest)(nil),     // 8: zerone.claiming_pot.v1.QueryParamsRequest
 	(*QueryParamsResponse)(nil),    // 9: zerone.claiming_pot.v1.QueryParamsResponse
 	(*ClaimingPot)(nil),            // 10: zerone.claiming_pot.v1.ClaimingPot
-	(*Claim)(nil),                  // 11: zerone.claiming_pot.v1.Claim
-	(*Params)(nil),                 // 12: zerone.claiming_pot.v1.Params
+	(*query.PageRequest)(nil),      // 11: cosmos.base.query.v1beta1.PageRequest
+	(*query.PageResponse)(nil),     // 12: cosmos.base.query.v1beta1.PageResponse
+	(*Claim)(nil),                  // 13: zerone.claiming_pot.v1.Claim
+	(*Params)(nil),                 // 14: zerone.claiming_pot.v1.Params
 }
 var file_zerone_claiming_pot_v1_query_proto_depIdxs = []int32{
 	10, // 0: zerone.claiming_pot.v1.QueryPotResponse.pot:type_name -> zerone.claiming_pot.v1.ClaimingPot
-	10, // 1: zerone.claiming_pot.v1.QueryAllPotsResponse.pots:type_name -> zerone.claiming_pot.v1.ClaimingPot
-	11, // 2: zerone.claiming_pot.v1.QueryClaimsResponse.claims:type_name -> zerone.claiming_pot.v1.Claim
-	12, // 3: zerone.claiming_pot.v1.QueryParamsResponse.params:type_name -> zerone.claiming_pot.v1.Params
-	0,  // 4: zerone.claiming_pot.v1.Query.QueryPot:input_type -> zerone.claiming_pot.v1.QueryPotRequest
-	2,  // 5: zerone.claiming_pot.v1.Query.QueryAllPots:input_type -> zerone.claiming_pot.v1.QueryAllPotsRequest
-	4,  // 6: zerone.claiming_pot.v1.Query.QueryClaimable:input_type -> zerone.claiming_pot.v1.QueryClaimableRequest
-	6,  // 7: zerone.claiming_pot.v1.Query.QueryClaims:input_type -> zerone.claiming_pot.v1.QueryClaimsRequest
-	8,  // 8: zerone.claiming_pot.v1.Query.QueryParams:input_type -> zerone.claiming_pot.v1.QueryParamsRequest
-	1,  // 9: zerone.claiming_pot.v1.Query.QueryPot:output_type -> zerone.claiming_pot.v1.QueryPotResponse
-	3,  // 10: zerone.claiming_pot.v1.Query.QueryAllPots:output_type -> zerone.claiming_pot.v1.QueryAllPotsResponse
-	5,  // 11: zerone.claiming_pot.v1.Query.QueryClaimable:output_type -> zerone.claiming_pot.v1.QueryClaimableResponse
-	7,  // 12: zerone.claiming_pot.v1.Query.QueryClaims:output_type -> zerone.claiming_pot.v1.QueryClaimsResponse
-	9,  // 13: zerone.claiming_pot.v1.Query.QueryParams:output_type -> zerone.claiming_pot.v1.QueryParamsResponse
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	11, // 1: zerone.claiming_pot.v1.QueryAllPotsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	10, // 2: zerone.claiming_pot.v1.QueryAllPotsResponse.pots:type_name -> zerone.claiming_pot.v1.ClaimingPot
+	12, // 3: zerone.claiming_pot.v1.QueryAllPotsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	13, // 4: zerone.claiming_pot.v1.QueryClaimsResponse.claims:type_name -> zerone.claiming_pot.v1.Claim
+	14, // 5: zerone.claiming_pot.v1.QueryParamsResponse.params:type_name -> zerone.claiming_pot.v1.Params
+	0,  // 6: zerone.claiming_pot.v1.Query.QueryPot:input_type -> zerone.claiming_pot.v1.QueryPotRequest
+	2,  // 7: zerone.claiming_pot.v1.Query.QueryAllPots:input_type -> zerone.claiming_pot.v1.QueryAllPotsRequest
+	4,  // 8: zerone.claiming_pot.v1.Query.QueryClaimable:input_type -> zerone.claiming_pot.v1.QueryClaimableRequest
+	6,  // 9: zerone.claiming_pot.v1.Query.QueryClaims:input_type -> zerone.claiming_pot.v1.QueryClaimsRequest
+	8,  // 10: zerone.claiming_pot.v1.Query.QueryParams:input_type -> zerone.claiming_pot.v1.QueryParamsRequest
+	1,  // 11: zerone.claiming_pot.v1.Query.QueryPot:output_type -> zerone.claiming_pot.v1.QueryPotResponse
+	3,  // 12: zerone.claiming_pot.v1.Query.QueryAllPots:output_type -> zerone.claiming_pot.v1.QueryAllPotsResponse
+	5,  // 13: zerone.claiming_pot.v1.Query.QueryClaimable:output_type -> zerone.claiming_pot.v1.QueryClaimableResponse
+	7,  // 14: zerone.claiming_pot.v1.Query.QueryClaims:output_type -> zerone.claiming_pot.v1.QueryClaimsResponse
+	9,  // 15: zerone.claiming_pot.v1.Query.QueryParams:output_type -> zerone.claiming_pot.v1.QueryParamsResponse
+	11, // [11:16] is the sub-list for method output_type
+	6,  // [6:11] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_zerone_claiming_pot_v1_query_proto_init() }

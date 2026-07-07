@@ -32,13 +32,19 @@ func (q queryServer) QueryPot(goCtx context.Context, req *types.QueryPotRequest)
 	return &types.QueryPotResponse{Pot: pot}, nil
 }
 
+// QueryAllPots is paginated: with 10^6 bootstrap pots in state an
+// unpaginated response is a node-DoS vector. A nil page request uses the
+// SDK default limit rather than returning everything.
 func (q queryServer) QueryAllPots(goCtx context.Context, req *types.QueryAllPotsRequest) (*types.QueryAllPotsResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request cannot be nil")
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	pots := q.GetAllPots(ctx)
-	return &types.QueryAllPotsResponse{Pots: pots}, nil
+	pots, pageRes, err := q.GetPotsPaginated(ctx, req.Pagination)
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryAllPotsResponse{Pots: pots, Pagination: pageRes}, nil
 }
 
 func (q queryServer) QueryClaimable(goCtx context.Context, req *types.QueryClaimableRequest) (*types.QueryClaimableResponse, error) {

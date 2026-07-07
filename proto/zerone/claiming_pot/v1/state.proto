@@ -36,6 +36,24 @@ message EligibilityCriteria {
 message Params {
   uint32 max_pots_active = 1;                  // default: 10
   string min_claim_amount = 2;                 // default: "1000" uzrn
+
+  // bootstrap_registrar is an optional bech32 account (e.g. the agenttool
+  // 2-of-3 ops multisig) accepted alongside the gov authority as the signer
+  // of MsgAddBootstrapEntry. Empty string (default) disables the registrar
+  // pathway — governance remains the only admitter. Revocation is a single
+  // param change setting this back to "".
+  string bootstrap_registrar = 3;              // default: ""
+
+  // bootstrap_emission_cap_uzrn is the lifetime cap on total bootstrap
+  // issuance: (bootstrap entries ever created) x 222,000 uzrn must never
+  // exceed this value. Applies to gov-authority AND registrar admissions.
+  string bootstrap_emission_cap_uzrn = 4;      // default: "222222000000" (222,222 ZRN = 0.1% of max supply)
+
+  // bootstrap_daily_admission_cap is the maximum number of registrar
+  // admissions per 34,272-block window (~1 day). Gov-authority admissions
+  // bypass this window (they remain bounded by the emission cap and the
+  // governance process itself).
+  uint64 bootstrap_daily_admission_cap = 5;    // default: 5000
 }
 
 enum PotStatus {
