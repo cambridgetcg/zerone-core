@@ -79,8 +79,13 @@ func getTxSigners(tx sdk.Tx) []txSigner {
 // ---------- BootstrapGasFreeDecorator ----------
 
 // BootstrapGasFreeDecorator waives gas and fees for essential PoT transactions
-// during the bootstrap period (first 480,000 blocks ~ 14 days).
-// This allows the network to begin verifying truth before any ZRN is minted.
+// during the bootstrap period (blocks 1..BootstrapEndBlock).
+//
+// RETIRED at mainnet genesis: BootstrapEndBlock is 0, so this decorator is a
+// no-op for every block height >= 1. Onboarding subsidy is feegrant-based
+// (design doc 2026-07-07 §10). The decorator stays wired so a future
+// governance-approved upgrade can re-activate a window without re-plumbing
+// the ante chain.
 type BootstrapGasFreeDecorator struct{}
 
 // NewBootstrapGasFreeDecorator creates a new BootstrapGasFreeDecorator.
@@ -210,9 +215,21 @@ func (zgd ZRNGasDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			gasLimit, totalRequiredGas, len(msgs))
 	}
 
-	// Enforce minimum gas price
-	feeCoins := feeTx.GetFee()
-	if !feeCoins.IsZero() {
+	// Enforce minimum gas price at CONSENSUS level (CheckTx AND DeliverTx),
+	// for ALL transactions including zero-fee ones. The previous
+	// `if !feeCoins.IsZero()` guard let zero-fee txs skip fee enforcement
+	// entirely, leaving node-local minimum-gas-prices as the only spam gate
+	// (design doc 2026-07-07 §10: "zero-fee consensus bypass closed
+	// PRE-GENESIS"). Subsidized onboarding pays via x/feegrant: a feegranted
+	// tx still declares a NON-zero fee (the granter pays it in
+	// DeductFeeDecorator), so it passes this check unchanged.
+	//
+	// Sole exemption: height 0, i.e. InitChain genesis delivery. Gentxs are
+	// zero-fee ceremony artifacts executed before the chain accepts user
+	// transactions; CometBFT never delivers user txs at height 0, so this
+	// is not reachable as a bypass on a live chain.
+	if ctx.BlockHeight() > 0 {
+		feeCoins := feeTx.GetFee()
 		minFee := sdk.NewCoin(BondDenom, math.NewIntFromUint64(gasLimit*MinGasPrice))
 		if feeCoins.AmountOf(BondDenom).LT(minFee.Amount) {
 			return ctx, errors.Wrapf(sdkerrors.ErrInsufficientFee,

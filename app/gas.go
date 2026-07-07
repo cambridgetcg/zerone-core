@@ -196,10 +196,19 @@ const (
 	BurnRateBPS             uint64 = 50000  // 5% burn rate (applied at penalty sites)
 )
 
-// Bootstrap gas-free period: first 480,000 blocks (~14 days at 2521ms).
-// During bootstrap, essential PoT transactions are gas-free to allow the
-// network to begin verifying truth before any ZRN is minted.
-const BootstrapEndBlock int64 = 480_000
+// Bootstrap gas-free period: RETIRED at mainnet genesis (window = 0 blocks).
+//
+// The original design waived gas for essential PoT transactions during the
+// first 480,000 blocks (~14 days at 2521ms). The mainnet genesis design
+// (docs/plans/2026-07-07-mainnet-genesis-design.md, §"NO zero-fee bootstrap
+// epoch") replaces this with feegrant-based onboarding subsidies: free-tx
+// windows on a value-bearing chain are pure spam surface once floats and
+// fee-exempt claims exist. The code path (BootstrapGasFreeDecorator +
+// BootstrapGasFreeTypes) is deliberately kept intact so a future
+// governance-approved upgrade can re-activate a window by raising this
+// constant; with the constant at 0 the decorator is a no-op for every
+// block height >= 1.
+const BootstrapEndBlock int64 = 0
 
 // BootstrapGasFreeTypes lists message type URLs exempt from gas during bootstrap.
 var BootstrapGasFreeTypes = map[string]bool{

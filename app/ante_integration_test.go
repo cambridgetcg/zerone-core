@@ -330,44 +330,57 @@ func TestAnteIntegration_UnfreezeAndRetrySucceeds(t *testing.T) {
 	}
 }
 
-// ---------- Test 7: Bootstrap gas-free MsgSubmitClaim at height 1 ----------
+// ---------- Test 7: Bootstrap window retired — no exemption at height 1 ----------
 
-func TestAnteIntegration_BootstrapGasFreeAtHeight1(t *testing.T) {
+// The 14-day gas-free window is zeroed at mainnet genesis
+// (BootstrapEndBlock = 0, design doc 2026-07-07). A BootstrapGasFreeTypes
+// message at height 1 must NOT receive the free gas meter, and its zero fee
+// must be rejected by ZRNGasDecorator.
+func TestAnteIntegration_BootstrapWindowClosedAtHeight1(t *testing.T) {
 	db := dbm.NewMemDB()
 	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
 	if err := stateStore.LoadLatestVersion(); err != nil {
 		t.Fatalf("failed to load latest version: %v", err)
 	}
 
+	// Set a finite gas meter to verify the decorator does NOT replace it
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
-	decorator := NewBootstrapGasFreeDecorator()
+	ctx = ctx.WithGasMeter(storetypes.NewGasMeter(1_000_000))
 
 	key := ed25519.GenPrivKey()
 	tx := newMockSignedTx(
 		[]*ed25519.PrivKey{key},
 		[]sdk.Msg{mockMsg{typeURL: "/zerone.knowledge.v1.MsgSubmitClaim"}},
 		sdk.Coins{},
-		0,
+		100_000,
 	)
 
-	// The decorator should set gas meter to BlockGasLimit so bootstrap txs
-	// can consume gas freely. We use BlockGasLimit (not infinite) because
-	// CometBFT's mempool rejects txs with gas_wanted > ConsensusParams.Block.MaxGas.
 	var receivedCtx sdk.Context
 	handler := func(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
 		receivedCtx = ctx
 		return ctx, nil
 	}
 
-	_, err := decorator.AnteHandle(ctx, tx, false, handler)
+	bootstrapDecorator := NewBootstrapGasFreeDecorator()
+	_, err := bootstrapDecorator.AnteHandle(ctx, tx, false, handler)
 	if err != nil {
-		t.Fatalf("bootstrap gas-free should pass at height 1, got: %v", err)
+		t.Fatalf("bootstrap decorator should pass through (no-op), got: %v", err)
 	}
 
-	// Check for BlockGasLimit gas meter
-	if receivedCtx.GasMeter().Limit() != BlockGasLimit {
-		t.Errorf("expected BlockGasLimit gas meter (limit=%d), got limit=%d",
-			BlockGasLimit, receivedCtx.GasMeter().Limit())
+	// Gas meter must be untouched — no free-gas exemption at height 1
+	if receivedCtx.GasMeter().Limit() != 1_000_000 {
+		t.Errorf("gas meter limit should remain 1,000,000 (window retired), got %d",
+			receivedCtx.GasMeter().Limit())
+	}
+
+	// And the zero-fee tx must be rejected at consensus level downstream
+	gasDecorator := NewZRNGasDecorator()
+	_, err = gasDecorator.AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil {
+		t.Fatal("zero-fee bootstrap-type tx must be rejected at height 1, got nil")
+	}
+	if !sdkerrors.ErrInsufficientFee.Is(err) {
+		t.Fatalf("expected ErrInsufficientFee, got: %v", err)
 	}
 }
 
@@ -446,7 +459,7 @@ func TestAnteIntegration_GasOverflowWithManyMessages(t *testing.T) {
 
 func TestAnteIntegration_WrongFeeDenomRejected(t *testing.T) {
 	decorator := NewZRNGasDecorator()
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithBlockHeight(1)
 
 	tx := mockFeeTx{
 		gas:  100_000,

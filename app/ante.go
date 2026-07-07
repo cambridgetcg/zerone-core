@@ -25,7 +25,7 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 		// --- Gas Meter Init (must be before any gas consumption) ---
 		ante.NewSetUpContextDecorator(),
 
-		// --- Bootstrap Gas-Free (waives gas for PoT txs during first ~14 days) ---
+		// --- Bootstrap Gas-Free (RETIRED: window = 0 at mainnet; no-op, kept for gov re-activation) ---
 		NewBootstrapGasFreeDecorator(),
 
 		// --- Emergency Halt Gate (blocks non-emergency txs when chain is halted) ---

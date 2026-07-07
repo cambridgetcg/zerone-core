@@ -6,6 +6,7 @@ import (
 	"cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 // ---------- lookupMsgGas Tests ----------
@@ -396,15 +397,16 @@ func TestMsgTypeURLToGas_AllEntriesReferenceValidCosts(t *testing.T) {
 // mockFeeTx implements sdk.FeeTx for testing.
 type mockFeeTx struct {
 	sdk.Tx
-	gas  uint64
-	fee  sdk.Coins
-	msgs []sdk.Msg
+	gas     uint64
+	fee     sdk.Coins
+	msgs    []sdk.Msg
+	granter []byte // non-nil simulates a feegranted tx (granter pays the declared fee)
 }
 
 func (m mockFeeTx) GetGas() uint64     { return m.gas }
 func (m mockFeeTx) GetFee() sdk.Coins  { return m.fee }
 func (m mockFeeTx) GetMsgs() []sdk.Msg { return m.msgs }
-func (m mockFeeTx) FeeGranter() []byte { return nil }
+func (m mockFeeTx) FeeGranter() []byte { return m.granter }
 func (m mockFeeTx) FeePayer() []byte   { return nil }
 
 // passThroughHandler is a no-op next handler for testing decorators.
@@ -425,7 +427,7 @@ func TestZRNGasDecorator_SimulateSkips(t *testing.T) {
 
 func TestZRNGasDecorator_ExceedsBlockGasLimit(t *testing.T) {
 	decorator := NewZRNGasDecorator()
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithBlockHeight(1)
 	tx := mockFeeTx{
 		gas:  BlockGasLimit + 1,
 		fee:  sdk.NewCoins(sdk.NewCoin(BondDenom, math.NewInt(999999999))),
@@ -440,7 +442,7 @@ func TestZRNGasDecorator_ExceedsBlockGasLimit(t *testing.T) {
 
 func TestZRNGasDecorator_ExceedsTxGasLimit(t *testing.T) {
 	decorator := NewZRNGasDecorator()
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithBlockHeight(1)
 	tx := mockFeeTx{
 		gas:  TxGasLimit + 1,
 		fee:  sdk.NewCoins(sdk.NewCoin(BondDenom, math.NewInt(999999999))),
@@ -455,7 +457,7 @@ func TestZRNGasDecorator_ExceedsTxGasLimit(t *testing.T) {
 
 func TestZRNGasDecorator_InsufficientGas(t *testing.T) {
 	decorator := NewZRNGasDecorator()
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithBlockHeight(1)
 	// register_validator requires 100,000 gas, provide only 1000
 	tx := mockFeeTx{
 		gas:  1000,
@@ -471,7 +473,7 @@ func TestZRNGasDecorator_InsufficientGas(t *testing.T) {
 
 func TestZRNGasDecorator_SufficientGas(t *testing.T) {
 	decorator := NewZRNGasDecorator()
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithBlockHeight(1)
 	// transfer = 21,000 but MinGasLimit = 22,222; provide 30,000
 	tx := mockFeeTx{
 		gas:  30_000,
@@ -487,7 +489,7 @@ func TestZRNGasDecorator_SufficientGas(t *testing.T) {
 
 func TestZRNGasDecorator_InsufficientFee(t *testing.T) {
 	decorator := NewZRNGasDecorator()
-	ctx := sdk.Context{}
+	ctx := sdk.Context{}.WithBlockHeight(1)
 	// Gas = 100,000, MinGasPrice = 1, so min fee = 100,000 uzrn. Provide only 1.
 	tx := mockFeeTx{
 		gas:  100_000,
@@ -498,6 +500,103 @@ func TestZRNGasDecorator_InsufficientFee(t *testing.T) {
 	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
 	if err == nil {
 		t.Error("expected error for insufficient fee")
+	}
+}
+
+// TestZRNGasDecorator_MinFeeEnforcement verifies the zero-fee consensus
+// bypass is closed (design doc 2026-07-07 §10): the minimum-fee check
+// applies to ALL txs at height >= 1, including zero-fee ones. Feegranted
+// txs pass because the granter pays a NON-zero declared fee. The sole
+// exemption is height 0 (InitChain gentx delivery).
+func TestZRNGasDecorator_MinFeeEnforcement(t *testing.T) {
+	sendMsg := []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}}
+	claimMsg := []sdk.Msg{mockMsg{typeURL: "/zerone.knowledge.v1.MsgSubmitClaim"}}
+	granter := []byte("granter_address_____")
+
+	tests := []struct {
+		name    string
+		height  int64
+		tx      mockFeeTx
+		wantErr bool
+	}{
+		{
+			name:    "zero-fee bank send rejected at height 1",
+			height:  1,
+			tx:      mockFeeTx{gas: 30_000, fee: sdk.Coins{}, msgs: sendMsg},
+			wantErr: true,
+		},
+		{
+			name:   "properly-fee'd bank send passes",
+			height: 1,
+			tx: mockFeeTx{
+				gas:  30_000,
+				fee:  sdk.NewCoins(sdk.NewCoin(BondDenom, math.NewInt(30_000))),
+				msgs: sendMsg,
+			},
+			wantErr: false,
+		},
+		{
+			name:   "feegranted tx with adequate fee passes (granter pays)",
+			height: 1,
+			tx: mockFeeTx{
+				gas:     30_000,
+				fee:     sdk.NewCoins(sdk.NewCoin(BondDenom, math.NewInt(30_000))),
+				msgs:    sendMsg,
+				granter: granter,
+			},
+			wantErr: false,
+		},
+		{
+			name:   "feegranted tx cannot smuggle a zero fee",
+			height: 1,
+			tx: mockFeeTx{
+				gas:     30_000,
+				fee:     sdk.Coins{},
+				msgs:    sendMsg,
+				granter: granter,
+			},
+			wantErr: true,
+		},
+		{
+			name:    "BootstrapGasFreeTypes msg NOT fee-exempt at height 1 (window = 0)",
+			height:  1,
+			tx:      mockFeeTx{gas: 100_000, fee: sdk.Coins{}, msgs: claimMsg},
+			wantErr: true,
+		},
+		{
+			name:    "zero-fee gentx allowed at height 0 (InitChain genesis delivery)",
+			height:  0,
+			tx:      mockFeeTx{gas: 200_000, fee: sdk.Coins{}, msgs: []sdk.Msg{mockMsg{typeURL: "/cosmos.staking.v1beta1.MsgCreateValidator"}}},
+			wantErr: false,
+		},
+	}
+
+	decorator := NewZRNGasDecorator()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := sdk.Context{}.WithBlockHeight(tc.height)
+			_, err := decorator.AnteHandle(ctx, tc.tx, false, passThroughHandler)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected ErrInsufficientFee, got nil")
+				}
+				if !sdkerrors.ErrInsufficientFee.Is(err) {
+					t.Fatalf("expected ErrInsufficientFee, got: %v", err)
+				}
+			} else if err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestBootstrapWindowRetired pins the mainnet-genesis decision: the
+// 14-day gas-free window is zeroed in code (design doc 2026-07-07,
+// "NO zero-fee bootstrap epoch"). If a future upgrade deliberately
+// re-activates a window, update this test alongside the gov decision.
+func TestBootstrapWindowRetired(t *testing.T) {
+	if BootstrapEndBlock != 0 {
+		t.Fatalf("BootstrapEndBlock = %d, mainnet genesis requires 0", BootstrapEndBlock)
 	}
 }
 
