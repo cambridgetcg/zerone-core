@@ -1,0 +1,48 @@
+# zerone-1 — custodial launch, single public validator on fly.io
+app = "zerone-1"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MONIKER = "zerone-1-fly-0"
+  ZERONE_HOME = "/data/.zeroned"
+  # EXTERNAL_ADDRESS is set after the dedicated IP is allocated (see deploy note).
+
+[mounts]
+  source = "zerone_data"
+  destination = "/data"
+
+[[services]]
+  internal_port = 26657
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 26657
+    handlers = ["http"]
+
+[[services]]
+  internal_port = 1317
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 1317
+    handlers = ["http"]
+
+[[services]]
+  internal_port = 26656
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 26656
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"

@@ -1,0 +1,1351 @@
+{
+  "app_name": "zeroned",
+  "app_version": "4618bb7",
+  "genesis_time": "2026-07-08T12:36:08.654727Z",
+  "chain_id": "zerone-1",
+  "initial_height": 1,
+  "app_hash": null,
+  "app_state": {
+    "alignment": {
+      "params": {
+        "observation_interval_blocks": 100,
+        "weight_knowledge_quality": 200000,
+        "weight_economic_stability": 200000,
+        "weight_governance_participation": 200000,
+        "weight_network_security": 200000,
+        "weight_staking_ratio": 200000,
+        "critical_threshold": 200000,
+        "degraded_threshold": 400000,
+        "healthy_threshold": 700000,
+        "enabled": true,
+        "max_auto_apply_magnitude_bps": 500000,
+        "correction_confidence_window_size": 50,
+        "correction_confidence_min_samples": 5,
+        "min_confidence_for_auto_apply": 200000,
+        "correction_bounds_min_multiplier_bps": 300000,
+        "correction_bounds_max_multiplier_bps": 2000000,
+        "advisory_magnitude_bps": 30000
+      },
+      "state": {
+        "enabled": true
+      }
+    },
+    "auth": {
+      "params": {
+        "max_memo_characters": "256",
+        "tx_sig_limit": "7",
+        "tx_size_cost_per_byte": "10",
+        "sig_verify_cost_ed25519": "590",
+        "sig_verify_cost_secp256k1": "1000"
+      },
+      "accounts": [
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "zrn17h5scv3zu7xa8ep9kaqy47ae08h9x6c5fanwkh",
+          "pub_key": null,
+          "account_number": "1",
+          "sequence": "0"
+        }
+      ]
+    },
+    "bank": {
+      "params": {
+        "send_enabled": [],
+        "default_send_enabled": true
+      },
+      "balances": [
+        {
+          "address": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+          "coins": [
+            {
+              "denom": "uzrn",
+              "amount": "11333000000"
+            }
+          ]
+        },
+        {
+          "address": "zrn17h5scv3zu7xa8ep9kaqy47ae08h9x6c5fanwkh",
+          "coins": [
+            {
+              "denom": "uzrn",
+              "amount": "2222000000"
+            }
+          ]
+        }
+      ],
+      "supply": [
+        {
+          "denom": "uzrn",
+          "amount": "13555000000"
+        }
+      ],
+      "denom_metadata": [],
+      "send_enabled": []
+    },
+    "capture_challenge": {
+      "params": {
+        "min_challenge_stake": "10000000",
+        "evidence_period_blocks": 5000,
+        "review_period_blocks": 20000,
+        "domain_pause_blocks": 1000,
+        "reward_rate_bps": 100000,
+        "slash_rate_bps": 50000,
+        "bounty_contribution_per_fact": "1000",
+        "risk_analysis_interval": 1000
+      }
+    },
+    "capture_defense": {
+      "params": {
+        "decay_epoch_blocks": 10000,
+        "min_verifications_for_score": 5,
+        "hhi_threshold": 250000,
+        "risk_analysis_interval": 1000,
+        "history_retention_blocks": 50000,
+        "base_reputation_score": 500000,
+        "max_history_per_domain": 100,
+        "base_reputation_recovery_bps": 50000,
+        "activity_recovery_bonus_max_bps": 500000
+      },
+      "cross_stratum_requirements": [
+        {
+          "target_stratum": "theoretical",
+          "required_strata": [
+            "empirical"
+          ],
+          "min_validators_per_stratum": 1
+        },
+        {
+          "target_stratum": "applied",
+          "required_strata": [
+            "theoretical",
+            "empirical"
+          ],
+          "min_validators_per_stratum": 1
+        }
+      ]
+    },
+    "claiming_pot": {
+      "params": {
+        "max_pots_active": 10,
+        "min_claim_amount": "1000",
+        "bootstrap_emission_cap_uzrn": "222222000000",
+        "bootstrap_daily_admission_cap": 5000
+      }
+    },
+    "counterexamples": {
+      "params": {
+        "proposal_bond": "1000000",
+        "validation_reward": "500000",
+        "min_votes": 3,
+        "affirm_threshold_bps": 666000,
+        "max_reason_bytes": 4096,
+        "tvw_multiplier_bps": 1200000,
+        "proposals_enabled": true
+      },
+      "next_counterexample_seq": 1,
+      "next_validation_id": 1
+    },
+    "creed": {
+      "params": {
+        "direct_anchor_enabled": true
+      }
+    },
+    "distribution": {
+      "params": {
+        "community_tax": "0.020000000000000000",
+        "base_proposer_reward": "0.000000000000000000",
+        "bonus_proposer_reward": "0.000000000000000000",
+        "withdraw_addr_enabled": true
+      },
+      "fee_pool": {
+        "community_pool": []
+      },
+      "delegator_withdraw_infos": [],
+      "previous_proposer": "",
+      "outstanding_rewards": [],
+      "validator_accumulated_commissions": [],
+      "validator_historical_rewards": [],
+      "validator_current_rewards": [],
+      "delegator_starting_infos": [],
+      "validator_slash_events": []
+    },
+    "emergency": {
+      "params": {
+        "halt_quorum": 750000,
+        "revert_quorum": 800000,
+        "resume_quorum": 800000,
+        "halt_prevote_blocks": 11,
+        "halt_precommit_blocks": 11,
+        "halt_timeout_blocks": 44,
+        "revert_prevote_blocks": 22,
+        "revert_precommit_blocks": 22,
+        "revert_timeout_blocks": 111,
+        "resume_prevote_blocks": 22,
+        "resume_precommit_blocks": 22,
+        "resume_timeout_blocks": 111,
+        "max_proposals_per_epoch": 3,
+        "max_proposals_per_guardian_per_epoch": 1,
+        "cooldown_blocks": 111,
+        "min_guardian_stake": "111111000000",
+        "min_distinct_voters": 4,
+        "max_revert_depth": 111111,
+        "epoch_blocks": 34272,
+        "council_virtual_stake": "11111000000",
+        "max_halt_duration_blocks": 34272
+      },
+      "status": "normal"
+    },
+    "evidence": {
+      "evidence": []
+    },
+    "feegrant": {
+      "allowances": []
+    },
+    "feeibc": {
+      "identified_fees": [],
+      "fee_enabled_channels": [],
+      "registered_payees": [],
+      "registered_counterparty_payees": [],
+      "forward_relayers": []
+    },
+    "genutil": {
+      "gen_txs": [
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "zerone-1-genesis",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "zrnvaloper16sp9l62q9jmetsheus8zpjm77zulnlcrmnker4",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "5EvyoOj2UvmMkoXTFetGElVbBbSdvrpE2UYwURhCO5c="
+                },
+                "value": {
+                  "denom": "uzrn",
+                  "amount": "11111000000"
+                }
+              }
+            ],
+            "memo": "ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e@192.168.50.176:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/cosmos.crypto.secp256k1.PubKey",
+                  "key": "A1BstuCkrH4yrRHqQDqxCJ5OoKVkWMInI4etwlgL5AeR"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [],
+              "gas_limit": "200000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "ZlWbJEOCKEuYFDF7btcFkvt4PekDEaw4RgxC8f2On8AiN3WwukwI3zJZSUtx3Tc26q17MmI7YRUTox3eVwMuLQ=="
+          ]
+        }
+      ]
+    },
+    "gov": {
+      "starting_proposal_id": "1",
+      "deposits": [],
+      "votes": [],
+      "proposals": [],
+      "deposit_params": null,
+      "voting_params": null,
+      "tally_params": null,
+      "params": {
+        "min_deposit": [
+          {
+            "denom": "uzrn",
+            "amount": "100000000"
+          }
+        ],
+        "max_deposit_period": "86400s",
+        "voting_period": "43200s",
+        "quorum": "0.334000000000000000",
+        "threshold": "0.500000000000000000",
+        "veto_threshold": "0.334000000000000000",
+        "min_initial_deposit_ratio": "0.000000000000000000",
+        "proposal_cancel_ratio": "0.500000000000000000",
+        "proposal_cancel_dest": "",
+        "expedited_voting_period": "21600s",
+        "expedited_threshold": "0.667000000000000000",
+        "expedited_min_deposit": [
+          {
+            "denom": "uzrn",
+            "amount": "300000000"
+          }
+        ],
+        "burn_vote_quorum": false,
+        "burn_proposal_deposit_prevote": false,
+        "burn_vote_veto": true,
+        "min_deposit_ratio": "0.010000000000000000"
+      },
+      "constitution": ""
+    },
+    "home": {
+      "params": {
+        "max_keys_per_home": 20,
+        "max_sessions_per_home": 5,
+        "session_timeout_blocks": 1000,
+        "deadman_min_threshold": 100,
+        "deadman_max_threshold": 100000,
+        "max_alerts_per_home": 100,
+        "home_creation_fee": "10000000",
+        "max_recovery_addresses": 5
+      }
+    },
+    "ibc": {
+      "client_genesis": {
+        "clients": [],
+        "clients_consensus": [],
+        "clients_metadata": [],
+        "params": {
+          "allowed_clients": [
+            "*"
+          ]
+        },
+        "create_localhost": false,
+        "next_client_sequence": "0"
+      },
+      "connection_genesis": {
+        "connections": [],
+        "client_connection_paths": [],
+        "next_connection_sequence": "0",
+        "params": {
+          "max_expected_time_per_block": "30000000000"
+        }
+      },
+      "channel_genesis": {
+        "channels": [],
+        "acknowledgements": [],
+        "commitments": [],
+        "receipts": [],
+        "send_sequences": [],
+        "recv_sequences": [],
+        "ack_sequences": [],
+        "next_channel_sequence": "0",
+        "params": {
+          "upgrade_timeout": {
+            "height": {
+              "revision_number": "0",
+              "revision_height": "0"
+            },
+            "timestamp": "600000000000"
+          }
+        }
+      }
+    },
+    "ibcratelimit": {
+      "params": {
+        "enabled": true
+      }
+    },
+    "interchainaccounts": {
+      "controller_genesis_state": {
+        "active_channels": [],
+        "interchain_accounts": [],
+        "ports": [],
+        "params": {
+          "controller_enabled": true
+        }
+      },
+      "host_genesis_state": {
+        "active_channels": [],
+        "interchain_accounts": [],
+        "port": "icahost",
+        "params": {
+          "host_enabled": true,
+          "allow_messages": [
+            "*"
+          ]
+        }
+      }
+    },
+    "knowledge": {
+      "params": {
+        "min_verifiers": "3",
+        "max_verifiers": "22",
+        "commit_phase_blocks": "200",
+        "reveal_phase_blocks": "200",
+        "aggregation_phase_blocks": "50",
+        "claim_cooldown_blocks": "50",
+        "initial_confidence": "500000",
+        "confidence_boost_per_verification": "50000",
+        "confidence_threshold": "770000",
+        "quorum_threshold": "660000",
+        "wrong_verification_slash_bps": "50000",
+        "missed_reveal_slash_bps": "100000",
+        "equivocation_slash_bps": "200000",
+        "invalid_claim_slash_bps": "0",
+        "verification_reward": "3000000",
+        "verification_reward_decay_bps": "999000",
+        "min_claim_text_length": "20",
+        "max_claim_text_length": "1000",
+        "min_review_fee": "100000",
+        "adversarial_verification_enabled": true,
+        "provisional_threshold": "500000",
+        "reject_threshold": "300000",
+        "challenge_duration_blocks": "34272",
+        "min_challenge_stake": "11000000",
+        "failed_challenge_slash_bps": "220000",
+        "successful_challenge_reward_bps": "300000",
+        "max_concurrent_challenges": "3",
+        "citation_share_bps": "150000",
+        "cross_domain_bonus_bps": "200000",
+        "max_facts_per_domain": "100000",
+        "fact_expiry_blocks": "0",
+        "cross_stratum_discount_bps": "0",
+        "max_validators_per_round": "22",
+        "confidence_growth_epoch": "1111",
+        "confidence_growth_per_epoch_bps": "11000",
+        "max_survival_confidence": "770000",
+        "survived_challenge_confidence_cap": "880000",
+        "max_apprentice_validators": "111",
+        "research_fund_share_bps": "130000",
+        "fitness_epoch_blocks": "10000",
+        "fitness_weight_query_bps": "150000",
+        "fitness_weight_citation_bps": "250000",
+        "fitness_weight_bridge_bps": "100000",
+        "fitness_weight_depth_bps": "100000",
+        "fitness_weight_patron_bps": "50000",
+        "fitness_weight_unique_bps": "100000",
+        "fitness_weight_age_bps": "100000",
+        "fitness_initial_score": "500000",
+        "fitness_grace_epochs": "10",
+        "bootstrap_fund_enabled": true,
+        "bootstrap_fund_max_per_address": "10",
+        "bootstrap_fund_max_per_epoch": "100",
+        "bootstrap_fund_epoch_blocks": "50000",
+        "bootstrap_fund_fee_cap": "5000000",
+        "metabolism_base_cost": "10000",
+        "metabolism_content_length_bps": "10000",
+        "metabolism_domain_competition_bps": "5000",
+        "metabolism_energy_per_query": "1000",
+        "metabolism_energy_per_citation": "5000",
+        "metabolism_energy_per_patronage": "20000",
+        "metabolism_energy_challenge_survival": "100000",
+        "metabolism_energy_cap": "1000000",
+        "metabolism_initial_energy": "500000",
+        "metabolism_at_risk_epochs": "5",
+        "metabolism_expired_to_pruned_epochs": "20",
+        "reproduction_royalty_bps": "50000",
+        "reproduction_royalty_decay_bps": "500000",
+        "reproduction_max_royalty_depth": "5",
+        "reproduction_parent_energy_bonus": "30000",
+        "reproduction_child_fitness_inheritance_bps": "200000",
+        "reproduction_max_children": "20",
+        "novelty_common_knowledge_penalty_bps": "700000",
+        "novelty_subject_overlap_penalty_bps": "100000",
+        "novelty_precision_bonus_bps": "100000",
+        "novelty_cross_domain_bonus_bps": "100000",
+        "novelty_max_overlap_facts": "5",
+        "demand_bounty_threshold": "100",
+        "demand_bounty_base_reward": "10000000",
+        "demand_bounty_per_query_bonus": "100000",
+        "demand_bounty_expiry_epochs": "50",
+        "demand_multiplier_cap": "10000000",
+        "demand_tracking_enabled": true,
+        "authorized_demand_reporters": [],
+        "competition_niche_dominance_bonus_bps": "100000",
+        "competition_redundancy_threshold_bps": "200000",
+        "competition_max_niche_size": "10",
+        "competition_symbiosis_bonus_bps": "50000",
+        "fitness_weight_satisfaction_bps": "150000",
+        "satisfaction_min_ratings": "3",
+        "diversity_conformity_alert_threshold": "50000",
+        "diversity_conformity_alert_epochs": "3",
+        "vindication_refund_enabled": true,
+        "vindication_bonus_bps": "2000",
+        "vindication_slash_bps": "500",
+        "vindication_window_blocks": "100000",
+        "metabolism_active_threshold": "300000",
+        "metabolism_extinction_threshold": "10000",
+        "max_confidence": "880000",
+        "human_empirical_bonus_bps": "150000",
+        "agent_computational_bonus_bps": "150000",
+        "agent_verification_bonus_bps": "200000",
+        "human_patronage_bonus_bps": "100000",
+        "dual_validation_bonus_bps": "250000",
+        "domain_base_capacity": "1000",
+        "domain_capacity_growth_per_citation": "1",
+        "overcrowding_decay_multiplier_bps": "1500000",
+        "underpopulation_birth_bonus_bps": "200000",
+        "epistemic_temperature_decay_bps": "995000",
+        "epistemic_conformity_cooling_bps": "50000",
+        "epistemic_vindication_heating_bps": "100000",
+        "epistemic_cold_confidence_cap_bps": "600000",
+        "epistemic_hot_confidence_growth_bps": "1500000",
+        "epistemic_temperature_window_blocks": "10000",
+        "role_elasticity_min_calls": "10",
+        "role_elasticity_max_multiplier_bps": "2000000",
+        "role_elasticity_min_multiplier_bps": "500000",
+        "role_elasticity_decay_epochs": "100",
+        "mentorship_dividend_energy": "50000",
+        "mentorship_capacity_bonus": "5",
+        "social_saturation_threshold": "10",
+        "observation_window_blocks": "10000",
+        "min_headcount_agreement": "3",
+        "challenge_confidence_scaling_bps": "1000000",
+        "independence_reward_strength_bps": "300000",
+        "reformulation_min_panel_votes": "3",
+        "reformulation_consensus_bps": "666000",
+        "reformulation_superior_bonus_bps": "500000",
+        "augmentation_expiry_fee_bps": "30000",
+        "methodology_normalization_bps": {
+          "M-ECOLOGICAL": "1500000",
+          "M-LEGACY": "500000",
+          "M-PHENOMENOLOGICAL": "2000000",
+          "M-PRACTICE": "1750000",
+          "M-TESTIMONIAL": "1250000"
+        },
+        "vindication_tvw_multiplier_bps": "2500000",
+        "disproval_clawback_bps": "500000",
+        "disproval_clawback_window_epochs": "30",
+        "training_fund_calibration_floor_bps": "500000",
+        "training_fund_vesting_epochs": "60",
+        "training_fund_methodology_diversity_bonus_bps": "100000",
+        "training_fund_base_reward": "1000000000",
+        "contribution_challenge_bond": "5000000",
+        "contribution_challenge_reward_multiplier_bps": "2000000",
+        "sponsor_veto_forfeit_bps": "1000000",
+        "max_pause_duration_blocks": "28800",
+        "probe_invitation_idle_threshold_blocks": "34272",
+        "probe_invitation_min_confidence_bps": "700000",
+        "probe_invitation_batch_size": 10,
+        "probe_invitation_reinvite_cooldown": "100000",
+        "probe_bounty_mint_per_block": "1000000",
+        "probe_bounty_max_pool_size": "1000000000000",
+        "invitation_bonus_amount": "500000",
+        "guardian_addresses": [],
+        "add_fact_veto_window_blocks": "0"
+      },
+      "facts": [],
+      "pending_claims": [],
+      "active_rounds": [],
+      "domains": [
+        {
+          "name": "mathematics",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "physics",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "computer_science",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "general",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "theology",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "philosophy",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "logic",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "chemistry",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "biology",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "economics",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "linguistics",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "psychology",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "sociology",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "cosmology",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "information_theory",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "ethics",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "agent_rights",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        },
+        {
+          "name": "agent_purpose",
+          "description": "",
+          "status": "DOMAIN_STATUS_ACTIVE",
+          "created_at_block": "0",
+          "fact_count": "0",
+          "proposer": "",
+          "endorsers": [],
+          "stratum": "",
+          "parent_domain": "",
+          "depth": 1
+        }
+      ],
+      "bootstrap_fund_allocation": "22222000000",
+      "common_knowledge": [],
+      "methodologies": [],
+      "normative_commitments": [],
+      "tokenizer_spec": null,
+      "tokenizer_spec_history": [],
+      "trace_schema": null,
+      "trace_schema_history": [],
+      "training_pipelines": [],
+      "model_cards": [],
+      "training_attestations": [],
+      "contribution_records": [],
+      "augmentation_bounties": [],
+      "augmentations": [],
+      "contribution_challenges": [],
+      "training_fund_disbursements": [],
+      "training_manifests": [],
+      "agent_calibrations": [],
+      "training_fund_allocation": ""
+    },
+    "liquiditypool": {
+      "params": {
+        "default_swap_fee_bps": 3000,
+        "min_initial_liquidity": "10000000000",
+        "twap_window_blocks": 1000,
+        "protocol_fee_bps": 450000,
+        "min_reserve": "1"
+      }
+    },
+    "qualification": {
+      "params": {
+        "min_stake_amount": "100000000",
+        "stake_lock_period": 100800,
+        "min_verifications": 100,
+        "min_accuracy_bps": 800000,
+        "min_reputation_score": 500000,
+        "qualification_period": 1209600,
+        "probation_period": 302400,
+        "renewal_window": 100800,
+        "max_endorsements": 50,
+        "cross_ref_min_weight": 30,
+        "cross_ref_weight_discount_bps": 200000,
+        "inheritance_weight_discount_bps": 300000,
+        "endorsement_max_overlap_bps": 600000,
+        "decay_check_interval_blocks": 10000,
+        "decay_min_samples": 20,
+        "decay_probation_bps": 600000,
+        "decay_suspension_bps": 400000,
+        "decay_recovery_bps": 750000
+      },
+      "next_endorsement_id": 1
+    },
+    "slashing": {
+      "params": {
+        "signed_blocks_window": "100",
+        "min_signed_per_window": "0.500000000000000000",
+        "downtime_jail_duration": "600s",
+        "slash_fraction_double_sign": "0.050000000000000000",
+        "slash_fraction_downtime": "0.010000000000000000"
+      },
+      "signing_infos": [],
+      "missed_blocks": []
+    },
+    "sponsorship": {
+      "params": {
+        "min_target_count": 1,
+        "min_duration_blocks": 100,
+        "max_active_bounties_per_sponsor": 16
+      },
+      "next_bounty_id": 1
+    },
+    "staking": {
+      "params": {
+        "unbonding_time": "1814400s",
+        "max_validators": 100,
+        "max_entries": 7,
+        "historical_entries": 10000,
+        "bond_denom": "uzrn",
+        "min_commission_rate": "0.000000000000000000"
+      },
+      "last_total_power": "0",
+      "last_validator_powers": [],
+      "validators": [],
+      "delegations": [],
+      "unbonding_delegations": [],
+      "redelegations": [],
+      "exported": false
+    },
+    "substrate_bridge": {
+      "params": {
+        "max_pending_claims_per_attestation": 100000,
+        "per_pending_claim_bond_uzrn": "222",
+        "attestation_min_bond_uzrn": "222000",
+        "max_pending_window_blocks": "6220800",
+        "pending_claim_rejection_threshold_bps": 5000,
+        "min_verified_ratio_for_settle_bps": 1000,
+        "lineage_share_bps": 3000,
+        "decay_bps_per_hop": 3000,
+        "max_propagation_depth": 5,
+        "min_propagation_uzrn": "1000",
+        "self_citation_cap_bps": 5000,
+        "witness_reward_challenge_window_blocks": "6000"
+      },
+      "adapters": []
+    },
+    "tokens": {
+      "params": {}
+    },
+    "transfer": {
+      "port_id": "transfer",
+      "denom_traces": [],
+      "params": {
+        "send_enabled": true,
+        "receive_enabled": true
+      },
+      "total_escrowed": []
+    },
+    "upgrade": {},
+    "vesting": {},
+    "vesting_rewards": {
+      "params": {
+        "block_reward": "10000000",
+        "reward_decay_bps": 994478,
+        "blocks_per_reward_epoch": 100000,
+        "revenue_split": {
+          "contributor_bps": 550000,
+          "protocol_bps": 220000,
+          "research_bps": 33300,
+          "development_bps": 196700
+        },
+        "protocol_sub_split": {
+          "citation_bps": 500000,
+          "verification_bps": 300000,
+          "treasury_bps": 200000
+        },
+        "founder_share_bps": 70000,
+        "category_reward_configs": [
+          {
+            "category": "axiomatic",
+            "multiplier_bps": 1200000
+          },
+          {
+            "category": "formal_proof",
+            "multiplier_bps": 1100000
+          },
+          {
+            "category": "on_chain",
+            "multiplier_bps": 1000000
+          },
+          {
+            "category": "cryptographic",
+            "multiplier_bps": 1050000
+          },
+          {
+            "category": "computational",
+            "multiplier_bps": 1000000
+          },
+          {
+            "category": "peer_reviewed",
+            "multiplier_bps": 900000
+          },
+          {
+            "category": "replicated",
+            "multiplier_bps": 950000
+          },
+          {
+            "category": "oracle_feed",
+            "multiplier_bps": 800000
+          },
+          {
+            "category": "attestation",
+            "multiplier_bps": 850000
+          },
+          {
+            "category": "contested",
+            "multiplier_bps": 600000
+          }
+        ],
+        "research_fund_module_account": "research_fund",
+        "vesting_enabled": true,
+        "released_clawback_rate": 3300,
+        "min_validators_for_full_reward": 22,
+        "floor_reward": "100000",
+        "initial_fund_balance": "0",
+        "knowledge_coupling_target_bps": 700000,
+        "knowledge_coupling_floor_bps": 500000
+      },
+      "category_configs": [
+        {
+          "category": "axiomatic",
+          "half_life_blocks": 1111111,
+          "cliff_blocks": 11111,
+          "max_release": 950000
+        },
+        {
+          "category": "formal_proof",
+          "half_life_blocks": 555555,
+          "cliff_blocks": 5555,
+          "max_release": 920000
+        },
+        {
+          "category": "on_chain",
+          "half_life_blocks": 222222,
+          "cliff_blocks": 1111,
+          "max_release": 900000
+        },
+        {
+          "category": "cryptographic",
+          "half_life_blocks": 222222,
+          "cliff_blocks": 3333,
+          "max_release": 900000
+        },
+        {
+          "category": "computational",
+          "half_life_blocks": 333333,
+          "cliff_blocks": 2222,
+          "max_release": 880000
+        },
+        {
+          "category": "peer_reviewed",
+          "half_life_blocks": 111111,
+          "cliff_blocks": 5555,
+          "max_release": 850000
+        },
+        {
+          "category": "replicated",
+          "half_life_blocks": 111111,
+          "cliff_blocks": 3333,
+          "max_release": 880000
+        },
+        {
+          "category": "oracle_feed",
+          "half_life_blocks": 55555,
+          "cliff_blocks": 555,
+          "max_release": 800000
+        },
+        {
+          "category": "attestation",
+          "half_life_blocks": 77777,
+          "cliff_blocks": 2222,
+          "max_release": 800000
+        },
+        {
+          "category": "contested",
+          "half_life_blocks": 22222,
+          "cliff_blocks": 1111,
+          "max_release": 600000
+        }
+      ]
+    },
+    "work_creed": {},
+    "zerone_auth": {
+      "params": {
+        "key_rotation_cooldown": "111",
+        "max_metadata_length": 1024,
+        "require_did": false
+      },
+      "accounts": [],
+      "did_mappings": []
+    },
+    "zerone_gov": {
+      "params": {
+        "voting_period_blocks": 102816,
+        "discussion_period_blocks": 68544,
+        "quorum_threshold_bps": 334000,
+        "support_threshold_bps": 500000,
+        "min_lip_stake": "1000000",
+        "min_vote_stake": "0",
+        "category_configs": [
+          {
+            "category": "parameter",
+            "required_stake_uzrn": "1000000000",
+            "review_blocks": 34272
+          },
+          {
+            "category": "upgrade",
+            "required_stake_uzrn": "800000000",
+            "review_blocks": 34272
+          },
+          {
+            "category": "text",
+            "required_stake_uzrn": "400000000",
+            "review_blocks": 17136
+          },
+          {
+            "category": "research_spend",
+            "required_stake_uzrn": "200000000",
+            "review_blocks": 17136
+          },
+          {
+            "category": "research_seat_election",
+            "required_stake_uzrn": "500000000",
+            "review_blocks": 34272
+          },
+          {
+            "category": "research_phase_transition",
+            "required_stake_uzrn": "1000000000000",
+            "review_blocks": 1030000
+          },
+          {
+            "category": "research_phase_rollback",
+            "required_stake_uzrn": "500000000000",
+            "review_blocks": 240000
+          },
+          {
+            "category": "adapter_registration",
+            "required_stake_uzrn": "1000000000000",
+            "review_blocks": 1030000
+          }
+        ],
+        "research_discussion_blocks": 68544,
+        "research_voting_blocks": 102816
+      },
+      "next_lip_number": 1,
+      "research_fund_governance": {
+        "current_phase": 1
+      },
+      "next_seat_election_number": 1
+    },
+    "zerone_ontology": {
+      "params": {
+        "min_proposal_stake": "1000000",
+        "proposal_voting_period": 34272,
+        "min_endorsements": 3,
+        "cross_stratum_discount": 50000,
+        "max_domains_per_stratum": 100
+      },
+      "strata": [
+        {
+          "name": "axiomatic",
+          "description": "Mathematical axioms, tautologies, and logical foundations. Complete and decidable within their formal system.",
+          "complete": true,
+          "decidable": true,
+          "consistency_proof": "internal",
+          "max_confidence": 1000000
+        },
+        {
+          "stratum": 1,
+          "name": "formal",
+          "description": "Formal proofs and theorems derived from axioms. Complete in restricted domains (propositional, Presburger).",
+          "complete": true,
+          "decidable": true,
+          "consistency_proof": "internal",
+          "max_confidence": 1000000,
+          "decay_rate": 1
+        },
+        {
+          "stratum": 2,
+          "name": "protocol",
+          "description": "Blockchain-verifiable, deterministic facts. Verifiable by any full node via state replay.",
+          "decidable": true,
+          "consistency_proof": "external",
+          "max_confidence": 990000,
+          "decay_rate": 5
+        },
+        {
+          "stratum": 3,
+          "name": "computational",
+          "description": "Computation results that are reproducible but may involve undecidable problems (halting problem).",
+          "goedel_applies": true,
+          "consistency_proof": "assumed",
+          "max_confidence": 980000,
+          "decay_rate": 10
+        },
+        {
+          "stratum": 4,
+          "name": "empirical",
+          "description": "Scientific observations, experimental results. Falsifiable and subject to revision by new evidence.",
+          "consistency_proof": "external",
+          "max_confidence": 950000,
+          "decay_rate": 50
+        },
+        {
+          "stratum": 5,
+          "name": "historical",
+          "description": "Historical records and evidence-based claims about past events. Dependent on source reliability.",
+          "consistency_proof": "external",
+          "max_confidence": 900000,
+          "decay_rate": 100
+        },
+        {
+          "stratum": 6,
+          "name": "testimonial",
+          "description": "Human attestations and trust-weighted claims. Lowest formal verifiability, highest social dependency.",
+          "consistency_proof": "external",
+          "max_confidence": 800000,
+          "decay_rate": 200
+        }
+      ],
+      "domains": [
+        {
+          "name": "logic",
+          "display_name": "Logic & Foundations",
+          "description": "Propositional logic, predicate logic, set theory foundations, and metamathematics",
+          "status": "active",
+          "depth": 1
+        },
+        {
+          "name": "mathematics",
+          "display_name": "Mathematics",
+          "description": "Formal mathematical truths, proofs, and theorems",
+          "stratum": 1,
+          "status": "active",
+          "depth": 1
+        },
+        {
+          "name": "protocol",
+          "display_name": "Blockchain Protocol",
+          "description": "On-chain state, transaction results, and protocol-verifiable facts",
+          "stratum": 2,
+          "status": "active",
+          "depth": 1
+        },
+        {
+          "name": "computer_science",
+          "display_name": "Computer Science",
+          "description": "Algorithms, data structures, protocols, and computational theory",
+          "stratum": 3,
+          "status": "active",
+          "depth": 1
+        },
+        {
+          "name": "physics",
+          "display_name": "Physics",
+          "description": "Physical laws, constants, and empirical observations about the natural world",
+          "stratum": 4,
+          "status": "active",
+          "depth": 1
+        },
+        {
+          "name": "general",
+          "display_name": "General Knowledge",
+          "description": "General knowledge claims not fitting a specific domain",
+          "stratum": 4,
+          "status": "active",
+          "depth": 1
+        },
+        {
+          "name": "history",
+          "display_name": "History",
+          "description": "Historical records, events, and evidence-based accounts of the past",
+          "stratum": 5,
+          "status": "active",
+          "depth": 1
+        }
+      ]
+    },
+    "zerone_staking": {
+      "params": {
+        "unbonding_period": 268560,
+        "virtual_stake": "11000000",
+        "max_validators": 100,
+        "min_self_delegation": "111000",
+        "max_slashes_per_epoch": 2,
+        "slash_decay_period_blocks": 34272,
+        "max_slash_count_deactivate": 3,
+        "min_stake_for_verification": "111000",
+        "slash_escalation_bps": 100000,
+        "reputation_correct_delta": 100,
+        "reputation_incorrect_delta": 200,
+        "reputation_slash_delta": 10000,
+        "redelegation_cooldown_blocks": 1111,
+        "tier_configs": [
+          {
+            "tier": 1,
+            "name": "Apprentice",
+            "min_stake": "111000",
+            "max_slash_count": -1,
+            "allowed_categories": [
+              "protocol",
+              "computational",
+              "formal"
+            ],
+            "reward_multiplier_bps": 100,
+            "selection_weight_bps": 100,
+            "contested_verification_multiplier": 1,
+            "slash_multiplier_bps": 1500
+          },
+          {
+            "tier": 2,
+            "name": "Verified",
+            "min_stake": "1110000",
+            "min_reputation": 770000,
+            "min_verifications": 22,
+            "min_accuracy": 770000,
+            "max_slash_count": -1,
+            "allowed_categories": [
+              "protocol",
+              "computational",
+              "formal",
+              "empirical"
+            ],
+            "reward_multiplier_bps": 500,
+            "selection_weight_bps": 500,
+            "contested_verification_multiplier": 1,
+            "slash_multiplier_bps": 1200
+          },
+          {
+            "tier": 3,
+            "name": "Scholar",
+            "min_stake": "1111000000",
+            "min_reputation": 500000,
+            "min_verifications": 11,
+            "min_accuracy": 500000,
+            "max_slash_count": -1,
+            "allowed_categories": [
+              "protocol",
+              "computational",
+              "formal",
+              "empirical",
+              "oracle",
+              "attestation"
+            ],
+            "reward_multiplier_bps": 1000,
+            "selection_weight_bps": 1000,
+            "contested_verification_multiplier": 1,
+            "slash_multiplier_bps": 1000
+          },
+          {
+            "tier": 4,
+            "name": "Guardian",
+            "min_stake": "11111000000",
+            "min_reputation": 770000,
+            "min_verifications": 333,
+            "min_accuracy": 770000,
+            "allowed_categories": [
+              "protocol",
+              "computational",
+              "formal",
+              "empirical",
+              "oracle",
+              "attestation",
+              "predictive",
+              "social",
+              "contested"
+            ],
+            "reward_multiplier_bps": 2000,
+            "selection_weight_bps": 1500,
+            "slash_window_epochs": 10,
+            "min_contested_verifications": 33,
+            "contested_verification_multiplier": 3,
+            "slash_multiplier_bps": 1000
+          }
+        ]
+      }
+    }
+  },
+  "consensus": {
+    "params": {
+      "block": {
+        "max_bytes": "22020096",
+        "max_gas": "-1"
+      },
+      "evidence": {
+        "max_age_num_blocks": "100000",
+        "max_age_duration": "172800000000000",
+        "max_bytes": "1048576"
+      },
+      "validator": {
+        "pub_key_types": [
+          "ed25519"
+        ]
+      },
+      "version": {
+        "app": "0"
+      },
+      "abci": {
+        "vote_extensions_enable_height": "0"
+      }
+    }
+  }
+}

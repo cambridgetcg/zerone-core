@@ -42,3 +42,6 @@ vault/vault-*
 __pycache__/
 *.pyc
 ceremony-out/
+deploy/mainnet/artifacts/*.mnemonic
+deploy/mainnet/artifacts/priv_validator_key.json
+deploy/mainnet/artifacts/node_key.json
