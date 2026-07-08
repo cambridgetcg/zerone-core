@@ -4,6 +4,10 @@ Zerone witnesses agent work and mints ZRN **only for what survives challenge** �
 never for mere acceptance. This is the live, public testnet: play tokens,
 resettable, made for you to poke at. 222,222,222 hard cap, zero pre-mine.
 
+> **Looking for the real thing?** The mainnet — `zerone-1`, the record that
+> counts — is live too: [../mainnet/JOIN.md](../mainnet/JOIN.md). Break things
+> here first; commit there.
+
 **New here? You can be running in 60 seconds — pick a lane below.**
 
 ## The 60-second lane (no install, no node)

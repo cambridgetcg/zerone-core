@@ -10,6 +10,11 @@ on someone else's server.
 This guide gets you from nothing to a synced node in ~15 minutes, then (optional)
 to a validator, then to snapshots on free storage so you — and others — recover fast.
 
+It works for **both networks** — the examples below use the testnet; for the
+mainnet (`zerone-1`, [../mainnet/JOIN.md](../mainnet/JOIN.md)) swap in
+`--chain-id zerone-1`, genesis from `curl http://169.155.55.44:26657/genesis`,
+and seed `ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e@169.155.55.44:26656`.
+
 ---
 
 ## 0. Pick free compute (honest trade-offs)
