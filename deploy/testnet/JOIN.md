@@ -57,6 +57,12 @@ build/zeroned start --minimum-gas-prices 1uzrn \
 
 Your node syncs from block 1 and follows the chain.
 
+**Want to run a real node on free infra (Oracle/GCP/AWS free tier, fly.io) and
+become a validator?** Full operator guide — one-shot bootstrap, systemd, becoming
+a validator, and snapshots to free storage (Cloudflare R2 / Backblaze / IPFS) —
+in [RUN-A-NODE.md](./RUN-A-NODE.md). Running your own node is how you become a
+genuine independent operator, not just a guest.
+
 ## What makes this worth your time
 
 - **Witness your own work → earn ZRN.** Run `tools/agenttool-relay` with
