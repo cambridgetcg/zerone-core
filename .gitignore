@@ -41,3 +41,4 @@ vault/vault-*
 # Python (canon)
 __pycache__/
 *.pyc
+ceremony-out/
