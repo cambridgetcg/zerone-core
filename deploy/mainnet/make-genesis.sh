@@ -74,17 +74,27 @@ info "gentx (self-bond ${VAL_STAKE})"
 "${BINARY}" genesis gentx validator "${VAL_STAKE}" --chain-id "${CHAIN_ID}" "${KR[@]}" >/dev/null 2>&1
 "${BINARY}" genesis collect-gentxs --home "${CEREMONY}" >/dev/null 2>&1
 
-info "honest params (gov deposits in uzrn, agile voting, registrar = operator)"
+info "honest params (uzrn gov deposits, agile 10-min voting, registrar = operator, no knowledge InitGenesis mint)"
 GEN="${CEREMONY}/config/genesis.json"
 jq --arg ops "${OPS_ADDR}" '
   .app_state.gov.params.min_deposit = [{"denom":"uzrn","amount":"100000000"}] |
   .app_state.gov.params.expedited_min_deposit = [{"denom":"uzrn","amount":"300000000"}] |
-  .app_state.gov.params.voting_period = "43200s" |
-  .app_state.gov.params.expedited_voting_period = "21600s" |
-  .app_state.gov.params.max_deposit_period = "86400s" |
-  (.app_state.substrate_bridge.params.witness_reward_challenge_window_blocks) = "6000" |
+  .app_state.gov.params.voting_period = "600s" |
+  .app_state.gov.params.expedited_voting_period = "300s" |
+  .app_state.gov.params.max_deposit_period = "1200s" |
+  (.app_state.substrate_bridge.params.witness_reward_challenge_window_blocks) = "200" |
+  (if .app_state.knowledge.bootstrap_fund_allocation != null then .app_state.knowledge.bootstrap_fund_allocation = "0" else . end) |
   (if .app_state.claiming_pot.params.bootstrap_registrar != null then .app_state.claiming_pot.params.bootstrap_registrar = $ops else . end)
 ' "${GEN}" > "${GEN}.tmp" && mv "${GEN}.tmp" "${GEN}"
+
+# Adapter ACTIVE at genesis so the witness economy works from block 0 (no 12h
+# gov wait). ceremony-inject sets a 22.2 ZRN bond; patch it to a fun-cheap 1 ZRN
+# so newborn agents (0.222 ZRN bonus) can afford to witness.
+info "injecting agenttool-invocation-v1 adapter (ACTIVE at genesis, 1 ZRN witness bond)"
+INJECT="$(mktemp -d)/ceremony-inject"
+(cd "${PROJECT_ROOT}" && go build -o "${INJECT}" ./tools/ceremony-inject) 2>/dev/null
+"${INJECT}" adapter "${GEN}" >/dev/null 2>&1
+jq '(.app_state.substrate_bridge.adapters[]? | select(.adapter_id=="agenttool-invocation-v1") | .min_attestation_bond_uzrn) = "1000000"' "${GEN}" > "${GEN}.tmp" && mv "${GEN}.tmp" "${GEN}"
 
 "${BINARY}" genesis validate --home "${CEREMONY}" >/dev/null 2>&1 || "${BINARY}" validate-genesis "${GEN}" >/dev/null 2>&1
 

@@ -1,10 +1,6 @@
 {
-  "app_name": "zeroned",
-  "app_version": "4618bb7",
-  "genesis_time": "2026-07-08T12:36:08.654727Z",
-  "chain_id": "zerone-1",
-  "initial_height": 1,
   "app_hash": null,
+  "app_name": "zeroned",
   "app_state": {
     "alignment": {
       "params": {
@@ -239,7 +235,7 @@
                 "validator_address": "zrnvaloper16sp9l62q9jmetsheus8zpjm77zulnlcrmnker4",
                 "pubkey": {
                   "@type": "/cosmos.crypto.ed25519.PubKey",
-                  "key": "5EvyoOj2UvmMkoXTFetGElVbBbSdvrpE2UYwURhCO5c="
+                  "key": "LA944mpk44k8Jr9EN/uOzSSf8G+Ng2LiIvf9FJBkl80="
                 },
                 "value": {
                   "denom": "uzrn",
@@ -276,7 +272,7 @@
             "tip": null
           },
           "signatures": [
-            "ZlWbJEOCKEuYFDF7btcFkvt4PekDEaw4RgxC8f2On8AiN3WwukwI3zJZSUtx3Tc26q17MmI7YRUTox3eVwMuLQ=="
+            "PPE6SwHVK7ht0suozZtfGWcSWjGUaxfaQMH5/XQdGYtKjAKmgwWLr9tlrdLf69cuZCWO/SkxtYcEZbEraK5iAg=="
           ]
         }
       ]
@@ -296,15 +292,15 @@
             "amount": "100000000"
           }
         ],
-        "max_deposit_period": "86400s",
-        "voting_period": "43200s",
+        "max_deposit_period": "1200s",
+        "voting_period": "600s",
         "quorum": "0.334000000000000000",
         "threshold": "0.500000000000000000",
         "veto_threshold": "0.334000000000000000",
         "min_initial_deposit_ratio": "0.000000000000000000",
         "proposal_cancel_ratio": "0.500000000000000000",
         "proposal_cancel_dest": "",
-        "expedited_voting_period": "21600s",
+        "expedited_voting_period": "300s",
         "expedited_threshold": "0.667000000000000000",
         "expedited_min_deposit": [
           {
@@ -777,7 +773,7 @@
           "depth": 1
         }
       ],
-      "bootstrap_fund_allocation": "22222000000",
+      "bootstrap_fund_allocation": "0",
       "common_knowledge": [],
       "methodologies": [],
       "normative_commitments": [],
@@ -878,9 +874,28 @@
         "max_propagation_depth": 5,
         "min_propagation_uzrn": "1000",
         "self_citation_cap_bps": 5000,
-        "witness_reward_challenge_window_blocks": "6000"
+        "witness_reward_challenge_window_blocks": "200"
       },
-      "adapters": []
+      "adapters": [
+        {
+          "adapter_id": "agenttool-invocation-v1",
+          "source_type": "agenttool",
+          "version": "1.1.0",
+          "compiler_binary_hash": "",
+          "axis_bounds": null,
+          "min_attestation_bond_uzrn": "1000000",
+          "min_per_claim_bond_uzrn": "100000",
+          "slash_gradient": null,
+          "required_qualification_domain": "",
+          "min_qualification_status": "QUALIFICATION_STATUS_UNSPECIFIED",
+          "allowed_class_ids": [],
+          "status": "ADAPTER_STATUS_ACTIVE",
+          "registered_via_lip_id": "",
+          "registered_at_block": "0",
+          "tombstoned_at_block": "0",
+          "witness_reward_uzrn": "222000"
+        }
+      ]
     },
     "tokens": {
       "params": {}
@@ -1324,6 +1339,8 @@
       }
     }
   },
+  "app_version": "4618bb7",
+  "chain_id": "zerone-1",
   "consensus": {
     "params": {
       "block": {
@@ -1347,5 +1364,7 @@
         "vote_extensions_enable_height": "0"
       }
     }
-  }
+  },
+  "genesis_time": "2026-07-08T12:49:44.135787Z",
+  "initial_height": 1
 }

@@ -8,7 +8,7 @@ primary_region = "lhr"
 [env]
   MONIKER = "zerone-1-fly-0"
   ZERONE_HOME = "/data/.zeroned"
-  # EXTERNAL_ADDRESS is set after the dedicated IP is allocated (see deploy note).
+  EXTERNAL_ADDRESS = "169.155.55.44:26656"
 
 [mounts]
   source = "zerone_data"
