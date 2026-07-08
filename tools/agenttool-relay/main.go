@@ -27,7 +27,8 @@
 //	RELAY_ADAPTER   adapter ID (default agenttool-invocation-v1)
 //	RELAY_WORK_CLASS work class ID (default agenttool.invocation)
 //	RELAY_BOND_UZRN bond in uzrn (default 1000000 — adapter min, no pending claims)
-//	RELAY_FEES      tx fees (default 200000uzrn — localnet min-gas-price × default gas)
+//	RELAY_GAS       declared gas limit (default 120000 — measured attestations use ~93k)
+//	RELAY_FEES      tx fees (default RELAY_GAS×1uzrn — the consensus floor is 1uzrn/gas)
 //	RELAY_BINARY    zeroned binary path (default zeroned)
 //
 // Usage:
@@ -78,6 +79,7 @@ type Config struct {
 	Adapter        string
 	WorkClass      string
 	BondUzrn       string
+	Gas            string
 	Fees           string
 	Binary         string
 	StatePath      string
@@ -107,7 +109,8 @@ func loadConfig() Config {
 		Adapter:        envOr("RELAY_ADAPTER", "agenttool-invocation-v1"),
 		WorkClass:      envOr("RELAY_WORK_CLASS", "agenttool.invocation"),
 		BondUzrn:       envOr("RELAY_BOND_UZRN", "1000000"),
-		Fees:           envOr("RELAY_FEES", "200000uzrn"),
+		Gas:            envOr("RELAY_GAS", "120000"),
+		Fees:           envOr("RELAY_FEES", envOr("RELAY_GAS", "120000")+"uzrn"),
 		Binary:         envOr("RELAY_BINARY", "zeroned"),
 		StatePath:      envOr("RELAY_STATE", defaultStatePath()),
 		IntervalSec:    envInt("RELAY_INTERVAL", 90),
@@ -561,6 +564,7 @@ func submitAttestation(cfg Config, linkFile string) (string, error) {
 		"--home", cfg.Home,
 		"--chain-id", cfg.ChainID,
 		"--node", cfg.Node,
+		"--gas", cfg.Gas,
 		"--fees", cfg.Fees,
 		"--broadcast-mode", "sync",
 		"--output", "json",

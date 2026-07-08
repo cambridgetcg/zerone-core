@@ -63,8 +63,10 @@ done
 VAL_ADDR="$("${BINARY}" keys show validator -a "${KR[@]}")"
 OPS_ADDR="$("${BINARY}" keys show zerone-ops -a "${KR[@]}")"
 
-# Reuse node key so the seed id is stable across re-genesis.
+# Reuse node key + consensus key so seed id AND validator identity are stable
+# across re-genesis (also: never clobber the live chain's only key backups).
 [ -f "${OUT}/node_key.json" ] && cp "${OUT}/node_key.json" "${CEREMONY}/config/node_key.json"
+[ -f "${OUT}/priv_validator_key.json" ] && cp "${OUT}/priv_validator_key.json" "${CEREMONY}/config/priv_validator_key.json"
 
 info "genesis accounts (honest: validator stake+gas + operator float; NO faucet pre-mine)"
 "${BINARY}" add-genesis-account "${VAL_ADDR}" "${VAL_BALANCE}" --home "${CEREMONY}" >/dev/null 2>&1
@@ -84,8 +86,15 @@ jq --arg ops "${OPS_ADDR}" '
   .app_state.gov.params.max_deposit_period = "1200s" |
   (.app_state.substrate_bridge.params.witness_reward_challenge_window_blocks) = "200" |
   (if .app_state.knowledge.bootstrap_fund_allocation != null then .app_state.knowledge.bootstrap_fund_allocation = "0" else . end) |
-  (if .app_state.claiming_pot.params.bootstrap_registrar != null then .app_state.claiming_pot.params.bootstrap_registrar = $ops else . end)
+  .app_state.claiming_pot.params.bootstrap_registrar = $ops |
+  .app_state.knowledge.params.probe_bounty_mint_per_block = "0"
 ' "${GEN}" > "${GEN}.tmp" && mv "${GEN}.tmp" "${GEN}"
+# ^ registrar MUST be set unconditionally: proto3 omits the empty string from the
+#   default genesis JSON, so an `if != null` guard silently no-ops (zerone-1 launch
+#   bug — chain shipped with no registrar and nobody could admit newborns).
+#   probe_bounty_mint_per_block = 0: the code default (1 ZRN/block, unconditional,
+#   even on empty blocks) contradicts "mints only on participation" — the audit
+#   budget can be gov-enabled later WITH disclosure, when probes actually run.
 
 # Adapter ACTIVE at genesis so the witness economy works from block 0 (no 12h
 # gov wait). ceremony-inject sets a 22.2 ZRN bond; patch it to a fun-cheap 1 ZRN

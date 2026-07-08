@@ -1119,6 +1119,7 @@ func NewZeroneApp(
 	app.ModuleManager.SetOrderBeginBlockers(
 		upgradetypes.ModuleName,
 		capabilitytypes.ModuleName,
+		vestingrewardstypes.ModuleName, // MUST run before x/distribution: RouteFees takes the research+development slices from fee_collector; distribution sweeps the remainder to validators
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
 		evidencetypes.ModuleName,
@@ -1135,7 +1136,6 @@ func NewZeroneApp(
 		icatypes.ModuleName,
 		// ===== Zerone custom module BeginBlocker order — added by batch =====
 		zeroneemergencytypes.ModuleName,        // emergency: EARLY — ceremony progress, auto-resume, revert monitoring
-		vestingrewardstypes.ModuleName, // MUST run before x/distribution to intercept fees
 		zeroneauthtypes.ModuleName,
 		zeronestakingtypes.ModuleName,
 		zeronegovtypes.ModuleName,       // gov: after staking (needs bonded stake)
