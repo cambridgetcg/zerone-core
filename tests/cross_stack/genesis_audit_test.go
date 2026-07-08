@@ -304,10 +304,12 @@ func TestScenario16_InvalidGenesisRejection(t *testing.T) {
 const (
 	artifactEnvVar        = "ZERONE_GENESIS_ARTIFACT"
 	artifactNValidators   = 5             // Alpha, Beta, Gamma, Yu, Ai (design §10a)
-	artifactStakeUzrn     = "11111000000" // 11,111 ZRN permanently locked per validator
+	artifactStakeUzrn     = "11111000000" // 11,111 ZRN locked + self-bonded (original_vesting) per validator
+	artifactGasSeedUzrn   = "222000000"   // 222 ZRN spendable gas seed per validator (§13)
+	artifactStakeBalUzrn  = "11333000000" // 11,111 locked stake + 222 spendable gas seed = stake account balance
 	artifactFloatUzrn     = "111000000"   // 111 ZRN operator float
 	artifactOnboardUzrn   = "2222000000"  // 2,222 ZRN onboarding multisig
-	artifactTotalSupply   = "58332000000" // 58,332 ZRN — the §10a zero-ALLOCATION invariant
+	artifactTotalSupply   = "59442000000" // 59,442 ZRN — the §13 gas-seeded zero-ALLOCATION invariant
 	artifactNBalances     = 11
 	permanentLockedType   = "/cosmos.vesting.v1beta1.PermanentLockedAccount"
 	msgCreateValidatorURL = "/cosmos.staking.v1beta1.MsgCreateValidator"
@@ -428,7 +430,7 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 	require.Len(t, g.AppState.Bank.Supply, 1, "genesis supply must carry exactly one denom")
 	require.Equal(t, zeroneapp.BondDenom, g.AppState.Bank.Supply[0].Denom)
 	require.Equal(t, artifactTotalSupply, g.AppState.Bank.Supply[0].Amount,
-		"§10a zero-ALLOCATION invariant: bank supply must be exactly 58,332 ZRN")
+		"§13 gas-seeded zero-ALLOCATION invariant: bank supply must be exactly 59,442 ZRN")
 
 	// ── exactly 9 balances in the canonical role buckets ─────────────────
 	require.Len(t, g.AppState.Bank.Balances, artifactNBalances,
@@ -447,7 +449,7 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 		amount string
 		count  int
 	}{
-		{"validator stake (permanently locked)", artifactStakeUzrn, artifactNValidators},
+		{"validator stake+gas (11,111 locked + 222 spendable)", artifactStakeBalUzrn, artifactNValidators},
 		{"operator float", artifactFloatUzrn, artifactNValidators},
 		{"onboarding multisig", artifactOnboardUzrn, 1},
 	}
@@ -456,7 +458,10 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 			"expected %d × %s uzrn balances (%s)", rb.count, rb.amount, rb.role)
 	}
 
-	// ── 4 PermanentLockedAccounts == the 4 stake balances ────────────────
+	// ── 5 PermanentLockedAccounts == the 5 stake balances ────────────────
+	// §13 gas seed: each stake account has a bank balance of 11,333 ZRN but
+	// locks (original_vesting) only 11,111 ZRN — leaving exactly 222 ZRN
+	// SPENDABLE so the validator can pay its own vote gas at block 0.
 	lockedAddrs := map[string]bool{}
 	for _, acc := range g.AppState.Auth.Accounts {
 		if acc.Type != permanentLockedType {
@@ -466,14 +471,17 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 		require.Len(t, acc.BaseVestingAccount.OriginalVesting, 1)
 		require.Equal(t, zeroneapp.BondDenom, acc.BaseVestingAccount.OriginalVesting[0].Denom)
 		require.Equal(t, artifactStakeUzrn, acc.BaseVestingAccount.OriginalVesting[0].Amount,
-			"locked account %s must vest its FULL balance", addr)
+			"locked account %s must lock exactly 11,111 ZRN (not its full balance) — the 222 ZRN gas seed stays spendable", addr)
 		require.Equal(t, "0", acc.BaseVestingAccount.EndTime,
 			"PermanentLockedAccount end_time must be 0 (never unlocks)")
+		// The bank balance carries the extra gas seed: balance − original_vesting == 222 ZRN spendable.
+		require.Equal(t, artifactStakeBalUzrn, balanceByAddr[addr],
+			"stake account %s bank balance must be 11,333 ZRN (11,111 locked + 222 spendable gas seed)", addr)
 		lockedAddrs[addr] = true
 	}
 	require.Len(t, lockedAddrs, artifactNValidators,
 		"expected exactly %d PermanentLockedAccounts", artifactNValidators)
-	for _, addr := range buckets[artifactStakeUzrn] {
+	for _, addr := range buckets[artifactStakeBalUzrn] {
 		require.True(t, lockedAddrs[addr],
 			"stake balance %s must be a PermanentLockedAccount", addr)
 	}

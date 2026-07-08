@@ -8,13 +8,16 @@
 #
 # Pipeline (fixed order; every step is idempotent from a clean OUT_DIR):
 #   1. zeroned init
-#   2. add-genesis-account: 5 × 11,111 ZRN validator stake accounts,
+#   2. add-genesis-account: 5 × 11,333 ZRN validator stake accounts
+#      (11,111 ZRN locked+delegated stake + 222 ZRN spendable gas seed),
 #      5 × 111 ZRN operator floats, 1 × 2,222 ZRN onboarding multisig
-#      (total bank supply exactly 58,332 ZRN = 58,332,000,000 uzrn)
+#      (total bank supply exactly 59,442 ZRN = 59,442,000,000 uzrn)
 #   3. jq-patch the 5 stake accounts to
-#      /cosmos.vesting.v1beta1.PermanentLockedAccount — the
-#      add-genesis-account --vesting flags are dead code
-#      (cmd/zeroned/cmd/genesis.go:87-90 discards them)
+#      /cosmos.vesting.v1beta1.PermanentLockedAccount with
+#      original_vesting = 11,111 ZRN ONLY (§13 gas seed: the extra 222 ZRN
+#      of account balance stays SPENDABLE so validators can pay their own
+#      vote gas at block 0) — the add-genesis-account --vesting flags are
+#      dead code (cmd/zeroned/cmd/genesis.go:87-90 discards them)
 #   4. jq knowledge.bootstrap_fund_allocation = "0" (suppresses the default
 #      22,222 ZRN InitGenesis mint; day-0 supply stays exactly 58,332)
 #   5. SDK-gov params to uzrn (default 'stake' denom would permanently kill
@@ -68,10 +71,12 @@ GENESIS="${HOME_DIR}/config/genesis.json"
 KR=(--keyring-backend test)
 
 # ── §2 canonical amounts (uzrn) ─────────────────────────────────────────────
-STAKE_UZRN=11111000000          # 11,111 ZRN per validator, permanently locked
+STAKE_UZRN=11111000000          # 11,111 ZRN per validator, locked + self-delegated (original_vesting)
+GAS_SEED_UZRN=222000000         # 222 ZRN per validator, SPENDABLE gas seed (§13, ~1,100 votes)
+STAKE_BALANCE_UZRN=11333000000  # 11,111 locked stake + 222 gas seed = per-validator account balance
 FLOAT_UZRN=111000000            # 111 ZRN operator float
 ONBOARD_UZRN=2222000000         # 2,222 ZRN onboarding 3-of-5 multisig
-TOTAL_SUPPLY_UZRN=58332000000   # 5×stake + 5×float + onboarding, exactly
+TOTAL_SUPPLY_UZRN=59442000000   # 5×(stake+gas) + 5×float + onboarding = 59,442 ZRN, exactly
 N_VALIDATORS=5                  # Alpha, Beta, Gamma, Yu, Ai (design §10a)
 
 # ── §2 canonical parameters ─────────────────────────────────────────────────
@@ -211,9 +216,9 @@ for i in $(seq 1 ${N_VALIDATORS}); do
 done
 
 # ── 2. genesis accounts (the ONLY nine balances) ────────────────────────────
-info "adding the 11 genesis balances (5 stake + 5 float + onboarding)"
+info "adding the 11 genesis balances (5 stake+gas + 5 float + onboarding)"
 for a in "${STAKE_ADDRS[@]}"; do
-  "${BINARY}" add-genesis-account "${a}" "${STAKE_UZRN}uzrn" --home "${HOME_DIR}" >/dev/null
+  "${BINARY}" add-genesis-account "${a}" "${STAKE_BALANCE_UZRN}uzrn" --home "${HOME_DIR}" >/dev/null
 done
 for a in "${FLOAT_ADDRS[@]}"; do
   "${BINARY}" add-genesis-account "${a}" "${FLOAT_UZRN}uzrn" --home "${HOME_DIR}" >/dev/null
@@ -222,14 +227,17 @@ done
 
 SUPPLY=$(jq -r '.app_state.bank.supply[] | select(.denom=="uzrn") | .amount' "${GENESIS}")
 [ "${SUPPLY}" = "${TOTAL_SUPPLY_UZRN}" ] || die "bank supply ${SUPPLY} != ${TOTAL_SUPPLY_UZRN}"
-ok "bank supply exactly ${TOTAL_SUPPLY_UZRN} uzrn (58,332 ZRN, 0.0262% of cap)"
+ok "bank supply exactly ${TOTAL_SUPPLY_UZRN} uzrn (59,442 ZRN, 0.0267% of cap)"
 
 # ── 3. PermanentLockedAccount patch ─────────────────────────────────────────
 # add-genesis-account's --vesting flags are dead code (verified:
 # cmd/zeroned/cmd/genesis.go:87-90 discards vestingStart/vestingEnd), so the
 # lock is applied by the ceremony itself: genesis stake is slashable
 # consensus collateral that can NEVER be transferred or sold (§1, §8b).
-info "converting the 4 stake accounts to PermanentLockedAccount"
+# §13 gas seed: original_vesting = STAKE_UZRN ONLY (not the full account
+# balance) — the extra 222 ZRN gas seed stays SPENDABLE. Vesting accounts may
+# delegate locked coins, so the gentx still self-delegates the full 11,111 ZRN.
+info "converting the ${N_VALIDATORS} stake accounts to PermanentLockedAccount (lock 11,111, leave 222 spendable)"
 for a in "${STAKE_ADDRS[@]}"; do
   patch '
     .app_state.auth.accounts = [ .app_state.auth.accounts[] |
@@ -247,7 +255,7 @@ for a in "${STAKE_ADDRS[@]}"; do
 done
 LOCKED=$(jq '[.app_state.auth.accounts[] | select(.["@type"]=="/cosmos.vesting.v1beta1.PermanentLockedAccount")] | length' "${GENESIS}")
 [ "${LOCKED}" = "${N_VALIDATORS}" ] || die "expected ${N_VALIDATORS} PermanentLockedAccounts, got ${LOCKED}"
-ok "${LOCKED} PermanentLockedAccounts (55,555 ZRN never transferable)"
+ok "${LOCKED} PermanentLockedAccounts (55,555 ZRN never transferable; 1,110 ZRN spendable gas seed)"
 
 # ── 4. knowledge fund zero + guardian params ────────────────────────────────
 # "0" verified to skip the 22,222 ZRN InitGenesis mint (x/knowledge/keeper/genesis.go:93).
@@ -441,19 +449,21 @@ MANIFEST="${OUT_DIR}/GENESIS-MANIFEST.md"
 
 ## Supply invariant (design §4 / §10 zero-ALLOCATION clause)
 
-Total bank supply **exactly ${TOTAL_SUPPLY_UZRN} uzrn (58,332 ZRN = 0.0262% of the 222,222,222 cap)**:
-55,555 ZRN permanently-locked bonded validator collateral + 2,777 ZRN enumerated
-operational float. No team / foundation / investor / research / faucet balance.
-Everything else mints on participation under MintWithCap.
+Total bank supply **exactly ${TOTAL_SUPPLY_UZRN} uzrn (59,442 ZRN = 0.0267% of the 222,222,222 cap)**:
+55,555 ZRN permanently-locked bonded validator collateral + 1,110 ZRN spendable
+validator gas seed (§13: 222 ZRN each, so validators can pay their own vote gas
+at block 0) + 2,777 ZRN enumerated operational float. No team / foundation /
+investor / research / faucet balance. Everything else mints on participation
+under MintWithCap.
 
-## Accounts (the only nine balances)
+## Accounts (the only eleven balances)
 
 | role | address | uzrn | account type | PQ recovery commitment (§9) |
 |------|---------|------|--------------|------------------------------|
 EOF
   for i in $(seq 1 ${N_VALIDATORS}); do
     nm="VAL${i}_NAME"; sa="VAL${i}_STAKE_ADDR"; pq="PQ_COMMITMENT_${i}"
-    echo "| validator ${i} stake (${!nm}) | \`${!sa}\` | ${STAKE_UZRN} | PermanentLockedAccount, fully self-bonded | \`${!pq}\` |"
+    echo "| validator ${i} stake+gas (${!nm}) | \`${!sa}\` | ${STAKE_BALANCE_UZRN} | PermanentLockedAccount (original_vesting ${STAKE_UZRN} fully self-bonded; 222 ZRN spendable gas seed, §13) | \`${!pq}\` |"
   done
   for i in $(seq 1 ${N_VALIDATORS}); do
     nm="VAL${i}_NAME"; fa="VAL${i}_FLOAT_ADDR"
