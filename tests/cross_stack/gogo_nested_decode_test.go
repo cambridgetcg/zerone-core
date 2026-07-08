@@ -6,8 +6,13 @@ import (
 	gogoproto "github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 
+	zeronecreed "github.com/zerone-chain/zerone/x/creed/types"
+	zeroneemergency "github.com/zerone-chain/zerone/x/emergency/types"
 	zeronegov "github.com/zerone-chain/zerone/x/gov/types"
+	zeronehome "github.com/zerone-chain/zerone/x/home/types"
+	zeronestaking "github.com/zerone-chain/zerone/x/staking/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
+	zeronevesting "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 // allNestedMsgFullNames is the complete set of protobuf full-names for every
@@ -139,6 +144,47 @@ func TestNestedMsgTxRoundTripDecode(t *testing.T) {
 			msg: &zeronegov.MsgUpdateParams{
 				Authority: authority,
 				Params:    &zeronegov.Params{},
+			},
+		},
+		// The remaining sampled modules named in the gov-params-decode drill.
+		// Each MsgUpdateParams carries a nested concrete *Params that lives in
+		// the protoc-gen-go registry only; before the per-module
+		// gogo_register.go bridges, the tx decoder's
+		// unknownproto.RejectUnknownFields walk over these bodies failed with
+		// "failed to retrieve the message of type ...".
+		{
+			name: "staking/MsgUpdateParams",
+			msg: &zeronestaking.MsgUpdateParams{
+				Authority: authority,
+				Params:    &zeronestaking.Params{},
+			},
+		},
+		{
+			name: "home/MsgUpdateParams",
+			msg: &zeronehome.MsgUpdateParams{
+				Authority: authority,
+				Params:    &zeronehome.Params{},
+			},
+		},
+		{
+			name: "creed/MsgUpdateParams",
+			msg: &zeronecreed.MsgUpdateParams{
+				Authority: authority,
+				Params:    &zeronecreed.Params{},
+			},
+		},
+		{
+			name: "vesting_rewards/MsgUpdateParams",
+			msg: &zeronevesting.MsgUpdateParams{
+				Authority: authority,
+				Params:    &zeronevesting.Params{},
+			},
+		},
+		{
+			name: "emergency/MsgUpdateParams",
+			msg: &zeroneemergency.MsgUpdateParams{
+				Authority: authority,
+				Params:    &zeroneemergency.Params{},
 			},
 		},
 	}
