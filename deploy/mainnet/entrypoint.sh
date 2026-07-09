@@ -61,4 +61,7 @@ else
 fi
 echo "[entrypoint] $(grep '^minimum-gas-prices' "${APP}")"
 
-exec zeroned start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn
+# EXTRA_START_FLAGS: incident escape hatch settable via `fly secrets set` /
+# [env] without an image rebuild — e.g. "--unsafe-skip-upgrades <height>" to
+# skip a bad upgrade plan after redeploying the previous image.
+exec zeroned start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn ${EXTRA_START_FLAGS:-}

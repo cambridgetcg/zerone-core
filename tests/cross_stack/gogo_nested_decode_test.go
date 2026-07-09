@@ -10,6 +10,7 @@ import (
 	zeroneemergency "github.com/zerone-chain/zerone/x/emergency/types"
 	zeronegov "github.com/zerone-chain/zerone/x/gov/types"
 	zeronehome "github.com/zerone-chain/zerone/x/home/types"
+	zeronelp "github.com/zerone-chain/zerone/x/liquiditypool/types"
 	zeronestaking "github.com/zerone-chain/zerone/x/staking/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 	zeronevesting "github.com/zerone-chain/zerone/x/vesting_rewards/types"
@@ -185,6 +186,25 @@ func TestNestedMsgTxRoundTripDecode(t *testing.T) {
 			msg: &zeroneemergency.MsgUpdateParams{
 				Authority: authority,
 				Params:    &zeroneemergency.Params{},
+			},
+		},
+		{
+			// liquiditypool: Params with the new repeated string field 7
+			// (billing_quote_denoms) POPULATED — this is the exact tx gov must
+			// broadcast to enable the ZRN oracle after the hardening upgrade,
+			// and the first-ever wire appearance of field 7 through
+			// RejectUnknownFields. Empty-Params cases would not encode field 7.
+			name: "liquiditypool/MsgUpdateParams(populated field 7)",
+			msg: &zeronelp.MsgUpdateParams{
+				Authority: authority,
+				Params: &zeronelp.Params{
+					DefaultSwapFeeBps:   3000,
+					MinInitialLiquidity: "10000000000",
+					TwapWindowBlocks:    1000,
+					ProtocolFeeBps:      450_000,
+					MinReserve:          "1",
+					BillingQuoteDenoms:  []string{"uusdc", "ibc/ABCDEF0123456789"},
+				},
 			},
 		},
 	}

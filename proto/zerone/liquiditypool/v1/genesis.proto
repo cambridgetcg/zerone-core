@@ -9,10 +9,15 @@ import "zerone/liquiditypool/v1/types.proto";
 message Params {
   uint64 default_swap_fee_bps  = 1; // default swap fee (1M bps scale)
   uint64 max_pools             = 2; // maximum number of active pools
-  string min_initial_liquidity = 3; // minimum per-side liquidity in base units (bigint string)
+  string min_initial_liquidity = 3; // minimum uzrn-side liquidity in base units (bigint string)
   uint64 twap_window_blocks    = 4; // default TWAP window in blocks
   uint64 protocol_fee_bps      = 5; // protocol's share of swap fees (1M bps scale)
   string min_reserve           = 6; // minimum reserve after swap (bigint string, default "1")
+  // Quote denoms the ZRN price oracle (GetZRNPrice) may price against.
+  // Empty (the default) = the oracle selects NO pool — fail-closed, so
+  // consumers fall back exactly as when no pool exists (e.g. billing's
+  // Tier-1 manual override).
+  repeated string billing_quote_denoms = 7;
 }
 
 // GenesisState defines the liquiditypool module genesis state.

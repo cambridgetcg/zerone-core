@@ -17,6 +17,7 @@ const UpgradeNameTestnet = "v1.0.0-testnet"
 const UpgradeNameTestnetV2 = "v1.0.1-testnet"
 const UpgradeNameTestnetV3 = "v1.0.2-testnet"
 const UpgradeNameTestnetV4 = "v1.0.3-testnet"
+const UpgradeNameLiquidityHardeningV1 = "liquiditypool-hardening-v1"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -112,6 +113,33 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// liquiditypool-hardening-v1 — the Phase-1 gates before external liquidity
+	// (docs/plans/2026-07-06-defi-liquidity-pipeline.md): fail-closed billing
+	// oracle quote-denom allowlist (new Params field), real ProtocolFeeBps to
+	// fee_collector, Locked flag on Add/RemoveLiquidity, ZRN-quoted pairs with
+	// the floor on the uzrn side only, 10% swap-fee ceiling. Carries the
+	// liquiditypool v2→v3 migration (seeds the empty allowlist explicitly).
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameLiquidityHardeningV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
+			app.ReconcileModuleAccountPerms(ctx)
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_liquiditypool-hardening-v1", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
@@ -146,6 +174,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameTestnetV4:
 		// v1.0.3-testnet — migration-only (knowledge v5, liquiditypool v2,
 		// module-account perms reconcile). No store keys added or removed.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameLiquidityHardeningV1:
+		// Migration-only (liquiditypool v2→v3 — new Params field lives in the
+		// existing store). No store keys added or removed.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

@@ -57,7 +57,11 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, config client.TxEncod
 	return gs.Validate()
 }
 
-// RegisterGRPCGatewayRoutes — no-op, deferred to gateway v2.
+// RegisterGRPCGatewayRoutes — intentional no-op: the generated
+// query.pb.gw.go uses grpc-gateway/v2, incompatible with the SDK's v1
+// ServeMux passed here. REST routes (/zerone/liquiditypool/v1/...) are
+// served via the app-level v2 mux instead: app.RegisterAPIRoutes calls
+// types.RegisterQueryHandlerClient (app/app.go) for this module.
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command   { return nil }
@@ -87,6 +91,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 1, migrator.Migrate1to2); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 2, migrator.Migrate2to3); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
+	}
 }
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) {
@@ -103,7 +110,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 
 // ConsensusVersion 2: TWAPAccumulator gains StartBlock (Migrate1to2 backfills
 // it from the pool's creation height so the TWAP divisor is exact).
-func (AppModule) ConsensusVersion() uint64 { return 2 }
+// ConsensusVersion 3: Params gains BillingQuoteDenoms (Migrate2to3 persists
+// the empty — fail-closed — default for existing state).
+func (AppModule) ConsensusVersion() uint64 { return 3 }
 
 // BeginBlock updates TWAP accumulators for all pools each block.
 func (am AppModule) BeginBlock(goCtx context.Context) error {

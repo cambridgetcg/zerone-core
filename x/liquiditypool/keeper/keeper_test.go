@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -610,6 +611,168 @@ func TestCreatePool_ZeroAmount(t *testing.T) {
 	}
 }
 
+// TestCreatePool_RequiresZRNSide pins the ZRN-quoted-by-design rule: a pool
+// that pairs two non-uzrn denoms is rejected.
+func TestCreatePool_RequiresZRNSide(t *testing.T) {
+	ms, _, ctx, bk := setupMsgServer(t)
+
+	bk.setBalance(testAuthority, "uatom", 1_000_000_000_000_000)
+	bk.setBalance(testAuthority, "uosmo", 1_000_000_000_000_000)
+
+	_, err := ms.CreatePool(ctx, &types.MsgCreatePool{
+		Creator: testAuthority,
+		DenomA:  "uatom",
+		DenomB:  "uosmo",
+		AmountA: "100000000000",
+		AmountB: "100000000000",
+	})
+	if !errors.Is(err, types.ErrMissingZRNSide) {
+		t.Errorf("expected ErrMissingZRNSide for non-uzrn pair, got %v", err)
+	}
+}
+
+// TestCreatePool_FloorAppliesToZRNSide pins the dust-pool fix: a huge raw
+// amount of a worthless counter-denom must not satisfy the uzrn-scaled
+// MinInitialLiquidity floor when the uzrn side is dust.
+func TestCreatePool_FloorAppliesToZRNSide(t *testing.T) {
+	ms, _, ctx, bk := setupMsgServer(t)
+
+	bk.setBalance(testAuthority, "uzrn", 1_000_000_000_000_000)
+	bk.setBalance(testAuthority, "ujunk", 1_000_000_000_000_000)
+
+	// uzrn side: 5,000 ZRN (below the 10,000 ZRN floor);
+	// counter side: enormous raw amount of ujunk (old code let this pass).
+	_, err := ms.CreatePool(ctx, &types.MsgCreatePool{
+		Creator: testAuthority,
+		DenomA:  "uzrn",
+		DenomB:  "ujunk",
+		AmountA: "5000000000",
+		AmountB: "900000000000000",
+	})
+	if !errors.Is(err, types.ErrInsufficientLiquidity) {
+		t.Errorf("expected ErrInsufficientLiquidity for dust uzrn side, got %v", err)
+	}
+
+	// Same amounts with uzrn as denom_b: floor still applies to the uzrn side.
+	_, err = ms.CreatePool(ctx, &types.MsgCreatePool{
+		Creator: testAuthority,
+		DenomA:  "ujunk",
+		DenomB:  "uzrn",
+		AmountA: "900000000000000",
+		AmountB: "5000000000",
+	})
+	if !errors.Is(err, types.ErrInsufficientLiquidity) {
+		t.Errorf("expected ErrInsufficientLiquidity for dust uzrn side (denom_b), got %v", err)
+	}
+}
+
+// TestCreatePool_CounterSidePositiveSuffices documents the both-sides rule:
+// uzrn side >= floor AND counter side > 0. The counter side has no uzrn-scaled
+// floor of its own (its base units are not comparable to uzrn).
+func TestCreatePool_CounterSidePositiveSuffices(t *testing.T) {
+	ms, _, ctx, bk := setupMsgServer(t)
+
+	bk.setBalance(testAuthority, "uzrn", 1_000_000_000_000_000)
+	bk.setBalance(testAuthority, "uatom", 1_000_000_000_000_000)
+
+	_, err := ms.CreatePool(ctx, &types.MsgCreatePool{
+		Creator: testAuthority,
+		DenomA:  "uzrn",
+		DenomB:  "uatom",
+		AmountA: "10000000000", // exactly the 10,000 ZRN floor
+		AmountB: "1",
+	})
+	if err != nil {
+		t.Errorf("expected pool with floor-meeting uzrn side and positive counter side to be accepted, got %v", err)
+	}
+}
+
+// TestCreatePool_SwapFeeCap pins the creation fee cap: > 10% (100,000 on the
+// 1M scale) is rejected, exactly 10% is accepted, 0 falls back to the default.
+func TestCreatePool_SwapFeeCap(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+
+	bk.setBalance(testAuthority, "uzrn", 1_000_000_000_000_000)
+	bk.setBalance(testAuthority, "uatom", 1_000_000_000_000_000)
+
+	_, err := ms.CreatePool(ctx, &types.MsgCreatePool{
+		Creator:    testAuthority,
+		DenomA:     "uzrn",
+		DenomB:     "uatom",
+		AmountA:    "100000000000",
+		AmountB:    "100000000000",
+		SwapFeeBps: types.MaxSwapFeeBps + 1,
+	})
+	if !errors.Is(err, types.ErrInvalidSwapFee) {
+		t.Errorf("expected ErrInvalidSwapFee above the cap, got %v", err)
+	}
+
+	resp, err := ms.CreatePool(ctx, &types.MsgCreatePool{
+		Creator:    testAuthority,
+		DenomA:     "uzrn",
+		DenomB:     "uatom",
+		AmountA:    "100000000000",
+		AmountB:    "100000000000",
+		SwapFeeBps: types.MaxSwapFeeBps, // exactly 10% is allowed
+	})
+	if err != nil {
+		t.Fatalf("expected fee exactly at cap to be accepted, got %v", err)
+	}
+	pool, _ := k.GetPool(ctx, resp.PoolId)
+	if pool.SwapFeeBps != types.MaxSwapFeeBps {
+		t.Errorf("expected SwapFeeBps %d, got %d", types.MaxSwapFeeBps, pool.SwapFeeBps)
+	}
+
+	// Zero fee = use module default.
+	bk.setBalance(testAuthority, "uosmo", 1_000_000_000_000_000)
+	resp, err = ms.CreatePool(ctx, &types.MsgCreatePool{
+		Creator: testAuthority,
+		DenomA:  "uzrn",
+		DenomB:  "uosmo",
+		AmountA: "100000000000",
+		AmountB: "100000000000",
+	})
+	if err != nil {
+		t.Fatalf("expected zero fee (default fallback) to be accepted, got %v", err)
+	}
+	pool, _ = k.GetPool(ctx, resp.PoolId)
+	if pool.SwapFeeBps != types.DefaultParams().DefaultSwapFeeBps {
+		t.Errorf("expected default fee %d, got %d", types.DefaultParams().DefaultSwapFeeBps, pool.SwapFeeBps)
+	}
+}
+
+// TestMsgCreatePool_ValidateBasic covers the stateless mirrors of the
+// creation gates: fee cap and the mandatory uzrn side.
+func TestMsgCreatePool_ValidateBasic(t *testing.T) {
+	creator := sdk.AccAddress([]byte("validate_basic_test_")).String()
+	newMsg := func(denomA, denomB string, feeBps uint64) *types.MsgCreatePool {
+		return &types.MsgCreatePool{
+			Creator:    creator,
+			DenomA:     denomA,
+			DenomB:     denomB,
+			AmountA:    "1000000",
+			AmountB:    "1000000",
+			SwapFeeBps: feeBps,
+		}
+	}
+
+	if err := newMsg("uzrn", "uatom", 0).ValidateBasic(); err != nil {
+		t.Fatalf("valid msg rejected: %v", err)
+	}
+
+	if err := newMsg("uzrn", "uatom", types.MaxSwapFeeBps+1).ValidateBasic(); !errors.Is(err, types.ErrInvalidSwapFee) {
+		t.Errorf("expected ErrInvalidSwapFee, got %v", err)
+	}
+
+	if err := newMsg("uzrn", "uatom", types.MaxSwapFeeBps).ValidateBasic(); err != nil {
+		t.Errorf("fee exactly at cap should pass ValidateBasic, got %v", err)
+	}
+
+	if err := newMsg("uatom", "uosmo", 0).ValidateBasic(); !errors.Is(err, types.ErrMissingZRNSide) {
+		t.Errorf("expected ErrMissingZRNSide, got %v", err)
+	}
+}
+
 // ===================================================================
 // Msg Server Tests: Swap
 // ===================================================================
@@ -825,9 +988,239 @@ func TestSwap_MinReserveCheck(t *testing.T) {
 	}
 }
 
+// TestSwap_ProtocolFeeToFeeCollector pins gate 2: the protocol's share of
+// the swap fee (fee × protocol_fee_bps / 1e6) moves from the pool module
+// account to fee_collector, reserves shrink by exactly that share (so LP
+// share math stays honest), and the module account balance still equals the
+// recorded reserves.
+func TestSwap_ProtocolFeeToFeeCollector(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+
+	senderAddr := "zrn1sender0000000000000000000000"
+	bk.setBalance(senderAddr, "uzrn", 100_000)
+
+	// Default pool fee 3,000 bps (0.3%), default protocol share 450,000 (45%).
+	// tokenIn 10,000 -> fee = 30 -> protocol share = 30*450000/1e6 = 13 (floor).
+	resp, err := ms.Swap(ctx, &types.MsgSwap{
+		Sender:        senderAddr,
+		PoolId:        poolId,
+		TokenInDenom:  "uzrn",
+		TokenInAmount: "10000",
+	})
+	if err != nil {
+		t.Fatalf("swap failed: %v", err)
+	}
+	if resp.FeeAmount != "30" {
+		t.Fatalf("expected total fee 30, got %s", resp.FeeAmount)
+	}
+
+	// Protocol share landed in fee_collector.
+	got := bk.moduleBalances["fee_collector"]["uzrn"]
+	if got != 13 {
+		t.Errorf("expected 13 uzrn in fee_collector, got %d", got)
+	}
+
+	// Reserves: input side gains tokenIn minus the protocol share.
+	pool, _ := k.GetPool(ctx, poolId)
+	if pool.ReserveA != "100000009987" { // 100B + 10,000 - 13
+		t.Errorf("expected reserve A 100000009987, got %s", pool.ReserveA)
+	}
+
+	// Reserve accounting matches actual module holdings for both denoms.
+	moduleZRN := bk.moduleBalances[types.ModuleName]["uzrn"]
+	if pool.ReserveA != big.NewInt(moduleZRN).String() {
+		t.Errorf("reserve A %s diverged from module balance %d", pool.ReserveA, moduleZRN)
+	}
+	moduleAtom := bk.moduleBalances[types.ModuleName]["uatom"]
+	if pool.ReserveB != big.NewInt(moduleAtom).String() {
+		t.Errorf("reserve B %s diverged from module balance %d", pool.ReserveB, moduleAtom)
+	}
+}
+
+// TestSwap_ZeroProtocolFee: with protocol_fee_bps = 0 the whole fee accrues
+// to LPs and nothing reaches fee_collector.
+func TestSwap_ZeroProtocolFee(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+
+	params := types.DefaultParams()
+	params.ProtocolFeeBps = 0
+	k.SetParams(ctx, params)
+
+	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+
+	senderAddr := "zrn1sender0000000000000000000000"
+	bk.setBalance(senderAddr, "uzrn", 100_000)
+
+	_, err := ms.Swap(ctx, &types.MsgSwap{
+		Sender:        senderAddr,
+		PoolId:        poolId,
+		TokenInDenom:  "uzrn",
+		TokenInAmount: "10000",
+	})
+	if err != nil {
+		t.Fatalf("swap failed: %v", err)
+	}
+
+	if got := bk.moduleBalances["fee_collector"]["uzrn"]; got != 0 {
+		t.Errorf("expected no protocol fee, fee_collector holds %d", got)
+	}
+	pool, _ := k.GetPool(ctx, poolId)
+	if pool.ReserveA != "100000010000" { // full tokenIn stays with the pool
+		t.Errorf("expected reserve A 100000010000, got %s", pool.ReserveA)
+	}
+}
+
+// TestSwap_CounterDenomInTakesNoProtocolFee pins the fee-routing fix: on a
+// swap whose INPUT is the counter (non-uzrn) denom, NO protocol fee is skimmed
+// (RouteFees only splits uzrn), the whole fee accrues to LPs, fee_collector
+// receives nothing, and recorded reserves still match module holdings on both
+// sides. Guards the asymmetric else-branch the audit found untested.
+func TestSwap_CounterDenomInTakesNoProtocolFee(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+
+	senderAddr := "zrn1sender0000000000000000000000"
+	bk.setBalance(senderAddr, "uatom", 100_000)
+
+	resp, err := ms.Swap(ctx, &types.MsgSwap{
+		Sender:        senderAddr,
+		PoolId:        poolId,
+		TokenInDenom:  "uatom", // counter denom in
+		TokenInAmount: "10000",
+	})
+	if err != nil {
+		t.Fatalf("swap failed: %v", err)
+	}
+	if resp.FeeAmount != "30" {
+		t.Fatalf("expected total fee 30, got %s", resp.FeeAmount)
+	}
+
+	// No protocol fee in fee_collector, in EITHER denom.
+	if got := bk.moduleBalances["fee_collector"]["uatom"]; got != 0 {
+		t.Errorf("counter-denom-in swap must skim no protocol fee, fee_collector holds %d uatom", got)
+	}
+	if got := bk.moduleBalances["fee_collector"]["uzrn"]; got != 0 {
+		t.Errorf("fee_collector unexpectedly holds %d uzrn", got)
+	}
+
+	// Full tokenIn stays in the input (counter) reserve — nothing left the pool.
+	pool, _ := k.GetPool(ctx, poolId)
+	if pool.ReserveB != "200000010000" { // 200B + 10,000, no protocol deduction
+		t.Errorf("expected reserve B 200000010000, got %s", pool.ReserveB)
+	}
+
+	// Reserve accounting matches actual module holdings on both sides.
+	moduleZRN := bk.moduleBalances[types.ModuleName]["uzrn"]
+	if pool.ReserveA != big.NewInt(moduleZRN).String() {
+		t.Errorf("reserve A %s diverged from module balance %d", pool.ReserveA, moduleZRN)
+	}
+	moduleAtom := bk.moduleBalances[types.ModuleName]["uatom"]
+	if pool.ReserveB != big.NewInt(moduleAtom).String() {
+		t.Errorf("reserve B %s diverged from module balance %d", pool.ReserveB, moduleAtom)
+	}
+}
+
+// TestParamsValidate_BigintStrings pins the gate that rejects malformed
+// MinInitialLiquidity / MinReserve on the UpdateParams path (the audit found
+// SetString silently keeps a partial-parse prefix, collapsing the floor).
+func TestParamsValidate_BigintStrings(t *testing.T) {
+	base := func() *types.Params { return types.DefaultParams() }
+
+	ok := base()
+	if err := ok.Validate(); err != nil {
+		t.Fatalf("default params should validate, got %v", err)
+	}
+
+	for _, bad := range []string{"1e10", "10_000", "10,000", "ten", "", "-5"} {
+		p := base()
+		p.MinInitialLiquidity = bad
+		if err := p.Validate(); err == nil {
+			t.Errorf("min_initial_liquidity %q should be rejected", bad)
+		}
+	}
+	// MinReserve may be 0 but not malformed or negative.
+	zero := base()
+	zero.MinReserve = "0"
+	if err := zero.Validate(); err != nil {
+		t.Errorf("min_reserve 0 should be allowed, got %v", err)
+	}
+	for _, bad := range []string{"1e10", "abc", "-1", ""} {
+		p := base()
+		p.MinReserve = bad
+		if err := p.Validate(); err == nil {
+			t.Errorf("min_reserve %q should be rejected", bad)
+		}
+	}
+}
+
 // ===================================================================
 // Msg Server Tests: AddLiquidity
 // ===================================================================
+
+// TestAddLiquidity_LockedPool pins gate 3: AddLiquidity honours the same
+// reentrancy flag as Swap.
+func TestAddLiquidity_LockedPool(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+
+	pool, _ := k.GetPool(ctx, poolId)
+	pool.Locked = true
+	k.SetPool(ctx, pool)
+
+	senderAddr := "zrn1sender0000000000000000000000"
+	bk.setBalance(senderAddr, "uzrn", 1_000_000)
+	bk.setBalance(senderAddr, "uatom", 2_000_000)
+
+	_, err := ms.AddLiquidity(ctx, &types.MsgAddLiquidity{
+		Sender:  senderAddr,
+		PoolId:  poolId,
+		AmountA: "100000",
+		AmountB: "200000",
+	})
+	if !errors.Is(err, types.ErrPoolLocked) {
+		t.Errorf("expected ErrPoolLocked, got %v", err)
+	}
+}
+
+// TestAddLiquidity_UnlocksAfterCompletion: the lock is transient.
+func TestAddLiquidity_UnlocksAfterCompletion(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+
+	senderAddr := "zrn1sender0000000000000000000000"
+	bk.setBalance(senderAddr, "uzrn", 1_000_000)
+	bk.setBalance(senderAddr, "uatom", 2_000_000)
+
+	if _, err := ms.AddLiquidity(ctx, &types.MsgAddLiquidity{
+		Sender:  senderAddr,
+		PoolId:  poolId,
+		AmountA: "100000",
+		AmountB: "200000",
+	}); err != nil {
+		t.Fatalf("add liquidity failed: %v", err)
+	}
+
+	pool, _ := k.GetPool(ctx, poolId)
+	if pool.Locked {
+		t.Error("pool should be unlocked after successful AddLiquidity")
+	}
+
+	// Error path (slippage) must also leave the pool unlocked.
+	if _, err := ms.AddLiquidity(ctx, &types.MsgAddLiquidity{
+		Sender:      senderAddr,
+		PoolId:      poolId,
+		AmountA:     "100000",
+		AmountB:     "200000",
+		MinLpTokens: "999999999999",
+	}); err == nil {
+		t.Fatal("expected slippage error")
+	}
+	pool, _ = k.GetPool(ctx, poolId)
+	if pool.Locked {
+		t.Error("pool should be unlocked after failed AddLiquidity")
+	}
+}
 
 func TestAddLiquidity_Success(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
@@ -995,6 +1388,69 @@ func TestRemoveLiquidity_ExceedsSupply(t *testing.T) {
 	}
 }
 
+// TestRemoveLiquidity_LockedPool pins gate 3 for the withdraw path.
+func TestRemoveLiquidity_LockedPool(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+
+	pool, _ := k.GetPool(ctx, poolId)
+	pool.Locked = true
+	k.SetPool(ctx, pool)
+
+	senderAddr := "zrn1sender0000000000000000000000"
+	bk.setBalance(senderAddr, types.LPDenom(poolId), 1_000_000)
+
+	_, err := ms.RemoveLiquidity(ctx, &types.MsgRemoveLiquidity{
+		Sender:   senderAddr,
+		PoolId:   poolId,
+		LpTokens: "1000000",
+	})
+	if !errors.Is(err, types.ErrPoolLocked) {
+		t.Errorf("expected ErrPoolLocked, got %v", err)
+	}
+}
+
+// TestRemoveLiquidity_UnlocksAfterCompletion: the lock is transient on both
+// the success and the error path.
+func TestRemoveLiquidity_UnlocksAfterCompletion(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+
+	pool, _ := k.GetPool(ctx, poolId)
+	totalLPBig := new(big.Int)
+	totalLPBig.SetString(pool.LpTokenSupply, 10)
+	tenPercent := new(big.Int).Div(totalLPBig, big.NewInt(10))
+
+	senderAddr := "zrn1sender0000000000000000000000"
+	bk.setBalance(senderAddr, types.LPDenom(poolId), tenPercent.Int64()*2)
+
+	if _, err := ms.RemoveLiquidity(ctx, &types.MsgRemoveLiquidity{
+		Sender:   senderAddr,
+		PoolId:   poolId,
+		LpTokens: tenPercent.String(),
+	}); err != nil {
+		t.Fatalf("remove liquidity failed: %v", err)
+	}
+	pool, _ = k.GetPool(ctx, poolId)
+	if pool.Locked {
+		t.Error("pool should be unlocked after successful RemoveLiquidity")
+	}
+
+	// Error path (slippage) must also leave the pool unlocked.
+	if _, err := ms.RemoveLiquidity(ctx, &types.MsgRemoveLiquidity{
+		Sender:     senderAddr,
+		PoolId:     poolId,
+		LpTokens:   tenPercent.String(),
+		MinAmountA: "999999999999999",
+	}); err == nil {
+		t.Fatal("expected slippage error")
+	}
+	pool, _ = k.GetPool(ctx, poolId)
+	if pool.Locked {
+		t.Error("pool should be unlocked after failed RemoveLiquidity")
+	}
+}
+
 // ===================================================================
 // Msg Server Tests: UpdateParams
 // ===================================================================
@@ -1027,6 +1483,40 @@ func TestUpdateParams_Unauthorized(t *testing.T) {
 	})
 	if err == nil {
 		t.Error("expected unauthorized error")
+	}
+}
+
+// TestUpdateParams_RejectsInvalid: governance param updates are validated —
+// a default swap fee above the 10% creation cap, or a bad/uzrn entry in the
+// oracle allowlist, cannot enter state.
+func TestUpdateParams_RejectsInvalid(t *testing.T) {
+	ms, _, ctx, _ := setupMsgServer(t)
+
+	overCap := types.DefaultParams()
+	overCap.DefaultSwapFeeBps = types.MaxSwapFeeBps + 1
+	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: testAuthority,
+		Params:    overCap,
+	}); err == nil {
+		t.Error("expected error for default_swap_fee_bps above cap")
+	}
+
+	zrnQuote := types.DefaultParams()
+	zrnQuote.BillingQuoteDenoms = []string{"uzrn"}
+	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: testAuthority,
+		Params:    zrnQuote,
+	}); err == nil {
+		t.Error("expected error for uzrn in billing_quote_denoms")
+	}
+
+	valid := types.DefaultParams()
+	valid.BillingQuoteDenoms = []string{"uusdc", "ibc/ABCDEF0123456789"}
+	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: testAuthority,
+		Params:    valid,
+	}); err != nil {
+		t.Errorf("expected valid allowlist to be accepted, got %v", err)
 	}
 }
 
@@ -1190,6 +1680,31 @@ func TestMigrator_BackfillsStartBlock(t *testing.T) {
 	}
 }
 
+// TestMigrator_Migrate2to3 pins the params migration: pre-v3 state (no
+// BillingQuoteDenoms) migrates to an explicit empty allowlist — fail-closed —
+// with every other param preserved.
+func TestMigrator_Migrate2to3(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	// Simulate pre-v3 stored params: field absent (nil).
+	old := types.DefaultParams()
+	old.MaxPools = 7 // non-default value to prove preservation
+	old.BillingQuoteDenoms = nil
+	k.SetParams(ctx, old)
+
+	if err := keeper.NewMigrator(k).Migrate2to3(ctx); err != nil {
+		t.Fatalf("Migrate2to3: %v", err)
+	}
+
+	got := k.GetParams(ctx)
+	if len(got.BillingQuoteDenoms) != 0 {
+		t.Errorf("expected empty allowlist after migration, got %v", got.BillingQuoteDenoms)
+	}
+	if got.MaxPools != 7 || got.DefaultSwapFeeBps != old.DefaultSwapFeeBps || got.ProtocolFeeBps != old.ProtocolFeeBps {
+		t.Errorf("migration must preserve existing params, got %+v", got)
+	}
+}
+
 func TestGetSpotPrice(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 
@@ -1224,6 +1739,10 @@ func TestGetSpotPrice(t *testing.T) {
 func TestGetZRNPrice(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 
+	params := types.DefaultParams()
+	params.BillingQuoteDenoms = []string{"uusdc"}
+	k.SetParams(ctx, params)
+
 	pool := &types.Pool{
 		PoolId:   "pool-1",
 		DenomA:   "uzrn",
@@ -1246,9 +1765,62 @@ func TestGetZRNPrice(t *testing.T) {
 func TestGetZRNPrice_NoPool(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 
+	params := types.DefaultParams()
+	params.BillingQuoteDenoms = []string{"uusdc"}
+	k.SetParams(ctx, params)
+
 	_, err := k.GetZRNPrice(ctx, "uusdc")
 	if err == nil {
 		t.Error("expected error when no pool exists")
+	}
+}
+
+// TestGetZRNPrice_FailClosedByDefault pins the oracle's fail-closed default:
+// with the default empty billing_quote_denoms allowlist, NO pool is selected
+// even when a matching pool exists — callers get ErrNoPool exactly as when
+// no pool exists, and fall back to their manual-override tier.
+func TestGetZRNPrice_FailClosedByDefault(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	k.SetPool(ctx, &types.Pool{
+		PoolId:   "pool-1",
+		DenomA:   "uzrn",
+		DenomB:   "uusdc",
+		ReserveA: "1000000",
+		ReserveB: "5000000",
+	})
+
+	_, err := k.GetZRNPrice(ctx, "uusdc")
+	if err == nil {
+		t.Fatal("expected fail-closed error with empty allowlist")
+	}
+	if !errors.Is(err, types.ErrNoPool) {
+		t.Errorf("expected ErrNoPool (same fallback path as no-pool), got %v", err)
+	}
+}
+
+// TestGetZRNPrice_QuoteDenomFiltered pins the poisoning fix: a non-allowlisted
+// ZRN pair must never be priced as if it were the quote pair, even when the
+// pool exists.
+func TestGetZRNPrice_QuoteDenomFiltered(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+
+	params := types.DefaultParams()
+	params.BillingQuoteDenoms = []string{"uusdc"}
+	k.SetParams(ctx, params)
+
+	// A worthless-counter-denom pool exists; "ujunk" is not allowlisted.
+	k.SetPool(ctx, &types.Pool{
+		PoolId:   "pool-1",
+		DenomA:   "uzrn",
+		DenomB:   "ujunk",
+		ReserveA: "1000000",
+		ReserveB: "999999999999",
+	})
+
+	_, err := k.GetZRNPrice(ctx, "ujunk")
+	if !errors.Is(err, types.ErrNoPool) {
+		t.Errorf("expected ErrNoPool for non-allowlisted quote denom, got %v", err)
 	}
 }
 

@@ -137,15 +137,37 @@ Longer commitments earn more:
 
 ## Liquidity Pool Mechanics
 
+Every pool pairs `uzrn` with a counter denom — zerone pools are ZRN-quoted
+by design. Pool creation is governance-gated (`MsgCreatePool` must be
+submitted by the gov authority).
+
 | Parameter | Value |
 |-----------|-------|
 | Default Swap Fee | 0.3% (3,000 BPS on 1M scale) |
-| Protocol Fee (of swap fee) | 45% |
-| Max Pools | 3 |
-| Min Initial Liquidity | 10,000 ZRN per side |
-| TWAP Window | 1,000 blocks (~42 min) |
+| Max Swap Fee (at creation) | 10% (100,000 BPS); 0 = use default |
+| Protocol Fee (of swap fee) | 45% — on **ZRN-input** swaps only; transferred to `fee_collector` as uzrn at swap time |
+| Max Pools | Unlimited (`max_pools = 0`; gov-settable) |
+| Min Initial Liquidity | 10,000 ZRN on the `uzrn` side; counter side must be > 0 |
+| TWAP Window | 1,000 blocks (~42 min) — reported average is since-inception |
+| Billing Quote Denoms | Empty (oracle fail-closed until gov allowlists a stable pair) |
 
-The AMM provides on-chain price discovery for ZRN and future ZRN-20 tokens. The TWAP accumulator feeds into the billing module's dynamic pricing oracle.
+Fee flow per swap: the swap fee is deducted from the input amount. When the
+input token is ZRN (`uzrn`), the protocol's share (`protocol_fee_bps`, 45% of
+the fee) leaves the pool for the `fee_collector` module account — where
+`vesting_rewards.RouteFees` splits the uzrn 55/22/19.67/3.33 before
+distribution — and is deducted from the pool's reserves so LP share math stays
+honest. On **counter-denom-input** swaps no protocol share is taken (RouteFees
+splits only uzrn; a non-uzrn coin in `fee_collector` would be swept whole to
+validators, bypassing the split), so the entire fee accrues to LPs. Net: the
+protocol takes its revenue in ZRN, on ZRN-denominated inflows — consistent with
+every pool being ZRN-quoted. The fee that is not skimmed for the protocol stays
+in reserves and accrues to LPs.
+
+The AMM provides on-chain price discovery for ZRN and future ZRN-20 tokens.
+The ZRN price oracle (`GetZRNPrice`) only prices against quote denoms
+allowlisted in `billing_quote_denoms`; with the default empty list it
+selects no pool (fail-closed), and price consumers fall back to their
+manual-override tier.
 
 ## Surge Pricing (Toolbox)
 

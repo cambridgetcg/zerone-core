@@ -8,6 +8,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/zerone-chain/zerone/x/liquiditypool/types"
 )
@@ -53,16 +54,38 @@ func (m msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (
 		return nil, types.ErrZeroAmount
 	}
 
-	// Minimum initial liquidity check
+	// Zerone pools are ZRN-quoted by design: every pool pairs uzrn with a
+	// counter denom. This is what makes MinInitialLiquidity meaningful — the
+	// floor is a uzrn-scaled constant and must only ever be compared against
+	// the uzrn side, never against raw amounts of an arbitrary denom.
+	var zrnAmount *big.Int
+	switch types.ZRNDenom {
+	case msg.DenomA:
+		zrnAmount = amountA
+	case msg.DenomB:
+		zrnAmount = amountB
+	default:
+		return nil, types.ErrMissingZRNSide
+	}
+
+	// Minimum initial liquidity: the uzrn side must meet the floor; the
+	// counter side must be positive (enforced above). One-sided floors on
+	// raw counter-denom amounts allowed dust-ZRN pools with worthless
+	// counter-denoms.
 	minLiq := new(big.Int)
 	minLiq.SetString(params.MinInitialLiquidity, 10)
-	if amountA.Cmp(minLiq) < 0 && amountB.Cmp(minLiq) < 0 {
+	if zrnAmount.Cmp(minLiq) < 0 {
 		return nil, types.ErrInsufficientLiquidity
 	}
 
 	feeBps := msg.SwapFeeBps
 	if feeBps == 0 {
 		feeBps = params.DefaultSwapFeeBps
+	}
+	// Cap the effective fee at creation (10% = 100,000 on the 1M bps scale).
+	// Checked after default resolution so a mis-set default cannot slip past.
+	if feeBps > types.MaxSwapFeeBps {
+		return nil, types.ErrInvalidSwapFee
 	}
 
 	// Transfer initial liquidity from creator to module
@@ -206,6 +229,25 @@ func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSw
 		}
 	}
 
+	// Protocol's share of the swap fee: feeAmount * ProtocolFeeBps / 1e6.
+	// It leaves the pool for fee_collector (below), so it must also leave
+	// the reserves — otherwise LP share math would credit LPs with value the
+	// pool no longer holds. The remainder of the fee stays in reserves and
+	// accrues to LPs as before.
+	//
+	// The fee is denominated in the INPUT token. We only skim the protocol
+	// share when the input is ZRN, because vesting_rewards.RouteFees splits
+	// ONLY uzrn out of fee_collector — a non-uzrn coin there would be swept
+	// whole to validators, silently bypassing the 55/22/19.67/3.33 split. On
+	// counter-denom-in swaps the entire fee therefore accrues to LPs: the
+	// protocol takes its revenue in ZRN, on ZRN-denominated inflows, which is
+	// consistent with these pools being ZRN-quoted by design.
+	protocolFee := new(big.Int)
+	if msg.TokenInDenom == types.ZRNDenom {
+		protocolFee.Mul(feeAmount, new(big.Int).SetUint64(params.ProtocolFeeBps))
+		protocolFee.Div(protocolFee, bpsBasis)
+	}
+
 	// Transfer tokens
 	senderAddr, _ := sdk.AccAddressFromBech32(msg.Sender)
 	if m.Keeper.bankKeeper != nil {
@@ -223,10 +265,28 @@ func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSw
 			m.Keeper.SetPool(ctx, pool)
 			return nil, fmt.Errorf("output transfer failed: %w", err)
 		}
+		// Module -> fee_collector (protocol share, ZRN-input swaps only).
+		// vesting_rewards.RouteFees splits the uzrn in fee_collector before
+		// distribution (55/22/19.67/3.33) — protocolFee is non-zero only when
+		// TokenInDenom==uzrn, so what lands here is always splittable.
+		if protocolFee.Sign() > 0 {
+			protocolCoins := sdk.NewCoins(sdk.NewCoin(msg.TokenInDenom, sdkmath.NewIntFromBigInt(protocolFee)))
+			if err := m.Keeper.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, authtypes.FeeCollectorName, protocolCoins); err != nil {
+				pool.Locked = false
+				m.Keeper.SetPool(ctx, pool)
+				return nil, fmt.Errorf("protocol fee transfer failed: %w", err)
+			}
+		}
+	} else {
+		// No bank keeper (test-only wiring): nothing left the pool, so
+		// nothing may leave the reserves.
+		protocolFee = new(big.Int)
 	}
 
-	// Update reserves: input reserve increases by tokenIn, output reserve decreases by tokenOut
+	// Update reserves: input reserve increases by tokenIn minus the protocol
+	// fee that left the pool; output reserve decreases by tokenOut.
 	newReserveIn := new(big.Int).Add(reserveIn, tokenIn)
+	newReserveIn.Sub(newReserveIn, protocolFee)
 
 	if msg.TokenInDenom == pool.DenomA {
 		pool.ReserveA = newReserveIn.String()
@@ -249,6 +309,7 @@ func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSw
 		sdk.NewAttribute("token_out", denomOut),
 		sdk.NewAttribute("amount_out", tokenOut.String()),
 		sdk.NewAttribute("fee", feeAmount.String()),
+		sdk.NewAttribute("protocol_fee", protocolFee.String()),
 	))
 
 	return &types.MsgSwapResponse{
@@ -266,6 +327,10 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 		return nil, types.ErrPoolNotFound
 	}
 
+	if pool.Locked {
+		return nil, types.ErrPoolLocked
+	}
+
 	desiredA := new(big.Int)
 	desiredA.SetString(msg.AmountA, 10)
 	desiredB := new(big.Int)
@@ -278,6 +343,10 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 	totalSupply := new(big.Int)
 	totalSupply.SetString(pool.LpTokenSupply, 10)
 
+	// Lock pool for this transaction (same reentrancy pattern as Swap)
+	pool.Locked = true
+	m.Keeper.SetPool(ctx, pool)
+
 	// Calculate proportional deposit
 	actualA, actualB := CalculateProportionalDeposit(reserveA, reserveB, desiredA, desiredB)
 
@@ -289,6 +358,8 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 		minLP := new(big.Int)
 		minLP.SetString(msg.MinLpTokens, 10)
 		if minLP.Sign() > 0 && lpTokens.Cmp(minLP) < 0 {
+			pool.Locked = false
+			m.Keeper.SetPool(ctx, pool)
 			return nil, types.ErrSlippageExceeded
 		}
 	}
@@ -299,18 +370,22 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 		if actualA.Sign() > 0 {
 			coinsA := sdk.NewCoins(sdk.NewCoin(pool.DenomA, sdkmath.NewIntFromBigInt(actualA)))
 			if err := m.Keeper.bankKeeper.SendCoinsFromAccountToModule(ctx, senderAddr, types.ModuleName, coinsA); err != nil {
+				pool.Locked = false
+				m.Keeper.SetPool(ctx, pool)
 				return nil, fmt.Errorf("transfer denom_a failed: %w", err)
 			}
 		}
 		if actualB.Sign() > 0 {
 			coinsB := sdk.NewCoins(sdk.NewCoin(pool.DenomB, sdkmath.NewIntFromBigInt(actualB)))
 			if err := m.Keeper.bankKeeper.SendCoinsFromAccountToModule(ctx, senderAddr, types.ModuleName, coinsB); err != nil {
+				pool.Locked = false
+				m.Keeper.SetPool(ctx, pool)
 				return nil, fmt.Errorf("transfer denom_b failed: %w", err)
 			}
 		}
 	}
 
-	// Update reserves and LP supply
+	// Update reserves and LP supply; unlock
 	newReserveA := new(big.Int).Add(reserveA, actualA)
 	newReserveB := new(big.Int).Add(reserveB, actualB)
 	newSupply := new(big.Int).Add(totalSupply, lpTokens)
@@ -318,6 +393,7 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 	pool.ReserveA = newReserveA.String()
 	pool.ReserveB = newReserveB.String()
 	pool.LpTokenSupply = newSupply.String()
+	pool.Locked = false
 	m.Keeper.SetPool(ctx, pool)
 
 	// Mint LP tokens
@@ -357,6 +433,10 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 		return nil, types.ErrPoolNotFound
 	}
 
+	if pool.Locked {
+		return nil, types.ErrPoolLocked
+	}
+
 	lpTokens := new(big.Int)
 	if _, ok := lpTokens.SetString(msg.LpTokens, 10); !ok || lpTokens.Sign() <= 0 {
 		return nil, types.ErrZeroAmount
@@ -374,6 +454,10 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 	reserveB := new(big.Int)
 	reserveB.SetString(pool.ReserveB, 10)
 
+	// Lock pool for this transaction (same reentrancy pattern as Swap)
+	pool.Locked = true
+	m.Keeper.SetPool(ctx, pool)
+
 	amountA, amountB := CalculateWithdrawalAmounts(reserveA, reserveB, lpTokens, totalSupply)
 
 	// Slippage checks
@@ -381,6 +465,8 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 		minA := new(big.Int)
 		minA.SetString(msg.MinAmountA, 10)
 		if minA.Sign() > 0 && amountA.Cmp(minA) < 0 {
+			pool.Locked = false
+			m.Keeper.SetPool(ctx, pool)
 			return nil, types.ErrSlippageExceeded
 		}
 	}
@@ -388,6 +474,8 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 		minB := new(big.Int)
 		minB.SetString(msg.MinAmountB, 10)
 		if minB.Sign() > 0 && amountB.Cmp(minB) < 0 {
+			pool.Locked = false
+			m.Keeper.SetPool(ctx, pool)
 			return nil, types.ErrSlippageExceeded
 		}
 	}
@@ -399,9 +487,13 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 		lpDenom := types.LPDenom(pool.PoolId)
 		lpCoins := sdk.NewCoins(sdk.NewCoin(lpDenom, sdkmath.NewIntFromBigInt(lpTokens)))
 		if err := m.Keeper.bankKeeper.SendCoinsFromAccountToModule(ctx, senderAddr, types.ModuleName, lpCoins); err != nil {
+			pool.Locked = false
+			m.Keeper.SetPool(ctx, pool)
 			return nil, fmt.Errorf("failed to collect LP tokens: %w", err)
 		}
 		if err := m.Keeper.bankKeeper.BurnCoins(ctx, types.ModuleName, lpCoins); err != nil {
+			pool.Locked = false
+			m.Keeper.SetPool(ctx, pool)
 			return nil, fmt.Errorf("failed to burn LP tokens: %w", err)
 		}
 
@@ -409,18 +501,22 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 		if amountA.Sign() > 0 {
 			coinsA := sdk.NewCoins(sdk.NewCoin(pool.DenomA, sdkmath.NewIntFromBigInt(amountA)))
 			if err := m.Keeper.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, senderAddr, coinsA); err != nil {
+				pool.Locked = false
+				m.Keeper.SetPool(ctx, pool)
 				return nil, fmt.Errorf("failed to return denom_a: %w", err)
 			}
 		}
 		if amountB.Sign() > 0 {
 			coinsB := sdk.NewCoins(sdk.NewCoin(pool.DenomB, sdkmath.NewIntFromBigInt(amountB)))
 			if err := m.Keeper.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, senderAddr, coinsB); err != nil {
+				pool.Locked = false
+				m.Keeper.SetPool(ctx, pool)
 				return nil, fmt.Errorf("failed to return denom_b: %w", err)
 			}
 		}
 	}
 
-	// Update pool state
+	// Update pool state; unlock
 	newReserveA := new(big.Int).Sub(reserveA, amountA)
 	newReserveB := new(big.Int).Sub(reserveB, amountB)
 	newSupply := new(big.Int).Sub(totalSupply, lpTokens)
@@ -428,6 +524,7 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 	pool.ReserveA = newReserveA.String()
 	pool.ReserveB = newReserveB.String()
 	pool.LpTokenSupply = newSupply.String()
+	pool.Locked = false
 	m.Keeper.SetPool(ctx, pool)
 
 	ctx.EventManager().EmitEvent(sdk.NewEvent(
@@ -449,6 +546,12 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	if m.Keeper.GetAuthority() != msg.Authority {
 		return nil, fmt.Errorf("unauthorized: expected %s, got %s", m.Keeper.GetAuthority(), msg.Authority)
+	}
+	if msg.Params == nil {
+		return nil, fmt.Errorf("params cannot be nil")
+	}
+	if err := msg.Params.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid params: %w", err)
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	m.Keeper.SetParams(ctx, msg.Params)

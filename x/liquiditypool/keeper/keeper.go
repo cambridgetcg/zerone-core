@@ -145,8 +145,26 @@ func (k Keeper) IncrementPoolCounter(ctx sdk.Context) uint64 {
 
 // GetZRNPrice returns the current ZRN price in the quote denom, scaled by 1e6.
 // Returns (price, error). Price = reserve_quote * 1e6 / reserve_zrn.
+//
+// Only quote denoms allowlisted in params.BillingQuoteDenoms are priced:
+// any other ZRN pair could poison chain-wide dynamic pricing (a worthless
+// counter-denom pool would be reported as the ZRN price). An empty
+// allowlist — the default — selects NO pool: fail-closed, callers get the
+// same ErrNoPool they get when no pool exists, and fall back to their own
+// manual override / fallback tier.
 func (k Keeper) GetZRNPrice(ctx sdk.Context, quoteDenom string) (sdkmath.Int, error) {
-	pool := k.GetPoolByDenoms(ctx, "uzrn", quoteDenom)
+	allowed := false
+	for _, d := range k.GetParams(ctx).BillingQuoteDenoms {
+		if d == quoteDenom {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return sdkmath.ZeroInt(), types.ErrNoPool.Wrap("quote denom not in billing_quote_denoms (oracle fail-closed)")
+	}
+
+	pool := k.GetPoolByDenoms(ctx, types.ZRNDenom, quoteDenom)
 	if pool == nil {
 		return sdkmath.ZeroInt(), types.ErrNoPool
 	}
@@ -161,7 +179,7 @@ func (k Keeper) GetZRNPrice(ctx sdk.Context, quoteDenom string) (sdkmath.Int, er
 
 	// Determine which reserve is uzrn
 	var zrnReserve, quoteReserve *big.Int
-	if pool.DenomA == "uzrn" {
+	if pool.DenomA == types.ZRNDenom {
 		zrnReserve = reserveA
 		quoteReserve = reserveB
 	} else {

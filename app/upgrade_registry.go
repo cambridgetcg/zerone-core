@@ -83,6 +83,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameTestnetV4,
 			Description: "v1.0.3-testnet — first height-executable upgrade (PreBlocker fix); carries knowledge v4→v5 + liquiditypool v1→v2 and reconciles module-account permissions.",
 		},
+		{
+			UpgradeName: UpgradeNameLiquidityHardeningV1,
+			Description: "liquiditypool-hardening-v1 — Phase-1 DeFi gates before external liquidity: fail-closed oracle quote-denom allowlist (liquiditypool v2→v3), real protocol fee to fee_collector, Add/Remove reentrancy lock, ZRN-quoted pairs + uzrn-side floor, 10% swap-fee ceiling.",
+		},
 	}
 
 	return ChainVersionReport{

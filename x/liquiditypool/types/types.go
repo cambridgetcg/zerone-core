@@ -7,6 +7,17 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+const (
+	// ZRNDenom is the native staking denom every pool must include on one
+	// side: zerone pools are ZRN-quoted by design.
+	ZRNDenom = "uzrn"
+
+	// MaxSwapFeeBps caps the per-pool swap fee at creation: 10% on the 1M
+	// bps scale. Higher fees are griefing pools, not markets. Zero is
+	// allowed (= use the module default).
+	MaxSwapFeeBps = 100_000
+)
+
 // ValidateBasic performs stateless validation for MsgCreatePool.
 func (m *MsgCreatePool) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Creator); err != nil {
@@ -18,6 +29,9 @@ func (m *MsgCreatePool) ValidateBasic() error {
 	if m.DenomA == m.DenomB {
 		return ErrSameDenom
 	}
+	if m.DenomA != ZRNDenom && m.DenomB != ZRNDenom {
+		return ErrMissingZRNSide
+	}
 	amtA := new(big.Int)
 	if _, ok := amtA.SetString(m.AmountA, 10); !ok || amtA.Sign() <= 0 {
 		return ErrZeroAmount
@@ -26,7 +40,7 @@ func (m *MsgCreatePool) ValidateBasic() error {
 	if _, ok := amtB.SetString(m.AmountB, 10); !ok || amtB.Sign() <= 0 {
 		return ErrZeroAmount
 	}
-	if m.SwapFeeBps > 1_000_000 {
+	if m.SwapFeeBps > MaxSwapFeeBps {
 		return ErrInvalidSwapFee
 	}
 	return nil
