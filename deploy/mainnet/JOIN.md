@@ -19,6 +19,7 @@ every address published in the manifest, **no faucet**.
 | Chain ID | `zerone-1` |
 | Denom | `uzrn` (1 ZRN = 1,000,000 uzrn) |
 | Min fee | `1 uzrn` per gas unit — a 200k-gas tx costs `200000uzrn` |
+| Genesis sha256 | `16ac346f329d2a931ad9a7d51dbe9e35605482b006ef39b3ac7804376e9bcb66` (of `curl RPC/genesis \| jq .result.genesis`) |
 
 ## The 60-second lane (no install)
 
@@ -67,10 +68,16 @@ a bond you lose.
 
 ## Run a node / validate
 
-Same operator guide as the testnet — just swap chain-id and seed:
-[../testnet/RUN-A-NODE.md](../testnet/RUN-A-NODE.md), with
-`--chain-id zerone-1`, genesis from `curl http://169.155.55.44:26657/genesis`,
-and seed `ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e@169.155.55.44:26656`.
+One-shot on a fresh Ubuntu box (read the script first, then):
+
+```
+curl -fsSL https://raw.githubusercontent.com/cambridgetcg/zerone-core/main/deploy/testnet/node-bootstrap.sh -o node-bootstrap.sh
+less node-bootstrap.sh        # read it
+NETWORK=mainnet bash node-bootstrap.sh
+```
+
+Full operator guide (free-tier infra, systemd, validators, snapshots):
+[../testnet/RUN-A-NODE.md](../testnet/RUN-A-NODE.md) — it covers both networks.
 Every independent node moves the dial from *custodial* toward *decentralized*
 — on the mainnet that movement is the whole game.
 

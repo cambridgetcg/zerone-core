@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# zerone-testnet-1 node bootstrap — fresh Ubuntu/Debian VM → synced node
+# zerone node bootstrap — fresh Ubuntu/Debian VM → synced node (both networks)
 # ═══════════════════════════════════════════════════════════════════════════
 # Installs Go + build tools, builds zeroned, pulls the live genesis, wires the
 # seed + gas floor, installs a systemd unit, and starts syncing. Idempotent-ish:
@@ -10,17 +10,29 @@
 # Full walkthrough: deploy/testnet/RUN-A-NODE.md
 #
 # Env overrides:
+#   NETWORK      'testnet' (default) or 'mainnet' — picks chain-id, seed, RPC
 #   MONIKER      node name (default: hostname)
-#   RPC          a network RPC to pull genesis + seed from (default the public node)
+#   RPC          a network RPC to pull genesis + seed from (default per NETWORK)
 #   GO_VERSION   Go toolchain (default 1.24.0)
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 MONIKER="${MONIKER:-$(hostname)}"
-RPC="${RPC:-http://37.16.28.121:26657}"
 GO_VERSION="${GO_VERSION:-1.24.0}"
-CHAIN_ID="zerone-testnet-1"
-SEED="9a9c6b9d36c55d21c32b1ee8749adf8dd7c6b0d4@37.16.28.121:26656"
+NETWORK="${NETWORK:-testnet}"
+case "${NETWORK}" in
+  mainnet)
+    CHAIN_ID="zerone-1"
+    RPC="${RPC:-http://169.155.55.44:26657}"
+    SEED="ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e@169.155.55.44:26656"
+    ;;
+  testnet)
+    CHAIN_ID="zerone-testnet-1"
+    RPC="${RPC:-http://37.16.28.121:26657}"
+    SEED="9a9c6b9d36c55d21c32b1ee8749adf8dd7c6b0d4@37.16.28.121:26656"
+    ;;
+  *) printf 'FAIL NETWORK must be testnet or mainnet\n' >&2; exit 1 ;;
+esac
 REPO="https://github.com/cambridgetcg/zerone-core"
 HOME_DIR="${HOME}/.zeroned"
 
@@ -59,7 +71,8 @@ fi
 say "fetching live genesis from ${RPC}"
 curl -fsSL "${RPC}/genesis" | jq .result.genesis > "${HOME_DIR}/config/genesis.json"
 GENHASH=$(sha256sum "${HOME_DIR}/config/genesis.json" | awk '{print $1}')
-say "genesis sha256: ${GENHASH}  (compare against deploy/testnet/JOIN.md)"
+[ "${NETWORK}" = "mainnet" ] && JOINDOC="deploy/mainnet/JOIN.md" || JOINDOC="deploy/testnet/JOIN.md"
+say "genesis sha256: ${GENHASH}  (compare against ${JOINDOC})"
 
 say "wiring seed + gas floor"
 CFG="${HOME_DIR}/config/config.toml"; APP="${HOME_DIR}/config/app.toml"

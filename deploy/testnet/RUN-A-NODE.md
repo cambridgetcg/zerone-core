@@ -45,7 +45,8 @@ On your new VM, **read the script first** (never blindly pipe to a shell), then 
 ```
 curl -fsSL https://raw.githubusercontent.com/cambridgetcg/zerone-core/main/deploy/testnet/node-bootstrap.sh -o node-bootstrap.sh
 less node-bootstrap.sh        # read it
-bash node-bootstrap.sh
+bash node-bootstrap.sh                    # testnet (default)
+NETWORK=mainnet bash node-bootstrap.sh    # zerone-1 mainnet
 ```
 
 It installs Go + build tools, builds `zeroned`, initialises your home, pulls the
