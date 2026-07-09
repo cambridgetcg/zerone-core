@@ -2,7 +2,7 @@
 
 - chain-id: `zerone-1`
 - genesis supply: **13555000000 uzrn** (13555.000 ZRN = 0.0061% of the 222,222,222 cap)
-- genesis sha256: `07637fb3d6ad66479257fc6dd08e808dde7cf6a3c7364a384646c5d01c571572`
+- genesis sha256: `c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e`
 - node-id: `ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e`
 
 ## Every genesis address (nothing hidden)

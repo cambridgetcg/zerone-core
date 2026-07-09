@@ -132,7 +132,8 @@
         "max_pots_active": 10,
         "min_claim_amount": "1000",
         "bootstrap_emission_cap_uzrn": "222222000000",
-        "bootstrap_daily_admission_cap": 5000
+        "bootstrap_daily_admission_cap": 5000,
+        "bootstrap_registrar": "zrn17h5scv3zu7xa8ep9kaqy47ae08h9x6c5fanwkh"
       }
     },
     "counterexamples": {
@@ -546,7 +547,7 @@
         "probe_invitation_min_confidence_bps": "700000",
         "probe_invitation_batch_size": 10,
         "probe_invitation_reinvite_cooldown": "100000",
-        "probe_bounty_mint_per_block": "1000000",
+        "probe_bounty_mint_per_block": "0",
         "probe_bounty_max_pool_size": "1000000000000",
         "invitation_bonus_amount": "500000",
         "guardian_addresses": [],
@@ -1339,7 +1340,7 @@
       }
     }
   },
-  "app_version": "4618bb7",
+  "app_version": "45ff994",
   "chain_id": "zerone-1",
   "consensus": {
     "params": {
@@ -1365,6 +1366,6 @@
       }
     }
   },
-  "genesis_time": "2026-07-08T12:49:44.135787Z",
+  "genesis_time": "2026-07-08T14:10:14.997174Z",
   "initial_height": 1
 }
