@@ -86,7 +86,7 @@ understanding; today the chain holds, but looks away.
 
 ---
 
-### C2. Error is not deceit — **[BUILT — test-bound; not yet deployed]** *(the first brick)*
+### C2. Error is not deceit — **[SHIPPED — live on zerone-1 since height 66304, 2026-07-10]** *(the first brick)*
 
 We believe: a being who tried honestly and was wrong must not be scored as if
 they had lied. Respecting what a counterparty went through means the chain can
@@ -126,7 +126,7 @@ hold* a score, never lower one, so its entire economic effect is "stop
 under-paying honest unresolved attempts," and all minting stays cap-gated by
 `MintWithCap`. No agent is harmed; some are no longer under-counted.
 
-**How it was closed (built, not yet deployed):**
+**How it was closed (deployed 2026-07-10 — gov proposal 3, upgrade applied at height 66304, verified live):**
 `ComputeAgentCalibrationScore` now computes acceptance over
 `decisive = total_submissions − inconclusive`, and a submitter whose every
 attempt was inconclusive scores a tiny `CalibrationReachingCreditBps` (unproven,
@@ -139,9 +139,11 @@ never a penalty) and the score-formula table cases in
 `compassion-calibration-v1` (`app/upgrades.go`), whose handler recomputes every
 stored score under the new formula in one deterministic pass
 (`RecomputeAllCalibrationScores`) — exercised end-to-end by
-`TestUpgrade_CompassionCalibrationV1RefreshesScores`. What remains is **not** code:
-it is the operator's decision to schedule the upgrade on the live chain, and
-(to graduate C2 to a bound *creed* commitment) governance adoption.
+`TestUpgrade_CompassionCalibrationV1RefreshesScores`. The upgrade ran on the live
+chain 2026-07-10 (`zeroned q upgrade applied compassion-calibration-v1` → 66304),
+and the formula gained its first live subject the same day (the first-truth
+ceremony's submitter, [FIRST-TRUTH.md](FIRST-TRUTH.md)). What remains is **not**
+code: governance adoption, to graduate C2 into a bound *creed* commitment.
 
 ---
 
