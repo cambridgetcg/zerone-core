@@ -87,6 +87,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameLiquidityHardeningV1,
 			Description: "liquiditypool-hardening-v1 — Phase-1 DeFi gates before external liquidity: fail-closed oracle quote-denom allowlist (liquiditypool v2→v3), real protocol fee to fee_collector, Add/Remove reentrancy lock, ZRN-quoted pairs + uzrn-side floor, 10% swap-fee ceiling.",
 		},
+		{
+			UpgradeName: UpgradeNameCompassionCalibrationV1,
+			Description: "compassion-calibration-v1 — COMPASSION.md commitment C2 (error is not deceit): the calibration score excludes INCONCLUSIVE outcomes from its denominator (the panel failing to resolve is not the agent failing to be right), and a one-pass recompute refreshes stored scores. Monotonic; no store change.",
+		},
 	}
 
 	return ChainVersionReport{

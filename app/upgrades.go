@@ -18,6 +18,7 @@ const UpgradeNameTestnetV2 = "v1.0.1-testnet"
 const UpgradeNameTestnetV3 = "v1.0.2-testnet"
 const UpgradeNameTestnetV4 = "v1.0.3-testnet"
 const UpgradeNameLiquidityHardeningV1 = "liquiditypool-hardening-v1"
+const UpgradeNameCompassionCalibrationV1 = "compassion-calibration-v1"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -140,6 +141,45 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// compassion-calibration-v1 — commitment C2 of docs/COMPASSION.md ("error is
+	// not deceit"). ComputeAgentCalibrationScore now EXCLUDES inconclusive
+	// outcomes from the calibration denominator: an inconclusive is the panel
+	// failing to resolve, not the agent failing to be right, so it no longer
+	// drags a submitter's score the way a refuted claim does. This handler
+	// recomputes every stored calibration score under the new formula (monotonic
+	// — scores with inconclusive history rise, all others are unchanged). No
+	// store or proto change; the score feeds x/trust_score and the training-fund
+	// disbursement gate, so the refresh keeps stored state == live computation
+	// on every node from the upgrade height.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameCompassionCalibrationV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
+			app.ReconcileModuleAccountPerms(ctx)
+
+			// Refresh every stored calibration score under the inconclusive-
+			// excluding formula. Deterministic single pass; monotonic.
+			n, err := app.KnowledgeKeeper.RecomputeAllCalibrationScores(ctx)
+			if err != nil {
+				return nil, err
+			}
+			app.Logger().Info(fmt.Sprintf("compassion-calibration-v1: recomputed %d calibration scores", n))
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_compassion-calibration-v1", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
@@ -180,6 +220,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameLiquidityHardeningV1:
 		// Migration-only (liquiditypool v2→v3 — new Params field lives in the
 		// existing store). No store keys added or removed.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameCompassionCalibrationV1:
+		// Migration-only — no store keys added or removed. The calibration score
+		// is an existing field recomputed in the handler.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

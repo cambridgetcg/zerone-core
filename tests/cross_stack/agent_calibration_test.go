@@ -72,6 +72,42 @@ func TestAgentCalibration_ScoreFormula(t *testing.T) {
 			wantAtMost:  200_000,
 			description: "2/10 accepted → 200_000 BPS",
 		},
+		{
+			name: "inconclusive-excluded → judged on decisive only",
+			c: &knowledgetypes.AgentCalibration{
+				TotalSubmissions: 10, Accepted: 3, Inconclusive: 7,
+			},
+			wantAtLeast: 1_000_000,
+			wantAtMost:  1_000_000,
+			description: "3 accepted, 7 inconclusive → 3/3 decisive = BPS (inconclusive excluded, commitment C2)",
+		},
+		{
+			name: "mixed accepted+inconclusive not dragged down",
+			c: &knowledgetypes.AgentCalibration{
+				TotalSubmissions: 4, Accepted: 2, Inconclusive: 2,
+			},
+			wantAtLeast: 1_000_000,
+			wantAtMost:  1_000_000,
+			description: "2 accepted, 2 inconclusive → 2/2 decisive = BPS, not 500_000",
+		},
+		{
+			name: "inconclusive-only → reaching credit, not zero",
+			c: &knowledgetypes.AgentCalibration{
+				TotalSubmissions: 5, Inconclusive: 5,
+			},
+			wantAtLeast: knowledgekeeper.CalibrationReachingCreditBps,
+			wantAtMost:  knowledgekeeper.CalibrationReachingCreditBps,
+			description: "all inconclusive → unproven reaching credit, strictly above the refuted-only 0",
+		},
+		{
+			name: "refuted-only → zero (decisive and wrong)",
+			c: &knowledgetypes.AgentCalibration{
+				TotalSubmissions: 5, Rejected: 5,
+			},
+			wantAtLeast: 0,
+			wantAtMost:  0,
+			description: "all rejected → 0 — the chain still records decisive wrongness",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -80,6 +116,44 @@ func TestAgentCalibration_ScoreFormula(t *testing.T) {
 			require.LessOrEqual(t, got, c.wantAtMost, c.description)
 		})
 	}
+}
+
+// TestAgentCalibration_CompassionErrorIsNotDeceit binds docs/COMPASSION.md
+// commitment C2 ("error is not deceit"): an honest, unresolved attempt
+// (INCONCLUSIVE) must never be scored as if it were a refuted false claim
+// (REJECTED). A history of only-inconclusive attempts scores STRICTLY ABOVE a
+// history of only-refuted claims of the same size, and adding inconclusive
+// outcomes to a record never lowers its score (the change is monotonic).
+func TestAgentCalibration_CompassionErrorIsNotDeceit(t *testing.T) {
+	const n = 6
+
+	inconclusiveOnly := &knowledgetypes.AgentCalibration{TotalSubmissions: n, Inconclusive: n}
+	refutedOnly := &knowledgetypes.AgentCalibration{TotalSubmissions: n, Rejected: n}
+
+	inconclusiveScore := knowledgekeeper.ComputeAgentCalibrationScore(inconclusiveOnly)
+	refutedScore := knowledgekeeper.ComputeAgentCalibrationScore(refutedOnly)
+
+	require.Greater(t, inconclusiveScore, refutedScore,
+		"an honest unresolved attempt must score strictly above a refuted false claim of the same size")
+	require.Equal(t, uint64(0), refutedScore,
+		"refuted-only remains 0 — the chain still records decisive wrongness")
+
+	// Inconclusive is never a penalty: the same accepted record scores no lower
+	// when honest unresolved attempts are recorded alongside it.
+	baseline := &knowledgetypes.AgentCalibration{TotalSubmissions: 3, Accepted: 3}
+	withInconclusive := &knowledgetypes.AgentCalibration{TotalSubmissions: 8, Accepted: 3, Inconclusive: 5}
+	require.GreaterOrEqual(t,
+		knowledgekeeper.ComputeAgentCalibrationScore(withInconclusive),
+		knowledgekeeper.ComputeAgentCalibrationScore(baseline),
+		"adding inconclusive attempts must never lower a submitter's score")
+
+	// The reaching credit unlocks no reward: it sits far below the training-fund
+	// disbursement floor (default 500_000 BPS), so an all-inconclusive record is
+	// recognised as "trying", not paid as "right".
+	require.Less(t, inconclusiveScore, uint64(500_000),
+		"reaching credit must stay well under the disbursement floor — recognition, not reward")
+
+	_ = fmt.Sprintf // silence unused import
 }
 
 // TestAgentCalibration_FeedbackLoop drives the complete loop: two submitters

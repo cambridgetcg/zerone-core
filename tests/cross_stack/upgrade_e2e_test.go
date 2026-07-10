@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
+	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
 // ─── Wave 10: end-to-end upgrade pipeline tests ─────────────────────────
@@ -138,6 +139,42 @@ func TestUpgrade_UnknownHandlerRejected(t *testing.T) {
 // TestUpgrade_MigrationMarkerIdempotent — writing the same marker twice
 // is a no-op (idempotent); writing a DIFFERENT value for the same key is
 // rejected without overwriting (first writer wins).
+// TestUpgrade_CompassionCalibrationV1RefreshesScores drives the real
+// compassion-calibration-v1 handler and asserts it refreshes a stored
+// calibration score under the inconclusive-excluding formula (docs/COMPASSION.md
+// commitment C2). A record whose honest inconclusive attempts had dragged its
+// stored score down is lifted to its true decisive-accuracy score, and the
+// migration marker is written.
+func TestUpgrade_CompassionCalibrationV1RefreshesScores(t *testing.T) {
+	h := NewTestHarness(t)
+
+	addr := "zerone1compassionupgrade00000000000000aa"
+	// 3 accepted + 7 inconclusive. Under the OLD formula the stored score was
+	// 3/10 = 300_000; seed that stale value so we can prove the handler recomputes.
+	require.NoError(t, h.KnowledgeKeeper.SetAgentCalibration(h.Ctx, &knowledgetypes.AgentCalibration{
+		Address:             addr,
+		TotalSubmissions:    10,
+		Accepted:            3,
+		Inconclusive:        7,
+		CalibrationScoreBps: 300_000, // stale, old-formula value
+	}))
+
+	// Run the real upgrade handler through the full pipeline.
+	fromVM := h.App.CurrentModuleVersionMap()
+	_, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameCompassionCalibrationV1, fromVM, h.Height())
+	require.NoError(t, err)
+
+	// The 7 inconclusive attempts leave the denominator: 3/3 decisive = BPS.
+	refreshed, found := h.KnowledgeKeeper.GetAgentCalibration(h.Ctx, addr)
+	require.True(t, found)
+	require.Equal(t, uint64(1_000_000), refreshed.CalibrationScoreBps,
+		"handler must recompute the stale score under the inconclusive-excluding formula")
+
+	require.Equal(t, "migrated",
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_compassion-calibration-v1"),
+		"handler must write the compassion-calibration-v1 migration marker")
+}
+
 func TestUpgrade_MigrationMarkerIdempotent(t *testing.T) {
 	h := NewTestHarness(t)
 	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(h.Ctx, "test_marker", "alpha"))

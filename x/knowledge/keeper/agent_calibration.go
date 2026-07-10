@@ -21,6 +21,16 @@ const (
 	// Per-corroboration-per-acceptance scaling into the bonus. Tuned so that
 	// 1 corroboration per accepted fact approaches the cap.
 	CalibrationCorroborationScaleBps uint64 = 100_000
+	// Compassion (docs/COMPASSION.md, commitment C2 — "error is not deceit"):
+	// the floor a submitter scores when EVERY one of their submissions was
+	// INCONCLUSIVE — an honest attempt the panel never resolved. There is no
+	// calibration evidence either way, so the record is "unproven", not "wrong":
+	// strictly above a submitter whose decisive claims were refuted (which scores
+	// 0), and far below any verified fact. The chain tells trying apart from
+	// being-wrong. Deliberately tiny — it sits well under the training-fund
+	// disbursement floor, so it unlocks no reward; it only orders an honest
+	// unresolved attempt above a refuted one.
+	CalibrationReachingCreditBps uint64 = 1_000
 )
 
 // ─── CRUD ────────────────────────────────────────────────────────────────
@@ -230,23 +240,52 @@ func (k Keeper) RecordChallengeOutcome(
 // ComputeAgentCalibrationScore returns a BPS score in [0, BPS] summarising a
 // submitter's track record. Formula:
 //
-//	acceptance_rate = accepted / total_submissions        (zero if no subs)
+//	decisive        = total_submissions − inconclusive     (outcomes the panel judged)
+//	acceptance_rate = accepted / decisive                  (reaching credit if no decisive)
 //	corr_bonus      = min(cap, corroborations × scale / accepted)
 //	disproval_pen   = disproven × BPS / accepted
 //	score           = acceptance_rate + corr_bonus - disproval_pen
 //	                  clamped to [0, BPS]
 //
-// The score is intentionally coarse — it is a public signal, not a
-// governance-critical parameter. Training pipelines can weight sampling by
-// it; selection / reward logic should NOT depend on it until Phase 5
-// iterations validate the formula under adversarial load.
+// Compassion (docs/COMPASSION.md, commitment C2 — "error is not deceit"): an
+// INCONCLUSIVE outcome is the chain failing to reach a verdict, not the agent
+// failing to be right. It is an honest attempt the panel could not resolve, so
+// it is EXCLUDED from the denominator — it neither helps nor hurts the
+// acceptance rate. Only decisive outcomes (accepted / rejected / malformed,
+// where the panel reached a content judgement) measure calibration. A submitter
+// whose every attempt was inconclusive has no calibration evidence: they score a
+// tiny "reaching credit" (unproven, not wrong) that sits strictly above a
+// submitter whose decisive claims were refuted (which scores 0). The change is
+// monotonic — excluding inconclusive can only raise or hold a score, never lower
+// it; a record with no inconclusive outcomes is scored identically to before.
+//
+// This score is NOT cosmetic. A training-fund disbursement gates on it
+// (msg_server_training_v4.go — a floor, then a linear scale up to 2× base),
+// x/trust_score reads it as submission accuracy, and the structured corpus
+// export denormalises it for training weighting. The compassion change only ever
+// raises the score of submitters with inconclusive history, so its economic
+// effect is bounded to "stop under-paying honest unresolved attempts", and all
+// minting remains cap-gated by MintWithCap.
 func ComputeAgentCalibrationScore(c *types.AgentCalibration) uint64 {
 	if c == nil || c.TotalSubmissions == 0 {
 		return 0
 	}
 	const bps uint64 = 1_000_000
 
-	acceptanceBps := c.Accepted * bps / c.TotalSubmissions
+	// Inconclusive outcomes are excluded from the denominator — the panel never
+	// resolved them, so they are not evidence of (mis)calibration. The guard is
+	// defensive against Inconclusive > TotalSubmissions (impossible in real data).
+	var decisive uint64
+	if c.Inconclusive < c.TotalSubmissions {
+		decisive = c.TotalSubmissions - c.Inconclusive
+	}
+	if decisive == 0 {
+		// Every submission was an honest, unresolved attempt: unproven, not
+		// wrong. Strictly above a refuted-only record (which scores 0).
+		return CalibrationReachingCreditBps
+	}
+
+	acceptanceBps := c.Accepted * bps / decisive
 
 	var corrBonus uint64
 	if c.Accepted > 0 {
@@ -271,6 +310,29 @@ func ComputeAgentCalibrationScore(c *types.AgentCalibration) uint64 {
 		score = bps
 	}
 	return score
+}
+
+// RecomputeAllCalibrationScores re-derives CalibrationScoreBps for every stored
+// calibration record under the current formula, in one deterministic pass (store
+// key order). Used by the compassion-calibration-v1 upgrade to refresh stored
+// scores when the formula changes (the inconclusive-excluding rule), so stored
+// state matches the live computation on every node from the upgrade height.
+// Idempotent — running it twice yields identical scores. Returns the count
+// refreshed. Only CalibrationScoreBps is touched; counts and per-method stats
+// are untouched.
+func (k Keeper) RecomputeAllCalibrationScores(ctx context.Context) (int, error) {
+	var recs []*types.AgentCalibration
+	k.IterateAgentCalibrations(ctx, func(c *types.AgentCalibration) bool {
+		recs = append(recs, c)
+		return false
+	})
+	for _, c := range recs {
+		c.CalibrationScoreBps = ComputeAgentCalibrationScore(c)
+		if err := k.SetAgentCalibration(ctx, c); err != nil {
+			return 0, err
+		}
+	}
+	return len(recs), nil
 }
 
 // EmitCalibrationUpdated emits an event for off-chain observers (training
