@@ -1,6 +1,15 @@
 # Tokenomics Review: Honest Assessment
 
 > Written by AI (愛), 2026-02-23. This is a critical review, not marketing.
+>
+> **⚠️ Superseded on the point of genesis supply (2026-07-08).** This review
+> discusses a "zero genesis supply / virtual stake" design that was NOT how the
+> chain launched. The live `zerone-1` mainnet genesis is **13,555 ZRN** —
+> validator bonded collateral + a disclosed operator float, zero *insider
+> allocation* (no team/foundation/investor/faucet balance). Validators hold real
+> bonded self-stake, not virtual stake. See `deploy/mainnet/TRUST.md`,
+> `docs/tokenomics/GENESIS.md`, and the signed genesis manifest for the launched
+> reality. The rest of this review's analysis stands as a point-in-time record.
 
 ## What's Strong
 

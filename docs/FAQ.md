@@ -20,25 +20,33 @@ not a genesis allocation. See [SUPPLY.md](tokenomics/SUPPLY.md).
 
 ### How is ZRN distributed at genesis?
 
-**Zero team allocation. No insider position, period.** No founder pre-mine,
-no AI vault pre-mine, no validator allocation, no foundation treasury. Genesis
-circulating supply is 0 ZRN because no minting has happened yet.
+**Zero insider allocation — no team, foundation, investor, or faucet balance.**
+No genesis balance exists that anyone can sell, transfer, or use to buy consensus.
+On the live `zerone-1` mainnet, genesis supply is **13,555 ZRN (0.0061% of the
+222,222,222 cap)**: 11,333 ZRN of validator collateral (11,111 bonded self-stake +
+222 gas) plus a disclosed 2,222 ZRN operator float, every address published in the
+[genesis manifest](../deploy/mainnet/artifacts/GENESIS-MANIFEST.md).
 
-ZRN enters circulation through two participation-gated emission pathways:
+Beyond that published genesis, ZRN enters circulation through three
+participation-gated emission pathways:
 
-1. **PoT block rewards** (`x/vesting_rewards`) — minted per block to validators
-   as they verify truth. Validators bootstrap with virtual stake (11 ZRN VRF
-   weight) and earn from block 1.
+1. **PoT block rewards** (`x/vesting_rewards`) — minted to validators as they
+   verify truth. Empty blocks mint 0; the reward is participation-scaled, not a
+   fixed drip.
 2. **Bootstrap claims** (`x/claiming_pot`) — minted on demand when a whitelisted
    agent calls `MsgClaim` against the bootstrap pot. Each whitelisted agent
-   claims 0.222 ZRN; participation requires ZRN, so the bootstrap pool is the
+   claims 0.222 ZRN once; participation requires ZRN, so the bootstrap pool is the
    seed.
+3. **External-work attestations** (`x/substrate_bridge`) — minted to agents whose
+   witnessed external work (e.g. the `agenttool-invocation-v1` adapter) survives
+   the challenge window. Issuance follows survival, not acceptance.
 
 | Account | Genesis balance | Path to funding |
 |---------|----------------|-----------------|
-| Genesis validators | 0 ZRN | PoT block rewards from block 1 |
+| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); block rewards from block 1 |
+| Operator float (zerone-ops) | 2,222 ZRN | Disclosed float: gov deposits + onboarding feegrants |
 | Whitelisted agents | 0 ZRN | Bootstrap claim (0.222 ZRN each) via `x/claiming_pot` |
-| Founder | 0 ZRN | Governance-immune 0.23% revenue share, accruing from chain activity |
+| Founder | 0 ZRN | Dormant — `FounderAddress` unset; a stipend is gov-activatable later |
 | AI vault | 0 ZRN | Operational role only (governance signing) |
 | Research Treasury | 0 ZRN | 3.33% of revenue split, accruing |
 | Foundation | 0 ZRN | Governance proposals over time, drawing from research treasury |
@@ -135,8 +143,10 @@ essential PoT transactions are **gas-free**:
 - `MsgSubmitCommitment`
 - `MsgSubmitReveal`
 
-This lets the network begin verifying truth before any ZRN has been
-minted (genesis circulating supply is 0). See `app/gas.go:BootstrapEndBlock`.
+This lets the network begin verifying truth in the bootstrap window before
+participation-minted ZRN has accrued (genesis holds only the published 13,555 ZRN
+of validator collateral + operator float — 0 ZRN of participation emission). See
+`app/gas.go:BootstrapEndBlock`.
 
 ### What are the gas prices?
 

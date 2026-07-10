@@ -84,9 +84,9 @@ Floor reward (0.1 ZRN) kicks in around epoch 832 (~year 6.6). After that, emissi
 ## Long-Term Supply Projections
 
 ### Phase 0: Genesis (Block 0)
-- **0 ZRN in circulation** — no minting has occurred yet, but **zero is the consequence of zero participation, not zero supply policy**
-- Validators participate via virtual stake (11 ZRN virtual weight) and earn from block 1 forward
-- Research fund, foundation, faucet all start empty
+- **13,555 ZRN at genesis (0.0061% of cap)** — 11,333 ZRN validator collateral (11,111 bonded + 222 gas) + 2,222 ZRN operator float, every address published in the signed manifest. **0 ZRN of participation-minted supply** — that begins at block 1; zero emission is the consequence of zero participation, not zero supply policy
+- The validator secures consensus with real bonded self-stake collateral (11,111 ZRN, locked as collateral), earning block rewards from block 1 forward
+- Research fund, foundation, faucet all start empty — no team, investor, or founder balance of any kind
 - Bootstrap pool is configured (whitelist + 0.222 ZRN per agent) but mints nothing until agents claim
 
 ### Phase 1: Bootstrap Emission (Year 1)

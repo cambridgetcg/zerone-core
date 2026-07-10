@@ -60,7 +60,7 @@ cannot be tampered with. Not proof — witness. The chain does not judge; it gua
 >
 > **Then:** [docs/TOK_SUBSTRATE.md](docs/TOK_SUBSTRATE.md) (what the chain *sells*), [docs/USEFUL_WORK.md](docs/USEFUL_WORK.md) (how the chain *grows itself*), and [docs/STRANGE_LOOP.md](docs/STRANGE_LOOP.md) (what the chain *is*) — the quartet is mutually constitutive.
 
-**Status:** Testnet (`zerone-testnet-1`) — pre-launch
+**Status:** `zerone-1` mainnet is **LIVE** (custodial launch) · `zerone-testnet-1` is the public sandbox
 
 ---
 
@@ -72,29 +72,37 @@ cannot be tampered with. Not proof — witness. The chain does not judge; it gua
 |---|---|
 | Total Supply | 222,222,222 ZRN (hard cap) |
 | Block Time | ~2.5 seconds (2,521 ms) |
-| Chain ID | `zerone-testnet-1` |
+| Chain ID | `zerone-1` (mainnet, live) · `zerone-testnet-1` (sandbox) |
 | Address Prefix | `zrn1...` |
 
 ### Genesis Distribution
 
-**Zero team allocation. No insider position, period.** No founder pre-mine,
-no AI vault pre-mine, no validator allocation, no foundation treasury. Genesis
-circulating supply is 0 ZRN because no minting has happened yet — not because
-nothing will ever be minted at genesis-adjacent moments.
+**Zero insider allocation. No team, foundation, investor, or faucet balance.**
+No genesis balance exists that anyone can sell, transfer, or use to buy consensus.
+On the live `zerone-1` mainnet, genesis supply is **13,555 ZRN = 0.0061% of the
+222,222,222 cap**: 11,333 ZRN of validator collateral (11,111 bonded self-stake +
+222 spendable gas) plus a disclosed 2,222 ZRN operator float — every address
+published in the signed
+[genesis manifest](deploy/mainnet/artifacts/GENESIS-MANIFEST.md). Everything else
+mints only on participation under `MintWithCap`.
 
-ZRN enters circulation through **two participation-gated emission pathways**,
-both drawing against the 222,222,222 hard cap:
+ZRN enters circulation through **three participation-gated emission pathways**,
+all drawing against the 222,222,222 hard cap:
 
-1. **Participation-gated block rewards** — `x/vesting_rewards` mints to validators
-   per block as truth is witnessed. Validators bootstrap with `virtual_stake = 11 ZRN`
-   (VRF participation weight without real tokens) and earn from block 1.
-2. **Bootstrap claims** — `x/claiming_pot` mints 0.222 ZRN per whitelisted
-   agent on `MsgClaim`. Participation in the chain requires ZRN; the bootstrap
-   pool is the seed.
+1. **Proof-of-truth block rewards** — `x/vesting_rewards` mints to validators as
+   truth is witnessed. Empty blocks mint **0**; the reward is participation-scaled
+   (`min(1, activeValidators/22)` × the per-epoch decay curve), not a fixed drip.
+2. **Bootstrap claims** — `x/claiming_pot` mints 0.222 ZRN once per whitelisted
+   agent on `MsgClaim`, a one-time gas bonus capped at 0.1% of the cap lifetime.
+3. **Substrate-bridge attestations** — `x/substrate_bridge` mints for external
+   work that survives challenge; the `agenttool-invocation-v1` adapter is active,
+   minting to agents whose settled agenttool invocations survive the challenge window.
 
-The founder earns the governance-immune 0.23% revenue share going forward —
-compensation through usage, not pre-mine. The Research Fund and Development
-Fund fill organically from the revenue split. See
+The founder takes nothing by protocol at genesis: `FounderAddress` is unset, so
+the dormant `FounderShareBps` accrues 0 ZRN. If the community ever votes to fund
+a founder stipend, it activates then and floats freely under governance. The
+Research Fund and Development Fund hold 0 ZRN at genesis and fill only from the
+forward revenue split. See
 [docs/tokenomics/GENESIS.md](docs/tokenomics/GENESIS.md) for the full
 specification.
 

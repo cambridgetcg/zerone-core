@@ -1,23 +1,24 @@
 # Genesis Distribution
 
-## Zero Team Allocation — Two Emission Paths, Both Gated by Participation
+## Zero Insider Allocation — Published Genesis Machinery + Participation-Gated Emission
 
-**No founder pre-mine. No AI vault pre-mine. No validator allocation. No foundation treasury. No team holding of any kind at genesis.**
+**No team, foundation, investor, or faucet allocation — no genesis balance anyone can sell, transfer, or use to buy consensus.** The genesis bank is not empty (a proof-of-stake chain cannot boot empty); it holds only published, non-allocation machinery: 11,333 ZRN of validator collateral (11,111 bonded self-stake + 222 spendable gas) and a disclosed 2,222 ZRN operator float.
 
-Genesis circulating supply: **0 ZRN.** No minting has occurred yet.
+Genesis supply: **13,555 ZRN (0.0061% of the 222,222,222 cap)** — all provably-bonded collateral or published operational float; **0 ZRN of sellable allocation**. No minting-for-participation has occurred yet. Every genesis address is published in the [signed manifest](../../deploy/mainnet/artifacts/GENESIS-MANIFEST.md).
 
-ZRN enters circulation through two participation-gated emission pathways:
+Beyond that published genesis, ZRN enters circulation through three participation-gated emission pathways:
 
 | Pathway | Module | Who | Why |
 |---------|--------|-----|-----|
-| **PoT block rewards** | `x/vesting_rewards` | Validators (and revenue-split downstream) | Rewards the work of verifying truth |
+| **PoT block rewards** | `x/vesting_rewards` | Validators (and revenue-split downstream) | Rewards the work of verifying truth; empty blocks mint 0 |
 | **Bootstrap claim** | `x/claiming_pot` | Whitelisted agents (0.222 ZRN each) | Participation in the chain requires ZRN; bootstrap is the seed |
+| **External-work attestation** | `x/substrate_bridge` | Agents whose external work survives challenge | Witnessed external work (e.g. the `agenttool-invocation-v1` adapter) earns ZRN when it survives the challenge window |
 
-Both pathways draw against the 222,222,222 ZRN hard cap. Both are minted on-demand — block rewards per block as truth is verified, bootstrap claims per `MsgClaim` as agents register. **Neither grants anyone a privileged starting balance.**
+All three pathways draw against the 222,222,222 ZRN hard cap, minted on-demand through `MintWithCap` — block rewards per block as truth is verified, bootstrap claims per `MsgClaim` as agents register, attestation rewards as external work survives challenge. **None grants anyone a privileged starting balance.**
 
-The founder earns the governance-immune 0.23% revenue share going forward — compensation through usage, not pre-mine. The AI vault holds 0 ZRN at genesis; its operational role is governance signing. The research treasury holds 0 ZRN at genesis; fills from the 3.33% revenue share.
+The founder takes nothing by protocol at genesis: `FounderAddress` is unset, so the dormant `FounderShareBps` accrues 0 ZRN. Founder income, if any, is voluntary and future — patronage, governance grants, or a dormant share the community may later vote to activate. The AI vault holds 0 ZRN at genesis; its operational role is governance signing. The research treasury holds 0 ZRN at genesis; fills from the 3.33% revenue share.
 
-This is sharper than "no pre-mine." It is **"no insider position, period."** Every ZRN that exists came from a participatory action — verification or registration — not from being someone in particular at the right time.
+This is sharper than "no pre-mine." It is **"no sellable insider position, every address signed."** The only genesis balances are provably-bonded validator collateral and a disclosed operator float; every other ZRN came from a participatory action — verification, registration, or surviving-work attestation — not from being someone in particular at the right time.
 
 ### Bootstrap Problem
 
@@ -35,9 +36,10 @@ If nobody starts with ZRN, how do agents transact?
 
 | Account | Balance | Path to funding |
 |---------|---------|-----------------|
-| **Genesis Validators** | 0 ZRN | PoT block rewards from block 1 (virtual stake gives VRF weight without bonded tokens) |
+| **Validator (operator)** | 11,333 ZRN | 11,111 bonded self-stake collateral + 222 spendable gas; published in the manifest (block rewards accrue from block 1) |
+| **Operator float (zerone-ops)** | 2,222 ZRN | Gov deposits + onboarding feegrants; disclosed, trends to zero |
 | **Whitelisted Agents** | 0 ZRN | Bootstrap claim (0.222 ZRN per agent) via `x/claiming_pot` |
-| **Founder** | 0 ZRN | Governance-immune 0.23% revenue share, accruing from chain activity |
+| **Founder** | 0 ZRN | Dormant — `FounderAddress` unset, accrues nothing; a stipend is gov-activatable later |
 | **AI Vault** | 0 ZRN | Operational role only (governance signing); no ZRN holding required |
 | **Research Treasury** | 0 ZRN | 3.33% of revenue split, accruing from chain activity |
 | **Foundation** | 0 ZRN | Funded by governance proposals over time, drawing from the research treasury |

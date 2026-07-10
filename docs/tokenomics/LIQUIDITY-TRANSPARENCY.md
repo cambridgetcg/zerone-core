@@ -70,36 +70,44 @@ Anything past a fraction of an OSMO gets punished hard. **This pool cannot
 absorb size.** Genuine low slippage requires much deeper liquidity (roughly
 10× per 1% of tolerable trade size).
 
-**This is a known limitation we are actively working on** — not a permanent
-state and not something we're glossing over. The honest catch is *how* we fix
-it: real low slippage needs real depth, ideally from independent liquidity
-providers with their own capital, on Osmosis mainnet. We may seed
-protocol-owned liquidity (POL) to bootstrap depth in the meantime — but if we
-do, we will label it exactly as that (operator-owned), and never dress up
-operator funds as "community liquidity." Depth is the next thing we build; the
-number above is where we honestly stand today, and it will change — this doc
-gets updated when it does.
+**This is a known limitation and our stated next priority — but nothing is
+scheduled yet, and we won't pretend otherwise.** The honest catch is *how* it
+gets fixed: real low slippage needs real depth, coming either from independent
+liquidity providers with their own capital or from clearly-labeled operator
+protocol-owned liquidity (POL), on Osmosis mainnet. If we seed POL to bootstrap
+depth, we will label it exactly as that (operator-owned), and never dress up
+operator funds as "community liquidity." Depth is the next thing we intend to
+build; the number above is where we honestly stand today, and it will change —
+this doc gets updated when it does.
 
 ## Leaving is free — and proven, not claimed
 
 If you hold ZRN and want out of the ecosystem entirely, three permissionless
-paths exist, all demonstrated on 2026-07-10:
+paths exist — two of the three demonstrated on 2026-07-10 (the swap and the
+bridge-back); the third, LP withdrawal, is the standard permissionless gamm
+exit and is available to any LP but has not yet been exercised on this pool:
 
 1. **Sell in the pool**: swap ZRN → OSMO in `pool/1339`. Anyone can, no
    permission. (Proven: a 1 OSMO → ZRN swap executed, tx `3EA9792A…`.)
 2. **Withdraw liquidity**: if you are an LP, `exit-pool` returns your
    proportional ZRN + OSMO. Permissionless — the operator has no special exit
-   rights over yours.
+   rights over yours. (Available but *not yet exercised on this pool* — it is
+   the standard gamm exit-pool, nothing custom.)
 3. **Bridge ZRN home**: IBC-transfer the `ibc/8334…` voucher back over
    `channel-11806` → it unwinds to native `uzrn` on zerone-1. **Proven**: 8 ZRN
    was sent Osmosis → zerone and arrived as native uzrn (success ack both ways).
 
-**The rate limit does not trap you.** Outflow and inflow of ZRN on `channel-0`
-are capped **symmetrically** — `max_send == max_recv == 5000 ZRN` per 240-block
-(~10 min) window. Leaving is never throttled harder than entering. The cap is a
-drain-safety rail protecting the 222,222,222 hard cap's credibility, not a
-lock; it is ~70× the entire current off-chain supply, and it should scale up as
-real liquidity grows.
+**The rate limit does not trap you — and the throttle sits on the drain, not
+the return.** The `channel-0` config lists `max_send == max_recv == 5000 ZRN`
+per 240-block (~10 min) window, but the two are *not* symmetric in effect. Only
+**outflow** — sending native `uzrn` off zerone-1 — actually consumes a quota,
+because that leg is keyed on the `uzrn` denom. **Inflow** (returning ZRN) is not
+effectively throttled: a voucher coming home carries the path-prefixed trace
+`transfer/channel-11806/uzrn`, so the recv quota — keyed on bare `uzrn` — never
+matches it and never fills. Coming home is unimpeded. The one cap that bites,
+outflow, is a drain-safety rail protecting the 222,222,222 hard cap's
+credibility, not a lock: at 5000 ZRN it is ~70× the entire current off-chain
+supply, nowhere near binding, and it should scale up as real liquidity grows.
 
 ## The infrastructure — no hidden dependencies
 
@@ -133,7 +141,8 @@ value ZRN at 0.1 OSMO. It is not community-owned.
 - Enough depth for low slippage at real trade sizes.
 - Deployment on Osmosis **mainnet**, with ZRN listed in the Cosmos asset
   registry so it shows as `ZRN`, not an opaque `ibc/` hash.
-- Rate limits scaled to real liquidity, kept symmetric.
+- Rate limits scaled to real liquidity (the outflow drain-rail raised as depth
+  grows; the return path stays unthrottled).
 - The base chain earning its way out of custodial launch (independent
   validators), so the layer above inherits real decentralization.
 

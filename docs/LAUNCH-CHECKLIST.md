@@ -19,12 +19,12 @@ Chain ID: `zerone-testnet-1`
 
 ### Genesis Preparation
 
-- [ ] Run `scripts/mainnet-ceremony.sh` with the ceremony.env inputs (addresses, PQ commitment hashes, gentx dir, whitelist snapshot) — the script runs `zeroned init`, seeds the nine genesis balances, applies every §2 parameter patch, and emits `GENESIS-MANIFEST.md` + the genesis sha256
-- [ ] Verify the zero-ALLOCATION invariant (genesis design §10): bank supply exactly **47,110 ZRN** = 4 × 11,111 permanently-locked bonded validator collateral + 4 × 111 operator floats + 2,222 onboarding multisig; no team/foundation/investor/research/faucet balance; everything else mints on participation (run `ZERONE_GENESIS_ARTIFACT=<genesis.json> go test ./tests/cross_stack/ -run TestGenesisArtifact`)
+- [ ] Run `scripts/mainnet-ceremony.sh` with the ceremony.env inputs (addresses, PQ commitment hashes, gentx dir, whitelist snapshot) — the script runs `zeroned init`, seeds the two genesis balances (validator + operator float), applies every §2 parameter patch, and emits `GENESIS-MANIFEST.md` + the genesis sha256
+- [ ] Verify the zero-ALLOCATION invariant: bank supply exactly **13,555 ZRN** = 11,111 bonded validator self-stake collateral + 222 validator gas + 2,222 operator float; 2 published balances, 1 validator; no team/foundation/investor/research/faucet balance; everything else mints on participation (run `ZERONE_GENESIS_ARTIFACT=<genesis.json> go test ./tests/cross_stack/ -run TestGenesisArtifact`)
 - [ ] Verify `knowledge.bootstrap_fund_allocation = "0"` and the Genesis Creed + 8 work_creed inception pins are present (no axiom seeding — the axiom tier was deliberately removed; knowledge enters via participation)
 - [ ] Verify hard cap `MaxSupplyUzrn` = `222222222000000` (222,222,222 ZRN)
 - [ ] Verify bootstrap pool whitelist + per-agent claim amount (`0.222 ZRN`) configured in `x/claiming_pot` genesis state
-- [ ] Verify `x/vesting_rewards` mint pathway and `x/claiming_pot` mint pathway both gate through `MintWithCap`
+- [ ] Verify all three mint pathways gate through `MintWithCap`: `x/vesting_rewards` block rewards, `x/claiming_pot` bootstrap claims, and `x/substrate_bridge` external-work attestations
 - [ ] Distribute signed genesis.json to all validators
 - [ ] SHA256 hash matches across all validators
 - [ ] Genesis time set (coordinated UTC timestamp)

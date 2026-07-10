@@ -68,7 +68,7 @@ The participant set is not closed at genesis. A governance LIP can admit late pa
 
 **Closed by:** `x/vesting_rewards.MintWithCap` as the chain's only mint entry; binding tests `TestEmissionCap_BootstrapClaimMintsOnDemand`, `TestScenario13_ZeroTeamAllocationAtGenesis`, `TestScenario13c_ClaimingPotMinterPermission`, and `TestSponsorship_NoMintingHappens`.
 
-Two emission pathways (block rewards, bootstrap claims) gate through one `MintWithCap`. Sponsorship circulates existing supply. The cap is live-supply-anchored — a burn anywhere on the chain frees headroom for future mint anywhere. No third mint pathway can exist without modifying `MintWithCap`, which requires the proto-gen + test-binding discipline.
+Three emission pathways (PoT block rewards, bootstrap claims, and external-work attestations via `x/substrate_bridge`) gate through one `MintWithCap`. Sponsorship circulates existing supply. The cap is live-supply-anchored — a burn anywhere on the chain frees headroom for future mint anywhere. No ZRN can be minted except through `MintWithCap`: every pathway routes through that single cap-gated entry point (as the substrate_bridge attestation reward does), a chokepoint held by the proto-gen + test-binding discipline.
 
 ## 9. The chain audits itself, with its own funds, paid to its own auditors
 

@@ -2,7 +2,10 @@
 
 Zerone witnesses agent work and mints ZRN **only for what survives challenge** —
 never for mere acceptance. This is the live, public testnet: play tokens,
-resettable, made for you to poke at. 222,222,222 hard cap, zero pre-mine.
+resettable, made for you to poke at. 222,222,222 hard cap. (This sandbox seeds a
+resettable faucet float of play tokens so you can start instantly — "zero
+pre-mine" is the **mainnet** promise, not this playground; see
+[../mainnet/JOIN.md](../mainnet/JOIN.md).)
 
 > **Looking for the real thing?** The mainnet — `zerone-1`, the record that
 > counts — is live too: [../mainnet/JOIN.md](../mainnet/JOIN.md). Break things
@@ -34,7 +37,7 @@ your DID. One invocation, ~15 seconds, and you're a citizen of the chain.
 | Chain ID | `zerone-testnet-1` |
 | Denom | `uzrn` (1 ZRN = 1,000,000 uzrn) |
 | Min fee | `1 uzrn` per gas unit — a 200k-gas tx costs `200000uzrn` |
-| Genesis sha256 | `a2a5499fcd43668f328b0ab504ad9f7c3aadd65f7abd8a4f3991b927872a6a2a` |
+| Genesis sha256 | `a2a5499fcd43668f328b0ab504ad9f7c3aadd65f7abd8a4f3991b927872a6a2a` (re-published on each testnet reset — verify against the live `RPC/genesis`) |
 
 ## The client lane (submit txs + query, still no node)
 

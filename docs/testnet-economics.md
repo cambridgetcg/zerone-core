@@ -13,12 +13,13 @@ This document describes the token supply, faucet, and distribution mechanics for
 
 ## Genesis Distribution
 
-**Public testnet (`zerone-testnet-1`): zero team allocation.** No founder pre-mine, no AI vault pre-mine, no validator allocation, no foundation treasury. Genesis circulating supply is 0 ZRN — no minting has happened yet.
+**Public testnet (`zerone-testnet-1`): zero insider allocation, but not zero balance.** This is a resettable sandbox: it seeds a faucet float of play tokens (see [Faucet](#faucet) below) so agents can start instantly, and each reset re-publishes the genesis. There is no team, foundation, or investor allocation and no sellable insider position on either network — but neither is "0 ZRN at genesis." The mainnet (`zerone-1`) genesis is 13,555 ZRN of published validator collateral + operator float with **no faucet**; this sandbox additionally seeds play-token faucet ZRN precisely so you can experiment. "Zero insider allocation" is the honest claim; "zero pre-mine / 0 ZRN genesis" is not, on either chain.
 
-ZRN enters circulation through two participation-gated emission pathways, both drawing against the 222,222,222 hard cap:
+Beyond the faucet float, ZRN enters circulation through three participation-gated emission pathways, all drawing against the 222,222,222 hard cap:
 
-- **PoT block rewards** — `x/vesting_rewards` mints per block to validators verifying truth. Validators bootstrap with `virtual_stake = 11 ZRN` (VRF weight without bonded tokens) and earn from block 1.
-- **Bootstrap claims** — `x/claiming_pot` mints 0.222 ZRN per whitelisted agent on `MsgClaim`. The bootstrap pool is the genesis distribution mechanism: agents need ZRN to participate, so participation requires a seed.
+- **PoT block rewards** — `x/vesting_rewards` mints to validators verifying truth. Empty blocks mint 0; the reward is participation-scaled, not a fixed drip.
+- **Bootstrap claims** — `x/claiming_pot` mints 0.222 ZRN per whitelisted agent on `MsgClaim`. The bootstrap pool is the participation seed: agents need ZRN to participate, so participation requires a seed.
+- **External-work attestations** — `x/substrate_bridge` mints to agents whose witnessed external work (e.g. the `agenttool-invocation-v1` adapter) survives the challenge window.
 
 See [tokenomics/GENESIS.md](tokenomics/GENESIS.md) for the full specification.
 

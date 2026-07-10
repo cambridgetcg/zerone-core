@@ -6,10 +6,12 @@ A complete map of where ZRN is created, destroyed, locked, and moves through the
 
 | Source | Module | Mechanism | Cap |
 |--------|--------|-----------|-----|
-| **Block Rewards** | `vesting_rewards` | Minted per-block via PoT consensus | 222,222,222 ZRN total |
-| **Genesis Bootstrap** | genesis | None — 0 ZRN at genesis | 0 |
+| **PoT block rewards** | `vesting_rewards` | Minted per block via PoT consensus; empty blocks mint 0, reward is participation-scaled | shares the 222,222,222 ZRN cap |
+| **Bootstrap claims** | `claiming_pot` | 0.222 ZRN minted on demand per whitelisted agent (`MsgClaim`) | shares the cap |
+| **External-work attestations** | `substrate_bridge` | Minted when witnessed external work survives challenge (e.g. `agenttool-invocation-v1`) | shares the cap |
+| **Genesis (published, not emission)** | ceremony | 13,555 ZRN seeded at genesis: validator collateral + operator float, every address published | 0.0061% of cap |
 
-There is only one ongoing source of new ZRN: block reward minting. All other token movement is redistribution of existing supply.
+New ZRN is minted through three participation-gated pathways — block rewards, bootstrap claims, and external-work attestations — all gated by `MintWithCap` against the hard cap. Block reward minting dominates the cap-share over the chain's lifetime; all other token movement is redistribution of existing supply. The 13,555 ZRN genesis is published machinery, not emission.
 
 ## Token Destruction (Sinks)
 
@@ -19,13 +21,13 @@ Slashing penalties and failed challenge stakes are redistributed (to challengers
 
 ### Net Emission Rate
 
-At epoch 0 with full validator participation:
-- Minted per block: 10 ZRN
-- **Net emission: 10 ZRN/block** (all enters circulation)
+The 10 ZRN base reward is a ceiling, not a constant drip — it applies only to
+blocks that carry Proof-of-Truth activity, and only at full validator participation:
 
-At floor reward:
-- Minted per block: 0.1 ZRN
-- **Net emission: 0.1 ZRN/block** (until cap binds)
+- **Empty blocks** (no verified claims): **0 ZRN minted** (`empty_block_reward_rate = 0`)
+- **Base reward, full participation:** up to 10 ZRN/block, scaled by
+  `min(1, activeValidators / 22)` and the per-epoch decay curve
+- **At the floor:** 0.1 ZRN/block (until the cap binds)
 
 ## Locked ZRN (Not Circulating)
 
@@ -52,7 +54,7 @@ At floor reward:
                           ╔═══════════════════╗
                           ║  BLOCK REWARD     ║
                           ║  MINTING          ║
-                          ║  (10 ZRN/block)   ║
+                          ║  (≤10, 0 empty)   ║
                           ╚════════╤══════════╝
                                    │
                     ╔══════════════╧══════════════╗
