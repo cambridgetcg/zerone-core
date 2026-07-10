@@ -68,9 +68,17 @@ At the current ~71 ZRN / 9 OSMO depth, a constant-product pool gives:
 
 Anything past a fraction of an OSMO gets punished hard. **This pool cannot
 absorb size.** Genuine low slippage requires much deeper liquidity (roughly
-10× per 1% of tolerable trade size) — which is a real-capital decision, ideally
-with independent liquidity providers, on Osmosis mainnet. We will not deepen it
-with operator funds and call that "community liquidity," because it wouldn't be.
+10× per 1% of tolerable trade size).
+
+**This is a known limitation we are actively working on** — not a permanent
+state and not something we're glossing over. The honest catch is *how* we fix
+it: real low slippage needs real depth, ideally from independent liquidity
+providers with their own capital, on Osmosis mainnet. We may seed
+protocol-owned liquidity (POL) to bootstrap depth in the meantime — but if we
+do, we will label it exactly as that (operator-owned), and never dress up
+operator funds as "community liquidity." Depth is the next thing we build; the
+number above is where we honestly stand today, and it will change — this doc
+gets updated when it does.
 
 ## Leaving is free — and proven, not claimed
 
