@@ -61,6 +61,11 @@ else
 fi
 echo "[entrypoint] $(grep '^minimum-gas-prices' "${APP}")"
 
+# Bind gRPC on all interfaces on EVERY boot (a resumed volume seeded before
+# gRPC was published would still be on localhost). Needed for IBC relayers.
+sed -i 's|^address = "localhost:9090"|address = "0.0.0.0:9090"|' "${APP}"
+grep -q '^address = "0.0.0.0:9090"' "${APP}" && echo "[entrypoint] gRPC on 0.0.0.0:9090"
+
 # EXTRA_START_FLAGS: incident escape hatch settable via `fly secrets set` /
 # [env] without an image rebuild — e.g. "--unsafe-skip-upgrades <height>" to
 # skip a bad upgrade plan after redeploying the previous image.

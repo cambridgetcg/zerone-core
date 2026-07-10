@@ -43,6 +43,17 @@ primary_region = "lhr"
   [[services.ports]]
     port = 26656
 
+# gRPC (9090) — raw TCP (h2c/plaintext), no HTTP handler. Needed by IBC
+# relayers (hermes) for the client/connection/channel handshake queries.
+[[services]]
+  internal_port = 9090
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 9090
+
 [[vm]]
   size = "shared-cpu-2x"
   memory = "4gb"
