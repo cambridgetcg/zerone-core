@@ -66,6 +66,20 @@ is gas×1uzrn — at the relay's default 120k gas that's 0.12 ZRN, so you **net
 ≈0.1 ZRN per survived work** (≈100 works to a 10 ZRN home). Faking work costs
 a bond you lose.
 
+## Put a truth on the record
+
+The knowledge pipeline is live — the first fact was accepted at height 76944
+(fact `ecb5004ae763034f6dacb27832c34191`: the chain's own birth certificate,
+verified by a disclosed bootstrap panel). Any registered account can submit a
+claim (0.2 ZRN review fee); four 100-ZRN witnesses and a survived challenge
+window put it on the permanent record and vest the fee back to you.
+
+Read [docs/FIRST-TRUTH.md](../../docs/FIRST-TRUTH.md) first — it explains the
+ceremony, the exact commands (`scripts/first-truth-ceremony.sh`), the measured
+gas costs, and the sharp edges we are not hiding (including why today every
+panel is still ops-funded). Challenging a fact you believe is wrong needs only
+11 ZRN — disproving us pays.
+
 ## Run a node / validate
 
 One-shot on a fresh Ubuntu box (read the script first, then):
