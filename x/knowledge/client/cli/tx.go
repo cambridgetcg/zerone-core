@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -201,32 +202,125 @@ func NewSubmitClaimCmd() *cobra.Command {
 }
 
 // NewSubmitCommitmentCmd creates a CLI command for MsgSubmitCommitment.
+//
+// Two modes:
+//   - expert:  submit-commitment <round-id> <commit-hash-hex>   (you computed the hash)
+//   - hospitable: submit-commitment <round-id> --vote accept    (we compute it correctly)
+//
+// The hospitable mode exists because the commit preimage is domain-tagged
+// ("ZRN.commit.v1:<round>:<vote>:<confidence>:<salt-hex>") and the CLI reveal
+// always sends confidence=0 — a hand-rolled hash with any other shape fails the
+// reveal with ErrRevealMismatch. The CLI computes it via the same
+// types.ComputeCommitmentHash the chain verifies with, so it cannot drift.
 func NewSubmitCommitmentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "submit-commitment [round-id] [commit-hash-hex]",
 		Short: "Submit a verification commitment (commit-reveal phase 1)",
-		Args:  cobra.ExactArgs(2),
+		Long: `Commit to a vote on a verification round.
+
+Easiest path (salt is generated and the hash computed for you):
+  zeroned tx knowledge submit-commitment <round-id> --vote accept --from me
+The command prints the salt and the exact reveal command to run after the
+commit phase ends. Optionally persist it with --salt-out <file>.
+
+Expert path (you already computed the domain-tagged hash):
+  zeroned tx knowledge submit-commitment <round-id> <commit-hash-hex> --from me`,
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
 				return err
 			}
 
-			commitHash, err := hex.DecodeString(args[1])
-			if err != nil {
-				return err
+			roundID := args[0]
+			vote, _ := cmd.Flags().GetString("vote")
+			saltHex, _ := cmd.Flags().GetString("salt")
+			saltOut, _ := cmd.Flags().GetString("salt-out")
+
+			var commitHash []byte
+			switch {
+			case len(args) == 2 && vote != "":
+				return fmt.Errorf("give either a commit-hash argument or --vote, not both")
+			case len(args) == 2:
+				if saltHex != "" || saltOut != "" {
+					return fmt.Errorf("--salt/--salt-out only apply with --vote (with a precomputed hash you already own the salt)")
+				}
+				commitHash, err = hex.DecodeString(args[1])
+				if err != nil {
+					return fmt.Errorf("invalid commit-hash hex: %w", err)
+				}
+			case vote != "":
+				switch vote {
+				case "accept", "reject", "malformed":
+				default:
+					return fmt.Errorf("--vote must be accept, reject, or malformed (got %q)", vote)
+				}
+				var salt []byte
+				if saltHex != "" {
+					salt, err = hex.DecodeString(saltHex)
+					if err != nil {
+						return fmt.Errorf("invalid --salt hex: %w", err)
+					}
+				} else {
+					salt = make([]byte, 16)
+					if _, err := rand.Read(salt); err != nil {
+						return fmt.Errorf("salt generation failed: %w", err)
+					}
+					saltHex = hex.EncodeToString(salt)
+				}
+				// Confidence is 0 because the CLI reveal path cannot set it —
+				// committing with any other value makes the reveal unmatchable.
+				commitHash = types.ComputeCommitmentHash(roundID, vote, 0, salt)
+				if saltOut != "" {
+					if err := os.WriteFile(saltOut, []byte(saltHex+"\n"), 0o600); err != nil {
+						return fmt.Errorf("could not persist salt before broadcasting (refusing to commit a vote we could not reveal): %w", err)
+					}
+				}
+			default:
+				return fmt.Errorf("provide a commit-hash argument or --vote accept|reject|malformed")
 			}
 
 			msg := &types.MsgSubmitCommitment{
 				Verifier:   clientCtx.GetFromAddress().String(),
-				RoundId:    args[0],
+				RoundId:    roundID,
 				CommitHash: commitHash,
 			}
 
-			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+			if err := tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg); err != nil {
+				return err
+			}
+
+			if vote != "" {
+				// Guidance goes to stderr so -o json / --generate-only stdout
+				// stays machine-readable. Wording is broadcast-aware: we only
+				// see the CheckTx response here, so we teach the code check
+				// instead of celebrating unconditionally.
+				out := cmd.ErrOrStderr()
+				genOnly, _ := cmd.Flags().GetBool(flags.FlagGenerateOnly)
+				dryRun, _ := cmd.Flags().GetBool(flags.FlagDryRun)
+				fmt.Fprintln(out, "")
+				if genOnly || dryRun {
+					fmt.Fprintln(out, "Tx NOT broadcast (generate-only/dry-run). KEEP THIS SALT anyway — the commitment hash above is bound to it:")
+				} else {
+					fmt.Fprintln(out, "Broadcast. If the response above shows code: 0, your commitment is sealed (verify: zeroned q tx <txhash>).")
+					fmt.Fprintln(out, "KEEP THIS SALT — without it your vote cannot be revealed, and an unrevealed commit is slashable:")
+				}
+				fmt.Fprintln(out, "  salt: "+saltHex)
+				if saltOut != "" {
+					fmt.Fprintln(out, "  (also saved to "+saltOut+")")
+				}
+				fmt.Fprintln(out, "After the commit phase ends, reveal with exactly:")
+				fmt.Fprintln(out, "  zeroned tx knowledge submit-reveal "+roundID+" "+vote+" "+saltHex+" --from <same-key>")
+				fmt.Fprintln(out, "Find the claim this round belongs to: zeroned q knowledge verification-round "+roundID)
+				fmt.Fprintln(out, "Then follow it live: zeroned q knowledge claim-watch <claim-id>")
+			}
+			return nil
 		},
 	}
 
+	cmd.Flags().String("vote", "", "compute the commitment for this vote (accept|reject|malformed) instead of passing a hash")
+	cmd.Flags().String("salt", "", "hex salt to use with --vote (default: 16 random bytes, printed after broadcast)")
+	cmd.Flags().String("salt-out", "", "also write the salt to this file (0600) before broadcasting")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }

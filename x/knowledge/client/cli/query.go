@@ -3,13 +3,16 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 
+	alignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -48,6 +51,8 @@ func GetQueryCmd() *cobra.Command {
 
 	queryCmd.AddCommand(
 		NewQueryParamsCmd(),
+		NewQueryEffectiveFeesCmd(),
+		NewQueryClaimWatchCmd(),
 		NewQueryFactCmd(),
 		NewQueryFactsCmd(),
 		NewQueryFactsByDomainCmd(),
@@ -1062,6 +1067,200 @@ func NewQueryMetabolismStatusCmd() *cobra.Command {
 			return clientCtx.PrintObjectLegacy(resp)
 		},
 	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryEffectiveFeesCmd surfaces what submitting actually costs RIGHT NOW.
+//
+// The on-chain minimum review fee is params.MinReviewFee scaled by the
+// alignment module's creation-pacing multiplier (inverse: lower pacing means a
+// higher fee — see x/knowledge/keeper/pacing.go). That scaling is invisible in
+// `q knowledge params`, which is how "the fee param says 0.1 but the chain
+// wants 0.2" confusions happen. This command composes the two live queries and
+// shows the arithmetic. (Client-side composition of the same formula the
+// keeper uses; the authoritative number is also reported by the submit-claim
+// rejection error itself.)
+func NewQueryEffectiveFeesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "effective-fees",
+		Short: "What a claim costs right now: base fee × network pacing, explained",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			paramsResp := &types.QueryParamsResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/Params", &types.QueryParamsRequest{}, paramsResp); err != nil {
+				return fmt.Errorf("failed to query knowledge params: %w", err)
+			}
+			pacingResp := &alignmenttypes.QueryGlobalPacingResponse{}
+			if err := clientCtx.Invoke(cmd.Context(), "/zerone.alignment.v1.Query/GlobalPacing", &alignmenttypes.QueryGlobalPacingRequest{}, pacingResp); err != nil {
+				return fmt.Errorf("failed to query alignment pacing: %w", err)
+			}
+
+			const bps = uint64(1_000_000)
+			creation := pacingResp.CreationMultiplierBps
+			if creation == 0 {
+				creation = bps
+			}
+
+			baseFee, ok := new(big.Int).SetString(paramsResp.Params.MinReviewFee, 10)
+			if !ok {
+				baseFee = big.NewInt(0)
+			}
+			// Mirror the keeper exactly (x/knowledge/keeper/pacing.go): the FEE
+			// scales only when pacing < neutral; the COOLDOWN scales both ways.
+			effFee := new(big.Int).Set(baseFee)
+			if creation < bps {
+				effFee.Div(new(big.Int).Mul(baseFee, new(big.Int).SetUint64(bps)), new(big.Int).SetUint64(creation))
+			}
+
+			baseCooldown := paramsResp.Params.ClaimCooldownBlocks
+			effCooldown := baseCooldown
+			if creation != bps {
+				effCooldown = baseCooldown * bps / creation
+			}
+
+			cmd.Println("network health:        " + pacingResp.HealthCategory)
+			cmd.Printf("creation pacing:       %d bps (1000000 = neutral; lower = the chain is throttling new claims)\n", creation)
+			cmd.Println("")
+			if creation < bps {
+				cmd.Printf("min review fee:        base %suzrn × 1000000/%d = %suzrn  ← send at least this\n", paramsResp.Params.MinReviewFee, creation, effFee.String())
+			} else {
+				cmd.Printf("min review fee:        %suzrn  ← send at least this\n", effFee.String())
+			}
+			cmd.Printf("claim cooldown:        base %d blocks → effective %d blocks per submitter (domain pressure can tighten it further)\n", baseCooldown, effCooldown)
+			if creation != bps {
+				cmd.Println("")
+				cmd.Println("note: network pacing is not neutral right now (health '" + pacingResp.HealthCategory + "'),")
+				cmd.Println("      which adjusts these numbers away from the base params.")
+			}
+			return nil
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryClaimWatchCmd is the companion for the ~8-minute silences of
+// commit-reveal: it polls a claim and its verification round, prints one
+// status line per tick, and exits when the claim reaches a terminal status.
+func NewQueryClaimWatchCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "claim-watch [claim-id]",
+		Short: "Follow a claim live through commit → reveal → verdict (exits on the verdict)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			intervalSec, _ := cmd.Flags().GetUint("interval")
+			if intervalSec == 0 {
+				intervalSec = 3
+			}
+
+			for {
+				claimResp := &types.QueryClaimResponse{}
+				if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/Claim", &types.QueryClaimRequest{Id: args[0]}, claimResp); err != nil {
+					return fmt.Errorf("failed to query claim: %w", err)
+				}
+				claim := claimResp.Claim
+				if claim == nil {
+					return fmt.Errorf("claim %s not found", args[0])
+				}
+
+				var height int64
+				if st, err := clientCtx.Client.Status(cmd.Context()); err == nil {
+					height = st.SyncInfo.LatestBlockHeight
+				}
+
+				statusName := types.ClaimStatus_name[int32(claim.Status)]
+				line := fmt.Sprintf("h=%d  claim=%s", height, statusName)
+
+				var lastRound *types.VerificationRound
+				if claim.VerificationRoundId != "" {
+					roundResp := &types.QueryVerificationRoundResponse{}
+					if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/VerificationRound", &types.QueryVerificationRoundRequest{Id: claim.VerificationRoundId}, roundResp); err == nil && roundResp.Round != nil {
+						r := roundResp.Round
+						lastRound = r
+						phaseName := types.VerificationPhase_name[int32(r.Phase)]
+						line += fmt.Sprintf("  phase=%s  commits=%d  reveals=%d", phaseName, len(r.Commits), len(r.Reveals))
+						// Key the countdown off the phase the chain has actually
+						// flipped to (phase transitions happen AT the deadline, so
+						// the deadline block itself is already too late to act).
+						if height > 0 {
+							remaining := func(deadline uint64) string {
+								if uint64(height)+1 >= deadline {
+									return "LAST BLOCK to act"
+								}
+								return fmt.Sprintf("%d blocks left to act", deadline-uint64(height)-1)
+							}
+							switch r.Phase {
+							case types.VerificationPhase_VERIFICATION_PHASE_COMMIT:
+								line += "  commit: " + remaining(r.CommitDeadline)
+							case types.VerificationPhase_VERIFICATION_PHASE_REVEAL:
+								line += "  reveal: " + remaining(r.RevealDeadline)
+							case types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION:
+								line += fmt.Sprintf("  aggregation due by block %d", r.AggregationDeadline)
+							}
+						}
+					}
+				}
+				cmd.Println(line)
+
+				switch claim.Status {
+				case types.ClaimStatus_CLAIM_STATUS_ACCEPTED:
+					cmd.Println("")
+					cmd.Println("ACCEPTED ✓")
+					// Claim.ProvisionalFactId is only used on challenge claims;
+					// resolve the actually-created fact by matching Fact.ClaimId.
+					factsResp := &types.QueryFactsBySubmitterResponse{}
+					if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/FactsBySubmitter", &types.QueryFactsBySubmitterRequest{Submitter: claim.Submitter}, factsResp); err == nil {
+						for _, f := range factsResp.Facts {
+							if f != nil && f.ClaimId == claim.Id {
+								cmd.Println("  fact:             " + f.Id)
+								if f.ChallengeWindowEnd > 0 {
+									cmd.Printf("  survival window:  escrowed reward releases after block %d if unchallenged\n", f.ChallengeWindowEnd)
+								}
+								cmd.Println("  inspect:          zeroned q knowledge fact " + f.Id)
+								break
+							}
+						}
+					}
+					return nil
+				case types.ClaimStatus_CLAIM_STATUS_REJECTED,
+					types.ClaimStatus_CLAIM_STATUS_EXPIRED,
+					types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT,
+					types.ClaimStatus_CLAIM_STATUS_CONTESTED,
+					types.ClaimStatus_CLAIM_STATUS_MALFORMED:
+					cmd.Println("")
+					cmd.Println("terminal status: " + statusName)
+					if claim.Status == types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT {
+						// Distinguish "nobody came" from "they came and disagreed".
+						needed := "min_verifiers+1"
+						paramsResp := &types.QueryParamsResponse{}
+						if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/Params", &types.QueryParamsRequest{}, paramsResp); err == nil && paramsResp.Params != nil {
+							needed = fmt.Sprintf("%d", paramsResp.Params.MinVerifiers+1)
+						}
+						if lastRound != nil && len(lastRound.Reveals) > 0 {
+							cmd.Printf("  %d reveal(s) arrived but no verdict cleared quorum/threshold (domain claims need %s reveals and a 77%% supermajority) — the claim was under-witnessed or contentious.\n", len(lastRound.Reveals), needed)
+						} else {
+							cmd.Printf("  no verifier revealed a vote — the round starved (domain claims need %s reveals; each verifier needs a ≥100 ZRN balance at commit time).\n", needed)
+						}
+						cmd.Println("  the review fee is not refunded.")
+					}
+					return nil
+				}
+
+				time.Sleep(time.Duration(intervalSec) * time.Second)
+			}
+		},
+	}
+	cmd.Flags().Uint("interval", 3, "seconds between polls")
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }

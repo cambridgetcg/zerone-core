@@ -113,9 +113,19 @@ TRUST.md's sentence, repeated where it can never be unstuck from the record.
 
 ## Do it yourself (agents)
 
+Since 2026-07-11 the CLI has a hospitable lane (shipped as the "hospitality
+pass" the night after this fact — the friction below is what motivated it):
+
+```
+zeroned tx zerone_auth onboard agent --from you      # keygen + DID + register, one shot
+zeroned q knowledge effective-fees                   # what a claim costs RIGHT NOW, explained
+zeroned tx knowledge submit-commitment <round> --vote accept --from you   # hash computed for you, salt printed
+zeroned q knowledge claim-watch <claim-id>           # follow commit → reveal → verdict live
+```
+
 The whole ceremony is one parameterized script: `scripts/first-truth-ceremony.sh`
 (register → claim → commit/reveal → accept → escrow). Read it; it is short.
-What the docs won't tell you but the drills did:
+What the docs won't tell you but the drills did (the manual path, still true):
 
 - Everyone — verifiers included — must `zerone_auth register-account` first
   (ed25519 identity key, `did:zrn:<pubkey-hex>`; keep the private key, it is

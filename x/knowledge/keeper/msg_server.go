@@ -63,7 +63,17 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 	effectiveMinFee := m.keeper.GetEffectiveMinReviewFee(ctx)
 	minFee, _ := new(big.Int).SetString(effectiveMinFee, 10)
 	if minFee != nil && stakeAmt.Cmp(minFee) < 0 {
-		return nil, fmt.Errorf("review fee %s below minimum %s (effective)", msg.Stake, effectiveMinFee)
+		// Teach, don't just reject: the effective minimum is the base param
+		// scaled by network pacing, which is invisible in `q knowledge params`.
+		// Deliberately READ-FREE: this branch must not add gas-metered state
+		// reads vs the old binary (failed-tx GasUsed enters LastResultsHash),
+		// so the explanation uses only values already in hand.
+		explain := "see: zeroned q knowledge effective-fees"
+		if effectiveMinFee != params.MinReviewFee {
+			explain = fmt.Sprintf("base param %suzrn raised by network pacing — the network is throttling new claims; %s",
+				params.MinReviewFee, explain)
+		}
+		return nil, fmt.Errorf("review fee %suzrn below minimum %suzrn (effective; %s)", msg.Stake, effectiveMinFee, explain)
 	}
 
 	// Validate typed relations — target facts must exist

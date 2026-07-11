@@ -653,7 +653,8 @@ func (zcd ZeroneCapabilityDecorator) checkAccountCapability(ctx sdk.Context, add
 	if !found {
 		// Unregistered account: block Zerone-specific ops, allow everything else
 		if isZeroneSpecificMsg(msgType) {
-			return zeroneauthtypes.ErrAccountCapabilityDenied
+			return errors.Wrapf(zeroneauthtypes.ErrAccountCapabilityDenied,
+				"%s is not registered with zerone_auth — one-shot fix: zeroned tx zerone_auth onboard agent --from <your-key>", address)
 		}
 		return nil
 	}
@@ -671,12 +672,14 @@ func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *z
 	switch {
 	case isClaimSubmissionMsg(msgType):
 		if flags == nil || !flags.CanSubmitClaims {
-			return zeroneauthtypes.ErrAccountCapabilityDenied
+			return errors.Wrapf(zeroneauthtypes.ErrAccountCapabilityDenied,
+				"account type %q cannot submit claims or witness (CanSubmitClaims=false; 'agent' and 'human' accounts can)", accountType)
 		}
 		return nil
 	case isChallengeMsg(msgType):
 		if flags == nil || !flags.CanChallenge {
-			return zeroneauthtypes.ErrAccountCapabilityDenied
+			return errors.Wrapf(zeroneauthtypes.ErrAccountCapabilityDenied,
+				"account type %q cannot challenge facts (CanChallenge=false)", accountType)
 		}
 		return nil
 	case isStakeMsg(msgType):
