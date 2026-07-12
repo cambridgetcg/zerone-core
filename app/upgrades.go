@@ -19,6 +19,7 @@ const UpgradeNameTestnetV3 = "v1.0.2-testnet"
 const UpgradeNameTestnetV4 = "v1.0.3-testnet"
 const UpgradeNameLiquidityHardeningV1 = "liquiditypool-hardening-v1"
 const UpgradeNameCompassionCalibrationV1 = "compassion-calibration-v1"
+const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -180,6 +181,44 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// doctrine-metabolism-exempt-v1 — the doctrine finding of
+	// docs/plans/2026-07-10-framework-critique.md. Doctrine facts were born
+	// starving (BuildDoctrineFact omitted Energy) and marched toward PRUNED at
+	// block ~260,000 (~2026-07-16), which would display the chain's own
+	// constitution as extinct-by-disuse. This upgrade makes doctrine live by
+	// process, not by market: ProcessMetabolism now skips the doctrinal stratum
+	// (starvation is not falsification — the same shape as C2), and this handler
+	// resurrects the 47 genesis facts to VERIFIED at full energy with a cleared
+	// at-risk clock. Deterministic single pass; idempotent. No store or proto
+	// change. Doctrine is amended by the creed pin + amendment LIP, never starved.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameDoctrineMetabolismExemptV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
+			app.ReconcileModuleAccountPerms(ctx)
+
+			// Resurrect the doctrine corpus under the new metabolism exemption.
+			n, err := app.KnowledgeKeeper.ResurrectDoctrineFacts(ctx)
+			if err != nil {
+				return nil, err
+			}
+			app.Logger().Info(fmt.Sprintf("doctrine-metabolism-exempt-v1: resurrected %d doctrine facts", n))
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_doctrine-metabolism-exempt-v1", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
@@ -226,6 +265,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameCompassionCalibrationV1:
 		// Migration-only — no store keys added or removed. The calibration score
 		// is an existing field recomputed in the handler.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameDoctrineMetabolismExemptV1:
+		// Migration-only — no store keys. Doctrine facts are existing records
+		// rewritten in the handler; the metabolism exemption is pure code.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

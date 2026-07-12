@@ -666,16 +666,18 @@ func TestMetabolismStatus_Query(t *testing.T) {
 	resp, err := qs.MetabolismStatus(ctx, &types.QueryMetabolismStatusRequest{})
 	require.NoError(t, err)
 
-	// Genesis seeds 47 doctrine facts (all VERIFIED, Energy=0) via
-	// LoadDoctrineFacts (SL-M1). They count as active with zero energy.
+	// Genesis seeds 47 doctrine facts (all VERIFIED) via LoadDoctrineFacts
+	// (SL-M1). Since the born-starving fix (doctrine-metabolism-exempt-v1) they
+	// are born at full DoctrineEnergy, not 0 — doctrine is exempt from metabolism
+	// and reads as fully alive rather than decaying.
 	const doctrineFacts = 47
 	require.Equal(t, uint64(4+doctrineFacts), resp.TotalFacts)
 	require.Equal(t, uint64(2+doctrineFacts), resp.ActiveCount) // VERIFIED + ACTIVE doctrine facts
 	require.Equal(t, uint64(1), resp.AtRiskCount)
 	require.Equal(t, uint64(1), resp.ExpiredCount)
 	require.Equal(t, uint64(0), resp.PrunedCount)
-	// Avg energy = (500K + 700K + 100K + 5K + 0*47) / 51 = 1,305,000 / 51
-	require.Equal(t, uint64(1_305_000/(4+doctrineFacts)), resp.AvgEnergy)
+	// Avg energy = (500K + 700K + 100K + 5K + DoctrineEnergy*47) / 51
+	require.Equal(t, uint64((1_305_000+types.DoctrineEnergy*doctrineFacts)/(4+doctrineFacts)), resp.AvgEnergy)
 }
 
 func TestMetabolism_FullLifecycle(t *testing.T) {

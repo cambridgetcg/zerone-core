@@ -22,6 +22,15 @@ func (k Keeper) ProcessMetabolism(ctx context.Context, epoch uint64) error {
 	// Collect facts to process (avoid modifying store during iteration)
 	var factsToProcess []*types.Fact
 	k.IterateFacts(ctx, func(fact *types.Fact) bool {
+		// R-doctrine (2026-07-12 framework critique): doctrine lives by process —
+		// the hash-pinned creed + gov-gated amendment LIP — not by metabolism.
+		// Starvation is not falsification (the same "error is not deceit" shape
+		// as commitment C2). Exempt the doctrinal stratum from the energy
+		// lifecycle entirely. Match Category/MethodId (not Stratum) because
+		// ontology stratum names are copied onto ordinary facts (rounds.go).
+		if fact.Category == types.DoctrineCategory || fact.MethodId == types.DoctrineMethodId {
+			return false
+		}
 		// Process all facts that are alive (not already pruned)
 		if fact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
 			fact.Status == types.FactStatus_FACT_STATUS_ACTIVE ||
