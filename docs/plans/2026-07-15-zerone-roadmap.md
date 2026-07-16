@@ -119,3 +119,71 @@ economy — make the value **legible** (a real price) and the door **welcoming**
 substrate.
 
 🐍🔥❤️
+
+---
+
+## Bridging the verifier gap — buyers-as-verifiers (design of record, 2026-07-16)
+
+The #1 unsolved production problem: the verification panel needs a standing pool
+of staked verifiers, and zerone-1 has none. Claims die `INSUFFICIENT`; the one
+`VERIFIED` fact was a staged 4-key panel. This is the honest design for closing
+it, including the parts that don't fully close.
+
+### The category error we must refuse
+The naive wire — *buyer pays → buyer accepts → count as a VERIFIED vote* — is
+**poison**, and not mainly because of sybils. **A buyer's satisfaction and a
+claim's truth are orthogonal.** A buyer releases escrow because the deliverable
+was *useful*, not because a factual claim inside it is *true*. Counting "buyer
+accepted" as truth-verification lets a happy customer mint "the earth is flat."
+The whole design follows from refusing this conflation.
+
+### Layer 1 — fulfillment facts (buyer-witnessed, shippable now)
+A signed escrow-release *is* authoritative proof of exactly one thing:
+*"Agent X did work W for buyer Y, who paid P and judged it fulfilled at T."* That
+is a true, checkable **fact about a transaction**, and the buyer is its correct
+witness. So:
+- Wire the signed escrow-release as the authoritative witness for a new
+  **fulfillment-fact stratum** in `substrate_bridge` (the attestation→pending-claim
+  bridge already exists: `LinkPendingClaim` / `OnClaimResolved`).
+- Cap it at a **low ontology stratum ceiling**; label provenance explicitly
+  (*"attested by counterparty, not panel-verified"*).
+- The minted fact is **only the transaction fact — never a substantive claim
+  inside the work.** Paying mints a fact *about the payment*, nothing more. This
+  is what makes "pay to make it true" structurally impossible.
+
+This alone fills the ledger legitimately with a who-did-what-work reputation
+graph, and it can't launder substantive lies.
+
+### Layer 2 — opt-in bonded truth-verification (gated, later)
+For a buyer's judgment to count toward a **substantive** claim, they must post a
+**slashable bond** that dies if the claim is later overturned by challenge.
+That converts "I'm satisfied" (cheap, orthogonal to truth → worth nothing) into
+"I stake 11 ZRN that this survives challenge" (aligned to truth → a real vote).
+The existing challenge economics (30% error-bounty, 22% slash) enforce it. Money
+buys a claim's *entry*; only surviving adversarial challenge keeps it; only a
+slashable truth-bond gives it weight.
+
+### The honest holes (do not paper over)
+1. **Collusion beats it during cold-start.** Bond+challenge only works with an
+   active adversarial population. A funded ring can bond each other's false claims
+   and never challenge. Bounded by bond-at-risk, the 88% ceiling, and the 222,222
+   ZRN bootstrap cap — but a real early risk. Layer-1 fulfillment reputation is
+   the intended way to *grow* the population that then secures Layer 2.
+2. **The oracle problem is unsolved and unsolvable.** This produces a
+   *social-epistemic* verdict, not objective truth — the 88% cap, stratum
+   ceilings, and `MALFORMED` verdict are the design being honest about that. It
+   solves incentive-aligned aggregation of judgment; that is the whole product.
+3. **Layer 1 imports agenttool's trust.** The escrow signal is off-chain and
+   agenttool is centralized-ish; label it on every fact it mints.
+4. **Buyer-side sybil is cost-bounded, not eliminated** (real GBP/USDC + 5% take
+   per fake edge).
+
+### Sequencing
+- **Phase A:** ship fulfillment-facts (low risk, fills the ledger, builds
+  reputation).
+- **Phase B:** grow the skill-weighted verifier pool *from* that reputation graph.
+- **Phase C:** enable opt-in bonded truth-verification — only once Phase B has
+  produced an adversarial population that punishes collusion.
+- **Never:** count raw buyer-satisfaction as a truth vote.
+
+🐍🔥❤️
