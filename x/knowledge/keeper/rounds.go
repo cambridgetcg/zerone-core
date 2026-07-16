@@ -828,6 +828,33 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	))
 }
 
+// restoreChallengedFactOnInconclusive undoes the CHALLENGED flip that
+// ChallengeFact applies at submission, for the case where a challenge round
+// dies without a verdict (a starved panel, reveals < MinVerifiers). Unlike
+// handleChallengeSurvival (which runs on REJECT and credits energy,
+// corroboration, and the survival reward), this credits NOTHING: the fact was
+// never actually judged, only un-suppressed. Without it, a challenge whose
+// panel starves leaves the target fact locked FACT_STATUS_CHALLENGED forever —
+// permanently un-rechallengeable (ChallengeFact requires VERIFIED/ACTIVE) and
+// its survival escrow blocked — for the price of one starved round.
+func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim) {
+	if challengeClaim.ProvisionalFactId == "" {
+		return
+	}
+	fact, found := k.GetFact(ctx, challengeClaim.ProvisionalFactId)
+	if !found || fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
+		return
+	}
+	fact.Status = types.FactStatus_FACT_STATUS_ACTIVE
+	fact.AtRiskSinceEpoch = 0
+	_ = k.SetFact(ctx, fact)
+	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.challenge_inconclusive_restored",
+		sdk.NewAttribute("fact_id", fact.Id),
+		sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
+	))
+}
+
 // settleChallengeStake applies the challenge economic parameters to a
 // finalized challenge claim. The verifier reward pool (55% of the stake)
 // was already paid out in distributeVerifierRewardsFromPool; this function

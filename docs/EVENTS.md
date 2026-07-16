@@ -1146,6 +1146,11 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `block_height` -- height at which the challenge was resolved
 - `creed_commitment` -- "3"
 
+### zerone.knowledge.challenge_inconclusive_restored
+A challenge round starved (fewer than `min_verifiers` reveals) and expired without a verdict. The target fact — flipped to CHALLENGED at submission — is restored to ACTIVE with no survival credit (no panel actually judged it), so a starved challenge cannot lock a fact CHALLENGED forever.
+- `fact_id` -- fact restored from CHALLENGED to ACTIVE
+- `challenge_claim_id` -- the starved challenge claim
+
 ### zerone.knowledge.add_fact_proposed
 Wave 16 guardian-veto path. Authority called MsgAddFact while a guardian set is configured and the veto window is positive — instead of materializing the fact immediately, the proposal is queued. Guardians have until `execute_at_block` to call MsgVetoFactInjection. Without veto, the BeginBlocker emits `pending_fact_materialized` when the window closes.
 - `pending_id` -- id of the queued PendingFactInjection

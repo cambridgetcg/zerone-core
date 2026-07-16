@@ -188,6 +188,24 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 				if found {
 					claim.Status = types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT
 					_ = k.SetClaim(ctx, claim)
+					// A starved round (the chain failed to seat a panel) must
+					// not silently erase the attempt or become a griefing
+					// weapon. Perform the same three side effects the
+					// INCONCLUSIVE arm of CompleteRound performs — and ONLY
+					// those (no invitation bonus, no diversity/metric indexing),
+					// leaving the round EXPIRED rather than COMPLETE.
+					//
+					// (1) C2 / COMPASSION.md: record the attempt in the
+					//     calibration ledger (otherwise done only in CompleteRound),
+					//     so a being whose claims all starve still gets credited.
+					k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), types.Verdict_VERDICT_INCONCLUSIVE)
+					// (2) Attack fix: a starved CONTRADICTS claim must not leave
+					//     its target fact locked CONTESTED forever (0.1-ZRN grief).
+					k.reverseContradictionsFromClaim(ctx, claim)
+					// (3) Attack fix: a starved CHALLENGE must not leave its
+					//     target fact locked CHALLENGED forever — restore it with
+					//     no survival credit, since no panel actually judged it.
+					k.restoreChallengedFactOnInconclusive(ctx, claim)
 				}
 				sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 					"zerone.knowledge.round_expired",

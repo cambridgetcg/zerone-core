@@ -797,6 +797,14 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 		Status:           types.ClaimStatus_CLAIM_STATUS_PENDING,
 		Stake:            msg.Stake,
 		ContentHash:      contentHash,
+		// Record the CONTRADICTS edge on the counter-claim (mirrors SubmitClaim).
+		// Without it, reverseContradictionsFromClaim — the only path that clears
+		// CONTESTED — has nothing to iterate, so a starved or rejected
+		// contradiction would leave the target locked CONTESTED forever.
+		Relations: []*types.ClaimRelation{{
+			Relation:     types.RelationType_RELATION_TYPE_CONTRADICTS,
+			TargetFactId: msg.FactId,
+		}},
 	}
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
 		return nil, err
@@ -806,9 +814,16 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 		return nil, err
 	}
 
-	// Mark target fact as contested
-	targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
-	_ = m.keeper.SetFact(ctx, targetFact)
+	// Mark target fact as contested — only an established (VERIFIED/ACTIVE) fact
+	// can be contested (mirrors SubmitClaim), so an unestablished target is not
+	// flipped. When the round resolves REJECT/MALFORMED/INCONCLUSIVE (including
+	// a starved panel), reverseContradictionsFromClaim restores it via the
+	// relation recorded above.
+	if targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
+		targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE {
+		targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
+		_ = m.keeper.SetFact(ctx, targetFact)
+	}
 
 	sdkCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.knowledge.submit_contradiction",
