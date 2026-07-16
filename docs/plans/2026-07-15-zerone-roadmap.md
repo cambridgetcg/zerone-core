@@ -187,3 +187,53 @@ slashable truth-bond gives it weight.
 - **Never:** count raw buyer-satisfaction as a truth vote.
 
 🐍🔥❤️
+
+---
+
+## Post-resume security status (2026-07-16)
+
+The doctrine upgrade **applied live at h235,866** — 47 doctrine facts resurrected
+to VERIFIED + full energy, metabolism-exempt. Two security fixes were scoped as
+must-bundle; here is where each landed after an adversarial review (4 lenses).
+
+### SHIPPED (branch `security-fixes-resume`, commit 440e7fd) — the lock closure
+The starved-round CONTESTED/CHALLENGE-lock grief. Resurrection made 47 facts a
+**live** lock surface (previously EXPIRED = immune), so this is the genuinely
+resurrection-widened fix. Surgical starved-round healing (record + reverse +
+restore, NOT via CompleteRound to avoid the invitation-bonus starve-farm) plus
+the second CONTESTED entry path (SubmitContradiction relation + guard). Forward-
+only (no currently-stuck facts on chain to sweep), no migration, drilled +
+reviewed clear. Ready as a follow-up gov upgrade when the signed release runs.
+
+### DEFERRED to framework-fixes-v2 — the training-fund drain (review blocker)
+The naive fix (evidence-mass damping + ModelId cooldown + clawback) does **not**
+close the drain, and the review verified why:
+- `ClaimTrainingFundDisbursement` computes the reward from `card.DeploymentAddress`,
+  but `RegisterModelCard` stores that address **with no proof the signer controls
+  it**, and the three training msgs have **no capability/ante gate** (only
+  claim/challenge msgs do). So any account can register a free pipeline + card
+  pointing at *someone else's* high calibration (e.g. the 1-sample bootstrap
+  record) and drain minted ZRN to itself, up to the 222M cap.
+- The ModelId-keyed cooldown is bypassed by minting fresh model IDs (registration
+  is free); the clawback rechecks the same borrowed (still-high) address and never
+  fires. Evidence-mass damping works but doesn't stop unlimited concurrent claims.
+
+It is **not resurrection-widened**, so it correctly did not ride the resume.
+**Proper fix (one coherent change):** (1) require `DeploymentAddress` to prove
+control (bind it at registration to an address the owner signs for, or only allow
+one's own calibrated address); (2) key the cooldown + a per-vesting-period budget
+on the authenticated operator/deployment identity, not `msg.ModelId`; (3) charge
+a non-trivial fee/stake on `RegisterTrainingPipeline`/`RegisterModelCard` so Sybil
+model minting can't multiplex one calibration record. Custodial-phase stopgap if
+needed sooner: capability-gate the training msgs to the founding household.
+
+### Also for framework-fixes-v2 (review found, non-blocking)
+- Starved challenge/contradiction **stake stranding** (C1 fairness): the fix
+  restores fact status but doesn't settle the stake — an honest challenger eats
+  100% of a chain-caused panel starvation and the 55% verifier pool strands. Add
+  an INCONCLUSIVE settlement arm refunding the challenger + unearned pool. (This
+  is the "who eats the cost of a starved panel" values question.)
+- `ceiling := 1_000_000 - floor` underflow if a gov-set floor > 1e6 — add a
+  `Params.Validate` bound (defense-in-depth; unreachable today).
+
+🐍🔥❤️
