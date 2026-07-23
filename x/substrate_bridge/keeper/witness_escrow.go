@@ -67,6 +67,14 @@ func (k Keeper) deleteWitnessPending(ctx context.Context, pr WitnessPendingRewar
 // minted). Called after a witness-only attestation settles with its bond
 // returned. No-op when the adapter carries no reward.
 func (k Keeper) EscrowWitnessReward(ctx context.Context, att *types.ExternalAttestation) {
+	// Only the source's ref-holder may escrow (and later mint) a witness reward.
+	// A duplicate that reached settlement without holding the ref — a legacy or
+	// pre-arming twin — mints nothing; the source's single witness reward belongs
+	// to its holder. authorizeSourceMint claims the ref for a legacy sole
+	// submitter that holds none yet, so a genuine first witness is never skipped.
+	if !k.authorizeSourceMint(ctx, att) {
+		return
+	}
 	adapter, found := k.GetAdapter(ctx, att.AdapterId)
 	if !found || adapter.WitnessRewardUzrn == "" {
 		return
@@ -116,6 +124,21 @@ func (k Keeper) releaseWitnessReward(ctx context.Context, pr WitnessPendingRewar
 	reward, ok := sdkmath.NewIntFromString(pr.Amount)
 	if !ok || !reward.IsPositive() {
 		k.cancelWitnessReward(ctx, pr, "bad reward amount")
+		return
+	}
+
+	// A source's single witness reward belongs to its ref-holder. The escrow-
+	// time gate (EscrowWitnessReward) blocks a duplicate escrow going forward,
+	// but a witness escrow written BEFORE the substrate-dedupe-v1 upgrade
+	// bypassed it, and the seed reconciles only the 0x8E source index, not the
+	// 0x8C pending-reward store. So re-check at release: if this attestation is
+	// not the source's holder, cancel unpaid — the clawback is free because
+	// nothing was minted for it.
+	if att, found := k.GetAttestation(ctx, pr.AttestationId); !found {
+		k.cancelWitnessReward(ctx, pr, "attestation missing at release")
+		return
+	} else if !k.authorizeSourceMint(ctx, att) {
+		k.cancelWitnessReward(ctx, pr, "source witness reward held by another attestation")
 		return
 	}
 

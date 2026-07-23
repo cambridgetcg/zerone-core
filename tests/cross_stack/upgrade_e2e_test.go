@@ -8,6 +8,7 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
 // ─── Wave 10: end-to-end upgrade pipeline tests ─────────────────────────
@@ -210,5 +211,44 @@ func TestUpgrade_LineageParityWithHandlers(t *testing.T) {
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameTestnet)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameTestnetV2)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameTestnetV3)
+	require.Contains(t, lineageNames, zeroneapp.UpgradeNameDoctrineMetabolismExemptV1)
+	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSubstrateDedupeV1)
 }
 
+// TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1
+// handler end-to-end: it must run RunMigrations + ReconcileModuleAccountPerms +
+// SeedSourceRefs + WriteMigrationMarker without error, index a pre-existing
+// settled attestation's source, and leave enforcement armed. Guards the whole
+// wiring under the exact plan name a governance proposal would carry.
+func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// A settled attestation that predates the wall — the seed must index its
+	// source so a post-upgrade replay is blocked.
+	link := &substratebridgetypes.SubstrateLink{
+		AdapterId: "agenttool-invocation-v1",
+		Source: &substratebridgetypes.ExternalSource{
+			AdapterId: "agenttool-invocation-v1",
+			SourceId:  "inv-preupgrade",
+		},
+	}
+	require.NoError(t, h.SubstrateBridgeKeeper.WriteAttestation(h.Ctx, &substratebridgetypes.ExternalAttestation{
+		AttestationId: "att-1-1",
+		AdapterId:     "agenttool-invocation-v1",
+		Submitter:     "zerone1preupgradesubmitter000000000000aa",
+		Status:        substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_SETTLED,
+		Link:          link,
+	}))
+
+	fromVM := h.App.CurrentModuleVersionMap()
+	_, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameSubstrateDedupeV1, fromVM, h.Height())
+	require.NoError(t, err)
+
+	holder, taken := h.SubstrateBridgeKeeper.GetSourceRef(h.Ctx, "agenttool-invocation-v1", "inv-preupgrade")
+	require.True(t, taken, "handler must seed the pre-existing attestation's source")
+	require.Equal(t, "att-1-1", holder)
+	require.True(t, h.SubstrateBridgeKeeper.IsDedupeArmed(h.Ctx), "handler must arm enforcement")
+	require.Equal(t, "migrated",
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_substrate-dedupe-v1"),
+		"handler must write the substrate-dedupe-v1 migration marker")
+}

@@ -91,6 +91,14 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameCompassionCalibrationV1,
 			Description: "compassion-calibration-v1 — COMPASSION.md commitment C2 (error is not deceit): the calibration score excludes INCONCLUSIVE outcomes from its denominator (the panel failing to resolve is not the agent failing to be right), and a one-pass recompute refreshes stored scores. Monotonic; no store change.",
 		},
+		{
+			UpgradeName: UpgradeNameDoctrineMetabolismExemptV1,
+			Description: "doctrine-metabolism-exempt-v1 — doctrine lives by process, not by market: ProcessMetabolism skips the doctrinal stratum and the handler resurrects the 47 genesis facts to VERIFIED at full energy. Idempotent; no store change.",
+		},
+		{
+			UpgradeName: UpgradeNameSubstrateDedupeV1,
+			Description: "substrate-dedupe-v1 — external-attestation replay wall: a source reference is required and (adapter_id, source_id) is unique per work item, so one work mints at most once; rejection releases the source, settlement consumes it. Handler seeds the index from stored attestations.",
+		},
 	}
 
 	return ChainVersionReport{

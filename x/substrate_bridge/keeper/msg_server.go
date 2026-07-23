@@ -74,6 +74,14 @@ func (m msgServer) TombstoneAdapter(ctx context.Context, msg *types.MsgTombstone
 }
 
 func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.MsgSubmitExternalAttestation) (*types.MsgSubmitExternalAttestationResponse, error) {
+	// Fail closed unless the dedupe index is seeded — otherwise the
+	// uniqueness checks below would run against an empty index and a replay
+	// would look free. A fresh chain (no attestations to seed) self-arms
+	// here; an existing chain whose substrate-dedupe-v1 handler has not run
+	// is refused. See keeper/source_ref.go:ensureDedupeArmed.
+	if err := m.ensureDedupeArmed(ctx); err != nil {
+		return nil, err
+	}
 	if msg.Link == nil {
 		return nil, types.ErrAdapterNotFound
 	}
@@ -98,6 +106,36 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	// beats accepting a bond into a trap.
 	if len(msg.Link.PendingClaims) > 0 {
 		return nil, types.ErrPendingClaimsNotSupported
+	}
+
+	// 2c. One submission, one adapter: the allow-list, qualification and
+	// bond checks below read msg.AdapterId while link validation reads
+	// link.adapter_id — they gate the same submission only when equal.
+	if msg.AdapterId != msg.Link.AdapterId {
+		return nil, types.ErrAdapterIdMismatch
+	}
+
+	// 2d. The source reference is the DECLARED economic identity of the work,
+	// and each declared (adapter_id, source_id) is attestable at most once.
+	// This is the chain-side replay wall: without it the same settled work
+	// could be re-submitted (fetched_at_block or an axis weight varied yields
+	// a fresh link_hash) and mint again at every settlement. Rejection
+	// releases the source (see settleRejected); a minted holder keeps it
+	// forever, and settlement mints only for the ref-holder (see
+	// authorizeSourceMint) so a duplicate reaching settle mints nothing.
+	//
+	// Scope: the guarantee is over the DECLARED identity. The chain does not
+	// verify that source_id faithfully names distinct work (no oracle over the
+	// adapter's off-chain source), so an adversary who can submit at all may
+	// relabel the same work under a fresh source_id and mint again — the same
+	// residual class as fabricating sources or front-running, bounded by the
+	// adapter's qualification gate (RequiredQualificationDomain), not by this
+	// wall. Open adapters (e.g. agenttool-invocation-v1) should set one.
+	if msg.Link.Source == nil || msg.Link.Source.SourceId == "" {
+		return nil, types.ErrSourceRequired
+	}
+	if holder, taken := m.GetSourceRef(ctx, msg.Link.AdapterId, msg.Link.Source.SourceId); taken {
+		return nil, types.ErrDuplicateSource.Wrapf("source %q held by %s", msg.Link.Source.SourceId, holder)
 	}
 
 	// 3. Get adapter for qualification + work-class allow-list check.
@@ -190,6 +228,7 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	if err := m.WriteAttestation(ctx, att); err != nil {
 		return nil, err
 	}
+	m.SetSourceRef(ctx, msg.Link.AdapterId, msg.Link.Source.SourceId, attID)
 
 	// 9. Emit event with useful_work_commitment and mechanism tags.
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
@@ -197,6 +236,7 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 		sdk.NewAttribute("attestation_id", attID),
 		sdk.NewAttribute("adapter_id", msg.AdapterId),
 		sdk.NewAttribute("work_class_id", msg.WorkClassId),
+		sdk.NewAttribute("source_id", msg.Link.Source.SourceId),
 		sdk.NewAttribute("bond_uzrn", msg.BondUzrn),
 		sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
 		sdk.NewAttribute(AttrMechanism, "M1,M2,M3"),

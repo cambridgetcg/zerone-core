@@ -120,6 +120,11 @@ func (k Keeper) settleRejected(ctx context.Context, att *types.ExternalAttestati
 		}
 	}
 
+	// Rejection punishes the submission (bond burned), not the work's
+	// identity: release the source reference so an honest or corrected
+	// resubmission stays possible.
+	k.releaseSourceRef(cacheCtx, att)
+
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		EventTypeExternalAttestationRejected,
 		sdk.NewAttribute(AttrAttestationID, att.AttestationId),
@@ -161,6 +166,16 @@ func (k Keeper) finalizeSettle(
 	submitterAddr, addrErr := sdk.AccAddressFromBech32(att.Submitter)
 	if addrErr != nil {
 		return fmt.Errorf("settle %s: bad submitter address: %w", att.AttestationId, addrErr)
+	}
+
+	// A source's single mint belongs to its ref-holder. A duplicate that reaches
+	// settlement without holding the ref (a legacy or pre-arming twin of
+	// already-claimed work) settles and returns its bond but mints nothing —
+	// otherwise its post-arming settlement would re-mint work another attestation
+	// already paid for. The submit-time claim means the normal path holds its own
+	// ref here and mints as before.
+	if reward.IsPositive() && !k.authorizeSourceMint(cacheCtx, att) {
+		reward = sdkmath.ZeroInt()
 	}
 
 	// 1. Return the escrowed bond.
