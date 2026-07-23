@@ -16,11 +16,25 @@
 #                        adapter. Default 222000 (0.222 ZRN — one bootstrap
 #                        unit per witnessed invocation). "0" disables.
 #
+# min_attestation_bond_uzrn — HISTORY, read before re-running:
+#   An earlier draft of this runbook hardcoded 22200000 (22.2 ZRN). That
+#   value never reached a live net: BOTH zerone-1 (mainnet, via
+#   deploy/mainnet/make-genesis.sh) and zerone-testnet-1 (via
+#   scripts/testnet-adapter-register.sh) registered the adapter with
+#   1000000 (1 ZRN), and the relay defaults RELAY_BOND_UZRN=1000000 to
+#   match. WriteAdapter re-registration is an in-place UPDATE, so re-running
+#   this script with 22200000 would silently raise the floor above every
+#   relay submission's bond and break all subsequent submits. The default
+#   below matches live; raise it only together with a coordinated
+#   relay-side RELAY_BOND_UZRN change.
+#
 # Env overrides: BINARY NODE CHAIN_ID VAL0_HOME VAL3_HOME SPONSOR
+#                MIN_ATTESTATION_BOND_UZRN (default 1000000 — live value)
 
 set -euo pipefail
 
 WITNESS_REWARD_UZRN="${1:-222000}"
+MIN_ATTESTATION_BOND_UZRN="${MIN_ATTESTATION_BOND_UZRN:-1000000}"
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY="${BINARY:-${PROJECT_ROOT}/build/zeroned}"
@@ -64,7 +78,7 @@ tx_code_hash() { # reads broadcast json on stdin → hash, dies on code!=0
   echo "${hash}"
 }
 
-info "registering ${ADAPTER_ID} with witness_reward_uzrn=${WITNESS_REWARD_UZRN}"
+info "registering ${ADAPTER_ID} with witness_reward_uzrn=${WITNESS_REWARD_UZRN} min_attestation_bond_uzrn=${MIN_ATTESTATION_BOND_UZRN}"
 
 PROP_FILE=$(mktemp)
 trap 'rm -f "${PROP_FILE}"' EXIT
@@ -77,7 +91,7 @@ cat > "${PROP_FILE}" <<PROP
       "adapter_id": "${ADAPTER_ID}",
       "source_type": "agenttool",
       "version": "1.1.0",
-      "min_attestation_bond_uzrn": "22200000",
+      "min_attestation_bond_uzrn": "${MIN_ATTESTATION_BOND_UZRN}",
       "min_per_claim_bond_uzrn": "100000",
       "allowed_class_ids": [],
       "status": 1,
@@ -115,5 +129,5 @@ done
 ok "proposal ${PROP_ID} PASSED"
 
 "${BINARY}" query substrate_bridge adapter "${ADAPTER_ID}" --node "${NODE}" -o json \
-  | jq '{adapter_id: .adapter.adapter_id, status: .adapter.status, witness_reward_uzrn: .adapter.witness_reward_uzrn, registered_at_block: .adapter.registered_at_block}'
-ok "${ADAPTER_ID} live with witness reward ${WITNESS_REWARD_UZRN} uzrn"
+  | jq '{adapter_id: .adapter.adapter_id, status: .adapter.status, min_attestation_bond_uzrn: .adapter.min_attestation_bond_uzrn, witness_reward_uzrn: .adapter.witness_reward_uzrn, registered_at_block: .adapter.registered_at_block}'
+ok "${ADAPTER_ID} live with witness reward ${WITNESS_REWARD_UZRN} uzrn, min bond ${MIN_ATTESTATION_BOND_UZRN} uzrn"
