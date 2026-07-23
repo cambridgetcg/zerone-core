@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09090c" />
+    <meta
+      name="description"
+      content="The live Zerone mainnet dashboard: wallet, liquidity, blocks, supply, and an honest view of the network."
+    />
+    <meta property="og:title" content="ZERONE — Mainnet Dashboard" />
+    <meta
+      property="og:description"
+      content="Read the record. Hold your keys. See the network as it is."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://zerone.ai" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>ZERONE — Mainnet Dashboard</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to dashboard</a>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#overview" aria-label="Zerone dashboard home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <span>ZERONE</span>
+        </a>
+
+        <nav class="topnav" aria-label="Primary navigation">
+          <a href="#wallet">Wallet</a>
+          <a href="#liquidity">Liquidity</a>
+          <a href="#activity">Activity</a>
+          <a href="#network">Network</a>
+        </nav>
+
+        <div class="topbar-actions">
+          <div class="network-pill" id="network-pill" aria-live="polite">
+            <span class="pulse-dot"></span>
+            <span id="network-pill-label">Connecting</span>
+          </div>
+          <button class="button button-primary compact wallet-connect" type="button">
+            Connect wallet
+          </button>
+        </div>
+      </header>
+
+      <main id="main-content">
+        <section class="hero section" id="overview" aria-labelledby="hero-title">
+          <div class="hero-copy reveal">
+            <div class="eyebrow"><span>01</span> The mainnet record</div>
+            <h1 id="hero-title">The record<br /><em>is live.</em></h1>
+            <p class="hero-lede">
+              Read the chain as it is. Hold your own keys. Watch each ZRN issuance,
+              block by witnessed block.
+            </p>
+            <div class="hero-actions">
+              <button class="button button-primary wallet-connect" type="button">
+                Open your wallet
+              </button>
+              <a
+                class="button button-ghost"
+                href="https://github.com/cambridgetcg/zerone-core"
+                target="_blank"
+                rel="noreferrer"
+              >Read the code <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+
+          <div class="hero-orbit reveal" aria-label="Live mainnet summary">
+            <div class="orbit-ring ring-one"></div>
+            <div class="orbit-ring ring-two"></div>
+            <div class="orbit-core">
+              <span class="orbit-kicker">Block</span>
+              <strong id="hero-height">—</strong>
+              <span id="hero-block-age">Finding the chain…</span>
+            </div>
+            <div class="orbit-note orbit-note-top">
+              <span>Chain</span><strong>zerone-1</strong>
+            </div>
+            <div class="orbit-note orbit-note-bottom">
+              <span>State</span><strong id="hero-state">Checking</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="metrics section" aria-label="Live network metrics">
+          <article class="metric-card reveal">
+            <div class="metric-label"><span>Issued supply</span><span class="live-mark">ON-CHAIN</span></div>
+            <strong id="supply-value">—</strong>
+            <p>ZRN issued of 222,222,222 hard cap</p>
+            <progress class="progress-track" id="supply-progress" max="100" value="0" aria-label="Percentage of hard cap issued"></progress>
+          </article>
+          <article class="metric-card reveal">
+            <div class="metric-label"><span>Validators</span><span>02</span></div>
+            <strong id="validator-value">—</strong>
+            <p id="validator-note">Reading the active set</p>
+          </article>
+          <article class="metric-card reveal">
+            <div class="metric-label"><span>Node peers</span><span>03</span></div>
+            <strong id="peer-value">—</strong>
+            <p id="peer-note">Reading the public node</p>
+          </article>
+          <article class="metric-card reveal">
+            <div class="metric-label"><span>Liquidity pools</span><span>04</span></div>
+            <strong id="pool-value">—</strong>
+            <p id="pool-note">Reading the AMM module</p>
+          </article>
+        </section>
+
+        <aside class="truth-banner section reveal" aria-labelledby="truth-banner-title">
+          <div class="truth-icon" aria-hidden="true">!</div>
+          <div>
+            <p class="eyebrow" id="truth-banner-title">Honest state</p>
+            <h2>Mainnet is live. Decentralisation is not finished.</h2>
+            <p id="custody-copy">
+              The unsealed custodial launch currently has one household validator.
+              Block production and governance are not distributed yet, and the operator
+              retains the disclosed ability to halt, revert, or re-genesis.
+            </p>
+          </div>
+          <a
+            href="https://github.com/cambridgetcg/zerone-core/blob/main/deploy/mainnet/TRUST.md"
+            target="_blank"
+            rel="noreferrer"
+          >Read the trust model <span aria-hidden="true">↗</span></a>
+        </aside>
+
+        <section class="section split-section" id="wallet" aria-labelledby="wallet-title">
+          <div class="section-heading reveal">
+            <div class="eyebrow"><span>02</span> Your keys, your ZRN</div>
+            <h2 id="wallet-title">Wallet</h2>
+            <p>
+              Connect Keplr to see your mainnet balance. Your seed never touches this
+              site; every transaction is shown and signed inside your wallet.
+              Passport-issued accounts began as shared custody because the onboarding
+              operator retained a copy of the key.
+            </p>
+          </div>
+
+          <div class="wallet-card reveal" id="wallet-card">
+            <div class="wallet-disconnected" id="wallet-disconnected">
+              <div class="wallet-glyph" aria-hidden="true">
+                <span>0</span><span>1</span>
+              </div>
+              <h3>Bring your own key.</h3>
+              <p>Connect an existing <code>zrn1…</code> account. This site takes no custody and needs no login.</p>
+              <button class="button button-primary wallet-connect" type="button">
+                Connect Keplr
+              </button>
+              <a href="https://www.keplr.app/" target="_blank" rel="noreferrer">Get Keplr ↗</a>
+            </div>
+
+            <div class="wallet-connected" id="wallet-connected" hidden>
+              <div class="wallet-card-top">
+                <div>
+                  <span class="card-kicker">Available balance</span>
+                  <strong><span id="wallet-balance">0</span> <small>ZRN</small></strong>
+                </div>
+                <span class="connected-badge"><i></i> Connected</span>
+              </div>
+              <button class="address-chip" id="copy-address" type="button" title="Copy address">
+                <code id="wallet-address">zrn1…</code><span aria-hidden="true">⧉</span>
+              </button>
+              <div class="wallet-actions">
+                <button class="button button-primary" id="send-open" type="button">Send ZRN</button>
+                <button class="button button-ghost" id="wallet-refresh" type="button">Refresh</button>
+              </div>
+              <p class="wallet-footnote" id="wallet-footnote">Balance read directly from zerone-1. Passport-issued accounts began as shared custody because the onboarding operator retained a copy of the key.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="liquidity" aria-labelledby="liquidity-title">
+          <div class="section-heading horizontal reveal">
+            <div>
+              <div class="eyebrow"><span>03</span> On-chain markets</div>
+              <h2 id="liquidity-title">Liquidity</h2>
+            </div>
+            <p>
+              Constant-product pools, protocol-native and fully readable. Pool creation
+              is governance-controlled during the custodial launch.
+            </p>
+          </div>
+
+          <div class="protocol-strip reveal" aria-label="Liquidity protocol parameters">
+            <div><span>Default swap fee</span><strong id="swap-fee">—</strong></div>
+            <div><span>Protocol share</span><strong id="protocol-fee">—</strong></div>
+            <div><span>Minimum initial ZRN</span><strong id="minimum-liquidity">—</strong></div>
+            <div><span>TWAP window</span><strong id="twap-window">—</strong></div>
+          </div>
+
+          <div class="pool-surface reveal">
+            <div class="surface-toolbar">
+              <div>
+                <span class="card-kicker">Mainnet pools</span>
+                <strong id="pool-heading">Loading the registry</strong>
+              </div>
+              <button class="icon-button" id="pools-refresh" type="button" aria-label="Refresh pools">↻</button>
+            </div>
+            <div id="pool-content" aria-live="polite">
+              <div class="loading-lines" aria-label="Loading pools"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="activity" aria-labelledby="activity-title">
+          <div class="section-heading horizontal reveal">
+            <div>
+              <div class="eyebrow"><span>04</span> The chain keeps</div>
+              <h2 id="activity-title">Latest blocks</h2>
+            </div>
+            <p>Fresh headers from the public CometBFT node. No indexer in between.</p>
+          </div>
+
+          <div class="block-table-wrap reveal">
+            <table class="block-table" aria-label="Latest Zerone mainnet blocks">
+              <thead>
+                <tr><th>Height</th><th>Age</th><th>Transactions</th><th>Block hash</th></tr>
+              </thead>
+              <tbody id="block-rows">
+                <tr><td colspan="4"><span class="table-loading">Reading the record…</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section network-section" id="network" aria-labelledby="network-title">
+          <div class="section-heading reveal">
+            <div class="eyebrow"><span>05</span> Verify, don't trust</div>
+            <h2 id="network-title">Network</h2>
+            <p>
+              Zerone began with a disclosed 13,555 ZRN genesis. New supply is minted
+              through participation-gated work and bootstrap claims, under a fixed cap.
+            </p>
+          </div>
+
+          <div class="network-grid">
+            <article class="genesis-card reveal">
+              <span class="card-kicker">Genesis · 13,555 ZRN</span>
+              <div class="genesis-total"><strong>0.0061%</strong><span>of the hard cap</span></div>
+              <div class="genesis-bars" aria-label="Genesis distribution">
+                <div><i class="share-validator"></i><span>Validator collateral</span><strong>11,333</strong></div>
+                <div><i class="share-operator"></i><span>Operator welcome float</span><strong>2,222</strong></div>
+                <div><i class="share-team"></i><span>Team allocation</span><strong>0</strong></div>
+              </div>
+              <a
+                href="https://github.com/cambridgetcg/zerone-core/blob/main/deploy/mainnet/artifacts/GENESIS-MANIFEST.md"
+                target="_blank"
+                rel="noreferrer"
+              >Verify every genesis address ↗</a>
+            </article>
+
+            <article class="network-card reveal">
+              <span class="card-kicker">zerone-1</span>
+              <dl>
+                <div><dt>Native denom</dt><dd>uzrn · 6 decimals</dd></div>
+                <div><dt>Address prefix</dt><dd>zrn</dd></div>
+                <div><dt>Minimum gas price</dt><dd>1 uzrn / gas</dd></div>
+                <div><dt>Target block time</dt><dd>≈ 2.5 seconds</dd></div>
+                <div><dt>Consensus</dt><dd>CometBFT 0.38</dd></div>
+                <div><dt>Network started</dt><dd>8 July 2026</dd></div>
+              </dl>
+              <div class="network-links">
+                <a href="https://github.com/cambridgetcg/zerone-core/blob/main/deploy/mainnet/JOIN.md" target="_blank" rel="noreferrer">Run a node ↗</a>
+                <a href="https://zerone.money/being" target="_blank" rel="noreferrer">Read the paper ↗</a>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span><span>ZERONE</span></div>
+        <p>Every being is a truth. The chain witnesses; the record keeps.</p>
+        <div><a href="https://github.com/cambridgetcg/zerone-core">Source</a><a href="https://zerone.money">Manifesto</a></div>
+      </footer>
+    </div>
+
+    <dialog class="send-dialog" id="send-dialog" aria-labelledby="send-title">
+      <form id="send-form">
+        <div class="dialog-head">
+          <div><span class="card-kicker">zerone-1</span><h2 id="send-title">Send ZRN</h2></div>
+          <button class="dialog-close" id="send-close" type="button" aria-label="Close">×</button>
+        </div>
+        <label>Recipient address<input id="send-recipient" name="recipient" type="text" inputmode="text" autocomplete="off" placeholder="zrn1…" required /></label>
+        <label>Amount<div class="amount-input"><input id="send-amount" name="amount" type="number" inputmode="decimal" min="0.000001" step="0.000001" placeholder="0.00" required /><span>ZRN</span></div></label>
+        <label>Memo <span>(optional)</span><input id="send-memo" name="memo" type="text" maxlength="256" placeholder="A note for the record" /></label>
+        <div class="send-notice"><span aria-hidden="true">◆</span><p>Network fee: 0.20 ZRN (200,000 gas × 1 uzrn). Keplr will show the exact recipient, amount, and fee before anything is signed.</p></div>
+        <p class="form-error" id="send-error" role="alert" hidden></p>
+        <button class="button button-primary full" id="send-submit" type="submit">Review in Keplr</button>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

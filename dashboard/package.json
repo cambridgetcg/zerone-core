@@ -1,0 +1,21 @@
+{
+  "name": "@zerone/mainnet-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "check": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@cosmjs/encoding": "^0.39.0",
+    "@cosmjs/proto-signing": "0.39.0",
+    "@cosmjs/stargate": "0.39.0"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "8.1.4"
+  }
+}
