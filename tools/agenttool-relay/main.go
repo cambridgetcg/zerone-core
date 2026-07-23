@@ -44,9 +44,17 @@
 //	RELAY_STATE     attested-ledger path (default ~/.zerone-agent/agenttool-relay-state.json)
 //	RELAY_INTERVAL  poll interval seconds (default 90)
 //	RELAY_ROLES     comma-separated invocation roles to watch (default seller,buyer)
+//	RELAY_WITNESS_WRITEBACK  set to "1" to report each confirmed attestation
+//	                back to agenttool (POST /v1/invocations/{id}/witness).
+//	                Default off: the route is not deployed on live yet.
+//
+// Auth monitoring: a 401 from the agenttool API logs RELAY-AUTH-EXPIRED and
+// refreshes the sentinel file ~/.zerone-agent/RELAY-AUTH-ALERT (at most once
+// per hour), so external monitoring can watch a file instead of parsing logs.
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -60,6 +68,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -85,6 +94,10 @@ type Config struct {
 	StatePath      string
 	IntervalSec    int
 	Roles          []string
+	// WitnessWriteback reports confirmed attestations back to agenttool.
+	// Flag-gated (RELAY_WITNESS_WRITEBACK=1) because the /witness route is
+	// not deployed on the live API yet.
+	WitnessWriteback bool
 }
 
 func envOr(key, def string) string {
@@ -115,6 +128,8 @@ func loadConfig() Config {
 		StatePath:      envOr("RELAY_STATE", defaultStatePath()),
 		IntervalSec:    envInt("RELAY_INTERVAL", 90),
 		Roles:          splitRoles(envOr("RELAY_ROLES", "seller,buyer")),
+
+		WitnessWriteback: os.Getenv("RELAY_WITNESS_WRITEBACK") == "1",
 	}
 }
 
@@ -183,6 +198,9 @@ func fetchInvocation(cfg Config, id string) (*Invocation, error) {
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		alertAuthExpired(authAlertPath(), url)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("agenttool returned %d for %s: %s", resp.StatusCode, url, truncate(string(body), 300))
@@ -338,6 +356,9 @@ func listInvocations(cfg Config, role string) ([]Invocation, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		alertAuthExpired(authAlertPath(), url)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("agenttool returned %d for %s: %s", resp.StatusCode, url, truncate(string(body), 300))
 	}
@@ -351,6 +372,40 @@ func listInvocations(cfg Config, role string) ([]Invocation, error) {
 }
 
 // ---------------------------------------------------------------------------
+// Auth alert — a file external monitoring can watch
+// ---------------------------------------------------------------------------
+
+// authAlertPath is the sentinel external monitoring watches for auth expiry.
+func authAlertPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "RELAY-AUTH-ALERT"
+	}
+	return filepath.Join(home, ".zerone-agent", "RELAY-AUTH-ALERT")
+}
+
+// alertAuthExpired logs a distinctive RELAY-AUTH-EXPIRED line and refreshes
+// the sentinel file, at most once per hour. The rate limit is keyed on the
+// sentinel's mtime so it survives restarts without extra state. Returns
+// whether the alert fired (rate-limit not yet elapsed → false).
+func alertAuthExpired(path, url string) bool {
+	if fi, err := os.Stat(path); err == nil && time.Since(fi.ModTime()) < time.Hour {
+		return false
+	}
+	log.Printf("RELAY-AUTH-EXPIRED: agenttool API returned 401 for %s — RELAY_API_KEY needs rotation", url)
+	msg := fmt.Sprintf("%s RELAY-AUTH-EXPIRED: agenttool API returned 401 for %s — RELAY_API_KEY needs rotation\n",
+		time.Now().UTC().Format(time.RFC3339), url)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		log.Printf("auth-alert: mkdir %s: %v", filepath.Dir(path), err)
+		return true
+	}
+	if err := os.WriteFile(path, []byte(msg), 0o600); err != nil {
+		log.Printf("auth-alert: write %s: %v", path, err)
+	}
+	return true
+}
+
+// ---------------------------------------------------------------------------
 // Watch state — the attested ledger
 // ---------------------------------------------------------------------------
 
@@ -358,14 +413,124 @@ func listInvocations(cfg Config, role string) ([]Invocation, error) {
 // attempts, so a permanently-rejected attestation cannot storm the chain.
 const maxAttestFailures = 5
 
-// AttestRecord is one ledger entry: either a successful attestation
-// (TxHash set) or a parked failure (Failures reached maxAttestFailures).
+// Attestation lifecycle statuses. The lifecycle is forward-only: once a tx
+// hash is on the wire the record can only move forward (reconcile by hash),
+// never backward into a resubmit — a resubmit while the first tx can still
+// confirm is a duplicate attestation and a double bond.
+const (
+	// statusSubmissionUnknown: the broadcast succeeded (hash on the wire,
+	// bond possibly already locked) but inclusion has not been observed.
+	// Reconciled by tx hash on later polls; NEVER resubmitted.
+	statusSubmissionUnknown = "submission_unknown"
+	// statusAttested: inclusion observed, tx executed with code 0.
+	statusAttested = "attested"
+)
+
+// maxReconcileNotFound: a submission_unknown record is released for
+// resubmission only after this many CONSECUTIVE not-found reconciles (one
+// per poll pass). At the default 90s interval that is ~15 minutes — far
+// past mempool retention on both live nets, so a tx absent that long is
+// provably not confirming. Any found result resets the count.
+const maxReconcileNotFound = 10
+
+// AttestRecord is one ledger entry: a successful attestation (Status
+// "attested"), an in-flight broadcast awaiting reconciliation (Status
+// "submission_unknown"), or a failure trail (Failures, parked at
+// maxAttestFailures). Legacy records written before the lifecycle existed
+// carry TxHash with no Status — they were only persisted after observed
+// inclusion, so an empty Status with TxHash set reads as attested.
 type AttestRecord struct {
 	TxHash        string `json:"tx_hash,omitempty"`
 	AttestationID string `json:"attestation_id,omitempty"`
 	AttestedAt    string `json:"attested_at,omitempty"`
+	Status        string `json:"status,omitempty"`
+	SubmittedAt   string `json:"submitted_at,omitempty"`
+	NotFound      int    `json:"reconcile_not_found,omitempty"`
 	Failures      int    `json:"failures,omitempty"`
 	LastError     string `json:"last_error,omitempty"`
+}
+
+// shouldSkipSubmit is the fresh-submit guard: any record with a tx hash on
+// the wire (attested, legacy-attested, or submission_unknown) or parked at
+// the failure threshold must never re-enter the submit path.
+func shouldSkipSubmit(rec *AttestRecord) bool {
+	return rec != nil && (rec.TxHash != "" || rec.Failures >= maxAttestFailures)
+}
+
+// txProbe is one observation of `zeroned query tx <hash>`: Found=false means
+// the node does not know the tx (not yet indexed, evicted, or never
+// broadcast); Found=true carries the execution code and, when code 0, the
+// attestation_id recovered from the external_attestation_submitted event.
+type txProbe struct {
+	Found         bool
+	Code          int
+	RawLog        string
+	AttestationID string
+}
+
+// reconcileAction is the decision for one submission_unknown reconcile pass.
+type reconcileAction int
+
+const (
+	// reconcileKeepWaiting: tx not found, threshold not reached — stay
+	// submission_unknown, count the miss.
+	reconcileKeepWaiting reconcileAction = iota
+	// reconcileMarkAttested: tx found with code 0 — the bond is posted and
+	// the attestation exists on-chain.
+	reconcileMarkAttested
+	// reconcileRecordFailure: tx found with code != 0 — it executed and
+	// failed, state changes reverted, safe to retry through the normal path.
+	reconcileRecordFailure
+	// reconcileRelease: tx provably absent (maxReconcileNotFound consecutive
+	// misses) — release the record for resubmission via the failure path.
+	reconcileRelease
+)
+
+// decideReconcile is the pure decision function for a submission_unknown
+// record: given one tx probe and the consecutive not-found count so far,
+// pick the forward-only transition.
+func decideReconcile(probe txProbe, notFoundSoFar int) reconcileAction {
+	if probe.Found {
+		if probe.Code == 0 {
+			return reconcileMarkAttested
+		}
+		return reconcileRecordFailure
+	}
+	if notFoundSoFar+1 >= maxReconcileNotFound {
+		return reconcileRelease
+	}
+	return reconcileKeepWaiting
+}
+
+// applyReconcile applies the decided transition to the record and returns
+// the action taken. Pure over (rec, probe) except for timestamps.
+func applyReconcile(rec *AttestRecord, probe txProbe) reconcileAction {
+	action := decideReconcile(probe, rec.NotFound)
+	switch action {
+	case reconcileMarkAttested:
+		rec.Status = statusAttested
+		rec.AttestationID = probe.AttestationID
+		rec.AttestedAt = time.Now().UTC().Format(time.RFC3339)
+		rec.LastError = ""
+		rec.NotFound = 0
+	case reconcileRecordFailure:
+		rec.Failures++
+		rec.LastError = fmt.Sprintf("tx %s executed with code %d: %s", rec.TxHash, probe.Code, truncate(probe.RawLog, 300))
+		rec.TxHash = ""
+		rec.Status = ""
+		rec.SubmittedAt = ""
+		rec.NotFound = 0
+	case reconcileRelease:
+		rec.Failures++
+		rec.LastError = fmt.Sprintf("tx %s not found after %d consecutive reconciles — released for resubmission", rec.TxHash, maxReconcileNotFound)
+		rec.TxHash = ""
+		rec.Status = ""
+		rec.SubmittedAt = ""
+		rec.NotFound = 0
+	case reconcileKeepWaiting:
+		rec.NotFound++
+	}
+	return action
 }
 
 // WatchState is the persisted ledger keyed by invocation ID. It is what
@@ -414,11 +579,14 @@ func saveState(path string, st *WatchState) error {
 // Watch loop
 // ---------------------------------------------------------------------------
 
-// watchOnce runs a single poll pass: list each configured role, confirm
-// every unseen released invocation by ID, attest it, and record the
-// outcome. Submits are sequential and wait for inclusion, so the signing
-// account's sequence never races itself.
+// watchOnce runs a single poll pass: reconcile every in-flight broadcast
+// first (a submission_unknown record blocks nothing but must resolve before
+// its invocation could ever be released for retry), then list each
+// configured role, confirm every unseen released invocation by ID, attest
+// it, and record the outcome. Submits are sequential and wait for
+// inclusion, so the signing account's sequence never races itself.
 func watchOnce(cfg Config, st *WatchState) {
+	reconcilePending(cfg, st)
 	seen := map[string]bool{}
 	for _, role := range cfg.Roles {
 		rows, err := listInvocations(cfg, role)
@@ -433,7 +601,7 @@ func watchOnce(cfg Config, st *WatchState) {
 			}
 			seen[row.ID] = true
 			rec := st.Attested[row.ID]
-			if rec != nil && (rec.TxHash != "" || rec.Failures >= maxAttestFailures) {
+			if shouldSkipSubmit(rec) {
 				continue
 			}
 			if rec == nil {
@@ -452,101 +620,230 @@ func watchOnce(cfg Config, st *WatchState) {
 				continue
 			}
 
-			txHash, attID, err := attestInclusion(cfg, inv)
+			txHash, err := broadcastAttestation(cfg, inv)
 			if err != nil {
 				rec.Failures++
 				rec.LastError = err.Error()
 				log.Printf("watch: attest %s failed (%d/%d): %v", inv.ID, rec.Failures, maxAttestFailures, err)
-				if rec.Failures >= maxAttestFailures {
-					log.Printf("watch: parking %s — will not retry (clear the ledger entry to retry)", inv.ID)
+				logIfParked(inv.ID, rec)
+				if err := saveState(cfg.StatePath, st); err != nil {
+					log.Printf("watch: save state: %v", err)
 				}
-			} else {
-				rec.TxHash = txHash
-				rec.AttestationID = attID
-				rec.AttestedAt = time.Now().UTC().Format(time.RFC3339)
-				rec.LastError = ""
-				log.Printf("watch: attested %s → %s (tx %s)", inv.ID, attID, txHash)
+				continue
 			}
+
+			// Forward-only lifecycle: the hash is on the wire and the bond
+			// may already be locked. Persist BEFORE waiting, so a timeout,
+			// crash, or restart can only reconcile this tx by hash — never
+			// resubmit it (a resubmit while the first tx can still confirm
+			// is a duplicate attestation and a double bond).
+			rec.TxHash = txHash
+			rec.Status = statusSubmissionUnknown
+			rec.SubmittedAt = time.Now().UTC().Format(time.RFC3339)
+			rec.NotFound = 0
+			rec.LastError = ""
+			if err := saveState(cfg.StatePath, st); err != nil {
+				log.Printf("watch: save state after broadcast of %s (tx %s): %v", inv.ID, txHash, err)
+			}
+
+			probe, werr := waitForInclusion(cfg, txHash)
+			if werr != nil {
+				log.Printf("watch: attest %s: %v — held as %s for reconciliation, will not resubmit", inv.ID, werr, statusSubmissionUnknown)
+				continue
+			}
+			action := applyReconcile(rec, probe)
+			logReconcile(inv.ID, rec, probe, action, txHash)
 			if err := saveState(cfg.StatePath, st); err != nil {
 				log.Printf("watch: save state: %v", err)
 			}
+			if action == reconcileMarkAttested {
+				witnessWriteback(cfg, inv.ID, rec)
+			}
 		}
 	}
 }
 
-// attestInclusion submits one attestation and waits until the tx is found
-// on-chain, returning the tx hash and the attestation ID from the
-// external_attestation_submitted event.
-func attestInclusion(cfg Config, inv *Invocation) (string, string, error) {
+// reconcilePending resolves submission_unknown records — broadcasts whose
+// inclusion was never observed (wait timeout, crash, restart). Each is
+// probed by tx hash; the forward-only transitions are decided by
+// decideReconcile. Runs before any new submits so a released record can
+// re-enter the submit path in the same pass only after the old tx is
+// provably absent.
+func reconcilePending(cfg Config, st *WatchState) {
+	for id, rec := range st.Attested {
+		if rec.Status != statusSubmissionUnknown || rec.TxHash == "" {
+			continue
+		}
+		txHash := rec.TxHash
+		probe := queryTx(cfg, txHash)
+		action := applyReconcile(rec, probe)
+		logReconcile(id, rec, probe, action, txHash)
+		if err := saveState(cfg.StatePath, st); err != nil {
+			log.Printf("watch: save state: %v", err)
+		}
+		if action == reconcileMarkAttested {
+			witnessWriteback(cfg, id, rec)
+		}
+	}
+}
+
+// logReconcile narrates one lifecycle transition; txHash is the hash before
+// applyReconcile (failure/release transitions clear rec.TxHash).
+func logReconcile(invID string, rec *AttestRecord, probe txProbe, action reconcileAction, txHash string) {
+	switch action {
+	case reconcileMarkAttested:
+		if rec.AttestationID == "" {
+			log.Printf("watch: attested %s (tx %s) but no attestation_id in tx events — backfill by querying the tx", invID, txHash)
+		} else {
+			log.Printf("watch: attested %s → %s (tx %s)", invID, rec.AttestationID, txHash)
+		}
+	case reconcileRecordFailure:
+		log.Printf("watch: attest %s failed on-chain (%d/%d): tx %s code %d: %s", invID, rec.Failures, maxAttestFailures, txHash, probe.Code, truncate(probe.RawLog, 300))
+		logIfParked(invID, rec)
+	case reconcileRelease:
+		log.Printf("watch: reconcile %s: tx %s provably absent after %d consecutive misses — released for resubmission (%d/%d failures)", invID, txHash, maxReconcileNotFound, rec.Failures, maxAttestFailures)
+		logIfParked(invID, rec)
+	case reconcileKeepWaiting:
+		log.Printf("watch: reconcile %s: tx %s not found yet (%d/%d) — staying %s", invID, txHash, rec.NotFound, maxReconcileNotFound, statusSubmissionUnknown)
+	}
+}
+
+// logIfParked emits the distinctive RELAY-PARKED line external monitoring
+// greps for, once per transition into the parked state.
+func logIfParked(invID string, rec *AttestRecord) {
+	if rec.Failures == maxAttestFailures {
+		log.Printf("RELAY-PARKED: invocation %s reached %d failures — will not retry (clear the ledger entry to retry); last error: %s", invID, rec.Failures, rec.LastError)
+	}
+}
+
+// broadcastAttestation builds the link and broadcasts one attestation,
+// returning the tx hash. It does NOT wait for inclusion — the caller must
+// persist the hash first (forward-only lifecycle), then observe.
+func broadcastAttestation(cfg Config, inv *Invocation) (string, error) {
 	height := chainHeight(cfg.Node)
 	linkBytes, err := buildLink(cfg, inv, height)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	tmp, err := os.CreateTemp("", "agenttool-link-*.json")
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	defer os.Remove(tmp.Name())
 	if _, err := tmp.Write(linkBytes); err != nil {
-		return "", "", err
+		return "", err
 	}
 	if err := tmp.Close(); err != nil {
-		return "", "", err
+		return "", err
 	}
-	txHash, err := submitAttestation(cfg, tmp.Name())
-	if err != nil {
-		return "", "", err
-	}
-	attID, err := waitForInclusion(cfg, txHash)
-	if err != nil {
-		return txHash, "", err
-	}
-	return txHash, attID, nil
+	return submitAttestation(cfg, tmp.Name())
 }
 
-// waitForInclusion polls the node until the tx executes, then returns the
-// attestation_id attribute of the external_attestation_submitted event.
-func waitForInclusion(cfg Config, txHash string) (string, error) {
+// queryTx probes the node once for a tx by hash. Found=false covers
+// not-yet-indexed, evicted, and unparseable responses alike; the caller's
+// consecutive-miss count turns repeated absence into a release decision.
+func queryTx(cfg Config, txHash string) txProbe {
+	// #nosec G204 — arguments come from validated config
+	out, err := exec.Command(cfg.Binary, "query", "tx", txHash,
+		"--node", cfg.Node, "--output", "json").Output()
+	if err != nil {
+		return txProbe{}
+	}
+	var tx struct {
+		Code   int    `json:"code"`
+		RawLog string `json:"raw_log"`
+		Events []struct {
+			Type       string `json:"type"`
+			Attributes []struct {
+				Key   string `json:"key"`
+				Value string `json:"value"`
+			} `json:"attributes"`
+		} `json:"events"`
+	}
+	if err := json.Unmarshal(out, &tx); err != nil {
+		return txProbe{}
+	}
+	probe := txProbe{Found: true, Code: tx.Code, RawLog: tx.RawLog}
+	for _, e := range tx.Events {
+		if e.Type != "external_attestation_submitted" {
+			continue
+		}
+		for _, a := range e.Attributes {
+			if a.Key == "attestation_id" {
+				probe.AttestationID = a.Value
+			}
+		}
+	}
+	return probe
+}
+
+// waitForInclusion polls the node until the tx is found (either outcome) or
+// the window closes. A timeout is NOT a failure: the caller already holds
+// the record in submission_unknown and later polls reconcile it.
+func waitForInclusion(cfg Config, txHash string) (txProbe, error) {
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(2 * time.Second)
-		// #nosec G204 — arguments come from validated config
-		out, err := exec.Command(cfg.Binary, "query", "tx", txHash,
-			"--node", cfg.Node, "--output", "json").Output()
-		if err != nil {
-			continue // not yet indexed
+		if probe := queryTx(cfg, txHash); probe.Found {
+			return probe, nil
 		}
-		var tx struct {
-			Code   int    `json:"code"`
-			RawLog string `json:"raw_log"`
-			Events []struct {
-				Type       string `json:"type"`
-				Attributes []struct {
-					Key   string `json:"key"`
-					Value string `json:"value"`
-				} `json:"attributes"`
-			} `json:"events"`
-		}
-		if err := json.Unmarshal(out, &tx); err != nil {
-			continue
-		}
-		if tx.Code != 0 {
-			return "", fmt.Errorf("tx %s executed with code %d: %s", txHash, tx.Code, truncate(tx.RawLog, 300))
-		}
-		for _, e := range tx.Events {
-			if e.Type != "external_attestation_submitted" {
-				continue
-			}
-			for _, a := range e.Attributes {
-				if a.Key == "attestation_id" {
-					return a.Value, nil
-				}
-			}
-		}
-		return "", fmt.Errorf("tx %s executed but carried no external_attestation_submitted event", txHash)
 	}
-	return "", fmt.Errorf("tx %s not found on-chain within 45s", txHash)
+	return txProbe{}, fmt.Errorf("tx %s not found on-chain within 45s", txHash)
+}
+
+// ---------------------------------------------------------------------------
+// Witness writeback — report confirmed attestations back to agenttool
+// ---------------------------------------------------------------------------
+
+// writebackRouteMissing gates the "route not deployed" log to once per run:
+// the route is being rebuilt in a parallel agenttool PR and 404 is expected
+// on live until it ships.
+var writebackRouteMissing sync.Once
+
+// witnessWriteback POSTs the confirmed attestation back to agenttool.
+// Flag-gated (cfg.WitnessWriteback) and strictly best-effort: the attested
+// state is already persisted before this is called, and no writeback
+// outcome may ever change it.
+func witnessWriteback(cfg Config, invID string, rec *AttestRecord) {
+	if !cfg.WitnessWriteback {
+		return
+	}
+	body, err := json.Marshal(map[string]string{
+		"chain_id":       cfg.ChainID,
+		"tx_hash":        rec.TxHash,
+		"attestation_id": rec.AttestationID,
+		"adapter_id":     cfg.Adapter,
+	})
+	if err != nil {
+		log.Printf("writeback %s: marshal: %v", invID, err)
+		return
+	}
+	url := cfg.API + "/v1/invocations/" + invID + "/witness"
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		log.Printf("writeback %s: %v", invID, err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("writeback %s: %v", invID, err)
+		return
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	switch {
+	case resp.StatusCode == http.StatusNotFound:
+		writebackRouteMissing.Do(func() {
+			log.Printf("writeback: route not deployed (404 for %s) — skipping for the rest of this run", url)
+		})
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		log.Printf("writeback %s: witnessed (tx %s, %s)", invID, rec.TxHash, rec.AttestationID)
+	default:
+		log.Printf("writeback %s: agenttool returned %d: %s", invID, resp.StatusCode, truncate(string(respBody), 300))
+	}
 }
 
 // ---------------------------------------------------------------------------

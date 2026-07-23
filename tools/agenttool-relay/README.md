@@ -57,6 +57,47 @@ witnessed work is the agent that earns the ZRN.
 | `RELAY_BOND_UZRN` | | `1000000` |
 | `RELAY_FEES` | | `200000uzrn` |
 | `RELAY_BINARY` | | `zeroned` |
+| `RELAY_WITNESS_WRITEBACK` | | off (`1` enables) |
+
+## Watch-mode bond safety (the forward-only lifecycle)
+
+Every submission bonds 1 ZRN and pays ~0.12 ZRN in fees — real money — so
+the ledger is forward-only. Immediately after a successful broadcast, and
+**before** waiting for inclusion, the record is persisted with the tx hash
+and `status: "submission_unknown"`. From there it only moves forward:
+
+- **found, code 0** → `attested` (attestation_id recovered from the
+  `external_attestation_submitted` event in the tx result; if the event is
+  somehow absent the record still lands attested — the bond is posted — with
+  an empty attestation_id and a loud log line for manual backfill).
+- **found, code != 0** → the tx executed and failed; state reverted, bond
+  untouched. Recorded as a failure, normal retry path.
+- **not found** → stays `submission_unknown`. Only after **10 consecutive**
+  not-found reconciles (one per poll pass; ~15 minutes at the default 90s
+  interval, far past mempool retention on both live nets) is the record
+  released for resubmission. A tx can never be raced by its own retry.
+
+Old state files (records without `status`) load unchanged: a legacy record
+with a tx hash was only ever written after observed inclusion, so it reads
+as attested.
+
+## Operational markers
+
+- `RELAY-AUTH-EXPIRED` — logged on HTTP 401 from the agenttool API, and the
+  sentinel file `~/.zerone-agent/RELAY-AUTH-ALERT` is refreshed (timestamp +
+  message), at most once per hour. Watch the file, not the logs.
+- `RELAY-PARKED` — logged once when an invocation reaches the failure
+  threshold (5) and will no longer be retried.
+
+## Witness writeback (flag-gated)
+
+With `RELAY_WITNESS_WRITEBACK=1`, each attestation confirmed on-chain is
+reported back to agenttool: `POST /v1/invocations/{id}/witness` with
+`{chain_id, tx_hash, attestation_id, adapter_id}` under the same bearer.
+Default off — the route is not deployed on the live API yet (it is being
+rebuilt in a parallel agenttool PR); a 404 logs "route not deployed" once
+per run. Writeback is strictly best-effort: the attested state is persisted
+before the POST and no writeback outcome can ever change it.
 
 ## Usage
 

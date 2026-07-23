@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Register the agenttool-invocation-v1 adapter on the single-validator public
 # testnet via a real gov proposal (faucet deposits, validator votes yes).
-# Testnet uses a CHEAP 1 ZRN attestation bond so agents can witness freely;
-# the 22.2 ZRN floor is a mainnet-genesis value (scripts/agenttool-adapter-register.sh).
+# Uses the 1 ZRN attestation bond BOTH live nets run (mainnet genesis sets the
+# same via deploy/mainnet/make-genesis.sh; the old 22.2 ZRN floor never shipped).
 set -euo pipefail
 
 BINARY="${BINARY:-$HOME/Desktop/zerone/build/zeroned}"

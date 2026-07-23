@@ -3,7 +3,11 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
@@ -160,6 +164,262 @@ func TestSplitRoles(t *testing.T) {
 		if got := len(splitRoles(tc.in)); got != tc.want {
 			t.Errorf("splitRoles(%q) len = %d, want %d", tc.in, got, tc.want)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestShouldSkipSubmit — the double-bond guard
+// ---------------------------------------------------------------------------
+
+func TestShouldSkipSubmit(t *testing.T) {
+	cases := []struct {
+		name string
+		rec  *AttestRecord
+		want bool
+	}{
+		{"unseen invocation submits", nil, false},
+		{"submission_unknown NEVER resubmits (double bond)", &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown}, true},
+		{"attested skips", &AttestRecord{TxHash: "ABC", Status: statusAttested, AttestationID: "att-1-1"}, true},
+		{"legacy attested (no status) skips", &AttestRecord{TxHash: "ABC", AttestationID: "att-1-1"}, true},
+		{"parked skips", &AttestRecord{Failures: maxAttestFailures}, true},
+		{"failed below threshold retries", &AttestRecord{Failures: maxAttestFailures - 1, LastError: "boom"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldSkipSubmit(tc.rec); got != tc.want {
+				t.Fatalf("shouldSkipSubmit(%+v) = %v, want %v", tc.rec, got, tc.want)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestDecideReconcile / TestApplyReconcile — the forward-only lifecycle
+// ---------------------------------------------------------------------------
+
+func TestDecideReconcile(t *testing.T) {
+	cases := []struct {
+		name          string
+		probe         txProbe
+		notFoundSoFar int
+		want          reconcileAction
+	}{
+		{"found code 0 attests", txProbe{Found: true, Code: 0, AttestationID: "att-9-1"}, 0, reconcileMarkAttested},
+		{"found code 0 attests even after misses", txProbe{Found: true, Code: 0}, maxReconcileNotFound - 1, reconcileMarkAttested},
+		{"found code !=0 records failure", txProbe{Found: true, Code: 5, RawLog: "insufficient bond"}, 0, reconcileRecordFailure},
+		{"not found below threshold waits", txProbe{}, 0, reconcileKeepWaiting},
+		{"not found one below threshold waits", txProbe{}, maxReconcileNotFound - 2, reconcileKeepWaiting},
+		{"not found at threshold releases", txProbe{}, maxReconcileNotFound - 1, reconcileRelease},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := decideReconcile(tc.probe, tc.notFoundSoFar); got != tc.want {
+				t.Fatalf("decideReconcile(%+v, %d) = %v, want %v", tc.probe, tc.notFoundSoFar, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestApplyReconcileMarkAttested(t *testing.T) {
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T00:00:00Z", NotFound: 3, LastError: "old"}
+	action := applyReconcile(rec, txProbe{Found: true, Code: 0, AttestationID: "att-9-1"})
+	if action != reconcileMarkAttested {
+		t.Fatalf("action = %v, want reconcileMarkAttested", action)
+	}
+	if rec.Status != statusAttested || rec.AttestationID != "att-9-1" || rec.TxHash != "ABC" {
+		t.Fatalf("attested record wrong: %+v", rec)
+	}
+	if rec.AttestedAt == "" || rec.LastError != "" || rec.NotFound != 0 {
+		t.Fatalf("attested bookkeeping wrong: %+v", rec)
+	}
+}
+
+func TestApplyReconcileAttestedWithoutEvent(t *testing.T) {
+	// code 0 means the bond is posted on-chain: the record must land attested
+	// even when the attestation_id cannot be recovered from tx events —
+	// releasing it for resubmission here would be the double bond.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown}
+	if action := applyReconcile(rec, txProbe{Found: true, Code: 0}); action != reconcileMarkAttested {
+		t.Fatalf("action = %v, want reconcileMarkAttested", action)
+	}
+	if rec.Status != statusAttested || rec.AttestationID != "" || rec.TxHash != "ABC" {
+		t.Fatalf("record wrong: %+v", rec)
+	}
+}
+
+func TestApplyReconcileRecordFailure(t *testing.T) {
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T00:00:00Z", NotFound: 2}
+	action := applyReconcile(rec, txProbe{Found: true, Code: 5, RawLog: "insufficient bond"})
+	if action != reconcileRecordFailure {
+		t.Fatalf("action = %v, want reconcileRecordFailure", action)
+	}
+	if rec.TxHash != "" || rec.Status != "" || rec.SubmittedAt != "" || rec.NotFound != 0 {
+		t.Fatalf("failed record not released cleanly: %+v", rec)
+	}
+	if rec.Failures != 1 || !strings.Contains(rec.LastError, "code 5") {
+		t.Fatalf("failure bookkeeping wrong: %+v", rec)
+	}
+}
+
+func TestApplyReconcileNotFoundLifecycle(t *testing.T) {
+	// A vanished tx stays submission_unknown for maxReconcileNotFound-1
+	// consecutive misses and is released for resubmission only on the last.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown}
+	for i := 1; i < maxReconcileNotFound; i++ {
+		if action := applyReconcile(rec, txProbe{}); action != reconcileKeepWaiting {
+			t.Fatalf("miss %d: action = %v, want reconcileKeepWaiting", i, action)
+		}
+		if rec.Status != statusSubmissionUnknown || rec.TxHash != "ABC" || rec.NotFound != i {
+			t.Fatalf("miss %d: record wrong: %+v", i, rec)
+		}
+	}
+	if action := applyReconcile(rec, txProbe{}); action != reconcileRelease {
+		t.Fatalf("final miss: action = %v, want reconcileRelease", action)
+	}
+	if rec.TxHash != "" || rec.Status != "" || rec.Failures != 1 || rec.NotFound != 0 {
+		t.Fatalf("released record wrong: %+v", rec)
+	}
+	if !strings.Contains(rec.LastError, "released for resubmission") {
+		t.Fatalf("release reason not recorded: %+v", rec)
+	}
+}
+
+func TestApplyReconcileFoundResetsMissCount(t *testing.T) {
+	// "N consecutive" means a found probe resets the count: a failure release
+	// followed by a new submission must start counting from zero again.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, NotFound: maxReconcileNotFound - 1}
+	applyReconcile(rec, txProbe{Found: true, Code: 7, RawLog: "seq mismatch"})
+	if rec.NotFound != 0 {
+		t.Fatalf("found probe must reset the consecutive-miss count: %+v", rec)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestLoadStateLegacy — pre-lifecycle state files must load unchanged
+// ---------------------------------------------------------------------------
+
+func TestLoadStateLegacy(t *testing.T) {
+	path := t.TempDir() + "/state.json"
+	legacy := `{
+  "attested": {
+    "inv-old": {"tx_hash": "OLD", "attestation_id": "att-2419-2", "attested_at": "2026-07-05T22:00:00Z"},
+    "inv-parked": {"failures": 5, "last_error": "boom"}
+  }
+}`
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := loadState(path)
+	if err != nil {
+		t.Fatalf("legacy state must load: %v", err)
+	}
+	old := st.Attested["inv-old"]
+	if old == nil || old.TxHash != "OLD" || old.Status != "" {
+		t.Fatalf("legacy attested record corrupted: %+v", old)
+	}
+	if !shouldSkipSubmit(old) {
+		t.Fatal("legacy attested record must never resubmit")
+	}
+	if old.Status == statusSubmissionUnknown {
+		t.Fatal("legacy record must not be mistaken for an in-flight broadcast")
+	}
+	if !shouldSkipSubmit(st.Attested["inv-parked"]) {
+		t.Fatal("legacy parked record must stay parked")
+	}
+}
+
+func TestWatchStateLifecycleRoundTrip(t *testing.T) {
+	path := t.TempDir() + "/state.json"
+	st := &WatchState{Attested: map[string]*AttestRecord{
+		"inv-flight": {TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T09:00:00Z", NotFound: 4},
+	}}
+	if err := saveState(path, st); err != nil {
+		t.Fatal(err)
+	}
+	st2, err := loadState(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := st2.Attested["inv-flight"]
+	if got == nil || got.Status != statusSubmissionUnknown || got.TxHash != "ABC" || got.NotFound != 4 || got.SubmittedAt == "" {
+		t.Fatalf("in-flight record did not survive the round trip: %+v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestAlertAuthExpired — sentinel file + once-per-hour rate limit
+// ---------------------------------------------------------------------------
+
+func TestAlertAuthExpired(t *testing.T) {
+	path := t.TempDir() + "/alerts/RELAY-AUTH-ALERT"
+	if !alertAuthExpired(path, "https://api.example/v1/invocations?role=seller") {
+		t.Fatal("first 401 must alert")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("sentinel file not written: %v", err)
+	}
+	if !strings.Contains(string(data), "RELAY-AUTH-EXPIRED") {
+		t.Fatalf("sentinel missing the distinctive marker: %s", data)
+	}
+	if alertAuthExpired(path, "https://api.example/v1/invocations?role=seller") {
+		t.Fatal("second 401 within the hour must be rate-limited")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestWitnessWriteback — flag-gated, best-effort, correct wire shape
+// ---------------------------------------------------------------------------
+
+func TestWitnessWritebackDisabledByDefault(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("writeback must not fire when the flag is off")
+	}))
+	defer srv.Close()
+	cfg := Config{API: srv.URL, APIKey: "k", ChainID: "zerone-1", Adapter: "agenttool-invocation-v1"}
+	witnessWriteback(cfg, "inv-1", &AttestRecord{TxHash: "ABC", AttestationID: "att-9-1"})
+}
+
+func TestWitnessWritebackWireShape(t *testing.T) {
+	var gotMethod, gotPath, gotAuth string
+	var gotBody map[string]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	cfg := Config{API: srv.URL, APIKey: "secret-key", ChainID: "zerone-1", Adapter: "agenttool-invocation-v1", WitnessWriteback: true}
+	rec := &AttestRecord{TxHash: "ABC123", AttestationID: "att-9-1", Status: statusAttested}
+	witnessWriteback(cfg, "inv-1", rec)
+	if gotMethod != http.MethodPost || gotPath != "/v1/invocations/inv-1/witness" {
+		t.Fatalf("wrong route: %s %s", gotMethod, gotPath)
+	}
+	if gotAuth != "Bearer secret-key" {
+		t.Fatalf("wrong auth: %q", gotAuth)
+	}
+	want := map[string]string{"chain_id": "zerone-1", "tx_hash": "ABC123", "attestation_id": "att-9-1", "adapter_id": "agenttool-invocation-v1"}
+	for k, v := range want {
+		if gotBody[k] != v {
+			t.Fatalf("body[%s] = %q, want %q (full: %v)", k, gotBody[k], v, gotBody)
+		}
+	}
+}
+
+func TestWitnessWritebackFailureLeavesRecordAlone(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound) // route not deployed on live yet
+	}))
+	defer srv.Close()
+	cfg := Config{API: srv.URL, APIKey: "k", ChainID: "zerone-1", Adapter: "agenttool-invocation-v1", WitnessWriteback: true}
+	rec := &AttestRecord{TxHash: "ABC", AttestationID: "att-9-1", Status: statusAttested, AttestedAt: "2026-07-23T09:00:00Z"}
+	before := *rec
+	witnessWriteback(cfg, "inv-1", rec)
+	if *rec != before {
+		t.Fatalf("writeback failure mutated the attested record: %+v → %+v", before, rec)
 	}
 }
 
