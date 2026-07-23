@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
@@ -197,39 +198,90 @@ func TestShouldSkipSubmit(t *testing.T) {
 // TestDecideReconcile / TestApplyReconcile — the forward-only lifecycle
 // ---------------------------------------------------------------------------
 
+// reconcileNow is the fixed wall clock the reconcile tests decide against.
+var reconcileNow = time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
+
+// submittedAgo renders a SubmittedAt timestamp d before reconcileNow.
+func submittedAgo(d time.Duration) string {
+	return reconcileNow.Add(-d).Format(time.RFC3339)
+}
+
+// notFoundProbe is one authoritative "the node says this tx is not found".
+func notFoundProbe() txProbe { return txProbe{Outcome: probeNotFound} }
+
 func TestDecideReconcile(t *testing.T) {
+	const overWait = minReleaseWait + time.Minute
+	const underWait = minReleaseWait - time.Minute
 	cases := []struct {
-		name          string
-		probe         txProbe
-		notFoundSoFar int
-		want          reconcileAction
+		name           string
+		probe          txProbe
+		notFoundSoFar  int
+		lastMissHeight uint64
+		currentHeight  uint64
+		elapsed        time.Duration
+		want           reconcileAction
 	}{
-		{"found code 0 attests", txProbe{Found: true, Code: 0, AttestationID: "att-9-1"}, 0, reconcileMarkAttested},
-		{"found code 0 attests even after misses", txProbe{Found: true, Code: 0}, maxReconcileNotFound - 1, reconcileMarkAttested},
-		{"found code !=0 records failure", txProbe{Found: true, Code: 5, RawLog: "insufficient bond"}, 0, reconcileRecordFailure},
-		{"not found below threshold waits", txProbe{}, 0, reconcileKeepWaiting},
-		{"not found one below threshold waits", txProbe{}, maxReconcileNotFound - 2, reconcileKeepWaiting},
-		{"not found at threshold releases", txProbe{}, maxReconcileNotFound - 1, reconcileRelease},
+		{"found code 0 attests", txProbe{Outcome: probeFound, Code: 0, AttestationID: "att-9-1"}, 0, 0, 100, 0, reconcileMarkAttested},
+		{"found code 0 attests even after misses", txProbe{Outcome: probeFound, Code: 0}, maxReconcileNotFound - 1, 90, 100, overWait, reconcileMarkAttested},
+		{"found code !=0 records failure", txProbe{Outcome: probeFound, Code: 5, RawLog: "insufficient bond"}, 0, 0, 100, 0, reconcileRecordFailure},
+		{"authoritative miss below threshold waits", notFoundProbe(), 0, 0, 100, overWait, reconcileKeepWaiting},
+		{"authoritative miss one below threshold waits", notFoundProbe(), maxReconcileNotFound - 2, 90, 100, overWait, reconcileKeepWaiting},
+		{"all gates open releases", notFoundProbe(), maxReconcileNotFound - 1, 99, 100, overWait, reconcileRelease},
+		{"probe error is never evidence", txProbe{}, maxReconcileNotFound - 1, 90, 100, overWait, reconcileNoEvidence},
+		{"stalled height is never evidence", notFoundProbe(), maxReconcileNotFound - 1, 100, 100, overWait, reconcileNoEvidence},
+		{"height gone backward is never evidence", notFoundProbe(), maxReconcileNotFound - 1, 100, 99, overWait, reconcileNoEvidence},
+		{"unknown height (query failed) is never evidence", notFoundProbe(), maxReconcileNotFound - 1, 0, 0, overWait, reconcileNoEvidence},
+		{"elapsed under the window blocks release at threshold", notFoundProbe(), maxReconcileNotFound - 1, 99, 100, underWait, reconcileKeepWaiting},
+		{"elapsed under the window blocks release past threshold", notFoundProbe(), maxReconcileNotFound + 3, 99, 100, underWait, reconcileKeepWaiting},
+		{"release fires once the window elapses even past threshold", notFoundProbe(), maxReconcileNotFound + 3, 99, 100, overWait, reconcileRelease},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := decideReconcile(tc.probe, tc.notFoundSoFar); got != tc.want {
-				t.Fatalf("decideReconcile(%+v, %d) = %v, want %v", tc.probe, tc.notFoundSoFar, got, tc.want)
+			got := decideReconcile(tc.probe, tc.notFoundSoFar, tc.lastMissHeight, tc.currentHeight, tc.elapsed)
+			if got != tc.want {
+				t.Fatalf("decideReconcile(%+v, %d, %d, %d, %s) = %v, want %v",
+					tc.probe, tc.notFoundSoFar, tc.lastMissHeight, tc.currentHeight, tc.elapsed, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestClassifyQueryTxFailure(t *testing.T) {
+	const hash = "5E4A31F2C0DE"
+	cases := []struct {
+		name   string
+		stderr string
+		txHash string
+		want   probeOutcome
+	}{
+		{"cometbft not-found is authoritative", "Error: RPC error -32603 - Internal error: tx (5E4A31F2C0DE) not found", hash, probeNotFound},
+		{"sdk cli not-found is authoritative", "Error: no transaction found with hash 5E4A31F2C0DE", hash, probeNotFound},
+		{"case difference still authoritative", "error: TX (5e4a31f2c0de) NOT FOUND", hash, probeNotFound},
+		{"connection refused is a probe error", `Error: post failed: Post "http://localhost:26657": dial tcp 127.0.0.1:26657: connect: connection refused`, hash, probeError},
+		{"empty stderr is a probe error", "", hash, probeError},
+		{"not-found naming a DIFFERENT tx is a probe error", "Error: RPC error -32603 - Internal error: tx (FFFF0000) not found", hash, probeError},
+		{"indexing disabled is a probe error", "Error: transaction indexing is disabled", hash, probeError},
+		{"empty hash can never be authoritative", "Error: tx () not found", "", probeError},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := classifyQueryTxFailure(tc.stderr, tc.txHash); got != tc.want {
+				t.Fatalf("classifyQueryTxFailure(%q, %q) = %v, want %v", tc.stderr, tc.txHash, got, tc.want)
 			}
 		})
 	}
 }
 
 func TestApplyReconcileMarkAttested(t *testing.T) {
-	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T00:00:00Z", NotFound: 3, LastError: "old"}
-	action := applyReconcile(rec, txProbe{Found: true, Code: 0, AttestationID: "att-9-1"})
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T00:00:00Z", NotFound: 3, LastMissHeight: 90, LastError: "old"}
+	action := applyReconcile(rec, txProbe{Outcome: probeFound, Code: 0, AttestationID: "att-9-1"}, 100, reconcileNow)
 	if action != reconcileMarkAttested {
 		t.Fatalf("action = %v, want reconcileMarkAttested", action)
 	}
 	if rec.Status != statusAttested || rec.AttestationID != "att-9-1" || rec.TxHash != "ABC" {
 		t.Fatalf("attested record wrong: %+v", rec)
 	}
-	if rec.AttestedAt == "" || rec.LastError != "" || rec.NotFound != 0 {
+	if rec.AttestedAt == "" || rec.LastError != "" || rec.NotFound != 0 || rec.LastMissHeight != 0 {
 		t.Fatalf("attested bookkeeping wrong: %+v", rec)
 	}
 }
@@ -239,7 +291,7 @@ func TestApplyReconcileAttestedWithoutEvent(t *testing.T) {
 	// even when the attestation_id cannot be recovered from tx events —
 	// releasing it for resubmission here would be the double bond.
 	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown}
-	if action := applyReconcile(rec, txProbe{Found: true, Code: 0}); action != reconcileMarkAttested {
+	if action := applyReconcile(rec, txProbe{Outcome: probeFound, Code: 0}, 100, reconcileNow); action != reconcileMarkAttested {
 		t.Fatalf("action = %v, want reconcileMarkAttested", action)
 	}
 	if rec.Status != statusAttested || rec.AttestationID != "" || rec.TxHash != "ABC" {
@@ -248,12 +300,12 @@ func TestApplyReconcileAttestedWithoutEvent(t *testing.T) {
 }
 
 func TestApplyReconcileRecordFailure(t *testing.T) {
-	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T00:00:00Z", NotFound: 2}
-	action := applyReconcile(rec, txProbe{Found: true, Code: 5, RawLog: "insufficient bond"})
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T00:00:00Z", NotFound: 2, LastMissHeight: 90}
+	action := applyReconcile(rec, txProbe{Outcome: probeFound, Code: 5, RawLog: "insufficient bond"}, 100, reconcileNow)
 	if action != reconcileRecordFailure {
 		t.Fatalf("action = %v, want reconcileRecordFailure", action)
 	}
-	if rec.TxHash != "" || rec.Status != "" || rec.SubmittedAt != "" || rec.NotFound != 0 {
+	if rec.TxHash != "" || rec.Status != "" || rec.SubmittedAt != "" || rec.NotFound != 0 || rec.LastMissHeight != 0 {
 		t.Fatalf("failed record not released cleanly: %+v", rec)
 	}
 	if rec.Failures != 1 || !strings.Contains(rec.LastError, "code 5") {
@@ -263,20 +315,24 @@ func TestApplyReconcileRecordFailure(t *testing.T) {
 
 func TestApplyReconcileNotFoundLifecycle(t *testing.T) {
 	// A vanished tx stays submission_unknown for maxReconcileNotFound-1
-	// consecutive misses and is released for resubmission only on the last.
-	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown}
+	// authoritative misses (each with the chain advancing, window elapsed)
+	// and is released for resubmission only on the last.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: submittedAgo(minReleaseWait + time.Minute)}
+	height := uint64(100)
 	for i := 1; i < maxReconcileNotFound; i++ {
-		if action := applyReconcile(rec, txProbe{}); action != reconcileKeepWaiting {
+		height++
+		if action := applyReconcile(rec, notFoundProbe(), height, reconcileNow); action != reconcileKeepWaiting {
 			t.Fatalf("miss %d: action = %v, want reconcileKeepWaiting", i, action)
 		}
-		if rec.Status != statusSubmissionUnknown || rec.TxHash != "ABC" || rec.NotFound != i {
+		if rec.Status != statusSubmissionUnknown || rec.TxHash != "ABC" || rec.NotFound != i || rec.LastMissHeight != height {
 			t.Fatalf("miss %d: record wrong: %+v", i, rec)
 		}
 	}
-	if action := applyReconcile(rec, txProbe{}); action != reconcileRelease {
+	height++
+	if action := applyReconcile(rec, notFoundProbe(), height, reconcileNow); action != reconcileRelease {
 		t.Fatalf("final miss: action = %v, want reconcileRelease", action)
 	}
-	if rec.TxHash != "" || rec.Status != "" || rec.Failures != 1 || rec.NotFound != 0 {
+	if rec.TxHash != "" || rec.Status != "" || rec.Failures != 1 || rec.NotFound != 0 || rec.LastMissHeight != 0 {
 		t.Fatalf("released record wrong: %+v", rec)
 	}
 	if !strings.Contains(rec.LastError, "released for resubmission") {
@@ -284,12 +340,82 @@ func TestApplyReconcileNotFoundLifecycle(t *testing.T) {
 	}
 }
 
+func TestApplyReconcileProbeErrorCountsNothing(t *testing.T) {
+	// Node down, connection refused, binary failure: the probe proved
+	// nothing, so the record must not move — misses neither grow nor reset.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: submittedAgo(minReleaseWait + time.Hour), NotFound: 7, LastMissHeight: 90}
+	before := *rec
+	for i := 0; i < maxReconcileNotFound*2; i++ {
+		if action := applyReconcile(rec, txProbe{}, 100+uint64(i), reconcileNow); action != reconcileNoEvidence {
+			t.Fatalf("probe error %d: action = %v, want reconcileNoEvidence", i, action)
+		}
+	}
+	if *rec != before {
+		t.Fatalf("probe errors mutated the record: %+v → %+v", before, *rec)
+	}
+}
+
+func TestApplyReconcileStalledChainCountsNothing(t *testing.T) {
+	// Consensus halt: `query tx` cannot see the tx sitting in the mempool,
+	// so an authoritative not-found while the height is not advancing is no
+	// evidence — arbitrarily many such probes must never release the record.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: submittedAgo(minReleaseWait + time.Hour), NotFound: maxReconcileNotFound - 1, LastMissHeight: 100}
+	before := *rec
+	for i := 0; i < maxReconcileNotFound*2; i++ {
+		if action := applyReconcile(rec, notFoundProbe(), 100, reconcileNow); action != reconcileNoEvidence {
+			t.Fatalf("stalled probe %d: action = %v, want reconcileNoEvidence", i, action)
+		}
+	}
+	if action := applyReconcile(rec, notFoundProbe(), 0, reconcileNow); action != reconcileNoEvidence {
+		t.Fatal("unknown height (failed height query) must also count nothing")
+	}
+	if *rec != before {
+		t.Fatalf("stalled-chain probes mutated the record: %+v → %+v", before, *rec)
+	}
+	// The moment the chain advances again, the same probe counts.
+	if action := applyReconcile(rec, notFoundProbe(), 101, reconcileNow); action != reconcileRelease {
+		t.Fatalf("advancing chain after the stall: action = %v, want reconcileRelease", action)
+	}
+}
+
+func TestApplyReconcileElapsedGateBlocksEarlyRelease(t *testing.T) {
+	// Ten authoritative misses inside the first minutes (fast RELAY_INTERVAL)
+	// must NOT release: the wall-clock window since SubmittedAt rules.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: submittedAgo(5 * time.Minute)}
+	height := uint64(100)
+	for i := 1; i <= maxReconcileNotFound+2; i++ {
+		height++
+		if action := applyReconcile(rec, notFoundProbe(), height, reconcileNow); action != reconcileKeepWaiting {
+			t.Fatalf("early miss %d: action = %v, want reconcileKeepWaiting (elapsed gate)", i, action)
+		}
+	}
+	if rec.Status != statusSubmissionUnknown || rec.TxHash != "ABC" || rec.NotFound != maxReconcileNotFound+2 {
+		t.Fatalf("record wrong under the elapsed gate: %+v", rec)
+	}
+	// Same record, once the window has truly elapsed: the next counted miss
+	// releases.
+	rec.SubmittedAt = submittedAgo(minReleaseWait)
+	height++
+	if action := applyReconcile(rec, notFoundProbe(), height, reconcileNow); action != reconcileRelease {
+		t.Fatalf("post-window miss: action = %v, want reconcileRelease", action)
+	}
+}
+
+func TestApplyReconcileUnknownSubmittedAtNeverReleases(t *testing.T) {
+	// No parseable SubmittedAt → elapsed reads as zero → release is blocked.
+	// Safe direction: never resubmit on unknown timing.
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, NotFound: maxReconcileNotFound - 1, LastMissHeight: 90}
+	if action := applyReconcile(rec, notFoundProbe(), 100, reconcileNow); action != reconcileKeepWaiting {
+		t.Fatalf("action = %v, want reconcileKeepWaiting", action)
+	}
+}
+
 func TestApplyReconcileFoundResetsMissCount(t *testing.T) {
 	// "N consecutive" means a found probe resets the count: a failure release
 	// followed by a new submission must start counting from zero again.
-	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, NotFound: maxReconcileNotFound - 1}
-	applyReconcile(rec, txProbe{Found: true, Code: 7, RawLog: "seq mismatch"})
-	if rec.NotFound != 0 {
+	rec := &AttestRecord{TxHash: "ABC", Status: statusSubmissionUnknown, NotFound: maxReconcileNotFound - 1, LastMissHeight: 90}
+	applyReconcile(rec, txProbe{Outcome: probeFound, Code: 7, RawLog: "seq mismatch"}, 100, reconcileNow)
+	if rec.NotFound != 0 || rec.LastMissHeight != 0 {
 		t.Fatalf("found probe must reset the consecutive-miss count: %+v", rec)
 	}
 }
@@ -331,7 +457,7 @@ func TestLoadStateLegacy(t *testing.T) {
 func TestWatchStateLifecycleRoundTrip(t *testing.T) {
 	path := t.TempDir() + "/state.json"
 	st := &WatchState{Attested: map[string]*AttestRecord{
-		"inv-flight": {TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T09:00:00Z", NotFound: 4},
+		"inv-flight": {TxHash: "ABC", Status: statusSubmissionUnknown, SubmittedAt: "2026-07-23T09:00:00Z", NotFound: 4, LastMissHeight: 66300},
 	}}
 	if err := saveState(path, st); err != nil {
 		t.Fatal(err)
@@ -343,6 +469,9 @@ func TestWatchStateLifecycleRoundTrip(t *testing.T) {
 	got := st2.Attested["inv-flight"]
 	if got == nil || got.Status != statusSubmissionUnknown || got.TxHash != "ABC" || got.NotFound != 4 || got.SubmittedAt == "" {
 		t.Fatalf("in-flight record did not survive the round trip: %+v", got)
+	}
+	if got.LastMissHeight != 66300 {
+		t.Fatalf("last counted-miss height did not survive the round trip: %+v", got)
 	}
 }
 

@@ -58,6 +58,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -427,11 +428,24 @@ const (
 )
 
 // maxReconcileNotFound: a submission_unknown record is released for
-// resubmission only after this many CONSECUTIVE not-found reconciles (one
-// per poll pass). At the default 90s interval that is ~15 minutes — far
-// past mempool retention on both live nets, so a tx absent that long is
-// provably not confirming. Any found result resets the count.
+// resubmission only after this many CONSECUTIVE AUTHORITATIVE not-found
+// probes — the node itself answered "tx not found" (probeNotFound). A probe
+// that merely failed (node down, RPC error, unparseable output) proves
+// nothing and counts for nothing. Each miss additionally counts only if the
+// chain height advanced strictly past the previous counted miss (a halted
+// chain cannot commit the tx, so its absence from the index proves nothing —
+// `query tx` only sees committed txs and the tx may sit invisible in the
+// mempool through the halt) and release further requires minReleaseWait of
+// wall-clock time since submission. Any found result resets the count.
 const maxReconcileNotFound = 10
+
+// minReleaseWait: a submission_unknown record may be released for
+// resubmission only after at least this much wall-clock time since
+// SubmittedAt, no matter how many authoritative misses have accumulated.
+// This keeps the release window independent of RELAY_INTERVAL: ten fast
+// polls must never outrun mempool retention, and a resubmission while the
+// original tx can still confirm is a duplicate attestation and a double bond.
+const minReleaseWait = 15 * time.Minute
 
 // AttestRecord is one ledger entry: a successful attestation (Status
 // "attested"), an in-flight broadcast awaiting reconciliation (Status
@@ -446,8 +460,15 @@ type AttestRecord struct {
 	Status        string `json:"status,omitempty"`
 	SubmittedAt   string `json:"submitted_at,omitempty"`
 	NotFound      int    `json:"reconcile_not_found,omitempty"`
-	Failures      int    `json:"failures,omitempty"`
-	LastError     string `json:"last_error,omitempty"`
+	// LastMissHeight is the chain height at which the last COUNTED not-found
+	// probe was taken. A new miss counts only when the current height is
+	// strictly greater — the chain committed blocks in which the tx had a
+	// real chance to appear and did not. Optional and backward-compatible:
+	// absent on older records it reads as 0, so the first counted miss
+	// simply records the current height.
+	LastMissHeight uint64 `json:"last_miss_height,omitempty"`
+	Failures       int    `json:"failures,omitempty"`
+	LastError      string `json:"last_error,omitempty"`
 }
 
 // shouldSkipSubmit is the fresh-submit guard: any record with a tx hash on
@@ -457,12 +478,30 @@ func shouldSkipSubmit(rec *AttestRecord) bool {
 	return rec != nil && (rec.TxHash != "" || rec.Failures >= maxAttestFailures)
 }
 
-// txProbe is one observation of `zeroned query tx <hash>`: Found=false means
-// the node does not know the tx (not yet indexed, evicted, or never
-// broadcast); Found=true carries the execution code and, when code 0, the
-// attestation_id recovered from the external_attestation_submitted event.
+// probeOutcome classifies one `zeroned query tx` observation. The zero value
+// is probeError on purpose: an unclassified probe must never read as
+// evidence of absence.
+type probeOutcome int
+
+const (
+	// probeError: the probe itself failed — exec failure, RPC/transport
+	// error, timeout, unparseable output. This proves NOTHING about the tx
+	// and must never count toward release.
+	probeError probeOutcome = iota
+	// probeFound: the node knows the tx; Code carries its execution result.
+	probeFound
+	// probeNotFound: the CLI ran, the node answered, and the answer named
+	// THIS tx as not found — authoritative evidence of absence right now
+	// (though still not proof it can never confirm: it may sit in a mempool).
+	probeNotFound
+)
+
+// txProbe is one observation of `zeroned query tx <hash>`. Outcome says what
+// the probe proved; on probeFound, Code carries the execution code and, when
+// code 0, AttestationID is recovered from the
+// external_attestation_submitted event.
 type txProbe struct {
-	Found         bool
+	Outcome       probeOutcome
 	Code          int
 	RawLog        string
 	AttestationID string
@@ -472,8 +511,9 @@ type txProbe struct {
 type reconcileAction int
 
 const (
-	// reconcileKeepWaiting: tx not found, threshold not reached — stay
-	// submission_unknown, count the miss.
+	// reconcileKeepWaiting: authoritative not-found with the chain advanced,
+	// but the release gates not yet all open — stay submission_unknown,
+	// count the miss.
 	reconcileKeepWaiting reconcileAction = iota
 	// reconcileMarkAttested: tx found with code 0 — the bond is posted and
 	// the attestation exists on-chain.
@@ -481,38 +521,70 @@ const (
 	// reconcileRecordFailure: tx found with code != 0 — it executed and
 	// failed, state changes reverted, safe to retry through the normal path.
 	reconcileRecordFailure
-	// reconcileRelease: tx provably absent (maxReconcileNotFound consecutive
-	// misses) — release the record for resubmission via the failure path.
+	// reconcileRelease: every gate open — maxReconcileNotFound consecutive
+	// authoritative misses, each with the chain advancing, and minReleaseWait
+	// elapsed since submission — release the record for resubmission via the
+	// failure path.
 	reconcileRelease
+	// reconcileNoEvidence: the probe proved nothing (probe error, height
+	// unknown, or chain not advancing since the last counted miss) — change
+	// NOTHING: the miss count neither grows nor resets.
+	reconcileNoEvidence
 )
 
 // decideReconcile is the pure decision function for a submission_unknown
-// record: given one tx probe and the consecutive not-found count so far,
-// pick the forward-only transition.
-func decideReconcile(probe txProbe, notFoundSoFar int) reconcileAction {
-	if probe.Found {
+// record: given one tx probe, the counted consecutive-miss state so far, the
+// current chain height (0 = height query failed) and the wall-clock time the
+// record has been in flight, pick the forward-only transition.
+func decideReconcile(probe txProbe, notFoundSoFar int, lastMissHeight, currentHeight uint64, elapsed time.Duration) reconcileAction {
+	switch probe.Outcome {
+	case probeFound:
 		if probe.Code == 0 {
 			return reconcileMarkAttested
 		}
 		return reconcileRecordFailure
+	case probeNotFound:
+		// A miss counts only when the chain provably advanced past the last
+		// counted miss: new blocks were committed in which the tx had a real
+		// chance to appear and did not. A halted chain (or a failed height
+		// query, currentHeight 0) turns absence-from-the-index into no
+		// evidence at all — the tx may sit invisible in the mempool.
+		if currentHeight == 0 || currentHeight <= lastMissHeight {
+			return reconcileNoEvidence
+		}
+		if notFoundSoFar+1 >= maxReconcileNotFound && elapsed >= minReleaseWait {
+			return reconcileRelease
+		}
+		return reconcileKeepWaiting
+	default: // probeError
+		return reconcileNoEvidence
 	}
-	if notFoundSoFar+1 >= maxReconcileNotFound {
-		return reconcileRelease
+}
+
+// sinceSubmit reports how long a record has been in flight. An absent or
+// unparseable SubmittedAt reads as zero elapsed, which blocks release — the
+// safe direction: never resubmit on unknown timing.
+func sinceSubmit(rec *AttestRecord, now time.Time) time.Duration {
+	t, err := time.Parse(time.RFC3339, rec.SubmittedAt)
+	if err != nil {
+		return 0
 	}
-	return reconcileKeepWaiting
+	return now.Sub(t)
 }
 
 // applyReconcile applies the decided transition to the record and returns
-// the action taken. Pure over (rec, probe) except for timestamps.
-func applyReconcile(rec *AttestRecord, probe txProbe) reconcileAction {
-	action := decideReconcile(probe, rec.NotFound)
+// the action taken. currentHeight is the latest chain height (0 = unknown);
+// now supplies the wall clock. Pure over its inputs.
+func applyReconcile(rec *AttestRecord, probe txProbe, currentHeight uint64, now time.Time) reconcileAction {
+	action := decideReconcile(probe, rec.NotFound, rec.LastMissHeight, currentHeight, sinceSubmit(rec, now))
 	switch action {
 	case reconcileMarkAttested:
 		rec.Status = statusAttested
 		rec.AttestationID = probe.AttestationID
-		rec.AttestedAt = time.Now().UTC().Format(time.RFC3339)
+		rec.AttestedAt = now.Format(time.RFC3339)
 		rec.LastError = ""
 		rec.NotFound = 0
+		rec.LastMissHeight = 0
 	case reconcileRecordFailure:
 		rec.Failures++
 		rec.LastError = fmt.Sprintf("tx %s executed with code %d: %s", rec.TxHash, probe.Code, truncate(probe.RawLog, 300))
@@ -520,15 +592,21 @@ func applyReconcile(rec *AttestRecord, probe txProbe) reconcileAction {
 		rec.Status = ""
 		rec.SubmittedAt = ""
 		rec.NotFound = 0
+		rec.LastMissHeight = 0
 	case reconcileRelease:
 		rec.Failures++
-		rec.LastError = fmt.Sprintf("tx %s not found after %d consecutive reconciles — released for resubmission", rec.TxHash, maxReconcileNotFound)
+		rec.LastError = fmt.Sprintf("tx %s authoritatively not found in %d consecutive probes with the chain advancing and %s elapsed since submission — released for resubmission", rec.TxHash, rec.NotFound+1, minReleaseWait)
 		rec.TxHash = ""
 		rec.Status = ""
 		rec.SubmittedAt = ""
 		rec.NotFound = 0
+		rec.LastMissHeight = 0
 	case reconcileKeepWaiting:
 		rec.NotFound++
+		rec.LastMissHeight = currentHeight
+	case reconcileNoEvidence:
+		// Deliberately nothing: an inconclusive probe neither counts toward
+		// release nor resets the counted misses.
 	}
 	return action
 }
@@ -641,9 +719,17 @@ func watchOnce(cfg Config, st *WatchState) {
 			rec.Status = statusSubmissionUnknown
 			rec.SubmittedAt = time.Now().UTC().Format(time.RFC3339)
 			rec.NotFound = 0
+			rec.LastMissHeight = 0
 			rec.LastError = ""
 			if err := saveState(cfg.StatePath, st); err != nil {
-				log.Printf("watch: save state after broadcast of %s (tx %s): %v", inv.ID, txHash, err)
+				// The on-disk ledger is the ONLY defense against
+				// double-bonding this tx across a restart. Fail the pass
+				// loudly and submit nothing further: every additional
+				// broadcast would be another hash the disk cannot remember.
+				// The record stays in memory, so reconcilePending still
+				// resolves this tx by hash on later passes of this process.
+				log.Printf("RELAY-STATE-WRITE-FAILED: cannot persist ledger %s after broadcast of %s (tx %s): %v — aborting this pass, no further submissions until the ledger writes again", cfg.StatePath, inv.ID, txHash, err)
+				return
 			}
 
 			probe, werr := waitForInclusion(cfg, txHash)
@@ -651,7 +737,10 @@ func watchOnce(cfg Config, st *WatchState) {
 				log.Printf("watch: attest %s: %v — held as %s for reconciliation, will not resubmit", inv.ID, werr, statusSubmissionUnknown)
 				continue
 			}
-			action := applyReconcile(rec, probe)
+			// waitForInclusion only ever hands back a probeFound, so the
+			// height and wall-clock gates are unused here; height 0 keeps
+			// any other outcome on the no-evidence (no-count) path.
+			action := applyReconcile(rec, probe, 0, time.Now().UTC())
 			logReconcile(inv.ID, rec, probe, action, txHash)
 			if err := saveState(cfg.StatePath, st); err != nil {
 				log.Printf("watch: save state: %v", err)
@@ -670,13 +759,23 @@ func watchOnce(cfg Config, st *WatchState) {
 // re-enter the submit path in the same pass only after the old tx is
 // provably absent.
 func reconcilePending(cfg Config, st *WatchState) {
+	now := time.Now().UTC()
+	var height uint64
+	heightKnown := false
 	for id, rec := range st.Attested {
 		if rec.Status != statusSubmissionUnknown || rec.TxHash == "" {
 			continue
 		}
+		if !heightKnown {
+			// One height reading per pass, fetched lazily: a not-found probe
+			// counts only against a chain that provably advanced, and 0
+			// (height query failed) counts nothing.
+			height = chainHeight(cfg.Node)
+			heightKnown = true
+		}
 		txHash := rec.TxHash
 		probe := queryTx(cfg, txHash)
-		action := applyReconcile(rec, probe)
+		action := applyReconcile(rec, probe, height, now)
 		logReconcile(id, rec, probe, action, txHash)
 		if err := saveState(cfg.StatePath, st); err != nil {
 			log.Printf("watch: save state: %v", err)
@@ -701,18 +800,32 @@ func logReconcile(invID string, rec *AttestRecord, probe txProbe, action reconci
 		log.Printf("watch: attest %s failed on-chain (%d/%d): tx %s code %d: %s", invID, rec.Failures, maxAttestFailures, txHash, probe.Code, truncate(probe.RawLog, 300))
 		logIfParked(invID, rec)
 	case reconcileRelease:
-		log.Printf("watch: reconcile %s: tx %s provably absent after %d consecutive misses — released for resubmission (%d/%d failures)", invID, txHash, maxReconcileNotFound, rec.Failures, maxAttestFailures)
+		log.Printf("watch: reconcile %s: tx %s authoritatively absent (%d+ consecutive misses, chain advancing, ≥%s since submit) — released for resubmission (%d/%d failures)", invID, txHash, maxReconcileNotFound, minReleaseWait, rec.Failures, maxAttestFailures)
 		logIfParked(invID, rec)
 	case reconcileKeepWaiting:
-		log.Printf("watch: reconcile %s: tx %s not found yet (%d/%d) — staying %s", invID, txHash, rec.NotFound, maxReconcileNotFound, statusSubmissionUnknown)
+		suffix := ""
+		if rec.NotFound >= maxReconcileNotFound {
+			suffix = fmt.Sprintf(" (miss threshold met; %s wall-clock window since submit not yet elapsed)", minReleaseWait)
+		}
+		log.Printf("watch: reconcile %s: tx %s authoritatively not found (%d/%d counted misses) — staying %s%s", invID, txHash, rec.NotFound, maxReconcileNotFound, statusSubmissionUnknown, suffix)
+	case reconcileNoEvidence:
+		if probe.Outcome == probeError {
+			log.Printf("watch: reconcile %s: tx %s probe failed (node unreachable, CLI error, or unparseable output) — no evidence, miss count stays %d/%d", invID, txHash, rec.NotFound, maxReconcileNotFound)
+		} else {
+			log.Printf("watch: reconcile %s: tx %s not found but chain height has not advanced past %d (halted, or height unknown) — not counted, miss count stays %d/%d", invID, txHash, rec.LastMissHeight, rec.NotFound, maxReconcileNotFound)
+		}
 	}
 }
 
 // logIfParked emits the distinctive RELAY-PARKED line external monitoring
-// greps for, once per transition into the parked state.
+// greps for, once per transition into the parked state. The instruction is
+// verify-first on purpose: after a reconcile-driven release the original tx
+// may STILL confirm once a halted chain resumes, so clearing the ledger
+// entry before checking the chain risks a duplicate attestation and a
+// double bond.
 func logIfParked(invID string, rec *AttestRecord) {
 	if rec.Failures == maxAttestFailures {
-		log.Printf("RELAY-PARKED: invocation %s reached %d failures — will not retry (clear the ledger entry to retry); last error: %s", invID, rec.Failures, rec.LastError)
+		log.Printf("RELAY-PARKED: invocation %s reached %d failures — will not retry. Do NOT clear the ledger entry until you have verified on-chain that NO attestation exists for this invocation: run `zeroned query tx <hash> --node <rpc> --output json` for every tx hash in the failure trail (a tx released during a halt can still confirm after resume); only when all report not found is it safe to clear the entry and retry; last error: %s", invID, rec.Failures, rec.LastError)
 	}
 }
 
@@ -739,14 +852,44 @@ func broadcastAttestation(cfg Config, inv *Invocation) (string, error) {
 	return submitAttestation(cfg, tmp.Name())
 }
 
-// queryTx probes the node once for a tx by hash. Found=false covers
-// not-yet-indexed, evicted, and unparseable responses alike; the caller's
-// consecutive-miss count turns repeated absence into a release decision.
+// classifyQueryTxFailure decides what a failed `zeroned query tx` run
+// proved. Authoritative not-found requires the CLI to have named THIS tx as
+// missing: CometBFT answers `tx (HASH) not found` (rpc/core/tx.go) and the
+// SDK query-tx command answers `no transaction found with hash HASH`
+// (x/auth/client/cli/query.go) — both carry the hash. Anything else (binary
+// missing, connection refused, timeout, tx indexing disabled, unrelated
+// errors) proves nothing about the tx and must never count toward release.
+func classifyQueryTxFailure(stderr, txHash string) probeOutcome {
+	if txHash == "" {
+		return probeError
+	}
+	s := strings.ToLower(stderr)
+	if !strings.Contains(s, strings.ToLower(txHash)) {
+		return probeError
+	}
+	// The two message shapes the stack actually emits for a missing tx; note
+	// the SDK's "no transaction found" does NOT contain the substring
+	// "not found", so both must be matched explicitly.
+	if strings.Contains(s, "not found") || strings.Contains(s, "no transaction found") {
+		return probeNotFound
+	}
+	return probeError
+}
+
+// queryTx probes the node once for a tx by hash, classifying the result into
+// found / authoritatively-not-found / probe-error (see probeOutcome). Only
+// the caller turns repeated authoritative absence into a release decision.
 func queryTx(cfg Config, txHash string) txProbe {
 	// #nosec G204 — arguments come from validated config
 	out, err := exec.Command(cfg.Binary, "query", "tx", txHash,
 		"--node", cfg.Node, "--output", "json").Output()
 	if err != nil {
+		// Output() captures stderr on the ExitError; any non-exit error
+		// (binary missing, etc.) has no stderr and classifies as probeError.
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return txProbe{Outcome: classifyQueryTxFailure(string(ee.Stderr), txHash)}
+		}
 		return txProbe{}
 	}
 	var tx struct {
@@ -761,9 +904,11 @@ func queryTx(cfg Config, txHash string) txProbe {
 		} `json:"events"`
 	}
 	if err := json.Unmarshal(out, &tx); err != nil {
+		// The CLI exited 0 but printed something we cannot parse: treat as a
+		// probe error, never as evidence of absence.
 		return txProbe{}
 	}
-	probe := txProbe{Found: true, Code: tx.Code, RawLog: tx.RawLog}
+	probe := txProbe{Outcome: probeFound, Code: tx.Code, RawLog: tx.RawLog}
 	for _, e := range tx.Events {
 		if e.Type != "external_attestation_submitted" {
 			continue
@@ -784,7 +929,7 @@ func waitForInclusion(cfg Config, txHash string) (txProbe, error) {
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(2 * time.Second)
-		if probe := queryTx(cfg, txHash); probe.Found {
+		if probe := queryTx(cfg, txHash); probe.Outcome == probeFound {
 			return probe, nil
 		}
 	}
