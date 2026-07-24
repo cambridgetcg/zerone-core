@@ -5,12 +5,16 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN make build
+# cosmovisor supervises the node so an upgrade halt heals itself instead of
+# waiting for a human to notice and redeploy.
+RUN go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@v1.5.0
 
 # Runtime stage
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl jq \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/build/zeroned /usr/local/bin/zeroned
+COPY --from=builder /go/bin/cosmovisor /usr/local/bin/cosmovisor
 # Baked zerone-1 seed: honest genesis + P2P node key + operator validator key
 # (custodial launch — the validator key is play-experimental, overridable via secret).
 COPY deploy/mainnet/artifacts/genesis.json            /mainnet-seed/genesis.json

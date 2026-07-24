@@ -66,7 +66,47 @@ echo "[entrypoint] $(grep '^minimum-gas-prices' "${APP}")"
 sed -i 's|^address = "localhost:9090"|address = "0.0.0.0:9090"|' "${APP}"
 grep -q '^address = "0.0.0.0:9090"' "${APP}" && echo "[entrypoint] gRPC on 0.0.0.0:9090"
 
+# ── cosmovisor supervision ───────────────────────────────────────────────
+# An upgrade height halts the chain by design; without a supervisor it stays
+# halted until a human notices and redeploys. That latency is the difference
+# between a two-minute swap and the 28-hour outage of 2026-07. cosmovisor
+# watches for the halt and restarts the node on the new binary itself.
+#
+# The deployed image remains the source of truth: it is re-installed on every
+# boot, so "deploy an image" still means "that is the binary that runs", and
+# rolling back by redeploying a previous image still works. cosmovisor decides
+# WHEN to swap, never what the binary is.
+CV="${HOME_DIR}/cosmovisor"
+mkdir -p "${CV}/genesis/bin"
+cp /usr/local/bin/zeroned "${CV}/genesis/bin/zeroned"
+
+# x/upgrade writes data/upgrade-info.json when a plan executes. cosmovisor reads
+# it on every start and expects a binary staged at upgrades/<name>/bin. Finding
+# none it tries to download one from the plan's `info` field — and our plans
+# carry an empty info, which makes cosmovisor exit with "plan info must not be
+# blank" on a loop (this took testnet down before the staging below was added).
+#
+# Downloading is the wrong answer regardless: the image already holds the binary
+# we intend to run, reviewed and reproducible. A validator fetching executables
+# from a URL at halt time is not a property worth having.
+UINFO="${HOME_DIR}/data/upgrade-info.json"
+if [ -f "${UINFO}" ]; then
+  UNAME="$(jq -r '.name // empty' "${UINFO}" 2>/dev/null || true)"
+  if [ -n "${UNAME}" ]; then
+    mkdir -p "${CV}/upgrades/${UNAME}/bin"
+    cp /usr/local/bin/zeroned "${CV}/upgrades/${UNAME}/bin/zeroned"
+    echo "[entrypoint] staged image binary for upgrade '${UNAME}'"
+  fi
+fi
+
+export DAEMON_NAME=zeroned
+export DAEMON_HOME="${HOME_DIR}"
+export DAEMON_RESTART_AFTER_UPGRADE=true
+export DAEMON_ALLOW_DOWNLOAD_BINARIES="${DAEMON_ALLOW_DOWNLOAD_BINARIES:-false}"
+export UNSAFE_SKIP_BACKUP="${UNSAFE_SKIP_BACKUP:-true}"
+echo "[entrypoint] cosmovisor: download=${DAEMON_ALLOW_DOWNLOAD_BINARIES} restart_after_upgrade=true"
+
 # EXTRA_START_FLAGS: incident escape hatch settable via `fly secrets set` /
 # [env] without an image rebuild — e.g. "--unsafe-skip-upgrades <height>" to
 # skip a bad upgrade plan after redeploying the previous image.
-exec zeroned start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn ${EXTRA_START_FLAGS:-}
+exec cosmovisor run start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn ${EXTRA_START_FLAGS:-}
