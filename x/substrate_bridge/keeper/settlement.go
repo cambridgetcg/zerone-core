@@ -22,8 +22,18 @@ func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) err
 	if !found {
 		return types.ErrAttestationNotFound
 	}
+	// Only pre-settlement statuses may enter. PARTIAL is an OUTPUT of this
+	// function (see finalStatus below), not an input: an attestation carrying it
+	// has already had its reward minted and its bond returned. Admitting it here
+	// meant a second pass would mint and return both again.
+	//
+	// No caller can currently reach that — BeginBlocker feeds only
+	// AWAITING_RESOLUTION (timeout scan) and READY (drain) — so this changes no
+	// reachable behaviour today. It closes the door before someone opens a path
+	// to it, and the mint lanes added by substrate-dedupe-v1 raise the cost of
+	// being wrong here. sourceRefSeedTier already treats PARTIAL as minted,
+	// alongside SETTLED.
 	if att.Status != types.AttestationStatus_ATTESTATION_STATUS_READY &&
-		att.Status != types.AttestationStatus_ATTESTATION_STATUS_PARTIAL &&
 		att.Status != types.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION {
 		return types.ErrAttestationWrongStatus
 	}

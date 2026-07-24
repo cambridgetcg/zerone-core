@@ -103,6 +103,58 @@ func TestSettleAttestation_PartialButAboveThreshold(t *testing.T) {
 	require.True(t, paid.GTE(sdkmath.NewInt(2000000)))
 }
 
+// A settled attestation must not be settleable twice. PARTIAL is an OUTPUT of
+// SettleAttestation, and it used to be accepted as an INPUT too, so a second
+// pass over an already-paid attestation would have minted its reward and
+// returned its bond a second time. No caller could reach it — BeginBlocker
+// feeds only AWAITING_RESOLUTION and READY — but the gate is what keeps that
+// true, so the gate is what gets pinned.
+func TestSettleAttestation_TerminalStatusesAreNotResettleable(t *testing.T) {
+	k, ctx, bk, _ := setupSubstrateBridgeKeeperFull(t)
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "wiki-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+	}))
+	submitter := testSubmitter("dora")
+	att := &types.ExternalAttestation{
+		AttestationId: "att-twice", AdapterId: "wiki-v1", Submitter: submitter,
+		BondUzrn: "2000000",
+		Status:   types.AttestationStatus_ATTESTATION_STATUS_READY,
+		Link: &types.SubstrateLink{
+			RecursionWeight: &types.AxisProjection{AxisSubstrate: 100_000},
+			PendingClaims:   []*types.PendingClaim{{}, {}, {}, {}},
+		},
+		VerifiedCount: 3, RejectedCount: 1,
+	}
+	require.NoError(t, k.WriteAttestation(ctx, att))
+
+	// First settle lands on PARTIAL and pays out.
+	require.NoError(t, k.SettleAttestation(ctx, "att-twice"))
+	first, _ := k.GetAttestation(ctx, "att-twice")
+	require.Equal(t, types.AttestationStatus_ATTESTATION_STATUS_PARTIAL, first.Status)
+	paidOnce := bk.payments[submitter]
+	require.True(t, paidOnce.IsPositive())
+
+	// Second settle must be refused, and must move no money.
+	require.ErrorIs(t, k.SettleAttestation(ctx, "att-twice"), types.ErrAttestationWrongStatus)
+	require.Equal(t, paidOnce, bk.payments[submitter], "a refused re-settle must not pay again")
+
+	// The other terminal statuses stay closed too.
+	for _, status := range []types.AttestationStatus{
+		types.AttestationStatus_ATTESTATION_STATUS_SETTLED,
+		types.AttestationStatus_ATTESTATION_STATUS_REJECTED,
+		types.AttestationStatus_ATTESTATION_STATUS_SLASHED,
+	} {
+		id := "att-terminal-" + status.String()
+		require.NoError(t, k.WriteAttestation(ctx, &types.ExternalAttestation{
+			AttestationId: id, AdapterId: "wiki-v1", Submitter: testSubmitter("dora"),
+			BondUzrn: "1000000", Status: status,
+			Link: &types.SubstrateLink{PendingClaims: []*types.PendingClaim{{}}},
+		}))
+		require.ErrorIs(t, k.SettleAttestation(ctx, id), types.ErrAttestationWrongStatus,
+			"status %s must not be settleable", status)
+	}
+}
+
 // TestSettleAttestation_WitnessOnlyReturnsBond pins the un-stranding fix:
 // a link with no cited facts and no pending claims earns nothing, but its
 // bond comes back whole.
