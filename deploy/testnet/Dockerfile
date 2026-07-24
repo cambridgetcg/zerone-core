@@ -5,6 +5,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN make build
+# cosmovisor supervises the node so an upgrade halt heals itself instead of
+# waiting for a human to notice and redeploy.
+RUN go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@v1.5.0
 
 # ── Runtime stage ────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
@@ -13,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/build/zeroned /usr/local/bin/zeroned
+COPY --from=builder /go/bin/cosmovisor /usr/local/bin/cosmovisor
 
 # Baked testnet seed: public genesis + P2P node key + play validator key.
 # The validator key is overridable at runtime via PRIV_VALIDATOR_KEY_B64.

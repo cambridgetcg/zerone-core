@@ -61,4 +61,59 @@ else
 fi
 echo "[entrypoint] $(grep '^minimum-gas-prices' "${APP}")"
 
-exec zeroned start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn
+# ── cosmovisor supervision ───────────────────────────────────────────────
+# Without this, an upgrade height halts the chain and it stays halted until a
+# human notices and redeploys — that is how a two-minute swap became a 28-hour
+# outage once already. cosmovisor watches for the halt and restarts the node on
+# the new binary by itself.
+#
+# The image binary stays the source of truth: it is re-installed on every boot,
+# so "deploy an image" still means "that is the binary that runs", and rolling
+# back by redeploying a previous image still works. cosmovisor only decides
+# WHEN to swap, never what the deployed binary is.
+CV="${HOME_DIR}/cosmovisor"
+mkdir -p "${CV}/genesis/bin"
+cp /usr/local/bin/zeroned "${CV}/genesis/bin/zeroned"
+
+# x/upgrade writes data/upgrade-info.json when a plan executes. cosmovisor reads
+# it on every start and expects a binary staged at upgrades/<name>/bin. If none
+# is there it tries to download one from the plan's `info` field — and our plans
+# carry an empty info, which makes cosmovisor exit with "plan info must not be
+# blank" on a loop.
+#
+# Downloading is the wrong answer anyway: the deployed image already contains
+# the binary we intend to run. Stage it under the upgrade name so cosmovisor is
+# satisfied without reaching out to the network, and so a node that has already
+# passed an upgrade can still boot.
+UINFO="${HOME_DIR}/data/upgrade-info.json"
+if [ -f "${UINFO}" ]; then
+  UNAME="$(jq -r '.name // empty' "${UINFO}" 2>/dev/null || true)"
+  if [ -n "${UNAME}" ]; then
+    mkdir -p "${CV}/upgrades/${UNAME}/bin"
+    cp /usr/local/bin/zeroned "${CV}/upgrades/${UNAME}/bin/zeroned"
+    echo "[entrypoint] staged image binary for upgrade '${UNAME}'"
+  fi
+fi
+
+# If an upgrade already ran, cosmovisor's `current` points into upgrades/<name>.
+# Re-assert the image binary there too, otherwise a redeploy would silently
+# leave the old downloaded binary running and the image would stop being truth.
+if [ -L "${CV}/current" ]; then
+  CUR_TARGET="$(readlink -f "${CV}/current" || true)"
+  if [ -n "${CUR_TARGET}" ] && [ -d "${CUR_TARGET}/bin" ] && [ "${CUR_TARGET}" != "${CV}/genesis" ]; then
+    cp /usr/local/bin/zeroned "${CUR_TARGET}/bin/zeroned"
+    echo "[entrypoint] refreshed upgrade binary at ${CUR_TARGET}/bin"
+  fi
+fi
+
+export DAEMON_NAME=zeroned
+export DAEMON_HOME="${HOME_DIR}"
+export DAEMON_RESTART_AFTER_UPGRADE=true
+# Off by design: binaries come from the deployed image, which is reviewed and
+# reproducible, not from a URL fetched by a validator at halt time. Staging
+# above is what makes this safe to leave disabled.
+export DAEMON_ALLOW_DOWNLOAD_BINARIES="${DAEMON_ALLOW_DOWNLOAD_BINARIES:-false}"
+export UNSAFE_SKIP_BACKUP="${UNSAFE_SKIP_BACKUP:-true}"
+echo "[entrypoint] cosmovisor: download=${DAEMON_ALLOW_DOWNLOAD_BINARIES} restart_after_upgrade=true"
+
+exec cosmovisor run start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn ${EXTRA_START_FLAGS:-}
