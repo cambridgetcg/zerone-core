@@ -30,12 +30,18 @@ func (q queryServer) Adapter(ctx context.Context, req *types.QueryAdapterRequest
 
 func (q queryServer) Adapters(ctx context.Context, req *types.QueryAdaptersRequest) (*types.QueryAdaptersResponse, error) {
 	var out []*types.AdapterRegistration
-	q.IterateAdapters(ctx, func(a *types.AdapterRegistration) bool {
-		if req.StatusFilter == types.AdapterStatus_ADAPTER_STATUS_UNSPECIFIED || a.Status == req.StatusFilter {
-			out = append(out, a)
-		}
+	collect := func(a *types.AdapterRegistration) bool {
+		out = append(out, a)
 		return false
-	})
+	}
+	// A status filter has a reverse index built for exactly this (0x89), so use
+	// it: the scan costs O(|matching|) instead of reading every adapter and
+	// discarding most of them. Both paths yield adapterID-ascending order.
+	if req.StatusFilter == types.AdapterStatus_ADAPTER_STATUS_UNSPECIFIED {
+		q.IterateAdapters(ctx, collect)
+	} else {
+		q.IterateAdaptersByStatus(ctx, req.StatusFilter, collect)
+	}
 	return &types.QueryAdaptersResponse{Adapters: out}, nil
 }
 

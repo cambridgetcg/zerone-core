@@ -1,6 +1,10 @@
 package cli
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
@@ -61,19 +65,50 @@ func cmdQueryAdapter() *cobra.Command {
 	return cmd
 }
 
+// parseAdapterStatus accepts the short form an operator actually types
+// ("active") as well as the full enum name ("ADAPTER_STATUS_ACTIVE"), in any
+// case. An unknown value is rejected by name rather than silently falling back
+// to "no filter" — a filter that quietly does nothing is worse than an error,
+// because the caller cannot tell an empty result from an ignored request.
+func parseAdapterStatus(s string) (types.AdapterStatus, error) {
+	if s == "" {
+		return types.AdapterStatus_ADAPTER_STATUS_UNSPECIFIED, nil
+	}
+	name := strings.ToUpper(s)
+	if !strings.HasPrefix(name, "ADAPTER_STATUS_") {
+		name = "ADAPTER_STATUS_" + name
+	}
+	v, ok := types.AdapterStatus_value[name]
+	if !ok {
+		valid := make([]string, 0, len(types.AdapterStatus_value))
+		for k := range types.AdapterStatus_value {
+			valid = append(valid, strings.TrimPrefix(k, "ADAPTER_STATUS_"))
+		}
+		sort.Strings(valid)
+		return 0, fmt.Errorf("unknown adapter status %q (valid: %s)", s, strings.Join(valid, ", "))
+	}
+	return types.AdapterStatus(v), nil
+}
+
 func cmdQueryAdapters() *cobra.Command {
+	var status string
 	cmd := &cobra.Command{
 		Use:   "adapters",
 		Short: "List adapters (optionally filtered by status)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cctx, _ := client.GetClientQueryContext(cmd)
-			res, err := types.NewQueryClient(cctx).Adapters(cmd.Context(), &types.QueryAdaptersRequest{})
+			filter, err := parseAdapterStatus(status)
+			if err != nil {
+				return err
+			}
+			res, err := types.NewQueryClient(cctx).Adapters(cmd.Context(), &types.QueryAdaptersRequest{StatusFilter: filter})
 			if err != nil {
 				return err
 			}
 			return cctx.PrintProto(res)
 		},
 	}
+	cmd.Flags().StringVar(&status, "status", "", "only list adapters with this status (active, suspended, tombstoned)")
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }
