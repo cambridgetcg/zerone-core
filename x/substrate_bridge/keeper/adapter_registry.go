@@ -75,10 +75,15 @@ func (k Keeper) IterateAdaptersByStatus(ctx context.Context, status types.Adapte
 	iter := storetypes.KVStorePrefixIterator(kvStore, prefix)
 	defer iter.Close()
 	for ; iter.Valid(); iter.Next() {
-		// Key layout: 0x89 | status_byte | adapterID
+		// Key layout: AdapterByStatusPrefix | status_byte | adapterID
 		key := iter.Key()
-		// Skip the prefix (1 byte status); remainder is adapterID.
-		adapterID := string(key[1:])
+		// Skip the index prefix and the status byte; the remainder is adapterID.
+		// Derived from the prefix rather than hardcoded so the two cannot drift.
+		offset := len(types.AdapterByStatusPrefix) + 1
+		if len(key) <= offset {
+			continue
+		}
+		adapterID := string(key[offset:])
 		a, found := k.GetAdapter(ctx, adapterID)
 		if !found {
 			continue
