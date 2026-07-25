@@ -81,8 +81,26 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		if rel.Relation == types.RelationType_RELATION_TYPE_UNSPECIFIED {
 			return nil, fmt.Errorf("relation type must be specified")
 		}
-		if _, found := m.keeper.GetFact(ctx, rel.TargetFactId); !found {
+		target, found := m.keeper.GetFact(ctx, rel.TargetFactId)
+		if !found {
 			return nil, fmt.Errorf("relation target fact %s not found", rel.TargetFactId)
+		}
+		if err := errIfProvisionalCitation(target); err != nil {
+			return nil, err
+		}
+	}
+
+	// Same wall for untyped references. computeProvenance reads References
+	// and Relations alike, so a conjecture reachable through either one is a
+	// conjecture in the proof chain.
+	for _, ref := range msg.References {
+		if ref == "" {
+			continue
+		}
+		if target, found := m.keeper.GetFact(ctx, ref); found {
+			if err := errIfProvisionalCitation(target); err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -81,7 +81,17 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	// Record submitter calibration (Phase 5 — feedback loop). Every round
 	// outcome updates the submitter's track record. Challenge claims are
 	// handled below with their own challenger-side recording.
-	k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), result.Verdict)
+	//
+	// Conjectures are exempt. Calibration is accepted-over-decisive, and it
+	// gates the training-fund disbursement; folding conjecture verdicts into
+	// it would mean that asking a question the panel could not adjudicate
+	// costs the proposer access to an unrelated fund. COMPASSION.md C2 —
+	// error is not deceit — has to hold hardest exactly where the chain is
+	// least able to tell the difference. Being wrong in a well-posed way
+	// must not cost you anything but the fee.
+	if claim.ClaimType != types.ClaimType_CLAIM_TYPE_CONJECTURE {
+		k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), result.Verdict)
+	}
 
 	var factId string
 	switch result.Verdict {
@@ -371,6 +381,12 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 
 	factID := GenerateFactID(claim.Id, height)
 
+	// A conjecture is a question the chain agreed to hold open, not a fact it
+	// believes. The panel that returned ACCEPT was asked "is this well-posed
+	// and falsifiable?", never "is this true", so the resulting node must
+	// carry none of the standing that an accepted assertion carries.
+	isConjecture := claim.ClaimType == types.ClaimType_CLAIM_TYPE_CONJECTURE
+
 	// Calculate fitness epoch from current height
 	params, _ := k.GetParams(ctx)
 	epochBorn := uint64(0)
@@ -392,46 +408,62 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	}
 
 	fact := &types.Fact{
-		Id:                factID,
-		Content:           claim.FactContent,
-		Domain:            claim.Domain,
-		Category:          claim.Category,
-		Confidence:        confidence,
-		Submitter:         claim.Submitter,
-		SubmittedAtBlock:  claim.SubmittedAtBlock,
-		VerifiedAtBlock:   height,
-		LastVerifiedBlock: height,
-		References:        claim.References,
-		Status:            types.FactStatus_FACT_STATUS_VERIFIED,
-		ClaimId:           claim.Id,
-		ClaimType:         claim.ClaimType,
-		Structure:         claim.Structure,
-		CanonicalForm:     claim.CanonicalForm,
-		CanonicalHash:     claim.CanonicalHash,
+		Id:                     factID,
+		Content:                claim.FactContent,
+		Domain:                 claim.Domain,
+		Category:               claim.Category,
+		Confidence:             confidence,
+		Submitter:              claim.Submitter,
+		SubmittedAtBlock:       claim.SubmittedAtBlock,
+		VerifiedAtBlock:        height,
+		LastVerifiedBlock:      height,
+		References:             claim.References,
+		Status:                 types.FactStatus_FACT_STATUS_VERIFIED,
+		ClaimId:                claim.Id,
+		FalsificationPredicate: claim.FalsificationPredicate,
+		ClaimType:              claim.ClaimType,
+		Structure:              claim.Structure,
+		CanonicalForm:          claim.CanonicalForm,
+		CanonicalHash:          claim.CanonicalHash,
 		// Methodology (Phase 1): copy from claim; default to M-LEGACY if unset.
 		MethodId: ResolveMethodId(claim.MethodId),
 		// Reasoning trace (Phase 9): structured derivation flows through to
 		// the accepted Fact as first-class training data.
 		ReasoningTrace: claim.ReasoningTrace,
 		// Fitness fields
-		FitnessScore:       params.FitnessInitialScore,
+		FitnessScore:        params.FitnessInitialScore,
 		FitnessUpdatedBlock: height,
-		EpochBorn:          epochBorn,
+		EpochBorn:           epochBorn,
 		// Metabolism fields
-		Energy:           params.MetabolismInitialEnergy,
-		EnergyCap:        params.MetabolismEnergyCap,
+		Energy:            params.MetabolismInitialEnergy,
+		EnergyCap:         params.MetabolismEnergyCap,
 		EnergyLastUpdated: height,
 		// Popper-weighted TVW: calibration snapshot frozen here. Any future
 		// calibration drift has no retroactive effect on this fact's TVW.
 		SubmitterCalibrationSnapshotBps: calibrationSnapshot,
 	}
 
+	// A conjecture enters at PROVISIONAL with zero confidence. Zero is not a
+	// low opinion — it is the absence of one, and it is what keeps the node
+	// inert everywhere confidence is read: it can anchor no dependency floor,
+	// it clears no training tier, and it cannot be mistaken downstream for
+	// something the chain stands behind.
+	if isConjecture {
+		fact.Status = types.FactStatus_FACT_STATUS_PROVISIONAL
+		fact.Confidence = 0
+	}
+
 	// Apply domain carrying capacity birth pressure (R29-1)
 	fact.Energy = k.ApplyBirthPressure(ctx, claim.Domain, fact.Energy)
 
 	// Apply role bonus — claim type × account type (R28-5)
-	accountType := k.getAccountType(ctx, claim.Submitter)
-	fact.Confidence = ApplyRoleBonusToConfidence(fact.Confidence, claim.ClaimType, accountType, params)
+	// Skipped for conjectures: every confidence adjustment below is
+	// multiplicative and would be a no-op on zero, but running them anyway
+	// would mean a future additive term silently gives a question standing.
+	if !isConjecture {
+		accountType := k.getAccountType(ctx, claim.Submitter)
+		fact.Confidence = ApplyRoleBonusToConfidence(fact.Confidence, claim.ClaimType, accountType, params)
+	}
 
 	// Apply dual validation bonus for partnership claims (R28-5)
 	// Scale by weaker role's accuracy in the domain (R29-3)
@@ -530,13 +562,13 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// FactRelation so proof-tree auditors can see HOW each edge was derived.
 	for _, claimRel := range claim.Relations {
 		factRel := &types.FactRelation{
-			SourceFactId:             factID,
-			TargetFactId:             claimRel.TargetFactId,
-			Relation:                 claimRel.Relation,
-			CreatedAtBlock:           height,
-			Creator:                  claim.Submitter,
-			Inference:                claimRel.Inference,
-			InferenceStrengthBps:     claimRel.InferenceStrengthBps,
+			SourceFactId:         factID,
+			TargetFactId:         claimRel.TargetFactId,
+			Relation:             claimRel.Relation,
+			CreatedAtBlock:       height,
+			Creator:              claim.Submitter,
+			Inference:            claimRel.Inference,
+			InferenceStrengthBps: claimRel.InferenceStrengthBps,
 		}
 		if err := k.SetFactRelation(ctx, factRel); err != nil {
 			return "", fmt.Errorf("failed to store fact relation: %w", err)
@@ -614,10 +646,17 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// cancelled if the fact is disproven (cancelSurvivalReward). Issuance follows
 	// survival, not acceptance. The original partnership-split / direct-vesting
 	// routing runs unchanged at release time (routeSubmitterReward).
-	k.EscrowSubmitterReward(ctx, fact, claim)
-
-	// Check if this fact fills an active knowledge bounty
-	k.ClaimBountyForFact(ctx, fact, claim)
+	//
+	// A conjecture escrows nothing. This is the single most important line in
+	// the mechanism: the proposer of a question earns no reward on any path,
+	// so there is no revenue to farm by asking, and the only way value moves
+	// is when someone destroys the conjecture. Nor may a conjecture fill a
+	// knowledge bounty — a sponsor who paid for an answer must not be settled
+	// with a question.
+	if !isConjecture {
+		k.EscrowSubmitterReward(ctx, fact, claim)
+		k.ClaimBountyForFact(ctx, fact, claim)
+	}
 
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.knowledge.fact_created",
@@ -806,7 +845,21 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 
 	// Restore from challenged status regardless of cooldown — the fact
 	// survived the probe either way.
-	originalFact.Status = types.FactStatus_FACT_STATUS_ACTIVE
+	//
+	// A conjecture returns to PROVISIONAL, not ACTIVE. Surviving an attack
+	// is not evidence that a proposition is TRUE — it is evidence that this
+	// particular attack failed, which is the whole of what Popper licenses.
+	// Promoting it would let anyone launder an unverified proposition into a
+	// believed fact by challenging their own conjecture and losing on
+	// purpose: ACTIVE is citable, enters the training corpus, earns TVW, and
+	// is no longer reachable by MsgChallengeProvisionalFact. The conjecture
+	// keeps its corroboration credit and its energy; it does not acquire
+	// standing it never earned.
+	if originalFact.ClaimType == types.ClaimType_CLAIM_TYPE_CONJECTURE {
+		originalFact.Status = types.FactStatus_FACT_STATUS_PROVISIONAL
+	} else {
+		originalFact.Status = types.FactStatus_FACT_STATUS_ACTIVE
+	}
 	originalFact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, originalFact)
 

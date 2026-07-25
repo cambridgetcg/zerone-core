@@ -80,6 +80,7 @@ func GetTxCmd() *cobra.Command {
 		NewEndorseDomainProposalCmd(),
 		NewChallengeDomainProposalCmd(),
 		NewRegisterStratumCmd(),
+		NewPostConjectureCmd(),
 		NewChallengeProvisionalFactCmd(),
 		NewProposeResearchFundCmd(),
 		NewVoteResearchProposalCmd(),
@@ -628,6 +629,58 @@ func NewRegisterStratumCmd() *cobra.Command {
 }
 
 // NewChallengeProvisionalFactCmd creates a CLI command for MsgChallengeProvisionalFact.
+// NewPostConjectureCmd creates a CLI command for MsgPostConjecture.
+func NewPostConjectureCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "post-conjecture [statement] [falsification-predicate] [domain] [fee]",
+		Short: "Post an unsettled proposition the chain will hold open for refutation",
+		Long: `Post a conjecture: a question the chain agrees to hold open.
+
+A conjecture asserts nothing. It enters the graph at PROVISIONAL with zero
+confidence, cites nothing, cannot be cited, is excluded from the training
+corpus, and earns you no reward on any path. The review fee is your only
+cost and it is not refundable.
+
+The verification panel is NOT asked whether your conjecture is true. It is
+asked whether it is well-posed and falsifiable — which is why the
+falsification predicate is required, and why a conjecture with no stated
+killer comes back MALFORMED.
+
+The only paid act against a live conjecture is refuting it:
+  zeroned tx knowledge challenge-provisional [claim-id] [fact-id] [stake] [reason]
+
+See what the chain is currently holding open:
+  zeroned q knowledge open-questions`,
+		Args: cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			category, _ := cmd.Flags().GetString("category")
+			trace, _ := cmd.Flags().GetString("reasoning-trace")
+
+			msg := &types.MsgPostConjecture{
+				Proposer:               clientCtx.GetFromAddress().String(),
+				Statement:              args[0],
+				FalsificationPredicate: args[1],
+				Domain:                 args[2],
+				Stake:                  args[3],
+				Category:               category,
+				ReasoningTrace:         trace,
+			}
+
+			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		},
+	}
+
+	cmd.Flags().String("category", "", "Epistemic category")
+	cmd.Flags().String("reasoning-trace", "", "Why this question is worth asking")
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
 func NewChallengeProvisionalFactCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "challenge-provisional [claim-id] [fact-id] [stake] [reason]",

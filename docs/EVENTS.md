@@ -1151,6 +1151,17 @@ A challenge round starved (fewer than `min_verifiers` reveals) and expired witho
 - `fact_id` -- fact restored from CHALLENGED to ACTIVE
 - `challenge_claim_id` -- the starved challenge claim
 
+### zerone.knowledge.conjecture_posted
+An unsettled proposition entered verification. A conjecture asserts nothing: if the round returns ACCEPT it becomes a fact at `FACT_STATUS_PROVISIONAL` with confidence 0, cites nothing, cannot be cited, is excluded from the training corpus, and pays its proposer nothing on any path. The panel is asked whether the conjecture is **well-posed and falsifiable**, never whether it is true — `panel_question` carries that distinction to verifiers, who would otherwise adjudicate the wrong question. The only paid act against a live conjecture is `MsgChallengeProvisionalFact`.
+- `claim_id` -- the conjecture claim
+- `round_id` -- verification round opened for it
+- `proposer` -- who asked
+- `domain` -- domain the question belongs to
+- `review_fee` -- non-refundable fee paid at submission, same schedule as any claim
+- `falsification_predicate` -- the observation that would kill the conjecture
+- `panel_question` -- always `well_posed_and_falsifiable`; names the question the panel must answer
+- `creed_commitment` -- "3"
+
 ### zerone.knowledge.add_fact_proposed
 Wave 16 guardian-veto path. Authority called MsgAddFact while a guardian set is configured and the veto window is positive — instead of materializing the fact immediately, the proposal is queued. Guardians have until `execute_at_block` to call MsgVetoFactInjection. Without veto, the BeginBlocker emits `pending_fact_materialized` when the window closes.
 - `pending_id` -- id of the queued PendingFactInjection

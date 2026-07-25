@@ -107,6 +107,7 @@ const (
 	Query_EpistemicTemperature_FullMethodName         = "/zerone.knowledge.v1.Query/EpistemicTemperature"
 	Query_RoleElasticity_FullMethodName               = "/zerone.knowledge.v1.Query/RoleElasticity"
 	Query_IdleFacts_FullMethodName                    = "/zerone.knowledge.v1.Query/IdleFacts"
+	Query_OpenQuestions_FullMethodName                = "/zerone.knowledge.v1.Query/OpenQuestions"
 	Query_BundleToK_FullMethodName                    = "/zerone.knowledge.v1.Query/BundleToK"
 )
 
@@ -352,6 +353,12 @@ type QueryClient interface {
 	// prober agents can compete to probe them. Sorted by time-since-invite
 	// descending (oldest invitations first — they're the most under-tested).
 	IdleFacts(ctx context.Context, in *QueryIdleFactsRequest, opts ...grpc.CallOption) (*QueryIdleFactsResponse, error)
+	// OpenQuestions surfaces what the chain does NOT know: live conjectures
+	// standing at FACT_STATUS_PROVISIONAL, awaiting refutation. Where
+	// IdleFacts lists settled beliefs that have gone untested, this lists
+	// propositions that were never settled at all. Read-free, like every
+	// other query on this surface.
+	OpenQuestions(ctx context.Context, in *QueryOpenQuestionsRequest, opts ...grpc.CallOption) (*QueryOpenQuestionsResponse, error)
 	// BundleToK is the headline trainer-facing endpoint (TC1).
 	// Extracts a deterministic, snapshot-pinned subgraph per selector.
 	BundleToK(ctx context.Context, in *QueryBundleToKRequest, opts ...grpc.CallOption) (*QueryBundleToKResponse, error)
@@ -1245,6 +1252,16 @@ func (c *queryClient) IdleFacts(ctx context.Context, in *QueryIdleFactsRequest, 
 	return out, nil
 }
 
+func (c *queryClient) OpenQuestions(ctx context.Context, in *QueryOpenQuestionsRequest, opts ...grpc.CallOption) (*QueryOpenQuestionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryOpenQuestionsResponse)
+	err := c.cc.Invoke(ctx, Query_OpenQuestions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *queryClient) BundleToK(ctx context.Context, in *QueryBundleToKRequest, opts ...grpc.CallOption) (*QueryBundleToKResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryBundleToKResponse)
@@ -1497,6 +1514,12 @@ type QueryServer interface {
 	// prober agents can compete to probe them. Sorted by time-since-invite
 	// descending (oldest invitations first — they're the most under-tested).
 	IdleFacts(context.Context, *QueryIdleFactsRequest) (*QueryIdleFactsResponse, error)
+	// OpenQuestions surfaces what the chain does NOT know: live conjectures
+	// standing at FACT_STATUS_PROVISIONAL, awaiting refutation. Where
+	// IdleFacts lists settled beliefs that have gone untested, this lists
+	// propositions that were never settled at all. Read-free, like every
+	// other query on this surface.
+	OpenQuestions(context.Context, *QueryOpenQuestionsRequest) (*QueryOpenQuestionsResponse, error)
 	// BundleToK is the headline trainer-facing endpoint (TC1).
 	// Extracts a deterministic, snapshot-pinned subgraph per selector.
 	BundleToK(context.Context, *QueryBundleToKRequest) (*QueryBundleToKResponse, error)
@@ -1773,6 +1796,9 @@ func (UnimplementedQueryServer) RoleElasticity(context.Context, *QueryRoleElasti
 }
 func (UnimplementedQueryServer) IdleFacts(context.Context, *QueryIdleFactsRequest) (*QueryIdleFactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method IdleFacts not implemented")
+}
+func (UnimplementedQueryServer) OpenQuestions(context.Context, *QueryOpenQuestionsRequest) (*QueryOpenQuestionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method OpenQuestions not implemented")
 }
 func (UnimplementedQueryServer) BundleToK(context.Context, *QueryBundleToKRequest) (*QueryBundleToKResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BundleToK not implemented")
@@ -3382,6 +3408,24 @@ func _Query_IdleFacts_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_OpenQuestions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryOpenQuestionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).OpenQuestions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_OpenQuestions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).OpenQuestions(ctx, req.(*QueryOpenQuestionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Query_BundleToK_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryBundleToKRequest)
 	if err := dec(in); err != nil {
@@ -3758,6 +3802,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IdleFacts",
 			Handler:    _Query_IdleFacts_Handler,
+		},
+		{
+			MethodName: "OpenQuestions",
+			Handler:    _Query_OpenQuestions_Handler,
 		},
 		{
 			MethodName: "BundleToK",

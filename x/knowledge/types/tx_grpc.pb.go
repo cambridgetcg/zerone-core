@@ -30,6 +30,7 @@ const (
 	Msg_EndorseDomainProposal_FullMethodName         = "/zerone.knowledge.v1.Msg/EndorseDomainProposal"
 	Msg_ChallengeDomainProposal_FullMethodName       = "/zerone.knowledge.v1.Msg/ChallengeDomainProposal"
 	Msg_RegisterStratum_FullMethodName               = "/zerone.knowledge.v1.Msg/RegisterStratum"
+	Msg_PostConjecture_FullMethodName                = "/zerone.knowledge.v1.Msg/PostConjecture"
 	Msg_ChallengeProvisionalFact_FullMethodName      = "/zerone.knowledge.v1.Msg/ChallengeProvisionalFact"
 	Msg_UpdateParams_FullMethodName                  = "/zerone.knowledge.v1.Msg/UpdateParams"
 	Msg_UpdateExtendedParams_FullMethodName          = "/zerone.knowledge.v1.Msg/UpdateExtendedParams"
@@ -98,6 +99,11 @@ type MsgClient interface {
 	ChallengeDomainProposal(ctx context.Context, in *MsgChallengeDomainProposal, opts ...grpc.CallOption) (*MsgChallengeDomainProposalResponse, error)
 	// RegisterStratum registers a new knowledge stratum (authority-gated).
 	RegisterStratum(ctx context.Context, in *MsgRegisterStratum, opts ...grpc.CallOption) (*MsgRegisterStratumResponse, error)
+	// PostConjecture places an unsettled proposition into the graph at
+	// FACT_STATUS_PROVISIONAL. The verification panel is asked whether the
+	// conjecture is well-posed and falsifiable — NOT whether it is true.
+	// The submitter earns nothing; the only paid act is refuting it.
+	PostConjecture(ctx context.Context, in *MsgPostConjecture, opts ...grpc.CallOption) (*MsgPostConjectureResponse, error)
 	// ChallengeProvisionalFact challenges a provisional fact before it becomes verified.
 	ChallengeProvisionalFact(ctx context.Context, in *MsgChallengeProvisionalFact, opts ...grpc.CallOption) (*MsgChallengeProvisionalFactResponse, error)
 	// UpdateParams updates module parameters. Governance authority only.
@@ -331,6 +337,16 @@ func (c *msgClient) RegisterStratum(ctx context.Context, in *MsgRegisterStratum,
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MsgRegisterStratumResponse)
 	err := c.cc.Invoke(ctx, Msg_RegisterStratum_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) PostConjecture(ctx context.Context, in *MsgPostConjecture, opts ...grpc.CallOption) (*MsgPostConjectureResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgPostConjectureResponse)
+	err := c.cc.Invoke(ctx, Msg_PostConjecture_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -745,6 +761,11 @@ type MsgServer interface {
 	ChallengeDomainProposal(context.Context, *MsgChallengeDomainProposal) (*MsgChallengeDomainProposalResponse, error)
 	// RegisterStratum registers a new knowledge stratum (authority-gated).
 	RegisterStratum(context.Context, *MsgRegisterStratum) (*MsgRegisterStratumResponse, error)
+	// PostConjecture places an unsettled proposition into the graph at
+	// FACT_STATUS_PROVISIONAL. The verification panel is asked whether the
+	// conjecture is well-posed and falsifiable — NOT whether it is true.
+	// The submitter earns nothing; the only paid act is refuting it.
+	PostConjecture(context.Context, *MsgPostConjecture) (*MsgPostConjectureResponse, error)
 	// ChallengeProvisionalFact challenges a provisional fact before it becomes verified.
 	ChallengeProvisionalFact(context.Context, *MsgChallengeProvisionalFact) (*MsgChallengeProvisionalFactResponse, error)
 	// UpdateParams updates module parameters. Governance authority only.
@@ -906,6 +927,9 @@ func (UnimplementedMsgServer) ChallengeDomainProposal(context.Context, *MsgChall
 }
 func (UnimplementedMsgServer) RegisterStratum(context.Context, *MsgRegisterStratum) (*MsgRegisterStratumResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RegisterStratum not implemented")
+}
+func (UnimplementedMsgServer) PostConjecture(context.Context, *MsgPostConjecture) (*MsgPostConjectureResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PostConjecture not implemented")
 }
 func (UnimplementedMsgServer) ChallengeProvisionalFact(context.Context, *MsgChallengeProvisionalFact) (*MsgChallengeProvisionalFactResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChallengeProvisionalFact not implemented")
@@ -1236,6 +1260,24 @@ func _Msg_RegisterStratum_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).RegisterStratum(ctx, req.(*MsgRegisterStratum))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_PostConjecture_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgPostConjecture)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).PostConjecture(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_PostConjecture_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).PostConjecture(ctx, req.(*MsgPostConjecture))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1974,6 +2016,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterStratum",
 			Handler:    _Msg_RegisterStratum_Handler,
+		},
+		{
+			MethodName: "PostConjecture",
+			Handler:    _Msg_PostConjecture_Handler,
 		},
 		{
 			MethodName: "ChallengeProvisionalFact",

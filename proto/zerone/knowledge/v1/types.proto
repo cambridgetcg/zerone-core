@@ -67,6 +67,13 @@ enum ClaimType {
   CLAIM_TYPE_NEGATION    = 5;  // "X is NOT true" — explicit falsity marker
   CLAIM_TYPE_OBSERVATION = 6;  // "X was observed at time/place" — empirical data point
   CLAIM_TYPE_COMPUTATIONAL = 7;  // Derived from computation/inference — agent specialty
+  // "X might be true, and here is what would kill it" — a conjecture.
+  // Asserts nothing. Enters the graph at FACT_STATUS_PROVISIONAL with
+  // confidence 0, carries no relations, cannot be cited, and earns its
+  // submitter nothing. The panel that adjudicates a conjecture is asked
+  // whether it is WELL-POSED AND FALSIFIABLE, not whether it is true.
+  // The only paid act against it is MsgChallengeProvisionalFact.
+  CLAIM_TYPE_CONJECTURE = 8;
 }
 
 // RelationType defines how one fact relates to another.
@@ -335,6 +342,14 @@ message Fact {
   // confidence, or already recently challenged). An invitation expires
   // when the fact's status/confidence changes or the heartbeat re-invites.
   uint64 probe_invited_at_block = 74;
+
+  // ─── Conjecture (frontier) ─────────────────────────────────────────────
+  // For facts born from CLAIM_TYPE_CONJECTURE: the observation that would
+  // falsify this conjecture, carried forward from the claim so a prospective
+  // refuter knows exactly what target they are shooting at. Empty on every
+  // ordinary fact. A non-empty predicate on a PROVISIONAL fact is the
+  // chain's standing invitation to destroy it.
+  string falsification_predicate = 75;
 }
 
 // CurriculumTier orders training examples by difficulty and foundational depth.
@@ -705,6 +720,11 @@ message Claim {
   // partnership) formally rebuts a challenge. Stored on the challenge claim
   // so the full dispute is reconstructible from one record.
   string rebuttal_text       = 23;
+  // For CLAIM_TYPE_CONJECTURE only: the observation that would falsify this
+  // conjecture. This is what the verification panel adjudicates — a
+  // conjecture with no stated killer is not well-posed and must be returned
+  // MALFORMED. Empty for every other claim type.
+  string falsification_predicate = 24;
 }
 
 // VerificationRound tracks one commit-reveal verification cycle.

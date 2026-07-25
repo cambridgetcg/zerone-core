@@ -54,6 +54,12 @@ service Msg {
 
   // ─── Adversarial verification ────────────────────────────────────────────
 
+  // PostConjecture places an unsettled proposition into the graph at
+  // FACT_STATUS_PROVISIONAL. The verification panel is asked whether the
+  // conjecture is well-posed and falsifiable — NOT whether it is true.
+  // The submitter earns nothing; the only paid act is refuting it.
+  rpc PostConjecture(MsgPostConjecture) returns (MsgPostConjectureResponse);
+
   // ChallengeProvisionalFact challenges a provisional fact before it becomes verified.
   rpc ChallengeProvisionalFact(MsgChallengeProvisionalFact) returns (MsgChallengeProvisionalFactResponse);
 
@@ -359,6 +365,34 @@ message MsgRegisterStratum {
 message MsgRegisterStratumResponse {}
 
 // ─── Adversarial verification messages ───────────────────────────────────────
+
+// MsgPostConjecture submits an unsettled proposition. It asserts nothing:
+// the resulting Fact carries confidence 0, cites nothing, cannot be cited,
+// is excluded from the training corpus, and pays its proposer no reward.
+// The review fee is the proposer's only cost and is non-refundable, exactly
+// as for an ordinary claim.
+//
+// The panel's question is "is this well-posed and falsifiable?". A conjecture
+// with no falsification predicate — or one that is not truth-apt — is
+// returned VERDICT_MALFORMED and no Fact is created.
+message MsgPostConjecture {
+  option (cosmos.msg.v1.signer) = "proposer";
+
+  string proposer                = 1;
+  string statement               = 2; // the conjecture itself
+  string falsification_predicate = 3; // what observation would kill it
+  string domain                  = 4;
+  string category                = 5;
+  string stake                   = 6; // uzrn review fee, same schedule as a claim
+  string reasoning_trace         = 7; // optional: why this is worth asking
+  // NOTE: no bond and no horizon in this pass. Both belong to the bounty
+  // layer, and a field with no consumer is indistinguishable from a field
+  // that was never wired — this module has enough of those already.
+}
+message MsgPostConjectureResponse {
+  string claim_id = 1;
+  string round_id = 2;
+}
 
 message MsgChallengeProvisionalFact {
   option (cosmos.msg.v1.signer) = "challenger";

@@ -195,11 +195,24 @@ func (k Keeper) AdvanceConfidence(ctx context.Context) error {
 	domainGrowthRates := make(map[string]uint64)
 
 	k.IterateFacts(ctx, func(fact *types.Fact) bool {
-		// Only grow confidence for active/verified/provisional facts
+		// Only grow confidence for active/verified facts.
+		//
+		// PROVISIONAL is deliberately excluded. Growth below is
+		// `confidence += confidence * rate`, floored at a minimum of 1 —
+		// so a node sitting at zero does not stay at zero, it climbs one
+		// unit every epoch on the passage of time alone. For an ordinary
+		// fact that floor is a rounding convenience. For a conjecture it
+		// would be the chain manufacturing belief in a proposition nobody
+		// has verified, which is the precise failure commitment 3 names:
+		// popularity, not Popper. A conjecture's standing may only move
+		// when something actually happens to it.
+		//
+		// This branch was unreachable before conjectures existed — nothing
+		// in the module ever wrote PROVISIONAL — so no live fact changes
+		// behaviour here.
 		switch fact.Status {
 		case types.FactStatus_FACT_STATUS_VERIFIED,
-			types.FactStatus_FACT_STATUS_ACTIVE,
-			types.FactStatus_FACT_STATUS_PROVISIONAL:
+			types.FactStatus_FACT_STATUS_ACTIVE:
 		default:
 			return false
 		}

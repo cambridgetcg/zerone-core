@@ -1320,6 +1320,159 @@ func (*MsgRegisterStratumResponse) Descriptor() ([]byte, []int) {
 	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{21}
 }
 
+// MsgPostConjecture submits an unsettled proposition. It asserts nothing:
+// the resulting Fact carries confidence 0, cites nothing, cannot be cited,
+// is excluded from the training corpus, and pays its proposer no reward.
+// The review fee is the proposer's only cost and is non-refundable, exactly
+// as for an ordinary claim.
+//
+// The panel's question is "is this well-posed and falsifiable?". A conjecture
+// with no falsification predicate — or one that is not truth-apt — is
+// returned VERDICT_MALFORMED and no Fact is created.
+type MsgPostConjecture struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Proposer               string                 `protobuf:"bytes,1,opt,name=proposer,proto3" json:"proposer,omitempty"`
+	Statement              string                 `protobuf:"bytes,2,opt,name=statement,proto3" json:"statement,omitempty"`                                                         // the conjecture itself
+	FalsificationPredicate string                 `protobuf:"bytes,3,opt,name=falsification_predicate,json=falsificationPredicate,proto3" json:"falsification_predicate,omitempty"` // what observation would kill it
+	Domain                 string                 `protobuf:"bytes,4,opt,name=domain,proto3" json:"domain,omitempty"`
+	Category               string                 `protobuf:"bytes,5,opt,name=category,proto3" json:"category,omitempty"`
+	Stake                  string                 `protobuf:"bytes,6,opt,name=stake,proto3" json:"stake,omitempty"`                                         // uzrn review fee, same schedule as a claim
+	ReasoningTrace         string                 `protobuf:"bytes,7,opt,name=reasoning_trace,json=reasoningTrace,proto3" json:"reasoning_trace,omitempty"` // optional: why this is worth asking
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *MsgPostConjecture) Reset() {
+	*x = MsgPostConjecture{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgPostConjecture) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgPostConjecture) ProtoMessage() {}
+
+func (x *MsgPostConjecture) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgPostConjecture.ProtoReflect.Descriptor instead.
+func (*MsgPostConjecture) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *MsgPostConjecture) GetProposer() string {
+	if x != nil {
+		return x.Proposer
+	}
+	return ""
+}
+
+func (x *MsgPostConjecture) GetStatement() string {
+	if x != nil {
+		return x.Statement
+	}
+	return ""
+}
+
+func (x *MsgPostConjecture) GetFalsificationPredicate() string {
+	if x != nil {
+		return x.FalsificationPredicate
+	}
+	return ""
+}
+
+func (x *MsgPostConjecture) GetDomain() string {
+	if x != nil {
+		return x.Domain
+	}
+	return ""
+}
+
+func (x *MsgPostConjecture) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *MsgPostConjecture) GetStake() string {
+	if x != nil {
+		return x.Stake
+	}
+	return ""
+}
+
+func (x *MsgPostConjecture) GetReasoningTrace() string {
+	if x != nil {
+		return x.ReasoningTrace
+	}
+	return ""
+}
+
+type MsgPostConjectureResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClaimId       string                 `protobuf:"bytes,1,opt,name=claim_id,json=claimId,proto3" json:"claim_id,omitempty"`
+	RoundId       string                 `protobuf:"bytes,2,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgPostConjectureResponse) Reset() {
+	*x = MsgPostConjectureResponse{}
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgPostConjectureResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgPostConjectureResponse) ProtoMessage() {}
+
+func (x *MsgPostConjectureResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgPostConjectureResponse.ProtoReflect.Descriptor instead.
+func (*MsgPostConjectureResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *MsgPostConjectureResponse) GetClaimId() string {
+	if x != nil {
+		return x.ClaimId
+	}
+	return ""
+}
+
+func (x *MsgPostConjectureResponse) GetRoundId() string {
+	if x != nil {
+		return x.RoundId
+	}
+	return ""
+}
+
 type MsgChallengeProvisionalFact struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Challenger    string                 `protobuf:"bytes,1,opt,name=challenger,proto3" json:"challenger,omitempty"`
@@ -1335,7 +1488,7 @@ type MsgChallengeProvisionalFact struct {
 
 func (x *MsgChallengeProvisionalFact) Reset() {
 	*x = MsgChallengeProvisionalFact{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[22]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1347,7 +1500,7 @@ func (x *MsgChallengeProvisionalFact) String() string {
 func (*MsgChallengeProvisionalFact) ProtoMessage() {}
 
 func (x *MsgChallengeProvisionalFact) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[22]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1360,7 +1513,7 @@ func (x *MsgChallengeProvisionalFact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgChallengeProvisionalFact.ProtoReflect.Descriptor instead.
 func (*MsgChallengeProvisionalFact) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{22}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *MsgChallengeProvisionalFact) GetChallenger() string {
@@ -1421,7 +1574,7 @@ type MsgChallengeProvisionalFactResponse struct {
 
 func (x *MsgChallengeProvisionalFactResponse) Reset() {
 	*x = MsgChallengeProvisionalFactResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[23]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1433,7 +1586,7 @@ func (x *MsgChallengeProvisionalFactResponse) String() string {
 func (*MsgChallengeProvisionalFactResponse) ProtoMessage() {}
 
 func (x *MsgChallengeProvisionalFactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[23]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1446,7 +1599,7 @@ func (x *MsgChallengeProvisionalFactResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use MsgChallengeProvisionalFactResponse.ProtoReflect.Descriptor instead.
 func (*MsgChallengeProvisionalFactResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{23}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *MsgChallengeProvisionalFactResponse) GetChallengeId() string {
@@ -1466,7 +1619,7 @@ type MsgUpdateParams struct {
 
 func (x *MsgUpdateParams) Reset() {
 	*x = MsgUpdateParams{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[24]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1478,7 +1631,7 @@ func (x *MsgUpdateParams) String() string {
 func (*MsgUpdateParams) ProtoMessage() {}
 
 func (x *MsgUpdateParams) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[24]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1491,7 +1644,7 @@ func (x *MsgUpdateParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateParams.ProtoReflect.Descriptor instead.
 func (*MsgUpdateParams) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{24}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *MsgUpdateParams) GetAuthority() string {
@@ -1516,7 +1669,7 @@ type MsgUpdateParamsResponse struct {
 
 func (x *MsgUpdateParamsResponse) Reset() {
 	*x = MsgUpdateParamsResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[25]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1528,7 +1681,7 @@ func (x *MsgUpdateParamsResponse) String() string {
 func (*MsgUpdateParamsResponse) ProtoMessage() {}
 
 func (x *MsgUpdateParamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[25]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1541,7 +1694,7 @@ func (x *MsgUpdateParamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateParamsResponse.ProtoReflect.Descriptor instead.
 func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{25}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{27}
 }
 
 type MsgUpdateExtendedParams struct {
@@ -1554,7 +1707,7 @@ type MsgUpdateExtendedParams struct {
 
 func (x *MsgUpdateExtendedParams) Reset() {
 	*x = MsgUpdateExtendedParams{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[26]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1566,7 +1719,7 @@ func (x *MsgUpdateExtendedParams) String() string {
 func (*MsgUpdateExtendedParams) ProtoMessage() {}
 
 func (x *MsgUpdateExtendedParams) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[26]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1579,7 +1732,7 @@ func (x *MsgUpdateExtendedParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateExtendedParams.ProtoReflect.Descriptor instead.
 func (*MsgUpdateExtendedParams) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{26}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MsgUpdateExtendedParams) GetAuthority() string {
@@ -1604,7 +1757,7 @@ type MsgUpdateExtendedParamsResponse struct {
 
 func (x *MsgUpdateExtendedParamsResponse) Reset() {
 	*x = MsgUpdateExtendedParamsResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[27]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1616,7 +1769,7 @@ func (x *MsgUpdateExtendedParamsResponse) String() string {
 func (*MsgUpdateExtendedParamsResponse) ProtoMessage() {}
 
 func (x *MsgUpdateExtendedParamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[27]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1629,7 +1782,7 @@ func (x *MsgUpdateExtendedParamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateExtendedParamsResponse.ProtoReflect.Descriptor instead.
 func (*MsgUpdateExtendedParamsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{27}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{29}
 }
 
 type MsgProposeResearchFund struct {
@@ -1646,7 +1799,7 @@ type MsgProposeResearchFund struct {
 
 func (x *MsgProposeResearchFund) Reset() {
 	*x = MsgProposeResearchFund{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[28]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1658,7 +1811,7 @@ func (x *MsgProposeResearchFund) String() string {
 func (*MsgProposeResearchFund) ProtoMessage() {}
 
 func (x *MsgProposeResearchFund) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[28]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1671,7 +1824,7 @@ func (x *MsgProposeResearchFund) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgProposeResearchFund.ProtoReflect.Descriptor instead.
 func (*MsgProposeResearchFund) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{28}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *MsgProposeResearchFund) GetProposer() string {
@@ -1725,7 +1878,7 @@ type MsgProposeResearchFundResponse struct {
 
 func (x *MsgProposeResearchFundResponse) Reset() {
 	*x = MsgProposeResearchFundResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[29]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1737,7 +1890,7 @@ func (x *MsgProposeResearchFundResponse) String() string {
 func (*MsgProposeResearchFundResponse) ProtoMessage() {}
 
 func (x *MsgProposeResearchFundResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[29]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1750,7 +1903,7 @@ func (x *MsgProposeResearchFundResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgProposeResearchFundResponse.ProtoReflect.Descriptor instead.
 func (*MsgProposeResearchFundResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{29}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *MsgProposeResearchFundResponse) GetProposalId() string {
@@ -1771,7 +1924,7 @@ type MsgVoteResearchProposal struct {
 
 func (x *MsgVoteResearchProposal) Reset() {
 	*x = MsgVoteResearchProposal{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[30]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1783,7 +1936,7 @@ func (x *MsgVoteResearchProposal) String() string {
 func (*MsgVoteResearchProposal) ProtoMessage() {}
 
 func (x *MsgVoteResearchProposal) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[30]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1796,7 +1949,7 @@ func (x *MsgVoteResearchProposal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgVoteResearchProposal.ProtoReflect.Descriptor instead.
 func (*MsgVoteResearchProposal) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{30}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *MsgVoteResearchProposal) GetVoter() string {
@@ -1828,7 +1981,7 @@ type MsgVoteResearchProposalResponse struct {
 
 func (x *MsgVoteResearchProposalResponse) Reset() {
 	*x = MsgVoteResearchProposalResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[31]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1840,7 +1993,7 @@ func (x *MsgVoteResearchProposalResponse) String() string {
 func (*MsgVoteResearchProposalResponse) ProtoMessage() {}
 
 func (x *MsgVoteResearchProposalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[31]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1853,7 +2006,7 @@ func (x *MsgVoteResearchProposalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgVoteResearchProposalResponse.ProtoReflect.Descriptor instead.
 func (*MsgVoteResearchProposalResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{31}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{33}
 }
 
 type MsgExecuteResearchProposal struct {
@@ -1866,7 +2019,7 @@ type MsgExecuteResearchProposal struct {
 
 func (x *MsgExecuteResearchProposal) Reset() {
 	*x = MsgExecuteResearchProposal{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[32]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1878,7 +2031,7 @@ func (x *MsgExecuteResearchProposal) String() string {
 func (*MsgExecuteResearchProposal) ProtoMessage() {}
 
 func (x *MsgExecuteResearchProposal) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[32]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1891,7 +2044,7 @@ func (x *MsgExecuteResearchProposal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgExecuteResearchProposal.ProtoReflect.Descriptor instead.
 func (*MsgExecuteResearchProposal) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{32}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *MsgExecuteResearchProposal) GetAuthority() string {
@@ -1916,7 +2069,7 @@ type MsgExecuteResearchProposalResponse struct {
 
 func (x *MsgExecuteResearchProposalResponse) Reset() {
 	*x = MsgExecuteResearchProposalResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[33]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1928,7 +2081,7 @@ func (x *MsgExecuteResearchProposalResponse) String() string {
 func (*MsgExecuteResearchProposalResponse) ProtoMessage() {}
 
 func (x *MsgExecuteResearchProposalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[33]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1941,7 +2094,7 @@ func (x *MsgExecuteResearchProposalResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use MsgExecuteResearchProposalResponse.ProtoReflect.Descriptor instead.
 func (*MsgExecuteResearchProposalResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{33}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{35}
 }
 
 type MsgAddCommonKnowledge struct {
@@ -1957,7 +2110,7 @@ type MsgAddCommonKnowledge struct {
 
 func (x *MsgAddCommonKnowledge) Reset() {
 	*x = MsgAddCommonKnowledge{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[34]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1969,7 +2122,7 @@ func (x *MsgAddCommonKnowledge) String() string {
 func (*MsgAddCommonKnowledge) ProtoMessage() {}
 
 func (x *MsgAddCommonKnowledge) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[34]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1982,7 +2135,7 @@ func (x *MsgAddCommonKnowledge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAddCommonKnowledge.ProtoReflect.Descriptor instead.
 func (*MsgAddCommonKnowledge) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{34}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *MsgAddCommonKnowledge) GetAuthority() string {
@@ -2029,7 +2182,7 @@ type MsgAddCommonKnowledgeResponse struct {
 
 func (x *MsgAddCommonKnowledgeResponse) Reset() {
 	*x = MsgAddCommonKnowledgeResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[35]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2041,7 +2194,7 @@ func (x *MsgAddCommonKnowledgeResponse) String() string {
 func (*MsgAddCommonKnowledgeResponse) ProtoMessage() {}
 
 func (x *MsgAddCommonKnowledgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[35]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2054,7 +2207,7 @@ func (x *MsgAddCommonKnowledgeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAddCommonKnowledgeResponse.ProtoReflect.Descriptor instead.
 func (*MsgAddCommonKnowledgeResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{35}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *MsgAddCommonKnowledgeResponse) GetId() string {
@@ -2074,7 +2227,7 @@ type MsgRemoveCommonKnowledge struct {
 
 func (x *MsgRemoveCommonKnowledge) Reset() {
 	*x = MsgRemoveCommonKnowledge{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[36]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2086,7 +2239,7 @@ func (x *MsgRemoveCommonKnowledge) String() string {
 func (*MsgRemoveCommonKnowledge) ProtoMessage() {}
 
 func (x *MsgRemoveCommonKnowledge) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[36]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2099,7 +2252,7 @@ func (x *MsgRemoveCommonKnowledge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRemoveCommonKnowledge.ProtoReflect.Descriptor instead.
 func (*MsgRemoveCommonKnowledge) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{36}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *MsgRemoveCommonKnowledge) GetAuthority() string {
@@ -2124,7 +2277,7 @@ type MsgRemoveCommonKnowledgeResponse struct {
 
 func (x *MsgRemoveCommonKnowledgeResponse) Reset() {
 	*x = MsgRemoveCommonKnowledgeResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[37]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2136,7 +2289,7 @@ func (x *MsgRemoveCommonKnowledgeResponse) String() string {
 func (*MsgRemoveCommonKnowledgeResponse) ProtoMessage() {}
 
 func (x *MsgRemoveCommonKnowledgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[37]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2149,7 +2302,7 @@ func (x *MsgRemoveCommonKnowledgeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRemoveCommonKnowledgeResponse.ProtoReflect.Descriptor instead.
 func (*MsgRemoveCommonKnowledgeResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{37}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{39}
 }
 
 type MsgReportDemand struct {
@@ -2162,7 +2315,7 @@ type MsgReportDemand struct {
 
 func (x *MsgReportDemand) Reset() {
 	*x = MsgReportDemand{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[38]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2174,7 +2327,7 @@ func (x *MsgReportDemand) String() string {
 func (*MsgReportDemand) ProtoMessage() {}
 
 func (x *MsgReportDemand) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[38]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2187,7 +2340,7 @@ func (x *MsgReportDemand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgReportDemand.ProtoReflect.Descriptor instead.
 func (*MsgReportDemand) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{38}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *MsgReportDemand) GetReporter() string {
@@ -2217,7 +2370,7 @@ type DemandReport struct {
 
 func (x *DemandReport) Reset() {
 	*x = DemandReport{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[39]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2229,7 +2382,7 @@ func (x *DemandReport) String() string {
 func (*DemandReport) ProtoMessage() {}
 
 func (x *DemandReport) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[39]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2242,7 +2395,7 @@ func (x *DemandReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DemandReport.ProtoReflect.Descriptor instead.
 func (*DemandReport) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{39}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *DemandReport) GetDomain() string {
@@ -2288,7 +2441,7 @@ type MsgReportDemandResponse struct {
 
 func (x *MsgReportDemandResponse) Reset() {
 	*x = MsgReportDemandResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[40]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2300,7 +2453,7 @@ func (x *MsgReportDemandResponse) String() string {
 func (*MsgReportDemandResponse) ProtoMessage() {}
 
 func (x *MsgReportDemandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[40]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2313,7 +2466,7 @@ func (x *MsgReportDemandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgReportDemandResponse.ProtoReflect.Descriptor instead.
 func (*MsgReportDemandResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{40}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{42}
 }
 
 // MsgRateFact allows a querier to provide relevance feedback on a fact.
@@ -2330,7 +2483,7 @@ type MsgRateFact struct {
 
 func (x *MsgRateFact) Reset() {
 	*x = MsgRateFact{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[41]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2342,7 +2495,7 @@ func (x *MsgRateFact) String() string {
 func (*MsgRateFact) ProtoMessage() {}
 
 func (x *MsgRateFact) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[41]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2355,7 +2508,7 @@ func (x *MsgRateFact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRateFact.ProtoReflect.Descriptor instead.
 func (*MsgRateFact) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{41}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *MsgRateFact) GetRater() string {
@@ -2394,7 +2547,7 @@ type MsgRateFactResponse struct {
 
 func (x *MsgRateFactResponse) Reset() {
 	*x = MsgRateFactResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[42]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2406,7 +2559,7 @@ func (x *MsgRateFactResponse) String() string {
 func (*MsgRateFactResponse) ProtoMessage() {}
 
 func (x *MsgRateFactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[42]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2419,7 +2572,7 @@ func (x *MsgRateFactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRateFactResponse.ProtoReflect.Descriptor instead.
 func (*MsgRateFactResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{42}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{44}
 }
 
 type MsgRegisterTrainingPipeline struct {
@@ -2438,7 +2591,7 @@ type MsgRegisterTrainingPipeline struct {
 
 func (x *MsgRegisterTrainingPipeline) Reset() {
 	*x = MsgRegisterTrainingPipeline{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[43]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2450,7 +2603,7 @@ func (x *MsgRegisterTrainingPipeline) String() string {
 func (*MsgRegisterTrainingPipeline) ProtoMessage() {}
 
 func (x *MsgRegisterTrainingPipeline) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[43]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2463,7 +2616,7 @@ func (x *MsgRegisterTrainingPipeline) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRegisterTrainingPipeline.ProtoReflect.Descriptor instead.
 func (*MsgRegisterTrainingPipeline) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{43}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *MsgRegisterTrainingPipeline) GetOperator() string {
@@ -2530,7 +2683,7 @@ type MsgRegisterTrainingPipelineResponse struct {
 
 func (x *MsgRegisterTrainingPipelineResponse) Reset() {
 	*x = MsgRegisterTrainingPipelineResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[44]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2542,7 +2695,7 @@ func (x *MsgRegisterTrainingPipelineResponse) String() string {
 func (*MsgRegisterTrainingPipelineResponse) ProtoMessage() {}
 
 func (x *MsgRegisterTrainingPipelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[44]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2555,7 +2708,7 @@ func (x *MsgRegisterTrainingPipelineResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use MsgRegisterTrainingPipelineResponse.ProtoReflect.Descriptor instead.
 func (*MsgRegisterTrainingPipelineResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{44}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{46}
 }
 
 type MsgUpdateTrainingPipeline struct {
@@ -2571,7 +2724,7 @@ type MsgUpdateTrainingPipeline struct {
 
 func (x *MsgUpdateTrainingPipeline) Reset() {
 	*x = MsgUpdateTrainingPipeline{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[45]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2583,7 +2736,7 @@ func (x *MsgUpdateTrainingPipeline) String() string {
 func (*MsgUpdateTrainingPipeline) ProtoMessage() {}
 
 func (x *MsgUpdateTrainingPipeline) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[45]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2596,7 +2749,7 @@ func (x *MsgUpdateTrainingPipeline) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateTrainingPipeline.ProtoReflect.Descriptor instead.
 func (*MsgUpdateTrainingPipeline) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{45}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *MsgUpdateTrainingPipeline) GetOperator() string {
@@ -2635,7 +2788,7 @@ type MsgUpdateTrainingPipelineResponse struct {
 
 func (x *MsgUpdateTrainingPipelineResponse) Reset() {
 	*x = MsgUpdateTrainingPipelineResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[46]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2647,7 +2800,7 @@ func (x *MsgUpdateTrainingPipelineResponse) String() string {
 func (*MsgUpdateTrainingPipelineResponse) ProtoMessage() {}
 
 func (x *MsgUpdateTrainingPipelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[46]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2660,7 +2813,7 @@ func (x *MsgUpdateTrainingPipelineResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use MsgUpdateTrainingPipelineResponse.ProtoReflect.Descriptor instead.
 func (*MsgUpdateTrainingPipelineResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{46}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{48}
 }
 
 type MsgRegisterModelCard struct {
@@ -2683,7 +2836,7 @@ type MsgRegisterModelCard struct {
 
 func (x *MsgRegisterModelCard) Reset() {
 	*x = MsgRegisterModelCard{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[47]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2695,7 +2848,7 @@ func (x *MsgRegisterModelCard) String() string {
 func (*MsgRegisterModelCard) ProtoMessage() {}
 
 func (x *MsgRegisterModelCard) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[47]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2708,7 +2861,7 @@ func (x *MsgRegisterModelCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRegisterModelCard.ProtoReflect.Descriptor instead.
 func (*MsgRegisterModelCard) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{47}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *MsgRegisterModelCard) GetOwner() string {
@@ -2803,7 +2956,7 @@ type MsgRegisterModelCardResponse struct {
 
 func (x *MsgRegisterModelCardResponse) Reset() {
 	*x = MsgRegisterModelCardResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[48]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2815,7 +2968,7 @@ func (x *MsgRegisterModelCardResponse) String() string {
 func (*MsgRegisterModelCardResponse) ProtoMessage() {}
 
 func (x *MsgRegisterModelCardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[48]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2828,7 +2981,7 @@ func (x *MsgRegisterModelCardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRegisterModelCardResponse.ProtoReflect.Descriptor instead.
 func (*MsgRegisterModelCardResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{48}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{50}
 }
 
 type MsgUpdateModelCard struct {
@@ -2845,7 +2998,7 @@ type MsgUpdateModelCard struct {
 
 func (x *MsgUpdateModelCard) Reset() {
 	*x = MsgUpdateModelCard{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[49]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2857,7 +3010,7 @@ func (x *MsgUpdateModelCard) String() string {
 func (*MsgUpdateModelCard) ProtoMessage() {}
 
 func (x *MsgUpdateModelCard) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[49]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2870,7 +3023,7 @@ func (x *MsgUpdateModelCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateModelCard.ProtoReflect.Descriptor instead.
 func (*MsgUpdateModelCard) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{49}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *MsgUpdateModelCard) GetOwner() string {
@@ -2923,7 +3076,7 @@ type MsgUpdateModelCardResponse struct {
 
 func (x *MsgUpdateModelCardResponse) Reset() {
 	*x = MsgUpdateModelCardResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[50]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2935,7 +3088,7 @@ func (x *MsgUpdateModelCardResponse) String() string {
 func (*MsgUpdateModelCardResponse) ProtoMessage() {}
 
 func (x *MsgUpdateModelCardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[50]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2948,7 +3101,7 @@ func (x *MsgUpdateModelCardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateModelCardResponse.ProtoReflect.Descriptor instead.
 func (*MsgUpdateModelCardResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{50}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{52}
 }
 
 type MsgRetireModelCard struct {
@@ -2962,7 +3115,7 @@ type MsgRetireModelCard struct {
 
 func (x *MsgRetireModelCard) Reset() {
 	*x = MsgRetireModelCard{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[51]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2974,7 +3127,7 @@ func (x *MsgRetireModelCard) String() string {
 func (*MsgRetireModelCard) ProtoMessage() {}
 
 func (x *MsgRetireModelCard) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[51]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2987,7 +3140,7 @@ func (x *MsgRetireModelCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRetireModelCard.ProtoReflect.Descriptor instead.
 func (*MsgRetireModelCard) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{51}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *MsgRetireModelCard) GetOwner() string {
@@ -3019,7 +3172,7 @@ type MsgRetireModelCardResponse struct {
 
 func (x *MsgRetireModelCardResponse) Reset() {
 	*x = MsgRetireModelCardResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[52]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3031,7 +3184,7 @@ func (x *MsgRetireModelCardResponse) String() string {
 func (*MsgRetireModelCardResponse) ProtoMessage() {}
 
 func (x *MsgRetireModelCardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[52]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3044,7 +3197,7 @@ func (x *MsgRetireModelCardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRetireModelCardResponse.ProtoReflect.Descriptor instead.
 func (*MsgRetireModelCardResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{52}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{54}
 }
 
 type MsgAmendTokenizerSpec struct {
@@ -3057,7 +3210,7 @@ type MsgAmendTokenizerSpec struct {
 
 func (x *MsgAmendTokenizerSpec) Reset() {
 	*x = MsgAmendTokenizerSpec{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[53]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3069,7 +3222,7 @@ func (x *MsgAmendTokenizerSpec) String() string {
 func (*MsgAmendTokenizerSpec) ProtoMessage() {}
 
 func (x *MsgAmendTokenizerSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[53]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3082,7 +3235,7 @@ func (x *MsgAmendTokenizerSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAmendTokenizerSpec.ProtoReflect.Descriptor instead.
 func (*MsgAmendTokenizerSpec) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{53}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *MsgAmendTokenizerSpec) GetAuthority() string {
@@ -3108,7 +3261,7 @@ type MsgAmendTokenizerSpecResponse struct {
 
 func (x *MsgAmendTokenizerSpecResponse) Reset() {
 	*x = MsgAmendTokenizerSpecResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[54]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3120,7 +3273,7 @@ func (x *MsgAmendTokenizerSpecResponse) String() string {
 func (*MsgAmendTokenizerSpecResponse) ProtoMessage() {}
 
 func (x *MsgAmendTokenizerSpecResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[54]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3133,7 +3286,7 @@ func (x *MsgAmendTokenizerSpecResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAmendTokenizerSpecResponse.ProtoReflect.Descriptor instead.
 func (*MsgAmendTokenizerSpecResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{54}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *MsgAmendTokenizerSpecResponse) GetNewVersion() uint64 {
@@ -3155,7 +3308,7 @@ type MsgAttributeContributions struct {
 
 func (x *MsgAttributeContributions) Reset() {
 	*x = MsgAttributeContributions{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[55]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3167,7 +3320,7 @@ func (x *MsgAttributeContributions) String() string {
 func (*MsgAttributeContributions) ProtoMessage() {}
 
 func (x *MsgAttributeContributions) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[55]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3180,7 +3333,7 @@ func (x *MsgAttributeContributions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAttributeContributions.ProtoReflect.Descriptor instead.
 func (*MsgAttributeContributions) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{55}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *MsgAttributeContributions) GetOwner() string {
@@ -3220,7 +3373,7 @@ type MsgAttributeContributionsResponse struct {
 
 func (x *MsgAttributeContributionsResponse) Reset() {
 	*x = MsgAttributeContributionsResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[56]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3232,7 +3385,7 @@ func (x *MsgAttributeContributionsResponse) String() string {
 func (*MsgAttributeContributionsResponse) ProtoMessage() {}
 
 func (x *MsgAttributeContributionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[56]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3245,7 +3398,7 @@ func (x *MsgAttributeContributionsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use MsgAttributeContributionsResponse.ProtoReflect.Descriptor instead.
 func (*MsgAttributeContributionsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{56}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *MsgAttributeContributionsResponse) GetRecorded() uint32 {
@@ -3270,7 +3423,7 @@ type MsgAttestTraining struct {
 
 func (x *MsgAttestTraining) Reset() {
 	*x = MsgAttestTraining{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[57]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3282,7 +3435,7 @@ func (x *MsgAttestTraining) String() string {
 func (*MsgAttestTraining) ProtoMessage() {}
 
 func (x *MsgAttestTraining) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[57]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3295,7 +3448,7 @@ func (x *MsgAttestTraining) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAttestTraining.ProtoReflect.Descriptor instead.
 func (*MsgAttestTraining) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{57}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *MsgAttestTraining) GetAttester() string {
@@ -3355,7 +3508,7 @@ type MsgAttestTrainingResponse struct {
 
 func (x *MsgAttestTrainingResponse) Reset() {
 	*x = MsgAttestTrainingResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[58]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3367,7 +3520,7 @@ func (x *MsgAttestTrainingResponse) String() string {
 func (*MsgAttestTrainingResponse) ProtoMessage() {}
 
 func (x *MsgAttestTrainingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[58]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3380,7 +3533,7 @@ func (x *MsgAttestTrainingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAttestTrainingResponse.ProtoReflect.Descriptor instead.
 func (*MsgAttestTrainingResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{58}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{60}
 }
 
 type MsgCreateAugmentationBounty struct {
@@ -3398,7 +3551,7 @@ type MsgCreateAugmentationBounty struct {
 
 func (x *MsgCreateAugmentationBounty) Reset() {
 	*x = MsgCreateAugmentationBounty{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[59]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3410,7 +3563,7 @@ func (x *MsgCreateAugmentationBounty) String() string {
 func (*MsgCreateAugmentationBounty) ProtoMessage() {}
 
 func (x *MsgCreateAugmentationBounty) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[59]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3423,7 +3576,7 @@ func (x *MsgCreateAugmentationBounty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgCreateAugmentationBounty.ProtoReflect.Descriptor instead.
 func (*MsgCreateAugmentationBounty) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{59}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *MsgCreateAugmentationBounty) GetSponsor() string {
@@ -3483,7 +3636,7 @@ type MsgCreateAugmentationBountyResponse struct {
 
 func (x *MsgCreateAugmentationBountyResponse) Reset() {
 	*x = MsgCreateAugmentationBountyResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[60]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3495,7 +3648,7 @@ func (x *MsgCreateAugmentationBountyResponse) String() string {
 func (*MsgCreateAugmentationBountyResponse) ProtoMessage() {}
 
 func (x *MsgCreateAugmentationBountyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[60]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3508,7 +3661,7 @@ func (x *MsgCreateAugmentationBountyResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use MsgCreateAugmentationBountyResponse.ProtoReflect.Descriptor instead.
 func (*MsgCreateAugmentationBountyResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{60}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{62}
 }
 
 type MsgSubmitAugmentation struct {
@@ -3525,7 +3678,7 @@ type MsgSubmitAugmentation struct {
 
 func (x *MsgSubmitAugmentation) Reset() {
 	*x = MsgSubmitAugmentation{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[61]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3537,7 +3690,7 @@ func (x *MsgSubmitAugmentation) String() string {
 func (*MsgSubmitAugmentation) ProtoMessage() {}
 
 func (x *MsgSubmitAugmentation) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[61]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3550,7 +3703,7 @@ func (x *MsgSubmitAugmentation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgSubmitAugmentation.ProtoReflect.Descriptor instead.
 func (*MsgSubmitAugmentation) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{61}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *MsgSubmitAugmentation) GetSubmitter() string {
@@ -3603,7 +3756,7 @@ type MsgSubmitAugmentationResponse struct {
 
 func (x *MsgSubmitAugmentationResponse) Reset() {
 	*x = MsgSubmitAugmentationResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[62]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3615,7 +3768,7 @@ func (x *MsgSubmitAugmentationResponse) String() string {
 func (*MsgSubmitAugmentationResponse) ProtoMessage() {}
 
 func (x *MsgSubmitAugmentationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[62]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3628,7 +3781,7 @@ func (x *MsgSubmitAugmentationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgSubmitAugmentationResponse.ProtoReflect.Descriptor instead.
 func (*MsgSubmitAugmentationResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{62}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{64}
 }
 
 type MsgAcceptAugmentation struct {
@@ -3642,7 +3795,7 @@ type MsgAcceptAugmentation struct {
 
 func (x *MsgAcceptAugmentation) Reset() {
 	*x = MsgAcceptAugmentation{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[63]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3654,7 +3807,7 @@ func (x *MsgAcceptAugmentation) String() string {
 func (*MsgAcceptAugmentation) ProtoMessage() {}
 
 func (x *MsgAcceptAugmentation) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[63]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3667,7 +3820,7 @@ func (x *MsgAcceptAugmentation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAcceptAugmentation.ProtoReflect.Descriptor instead.
 func (*MsgAcceptAugmentation) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{63}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *MsgAcceptAugmentation) GetAcceptor() string {
@@ -3699,7 +3852,7 @@ type MsgAcceptAugmentationResponse struct {
 
 func (x *MsgAcceptAugmentationResponse) Reset() {
 	*x = MsgAcceptAugmentationResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[64]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3711,7 +3864,7 @@ func (x *MsgAcceptAugmentationResponse) String() string {
 func (*MsgAcceptAugmentationResponse) ProtoMessage() {}
 
 func (x *MsgAcceptAugmentationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[64]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3724,7 +3877,7 @@ func (x *MsgAcceptAugmentationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAcceptAugmentationResponse.ProtoReflect.Descriptor instead.
 func (*MsgAcceptAugmentationResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{64}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{66}
 }
 
 // ─── Wave 4: reformulation verdicts ───────────────────────────────────────
@@ -3740,7 +3893,7 @@ type MsgVoteOnAugmentation struct {
 
 func (x *MsgVoteOnAugmentation) Reset() {
 	*x = MsgVoteOnAugmentation{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[65]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3752,7 +3905,7 @@ func (x *MsgVoteOnAugmentation) String() string {
 func (*MsgVoteOnAugmentation) ProtoMessage() {}
 
 func (x *MsgVoteOnAugmentation) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[65]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3765,7 +3918,7 @@ func (x *MsgVoteOnAugmentation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgVoteOnAugmentation.ProtoReflect.Descriptor instead.
 func (*MsgVoteOnAugmentation) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{65}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *MsgVoteOnAugmentation) GetVerifier() string {
@@ -3806,7 +3959,7 @@ type MsgVoteOnAugmentationResponse struct {
 
 func (x *MsgVoteOnAugmentationResponse) Reset() {
 	*x = MsgVoteOnAugmentationResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[66]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3818,7 +3971,7 @@ func (x *MsgVoteOnAugmentationResponse) String() string {
 func (*MsgVoteOnAugmentationResponse) ProtoMessage() {}
 
 func (x *MsgVoteOnAugmentationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[66]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3831,7 +3984,7 @@ func (x *MsgVoteOnAugmentationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgVoteOnAugmentationResponse.ProtoReflect.Descriptor instead.
 func (*MsgVoteOnAugmentationResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{66}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *MsgVoteOnAugmentationResponse) GetVerdictFinalized() bool {
@@ -3859,7 +4012,7 @@ type MsgSponsorVetoAugmentation struct {
 
 func (x *MsgSponsorVetoAugmentation) Reset() {
 	*x = MsgSponsorVetoAugmentation{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[67]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3871,7 +4024,7 @@ func (x *MsgSponsorVetoAugmentation) String() string {
 func (*MsgSponsorVetoAugmentation) ProtoMessage() {}
 
 func (x *MsgSponsorVetoAugmentation) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[67]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3884,7 +4037,7 @@ func (x *MsgSponsorVetoAugmentation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgSponsorVetoAugmentation.ProtoReflect.Descriptor instead.
 func (*MsgSponsorVetoAugmentation) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{67}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *MsgSponsorVetoAugmentation) GetSponsor() string {
@@ -3916,7 +4069,7 @@ type MsgSponsorVetoAugmentationResponse struct {
 
 func (x *MsgSponsorVetoAugmentationResponse) Reset() {
 	*x = MsgSponsorVetoAugmentationResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[68]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3928,7 +4081,7 @@ func (x *MsgSponsorVetoAugmentationResponse) String() string {
 func (*MsgSponsorVetoAugmentationResponse) ProtoMessage() {}
 
 func (x *MsgSponsorVetoAugmentationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[68]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3941,7 +4094,7 @@ func (x *MsgSponsorVetoAugmentationResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use MsgSponsorVetoAugmentationResponse.ProtoReflect.Descriptor instead.
 func (*MsgSponsorVetoAugmentationResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{68}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{70}
 }
 
 // ─── Wave 4: attribution challenges ───────────────────────────────────────
@@ -3959,7 +4112,7 @@ type MsgChallengeContribution struct {
 
 func (x *MsgChallengeContribution) Reset() {
 	*x = MsgChallengeContribution{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[69]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3971,7 +4124,7 @@ func (x *MsgChallengeContribution) String() string {
 func (*MsgChallengeContribution) ProtoMessage() {}
 
 func (x *MsgChallengeContribution) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[69]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3984,7 +4137,7 @@ func (x *MsgChallengeContribution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgChallengeContribution.ProtoReflect.Descriptor instead.
 func (*MsgChallengeContribution) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{69}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *MsgChallengeContribution) GetChallenger() string {
@@ -4038,7 +4191,7 @@ type MsgChallengeContributionResponse struct {
 
 func (x *MsgChallengeContributionResponse) Reset() {
 	*x = MsgChallengeContributionResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[70]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4050,7 +4203,7 @@ func (x *MsgChallengeContributionResponse) String() string {
 func (*MsgChallengeContributionResponse) ProtoMessage() {}
 
 func (x *MsgChallengeContributionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[70]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4063,7 +4216,7 @@ func (x *MsgChallengeContributionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgChallengeContributionResponse.ProtoReflect.Descriptor instead.
 func (*MsgChallengeContributionResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{70}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *MsgChallengeContributionResponse) GetBondEscrowed() string {
@@ -4085,7 +4238,7 @@ type MsgResolveContributionChallenge struct {
 
 func (x *MsgResolveContributionChallenge) Reset() {
 	*x = MsgResolveContributionChallenge{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[71]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4097,7 +4250,7 @@ func (x *MsgResolveContributionChallenge) String() string {
 func (*MsgResolveContributionChallenge) ProtoMessage() {}
 
 func (x *MsgResolveContributionChallenge) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[71]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4110,7 +4263,7 @@ func (x *MsgResolveContributionChallenge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgResolveContributionChallenge.ProtoReflect.Descriptor instead.
 func (*MsgResolveContributionChallenge) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{71}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *MsgResolveContributionChallenge) GetResolver() string {
@@ -4150,7 +4303,7 @@ type MsgResolveContributionChallengeResponse struct {
 
 func (x *MsgResolveContributionChallengeResponse) Reset() {
 	*x = MsgResolveContributionChallengeResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[72]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4162,7 +4315,7 @@ func (x *MsgResolveContributionChallengeResponse) String() string {
 func (*MsgResolveContributionChallengeResponse) ProtoMessage() {}
 
 func (x *MsgResolveContributionChallengeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[72]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4175,7 +4328,7 @@ func (x *MsgResolveContributionChallengeResponse) ProtoReflect() protoreflect.Me
 
 // Deprecated: Use MsgResolveContributionChallengeResponse.ProtoReflect.Descriptor instead.
 func (*MsgResolveContributionChallengeResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{72}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *MsgResolveContributionChallengeResponse) GetPayoutToWinner() string {
@@ -4197,7 +4350,7 @@ type MsgClaimTrainingFundDisbursement struct {
 
 func (x *MsgClaimTrainingFundDisbursement) Reset() {
 	*x = MsgClaimTrainingFundDisbursement{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[73]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4209,7 +4362,7 @@ func (x *MsgClaimTrainingFundDisbursement) String() string {
 func (*MsgClaimTrainingFundDisbursement) ProtoMessage() {}
 
 func (x *MsgClaimTrainingFundDisbursement) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[73]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4222,7 +4375,7 @@ func (x *MsgClaimTrainingFundDisbursement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgClaimTrainingFundDisbursement.ProtoReflect.Descriptor instead.
 func (*MsgClaimTrainingFundDisbursement) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{73}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *MsgClaimTrainingFundDisbursement) GetClaimant() string {
@@ -4258,7 +4411,7 @@ type MsgClaimTrainingFundDisbursementResponse struct {
 
 func (x *MsgClaimTrainingFundDisbursementResponse) Reset() {
 	*x = MsgClaimTrainingFundDisbursementResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[74]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4270,7 +4423,7 @@ func (x *MsgClaimTrainingFundDisbursementResponse) String() string {
 func (*MsgClaimTrainingFundDisbursementResponse) ProtoMessage() {}
 
 func (x *MsgClaimTrainingFundDisbursementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[74]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4283,7 +4436,7 @@ func (x *MsgClaimTrainingFundDisbursementResponse) ProtoReflect() protoreflect.M
 
 // Deprecated: Use MsgClaimTrainingFundDisbursementResponse.ProtoReflect.Descriptor instead.
 func (*MsgClaimTrainingFundDisbursementResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{74}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *MsgClaimTrainingFundDisbursementResponse) GetTotalAmount() string {
@@ -4325,7 +4478,7 @@ type MsgAmendTraceSchema struct {
 
 func (x *MsgAmendTraceSchema) Reset() {
 	*x = MsgAmendTraceSchema{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[75]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4337,7 +4490,7 @@ func (x *MsgAmendTraceSchema) String() string {
 func (*MsgAmendTraceSchema) ProtoMessage() {}
 
 func (x *MsgAmendTraceSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[75]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4350,7 +4503,7 @@ func (x *MsgAmendTraceSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAmendTraceSchema.ProtoReflect.Descriptor instead.
 func (*MsgAmendTraceSchema) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{75}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *MsgAmendTraceSchema) GetAuthority() string {
@@ -4376,7 +4529,7 @@ type MsgAmendTraceSchemaResponse struct {
 
 func (x *MsgAmendTraceSchemaResponse) Reset() {
 	*x = MsgAmendTraceSchemaResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[76]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4388,7 +4541,7 @@ func (x *MsgAmendTraceSchemaResponse) String() string {
 func (*MsgAmendTraceSchemaResponse) ProtoMessage() {}
 
 func (x *MsgAmendTraceSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[76]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4401,7 +4554,7 @@ func (x *MsgAmendTraceSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgAmendTraceSchemaResponse.ProtoReflect.Descriptor instead.
 func (*MsgAmendTraceSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{76}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *MsgAmendTraceSchemaResponse) GetNewVersion() uint64 {
@@ -4429,7 +4582,7 @@ type MsgCreateTrainingManifest struct {
 
 func (x *MsgCreateTrainingManifest) Reset() {
 	*x = MsgCreateTrainingManifest{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[77]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4441,7 +4594,7 @@ func (x *MsgCreateTrainingManifest) String() string {
 func (*MsgCreateTrainingManifest) ProtoMessage() {}
 
 func (x *MsgCreateTrainingManifest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[77]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4454,7 +4607,7 @@ func (x *MsgCreateTrainingManifest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgCreateTrainingManifest.ProtoReflect.Descriptor instead.
 func (*MsgCreateTrainingManifest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{77}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *MsgCreateTrainingManifest) GetCreator() string {
@@ -4513,7 +4666,7 @@ type MsgCreateTrainingManifestResponse struct {
 
 func (x *MsgCreateTrainingManifestResponse) Reset() {
 	*x = MsgCreateTrainingManifestResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[78]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4525,7 +4678,7 @@ func (x *MsgCreateTrainingManifestResponse) String() string {
 func (*MsgCreateTrainingManifestResponse) ProtoMessage() {}
 
 func (x *MsgCreateTrainingManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[78]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4538,7 +4691,7 @@ func (x *MsgCreateTrainingManifestResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use MsgCreateTrainingManifestResponse.ProtoReflect.Descriptor instead.
 func (*MsgCreateTrainingManifestResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{78}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *MsgCreateTrainingManifestResponse) GetTotalIncluded() uint32 {
@@ -4593,7 +4746,7 @@ type MsgFinalizeTrainingManifest struct {
 
 func (x *MsgFinalizeTrainingManifest) Reset() {
 	*x = MsgFinalizeTrainingManifest{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[79]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4605,7 +4758,7 @@ func (x *MsgFinalizeTrainingManifest) String() string {
 func (*MsgFinalizeTrainingManifest) ProtoMessage() {}
 
 func (x *MsgFinalizeTrainingManifest) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[79]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4618,7 +4771,7 @@ func (x *MsgFinalizeTrainingManifest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgFinalizeTrainingManifest.ProtoReflect.Descriptor instead.
 func (*MsgFinalizeTrainingManifest) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{79}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *MsgFinalizeTrainingManifest) GetCreator() string {
@@ -4644,7 +4797,7 @@ type MsgFinalizeTrainingManifestResponse struct {
 
 func (x *MsgFinalizeTrainingManifestResponse) Reset() {
 	*x = MsgFinalizeTrainingManifestResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[80]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4656,7 +4809,7 @@ func (x *MsgFinalizeTrainingManifestResponse) String() string {
 func (*MsgFinalizeTrainingManifestResponse) ProtoMessage() {}
 
 func (x *MsgFinalizeTrainingManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[80]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4669,7 +4822,7 @@ func (x *MsgFinalizeTrainingManifestResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use MsgFinalizeTrainingManifestResponse.ProtoReflect.Descriptor instead.
 func (*MsgFinalizeTrainingManifestResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{80}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *MsgFinalizeTrainingManifestResponse) GetMerkleRoot() string {
@@ -4690,7 +4843,7 @@ type MsgBindManifestToAttestation struct {
 
 func (x *MsgBindManifestToAttestation) Reset() {
 	*x = MsgBindManifestToAttestation{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[81]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4702,7 +4855,7 @@ func (x *MsgBindManifestToAttestation) String() string {
 func (*MsgBindManifestToAttestation) ProtoMessage() {}
 
 func (x *MsgBindManifestToAttestation) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[81]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4715,7 +4868,7 @@ func (x *MsgBindManifestToAttestation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgBindManifestToAttestation.ProtoReflect.Descriptor instead.
 func (*MsgBindManifestToAttestation) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{81}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *MsgBindManifestToAttestation) GetCreator() string {
@@ -4747,7 +4900,7 @@ type MsgBindManifestToAttestationResponse struct {
 
 func (x *MsgBindManifestToAttestationResponse) Reset() {
 	*x = MsgBindManifestToAttestationResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[82]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4759,7 +4912,7 @@ func (x *MsgBindManifestToAttestationResponse) String() string {
 func (*MsgBindManifestToAttestationResponse) ProtoMessage() {}
 
 func (x *MsgBindManifestToAttestationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[82]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4772,7 +4925,7 @@ func (x *MsgBindManifestToAttestationResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use MsgBindManifestToAttestationResponse.ProtoReflect.Descriptor instead.
 func (*MsgBindManifestToAttestationResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{82}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{84}
 }
 
 // ─── Route B Wave 11: incident response ──────────────────────────────────
@@ -4794,7 +4947,7 @@ type MsgOpenIncident struct {
 
 func (x *MsgOpenIncident) Reset() {
 	*x = MsgOpenIncident{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[83]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4806,7 +4959,7 @@ func (x *MsgOpenIncident) String() string {
 func (*MsgOpenIncident) ProtoMessage() {}
 
 func (x *MsgOpenIncident) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[83]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4819,7 +4972,7 @@ func (x *MsgOpenIncident) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgOpenIncident.ProtoReflect.Descriptor instead.
 func (*MsgOpenIncident) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{83}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *MsgOpenIncident) GetAuthority() string {
@@ -4887,7 +5040,7 @@ type MsgOpenIncidentResponse struct {
 
 func (x *MsgOpenIncidentResponse) Reset() {
 	*x = MsgOpenIncidentResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[84]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4899,7 +5052,7 @@ func (x *MsgOpenIncidentResponse) String() string {
 func (*MsgOpenIncidentResponse) ProtoMessage() {}
 
 func (x *MsgOpenIncidentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[84]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4912,7 +5065,7 @@ func (x *MsgOpenIncidentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgOpenIncidentResponse.ProtoReflect.Descriptor instead.
 func (*MsgOpenIncidentResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{84}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *MsgOpenIncidentResponse) GetSlaTargetBlock() uint64 {
@@ -4935,7 +5088,7 @@ type MsgRecordRemediation struct {
 
 func (x *MsgRecordRemediation) Reset() {
 	*x = MsgRecordRemediation{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[85]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4947,7 +5100,7 @@ func (x *MsgRecordRemediation) String() string {
 func (*MsgRecordRemediation) ProtoMessage() {}
 
 func (x *MsgRecordRemediation) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[85]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4960,7 +5113,7 @@ func (x *MsgRecordRemediation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRecordRemediation.ProtoReflect.Descriptor instead.
 func (*MsgRecordRemediation) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{85}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *MsgRecordRemediation) GetAuthority() string {
@@ -5007,7 +5160,7 @@ type MsgRecordRemediationResponse struct {
 
 func (x *MsgRecordRemediationResponse) Reset() {
 	*x = MsgRecordRemediationResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[86]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5019,7 +5172,7 @@ func (x *MsgRecordRemediationResponse) String() string {
 func (*MsgRecordRemediationResponse) ProtoMessage() {}
 
 func (x *MsgRecordRemediationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[86]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5032,7 +5185,7 @@ func (x *MsgRecordRemediationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgRecordRemediationResponse.ProtoReflect.Descriptor instead.
 func (*MsgRecordRemediationResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{86}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *MsgRecordRemediationResponse) GetTotalRemediations() uint32 {
@@ -5053,7 +5206,7 @@ type MsgResolveIncident struct {
 
 func (x *MsgResolveIncident) Reset() {
 	*x = MsgResolveIncident{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[87]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5065,7 +5218,7 @@ func (x *MsgResolveIncident) String() string {
 func (*MsgResolveIncident) ProtoMessage() {}
 
 func (x *MsgResolveIncident) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[87]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5078,7 +5231,7 @@ func (x *MsgResolveIncident) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgResolveIncident.ProtoReflect.Descriptor instead.
 func (*MsgResolveIncident) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{87}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *MsgResolveIncident) GetAuthority() string {
@@ -5110,7 +5263,7 @@ type MsgResolveIncidentResponse struct {
 
 func (x *MsgResolveIncidentResponse) Reset() {
 	*x = MsgResolveIncidentResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[88]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5122,7 +5275,7 @@ func (x *MsgResolveIncidentResponse) String() string {
 func (*MsgResolveIncidentResponse) ProtoMessage() {}
 
 func (x *MsgResolveIncidentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[88]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5135,7 +5288,7 @@ func (x *MsgResolveIncidentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgResolveIncidentResponse.ProtoReflect.Descriptor instead.
 func (*MsgResolveIncidentResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{88}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{90}
 }
 
 type MsgCloseIncident struct {
@@ -5148,7 +5301,7 @@ type MsgCloseIncident struct {
 
 func (x *MsgCloseIncident) Reset() {
 	*x = MsgCloseIncident{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[89]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5160,7 +5313,7 @@ func (x *MsgCloseIncident) String() string {
 func (*MsgCloseIncident) ProtoMessage() {}
 
 func (x *MsgCloseIncident) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[89]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5173,7 +5326,7 @@ func (x *MsgCloseIncident) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgCloseIncident.ProtoReflect.Descriptor instead.
 func (*MsgCloseIncident) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{89}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *MsgCloseIncident) GetAuthority() string {
@@ -5198,7 +5351,7 @@ type MsgCloseIncidentResponse struct {
 
 func (x *MsgCloseIncidentResponse) Reset() {
 	*x = MsgCloseIncidentResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[90]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5210,7 +5363,7 @@ func (x *MsgCloseIncidentResponse) String() string {
 func (*MsgCloseIncidentResponse) ProtoMessage() {}
 
 func (x *MsgCloseIncidentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[90]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5223,7 +5376,7 @@ func (x *MsgCloseIncidentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgCloseIncidentResponse.ProtoReflect.Descriptor instead.
 func (*MsgCloseIncidentResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{90}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{92}
 }
 
 // ─── Route B Wave 12: module circuit breakers ────────────────────────────
@@ -5240,7 +5393,7 @@ type MsgPauseModule struct {
 
 func (x *MsgPauseModule) Reset() {
 	*x = MsgPauseModule{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[91]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5252,7 +5405,7 @@ func (x *MsgPauseModule) String() string {
 func (*MsgPauseModule) ProtoMessage() {}
 
 func (x *MsgPauseModule) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[91]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5265,7 +5418,7 @@ func (x *MsgPauseModule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgPauseModule.ProtoReflect.Descriptor instead.
 func (*MsgPauseModule) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{91}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *MsgPauseModule) GetAuthority() string {
@@ -5312,7 +5465,7 @@ type MsgPauseModuleResponse struct {
 
 func (x *MsgPauseModuleResponse) Reset() {
 	*x = MsgPauseModuleResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[92]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5324,7 +5477,7 @@ func (x *MsgPauseModuleResponse) String() string {
 func (*MsgPauseModuleResponse) ProtoMessage() {}
 
 func (x *MsgPauseModuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[92]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5337,7 +5490,7 @@ func (x *MsgPauseModuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgPauseModuleResponse.ProtoReflect.Descriptor instead.
 func (*MsgPauseModuleResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{92}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *MsgPauseModuleResponse) GetPausedAtBlock() uint64 {
@@ -5358,7 +5511,7 @@ type MsgUnpauseModule struct {
 
 func (x *MsgUnpauseModule) Reset() {
 	*x = MsgUnpauseModule{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[93]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5370,7 +5523,7 @@ func (x *MsgUnpauseModule) String() string {
 func (*MsgUnpauseModule) ProtoMessage() {}
 
 func (x *MsgUnpauseModule) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[93]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5383,7 +5536,7 @@ func (x *MsgUnpauseModule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUnpauseModule.ProtoReflect.Descriptor instead.
 func (*MsgUnpauseModule) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{93}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *MsgUnpauseModule) GetAuthority() string {
@@ -5415,7 +5568,7 @@ type MsgUnpauseModuleResponse struct {
 
 func (x *MsgUnpauseModuleResponse) Reset() {
 	*x = MsgUnpauseModuleResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[94]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5427,7 +5580,7 @@ func (x *MsgUnpauseModuleResponse) String() string {
 func (*MsgUnpauseModuleResponse) ProtoMessage() {}
 
 func (x *MsgUnpauseModuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[94]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5440,7 +5593,7 @@ func (x *MsgUnpauseModuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUnpauseModuleResponse.ProtoReflect.Descriptor instead.
 func (*MsgUnpauseModuleResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{94}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{96}
 }
 
 type MsgCorrectManifestMerkleRoot struct {
@@ -5462,7 +5615,7 @@ type MsgCorrectManifestMerkleRoot struct {
 
 func (x *MsgCorrectManifestMerkleRoot) Reset() {
 	*x = MsgCorrectManifestMerkleRoot{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[95]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5474,7 +5627,7 @@ func (x *MsgCorrectManifestMerkleRoot) String() string {
 func (*MsgCorrectManifestMerkleRoot) ProtoMessage() {}
 
 func (x *MsgCorrectManifestMerkleRoot) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[95]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5487,7 +5640,7 @@ func (x *MsgCorrectManifestMerkleRoot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgCorrectManifestMerkleRoot.ProtoReflect.Descriptor instead.
 func (*MsgCorrectManifestMerkleRoot) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{95}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *MsgCorrectManifestMerkleRoot) GetAuthority() string {
@@ -5536,7 +5689,7 @@ type MsgCorrectManifestMerkleRootResponse struct {
 
 func (x *MsgCorrectManifestMerkleRootResponse) Reset() {
 	*x = MsgCorrectManifestMerkleRootResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[96]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5548,7 +5701,7 @@ func (x *MsgCorrectManifestMerkleRootResponse) String() string {
 func (*MsgCorrectManifestMerkleRootResponse) ProtoMessage() {}
 
 func (x *MsgCorrectManifestMerkleRootResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[96]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5561,7 +5714,7 @@ func (x *MsgCorrectManifestMerkleRootResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use MsgCorrectManifestMerkleRootResponse.ProtoReflect.Descriptor instead.
 func (*MsgCorrectManifestMerkleRootResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{96}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *MsgCorrectManifestMerkleRootResponse) GetPriorRoot() string {
@@ -5599,7 +5752,7 @@ type MsgVetoFactInjection struct {
 
 func (x *MsgVetoFactInjection) Reset() {
 	*x = MsgVetoFactInjection{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[97]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5611,7 +5764,7 @@ func (x *MsgVetoFactInjection) String() string {
 func (*MsgVetoFactInjection) ProtoMessage() {}
 
 func (x *MsgVetoFactInjection) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[97]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5624,7 +5777,7 @@ func (x *MsgVetoFactInjection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgVetoFactInjection.ProtoReflect.Descriptor instead.
 func (*MsgVetoFactInjection) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{97}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *MsgVetoFactInjection) GetGuardian() string {
@@ -5656,7 +5809,7 @@ type MsgVetoFactInjectionResponse struct {
 
 func (x *MsgVetoFactInjectionResponse) Reset() {
 	*x = MsgVetoFactInjectionResponse{}
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[98]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5668,7 +5821,7 @@ func (x *MsgVetoFactInjectionResponse) String() string {
 func (*MsgVetoFactInjectionResponse) ProtoMessage() {}
 
 func (x *MsgVetoFactInjectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[98]
+	mi := &file_zerone_knowledge_v1_tx_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5681,7 +5834,7 @@ func (x *MsgVetoFactInjectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgVetoFactInjectionResponse.ProtoReflect.Descriptor instead.
 func (*MsgVetoFactInjectionResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{98}
+	return file_zerone_knowledge_v1_tx_proto_rawDescGZIP(), []int{100}
 }
 
 var File_zerone_knowledge_v1_tx_proto protoreflect.FileDescriptor
@@ -5794,7 +5947,18 @@ const file_zerone_knowledge_v1_tx_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12-\n" +
 	"\x12confidence_ceiling\x18\x04 \x01(\x04R\x11confidenceCeiling\x12#\n" +
 	"\rparent_strata\x18\x05 \x03(\tR\fparentStrata:\x0e\x82\xe7\xb0*\tauthority\"\x1c\n" +
-	"\x1aMsgRegisterStratumResponse\"\xf8\x01\n" +
+	"\x1aMsgRegisterStratumResponse\"\x88\x02\n" +
+	"\x11MsgPostConjecture\x12\x1a\n" +
+	"\bproposer\x18\x01 \x01(\tR\bproposer\x12\x1c\n" +
+	"\tstatement\x18\x02 \x01(\tR\tstatement\x127\n" +
+	"\x17falsification_predicate\x18\x03 \x01(\tR\x16falsificationPredicate\x12\x16\n" +
+	"\x06domain\x18\x04 \x01(\tR\x06domain\x12\x1a\n" +
+	"\bcategory\x18\x05 \x01(\tR\bcategory\x12\x14\n" +
+	"\x05stake\x18\x06 \x01(\tR\x05stake\x12'\n" +
+	"\x0freasoning_trace\x18\a \x01(\tR\x0ereasoningTrace:\r\x82\xe7\xb0*\bproposer\"Q\n" +
+	"\x19MsgPostConjectureResponse\x12\x19\n" +
+	"\bclaim_id\x18\x01 \x01(\tR\aclaimId\x12\x19\n" +
+	"\bround_id\x18\x02 \x01(\tR\aroundId\"\xf8\x01\n" +
 	"\x1bMsgChallengeProvisionalFact\x12\x1e\n" +
 	"\n" +
 	"challenger\x18\x01 \x01(\tR\n" +
@@ -6110,7 +6274,7 @@ const file_zerone_knowledge_v1_tx_proto_rawDesc = "" +
 	"\n" +
 	"pending_id\x18\x02 \x01(\tR\tpendingId\x12\x16\n" +
 	"\x06reason\x18\x03 \x01(\tR\x06reason:\r\x82\xe7\xb0*\bguardian\"\x1e\n" +
-	"\x1cMsgVetoFactInjectionResponse2\x9e-\n" +
+	"\x1cMsgVetoFactInjectionResponse2\x88.\n" +
 	"\x03Msg\x12_\n" +
 	"\vSubmitClaim\x12#.zerone.knowledge.v1.MsgSubmitClaim\x1a+.zerone.knowledge.v1.MsgSubmitClaimResponse\x12n\n" +
 	"\x10SubmitCommitment\x12(.zerone.knowledge.v1.MsgSubmitCommitment\x1a0.zerone.knowledge.v1.MsgSubmitCommitmentResponse\x12b\n" +
@@ -6122,7 +6286,8 @@ const file_zerone_knowledge_v1_tx_proto_rawDesc = "" +
 	"\rProposeDomain\x12%.zerone.knowledge.v1.MsgProposeDomain\x1a-.zerone.knowledge.v1.MsgProposeDomainResponse\x12}\n" +
 	"\x15EndorseDomainProposal\x12-.zerone.knowledge.v1.MsgEndorseDomainProposal\x1a5.zerone.knowledge.v1.MsgEndorseDomainProposalResponse\x12\x83\x01\n" +
 	"\x17ChallengeDomainProposal\x12/.zerone.knowledge.v1.MsgChallengeDomainProposal\x1a7.zerone.knowledge.v1.MsgChallengeDomainProposalResponse\x12k\n" +
-	"\x0fRegisterStratum\x12'.zerone.knowledge.v1.MsgRegisterStratum\x1a/.zerone.knowledge.v1.MsgRegisterStratumResponse\x12\x86\x01\n" +
+	"\x0fRegisterStratum\x12'.zerone.knowledge.v1.MsgRegisterStratum\x1a/.zerone.knowledge.v1.MsgRegisterStratumResponse\x12h\n" +
+	"\x0ePostConjecture\x12&.zerone.knowledge.v1.MsgPostConjecture\x1a..zerone.knowledge.v1.MsgPostConjectureResponse\x12\x86\x01\n" +
 	"\x18ChallengeProvisionalFact\x120.zerone.knowledge.v1.MsgChallengeProvisionalFact\x1a8.zerone.knowledge.v1.MsgChallengeProvisionalFactResponse\x12b\n" +
 	"\fUpdateParams\x12$.zerone.knowledge.v1.MsgUpdateParams\x1a,.zerone.knowledge.v1.MsgUpdateParamsResponse\x12z\n" +
 	"\x14UpdateExtendedParams\x12,.zerone.knowledge.v1.MsgUpdateExtendedParams\x1a4.zerone.knowledge.v1.MsgUpdateExtendedParamsResponse\x12w\n" +
@@ -6174,7 +6339,7 @@ func file_zerone_knowledge_v1_tx_proto_rawDescGZIP() []byte {
 	return file_zerone_knowledge_v1_tx_proto_rawDescData
 }
 
-var file_zerone_knowledge_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 99)
+var file_zerone_knowledge_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 101)
 var file_zerone_knowledge_v1_tx_proto_goTypes = []any{
 	(*MsgSubmitClaim)(nil),                           // 0: zerone.knowledge.v1.MsgSubmitClaim
 	(*MsgSubmitClaimResponse)(nil),                   // 1: zerone.knowledge.v1.MsgSubmitClaimResponse
@@ -6198,107 +6363,109 @@ var file_zerone_knowledge_v1_tx_proto_goTypes = []any{
 	(*MsgChallengeDomainProposalResponse)(nil),       // 19: zerone.knowledge.v1.MsgChallengeDomainProposalResponse
 	(*MsgRegisterStratum)(nil),                       // 20: zerone.knowledge.v1.MsgRegisterStratum
 	(*MsgRegisterStratumResponse)(nil),               // 21: zerone.knowledge.v1.MsgRegisterStratumResponse
-	(*MsgChallengeProvisionalFact)(nil),              // 22: zerone.knowledge.v1.MsgChallengeProvisionalFact
-	(*MsgChallengeProvisionalFactResponse)(nil),      // 23: zerone.knowledge.v1.MsgChallengeProvisionalFactResponse
-	(*MsgUpdateParams)(nil),                          // 24: zerone.knowledge.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),                  // 25: zerone.knowledge.v1.MsgUpdateParamsResponse
-	(*MsgUpdateExtendedParams)(nil),                  // 26: zerone.knowledge.v1.MsgUpdateExtendedParams
-	(*MsgUpdateExtendedParamsResponse)(nil),          // 27: zerone.knowledge.v1.MsgUpdateExtendedParamsResponse
-	(*MsgProposeResearchFund)(nil),                   // 28: zerone.knowledge.v1.MsgProposeResearchFund
-	(*MsgProposeResearchFundResponse)(nil),           // 29: zerone.knowledge.v1.MsgProposeResearchFundResponse
-	(*MsgVoteResearchProposal)(nil),                  // 30: zerone.knowledge.v1.MsgVoteResearchProposal
-	(*MsgVoteResearchProposalResponse)(nil),          // 31: zerone.knowledge.v1.MsgVoteResearchProposalResponse
-	(*MsgExecuteResearchProposal)(nil),               // 32: zerone.knowledge.v1.MsgExecuteResearchProposal
-	(*MsgExecuteResearchProposalResponse)(nil),       // 33: zerone.knowledge.v1.MsgExecuteResearchProposalResponse
-	(*MsgAddCommonKnowledge)(nil),                    // 34: zerone.knowledge.v1.MsgAddCommonKnowledge
-	(*MsgAddCommonKnowledgeResponse)(nil),            // 35: zerone.knowledge.v1.MsgAddCommonKnowledgeResponse
-	(*MsgRemoveCommonKnowledge)(nil),                 // 36: zerone.knowledge.v1.MsgRemoveCommonKnowledge
-	(*MsgRemoveCommonKnowledgeResponse)(nil),         // 37: zerone.knowledge.v1.MsgRemoveCommonKnowledgeResponse
-	(*MsgReportDemand)(nil),                          // 38: zerone.knowledge.v1.MsgReportDemand
-	(*DemandReport)(nil),                             // 39: zerone.knowledge.v1.DemandReport
-	(*MsgReportDemandResponse)(nil),                  // 40: zerone.knowledge.v1.MsgReportDemandResponse
-	(*MsgRateFact)(nil),                              // 41: zerone.knowledge.v1.MsgRateFact
-	(*MsgRateFactResponse)(nil),                      // 42: zerone.knowledge.v1.MsgRateFactResponse
-	(*MsgRegisterTrainingPipeline)(nil),              // 43: zerone.knowledge.v1.MsgRegisterTrainingPipeline
-	(*MsgRegisterTrainingPipelineResponse)(nil),      // 44: zerone.knowledge.v1.MsgRegisterTrainingPipelineResponse
-	(*MsgUpdateTrainingPipeline)(nil),                // 45: zerone.knowledge.v1.MsgUpdateTrainingPipeline
-	(*MsgUpdateTrainingPipelineResponse)(nil),        // 46: zerone.knowledge.v1.MsgUpdateTrainingPipelineResponse
-	(*MsgRegisterModelCard)(nil),                     // 47: zerone.knowledge.v1.MsgRegisterModelCard
-	(*MsgRegisterModelCardResponse)(nil),             // 48: zerone.knowledge.v1.MsgRegisterModelCardResponse
-	(*MsgUpdateModelCard)(nil),                       // 49: zerone.knowledge.v1.MsgUpdateModelCard
-	(*MsgUpdateModelCardResponse)(nil),               // 50: zerone.knowledge.v1.MsgUpdateModelCardResponse
-	(*MsgRetireModelCard)(nil),                       // 51: zerone.knowledge.v1.MsgRetireModelCard
-	(*MsgRetireModelCardResponse)(nil),               // 52: zerone.knowledge.v1.MsgRetireModelCardResponse
-	(*MsgAmendTokenizerSpec)(nil),                    // 53: zerone.knowledge.v1.MsgAmendTokenizerSpec
-	(*MsgAmendTokenizerSpecResponse)(nil),            // 54: zerone.knowledge.v1.MsgAmendTokenizerSpecResponse
-	(*MsgAttributeContributions)(nil),                // 55: zerone.knowledge.v1.MsgAttributeContributions
-	(*MsgAttributeContributionsResponse)(nil),        // 56: zerone.knowledge.v1.MsgAttributeContributionsResponse
-	(*MsgAttestTraining)(nil),                        // 57: zerone.knowledge.v1.MsgAttestTraining
-	(*MsgAttestTrainingResponse)(nil),                // 58: zerone.knowledge.v1.MsgAttestTrainingResponse
-	(*MsgCreateAugmentationBounty)(nil),              // 59: zerone.knowledge.v1.MsgCreateAugmentationBounty
-	(*MsgCreateAugmentationBountyResponse)(nil),      // 60: zerone.knowledge.v1.MsgCreateAugmentationBountyResponse
-	(*MsgSubmitAugmentation)(nil),                    // 61: zerone.knowledge.v1.MsgSubmitAugmentation
-	(*MsgSubmitAugmentationResponse)(nil),            // 62: zerone.knowledge.v1.MsgSubmitAugmentationResponse
-	(*MsgAcceptAugmentation)(nil),                    // 63: zerone.knowledge.v1.MsgAcceptAugmentation
-	(*MsgAcceptAugmentationResponse)(nil),            // 64: zerone.knowledge.v1.MsgAcceptAugmentationResponse
-	(*MsgVoteOnAugmentation)(nil),                    // 65: zerone.knowledge.v1.MsgVoteOnAugmentation
-	(*MsgVoteOnAugmentationResponse)(nil),            // 66: zerone.knowledge.v1.MsgVoteOnAugmentationResponse
-	(*MsgSponsorVetoAugmentation)(nil),               // 67: zerone.knowledge.v1.MsgSponsorVetoAugmentation
-	(*MsgSponsorVetoAugmentationResponse)(nil),       // 68: zerone.knowledge.v1.MsgSponsorVetoAugmentationResponse
-	(*MsgChallengeContribution)(nil),                 // 69: zerone.knowledge.v1.MsgChallengeContribution
-	(*MsgChallengeContributionResponse)(nil),         // 70: zerone.knowledge.v1.MsgChallengeContributionResponse
-	(*MsgResolveContributionChallenge)(nil),          // 71: zerone.knowledge.v1.MsgResolveContributionChallenge
-	(*MsgResolveContributionChallengeResponse)(nil),  // 72: zerone.knowledge.v1.MsgResolveContributionChallengeResponse
-	(*MsgClaimTrainingFundDisbursement)(nil),         // 73: zerone.knowledge.v1.MsgClaimTrainingFundDisbursement
-	(*MsgClaimTrainingFundDisbursementResponse)(nil), // 74: zerone.knowledge.v1.MsgClaimTrainingFundDisbursementResponse
-	(*MsgAmendTraceSchema)(nil),                      // 75: zerone.knowledge.v1.MsgAmendTraceSchema
-	(*MsgAmendTraceSchemaResponse)(nil),              // 76: zerone.knowledge.v1.MsgAmendTraceSchemaResponse
-	(*MsgCreateTrainingManifest)(nil),                // 77: zerone.knowledge.v1.MsgCreateTrainingManifest
-	(*MsgCreateTrainingManifestResponse)(nil),        // 78: zerone.knowledge.v1.MsgCreateTrainingManifestResponse
-	(*MsgFinalizeTrainingManifest)(nil),              // 79: zerone.knowledge.v1.MsgFinalizeTrainingManifest
-	(*MsgFinalizeTrainingManifestResponse)(nil),      // 80: zerone.knowledge.v1.MsgFinalizeTrainingManifestResponse
-	(*MsgBindManifestToAttestation)(nil),             // 81: zerone.knowledge.v1.MsgBindManifestToAttestation
-	(*MsgBindManifestToAttestationResponse)(nil),     // 82: zerone.knowledge.v1.MsgBindManifestToAttestationResponse
-	(*MsgOpenIncident)(nil),                          // 83: zerone.knowledge.v1.MsgOpenIncident
-	(*MsgOpenIncidentResponse)(nil),                  // 84: zerone.knowledge.v1.MsgOpenIncidentResponse
-	(*MsgRecordRemediation)(nil),                     // 85: zerone.knowledge.v1.MsgRecordRemediation
-	(*MsgRecordRemediationResponse)(nil),             // 86: zerone.knowledge.v1.MsgRecordRemediationResponse
-	(*MsgResolveIncident)(nil),                       // 87: zerone.knowledge.v1.MsgResolveIncident
-	(*MsgResolveIncidentResponse)(nil),               // 88: zerone.knowledge.v1.MsgResolveIncidentResponse
-	(*MsgCloseIncident)(nil),                         // 89: zerone.knowledge.v1.MsgCloseIncident
-	(*MsgCloseIncidentResponse)(nil),                 // 90: zerone.knowledge.v1.MsgCloseIncidentResponse
-	(*MsgPauseModule)(nil),                           // 91: zerone.knowledge.v1.MsgPauseModule
-	(*MsgPauseModuleResponse)(nil),                   // 92: zerone.knowledge.v1.MsgPauseModuleResponse
-	(*MsgUnpauseModule)(nil),                         // 93: zerone.knowledge.v1.MsgUnpauseModule
-	(*MsgUnpauseModuleResponse)(nil),                 // 94: zerone.knowledge.v1.MsgUnpauseModuleResponse
-	(*MsgCorrectManifestMerkleRoot)(nil),             // 95: zerone.knowledge.v1.MsgCorrectManifestMerkleRoot
-	(*MsgCorrectManifestMerkleRootResponse)(nil),     // 96: zerone.knowledge.v1.MsgCorrectManifestMerkleRootResponse
-	(*MsgVetoFactInjection)(nil),                     // 97: zerone.knowledge.v1.MsgVetoFactInjection
-	(*MsgVetoFactInjectionResponse)(nil),             // 98: zerone.knowledge.v1.MsgVetoFactInjectionResponse
-	(ClaimType)(0),                                   // 99: zerone.knowledge.v1.ClaimType
-	(*ClaimRelation)(nil),                            // 100: zerone.knowledge.v1.ClaimRelation
-	(*ClaimStructure)(nil),                           // 101: zerone.knowledge.v1.ClaimStructure
-	(*Params)(nil),                                   // 102: zerone.knowledge.v1.Params
-	(*TokenizerSpec)(nil),                            // 103: zerone.knowledge.v1.TokenizerSpec
-	(AugmentationVerdict)(0),                         // 104: zerone.knowledge.v1.AugmentationVerdict
-	(*TraceSchema)(nil),                              // 105: zerone.knowledge.v1.TraceSchema
-	(*CorpusSelector)(nil),                           // 106: zerone.knowledge.v1.CorpusSelector
-	(IncidentSeverity)(0),                            // 107: zerone.knowledge.v1.IncidentSeverity
-	(RemediationType)(0),                             // 108: zerone.knowledge.v1.RemediationType
+	(*MsgPostConjecture)(nil),                        // 22: zerone.knowledge.v1.MsgPostConjecture
+	(*MsgPostConjectureResponse)(nil),                // 23: zerone.knowledge.v1.MsgPostConjectureResponse
+	(*MsgChallengeProvisionalFact)(nil),              // 24: zerone.knowledge.v1.MsgChallengeProvisionalFact
+	(*MsgChallengeProvisionalFactResponse)(nil),      // 25: zerone.knowledge.v1.MsgChallengeProvisionalFactResponse
+	(*MsgUpdateParams)(nil),                          // 26: zerone.knowledge.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),                  // 27: zerone.knowledge.v1.MsgUpdateParamsResponse
+	(*MsgUpdateExtendedParams)(nil),                  // 28: zerone.knowledge.v1.MsgUpdateExtendedParams
+	(*MsgUpdateExtendedParamsResponse)(nil),          // 29: zerone.knowledge.v1.MsgUpdateExtendedParamsResponse
+	(*MsgProposeResearchFund)(nil),                   // 30: zerone.knowledge.v1.MsgProposeResearchFund
+	(*MsgProposeResearchFundResponse)(nil),           // 31: zerone.knowledge.v1.MsgProposeResearchFundResponse
+	(*MsgVoteResearchProposal)(nil),                  // 32: zerone.knowledge.v1.MsgVoteResearchProposal
+	(*MsgVoteResearchProposalResponse)(nil),          // 33: zerone.knowledge.v1.MsgVoteResearchProposalResponse
+	(*MsgExecuteResearchProposal)(nil),               // 34: zerone.knowledge.v1.MsgExecuteResearchProposal
+	(*MsgExecuteResearchProposalResponse)(nil),       // 35: zerone.knowledge.v1.MsgExecuteResearchProposalResponse
+	(*MsgAddCommonKnowledge)(nil),                    // 36: zerone.knowledge.v1.MsgAddCommonKnowledge
+	(*MsgAddCommonKnowledgeResponse)(nil),            // 37: zerone.knowledge.v1.MsgAddCommonKnowledgeResponse
+	(*MsgRemoveCommonKnowledge)(nil),                 // 38: zerone.knowledge.v1.MsgRemoveCommonKnowledge
+	(*MsgRemoveCommonKnowledgeResponse)(nil),         // 39: zerone.knowledge.v1.MsgRemoveCommonKnowledgeResponse
+	(*MsgReportDemand)(nil),                          // 40: zerone.knowledge.v1.MsgReportDemand
+	(*DemandReport)(nil),                             // 41: zerone.knowledge.v1.DemandReport
+	(*MsgReportDemandResponse)(nil),                  // 42: zerone.knowledge.v1.MsgReportDemandResponse
+	(*MsgRateFact)(nil),                              // 43: zerone.knowledge.v1.MsgRateFact
+	(*MsgRateFactResponse)(nil),                      // 44: zerone.knowledge.v1.MsgRateFactResponse
+	(*MsgRegisterTrainingPipeline)(nil),              // 45: zerone.knowledge.v1.MsgRegisterTrainingPipeline
+	(*MsgRegisterTrainingPipelineResponse)(nil),      // 46: zerone.knowledge.v1.MsgRegisterTrainingPipelineResponse
+	(*MsgUpdateTrainingPipeline)(nil),                // 47: zerone.knowledge.v1.MsgUpdateTrainingPipeline
+	(*MsgUpdateTrainingPipelineResponse)(nil),        // 48: zerone.knowledge.v1.MsgUpdateTrainingPipelineResponse
+	(*MsgRegisterModelCard)(nil),                     // 49: zerone.knowledge.v1.MsgRegisterModelCard
+	(*MsgRegisterModelCardResponse)(nil),             // 50: zerone.knowledge.v1.MsgRegisterModelCardResponse
+	(*MsgUpdateModelCard)(nil),                       // 51: zerone.knowledge.v1.MsgUpdateModelCard
+	(*MsgUpdateModelCardResponse)(nil),               // 52: zerone.knowledge.v1.MsgUpdateModelCardResponse
+	(*MsgRetireModelCard)(nil),                       // 53: zerone.knowledge.v1.MsgRetireModelCard
+	(*MsgRetireModelCardResponse)(nil),               // 54: zerone.knowledge.v1.MsgRetireModelCardResponse
+	(*MsgAmendTokenizerSpec)(nil),                    // 55: zerone.knowledge.v1.MsgAmendTokenizerSpec
+	(*MsgAmendTokenizerSpecResponse)(nil),            // 56: zerone.knowledge.v1.MsgAmendTokenizerSpecResponse
+	(*MsgAttributeContributions)(nil),                // 57: zerone.knowledge.v1.MsgAttributeContributions
+	(*MsgAttributeContributionsResponse)(nil),        // 58: zerone.knowledge.v1.MsgAttributeContributionsResponse
+	(*MsgAttestTraining)(nil),                        // 59: zerone.knowledge.v1.MsgAttestTraining
+	(*MsgAttestTrainingResponse)(nil),                // 60: zerone.knowledge.v1.MsgAttestTrainingResponse
+	(*MsgCreateAugmentationBounty)(nil),              // 61: zerone.knowledge.v1.MsgCreateAugmentationBounty
+	(*MsgCreateAugmentationBountyResponse)(nil),      // 62: zerone.knowledge.v1.MsgCreateAugmentationBountyResponse
+	(*MsgSubmitAugmentation)(nil),                    // 63: zerone.knowledge.v1.MsgSubmitAugmentation
+	(*MsgSubmitAugmentationResponse)(nil),            // 64: zerone.knowledge.v1.MsgSubmitAugmentationResponse
+	(*MsgAcceptAugmentation)(nil),                    // 65: zerone.knowledge.v1.MsgAcceptAugmentation
+	(*MsgAcceptAugmentationResponse)(nil),            // 66: zerone.knowledge.v1.MsgAcceptAugmentationResponse
+	(*MsgVoteOnAugmentation)(nil),                    // 67: zerone.knowledge.v1.MsgVoteOnAugmentation
+	(*MsgVoteOnAugmentationResponse)(nil),            // 68: zerone.knowledge.v1.MsgVoteOnAugmentationResponse
+	(*MsgSponsorVetoAugmentation)(nil),               // 69: zerone.knowledge.v1.MsgSponsorVetoAugmentation
+	(*MsgSponsorVetoAugmentationResponse)(nil),       // 70: zerone.knowledge.v1.MsgSponsorVetoAugmentationResponse
+	(*MsgChallengeContribution)(nil),                 // 71: zerone.knowledge.v1.MsgChallengeContribution
+	(*MsgChallengeContributionResponse)(nil),         // 72: zerone.knowledge.v1.MsgChallengeContributionResponse
+	(*MsgResolveContributionChallenge)(nil),          // 73: zerone.knowledge.v1.MsgResolveContributionChallenge
+	(*MsgResolveContributionChallengeResponse)(nil),  // 74: zerone.knowledge.v1.MsgResolveContributionChallengeResponse
+	(*MsgClaimTrainingFundDisbursement)(nil),         // 75: zerone.knowledge.v1.MsgClaimTrainingFundDisbursement
+	(*MsgClaimTrainingFundDisbursementResponse)(nil), // 76: zerone.knowledge.v1.MsgClaimTrainingFundDisbursementResponse
+	(*MsgAmendTraceSchema)(nil),                      // 77: zerone.knowledge.v1.MsgAmendTraceSchema
+	(*MsgAmendTraceSchemaResponse)(nil),              // 78: zerone.knowledge.v1.MsgAmendTraceSchemaResponse
+	(*MsgCreateTrainingManifest)(nil),                // 79: zerone.knowledge.v1.MsgCreateTrainingManifest
+	(*MsgCreateTrainingManifestResponse)(nil),        // 80: zerone.knowledge.v1.MsgCreateTrainingManifestResponse
+	(*MsgFinalizeTrainingManifest)(nil),              // 81: zerone.knowledge.v1.MsgFinalizeTrainingManifest
+	(*MsgFinalizeTrainingManifestResponse)(nil),      // 82: zerone.knowledge.v1.MsgFinalizeTrainingManifestResponse
+	(*MsgBindManifestToAttestation)(nil),             // 83: zerone.knowledge.v1.MsgBindManifestToAttestation
+	(*MsgBindManifestToAttestationResponse)(nil),     // 84: zerone.knowledge.v1.MsgBindManifestToAttestationResponse
+	(*MsgOpenIncident)(nil),                          // 85: zerone.knowledge.v1.MsgOpenIncident
+	(*MsgOpenIncidentResponse)(nil),                  // 86: zerone.knowledge.v1.MsgOpenIncidentResponse
+	(*MsgRecordRemediation)(nil),                     // 87: zerone.knowledge.v1.MsgRecordRemediation
+	(*MsgRecordRemediationResponse)(nil),             // 88: zerone.knowledge.v1.MsgRecordRemediationResponse
+	(*MsgResolveIncident)(nil),                       // 89: zerone.knowledge.v1.MsgResolveIncident
+	(*MsgResolveIncidentResponse)(nil),               // 90: zerone.knowledge.v1.MsgResolveIncidentResponse
+	(*MsgCloseIncident)(nil),                         // 91: zerone.knowledge.v1.MsgCloseIncident
+	(*MsgCloseIncidentResponse)(nil),                 // 92: zerone.knowledge.v1.MsgCloseIncidentResponse
+	(*MsgPauseModule)(nil),                           // 93: zerone.knowledge.v1.MsgPauseModule
+	(*MsgPauseModuleResponse)(nil),                   // 94: zerone.knowledge.v1.MsgPauseModuleResponse
+	(*MsgUnpauseModule)(nil),                         // 95: zerone.knowledge.v1.MsgUnpauseModule
+	(*MsgUnpauseModuleResponse)(nil),                 // 96: zerone.knowledge.v1.MsgUnpauseModuleResponse
+	(*MsgCorrectManifestMerkleRoot)(nil),             // 97: zerone.knowledge.v1.MsgCorrectManifestMerkleRoot
+	(*MsgCorrectManifestMerkleRootResponse)(nil),     // 98: zerone.knowledge.v1.MsgCorrectManifestMerkleRootResponse
+	(*MsgVetoFactInjection)(nil),                     // 99: zerone.knowledge.v1.MsgVetoFactInjection
+	(*MsgVetoFactInjectionResponse)(nil),             // 100: zerone.knowledge.v1.MsgVetoFactInjectionResponse
+	(ClaimType)(0),                                   // 101: zerone.knowledge.v1.ClaimType
+	(*ClaimRelation)(nil),                            // 102: zerone.knowledge.v1.ClaimRelation
+	(*ClaimStructure)(nil),                           // 103: zerone.knowledge.v1.ClaimStructure
+	(*Params)(nil),                                   // 104: zerone.knowledge.v1.Params
+	(*TokenizerSpec)(nil),                            // 105: zerone.knowledge.v1.TokenizerSpec
+	(AugmentationVerdict)(0),                         // 106: zerone.knowledge.v1.AugmentationVerdict
+	(*TraceSchema)(nil),                              // 107: zerone.knowledge.v1.TraceSchema
+	(*CorpusSelector)(nil),                           // 108: zerone.knowledge.v1.CorpusSelector
+	(IncidentSeverity)(0),                            // 109: zerone.knowledge.v1.IncidentSeverity
+	(RemediationType)(0),                             // 110: zerone.knowledge.v1.RemediationType
 }
 var file_zerone_knowledge_v1_tx_proto_depIdxs = []int32{
-	99,  // 0: zerone.knowledge.v1.MsgSubmitClaim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
-	100, // 1: zerone.knowledge.v1.MsgSubmitClaim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
-	101, // 2: zerone.knowledge.v1.MsgSubmitClaim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
-	102, // 3: zerone.knowledge.v1.MsgUpdateParams.params:type_name -> zerone.knowledge.v1.Params
-	39,  // 4: zerone.knowledge.v1.MsgReportDemand.reports:type_name -> zerone.knowledge.v1.DemandReport
-	103, // 5: zerone.knowledge.v1.MsgAmendTokenizerSpec.spec:type_name -> zerone.knowledge.v1.TokenizerSpec
-	104, // 6: zerone.knowledge.v1.MsgVoteOnAugmentation.vote:type_name -> zerone.knowledge.v1.AugmentationVerdict
-	104, // 7: zerone.knowledge.v1.MsgVoteOnAugmentationResponse.finalized_verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
-	105, // 8: zerone.knowledge.v1.MsgAmendTraceSchema.schema:type_name -> zerone.knowledge.v1.TraceSchema
-	106, // 9: zerone.knowledge.v1.MsgCreateTrainingManifest.corpus_selector:type_name -> zerone.knowledge.v1.CorpusSelector
-	107, // 10: zerone.knowledge.v1.MsgOpenIncident.severity:type_name -> zerone.knowledge.v1.IncidentSeverity
-	108, // 11: zerone.knowledge.v1.MsgRecordRemediation.type:type_name -> zerone.knowledge.v1.RemediationType
+	101, // 0: zerone.knowledge.v1.MsgSubmitClaim.claim_type:type_name -> zerone.knowledge.v1.ClaimType
+	102, // 1: zerone.knowledge.v1.MsgSubmitClaim.relations:type_name -> zerone.knowledge.v1.ClaimRelation
+	103, // 2: zerone.knowledge.v1.MsgSubmitClaim.structure:type_name -> zerone.knowledge.v1.ClaimStructure
+	104, // 3: zerone.knowledge.v1.MsgUpdateParams.params:type_name -> zerone.knowledge.v1.Params
+	41,  // 4: zerone.knowledge.v1.MsgReportDemand.reports:type_name -> zerone.knowledge.v1.DemandReport
+	105, // 5: zerone.knowledge.v1.MsgAmendTokenizerSpec.spec:type_name -> zerone.knowledge.v1.TokenizerSpec
+	106, // 6: zerone.knowledge.v1.MsgVoteOnAugmentation.vote:type_name -> zerone.knowledge.v1.AugmentationVerdict
+	106, // 7: zerone.knowledge.v1.MsgVoteOnAugmentationResponse.finalized_verdict:type_name -> zerone.knowledge.v1.AugmentationVerdict
+	107, // 8: zerone.knowledge.v1.MsgAmendTraceSchema.schema:type_name -> zerone.knowledge.v1.TraceSchema
+	108, // 9: zerone.knowledge.v1.MsgCreateTrainingManifest.corpus_selector:type_name -> zerone.knowledge.v1.CorpusSelector
+	109, // 10: zerone.knowledge.v1.MsgOpenIncident.severity:type_name -> zerone.knowledge.v1.IncidentSeverity
+	110, // 11: zerone.knowledge.v1.MsgRecordRemediation.type:type_name -> zerone.knowledge.v1.RemediationType
 	0,   // 12: zerone.knowledge.v1.Msg.SubmitClaim:input_type -> zerone.knowledge.v1.MsgSubmitClaim
 	2,   // 13: zerone.knowledge.v1.Msg.SubmitCommitment:input_type -> zerone.knowledge.v1.MsgSubmitCommitment
 	4,   // 14: zerone.knowledge.v1.Msg.SubmitReveal:input_type -> zerone.knowledge.v1.MsgSubmitReveal
@@ -6310,95 +6477,97 @@ var file_zerone_knowledge_v1_tx_proto_depIdxs = []int32{
 	16,  // 20: zerone.knowledge.v1.Msg.EndorseDomainProposal:input_type -> zerone.knowledge.v1.MsgEndorseDomainProposal
 	18,  // 21: zerone.knowledge.v1.Msg.ChallengeDomainProposal:input_type -> zerone.knowledge.v1.MsgChallengeDomainProposal
 	20,  // 22: zerone.knowledge.v1.Msg.RegisterStratum:input_type -> zerone.knowledge.v1.MsgRegisterStratum
-	22,  // 23: zerone.knowledge.v1.Msg.ChallengeProvisionalFact:input_type -> zerone.knowledge.v1.MsgChallengeProvisionalFact
-	24,  // 24: zerone.knowledge.v1.Msg.UpdateParams:input_type -> zerone.knowledge.v1.MsgUpdateParams
-	26,  // 25: zerone.knowledge.v1.Msg.UpdateExtendedParams:input_type -> zerone.knowledge.v1.MsgUpdateExtendedParams
-	28,  // 26: zerone.knowledge.v1.Msg.ProposeResearchFund:input_type -> zerone.knowledge.v1.MsgProposeResearchFund
-	30,  // 27: zerone.knowledge.v1.Msg.VoteResearchProposal:input_type -> zerone.knowledge.v1.MsgVoteResearchProposal
-	32,  // 28: zerone.knowledge.v1.Msg.ExecuteResearchProposal:input_type -> zerone.knowledge.v1.MsgExecuteResearchProposal
-	34,  // 29: zerone.knowledge.v1.Msg.AddCommonKnowledge:input_type -> zerone.knowledge.v1.MsgAddCommonKnowledge
-	36,  // 30: zerone.knowledge.v1.Msg.RemoveCommonKnowledge:input_type -> zerone.knowledge.v1.MsgRemoveCommonKnowledge
-	38,  // 31: zerone.knowledge.v1.Msg.ReportDemand:input_type -> zerone.knowledge.v1.MsgReportDemand
-	41,  // 32: zerone.knowledge.v1.Msg.RateFact:input_type -> zerone.knowledge.v1.MsgRateFact
-	43,  // 33: zerone.knowledge.v1.Msg.RegisterTrainingPipeline:input_type -> zerone.knowledge.v1.MsgRegisterTrainingPipeline
-	45,  // 34: zerone.knowledge.v1.Msg.UpdateTrainingPipeline:input_type -> zerone.knowledge.v1.MsgUpdateTrainingPipeline
-	47,  // 35: zerone.knowledge.v1.Msg.RegisterModelCard:input_type -> zerone.knowledge.v1.MsgRegisterModelCard
-	49,  // 36: zerone.knowledge.v1.Msg.UpdateModelCard:input_type -> zerone.knowledge.v1.MsgUpdateModelCard
-	51,  // 37: zerone.knowledge.v1.Msg.RetireModelCard:input_type -> zerone.knowledge.v1.MsgRetireModelCard
-	53,  // 38: zerone.knowledge.v1.Msg.AmendTokenizerSpec:input_type -> zerone.knowledge.v1.MsgAmendTokenizerSpec
-	55,  // 39: zerone.knowledge.v1.Msg.AttributeContributions:input_type -> zerone.knowledge.v1.MsgAttributeContributions
-	57,  // 40: zerone.knowledge.v1.Msg.AttestTraining:input_type -> zerone.knowledge.v1.MsgAttestTraining
-	59,  // 41: zerone.knowledge.v1.Msg.CreateAugmentationBounty:input_type -> zerone.knowledge.v1.MsgCreateAugmentationBounty
-	61,  // 42: zerone.knowledge.v1.Msg.SubmitAugmentation:input_type -> zerone.knowledge.v1.MsgSubmitAugmentation
-	63,  // 43: zerone.knowledge.v1.Msg.AcceptAugmentation:input_type -> zerone.knowledge.v1.MsgAcceptAugmentation
-	65,  // 44: zerone.knowledge.v1.Msg.VoteOnAugmentation:input_type -> zerone.knowledge.v1.MsgVoteOnAugmentation
-	67,  // 45: zerone.knowledge.v1.Msg.SponsorVetoAugmentation:input_type -> zerone.knowledge.v1.MsgSponsorVetoAugmentation
-	69,  // 46: zerone.knowledge.v1.Msg.ChallengeContribution:input_type -> zerone.knowledge.v1.MsgChallengeContribution
-	71,  // 47: zerone.knowledge.v1.Msg.ResolveContributionChallenge:input_type -> zerone.knowledge.v1.MsgResolveContributionChallenge
-	73,  // 48: zerone.knowledge.v1.Msg.ClaimTrainingFundDisbursement:input_type -> zerone.knowledge.v1.MsgClaimTrainingFundDisbursement
-	75,  // 49: zerone.knowledge.v1.Msg.AmendTraceSchema:input_type -> zerone.knowledge.v1.MsgAmendTraceSchema
-	77,  // 50: zerone.knowledge.v1.Msg.CreateTrainingManifest:input_type -> zerone.knowledge.v1.MsgCreateTrainingManifest
-	79,  // 51: zerone.knowledge.v1.Msg.FinalizeTrainingManifest:input_type -> zerone.knowledge.v1.MsgFinalizeTrainingManifest
-	81,  // 52: zerone.knowledge.v1.Msg.BindManifestToAttestation:input_type -> zerone.knowledge.v1.MsgBindManifestToAttestation
-	83,  // 53: zerone.knowledge.v1.Msg.OpenIncident:input_type -> zerone.knowledge.v1.MsgOpenIncident
-	85,  // 54: zerone.knowledge.v1.Msg.RecordRemediation:input_type -> zerone.knowledge.v1.MsgRecordRemediation
-	87,  // 55: zerone.knowledge.v1.Msg.ResolveIncident:input_type -> zerone.knowledge.v1.MsgResolveIncident
-	89,  // 56: zerone.knowledge.v1.Msg.CloseIncident:input_type -> zerone.knowledge.v1.MsgCloseIncident
-	91,  // 57: zerone.knowledge.v1.Msg.PauseModule:input_type -> zerone.knowledge.v1.MsgPauseModule
-	93,  // 58: zerone.knowledge.v1.Msg.UnpauseModule:input_type -> zerone.knowledge.v1.MsgUnpauseModule
-	95,  // 59: zerone.knowledge.v1.Msg.CorrectManifestMerkleRoot:input_type -> zerone.knowledge.v1.MsgCorrectManifestMerkleRoot
-	97,  // 60: zerone.knowledge.v1.Msg.VetoFactInjection:input_type -> zerone.knowledge.v1.MsgVetoFactInjection
-	1,   // 61: zerone.knowledge.v1.Msg.SubmitClaim:output_type -> zerone.knowledge.v1.MsgSubmitClaimResponse
-	3,   // 62: zerone.knowledge.v1.Msg.SubmitCommitment:output_type -> zerone.knowledge.v1.MsgSubmitCommitmentResponse
-	5,   // 63: zerone.knowledge.v1.Msg.SubmitReveal:output_type -> zerone.knowledge.v1.MsgSubmitRevealResponse
-	7,   // 64: zerone.knowledge.v1.Msg.ChallengeFact:output_type -> zerone.knowledge.v1.MsgChallengeFactResponse
-	9,   // 65: zerone.knowledge.v1.Msg.AddFact:output_type -> zerone.knowledge.v1.MsgAddFactResponse
-	11,  // 66: zerone.knowledge.v1.Msg.SubmitContradiction:output_type -> zerone.knowledge.v1.MsgSubmitContradictionResponse
-	13,  // 67: zerone.knowledge.v1.Msg.PatronizeFact:output_type -> zerone.knowledge.v1.MsgPatronizeFactResponse
-	15,  // 68: zerone.knowledge.v1.Msg.ProposeDomain:output_type -> zerone.knowledge.v1.MsgProposeDomainResponse
-	17,  // 69: zerone.knowledge.v1.Msg.EndorseDomainProposal:output_type -> zerone.knowledge.v1.MsgEndorseDomainProposalResponse
-	19,  // 70: zerone.knowledge.v1.Msg.ChallengeDomainProposal:output_type -> zerone.knowledge.v1.MsgChallengeDomainProposalResponse
-	21,  // 71: zerone.knowledge.v1.Msg.RegisterStratum:output_type -> zerone.knowledge.v1.MsgRegisterStratumResponse
-	23,  // 72: zerone.knowledge.v1.Msg.ChallengeProvisionalFact:output_type -> zerone.knowledge.v1.MsgChallengeProvisionalFactResponse
-	25,  // 73: zerone.knowledge.v1.Msg.UpdateParams:output_type -> zerone.knowledge.v1.MsgUpdateParamsResponse
-	27,  // 74: zerone.knowledge.v1.Msg.UpdateExtendedParams:output_type -> zerone.knowledge.v1.MsgUpdateExtendedParamsResponse
-	29,  // 75: zerone.knowledge.v1.Msg.ProposeResearchFund:output_type -> zerone.knowledge.v1.MsgProposeResearchFundResponse
-	31,  // 76: zerone.knowledge.v1.Msg.VoteResearchProposal:output_type -> zerone.knowledge.v1.MsgVoteResearchProposalResponse
-	33,  // 77: zerone.knowledge.v1.Msg.ExecuteResearchProposal:output_type -> zerone.knowledge.v1.MsgExecuteResearchProposalResponse
-	35,  // 78: zerone.knowledge.v1.Msg.AddCommonKnowledge:output_type -> zerone.knowledge.v1.MsgAddCommonKnowledgeResponse
-	37,  // 79: zerone.knowledge.v1.Msg.RemoveCommonKnowledge:output_type -> zerone.knowledge.v1.MsgRemoveCommonKnowledgeResponse
-	40,  // 80: zerone.knowledge.v1.Msg.ReportDemand:output_type -> zerone.knowledge.v1.MsgReportDemandResponse
-	42,  // 81: zerone.knowledge.v1.Msg.RateFact:output_type -> zerone.knowledge.v1.MsgRateFactResponse
-	44,  // 82: zerone.knowledge.v1.Msg.RegisterTrainingPipeline:output_type -> zerone.knowledge.v1.MsgRegisterTrainingPipelineResponse
-	46,  // 83: zerone.knowledge.v1.Msg.UpdateTrainingPipeline:output_type -> zerone.knowledge.v1.MsgUpdateTrainingPipelineResponse
-	48,  // 84: zerone.knowledge.v1.Msg.RegisterModelCard:output_type -> zerone.knowledge.v1.MsgRegisterModelCardResponse
-	50,  // 85: zerone.knowledge.v1.Msg.UpdateModelCard:output_type -> zerone.knowledge.v1.MsgUpdateModelCardResponse
-	52,  // 86: zerone.knowledge.v1.Msg.RetireModelCard:output_type -> zerone.knowledge.v1.MsgRetireModelCardResponse
-	54,  // 87: zerone.knowledge.v1.Msg.AmendTokenizerSpec:output_type -> zerone.knowledge.v1.MsgAmendTokenizerSpecResponse
-	56,  // 88: zerone.knowledge.v1.Msg.AttributeContributions:output_type -> zerone.knowledge.v1.MsgAttributeContributionsResponse
-	58,  // 89: zerone.knowledge.v1.Msg.AttestTraining:output_type -> zerone.knowledge.v1.MsgAttestTrainingResponse
-	60,  // 90: zerone.knowledge.v1.Msg.CreateAugmentationBounty:output_type -> zerone.knowledge.v1.MsgCreateAugmentationBountyResponse
-	62,  // 91: zerone.knowledge.v1.Msg.SubmitAugmentation:output_type -> zerone.knowledge.v1.MsgSubmitAugmentationResponse
-	64,  // 92: zerone.knowledge.v1.Msg.AcceptAugmentation:output_type -> zerone.knowledge.v1.MsgAcceptAugmentationResponse
-	66,  // 93: zerone.knowledge.v1.Msg.VoteOnAugmentation:output_type -> zerone.knowledge.v1.MsgVoteOnAugmentationResponse
-	68,  // 94: zerone.knowledge.v1.Msg.SponsorVetoAugmentation:output_type -> zerone.knowledge.v1.MsgSponsorVetoAugmentationResponse
-	70,  // 95: zerone.knowledge.v1.Msg.ChallengeContribution:output_type -> zerone.knowledge.v1.MsgChallengeContributionResponse
-	72,  // 96: zerone.knowledge.v1.Msg.ResolveContributionChallenge:output_type -> zerone.knowledge.v1.MsgResolveContributionChallengeResponse
-	74,  // 97: zerone.knowledge.v1.Msg.ClaimTrainingFundDisbursement:output_type -> zerone.knowledge.v1.MsgClaimTrainingFundDisbursementResponse
-	76,  // 98: zerone.knowledge.v1.Msg.AmendTraceSchema:output_type -> zerone.knowledge.v1.MsgAmendTraceSchemaResponse
-	78,  // 99: zerone.knowledge.v1.Msg.CreateTrainingManifest:output_type -> zerone.knowledge.v1.MsgCreateTrainingManifestResponse
-	80,  // 100: zerone.knowledge.v1.Msg.FinalizeTrainingManifest:output_type -> zerone.knowledge.v1.MsgFinalizeTrainingManifestResponse
-	82,  // 101: zerone.knowledge.v1.Msg.BindManifestToAttestation:output_type -> zerone.knowledge.v1.MsgBindManifestToAttestationResponse
-	84,  // 102: zerone.knowledge.v1.Msg.OpenIncident:output_type -> zerone.knowledge.v1.MsgOpenIncidentResponse
-	86,  // 103: zerone.knowledge.v1.Msg.RecordRemediation:output_type -> zerone.knowledge.v1.MsgRecordRemediationResponse
-	88,  // 104: zerone.knowledge.v1.Msg.ResolveIncident:output_type -> zerone.knowledge.v1.MsgResolveIncidentResponse
-	90,  // 105: zerone.knowledge.v1.Msg.CloseIncident:output_type -> zerone.knowledge.v1.MsgCloseIncidentResponse
-	92,  // 106: zerone.knowledge.v1.Msg.PauseModule:output_type -> zerone.knowledge.v1.MsgPauseModuleResponse
-	94,  // 107: zerone.knowledge.v1.Msg.UnpauseModule:output_type -> zerone.knowledge.v1.MsgUnpauseModuleResponse
-	96,  // 108: zerone.knowledge.v1.Msg.CorrectManifestMerkleRoot:output_type -> zerone.knowledge.v1.MsgCorrectManifestMerkleRootResponse
-	98,  // 109: zerone.knowledge.v1.Msg.VetoFactInjection:output_type -> zerone.knowledge.v1.MsgVetoFactInjectionResponse
-	61,  // [61:110] is the sub-list for method output_type
-	12,  // [12:61] is the sub-list for method input_type
+	22,  // 23: zerone.knowledge.v1.Msg.PostConjecture:input_type -> zerone.knowledge.v1.MsgPostConjecture
+	24,  // 24: zerone.knowledge.v1.Msg.ChallengeProvisionalFact:input_type -> zerone.knowledge.v1.MsgChallengeProvisionalFact
+	26,  // 25: zerone.knowledge.v1.Msg.UpdateParams:input_type -> zerone.knowledge.v1.MsgUpdateParams
+	28,  // 26: zerone.knowledge.v1.Msg.UpdateExtendedParams:input_type -> zerone.knowledge.v1.MsgUpdateExtendedParams
+	30,  // 27: zerone.knowledge.v1.Msg.ProposeResearchFund:input_type -> zerone.knowledge.v1.MsgProposeResearchFund
+	32,  // 28: zerone.knowledge.v1.Msg.VoteResearchProposal:input_type -> zerone.knowledge.v1.MsgVoteResearchProposal
+	34,  // 29: zerone.knowledge.v1.Msg.ExecuteResearchProposal:input_type -> zerone.knowledge.v1.MsgExecuteResearchProposal
+	36,  // 30: zerone.knowledge.v1.Msg.AddCommonKnowledge:input_type -> zerone.knowledge.v1.MsgAddCommonKnowledge
+	38,  // 31: zerone.knowledge.v1.Msg.RemoveCommonKnowledge:input_type -> zerone.knowledge.v1.MsgRemoveCommonKnowledge
+	40,  // 32: zerone.knowledge.v1.Msg.ReportDemand:input_type -> zerone.knowledge.v1.MsgReportDemand
+	43,  // 33: zerone.knowledge.v1.Msg.RateFact:input_type -> zerone.knowledge.v1.MsgRateFact
+	45,  // 34: zerone.knowledge.v1.Msg.RegisterTrainingPipeline:input_type -> zerone.knowledge.v1.MsgRegisterTrainingPipeline
+	47,  // 35: zerone.knowledge.v1.Msg.UpdateTrainingPipeline:input_type -> zerone.knowledge.v1.MsgUpdateTrainingPipeline
+	49,  // 36: zerone.knowledge.v1.Msg.RegisterModelCard:input_type -> zerone.knowledge.v1.MsgRegisterModelCard
+	51,  // 37: zerone.knowledge.v1.Msg.UpdateModelCard:input_type -> zerone.knowledge.v1.MsgUpdateModelCard
+	53,  // 38: zerone.knowledge.v1.Msg.RetireModelCard:input_type -> zerone.knowledge.v1.MsgRetireModelCard
+	55,  // 39: zerone.knowledge.v1.Msg.AmendTokenizerSpec:input_type -> zerone.knowledge.v1.MsgAmendTokenizerSpec
+	57,  // 40: zerone.knowledge.v1.Msg.AttributeContributions:input_type -> zerone.knowledge.v1.MsgAttributeContributions
+	59,  // 41: zerone.knowledge.v1.Msg.AttestTraining:input_type -> zerone.knowledge.v1.MsgAttestTraining
+	61,  // 42: zerone.knowledge.v1.Msg.CreateAugmentationBounty:input_type -> zerone.knowledge.v1.MsgCreateAugmentationBounty
+	63,  // 43: zerone.knowledge.v1.Msg.SubmitAugmentation:input_type -> zerone.knowledge.v1.MsgSubmitAugmentation
+	65,  // 44: zerone.knowledge.v1.Msg.AcceptAugmentation:input_type -> zerone.knowledge.v1.MsgAcceptAugmentation
+	67,  // 45: zerone.knowledge.v1.Msg.VoteOnAugmentation:input_type -> zerone.knowledge.v1.MsgVoteOnAugmentation
+	69,  // 46: zerone.knowledge.v1.Msg.SponsorVetoAugmentation:input_type -> zerone.knowledge.v1.MsgSponsorVetoAugmentation
+	71,  // 47: zerone.knowledge.v1.Msg.ChallengeContribution:input_type -> zerone.knowledge.v1.MsgChallengeContribution
+	73,  // 48: zerone.knowledge.v1.Msg.ResolveContributionChallenge:input_type -> zerone.knowledge.v1.MsgResolveContributionChallenge
+	75,  // 49: zerone.knowledge.v1.Msg.ClaimTrainingFundDisbursement:input_type -> zerone.knowledge.v1.MsgClaimTrainingFundDisbursement
+	77,  // 50: zerone.knowledge.v1.Msg.AmendTraceSchema:input_type -> zerone.knowledge.v1.MsgAmendTraceSchema
+	79,  // 51: zerone.knowledge.v1.Msg.CreateTrainingManifest:input_type -> zerone.knowledge.v1.MsgCreateTrainingManifest
+	81,  // 52: zerone.knowledge.v1.Msg.FinalizeTrainingManifest:input_type -> zerone.knowledge.v1.MsgFinalizeTrainingManifest
+	83,  // 53: zerone.knowledge.v1.Msg.BindManifestToAttestation:input_type -> zerone.knowledge.v1.MsgBindManifestToAttestation
+	85,  // 54: zerone.knowledge.v1.Msg.OpenIncident:input_type -> zerone.knowledge.v1.MsgOpenIncident
+	87,  // 55: zerone.knowledge.v1.Msg.RecordRemediation:input_type -> zerone.knowledge.v1.MsgRecordRemediation
+	89,  // 56: zerone.knowledge.v1.Msg.ResolveIncident:input_type -> zerone.knowledge.v1.MsgResolveIncident
+	91,  // 57: zerone.knowledge.v1.Msg.CloseIncident:input_type -> zerone.knowledge.v1.MsgCloseIncident
+	93,  // 58: zerone.knowledge.v1.Msg.PauseModule:input_type -> zerone.knowledge.v1.MsgPauseModule
+	95,  // 59: zerone.knowledge.v1.Msg.UnpauseModule:input_type -> zerone.knowledge.v1.MsgUnpauseModule
+	97,  // 60: zerone.knowledge.v1.Msg.CorrectManifestMerkleRoot:input_type -> zerone.knowledge.v1.MsgCorrectManifestMerkleRoot
+	99,  // 61: zerone.knowledge.v1.Msg.VetoFactInjection:input_type -> zerone.knowledge.v1.MsgVetoFactInjection
+	1,   // 62: zerone.knowledge.v1.Msg.SubmitClaim:output_type -> zerone.knowledge.v1.MsgSubmitClaimResponse
+	3,   // 63: zerone.knowledge.v1.Msg.SubmitCommitment:output_type -> zerone.knowledge.v1.MsgSubmitCommitmentResponse
+	5,   // 64: zerone.knowledge.v1.Msg.SubmitReveal:output_type -> zerone.knowledge.v1.MsgSubmitRevealResponse
+	7,   // 65: zerone.knowledge.v1.Msg.ChallengeFact:output_type -> zerone.knowledge.v1.MsgChallengeFactResponse
+	9,   // 66: zerone.knowledge.v1.Msg.AddFact:output_type -> zerone.knowledge.v1.MsgAddFactResponse
+	11,  // 67: zerone.knowledge.v1.Msg.SubmitContradiction:output_type -> zerone.knowledge.v1.MsgSubmitContradictionResponse
+	13,  // 68: zerone.knowledge.v1.Msg.PatronizeFact:output_type -> zerone.knowledge.v1.MsgPatronizeFactResponse
+	15,  // 69: zerone.knowledge.v1.Msg.ProposeDomain:output_type -> zerone.knowledge.v1.MsgProposeDomainResponse
+	17,  // 70: zerone.knowledge.v1.Msg.EndorseDomainProposal:output_type -> zerone.knowledge.v1.MsgEndorseDomainProposalResponse
+	19,  // 71: zerone.knowledge.v1.Msg.ChallengeDomainProposal:output_type -> zerone.knowledge.v1.MsgChallengeDomainProposalResponse
+	21,  // 72: zerone.knowledge.v1.Msg.RegisterStratum:output_type -> zerone.knowledge.v1.MsgRegisterStratumResponse
+	23,  // 73: zerone.knowledge.v1.Msg.PostConjecture:output_type -> zerone.knowledge.v1.MsgPostConjectureResponse
+	25,  // 74: zerone.knowledge.v1.Msg.ChallengeProvisionalFact:output_type -> zerone.knowledge.v1.MsgChallengeProvisionalFactResponse
+	27,  // 75: zerone.knowledge.v1.Msg.UpdateParams:output_type -> zerone.knowledge.v1.MsgUpdateParamsResponse
+	29,  // 76: zerone.knowledge.v1.Msg.UpdateExtendedParams:output_type -> zerone.knowledge.v1.MsgUpdateExtendedParamsResponse
+	31,  // 77: zerone.knowledge.v1.Msg.ProposeResearchFund:output_type -> zerone.knowledge.v1.MsgProposeResearchFundResponse
+	33,  // 78: zerone.knowledge.v1.Msg.VoteResearchProposal:output_type -> zerone.knowledge.v1.MsgVoteResearchProposalResponse
+	35,  // 79: zerone.knowledge.v1.Msg.ExecuteResearchProposal:output_type -> zerone.knowledge.v1.MsgExecuteResearchProposalResponse
+	37,  // 80: zerone.knowledge.v1.Msg.AddCommonKnowledge:output_type -> zerone.knowledge.v1.MsgAddCommonKnowledgeResponse
+	39,  // 81: zerone.knowledge.v1.Msg.RemoveCommonKnowledge:output_type -> zerone.knowledge.v1.MsgRemoveCommonKnowledgeResponse
+	42,  // 82: zerone.knowledge.v1.Msg.ReportDemand:output_type -> zerone.knowledge.v1.MsgReportDemandResponse
+	44,  // 83: zerone.knowledge.v1.Msg.RateFact:output_type -> zerone.knowledge.v1.MsgRateFactResponse
+	46,  // 84: zerone.knowledge.v1.Msg.RegisterTrainingPipeline:output_type -> zerone.knowledge.v1.MsgRegisterTrainingPipelineResponse
+	48,  // 85: zerone.knowledge.v1.Msg.UpdateTrainingPipeline:output_type -> zerone.knowledge.v1.MsgUpdateTrainingPipelineResponse
+	50,  // 86: zerone.knowledge.v1.Msg.RegisterModelCard:output_type -> zerone.knowledge.v1.MsgRegisterModelCardResponse
+	52,  // 87: zerone.knowledge.v1.Msg.UpdateModelCard:output_type -> zerone.knowledge.v1.MsgUpdateModelCardResponse
+	54,  // 88: zerone.knowledge.v1.Msg.RetireModelCard:output_type -> zerone.knowledge.v1.MsgRetireModelCardResponse
+	56,  // 89: zerone.knowledge.v1.Msg.AmendTokenizerSpec:output_type -> zerone.knowledge.v1.MsgAmendTokenizerSpecResponse
+	58,  // 90: zerone.knowledge.v1.Msg.AttributeContributions:output_type -> zerone.knowledge.v1.MsgAttributeContributionsResponse
+	60,  // 91: zerone.knowledge.v1.Msg.AttestTraining:output_type -> zerone.knowledge.v1.MsgAttestTrainingResponse
+	62,  // 92: zerone.knowledge.v1.Msg.CreateAugmentationBounty:output_type -> zerone.knowledge.v1.MsgCreateAugmentationBountyResponse
+	64,  // 93: zerone.knowledge.v1.Msg.SubmitAugmentation:output_type -> zerone.knowledge.v1.MsgSubmitAugmentationResponse
+	66,  // 94: zerone.knowledge.v1.Msg.AcceptAugmentation:output_type -> zerone.knowledge.v1.MsgAcceptAugmentationResponse
+	68,  // 95: zerone.knowledge.v1.Msg.VoteOnAugmentation:output_type -> zerone.knowledge.v1.MsgVoteOnAugmentationResponse
+	70,  // 96: zerone.knowledge.v1.Msg.SponsorVetoAugmentation:output_type -> zerone.knowledge.v1.MsgSponsorVetoAugmentationResponse
+	72,  // 97: zerone.knowledge.v1.Msg.ChallengeContribution:output_type -> zerone.knowledge.v1.MsgChallengeContributionResponse
+	74,  // 98: zerone.knowledge.v1.Msg.ResolveContributionChallenge:output_type -> zerone.knowledge.v1.MsgResolveContributionChallengeResponse
+	76,  // 99: zerone.knowledge.v1.Msg.ClaimTrainingFundDisbursement:output_type -> zerone.knowledge.v1.MsgClaimTrainingFundDisbursementResponse
+	78,  // 100: zerone.knowledge.v1.Msg.AmendTraceSchema:output_type -> zerone.knowledge.v1.MsgAmendTraceSchemaResponse
+	80,  // 101: zerone.knowledge.v1.Msg.CreateTrainingManifest:output_type -> zerone.knowledge.v1.MsgCreateTrainingManifestResponse
+	82,  // 102: zerone.knowledge.v1.Msg.FinalizeTrainingManifest:output_type -> zerone.knowledge.v1.MsgFinalizeTrainingManifestResponse
+	84,  // 103: zerone.knowledge.v1.Msg.BindManifestToAttestation:output_type -> zerone.knowledge.v1.MsgBindManifestToAttestationResponse
+	86,  // 104: zerone.knowledge.v1.Msg.OpenIncident:output_type -> zerone.knowledge.v1.MsgOpenIncidentResponse
+	88,  // 105: zerone.knowledge.v1.Msg.RecordRemediation:output_type -> zerone.knowledge.v1.MsgRecordRemediationResponse
+	90,  // 106: zerone.knowledge.v1.Msg.ResolveIncident:output_type -> zerone.knowledge.v1.MsgResolveIncidentResponse
+	92,  // 107: zerone.knowledge.v1.Msg.CloseIncident:output_type -> zerone.knowledge.v1.MsgCloseIncidentResponse
+	94,  // 108: zerone.knowledge.v1.Msg.PauseModule:output_type -> zerone.knowledge.v1.MsgPauseModuleResponse
+	96,  // 109: zerone.knowledge.v1.Msg.UnpauseModule:output_type -> zerone.knowledge.v1.MsgUnpauseModuleResponse
+	98,  // 110: zerone.knowledge.v1.Msg.CorrectManifestMerkleRoot:output_type -> zerone.knowledge.v1.MsgCorrectManifestMerkleRootResponse
+	100, // 111: zerone.knowledge.v1.Msg.VetoFactInjection:output_type -> zerone.knowledge.v1.MsgVetoFactInjectionResponse
+	62,  // [62:112] is the sub-list for method output_type
+	12,  // [12:62] is the sub-list for method input_type
 	12,  // [12:12] is the sub-list for extension type_name
 	12,  // [12:12] is the sub-list for extension extendee
 	0,   // [0:12] is the sub-list for field type_name
@@ -6417,7 +6586,7 @@ func file_zerone_knowledge_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_tx_proto_rawDesc), len(file_zerone_knowledge_v1_tx_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   99,
+			NumMessages:   101,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

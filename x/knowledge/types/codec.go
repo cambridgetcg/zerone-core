@@ -19,6 +19,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgEndorseDomainProposal{}, "zerone_knowledge/EndorseDomainProposal", nil)
 	cdc.RegisterConcrete(&MsgChallengeDomainProposal{}, "zerone_knowledge/ChallengeDomainProposal", nil)
 	cdc.RegisterConcrete(&MsgRegisterStratum{}, "zerone_knowledge/RegisterStratum", nil)
+	cdc.RegisterConcrete(&MsgPostConjecture{}, "zerone_knowledge/PostConjecture", nil)
 	cdc.RegisterConcrete(&MsgChallengeProvisionalFact{}, "zerone_knowledge/ChallengeProvisionalFact", nil)
 	cdc.RegisterConcrete(&MsgUpdateParams{}, "zerone_knowledge/UpdateParams", nil)
 	cdc.RegisterConcrete(&MsgUpdateExtendedParams{}, "zerone_knowledge/UpdateExtendedParams", nil)
@@ -81,6 +82,7 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgEndorseDomainProposal{},
 		&MsgChallengeDomainProposal{},
 		&MsgRegisterStratum{},
+		&MsgPostConjecture{},
 		&MsgChallengeProvisionalFact{},
 		&MsgUpdateParams{},
 		&MsgUpdateExtendedParams{},

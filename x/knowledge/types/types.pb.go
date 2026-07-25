@@ -309,6 +309,13 @@ const (
 	ClaimType_CLAIM_TYPE_NEGATION      ClaimType = 5 // "X is NOT true" — explicit falsity marker
 	ClaimType_CLAIM_TYPE_OBSERVATION   ClaimType = 6 // "X was observed at time/place" — empirical data point
 	ClaimType_CLAIM_TYPE_COMPUTATIONAL ClaimType = 7 // Derived from computation/inference — agent specialty
+	// "X might be true, and here is what would kill it" — a conjecture.
+	// Asserts nothing. Enters the graph at FACT_STATUS_PROVISIONAL with
+	// confidence 0, carries no relations, cannot be cited, and earns its
+	// submitter nothing. The panel that adjudicates a conjecture is asked
+	// whether it is WELL-POSED AND FALSIFIABLE, not whether it is true.
+	// The only paid act against it is MsgChallengeProvisionalFact.
+	ClaimType_CLAIM_TYPE_CONJECTURE ClaimType = 8
 )
 
 // Enum value maps for ClaimType.
@@ -322,6 +329,7 @@ var (
 		5: "CLAIM_TYPE_NEGATION",
 		6: "CLAIM_TYPE_OBSERVATION",
 		7: "CLAIM_TYPE_COMPUTATIONAL",
+		8: "CLAIM_TYPE_CONJECTURE",
 	}
 	ClaimType_value = map[string]int32{
 		"CLAIM_TYPE_UNSPECIFIED":   0,
@@ -332,6 +340,7 @@ var (
 		"CLAIM_TYPE_NEGATION":      5,
 		"CLAIM_TYPE_OBSERVATION":   6,
 		"CLAIM_TYPE_COMPUTATIONAL": 7,
+		"CLAIM_TYPE_CONJECTURE":    8,
 	}
 )
 
@@ -2090,8 +2099,15 @@ type Fact struct {
 	// confidence, or already recently challenged). An invitation expires
 	// when the fact's status/confidence changes or the heartbeat re-invites.
 	ProbeInvitedAtBlock uint64 `protobuf:"varint,74,opt,name=probe_invited_at_block,json=probeInvitedAtBlock,proto3" json:"probe_invited_at_block,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// ─── Conjecture (frontier) ─────────────────────────────────────────────
+	// For facts born from CLAIM_TYPE_CONJECTURE: the observation that would
+	// falsify this conjecture, carried forward from the claim so a prospective
+	// refuter knows exactly what target they are shooting at. Empty on every
+	// ordinary fact. A non-empty predicate on a PROVISIONAL fact is the
+	// chain's standing invitation to destroy it.
+	FalsificationPredicate string `protobuf:"bytes,75,opt,name=falsification_predicate,json=falsificationPredicate,proto3" json:"falsification_predicate,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Fact) Reset() {
@@ -2570,6 +2586,13 @@ func (x *Fact) GetProbeInvitedAtBlock() uint64 {
 		return x.ProbeInvitedAtBlock
 	}
 	return 0
+}
+
+func (x *Fact) GetFalsificationPredicate() string {
+	if x != nil {
+		return x.FalsificationPredicate
+	}
+	return ""
 }
 
 // TokenizerSpec is the governance-ratified contract that names the special
@@ -4302,9 +4325,14 @@ type Claim struct {
 	// Optional rebuttal text. Attached when the original fact's submitter (or
 	// partnership) formally rebuts a challenge. Stored on the challenge claim
 	// so the full dispute is reconstructible from one record.
-	RebuttalText  string `protobuf:"bytes,23,opt,name=rebuttal_text,json=rebuttalText,proto3" json:"rebuttal_text,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	RebuttalText string `protobuf:"bytes,23,opt,name=rebuttal_text,json=rebuttalText,proto3" json:"rebuttal_text,omitempty"`
+	// For CLAIM_TYPE_CONJECTURE only: the observation that would falsify this
+	// conjecture. This is what the verification panel adjudicates — a
+	// conjecture with no stated killer is not well-posed and must be returned
+	// MALFORMED. Empty for every other claim type.
+	FalsificationPredicate string `protobuf:"bytes,24,opt,name=falsification_predicate,json=falsificationPredicate,proto3" json:"falsification_predicate,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Claim) Reset() {
@@ -4494,6 +4522,13 @@ func (x *Claim) GetArgumentText() string {
 func (x *Claim) GetRebuttalText() string {
 	if x != nil {
 		return x.RebuttalText
+	}
+	return ""
+}
+
+func (x *Claim) GetFalsificationPredicate() string {
+	if x != nil {
+		return x.FalsificationPredicate
 	}
 	return ""
 }
@@ -8284,7 +8319,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\xe2\x15\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\x9b\x16\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -8360,7 +8395,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x17training_revenue_earned\x18G \x01(\tR\x15trainingRevenueEarned\x12C\n" +
 	"\x1etraining_revenue_earned_recent\x18H \x01(\tR\x1btrainingRevenueEarnedRecent\x124\n" +
 	"\x16revenue_clawback_block\x18I \x01(\x04R\x14revenueClawbackBlock\x123\n" +
-	"\x16probe_invited_at_block\x18J \x01(\x04R\x13probeInvitedAtBlock\"\xe0\x05\n" +
+	"\x16probe_invited_at_block\x18J \x01(\x04R\x13probeInvitedAtBlock\x127\n" +
+	"\x17falsification_predicate\x18K \x01(\tR\x16falsificationPredicate\"\xe0\x05\n" +
 	"\rTokenizerSpec\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x04R\aversion\x12*\n" +
 	"\x11ratified_at_block\x18\x02 \x01(\x04R\x0fratifiedAtBlock\x12.\n" +
@@ -8537,7 +8573,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\vpenalty_bps\x18\x05 \x01(\x04R\n" +
 	"penaltyBps\x12\x1f\n" +
 	"\vadded_block\x18\x06 \x01(\x04R\n" +
-	"addedBlock\"\xac\a\n" +
+	"addedBlock\"\xe5\a\n" +
 	"\x05Claim\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\ffact_content\x18\x02 \x01(\tR\vfactContent\x12\x16\n" +
@@ -8565,7 +8601,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\tmethod_id\x18\x14 \x01(\tR\bmethodId\x12'\n" +
 	"\x0freasoning_trace\x18\x15 \x01(\tR\x0ereasoningTrace\x12#\n" +
 	"\rargument_text\x18\x16 \x01(\tR\fargumentText\x12#\n" +
-	"\rrebuttal_text\x18\x17 \x01(\tR\frebuttalText\"\xaf\x04\n" +
+	"\rrebuttal_text\x18\x17 \x01(\tR\frebuttalText\x127\n" +
+	"\x17falsification_predicate\x18\x18 \x01(\tR\x16falsificationPredicate\"\xaf\x04\n" +
 	"\x11VerificationRound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bclaim_id\x18\x02 \x01(\tR\aclaimId\x12(\n" +
@@ -8984,7 +9021,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x0eVERDICT_ACCEPT\x10\x01\x12\x12\n" +
 	"\x0eVERDICT_REJECT\x10\x02\x12\x18\n" +
 	"\x14VERDICT_INCONCLUSIVE\x10\x03\x12\x15\n" +
-	"\x11VERDICT_MALFORMED\x10\x04*\xe3\x01\n" +
+	"\x11VERDICT_MALFORMED\x10\x04*\xfe\x01\n" +
 	"\tClaimType\x12\x1a\n" +
 	"\x16CLAIM_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14CLAIM_TYPE_ASSERTION\x10\x01\x12\x17\n" +
@@ -8993,7 +9030,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x15CLAIM_TYPE_CONSTRAINT\x10\x04\x12\x17\n" +
 	"\x13CLAIM_TYPE_NEGATION\x10\x05\x12\x1a\n" +
 	"\x16CLAIM_TYPE_OBSERVATION\x10\x06\x12\x1c\n" +
-	"\x18CLAIM_TYPE_COMPUTATIONAL\x10\a*\x95\x02\n" +
+	"\x18CLAIM_TYPE_COMPUTATIONAL\x10\a\x12\x19\n" +
+	"\x15CLAIM_TYPE_CONJECTURE\x10\b*\x95\x02\n" +
 	"\fRelationType\x12\x1d\n" +
 	"\x19RELATION_TYPE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16RELATION_TYPE_SUPPORTS\x10\x01\x12\x1d\n" +
