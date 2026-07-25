@@ -48,4 +48,10 @@ type KnowledgeKeeper interface {
 	// survived/(survived+disproven) facts in BPS. Block emission couples to this,
 	// so issuance follows truth surviving challenge, not acceptance volume.
 	GetSurvivedChallengeRate(ctx context.Context) uint64
+	// IsFactDisproven reports whether the fact has been adjudicated
+	// FACT_STATUS_DISPROVEN by the PoT layer. Clawback is a consequence of
+	// adjudication, never an assertion by the party requesting it — see
+	// FalsifyClaim. Returns false for unknown ids, so an id that names no
+	// fact can never authorise a clawback.
+	IsFactDisproven(ctx context.Context, factID string) bool
 }

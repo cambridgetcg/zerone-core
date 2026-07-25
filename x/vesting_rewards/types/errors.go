@@ -20,4 +20,6 @@ var (
 	ErrNotRecipientOrAuthority  = errors.Register(ModuleName, 16, "sender is not recipient or authority")
 	ErrFounderAddressImmutable  = errors.Register(ModuleName, 17, "founder address is immutable once set")
 	ErrFounderShareCapExceeded  = errors.Register(ModuleName, 18, "founder share cannot exceed the founding cap (70000 bps)")
+	ErrFactNotDisproven         = errors.Register(ModuleName, 19, "linked fact has not been disproven — falsification clawback requires an adjudicated FACT_STATUS_DISPROVEN")
+	ErrAdjudicationUnavailable  = errors.Register(ModuleName, 20, "cannot verify falsification: knowledge keeper not wired")
 )

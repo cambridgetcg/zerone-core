@@ -548,6 +548,19 @@ func (k Keeper) DistributeBlockReward(
 //   - 33% of already-released rewards are clawed back
 //   - All unvested amount is forfeited
 //   - Reserve goes to challenger as bonus
+//
+// ADJUDICATION GATE. MsgFalsifyVesting's proto signer is `challenger`, not
+// `authority` (proto/zerone/vesting_rewards/v1/tx.proto), so any address can
+// reach this function by naming itself. Without the gate below, one tx fee
+// permanently destroyed any honest submitter's payout stream: the handler
+// checked only that the schedule existed, and never consulted the fact the
+// schedule was paying for. Falsification is a verdict the PoT layer reaches,
+// never a claim the caller makes — so the linked fact must already be
+// FACT_STATUS_DISPROVEN.
+//
+// The gate FAILS CLOSED. If the knowledge keeper is not wired we refuse the
+// clawback rather than allow it, because the failure mode of allowing it is
+// irreversible destruction of someone else's rewards.
 func (k Keeper) FalsifyClaim(
 	ctx sdk.Context,
 	claimId string,
@@ -560,6 +573,14 @@ func (k Keeper) FalsifyClaim(
 
 	if schedule.Status == string(types.VestingStatusFalsified) {
 		return nil, types.ErrAlreadyFalsified
+	}
+
+	if k.knowledgeKeeper == nil {
+		return nil, types.ErrAdjudicationUnavailable
+	}
+	if !k.knowledgeKeeper.IsFactDisproven(ctx, schedule.FactId) {
+		return nil, types.ErrFactNotDisproven.Wrapf(
+			"fact %q linked to claim %q is not FACT_STATUS_DISPROVEN", schedule.FactId, claimId)
 	}
 
 	params := k.GetParams(ctx)

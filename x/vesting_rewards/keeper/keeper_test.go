@@ -926,6 +926,9 @@ func TestFalsifyClaim_ClawbackCalculation(t *testing.T) {
 	bk := newMockBankKeeper()
 	sk := &mockStakingKeeper{activeCount: 22}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
+	// The clawback is only reachable once the PoT layer has adjudicated the
+	// linked fact false; this test is about the arithmetic, so grant that.
+	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{disproven: map[string]bool{"fact-1": true}})
 
 	recipient := sdk.AccAddress("recipient1__________").String()
 
@@ -956,6 +959,7 @@ func TestFalsifyClaim_ClawbackCalculation(t *testing.T) {
 
 func TestFalsifyClaim_AlreadyFalsified(t *testing.T) {
 	k, ctx := setupKeeper(t)
+	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{disproven: map[string]bool{"fact-1": true}})
 
 	recipient := sdk.AccAddress("recipient1__________").String()
 
@@ -2120,14 +2124,20 @@ func TestQueryFounderShareStatus_Inactive(t *testing.T) {
 
 // ─── SupplyCouplingAudit (L0 thesis metric) ──────────────────────────────
 
-// stubKnowledgeKeeper returns a configurable verification rate for the audit.
+// stubKnowledgeKeeper returns a configurable verification rate for the audit,
+// and a configurable set of disproven fact ids for the falsification gate.
 type stubKnowledgeKeeper struct {
-	rate uint64
+	rate      uint64
+	disproven map[string]bool
 }
 
 func (s *stubKnowledgeKeeper) GetVerificationRate(_ context.Context) uint64 { return s.rate }
 
 func (s *stubKnowledgeKeeper) GetSurvivedChallengeRate(_ context.Context) uint64 { return s.rate }
+
+func (s *stubKnowledgeKeeper) IsFactDisproven(_ context.Context, factID string) bool {
+	return s.disproven[factID]
+}
 
 func TestQuerySupplyCouplingAudit_NilKnowledgeKeeper(t *testing.T) {
 	bk := newMockBankKeeper()
