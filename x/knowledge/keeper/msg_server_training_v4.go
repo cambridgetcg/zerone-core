@@ -273,8 +273,24 @@ func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *type
 	if msg == nil || msg.Id == "" || msg.ModelId == "" || msg.Claimant == "" {
 		return nil, fmt.Errorf("id, model_id, claimant required")
 	}
-	if _, exists := m.keeper.GetTrainingFundDisbursement(ctx, msg.Id); exists {
-		return nil, fmt.Errorf("disbursement %s already exists", msg.Id)
+	// DERIVED REPLAY KEY. msg.Id is client-chosen (see the proto comment on
+	// the field), and it was the ENTIRE replay guard on a mint of up to
+	// 2,000 ZRN with no rate limit, no per-model cap and no cooldown: pick a
+	// fresh id, call again, mint again, until the supply cap. A payout key
+	// the payee chooses is not a key. The disbursement is now identified by
+	// (model_id, disbursement epoch), so a model can be paid at most once
+	// per epoch and replay is arithmetically impossible rather than
+	// discouraged. msg.Id is retained on the wire for compatibility and is
+	// recorded as the claimant's own reference; it no longer gates anything.
+	params, _ := m.keeper.GetParams(ctx)
+	disbursementEpochBlocks := params.FitnessEpochBlocks
+	if disbursementEpochBlocks == 0 {
+		disbursementEpochBlocks = 10_000
+	}
+	epoch := uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()) / disbursementEpochBlocks
+	disbursementID := fmt.Sprintf("%s/%d", msg.ModelId, epoch)
+	if _, exists := m.keeper.GetTrainingFundDisbursement(ctx, disbursementID); exists {
+		return nil, fmt.Errorf("model %s already claimed its disbursement for epoch %d", msg.ModelId, epoch)
 	}
 	card, ok := m.keeper.GetModelCard(ctx, msg.ModelId)
 	if !ok {
@@ -292,7 +308,6 @@ func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *type
 	}
 
 	// Pull the deployed model's calibration as the primary signal.
-	params, _ := m.keeper.GetParams(ctx)
 	floor := params.TrainingFundCalibrationFloorBps
 	if floor == 0 {
 		floor = 500_000
@@ -302,11 +317,14 @@ func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *type
 		return nil, fmt.Errorf("calibration %d below floor %d — disbursement gated", func() uint64 { if cal == nil { return 0 }; return cal.CalibrationScoreBps }(), floor)
 	}
 
-	// Base reward.
+	// Base reward. NO IMPLICIT DEFAULT: an unset TrainingFundBaseReward means
+	// "this lane pays nothing", not "this lane pays 1,000 ZRN". The previous
+	// fallback made the param-only mitigation (set the base to "0") silently
+	// reversible — any migration or genesis path that normalised the field
+	// back to the empty string re-armed a 2,000-ZRN-per-message faucet with
+	// no code change and no governance vote. Disarming must not depend on a
+	// string staying non-empty.
 	baseStr := params.TrainingFundBaseReward
-	if baseStr == "" {
-		baseStr = "1000000000"
-	}
 	base, ok := sdkmath.NewIntFromString(baseStr)
 	if !ok || base.IsZero() {
 		return nil, fmt.Errorf("invalid base reward param")
@@ -367,7 +385,7 @@ func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *type
 	vestEnd := uint64(sdkCtx.BlockHeight()) + vestingEpochs*fitnessEpoch
 
 	d := &types.TrainingFundDisbursement{
-		Id:                          msg.Id,
+		Id:                          disbursementID,
 		ModelId:                     msg.ModelId,
 		PipelineId:                  card.PipelineId,
 		Claimant:                    msg.Claimant,

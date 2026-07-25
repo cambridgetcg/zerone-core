@@ -209,6 +209,9 @@ func TestRouteB_Wave8_HeartbeatVestingRelease(t *testing.T) {
 	}))
 
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
+	// The disbursement id is derived from the height at CLAIM time; this test
+	// advances many blocks afterwards, so capture it now.
+	claimHeight := h.Height()
 	claim, err := ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
 		Claimant: operator, ModelId: "model-vest", Id: "disb-vest-1",
 	})
@@ -235,7 +238,10 @@ func TestRouteB_Wave8_HeartbeatVestingRelease(t *testing.T) {
 		"vesting released; operator holds full amount")
 
 	// Disbursement state: vesting_amount zeroed (idempotency).
-	disb, ok := h.KnowledgeKeeper.GetTrainingFundDisbursement(h.Ctx, "disb-vest-1")
+	// Looked up by the DERIVED (model_id, epoch) key: msg.Id no longer
+	// identifies the record. Note the vesting-release heartbeat itself
+	// ITERATES disbursements, so this rename does not affect release.
+	disb, ok := h.KnowledgeKeeper.GetTrainingFundDisbursement(h.Ctx, derivedDisbursementIDAt(h, "model-vest", claimHeight))
 	require.True(t, ok)
 	require.Equal(t, "0", disb.VestingAmount, "vesting amount zeroed post-release")
 

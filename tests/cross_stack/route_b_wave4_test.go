@@ -435,19 +435,31 @@ func TestRouteB_Wave4f_CalibrationGatedDisbursement(t *testing.T) {
 	require.True(t, opBal.Amount.Equal(released),
 		"released amount credited to operator immediately")
 
-	// Re-claim rejected (idempotency on id).
+	// Re-claim rejected. The replay guard is the DERIVED (model_id, epoch)
+	// key, not msg.Id — msg.Id is client-chosen, and a payout key the payee
+	// picks is not a key. So a fresh id must be rejected too.
 	_, err = ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
 		Claimant: operator, ModelId: "model-4f", Id: "disb-4f-1",
 	})
 	require.Error(t, err)
+	_, err = ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
+		Claimant: operator, ModelId: "model-4f", Id: "a-brand-new-id",
+	})
+	require.Error(t, err, "a fresh client-chosen id must not mint again within the epoch")
 
-	// Disbursement queryable.
-	disb, err := qs.TrainingFundDisbursement(h.Ctx, &knowledgetypes.QueryTrainingFundDisbursementRequest{Id: "disb-4f-1"})
+	// Disbursement queryable under its derived id.
+	disb, err := qs.TrainingFundDisbursement(h.Ctx, &knowledgetypes.QueryTrainingFundDisbursementRequest{
+		Id: derivedDisbursementID(t, h, "model-4f"),
+	})
 	require.NoError(t, err)
 	require.True(t, disb.Found)
 	require.Equal(t, uint64(800_000), disb.Disbursement.CalibrationScoreAtClaimBps)
 
-	// Calibration BELOW floor → rejected.
+	// Calibration BELOW floor → rejected. Move into the next disbursement
+	// epoch first, so the per-(model, epoch) replay guard is not what
+	// rejects this — otherwise the test would pass without the calibration
+	// floor existing at all.
+	h.Ctx = h.Ctx.WithBlockHeight(h.Height() + int64(disbursementEpochBlocks(h)))
 	require.NoError(t, h.KnowledgeKeeper.SetAgentCalibration(h.Ctx, &knowledgetypes.AgentCalibration{
 		Address: deploymentAddr, CalibrationScoreBps: 300_000, // below 500,000 floor
 	}))
