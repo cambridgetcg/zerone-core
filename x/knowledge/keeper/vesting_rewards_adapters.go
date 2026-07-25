@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 
+	"github.com/zerone-chain/zerone/x/knowledge/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -11,11 +12,15 @@ import (
 // coupled to verification throughput (T9 / thesis claim 1).
 type VestingRewardsKnowledgeAdapter struct {
 	alignmentAdapter *AlignmentKnowledgeAdapter
+	keeper           Keeper
 }
 
 // NewVestingRewardsKnowledgeAdapter returns an adapter for vesting_rewards.
 func NewVestingRewardsKnowledgeAdapter(k Keeper) *VestingRewardsKnowledgeAdapter {
-	return &VestingRewardsKnowledgeAdapter{alignmentAdapter: NewAlignmentKnowledgeAdapter(k)}
+	return &VestingRewardsKnowledgeAdapter{
+		alignmentAdapter: NewAlignmentKnowledgeAdapter(k),
+		keeper:           k,
+	}
 }
 
 // Ensure compile-time interface compliance.
@@ -31,4 +36,20 @@ func (a *VestingRewardsKnowledgeAdapter) GetVerificationRate(ctx context.Context
 // survived/(survived+disproven) facts. This is what block emission couples to.
 func (a *VestingRewardsKnowledgeAdapter) GetSurvivedChallengeRate(ctx context.Context) uint64 {
 	return a.alignmentAdapter.GetSurvivedChallengeRate(ctx)
+}
+
+// IsFactDisproven reports whether the PoT layer has adjudicated this fact
+// false. It is the single predicate standing between a vesting schedule and
+// clawback: falsification is something the chain concludes, never something a
+// caller asserts. An empty or unknown fact id returns false, so a clawback
+// cannot be authorised by naming a fact that does not exist.
+func (a *VestingRewardsKnowledgeAdapter) IsFactDisproven(ctx context.Context, factID string) bool {
+	if factID == "" {
+		return false
+	}
+	fact, found := a.keeper.GetFact(ctx, factID)
+	if !found || fact == nil {
+		return false
+	}
+	return fact.Status == types.FactStatus_FACT_STATUS_DISPROVEN
 }
