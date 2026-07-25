@@ -34,30 +34,6 @@ import (
 // CorroborationCount on the provisional-challenge path, the price of destroying
 // a conjecture rises with how many probes it has already survived.
 
-// errIfProvisionalCitation refuses a claim that rests any part of its proof
-// chain on a conjecture.
-//
-// This is not tidiness. computeProvenance derives a claim's
-// dependency_confidence_floor as the MINIMUM effective confidence across all
-// its cited edges, and a conjecture's confidence is zero by construction. So a
-// claim citing one solid fact and one conjecture computes a floor of zero —
-// and a zero floor is read everywhere as "no floor at all", because the clamp
-// in createFactFromClaim is guarded by `floor > 0`. Citing a question would
-// therefore not weaken a proof chain, it would silently exempt it from the
-// ceiling its real foundations impose. A question is not evidence, and it may
-// not appear anywhere that evidence is counted.
-func errIfProvisionalCitation(target *types.Fact) error {
-	if target == nil {
-		return nil
-	}
-	if target.Status == types.FactStatus_FACT_STATUS_PROVISIONAL {
-		return types.ErrInvalidClaim.Wrapf(
-			"fact %s is a conjecture (provisional) and cannot be cited — an unsettled proposition is not support for anything; refute it with `tx knowledge challenge-provisional` instead",
-			target.Id)
-	}
-	return nil
-}
-
 // PostConjecture places an unsettled proposition into the graph.
 func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjecture) (*types.MsgPostConjectureResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)

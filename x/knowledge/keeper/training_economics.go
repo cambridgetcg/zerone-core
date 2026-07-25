@@ -77,6 +77,16 @@ func (k Keeper) ComputeTrainingValueWeight(ctx context.Context, factID string) T
 		return out
 	}
 
+	// A conjecture earns no training value in ANY status. The status gate
+	// below admits CONTESTED and CHALLENGED so ordinary facts stay payable
+	// through adjudication — but a conjecture reaching either of those is
+	// routine, not a dispute about something believed, and the expired-round
+	// bypass can park it in CHALLENGED indefinitely.
+	if IsConjecture(fact) {
+		out.StatusIneligible = true
+		return out
+	}
+
 	// Clawback state: disproven → revenue zeroed.
 	if fact.Status == types.FactStatus_FACT_STATUS_DISPROVEN || fact.RevenueClawbackBlock > 0 {
 		out.Disproven = true

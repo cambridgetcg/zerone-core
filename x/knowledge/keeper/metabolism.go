@@ -75,7 +75,7 @@ func (k Keeper) ProcessMetabolism(ctx context.Context, epoch uint64) error {
 			// Healthy — clear any at-risk state
 			if fact.AtRiskSinceEpoch > 0 {
 				fact.AtRiskSinceEpoch = 0
-				fact.Status = types.FactStatus_FACT_STATUS_ACTIVE
+				fact.Status = RestoredStatusFor(fact)
 			}
 		} else if newEnergy < params.MetabolismActiveThreshold {
 			// Below active threshold
@@ -275,7 +275,7 @@ func (k Keeper) ApplyPatronageEnergyBoost(ctx context.Context, fact *types.Fact,
 	if (fact.Status == types.FactStatus_FACT_STATUS_AT_RISK || fact.Status == types.FactStatus_FACT_STATUS_EXPIRED) &&
 		fact.Energy >= params.MetabolismActiveThreshold {
 		fact.AtRiskSinceEpoch = 0
-		fact.Status = types.FactStatus_FACT_STATUS_ACTIVE
+		fact.Status = RestoredStatusFor(fact)
 	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)

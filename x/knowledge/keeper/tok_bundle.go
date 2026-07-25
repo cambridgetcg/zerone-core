@@ -428,14 +428,45 @@ func (k Keeper) SelectToKIds(
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
 	switch v := sel.Variant.(type) {
 	case *types.ToKSelector_RootedSubtree:
-		return k.GatherRootedSubtree(ctx, v.RootedSubtree)
+		nodeIDs, edges, err = k.GatherRootedSubtree(ctx, v.RootedSubtree)
 	case *types.ToKSelector_AncestorCone:
-		return k.GatherAncestorCone(ctx, v.AncestorCone)
+		nodeIDs, edges, err = k.GatherAncestorCone(ctx, v.AncestorCone)
 	case *types.ToKSelector_Frontier:
-		return k.GatherFrontier(ctx, v.Frontier)
+		nodeIDs, edges, err = k.GatherFrontier(ctx, v.Frontier)
 	default:
 		return nil, nil, fmt.Errorf("selector variant not recognised: %T", sel.Variant)
 	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return k.excludeConjectures(ctx, nodeIDs, edges), edges, nil
+}
+
+// excludeConjectures removes open questions from a ToK bundle.
+//
+// This is the trainer-facing product. GatherFrontier's only content filter is
+// `VerifiedAtBlock == 0`, and a conjecture has VerifiedAtBlock set at the block
+// its well-posedness round completed — so without this, every conjecture in a
+// domain shipped inside the chain's headline training extraction, indexed
+// beside verified knowledge, with nothing in the payload distinguishing "we
+// established this" from "we agreed this was worth asking".
+//
+// This does not weaken TC5 (extraction is open): no slice is being curated on
+// editorial grounds, and nothing is hidden — conjectures remain fully readable
+// through the ordinary fact surface and through OpenQuestions. What is refused
+// is the specific act of presenting a question AS knowledge in the product
+// whose entire premise is that its contents were verified. TC4 is untouched:
+// disprovals still ship, because a DISPROVEN conjecture is an answer.
+func (k Keeper) excludeConjectures(ctx context.Context, nodeIDs []string, edges []*types.ToKEdge) []string {
+	out := nodeIDs[:0:0]
+	for _, id := range nodeIDs {
+		fact, ok := k.GetFact(ctx, id)
+		if ok && IsConjecture(fact) && fact.Status != types.FactStatus_FACT_STATUS_DISPROVEN {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
 }
 
 // selectorKind returns a human-readable tag for the selector variant, used as

@@ -157,7 +157,11 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	// would be orphaned (T-i3).
 	params, _ := k.GetParams(ctx)
 	var vindicationEntries []types.VindicationEntry
-	canVindicate := params.VindicationRefundEnabled && result.Verdict == types.Verdict_VERDICT_ACCEPT && factId != ""
+	// A conjecture being refuted is the mechanism succeeding. The panel that
+	// judged it well-posed was not wrong about anything, so there is nothing
+	// to vindicate and no one to slash.
+	isConjectureRound := claim.ClaimType == types.ClaimType_CLAIM_TYPE_CONJECTURE
+	canVindicate := params.VindicationRefundEnabled && result.Verdict == types.Verdict_VERDICT_ACCEPT && factId != "" && !isConjectureRound
 
 	for _, slash := range result.Slashes {
 		if k.stakingKeeper == nil {
@@ -685,7 +689,15 @@ func (k Keeper) reverseContradictionsFromClaim(ctx context.Context, claim *types
 		if k.hasOtherLiveContradiction(ctx, claim.Id, rel.TargetFactId) {
 			continue
 		}
-		targetFact.Status = types.FactStatus_FACT_STATUS_VERIFIED
+		// A conjecture returns to PROVISIONAL, never VERIFIED. Without this,
+		// MsgSubmitContradiction (1 uzrn, no status gate) followed by any
+		// non-ACCEPT verdict laundered a conjecture into a believed fact using
+		// nothing but honest panels.
+		if IsConjecture(targetFact) {
+			targetFact.Status = types.FactStatus_FACT_STATUS_PROVISIONAL
+		} else {
+			targetFact.Status = types.FactStatus_FACT_STATUS_VERIFIED
+		}
 		_ = k.SetFact(ctx, targetFact)
 		sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.contradiction_reversed",
@@ -839,8 +851,14 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	if eligible {
 		originalFact.CorroborationCount++
 		originalFact.LastCorroboratedBlock = height
-		// Phase 5: credit submitter only when the counter moves.
-		k.RecordCorroborationForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+		// Phase 5: credit submitter only when the counter moves — and never
+		// for a conjecture. Calibration is a track record about TRUTH, and a
+		// question surviving a probe says nothing about whether its proposer
+		// is calibrated. Crediting it made conjectures a numerator-only
+		// instrument for inflating the training-fund gate.
+		if !IsConjecture(originalFact) {
+			k.RecordCorroborationForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+		}
 	}
 
 	// Restore from challenged status regardless of cooldown — the fact
@@ -855,11 +873,7 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	// is no longer reachable by MsgChallengeProvisionalFact. The conjecture
 	// keeps its corroboration credit and its energy; it does not acquire
 	// standing it never earned.
-	if originalFact.ClaimType == types.ClaimType_CLAIM_TYPE_CONJECTURE {
-		originalFact.Status = types.FactStatus_FACT_STATUS_PROVISIONAL
-	} else {
-		originalFact.Status = types.FactStatus_FACT_STATUS_ACTIVE
-	}
+	originalFact.Status = RestoredStatusFor(originalFact)
 	originalFact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, originalFact)
 

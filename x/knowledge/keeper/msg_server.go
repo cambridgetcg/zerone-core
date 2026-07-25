@@ -85,7 +85,7 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		if !found {
 			return nil, fmt.Errorf("relation target fact %s not found", rel.TargetFactId)
 		}
-		if err := errIfProvisionalCitation(target); err != nil {
+		if err := errIfConjectureCitation(target); err != nil {
 			return nil, err
 		}
 	}
@@ -98,7 +98,7 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 			continue
 		}
 		if target, found := m.keeper.GetFact(ctx, ref); found {
-			if err := errIfProvisionalCitation(target); err != nil {
+			if err := errIfConjectureCitation(target); err != nil {
 				return nil, err
 			}
 		}
@@ -717,8 +717,30 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 		return nil, fmt.Errorf("fact %s not found", msg.FactId)
 	}
 
-	if fact.Status != types.FactStatus_FACT_STATUS_PROVISIONAL {
+	// Key the refutation door on WHAT THE FACT IS, not on the status it
+	// happens to hold. A PROVISIONAL-only gate meant the door shut the moment
+	// metabolic decay reached AT_RISK (~41 epochs, nobody acting) or a first
+	// challenge moved it to CHALLENGED — so the mechanism's single paid act
+	// expired on a timer.
+	if !IsConjecture(fact) && fact.Status != types.FactStatus_FACT_STATUS_PROVISIONAL {
 		return nil, fmt.Errorf("fact %s is not provisional (status: %s)", msg.FactId, fact.Status)
+	}
+	if IsConjectureResolved(fact) {
+		return nil, fmt.Errorf("fact %s is already resolved (status: %s) — nothing left to refute", msg.FactId, fact.Status)
+	}
+	if fact.Status == types.FactStatus_FACT_STATUS_CHALLENGED {
+		return nil, fmt.Errorf("fact %s already has an open refutation round", msg.FactId)
+	}
+	// Refuting must never be cheaper than asking. Without a floor, 1 uzrn
+	// bought the CHALLENGED status transition and everything that followed
+	// from it. A conjecture sits at confidence 0, so the confidence-scaled
+	// EffectiveMinChallengeStake would floor out; use the unscaled param.
+	if cp, err := m.keeper.GetParams(ctx); err == nil && cp.MinChallengeStake != "" {
+		minStake, ok := new(big.Int).SetString(cp.MinChallengeStake, 10)
+		stakeVal, ok2 := new(big.Int).SetString(msg.Stake, 10)
+		if ok && ok2 && stakeVal.Cmp(minStake) < 0 {
+			return nil, fmt.Errorf("challenge stake %suzrn below minimum %suzrn", msg.Stake, cp.MinChallengeStake)
+		}
 	}
 
 	// Lock stake
@@ -779,6 +801,13 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	targetFact, found := m.keeper.GetFact(ctx, msg.FactId)
 	if !found {
 		return nil, fmt.Errorf("target fact %s not found", msg.FactId)
+	}
+	// A conjecture asserts nothing, so nothing can contradict it. Without
+	// this gate a contradiction moved it to CONTESTED for 1 uzrn, and the
+	// reversal path then restored it as a believed fact.
+	if IsConjecture(targetFact) {
+		return nil, types.ErrInvalidClaim.Wrapf(
+			"fact %s is a conjecture and cannot be contradicted — it makes no assertion to contradict; refute it with `tx knowledge challenge-provisional`", msg.FactId)
 	}
 
 	// Lock stake
@@ -988,6 +1017,14 @@ func (m *msgServer) PatronizeFact(ctx context.Context, msg *types.MsgPatronizeFa
 	fact, found := m.keeper.GetFact(ctx, msg.FactId)
 	if !found {
 		return nil, fmt.Errorf("fact %s not found", msg.FactId)
+	}
+	// Patronage buys metabolic energy, and energy converts to status. A
+	// conjecture may not be patronised for the same reason it may not be
+	// sponsored: paying for a question's survival is buying standing that no
+	// verification produced.
+	if IsConjecture(fact) {
+		return nil, types.ErrInvalidClaim.Wrapf(
+			"fact %s is a conjecture and cannot be patronised — a question earns nothing by being funded; fund its refutation instead", msg.FactId)
 	}
 
 	// Lock patronage amount

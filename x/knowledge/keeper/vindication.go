@@ -236,7 +236,15 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 	// Phase 5 feedback loop:
 	//  · the disproven fact's submitter accrues a disproven_count
 	//  · the challenger is credited with a successful challenge
-	k.RecordDisprovalForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+	// A refuted CONJECTURE must not mark its proposer down. Refutation is the
+	// mechanism working, not the proposer erring — and the conjecture path
+	// deliberately never incremented their Accepted count, so a disproval
+	// here lands on a denominator the proposer never contributed to. That is
+	// COMPASSION C2 (error is not deceit) exactly inverted. The challenger is
+	// credited either way: they did the work.
+	if !IsConjecture(originalFact) {
+		k.RecordDisprovalForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+	}
 	k.RecordChallengeOutcome(ctx, challengeClaim.Submitter, true)
 
 	// Falsification cascade (ToK Wave 5): mark direct descendants as CONTESTED
