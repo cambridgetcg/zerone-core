@@ -84,14 +84,36 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p type
 	if uint32(len(l.PendingClaims)) > p.MaxPendingClaimsPerAttestation {
 		return types.ErrTooManyPendingClaims
 	}
-	if l.RecursionWeight != nil && adapter.AxisBounds != nil {
-		if l.RecursionWeight.AxisSubstrate > adapter.AxisBounds.AxisSubstrateMax ||
-			l.RecursionWeight.AxisVerification > adapter.AxisBounds.AxisVerificationMax ||
-			l.RecursionWeight.AxisClassification > adapter.AxisBounds.AxisClassificationMax ||
-			l.RecursionWeight.AxisAttribution > adapter.AxisBounds.AxisAttributionMax ||
-			l.RecursionWeight.AxisTooling > adapter.AxisBounds.AxisToolingMax ||
-			l.RecursionWeight.AxisInterface > adapter.AxisBounds.AxisInterfaceMax {
-			return types.ErrAxisOverflow
+	if l.RecursionWeight != nil {
+		// PROTOCOL CEILING — unconditional. The six axis projections are
+		// self-declared uint64s supplied by the party being paid, and
+		// computeReward sums them straight into the mint. Applying the
+		// ceiling only when the adapter happened to declare AxisBounds made
+		// the whole bound opt-in, and mainnet's only registered adapter
+		// (agenttool-invocation-v1) ships axis_bounds:null — so the sum was
+		// unbounded on the one adapter that exists. A projection is a
+		// fraction of one axis; MaxAxisProjectionBps is 1.0 on this module's
+		// 10,000-BPS scale.
+		w := l.RecursionWeight
+		for _, v := range []uint64{
+			w.AxisSubstrate, w.AxisVerification, w.AxisClassification,
+			w.AxisAttribution, w.AxisTooling, w.AxisInterface,
+		} {
+			if v > types.MaxAxisProjectionBps {
+				return types.ErrAxisOverflow.Wrapf(
+					"axis projection %d exceeds protocol ceiling %d", v, types.MaxAxisProjectionBps)
+			}
+		}
+		// Adapter bounds may only tighten the protocol ceiling, never widen it.
+		if adapter.AxisBounds != nil {
+			if w.AxisSubstrate > adapter.AxisBounds.AxisSubstrateMax ||
+				w.AxisVerification > adapter.AxisBounds.AxisVerificationMax ||
+				w.AxisClassification > adapter.AxisBounds.AxisClassificationMax ||
+				w.AxisAttribution > adapter.AxisBounds.AxisAttributionMax ||
+				w.AxisTooling > adapter.AxisBounds.AxisToolingMax ||
+				w.AxisInterface > adapter.AxisBounds.AxisInterfaceMax {
+				return types.ErrAxisOverflow
+			}
 		}
 	}
 	// Cited facts must exist in x/knowledge. Only called when knowledgeKeeper is non-nil.
