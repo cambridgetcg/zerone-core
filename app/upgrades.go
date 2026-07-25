@@ -21,6 +21,7 @@ const UpgradeNameLiquidityHardeningV1 = "liquiditypool-hardening-v1"
 const UpgradeNameCompassionCalibrationV1 = "compassion-calibration-v1"
 const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
+const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -261,6 +262,56 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 				seeded, duplicates, sourceless))
 
 			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_substrate-dedupe-v1", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
+
+	// agenttool-seam-v1 — closes the axis-bounds drain on the agent-economy
+	// seam (2026-07-25 incentive audit). RecursionWeight is caller-supplied and
+	// multiplies the settlement reward, but ValidateLink only applied the
+	// ceiling when the adapter declared one — so an adapter registered with
+	// axis_bounds:null was the most permissive on chain rather than the most
+	// restrictive, and six uint64s could claim the remaining supply cap in a
+	// single message. mainnet's only live adapter, agenttool-invocation-v1, was
+	// seeded exactly that way at genesis.
+	//
+	// The binary half of the fix refuses a weighted claim against an unbounded
+	// adapter (ErrAdapterAxisBoundsUnset). This handler is the data half: it
+	// gives every bounds-less adapter an explicit empty ceiling, so "unbounded"
+	// stops existing as a reachable state rather than merely being unreachable
+	// by the current caller.
+	//
+	// There is no governance path to do this instead: LIP dispatch for
+	// CategoryAdapterRegistration is still a Phase-1 TODO (x/gov/keeper/abci.go),
+	// so an upgrade handler is the only mechanism that can write adapter data.
+	//
+	// No proto or store-key change, and no live traffic is affected: the relay's
+	// buildLink sets only `source`, never RecursionWeight.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameAgenttoolSeamV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
+			app.ReconcileModuleAccountPerms(ctx)
+
+			declared, err := app.SubstrateBridgeKeeper.DeclareMissingAxisBounds(ctx)
+			if err != nil {
+				return nil, err
+			}
+			app.Logger().Info(fmt.Sprintf(
+				"agenttool-seam-v1: declared explicit zero axis bounds on %d adapter(s) that had none; weighted claims against an unbounded adapter are now refused",
+				declared))
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_agenttool-seam-v1", "migrated"); err != nil {
 				return nil, err
 			}
 

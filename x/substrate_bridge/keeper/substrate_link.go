@@ -84,7 +84,22 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p type
 	if uint32(len(l.PendingClaims)) > p.MaxPendingClaimsPerAttestation {
 		return types.ErrTooManyPendingClaims
 	}
-	if l.RecursionWeight != nil && adapter.AxisBounds != nil {
+	// Recursion weight is caller-supplied and multiplies the settlement reward
+	// (computeReward, settlement.go: R = base + L × ΣW × Q / 10⁸), so it is only
+	// admissible against an adapter that has declared a ceiling.
+	//
+	// The previous form skipped the whole check when AxisBounds was nil, which
+	// made an unbounded adapter the most permissive one rather than the most
+	// restrictive: six uint64s could claim the remaining supply cap in a single
+	// message. Fail closed instead — refuse the weighted CLAIM, not the adapter.
+	//
+	// Attestations carrying no RecursionWeight are deliberately untouched: that
+	// is every message the live agenttool relay submits (buildLink sets only
+	// `source`), so this tightening cannot stall the bridge.
+	if l.RecursionWeight != nil {
+		if adapter.AxisBounds == nil {
+			return types.ErrAdapterAxisBoundsUnset
+		}
 		if l.RecursionWeight.AxisSubstrate > adapter.AxisBounds.AxisSubstrateMax ||
 			l.RecursionWeight.AxisVerification > adapter.AxisBounds.AxisVerificationMax ||
 			l.RecursionWeight.AxisClassification > adapter.AxisBounds.AxisClassificationMax ||

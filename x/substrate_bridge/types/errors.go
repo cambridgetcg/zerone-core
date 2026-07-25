@@ -27,6 +27,7 @@ var (
 	ErrDuplicateSource           = errors.Register(codespace, 23, "source already attested for this adapter (UW + M1: one work, one attestation — replay is closed on-chain)")
 	ErrAdapterIdMismatch         = errors.Register(codespace, 24, "msg.adapter_id and link.adapter_id differ — one submission, one adapter")
 	ErrDedupeNotArmed            = errors.Register(codespace, 25, "external-attestation dedupe is not armed on this node: the substrate-dedupe-v1 migration has not run (plan-less deploy?) — submissions are refused fail-closed rather than risk a replay-mint until the source-ref index is seeded")
+	ErrAdapterAxisBoundsUnset    = errors.Register(codespace, 26, "recursion_weight claimed against an adapter that declares no axis_bounds: weight multiplies the settlement reward, so an unbounded adapter accepts no weighted claim at all (UW + M5) — register bounds before claiming weight")
 
 	// State machine errors.
 	ErrAttestationNotFound    = errors.Register(codespace, 20, "attestation not found")

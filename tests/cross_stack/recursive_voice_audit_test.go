@@ -43,6 +43,20 @@ func TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound(t *testing.T) {
 		AdapterId:              selfcompile.AdapterID,
 		Status:                 substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
 		MinAttestationBondUzrn: "222000",
+		// A weighted claim requires a declared ceiling (agenttool-seam-v1): an
+		// adapter that declares none accepts no recursion weight at all. These
+		// are the exact maxima ComputeAxisProjection can emit
+		// (tools/zerone-self-compiler/compile/compile.go:134-161), so the
+		// fixture bounds say what this adapter is actually permitted to claim
+		// rather than leaving it unbounded by omission.
+		AxisBounds: &substratebridgetypes.AxisBounds{
+			AxisSubstrateMax:      50_000,
+			AxisVerificationMax:   100_000,
+			AxisClassificationMax: 50_000,
+			AxisAttributionMax:    500_000,
+			AxisToolingMax:        200_000,
+			AxisInterfaceMax:      100_000,
+		},
 	}))
 	require.NoError(t, h.KnowledgeKeeper.SetDomain(h.Ctx, &knowledgetypes.Domain{
 		Name:   selfcompile.SelfDomain,

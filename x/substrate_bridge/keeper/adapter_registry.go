@@ -9,6 +9,44 @@ import (
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
+// DeclareMissingAxisBounds gives every adapter that has no AxisBounds an
+// explicit, empty one (all six maxima zero) and reports how many it changed.
+//
+// A nil AxisBounds used to mean "unbounded" — the most permissive setting,
+// reachable only by omission, and the reason a genesis-seeded adapter could be
+// used to claim the remaining supply cap in one message. An empty-but-present
+// bounds means the opposite and says so out loud: this adapter accepts no
+// weighted claim at all until someone deliberately raises a ceiling.
+//
+// Zero is the deliberate floor, not a placeholder. No live traffic carries
+// RecursionWeight, so nothing is refused today that succeeded yesterday, and
+// raising a ceiling later is an economic decision that should be made on
+// purpose rather than inherited from a nil.
+//
+// Idempotent: an adapter that already declares bounds is left exactly as-is,
+// including one that legitimately declares zeros. Tombstoned adapters are
+// skipped — they are terminal and cannot back an attestation, and WriteAdapter
+// refuses to rewrite them by design.
+func (k Keeper) DeclareMissingAxisBounds(ctx context.Context) (declared int, err error) {
+	var pending []*types.AdapterRegistration
+	k.IterateAdapters(ctx, func(a *types.AdapterRegistration) bool {
+		if a.AxisBounds == nil && a.Status != types.AdapterStatus_ADAPTER_STATUS_TOMBSTONED {
+			pending = append(pending, a)
+		}
+		return false
+	})
+	// Collect first, then write: mutating the store under its own iterator is
+	// undefined behaviour in the cosmos KV layer.
+	for _, a := range pending {
+		a.AxisBounds = &types.AxisBounds{}
+		if err := k.WriteAdapter(ctx, a); err != nil {
+			return declared, err
+		}
+		declared++
+	}
+	return declared, nil
+}
+
 // WriteAdapter persists an AdapterRegistration to the store.
 // Returns ErrAdapterTombstoned if an adapter with the same ID is already
 // tombstoned (commitment 10: forward-only tombstone). Maintains the

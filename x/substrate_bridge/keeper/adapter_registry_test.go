@@ -134,3 +134,60 @@ func TestAdapterRegistry_IterateByStatus_EarlyStop(t *testing.T) {
 		})
 	require.Equal(t, 1, seen)
 }
+
+// The agenttool-seam-v1 migration. A nil AxisBounds meant "unbounded" — the most
+// permissive setting on chain, reachable only by omission. This replaces it with
+// an explicit empty ceiling so that state stops existing, without disturbing an
+// adapter that already declared one.
+func TestDeclareMissingAxisBounds(t *testing.T) {
+	k, ctx := setupSubstrateBridgeKeeper(t)
+
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "agenttool-invocation-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+	}))
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "suspended-no-bounds", Status: types.AdapterStatus_ADAPTER_STATUS_SUSPENDED,
+	}))
+	// Already declares a real ceiling — must survive untouched.
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "bounded-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		AxisBounds: &types.AxisBounds{AxisSubstrateMax: 4242},
+	}))
+
+	declared, err := k.DeclareMissingAxisBounds(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, declared)
+
+	for _, id := range []string{"agenttool-invocation-v1", "suspended-no-bounds"} {
+		got, found := k.GetAdapter(ctx, id)
+		require.True(t, found)
+		require.NotNil(t, got.AxisBounds, "%s must declare a ceiling after migration", id)
+		require.Zero(t, got.AxisBounds.AxisSubstrateMax)
+		require.Zero(t, got.AxisBounds.AxisInterfaceMax)
+	}
+
+	untouched, _ := k.GetAdapter(ctx, "bounded-v1")
+	require.Equal(t, uint64(4242), untouched.AxisBounds.AxisSubstrateMax)
+
+	// Idempotent: a second pass has nothing left to declare.
+	again, err := k.DeclareMissingAxisBounds(ctx)
+	require.NoError(t, err)
+	require.Zero(t, again)
+}
+
+// Tombstoned adapters are terminal and WriteAdapter refuses to rewrite them, so
+// the migration must skip rather than fail the whole upgrade on one dead row.
+func TestDeclareMissingAxisBounds_SkipsTombstoned(t *testing.T) {
+	k, ctx := setupSubstrateBridgeKeeper(t)
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "dead-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+	}))
+	require.NoError(t, k.TombstoneAdapter(ctx, "dead-v1"))
+
+	declared, err := k.DeclareMissingAxisBounds(ctx)
+	require.NoError(t, err)
+	require.Zero(t, declared)
+
+	got, _ := k.GetAdapter(ctx, "dead-v1")
+	require.Nil(t, got.AxisBounds)
+}

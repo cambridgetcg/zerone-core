@@ -99,6 +99,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameSubstrateDedupeV1,
 			Description: "substrate-dedupe-v1 — external-attestation replay wall: a source reference is required and (adapter_id, source_id) is unique per work item, so one work mints at most once; rejection releases the source, settlement consumes it. Handler seeds the index from stored attestations.",
 		},
+		{
+			UpgradeName: UpgradeNameAgenttoolSeamV1,
+			Description: "agenttool-seam-v1 — axis-bounds drain closed: recursion_weight multiplies the settlement reward, so it is refused against an adapter that declares no ceiling instead of being waved through. Handler gives every bounds-less adapter an explicit empty ceiling, retiring 'unbounded' as a reachable state.",
+		},
 	}
 
 	return ChainVersionReport{

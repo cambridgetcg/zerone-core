@@ -252,3 +252,68 @@ func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_substrate-dedupe-v1"),
 		"handler must write the substrate-dedupe-v1 migration marker")
 }
+
+// TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds drives the real agenttool-seam-v1
+// handler end-to-end under the exact plan name a governance proposal would carry.
+// The adapter is written in the genesis shape of agenttool-invocation-v1 — active,
+// AxisBounds nil — which is the state that let recursion weight through unbounded.
+// After the handler, the ceiling must exist, and a weighted claim must be refused
+// by the same code path a real submission takes.
+func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
+	h := NewTestHarness(t)
+
+	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
+		AdapterId: "agenttool-invocation-v1",
+		Status:    substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		// AxisBounds nil — exactly how genesis seeded it.
+	}))
+
+	before, found := h.SubstrateBridgeKeeper.GetAdapter(h.Ctx, "agenttool-invocation-v1")
+	require.True(t, found)
+	require.Nil(t, before.AxisBounds, "precondition: the drain state must be reproduced")
+
+	fromVM := h.App.CurrentModuleVersionMap()
+	_, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameAgenttoolSeamV1, fromVM, h.Height())
+	require.NoError(t, err)
+
+	after, found := h.SubstrateBridgeKeeper.GetAdapter(h.Ctx, "agenttool-invocation-v1")
+	require.True(t, found)
+	require.NotNil(t, after.AxisBounds, "handler must leave the adapter declaring a ceiling")
+
+	// The drain, attempted through the real validation path.
+	drain := &substratebridgetypes.SubstrateLink{
+		AdapterId: "agenttool-invocation-v1",
+		Source: &substratebridgetypes.ExternalSource{
+			AdapterId: "agenttool-invocation-v1",
+			SourceId:  "inv-drain",
+		},
+		RecursionWeight: &substratebridgetypes.AxisProjection{
+			AxisSubstrate: ^uint64(0), AxisVerification: ^uint64(0),
+			AxisClassification: ^uint64(0), AxisAttribution: ^uint64(0),
+			AxisTooling: ^uint64(0), AxisInterface: ^uint64(0),
+		},
+	}
+	// ErrAxisOverflow, not ErrAdapterAxisBoundsUnset: after the migration this
+	// adapter *does* declare a ceiling, so the claim is refused for exceeding it.
+	// The two errors mark the two halves of the fix — the migration closes the
+	// drain for adapters that already exist, the gate closes it for any adapter
+	// registered without bounds later. This test exercises the first.
+	require.ErrorIs(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, drain, substratebridgetypes.DefaultParams()),
+		substratebridgetypes.ErrAxisOverflow,
+		"a weighted claim must not survive the upgrade")
+
+	// The live relay's shape — source only, no weight — must still pass.
+	relayShaped := &substratebridgetypes.SubstrateLink{
+		AdapterId: "agenttool-invocation-v1",
+		Source: &substratebridgetypes.ExternalSource{
+			AdapterId: "agenttool-invocation-v1",
+			SourceId:  "inv-normal",
+		},
+	}
+	require.NoError(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, relayShaped, substratebridgetypes.DefaultParams()),
+		"the upgrade must not stall the live bridge")
+
+	require.Equal(t, "migrated",
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_agenttool-seam-v1"),
+		"handler must write the agenttool-seam-v1 migration marker")
+}
