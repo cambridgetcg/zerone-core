@@ -144,6 +144,29 @@ func EdgeID(upstreamID, downstreamID string) string {
 	return upstreamID + "→" + downstreamID
 }
 
+// MaxAxisProjectionBps is the unconditional protocol ceiling on each of the
+// six UW recursion axes. A projection is a fraction of one axis, and this
+// module expresses those on a 1,000,000 scale (the registered adapter bound
+// AxisSubstrateMax: 1_000_000 is 1.0), so the ceiling is 1.0 per axis.
+//
+// It is a compile-time constant rather than a governance parameter on
+// purpose: the axis values are supplied by the party being paid and feed
+// computeReward's mint directly, so the bound that makes the mint finite must
+// not itself be reachable by a governance vote. Adapters may declare
+// AxisBounds to tighten this further; nothing can widen it.
+//
+// Before this ceiling the bound was applied only when the adapter declared
+// AxisBounds, and mainnet's sole registered adapter ships axis_bounds:null —
+// so six caller-supplied uint64s summed unbounded into the mint, which is the
+// whole remaining supply cap in one message.
+//
+// computeReward is R = base × (1 + ΣW/20,000), so with all six axes at the
+// ceiling ΣW = 6,000,000 and R caps at 301 × base. That is finite, which is
+// the property being restored here. Whether 301× is the RIGHT multiple is a
+// tuning question for governance via AttestationMinBondUzrn — not an
+// emergency one, and deliberately not decided here.
+const MaxAxisProjectionBps uint64 = 1_000_000
+
 func Be8(status uint8) []byte { return []byte{status} }
 
 func BeUint64(v uint64) []byte {

@@ -98,6 +98,15 @@ func (k Keeper) computeReward(att *types.ExternalAttestation, verifiedRatioBps u
 	if att.Link != nil && att.Link.RecursionWeight != nil {
 		w := att.Link.RecursionWeight
 		for _, v := range []uint64{w.AxisSubstrate, w.AxisVerification, w.AxisClassification, w.AxisAttribution, w.AxisTooling, w.AxisInterface} {
+			// Clamp at the protocol ceiling as well as rejecting at entry
+			// (validateSubstrateLink). Entry validation only guards NEW
+			// links; an attestation already in the store from before the
+			// ceiling existed would otherwise still mint against an
+			// unbounded self-declared projection. Clamping here means the
+			// mint is bounded no matter how the record got into state.
+			if v > types.MaxAxisProjectionBps {
+				v = types.MaxAxisProjectionBps
+			}
 			wTotal = wTotal.Add(sdkmath.NewIntFromUint64(v))
 		}
 	}

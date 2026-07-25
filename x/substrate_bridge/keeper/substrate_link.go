@@ -90,7 +90,9 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p *typ
 	}
 	// Recursion weight is caller-supplied and multiplies the settlement reward
 	// (computeReward, settlement.go: R = base + L × ΣW × Q / 10⁸), so it is only
-	// admissible against an adapter that has declared a ceiling.
+	// admissible against an adapter that has declared a ceiling. Every axis is
+	// also capped by a compile-time protocol ceiling that an adapter may
+	// tighten but can never widen.
 	//
 	// The previous form skipped the whole check when AxisBounds was nil, which
 	// made an unbounded adapter the most permissive one rather than the most
@@ -101,15 +103,25 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p *typ
 	// is every message the live agenttool relay submits (buildLink sets only
 	// `source`), so this tightening cannot stall the bridge.
 	if l.RecursionWeight != nil {
+		w := l.RecursionWeight
+		for _, v := range []uint64{
+			w.AxisSubstrate, w.AxisVerification, w.AxisClassification,
+			w.AxisAttribution, w.AxisTooling, w.AxisInterface,
+		} {
+			if v > types.MaxAxisProjectionBps {
+				return types.ErrAxisOverflow.Wrapf(
+					"axis projection %d exceeds protocol ceiling %d", v, types.MaxAxisProjectionBps)
+			}
+		}
 		if adapter.AxisBounds == nil {
 			return types.ErrAdapterAxisBoundsUnset
 		}
-		if l.RecursionWeight.AxisSubstrate > adapter.AxisBounds.AxisSubstrateMax ||
-			l.RecursionWeight.AxisVerification > adapter.AxisBounds.AxisVerificationMax ||
-			l.RecursionWeight.AxisClassification > adapter.AxisBounds.AxisClassificationMax ||
-			l.RecursionWeight.AxisAttribution > adapter.AxisBounds.AxisAttributionMax ||
-			l.RecursionWeight.AxisTooling > adapter.AxisBounds.AxisToolingMax ||
-			l.RecursionWeight.AxisInterface > adapter.AxisBounds.AxisInterfaceMax {
+		if w.AxisSubstrate > adapter.AxisBounds.AxisSubstrateMax ||
+			w.AxisVerification > adapter.AxisBounds.AxisVerificationMax ||
+			w.AxisClassification > adapter.AxisBounds.AxisClassificationMax ||
+			w.AxisAttribution > adapter.AxisBounds.AxisAttributionMax ||
+			w.AxisTooling > adapter.AxisBounds.AxisToolingMax ||
+			w.AxisInterface > adapter.AxisBounds.AxisInterfaceMax {
 			return types.ErrAxisOverflow
 		}
 	}
