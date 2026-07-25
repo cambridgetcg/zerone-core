@@ -823,3 +823,16 @@ func PrivilegedActionKey(seq uint64) []byte {
 	binary.BigEndian.PutUint64(buf, seq)
 	return append(key, buf...)
 }
+
+// ProbeScanCursorKey holds the resumption point of the probe-invitation
+// heartbeat's bounded scan: the store key of the next Fact to examine.
+//
+// The heartbeat used to call IterateFacts over the whole corpus on EVERY
+// block. Its batch guard stopped the loop only once ProbeInvitationBatchSize
+// facts had been INVITED, so in the steady state — where the re-invite
+// cooldown disqualifies everything — nothing was invited and the loop ran to
+// completion over every fact in state, every block. A single-key cursor makes
+// the scan genuinely bounded while still covering the whole corpus over
+// successive blocks, which a plain "examine the first N" cap would not: that
+// would silently starve every fact past the cap.
+var ProbeScanCursorKey = []byte{0x80}

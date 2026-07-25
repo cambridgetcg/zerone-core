@@ -89,8 +89,10 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	}
 
 	// Wave 15: stress-test invitation heartbeat. Chain-driven demand for
-	// probes on idle high-confidence facts. Bounded to ProbeInvitationBatchSize
-	// per block so heartbeat cost stays O(constant) regardless of fact count.
+	// probes on idle high-confidence facts. Bounded per block by BOTH
+	// ProbeInvitationBatchSize (invitations) and probeScanMaxExaminedPerBlock
+	// (facts read), resuming from a persisted cursor. The batch size alone
+	// did NOT bound this — see InviteIdleFactsForProbing.
 	if params.ProbeInvitationIdleThresholdBlocks > 0 {
 		k.InviteIdleFactsForProbing(ctx, height, params)
 	}
