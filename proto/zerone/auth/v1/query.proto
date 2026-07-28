@@ -30,9 +30,12 @@ service Query {
   }
 
   // AccountIdentifier returns a chain-qualified, CAIP-10-syntax identifier
-  // for a registered Zerone account. The Cosmos namespace address profile is
-  // still Draft and does not yet name the zrn HRP. The DID is returned as
-  // Zerone-native metadata; this query does not assert W3C DID conformance.
+  // when a registered account's stored address is canonical lowercase,
+  // 20-byte zrn Bech32. Otherwise-consistent historical or genesis-injected
+  // records outside that projection return FailedPrecondition. The Cosmos
+  // namespace address profile is still Draft and does not yet name the zrn
+  // HRP. The DID is returned as Zerone-native metadata; this query does not
+  // assert W3C DID conformance.
   rpc AccountIdentifier(QueryAccountIdentifierRequest) returns (QueryAccountIdentifierResponse) {
     option (google.api.http).get = "/zerone/auth/v1/account_identifier/{address}";
   }
@@ -74,9 +77,9 @@ message QueryAccountIdentifierResponse {
   ChainAccountIdentifier identifier = 1;
 }
 
-// ChainAccountIdentifier is an interoperability projection of an existing
-// Zerone account. It is computed from the current chain ID and account record
-// and is never stored in consensus state.
+// ChainAccountIdentifier is an interoperability projection of an existing,
+// canonical lowercase 20-byte Zerone account. It is computed from the current
+// chain ID and account record and is never stored in consensus state.
 message ChainAccountIdentifier {
   // CAIP-2 namespace. Always "cosmos" for Zerone.
   string namespace = 1;

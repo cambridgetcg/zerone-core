@@ -2,16 +2,22 @@ package app_test
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
 	"cosmossdk.io/log"
 
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/server/api"
+	"github.com/cosmos/cosmos-sdk/server/config"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 )
@@ -42,6 +48,35 @@ func TestNewZeroneApp(t *testing.T) {
 	require.NotNil(t, app.GovKeeper)
 	require.NotNil(t, app.IBCKeeper)
 	require.NotNil(t, app.UpgradeKeeper)
+}
+
+// TestRegisterAPIRoutesIncludesTrainingProvenance verifies the app-level v2
+// gateway mount, not merely the generated handler. A registered route reaches
+// the client boundary (and fails because this test deliberately provides no
+// node); an unknown route remains a 404.
+func TestRegisterAPIRoutesIncludesTrainingProvenance(t *testing.T) {
+	app := newTestApp(t)
+	clientCtx := client.Context{
+		Codec:             app.AppCodec(),
+		InterfaceRegistry: app.InterfaceRegistry(),
+		TxConfig:          app.TxConfig(),
+	}
+	apiServer := api.New(clientCtx, log.NewNopLogger(), grpc.NewServer())
+	app.RegisterAPIRoutes(apiServer, config.APIConfig{})
+
+	registered := httptest.NewRecorder()
+	apiServer.Router.ServeHTTP(
+		registered,
+		httptest.NewRequest(http.MethodGet, "/zerone/training_provenance/v1/in-toto/missing", nil),
+	)
+	require.NotEqual(t, http.StatusNotFound, registered.Code)
+
+	unknown := httptest.NewRecorder()
+	apiServer.Router.ServeHTTP(
+		unknown,
+		httptest.NewRequest(http.MethodGet, "/zerone/not-a-real-module/v1/missing", nil),
+	)
+	require.Equal(t, http.StatusNotFound, unknown.Code)
 }
 
 // TestDefaultGenesis verifies the default genesis state is valid JSON and

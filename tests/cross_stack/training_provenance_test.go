@@ -85,6 +85,19 @@ func TestTrainingProvenance_GradeAOnCleanManifest(t *testing.T) {
 	require.Equal(t, uint32(0), cert.PrivilegedActionCount)
 	require.Equal(t, uint32(0), cert.IncidentCount)
 	require.Equal(t, uint32(0), cert.CartelResolutionCount)
+	require.Equal(t, testChainID, cert.SourceChainId)
+
+	// The same live certificate is available as an unsigned in-toto Statement
+	// v1 without changing state or losing the manifest's origin-chain pin.
+	statement, err := qs.InTotoStatement(h.Ctx, &provtypes.QueryInTotoStatementRequest{
+		ManifestId: "manifest-prov-clean",
+	})
+	require.NoError(t, err)
+	require.Equal(t, provkeeper.InTotoStatementType, statement.StatementType)
+	require.Equal(t, provkeeper.TrainingProvenancePredicateType, statement.PredicateType)
+	require.Equal(t, cert.MerkleRoot, statement.Subject[0].Digest["sha256"])
+	require.Equal(t, testChainID, statement.Predicate.SourceChainId)
+	require.Equal(t, testChainID, statement.Predicate.ObservedOnChainId)
 	// Domain coverage reflects both seeded domains.
 	domainSet := map[string]uint64{}
 	for _, d := range cert.Domains {

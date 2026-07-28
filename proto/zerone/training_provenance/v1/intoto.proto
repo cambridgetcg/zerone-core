@@ -1,0 +1,39 @@
+syntax = "proto3";
+package zerone.training_provenance.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/training_provenance/types";
+
+import "zerone/training_provenance/v1/types.proto";
+
+// InTotoStatement is an in-toto Statement v1 projection of one Zerone
+// training-manifest certificate. The HTTP query returns this message directly,
+// so its proto JSON representation is also a conforming in-toto statement.
+//
+// This statement is unsigned. A producer can place the returned JSON in a DSSE
+// envelope and sign it with Sigstore; signing is deliberately kept off-chain.
+message InTotoStatementV1 {
+  string statement_type = 1 [json_name = "_type"];
+  repeated InTotoSubject subject = 2;
+  string predicate_type = 3 [json_name = "predicateType"];
+  TrainingProvenancePredicate predicate = 4;
+}
+
+// InTotoSubject identifies the manifest's immutable included-ID-set
+// commitment by its SHA-256 Merkle root. The digest does not cover every
+// manifest metadata or version-pin field.
+message InTotoSubject {
+  string name = 1;
+  map<string, string> digest = 2;
+}
+
+// TrainingProvenancePredicate carries Zerone's complete, current certificate.
+// The predicate type URI versions the meaning of this object independently of
+// the generic in-toto Statement envelope.
+message TrainingProvenancePredicate {
+  // The chain pinned into the immutable manifest at creation time.
+  string source_chain_id = 1 [json_name = "sourceChainId"];
+  // The chain serving this live projection. This can differ after an
+  // export/import and is never substituted for the source chain.
+  string observed_on_chain_id = 2 [json_name = "observedOnChainId"];
+  ProvenanceCertificate certificate = 3;
+}

@@ -1449,6 +1449,7 @@ func (app *ZeroneApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.API
 	must(zeronecounterextypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecounterextypes.NewQueryClient(clientCtx)))
 	must(zeronecreedtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecreedtypes.NewQueryClient(clientCtx)))
 	must(substratebridgetypes.RegisterQueryHandlerClient(ctx, gwmux, substratebridgetypes.NewQueryClient(clientCtx)))
+	must(zeroneprovenancetypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneprovenancetypes.NewQueryClient(clientCtx)))
 	must(zeronetrustscoretypes.RegisterQueryHandlerClient(ctx, gwmux, zeronetrustscoretypes.NewQueryClient(clientCtx)))
 	apiSvr.Router.PathPrefix("/zerone/").Handler(gwmux)
 

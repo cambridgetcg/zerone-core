@@ -446,9 +446,9 @@ func (x *QueryAccountIdentifierResponse) GetIdentifier() *ChainAccountIdentifier
 	return nil
 }
 
-// ChainAccountIdentifier is an interoperability projection of an existing
-// Zerone account. It is computed from the current chain ID and account record
-// and is never stored in consensus state.
+// ChainAccountIdentifier is an interoperability projection of an existing,
+// canonical lowercase 20-byte Zerone account. It is computed from the current
+// chain ID and account record and is never stored in consensus state.
 type ChainAccountIdentifier struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// CAIP-2 namespace. Always "cosmos" for Zerone.

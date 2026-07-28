@@ -122,6 +122,44 @@ func TestQueryAccountIdentifierValidation(t *testing.T) {
 	}
 }
 
+func TestQueryAccountIdentifierReportsStoredNonProjectableAddress(t *testing.T) {
+	overlong, err := bech32.ConvertAndEncode("zrn", make([]byte, 21))
+	if err != nil {
+		t.Fatalf("failed to encode overlong fixture: %v", err)
+	}
+
+	tests := map[string]string{
+		"uppercase":       strings.ToUpper(testAddr1),
+		"21-byte payload": overlong,
+	}
+	for name, address := range tests {
+		t.Run(name, func(t *testing.T) {
+			k, baseCtx := setupKeeper(t)
+			ctx := baseCtx.WithChainID("zerone-2")
+			ms := keeper.NewMsgServerImpl(k)
+			qs := keeper.NewQueryServerImpl(k)
+
+			_, err := ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
+				Sender:      address,
+				Did:         testDID1,
+				PublicKey:   testPubKey1,
+				AccountType: "agent",
+			})
+			if err != nil {
+				t.Fatalf("fixture demonstrates accepted account state: %v", err)
+			}
+			if _, found := k.GetAccount(ctx, address); !found {
+				t.Fatal("registered non-projectable account was not stored")
+			}
+
+			_, err = qs.AccountIdentifier(ctx, &types.QueryAccountIdentifierRequest{Address: address})
+			if status.Code(err) != codes.FailedPrecondition {
+				t.Fatalf("expected FailedPrecondition for stored account, got %s (%v)", status.Code(err), err)
+			}
+		})
+	}
+}
+
 func TestQueryAccountIdentifierRejectsEmptyChainID(t *testing.T) {
 	k, ctx := setupKeeper(t)
 	ms := keeper.NewMsgServerImpl(k)

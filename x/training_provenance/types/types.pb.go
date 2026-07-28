@@ -21,13 +21,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ProvenanceCertificate bundles every signal the chain knows about a
+// ProvenanceCertificate bundles the signals currently synthesized for a
 // training manifest into a single queryable shape. Pure synthesis: this
-// module owns no state — it reads from x/knowledge (manifest, augmentation,
-// privileged-action log, incidents), x/qualification (verifier metrics),
-// and x/capture_challenge (cartel resolutions touching the manifest's
-// domains). The certificate is what a downstream model trainer publishes
-// to claim verifiable provenance.
+// module owns no state — it reads from x/knowledge (manifest,
+// privileged-action log, incidents), x/qualification (verifier metrics), and
+// x/capture_challenge (cartel resolutions touching directly covered domains).
+// For a composed manifest, fact/domain fields describe the child's stored
+// delta; callers that need recursively materialized parent coverage must use
+// the knowledge bundle APIs. The in-toto predicate v1 therefore refuses
+// composed manifests.
 //
 // Trust grade is computed from the underlying signals — not stored. A
 // re-query at a later height yields a possibly-different grade if more
@@ -43,18 +45,18 @@ type ProvenanceCertificate struct {
 	FinalizedAtBlock uint64 `protobuf:"varint,5,opt,name=finalized_at_block,json=finalizedAtBlock,proto3" json:"finalized_at_block,omitempty"`
 	Status           string `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"` // FINALIZED / ATTESTED / SUPERSEDED / etc.
 	// ── Domain coverage ────────────────────────────────────────────────
-	// One entry per domain represented in the manifest's selected fact set.
+	// One entry per domain represented in the manifest's directly stored fact
+	// IDs. For composed manifests this is the child delta, not inherited facts.
 	Domains []*DomainCoverage `protobuf:"bytes,7,rep,name=domains,proto3" json:"domains,omitempty"`
 	// ── Audit history (signals the chain has accumulated) ───────────────
-	// Privileged-action records that touched any domain in the manifest's
-	// coverage. High counts are a yellow flag — many authority interventions
-	// suggest the corpus has been curated, not just verified.
+	// Privileged-action records whose target exactly matches one of the
+	// manifest's directly stored fact IDs.
 	PrivilegedActionCount uint32 `protobuf:"varint,8,opt,name=privileged_action_count,json=privilegedActionCount,proto3" json:"privileged_action_count,omitempty"`
-	// Incident records (P0–P3) opened that affected this manifest's
-	// pipeline or any of its domains.
+	// Incident records whose affected_modules contains "knowledge". This is a
+	// conservative module-global signal, not a pipeline/domain-specific count.
 	IncidentCount uint32 `protobuf:"varint,9,opt,name=incident_count,json=incidentCount,proto3" json:"incident_count,omitempty"`
 	// Capture-challenge resolutions (UPHELD only) targeting any of the
-	// manifest's coverage domains.
+	// directly covered domains.
 	CartelResolutionCount uint32 `protobuf:"varint,10,opt,name=cartel_resolution_count,json=cartelResolutionCount,proto3" json:"cartel_resolution_count,omitempty"`
 	// ── Synthesised grade ──────────────────────────────────────────────
 	// Letter grade based on the signals above. Scoring rubric is fixed in
@@ -63,8 +65,13 @@ type ProvenanceCertificate struct {
 	TrustGrade       string `protobuf:"bytes,11,opt,name=trust_grade,json=trustGrade,proto3" json:"trust_grade,omitempty"`
 	TrustExplanation string `protobuf:"bytes,12,opt,name=trust_explanation,json=trustExplanation,proto3" json:"trust_explanation,omitempty"`
 	ComputedAtBlock  uint64 `protobuf:"varint,13,opt,name=computed_at_block,json=computedAtBlock,proto3" json:"computed_at_block,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Chain on which the training manifest was originally snapshotted. This is
+	// copied from TrainingManifest.chain_id rather than inferred from the node
+	// currently answering the query, so export/import or relaunches preserve
+	// provenance.
+	SourceChainId string `protobuf:"bytes,14,opt,name=source_chain_id,json=sourceChainId,proto3" json:"source_chain_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ProvenanceCertificate) Reset() {
@@ -188,6 +195,13 @@ func (x *ProvenanceCertificate) GetComputedAtBlock() uint64 {
 	return 0
 }
 
+func (x *ProvenanceCertificate) GetSourceChainId() string {
+	if x != nil {
+		return x.SourceChainId
+	}
+	return ""
+}
+
 // DomainCoverage summarises one domain's contribution to a manifest.
 type DomainCoverage struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
@@ -265,7 +279,7 @@ var File_zerone_training_provenance_v1_types_proto protoreflect.FileDescriptor
 
 const file_zerone_training_provenance_v1_types_proto_rawDesc = "" +
 	"\n" +
-	")zerone/training_provenance/v1/types.proto\x12\x1dzerone.training_provenance.v1\"\xb9\x04\n" +
+	")zerone/training_provenance/v1/types.proto\x12\x1dzerone.training_provenance.v1\"\xe1\x04\n" +
 	"\x15ProvenanceCertificate\x12\x1f\n" +
 	"\vmanifest_id\x18\x01 \x01(\tR\n" +
 	"manifestId\x12\x1f\n" +
@@ -285,7 +299,8 @@ const file_zerone_training_provenance_v1_types_proto_rawDesc = "" +
 	"\vtrust_grade\x18\v \x01(\tR\n" +
 	"trustGrade\x12+\n" +
 	"\x11trust_explanation\x18\f \x01(\tR\x10trustExplanation\x12*\n" +
-	"\x11computed_at_block\x18\r \x01(\x04R\x0fcomputedAtBlock\"\xa7\x01\n" +
+	"\x11computed_at_block\x18\r \x01(\x04R\x0fcomputedAtBlock\x12&\n" +
+	"\x0fsource_chain_id\x18\x0e \x01(\tR\rsourceChainId\"\xa7\x01\n" +
 	"\x0eDomainCoverage\x12\x16\n" +
 	"\x06domain\x18\x01 \x01(\tR\x06domain\x12\x1d\n" +
 	"\n" +

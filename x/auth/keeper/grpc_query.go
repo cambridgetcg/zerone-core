@@ -87,13 +87,15 @@ func (qs queryServer) AccountIdentifier(goCtx context.Context, req *types.QueryA
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "cannot derive CAIP-2 chain reference: %v", err)
 	}
-	accountID, err := types.CAIP10AccountID(rawChainID, req.Address)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid account identifier: %v", err)
-	}
 
 	account, found := qs.GetAccount(ctx, req.Address)
 	if !found {
+		// Preserve a useful client-input distinction for absent keys: malformed
+		// or non-canonical addresses are InvalidArgument, while a canonical
+		// address with no record is NotFound.
+		if _, err := types.CAIP10AccountID(rawChainID, req.Address); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid account identifier: %v", err)
+		}
 		return nil, status.Error(codes.NotFound, types.ErrAccountNotFound.Error())
 	}
 	if account.Address != req.Address {
@@ -106,6 +108,14 @@ func (qs queryServer) AccountIdentifier(goCtx context.Context, req *types.QueryA
 		mapping.Bech32 != account.Address ||
 		mapping.PubKey != account.PublicKey {
 		return nil, status.Error(codes.DataLoss, "stored account and DID mapping are inconsistent")
+	}
+
+	accountID, err := types.CAIP10AccountID(rawChainID, account.Address)
+	if err != nil {
+		// Registration and historical genesis validation admit a wider address
+		// set than the draft Cosmos CAIP-10 profile. A stored-but-unprojectable
+		// record is server state, not malformed client input.
+		return nil, status.Errorf(codes.FailedPrecondition, "registered account address is not CAIP-projectable: %v", err)
 	}
 
 	frozen := account.Flags != nil && account.Flags.Frozen

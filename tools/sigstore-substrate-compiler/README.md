@@ -1,0 +1,122 @@
+# Sigstore → substrate_bridge compiler
+
+`sigstore-substrate-compiler` verifies a local Sigstore bundle and projects
+its exact in-toto DSSE payload and proof bundle into a witness-only Zerone
+`SubstrateLink` for the fixed `sigstore-in-toto-v1` adapter.
+
+It is intentionally an off-chain compiler. It adds no validator dependency,
+state, consensus code, claims, citations, recursion weight, or automatic
+economic reward.
+
+Status: **experimental and unregistered**. Keep it off chain with
+`witness_reward_uzrn` at `"0"` until an end-to-end cryptographic fixture passes
+under Zerone's selected production trusted root, exact identity, artifact, and
+predicate policy.
+
+## Verification policy
+
+The CLI fails closed unless all of these checks pass:
+
+- the bundle is Sigstore bundle v0.3 or newer (the pinned SDK currently
+  supports v0.3);
+- the bundle contains a DSSE `application/vnd.in-toto+json` envelope;
+- at least one signed certificate timestamp verifies;
+- at least one transparency-log entry verifies;
+- at least one observer timestamp verifies;
+- the certificate matches one exact issuer and one exact SAN (regex flags do
+  not exist);
+- a required `sha256:<64 lowercase hex>` digest matches a Statement subject;
+- every Statement subject contains at least one non-empty digest algorithm and
+  value;
+- `_type` is exactly `https://in-toto.io/Statement/v1`; and
+- `predicateType` exactly matches the caller's required URI.
+
+Both the bundle and trusted root are bounded regular files read from local
+disk. Runtime verification performs no TUF update, network fetch, or
+current-time fallback.
+
+## Build and test
+
+This directory is a nested Go module so Sigstore dependencies never enter the
+Zerone validator module. It pins `github.com/sigstore/sigstore-go` v1.2.2,
+which requires Go 1.25.8. The chain's root module remains on Go 1.24.
+
+```sh
+cd tools/sigstore-substrate-compiler
+GOTOOLCHAIN=go1.25.8 go test ./...
+GOTOOLCHAIN=go1.25.8 go build -trimpath -o sigstore-substrate-compiler .
+```
+
+For the binary hash registered by governance, pin the Zerone commit, Go
+toolchain, target, and build flags. One reproducible Linux target is:
+
+```sh
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=go1.25.8 \
+  go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+  -o sigstore-substrate-compiler-linux-amd64 .
+shasum -a 256 sigstore-substrate-compiler-linux-amd64
+```
+
+## Use
+
+The trusted root must be a reviewed, version-controlled local file. Pin its
+SHA-256 alongside the full invocation in the governance proposal or adapter
+operations runbook; changing that file changes who is trusted.
+
+```sh
+./sigstore-substrate-compiler \
+  --bundle ./provenance.sigstore.json \
+  --trusted-root ./trusted-root.json \
+  --certificate-issuer https://token.actions.githubusercontent.com \
+  --certificate-san 'https://github.com/example/project/.github/workflows/release.yml@refs/heads/main' \
+  --artifact-digest sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
+  --predicate-type https://slsa.dev/provenance/v1 \
+  --source-url https://example.invalid/releases/v1/provenance.sigstore.json \
+  --fetched-at-block 648000 \
+  > substrate-link.json
+```
+
+`--fetched-at-block` is optional and defaults to `0`. The compiler never
+dereferences `--source-url`; it must be a public HTTPS audit locator with no
+userinfo, query, or fragment. Immutability and retention are operational
+requirements, not properties the current link hash can authenticate.
+
+`source_id` is SHA-256 of the exact decoded DSSE payload as
+`sha256:<lowercase hex>`, providing exact payload-byte deduplication without
+JSON re-marshaling. JSON whitespace or key-order changes therefore produce a
+different source ID. `content_hash` is SHA-256 of the exact raw bundle bytes,
+including the certificate, signature, SCT, and transparency evidence. The
+chain's canonical link hash therefore commits to the accepted proof material
+and fetched block. `source_url` is audit metadata and is not included directly
+by the current on-chain canonical hash. Treat it as an unauthenticated locator:
+bytes retrieved from it are acceptable only when their SHA-256 matches
+`content_hash`.
+
+## Security boundary
+
+Successful verification proves that the configured certificate identity
+signed the payload and that the configured Sigstore trust/log policy accepted
+the evidence. It does not prove that the predicate is true, that the builder
+was uncompromised, or that the signer should be trusted.
+
+The chain does not store the trusted root, issuer, SAN, artifact digest, or
+predicate policy in `SubstrateLink`. Governance and challenge operators must
+therefore pin and reproduce the complete invocation and trusted-root digest.
+The adapter is not registered and must remain unregistered, with
+`witness_reward_uzrn` fixed at `"0"`, until the production-policy fixture and
+operational challenge path are both approved.
+
+The unit tests cover policy validation, exact Statement/predicate gates,
+payload identity hashing, exact-bundle proof hashing, deterministic canonical
+link hashing, and absence of economic claims. No third-party crypto fixture is
+copied into this repository: the
+fixtures shipped by the pinned SDK do not simultaneously exercise bundle
+v0.3, Statement/v1, and a SHA-256 subject. Cryptographic primitive,
+certificate, SCT, and transparency-log verification remain the responsibility
+of the pinned, upstream-tested Sigstore SDK; an environment-specific end-to-end
+fixture must pass when Zerone selects its production Sigstore root, identity,
+artifact selection rule, and predicate policy before this adapter can leave
+experimental status.
+
+See [`docs/specs/adapters/sigstore-in-toto-v1.md`](../../docs/specs/adapters/sigstore-in-toto-v1.md)
+for the adapter contract and governance template.

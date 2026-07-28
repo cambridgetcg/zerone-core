@@ -41,9 +41,12 @@ type QueryClient interface {
 	// FrozenAccounts returns all frozen accounts.
 	FrozenAccounts(ctx context.Context, in *QueryFrozenAccountsRequest, opts ...grpc.CallOption) (*QueryFrozenAccountsResponse, error)
 	// AccountIdentifier returns a chain-qualified, CAIP-10-syntax identifier
-	// for a registered Zerone account. The Cosmos namespace address profile is
-	// still Draft and does not yet name the zrn HRP. The DID is returned as
-	// Zerone-native metadata; this query does not assert W3C DID conformance.
+	// when a registered account's stored address is canonical lowercase,
+	// 20-byte zrn Bech32. Otherwise-consistent historical or genesis-injected
+	// records outside that projection return FailedPrecondition. The Cosmos
+	// namespace address profile is still Draft and does not yet name the zrn
+	// HRP. The DID is returned as Zerone-native metadata; this query does not
+	// assert W3C DID conformance.
 	AccountIdentifier(ctx context.Context, in *QueryAccountIdentifierRequest, opts ...grpc.CallOption) (*QueryAccountIdentifierResponse, error)
 }
 
@@ -120,9 +123,12 @@ type QueryServer interface {
 	// FrozenAccounts returns all frozen accounts.
 	FrozenAccounts(context.Context, *QueryFrozenAccountsRequest) (*QueryFrozenAccountsResponse, error)
 	// AccountIdentifier returns a chain-qualified, CAIP-10-syntax identifier
-	// for a registered Zerone account. The Cosmos namespace address profile is
-	// still Draft and does not yet name the zrn HRP. The DID is returned as
-	// Zerone-native metadata; this query does not assert W3C DID conformance.
+	// when a registered account's stored address is canonical lowercase,
+	// 20-byte zrn Bech32. Otherwise-consistent historical or genesis-injected
+	// records outside that projection return FailedPrecondition. The Cosmos
+	// namespace address profile is still Draft and does not yet name the zrn
+	// HRP. The DID is returned as Zerone-native metadata; this query does not
+	// assert W3C DID conformance.
 	AccountIdentifier(context.Context, *QueryAccountIdentifierRequest) (*QueryAccountIdentifierResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }

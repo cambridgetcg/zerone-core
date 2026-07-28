@@ -4,11 +4,12 @@ package zerone.training_provenance.v1;
 option go_package = "github.com/zerone-chain/zerone/x/training_provenance/types";
 
 import "google/api/annotations.proto";
+import "zerone/training_provenance/v1/intoto.proto";
 import "zerone/training_provenance/v1/types.proto";
 
-// Query exposes a single synthesised view: the ProvenanceCertificate
-// for a given manifest. The module owns no state of its own; the cert
-// is computed live from x/knowledge + x/qualification + x/capture_challenge.
+// Query exposes live provenance views for a given manifest. The module owns no
+// state of its own; each view is computed live from x/knowledge +
+// x/qualification + x/capture_challenge.
 //
 // docs/TRUTH_SEEKING.md, commitment 11 (trust is queryable): a
 // training manifest's trustworthiness — fact survival, validator
@@ -19,6 +20,15 @@ service Query {
   rpc ProvenanceCertificate(QueryProvenanceCertificateRequest) returns (QueryProvenanceCertificateResponse) {
     option (google.api.http).get = "/zerone/training_provenance/v1/certificate/{manifest_id}";
   }
+
+  // InTotoStatement projects the same live certificate into an unsigned
+  // in-toto Statement v1. Returning the statement directly (rather than
+  // wrapping it in a response message) keeps the HTTP JSON interoperable with
+  // DSSE/Sigstore tooling. Predicate v1 accepts only non-composed manifests in
+  // FINALIZED, ATTESTED, or SUPERSEDED status.
+  rpc InTotoStatement(QueryInTotoStatementRequest) returns (InTotoStatementV1) {
+    option (google.api.http).get = "/zerone/training_provenance/v1/in-toto/{manifest_id}";
+  }
 }
 
 message QueryProvenanceCertificateRequest {
@@ -27,4 +37,8 @@ message QueryProvenanceCertificateRequest {
 
 message QueryProvenanceCertificateResponse {
   ProvenanceCertificate certificate = 1;
+}
+
+message QueryInTotoStatementRequest {
+  string manifest_id = 1;
 }

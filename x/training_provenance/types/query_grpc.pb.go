@@ -20,15 +20,16 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	Query_ProvenanceCertificate_FullMethodName = "/zerone.training_provenance.v1.Query/ProvenanceCertificate"
+	Query_InTotoStatement_FullMethodName       = "/zerone.training_provenance.v1.Query/InTotoStatement"
 )
 
 // QueryClient is the client API for Query service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Query exposes a single synthesised view: the ProvenanceCertificate
-// for a given manifest. The module owns no state of its own; the cert
-// is computed live from x/knowledge + x/qualification + x/capture_challenge.
+// Query exposes live provenance views for a given manifest. The module owns no
+// state of its own; each view is computed live from x/knowledge +
+// x/qualification + x/capture_challenge.
 //
 // docs/TRUTH_SEEKING.md, commitment 11 (trust is queryable): a
 // training manifest's trustworthiness — fact survival, validator
@@ -37,6 +38,12 @@ const (
 // upstream signals together. The certificate IS that single read.
 type QueryClient interface {
 	ProvenanceCertificate(ctx context.Context, in *QueryProvenanceCertificateRequest, opts ...grpc.CallOption) (*QueryProvenanceCertificateResponse, error)
+	// InTotoStatement projects the same live certificate into an unsigned
+	// in-toto Statement v1. Returning the statement directly (rather than
+	// wrapping it in a response message) keeps the HTTP JSON interoperable with
+	// DSSE/Sigstore tooling. Predicate v1 accepts only non-composed manifests in
+	// FINALIZED, ATTESTED, or SUPERSEDED status.
+	InTotoStatement(ctx context.Context, in *QueryInTotoStatementRequest, opts ...grpc.CallOption) (*InTotoStatementV1, error)
 }
 
 type queryClient struct {
@@ -57,13 +64,23 @@ func (c *queryClient) ProvenanceCertificate(ctx context.Context, in *QueryProven
 	return out, nil
 }
 
+func (c *queryClient) InTotoStatement(ctx context.Context, in *QueryInTotoStatementRequest, opts ...grpc.CallOption) (*InTotoStatementV1, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InTotoStatementV1)
+	err := c.cc.Invoke(ctx, Query_InTotoStatement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
 //
-// Query exposes a single synthesised view: the ProvenanceCertificate
-// for a given manifest. The module owns no state of its own; the cert
-// is computed live from x/knowledge + x/qualification + x/capture_challenge.
+// Query exposes live provenance views for a given manifest. The module owns no
+// state of its own; each view is computed live from x/knowledge +
+// x/qualification + x/capture_challenge.
 //
 // docs/TRUTH_SEEKING.md, commitment 11 (trust is queryable): a
 // training manifest's trustworthiness — fact survival, validator
@@ -72,6 +89,12 @@ func (c *queryClient) ProvenanceCertificate(ctx context.Context, in *QueryProven
 // upstream signals together. The certificate IS that single read.
 type QueryServer interface {
 	ProvenanceCertificate(context.Context, *QueryProvenanceCertificateRequest) (*QueryProvenanceCertificateResponse, error)
+	// InTotoStatement projects the same live certificate into an unsigned
+	// in-toto Statement v1. Returning the statement directly (rather than
+	// wrapping it in a response message) keeps the HTTP JSON interoperable with
+	// DSSE/Sigstore tooling. Predicate v1 accepts only non-composed manifests in
+	// FINALIZED, ATTESTED, or SUPERSEDED status.
+	InTotoStatement(context.Context, *QueryInTotoStatementRequest) (*InTotoStatementV1, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -84,6 +107,9 @@ type UnimplementedQueryServer struct{}
 
 func (UnimplementedQueryServer) ProvenanceCertificate(context.Context, *QueryProvenanceCertificateRequest) (*QueryProvenanceCertificateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ProvenanceCertificate not implemented")
+}
+func (UnimplementedQueryServer) InTotoStatement(context.Context, *QueryInTotoStatementRequest) (*InTotoStatementV1, error) {
+	return nil, status.Error(codes.Unimplemented, "method InTotoStatement not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -124,6 +150,24 @@ func _Query_ProvenanceCertificate_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_InTotoStatement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryInTotoStatementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).InTotoStatement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_InTotoStatement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).InTotoStatement(ctx, req.(*QueryInTotoStatementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +178,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ProvenanceCertificate",
 			Handler:    _Query_ProvenanceCertificate_Handler,
+		},
+		{
+			MethodName: "InTotoStatement",
+			Handler:    _Query_InTotoStatement_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

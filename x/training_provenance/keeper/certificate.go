@@ -77,10 +77,9 @@ func (k Keeper) BuildCertificate(ctx context.Context, manifestID string) (*types
 	}
 
 	// ── Audit history ─────────────────────────────────────────────
-	// Privileged actions whose target is one of the manifest's facts
-	// or whose target/note touches a covered domain. We use a set of
-	// covered fact IDs and a set of covered domains to filter the
-	// privileged-action stream.
+	// Privileged actions whose target exactly matches one of the manifest's
+	// directly stored fact IDs. Domain- or note-based matching is not part of
+	// this certificate version.
 	domainSet := make(map[string]bool, len(coveredDomains))
 	for _, d := range coveredDomains {
 		domainSet[d] = true
@@ -135,19 +134,20 @@ func (k Keeper) BuildCertificate(ctx context.Context, manifestID string) (*types
 	grade, explanation := computeTrustGrade(privilegedCount, incidentCount, cartelCount)
 
 	return &types.ProvenanceCertificate{
-		ManifestId:             manifest.ManifestId,
-		PipelineId:             manifest.PipelineId,
-		MerkleRoot:             manifest.MerkleRoot,
-		FactCount:              uint64(len(manifest.IncludedFactIds)),
-		FinalizedAtBlock:       manifest.FinalizedAtBlock,
-		Status:                 manifest.Status.String(),
-		Domains:                domains,
-		PrivilegedActionCount:  privilegedCount,
-		IncidentCount:          incidentCount,
-		CartelResolutionCount:  cartelCount,
-		TrustGrade:             grade,
-		TrustExplanation:       explanation,
-		ComputedAtBlock:        uint64(sdkCtx.BlockHeight()),
+		ManifestId:            manifest.ManifestId,
+		PipelineId:            manifest.PipelineId,
+		MerkleRoot:            manifest.MerkleRoot,
+		FactCount:             uint64(len(manifest.IncludedFactIds)),
+		FinalizedAtBlock:      manifest.FinalizedAtBlock,
+		Status:                manifest.Status.String(),
+		Domains:               domains,
+		PrivilegedActionCount: privilegedCount,
+		IncidentCount:         incidentCount,
+		CartelResolutionCount: cartelCount,
+		TrustGrade:            grade,
+		TrustExplanation:      explanation,
+		ComputedAtBlock:       uint64(sdkCtx.BlockHeight()),
+		SourceChainId:         manifest.ChainId,
 	}, nil
 }
 

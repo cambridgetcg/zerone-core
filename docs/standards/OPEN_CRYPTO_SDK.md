@@ -6,7 +6,8 @@ the implemented interoperability seams and the recommended SDK roadmap.
 
 ## Implemented: portable account identifiers
 
-`x/auth` exposes every registered Zerone account as:
+`x/auth` projects registered Zerone accounts whose stored address is canonical
+lowercase, 20-byte `zrn` Bech32 as:
 
 - a [CAIP-2](https://standards.chainagnostic.org/CAIPs/caip-2)-syntax Cosmos
   chain ID;
@@ -45,7 +46,10 @@ enforcing a canonical lowercase `zrn` address with a 20-byte payload.
 
 This is a computed query projection. It adds no KV writes, events, parameters,
 genesis fields, migrations, consensus-version changes, bank calls, or IBC
-activity.
+activity. Otherwise-consistent historical or genesis-injected account records
+outside the stricter CAIP projection remain queryable through the native
+account API and return `FailedPrecondition` here rather than being silently
+rewritten or aliased.
 
 The `did:zrn` value is opaque native metadata in this response. It is not a
 claim that Zerone currently implements [W3C DID Core](https://www.w3.org/TR/did-core/),
@@ -53,13 +57,73 @@ a published DID method, or `did:pkh`.
 
 ## Implemented: close generated REST coverage gaps
 
-The application now registers four generated query clients that its manual
-v2 gateway list previously omitted: counterexamples, creed, substrate bridge,
-and trust score. Their declared `google.api.http` routes are now reachable
-through the same REST gateway as the other custom modules.
+The application now registers five generated query clients that its manual v2
+gateway list previously omitted: counterexamples, creed, substrate bridge,
+training provenance, and trust score. Their declared `google.api.http` routes
+are now reachable through the same REST gateway as the other custom modules.
 
-This removes four concrete REST/SDK gaps without activating a write path or
-changing the safety posture of any module.
+This removes five concrete REST/SDK gaps without activating a write path or
+changing the safety posture of any module. The generated OpenAPI document now
+contains the complete protobuf-derived REST surface, including the CAIP and
+in-toto queries.
+
+## Implemented: unsigned in-toto training provenance
+
+`x/training_provenance` projects the existing live certificate for a
+non-composed `FINALIZED`, `ATTESTED`, or `SUPERSEDED` manifest directly into an
+[in-toto Statement v1](https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md):
+
+```bash
+curl http://localhost:1317/zerone/training_provenance/v1/in-toto/<manifest-id>
+```
+
+The statement keeps the sealed manifest's source chain distinct from the chain
+serving the query after an export or relaunch. Its SHA-256 subject digest is
+precisely the manifest's included-ID-set commitment, not a hash of fact content,
+metadata, or version-pin fields. Predicate v1 refuses draft and composed
+manifests because its certificate counts direct fact/action/domain coverage,
+while its incident count is module-global rather than manifest-specific. The
+versioned
+[predicate specification](../specs/attestations/training-provenance-v1.md)
+records those exact boundaries and freezes them: a semantic change requires a
+new predicate version and URI.
+
+This is an unsigned, current-state projection with no store, transaction,
+reward, or consensus-version change. A producer can sign the returned JSON
+off-chain without making validators parse signatures or remote documents.
+Missing manifests return `NotFound`; draft or composed manifests return
+`FailedPrecondition`; malformed sealed state returns `DataLoss`; and server
+configuration failures return `Internal`. Public REST operators should
+rate-limit this live synthesis and may cache by `(chain ID, block height,
+manifest ID)`, because certificate construction scans global audit records.
+
+## Implemented: Sigstore evidence into substrate bridge
+
+The isolated
+[`sigstore-substrate-compiler`](../../tools/sigstore-substrate-compiler/)
+verifies a local Sigstore DSSE bundle using a pinned local trust root, one
+exact certificate issuer and SAN, an exact predicate type, and a required
+artifact digest. It then emits the existing `x/substrate_bridge`
+`SubstrateLink` shape.
+
+The payload-byte `source_id` commits the exact decoded signed payload, while
+`content_hash` commits the exact accepted bundle bytes, including signature,
+certificate, SCT, and transparency-log evidence. The result is witness-only:
+no facts, pending claims, recursion weight, or automatic reward. Consensus
+checks the existing canonical link; Sigstore cryptography remains explicitly
+off-chain. The [adapter specification](../specs/adapters/sigstore-in-toto-v1.md)
+requires governance to pin the compiler build, trust-root digest, invocation
+policy, and challenge procedure before registration.
+
+## Upgrade constraint: separate from boundary integrations
+
+The validator currently pins Cosmos SDK `v0.50.15` and IBC-Go `v8.8.0`.
+The current [Cosmos release-family guidance](https://docs.cosmos.network/sdk/latest/release-family)
+lists SDK `0.54.x` with IBC-Go `v11.x` and marks SDK `0.50.x` and lower
+end-of-life. Treat that as a high-priority, coordinated consensus-upgrade
+program—not as a dependency bump bundled with these read-only standards seams.
+It needs module/store migrations, relayer and counterparty compatibility
+testing, a rehearsal network, and an explicit activation height.
 
 ## Implemented: generated TypeScript transaction SDK
 
@@ -145,11 +209,10 @@ Keep Zerone agent identity non-transferable. Do not copy ERC-721 identity
 transfer semantics or claim ERC-8004 compliance without a separately specified
 adapter and test vectors.
 
-### 5. Content-addressed provenance documents
+### 5. Additional content-addressed provenance documents
 
-`x/training_provenance` is the natural projection point for an
-[in-toto Statement](https://github.com/in-toto/attestation/blob/main/spec/README.md).
-That provenance step should remain read-only/off-chain:
+Build on the read-only in-toto projection without adding rich-document parsers
+to consensus:
 
 - use CIDv1 for canonical artifact references and CAR bundles;
 - project AI/dataset licensing and relationships as
@@ -187,6 +250,9 @@ state.
   a maintenance prerequisite rather than a hidden feature dependency.
 - No on-chain x402 facilitator, ERC-8004 registry, C2PA parser, JSON-LD
   resolver, A2A parser, or remote-context fetch.
+- No reward-bearing `sigstore-in-toto-v1` registration until governance has
+  approved a reproducible compiler, pinned verification policy, retained
+  bundles, and an independent challenge procedure.
 
 The design rule is simple: reuse open identifiers and document formats at
 Zerone's edges; keep deterministic consensus schemas small.
