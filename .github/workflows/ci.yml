@@ -50,3 +50,44 @@ jobs:
           cache: true
       - name: Test
         run: make test
+
+  typescript-sdk:
+    name: "TypeScript SDK and dashboard"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            sdk/typescript/package-lock.json
+            dashboard/package-lock.json
+      - name: Install SDK dependencies
+        working-directory: sdk/typescript
+        run: npm ci
+      - name: Regenerate SDK codecs
+        working-directory: sdk/typescript
+        run: npm run generate
+      - name: Verify committed generated codecs
+        run: test -z "$(git status --porcelain --untracked-files=all -- sdk/typescript/src/generated)"
+      - name: Check SDK source and registry
+        working-directory: sdk/typescript
+        run: npm run check
+      - name: Verify runtime dependency audit
+        working-directory: sdk/typescript
+        run: npm audit --omit=dev
+      - name: Rebuild SDK distribution
+        working-directory: sdk/typescript
+        run: npm run build
+      - name: Verify committed SDK distribution
+        run: test -z "$(git status --porcelain --untracked-files=all -- sdk/typescript/dist)"
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+      - name: Verify dashboard dependency audit
+        working-directory: dashboard
+        run: npm audit
+      - name: Build dashboard
+        working-directory: dashboard
+        run: npm run build

@@ -1,0 +1,94 @@
+{
+  "schema": "zerone-typescript-sdk-wire-vectors/v1",
+  "vectors": [
+    {
+      "name": "auth-register-account-strings",
+      "typeUrl": "/zerone.auth.v1.MsgRegisterAccount",
+      "value": {
+        "sender": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+        "did": "did:zrn:0123456789abcdef0123456789abcdef",
+        "publicKey": "ed25519:7YWHMfk9JZe0LM0g1ZauHuiSxhI=",
+        "accountType": "sovereign-agent",
+        "operationalKeyHash": "sha256:0123456789abcdef",
+        "metadata": "{\"name\":\"Sophia\",\"role\":\"research\"}"
+      },
+      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b6612286469643a7a726e3a30313233343536373839616263646566303132333435363738396162636465661a24656432353531393a375957484d666b394a5a65304c4d3067315a6175487569537868493d220f736f7665726569676e2d6167656e742a177368613235363a3031323334353637383961626364656632237b226e616d65223a22536f70686961222c22726f6c65223a227265736561726368227d"
+    },
+    {
+      "name": "auth-rotate-key-bytes",
+      "typeUrl": "/zerone.auth.v1.MsgRotateKey",
+      "value": {
+        "sender": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+        "newOperationalKey": "AAECA/7/",
+        "authorizationSignature": "3q2+7wARIjNEVWZ3iJmqu8zd7v8="
+      },
+      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b66120600010203feff1a14deadbeef00112233445566778899aabbccddeeff"
+    },
+    {
+      "name": "liquidity-create-pool-uint64",
+      "typeUrl": "/zerone.liquiditypool.v1.MsgCreatePool",
+      "value": {
+        "creator": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+        "denomA": "uzrn",
+        "denomB": "ibc/0123456789ABCDEF",
+        "amountA": "340282366920938463463374607431768211455",
+        "amountB": "9007199254740993",
+        "swapFeeBps": "9007199254740993"
+      },
+      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b661204757a726e1a146962632f3031323334353637383941424344454622273334303238323336363932303933383436333436333337343630373433313736383231313435352a1039303037313939323534373430393933308180808080808010"
+    },
+    {
+      "name": "substrate-attestation-nested-enum",
+      "typeUrl": "/zerone.substrate_bridge.v1.MsgSubmitExternalAttestation",
+      "value": {
+        "submitter": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+        "adapterId": "adapter.wikipedia.v1",
+        "workClassId": "knowledge-import",
+        "link": {
+          "citedFacts": [
+            {
+              "factId": "fact:zerone:42",
+              "citationType": "CITATION_TYPE_SUPPORTS",
+              "citationContext": "primary source"
+            }
+          ],
+          "pendingClaims": [
+            {
+              "claimContent": "The source supports a verifiable claim.",
+              "proposedFactId": "fact:pending:7",
+              "domain": "cryptography",
+              "methodologyId": "method:reproduce",
+              "relations": [
+                {
+                  "targetFactId": "fact:zerone:42",
+                  "relation": "SUPPORTS",
+                  "inference": "DEDUCTIVE",
+                  "inferenceStrengthBps": 8750
+                }
+              ]
+            }
+          ],
+          "recursionWeight": {
+            "axisSubstrate": "1",
+            "axisVerification": "2",
+            "axisClassification": "3",
+            "axisAttribution": "9007199254740993",
+            "axisTooling": "5",
+            "axisInterface": "6"
+          },
+          "adapterId": "adapter.wikipedia.v1",
+          "source": {
+            "adapterId": "adapter.wikipedia.v1",
+            "sourceId": "Q42",
+            "sourceUrl": "https://example.invalid/wiki/Q42",
+            "contentHash": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            "fetchedAtBlock": "9007199254740993"
+          },
+          "linkHash": "/v38+/r5+Pf29fTz8vHw7+7t7Ovq6ejn5uXk4+Lh4N8="
+        },
+        "bondUzrn": "1000000"
+      },
+      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b661214616461707465722e77696b6970656469612e76311a106b6e6f776c656467652d696d706f727422e1020a220a0e666163743a7a65726f6e653a343210021a0e7072696d61727920736f757263651283010a2754686520736f7572636520737570706f72747320612076657269666961626c6520636c61696d2e120e666163743a70656e64696e673a371a0c63727970746f67726170687922106d6574686f643a726570726f647563652a280a0e666163743a7a65726f6e653a34321208535550504f5254531a0944454455435449564520ae441a13080110021803208180808080808010280530062214616461707465722e77696b6970656469612e76312a680a14616461707465722e77696b6970656469612e763112035134321a2068747470733a2f2f6578616d706c652e696e76616c69642f77696b692f5134322220000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2881808080808080103220fefdfcfbfaf9f8f7f6f5f4f3f2f1f0efeeedecebeae9e8e7e6e5e4e3e2e1e0df2a0731303030303030"
+    }
+  ]
+}

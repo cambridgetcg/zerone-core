@@ -2,7 +2,7 @@
 
 Zerone gets the most leverage from open standards at its boundaries, while
 keeping consensus limited to witness-and-record primitives. This note records
-the first implemented interoperability seam and the recommended SDK roadmap.
+the implemented interoperability seams and the recommended SDK roadmap.
 
 ## Implemented: portable account identifiers
 
@@ -61,15 +61,44 @@ through the same REST gateway as the other custom modules.
 This removes four concrete REST/SDK gaps without activating a write path or
 changing the safety posture of any module.
 
+## Implemented: generated TypeScript transaction SDK
+
+`sdk/typescript` builds `@zerone-chain/sdk`, a versioned ESM package generated
+from Zerone's pinned protobuf sources with
+[Telescope](https://github.com/hyperweb-io/telescope). It provides:
+
+- typed protobuf/direct-signing codecs for all 165 request messages in
+  Zerone's 20 `Msg` services;
+- a registry that composes with CosmJS's standard Cosmos message types;
+- generic CAIP-2 and CAIP-10 parsing plus the Cosmos chain-reference profile;
+- an explicit Zerone network descriptor and checksum-aware `zrn` account IDs;
+  and
+- a separate validator for the opaque `did:zrn` labels accepted by `x/auth`.
+
+Generation is reproducible from local protobuf inputs. CI regenerates the
+client, checks source and output digests, rejects tracked or untracked drift,
+tests the published package under TypeScript's NodeNext resolver, and compares
+representative Go and TypeScript protobuf wire vectors.
+
+The dashboard uses the SDK's identity helpers and, when the node supports it,
+cross-checks them against the read-only `AccountIdentifier` query. Query
+unavailability remains compatible with the currently deployed binary, but a
+successful response that disagrees with the configured network or wallet is
+rejected. Standard bank sends continue through CosmJS's standard registry;
+the much larger Zerone codec registry is reserved for future custom controls.
+
+Generated codecs are serialization tools, not authority policy. No custom
+mainnet transaction control was enabled, and the SDK does not claim legacy
+Amino support for Zerone messages.
+
 ## Ranked integration roadmap
 
-### 1. Generated TypeScript client and Chain Registry metadata
+### 1. Chain Registry metadata and broader wallet adapters
 
-Generate a versioned `@zerone-chain/client` from the pinned protobuf sources
-using [Telescope](https://github.com/hyperweb-io/telescope), with
-[CosmJS](https://github.com/cosmos/cosmjs) signing and
-[Interchain Kit](https://docs.hyperweb.io/interchain-kit/) wallet adapters.
-Golden-test message type URLs, sign bytes, and generated-code drift.
+The first generated client uses
+[CosmJS](https://github.com/cosmos/cosmjs) and Keplr-compatible signing.
+Evaluate [Interchain Kit](https://docs.hyperweb.io/interchain-kit/) only when
+its beta status and additional wallet surface fit the dashboard's needs.
 
 Publish Zerone `chain.json` and `assetlist.json` to the
 [Cosmos Chain Registry](https://github.com/cosmos/chain-registry) only after
@@ -133,6 +162,19 @@ That provenance step should remain read-only/off-chain:
 CID proves integrity, not availability. Rich JSON-LD, C2PA, VC, and policy
 validation belongs outside consensus.
 
+### 6. A2A Agent Cards for service discovery
+
+The Linux Foundation's [A2A protocol](https://github.com/a2aproject/A2A) fits
+Zerone's agent identity and home model at the service boundary: an Agent Card
+can advertise skills, modalities, and endpoints while a CAIP-10 account ID
+names the chain identity behind it.
+
+Host and validate cards in AgentTool or a resolver sidecar. Commit only a
+bounded URI, deterministic digest, schema version, status, and owning account
+reference. A card advertises capabilities; it does not by itself prove control
+of a Zerone identity, authorize a transaction, or justify exposing private home
+state.
+
 ## Explicit deferrals
 
 - No W3C DID document or Verifiable Credential claim until `did:zrn`
@@ -140,9 +182,11 @@ validation belongs outside consensus.
   metadata bounds, replay protection, and genesis invariants are hardened.
 - No CosmWasm or general contract VM; it conflicts with the slim-cut boundary.
 - No new IBC middleware while the current IBC/ICA posture remains limited and
-  the IBC-Go v8 migration plan remains unresolved.
+  the IBC-Go v8 migration plan remains unresolved. Cosmos SDK 0.50 / IBC-Go 8
+  is outside the currently supported release families, so upgrade planning is
+  a maintenance prerequisite rather than a hidden feature dependency.
 - No on-chain x402 facilitator, ERC-8004 registry, C2PA parser, JSON-LD
-  resolver, or remote-context fetch.
+  resolver, A2A parser, or remote-context fetch.
 
 The design rule is simple: reuse open identifiers and document formats at
 Zerone's edges; keep deterministic consensus schemas small.

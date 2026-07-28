@@ -36,6 +36,12 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
 
 - The browser never receives a seed or private key. Keplr suggests `zerone-1`
   and signs standard bank sends locally.
+- When the chain's read-only account-identifier query is available, the
+  dashboard verifies its CAIP-10 account ID and native address against the
+  connected wallet, then displays the Zerone DID, account type, and frozen
+  state. A node running the prior binary can omit this metadata without
+  preventing wallet connection; a successful contradictory response is never
+  accepted.
 - Passport-issued accounts began as shared custody because the onboarding
   operator retained a copy of those keys; the UI discloses this explicitly.
 - The edge REST proxy is read-only.
@@ -43,8 +49,13 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
   and rejects every other JSON-RPC method.
 - Chain-provided strings are rendered with `textContent`, never `innerHTML`.
 - Liquidity is read-only in this release. Mainnet currently has no pools, and
-  custom swap/add/remove messages still need generated Protobuf types registered
-  with CosmJS before transaction controls should be exposed.
+  transaction controls remain hidden until pools exist and the flow is tested
+  against mainnet safeguards.
+- Standard bank sends use CosmJS's standard registry and do not load Zerone's
+  custom transaction codecs. The local `@zerone-chain/sdk` package supplies
+  generated Protobuf codecs for all Zerone transaction modules so future
+  custom controls can opt into the full registry. Custom messages require a
+  direct signer; no legacy Amino converters are claimed.
 
 The upstream hostname `zerone-1.fly.dev` is the same machine documented in
 `deploy/mainnet/JOIN.md`; the hostname is used because Cloudflare Workers reject

@@ -122,14 +122,15 @@ The interactive UI lists all endpoints with request/response schemas.
 
 ### Identity & Governance
 
-#### auth (4 RPCs)
+#### auth (5 RPCs)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/zerone/auth/v1/accounts/{address}` | Account by address |
-| GET | `/zerone/auth/v1/accounts/did/{did}` | Account by DID |
+| GET | `/zerone/auth/v1/account/{address}` | Account by address |
+| GET | `/zerone/auth/v1/account_by_did/{did}` | Account by DID |
 | GET | `/zerone/auth/v1/params` | Module parameters |
-| GET | `/zerone/auth/v1/frozen` | Frozen accounts |
+| GET | `/zerone/auth/v1/frozen_accounts` | Frozen accounts |
+| GET | `/zerone/auth/v1/account_identifier/{address}` | CAIP-2/CAIP-10-syntax account identity |
 
 #### staking (7 RPCs)
 

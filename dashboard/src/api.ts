@@ -76,6 +76,22 @@ interface RpcBlockchainResponse {
   };
 }
 
+interface RawAccountIdentifier {
+  namespace?: unknown;
+  reference?: unknown;
+  rawChainId?: unknown;
+  raw_chain_id?: unknown;
+  accountId?: unknown;
+  account_id?: unknown;
+  address?: unknown;
+  did?: unknown;
+  accountType?: unknown;
+  account_type?: unknown;
+  frozen?: unknown;
+  createdAtBlock?: unknown;
+  created_at_block?: unknown;
+}
+
 export interface LiquidityPool {
   id: string;
   denomA: string;
@@ -118,6 +134,18 @@ export interface RecentBlock {
   hash: string;
 }
 
+export interface AccountIdentifier {
+  namespace: string;
+  reference: string;
+  rawChainId: string;
+  accountId: string;
+  address: string;
+  did: string;
+  accountType: string;
+  frozen: boolean;
+  createdAtBlock: string;
+}
+
 async function fetchJson<T>(url: string, timeoutMs = 8_000): Promise<T> {
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
@@ -152,6 +180,71 @@ function boundedText(value: unknown, maxLength = 256): string | null {
   return typeof value === "string" && value.length > 0 && value.length <= maxLength
     ? value
     : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function uintString(value: unknown): string | null {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const normalized = String(value);
+  return /^\d+$/.test(normalized) ? normalized : null;
+}
+
+function normalizeAccountIdentifier(
+  response: unknown,
+): AccountIdentifier | null {
+  if (!isRecord(response)) return null;
+  const identifier = response.identifier;
+  if (!isRecord(identifier)) return null;
+  const raw = identifier as RawAccountIdentifier;
+
+  const namespace = boundedText(raw.namespace, 32);
+  const reference = boundedText(raw.reference, 32);
+  const rawChainId = boundedText(
+    raw.rawChainId ?? raw.raw_chain_id,
+    128,
+  );
+  const accountId = boundedText(
+    raw.accountId ?? raw.account_id,
+    256,
+  );
+  const address = boundedText(raw.address, 128);
+  const did = boundedText(raw.did, 256);
+  const accountType = boundedText(
+    raw.accountType ?? raw.account_type,
+    128,
+  );
+  const createdAtBlock = uintString(
+    raw.createdAtBlock ?? raw.created_at_block,
+  );
+  const frozen = raw.frozen === undefined ? false : raw.frozen;
+  if (
+    namespace === null ||
+    reference === null ||
+    rawChainId === null ||
+    accountId === null ||
+    address === null ||
+    did === null ||
+    accountType === null ||
+    typeof frozen !== "boolean" ||
+    createdAtBlock === null
+  ) {
+    return null;
+  }
+
+  return {
+    namespace,
+    reference,
+    rawChainId,
+    accountId,
+    address,
+    did,
+    accountType,
+    frozen,
+    createdAtBlock,
+  };
 }
 
 function normalizePool(pool: RawPool): LiquidityPool | null {
@@ -329,6 +422,45 @@ export async function getWalletBalance(address: string): Promise<string> {
     throw new Error("Wallet balance response was incomplete");
   }
   return value;
+}
+
+export async function getAccountIdentifier(
+  address: string,
+): Promise<AccountIdentifier | null> {
+  let response: Response;
+  try {
+    response = await fetch(
+      restUrl(
+        `/zerone/auth/v1/account_identifier/${encodeURIComponent(address)}`,
+      ),
+      {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8_000),
+      },
+    );
+  } catch {
+    // The first deployed dashboard may briefly run against a node binary that
+    // predates this read-only query. Local CAIP derivation remains available.
+    return null;
+  }
+
+  if (!response.ok) return null;
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error(
+      "Mainnet returned a successful but malformed account identifier response.",
+    );
+  }
+  const identifier = normalizeAccountIdentifier(body);
+  if (!identifier) {
+    throw new Error(
+      "Mainnet returned a successful but incomplete account identifier response.",
+    );
+  }
+  return identifier;
 }
 
 export function microToDisplay(amount: string, maximumFractionDigits = DECIMALS): string {

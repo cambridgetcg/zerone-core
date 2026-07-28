@@ -211,6 +211,9 @@ function validRestRequest(path: string, search: URLSearchParams): boolean {
   if (/^cosmos\/bank\/v1beta1\/balances\/zrn1[0-9a-z]+\/by_denom$/.test(path)) {
     return search.size === 1 && search.get("denom") === "uzrn";
   }
+  if (/^zerone\/auth\/v1\/account_identifier\/zrn1[0-9a-z]+$/.test(path)) {
+    return search.size === 0;
+  }
   return false;
 }
 

@@ -40,6 +40,7 @@ const walletBalance = byId<HTMLSpanElement>("wallet-balance");
 const walletAddress = byId<HTMLElement>("wallet-address");
 const walletFootnote = byId<HTMLParagraphElement>("wallet-footnote");
 const copyAddressButton = byId<HTMLButtonElement>("copy-address");
+const sendOpenButton = byId<HTMLButtonElement>("send-open");
 const sendDialog = byId<HTMLDialogElement>("send-dialog");
 const sendForm = byId<HTMLFormElement>("send-form");
 const sendError = byId<HTMLParagraphElement>("send-error");
@@ -371,8 +372,21 @@ function renderWallet(wallet: WalletState): void {
   walletBalance.textContent = microToDisplay(wallet.balanceUzrn);
   walletBalance.title = `${microToDisplay(wallet.balanceUzrn)} ZRN`;
   walletAddress.textContent = shortValue(wallet.address, 13, 9);
+  walletAddress.title = wallet.accountId;
   copyAddressButton.dataset.address = wallet.address;
-  walletFootnote.textContent = `${wallet.name} · Balance read directly from ${CHAIN_ID}. Passport-issued accounts began as shared custody because the onboarding operator retained a copy of the key.`;
+  const identity = [wallet.name, wallet.accountId];
+  if (wallet.did) identity.push(wallet.did);
+  if (wallet.accountType) identity.push(`${wallet.accountType} account`);
+  if (wallet.frozen !== undefined) {
+    identity.push(wallet.frozen ? "Frozen on-chain" : "Active on-chain");
+  }
+  walletFootnote.textContent = `${identity.join(" · ")} · Balance read directly from ${CHAIN_ID}. Passport-issued accounts began as shared custody because the onboarding operator retained a copy of the key.`;
+  sendOpenButton.disabled = wallet.frozen === true;
+  sendOpenButton.textContent = wallet.frozen === true ? "Account frozen" : "Send ZRN";
+  sendOpenButton.title =
+    wallet.frozen === true
+      ? "This account is frozen on-chain and cannot send ZRN."
+      : "";
 
   document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
     button.textContent = shortValue(wallet.address, 8, 5);
@@ -384,7 +398,11 @@ function renderWallet(wallet: WalletState): void {
 function renderWalletDisconnected(): void {
   walletDisconnected.hidden = false;
   walletConnected.hidden = true;
+  walletAddress.removeAttribute("title");
   delete copyAddressButton.dataset.address;
+  sendOpenButton.disabled = false;
+  sendOpenButton.textContent = "Send ZRN";
+  sendOpenButton.removeAttribute("title");
   document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
     button.disabled = false;
     button.removeAttribute("title");
@@ -438,6 +456,10 @@ async function handleWalletRefresh(): Promise<void> {
 }
 
 function openSendDialog(): void {
+  if (connectedWallet?.frozen === true) {
+    showToast("This account is frozen on-chain and cannot send ZRN.", "error");
+    return;
+  }
   sendError.hidden = true;
   sendError.textContent = "";
   sendDialog.showModal();
@@ -533,7 +555,7 @@ copyAddressButton.addEventListener("click", async () => {
     showToast("Copy is unavailable. Select the address in Keplr instead.", "error");
   }
 });
-byId("send-open").addEventListener("click", openSendDialog);
+sendOpenButton.addEventListener("click", openSendDialog);
 byId("send-close").addEventListener("click", () => {
   if (!sendPending) sendDialog.close();
 });

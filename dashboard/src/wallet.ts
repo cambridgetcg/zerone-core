@@ -1,7 +1,22 @@
 import type { OfflineSigner } from "@cosmjs/proto-signing";
-import { fromBech32 } from "@cosmjs/encoding";
-import { calculateFee, coin, GasPrice, SigningStargateClient } from "@cosmjs/stargate";
-import { getWalletBalance } from "./api";
+import {
+  calculateFee,
+  coin,
+  GasPrice,
+  SigningStargateClient,
+} from "@cosmjs/stargate";
+import {
+  asExistingZeroneDid,
+  defineZeroneNetwork,
+  zeroneAccountId,
+  type ZeroneAccountId,
+  type ZeroneDidRef,
+} from "@zerone-chain/sdk/caip";
+import {
+  getAccountIdentifier,
+  getWalletBalance,
+  type AccountIdentifier,
+} from "./api";
 import {
   CHAIN_ID,
   DECIMALS,
@@ -31,11 +46,17 @@ declare global {
 export interface WalletState {
   name: string;
   address: string;
+  accountId: ZeroneAccountId;
   balanceUzrn: string;
+  did?: ZeroneDidRef;
+  accountType?: string;
+  frozen?: boolean;
+  createdAtBlock?: string;
 }
 
 const BANK_SEND_GAS = 200_000;
 const BANK_SEND_FEE_UZRN = BigInt(BANK_SEND_GAS);
+const ZERONE_NETWORK = defineZeroneNetwork(CHAIN_ID);
 
 export class SubmittedTransactionError extends Error {
   readonly transactionHash: string;
@@ -54,13 +75,42 @@ function requireKeplr(): KeplrApi {
   return window.keplr;
 }
 
-function validateAccountAddress(address: string): void {
+function accountIdFor(address: string): ZeroneAccountId {
   try {
-    const decoded = fromBech32(address);
-    if (decoded.prefix !== "zrn" || decoded.data.length !== 20) throw new Error();
+    return zeroneAccountId(ZERONE_NETWORK, address);
   } catch {
     throw new Error("Enter a valid zrn1… mainnet address.");
   }
+}
+
+function requireMatchingIdentifier(
+  expectedAddress: string,
+  expectedAccountId: ZeroneAccountId,
+  identifier: AccountIdentifier,
+): void {
+  if (
+    identifier.namespace !== "cosmos" ||
+    `${identifier.namespace}:${identifier.reference}` !== ZERONE_NETWORK.chainId ||
+    identifier.rawChainId !== CHAIN_ID ||
+    identifier.address !== expectedAddress ||
+    identifier.accountId !== expectedAccountId
+  ) {
+    throw new Error(
+      "Mainnet returned an account identity that does not match the connected wallet.",
+    );
+  }
+}
+
+function identityFields(identifier: AccountIdentifier): Pick<
+  WalletState,
+  "did" | "accountType" | "frozen" | "createdAtBlock"
+> {
+  return {
+    did: asExistingZeroneDid(identifier.did),
+    accountType: identifier.accountType,
+    frozen: identifier.frozen,
+    createdAtBlock: identifier.createdAtBlock,
+  };
 }
 
 export async function connectWallet(): Promise<WalletState> {
@@ -68,13 +118,40 @@ export async function connectWallet(): Promise<WalletState> {
   await keplr.experimentalSuggestChain(KEPLR_CHAIN_INFO);
   await keplr.enable(CHAIN_ID);
   const key = await keplr.getKey(CHAIN_ID);
-  validateAccountAddress(key.bech32Address);
-  const balanceUzrn = await getWalletBalance(key.bech32Address);
-  return { name: key.name, address: key.bech32Address, balanceUzrn };
+  const accountId = accountIdFor(key.bech32Address);
+  const [balanceUzrn, identifier] = await Promise.all([
+    getWalletBalance(key.bech32Address),
+    getAccountIdentifier(key.bech32Address),
+  ]);
+  if (identifier) {
+    requireMatchingIdentifier(key.bech32Address, accountId, identifier);
+  }
+  return {
+    name: key.name,
+    address: key.bech32Address,
+    accountId,
+    balanceUzrn,
+    ...(identifier ? identityFields(identifier) : {}),
+  };
 }
 
 export async function refreshWallet(wallet: WalletState): Promise<WalletState> {
-  return { ...wallet, balanceUzrn: await getWalletBalance(wallet.address) };
+  const [balanceUzrn, identifier] = await Promise.all([
+    getWalletBalance(wallet.address),
+    getAccountIdentifier(wallet.address),
+  ]);
+  if (identifier) {
+    requireMatchingIdentifier(wallet.address, wallet.accountId, identifier);
+  }
+  const refreshed: WalletState = {
+    name: wallet.name,
+    address: wallet.address,
+    accountId: wallet.accountId,
+    balanceUzrn,
+  };
+  return identifier
+    ? { ...refreshed, ...identityFields(identifier) }
+    : refreshed;
 }
 
 function displayToMicro(amount: string): string {
@@ -95,8 +172,11 @@ export async function sendZrn(
   memo: string,
 ): Promise<{ transactionHash: string; gasUsed: bigint; gasWanted: bigint }> {
   requireKeplr();
+  if (wallet.frozen === true) {
+    throw new Error("This account is frozen on-chain and cannot send ZRN.");
+  }
   const microAmount = displayToMicro(amount);
-  validateAccountAddress(recipient);
+  accountIdFor(recipient);
   if (memo.length > 256) throw new Error("Memo must be 256 characters or fewer.");
 
   const freshBalanceUzrn = await getWalletBalance(wallet.address);
