@@ -56,7 +56,16 @@ func TestDefaultGenesis(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, bz)
 
-	for _, moduleName := range []string{"auth", "bank", "staking", "distribution", "gov", "upgrade"} {
+	for _, moduleName := range []string{
+		"auth",
+		"bank",
+		"staking",
+		"distribution",
+		"gov",
+		"upgrade",
+		"training_provenance",
+		"trust_score",
+	} {
 		_, ok := genState[moduleName]
 		require.True(t, ok, "expected module %q in default genesis", moduleName)
 	}

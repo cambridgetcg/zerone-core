@@ -11,6 +11,7 @@ import (
 	capturechallengetypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	provintoto "github.com/zerone-chain/zerone/x/training_provenance/intoto"
 	provkeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
 	provtypes "github.com/zerone-chain/zerone/x/training_provenance/types"
 )
@@ -92,6 +93,15 @@ func TestTrainingProvenance_GradeAOnCleanManifest(t *testing.T) {
 	}
 	require.Equal(t, uint64(1), domainSet["sciences"])
 	require.Equal(t, uint64(1), domainSet["biology"])
+
+	// The native certificate projects directly into a standard in-toto
+	// Statement without writing new chain state.
+	statement, err := provintoto.BuildStatement(testChainID, cert)
+	require.NoError(t, err)
+	require.NoError(t, statement.Validate())
+	require.Equal(t, cert.MerkleRoot, statement.Subject[0].Digest["sha256"])
+	require.Equal(t, "cosmos:"+testChainID,
+		statement.Predicate.Fields["source"].GetStructValue().Fields["chain"].GetStringValue())
 }
 
 // Grade F: a cartel UPHELD in a manifest's covered domain drops the

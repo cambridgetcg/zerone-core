@@ -251,6 +251,8 @@ var (
 		zeronecreed.AppModuleBasic{},         // x/creed: on-chain anchor for TRUTH_SEEKING.md (commitments 6, 10)
 		zeroneworkcreed.AppModuleBasic{},     // x/work_creed: on-chain anchor for per-phase docs/sub_creeds/*.md (commitments 6, 10 — useful-work scope)
 		substratebridge.AppModuleBasic{},    // x/substrate_bridge: Tier-1 external recursive work foundation
+		zeroneprovenance.AppModuleBasic{},   // x/training_provenance: read-only certificate and in-toto export
+		zeronetrustscore.AppModuleBasic{},   // x/trust_score: read-only composite trust view
 	)
 
 	// Module account permissions.
