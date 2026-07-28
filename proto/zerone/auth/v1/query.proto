@@ -28,6 +28,14 @@ service Query {
   rpc FrozenAccounts(QueryFrozenAccountsRequest) returns (QueryFrozenAccountsResponse) {
     option (google.api.http).get = "/zerone/auth/v1/frozen_accounts";
   }
+
+  // AccountIdentifier returns a chain-qualified, CAIP-10-syntax identifier
+  // for a registered Zerone account. The Cosmos namespace address profile is
+  // still Draft and does not yet name the zrn HRP. The DID is returned as
+  // Zerone-native metadata; this query does not assert W3C DID conformance.
+  rpc AccountIdentifier(QueryAccountIdentifierRequest) returns (QueryAccountIdentifierResponse) {
+    option (google.api.http).get = "/zerone/auth/v1/account_identifier/{address}";
+  }
 }
 
 message QueryAccountRequest {
@@ -56,4 +64,33 @@ message QueryFrozenAccountsRequest {}
 
 message QueryFrozenAccountsResponse {
   repeated Account accounts = 1;
+}
+
+message QueryAccountIdentifierRequest {
+  string address = 1;
+}
+
+message QueryAccountIdentifierResponse {
+  ChainAccountIdentifier identifier = 1;
+}
+
+// ChainAccountIdentifier is an interoperability projection of an existing
+// Zerone account. It is computed from the current chain ID and account record
+// and is never stored in consensus state.
+message ChainAccountIdentifier {
+  // CAIP-2 namespace. Always "cosmos" for Zerone.
+  string namespace = 1;
+  // Cosmos CAIP-2 reference: the native chain ID or its hashed fallback.
+  string reference = 2;
+  // Native chain ID from the query context.
+  string raw_chain_id = 3;
+  // CAIP-10-syntax account ID: cosmos:<reference>:<address>.
+  string account_id = 4;
+  // Canonical Zerone bech32 account address.
+  string address = 5;
+  // Existing Zerone-native did:zrn label; opaque to CAIP consumers.
+  string did = 6;
+  string account_type = 7;
+  bool frozen = 8;
+  uint64 created_at_block = 9;
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/zerone-chain/zerone/x/auth/types"
 )
@@ -70,4 +72,54 @@ func (qs queryServer) FrozenAccounts(goCtx context.Context, _ *types.QueryFrozen
 	}
 
 	return &types.QueryFrozenAccountsResponse{Accounts: frozen}, nil
+}
+
+// AccountIdentifier projects a registered Zerone account into CAIP-2 and
+// CAIP-10 identifiers. It performs no writes and emits no consensus events.
+func (qs queryServer) AccountIdentifier(goCtx context.Context, req *types.QueryAccountIdentifierRequest) (*types.QueryAccountIdentifierResponse, error) {
+	if req == nil || req.Address == "" {
+		return nil, status.Error(codes.InvalidArgument, "account address is required")
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	rawChainID := ctx.ChainID()
+	reference, err := types.CosmosChainReference(rawChainID)
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "cannot derive CAIP-2 chain reference: %v", err)
+	}
+	accountID, err := types.CAIP10AccountID(rawChainID, req.Address)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid account identifier: %v", err)
+	}
+
+	account, found := qs.GetAccount(ctx, req.Address)
+	if !found {
+		return nil, status.Error(codes.NotFound, types.ErrAccountNotFound.Error())
+	}
+	if account.Address != req.Address {
+		return nil, status.Error(codes.DataLoss, "stored account address does not match its lookup key")
+	}
+
+	mapping, found := qs.GetDIDMapping(ctx, account.Did)
+	if !found ||
+		mapping.Did != account.Did ||
+		mapping.Bech32 != account.Address ||
+		mapping.PubKey != account.PublicKey {
+		return nil, status.Error(codes.DataLoss, "stored account and DID mapping are inconsistent")
+	}
+
+	frozen := account.Flags != nil && account.Flags.Frozen
+	return &types.QueryAccountIdentifierResponse{
+		Identifier: &types.ChainAccountIdentifier{
+			Namespace:      types.CosmosCAIPNamespace,
+			Reference:      reference,
+			RawChainId:     rawChainID,
+			AccountId:      accountID,
+			Address:        account.Address,
+			Did:            account.Did,
+			AccountType:    account.AccountType,
+			Frozen:         frozen,
+			CreatedAtBlock: account.CreatedAtBlock,
+		},
+	}, nil
 }

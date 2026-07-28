@@ -24,6 +24,7 @@ func GetQueryCmd() *cobra.Command {
 		CmdQueryParams(),
 		CmdQueryAccount(),
 		CmdQueryAccountByDID(),
+		CmdQueryAccountIdentifier(),
 		CmdQueryFrozenAccounts(),
 	)
 
@@ -98,6 +99,36 @@ func CmdQueryAccountByDID() *cobra.Command {
 			res, err := queryClient.AccountByDID(cmd.Context(), &types.QueryAccountByDIDRequest{Did: args[0]})
 			if err != nil {
 				return fmt.Errorf("failed to query account by DID: %w", err)
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// CmdQueryAccountIdentifier returns the CAIP-2/CAIP-10 projection of a
+// registered Zerone account.
+func CmdQueryAccountIdentifier() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "account-identifier [address]",
+		Short: "Query a registered account's CAIP-10 identifier",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			queryClient := types.NewQueryClient(clientCtx)
+			res, err := queryClient.AccountIdentifier(
+				cmd.Context(),
+				&types.QueryAccountIdentifierRequest{Address: args[0]},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to query account identifier: %w", err)
 			}
 
 			return clientCtx.PrintProto(res)

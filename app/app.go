@@ -1446,6 +1446,10 @@ func (app *ZeroneApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.API
 	must(zeronecctypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecctypes.NewQueryClient(clientCtx)))
 	must(zeronealignmenttypes.RegisterQueryHandlerClient(ctx, gwmux, zeronealignmenttypes.NewQueryClient(clientCtx)))
 	must(zeronecpottypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecpottypes.NewQueryClient(clientCtx)))
+	must(zeronecounterextypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecounterextypes.NewQueryClient(clientCtx)))
+	must(zeronecreedtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecreedtypes.NewQueryClient(clientCtx)))
+	must(substratebridgetypes.RegisterQueryHandlerClient(ctx, gwmux, substratebridgetypes.NewQueryClient(clientCtx)))
+	must(zeronetrustscoretypes.RegisterQueryHandlerClient(ctx, gwmux, zeronetrustscoretypes.NewQueryClient(clientCtx)))
 	apiSvr.Router.PathPrefix("/zerone/").Handler(gwmux)
 
 	// Swagger UI placeholder — full OpenAPI served from proto-generated spec (R10-2)

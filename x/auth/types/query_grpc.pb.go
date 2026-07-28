@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Query_Account_FullMethodName        = "/zerone.auth.v1.Query/Account"
-	Query_AccountByDID_FullMethodName   = "/zerone.auth.v1.Query/AccountByDID"
-	Query_Params_FullMethodName         = "/zerone.auth.v1.Query/Params"
-	Query_FrozenAccounts_FullMethodName = "/zerone.auth.v1.Query/FrozenAccounts"
+	Query_Account_FullMethodName           = "/zerone.auth.v1.Query/Account"
+	Query_AccountByDID_FullMethodName      = "/zerone.auth.v1.Query/AccountByDID"
+	Query_Params_FullMethodName            = "/zerone.auth.v1.Query/Params"
+	Query_FrozenAccounts_FullMethodName    = "/zerone.auth.v1.Query/FrozenAccounts"
+	Query_AccountIdentifier_FullMethodName = "/zerone.auth.v1.Query/AccountIdentifier"
 )
 
 // QueryClient is the client API for Query service.
@@ -39,6 +40,11 @@ type QueryClient interface {
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	// FrozenAccounts returns all frozen accounts.
 	FrozenAccounts(ctx context.Context, in *QueryFrozenAccountsRequest, opts ...grpc.CallOption) (*QueryFrozenAccountsResponse, error)
+	// AccountIdentifier returns a chain-qualified, CAIP-10-syntax identifier
+	// for a registered Zerone account. The Cosmos namespace address profile is
+	// still Draft and does not yet name the zrn HRP. The DID is returned as
+	// Zerone-native metadata; this query does not assert W3C DID conformance.
+	AccountIdentifier(ctx context.Context, in *QueryAccountIdentifierRequest, opts ...grpc.CallOption) (*QueryAccountIdentifierResponse, error)
 }
 
 type queryClient struct {
@@ -89,6 +95,16 @@ func (c *queryClient) FrozenAccounts(ctx context.Context, in *QueryFrozenAccount
 	return out, nil
 }
 
+func (c *queryClient) AccountIdentifier(ctx context.Context, in *QueryAccountIdentifierRequest, opts ...grpc.CallOption) (*QueryAccountIdentifierResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryAccountIdentifierResponse)
+	err := c.cc.Invoke(ctx, Query_AccountIdentifier_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -103,6 +119,11 @@ type QueryServer interface {
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	// FrozenAccounts returns all frozen accounts.
 	FrozenAccounts(context.Context, *QueryFrozenAccountsRequest) (*QueryFrozenAccountsResponse, error)
+	// AccountIdentifier returns a chain-qualified, CAIP-10-syntax identifier
+	// for a registered Zerone account. The Cosmos namespace address profile is
+	// still Draft and does not yet name the zrn HRP. The DID is returned as
+	// Zerone-native metadata; this query does not assert W3C DID conformance.
+	AccountIdentifier(context.Context, *QueryAccountIdentifierRequest) (*QueryAccountIdentifierResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -124,6 +145,9 @@ func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*Q
 }
 func (UnimplementedQueryServer) FrozenAccounts(context.Context, *QueryFrozenAccountsRequest) (*QueryFrozenAccountsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FrozenAccounts not implemented")
+}
+func (UnimplementedQueryServer) AccountIdentifier(context.Context, *QueryAccountIdentifierRequest) (*QueryAccountIdentifierResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AccountIdentifier not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -218,6 +242,24 @@ func _Query_FrozenAccounts_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_AccountIdentifier_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAccountIdentifierRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AccountIdentifier(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AccountIdentifier_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AccountIdentifier(ctx, req.(*QueryAccountIdentifierRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -240,6 +282,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FrozenAccounts",
 			Handler:    _Query_FrozenAccounts_Handler,
+		},
+		{
+			MethodName: "AccountIdentifier",
+			Handler:    _Query_AccountIdentifier_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

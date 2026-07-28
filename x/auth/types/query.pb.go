@@ -358,6 +358,211 @@ func (x *QueryFrozenAccountsResponse) GetAccounts() []*Account {
 	return nil
 }
 
+type QueryAccountIdentifierRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryAccountIdentifierRequest) Reset() {
+	*x = QueryAccountIdentifierRequest{}
+	mi := &file_zerone_auth_v1_query_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryAccountIdentifierRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryAccountIdentifierRequest) ProtoMessage() {}
+
+func (x *QueryAccountIdentifierRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_auth_v1_query_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryAccountIdentifierRequest.ProtoReflect.Descriptor instead.
+func (*QueryAccountIdentifierRequest) Descriptor() ([]byte, []int) {
+	return file_zerone_auth_v1_query_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *QueryAccountIdentifierRequest) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type QueryAccountIdentifierResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Identifier    *ChainAccountIdentifier `protobuf:"bytes,1,opt,name=identifier,proto3" json:"identifier,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryAccountIdentifierResponse) Reset() {
+	*x = QueryAccountIdentifierResponse{}
+	mi := &file_zerone_auth_v1_query_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryAccountIdentifierResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryAccountIdentifierResponse) ProtoMessage() {}
+
+func (x *QueryAccountIdentifierResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_auth_v1_query_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryAccountIdentifierResponse.ProtoReflect.Descriptor instead.
+func (*QueryAccountIdentifierResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_auth_v1_query_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *QueryAccountIdentifierResponse) GetIdentifier() *ChainAccountIdentifier {
+	if x != nil {
+		return x.Identifier
+	}
+	return nil
+}
+
+// ChainAccountIdentifier is an interoperability projection of an existing
+// Zerone account. It is computed from the current chain ID and account record
+// and is never stored in consensus state.
+type ChainAccountIdentifier struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// CAIP-2 namespace. Always "cosmos" for Zerone.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Cosmos CAIP-2 reference: the native chain ID or its hashed fallback.
+	Reference string `protobuf:"bytes,2,opt,name=reference,proto3" json:"reference,omitempty"`
+	// Native chain ID from the query context.
+	RawChainId string `protobuf:"bytes,3,opt,name=raw_chain_id,json=rawChainId,proto3" json:"raw_chain_id,omitempty"`
+	// CAIP-10-syntax account ID: cosmos:<reference>:<address>.
+	AccountId string `protobuf:"bytes,4,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	// Canonical Zerone bech32 account address.
+	Address string `protobuf:"bytes,5,opt,name=address,proto3" json:"address,omitempty"`
+	// Existing Zerone-native did:zrn label; opaque to CAIP consumers.
+	Did            string `protobuf:"bytes,6,opt,name=did,proto3" json:"did,omitempty"`
+	AccountType    string `protobuf:"bytes,7,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"`
+	Frozen         bool   `protobuf:"varint,8,opt,name=frozen,proto3" json:"frozen,omitempty"`
+	CreatedAtBlock uint64 `protobuf:"varint,9,opt,name=created_at_block,json=createdAtBlock,proto3" json:"created_at_block,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ChainAccountIdentifier) Reset() {
+	*x = ChainAccountIdentifier{}
+	mi := &file_zerone_auth_v1_query_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChainAccountIdentifier) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChainAccountIdentifier) ProtoMessage() {}
+
+func (x *ChainAccountIdentifier) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_auth_v1_query_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChainAccountIdentifier.ProtoReflect.Descriptor instead.
+func (*ChainAccountIdentifier) Descriptor() ([]byte, []int) {
+	return file_zerone_auth_v1_query_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ChainAccountIdentifier) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ChainAccountIdentifier) GetReference() string {
+	if x != nil {
+		return x.Reference
+	}
+	return ""
+}
+
+func (x *ChainAccountIdentifier) GetRawChainId() string {
+	if x != nil {
+		return x.RawChainId
+	}
+	return ""
+}
+
+func (x *ChainAccountIdentifier) GetAccountId() string {
+	if x != nil {
+		return x.AccountId
+	}
+	return ""
+}
+
+func (x *ChainAccountIdentifier) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *ChainAccountIdentifier) GetDid() string {
+	if x != nil {
+		return x.Did
+	}
+	return ""
+}
+
+func (x *ChainAccountIdentifier) GetAccountType() string {
+	if x != nil {
+		return x.AccountType
+	}
+	return ""
+}
+
+func (x *ChainAccountIdentifier) GetFrozen() bool {
+	if x != nil {
+		return x.Frozen
+	}
+	return false
+}
+
+func (x *ChainAccountIdentifier) GetCreatedAtBlock() uint64 {
+	if x != nil {
+		return x.CreatedAtBlock
+	}
+	return 0
+}
+
 var File_zerone_auth_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_auth_v1_query_proto_rawDesc = "" +
@@ -376,12 +581,31 @@ const file_zerone_auth_v1_query_proto_rawDesc = "" +
 	"\x06params\x18\x01 \x01(\v2\x16.zerone.auth.v1.ParamsR\x06params\"\x1c\n" +
 	"\x1aQueryFrozenAccountsRequest\"R\n" +
 	"\x1bQueryFrozenAccountsResponse\x123\n" +
-	"\baccounts\x18\x01 \x03(\v2\x17.zerone.auth.v1.AccountR\baccounts2\xa4\x04\n" +
+	"\baccounts\x18\x01 \x03(\v2\x17.zerone.auth.v1.AccountR\baccounts\"9\n" +
+	"\x1dQueryAccountIdentifierRequest\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\"h\n" +
+	"\x1eQueryAccountIdentifierResponse\x12F\n" +
+	"\n" +
+	"identifier\x18\x01 \x01(\v2&.zerone.auth.v1.ChainAccountIdentifierR\n" +
+	"identifier\"\xa6\x02\n" +
+	"\x16ChainAccountIdentifier\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1c\n" +
+	"\treference\x18\x02 \x01(\tR\treference\x12 \n" +
+	"\fraw_chain_id\x18\x03 \x01(\tR\n" +
+	"rawChainId\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\x04 \x01(\tR\taccountId\x12\x18\n" +
+	"\aaddress\x18\x05 \x01(\tR\aaddress\x12\x10\n" +
+	"\x03did\x18\x06 \x01(\tR\x03did\x12!\n" +
+	"\faccount_type\x18\a \x01(\tR\vaccountType\x12\x16\n" +
+	"\x06frozen\x18\b \x01(\bR\x06frozen\x12(\n" +
+	"\x10created_at_block\x18\t \x01(\x04R\x0ecreatedAtBlock2\xcf\x05\n" +
 	"\x05Query\x12\x7f\n" +
 	"\aAccount\x12#.zerone.auth.v1.QueryAccountRequest\x1a$.zerone.auth.v1.QueryAccountResponse\")\x82\xd3\xe4\x93\x02#\x12!/zerone/auth/v1/account/{address}\x12\x91\x01\n" +
 	"\fAccountByDID\x12(.zerone.auth.v1.QueryAccountByDIDRequest\x1a).zerone.auth.v1.QueryAccountByDIDResponse\",\x82\xd3\xe4\x93\x02&\x12$/zerone/auth/v1/account_by_did/{did}\x12q\n" +
 	"\x06Params\x12\".zerone.auth.v1.QueryParamsRequest\x1a#.zerone.auth.v1.QueryParamsResponse\"\x1e\x82\xd3\xe4\x93\x02\x18\x12\x16/zerone/auth/v1/params\x12\x92\x01\n" +
-	"\x0eFrozenAccounts\x12*.zerone.auth.v1.QueryFrozenAccountsRequest\x1a+.zerone.auth.v1.QueryFrozenAccountsResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/zerone/auth/v1/frozen_accountsB-Z+github.com/zerone-chain/zerone/x/auth/typesb\x06proto3"
+	"\x0eFrozenAccounts\x12*.zerone.auth.v1.QueryFrozenAccountsRequest\x1a+.zerone.auth.v1.QueryFrozenAccountsResponse\"'\x82\xd3\xe4\x93\x02!\x12\x1f/zerone/auth/v1/frozen_accounts\x12\xa8\x01\n" +
+	"\x11AccountIdentifier\x12-.zerone.auth.v1.QueryAccountIdentifierRequest\x1a..zerone.auth.v1.QueryAccountIdentifierResponse\"4\x82\xd3\xe4\x93\x02.\x12,/zerone/auth/v1/account_identifier/{address}B-Z+github.com/zerone-chain/zerone/x/auth/typesb\x06proto3"
 
 var (
 	file_zerone_auth_v1_query_proto_rawDescOnce sync.Once
@@ -395,37 +619,43 @@ func file_zerone_auth_v1_query_proto_rawDescGZIP() []byte {
 	return file_zerone_auth_v1_query_proto_rawDescData
 }
 
-var file_zerone_auth_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_zerone_auth_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_zerone_auth_v1_query_proto_goTypes = []any{
-	(*QueryAccountRequest)(nil),         // 0: zerone.auth.v1.QueryAccountRequest
-	(*QueryAccountResponse)(nil),        // 1: zerone.auth.v1.QueryAccountResponse
-	(*QueryAccountByDIDRequest)(nil),    // 2: zerone.auth.v1.QueryAccountByDIDRequest
-	(*QueryAccountByDIDResponse)(nil),   // 3: zerone.auth.v1.QueryAccountByDIDResponse
-	(*QueryParamsRequest)(nil),          // 4: zerone.auth.v1.QueryParamsRequest
-	(*QueryParamsResponse)(nil),         // 5: zerone.auth.v1.QueryParamsResponse
-	(*QueryFrozenAccountsRequest)(nil),  // 6: zerone.auth.v1.QueryFrozenAccountsRequest
-	(*QueryFrozenAccountsResponse)(nil), // 7: zerone.auth.v1.QueryFrozenAccountsResponse
-	(*Account)(nil),                     // 8: zerone.auth.v1.Account
-	(*Params)(nil),                      // 9: zerone.auth.v1.Params
+	(*QueryAccountRequest)(nil),            // 0: zerone.auth.v1.QueryAccountRequest
+	(*QueryAccountResponse)(nil),           // 1: zerone.auth.v1.QueryAccountResponse
+	(*QueryAccountByDIDRequest)(nil),       // 2: zerone.auth.v1.QueryAccountByDIDRequest
+	(*QueryAccountByDIDResponse)(nil),      // 3: zerone.auth.v1.QueryAccountByDIDResponse
+	(*QueryParamsRequest)(nil),             // 4: zerone.auth.v1.QueryParamsRequest
+	(*QueryParamsResponse)(nil),            // 5: zerone.auth.v1.QueryParamsResponse
+	(*QueryFrozenAccountsRequest)(nil),     // 6: zerone.auth.v1.QueryFrozenAccountsRequest
+	(*QueryFrozenAccountsResponse)(nil),    // 7: zerone.auth.v1.QueryFrozenAccountsResponse
+	(*QueryAccountIdentifierRequest)(nil),  // 8: zerone.auth.v1.QueryAccountIdentifierRequest
+	(*QueryAccountIdentifierResponse)(nil), // 9: zerone.auth.v1.QueryAccountIdentifierResponse
+	(*ChainAccountIdentifier)(nil),         // 10: zerone.auth.v1.ChainAccountIdentifier
+	(*Account)(nil),                        // 11: zerone.auth.v1.Account
+	(*Params)(nil),                         // 12: zerone.auth.v1.Params
 }
 var file_zerone_auth_v1_query_proto_depIdxs = []int32{
-	8, // 0: zerone.auth.v1.QueryAccountResponse.account:type_name -> zerone.auth.v1.Account
-	8, // 1: zerone.auth.v1.QueryAccountByDIDResponse.account:type_name -> zerone.auth.v1.Account
-	9, // 2: zerone.auth.v1.QueryParamsResponse.params:type_name -> zerone.auth.v1.Params
-	8, // 3: zerone.auth.v1.QueryFrozenAccountsResponse.accounts:type_name -> zerone.auth.v1.Account
-	0, // 4: zerone.auth.v1.Query.Account:input_type -> zerone.auth.v1.QueryAccountRequest
-	2, // 5: zerone.auth.v1.Query.AccountByDID:input_type -> zerone.auth.v1.QueryAccountByDIDRequest
-	4, // 6: zerone.auth.v1.Query.Params:input_type -> zerone.auth.v1.QueryParamsRequest
-	6, // 7: zerone.auth.v1.Query.FrozenAccounts:input_type -> zerone.auth.v1.QueryFrozenAccountsRequest
-	1, // 8: zerone.auth.v1.Query.Account:output_type -> zerone.auth.v1.QueryAccountResponse
-	3, // 9: zerone.auth.v1.Query.AccountByDID:output_type -> zerone.auth.v1.QueryAccountByDIDResponse
-	5, // 10: zerone.auth.v1.Query.Params:output_type -> zerone.auth.v1.QueryParamsResponse
-	7, // 11: zerone.auth.v1.Query.FrozenAccounts:output_type -> zerone.auth.v1.QueryFrozenAccountsResponse
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	11, // 0: zerone.auth.v1.QueryAccountResponse.account:type_name -> zerone.auth.v1.Account
+	11, // 1: zerone.auth.v1.QueryAccountByDIDResponse.account:type_name -> zerone.auth.v1.Account
+	12, // 2: zerone.auth.v1.QueryParamsResponse.params:type_name -> zerone.auth.v1.Params
+	11, // 3: zerone.auth.v1.QueryFrozenAccountsResponse.accounts:type_name -> zerone.auth.v1.Account
+	10, // 4: zerone.auth.v1.QueryAccountIdentifierResponse.identifier:type_name -> zerone.auth.v1.ChainAccountIdentifier
+	0,  // 5: zerone.auth.v1.Query.Account:input_type -> zerone.auth.v1.QueryAccountRequest
+	2,  // 6: zerone.auth.v1.Query.AccountByDID:input_type -> zerone.auth.v1.QueryAccountByDIDRequest
+	4,  // 7: zerone.auth.v1.Query.Params:input_type -> zerone.auth.v1.QueryParamsRequest
+	6,  // 8: zerone.auth.v1.Query.FrozenAccounts:input_type -> zerone.auth.v1.QueryFrozenAccountsRequest
+	8,  // 9: zerone.auth.v1.Query.AccountIdentifier:input_type -> zerone.auth.v1.QueryAccountIdentifierRequest
+	1,  // 10: zerone.auth.v1.Query.Account:output_type -> zerone.auth.v1.QueryAccountResponse
+	3,  // 11: zerone.auth.v1.Query.AccountByDID:output_type -> zerone.auth.v1.QueryAccountByDIDResponse
+	5,  // 12: zerone.auth.v1.Query.Params:output_type -> zerone.auth.v1.QueryParamsResponse
+	7,  // 13: zerone.auth.v1.Query.FrozenAccounts:output_type -> zerone.auth.v1.QueryFrozenAccountsResponse
+	9,  // 14: zerone.auth.v1.Query.AccountIdentifier:output_type -> zerone.auth.v1.QueryAccountIdentifierResponse
+	10, // [10:15] is the sub-list for method output_type
+	5,  // [5:10] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_zerone_auth_v1_query_proto_init() }
@@ -441,7 +671,7 @@ func file_zerone_auth_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_auth_v1_query_proto_rawDesc), len(file_zerone_auth_v1_query_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
