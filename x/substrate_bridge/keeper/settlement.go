@@ -117,6 +117,61 @@ func (k Keeper) computeReward(att *types.ExternalAttestation, verifiedRatioBps u
 	return base.Add(prod)
 }
 
+// emitExternalCiteKarma emits one zerone.karma.edge per cited fact when an
+// attestation settles: the cited facts raised the attester's mint above, and
+// until now their authors heard nothing about being relied on. Ordinal
+// recognition only — no magnitude until a buyer's settled payment exists to
+// partition (K-alpha; pricing is a later stage). Runs on the BeginBlocker
+// drain, so it never errors: a fact that no longer resolves, or resolves
+// without a submitter, is skipped.
+//
+// Called with the settle's CACHE context (review fix): events emitted on the
+// cache ride writeCache with the state they describe, so a settle that fails
+// to persist publishes no recognition and the next block's retry cannot
+// double-emit the same edges.
+//
+// Fan-out is bounded twice (review fix): ValidateLink rejects new links over
+// MaxCitedFactsPerLink at admission, and — because attestations admitted
+// under a pre-cap binary settle here after the upgrade with whatever fan-out
+// they carry, migration-free by design — the loop re-bounds at the same cap,
+// truncating recognition deterministically at the first MaxCitedFactsPerLink
+// entries. The axis-bounds lesson does not stop at the admission door.
+//
+// The event is built with literal type and attribute names, matching the
+// knowledge emitter, so the static event audit
+// (tests/integration/events_audit_test.go) scans this site instead of
+// silently skipping a const-typed call.
+func (k Keeper) emitExternalCiteKarma(sdkCtx sdk.Context, att *types.ExternalAttestation) {
+	if k.knowledgeKeeper == nil || att.Link == nil {
+		return
+	}
+	for i, c := range att.Link.CitedFacts {
+		if i >= types.MaxCitedFactsPerLink {
+			break
+		}
+		if c == nil {
+			continue
+		}
+		fact, found := k.knowledgeKeeper.GetFact(sdkCtx, c.FactId)
+		if !found || fact == nil || fact.Submitter == "" {
+			continue
+		}
+		event := sdk.NewEvent("zerone.karma.edge",
+			sdk.NewAttribute("beneficiary", fact.Submitter),
+			sdk.NewAttribute("kind", types.KarmaKindExternal),
+			sdk.NewAttribute("state", types.KarmaStateOrdinal),
+			sdk.NewAttribute("counterparty", att.Submitter),
+			sdk.NewAttribute("ref_id", c.FactId),
+			sdk.NewAttribute("domain", fact.Domain),
+			sdk.NewAttribute("register", types.KarmaRegisterPricedCoherence),
+		)
+		if fact.Submitter == att.Submitter {
+			event = event.AppendAttributes(sdk.NewAttribute("self", "true"))
+		}
+		sdkCtx.EventManager().EmitEvent(event)
+	}
+}
+
 // settleRejected closes the attestation as REJECTED and burns the slashed
 // bond (M1 fraud tier). Burning frees supply-cap headroom — slashed
 // dishonesty becomes future emission room instead of dead weight in the
@@ -239,6 +294,10 @@ func (k Keeper) finalizeSettle(
 		sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
 		sdk.NewAttribute(AttrMechanism, mechanism),
 	))
+
+	// Name the cited authors. Rejections never reach here. Rides the cache
+	// context so recognition persists exactly when the settle does.
+	k.emitExternalCiteKarma(cacheCtx, att)
 
 	// Trigger lineage propagation on the amount actually paid.
 	if paid.GT(sdkmath.ZeroInt()) {

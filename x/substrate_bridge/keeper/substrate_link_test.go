@@ -106,7 +106,7 @@ func TestValidateLink_WeightAgainstUnboundedAdapterIsRefused(t *testing.T) {
 			AxisInterface:      ^uint64(0),
 		},
 	}
-	require.ErrorIs(t, k.ValidateLink(ctx, link, types.DefaultParams()), types.ErrAdapterAxisBoundsUnset)
+	require.ErrorIs(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()), types.ErrAdapterAxisBoundsUnset)
 }
 
 // The other half of the same gate, and the one that matters operationally: the
@@ -120,7 +120,7 @@ func TestValidateLink_UnweightedLinkStillPassesUnboundedAdapter(t *testing.T) {
 		Status:    types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
 	}))
 	link := &types.SubstrateLink{AdapterId: "unbounded-v1"} // no RecursionWeight
-	require.NoError(t, k.ValidateLink(ctx, link, types.DefaultParams()))
+	require.NoError(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()))
 }
 
 // An explicit all-zero ceiling is a real answer, not a missing one: it means
@@ -137,11 +137,11 @@ func TestValidateLink_ExplicitZeroBoundsRefuseWeightButAllowNone(t *testing.T) {
 		AdapterId:       "declared-v1",
 		RecursionWeight: &types.AxisProjection{AxisSubstrate: 1},
 	}
-	require.ErrorIs(t, k.ValidateLink(ctx, over, types.DefaultParams()), types.ErrAxisOverflow)
+	require.ErrorIs(t, k.ValidateLink(ctx, over, defaultSubstrateBridgeParams()), types.ErrAxisOverflow)
 
 	zero := &types.SubstrateLink{
 		AdapterId:       "declared-v1",
 		RecursionWeight: &types.AxisProjection{},
 	}
-	require.NoError(t, k.ValidateLink(ctx, zero, types.DefaultParams()))
+	require.NoError(t, k.ValidateLink(ctx, zero, defaultSubstrateBridgeParams()))
 }

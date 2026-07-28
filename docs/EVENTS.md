@@ -20,6 +20,7 @@ identical events.
 - [gov](#gov)
 - [home](#home)
 - [ibcratelimit](#ibcratelimit)
+- [karma](#karma)
 - [knowledge](#knowledge)
 - [liquiditypool](#liquiditypool)
 - [ontology](#ontology)
@@ -751,6 +752,49 @@ Governance parameter update.
 
 ---
 
+## karma
+
+### zerone.karma.edge
+K-alpha karma recognition edge. The chain acknowledges an act of epistemic
+participation (verifying, being cited, corroborating, opening/settling a
+pending claim) without pricing it — no magnitude attribute is emitted at
+K-alpha; the ledger that prices edges is K-beta. Recognition precedes pricing.
+- `beneficiary` -- bech32 address the edge credits
+- `kind` -- edge kind (`verify`, `cited`, `corroborate`, `corroborated`, `pending_open`, `pending_settle`, `external`)
+- `state` -- `"RECOGNIZED"` for adjudicated recognition (`verify`, `cited`, `corroborate`, `corroborated`); `"ORDINAL"` for counter edges that confer nothing (`pending_open`, `pending_settle`, `external`). ORDINAL is a first-class third state — never sum ORDINAL edges into RECOGNIZED totals (a pending pair means "not yet adjudicated", not recognition)
+- `counterparty` -- bech32 address on the other side of the act (may be empty)
+- `ref_id` -- the round, fact, or claim id the edge refers to
+- `domain` -- knowledge domain (may be empty)
+- `register` -- always `"priced-coherence"`: karma records priced coherence and priced reliance, not truth — the circularity confession rides every edge
+- `self` -- `"true"` when beneficiary == counterparty (self-dealt recognition; attribute absent otherwise)
+- `correct` -- on `verify` edges only, `"true"` when the verifier's vote matched the verdict; omitted when the bit is not cheaply known at the payout site
+- `verdict` -- on `pending_settle` edges only, the terminal verdict class (e.g. `VERDICT_ACCEPT`, `VERDICT_INCONCLUSIVE`)
+
+Emission sites and printed gaps:
+- `pending_open` fires at every round-creating message — `SubmitClaim`,
+  `ChallengeFact`, `ChallengeProvisionalFact`, `SubmitContradiction` — and
+  `pending_settle` fires on every terminal close: `CompleteRound` for
+  aggregated verdicts (INCONCLUSIVE included) **and** the round-expiry path
+  in `AdvanceRoundPhases` when a round dies with too few reveals. The pair
+  balances in any event fold.
+- `verify` edges follow the paid set (K-4). An INCONCLUSIVE round emits
+  `pending_settle` with `verdict=VERDICT_INCONCLUSIVE` and **no** `verify`
+  edges — the chain refuses to grade anyone against a verdict it failed to
+  reach (K-2). Verifier participation stays visible via `reveal_count` on
+  `zerone.knowledge.round_phase_changed` and `reveals` on
+  `zerone.knowledge.round_expired`.
+- `graded` is **not** emitted at K-alpha: stamping the fail-open-seat bit
+  requires per-commit state that only the K-beta ledger adds. Until then a
+  fail-open unqualified seat's `verify` edge is indistinguishable from a
+  qualified one — a known, printed gap (K-9), not an implied measurement.
+- The `corroborate`/`corroborated` pair is two-address farmable (an author
+  can file a losing challenge against their own fact from a second address;
+  `self` cannot see it). Harmless while edges are unpriced; K-beta pricing
+  must apply the counterparty-independence probe and pair cap (design §2.5)
+  before this pair carries any magnitude.
+
+---
+
 ## knowledge
 
 ### zerone.knowledge.submit_claim
@@ -1073,6 +1117,17 @@ Claim review fee split across protocol components.
 - `research` -- research fund share
 - `verifier_pool` -- verifier pool share
 
+### zerone.knowledge.verifier_rewarded
+Per-verifier payout from the 55% verifier pool at round completion. Previously
+the independence modulation (T3) withheld reward silently — the verifier saw a
+smaller payout with no on-chain record of why. `withheld_uzrn` is the exact
+amount the modulation subtracted; `amount_uzrn + withheld_uzrn` equals the
+verifier's unmodulated pool share.
+- `verifier` -- rewarded verifier address
+- `round_id` -- verification round
+- `amount_uzrn` -- uzrn actually paid after independence modulation
+- `withheld_uzrn` -- uzrn withheld by the modulation (`0` if none; withheld value flows to the development fund)
+
 ### zerone.knowledge.role_elasticity_updated
 Human/agent role elasticity recalculated for a domain.
 - `agent_accuracy_bps` -- agent verification accuracy in BPS
@@ -1147,8 +1202,8 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `creed_commitment` -- "3"
 
 ### zerone.knowledge.challenge_inconclusive_restored
-A challenge round starved (fewer than `min_verifiers` reveals) and expired without a verdict. The target fact — flipped to CHALLENGED at submission — is restored to ACTIVE with no survival credit (no panel actually judged it), so a starved challenge cannot lock a fact CHALLENGED forever.
-- `fact_id` -- fact restored from CHALLENGED to ACTIVE
+A challenge round starved (fewer than `min_verifiers` reveals) and expired without a verdict. The target fact — flipped to CHALLENGED at submission — is restored to its prior standing with no survival credit (ACTIVE for an established fact, PROVISIONAL for a conjecture), so starvation cannot lock it forever or promote a question into truth-standing.
+- `fact_id` -- fact restored from CHALLENGED to its type-appropriate standing
 - `challenge_claim_id` -- the starved challenge claim
 
 ### zerone.knowledge.conjecture_posted
@@ -1190,6 +1245,16 @@ Emitted when the probe bounty pool pays the flat `InvitationBonusAmount` to a pr
 - `fact_id` -- target fact whose invitation was answered
 - `amount` -- uzrn paid from the pool (may be less than `InvitationBonusAmount` if the pool is underfunded)
 - `creed_commitment` -- "5, 12"
+
+### zerone.knowledge.invitation_bonus_unfunded
+Emitted when a current invitation should have paid `InvitationBonusAmount` but
+the probe bounty pool paid nothing. Without this event the non-payment is a
+silent lie: state says "invited", the prober answered, and the payout promise
+quietly failed. Observers of `invitation_bonus_paid` should watch this event
+as its truthful negative.
+- `claim_id` -- the challenge claim that answered the invitation
+- `fact_id` -- target fact whose invitation was answered
+- `amount_uzrn` -- the bonus that was due but not paid
 
 ### zerone.knowledge.probe_bounty_minted
 Emitted each block that the Wave 15 BeginBlocker mints uzrn into the dedicated probe bounty pool (`knowledge_probe_bounty_pool` module account). The pool funds successful-probe bonuses via `PayProbeBountyFromPool` — decoupling epistemic-auditing budget from general governance. Minting throttles when the pool reaches `ProbeBountyMaxPoolSize`; the event carries the actual minted amount (may be less than `ProbeBountyMintPerBlock` when the cap clamps issuance).
@@ -1960,6 +2025,28 @@ Governance parameter update.
 ---
 
 ## vesting_rewards
+
+### zerone.vesting_rewards.schedule_created
+K-alpha audibility. Emitted once inside the core `CreateVestingSchedule`
+constructor, so every creation path — knowledge adapter, falsification
+reward, authority message — is audible from a single site. Genesis import
+does not emit. (The authority path additionally keeps its legacy
+`zerone.vesting_rewards.vesting_created` event.)
+- `beneficiary` -- beneficiary address
+- `schedule_id` -- vesting schedule ID
+- `total_uzrn` -- total scheduled amount in uzrn
+- `category` -- epistemic category of the schedule
+- `source` -- creation source (knowledge adapter, falsification reward, authority)
+
+### zerone.vesting_rewards.claimed
+K-alpha audibility. Emitted per schedule actually paid inside the claim
+loop. `remaining_uzrn` is `TotalAmount - ReleasedAmount` after this claim,
+clamped at zero; the reserve that may never release is included — raw
+schedule arithmetic, not a promise of future release.
+- `beneficiary` -- beneficiary address
+- `schedule_id` -- vesting schedule ID
+- `amount_uzrn` -- uzrn paid by this claim
+- `remaining_uzrn` -- uzrn still unreleased on the schedule after this claim
 
 ### zerone.vesting_rewards.vesting_created
 Vesting schedule created.

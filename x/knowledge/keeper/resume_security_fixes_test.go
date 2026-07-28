@@ -72,6 +72,29 @@ func TestStarvedRound_UnlocksChallengedFact(t *testing.T) {
 		"restored with no survival credit, since no panel judged it")
 }
 
+func TestStarvedRound_RestoresConjectureWithoutTruthStanding(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	conjecture := acceptConjecture(t, k, ctx, "starved-conjecture", "A question whose refutation panel starves")
+	conjecture.Status = types.FactStatus_FACT_STATUS_CHALLENGED
+	require.NoError(t, k.SetFact(ctx, conjecture))
+
+	claim, round := makeTestClaim(t, k, ctx, "zrn1conjecturechallenger", "an unanswered refutation", "mathematics", "formal", "11000000")
+	claim.Status = types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION
+	claim.ProvisionalFactId = conjecture.Id
+	require.NoError(t, k.SetClaim(ctx, claim))
+
+	ctx2 := ctx.WithBlockHeight(int64(round.AggregationDeadline) + 1)
+	require.NoError(t, k.AdvanceRoundPhases(ctx2))
+
+	got, found := k.GetFact(ctx2, conjecture.Id)
+	require.True(t, found)
+	require.Equal(t, types.FactStatus_FACT_STATUS_PROVISIONAL, got.Status,
+		"a starved panel may unlock a conjecture but must not launder the question into ACTIVE truth-standing")
+	require.Equal(t, uint64(0), got.CorroborationCount,
+		"no panel judged the refutation, so the conjecture earns no survival credit")
+}
+
 func TestStarvedRound_RecordsInconclusiveOutcome(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 

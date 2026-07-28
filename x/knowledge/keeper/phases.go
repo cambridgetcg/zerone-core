@@ -112,7 +112,8 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	return nil
 }
 
-// AdvanceRoundPhases iterates all active rounds and transitions phases by deadline.
+// AdvanceRoundPhases iterates all active rounds and transitions phases by
+// deadline — or early, once a round's reveal set is closed (see GetExpectedPhase).
 func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -150,6 +151,20 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 			))
 
 		case types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION:
+			// Early advance only (the deadline path needs no extra gate): the
+			// closed commit set must clear the same quorum threshold
+			// aggregation itself reads THIS block — the override-inclusive
+			// effective minimum, not raw MinVerifiers. Otherwise a
+			// fast-revealing panel finalizes under a threshold read at a
+			// height it chose, evading an active capture-challenge override
+			// (review fix). A held round loses nothing: by the reveal
+			// deadline the override either still binds (INCONCLUSIVE, as
+			// under fixed deadlines) or has expired (decisive, as under
+			// fixed deadlines).
+			if height < round.RevealDeadline &&
+				uint64(len(round.Commits)) < k.effectiveMinVerifiersForRound(ctx, round, params) {
+				continue
+			}
 			// REVEAL → AGGREGATION transition
 			round.Phase = types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION
 			if err := k.SetVerificationRound(ctx, round); err != nil {
@@ -208,6 +223,17 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 					//     target fact locked CHALLENGED forever — restore it with
 					//     no survival credit, since no panel actually judged it.
 					k.restoreChallengedFactOnInconclusive(ctx, claim)
+					// K-alpha: this is the one terminal close outside
+					// CompleteRound — and the default fate of any claim that
+					// cannot attract MinVerifiers reveals, i.e. the most
+					// common INCONCLUSIVE route on a thin-verifier chain.
+					// The pending pair opened at submission settles here too
+					// (K-2; review fix: this path previously left every
+					// starved claim's pair open forever). Emission cannot
+					// error; O(1) per already-iterated round.
+					emitKarmaEdgeState(sdkCtx, "pending_settle", karmaEdgeStateOrdinal,
+						claim.Submitter, "", claim.Id, claim.Domain,
+						sdk.NewAttribute("verdict", types.Verdict_VERDICT_INCONCLUSIVE.String()))
 				}
 				sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 					"zerone.knowledge.round_expired",
@@ -221,23 +247,74 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 	return nil
 }
 
+// effectiveMinVerifiersForRound mirrors the quorum read that
+// AggregateVerificationResult performs (confidence.go): domain claims use the
+// domain-adjusted, capture-override-inclusive minimum; domainless claims (or
+// rounds whose claim no longer resolves) use the raw params minimum. Reading
+// it at the advance height keeps the early-aggregation gate and the
+// aggregation quorum on the same block, so a panel cannot pick which
+// threshold snapshot applies by timing its reveals.
+func (k Keeper) effectiveMinVerifiersForRound(ctx context.Context, round *types.VerificationRound, params *types.Params) uint64 {
+	if claim, found := k.GetClaim(ctx, round.ClaimId); found && claim.Domain != "" {
+		return uint64(k.GetEffectiveMinVerifiers(ctx, claim.Domain))
+	}
+	return params.MinVerifiers
+}
+
 // GetExpectedPhase is a pure function that maps a block height to the expected phase.
+//
+// Two refinements over raw deadline arithmetic (K-alpha):
+//
+//   - Early aggregation: inside the reveal window, once every committer has
+//     revealed and the commit set meets MinVerifiers, no further reveal can
+//     arrive (a reveal requires a matching commit and the commit window is
+//     closed), so waiting out the reveal deadline adds only latency. The
+//     commit window itself is never shortened. The MinVerifiers read here is
+//     a cheap pure precondition; AdvanceRoundPhases re-checks the
+//     override-inclusive effective minimum at the advance height before
+//     acting, so an active capture-challenge override binds early advances
+//     exactly as it binds deadline aggregation. Residual, printed rather
+//     than papered: aggregation height still moves with the last reveal, so
+//     state read at aggregation (per-verifier stake snapshots, an override
+//     filed only after the final reveal landed) is read earlier than the
+//     fixed reveal deadline would have read it — the objection window for
+//     post-reveal capture challenges narrows to the gap between the last
+//     reveal and the advance block.
+//   - Phase monotonicity: after an early advance the stored phase leads the
+//     deadline arithmetic. Without flooring at the stored phase, a failed
+//     aggregation — which leaves the round standing in AGGREGATION — would be
+//     regressed to REVEAL next block and reprocessed forever. A round never
+//     moves backwards: the result is max(deadline-expected, stored) in
+//     lifecycle order (the VerificationPhase enum is declared in that order).
 func GetExpectedPhase(round *types.VerificationRound, height uint64, params *types.Params) types.VerificationPhase {
 	if round.Phase == types.VerificationPhase_VERIFICATION_PHASE_COMPLETE ||
 		round.Phase == types.VerificationPhase_VERIFICATION_PHASE_EXPIRED {
 		return round.Phase
 	}
 
-	if height >= round.AggregationDeadline {
-		return types.VerificationPhase_VERIFICATION_PHASE_EXPIRED
+	expected := types.VerificationPhase_VERIFICATION_PHASE_COMMIT
+	switch {
+	case height >= round.AggregationDeadline:
+		expected = types.VerificationPhase_VERIFICATION_PHASE_EXPIRED
+	case height >= round.RevealDeadline:
+		expected = types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION
+	case height >= round.CommitDeadline:
+		expected = types.VerificationPhase_VERIFICATION_PHASE_REVEAL
 	}
-	if height >= round.RevealDeadline {
-		return types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION
+
+	// Early aggregation: the reveal set is closed (both counts are consensus
+	// state), so the verdict-bearing transition needs no further waiting.
+	if expected == types.VerificationPhase_VERIFICATION_PHASE_REVEAL &&
+		len(round.Reveals) == len(round.Commits) &&
+		uint64(len(round.Commits)) >= params.MinVerifiers {
+		expected = types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION
 	}
-	if height >= round.CommitDeadline {
-		return types.VerificationPhase_VERIFICATION_PHASE_REVEAL
+
+	// Phase monotonicity: never regress behind the stored phase.
+	if expected < round.Phase {
+		return round.Phase
 	}
-	return types.VerificationPhase_VERIFICATION_PHASE_COMMIT
+	return expected
 }
 
 // performAggregation aggregates votes and completes the round.

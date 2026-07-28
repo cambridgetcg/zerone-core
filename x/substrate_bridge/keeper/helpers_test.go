@@ -22,6 +22,11 @@ import (
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
+func defaultSubstrateBridgeParams() *types.Params {
+	params := types.DefaultParams()
+	return &params
+}
+
 func setupSubstrateBridgeKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 	t.Helper()
 

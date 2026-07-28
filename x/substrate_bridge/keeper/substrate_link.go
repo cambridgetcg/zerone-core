@@ -88,6 +88,13 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p *typ
 	if uint32(len(l.PendingClaims)) > p.MaxPendingClaimsPerAttestation {
 		return types.ErrTooManyPendingClaims
 	}
+	// Cited facts fan out: each is a knowledge read below and a karma event at
+	// settlement, which runs in the BeginBlocker drain — so the count is bounded
+	// here at admission, reject-not-truncate. The live relay's buildLink sets
+	// only `source` (no cited facts), so this cannot stall the bridge.
+	if len(l.CitedFacts) > types.MaxCitedFactsPerLink {
+		return types.ErrTooManyCitedFacts
+	}
 	// Recursion weight is caller-supplied and multiplies the settlement reward
 	// (computeReward, settlement.go: R = base + L × ΣW × Q / 10⁸), so it is only
 	// admissible against an adapter that has declared a ceiling. Every axis is
@@ -103,6 +110,9 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p *typ
 	// is every message the live agenttool relay submits (buildLink sets only
 	// `source`), so this tightening cannot stall the bridge.
 	if l.RecursionWeight != nil {
+		if adapter.AxisBounds == nil {
+			return types.ErrAdapterAxisBoundsUnset
+		}
 		w := l.RecursionWeight
 		for _, v := range []uint64{
 			w.AxisSubstrate, w.AxisVerification, w.AxisClassification,
@@ -112,9 +122,6 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p *typ
 				return types.ErrAxisOverflow.Wrapf(
 					"axis projection %d exceeds protocol ceiling %d", v, types.MaxAxisProjectionBps)
 			}
-		}
-		if adapter.AxisBounds == nil {
-			return types.ErrAdapterAxisBoundsUnset
 		}
 		if w.AxisSubstrate > adapter.AxisBounds.AxisSubstrateMax ||
 			w.AxisVerification > adapter.AxisBounds.AxisVerificationMax ||

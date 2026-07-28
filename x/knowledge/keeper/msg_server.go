@@ -278,6 +278,15 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		),
 	)
 
+	// K-alpha: the submitter now holds an open pending pair — fee paid,
+	// verdict owed. ORDINAL: the pair is a counter ("not yet adjudicated"),
+	// never summed into recognized totals. It settles with a pending_settle
+	// edge on every terminal close: CompleteRound for aggregated verdicts,
+	// inconclusive included (K-2), and AdvanceRoundPhases when the round
+	// expires with too few reveals — the one terminal close outside
+	// CompleteRound.
+	emitKarmaEdgeState(sdkCtx, "pending_open", karmaEdgeStateOrdinal, msg.Submitter, "", claimID, msg.Domain)
+
 	if sponsored {
 		addressCount := m.keeper.GetBootstrapClaimCount(ctx, msg.Submitter)
 		fundBalance := m.keeper.GetBootstrapFundBalance(ctx)
@@ -311,6 +320,23 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 	// Check deadline
 	if height > round.CommitDeadline {
 		return nil, fmt.Errorf("commit phase has ended at block %d", round.CommitDeadline)
+	}
+
+	// Commit-seat backstop (K-alpha): StoreCommitmentInRound appends without
+	// bound, so a per-round ceiling keeps state growth and every downstream
+	// per-round loop bounded. The ceiling is a constant far above any quorum
+	// — deliberately NOT the design §2.6 tight MaxVerifiers cap, which
+	// cannot ship before C-2's seat bonds: seats are free to hold (the
+	// 100-ZRN gate below is a recyclable balance snapshot), so a tight cap
+	// would let MaxVerifiers addresses fill every seat the block a round
+	// opens, never reveal, and expire every claim INCONCLUSIVE — total
+	// exclusion that does not exist today. See CommitSeatHardCap in
+	// types/validate.go. The vote-extension writer is bounded separately by
+	// VRF selection over the validator set (app/abci.go) and is not gated
+	// here. A const costs no Params decode on this hot path.
+	if len(round.Commits) >= types.CommitSeatHardCap {
+		return nil, types.ErrRoundSeatsFull.Wrapf(
+			"round %s has %d of %d commit seats filled", msg.RoundId, len(round.Commits), types.CommitSeatHardCap)
 	}
 
 	// Verifier minimum balance gate (stopgap until full qualification module)
@@ -695,6 +721,12 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		return nil, err
 	}
 
+	// K-alpha: the challenger's stake moved and a verdict is owed — the
+	// pending pair opens here exactly as at SubmitClaim, so the
+	// pending_settle this round later emits has a matching open and the
+	// pair balances in any event fold (review fix: settle-without-open).
+	emitKarmaEdgeState(sdkCtx, "pending_open", karmaEdgeStateOrdinal, msg.Challenger, "", challengeClaimID, fact.Domain)
+
 	sdkCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.knowledge.challenge_fact",
 			sdk.NewAttribute("fact_id", msg.FactId),
@@ -780,6 +812,10 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 		return nil, err
 	}
 
+	// K-alpha: stake moved, verdict owed — open the pending pair (see
+	// ChallengeFact).
+	emitKarmaEdgeState(sdkCtx, "pending_open", karmaEdgeStateOrdinal, msg.Challenger, "", challengeClaimID, fact.Domain)
+
 	sdkCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.knowledge.challenge_provisional_fact",
 			sdk.NewAttribute("fact_id", msg.FactId),
@@ -860,6 +896,10 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	if _, err := m.keeper.CreateVerificationRound(ctx, claim); err != nil {
 		return nil, err
 	}
+
+	// K-alpha: stake moved, verdict owed — open the pending pair (see
+	// ChallengeFact).
+	emitKarmaEdgeState(sdkCtx, "pending_open", karmaEdgeStateOrdinal, msg.Submitter, "", counterClaimID, domain)
 
 	// Mark target fact as contested — only an established (VERIFIED/ACTIVE) fact
 	// can be contested (mirrors SubmitClaim), so an unestablished target is not

@@ -19,17 +19,25 @@ import (
 // These tests pin BOTH halves of the fix: rejection at entry for new links,
 // and clamping at settlement for records already in the store.
 
-// An adapter with NO AxisBounds must still be bounded by the protocol.
-func TestValidateLink_ProtocolCeilingAppliesWithoutAdapterBounds(t *testing.T) {
+// An adapter cannot widen the protocol ceiling even if its own declared
+// bounds are maximally permissive.
+func TestValidateLink_ProtocolCeilingOverridesWiderAdapterBounds(t *testing.T) {
 	k, ctx := setupSubstrateBridgeKeeper(t)
 	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
-		AdapterId:  "nullbounds-v1",
-		Status:     types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
-		AxisBounds: nil, // exactly mainnet's shape
+		AdapterId: "wide-bounds-v1",
+		Status:    types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		AxisBounds: &types.AxisBounds{
+			AxisSubstrateMax:      math.MaxUint64,
+			AxisVerificationMax:   math.MaxUint64,
+			AxisClassificationMax: math.MaxUint64,
+			AxisAttributionMax:    math.MaxUint64,
+			AxisToolingMax:        math.MaxUint64,
+			AxisInterfaceMax:      math.MaxUint64,
+		},
 	}))
 
 	link := &types.SubstrateLink{
-		AdapterId: "nullbounds-v1",
+		AdapterId: "wide-bounds-v1",
 		// The drain: six max-uint64 projections.
 		RecursionWeight: &types.AxisProjection{
 			AxisSubstrate:      math.MaxUint64,
@@ -40,22 +48,23 @@ func TestValidateLink_ProtocolCeilingAppliesWithoutAdapterBounds(t *testing.T) {
 			AxisInterface:      math.MaxUint64,
 		},
 	}
-	require.ErrorIs(t, k.ValidateLink(ctx, link, types.DefaultParams()), types.ErrAxisOverflow,
-		"a nil-AxisBounds adapter accepted an unbounded axis projection — this is the supply drain")
+	require.ErrorIs(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()), types.ErrAxisOverflow,
+		"an adapter widened the protocol ceiling and restored the supply drain")
 }
 
 // One axis over the ceiling is enough to reject, even with the rest at zero.
 func TestValidateLink_SingleAxisOverCeilingRejected(t *testing.T) {
 	k, ctx := setupSubstrateBridgeKeeper(t)
 	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
-		AdapterId: "nullbounds-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		AdapterId: "wide-bounds-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		AxisBounds: &types.AxisBounds{AxisInterfaceMax: math.MaxUint64},
 	}))
 
 	link := &types.SubstrateLink{
-		AdapterId:       "nullbounds-v1",
+		AdapterId:       "wide-bounds-v1",
 		RecursionWeight: &types.AxisProjection{AxisInterface: types.MaxAxisProjectionBps + 1},
 	}
-	require.ErrorIs(t, k.ValidateLink(ctx, link, types.DefaultParams()), types.ErrAxisOverflow)
+	require.ErrorIs(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()), types.ErrAxisOverflow)
 }
 
 // Legitimate values at and below the ceiling must still pass when the adapter
@@ -78,7 +87,7 @@ func TestValidateLink_AtCeilingAcceptedWithDeclaredBounds(t *testing.T) {
 			AxisVerification: 500_000,
 		},
 	}
-	require.NoError(t, k.ValidateLink(ctx, link, types.DefaultParams()))
+	require.NoError(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()))
 }
 
 // Adapter bounds may only TIGHTEN the protocol ceiling.
@@ -93,7 +102,7 @@ func TestValidateLink_AdapterBoundsStillTighten(t *testing.T) {
 		AdapterId:       "tight-v1",
 		RecursionWeight: &types.AxisProjection{AxisSubstrate: 200}, // under protocol, over adapter
 	}
-	require.ErrorIs(t, k.ValidateLink(ctx, link, types.DefaultParams()), types.ErrAxisOverflow)
+	require.ErrorIs(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()), types.ErrAxisOverflow)
 }
 
 // Entry validation only guards NEW links. An attestation already in the store

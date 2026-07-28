@@ -11,6 +11,52 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
+// ─── K-alpha karma recognition (events only) ────────────────────────────────
+
+// Karma edge states at K-alpha. No magnitude attribute is emitted at K-alpha
+// — the ledger that prices edges is K-beta; recognition precedes pricing.
+const (
+	// karmaEdgeStateRecognized: the chain acknowledges that an adjudicated
+	// act happened (verify, cited, corroborate, corroborated).
+	karmaEdgeStateRecognized = "RECOGNIZED"
+	// karmaEdgeStateOrdinal: counter edges that confer nothing and must
+	// never be summed into RECOGNIZED totals (design §2.3 row 10 — the
+	// pending pair is a first-class "not yet adjudicated" third state).
+	karmaEdgeStateOrdinal = "ORDINAL"
+)
+
+// karmaRegister rides every karma edge (design §4, doctrine X-5): karma is a
+// record of priced coherence and priced reliance, not of truth — the
+// circularity confession travels with the artifact.
+const karmaRegister = "priced-coherence"
+
+// emitKarmaEdge emits a RECOGNIZED zerone.karma.edge event — the common case
+// for adjudicated recognition.
+func emitKarmaEdge(sdkCtx sdk.Context, kind, beneficiary, counterparty, refID, domain string, extra ...sdk.Attribute) {
+	emitKarmaEdgeState(sdkCtx, kind, karmaEdgeStateRecognized, beneficiary, counterparty, refID, domain, extra...)
+}
+
+// emitKarmaEdgeState emits a zerone.karma.edge event. Emission cannot
+// error and performs no state reads, so it is safe on BeginBlocker paths.
+// self="true" marks edges whose beneficiary and counterparty are the same
+// address, so downstream consumers can discount self-dealt recognition.
+func emitKarmaEdgeState(sdkCtx sdk.Context, kind, state, beneficiary, counterparty, refID, domain string, extra ...sdk.Attribute) {
+	event := sdk.NewEvent("zerone.karma.edge",
+		sdk.NewAttribute("beneficiary", beneficiary),
+		sdk.NewAttribute("kind", kind),
+		sdk.NewAttribute("state", state),
+		sdk.NewAttribute("counterparty", counterparty),
+		sdk.NewAttribute("ref_id", refID),
+		sdk.NewAttribute("domain", domain),
+		sdk.NewAttribute("register", karmaRegister),
+	)
+	if counterparty != "" && beneficiary == counterparty {
+		event = event.AppendAttributes(sdk.NewAttribute("self", "true"))
+	}
+	event = event.AppendAttributes(extra...)
+	sdkCtx.EventManager().EmitEvent(event)
+}
+
 // CreateVerificationRound creates a new verification round for a claim.
 func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim) (*types.VerificationRound, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -130,6 +176,18 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		k.reverseContradictionsFromClaim(ctx, claim)
 	}
 
+	// K-alpha: every aggregated terminal verdict — INCONCLUSIVE included —
+	// settles the pending pair opened at claim submission (K-2: inconclusive
+	// settles the pair and charges nothing further; the review fee was the
+	// whole cost). The one terminal close that does NOT pass through here —
+	// a round expiring with too few reveals — settles its pair inside
+	// AdvanceRoundPhases (phases.go), so the pair balances on every route.
+	// ORDINAL: pending edges are counters, never recognized flow.
+	if result.Verdict != types.Verdict_VERDICT_UNSPECIFIED {
+		emitKarmaEdgeState(sdkCtx, "pending_settle", karmaEdgeStateOrdinal, claim.Submitter, "", claim.Id, claim.Domain,
+			sdk.NewAttribute("verdict", result.Verdict.String()))
+	}
+
 	if err := k.SetClaim(ctx, claim); err != nil {
 		return err
 	}
@@ -149,7 +207,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	_ = k.Hooks().AfterClaimVerificationFinalized(ctx, claim.Id, scoreBps)
 
 	// Distribute verifier rewards from the 55% fee pool
-	k.distributeVerifierRewardsFromPool(ctx, claim, result)
+	k.distributeVerifierRewardsFromPool(ctx, claim, round.Id, result)
 
 	// Slash loop: route vindication-eligible slashes to escrow only when a fact was
 	// created (ACCEPT verdict) — non-ACCEPT verdicts have no fact that can later be
@@ -303,7 +361,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 // Each verifier's share is modulated by their historical independence score (T3):
 // persistent crowd-followers receive up to IndependenceRewardStrengthBps less than
 // they otherwise would, with the withheld amount flowing to the development fund.
-func (k Keeper) distributeVerifierRewardsFromPool(ctx context.Context, claim *types.Claim, result *VerificationResult) {
+func (k Keeper) distributeVerifierRewardsFromPool(ctx context.Context, claim *types.Claim, roundID string, result *VerificationResult) {
 	if k.bankKeeper == nil || len(result.Rewards) == 0 {
 		return
 	}
@@ -319,6 +377,14 @@ func (k Keeper) distributeVerifierRewardsFromPool(ctx context.Context, claim *ty
 	}
 
 	params, _ := k.GetParams(ctx)
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// The vote-matched-verdict bit, without recomputation: for ACCEPT/REJECT
+	// verdicts every rewarded verifier voted the verdict exactly. MALFORMED
+	// also part-rewards directionally-correct "reject" voters, so the bit is
+	// ambiguous there — the attribute is omitted rather than recomputed.
+	correctKnown := result.Verdict == types.Verdict_VERDICT_ACCEPT ||
+		result.Verdict == types.Verdict_VERDICT_REJECT
 
 	// Divide pool equally among rewarded verifiers
 	perVerifier := poolAmount / uint64(len(result.Rewards))
@@ -331,10 +397,30 @@ func (k Keeper) distributeVerifierRewardsFromPool(ctx context.Context, claim *ty
 			amount += remainder // first verifier gets dust
 		}
 		modulated := k.applyIndependenceMultiplier(ctx, reward.Verifier, amount, params)
+		var withheld uint64
 		if modulated < amount {
-			withheldTotal += amount - modulated
+			withheld = amount - modulated
+			withheldTotal += withheld
 		}
 		k.distributeVerifierReward(ctx, reward.Verifier, modulated)
+
+		// Independence withholding was fully silent before this event: the
+		// verifier saw a smaller payout with no on-chain record of why.
+		// withheld_uzrn is the exact amount the modulation subtracted.
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.verifier_rewarded",
+			sdk.NewAttribute("verifier", reward.Verifier),
+			sdk.NewAttribute("round_id", roundID),
+			sdk.NewAttribute("amount_uzrn", fmt.Sprintf("%d", modulated)),
+			sdk.NewAttribute("withheld_uzrn", fmt.Sprintf("%d", withheld)),
+		))
+
+		// K-alpha: recognize the verification act itself.
+		var extra []sdk.Attribute
+		if correctKnown {
+			extra = append(extra, sdk.NewAttribute("correct", "true"))
+		}
+		emitKarmaEdge(sdkCtx, "verify", reward.Verifier, claim.Submitter, roundID, claim.Domain, extra...)
 	}
 
 	// Withheld portion flows to development fund so the budget doesn't compound
@@ -500,7 +586,11 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// (the fact is foundational). dependency_confidence_floor inherits the
 	// weakest cited support's effective confidence so proof chains can't
 	// claim more confidence than their foundations.
-	dist, floor := k.computeProvenance(ctx, claim)
+	// Cited targets are fetched once here and shared with the karma cited-
+	// edge loop below — one IAVL read per distinct target on this
+	// BeginBlocker path, not two.
+	citedTargets := k.fetchCitedTargets(ctx, claim)
+	dist, floor := computeProvenance(claim, citedTargets)
 	fact.AxiomDistance = dist
 	fact.DependencyConfidenceFloor = floor
 	// Clamp the fact's own confidence to the inherited floor if it exists.
@@ -580,6 +670,17 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 
 		// Track new citation for metabolism energy income
 		k.IncrementNewCitationEpoch(ctx, claimRel.TargetFactId)
+
+		// K-alpha: the chain's first giving-side acknowledgment — being cited
+		// is recognition addressed to the cited fact's AUTHOR, not the fact.
+		// Self-cites are emitted too, marked self="true" by the helper so
+		// K-beta pricing can discount them; recognition itself skips nobody.
+		// A fact with no recorded submitter yields no edge — an empty
+		// beneficiary would be an unattributable credit (guard matched with
+		// the substrate_bridge external-cite emitter).
+		if target := citedTargets[claimRel.TargetFactId]; target != nil && target.Submitter != "" {
+			emitKarmaEdge(sdkCtx, "cited", target.Submitter, claim.Submitter, target.Id, target.Domain)
+		}
 
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.fact_relation_created",
@@ -731,6 +832,36 @@ func (k Keeper) hasOtherLiveContradiction(ctx context.Context, excludeClaimId, t
 	return found
 }
 
+// fetchCitedTargets reads each fact the claim cites (References and
+// Relations, all relation types) exactly once. computeProvenance and the
+// karma cited-edge loop both need these facts; fetching once halves the
+// per-relation IAVL reads on the BeginBlocker path. Unresolvable cites map
+// to nil. Map access is by explicit key only — no consensus-visible
+// iteration order depends on it.
+func (k Keeper) fetchCitedTargets(ctx context.Context, claim *types.Claim) map[string]*types.Fact {
+	targets := make(map[string]*types.Fact, len(claim.References)+len(claim.Relations))
+	fetch := func(id string) {
+		if id == "" {
+			return
+		}
+		if _, seen := targets[id]; seen {
+			return
+		}
+		if fact, found := k.GetFact(ctx, id); found {
+			targets[id] = fact
+		} else {
+			targets[id] = nil
+		}
+	}
+	for _, ref := range claim.References {
+		fetch(ref)
+	}
+	for _, rel := range claim.Relations {
+		fetch(rel.TargetFactId)
+	}
+	return targets
+}
+
 // computeProvenance walks the claim's citations (References + Relations) and
 // returns the axiom distance and dependency confidence floor for the new
 // fact (ToK Waves 2 + 6).
@@ -746,7 +877,11 @@ func (k Keeper) hasOtherLiveContradiction(ctx context.Context, excludeClaimId, t
 //     all edges. References-only cites have no declared strength and default
 //     to full BPS (pure citation preserves the cited fact's confidence).
 //     Facts with no cites have floor 0 (= no cap).
-func (k Keeper) computeProvenance(ctx context.Context, claim *types.Claim) (uint32, uint64) {
+//
+// targets carries the pre-fetched cited facts (fetchCitedTargets); a nil or
+// absent entry means the cite did not resolve and is ignored, exactly as the
+// former in-function GetFact miss was.
+func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint32, uint64) {
 	const bps uint64 = 1_000_000
 
 	// Per-edge contributions: (factID → strengthBps). References default to
@@ -789,8 +924,8 @@ func (k Keeper) computeProvenance(ctx context.Context, claim *types.Claim) (uint
 	var floorInitialized bool
 
 	for factID, strength := range edges {
-		target, found := k.GetFact(ctx, factID)
-		if !found {
+		target := targets[factID]
+		if target == nil {
 			continue
 		}
 		if target.AxiomDistance < minDist {
@@ -858,6 +993,22 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 		// instrument for inflating the training-fund gate.
 		if !IsConjecture(originalFact) {
 			k.RecordCorroborationForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+
+			// K-alpha (K-7): both sides of a survived challenge are recognized —
+			// the defender's fact hardened, and the failed honest challenger
+			// performed the audit that hardened it. A conjecture is excluded:
+			// surviving one attempted refutation does not grant a question
+			// truth-standing or recognition standing.
+			//
+			// K-beta handoff, stated where the edges are born: this pair is
+			// two-address farmable — an author filing a losing challenge against
+			// their own fact from a second address collects both edges, and the
+			// self= flag structurally cannot see it ("reward = the fee you paid
+			// yourself", on the recognition layer). Harmless while edges are
+			// unpriced; K-beta MUST run the design §2.5 counterparty-independence
+			// probe and pair cap before this pair carries any magnitude.
+			emitKarmaEdge(sdkCtx, "corroborated", originalFact.Submitter, challengeClaim.Submitter, originalFact.Id, originalFact.Domain)
+			emitKarmaEdge(sdkCtx, "corroborate", challengeClaim.Submitter, originalFact.Submitter, originalFact.Id, originalFact.Domain)
 		}
 	}
 
@@ -902,8 +1053,9 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 // corroboration, and the survival reward), this credits NOTHING: the fact was
 // never actually judged, only un-suppressed. Without it, a challenge whose
 // panel starves leaves the target fact locked FACT_STATUS_CHALLENGED forever —
-// permanently un-rechallengeable (ChallengeFact requires VERIFIED/ACTIVE) and
-// its survival escrow blocked — for the price of one starved round.
+// permanently un-rechallengeable and its survival escrow blocked — for the
+// price of one starved round. RestoredStatusFor keeps conjectures PROVISIONAL;
+// starvation must never promote a question into ACTIVE truth-standing.
 func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim) {
 	if challengeClaim.ProvisionalFactId == "" {
 		return
@@ -912,7 +1064,7 @@ func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challen
 	if !found || fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
 		return
 	}
-	fact.Status = types.FactStatus_FACT_STATUS_ACTIVE
+	fact.Status = RestoredStatusFor(fact)
 	fact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, fact)
 	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
@@ -1169,6 +1321,15 @@ func (k Keeper) payInvitationBonus(ctx context.Context, claim *types.Claim, para
 	}
 	paid := k.PayProbeBountyFromPool(ctx, challengerAddr, amount)
 	if paid.Sign() <= 0 {
+		// The invitation was current but the pool paid nothing. Returning
+		// silently here would leave state saying "invited" while the payout
+		// promise quietly failed — emit the truth instead.
+		sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.invitation_bonus_unfunded",
+			sdk.NewAttribute("claim_id", claim.Id),
+			sdk.NewAttribute("fact_id", claim.ProvisionalFactId),
+			sdk.NewAttribute("amount_uzrn", amount.String()),
+		))
 		return
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)

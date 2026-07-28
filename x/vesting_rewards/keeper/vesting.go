@@ -78,6 +78,21 @@ func (k Keeper) CreateVestingSchedule(
 	}
 
 	k.SetVestingSchedule(ctx, schedule)
+
+	// Emitted here in the core constructor so every creation path — knowledge
+	// adapter, falsification reward, authority msg — is audible from one site.
+	// Named under the module's zerone.vesting_rewards.* prefix so consumers
+	// subscribed by module prefix see it (review fix).
+	ctx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.vesting_rewards.schedule_created",
+			sdk.NewAttribute("beneficiary", recipient),
+			sdk.NewAttribute("schedule_id", vestingId),
+			sdk.NewAttribute("total_uzrn", totalAmount),
+			sdk.NewAttribute("category", string(category)),
+			sdk.NewAttribute("source", string(source)),
+		),
+	)
+
 	return schedule, nil
 }
 
@@ -368,6 +383,23 @@ func (k Keeper) ClaimRewards(ctx sdk.Context, recipient string, vestingId string
 
 		k.SetVestingSchedule(ctx, schedule)
 		totalClaimed.Add(totalClaimed, claimable)
+
+		// One event per schedule actually paid out. remaining_uzrn is
+		// TotalAmount - ReleasedAmount after this claim (the reserve that may
+		// never release is included: this is raw schedule arithmetic, not a
+		// promise of future release).
+		remaining := new(big.Int).Sub(totalBig, released)
+		if remaining.Sign() < 0 {
+			remaining.SetInt64(0)
+		}
+		ctx.EventManager().EmitEvent(
+			sdk.NewEvent("zerone.vesting_rewards.claimed",
+				sdk.NewAttribute("beneficiary", recipient),
+				sdk.NewAttribute("schedule_id", schedule.Id),
+				sdk.NewAttribute("amount_uzrn", claimable.String()),
+				sdk.NewAttribute("remaining_uzrn", remaining.String()),
+			),
+		)
 	}
 
 	if totalClaimed.Sign() == 0 {
