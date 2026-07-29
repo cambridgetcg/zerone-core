@@ -21,7 +21,7 @@ const (
 	// TrainingProvenancePredicateType versions Zerone's predicate semantics at
 	// an immutable source revision. Predicate TypeURIs must not drift when a
 	// repository branch advances.
-	TrainingProvenancePredicateType = "https://github.com/cambridgetcg/zerone-core/blob/03033b0d1cc3665b08335bfe095abe9feb27ba89/docs/specs/attestations/training-provenance-v1.md"
+	TrainingProvenancePredicateType = "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md"
 )
 
 var (
