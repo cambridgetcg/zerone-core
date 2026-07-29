@@ -160,7 +160,8 @@ Amino support for Zerone messages.
 ## Implemented: Zerone CIDv1 client preflight
 
 The Go CLI and `@zerone-chain/sdk` can parse new `x/home` memory references
-with the official Go CID implementation and `js-multiformats`. Zerone chooses
+with the official Go CID implementation and `js-multiformats`, following the
+[maintained CID specification](https://specs.ipfs.tech/cid/). Zerone chooses
 lowercase base32 as its one accepted client representation for CIDv1, although
 CID itself permits other multibase strings for the same identifier. The CLI
 enforces this automatically before signing `MsgUpdateMemoryCID`; SDK callers
@@ -282,7 +283,8 @@ not as a mixed-validator rolling deployment. The retired
 so it cannot bypass the SDK/IBC source-version and legacy-fee-balance guards.
 The unified handler writes its auth-hardening marker only after those guards
 and module migrations succeed. Cosmos SDK 0.50.15 itself panics in its v2
-signing adapter on the omitted-key wire shape; Cosmos SDK 0.53.8 contains the upstream
+signing adapter on the omitted-key wire shape; Cosmos SDK 0.53.8 contains the
+upstream
 [nil-key adapter fix](https://github.com/cosmos/cosmos-sdk/commit/a91a822eb2339d563bbe8c7bc61d71fa6c6c60e2).
 Dependency migration and this app-level policy regression both have to pass
 before the upgrade is scheduled.
@@ -291,7 +293,12 @@ This repair does not make the current `did:zrn` lifecycle trustworthy.
 Registration still lacks identity-key proof of possession, rotation does not
 verify its authorization signature, legacy identifier aliases are ambiguous,
 and terminal deactivation is absent. Those remain a separate state/protobuf
-migration after a live-state census.
+migration after a live-state census. The read-only
+[`identity-census`](../../tools/identity-census/README.md) tool audits a
+same-height application export for aliases, mapping inconsistencies, malformed
+keys, and Cosmos account-key/address mismatches. Its report must be retained
+with the export height and app hash; a clean report is not proof of private-key
+possession.
 
 ## Explicit deferrals
 
@@ -300,9 +307,12 @@ migration after a live-state census.
   metadata bounds, replay protection, and genesis invariants are hardened.
 - No CosmWasm or general contract VM; it conflicts with the slim-cut boundary.
 - No new IBC middleware while the current IBC/ICA posture remains limited.
-  The guarded Cosmos SDK 0.53 / IBC-Go 10 migration must first pass a
-  production-state rehearsal, including its exact source-version checks and
-  the requirement that the legacy ICS-29 module account hold no funds.
+  The Cosmos SDK 0.53 / IBC-Go 10 prototype is not deployment-ready until one
+  coordinated upgrade plan includes the ante marker and passes a real
+  pre-upgrade state census, ICS29/channel safety checks, old-database restart
+  rehearsal, and in-flight packet tests. Cosmos SDK 0.50 / IBC-Go 8 is outside
+  the currently supported release families, so this maintenance migration is a
+  prerequisite rather than a hidden feature dependency.
 - No on-chain x402 facilitator, ERC-8004 registry, C2PA parser, JSON-LD
   resolver, A2A parser, or remote-context fetch.
 - No reward-bearing `sigstore-in-toto-v1` registration until governance has
