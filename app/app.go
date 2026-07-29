@@ -18,8 +18,8 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/gogoproto/proto"
-	gwv2runtime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/gorilla/mux"
+	gwv2runtime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
@@ -77,35 +77,27 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	// IBC modules
-	capability "github.com/cosmos/ibc-go/modules/capability"
-	capabilitykeeper "github.com/cosmos/ibc-go/modules/capability/keeper"
-	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
-	ibctransfer "github.com/cosmos/ibc-go/v8/modules/apps/transfer"
-	ibctransferkeeper "github.com/cosmos/ibc-go/v8/modules/apps/transfer/keeper"
-	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	ibc "github.com/cosmos/ibc-go/v8/modules/core"
-	ibcporttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
+	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
+	ibctransferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibc "github.com/cosmos/ibc-go/v10/modules/core"
+	ibcporttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
 	// IBC Light Clients
-	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
-	solomachine "github.com/cosmos/ibc-go/v8/modules/light-clients/06-solomachine"
+	solomachine "github.com/cosmos/ibc-go/v10/modules/light-clients/06-solomachine"
+	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	// ICA (Interchain Accounts)
-	ica "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts"
-	icacontroller "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller"
-	icacontrollerkeeper "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller/keeper"
-	icacontrollertypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller/types"
-	icahost "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host"
-	icahostkeeper "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host/keeper"
-	icahosttypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host/types"
-	icatypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/types"
-
-	// IBC Fee Middleware (ICS-29)
-	ibcfee "github.com/cosmos/ibc-go/v8/modules/apps/29-fee"
-	ibcfeekeeper "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/keeper"
-	ibcfeetypes "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/types"
+	ica "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts"
+	icacontroller "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller"
+	icacontrollerkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/keeper"
+	icacontrollertypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/types"
+	icahost "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host"
+	icahostkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/keeper"
+	icahosttypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/types"
+	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
 
 	// CometBFT
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -114,75 +106,75 @@ import (
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 
 	// Zerone custom modules
-	zeroneauth "github.com/zerone-chain/zerone/x/auth"
-	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
-	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
-	zeroneknowledge "github.com/zerone-chain/zerone/x/knowledge"
-	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
-	zeroneknowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
-	zeroneontology "github.com/zerone-chain/zerone/x/ontology"
-	zeroneontologykeeper "github.com/zerone-chain/zerone/x/ontology/keeper"
-	zeroneontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
-	zeronestaking "github.com/zerone-chain/zerone/x/staking"
-	zeronestakingkeeper "github.com/zerone-chain/zerone/x/staking/keeper"
-	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
-	zeroneliquiditypool "github.com/zerone-chain/zerone/x/liquiditypool"
-	zeronelpkeeper "github.com/zerone-chain/zerone/x/liquiditypool/keeper"
-	zeronelptypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
-	zeronetokens "github.com/zerone-chain/zerone/x/tokens"
-	zeronetokenskeeper "github.com/zerone-chain/zerone/x/tokens/keeper"
-	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
-	zeronegov "github.com/zerone-chain/zerone/x/gov"
-	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
-	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
-	zeronehome "github.com/zerone-chain/zerone/x/home"
-	zeronehomekeeper "github.com/zerone-chain/zerone/x/home/keeper"
-	zeronehometypes "github.com/zerone-chain/zerone/x/home/types"
-	vestingrewards "github.com/zerone-chain/zerone/x/vesting_rewards"
-	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
-	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
-	zeronequalification "github.com/zerone-chain/zerone/x/qualification"
-	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
-	zeronequalificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
-	zeroneemergency "github.com/zerone-chain/zerone/x/emergency"
-	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
-	zeroneemergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
-	zeroneibcratelimit "github.com/zerone-chain/zerone/x/ibcratelimit"
-	zeroneibcrlkeeper "github.com/zerone-chain/zerone/x/ibcratelimit/keeper"
-	zeroneibcrltypes "github.com/zerone-chain/zerone/x/ibcratelimit/types"
-	zeronecapturedefense "github.com/zerone-chain/zerone/x/capture_defense"
-	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
-	zeronecdtypes "github.com/zerone-chain/zerone/x/capture_defense/types"
-	zeronecapturechallenge "github.com/zerone-chain/zerone/x/capture_challenge"
-	zeronecckeeper "github.com/zerone-chain/zerone/x/capture_challenge/keeper"
-	zeronecctypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
 	zeronealignment "github.com/zerone-chain/zerone/x/alignment"
 	zeronealignmentkeeper "github.com/zerone-chain/zerone/x/alignment/keeper"
 	zeronealignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
-	zeroneprovenance "github.com/zerone-chain/zerone/x/training_provenance"
-	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
-	zeroneprovenancetypes "github.com/zerone-chain/zerone/x/training_provenance/types"
-	zeronetrustscore "github.com/zerone-chain/zerone/x/trust_score"
-	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
-	zeronetrustscoretypes "github.com/zerone-chain/zerone/x/trust_score/types"
+	zeroneauth "github.com/zerone-chain/zerone/x/auth"
+	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
+	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
+	zeronecapturechallenge "github.com/zerone-chain/zerone/x/capture_challenge"
+	zeronecckeeper "github.com/zerone-chain/zerone/x/capture_challenge/keeper"
+	zeronecctypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
+	zeronecapturedefense "github.com/zerone-chain/zerone/x/capture_defense"
+	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
+	zeronecdtypes "github.com/zerone-chain/zerone/x/capture_defense/types"
+	zeroneclaimingpot "github.com/zerone-chain/zerone/x/claiming_pot"
+	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
+	zeronecpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
 	zeronecounterex "github.com/zerone-chain/zerone/x/counterexamples"
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecounterextypes "github.com/zerone-chain/zerone/x/counterexamples/types"
 	zeronecreed "github.com/zerone-chain/zerone/x/creed"
 	zeronecreedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
 	zeronecreedtypes "github.com/zerone-chain/zerone/x/creed/types"
-	zeroneworkcreed "github.com/zerone-chain/zerone/x/work_creed"
-	zeroneworkcreedkeeper "github.com/zerone-chain/zerone/x/work_creed/keeper"
-	zeroneworkcreedtypes "github.com/zerone-chain/zerone/x/work_creed/types"
-	zeroneclaimingpot "github.com/zerone-chain/zerone/x/claiming_pot"
-	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
-	zeronecpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
+	zeroneemergency "github.com/zerone-chain/zerone/x/emergency"
+	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
+	zeroneemergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
+	zeronegov "github.com/zerone-chain/zerone/x/gov"
+	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
+	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
+	zeronehome "github.com/zerone-chain/zerone/x/home"
+	zeronehomekeeper "github.com/zerone-chain/zerone/x/home/keeper"
+	zeronehometypes "github.com/zerone-chain/zerone/x/home/types"
+	zeroneibcratelimit "github.com/zerone-chain/zerone/x/ibcratelimit"
+	zeroneibcrlkeeper "github.com/zerone-chain/zerone/x/ibcratelimit/keeper"
+	zeroneibcrltypes "github.com/zerone-chain/zerone/x/ibcratelimit/types"
+	zeroneknowledge "github.com/zerone-chain/zerone/x/knowledge"
+	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
+	zeroneknowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	zeroneliquiditypool "github.com/zerone-chain/zerone/x/liquiditypool"
+	zeronelpkeeper "github.com/zerone-chain/zerone/x/liquiditypool/keeper"
+	zeronelptypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	zeroneontology "github.com/zerone-chain/zerone/x/ontology"
+	zeroneontologykeeper "github.com/zerone-chain/zerone/x/ontology/keeper"
+	zeroneontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
+	zeronequalification "github.com/zerone-chain/zerone/x/qualification"
+	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
+	zeronequalificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
 	zeronesponsorship "github.com/zerone-chain/zerone/x/sponsorship"
 	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
 	zeronesponsorshiptypes "github.com/zerone-chain/zerone/x/sponsorship/types"
+	zeronestaking "github.com/zerone-chain/zerone/x/staking"
+	zeronestakingkeeper "github.com/zerone-chain/zerone/x/staking/keeper"
+	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 	substratebridge "github.com/zerone-chain/zerone/x/substrate_bridge"
 	substratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
+	zeronetokens "github.com/zerone-chain/zerone/x/tokens"
+	zeronetokenskeeper "github.com/zerone-chain/zerone/x/tokens/keeper"
+	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
+	zeroneprovenance "github.com/zerone-chain/zerone/x/training_provenance"
+	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
+	zeroneprovenancetypes "github.com/zerone-chain/zerone/x/training_provenance/types"
+	zeronetrustscore "github.com/zerone-chain/zerone/x/trust_score"
+	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
+	zeronetrustscoretypes "github.com/zerone-chain/zerone/x/trust_score/types"
+	vestingrewards "github.com/zerone-chain/zerone/x/vesting_rewards"
+	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
+	zeroneworkcreed "github.com/zerone-chain/zerone/x/work_creed"
+	zeroneworkcreedkeeper "github.com/zerone-chain/zerone/x/work_creed/keeper"
+	zeroneworkcreedtypes "github.com/zerone-chain/zerone/x/work_creed/types"
 
 	// Swagger UI (embedded)
 	swagger "github.com/zerone-chain/zerone/docs/swagger-ui"
@@ -218,7 +210,6 @@ var (
 		consensus.AppModuleBasic{},
 		ibc.AppModuleBasic{},
 		ibctransfer.AppModuleBasic{},
-		ibcfee.AppModuleBasic{},
 		ica.AppModuleBasic{},
 		// ===== Zerone custom modules — added by batch =====
 		zeroneauth.AppModuleBasic{},
@@ -227,7 +218,7 @@ var (
 		zeroneontology.AppModuleBasic{},
 		zeroneknowledge.AppModuleBasic{},
 		zeronetokens.AppModuleBasic{},
-			zeroneliquiditypool.AppModuleBasic{},
+		zeroneliquiditypool.AppModuleBasic{},
 		zeronegov.AppModuleBasic{},
 		zeronehome.AppModuleBasic{},
 		zeronequalification.AppModuleBasic{},
@@ -247,10 +238,10 @@ var (
 		zeronealignment.AppModuleBasic{},
 		zeroneclaimingpot.AppModuleBasic{},
 		zeronesponsorship.AppModuleBasic{},
-		zeronecounterex.AppModuleBasic{},     // x/counterexamples: alignment-by-structure
-		zeronecreed.AppModuleBasic{},         // x/creed: on-chain anchor for TRUTH_SEEKING.md (commitments 6, 10)
-		zeroneworkcreed.AppModuleBasic{},     // x/work_creed: on-chain anchor for per-phase docs/sub_creeds/*.md (commitments 6, 10 — useful-work scope)
-		substratebridge.AppModuleBasic{},    // x/substrate_bridge: Tier-1 external recursive work foundation
+		zeronecounterex.AppModuleBasic{}, // x/counterexamples: alignment-by-structure
+		zeronecreed.AppModuleBasic{},     // x/creed: on-chain anchor for TRUTH_SEEKING.md (commitments 6, 10)
+		zeroneworkcreed.AppModuleBasic{}, // x/work_creed: on-chain anchor for per-phase docs/sub_creeds/*.md (commitments 6, 10 — useful-work scope)
+		substratebridge.AppModuleBasic{}, // x/substrate_bridge: Tier-1 external recursive work foundation
 	)
 
 	// Module account permissions.
@@ -261,40 +252,39 @@ var (
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
-		ibcfeetypes.ModuleName:         nil,
 		icatypes.ModuleName:            nil,
 		// ===== Zerone custom module accounts — added by batch =====
 		// zerone_auth: no permissions. The Minter perm was removed in the
 		// 2026-07 slim cut — it was an orphan mint surface outside the
 		// cap-gated MintWithCap path (the keeper structurally could not
 		// mint, but the standing permission bypassed the 222M cap census).
-		zeroneauthtypes.ModuleName:    nil,
-		zeronestakingtypes.ModuleName: {authtypes.Burner, authtypes.Staking},
-		vestingrewardstypes.ModuleName:        {authtypes.Minter, authtypes.Burner}, // Minter for block rewards, Burner retained for interface compat
-		vestingrewardstypes.ResearchFundModuleName:    nil,                           // research_fund: receive-only
-		vestingrewardstypes.DevelopmentFundModuleName: nil,                           // development_fund: receive-only
-		zeroneontologytypes.ModuleName:             nil,                              // ontology: receive proposal stake
-		zeroneknowledgetypes.ModuleName:            {authtypes.Burner},               // knowledge: burn slashed claim stakes
-		zeroneknowledgetypes.BootstrapFundModuleName:    {authtypes.Minter},              // knowledge_bootstrap_fund: genesis mint
-		zeroneknowledgetypes.TrainingFundModuleName:      {authtypes.Minter},              // knowledge_training_fund: Wave 4 augmentation escrow + post-hoc disbursements + vesting
-		zeroneknowledgetypes.ProbeBountyPoolModuleName:   {authtypes.Minter},              // knowledge_probe_bounty_pool: Wave 15 per-block-minted probe rewards
-		zeroneknowledgetypes.VindicationEscrowModuleName: nil,                           // vindication_escrow: holds minority slashes until vindication or expiry
-		zeronetokenstypes.ModuleName:               {authtypes.Minter, authtypes.Burner}, // tokens: mint/burn for wrap/unwrap + emissions
-		zeronelptypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // liquiditypool: mint/burn LP tokens
-		zeronegovtypes.ModuleName:                  nil,                                  // gov: receive stake deposits
-		zeronehometypes.ModuleName:                 nil,                                  // home: no mint/burn
-		"protocol_treasury":                        nil,                                  // protocol_treasury: receive revenue split
-		zeronequalificationtypes.ModuleName:        nil,                                  // qualification: stake escrow
-		zeroneemergencytypes.ModuleName:            nil,                                  // emergency: no mint/burn — signal-only module
-		zeronecctypes.ModuleName:                   {authtypes.Burner},                   // capture_challenge: rejected stakes to dev fund
-		zeronecdtypes.ModuleName:                   nil,                                  // capture_defense: no mint/burn
-		zeroneibcrltypes.ModuleName:                nil,                                  // ibcratelimit: no mint/burn — middleware only
-		zeronealignmenttypes.ModuleName:            nil,                                  // alignment: no mint/burn — signal-only module
-		zeronecpottypes.ModuleName:                 {authtypes.Minter},                   // claiming_pot: bootstrap claims mint on demand (commitment 20)
-		zeronesponsorshiptypes.ModuleName:          nil,                                  // sponsorship: escrow-only, no mint/burn — circulates existing supply
-		"treasury_protocol":                        nil,                                  // treasury_protocol: receive-only
-		substratebridgetypes.ModuleName:              {authtypes.Burner},                   // substrate_bridge: bond escrow — Burner burns slashed bonds (frees cap headroom); no mint
-		substratebridgetypes.AuditBountyPoolModuleName: {authtypes.Minter},                // useful_work_audit_bounty_pool: chain-minted audit rewards
+		zeroneauthtypes.ModuleName:                       nil,
+		zeronestakingtypes.ModuleName:                    {authtypes.Burner, authtypes.Staking},
+		vestingrewardstypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // Minter for block rewards, Burner retained for interface compat
+		vestingrewardstypes.ResearchFundModuleName:       nil,                                  // research_fund: receive-only
+		vestingrewardstypes.DevelopmentFundModuleName:    nil,                                  // development_fund: receive-only
+		zeroneontologytypes.ModuleName:                   nil,                                  // ontology: receive proposal stake
+		zeroneknowledgetypes.ModuleName:                  {authtypes.Burner},                   // knowledge: burn slashed claim stakes
+		zeroneknowledgetypes.BootstrapFundModuleName:     {authtypes.Minter},                   // knowledge_bootstrap_fund: genesis mint
+		zeroneknowledgetypes.TrainingFundModuleName:      {authtypes.Minter},                   // knowledge_training_fund: Wave 4 augmentation escrow + post-hoc disbursements + vesting
+		zeroneknowledgetypes.ProbeBountyPoolModuleName:   {authtypes.Minter},                   // knowledge_probe_bounty_pool: Wave 15 per-block-minted probe rewards
+		zeroneknowledgetypes.VindicationEscrowModuleName: nil,                                  // vindication_escrow: holds minority slashes until vindication or expiry
+		zeronetokenstypes.ModuleName:                     {authtypes.Minter, authtypes.Burner}, // tokens: mint/burn for wrap/unwrap + emissions
+		zeronelptypes.ModuleName:                         {authtypes.Minter, authtypes.Burner}, // liquiditypool: mint/burn LP tokens
+		zeronegovtypes.ModuleName:                        nil,                                  // gov: receive stake deposits
+		zeronehometypes.ModuleName:                       nil,                                  // home: no mint/burn
+		"protocol_treasury":                              nil,                                  // protocol_treasury: receive revenue split
+		zeronequalificationtypes.ModuleName:              nil,                                  // qualification: stake escrow
+		zeroneemergencytypes.ModuleName:                  nil,                                  // emergency: no mint/burn — signal-only module
+		zeronecctypes.ModuleName:                         {authtypes.Burner},                   // capture_challenge: rejected stakes to dev fund
+		zeronecdtypes.ModuleName:                         nil,                                  // capture_defense: no mint/burn
+		zeroneibcrltypes.ModuleName:                      nil,                                  // ibcratelimit: no mint/burn — middleware only
+		zeronealignmenttypes.ModuleName:                  nil,                                  // alignment: no mint/burn — signal-only module
+		zeronecpottypes.ModuleName:                       {authtypes.Minter},                   // claiming_pot: bootstrap claims mint on demand (commitment 20)
+		zeronesponsorshiptypes.ModuleName:                nil,                                  // sponsorship: escrow-only, no mint/burn — circulates existing supply
+		"treasury_protocol":                              nil,                                  // treasury_protocol: receive-only
+		substratebridgetypes.ModuleName:                  {authtypes.Burner},                   // substrate_bridge: bond escrow — Burner burns slashed bonds (frees cap headroom); no mint
+		substratebridgetypes.AuditBountyPoolModuleName:   {authtypes.Minter},                   // useful_work_audit_bounty_pool: chain-minted audit rewards
 	}
 )
 
@@ -369,9 +359,8 @@ type ZeroneApp struct {
 	interfaceRegistry codectypes.InterfaceRegistry
 
 	// Store keys
-	keys    map[string]*storetypes.KVStoreKey
-	tkeys   map[string]*storetypes.TransientStoreKey
-	memKeys map[string]*storetypes.MemoryStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	tkeys map[string]*storetypes.TransientStoreKey
 
 	// ---------- Standard Cosmos SDK Keepers ----------
 	AccountKeeper   authkeeper.AccountKeeper
@@ -386,41 +375,35 @@ type ZeroneApp struct {
 	ConsensusKeeper consensuskeeper.Keeper
 
 	// ---------- IBC Keepers ----------
-	CapabilityKeeper          *capabilitykeeper.Keeper
-	ScopedIBCKeeper           capabilitykeeper.ScopedKeeper
-	ScopedTransferKeeper      capabilitykeeper.ScopedKeeper
-	ScopedICAControllerKeeper capabilitykeeper.ScopedKeeper
-	ScopedICAHostKeeper       capabilitykeeper.ScopedKeeper
-	IBCKeeper                 *ibckeeper.Keeper
-	IBCFeeKeeper              ibcfeekeeper.Keeper
-	TransferKeeper            ibctransferkeeper.Keeper
-	ICAControllerKeeper       icacontrollerkeeper.Keeper
-	ICAHostKeeper             icahostkeeper.Keeper
+	IBCKeeper           *ibckeeper.Keeper
+	TransferKeeper      ibctransferkeeper.Keeper
+	ICAControllerKeeper icacontrollerkeeper.Keeper
+	ICAHostKeeper       icahostkeeper.Keeper
 
 	// ===== Zerone custom module keepers — added by batch =====
-	ZeroneAuthKeeper        zeroneauthkeeper.Keeper
-	ZeroneStakingKeeper     zeronestakingkeeper.Keeper
-	VestingRewardsKeeper    vestingrewardskeeper.Keeper
-	ZeroneOntologyKeeper    zeroneontologykeeper.Keeper
-	KnowledgeKeeper         zeroneknowledgekeeper.Keeper
-	TokensKeeper            zeronetokenskeeper.Keeper
-	LiquidityPoolKeeper     zeronelpkeeper.Keeper
-	ZeroneGovKeeper         zeronegovkeeper.Keeper
-	QualificationKeeper     zeronequalificationkeeper.Keeper
-	EmergencyKeeper         zeroneemergencykeeper.Keeper
-	CaptureDefenseKeeper    zeronecdkeeper.Keeper
-	CaptureChallengeKeeper  zeronecckeeper.Keeper
-	HomeKeeper              zeronehomekeeper.Keeper
-	IBCRateLimitKeeper  zeroneibcrlkeeper.Keeper
+	ZeroneAuthKeeper         zeroneauthkeeper.Keeper
+	ZeroneStakingKeeper      zeronestakingkeeper.Keeper
+	VestingRewardsKeeper     vestingrewardskeeper.Keeper
+	ZeroneOntologyKeeper     zeroneontologykeeper.Keeper
+	KnowledgeKeeper          zeroneknowledgekeeper.Keeper
+	TokensKeeper             zeronetokenskeeper.Keeper
+	LiquidityPoolKeeper      zeronelpkeeper.Keeper
+	ZeroneGovKeeper          zeronegovkeeper.Keeper
+	QualificationKeeper      zeronequalificationkeeper.Keeper
+	EmergencyKeeper          zeroneemergencykeeper.Keeper
+	CaptureDefenseKeeper     zeronecdkeeper.Keeper
+	CaptureChallengeKeeper   zeronecckeeper.Keeper
+	HomeKeeper               zeronehomekeeper.Keeper
+	IBCRateLimitKeeper       zeroneibcrlkeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
-	AlignmentKeeper         zeronealignmentkeeper.Keeper
-	ClaimingPotKeeper       zeronecpotkeeper.Keeper
-	SponsorshipKeeper       zeronesponsorshipkeeper.Keeper
-	CounterexamplesKeeper   zeronecounterexkeeper.Keeper     // x/counterexamples: alignment-by-structure (commitment 15)
-	CreedKeeper              zeronecreedkeeper.Keeper        // x/creed: on-chain creed anchor (commitments 6, 10)
-	WorkCreedKeeper          zeroneworkcreedkeeper.Keeper    // x/work_creed: per-phase sub-creed anchor (commitments 6, 10 — useful-work scope)
-	SubstrateBridgeKeeper    substratebridgekeeper.Keeper    // x/substrate_bridge: Tier-1 external recursive work foundation
+	AlignmentKeeper          zeronealignmentkeeper.Keeper
+	ClaimingPotKeeper        zeronecpotkeeper.Keeper
+	SponsorshipKeeper        zeronesponsorshipkeeper.Keeper
+	CounterexamplesKeeper    zeronecounterexkeeper.Keeper // x/counterexamples: alignment-by-structure (commitment 15)
+	CreedKeeper              zeronecreedkeeper.Keeper     // x/creed: on-chain creed anchor (commitments 6, 10)
+	WorkCreedKeeper          zeroneworkcreedkeeper.Keeper // x/work_creed: per-phase sub-creed anchor (commitments 6, 10 — useful-work scope)
+	SubstrateBridgeKeeper    substratebridgekeeper.Keeper // x/substrate_bridge: Tier-1 external recursive work foundation
 
 	// ABCI++ vote extension config (nil until validator is configured)
 	VoteExtConfig *VoteExtensionConfig
@@ -499,10 +482,8 @@ func NewZeroneApp(
 		upgradetypes.StoreKey,
 		feegrant.StoreKey,
 		evidencetypes.StoreKey,
-		capabilitytypes.StoreKey,
 		ibcexported.StoreKey,
 		ibctransfertypes.StoreKey,
-		ibcfeetypes.StoreKey,
 		icacontrollertypes.StoreKey,
 		icahosttypes.StoreKey,
 		"consensus", // x/consensus module store key
@@ -530,7 +511,6 @@ func NewZeroneApp(
 		substratebridgetypes.StoreKey,
 	)
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
-	memKeys := storetypes.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
 
 	app := &ZeroneApp{
 		BaseApp:           bApp,
@@ -540,7 +520,6 @@ func NewZeroneApp(
 		interfaceRegistry: interfaceRegistry,
 		keys:              keys,
 		tkeys:             tkeys,
-		memKeys:           memKeys,
 	}
 
 	// ---- Module Keepers ----
@@ -653,39 +632,21 @@ func NewZeroneApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
-	// ---- Capability Keeper (required by IBC) ----
-	app.CapabilityKeeper = capabilitykeeper.NewKeeper(
-		appCodec,
-		keys[capabilitytypes.StoreKey],
-		memKeys[capabilitytypes.MemStoreKey],
-	)
-	app.ScopedIBCKeeper = app.CapabilityKeeper.ScopeToModule(ibcexported.ModuleName)
-	app.ScopedTransferKeeper = app.CapabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
-	app.ScopedICAControllerKeeper = app.CapabilityKeeper.ScopeToModule(icacontrollertypes.SubModuleName)
-	app.ScopedICAHostKeeper = app.CapabilityKeeper.ScopeToModule(icahosttypes.SubModuleName)
-	// Seal after all ScopeToModule calls — prevents capability escalation at runtime.
-	app.CapabilityKeeper.Seal()
-
 	// ---- IBC Keepers ----
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
-		keys[ibcexported.StoreKey],
+		sdkruntime.NewKVStoreService(keys[ibcexported.StoreKey]),
 		paramstypes.Subspace{}, // x/params removed in v0.47+; IBC accepts empty subspace
-		app.StakingKeeper,
 		app.UpgradeKeeper,
-		app.ScopedIBCKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
-	app.IBCFeeKeeper = ibcfeekeeper.NewKeeper(
-		appCodec,
-		keys[ibcfeetypes.StoreKey],
-		app.IBCKeeper.ChannelKeeper, // ics4Wrapper
-		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
-		app.AccountKeeper,
-		app.BankKeeper,
-	)
+	clientKeeper := app.IBCKeeper.ClientKeeper
+	storeProvider := clientKeeper.GetStoreProvider()
+	tmLightClientModule := ibctm.NewLightClientModule(appCodec, storeProvider)
+	clientKeeper.AddRoute(ibctm.ModuleName, &tmLightClientModule)
+	soloMachineLightClientModule := solomachine.NewLightClientModule(appCodec, storeProvider)
+	clientKeeper.AddRoute(solomachine.ModuleName, &soloMachineLightClientModule)
 
 	// IBCRateLimitKeeper must be created before TransferKeeper so it can intercept outbound SendPacket.
 	app.IBCRateLimitKeeper = zeroneibcrlkeeper.NewKeeper(
@@ -697,49 +658,44 @@ func NewZeroneApp(
 	// SECURITY: Rate limit ICS4Wrapper intercepts outbound SendPacket for quota enforcement.
 	// Created before TransferKeeper so it can be injected as the ICS4Wrapper in the outbound chain.
 	rateLimitICS4 := zeroneibcratelimit.NewIBCMiddleware(
-		nil,              // IBCModule set later (only ICS4Wrapper used here)
-		app.IBCFeeKeeper, // inner ICS4Wrapper for SendPacket forwarding
+		nil, // IBCModule set later (only ICS4Wrapper used here)
+		app.IBCKeeper.ChannelKeeper,
 		app.IBCRateLimitKeeper,
 	)
 
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
-		keys[ibctransfertypes.StoreKey],
+		sdkruntime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
 		paramstypes.Subspace{},
-		rateLimitICS4,                // ics4Wrapper routes through rate limit then fee middleware
+		rateLimitICS4,
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
+		app.MsgServiceRouter(),
 		app.AccountKeeper,
 		app.BankKeeper,
-		app.ScopedTransferKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
 	app.ICAControllerKeeper = icacontrollerkeeper.NewKeeper(
 		appCodec,
-		keys[icacontrollertypes.StoreKey],
+		sdkruntime.NewKVStoreService(keys[icacontrollertypes.StoreKey]),
 		paramstypes.Subspace{},
 		app.IBCKeeper.ChannelKeeper, // ics4Wrapper
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
-		app.ScopedICAControllerKeeper,
 		app.MsgServiceRouter(),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
 	app.ICAHostKeeper = icahostkeeper.NewKeeper(
 		appCodec,
-		keys[icahosttypes.StoreKey],
+		sdkruntime.NewKVStoreService(keys[icahosttypes.StoreKey]),
 		paramstypes.Subspace{},
 		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
 		app.AccountKeeper,
-		app.ScopedICAHostKeeper,
 		app.MsgServiceRouter(),
+		app.GRPCQueryRouter(),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
-	app.ICAHostKeeper.WithQueryRouter(app.GRPCQueryRouter())
 
 	// ===== Zerone custom module keeper init (added by batch) =====
 
@@ -1052,7 +1008,7 @@ func NewZeroneApp(
 	transferIBCModule := ibctransfer.NewIBCModule(app.TransferKeeper)
 	rateLimitMiddleware := zeroneibcratelimit.NewIBCMiddleware(
 		transferIBCModule,
-		app.IBCFeeKeeper, // ICS4Wrapper for SendPacket forwarding
+		app.IBCKeeper.ChannelKeeper,
 		app.IBCRateLimitKeeper,
 	)
 
@@ -1060,7 +1016,7 @@ func NewZeroneApp(
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, rateLimitMiddleware)
 	ibcRouter.AddRoute(
 		icacontrollertypes.SubModuleName,
-		icacontroller.NewIBCMiddleware(nil, app.ICAControllerKeeper),
+		icacontroller.NewIBCMiddleware(app.ICAControllerKeeper),
 	)
 	ibcRouter.AddRoute(icahosttypes.SubModuleName, icahost.NewIBCModule(app.ICAHostKeeper))
 	app.IBCKeeper.SetRouter(ibcRouter)
@@ -1079,11 +1035,11 @@ func NewZeroneApp(
 		upgrade.NewAppModule(app.UpgradeKeeper, addresscodec.NewBech32Codec(AccountAddressPrefix)),
 		evidence.NewAppModule(app.EvidenceKeeper),
 		consensus.NewAppModule(appCodec, app.ConsensusKeeper),
-		capability.NewAppModule(appCodec, *app.CapabilityKeeper, false),
 		ibc.NewAppModule(app.IBCKeeper),
 		ibctransfer.NewAppModule(app.TransferKeeper),
-		ibcfee.NewAppModule(app.IBCFeeKeeper),
 		ica.NewAppModule(&app.ICAControllerKeeper, &app.ICAHostKeeper),
+		ibctm.NewAppModule(tmLightClientModule),
+		solomachine.NewAppModule(soloMachineLightClientModule),
 		// ===== Zerone custom modules — added by batch =====
 		zeroneauth.NewAppModule(appCodec, app.ZeroneAuthKeeper),
 		zeronestaking.NewAppModule(app.ZeroneStakingKeeper),
@@ -1103,22 +1059,22 @@ func NewZeroneApp(
 		zeronealignment.NewAppModule(appCodec, app.AlignmentKeeper),
 		zeroneclaimingpot.NewAppModule(appCodec, app.ClaimingPotKeeper),
 		zeronesponsorship.NewAppModule(appCodec, app.SponsorshipKeeper),
-		zeronehome.NewAppModule(appCodec, app.HomeKeeper),                // R8-1: x/home
+		zeronehome.NewAppModule(appCodec, app.HomeKeeper), // R8-1: x/home
 		zeronecounterex.NewAppModule(appCodec, app.CounterexamplesKeeper),
 		zeronecreed.NewAppModule(appCodec, app.CreedKeeper),
 		zeroneworkcreed.NewAppModule(appCodec, app.WorkCreedKeeper),
 		substratebridge.NewAppModule(appCodec, app.SubstrateBridgeKeeper),
 	)
 
-	// PreBlockers run from PotPreBlocker (app/abci.go) before BeginBlock —
-	// x/upgrade's plan execution/halt lives here in SDK v0.50.
+	// PreBlockers run from PotPreBlocker (app/abci.go) before BeginBlock.
+	// SDK v0.53 requires x/auth after x/upgrade in this order.
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
+		authtypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderBeginBlockers(
 		upgradetypes.ModuleName,
-		capabilitytypes.ModuleName,
 		vestingrewardstypes.ModuleName, // MUST run before x/distribution: RouteFees takes the research+development slices from fee_collector; distribution sweeps the remainder to validators
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
@@ -1132,31 +1088,30 @@ func NewZeroneApp(
 		feegrant.ModuleName,
 		ibcexported.ModuleName,
 		ibctransfertypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		icatypes.ModuleName,
 		// ===== Zerone custom module BeginBlocker order — added by batch =====
-		zeroneemergencytypes.ModuleName,        // emergency: EARLY — ceremony progress, auto-resume, revert monitoring
+		zeroneemergencytypes.ModuleName, // emergency: EARLY — ceremony progress, auto-resume, revert monitoring
 		zeroneauthtypes.ModuleName,
 		zeronestakingtypes.ModuleName,
-		zeronegovtypes.ModuleName,       // gov: after staking (needs bonded stake)
+		zeronegovtypes.ModuleName, // gov: after staking (needs bonded stake)
 		zeroneontologytypes.ModuleName,
-		zeroneknowledgetypes.ModuleName,       // LAST knowledge: depends on staking + ontology state
-		substratebridgetypes.ModuleName,       // substrate_bridge: after knowledge so OnClaimResolved hooks fire before BeginBlocker scans
-		zeronetokenstypes.ModuleName,          // tokens: emission period processing
-		zeronelptypes.ModuleName,        // liquiditypool: TWAP accumulator updates
+		zeroneknowledgetypes.ModuleName,     // LAST knowledge: depends on staking + ontology state
+		substratebridgetypes.ModuleName,     // substrate_bridge: after knowledge so OnClaimResolved hooks fire before BeginBlocker scans
+		zeronetokenstypes.ModuleName,        // tokens: emission period processing
+		zeronelptypes.ModuleName,            // liquiditypool: TWAP accumulator updates
 		zeronehometypes.ModuleName,          // home: deadman switches, session cleanup
-		zeronequalificationtypes.ModuleName,         // qualification: expiry, promotion, stake unlock
-		zeronecdtypes.ModuleName,                    // capture_defense: decay + auto-analysis (before challenge)
-		zeronecctypes.ModuleName,                    // capture_challenge: phase advancement, risk analysis
-		zeroneprovenancetypes.ModuleName,            // training_provenance: no-op in BeginBlock (pure synthesizer)
-		zeronetrustscoretypes.ModuleName,            // trust_score: no-op in BeginBlock (pure synthesizer)
-		zeronealignmenttypes.ModuleName,             // alignment: no-op in BeginBlock
-		zeroneibcrltypes.ModuleName,                 // ibcratelimit: reset expired windows
-		zeronecpottypes.ModuleName,                  // claiming_pot: pot expiry
-		zeronesponsorshiptypes.ModuleName,           // sponsorship: bounty expiry
-		zeronecounterextypes.ModuleName,             // counterexamples: no-op BeginBlock (proposal-driven)
-		zeronecreedtypes.ModuleName,                 // creed: no-op BeginBlock (pure registry)
-		zeroneworkcreedtypes.ModuleName,             // work_creed: no-op BeginBlock (pure registry)
+		zeronequalificationtypes.ModuleName, // qualification: expiry, promotion, stake unlock
+		zeronecdtypes.ModuleName,            // capture_defense: decay + auto-analysis (before challenge)
+		zeronecctypes.ModuleName,            // capture_challenge: phase advancement, risk analysis
+		zeroneprovenancetypes.ModuleName,    // training_provenance: no-op in BeginBlock (pure synthesizer)
+		zeronetrustscoretypes.ModuleName,    // trust_score: no-op in BeginBlock (pure synthesizer)
+		zeronealignmenttypes.ModuleName,     // alignment: no-op in BeginBlock
+		zeroneibcrltypes.ModuleName,         // ibcratelimit: reset expired windows
+		zeronecpottypes.ModuleName,          // claiming_pot: pot expiry
+		zeronesponsorshiptypes.ModuleName,   // sponsorship: bounty expiry
+		zeronecounterextypes.ModuleName,     // counterexamples: no-op BeginBlock (proposal-driven)
+		zeronecreedtypes.ModuleName,         // creed: no-op BeginBlock (pure registry)
+		zeroneworkcreedtypes.ModuleName,     // work_creed: no-op BeginBlock (pure registry)
 	)
 
 	app.ModuleManager.SetOrderEndBlockers(
@@ -1164,9 +1119,7 @@ func NewZeroneApp(
 		stakingtypes.ModuleName,
 		ibcexported.ModuleName,
 		ibctransfertypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		icatypes.ModuleName,
-		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		distrtypes.ModuleName,
@@ -1178,31 +1131,30 @@ func NewZeroneApp(
 		// ===== Zerone custom module EndBlocker order — added by batch =====
 		zeroneauthtypes.ModuleName,
 		zeronestakingtypes.ModuleName,
-		zeronegovtypes.ModuleName,       // EndBlocker: no-op
+		zeronegovtypes.ModuleName, // EndBlocker: no-op
 		vestingrewardstypes.ModuleName,
-		zeroneontologytypes.ModuleName,  // EndBlocker: expire proposals
-		zeroneknowledgetypes.ModuleName,       // EndBlocker: no-op for now
-		substratebridgetypes.ModuleName,       // EndBlocker: no-op (timeout scan in BeginBlocker)
-		zeronetokenstypes.ModuleName,          // EndBlocker: no-op
-		zeronelptypes.ModuleName,        // EndBlocker: no-op
+		zeroneontologytypes.ModuleName,      // EndBlocker: expire proposals
+		zeroneknowledgetypes.ModuleName,     // EndBlocker: no-op for now
+		substratebridgetypes.ModuleName,     // EndBlocker: no-op (timeout scan in BeginBlocker)
+		zeronetokenstypes.ModuleName,        // EndBlocker: no-op
+		zeronelptypes.ModuleName,            // EndBlocker: no-op
 		zeronehometypes.ModuleName,          // EndBlocker: cleanup old acknowledged alerts
-		zeronequalificationtypes.ModuleName,         // EndBlocker: no-op
-		zeroneemergencytypes.ModuleName,             // EndBlocker: epoch counter reset
-		zeronecdtypes.ModuleName,                    // EndBlocker: no-op
-		zeronecctypes.ModuleName,                    // EndBlocker: no-op
-		zeroneprovenancetypes.ModuleName,            // EndBlocker: no-op
-		zeronetrustscoretypes.ModuleName,            // EndBlocker: no-op
-		zeronealignmenttypes.ModuleName,             // EndBlocker: observation→scoring→corrections at interval
-		zeroneibcrltypes.ModuleName,                 // EndBlocker: no-op
-		zeronecpottypes.ModuleName,                  // EndBlocker: no-op
-		zeronesponsorshiptypes.ModuleName,           // EndBlocker: no-op
-		zeronecounterextypes.ModuleName,             // EndBlocker: no-op
-		zeronecreedtypes.ModuleName,                 // EndBlocker: no-op (pure registry)
-		zeroneworkcreedtypes.ModuleName,             // EndBlocker: no-op (pure registry)
+		zeronequalificationtypes.ModuleName, // EndBlocker: no-op
+		zeroneemergencytypes.ModuleName,     // EndBlocker: epoch counter reset
+		zeronecdtypes.ModuleName,            // EndBlocker: no-op
+		zeronecctypes.ModuleName,            // EndBlocker: no-op
+		zeroneprovenancetypes.ModuleName,    // EndBlocker: no-op
+		zeronetrustscoretypes.ModuleName,    // EndBlocker: no-op
+		zeronealignmenttypes.ModuleName,     // EndBlocker: observation→scoring→corrections at interval
+		zeroneibcrltypes.ModuleName,         // EndBlocker: no-op
+		zeronecpottypes.ModuleName,          // EndBlocker: no-op
+		zeronesponsorshiptypes.ModuleName,   // EndBlocker: no-op
+		zeronecounterextypes.ModuleName,     // EndBlocker: no-op
+		zeronecreedtypes.ModuleName,         // EndBlocker: no-op (pure registry)
+		zeroneworkcreedtypes.ModuleName,     // EndBlocker: no-op (pure registry)
 	)
 
 	genesisOrder := []string{
-		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		distrtypes.ModuleName,
@@ -1214,34 +1166,33 @@ func NewZeroneApp(
 		ibcexported.ModuleName,
 		genutiltypes.ModuleName,
 		ibctransfertypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		icatypes.ModuleName,
 		vestingtypes.ModuleName,
 		upgradetypes.ModuleName,
 		// ===== Zerone custom module genesis order — added by batch =====
 		zeroneauthtypes.ModuleName,
 		zeronestakingtypes.ModuleName,
-		zeronegovtypes.ModuleName,       // Genesis: after staking (needs staking data for quorum)
+		zeronegovtypes.ModuleName, // Genesis: after staking (needs staking data for quorum)
 		vestingrewardstypes.ModuleName,
-		zeroneontologytypes.ModuleName,  // Genesis: after bank (needs bank for stake escrow)
-		zeroneknowledgetypes.ModuleName,       // Genesis: after ontology + staking (needs both)
-		substratebridgetypes.ModuleName,       // Genesis: after knowledge (depends on knowledge + qualification + bank + account)
-		zeronetokenstypes.ModuleName,          // Genesis: after bank (needs bank for wrap)
-		zeronelptypes.ModuleName,        // Genesis: after bank (needs bank for LP minting)
+		zeroneontologytypes.ModuleName,      // Genesis: after bank (needs bank for stake escrow)
+		zeroneknowledgetypes.ModuleName,     // Genesis: after ontology + staking (needs both)
+		substratebridgetypes.ModuleName,     // Genesis: after knowledge (depends on knowledge + qualification + bank + account)
+		zeronetokenstypes.ModuleName,        // Genesis: after bank (needs bank for wrap)
+		zeronelptypes.ModuleName,            // Genesis: after bank (needs bank for LP minting)
 		zeronehometypes.ModuleName,          // Genesis: after bank (needs bank for sends)
-		zeronequalificationtypes.ModuleName,         // Genesis: after staking
-		zeroneemergencytypes.ModuleName,             // Genesis: after staking (needs guardian tier info)
-		zeronecdtypes.ModuleName,                    // Genesis: after knowledge + staking
-		zeronecctypes.ModuleName,                    // Genesis: after capture_defense
-		zeroneprovenancetypes.ModuleName,            // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
-		zeronetrustscoretypes.ModuleName,            // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
-		zeronealignmenttypes.ModuleName,             // Genesis: after emergency + staking + knowledge (needs all)
-		zeroneibcrltypes.ModuleName,                 // Genesis: after IBC
-		zeronecpottypes.ModuleName,                  // Genesis: after staking + auth + bank
-		zeronesponsorshiptypes.ModuleName,           // Genesis: after bank + knowledge
-		zeronecounterextypes.ModuleName,             // Genesis: after knowledge (uses fact-existence adapter)
-		zeronecreedtypes.ModuleName,                 // Genesis: standalone (pure registry, no cross-module deps)
-		zeroneworkcreedtypes.ModuleName,             // Genesis: after creed (creed pin in place when sub-creed enforcement starts)
+		zeronequalificationtypes.ModuleName, // Genesis: after staking
+		zeroneemergencytypes.ModuleName,     // Genesis: after staking (needs guardian tier info)
+		zeronecdtypes.ModuleName,            // Genesis: after knowledge + staking
+		zeronecctypes.ModuleName,            // Genesis: after capture_defense
+		zeroneprovenancetypes.ModuleName,    // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
+		zeronetrustscoretypes.ModuleName,    // Genesis: after knowledge + qualification + capture_challenge (pure read consumer)
+		zeronealignmenttypes.ModuleName,     // Genesis: after emergency + staking + knowledge (needs all)
+		zeroneibcrltypes.ModuleName,         // Genesis: after IBC
+		zeronecpottypes.ModuleName,          // Genesis: after staking + auth + bank
+		zeronesponsorshiptypes.ModuleName,   // Genesis: after bank + knowledge
+		zeronecounterextypes.ModuleName,     // Genesis: after knowledge (uses fact-existence adapter)
+		zeronecreedtypes.ModuleName,         // Genesis: standalone (pure registry, no cross-module deps)
+		zeroneworkcreedtypes.ModuleName,     // Genesis: after creed (creed pin in place when sub-creed enforcement starts)
 	}
 	app.ModuleManager.SetOrderInitGenesis(genesisOrder...)
 	app.ModuleManager.SetOrderExportGenesis(genesisOrder...)
@@ -1255,12 +1206,13 @@ func NewZeroneApp(
 	app.RegisterUpgradeHandlers()
 
 	// Configure store loaders for upgrades that add/remove store keys (must be before LoadLatestVersion).
-	app.RegisterStoreUpgrades()
+	if err := app.RegisterStoreUpgrades(); err != nil {
+		panic(fmt.Sprintf("failed to configure upgrade store loader: %s", err))
+	}
 
 	// Mount stores
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)
-	app.MountMemoryStores(memKeys)
 
 	// Set ante handler
 	app.SetAnteHandler(NewAnteHandler(app))
@@ -1299,7 +1251,7 @@ func NewZeroneApp(
 			os.Exit(1)
 		}
 
-		}
+	}
 
 	return app
 }

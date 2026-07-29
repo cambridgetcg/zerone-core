@@ -275,11 +275,14 @@ extraction errors. They no longer infer the signer from the optional
 `SignerInfo.public_key` field. A real TxRaw regression fixture covers a stored
 account key with that wire field omitted.
 
-This transaction-validity change is registered as
-`auth-ante-hardening-v1` and must activate at one coordinated binary height,
-not as a mixed-validator rolling deployment. It has no module store migration.
-Cosmos SDK 0.50.15 itself panics in its v2 signing adapter on the omitted-key
-wire shape; Cosmos SDK 0.53.8 contains the upstream
+This transaction-validity change is part of the single guarded
+`sdk-0.53-ibc-10` plan and must activate at one coordinated binary height,
+not as a mixed-validator rolling deployment. The retired
+`auth-ante-hardening-v1` name has no handler, lineage entry, or store loader,
+so it cannot bypass the SDK/IBC source-version and legacy-fee-balance guards.
+The unified handler writes its auth-hardening marker only after those guards
+and module migrations succeed. Cosmos SDK 0.50.15 itself panics in its v2
+signing adapter on the omitted-key wire shape; Cosmos SDK 0.53.8 contains the upstream
 [nil-key adapter fix](https://github.com/cosmos/cosmos-sdk/commit/a91a822eb2339d563bbe8c7bc61d71fa6c6c60e2).
 Dependency migration and this app-level policy regression both have to pass
 before the upgrade is scheduled.
@@ -296,10 +299,10 @@ migration after a live-state census.
   canonicalization, identity-key proof of possession, rotation signatures,
   metadata bounds, replay protection, and genesis invariants are hardened.
 - No CosmWasm or general contract VM; it conflicts with the slim-cut boundary.
-- No new IBC middleware while the current IBC/ICA posture remains limited and
-  the IBC-Go v8 migration plan remains unresolved. Cosmos SDK 0.50 / IBC-Go 8
-  is outside the currently supported release families, so upgrade planning is
-  a maintenance prerequisite rather than a hidden feature dependency.
+- No new IBC middleware while the current IBC/ICA posture remains limited.
+  The guarded Cosmos SDK 0.53 / IBC-Go 10 migration must first pass a
+  production-state rehearsal, including its exact source-version checks and
+  the requirement that the legacy ICS-29 module account hold no funds.
 - No on-chain x402 facilitator, ERC-8004 registry, C2PA parser, JSON-LD
   resolver, A2A parser, or remote-context fetch.
 - No reward-bearing `sigstore-in-toto-v1` registration until governance has

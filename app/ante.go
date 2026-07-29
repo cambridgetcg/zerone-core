@@ -3,7 +3,7 @@ package app
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
-	ibcante "github.com/cosmos/ibc-go/v8/modules/core/ante"
+	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
 )
 
 // NewAnteHandler returns an AnteHandler with:

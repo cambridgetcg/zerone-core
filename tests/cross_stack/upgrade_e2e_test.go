@@ -3,7 +3,11 @@ package cross_stack_test
 import (
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
@@ -213,25 +217,118 @@ func TestUpgrade_LineageParityWithHandlers(t *testing.T) {
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameTestnetV3)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameDoctrineMetabolismExemptV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSubstrateDedupeV1)
-	require.Contains(t, lineageNames, zeroneapp.UpgradeNameAuthAnteHardeningV1)
+	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSDK053IBC10)
+	require.NotContains(t, lineageNames, "auth-ante-hardening-v1")
+	require.False(t, h.App.UpgradeKeeper.HasHandler("auth-ante-hardening-v1"),
+		"the retired auth-only plan must not bypass the SDK/IBC guards")
 }
 
-func TestUpgrade_AuthAnteHardeningV1Handler(t *testing.T) {
+func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
 	h := NewTestHarness(t)
-	fromVM := h.App.CurrentModuleVersionMap()
+
+	current := h.App.CurrentModuleVersionMap()
+	fromVM := make(module.VersionMap, len(current)+2)
+	for name, version := range current {
+		fromVM[name] = version
+	}
+	fromVM["ibc"] = 6
+	fromVM["transfer"] = 5
+	fromVM["interchainaccounts"] = 3
+	fromVM["capability"] = 1
+	fromVM["feeibc"] = 2
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
-		zeroneapp.UpgradeNameAuthAnteHardeningV1,
+		zeroneapp.UpgradeNameSDK053IBC10,
 		fromVM,
 		h.Height(),
 	)
 	require.NoError(t, err)
-	require.Equal(t, h.App.CurrentModuleVersionMap(), toVM)
+	require.Equal(t, uint64(8), toVM["ibc"], "IBC core must run v6→v7→v8 migrations")
+	require.Equal(t, uint64(6), toVM["transfer"], "ICS-20 must run its v5→v6 denom migration")
+	require.Equal(t, uint64(3), toVM["interchainaccounts"])
 	require.Equal(
 		t,
 		"migrated",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_auth-ante-hardening-v1"),
+		"the unified guarded plan must activate and mark signer-policy hardening",
+	)
+
+	// The live module manager no longer exposes the removed modules. Note that
+	// x/upgrade's SetModuleVersionMap merges keys rather than replacing its
+	// prefix store, so its historical query can retain the two old entries.
+	targetVM := h.App.CurrentModuleVersionMap()
+	require.NotContains(t, targetVM, "capability")
+	require.NotContains(t, targetVM, "feeibc")
+}
+
+func TestUpgrade_SDK053IBC10RefusesUnexpectedSourceVersionBeforeAuthMarker(t *testing.T) {
+	h := NewTestHarness(t)
+
+	current := h.App.CurrentModuleVersionMap()
+	fromVM := make(module.VersionMap, len(current)+2)
+	for name, version := range current {
+		fromVM[name] = version
+	}
+	fromVM["ibc"] = 6
+	fromVM["transfer"] = 5
+	fromVM["interchainaccounts"] = 3
+	fromVM["capability"] = 1
+	fromVM["feeibc"] = 1 // legacy ICS-29 shipped consensus version 2
+
+	_, err := h.App.RunUpgradeHandlerForTests(
+		h.Ctx,
+		zeroneapp.UpgradeNameSDK053IBC10,
+		fromVM,
+		h.Height(),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `requires source module "feeibc" at consensus version 2: got 1`)
+	require.Empty(
+		t,
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_auth-ante-hardening-v1"),
+		"the auth marker must remain unwritten when an IBC source-version guard fails",
+	)
+}
+
+func TestUpgrade_SDK053IBC10RefusesLegacyFeeBalance(t *testing.T) {
+	h := NewTestHarness(t)
+
+	feeAddress := authtypes.NewModuleAddress("feeibc")
+	require.NoError(t, h.FundAccount(
+		feeAddress,
+		sdk.NewCoins(sdk.NewCoin(zeroneapp.BondDenom, sdkmath.NewInt(1))),
+	))
+
+	current := h.App.CurrentModuleVersionMap()
+	fromVM := make(module.VersionMap, len(current))
+	for name, version := range current {
+		fromVM[name] = version
+	}
+	fromVM["ibc"] = 6
+	fromVM["transfer"] = 5
+	fromVM["interchainaccounts"] = 3
+	fromVM["capability"] = 1
+	fromVM["feeibc"] = 2
+
+	_, err := h.App.RunUpgradeHandlerForTests(
+		h.Ctx,
+		zeroneapp.UpgradeNameSDK053IBC10,
+		fromVM,
+		h.Height(),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot remove legacy IBC fee middleware")
+	require.Equal(
+		t,
+		sdkmath.NewInt(1),
+		h.BankKeeper.GetBalance(h.Ctx, feeAddress, zeroneapp.BondDenom).Amount,
+		"failed upgrade must not move or burn the legacy fee balance",
+	)
+	require.Empty(
+		t,
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_auth-ante-hardening-v1"),
+		"the auth marker must remain unwritten when the legacy fee-balance guard fails",
 	)
 }
 

@@ -8,9 +8,13 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 )
 
 const UpgradeNameTestnet = "v1.0.0-testnet"
@@ -22,7 +26,12 @@ const UpgradeNameCompassionCalibrationV1 = "compassion-calibration-v1"
 const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
-const UpgradeNameAuthAnteHardeningV1 = "auth-ante-hardening-v1"
+const UpgradeNameSDK053IBC10 = "sdk-0.53-ibc-10"
+
+const (
+	legacyCapabilityStoreKey = "capability"
+	legacyIBCFeeStoreKey     = "feeibc"
+)
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -320,31 +329,66 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		},
 	)
 
-	// auth-ante-hardening-v1 — closes the omitted-public-key policy bypass.
-	// Cosmos permits SignerInfo.public_key to be absent once x/auth stores the
-	// account key. SDK implementations that support that wire shape authenticate
-	// the signer with the stored key; the old Zerone decorators instead inspected
-	// the optional transaction key and would silently skip frozen, DID, and
-	// capability checks when it was absent. The new binary derives those
-	// addresses from SigVerifiableTx.GetSigners and fails closed on extraction
-	// errors. The current SDK v0.50 signing-adapter panic for this wire shape is a
-	// separate dependency-migration blocker; Zerone policy must not rely on it.
-	//
-	// There is no store schema change. The named handler exists because this
-	// changes transaction validity and must activate at a coordinated upgrade
-	// height, never through a mixed-validator rolling deployment.
+	// sdk-0.53-ibc-10 — moves the app from Cosmos SDK v0.50 / IBC-Go v8
+	// to the smallest currently supported release family (SDK v0.53 /
+	// IBC-Go v10). The IBC versions are pinned to the exact versions shipped
+	// by the source binary so a stale or partially migrated chain fails closed
+	// instead of initializing modules over existing state.
 	app.UpgradeKeeper.SetUpgradeHandler(
-		UpgradeNameAuthAnteHardeningV1,
+		UpgradeNameSDK053IBC10,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			expectedIBCVersions := []struct {
+				name    string
+				version uint64
+			}{
+				{ibcexported.ModuleName, 6},
+				{ibctransfertypes.ModuleName, 5},
+				{icatypes.ModuleName, 3},
+				{legacyCapabilityStoreKey, 1},
+				{legacyIBCFeeStoreKey, 2},
+			}
+			for _, expected := range expectedIBCVersions {
+				version, ok := fromVM[expected.name]
+				if !ok {
+					return nil, fmt.Errorf(
+						"upgrade %q requires source module %q at consensus version %d: module is absent from version map",
+						plan.Name, expected.name, expected.version,
+					)
+				}
+				if version != expected.version {
+					return nil, fmt.Errorf(
+						"upgrade %q requires source module %q at consensus version %d: got %d",
+						plan.Name, expected.name, expected.version, version,
+					)
+				}
+			}
+
+			// IBC-Go v10 removes ICS-29. Its state can contain unresolved packet
+			// fees, so refuse the upgrade while its module address holds funds.
+			// Operators must settle/refund those fees before scheduling the
+			// binary; deleting the fee store must never silently strand coins.
+			feeBalances := app.BankKeeper.GetAllBalances(ctx, authtypes.NewModuleAddress(legacyIBCFeeStoreKey))
+			if !feeBalances.IsZero() {
+				return nil, fmt.Errorf(
+					"upgrade %q cannot remove legacy IBC fee middleware while module account %q holds %s",
+					plan.Name, legacyIBCFeeStoreKey, feeBalances,
+				)
+			}
 
 			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 			if err != nil {
 				return nil, err
 			}
 
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
 			app.ReconcileModuleAccountPerms(ctx)
 
+			// The signer-policy hardening changes transaction validity and must
+			// activate with this same coordinated binary. Keeping its marker
+			// inside the guarded SDK/IBC handler prevents the old standalone
+			// plan name from becoming an alternate path around the IBC checks.
 			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_auth-ante-hardening-v1", "migrated"); err != nil {
 				return nil, err
 			}
@@ -356,11 +400,13 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
 // module store keys. Call this BEFORE LoadLatestVersion.
-func (app *ZeroneApp) RegisterStoreUpgrades() {
+func (app *ZeroneApp) RegisterStoreUpgrades() error {
 	upgradeInfo, err := app.UpgradeKeeper.ReadUpgradeInfoFromDisk()
 	if err != nil {
-		// No pending upgrade — nothing to do.
-		return
+		return fmt.Errorf("read upgrade info from disk: %w", err)
+	}
+	if upgradeInfo.Name == "" || app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+		return nil
 	}
 
 	switch upgradeInfo.Name {
@@ -413,11 +459,48 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 
-	case UpgradeNameAgenttoolSeamV1, UpgradeNameAuthAnteHardeningV1:
-		// Code/record migration only; neither upgrade adds or removes a module
-		// store key.
+	case UpgradeNameAgenttoolSeamV1:
+		// Code/record migration only; this upgrade does not add or remove a
+		// module store key.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameSDK053IBC10:
+		// IBC-Go v10 removes both modules. Their persistent IAVL keys are no
+		// longer part of the normal app mount set, so the coordinated loader
+		// mounts them for this one migration only and removes them atomically.
+		// The capability memory store is ephemeral and needs no deletion.
+		app.SetStoreLoader(sdk053IBC10StoreLoader(upgradeInfo.Height))
+	}
+
+	return nil
+}
+
+func sdk053IBC10StoreUpgrades() storetypes.StoreUpgrades {
+	return storetypes.StoreUpgrades{
+		Deleted: []string{
+			legacyCapabilityStoreKey,
+			legacyIBCFeeStoreKey,
+		},
+	}
+}
+
+func sdk053IBC10StoreLoader(upgradeHeight int64) baseapp.StoreLoader {
+	storeUpgrades := sdk053IBC10StoreUpgrades()
+
+	return func(ms storetypes.CommitMultiStore) error {
+		if upgradeHeight != ms.LastCommitID().Version+1 {
+			return baseapp.DefaultStoreLoader(ms)
+		}
+
+		// LoadLatestVersionAndUpgrade can only delete mounted stores. Mount
+		// these retired keys dynamically so their data and commit-info entries
+		// are removed at the upgrade, without keeping them mounted on restart.
+		for _, name := range storeUpgrades.Deleted {
+			ms.MountStoreWithDB(storetypes.NewKVStoreKey(name), storetypes.StoreTypeIAVL, nil)
+		}
+
+		return ms.LoadLatestVersionAndUpgrade(&storeUpgrades)
 	}
 }
 

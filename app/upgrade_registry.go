@@ -104,8 +104,8 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			Description: "agenttool-seam-v1 — axis-bounds drain closed: recursion_weight multiplies the settlement reward, so it is refused against an adapter that declares no ceiling instead of being waved through. Handler gives every bounds-less adapter an explicit empty ceiling, retiring 'unbounded' as a reachable state.",
 		},
 		{
-			UpgradeName: UpgradeNameAuthAnteHardeningV1,
-			Description: "auth-ante-hardening-v1 — fail-closed signer extraction for Zerone DID, frozen-account, and capability policy when Cosmos SignerInfo omits an already-stored public key. App-level transaction-validity change; no module store migration.",
+			UpgradeName: UpgradeNameSDK053IBC10,
+			Description: "sdk-0.53-ibc-10 — one coordinated activation for fail-closed authenticated-signer policy and the Cosmos SDK v0.50 / IBC-Go v8 to SDK v0.53 / IBC-Go v10 migration; validates source IBC versions, refuses to orphan ICS-29 funds, runs module migrations, writes the auth hardening marker, and removes legacy capability/fee stores.",
 		},
 	}
 
