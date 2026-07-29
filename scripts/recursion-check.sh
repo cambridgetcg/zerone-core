@@ -86,7 +86,7 @@ run_recursion 7 "participation grows through participation" \
 
 # Recursion 8: economy is hard-capped and self-circulating
 run_recursion 8 "economy is hard-capped and self-circulating" \
-  "TestEmissionCap_BootstrapClaimMintsOnDemand|TestScenario13_ZeroTeamAllocationAtGenesis|TestScenario13c_ClaimingPotMinterPermission|TestSponsorship_NoMintingHappens"
+  "TestEmissionCap_BootstrapClaimMintsOnDemand|TestScenario13_ZeroTeamAllocationAtGenesis|TestScenario13c_ClaimingPotMinterPermission|TestSubstrateBridge_HappyPathSettlement|TestSponsorship_NoMintingHappens"
 
 # Recursion 10a: recursion catalog audits itself
 run_recursion 10 "recursion catalog audits itself" \

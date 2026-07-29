@@ -66,7 +66,7 @@ The participant set is not closed at genesis. A governance LIP can admit late pa
 
 ## 8. The economy is hard-capped and self-circulating
 
-**Closed by:** `x/vesting_rewards.MintWithCap` as the chain's only mint entry; binding tests `TestEmissionCap_BootstrapClaimMintsOnDemand`, `TestScenario13_ZeroTeamAllocationAtGenesis`, `TestScenario13c_ClaimingPotMinterPermission`, and `TestSponsorship_NoMintingHappens`.
+**Closed by:** `x/vesting_rewards.MintWithCap` as the chain's only mint entry; binding tests `TestEmissionCap_BootstrapClaimMintsOnDemand`, `TestScenario13_ZeroTeamAllocationAtGenesis`, `TestScenario13c_ClaimingPotMinterPermission`, `TestSubstrateBridge_HappyPathSettlement`, and `TestSponsorship_NoMintingHappens`.
 
 Three emission pathways (PoT block rewards, bootstrap claims, and external-work attestations via `x/substrate_bridge`) gate through one `MintWithCap`. Sponsorship circulates existing supply. The cap is live-supply-anchored — a burn anywhere on the chain frees headroom for future mint anywhere. No ZRN can be minted except through `MintWithCap`: every pathway routes through that single cap-gated entry point (as the substrate_bridge attestation reward does), a chokepoint held by the proto-gen + test-binding discipline.
 
