@@ -20,7 +20,7 @@ func witnessEscrowFixture(t *testing.T) (keeper.Keeper, sdk.Context, *stubBankKe
 
 	params := types.DefaultParams()
 	params.WitnessRewardChallengeWindowBlocks = 10
-	require.NoError(t, k.SetParams(ctx, params))
+	require.NoError(t, k.SetParams(ctx, &params))
 
 	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
 		AdapterId:         "agenttool-invocation-v1",
@@ -47,9 +47,9 @@ func TestWitnessReward_EscrowedAtSettle(t *testing.T) {
 
 	settled, _ := k.GetAttestation(ctx, "att-w1")
 	require.Equal(t, types.AttestationStatus_ATTESTATION_STATUS_SETTLED, settled.Status)
-	require.Equal(t, "0", settled.RewardUzrn)                       // nothing paid at settle
-	require.Equal(t, "1000000", bk.payments[submitter].String())    // bond back whole
-	require.Nil(t, vk.minted[types.AuditBountyPoolModuleName])      // nothing minted
+	require.Equal(t, "0", settled.RewardUzrn)                    // nothing paid at settle
+	require.Equal(t, "1000000", bk.payments[submitter].String()) // bond back whole
+	require.Nil(t, vk.minted[types.AuditBountyPoolModuleName])   // nothing minted
 
 	pr, found := k.GetWitnessPendingReward(ctx, "att-w1")
 	require.True(t, found)

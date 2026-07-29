@@ -66,10 +66,10 @@ func newMockStakingKeeper() *mockStakingKeeper {
 	}
 }
 
-func (sk *mockStakingKeeper) GetActiveValidatorInfos(_ context.Context) ([]types.ValidatorInfo, error) {
-	vals := make([]types.ValidatorInfo, 0, len(sk.validators))
+func (sk *mockStakingKeeper) GetActiveValidatorInfos(_ context.Context) ([]*types.ValidatorInfo, error) {
+	vals := make([]*types.ValidatorInfo, 0, len(sk.validators))
 	for _, v := range sk.validators {
-		vals = append(vals, types.ValidatorInfo{
+		vals = append(vals, &types.ValidatorInfo{
 			Address:           v.Address,
 			Stake:             v.Stake,
 			Tier:              v.Tier,

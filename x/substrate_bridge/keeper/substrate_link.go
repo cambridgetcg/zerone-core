@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"sort"
 
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
@@ -70,9 +71,12 @@ func writeUint64(h interface{ Write([]byte) (int, error) }, v uint64) {
 	h.Write(buf[:])
 }
 
-func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p types.Params) error {
+func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p *types.Params) error {
 	if l == nil {
 		return types.ErrAdapterNotFound
+	}
+	if p == nil {
+		return fmt.Errorf("params required")
 	}
 	adapter, found := k.GetAdapter(ctx, l.AdapterId)
 	if !found {

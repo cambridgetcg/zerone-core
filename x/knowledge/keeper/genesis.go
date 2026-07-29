@@ -3,7 +3,6 @@ package keeper
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -89,15 +88,14 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		}
 	}
 
-	// Fund the bootstrap fund from genesis allocation (R19-7)
-	if gs.BootstrapFundAllocation != "" && gs.BootstrapFundAllocation != "0" {
-		alloc, ok := new(big.Int).SetString(gs.BootstrapFundAllocation, 10)
-		if ok && alloc.Sign() > 0 && k.bankKeeper != nil {
-			coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(alloc)))
-			if err := k.bankKeeper.MintCoins(ctx, types.BootstrapFundModuleName, coins); err != nil {
-				return fmt.Errorf("failed to mint bootstrap fund: %w", err)
-			}
-		}
+	// Fund the bootstrap module account up to the declared genesis allocation
+	// (R19-7). The field is exported as the module account's existing bank
+	// balance, and x/bank imports that balance before x/knowledge runs. Treating
+	// it as an additive mint would therefore double the fund on every
+	// export/import restart. Fresh genesis files still start from a zero module
+	// balance and receive the full allocation.
+	if err := k.ensureGenesisFundBalance(ctx, types.BootstrapFundModuleName, gs.BootstrapFundAllocation); err != nil {
+		return fmt.Errorf("failed to fund bootstrap fund: %w", err)
 	}
 
 	// ─── Route B Wave 8: import Route B state (survivable upgrades) ──────
@@ -219,15 +217,10 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		}
 	}
 
-	// Fund the training fund if an allocation is declared (Wave 4 +).
-	if gs.TrainingFundAllocation != "" && gs.TrainingFundAllocation != "0" {
-		alloc, ok := new(big.Int).SetString(gs.TrainingFundAllocation, 10)
-		if ok && alloc.Sign() > 0 && k.bankKeeper != nil {
-			coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(alloc)))
-			if err := k.bankKeeper.MintCoins(ctx, types.TrainingFundModuleName, coins); err != nil {
-				return fmt.Errorf("failed to mint training fund: %w", err)
-			}
-		}
+	// As with the bootstrap fund, this is a target balance rather than an
+	// additive mint so exported bank balances round-trip without inflation.
+	if err := k.ensureGenesisFundBalance(ctx, types.TrainingFundModuleName, gs.TrainingFundAllocation); err != nil {
+		return fmt.Errorf("failed to fund training fund: %w", err)
 	}
 
 	// Load doctrine Facts (SL-M1): every commitment in every doctrine
@@ -238,6 +231,33 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	}
 
 	return nil
+}
+
+// ensureGenesisFundBalance brings a module account up to its declared genesis
+// allocation without reminting coins that x/bank already restored. This keeps
+// the historical fresh-genesis contract (a zero balance receives the full
+// allocation) while making old exported genesis files safe to import: those
+// files contain both the bank balance and the same balance-as-allocation value.
+func (k Keeper) ensureGenesisFundBalance(ctx context.Context, moduleName, allocation string) error {
+	if allocation == "" {
+		return nil
+	}
+	target, ok := sdkmath.NewIntFromString(allocation)
+	if !ok || target.IsNegative() || target.String() != allocation {
+		return fmt.Errorf("allocation must be a canonical non-negative base-10 integer within 256 bits")
+	}
+	if k.bankKeeper == nil || target.IsZero() {
+		return nil
+	}
+
+	moduleAddr := sdk.AccAddress(authtypesNewModuleAddress(moduleName))
+	current := k.bankKeeper.GetBalance(ctx, moduleAddr, "uzrn").Amount
+	if current.GTE(target) {
+		return nil
+	}
+
+	coins := sdk.NewCoins(sdk.NewCoin("uzrn", target.Sub(current)))
+	return k.bankKeeper.MintCoins(ctx, moduleName, coins)
 }
 
 // ExportGenesis exports the current module state as a genesis state.

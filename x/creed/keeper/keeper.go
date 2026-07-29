@@ -55,21 +55,24 @@ func (k Keeper) GetAuthority() string { return k.authority }
 
 // ── Params ──────────────────────────────────────────────────────────
 
-func (k Keeper) GetParams(ctx context.Context) types.Params {
+func (k Keeper) GetParams(ctx context.Context) *types.Params {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := store.Get(types.ParamsKey)
 	if err != nil || bz == nil {
-		return *types.DefaultParams()
+		return types.DefaultParams()
 	}
 	var p types.Params
 	if err := k.cdc.Unmarshal(bz, &p); err != nil {
-		return *types.DefaultParams()
+		return types.DefaultParams()
 	}
-	return p
+	return &p
 }
 
-func (k Keeper) SetParams(ctx context.Context, p types.Params) error {
-	bz, err := k.cdc.Marshal(&p)
+func (k Keeper) SetParams(ctx context.Context, p *types.Params) error {
+	if p == nil {
+		return fmt.Errorf("nil params")
+	}
+	bz, err := k.cdc.Marshal(p)
 	if err != nil {
 		return err
 	}

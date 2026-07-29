@@ -9,6 +9,7 @@ vendor/
 /axiom-loader
 /faucet
 /knowledge-context
+/tools/knowledge-context/knowledge-context
 /oracle
 
 # Test runs / logs

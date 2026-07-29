@@ -8,7 +8,7 @@ import (
 
 func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if gs.Params != nil {
-		if err := k.SetParams(ctx, *gs.Params); err != nil {
+		if err := k.SetParams(ctx, gs.Params); err != nil {
 			return err
 		}
 	}
@@ -22,7 +22,7 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
-	gs := &types.GenesisState{Params: &params}
+	gs := &types.GenesisState{Params: params}
 	k.IterateAdapters(ctx, func(a *types.AdapterRegistration) bool {
 		gs.Adapters = append(gs.Adapters, a)
 		return false

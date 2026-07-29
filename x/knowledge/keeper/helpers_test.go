@@ -73,7 +73,6 @@ func (bk *trackingBankKeeper) SendCoinsFromModuleToModule(_ context.Context, sen
 	return nil
 }
 
-
 func (bk *trackingBankKeeper) MintCoins(_ context.Context, moduleName string, amt sdk.Coins) error {
 	bk.minted = bk.minted.Add(amt...)
 	bk.moduleBalances[moduleName] = bk.moduleBalances[moduleName].Add(amt...)
@@ -114,10 +113,10 @@ func newTrackingStakingKeeper() *trackingStakingKeeper {
 	}
 }
 
-func (sk *trackingStakingKeeper) GetActiveValidatorInfos(_ context.Context) ([]types.ValidatorInfo, error) {
-	vals := make([]types.ValidatorInfo, 0, len(sk.validators))
+func (sk *trackingStakingKeeper) GetActiveValidatorInfos(_ context.Context) ([]*types.ValidatorInfo, error) {
+	vals := make([]*types.ValidatorInfo, 0, len(sk.validators))
 	for _, v := range sk.validators {
-		vals = append(vals, types.ValidatorInfo{
+		vals = append(vals, &types.ValidatorInfo{
 			Address:           v.Address,
 			Stake:             v.Stake,
 			Tier:              v.Tier,

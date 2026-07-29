@@ -27,7 +27,7 @@ type BankKeeper interface {
 // StakingKeeper defines the expected staking keeper interface.
 type StakingKeeper interface {
 	// GetActiveValidatorInfos returns all validators eligible for selection.
-	GetActiveValidatorInfos(ctx context.Context) ([]ValidatorInfo, error)
+	GetActiveValidatorInfos(ctx context.Context) ([]*ValidatorInfo, error)
 	// GetValidatorInfo returns info for a specific validator.
 	GetValidatorInfo(ctx context.Context, addr string) (*ValidatorInfo, error)
 	// GetEffectiveStake returns the effective stake for a validator (including virtual stake).

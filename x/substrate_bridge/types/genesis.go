@@ -10,7 +10,10 @@ func DefaultGenesis() *GenesisState {
 	}
 }
 
-func (gs GenesisState) Validate() error {
+func (gs *GenesisState) Validate() error {
+	if gs == nil || gs.Params == nil {
+		return fmt.Errorf("params required")
+	}
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}

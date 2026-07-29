@@ -44,20 +44,23 @@ func (k Keeper) Authority() string { return k.authority }
 
 // ─── Params ──────────────────────────────────────────────────────────
 
-func (k Keeper) GetParams(ctx context.Context) types.Params {
+func (k Keeper) GetParams(ctx context.Context) *types.Params {
 	bz, err := k.storeService.OpenKVStore(ctx).Get(types.ParamsKey)
 	if err != nil || bz == nil {
-		return *types.DefaultParams()
+		return types.DefaultParams()
 	}
 	var p types.Params
 	if err := k.cdc.Unmarshal(bz, &p); err != nil {
-		return *types.DefaultParams()
+		return types.DefaultParams()
 	}
-	return p
+	return &p
 }
 
-func (k Keeper) SetParams(ctx context.Context, p types.Params) error {
-	bz, err := k.cdc.Marshal(&p)
+func (k Keeper) SetParams(ctx context.Context, p *types.Params) error {
+	if p == nil {
+		return fmt.Errorf("nil params")
+	}
+	bz, err := k.cdc.Marshal(p)
 	if err != nil {
 		return err
 	}
@@ -285,7 +288,7 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) {
 		return
 	}
 	if gs.Params != nil {
-		_ = k.SetParams(ctx, *gs.Params)
+		_ = k.SetParams(ctx, gs.Params)
 	}
 	for _, c := range gs.Counterexamples {
 		if c != nil {
@@ -313,7 +316,7 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) {
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
 	gs := &types.GenesisState{
-		Params: &params,
+		Params: params,
 	}
 	store := k.storeService.OpenKVStore(ctx)
 	if bz, err := store.Get(types.NextCounterexampleSeqKey); err == nil && len(bz) == 8 {

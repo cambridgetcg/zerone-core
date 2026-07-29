@@ -41,7 +41,8 @@ func setupSubstrateBridgeKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 
-	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
+	params := types.DefaultParams()
+	if err := k.SetParams(ctx, &params); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
 
@@ -142,7 +143,8 @@ func setupSubstrateBridgeKeeperFull(t *testing.T) (keeper.Keeper, sdk.Context, *
 
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 
-	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
+	params := types.DefaultParams()
+	if err := k.SetParams(ctx, &params); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
 
@@ -171,7 +173,8 @@ func setupSubstrateBridgeKeeperWithBank(t *testing.T) (keeper.Keeper, sdk.Contex
 
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 
-	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
+	params := types.DefaultParams()
+	if err := k.SetParams(ctx, &params); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
 

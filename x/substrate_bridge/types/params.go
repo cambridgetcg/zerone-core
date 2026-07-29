@@ -22,7 +22,10 @@ func DefaultParams() Params {
 	}
 }
 
-func (p Params) Validate() error {
+func (p *Params) Validate() error {
+	if p == nil {
+		return fmt.Errorf("params required")
+	}
 	if p.MaxPendingClaimsPerAttestation == 0 {
 		return fmt.Errorf("max_pending_claims_per_attestation must be > 0")
 	}

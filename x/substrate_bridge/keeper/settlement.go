@@ -79,7 +79,7 @@ func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) err
 // Phase 0 simplification: Q is a fixed 0.5 (5000 bps) since x/knowledge doesn't
 // yet expose per-round consensus_margin via the expected-keepers interface.
 // Plan 1 (x/work) or a future task will refine Q with real consensus data.
-func (k Keeper) computeReward(att *types.ExternalAttestation, verifiedRatioBps uint32, params types.Params) sdkmath.Int {
+func (k Keeper) computeReward(att *types.ExternalAttestation, verifiedRatioBps uint32, params *types.Params) sdkmath.Int {
 	base, _ := sdkmath.NewIntFromString(params.AttestationMinBondUzrn)
 	// L proxy: base × verifiedRatio
 	L := base.Mul(sdkmath.NewIntFromUint64(uint64(verifiedRatioBps))).Quo(sdkmath.NewInt(10000))

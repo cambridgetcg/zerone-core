@@ -29,11 +29,11 @@ func NewStakingKeeperAdapter(k Keeper) *StakingKeeperAdapter {
 var _ knowledgetypes.StakingKeeper = (*StakingKeeperAdapter)(nil)
 
 // GetActiveValidatorInfos returns all active validators as ValidatorInfo structs.
-func (a *StakingKeeperAdapter) GetActiveValidatorInfos(ctx context.Context) ([]knowledgetypes.ValidatorInfo, error) {
+func (a *StakingKeeperAdapter) GetActiveValidatorInfos(ctx context.Context) ([]*knowledgetypes.ValidatorInfo, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	validators := a.k.GetActiveValidatorSet(sdkCtx)
 
-	infos := make([]knowledgetypes.ValidatorInfo, 0, len(validators))
+	infos := make([]*knowledgetypes.ValidatorInfo, 0, len(validators))
 	for _, val := range validators {
 		infos = append(infos, validatorToInfo(sdkCtx, a.k, val))
 	}
@@ -47,8 +47,7 @@ func (a *StakingKeeperAdapter) GetValidatorInfo(ctx context.Context, addr string
 	if !found {
 		return nil, fmt.Errorf("validator %s not found", addr)
 	}
-	info := validatorToInfo(sdkCtx, a.k, val)
-	return &info, nil
+	return validatorToInfo(sdkCtx, a.k, val), nil
 }
 
 // GetEffectiveStake returns the effective selection stake for a validator as uint64.
@@ -126,7 +125,7 @@ func (a *StakingKeeperAdapter) SlashValidatorToModule(ctx context.Context, addr 
 }
 
 // validatorToInfo converts a staking Validator to a knowledge ValidatorInfo.
-func validatorToInfo(ctx sdk.Context, k Keeper, val *types.Validator) knowledgetypes.ValidatorInfo {
+func validatorToInfo(ctx sdk.Context, k Keeper, val *types.Validator) *knowledgetypes.ValidatorInfo {
 	effective := k.GetEffectiveSelectionStake(ctx, val)
 	var stakeUint64 uint64
 	if effective.IsUint64() {
@@ -140,7 +139,7 @@ func validatorToInfo(ctx sdk.Context, k Keeper, val *types.Validator) knowledget
 		accuracyBps = val.CorrectVerifications * 1_000_000 / val.TotalVerifications
 	}
 
-	return knowledgetypes.ValidatorInfo{
+	return &knowledgetypes.ValidatorInfo{
 		Address:           val.OperatorAddress,
 		Stake:             stakeUint64,
 		Tier:              types.ValidatorTierString(val.Tier),

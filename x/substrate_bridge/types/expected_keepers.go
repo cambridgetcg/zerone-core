@@ -22,7 +22,7 @@ type KnowledgeKeeper interface {
 // QualificationKeeper is the subset of x/qualification.Keeper used
 // for submitter qualification checks.
 type QualificationKeeper interface {
-	GetDomainQualification(ctx context.Context, address, domain string) (qualificationtypes.DomainQualification, bool)
+	GetDomainQualification(ctx context.Context, address, domain string) (*qualificationtypes.DomainQualification, bool)
 }
 
 // BankKeeper escrows submitter bonds and disburses rewards.
