@@ -2,10 +2,12 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
@@ -16,10 +18,65 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	sdkruntime "github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/server"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
+
+var errInjectedIBCCleanup = errors.New("injected IBC cleanup failure")
+
+type failingIBCCleanupStore struct {
+	dbm.DB
+
+	iteratorOpenErr  error
+	iteratorErr      error
+	iteratorCloseErr error
+	deleteErr        error
+}
+
+func (s failingIBCCleanupStore) Iterator(start, end []byte) (corestore.Iterator, error) {
+	if s.iteratorOpenErr != nil {
+		return nil, s.iteratorOpenErr
+	}
+	iterator, err := s.DB.Iterator(start, end)
+	if err != nil {
+		return nil, err
+	}
+	return failingIBCCleanupIterator{
+		Iterator: iterator,
+		err:      s.iteratorErr,
+		closeErr: s.iteratorCloseErr,
+	}, nil
+}
+
+func (s failingIBCCleanupStore) Delete(key []byte) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+	return s.DB.Delete(key)
+}
+
+type failingIBCCleanupIterator struct {
+	corestore.Iterator
+
+	err      error
+	closeErr error
+}
+
+func (i failingIBCCleanupIterator) Error() error {
+	if i.err != nil {
+		return i.err
+	}
+	return i.Iterator.Error()
+}
+
+func (i failingIBCCleanupIterator) Close() error {
+	underlyingErr := i.Iterator.Close()
+	return errors.Join(underlyingErr, i.closeErr)
+}
 
 func TestSDK053IBC10StoreUpgrades(t *testing.T) {
 	upgrades := sdk053IBC10StoreUpgrades()
@@ -27,6 +84,123 @@ func TestSDK053IBC10StoreUpgrades(t *testing.T) {
 	require.Empty(t, upgrades.Added)
 	require.Empty(t, upgrades.Renamed)
 	require.Equal(t, []string{"capability", "feeibc"}, upgrades.Deleted)
+}
+
+func TestDeleteObsoleteIBCChannelPrefixes(t *testing.T) {
+	obsolete := map[string][]byte{
+		"channelUpgrades/upgrades/ports/transfer/channels/channel-0":            []byte("local-upgrade"),
+		"channelUpgrades/counterpartyUpgrade/ports/transfer/channels/channel-0": []byte("counterparty-upgrade"),
+		"channelUpgrades/upgradeError/ports/transfer/channels/channel-1":        []byte("upgrade-error"),
+		"pruningSequenceStart/ports/transfer/channels/channel-0":                {0, 0, 0, 0, 0, 0, 0, 7},
+	}
+	retained := map[string][]byte{
+		// recvStartSequence remains active replay-protection state in v10.
+		"recvStartSequence/ports/transfer/channels/channel-0": {0, 0, 0, 0, 0, 0, 0, 8},
+		// Ordinary packet state must survive the channel schema migration.
+		"commitments/ports/transfer/channels/channel-0/sequences/7": []byte("packet-commitment"),
+		"acks/ports/transfer/channels/channel-0/sequences/6":        []byte("packet-ack"),
+		"receipts/ports/transfer/channels/channel-0/sequences/5":    {1},
+		// Prefix lookalikes are not part of the obsolete domains.
+		"channelUpgrades-not-a-child":      []byte("keep"),
+		"pruningSequenceStart-not-a-child": []byte("keep"),
+	}
+
+	// Exercise the same SDK cache-merge iterator and error-returning runtime
+	// adapter used by the upgrade handler, with legacy keys in committed state.
+	rootStore := rootmulti.NewStore(dbm.NewMemDB(), log.NewNopLogger(), metrics.NewNoOpMetrics())
+	ibcKey := storetypes.NewKVStoreKey("ibc-prefix-cleanup-test")
+	rootStore.MountStoreWithDB(ibcKey, storetypes.StoreTypeIAVL, nil)
+	require.NoError(t, rootStore.LoadLatestVersion())
+	committedIBCStore := rootStore.GetKVStore(ibcKey)
+	for key, value := range obsolete {
+		committedIBCStore.Set([]byte(key), value)
+	}
+	for key, value := range retained {
+		committedIBCStore.Set([]byte(key), value)
+	}
+	rootStore.Commit()
+
+	ctx := sdk.NewContext(rootStore.CacheMultiStore(), cmtproto.Header{}, false, log.NewNopLogger())
+	store := sdkruntime.NewKVStoreService(ibcKey).OpenKVStore(ctx)
+
+	deleted, err := deleteObsoleteIBCChannelPrefixes(store)
+	require.NoError(t, err)
+	require.Equal(t, len(obsolete), deleted)
+
+	for key := range obsolete {
+		value, err := store.Get([]byte(key))
+		require.NoError(t, err)
+		require.Nil(t, value, "%s must be removed", key)
+	}
+	for key, expected := range retained {
+		value, err := store.Get([]byte(key))
+		require.NoError(t, err)
+		require.Equal(t, expected, value, "%s must be preserved byte-for-byte", key)
+	}
+
+	// Re-running the repair is a no-op, which matters if an upgrade block is
+	// replayed after a rollback.
+	deleted, err = deleteObsoleteIBCChannelPrefixes(store)
+	require.NoError(t, err)
+	require.Zero(t, deleted)
+}
+
+func TestDeleteObsoleteIBCChannelPrefixesFailsClosed(t *testing.T) {
+	testCases := []struct {
+		name  string
+		store failingIBCCleanupStore
+		want  string
+	}{
+		{
+			name: "iterator open",
+			store: failingIBCCleanupStore{
+				DB:              dbm.NewMemDB(),
+				iteratorOpenErr: errInjectedIBCCleanup,
+			},
+			want: "open iterator",
+		},
+		{
+			name: "iterator traversal",
+			store: failingIBCCleanupStore{
+				DB:          dbm.NewMemDB(),
+				iteratorErr: errInjectedIBCCleanup,
+			},
+			want: "iterate obsolete IBC prefix",
+		},
+		{
+			name: "iterator close",
+			store: failingIBCCleanupStore{
+				DB:               dbm.NewMemDB(),
+				iteratorCloseErr: errInjectedIBCCleanup,
+			},
+			want: "close iterator",
+		},
+		{
+			name: "delete",
+			store: failingIBCCleanupStore{
+				DB:        dbm.NewMemDB(),
+				deleteErr: errInjectedIBCCleanup,
+			},
+			want: "delete obsolete IBC key",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.store.deleteErr != nil {
+				require.NoError(t, tc.store.DB.Set(
+					[]byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0"),
+					[]byte("upgrade"),
+				))
+			}
+
+			deleted, err := deleteObsoleteIBCChannelPrefixes(tc.store)
+			require.Error(t, err)
+			require.ErrorIs(t, err, errInjectedIBCCleanup)
+			require.Contains(t, err.Error(), tc.want)
+			require.Zero(t, deleted)
+		})
+	}
 }
 
 func TestSDK053IBC10StoreLoaderDeletesLegacyStoresAndRestarts(t *testing.T) {

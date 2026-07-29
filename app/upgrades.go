@@ -1,14 +1,18 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
+	corestore "cosmossdk.io/core/store"
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	sdkruntime "github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -31,6 +35,17 @@ const UpgradeNameSDK053IBC10 = "sdk-0.53-ibc-10"
 const (
 	legacyCapabilityStoreKey = "capability"
 	legacyIBCFeeStoreKey     = "feeibc"
+
+	// IBC-Go v8 stores channel-upgrade and pruning records below these
+	// slash-terminated domains. IBC-Go v10.7.0's v10 migration calls Delete on
+	// the bare prefixes instead, but Cosmos SDK KVStore deletion is exact-key:
+	// the child records therefore survive unless the application removes them.
+	legacyIBCChannelUpgradesPrefix = "channelUpgrades/"
+	legacyIBCPruningSequencePrefix = "pruningSequenceStart/"
+
+	// Cosmos SDK cacheMergeIterator.Error reports this value on ordinary
+	// exhaustion rather than nil. All other iterator errors remain fatal.
+	exhaustedCacheMergeIteratorError = "invalid cacheMergeIterator"
 )
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
@@ -382,6 +397,25 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 				return nil, err
 			}
 
+			// IBC-Go v10.7.0 intends to remove the v8 channel-upgrade and
+			// pruning domains, but its migration deletes only the bare
+			// prefix keys. Enumerate and delete the actual child keys after
+			// all module migrations have succeeded. recvStartSequence and
+			// packet commitments/acks/receipts are deliberately outside
+			// these prefixes and must survive for replay protection and
+			// unfinished packet lifecycles.
+			deletedIBCKeys, err := app.deleteObsoleteIBCChannelState(ctx)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q failed to remove obsolete IBC v8 channel state: %w",
+					plan.Name, err,
+				)
+			}
+			app.Logger().Info(fmt.Sprintf(
+				"%s: removed %d obsolete IBC v8 channel-upgrade/pruning keys",
+				plan.Name, deletedIBCKeys,
+			))
+
 			// Permanent reconcile step (kept in every handler — see v1.0.3).
 			app.ReconcileModuleAccountPerms(ctx)
 
@@ -396,6 +430,102 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+}
+
+type ibcPrefixCleanupStore interface {
+	Iterator(start, end []byte) (corestore.Iterator, error)
+	Delete(key []byte) error
+}
+
+// deleteObsoleteIBCChannelState repairs an upstream IBC-Go v10.7.0 migration
+// defect. It is intentionally narrower than "delete old IBC state": only
+// channelUpgrades/* and pruningSequenceStart/* are obsolete. In particular,
+// recvStartSequence/* remains live replay-protection state in IBC-Go v10.
+func (app *ZeroneApp) deleteObsoleteIBCChannelState(ctx context.Context) (int, error) {
+	key, ok := app.keys[ibcexported.StoreKey]
+	if !ok || key == nil {
+		return 0, fmt.Errorf("IBC store key %q is not mounted", ibcexported.StoreKey)
+	}
+
+	store := sdkruntime.NewKVStoreService(key).OpenKVStore(ctx)
+	return deleteObsoleteIBCChannelPrefixes(store)
+}
+
+func deleteObsoleteIBCChannelPrefixes(store ibcPrefixCleanupStore) (int, error) {
+	if store == nil {
+		return 0, errors.New("IBC prefix cleanup store is nil")
+	}
+
+	prefixes := [][]byte{
+		[]byte(legacyIBCChannelUpgradesPrefix),
+		[]byte(legacyIBCPruningSequencePrefix),
+	}
+	keys := make([][]byte, 0)
+	for _, prefix := range prefixes {
+		prefixKeys, err := collectStoreKeysWithPrefix(store, prefix)
+		if err != nil {
+			return 0, err
+		}
+		keys = append(keys, prefixKeys...)
+	}
+
+	for i, key := range keys {
+		if err := store.Delete(key); err != nil {
+			return i, fmt.Errorf("delete obsolete IBC key %q: %w", key, err)
+		}
+	}
+	return len(keys), nil
+}
+
+// collectStoreKeysWithPrefix closes the iterator before any caller writes to
+// the same domain, as required by the Cosmos store iterator contract.
+func collectStoreKeysWithPrefix(store ibcPrefixCleanupStore, prefix []byte) ([][]byte, error) {
+	if len(prefix) == 0 {
+		return nil, errors.New("refusing to enumerate an empty IBC store prefix")
+	}
+
+	iterator, err := store.Iterator(prefix, storetypes.PrefixEndBytes(prefix))
+	if err != nil {
+		return nil, fmt.Errorf("open iterator for obsolete IBC prefix %q: %w", prefix, err)
+	}
+	if iterator == nil {
+		return nil, fmt.Errorf("open iterator for obsolete IBC prefix %q: nil iterator", prefix)
+	}
+
+	keys := make([][]byte, 0)
+	for ; iterator.Valid(); iterator.Next() {
+		key := iterator.Key()
+		if !bytes.HasPrefix(key, prefix) {
+			iterationErr := fmt.Errorf(
+				"iterator for obsolete IBC prefix %q returned out-of-domain key %q",
+				prefix, key,
+			)
+			closeErr := iterator.Close()
+			if closeErr != nil {
+				closeErr = fmt.Errorf("close iterator for obsolete IBC prefix %q: %w", prefix, closeErr)
+			}
+			return nil, errors.Join(iterationErr, closeErr)
+		}
+		keys = append(keys, bytes.Clone(key))
+	}
+
+	iterationErr := iterator.Error()
+	if iterationErr != nil &&
+		!iterator.Valid() &&
+		iterationErr.Error() == exhaustedCacheMergeIteratorError {
+		iterationErr = nil
+	}
+	if iterationErr != nil {
+		iterationErr = fmt.Errorf("iterate obsolete IBC prefix %q: %w", prefix, iterationErr)
+	}
+	closeErr := iterator.Close()
+	if closeErr != nil {
+		closeErr = fmt.Errorf("close iterator for obsolete IBC prefix %q: %w", prefix, closeErr)
+	}
+	if err := errors.Join(iterationErr, closeErr); err != nil {
+		return nil, err
+	}
+	return keys, nil
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove

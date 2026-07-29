@@ -383,6 +383,19 @@ upstream
 Dependency migration and this app-level policy regression both have to pass
 before the upgrade is scheduled.
 
+The unified handler also repairs an
+[IBC-Go v10.7.0 channel-migration defect](https://github.com/cosmos/ibc-go/blob/v10.7.0/modules/core/04-channel/migrations/v10/store.go#L111-L123).
+That upstream migration calls exact-key deletion on `channelUpgrades` and
+`pruningSequenceStart`, while the v8 records are child keys below
+`channelUpgrades/…` and `pruningSequenceStart/…`. After module migrations
+succeed, Zerone enumerates, closes the iterators, and deletes the real child
+keys; any iterator or deletion error aborts before the auth-hardening marker.
+The repair deliberately preserves `recvStartSequence/…` byte-for-byte because
+IBC-Go v10 still uses it for replay protection, and likewise preserves packet
+commitments, acknowledgements, and receipts. The old-database rehearsal must
+assert both sides of that boundary: obsolete child prefixes gone, live replay
+and packet state retained.
+
 This repair does not make the current `did:zrn` lifecycle trustworthy.
 Registration still lacks identity-key proof of possession, rotation does not
 verify its authorization signature, legacy identifier aliases are ambiguous,
