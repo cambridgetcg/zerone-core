@@ -1,0 +1,26 @@
+{
+  "schema": "zerone-2-dark-start-initiation-evidence-v1",
+  "attestation_result": "MATCH",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "DARK-START-INITIATION-EVIDENCE.json.sig"
+  },
+  "dark_start_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "initiation_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "first_committed_block": {
+    "chain_id": "zerone-2",
+    "height": "1",
+    "block_id_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "app_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "committed_block_time": "REPLACE_WITH_RFC3339_NANO_TIME",
+    "validator_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "independent_edge_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "deadline_satisfied": true,
+  "authority_limit": "factual proof that exact private zerone-2 block 1 committed on time; permits only the private continuation already scoped by DARK-START"
+}

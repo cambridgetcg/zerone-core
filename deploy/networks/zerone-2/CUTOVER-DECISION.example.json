@@ -1,0 +1,124 @@
+{
+  "schema": "zerone-2-cutover-decision-v1",
+  "decision": "REPLACE_WITH_GO_OR_NO_GO",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "operator": "REPLACE_WITH_OPERATOR_ID",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "CUTOVER-DECISION.json.sig"
+  },
+  "release_packet_sha256": "REPLACE_WITH_64_HEX",
+  "release_packet_detached_signature_sha256": "REPLACE_WITH_64_HEX",
+  "dark_start_decision_sha256": "REPLACE_WITH_64_HEX",
+  "dark_start_detached_signature_sha256": "REPLACE_WITH_64_HEX",
+  "dark_start_initiation_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "dark_start_initiation_evidence_detached_signature_sha256": "REPLACE_WITH_64_HEX",
+  "dark_registration_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "dark_registration_evidence_detached_signature_sha256": "REPLACE_WITH_64_HEX",
+  "private_soak_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "halt_rehearsal_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "public_notice_sha256": "REPLACE_WITH_PUBLIC_NOTICE_64_HEX",
+  "public_notice_publication_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "public_notice_published_at": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "authorization_semantics": {
+    "initiation_event": "exact zerone-1 successor commitment transaction commits after exact public notice publication",
+    "initiation_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "broadcast_not_after": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "minimum_inclusion_margin_seconds": 300,
+    "minimum_halt_lead_blocks": 100,
+    "if_not_initiated_by_deadline": "authorization lapses; publish a signed correction if notice was posted and do not arm or halt zerone-1",
+    "after_initiation": "the exact in-flight F/A/H evidence capture, signer fencing, evidence-derived private archive adoption, and final-checkpoint preparation remains authorized only while the signed plan and preconditions remain satisfiable; public exposure requires a later OPEN-BETA decision"
+  },
+  "checkpoint_plan": {
+    "checkpoint_state_height": "REPLACE_F",
+    "final_committed_anchor_height": "REPLACE_A",
+    "halt_trigger_height": "REPLACE_H"
+  },
+  "successor_commitment_transaction": {
+    "chain_id": "zerone-1",
+    "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+    "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "sender": "REPLACE_WITH_ZERONE_ADDRESS",
+    "message_type": "/cosmos.bank.v1beta1.MsgSend",
+    "recipient_equals_sender": true,
+    "amount": "1uzrn",
+    "fee": "200000uzrn",
+    "gas_limit": "200000",
+    "timeout_height": "REPLACE_WITH_POSITIVE_HEIGHT_BEFORE_F",
+    "memo": "successor_chain_id=zerone-2;successor_genesis_sha256=REPLACE_64_HEX;checkpoint_state_height=REPLACE_F;final_committed_height=REPLACE_A;halt_trigger_height=REPLACE_H",
+    "must_not_reference_cutover_payload": true
+  },
+  "deployment_configs": {
+    "zerone_1_halt_signer": {
+      "app": "REPLACE_WITH_ZERONE_1_SIGNER_APP",
+      "role": "signer",
+      "image_component": "zerone_1_halt",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_1_HALT_REPOSITORY@sha256:REPLACE_WITH_ZERONE_1_HALT_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_1_observer": {
+      "app": "REPLACE_WITH_ZERONE_1_OBSERVER_APP",
+      "role": "observer",
+      "image_component": "zerone_1_halt",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_1_HALT_REPOSITORY@sha256:REPLACE_WITH_ZERONE_1_HALT_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    }
+  },
+  "deterministic_private_continuation": {
+    "attestation_algorithm": "openpgp",
+    "authorized_transition_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX",
+    "allowed_adoption_authority_schema": "zerone-1-archive-adoption-authority-v1",
+    "allowed_transition_manifest_schema": "zerone-1-archive-transition-v1",
+    "render_contract": {
+      "schema": "zerone-1-archive-render-contract-v1",
+      "renderer_path": "deploy/mainnet/render-archive-configs.sh",
+      "renderer_sha256": "REPLACE_WITH_64_HEX",
+      "archive_candidate_template_sha256": "REPLACE_WITH_64_HEX",
+      "archive_template_sha256": "REPLACE_WITH_64_HEX",
+      "static_constraints": {
+        "app": "zerone-1-archive",
+        "volume": "zerone_archive_data",
+        "region": "lhr",
+        "image_component": "zerone_1_halt",
+        "archive_candidate_role": "archive-candidate",
+        "archive_role": "archive",
+        "deployment_strategy": "immediate",
+        "public_fly_service": false,
+        "public_ip": false,
+        "persistent_peers": []
+      }
+    },
+    "required_bindings": [
+      "release packet and cutover decision payload hashes",
+      "exact notice publication evidence and on-time committed successor transaction hash/height/time",
+      "F/A/H and expected A block/post-A app hashes",
+      "signer and observer raw-evidence manifest hashes",
+      "source observer and fresh candidate public identities",
+      "pre-transition sanitized snapshot, rollback log, and pre-transition allowlist-manifest hashes with all future authority artifacts excluded",
+      "exact renderer and candidate/final template hashes",
+      "exact archive-candidate and archive app/role/config SHA-256 values"
+    ],
+    "required_attestation_result": "MATCH",
+    "authority_limit": "transition key may sign only the deterministic renderer output for private archive candidate/final adoption; it cannot choose app, volume, image, topology, config bytes, public service, history link, endpoint publication, or DNS"
+  },
+  "scope_if_go": [
+    "publish exact public relaunch notice",
+    "broadcast exact zerone-1 successor commitment transaction",
+    "arm exact zerone-1 F/A/H halt plan",
+    "manually fence zerone-1 signer after evidence capture",
+    "create evidence-derived inner archive transition manifest",
+    "reproduce and sign the deterministic ARCHIVE-ADOPTION-AUTHORITY attestation",
+    "deploy exact private archive candidate and final archive only if that attestation verifies",
+    "prepare signed final checkpoint without public exposure"
+  ],
+  "initial_beta_exclusions": [
+    "public gRPC",
+    "hosted transaction submission",
+    "direct plaintext RPC or REST origins",
+    "direct zerone-1 balance migration",
+    "vote extensions and PoT",
+    "external IBC, transfer, or ICA",
+    "bridge, claims, automatic issuance, knowledge rewards, alignment, counterexamples, or liquidity activation"
+  ]
+}

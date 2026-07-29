@@ -1,0 +1,27 @@
+{
+  "schema": "zerone-2-open-beta-initiation-evidence-v1",
+  "attestation_result": "MATCH",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "OPEN-BETA-INITIATION-EVIDENCE.json.sig"
+  },
+  "open_beta_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "initiation_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "history_link_transaction": {
+    "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+    "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "committed_transaction_hash": "REPLACE_WITH_SAME_UPPERCASE_64_HEX",
+    "deliver_code": 0,
+    "committed_height": "REPLACE_WITH_POSITIVE_DECIMAL_STRING",
+    "committed_block_time": "REPLACE_WITH_RFC3339_NANO_TIME",
+    "raw_transaction_query_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "independent_edge_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "deadline_satisfied": true,
+  "authority_limit": "factual proof that the exact OPEN-BETA initiation event committed on time; permits only the forward completion already scoped by the signed OPEN-BETA decision"
+}

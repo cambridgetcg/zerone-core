@@ -1,0 +1,28 @@
+# Private checkpoint signer profile for the existing zerone-1 app and volume.
+# Deploy this exact service-free shape before arming F/A/H. The checkpoint
+# observer reaches P2P only over zerone-1.internal; no public Fly listener or
+# direct public origin is part of the halt path.
+app = "zerone-1"
+primary_region = "lhr"
+
+[build]
+  image = "REPLACE_WITH_PINNED_ZERONE_1_HALT_IMAGE_DIGEST"
+
+[deploy]
+  strategy = "immediate"
+
+[env]
+  MONIKER = "zerone-1-fly-0"
+  NODE_ROLE = "signer"
+  ZERONE_HOME = "/data/.zeroned"
+  ZERONE_CHECKPOINT_STATE_HEIGHT = "REPLACE_WITH_F"
+  ZERONE_FINAL_COMMITTED_HEIGHT = "REPLACE_WITH_A"
+  ZERONE_HALT_TRIGGER_HEIGHT = "REPLACE_WITH_H"
+
+[mounts]
+  source = "zerone_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"

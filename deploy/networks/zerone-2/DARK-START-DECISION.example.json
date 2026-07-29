@@ -1,0 +1,116 @@
+{
+  "schema": "zerone-2-dark-start-decision-v1",
+  "decision": "REPLACE_WITH_GO_OR_NO_GO",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "operator": "REPLACE_WITH_OPERATOR_ID",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "DARK-START-DECISION.json.sig"
+  },
+  "release_packet_sha256": "REPLACE_WITH_64_HEX",
+  "release_packet_detached_signature_sha256": "REPLACE_WITH_64_HEX",
+  "private_bootstrap_transactions": {
+    "broadcast_order": [
+      "operator_onboarding",
+      "custom_validator_registration"
+    ],
+    "operator_onboarding": {
+      "filename": "ZERONE-2-ONBOARD-SIGNED-TX.json",
+      "chain_id": "zerone-2",
+      "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+      "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+      "sender": "REPLACE_WITH_ZERONE_ADDRESS",
+      "message_type": "/zerone.auth.v1.MsgRegisterAccount",
+      "did": "did:zrn:REPLACE_WITH_64_HEX",
+      "public_key": "REPLACE_WITH_64_HEX",
+      "account_type": "human",
+      "operational_key_hash": "",
+      "metadata": "",
+      "fee": "200000uzrn",
+      "gas_limit": "200000",
+      "signer_sequence": "0",
+      "timeout_height": "REPLACE_WITH_POSITIVE_HEIGHT",
+      "memo": "zerone-2-private-bootstrap:operator-onboarding",
+      "must_not_reference_dark_start_payload": true
+    },
+    "custom_validator_registration": {
+      "filename": "ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json",
+      "chain_id": "zerone-2",
+      "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+      "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+      "operator": "REPLACE_WITH_ZERONE_ADDRESS",
+      "message_type": "/zerone.staking.v1.MsgRegisterValidator",
+      "consensus_pubkey": "REPLACE_WITH_64_HEX",
+      "did": "did:zrn:REPLACE_WITH_64_HEX",
+      "moniker": "zerone-2-custodian",
+      "self_delegation": "111000000",
+      "commission_bps": "500",
+      "website": "",
+      "details": "One publicly disclosed custodial validator",
+      "fee": "200000uzrn",
+      "gas_limit": "200000",
+      "signer_sequence": "1",
+      "timeout_height": "REPLACE_WITH_POSITIVE_HEIGHT",
+      "memo": "zerone-2-private-bootstrap:custom-validator-registration",
+      "must_not_reference_dark_start_payload": true
+    }
+  },
+  "authorization_semantics": {
+    "initiation_event": "first committed block of the exact private zerone-2 genesis",
+    "initiation_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "registration_commit_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "registration_broadcast_not_after": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "minimum_registration_inclusion_margin_seconds": 300,
+    "if_not_initiated_by_deadline": "authorization lapses; do not start genesis or broadcast registration transactions",
+    "after_initiation": "only the exact private registration, soak, evidence capture, recovery test, or explicit candidate abandonment remains authorized; no public or zerone-1 action is added"
+  },
+  "deployment_configs": {
+    "zerone_2_validator": {
+      "app": "REPLACE_WITH_ZERONE_2_VALIDATOR_APP",
+      "role": "validator",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_edge_private": {
+      "app": "REPLACE_WITH_ZERONE_2_EDGE_APP",
+      "role": "edge",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_edge_query_soak": {
+      "app": "REPLACE_WITH_ZERONE_2_EDGE_APP",
+      "role": "edge",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_gateway_private": {
+      "app": "REPLACE_WITH_ZERONE_2_GATEWAY_APP",
+      "role": "zerone-2-query",
+      "image_component": "query_gateway",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    }
+  },
+  "scope_if_go": [
+    "provision exact private zerone-2 validator, edge, monitor, and query gateway",
+    "start exact zerone-2 genesis privately",
+    "broadcast only the exact pre-signed operator-onboarding TxRaw on private zerone-2",
+    "after onboarding commits, broadcast only the exact pre-signed 111000000uzrn custom-validator-registration TxRaw on private zerone-2",
+    "run private query-origin and gateway soak"
+  ],
+  "always_forbidden_by_this_decision": [
+    "publish public relaunch notice or endpoint",
+    "broadcast any zerone-1 transaction",
+    "arm or halt zerone-1",
+    "expose a public Fly service or public P2P address",
+    "change public DNS"
+  ],
+  "required_minimum_private_soak": {
+    "blocks": 1000,
+    "wall_time_minutes": 60
+  }
+}

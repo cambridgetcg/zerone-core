@@ -1,0 +1,36 @@
+# Example only. Replace every `replace-*` value outside Git before use.
+# This is the default private-soak edge profile. It has no public Fly service;
+# sentry P2P remains reachable only over Fly's private network.
+app = "replace-edge-app"
+primary_region = "replace-region"
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[build]
+  image = "replace-with-pinned-image-digest"
+
+[deploy]
+  # This example uses one stateful volume. Scale with separate volumes/apps,
+  # not overlapping machines attached to the same node home.
+  strategy = "immediate"
+
+[env]
+  NODE_ROLE = "edge"
+  ZERONE_HOME = "/data/.zeroned"
+  MONIKER = "replace-edge-moniker"
+  PERSISTENT_PEERS = "0000000000000000000000000000000000000000@[replace-private-validator-address]:26656"
+  PRIVATE_PEER_IDS = "0000000000000000000000000000000000000000"
+  CORS_ALLOWED_ORIGINS_JSON = "[]"
+  QUERY_ORIGIN_ENABLED = "false"
+  # P2P_EXTERNAL_ADDRESS is intentionally absent during private soak.
+
+[mounts]
+  source = "replace_edge_volume"
+  destination = "/data"
+
+[[vm]]
+  size = "replace-edge-vm-size"
+  memory = "4gb"
+
+# Only after OPEN-BETA and verified link-initiation evidence, use the public
+# profile as the reviewed replacement. Do not add query services here.

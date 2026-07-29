@@ -1,0 +1,212 @@
+{
+  "schema": "zerone-final-checkpoint-v3",
+  "status": "frozen",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "chain_id": "zerone-1",
+  "authority_chain": {
+    "release_packet": {
+      "sha256": "REPLACE_WITH_64_HEX",
+      "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "dark_start_decision": {
+      "sha256": "REPLACE_WITH_64_HEX",
+      "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "dark_start_initiation_evidence": {
+      "sha256": "REPLACE_WITH_64_HEX",
+      "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "dark_registration_evidence": {
+      "sha256": "REPLACE_WITH_64_HEX",
+      "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "cutover_decision": {
+      "sha256": "REPLACE_WITH_64_HEX",
+      "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "cutover_initiation_evidence": {
+      "sha256": "REPLACE_WITH_64_HEX",
+      "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "archive_adoption_authority": {
+      "sha256": "REPLACE_WITH_64_HEX",
+      "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "archive_transition_manifest_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "checkpoint_state": {
+    "height": "REPLACE_F",
+    "app_hash": "REPLACE_WITH_UPPERCASE_64_HEX_FROM_BLOCK_A_HEADER",
+    "inventory_v3_sha256": "REPLACE_WITH_64_HEX",
+    "rest_height_pinned": true,
+    "rest_merkle_proved": false,
+    "trust_model": "height-pinned REST from a trusted halted source; responses are not Merkle-proved"
+  },
+  "final_application_block": {
+    "height": "REPLACE_A_EQUALS_F_PLUS_1",
+    "block_id_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "header_app_hash": "REPLACE_WITH_SAME_CHECKPOINT_APP_HASH",
+    "transaction_count": 0,
+    "time": "REPLACE_WITH_RFC3339_NANO_TIME",
+    "commit_canonical": true
+  },
+  "halt_trigger_tip": {
+    "height": "REPLACE_H_EQUALS_A_PLUS_1",
+    "sdk_hook": "FinalizeBlock",
+    "blockstore_status_tip_before_fencing": "REPLACE_H",
+    "staged_block_id_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "staged_header_last_block_id_hash": "REPLACE_WITH_FINAL_APPLICATION_BLOCK_ID_HASH",
+    "transaction_count": 0,
+    "subjective_seen_commit_canonical_field": false,
+    "canonical_field_interpretation": "false because H is the current BlockStore tip and no H+1 exists; this field alone does not prove noncanonicality",
+    "block_results_available": false,
+    "application_applied": false
+  },
+  "excluded_post_anchor_state": {
+    "abci_last_applied_height": "REPLACE_A",
+    "app_hash": "REPLACE_WITH_UPPERCASE_64_HEX_FROM_ABCI_INFO",
+    "included_in_successor_inventory": false,
+    "reason": "explicit transition policy selects state F; staged H is application-unapplied terminal evidence"
+  },
+  "terminal_rpc_evidence": {
+    "sources": {
+      "official_signer": {
+        "status_json_sha256": "REPLACE_WITH_64_HEX",
+        "sha256_manifest_sha256": "REPLACE_WITH_64_HEX"
+      },
+      "independent_observer": {
+        "status_json_sha256": "REPLACE_WITH_64_HEX",
+        "sha256_manifest_sha256": "REPLACE_WITH_64_HEX"
+      }
+    },
+    "matching_payload_sha256": {
+      "genesis_json": "REPLACE_WITH_64_HEX",
+      "trusted_block_json": "REPLACE_WITH_64_HEX",
+      "trusted_commit_json": "REPLACE_WITH_64_HEX",
+      "trusted_validators_json": "REPLACE_WITH_64_HEX",
+      "block_a_json": "REPLACE_WITH_64_HEX",
+      "commit_a_json": "REPLACE_WITH_64_HEX",
+      "validators_a_json": "REPLACE_WITH_64_HEX",
+      "block_results_a_json": "REPLACE_WITH_64_HEX",
+      "block_h_json": "REPLACE_WITH_64_HEX",
+      "commit_h_json": "REPLACE_WITH_64_HEX",
+      "validators_h_json": "REPLACE_WITH_64_HEX",
+      "abci_info_json": "REPLACE_WITH_64_HEX",
+      "block_results_h_missing_response": "REPLACE_WITH_64_HEX"
+    },
+    "matched_payloads": [
+      "genesis",
+      "trusted_block",
+      "trusted_commit",
+      "trusted_validators",
+      "block_A",
+      "commit_A",
+      "validators_A",
+      "block_results_A",
+      "block_H",
+      "commit_H",
+      "validators_H",
+      "abci_info",
+      "block_results_H_missing"
+    ]
+  },
+  "genesis": {
+    "raw_file_sha256": "c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e",
+    "rpc_canonical_sha256": "REPLACE_FROM_V3_INVENTORY"
+  },
+  "successor": {
+    "chain_id": "zerone-2",
+    "genesis_time": "REPLACE_WITH_RFC3339_UTC",
+    "genesis_sha256": "REPLACE_WITH_FINAL_ZERONE_2_GENESIS_SHA256",
+    "release": {
+      "source_commit": "REPLACE_WITH_40_HEX",
+      "signed_tag": "REPLACE_WITH_SIGNED_ANNOTATED_TAG",
+      "tag_signer_fingerprint": "REPLACE_WITH_40_OR_64_HEX",
+      "binary_sha256": "REPLACE_WITH_64_HEX",
+      "runtime_image_ref": "REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_64_HEX",
+      "query_gateway_image_ref": "REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_WITH_GATEWAY_64_HEX"
+    },
+    "private_dark_start": {
+      "first_block_time": "REPLACE_WITH_RFC3339_NANO_TIME",
+      "evidence_height": "REPLACE_WITH_POSITIVE_HEIGHT",
+      "evidence_app_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+      "operator_onboarding_transaction_hash": "REPLACE_WITH_64_HEX",
+      "custom_validator_registration_transaction_hash": "REPLACE_WITH_64_HEX",
+      "validator_fly_config_sha256": "REPLACE_WITH_64_HEX",
+      "edge_query_soak_fly_config_sha256": "REPLACE_WITH_64_HEX",
+      "private_gateway_fly_config_sha256": "REPLACE_WITH_64_HEX",
+      "gateway_smoke_evidence_sha256": "REPLACE_WITH_64_HEX",
+      "minimum_blocks_observed": 1000,
+      "minimum_wall_time_minutes": 60
+    }
+  },
+  "successor_commitment": {
+    "transaction_hash": "REPLACE_WITH_64_HEX_TX_HASH",
+    "committed_height": "REPLACE_WITH_POSITIVE_HEIGHT",
+    "committed_block_time": "REPLACE_WITH_RFC3339_NANO_TIME",
+    "public_notice_sha256": "REPLACE_WITH_PUBLIC_NOTICE_64_HEX",
+    "public_notice_publication_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "memo": "successor_chain_id=zerone-2;successor_genesis_sha256=REPLACE_64_HEX;checkpoint_state_height=REPLACE_F;final_committed_height=REPLACE_A;halt_trigger_height=REPLACE_H"
+  },
+  "artifacts": {
+    "post_anchor_state_export_sha256": "REPLACE_WITH_64_HEX",
+    "post_anchor_state_export_included_in_successor_inventory": false,
+    "offline_halted_observer_database_snapshot_sha256": "REPLACE_WITH_64_HEX",
+    "sanitized_a_a_database_snapshot_sha256": "REPLACE_WITH_64_HEX",
+    "archive_rollback_log_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "source_halt_release": {
+    "source_commit": "REPLACE_WITH_40_HEX",
+    "signed_tag": "REPLACE_WITH_SIGNED_ANNOTATED_TAG",
+    "tag_signer_fingerprint": "REPLACE_WITH_40_OR_64_HEX",
+    "binary_sha256": "REPLACE_WITH_64_HEX",
+    "image_ref": "REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_WITH_ZERONE_1_HALT_64_HEX"
+  },
+  "deployment_config_sha256": {
+    "zerone_1_halt_signer": "REPLACE_WITH_64_HEX",
+    "zerone_1_observer": "REPLACE_WITH_64_HEX",
+    "zerone_1_archive_candidate": "REPLACE_WITH_64_HEX",
+    "zerone_1_archive": "REPLACE_WITH_64_HEX"
+  },
+  "archive": {
+    "blockstore_status_height": "REPLACE_A",
+    "abci_last_applied_height": "REPLACE_A",
+    "halt_trigger_block_present": false,
+    "anchor_tip_commit_rpc_canonical": false,
+    "fresh_nonvalidator_keys": true,
+    "old_signer_keys_present": false,
+    "persistent_peers": [],
+    "peer_exchange_enabled": false,
+    "catching_up_expected_for_fresh_key_comet_v0_38": true,
+    "candidate_readiness_sha256": "REPLACE_WITH_64_HEX",
+    "final_runtime_marker_sha256": "REPLACE_WITH_64_HEX",
+    "private_a_a_probe_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "readiness_contract": "chain ID matches; status height A; ABCI height/hash A; block H absent; private query-only origin",
+    "public_service_authorized": false
+  },
+  "accepted_policy": {
+    "one_operator_validator_bft_f": 0,
+    "direct_zerone_1_balance_migration": false,
+    "checkpoint_inventory_is_entitlement": false,
+    "vote_extensions_live_at_genesis": false,
+    "pot_live_at_genesis": false,
+    "external_ibc_clients_live_at_genesis": false,
+    "ibc_transfer_live_at_genesis": false,
+    "ica_live_at_genesis": false,
+    "substrate_bridge_live_at_genesis": false,
+    "claims_live_at_genesis": false,
+    "automatic_issuance_live_at_genesis": false,
+    "knowledge_admission_rewards_live_at_genesis": false,
+    "alignment_corrections_live_at_genesis": false,
+    "counterexamples_live_at_genesis": false,
+    "liquidity_pool_creation_live_at_genesis": false,
+    "public_grpc_live_at_initial_beta": false,
+    "hosted_transaction_submission_live_at_initial_beta": false
+  },
+  "attestation": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX",
+    "detached_signature_filename": "FINAL-CHECKPOINT.json.sig",
+    "authority_limit": "historical checkpoint and private archive evidence only; no public deployment, transaction, endpoint, or DNS authority"
+  }
+}

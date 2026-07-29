@@ -1,0 +1,27 @@
+# zerone-1 checkpoint observer. This machine syncs privately from the official
+# signer and exposes no public Fly service. Give it its own empty volume.
+app = "zerone-1-observer"
+primary_region = "lhr"
+
+[build]
+  image = "REPLACE_WITH_PINNED_ZERONE_1_HALT_IMAGE_DIGEST"
+
+[deploy]
+  strategy = "immediate"
+
+[env]
+  MONIKER = "zerone-1-checkpoint-observer"
+  NODE_ROLE = "observer"
+  ZERONE_HOME = "/data/.zeroned"
+  PERSISTENT_PEERS = "ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e@zerone-1.internal:26656"
+  ZERONE_CHECKPOINT_STATE_HEIGHT = "REPLACE_WITH_F"
+  ZERONE_FINAL_COMMITTED_HEIGHT = "REPLACE_WITH_A"
+  ZERONE_HALT_TRIGGER_HEIGHT = "REPLACE_WITH_H"
+
+[mounts]
+  source = "zerone_observer_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"

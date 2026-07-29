@@ -1,0 +1,31 @@
+{
+  "schema": "zerone-2-cutover-initiation-evidence-v1",
+  "attestation_result": "MATCH",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "CUTOVER-INITIATION-EVIDENCE.json.sig"
+  },
+  "cutover_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "initiation_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "public_notice": {
+    "sha256": "REPLACE_WITH_PUBLIC_NOTICE_64_HEX",
+    "publication_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "successor_commitment_transaction": {
+    "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+    "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "committed_transaction_hash": "REPLACE_WITH_SAME_UPPERCASE_64_HEX",
+    "deliver_code": 0,
+    "committed_height": "REPLACE_WITH_POSITIVE_DECIMAL_STRING",
+    "committed_block_time": "REPLACE_WITH_RFC3339_NANO_TIME",
+    "raw_transaction_query_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "independent_observer_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "deadline_satisfied": true,
+  "authority_limit": "factual proof that the exact CUTOVER initiation event committed on time; no independent deployment or public authority"
+}

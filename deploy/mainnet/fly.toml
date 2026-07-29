@@ -3,10 +3,16 @@ app = "zerone-1"
 primary_region = "lhr"
 
 [build]
-  dockerfile = "Dockerfile"
+  # Fail closed: build locally through build-image.sh, publish/scan it, then
+  # replace this with the exact registry digest. Never let Fly upload the repo.
+  image = "REPLACE_WITH_PINNED_ZERONE_1_HALT_IMAGE_DIGEST"
+
+[deploy]
+  strategy = "immediate"
 
 [env]
   MONIKER = "zerone-1-fly-0"
+  NODE_ROLE = "signer"
   ZERONE_HOME = "/data/.zeroned"
   EXTERNAL_ADDRESS = "169.155.55.44:26656"
 

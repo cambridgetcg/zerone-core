@@ -1,0 +1,170 @@
+{
+  "schema": "zerone-2-release-packet-v1",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "chain_id": "zerone-2",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "RELEASE-PACKET.json.sig"
+  },
+  "predecessor": {
+    "chain_id": "zerone-1",
+    "genesis_file_sha256": "c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e",
+    "trusted_rpc_node_id": "REPLACE_WITH_OFFICIAL_ZERONE_1_SIGNER_NODE_ID_40_HEX",
+    "trusted_observer_node_id": "REPLACE_WITH_OFFICIAL_ZERONE_1_OBSERVER_NODE_ID_40_HEX",
+    "trusted_block": {
+      "height": "REPLACE_WITH_TRUSTED_ZERONE_1_HEIGHT",
+      "block_id_hash": "REPLACE_WITH_64_UPPERCASE_HEX",
+      "app_hash": "REPLACE_WITH_64_UPPERCASE_HEX"
+    }
+  },
+  "source": {
+    "commit": "REPLACE_WITH_40_HEX",
+    "signed_annotated_tag": "REPLACE_WITH_TAG",
+    "tag_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX"
+  },
+  "genesis": {
+    "time": "REPLACE_WITH_RFC3339_UTC",
+    "sha256": "REPLACE_WITH_64_HEX",
+    "independent_verification_count": 2
+  },
+  "ceremony_artifacts": {
+    "schema": "zerone-2-public-ceremony-artifact-set-v1",
+    "genesis_checksum_sha256": "REPLACE_WITH_64_HEX",
+    "network_manifest_sha256": "REPLACE_WITH_64_HEX",
+    "human_manifest_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "components": {
+    "zerone_1_halt": {
+      "binary_sha256": "REPLACE_WITH_64_HEX",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_1_HALT_REPOSITORY@sha256:REPLACE_WITH_ZERONE_1_HALT_64_HEX",
+      "sbom_sha256": "REPLACE_WITH_64_HEX",
+      "provenance_sha256": "REPLACE_WITH_64_HEX",
+      "signature_sha256": "REPLACE_WITH_64_HEX",
+      "vulnerability_decision_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_runtime": {
+      "binary_sha256": "REPLACE_WITH_64_HEX",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sbom_sha256": "REPLACE_WITH_64_HEX",
+      "provenance_sha256": "REPLACE_WITH_64_HEX",
+      "signature_sha256": "REPLACE_WITH_64_HEX",
+      "vulnerability_decision_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "query_gateway": {
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
+      "sbom_sha256": "REPLACE_WITH_64_HEX",
+      "provenance_sha256": "REPLACE_WITH_64_HEX",
+      "signature_sha256": "REPLACE_WITH_64_HEX",
+      "vulnerability_decision_sha256": "REPLACE_WITH_64_HEX"
+    }
+  },
+  "public_identities": {
+    "validator_account_address": "REPLACE_WITH_ZERONE_ADDRESS",
+    "validator_operator_address": "REPLACE_WITH_ZERONEVALOPER_ADDRESS",
+    "operations_account_address": "REPLACE_WITH_ZERONE_ADDRESS",
+    "validator_node_id": "REPLACE_WITH_40_HEX",
+    "edge_node_id": "REPLACE_WITH_FRESH_40_HEX",
+    "validator_consensus_pubkey": "REPLACE_WITH_PUBLIC_KEY",
+    "transition_attestation": {
+      "algorithm": "openpgp",
+      "authorized_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX",
+      "purpose": "post-halt evidence and deterministic private archive-adoption manifests only; not operator GO authority"
+    }
+  },
+  "archive_render_contract": {
+    "schema": "zerone-1-archive-render-contract-v1",
+    "renderer_path": "deploy/mainnet/render-archive-configs.sh",
+    "renderer_sha256": "REPLACE_WITH_64_HEX",
+    "static_constraints": {
+      "app": "zerone-1-archive",
+      "volume": "zerone_archive_data",
+      "region": "lhr",
+      "image_component": "zerone_1_halt",
+      "archive_candidate_role": "archive-candidate",
+      "archive_role": "archive",
+      "deployment_strategy": "immediate",
+      "public_fly_service": false,
+      "public_ip": false,
+      "persistent_peers": []
+    }
+  },
+  "deployment_configs": {
+    "zerone_2_validator": {
+      "app": "REPLACE_WITH_ZERONE_2_VALIDATOR_APP",
+      "role": "validator",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_edge_private": {
+      "app": "REPLACE_WITH_ZERONE_2_EDGE_APP",
+      "role": "edge",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_edge_query_soak": {
+      "app": "REPLACE_WITH_ZERONE_2_EDGE_APP",
+      "role": "edge",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_gateway_private": {
+      "app": "REPLACE_WITH_ZERONE_2_GATEWAY_APP",
+      "role": "zerone-2-query",
+      "image_component": "query_gateway",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_edge_public": {
+      "app": "REPLACE_WITH_ZERONE_2_EDGE_APP",
+      "role": "edge",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_gateway_public": {
+      "app": "REPLACE_WITH_ZERONE_2_GATEWAY_APP",
+      "role": "zerone-2-query",
+      "image_component": "query_gateway",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_1_archive_gateway": {
+      "app": "REPLACE_WITH_ZERONE_1_ARCHIVE_GATEWAY_APP",
+      "role": "zerone-1-archive-query",
+      "image_component": "query_gateway",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    }
+  },
+  "phase_dependent_config_template_sha256": {
+    "zerone_1_halt_signer": "REPLACE_WITH_64_HEX",
+    "zerone_1_observer": "REPLACE_WITH_64_HEX",
+    "zerone_1_archive_candidate": "REPLACE_WITH_64_HEX",
+    "zerone_1_archive": "REPLACE_WITH_64_HEX"
+  },
+  "monitoring_alerts_sha256": "REPLACE_WITH_64_HEX",
+  "operator_tool_manifest_sha256": "REPLACE_WITH_64_HEX",
+  "accepted_policy": {
+    "one_operator_validator_bft_f": 0,
+    "direct_zerone_1_balance_migration": false,
+    "checkpoint_inventory_is_entitlement": false,
+    "vote_extensions_live_at_genesis": false,
+    "pot_live_at_genesis": false,
+    "external_ibc_clients_live_at_genesis": false,
+    "ibc_transfer_live_at_genesis": false,
+    "ica_live_at_genesis": false,
+    "substrate_bridge_live_at_genesis": false,
+    "claims_live_at_genesis": false,
+    "automatic_issuance_live_at_genesis": false,
+    "knowledge_admission_rewards_live_at_genesis": false,
+    "alignment_corrections_live_at_genesis": false,
+    "counterexamples_live_at_genesis": false,
+    "liquidity_pool_creation_live_at_genesis": false,
+    "public_grpc_live_at_initial_beta": false,
+    "hosted_transaction_submission_live_at_initial_beta": false
+  }
+}

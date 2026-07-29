@@ -21,6 +21,7 @@
 #
 # Usage: deploy/mainnet/make-genesis.sh [output-dir]
 set -euo pipefail
+umask 077
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BINARY="${BINARY:-${PROJECT_ROOT}/build/zeroned}"
@@ -29,7 +30,6 @@ KEYRING="${KEYRING:-${HOME}/.zeroned/mainnet-ops}"
 CHAIN_ID="zerone-1"
 DENOM="uzrn"
 MONIKER="zerone-1-genesis"
-GOV_AUTHORITY="zrn10d07y265gmmuvt4z0w9aw880jnsr700j47tt89"
 
 VAL_BALANCE="11333000000${DENOM}"  # 11,333 ZRN (11,111 bonded + 222 gas)
 VAL_STAKE="11111000000${DENOM}"    # 11,111 ZRN self-bonded
@@ -112,7 +112,7 @@ cp "${CEREMONY}/config/node_key.json" "${OUT}/node_key.json"
 cp "${CEREMONY}/config/priv_validator_key.json" "${OUT}/priv_validator_key.json"
 NODE_ID="$("${BINARY}" tendermint show-node-id --home "${CEREMONY}")"
 SUPPLY=$(jq -r '.app_state.bank.supply[0].amount' "${OUT}/genesis.json")
-GENHASH=$(shasum -a 256 "${OUT}/genesis.json" | awk '{print $1}')
+GENHASH=$(LC_ALL=C LANG=C shasum -a 256 "${OUT}/genesis.json" | awk '{print $1}')
 
 cat > "${OUT}/GENESIS-MANIFEST.md" <<MAN
 # zerone-1 genesis manifest (custodial launch)
@@ -129,6 +129,10 @@ cat > "${OUT}/GENESIS-MANIFEST.md" <<MAN
 No team / foundation / investor / faucet allocation. All other ZRN mints on
 participation under MintWithCap. Custodial launch — see TRUST.md.
 MAN
+
+chmod 600 "${OUT}/validator.mnemonic" "${OUT}/zerone-ops.mnemonic" \
+  "${OUT}/node_key.json" "${OUT}/priv_validator_key.json"
+chmod 644 "${OUT}/genesis.json" "${OUT}/GENESIS-MANIFEST.md"
 
 ok "zerone-1 genesis: ${SUPPLY} uzrn, sha256 ${GENHASH:0:16}…"
 echo "     validator: ${VAL_ADDR}"

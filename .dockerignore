@@ -8,3 +8,27 @@ scripts/
 .claude/
 docs/*.md
 docs/home-e2e-report.md
+
+# Mainnet custody material must never enter a Docker build context. The
+# genesis and its public manifest are safe; signing and P2P identity keys are
+# runtime secrets.
+deploy/mainnet/artifacts/*.mnemonic
+deploy/mainnet/artifacts/priv_validator_key.json
+deploy/mainnet/artifacts/node_key.json
+
+# Defense in depth for any other Dockerfile accidentally invoked at repository
+# root. Release Dockerfiles must still use their sanitized-context wrappers.
+**/*.mnemonic
+**/node_key.json
+**/node_key.json.*
+**/priv_validator_key.json
+**/priv_validator_key.json.*
+**/priv_validator_state.json
+**/priv_validator_state.json.*
+**/keyring-*/
+**/.env
+**/.env.*
+**/*secret*.json
+**/*credentials*.json
+deploy/testnet/artifacts/
+deploy/networks/zerone-2/artifacts/

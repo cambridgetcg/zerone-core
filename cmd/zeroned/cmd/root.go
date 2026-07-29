@@ -155,6 +155,7 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig app.EncodingConfig) {
 
 	// Status / query / tx
 	rootCmd.AddCommand(server.StatusCommand())
+	rootCmd.AddCommand(verifyFrozenTerminalCmd())
 	rootCmd.AddCommand(queryCommand(encodingConfig))
 	rootCmd.AddCommand(txCommand(encodingConfig))
 }
@@ -315,10 +316,17 @@ func newApp(
 ) servertypes.Application {
 	baseappOptions := server.DefaultBaseappOptions(appOpts)
 
-	return app.NewZeroneApp(
+	zeroneApp := app.NewZeroneApp(
 		logger, db, traceStore, true, appOpts,
 		baseappOptions...,
 	)
+
+	// Opt-in PoT verifier wiring: populates VoteExtConfig from priv_validator_key
+	// + [vote-extensions] validator-address. No-op unless the node opts in; inert
+	// until the chain enables vote_extensions_enable_height.
+	zeroneApp.ConfigureVoteExtensions(appOpts, logger)
+
+	return zeroneApp
 }
 
 // appExport creates a new ZeroneApp and exports its state.

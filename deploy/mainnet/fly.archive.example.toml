@@ -1,0 +1,37 @@
+# Final one-way archive stage after fly.archive-candidate.example.toml has
+# written and locally consumed the exact reviewed A/A readiness proof. This
+# private origin has no public Fly service or direct public IP. A separate
+# reviewed query-only TLS/rate-limit proxy may reach RPC/API over Fly private
+# networking; never expose these listeners directly.
+app = "zerone-1-archive"
+primary_region = "lhr"
+
+[build]
+  image = "REPLACE_WITH_PINNED_ZERONE_1_HALT_IMAGE_DIGEST"
+
+[deploy]
+  strategy = "immediate"
+
+[env]
+  MONIKER = "zerone-1-checkpoint-archive"
+  NODE_ROLE = "archive"
+  ZERONE_HOME = "/data/.zeroned"
+  ZERONE_CHECKPOINT_STATE_HEIGHT = "REPLACE_WITH_F"
+  ZERONE_FINAL_COMMITTED_HEIGHT = "REPLACE_WITH_A"
+  ZERONE_HALT_TRIGGER_HEIGHT = "REPLACE_WITH_H"
+  ZERONE_SIGNER_EVIDENCE_MANIFEST_SHA256 = "REPLACE_WITH_SIGNER_EVIDENCE_SHA256"
+  ZERONE_OBSERVER_EVIDENCE_MANIFEST_SHA256 = "REPLACE_WITH_OBSERVER_EVIDENCE_SHA256"
+  ZERONE_SOURCE_OBSERVER_RUNTIME_MARKER_SHA256 = "REPLACE_WITH_SOURCE_OBSERVER_MARKER_SHA256"
+  ZERONE_SOURCE_OBSERVER_NODE_ID = "REPLACE_WITH_SOURCE_OBSERVER_NODE_ID"
+  ZERONE_SOURCE_OBSERVER_VALIDATOR_PUBKEY = "REPLACE_WITH_SOURCE_OBSERVER_VALIDATOR_PUBKEY_BASE64"
+  ZERONE_EXPECTED_ANCHOR_BLOCK_HASH = "REPLACE_WITH_UPPERCASE_A_BLOCK_HASH"
+  ZERONE_EXPECTED_POST_ANCHOR_APP_HASH = "REPLACE_WITH_UPPERCASE_POST_A_APP_HASH"
+  ZERONE_ARCHIVE_TRANSITION_MANIFEST_SHA256 = "REPLACE_WITH_ARCHIVE_TRANSITION_MANIFEST_SHA256"
+
+[mounts]
+  source = "zerone_archive_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"

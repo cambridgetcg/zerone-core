@@ -1,0 +1,57 @@
+{
+  "schema": "zerone-2-dark-registration-evidence-v1",
+  "attestation_result": "MATCH",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "DARK-REGISTRATION-EVIDENCE.json.sig"
+  },
+  "dark_start_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "dark_start_initiation_evidence": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "registration_commit_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "deadline_satisfied": true,
+  "operator_onboarding": {
+    "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+    "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "committed_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "deliver_code": 0,
+    "committed_height": "REPLACE_WITH_POSITIVE_HEIGHT",
+    "committed_block_time": "REPLACE_WITH_RFC3339_NANO_TIME",
+    "raw_transaction_query_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "independent_edge_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "custom_validator_registration": {
+    "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+    "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "committed_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "deliver_code": 0,
+    "committed_height": "REPLACE_WITH_POSITIVE_HEIGHT",
+    "committed_block_time": "REPLACE_WITH_RFC3339_NANO_TIME",
+    "raw_transaction_query_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "independent_edge_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "post_registration_state": {
+    "chain_id": "zerone-2",
+    "operator": "REPLACE_WITH_ZERONE_ADDRESS",
+    "did": "did:zrn:REPLACE_WITH_64_HEX",
+    "identity_public_key": "REPLACE_WITH_64_HEX",
+    "validator_consensus_pubkey": "REPLACE_WITH_64_HEX",
+    "custom_validator_active": true,
+    "custom_validator_self_delegation_uzrn": "111000000",
+    "custom_staking_module_balance_uzrn": "111000000",
+    "total_supply_uzrn": "13555000000",
+    "sdk_validator_count": 1,
+    "account_query_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "custom_validator_query_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "module_balance_query_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "supply_query_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "authority_limit": "factual proof that the two exact DARK-authorized private zerone-2 bootstrap transactions committed in order and produced only the declared identity and custom-validator state; adds no public or zerone-1 authority"
+}

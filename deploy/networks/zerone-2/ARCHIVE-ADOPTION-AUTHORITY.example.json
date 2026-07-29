@@ -1,0 +1,119 @@
+{
+  "schema": "zerone-1-archive-adoption-authority-v1",
+  "attestation_result": "MATCH",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX",
+    "detached_signature_filename": "ARCHIVE-ADOPTION-AUTHORITY.json.sig"
+  },
+  "release_packet": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "cutover_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "checkpoint_plan": {
+    "checkpoint_state_height": "REPLACE_F",
+    "final_committed_anchor_height": "REPLACE_A",
+    "halt_trigger_height": "REPLACE_H"
+  },
+  "cutover_initiation_evidence": {
+    "successor_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "committed_height": "REPLACE_WITH_POSITIVE_DECIMAL_STRING",
+    "committed_block_time": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "public_notice_sha256": "REPLACE_WITH_PUBLIC_NOTICE_64_HEX",
+    "public_notice_publication_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "initiation_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "initiation_evidence_detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "archive_transition_manifest": {
+    "schema": "zerone-1-archive-transition-v1",
+    "sha256": "REPLACE_WITH_64_HEX",
+    "archive_transition_nonce": "REPLACE_WITH_64_HEX",
+    "source_evidence": {
+      "signer_manifest_sha256": "REPLACE_WITH_64_HEX",
+      "observer_manifest_sha256": "REPLACE_WITH_64_HEX"
+    },
+    "source_observer": {
+      "runtime_marker_sha256": "REPLACE_WITH_64_HEX",
+      "node_id": "REPLACE_WITH_40_HEX",
+      "validator_pubkey": "REPLACE_WITH_BASE64_ED25519_PUBLIC_KEY"
+    },
+    "candidate": {
+      "node_id": "REPLACE_WITH_FRESH_40_HEX",
+      "validator_pubkey": "REPLACE_WITH_FRESH_BASE64_ED25519_PUBLIC_KEY"
+    },
+    "expected_anchor_block_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "expected_post_anchor_app_hash": "REPLACE_WITH_UPPERCASE_64_HEX"
+  },
+  "archive_construction_evidence": {
+    "pre_transition_sanitized_snapshot_sha256": "REPLACE_WITH_64_HEX",
+    "rollback_log_sha256": "REPLACE_WITH_64_HEX",
+    "pre_transition_allowlist_manifest_sha256": "REPLACE_WITH_64_HEX",
+    "excluded_future_artifacts": [
+      "archive transition manifest",
+      "rendered Fly configs",
+      "archive adoption authority",
+      "archive readiness",
+      "final checkpoint",
+      "open-beta decision"
+    ]
+  },
+  "render_contract": {
+    "schema": "zerone-1-archive-render-contract-v1",
+    "renderer_path": "deploy/mainnet/render-archive-configs.sh",
+    "renderer_sha256": "REPLACE_WITH_64_HEX",
+    "archive_candidate_template_path": "deploy/mainnet/fly.archive-candidate.example.toml",
+    "archive_candidate_template_sha256": "REPLACE_WITH_64_HEX",
+    "archive_template_path": "deploy/mainnet/fly.archive.example.toml",
+    "archive_template_sha256": "REPLACE_WITH_64_HEX",
+    "allowed_substitutions": [
+      "zerone_1_halt_image_ref",
+      "F",
+      "A",
+      "H",
+      "signer_evidence_manifest_sha256",
+      "observer_evidence_manifest_sha256",
+      "source_observer_runtime_marker_sha256",
+      "source_observer_node_id",
+      "source_observer_validator_pubkey",
+      "expected_anchor_block_hash",
+      "expected_post_anchor_app_hash",
+      "archive_transition_manifest_sha256"
+    ]
+  },
+  "deployment_configs": {
+    "zerone_1_archive_candidate": {
+      "app": "zerone-1-archive",
+      "region": "lhr",
+      "deployment_strategy": "immediate",
+      "role": "archive-candidate",
+      "image_component": "zerone_1_halt",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_1_HALT_REPOSITORY@sha256:REPLACE_WITH_ZERONE_1_HALT_64_HEX",
+      "volume": "zerone_archive_data",
+      "template_sha256": "REPLACE_WITH_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_1_archive": {
+      "app": "zerone-1-archive",
+      "region": "lhr",
+      "deployment_strategy": "immediate",
+      "role": "archive",
+      "image_component": "zerone_1_halt",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_1_HALT_REPOSITORY@sha256:REPLACE_WITH_ZERONE_1_HALT_64_HEX",
+      "volume": "zerone_archive_data",
+      "template_sha256": "REPLACE_WITH_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    }
+  },
+  "enforced_origin_invariants": {
+    "public_fly_service": false,
+    "public_ip": false,
+    "persistent_peers": [],
+    "transaction_ingress": false,
+    "same_app_and_volume_one_way_adoption": true
+  },
+  "authority_limit": "deterministically rendered private archive candidate/final adoption only; no operator GO, public service, history-link transaction, endpoint publication, or DNS authority"
+}
