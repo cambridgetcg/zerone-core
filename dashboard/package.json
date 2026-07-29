@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "check": "tsc --noEmit",
-    "preview": "vite preview"
+    "build": "npm run check && npm test && vite build && npm run build:functions",
+    "build:functions": "wrangler pages functions build functions --outdir .wrangler/functions-build",
+    "check": "tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
+    "preview": "vite preview",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@cosmjs/proto-signing": "0.39.0",
@@ -15,7 +17,10 @@
     "@zerone-chain/sdk": "file:../sdk/typescript"
   },
   "devDependencies": {
+    "@types/node": "26.1.2",
+    "tsx": "4.23.1",
     "typescript": "7.0.2",
-    "vite": "8.1.4"
+    "vite": "8.1.4",
+    "wrangler": "4.115.0"
   }
 }

@@ -1,9 +1,25 @@
-type ProxyKind = "rpc" | "rest";
+export type ProxyKind = "rpc" | "rest";
 
-interface PagesContext {
+export interface PagesContext {
   request: Request;
   params: Record<string, string | string[] | undefined>;
   waitUntil(promise: Promise<unknown>): void;
+}
+
+type ProxyFetch = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+export interface ProxyCache {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+}
+
+export interface ProxyRuntime {
+  fetch: ProxyFetch;
+  cache: ProxyCache;
+  upstreams: Readonly<Record<ProxyKind, string>>;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -217,7 +233,11 @@ function validRestRequest(path: string, search: URLSearchParams): boolean {
   return false;
 }
 
-export async function proxyMainnet(context: PagesContext, kind: ProxyKind): Promise<Response> {
+export async function proxyRequest(
+  context: PagesContext,
+  kind: ProxyKind,
+  runtime: ProxyRuntime,
+): Promise<Response> {
   const { request } = context;
   const method = request.method.toUpperCase();
 
@@ -257,21 +277,20 @@ export async function proxyMainnet(context: PagesContext, kind: ProxyKind): Prom
   }
 
   const canCache = method === "GET";
-  const edgeCache = (globalThis.caches as unknown as { default: Cache }).default;
   const cacheKey = canCache ? new Request(incoming.toString(), { method: "GET" }) : null;
   if (cacheKey) {
-    const cached = await edgeCache.match(cacheKey);
+    const cached = await runtime.cache.match(cacheKey);
     if (cached) return cached;
   }
 
-  const target = new URL(`/${path}`, UPSTREAMS[kind]);
+  const target = new URL(`/${path}`, runtime.upstreams[kind]);
   target.search = incoming.search;
   const upstreamHeaders = new Headers({ Accept: "application/json" });
   if (method === "POST") upstreamHeaders.set("Content-Type", "application/json");
 
   let upstream: Response;
   try {
-    upstream = await fetch(target, {
+    upstream = await runtime.fetch(target, {
       method,
       headers: upstreamHeaders,
       body: method === "POST" ? request.body : undefined,
@@ -292,7 +311,16 @@ export async function proxyMainnet(context: PagesContext, kind: ProxyKind): Prom
   });
 
   if (cacheKey && upstream.ok) {
-    context.waitUntil(edgeCache.put(cacheKey, response.clone()));
+    context.waitUntil(runtime.cache.put(cacheKey, response.clone()));
   }
   return response;
+}
+
+export async function proxyMainnet(context: PagesContext, kind: ProxyKind): Promise<Response> {
+  const edgeCache = (globalThis.caches as unknown as { default: ProxyCache }).default;
+  return proxyRequest(context, kind, {
+    fetch: globalThis.fetch.bind(globalThis),
+    cache: edgeCache,
+    upstreams: UPSTREAMS,
+  });
 }

@@ -18,9 +18,16 @@ HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 ## Build and check
 
 ```bash
-npm run check
+npm ci
+npm test
 npm run build
 ```
+
+`npm run check` type-checks both the browser application and Pages Functions.
+`npm test` exercises the REST/RPC allowlists against injected fake upstreams;
+it cannot contact the production node. `npm run build` repeats those gates,
+builds the Vite application, and compiles Pages Functions with the repository's
+pinned Wrangler version.
 
 ## Deploy
 
