@@ -26,7 +26,12 @@ const client = await SigningStargateClient.connectWithSigner(rpc, directSigner, 
 ```
 
 `defaultRegistryTypes` is important: omitting it would leave standard messages
-such as `/cosmos.bank.v1beta1.MsgSend` out of the registry.
+such as `/cosmos.bank.v1beta1.MsgSend` and the Cosmos SDK feegrant messages out
+of the registry. Zerone uses the standard
+`/cosmos.feegrant.v1beta1.MsgGrantAllowance` and `MsgRevokeAllowance` types; no
+chain-specific fee-sponsorship codec is needed. Applications should still
+require an explicit spend cap, expiry, and allowed-message list before signing
+a grant, and should re-query the exact grant before setting `StdFee.granter`.
 
 Typed composers are isolated behind a second entry point:
 
@@ -86,6 +91,25 @@ application, so a valid `zrn` address cannot accidentally be labelled as
 belonging to an unrelated Cosmos network. Use the chain ID reported by the
 connected node. A future `zerone-2` is a different CAIP-2 chain even if state
 and addresses survive a reboot.
+
+## Parse an unsigned provenance projection
+
+```ts
+import {
+  parseUnsignedZeroneInTotoStatement,
+} from "@zerone-chain/sdk/provenance";
+
+const parsed = parseUnsignedZeroneInTotoStatement(json, {
+  manifestId: selectedManifestId,
+  observedOnChainId: connectedChainId,
+});
+```
+
+This parser accepts only Zerone's bounded in-toto Statement v1 profile and
+requires caller-pinned manifest and observed-chain values. Its result is
+explicitly unsigned: `authenticated` and `signatureVerified` remain `false`.
+The parser does not fetch URLs, verify Sigstore material, or turn a current
+state projection into historical proof.
 
 ## Develop
 

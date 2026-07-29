@@ -18,6 +18,7 @@ await build({
     index: "src/index.ts",
     caip: "src/caip.ts",
     messages: "src/messages.ts",
+    provenance: "src/provenance.ts",
     registry: "src/registry.ts",
   },
   outdir,

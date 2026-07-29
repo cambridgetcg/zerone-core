@@ -22,7 +22,7 @@ import (
 
 // txSigner holds a signer's address and pubkey, extracted from tx signature data.
 type txSigner struct {
-	Address    sdk.AccAddress
+	Address   sdk.AccAddress
 	PubKeyHex string // hex-encoded pubkey bytes
 }
 
@@ -69,7 +69,7 @@ func getTxSigners(tx sdk.Tx) []txSigner {
 			continue
 		}
 		signers = append(signers, txSigner{
-			Address:    sdk.AccAddress(sig.PubKey.Address()),
+			Address:   sdk.AccAddress(sig.PubKey.Address()),
 			PubKeyHex: hex.EncodeToString(sig.PubKey.Bytes()),
 		})
 	}
@@ -390,7 +390,7 @@ var msgTypeURLToGas = map[string]uint64{
 
 	// Liquidity pool
 	"/zerone.liquiditypool.v1.MsgCreatePool":      TransactionGasCosts["create_pool"],
-	"/zerone.liquiditypool.v1.MsgSwap":             TransactionGasCosts["lp_swap"],
+	"/zerone.liquiditypool.v1.MsgSwap":            TransactionGasCosts["lp_swap"],
 	"/zerone.liquiditypool.v1.MsgAddLiquidity":    TransactionGasCosts["lp_add_liquidity"],
 	"/zerone.liquiditypool.v1.MsgRemoveLiquidity": TransactionGasCosts["lp_remove_liquidity"],
 
@@ -531,6 +531,59 @@ func (zdd ZeroneDIDDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 		),
 	)
 
+	return next(ctx, tx, simulate)
+}
+
+// ---------- ZeroneFeeGranterDecorator ----------
+
+// ZeroneFeeGranterDecorator applies the account freeze invariant to the
+// account paying through x/feegrant. A fee granter is not necessarily a
+// transaction signer, so the signer-only ZeroneAccountDecorator cannot enforce
+// this boundary. It must run before the SDK DeductFeeDecorator consumes an
+// allowance or transfers the granter's fee.
+type ZeroneFeeGranterDecorator struct {
+	zak zeroneauthkeeper.Keeper
+}
+
+// NewZeroneFeeGranterDecorator creates a fee-granter freeze guard.
+func NewZeroneFeeGranterDecorator(zak zeroneauthkeeper.Keeper) ZeroneFeeGranterDecorator {
+	return ZeroneFeeGranterDecorator{zak: zak}
+}
+
+func (zfg ZeroneFeeGranterDecorator) AnteHandle(
+	ctx sdk.Context,
+	tx sdk.Tx,
+	simulate bool,
+	next sdk.AnteHandler,
+) (sdk.Context, error) {
+	feeTx, ok := tx.(sdk.FeeTx)
+	if !ok {
+		return next(ctx, tx, simulate)
+	}
+	granterBytes := feeTx.FeeGranter()
+	if len(granterBytes) == 0 {
+		return next(ctx, tx, simulate)
+	}
+	if len(granterBytes) != 20 {
+		return ctx, errors.Wrapf(
+			sdkerrors.ErrInvalidAddress,
+			"fee granter address must be 20 bytes, got %d",
+			len(granterBytes),
+		)
+	}
+	if err := sdk.VerifyAddressFormat(granterBytes); err != nil {
+		return ctx, errors.Wrapf(
+			sdkerrors.ErrInvalidAddress,
+			"invalid fee granter address: %v",
+			err,
+		)
+	}
+
+	granter := sdk.AccAddress(granterBytes).String()
+	account, found := zfg.zak.GetAccount(ctx, granter)
+	if found && account.Flags != nil && account.Flags.Frozen {
+		return ctx, zeroneauthtypes.ErrAccountFrozen
+	}
 	return next(ctx, tx, simulate)
 }
 

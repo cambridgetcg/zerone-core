@@ -4,6 +4,10 @@ export const DENOM = "uzrn";
 export const DISPLAY_DENOM = "ZRN";
 export const DECIMALS = 6;
 export const HARD_CAP_ZRN = 222_222_222;
+// Keep grant creation and sponsored sends off until the live validator runs
+// the pre-deduction frozen-fee-granter ante guard in this source tree and
+// direct REST access to the SDK's unindexed issued query is restricted.
+export const FEEGRANT_SPONSORSHIP_ENABLED = false;
 
 export const RPC_ENDPOINT = `${window.location.origin}/api/rpc`;
 export const REST_ENDPOINT = `${window.location.origin}/api/rest`;

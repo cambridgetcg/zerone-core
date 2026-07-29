@@ -97,6 +97,15 @@ configuration failures return `Internal`. Public REST operators should
 rate-limit this live synthesis and may cache by `(chain ID, block height,
 manifest ID)`, because certificate construction scans global audit records.
 
+The TypeScript SDK also exposes
+`parseUnsignedZeroneInTotoStatement` as a strict offline consumer for the
+exact v1 profile. Callers must pin the expected manifest and serving chain.
+The parser bounds the JSON and every variable collection, preserves protobuf
+`uint64` fields as decimal strings, checks the subject/certificate/source
+invariants, and returns an explicit unsigned/unverified assurance marker. It
+does not fetch the query, dereference the predicate URI, discover trust roots,
+verify signatures, or authenticate the predicate.
+
 ## Implemented: Sigstore evidence into substrate bridge
 
 The isolated
@@ -136,6 +145,7 @@ from Zerone's pinned protobuf sources with
 - a registry that composes with CosmJS's standard Cosmos message types;
 - generic CAIP-2 and CAIP-10 parsing plus the Cosmos chain-reference profile;
 - an explicit Zerone network descriptor and checksum-aware `zrn` account IDs;
+- a strict offline consumer for Zerone's unsigned in-toto provenance profile;
   and
 - a separate validator for the opaque `did:zrn` labels accepted by `x/auth`.
 
@@ -151,9 +161,84 @@ successful response that disagrees with the configured network or wallet is
 rejected. Standard bank sends continue through CosmJS's standard registry;
 the much larger Zerone codec registry is reserved for future custom controls.
 
-Generated codecs are serialization tools, not authority policy. No custom
-mainnet transaction control was enabled, and the SDK does not claim legacy
-Amino support for Zerone messages.
+Generated codecs are serialization tools, not authority policy. No Zerone
+custom-message control was enabled, and the SDK does not claim legacy Amino
+support for Zerone messages. The dashboard's only additional write controls
+use the already-wired standard Cosmos SDK feegrant module.
+
+## Implemented: static adapter capability index
+
+The dashboard publishes the custom
+[`zerone.adapter-index/v1`](../specs/adapter-index-v1.md) inventory at
+`/standards/adapter-index.v1.json`. It is version-controlled refusal and
+source-status metadata, not a live registry or discovery protocol. Validation
+keeps every release-level consensus, network, activation, and live-deployment
+assertion false.
+
+The required A2A and x402 entries are `planned` and `unavailable`, advertise no
+capabilities, and contain no endpoint field. Existing in-toto, Sigstore, and
+AgentTool seams are labelled according to their narrower source, local-tool,
+or external-service boundaries. Serving the file performs no upstream request
+and does not make the dashboard proxy authoritative.
+
+## Implemented reads; activation-gated Cosmos SDK fee sponsorship
+
+The dashboard exposes the indexed grantee allowance query, exact-pair lookup,
+and exact known-grantee revoke. It deliberately does not expose the SDK's
+granter-wide `issued` query: that query filters by scanning the full feegrant
+store. Pagination limits returned matches, not scan work, so arbitrary public
+queries become a validator resource risk as the store grows. The deployed
+validator currently exposes that SDK route directly on its REST listener;
+activation therefore also requires restricting or rate-limiting direct REST
+access, or replacing the scan with an indexed query.
+
+Bounded grant creation and sponsored-bank-send code is prepared but
+`FEEGRANT_SPONSORSHIP_ENABLED` remains `false` until a hardened validator
+binary is deployed and the direct REST exposure above is addressed. Prepared
+grant creation is restricted to an
+`AllowedMsgAllowance` wrapping a `BasicAllowance`, with:
+
+- a maximum 100 ZRN aggregate fee cap;
+- a dashboard expiry from one through 30 days (the constructor's hard lower
+  bound is one minute);
+- an explicit allowlist limited to bank sends and claiming-pot claims; and
+- a different, checksum-valid `zrn` grantee.
+
+When activated, the dashboard refuses unknown allowance types for spending,
+re-queries the exact granter/grantee pair before every sponsored send, and
+requires the grantee's own Keplr signature. Sponsor selection is never
+automatic. Grant and revoke transactions pay nonzero fees from the connected
+wallet. The edge exposes only exact-pair and explicitly limited, indexed
+grantee queries.
+
+Review found that the existing signer-only freeze check did not cover a fee
+granter, because the granter need not sign the sponsored transaction. The app
+now includes a pre-deduction ante guard: if a registered Zerone fee granter is
+frozen, the transaction fails before the allowance or balance changes. A full
+app test proves freeze, failed use, preserved balance/allowance, unfreeze, and
+restored use. This guard adds no store or migration, but it changes transaction
+validation and therefore requires an explicit validator binary rollout before
+the dashboard flag may be enabled.
+
+CosmJS's standard registry supplies the feegrant protobuf codecs, and SDK tests
+prevent Zerone registry composition from dropping them. Grant/revoke also
+require a protobuf-direct signer because CosmJS 0.39 has no feegrant Amino
+converter.
+
+## Prepared: Cosmos Chain Registry metadata
+
+`integrations/chain-registry/zerone/` contains a schema-valid `chain.json`,
+`assetlist.json`, and ZRN SVG ready for an upstream submission. Local checks
+cross-reference the committed genesis and deployment configuration; CI also
+runs the pinned upstream Chain Registry validator.
+
+The candidate advertises only the complete public CometBFT RPC and verified
+peer data. It deliberately omits general REST/gRPC, IBC channels, snapshots,
+binaries, and a recommended release because those claims are not currently
+supported by the deployed evidence. The configured SLIP-0044 value `118` is
+described as the shared Cosmos derivation path, not a Zerone-owned
+registration. Upstream completion also depends on registering the `zrn`
+Bech32 HRP in SLIP-0173.
 
 ## Ranked integration roadmap
 
@@ -164,16 +249,18 @@ The first generated client uses
 Evaluate [Interchain Kit](https://docs.hyperweb.io/interchain-kit/) only when
 its beta status and additional wallet surface fit the dashboard's needs.
 
-Publish Zerone `chain.json` and `assetlist.json` to the
-[Cosmos Chain Registry](https://github.com/cosmos/chain-registry) only after
-the live chain ID, genesis, public endpoints, denomination, and BIP-44/SLIP-44
-coin type are final. Do not invent the coin type to accelerate wallet listing.
+Submit the prepared Zerone bundle to the
+[Cosmos Chain Registry](https://github.com/cosmos/chain-registry) after the
+`zrn` SLIP-0173 entry is accepted. Keep the metadata evidence-limited as public
+endpoints and release posture evolve; do not present shared coin type `118` as
+a Zerone-specific allocation.
 
-### 2. Sponsored-gas UX now; delegated authority only after an ante audit
+### 2. Delegated authority only after an ante audit
 
 [`x/feegrant`](https://docs.cosmos.network/sdk/v0.50/build/modules/feegrant/README)
-is already wired. Expose its allowance queries, grant/revoke flows, and
-fee-granter signing helpers for sponsor-funded onboarding.
+is wired. Deploy the reviewed ante guard, verify it live, restrict or
+rate-limit the unindexed direct REST `issued` route, and only then enable the
+prepared grant-creation and sponsored-spend dashboard paths.
 
 Do not wire Cosmos SDK
 [`x/authz`](https://docs.cosmos.network/sdk/v0.50/build/modules/authz/README)

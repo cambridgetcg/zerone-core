@@ -39,20 +39,21 @@ import (
 // mockSignedTx implements authsigning.SigVerifiableTx + sdk.FeeTx + sdk.TxWithMemo
 // to allow testing decorators that extract signers from tx signature data.
 type mockSignedTx struct {
-	msgs  []sdk.Msg
-	fee   sdk.Coins
-	gas   uint64
-	memo  string
-	sigV2 []signing.SignatureV2
+	msgs       []sdk.Msg
+	fee        sdk.Coins
+	gas        uint64
+	memo       string
+	feeGranter []byte
+	sigV2      []signing.SignatureV2
 }
 
 func (m mockSignedTx) GetMsgs() []sdk.Msg                              { return m.msgs }
-func (m mockSignedTx) GetMsgsV2() ([]protov2.Message, error)            { return nil, nil }
+func (m mockSignedTx) GetMsgsV2() ([]protov2.Message, error)           { return nil, nil }
 func (m mockSignedTx) ValidateBasic() error                            { return nil }
 func (m mockSignedTx) GetGas() uint64                                  { return m.gas }
 func (m mockSignedTx) GetFee() sdk.Coins                               { return m.fee }
 func (m mockSignedTx) FeePayer() []byte                                { return nil }
-func (m mockSignedTx) FeeGranter() []byte                              { return nil }
+func (m mockSignedTx) FeeGranter() []byte                              { return m.feeGranter }
 func (m mockSignedTx) GetMemo() string                                 { return m.memo }
 func (m mockSignedTx) GetSignaturesV2() ([]signing.SignatureV2, error) { return m.sigV2, nil }
 func (m mockSignedTx) GetSigners() ([][]byte, error)                   { return nil, nil }
@@ -287,6 +288,59 @@ func TestAnteIntegration_FrozenAccountRejected(t *testing.T) {
 	}
 	if !zeroneauthtypes.ErrAccountFrozen.Is(err) {
 		t.Fatalf("expected ErrAccountFrozen, got: %v", err)
+	}
+}
+
+func TestAnteIntegration_FeeGranterFreezeGuard(t *testing.T) {
+	ak, _, ctx := setupBothKeepers(t)
+	decorator := NewZeroneFeeGranterDecorator(ak)
+	signerKey := ed25519.GenPrivKey()
+	activeGranter := sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())
+	frozenGranter := sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())
+	unregisteredGranter := sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())
+	registerZeroneAccount(t, ak, ctx, activeGranter.String(), false)
+	registerZeroneAccount(t, ak, ctx, frozenGranter.String(), true)
+
+	baseTx := newMockSignedTx(
+		[]*ed25519.PrivKey{signerKey},
+		[]sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	for _, tc := range []struct {
+		name       string
+		feeGranter []byte
+		wantError  *errors.Error
+	}{
+		{name: "no fee granter"},
+		{name: "active registered granter", feeGranter: activeGranter},
+		{name: "unregistered standard granter", feeGranter: unregisteredGranter},
+		{
+			name:       "frozen registered granter",
+			feeGranter: frozenGranter,
+			wantError:  zeroneauthtypes.ErrAccountFrozen,
+		},
+		{
+			name:       "malformed granter bytes",
+			feeGranter: []byte{1},
+			wantError:  sdkerrors.ErrInvalidAddress,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tx := baseTx
+			tx.feeGranter = tc.feeGranter
+			_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
+			if tc.wantError == nil {
+				if err != nil {
+					t.Fatalf("expected fee granter to pass, got: %v", err)
+				}
+				return
+			}
+			if err == nil || !tc.wantError.Is(err) {
+				t.Fatalf("expected %v, got: %v", tc.wantError, err)
+			}
+		})
 	}
 }
 
@@ -741,4 +795,3 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 		})
 	}
 }
-
