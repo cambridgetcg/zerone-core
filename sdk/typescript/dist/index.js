@@ -11,6 +11,11 @@ import {
   zeroneAccountId
 } from "./chunk-YKTHEBLN.js";
 import {
+  CidError,
+  asZeroneMemoryCid,
+  parseCanonicalCidV1
+} from "./chunk-QI25M5F7.js";
+import {
   createZeroneRegistry,
   registerZeroneMessages,
   zeroneRegistryTypes
@@ -19,7 +24,9 @@ import "./chunk-7TSRAZ4X.js";
 import "./chunk-MLKGABMK.js";
 export {
   CaipError,
+  CidError,
   asExistingZeroneDid,
+  asZeroneMemoryCid,
   cosmosChainId,
   createZeroneRegistry,
   defineZeroneNetwork,
@@ -27,6 +34,7 @@ export {
   formatCaip2,
   parseCaip10,
   parseCaip2,
+  parseCanonicalCidV1,
   parseCosmosChainId,
   registerZeroneMessages,
   zeroneAccountId,

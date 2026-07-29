@@ -155,6 +155,25 @@ Generated codecs are serialization tools, not authority policy. No custom
 mainnet transaction control was enabled, and the SDK does not claim legacy
 Amino support for Zerone messages.
 
+## Implemented: Zerone CIDv1 client preflight
+
+The Go CLI and `@zerone-chain/sdk` can parse new `x/home` memory references
+with the official Go CID implementation and `js-multiformats`. Zerone chooses
+lowercase base32 as its one accepted client representation for CIDv1, although
+CID itself permits other multibase strings for the same identifier. The CLI
+enforces this automatically before signing `MsgUpdateMemoryCID`; SDK callers
+must opt into `asZeroneMemoryCid`, because the raw generated message codec still
+accepts a string. The helper also exposes the parsed codec, multihash code, and
+digest length so applications can apply an artifact-specific policy.
+
+This is deliberately not a consensus change. Existing validators still accept
+the bounded opaque strings they accepted before, and historical values are not
+rewritten. Parsing proves only that text structurally encodes a content address;
+applications must independently hash the referenced bytes and apply their
+codec, multihash, authenticity, privacy, and availability policies. Zerone has
+not yet selected an on-chain allowlist. Consensus enforcement requires a
+legacy-state audit, an explicit policy, and a coordinated upgrade.
+
 ## Ranked integration roadmap
 
 ### 1. Chain Registry metadata and broader wallet adapters
@@ -211,10 +230,11 @@ adapter and test vectors.
 
 ### 5. Additional content-addressed provenance documents
 
-Build on the read-only in-toto projection without adding rich-document parsers
-to consensus:
+Build on the read-only in-toto projection and the implemented CIDv1 client
+preflight without adding rich-document parsers to consensus:
 
-- use CIDv1 for canonical artifact references and CAR bundles;
+- select codec/multihash policies for canonical artifact references and CAR
+  bundles before any validator-side CID enforcement;
 - project AI/dataset licensing and relationships as
   [SPDX 3](https://spdx.github.io/spdx-spec/v3.0.1/);
 - attach [C2PA](https://spec.c2pa.org/specifications/specifications/2.4/specs/C2PA_Specification.html)
@@ -222,8 +242,10 @@ to consensus:
 - anchor only the deterministic digest, schema/version, media type, size, and
   availability references on-chain.
 
-CID proves integrity, not availability. Rich JSON-LD, C2PA, VC, and policy
-validation belongs outside consensus.
+A CID checked against independently retrieved bytes can detect a mismatch under
+the selected multihash's assumptions; it does not establish availability or
+authenticity. Rich JSON-LD, C2PA, VC, and policy validation belongs outside
+consensus.
 
 ### 6. A2A Agent Cards for service discovery
 

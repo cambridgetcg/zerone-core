@@ -10,7 +10,8 @@ consensus module, enable IBC, or expand the public gateway. It provides:
 - a registry that composes with CosmJS's standard Cosmos message types;
 - generic CAIP-2 and CAIP-10 syntax handling;
 - the Cosmos namespace's direct/hashed chain-reference algorithm;
-- checksum-aware `zrn` account IDs; and
+- checksum-aware `zrn` account IDs;
+- canonical CIDv1 preflight for new agent-home memory references; and
 - a separate validator for the `did:zrn` identifiers accepted by `x/auth`.
 
 ## Use the transaction registry
@@ -86,6 +87,29 @@ application, so a valid `zrn` address cannot accidentally be labelled as
 belonging to an unrelated Cosmos network. Use the chain ID reported by the
 connected node. A future `zerone-2` is a different CAIP-2 chain even if state
 and addresses survive a reboot.
+
+## Validate memory CIDs before signing
+
+```ts
+import { asZeroneMemoryCid, parseCanonicalCidV1 } from "@zerone-chain/sdk/cid";
+
+const memoryCid = asZeroneMemoryCid(
+  "bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm",
+);
+const details = parseCanonicalCidV1(memoryCid);
+// details.codec, details.multihashCode, details.digestBytes
+```
+
+The helper requires CIDv1 in Zerone's chosen lowercase-base32 representation
+and applies `x/home`'s current 256-byte text limit. CID itself permits other
+multibase strings for the same identifier. Parsing validates only the content
+address structure; it does not hash the referenced bytes or establish their
+availability, authenticity, or confidentiality.
+
+This helper is opt-in. The generated `MsgUpdateMemoryCID` codec still accepts a
+plain string, while the Go CLI invokes the preflight automatically. Current
+validator consensus continues to accept historical opaque memory references
+until a coordinated upgrade defines and audits a chain-wide policy.
 
 ## Develop
 

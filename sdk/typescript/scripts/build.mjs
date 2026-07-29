@@ -17,6 +17,7 @@ await build({
   entryPoints: {
     index: "src/index.ts",
     caip: "src/caip.ts",
+    cid: "src/cid.ts",
     messages: "src/messages.ts",
     registry: "src/registry.ts",
   },
@@ -30,6 +31,7 @@ await build({
     "@cosmjs/encoding",
     "@cosmjs/proto-signing",
     "@noble/hashes/*",
+    "multiformats/*",
   ],
   legalComments: "none",
   sourcemap: false,
