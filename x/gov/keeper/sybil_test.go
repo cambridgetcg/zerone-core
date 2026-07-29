@@ -322,3 +322,113 @@ func TestSybilFeatureFlag_Disabled(t *testing.T) {
 		t.Errorf("expected 10000 (disabled), got %d", decay)
 	}
 }
+
+func TestCastVote_SybilDecayApplied(t *testing.T) {
+	k, ctx, mock := setupWithStaking(t, "1000000000000")
+	ms := keeper.NewMsgServerImpl(k)
+	k.SetSybilParams(ctx, keeper.DefaultSybilParams())
+
+	_, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
+		Proposer: testAddr("alice_"), Title: "SybilTest", Description: "Test",
+		Category: types.CategoryText, InitialStake: "1000000",
+	})
+	if err != nil {
+		t.Fatalf("submit LIP: %v", err)
+	}
+	lip, _ := k.GetLIP(ctx, "LIP-1")
+	lip.Stage = types.StatusVoting
+	lip.VotingEndBlock = 999999
+	k.SetLIP(ctx, lip)
+
+	whale := testAddr("whale__")
+	sybil1 := testAddr("sybil1_")
+	sybil2 := testAddr("sybil2_")
+	k.RecordFunding(ctx, whale, sybil1, "5000000", 10)
+	k.RecordFunding(ctx, whale, sybil2, "5000000", 10)
+	mock.delegations[sybil1] = "5000000"
+	mock.delegations[sybil2] = "5000000"
+
+	resp1, err := ms.CastVote(ctx, &types.MsgCastVote{
+		Voter: sybil1, LipId: "LIP-1", Option: types.VoteYes,
+	})
+	if err != nil {
+		t.Fatalf("first correlated vote: %v", err)
+	}
+	if resp1.EffectiveWeight != "5000000" {
+		t.Fatalf("first vote weight = %s, want 5000000", resp1.EffectiveWeight)
+	}
+
+	resp2, err := ms.CastVote(ctx, &types.MsgCastVote{
+		Voter: sybil2, LipId: "LIP-1", Option: types.VoteYes,
+	})
+	if err != nil {
+		t.Fatalf("second correlated vote: %v", err)
+	}
+	if resp2.EffectiveWeight != "4000000" {
+		t.Errorf("second vote weight = %s, want 4000000", resp2.EffectiveWeight)
+	}
+
+	stored, found := k.GetVote(ctx, "LIP-1", sybil2)
+	if !found {
+		t.Fatal("second vote was not stored")
+	}
+	if stored.Weight != "4000000" {
+		t.Errorf("stored weight = %s, want 4000000", stored.Weight)
+	}
+
+	lip, _ = k.GetLIP(ctx, "LIP-1")
+	if lip.YesStake != "9000000" {
+		t.Errorf("yes tally = %s, want 9000000", lip.YesStake)
+	}
+}
+
+func TestCastVote_SybilDecayDisabled(t *testing.T) {
+	k, ctx, mock := setupWithStaking(t, "1000000000000")
+	ms := keeper.NewMsgServerImpl(k)
+	k.SetSybilParams(ctx, keeper.SybilParams{
+		Enabled:           false,
+		CorrelationWindow: 480000,
+		DecayPerSourceBPS: 2000,
+		MinPowerBPS:       1000,
+	})
+
+	_, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
+		Proposer: testAddr("alice_"), Title: "NoDecay", Description: "Test",
+		Category: types.CategoryText, InitialStake: "1000000",
+	})
+	if err != nil {
+		t.Fatalf("submit LIP: %v", err)
+	}
+	lip, _ := k.GetLIP(ctx, "LIP-1")
+	lip.Stage = types.StatusVoting
+	lip.VotingEndBlock = 999999
+	k.SetLIP(ctx, lip)
+
+	whale := testAddr("whale__")
+	sybil1 := testAddr("sybil1_")
+	sybil2 := testAddr("sybil2_")
+	k.RecordFunding(ctx, whale, sybil1, "5000000", 10)
+	k.RecordFunding(ctx, whale, sybil2, "5000000", 10)
+	mock.delegations[sybil1] = "5000000"
+	mock.delegations[sybil2] = "5000000"
+
+	if _, err := ms.CastVote(ctx, &types.MsgCastVote{
+		Voter: sybil1, LipId: "LIP-1", Option: types.VoteYes,
+	}); err != nil {
+		t.Fatalf("first vote: %v", err)
+	}
+	resp2, err := ms.CastVote(ctx, &types.MsgCastVote{
+		Voter: sybil2, LipId: "LIP-1", Option: types.VoteYes,
+	})
+	if err != nil {
+		t.Fatalf("second vote: %v", err)
+	}
+	if resp2.EffectiveWeight != "5000000" {
+		t.Errorf("second vote weight = %s, want 5000000", resp2.EffectiveWeight)
+	}
+
+	lip, _ = k.GetLIP(ctx, "LIP-1")
+	if lip.YesStake != "10000000" {
+		t.Errorf("yes tally = %s, want 10000000", lip.YesStake)
+	}
+}

@@ -146,6 +146,21 @@ func AddBigIntStrings(a, b string) string {
 	return new(big.Int).Add(ai, bi).String()
 }
 
+// ApplyBPSDecay returns floor(value * bps / 10_000). Values above 10_000 are
+// clamped so malformed sybil parameters can never amplify voting power.
+func ApplyBPSDecay(value string, bps uint64) string {
+	vi, ok := new(big.Int).SetString(value, 10)
+	if !ok || vi.Sign() < 0 {
+		return "0"
+	}
+	if bps > 10_000 {
+		bps = 10_000
+	}
+	vi.Mul(vi, new(big.Int).SetUint64(bps))
+	vi.Div(vi, big.NewInt(10_000))
+	return vi.String()
+}
+
 // CmpBigIntStrings compares two big integer strings.
 // Returns -1, 0, or 1.
 func CmpBigIntStrings(a, b string) int {
@@ -432,10 +447,10 @@ func GetResearchFundThreshold(phase ResearchFundPhase) (required uint32, total u
 const (
 	TransitionDiscussionBlocks = uint64(1_030_000) // ~30 days
 	TransitionActivationDelay  = uint64(240_000)   // ~7 days
-	TransitionSupermajorityBps = uint64(667_000)    // 66.7% on 1M scale
-	RollbackCooldownBlocks     = uint64(3_700_000)  // ~3 months
-	RollbackReviewBlocks       = uint64(240_000)    // ~7 days (faster than forward)
-	RollbackGridlockThreshold  = 3                  // consecutive expired proposals
+	TransitionSupermajorityBps = uint64(667_000)   // 66.7% on 1M scale
+	RollbackCooldownBlocks     = uint64(3_700_000) // ~3 months
+	RollbackReviewBlocks       = uint64(240_000)   // ~7 days (faster than forward)
+	RollbackGridlockThreshold  = 3                 // consecutive expired proposals
 )
 
 // Phase transition proposal stage constants.
@@ -453,13 +468,13 @@ const (
 // post-vote phase transition lifecycle (activation delay, condition recheck).
 // Voting is handled through the standard LIP voting system with supermajority.
 type PhaseTransitionProposal struct {
-	LipID              string                    `json:"lip_id"`
-	TargetPhase        ResearchFundPhase         `json:"target_phase"`
+	LipID              string                     `json:"lip_id"`
+	TargetPhase        ResearchFundPhase          `json:"target_phase"`
 	ConditionsSnapshot *PhaseTransitionConditions `json:"conditions_snapshot,omitempty"`
-	Stage              string                    `json:"stage"` // pending_activation, activated, cancelled
-	ActivationBlock    uint64                    `json:"activation_block"`
-	IsRollback         bool                      `json:"is_rollback"`
-	CancelReason       string                    `json:"cancel_reason,omitempty"`
+	Stage              string                     `json:"stage"` // pending_activation, activated, cancelled
+	ActivationBlock    uint64                     `json:"activation_block"`
+	IsRollback         bool                       `json:"is_rollback"`
+	CancelReason       string                     `json:"cancel_reason,omitempty"`
 }
 
 // IsTerminalPhaseTransitionStage returns true if the stage is terminal.
@@ -610,4 +625,3 @@ type PhaseTransitionMeta struct {
 func IsPhaseTransitionCategory(category string) bool {
 	return category == CategoryPhaseTransition || category == CategoryPhaseRollback
 }
-
