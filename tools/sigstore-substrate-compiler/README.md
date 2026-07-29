@@ -108,15 +108,15 @@ operational challenge path are both approved.
 
 The unit tests cover policy validation, exact Statement/predicate gates,
 payload identity hashing, exact-bundle proof hashing, deterministic canonical
-link hashing, and absence of economic claims. No third-party crypto fixture is
-copied into this repository: the
-fixtures shipped by the pinned SDK do not simultaneously exercise bundle
-v0.3, Statement/v1, and a SHA-256 subject. Cryptographic primitive,
-certificate, SCT, and transparency-log verification remain the responsibility
-of the pinned, upstream-tested Sigstore SDK; an environment-specific end-to-end
-fixture must pass when Zerone selects its production Sigstore root, identity,
-artifact selection rule, and predicate policy before this adapter can leave
-experimental status.
+link hashing, and absence of economic claims. They also construct a hermetic
+v0.3 bundle and matching local trusted root with the pinned SDK's public
+signing and test-CA APIs. The end-to-end tests verify the Fulcio chain,
+embedded SCT, Rekor inclusion proof and signed integrated time, exact policy
+matches, and the complete CLI path without network access. This fixture proves
+the compiler's cryptographic wiring; it does not select production trust.
+An environment-specific end-to-end fixture must still pass when Zerone selects
+its production Sigstore root, identity, artifact selection rule, and predicate
+policy before this adapter can leave experimental status.
 
 See [`docs/specs/adapters/sigstore-in-toto-v1.md`](../../docs/specs/adapters/sigstore-in-toto-v1.md)
 for the adapter contract and governance template.
