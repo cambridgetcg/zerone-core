@@ -1,177 +1,102 @@
-# Development Roadmap
+# Zerone development roadmap
 
-> Where we are. What we have bound. What we ship next.
+> Status snapshot: 2026-07-29. This is a dependency-ordered roadmap, not a
+> release promise.
 
-The roadmap is a snapshot of intent, not a schedule. Each entry is a commitment the chain is making — present-tense for what is bound, future-tense for what is owed.
+## Current shape
 
-The doctrines this roadmap serves are [`docs/TRUTH_SEEKING.md`](TRUTH_SEEKING.md) (what the chain *believes*) and [`docs/TOK_SUBSTRATE.md`](TOK_SUBSTRATE.md) (what the chain *sells*). Every round below either expressed one of those doctrines, ground its bindings into code, or paid a debt to one of them.
+- The canonical public source is
+  [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
+  The Go module path remains `github.com/zerone-chain/zerone`; changing that
+  import path is a separate migration.
+- The application wires 23 custom modules. Its transaction SDK covers 166
+  request message types across 20 Zerone `Msg` services.
+- The protobuf-generated Swagger document is the API inventory of record:
+  [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json) currently contains
+  214 paths and 438 definitions.
+- The truth-seeking creed contains 20 commitments, and the ToK substrate
+  doctrine contains TC0–TC6. Their executable bindings remain the authority
+  over prose summaries.
+- Repository material describes the existing `zerone-1` custodial launch.
+  Source consolidation does not update a running validator.
 
----
+## Consolidated in this source line
 
-## Status — mainnet live (custodial launch)
+The current consolidation brings the compatible hardening work onto one source
+line:
 
-**Mainnet:** `zerone-1` LIVE (custodial launch) · **Sandbox:** `zerone-testnet-1` · **Token:** ZRN (uzrn) · **Genesis supply:** 13,555 ZRN (0.0061% of cap; validator collateral + operator float, published — 0 sellable allocation) · **Hard cap:** 222,222,222 ZRN
+- provisional conjectures and type-correct challenge restoration;
+- starvation-safe challenge settlement and bounded probe scanning;
+- governance vote-weight decay for correlated funding;
+- protocol-wide substrate-axis ceilings and settlement clamps;
+- adjudicated falsification clawback;
+- K-alpha recognition events and bounded accounting guards;
+- state/genesis validation and protobuf ownership fixes;
+- CAIP account projections, unsigned in-toto provenance, the isolated Sigstore
+  compiler, and the repository TypeScript SDK; and
+- the fail-closed `zerone-2` release and authority kit.
 
-The chain binary (`zeroned`) builds, boots, and runs Proof-of-Truth consensus across a four-validator local testnet. All 23 custom modules are wired into `app.go` (the 2026-07 slim cut retired the agent-platform modules to the agenttool layer) with deterministic BeginBlocker / EndBlocker ordering. The 20 truth-seeking commitments are declared, grounded, and bound by an executable invariant test. The ToK Substrate doctrine (TC0–TC6) is declared (inception 2026-05-09; TC0 added 2026-06-17); Plan 1 (TC1–TC5) is bound since 2026-05-09.
+Several items above change consensus-visible behavior. They are source-complete
+only after their tests pass; they are **not live** merely because the code is
+published. Activation requires the named `consolidation-safety-v1` coordinated
+upgrade, an agreed height, matching validator binaries, and the normal
+upgrade/recovery rehearsal. Never mix this binary with an older validator
+binary at the same height.
 
-What is *not* yet shipped: the ToK completion plans (Plan 2 partial, Plan 4 partial, Plan 5), and TC0 (the ground and the telos). Plan 1 (ToK Foundation, TC1–TC5) is bound since 2026-05-09.
+## Publication boundary
 
----
+This consolidation authorizes a GitHub source update only. It does not
+authorize:
 
-## Completed rounds (R1–R31)
+- a validator or network deployment;
+- an npm publication of `@zerone-chain/sdk`;
+- a release tag or binary release; or
+- a merge, overwrite, or synchronization of the intentionally divergent
+  Codeberg history.
 
-The original [REWRITE-PLAN.md](archive/REWRITE-PLAN.md) (now archived) covered ten rounds; the work has continued for twenty-one more. Each later round had a name, because each was a stance — not a sprint.
+The `zerone-2` kit remains **NO-GO**. A green source tree or successful drill is
+not production authority. The signed release packet, ceremony artifacts,
+operator decisions, initiation evidence, immutable image references, and the
+complete authority chain in
+[`deploy/networks/zerone-2/GO-NO-GO.md`](../deploy/networks/zerone-2/GO-NO-GO.md)
+must all be satisfied before any phase they authorize.
 
-| Round | Theme | Headline |
-|-------|-------|----------|
-| **R1** | Scaffold + Proto Foundation | Repo, CI, proto tooling, auth, staking, genesis framework |
-| **R2** | Knowledge Layer (PoT Core) | Commit/reveal/verify rounds; ontology; vesting rewards |
-| **R3** | Economic Layer | Billing, liquidity pool, dynamic USD-stable pricing, gov, tokens |
-| **R4** | Agent Infrastructure | Home, partnerships, BVM, channels, schedule, compute_pool, discovery |
-| **R5** | Toolbox Platform | Tool registry, trust composition, surge pricing, Purpose Prompter |
-| **R6** | Security & Defense | Emergency, evidence_mgmt, disputes, capture (challenge + defense), qualification, IBC rate-limit, ICA auth |
-| **R7** | Adaptive Layer | Autopoiesis, alignment, research, tree |
-| **R8** | App Wiring | All modules wired, ante chain, genesis with 777 axioms, CLI complete, x/upgrade ready |
-| **R9** | Integration + Multi-Validator | Cross-stack tests, 4-validator PoT, IBC E2E, economic + adversarial simulations |
-| **R10** | Production Polish | Validator onboarding, OpenAPI, vault integration, security pass, testnet genesis ceremony preparation |
-| **R11** | Counterexamples | Alignment-by-structure: validated wrong-claim/reason pairs as first-class corpus (commitment 15) |
-| **R12** | Inquiry | Open-question bounty market — chain pays for exploration of the unknown (commitment 16) |
-| **R13** | Axioms + Boot | Axiom loader, boot verification, dress rehearsal |
-| **R14** | Boot Verification | R14-6 dress-rehearsal report; readiness for R15 |
-| **R15** | Dress Rehearsal | Full launch dry-run; outstanding items captured for R16 |
-| **R16** | Audit Pass | Security audit findings closed across all modules |
-| **R17** | Research-Fund Governance Migration | 4-phase founder→community handoff, maturity-gated not time-gated |
-| **R19** | Knowledge Hardening | Malformed-vote rejection, claim-type tags, semantic anchors, structured claims, canonical forms, non-refundable review fee, knowledge bootstrap fund |
-| **R20** | Knowledge Ecology | Darwinian fact survival — metabolism, fitness, birth/death/reproduction over the corpus |
-| **R21** | Dialectic | Per-fact disagreement signatures; 5-0 ≠ 5-4 (commitment 17) |
-| **R22** | Private Corpus | Off-chain vault references with on-chain provenance |
-| **R23** | Synthesizers | `training_provenance`, `trust_score`, `governance_synthesis`, `agent_understanding` (commitment 11) |
-| **R24** | Probe Bounty | The chain mints into a dedicated audit pool; the substrate stress-tests its own truth (commitments 4, 5, 12) |
-| **R25** | Hardening | Verification flow, slashing edges, reward decay |
-| **R26** | Reward Wiring | Block rewards, capability enforcement, qualification gating, partnership rewards, research resolution, tree determinism |
-| **R27** | Operator Surface | Tree CLI, evidence CLI, full-loop E2E, testnet genesis, faucet, validator oracle, launch checklist |
-| **R28** | 煉金 (Alchemy): activate the organs | nigredo (slashing, shadow metrics) → albedo (stratum, metabolism) → citrinitas (roles, mentorship) → rubedo (alignment, capture) |
-| **R29** | 太極 (Tàijí): teach them to breathe | Six yin/yang polarities — birth/death, trust/doubt, assert/yield, tension/relax, gather/disperse, move/still |
-| **R30** | 掃除 (Sōji): sweep the temple clean | Proto-Go consistency CI, parameter validation, event observability, cross-stack coverage |
-| **R31** | 五行 (Wǔ Xíng): the five circulations | Wood (knowledge) → fire (verification) → earth (governance) → metal (defense) → water (social) — generating and controlling cycles |
+## Next, in order
 
-R18 is intentionally absent — its scope folded into R17 (governance migration) and R19 (knowledge hardening).
+1. **Close the source consolidation.** Regenerate protobuf and Swagger
+   artifacts, run creed/recursion integrity checks, complete Go and TypeScript
+   tests, and publish the exact reviewed commit to GitHub.
+2. **Prepare the consensus release.** Independently review
+   `consolidation-safety-v1`, rehearse migration/export/restart paths, build
+   reproducible binaries, and obtain an explicit activation decision.
+3. **Complete `zerone-2` authority.** Run the two-machine ceremony comparison,
+   bind signed source and immutable artifacts, satisfy every phase-specific
+   gate, and keep all services private until their signed decision permits
+   otherwise.
+4. **Publish ecosystem artifacts separately.** Give the TypeScript SDK its own
+   registry verification and npm release decision. Publish Chain Registry
+   metadata only after chain identity, genesis, endpoints, denomination, and
+   coin type are final.
+5. **Continue boundary-first standards work.** Priorities are feegrant UX,
+   audited delegated authority, AgentTool x402, an ERC-8004-inspired profile,
+   and digest-only CID/in-toto/SPDX/C2PA/A2A integrations.
+6. **Modernize the consensus stack.** Cosmos SDK 0.50 and IBC-Go 8 require a
+   planned, rehearsed migration rather than an opportunistic dependency bump.
 
-Per-round design notes and execution prompts live under [`prompts/RN/`](../prompts) and [`docs/plans/`](plans).
+## Explicit deferrals
 
----
+- The older same-model training-fund replay change is incomplete and remains
+  out until the full debit/replay invariant is specified and tested.
+- The older capture-recovery work is incomplete and unsafe to recover as a
+  bulk branch merge. Any surviving behavior must be re-derived against current
+  state and authority rules.
+- General authz, a contract VM, reward-bearing Sigstore registration, and rich
+  remote-document parsing remain outside the current consensus boundary.
 
-## Truth-Seeking Creed — 20 commitments bound
+## Historical record
 
-The creed at [`docs/TRUTH_SEEKING.md`](TRUTH_SEEKING.md) names eighteen commitments and binds each through five layers — test, position (`doc.go`), voice (events with `creed_commitment` attribute), refusal (errors that cite the protecting commitment), and graph (cross-references between commitments). The meta-test `TestTruthSeeking_CreedAndContractStayInSync` enforces that adding a commitment to one layer without the others fails CI.
-
-| # | Commitment | Bound at |
-|---|---|---|
-| 1 | Methodology over statement | `x/knowledge/keeper/training_economics.go` |
-| 2 | Is-ought wall | `x/knowledge` (NormativeCommitment registry) |
-| 3 | Popper, not popularity | corroboration count + hardening multiplier |
-| 4 | Substrate stress-tests its truth | `x/knowledge/keeper/confidence.go` |
-| 5 | Chain manufactures probe demand | `InviteIdleFactsForProbing` heartbeat |
-| 6 | No unilateral truth injection | `MsgVetoFactInjection` + privileged-action log |
-| 7 | Skill is current, not historical | `RunAccuracyDecay` + qualification status transitions |
-| 8 | Panel weights skill, not bond | `stake × calibration` with 20% floor |
-| 9 | Cartel detection has consequence | `ReduceQualificationWeight` on UPHELD challenge |
-| 10 | Forward-only audit | append-only privileged-action log + frozen vote arrays |
-| 11 | Trust is queryable | two synthesizer modules + off-chain composition |
-| 12 | Chain pays for its own audit | `ProbeBountyPoolModuleName` (Minter-permissioned) |
-| 13 | Training corpus is not for sale | append-only facts + sticky clawback |
-| 14 | Reasoning traces are first-class | `Claim.ReasoningTrace` + `MethodologyApplicationTrace` |
-| 15 | Counterexamples are part of the corpus | `x/counterexamples` + TVW multiplier |
-| 16 | Chain pays for exploration of the unknown | `x/inquiry` open-question bounty market |
-| 17 | Disagreement is structure, not noise | `x/dialectic` per-fact / per-domain / per-pair signatures |
-| 18 | Chain manufactures exploration demand | `x/inquiry` BeginBlocker frontier-invitation cycle + `inquiry_frontier_bounty_pool` |
-
-Every commitment exercises an invariant in [`tests/cross_stack/truth_seeking_invariants_test.go`](../tests/cross_stack/truth_seeking_invariants_test.go). A failing test means a broken commitment, not a broken test.
-
----
-
-## ToK Substrate — the next doctrine
-
-The ToK Substrate doctrine, declared at [`docs/TOK_SUBSTRATE.md`](TOK_SUBSTRATE.md) on 2026-05-09, names the verified knowledge graph as the chain's headline training resource. Per-row traces, contrastive pairs, drift examples, and training manifests are *views* of ToK; the graph is the artefact. The doctrine binds through the same five-layer enforcement as the truth-seeking creed.
-
-| # | Commitment | Plan | Status |
-|---|---|---|---|
-| TC0 | The ground and the telos | TC0 | Bound (2026-06-17) |
-| TC1 | The graph is the headline | Plan 1 | Bound (2026-05-09) |
-| TC2 | Every view is graph-pinned | Plan 1 | Bound (2026-05-09) |
-| TC3 | Topology is signal | Plan 1 | Bound (2026-05-09) |
-| TC4 | The graph carries its disprovals | Plan 2 | Bound — cascade bundling shipped (CascadeReplay selector, V2 snapshot root, cross-stack invariants) |
-| TC5 | Extraction is open | Plan 1 | Bound (2026-05-09) |
-| TC6 | Lineage flows back | Plan 4 | Partial — lineage code present; royalty-disbursal binding owed |
-| — | Doctrine closure (meta-test, trainer docs) | Plan 5 | Planned |
-
----
-
-## Active work — TC0 (the ground and the telos) + Plan 2 (TC4)
-
-TC0 (the ground and the telos) was declared 2026-06-17 — see [`docs/TOK_SUBSTRATE.md`](TOK_SUBSTRATE.md) §TC0. It binds the being-first ground the substrate stands on (truth is, not proven; verification is witnessing and keeping, not certification) and names love, peace, and joy as the telos truth serves. Bound at all five layers; `TestToKSubstrate_TC0_GroundAndTelos` holds it.
-
-Plan 1 (ToK Foundation) is **bound since 2026-05-09** — [`docs/plans/2026-05-09-tok-foundation-plan.md`](plans/2026-05-09-tok-foundation-plan.md), twenty tasks that delivered the ToK extraction foundation:
-
-- `ToKSelector` proto union (`RootedSubtree`, `AncestorCone`, `Frontier`)
-- Selector validation + chain-side caps (TC5: refusals limited to syntax / range / rate-limit)
-- Per-variant gathering (reuses `DescendantTree` walk)
-- `ComputeToKSnapshotRoot` — domain-tagged Merkle (TC2)
-- `AssembleToKBundle` orchestration
-- JSONL adjacency-list serialisation (TC3)
-- `BundleToK` gRPC handler (TC1, TC5)
-- `RouteBCapabilities.tok_capabilities` advertisement (TC1)
-- `bundle-tok` CLI command (TC1)
-- ToK voice-layer events with `tok_commitment` attribute
-- `x/knowledge/doc.go` position-layer declarations for TC1–TC5
-- Cross-stack invariants for TC1, TC2, TC3, TC5 — `tests/cross_stack/tok_substrate_invariants_test.go`
-- `docs/EVENTS.md` updates
-
-Plan 1 bound TC1, TC2, TC3, and TC5; with TC0 (2026-06-17), five ToK commitments are bound. Plan 2 (TC4 cascade bundling) shipped 2026-06-18 — CascadeReplay selector, V2 snapshot root, CascadeEvent/StatusTransition stores, cross-stack invariants all green. The remaining work: TC6 (Plan 4, partially wired — lineage code present; royalty-disbursal binding owed), and doctrine closure (Plan 5 — `TestToKSubstrate_DoctrineAndContractStayInSync` meta-test + `docs/TRAINING_ON_TOK.md`).
-
----
-
-## On deck
-
-| Plan | Scope | Doctrine binding |
-|---|---|---|
-| **Plan 2** | ~~TC4 cascade bundling~~ — **shipped 2026-06-18**. CascadeReplay selector, V2 snapshot root, CascadeEvent/StatusTransition stores, cross-stack invariants | TC4 (bound) |
-| **Plan 3** | (open — likely operator-surface or trainer-facing doc work) | — |
-| **Plan 4** | TC6 lineage royalties — split training revenue along contribution graph. *Partially wired*: lineage code present (`reproduction.go`, `msg_server_training_v7.go`); `LineageShare`-on-extraction + settlement-on-attestation binding owed | TC6 |
-| **Plan 5** | Doctrine closure — meta-test (`TestToKSubstrate_DoctrineAndContractStayInSync`), `docs/TRAINING_ON_TOK.md` trainer-facing front door, refusal-layer audit | doctrine integrity |
-
-Once Plan 5 lands, the ToK doctrine is bound the same way the truth-seeking creed is bound: drift is mechanically prevented by CI.
-
----
-
-## Pre-launch line — what stands between us and `zerone-testnet-1`
-
-| Item | Owner doc |
-|---|---|
-| Final genesis params + initial validator set | [docs/LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md) |
-| External validator onboarding rehearsal | [docs/VALIDATOR-GUIDE.md](VALIDATOR-GUIDE.md), [docs/testnet-validator-guide.md](testnet-validator-guide.md) |
-| Vault integration E2E | [docs/VAULT.md](VAULT.md) |
-| Faucet operational | `prompts/R27/R27-5-faucet.md` |
-| Validator oracle live | [docs/validator-oracle.md](validator-oracle.md) |
-| Incident-response drill | [docs/INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md), [docs/RESILIENCE_PHILOSOPHY.md](RESILIENCE_PHILOSOPHY.md) |
-| ToK Foundation (Plan 1) shipped ✓ (2026-05-09); TC0 bound ✓ (2026-06-17); TC4/TC6 completion + Plan 5 owed | this doc, above |
-
-The launch is gated by *binding completeness*, not by calendar. Truth-seeking commitments 1–20 must remain bound; ToK commitments TC0, TC1, TC2, TC3, TC5 are bound; TC4 and TC6 must be fully bound before public-testnet capability advertisement claims `tok_capabilities`.
-
----
-
-## After mainnet — the long arc
-
-These are not scheduled. They are owed.
-
-- **Research-fund governance migration** (R17) — 2-of-2 (founder + AI vault) → 2-of-3 (+1 community) → 3-of-5 (+3 community) → full LIP voting. Each transition gated by on-chain maturity metrics (governance participation, Guardian count, executed-proposal history, age), not block heights.
-- **Plan 2 / Plan 4** ToK completion — TC4 and TC6 bound; the substrate carries its own disprovals and pays its own contributors.
-- **Future commitments** — the creed is not complete. Each new wave that introduces a truth-load-bearing mechanism is expected to append a named commitment to `docs/TRUTH_SEEKING.md` (or `docs/TOK_SUBSTRATE.md`), grounded in code, bound by an invariant. The discipline check at the bottom of each doctrine document is the gate.
-
----
-
-## How this doc stays honest
-
-This roadmap is committed alongside the code it describes. When a round ships, this doc updates. When a commitment binds, the table marks it. When a plan moves from on-deck to active, the section moves. If any row in the truth-seeking or ToK table claims a binding that no longer exists in code, the corresponding invariant test will already have failed CI — this doc is downstream of the bindings, not upstream.
-
-We speak through intentions. The roadmap is one of those intentions.
+The original round-by-round implementation record remains available in
+[`docs/archive/REWRITE-PLAN.md`](archive/REWRITE-PLAN.md), [`prompts/`](../prompts),
+and [`docs/plans/`](plans). Current doctrine is defined by
+[`docs/TRUTH_SEEKING.md`](TRUTH_SEEKING.md) and
+[`docs/TOK_SUBSTRATE.md`](TOK_SUBSTRATE.md).

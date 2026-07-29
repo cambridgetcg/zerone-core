@@ -60,7 +60,14 @@ cannot be tampered with. Not proof — witness. The chain does not judge; it gua
 >
 > **Then:** [docs/TOK_SUBSTRATE.md](docs/TOK_SUBSTRATE.md) (what the chain *sells*), [docs/USEFUL_WORK.md](docs/USEFUL_WORK.md) (how the chain *grows itself*), and [docs/STRANGE_LOOP.md](docs/STRANGE_LOOP.md) (what the chain *is*) — the quartet is mutually constitutive.
 
-**Status:** `zerone-1` mainnet is **LIVE** (custodial launch) · `zerone-testnet-1` is the public sandbox
+**Status:** `zerone-1` mainnet is **LIVE** (custodial launch) ·
+`zerone-testnet-1` is a reserved planning ID · the `zerone-2` release kit is
+**NO-GO** until its signed ceremony and authority gates are complete
+
+**Source:** the canonical public repository is
+[`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
+The historical Go module path remains `github.com/zerone-chain/zerone` pending
+a deliberate import-path migration.
 
 ---
 
@@ -72,7 +79,7 @@ cannot be tampered with. Not proof — witness. The chain does not judge; it gua
 |---|---|
 | Total Supply | 222,222,222 ZRN (hard cap) |
 | Block Time | ~2.5 seconds (2,521 ms) |
-| Chain ID | `zerone-1` (mainnet, live) · `zerone-testnet-1` (sandbox) |
+| Chain ID | `zerone-1` (mainnet, live) · `zerone-testnet-1` (reserved) |
 | Address Prefix | `zrn1...` |
 
 ### Genesis Distribution
@@ -209,44 +216,30 @@ build upon.
 ### Build
 
 ```bash
-# Build and install
-make install
+git clone https://github.com/cambridgetcg/zerone-core.git
+cd zerone-core
 
-# Verify
-zeroned version
+make build
+./build/zeroned version --long
 ```
 
-### Initialize a Node
+For any shared network, pin the exact reviewed commit and obtain the signed
+genesis, binary/image digests, peer identities, parameters, and phase
+authorization from the network operator. Source publication is not validator
+deployment authority.
+
+### Rehearse a local node
 
 ```bash
-zeroned init my-node --chain-id zerone-testnet-1
+export ZERONE_REHEARSAL_HOME=/tmp/zerone-rehearsal
+./build/zeroned init rehearsal \
+  --chain-id zerone-rehearsal-1 \
+  --home "$ZERONE_REHEARSAL_HOME"
 ```
 
-### Prepare Genesis (Coordinator Only)
-
-```bash
-zeroned prepare-genesis zerone-testnet-1 \
-  --founder-address zrn1... \
-  --ai-address zrn1... \
-  --validator-addresses zrn1...,zrn1...,zrn1...,zrn1... \
-  --research-fund-address zrn1... \
-  --claiming-pot-address zrn1...
-```
-
-### Join Testnet (Validator)
-
-```bash
-# Copy genesis.json from coordinator
-cp genesis.json ~/.zeroned/config/genesis.json
-
-# Add seed nodes
-sed -i'' -e 's/seeds = ""/seeds = "SEE_SEEDS_TXT"/' ~/.zeroned/config/config.toml
-
-# Start with Cosmovisor
-cosmovisor run start
-```
-
-See [Validator Guide](docs/VALIDATOR-GUIDE.md) for the full onboarding walkthrough.
+See the [Validator Guide](docs/VALIDATOR-GUIDE.md) for safe preparation and the
+[`zerone-2` GO/NO-GO checklist](deploy/networks/zerone-2/GO-NO-GO.md) for the
+release boundary.
 
 ### Development
 
@@ -260,8 +253,10 @@ go test ./x/knowledge/...
 # Run cross-stack integration tests
 go test ./tests/cross_stack/...
 
-# Lint
-golangci-lint run
+# Lint, generated-proto, and doctrine integrity
+make lint
+make proto-check
+make creed-check
 
 # Generate protobuf
 make proto-gen
@@ -269,20 +264,38 @@ make proto-gen
 
 ---
 
+## SDK and API
+
+- The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
+  inventory of record: 214 paths and 438 definitions.
+- The repository [TypeScript SDK](sdk/typescript/) covers 166 request messages
+  across 20 Zerone `Msg` services. The package is not yet published to npm.
+- [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
+  documents the implemented CAIP, in-toto, and isolated Sigstore seams and the
+  boundaries still deliberately kept off-chain.
+
+The consensus-visible consolidation work requires the named
+`consolidation-safety-v1` upgrade on an existing network. Publishing this source
+does not activate it.
+
+---
+
 ## Documentation
 
 | Document | Description |
 |---|---|
-| [Validator Guide](docs/VALIDATOR-GUIDE.md) | Full validator onboarding walkthrough |
+| [Validator Guide](docs/VALIDATOR-GUIDE.md) | Safe validator preparation and release checks |
 | [Parameters](docs/PARAMETERS.md) | All governance-adjustable parameters |
 | [Tokenomics](docs/tokenomics/) | Supply, vesting, revenue split, governance migration |
-| [Truth-Seeking](docs/TRUTH_SEEKING.md) | The 18 epistemological commitments, bound by tests |
+| [Truth-Seeking](docs/TRUTH_SEEKING.md) | The 20 epistemological commitments, bound by tests |
 | [ToK Substrate](docs/TOK_SUBSTRATE.md) | The chain's training-resource doctrine — verified knowledge graph as headline product |
 | [Useful Work](docs/USEFUL_WORK.md) | The chain's metabolic doctrine — UW (recursive) + 7 mechanisms |
 | [Strange Loop](docs/STRANGE_LOOP.md) | The chain's self-referential doctrine — SL + 6 mechanisms (Phase SL-α binds SL-M1 doctrine import) |
 | [Roadmap](docs/ROADMAP.md) | Where we are, what's bound, what ships next |
+| [Changelog](CHANGELOG.md) | Consolidated source changes and publication boundary |
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |
-| [API Reference](docs/API.md) | REST/gRPC endpoint reference |
+| [API Reference](docs/API.md) | Generated REST/gRPC discovery and usage |
+| [Open Crypto SDK](docs/standards/OPEN_CRYPTO_SDK.md) | SDK availability and standards seams |
 | [Events](docs/EVENTS.md) | On-chain event reference |
 | [Launch Checklist](docs/LAUNCH-CHECKLIST.md) | Testnet launch checklist |
 | [Truth Paper](docs/TRUTH-PAPER-HUMAN.md) | Proof of Truth design paper |

@@ -1,92 +1,85 @@
 # Open crypto SDK and standards integration
 
-Zerone gets the most leverage from open standards at its boundaries, while
-keeping consensus limited to witness-and-record primitives. This note records
-the implemented interoperability seams and the recommended SDK roadmap.
+Zerone gets the most value from open standards at its boundaries while keeping
+consensus limited to small deterministic records. This document distinguishes
+implemented source from published packages and activated network behavior.
 
-## Implemented: portable account identifiers
+## Availability
 
-`x/auth` projects registered Zerone accounts whose stored address is canonical
-lowercase, 20-byte `zrn` Bech32 as:
+The canonical public source is
+[`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
+The Go module path remains `github.com/zerone-chain/zerone` pending an explicit
+module-path migration.
 
-- a [CAIP-2](https://standards.chainagnostic.org/CAIPs/caip-2)-syntax Cosmos
-  chain ID;
-- a [CAIP-10](https://standards.chainagnostic.org/CAIPs/caip-10)-syntax account
-  ID; and
-- its existing Zerone address, `did:zrn` label, account type, frozen state, and
-  creation height.
+The repository contains a package named `@zerone-chain/sdk` under
+[`sdk/typescript`](../../sdk/typescript), but it is **not published on npm**.
+Build and test it from a pinned repository checkout:
 
-Example for the live `zerone-1` network:
+```bash
+npm --prefix sdk/typescript ci
+npm --prefix sdk/typescript run check
+npm --prefix sdk/typescript run build
+```
+
+Do not document `npm install @zerone-chain/sdk` as available until a separate
+registry release is verified.
+
+## Implemented boundary seams
+
+### Portable account identifiers
+
+`x/auth` computes a read-only projection for canonical lowercase, 20-byte
+`zrn` Bech32 accounts:
 
 ```text
 chain:   cosmos:zerone-1
 account: cosmos:zerone-1:zrn1...
 ```
 
-Query it over gRPC, REST, or the CLI:
+The result follows the
+[Cosmos CAIP-2 profile](https://namespaces.chainagnostic.org/cosmos/caip2) and
+CAIP-10 syntax. The draft Cosmos CAIP-10 profile does not name Zerone's `zrn`
+HRP, so this is not claimed as full profile compliance. The stored `did:zrn`
+label is native metadata, not a claim of W3C DID Core or `did:pkh`
+implementation.
+
+Query the projection with:
 
 ```bash
 zeroned query zerone_auth account-identifier zrn1...
-curl http://localhost:1317/zerone/auth/v1/account_identifier/zrn1...
+curl http://127.0.0.1:1317/zerone/auth/v1/account_identifier/zrn1...
 ```
 
-The implementation follows the
-[Cosmos CAIP-2 namespace profile](https://namespaces.chainagnostic.org/cosmos/caip2):
-chain IDs matching `[-a-zA-Z0-9]{1,32}` are represented directly, except
-values beginning with `hashed-`. All other nonempty IDs use
-`hashed-<first-16-lowercase-hex-of-sha256(chain-id)>`. The profile is still
-Draft even though CAIP-2 and CAIP-10 are Final, so the formatter and vectors
-remain isolated in `x/auth/types/caip.go`.
+This projection adds no store write, transaction, migration, bank call, or IBC
+activity.
 
-The separate draft
-[Cosmos CAIP-10 address profile](https://namespaces.chainagnostic.org/cosmos/caip10)
-currently names only the `cosmos` and `cosmosvaloper` HRPs, not Zerone's `zrn`
-HRP. Zerone therefore describes this output precisely as CAIP-10 syntax, while
-enforcing a canonical lowercase `zrn` address with a 20-byte payload.
+### Generated REST and transaction coverage
 
-This is a computed query projection. It adds no KV writes, events, parameters,
-genesis fields, migrations, consensus-version changes, bank calls, or IBC
-activity. Otherwise-consistent historical or genesis-injected account records
-outside the stricter CAIP projection remain queryable through the native
-account API and return `FailedPrecondition` here rather than being silently
-rewritten or aliased.
+All generated custom query gateways are registered. The canonical generated
+Swagger document currently contains 214 paths and 438 definitions:
+[`docs/swagger-ui/swagger.json`](../swagger-ui/swagger.json).
 
-The `did:zrn` value is opaque native metadata in this response. It is not a
-claim that Zerone currently implements [W3C DID Core](https://www.w3.org/TR/did-core/),
-a published DID method, or `did:pkh`.
+The repository TypeScript package contains protobuf/direct-signing codecs for
+166 request message types across 20 Zerone `Msg` services. Its registry
+composes with CosmJS standard message types, and its CAIP helpers share golden
+vectors with Go. These codecs serialize messages; they do not supply authority
+policy, legacy Amino support, or automatic mainnet controls.
 
-## Implemented: close generated REST coverage gaps
+### Unsigned in-toto training provenance
 
-The application now registers five generated query clients that its manual v2
-gateway list previously omitted: counterexamples, creed, substrate bridge,
-training provenance, and trust score. Their declared `google.api.http` routes
-are now reachable through the same REST gateway as the other custom modules.
-
-This removes five concrete REST/SDK gaps without activating a write path or
-changing the safety posture of any module. The generated OpenAPI document now
-contains the complete protobuf-derived REST surface, including the CAIP and
-in-toto queries.
-
-## Implemented: unsigned in-toto training provenance
-
-`x/training_provenance` projects the existing live certificate for a
-non-composed `FINALIZED`, `ATTESTED`, or `SUPERSEDED` manifest directly into an
+`x/training_provenance` projects coherent non-composed `FINALIZED`, `ATTESTED`,
+or `SUPERSEDED` manifests into an
 [in-toto Statement v1](https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md):
 
 ```bash
-curl http://localhost:1317/zerone/training_provenance/v1/in-toto/<manifest-id>
+curl http://127.0.0.1:1317/zerone/training_provenance/v1/in-toto/<manifest-id>
 ```
 
-The statement keeps the sealed manifest's source chain distinct from the chain
-serving the query after an export or relaunch. Its SHA-256 subject digest is
-precisely the manifest's included-ID-set commitment, not a hash of fact content,
-metadata, or version-pin fields. Predicate v1 refuses draft and composed
-manifests because its certificate counts direct fact/action/domain coverage,
-while its incident count is module-global rather than manifest-specific. The
-versioned
-[predicate specification](../specs/attestations/training-provenance-v1.md)
-records those exact boundaries and freezes them: a semantic change requires a
-new predicate version and URI.
+The versioned
+[`training-provenance-v1`](../specs/attestations/training-provenance-v1.md)
+specification fixes the digest and state boundaries. The response is unsigned
+and computed from current state. Signing, caching, and publication remain
+off-chain concerns.
 
 This is an unsigned, current-state projection with no store, transaction,
 reward, or consensus-version change. A producer can sign the returned JSON
@@ -109,38 +102,31 @@ verify signatures, or authenticate the predicate.
 ## Implemented: Sigstore evidence into substrate bridge
 
 The isolated
-[`sigstore-substrate-compiler`](../../tools/sigstore-substrate-compiler/)
-verifies a local Sigstore DSSE bundle using a pinned local trust root, one
-exact certificate issuer and SAN, an exact predicate type, and a required
-artifact digest. It then emits the existing `x/substrate_bridge`
-`SubstrateLink` shape.
+[`sigstore-substrate-compiler`](../../tools/sigstore-substrate-compiler)
+verifies bounded local Sigstore DSSE evidence against pinned local policy and
+emits the existing substrate-link shape. Consensus validates the bounded link,
+not Sigstore certificates or remote documents.
 
-The payload-byte `source_id` commits the exact decoded signed payload, while
-`content_hash` commits the exact accepted bundle bytes, including signature,
-certificate, SCT, and transparency-log evidence. The result is witness-only:
-no facts, pending claims, recursion weight, or automatic reward. Consensus
-checks the existing canonical link; Sigstore cryptography remains explicitly
-off-chain. The [adapter specification](../specs/adapters/sigstore-in-toto-v1.md)
-requires governance to pin the compiler build, trust-root digest, invocation
-policy, and challenge procedure before registration.
+Its output is witness-only: it creates no fact, pending claim, recursion
+weight, or automatic reward. Reward-bearing adapter registration remains
+blocked on reproducible compiler policy, retained evidence, and an independent
+challenge procedure.
 
-## Upgrade constraint: separate from boundary integrations
+## Consensus boundary
 
-The validator currently pins Cosmos SDK `v0.50.15` and IBC-Go `v8.8.0`.
-The current [Cosmos release-family guidance](https://docs.cosmos.network/sdk/latest/release-family)
-lists SDK `0.54.x` with IBC-Go `v11.x` and marks SDK `0.50.x` and lower
-end-of-life. Treat that as a high-priority, coordinated consensus-upgrade
-program—not as a dependency bump bundled with these read-only standards seams.
-It needs module/store migrations, relayer and counterparty compatibility
-testing, a rehearsal network, and an explicit activation height.
+The CAIP and in-toto projections and the off-chain Sigstore compiler do not by
+themselves require a consensus migration. The wider consolidation also
+contains consensus-visible knowledge, vesting, and substrate
+changes. Existing networks must activate those through the coordinated
+`consolidation-safety-v1` upgrade; publishing source does not activate them.
 
-## Implemented: generated TypeScript transaction SDK
+The validator currently pins Cosmos SDK 0.50 and IBC-Go 8. Their migration must
+be a separate, rehearsed consensus program with store/module migrations,
+relayer compatibility testing, recovery practice, and an explicit height.
 
-`sdk/typescript` builds `@zerone-chain/sdk`, a versioned ESM package generated
-from Zerone's pinned protobuf sources with
-[Telescope](https://github.com/hyperweb-io/telescope). It provides:
+## Ranked next integrations
 
-- typed protobuf/direct-signing codecs for all 165 request messages in
+- typed protobuf/direct-signing codecs for all 166 request messages in
   Zerone's 20 `Msg` services;
 - a registry that composes with CosmJS's standard Cosmos message types;
 - generic CAIP-2 and CAIP-10 parsing plus the Cosmos chain-reference profile;
@@ -327,22 +313,22 @@ bounded URI, deterministic digest, schema version, status, and owning account
 reference. A card advertises capabilities; it does not by itself prove control
 of a Zerone identity, authorize a transaction, or justify exposing private home
 state.
-
 ## Explicit deferrals
 
-- No W3C DID document or Verifiable Credential claim until `did:zrn`
-  canonicalization, identity-key proof of possession, rotation signatures,
-  metadata bounds, replay protection, and genesis invariants are hardened.
-- No CosmWasm or general contract VM; it conflicts with the slim-cut boundary.
-- No new IBC middleware while the current IBC/ICA posture remains limited and
-  the IBC-Go v8 migration plan remains unresolved. Cosmos SDK 0.50 / IBC-Go 8
-  is outside the currently supported release families, so upgrade planning is
-  a maintenance prerequisite rather than a hidden feature dependency.
-- No on-chain x402 facilitator, ERC-8004 registry, C2PA parser, JSON-LD
-  resolver, A2A parser, or remote-context fetch.
-- No reward-bearing `sigstore-in-toto-v1` registration until governance has
-  approved a reproducible compiler, pinned verification policy, retained
-  bundles, and an independent challenge procedure.
+- No W3C DID or Verifiable Credential claim until proof of possession,
+  rotation, metadata bounds, replay protection, and genesis invariants are
+  hardened.
+- No CosmWasm or general contract VM.
+- No new IBC middleware before the consensus-stack migration.
+- No on-chain x402 facilitator, ERC-8004 registry, C2PA/JSON-LD/A2A parser, or
+  remote-context fetch.
+- No incomplete same-model training-fund replay.
+- No recovery of the older capture behavior until it is re-derived and audited
+  against the current state and authority model.
 
-The design rule is simple: reuse open identifiers and document formats at
-Zerone's edges; keep deterministic consensus schemas small.
+## Publication boundary
+
+The 2026-07-29 consolidation is a GitHub source publication only. It does not
+include an npm release, release tag, validator deployment, or Codeberg sync.
+The `zerone-2` kit remains NO-GO until every signed ceremony and authority
+requirement is satisfied.
