@@ -152,18 +152,26 @@ const revoke = makeRevokeFeeGrant({ network, granter, grantee });
 
 The grant builder always nests a finite `BasicAllowance` inside an
 `AllowedMsgAllowance`. It requires a positive spend limit, a future expiry,
-and one or more exact protobuf message type URLs. It rejects duplicate or
-noncanonical coins, wildcard-like URLs, self-grants, and a conservative set of
-emergency, upgrade, governance, parameter, admin, freeze, unfreeze, and key
-rotation controls.
+and one or more exact protobuf message type URLs. Its policy currently
+allowlists only `/zerone.claiming_pot.v1.MsgClaim`; every other type, including
+nested authorization envelopes, is rejected until its signer and authority
+behavior receives a separate review. It also rejects duplicate or noncanonical
+coins, wildcard-like URLs, and self-grants. Applications that intentionally
+need another allowance shape can use the standard Cosmos feegrant codecs
+directly and own that broader policy.
 
 Feegrant pays transaction fees only: it does not let the grantee sign messages
 as the granter. The helper does not query, broadcast, or prove that the
 allowance exists; applications should query the connected chain, show the
 budget and expiry to both parties, and handle revocation. These guardrails are
 client policy rather than new consensus validation, so lower-level Cosmos SDK
-clients can still construct other allowance shapes. CosmJS applications can
-use `setupFeegrantExtension` from `@cosmjs/stargate` for allowance queries.
+clients can still construct other allowance shapes. Sponsored gas is capped at
+CosmJS's exact Int53 range so every accepted fee remains signable by the pinned
+client. Expiry is checked against the application's wall clock while block time
+is authoritative, so callers should leave a practical clock-skew and inclusion
+margin. Use a direct protobuf signer; CosmJS 0.39 does not provide legacy Amino
+feegrant converters. CosmJS applications can use `setupFeegrantExtension` from
+`@cosmjs/stargate` for allowance queries.
 
 ## Develop
 

@@ -5,10 +5,11 @@ import {
 } from "./chunk-QI25M5F7.js";
 import {
   FeeGrantError,
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
   makeBoundedFeeGrant,
   makeRevokeFeeGrant,
   makeSponsoredFee
-} from "./chunk-CKRFQCA2.js";
+} from "./chunk-JLGGA6KK.js";
 import {
   CaipError,
   asExistingZeroneDid,
@@ -32,6 +33,7 @@ export {
   CaipError,
   CidError,
   FeeGrantError,
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
   asExistingZeroneDid,
   asZeroneMemoryCid,
   cosmosChainId,

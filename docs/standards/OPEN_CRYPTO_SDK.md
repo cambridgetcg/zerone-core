@@ -199,8 +199,10 @@ grant, revoke, and prune transactions. The TypeScript SDK now builds a finite
 `BasicAllowance` wrapped by `AllowedMsgAllowance`, a revoke message, and the
 fee-granter field used by CosmJS for sponsor-funded onboarding. The builder
 requires an explicit positive budget, future expiry, and exact allowed message
-type URLs; it also rejects privileged control-plane URLs. These are client
-guardrails, not added consensus restrictions.
+type URLs. Its reviewed onboarding policy currently allowlists only
+`/zerone.claiming_pot.v1.MsgClaim`; all other messages, including nested
+authorization envelopes, fail closed. These are client guardrails, not added
+consensus restrictions.
 
 Do not wire Cosmos SDK
 [`x/authz`](https://docs.cosmos.network/sdk/v0.50/build/modules/authz/README)

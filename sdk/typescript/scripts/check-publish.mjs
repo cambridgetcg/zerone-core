@@ -30,6 +30,8 @@ const typescriptCompiler = join(
 const consumerSource = `
 import * as root from "@zerone-chain/sdk";
 import * as caip from "@zerone-chain/sdk/caip";
+import * as cid from "@zerone-chain/sdk/cid";
+import * as feegrant from "@zerone-chain/sdk/feegrant";
 import * as messages from "@zerone-chain/sdk/messages";
 import * as registry from "@zerone-chain/sdk/registry";
 
@@ -50,9 +52,36 @@ const registerAccount: messages.auth.MsgRegisterAccount = {
 };
 const encoded = messages.authMessages.encoded.registerAccount(registerAccount);
 const registered = registry.createZeroneRegistry([]);
+const memoryCid =
+  "bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm";
+const validatedMemoryCid = cid.asZeroneMemoryCid(memoryCid);
+const feeGrant = feegrant.makeBoundedFeeGrant({
+  network,
+  granter: "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+  grantee: "zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5s75sh2",
+  spendLimit: [{ denom: "uzrn", amount: "100000" }],
+  expiration: new Date("2099-01-01T00:00:00Z"),
+  allowedMessageTypeUrls: ["/zerone.claiming_pot.v1.MsgClaim"],
+});
+const sponsoredFee = feegrant.makeSponsoredFee({
+  network,
+  granter: "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+  amount: [{ denom: "uzrn", amount: "2500" }],
+  gas: "200000",
+});
 
 assert(root.cosmosChainId("zerone-1") === "cosmos:zerone-1", "root export failed");
 assert(network.chainId === "cosmos:zerone-1", "caip export failed");
+assert(validatedMemoryCid === memoryCid, "cid export failed");
+assert(
+  feeGrant.typeUrl === "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+  "feegrant export failed",
+);
+assert(
+  sponsoredFee.granter === "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf" &&
+    sponsoredFee.gas === "200000",
+  "sponsored fee export failed",
+);
 assert(
   encoded.typeUrl === "/zerone.auth.v1.MsgRegisterAccount" &&
     encoded.value instanceof Uint8Array,
@@ -66,6 +95,11 @@ assert(
 assert(
   root.zeroneRegistryTypes.length === registry.zeroneRegistryTypes.length,
   "root registry re-export failed",
+);
+assert(
+  root.ZERONE_ONBOARDING_MESSAGE_TYPE_URLS[0] ===
+    feegrant.ZERONE_ONBOARDING_MESSAGE_TYPE_URLS[0],
+  "root feegrant re-export failed",
 );
 `;
 

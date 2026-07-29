@@ -21,7 +21,7 @@ export type FeeGrantErrorCode =
   | "EMPTY_ALLOWED_MESSAGES"
   | "INVALID_MESSAGE_TYPE_URL"
   | "DUPLICATE_MESSAGE_TYPE_URL"
-  | "SENSITIVE_MESSAGE_TYPE_URL"
+  | "UNAPPROVED_MESSAGE_TYPE_URL"
   | "INVALID_GAS";
 
 export class FeeGrantError extends Error {
@@ -55,7 +55,7 @@ export interface BoundedFeeGrantInput extends FeeGrantParties {
   readonly expiration: Date;
   /**
    * Exact protobuf message type URLs that the sponsor agrees to pay for.
-   * Wildcards and privileged control-plane messages are rejected.
+   * Wildcards and types outside the reviewed onboarding allowlist are rejected.
    */
   readonly allowedMessageTypeUrls: readonly string[];
 }
@@ -81,10 +81,24 @@ const DENOM_PATTERN = /^[a-zA-Z][a-zA-Z0-9/:._-]{2,127}$/;
 const POSITIVE_INTEGER_PATTERN = /^[1-9][0-9]*$/;
 const MESSAGE_TYPE_URL_PATTERN =
   /^\/[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+\.Msg[A-Za-z0-9_]+$/;
-const MAX_UINT64 = (1n << 64n) - 1n;
+const MAX_COSMJS_GAS = (1n << 53n) - 1n;
 const MAX_SDK_INT = (1n << 256n) - 1n;
 const MIN_PROTOBUF_TIMESTAMP_MILLISECONDS = -62_135_596_800_000;
 const MAX_PROTOBUF_TIMESTAMP_MILLISECONDS = 253_402_300_799_999;
+
+/**
+ * Message types reviewed for sponsor-funded Zerone onboarding.
+ *
+ * This is an allowlist, not a pattern: a newly added message remains rejected
+ * until the SDK policy and the message's signer/authority behavior are audited.
+ */
+export const ZERONE_ONBOARDING_MESSAGE_TYPE_URLS = Object.freeze([
+  "/zerone.claiming_pot.v1.MsgClaim",
+] as const);
+
+const approvedOnboardingMessageTypeUrls = new Set<string>(
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
+);
 
 function validateParties(input: FeeGrantParties): void {
   zeroneAccountId(input.network, input.granter);
@@ -218,9 +232,9 @@ function encodeTimestamp(timestamp: Timestamp): Uint8Array {
 }
 
 function encodeBasicAllowance(allowance: BasicAllowance): Uint8Array {
-  // cosmjs-types 0.11's BinaryWriter underallocates some positive int64
-  // varints above 2^31-1. Write the Timestamp field explicitly so valid
-  // post-2038 expirations cannot be silently truncated.
+  // cosmjs-types 0.11's BinaryWriter corrupts some positive int64 varints
+  // above 2^31-1 through signed low-word handling. Write the Timestamp field
+  // explicitly so valid post-2038 expirations cannot be silently truncated.
   const writer = BasicAllowance.encode({
     spendLimit: allowance.spendLimit,
     expiration: undefined,
@@ -229,32 +243,6 @@ function encodeBasicAllowance(allowance: BasicAllowance): Uint8Array {
     writer.uint32(0x12).bytes(encodeTimestamp(allowance.expiration));
   }
   return writer.finish();
-}
-
-function isSensitiveMessageTypeUrl(typeUrl: string): boolean {
-  const normalized = typeUrl.toLowerCase();
-  const modulePath = normalized.slice(1, normalized.lastIndexOf(".msg"));
-  const messageName = normalized.slice(normalized.lastIndexOf(".msg") + 4);
-  const moduleSegments = modulePath.split(".");
-
-  if (
-    moduleSegments.some((segment) =>
-      ["emergency", "upgrade", "gov", "governance", "params", "admin"].includes(
-        segment,
-      ),
-    )
-  ) {
-    return true;
-  }
-
-  return [
-    "freeze",
-    "unfreeze",
-    "rotate",
-    "params",
-    "admin",
-    "authority",
-  ].some((fragment) => messageName.includes(fragment));
 }
 
 function validateAllowedMessages(typeUrls: readonly string[]): string[] {
@@ -279,10 +267,10 @@ function validateAllowedMessages(typeUrls: readonly string[]): string[] {
         `Duplicate allowed message type URL: ${typeUrl}`,
       );
     }
-    if (isSensitiveMessageTypeUrl(typeUrl)) {
+    if (!approvedOnboardingMessageTypeUrls.has(typeUrl)) {
       throw new FeeGrantError(
-        "SENSITIVE_MESSAGE_TYPE_URL",
-        `Refusing to sponsor sensitive message type: ${typeUrl}`,
+        "UNAPPROVED_MESSAGE_TYPE_URL",
+        `Message type is not approved for sponsor-funded Zerone onboarding: ${typeUrl}`,
       );
     }
     seen.add(typeUrl);
@@ -358,11 +346,11 @@ export function makeSponsoredFee(input: SponsoredFeeInput): SponsoredStdFee {
   if (
     input.gas.length > 20 ||
     !POSITIVE_INTEGER_PATTERN.test(input.gas) ||
-    BigInt(input.gas) > MAX_UINT64
+    BigInt(input.gas) > MAX_COSMJS_GAS
   ) {
     throw new FeeGrantError(
       "INVALID_GAS",
-      "Sponsored fee gas must be a canonical positive uint64",
+      "Sponsored fee gas must be a canonical positive CosmJS Int53 value",
     );
   }
 
