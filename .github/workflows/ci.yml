@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.25.12"
 
 permissions:
   contents: read
@@ -132,7 +132,7 @@ jobs:
           cache: true
           cache-dependency-path: tools/sigstore-substrate-compiler/go.sum
       - name: Verify selected toolchain
-        run: test "$(go env GOVERSION)" = "go1.25.8"
+        run: test "$(go env GOVERSION)" = "go1.25.12"
       - name: Test, vet, and race-test
         run: |
           go test ./... -count=1

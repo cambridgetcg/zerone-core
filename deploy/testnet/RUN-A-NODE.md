@@ -62,8 +62,8 @@ If you'd rather do it by hand, §2.
 ```bash
 # deps (Ubuntu/Debian)
 sudo apt-get update && sudo apt-get install -y git build-essential jq curl
-# Go 1.24
-curl -fsSL https://go.dev/dl/go1.24.0.linux-amd64.tar.gz | sudo tar -C /usr/local -xz   # use ...arm64... on ARM
+# Go 1.25.12
+curl -fsSL https://go.dev/dl/go1.25.12.linux-amd64.tar.gz | sudo tar -C /usr/local -xz   # use ...arm64... on ARM
 export PATH=$PATH:/usr/local/go/bin
 
 # build zeroned

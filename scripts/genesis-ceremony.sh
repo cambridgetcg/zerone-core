@@ -14,7 +14,7 @@
 #   scripts/genesis-ceremony.sh export              # Export genesis + keys
 #   scripts/genesis-ceremony.sh countdown           # Live countdown to launch
 #
-# Requires: jq >= 1.6, go (1.24+)
+# Requires: jq >= 1.6, Go 1.25.12 exactly
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -28,6 +28,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY="${PROJECT_ROOT}/build/zeroned"
 CEREMONY_HOME="${HOME}/.zeroned/genesis-ceremony"
 KEYRING="test"
+REQUIRED_GO_VERSION="go1.25.12"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Genesis Doctrine (commitment 20: issuance follows participation)
@@ -75,7 +76,9 @@ warn() { echo -e "\033[1;33m  !!\033[0m $*"; }
 
 check_deps() {
   command -v jq >/dev/null 2>&1 || die "jq >= 1.6 required. Install: brew install jq"
-  command -v go >/dev/null 2>&1 || die "go >= 1.24 required."
+  command -v go >/dev/null 2>&1 || die "Go 1.25.12 required."
+  [[ "$(go env GOVERSION 2>/dev/null)" == "${REQUIRED_GO_VERSION}" ]] ||
+    die "Go 1.25.12 required; found $(go env GOVERSION 2>/dev/null || echo unavailable)."
 }
 
 check_binary() {

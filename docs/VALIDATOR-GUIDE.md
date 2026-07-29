@@ -29,7 +29,7 @@ This guide covers everything you need to join **zerone-testnet-1** as a validato
 
 ### Software Requirements
 
-- **Go** 1.24+ ([install guide](https://go.dev/doc/install))
+- **Go** 1.25.12 exactly ([install guide](https://go.dev/doc/install))
 - **jq** 1.6+ (`brew install jq` on macOS, `apt install jq` on Ubuntu)
 - **make**
 - **git**

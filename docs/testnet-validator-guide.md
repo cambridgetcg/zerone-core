@@ -21,7 +21,7 @@ Any modern Linux VPS (Ubuntu 22.04+, Debian 12+) or macOS machine will work.
 
 ### Option A: Build from Source
 
-Requires Go 1.24+ and `jq`:
+Requires Go 1.25.12 and `jq`:
 
 ```bash
 # Clone the repository
@@ -261,7 +261,7 @@ Categories: `analytic`, `formal`, `empirical`, `protocol`, `computational`
 **Node won't start:**
 - Check genesis hash matches published value
 - Ensure ports 26656 (P2P) and 26657 (RPC) are not in use
-- Verify Go version: `go version` (need 1.24+)
+- Verify Go version: `go env GOVERSION` (need exactly `go1.25.12`)
 
 **Node stuck syncing:**
 - Check persistent_peers is set correctly

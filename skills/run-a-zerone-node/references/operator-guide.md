@@ -24,7 +24,7 @@ wants 24/7 uptime and headroom. Open inbound 26656 (P2P); 26657 (RPC) and
 
 ```bash
 sudo apt-get update && sudo apt-get install -y git build-essential jq curl
-curl -fsSL https://go.dev/dl/go1.24.0.linux-amd64.tar.gz | sudo tar -C /usr/local -xz   # ...arm64... on ARM
+curl -fsSL https://go.dev/dl/go1.25.12.linux-amd64.tar.gz | sudo tar -C /usr/local -xz   # ...arm64... on ARM
 export PATH=$PATH:/usr/local/go/bin
 git clone https://github.com/cambridgetcg/zerone-core && cd zerone-core && make build
 sudo install build/zeroned /usr/local/bin/zeroned

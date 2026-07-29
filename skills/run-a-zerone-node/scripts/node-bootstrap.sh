@@ -13,12 +13,12 @@
 #   NETWORK      'testnet' (default) or 'mainnet' — picks chain-id, seed, RPC
 #   MONIKER      node name (default: hostname)
 #   RPC          a network RPC to pull genesis + seed from (default per NETWORK)
-#   GO_VERSION   Go toolchain (default 1.24.0)
+#   GO_VERSION   Go toolchain (default 1.25.12)
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 MONIKER="${MONIKER:-$(hostname)}"
-GO_VERSION="${GO_VERSION:-1.24.0}"
+GO_VERSION="${GO_VERSION:-1.25.12}"
 NETWORK="${NETWORK:-testnet}"
 case "${NETWORK}" in
   mainnet)
@@ -50,7 +50,7 @@ say "installing build deps"
 sudo apt-get update -y
 sudo apt-get install -y git build-essential jq curl
 
-if ! command -v go >/dev/null || ! go version 2>/dev/null | grep -q "go${GO_VERSION%.*}"; then
+if ! command -v go >/dev/null || ! go version 2>/dev/null | grep -Fq "go${GO_VERSION} "; then
   say "installing Go ${GO_VERSION} (${GOARCH})"
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" | sudo tar -C /usr/local -xz
 fi
