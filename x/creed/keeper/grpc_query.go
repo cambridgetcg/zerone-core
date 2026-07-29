@@ -76,7 +76,7 @@ func (q *queryServer) Commitment(ctx context.Context, req *types.QueryCommitment
 
 func (q *queryServer) Params(ctx context.Context, _ *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
 	p := q.keeper.GetParams(ctx)
-	return &types.QueryParamsResponse{Params: &p}, nil
+	return &types.QueryParamsResponse{Params: p}, nil
 }
 
 func (q *queryServer) CouncilMembers(ctx context.Context, req *types.QueryCouncilMembersRequest) (*types.QueryCouncilMembersResponse, error) {

@@ -21,7 +21,7 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) {
 		return
 	}
 	if gs.Params != nil {
-		_ = k.SetParams(ctx, *gs.Params)
+		_ = k.SetParams(ctx, gs.Params)
 	}
 	// History first (older versions), then the genesis pin (current).
 	for _, p := range gs.History {
@@ -53,7 +53,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
 	cur := k.GetCurrentVersion(ctx)
 	gs := &types.GenesisState{
-		Params: &params,
+		Params: params,
 	}
 	// Council members.
 	k.IterateCouncilMembers(ctx, func(m *types.CreedCouncilMember) bool {

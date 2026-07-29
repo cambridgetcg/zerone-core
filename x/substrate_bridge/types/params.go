@@ -4,8 +4,8 @@ import (
 	"fmt"
 )
 
-func DefaultParams() Params {
-	return Params{
+func DefaultParams() *Params {
+	return &Params{
 		MaxPendingClaimsPerAttestation:    100_000,
 		PerPendingClaimBondUzrn:           "222",
 		AttestationMinBondUzrn:            "222000",
@@ -22,7 +22,10 @@ func DefaultParams() Params {
 	}
 }
 
-func (p Params) Validate() error {
+func (p *Params) Validate() error {
+	if p == nil {
+		return fmt.Errorf("params must not be nil")
+	}
 	if p.MaxPendingClaimsPerAttestation == 0 {
 		return fmt.Errorf("max_pending_claims_per_attestation must be > 0")
 	}

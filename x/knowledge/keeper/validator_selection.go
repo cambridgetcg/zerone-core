@@ -13,7 +13,7 @@ import (
 // GetEligibleValidators returns validators eligible for verification of a given domain.
 // When domainQualificationKeeper is set, it filters by domain qualification and falls
 // back to all active validators if fewer than MinVerifiers are qualified.
-func (k Keeper) GetEligibleValidators(ctx context.Context, domain string) ([]types.ValidatorInfo, error) {
+func (k Keeper) GetEligibleValidators(ctx context.Context, domain string) ([]*types.ValidatorInfo, error) {
 	if k.stakingKeeper == nil {
 		return nil, nil
 	}
@@ -22,13 +22,18 @@ func (k Keeper) GetEligibleValidators(ctx context.Context, domain string) ([]typ
 	if err != nil {
 		return nil, err
 	}
+	for _, validator := range validators {
+		if validator == nil {
+			return nil, fmt.Errorf("active validator info must not be nil")
+		}
+	}
 
 	// No qualification keeper — return all active validators
 	if k.domainQualificationKeeper == nil || domain == "" {
 		return validators, nil
 	}
 
-	var qualified []types.ValidatorInfo
+	var qualified []*types.ValidatorInfo
 	qualifiedSet := make(map[string]struct{})
 	for _, v := range validators {
 		ok, err := k.domainQualificationKeeper.IsQualified(ctx, v.Address, domain)
@@ -57,7 +62,7 @@ func (k Keeper) GetEligibleValidators(ctx context.Context, domain string) ([]typ
 	expertiseFloor := (effectiveMin + 1) / 2 // ceil(effectiveMin / 2)
 	if uint64(len(qualified)) >= expertiseFloor {
 		needed := int(effectiveMin) - len(qualified)
-		pool := append([]types.ValidatorInfo(nil), qualified...)
+		pool := append([]*types.ValidatorInfo(nil), qualified...)
 		for _, v := range validators {
 			if needed <= 0 {
 				break

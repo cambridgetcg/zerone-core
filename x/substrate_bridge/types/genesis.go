@@ -3,14 +3,19 @@ package types
 import "fmt"
 
 func DefaultGenesis() *GenesisState {
-	p := DefaultParams()
 	return &GenesisState{
-		Params:   &p,
+		Params:   DefaultParams(),
 		Adapters: nil,
 	}
 }
 
-func (gs GenesisState) Validate() error {
+func (gs *GenesisState) Validate() error {
+	if gs == nil {
+		return fmt.Errorf("genesis state must not be nil")
+	}
+	if gs.Params == nil {
+		return fmt.Errorf("params must not be nil")
+	}
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}

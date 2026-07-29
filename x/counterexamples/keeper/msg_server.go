@@ -105,12 +105,12 @@ func (m *msgServer) Validate(ctx context.Context, msg *types.MsgValidate) (*type
 	}
 	height := CurrentBlock(ctx)
 	v := &types.Validation{
-		Id:                id,
-		CounterexampleId:  c.Id,
-		Validator:         msg.Validator,
-		Affirm:            msg.Affirm,
-		Reason:            msg.Reason,
-		SubmittedAtBlock:  height,
+		Id:               id,
+		CounterexampleId: c.Id,
+		Validator:        msg.Validator,
+		Affirm:           msg.Affirm,
+		Reason:           msg.Reason,
+		SubmittedAtBlock: height,
 	}
 	if err := m.keeper.SetValidation(ctx, v); err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	if msg.Params == nil {
 		return nil, fmt.Errorf("params required")
 	}
-	if err := m.keeper.SetParams(ctx, *msg.Params); err != nil {
+	if err := m.keeper.SetParams(ctx, msg.Params); err != nil {
 		return nil, err
 	}
 	return &types.MsgUpdateParamsResponse{}, nil

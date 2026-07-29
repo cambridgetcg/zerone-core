@@ -156,7 +156,7 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	// 4. Qualification check.
 	if m.qualificationKeeper != nil && adapter.RequiredQualificationDomain != "" {
 		qual, found := m.qualificationKeeper.GetDomainQualification(ctx, msg.Submitter, adapter.RequiredQualificationDomain)
-		if !found || uint32(qual.Status) < uint32(adapter.MinQualificationStatus) {
+		if !found || qual == nil || uint32(qual.Status) < uint32(adapter.MinQualificationStatus) {
 			return nil, types.ErrInsufficientQualification
 		}
 	}

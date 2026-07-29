@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	aligntypes "github.com/zerone-chain/zerone/x/alignment/types"
 	captypes "github.com/zerone-chain/zerone/x/capture_defense/types"
 	knowtypes "github.com/zerone-chain/zerone/x/knowledge/types"
@@ -17,25 +19,27 @@ import (
 func TestGovernanceParamBoundaries(t *testing.T) {
 	type paramSpec struct {
 		name     string
-		defaults interface{}
-		validate func(interface{}) error
+		defaults proto.Message
+		validate func(proto.Message) error
 	}
 
+	knowledgeDefaults := knowtypes.DefaultParams()
+	alignmentDefaults := aligntypes.DefaultParams()
 	specs := []paramSpec{
 		{
 			name:     "knowledge",
-			defaults: knowtypes.DefaultParams(),
-			validate: func(v interface{}) error { p := v.(knowtypes.Params); return p.Validate() },
+			defaults: &knowledgeDefaults,
+			validate: func(v proto.Message) error { return v.(*knowtypes.Params).Validate() },
 		},
 		{
 			name:     "alignment",
-			defaults: aligntypes.DefaultParams(),
-			validate: func(v interface{}) error { p := v.(aligntypes.Params); return p.Validate() },
+			defaults: &alignmentDefaults,
+			validate: func(v proto.Message) error { return v.(*aligntypes.Params).Validate() },
 		},
 		{
 			name:     "capture_defense",
-			defaults: *captypes.DefaultParams(),
-			validate: func(v interface{}) error { p := v.(captypes.Params); return p.Validate() },
+			defaults: captypes.DefaultParams(),
+			validate: func(v proto.Message) error { return v.(*captypes.Params).Validate() },
 		},
 	}
 
@@ -51,7 +55,7 @@ func TestGovernanceParamBoundaries(t *testing.T) {
 
 	for _, spec := range specs {
 		t.Run(spec.name, func(t *testing.T) {
-			rv := reflect.ValueOf(spec.defaults)
+			rv := reflect.ValueOf(spec.defaults).Elem()
 			rt := rv.Type()
 
 			for i := 0; i < rt.NumField(); i++ {
@@ -62,12 +66,11 @@ func TestGovernanceParamBoundaries(t *testing.T) {
 
 				for _, bv := range boundaryValues {
 					t.Run(field.Name+"_"+bv.name, func(t *testing.T) {
-						clone := reflect.New(rt).Elem()
-						clone.Set(rv)
-						clone.Field(i).SetUint(bv.val)
+						clone := proto.Clone(spec.defaults)
+						cloneValue := reflect.ValueOf(clone).Elem()
+						cloneValue.Field(i).SetUint(bv.val)
 
-						p := clone.Interface()
-						err := spec.validate(p)
+						err := spec.validate(clone)
 						// We don't assert pass/fail per-value — the point is
 						// to exercise every boundary and ensure no panics.
 						// Log which combinations are rejected for visibility.
@@ -219,7 +222,7 @@ func TestCrossParamValidation_AlignmentBounds(t *testing.T) {
 	t.Run("bounds_times_magnitude_exceeds_100pct", func(t *testing.T) {
 		p := aligntypes.DefaultParams()
 		p.CorrectionBoundsMaxMultiplierBps = 5_000_000 // 500%
-		p.MaxAutoApplyMagnitudeBps = 500_000            // 50%
+		p.MaxAutoApplyMagnitudeBps = 500_000           // 50%
 		// 5_000_000 * 500_000 / 1_000_000 = 2_500_000 > 1_000_000 → rejected
 		err := p.Validate()
 		if err == nil {
@@ -230,7 +233,7 @@ func TestCrossParamValidation_AlignmentBounds(t *testing.T) {
 	t.Run("bounds_times_magnitude_exactly_100pct", func(t *testing.T) {
 		p := aligntypes.DefaultParams()
 		p.CorrectionBoundsMaxMultiplierBps = 2_000_000 // 200%
-		p.MaxAutoApplyMagnitudeBps = 500_000            // 50%
+		p.MaxAutoApplyMagnitudeBps = 500_000           // 50%
 		// 2_000_000 * 500_000 / 1_000_000 = 1_000_000 == BPS → not > BPS → accepted
 		err := p.Validate()
 		if err != nil {
@@ -241,7 +244,7 @@ func TestCrossParamValidation_AlignmentBounds(t *testing.T) {
 	t.Run("safe_combination_accepted", func(t *testing.T) {
 		p := aligntypes.DefaultParams()
 		p.CorrectionBoundsMaxMultiplierBps = 1_500_000 // 150%
-		p.MaxAutoApplyMagnitudeBps = 300_000            // 30%
+		p.MaxAutoApplyMagnitudeBps = 300_000           // 30%
 		// 1_500_000 * 300_000 / 1_000_000 = 450_000 < 1_000_000 → accepted
 		err := p.Validate()
 		if err != nil {

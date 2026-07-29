@@ -167,7 +167,7 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	if msg.Params == nil {
 		return nil, types.ErrInvalidParams.Wrap("params required")
 	}
-	if err := m.keeper.SetParams(ctx, *msg.Params); err != nil {
+	if err := m.keeper.SetParams(ctx, msg.Params); err != nil {
 		return nil, err
 	}
 
