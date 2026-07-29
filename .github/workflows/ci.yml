@@ -9,6 +9,9 @@ on:
 env:
   GO_VERSION: "1.24"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -17,34 +20,539 @@ jobs:
   build:
     name: "Build"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Build
         run: make build
+      - name: Verify downloaded Go modules
+        run: go mod verify
+      - name: Mainnet key-custody entrypoint
+        run: bash deploy/mainnet/entrypoint_test.sh
+      - name: Mainnet custody-free image context
+        run: bash deploy/mainnet/build-image_test.sh
+      - name: Fly immutable-image deployment gate
+        run: |
+          bash deploy/fly-deploy-pinned_test.sh
+          bash deploy/validate-fly-phase-config_test.sh
+          bash deploy/fly-deploy-authorized_test.sh
+          bash deploy/mainnet/fly-cutover-authorized_test.sh
+      - name: Query-only gateway runtime and image context
+        run: |
+          bash deploy/query-gateway/entrypoint_test.sh
+          bash deploy/query-gateway/build-image_test.sh
+      - name: Canonical signed-payload publication
+        run: bash scripts/zerone-canonical-json-test.sh
+      - name: Transitive signed authority chain
+        run: bash deploy/verify-authority-chain_test.sh
+      - name: Signed phase transaction byte gate
+        run: |
+          bash scripts/zerone-2-bootstrap-tx-broadcast_test.sh
+          bash scripts/zerone-phase-tx-broadcast_test.sh
+      - name: Mainnet terminal checkpoint rehearsal
+        run: bash deploy/mainnet/halt-checkpoint-rehearsal.sh
+      - name: Deterministic post-halt archive config authority
+        run: bash deploy/mainnet/render-archive-configs_test.sh
+      - name: Zerone-2 reproducible keyless ceremony
+        run: bash scripts/zerone-2-ceremony-test.sh
+      - name: Zerone-2 validator and edge custody boundary
+        run: bash deploy/networks/zerone-2/runtime/tests/entrypoint_test.sh
+      - name: Zerone-2 restart and export/import rehearsal
+        run: bash scripts/zerone-2-dress-rehearsal.sh
+      - name: Single authoritative final-checkpoint template
+        run: |
+          test ! -e deploy/networks/zerone-2/FINAL-CHECKPOINT.example.json
+          jq -e '
+            def hash_pair:
+              type == "object" and
+              (keys | sort) == (["sha256", "detached_signature_sha256"] | sort) and
+              (.sha256 | type == "string") and
+              (.detached_signature_sha256 | type == "string");
+            (keys | sort) == ([
+              "schema", "status", "created_at", "chain_id", "authority_chain",
+              "checkpoint_state", "final_application_block", "halt_trigger_tip",
+              "excluded_post_anchor_state", "terminal_rpc_evidence", "genesis",
+              "successor", "successor_commitment", "artifacts",
+              "source_halt_release", "deployment_config_sha256", "archive",
+              "accepted_policy", "attestation"
+            ] | sort) and
+            .schema == "zerone-final-checkpoint-v3" and
+            .status == "frozen" and
+            .chain_id == "zerone-1" and
+            (.accepted_policy | keys | sort) == ([
+              "alignment_corrections_live_at_genesis",
+              "automatic_issuance_live_at_genesis",
+              "checkpoint_inventory_is_entitlement", "claims_live_at_genesis",
+              "counterexamples_live_at_genesis", "direct_zerone_1_balance_migration",
+              "external_ibc_clients_live_at_genesis",
+              "hosted_transaction_submission_live_at_initial_beta",
+              "ibc_transfer_live_at_genesis", "ica_live_at_genesis",
+              "knowledge_admission_rewards_live_at_genesis",
+              "liquidity_pool_creation_live_at_genesis",
+              "one_operator_validator_bft_f", "pot_live_at_genesis",
+              "public_grpc_live_at_initial_beta",
+              "substrate_bridge_live_at_genesis", "vote_extensions_live_at_genesis"
+            ] | sort) and
+            .accepted_policy.one_operator_validator_bft_f == 0 and
+            ([.accepted_policy | to_entries[] |
+              select(.key != "one_operator_validator_bft_f") | .value] |
+              all(.[]; . == false)) and
+            (.authority_chain | keys | sort) == ([
+              "release_packet", "dark_start_decision",
+              "dark_start_initiation_evidence", "dark_registration_evidence",
+              "cutover_decision", "cutover_initiation_evidence",
+              "archive_adoption_authority", "archive_transition_manifest_sha256"
+            ] | sort) and
+            ([
+              .authority_chain.release_packet,
+              .authority_chain.dark_start_decision,
+              .authority_chain.dark_start_initiation_evidence,
+              .authority_chain.dark_registration_evidence,
+              .authority_chain.cutover_decision,
+              .authority_chain.cutover_initiation_evidence,
+              .authority_chain.archive_adoption_authority
+            ] | all(.[]; hash_pair)) and
+            (.authority_chain.archive_transition_manifest_sha256 | type == "string") and
+            (.source_halt_release.image_ref | type == "string" and contains("@sha256:")) and
+            (.successor.release.runtime_image_ref | type == "string" and contains("@sha256:")) and
+            (.successor.release.query_gateway_image_ref | type == "string" and contains("@sha256:")) and
+            .source_halt_release.image_ref != .successor.release.runtime_image_ref and
+            .source_halt_release.image_ref != .successor.release.query_gateway_image_ref and
+            .successor.release.runtime_image_ref != .successor.release.query_gateway_image_ref
+            and .attestation.algorithm == "openpgp"
+            and .attestation.detached_signature_filename == "FINAL-CHECKPOINT.json.sig"
+            and (.attestation.authorized_signer_fingerprint | type == "string")
+            and (.attestation.authority_limit | type == "string")
+            and .checkpoint_state.rest_height_pinned == true
+            and .checkpoint_state.rest_merkle_proved == false
+            and .final_application_block.transaction_count == 0
+            and .final_application_block.commit_canonical == true
+            and .halt_trigger_tip.sdk_hook == "FinalizeBlock"
+            and .halt_trigger_tip.application_applied == false
+            and .halt_trigger_tip.block_results_available == false
+            and .halt_trigger_tip.subjective_seen_commit_canonical_field == false
+            and .halt_trigger_tip.transaction_count == 0
+            and .archive.public_service_authorized == false
+            and .archive.anchor_tip_commit_rpc_canonical == false
+            and .archive.halt_trigger_block_present == false
+            and .archive.old_signer_keys_present == false
+            and .archive.peer_exchange_enabled == false
+            and .archive.persistent_peers == []
+            and .archive.fresh_nonvalidator_keys == true
+            and .archive.catching_up_expected_for_fresh_key_comet_v0_38 == true
+            and (.deployment_config_sha256 | keys | sort) == ([
+              "zerone_1_halt_signer", "zerone_1_observer",
+              "zerone_1_archive_candidate", "zerone_1_archive"
+            ] | sort)
+            and (.authority_chain.archive_adoption_authority.sha256 | type == "string")
+            and (.authority_chain.dark_start_initiation_evidence.sha256 | type == "string")
+            and (.authority_chain.dark_registration_evidence.sha256 | type == "string")
+            and (.authority_chain.cutover_initiation_evidence.sha256 | type == "string")
+            and (.checkpoint_state.inventory_v3_sha256 | type == "string")
+            and .excluded_post_anchor_state.included_in_successor_inventory == false
+            and (.terminal_rpc_evidence.sources | keys | sort) ==
+              (["official_signer", "independent_observer"] | sort)
+            and (.terminal_rpc_evidence.matching_payload_sha256 | keys | sort) == ([
+              "genesis_json", "trusted_block_json", "trusted_commit_json",
+              "trusted_validators_json", "block_a_json", "commit_a_json",
+              "validators_a_json", "block_results_a_json", "block_h_json",
+              "commit_h_json", "validators_h_json", "abci_info_json",
+              "block_results_h_missing_response"
+            ] | sort)
+            and (.genesis.rpc_canonical_sha256 | type == "string")
+            and .genesis.raw_file_sha256 ==
+              "c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e"
+            and .successor.chain_id == "zerone-2"
+            and .successor.private_dark_start.minimum_blocks_observed == 1000
+            and .successor.private_dark_start.minimum_wall_time_minutes == 60
+            and (.successor.private_dark_start.operator_onboarding_transaction_hash |
+              type == "string")
+            and (.successor.private_dark_start.custom_validator_registration_transaction_hash |
+              type == "string")
+            and (.successor_commitment.transaction_hash | type == "string")
+            and (.successor_commitment.public_notice_sha256 | type == "string")
+            and (.successor_commitment.public_notice_publication_evidence_sha256 |
+              type == "string")
+            and (.artifacts | keys | sort) == ([
+              "post_anchor_state_export_sha256",
+              "post_anchor_state_export_included_in_successor_inventory",
+              "offline_halted_observer_database_snapshot_sha256",
+              "sanitized_a_a_database_snapshot_sha256",
+              "archive_rollback_log_sha256"
+            ] | sort)
+            and .artifacts.post_anchor_state_export_included_in_successor_inventory == false
+            and (.archive | has("rpc_url") | not)
+            and (.archive | has("rest_url") | not)
+            and (.archive | has("public_url") | not)
+            and (has("open_beta") | not)
+            and (has("dns") | not)
+          ' deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json >/dev/null
+      - name: Scoped immutable decision templates
+        run: |
+          jq -e '
+            .schema == "zerone-2-release-packet-v1" and
+            .chain_id == "zerone-2" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.authorized_signer_fingerprint == .source.tag_signer_fingerprint and
+            .signature_authority.detached_signature_filename == "RELEASE-PACKET.json.sig" and
+            .accepted_policy.one_operator_validator_bft_f == 0 and
+            .accepted_policy.public_grpc_live_at_initial_beta == false and
+            .accepted_policy.hosted_transaction_submission_live_at_initial_beta == false and
+            (.operator_tool_manifest_sha256 | type == "string") and
+            (.predecessor | keys | sort) == ([
+              "chain_id", "genesis_file_sha256", "trusted_rpc_node_id",
+              "trusted_observer_node_id", "trusted_block"
+            ] | sort) and
+            .predecessor.chain_id == "zerone-1" and
+            .predecessor.genesis_file_sha256 ==
+              "c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e" and
+            .predecessor.trusted_rpc_node_id != .predecessor.trusted_observer_node_id and
+            (.predecessor.trusted_rpc_node_id | type == "string") and
+            (.predecessor.trusted_observer_node_id | type == "string") and
+            (.predecessor.trusted_block | keys | sort) ==
+              (["height", "block_id_hash", "app_hash"] | sort) and
+            (.predecessor.trusted_block.height | type == "string") and
+            (.predecessor.trusted_block.block_id_hash | type == "string") and
+            (.predecessor.trusted_block.app_hash | type == "string") and
+            (.source | keys | sort) ==
+              (["commit", "signed_annotated_tag", "tag_signer_fingerprint"] | sort) and
+            (.source.commit | type == "string") and
+            (.source.signed_annotated_tag | type == "string") and
+            .source.tag_signer_fingerprint ==
+              .signature_authority.authorized_signer_fingerprint and
+            (.genesis | keys | sort) ==
+              (["time", "sha256", "independent_verification_count"] | sort) and
+            .genesis.independent_verification_count == 2 and
+            (.ceremony_artifacts | keys | sort) == ([
+              "schema", "genesis_checksum_sha256", "network_manifest_sha256",
+              "human_manifest_sha256"
+            ] | sort) and
+            .ceremony_artifacts.schema == "zerone-2-public-ceremony-artifact-set-v1" and
+            (.ceremony_artifacts.genesis_checksum_sha256 | type == "string") and
+            (.ceremony_artifacts.network_manifest_sha256 | type == "string") and
+            (.ceremony_artifacts.human_manifest_sha256 | type == "string") and
+            (.components.zerone_1_halt.image_ref | contains("@sha256:")) and
+            (.components.zerone_2_runtime.image_ref | contains("@sha256:")) and
+            (.components.query_gateway.image_ref | contains("@sha256:")) and
+            (.components | keys | sort) ==
+              (["zerone_1_halt", "zerone_2_runtime", "query_gateway"] | sort) and
+            (.components.zerone_1_halt | keys | sort) == ([
+              "binary_sha256", "image_ref", "sbom_sha256", "provenance_sha256",
+              "signature_sha256", "vulnerability_decision_sha256"
+            ] | sort) and
+            (.components.zerone_2_runtime | keys | sort) == ([
+              "binary_sha256", "image_ref", "sbom_sha256", "provenance_sha256",
+              "signature_sha256", "vulnerability_decision_sha256"
+            ] | sort) and
+            (.components.query_gateway | keys | sort) == ([
+              "image_ref", "sbom_sha256", "provenance_sha256",
+              "signature_sha256", "vulnerability_decision_sha256"
+            ] | sort) and
+            ([.components[] | .sbom_sha256, .provenance_sha256,
+              .signature_sha256, .vulnerability_decision_sha256] |
+              all(.[]; type == "string")) and
+            (.components.zerone_1_halt.binary_sha256 | type == "string") and
+            (.components.zerone_2_runtime.binary_sha256 | type == "string") and
+            .components.zerone_1_halt.image_ref != .components.zerone_2_runtime.image_ref and
+            .components.zerone_1_halt.image_ref != .components.query_gateway.image_ref and
+            .components.zerone_2_runtime.image_ref != .components.query_gateway.image_ref and
+            .archive_render_contract.schema == "zerone-1-archive-render-contract-v1" and
+            .archive_render_contract.static_constraints.public_fly_service == false and
+            .archive_render_contract.static_constraints.public_ip == false and
+            .archive_render_contract.static_constraints.persistent_peers == [] and
+            (. as $release | all(.deployment_configs | to_entries[];
+              .value.image_ref == $release.components[.value.image_component].image_ref))
+          ' deploy/networks/zerone-2/RELEASE-PACKET.example.json >/dev/null
+          jq -e '
+            .schema == "zerone-2-dark-start-decision-v1" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename == "DARK-START-DECISION.json.sig" and
+            .authorization_semantics.initiation_event == "first committed block of the exact private zerone-2 genesis" and
+            (.authorization_semantics.initiation_deadline | type == "string") and
+            .private_bootstrap_transactions.broadcast_order == [
+              "operator_onboarding", "custom_validator_registration"
+            ] and
+            .authorization_semantics.minimum_registration_inclusion_margin_seconds == 300 and
+            (.authorization_semantics.registration_commit_deadline | type == "string") and
+            (.authorization_semantics.registration_broadcast_not_after | type == "string") and
+            .private_bootstrap_transactions.operator_onboarding.filename ==
+              "ZERONE-2-ONBOARD-SIGNED-TX.json" and
+            .private_bootstrap_transactions.operator_onboarding.chain_id == "zerone-2" and
+            .private_bootstrap_transactions.operator_onboarding.message_type ==
+              "/zerone.auth.v1.MsgRegisterAccount" and
+            .private_bootstrap_transactions.operator_onboarding.account_type == "human" and
+            .private_bootstrap_transactions.operator_onboarding.did ==
+              ("did:zrn:" +
+                .private_bootstrap_transactions.operator_onboarding.public_key) and
+            .private_bootstrap_transactions.operator_onboarding.fee == "200000uzrn" and
+            .private_bootstrap_transactions.operator_onboarding.gas_limit == "200000" and
+            .private_bootstrap_transactions.operator_onboarding.signer_sequence == "0" and
+            .private_bootstrap_transactions.operator_onboarding.memo ==
+              "zerone-2-private-bootstrap:operator-onboarding" and
+            .private_bootstrap_transactions.operator_onboarding.must_not_reference_dark_start_payload == true and
+            .private_bootstrap_transactions.custom_validator_registration.filename ==
+              "ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json" and
+            .private_bootstrap_transactions.custom_validator_registration.chain_id == "zerone-2" and
+            .private_bootstrap_transactions.custom_validator_registration.message_type ==
+              "/zerone.staking.v1.MsgRegisterValidator" and
+            .private_bootstrap_transactions.custom_validator_registration.operator ==
+              .private_bootstrap_transactions.operator_onboarding.sender and
+            .private_bootstrap_transactions.custom_validator_registration.did ==
+              .private_bootstrap_transactions.operator_onboarding.did and
+            .private_bootstrap_transactions.custom_validator_registration.self_delegation ==
+              "111000000" and
+            .private_bootstrap_transactions.custom_validator_registration.commission_bps ==
+              "500" and
+            .private_bootstrap_transactions.custom_validator_registration.fee ==
+              "200000uzrn" and
+            .private_bootstrap_transactions.custom_validator_registration.gas_limit ==
+              "200000" and
+            .private_bootstrap_transactions.custom_validator_registration.signer_sequence == "1" and
+            .private_bootstrap_transactions.custom_validator_registration.memo ==
+              "zerone-2-private-bootstrap:custom-validator-registration" and
+            .private_bootstrap_transactions.custom_validator_registration.must_not_reference_dark_start_payload == true and
+            .required_minimum_private_soak.blocks == 1000 and
+            .required_minimum_private_soak.wall_time_minutes == 60 and
+            (.always_forbidden_by_this_decision | index("broadcast any zerone-1 transaction") != null) and
+            (.deployment_configs | keys | sort) == ([
+              "zerone_2_validator", "zerone_2_edge_private",
+              "zerone_2_edge_query_soak", "zerone_2_gateway_private"
+            ] | sort)
+          ' deploy/networks/zerone-2/DARK-START-DECISION.example.json >/dev/null
+          jq -e '
+            .schema == "zerone-2-dark-registration-evidence-v1" and
+            .attestation_result == "MATCH" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename ==
+              "DARK-REGISTRATION-EVIDENCE.json.sig" and
+            (.dark_start_decision | keys | sort) ==
+              (["sha256", "detached_signature_sha256"] | sort) and
+            (.dark_start_initiation_evidence | keys | sort) ==
+              (["sha256", "detached_signature_sha256"] | sort) and
+            (.operator_onboarding | keys | sort) == ([
+              "signed_tx_bytes_sha256", "expected_transaction_hash",
+              "committed_transaction_hash", "deliver_code", "committed_height",
+              "committed_block_time", "raw_transaction_query_evidence_sha256",
+              "independent_edge_evidence_sha256"
+            ] | sort) and
+            (.custom_validator_registration | keys | sort) == ([
+              "signed_tx_bytes_sha256", "expected_transaction_hash",
+              "committed_transaction_hash", "deliver_code", "committed_height",
+              "committed_block_time", "raw_transaction_query_evidence_sha256",
+              "independent_edge_evidence_sha256"
+            ] | sort) and
+            .operator_onboarding.deliver_code == 0 and
+            .operator_onboarding.committed_transaction_hash ==
+              .operator_onboarding.expected_transaction_hash and
+            .custom_validator_registration.deliver_code == 0 and
+            .custom_validator_registration.committed_transaction_hash ==
+              .custom_validator_registration.expected_transaction_hash and
+            .post_registration_state.chain_id == "zerone-2" and
+            .post_registration_state.total_supply_uzrn == "13555000000" and
+            .post_registration_state.did ==
+              ("did:zrn:" + .post_registration_state.identity_public_key) and
+            .post_registration_state.custom_validator_active == true and
+            .post_registration_state.custom_validator_self_delegation_uzrn ==
+              "111000000" and
+            .post_registration_state.custom_staking_module_balance_uzrn ==
+              "111000000" and
+            .post_registration_state.sdk_validator_count == 1 and
+            .deadline_satisfied == true
+          ' deploy/networks/zerone-2/DARK-REGISTRATION-EVIDENCE.example.json >/dev/null
+          jq -e -s '
+            .[0] as $dark | .[1] as $evidence |
+            $evidence.registration_commit_deadline ==
+              $dark.authorization_semantics.registration_commit_deadline and
+            $evidence.operator_onboarding.signed_tx_bytes_sha256 ==
+              $dark.private_bootstrap_transactions.operator_onboarding.signed_tx_bytes_sha256 and
+            $evidence.operator_onboarding.expected_transaction_hash ==
+              $dark.private_bootstrap_transactions.operator_onboarding.expected_transaction_hash and
+            $evidence.custom_validator_registration.signed_tx_bytes_sha256 ==
+              $dark.private_bootstrap_transactions.custom_validator_registration.signed_tx_bytes_sha256 and
+            $evidence.custom_validator_registration.expected_transaction_hash ==
+              $dark.private_bootstrap_transactions.custom_validator_registration.expected_transaction_hash and
+            $evidence.post_registration_state.operator ==
+              $dark.private_bootstrap_transactions.operator_onboarding.sender and
+            $evidence.post_registration_state.did ==
+              $dark.private_bootstrap_transactions.operator_onboarding.did and
+            $evidence.post_registration_state.validator_consensus_pubkey ==
+              $dark.private_bootstrap_transactions.custom_validator_registration.consensus_pubkey
+          ' deploy/networks/zerone-2/DARK-START-DECISION.example.json \
+            deploy/networks/zerone-2/DARK-REGISTRATION-EVIDENCE.example.json \
+            >/dev/null
+          jq -e '
+            .schema == "zerone-2-cutover-decision-v1" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename == "CUTOVER-DECISION.json.sig" and
+            .authorization_semantics.initiation_event == "exact zerone-1 successor commitment transaction commits after exact public notice publication" and
+            (.authorization_semantics.initiation_deadline | type == "string") and
+            (.deployment_configs | keys | sort) == ([
+              "zerone_1_halt_signer", "zerone_1_observer"
+            ] | sort) and
+            .deterministic_private_continuation.attestation_algorithm == "openpgp" and
+            .deterministic_private_continuation.allowed_adoption_authority_schema ==
+              "zerone-1-archive-adoption-authority-v1" and
+            .deterministic_private_continuation.required_attestation_result == "MATCH" and
+            .deterministic_private_continuation.render_contract.static_constraints.public_fly_service == false and
+            .successor_commitment_transaction.chain_id == "zerone-1" and
+            .successor_commitment_transaction.must_not_reference_cutover_payload == true and
+            (.initial_beta_exclusions | index("public gRPC") != null) and
+            (.initial_beta_exclusions | index("hosted transaction submission") != null)
+          ' deploy/networks/zerone-2/CUTOVER-DECISION.example.json >/dev/null
+          jq -e '
+            .schema == "zerone-1-archive-adoption-authority-v1" and
+            .attestation_result == "MATCH" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename ==
+              "ARCHIVE-ADOPTION-AUTHORITY.json.sig" and
+            (.deployment_configs | keys | sort) == ([
+              "zerone_1_archive_candidate", "zerone_1_archive"
+            ] | sort) and
+            .enforced_origin_invariants.public_fly_service == false and
+            .enforced_origin_invariants.public_ip == false and
+            .enforced_origin_invariants.persistent_peers == [] and
+            .enforced_origin_invariants.transaction_ingress == false and
+            (.archive_construction_evidence.excluded_future_artifacts |
+              index("archive adoption authority") != null)
+          ' deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json >/dev/null
+          jq -e '
+            .schema == "zerone-2-open-beta-decision-v1" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename ==
+              "OPEN-BETA-DECISION.json.sig" and
+            .authorization_semantics.initiation_event ==
+              "successful zerone-2 commit of the exact pre-signed history-link transaction bytes and expected transaction hash" and
+            .history_link_transaction.chain_id == "zerone-2" and
+            .history_link_transaction.must_not_reference_open_beta_payload == true and
+            (.deployment_configs | keys | sort) == ([
+              "zerone_2_edge_public", "zerone_2_gateway_public",
+              "zerone_1_archive_gateway"
+            ] | sort) and
+            (.initial_beta_exclusions | index("public gRPC") != null) and
+            (.initial_beta_exclusions | index("hosted transaction submission") != null)
+          ' deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json >/dev/null
+          jq -e '
+            .schema == "zerone-2-dark-start-initiation-evidence-v1" and
+            .attestation_result == "MATCH" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename ==
+              "DARK-START-INITIATION-EVIDENCE.json.sig" and
+            .first_committed_block.chain_id == "zerone-2" and
+            .first_committed_block.height == "1" and
+            .deadline_satisfied == true
+          ' deploy/networks/zerone-2/DARK-START-INITIATION-EVIDENCE.example.json >/dev/null
+          jq -e '
+            .schema == "zerone-2-cutover-initiation-evidence-v1" and
+            .attestation_result == "MATCH" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename ==
+              "CUTOVER-INITIATION-EVIDENCE.json.sig" and
+            .successor_commitment_transaction.deliver_code == 0 and
+            .deadline_satisfied == true
+          ' deploy/networks/zerone-2/CUTOVER-INITIATION-EVIDENCE.example.json >/dev/null
+          jq -e '
+            .schema == "zerone-2-open-beta-initiation-evidence-v1" and
+            .attestation_result == "MATCH" and
+            .signature_authority.algorithm == "openpgp" and
+            .signature_authority.detached_signature_filename ==
+              "OPEN-BETA-INITIATION-EVIDENCE.json.sig" and
+            .history_link_transaction.deliver_code == 0 and
+            .deadline_satisfied == true
+          ' deploy/networks/zerone-2/OPEN-BETA-INITIATION-EVIDENCE.example.json >/dev/null
+          authority=$(jq -r '.signature_authority.authorized_signer_fingerprint' \
+            deploy/networks/zerone-2/RELEASE-PACKET.example.json)
+          test "$authority" = "$(jq -r '.signature_authority.authorized_signer_fingerprint' \
+            deploy/networks/zerone-2/DARK-START-DECISION.example.json)"
+          test "$authority" = "$(jq -r '.signature_authority.authorized_signer_fingerprint' \
+            deploy/networks/zerone-2/CUTOVER-DECISION.example.json)"
+          test "$authority" = "$(jq -r '.signature_authority.authorized_signer_fingerprint' \
+            deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json)"
+          for evidence in \
+            deploy/networks/zerone-2/DARK-START-INITIATION-EVIDENCE.example.json \
+            deploy/networks/zerone-2/DARK-REGISTRATION-EVIDENCE.example.json \
+            deploy/networks/zerone-2/CUTOVER-INITIATION-EVIDENCE.example.json \
+            deploy/networks/zerone-2/OPEN-BETA-INITIATION-EVIDENCE.example.json; do
+            test "$authority" = "$(jq -r \
+              '.signature_authority.authorized_signer_fingerprint' "$evidence")"
+          done
+          transition_authority=$(jq -r \
+            '.public_identities.transition_attestation.authorized_signer_fingerprint' \
+            deploy/networks/zerone-2/RELEASE-PACKET.example.json)
+          test "$transition_authority" != "$authority"
+          test "$transition_authority" = "$(jq -r \
+            '.deterministic_private_continuation.authorized_transition_signer_fingerprint' \
+            deploy/networks/zerone-2/CUTOVER-DECISION.example.json)"
+          test "$transition_authority" = "$(jq -r \
+            '.signature_authority.authorized_signer_fingerprint' \
+            deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json)"
+          test "$transition_authority" = "$(jq -r \
+            '.attestation.authorized_signer_fingerprint' \
+            deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json)"
+          jq -e -s '
+            .[0].deployment_configs as $release |
+            .[1].deployment_configs as $dark |
+            all($dark | keys[]; $dark[.] == $release[.])
+          ' deploy/networks/zerone-2/RELEASE-PACKET.example.json \
+            deploy/networks/zerone-2/DARK-START-DECISION.example.json >/dev/null
+          jq -e -s '
+            .[0] as $release | .[1] as $cutover |
+            $cutover.deployment_configs.zerone_1_halt_signer.image_ref ==
+              $release.components.zerone_1_halt.image_ref and
+            $cutover.deployment_configs.zerone_1_observer.image_ref ==
+              $release.components.zerone_1_halt.image_ref and
+            $cutover.deterministic_private_continuation.render_contract.renderer_sha256 ==
+              $release.archive_render_contract.renderer_sha256 and
+            $cutover.deterministic_private_continuation.render_contract.archive_candidate_template_sha256 ==
+              $release.phase_dependent_config_template_sha256.zerone_1_archive_candidate and
+            $cutover.deterministic_private_continuation.render_contract.archive_template_sha256 ==
+              $release.phase_dependent_config_template_sha256.zerone_1_archive and
+            $cutover.deterministic_private_continuation.render_contract.static_constraints ==
+              $release.archive_render_contract.static_constraints
+          ' deploy/networks/zerone-2/RELEASE-PACKET.example.json \
+            deploy/networks/zerone-2/CUTOVER-DECISION.example.json >/dev/null
+          jq -e -s '
+            .[0].deployment_configs as $release |
+            .[1].deployment_configs as $open |
+            all($open | keys[]; $open[.] == $release[.])
+          ' deploy/networks/zerone-2/RELEASE-PACKET.example.json \
+            deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json >/dev/null
+          test "$(jq -r '.public_notice_sha256' \
+            deploy/networks/zerone-2/CUTOVER-DECISION.example.json)" = \
+            "$(jq -r '.public_notice_sha256' \
+            deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json)"
 
   lint:
     name: "Lint"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Lint
         run: make lint
+      - name: Install pinned Buf CLI
+        run: |
+          go install github.com/bufbuild/buf/cmd/buf@v1.65.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Generated protobufs are current
+        run: make proto-check
+      - name: Creed and doctrine hashes are current
+        run: LC_ALL=C make creed-check
 
   test:
     name: "Test"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
