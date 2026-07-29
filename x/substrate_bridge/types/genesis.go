@@ -20,7 +20,10 @@ func (gs *GenesisState) Validate() error {
 		return err
 	}
 	seen := map[string]bool{}
-	for _, a := range gs.Adapters {
+	for index, a := range gs.Adapters {
+		if a == nil {
+			return fmt.Errorf("adapter at index %d must not be nil", index)
+		}
 		if seen[a.AdapterId] {
 			return fmt.Errorf("duplicate adapter_id in genesis: %s", a.AdapterId)
 		}
