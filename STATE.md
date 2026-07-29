@@ -8,9 +8,9 @@ runs-on: this machine
 ## state
 phase: source-consolidation
 health: green
-last-commit: e0a354b build: bind binary provenance and refresh integrity pins
+last-commit: 7f3405b fix(release): close post-rebase safety and truth gaps
 uncommitted: 0 files
-freshness: reviewed 2026-07-29T16:31:34Z
+freshness: reviewed 2026-07-29T20:11:01Z
 
 ## knows
 - 23 custom Cosmos SDK modules and 166 protobuf Msg request types
@@ -24,11 +24,13 @@ freshness: reviewed 2026-07-29T16:31:34Z
 - be cross-checked by trust.py
 - build a commit-identifiable zeroned binary
 - verify creed, recursion, generated API, SDK, and release integrity
+- preserve claiming, vesting, and substrate-bridge state across relaunch
 
 ## needs
 - a governance-scheduled consolidation-safety-v1 validator rollout
+- cryptographic Sigstore verification and CI OIDC signing before image or validator publication
 - complete, signed zerone-2 ceremony artifacts before any launch
-- bounded designs for capture recovery and training-fund replay protection
+- runtime wiring for adapter dispatch and an activated work creed
 
 ## how-to-talk-to-me
 entry-point: README.md
