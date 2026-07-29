@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	"github.com/zerone-chain/zerone/x/training_provenance/types"
 )
@@ -51,6 +53,9 @@ func (k Keeper) BuildCertificate(ctx context.Context, manifestID string) (*types
 			manifestID,
 			manifest.ManifestId,
 		)
+	}
+	if err := validateManifestMerkleRoot(manifestID, manifest); err != nil {
+		return nil, fmt.Errorf("%w: %v", errCertificateDataLoss, err)
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
@@ -163,6 +168,40 @@ func (k Keeper) BuildCertificate(ctx context.Context, manifestID string) (*types
 		ComputedAtBlock:       uint64(sdkCtx.BlockHeight()),
 		SourceChainId:         manifest.ChainId,
 	}, nil
+}
+
+func validateManifestMerkleRoot(manifestID string, manifest *knowledgetypes.TrainingManifest) error {
+	if manifest == nil {
+		return fmt.Errorf("manifest %s is nil", manifestID)
+	}
+	hasParentID := manifest.ParentManifestId != ""
+	hasParentRoot := manifest.ParentMerkleRoot != ""
+	hasCompositionDepth := manifest.CompositionDepth != 0
+	if hasParentID != hasParentRoot || hasParentID != hasCompositionDepth {
+		return fmt.Errorf("manifest %s has inconsistent composition metadata", manifestID)
+	}
+
+	includedIDs := knowledgekeeper.SelectedManifestIDs{
+		FactIDs:                manifest.IncludedFactIds,
+		TraceIDs:               manifest.IncludedTraceIds,
+		PairIDs:                manifest.IncludedPairIds,
+		DriftAugmentationIDs:   manifest.IncludedDriftAugmentationIds,
+		NormativeCommitmentIDs: manifest.IncludedNormativeCommitmentIds,
+	}
+	expectedRoot := knowledgekeeper.ComputeManifestMerkleRoot(includedIDs)
+	if hasParentID {
+		expectedRoot = knowledgekeeper.ComputeComposedManifestMerkleRoot(
+			manifest.ParentMerkleRoot,
+			includedIDs,
+		)
+	}
+	if !strings.EqualFold(manifest.MerkleRoot, expectedRoot) {
+		return fmt.Errorf(
+			"manifest %s merkle_root does not match its included ID sets",
+			manifestID,
+		)
+	}
+	return nil
 }
 
 func computeTrustGrade(privileged, incidents, cartel uint32) (string, string) {

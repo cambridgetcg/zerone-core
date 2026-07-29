@@ -226,6 +226,67 @@ func TestQueryInTotoStatementAcceptsFlatSealedStatuses(t *testing.T) {
 	}
 }
 
+func TestProvenanceQueriesValidateAllIncludedIDClasses(t *testing.T) {
+	includedIDs := knowledgekeeper.SelectedManifestIDs{
+		FactIDs:                []string{"fact-1"},
+		TraceIDs:               []string{"trace-1"},
+		PairIDs:                []string{"pair-1"},
+		DriftAugmentationIDs:   []string{"drift-1"},
+		NormativeCommitmentIDs: []string{"normative-1"},
+	}
+	validRoot := knowledgekeeper.ComputeManifestMerkleRoot(includedIDs)
+	query, ctx := newInTotoQueryTestServer(map[string]*knowledgetypes.TrainingManifest{
+		"all-ids": {
+			ManifestId:                     "all-ids",
+			ChainId:                        "zerone-origin-1",
+			MerkleRoot:                     validRoot,
+			IncludedFactIds:                includedIDs.FactIDs,
+			IncludedTraceIds:               includedIDs.TraceIDs,
+			IncludedPairIds:                includedIDs.PairIDs,
+			IncludedDriftAugmentationIds:   includedIDs.DriftAugmentationIDs,
+			IncludedNormativeCommitmentIds: includedIDs.NormativeCommitmentIDs,
+			Status:                         knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
+		},
+		"mutated": {
+			ManifestId:                     "mutated",
+			ChainId:                        "zerone-origin-1",
+			MerkleRoot:                     validRoot,
+			IncludedFactIds:                includedIDs.FactIDs,
+			IncludedTraceIds:               includedIDs.TraceIDs,
+			IncludedPairIds:                includedIDs.PairIDs,
+			IncludedDriftAugmentationIds:   includedIDs.DriftAugmentationIDs,
+			IncludedNormativeCommitmentIds: []string{"normative-1", "normative-2"},
+			Status:                         knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
+		},
+	})
+
+	statement, err := query.InTotoStatement(
+		ctx,
+		&types.QueryInTotoStatementRequest{ManifestId: "all-ids"},
+	)
+	require.NoError(t, err)
+	require.Equal(t, validRoot, statement.Subject[0].Digest["sha256"])
+
+	certificate, err := query.ProvenanceCertificate(
+		ctx,
+		&types.QueryProvenanceCertificateRequest{ManifestId: "all-ids"},
+	)
+	require.NoError(t, err)
+	require.Equal(t, validRoot, certificate.Certificate.MerkleRoot)
+
+	_, err = query.InTotoStatement(
+		ctx,
+		&types.QueryInTotoStatementRequest{ManifestId: "mutated"},
+	)
+	require.Equal(t, codes.DataLoss, status.Code(err))
+
+	_, err = query.ProvenanceCertificate(
+		ctx,
+		&types.QueryProvenanceCertificateRequest{ManifestId: "mutated"},
+	)
+	require.Equal(t, codes.DataLoss, status.Code(err))
+}
+
 func TestQueryInTotoStatementUnwiredKeeperIsInternal(t *testing.T) {
 	query := NewQueryServerImpl(NewKeeper(nil))
 	_, err := query.InTotoStatement(
@@ -271,6 +332,12 @@ func TestQueryProvenanceCertificateStatusCodes(t *testing.T) {
 			MerkleRoot: emptyFlatManifestRoot(),
 			Status:     knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
 		},
+		"wrong-root": {
+			ManifestId: "wrong-root",
+			ChainId:    "zerone-origin-1",
+			MerkleRoot: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			Status:     knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
+		},
 	})
 
 	for name, req := range map[string]*types.QueryProvenanceCertificateRequest{
@@ -289,6 +356,10 @@ func TestQueryProvenanceCertificateStatusCodes(t *testing.T) {
 	_, err = query.ProvenanceCertificate(ctx, &types.QueryProvenanceCertificateRequest{ManifestId: "mismatched-id"})
 	require.Equal(t, codes.DataLoss, status.Code(err))
 	require.ErrorContains(t, err, `manifest key "mismatched-id" contains ID "different-id"`)
+
+	_, err = query.ProvenanceCertificate(ctx, &types.QueryProvenanceCertificateRequest{ManifestId: "wrong-root"})
+	require.Equal(t, codes.DataLoss, status.Code(err))
+	require.ErrorContains(t, err, "included ID sets")
 
 	response, err := query.ProvenanceCertificate(ctx, &types.QueryProvenanceCertificateRequest{ManifestId: "valid"})
 	require.NoError(t, err)

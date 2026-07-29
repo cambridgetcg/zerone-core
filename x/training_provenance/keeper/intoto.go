@@ -10,7 +10,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	"github.com/zerone-chain/zerone/x/training_provenance/types"
 )
@@ -79,19 +78,8 @@ func (k Keeper) BuildInTotoStatement(ctx context.Context, manifestID string) (*t
 			manifest.Status,
 		)
 	}
-	expectedRoot := knowledgekeeper.ComputeManifestMerkleRoot(knowledgekeeper.SelectedManifestIDs{
-		FactIDs:                manifest.IncludedFactIds,
-		TraceIDs:               manifest.IncludedTraceIds,
-		PairIDs:                manifest.IncludedPairIds,
-		DriftAugmentationIDs:   manifest.IncludedDriftAugmentationIds,
-		NormativeCommitmentIDs: manifest.IncludedNormativeCommitmentIds,
-	})
-	if !strings.EqualFold(manifest.MerkleRoot, expectedRoot) {
-		return nil, fmt.Errorf(
-			"%w: manifest %s merkle_root does not match its included ID sets",
-			errInTotoDataLoss,
-			manifestID,
-		)
+	if err := validateManifestMerkleRoot(manifestID, manifest); err != nil {
+		return nil, fmt.Errorf("%w: %v", errInTotoDataLoss, err)
 	}
 
 	certificate, err := k.BuildCertificate(ctx, manifestID)
