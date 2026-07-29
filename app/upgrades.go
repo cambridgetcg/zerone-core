@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	corestore "cosmossdk.io/core/store"
+	storeiavl "cosmossdk.io/store/iavl"
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
@@ -44,6 +45,7 @@ const (
 
 	legacyCapabilityStoreKey        = "capability"
 	legacyIBCFeeStoreKey            = "feeibc"
+	legacyIBCFeeLockedKey           = "locked"
 	maxSDK053IBC10PlanInfoByteCount = 2048
 	maxLegacyIBCManifestKeyCount    = 100_000
 	maxLegacyIBCManifestKeyBytes    = 32 << 20
@@ -949,19 +951,87 @@ func sdk053IBC10StoreLoader(upgradeHeight int64) baseapp.StoreLoader {
 	storeUpgrades := sdk053IBC10StoreUpgrades()
 
 	return func(ms storetypes.CommitMultiStore) error {
-		if upgradeHeight != ms.LastCommitID().Version+1 {
+		preUpgradeVersion := ms.LastCommitID().Version
+		if upgradeHeight != preUpgradeVersion+1 {
 			return baseapp.DefaultStoreLoader(ms)
 		}
 
 		// LoadLatestVersionAndUpgrade can only delete mounted stores. Mount
 		// these retired keys dynamically so their data and commit-info entries
 		// are removed at the upgrade, without keeping them mounted on restart.
-		for _, name := range storeUpgrades.Deleted {
-			ms.MountStoreWithDB(storetypes.NewKVStoreKey(name), storetypes.StoreTypeIAVL, nil)
+		legacyCapabilityKey := storetypes.NewKVStoreKey(legacyCapabilityStoreKey)
+		legacyIBCFeeKey := storetypes.NewKVStoreKey(legacyIBCFeeStoreKey)
+		for _, key := range []*storetypes.KVStoreKey{legacyCapabilityKey, legacyIBCFeeKey} {
+			ms.MountStoreWithDB(key, storetypes.StoreTypeIAVL, nil)
 		}
 
-		return ms.LoadLatestVersionAndUpgrade(&storeUpgrades)
+		if err := ms.LoadLatestVersionAndUpgrade(&storeUpgrades); err != nil {
+			return err
+		}
+
+		// The upgrade load has emptied feeibc's current mutable tree so that
+		// its removal can be committed at H. Inspect the saved H-1 immutable
+		// tree instead: IBC-Go v8's severe-bug lock is deliberately omitted
+		// from genesis export, and any presence (regardless of value) disables
+		// fee processing. A loader error aborts startup before any commit, so
+		// the old database remains restartable by the v8 binary.
+		return rejectLegacyIBCFeeLock(
+			ms.GetCommitKVStore(legacyIBCFeeKey),
+			preUpgradeVersion,
+		)
 	}
+}
+
+func rejectLegacyIBCFeeLock(
+	feeStore storetypes.CommitKVStore,
+	preUpgradeVersion int64,
+) (err error) {
+	// SDK IAVL turns backend read errors from Has into panics. Convert those
+	// panics to loader errors so every inspection failure remains fail-closed
+	// without obscuring the upgrade-startup failure behind a process panic.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf(
+				"inspect legacy %s/%s at version %d: recovered %T panic",
+				legacyIBCFeeStoreKey,
+				legacyIBCFeeLockedKey,
+				preUpgradeVersion,
+				recovered,
+			)
+		}
+	}()
+
+	iavlStore, ok := feeStore.(*storeiavl.Store)
+	if !ok {
+		return fmt.Errorf(
+			"inspect legacy %s/%s at version %d: unexpected commit store type %T",
+			legacyIBCFeeStoreKey,
+			legacyIBCFeeLockedKey,
+			preUpgradeVersion,
+			feeStore,
+		)
+	}
+
+	immutableStore, err := iavlStore.GetImmutable(preUpgradeVersion)
+	if err != nil {
+		return fmt.Errorf(
+			"open legacy %s store at immutable version %d: %w",
+			legacyIBCFeeStoreKey,
+			preUpgradeVersion,
+			err,
+		)
+	}
+	if immutableStore.Has([]byte(legacyIBCFeeLockedKey)) {
+		return fmt.Errorf(
+			"legacy %s/%s is present at version %d; refusing %s upgrade until the IBC-Go v8 severe-bug lock is investigated and remediated under the old binary",
+			legacyIBCFeeStoreKey,
+			legacyIBCFeeLockedKey,
+			preUpgradeVersion,
+			UpgradeNameSDK053IBC10,
+		)
+	}
+
+	return nil
 }
 
 // ReconcileModuleAccountPerms rebuilds every EXISTING module account whose

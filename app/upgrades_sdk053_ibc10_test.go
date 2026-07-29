@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"cosmossdk.io/log"
+	storeiavl "cosmossdk.io/store/iavl"
 	"cosmossdk.io/store/metrics"
 	pruningtypes "cosmossdk.io/store/pruning/types"
 	"cosmossdk.io/store/rootmulti"
@@ -630,7 +632,7 @@ func TestSDK053IBC10PlanInfoIsStrictAndCanonical(t *testing.T) {
 	require.ErrorContains(t, err, "outside prefix")
 }
 
-func TestSDK053IBC10StoreLoaderDeletesLegacyStoresAndRestarts(t *testing.T) {
+func TestSDK053IBC10StoreLoaderAllowsUnrelatedFeeStateAndRestarts(t *testing.T) {
 	db := dbm.NewMemDB()
 	pruning := pruningtypes.NewPruningOptions(pruningtypes.PruningNothing)
 	key := []byte("legacy-state")
@@ -672,6 +674,231 @@ func TestSDK053IBC10StoreLoaderDeletesLegacyStoresAndRestarts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, commitInfo.StoreInfos, 1)
 	require.Equal(t, "retained", commitInfo.StoreInfos[0].Name)
+}
+
+func TestSDK053IBC10StoreLoaderRejectsLegacyFeeLockAndPreservesOldDatabase(t *testing.T) {
+	for _, disableFastNode := range []bool{false, true} {
+		for _, lockedValue := range [][]byte{{0x01}, {0x02}} {
+			name := "fastnode-enabled"
+			if disableFastNode {
+				name = "fastnode-disabled"
+			}
+			name += "/value-" + hex.EncodeToString(lockedValue)
+
+			t.Run(name, func(t *testing.T) {
+				db := dbm.NewMemDB()
+				pruning := pruningtypes.NewPruningOptions(pruningtypes.PruningNothing)
+				legacyKey := []byte("legacy-state")
+				legacyValue := []byte("must-survive-refusal")
+
+				oldStore := rootmulti.NewStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
+				oldStore.SetPruning(pruning)
+				oldStore.SetIAVLDisableFastNode(disableFastNode)
+				for _, storeName := range []string{
+					"retained",
+					legacyCapabilityStoreKey,
+					legacyIBCFeeStoreKey,
+				} {
+					oldStore.MountStoreWithDB(
+						storetypes.NewKVStoreKey(storeName),
+						storetypes.StoreTypeIAVL,
+						nil,
+					)
+				}
+				require.NoError(t, oldStore.LoadLatestVersion())
+				oldStore.GetStoreByName("retained").(storetypes.KVStore).Set(
+					legacyKey,
+					[]byte("kept"),
+				)
+				oldStore.GetStoreByName(legacyCapabilityStoreKey).(storetypes.KVStore).Set(
+					legacyKey,
+					legacyValue,
+				)
+				legacyFeeStore := oldStore.GetStoreByName(legacyIBCFeeStoreKey).(storetypes.KVStore)
+				legacyFeeStore.Set([]byte(legacyIBCFeeLockedKey), lockedValue)
+				legacyFeeStore.Set(legacyKey, legacyValue)
+				oldCommitID := oldStore.Commit()
+				require.Equal(t, int64(1), oldCommitID.Version)
+
+				upgradedStore := rootmulti.NewStore(
+					db,
+					log.NewNopLogger(),
+					metrics.NewNoOpMetrics(),
+				)
+				upgradedStore.SetPruning(pruning)
+				upgradedStore.SetIAVLDisableFastNode(disableFastNode)
+				upgradedStore.MountStoreWithDB(
+					storetypes.NewKVStoreKey("retained"),
+					storetypes.StoreTypeIAVL,
+					nil,
+				)
+
+				err := sdk053IBC10StoreLoader(2)(upgradedStore)
+				require.ErrorContains(t, err, "legacy feeibc/locked is present at version 1")
+				require.ErrorContains(t, err, "refusing sdk-0.53-ibc-10 upgrade")
+
+				// LoadLatestVersionAndUpgrade has staged deletion in the
+				// current mutable tree. The guard must nevertheless see the
+				// canonical immutable H-1 tree, independent of fast nodes.
+				stagedFeeStore := upgradedStore.GetStoreByName(
+					legacyIBCFeeStoreKey,
+				).(storetypes.KVStore)
+				require.False(t, stagedFeeStore.Has([]byte(legacyIBCFeeLockedKey)))
+				require.Nil(t, stagedFeeStore.Get(legacyKey))
+
+				feeKey := upgradedStore.StoreKeysByName()[legacyIBCFeeStoreKey]
+				feeIAVLStore, ok := upgradedStore.GetCommitKVStore(feeKey).(*storeiavl.Store)
+				require.True(t, ok)
+				immutableFeeStore, err := feeIAVLStore.GetImmutable(1)
+				require.NoError(t, err)
+				require.True(t, immutableFeeStore.Has([]byte(legacyIBCFeeLockedKey)))
+				require.Equal(t, lockedValue, immutableFeeStore.Get([]byte(legacyIBCFeeLockedKey)))
+				require.Equal(t, legacyValue, immutableFeeStore.Get(legacyKey))
+
+				// The failed startup must not persist the staged deletions.
+				// Reopening with the old v8 mount set recovers the exact H-1
+				// state and commit ID.
+				restartedOldStore := rootmulti.NewStore(
+					db,
+					log.NewNopLogger(),
+					metrics.NewNoOpMetrics(),
+				)
+				restartedOldStore.SetPruning(pruning)
+				restartedOldStore.SetIAVLDisableFastNode(disableFastNode)
+				for _, storeName := range []string{
+					"retained",
+					legacyCapabilityStoreKey,
+					legacyIBCFeeStoreKey,
+				} {
+					restartedOldStore.MountStoreWithDB(
+						storetypes.NewKVStoreKey(storeName),
+						storetypes.StoreTypeIAVL,
+						nil,
+					)
+				}
+				require.NoError(t, restartedOldStore.LoadLatestVersion())
+				require.Equal(t, oldCommitID, restartedOldStore.LastCommitID())
+				require.Equal(
+					t,
+					lockedValue,
+					restartedOldStore.GetStoreByName(
+						legacyIBCFeeStoreKey,
+					).(storetypes.KVStore).Get([]byte(legacyIBCFeeLockedKey)),
+				)
+				require.Equal(
+					t,
+					legacyValue,
+					restartedOldStore.GetStoreByName(
+						legacyIBCFeeStoreKey,
+					).(storetypes.KVStore).Get(legacyKey),
+				)
+				require.Equal(
+					t,
+					legacyValue,
+					restartedOldStore.GetStoreByName(
+						legacyCapabilityStoreKey,
+					).(storetypes.KVStore).Get(legacyKey),
+				)
+			})
+		}
+	}
+}
+
+func TestSDK053IBC10StoreLoaderAllowsEmptyLegacyFeeStore(t *testing.T) {
+	for _, disableFastNode := range []bool{false, true} {
+		name := "fastnode-enabled"
+		if disableFastNode {
+			name = "fastnode-disabled"
+		}
+
+		t.Run(name, func(t *testing.T) {
+			db := dbm.NewMemDB()
+			pruning := pruningtypes.NewPruningOptions(pruningtypes.PruningNothing)
+
+			oldStore := rootmulti.NewStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
+			oldStore.SetPruning(pruning)
+			oldStore.SetIAVLDisableFastNode(disableFastNode)
+			for _, storeName := range []string{
+				"retained",
+				legacyCapabilityStoreKey,
+				legacyIBCFeeStoreKey,
+			} {
+				oldStore.MountStoreWithDB(
+					storetypes.NewKVStoreKey(storeName),
+					storetypes.StoreTypeIAVL,
+					nil,
+				)
+			}
+			require.NoError(t, oldStore.LoadLatestVersion())
+			oldStore.GetStoreByName("retained").(storetypes.KVStore).Set(
+				[]byte("retained"),
+				[]byte("kept"),
+			)
+			require.Equal(t, int64(1), oldStore.Commit().Version)
+
+			upgradedStore := rootmulti.NewStore(
+				db,
+				log.NewNopLogger(),
+				metrics.NewNoOpMetrics(),
+			)
+			upgradedStore.SetPruning(pruning)
+			upgradedStore.SetIAVLDisableFastNode(disableFastNode)
+			upgradedStore.MountStoreWithDB(
+				storetypes.NewKVStoreKey("retained"),
+				storetypes.StoreTypeIAVL,
+				nil,
+			)
+
+			require.NoError(t, sdk053IBC10StoreLoader(2)(upgradedStore))
+			require.False(
+				t,
+				upgradedStore.GetStoreByName(
+					legacyIBCFeeStoreKey,
+				).(storetypes.KVStore).Has([]byte(legacyIBCFeeLockedKey)),
+			)
+			require.Equal(t, int64(2), upgradedStore.Commit().Version)
+
+			restartedStore := rootmulti.NewStore(
+				db,
+				log.NewNopLogger(),
+				metrics.NewNoOpMetrics(),
+			)
+			restartedStore.SetPruning(pruning)
+			restartedStore.SetIAVLDisableFastNode(disableFastNode)
+			restartedStore.MountStoreWithDB(
+				storetypes.NewKVStoreKey("retained"),
+				storetypes.StoreTypeIAVL,
+				nil,
+			)
+			require.NoError(t, restartedStore.LoadLatestVersion())
+			commitInfo, err := restartedStore.GetCommitInfo(2)
+			require.NoError(t, err)
+			require.Len(t, commitInfo.StoreInfos, 1)
+			require.Equal(t, "retained", commitInfo.StoreInfos[0].Name)
+		})
+	}
+}
+
+func TestRejectLegacyIBCFeeLockFailsClosed(t *testing.T) {
+	err := rejectLegacyIBCFeeLock(nil, 1)
+	require.ErrorContains(t, err, "unexpected commit store type <nil>")
+
+	var nilIAVLStore *storeiavl.Store
+	err = rejectLegacyIBCFeeLock(nilIAVLStore, 1)
+	require.ErrorContains(t, err, "recovered")
+	require.ErrorContains(t, err, "panic")
+
+	db := dbm.NewMemDB()
+	store := rootmulti.NewStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
+	feeKey := storetypes.NewKVStoreKey(legacyIBCFeeStoreKey)
+	store.MountStoreWithDB(feeKey, storetypes.StoreTypeIAVL, nil)
+	require.NoError(t, store.LoadLatestVersion())
+	store.GetKVStore(feeKey).Set([]byte("unrelated"), []byte("value"))
+	require.Equal(t, int64(1), store.Commit().Version)
+
+	err = rejectLegacyIBCFeeLock(store.GetCommitKVStore(feeKey), 2)
+	require.ErrorContains(t, err, "open legacy feeibc store at immutable version 2")
+	require.ErrorContains(t, err, "version mismatch")
 }
 
 func TestRegisterStoreUpgradesReturnsMalformedUpgradeInfoError(t *testing.T) {

@@ -391,8 +391,11 @@ That upstream migration calls exact-key deletion on `channelUpgrades` and
 iterator nor IAVL v1.2.2 can prove complete traversal: both have paths that
 silently terminate without exposing the underlying error. The coordinated
 upgrade therefore requires governance to commit an independently collected raw
-old-database keyset manifest in the plan's `info`. The normal v8 genesis export
-omits these keys and cannot produce that manifest.
+old-database keyset manifest in the plan's `info`. The read-only
+[`ibc-v10-keyset-manifest`](../../tools/ibc-v10-keyset-manifest/README.md)
+tool binds its whole-tree IBC traversal to the trusted H-1 app hash and emits
+that commitment. The normal v8 genesis export omits these keys and cannot
+produce that manifest.
 
 The plan info is exact, compact canonical JSON with no whitespace, duplicate,
 unknown, missing, or trailing fields:
@@ -416,6 +419,24 @@ succeed, the verified keys are deleted only through the upgrade context cache
 and each absence is checked. The committed parent remains unchanged unless the
 complete upgrade block commits; any failure occurs before the auth-hardening
 marker.
+
+IBC-Go v8 also persists `feeibc/locked` when its keeper detects a severe fee
+accounting condition, treats any key presence as locked, and omits the key from
+genesis export. The store loader therefore retains the dynamically mounted
+`feeibc` key, stages the store deletion, then checks `locked` against the
+canonical immutable H-1 IAVL tree before returning startup success. It rejects
+every value, not only the normal `0x01`, and converts immutable-version, store
+type, and IAVL read failures into fail-closed loader errors. The immutable
+lookup traverses the canonical tree and does not require fast-node records.
+Because the upgrade has not committed, a refusal leaves the H-1 database
+restartable under the old binary. Operators must investigate and remediate the
+underlying v8 condition rather than manually clearing the flag.
+
+This consensus loader check and the raw keyset manifest are complementary. The
+manifest tool proves and commits the two obsolete domains in the `ibc` store;
+it does not inspect the separate `feeibc` store. The exported-state census also
+cannot observe `locked`, so the validator-database rehearsal must exercise the
+loader refusal path directly.
 
 The repair deliberately preserves `recvStartSequence/…` byte-for-byte because
 IBC-Go v10 still uses it for replay protection, and likewise preserves packet

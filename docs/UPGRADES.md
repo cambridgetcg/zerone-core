@@ -35,10 +35,21 @@ cosmovisor — runs the handler and the chain resumes.
    The `sdk-0.53-ibc-10` handler is stricter: its `info` is not free-form
    checksum text. It must be the canonical legacy-IBC keyset commitment
    documented in [OPEN_CRYPTO_SDK.md](standards/OPEN_CRYPTO_SDK.md), produced
-   from a trusted frozen-state raw validator database snapshot used for the
-   migration rehearsal. Preserve its height and app-hash evidence and keep IBC
-   state frozen through activation. A normal genesis export cannot see the
+   by the read-only
+   [`ibc-v10-keyset-manifest`](../tools/ibc-v10-keyset-manifest/README.md)
+   tool from a trusted frozen-state raw validator database snapshot used for
+   the migration rehearsal. Preserve its height and app-hash evidence and keep
+   IBC state frozen through activation. A normal genesis export cannot see the
    committed keys.
+
+   The new binary also inspects the dynamically mounted `feeibc` store's
+   canonical immutable H-1 tree after staging its deletion. Any presence of the
+   IBC-Go v8 `locked` key, regardless of value, refuses startup before a commit.
+   This check works with IAVL fast nodes enabled or disabled and is independent
+   of both the exported-state census and the IBC-only keyset manifest. If it
+   fires, preserve the database, restart the old binary, and investigate and
+   remediate the severe fee-accounting condition; do not simply delete the
+   flag.
 
 3. **Stage the new binary before H.** Manual: have it ready. Cosmovisor:
    place it at `cosmovisor/upgrades/<name>/bin/zeroned` under `DAEMON_HOME`

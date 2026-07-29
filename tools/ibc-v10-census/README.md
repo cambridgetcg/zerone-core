@@ -141,6 +141,14 @@ that key records a severe-bug lock condition. Channel export omits upgrade,
 counterparty-upgrade, upgrade-error, `pruningSequenceStart`, and
 `recvStartSequence` child keys.
 
+The `sdk-0.53-ibc-10` binary closes the `locked` blind spot at consensus
+startup: after staging deletion of the dynamically mounted `feeibc` store, its
+loader checks the canonical immutable H-1 tree and rejects any `locked` key
+presence, regardless of value. A rejection occurs before commit, leaving the
+old database restartable for investigation under the v8 binary. This works
+with fast nodes enabled or disabled. It supplements rather than expands this
+export census.
+
 The IBC-Go v10.7 migration deletes bare upgrade/pruning prefix keys rather than
 enumerating their v8 children. A validator-database rehearsal must prove that
 obsolete upgrade/pruning children are removed. Conversely,
@@ -149,11 +157,15 @@ preserved.
 
 Before an upgrade can be considered ready, separately retain evidence for:
 
-1. a raw old-database key census, including `feeibc/locked`;
+1. a raw old-database key census, including `feeibc/locked`, plus a rehearsal
+   proving that the new binary refuses that state without committing;
 2. successful old-binary export, new-binary migration, commit, shutdown, and
    restart against a copy of the real validator database;
-3. correct removal of obsolete upgrade/pruning children and preservation of
-   `recvStartSequence` and packet KV;
+3. the app-hash-bound
+   [`ibc-v10-keyset-manifest`](../ibc-v10-keyset-manifest/README.md), correct
+   removal of its obsolete upgrade/pruning children, and preservation of
+   `recvStartSequence` and packet KV; the manifest traverses the `ibc` store
+   and does not replace the separate `feeibc/locked` check;
 4. synchronized-height exports from both ends of every live channel, zero
    commitments on both ends, and a documented relay/transaction freeze;
 5. acknowledgement and timeout lifecycles across restart, including packets
