@@ -1,4 +1,5 @@
 import { CHAIN_ID, DECIMALS, DENOM, REST_ENDPOINT, RPC_ENDPOINT } from "./config";
+import type { FeeGrantAllowance } from "./feegrant";
 
 interface RpcStatusResponse {
   result?: {
@@ -153,6 +154,29 @@ async function fetchJson<T>(url: string, timeoutMs = 8_000): Promise<T> {
   });
   if (!response.ok) throw new Error(`Mainnet returned HTTP ${response.status}`);
   return (await response.json()) as T;
+}
+
+async function boundedResponseJson(
+  response: Response,
+  maximumBytes = 1_048_576,
+): Promise<unknown> {
+  const declaredLength = response.headers.get("content-length");
+  if (
+    declaredLength !== null &&
+    (!/^\d+$/.test(declaredLength) ||
+      Number(declaredLength) > maximumBytes)
+  ) {
+    throw new Error("Mainnet response exceeded its size limit.");
+  }
+  const raw = await response.text();
+  if (new TextEncoder().encode(raw).byteLength > maximumBytes) {
+    throw new Error("Mainnet response exceeded its size limit.");
+  }
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error("Mainnet returned malformed JSON.");
+  }
 }
 
 function rpcUrl(path: string, params?: Record<string, string>): string {
@@ -461,6 +485,95 @@ export async function getAccountIdentifier(
     );
   }
   return identifier;
+}
+
+async function parseFeeGrantResponse(value: unknown): Promise<{
+  allowances: FeeGrantAllowance[];
+  nextKey: string | null;
+}> {
+  const { parseFeeGrantPage } = await import("./feegrant");
+  const page = parseFeeGrantPage(value);
+  return { allowances: page.allowances, nextKey: page.nextKey };
+}
+
+export async function getFeeGrantsByGrantee(
+  grantee: string,
+): Promise<FeeGrantAllowance[]> {
+  const grants: FeeGrantAllowance[] = [];
+  const seenKeys = new Set<string>();
+  let nextKey: string | null = null;
+  for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {
+    const query = new URLSearchParams({ "pagination.limit": "50" });
+    if (nextKey !== null) query.set("pagination.key", nextKey);
+    const response = await fetchJson<unknown>(
+      restUrl(
+        `/cosmos/feegrant/v1beta1/allowances/${encodeURIComponent(grantee)}?${query.toString()}`,
+      ),
+    );
+    const page = await parseFeeGrantResponse(response);
+    if (page.allowances.some((grant) => grant.grantee !== grantee)) {
+      throw new Error(
+        "Mainnet returned a fee grant for a different grantee.",
+      );
+    }
+    grants.push(...page.allowances);
+    if (page.nextKey === null) return grants;
+    if (seenKeys.has(page.nextKey)) {
+      throw new Error("Fee grant pagination repeated a cursor.");
+    }
+    seenKeys.add(page.nextKey);
+    nextKey = page.nextKey;
+  }
+  throw new Error("Fee grant response exceeded the page limit.");
+}
+
+export async function getFeeGrant(
+  granter: string,
+  grantee: string,
+): Promise<FeeGrantAllowance | null> {
+  const response = await fetch(
+    restUrl(
+      `/cosmos/feegrant/v1beta1/allowance/${encodeURIComponent(granter)}/${encodeURIComponent(grantee)}`,
+    ),
+    {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(8_000),
+    },
+  );
+  if (response.status === 404) return null;
+  let body: unknown;
+  try {
+    body = await boundedResponseJson(response);
+  } catch (error) {
+    if (!response.ok) {
+      throw new Error(`Mainnet returned HTTP ${response.status}`);
+    }
+    throw error;
+  }
+  if (response.status === 500) {
+    const { isMissingFeeGrantError } = await import("./feegrant");
+    if (isMissingFeeGrantError(body)) return null;
+  }
+  if (!response.ok) {
+    throw new Error(`Mainnet returned HTTP ${response.status}`);
+  }
+  if (!isRecord(body) || !isRecord(body.allowance)) {
+    throw new Error("Mainnet returned an incomplete fee grant response.");
+  }
+  const parsed = await parseFeeGrantResponse({
+    allowances: [body.allowance],
+    pagination: { next_key: null },
+  });
+  const grant = parsed.allowances[0] ?? null;
+  if (
+    grant !== null &&
+    (grant.granter !== granter || grant.grantee !== grantee)
+  ) {
+    throw new Error(
+      "Mainnet returned a fee grant for a different account pair.",
+    );
+  }
+  return grant;
 }
 
 export function microToDisplay(amount: string, maximumFractionDigits = DECIMALS): string {

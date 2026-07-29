@@ -765,6 +765,7 @@
   }
 
   .wallet-connected {
+    gap: 1rem;
     justify-content: space-between;
   }
 
@@ -817,6 +818,39 @@
   .wallet-actions {
     display: flex;
     gap: 0.65rem;
+  }
+
+  .feegrant-summary {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 0.8rem 0;
+  }
+
+  .feegrant-summary > div {
+    min-width: 0;
+  }
+
+  .feegrant-summary strong {
+    display: block;
+    margin-top: 0.25rem;
+    overflow: hidden;
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feegrant-summary .button {
+    min-height: 36px;
+    flex: 0 0 auto;
+    padding: 0.55rem 0.75rem;
   }
 
   .wallet-footnote {
@@ -1327,7 +1361,8 @@
     font-weight: 400;
   }
 
-  .send-dialog input {
+  .send-dialog input,
+  .send-dialog select {
     width: 100%;
     min-height: 50px;
     border: 1px solid var(--line);
@@ -1339,11 +1374,29 @@
     font-size: 0.8rem;
   }
 
+  .send-dialog select {
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--violet-soft) 50%),
+      linear-gradient(135deg, var(--violet-soft) 50%, transparent 50%);
+    background-position:
+      calc(100% - 17px) 21px,
+      calc(100% - 12px) 21px;
+    background-repeat: no-repeat;
+    background-size: 5px 5px;
+    padding-right: 2.4rem;
+  }
+
   .send-dialog input::placeholder {
     color: #686572;
   }
 
   .send-dialog input:focus {
+    border-color: var(--violet);
+    outline: none;
+  }
+
+  .send-dialog select:focus {
     border-color: var(--violet);
     outline: none;
   }
@@ -1386,6 +1439,143 @@
     padding-left: 0.75rem;
     color: var(--red);
     font-size: 0.72rem;
+  }
+
+  .feegrant-dialog {
+    width: min(680px, calc(100vw - 32px));
+  }
+
+  .feegrant-dialog-body {
+    display: grid;
+    gap: 1.4rem;
+    padding: clamp(1.5rem, 5vw, 2.5rem);
+  }
+
+  .dialog-intro {
+    color: var(--muted-strong);
+    font-size: 0.78rem;
+    line-height: 1.65;
+  }
+
+  .feegrant-section {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .feegrant-section h3,
+  .feegrant-form h3 {
+    font-family: var(--serif);
+    font-size: 1.35rem;
+    font-weight: 400;
+  }
+
+  .feegrant-list {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .feegrant-empty,
+  .feegrant-row {
+    border: 1px solid var(--line);
+    padding: 0.8rem;
+    background: rgba(0, 0, 0, 0.14);
+  }
+
+  .feegrant-empty {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+
+  .feegrant-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem 0.8rem;
+    align-items: center;
+  }
+
+  .feegrant-row code {
+    overflow: hidden;
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feegrant-row p {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: 0.67rem;
+    line-height: 1.5;
+  }
+
+  .feegrant-row .button {
+    min-height: 34px;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .feegrant-form {
+    display: grid;
+    gap: 1rem;
+    border-top: 1px solid var(--line-strong);
+    padding-top: 1.5rem;
+  }
+
+  .feegrant-revoke-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.7rem;
+    align-items: end;
+  }
+
+  .feegrant-revoke-form .button {
+    min-height: 50px;
+  }
+
+  .feegrant-activation {
+    border-left: 2px solid var(--amber);
+    padding-left: 0.75rem;
+    color: var(--amber);
+    font-size: 0.7rem;
+    line-height: 1.55;
+  }
+
+  .feegrant-form label {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+  }
+
+  .feegrant-field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+  }
+
+  .feegrant-form fieldset {
+    display: grid;
+    gap: 0.6rem;
+    border: 1px solid var(--line);
+    padding: 0.9rem;
+  }
+
+  .feegrant-form legend {
+    padding: 0 0.35rem;
+    color: var(--muted);
+    font-size: 0.68rem;
+  }
+
+  .feegrant-form .check-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .feegrant-form .check-row input {
+    width: 16px;
+    min-height: 16px;
+    accent-color: var(--violet);
   }
 
   .toast {
@@ -1702,6 +1892,22 @@
 
     .wallet-actions .button {
       flex: 1;
+    }
+
+    .feegrant-field-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .feegrant-revoke-form {
+      grid-template-columns: 1fr;
+    }
+
+    .feegrant-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .feegrant-row .button {
+      justify-self: start;
     }
 
     #liquidity,

@@ -163,6 +163,13 @@
               <button class="address-chip" id="copy-address" type="button" title="Copy address">
                 <code id="wallet-address">zrn1…</code><span aria-hidden="true">⧉</span>
               </button>
+              <div class="feegrant-summary">
+                <div>
+                  <span class="card-kicker">Fee sponsorship</span>
+                  <strong id="feegrant-summary">Not loaded</strong>
+                </div>
+                <button class="button button-ghost" id="feegrant-open" type="button">Manage</button>
+              </div>
               <div class="wallet-actions">
                 <button class="button button-primary" id="send-open" type="button">Send ZRN</button>
                 <button class="button button-ghost" id="wallet-refresh" type="button">Refresh</button>
@@ -287,10 +294,56 @@
         <label>Recipient address<input id="send-recipient" name="recipient" type="text" inputmode="text" autocomplete="off" placeholder="zrn1…" required /></label>
         <label>Amount<div class="amount-input"><input id="send-amount" name="amount" type="number" inputmode="decimal" min="0.000001" step="0.000001" placeholder="0.00" required /><span>ZRN</span></div></label>
         <label>Memo <span>(optional)</span><input id="send-memo" name="memo" type="text" maxlength="256" placeholder="A note for the record" /></label>
-        <div class="send-notice"><span aria-hidden="true">◆</span><p>Network fee: 0.20 ZRN (200,000 gas × 1 uzrn). Keplr will show the exact recipient, amount, and fee before anything is signed.</p></div>
+        <label>Fee payment<select id="send-fee-payer" name="fee-payer"><option value="">Pay 0.20 ZRN from this wallet</option></select></label>
+        <div class="send-notice"><span aria-hidden="true">◆</span><p id="send-notice-copy">Network fee: 0.20 ZRN (200,000 gas × 1 uzrn). Keplr will show the exact recipient, amount, and fee before anything is signed.</p></div>
         <p class="form-error" id="send-error" role="alert" hidden></p>
         <button class="button button-primary full" id="send-submit" type="submit">Review in Keplr</button>
       </form>
+    </dialog>
+
+    <dialog class="send-dialog feegrant-dialog" id="feegrant-dialog" aria-labelledby="feegrant-title">
+      <div class="feegrant-dialog-body">
+        <div class="dialog-head">
+          <div><span class="card-kicker">Cosmos SDK feegrant</span><h2 id="feegrant-title">Fee sponsorship</h2></div>
+          <button class="dialog-close" id="feegrant-close" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="dialog-intro">A grant pays network fees only. It cannot sign for you or transfer the sponsor’s ZRN. Sponsored sends always require your Keplr signature.</p>
+
+        <section class="feegrant-section" aria-labelledby="incoming-grants-title">
+          <h3 id="incoming-grants-title">Available to you</h3>
+          <div class="feegrant-list" id="feegrant-incoming"></div>
+        </section>
+
+        <section class="feegrant-section" aria-labelledby="outgoing-grants-title">
+          <h3 id="outgoing-grants-title">Revoke a known grant</h3>
+          <p class="dialog-intro">Granter-wide enumeration is deliberately disabled because the current Cosmos query scans the full feegrant store. Enter the exact grantee instead.</p>
+          <form class="feegrant-revoke-form" id="feegrant-revoke-form">
+            <label>Grantee address<input id="feegrant-revoke-grantee" name="revoke-grantee" type="text" inputmode="text" autocomplete="off" placeholder="zrn1…" required /></label>
+            <button class="button button-ghost" id="feegrant-revoke-submit" type="submit">Review revoke in Keplr</button>
+          </form>
+        </section>
+
+        <form class="feegrant-form" id="feegrant-form">
+          <div>
+            <span class="card-kicker">Create a bounded grant</span>
+            <h3>Sponsor another account</h3>
+          </div>
+          <label>Grantee address<input id="feegrant-grantee" name="grantee" type="text" inputmode="text" autocomplete="off" placeholder="zrn1…" required /></label>
+          <div class="feegrant-field-grid">
+            <label>Maximum fees<div class="amount-input"><input id="feegrant-limit" name="limit" type="number" inputmode="decimal" min="0.000001" max="100" step="0.000001" value="1" required /><span>ZRN</span></div></label>
+            <label>Expires after<input id="feegrant-days" name="days" type="number" inputmode="numeric" min="1" max="30" step="1" value="7" required /></label>
+          </div>
+          <fieldset>
+            <legend>Allowed transaction types</legend>
+            <label class="check-row"><input id="feegrant-bank-send" type="checkbox" checked /><span>Bank sends</span></label>
+            <label class="check-row"><input id="feegrant-claim" type="checkbox" /><span>Claiming-pot claims</span></label>
+          </fieldset>
+          <p class="feegrant-activation" id="feegrant-activation">Creation and sponsored spending remain disabled until the live validator enforces frozen fee granters before fee deduction and direct access to the unindexed <code>issued</code> query is restricted.</p>
+          <div class="send-notice"><span aria-hidden="true">◆</span><p>Maximum 100 ZRN and 30 days. This transaction costs up to 0.25 ZRN from your wallet and is reviewed in Keplr.</p></div>
+          <p class="form-error" id="feegrant-error" role="alert" hidden></p>
+          <button class="button button-primary full" id="feegrant-submit" type="submit">Review grant in Keplr</button>
+        </form>
+      </div>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

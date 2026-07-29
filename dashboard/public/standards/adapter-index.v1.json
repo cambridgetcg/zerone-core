@@ -1,0 +1,149 @@
+{
+  "schema": "zerone.adapter-index/v1",
+  "authoritative": false,
+  "networkObserved": false,
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesAdapters": false,
+    "performsNetworkRequests": false,
+    "assertsLiveDeployment": false
+  },
+  "entries": [
+    {
+      "id": "a2a-agent-card",
+      "kind": "agent-discovery",
+      "status": "planned",
+      "availability": "unavailable",
+      "standards": [
+        {
+          "name": "A2A Protocol",
+          "specification": "https://github.com/a2aproject/A2A/blob/main/docs/specification.md"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/standards/OPEN_CRYPTO_SDK.md"
+      ],
+      "capabilities": [],
+      "trust": {
+        "networkInput": "none",
+        "outputAuthentication": "none",
+        "liveDeploymentVerified": false
+      },
+      "boundaries": [
+        "No Agent Card or A2A protocol endpoint is published.",
+        "A future card must describe a real service and cannot prove Zerone identity control or authority."
+      ]
+    },
+    {
+      "id": "agenttool-invocation-v1",
+      "kind": "external-witness",
+      "status": "implemented-source",
+      "availability": "external-service-required",
+      "standards": [],
+      "repositoryReferences": [
+        "tools/agenttool-relay/README.md",
+        "tools/agenttool-relay/main.go"
+      ],
+      "capabilities": [
+        "external-invocation-witness-relay"
+      ],
+      "trust": {
+        "networkInput": "authenticated-external-api",
+        "outputAuthentication": "none",
+        "liveDeploymentVerified": false
+      },
+      "boundaries": [
+        "The relay witnesses selected invocation fields and does not verify an x402 payment or A2A identity.",
+        "Source presence does not assert that the external API or a compatible chain binary is deployed."
+      ]
+    },
+    {
+      "id": "sigstore-in-toto-v1",
+      "kind": "provenance-verifier",
+      "status": "experimental-unregistered",
+      "availability": "local-tool",
+      "standards": [
+        {
+          "name": "in-toto Statement v1",
+          "specification": "https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md"
+        },
+        {
+          "name": "Sigstore bundle",
+          "specification": "https://github.com/sigstore/protobuf-specs/blob/main/protos/sigstore_bundle.proto"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/adapters/sigstore-in-toto-v1.md",
+        "tools/sigstore-substrate-compiler/README.md"
+      ],
+      "capabilities": [
+        "local-dsse-signature-policy",
+        "witness-only-link-compilation"
+      ],
+      "trust": {
+        "networkInput": "none",
+        "outputAuthentication": "signature-policy-only",
+        "liveDeploymentVerified": false
+      },
+      "boundaries": [
+        "Verification uses pinned local policy and performs no runtime trust-root discovery.",
+        "A valid signature does not prove predicate truth, and this adapter is not registered for rewards."
+      ]
+    },
+    {
+      "id": "training-provenance-in-toto-v1",
+      "kind": "provenance-consumer",
+      "status": "implemented-source",
+      "availability": "source-only",
+      "standards": [
+        {
+          "name": "in-toto Statement v1",
+          "specification": "https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/attestations/training-provenance-v1.md",
+        "proto/zerone/training_provenance/v1/intoto.proto",
+        "sdk/typescript/src/provenance.ts"
+      ],
+      "capabilities": [
+        "offline-unsigned-profile-parse",
+        "read-only-query-source"
+      ],
+      "trust": {
+        "networkInput": "none",
+        "outputAuthentication": "none",
+        "liveDeploymentVerified": false
+      },
+      "boundaries": [
+        "The SDK parser accepts caller-supplied JSON and performs no fetch, URL dereference, or signature verification.",
+        "The subject digest commits the included-ID set, not fact contents, and source availability does not assert live deployment."
+      ]
+    },
+    {
+      "id": "x402-zerone",
+      "kind": "payment",
+      "status": "planned",
+      "availability": "unavailable",
+      "standards": [
+        {
+          "name": "x402",
+          "specification": "https://github.com/x402-foundation/x402"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/standards/OPEN_CRYPTO_SDK.md"
+      ],
+      "capabilities": [],
+      "trust": {
+        "networkInput": "none",
+        "outputAuthentication": "none",
+        "liveDeploymentVerified": false
+      },
+      "boundaries": [
+        "No x402 headers, scheme, facilitator, settlement, or payment gating is implemented.",
+        "A future Zerone scheme must define replay protection, idempotency, settlement, and finality before advertising exact semantics."
+      ]
+    }
+  ]
+}

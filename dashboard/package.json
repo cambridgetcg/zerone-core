@@ -5,16 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run check && npm test && vite build && npm run build:functions",
+    "build": "npm run check && vite build && npm run build:functions",
     "build:functions": "wrangler pages functions build functions --outdir .wrangler/functions-build",
-    "check": "tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
-    "preview": "vite preview",
-    "test": "tsx --test tests/*.test.ts"
+    "check": "npm run check:index && npm test && tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
+    "check:index": "node scripts/validate-adapter-index.mjs public/standards/adapter-index.v1.json && node --test scripts/adapter-index.test.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@cosmjs/proto-signing": "0.39.0",
     "@cosmjs/stargate": "0.39.0",
-    "@zerone-chain/sdk": "file:../sdk/typescript"
+    "@zerone-chain/sdk": "file:../sdk/typescript",
+    "cosmjs-types": "0.11.0"
   },
   "devDependencies": {
     "@types/node": "26.1.2",

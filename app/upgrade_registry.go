@@ -103,10 +103,6 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameAgenttoolSeamV1,
 			Description: "agenttool-seam-v1 — axis-bounds drain closed: recursion_weight multiplies the settlement reward, so it is refused against an adapter that declares no ceiling instead of being waved through. Handler gives every bounds-less adapter an explicit empty ceiling, retiring 'unbounded' as a reachable state.",
 		},
-		{
-			UpgradeName: UpgradeNameAuthAnteHardeningV1,
-			Description: "auth-ante-hardening-v1 — fail-closed signer extraction for Zerone DID, frozen-account, and capability policy when Cosmos SignerInfo omits an already-stored public key. App-level transaction-validity change; no module store migration.",
-		},
 	}
 
 	return ChainVersionReport{

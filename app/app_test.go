@@ -79,6 +79,37 @@ func TestRegisterAPIRoutesIncludesTrainingProvenance(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, unknown.Code)
 }
 
+// TestRegisterAPIRoutesIncludesStandardServices guards the direct gateway
+// registrations that do not belong to ModuleBasics. The requests reach the
+// service boundary and may fail without a running node, but they must not be
+// mistaken for unknown routes.
+func TestRegisterAPIRoutesIncludesStandardServices(t *testing.T) {
+	app := newTestApp(t)
+	clientCtx := client.Context{
+		Codec:             app.AppCodec(),
+		InterfaceRegistry: app.InterfaceRegistry(),
+		TxConfig:          app.TxConfig(),
+	}
+	apiServer := api.New(clientCtx, log.NewNopLogger(), grpc.NewServer())
+	app.RegisterAPIRoutes(apiServer, config.APIConfig{})
+
+	for _, route := range []string{
+		"/cosmos/base/tendermint/v1beta1/syncing",
+		"/cosmos/base/node/v1beta1/config",
+		"/cosmos/tx/v1beta1/txs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		"/cosmos/feegrant/v1beta1/allowances/zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+	} {
+		t.Run(route, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			apiServer.GRPCGatewayRouter.ServeHTTP(
+				response,
+				httptest.NewRequest(http.MethodGet, route, nil),
+			)
+			require.NotEqual(t, http.StatusNotFound, response.Code)
+		})
+	}
+}
+
 // TestDefaultGenesis verifies the default genesis state is valid JSON and
 // contains the expected module keys.
 func TestDefaultGenesis(t *testing.T) {

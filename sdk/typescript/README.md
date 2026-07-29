@@ -28,7 +28,12 @@ const client = await SigningStargateClient.connectWithSigner(rpc, directSigner, 
 ```
 
 `defaultRegistryTypes` is important: omitting it would leave standard messages
-such as `/cosmos.bank.v1beta1.MsgSend` out of the registry.
+such as `/cosmos.bank.v1beta1.MsgSend` and the Cosmos SDK feegrant messages out
+of the registry. Zerone uses the standard
+`/cosmos.feegrant.v1beta1.MsgGrantAllowance` and `MsgRevokeAllowance` types; no
+chain-specific fee-sponsorship codec is needed. Applications should still
+require an explicit spend cap, expiry, and allowed-message list before signing
+a grant, and should re-query the exact grant before setting `StdFee.granter`.
 
 Typed composers are isolated behind a second entry point:
 
@@ -172,6 +177,24 @@ is authoritative, so callers should leave a practical clock-skew and inclusion
 margin. Use a direct protobuf signer; CosmJS 0.39 does not provide legacy Amino
 feegrant converters. CosmJS applications can use `setupFeegrantExtension` from
 `@cosmjs/stargate` for allowance queries.
+## Parse an unsigned provenance projection
+
+```ts
+import {
+  parseUnsignedZeroneInTotoStatement,
+} from "@zerone-chain/sdk/provenance";
+
+const parsed = parseUnsignedZeroneInTotoStatement(json, {
+  manifestId: selectedManifestId,
+  observedOnChainId: connectedChainId,
+});
+```
+
+This parser accepts only Zerone's bounded in-toto Statement v1 profile and
+requires caller-pinned manifest and observed-chain values. Its result is
+explicitly unsigned: `authenticated` and `signatureVerified` remain `false`.
+The parser does not fetch URLs, verify Sigstore material, or turn a current
+state projection into historical proof.
 
 ## Develop
 
@@ -184,8 +207,9 @@ npm run check:publish
 
 `check:publish` runs the package's normal `npm pack` lifecycle, installs that
 exact tarball into a fresh temporary strict NodeNext project, and type-checks
-and executes imports from the root, `caip`, `messages`, and `registry` public
-entry points. The temporary package and consumer are removed after the gate.
+and executes imports from the root, `caip`, `cid`, `feegrant`, `messages`,
+`provenance`, and `registry` public entry points. The temporary package and
+consumer are removed after the gate.
 
 Regeneration uses the package's pinned local Buf CLI:
 

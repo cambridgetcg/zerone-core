@@ -20,6 +20,7 @@ await build({
     cid: "src/cid.ts",
     feegrant: "src/feegrant.ts",
     messages: "src/messages.ts",
+    provenance: "src/provenance.ts",
     registry: "src/registry.ts",
   },
   outdir,

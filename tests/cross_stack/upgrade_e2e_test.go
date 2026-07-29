@@ -213,26 +213,6 @@ func TestUpgrade_LineageParityWithHandlers(t *testing.T) {
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameTestnetV3)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameDoctrineMetabolismExemptV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSubstrateDedupeV1)
-	require.Contains(t, lineageNames, zeroneapp.UpgradeNameAuthAnteHardeningV1)
-}
-
-func TestUpgrade_AuthAnteHardeningV1Handler(t *testing.T) {
-	h := NewTestHarness(t)
-	fromVM := h.App.CurrentModuleVersionMap()
-
-	toVM, err := h.App.RunUpgradeHandlerForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameAuthAnteHardeningV1,
-		fromVM,
-		h.Height(),
-	)
-	require.NoError(t, err)
-	require.Equal(t, h.App.CurrentModuleVersionMap(), toVM)
-	require.Equal(
-		t,
-		"migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_auth-ante-hardening-v1"),
-	)
 }
 
 // TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1

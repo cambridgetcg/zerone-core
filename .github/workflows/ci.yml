@@ -148,3 +148,23 @@ jobs:
           go build -trimpath -buildvcs=false -ldflags='-buildid=' -o "$RUNNER_TEMP/compiler-b" .
           cmp "$RUNNER_TEMP/compiler-a" "$RUNNER_TEMP/compiler-b"
           sha256sum "$RUNNER_TEMP/compiler-a"
+
+  chain-registry:
+    name: "Chain Registry metadata"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Use declared npm release
+        run: |
+          npm install --global npm@11.9.0
+          test "$(npm --version)" = "11.9.0"
+      - name: Verify metadata against Zerone source facts
+        run: node scripts/check-chain-registry.mjs
+      - name: Validate with the pinned upstream registry CLI
+        run: scripts/validate-chain-registry.sh

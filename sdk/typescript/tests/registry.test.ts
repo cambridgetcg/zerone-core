@@ -12,6 +12,12 @@ describe("Zerone transaction registry", () => {
   it("composes safely with the standard Cosmos registry", () => {
     const registry = createZeroneRegistry(defaultRegistryTypes);
     assert.ok(registry.lookupType("/cosmos.bank.v1beta1.MsgSend"));
+    assert.ok(
+      registry.lookupType("/cosmos.feegrant.v1beta1.MsgGrantAllowance"),
+    );
+    assert.ok(
+      registry.lookupType("/cosmos.feegrant.v1beta1.MsgRevokeAllowance"),
+    );
     assert.ok(registry.lookupType("/zerone.auth.v1.MsgRegisterAccount"));
     assert.ok(registry.lookupType("/zerone.knowledge.v1.MsgSubmitClaim"));
     assert.ok(

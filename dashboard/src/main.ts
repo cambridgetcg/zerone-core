@@ -8,7 +8,12 @@ import {
   type NetworkSnapshot,
   type RecentBlock,
 } from "./api";
-import { CHAIN_ID, HARD_CAP_ZRN } from "./config";
+import {
+  CHAIN_ID,
+  FEEGRANT_SPONSORSHIP_ENABLED,
+  HARD_CAP_ZRN,
+} from "./config";
+import type { FeeGrantAllowance } from "./feegrant";
 import type { WalletState } from "./wallet";
 
 const byId = <T extends HTMLElement>(id: string): T => {
@@ -39,12 +44,26 @@ const walletConnected = byId<HTMLDivElement>("wallet-connected");
 const walletBalance = byId<HTMLSpanElement>("wallet-balance");
 const walletAddress = byId<HTMLElement>("wallet-address");
 const walletFootnote = byId<HTMLParagraphElement>("wallet-footnote");
+const feeGrantSummary = byId<HTMLElement>("feegrant-summary");
+const feeGrantOpenButton = byId<HTMLButtonElement>("feegrant-open");
 const copyAddressButton = byId<HTMLButtonElement>("copy-address");
 const sendOpenButton = byId<HTMLButtonElement>("send-open");
 const sendDialog = byId<HTMLDialogElement>("send-dialog");
 const sendForm = byId<HTMLFormElement>("send-form");
 const sendError = byId<HTMLParagraphElement>("send-error");
 const sendSubmit = byId<HTMLButtonElement>("send-submit");
+const sendFeePayer = byId<HTMLSelectElement>("send-fee-payer");
+const sendNoticeCopy = byId<HTMLParagraphElement>("send-notice-copy");
+const feeGrantDialog = byId<HTMLDialogElement>("feegrant-dialog");
+const feeGrantForm = byId<HTMLFormElement>("feegrant-form");
+const feeGrantError = byId<HTMLParagraphElement>("feegrant-error");
+const feeGrantSubmit = byId<HTMLButtonElement>("feegrant-submit");
+const feeGrantIncoming = byId<HTMLDivElement>("feegrant-incoming");
+const feeGrantRevokeForm = byId<HTMLFormElement>("feegrant-revoke-form");
+const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
+  "feegrant-revoke-submit",
+);
+const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -55,8 +74,11 @@ let toastTimer: number | undefined;
 let poolsSignature = "";
 let paramsSignature = "";
 let sendPending = false;
+let feeGrantPending = false;
+let walletEpoch = 0;
 
 const loadWallet = () => import("./wallet");
+const BANK_SEND_FEE_UZRN = 200_000n;
 
 function formatHeight(height: number): string {
   return new Intl.NumberFormat("en-GB").format(height);
@@ -366,6 +388,121 @@ async function refreshNetwork(showFailure = true): Promise<void> {
   }
 }
 
+function nativeGrantAmount(
+  coins: FeeGrantAllowance["spendLimit"],
+): string | null {
+  if (coins === null) return null;
+  return coins.find((entry) => entry.denom === "uzrn")?.amount ?? "0";
+}
+
+function feeGrantDetail(grant: FeeGrantAllowance): string {
+  if (!grant.supported) {
+    return `Unsupported allowance type ${grant.typeUrl}. It can be inspected and revoked, but this interface will not spend it.`;
+  }
+  const spendLimit = nativeGrantAmount(grant.spendLimit);
+  const periodLimit = nativeGrantAmount(
+    grant.periodReset !== null &&
+      Date.parse(grant.periodReset) <= Date.now()
+      ? grant.periodSpendLimit
+      : grant.periodCanSpend,
+  );
+  const messages =
+    grant.allowedMessages === null
+      ? "all message types"
+      : grant.allowedMessages
+          .map((message) =>
+            message === "/cosmos.bank.v1beta1.MsgSend"
+              ? "bank sends"
+              : message === "/zerone.claiming_pot.v1.MsgClaim"
+                ? "claiming-pot claims"
+                : message,
+          )
+          .join(", ");
+  const expiration =
+    grant.expiration === null
+      ? "no expiry"
+      : `expires ${new Intl.DateTimeFormat("en-GB", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date(grant.expiration))}`;
+  const limit =
+    spendLimit === null
+      ? "no overall fee cap"
+      : `${microToDisplay(spendLimit)} ZRN overall fee cap`;
+  const period =
+    periodLimit === null
+      ? ""
+      : ` · ${microToDisplay(periodLimit)} ZRN left this period`;
+  return `${limit}${period} · ${expiration} · ${messages}`;
+}
+
+function renderFeeGrantList(
+  container: HTMLElement,
+  grants: FeeGrantAllowance[] | null,
+): void {
+  container.replaceChildren();
+  if (grants === null) {
+    container.append(
+      element(
+        "p",
+        "feegrant-empty",
+        "This feegrant query is temporarily unavailable. No grants are assumed.",
+      ),
+    );
+    return;
+  }
+  if (grants.length === 0) {
+    container.append(
+      element(
+        "p",
+        "feegrant-empty",
+        "No accounts currently sponsor this wallet.",
+      ),
+    );
+    return;
+  }
+  grants.forEach((grant) => {
+    const row = element("article", "feegrant-row");
+    const addressCode = element(
+      "code",
+      "",
+      shortValue(grant.granter, 13, 9),
+    );
+    addressCode.title = grant.granter;
+    row.append(addressCode);
+    row.append(element("p", "", feeGrantDetail(grant)));
+    container.append(row);
+  });
+}
+
+function renderFeeGrantManager(wallet: WalletState): void {
+  renderFeeGrantList(
+    feeGrantIncoming,
+    wallet.incomingFeeGrants,
+  );
+  feeGrantRevokeSubmit.disabled =
+    feeGrantPending || wallet.frozen === true;
+  feeGrantRevokeSubmit.textContent =
+    wallet.frozen === true
+      ? "Account frozen"
+      : feeGrantPending
+        ? "Waiting for Keplr…"
+        : "Review revoke in Keplr";
+  feeGrantActivation.hidden = FEEGRANT_SPONSORSHIP_ENABLED;
+  feeGrantSubmit.disabled =
+    feeGrantPending ||
+    wallet.frozen === true ||
+    !FEEGRANT_SPONSORSHIP_ENABLED;
+  feeGrantSubmit.textContent =
+    wallet.frozen === true
+      ? "Account frozen"
+      : !FEEGRANT_SPONSORSHIP_ENABLED
+        ? "Awaiting validator guard"
+      : feeGrantPending
+        ? "Waiting for Keplr…"
+        : "Review grant in Keplr";
+}
+
 function renderWallet(wallet: WalletState): void {
   walletDisconnected.hidden = true;
   walletConnected.hidden = false;
@@ -374,6 +511,11 @@ function renderWallet(wallet: WalletState): void {
   walletAddress.textContent = shortValue(wallet.address, 13, 9);
   walletAddress.title = wallet.accountId;
   copyAddressButton.dataset.address = wallet.address;
+  const incoming =
+    wallet.incomingFeeGrants === null
+      ? "received unavailable"
+      : `${wallet.incomingFeeGrants.length} received`;
+  feeGrantSummary.textContent = `${incoming} · exact revoke only`;
   const identity = [wallet.name, wallet.accountId];
   if (wallet.did) identity.push(wallet.did);
   if (wallet.accountType) identity.push(`${wallet.accountType} account`);
@@ -387,6 +529,7 @@ function renderWallet(wallet: WalletState): void {
     wallet.frozen === true
       ? "This account is frozen on-chain and cannot send ZRN."
       : "";
+  feeGrantOpenButton.disabled = false;
 
   document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
     button.textContent = shortValue(wallet.address, 8, 5);
@@ -403,6 +546,8 @@ function renderWalletDisconnected(): void {
   sendOpenButton.disabled = false;
   sendOpenButton.textContent = "Send ZRN";
   sendOpenButton.removeAttribute("title");
+  feeGrantSummary.textContent = "Not loaded";
+  feeGrantOpenButton.disabled = true;
   document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
     button.disabled = false;
     button.removeAttribute("title");
@@ -420,6 +565,7 @@ async function handleWalletConnect(): Promise<void> {
     return;
   }
   if (walletConnectRunning) return;
+  const requestedEpoch = walletEpoch;
   walletConnectRunning = true;
   const buttons = document.querySelectorAll<HTMLButtonElement>(".wallet-connect");
   buttons.forEach((button) => {
@@ -427,27 +573,49 @@ async function handleWalletConnect(): Promise<void> {
     button.textContent = "Connecting…";
   });
   try {
-    connectedWallet = await (await loadWallet()).connectWallet();
-    renderWallet(connectedWallet);
+    const wallet = await (await loadWallet()).connectWallet();
+    if (requestedEpoch !== walletEpoch) return;
+    connectedWallet = wallet;
+    renderWallet(wallet);
     showToast("Wallet connected to zerone-1.");
   } catch (error) {
+    if (requestedEpoch !== walletEpoch) return;
     renderWalletDisconnected();
     showToast(readableError(error), "error");
   } finally {
     walletConnectRunning = false;
+    if (requestedEpoch !== walletEpoch && connectedWallet === null) {
+      void handleWalletConnect();
+    }
   }
 }
 
 async function handleWalletRefresh(): Promise<void> {
   if (!connectedWallet) return;
+  const requestedWallet = connectedWallet;
+  const requestedEpoch = walletEpoch;
   const button = byId<HTMLButtonElement>("wallet-refresh");
   button.disabled = true;
   button.textContent = "Refreshing…";
   try {
-    connectedWallet = await (await loadWallet()).refreshWallet(connectedWallet);
-    renderWallet(connectedWallet);
+    const refreshed = await (await loadWallet()).refreshWallet(requestedWallet);
+    if (
+      requestedEpoch !== walletEpoch ||
+      connectedWallet?.address !== requestedWallet.address
+    ) {
+      return;
+    }
+    connectedWallet = refreshed;
+    renderWallet(refreshed);
+    if (feeGrantDialog.open) renderFeeGrantManager(refreshed);
     showToast("Balance refreshed.");
   } catch (error) {
+    if (
+      requestedEpoch !== walletEpoch ||
+      connectedWallet?.address !== requestedWallet.address
+    ) {
+      return;
+    }
     showToast(readableError(error), "error");
   } finally {
     button.disabled = false;
@@ -455,14 +623,72 @@ async function handleWalletRefresh(): Promise<void> {
   }
 }
 
-function openSendDialog(): void {
+function updateSendFeeCopy(): void {
+  const sponsor = sendFeePayer.value;
+  sendNoticeCopy.textContent = sponsor
+    ? `Fee sponsor: ${shortValue(sponsor, 13, 9)}. The exact on-chain grant will be checked again before Keplr opens; your wallet still signs and sends its own ZRN.`
+    : "Network fee: 0.20 ZRN (200,000 gas × 1 uzrn). Keplr will show the exact recipient, amount, and fee before anything is signed.";
+}
+
+async function populateSendFeePayers(wallet: WalletState): Promise<void> {
+  const ownBalance = element(
+    "option",
+    "",
+    "Pay 0.20 ZRN from this wallet",
+  );
+  ownBalance.value = "";
+  sendFeePayer.replaceChildren(ownBalance);
+  if (!FEEGRANT_SPONSORSHIP_ENABLED) {
+    sendFeePayer.disabled = true;
+    sendNoticeCopy.textContent =
+      "Sponsored spending remains disabled until the live validator enforces frozen fee granters before fee deduction. This send will use 0.20 ZRN from your wallet.";
+    return;
+  }
+  const grants = wallet.incomingFeeGrants;
+  if (grants !== null) {
+    const { BANK_SEND_TYPE_URL, feeGrantAllowsMessage } =
+      await import("./feegrant");
+    grants
+      .filter(
+        (grant) =>
+          grant.grantee === wallet.address &&
+          feeGrantAllowsMessage(
+            grant,
+            BANK_SEND_TYPE_URL,
+            BANK_SEND_FEE_UZRN,
+          ),
+      )
+      .forEach((grant) => {
+        const option = element(
+          "option",
+          "",
+          `Use sponsor ${shortValue(grant.granter, 13, 9)}`,
+        );
+        option.value = grant.granter;
+        option.title = grant.granter;
+        sendFeePayer.append(option);
+      });
+  }
+  sendFeePayer.disabled = sendFeePayer.options.length === 1;
+  updateSendFeeCopy();
+}
+
+async function openSendDialog(): Promise<void> {
   if (connectedWallet?.frozen === true) {
     showToast("This account is frozen on-chain and cannot send ZRN.", "error");
     return;
   }
+  if (!connectedWallet) return;
   sendError.hidden = true;
   sendError.textContent = "";
   sendDialog.showModal();
+  try {
+    await populateSendFeePayers(connectedWallet);
+  } catch {
+    sendFeePayer.disabled = true;
+    sendNoticeCopy.textContent =
+      "Fee sponsorship could not be verified. This send will use 0.20 ZRN from your wallet.";
+  }
   window.setTimeout(() => byId<HTMLInputElement>("send-recipient").focus(), 0);
 }
 
@@ -485,6 +711,9 @@ async function handleSend(event: SubmitEvent): Promise<void> {
       recipient,
       amount,
       memo,
+      FEEGRANT_SPONSORSHIP_ENABLED
+        ? sendFeePayer.value || undefined
+        : undefined,
     );
     sendDialog.close();
     sendForm.reset();
@@ -517,6 +746,159 @@ async function handleSend(event: SubmitEvent): Promise<void> {
     byId<HTMLButtonElement>("send-close").disabled = false;
     sendSubmit.disabled = false;
     sendSubmit.textContent = "Review in Keplr";
+  }
+}
+
+function transactionHashFromError(error: unknown): string {
+  return typeof error === "object" && error !== null && "transactionHash" in error
+    ? String(error.transactionHash)
+    : typeof error === "object" && error !== null && "txId" in error
+      ? String(error.txId)
+      : "";
+}
+
+function openFeeGrantDialog(): void {
+  if (!connectedWallet) return;
+  feeGrantError.hidden = true;
+  feeGrantError.textContent = "";
+  renderFeeGrantManager(connectedWallet);
+  feeGrantDialog.showModal();
+  window.setTimeout(
+    () => byId<HTMLInputElement>("feegrant-grantee").focus(),
+    0,
+  );
+}
+
+function setFeeGrantPending(pending: boolean): void {
+  feeGrantPending = pending;
+  byId<HTMLButtonElement>("feegrant-close").disabled = pending;
+  if (connectedWallet) renderFeeGrantManager(connectedWallet);
+}
+
+async function refreshFeeGrantState(): Promise<void> {
+  if (!connectedWallet) return;
+  const requestedWallet = connectedWallet;
+  const requestedEpoch = walletEpoch;
+  const refreshed = await (await loadWallet()).refreshWallet(requestedWallet);
+  if (
+    requestedEpoch !== walletEpoch ||
+    connectedWallet?.address !== requestedWallet.address
+  ) {
+    return;
+  }
+  connectedWallet = refreshed;
+  renderWallet(refreshed);
+  if (feeGrantDialog.open) renderFeeGrantManager(refreshed);
+}
+
+async function handleFeeGrant(event: SubmitEvent): Promise<void> {
+  event.preventDefault();
+  if (!connectedWallet || feeGrantPending) return;
+  feeGrantError.hidden = true;
+  setFeeGrantPending(true);
+
+  const daysValue = byId<HTMLInputElement>("feegrant-days").value.trim();
+  const days = /^\d+$/.test(daysValue) ? Number(daysValue) : 0;
+  const allowedMessages: string[] = [];
+  if (byId<HTMLInputElement>("feegrant-bank-send").checked) {
+    allowedMessages.push("/cosmos.bank.v1beta1.MsgSend");
+  }
+  if (byId<HTMLInputElement>("feegrant-claim").checked) {
+    allowedMessages.push("/zerone.claiming_pot.v1.MsgClaim");
+  }
+
+  try {
+    if (!FEEGRANT_SPONSORSHIP_ENABLED) {
+      throw new Error(
+        "Fee grant creation is waiting for the live validator freeze guard.",
+      );
+    }
+    if (!Number.isSafeInteger(days) || days < 1 || days > 30) {
+      throw new Error("Expiration must be a whole number from 1 to 30 days.");
+    }
+    const result = await (await loadWallet()).grantFeeAllowance(
+      connectedWallet,
+      {
+        grantee: byId<HTMLInputElement>("feegrant-grantee").value.trim(),
+        spendLimitZrn: byId<HTMLInputElement>("feegrant-limit").value.trim(),
+        expiration: new Date(Date.now() + days * 24 * 60 * 60 * 1_000),
+        allowedMessages,
+      },
+    );
+    feeGrantForm.reset();
+    try {
+      await refreshFeeGrantState();
+      showToast(
+        `Fee grant recorded. Tx ${shortValue(result.transactionHash, 10, 8)}`,
+      );
+    } catch {
+      showToast(
+        `Fee grant recorded. Tx ${shortValue(result.transactionHash, 10, 8)}. Refresh to update the list.`,
+      );
+    }
+  } catch (error) {
+    const txHash = transactionHashFromError(error);
+    if (txHash) {
+      feeGrantDialog.close();
+      showToast(
+        `${readableError(error)} Tx ${shortValue(txHash, 10, 8)}. Verify its final result before retrying.`,
+        "error",
+      );
+    } else {
+      feeGrantError.textContent = readableError(error);
+      feeGrantError.hidden = false;
+    }
+  } finally {
+    setFeeGrantPending(false);
+  }
+}
+
+async function handleFeeGrantRevoke(event: SubmitEvent): Promise<void> {
+  event.preventDefault();
+  if (!connectedWallet || feeGrantPending) return;
+  const grantee = byId<HTMLInputElement>(
+    "feegrant-revoke-grantee",
+  ).value.trim();
+  if (
+    !window.confirm(
+      `Revoke fee sponsorship for ${grantee}? Keplr will show the on-chain transaction before signing.`,
+    )
+  ) {
+    return;
+  }
+
+  feeGrantError.hidden = true;
+  setFeeGrantPending(true);
+  try {
+    const result = await (await loadWallet()).revokeFeeAllowance(
+      connectedWallet,
+      grantee,
+    );
+    feeGrantRevokeForm.reset();
+    try {
+      await refreshFeeGrantState();
+      showToast(
+        `Fee grant revoked. Tx ${shortValue(result.transactionHash, 10, 8)}`,
+      );
+    } catch {
+      showToast(
+        `Fee grant revoked. Tx ${shortValue(result.transactionHash, 10, 8)}. Refresh to update the list.`,
+      );
+    }
+  } catch (error) {
+    const txHash = transactionHashFromError(error);
+    if (txHash) {
+      feeGrantDialog.close();
+      showToast(
+        `${readableError(error)} Tx ${shortValue(txHash, 10, 8)}. Verify its final result before retrying.`,
+        "error",
+      );
+    } else {
+      feeGrantError.textContent = readableError(error);
+      feeGrantError.hidden = false;
+    }
+  } finally {
+    setFeeGrantPending(false);
   }
 }
 
@@ -555,7 +937,8 @@ copyAddressButton.addEventListener("click", async () => {
     showToast("Copy is unavailable. Select the address in Keplr instead.", "error");
   }
 });
-sendOpenButton.addEventListener("click", openSendDialog);
+sendOpenButton.addEventListener("click", () => void openSendDialog());
+sendFeePayer.addEventListener("change", updateSendFeeCopy);
 byId("send-close").addEventListener("click", () => {
   if (!sendPending) sendDialog.close();
 });
@@ -566,8 +949,28 @@ sendDialog.addEventListener("cancel", (event) => {
   if (sendPending) event.preventDefault();
 });
 sendForm.addEventListener("submit", (event) => void handleSend(event));
+feeGrantOpenButton.addEventListener("click", openFeeGrantDialog);
+byId("feegrant-close").addEventListener("click", () => {
+  if (!feeGrantPending) feeGrantDialog.close();
+});
+feeGrantDialog.addEventListener("click", (event) => {
+  if (event.target === feeGrantDialog && !feeGrantPending) {
+    feeGrantDialog.close();
+  }
+});
+feeGrantDialog.addEventListener("cancel", (event) => {
+  if (feeGrantPending) event.preventDefault();
+});
+feeGrantForm.addEventListener("submit", (event) => void handleFeeGrant(event));
+feeGrantRevokeForm.addEventListener(
+  "submit",
+  (event) => void handleFeeGrantRevoke(event),
+);
 window.addEventListener("keplr_keystorechange", () => {
-  if (!connectedWallet) return;
+  if (!connectedWallet && !walletConnectRunning) return;
+  walletEpoch += 1;
+  if (sendDialog.open && !sendPending) sendDialog.close();
+  if (feeGrantDialog.open && !feeGrantPending) feeGrantDialog.close();
   connectedWallet = null;
   renderWalletDisconnected();
   void handleWalletConnect();
