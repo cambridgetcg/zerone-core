@@ -8,7 +8,11 @@ import (
 )
 
 // SybilFundingDecorator intercepts MsgSend and MsgMultiSend transactions to
-// record sender->recipient funding relationships for sybil vote-weight decay.
+// record sender->recipient funding correlations for telemetry.
+//
+// These records are not proof of common control and must not affect vote
+// weight: an untrusted sender can target a recipient, and ante state can
+// survive even when message execution later fails.
 //
 // Placed after IncrementSequenceDecorator (signer authenticated) and before
 // the Zerone post-auth decorators.
@@ -56,8 +60,10 @@ func (sfd SybilFundingDecorator) recordSend(ctx sdk.Context, sender, recipient s
 	sfd.govKeeper.RecordFunding(ctx, sender, recipient, zrnAmount.String(), blockHeight)
 }
 
-// recordMultiSend records funding relationships from a MsgMultiSend.
-// Each input sender is recorded as funding each output recipient proportionally.
+// recordMultiSend records coarse correlations from a MsgMultiSend. Each
+// non-zero input is associated with each non-zero output; amounts are not
+// proportionally attributed, so this telemetry is unsuitable for accounting or
+// governance power.
 func (sfd SybilFundingDecorator) recordMultiSend(ctx sdk.Context, msg *banktypes.MsgMultiSend, blockHeight uint64) {
 	for _, input := range msg.Inputs {
 		zrnAmount := input.Coins.AmountOf(BondDenom)

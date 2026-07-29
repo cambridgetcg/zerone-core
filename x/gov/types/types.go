@@ -146,21 +146,6 @@ func AddBigIntStrings(a, b string) string {
 	return new(big.Int).Add(ai, bi).String()
 }
 
-// ApplyBPSDecay returns floor(value * bps / 10_000). Values above 10_000 are
-// clamped so malformed sybil parameters can never amplify voting power.
-func ApplyBPSDecay(value string, bps uint64) string {
-	vi, ok := new(big.Int).SetString(value, 10)
-	if !ok || vi.Sign() < 0 {
-		return "0"
-	}
-	if bps > 10_000 {
-		bps = 10_000
-	}
-	vi.Mul(vi, new(big.Int).SetUint64(bps))
-	vi.Div(vi, big.NewInt(10_000))
-	return vi.String()
-}
-
 // CmpBigIntStrings compares two big integer strings.
 // Returns -1, 0, or 1.
 func CmpBigIntStrings(a, b string) int {

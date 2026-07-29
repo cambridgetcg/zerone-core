@@ -124,11 +124,11 @@ func (k Keeper) CountFinalizedManifests(ctx context.Context) uint64 {
 
 // SelectedManifestIDs is the result of applying a selector to chain state.
 type SelectedManifestIDs struct {
-	FactIDs                   []string
-	TraceIDs                  []string
-	PairIDs                   []string
-	DriftAugmentationIDs      []string
-	NormativeCommitmentIDs    []string
+	FactIDs                []string
+	TraceIDs               []string
+	PairIDs                []string
+	DriftAugmentationIDs   []string
+	NormativeCommitmentIDs []string
 }
 
 // Total returns the sum across all sets.
@@ -220,6 +220,15 @@ func toSet(s []string) map[string]bool {
 }
 
 func factMatchesSelector(f *types.Fact, sel *types.CorpusSelector, allow, deny map[string]bool, k Keeper) bool {
+	// A conjecture is a question, not training evidence. Its status can move
+	// through PROVISIONAL, CHALLENGED, AT_RISK, and EXPIRED while the
+	// refutation door remains open, so this guard must key on immutable
+	// ClaimType rather than a live-status allowlist. A DISPROVEN conjecture is
+	// the sole exception: when callers explicitly request disproven material,
+	// it is useful counter-evidence rather than an unearned positive example.
+	if IsConjecture(f) && f.Status != types.FactStatus_FACT_STATUS_DISPROVEN {
+		return false
+	}
 	if sel.MethodId != "" && f.MethodId != sel.MethodId {
 		return false
 	}
@@ -311,9 +320,9 @@ func ComputeManifestMerkleRoot(ids SelectedManifestIDs) string {
 // manifests that inherit from a parent. The commitment binds both the
 // parent's root (committed at create time) and the child's delta IDs:
 //
-//   H( "ZERONE/KNOWLEDGE/MANIFEST/v1/COMPOSED" |
-//      "PARENT:" || parent_merkle_root       |
-//      "DELTA:"  || delta_ids_commitment     )
+//	H( "ZERONE/KNOWLEDGE/MANIFEST/v1/COMPOSED" |
+//	   "PARENT:" || parent_merkle_root       |
+//	   "DELTA:"  || delta_ids_commitment     )
 //
 // A verifier reconstructs by (a) trusting the parent root is a
 // well-formed v1 commitment over the parent's ID sets, (b) re-deriving
@@ -506,11 +515,11 @@ func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (
 	}
 
 	return &types.QueryTrainingManifestBundleResponse{
-		Manifest:         m,
-		Traces:           traces,
-		ContrastivePairs: pairs,
-		DriftEntries:     drifts,
-		NormativeEntries: normativeEntries,
+		Manifest:          m,
+		Traces:            traces,
+		ContrastivePairs:  pairs,
+		DriftEntries:      drifts,
+		NormativeEntries:  normativeEntries,
 		DerivedMerkleRoot: derived,
 		MerkleRootValid:   derived == m.MerkleRoot,
 	}, nil

@@ -21,7 +21,8 @@ publication are separate events and are stated explicitly when they occur.
 
 - Starved knowledge challenges settle without leaving facts locked and restore
   conjectures to their type-appropriate status.
-- Governance applies funding-correlation decay to effective vote weight.
+- Governance vote weights remain based on bonded stake; permissionless funding
+  correlations remain observational and do not reduce another wallet's vote.
 - Substrate axis projections have a protocol-wide ceiling, and settlement
   clamps legacy over-ceiling values.
 - Falsification clawback requires an adjudicated verdict.
@@ -31,7 +32,7 @@ publication are separate events and are stated explicitly when they occur.
 
 ### Consensus activation
 
-The knowledge, governance, vesting, and substrate changes are
+The knowledge, vesting, and substrate changes are
 consensus-visible. Existing networks require the coordinated
 `consolidation-safety-v1` upgrade with an agreed height and matching validator
 binaries. Source publication alone does not activate this behavior.
@@ -40,6 +41,8 @@ binaries. Source publication alone does not activate this behavior.
 
 - The incomplete same-model training-fund replay change.
 - The older incomplete and unsafe capture-recovery behavior.
+- Funding-correlation vote decay until relationships cannot be dust-poisoned
+  by an untrusted sender.
 - Cosmos SDK/IBC-Go family migration, general authz, reward-bearing Sigstore
   registration, and rich remote-document parsing.
 

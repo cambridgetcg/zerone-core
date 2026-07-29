@@ -323,13 +323,17 @@ func TestSybilFeatureFlag_Disabled(t *testing.T) {
 	}
 }
 
-func TestCastVote_SybilDecayApplied(t *testing.T) {
+// Permissionless bank sends cannot be evidence of common control. This pins
+// the adversarial case that caused correlation-adjusted vote weights to be
+// deferred: one sender can dust two unrelated voters and make the observational
+// scorer correlate them, but CastVote must still use each voter's bonded stake.
+func TestCastVote_DustCorrelationCannotReduceWeight(t *testing.T) {
 	k, ctx, mock := setupWithStaking(t, "1000000000000")
 	ms := keeper.NewMsgServerImpl(k)
 	k.SetSybilParams(ctx, keeper.DefaultSybilParams())
 
 	_, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice_"), Title: "SybilTest", Description: "Test",
+		Proposer: testAddr("alice_"), Title: "Dust Poisoning", Description: "Regression test",
 		Category: types.CategoryText, InitialStake: "1000000",
 	})
 	if err != nil {
@@ -340,93 +344,41 @@ func TestCastVote_SybilDecayApplied(t *testing.T) {
 	lip.VotingEndBlock = 999999
 	k.SetLIP(ctx, lip)
 
-	whale := testAddr("whale__")
-	sybil1 := testAddr("sybil1_")
-	sybil2 := testAddr("sybil2_")
-	k.RecordFunding(ctx, whale, sybil1, "5000000", 10)
-	k.RecordFunding(ctx, whale, sybil2, "5000000", 10)
-	mock.delegations[sybil1] = "5000000"
-	mock.delegations[sybil2] = "5000000"
+	attacker := testAddr("dustsrc")
+	voter1 := testAddr("voter1_")
+	voter2 := testAddr("voter2_")
+	k.RecordFunding(ctx, attacker, voter1, "1", 10)
+	k.RecordFunding(ctx, attacker, voter2, "1", 10)
+	mock.delegations[voter1] = "5000000"
+	mock.delegations[voter2] = "5000000"
 
-	resp1, err := ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: sybil1, LipId: "LIP-1", Option: types.VoteYes,
+	first, err := ms.CastVote(ctx, &types.MsgCastVote{
+		Voter: voter1, LipId: "LIP-1", Option: types.VoteYes,
 	})
 	if err != nil {
-		t.Fatalf("first correlated vote: %v", err)
-	}
-	if resp1.EffectiveWeight != "5000000" {
-		t.Fatalf("first vote weight = %s, want 5000000", resp1.EffectiveWeight)
-	}
-
-	resp2, err := ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: sybil2, LipId: "LIP-1", Option: types.VoteYes,
-	})
-	if err != nil {
-		t.Fatalf("second correlated vote: %v", err)
-	}
-	if resp2.EffectiveWeight != "4000000" {
-		t.Errorf("second vote weight = %s, want 4000000", resp2.EffectiveWeight)
-	}
-
-	stored, found := k.GetVote(ctx, "LIP-1", sybil2)
-	if !found {
-		t.Fatal("second vote was not stored")
-	}
-	if stored.Weight != "4000000" {
-		t.Errorf("stored weight = %s, want 4000000", stored.Weight)
-	}
-
-	lip, _ = k.GetLIP(ctx, "LIP-1")
-	if lip.YesStake != "9000000" {
-		t.Errorf("yes tally = %s, want 9000000", lip.YesStake)
-	}
-}
-
-func TestCastVote_SybilDecayDisabled(t *testing.T) {
-	k, ctx, mock := setupWithStaking(t, "1000000000000")
-	ms := keeper.NewMsgServerImpl(k)
-	k.SetSybilParams(ctx, keeper.SybilParams{
-		Enabled:           false,
-		CorrelationWindow: 480000,
-		DecayPerSourceBPS: 2000,
-		MinPowerBPS:       1000,
-	})
-
-	_, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice_"), Title: "NoDecay", Description: "Test",
-		Category: types.CategoryText, InitialStake: "1000000",
-	})
-	if err != nil {
-		t.Fatalf("submit LIP: %v", err)
-	}
-	lip, _ := k.GetLIP(ctx, "LIP-1")
-	lip.Stage = types.StatusVoting
-	lip.VotingEndBlock = 999999
-	k.SetLIP(ctx, lip)
-
-	whale := testAddr("whale__")
-	sybil1 := testAddr("sybil1_")
-	sybil2 := testAddr("sybil2_")
-	k.RecordFunding(ctx, whale, sybil1, "5000000", 10)
-	k.RecordFunding(ctx, whale, sybil2, "5000000", 10)
-	mock.delegations[sybil1] = "5000000"
-	mock.delegations[sybil2] = "5000000"
-
-	if _, err := ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: sybil1, LipId: "LIP-1", Option: types.VoteYes,
-	}); err != nil {
 		t.Fatalf("first vote: %v", err)
 	}
-	resp2, err := ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: sybil2, LipId: "LIP-1", Option: types.VoteYes,
+	if first.EffectiveWeight != "5000000" {
+		t.Fatalf("first vote weight = %s, want 5000000", first.EffectiveWeight)
+	}
+
+	if score := k.ComputeSybilDecayBPS(ctx, voter2, "LIP-1"); score != 8000 {
+		t.Fatalf("control: observational scorer = %d, want 8000 for the poisoned fixture", score)
+	}
+
+	second, err := ms.CastVote(ctx, &types.MsgCastVote{
+		Voter: voter2, LipId: "LIP-1", Option: types.VoteYes,
 	})
 	if err != nil {
 		t.Fatalf("second vote: %v", err)
 	}
-	if resp2.EffectiveWeight != "5000000" {
-		t.Errorf("second vote weight = %s, want 5000000", resp2.EffectiveWeight)
+	if second.EffectiveWeight != "5000000" {
+		t.Errorf("dust correlation reduced vote weight to %s", second.EffectiveWeight)
 	}
-
+	stored, found := k.GetVote(ctx, "LIP-1", voter2)
+	if !found || stored.Weight != "5000000" {
+		t.Errorf("stored second vote = %+v, found=%t; want full bonded weight", stored, found)
+	}
 	lip, _ = k.GetLIP(ctx, "LIP-1")
 	if lip.YesStake != "10000000" {
 		t.Errorf("yes tally = %s, want 10000000", lip.YesStake)

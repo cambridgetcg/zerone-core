@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -151,5 +153,68 @@ func TestInviteIdleFacts_RespectsBatchSizeWhenAllEligible(t *testing.T) {
 	if invited == 0 {
 		t.Fatal("invited nothing despite an entirely eligible corpus — the " +
 			"bounded scan has broken the honest path")
+	}
+}
+
+// A wrapped scan has two disjoint ranges: [cursor,end) then [prefix,cursor).
+// Before the second range was actually bounded by cursor, it walked to end
+// again. Because invitation writes are deliberately deferred until iterators
+// close, facts selected in the first range still looked eligible and were
+// selected a second time in the same block.
+func TestInviteIdleFacts_WrapDoesNotInviteSameFactTwice(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	params, _ := k.GetParams(ctx)
+	params.ProbeInvitationBatchSize = 10
+
+	// Make harness fixtures ineligible so exactly our twelve facts determine
+	// batch progress.
+	var existing []*types.Fact
+	k.IterateFacts(ctx, func(f *types.Fact) bool {
+		existing = append(existing, f)
+		return false
+	})
+	for _, f := range existing {
+		f.Status = types.FactStatus_FACT_STATUS_PENDING
+		if err := k.SetFact(ctx, f); err != nil {
+			t.Fatalf("SetFact existing: %v", err)
+		}
+	}
+
+	for i := 0; i < 12; i++ {
+		if err := k.SetFact(ctx, &types.Fact{
+			Id:              fmt.Sprintf("wrap-fact-%02d", i),
+			Status:          types.FactStatus_FACT_STATUS_VERIFIED,
+			Confidence:      900_000,
+			VerifiedAtBlock: 1,
+		}); err != nil {
+			t.Fatalf("SetFact fixture: %v", err)
+		}
+	}
+
+	height := params.ProbeInvitationIdleThresholdBlocks + 10
+	ctx = ctx.WithBlockHeight(int64(height))
+	k.InviteIdleFactsForProbing(ctx, height, params)
+	cursor, err := k.ProbeScanCursor(ctx)
+	if err != nil || len(cursor) == 0 {
+		t.Fatalf("first batch did not leave a resumption cursor: %x, %v", cursor, err)
+	}
+
+	ctx = ctx.WithBlockHeight(int64(height + 1)).WithEventManager(sdk.NewEventManager())
+	k.InviteIdleFactsForProbing(ctx, height+1, params)
+
+	events := karmaEventsOfType(ctx.EventManager().Events(), "zerone.knowledge.probe_invited")
+	seen := make(map[string]struct{})
+	for _, attrs := range events {
+		id := attrs["fact_id"]
+		if !strings.HasPrefix(id, "wrap-fact-") {
+			continue
+		}
+		if _, duplicate := seen[id]; duplicate {
+			t.Fatalf("wrapped scan invited %s twice in one block", id)
+		}
+		seen[id] = struct{}{}
+	}
+	if len(seen) != 2 {
+		t.Fatalf("wrapped scan invited %d remaining fixtures, want 2", len(seen))
 	}
 }

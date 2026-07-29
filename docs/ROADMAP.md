@@ -27,7 +27,9 @@ line:
 
 - provisional conjectures and type-correct challenge restoration;
 - starvation-safe challenge settlement and bounded probe scanning;
-- governance vote-weight decay for correlated funding;
+- explicit deferral of funding-correlation vote decay after adversarial review
+  found that permissionless dust transfers could poison another wallet's
+  weight;
 - protocol-wide substrate-axis ceilings and settlement clamps;
 - adjudicated falsification clawback;
 - K-alpha recognition events and bounded accounting guards;
@@ -90,6 +92,8 @@ must all be satisfied before any phase they authorize.
 - The older capture-recovery work is incomplete and unsafe to recover as a
   bulk branch merge. Any surviving behavior must be re-derived against current
   state and authority rules.
+- Funding-correlation records remain observable, but do not affect vote weight.
+  A future design must require evidence an untrusted sender cannot fabricate.
 - General authz, a contract VM, reward-bearing Sigstore registration, and rich
   remote-document parsing remain outside the current consensus boundary.
 

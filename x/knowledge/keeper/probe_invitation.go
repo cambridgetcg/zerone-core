@@ -98,13 +98,13 @@ func (k Keeper) InviteIdleFactsForProbing(ctx context.Context, height uint64, pa
 		nextCur  []byte
 	)
 
-	// scan walks the fact keyspace from `from`, stopping at the batch limit
-	// or the examination limit — whichever comes first. Stopping on EXAMINED
-	// and not merely on INVITED is the whole point: the old loop only ever
-	// checked the invited count, so a corpus where nothing qualified was
-	// walked end to end on every block.
-	scan := func(from []byte) {
-		iter, err := store.Iterator(from, end)
+	// scan walks [from,to), stopping at the batch limit or the examination
+	// limit — whichever comes first. The explicit upper bound matters on a
+	// wrap: the second range must stop at the original cursor, otherwise
+	// deferred writes allow an eligible fact to be selected twice in one
+	// block before its invitation stamp is persisted.
+	scan := func(from, to []byte) {
+		iter, err := store.Iterator(from, to)
 		if err != nil {
 			return
 		}
@@ -129,10 +129,10 @@ func (k Keeper) InviteIdleFactsForProbing(ctx context.Context, height uint64, pa
 			if f.Confidence < minConf {
 				continue
 			}
-		// Time-since-last-probe: the "probe" signal is whichever is
-		// latest across corroborated (failed challenge) or previously-
-		// invited. A successful challenge moves the fact to DISPROVEN
-		// which the status gate above filters out entirely.
+			// Time-since-last-probe: the "probe" signal is whichever is
+			// latest across corroborated (failed challenge) or previously-
+			// invited. A successful challenge moves the fact to DISPROVEN
+			// which the status gate above filters out entirely.
 			lastProbe := f.LastCorroboratedBlock
 			if f.ProbeInvitedAtBlock > lastProbe {
 				lastProbe = f.ProbeInvitedAtBlock
@@ -161,13 +161,13 @@ func (k Keeper) InviteIdleFactsForProbing(ctx context.Context, height uint64, pa
 		nextCur = nil
 	}
 
-	scan(start)
+	scan(start, end)
 	// If we resumed mid-corpus and reached the end without filling the
 	// batch, wrap once now. Otherwise a cursor parked near the end of the
 	// keyspace would invite almost nothing for a whole pass.
 	if nextCur == nil && !bytes.Equal(start, types.FactKeyPrefix) &&
 		invited < batchSize && examined < probeScanMaxExaminedPerBlock {
-		scan(types.FactKeyPrefix)
+		scan(types.FactKeyPrefix, start)
 	}
 
 	if nextCur == nil {

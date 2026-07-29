@@ -261,8 +261,7 @@ func (ms *msgServer) CastVote(goCtx context.Context, msg *types.MsgCastVote) (*t
 		weight = bonded
 	}
 
-	// Validate minimum vote stake against the raw bonded weight. Correlation
-	// decay changes voting power, not eligibility to participate.
+	// Validate minimum vote stake.
 	params := ms.GetParams(ctx)
 	if params.MinVoteStake != "" && params.MinVoteStake != "0" {
 		if types.CmpBigIntStrings(weight, params.MinVoteStake) < 0 {
@@ -270,32 +269,29 @@ func (ms *msgServer) CastVote(goCtx context.Context, msg *types.MsgCastVote) (*t
 		}
 	}
 
-	// Discount wallets whose recent funding sources overlap with an existing
-	// voter on this LIP. ComputeSybilDecayBPS returns 10_000 when the detector
-	// is disabled or finds no correlation.
-	decayBPS := ms.ComputeSybilDecayBPS(ctx, msg.Voter, msg.LipId)
-	effectiveWeight := types.ApplyBPSDecay(weight, decayBPS)
-
-	// Record the immutable, effective weight used by the tally.
+	// Funding correlations remain observable, but they are not applied to vote
+	// weight. Ordinary bank sends are permissionless: treating any transfer as
+	// proof of common control would let an attacker dust-poison another
+	// voter's power.
 	vote := &types.Vote{
 		LipId:  msg.LipId,
 		Voter:  msg.Voter,
 		Option: msg.Option,
-		Weight: effectiveWeight,
+		Weight: weight,
 	}
 	ms.SetVote(ctx, vote)
 
 	// Track distinct governance participants for phase exit conditions.
 	ms.RecordDistinctVoter(ctx, msg.Voter)
 
-	// Accumulate the correlation-adjusted tally.
+	// Accumulate tally.
 	switch msg.Option {
 	case types.VoteYes:
-		lip.YesStake = types.AddBigIntStrings(lip.YesStake, effectiveWeight)
+		lip.YesStake = types.AddBigIntStrings(lip.YesStake, weight)
 	case types.VoteNo:
-		lip.NoStake = types.AddBigIntStrings(lip.NoStake, effectiveWeight)
+		lip.NoStake = types.AddBigIntStrings(lip.NoStake, weight)
 	case types.VoteAbstain:
-		lip.AbstainStake = types.AddBigIntStrings(lip.AbstainStake, effectiveWeight)
+		lip.AbstainStake = types.AddBigIntStrings(lip.AbstainStake, weight)
 	}
 	lip.UniqueVoters++
 	ms.SetLIP(ctx, lip)
@@ -310,14 +306,12 @@ func (ms *msgServer) CastVote(goCtx context.Context, msg *types.MsgCastVote) (*t
 			sdk.NewAttribute("lip_id", msg.LipId),
 			sdk.NewAttribute("voter", msg.Voter),
 			sdk.NewAttribute("option", msg.Option),
-			sdk.NewAttribute("weight", effectiveWeight),
-			sdk.NewAttribute("raw_weight", weight),
-			sdk.NewAttribute("sybil_decay_bps", fmt.Sprintf("%d", decayBPS)),
+			sdk.NewAttribute("weight", weight),
 			sdk.NewAttribute("creed_commitment", "10,11"),
 		),
 	)
 
-	return &types.MsgCastVoteResponse{EffectiveWeight: effectiveWeight}, nil
+	return &types.MsgCastVoteResponse{EffectiveWeight: weight}, nil
 }
 
 // WithdrawLIP withdraws a LIP (proposer only, not terminal, not in voting).

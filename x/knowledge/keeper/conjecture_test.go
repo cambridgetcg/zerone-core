@@ -42,6 +42,41 @@ func (stubVestingKeeper) MintWithCap(_ context.Context, _ string, _ *big.Int) (*
 // acquiring standing it never earned. Each test below closes one route by
 // which that could happen.
 
+func TestPostConjecture_OpensAndSettlesOrdinalPendingPair(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	ms := keeper.NewMsgServerImpl(k)
+
+	proposer := makeValidBech32Addr("conjecture-pending")
+	bk.balances[proposer] = sdk.NewCoins(sdk.NewInt64Coin("uzrn", 10_000_000))
+
+	resp, err := ms.PostConjecture(ctx, &types.MsgPostConjecture{
+		Proposer:               proposer,
+		Statement:              "There are infinitely many counterexamples beyond the observed range",
+		FalsificationPredicate: "Exhibit a proof that the counterexample set is finite",
+		Category:               "formal",
+		Stake:                  "1000000",
+	})
+	require.NoError(t, err)
+
+	opens := karmaEdgesOfKind(ctx.EventManager().Events(), "pending_open")
+	require.Len(t, opens, 1)
+	require.Equal(t, proposer, opens[0]["beneficiary"])
+	require.Equal(t, resp.ClaimId, opens[0]["ref_id"])
+	require.Equal(t, "ORDINAL", opens[0]["state"],
+		"a pending conjecture is a counter, never recognized standing")
+
+	round, found := k.GetVerificationRound(ctx, resp.RoundId)
+	require.True(t, found)
+	require.NoError(t, k.CompleteRound(ctx, round, &keeper.VerificationResult{
+		Verdict: types.Verdict_VERDICT_INCONCLUSIVE,
+	}))
+
+	settles := karmaEdgesOfKind(ctx.EventManager().Events(), "pending_settle")
+	require.Len(t, settles, 1)
+	require.Equal(t, resp.ClaimId, settles[0]["ref_id"])
+	require.Equal(t, "VERDICT_INCONCLUSIVE", settles[0]["verdict"])
+}
+
 // acceptConjecture drives a conjecture claim through a round to ACCEPT and
 // returns the resulting fact.
 func acceptConjecture(t *testing.T, k keeper.Keeper, ctx sdk.Context, id, content string) *types.Fact {
@@ -380,4 +415,50 @@ func TestOpenQuestions_ExcludesOrdinaryFacts(t *testing.T) {
 	questions, total := k.OpenQuestionsForDomain(ctx, "", 0)
 	require.Equal(t, uint32(0), total)
 	require.Empty(t, questions, "open-questions is what the chain does NOT know; a verified fact has no place in it")
+}
+
+// TestOpenQuestions_FollowsConjectureTerminality pins the shared definition of
+// "open". Status transitions such as metabolic AT_RISK and EXPIRED do not
+// settle a conjecture; only the terminal states in IsConjectureResolved do.
+func TestOpenQuestions_FollowsConjectureTerminality(t *testing.T) {
+	k, ctx, _ := setupKnowledgeTestWithBank(t)
+
+	for _, tc := range []struct {
+		id     string
+		status types.FactStatus
+		open   bool
+	}{
+		{"provisional", types.FactStatus_FACT_STATUS_PROVISIONAL, true},
+		{"challenged", types.FactStatus_FACT_STATUS_CHALLENGED, true},
+		{"at-risk", types.FactStatus_FACT_STATUS_AT_RISK, true},
+		{"expired", types.FactStatus_FACT_STATUS_EXPIRED, true},
+		{"disproven", types.FactStatus_FACT_STATUS_DISPROVEN, false},
+		{"pruned", types.FactStatus_FACT_STATUS_PRUNED, false},
+		{"revoked", types.FactStatus_FACT_STATUS_REVOKED, false},
+	} {
+		require.NoError(t, k.SetFact(ctx, &types.Fact{
+			Id:                     tc.id,
+			Content:                tc.id,
+			Domain:                 "mathematics",
+			Status:                 tc.status,
+			ClaimType:              types.ClaimType_CLAIM_TYPE_CONJECTURE,
+			FalsificationPredicate: "exhibit a counterexample",
+			VerifiedAtBlock:        10,
+		}))
+	}
+
+	questions, total := k.OpenQuestionsForDomain(ctx, "mathematics", 0)
+	require.Equal(t, uint32(4), total)
+	require.Len(t, questions, 4)
+
+	got := make(map[string]bool, len(questions))
+	for _, q := range questions {
+		got[q.FactId] = true
+	}
+	for _, id := range []string{"provisional", "challenged", "at-risk", "expired"} {
+		require.True(t, got[id], "%s remains challengeable and must stay visible", id)
+	}
+	for _, id := range []string{"disproven", "pruned", "revoked"} {
+		require.False(t, got[id], "%s is terminal and must not be listed", id)
+	}
 }

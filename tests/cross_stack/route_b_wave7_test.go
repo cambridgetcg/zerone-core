@@ -95,25 +95,25 @@ func TestRouteB_Wave7_ManifestCreateFinalizeVerifyBundle(t *testing.T) {
 	//    facts from distinct domains; one disproven fact to exclude.
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-7-A", Content: "a", Domain: "sciences",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 		Submitter: operator, MethodId: knowledgetypes.MethodologyEmpirical,
 		Confidence: 900_000, CorroborationCount: 5,
 	}))
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-7-B", Content: "b", Domain: "sciences",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 		Submitter: operator, MethodId: knowledgetypes.MethodologyEmpirical,
 		Confidence: 900_000, CorroborationCount: 4,
 	}))
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-7-C", Content: "c", Domain: "biology",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 		Submitter: operator, MethodId: knowledgetypes.MethodologyEmpirical,
 		Confidence: 900_000, CorroborationCount: 3,
 	}))
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-7-DISPROVEN", Content: "d", Domain: "sciences",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN,
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN,
 		Submitter: operator, MethodId: knowledgetypes.MethodologyEmpirical,
 	}))
 
@@ -232,6 +232,50 @@ func TestRouteB_Wave7_ManifestCreateFinalizeVerifyBundle(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, byPipeline.Manifests, 1)
+}
+
+// TestRouteB_Wave7_ManifestNeverExportsLiveConjectures protects the boundary
+// between questions and training evidence. ClaimType is immutable; status is
+// not. A live conjecture must therefore remain excluded even after metabolism
+// moves it away from PROVISIONAL. A refuted conjecture is available only when
+// the selector explicitly asks for disproven counter-evidence.
+func TestRouteB_Wave7_ManifestNeverExportsLiveConjectures(t *testing.T) {
+	h := NewTestHarness(t)
+
+	for _, fact := range []*knowledgetypes.Fact{
+		{
+			Id: "ordinary", Content: "verified evidence", Domain: "sciences",
+			Status:    knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
+			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_ASSERTION,
+		},
+		{
+			Id: "live-provisional", Content: "an open question", Domain: "sciences",
+			Status:    knowledgetypes.FactStatus_FACT_STATUS_PROVISIONAL,
+			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_CONJECTURE,
+		},
+		{
+			Id: "live-at-risk", Content: "still an open question", Domain: "sciences",
+			Status:    knowledgetypes.FactStatus_FACT_STATUS_AT_RISK,
+			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_CONJECTURE,
+		},
+		{
+			Id: "refuted", Content: "a refuted conjecture", Domain: "sciences",
+			Status:    knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN,
+			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_CONJECTURE,
+		},
+	} {
+		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, fact))
+	}
+
+	defaultIDs := h.KnowledgeKeeper.SelectIncludedIds(h.Ctx, &knowledgetypes.CorpusSelector{})
+	require.Equal(t, []string{"ordinary"}, defaultIDs.FactIDs)
+	require.Len(t, defaultIDs.TraceIDs, 1)
+
+	withCounterEvidence := h.KnowledgeKeeper.SelectIncludedIds(h.Ctx, &knowledgetypes.CorpusSelector{
+		IncludeDisproven: true,
+	})
+	require.Equal(t, []string{"ordinary", "refuted"}, withCounterEvidence.FactIDs)
+	require.Len(t, withCounterEvidence.TraceIDs, 2)
 }
 
 // TestRouteB_Wave7_ManifestMerkleRootCollisionFree — sanity: swapping a

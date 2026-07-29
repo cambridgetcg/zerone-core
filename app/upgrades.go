@@ -11,8 +11,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-
-	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 )
 
 const UpgradeNameTestnet = "v1.0.0-testnet"
@@ -329,8 +327,6 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	//     acquire factual standing merely by surviving a challenge;
 	//   - starved challenge rounds settle locks and restore the challenged
 	//     record to its type-appropriate status;
-	//   - governance applies the existing funding-correlation detector to the
-	//     immutable vote weight;
 	//   - substrate axis projections obey a protocol-wide ceiling, including
 	//     settlement of legacy stored records;
 	//   - falsification clawback requires an adjudicated disproven fact;
@@ -344,22 +340,6 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		UpgradeNameConsolidationSafetyV1,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-
-			// The vote-weight rule changes at this boundary. Refuse to switch
-			// while any unrelated LIP is mid-ballot: votes already cast retain
-			// their immutable historical weight, so a mid-vote activation would
-			// otherwise apply different rules to early and late voters.
-			votingLIPs := app.ZeroneGovKeeper.GetLIPsByStatus(
-				sdk.UnwrapSDKContext(ctx),
-				zeronegovtypes.StatusVoting,
-			)
-			if len(votingLIPs) != 0 {
-				return nil, fmt.Errorf(
-					"%s requires a quiet governance boundary: %d LIP(s) still voting",
-					UpgradeNameConsolidationSafetyV1,
-					len(votingLIPs),
-				)
-			}
 
 			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 			if err != nil {

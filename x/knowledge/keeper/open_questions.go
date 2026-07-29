@@ -31,9 +31,10 @@ const OpenQuestionsDefaultLimit uint32 = 100
 // everyone who tried, or nobody has tried at all, and both are worth
 // surfacing to an agent looking for something to attack.
 //
-// A conjecture under active challenge is included, flagged. It has left
-// PROVISIONAL for CHALLENGED and would otherwise vanish from this list
-// exactly while it is receiving the attention this surface exists to invite.
+// Every non-terminal conjecture remains included, regardless of status. A
+// challenge, metabolism transition, or expiry marker must not make an
+// unanswered proposition disappear while its refutation door is still open.
+// A conjecture under active challenge is additionally flagged.
 func (k Keeper) OpenQuestionsForDomain(ctx context.Context, domain string, limit uint32) ([]*types.OpenQuestion, uint32) {
 	if limit == 0 {
 		limit = OpenQuestionsDefaultLimit
@@ -42,16 +43,10 @@ func (k Keeper) OpenQuestionsForDomain(ctx context.Context, domain string, limit
 	out := make([]*types.OpenQuestion, 0, limit)
 	scanned := 0
 	k.IterateFacts(ctx, func(f *types.Fact) bool {
-		if f == nil || f.ClaimType != types.ClaimType_CLAIM_TYPE_CONJECTURE {
+		if !IsConjecture(f) || IsConjectureResolved(f) {
 			return false
 		}
 		underChallenge := f.Status == types.FactStatus_FACT_STATUS_CHALLENGED
-		if f.Status != types.FactStatus_FACT_STATUS_PROVISIONAL && !underChallenge {
-			// Refuted, expired or pruned. A DISPROVEN conjecture is not an
-			// open question — it is an answer, and it stays in the graph as
-			// one (TC4). It is reachable through the ordinary fact surface.
-			return false
-		}
 		if domain != "" && f.Domain != domain {
 			return false
 		}

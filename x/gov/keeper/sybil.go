@@ -24,7 +24,7 @@ type FundingRecord struct {
 	TransferCount uint32 `json:"transfer_count"`
 }
 
-// SybilParams configures the sybil vote-weight decay system.
+// SybilParams configures the observational funding-correlation scorer.
 type SybilParams struct {
 	Enabled           bool   `json:"enabled"`
 	CorrelationWindow uint64 `json:"correlation_window"`   // blocks to look back (default: 480000 ~14 days)
@@ -182,8 +182,10 @@ func (k Keeper) SetSybilParams(ctx sdk.Context, params SybilParams) {
 
 // --- Correlation Engine ---
 
-// ComputeSybilDecayBPS computes the sybil decay multiplier in basis points (10000 = 100%).
-// Returns a value in [MinPowerBPS, 10000] to multiply against quadratic voting power.
+// ComputeSybilDecayBPS computes an observational correlation score in basis
+// points (10000 = uncorrelated). Do not apply this score to vote weight:
+// permissionless or failed bank sends can fabricate source edges. A future
+// power rule requires post-success, poison-resistant evidence.
 func (k Keeper) ComputeSybilDecayBPS(ctx sdk.Context, voter string, lipID string) uint64 {
 	params := k.GetSybilParams(ctx)
 	if !params.Enabled {

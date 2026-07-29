@@ -17,7 +17,7 @@ import (
 //   - DID resolution and validation
 //   - Frozen account enforcement + LastActiveBlock tracking
 //   - Session key capability enforcement
-//   - Sybil funding tracker for vote-weight decay
+//   - Funding-correlation telemetry (observational; never applied to vote weight)
 func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 	return sdk.ChainAnteDecorators(
 		// --- IBC ---
@@ -50,7 +50,7 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 		ante.NewSigVerificationDecorator(app.AccountKeeper, app.txConfig.SignModeHandler()),
 		ante.NewIncrementSequenceDecorator(app.AccountKeeper),
 
-		// --- Sybil Funding Tracker (records MsgSend sender->recipient for vote decay) ---
+		// --- Funding Correlation Telemetry (not vote-weight evidence) ---
 		NewSybilFundingDecorator(&app.ZeroneGovKeeper),
 
 		// --- Zerone Post-Auth (signer authenticated) ---

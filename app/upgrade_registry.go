@@ -105,7 +105,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 		},
 		{
 			UpgradeName: UpgradeNameConsolidationSafetyV1,
-			Description: "consolidation-safety-v1 — coordinated activation for provisional conjectures, starvation-safe challenge settlement, sybil-decayed governance weights, protocol-wide substrate axis ceilings, adjudicated falsification clawback, bounded probes, and K-alpha recognition; knowledge v5→v6 records the boundary.",
+			Description: "consolidation-safety-v1 — coordinated activation for provisional conjectures, starvation-safe challenge settlement, protocol-wide substrate axis ceilings, adjudicated falsification clawback, bounded probes, and K-alpha recognition; knowledge v5→v6 records the boundary.",
 		},
 	}
 

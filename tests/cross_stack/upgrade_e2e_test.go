@@ -351,7 +351,7 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 		"handler marker proves the named upgrade ran")
 }
 
-func TestUpgrade_ConsolidationSafetyV1RejectsMidBallotActivation(t *testing.T) {
+func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *testing.T) {
 	h := NewTestHarness(t)
 	h.GovKeeper.SetLIP(h.Ctx, &zeronegovtypes.LIP{
 		Id:    "LIP-live-ballot",
@@ -365,15 +365,21 @@ func TestUpgrade_ConsolidationSafetyV1RejectsMidBallotActivation(t *testing.T) {
 	}
 	fromVM["knowledge"] = 5
 
-	_, err := h.App.RunUpgradeHandlerForTests(
+	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
 		zeroneapp.UpgradeNameConsolidationSafetyV1,
 		fromVM,
 		h.Height(),
 	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "requires a quiet governance boundary")
-	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
-	require.Empty(t,
+	require.NoError(t, err,
+		"a permissionless unrelated ballot must not be able to halt a scheduled upgrade")
+	require.Equal(t, uint64(6), toVM["knowledge"])
+	require.Equal(t, "true",
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
+	require.Equal(t, "migrated",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"))
+	lip, found := h.GovKeeper.GetLIP(h.Ctx, "LIP-live-ballot")
+	require.True(t, found)
+	require.Equal(t, zeronegovtypes.StatusVoting, lip.Stage,
+		"the upgrade must not rewrite an unrelated ballot")
 }

@@ -159,6 +159,13 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 		return nil, fmt.Errorf("failed to create verification round: %w", err)
 	}
 
+	// K-alpha: a conjecture is not recognition, but its review still opens the
+	// same ORDINAL pending pair as every other verification round. Every
+	// terminal path emits pending_settle, so omitting this open would leave the
+	// event ledger unbalanced even though conjectures never enter recognized
+	// totals.
+	emitKarmaEdgeState(sdkCtx, "pending_open", karmaEdgeStateOrdinal, msg.Proposer, "", claimID, msg.Domain)
+
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.knowledge.conjecture_posted",
 		sdk.NewAttribute("claim_id", claimID),
