@@ -1,8 +1,10 @@
 .PHONY: build install test lint proto-gen proto-swagger-gen proto-check creed-check clean pr-check cosmovisor-init boot-test genesis-check \
        build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-all release
 
-VERSION := $(shell git describe --tags --always 2>/dev/null || echo "dev")
-COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+# Only protocol release tags may become the embedded version. Component or
+# tooling tags must not silently relabel the validator binary.
+VERSION ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo "dev")
+COMMIT  ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 
 LDFLAGS := -s -w \
            -X github.com/cosmos/cosmos-sdk/version.Name=zerone \
