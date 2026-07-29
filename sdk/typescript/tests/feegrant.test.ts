@@ -13,6 +13,7 @@ import {
 import { CaipError, defineZeroneNetwork } from "../src/caip";
 import {
   FeeGrantError,
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
   makeBoundedFeeGrant,
   makeRevokeFeeGrant,
   makeSponsoredFee,
@@ -60,10 +61,7 @@ describe("bounded Zerone fee grants", () => {
             amount: "20",
           },
         ],
-        allowedMessageTypeUrls: [
-          "/zerone.claiming_pot.v1.MsgClaim",
-          "/zerone.auth.v1.MsgRegisterAccount",
-        ],
+        allowedMessageTypeUrls: ["/zerone.claiming_pot.v1.MsgClaim"],
       }),
     );
 
@@ -77,10 +75,10 @@ describe("bounded Zerone fee grants", () => {
     const allowed = AllowedMsgAllowance.decode(
       assertDefined(grant.allowance).value,
     );
-    assert.deepEqual(allowed.allowedMessages, [
-      "/zerone.auth.v1.MsgRegisterAccount",
-      "/zerone.claiming_pot.v1.MsgClaim",
-    ]);
+    assert.deepEqual(
+      allowed.allowedMessages,
+      ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
+    );
     assert.equal(allowed.allowance?.typeUrl, BasicAllowance.typeUrl);
 
     const basic = BasicAllowance.decode(
@@ -212,8 +210,8 @@ describe("bounded Zerone fee grants", () => {
         makeBoundedFeeGrant(
           validGrant({
             allowedMessageTypeUrls: [
-              "/cosmos.bank.v1beta1.MsgSend",
-              "/cosmos.bank.v1beta1.MsgSend",
+              "/zerone.claiming_pot.v1.MsgClaim",
+              "/zerone.claiming_pot.v1.MsgClaim",
             ],
           }),
         ),
@@ -221,25 +219,31 @@ describe("bounded Zerone fee grants", () => {
     );
   });
 
-  it("rejects sensitive control-plane message URLs", () => {
-    const sensitiveTypeUrls = [
+  it("rejects every message outside the explicit onboarding allowlist", () => {
+    const unapprovedTypeUrls = [
+      "/zerone.auth.v1.MsgRegisterAccount",
       "/zerone.emergency.v1.MsgPause",
       "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",
       "/cosmos.gov.v1.MsgVote",
       "/cosmos.params.v1beta1.MsgUpdateParams",
       "/cosmwasm.wasm.v1.MsgUpdateAdmin",
+      "/cosmos.authz.v1beta1.MsgExec",
       "/zerone.auth.v1.MsgFreezeAccount",
       "/zerone.auth.v1.MsgUnfreezeAccount",
       "/zerone.auth.v1.MsgRotateKey",
+      "/zerone.knowledge.v1.MsgPauseModule",
+      "/zerone.creed.v1.MsgUpdateCouncilMember",
+      "/zerone.substrate_bridge.v1.MsgSuspendAdapter",
+      "/zerone.tokens.v1.MsgPauseToken",
     ];
 
-    for (const typeUrl of sensitiveTypeUrls) {
+    for (const typeUrl of unapprovedTypeUrls) {
       assertFeeGrantError(
         () =>
           makeBoundedFeeGrant(
             validGrant({ allowedMessageTypeUrls: [typeUrl] }),
           ),
-        "SENSITIVE_MESSAGE_TYPE_URL",
+        "UNAPPROVED_MESSAGE_TYPE_URL",
       );
     }
   });
@@ -266,6 +270,15 @@ describe("sponsored CosmJS fees", () => {
         granter: GRANTER,
       },
     );
+    assert.equal(
+      makeSponsoredFee({
+        network: NETWORK,
+        granter: GRANTER,
+        amount: [{ denom: "uzrn", amount: "1" }],
+        gas: "9007199254740991",
+      }).gas,
+      "9007199254740991",
+    );
   });
 
   it("rejects invalid fees and granter addresses", () => {
@@ -279,7 +292,13 @@ describe("sponsored CosmJS fees", () => {
         }),
       "INVALID_COIN",
     );
-    for (const gas of ["0", "01", "-1", "18446744073709551616"]) {
+    for (const gas of [
+      "0",
+      "01",
+      "-1",
+      "9007199254740992",
+      "18446744073709551615",
+    ]) {
       assertFeeGrantError(
         () =>
           makeSponsoredFee({

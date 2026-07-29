@@ -10,6 +10,9 @@ import {
   auth,
   authMessages,
 } from "@zerone-chain/sdk/messages";
+import {
+  IN_TOTO_STATEMENT_V1_TYPE,
+} from "@zerone-chain/sdk/provenance";
 import { createZeroneRegistry } from "@zerone-chain/sdk/registry";
 import {
   defaultRegistryTypes,
@@ -60,4 +63,5 @@ void [
   grant,
   revoke,
   signingFee,
+  IN_TOTO_STATEMENT_V1_TYPE,
 ];

@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { describe, it } from "node:test";
 
 import {
   proxyRequest,
+  syncingValueFromStatus,
   type PagesContext,
   type ProxyCache,
   type ProxyRuntime,
+  validRestRequest,
 } from "../functions/api/_proxy";
 
 const TEST_UPSTREAMS = {
@@ -267,4 +269,231 @@ test("an upstream network failure becomes a bounded 502 without leaking the erro
   assert.equal(message, "Mainnet endpoint is temporarily unreachable");
   assert.doesNotMatch(message, /private upstream detail/);
   assert.equal(testHarness.calls.length, 1);
+});
+
+test("the syncing compatibility route uses only the injected RPC status endpoint", async () => {
+  const testHarness = harness(async () =>
+    new Response(
+      JSON.stringify({
+        result: {
+          node_info: { network: "zerone-1" },
+          sync_info: { catching_up: false },
+        },
+      }),
+      {
+        headers: {
+          "Set-Cookie": "upstream-secret=1",
+          "X-Upstream-Only": "discard",
+        },
+      },
+    ),
+  );
+  const { context } = pagesContext(
+    "https://dashboard.invalid/api/rest/cosmos/base/tendermint/v1beta1/syncing",
+    ["cosmos", "base", "tendermint", "v1beta1", "syncing"],
+  );
+
+  const response = await proxyRequest(context, "rest", testHarness.runtime);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { syncing: false });
+  assert.equal(response.headers.get("X-Zerone-Edge"), "rest-syncing-compat");
+  assert.equal(response.headers.get("Set-Cookie"), null);
+  assert.equal(response.headers.get("X-Upstream-Only"), null);
+  assert.equal(testHarness.calls.length, 1);
+  const call = testHarness.calls[0];
+  assert.ok(call);
+  assert.equal(String(call.input), "https://rpc.invalid/status");
+  assert.equal(call.init?.method, "GET");
+  assert.equal(call.init?.redirect, "manual");
+  assert.equal(testHarness.cacheMatches.length, 0);
+  assert.equal(testHarness.cachePuts.length, 0);
+});
+
+test("the syncing compatibility route returns no body for HEAD", async () => {
+  const testHarness = harness(async () =>
+    Response.json({
+      result: {
+        node_info: { network: "zerone-1" },
+        sync_info: { catching_up: true },
+      },
+    }),
+  );
+  const { context } = pagesContext(
+    "https://dashboard.invalid/api/rest/cosmos/base/tendermint/v1beta1/syncing",
+    "cosmos/base/tendermint/v1beta1/syncing",
+    { method: "HEAD" },
+  );
+
+  const response = await proxyRequest(context, "rest", testHarness.runtime);
+
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "");
+  assert.equal(testHarness.calls.length, 1);
+});
+
+test("the syncing compatibility route bounds declared and streamed status bodies", async () => {
+  for (const upstream of [
+    new Response("", { headers: { "Content-Length": "64001" } }),
+    new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array(64_001));
+          controller.close();
+        },
+      }),
+    ),
+  ]) {
+    const testHarness = harness(async () => upstream);
+    const { context } = pagesContext(
+      "https://dashboard.invalid/api/rest/cosmos/base/tendermint/v1beta1/syncing",
+      "cosmos/base/tendermint/v1beta1/syncing",
+    );
+
+    const response = await proxyRequest(context, "rest", testHarness.runtime);
+
+    assert.equal(response.status, 502);
+    assert.equal(
+      await errorMessage(response),
+      "Mainnet status response exceeded its limit",
+    );
+    assert.equal(testHarness.calls.length, 1);
+  }
+});
+
+const GRANTER = "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf";
+const GRANTEE = "zrn100mxrvv5chhhrj0yd9y4q8354z4edm42mukf5r";
+const ADDRESS_WITH_V = "zrn10d07y265gmmuvt4z0w9aw880jnsr700j47tt89";
+
+describe("feegrant REST edge allowlist", () => {
+  it("allows only exact-pair and bounded grantee query shapes", () => {
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowance/${GRANTER}/${GRANTEE}`,
+        new URLSearchParams(),
+      ),
+      true,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowances/${ADDRESS_WITH_V}`,
+        new URLSearchParams({ "pagination.limit": "1" }),
+      ),
+      true,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowances/${GRANTEE}`,
+        new URLSearchParams({
+          "pagination.limit": "50",
+          "pagination.key": "AQID",
+        }),
+      ),
+      true,
+    );
+  });
+
+  it("rejects malformed accounts, unbounded pagination, duplicates, and unknown routes", () => {
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowance/${GRANTER}/${GRANTEE.slice(0, -1)}`,
+        new URLSearchParams(),
+      ),
+      false,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowance/${GRANTER}/${GRANTEE.slice(0, -1)}q`,
+        new URLSearchParams(),
+      ),
+      false,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowances/${GRANTEE}`,
+        new URLSearchParams(),
+      ),
+      false,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/issued/${GRANTER}`,
+        new URLSearchParams({ "pagination.limit": "50" }),
+      ),
+      false,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowances/${GRANTEE}`,
+        new URLSearchParams({ "pagination.limit": "51" }),
+      ),
+      false,
+    );
+    const duplicate = new URLSearchParams();
+    duplicate.append("pagination.limit", "10");
+    duplicate.append("pagination.limit", "20");
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowances/${GRANTEE}`,
+        duplicate,
+      ),
+      false,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowances/${GRANTEE}`,
+        new URLSearchParams({ "pagination.key": "***" }),
+      ),
+      false,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/allowances/${GRANTEE}`,
+        new URLSearchParams({
+          "pagination.limit": "50",
+          "pagination.key": "",
+        }),
+      ),
+      false,
+    );
+    assert.equal(
+      validRestRequest(
+        `cosmos/feegrant/v1beta1/grants/${GRANTEE}`,
+        new URLSearchParams(),
+      ),
+      false,
+    );
+  });
+});
+
+describe("standard syncing compatibility response", () => {
+  it("accepts only a typed zerone-1 status projection", () => {
+    assert.equal(
+      syncingValueFromStatus({
+        result: {
+          node_info: { network: "zerone-1" },
+          sync_info: { catching_up: false },
+        },
+      }),
+      false,
+    );
+    assert.equal(
+      syncingValueFromStatus({
+        result: {
+          node_info: { network: "cosmoshub-4" },
+          sync_info: { catching_up: false },
+        },
+      }),
+      null,
+    );
+    assert.equal(
+      syncingValueFromStatus({
+        result: {
+          node_info: { network: "zerone-1" },
+          sync_info: { catching_up: "false" },
+        },
+      }),
+      null,
+    );
+  });
 });

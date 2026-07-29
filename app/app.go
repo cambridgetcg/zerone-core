@@ -1370,6 +1370,11 @@ func (app *ZeroneApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.API
 	clientCtx := apiSvr.ClientCtx
 	authtypes.RegisterInterfaces(clientCtx.InterfaceRegistry)
 	ModuleBasics.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+	// These services are registered directly on BaseApp rather than through a
+	// module AppModuleBasic, so ModuleBasics cannot mount their HTTP routes.
+	authtx.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+	cmtservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
+	nodeservice.RegisterGRPCGatewayRoutes(clientCtx, apiSvr.GRPCGatewayRouter)
 
 	// Register gRPC-gateway v2 routes for all Zerone custom modules.
 	// The generated query.pb.gw.go files use grpc-gateway/v2, while the SDK's

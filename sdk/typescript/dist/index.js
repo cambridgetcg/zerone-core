@@ -5,10 +5,11 @@ import {
 } from "./chunk-QI25M5F7.js";
 import {
   FeeGrantError,
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
   makeBoundedFeeGrant,
   makeRevokeFeeGrant,
   makeSponsoredFee
-} from "./chunk-CKRFQCA2.js";
+} from "./chunk-JLGGA6KK.js";
 import {
   CaipError,
   asExistingZeroneDid,
@@ -22,6 +23,13 @@ import {
   zeroneAccountId
 } from "./chunk-YKTHEBLN.js";
 import {
+  IN_TOTO_STATEMENT_V1_TYPE,
+  ProvenanceParseError,
+  ZERONE_PROVENANCE_LIMITS,
+  ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
+  parseUnsignedZeroneInTotoStatement
+} from "./chunk-FKXK63RS.js";
+import {
   createZeroneRegistry,
   registerZeroneMessages,
   zeroneRegistryTypes
@@ -32,6 +40,11 @@ export {
   CaipError,
   CidError,
   FeeGrantError,
+  IN_TOTO_STATEMENT_V1_TYPE,
+  ProvenanceParseError,
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
+  ZERONE_PROVENANCE_LIMITS,
+  ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
   asExistingZeroneDid,
   asZeroneMemoryCid,
   cosmosChainId,
@@ -46,6 +59,7 @@ export {
   parseCaip2,
   parseCanonicalCidV1,
   parseCosmosChainId,
+  parseUnsignedZeroneInTotoStatement,
   registerZeroneMessages,
   zeroneAccountId,
   zeroneRegistryTypes

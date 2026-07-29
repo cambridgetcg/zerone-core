@@ -1,7 +1,7 @@
 {
   "name": "@zerone-chain/sdk",
   "version": "0.1.0",
-  "description": "Typed transaction codecs and chain-agnostic identifiers for Zerone",
+  "description": "Typed transaction codecs, interoperable identifiers, and offline provenance profiles for Zerone",
   "type": "module",
   "sideEffects": false,
   "license": "Apache-2.0",
@@ -42,6 +42,10 @@
     "./messages": {
       "types": "./dist/types/messages.d.ts",
       "import": "./dist/messages.js"
+    },
+    "./provenance": {
+      "types": "./dist/types/provenance.d.ts",
+      "import": "./dist/provenance.js"
     },
     "./registry": {
       "types": "./dist/types/registry.d.ts",

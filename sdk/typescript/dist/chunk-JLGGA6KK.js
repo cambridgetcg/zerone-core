@@ -22,10 +22,16 @@ var FeeGrantError = class extends Error {
 var DENOM_PATTERN = /^[a-zA-Z][a-zA-Z0-9/:._-]{2,127}$/;
 var POSITIVE_INTEGER_PATTERN = /^[1-9][0-9]*$/;
 var MESSAGE_TYPE_URL_PATTERN = /^\/[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+\.Msg[A-Za-z0-9_]+$/;
-var MAX_UINT64 = (1n << 64n) - 1n;
+var MAX_COSMJS_GAS = (1n << 53n) - 1n;
 var MAX_SDK_INT = (1n << 256n) - 1n;
 var MIN_PROTOBUF_TIMESTAMP_MILLISECONDS = -621355968e5;
 var MAX_PROTOBUF_TIMESTAMP_MILLISECONDS = 253402300799999;
+var ZERONE_ONBOARDING_MESSAGE_TYPE_URLS = Object.freeze([
+  "/zerone.claiming_pot.v1.MsgClaim"
+]);
+var approvedOnboardingMessageTypeUrls = new Set(
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS
+);
 function validateParties(input) {
   zeroneAccountId(input.network, input.granter);
   zeroneAccountId(input.network, input.grantee);
@@ -140,27 +146,6 @@ function encodeBasicAllowance(allowance) {
   }
   return writer.finish();
 }
-function isSensitiveMessageTypeUrl(typeUrl) {
-  const normalized = typeUrl.toLowerCase();
-  const modulePath = normalized.slice(1, normalized.lastIndexOf(".msg"));
-  const messageName = normalized.slice(normalized.lastIndexOf(".msg") + 4);
-  const moduleSegments = modulePath.split(".");
-  if (moduleSegments.some(
-    (segment) => ["emergency", "upgrade", "gov", "governance", "params", "admin"].includes(
-      segment
-    )
-  )) {
-    return true;
-  }
-  return [
-    "freeze",
-    "unfreeze",
-    "rotate",
-    "params",
-    "admin",
-    "authority"
-  ].some((fragment) => messageName.includes(fragment));
-}
 function validateAllowedMessages(typeUrls) {
   if (typeUrls.length === 0) {
     throw new FeeGrantError(
@@ -182,10 +167,10 @@ function validateAllowedMessages(typeUrls) {
         `Duplicate allowed message type URL: ${typeUrl}`
       );
     }
-    if (isSensitiveMessageTypeUrl(typeUrl)) {
+    if (!approvedOnboardingMessageTypeUrls.has(typeUrl)) {
       throw new FeeGrantError(
-        "SENSITIVE_MESSAGE_TYPE_URL",
-        `Refusing to sponsor sensitive message type: ${typeUrl}`
+        "UNAPPROVED_MESSAGE_TYPE_URL",
+        `Message type is not approved for sponsor-funded Zerone onboarding: ${typeUrl}`
       );
     }
     seen.add(typeUrl);
@@ -240,10 +225,10 @@ function makeRevokeFeeGrant(input) {
 }
 function makeSponsoredFee(input) {
   zeroneAccountId(input.network, input.granter);
-  if (input.gas.length > 20 || !POSITIVE_INTEGER_PATTERN.test(input.gas) || BigInt(input.gas) > MAX_UINT64) {
+  if (input.gas.length > 20 || !POSITIVE_INTEGER_PATTERN.test(input.gas) || BigInt(input.gas) > MAX_COSMJS_GAS) {
     throw new FeeGrantError(
       "INVALID_GAS",
-      "Sponsored fee gas must be a canonical positive uint64"
+      "Sponsored fee gas must be a canonical positive CosmJS Int53 value"
     );
   }
   return {
@@ -255,6 +240,7 @@ function makeSponsoredFee(input) {
 
 export {
   FeeGrantError,
+  ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
   makeBoundedFeeGrant,
   makeRevokeFeeGrant,
   makeSponsoredFee
