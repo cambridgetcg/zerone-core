@@ -25,7 +25,8 @@ func TestFalsifyClaim_RefusedWhenFactNotDisproven(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateVestingSchedule: %v", err)
 	}
-	before := *sched
+	beforeStatus := sched.Status
+	beforeTotal := sched.TotalAmount
 
 	// The attack: any address names itself challenger and calls.
 	_, err = k.FalsifyClaim(ctx, claimID, "zrn1attacker")
@@ -41,11 +42,11 @@ func TestFalsifyClaim_RefusedWhenFactNotDisproven(t *testing.T) {
 	if !found {
 		t.Fatal("schedule vanished after a refused falsification")
 	}
-	if after.Status != before.Status {
-		t.Fatalf("refused falsification still changed status: %q -> %q", before.Status, after.Status)
+	if after.Status != beforeStatus {
+		t.Fatalf("refused falsification still changed status: %q -> %q", beforeStatus, after.Status)
 	}
-	if after.TotalAmount != before.TotalAmount {
-		t.Fatalf("refused falsification still changed total: %q -> %q", before.TotalAmount, after.TotalAmount)
+	if after.TotalAmount != beforeTotal {
+		t.Fatalf("refused falsification still changed total: %q -> %q", beforeTotal, after.TotalAmount)
 	}
 }
 
