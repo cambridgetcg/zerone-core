@@ -228,9 +228,10 @@ converter.
 ## Prepared: Cosmos Chain Registry metadata
 
 `integrations/chain-registry/zerone/` contains a schema-valid `chain.json`,
-`assetlist.json`, and ZRN SVG ready for an upstream submission. Local checks
-cross-reference the committed genesis and deployment configuration; CI also
-runs the pinned upstream Chain Registry validator.
+`assetlist.json`, and ZRN SVG submitted as
+[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859).
+Local checks cross-reference the committed genesis and deployment
+configuration; CI also runs the pinned upstream Chain Registry validator.
 
 The candidate advertises only the complete public CometBFT RPC and verified
 peer data. It deliberately omits general REST/gRPC, IBC channels, snapshots,
@@ -249,11 +250,13 @@ The first generated client uses
 Evaluate [Interchain Kit](https://docs.hyperweb.io/interchain-kit/) only when
 its beta status and additional wallet surface fit the dashboard's needs.
 
-Submit the prepared Zerone bundle to the
-[Cosmos Chain Registry](https://github.com/cosmos/chain-registry) after the
-`zrn` SLIP-0173 entry is accepted. Keep the metadata evidence-limited as public
-endpoints and release posture evolve; do not present shared coin type `118` as
-a Zerone-specific allocation.
+Track the submitted
+[Cosmos Chain Registry proposal](https://github.com/cosmos/chain-registry/pull/7859)
+and the `zrn`
+[SLIP-0173 proposal](https://github.com/satoshilabs/slips/pull/2039) through
+review. Keep the metadata evidence-limited as public endpoints and release
+posture evolve; do not present shared coin type `118` as a Zerone-specific
+allocation.
 
 ### 2. Delegated authority only after an ante audit
 

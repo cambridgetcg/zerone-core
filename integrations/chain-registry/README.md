@@ -28,6 +28,8 @@ coin-type registration. The `zrn` Bech32 HRP needs its own SLIP-0173 registry
 entry before an upstream submission should be represented as complete. That
 registration is proposed in
 [satoshilabs/slips#2039](https://github.com/satoshilabs/slips/pull/2039).
+The evidence-limited registry bundle is proposed in
+[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859).
 
 Validate local facts and then run the pinned upstream validator:
 
