@@ -568,6 +568,7 @@ jobs:
   typescript-sdk:
     name: "TypeScript SDK and dashboard"
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -636,6 +637,8 @@ jobs:
           go-version-file: tools/sigstore-substrate-compiler/go.mod
           cache: true
           cache-dependency-path: tools/sigstore-substrate-compiler/go.sum
+      - name: Verify downloaded Go modules
+        run: go mod verify
       - name: Verify selected toolchain
         run: test "$(go env GOVERSION)" = "go1.25.8"
       - name: Test, vet, and race-test
