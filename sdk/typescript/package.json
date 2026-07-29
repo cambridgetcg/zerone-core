@@ -45,6 +45,7 @@
     "check": "npm run check:generated && npm run check:registry && npm run typecheck && npm test",
     "check:consumer": "tsc --ignoreConfig --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck false tests/consumer-nodenext.mts",
     "check:generated": "node scripts/check-generated.mjs",
+    "check:publish": "node scripts/check-publish.mjs",
     "check:registry": "node scripts/check-registry.mjs",
     "generate": "node scripts/generate.mjs",
     "prepack": "npm run check && npm run build",
