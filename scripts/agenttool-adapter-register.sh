@@ -54,9 +54,16 @@ info() { printf '\033[1;34m  ->\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m  OK\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31mFAIL\033[0m %s\n' "$*" >&2; exit 1; }
 
+case "${CHAIN_ID}" in
+  zerone-localnet|zerone-rehearsal-*) ;;
+  *)
+    die "this registration runbook is local-rehearsal-only; live adapters require a release-bound governance packet"
+    ;;
+esac
+
 wait_tx() { # wait_tx <txhash> <label>
-  local hash="$1" label="$2" i
-  for i in $(seq 1 20); do
+  local hash="$1" label="$2"
+  for _ in $(seq 1 20); do
     if out=$("${BINARY}" query tx "${hash}" --node "${NODE}" -o json 2>/dev/null); then
       local code
       code=$(jq -r .code <<<"${out}")
@@ -120,7 +127,7 @@ for V in val1 val2 val3; do
 done
 info "waiting for voting period to end…"
 STATUS=""
-for i in $(seq 1 40); do
+for _ in $(seq 1 40); do
   STATUS=$("${BINARY}" query gov proposal "${PROP_ID}" --node "${NODE}" -o json | jq -r .proposal.status)
   [ "${STATUS}" != "PROPOSAL_STATUS_VOTING_PERIOD" ] && break
   sleep 3

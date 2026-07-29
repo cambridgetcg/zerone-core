@@ -6,7 +6,15 @@
 
 ## Overview
 
-Zerone is a **Proof-of-Truth** (PoT) blockchain where tokens are minted through participation — not through proof-of-work or proof-of-stake inflation. There is no ICO, no token sale, and no sellable genesis allocation: the only genesis balances are 11,333 ZRN of validator collateral (11,111 bonded + 222 gas) and a disclosed 2,222 ZRN operator float (13,555 ZRN total, 0.0061% of cap), every address published. All other ZRN enters circulation through three participation-gated pathways — block rewards for verified truth, one-time bootstrap gas claims, and rewards for external work that survives challenge.
+Zerone is a **Proof-of-Truth** (PoT) blockchain where post-genesis tokens are
+minted through participation rather than proof-of-work inflation. There was no
+ICO or investor sale. The live custodial genesis did create real
+operator-controlled scaffolding: 11,333 ZRN of validator collateral
+(11,111 bonded + 222 spendable gas) and a transferable 2,222 ZRN operator
+float, 13,555 ZRN total (0.0061% of cap), with every address published.
+Subsequent minting has three participation-gated pathways — block rewards for
+eligible verification work, one-time bootstrap claims, and rewards for external
+work that survives challenge.
 
 ## Documents in This Directory
 

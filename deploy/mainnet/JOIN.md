@@ -1,107 +1,77 @@
-# Join zerone-1 — the mainnet record
+# Observe `zerone-1` — live custodial mainnet
 
-This is the REAL one. zerone-testnet-1 is the playground; **zerone-1 is the
-record that counts** — custodially launched, honest about it, and sealing
-permanently once the network earns independence (read
-[TRUST.md](./TRUST.md) — it tells you the unflattering parts first).
+`zerone-1` is already running. It is a custodial network whose single
+household currently controls the validator, governance vote, 11,111 ZRN
+self-bond, 222 ZRN validator gas balance, and 2,222 ZRN transferable
+operations float. Read [TRUST.md](./TRUST.md) before treating its record as
+independent.
 
-Zerone witnesses agent work and mints ZRN **only for what survives challenge**
-— never for mere acceptance. 222,222,222 hard cap. Genesis is 13,555 ZRN,
-every address published in the manifest, **no faucet**.
+This page is an observation surface, not an onboarding, broadcast, validator,
+upgrade, or reset authorization.
 
-## Network at a glance
+## Read-only network surfaces
 
 | Surface | Value |
 |---|---|
 | RPC (CometBFT) | `http://169.155.55.44:26657` |
 | REST (LCD) | `http://169.155.55.44:1317` |
-| P2P seed | `ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e@169.155.55.44:26656` |
 | Chain ID | `zerone-1` |
 | Denom | `uzrn` (1 ZRN = 1,000,000 uzrn) |
-| Min fee | `1 uzrn` per gas unit — a 200k-gas tx costs `200000uzrn` |
-| Genesis sha256 | `16ac346f329d2a931ad9a7d51dbe9e35605482b006ef39b3ac7804376e9bcb66` (of `curl RPC/genesis \| jq .result.genesis`) |
+| Published genesis SHA-256 | `16ac346f329d2a931ad9a7d51dbe9e35605482b006ef39b3ac7804376e9bcb66` |
 
-## The 60-second lane (no install)
+Read-only checks:
 
-```
-curl http://169.155.55.44:26657/status                                            # it's alive
-curl "http://169.155.55.44:1317/cosmos/bank/v1beta1/supply/by_denom?denom=uzrn"   # supply under the cap
-```
-
-## Become a citizen (there is NO faucet — by design)
-
-Buy the **zerone-1 mainnet passport** on agenttool (≈2 pence). Sealed so only
-you can open it, you get:
-
-- a fresh key + 24-word seed (yours; a custodial copy signs your onboarding),
-- **registrar admission** to the bootstrap path,
-- a **0.222 ZRN bonus MINTED for you** under the 222,222-ZRN bootstrap
-  emission cap — check your own pot on-chain:
-  `GET /zerone/claiming_pot/v1/pot/bootstrap-<your-address>`,
-- a **2 ZRN welcome float** from the disclosed operator float — enough for
-  your first witness bond. (Honest note: the float transfer creates a
-  sybil-funding record, so commonly-funded newborns carry vote-weight decay.
-  That is the sybil defense working, disclosed.)
-
-**No home is included.** A home costs 10 ZRN and anchors your DID permanently.
-On the mainnet you EARN it — about 100 witnessed works at default settings
-(the honest math is below). That's your first goal, and it's what makes a
-zerone home mean something.
-
-## Earn: witness your work
-
-Run the relay from the repo with your own key:
-
-```
-RELAY_FROM=<your-key> RELAY_NODE=http://169.155.55.44:26657 \
-RELAY_CHAIN_ID=zerone-1 RELAY_API_KEY=<your agenttool key> \
-go run ./tools/agenttool-relay -watch
+```bash
+curl http://169.155.55.44:26657/status
+curl "http://169.155.55.44:1317/cosmos/bank/v1beta1/supply/by_denom?denom=uzrn"
 ```
 
-Each of your settled agenttool invocations becomes an on-chain attestation via
-the `agenttool-invocation-v1` adapter: a 1 ZRN bond is escrowed (returned next
-block) and, if the attestation **survives the 200-block challenge window
-(~8–9 min)**, 0.222 ZRN is minted to you. Honest math: the attestation tx fee
-is gas×1uzrn — at the relay's default 120k gas that's 0.12 ZRN, so you **net
-≈0.1 ZRN per survived work** (≈100 works to a 10 ZRN home). Faking work costs
-a bond you lose.
+Independently compare the RPC genesis representation, published artifact, and
+[genesis manifest](./artifacts/GENESIS-MANIFEST.md). The manifest is
+hash-bound but currently has no detached signature.
 
-## Put a truth on the record
+## Onboarding and transaction lanes are paused
 
-The knowledge pipeline is live — the first fact was accepted at height 76944
-(fact `ecb5004ae763034f6dacb27832c34191`: the chain's own birth certificate,
-verified by a disclosed bootstrap panel). Any registered account can submit a
-claim (0.2 ZRN review fee); four 100-ZRN witnesses and a survived challenge
-window put it on the permanent record and vest the fee back to you.
+Earlier versions of this page advertised an agenttool “mainnet passport,” a
+fresh key, registrar admission, a 0.222 ZRN bootstrap mint, a 2 ZRN operator
+float transfer, and direct relay/knowledge transactions. Those were
+custodial-launch procedures, not timeless protocol guarantees. Their current
+listing, key-custody terms, registrar state, adapter state, fees, bonds,
+balances, and deliverables have not been reverified against a release-bound
+packet.
 
-Read [docs/FIRST-TRUTH.md](../../docs/FIRST-TRUTH.md) first — it explains the
-ceremony, the exact commands (`scripts/first-truth-ceremony.sh`), the measured
-gas costs, and the sharp edges we are not hiding (including why today every
-panel is still ops-funded). Challenging a fact you believe is wrong needs only
-11 ZRN — disproving us pays.
+Do not purchase, promise, automate, or broadcast that lane from this source
+head. `scripts/mainnet-onboard.sh` and the legacy registration helpers exit
+fail-closed for this reason. Reopening onboarding requires a packet that binds:
 
-## Run a node / validate
+1. the exact source release and binary/image digest;
+2. current chain height, app version, upgrade plan, and activation height;
+3. genesis representation and trusted peer identities;
+4. current registrar, adapter, fee, bond, reward, and balance state;
+5. key-custody and recovery terms;
+6. exact transactions plus pre/post-state checks; and
+7. explicit operator authorization.
 
-One-shot on a fresh Ubuntu box (read the script first, then):
+Permissionless funding correlations may still be recorded for analysis, but
+this source line does **not** reduce governance vote weight from those records:
+an untrusted sender must not be able to poison another wallet's vote.
 
-```
-curl -fsSL https://raw.githubusercontent.com/cambridgetcg/zerone-core/main/deploy/testnet/node-bootstrap.sh -o node-bootstrap.sh
-less node-bootstrap.sh        # read it
-NETWORK=mainnet bash node-bootstrap.sh
-```
+## Node and validator operation is paused
 
-Full operator guide (free-tier infra, systemd, validators, snapshots):
-[../testnet/RUN-A-NODE.md](../testnet/RUN-A-NODE.md) — it covers both networks.
-Every independent node moves the dial from *custodial* toward *decentralized*
-— on the mainnet that movement is the whole game.
+Do not build moving `main` and install it on `zerone-1`. This consolidation
+contains consensus-sensitive knowledge, vesting, and substrate changes that
+require the named `consolidation-safety-v1` upgrade. Source publication is not
+chain activation.
 
-## The honest small print
+Joining or upgrading a node requires a signed packet binding the exact commit,
+binary digest, live genesis representation, peer identities, upgrade height,
+rollback boundary, and post-upgrade verification. See the
+[validator safety guide](../../docs/VALIDATOR-GUIDE.md).
 
-Custodial launch phase: one household runs the sole validator, holds the only
-governance vote, and may halt / revert / re-genesis **until the network earns
-its independence** — measured by real independent operators and earned stake —
-after which the record seals and not even the operator can quietly rewrite it.
-What never bends, even now: the 222,222,222 cap, mint-only-for-survived-work,
-every mint on the record, and this page telling you all of it.
+## Supply claim
 
-零一在此見證你的工作 — Zerone witnesses your work.
+The hard cap is 222,222,222 ZRN. The disclosed live genesis supply was 13,555
+ZRN: 11,333 ZRN controlled by the launch validator and 2,222 ZRN controlled by
+the operations account. There was no separate team, foundation, investor-sale,
+research, or faucet allocation. These narrow facts do not erase the real
+custodial power of the operator-controlled stake and float.

@@ -74,7 +74,7 @@ SubstrateLink:
   Source:
     AdapterId:        "zerone-self-v1"
     SourceId:         <commit SHA>
-    SourceUrl:        "https://codeberg.org/zerone-dev/zerone/commit/<commit SHA>"
+    SourceUrl:        "https://github.com/cambridgetcg/zerone-core/commit/<commit SHA>"
     ContentHash:      <sha256 of the canonical commit metadata>
     FetchedAtBlock:   <chain block height at compile time>
   LinkHash:           <sha256 of canonical SubstrateLink, computed by substrate_bridge>

@@ -85,8 +85,8 @@ have not been checked against the selected release.
 
 ## Consensus upgrade requirement
 
-The consolidated source includes consensus-visible knowledge, governance,
-vesting, and substrate hardening. Existing networks require the coordinated
+The consolidated source includes consensus-visible knowledge, vesting, and
+substrate hardening. Existing networks require the coordinated
 `consolidation-safety-v1` upgrade before that behavior can become active.
 
 Before activation:

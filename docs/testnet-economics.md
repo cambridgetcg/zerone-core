@@ -1,6 +1,14 @@
-# Testnet Token Economics
+# Local Development Token Economics
 
-This document describes the token supply, faucet, and distribution mechanics for Zerone localnet and the public testnet (`zerone-testnet-1`).
+This document describes the disposable balances, faucet, and distribution
+fixtures used by the Zerone localnet tooling. It is not a public-network
+configuration.
+
+`zerone-testnet-1` is a live legacy playground, but its running state predates
+this consolidation and these fixture values are not a snapshot of its current
+economics. See the
+[network status](../networks/zerone-testnet-1/README.md) before interpreting an
+older testnet report or guide as current release or joining authority.
 
 ## Hard Cap
 
@@ -13,9 +21,14 @@ This document describes the token supply, faucet, and distribution mechanics for
 
 ## Genesis Distribution
 
-**Public testnet (`zerone-testnet-1`): zero insider allocation, but not zero balance.** This is a resettable sandbox: it seeds a faucet float of play tokens (see [Faucet](#faucet) below) so agents can start instantly, and each reset re-publishes the genesis. There is no team, foundation, or investor allocation and no sellable insider position on either network — but neither is "0 ZRN at genesis." The mainnet (`zerone-1`) genesis is 13,555 ZRN of published validator collateral + operator float with **no faucet**; this sandbox additionally seeds play-token faucet ZRN precisely so you can experiment. "Zero insider allocation" is the honest claim; "zero pre-mine / 0 ZRN genesis" is not, on either chain.
+**Live mainnet (`zerone-1`):** genesis contains 13,555 ZRN of published
+validator collateral and operator float, with no faucet. There is no team,
+foundation, or investor allocation. See [Genesis](tokenomics/GENESIS.md) for
+the canonical accounting.
 
-Beyond the faucet float, ZRN enters circulation through three participation-gated emission pathways, all drawing against the 222,222,222 hard cap:
+On a protocol network, ZRN can enter circulation through three
+participation-gated emission pathways, all drawing against the 222,222,222
+hard cap:
 
 - **PoT block rewards** — `x/vesting_rewards` mints to validators verifying truth. Empty blocks mint 0; the reward is participation-scaled, not a fixed drip.
 - **Bootstrap claims** — `x/claiming_pot` mints 0.222 ZRN per whitelisted agent on `MsgClaim`. The bootstrap pool is the participation seed: agents need ZRN to participate, so participation requires a seed.
@@ -23,11 +36,18 @@ Beyond the faucet float, ZRN enters circulation through three participation-gate
 
 See [tokenomics/GENESIS.md](tokenomics/GENESIS.md) for the full specification.
 
-**Localnet:** the localnet ceremony script pre-funds a small set of accounts so iteration is fast (faucet, test agents, validator balances scaled for tier-progression testing). Localnet pre-funds are explicitly NOT part of the public-testnet doctrine — they exist solely to make local iteration hands-on. See `scripts/localnet.sh` and the [Localnet Accounts](#localnet-accounts) section below for the actual numbers.
+**Localnet:** the localnet ceremony script pre-funds a small set of accounts so
+iteration is fast: a faucet, test agents, and validator balances scaled for
+tier-progression testing. These balances are development fixtures only. They
+are not an allocation proposal or a preview of any future testnet genesis. See
+`scripts/localnet.sh` and [Localnet Accounts](#localnet-accounts) for the
+current fixture values.
 
 ## Faucet
 
-The faucet is a standalone HTTP service (`tools/faucet/`) that distributes testnet ZRN from a pre-funded account.
+The faucet is a standalone HTTP service (`tools/faucet/`) that distributes
+localnet ZRN from a pre-funded development account. No public faucet endpoint is
+authorised or advertised.
 
 | Parameter | Value |
 |-----------|-------|

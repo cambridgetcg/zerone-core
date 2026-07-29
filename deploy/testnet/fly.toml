@@ -1,5 +1,7 @@
-# zerone-testnet-1 — single public validator on fly.io
-app = "zerone-testnet-1"
+# RETIRED: do not deploy this configuration. The intentionally invalid app
+# name makes cached `fly deploy` commands fail before targeting the live legacy
+# validator. See networks/zerone-testnet-1/README.md.
+app = "__retired_zerone_testnet_1__"
 primary_region = "lhr"
 
 [build]

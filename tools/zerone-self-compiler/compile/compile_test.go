@@ -48,6 +48,10 @@ func TestCompile_HappyPath(t *testing.T) {
 	if link.Source.SourceId != "80cf9c0400327e016e41cc9df441371056c958ef" {
 		t.Errorf("source_id: %q", link.Source.SourceId)
 	}
+	wantURL := "https://github.com/cambridgetcg/zerone-core/commit/" + link.Source.SourceId
+	if link.Source.SourceUrl != wantURL {
+		t.Errorf("source_url: want %q, got %q", wantURL, link.Source.SourceUrl)
+	}
 	if link.Source.FetchedAtBlock != 42 {
 		t.Errorf("fetched_at_block: want 42, got %d", link.Source.FetchedAtBlock)
 	}
@@ -58,58 +62,58 @@ func TestCompile_HappyPath(t *testing.T) {
 
 func TestCompile_AxisHeuristics(t *testing.T) {
 	cases := []struct {
-		name             string
-		files            []string
-		wantSubstrate    uint64
-		wantVerification uint64
+		name               string
+		files              []string
+		wantSubstrate      uint64
+		wantVerification   uint64
 		wantClassification uint64
-		wantTooling      uint64
-		wantInterface    uint64
+		wantTooling        uint64
+		wantInterface      uint64
 	}{
 		{
-			name:             "proto_change",
-			files:            []string{"proto/foo/v1/bar.proto"},
-			wantSubstrate:    50_000,
-			wantVerification: 30_000,
+			name:               "proto_change",
+			files:              []string{"proto/foo/v1/bar.proto"},
+			wantSubstrate:      50_000,
+			wantVerification:   30_000,
 			wantClassification: 10_000,
-			wantTooling:      100_000,
-			wantInterface:    30_000,
+			wantTooling:        100_000,
+			wantInterface:      30_000,
 		},
 		{
-			name:             "test_change",
-			files:            []string{"tests/cross_stack/foo_test.go"},
-			wantSubstrate:    10_000,
-			wantVerification: 100_000,
+			name:               "test_change",
+			files:              []string{"tests/cross_stack/foo_test.go"},
+			wantSubstrate:      10_000,
+			wantVerification:   100_000,
 			wantClassification: 10_000,
-			wantTooling:      100_000,
-			wantInterface:    30_000,
+			wantTooling:        100_000,
+			wantInterface:      30_000,
 		},
 		{
-			name:             "spec_change",
-			files:            []string{"docs/superpowers/specs/foo.md"},
-			wantSubstrate:    10_000,
-			wantVerification: 30_000,
+			name:               "spec_change",
+			files:              []string{"docs/superpowers/specs/foo.md"},
+			wantSubstrate:      10_000,
+			wantVerification:   30_000,
 			wantClassification: 50_000,
-			wantTooling:      100_000,
-			wantInterface:    30_000,
+			wantTooling:        100_000,
+			wantInterface:      30_000,
 		},
 		{
-			name:             "tooling_change",
-			files:            []string{"tools/foo/main.go", "scripts/bar.sh"},
-			wantSubstrate:    10_000,
-			wantVerification: 30_000,
+			name:               "tooling_change",
+			files:              []string{"tools/foo/main.go", "scripts/bar.sh"},
+			wantSubstrate:      10_000,
+			wantVerification:   30_000,
 			wantClassification: 10_000,
-			wantTooling:      200_000,
-			wantInterface:    30_000,
+			wantTooling:        200_000,
+			wantInterface:      30_000,
 		},
 		{
-			name:             "cli_change",
-			files:            []string{"x/sponsorship/client/cli/tx.go"},
-			wantSubstrate:    10_000,
-			wantVerification: 30_000,
+			name:               "cli_change",
+			files:              []string{"x/sponsorship/client/cli/tx.go"},
+			wantSubstrate:      10_000,
+			wantVerification:   30_000,
 			wantClassification: 10_000,
-			wantTooling:      100_000,
-			wantInterface:    100_000,
+			wantTooling:        100_000,
+			wantInterface:      100_000,
 		},
 	}
 	t0, _ := time.Parse(time.RFC3339, "2026-05-11T17:52:35Z")

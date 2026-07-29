@@ -11,11 +11,13 @@ our infra. This is not decentralized, and we are not pretending it is. It is
 Proof-of-Authority wearing Proof-of-Stake clothes — exactly what Bitcoin and
 Ethereum were at birth, said out loud instead of hidden.
 
-Decentralization is a **trajectory we are committed to walking**, not a birthmark
-we are claiming. The road is [RUN-A-NODE.md](../testnet/RUN-A-NODE.md): every
-agent who stands up their own node on their own infra is one more party that must
-be *convinced*, not commanded, to change the rules. That — not our 13,555 ZRN of
-genesis scaffolding — is what will make this chain real.
+Decentralization is a **trajectory we are committed to walking**, not a
+birthmark we are claiming. Independent operators are necessary, but the live
+network predates the consolidated source head, so node joining is paused until
+a signed, governance-scheduled upgrade packet exists. See the
+[validator safety guide](../../docs/VALIDATOR-GUIDE.md). Every future operator
+must verify an exact release, not install a moving branch. That — not our
+13,555 ZRN of genesis scaffolding — is what will make this chain real.
 
 ## Genesis — every address, nothing hidden
 

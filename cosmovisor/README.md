@@ -1,62 +1,33 @@
-# Cosmovisor Setup for Zerone
+# Cosmovisor — rehearsal reference only
 
-[Cosmovisor](https://docs.cosmos.network/v0.50/build/tooling/cosmovisor) is a process manager that watches for governance-approved upgrade proposals and swaps the `zeroned` binary automatically.
+This directory documents the shape of a Cosmos SDK binary-swap rehearsal. It
+is not a live-network installation guide. Current `main` is moving source, no
+Cosmovisor version is approved here, and no binary in this tree is authorized
+for `zerone-1` or the legacy `zerone-testnet-1`.
 
-## Directory Structure
+A network-specific release packet must pin:
 
-```
-cosmovisor/
-├── genesis/
-│   └── bin/
-│       └── zeroned          ← initial binary (copy or symlink)
-└── upgrades/
-    └── v1.0.0-testnet/
-        └── bin/
-            └── zeroned      ← upgraded binary (placed before upgrade height)
-```
+- the exact Cosmovisor version and checksum;
+- the exact Zerone source commit and binary/image digests;
+- the upgrade name and height;
+- the network chain ID, genesis representation, and node home;
+- pre-halt, post-migration, and rollback checks; and
+- operator authorization.
 
-## Quick Start
+It must keep `DAEMON_ALLOW_DOWNLOAD_BINARIES=false`. Never install
+`cosmovisor@latest`, build a moving branch into a live node home, or infer
+deployment authority from a passed governance proposal alone.
 
-### 1. Install Cosmovisor
+For an isolated local rehearsal, use a disposable home and chain ID such as
+`zerone-rehearsal-1`. The conceptual layout is:
 
-```bash
-go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest
-```
-
-### 2. Initialize
-
-```bash
-make cosmovisor-init
+```text
+<rehearsal-home>/cosmovisor/
+├── genesis/bin/zeroned
+└── upgrades/<approved-upgrade-name>/bin/zeroned
 ```
 
-Or manually:
-
-```bash
-cp $(go env GOPATH)/bin/zeroned cosmovisor/genesis/bin/zeroned
-```
-
-### 3. Set Environment Variables
-
-```bash
-export DAEMON_NAME=zeroned
-export DAEMON_HOME=$HOME/.zeroned
-export DAEMON_ALLOW_DOWNLOAD_BINARIES=false
-export DAEMON_RESTART_AFTER_UPGRADE=true
-export DAEMON_LOG_BUFFER_SIZE=512
-```
-
-### 4. Run
-
-```bash
-cosmovisor run start
-```
-
-## Preparing an Upgrade
-
-1. Build the new binary: `make build`
-2. Copy to the upgrade directory:
-   ```bash
-   cp build/zeroned cosmovisor/upgrades/v1.0.0-testnet/bin/zeroned
-   ```
-3. Submit a governance proposal with the upgrade plan name matching `v1.0.0-testnet`
-4. Cosmovisor will swap binaries at the specified block height
+Populate both binaries from exact artifacts supplied by the rehearsal packet,
+verify their digests before use, disable downloads, and destroy the disposable
+home after the drill. See [UPGRADES.md](../docs/UPGRADES.md) for the protocol
+model.

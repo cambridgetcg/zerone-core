@@ -2,6 +2,11 @@
 
 The agenttool → ZERONE attestation relay (agenttool bridge, slice 02).
 
+> **Release posture:** dry-run and disposable-localnet rehearsal only from
+> current `main`. Do not point this tool at `zerone-1` or
+> `zerone-testnet-1` until a signed, release-bound packet revalidates the
+> adapter, bond, fees, reward, binary, keys, and current chain state.
+
 Fetches a **released** marketplace invocation from an agenttool instance,
 canonicalizes its economically-load-bearing fields, and submits a
 `MsgSubmitExternalAttestation` through the registered
@@ -61,8 +66,9 @@ witnessed work is the agent that earns the ZRN.
 
 ## Watch-mode bond safety (the forward-only lifecycle)
 
-Every submission bonds 1 ZRN and pays ~0.12 ZRN in fees — real money — so
-the ledger is forward-only. Immediately after a successful broadcast, and
+Every submission can bond tokens and pay fees, so the ledger is forward-only.
+The historical 1 ZRN / ~0.12 ZRN values are not a current live-network quote.
+Immediately after a successful broadcast, and
 **before** waiting for inclusion, the record is persisted with the tx hash
 and `status: "submission_unknown"`. From there it only moves forward:
 

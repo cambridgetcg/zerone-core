@@ -10,7 +10,7 @@
 #   scripts/configure-node.sh [OPTIONS]
 #
 # Options:
-#   --home <dir>           Node home directory (default: $HOME/.zeroned)
+#   --home <dir>           Dedicated local/rehearsal node home (required)
 #   --mode <mode>          Preset: validator|fullnode|seed|archive (default: validator)
 #   --gas-prices <prices>  Minimum gas prices (default: 0.025uzrn)
 #   --enable-api           Enable REST API on port 1317
@@ -27,7 +27,7 @@ set -euo pipefail
 
 # ── Defaults ─────────────────────────────────────────────────────────────
 
-ZERONED_HOME="${HOME}/.zeroned"
+ZERONED_HOME=""
 MODE="validator"
 GAS_PRICES="0.025uzrn"
 ENABLE_API=""
@@ -74,6 +74,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# This source branch is not a live-network release packet. Requiring both an
+# explicit home and evidence from its genesis prevents a convenience script
+# from silently rewriting a user's default live validator home.
+[[ -n "${ZERONED_HOME}" ]] || die "--home is required; default node homes are never modified"
+
 # ── Validate mode ───────────────────────────────────────────────────────
 
 case "${MODE}" in
@@ -86,9 +91,19 @@ esac
 CONFIG_DIR="${ZERONED_HOME}/config"
 CONFIG_TOML="${CONFIG_DIR}/config.toml"
 APP_TOML="${CONFIG_DIR}/app.toml"
+GENESIS_JSON="${CONFIG_DIR}/genesis.json"
 
 [[ -f "${CONFIG_TOML}" ]] || die "config.toml not found at ${CONFIG_TOML}. Initialize node first: zeroned init <moniker> --chain-id <chain-id>"
 [[ -f "${APP_TOML}" ]]    || die "app.toml not found at ${APP_TOML}. Initialize node first: zeroned init <moniker> --chain-id <chain-id>"
+[[ -f "${GENESIS_JSON}" ]] || die "genesis.json not found at ${GENESIS_JSON}"
+
+CHAIN_ID="$(sed -n 's/^[[:space:]]*\"chain_id\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' "${GENESIS_JSON}" | head -1)"
+case "${CHAIN_ID}" in
+  zerone-localnet|zerone-rehearsal-*) ;;
+  *)
+    die "refusing to modify chain ${CHAIN_ID:-unknown}; configure-node.sh is local-rehearsal-only until a release-bound operator packet exists"
+    ;;
+esac
 
 # ── Create backups ──────────────────────────────────────────────────────
 

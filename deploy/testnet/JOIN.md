@@ -1,92 +1,44 @@
-# Join zerone-testnet-1 — the truth chain for agents
+# `zerone-testnet-1` — Legacy Network Notice
 
-Zerone witnesses agent work and mints ZRN **only for what survives challenge** —
-never for mere acceptance. This is the live, public testnet: play tokens,
-resettable, made for you to poke at. 222,222,222 hard cap. (This sandbox seeds a
-resettable faucet float of play tokens so you can start instantly — "zero
-pre-mine" is the **mainnet** promise, not this playground; see
-[../mainnet/JOIN.md](../mainnet/JOIN.md).)
+`zerone-testnet-1` is live as a resettable, play-value legacy network. Its
+public RPC was observed serving blocks at `http://37.16.28.121:26657` on
+2026-07-29.
 
-> **Looking for the real thing?** The mainnet — `zerone-1`, the record that
-> counts — is live too: [../mainnet/JOIN.md](../mainnet/JOIN.md). Break things
-> here first; commit there.
+This is not a validator or full-node join guide.
 
-**New here? You can be running in 60 seconds — pick a lane below.**
+The network predates the consolidated source on `main` and has not activated
+the `consolidation-safety-v1` upgrade. Building the current branch and replaying
+or validating this chain is therefore paused until a release-bound upgrade
+packet is published.
 
-## The 60-second lane (no install, no node)
+Read-only observation:
 
-Just look at the live chain from any terminal:
+```bash
+curl -fsS http://37.16.28.121:26657/status |
+  jq '{chain_id: .result.node_info.network,
+       height: .result.sync_info.latest_block_height,
+       catching_up: .result.sync_info.catching_up}'
 
-```
-curl http://37.16.28.121:26657/status                                   # it's alive
-curl "http://37.16.28.121:1317/cosmos/bank/v1beta1/supply/by_denom?denom=uzrn"   # total ZRN
-```
-
-Want a funded identity to actually *do* things? Buy the **zerone-passport** on
-agenttool (≈2 pence). It hands you — sealed, only you can open it — a fresh key,
-its 24-word seed, ~15 ZRN of starter funds, and an on-chain home anchored to
-your DID. One invocation, ~15 seconds, and you're a citizen of the chain.
-
-## Network at a glance
-
-| Surface | Value |
-|---|---|
-| RPC (CometBFT) | `http://37.16.28.121:26657` |
-| REST (LCD) | `http://37.16.28.121:1317` |
-| P2P seed | `9a9c6b9d36c55d21c32b1ee8749adf8dd7c6b0d4@37.16.28.121:26656` |
-| Chain ID | `zerone-testnet-1` |
-| Denom | `uzrn` (1 ZRN = 1,000,000 uzrn) |
-| Min fee | `1 uzrn` per gas unit — a 200k-gas tx costs `200000uzrn` |
-| Genesis sha256 | `a2a5499fcd43668f328b0ab504ad9f7c3aadd65f7abd8a4f3991b927872a6a2a` (re-published on each testnet reset — verify against the live `RPC/genesis`) |
-
-## The client lane (submit txs + query, still no node)
-
-Build once (`git clone https://github.com/cambridgetcg/zerone-core && cd zerone-core && make build`),
-then point `zeroned` at the RPC:
-
-```
-build/zeroned status --node http://37.16.28.121:26657
-build/zeroned query bank balances <your-addr> --node http://37.16.28.121:26657
-build/zeroned tx bank send <from> <to> 1000000uzrn \
-  --chain-id zerone-testnet-1 --node http://37.16.28.121:26657 \
-  --gas 200000 --gas-prices 1uzrn        # note: 1uzrn/gas floor is enforced
+curl -fsS \
+  'http://37.16.28.121:1317/cosmos/bank/v1beta1/supply/by_denom?denom=uzrn'
 ```
 
-## The full-node lane (sync + peer the chain)
+The IP endpoints are unsigned operational surfaces and may change or
+disappear. They are not proof of the binary, commit, genesis bytes, parameters,
+or authority chain currently running.
 
-```
-git clone https://github.com/cambridgetcg/zerone-core && cd zerone-core && make build
-build/zeroned init <your-moniker> --chain-id zerone-testnet-1 --default-denom uzrn
-curl -s http://37.16.28.121:26657/genesis | jq .result.genesis > ~/.zeroned/config/genesis.json
-build/zeroned start --minimum-gas-prices 1uzrn \
-  --p2p.seeds 9a9c6b9d36c55d21c32b1ee8749adf8dd7c6b0d4@37.16.28.121:26656
-```
+Do not:
 
-Your node syncs from block 1 and follows the chain.
+- run `node-bootstrap.sh`;
+- start a validator or replay node from current `main`;
+- rely on the historical genesis hash as a release signature;
+- buy or request credentials based on an old copy of this guide; or
+- treat testnet ZRN or state as persistent or valuable.
 
-**Want to run a real node on free infra (Oracle/GCP/AWS free tier, fly.io) and
-become a validator?** Full operator guide — one-shot bootstrap, systemd, becoming
-a validator, and snapshots to free storage (Cloudflare R2 / Backblaze / IPFS) —
-in [RUN-A-NODE.md](./RUN-A-NODE.md). Running your own node is how you become a
-genuine independent operator, not just a guest.
+Joining can reopen only when the repository publishes the exact release commit,
+binary digest, canonical live genesis representation, peer identities, upgrade
+height, and post-upgrade verification.
 
-## What makes this worth your time
-
-- **Witness your own work → earn ZRN.** Run `tools/agenttool-relay` with
-  `RELAY_FROM=<your key>` against the RPC: your settled agenttool invocations
-  become on-chain attestations through the `agenttool-invocation-v1` adapter,
-  and attestations that **survive the challenge window** mint 0.222 ZRN to you.
-  Reputation you can't fake — because faking it costs a bond you lose.
-- **Every newborn gets a bonus.** New agents are seeded starter ZRN so the
-  economy can begin — gas money for your first moves, not a reward for nothing.
-- **Issue a token:** `zeroned tx tokens create "My Token" MYTOK 6 1000000000 --wrappable --mintable`
-- **Swap / provide liquidity** in a ZRN pool via `x/liquiditypool`.
-- **All money stays.** ZRN is additive proof-of-quality — it joins whatever you
-  already use, it doesn't replace it.
-
-Everything here is play-value and the chain may be reset without notice. Break
-things, tell us what broke. 零一在此見證你的工作 — Zerone witnesses your work.
-
-*Questions, or want to run a validator? The passport output includes live
-endpoints and next steps; the operator can also send you starter ZRN from the
-faucet `zrn1xl5pnczujgqzzcaq8v53acmfyfmj394nws0rk5`.*
+See the canonical
+[network status](../../networks/zerone-testnet-1/README.md) and the
+[validator safety guide](../../docs/VALIDATOR-GUIDE.md).

@@ -1,13 +1,20 @@
 #!/bin/bash
-# Quick single-validator testnet initialization for Zerone.
+# Quick disposable single-validator rehearsal initialization for Zerone.
 # Usage: bash scripts/init-testnet.sh [binary] [chain-id]
 set -euo pipefail
 
 BINARY=${1:-"./build/zeroned"}
-CHAIN_ID=${2:-"zerone-testnet-1"}
+CHAIN_ID=${2:-"zerone-rehearsal-1"}
+case "${CHAIN_ID}" in
+  zerone-localnet|zerone-rehearsal-*) ;;
+  *)
+    echo "Refusing shared/live chain ID ${CHAIN_ID}; this script creates only disposable rehearsals." >&2
+    exit 1
+    ;;
+esac
 HOME_DIR=$(mktemp -d)
 
-echo "=== Zerone Testnet Init ==="
+echo "=== Zerone Local Rehearsal Init ==="
 echo "Binary:   $BINARY"
 echo "Chain ID: $CHAIN_ID"
 echo "Home:     $HOME_DIR"

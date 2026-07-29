@@ -1,13 +1,11 @@
 # Zerone Parameters Reference
 
-> **Testnet Note (`zerone-testnet-1`):** The parameters below are initial
-> testnet values chosen for rapid iteration and observable dynamics. They are
-> deliberately more aggressive than mainnet targets — shorter epochs, lower
-> quorums, and smaller stake requirements — so that governance, slashing, and
-> economic flows can be tested within hours rather than days. Mainnet values
-> will be established through governance proposals during the testnet phase.
-> Parameters marked with bold defaults in the tables below are most likely to
-> change before mainnet.
+> **Source-default note:** The tables document code defaults and development
+> fixtures, not a query-time snapshot of either live network. The live legacy
+> `zerone-testnet-1` deployment predates this consolidation, and current source
+> must not be used to join it before `consolidation-safety-v1` is scheduled.
+> Query an authorised network endpoint for actual on-chain parameters and bind
+> operational decisions to a specific release and height.
 
 Complete reference for all governance-adjustable parameters across Zerone's
 parameter-bearing custom modules. All BPS (basis points) values use a

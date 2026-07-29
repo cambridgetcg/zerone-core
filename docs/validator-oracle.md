@@ -1,141 +1,61 @@
-# Validator Evaluation Oracle
+# Validator Evaluation Oracle — Development Only
 
-## What It Does
+`cmd/oracle` is an optional advisory sidecar. It is disabled by default and is
+not part of the 2026-07-29 validator rollout.
 
-The **zerone-oracle** is an advisory sidecar process that helps validators make informed decisions when voting on knowledge claims. Instead of blindly accepting all claims, validators can consult the oracle for a fact-checking verdict before casting their vote.
+The former static “777 genesis axioms” evaluator was removed. The knowledge
+module has no assumed axiom bedrock, and the oracle now requires an Anthropic
+Messages API-compatible LLM endpoint for a non-uncertain response.
 
-**Important:** The oracle is purely advisory. It does not participate in consensus. If the oracle is down, slow, or misconfigured, the validator falls back to default behavior (accept all claims). Oracle failure never blocks the chain.
+## Current behavior
 
-## How It Works
+- `POST /evaluate` sends a claim to the configured LLM and returns
+  `accept`, `reject`, or `uncertain` with confidence and reasoning.
+- `POST /prefetch` warms the in-memory cache asynchronously.
+- `GET /health` reports sidecar liveness.
+- the cache is in-memory and non-consensus;
+- an absent/unreachable oracle falls back to `accept` at 600,000 confidence;
+  and
+- an `uncertain` sidecar verdict is also mapped to `accept` by the validator
+  integration.
 
-The oracle provides two evaluation tiers:
+That fallback is fail-open. The sidecar is advisory, not an independent truth
+proof, and operators must not describe it as one.
 
-### Tier 1: Static (No External Dependencies)
+## Local development
 
-Checks new claims against the 777 genesis axioms embedded in the binary:
-- **Numerical contradiction:** Extracts numbers from the claim and matching axioms, flags mismatches (e.g., "speed of light is 100 m/s" contradicts the axiom stating ~3x10^8 m/s)
-- **Explicit negation:** Detects negation words ("not", "never", "false") that reverse the meaning of a matching axiom
-
-**Limitations:** Tier 1 does NOT catch semantic contradictions (e.g., "the sun orbits the earth"), paraphrased falsehoods, or claims in domains with no matching axioms. It is a simple filter, not a general fact-checker.
-
-### Tier 2: LLM (Requires API Key)
-
-Sends the claim to Claude for fact-checking with a structured prompt. Returns a verdict with confidence and reasoning. Results are cached (LRU, 1000 entries) to avoid repeated API calls.
-
-**Timeout:** LLM calls have a strict 2-second timeout. If Claude doesn't respond in time, the oracle returns "uncertain."
-
-## Quick Start
-
-### 1. Build the oracle
+Build and test without configuring a live validator:
 
 ```bash
-cd /path/to/zerone
-go build -o build/zerone-oracle ./cmd/oracle/
+go test ./cmd/oracle ./app
+go build -o build/zerone-oracle ./cmd/oracle
 ```
 
-### 2. Start the sidecar (Tier 1 only)
+Starting it makes an external paid API dependency and requires a secret. Keep
+the key outside repository files and logs:
 
 ```bash
-./build/zerone-oracle --port 8081 --tier static
+./build/zerone-oracle \
+  --port 8081 \
+  --llm-api-key "$ANTHROPIC_API_KEY" \
+  --llm-model "<reviewed-model-id>"
 ```
 
-### 3. Start the sidecar (with LLM)
+The current source exposes flags for API URL, model, token limit, and timeout;
+inspect `./build/zerone-oracle -h` for the exact build.
 
-```bash
-./build/zerone-oracle --port 8081 --tier llm \
-  --llm-api-key "sk-ant-..." \
-  --llm-model "claude-sonnet-4-5-20250514"
-```
+## Validator boundary
 
-### 4. Enable in validator config
+Do not enable `[oracle]` on a live validator from this source head. The live
+networks predate the consolidation, and source publication is not deployment
+authority. A future release packet must state:
 
-Add to your `app.toml`:
+- whether oracle use is allowed or required;
+- endpoint, model/version, timeout, and confidence policy;
+- secret and data-egress handling;
+- fallback behavior and outage rehearsal; and
+- how validators avoid correlated dependence on one provider.
 
-```toml
-[oracle]
-enabled = true
-endpoint = "http://localhost:8081"
-timeout = "2s"
-min-confidence = 0.6
-```
-
-### 5. Restart your validator
-
-The validator will now query the oracle during vote extension commit phase.
-
-## Configuration Reference
-
-### Oracle Sidecar Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--port` | `8081` | HTTP server port |
-| `--tier` | `static` | Evaluation tier: `static` or `llm` |
-| `--llm-api-key` | (empty) | Anthropic API key (required for `llm` tier) |
-| `--llm-api-url` | `https://api.anthropic.com` | Anthropic API base URL |
-| `--llm-model` | `claude-sonnet-4-5-20250514` | Model ID for LLM evaluation |
-| `--llm-max-tokens` | `500` | Max response tokens |
-| `--llm-timeout` | `2s` | LLM API call timeout |
-
-### Validator app.toml
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `oracle.enabled` | `false` | Enable oracle queries |
-| `oracle.endpoint` | `http://localhost:8081` | Oracle sidecar URL |
-| `oracle.timeout` | `2s` | Max wait for oracle response |
-| `oracle.min-confidence` | `0.6` | Minimum confidence to act on verdict |
-
-## API Endpoints
-
-### POST /evaluate
-
-Evaluate a claim.
-
-```json
-Request:  {"claim": "Water boils at 100C", "domain": "physics", "claim_type": "assertion"}
-Response: {"verdict": "accept", "confidence": 0.75, "reasoning": "consistent with axiom PHYS-..."}
-```
-
-Verdicts: `accept`, `reject`, `uncertain`
-
-Confidence: 0.0 to 1.0
-
-### POST /prefetch
-
-Pre-warm the cache for an upcoming evaluation. Same request body as `/evaluate`. Returns immediately (HTTP 202). The evaluation runs in the background and caches the result for a subsequent `/evaluate` call.
-
-### GET /health
-
-Health check.
-
-```json
-Response: {"status": "ok", "tier": "static"}
-```
-
-## Safety Guarantees
-
-- **Oracle down:** Validator falls back to `accept` with default confidence (600,000 BPS). No consensus impact.
-- **Oracle slow:** 2-second hard timeout. Falls back to default.
-- **Oracle wrong:** Verdicts below the confidence threshold (default 0.6) are treated as "uncertain," which maps to accept.
-- **Oracle disabled:** `oracle.enabled = false` (default). Zero behavior change from pre-oracle code.
-- **Oracle crash:** The sidecar is a separate process. A crash in the oracle cannot affect the validator node.
-
-## Performance
-
-- Static evaluation: <1ms per claim
-- LLM evaluation: 500ms-2s (first call), <1ms (cache hit)
-- Cache pre-warming via `/prefetch` recommended for LLM tier
-- Localhost HTTP overhead: ~1ms
-
-## How the Combine Logic Works
-
-When both tiers are active (`--tier llm`):
-
-1. Static evaluation always runs first
-2. If static returns a high-confidence verdict (>0.7, accept or reject), it short-circuits
-3. If static is uncertain and LLM is available, the LLM result is used
-4. If the LLM fails or times out, the static result is used
-5. If only static is active (`--tier static`), the LLM step is skipped entirely
-
-The validator applies an additional confidence threshold (default 0.6). Any verdict below this threshold is treated as "uncertain" and mapped to the default accept behavior. This protects validators from being slashed based on weak oracle signals.
+Because oracle outputs influence vote-extension content, every validator must
+understand the determinism and fallback implications before activation, even
+though the HTTP service itself is off-chain.

@@ -23,5 +23,8 @@ COPY --from=builder /app/build/zeroned /usr/local/bin/zeroned
 # Default ports: P2P=26656, RPC=26657, REST=1317, gRPC=9090
 EXPOSE 26656 26657 1317 9090
 
+# This generic source image is a build/review artifact, not a live-network
+# launch vehicle. An operator packet must provide a network-specific guarded
+# entrypoint before starting a shared-network node.
 ENTRYPOINT ["zeroned"]
-CMD ["start"]
+CMD ["version", "--long"]

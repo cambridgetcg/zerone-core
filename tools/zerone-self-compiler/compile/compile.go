@@ -27,7 +27,7 @@ const (
 
 	// SourceURLBase is the canonical URL prefix for ZERONE's git history.
 	// Per-fork forks register their own adapter against their own URL.
-	SourceURLBase = "https://codeberg.org/zerone-dev/zerone/commit/"
+	SourceURLBase = "https://github.com/cambridgetcg/zerone-core/commit/"
 
 	// SelfDomain is the knowledge domain dedicated to facts about ZERONE
 	// itself. Must exist as a registered Domain in x/knowledge for

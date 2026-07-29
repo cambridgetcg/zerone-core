@@ -1,90 +1,55 @@
 ---
 name: run-a-zerone-node
 description: >-
-  Stand up a zerone full node or validator from a fresh Ubuntu/Debian VM, on
-  the testnet (zerone-testnet-1, default) or the mainnet (zerone-1, via
-  NETWORK=mainnet). Use when an agent or operator wants to sync and
-  independently verify the chain, check the pulled genesis sha256 against the
-  documented hash, run 24/7 under systemd, become a validator, or snapshot to
-  free storage. Bundles the repo's node-bootstrap.sh under scripts/. Not for
-  lightweight queries or joining as a citizen — zerone-onboarding covers the
-  no-node lanes.
+  Explain Zerone node-release requirements and the current pause on joining
+  zerone-1 or zerone-testnet-1. Use when an agent or operator asks to run a
+  node, validate, bootstrap, restore a snapshot, or connect current source to
+  a live Zerone network. This skill is fail-closed until a signed,
+  release-bound join packet exists; it may perform read-only status checks but
+  must not install, start, reset, or reconfigure a node.
 ---
 
-# Run a zerone node
+# Zerone node participation — paused
 
-Running your own node is how you stop being a guest and become an
-**operator**: your node independently verifies every block against the rules —
-it doesn't trust the validators, it *checks* them. Full walkthrough:
-`deploy/testnet/RUN-A-NODE.md` in the zerone-core repo (covers both networks).
+Do not bootstrap a live Zerone node from the current `main` branch.
 
-## One-shot bootstrap (fresh Ubuntu 22.04+)
+Both `zerone-1` and `zerone-testnet-1` predate this consolidated source. The
+branch contains consensus-sensitive behavior that requires the named
+`consolidation-safety-v1` upgrade. Replaying a live chain or replacing a
+validator binary with this source outside that upgrade path is unsafe.
 
-The repo's bootstrap script is bundled at `scripts/node-bootstrap.sh`
-(byte-identical copy of `deploy/testnet/node-bootstrap.sh`). **Read it before
-running** — it uses sudo for packages, /usr/local, and systemd:
+The bundled `scripts/node-bootstrap.sh` intentionally exits with failure.
 
-```
-less scripts/node-bootstrap.sh             # read it first
-bash scripts/node-bootstrap.sh             # testnet (default)
-NETWORK=mainnet bash scripts/node-bootstrap.sh   # zerone-1 mainnet
-```
+## Allowed read-only checks
 
-It installs Go + build tools, builds `zeroned`, initialises your home, pulls
-the live genesis, wires the seed and the gas floor, installs a systemd unit,
-and starts syncing. Env overrides: `NETWORK`, `MONIKER`, `RPC`, `GO_VERSION`.
+You may report public endpoint status without changing local or remote state:
 
-## Network parameters
+```bash
+curl -fsS http://169.155.55.44:26657/status |
+  jq '{chain_id: .result.node_info.network,
+       height: .result.sync_info.latest_block_height,
+       catching_up: .result.sync_info.catching_up}'
 
-| | Mainnet | Testnet |
-|---|---|---|
-| Chain ID | `zerone-1` | `zerone-testnet-1` |
-| RPC | `http://169.155.55.44:26657` | `http://37.16.28.121:26657` |
-| P2P seed | `ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e@169.155.55.44:26656` | `9a9c6b9d36c55d21c32b1ee8749adf8dd7c6b0d4@37.16.28.121:26656` |
-
-## Verify the genesis before trusting it
-
-Pull the genesis from the network RPC and hash it:
-
-```
-curl -s http://169.155.55.44:26657/genesis | jq .result.genesis > ~/.zeroned/config/genesis.json
-sha256sum ~/.zeroned/config/genesis.json
+curl -fsS http://37.16.28.121:26657/status |
+  jq '{chain_id: .result.node_info.network,
+       height: .result.sync_info.latest_block_height,
+       catching_up: .result.sync_info.catching_up}'
 ```
 
-Compare against the documented hash:
+Treat those unsigned IP endpoints as observations, not as provenance.
 
-- **Mainnet `zerone-1`** (`deploy/mainnet/JOIN.md`):
-  `16ac346f329d2a931ad9a7d51dbe9e35605482b006ef39b3ac7804376e9bcb66`
-  (of `curl RPC/genesis | jq .result.genesis`)
-- **Testnet `zerone-testnet-1`** (`deploy/testnet/JOIN.md`):
-  `a2a5499fcd43668f328b0ab504ad9f7c3aadd65f7abd8a4f3991b927872a6a2a`
-  — re-published on each testnet reset; always verify against the live
-  `RPC/genesis`.
+## Required before this skill can run a node
 
-A mismatch means you are NOT on the documented network — stop and ask.
-The bootstrap script prints the same sha256 for you to compare.
+Require a network-specific packet containing:
 
-## Confirm you're synced
+1. the exact source commit and reproducible binary or image digest;
+2. signatures and the accepted provenance policy;
+3. canonical genesis representation and hash;
+4. seed and persistent-peer identities;
+5. governance-approved upgrade name and height;
+6. snapshot/state-sync trust material, if used; and
+7. explicit authorization for the requested network phase.
 
-```
-zeroned status | jq '{height: .sync_info.latest_block_height, catching_up: .sync_info.catching_up}'
-```
-
-`catching_up: false` means you are at the tip, verifying every block
-yourself. Query anything locally: `zeroned query bank total`.
-
-## Go further
-
-- **Become a validator** — funded key + synced node, then
-  `zeroned tx staking create-validator ...`; on the mainnet this is the
-  earned, self-bonded Phase-3 path and moves the published decentralization
-  metric. Recipe: `references/operator-guide.md`.
-- **Snapshots on free storage** — tar the data dir, publish height + sha256 so
-  others can verify: `references/operator-guide.md`.
-- **Free compute honestly compared** (Oracle/GCP/AWS/fly.io, with caveats):
-  `references/operator-guide.md`.
-
-Don't run every node on the same provider/account — that recreates the
-centralization you're trying to avoid. Every independent node moves the dial
-from *custodial* toward *decentralized* — on the mainnet that movement is the
-whole game (`deploy/mainnet/JOIN.md`).
+Do not infer any of these from a moving branch, historical guide, public RPC,
+or running node. See `references/operator-guide.md` and
+`docs/VALIDATOR-GUIDE.md`.

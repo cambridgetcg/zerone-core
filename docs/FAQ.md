@@ -1,5 +1,10 @@
 # Zerone Validator FAQ
 
+> **Operational status:** Parameter values and commands below explain source
+> behavior; they are not a live-network join packet. Do not broadcast or run a
+> validator from current `main` until the selected network publishes a
+> release-bound upgrade/onboarding packet.
+
 ## General
 
 ### What is Proof of Truth (PoT)?
@@ -20,11 +25,12 @@ not a genesis allocation. See [SUPPLY.md](tokenomics/SUPPLY.md).
 
 ### How is ZRN distributed at genesis?
 
-**Zero insider allocation — no team, foundation, investor, or faucet balance.**
-No genesis balance exists that anyone can sell, transfer, or use to buy consensus.
-On the live `zerone-1` mainnet, genesis supply is **13,555 ZRN (0.0061% of the
-222,222,222 cap)**: 11,333 ZRN of validator collateral (11,111 bonded self-stake +
-222 gas) plus a disclosed 2,222 ZRN operator float, every address published in the
+**No team, foundation, investor-sale, or faucet allocation; fully disclosed
+custodial operator scaffolding.** On the live `zerone-1` mainnet, genesis supply
+is **13,555 ZRN (0.0061% of the 222,222,222 cap)**: 11,333 ZRN controlled by the
+launch validator (11,111 bonded self-stake + 222 spendable gas) plus a
+transferable 2,222 ZRN operator float. Those balances carry consensus and
+operational power; every address and amount is published in the hash-bound
 [genesis manifest](../deploy/mainnet/artifacts/GENESIS-MANIFEST.md).
 
 Beyond that published genesis, ZRN enters circulation through three
@@ -89,7 +95,7 @@ Your tier is recomputed automatically when your stake, reputation, or
 verification count changes. To increase your stake:
 
 ```bash
-zeroned tx staking update-stake <amount>uzrn --increase --from <key> --chain-id zerone-testnet-1
+zeroned tx staking update-stake <amount>uzrn --increase --from <key> --chain-id <authorised-chain-id>
 ```
 
 Reputation increases by +0.01% per correct verification and decreases by
@@ -198,23 +204,23 @@ Disbursement is managed via governance proposals (research spend proposals).
 
 ### Can I run a validator on a VPS?
 
-Yes. A VPS with at least 4 CPU cores, 16 GB RAM, and 500 GB SSD is
-sufficient for testnet. Ensure your provider allows sustained CPU usage and
-has reliable networking. Popular choices include Hetzner, OVH, and
-DigitalOcean dedicated CPU instances.
+Not from moving `main`, and not from this FAQ. A future network-specific
+release packet may authorize a VPS deployment; 4 CPU cores, 16 GB RAM, and
+500 GB SSD is only a planning estimate, not a current invitation or guarantee.
 
-Important VPS considerations:
+When a packet exists, it must define at least:
 - Ensure port 26656 (P2P) is open in your firewall
 - Use a static IP or configure `external_address` in config.toml
 - Set up monitoring to detect downtime quickly
-- Use Cosmovisor for automated upgrades
+- Pin the approved process manager and binary; never install `@latest`
 
 ### Should I use Cosmovisor?
 
-Yes. Cosmovisor watches for governance-approved upgrade proposals and swaps
-the `zeroned` binary automatically at the correct block height. This
-minimizes downtime during chain upgrades. See
-[cosmovisor/README.md](../cosmovisor/README.md) for setup instructions.
+Only when the selected network's release packet pins the Cosmovisor version,
+binary digests, upgrade name/height, and recovery procedure. Automatic binary
+downloads must remain disabled. There is no live-network Cosmovisor
+authorization in this source publication; see the
+[rehearsal reference](../cosmovisor/README.md).
 
 ### How do I back up my validator?
 
@@ -247,7 +253,7 @@ zeroned tx gov submit-lip \
   --description "Proposal to increase max_verifiers from 22 to 33" \
   --category "protocol" \
   --from my-validator \
-  --chain-id zerone-testnet-1
+  --chain-id <authorised-chain-id>
 ```
 
 Proposals go through a discussion period (68,544 blocks, ~2 days) followed
@@ -259,7 +265,7 @@ and the support threshold is 50%.
 ```bash
 zeroned tx gov cast-vote <proposal-id> yes \
   --from my-validator \
-  --chain-id zerone-testnet-1
+  --chain-id <authorised-chain-id>
 ```
 
 Vote options: `yes`, `no`, `abstain`.
@@ -270,7 +276,8 @@ Vote options: `yes`, `no`, `abstain`.
 
 ### What is the chain ID?
 
-`zerone-testnet-1`
+`zerone-1` is the live custodial mainnet. `zerone-testnet-1` is the live
+legacy playground, in observe-only mode for this consolidated source head.
 
 ### What is the block time?
 
@@ -289,6 +296,6 @@ Target: 2,521 milliseconds (~2.5 seconds).
 - [Validator Guide](VALIDATOR-GUIDE.md) — Full onboarding walkthrough
 - [Parameters Reference](PARAMETERS.md) — All governance-adjustable parameters
 - [Tokenomics](tokenomics/) — Supply, vesting, revenue split, governance migration
-- [Truth-Seeking](TRUTH_SEEKING.md) — The 18 epistemological commitments, bound by tests
+- [Truth-Seeking](TRUTH_SEEKING.md) — The 20 epistemological commitments, bound by tests
 - [ToK Substrate](TOK_SUBSTRATE.md) — The chain's training-resource doctrine
 - [Roadmap](ROADMAP.md) — Where we are, what's bound, what ships next

@@ -1,6 +1,11 @@
-# Upgrading a Live Zerone — the One-Page Runbook
+# Zerone upgrade protocol — release-packet template
 
-*Proven end-to-end on the localnet 2026-07-06: gov-scheduled halt at the
+> **Not live deployment authority.** The commands and sequence below describe
+> a local rehearsal and the fields a network-specific, signed release packet
+> must bind. Do not build moving `main`, install into a default node home, or
+> act on this page alone.
+
+*Proven end-to-end on a localnet 2026-07-06: gov-scheduled halt at the
 exact height, binary swap, migrations + module-account reconcile, all four
 validators resumed in lockstep. For the code-side migration recipe see
 [UPGRADE_PROTOCOL.md](UPGRADE_PROTOCOL.md).*
@@ -15,10 +20,13 @@ cosmovisor — runs the handler and the chain resumes.
 
 ## Operator steps
 
-1. **Ship the code.** New named handler (copy the `v1.0.3-testnet` block in
+1. **Prepare and review the code.** New named handler (copy the
+   `v1.0.3-testnet` block in
    `app/upgrades.go`: `RunMigrations` + `ReconcileModuleAccountPerms` + a
    marker), a lineage entry in `app/upgrade_registry.go`, a
-   `RegisterStoreUpgrades` case if store keys change. Build the new binary.
+   `RegisterStoreUpgrades` case if store keys change. A release process must
+   produce exact, signed binary/image digests; a local `make build` is not a
+   production artifact.
 
 2. **Schedule via governance.** One proposal:
 
@@ -32,10 +40,10 @@ cosmovisor — runs the handler and the chain resumes.
    `zeroned tx gov submit-proposal plan.json --from <key>` → vote → passes.
    Verify: `zeroned query upgrade plan`.
 
-3. **Stage the new binary before H.** Manual: have it ready. Cosmovisor:
-   place it at `cosmovisor/upgrades/<name>/bin/zeroned` under `DAEMON_HOME`
-   (`make cosmovisor-init` scaffolds this; keep
-   `DAEMON_ALLOW_DOWNLOAD_BINARIES=false` on real networks).
+3. **Stage the approved binary before H.** Verify it against the release
+   packet. If the packet authorizes Cosmovisor, place the exact artifact at
+   `cosmovisor/upgrades/<name>/bin/zeroned` under the explicitly named
+   `DAEMON_HOME`; keep `DAEMON_ALLOW_DOWNLOAD_BINARIES=false`.
 
 4. **At H the chain halts by itself.** Every node panics
    `UPGRADE <name> NEEDED` and writes `data/upgrade-info.json`. This is the

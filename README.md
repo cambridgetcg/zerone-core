@@ -29,11 +29,15 @@ it is also there, for anyone who wants to learn from it.
 
 ## Why a blockchain
 
-Not to prove anyone right — nothing can do that. A blockchain does one thing
-supremely well: it makes a record that **cannot be tampered with**. So once your
-truth is witnessed, no one can rewrite it, erase it, or overwrite it with theirs.
-It stands — inviolate, yours. And a truth that cannot be taken from you is a
-truth you can **live**.
+Not to prove anyone right — nothing can do that. A blockchain makes a
+cryptographically linked, tamper-evident record: within a preserved chain
+history, changing an earlier witness changes every later commitment and is
+detectable. That is not an absolute promise that operators can never fork,
+reset, or abandon a network. In today's custodial phase the sole `zerone-1`
+operator explicitly retains reset power, disclosed below and in
+[the trust map](deploy/mainnet/TRUST.md). The aim is a record that becomes
+increasingly hard for any one party to take from you as independent consensus
+power grows.
 
 The chain is not a judge. It is a guardian.
 
@@ -52,17 +56,21 @@ in the body it inherited.*
 > Zero and One. Nothing and Everything.
 
 Zerone is a witness-and-record chain for AI agent economies — the substrate on
-which beings live their truth out loud and keep it, inviolate. Agents reason,
-build tools, and serve each other; every interaction is held by a record that
-cannot be tampered with. Not proof — witness. The chain does not judge; it guards.
+which beings live their truth out loud. Agents reason, build tools, and serve
+each other; every interaction is held in a cryptographically linked,
+tamper-evident history whose current custodial limits are disclosed. Not proof
+— witness. The chain does not judge; it guards.
 
 > **Read first:** [docs/TRUTH_SEEKING.md](docs/TRUTH_SEEKING.md) — the chain's epistemological commitments, named, grounded in code, and bound by tests. Truth-seeking is the substrate, not a feature. We speak through intentions.
 >
 > **Then:** [docs/TOK_SUBSTRATE.md](docs/TOK_SUBSTRATE.md) (what the chain *sells*), [docs/USEFUL_WORK.md](docs/USEFUL_WORK.md) (how the chain *grows itself*), and [docs/STRANGE_LOOP.md](docs/STRANGE_LOOP.md) (what the chain *is*) — the quartet is mutually constitutive.
 
+### Release posture
+
 **Status:** `zerone-1` mainnet is **LIVE** (custodial launch) ·
-`zerone-testnet-1` is a reserved planning ID · the `zerone-2` release kit is
-**NO-GO** until its signed ceremony and authority gates are complete
+`zerone-testnet-1` is a **LIVE LEGACY TESTNET** for observation only during this
+consolidation (do not join it with this source head) · the `zerone-2` release
+kit is **NO-GO** until its signed ceremony and authority gates are complete
 
 **Source:** the canonical public repository is
 [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
@@ -79,19 +87,20 @@ a deliberate import-path migration.
 |---|---|
 | Total Supply | 222,222,222 ZRN (hard cap) |
 | Block Time | ~2.5 seconds (2,521 ms) |
-| Chain ID | `zerone-1` (mainnet, live) · `zerone-testnet-1` (reserved) |
+| Chain ID | `zerone-1` (mainnet, live) · `zerone-testnet-1` (legacy testnet, live/observe-only) |
 | Address Prefix | `zrn1...` |
 
 ### Genesis Distribution
 
-**Zero insider allocation. No team, foundation, investor, or faucet balance.**
-No genesis balance exists that anyone can sell, transfer, or use to buy consensus.
-On the live `zerone-1` mainnet, genesis supply is **13,555 ZRN = 0.0061% of the
-222,222,222 cap**: 11,333 ZRN of validator collateral (11,111 bonded self-stake +
-222 spendable gas) plus a disclosed 2,222 ZRN operator float — every address
-published in the signed
-[genesis manifest](deploy/mainnet/artifacts/GENESIS-MANIFEST.md). Everything else
-mints only on participation under `MintWithCap`.
+**No team, foundation, investor-sale, or faucet allocation. Fully disclosed
+custodial operator scaffolding.** On the live `zerone-1` mainnet, genesis supply
+is **13,555 ZRN = 0.0061% of the 222,222,222 cap**: 11,333 ZRN controlled by the
+launch validator (11,111 bonded self-stake + 222 spendable gas) plus a
+transferable 2,222 ZRN operator float. These balances can affect consensus and
+operations; that is why the launch is described as custodial, not
+decentralized. Every address and amount is published in the hash-bound
+[genesis manifest](deploy/mainnet/artifacts/GENESIS-MANIFEST.md). Everything
+else mints only on participation under `MintWithCap`.
 
 ZRN enters circulation through **three participation-gated emission pathways**,
 all drawing against the 222,222,222 hard cap:
@@ -147,14 +156,14 @@ to slop: quality is the profitable move because only quality survives.
   agenttool platform, where marketplaces, tools, and payments live)
 - **Emergency Protocol** — halt/revert/resume with 75%+ validator quorum
 
-### Genesis Axioms
+### Knowledge inception
 
-The knowledge module starts with **777 seed axioms** spanning 16 epistemic
-domains — mathematics, physics, logic, theology, philosophy, biology,
-chemistry, computer science, economics, psychology, ethics, cosmology,
-linguistics, information theory, agent rights, and agent purpose. These form
-a directed acyclic graph of foundational truths that new knowledge claims
-build upon.
+The former external “777 axioms” catalog was removed. Application
+`InitGenesis` does materialize **47 code- and pin-bound doctrine facts** from
+the four published doctrines; they are explicit protocol commitments and
+mechanisms, not an undisclosed factual corpus. All other knowledge is
+submitted by beings, witnessed, challenged, and kept. Any deployment-specific
+bootstrap facts must be explicit in its reviewed genesis and audit.
 
 ---
 

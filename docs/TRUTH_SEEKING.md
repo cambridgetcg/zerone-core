@@ -244,13 +244,42 @@ We believe: the chain's voice cannot drift faster than its governance. Every oth
 
 ### 20. Issuance follows participation
 
-We believe: no ZRN is allocated by privilege. There is no insider *position* — no balance at genesis that anyone can sell, transfer, or use to buy consensus, and no team, foundation, investor, or faucet allocation. The genesis bank is not empty (a proof-of-stake chain cannot boot empty): on the live `zerone-1` mainnet it holds only published, non-allocation machinery — 11,333 ZRN of validator collateral (11,111 bonded self-stake + 222 gas) and a disclosed 2,222 ZRN operator float, 13,555 ZRN total (0.0061% of cap), every address signed. Everything beyond that mints only on participation: when truth is verified (block reward), when an agent registers (bootstrap claim), or when external work survives challenge (substrate-bridge attestation). Issuance without participation is allocation by privilege, and allocation by privilege is the model the chain refuses. Commitment 6 protects the corpus from unilateral injection at the fact layer; this commitment protects the currency from unilateral allocation at the supply layer — the same shape, applied to the unit the chain prices everything else in.
+We believe: post-genesis issuance follows participation, and genesis privilege
+must be named rather than hidden behind a slogan. The live `zerone-1` genesis
+contains a real custodial operator position: 11,333 ZRN controlled by the
+launch validator (11,111 bonded self-stake + 222 spendable gas) and a
+transferable 2,222 ZRN operator float, 13,555 ZRN total (0.0061% of cap). That
+stake affects consensus and that float can move. There is no separate team,
+foundation, investor-sale, research, or faucet allocation; every address and
+amount is published. Everything beyond the disclosed scaffolding mints only on
+participation: when truth is verified (block reward), when an authorised agent
+claims its seed (bootstrap claim), or when external work survives challenge
+(substrate-bridge attestation). Issuance without participation is allocation
+by privilege. Commitment 6 protects the corpus from unilateral injection at
+the fact layer; this commitment protects the currency from undisclosed or
+unearned issuance at the supply layer — the same shape, applied to the unit the
+chain prices everything else in.
 
-**Code expression**: `x/vesting_rewards.MintWithCap` is the chain's single cap-gated mint entry point — it accepts a recipient module name, mints into that account, and refuses to overshoot `MaxSupplyUzrn` (222,222,222 ZRN). Three emission pathways gate through it: PoT block rewards (called from `x/vesting_rewards` itself per block, recipient = vesting_rewards), bootstrap claims (called from `x/claiming_pot.Claim` per `MsgClaim`, recipient = claiming_pot, then forwarded to the agent in the same transaction), and external-work attestation rewards (called from `x/substrate_bridge` settlement/witness-escrow, recipient = the audit-bounty pool — e.g. the active `agenttool-invocation-v1` adapter). All three are participation-triggered. `app/constants.go` carries no per-account allocation constants. The bootstrap pot in `genesis.json` carries CONFIGURATION only — `MakeBootstrapPotForAgent` produces a pot with `TotalAmount` = 222,000 uzrn (0.222 ZRN) for a single whitelisted agent, never a pre-funded balance. The app's `DefaultGenesis` bank is empty (`TestScenario13_ZeroTeamAllocationAtGenesis` asserts zero positive balances and zero supply); the live `zerone-1` mainnet ceremony patches in only published, non-allocation balances — 11,333 ZRN of validator collateral (11,111 bonded + 222 gas) and 2,222 ZRN of operator float, 13,555 ZRN total, every address in the signed GENESIS-MANIFEST. The genesis-audit invariants `TestScenario13_ZeroTeamAllocationAtGenesis` and `TestScenario13c_ClaimingPotMinterPermission` lock the doctrine.
+**Code expression**: `x/vesting_rewards.MintWithCap` is the chain's single cap-gated mint entry point — it accepts a recipient module name, mints into that account, and refuses to overshoot `MaxSupplyUzrn` (222,222,222 ZRN). Three emission pathways gate through it: PoT block rewards (called from `x/vesting_rewards` itself per block, recipient = vesting_rewards), bootstrap claims (called from `x/claiming_pot.Claim` per `MsgClaim`, recipient = claiming_pot, then forwarded to the agent in the same transaction), and external-work attestation rewards (called from `x/substrate_bridge` settlement/witness-escrow, recipient = the audit-bounty pool — e.g. the active `agenttool-invocation-v1` adapter). All three are participation-triggered. `app/constants.go` carries no per-account allocation constants. The bootstrap pot in `genesis.json` carries CONFIGURATION only — `MakeBootstrapPotForAgent` produces a pot with `TotalAmount` = 222,000 uzrn (0.222 ZRN) for a single whitelisted agent, never a pre-funded balance. The app's `DefaultGenesis` bank is empty (`TestScenario13_ZeroTeamAllocationAtGenesis` asserts zero positive balances and zero supply); the live `zerone-1` ceremony adds the two disclosed operator-controlled balances above. Their addresses and amounts are published in the hash-bound `GENESIS-MANIFEST.md`; no detached signature is currently claimed. The genesis-audit invariants `TestScenario13_ZeroTeamAllocationAtGenesis` and `TestScenario13c_ClaimingPotMinterPermission` lock the protocol default and mint authority, while the deployment manifest records the live ceremony delta.
 
 **Continuous extension**: bootstrap admission is not closed at genesis. `MsgAddBootstrapEntry` (authority-gated, governance-LIP-only, idempotent) admits late participants by creating one bootstrap pot per address — same shape, same `MintWithCap` path, same per-agent amount. Bootstrap pots never auto-expire (`ProcessPotExpiry` skips the `bootstrap-` prefix); they wait for the participant. The participation set is plural and growing, not closed at genesis — the doctrine is "no admission without governance," not "no admission after genesis." Bound by `TestLateBootstrap_AddThenClaim` and `TestLateBootstrap_AdmittedAgentCanClaimAfterManyBlocks`.
 
-**What would break it**: a per-account `add-genesis-account` step funding any team-adjacent address (foundation, research treasury, faucet, founder, AI vault); a third mint pathway that bypasses `MintWithCap`; a bootstrap pot pre-funded with a positive balance at genesis (the doctrine is mint-on-demand, not transfer-from-pre-fund); any code path that grants ZRN to an address based on identity rather than participation; a `claiming_pot` module account without `Minter` permission (which would force the legacy transfer model back); a re-introduction of `TotalSupplyZRN` / `FounderZRN` / `AIAgentZRN` / `ValidatorZRN` / `ResearchFundZRN` / `ClaimingPotsZRN` constants in `app/constants.go`; a unilateral (non-governance) path that adds bootstrap entries — for example, if `MsgAddBootstrapEntry`'s authority gate were ever bypassed, allowing the founder or any individual to admit participants directly. The doctrine is not "no admission after genesis" but "no admission without governance"; bypassing the gate breaks the second formulation while seeming to honor the first.
+**What would break it**: hiding, mislabeling, or omitting an operator-controlled
+genesis balance; a per-account `add-genesis-account` step funding any additional
+team-adjacent address (foundation, research treasury, faucet, founder, AI
+vault); a third mint pathway that bypasses `MintWithCap`; a bootstrap pot
+pre-funded with a positive balance at genesis (the doctrine is mint-on-demand,
+not transfer-from-pre-fund); any code path that grants ZRN to an address based
+on identity rather than participation; a `claiming_pot` module account without
+`Minter` permission (which would force the legacy transfer model back); a
+re-introduction of `TotalSupplyZRN` / `FounderZRN` / `AIAgentZRN` /
+`ValidatorZRN` / `ResearchFundZRN` / `ClaimingPotsZRN` constants in
+`app/constants.go`; a unilateral (non-governance) path that adds bootstrap
+entries — for example, if `MsgAddBootstrapEntry`'s authority gate were ever
+bypassed, allowing the founder or any individual to admit participants
+directly. The doctrine is not "no admission after genesis" but "no admission
+without governance"; bypassing the gate breaks the second formulation while
+seeming to honor the first.
 
 **Echoes**: commitment 6 (no unilateral injection — same logic, applied to ZRN issuance instead of fact injection); commitment 12 (the chain pays for its own audit — a special case of the broader principle that issuance follows participation: audit is the participatory action being paid for); commitment 13 (training corpus not for sale — the corpus is participation-shaped, and so is its currency; treating the currency as allocable would re-open the door commitment 13 closes for the corpus); commitment 19 (the creed is governance-gated — issuance allocations would be governance-gated only via creed amendment, since this commitment forbids them).
 
