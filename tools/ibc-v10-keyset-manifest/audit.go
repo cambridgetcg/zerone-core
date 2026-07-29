@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,7 +12,9 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/gogoproto/types"
-	"github.com/cosmos/iavl/fastnode"
+	"github.com/cosmos/iavl"
+	iavldb "github.com/cosmos/iavl/db"
+	ics23 "github.com/cosmos/ics23/go"
 )
 
 const (
@@ -19,29 +22,22 @@ const (
 	rootCommitInfoPrefix = "s/"
 
 	ibcPhysicalStorePrefix       = "s/k:ibc/"
-	iavlFastNodePrefix           = "f"
-	iavlStorageVersionKey        = "mstorage_version"
-	requiredFastStorageVersion   = "1.1.0"
 	channelUpgradesLogicalPrefix = "channelUpgrades/"
 	pruningSequenceLogicalPrefix = "pruningSequenceStart/"
 
-	maxLatestVersionBytes  = 16
-	maxCommitInfoBytes     = 16 << 20
-	maxCommitInfoStores    = 4096
-	maxStorageVersionBytes = 64
-	maxPhysicalKeyBytes    = 64 << 10
-	maxFastNodeValueBytes  = 64 << 20
-	maxScannedInputBytes   = 1 << 30
-)
-
-var (
-	ibcFastPhysicalPrefix = []byte(ibcPhysicalStorePrefix + iavlFastNodePrefix)
-	ibcStorageVersionKey  = []byte(ibcPhysicalStorePrefix + iavlStorageVersionKey)
+	maxLatestVersionBytes = 16
+	maxCommitInfoBytes    = 16 << 20
+	maxCommitInfoStores   = 4096
+	maxIBCStoreLeafCount  = 5_000_000
+	maxLogicalKeyBytes    = 64 << 10
+	maxLogicalValueBytes  = 64 << 20
+	maxScannedInputBytes  = 1 << 30
 )
 
 type physicalDB interface {
 	Get(key []byte) ([]byte, error)
 	Iterator(start, end []byte) (dbm.Iterator, error)
+	ReverseIterator(start, end []byte) (dbm.Iterator, error)
 }
 
 type expectedEvidence struct {
@@ -50,17 +46,18 @@ type expectedEvidence struct {
 }
 
 type rootSnapshot struct {
-	height            int64
-	appHash           []byte
-	latestVersionRaw  []byte
-	commitInfoKey     []byte
-	commitInfoRaw     []byte
-	storageVersionRaw []byte
+	height           int64
+	latestVersionRaw []byte
+	commitInfoKey    []byte
+	commitInfoRaw    []byte
+	ibcHash          []byte
 }
 
 type scanBudget struct {
 	inputBytes uint64
 }
+
+var emptyIAVLRootHash = sha256.Sum256(nil)
 
 func auditApplicationDB(db physicalDB, expected expectedEvidence) ([]byte, error) {
 	if db == nil {
@@ -78,22 +75,7 @@ func auditApplicationDB(db physicalDB, expected expectedEvidence) ([]byte, error
 		return nil, err
 	}
 
-	budget := &scanBudget{}
-	channelKeys, err := scanFastNodeDomain(
-		db,
-		channelUpgradesLogicalPrefix,
-		before.height,
-		budget,
-	)
-	if err != nil {
-		return nil, err
-	}
-	pruningKeys, err := scanFastNodeDomain(
-		db,
-		pruningSequenceLogicalPrefix,
-		before.height,
-		budget,
-	)
+	channelKeys, pruningKeys, err := collectRegularIAVLKeysets(db, before)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +151,7 @@ func readAndVerifyRootSnapshot(
 
 	seenNames := make(map[string]struct{}, len(commitInfo.StoreInfos))
 	ibcStores := 0
+	var ibcHash []byte
 	for _, storeInfo := range commitInfo.StoreInfos {
 		if storeInfo.Name == "" {
 			return rootSnapshot{}, errors.New("root commit info contains an empty store name")
@@ -189,6 +172,7 @@ func readAndVerifyRootSnapshot(
 		}
 		if storeInfo.Name == "ibc" {
 			ibcStores++
+			ibcHash = bytes.Clone(storeInfo.CommitId.Hash)
 			if storeInfo.CommitId.Version != height {
 				return rootSnapshot{}, fmt.Errorf(
 					"IBC commit version mismatch: root height is %d, IBC store is %d",
@@ -220,31 +204,12 @@ func readAndVerifyRootSnapshot(
 		)
 	}
 
-	storageVersionRaw, err := getRequiredBounded(
-		db,
-		ibcStorageVersionKey,
-		maxStorageVersionBytes,
-	)
-	if err != nil {
-		return rootSnapshot{}, fmt.Errorf("read IBC IAVL fast-storage metadata: %w", err)
-	}
-	expectedStorageVersion := requiredFastStorageVersion + "-" + strconv.FormatInt(height, 10)
-	if string(storageVersionRaw) != expectedStorageVersion {
-		return rootSnapshot{}, fmt.Errorf(
-			"IBC IAVL fast storage is not synchronized to root height %d: expected %q, got %q",
-			height,
-			expectedStorageVersion,
-			storageVersionRaw,
-		)
-	}
-
 	return rootSnapshot{
-		height:            height,
-		appHash:           bytes.Clone(appHash),
-		latestVersionRaw:  bytes.Clone(latestRaw),
-		commitInfoKey:     bytes.Clone(commitInfoKey),
-		commitInfoRaw:     bytes.Clone(commitInfoRaw),
-		storageVersionRaw: bytes.Clone(storageVersionRaw),
+		height:           height,
+		latestVersionRaw: bytes.Clone(latestRaw),
+		commitInfoKey:    bytes.Clone(commitInfoKey),
+		commitInfoRaw:    bytes.Clone(commitInfoRaw),
+		ibcHash:          ibcHash,
 	}, nil
 }
 
@@ -266,12 +231,6 @@ func verifySnapshotUnchanged(db physicalDB, before rootSnapshot) error {
 			key:  before.commitInfoKey,
 			want: before.commitInfoRaw,
 			max:  maxCommitInfoBytes,
-		},
-		{
-			name: "IBC IAVL fast-storage metadata",
-			key:  ibcStorageVersionKey,
-			want: before.storageVersionRaw,
-			max:  maxStorageVersionBytes,
 		},
 	}
 	for _, check := range checks {
@@ -304,185 +263,281 @@ func getRequiredBounded(db physicalDB, key []byte, maxBytes int) ([]byte, error)
 	return bz, nil
 }
 
-func scanFastNodeDomain(
+func collectRegularIAVLKeysets(
 	db physicalDB,
-	logicalPrefix string,
-	rootHeight int64,
+	snapshot rootSnapshot,
+) (channelKeys, pruningKeys [][]byte, err error) {
+	// IAVL's canonical empty root is SHA256(empty). An externally attested
+	// rootmulti CommitInfo containing that IBC hash cryptographically binds the
+	// logical store at H to zero leaves, so no physical traversal is needed.
+	// This also handles valid backend-specific encodings: untouched stores may
+	// have no IAVL version, while nonempty-then-emptied stores retain history.
+	if bytes.Equal(snapshot.ibcHash, emptyIAVLRootHash[:]) {
+		return nil, nil, nil
+	}
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			channelKeys = nil
+			pruningKeys = nil
+			err = errors.Join(
+				err,
+				fmt.Errorf("panic while reading copied IBC IAVL tree: %v", recovered),
+			)
+		}
+	}()
+
+	readOnlyRoot := newReadOnlyPhysicalDB(db)
+	ibcDB := dbm.NewPrefixDB(readOnlyRoot, []byte(ibcPhysicalStorePrefix))
+	tree := iavl.NewMutableTree(
+		iavldb.NewWrapper(ibcDB),
+		0,
+		true, // Never inspect, create, or rebuild IAVL fast storage.
+		iavl.NewNopLogger(),
+		iavl.AsyncPruningOption(false),
+	)
+	defer func() {
+		closeErr := tree.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("close copied IBC IAVL tree: %w", closeErr)
+		}
+		var writeErr error
+		if attempts := readOnlyRoot.WriteAttempts(); attempts != 0 {
+			writeErr = fmt.Errorf(
+				"copied IBC IAVL read attempted %d database mutations",
+				attempts,
+			)
+		}
+		err = errors.Join(err, closeErr, writeErr)
+	}()
+
+	latestVersion, err := tree.LoadVersion(snapshot.height)
+	if err != nil {
+		return nil, nil, fmt.Errorf(
+			"load copied IBC IAVL version %d without fast storage: %w",
+			snapshot.height,
+			err,
+		)
+	}
+	if latestVersion != snapshot.height || tree.Version() != snapshot.height {
+		return nil, nil, fmt.Errorf(
+			"copied IBC IAVL version mismatch: root=%d latest=%d loaded=%d",
+			snapshot.height,
+			latestVersion,
+			tree.Version(),
+		)
+	}
+	if !bytes.Equal(tree.Hash(), snapshot.ibcHash) {
+		return nil, nil, fmt.Errorf(
+			"copied IBC IAVL root mismatch at height %d: commit info=%s loaded tree=%s",
+			snapshot.height,
+			hex.EncodeToString(snapshot.ibcHash),
+			hex.EncodeToString(tree.Hash()),
+		)
+	}
+	return scanEntireIBCStore(tree, snapshot.ibcHash, &scanBudget{})
+}
+
+type verifiableIBCStore interface {
+	Size() int64
+	Iterator(start, end []byte, ascending bool) (iavldb.Iterator, error)
+	GetMembershipProof(key []byte) (*ics23.CommitmentProof, error)
+}
+
+// scanEntireIBCStore does not trust IAVL v1.2.2 Iterator.Error for
+// completeness: that iterator can silently swallow a child-load error. It
+// therefore scans every leaf, requires the observed count to equal the
+// root-hash-bound tree size, and independently verifies an ICS23 membership
+// proof for every emitted key/value against the CommitInfo IBC root.
+func scanEntireIBCStore(
+	store verifiableIBCStore,
+	committedRoot []byte,
 	budget *scanBudget,
-) (keys [][]byte, err error) {
-	if logicalPrefix == "" || logicalPrefix[len(logicalPrefix)-1] != '/' {
-		return nil, fmt.Errorf("logical IBC domain prefix %q must end with slash", logicalPrefix)
+) (channelKeys, pruningKeys [][]byte, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			channelKeys = nil
+			pruningKeys = nil
+			err = errors.Join(
+				err,
+				fmt.Errorf("panic while traversing copied IBC IAVL tree: %v", recovered),
+			)
+		}
+	}()
+	if store == nil {
+		return nil, nil, errors.New("IBC IAVL tree is nil")
+	}
+	if len(committedRoot) != 32 {
+		return nil, nil, errors.New("committed IBC root must be exactly 32 bytes")
 	}
 	if budget == nil {
-		return nil, errors.New("scan budget is nil")
+		return nil, nil, errors.New("scan budget is nil")
 	}
 
-	physicalPrefix := append(bytes.Clone(ibcFastPhysicalPrefix), logicalPrefix...)
-	end := prefixEnd(physicalPrefix)
-	if end == nil {
-		return nil, fmt.Errorf("cannot calculate exclusive end for physical prefix %q", physicalPrefix)
+	expectedLeaves := store.Size()
+	if expectedLeaves < 0 || expectedLeaves > maxIBCStoreLeafCount {
+		return nil, nil, fmt.Errorf(
+			"IBC IAVL tree leaf count must be between 0 and %d: got %d",
+			maxIBCStoreLeafCount,
+			expectedLeaves,
+		)
 	}
 
-	iterator, err := db.Iterator(physicalPrefix, end)
+	iterator, err := store.Iterator(nil, nil, true)
 	if err != nil {
-		return nil, fmt.Errorf("open raw iterator for %q: %w", physicalPrefix, err)
+		return nil, nil, fmt.Errorf("open complete IBC IAVL iterator: %w", err)
 	}
 	if iterator == nil {
-		return nil, fmt.Errorf("open raw iterator for %q: nil iterator", physicalPrefix)
+		return nil, nil, errors.New("open complete IBC IAVL iterator: nil iterator")
 	}
 	defer func() {
 		iterationErr := iterator.Error()
 		if iterationErr != nil {
-			iterationErr = fmt.Errorf(
-				"iterate raw IBC fast-node domain %q: %w",
-				physicalPrefix,
-				iterationErr,
-			)
+			iterationErr = fmt.Errorf("iterate complete IBC IAVL tree: %w", iterationErr)
 		}
 		closeErr := iterator.Close()
 		if closeErr != nil {
-			closeErr = fmt.Errorf(
-				"close raw IBC fast-node iterator %q: %w",
-				physicalPrefix,
-				closeErr,
-			)
+			closeErr = fmt.Errorf("close complete IBC IAVL iterator: %w", closeErr)
 		}
 		err = errors.Join(err, iterationErr, closeErr)
 	}()
 
-	logicalPrefixBytes := []byte(logicalPrefix)
-	var previousPhysical []byte
-	logicalBytes := 0
+	channelPrefix := []byte(channelUpgradesLogicalPrefix)
+	pruningPrefix := []byte(pruningSequenceLogicalPrefix)
+	var (
+		previousKey  []byte
+		leafCount    int64
+		channelBytes int
+		pruningBytes int
+	)
 	for ; iterator.Valid(); iterator.Next() {
-		if len(keys) >= maxKeysPerDomain {
-			return nil, fmt.Errorf(
-				"raw IBC fast-node domain %q exceeds %d keys",
-				physicalPrefix,
-				maxKeysPerDomain,
+		if leafCount >= expectedLeaves {
+			return nil, nil, fmt.Errorf(
+				"IBC IAVL traversal emitted more than root-bound size %d",
+				expectedLeaves,
 			)
 		}
-
-		physicalKey := iterator.Key()
-		if len(physicalKey) > maxPhysicalKeyBytes {
-			return nil, fmt.Errorf(
-				"raw IBC fast-node key exceeds %d bytes",
-				maxPhysicalKeyBytes,
+		rawKey := iterator.Key()
+		rawValue := iterator.Value()
+		if len(rawKey) == 0 {
+			return nil, nil, errors.New("IBC IAVL traversal emitted an empty key")
+		}
+		if len(rawKey) > maxLogicalKeyBytes {
+			return nil, nil, fmt.Errorf(
+				"IBC IAVL logical key exceeds %d bytes",
+				maxLogicalKeyBytes,
 			)
 		}
-		if !bytes.HasPrefix(physicalKey, physicalPrefix) {
-			return nil, fmt.Errorf(
-				"raw iterator for %q returned out-of-domain key %q",
-				physicalPrefix,
-				physicalKey,
-			)
-		}
-		if previousPhysical != nil && bytes.Compare(previousPhysical, physicalKey) >= 0 {
-			return nil, fmt.Errorf(
-				"raw iterator for %q returned keys out of strict byte order",
-				physicalPrefix,
-			)
-		}
-		previousPhysical = bytes.Clone(physicalKey)
-
-		logicalKey := bytes.Clone(physicalKey[len(ibcFastPhysicalPrefix):])
-		if !bytes.HasPrefix(logicalKey, logicalPrefixBytes) {
-			return nil, fmt.Errorf(
-				"stripped IBC key %q is outside logical prefix %q",
-				logicalKey,
-				logicalPrefixBytes,
-			)
-		}
-		if len(logicalKey) > maxLogicalBytesPerDomain-logicalBytes {
-			return nil, fmt.Errorf(
-				"raw IBC fast-node domain %q exceeds %d aggregate logical key bytes",
-				physicalPrefix,
-				maxLogicalBytesPerDomain,
-			)
-		}
-		logicalBytes += len(logicalKey)
-
-		value := iterator.Value()
-		if len(value) > maxFastNodeValueBytes {
-			return nil, fmt.Errorf(
-				"raw IBC fast-node value for logical key %q exceeds %d bytes",
-				logicalKey,
-				maxFastNodeValueBytes,
+		if len(rawValue) > maxLogicalValueBytes {
+			return nil, nil, fmt.Errorf(
+				"IBC IAVL value for key %q exceeds %d bytes",
+				rawKey,
+				maxLogicalValueBytes,
 			)
 		}
 		if err := addScannedInputBytes(
 			budget,
-			uint64(len(physicalKey))+uint64(len(value)),
+			uint64(len(rawKey))+uint64(len(rawValue)),
 		); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		node, err := fastnode.DeserializeNode(logicalKey, value)
+
+		key := bytes.Clone(rawKey)
+		value := bytes.Clone(rawValue)
+		if previousKey != nil && bytes.Compare(previousKey, key) >= 0 {
+			return nil, nil, fmt.Errorf(
+				"IBC IAVL traversal is not in strict byte order: %q then %q",
+				previousKey,
+				key,
+			)
+		}
+		previousKey = bytes.Clone(key)
+
+		proof, err := store.GetMembershipProof(key)
 		if err != nil {
-			return nil, fmt.Errorf(
-				"decode raw IBC fast node for logical key %q: %w",
-				logicalKey,
+			return nil, nil, fmt.Errorf(
+				"create IBC IAVL membership proof for key %q: %w",
+				key,
 				err,
 			)
 		}
-		if node.GetVersionLastUpdatedAt() <= 0 ||
-			node.GetVersionLastUpdatedAt() > rootHeight {
-			return nil, fmt.Errorf(
-				"raw IBC fast node for logical key %q has invalid last-update version %d at root height %d",
-				logicalKey,
-				node.GetVersionLastUpdatedAt(),
-				rootHeight,
-			)
-		}
-		var canonical bytes.Buffer
-		if err := node.WriteBytes(&canonical); err != nil {
-			return nil, fmt.Errorf(
-				"canonicalize raw IBC fast node for logical key %q: %w",
-				logicalKey,
-				err,
-			)
-		}
-		if !bytes.Equal(value, canonical.Bytes()) {
-			return nil, fmt.Errorf(
-				"raw IBC fast node for logical key %q is not canonically encoded",
-				logicalKey,
+		if !ics23.VerifyMembership(
+			ics23.IavlSpec,
+			committedRoot,
+			proof,
+			key,
+			value,
+		) {
+			return nil, nil, fmt.Errorf(
+				"IBC IAVL membership proof for key %q does not verify against committed root",
+				key,
 			)
 		}
 
-		keys = append(keys, logicalKey)
+		switch {
+		case bytes.HasPrefix(key, channelPrefix):
+			if len(channelKeys) >= maxKeysPerDomain {
+				return nil, nil, fmt.Errorf(
+					"IBC domain %q exceeds %d keys",
+					channelPrefix,
+					maxKeysPerDomain,
+				)
+			}
+			if len(key) > maxLogicalBytesPerDomain-channelBytes {
+				return nil, nil, fmt.Errorf(
+					"IBC domain %q exceeds %d aggregate logical key bytes",
+					channelPrefix,
+					maxLogicalBytesPerDomain,
+				)
+			}
+			channelBytes += len(key)
+			channelKeys = append(channelKeys, key)
+
+		case bytes.HasPrefix(key, pruningPrefix):
+			if len(pruningKeys) >= maxKeysPerDomain {
+				return nil, nil, fmt.Errorf(
+					"IBC domain %q exceeds %d keys",
+					pruningPrefix,
+					maxKeysPerDomain,
+				)
+			}
+			if len(key) > maxLogicalBytesPerDomain-pruningBytes {
+				return nil, nil, fmt.Errorf(
+					"IBC domain %q exceeds %d aggregate logical key bytes",
+					pruningPrefix,
+					maxLogicalBytesPerDomain,
+				)
+			}
+			pruningBytes += len(key)
+			pruningKeys = append(pruningKeys, key)
+		}
+		leafCount++
+	}
+	if leafCount != expectedLeaves {
+		return nil, nil, fmt.Errorf(
+			"IBC IAVL traversal was incomplete: root-bound size=%d emitted=%d",
+			expectedLeaves,
+			leafCount,
+		)
 	}
 
-	sort.Slice(keys, func(i, j int) bool {
-		return bytes.Compare(keys[i], keys[j]) < 0
+	sort.Slice(channelKeys, func(i, j int) bool {
+		return bytes.Compare(channelKeys[i], channelKeys[j]) < 0
 	})
-	for i := 1; i < len(keys); i++ {
-		if bytes.Equal(keys[i-1], keys[i]) {
-			return nil, fmt.Errorf(
-				"raw IBC fast-node domain %q contains duplicate logical key %q",
-				physicalPrefix,
-				keys[i],
-			)
-		}
-	}
-	return keys, nil
+	sort.Slice(pruningKeys, func(i, j int) bool {
+		return bytes.Compare(pruningKeys[i], pruningKeys[j]) < 0
+	})
+	return channelKeys, pruningKeys, nil
 }
 
 func addScannedInputBytes(budget *scanBudget, amount uint64) error {
-	if amount > maxScannedInputBytes-budget.inputBytes {
+	if budget.inputBytes > maxScannedInputBytes ||
+		amount > maxScannedInputBytes-budget.inputBytes {
 		return fmt.Errorf(
-			"raw IBC fast-node scan exceeds %d aggregate input bytes",
+			"complete IBC regular-IAVL scan exceeds %d aggregate input bytes",
 			maxScannedInputBytes,
 		)
 	}
 	budget.inputBytes += amount
-	return nil
-}
-
-func prefixEnd(prefix []byte) []byte {
-	end := bytes.Clone(prefix)
-	for i := len(end) - 1; i >= 0; i-- {
-		if end[i] != 0xff {
-			end[i]++
-			return end[:i+1]
-		}
-	}
 	return nil
 }

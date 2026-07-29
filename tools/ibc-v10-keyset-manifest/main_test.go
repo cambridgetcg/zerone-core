@@ -13,13 +13,11 @@ import (
 
 func TestRunEmitsOnlyCanonicalPlanInfo(t *testing.T) {
 	db := dbm.NewMemDB()
-	expected := seedPhysicalFixture(
+	expected := seedRegularIAVLFixture(
 		t,
 		db,
 		42,
 		[][]byte{[]byte("channelUpgrades/a")},
-		nil,
-		hashBytes(2),
 	)
 	var stdout, stderr bytes.Buffer
 	openerCalled := false
@@ -113,7 +111,7 @@ func TestRunRejectsNoncanonicalEvidenceBeforeOpening(t *testing.T) {
 
 func TestRunRejectsShortWrite(t *testing.T) {
 	db := dbm.NewMemDB()
-	expected := seedPhysicalFixture(t, db, 42, nil, nil, hashBytes(2))
+	expected := seedRegularIAVLFixture(t, db, 42, nil)
 	err := run(
 		[]string{
 			"--home", "/copied/zeroned",
@@ -133,7 +131,7 @@ func TestRunRejectsShortWrite(t *testing.T) {
 
 func TestRunPropagatesWriteError(t *testing.T) {
 	db := dbm.NewMemDB()
-	expected := seedPhysicalFixture(t, db, 42, nil, nil, hashBytes(2))
+	expected := seedRegularIAVLFixture(t, db, 42, nil)
 	writeFailure := errors.New("injected write failure")
 	err := run(
 		[]string{

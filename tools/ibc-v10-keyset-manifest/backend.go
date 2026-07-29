@@ -52,6 +52,39 @@ func openCopiedApplicationDB(home, backend string) (openedPhysicalDB, error) {
 	if !homeInfo.IsDir() {
 		return nil, fmt.Errorf("copied home %q must be a directory", cleanHome)
 	}
+	resolvedHome, err := filepath.EvalSymlinks(cleanHome)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"resolve copied home %q before checking live-home aliases: %w",
+			cleanHome,
+			err,
+		)
+	}
+	resolvedUserHome, err := filepath.EvalSymlinks(filepath.Clean(userHome))
+	if err != nil {
+		return nil, fmt.Errorf(
+			"resolve user home before checking --home safety: %w",
+			err,
+		)
+	}
+	resolvedDefaultNodeHome := filepath.Join(resolvedUserHome, ".zeroned")
+	if resolved, resolveErr := filepath.EvalSymlinks(defaultNodeHome); resolveErr == nil {
+		resolvedDefaultNodeHome = resolved
+	} else if !errors.Is(resolveErr, os.ErrNotExist) {
+		return nil, fmt.Errorf(
+			"resolve Zerone's default live home before checking --home safety: %w",
+			resolveErr,
+		)
+	}
+	if pathIsEqualOrDescendant(
+		filepath.Clean(resolvedDefaultNodeHome),
+		filepath.Clean(resolvedHome),
+	) {
+		return nil, fmt.Errorf(
+			"refusing resolved alias to Zerone's default live home or descendant %q; pass a separately copied home",
+			cleanHome,
+		)
+	}
 
 	dataDir := filepath.Join(cleanHome, "data")
 	dbPath := filepath.Join(dataDir, applicationDBName+dbm.DBFileSuffix)
@@ -146,6 +179,17 @@ func (db *pebbleReadDB) Get(key []byte) ([]byte, error) {
 }
 
 func (db *pebbleReadDB) Iterator(start, end []byte) (dbm.Iterator, error) {
+	return db.newIterator(start, end, false)
+}
+
+func (db *pebbleReadDB) ReverseIterator(start, end []byte) (dbm.Iterator, error) {
+	return db.newIterator(start, end, true)
+}
+
+func (db *pebbleReadDB) newIterator(
+	start, end []byte,
+	reverse bool,
+) (dbm.Iterator, error) {
 	if len(start) == 0 || len(end) == 0 {
 		return nil, errors.New("bounded Pebble iterator requires non-empty start and end")
 	}
@@ -161,11 +205,16 @@ func (db *pebbleReadDB) Iterator(start, end []byte) (dbm.Iterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	iterator.First()
+	if reverse {
+		iterator.Last()
+	} else {
+		iterator.First()
+	}
 	return &pebbleReadIterator{
 		iterator: iterator,
 		start:    start,
 		end:      end,
+		reverse:  reverse,
 	}, nil
 }
 
@@ -177,6 +226,7 @@ type pebbleReadIterator struct {
 	iterator *pebble.Iterator
 	start    []byte
 	end      []byte
+	reverse  bool
 }
 
 func (iterator *pebbleReadIterator) Domain() ([]byte, []byte) {
@@ -191,7 +241,11 @@ func (iterator *pebbleReadIterator) Next() {
 	if !iterator.Valid() {
 		panic("iterator is invalid")
 	}
-	iterator.iterator.Next()
+	if iterator.reverse {
+		iterator.iterator.Prev()
+	} else {
+		iterator.iterator.Next()
+	}
 }
 
 func (iterator *pebbleReadIterator) Key() []byte {

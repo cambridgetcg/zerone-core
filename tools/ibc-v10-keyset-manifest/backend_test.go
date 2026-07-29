@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io/fs"
@@ -19,112 +18,182 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRawReaderMatchesRootmultiIAVLPhysicalFormat(t *testing.T) {
-	for _, backend := range []dbm.BackendType{
-		dbm.GoLevelDBBackend,
-		dbm.PebbleDBBackend,
-	} {
-		t.Run(string(backend), func(t *testing.T) {
-			home := t.TempDir()
-			dataDir := filepath.Join(home, "data")
-			require.NoError(t, os.Mkdir(dataDir, 0o700))
-
-			writer, err := dbm.NewDB(applicationDBName, backend, dataDir)
-			require.NoError(t, err)
-			root := rootmulti.NewStore(
-				writer,
-				log.NewNopLogger(),
-				metrics.NewNoOpMetrics(),
-			)
-			root.SetIAVLSyncPruning(true)
-			root.SetIAVLDisableFastNode(false)
-			ibcKey := storetypes.NewKVStoreKey("ibc")
-			root.MountStoreWithDB(ibcKey, storetypes.StoreTypeIAVL, nil)
-			require.NoError(t, root.LoadLatestVersion())
-
-			logicalKey := []byte("channelUpgrades/a")
-			root.GetKVStore(ibcKey).Set(logicalKey, []byte("upgrade-state"))
-			commitID := root.Commit()
-			require.Equal(t, int64(1), commitID.Version)
-			require.Len(t, commitID.Hash, 32)
-			require.NoError(t, writer.Close())
-
-			reader, err := openCopiedApplicationDB(home, string(backend))
-			require.NoError(t, err)
-			rawFastNode, err := reader.Get(
-				append(bytes.Clone(ibcFastPhysicalPrefix), logicalKey...),
-			)
-			require.NoError(t, err)
-			require.NotEmpty(t, rawFastNode)
-			require.Equal(
-				t,
-				[]byte("1.1.0-1"),
-				mustGetPhysical(t, reader, ibcStorageVersionKey),
-			)
-
-			got, err := auditApplicationDB(reader, expectedEvidence{
-				Height:  commitID.Version,
-				AppHash: commitID.Hash,
-			})
-			require.NoError(t, err)
-			require.Contains(
-				t,
-				string(got),
-				`"channel_upgrades":{"key_count":"1","keys_sha256":"a7009f386a4870c5e9825050e952bcf489e916eed29269771ff7713444d57767"}`,
-			)
-			require.NoError(t, reader.Close())
-		})
+func TestRegularIAVLReaderWithFastNodesDisabledBackends(t *testing.T) {
+	testCases := []struct {
+		name            string
+		keys            [][]byte
+		initialOnlyKeys [][]byte
+		referenceHeight bool
+		pruneHistory    bool
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name: "previously_nonempty_then_empty",
+			initialOnlyKeys: [][]byte{
+				[]byte("channelUpgrades/removed-before-snapshot"),
+			},
+		},
+		{
+			name: "nonempty_reference_height",
+			keys: [][]byte{
+				[]byte("channelUpgrades/a"),
+				[]byte(
+					"pruningSequenceStart/ports/transfer/channels/channel-0",
+				),
+				[]byte("recvStartSequence/ports/transfer/channels/channel-0"),
+			},
+			referenceHeight: true,
+		},
+		{
+			name: "pruned_latest_root",
+			keys: [][]byte{
+				[]byte("channelUpgrades/a"),
+				[]byte(
+					"pruningSequenceStart/ports/transfer/channels/channel-0",
+				),
+				[]byte("recvStartSequence/ports/transfer/channels/channel-0"),
+			},
+			pruneHistory: true,
+		},
 	}
-}
 
-func TestOpenCopiedApplicationDBReadOnlyBackends(t *testing.T) {
 	for _, backend := range []dbm.BackendType{
 		dbm.GoLevelDBBackend,
 		dbm.PebbleDBBackend,
 	} {
-		t.Run(string(backend), func(t *testing.T) {
-			home := t.TempDir()
-			dataDir := filepath.Join(home, "data")
-			require.NoError(t, os.Mkdir(dataDir, 0o700))
+		for _, testCase := range testCases {
+			t.Run(string(backend)+"/"+testCase.name, func(t *testing.T) {
+				home := t.TempDir()
+				dataDir := filepath.Join(home, "data")
+				require.NoError(t, os.Mkdir(dataDir, 0o700))
 
-			writer, err := dbm.NewDB(applicationDBName, backend, dataDir)
-			require.NoError(t, err)
-			emptyRoot := sha256.Sum256(nil)
-			expected := seedPhysicalFixture(t, writer, 42, nil, nil, emptyRoot[:])
-			require.NoError(t, writer.Close())
-			before := directoryContentDigest(t, filepath.Join(dataDir, "application.db"))
-
-			reader, err := openCopiedApplicationDB(home, string(backend))
-			require.NoError(t, err)
-			got, err := auditApplicationDB(reader, expected)
-			require.NoError(t, err)
-			require.Contains(t, string(got), `"schema":"`+planInfoSchema+`"`)
-
-			switch typed := reader.(type) {
-			case *dbm.GoLevelDB:
-				require.Error(t, typed.Set([]byte("must-not-write"), []byte("value")))
-			case *pebbleReadDB:
-				require.Error(
-					t,
-					typed.db.Set([]byte("must-not-write"), []byte("value"), pebble.Sync),
+				writer, err := dbm.NewDB(applicationDBName, backend, dataDir)
+				require.NoError(t, err)
+				root := rootmulti.NewStore(
+					writer,
+					log.NewNopLogger(),
+					metrics.NewNoOpMetrics(),
 				)
-			default:
-				t.Fatalf("unexpected read-only backend type %T", reader)
-			}
-			require.NoError(t, reader.Close())
+				root.SetIAVLSyncPruning(true)
+				root.SetIAVLDisableFastNode(true)
+				ibcKey := storetypes.NewKVStoreKey("ibc")
+				root.MountStoreWithDB(ibcKey, storetypes.StoreTypeIAVL, nil)
+				require.NoError(t, root.LoadLatestVersion())
 
-			after := directoryContentDigest(t, filepath.Join(dataDir, "application.db"))
-			require.Equal(t, before, after)
-		})
+				for _, key := range testCase.keys {
+					root.GetKVStore(ibcKey).Set(
+						key,
+						append([]byte("value:"), key...),
+					)
+				}
+				for _, key := range testCase.initialOnlyKeys {
+					root.GetKVStore(ibcKey).Set(
+						key,
+						append([]byte("value:"), key...),
+					)
+				}
+				commitID := root.Commit()
+				switch {
+				case len(testCase.initialOnlyKeys) != 0:
+					for _, key := range testCase.initialOnlyKeys {
+						root.GetKVStore(ibcKey).Delete(key)
+					}
+					commitID = root.Commit()
+
+				case testCase.referenceHeight:
+					firstIBCCommit := root.GetCommitKVStore(ibcKey).LastCommitID()
+					commitID = root.Commit()
+					secondIBCCommit := root.GetCommitKVStore(ibcKey).LastCommitID()
+					require.Equal(t, int64(2), commitID.Version)
+					require.Equal(t, firstIBCCommit.Hash, secondIBCCommit.Hash)
+
+				case testCase.pruneHistory:
+					historyKey := []byte("transient-history/key")
+					root.GetKVStore(ibcKey).Set(historyKey, []byte("version-two"))
+					_ = root.Commit()
+					root.GetKVStore(ibcKey).Delete(historyKey)
+					commitID = root.Commit()
+					require.Equal(t, int64(3), commitID.Version)
+					require.NoError(t, root.PruneStores(2))
+
+					versioned := root.GetCommitKVStore(ibcKey).(interface {
+						VersionExists(int64) bool
+						GetAllVersions() []int
+					})
+					require.False(t, versioned.VersionExists(1))
+					require.False(t, versioned.VersionExists(2))
+					require.True(t, versioned.VersionExists(3))
+					require.Equal(t, []int{3}, versioned.GetAllVersions())
+				}
+				require.Len(t, commitID.Hash, 32)
+				require.NoError(t, writer.Close())
+
+				dbPath := filepath.Join(dataDir, applicationDBName+dbm.DBFileSuffix)
+				before := directoryContentDigest(t, dbPath)
+				reader, err := openCopiedApplicationDB(home, string(backend))
+				require.NoError(t, err)
+
+				storageVersion, err := reader.Get(
+					[]byte(ibcPhysicalStorePrefix + "mstorage_version"),
+				)
+				require.NoError(t, err)
+				require.Nil(t, storageVersion)
+				fastNode, err := reader.Get(
+					[]byte(ibcPhysicalStorePrefix + "fchannelUpgrades/a"),
+				)
+				require.NoError(t, err)
+				require.Nil(t, fastNode)
+
+				expected := expectedEvidence{
+					Height:  commitID.Version,
+					AppHash: commitID.Hash,
+				}
+				got, err := auditApplicationDB(reader, expected)
+				require.NoError(t, err)
+
+				var channelKeys, pruningKeys [][]byte
+				for _, key := range testCase.keys {
+					switch {
+					case len(key) >= len(channelUpgradesLogicalPrefix) &&
+						string(key[:len(channelUpgradesLogicalPrefix)]) ==
+							channelUpgradesLogicalPrefix:
+						channelKeys = append(channelKeys, key)
+					case len(key) >= len(pruningSequenceLogicalPrefix) &&
+						string(key[:len(pruningSequenceLogicalPrefix)]) ==
+							pruningSequenceLogicalPrefix:
+						pruningKeys = append(pruningKeys, key)
+					}
+				}
+				want, err := buildPlanInfo(channelKeys, pruningKeys)
+				require.NoError(t, err)
+				require.Equal(t, string(want), string(got))
+
+				switch typed := reader.(type) {
+				case *dbm.GoLevelDB:
+					require.Error(
+						t,
+						typed.Set([]byte("must-not-write"), []byte("value")),
+					)
+				case *pebbleReadDB:
+					require.Error(
+						t,
+						typed.db.Set(
+							[]byte("must-not-write"),
+							[]byte("value"),
+							pebble.Sync,
+						),
+					)
+				default:
+					t.Fatalf("unexpected read-only backend type %T", reader)
+				}
+				require.NoError(t, reader.Close())
+				after := directoryContentDigest(t, dbPath)
+				require.Equal(t, before, after)
+			})
+		}
 	}
-}
-
-func mustGetPhysical(t *testing.T, db physicalDB, key []byte) []byte {
-	t.Helper()
-	value, err := db.Get(key)
-	require.NoError(t, err)
-	require.NotNil(t, value)
-	return value
 }
 
 func TestOpenCopiedApplicationDBRejectsUnsafePaths(t *testing.T) {
@@ -154,6 +223,26 @@ func TestOpenCopiedApplicationDBRejectsUnsafePaths(t *testing.T) {
 	_, err = openCopiedApplicationDB(homeWithLinkedData, "goleveldb")
 	require.ErrorContains(t, err, "data directory")
 	require.ErrorContains(t, err, "symlink")
+}
+
+func TestOpenCopiedApplicationDBRejectsIntermediateAliasToLiveHome(t *testing.T) {
+	fakeUserHome := t.TempDir()
+	require.NoError(
+		t,
+		os.Mkdir(filepath.Join(fakeUserHome, ".zeroned"), 0o700),
+	)
+	t.Setenv("HOME", fakeUserHome)
+
+	aliasParent := t.TempDir()
+	userHomeAlias := filepath.Join(aliasParent, "user-home-alias")
+	require.NoError(t, os.Symlink(fakeUserHome, userHomeAlias))
+
+	_, err := openCopiedApplicationDB(
+		filepath.Join(userHomeAlias, ".zeroned"),
+		"goleveldb",
+	)
+	require.ErrorContains(t, err, "resolved alias")
+	require.ErrorContains(t, err, "default live home")
 }
 
 func directoryContentDigest(t *testing.T, root string) string {

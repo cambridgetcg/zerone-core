@@ -27,10 +27,11 @@ The tool never calls a database write API. The copy remains mandatory: it
 provides a stable point-in-time source, prevents races with a running process,
 and contains the operational consequences of backend/version incompatibility.
 The command rejects Zerone's default `~/.zeroned` home, every descendant of
-that home (including localnet validator homes), and symlinks at the supplied
-home, `data`, or `data/application.db` boundary. A custom live home cannot be
-identified mechanically; the `--copied-db` attestation is a hard operational
-boundary, not a claim that the tool can detect a dishonest path.
+that home (including aliases reached through an intermediate symlink and
+localnet validator homes), and symlinks at the supplied home, `data`, or
+`data/application.db` boundary. A custom live home cannot be identified
+mechanically; the `--copied-db` attestation is a hard operational boundary,
+not a claim that the tool can detect a dishonest path.
 
 ## Evidence required
 
@@ -46,6 +47,9 @@ response whose `last_block_height` is `H` and whose `last_block_app_hash` is
 the supplied hash. A light-client-verified block header at `H+1` also commits
 state `H` when such a header exists. Do **not** use the `app_hash` carried by a
 block header or status record at height `H`; that field commits state `H-1`.
+Comet's JSON response commonly renders `last_block_app_hash` bytes as base64;
+decode those bytes and render the 32-byte result as 64 hexadecimal characters
+(preferably lowercase) for `--expected-app-hash`.
 
 The tool verifies all of the following before emitting anything:
 
@@ -53,9 +57,11 @@ The tool verifies all of the following before emitting anything:
 2. root `s/<height>` decodes as matching `CommitInfo`;
 3. the computed multistore root equals `--expected-app-hash`;
 4. the commit contains exactly one `ibc` store committed at that height;
-5. `s/k:ibc/mstorage_version` is exactly `1.1.0-<height>`, proving the IBC
-   IAVL fast index claims synchronization with the copied root; and
-6. those three root/metadata records are byte-identical after the scan.
+5. a nonempty regular IAVL state under the exact physical prefix `s/k:ibc/`
+   loads at exactly that height and hashes to the IBC `CommitID` (the canonical
+   empty IAVL commitment is handled directly); and
+6. the root latest-version and commit-info records are byte-identical after
+   the scan.
 
 Obtain the ABCI height/hash evidence through the validator ceremony's
 independently recorded halted-height checkpoint. Do not derive the "trusted"
@@ -82,17 +88,35 @@ Copy that exact line into the governance upgrade plan's `Info` field. Height
 and app hash are deliberately verified as external evidence and are not added
 to the consensus schema.
 
-## Exact raw scan
+## Authoritative regular-IAVL scan
 
-The census reads only these physical fast-node domains:
+Zerone's validator configuration sets `iavl-disable-fastnode = true`. This
+tool therefore does not require, inspect, create, or rebuild IAVL fast
+storage. It wraps the copied database in a mutation-rejecting adapter, applies
+the exact `s/k:ibc/` physical prefix, and loads the committed height with
+`skipFastStorageUpgrade=true`.
 
-- `s/k:ibc/fchannelUpgrades/`
-- `s/k:ibc/fpruningSequenceStart/`
+IAVL's canonical empty root is `SHA256(empty)`. When the externally attested
+root `CommitInfo` binds the IBC store to that exact hash, the logical tree has
+zero leaves and both manifest domains are necessarily empty. The tool emits
+the empty keysets directly. This is backend-independent: an untouched store
+may have no loadable physical IAVL version, while a store emptied after prior
+use may retain legitimate historical records.
 
-It strips only the physical `s/k:ibc/f` prefix, leaving each complete logical
-key (including `channelUpgrades/` or `pruningSequenceStart/`). Each fast-node
-value must have canonical IAVL encoding and a last-update version from `1`
-through the copied root height.
+IAVL v1.2.2's ordinary iterator can silently stop after a child-load error, so
+`Iterator.Error` alone is not a completeness guarantee. The tool compensates
+for every nonempty committed IBC root by:
+
+1. binding the loaded tree hash and version to the root `CommitInfo`;
+2. streaming the **entire** IBC tree in strict unique byte order;
+3. requiring the number of emitted leaves to equal the tree's root-bound
+   `Size`; and
+4. generating and directly verifying an ICS23 IAVL membership proof for every
+   emitted key/value against the committed IBC root.
+
+Only after those checks does it select the complete logical keys beneath
+`channelUpgrades/` and `pruningSequenceStart/`. Proof-generation panics caused
+by corrupt child reads are recovered as command errors, with no stdout.
 
 For each domain, logical keys are byte-lexicographically sorted and committed
 as:
@@ -106,15 +130,16 @@ The empty-vector digest is
 
 The tool and handler share the same consensus resource limits: at most 100,000
 keys and 32 MiB of aggregate logical key bytes per domain, and at most 2,048
-bytes of canonical `Plan.Info`. The raw reader additionally caps individual
-physical keys at 64 KiB, fast-node values at 64 MiB, total scanned key/value
-input at 1 GiB, root commit metadata at 16 MiB, and mounted stores at 4,096.
-Iterator traversal and close errors both fail the command.
+bytes of canonical `Plan.Info`. The regular-tree reader additionally caps the
+whole IBC store at 5,000,000 leaves, individual logical keys at 64 KiB,
+individual values at 64 MiB, total scanned logical key/value input at 1 GiB,
+root commit metadata at 16 MiB, and mounted stores at 4,096. Iterator
+traversal and close errors both fail the command.
 
 ## What this does not prove
 
-The IAVL storage-version marker is the library's synchronization claim; this
-tool does not rebuild the full IAVL tree from historical nodes. Run the normal
-IBC export census, bilateral packet-clearance procedure, and full old-database
-upgrade/restart rehearsal as separate gates. A successful manifest is not
-authorization to deploy.
+This proves the selected keysets against the copied database's committed IBC
+root; it does not prove that the external height/hash ceremony was honest.
+Run the normal IBC export census, bilateral packet-clearance procedure, and
+full old-database upgrade/restart rehearsal as separate gates. A successful
+manifest is not authorization to deploy.
