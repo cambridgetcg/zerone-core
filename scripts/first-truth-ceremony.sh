@@ -40,6 +40,18 @@ GAS_CLAIM="${GAS_CLAIM:-500000}"
 GAS_COMMIT="${GAS_COMMIT:-200000}"
 GAS_REVEAL="${GAS_REVEAL:-200000}"
 
+# This ceremony creates keys, funds accounts, and broadcasts through the full
+# truth lifecycle. Refuse shared/live chains before creating state or touching
+# a binary, RPC, or REST endpoint.
+case "${CHAIN_ID}" in
+  zerone-localnet|zerone-rehearsal-*) ;;
+  *)
+    printf 'FATAL: refusing shared/live chain ID %s; first-truth ceremony is local-rehearsal-only\n' \
+      "${CHAIN_ID:-unknown}" >&2
+    exit 1
+    ;;
+esac
+
 TXFLAGS=(--chain-id "$CHAIN_ID" --node "$NODE" --keyring-backend "$KEYRING" --home "$HOME_DIR" --gas-prices 1uzrn -y -o json --broadcast-mode sync)
 QFLAGS=(--node "$NODE" -o json)
 
@@ -65,7 +77,10 @@ send_tx() {
   [ "$code" = "0" ] || fail "$label CheckTx rejected (code $code): $(echo "$out" | jq -r '.raw_log')"
   # poll for inclusion
   for _ in $(seq 1 30); do
-    raw=$("$BINARY" q tx "$hash" "${QFLAGS[@]}" 2>/dev/null) && break || sleep 2
+    if raw=$("$BINARY" q tx "$hash" "${QFLAGS[@]}" 2>/dev/null); then
+      break
+    fi
+    sleep 2
   done
   [ -n "${raw:-}" ] || fail "$label: tx $hash never included"
   code=$(echo "$raw" | jq -r '.code')
@@ -129,8 +144,9 @@ for v in $VERIFIERS; do say "verifier:  $v=$(addr_of "$v")"; done
 # ── Phase 1: funding ────────────────────────────────────────────────────
 if [ "${SKIP_FUND:-0}" != "1" ]; then
   say "── funding from $FUNDER"
-  VADDRS=""; for v in $VERIFIERS; do VADDRS="$VADDRS $(addr_of "$v")"; done
-  send_tx fund-verifiers "$GAS_MULTISEND" bank multi-send "$FUNDER" $VADDRS "${VERIFIER_FUND_UZRN}uzrn" --from "$FUNDER" >/dev/null
+  VADDRS=()
+  for v in $VERIFIERS; do VADDRS+=("$(addr_of "$v")"); done
+  send_tx fund-verifiers "$GAS_MULTISEND" bank multi-send "$FUNDER" "${VADDRS[@]}" "${VERIFIER_FUND_UZRN}uzrn" --from "$FUNDER" >/dev/null
   send_tx fund-submitter "$GAS_SEND" bank send "$FUNDER" "$SUB_ADDR" "${SUBMITTER_FUND_UZRN}uzrn" --from "$FUNDER" >/dev/null
 fi
 for v in $VERIFIERS; do
@@ -153,7 +169,7 @@ fi
 # ── Phase 3: submit the claim ───────────────────────────────────────────
 say "── submitting claim"
 H0=$(height)
-TXH=$(send_tx submit-claim "$GAS_CLAIM" knowledge submit-claim "$CONTENT" "$DOMAIN" "$CATEGORY" "$FEE_UZRN" --claim-type assertion --from "$SUBMITTER")
+send_tx submit-claim "$GAS_CLAIM" knowledge submit-claim "$CONTENT" "$DOMAIN" "$CATEGORY" "$FEE_UZRN" --claim-type assertion --from "$SUBMITTER" >/dev/null
 TXJ="$STATE_DIR/tx-submit-claim.json"
 CLAIM_ID=$(jq -r '[.events[] | select(.type|test("submit_claim")) | .attributes[] | select(.key|test("claim_id"))][0].value // empty' "$TXJ")
 ROUND_ID=$(jq -r '[.events[] | select(.type|test("verification_round|round_created")) | .attributes[] | select(.key|test("round_id"))][0].value // empty' "$TXJ")

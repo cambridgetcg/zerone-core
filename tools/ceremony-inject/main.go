@@ -3,12 +3,11 @@
 // x/work_creed inception sub-creed pins, and the substrate_bridge
 // agenttool-invocation-v1 adapter pre-registration.
 //
-// Doctrine: docs/plans/2026-07-07-mainnet-genesis-design.md §2 — the canon
-// chain must not boot without its creed pinned at block 0, and the
-// agenttool adapter enters ACTIVE at genesis (InitGenesis→WriteAdapter, no
-// LIP). Building the pin through creedtypes.BuildGenesisCreed and
-// app.LoadInceptionSubCreedPins means the injected registry is the exact
-// one the binary ships — a hand-maintained jq copy would drift.
+// The creed subcommand is an optional ceremony transformation; application
+// startup does not run it. Published zerone-1 did not use it. It builds
+// candidate source-hash pins through creedtypes.BuildGenesisCreed and
+// app.LoadInceptionSubCreedPins. The adapter subcommand separately prepares a
+// genesis adapter entry.
 //
 // Usage:
 //

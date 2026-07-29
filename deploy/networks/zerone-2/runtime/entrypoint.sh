@@ -320,7 +320,7 @@ configure_home() {
   require_regular_file "${config}" config.toml
   require_regular_file "${app}" app.toml
 
-  toml_set_root minimum-gas-prices '"0.025uzrn"' "${app}"
+  toml_set_root minimum-gas-prices '"1uzrn"' "${app}"
   toml_set_root pruning '"default"' "${app}"
   toml_set_root iavl-disable-fastnode true "${app}"
   toml_set_root priv_validator_laddr '""' "${config}"
@@ -596,4 +596,4 @@ unset VALIDATOR_KEY_B64 NODE_KEY_B64 PRIV_VALIDATOR_KEY_B64 \
   BOOTSTRAP_VALIDATOR_KEY_B64 BOOTSTRAP_NODE_KEY_B64 \
   BOOTSTRAP_LEGACY_VALIDATOR_KEY_B64
 
-exec "${BINARY}" start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn
+exec "${BINARY}" start --home "${HOME_DIR}" --minimum-gas-prices 1uzrn

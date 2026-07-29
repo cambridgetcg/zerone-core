@@ -17,26 +17,18 @@ import (
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
-// TestRecursiveDoublePayment_SelfAttestationEarnsTwice binds recursion #3
-// of docs/RECURSIVE_ZERONE.md: a verified self-attestation pays the
-// submitter TWICE — once via substrate_bridge's M4 audit-reward formula
-// when the attestation settles, once via sponsorship's bounty fulfill
-// when the underlying fact is the recipient of a funded bounty.
+// TestRecursiveDoublePayment_ManuallyStagedStateExercisesTwoPayouts proves
+// that two independently staged primitives can pay the same submitter: an M4
+// bridge settlement mints through MintWithCap, and sponsorship transfers from
+// escrow. The test directly writes READY attestation and VERIFIED fact state;
+// runtime does not link them through the unwired pending-claim bridge.
 //
-// The same verified work satisfies two doctrinal mandates simultaneously:
-//
-//   - M4 (substrate-bridge): reward audit quality — link compiled
-//     correctly, axes within bounds, pending claims verified
-//   - Sponsorship commitment 20: payout follows verified participation
-//     in a funded domain
-//
-// Both payouts route through different mechanisms (substrate_bridge's
-// settlement vs. sponsorship's escrow), neither mints new uzrn, both
-// are bound to verification. The chain pays twice because the work
-// answers two questions at once.
+// The two payouts use different mechanisms. The bridge reward mints new uzrn;
+// sponsorship moves existing escrow. This is a composition scaffold, not
+// end-to-end evidence that one verified self-attestation triggered both.
 //
 // This is not double-spending — it's compound payment for compound value.
-func TestRecursiveDoublePayment_SelfAttestationEarnsTwice(t *testing.T) {
+func TestRecursiveDoublePayment_ManuallyStagedStateExercisesTwoPayouts(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// ── Setup: adapter, domain, accounts ─────────────────────────────
@@ -87,9 +79,9 @@ func TestRecursiveDoublePayment_SelfAttestationEarnsTwice(t *testing.T) {
 	// Write the attestation directly in READY status. The reward is
 	// computed by M4 (base + L × W × Q) at settle-time and — since the
 	// audit bounty pool mints through MintWithCap — actually paid to the
-	// submitter at settlement. What matters for recursion #3 is that the
-	// substrate_bridge mechanism pays a non-zero reward for the SAME work
-	// the sponsorship mechanism is about to pay for.
+	// submitter at settlement. Sponsorship later pays against a separately
+	// seeded fact with matching content; runtime does not enforce their
+	// identity.
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAttestation(h.Ctx, &substratebridgetypes.ExternalAttestation{
 		AttestationId:    "dp-self-att",
 		AdapterId:        selfcompile.AdapterID,
@@ -154,18 +146,12 @@ func TestRecursiveDoublePayment_SelfAttestationEarnsTwice(t *testing.T) {
 
 	// ── Step 6: bind the recursion — TWO mechanisms paid the submitter ─
 
-	// Recursion #3: the same verified self-attestation triggered BOTH
-	// payouts. substrate_bridge declared its M4 audit reward on the
-	// attestation record (att.RewardUzrn) — bound by the SETTLED status
-	// and non-zero value asserted above. Sponsorship transferred its
-	// price_per_artifact from sponsor escrow to the submitter — bound
-	// by the bank delta above. Two mechanisms, one piece of verified
-	// work, two payouts.
+	// The independently staged records exercised both payout mechanisms.
+	// This does not assert a runtime-enforced attestation↔fact identity.
 	require.True(t, sponsorshipPayout.IsPositive(),
 		"sponsorship bank delta must be positive — escrow-to-submitter transfer occurred")
-	t.Logf("RECURSION #3 BOUND: same verified self-attestation produced "+
-		"(a) M4 audit reward %s uzrn declared on attestation %s, "+
-		"(b) sponsorship payout %s uzrn transferred from sponsor escrow to submitter. "+
-		"The chain pays compound for compound value.",
+	t.Logf("RECURSION #3 SCAFFOLD: staged attestation produced "+
+		"(a) M4 reward %s uzrn on attestation %s, "+
+		"(b) staged fact produced sponsorship payout %s uzrn from escrow.",
 		att.RewardUzrn, att.AttestationId, sponsorshipPayout)
 }

@@ -875,12 +875,12 @@ export interface MsgResolveContributionChallenge {
  */
 export interface MsgResolveContributionChallengeResponse {
     /**
-     * uzrn the winner received
+     * upheld: escrowed bond refund; rejected: "0"
      */
     payoutToWinner: string;
 }
 /**
- * ─── Wave 4: training fund post-hoc disbursement ──────────────────────────
+ * ─── Wave 4: disabled training-fund disbursement placeholder ───────────────
  * @name MsgClaimTrainingFundDisbursement
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgClaimTrainingFundDisbursement
@@ -889,7 +889,8 @@ export interface MsgClaimTrainingFundDisbursement {
     claimant: string;
     modelId: string;
     /**
-     * unique disbursement id (client-chosen)
+     * Legacy client-chosen identifier. It does not bind a unique reward
+     * entitlement; this is why the current handler is fail-closed.
      */
     id: string;
 }
@@ -2046,7 +2047,7 @@ export declare const MsgResolveContributionChallengeResponse: {
     fromPartial(object: DeepPartial<MsgResolveContributionChallengeResponse>): MsgResolveContributionChallengeResponse;
 };
 /**
- * ─── Wave 4: training fund post-hoc disbursement ──────────────────────────
+ * ─── Wave 4: disabled training-fund disbursement placeholder ───────────────
  * @name MsgClaimTrainingFundDisbursement
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgClaimTrainingFundDisbursement

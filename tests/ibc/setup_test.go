@@ -21,6 +21,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsign "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	ibctesting "github.com/cosmos/ibc-go/v8/testing"
 
@@ -42,7 +43,53 @@ func SetupTestingApp() (ibctesting.TestingApp, map[string]json.RawMessage) {
 		true, // loadLatest
 		simtestutil.NewAppOptionsWithFlagHome(os.TempDir()),
 	)
-	return app, app.DefaultGenesis()
+	return &capSafeTestingApp{ZeroneApp: app}, app.DefaultGenesis()
+}
+
+// capSafeTestingApp adapts ibc-go's generic test harness without weakening the
+// production InitChainer. The upstream harness creates ten accounts with
+// 10^19 bond-denom units each, far above ZERONE's 222,222,222 ZRN hard cap.
+// These tests transfer at most 1.5 ZRN at a time, so 10,000 ZRN per generated
+// account leaves ample headroom while keeping authored test genesis supply
+// below the same cap enforced in production.
+type capSafeTestingApp struct {
+	*zeroneapp.ZeroneApp
+}
+
+func (app *capSafeTestingApp) InitChain(req *abci.RequestInitChain) (*abci.ResponseInitChain, error) {
+	var genesisState map[string]json.RawMessage
+	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
+		return nil, fmt.Errorf("decode IBC test genesis: %w", err)
+	}
+
+	var bankGenesis banktypes.GenesisState
+	if err := app.AppCodec().UnmarshalJSON(genesisState[banktypes.ModuleName], &bankGenesis); err != nil {
+		return nil, fmt.Errorf("decode IBC test bank genesis: %w", err)
+	}
+
+	accountBalance := sdkmath.NewInt(10_000_000_000)
+	for balanceIndex := range bankGenesis.Balances {
+		for coinIndex := range bankGenesis.Balances[balanceIndex].Coins {
+			coin := &bankGenesis.Balances[balanceIndex].Coins[coinIndex]
+			if coin.Denom == zeroneapp.BondDenom && coin.Amount.GT(accountBalance) {
+				coin.Amount = accountBalance
+			}
+		}
+	}
+
+	bankJSON, err := app.AppCodec().MarshalJSON(&bankGenesis)
+	if err != nil {
+		return nil, fmt.Errorf("encode cap-safe IBC test bank genesis: %w", err)
+	}
+	genesisState[banktypes.ModuleName] = bankJSON
+	appStateBytes, err := json.Marshal(genesisState)
+	if err != nil {
+		return nil, fmt.Errorf("encode cap-safe IBC test genesis: %w", err)
+	}
+
+	reqCopy := *req
+	reqCopy.AppStateBytes = appStateBytes
+	return app.ZeroneApp.InitChain(&reqCopy)
 }
 
 // IBCTestSuite is the testify suite for IBC integration tests.
@@ -221,13 +268,16 @@ func signTxWithGranter(chain *ibctesting.TestChain, fee sdk.Coins, granter sdk.A
 	return txBuilder.GetTx(), nil
 }
 
-// GetZeroneApp casts a TestChain's app to *ZeroneApp.
+// GetZeroneApp returns the underlying ZeroneApp from the IBC test adapter.
 func GetZeroneApp(chain *ibctesting.TestChain) *zeroneapp.ZeroneApp {
-	app, ok := chain.App.(*zeroneapp.ZeroneApp)
-	if !ok {
-		panic("chain app is not *ZeroneApp")
+	switch app := chain.App.(type) {
+	case *capSafeTestingApp:
+		return app.ZeroneApp
+	case *zeroneapp.ZeroneApp:
+		return app
+	default:
+		panic("chain app is not a ZeroneApp")
 	}
-	return app
 }
 
 // SetupRateLimit configures a rate limit on chainA via the keeper directly.

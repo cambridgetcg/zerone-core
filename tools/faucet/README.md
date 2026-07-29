@@ -1,6 +1,11 @@
-# Zerone Testnet Faucet
+# Zerone Local-Rehearsal Faucet
 
-Lightweight HTTP faucet that distributes testnet ZRN tokens with per-address rate limiting and total supply cap enforcement.
+Lightweight HTTP faucet that distributes disposable drill tokens with
+per-address rate limiting and total supply cap enforcement.
+
+> **Release posture:** this source checkout refuses to start or broadcast for
+> any chain ID except `zerone-localnet` and `zerone-rehearsal-*`. It is not a
+> shared-testnet or mainnet operator packet.
 
 ## Build
 
@@ -25,7 +30,7 @@ All settings are via environment variables.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `FAUCET_HOME` | yes | - | zeroned home directory with keyring |
-| `FAUCET_CHAIN_ID` | yes | - | Chain ID |
+| `FAUCET_CHAIN_ID` | yes | - | `zerone-localnet` or `zerone-rehearsal-*` |
 | `FAUCET_AMOUNT` | no | `100000000` | uzrn per request (100 ZRN) |
 | `FAUCET_COOLDOWN` | no | `24` | Hours between requests per address |
 | `FAUCET_PORT` | no | `8080` | Listen port |

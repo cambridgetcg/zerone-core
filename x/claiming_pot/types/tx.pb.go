@@ -22,6 +22,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// MsgCreatePot is a legacy authority-gated general native-issuance surface.
+// The keeper charges ceil(total_amount / 222,000 uzrn) against the same
+// lifetime budget used by bootstrap admissions. Prefer MsgAddBootstrapEntry
+// for the fixed, one-address participation seed.
 type MsgCreatePot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Authority     string                 `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
@@ -327,18 +331,19 @@ func (*MsgUpdatePotParamsResponse) Descriptor() ([]byte, []int) {
 }
 
 // MsgAddBootstrapEntry adds one or more bootstrap pots to the claiming_pot
-// module after genesis. Authority-gated — the governance account is the
-// only valid signer. Each address gets a single-claimant ClaimingPot sized
+// module after genesis. Authority-gated — either the governance account or
+// configured BootstrapRegistrar may sign. Each address gets a
+// single-claimant ClaimingPot sized
 // PerAgentBootstrapUzrn (0.222 ZRN) at the current block height, instant
 // vest, ACTIVE status, ID = BootstrapPotIDPrefix + addr.
 //
 // Idempotent semantics: addresses with an existing bootstrap pot are
-// silently skipped (counted in skipped_count). Re-running the same LIP
+// silently skipped (counted in skipped_count). Re-running the same request
 // does not double-mint or double-create.
 //
 // Doctrine: commitment 20 (issuance follows participation) extended from
-// "at genesis" to "continuously, governance-gated". The participant set
-// is plural and growing, not closed at genesis.
+// "at genesis" to continuously, bounded authority-gated admission. Registrar
+// batches are rate/cap bounded and the registrar is governance-revocable.
 type MsgAddBootstrapEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Authority     string                 `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`

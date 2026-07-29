@@ -11,6 +11,9 @@ message GenesisState {
 // Params holds the tokens module parameters.
 // All fields default to zero (module is a stub at genesis).
 message Params {
-  uint64 emission_epoch_blocks = 1; // blocks per emission epoch (0 = disabled)
+  // Consensus activation latch for native uzrn EmissionPeriod creation and
+  // processing. 0 disables both. A nonzero value enables the per-block periods;
+  // its numeric epoch cadence is otherwise reserved in current execution.
+  uint64 emission_epoch_blocks = 1;
   string default_fee_bps       = 2; // default swap fee in BPS (unused, reserved)
 }

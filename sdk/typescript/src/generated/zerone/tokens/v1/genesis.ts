@@ -19,7 +19,9 @@ export interface GenesisState {
  */
 export interface Params {
   /**
-   * blocks per emission epoch (0 = disabled)
+   * Consensus activation latch for native uzrn EmissionPeriod creation and
+   * processing. 0 disables both. A nonzero value enables the per-block periods;
+   * its numeric epoch cadence is otherwise reserved in current execution.
    */
   emissionEpochBlocks: bigint;
   /**

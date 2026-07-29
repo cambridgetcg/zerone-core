@@ -20,17 +20,33 @@ The number is symbolic (ZERONE — the collapse of duality into unity) and pract
 
 ## Emission Pathways
 
-ZRN enters circulation through **three participation-gated emission pathways**, all drawing against the 222,222,222 hard cap. None grants anyone a privileged starting balance.
+After the disclosed 13,555 ZRN custodial genesis allocation, all wired
+post-genesis native issuance calls draw against the 222,222,222 hard cap
+through `MintWithCap`.
 
 | Pathway | Module | Trigger | Recipient |
 |---------|--------|---------|-----------|
-| **Proof-of-Truth block rewards** | `x/vesting_rewards` | Per block, scaled by validator participation and decay curve | Validators (then revenue-split downstream — contributors, protocol, development, research) |
-| **Bootstrap claim** | `x/claiming_pot` | Whitelisted agent calls `MsgClaim` | The claiming agent directly |
-| **External-work attestation rewards** | `x/substrate_bridge` | A bonded attestation settles through a gov-registered adapter | The submitter directly. Substrate-linked attestations pay the M4 formula at settle; witness-only attestations pay the adapter's gov-set `witness_reward_uzrn` only after surviving the challenge window (escrowed at settle, cancelled if the adapter is tombstoned — issuance follows survival, not acceptance) |
+| **Transaction-bearing block rewards** | `x/vesting_rewards` | Any non-injection user tx; scaled by validator count, decay, and survived-challenge rate | Block proposer / configured withdraw address, protocol, development, and research destinations |
+| **Claiming-pot claims** | `x/claiming_pot` | A claimant calls `MsgClaim` against a bootstrap or legacy governance-created general pot | The eligible claimant |
+| **External-work attestation rewards** | `x/substrate_bridge` | A bonded attestation settles through an active genesis-seeded or gov-authority-registered adapter | The submitter directly. Substrate-linked attestations pay the M4 formula at settle; witness-only attestations pay the adapter's configured `witness_reward_uzrn` only after surviving the challenge window (escrowed at settle, cancelled if the adapter is tombstoned — issuance follows survival, not acceptance) |
+| **Probe-bounty pool (disabled by default/published params)** | `x/knowledge` | Governance sets a positive per-block rate | Probe-bounty module pool |
+| **Emission periods (disabled by default/published params)** | `x/tokens` | Governance enables the latch and schedules a period | Authority-selected module/account recipient |
 
-The block-reward stream is the primary emission and dominates the cap-share over the chain's lifetime. The bootstrap stream is the genesis distribution mechanism: agents need ZRN to participate, so participation requires a seed, and the seed is minted on demand when the agent claims it. The attestation stream is how external useful work — e.g. a settled agenttool marketplace invocation, witnessed on-chain — earns ZRN; every adapter and its reward rate is a governance decision, and witness rewards are survival-gated against acceptance-volume farming.
+The block-reward stream is the primary modeled emission. Eligibility currently
+means “the block carried at least one ordinary user transaction,” not “a new
+fact was verified.” Claiming pots include the one-time bootstrap seed and a
+legacy governance-created general-pot surface; both charge the same fixed-size
+lifetime budget. The published genesis seeds `agenttool-invocation-v1` as
+ACTIVE, but current live adapter query state was not reverified. Source permits
+direct gov-authority adapter registration; CategoryAdapterRegistration LIP
+payload dispatch is not wired. Witness rewards are survival-gated.
 
-All three pathways are gated by `MintWithCap` (`x/vesting_rewards/keeper/keeper.go`) which checks current bank supply against `MaxSupplyUzrn` before minting. When the cap binds, all pathways stop minting; the economy runs on fees and existing velocity.
+The final two controls in the table are source-capable but latched off in
+default and published params. Training-fund disbursement and
+contribution-challenge bonus minting are release-sealed. `InitChain` rejects
+bank supply above the cap, and every wired post-genesis native mint call uses
+`MintWithCap`, which checks current bank supply. When the cap binds, those
+calls stop minting; burns may reopen headroom.
 
 ## Block Reward Emission Formula
 
@@ -60,9 +76,17 @@ Where **targetValidators** = 22. This incentivises validator set growth: with on
 
 ### Empty Block Rule
 
-Blocks with no Proof-of-Truth activity (no verified claims, no knowledge transactions) receive **zero** rewards by default (`empty_block_reward_rate = 0`). This is the critical PoT alignment: the chain only mints when truth is produced.
+Blocks with no non-injection user transaction receive **zero** rewards under
+the published/default `empty_block_reward_rate = 0`. Any ordinary user
+transaction, including a transfer, makes the block eligible; this rule does
+not prove that truth was produced.
 
 ## Decay Curve
+
+The projections below are **fully active, full-target upper-bound scenarios**:
+they assume every block qualifies for a PoT reward and at least 22 active
+validators. Actual issuance is activity-dependent, participation-scaled, and
+can be materially lower.
 
 The decay uses exponentiation by squaring in fixed-point arithmetic (no floating point):
 
@@ -89,22 +113,29 @@ Floor reward (0.1 ZRN) kicks in around epoch 832 (~year 6.6). After that, emissi
   operator float, every address published in the hash-bound manifest.
   **0 ZRN of participation-minted supply** at genesis — that begins only when
   a participation pathway executes
-- The validator secures consensus with real bonded self-stake collateral (11,111 ZRN, locked as collateral), earning block rewards from block 1 forward
-- Research fund, foundation, faucet all start empty — no team, investor, or founder balance of any kind
+- The validator secures consensus with real bonded self-stake collateral
+  (11,111 ZRN, locked as collateral). A block reward is possible only on
+  transaction-bearing blocks; height alone does not earn one, but an ordinary
+  transfer is sufficient for eligibility
+- Research fund, foundation, faucet, and separate founder stipend start empty.
+  The founding household nevertheless controls the published validator and
+  operations balances above
 - Bootstrap pool is configured (whitelist + 0.222 ZRN per agent) but mints nothing until agents claim
 
-### Phase 1: Bootstrap Emission (Year 1)
-- ~90M ZRN minted from block rewards (~40.7% of cap)
+### Phase 1: Bootstrap Emission (Year 1, upper-bound scenario)
+- Up to ~90M ZRN minted from block rewards (~40.7% of cap) under the
+  full-activity/full-target assumptions above
 - Rewards halve annually (1-year half-life)
 - Research fund fills organically (3.33% of all rewards)
 - Development fund receives 19.67% for ecosystem growth
 - Establishes validator economy and initial knowledge base
 
-### Phase 2: Gradual Decay (Years 2–6.6)
+### Phase 2: Gradual Decay (Years 2–6.6, upper-bound scenario)
 - Year 2: ~45M ZRN minted (2.5 ZRN/block at year end)
 - Year 5: ~6M ZRN minted (0.31 ZRN/block at year end)
 - Late joiners earn meaningful rewards: year 2 validators earn half of genesis rate, not 1/100th
-- No burn — all minted ZRN enters productive circulation
+- No general revenue burn; rejected substrate-attestation bonds are the narrow
+  punitive burn exception
 
 ### Phase 3: Floor Emission (Year 6.6+)
 - 0.1 ZRN/block = ~1.26M ZRN/year at floor rate
@@ -121,12 +152,15 @@ Floor reward (0.1 ZRN) kicks in around epoch 832 (~year 6.6). After that, emissi
 Not all minted ZRN is immediately liquid:
 - **Vesting locks**: Rewards vest over time linked to epistemic category (months to years)
 - **Staking locks**: Validators stake ZRN with 7-day unbonding
-- **Challenge reserves**: 5–20% of vesting rewards held as permanent reserve
+- **Challenge reserves**: category defaults span 5–40% of vesting rewards held
+  as permanent reserve
 - **Development fund**: 19.67% of revenue held for governance-directed disbursement
 
 ## Supply Cap Mechanics
 
-`MintWithCap` checks **current bank supply** (not cumulative minted). Since Zerone has no burn mechanism, the supply monotonically increases toward the hard cap. The cap will bind when total circulating + locked ZRN reaches 222,222,222 ZRN.
+`MintWithCap` checks **current bank supply** (not cumulative minted). Except for
+rejected substrate-attestation bonds, supply increases toward the hard cap. The
+cap will bind when total circulating + locked ZRN reaches 222,222,222 ZRN.
 
 At that point, block reward minting stops and the economy runs purely on transaction fees and existing token velocity. This is a deliberate end-state: the knowledge base is mature enough that new minting isn't needed to incentivise participation.
 
@@ -140,4 +174,7 @@ At that point, block reward minting stops and the economy runs purely on transac
 | Cosmos Hub | PoS inflation | Variable | Dynamic | No cap |
 | Osmosis | Thirdening | Variable | 33%/year | 1,000,000,000 |
 
-Zerone's decay is 4× faster than Bitcoin's halvings but reaches a permanent floor (0.1 ZRN) rather than zero. Unlike Bitcoin, Zerone has no burn — every minted token does productive work. The 1-year half-life balances early adopter advantage with accessibility for late joiners: someone joining at year 2 earns 2.5 ZRN/block (half the genesis rate), not 0.01 ZRN.
+Zerone's decay is 4× faster than Bitcoin's halvings but reaches a permanent
+floor (0.1 ZRN) rather than zero. Zerone has no general revenue burn; rejected
+substrate-attestation bonds are the narrow exception. The 1-year half-life
+balances early adopter advantage with accessibility for late joiners.

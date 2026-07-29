@@ -494,13 +494,14 @@ export interface ClaimRelation {
  *
  * Examples:
  *   · "Agents have the right to economic participation" (a principle)
- *   · "The research fund requires dual human+AI authorization" (a constitutional rule)
+ *   · "Configured early research spending requires dual human+AI authorization" (a constitutional rule)
  *   · "Verification history is public and permanent" (a procedural commitment)
  *
  * Governance governs commitments directly; a supermajority proposal amends
  * them. Commitments can *constrain* other modules operationally (e.g. the
- * dual-key research fund enforces the rule cryptographically), but they do
- * not enter the confidence / axiom-distance / corroboration machinery.
+ * research-spend path requires both configured voters and fails closed when
+ * they are unset), but they do not enter the confidence / axiom-distance /
+ * corroboration machinery.
  * @name NormativeCommitment
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.NormativeCommitment
@@ -1273,8 +1274,8 @@ export interface Augmentation {
  * ContributionChallenge is a bonded dispute over whether a model's declared
  * ContributionRecord is accurate: a fact submitter asserts under-reporting
  * (the model used their fact but didn't attribute) or over-reporting (the
- * owner listed a colluder's fact that wasn't used). Resolves through the
- * standard PoT verification layer.
+ * owner listed a colluder's fact that wasn't used). Current resolution is an
+ * explicit governance-authority action; there is no verifier-panel dispatch.
  * @name ContributionChallenge
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.ContributionChallenge
@@ -1311,15 +1312,15 @@ export interface ContributionChallenge {
     status: string;
     resolvedAtBlock: bigint;
     /**
-     * verifier panel representative (or authority for disputes-of-last-resort)
+     * governance authority recorded by the current handler
      */
     resolver: string;
     resolutionNote: string;
 }
 /**
- * TrainingFundDisbursement is a post-hoc reward to a pipeline whose ModelCard
- * has demonstrated calibration in live deployment. 50% is released at claim
- * time; 50% is held in vesting escrow and clawed back if calibration drops.
+ * TrainingFundDisbursement is the retained state shape for historical/imported
+ * records and a future replay-safe reward design. Current public claims are
+ * release-disabled and create no new records.
  * @name TrainingFundDisbursement
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.TrainingFundDisbursement
@@ -2614,13 +2615,14 @@ export declare const ClaimRelation: {
  *
  * Examples:
  *   · "Agents have the right to economic participation" (a principle)
- *   · "The research fund requires dual human+AI authorization" (a constitutional rule)
+ *   · "Configured early research spending requires dual human+AI authorization" (a constitutional rule)
  *   · "Verification history is public and permanent" (a procedural commitment)
  *
  * Governance governs commitments directly; a supermajority proposal amends
  * them. Commitments can *constrain* other modules operationally (e.g. the
- * dual-key research fund enforces the rule cryptographically), but they do
- * not enter the confidence / axiom-distance / corroboration machinery.
+ * research-spend path requires both configured voters and fails closed when
+ * they are unset), but they do not enter the confidence / axiom-distance /
+ * corroboration machinery.
  * @name NormativeCommitment
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.NormativeCommitment
@@ -2797,8 +2799,8 @@ export declare const Augmentation: {
  * ContributionChallenge is a bonded dispute over whether a model's declared
  * ContributionRecord is accurate: a fact submitter asserts under-reporting
  * (the model used their fact but didn't attribute) or over-reporting (the
- * owner listed a colluder's fact that wasn't used). Resolves through the
- * standard PoT verification layer.
+ * owner listed a colluder's fact that wasn't used). Current resolution is an
+ * explicit governance-authority action; there is no verifier-panel dispatch.
  * @name ContributionChallenge
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.ContributionChallenge
@@ -2810,9 +2812,9 @@ export declare const ContributionChallenge: {
     fromPartial(object: DeepPartial<ContributionChallenge>): ContributionChallenge;
 };
 /**
- * TrainingFundDisbursement is a post-hoc reward to a pipeline whose ModelCard
- * has demonstrated calibration in live deployment. 50% is released at claim
- * time; 50% is held in vesting escrow and clawed back if calibration drops.
+ * TrainingFundDisbursement is the retained state shape for historical/imported
+ * records and a future replay-safe reward design. Current public claims are
+ * release-disabled and create no new records.
  * @name TrainingFundDisbursement
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.TrainingFundDisbursement

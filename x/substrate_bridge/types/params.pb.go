@@ -27,13 +27,13 @@ type Params struct {
 	PerPendingClaimBondUzrn           string                 `protobuf:"bytes,2,opt,name=per_pending_claim_bond_uzrn,json=perPendingClaimBondUzrn,proto3" json:"per_pending_claim_bond_uzrn,omitempty"`
 	AttestationMinBondUzrn            string                 `protobuf:"bytes,3,opt,name=attestation_min_bond_uzrn,json=attestationMinBondUzrn,proto3" json:"attestation_min_bond_uzrn,omitempty"`
 	MaxPendingWindowBlocks            uint64                 `protobuf:"varint,4,opt,name=max_pending_window_blocks,json=maxPendingWindowBlocks,proto3" json:"max_pending_window_blocks,omitempty"`
-	PendingClaimRejectionThresholdBps uint32                 `protobuf:"varint,5,opt,name=pending_claim_rejection_threshold_bps,json=pendingClaimRejectionThresholdBps,proto3" json:"pending_claim_rejection_threshold_bps,omitempty"`
-	MinVerifiedRatioForSettleBps      uint32                 `protobuf:"varint,6,opt,name=min_verified_ratio_for_settle_bps,json=minVerifiedRatioForSettleBps,proto3" json:"min_verified_ratio_for_settle_bps,omitempty"`
-	LineageShareBps                   uint32                 `protobuf:"varint,7,opt,name=lineage_share_bps,json=lineageShareBps,proto3" json:"lineage_share_bps,omitempty"`
-	DecayBpsPerHop                    uint32                 `protobuf:"varint,8,opt,name=decay_bps_per_hop,json=decayBpsPerHop,proto3" json:"decay_bps_per_hop,omitempty"`
+	PendingClaimRejectionThresholdBps uint32                 `protobuf:"varint,5,opt,name=pending_claim_rejection_threshold_bps,json=pendingClaimRejectionThresholdBps,proto3" json:"pending_claim_rejection_threshold_bps,omitempty"` // 10,000 scale: 10,000 = 100%
+	MinVerifiedRatioForSettleBps      uint32                 `protobuf:"varint,6,opt,name=min_verified_ratio_for_settle_bps,json=minVerifiedRatioForSettleBps,proto3" json:"min_verified_ratio_for_settle_bps,omitempty"`              // 10,000 scale
+	LineageShareBps                   uint32                 `protobuf:"varint,7,opt,name=lineage_share_bps,json=lineageShareBps,proto3" json:"lineage_share_bps,omitempty"`                                                           // 10,000 scale
+	DecayBpsPerHop                    uint32                 `protobuf:"varint,8,opt,name=decay_bps_per_hop,json=decayBpsPerHop,proto3" json:"decay_bps_per_hop,omitempty"`                                                            // 10,000 scale
 	MaxPropagationDepth               uint32                 `protobuf:"varint,9,opt,name=max_propagation_depth,json=maxPropagationDepth,proto3" json:"max_propagation_depth,omitempty"`
 	MinPropagationUzrn                string                 `protobuf:"bytes,10,opt,name=min_propagation_uzrn,json=minPropagationUzrn,proto3" json:"min_propagation_uzrn,omitempty"`
-	SelfCitationCapBps                uint32                 `protobuf:"varint,11,opt,name=self_citation_cap_bps,json=selfCitationCapBps,proto3" json:"self_citation_cap_bps,omitempty"`
+	SelfCitationCapBps                uint32                 `protobuf:"varint,11,opt,name=self_citation_cap_bps,json=selfCitationCapBps,proto3" json:"self_citation_cap_bps,omitempty"` // 10,000 scale
 	// Blocks between a witness-only settlement and its reward release.
 	// The escrow's challenge window: tombstoning the adapter inside it
 	// cancels pending rewards. 0 falls back to a ~1-day defensive default.

@@ -13,7 +13,7 @@
   request message types across 20 Zerone `Msg` services.
 - The protobuf-generated Swagger document is the API inventory of record:
   [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json) currently contains
-  214 paths and 438 definitions.
+  215 paths and 440 definitions.
 - The truth-seeking creed contains 20 commitments, and the ToK substrate
   doctrine contains TC0–TC6. Their executable bindings remain the authority
   over prose summaries.

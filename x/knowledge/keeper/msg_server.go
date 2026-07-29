@@ -614,6 +614,13 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	if err := msg.Params.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
+	current, err := m.keeper.GetParams(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load current params: %w", err)
+	}
+	if err := types.ValidateRuntimeParamChange(current, msg.Params); err != nil {
+		return nil, fmt.Errorf("invalid runtime param change: %w", err)
+	}
 	if err := m.keeper.SetParams(ctx, msg.Params); err != nil {
 		return nil, err
 	}

@@ -82,16 +82,16 @@ func (CitationType) EnumDescriptor() ([]byte, []int) {
 	return file_zerone_substrate_bridge_v1_types_proto_rawDescGZIP(), []int{0}
 }
 
-// ExternalSource is a typed reference to off-chain content that an
-// adapter has fetched. The content_hash is the cryptographic anchor:
-// substrate-link re-derivation matches if and only if the source's
-// content_hash matches what the adapter binary produced.
+// ExternalSource is caller-declared off-chain provenance. Consensus requires
+// adapter_id to match the enclosing link and content_hash to have SHA-256
+// width. It does not fetch external content, execute an adapter/compiler, or
+// verify the declared digest against external bytes.
 type ExternalSource struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	AdapterId      string                 `protobuf:"bytes,1,opt,name=adapter_id,json=adapterId,proto3" json:"adapter_id,omitempty"`
 	SourceId       string                 `protobuf:"bytes,2,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`          // e.g. Wikipedia article ID
 	SourceUrl      string                 `protobuf:"bytes,3,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`       // optional; for audit
-	ContentHash    []byte                 `protobuf:"bytes,4,opt,name=content_hash,json=contentHash,proto3" json:"content_hash,omitempty"` // sha256 of fetched content
+	ContentHash    []byte                 `protobuf:"bytes,4,opt,name=content_hash,json=contentHash,proto3" json:"content_hash,omitempty"` // declared SHA-256 digest; width checked only
 	FetchedAtBlock uint64                 `protobuf:"varint,5,opt,name=fetched_at_block,json=fetchedAtBlock,proto3" json:"fetched_at_block,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

@@ -19,23 +19,16 @@ import (
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
-// TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound runs the
-// full self-sponsorship economic loop and asserts that every event
-// emitted by every msg in the trail carries either a `creed_commitment`
+// TestRecursiveVoiceAudit_StagedRecursionEventsCarryDoctrineAttributes runs a
+// staged cited-fact/sponsorship composition and asserts that each selected
+// sponsorship/bridge event carries either a `creed_commitment`
 // attribute (truth-seeking-bound) or a `useful_work_commitment` /
 // `mechanism` attribute (UW-bound), or both.
 //
-// This is the recursion that audits the chain's voice: every event the
-// chain emits as part of the self-sponsorship recursion must name the
-// doctrine it preserves. An event without a doctrine attribute is a
-// silent event, and silent events break commitment 9 (a penalty that
-// nobody reads is not a penalty) extended to: an emission that nobody
-// can categorize is an emission that does not testify.
-//
-// If a future change to any keeper drops a doctrine attribute from an
-// event, this test fails on the next run of the full loop. Voice-layer
-// doctrine binding is structural.
-func TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound(t *testing.T) {
+// The assertion is intentionally scoped to the selected sponsorship and
+// substrate-bridge events in this staged composition. It is not a universal
+// audit of every chain event or of the unwired pending-claim loop.
+func TestRecursiveVoiceAudit_StagedRecursionEventsCarryDoctrineAttributes(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Setup: adapter, domain, sponsor, submitter.
@@ -84,10 +77,10 @@ func TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound(t *testing.T) {
 	// Stage 2: attestation submission.
 	commitTime, _ := time.Parse(time.RFC3339, "2026-05-11T17:52:35Z")
 	link, err := selfcompile.Compile(selfcompile.CommitMeta{
-		Hash:    "80cf9c0400327e016e41cc9df441371056c958ef",
-		Author:  "YOU <x@x>",
-		Date:    commitTime,
-		Subject: "voice-audit test",
+		Hash:         "80cf9c0400327e016e41cc9df441371056c958ef",
+		Author:       "YOU <x@x>",
+		Date:         commitTime,
+		Subject:      "voice-audit test",
 		TouchedFiles: []string{"x/sponsorship/keeper/msg_server.go"},
 	}, uint64(h.Ctx.BlockHeight()))
 	require.NoError(t, err)
@@ -130,7 +123,7 @@ func TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound(t *testing.T) {
 
 	// ── The audit ────────────────────────────────────────────────────
 
-	// Collect events emitted across the entire loop. Filter to events
+	// Collect and filter the events emitted by this staged composition
 	// from modules participating in this recursion (sponsorship +
 	// substrate_bridge); the harness EventManager also contains events
 	// from setup (bank send, etc.) which are not under our doctrine.

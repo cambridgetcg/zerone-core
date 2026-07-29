@@ -1,14 +1,17 @@
 version: v1
 plugins:
-  - plugin: buf.build/protocolbuffers/go
+  - plugin: buf.build/protocolbuffers/go:v1.36.11
+    revision: 1
     out: ..
     opt:
       - module=github.com/zerone-chain/zerone
-  - plugin: buf.build/grpc/go
+  - plugin: buf.build/grpc/go:v1.6.2
+    revision: 1
     out: ..
     opt:
       - module=github.com/zerone-chain/zerone
-  - plugin: buf.build/grpc-ecosystem/gateway
+  - plugin: buf.build/grpc-ecosystem/gateway:v2.28.0
+    revision: 1
     out: ..
     opt:
       - module=github.com/zerone-chain/zerone

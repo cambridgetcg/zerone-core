@@ -3,12 +3,11 @@
 # check_makefile_hash.sh — verify the Makefile (the chain's build system)
 # has not drifted from .makefile-hash.
 #
-# Mirror of check_phase_1_spec_hash.sh applied to the Makefile.
-# The Makefile is itself a Contribution under PIPELINE_IMPROVEMENT/
-# SUBSTRATE — it defines how the chain is built, what is checked, and
-# what is verified. Hash-anchoring the Makefile extends the same
-# off-chain enforcement the doctrines and specs receive to the build
-# system that gates all of the chain's other checks.
+# Mirror of check_phase_1_spec_hash.sh applied to the Makefile. It defines
+# how the chain is built, what is checked, and what is verified.
+# Hash-anchoring the Makefile extends the same off-chain enforcement the
+# doctrines and specs receive to the build system that gates all of the
+# chain's other checks. It does not create an on-chain Contribution record.
 #
 # UW: ZERONE is recursive — the chain's build tooling is among the work
 # the chain pays for, and the Makefile is hash-bound the same way the
@@ -63,9 +62,9 @@ Actual (computed):          $ACTUAL
 If you intentionally changed the Makefile, update $HASH_FILE to:
   $ACTUAL
 
-The Makefile is itself a Contribution (PIPELINE_IMPROVEMENT/SUBSTRATE).
-The hash bump is the visible signal that the chain's build system has
-shifted, prompting full diff review.
+The Makefile is protected by repository-local hash review; this does not
+imply an on-chain Contribution record. The hash bump is the visible signal
+that the chain's build system has shifted, prompting full diff review.
 EOF
   exit 1
 fi

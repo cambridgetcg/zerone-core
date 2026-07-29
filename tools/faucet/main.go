@@ -1,6 +1,6 @@
-// Package main implements an HTTP faucet server for the ZERONE chain.
+// Package main implements an HTTP faucet server for disposable ZERONE drills.
 //
-// It distributes testnet tokens to valid zrn1... addresses with per-address
+// It distributes rehearsal tokens to valid zrn1... addresses with per-address
 // rate limiting, atomic state persistence, and soft-cap enforcement.
 //
 // Configuration is via environment variables:
@@ -46,6 +46,19 @@ type Config struct {
 	ChainID        string
 	StateFile      string
 	MaxTotal       int64
+}
+
+// validateFaucetChainID is the source-level release guard. A faucet transfers
+// value and exposes a network listener, so this checkout refuses every chain
+// except the repository's disposable local/rehearsal IDs.
+func validateFaucetChainID(chainID string) error {
+	if chainID == "zerone-localnet" || strings.HasPrefix(chainID, "zerone-rehearsal-") {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing shared/live chain ID %q; faucet is local-rehearsal-only",
+		chainID,
+	)
 }
 
 // loadConfig reads configuration from environment variables. FAUCET_HOME and
@@ -170,6 +183,9 @@ func (f *Faucet) saveState() error {
 // sendTokens shells out to zeroned to broadcast a bank send transaction.
 // It returns the tx hash on success.
 func (f *Faucet) sendTokens(toAddr string, amount int64) (string, error) {
+	if err := validateFaucetChainID(f.cfg.ChainID); err != nil {
+		return "", err
+	}
 	amountStr := fmt.Sprintf("%duzrn", amount)
 
 	// #nosec G204 — arguments are validated before reaching here
@@ -300,7 +316,19 @@ func (f *Faucet) handleStats(w http.ResponseWriter, _ *http.Request) {
 func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// 1. Reject non-POST.
+	// 1. Refuse shared/live chains before parsing a request or reaching the
+	// broadcast path. main applies the same guard before opening the listener;
+	// this second check protects direct handler construction and future refactors.
+	if err := validateFaucetChainID(f.cfg.ChainID); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(FaucetResponse{
+			Status: "error",
+			Error:  err.Error(),
+		})
+		return
+	}
+
+	// 2. Reject non-POST.
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		_ = json.NewEncoder(w).Encode(FaucetResponse{
@@ -310,7 +338,7 @@ func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Parse JSON body (limit to 4KB to prevent abuse).
+	// 3. Parse JSON body (limit to 4KB to prevent abuse).
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	var req FaucetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -322,7 +350,7 @@ func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Trim and validate address.
+	// 4. Trim and validate address.
 	req.Address = strings.TrimSpace(req.Address)
 	if !isValidAddress(req.Address) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -333,11 +361,11 @@ func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Acquire mutex — cap check, rate limit, send, and persist are all atomic.
+	// 5. Acquire mutex — cap check, rate limit, send, and persist are all atomic.
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	// 5. Cap check (inside mutex — no data race).
+	// 6. Cap check (inside mutex — no data race).
 	if f.state.TotalDistributed >= f.cfg.MaxTotal {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_ = json.NewEncoder(w).Encode(FaucetResponse{
@@ -347,7 +375,7 @@ func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Rate-limit check (inside mutex — TOCTOU prevention).
+	// 7. Rate-limit check (inside mutex — TOCTOU prevention).
 	if lastStr, ok := f.state.Requests[req.Address]; ok {
 		lastTime, err := time.Parse(time.RFC3339, lastStr)
 		if err == nil {
@@ -365,7 +393,7 @@ func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 7. Send tokens.
+	// 8. Send tokens.
 	txHash, err := f.sendTokens(req.Address, f.cfg.Amount)
 	if err != nil {
 		log.Printf("sendTokens failed for %s: %v", req.Address, err)
@@ -377,16 +405,16 @@ func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 8. Update state.
+	// 9. Update state.
 	f.state.TotalDistributed += f.cfg.Amount
 	f.state.Requests[req.Address] = time.Now().UTC().Format(time.RFC3339)
 
-	// 9. Persist state (atomic write).
+	// 10. Persist state (atomic write).
 	if err := f.saveState(); err != nil {
 		log.Printf("WARNING: failed to persist state: %v", err)
 	}
 
-	// 10 & 11. Log and return success (mutex released by defer).
+	// 11 & 12. Log and return success (mutex released by defer).
 	amountStr := fmt.Sprintf("%duzrn", f.cfg.Amount)
 	log.Printf("Sent %s to %s (tx=%s, total=%d uzrn)", amountStr, req.Address, txHash, f.state.TotalDistributed)
 	_ = json.NewEncoder(w).Encode(FaucetResponse{
@@ -402,6 +430,9 @@ func (f *Faucet) handleFaucet(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	cfg := loadConfig()
+	if err := validateFaucetChainID(cfg.ChainID); err != nil {
+		log.Fatal(err)
+	}
 	state := loadState(cfg.StateFile)
 
 	f := &Faucet{

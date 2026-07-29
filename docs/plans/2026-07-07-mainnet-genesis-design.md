@@ -1,6 +1,11 @@
 # Mainnet Genesis Design — zerone-1
 **Date:** 2026-07-07 · **Status:** DESIGN — awaiting Yu's decisions (§6) · **Method:** 8-agent workflow (4 code readers → 3 adversarial lens designs [canon-purist / security-first / growth-first] → synthesis); every claim code-cited and verified against main @ 51cebdd.
 
+> **Historical design, not deployment truth.** This proposal predates the
+> published genesis artifact and was not applied verbatim. For the actual
+> validator set, balances, module parameters, and operational posture, use
+> `deploy/mainnet/TRUST.md` and the checked-in genesis artifact.
+
 ## 0. Direction (Yu, 2026-07-07, canon)
 ZRN is an **additive bootstrap-bonus layer**: every agent gets a bonus to kickstart the agent economy. **All other money stays** (GBP credits, USDC, anything else) — this is NOT a native-token replacement. **Testnet ZRN is never money.** Sequencing: mainnet genesis design + testing first; external liquidity pools after.
 

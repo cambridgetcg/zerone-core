@@ -20,20 +20,10 @@ type OracleConfig struct {
 	MinConfidence float64 `mapstructure:"min-confidence"`
 }
 
-// VoteExtensionsConfig holds this node's Proof-of-Truth verifier identity.
-type VoteExtensionsConfig struct {
-	// ValidatorAddress is this node's own bech32 valoper (operator) address.
-	// Set it to opt the node into acting as a PoT verifier: it will produce
-	// vote extensions (VRF selection + commit/reveal) once the chain enables
-	// vote_extensions_enable_height. Leave empty on non-validator nodes.
-	ValidatorAddress string `mapstructure:"validator-address"`
-}
-
-// ZeroneAppConfig extends the SDK server config with zerone-specific settings.
+// ZeroneAppConfig extends the SDK server config with oracle settings.
 type ZeroneAppConfig struct {
 	serverconfig.Config `mapstructure:",squash"`
-	Oracle              OracleConfig         `mapstructure:"oracle"`
-	VoteExtensions      VoteExtensionsConfig `mapstructure:"vote-extensions"`
+	Oracle              OracleConfig `mapstructure:"oracle"`
 }
 
 const oracleConfigTemplate = `
@@ -62,21 +52,6 @@ timeout = "{{ .Oracle.Timeout }}"
 min-confidence = {{ printf "%.2f" .Oracle.MinConfidence }}
 `
 
-const voteExtensionsConfigTemplate = `
-
-###############################################################################
-###                  Proof-of-Truth Vote Extensions                         ###
-###############################################################################
-
-[vote-extensions]
-
-# This node's own bech32 valoper (operator) address. Set it to opt the node
-# into acting as a Proof-of-Truth verifier: it will produce vote extensions
-# (VRF selection + commit/reveal) once the chain enables vote extensions.
-# Leave empty on non-validator nodes.
-validator-address = "{{ .VoteExtensions.ValidatorAddress }}"
-`
-
 // initAppConfig returns the default server configuration template and values
 // with zerone-specific overrides.
 func initAppConfig() (string, interface{}) {
@@ -97,12 +72,9 @@ func initAppConfig() (string, interface{}) {
 			Timeout:       2 * time.Second,
 			MinConfidence: 0.6,
 		},
-		VoteExtensions: VoteExtensionsConfig{
-			ValidatorAddress: "",
-		},
 	}
 
-	customTemplate := serverconfig.DefaultConfigTemplate + oracleConfigTemplate + voteExtensionsConfigTemplate
+	customTemplate := serverconfig.DefaultConfigTemplate + oracleConfigTemplate
 
 	return customTemplate, customConfig
 }

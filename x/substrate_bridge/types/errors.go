@@ -29,6 +29,8 @@ var (
 	ErrDedupeNotArmed            = errors.Register(codespace, 25, "external-attestation dedupe is not armed on this node: the substrate-dedupe-v1 migration has not run (plan-less deploy?) — submissions are refused fail-closed rather than risk a replay-mint until the source-ref index is seeded")
 	ErrAdapterAxisBoundsUnset    = errors.Register(codespace, 26, "recursion_weight claimed against an adapter that declares no axis_bounds: weight multiplies the settlement reward, so an unbounded adapter accepts no weighted claim at all (UW + M5) — register bounds before claiming weight")
 	ErrTooManyCitedFacts         = errors.Register(codespace, 27, "cited_facts count exceeds MaxCitedFactsPerLink (UW + M2: each cite is a knowledge read at admission and a settlement-time event in the BeginBlocker drain — bounded, reject-not-truncate)")
+	ErrSourceAdapterIdMismatch   = errors.Register(codespace, 28, "source.adapter_id and link.adapter_id differ — declared provenance must be bound to the submitted adapter")
+	ErrInvalidSourceContentHash  = errors.Register(codespace, 29, "source.content_hash must be exactly 32 bytes — consensus validates declared SHA-256 width, not external content")
 
 	// State machine errors.
 	ErrAttestationNotFound    = errors.Register(codespace, 20, "attestation not found")

@@ -174,7 +174,8 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 		activeValidatorCount = sk.GetActiveValidatorCount(sdkCtx)
 	}
 
-	// Check if block has transactions (PoT: 0% for empty blocks)
+	// Any non-injection user transaction qualifies; ordinary transfers count.
+	// With the published/default zero empty-block rate, empty blocks mint 0.
 	hasTransactions := am.keeper.GetBlockTxCount() > 0 && activeValidatorCount > 0
 
 	dist, err := am.keeper.DistributeBlockReward(sdkCtx, producer, activeValidatorCount, hasTransactions)

@@ -194,7 +194,8 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	// (starvation is not falsification — the same shape as C2), and this handler
 	// resurrects the 47 genesis facts to VERIFIED at full energy with a cleared
 	// at-risk clock. Deterministic single pass; idempotent. No store or proto
-	// change. Doctrine is amended by the creed pin + amendment LIP, never starved.
+	// change. This upgrade does not prove creed-pin adoption or governance;
+	// it only prevents doctrine facts from expiring through metabolism.
 	app.UpgradeKeeper.SetUpgradeHandler(
 		UpgradeNameDoctrineMetabolismExemptV1,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
@@ -333,9 +334,10 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	//   - knowledge probe work is cursor-bounded and K-alpha recognition is
 	//     emitted only for eligible factual survival.
 	//
-	// Existing records need no rewrite. knowledge v5→v6 provides a verifiable
-	// module-version boundary so operators cannot mistake a plain binary restart
-	// for the scheduled activation.
+	// knowledge v5→v6 provides a verifiable module-version boundary. The
+	// claiming_pot v1→v2 migration charges pre-upgrade general pots against the
+	// lifetime issuance budget and reconstructs their monotonic ID counter.
+	// Operators therefore cannot mistake a plain binary restart for activation.
 	app.UpgradeKeeper.SetUpgradeHandler(
 		UpgradeNameConsolidationSafetyV1,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {

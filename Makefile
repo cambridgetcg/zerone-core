@@ -12,8 +12,9 @@ LDFLAGS := -s -w \
            -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
            -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT)
 
-# The Makefile is itself a Substrate Contribution (PIPELINE_IMPROVEMENT/Substrate).
-# Its hash is pinned at .makefile-hash; drift fails make creed-check.
+# The Makefile is a source artifact protected by the repository's off-chain
+# hash discipline. Its hash is pinned at .makefile-hash; drift fails
+# make creed-check. No on-chain Contribution record is implied.
 
 build:
 	mkdir -p build

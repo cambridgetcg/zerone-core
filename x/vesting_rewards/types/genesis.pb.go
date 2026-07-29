@@ -24,12 +24,15 @@ const (
 
 // GenesisState defines the vesting_rewards module's genesis state.
 type GenesisState struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Params           *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	CategoryConfigs  []*CategoryConfig      `protobuf:"bytes,2,rep,name=category_configs,json=categoryConfigs,proto3" json:"category_configs,omitempty"`
-	VestingSchedules []*VestingSchedule     `protobuf:"bytes,3,rep,name=vesting_schedules,json=vestingSchedules,proto3" json:"vesting_schedules,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state                    protoimpl.MessageState     `protogen:"open.v1"`
+	Params                   *Params                    `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	CategoryConfigs          []*CategoryConfig          `protobuf:"bytes,2,rep,name=category_configs,json=categoryConfigs,proto3" json:"category_configs,omitempty"`
+	VestingSchedules         []*VestingSchedule         `protobuf:"bytes,3,rep,name=vesting_schedules,json=vestingSchedules,proto3" json:"vesting_schedules,omitempty"`
+	ClawbackRecords          []*ClawbackRecord          `protobuf:"bytes,4,rep,name=clawback_records,json=clawbackRecords,proto3" json:"clawback_records,omitempty"`
+	BlockRewardDistributions []*BlockRewardDistribution `protobuf:"bytes,5,rep,name=block_reward_distributions,json=blockRewardDistributions,proto3" json:"block_reward_distributions,omitempty"`
+	ClaimScheduleIndexes     []*ClaimScheduleIndex      `protobuf:"bytes,6,rep,name=claim_schedule_indexes,json=claimScheduleIndexes,proto3" json:"claim_schedule_indexes,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -83,12 +86,33 @@ func (x *GenesisState) GetVestingSchedules() []*VestingSchedule {
 	return nil
 }
 
+func (x *GenesisState) GetClawbackRecords() []*ClawbackRecord {
+	if x != nil {
+		return x.ClawbackRecords
+	}
+	return nil
+}
+
+func (x *GenesisState) GetBlockRewardDistributions() []*BlockRewardDistribution {
+	if x != nil {
+		return x.BlockRewardDistributions
+	}
+	return nil
+}
+
+func (x *GenesisState) GetClaimScheduleIndexes() []*ClaimScheduleIndex {
+	if x != nil {
+		return x.ClaimScheduleIndexes
+	}
+	return nil
+}
+
 // Params defines the vesting_rewards module parameters.
 type Params struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Block rewards
 	BlockReward          string `protobuf:"bytes,1,opt,name=block_reward,json=blockReward,proto3" json:"block_reward,omitempty"`                                 // base block reward in uzrn (default: "10000000" = 10 ZRN)
-	RewardDecayBps       uint64 `protobuf:"varint,2,opt,name=reward_decay_bps,json=rewardDecayBps,proto3" json:"reward_decay_bps,omitempty"`                     // per-epoch decay (default: 850,000 = 0.85x on 1M scale)
+	RewardDecayBps       uint64 `protobuf:"varint,2,opt,name=reward_decay_bps,json=rewardDecayBps,proto3" json:"reward_decay_bps,omitempty"`                     // per-epoch decay (default: 994,478 = 0.994478x on 1M scale)
 	BlocksPerRewardEpoch uint64 `protobuf:"varint,3,opt,name=blocks_per_reward_epoch,json=blocksPerRewardEpoch,proto3" json:"blocks_per_reward_epoch,omitempty"` // blocks per decay epoch (default: 100,000)
 	// Revenue split (governance-adjustable)
 	RevenueSplit     *types.RevenueSplit     `protobuf:"bytes,4,opt,name=revenue_split,json=revenueSplit,proto3" json:"revenue_split,omitempty"`
@@ -96,23 +120,29 @@ type Params struct {
 	// Founder share
 	FounderShareBps            uint64 `protobuf:"varint,6,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`                                  // founder's share of research fund (default: 70,000 = 7% on 1M scale)
 	FounderAddress             string `protobuf:"bytes,7,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`                                        // bech32, empty = disabled
-	GovernanceActivationHeight uint64 `protobuf:"varint,8,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"` // DEPRECATED — founder share is governance-immune
-	// Category reward multipliers
+	GovernanceActivationHeight uint64 `protobuf:"varint,8,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"` // DEPRECATED — retained for wire compatibility; not an activation gate
+	// Compatibility-only declarations. Current reward execution does not read
+	// these entries; runtime updates must preserve them.
 	CategoryRewardConfigs []*CategoryRewardConfig `protobuf:"bytes,9,rep,name=category_reward_configs,json=categoryRewardConfigs,proto3" json:"category_reward_configs,omitempty"`
-	// Research fund
-	ResearchFundModuleAccount string `protobuf:"bytes,10,opt,name=research_fund_module_account,json=researchFundModuleAccount,proto3" json:"research_fund_module_account,omitempty"` // module account name for research fund
+	// Compatibility-only. Runtime routes to the compiled research_fund module
+	// account and rejects changing this field.
+	ResearchFundModuleAccount string `protobuf:"bytes,10,opt,name=research_fund_module_account,json=researchFundModuleAccount,proto3" json:"research_fund_module_account,omitempty"`
 	// Vesting parameters
-	VestingEnabled             bool   `protobuf:"varint,11,opt,name=vesting_enabled,json=vestingEnabled,proto3" json:"vesting_enabled,omitempty"`                                           // whether truth-linked vesting is active
-	ReleasedClawbackRate       uint64 `protobuf:"varint,12,opt,name=released_clawback_rate,json=releasedClawbackRate,proto3" json:"released_clawback_rate,omitempty"`                       // bps of released clawed back on falsification (default: 3300 = 33%)
+	// Compatibility-only: not an execution gate; runtime updates must preserve it.
+	VestingEnabled             bool   `protobuf:"varint,11,opt,name=vesting_enabled,json=vestingEnabled,proto3" json:"vesting_enabled,omitempty"`
+	ReleasedClawbackRate       uint64 `protobuf:"varint,12,opt,name=released_clawback_rate,json=releasedClawbackRate,proto3" json:"released_clawback_rate,omitempty"`                       // 10,000 scale: default 3300 = 33% of released value
 	MinValidatorsForFullReward uint32 `protobuf:"varint,13,opt,name=min_validators_for_full_reward,json=minValidatorsForFullReward,proto3" json:"min_validators_for_full_reward,omitempty"` // target validator count for full block reward (default: 22)
-	EmptyBlockRewardRate       uint64 `protobuf:"varint,14,opt,name=empty_block_reward_rate,json=emptyBlockRewardRate,proto3" json:"empty_block_reward_rate,omitempty"`                     // bps of reward for empty blocks (default: 0)
+	EmptyBlockRewardRate       uint64 `protobuf:"varint,14,opt,name=empty_block_reward_rate,json=emptyBlockRewardRate,proto3" json:"empty_block_reward_rate,omitempty"`                     // 10,000 scale: 10,000 = 100%; default 0
 	FloorReward                string `protobuf:"bytes,15,opt,name=floor_reward,json=floorReward,proto3" json:"floor_reward,omitempty"`                                                     // minimum reward per block in uzrn (default: "100000" = 0.1 ZRN)
-	InitialFundBalance         string `protobuf:"bytes,16,opt,name=initial_fund_balance,json=initialFundBalance,proto3" json:"initial_fund_balance,omitempty"`                              // uzrn total fund at genesis (default: "0" = pure PoT)
-	// Knowledge-coupled block reward (T9 / thesis claim 1).
+	// Genesis/import-export TotalMinted bookkeeping only; runtime updates must
+	// preserve it and it is not a spendable fund balance.
+	InitialFundBalance string `protobuf:"bytes,16,opt,name=initial_fund_balance,json=initialFundBalance,proto3" json:"initial_fund_balance,omitempty"`
+	// Survived-challenge-coupled block reward.
 	// When enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).
-	// Below target verification rate → reward decays faster; at target → full reward.
+	// Rate = survived / (survived + disproven); unchallenged facts are excluded.
+	// Below target → reward is reduced; at target → full reward.
 	// 0 target = disabled (backward compat).
-	KnowledgeCouplingTargetBps uint64 `protobuf:"varint,17,opt,name=knowledge_coupling_target_bps,json=knowledgeCouplingTargetBps,proto3" json:"knowledge_coupling_target_bps,omitempty"` // target verification rate in BPS (default: 700,000 = 70%)
+	KnowledgeCouplingTargetBps uint64 `protobuf:"varint,17,opt,name=knowledge_coupling_target_bps,json=knowledgeCouplingTargetBps,proto3" json:"knowledge_coupling_target_bps,omitempty"` // target survived-challenge rate in BPS (default: 700,000 = 70%)
 	KnowledgeCouplingFloorBps  uint64 `protobuf:"varint,18,opt,name=knowledge_coupling_floor_bps,json=knowledgeCouplingFloorBps,proto3" json:"knowledge_coupling_floor_bps,omitempty"`    // minimum reward multiplier in BPS (default: 500,000 = 50%)
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
@@ -331,11 +361,14 @@ var File_zerone_vesting_rewards_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_vesting_rewards_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"'zerone/vesting_rewards/v1/genesis.proto\x12\x19zerone.vesting_rewards.v1\x1a%zerone/vesting_rewards/v1/state.proto\x1a\x1dzerone/common/v1/common.proto\"\xf8\x01\n" +
+	"'zerone/vesting_rewards/v1/genesis.proto\x12\x19zerone.vesting_rewards.v1\x1a%zerone/vesting_rewards/v1/state.proto\x1a\x1dzerone/common/v1/common.proto\"\xa5\x04\n" +
 	"\fGenesisState\x129\n" +
 	"\x06params\x18\x01 \x01(\v2!.zerone.vesting_rewards.v1.ParamsR\x06params\x12T\n" +
 	"\x10category_configs\x18\x02 \x03(\v2).zerone.vesting_rewards.v1.CategoryConfigR\x0fcategoryConfigs\x12W\n" +
-	"\x11vesting_schedules\x18\x03 \x03(\v2*.zerone.vesting_rewards.v1.VestingScheduleR\x10vestingSchedules\"\x97\b\n" +
+	"\x11vesting_schedules\x18\x03 \x03(\v2*.zerone.vesting_rewards.v1.VestingScheduleR\x10vestingSchedules\x12T\n" +
+	"\x10clawback_records\x18\x04 \x03(\v2).zerone.vesting_rewards.v1.ClawbackRecordR\x0fclawbackRecords\x12p\n" +
+	"\x1ablock_reward_distributions\x18\x05 \x03(\v22.zerone.vesting_rewards.v1.BlockRewardDistributionR\x18blockRewardDistributions\x12c\n" +
+	"\x16claim_schedule_indexes\x18\x06 \x03(\v2-.zerone.vesting_rewards.v1.ClaimScheduleIndexR\x14claimScheduleIndexes\"\x97\b\n" +
 	"\x06Params\x12!\n" +
 	"\fblock_reward\x18\x01 \x01(\tR\vblockReward\x12(\n" +
 	"\x10reward_decay_bps\x18\x02 \x01(\x04R\x0erewardDecayBps\x125\n" +
@@ -374,26 +407,32 @@ func file_zerone_vesting_rewards_v1_genesis_proto_rawDescGZIP() []byte {
 
 var file_zerone_vesting_rewards_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_zerone_vesting_rewards_v1_genesis_proto_goTypes = []any{
-	(*GenesisState)(nil),           // 0: zerone.vesting_rewards.v1.GenesisState
-	(*Params)(nil),                 // 1: zerone.vesting_rewards.v1.Params
-	(*CategoryRewardConfig)(nil),   // 2: zerone.vesting_rewards.v1.CategoryRewardConfig
-	(*CategoryConfig)(nil),         // 3: zerone.vesting_rewards.v1.CategoryConfig
-	(*VestingSchedule)(nil),        // 4: zerone.vesting_rewards.v1.VestingSchedule
-	(*types.RevenueSplit)(nil),     // 5: zerone.common.v1.RevenueSplit
-	(*types.ProtocolSubSplit)(nil), // 6: zerone.common.v1.ProtocolSubSplit
+	(*GenesisState)(nil),            // 0: zerone.vesting_rewards.v1.GenesisState
+	(*Params)(nil),                  // 1: zerone.vesting_rewards.v1.Params
+	(*CategoryRewardConfig)(nil),    // 2: zerone.vesting_rewards.v1.CategoryRewardConfig
+	(*CategoryConfig)(nil),          // 3: zerone.vesting_rewards.v1.CategoryConfig
+	(*VestingSchedule)(nil),         // 4: zerone.vesting_rewards.v1.VestingSchedule
+	(*ClawbackRecord)(nil),          // 5: zerone.vesting_rewards.v1.ClawbackRecord
+	(*BlockRewardDistribution)(nil), // 6: zerone.vesting_rewards.v1.BlockRewardDistribution
+	(*ClaimScheduleIndex)(nil),      // 7: zerone.vesting_rewards.v1.ClaimScheduleIndex
+	(*types.RevenueSplit)(nil),      // 8: zerone.common.v1.RevenueSplit
+	(*types.ProtocolSubSplit)(nil),  // 9: zerone.common.v1.ProtocolSubSplit
 }
 var file_zerone_vesting_rewards_v1_genesis_proto_depIdxs = []int32{
 	1, // 0: zerone.vesting_rewards.v1.GenesisState.params:type_name -> zerone.vesting_rewards.v1.Params
 	3, // 1: zerone.vesting_rewards.v1.GenesisState.category_configs:type_name -> zerone.vesting_rewards.v1.CategoryConfig
 	4, // 2: zerone.vesting_rewards.v1.GenesisState.vesting_schedules:type_name -> zerone.vesting_rewards.v1.VestingSchedule
-	5, // 3: zerone.vesting_rewards.v1.Params.revenue_split:type_name -> zerone.common.v1.RevenueSplit
-	6, // 4: zerone.vesting_rewards.v1.Params.protocol_sub_split:type_name -> zerone.common.v1.ProtocolSubSplit
-	2, // 5: zerone.vesting_rewards.v1.Params.category_reward_configs:type_name -> zerone.vesting_rewards.v1.CategoryRewardConfig
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	5, // 3: zerone.vesting_rewards.v1.GenesisState.clawback_records:type_name -> zerone.vesting_rewards.v1.ClawbackRecord
+	6, // 4: zerone.vesting_rewards.v1.GenesisState.block_reward_distributions:type_name -> zerone.vesting_rewards.v1.BlockRewardDistribution
+	7, // 5: zerone.vesting_rewards.v1.GenesisState.claim_schedule_indexes:type_name -> zerone.vesting_rewards.v1.ClaimScheduleIndex
+	8, // 6: zerone.vesting_rewards.v1.Params.revenue_split:type_name -> zerone.common.v1.RevenueSplit
+	9, // 7: zerone.vesting_rewards.v1.Params.protocol_sub_split:type_name -> zerone.common.v1.ProtocolSubSplit
+	2, // 8: zerone.vesting_rewards.v1.Params.category_reward_configs:type_name -> zerone.vesting_rewards.v1.CategoryRewardConfig
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_zerone_vesting_rewards_v1_genesis_proto_init() }

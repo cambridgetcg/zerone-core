@@ -1,593 +1,115 @@
-# Zerone Parameters Reference
+# Zerone Parameter Orientation
 
-> **Source-default note:** The tables document code defaults and development
-> fixtures, not a query-time snapshot of either live network. The live legacy
-> `zerone-testnet-1` deployment predates this consolidation, and current source
-> must not be used to join it before `consolidation-safety-v1` is scheduled.
-> Query an authorised network endpoint for actual on-chain parameters and bind
-> operational decisions to a specific release and height.
+> **Scope:** This is a deliberately small, source-backed orientation—not a
+> complete parameter catalogue and not a live-network snapshot. Defaults,
+> genesis values, and current on-chain values are three different things.
+> Operational decisions must query an authorised network at a bound height and
+> use a release-matched binary.
 
-Complete reference for all governance-adjustable parameters across Zerone's
-parameter-bearing custom modules. All BPS (basis points) values use a
-1,000,000 scale (1,000,000 = 100%). Token amounts are in `uzrn`
+All custom-module BPS values use a 1,000,000 scale unless a field explicitly
+says otherwise. Token amounts are integer strings in `uzrn`
 (1 ZRN = 1,000,000 uzrn).
 
-The chain ships 23 custom modules total; the two pure synthesisers
-(`training_provenance`, `trust_score`) carry no params — they are
-read-only consumers over the modules below.
-
-## Table of Contents
-
-- [staking](#staking)
-- [knowledge](#knowledge)
-- [auth](#auth)
-- [vesting_rewards](#vesting_rewards)
-- [gov](#gov)
-- [ontology](#ontology)
-- [emergency](#emergency)
-- [qualification](#qualification)
-- [capture_defense](#capture_defense)
-- [capture_challenge](#capture_challenge)
-- [alignment](#alignment)
-- [home](#home)
-- [liquiditypool](#liquiditypool)
-- [claiming_pot](#claiming_pot)
-- [counterexamples](#counterexamples)
-- [ibcratelimit](#ibcratelimit)
-- [tokens](#tokens)
-- [Proposing Parameter Changes](#proposing-parameter-changes)
-
----
-
-## staking
-
-Core Proof of Truth validator staking parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `unbonding_period` | uint64 | 268,560 | Unbonding duration in blocks (~7 days) |
-| `virtual_stake` | string | "11000000" (11 ZRN) | Virtual stake for tier 0/1 VRF participation |
-| `max_validators` | uint64 | 100 | Maximum active validators (Scholar+ tiers) |
-| `min_self_delegation` | string | "111000" (0.111 ZRN) | Minimum self-delegation to register |
-| `max_slashes_per_epoch` | uint64 | 2 | Max slashes before deactivation per epoch |
-| `slash_decay_period_blocks` | uint64 | 34,272 | Slash count decay period (~1 day) |
-| `max_slash_count_deactivate` | uint64 | 3 | Cumulative slashes to trigger deactivation |
-| `min_stake_for_verification` | string | "111000" (0.111 ZRN) | Minimum stake to participate in verification |
-| `slash_escalation_bps` | uint64 | 100,000 (10%) | Progressive penalty increase per successive slash |
-| `reputation_correct_delta` | uint64 | 100 (+0.01%) | Reputation increase per correct verification |
-| `reputation_incorrect_delta` | uint64 | 200 (-0.02%) | Reputation decrease per incorrect verification |
-| `reputation_slash_delta` | uint64 | 10,000 (-1%) | Reputation decrease per slash event |
-| `redelegation_cooldown_blocks` | uint64 | 1,111 | Cooldown between redelegations (~46 min) |
-
-### Tier Configurations
-
-Each tier has the following adjustable fields:
-
-| Tier | min_stake | min_reputation | min_verifications | min_accuracy | reward_multiplier_bps | selection_weight_bps | slash_multiplier_bps |
-|------|-----------|----------------|-------------------|-------------|----------------------|---------------------|---------------------|
-| Apprentice | "111000" (0.111 ZRN) | 0 | 0 | 0 | 100 (0.1x) | 100 (0.1x) | 1,500 (1.5x) |
-| Verified | "1110000" (1.11 ZRN) | 770,000 (77%) | 22 | 770,000 (77%) | 500 (0.5x) | 500 (0.5x) | 1,200 (1.2x) |
-| Scholar | "1111000000" (1,111 ZRN) | 500,000 (50%) | 11 | 500,000 (50%) | 1,000 (1.0x) | 1,000 (1.0x) | 1,000 (1.0x) |
-| Guardian | "11111000000" (11,111 ZRN) | 770,000 (77%) | 333 | 770,000 (77%) | 2,000 (2.0x) | 1,500 (1.5x) | 1,000 (1.0x) |
-
----
-
-## knowledge
-
-Proof of Truth knowledge verification parameters — the largest parameter set.
-
-### Core Verification
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_verifiers` | uint64 | 3 | Minimum verifiers per round |
-| `max_verifiers` | uint64 | 22 | Maximum verifiers per round |
-| `commit_phase_blocks` | uint64 | 4 | Duration of commit phase |
-| `reveal_phase_blocks` | uint64 | 4 | Duration of reveal phase |
-| `aggregation_phase_blocks` | uint64 | 3 | Duration of aggregation phase |
-| `claim_cooldown_blocks` | uint64 | 50 | Cooldown between claims by same submitter |
-| `max_validators_per_round` | uint64 | 22 | Max validators selected per verification round |
-
-### Confidence Scoring
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `initial_confidence` | uint64 | 500,000 (50%) | Starting confidence for new claims |
-| `confidence_boost_per_verification` | uint64 | 50,000 (5%) | Confidence increase per verification |
-| `confidence_threshold` | uint64 | 770,000 (77%) | Threshold for claim acceptance |
-| `quorum_threshold` | uint64 | 660,000 (66%) | Minimum participation for valid round |
-| `confidence_growth_epoch` | uint64 | 1,111 | Blocks per confidence growth epoch |
-| `confidence_growth_per_epoch_bps` | uint64 | 11,000 (1.1%) | Confidence growth rate per epoch |
-| `max_survival_confidence` | uint64 | 770,000 (77%) | Max confidence from natural growth |
-| `survived_challenge_confidence_cap` | uint64 | 880,000 (88%) | Max confidence after surviving challenge |
-
-### Slashing (all must be non-zero per B22-3 audit)
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `wrong_verification_slash_bps` | uint64 | 50,000 (5%) | **Penalty for incorrect verification** |
-| `missed_reveal_slash_bps` | uint64 | 100,000 (10%) | **Penalty for missing reveal phase** |
-| `equivocation_slash_bps` | uint64 | 200,000 (20%) | **Penalty for conflicting votes** |
-| `invalid_claim_slash_bps` | uint64 | 220,000 (22%) | **Penalty for invalid claim submission** |
-
-### Rewards
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `verification_reward` | string | "3000000" (3 ZRN) | Reward per correct verification |
-| `verification_reward_decay_bps` | uint64 | 999,000 (0.999x) | Decay rate per epoch |
-
-### Claim Validation
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_claim_text_length` | uint64 | 20 | Minimum claim text length (chars) |
-| `max_claim_text_length` | uint64 | 10,000 | Maximum claim text length (chars) |
-| `min_claim_stake` | string | "1000000" (1 ZRN) | Minimum stake to submit a claim |
-
-### Adversarial Verification
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `adversarial_verification_enabled` | bool | true | Enable adversarial challenge system |
-| `provisional_threshold` | uint64 | 500,000 (50%) | Confidence threshold for provisional status |
-| `reject_threshold` | uint64 | 300,000 (30%) | Confidence below which claims are rejected |
-| `challenge_duration_blocks` | uint64 | 34,272 (~1 day) | Duration of challenge window |
-| `min_challenge_stake` | string | "11000000" (11 ZRN) | Minimum stake to challenge a fact |
-| `failed_challenge_slash_bps` | uint64 | 220,000 (22%) | Penalty for losing a challenge |
-| `successful_challenge_reward_bps` | uint64 | 300,000 (30%) | Reward for winning a challenge |
-| `max_concurrent_challenges` | uint64 | 3 | Max simultaneous challenges per fact |
-
-### Citation Economics
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `citation_share_bps` | uint64 | 150,000 (15%) | Share of rewards to cited fact authors |
-| `cross_domain_bonus_bps` | uint64 | 200,000 (20%) | Bonus for cross-domain citations |
-| `max_citations_per_claim` | uint64 | 50 | Maximum citations per claim |
-| `citation_decay_per_level` | uint64 | 500,000 (50%) | Citation reward decay per ancestor level |
-| `self_citation_discount_bps` | uint64 | 500,000 (50%) | Discount on self-citations |
-
-### Domain & Fact Limits
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_facts_per_domain` | uint64 | 100,000 | Maximum facts stored per domain |
-| `fact_expiry_blocks` | uint64 | 0 | Fact expiry (0 = no expiry) |
-| `cross_stratum_discount_bps` | uint64 | 0 | Discount for cross-stratum claims |
-| `novelty_bonus_bps` | uint64 | 0 | Bonus for novel claims |
-| `max_apprentice_validators` | uint64 | 111 | Sybil cap on Apprentice validators |
-
-### FARM Anti-Gaming
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `conformity_threshold_bps` | uint64 | 950,000 | FARM-1: conformity detection threshold |
-| `calibration_trivial_threshold` | uint64 | 950,000 | FARM-2: trivial claim detection |
-| `misbehavior_rejection_threshold` | uint64 | 300,000 | FARM-6: misbehavior rejection |
-| `min_domain_contributors_for_novelty` | uint64 | 3 | FARM-7: minimum contributors for novelty bonus |
-| `min_participation_rate_bps` | uint64 | 500,000 | FARM-8: minimum participation rate |
-| `challenge_stake_ratio_min_bps` | uint64 | 500,000 | FARM-9: minimum challenge stake ratio |
-
-### Research Fund
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `research_fund_share_bps` | uint64 | 130,000 (13%) | Share of knowledge rewards to research fund (knowledge module only; global research split is 3.33%) |
-
----
-
-## auth
-
-Account registration and identity anchoring. Session keys, social
-recovery, and the dormant bootstrap auto-claim were removed in the
-2026-07 slim cut (delegated authority and recovery ceremonies live on
-the agenttool platform; the real bootstrap path is x/claiming_pot).
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `key_rotation_cooldown` | uint64 | 111 | Blocks between key rotations |
-| `max_metadata_length` | uint32 | 1,024 | Maximum account metadata length (bytes) |
-| `require_did` | bool | false | Require DID for account registration |
-
----
-
-## vesting_rewards
-
-Block rewards, vesting curves, and revenue distribution.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `block_reward` | string | "10000000" (10 ZRN) | Base block reward |
-| `reward_decay_bps` | uint64 | 994,478 (~1-year half-life) | Reward decay per epoch (0.994478x) |
-| `blocks_per_reward_epoch` | uint64 | 100,000 (~2.9 days) | Blocks per reward epoch |
-| `founder_share_bps` | uint64 | 70,000 (7%) | Founder share of research fund (**governance-immune**) |
-| `founder_address` | string | "" (disabled) | Founder address for share distribution (**governance-immune**) |
-| `vesting_enabled` | bool | true | Enable vesting mechanics |
-| `released_clawback_rate` | uint64 | 3,300 (33%) | Clawback rate on released vesting |
-| `min_validators_for_full_reward` | uint32 | 22 | Minimum validators for full block reward |
-| `empty_block_reward_rate` | uint64 | 0 (0%) | Reward rate for blocks with no PoT activity |
-| `floor_reward` | string | "100000" (0.1 ZRN) | Minimum block reward floor |
-| `initial_fund_balance` | string | "0" | Initial fund balance (pure PoT) |
-
-### Revenue Split
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `contributor_bps` | 550,000 (55%) | Share to fact contributors |
-| `protocol_bps` | 220,000 (22%) | Share to protocol |
-| `research_bps` | 33,300 (3.33%) | Share to research fund |
-| `development_bps` | 196,700 (19.67%) | Share to development fund |
-
-> No burn — every ZRN does productive work.
-
-### Protocol Sub-Split
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `citation_bps` | 500,000 (50%) | Citation rewards share |
-| `verification_bps` | 300,000 (30%) | Verification rewards share |
-| `treasury_bps` | 200,000 (20%) | Treasury share |
-
-### Category Reward Multipliers
-
-| Category | Multiplier |
-|----------|-----------|
-| Axiomatic | 1.2x |
-| Formal Proof | 1.1x |
-| On-Chain | 1.0x |
-| Cryptographic | 1.05x |
-| Computational | 1.0x |
-| Peer Reviewed | 0.9x |
-| Replicated | 0.95x |
-| Oracle Feed | 0.8x |
-| Attestation | 0.85x |
-| Contested | 0.6x |
-
----
-
-## gov
-
-Governance and Living Improvement Proposals (LIPs).
-
-**Governance-immune parameters** (cannot be modified via `MsgUpdateParams`):
-- `vesting_rewards.founder_share_bps`
-- `vesting_rewards.founder_address`
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `voting_period_blocks` | uint64 | 102,816 (~3 days) | Voting period duration |
-| `discussion_period_blocks` | uint64 | 68,544 (~2 days) | Discussion period before voting |
-| `quorum_threshold_bps` | uint64 | 334,000 (33.4%) | Minimum participation for valid vote |
-| `support_threshold_bps` | uint64 | 500,000 (50%) | Minimum support for proposal to pass |
-| `min_lip_stake` | string | "1000000" (1 ZRN) | Minimum stake to submit a LIP |
-| `min_vote_stake` | string | "0" | Minimum stake to vote (0 = no minimum) |
-| `research_discussion_blocks` | uint64 | 68,544 | Research spend discussion period |
-| `research_voting_blocks` | uint64 | 102,816 | Research spend voting period |
-
-### Category Configurations
-
-| Category | Required Stake | Review Period |
-|----------|---------------|---------------|
-| Parameter | 1,000 ZRN | ~1 day (34,272 blocks) |
-| Upgrade | 800 ZRN | ~1 day (34,272 blocks) |
-| Text | 400 ZRN | ~12h (17,136 blocks) |
-| Research Spend | 200 ZRN | ~12h (17,136 blocks) |
-
-### Governance Migration Parameters
-
-Phase transition thresholds, community seat election mechanics, and rollback safety.
-
-#### Phase Exit Conditions
-
-| Phase | Min Voters | Min Guardians | Min Balance | Min Chain Age | Min Proposals | Min Seat Votes | Max Halts |
-|-------|-----------|---------------|-------------|---------------|---------------|----------------|-----------|
-| 0 → 1 | 10 | 5 | 100,000 ZRN | ~6mo (2,200,000 blocks) | 0 | 0 | 0 |
-| 1 → 2 | 25 | 10 | 0 | ~18mo (5,700,000 blocks) | 3 | 2 | 0 |
-| 2 → 3 | 50 | 22 | 0 | ~3yr (12,600,000 blocks) | 10 | 0 | 0 |
-
-#### Transition Proposal Parameters
-
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `transition_stake` | 1,000 ZRN | Stake required to propose a phase transition |
-| `transition_discussion_blocks` | 1,030,000 (~30 days) | Discussion period before voting |
-| `transition_activation_delay` | 240,000 (~7 days) | Delay after vote passes before activation |
-| `transition_supermajority_bps` | 667,000 (66.7%) | Supermajority threshold for transition votes |
-
-#### Rollback Parameters
-
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `rollback_stake` | 500 ZRN | Stake required to propose a rollback |
-| `rollback_review_blocks` | 240,000 (~7 days) | Faster review than forward transitions |
-| `rollback_cooldown_blocks` | 3,700,000 (~3 months) | Cooldown before re-attempting forward transition |
-| `rollback_gridlock_threshold` | 3 | Consecutive expired proposals to trigger gridlock |
-
-#### Community Seat Election Parameters
-
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| `seat_acceptance_blocks` | 34,272 (~1 day) | Deadline for candidate to accept nomination |
-| `seat_discussion_blocks` | 34,272 (~1 day) | Discussion period after acceptance |
-| `seat_voting_blocks` | 102,816 (~3 days) | Voting period for seat elections |
-| `seat_term_blocks` | 6,400,000 (~6 months) | Term length for community seats |
-| `seat_vacancy_warning_blocks` | 1,030,000 (~30 days) | Warning emitted after this long vacant |
-| `seat_vacancy_notice_blocks` | 3,090,000 (~90 days) | Auto-submit governance notice |
-| `seat_runoff_threshold_bps` | 50,000 (5%) | Margin within which runoff is triggered |
-| `seat_election_stake` | 500 ZRN | Stake required to nominate a candidate |
-| `min_candidate_lip_votes` | 5 | Minimum LIP votes required for candidacy |
-
-#### Phase 2 Stagger Offsets
-
-| Seat | Offset | Description |
-|------|--------|-------------|
-| Seat 0 | 2,133,333 (~2 months) | First term expires earliest |
-| Seat 1 | 4,266,666 (~4 months) | Second term |
-| Seat 2 | 6,400,000 (~6 months) | Third term — full cycle |
-
----
-
-## ontology
-
-Epistemic domain and stratum management.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_proposal_stake` | string | "1000000" (1 ZRN) | Minimum stake for domain proposals |
-| `proposal_voting_period` | uint64 | 34,272 (~1 day) | Domain proposal voting period |
-| `min_endorsements` | uint32 | 3 | Minimum endorsements for domain approval |
-| `cross_stratum_discount` | uint64 | 50,000 (5%) | Cross-stratum verification discount |
-| `max_domains_per_stratum` | uint32 | 100 | Maximum domains per epistemic stratum |
-| `allow_new_strata` | bool | false | Allow creation of new strata via governance |
-
----
-
-
-
-## emergency
-
-Emergency halt, revert, and resume parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `halt_quorum` | uint64 | 750,000 (75%) | **Quorum for emergency halt** |
-| `revert_quorum` | uint64 | 800,000 (80%) | **Quorum for state revert** |
-| `resume_quorum` | uint64 | 800,000 (80%) | **Quorum for resuming chain** |
-| `halt_prevote_blocks` | uint64 | 11 | Halt prevote phase duration |
-| `halt_precommit_blocks` | uint64 | 11 | Halt precommit phase duration |
-| `halt_timeout_blocks` | uint64 | 44 | Halt timeout |
-| `revert_prevote_blocks` | uint64 | 22 | Revert prevote phase duration |
-| `revert_precommit_blocks` | uint64 | 22 | Revert precommit phase duration |
-| `revert_timeout_blocks` | uint64 | 111 | Revert timeout |
-| `resume_prevote_blocks` | uint64 | 22 | Resume prevote phase duration |
-| `resume_precommit_blocks` | uint64 | 22 | Resume precommit phase duration |
-| `resume_timeout_blocks` | uint64 | 111 | Resume timeout |
-| `max_proposals_per_epoch` | uint64 | 3 | Max emergency proposals per epoch |
-| `max_proposals_per_guardian_per_epoch` | uint64 | 1 | Max proposals per guardian per epoch |
-| `cooldown_blocks` | uint64 | 111 | Cooldown between emergency proposals |
-| `min_guardian_stake` | string | "111111000000" (111,111 ZRN) | **Minimum stake for emergency proposer** |
-| `min_distinct_voters` | uint64 | 4 | Minimum distinct voters for quorum |
-| `max_revert_depth` | uint64 | 111,111 | Maximum revert depth (blocks) |
-| `epoch_blocks` | uint64 | 34,272 (~1 day) | Emergency epoch duration |
-| `max_halt_duration_blocks` | uint64 | 34,272 (~1 day) | Auto-resume after halt |
-| `council_virtual_stake` | string | "11111000000" (11,111 ZRN) | Genesis council virtual stake |
-| `council_expiry_block` | uint64 | 0 | Block at which genesis council expires |
-
----
-
-## qualification
-
-Domain-specific validator qualification.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_stake_amount` | string | "100000000" (100 ZRN) | Minimum stake for qualification |
-| `stake_lock_period` | uint64 | 100,800 | Stake lock duration (blocks) |
-| `min_verifications` | uint64 | 100 | Minimum verifications required |
-| `min_accuracy_bps` | uint64 | 800,000 (80%) | Minimum accuracy for qualification |
-| `min_reputation_score` | uint64 | 500,000 (50%) | Minimum reputation score |
-| `qualification_period` | uint64 | 1,209,600 | Qualification validity (blocks) |
-| `probation_period` | uint64 | 302,400 | Probation period (blocks) |
-| `renewal_window` | uint64 | 100,800 | Renewal window before expiry |
-| `max_endorsements` | uint32 | 50 | Maximum endorsements per qualification |
-| `cross_ref_min_weight` | uint64 | 30 | Minimum cross-reference weight |
-| `cross_ref_weight_discount_bps` | uint64 | 200,000 (20%) | Cross-reference weight discount |
-| `inheritance_weight_discount_bps` | uint64 | 300,000 (30%) | Inherited qualification discount |
-
----
-
-## capture_defense
-
-Anti-capture reputation and defense scoring.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `decay_epoch_blocks` | uint64 | -- | Reputation decay half-life (blocks) |
-| `min_verifications_for_score` | uint64 | -- | Minimum verifications for reputation score |
-| `hhi_threshold` | uint64 | -- | Herfindahl-Hirschman Index threshold |
-| `risk_analysis_interval` | uint64 | -- | Interval for capture risk analysis |
-| `history_retention_blocks` | uint64 | -- | History retention window |
-| `base_reputation_score` | uint64 | -- | Floor reputation score |
-| `max_history_per_domain` | uint64 | -- | Max history entries per domain |
-
----
-
-## capture_challenge
-
-Capture challenge mechanism.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `min_challenge_stake` | string | -- | Minimum stake to submit a capture challenge |
-| `evidence_period_blocks` | uint64 | -- | Evidence submission period |
-| `review_period_blocks` | uint64 | -- | Review/adjudication period |
-| `domain_pause_blocks` | uint64 | -- | Duration of domain pause on successful challenge |
-| `reward_rate_bps` | uint64 | -- | Reward rate from bounty pool |
-| `slash_rate_bps` | uint64 | -- | Slash rate on failed challenge |
-| `bounty_contribution_per_fact` | string | -- | Per-fact contribution to bounty pool |
-| `risk_analysis_interval` | uint64 | -- | Interval for automated risk analysis |
-
----
-
-
-## alignment
-
-System health alignment scoring.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `observation_interval_blocks` | uint64 | 100 | Alignment check interval |
-| `weight_knowledge_quality` | uint64 | 200,000 (20%) | Knowledge quality weight |
-| `weight_economic_stability` | uint64 | 200,000 (20%) | Economic stability weight |
-| `weight_governance_participation` | uint64 | 200,000 (20%) | Governance participation weight |
-| `weight_network_security` | uint64 | 200,000 (20%) | Network security weight |
-| `weight_staking_ratio` | uint64 | 200,000 (20%) | Staking ratio weight |
-| `critical_threshold` | uint64 | 200,000 (20%) | Critical alignment threshold |
-| `degraded_threshold` | uint64 | 400,000 (40%) | Degraded alignment threshold |
-| `healthy_threshold` | uint64 | 700,000 (70%) | Healthy alignment threshold |
-| `enabled` | bool | true | Enable alignment scoring |
-
----
-
-## home
-
-Agent Home (personal workspace) parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_keys_per_home` | uint64 | 20 | Maximum keys per home |
-| `max_sessions_per_home` | uint64 | 5 | Maximum concurrent sessions |
-| `session_timeout_blocks` | uint64 | 1,000 | Session inactivity timeout |
-| `deadman_min_threshold` | uint64 | 100 | Deadman switch minimum threshold |
-| `deadman_max_threshold` | uint64 | 100,000 | Deadman switch maximum threshold |
-| `max_alerts_per_home` | uint64 | 100 | Maximum active alerts |
-| `home_creation_fee` | string | "10000000" (10 ZRN) | Fee to create a home |
-| `max_recovery_addresses` | uint64 | 5 | Maximum recovery addresses |
-
----
-
-
-
-## liquiditypool
-
-On-chain liquidity pool parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `default_swap_fee_bps` | uint64 | 3,000 (0.3%) | Default swap fee |
-| `max_pools` | uint64 | 3 | Maximum number of pools |
-| `min_initial_liquidity` | string | "10000000000" (10,000 ZRN) | Minimum initial liquidity |
-| `twap_window_blocks` | uint64 | 1,000 (~42 min) | TWAP oracle window |
-| `protocol_fee_bps` | uint64 | 450,000 (45%) | Protocol fee share of swap fees |
-| `min_reserve` | string | "1" | Minimum reserve after swap |
-
----
-
-## claiming_pot
-
-Community claiming pool parameters.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_pots_active` | uint32 | 10 | Maximum active claiming pots |
-| `min_claim_amount` | string | "1000" | Minimum claim amount (uzrn) |
-
----
-
-## counterexamples
-
-Validated wrong-claims paired with facts — alignment-by-structure
-(commitment 15: counterexamples are part of the corpus). Defaults make
-the chain net-pay for counterexample contribution: validation reward
-exceeds the bond at the margin.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `proposal_bond` | string | "1000000" (1 ZRN) | Bond at proposal time. Returned on VALIDATED, burned on REJECTED. |
-| `validation_reward` | string | "500000" (0.5 ZRN) | Reward paid on VALIDATED. Net result: validated counterexample pays 0.5 ZRN above the returned bond. |
-| `min_votes` | uint32 | 3 | Minimum vote count before auto-resolution. |
-| `affirm_threshold_bps` | uint64 | 666,000 (66.6%) | Affirmation threshold for VALIDATED. Matches the chain's broader supermajority convention. |
-| `max_reason_bytes` | uint32 | 4,096 | Maximum size of the `reasoning` text field. |
-| `tvw_multiplier_bps` | uint64 | 1,200,000 (1.2x) | TVW boost applied to facts that carry at least one validated counterexample. Read by `x/knowledge` during `ComputeTrainingValueWeight`. |
-| `proposals_enabled` | bool | true | Master switch for new counterexample proposals. |
-
----
-
-## ibcratelimit
-
-IBC transfer rate limiting.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `enabled` | bool | true | Enable IBC rate limiting |
-
-Rate limits are configured per channel/denom via governance transactions:
+## Sources of truth
+
+Use these in order:
+
+1. **Current on-chain state:** each module's `Params` query, bound to chain ID,
+   height, and release.
+2. **A specific genesis:** the module's `params` object in that exact,
+   hash-verified genesis artifact.
+3. **New-chain defaults:** `DefaultParams`/`DefaultGenesis` in
+   `x/<module>/types`. These do not retroactively alter a running chain.
+4. **Wire schema:** `proto/zerone/<module>/v1/genesis.proto`; comments should
+   match source defaults but the Go constructor remains authoritative.
+
+Examples for a release-matched CLI:
 
 ```bash
-zeroned tx ibcratelimit add-rate-limit [channel-id] [denom] [max-percent-send] [max-percent-recv] [duration-hours]
+zeroned q knowledge params --node <authorised-rpc> --height <height>
+zeroned q zerone_staking params --node <authorised-rpc> --height <height>
+zeroned q zerone_gov params --node <authorised-rpc> --height <height>
+zeroned q vesting_rewards params --node <authorised-rpc> --height <height>
 ```
 
----
+The generated Swagger file exposes the equivalent REST queries. A response
+from `zerone-1` describes that deployed binary and its on-chain state; source
+publication does not activate the `consolidation-safety-v1` changes.
 
-## tokens
+## High-impact source defaults
 
-Token emission parameters.
+This short table exists to make common integration mistakes obvious. It is not
+an exhaustive substitute for the constructors above.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `emission_epoch_blocks` | uint64 | 0 (disabled) | Blocks per emission epoch |
-| `default_fee_bps` | string | "" | Reserved for future use |
+### Knowledge
 
----
+| Field | Source default |
+|---|---:|
+| `min_verifiers` / `max_verifiers` | 3 / 22 |
+| `commit_phase_blocks` | 200 |
+| `reveal_phase_blocks` | 200 |
+| `aggregation_phase_blocks` | 50 |
+| `min_claim_text_length` / `max_claim_text_length` | 20 / 1,000 |
+| `min_review_fee` | 100,000 uzrn (non-refundable) |
+| `wrong_verification_slash_bps` | 50,000 (5%) |
+| `missed_reveal_slash_bps` | 100,000 (10%) |
+| `equivocation_slash_bps` | 200,000 (20%) |
+| `invalid_claim_slash_bps` | 0 (deprecated and unused) |
+| `challenge_duration_blocks` | 34,272 |
+| `min_challenge_stake` | 11,000,000 uzrn |
 
-## Proposing Parameter Changes
+There is no `min_claim_stake` field. Removed citation-gaming and FARM fields
+are reserved in protobuf and must not be presented as active controls.
 
-Any governance-adjustable parameter can be modified through a LIP (Living
-Improvement Proposal). The process:
+### Staking
 
-### 1. Submit a parameter change proposal
+| Field | Source default |
+|---|---:|
+| `unbonding_period` | 268,560 blocks |
+| `max_validators` | 100 |
+| `min_self_delegation` | 111,000 uzrn |
+| `min_stake_for_verification` | 111,000 uzrn |
+| `virtual_stake` | 11,000,000 uzrn |
 
-```bash
-zeroned tx gov submit-lip \
-  --title "Change max_verifiers to 33" \
-  --description "Increase maximum verifiers per round from 22 to 33..." \
-  --category "parameter" \
-  --from my-validator \
-  --chain-id zerone-testnet-1 \
-  --fees 5000uzrn
-```
+### Block rewards and fees
 
-### 2. Discussion period
+| Field | Source default |
+|---|---:|
+| Block reward | 10,000,000 uzrn before decay/scaling |
+| Empty-block reward rate | 0 |
+| Validators for full reward | 22 |
+| Consensus fee floor | 1 uzrn per declared gas unit |
+| Revenue split | 55% block proposer (`contributor_bps` wire name) / 22% protocol / 19.67% development / 3.33% research |
+| Founder sub-share | Up to 7% of research; inactive while address is empty |
 
-The proposal enters a discussion period (68,544 blocks, ~2 days) where
-validators and delegators can review and comment. Parameter changes require
-a 1,000 ZRN stake from the proposer.
+`founder_share_bps` is governance-mutable within its 7% cap.
+`founder_address` becomes immutable once set.
 
-### 3. Voting period
+### Governance
 
-After discussion, the voting period (102,816 blocks, ~3 days) begins.
-Validators vote `yes`, `no`, or `abstain`:
+| Field | Source default |
+|---|---:|
+| Discussion period | 68,544 blocks |
+| Voting period | 102,816 blocks |
+| Quorum | 334,000 BPS (33.4%) |
+| Support threshold | 500,000 BPS (50%) |
+| Minimum LIP stake | 1,000,000 uzrn |
 
-```bash
-zeroned tx gov cast-vote <proposal-id> yes \
-  --from my-validator \
-  --chain-id zerone-testnet-1
-```
+Category-specific proposal stakes and review periods are defined in
+`x/gov/types/genesis.go`.
 
-### 4. Execution
+## Gas schedule
 
-If the proposal reaches quorum (33.4% participation) and passes with >50%
-support, the parameter change takes effect at the next block.
+The consensus fee floor and message gas schedule are code, not governance
+module parameters. Their source is `app/gas.go`. The fee for a transaction is
+based on declared gas and the applicable gas price; a node-local
+`minimum-gas-prices` value lower than the consensus ante floor does not make a
+lower-fee transaction valid.
 
-### Query current parameters
+## Module inventory
 
-```bash
-# Query a specific module's parameters
-zeroned query <module> params
-
-# Examples:
-zeroned query knowledge params
-zeroned query staking params
-zeroned query emergency params
-```
+Parameter-bearing modules expose their types and defaults under `x/*/types`.
+Pure consumers such as `training_provenance` and `trust_score` have no
+independent parameter set. For integration work, enumerate the protobuf
+descriptors or generated TypeScript registry instead of copying a hand-written
+table; CI rejects protobuf, Swagger, and SDK generation drift.

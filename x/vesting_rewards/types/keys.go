@@ -47,5 +47,5 @@ var (
 	VestingByRecipientPrefix  = []byte{0x08} // {address}/{vestingId} -> nil (index)
 	ActiveVestingPrefix       = []byte{0x09} // {vestingId} -> nil (index)
 	BlockRewardFundBalanceKey = []byte{0x0A} // DEPRECATED
-	TotalMintedKey            = []byte{0x0B} // -> string (total ZRN minted so far in uzrn)
+	TotalMintedKey            = []byte{0x0B} // -> string (shared MintWithCap ledger, not complete supply history)
 )

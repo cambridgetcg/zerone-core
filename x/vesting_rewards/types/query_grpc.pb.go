@@ -40,11 +40,10 @@ type QueryClient interface {
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	ResearchFundBalance(ctx context.Context, in *QueryResearchFundBalanceRequest, opts ...grpc.CallOption) (*QueryResearchFundBalanceResponse, error)
 	FounderShareStatus(ctx context.Context, in *QueryFounderShareStatusRequest, opts ...grpc.CallOption) (*QueryFounderShareStatusResponse, error)
-	// SupplyCouplingAudit returns a first-class metric for the thesis claim
-	// that "money supply grows with verified knowledge" (L0). Exposes total
-	// minted, current supply, verification throughput, and the applied
-	// knowledge-coupling multiplier so external auditors can verify that
-	// emission is actually tied to epistemic activity.
+	// SupplyCouplingAudit is a legacy-named observability endpoint. It reports
+	// the shared MintWithCap ledger, bank supply, and block-reward coupling
+	// inputs. The aggregate ledger includes all capped callers and does not by
+	// itself prove that total issuance was caused by knowledge activity.
 	SupplyCouplingAudit(ctx context.Context, in *QuerySupplyCouplingAuditRequest, opts ...grpc.CallOption) (*QuerySupplyCouplingAuditResponse, error)
 }
 
@@ -147,11 +146,10 @@ type QueryServer interface {
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	ResearchFundBalance(context.Context, *QueryResearchFundBalanceRequest) (*QueryResearchFundBalanceResponse, error)
 	FounderShareStatus(context.Context, *QueryFounderShareStatusRequest) (*QueryFounderShareStatusResponse, error)
-	// SupplyCouplingAudit returns a first-class metric for the thesis claim
-	// that "money supply grows with verified knowledge" (L0). Exposes total
-	// minted, current supply, verification throughput, and the applied
-	// knowledge-coupling multiplier so external auditors can verify that
-	// emission is actually tied to epistemic activity.
+	// SupplyCouplingAudit is a legacy-named observability endpoint. It reports
+	// the shared MintWithCap ledger, bank supply, and block-reward coupling
+	// inputs. The aggregate ledger includes all capped callers and does not by
+	// itself prove that total issuance was caused by knowledge activity.
 	SupplyCouplingAudit(context.Context, *QuerySupplyCouplingAuditRequest) (*QuerySupplyCouplingAuditResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }

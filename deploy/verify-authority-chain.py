@@ -80,6 +80,13 @@ COMPONENT_BUILD_RECIPES = {
     "zerone_2_runtime": "deploy/networks/zerone-2/runtime/build-image.sh",
     "query_gateway": "deploy/query-gateway/build-image.sh",
 }
+CANONICAL_COMPONENT_SIGNER_IDENTITY = (
+    "https://github.com/cambridgetcg/zerone-core/"
+    ".github/workflows/ci.yml@refs/heads/main"
+)
+CANONICAL_COMPONENT_CERTIFICATE_ISSUER = (
+    "https://token.actions.githubusercontent.com"
+)
 FROZEN_EVIDENCE_FILES = {
     "ZERONE-1-INVENTORY-V3.json",
     "SIGNER-EVIDENCE-MANIFEST.json",
@@ -1044,10 +1051,9 @@ def validate_release_components(
             and signature["image_ref"] == image_ref
             and signature["image_digest"] == f"sha256:{image_digest}"
             and signature["bundle_sha256"] == sha256(files[names["signature_bundle"]])
-            and isinstance(signature["signer_identity"], str)
-            and signature["signer_identity"].startswith("https://")
-            and isinstance(signature["certificate_issuer"], str)
-            and signature["certificate_issuer"].startswith("https://")
+            and signature["signer_identity"] == CANONICAL_COMPONENT_SIGNER_IDENTITY
+            and signature["certificate_issuer"]
+            == CANONICAL_COMPONENT_CERTIFICATE_ISSUER
             and signature["transparency_log_verified"] is True
             and signature["result"] == "VERIFIED"
         ):

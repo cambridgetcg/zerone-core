@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -384,8 +385,9 @@ func TestOpenQuestions_ListsLiveConjecturesOldestFirst(t *testing.T) {
 	ctx = ctx.WithBlockHeight(200)
 	second := acceptConjecture(t, k, ctx, "c-9", "The second open question, posted later")
 
-	questions, total := k.OpenQuestionsForDomain(ctx, "mathematics", 0)
+	questions, total, _, scanLimitReached := k.OpenQuestionsForDomain(ctx, "mathematics", 0)
 	require.Equal(t, uint32(2), total)
+	require.False(t, scanLimitReached)
 	require.Len(t, questions, 2)
 	require.Equal(t, first.Id, questions[0].FactId, "oldest unanswered question first")
 	require.Equal(t, second.Id, questions[1].FactId)
@@ -393,9 +395,10 @@ func TestOpenQuestions_ListsLiveConjecturesOldestFirst(t *testing.T) {
 	require.False(t, questions[0].UnderChallenge)
 
 	// A domain filter that matches nothing returns nothing, not everything.
-	none, noneTotal := k.OpenQuestionsForDomain(ctx, "physics", 0)
+	none, noneTotal, _, scanLimitReached := k.OpenQuestionsForDomain(ctx, "physics", 0)
 	require.Empty(t, none)
 	require.Equal(t, uint32(0), noneTotal)
+	require.False(t, scanLimitReached)
 }
 
 // TestOpenQuestions_ExcludesOrdinaryFacts guards against the surface quietly
@@ -412,7 +415,7 @@ func TestOpenQuestions_ExcludesOrdinaryFacts(t *testing.T) {
 		ClaimType:  types.ClaimType_CLAIM_TYPE_ASSERTION,
 	}))
 
-	questions, total := k.OpenQuestionsForDomain(ctx, "", 0)
+	questions, total, _, _ := k.OpenQuestionsForDomain(ctx, "", 0)
 	require.Equal(t, uint32(0), total)
 	require.Empty(t, questions, "open-questions is what the chain does NOT know; a verified fact has no place in it")
 }
@@ -447,7 +450,7 @@ func TestOpenQuestions_FollowsConjectureTerminality(t *testing.T) {
 		}))
 	}
 
-	questions, total := k.OpenQuestionsForDomain(ctx, "mathematics", 0)
+	questions, total, _, _ := k.OpenQuestionsForDomain(ctx, "mathematics", 0)
 	require.Equal(t, uint32(4), total)
 	require.Len(t, questions, 4)
 
@@ -461,4 +464,34 @@ func TestOpenQuestions_FollowsConjectureTerminality(t *testing.T) {
 	for _, id := range []string{"disproven", "pruned", "revoked"} {
 		require.False(t, got[id], "%s is terminal and must not be listed", id)
 	}
+}
+
+// TestOpenQuestions_BoundsFactsExaminedWithoutMatches guards the scan cap
+// itself. Counting only matching conjectures would let an all-ordinary or
+// domain-miss query walk the entire fact store.
+func TestOpenQuestions_BoundsFactsExaminedWithoutMatches(t *testing.T) {
+	k, ctx, _ := setupKnowledgeTestWithBank(t)
+
+	for i := 0; i < keeper.OpenQuestionsScanCap; i++ {
+		require.NoError(t, k.SetFact(ctx, &types.Fact{
+			Id:        fmt.Sprintf("a-%05d", i),
+			ClaimType: types.ClaimType_CLAIM_TYPE_ASSERTION,
+		}))
+	}
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id:                     "z-after-scan-cap",
+		Content:                "This matching conjecture is beyond the bounded scan window",
+		Domain:                 "target-domain",
+		Status:                 types.FactStatus_FACT_STATUS_PROVISIONAL,
+		ClaimType:              types.ClaimType_CLAIM_TYPE_CONJECTURE,
+		FalsificationPredicate: "exhibit a counterexample",
+	}))
+
+	questions, total, examined, scanLimitReached := k.OpenQuestionsForDomain(ctx, "target-domain", ^uint32(0))
+	require.Empty(t, questions,
+		"a matching conjecture after the first facts examined must not bypass the scan cap")
+	require.Equal(t, uint32(0), total)
+	require.Equal(t, uint32(keeper.OpenQuestionsScanCap), examined)
+	require.True(t, scanLimitReached,
+		"callers must be told that total and oldest-first ordering cover only the examined window")
 }

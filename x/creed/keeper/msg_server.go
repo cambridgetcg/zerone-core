@@ -31,49 +31,16 @@ func (m *msgServer) AnchorPin(ctx context.Context, msg *types.MsgAnchorPin) (*ty
 
 	params := m.keeper.GetParams(ctx)
 	if !params.DirectAnchorEnabled {
-		// Once direct-anchor is disabled, the only legitimate path
-		// is a passed Creed Amendment LIP — and the source_lip
-		// field is what carries that proof of authorization.
+		// When direct anchoring is disabled, this public handler remains sealed.
+		// SourceLip is provenance metadata, not proof that governance passed; an
+		// actual governance dispatch must use a separately configured path.
 		if msg.SourceLip == "" {
 			return nil, types.ErrSourceLIPRequired.Wrap("commitment 6: amendment must cite the LIP that authorized it")
 		}
-		return nil, types.ErrDirectAnchorDisabled.Wrap("commitment 6: the chain's voice is governance-gated; this path is sealed pending the Creed Amendment LIP class")
+		return nil, types.ErrDirectAnchorDisabled.Wrap("commitment 6: direct creed anchoring is disabled; use the separately configured gov-dispatch path")
 	}
 
 	pin := msg.Pin
-
-	// Structural validation (commitment 10: forward-only audit).
-	if len(pin.CanonicalHash) == 0 {
-		return nil, types.ErrEmptyHash
-	}
-	cur := m.keeper.GetCurrentVersion(ctx)
-	if pin.Version != cur+1 {
-		return nil, types.ErrVersionNotMonotonic.Wrapf("commitment 10: expected version %d (current+1), got %d", cur+1, pin.Version)
-	}
-
-	// Commitment registry invariants.
-	seen := map[uint32]bool{}
-	maxNum := uint32(0)
-	for _, c := range pin.Commitments {
-		if c == nil {
-			return nil, types.ErrCommitmentNumberInvalid.Wrap("nil commitment entry")
-		}
-		if c.Number == 0 {
-			return nil, types.ErrCommitmentNumberInvalid.Wrap("commitment number must be ≥ 1")
-		}
-		if seen[c.Number] {
-			return nil, types.ErrDuplicateCommitment.Wrapf("commitment %d", c.Number)
-		}
-		seen[c.Number] = true
-		if c.Number > maxNum {
-			maxNum = c.Number
-		}
-	}
-	for n := uint32(1); n <= maxNum; n++ {
-		if !seen[n] {
-			return nil, types.ErrCommitmentNumberInvalid.Wrapf("commitment %d missing — archive an entry rather than dropping it (commitment 10: forward-only audit forbids silent removal)", n)
-		}
-	}
 
 	// Stamp the height and pin.
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -81,7 +48,7 @@ func (m *msgServer) AnchorPin(ctx context.Context, msg *types.MsgAnchorPin) (*ty
 	if msg.SourceLip != "" {
 		pin.PinnedViaLip = msg.SourceLip
 	}
-	if err := m.keeper.SetPin(ctx, pin); err != nil {
+	if err := m.keeper.AnchorPin(ctx, pin); err != nil {
 		return nil, err
 	}
 
@@ -101,9 +68,10 @@ func (m *msgServer) AnchorPin(ctx context.Context, msg *types.MsgAnchorPin) (*ty
 	return &types.MsgAnchorPinResponse{NewVersion: pin.Version}, nil
 }
 
-// UpdateCouncilMember adds, updates, or deactivates a Creed
-// Council seat. Authority-gated; once x/gov.CategoryCreedAmendment
-// ships, this flows through that LIP class.
+// UpdateCouncilMember adds, updates, or deactivates a Creed Council
+// registry entry. It is authority-gated. source_lip is required when direct
+// anchoring is disabled, but this handler does not independently verify LIP
+// passage; current LIP tally does not consume the council registry.
 func (m *msgServer) UpdateCouncilMember(ctx context.Context, msg *types.MsgUpdateCouncilMember) (*types.MsgUpdateCouncilMemberResponse, error) {
 	if msg == nil || msg.Member == nil {
 		return nil, types.ErrInvalidCouncilMember.Wrap("member required")
@@ -166,6 +134,10 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	}
 	if msg.Params == nil {
 		return nil, types.ErrInvalidParams.Wrap("params required")
+	}
+	current := m.keeper.GetParams(ctx)
+	if msg.Params.Authority != current.Authority {
+		return nil, types.ErrInvalidParams.Wrap("params.authority is compatibility-only and runtime-immutable")
 	}
 	if err := m.keeper.SetParams(ctx, msg.Params); err != nil {
 		return nil, err

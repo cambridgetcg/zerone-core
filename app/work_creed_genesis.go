@@ -21,17 +21,16 @@ import (
 // Knowledge phase deliberately omitted (it delegates its sub-creed to
 // docs/TRUTH_SEEKING.md → x/creed.PinnedCreed).
 //
-// Each pin is constructed at version 1, anchored_at_block 0, with an
-// empty source_lip (no LIP precedes genesis; post-genesis amendments
-// must cite their authorizing LIP per commitment 19).
+// Each pin is constructed at version 1, anchored_at_block 0, with an empty
+// source_lip. Phase 0 has no post-genesis amendment message.
 //
 // Returns an error if the hash file is missing, malformed, missing a
 // required phase, or contains an entry for the Knowledge phase (which
 // would violate the genesis validator).
 //
-// hashFilePath is relative to the working directory; callers (genesis
-// populators, tests) typically pass ".sub-creed-hashes" when invoked
-// from the repo root.
+// hashFilePath is relative to the working directory. The optional
+// tools/ceremony-inject command and tests pass ".sub-creed-hashes" from the
+// repository root. App startup does not call this helper.
 func LoadInceptionSubCreedPins(hashFilePath string) ([]*workcreedtypes.PinnedSubCreed, error) {
 	raw, err := os.ReadFile(hashFilePath)
 	if err != nil {

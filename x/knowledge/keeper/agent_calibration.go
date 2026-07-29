@@ -259,13 +259,10 @@ func (k Keeper) RecordChallengeOutcome(
 // monotonic — excluding inconclusive can only raise or hold a score, never lower
 // it; a record with no inconclusive outcomes is scored identically to before.
 //
-// This score is NOT cosmetic. A training-fund disbursement gates on it
-// (msg_server_training_v4.go — a floor, then a linear scale up to 2× base),
-// x/trust_score reads it as submission accuracy, and the structured corpus
-// export denormalises it for training weighting. The compassion change only ever
-// raises the score of submitters with inconclusive history, so its economic
-// effect is bounded to "stop under-paying honest unresolved attempts", and all
-// minting remains cap-gated by MintWithCap.
+// This score is NOT cosmetic: x/trust_score reads it as submission accuracy,
+// and the structured corpus export denormalises it for training weighting. A
+// legacy training-fund formula also reads it, but public disbursement is
+// release-disabled until one-shot eligibility and replay protection exist.
 func ComputeAgentCalibrationScore(c *types.AgentCalibration) uint64 {
 	if c == nil || c.TotalSubmissions == 0 {
 		return 0

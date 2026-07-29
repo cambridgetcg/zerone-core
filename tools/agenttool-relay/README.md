@@ -5,7 +5,9 @@ The agenttool → ZERONE attestation relay (agenttool bridge, slice 02).
 > **Release posture:** dry-run and disposable-localnet rehearsal only from
 > current `main`. Do not point this tool at `zerone-1` or
 > `zerone-testnet-1` until a signed, release-bound packet revalidates the
-> adapter, bond, fees, reward, binary, keys, and current chain state.
+> adapter, bond, fees, reward, binary, keys, and current chain state. A
+> source-level guard refuses every chain ID except `zerone-localnet` and
+> `zerone-rehearsal-*`, including in dry-run mode before any API/RPC request.
 
 Fetches a **released** marketplace invocation from an agenttool instance,
 canonicalizes its economically-load-bearing fields, and submits a
@@ -52,7 +54,7 @@ witnessed work is the agent that earns the ZRN.
 |---|---|---|
 | `RELAY_API_KEY` | yes | — |
 | `RELAY_HOME` | for broadcast | — |
-| `RELAY_CHAIN_ID` | for broadcast | — |
+| `RELAY_CHAIN_ID` | yes | — (`zerone-localnet` or `zerone-rehearsal-*`) |
 | `RELAY_FROM` | for broadcast | — |
 | `RELAY_API` | | `https://api.agenttool.dev` |
 | `RELAY_NODE` | | `tcp://localhost:26657` |
@@ -80,7 +82,7 @@ and `status: "submission_unknown"`. From there it only moves forward:
   untouched. Recorded as a failure, normal retry path.
 - **not found** → stays `submission_unknown`. Only after **10 consecutive**
   not-found reconciles (one per poll pass; ~15 minutes at the default 90s
-  interval, far past mempool retention on both live nets) is the record
+  interval, far past the configured drill mempool retention) is the record
   released for resubmission. A tx can never be raced by its own retry.
 
 Old state files (records without `status`) load unchanged: a legacy record

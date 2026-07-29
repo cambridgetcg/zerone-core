@@ -13,6 +13,10 @@ network and it is not deployment authority.
 - No validator deployment is authorized by source publication.
 - `zerone-2` remains **NO-GO** until its signed ceremony and authority
   requirements are complete.
+- Current CI does not issue an OIDC-backed component signature, and the
+  checked-in authority verifier does not yet cryptographically validate its
+  declared Sigstore bundle against trusted Fulcio/Rekor material. Structural
+  fixture checks are not production provenance.
 
 Do not download from old `zerone-chain/zerone` or `nickkpope/zerone` release
 URLs. Do not build a production validator from a moving branch.
@@ -59,13 +63,18 @@ the reviewed network packet. Seed IDs, persistent peers, minimum gas prices,
 state-sync trust material, validator keys, and registration parameters are
 network-specific inputs; do not copy values from an old guide.
 
-For a local start:
+For a local start, align the node-local mempool threshold with the consensus
+fee floor:
 
 ```bash
 ./build/zeroned start \
   --home "$ZERONE_REHEARSAL_HOME" \
-  --minimum-gas-prices 0.025uzrn
+  --minimum-gas-prices 1uzrn
 ```
+
+The existing `zerone-1` process was configured with a lower node-local
+`0.025uzrn` threshold. That historical process setting does not override the
+application ante handler, which rejects declared fees below `1uzrn` per gas.
 
 ## Before joining any shared network
 

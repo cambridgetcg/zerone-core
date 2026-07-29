@@ -8,26 +8,18 @@ import (
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
-// TestRecursiveLineage_DownstreamWorkPaysUpstreamSelfAttester drives the
-// economic compound of self-attestation: a self-attestation (attestation
-// A, in the zerone_self domain) is later cited by a downstream attestation
-// (attestation B, in any class). When B settles, its lineage royalty
-// flows BACKWARD through the substrate_bridge propagator to A's
-// submitter — even though A had already settled and earned its M4
-// reward long before.
+// TestRecursiveLineage_AccountingAttributesDownstreamRewardUpstream drives
+// the lineage accountant with directly seeded attestations. When B settles,
+// an attributed amount accrues on A's accumulator. No bank transfer to A's
+// submitter occurs.
 //
 // This is the operational form of recursion #4 (the chain's lineage
-// graph includes its own commits): a self-fact's submitter earns not
-// just once at settlement, but in perpetuity as downstream work compounds
-// off the fact. The chain pays its earliest historians weighted by how
-// load-bearing their attestation proved.
+// graph could include its own commits). It proves accounting composition, not
+// a public self-fact ingestion path or royalty payment.
 //
-// Doctrinal binding: UW M6 (cross-class lineage flows; revenue-stream
-// amplification), applied to the zerone_self class. The same lineage
-// propagator that pays a translation-class upstream from a curriculum
-// downstream pays a zerone_self upstream from any downstream — the
-// recursion code is the same code, just applied recursively.
-func TestRecursiveLineage_DownstreamWorkPaysUpstreamSelfAttester(t *testing.T) {
+// Doctrinal binding: a partial UW M6 accounting primitive applied to the
+// zerone_self class.
+func TestRecursiveLineage_AccountingAttributesDownstreamRewardUpstream(t *testing.T) {
 	h := NewTestHarness(t)
 
 	selfAttester := testAddr("recursive_lineage_self_attester")
@@ -76,26 +68,25 @@ func TestRecursiveLineage_DownstreamWorkPaysUpstreamSelfAttester(t *testing.T) {
 		ContributionShareBps:    10000,
 	}))
 
-	// 4. Settle B → lineage propagator pays A.
+	// 4. Settle B → lineage accountant attributes an amount to A.
 	require.NoError(t, h.SubstrateBridgeKeeper.SettleAttestation(h.Ctx, "att-downstream-B"))
 
-	// 5. The self-attester's lineage accumulator is non-zero. The chain
-	//    has paid the historian for work the historian did long ago, out
-	//    of a settlement that happened just now. The flywheel turns.
+	// 5. The upstream accumulator is non-zero; this is accounting state,
+	//    not evidence of a coin transfer.
 	acc, found := h.SubstrateBridgeKeeper.GetLineageAccumulator(h.Ctx, "att-self-A")
 	require.True(t, found, "self-attester's lineage accumulator must exist after downstream settlement")
 	require.NotEqual(t, "0", acc.CumulativeUzrn,
-		"recursion #4 binding: zerone_self upstream MUST receive royalty when downstream work cites it")
-	t.Logf("self-attester earned %s uzrn in lineage royalty from one downstream citation", acc.CumulativeUzrn)
+		"recursion #4 scaffold: zerone_self upstream must accrue attribution when downstream work cites it")
+	t.Logf("upstream accrued %s uzrn-equivalent lineage attribution", acc.CumulativeUzrn)
 }
 
-// TestRecursiveLineage_MultipleCitationsCompound drives the same shape
+// TestRecursiveLineage_MultipleCitationsCompoundAccounting drives the same shape
 // across two downstream attestations, asserting the self-attester's
 // accumulator monotonically increases (forward-only audit, commitment 10,
-// applied to lineage royalty). Each downstream settlement adds to the
+// applied to lineage attribution). Each downstream settlement adds to the
 // accumulator; the cumulative number is queryable as the load-bearing
 // value of the self-attestation.
-func TestRecursiveLineage_MultipleCitationsCompound(t *testing.T) {
+func TestRecursiveLineage_MultipleCitationsCompoundAccounting(t *testing.T) {
 	h := NewTestHarness(t)
 
 	selfAttester := testAddr("recursive_lineage_compound_self")

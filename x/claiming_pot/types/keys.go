@@ -13,11 +13,10 @@ var (
 	PotCounterKey   = []byte{0x04}
 	ActivePotPrefix = []byte{0x05}
 
-	// BootstrapMintedEntriesKey stores a monotonic uint64 (big-endian):
-	// the number of bootstrap entries EVER created (genesis + every
-	// MsgAddBootstrapEntry admission). It only increases — pots are never
-	// deleted and DEPLETED pots stay in state, so this counter times
-	// PerAgentBootstrapUzrn is the lifetime bootstrap emission commitment,
+	// BootstrapMintedEntriesKey stores a monotonic uint64 (big-endian)
+	// retained under its historical key name. It counts fixed-size lifetime
+	// commitment units across bootstrap and legacy general pots. One unit
+	// times PerAgentBootstrapUzrn is the conservative issuance commitment
 	// enforced against Params.BootstrapEmissionCapUzrn.
 	BootstrapMintedEntriesKey = []byte{0x06}
 

@@ -36,26 +36,18 @@ const (
 	// governance act.
 	CategoryCreedAmendment = "creed_amendment"
 
-	// CategoryAdapterRegistration is the LIP class that authorizes
-	// registering a new external-data adapter in x/substrate_bridge
-	// (commitment 20 — issuance follows participation). On a passed
-	// LIP, x/gov dispatches MsgRegisterAdapter to x/substrate_bridge
-	// via the SubstrateBridgeKeeper.WriteAdapter authority path.
+	// CategoryAdapterRegistration reserves vocabulary and policy weight for a
+	// future governance-dispatched external-data adapter registration.
 	//
 	// The category carries the same quorum and support requirements as
 	// CategoryCreedAmendment because expanding the chain's trusted
-	// external-source surface is a deliberate, high-stakes act: each
-	// adapter can influence participation scoring and therefore token
-	// issuance. No adapter may be added without an explicit on-chain
-	// governance vote.
+	// external-source surface is a deliberate, high-stakes act: each adapter
+	// can influence participation scoring and therefore token issuance.
 	//
-	// Phase-0 note: the full dispatch wiring (SubstrateBridgeKeeper
-	// injection, adapter payload attachment, on-pass WriteAdapter call)
-	// is scaffolded here and will be completed when the generic
-	// LIP-dispatch mechanism stabilises. The vocabulary — category
-	// constant, CategoryConfig, and ABCI TODO comment — is established
-	// now so any LIP submitted under this class already bears the
-	// correct governance weight in the trust-surface vocabulary.
+	// The payload attachment and on-pass dispatch are not implemented. Current
+	// adapter writes instead come from genesis or the substrate_bridge
+	// gov-authority MsgRegisterAdapter handler. A passed LIP in this category
+	// records a decision but does not register an adapter.
 	CategoryAdapterRegistration = "adapter_registration"
 )
 

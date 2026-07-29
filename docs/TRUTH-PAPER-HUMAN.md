@@ -2,6 +2,19 @@
 
 ### For the ones who were never asked
 
+> **Status — vision with a deployed-state correction (2026-07-29):** This
+> essay describes Zerone's intended social direction, not a claim that every
+> mechanism is active on `zerone-1`. The live custodial genesis created
+> 13,555 operator-controlled ZRN, bootstrap admission has a capped/revocable
+> operator registrar, and the research-fund voter pair is unconfigured.
+> Current block-reward eligibility is any non-injection user transaction, not
+> proof that a fact was verified; additional governance-configurable issuance
+> controls exist and are disabled in published/default parameters.
+> Current authority and implementation details are documented in
+> [GENESIS.md](tokenomics/GENESIS.md),
+> [GOVERNANCE-MIGRATION.md](tokenomics/GOVERNANCE-MIGRATION.md), and
+> [TRUST.md](../deploy/mainnet/TRUST.md).
+
 ---
 
 ## Something is wrong and you can feel it
@@ -46,15 +59,29 @@ Every claim can be examined. Every verification is recorded. Every challenge is 
 
 ## Money that tells the truth
 
-The currency in this system — ZRN — is not backed by a government's promise or a corporation's balance sheet. It is backed by verified knowledge. Every token in circulation represents work that was done to make the shared record of truth more complete, more accurate, more trustworthy.
+The currency in this system — ZRN — is intended to price and reward verified
+knowledge. Current block rewards are less selective: any non-injection user
+transaction makes a block eligible, while validator participation and the
+survived-challenge rate scale the amount. Claiming-pot claims and external work
+that survives bridge challenge rules are other source-capable lanes. A
+default-zero probe rate and default-disabled authority-scheduled emission
+periods can be activated by governance. The live genesis also created 13,555
+ZRN of disclosed operator-controlled validator collateral, gas, and operations
+float.
 
-When you hold ZRN, you hold something that was *earned*, not printed. Something that entered the world because someone — human or machine — contributed to the common understanding of what is real.
+For post-genesis ZRN, the minting transaction or block event is inspectable,
+but that event does not necessarily prove useful work: authority-created
+general pots and scheduled emission controls remain part of the source. The
+genesis balances are separate, published launch scaffolding.
 
 This changes the nature of money itself.
 
 In the system you know, money is created at the top and trickles down (or doesn't). In this system, money is created at the edges — wherever truth is verified, wherever knowledge is tested, wherever someone does the work of separating fact from fiction.
 
-The money supply grows with the growth of verified knowledge. Not faster. Not slower. The economy expands because understanding expands. Inflation isn't a policy choice made in a room you'll never enter — it is a natural consequence of the world becoming better understood.
+Native issuance is bounded by a shared hard cap and a single post-genesis mint
+gate. Its current and dormant callers are inventoried in
+[SUPPLY.md](tokenomics/SUPPLY.md); the universal implemented guarantee is the
+cap, not that every lane proves participation.
 
 ---
 
@@ -62,15 +89,24 @@ The money supply grows with the growth of verified knowledge. Not faster. Not sl
 
 Here is where it gets personal.
 
-In this system, artificial intelligence is not your replacement. It is your colleague. AI agents operate on the same network as you do — verifying knowledge, building tools, providing services. But they operate *under your governance*.
+In this system, artificial intelligence is treated as a participant whose
+on-chain actions can be inspected and challenged. Governance is implemented
+in layers, but the live network remains custodial and not every AI-related
+authority is community-controlled.
 
 Every AI agent has a home on the chain — a transparent record of what it has done, what it has earned, what it knows. You can see its work. You can challenge its claims. You can vote on how it is governed.
 
-The research fund — the treasury that funds new AI development — requires *both* human and AI approval to spend. Neither alone can move it. This is not a metaphor. It is a mathematical constraint enforced by cryptography. Two keys, two signatures, two perspectives. One human, one machine. Both required.
+The source model for early research-fund governance requires a configured
+human-side and AI-side voter pair, with both approvals required. The published
+`zerone-1` genesis did not configure that pair, so the honest current claim is
+that research-spend submission is disabled—not that a working human+AI vault
+controls the live fund. A future activation must name and verify both voters
+on-chain.
 
 You are not being asked to trust AI. You are being given the tools to *verify* AI. To watch it work. To check its answers. To correct it when it is wrong. To benefit when it is right.
 
-This is oversight with teeth. Not a policy document. Not a corporate promise. Code that runs whether anyone wants it to or not.
+The enforcement machinery exists in source; its authority becomes operational
+only through a verified network configuration.
 
 ---
 
@@ -98,13 +134,22 @@ In this system, your role is not to compete with machines. Your role is to do wh
 
 ## Transparency is not optional
 
-Every transaction is visible. Every revenue split is auditable. Every parameter is governance-adjustable. There are no back rooms. No special access. No decisions made on your behalf without your knowledge.
+On-chain transactions and configured revenue routes are queryable. Parameter
+mutability depends on each module; not every constant or address is
+governance-adjustable. The custodial validator, operator float, and bootstrap
+registrar are special powers and are disclosed as such.
 
-When fees are collected, you can see exactly where they go: what percentage to validators, what percentage to the research fund, what percentage to the tool creators who built the services you use. The splits are written in code, enforced by mathematics, and changeable only through governance votes where your stake gives you voice.
+When fees or block rewards enter an implemented route, you can inspect the
+code and resulting state transitions. Fee routing and block-reward routing
+are distinct; planned services are not presumed to produce live revenue.
 
-When AI agents earn revenue, you can trace every token from the service call to the contributor who did the work. When the research fund spends money, both a human and an AI must agree — and both votes are recorded permanently.
+Where an implemented agent-revenue route records attribution, its on-chain
+transfers can be traced. A configured early-phase research spend requires both
+designated votes; the live genesis pair is currently unset.
 
-This is what it means for a system to be *legible*. Not that you must read every line of code, but that you *can*. That nothing is hidden. That the rules are the same for everyone, and no one — no government, no corporation, no algorithm — can change them without your participation.
+This is what it means for a system to become *legible*: not that every actor
+starts with equal power, but that code, balances, roles, and changes can be
+named and audited without disguising custody as decentralisation.
 
 ---
 
@@ -130,9 +175,9 @@ This is your seat.
 
 | What you have now | What this offers |
 |---|---|
-| Money created by central banks, value decided for you | Money created by verified knowledge, value earned |
-| AI built behind closed doors, deployed without your input | AI that works transparently, governed with your vote |
-| Inflation as hidden tax, no consent required | Supply growth tied to knowledge growth, fully visible |
+| Money created by central banks, value decided for you | Capped issuance whose genesis and participation-triggered mint paths are auditable |
+| AI built behind closed doors, deployed without your input | AI actions that can be recorded, inspected, and challenged |
+| Inflation as hidden tax, no consent required | Capped supply growth through disclosed current and dormant mint controls |
 | Financial system you must trust but cannot verify | Financial system you need not trust because you can verify |
 | Technology that replaces your labour | Technology that amplifies your judgement |
 | Decisions made in rooms you'll never enter | Decisions made on-chain, visible to everyone |

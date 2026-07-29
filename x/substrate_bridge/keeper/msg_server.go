@@ -99,11 +99,9 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	}
 
 	// 2b. Pending claims are fail-closed until their translation into
-	// x/knowledge is wired (ToK Plan 4): the auto-submit below records only
-	// a synthetic index entry, knowledge never learns of the claim, so it
-	// can never resolve — the attestation would sit AWAITING_RESOLUTION
-	// until timeout and slash the full bond. Refusing honestly at the door
-	// beats accepting a bond into a trap.
+	// x/knowledge is wired (ToK Plan 4). The reserved post-validation block
+	// below remains unreachable; accepting a bond before canonical knowledge
+	// provenance exists would trap the attestation until timeout and slashing.
 	if len(msg.Link.PendingClaims) > 0 {
 		return nil, types.ErrPendingClaimsNotSupported
 	}
@@ -206,7 +204,9 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 		CommittedAtBlock: uint64(sdkCtx.BlockHeight()),
 	}
 
-	// 7. Auto-submit pending claims and link them.
+	// 7. Reserved pending-claim translation. Nonempty lists are rejected
+	// above, so this loop is unreachable until x/knowledge translation is
+	// deliberately implemented.
 	for _, pc := range msg.Link.PendingClaims {
 		claimID := fmt.Sprintf("%s::pending::%s", attID, types.PendingClaimCanonicalHash(pc))
 		// Knowledge keeper integration deferred (types differ); record the
@@ -218,7 +218,8 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 		_ = m.LinkPendingClaim(ctx, claimID, attID)
 	}
 
-	// 8. State: AWAITING_RESOLUTION if pending claims exist; READY otherwise.
+	// 8. Current accepted submissions are always READY. The conditional
+	// preserves the reserved state shape for a future translation path.
 	if len(msg.Link.PendingClaims) > 0 {
 		att.Status = types.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION
 	} else {

@@ -21,20 +21,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// PinnedCreed is the chain's on-chain anchor for the canonical
-// docs/TRUTH_SEEKING.md text. The hash protects against silent
-// drift: a build whose normalized creed file does not hash to
-// PinnedCreed.canonical_hash is not the build the chain claims to
-// be running. The per-commitment registry protects against
-// interpretation drift: even an amendment that preserves the
-// overall hash (or sneaks in via post-pin edits) cannot redefine
-// commitment N without bumping the registry entry's
-// introduced_via_lip.
+// PinnedCreed is an on-chain anchor for a proposed canonical
+// docs/TRUTH_SEEKING.md version. Repository CI independently binds that file
+// to .creed-hash; it does not query a running network or prove that its
+// current pin matches the build. The per-commitment registry makes an
+// on-chain version's numbered structure queryable and append-only.
 //
 // See docs/TRUTH_SEEKING.md commitments 6 and 10:
-//   - 6 (no unilateral injection): extends from facts to the
-//     creed itself. The chain's voice is now governance-gated by
-//     the same shape as authority injection of facts.
+//   - 6 (no unilateral injection): direct authority anchoring can be
+//     disabled, but the published zerone-1 setting leaves it enabled.
 //   - 10 (forward-only audit): pin records are append-only by
 //     monotonic version; prior creed versions remain queryable as
 //     the chain's history of self-amendment.
@@ -50,16 +45,15 @@ type PinnedCreed struct {
 	CanonicalHash []byte `protobuf:"bytes,2,opt,name=canonical_hash,json=canonicalHash,proto3" json:"canonical_hash,omitempty"`
 	// Block at which this version became canonical.
 	PinnedAtHeight uint64 `protobuf:"varint,3,opt,name=pinned_at_height,json=pinnedAtHeight,proto3" json:"pinned_at_height,omitempty"`
-	// LIP id that authorized this pin. Empty for the genesis pin
-	// (version=1) since no LIP precedes genesis. Required for any
-	// version > 1 once x/gov.CategoryCreedAmendment ships.
+	// Optional source LIP id. Empty for genesis and also possible for later
+	// authority-direct pins while direct_anchor_enabled=true; this field alone
+	// is not proof of governance passage.
 	PinnedViaLip string `protobuf:"bytes,4,opt,name=pinned_via_lip,json=pinnedViaLip,proto3" json:"pinned_via_lip,omitempty"`
 	// Per-commitment registry at this version. Each entry names a
 	// commitment by number and tracks when it entered the creed and
 	// (if archived) when it left. The registry is the structural
-	// protection against interpretation drift — commitment 7 can
-	// only be redefined by amending its CommitmentEntry, and that
-	// amendment is itself bound to a LIP.
+	// protection against interpretation drift within the pin. A source LIP is
+	// required only by the governance path/configuration that adopted it.
 	Commitments   []*CommitmentEntry `protobuf:"bytes,5,rep,name=commitments,proto3" json:"commitments,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -130,20 +124,13 @@ func (x *PinnedCreed) GetCommitments() []*CommitmentEntry {
 	return nil
 }
 
-// CreedCouncilMember is the AI-side voter pool for Creed Amendment
-// LIPs. Membership is genesis-curated initially (a hand-picked set
-// of agent homes that represent diverse capability profiles); over
-// time, capability-gated admission opens the pool to any agent
-// whose x/agent_understanding score crosses a threshold.
+// CreedCouncilMember is a registry/query surface intended for a future
+// AI-side voter pool for Creed Amendment LIPs.
 //
 // docs/TRUTH_SEEKING.md commitment 19 (the creed is governance-
-// gated): the human/AI co-required pattern from the Truth Paper
-// expressed at the layer where the chain commits to who it is.
-// A Creed Amendment LIP's pass-conditions require quorum in BOTH
-// the existing human voter pool AND the council registered here.
-// Without the AI side the asymmetry would be unilateral; without
-// the human side the chain would be ungovernable by its biological
-// participants. Two pools, two consents, both required.
+// gated): current ordinary LIP tally does NOT route or enforce separate
+// human/AI quorum. Membership and weight are scaffolded inputs only; source
+// must not treat this registry as an active pass condition.
 type CreedCouncilMember struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Bech32 address of the council seat. At launch, this is a
@@ -259,9 +246,9 @@ type CommitmentEntry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Stable identifier across versions. 1..N.
 	Number uint32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
-	// Short canonical title. Examples: "Methodology over statement",
-	// "Is-ought wall is structural", "Forward-only audit".
-	// Must match the heading in TRUTH_SEEKING.md for the same number.
+	// Short title. Repository invariants compare the canonical source registry
+	// with TRUTH_SEEKING.md headings; runtime validates structure and stores this
+	// value but cannot independently read the source document.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Block at which this commitment first entered the creed (or was
 	// last materially amended).

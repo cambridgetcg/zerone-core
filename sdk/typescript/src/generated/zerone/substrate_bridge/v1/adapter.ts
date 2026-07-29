@@ -98,39 +98,41 @@ export function qualificationStatusToJSON(object: QualificationStatus): string {
   }
 }
 /**
- * SlashGradient mirrors M1's graduated slashing — different failure
- * modes carry different bps slash weights. Values stored at adapter
- * registration and applied at attestation rejection paths.
+ * SlashGradient is retained adapter metadata for a future graduated-slashing
+ * implementation. Current pre-escrow validation rejects compiler/bounds
+ * failures and a settled rejection burns the full bond; these values are not
+ * read by consensus.
  * @name SlashGradient
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.SlashGradient
  */
 export interface SlashGradient {
   /**
-   * adapter-binary mismatch — typically 10000 (full)
+   * inert metadata; 10,000 scale
    */
   compilerDriftBps: number;
   /**
-   * axis claim exceeds bounds — typically pro-rata
+   * inert metadata; 10,000 scale
    */
   axisOverflowBps: number;
   /**
-   * > rejection threshold reached — typically 10000
+   * inert metadata; 10,000 scale
    */
   fraudBps: number;
 }
 /**
- * AdapterRegistration is the gov-approved metadata for one adapter.
- * Adapter is a recipe (binary hash + bounds + slash); no operator role.
- * Anyone who runs the registered binary AND submits an attestation
- * earns via the UW formula.
+ * AdapterRegistration is the metadata for one genesis-seeded or
+ * gov-authority-registered adapter. CategoryAdapterRegistration LIP payload
+ * dispatch is not wired yet; registered_via_lip_id is therefore provenance,
+ * not proof that current LIP execution installed the adapter. Adapter is a
+ * recipe (binary hash + bounds + slash), not an operator role.
  * @name AdapterRegistration
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.AdapterRegistration
  */
 export interface AdapterRegistration {
   /**
-   * canonical, gov-approved (e.g. "wikipedia-en-v1")
+   * canonical ID (e.g. "wikipedia-en-v1")
    */
   adapterId: string;
   /**
@@ -142,7 +144,8 @@ export interface AdapterRegistration {
    */
   version: string;
   /**
-   * determinism guarantee
+   * Off-chain compiler provenance metadata. Runtime does not fetch or execute
+   * the binary and does not compare this hash during attestation validation.
    */
   compilerBinaryHash: Uint8Array;
   axisBounds?: AxisBounds;
@@ -156,6 +159,9 @@ export interface AdapterRegistration {
    */
   allowedClassIds: string[];
   status: AdapterStatus;
+  /**
+   * empty for genesis/direct authority registration
+   */
   registeredViaLipId: string;
   registeredAtBlock: bigint;
   /**
@@ -179,9 +185,10 @@ function createBaseSlashGradient(): SlashGradient {
   };
 }
 /**
- * SlashGradient mirrors M1's graduated slashing — different failure
- * modes carry different bps slash weights. Values stored at adapter
- * registration and applied at attestation rejection paths.
+ * SlashGradient is retained adapter metadata for a future graduated-slashing
+ * implementation. Current pre-escrow validation rejects compiler/bounds
+ * failures and a settled rejection burns the full bond; these values are not
+ * read by consensus.
  * @name SlashGradient
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.SlashGradient
@@ -252,10 +259,11 @@ function createBaseAdapterRegistration(): AdapterRegistration {
   };
 }
 /**
- * AdapterRegistration is the gov-approved metadata for one adapter.
- * Adapter is a recipe (binary hash + bounds + slash); no operator role.
- * Anyone who runs the registered binary AND submits an attestation
- * earns via the UW formula.
+ * AdapterRegistration is the metadata for one genesis-seeded or
+ * gov-authority-registered adapter. CategoryAdapterRegistration LIP payload
+ * dispatch is not wired yet; registered_via_lip_id is therefore provenance,
+ * not proof that current LIP execution installed the adapter. Adapter is a
+ * recipe (binary hash + bounds + slash), not an operator role.
  * @name AdapterRegistration
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.AdapterRegistration

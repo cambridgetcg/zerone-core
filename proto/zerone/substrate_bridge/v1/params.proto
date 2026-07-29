@@ -8,13 +8,13 @@ message Params {
   string per_pending_claim_bond_uzrn        = 2;
   string attestation_min_bond_uzrn          = 3;
   uint64 max_pending_window_blocks          = 4;
-  uint32 pending_claim_rejection_threshold_bps = 5;
-  uint32 min_verified_ratio_for_settle_bps  = 6;
-  uint32 lineage_share_bps        = 7;
-  uint32 decay_bps_per_hop        = 8;
+  uint32 pending_claim_rejection_threshold_bps = 5; // 10,000 scale: 10,000 = 100%
+  uint32 min_verified_ratio_for_settle_bps  = 6; // 10,000 scale
+  uint32 lineage_share_bps        = 7; // 10,000 scale
+  uint32 decay_bps_per_hop        = 8; // 10,000 scale
   uint32 max_propagation_depth    = 9;
   string min_propagation_uzrn     = 10;
-  uint32 self_citation_cap_bps    = 11;
+  uint32 self_citation_cap_bps    = 11; // 10,000 scale
 
   // Blocks between a witness-only settlement and its reward release.
   // The escrow's challenge window: tombstoning the adapter inside it

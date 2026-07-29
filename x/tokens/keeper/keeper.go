@@ -51,7 +51,9 @@ func NewKeeper(
 
 // SetVestingRewardsKeeper wires the chain's cap-gated mint entry point into the
 // tokens keeper (post-init, app.go). Emission-period minting gates through it.
-func (k *Keeper) SetVestingRewardsKeeper(vrk types.VestingRewardsKeeper) { k.vestingRewardsKeeper = vrk }
+func (k *Keeper) SetVestingRewardsKeeper(vrk types.VestingRewardsKeeper) {
+	k.vestingRewardsKeeper = vrk
+}
 
 // Logger returns a module-specific logger.
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
@@ -95,11 +97,11 @@ func (k Keeper) GetParams(ctx sdk.Context) *types.Params {
 
 // genesisJSON is the combined genesis structure for JSON marshal/unmarshal.
 type genesisJSON struct {
-	Params            *types.Params                  `json:"params,omitempty"`
-	TokenEntries      []tokenGenesisEntry            `json:"token_entries,omitempty"`
-	DelegationEntries []delegationGenesisEntry       `json:"delegation_entries,omitempty"`
-	WrapEntries       []wrapGenesisEntry             `json:"wrap_entries,omitempty"`
-	EmissionEntries   []*types.EmissionPeriod        `json:"emission_entries,omitempty"`
+	Params            *types.Params            `json:"params,omitempty"`
+	TokenEntries      []tokenGenesisEntry      `json:"token_entries,omitempty"`
+	DelegationEntries []delegationGenesisEntry `json:"delegation_entries,omitempty"`
+	WrapEntries       []wrapGenesisEntry       `json:"wrap_entries,omitempty"`
+	EmissionEntries   []*types.EmissionPeriod  `json:"emission_entries,omitempty"`
 }
 
 type tokenGenesisEntry struct {
@@ -338,6 +340,13 @@ func (k Keeper) mintCappedUzrn(ctx sdk.Context, module string, amount *big.Int) 
 
 // BeginBlocker processes active emission periods, minting tokens for the current block.
 func (k Keeper) BeginBlocker(ctx sdk.Context) {
+	// EmissionEpochBlocks is the consensus activation latch. Published/default
+	// genesis sets it to zero, so stored or imported periods cannot mint until
+	// governance explicitly enables the surface.
+	if k.GetParams(ctx).EmissionEpochBlocks == 0 {
+		return
+	}
+
 	currentBlock := uint64(ctx.BlockHeight())
 
 	k.IterateEmissionPeriods(ctx, func(emission *types.EmissionPeriod) bool {
@@ -365,12 +374,16 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 			return false
 		}
 
-		minted, err := k.mintCappedUzrn(ctx, types.ModuleName, amountPerBlock)
+		// Mint, transfer, accounting, and events are one atomic state
+		// transition. A blocked/invalid recipient must not strand freshly
+		// minted uzrn in the tokens module and repeat until the global cap.
+		cacheCtx, write := ctx.CacheContext()
+		minted, err := k.mintCappedUzrn(cacheCtx, types.ModuleName, amountPerBlock)
 		if err != nil || minted.Sign() <= 0 {
 			return false
 		}
 		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(minted)))
-		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipientAddr, coins); err != nil {
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(cacheCtx, types.ModuleName, recipientAddr, coins); err != nil {
 			return false
 		}
 
@@ -381,7 +394,9 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 		}
 		totalEmitted.Add(totalEmitted, minted)
 		emission.TotalEmitted = totalEmitted.String()
-		k.SetEmissionPeriod(ctx, emission)
+		k.SetEmissionPeriod(cacheCtx, emission)
+		write()
+		ctx.EventManager().EmitEvents(cacheCtx.EventManager().Events())
 
 		return false
 	})

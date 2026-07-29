@@ -234,6 +234,61 @@ func (x *VestingSchedule) GetCitationCount() uint32 {
 	return 0
 }
 
+// ClaimScheduleIndex preserves the current claim_id -> vesting_id lookup.
+// Multiple legacy schedules may share a claim ID, so schedule replay order
+// alone cannot reconstruct which schedule the live index selected.
+type ClaimScheduleIndex struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClaimId       string                 `protobuf:"bytes,1,opt,name=claim_id,json=claimId,proto3" json:"claim_id,omitempty"`
+	VestingId     string                 `protobuf:"bytes,2,opt,name=vesting_id,json=vestingId,proto3" json:"vesting_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClaimScheduleIndex) Reset() {
+	*x = ClaimScheduleIndex{}
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClaimScheduleIndex) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClaimScheduleIndex) ProtoMessage() {}
+
+func (x *ClaimScheduleIndex) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClaimScheduleIndex.ProtoReflect.Descriptor instead.
+func (*ClaimScheduleIndex) Descriptor() ([]byte, []int) {
+	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ClaimScheduleIndex) GetClaimId() string {
+	if x != nil {
+		return x.ClaimId
+	}
+	return ""
+}
+
+func (x *ClaimScheduleIndex) GetVestingId() string {
+	if x != nil {
+		return x.VestingId
+	}
+	return ""
+}
+
 // CategoryConfig defines release curve parameters for a vesting category.
 type CategoryConfig struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -247,7 +302,7 @@ type CategoryConfig struct {
 
 func (x *CategoryConfig) Reset() {
 	*x = CategoryConfig{}
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[1]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -259,7 +314,7 @@ func (x *CategoryConfig) String() string {
 func (*CategoryConfig) ProtoMessage() {}
 
 func (x *CategoryConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[1]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -272,7 +327,7 @@ func (x *CategoryConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CategoryConfig.ProtoReflect.Descriptor instead.
 func (*CategoryConfig) Descriptor() ([]byte, []int) {
-	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{1}
+	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CategoryConfig) GetCategory() string {
@@ -325,7 +380,7 @@ type RewardRouting struct {
 
 func (x *RewardRouting) Reset() {
 	*x = RewardRouting{}
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[2]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -337,7 +392,7 @@ func (x *RewardRouting) String() string {
 func (*RewardRouting) ProtoMessage() {}
 
 func (x *RewardRouting) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[2]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -350,7 +405,7 @@ func (x *RewardRouting) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RewardRouting.ProtoReflect.Descriptor instead.
 func (*RewardRouting) Descriptor() ([]byte, []int) {
-	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{2}
+	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RewardRouting) GetSource() string {
@@ -446,23 +501,25 @@ func (x *RewardRouting) GetTreasuryShare() string {
 
 // BlockRewardDistribution records block reward distribution for a specific block.
 type BlockRewardDistribution struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	BlockHeight       uint64                 `protobuf:"varint,1,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`                  // block number
-	ProducerReward    string                 `protobuf:"bytes,2,opt,name=producer_reward,json=producerReward,proto3" json:"producer_reward,omitempty"`          // reward to block producer (bigint as string)
-	ResearchShare     string                 `protobuf:"bytes,3,opt,name=research_share,json=researchShare,proto3" json:"research_share,omitempty"`             // research fund share (bigint as string)
-	TotalMinted       string                 `protobuf:"bytes,4,opt,name=total_minted,json=totalMinted,proto3" json:"total_minted,omitempty"`                   // total new tokens (bigint as string)
-	ValidatorCount    uint32                 `protobuf:"varint,5,opt,name=validator_count,json=validatorCount,proto3" json:"validator_count,omitempty"`         // active validators
-	FundBalanceAfter  string                 `protobuf:"bytes,6,opt,name=fund_balance_after,json=fundBalanceAfter,proto3" json:"fund_balance_after,omitempty"`  // remaining fund balance (bigint as string)
-	FounderShare      string                 `protobuf:"bytes,7,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`                // founder's operational share (bigint as string)
-	DevelopmentAmount string                 `protobuf:"bytes,8,opt,name=development_amount,json=developmentAmount,proto3" json:"development_amount,omitempty"` // development fund amount (bigint as string)
-	ProtocolShare     string                 `protobuf:"bytes,9,opt,name=protocol_share,json=protocolShare,proto3" json:"protocol_share,omitempty"`             // protocol share (bigint as string)
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	BlockHeight    uint64                 `protobuf:"varint,1,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`          // block number
+	ProducerReward string                 `protobuf:"bytes,2,opt,name=producer_reward,json=producerReward,proto3" json:"producer_reward,omitempty"`  // reward to block producer (bigint as string)
+	ResearchShare  string                 `protobuf:"bytes,3,opt,name=research_share,json=researchShare,proto3" json:"research_share,omitempty"`     // research fund share (bigint as string)
+	TotalMinted    string                 `protobuf:"bytes,4,opt,name=total_minted,json=totalMinted,proto3" json:"total_minted,omitempty"`           // total new tokens (bigint as string)
+	ValidatorCount uint32                 `protobuf:"varint,5,opt,name=validator_count,json=validatorCount,proto3" json:"validator_count,omitempty"` // active validators
+	// Legacy field name: cumulative shared MintWithCap accounting ledger after
+	// this distribution, not a spendable fund balance or full supply history.
+	FundBalanceAfter  string `protobuf:"bytes,6,opt,name=fund_balance_after,json=fundBalanceAfter,proto3" json:"fund_balance_after,omitempty"`
+	FounderShare      string `protobuf:"bytes,7,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`                // founder's operational share (bigint as string)
+	DevelopmentAmount string `protobuf:"bytes,8,opt,name=development_amount,json=developmentAmount,proto3" json:"development_amount,omitempty"` // development fund amount (bigint as string)
+	ProtocolShare     string `protobuf:"bytes,9,opt,name=protocol_share,json=protocolShare,proto3" json:"protocol_share,omitempty"`             // protocol share (bigint as string)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *BlockRewardDistribution) Reset() {
 	*x = BlockRewardDistribution{}
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[3]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -474,7 +531,7 @@ func (x *BlockRewardDistribution) String() string {
 func (*BlockRewardDistribution) ProtoMessage() {}
 
 func (x *BlockRewardDistribution) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[3]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,7 +544,7 @@ func (x *BlockRewardDistribution) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BlockRewardDistribution.ProtoReflect.Descriptor instead.
 func (*BlockRewardDistribution) Descriptor() ([]byte, []int) {
-	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{3}
+	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *BlockRewardDistribution) GetBlockHeight() uint64 {
@@ -569,7 +626,7 @@ type ClawbackRecord struct {
 
 func (x *ClawbackRecord) Reset() {
 	*x = ClawbackRecord{}
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[4]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -581,7 +638,7 @@ func (x *ClawbackRecord) String() string {
 func (*ClawbackRecord) ProtoMessage() {}
 
 func (x *ClawbackRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[4]
+	mi := &file_zerone_vesting_rewards_v1_state_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -594,7 +651,7 @@ func (x *ClawbackRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClawbackRecord.ProtoReflect.Descriptor instead.
 func (*ClawbackRecord) Descriptor() ([]byte, []int) {
-	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{4}
+	return file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ClawbackRecord) GetId() string {
@@ -676,7 +733,11 @@ const file_zerone_vesting_rewards_v1_state_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x14 \x01(\x04R\tupdatedAt\x12/\n" +
 	"\x13corroboration_count\x18\x15 \x01(\rR\x12corroborationCount\x12%\n" +
-	"\x0ecitation_count\x18\x16 \x01(\rR\rcitationCount\"\x9a\x01\n" +
+	"\x0ecitation_count\x18\x16 \x01(\rR\rcitationCount\"N\n" +
+	"\x12ClaimScheduleIndex\x12\x19\n" +
+	"\bclaim_id\x18\x01 \x01(\tR\aclaimId\x12\x1d\n" +
+	"\n" +
+	"vesting_id\x18\x02 \x01(\tR\tvestingId\"\x9a\x01\n" +
 	"\x0eCategoryConfig\x12\x1a\n" +
 	"\bcategory\x18\x01 \x01(\tR\bcategory\x12(\n" +
 	"\x10half_life_blocks\x18\x02 \x01(\x04R\x0ehalfLifeBlocks\x12!\n" +
@@ -730,13 +791,14 @@ func file_zerone_vesting_rewards_v1_state_proto_rawDescGZIP() []byte {
 	return file_zerone_vesting_rewards_v1_state_proto_rawDescData
 }
 
-var file_zerone_vesting_rewards_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_zerone_vesting_rewards_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_zerone_vesting_rewards_v1_state_proto_goTypes = []any{
 	(*VestingSchedule)(nil),         // 0: zerone.vesting_rewards.v1.VestingSchedule
-	(*CategoryConfig)(nil),          // 1: zerone.vesting_rewards.v1.CategoryConfig
-	(*RewardRouting)(nil),           // 2: zerone.vesting_rewards.v1.RewardRouting
-	(*BlockRewardDistribution)(nil), // 3: zerone.vesting_rewards.v1.BlockRewardDistribution
-	(*ClawbackRecord)(nil),          // 4: zerone.vesting_rewards.v1.ClawbackRecord
+	(*ClaimScheduleIndex)(nil),      // 1: zerone.vesting_rewards.v1.ClaimScheduleIndex
+	(*CategoryConfig)(nil),          // 2: zerone.vesting_rewards.v1.CategoryConfig
+	(*RewardRouting)(nil),           // 3: zerone.vesting_rewards.v1.RewardRouting
+	(*BlockRewardDistribution)(nil), // 4: zerone.vesting_rewards.v1.BlockRewardDistribution
+	(*ClawbackRecord)(nil),          // 5: zerone.vesting_rewards.v1.ClawbackRecord
 }
 var file_zerone_vesting_rewards_v1_state_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -757,7 +819,7 @@ func file_zerone_vesting_rewards_v1_state_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_vesting_rewards_v1_state_proto_rawDesc), len(file_zerone_vesting_rewards_v1_state_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

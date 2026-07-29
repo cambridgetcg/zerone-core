@@ -177,20 +177,12 @@ func TestRouteB_Wave8_HeartbeatBountyExpiry(t *testing.T) {
 		"sponsor refunded 2.91M (3M escrow minus 90k fee)")
 }
 
-// TestRouteB_Wave8_HeartbeatVestingRelease — after a disbursement's
-// vesting_end_block arrives, the heartbeat releases the vesting portion.
-func TestRouteB_Wave8_HeartbeatVestingRelease(t *testing.T) {
+// TestRouteB_Wave8_TrainingFundReleaseCannotBeCreated confirms the heartbeat
+// cannot inherit vesting state from the replay-unsafe public claim path.
+func TestRouteB_Wave8_TrainingFundReleaseCannotBeCreated(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
-
-	// Shorten the vesting window for the test so we don't advance 60 × 1111
-	// blocks. Params are amendable via SetParams.
-	p, err := h.KnowledgeKeeper.GetParams(h.Ctx)
-	require.NoError(t, err)
-	p.TrainingFundVestingEpochs = 1
-	p.FitnessEpochBlocks = 5
-	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, p))
 
 	operatorAddr := testAddr("wave8_vestop")
 	operator := operatorAddr.String()
@@ -209,41 +201,18 @@ func TestRouteB_Wave8_HeartbeatVestingRelease(t *testing.T) {
 	}))
 
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
-	claim, err := ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
+	supplyBefore := h.App.BankKeeper.GetSupply(h.Ctx, "uzrn")
+	_, err = ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
 		Claimant: operator, ModelId: "model-vest", Id: "disb-vest-1",
 	})
-	require.NoError(t, err)
-
-	released, _ := sdkmath.NewIntFromString(claim.ReleasedAmount)
-	vesting, _ := sdkmath.NewIntFromString(claim.VestingAmount)
-	require.True(t, released.Equal(vesting), "50/50 split at claim time")
-
-	balAtClaim := h.GetBalance(operatorAddr, "uzrn")
-	require.True(t, balAtClaim.Amount.Equal(released),
-		"operator holds only the released half immediately")
-
-	// Advance past vesting_end_block.
-	blocksUntilVest := int64(claim.VestingEndBlock) - h.Height() + 1
-	if blocksUntilVest < 1 {
-		blocksUntilVest = 1
-	}
-	h.AdvanceBlocks(int(blocksUntilVest))
-
-	// Heartbeat should have released the vesting portion.
-	balAfterVest := h.GetBalance(operatorAddr, "uzrn")
-	require.True(t, balAfterVest.Amount.Equal(released.Add(vesting)),
-		"vesting released; operator holds full amount")
-
-	// Disbursement state: vesting_amount zeroed (idempotency).
-	disb, ok := h.KnowledgeKeeper.GetTrainingFundDisbursement(h.Ctx, "disb-vest-1")
-	require.True(t, ok)
-	require.Equal(t, "0", disb.VestingAmount, "vesting amount zeroed post-release")
-
-	// Second heartbeat must not double-release.
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "replay-safe one-shot eligibility")
+	require.Equal(t, supplyBefore, h.App.BankKeeper.GetSupply(h.Ctx, "uzrn"),
+		"the refused call itself must not mint")
 	h.AdvanceBlocks(5)
-	balAfterSecond := h.GetBalance(operatorAddr, "uzrn")
-	require.True(t, balAfterSecond.Amount.Equal(balAfterVest.Amount),
-		"idempotent: no double release on subsequent blocks")
+	require.True(t, h.GetBalance(operatorAddr, "uzrn").Amount.IsZero())
+	_, found := h.KnowledgeKeeper.GetTrainingFundDisbursement(h.Ctx, "disb-vest-1")
+	require.False(t, found)
 }
 
 // TestRouteB_Wave8_HeartbeatManifestSupersession — when a newer FINALIZED

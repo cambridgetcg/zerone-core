@@ -2,7 +2,9 @@ import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
 /**
  * BasisPoints represents a value on a 1,000,000 scale (100% = 1,000,000).
- * ALL Zerone modules use this scale. No exceptions.
+ * Fields typed as this common message use that scale. Some legacy scalar
+ * fields named *_bps declare a 10,000 scale in their own module contracts;
+ * callers must follow the field-specific protobuf documentation.
  * @name BasisPoints
  * @package zerone.common.v1
  * @see proto type: zerone.common.v1.BasisPoints
@@ -56,7 +58,9 @@ export interface ProtocolSubSplit {
 }
 /**
  * BasisPoints represents a value on a 1,000,000 scale (100% = 1,000,000).
- * ALL Zerone modules use this scale. No exceptions.
+ * Fields typed as this common message use that scale. Some legacy scalar
+ * fields named *_bps declare a 10,000 scale in their own module contracts;
+ * callers must follow the field-specific protobuf documentation.
  * @name BasisPoints
  * @package zerone.common.v1
  * @see proto type: zerone.common.v1.BasisPoints

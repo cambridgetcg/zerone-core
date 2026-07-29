@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -9,6 +10,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	creedtypes "github.com/zerone-chain/zerone/x/creed/types"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
@@ -463,6 +465,20 @@ func (ms *msgServer) AttachCreedAmendmentPin(goCtx context.Context, msg *types.M
 	}
 	if _, exists := ms.GetCreedAmendmentPin(ctx, msg.LipId); exists {
 		return nil, fmt.Errorf("creed-amendment pin already attached to LIP %s", msg.LipId)
+	}
+
+	var commitments []*creedtypes.CommitmentEntry
+	if err := json.Unmarshal(msg.CommitmentsJson, &commitments); err != nil {
+		return nil, fmt.Errorf("decode commitments_json: %w", err)
+	}
+	if err := creedtypes.ValidateCanonicalHash(msg.CanonicalHash); err != nil {
+		return nil, fmt.Errorf("validate canonical_hash: %w", err)
+	}
+	if err := creedtypes.ValidateCommitmentRegistryAtHeight(
+		commitments,
+		uint64(ctx.BlockHeight()),
+	); err != nil {
+		return nil, fmt.Errorf("validate commitments_json: %w", err)
 	}
 
 	pin := &CreedAmendmentPin{

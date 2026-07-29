@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -119,10 +120,13 @@ func cmdSubmitExternalAttestation() *cobra.Command {
 			if err := readJSONFile(args[2], &link); err != nil {
 				return err
 			}
-			// The link's adapter_id must match the message; set it, then fill the
-			// M2 re-derivable integrity hash so a caller never hand-computes the
-			// sha256 canonical form — the keeper re-derives and verifies it.
-			link.AdapterId = args[0]
+			// Bind both adapter fields to the message adapter before hashing.
+			// Relay-produced files deliberately omit them; an explicitly
+			// conflicting source adapter is more likely operator error than
+			// something the CLI should silently rewrite.
+			if err := bindLinkAdapter(&link, args[0]); err != nil {
+				return err
+			}
 			link.LinkHash = keeper.ComputeLinkHash(&link)
 			msg := &types.MsgSubmitExternalAttestation{
 				Submitter:   cctx.GetFromAddress().String(),
@@ -136,6 +140,24 @@ func cmdSubmitExternalAttestation() *cobra.Command {
 	}
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
+}
+
+func bindLinkAdapter(link *types.SubstrateLink, adapterID string) error {
+	if link == nil {
+		return fmt.Errorf("link must not be nil")
+	}
+	if link.Source != nil {
+		if link.Source.AdapterId != "" && link.Source.AdapterId != adapterID {
+			return fmt.Errorf(
+				"source.adapter_id %q conflicts with command adapter_id %q",
+				link.Source.AdapterId,
+				adapterID,
+			)
+		}
+		link.Source.AdapterId = adapterID
+	}
+	link.AdapterId = adapterID
+	return nil
 }
 
 // readJSONFile reads a JSON file and unmarshals it into v.

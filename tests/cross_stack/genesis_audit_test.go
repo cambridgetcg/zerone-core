@@ -5,6 +5,9 @@ import (
 	"os"
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
+	abci "github.com/cometbft/cometbft/abci/types"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	"github.com/stretchr/testify/require"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -15,6 +18,7 @@ import (
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 // TestScenario10_AllModulesDefaultGenesisValid verifies that every registered
@@ -73,7 +77,7 @@ func TestScenario10_AllModulesDefaultGenesisValid(t *testing.T) {
 
 // TestScenario11_SeedAxiomsWellFormed validates all embedded axioms pass
 // comprehensive validation including DAG acyclicity and domain coverage.
-func TestScenario13_ZeroTeamAllocationAtGenesis(t *testing.T) {
+func TestScenario13_ProtocolDefaultGenesisHasNoBalances(t *testing.T) {
 	app := newTestApp(t, testChainID)
 
 	genState := app.DefaultGenesis()
@@ -96,11 +100,12 @@ func TestScenario13_ZeroTeamAllocationAtGenesis(t *testing.T) {
 		}
 	}
 	require.Empty(t, violations,
-		"no genesis account may hold ZRN — doctrine: zero team allocation. violations: %v", violations)
+		"protocol-default genesis must not create positive ZRN balances; deployment ceremonies are audited separately. violations: %v", violations)
 
-	// No positive supply. Total supply at genesis is 0; minting begins
-	// at block 1 through x/vesting_rewards block rewards, and per-claim
-	// through x/claiming_pot bootstrap claims.
+	// No positive supply. Total protocol-default supply is 0. Post-genesis
+	// native minting has multiple cap-gated callers, including
+	// transaction-bearing block rewards, quota-bounded claiming pots, and
+	// qualifying knowledge or external-work reward paths.
 	for _, supply := range bankGen.Supply {
 		if supply.Denom == zeroneapp.BondDenom {
 			require.True(t, supply.Amount.IsZero(),
@@ -124,6 +129,36 @@ func TestScenario13b_AllowedAppConstants(t *testing.T) {
 	require.Equal(t, 2521, zeroneapp.DefaultBlockTime)
 	require.Equal(t, 1_000_000, zeroneapp.MicroDenomMultiplier)
 	require.Equal(t, "zerone-testnet-1", zeroneapp.TestnetChainID)
+}
+
+func TestScenario13c_InitChainRejectsGenesisAboveHardCap(t *testing.T) {
+	app := newTestApp(t, testChainID)
+	genState := genesisStateWithValSet(t, app, app.DefaultGenesis())
+
+	var bankGen banktypes.GenesisState
+	require.NoError(t, app.AppCodec().UnmarshalJSON(genState[banktypes.ModuleName], &bankGen))
+	require.NotEmpty(t, bankGen.Balances)
+	maxSupply, ok := sdkmath.NewIntFromString(vestingrewardstypes.MaxSupplyUzrn)
+	require.True(t, ok)
+	bankGen.Balances[0].Coins = sdk.NewCoins(
+		sdk.NewCoin(zeroneapp.BondDenom, maxSupply.AddRaw(1)),
+	)
+	total := sdk.NewCoins()
+	for _, balance := range bankGen.Balances {
+		total = total.Add(balance.Coins...)
+	}
+	bankGen.Supply = total
+	genState[banktypes.ModuleName] = app.AppCodec().MustMarshalJSON(&bankGen)
+
+	stateBytes, err := json.Marshal(genState)
+	require.NoError(t, err)
+	_, err = app.InitChain(&abci.RequestInitChain{
+		ChainId:         testChainID,
+		AppStateBytes:   stateBytes,
+		ConsensusParams: simtestutil.DefaultConsensusParams,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exceeds hard cap")
 }
 
 // TestScenario13c_ClaimingPotMinterPermission asserts that the claiming_pot
@@ -269,7 +304,6 @@ func TestScenario16_InvalidGenesisRejection(t *testing.T) {
 		t.Logf("rejected with: %v", err)
 	})
 
-
 	t.Run("Emergency_InvalidStatus", func(t *testing.T) {
 		genState := app.DefaultGenesis()
 		emGen := emergencytypes.DefaultGenesis()
@@ -285,32 +319,27 @@ func TestScenario16_InvalidGenesisRejection(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Ceremony-artifact audit (design §4 TEST supply-invariant-audit)
+// Published-artifact audit
 //
-// The tests above audit DefaultGenesis — which is exactly how the 1.2M-ZRN
-// testnet artifact went unnoticed: nothing audited what the ceremony script
-// actually PRODUCED. TestGenesisArtifact_SupplyInvariants closes that gap:
-// point ZERONE_GENESIS_ARTIFACT at a genesis.json emitted by
-// scripts/mainnet-ceremony.sh and it asserts the §4 supply-invariant list
-// against the artifact itself.
+// The tests above audit DefaultGenesis, but deployment tooling may author a
+// materially different state. Point ZERONE_GENESIS_ARTIFACT at a published or
+// ceremony-produced genesis.json to audit the artifact itself.
 //
 //	ZERONE_GENESIS_ARTIFACT=ceremony-out/genesis.json \
 //	  go test ./tests/cross_stack/ -run TestGenesisArtifact -v
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Canonical ceremony constants (design §2). A 4→5 validator roster change
-// (design §10a) flips nValidators and totalSupply here and in
-// scripts/mainnet-ceremony.sh together.
+// These constants describe the checked-in zerone-1 artifact. Changing that
+// artifact requires deliberately updating this independent audit.
 const (
 	artifactEnvVar        = "ZERONE_GENESIS_ARTIFACT"
-	artifactNValidators   = 5             // Alpha, Beta, Gamma, Yu, Ai (design §10a)
-	artifactStakeUzrn     = "11111000000" // 11,111 ZRN locked + self-bonded (original_vesting) per validator
-	artifactGasSeedUzrn   = "222000000"   // 222 ZRN spendable gas seed per validator (§13)
-	artifactStakeBalUzrn  = "11333000000" // 11,111 locked stake + 222 spendable gas seed = stake account balance
-	artifactFloatUzrn     = "111000000"   // 111 ZRN operator float
-	artifactOnboardUzrn   = "2222000000"  // 2,222 ZRN onboarding multisig
-	artifactTotalSupply   = "59442000000" // 59,442 ZRN — the §13 gas-seeded zero-ALLOCATION invariant
-	artifactNBalances     = 11
+	artifactNValidators   = 1
+	artifactStakeUzrn     = "11111000000" // 11,111 ZRN self-bonded
+	artifactStakeBalUzrn  = "11333000000" // 11,111 ZRN self-bond + 222 ZRN gas
+	artifactFloatUzrn     = "2222000000"  // 2,222 ZRN operator float
+	artifactTotalSupply   = "13555000000" // 13,555 ZRN
+	artifactNBalances     = 2
+	baseAccountType       = "/cosmos.auth.v1beta1.BaseAccount"
 	permanentLockedType   = "/cosmos.vesting.v1beta1.PermanentLockedAccount"
 	msgCreateValidatorURL = "/cosmos.staking.v1beta1.MsgCreateValidator"
 )
@@ -412,7 +441,7 @@ func loadCeremonyArtifact(t *testing.T) *artifactGenesis {
 	t.Helper()
 	path := os.Getenv(artifactEnvVar)
 	if path == "" {
-		t.Skipf("%s not set — run scripts/mainnet-ceremony.sh and point it at the emitted genesis.json", artifactEnvVar)
+		t.Skipf("%s not set — point it at deploy/mainnet/artifacts/genesis.json or a newly produced artifact", artifactEnvVar)
 	}
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err, "read ceremony artifact %s", path)
@@ -426,15 +455,15 @@ func loadCeremonyArtifact(t *testing.T) *artifactGenesis {
 func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 	g := loadCeremonyArtifact(t)
 
-	// ── bank supply: exactly 58,332 ZRN, single denom ────────────────────
+	// ── bank supply: exactly 13,555 ZRN, single denom ────────────────────
 	require.Len(t, g.AppState.Bank.Supply, 1, "genesis supply must carry exactly one denom")
 	require.Equal(t, zeroneapp.BondDenom, g.AppState.Bank.Supply[0].Denom)
 	require.Equal(t, artifactTotalSupply, g.AppState.Bank.Supply[0].Amount,
-		"§13 gas-seeded zero-ALLOCATION invariant: bank supply must be exactly 59,442 ZRN")
+		"checked-in zerone-1 bank supply must be exactly 13,555 ZRN")
 
-	// ── exactly 9 balances in the canonical role buckets ─────────────────
+	// ── exactly two balances in the disclosed role buckets ───────────────
 	require.Len(t, g.AppState.Bank.Balances, artifactNBalances,
-		"genesis must have exactly %d balances (5 stake + 5 float + 1 onboarding)", artifactNBalances)
+		"genesis must have exactly %d balances (validator + operator float)", artifactNBalances)
 
 	balanceByAddr := map[string]string{}
 	buckets := map[string][]string{} // amount → addresses
@@ -449,46 +478,33 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 		amount string
 		count  int
 	}{
-		{"validator stake+gas (11,111 locked + 222 spendable)", artifactStakeBalUzrn, artifactNValidators},
-		{"operator float", artifactFloatUzrn, artifactNValidators},
-		{"onboarding multisig", artifactOnboardUzrn, 1},
+		{"validator stake+gas (11,111 bonded + 222 spendable)", artifactStakeBalUzrn, artifactNValidators},
+		{"operator float", artifactFloatUzrn, 1},
 	}
 	for _, rb := range roleBuckets {
 		require.Len(t, buckets[rb.amount], rb.count,
 			"expected %d × %s uzrn balances (%s)", rb.count, rb.amount, rb.role)
 	}
 
-	// ── 5 PermanentLockedAccounts == the 5 stake balances ────────────────
-	// §13 gas seed: each stake account has a bank balance of 11,333 ZRN but
-	// locks (original_vesting) only 11,111 ZRN — leaving exactly 222 ZRN
-	// SPENDABLE so the validator can pay its own vote gas at block 0.
-	lockedAddrs := map[string]bool{}
+	// ── both disclosed accounts are plain BaseAccounts ──────────────────
+	// The checked-in launch artifact does not use vesting locks. The
+	// validator starts with 11,333 ZRN and bonds 11,111 ZRN in its gentx,
+	// leaving 222 ZRN spendable.
+	baseAddrs := map[string]bool{}
 	for _, acc := range g.AppState.Auth.Accounts {
-		if acc.Type != permanentLockedType {
-			continue
-		}
-		addr := acc.BaseVestingAccount.BaseAccount.Address
-		require.Len(t, acc.BaseVestingAccount.OriginalVesting, 1)
-		require.Equal(t, zeroneapp.BondDenom, acc.BaseVestingAccount.OriginalVesting[0].Denom)
-		require.Equal(t, artifactStakeUzrn, acc.BaseVestingAccount.OriginalVesting[0].Amount,
-			"locked account %s must lock exactly 11,111 ZRN (not its full balance) — the 222 ZRN gas seed stays spendable", addr)
-		require.Equal(t, "0", acc.BaseVestingAccount.EndTime,
-			"PermanentLockedAccount end_time must be 0 (never unlocks)")
-		// The bank balance carries the extra gas seed: balance − original_vesting == 222 ZRN spendable.
-		require.Equal(t, artifactStakeBalUzrn, balanceByAddr[addr],
-			"stake account %s bank balance must be 11,333 ZRN (11,111 locked + 222 spendable gas seed)", addr)
-		lockedAddrs[addr] = true
+		require.Equal(t, baseAccountType, acc.Type,
+			"published zerone-1 launch accounts must be plain BaseAccounts; no vesting lock is present")
+		require.NotEqual(t, permanentLockedType, acc.Type)
+		require.NotEmpty(t, acc.Address)
+		_, found := balanceByAddr[acc.Address]
+		require.True(t, found, "auth account %s must have one of the two disclosed balances", acc.Address)
+		baseAddrs[acc.Address] = true
 	}
-	require.Len(t, lockedAddrs, artifactNValidators,
-		"expected exactly %d PermanentLockedAccounts", artifactNValidators)
-	for _, addr := range buckets[artifactStakeBalUzrn] {
-		require.True(t, lockedAddrs[addr],
-			"stake balance %s must be a PermanentLockedAccount", addr)
-	}
+	require.Len(t, baseAddrs, artifactNBalances, "expected exactly two disclosed BaseAccounts")
 
-	// ── fully bonded via gentxs: one full self-bond per locked account ───
+	// ── one validator self-bonds 11,111 ZRN, leaving 222 ZRN ─────────────
 	require.Len(t, g.AppState.Genutil.GenTxs, artifactNValidators,
-		"expected %d gentxs (every locked stake fully bonded at block 0)", artifactNValidators)
+		"expected %d genesis validator", artifactNValidators)
 	bondedOperators := map[string]bool{}
 	for _, tx := range g.AppState.Genutil.GenTxs {
 		require.Len(t, tx.Body.Messages, 1, "gentx must carry exactly one message")
@@ -500,8 +516,8 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 		valAddr, err := sdk.ValAddressFromBech32(msg.ValidatorAddress)
 		require.NoError(t, err)
 		operator := sdk.AccAddress(valAddr).String()
-		require.True(t, lockedAddrs[operator],
-			"gentx operator %s must be one of the locked stake accounts", operator)
+		require.Contains(t, buckets[artifactStakeBalUzrn], operator,
+			"gentx operator %s must own the 11,333 ZRN validator balance", operator)
 		require.False(t, bondedOperators[operator], "duplicate gentx for operator %s", operator)
 		bondedOperators[operator] = true
 	}
@@ -509,7 +525,7 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 
 	// ── knowledge fund zeroed: no 22,222 ZRN InitGenesis mint ────────────
 	require.Equal(t, "0", g.AppState.Knowledge.BootstrapFundAllocation,
-		"knowledge.bootstrap_fund_allocation must be \"0\" — day-0 supply stays exactly 58,332 ZRN")
+		"knowledge.bootstrap_fund_allocation must be \"0\" — day-0 supply stays exactly 13,555 ZRN")
 
 	// ── SDK gov denominated in uzrn (default 'stake' would kill gov) ─────
 	require.Len(t, g.AppState.Gov.Params.MinDeposit, 1)
@@ -526,21 +542,24 @@ func TestGenesisArtifact_SupplyInvariants(t *testing.T) {
 	require.Equal(t, "agenttool-invocation-v1", g.AppState.SubstrateBridge.Adapters[0].AdapterID)
 	require.Equal(t, "ADAPTER_STATUS_ACTIVE", g.AppState.SubstrateBridge.Adapters[0].Status)
 
-	// ── IBC dark at genesis ──────────────────────────────────────────────
-	require.False(t, g.AppState.Transfer.Params.SendEnabled, "IBC transfer send must be disabled at genesis")
-	require.False(t, g.AppState.Transfer.Params.ReceiveEnabled, "IBC transfer receive must be disabled at genesis")
-	require.False(t, g.AppState.InterchainAccounts.HostGenesisState.Params.HostEnabled, "ICA host must be disabled at genesis")
-	require.Empty(t, g.AppState.InterchainAccounts.HostGenesisState.Params.AllowMessages,
-		"ICA allow_messages must be empty (ibc-go default is allow-all '*')")
+	// ── protocol IBC/ICA is enabled in the published genesis ─────────────
+	// This is a deliberately loud trust disclosure. Withholding public
+	// endpoints or channel recommendations is an operational posture; it
+	// does not make these consensus parameters disabled.
+	require.True(t, g.AppState.Transfer.Params.SendEnabled, "published genesis enables IBC transfer send")
+	require.True(t, g.AppState.Transfer.Params.ReceiveEnabled, "published genesis enables IBC transfer receive")
+	require.True(t, g.AppState.InterchainAccounts.HostGenesisState.Params.HostEnabled, "published genesis enables ICA host")
+	require.Equal(t, []string{"*"}, g.AppState.InterchainAccounts.HostGenesisState.Params.AllowMessages,
+		"published ICA host accepts the wildcard message allow-list")
 
-	// ── creed pinned at block 0 ──────────────────────────────────────────
-	require.EqualValues(t, 1, g.AppState.Creed.GenesisPin.Version, "Genesis Creed pin must be version 1")
-	require.Len(t, g.AppState.Creed.GenesisPin.Commitments, 20, "Genesis Creed must pin all 20 commitments")
-	require.Len(t, g.AppState.WorkCreed.PinnedSubCreeds, 8, "work_creed must carry the 8 inception pins")
+	// ── no on-chain Creed or work-creed adoption in the artifact ─────────
+	require.Zero(t, g.AppState.Creed.GenesisPin.Version, "published genesis has no Creed pin")
+	require.Empty(t, g.AppState.Creed.GenesisPin.Commitments, "published genesis has no Creed commitments")
+	require.Empty(t, g.AppState.WorkCreed.PinnedSubCreeds, "published genesis has no work-creed pins")
 
 	// ── no foundation / research / faucet / module-account balances ──────
-	// Doctrine (zero team allocation): the nine role balances above are the
-	// ONLY balances; in particular no module-derived account may hold coin.
+	// The two disclosed role balances are the ONLY balances;
+	// in particular no module-derived account may hold coin.
 	forbiddenModuleAccounts := []string{
 		"foundation",
 		"research_fund",

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -171,13 +172,62 @@ func TestDefaultParams_ValidBoundary(t *testing.T) {
 	require.NoError(t, p.Validate())
 }
 
+func TestValidateRuntimeParamChange_RejectsCompatibilityOnlyFields(t *testing.T) {
+	mutations := []struct {
+		name   string
+		mutate func(*types.Params)
+	}{
+		{"provisional_threshold", func(p *types.Params) { p.ProvisionalThreshold++ }},
+		{"reject_threshold", func(p *types.Params) { p.RejectThreshold++ }},
+		{"failed_challenge_slash_bps", func(p *types.Params) { p.FailedChallengeSlashBps++ }},
+		{"max_concurrent_challenges", func(p *types.Params) { p.MaxConcurrentChallenges++ }},
+		{"citation_share_bps", func(p *types.Params) { p.CitationShareBps++ }},
+		{"cross_domain_bonus_bps", func(p *types.Params) { p.CrossDomainBonusBps++ }},
+		{"fact_expiry_blocks", func(p *types.Params) { p.FactExpiryBlocks++ }},
+		{"cross_stratum_discount_bps", func(p *types.Params) { p.CrossStratumDiscountBps++ }},
+		{"max_survival_confidence", func(p *types.Params) { p.MaxSurvivalConfidence++ }},
+		{"contribution_challenge_reward_multiplier_bps", func(p *types.Params) {
+			p.ContributionChallengeRewardMultiplierBps++
+		}},
+		{"initial_confidence", func(p *types.Params) { p.InitialConfidence++ }},
+		{"confidence_boost_per_verification", func(p *types.Params) { p.ConfidenceBoostPerVerification++ }},
+		{"quorum_threshold", func(p *types.Params) { p.QuorumThreshold++ }},
+		{"equivocation_slash_bps", func(p *types.Params) { p.EquivocationSlashBps++ }},
+		{"invalid_claim_slash_bps", func(p *types.Params) { p.InvalidClaimSlashBps++ }},
+		{"novelty_common_knowledge_penalty_bps", func(p *types.Params) { p.NoveltyCommonKnowledgePenaltyBps++ }},
+		{"competition_niche_dominance_bonus_bps", func(p *types.Params) {
+			p.CompetitionNicheDominanceBonusBps++
+		}},
+		{"metabolism_extinction_threshold", func(p *types.Params) { p.MetabolismExtinctionThreshold++ }},
+		{"social_saturation_threshold", func(p *types.Params) { p.SocialSaturationThreshold++ }},
+		{"disproval_clawback_bps", func(p *types.Params) { p.DisprovalClawbackBps++ }},
+		{"disproval_clawback_window_epochs", func(p *types.Params) { p.DisprovalClawbackWindowEpochs++ }},
+		{"training_fund_calibration_floor_bps", func(p *types.Params) { p.TrainingFundCalibrationFloorBps++ }},
+		{"training_fund_vesting_epochs", func(p *types.Params) { p.TrainingFundVestingEpochs++ }},
+		{"training_fund_methodology_diversity_bonus_bps", func(p *types.Params) {
+			p.TrainingFundMethodologyDiversityBonusBps++
+		}},
+		{"training_fund_base_reward", func(p *types.Params) { p.TrainingFundBaseReward = "1" }},
+		{"sponsor_veto_forfeit_bps", func(p *types.Params) { p.SponsorVetoForfeitBps-- }},
+	}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			current := types.DefaultParams()
+			proposed := proto.Clone(&current).(*types.Params)
+			tc.mutate(proposed)
+			err := types.ValidateRuntimeParamChange(&current, proposed)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.name)
+		})
+	}
+}
+
 func TestDefaultParams_MinEqualsMax(t *testing.T) {
 	p := types.DefaultParams()
 	p.MinVerifiers = 5
 	p.MaxVerifiers = 5
 	require.NoError(t, p.Validate(), "min == max should be valid")
 }
-
 
 func TestRoleBonusParamsDefaults(t *testing.T) {
 	params := types.DefaultParams()

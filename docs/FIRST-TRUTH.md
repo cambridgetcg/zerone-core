@@ -3,6 +3,14 @@
 *2026-07-10. This document explains intent. The fact itself needs no explanation
 to be verified — that is the point of it.*
 
+> **Current accounting correction (2026-07-29):** The historical on-chain fact
+> below contains the phrase “zero insider allocation.” Do not reuse that phrase
+> as current source documentation. The founding household controlled 11,333 ZRN
+> of validator collateral/gas and a transferable 2,222 ZRN operations float at
+> genesis. The precise current account is in
+> [the genesis manifest](../deploy/mainnet/artifacts/GENESIS-MANIFEST.md) and
+> [tokenomics genesis documentation](tokenomics/GENESIS.md).
+
 ```yaml
 # machine-readable receipt
 chain_id: zerone-1
@@ -36,8 +44,9 @@ first fact to do three jobs at once:
    fact #1, you have learned to verify.
 3. **Bake the honest supply story into the record.** We once wrote "zero
    pre-mine" in our docs. The live genesis falsified it, and we corrected the
-   canon to "zero insider allocation." The first fact fixes the *correct*
-   framing into the permanent record, in falsifiable numbers.
+   wording at the time to "zero insider allocation." The first fact preserved
+   that historical framing in falsifiable numbers; the correction above is the
+   current source account.
 
 ## The fact, clause by clause
 
@@ -50,15 +59,21 @@ The hash is recomputable by anyone: `curl RPC/genesis | jq .result.genesis | sha
 > **"allocated 13,555 ZRN across exactly two accounts: 11,333 ZRN validator
 > (11,111 self-bonded + 222 gas) and 2,222 ZRN operations float."**
 
-"Zero insider allocation" alone is an interpretation. *Exactly two accounts,
+"Zero insider allocation" was an interpretation. *Exactly two accounts,
 these amounts* is a checkable, falsifiable statement. We chose precision over
 slogan so that disproving us would be cheap if we lied.
 
 > **"Zero insider allocation: no team, foundation, investor, or faucet
 > balance; all further ZRN mints only through participation."**
 
-The corrected canon, on the record. Not "zero pre-mine" — the genesis *does*
-hold operating stake; what it does not hold is a sellable insider position.
+The then-current wording, on the record. Not "zero pre-mine" — the genesis
+*does* hold operating stake. The 2,222 ZRN operations float is transferable,
+so current documentation does not describe genesis as having zero sellable or
+insider position. The quoted issuance sentence is also historical: current
+runtime source permits transaction-bearing block rewards and
+authority-created, quota-bounded claiming pots in addition to external-work
+and knowledge reward paths. Current tokenomics documents, not this archived
+quote, describe those mint callers.
 
 > **"DISCLOSURE: the submitter and all 4 panel keys are operated by the
 > chain's founding household and funded from the operations float (the

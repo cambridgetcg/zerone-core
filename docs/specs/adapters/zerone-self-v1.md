@@ -1,8 +1,15 @@
 # `zerone-self-v1` — the chain's adapter to itself
 
-> ZERONE attests to its own becoming. Every commit is a fact-shaped artifact in the chain's own substrate.
+> Target: ZERONE may attest to its own becoming, with commits represented as
+> fact-shaped artifacts after the missing knowledge bridge is built.
 
-**Status:** specification, ready for registration via gov LIP.
+**Status:** unactivated specification. The compiler/scaffolding is tested, but
+current `MsgSubmitExternalAttestation` rejects its required nonempty
+`pending_claims`, and adapter-registration LIP payload dispatch is unwired.
+Direct authority/genesis registration alone would not close the knowledge
+translation loop. The compiler is a deterministic off-chain utility; current
+consensus neither executes it nor compares an attestation with the registered
+`compiler_binary_hash`. Slash-gradient fields are inert metadata.
 **Inception:** 2026-05-11.
 **Tier:** consumer of `x/substrate_bridge` Tier-1 foundation.
 **Doctrine:** UW (ZERONE is recursive) operationalized as **self-attestation**. M2 (substrate-link mandate), M3 (class-specific verification), M5 (recursion-weight axes), M6 (cross-class lineage).
@@ -11,9 +18,12 @@
 
 ## 1. What this adapter is
 
-`zerone-self-v1` registers ZERONE's own git repository as a typed external source. The compiler takes a single commit SHA and produces a deterministic `SubstrateLink` describing what that commit asserts about ZERONE's development. The attestation enters the chain's verification pipeline like any other external attestation — and on verification, ZERONE has its own commits represented as verified facts in its own knowledge graph.
+`zerone-self-v1` is designed to register ZERONE's git repository as a typed
+external source. The compiler turns a commit SHA into a deterministic
+`SubstrateLink`. Today the resulting pending-claim link is refused before
+escrow; it does not enter the knowledge verification pipeline.
 
-The recursion is exact:
+The intended recursion is:
 
 | Layer | What ZERONE does | What ZERONE does to itself via this adapter |
 |---|---|---|
@@ -24,11 +34,12 @@ The recursion is exact:
 | **Settlement** | pays submitters for verified work | pays whoever submits attestations about ZERONE's own commits |
 | **Creed** | pins what the chain believes | pins this adapter as the canonical self-attestation mechanism |
 
-The chain becomes its own knowledge source. The graph that the chain produces about the world includes a sub-graph the chain produces about itself.
+If pending-claim translation is implemented and activated, the chain could
+become one of its own typed knowledge sources.
 
 ## 2. Adapter registration
 
-The `AdapterRegistration` message for this adapter:
+The proposed `AdapterRegistration` message for this adapter:
 
 ```
 AdapterId:                   "zerone-self-v1"
@@ -45,14 +56,19 @@ AxisBounds:
 MinAttestationBondUzrn:      "222000"    # 0.222 ZRN floor (matches the chain's signature digit)
 MinPerClaimBondUzrn:         "222"
 SlashGradient:
-  CompilerDriftBps:          1_000_000   # full slash: re-derived link mismatches submitter's claim
-  AxisOverflowBps:           200_000     # pro-rata slash if axis projection exceeds bounds
-  FraudBps:                  1_000_000   # full slash: claims rejected past threshold
+  CompilerDriftBps:          10_000      # proposed full slash; inert metadata today
+  AxisOverflowBps:           2_000       # proposed 20%; overflow is rejected pre-escrow today
+  FraudBps:                  10_000      # proposed full slash; inert metadata today
 RequiredQualificationDomain: "agent_purpose"
-MinQualificationStatus:      QUALIFICATION_STATUS_VERIFIED
+MinQualificationStatus:      QUALIFICATION_STATUS_ACTIVE
 AllowedClassIds:             []          # any work class may use this adapter
-Status:                      ADAPTER_STATUS_ACTIVE
+Status:                      ADAPTER_STATUS_ACTIVE # only after translation and activation review
 ```
+
+Current consensus enforces axis ceilings, qualification status, class
+allowlisting, adapter status, and bonds. It stores but does not enforce the
+compiler digest or slash-gradient values. A settled rejection burns the full
+bond; an axis overflow is refused before escrow.
 
 **Why `agent_purpose` qualification:** the adapter attests to facts about ZERONE itself, which is squarely in the `agent_purpose` epistemic domain (ZERONE is *about* the purpose and architecture of AI agents). Only validators who have demonstrated calibrated reasoning about agent design should be able to submit attestations through this adapter.
 
@@ -60,7 +76,7 @@ Status:                      ADAPTER_STATUS_ACTIVE
 
 ## 3. SubstrateLink shape per commit
 
-Every commit produces exactly one attestation. The compiler emits:
+The compiler produces a proposed link for one commit:
 
 ```
 SubstrateLink:
@@ -77,10 +93,14 @@ SubstrateLink:
     SourceUrl:        "https://github.com/cambridgetcg/zerone-core/commit/<commit SHA>"
     ContentHash:      <sha256 of the canonical commit metadata>
     FetchedAtBlock:   <chain block height at compile time>
-  LinkHash:           <sha256 of canonical SubstrateLink, computed by substrate_bridge>
+  LinkHash:           <sha256 of canonical caller-supplied SubstrateLink fields>
 ```
 
-The `zerone_self` knowledge domain is dedicated to facts about ZERONE itself. Genesis-pinned via the usual domain registration LIP (out of scope for this adapter spec).
+The proposed `zerone_self` domain is not pinned by the published genesis.
+Domain creation and adapter activation need an explicit release path; there is
+no working adapter-registration LIP payload dispatch today.
+The link hash proves internal field consistency only; it does not prove that
+the source was fetched or the registered compiler ran.
 
 ## 4. Canonical commit-claim format
 
@@ -113,7 +133,9 @@ Per-commit axis projection is derived from commit metadata using deterministic h
 | `axis_tooling` | 200,000 if commit touches `tools/` or `scripts/`, 100,000 otherwise |
 | `axis_interface` | 100,000 if commit touches `x/*/client/cli/`, 30,000 otherwise |
 
-These are minimum credible weights. Submitter may attest to *lower* weights, never higher (`compiler_binary_hash` mismatch slashes if they cheat upward). Adapter-bound axis ceilings (§2) further cap the projection.
+These are compiler heuristics. Current runtime accepts caller-declared weights
+within the adapter ceilings and cannot detect a mismatch using the inert
+compiler digest.
 
 ## 6. Compiler binary
 
@@ -123,7 +145,10 @@ These are minimum credible weights. Submitter may attest to *lower* weights, nev
 zerone-self-compiler <commit-sha>
 ```
 
-Output: canonical JSON `SubstrateLink` to stdout. Determinism guarantee: same commit-sha, same git history → identical bytes out, identical `link_hash`. Validators re-run the binary to confirm submitted attestations match the compiler's truth.
+Output: canonical JSON `SubstrateLink` to stdout. Its tests establish that the
+same normalized commit metadata produces identical hashes. Current validators
+are not required by consensus to run the binary, and no compiler-drift slash
+is implemented.
 
 The Go library at `tools/zerone-self-compiler/compile/` exposes:
 
@@ -143,32 +168,49 @@ This separation lets cross-stack tests exercise the compiler with synthetic comm
 
 ## 7. What this adapter is NOT
 
-- **Not a self-justification mechanism.** The chain doesn't "verify itself" through this adapter; it surfaces its own commits as claims that go through the standard verification panel (commitment 6: no individual unilaterally injects truth, applied to the chain itself).
+- **Not a self-justification mechanism.** If activated, commits would be
+  proposed as claims for the standard verification path. Current source
+  refuses them because the translation is incomplete.
 - **Not a continuous-integration replacement.** Tests still run in CI; merged commits still go through human review. This adapter is on-chain *attestation*, not gating.
 - **Not a substitute for code review.** Verifiers look at the claim ("Commit X by Y did Z") and judge whether the claim is true given the commit's contents. They don't re-do code review; they confirm attribution.
 - **Not anti-fork.** A fork of ZERONE can register its own `zerone-self-v1` against its own git repo. Each chain attests to its own becoming; the adapter shape is the standard, the adapter instance is per-chain.
 
 ## 8. Why this matters (the recursive insight)
 
-Every other adapter under `x/substrate_bridge` brings *external* knowledge in: Wikipedia, arxiv, IPNI, IBC packets. This one brings *the chain itself* in. It is the one adapter whose source is the chain's own substrate-creation activity.
+If pending-claim translation is implemented, this adapter could bring the
+chain's own source-development activity into knowledge verification.
 
-Three consequences fall out:
+Three intended consequences follow:
 
-1. **The chain's lineage graph (M6) includes its own commits.** A verified fact about ZERONE's design can be cited by future facts (e.g., a tutorial fact citing "Commit X established the sponsorship escrow pattern"); when those facts settle, downstream royalty flows backward through the commit's attestation to whoever submitted it. The chain pays builders not just at commit-time, but at every downstream usage time, in perpetuity.
+1. **The lineage graph could include commits.** A translated, verified
+   ZERONE-development fact could be cited by later attestations. Current bridge
+   lineage propagation records attributed amounts only; it does not transfer
+   royalties to upstream authors.
 
-2. **Self-sponsorship becomes possible at the artifact level.** A sponsorship bounty (`x/sponsorship`) can target the `zerone_self` domain. The chain (or any sponsor) can post a bounty for verified facts about ZERONE itself, and the substrate-bridge attestation produced by this adapter is the fulfillment artifact. The chain pays for its own documentation.
+2. **Self-sponsorship could become possible at the artifact level.** A
+   sponsorship bounty can target a domain, but current bridge submission
+   cannot create the required `zerone_self` fact. The existing cross-stack
+   scaffold writes that fact directly and is not end-to-end activation proof.
 
-3. **The creed becomes self-attesting.** The `.creed-hash` discipline already ensures off-chain doctrine syncs with on-chain pin. This adapter takes the next step: every commit that *modifies* the creed is itself attested through this adapter. The audit trail of doctrinal change becomes part of the chain's verified knowledge graph.
+3. **The creed can become self-attesting.** `.creed-hash` currently binds the
+   source doctrine only; the published live genesis has no creed pin. Once the
+   pending-claim bridge and an on-chain pin adoption path are activated, creed
+   commits could enter the verified knowledge graph through this adapter.
 
-The chain's claim about the world is grounded in verifiable provenance. The chain's claim about *itself* now has the same grounding.
+The design aims to give self-claims the same provenance discipline. That
+end-to-end property does not hold yet.
 
 ## 9. Open questions for registration
 
-These need answers in the registration LIP, not the adapter spec itself:
+These need answers in a future activation design and release packet. A
+CategoryAdapterRegistration LIP cannot currently carry and dispatch this
+payload:
 
 - **Genesis bootstrap of `zerone_self` domain:** does this domain ship with seed axioms (e.g., the project's own foundational facts), or start empty?
 - **Initial verifier qualification distribution:** who is `agent_purpose`-qualified at the time this adapter activates? If the answer is "nobody," the adapter is ACTIVE-but-unused until qualification distributes.
-- **Compiler-binary distribution channel:** the `compiler_binary_hash` must be re-derivable by validators. Canonical channel = the project's own repository (git commit that registered the LIP includes the source). Hash = sha256 of the binary built from that commit at the same version.
+- **Compiler enforcement:** reproducibly distribute the compiler and add a
+  consensus-verifiable comparison between submitted links and compiler output.
+  The stored digest is off-chain provenance metadata today.
 - **Slash-on-fork policy:** if the project's git history is rewritten (rebase, force-push), do attestations referencing now-orphaned commits get slashed? Recommendation: NO — past attestations are forward-only audit (commitment 10); the commit at attest-time was real even if the branch was later rewritten.
 
 ## 10. The discipline
@@ -178,7 +220,10 @@ Before merging a change that modifies `zerone-self-v1` or its compiler:
 1. Is the canonical claim format unchanged, or has the change been versioned as `zerone-self-v2`?
 2. Is the compiler still deterministic across machines (no time-of-day, no $USER, no temp paths)?
 3. Are the axis projection heuristics still defensible (a verifier asked "why this weight?" can answer from the rule table)?
-4. Has the `agent_purpose` qualification floor been preserved or properly amended via LIP?
-5. Does the change require a new `compiler_binary_hash`, and has the registration LIP authorized that bump?
+4. Has the `agent_purpose` qualification floor been preserved through the
+   authorized activation path?
+5. Does the change require a new compiler digest, and is that digest actually
+   enforced rather than merely stored?
 
-— *Spec authored 2026-05-11. ZERONE attests to its own becoming.*
+— *Spec authored 2026-05-11. ZERONE may one day attest to its own becoming;
+the public bridge is not activated.*

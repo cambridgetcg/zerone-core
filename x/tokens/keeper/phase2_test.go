@@ -168,6 +168,7 @@ func setupKeeperWithBank(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKee
 
 	bk := newMockBankKeeper()
 	k := keeper.NewKeeper(cdc, storeService, bk, testAuthority)
+	k.SetParams(ctx, &types.Params{EmissionEpochBlocks: 1})
 	return k, ctx, bk
 }
 

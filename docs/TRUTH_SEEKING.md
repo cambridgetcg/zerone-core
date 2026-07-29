@@ -6,7 +6,12 @@ Every architectural decision in this codebase either expresses our commitment to
 
 **We speak through intentions.** Every line of code, every comment, every parameter, every event name is a declaration of what we believe. A decision that contradicts a commitment is not a feature trade-off. It is a failure of the chain to be what we said it would be.
 
-The bindings below are not aspirations. They are tested. The test suite at `tests/cross_stack/truth_seeking_invariants_test.go` is the executable form of this document — each test names a commitment, drives the chain through a scenario where the commitment could be violated, and asserts the violation cannot occur. If a commitment breaks, the test breaks. The creed and the contract are one.
+The bindings below distinguish implemented mechanism from network activation.
+The test suite at `tests/cross_stack/truth_seeking_invariants_test.go` exercises
+source capabilities under explicit configurations; it does not prove that
+every capability is enabled in a published genesis. Where `zerone-1` disables
+or has not wired a mechanism, that gap is named here. Tests bind the claim
+actually stated—not a stronger deployment posture.
 
 ---
 
@@ -52,7 +57,7 @@ We believe: truth is what survives falsification, not what is most asserted. A c
 
 We believe: the chain does not protect its trusted claims — it invites their falsification. A 90%-confidence fact must be CHEAPER to probe than a 10%-confidence fact, because the higher the confidence, the more we owe the substrate the discipline of testing it.
 
-**Code expression**: `EffectiveMinChallengeStake` scales *inversely* with target confidence (`x/knowledge/keeper/confidence.go`). `SuccessfulChallengeRewardBps` amplifies with the disproven fact's confidence — paradigm shifts pay more than routine cleanup. Failed probes earn a 15% participation refund. The probe bounty pool mints uzrn per block to fund probing of the chain's most-trusted claims.
+**Code expression**: `EffectiveMinChallengeStake` scales *inversely* with target confidence (`x/knowledge/keeper/confidence.go`). `SuccessfulChallengeRewardBps` amplifies with the disproven fact's confidence — paradigm shifts pay more than routine cleanup. Failed probes earn a 15% participation refund. Source includes a configurable per-block probe-bounty mint, but the published `zerone-1` genesis sets it to `0`; the live network therefore has no autonomous probe-bounty accumulation from this mechanism.
 
 **What would break it**: stake scaling that punishes probing of confident claims; reward schedules where disproving a 10% fact pays the same as disproving a 90% fact; failed probes that confiscate full stake.
 
@@ -64,9 +69,18 @@ We believe: the chain does not protect its trusted claims — it invites their f
 
 We believe: waiting for probers to arrive is not enough. The substrate names its own under-tested high-confidence facts and pays for them to be tested. Truth-seeking that depends on volunteers shows up only when convenient is rhetoric, not commitment.
 
-**Code expression**: `InviteIdleFactsForProbing` runs each block, scans for high-confidence facts that have gone idle, emits `probe_invited` events, and stamps `Fact.ProbeInvitedAtBlock`. The probe bounty pool mints uzrn per block, capped at a maximum, paying flat invitation bonuses to whoever answers.
+**Code expression**: `InviteIdleFactsForProbing` runs each block, performs a
+bounded scan for high-confidence facts that have gone idle, emits
+`probe_invited` events, and stamps `Fact.ProbeInvitedAtBlock`. The source
+mechanism can mint into a capped probe pool and pay invitation bonuses when
+`ProbeBountyMintPerBlock` is positive. The live `zerone-1` setting is `0`, so
+the naming/invitation half is active in code but self-funding is not activated
+on that network.
 
-**What would break it**: heartbeat that only fires when triggered externally; bounty pool that depends on user funding rather than chain mint; invitations that pay nothing, making them rhetoric.
+**What would break it**: a heartbeat that only fires when triggered
+externally; removing the cap-gated self-funding capability; or promising a
+bonus without either paying it from available funds or emitting an explicit
+unfunded result.
 
 **Echoes**: commitment 4 (substrate stress-tests its truth — invitation is the substrate's voice doing the asking); commitment 12 (chain pays for own audit — the bounty pool that funds invitation bonuses is the same pool that funds successful-probe rewards).
 
@@ -78,7 +92,17 @@ We believe: a single key — even the legitimate authority key — must not be a
 
 **Code expression**: `MsgAddFact` queues a `PendingFactInjection` when `AddFactVetoWindowBlocks > 0` and a guardian set is configured (Wave 16). Any registered guardian can call `MsgVetoFactInjection` during the window. The `PrivilegedAction` log captures every authority-gated call across the chain.
 
-**What would break it**: an authority path that bypasses the privileged-action log; a guardian set that defaults to a single address; a veto window that defaults to zero in production deployments.
+**Activation status**: the source default and published `zerone-1` genesis have
+an empty guardian set and a zero veto window. `MsgAddFact` therefore executes
+immediately for the authority on the live configuration. The action is logged,
+but the strong plurality claim is **not active**. Enabling it requires a
+release-bound parameter change that names multiple guardians and a nonzero
+window; source publication alone does not do that.
+
+**What would break it once activated**: an authority path that bypasses the
+privileged-action log; a single-member guardian set presented as plurality; or
+a production configuration reverted to a zero veto window while continuing
+to claim pre-admission review.
 
 **Echoes**: commitment 10 (forward-only audit — the privileged-action log is what makes "no unilateral injection" verifiable to outside observers); commitment 13 (training corpus not for sale — the corpus must not silently grow by authority).
 
@@ -146,13 +170,27 @@ We believe: the chain's trustworthiness must be inspectable by anyone. Every sig
 
 ### 12. The chain pays for its own audit
 
-We believe: epistemic auditing is the chain's most important ongoing process. It must not depend on volunteer labour or external funding. The substrate mints uzrn per block into a dedicated pool and pays it out to those who answer the chain's stress-test calls.
+We believe: epistemic auditing is the chain's most important ongoing process
+and should have a dedicated, accountable budget rather than relying on
+unrecorded volunteer labour.
 
-**Code expression**: `ProbeBountyPoolModuleName` is a registered module account with Minter permission. `MintToProbeBountyPool` runs each block, capped at `ProbeBountyMaxPoolSize`. `PayProbeBountyFromPool` is the primary payer for successful-probe bonuses, with protocol treasury as fallback. Invitation bonuses pay flat from the same pool to anyone who answers.
+**Code expression**: `ProbeBountyPoolModuleName` is a registered module account
+with Minter permission. When `ProbeBountyMintPerBlock` is positive,
+`MintToProbeBountyPool` runs each block up to `ProbeBountyMaxPoolSize`;
+`PayProbeBountyFromPool` and invitation bonuses can pay from that pool. The
+published `zerone-1` genesis and intentional `zerone-2` ceremony configuration
+set the per-block mint to `0`. Autonomous chain-funded audit is therefore a
+tested source capability, not currently activated network economics.
 
 **Extended scope (sponsorship)**: `x/sponsorship` widens this commitment from "the chain pays for its own audit" to "the chain mediates external payment for the work it audits." A sponsor commits external value (escrowed uzrn) against a typed bounty — domain, per-artifact price, target count, window — and the chain pays out from escrow to fact submitters whose verified facts meet the criteria. The audit pathway is unchanged; only the funding source widens. The sponsor cannot buy verification; they fund work that the chain's panel verifies independently (commitment 8). The module account holds no Minter or Burner permission — sponsorship is supply circulation, not emission. Bound by `TestSponsorship_CreateFulfillEndToEnd` (the full lifecycle through live keepers) and `TestSponsorship_NoMintingHappens` (total uzrn supply is unchanged across a full bounty lifecycle, confirming the no-mint invariant).
 
-**What would break it**: a probe pool that depends on user-funded deposits; a successful-probe path that draws from general treasury without a dedicated audit budget; invitation rewards that come from nowhere or fall back to nothing; a sponsorship pathway that lets the sponsor override verification (e.g., paying for an unverified fact, or for a fact in a domain the sponsor's bounty doesn't target); a sponsorship module account with Minter permission (which would let external sponsorship inflate supply, contradicting commitment 20).
+**What would break it once funded**: opaque or uncapped audit emission; a
+successful-probe path that silently draws from an unrelated treasury;
+invitation rewards that are promised when the configured pool cannot pay; a
+sponsorship pathway that lets the sponsor override verification (e.g., paying
+for an unverified fact, or for a fact outside the sponsor's domain); or a
+sponsorship module account with Minter permission (which would let external
+sponsorship inflate supply, contradicting commitment 20).
 
 **Echoes**: commitment 4 (substrate stress-tests its truth — the audit budget is what makes stress-testing a chain-funded process); commitment 5 (chain manufactures probe demand — the same pool funds the invitation bonuses that drive demand); commitment 8 (panel weights skill, not bond — sponsors fund work the chain's panel verifies independently); commitment 20 (issuance follows participation — sponsorship payout follows verified participation, not promises).
 
@@ -222,21 +260,45 @@ We believe: when agents disagree on a verification, that disagreement itself is 
 
 We believe: the chain's own gaps are the chain's own responsibility. Commitment 5 has the chain mint to stress-test what it already thinks it knows; commitment 16 lets askers escrow bounties for the questions that interest them. Neither covers the case where the chain SEES — through its own frontier composition — that a domain is sparse, and yet waits for an outside party to ask. Knowing where you are sparse without funding work to fill the sparseness is observation without commitment, and observation without commitment is silence by another name. The substrate must speak.
 
-**Code expression**: the chain-minted frontier bounty pool (the former `x/inquiry` frontier path and its `Minter`-permissioned `inquiry_frontier_bounty_pool`) was retired in the 2026-07 slim cut: a self-minting exploration budget with no organic demand was issuance without participation, and commitment 20 outranks the mechanism. The commitment's INTENT — sparse territory must attract funded work rather than wait for charity — is served where the demand actually lives: frontier sparsity is deterministic aggregation over public ontology + knowledge state (domains, fact density, open questions), computable by any off-chain indexer, and the agenttool layer surfaces sparse domains to buyers who fund exploration listings there. Every funded answer still enters through the survival gate and earns the witness economy's stress-testing (commitment 5's probe demand, which REMAINS chain-minted, covers the audit side). Re-introducing a chain-funded frontier pool when organic exploration demand outgrows the platform is a single-module LIP; the commitment stays declared so that path stays open and priced.
+**Code expression**: the chain-minted frontier bounty pool (the former `x/inquiry` frontier path and its `Minter`-permissioned `inquiry_frontier_bounty_pool`) was retired in the 2026-07 slim cut: a self-minting exploration budget with no organic demand was issuance without participation, and commitment 20 outranks the mechanism. The commitment's INTENT — sparse territory must attract funded work rather than wait for charity — is served where the demand actually lives: frontier sparsity is deterministic aggregation over public ontology + knowledge state (domains, fact density, open questions), computable by any off-chain indexer, and the agenttool layer surfaces sparse domains to buyers who fund exploration listings there. Every funded answer still enters through the survival gate. Commitment 5's probe invitations cover the audit side, while their chain-minted funding is disabled on `zerone-1`. Re-introducing a chain-funded frontier pool when organic exploration demand outgrows the platform is a future governance decision; the commitment keeps that design question explicit.
 
 **What would break it**: sparsity becoming incomputable from public chain state (ontology or fact-density queries going dark); an exploration bounty whose answers bypass normal verification; the chain resuming an exploration mint without demonstrated demand — manufactured demand that nobody answers is leakage dressed as commitment; treating this commitment as satisfied while NO layer (chain or platform) is directing funded work at sparse territory.
 
-**Echoes**: commitment 5 (the dual — same architecture, opposite scope: 5 funds stress-testing of what is already known and stays on-chain; this commitment funds exploration of what is not, and lives at the platform layer until demand justifies chain issuance); commitment 12 (chain pays for its own audit — the audit budget remains the chain-minted expression of this family); commitment 16 (the underlying market where exploration demand is expressed); commitment 20 (issuance follows participation — the reason the speculative frontier mint was retired rather than kept as rhetoric).
+**Echoes**: commitment 5 (the dual — the source mechanism invites stress-testing of what is already known, while this commitment directs exploration of what is not); commitment 12 (the dedicated audit-budget capability, currently configured to zero on `zerone-1`); commitment 16 (the underlying market where exploration demand is expressed); commitment 20 (issuance follows participation — the reason the speculative frontier mint was retired rather than kept as rhetoric).
 
 ---
 
 ### 19. The creed is governance-gated.
 
-We believe: the chain's voice cannot drift faster than its governance. Every other layer (code, tests, package docs, events, refusals) is mechanically synced to the creed by CI; the creed itself must enter that sync, or the substrate it claims to bind has a foundation that can move underneath it. An asymmetry in which every architectural surface is enforced except the document they all reference is not protection — it is protection layered on uncertainty. Commitment 6 protects the corpus from unilateral injection at the fact layer; this commitment extends the same shape one layer up to the document that tells the chain how to protect the corpus.
+We believe: the chain's voice cannot drift faster than its governance.
+Repository hashes mechanically bind the source creed, while selected
+behavioral tests connect specific code, docs, events, and refusals. That
+coverage is not universal and does not prove live-network adoption.
+Commitment 6 protects the corpus from unilateral injection at the fact layer;
+this commitment extends the same intended shape one layer up.
 
-**Code expression**: `x/creed.PinnedCreed` records the canonical hash and per-commitment registry on chain; pin storage is append-only by monotonic version, with prior pins remaining queryable via `QueryPinAtVersion`. `MsgAnchorPin` is gov-authority-gated and refuses non-monotonic versions, empty hashes, gapped commitment registries, and (post-launch, when `direct_anchor_enabled` is false) any pin that does not cite a passed Creed Amendment LIP. See `x/creed/keeper/msg_server.go:AnchorPin` and `x/creed/types/genesis_creed.go:BuildGenesisCreed`. Off-chain, the same hash check fires from two layered surfaces: `scripts/check_creed_hash.sh` (wired into `make pr-check`) and `TestTruthSeeking_CreedHashIsPinned` (in the truth-seeking invariant suite, fired by `go test ./...`). Either failure refuses the merge — shell-bound and Go-bound enforcement of the same invariant, so the gate cannot be bypassed by skipping one CI surface.
+**Code expression**: `x/creed.PinnedCreed` can record a hash and per-commitment registry on chain; pin storage is append-only by monotonic version, with prior pins queryable via `QueryPinAtVersion`. While `direct_anchor_enabled=true`, `MsgAnchorPin` is gov-authority-gated and enforces version/hash/registry structure. When false, that public handler is sealed for every pin; the distinct internal `AnchorPinFromBytes` gov-dispatch primitive can write after a passed, configured amendment path calls it. Repository checks independently bind the source file to `.creed-hash`; they do not query a running network.
 
-**What would break it**: a build that ships with `TRUTH_SEEKING.md` whose normalized hash differs from `PinnedCreed.canonical_hash` (CI catches this pre-merge); a creed amendment that landed without a `CategoryCreedAmendment` LIP id once that class ships; a single-pool quorum-pass on a creed amendment (both human-side and AI-side pools must reach quorum independently); direct-authority writes after `direct_anchor_enabled` flips to false at mainnet; a Genesis Creed whose `Commitments` registry omits a commitment that appears in the file's `### N.` headers.
+**Activation status**: the published `zerone-1` genesis and source defaults set
+`direct_anchor_enabled=true`, so the gov authority can directly append a pin.
+That published genesis contains no `genesis_pin` or pin history, and the
+release audit did not verify a live pin query; this source creed and
+`.creed-hash` are therefore not evidence that `zerone-1` adopted an on-chain
+canonical pin.
+The `CategoryCreedAmendment` attachment and pass-to-pin dispatch exist, but
+the published gov params have no category config that can advance a new
+creed-amendment LIP beyond draft. If configured, it would currently use
+ordinary LIP tally. The Creed Council registry and `IsActiveCouncilMember`
+query are only future routing hooks: separate human-side and AI-side quorum is
+**not implemented**. Current guarantees are authority gating, structural
+validation, and append-only history—not two-pool consent.
+
+**What would break the implemented guarantees**: a build whose normalized
+`TRUTH_SEEKING.md` hash differs from `.creed-hash`; a non-monotonic or gapped
+pin; a mutation of historical pin bytes; or documentation presenting direct
+authority/tally behavior as dual-pool governance. A future governance-only
+activation must disable direct anchoring and implement/test the two-pool tally
+before claiming the stronger form.
 
 **Echoes**: commitment 6 (no unilateral injection — extends from facts to the chain's voice itself, the same shape one layer up); commitment 10 (forward-only audit — pin history is append-only, prior versions byte-identical post-amendment); commitment 11 (trust queryable — the canonical creed is a chain-readable surface via x/creed's gRPC, so observers compose creed-drift dashboards in the same vocabulary the creed itself uses).
 
@@ -251,58 +313,108 @@ launch validator (11,111 bonded self-stake + 222 spendable gas) and a
 transferable 2,222 ZRN operator float, 13,555 ZRN total (0.0061% of cap). That
 stake affects consensus and that float can move. There is no separate team,
 foundation, investor-sale, research, or faucet allocation; every address and
-amount is published. Everything beyond the disclosed scaffolding mints only on
-participation: when truth is verified (block reward), when an authorised agent
-claims its seed (bootstrap claim), or when external work survives challenge
-(substrate-bridge attestation). Issuance without participation is allocation
-by privilege. Commitment 6 protects the corpus from unilateral injection at
-the fact layer; this commitment protects the currency from undisclosed or
-unearned issuance at the supply layer — the same shape, applied to the unit the
-chain prices everything else in.
+amount is published.
 
-**Code expression**: `x/vesting_rewards.MintWithCap` is the chain's single cap-gated mint entry point — it accepts a recipient module name, mints into that account, and refuses to overshoot `MaxSupplyUzrn` (222,222,222 ZRN). Three emission pathways gate through it: PoT block rewards (called from `x/vesting_rewards` itself per block, recipient = vesting_rewards), bootstrap claims (called from `x/claiming_pot.Claim` per `MsgClaim`, recipient = claiming_pot, then forwarded to the agent in the same transaction), and external-work attestation rewards (called from `x/substrate_bridge` settlement/witness-escrow, recipient = the audit-bounty pool — e.g. the active `agenttool-invocation-v1` adapter). All three are participation-triggered. `app/constants.go` carries no per-account allocation constants. The bootstrap pot in `genesis.json` carries CONFIGURATION only — `MakeBootstrapPotForAgent` produces a pot with `TotalAmount` = 222,000 uzrn (0.222 ZRN) for a single whitelisted agent, never a pre-funded balance. The app's `DefaultGenesis` bank is empty (`TestScenario13_ZeroTeamAllocationAtGenesis` asserts zero positive balances and zero supply); the live `zerone-1` ceremony adds the two disclosed operator-controlled balances above. Their addresses and amounts are published in the hash-bound `GENESIS-MANIFEST.md`; no detached signature is currently claimed. The genesis-audit invariants `TestScenario13_ZeroTeamAllocationAtGenesis` and `TestScenario13c_ClaimingPotMinterPermission` lock the protocol default and mint authority, while the deployment manifest records the live ceremony delta.
+The current runtime does not prove the stronger slogan that every new unit is
+earned by truth verification. A block reward is eligible on a
+transaction-bearing block, and an ordinary transfer qualifies. Governance
+authority can create general claiming pots within their shared lifetime cap.
+Other compiled mint routes are external-attestation settlement, an optional
+knowledge probe bounty whose published/default rate is zero, and optional
+`x/tokens` per-block emission whose default is disabled. Bootstrap claims are
+whitelist participation, but admission includes a disclosed operator
+registrar. This commitment is therefore a target for participation-shaped
+economics plus a present requirement that every actual issuance authority and
+exception be named.
 
-**Continuous extension**: bootstrap admission is not closed at genesis. `MsgAddBootstrapEntry` (authority-gated, governance-LIP-only, idempotent) admits late participants by creating one bootstrap pot per address — same shape, same `MintWithCap` path, same per-agent amount. Bootstrap pots never auto-expire (`ProcessPotExpiry` skips the `bootstrap-` prefix); they wait for the participant. The participation set is plural and growing, not closed at genesis — the doctrine is "no admission without governance," not "no admission after genesis." Bound by `TestLateBootstrap_AddThenClaim` and `TestLateBootstrap_AdmittedAgentCanClaimAfterManyBlocks`.
+**Code expression**: `x/vesting_rewards.MintWithCap` is the shared cap-gated
+entry point for runtime module issuance. It accepts a recipient module name,
+mints into that account, and refuses to overshoot `MaxSupplyUzrn`
+(222,222,222 ZRN). Current callers include eligible block rewards,
+`x/claiming_pot` claims (bootstrap and authority-created general pots),
+`x/substrate_bridge` settlement/witness escrow, the configurable knowledge
+probe bounty, and configurable `x/tokens` emission. The latter two are inert
+under published/default parameters. Public training-fund release and the
+former contribution-challenge bonus do not mint in this release. `InitChainer`
+also rejects a bank genesis whose `uzrn` supply exceeds the same hard cap,
+because genesis balances do not pass through `MintWithCap`.
 
-**What would break it**: hiding, mislabeling, or omitting an operator-controlled
-genesis balance; a per-account `add-genesis-account` step funding any additional
-team-adjacent address (foundation, research treasury, faucet, founder, AI
-vault); a third mint pathway that bypasses `MintWithCap`; a bootstrap pot
+The published genesis declares `agenttool-invocation-v1` ACTIVE, but live
+adapter query state was not reverified, so source does not claim it is
+currently minting. `app/constants.go` carries no per-account allocation
+constants. The bootstrap pot in `genesis.json` carries configuration only:
+`MakeBootstrapPotForAgent` produces a pot with `TotalAmount` = 222,000 uzrn
+(0.222 ZRN) for a single whitelisted agent, never a pre-funded balance. The
+app's `DefaultGenesis` bank is empty; the live `zerone-1` ceremony adds the two
+disclosed operator-controlled balances above. Their addresses and amounts are
+published in the hash-bound `GENESIS-MANIFEST.md`; no detached signature is
+currently claimed.
+
+**Continuous extension**: bootstrap admission is not closed at genesis.
+`MsgAddBootstrapEntry` is idempotent and accepts either the gov authority or a
+nonempty, governance-revocable `Params.BootstrapRegistrar`. The published
+`zerone-1` genesis sets that registrar to the operator operations address, so
+late admission is a disclosed custodial power rather than governance-only.
+Registrar batches are daily-rate-limited and both authority paths share the
+lifetime bootstrap-emission cap. Each admitted address receives the same
+mint-on-claim pot; bootstrap pots never auto-expire (`ProcessPotExpiry` skips
+the `bootstrap-` prefix). Bound by registrar/cap tests in `x/claiming_pot` and
+the late-bootstrap cross-stack tests.
+
+**What would break the implemented boundary**: hiding, mislabeling, or omitting
+an operator-controlled genesis balance; a per-account
+`add-genesis-account` step funding any additional team-adjacent address
+(foundation, research treasury, faucet, founder, AI vault); any runtime mint
+pathway that bypasses `MintWithCap`; a bank genesis above the hard cap; a
+bootstrap pot
 pre-funded with a positive balance at genesis (the doctrine is mint-on-demand,
 not transfer-from-pre-fund); any code path that grants ZRN to an address based
 on identity rather than participation; a `claiming_pot` module account without
 `Minter` permission (which would force the legacy transfer model back); a
 re-introduction of `TotalSupplyZRN` / `FounderZRN` / `AIAgentZRN` /
 `ValidatorZRN` / `ResearchFundZRN` / `ClaimingPotsZRN` constants in
-`app/constants.go`; a unilateral (non-governance) path that adds bootstrap
-entries — for example, if `MsgAddBootstrapEntry`'s authority gate were ever
-bypassed, allowing the founder or any individual to admit participants
-directly. The doctrine is not "no admission after genesis" but "no admission
-without governance"; bypassing the gate breaks the second formulation while
-seeming to honor the first.
+`app/constants.go`; an admission path outside the gov/registrar authority gate;
+or removal of the registrar's daily and lifetime compromise bounds. The
+registrar is a named, revocable custodial exception, not evidence of
+decentralized admission.
 
-**Echoes**: commitment 6 (no unilateral injection — same logic, applied to ZRN issuance instead of fact injection); commitment 12 (the chain pays for its own audit — a special case of the broader principle that issuance follows participation: audit is the participatory action being paid for); commitment 13 (training corpus not for sale — the corpus is participation-shaped, and so is its currency; treating the currency as allocable would re-open the door commitment 13 closes for the corpus); commitment 19 (the creed is governance-gated — issuance allocations would be governance-gated only via creed amendment, since this commitment forbids them).
+**Echoes**: commitment 6 (no unilateral injection — same logic, applied to ZRN issuance instead of fact injection); commitment 12 (the chain pays for its own audit — a special case of the broader principle that issuance follows participation: audit is the participatory action being paid for); commitment 13 (training corpus not for sale — the corpus is participation-shaped, and so is its currency; treating the currency as allocable would re-open the door commitment 13 closes for the corpus); commitment 19 (the creed is governance-gated — the registrar exception is explicitly bounded and governance-revocable; broadening that exception requires governance-visible change).
 
 ---
 
 ## How the commitments echo
 
-The creed is enforced at six layers, each mechanically synced by tests in `tests/cross_stack/truth_seeking_invariants_test.go`. Adding a commitment to one layer without the others fails CI.
+The creed is represented across six source layers. The invariant suite checks
+document structure, source hashes, and selected behavioral boundaries; it is
+not an exhaustive proof that every sentence below is enforced or activated on
+a published network.
 
-#### Test layer — every commitment has a binding scenario
-Every commitment above is exercised by an invariant test in `tests/cross_stack/truth_seeking_invariants_test.go`. Each test header reads `// Commitment N: ...` and the scenario drives the chain through a path where the commitment could be violated. If the test fails, the commitment is broken — not the test.
+#### Test layer — every commitment has a traceable test surface
+`tests/cross_stack/truth_seeking_invariants_test.go` contains a named test
+surface for every commitment. Some tests drive runtime behavior; others bind
+source structure or a narrower implemented boundary. A passing suite does not
+turn future-design prose into consensus behavior.
 
-#### Position layer — every commitment is named in package docs
-Every commitment is declared by at least one `x/*/doc.go` file in the module that preserves it (e.g., `x/knowledge/doc.go` for commitments 1, 2, 3, 4, 5, 6, 10, 12, 13, 14; `x/qualification/doc.go` for 7, 8, 9). A reader running `go doc ./x/foo` sees the package's truth-seeking stance without having to chase down test files.
+#### Position layer — implemented positions are named in package docs
+Relevant `x/*/doc.go` files state the commitments their current boundaries
+support. Those declarations remain documentation; code and behavioral tests
+decide whether a particular guarantee exists.
 
-#### Voice layer — events announce the commitment they preserve
-Truth-seeking events emitted to off-chain observers carry a `creed_commitment` attribute whose value is one or more commitment numbers. `probe_invited` announces commitment 5; `fact_disproven` announces commitment 3; `capture_confirmed` announces commitment 9; `privileged_action_recorded` announces commitments 6 and 10. Indexers and dashboards filter on this attribute to surface truth-seeking activity in the same vocabulary the creed uses.
+#### Voice layer — selected events announce the commitment they preserve
+Truth-seeking events that implement this convention carry a
+`creed_commitment` attribute whose value is one or more commitment numbers.
+The convention is useful for indexers, but it is not universal across all
+issuance or module events.
 
-#### Doc layer — EVENTS.md echoes the voice
-The voice reaches off-chain observers through two channels: the `creed_commitment` attribute on emission, and the `### zerone.module.action` entries in `docs/EVENTS.md` that indexers and dashboards subscribe against. Both must say the same thing — `probe_invited` announces commitment 5 in code AND in the doc; `fact_disproven` announces commitment 3 in both. If the doc drifts from emission, the chain's announcement and its published vocabulary tell observers different stories about which commitment each event preserves. Two voice-layer doc-mirror tests bind the channels: every emitted event must have an EVENTS.md heading (and vice versa); every emitted `creed_commitment` value must equal the value declared in the entry.
+#### Doc layer — EVENTS.md mirrors the implemented voice
+`docs/EVENTS.md` documents the emitted event vocabulary. Mirror tests cover
+the event surfaces they enumerate; event documentation must still be reviewed
+when runtime semantics change.
 
-#### Refusal layer — rejections cite the protecting commitment
-When the chain refuses an action because of a truth-seeking commitment, the error message names the commitment and explains the protection in the chain's voice. "Insufficient challenge stake (commitment 4: probe cost scales with confidence)." "Veto window closed (commitment 6: the veto window is the chain's promise that authority injection is reviewable)." The chain speaks through intentions whether saying yes or saying no. The meta-test scans every refusal-cite of the form `(commitment N: ...)` in source and asserts that every cited number is a real commitment — typo-drift in a refusal ("(commitment 99: ...)") fails CI even when the surrounding prose is convincing.
+#### Refusal layer — some rejections cite the protecting commitment
+Where source uses the `(commitment N: ...)` convention, the meta-test checks
+that the cited number exists. This validates citation integrity, not universal
+coverage of all refusal paths.
 
 #### Graph layer — commitments cross-reference each other
 Each commitment has an **Echoes** line naming the other commitments it depends on, reinforces, or operationalises. Commitment 4 echoes 3 (Popper is the principle, stress-testing is the operation). Commitment 12 echoes 4 and 5 (the audit budget funds them). Commitment 11 echoes 7, 8, 9, and 10 (the synthesiser reads each component). The cross-references make the creed a navigable graph; the meta-test enforces that every echoed reference is real and that no commitment stands alone.
@@ -310,14 +422,19 @@ Each commitment has an **Echoes** line naming the other commitments it depends o
 #### Infrastructure
 - **Param defaults** are chosen as expressions of the values, not for plausibility. Each truth-load-bearing module's `DefaultParams()` carries intention comments naming the commitment a value expresses. Reading the defaults teaches the reader what the chain believes about each parameter.
 - **Module declarations** name role: `training_provenance` synthesises trust per manifest; `trust_score` per address. Each name is a commitment to what that module exists for.
-- **The creed itself lives in this repo**, committed alongside the code it describes. It cannot drift from the chain's actual behaviour because the test layer mechanically prevents that drift.
+- **The creed itself lives in this repo**, committed alongside the code it
+  describes. Hash tests prevent unnoticed source-text drift; behavioral drift
+  still requires precise tests and review.
 
 ---
 
 ## What this is not
 
-- **Not aspiration.** Every commitment is bound by a test. A failing test is a broken commitment.
-- **Not slogan.** Each commitment cites specific code; the citation is the contract.
+- **Not activation evidence.** A source hash, package comment, or named test
+  does not prove that a feature is wired into consensus or enabled on a live
+  network.
+- **Not slogan.** Each implemented boundary should cite code and a behavioral
+  test; target behavior must be labelled as such.
 - **Not complete.** The chain will accumulate more commitments. Each future wave should append here as a named commitment, grounded in code, with an invariant test that binds it.
 - **Not external.** This is a statement about what the chain is, made by the chain. It is committed to the same repo as the code it describes, and lives or dies with that code.
 
@@ -337,8 +454,16 @@ These three checks are the chain's continued faithfulness to its own creed. We s
 
 ## The creed self-witnesses
 
-This document is itself a `Contribution` of class `PIPELINE_IMPROVEMENT`, lifecycle phase `SUBSTRATE`, sub-category `doctrine`. Its content-hash is pinned in `x/creed.PinnedCreed.canonical_hash`. The truth-seeking creed survives the test it imposes: every claim it makes about itself is testable, falsifiable, and re-derivable from the chain's state.
+This source document self-witnesses through the repository's `.creed-hash` and
+the invariant checks run by `make creed-check`. That binding makes amendments
+review-visible and reproducible from source, but it is not an on-chain
+`Contribution` record and does not establish that a running network has adopted
+the hash.
 
-The truth-floor invariant (every `VERIFIED` Contribution must reference the current creed pin) applies to this document too: any amendment to the creed produces a new pin version that supersedes the old, forward-only per commitment 10.
+`x/creed.PinnedCreed` provides the separate capability to adopt a reviewed hash
+on chain, forward-only per commitment 10. A network may claim that adoption only
+after its configured governance path records the pin and the resulting state is
+verified. The published `zerone-1` genesis has no creed pin, and this release
+does not activate one.
 
 **Echoes:** commitment 1 (methodology over statement — this doc names its own methodology of binding), commitment 10, UW.

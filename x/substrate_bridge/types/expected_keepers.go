@@ -11,8 +11,9 @@ import (
 )
 
 // KnowledgeKeeper is the subset of x/knowledge.Keeper used by
-// substrate_bridge. PendingClaim auto-submission and CitedFact existence
-// checks go through here. Implementations: x/knowledge/keeper.Keeper.
+// substrate_bridge. CitedFact existence checks use it today. PendingClaim
+// translation is reserved but public submission fails closed before using
+// that path. Implementations: x/knowledge/keeper.Keeper.
 type KnowledgeKeeper interface {
 	GetFact(ctx context.Context, factID string) (*knowledgetypes.Fact, bool)
 	GetClaim(ctx context.Context, claimID string) (*knowledgetypes.Claim, bool)

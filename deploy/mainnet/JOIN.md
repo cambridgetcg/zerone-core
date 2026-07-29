@@ -17,7 +17,8 @@ upgrade, or reset authorization.
 | REST (LCD) | `http://169.155.55.44:1317` |
 | Chain ID | `zerone-1` |
 | Denom | `uzrn` (1 ZRN = 1,000,000 uzrn) |
-| Published genesis SHA-256 | `16ac346f329d2a931ad9a7d51dbe9e35605482b006ef39b3ac7804376e9bcb66` |
+| Published `artifacts/genesis.json` file SHA-256 | `c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e` |
+| Canonical RPC `.result.genesis` representation SHA-256 | `16ac346f329d2a931ad9a7d51dbe9e35605482b006ef39b3ac7804376e9bcb66` |
 
 Read-only checks:
 
@@ -28,7 +29,9 @@ curl "http://169.155.55.44:1317/cosmos/bank/v1beta1/supply/by_denom?denom=uzrn"
 
 Independently compare the RPC genesis representation, published artifact, and
 [genesis manifest](./artifacts/GENESIS-MANIFEST.md). The manifest is
-hash-bound but currently has no detached signature.
+hash-bound but currently has no detached signature. These two hashes cover
+different byte representations; do not substitute one when verifying the
+other.
 
 ## Onboarding and transaction lanes are paused
 

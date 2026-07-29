@@ -7,7 +7,8 @@ import (
 )
 
 // DefaultParams returns the default module parameters.
-// All slash params MUST be non-zero (B22-3 audit requirement).
+// Active verifier slash params must be non-zero; InvalidClaimSlashBps is a
+// deprecated compatibility field and remains zero.
 func DefaultParams() Params {
 	return Params{
 		// ─── Core verification ────────────────────────────────────────────────
@@ -36,7 +37,7 @@ func DefaultParams() Params {
 		ConfidenceThreshold:            770_000, // 77% — acceptance bar is meaningfully high
 		QuorumThreshold:                660_000, // 66% — supermajority, not bare majority
 
-		// ─── Slashing — MUST be non-zero ─────────────────────────────────────
+		// ─── Verifier slashing ────────────────────────────────────────────────
 		// Validate() enforces the non-zero floor. The non-zero floor is the
 		// belief: commitment 8 says the panel weights skill, not bond, and
 		// skill is something a verifier loses by being wrong. Slash rates of
@@ -50,9 +51,12 @@ func DefaultParams() Params {
 		EquivocationSlashBps:      200_000, // 20% — adversarial behavior, severe
 		InvalidClaimSlashBps:      0,       // DEPRECATED (R19-6): unused — review fee is non-refundable
 
-		// ─── Rewards ─────────────────────────────────────────────────────────
-		VerificationReward:         "3000000", // 3 ZRN in uzrn
-		VerificationRewardDecayBps: 999_000,   // 0.999× per epoch
+		// ─── Compatibility-only reward metadata ───────────────────────────────
+		// Round payout comes from the 55% review-fee pool. VerificationReward
+		// is copied into a record but not used as the paid amount, and decay is
+		// not read. Runtime governance cannot change these inert fields.
+		VerificationReward:         "3000000",
+		VerificationRewardDecayBps: 999_000,
 
 		// ─── Claim validation ─────────────────────────────────────────────────
 		// MinReviewFee is non-refundable by design. Commitment 6 (no
@@ -65,10 +69,9 @@ func DefaultParams() Params {
 		MinReviewFee:       "100000", // 0.1 ZRN — non-refundable review fee
 
 		// ─── Adversarial verification ─────────────────────────────────────────
-		// AdversarialVerificationEnabled is the substrate-level expression of
-		// commitment 4 (substrate stress-tests its truth). Set to false, the
-		// chain becomes a confidence-only voting system; set to true, every
-		// passing claim has standing to be challenged. The challenge stake
+		// AdversarialVerificationEnabled is retained compatibility metadata;
+		// current challenge execution does not read it and runtime governance
+		// cannot change it. The challenge stake
 		// (11 ZRN) is meaningful — not because it deters all challengers,
 		// but because it makes spam-challenges costly while keeping
 		// genuine-disagreement challenges affordable. The 30% reward to
@@ -87,7 +90,10 @@ func DefaultParams() Params {
 		CitationShareBps:    150_000, // 15%
 		CrossDomainBonusBps: 200_000, // 20%
 
-		// ─── Extended governance params ───────────────────────────────────────
+		// ─── Extended params ──────────────────────────────────────────────────
+		// MaxFactsPerDomain, MaxValidatorsPerRound and
+		// MaxApprenticeValidators are compatibility-only and runtime-immutable;
+		// current execution does not read them.
 		MaxFactsPerDomain:              100_000,
 		FactExpiryBlocks:               0, // no expiry
 		CrossStratumDiscountBps:        0,
@@ -98,8 +104,9 @@ func DefaultParams() Params {
 		SurvivedChallengeConfidenceCap: 880_000, // 88%
 		MaxApprenticeValidators:        111,     // Sybil cap
 
-		// ─── Research fund ────────────────────────────────────────────────────
-		ResearchFundShareBps: 130_000, // 13%
+		// Compatibility-only. Review fees route a hard-coded residual ~3.33%
+		// after 55% verifier, 22% protocol and 19.67% development shares.
+		ResearchFundShareBps: 130_000,
 
 		// ─── Fitness scoring ─────────────────────────────────────────────────
 		FitnessEpochBlocks:       10_000,  // ~7 hours at 2.5s blocks
@@ -292,7 +299,9 @@ func DefaultParams() Params {
 		// budget and issuance throttles naturally. Setting MintPerBlock
 		// to zero would mean "audits happen only when someone else pays
 		// for them" — which is what we believe must NOT be true.
-		ProbeBountyMintPerBlock: "1000000",       // 1 ZRN/block — audit budget is non-negotiable
+		// Autonomous audit-pool issuance is disabled by default. A reviewed
+		// governance activation may set a positive cap-gated rate.
+		ProbeBountyMintPerBlock: "0",
 		ProbeBountyMaxPoolSize:  "1000000000000", // 1,000,000 ZRN cap
 
 		// ─── Wave 15b: invitation bonuses ──────────────────────────────
@@ -315,16 +324,128 @@ func DefaultParams() Params {
 	}
 }
 
+// ValidateRuntimeParamChange rejects changes to fields that current consensus
+// does not consume. Queries must not advertise a control that execution
+// silently ignores.
+func ValidateRuntimeParamChange(current, proposed *Params) error {
+	if current == nil || proposed == nil {
+		return fmt.Errorf("current and proposed params must not be nil")
+	}
+	if proposed.VerificationReward != current.VerificationReward {
+		return fmt.Errorf("verification_reward is compatibility-only and runtime-immutable")
+	}
+	if proposed.VerificationRewardDecayBps != current.VerificationRewardDecayBps {
+		return fmt.Errorf("verification_reward_decay_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.InitialConfidence != current.InitialConfidence {
+		return fmt.Errorf("initial_confidence is compatibility-only and runtime-immutable")
+	}
+	if proposed.ConfidenceBoostPerVerification != current.ConfidenceBoostPerVerification {
+		return fmt.Errorf("confidence_boost_per_verification is compatibility-only and runtime-immutable")
+	}
+	if proposed.QuorumThreshold != current.QuorumThreshold {
+		return fmt.Errorf("quorum_threshold is compatibility-only and runtime-immutable")
+	}
+	if proposed.EquivocationSlashBps != current.EquivocationSlashBps {
+		return fmt.Errorf("equivocation_slash_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.InvalidClaimSlashBps != current.InvalidClaimSlashBps {
+		return fmt.Errorf("invalid_claim_slash_bps is deprecated and runtime-immutable")
+	}
+	if proposed.AdversarialVerificationEnabled != current.AdversarialVerificationEnabled {
+		return fmt.Errorf("adversarial_verification_enabled is compatibility-only and runtime-immutable")
+	}
+	if proposed.ProvisionalThreshold != current.ProvisionalThreshold {
+		return fmt.Errorf("provisional_threshold is compatibility-only and runtime-immutable")
+	}
+	if proposed.RejectThreshold != current.RejectThreshold {
+		return fmt.Errorf("reject_threshold is compatibility-only and runtime-immutable")
+	}
+	if proposed.FailedChallengeSlashBps != current.FailedChallengeSlashBps {
+		return fmt.Errorf("failed_challenge_slash_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.MaxConcurrentChallenges != current.MaxConcurrentChallenges {
+		return fmt.Errorf("max_concurrent_challenges is compatibility-only and runtime-immutable")
+	}
+	if proposed.CitationShareBps != current.CitationShareBps {
+		return fmt.Errorf("citation_share_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.CrossDomainBonusBps != current.CrossDomainBonusBps {
+		return fmt.Errorf("cross_domain_bonus_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.MaxFactsPerDomain != current.MaxFactsPerDomain {
+		return fmt.Errorf("max_facts_per_domain is compatibility-only and runtime-immutable")
+	}
+	if proposed.FactExpiryBlocks != current.FactExpiryBlocks {
+		return fmt.Errorf("fact_expiry_blocks is compatibility-only and runtime-immutable")
+	}
+	if proposed.CrossStratumDiscountBps != current.CrossStratumDiscountBps {
+		return fmt.Errorf("cross_stratum_discount_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.MaxValidatorsPerRound != current.MaxValidatorsPerRound {
+		return fmt.Errorf("max_validators_per_round is compatibility-only and runtime-immutable")
+	}
+	if proposed.MaxSurvivalConfidence != current.MaxSurvivalConfidence {
+		return fmt.Errorf("max_survival_confidence is compatibility-only and runtime-immutable")
+	}
+	if proposed.MaxApprenticeValidators != current.MaxApprenticeValidators {
+		return fmt.Errorf("max_apprentice_validators is compatibility-only and runtime-immutable")
+	}
+	if proposed.ResearchFundShareBps != current.ResearchFundShareBps {
+		return fmt.Errorf("research_fund_share_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.NoveltyCommonKnowledgePenaltyBps != current.NoveltyCommonKnowledgePenaltyBps {
+		return fmt.Errorf("novelty_common_knowledge_penalty_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.CompetitionNicheDominanceBonusBps != current.CompetitionNicheDominanceBonusBps {
+		return fmt.Errorf("competition_niche_dominance_bonus_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.MetabolismExtinctionThreshold != current.MetabolismExtinctionThreshold {
+		return fmt.Errorf("metabolism_extinction_threshold is compatibility-only and runtime-immutable")
+	}
+	if proposed.SocialSaturationThreshold != current.SocialSaturationThreshold {
+		return fmt.Errorf("social_saturation_threshold is compatibility-only and runtime-immutable")
+	}
+	if proposed.DisprovalClawbackBps != current.DisprovalClawbackBps {
+		return fmt.Errorf("disproval_clawback_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.DisprovalClawbackWindowEpochs != current.DisprovalClawbackWindowEpochs {
+		return fmt.Errorf("disproval_clawback_window_epochs is compatibility-only and runtime-immutable")
+	}
+	if proposed.TrainingFundCalibrationFloorBps != current.TrainingFundCalibrationFloorBps {
+		return fmt.Errorf("training_fund_calibration_floor_bps is release-sealed and runtime-immutable")
+	}
+	if proposed.TrainingFundVestingEpochs != current.TrainingFundVestingEpochs {
+		return fmt.Errorf("training_fund_vesting_epochs is release-sealed and runtime-immutable")
+	}
+	if proposed.TrainingFundMethodologyDiversityBonusBps != current.TrainingFundMethodologyDiversityBonusBps {
+		return fmt.Errorf("training_fund_methodology_diversity_bonus_bps is release-sealed and runtime-immutable")
+	}
+	if proposed.TrainingFundBaseReward != current.TrainingFundBaseReward {
+		return fmt.Errorf("training_fund_base_reward is release-sealed and runtime-immutable")
+	}
+	if proposed.SponsorVetoForfeitBps != current.SponsorVetoForfeitBps {
+		return fmt.Errorf("sponsor_veto_forfeit_bps is compatibility-only and runtime-immutable")
+	}
+	if proposed.ContributionChallengeRewardMultiplierBps != current.ContributionChallengeRewardMultiplierBps {
+		return fmt.Errorf("contribution_challenge_reward_multiplier_bps is compatibility-only and runtime-immutable")
+	}
+	return nil
+}
+
 // DefaultGenesis returns the default genesis state with 18 active domains.
 func DefaultGenesis() *GenesisState {
 	p := DefaultParams()
 	return &GenesisState{
-		Params:                  &p,
-		Facts:                   []*Fact{},
-		PendingClaims:           []*Claim{},
-		ActiveRounds:            []*VerificationRound{},
-		Domains:                 DefaultDomains(),
-		BootstrapFundAllocation: "22222000000", // 22,222 ZRN (0.01% of max supply)
+		Params:        &p,
+		Facts:         []*Fact{},
+		PendingClaims: []*Claim{},
+		ActiveRounds:  []*VerificationRound{},
+		Domains:       DefaultDomains(),
+		// Protocol default creates no ZRN. Deployments that intentionally
+		// pre-fund the legacy sponsorship pool must declare the target balance
+		// in their reviewed genesis artifact.
+		BootstrapFundAllocation: "0",
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
+	keeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
@@ -101,6 +102,16 @@ func TestSettleAttestation_PartialButAboveThreshold(t *testing.T) {
 	// PARTIAL still returns the full bond — it was collateral, not payment.
 	paid := bk.payments[submitter]
 	require.True(t, paid.GTE(sdkmath.NewInt(2000000)))
+	sawPartial := false
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type != keeper.EventTypeExternalAttestationPartial {
+			continue
+		}
+		sawPartial = true
+		require.Equal(t, "M4", attrValue(t, event, keeper.AttrMechanism),
+			"PARTIAL returns the full bond and must not announce an M1 slash")
+	}
+	require.True(t, sawPartial)
 }
 
 // A settled attestation must not be settleable twice. PARTIAL is an OUTPUT of

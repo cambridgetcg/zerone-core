@@ -263,7 +263,7 @@
         "blocks_per_reward_epoch_[TESTNET]": "prod=100000, halved for faster epoch cycling",
         "founder_share_bps": 70000,
         "founder_address": "",
-        "governance_activation_height_DEPRECATED": "removed — founder share is governance-immune",
+        "governance_activation_height_DEPRECATED": "retained for compatibility; not an activation or sunset gate",
         "vesting_enabled": true,
         "released_clawback_rate": 3300,
         "min_validators_for_full_reward": 11,

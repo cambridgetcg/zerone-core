@@ -1,4 +1,4 @@
-import { CategoryConfig, VestingSchedule } from "./state.js";
+import { CategoryConfig, VestingSchedule, ClawbackRecord, BlockRewardDistribution, ClaimScheduleIndex } from "./state.js";
 import { RevenueSplit, ProtocolSubSplit } from "../../common/v1/common.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
@@ -12,6 +12,9 @@ export interface GenesisState {
     params?: Params;
     categoryConfigs: CategoryConfig[];
     vestingSchedules: VestingSchedule[];
+    clawbackRecords: ClawbackRecord[];
+    blockRewardDistributions: BlockRewardDistribution[];
+    claimScheduleIndexes: ClaimScheduleIndex[];
 }
 /**
  * Params defines the vesting_rewards module parameters.
@@ -25,7 +28,7 @@ export interface Params {
      */
     blockReward: string;
     /**
-     * per-epoch decay (default: 850,000 = 0.85x on 1M scale)
+     * per-epoch decay (default: 994,478 = 0.994478x on 1M scale)
      */
     rewardDecayBps: bigint;
     /**
@@ -46,23 +49,26 @@ export interface Params {
      */
     founderAddress: string;
     /**
-     * DEPRECATED — founder share is governance-immune
+     * DEPRECATED — retained for wire compatibility; not an activation gate
      */
     governanceActivationHeight: bigint;
     /**
-     * Category reward multipliers
+     * Compatibility-only declarations. Current reward execution does not read
+     * these entries; runtime updates must preserve them.
      */
     categoryRewardConfigs: CategoryRewardConfig[];
     /**
-     * Research fund
+     * Compatibility-only. Runtime routes to the compiled research_fund module
+     * account and rejects changing this field.
      */
     researchFundModuleAccount: string;
     /**
      * Vesting parameters
+     * Compatibility-only: not an execution gate; runtime updates must preserve it.
      */
     vestingEnabled: boolean;
     /**
-     * bps of released clawed back on falsification (default: 3300 = 33%)
+     * 10,000 scale: default 3300 = 33% of released value
      */
     releasedClawbackRate: bigint;
     /**
@@ -70,7 +76,7 @@ export interface Params {
      */
     minValidatorsForFullReward: number;
     /**
-     * bps of reward for empty blocks (default: 0)
+     * 10,000 scale: 10,000 = 100%; default 0
      */
     emptyBlockRewardRate: bigint;
     /**
@@ -78,13 +84,15 @@ export interface Params {
      */
     floorReward: string;
     /**
-     * uzrn total fund at genesis (default: "0" = pure PoT)
+     * Genesis/import-export TotalMinted bookkeeping only; runtime updates must
+     * preserve it and it is not a spendable fund balance.
      */
     initialFundBalance: string;
     /**
-     * Knowledge-coupled block reward (T9 / thesis claim 1).
+     * Survived-challenge-coupled block reward.
      * When enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).
-     * Below target verification rate → reward decays faster; at target → full reward.
+     * Rate = survived / (survived + disproven); unchallenged facts are excluded.
+     * Below target → reward is reduced; at target → full reward.
      * 0 target = disabled (backward compat).
      */
     knowledgeCouplingTargetBps: bigint;

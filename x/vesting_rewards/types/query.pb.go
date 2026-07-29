@@ -723,20 +723,25 @@ func (*QuerySupplyCouplingAuditRequest) Descriptor() ([]byte, []int) {
 	return file_zerone_vesting_rewards_v1_query_proto_rawDescGZIP(), []int{14}
 }
 
-// SupplyCouplingAudit response surfaces the thesis-critical metrics for
-// independent verification that emission is coupled to knowledge throughput.
+// SupplyCouplingAudit response surfaces the shared capped-mint ledger and the
+// separately configured block-reward coupling inputs.
 type QuerySupplyCouplingAuditResponse struct {
-	state                          protoimpl.MessageState `protogen:"open.v1"`
-	TotalMinted                    string                 `protobuf:"bytes,1,opt,name=total_minted,json=totalMinted,proto3" json:"total_minted,omitempty"`                                                               // cumulative uzrn minted since genesis
-	CurrentSupply                  string                 `protobuf:"bytes,2,opt,name=current_supply,json=currentSupply,proto3" json:"current_supply,omitempty"`                                                         // live bank supply in uzrn
-	MaxSupply                      string                 `protobuf:"bytes,3,opt,name=max_supply,json=maxSupply,proto3" json:"max_supply,omitempty"`                                                                     // protocol cap in uzrn
-	VerificationRateBps            uint64                 `protobuf:"varint,4,opt,name=verification_rate_bps,json=verificationRateBps,proto3" json:"verification_rate_bps,omitempty"`                                    // current accepted/terminal ratio in BPS
-	KnowledgeCouplingTargetBps     uint64                 `protobuf:"varint,5,opt,name=knowledge_coupling_target_bps,json=knowledgeCouplingTargetBps,proto3" json:"knowledge_coupling_target_bps,omitempty"`             // configured target rate
-	KnowledgeCouplingFloorBps      uint64                 `protobuf:"varint,6,opt,name=knowledge_coupling_floor_bps,json=knowledgeCouplingFloorBps,proto3" json:"knowledge_coupling_floor_bps,omitempty"`                // configured floor multiplier
-	EffectiveCouplingMultiplierBps uint64                 `protobuf:"varint,7,opt,name=effective_coupling_multiplier_bps,json=effectiveCouplingMultiplierBps,proto3" json:"effective_coupling_multiplier_bps,omitempty"` // current applied multiplier
-	CouplingEnabled                bool                   `protobuf:"varint,8,opt,name=coupling_enabled,json=couplingEnabled,proto3" json:"coupling_enabled,omitempty"`                                                  // target > 0 and keeper wired
-	unknownFields                  protoimpl.UnknownFields
-	sizeCache                      protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// MintWithCap ledger restored from initial_fund_balance at import and then
+	// increased by every capped caller. Excludes direct bank/genesis minting.
+	TotalMinted                    string `protobuf:"bytes,1,opt,name=total_minted,json=totalMinted,proto3" json:"total_minted,omitempty"`
+	CurrentSupply                  string `protobuf:"bytes,2,opt,name=current_supply,json=currentSupply,proto3" json:"current_supply,omitempty"`                                                         // live bank supply in uzrn
+	MaxSupply                      string `protobuf:"bytes,3,opt,name=max_supply,json=maxSupply,proto3" json:"max_supply,omitempty"`                                                                     // protocol cap in uzrn
+	VerificationRateBps            uint64 `protobuf:"varint,4,opt,name=verification_rate_bps,json=verificationRateBps,proto3" json:"verification_rate_bps,omitempty"`                                    // legacy accepted/terminal ratio; not the applied signal
+	KnowledgeCouplingTargetBps     uint64 `protobuf:"varint,5,opt,name=knowledge_coupling_target_bps,json=knowledgeCouplingTargetBps,proto3" json:"knowledge_coupling_target_bps,omitempty"`             // configured target rate
+	KnowledgeCouplingFloorBps      uint64 `protobuf:"varint,6,opt,name=knowledge_coupling_floor_bps,json=knowledgeCouplingFloorBps,proto3" json:"knowledge_coupling_floor_bps,omitempty"`                // configured floor multiplier
+	EffectiveCouplingMultiplierBps uint64 `protobuf:"varint,7,opt,name=effective_coupling_multiplier_bps,json=effectiveCouplingMultiplierBps,proto3" json:"effective_coupling_multiplier_bps,omitempty"` // current applied multiplier
+	CouplingEnabled                bool   `protobuf:"varint,8,opt,name=coupling_enabled,json=couplingEnabled,proto3" json:"coupling_enabled,omitempty"`                                                  // target > 0 and keeper wired
+	// Consensus-applied survived/(survived+disproven) signal; unchallenged
+	// facts are excluded.
+	SurvivedChallengeRateBps uint64 `protobuf:"varint,9,opt,name=survived_challenge_rate_bps,json=survivedChallengeRateBps,proto3" json:"survived_challenge_rate_bps,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *QuerySupplyCouplingAuditResponse) Reset() {
@@ -825,6 +830,13 @@ func (x *QuerySupplyCouplingAuditResponse) GetCouplingEnabled() bool {
 	return false
 }
 
+func (x *QuerySupplyCouplingAuditResponse) GetSurvivedChallengeRateBps() uint64 {
+	if x != nil {
+		return x.SurvivedChallengeRateBps
+	}
+	return 0
+}
+
 var File_zerone_vesting_rewards_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_vesting_rewards_v1_query_proto_rawDesc = "" +
@@ -865,7 +877,7 @@ const file_zerone_vesting_rewards_v1_query_proto_rawDesc = "" +
 	"\x0ffounder_address\x18\x03 \x01(\tR\x0efounderAddress\x12@\n" +
 	"\x1cgovernance_activation_height\x18\x04 \x01(\x04R\x1agovernanceActivationHeight\x12%\n" +
 	"\x0ecurrent_height\x18\x05 \x01(\x04R\rcurrentHeight\"!\n" +
-	"\x1fQuerySupplyCouplingAuditRequest\"\xb9\x03\n" +
+	"\x1fQuerySupplyCouplingAuditRequest\"\xf8\x03\n" +
 	" QuerySupplyCouplingAuditResponse\x12!\n" +
 	"\ftotal_minted\x18\x01 \x01(\tR\vtotalMinted\x12%\n" +
 	"\x0ecurrent_supply\x18\x02 \x01(\tR\rcurrentSupply\x12\x1d\n" +
@@ -875,7 +887,8 @@ const file_zerone_vesting_rewards_v1_query_proto_rawDesc = "" +
 	"\x1dknowledge_coupling_target_bps\x18\x05 \x01(\x04R\x1aknowledgeCouplingTargetBps\x12?\n" +
 	"\x1cknowledge_coupling_floor_bps\x18\x06 \x01(\x04R\x19knowledgeCouplingFloorBps\x12I\n" +
 	"!effective_coupling_multiplier_bps\x18\a \x01(\x04R\x1eeffectiveCouplingMultiplierBps\x12)\n" +
-	"\x10coupling_enabled\x18\b \x01(\bR\x0fcouplingEnabled2\xbc\f\n" +
+	"\x10coupling_enabled\x18\b \x01(\bR\x0fcouplingEnabled\x12=\n" +
+	"\x1bsurvived_challenge_rate_bps\x18\t \x01(\x04R\x18survivedChallengeRateBps2\xbc\f\n" +
 	"\x05Query\x12\xbc\x01\n" +
 	"\x0fVestingSchedule\x126.zerone.vesting_rewards.v1.QueryVestingScheduleRequest\x1a7.zerone.vesting_rewards.v1.QueryVestingScheduleResponse\"8\x82\xd3\xe4\x93\x022\x120/zerone/vesting_rewards/v1/schedule/{vesting_id}\x12\xea\x01\n" +
 	"\x1bVestingSchedulesByRecipient\x12B.zerone.vesting_rewards.v1.QueryVestingSchedulesByRecipientRequest\x1aC.zerone.vesting_rewards.v1.QueryVestingSchedulesByRecipientResponse\"B\x82\xd3\xe4\x93\x02<\x12:/zerone/vesting_rewards/v1/schedules/recipient/{recipient}\x12\xcc\x01\n" +

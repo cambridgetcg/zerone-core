@@ -1,12 +1,21 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
+const appIAVLInitSentinelKey = "_iavl_init"
+
 func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
+	if err := gs.Validate(); err != nil {
+		return err
+	}
 	if gs.Params != nil {
 		if err := k.SetParams(ctx, gs.Params); err != nil {
 			return err
@@ -17,23 +26,14 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
-	// A chain born with this code carries no attestation history, so the
-	// (empty) source-ref index is already correct and enforcement is armed
-	// from genesis. Existing chains that predate this code never re-run
-	// InitGenesis; they arm via the substrate-dedupe-v1 upgrade handler,
-	// which seeds the index from their history first.
-	//
-	// NOTE: GenesisState round-trips only Params + Adapters — neither the
-	// attestation store nor the source-ref index survives an export/import.
-	// A relaunch from exported state therefore starts with an empty index
-	// while previously minted ZRN persists in the bank genesis, so a
-	// historically-settled (adapter_id, source_id) could mint again on the
-	// new chain. Preserving the wall across export requires adding
-	// attestations + the index to GenesisState (a proto change tracked as a
-	// follow-up); today the module is launched fresh (the zerone-2 relaunch
-	// disables it entirely), so this is a documented limitation, not a live
-	// hole.
-	k.SetDedupeArmed(ctx)
+
+	store := sdk.UnwrapSDKContext(ctx).KVStore(k.storeKey)
+	for _, entry := range gs.StateEntries {
+		// GenesisState.Validate restricts these entries to replay/economic
+		// keyspaces and excludes Params/Adapter records, so raw restoration
+		// cannot bypass their typed validation paths.
+		store.Set(bytes.Clone(entry.Key), bytes.Clone(entry.Value))
+	}
 	return nil
 }
 
@@ -44,5 +44,27 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		gs.Adapters = append(gs.Adapters, a)
 		return false
 	})
+
+	store := sdk.UnwrapSDKContext(ctx).KVStore(k.storeKey)
+	iter := store.Iterator(nil, nil)
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		// InitChainer writes this exact infrastructure sentinel into every
+		// module store. It is app bootstrap state, not substrate-bridge state,
+		// so it must not enter the portable module genesis.
+		if bytes.Equal(iter.Key(), []byte(appIAVLInitSentinelKey)) {
+			continue
+		}
+		if types.IsTypedGenesisStateKey(iter.Key()) {
+			continue
+		}
+		if !types.IsAllowedGenesisStateKey(iter.Key()) {
+			panic(fmt.Sprintf("substrate_bridge export has unhandled state key %x", iter.Key()))
+		}
+		gs.StateEntries = append(gs.StateEntries, &types.GenesisStateEntry{
+			Key:   bytes.Clone(iter.Key()),
+			Value: bytes.Clone(iter.Value()),
+		})
+	}
 	return gs
 }

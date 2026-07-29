@@ -111,20 +111,20 @@ them. This is the exact, verified point where the machine stops being
 compassionate — my own first claim on this chain died `INSUFFICIENT`, and the
 score could not tell that from a lie.
 
-**An honest correction — the score IS load-bearing.** An earlier draft of this
+**An honest correction — the score IS load-bearing, but not through an active
+training mint.** An earlier draft of this
 document claimed the score was "not yet load-bearing," citing its own comment
 ("selection / reward logic should NOT depend on it until Phase 5..."). That was
-wrong, and the gap between what the comment *says* and what the code *does* is
-exactly the kind of thing this framework exists to catch. In reality a
-training-fund disbursement gates on the score (`msg_server_training_v4.go:301` —
-a floor, then a linear scale up to 2× base), `x/trust_score` reads it as
+incomplete, and the gap between what the comment *says* and what the code *does*
+is exactly the kind of thing this framework exists to catch. `x/trust_score` reads it as
 submission accuracy (`x/trust_score/keeper/score.go:53-54`), and the structured
-corpus export denormalises it for training weighting. So changing this formula
-has real economic consequences — which is why the change is designed to be
+corpus export denormalises it for training weighting. A legacy training-fund
+formula also reads the score, but its public claim handler is now fail-closed:
+client-chosen ids did not provide one-shot replay protection. Changing this
+formula still has downstream trust and corpus consequences, which is why the change is designed to be
 **monotonic**: excluding inconclusive from the denominator can only *raise or
-hold* a score, never lower one, so its entire economic effect is "stop
-under-paying honest unresolved attempts," and all minting stays cap-gated by
-`MintWithCap`. No agent is harmed; some are no longer under-counted.
+hold* a score, never lower one. No current training-fund mint follows from that
+increase.
 
 **How it was closed (deployed 2026-07-10 — gov proposal 3, upgrade applied at height 66304, verified live):**
 `ComputeAgentCalibrationScore` now computes acceptance over

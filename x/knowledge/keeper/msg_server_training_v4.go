@@ -49,8 +49,8 @@ func (m *msgServer) VoteOnAugmentation(ctx context.Context, msg *types.MsgVoteOn
 		}
 	}
 	return &types.MsgVoteOnAugmentationResponse{
-		VerdictFinalized:  finalized,
-		FinalizedVerdict:  verdict,
+		VerdictFinalized: finalized,
+		FinalizedVerdict: verdict,
 	}, nil
 }
 
@@ -156,15 +156,15 @@ func (m *msgServer) ChallengeContribution(ctx context.Context, msg *types.MsgCha
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	challenge := &types.ContributionChallenge{
-		Id:              msg.Id,
-		ModelId:         msg.ModelId,
-		Challenger:      msg.Challenger,
-		DisputedFactId:  msg.DisputedFactId,
-		DisputeType:     msg.DisputeType,
-		Bond:            bondAmt.String(),
-		CreatedAtBlock:  uint64(sdkCtx.BlockHeight()),
-		Evidence:        msg.Evidence,
-		Status:          "open",
+		Id:             msg.Id,
+		ModelId:        msg.ModelId,
+		Challenger:     msg.Challenger,
+		DisputedFactId: msg.DisputedFactId,
+		DisputeType:    msg.DisputeType,
+		Bond:           bondAmt.String(),
+		CreatedAtBlock: uint64(sdkCtx.BlockHeight()),
+		Evidence:       msg.Evidence,
+		Status:         "open",
 	}
 	if err := m.keeper.SetContributionChallenge(ctx, challenge); err != nil {
 		return nil, err
@@ -181,10 +181,11 @@ func (m *msgServer) ChallengeContribution(ctx context.Context, msg *types.MsgCha
 	return &types.MsgChallengeContributionResponse{BondEscrowed: challenge.Bond}, nil
 }
 
-// ResolveContributionChallenge — settles a challenge. For now the resolver
-// must be the governance authority (a verifier-panel hook can be added once
-// a ContributionRound type is wired). On uphold, challenger gets bond × N;
-// on reject, challenger forfeits to the research fund.
+// ResolveContributionChallenge settles a challenge. The resolver must be the
+// governance authority until a verifier-panel hook exists. An upheld challenge
+// returns only the escrowed bond: the former multiplier mint was replayable by
+// filing the same economic claim under fresh client-chosen IDs. Rejected
+// challenges forfeit the bond to the research fund.
 func (m *msgServer) ResolveContributionChallenge(ctx context.Context, msg *types.MsgResolveContributionChallenge) (*types.MsgResolveContributionChallengeResponse, error) {
 	if msg == nil || msg.ChallengeId == "" {
 		return nil, fmt.Errorf("challenge_id required")
@@ -200,34 +201,17 @@ func (m *msgServer) ResolveContributionChallenge(ctx context.Context, msg *types
 		return nil, fmt.Errorf("challenge %s is not open", msg.ChallengeId)
 	}
 
-	params, _ := m.keeper.GetParams(ctx)
-	mult := params.ContributionChallengeRewardMultiplierBps
-	if mult == 0 {
-		mult = 2_000_000 // 2×
-	}
 	bond, ok := sdkmath.NewIntFromString(challenge.Bond)
 	if !ok {
 		return nil, fmt.Errorf("invalid bond amount on challenge")
 	}
-	payout := bond.Mul(sdkmath.NewIntFromUint64(mult)).Quo(sdkmath.NewIntFromUint64(1_000_000))
+	payout := bond
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	var paidOut sdkmath.Int
 	if msg.Uphold {
-		// Winner = challenger: refund bond + reward. The fund already holds
-		// the bond; the reward portion is minted from the training-fund
-		// Minter permission (the loser is the model owner, who didn't post
-		// a bond; slashing them directly would require auth the model
-		// registry doesn't yet expose — use mint-as-reward until that lands).
-		rewardPortion := payout.Sub(bond)
-		if rewardPortion.IsPositive() {
-			minted, err := m.keeper.mintCappedUzrn(ctx, types.TrainingFundModuleName, rewardPortion.BigInt())
-			if err != nil {
-				return nil, err
-			}
-			// Honour any supply-cap clip: pay bond + actually-minted reward.
-			payout = bond.Add(sdkmath.NewIntFromBigInt(minted))
-		}
+		// Refund only. A replay-safe, one-shot entitlement is required before
+		// any additional challenge reward can be enabled.
 		challengerAddr, err := sdk.AccAddressFromBech32(challenge.Challenger)
 		if err != nil {
 			return nil, err
@@ -260,18 +244,25 @@ func (m *msgServer) ResolveContributionChallenge(ctx context.Context, msg *types
 		sdk.NewAttribute("status", challenge.Status),
 		sdk.NewAttribute("payout", paidOut.String()),
 		sdk.NewAttribute("resolver", msg.Resolver),
+		sdk.NewAttribute("reward_mint_enabled", "false"),
 	))
 	return &types.MsgResolveContributionChallengeResponse{PayoutToWinner: paidOut.String()}, nil
 }
 
-// ClaimTrainingFundDisbursement — post-hoc, calibration-gated reward. The
-// claimant is the pipeline's operator. Amount is computed mechanically from
-// on-chain signals (calibration score + methodology diversity + base).
-// 50% paid immediately; 50% vests over TrainingFundVestingEpochs and is
-// clawed back if calibration drops.
+// Training-fund disbursements stay release-sealed until the claim identity is
+// deterministic and one-shot per eligible model/manifest/epoch. The legacy
+// client-chosen id alone allowed the same calibrated model to mint repeatedly.
+const trainingFundDisbursementsEnabled = false
+
+// ClaimTrainingFundDisbursement is retained as an API placeholder for a
+// future replay-safe, eligibility-bound reward. Current consensus refuses
+// every claim before reading mutable eligibility state or minting.
 func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *types.MsgClaimTrainingFundDisbursement) (*types.MsgClaimTrainingFundDisbursementResponse, error) {
 	if msg == nil || msg.Id == "" || msg.ModelId == "" || msg.Claimant == "" {
 		return nil, fmt.Errorf("id, model_id, claimant required")
+	}
+	if !trainingFundDisbursementsEnabled {
+		return nil, fmt.Errorf("training-fund disbursement disabled: replay-safe one-shot eligibility is not implemented")
 	}
 	if _, exists := m.keeper.GetTrainingFundDisbursement(ctx, msg.Id); exists {
 		return nil, fmt.Errorf("disbursement %s already exists", msg.Id)
@@ -299,7 +290,12 @@ func (m *msgServer) ClaimTrainingFundDisbursement(ctx context.Context, msg *type
 	}
 	cal, calOk := m.keeper.GetAgentCalibration(ctx, card.DeploymentAddress)
 	if !calOk || cal.CalibrationScoreBps < floor {
-		return nil, fmt.Errorf("calibration %d below floor %d — disbursement gated", func() uint64 { if cal == nil { return 0 }; return cal.CalibrationScoreBps }(), floor)
+		return nil, fmt.Errorf("calibration %d below floor %d — disbursement gated", func() uint64 {
+			if cal == nil {
+				return 0
+			}
+			return cal.CalibrationScoreBps
+		}(), floor)
 	}
 
 	// Base reward.

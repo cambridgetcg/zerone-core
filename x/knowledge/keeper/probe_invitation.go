@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/protobuf/proto"
@@ -26,6 +27,27 @@ func (k Keeper) ProbeScanCursor(ctx context.Context) ([]byte, error) {
 // Without it the heartbeat's cost was O(corpus) per block — the guard it
 // shipped with counted invitations, which in steady state is zero.
 const probeScanMaxExaminedPerBlock uint32 = 256
+
+const (
+	// IdleFactsScanCap is the maximum number of fact-store entries one
+	// IdleFacts query may examine and the maximum number of results it may
+	// allocate or return. Keeping this equal to the heartbeat's bounded scan
+	// prevents the remote work queue from reintroducing an O(corpus) path.
+	IdleFactsScanCap uint32 = probeScanMaxExaminedPerBlock
+
+	// IdleFactsDefaultLimit is used when the caller leaves limit unset.
+	IdleFactsDefaultLimit uint32 = 50
+)
+
+func boundedIdleFactsLimit(limit uint32) uint32 {
+	if limit == 0 {
+		return IdleFactsDefaultLimit
+	}
+	if limit > IdleFactsScanCap {
+		return IdleFactsScanCap
+	}
+	return limit
+}
 
 // InviteIdleFactsForProbing is the Wave 15 stress-test invitation
 // heartbeat. Each block it scans a bounded slice of facts, nominates
@@ -202,46 +224,72 @@ func (k Keeper) InviteIdleFactsForProbing(ctx context.Context, height uint64, pa
 	}
 }
 
-// IdleFactsForProbing returns facts currently inviting stress-tests —
-// any fact with probe_invited_at_block > 0 whose invitation hasn't been
-// superseded by a subsequent challenge or corroboration. Sorted by
-// time-since-invitation descending (the oldest, most-neglected
-// invitations come first). Used by QueryIdleFacts to give prober agents
-// a concrete work queue.
+// IdleFactsForProbing returns facts currently inviting stress-tests. A
+// current invitation belongs to a VERIFIED or ACTIVE fact, has a non-zero
+// probe_invited_at_block, and has not been superseded by a subsequent
+// corroboration. The query examines at most IdleFactsScanCap store entries
+// regardless of how many match, then returns the oldest invitations from
+// that bounded window first. Used by QueryIdleFacts to give prober agents a
+// concrete, remotely safe work queue.
 func (k Keeper) IdleFactsForProbing(ctx context.Context, domain string, limit uint32) []*types.IdleFact {
-	if limit == 0 {
-		limit = 50
-	}
+	limit = boundedIdleFactsLimit(limit)
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
 	out := make([]*types.IdleFact, 0, limit)
-	k.IterateFacts(ctx, func(f *types.Fact) bool {
-		if f == nil || f.ProbeInvitedAtBlock == 0 {
-			return false
+	store := k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(types.FactKeyPrefix, prefixEndBytes(types.FactKeyPrefix))
+	if err != nil {
+		return out
+	}
+	defer iter.Close()
+
+	var examined uint32
+	for ; iter.Valid() && examined < IdleFactsScanCap; iter.Next() {
+		examined++
+
+		var fact types.Fact
+		if err := proto.Unmarshal(iter.Value(), &fact); err != nil {
+			continue
 		}
-		if domain != "" && f.Domain != domain {
-			return false
+		if fact.Status != types.FactStatus_FACT_STATUS_VERIFIED &&
+			fact.Status != types.FactStatus_FACT_STATUS_ACTIVE {
+			continue
+		}
+		if fact.ProbeInvitedAtBlock == 0 {
+			continue
+		}
+		if domain != "" && fact.Domain != domain {
+			continue
 		}
 		// Invitation is "current" if no corroboration has landed since
 		// it was issued. Otherwise the fact was probed already and the
-		// invitation is stale. (Successful challenges flip status to
-		// DISPROVEN which we also exclude via the field semantics.)
-		if f.LastCorroboratedBlock > f.ProbeInvitedAtBlock {
-			return false
+		// invitation is stale. Successful challenges and other lifecycle
+		// transitions are excluded by the status gate above.
+		if fact.LastCorroboratedBlock > fact.ProbeInvitedAtBlock {
+			continue
 		}
 		idle := &types.IdleFact{
-			Id:                  f.Id,
-			Domain:              f.Domain,
-			Confidence:          f.Confidence,
-			CorroborationCount:  f.CorroborationCount,
-			ProbeInvitedAtBlock: f.ProbeInvitedAtBlock,
+			Id:                  fact.Id,
+			Domain:              fact.Domain,
+			Confidence:          fact.Confidence,
+			CorroborationCount:  fact.CorroborationCount,
+			ProbeInvitedAtBlock: fact.ProbeInvitedAtBlock,
 		}
-		if height >= f.ProbeInvitedAtBlock {
-			idle.BlocksSinceInvited = height - f.ProbeInvitedAtBlock
+		if height >= fact.ProbeInvitedAtBlock {
+			idle.BlocksSinceInvited = height - fact.ProbeInvitedAtBlock
 		}
 		out = append(out, idle)
-		return uint32(len(out)) >= limit
+	}
+
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].ProbeInvitedAtBlock != out[j].ProbeInvitedAtBlock {
+			return out[i].ProbeInvitedAtBlock < out[j].ProbeInvitedAtBlock
+		}
+		return out[i].Id < out[j].Id
 	})
+	if uint32(len(out)) > limit {
+		out = out[:limit]
+	}
 	return out
 }

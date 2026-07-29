@@ -40,9 +40,9 @@ func (a AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
 	types.RegisterInterfaces(reg)
 }
 
-// DefaultGenesis returns the empty Phase 0 genesis. The app's genesis
-// populator substitutes the inception pins derived from
-// CanonicalSubCreeds + .sub-creed-hashes at chain init.
+// DefaultGenesis returns the empty Phase 0 genesis. A ceremony may explicitly
+// inject pins using tools/ceremony-inject; application startup does not
+// populate them automatically.
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
 	bz, err := json.Marshal(types.DefaultGenesis())
 	if err != nil {
@@ -87,7 +87,7 @@ func (am AppModule) IsAppModule()        {}
 // RegisterServices is a no-op at Phase 0 (no msg or query servers).
 func (am AppModule) RegisterServices(cfg module.Configurator) {}
 
-// InitGenesis writes the inception pins.
+// InitGenesis writes whichever pins the supplied genesis explicitly contains.
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) {
 	var genState types.GenesisState
 	if err := json.Unmarshal(data, &genState); err != nil {

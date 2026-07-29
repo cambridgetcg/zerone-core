@@ -73,9 +73,10 @@ func (k Keeper) releaseSourceRef(ctx context.Context, att *types.ExternalAttesta
 //
 // So enforcement is gated on an explicit "armed" flag set only where the
 // index is guaranteed seeded: the substrate-dedupe-v1 upgrade handler (for
-// existing chains) and InitGenesis (for chains born with this code).
-// Until armed, SubmitExternalAttestation refuses fail-closed — a loud,
-// safe halt of the witness bridge on a mis-deploy, never a silent replay.
+// existing chains), an imported 0x8F marker, or the first submission on an
+// empty fresh chain. Until armed, SubmitExternalAttestation refuses fail-closed
+// — a loud, safe halt of the witness bridge on a mis-deploy, never a silent
+// replay.
 
 func (k Keeper) IsDedupeArmed(ctx context.Context) bool {
 	store := sdk.UnwrapSDKContext(ctx).KVStore(k.storeKey)

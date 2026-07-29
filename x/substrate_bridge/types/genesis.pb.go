@@ -22,9 +22,21 @@ const (
 )
 
 type GenesisState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Adapters      []*AdapterRegistration `protobuf:"bytes,2,rep,name=adapters,proto3" json:"adapters,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Params   *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Adapters []*AdapterRegistration `protobuf:"bytes,2,rep,name=adapters,proto3" json:"adapters,omitempty"`
+	// Exact replay/economic keeper state that cannot be reconstructed from
+	// Params or AdapterRegistration alone. Entries are restricted by genesis
+	// validation to the attestation, pending-claim, lineage, witness-reward,
+	// source-reference, counter, and dedupe-arming keyspaces. Params and adapter
+	// keyspaces are deliberately forbidden here so typed fields remain the only
+	// way to initialize them.
+	//
+	// Keeping the raw key/value form preserves source-ref holder selection and
+	// every secondary index exactly across export/import. That is essential for
+	// the one-source/one-mint replay wall: rebuilding from duplicate historical
+	// attestations could otherwise choose a different holder.
+	StateEntries  []*GenesisStateEntry `protobuf:"bytes,3,rep,name=state_entries,json=stateEntries,proto3" json:"state_entries,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,14 +85,78 @@ func (x *GenesisState) GetAdapters() []*AdapterRegistration {
 	return nil
 }
 
+func (x *GenesisState) GetStateEntries() []*GenesisStateEntry {
+	if x != nil {
+		return x.StateEntries
+	}
+	return nil
+}
+
+// GenesisStateEntry is one allow-listed substrate_bridge KV entry.
+type GenesisStateEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           []byte                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         []byte                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenesisStateEntry) Reset() {
+	*x = GenesisStateEntry{}
+	mi := &file_zerone_substrate_bridge_v1_genesis_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenesisStateEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenesisStateEntry) ProtoMessage() {}
+
+func (x *GenesisStateEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_substrate_bridge_v1_genesis_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenesisStateEntry.ProtoReflect.Descriptor instead.
+func (*GenesisStateEntry) Descriptor() ([]byte, []int) {
+	return file_zerone_substrate_bridge_v1_genesis_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *GenesisStateEntry) GetKey() []byte {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *GenesisStateEntry) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
 var File_zerone_substrate_bridge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_substrate_bridge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"(zerone/substrate_bridge/v1/genesis.proto\x12\x1azerone.substrate_bridge.v1\x1a'zerone/substrate_bridge/v1/params.proto\x1a(zerone/substrate_bridge/v1/adapter.proto\"\x97\x01\n" +
+	"(zerone/substrate_bridge/v1/genesis.proto\x12\x1azerone.substrate_bridge.v1\x1a'zerone/substrate_bridge/v1/params.proto\x1a(zerone/substrate_bridge/v1/adapter.proto\"\xeb\x01\n" +
 	"\fGenesisState\x12:\n" +
 	"\x06params\x18\x01 \x01(\v2\".zerone.substrate_bridge.v1.ParamsR\x06params\x12K\n" +
-	"\badapters\x18\x02 \x03(\v2/.zerone.substrate_bridge.v1.AdapterRegistrationR\badaptersB9Z7github.com/zerone-chain/zerone/x/substrate_bridge/typesb\x06proto3"
+	"\badapters\x18\x02 \x03(\v2/.zerone.substrate_bridge.v1.AdapterRegistrationR\badapters\x12R\n" +
+	"\rstate_entries\x18\x03 \x03(\v2-.zerone.substrate_bridge.v1.GenesisStateEntryR\fstateEntries\";\n" +
+	"\x11GenesisStateEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\fR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\fR\x05valueB9Z7github.com/zerone-chain/zerone/x/substrate_bridge/typesb\x06proto3"
 
 var (
 	file_zerone_substrate_bridge_v1_genesis_proto_rawDescOnce sync.Once
@@ -94,20 +170,22 @@ func file_zerone_substrate_bridge_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_zerone_substrate_bridge_v1_genesis_proto_rawDescData
 }
 
-var file_zerone_substrate_bridge_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_zerone_substrate_bridge_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_zerone_substrate_bridge_v1_genesis_proto_goTypes = []any{
 	(*GenesisState)(nil),        // 0: zerone.substrate_bridge.v1.GenesisState
-	(*Params)(nil),              // 1: zerone.substrate_bridge.v1.Params
-	(*AdapterRegistration)(nil), // 2: zerone.substrate_bridge.v1.AdapterRegistration
+	(*GenesisStateEntry)(nil),   // 1: zerone.substrate_bridge.v1.GenesisStateEntry
+	(*Params)(nil),              // 2: zerone.substrate_bridge.v1.Params
+	(*AdapterRegistration)(nil), // 3: zerone.substrate_bridge.v1.AdapterRegistration
 }
 var file_zerone_substrate_bridge_v1_genesis_proto_depIdxs = []int32{
-	1, // 0: zerone.substrate_bridge.v1.GenesisState.params:type_name -> zerone.substrate_bridge.v1.Params
-	2, // 1: zerone.substrate_bridge.v1.GenesisState.adapters:type_name -> zerone.substrate_bridge.v1.AdapterRegistration
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	2, // 0: zerone.substrate_bridge.v1.GenesisState.params:type_name -> zerone.substrate_bridge.v1.Params
+	3, // 1: zerone.substrate_bridge.v1.GenesisState.adapters:type_name -> zerone.substrate_bridge.v1.AdapterRegistration
+	1, // 2: zerone.substrate_bridge.v1.GenesisState.state_entries:type_name -> zerone.substrate_bridge.v1.GenesisStateEntry
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_zerone_substrate_bridge_v1_genesis_proto_init() }
@@ -123,7 +201,7 @@ func file_zerone_substrate_bridge_v1_genesis_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_substrate_bridge_v1_genesis_proto_rawDesc), len(file_zerone_substrate_bridge_v1_genesis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

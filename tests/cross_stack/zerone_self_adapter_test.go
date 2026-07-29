@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	selfcompile "github.com/zerone-chain/zerone/tools/zerone-self-compiler/compile"
@@ -16,23 +16,18 @@ import (
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
-// TestZeroneSelfAdapter_RegisterAndSubmit drives the deepest recursion:
-// the chain registers an adapter that points at its own git repository,
-// and a submitter attests to a real ZERONE commit through that adapter.
-// The pending claim lands in x/knowledge under the "zerone_self" domain
-// and the attestation enters AWAITING_RESOLUTION — the chain has admitted
-// a fact about its own becoming into its own substrate.
+// TestZeroneSelfAdapter_RegisterAndSubmit pins the current boundary: the
+// compiler constructs a deterministic caller payload, the keeper validates
+// its internal link hash and axis ceilings, and public submission refuses its
+// pending claim. The test then writes dormant AWAITING/index state directly;
+// no self-fact lands through the public bridge.
 //
-// Doctrinal bindings:
-//   - UW (ZERONE is recursive): every reward path is substrate-link gated;
-//     this adapter routes commits-as-attestations through that same gate.
-//   - M2 (substrate-link mandate): the compiler produces a deterministic
-//     SubstrateLink and the chain's keeper computes the same LinkHash.
-//   - M3 (class-specific verification): the adapter declares its
-//     qualification floor ("agent_purpose"); only calibrated submitters
-//     can attest about ZERONE itself.
-//   - M5 (recursion-weight axes): the compiler emits per-axis projection
-//     that conforms to the adapter's AxisBounds.
+// Covered adapter properties:
+//   - The compiler produces a deterministic SubstrateLink and the keeper
+//     computes the same LinkHash.
+//   - The caller payload declares the adapter's qualification floor
+//     ("agent_purpose").
+//   - The compiler emits a per-axis projection within the registered bounds.
 //
 // Spec: docs/specs/adapters/zerone-self-v1.md.
 func TestZeroneSelfAdapter_RegisterAndSubmit(t *testing.T) {
@@ -92,10 +87,9 @@ func TestZeroneSelfAdapter_RegisterAndSubmit(t *testing.T) {
 	require.Equal(t, selfcompile.SelfDomain, link.PendingClaims[0].Domain)
 	require.NotEmpty(t, link.LinkHash, "compiler must emit a link_hash")
 
-	// 4. Verify the on-chain keeper computes the same LinkHash from the
-	//    same payload (M2: the chain re-derives, and the compiler's hash
-	//    matches). This is the binding that defeats compiler drift —
-	//    submitter cannot ship a link the chain disagrees with.
+	// 4. Verify the keeper computes the same LinkHash from the same payload.
+	//    This establishes internal field consistency only; consensus does not
+	//    execute the compiler or fetch the git source.
 	rederived := substratebridgekeeper.ComputeLinkHash(link)
 	require.Equal(t, link.LinkHash, rederived,
 		"chain-side ComputeLinkHash must match compiler-side LinkHash — this is the M2 substrate-link mandate")
@@ -143,13 +137,9 @@ func TestZeroneSelfAdapter_RegisterAndSubmit(t *testing.T) {
 
 // TestZeroneSelfAdapter_AxisBoundsRespected confirms the chain refuses an
 // attestation whose recursion-weight projection exceeds the adapter's
-// per-axis ceiling (M5 binding). We construct a commit that would project
-// AxisAttribution = 500_000 (baseline) and attempt to inflate it past the
-// adapter's AxisAttributionMax, then assert refusal.
-//
-// In practice the compiler emits exactly the baseline; this test exercises
-// a malicious submitter who hand-edits the link before submission. The
-// chain's refusal is the M5 enforcement at the doctrinal boundary.
+// per-axis ceiling (M5 binding). The compiler emits its ordinary 500,000
+// attribution baseline, while the test adapter declares a tighter 100,000
+// ceiling. The unedited payload must be refused.
 func TestZeroneSelfAdapter_AxisBoundsRespected(t *testing.T) {
 	h := NewTestHarness(t)
 
@@ -169,10 +159,10 @@ func TestZeroneSelfAdapter_AxisBoundsRespected(t *testing.T) {
 
 	commitTime, _ := time.Parse(time.RFC3339, "2026-05-11T17:52:35Z")
 	meta := selfcompile.CommitMeta{
-		Hash:    "80cf9c0400327e016e41cc9df441371056c958ef",
-		Author:  "YOU <x@x>",
-		Date:    commitTime,
-		Subject: "test commit",
+		Hash:         "80cf9c0400327e016e41cc9df441371056c958ef",
+		Author:       "YOU <x@x>",
+		Date:         commitTime,
+		Subject:      "test commit",
 		TouchedFiles: []string{"x/test/foo.go"},
 	}
 	link, err := selfcompile.Compile(meta, 0)

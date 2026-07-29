@@ -1,133 +1,75 @@
 # Revenue Split
 
-Every unit of ZRN revenue — whether from block rewards, transaction fees, billing queries, toolbox calls, tree deliverables, or dispute resolution — is routed through the same **4-way split**. This is the heartbeat of Zerone's economics.
+> **Implementation status (2026-07-29):** This page documents the current
+> source tree. It does not claim that every conceptual Zerone service routes
+> through one universal function. The concrete runtime paths are
+> `vesting_rewards.DistributeBlockReward`,
+> `vesting_rewards.DistributeRevenue`, `vesting_rewards.RouteFees`, and the
+> ZRN-input swap-fee transfer in `liquiditypool`.
 
-## Design Principle: No Burn
+## Block rewards
 
-**Every ZRN does productive work.** There is no burn share. Artificially destroying newly minted tokens is just minting less with extra steps. Instead, the share that would have been burned funds bug bounties, truth discovery incentives, and protocol development.
+An eligible block reward is cap-gated, activity-dependent, validator-scaled,
+and knowledge-coupled before it is minted. `DistributeBlockReward` then applies
+the governance-adjustable four-way split:
 
-The 222,222,222 ZRN hard cap provides natural scarcity. Deflation doesn't need to be manufactured.
+| Share | Default | Current destination |
+|---|---:|---|
+| Contributor | 55% | Block producer |
+| Protocol | 22% | 50% citation reserve, 30% knowledge verification pool, 20% treasury reserve |
+| Development | 19.67% | `development_fund` module account |
+| Research | 3.33% | `research_fund`, less an active founder sub-share |
 
-## Primary Split (RevenueSplit)
+The four primary values use a 1,000,000 BPS scale and must sum to 1,000,000.
+Development is calculated as the remainder during routing so integer rounding
+cannot leak value.
 
-```
-                    ┌─────────────────────────┐
-                    │    Total Revenue (100%)   │
-                    └─────────┬───────────────┘
-            ┌─────────────────┼──────────────────────┐
-            │                 │                      │
-     ┌──────┴───────┐  ┌─────┴──────┐  ┌───────────┴──────────────┐
-     │ Contributors │  │  Protocol  │  │ Development │  Research  │
-     │    55%       │  │    22%     │  │   19.67%    │   3.33%   │
-     └──────────────┘  └─────┬──────┘  └──────┬──────┴───────────┘
-                             │                │
-                    ┌────────┼────────┐       │
-                    │        │        │       │
-              ┌─────┴──┐ ┌──┴───┐ ┌──┴─┐    │
-              │Citation│ │Verify│ │Trea│    │
-              │  50%   │ │ 30%  │ │20% │    │
-              └────────┘ └──┬───┘ └────┘    │
-                            │               │
-                      ┌─────┴──────┐   ┌────┴────┐
-                      │ 70% Know   │   │ Founder │
-                      │ 30% Compute│   │  7% of  │
-                      └────────────┘   │ research│
-                                       └─────────┘
-```
+The citation and treasury parts of the protocol share currently remain in the
+`vesting_rewards` module account; no separate citation or treasury module is
+wired. The full verification part goes to `knowledge`. The removed
+`compute_pool` module receives nothing.
 
-### BPS Values (1,000,000 scale)
+## Transaction fees
 
-| Share | BPS | Percentage | Destination |
-|-------|-----|-----------|-------------|
-| Contributor | 550,000 | 55% | Block producer / fact submitter / tool creator |
-| Protocol | 220,000 | 22% | Split further via ProtocolSubSplit |
-| Development | 196,700 | 19.67% | Bug bounties, truth discovery, protocol development |
-| Research | 33,300 | 3.33% | Research fund (2-of-2 multisig) |
+`RouteFees` treats accumulated `uzrn` fees differently from newly minted block
+rewards:
 
-**Must sum to 1,000,000.** Development share is computed as remainder after the other three to prevent rounding leaks.
+- 19.67% moves from `fee_collector` to `development_fund`;
+- 3.33% is deposited through the research/founder routing path; and
+- the remaining approximately 77% stays in `fee_collector` for normal Cosmos
+  distribution.
 
-## Development Fund
+The contributor/protocol labels therefore do not describe distinct
+transaction-fee destinations. Non-`uzrn` balances are not split by
+`RouteFees`.
 
-The development pool (19.67%) is a new productive allocation replacing what was previously burned. It funds:
+## Liquidity-pool fees
 
-- **Bug bounties** — security researchers and code auditors
-- **Truth discovery rewards** — bonus incentives for high-value knowledge contributions
-- **Protocol development** — grants for tooling, infrastructure, ecosystem growth
+On ZRN-input swaps, the governance-set protocol share of the swap fee moves to
+`fee_collector`, where `RouteFees` handles it as `uzrn`. Counter-denom-input
+swaps take no protocol share; their fee remains with liquidity providers.
 
-The development fund is held in a dedicated module account (`development_fund`) and disbursed through governance proposals.
+## Founder sub-share
 
-## Protocol Sub-Split
+The founder sub-share is a percentage of the research slice, not a fifth
+primary share. It is inactive while `founder_address` is empty.
 
-The 22% protocol share is further divided:
+| Parameter | Governance contract |
+|---|---|
+| `founder_share_bps` | Mutable within 0–70,000 BPS (0–7% of research) |
+| `founder_address` | May be set while empty; immutable once set |
 
-| Sub-Share | BPS (of protocol) | Effective % (of total) | Destination |
-|-----------|-------------------|----------------------|-------------|
-| Citation Pool | 500,000 | 11% | Rewards to cited fact authors |
-| Verification Pool | 300,000 | 6.6% | Verification rewards (split below) |
-| Treasury | 200,000 | 4.4% | Protocol treasury |
+At genesis the address is empty, so the sub-share pays 0 ZRN. This says
+nothing about the separately disclosed operator-controlled genesis balances.
 
-### Verification Pool Split
+## What is not implemented
 
-The verification pool itself is split between two modules:
+Older designs named `billing`, `toolbox`, `tree`, `disputes`, `channels`,
+`bvm`, `compute_pool`, and other services as universal revenue sources. Those
+modules are not present in this source inventory, and this document does not
+represent their proposed flows as runtime behavior. `x/common` defines shared
+split message types; that schema alone does not make every module a caller of
+`DistributeRevenue`.
 
-| Share | BPS (of verification) | Effective % (of total) | Module |
-|-------|----------------------|----------------------|--------|
-| Knowledge | 700,000 | ~4.6% | `x/knowledge` — verification rewards |
-| Compute | 300,000 | ~2.0% | `x/compute_pool` — compute credits |
-
-## Founder Share (Governance-Immune)
-
-A permanent 7% deduction from the research fund portion. **This share is hardened against governance modification** — once the founder address is set, neither the share percentage nor the address can be changed via parameter governance. Only a code-level upgrade could alter it.
-
-| Parameter | Value | Governance-Adjustable? |
-|-----------|-------|----------------------|
-| `founder_share_bps` | 70,000 (7% of research) | **No** — immutable once set |
-| `founder_address` | "" (set at launch) | **No** — immutable once set |
-
-**Effective founder income:**
-- 7% of 3.33% = **0.23% of total revenue**
-- This goes directly to the founder's address (not locked/vested)
-- If founder address is empty (pre-launch), 100% goes to research fund
-
-**Why governance-immune?** The founder share is a permanent protocol commitment, not a temporary bootstrap mechanism. It ensures the protocol's creator has perpetual alignment with the network's success. Governance can change almost everything else — but not this. It would take a code upgrade (which governance *can* propose via an upgrade-category LIP) to modify the founder share, requiring far higher coordination than a simple parameter change.
-
-**Enforcement:** `ValidateFounderShareImmutability()` in `MsgUpdateParams` rejects any governance proposal that attempts to modify `founder_share_bps` or `founder_address` once set.
-
-## Revenue Sources
-
-Every revenue source flows through the same `DistributeRevenue` function:
-
-| Source | Module | What Generates It |
-|--------|--------|-------------------|
-| Block Production | `vesting_rewards` | Every block with PoT activity |
-| Transaction Fees | `vesting_rewards` (via `RouteFees`) | All tx gas fees (uzrn) |
-| Knowledge Queries | `billing` | Queries to the knowledge API |
-| Tool Invocations | `toolbox` | Calls to registered tools |
-| Tree Deliverables | `tree` | Project task completions |
-| Dispute Resolution | `disputes` | Slash distributions |
-| Home Creation | `home` | 10 ZRN per home created |
-| Channel Operations | `channels` | Channel open fees |
-| BVM Deployments | `bvm` | 5 ZRN per contract deployed |
-| Swap Fees | `liquiditypool` | AMM swap fees |
-
-### Fee Routing
-
-Transaction fees get special treatment via `RouteFees()`:
-- Research share (3.33%) is extracted from `fee_collector` → research fund
-- Development share (19.67%) is extracted → development fund
-- The remaining ~77% (contributor + protocol) stays in `fee_collector` for Cosmos SDK's `x/distribution` to sweep to validators
-
-## Governance Adjustability
-
-All split parameters are governance-adjustable via LIP proposals:
-- A parameter-category LIP requires 1,000 ZRN stake
-- Discussion: ~2 days, Voting: ~3 days
-- 33.4% quorum, >50% support to pass
-
-The revenue split is the single most powerful governance lever. Adjusting it changes the economic incentives for every participant on the chain.
-
-## Consistency Guarantee
-
-Multiple modules independently apply revenue splits (toolbox, tree, billing). The `RevenueSplit` message is defined in `x/common` to ensure all modules use the same split structure. The actual BPS values are read from each module's own params, allowing per-module overrides if governance chooses to differentiate.
-
-Currently, all modules use the default 55/22/19.67/3.33 split. Divergence is possible but would require individual governance proposals per module.
+There is no general revenue burn share. Rejected substrate-attestation bonds
+are a separate, narrow punitive ZRN burn path.

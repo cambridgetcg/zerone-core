@@ -108,10 +108,6 @@ const TrainingFundReleasedDivisor int64 = 2
 // ContributionChallengeDefaultBondUzrn — fallback bond amount (5 ZRN in uzrn).
 const ContributionChallengeDefaultBondUzrn = "5000000"
 
-// ContributionChallengeDefaultRewardMultiplierBps — fallback multiplier
-// (2× → winner takes bond × 2).
-const ContributionChallengeDefaultRewardMultiplierBps uint64 = 2_000_000
-
 // ─── Vindication premium (Wave 4b) ──────────────────────────────────────
 
 // VindicationTVWMultiplierDefaultBps — fallback multiplier applied to TVW

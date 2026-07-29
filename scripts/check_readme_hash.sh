@@ -3,12 +3,12 @@
 # check_readme_hash.sh — verify the README.md (the chain's outward-facing
 # entry point) has not drifted from .readme-hash.
 #
-# Mirror of check_phase_1_spec_hash.sh applied to README.md.
-# The README is itself a Contribution under MODULE_PROPOSAL/SUBSTRATE —
-# it is the chain's outward-facing introduction, the first document any
-# validator, agent, or observer encounters. Hash-anchoring the README
-# extends the same off-chain enforcement the doctrines and specs receive
-# to the document that represents the chain to the outside world.
+# Mirror of check_phase_1_spec_hash.sh applied to README.md. The README is
+# the chain's outward-facing introduction, the first document any validator,
+# agent, or observer encounters. Hash-anchoring it extends the same off-chain
+# enforcement the doctrines and specs receive to the document that represents
+# the chain to the outside world. It does not create an on-chain Contribution
+# record.
 #
 # UW: ZERONE is recursive — the chain's outward face is part of the
 # substrate the chain produces, and the README is hash-bound the same
@@ -63,9 +63,9 @@ Actual (computed):          $ACTUAL
 If you intentionally changed the README, update $HASH_FILE to:
   $ACTUAL
 
-The README is itself a Contribution (MODULE_PROPOSAL/SUBSTRATE).
-The hash bump is the visible signal that the chain's outward-facing
-introduction has shifted, prompting full diff review.
+The README is protected by repository-local hash review; this does not imply
+an on-chain Contribution record. The hash bump is the visible signal that the
+chain's outward-facing introduction has shifted, prompting full diff review.
 EOF
   exit 1
 fi

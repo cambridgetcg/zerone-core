@@ -46,5 +46,5 @@ export const KEPLR_CHAIN_INFO = {
     coinMinimalDenom: DENOM,
     coinDecimals: DECIMALS,
   },
-  features: ["ibc-transfer"],
+  features: [],
 };

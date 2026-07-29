@@ -101,9 +101,9 @@ func TestRouteB_Wave4b_PopperWeightedTVWAndClawback(t *testing.T) {
 		Id: "FACT-4b-BASE", Content: "base", Domain: "sciences",
 		Confidence: 900_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 		Submitter: testAddr("wave4b_sub").String(), MethodId: knowledgetypes.MethodologyEmpirical,
-		CorroborationCount: 0, // unchallenged — survived 0 falsifications
+		CorroborationCount:              0, // unchallenged — survived 0 falsifications
 		SubmitterCalibrationSnapshotBps: 800_000,
-		AxiomDistance: 3,
+		AxiomDistance:                   3,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, baseFact))
 
@@ -112,9 +112,9 @@ func TestRouteB_Wave4b_PopperWeightedTVWAndClawback(t *testing.T) {
 		Id: "FACT-4b-CHALLENGED", Content: "well-challenged", Domain: "sciences",
 		Confidence: 900_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 		Submitter: testAddr("wave4b_sub").String(), MethodId: knowledgetypes.MethodologyEmpirical,
-		CorroborationCount: 10, // survived 10 falsification attempts
+		CorroborationCount:              10, // survived 10 falsification attempts
 		SubmitterCalibrationSnapshotBps: 800_000,
-		AxiomDistance: 3,
+		AxiomDistance:                   3,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, challengedFact))
 
@@ -129,11 +129,11 @@ func TestRouteB_Wave4b_PopperWeightedTVWAndClawback(t *testing.T) {
 	phenomFact := &knowledgetypes.Fact{
 		Id: "FACT-4b-PHENOM", Content: "lived-experience claim", Domain: "phenomenology",
 		Confidence: 900_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
-		Submitter: testAddr("wave4b_sub").String(),
-		MethodId:  knowledgetypes.MethodologyPhenomenologic,
-		CorroborationCount: 0,
+		Submitter:                       testAddr("wave4b_sub").String(),
+		MethodId:                        knowledgetypes.MethodologyPhenomenologic,
+		CorroborationCount:              0,
 		SubmitterCalibrationSnapshotBps: 800_000,
-		AxiomDistance: 3,
+		AxiomDistance:                   3,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, phenomFact))
 	phenomTVW, err := qs.TrainingValueWeight(h.Ctx, &knowledgetypes.QueryTrainingValueWeightRequest{FactId: phenomFact.Id})
@@ -148,9 +148,9 @@ func TestRouteB_Wave4b_PopperWeightedTVWAndClawback(t *testing.T) {
 		Id: "FACT-4b-AXIOM", Content: "axiom adjacent", Domain: "sciences",
 		Confidence: 900_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 		Submitter: testAddr("wave4b_sub").String(), MethodId: knowledgetypes.MethodologyEmpirical,
-		CorroborationCount: 0,
+		CorroborationCount:              0,
 		SubmitterCalibrationSnapshotBps: 800_000,
-		AxiomDistance: 0,
+		AxiomDistance:                   0,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, axiomFact))
 	axiomTVW, err := qs.TrainingValueWeight(h.Ctx, &knowledgetypes.QueryTrainingValueWeightRequest{FactId: axiomFact.Id})
@@ -310,8 +310,8 @@ func TestRouteB_Wave4cd_AugmentationEscrowAndVerdict(t *testing.T) {
 }
 
 // TestRouteB_Wave4e_AttributionChallenge — fact submitter disputes a
-// ContributionRecord with a bond; authority-resolver settles; winner
-// gets bond × 2, loser forfeits.
+// ContributionRecord with a bond; authority-resolver settles; an upheld
+// challenge receives its bond back and a rejected challenge forfeits it.
 func TestRouteB_Wave4e_AttributionChallenge(t *testing.T) {
 	h := NewTestHarness(t)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
@@ -369,19 +369,20 @@ func TestRouteB_Wave4e_AttributionChallenge(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	// Authority upholds — challenger gets bond × 2 = 10M.
-	_, err = ms.ResolveContributionChallenge(h.Ctx, &knowledgetypes.MsgResolveContributionChallenge{
+	// Authority upholds — challenger receives only the 5M bond refund.
+	resolved, err := ms.ResolveContributionChallenge(h.Ctx, &knowledgetypes.MsgResolveContributionChallenge{
 		Resolver:    h.KnowledgeKeeper.GetAuthority(),
 		ChallengeId: "chal-4e-1",
 		Uphold:      true,
 		Note:        "model showed verbatim excerpt",
 	})
 	require.NoError(t, err)
+	require.Equal(t, "5000000", resolved.PayoutToWinner)
 
-	// Challenger now holds original balance (5M left) + 10M reward = 15M.
+	// Challenger now holds its original balance: 5M left + 5M refund.
 	finalBal := h.GetBalance(challengerAddr, "uzrn")
-	require.Equal(t, sdkmath.NewInt(15_000_000), finalBal.Amount,
-		"upheld challenge: winner takes bond × 2")
+	require.Equal(t, sdkmath.NewInt(10_000_000), finalBal.Amount,
+		"upheld challenge returns the escrowed bond without minting")
 
 	// Challenge no longer appears in open list.
 	openAfter, err := qs.OpenContributionChallenges(h.Ctx, &knowledgetypes.QueryOpenContributionChallengesRequest{})
@@ -389,15 +390,14 @@ func TestRouteB_Wave4e_AttributionChallenge(t *testing.T) {
 	require.Empty(t, openAfter.Challenges)
 }
 
-// TestRouteB_Wave4f_CalibrationGatedDisbursement — pipeline operator claims
-// post-hoc reward; calibration floor gates; 50/50 released/vesting split.
-func TestRouteB_Wave4f_CalibrationGatedDisbursement(t *testing.T) {
+// TestRouteB_Wave4f_TrainingFundDisbursementFailsClosed binds the release
+// latch that prevents client-chosen ids from replaying the same model reward.
+func TestRouteB_Wave4f_TrainingFundDisbursementFailsClosed(t *testing.T) {
 	h := NewTestHarness(t)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultTokenizerSpec(h.Ctx))
 
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
-	qs := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
 
 	operatorAddr := testAddr("wave4f_operator")
 	operator := operatorAddr.String()
@@ -411,50 +411,21 @@ func TestRouteB_Wave4f_CalibrationGatedDisbursement(t *testing.T) {
 		Active: true, DeploymentAddress: deploymentAddr,
 	}))
 
-	// Calibration ABOVE floor → disbursement succeeds.
+	// Even a model above the legacy calibration floor cannot mint while the
+	// deterministic one-shot eligibility rule is absent.
 	require.NoError(t, h.KnowledgeKeeper.SetAgentCalibration(h.Ctx, &knowledgetypes.AgentCalibration{
 		Address: deploymentAddr, CalibrationScoreBps: 800_000,
 		Accepted: 50, TotalSubmissions: 50,
 	}))
 
-	claimResp, err := ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
-		Claimant: operator, ModelId: "model-4f", Id: "disb-4f-1",
-	})
-	require.NoError(t, err)
-
-	// Assert 50/50 split.
-	total, _ := sdkmath.NewIntFromString(claimResp.TotalAmount)
-	released, _ := sdkmath.NewIntFromString(claimResp.ReleasedAmount)
-	vesting, _ := sdkmath.NewIntFromString(claimResp.VestingAmount)
-	require.True(t, released.Equal(total.Quo(sdkmath.NewInt(2))), "50% immediate release")
-	require.True(t, vesting.Equal(total.Sub(released)), "50% vesting")
-	require.Greater(t, claimResp.VestingEndBlock, uint64(0))
-
-	// Operator received the released portion.
-	opBal := h.GetBalance(operatorAddr, "uzrn")
-	require.True(t, opBal.Amount.Equal(released),
-		"released amount credited to operator immediately")
-
-	// Re-claim rejected (idempotency on id).
-	_, err = ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
+	supplyBefore := h.App.BankKeeper.GetSupply(h.Ctx, "uzrn")
+	_, err := ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
 		Claimant: operator, ModelId: "model-4f", Id: "disb-4f-1",
 	})
 	require.Error(t, err)
-
-	// Disbursement queryable.
-	disb, err := qs.TrainingFundDisbursement(h.Ctx, &knowledgetypes.QueryTrainingFundDisbursementRequest{Id: "disb-4f-1"})
-	require.NoError(t, err)
-	require.True(t, disb.Found)
-	require.Equal(t, uint64(800_000), disb.Disbursement.CalibrationScoreAtClaimBps)
-
-	// Calibration BELOW floor → rejected.
-	require.NoError(t, h.KnowledgeKeeper.SetAgentCalibration(h.Ctx, &knowledgetypes.AgentCalibration{
-		Address: deploymentAddr, CalibrationScoreBps: 300_000, // below 500,000 floor
-	}))
-	_, err = ms.ClaimTrainingFundDisbursement(h.Ctx, &knowledgetypes.MsgClaimTrainingFundDisbursement{
-		Claimant: operator, ModelId: "model-4f", Id: "disb-4f-2",
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "below floor")
+	require.Contains(t, err.Error(), "replay-safe one-shot eligibility")
+	require.Equal(t, supplyBefore, h.App.BankKeeper.GetSupply(h.Ctx, "uzrn"))
+	require.True(t, h.GetBalance(operatorAddr, "uzrn").Amount.IsZero())
+	_, found := h.KnowledgeKeeper.GetTrainingFundDisbursement(h.Ctx, "disb-4f-1")
+	require.False(t, found, "a refused claim must not leave disbursement state")
 }
-

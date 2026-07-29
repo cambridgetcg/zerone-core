@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -21,6 +22,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/query"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	"github.com/zerone-chain/zerone/x/claiming_pot/types"
@@ -945,7 +947,7 @@ func TestGetClaimsByPot(t *testing.T) {
 // ---------- Test: CreatePot invalid schedule (end before start) ----------
 
 func TestCreatePotInvalidScheduleEndBeforeStart(t *testing.T) {
-	msgSrv, _, ctx, _, _, _ := setupMsgServer(t)
+	msgSrv, k, ctx, _, _, _ := setupMsgServer(t)
 
 	msg := &types.MsgCreatePot{
 		Authority:   "zrn1authority",
@@ -962,10 +964,15 @@ func TestCreatePotInvalidScheduleEndBeforeStart(t *testing.T) {
 		t.Fatal("expected ValidateBasic to fail for end_block < start_block")
 	}
 
-	// Also verify server rejects it (it may or may not reach msg_server depending on validation flow)
+	// The msg server must reject it before charging lifetime budget.
+	before := k.GetBootstrapMintedEntries(ctx)
 	_, err := msgSrv.CreatePot(ctx, msg)
-	// Either ValidateBasic or server should reject
-	_ = err // msg_server may accept or reject depending on whether it calls ValidateBasic
+	if err == nil {
+		t.Fatal("expected msg server to reject end_block < start_block")
+	}
+	if got := k.GetBootstrapMintedEntries(ctx); got != before {
+		t.Fatalf("invalid pot charged lifetime budget: before=%d after=%d", before, got)
+	}
 }
 
 // ---------- Test: CreatePot zero total amount ----------
@@ -1477,17 +1484,26 @@ func TestQueryClaimingPotParams(t *testing.T) {
 func TestGetNextPotId(t *testing.T) {
 	k, ctx, _, _, _ := setupKeeper(t)
 
-	id1 := k.GetNextPotID(ctx)
+	id1, err := k.GetNextPotID(ctx)
+	if err != nil {
+		t.Fatalf("GetNextPotID: %v", err)
+	}
 	if id1 != 1 {
 		t.Errorf("expected first ID 1, got %d", id1)
 	}
 
-	id2 := k.GetNextPotID(ctx)
+	id2, err := k.GetNextPotID(ctx)
+	if err != nil {
+		t.Fatalf("GetNextPotID: %v", err)
+	}
 	if id2 != 2 {
 		t.Errorf("expected second ID 2, got %d", id2)
 	}
 
-	id3 := k.GetNextPotID(ctx)
+	id3, err := k.GetNextPotID(ctx)
+	if err != nil {
+		t.Fatalf("GetNextPotID: %v", err)
+	}
 	if id3 != 3 {
 		t.Errorf("expected third ID 3, got %d", id3)
 	}
@@ -2503,9 +2519,57 @@ func TestAddBootstrapEntry_EmissionCapBlocks(t *testing.T) {
 	}
 }
 
-// ---------- Test: InitGenesis seeds the minted-entries counter ----------
+func TestCreatePot_SharedLifetimeCapRoundsUpAndRefusesAtomically(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+	srv := keeper.NewMsgServerImpl(k)
+	params := types.DefaultParams()
+	params.BootstrapEmissionCapUzrn = "666000" // exactly three 222,000-unit commitments
+	k.SetParams(ctx, params)
 
-func TestInitGenesis_SeedsBootstrapMintedEntries(t *testing.T) {
+	// One pre-existing bootstrap commitment leaves two units.
+	bootstrap := types.MakeBootstrapPotForAgent(testAddr("general-cap-bootstrap"), 0)
+	k.SetPot(ctx, bootstrap)
+	k.SetBootstrapMintedEntries(ctx, 1)
+
+	resp, err := srv.CreatePot(ctx, &types.MsgCreatePot{
+		Authority:   k.GetAuthority(),
+		Name:        "rounds to two units",
+		TotalAmount: "222001",
+		Schedule:    &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+	})
+	if err != nil {
+		t.Fatalf("create in-cap general pot: %v", err)
+	}
+	if resp.PotId != "pot-1" {
+		t.Fatalf("expected pot-1, got %s", resp.PotId)
+	}
+	if got := k.GetBootstrapMintedEntries(ctx); got != 3 {
+		t.Fatalf("expected all three lifetime units committed, got %d", got)
+	}
+
+	_, err = srv.CreatePot(ctx, &types.MsgCreatePot{
+		Authority:   k.GetAuthority(),
+		Name:        "over cap",
+		TotalAmount: "1",
+		Schedule:    &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+	})
+	if !errors.Is(err, types.ErrBootstrapEmissionCapExceeded) {
+		t.Fatalf("expected cap error, got %v", err)
+	}
+	if got := k.GetBootstrapMintedEntries(ctx); got != 3 {
+		t.Fatalf("refusal advanced commitment units to %d", got)
+	}
+	if got := k.GetPotCounter(ctx); got != 1 {
+		t.Fatalf("refusal advanced pot counter to %d", got)
+	}
+	if _, found := k.GetPot(ctx, "pot-2"); found {
+		t.Fatal("refusal created pot-2")
+	}
+}
+
+// ---------- Test: InitGenesis seeds lifetime commitment units ----------
+
+func TestInitGenesis_SeedsLifetimeCommittedUnits(t *testing.T) {
 	k, ctx, _, _, _ := setupKeeper(t)
 
 	genState := &types.GenesisState{
@@ -2513,13 +2577,277 @@ func TestInitGenesis_SeedsBootstrapMintedEntries(t *testing.T) {
 		Pots: []*types.ClaimingPot{
 			types.MakeBootstrapPotForAgent(testAddr("gen-boot-1"), 0),
 			types.MakeBootstrapPotForAgent(testAddr("gen-boot-2"), 0),
-			{Id: "pot-1", Name: "Normal", TotalAmount: "100", ClaimedAmount: "0", Status: types.PotStatus_POT_STATUS_ACTIVE},
+			{
+				Id: "pot-1", Name: "Normal", TotalAmount: "100", ClaimedAmount: "0",
+				Schedule: &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+				Status:   types.PotStatus_POT_STATUS_ACTIVE,
+			},
 		},
 	}
 	k.InitGenesis(ctx, genState)
 
-	if got := k.GetBootstrapMintedEntries(ctx); got != 2 {
-		t.Errorf("expected counter seeded to 2 (bootstrap pots only), got %d", got)
+	if got := k.GetBootstrapMintedEntries(ctx); got != 3 {
+		t.Errorf("expected 3 commitment units (two bootstrap + one rounded general), got %d", got)
+	}
+	if got := k.GetPotCounter(ctx); got != 1 {
+		t.Errorf("expected general-pot counter reconstructed to 1, got %d", got)
+	}
+}
+
+func TestMigrator1to2_ReconcilesGeneralPotsAndCounter(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+	k.SetPot(ctx, types.MakeBootstrapPotForAgent(testAddr("migration-bootstrap"), 0))
+	k.SetPot(ctx, &types.ClaimingPot{
+		Id:            "pot-7",
+		Name:          "legacy general",
+		TotalAmount:   "222001",
+		ClaimedAmount: "0",
+		Schedule:      &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+		Status:        types.PotStatus_POT_STATUS_ACTIVE,
+	})
+	// Version 1 charged only the bootstrap entry and could have a stale
+	// counter below an already-stored general-pot suffix.
+	k.SetBootstrapMintedEntries(ctx, 1)
+	k.SetPotCounter(ctx, 2)
+
+	if err := keeper.NewMigrator(k).Migrate1to2(ctx); err != nil {
+		t.Fatalf("Migrate1to2: %v", err)
+	}
+	if got := k.GetBootstrapMintedEntries(ctx); got != 3 {
+		t.Fatalf("migration committed %d units, want 3", got)
+	}
+	if got := k.GetPotCounter(ctx); got != 7 {
+		t.Fatalf("migration counter=%d, want 7", got)
+	}
+
+	next, err := keeper.NewMsgServerImpl(k).CreatePot(ctx, &types.MsgCreatePot{
+		Authority:   k.GetAuthority(),
+		Name:        "after migration",
+		TotalAmount: "1",
+		Schedule:    &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+	})
+	if err != nil {
+		t.Fatalf("create after migration: %v", err)
+	}
+	if next.PotId != "pot-8" {
+		t.Fatalf("next pot id=%s, want pot-8", next.PotId)
+	}
+}
+
+func TestGenesisRoundTrip_PreservesEconomicReplayState(t *testing.T) {
+	k, ctx, _, _, _ := setupKeeper(t)
+	registrar := testAddr("roundtrip-registrar")
+	params := makeRegistrarParams(registrar)
+	params.BootstrapDailyAdmissionCap = 3
+	k.SetParams(ctx, params)
+
+	srv := keeper.NewMsgServerImpl(k)
+	resp, err := srv.CreatePot(ctx, &types.MsgCreatePot{
+		Authority:   k.GetAuthority(),
+		Name:        "two-unit general pot",
+		TotalAmount: "222001",
+		Schedule:    &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+	})
+	if err != nil {
+		t.Fatalf("create pot before export: %v", err)
+	}
+	if resp.PotId != "pot-1" {
+		t.Fatalf("expected pot-1, got %s", resp.PotId)
+	}
+	// Preserve a non-contiguous imported suffix as well as the exact lifetime
+	// budget. A fresh counter derived as "number of pots" would overwrite it.
+	k.SetPot(ctx, &types.ClaimingPot{
+		Id:            "pot-7",
+		Name:          "hole sentinel",
+		TotalAmount:   "1",
+		ClaimedAmount: "0",
+		Schedule:      &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+		Status:        types.PotStatus_POT_STATUS_ACTIVE,
+	})
+	k.SetPotCounter(ctx, 7)
+	k.SetBootstrapMintedEntries(ctx, 3)
+	k.SetBootstrapWindowCount(ctx, 7, 3)
+
+	exported := k.ExportGenesis(ctx)
+	if err := exported.Validate(); err != nil {
+		t.Fatalf("exported genesis invalid: %v", err)
+	}
+	if exported.LifetimeCommittedUnits != 3 || exported.PotCounter != 7 {
+		t.Fatalf("export lost counters: units=%d pot_counter=%d", exported.LifetimeCommittedUnits, exported.PotCounter)
+	}
+	if exported.AdmissionWindowIndex != 7 || exported.AdmissionWindowCount != 3 {
+		t.Fatalf("export lost admission window: %d/%d", exported.AdmissionWindowIndex, exported.AdmissionWindowCount)
+	}
+
+	bz, err := proto.Marshal(exported)
+	if err != nil {
+		t.Fatalf("marshal exported genesis: %v", err)
+	}
+	var restored types.GenesisState
+	if err := proto.Unmarshal(bz, &restored); err != nil {
+		t.Fatalf("unmarshal exported genesis: %v", err)
+	}
+	k2, ctx2, _, _, _ := setupKeeper(t)
+	k2.InitGenesis(ctx2, &restored)
+	if got := k2.GetBootstrapMintedEntries(ctx2); got != 3 {
+		t.Fatalf("imported commitment units=%d, want 3", got)
+	}
+	if got := k2.GetPotCounter(ctx2); got != 7 {
+		t.Fatalf("imported pot counter=%d, want 7", got)
+	}
+	window, count := k2.GetBootstrapWindowState(ctx2)
+	if window != 7 || count != 3 {
+		t.Fatalf("imported admission window=%d/%d, want 7/3", window, count)
+	}
+
+	srv2 := keeper.NewMsgServerImpl(k2)
+	next, err := srv2.CreatePot(ctx2, &types.MsgCreatePot{
+		Authority:   k2.GetAuthority(),
+		Name:        "next pot",
+		TotalAmount: "1",
+		Schedule:    &types.VestingSchedule{StartBlock: 1, EndBlock: 2},
+	})
+	if err != nil {
+		t.Fatalf("create after import: %v", err)
+	}
+	if next.PotId != "pot-8" {
+		t.Fatalf("counter replay overwrote an ID: got %s, want pot-8", next.PotId)
+	}
+
+	windowCtx := ctx2.WithBlockHeight(int64(7 * types.BootstrapAdmissionWindowBlocks))
+	_, err = srv2.AddBootstrapEntry(windowCtx, &types.MsgAddBootstrapEntry{
+		Authority: registrar,
+		Addresses: []string{testAddr("roundtrip-rate-limited")},
+	})
+	if !errors.Is(err, types.ErrBootstrapDailyCapExceeded) {
+		t.Fatalf("import reset registrar quota: expected daily cap error, got %v", err)
+	}
+}
+
+func TestGenesisRoundTrip_NearMaxAdmissionCountersCannotWrap(t *testing.T) {
+	const maxUint64 = ^uint64(0)
+
+	roundTrip := func(t *testing.T, genesis *types.GenesisState) *types.GenesisState {
+		t.Helper()
+		if err := genesis.Validate(); err != nil {
+			t.Fatalf("adversarial genesis must be structurally valid before relaunch: %v", err)
+		}
+		bz, err := proto.Marshal(genesis)
+		if err != nil {
+			t.Fatalf("marshal adversarial genesis: %v", err)
+		}
+		var restored types.GenesisState
+		if err := proto.Unmarshal(bz, &restored); err != nil {
+			t.Fatalf("unmarshal adversarial genesis: %v", err)
+		}
+		return &restored
+	}
+
+	t.Run("lifetime counter", func(t *testing.T) {
+		params := types.DefaultParams()
+		perEntry, ok := new(big.Int).SetString(types.PerAgentBootstrapUzrn, 10)
+		if !ok {
+			t.Fatal("invalid PerAgentBootstrapUzrn test constant")
+		}
+		params.BootstrapEmissionCapUzrn = new(big.Int).Mul(
+			new(big.Int).SetUint64(maxUint64),
+			perEntry,
+		).String()
+
+		restored := roundTrip(t, &types.GenesisState{
+			Params:                 params,
+			LifetimeCommittedUnits: maxUint64 - 1,
+		})
+		k, ctx, _, _, _ := setupKeeper(t)
+		k.InitGenesis(ctx, restored)
+
+		addresses := []string{
+			testAddr("near-max-lifetime-1"),
+			testAddr("near-max-lifetime-2"),
+		}
+		_, err := keeper.NewMsgServerImpl(k).AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+			Authority: k.GetAuthority(),
+			Addresses: addresses,
+		})
+		if !errors.Is(err, types.ErrBootstrapEmissionCapExceeded) {
+			t.Fatalf("expected lifetime overflow refusal after relaunch, got %v", err)
+		}
+		if got := k.GetBootstrapMintedEntries(ctx); got != maxUint64-1 {
+			t.Fatalf("lifetime refusal wrapped or changed counter: got %d, want %d", got, uint64(maxUint64-1))
+		}
+		for _, address := range addresses {
+			if _, found := k.GetPot(ctx, types.BootstrapPotIDPrefix+address); found {
+				t.Fatalf("lifetime overflow refusal created a pot for %s", address)
+			}
+		}
+	})
+
+	t.Run("registrar window counter", func(t *testing.T) {
+		registrar := testAddr("near-max-window-registrar")
+		params := makeRegistrarParams(registrar)
+		params.BootstrapDailyAdmissionCap = maxUint64
+
+		restored := roundTrip(t, &types.GenesisState{
+			Params:               params,
+			AdmissionWindowIndex: 0,
+			AdmissionWindowCount: maxUint64 - 1,
+		})
+		k, ctx, _, _, _ := setupKeeper(t)
+		k.InitGenesis(ctx, restored)
+
+		addresses := []string{
+			testAddr("near-max-window-1"),
+			testAddr("near-max-window-2"),
+		}
+		_, err := keeper.NewMsgServerImpl(k).AddBootstrapEntry(ctx, &types.MsgAddBootstrapEntry{
+			Authority: registrar,
+			Addresses: addresses,
+		})
+		if !errors.Is(err, types.ErrBootstrapDailyCapExceeded) {
+			t.Fatalf("expected window overflow refusal after relaunch, got %v", err)
+		}
+		window, count := k.GetBootstrapWindowState(ctx)
+		if window != 0 || count != maxUint64-1 {
+			t.Fatalf("window refusal wrapped or changed replay state: got %d/%d, want 0/%d", window, count, uint64(maxUint64-1))
+		}
+		if got := k.GetBootstrapMintedEntries(ctx); got != 0 {
+			t.Fatalf("window refusal advanced lifetime units to %d", got)
+		}
+		for _, address := range addresses {
+			if _, found := k.GetPot(ctx, types.BootstrapPotIDPrefix+address); found {
+				t.Fatalf("window overflow refusal created a pot for %s", address)
+			}
+		}
+	})
+}
+
+func TestGenesisValidate_RejectsInvalidOrOverCapPots(t *testing.T) {
+	params := types.DefaultParams()
+	params.BootstrapEmissionCapUzrn = types.PerAgentBootstrapUzrn
+	validSchedule := &types.VestingSchedule{StartBlock: 1, EndBlock: 2}
+
+	nilPot := &types.GenesisState{Params: params, Pots: []*types.ClaimingPot{nil}}
+	if err := nilPot.Validate(); err == nil {
+		t.Fatal("expected nil pot rejection")
+	}
+
+	overCap := &types.GenesisState{
+		Params: params,
+		Pots: []*types.ClaimingPot{{
+			Id:            "pot-1",
+			Name:          "over cap",
+			TotalAmount:   "222001",
+			ClaimedAmount: "0",
+			Schedule:      validSchedule,
+			Status:        types.PotStatus_POT_STATUS_ACTIVE,
+		}},
+	}
+	err := overCap.Validate()
+	if err == nil {
+		t.Fatal("expected over-cap genesis rejection")
+	}
+	if !strings.Contains(err.Error(), "bootstrap_emission_cap_uzrn") {
+		t.Fatalf("expected over-cap validation error, got %v", err)
 	}
 }
 

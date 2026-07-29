@@ -109,6 +109,30 @@ func TestStarvedRound_RecordsInconclusiveOutcome(t *testing.T) {
 		"the inconclusive outcome must be counted, not erased")
 }
 
+func TestStarvedRound_ConjectureDoesNotTouchCalibration(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+
+	const proposer = "zrn1starvedconjecture"
+	claim, round := makeTestClaim(t, k, ctx, proposer,
+		"an open question whose panel never forms", "mathematics", "formal", "100000")
+	claim.ClaimType = types.ClaimType_CLAIM_TYPE_CONJECTURE
+	claim.Status = types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION
+	require.NoError(t, k.SetClaim(ctx, claim))
+
+	_, hadBefore := k.GetAgentCalibration(ctx, proposer)
+	require.False(t, hadBefore, "precondition: proposing the conjecture created no calibration record")
+
+	ctx2 := ctx.WithBlockHeight(int64(round.AggregationDeadline) + 1)
+	require.NoError(t, k.AdvanceRoundPhases(ctx2))
+
+	updated, found := k.GetClaim(ctx2, claim.Id)
+	require.True(t, found)
+	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT, updated.Status)
+	_, hadAfter := k.GetAgentCalibration(ctx2, proposer)
+	require.False(t, hadAfter,
+		"a starved conjecture must remain outside truth calibration; panel scarcity cannot create proposer standing")
+}
+
 // The second CONTESTED entry path: SubmitContradiction. It previously flipped
 // the target CONTESTED with an empty Relations slice, so the healing path had
 // nothing to iterate and the fact stayed locked even after the fix to the

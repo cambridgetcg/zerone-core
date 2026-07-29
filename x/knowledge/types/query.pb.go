@@ -7289,7 +7289,7 @@ func (x *IdleFact) GetBlocksSinceInvited() uint64 {
 type QueryIdleFactsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Domain        string                 `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"` // optional filter; empty = all domains
-	Limit         uint32                 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`  // optional cap; 0 = default (50)
+	Limit         uint32                 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`  // 0 = default (50); values above 256 clamp to 256
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -10646,9 +10646,11 @@ func (x *QueryPrivilegedActionsResponse) GetSnapshotBlockHeight() uint64 {
 }
 
 type QueryOpenQuestionsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Domain        string                 `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"` // empty = all domains
-	Limit         uint32                 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`  // 0 = default 100, hard-capped
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Domain string                 `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"` // empty = all domains
+	// Result cap within the bounded fact scan. 0 = default 100; values above
+	// the 5,000-fact scan cap are clamped before allocation.
+	Limit         uint32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -10814,12 +10816,19 @@ func (x *OpenQuestion) GetUnderChallenge() bool {
 }
 
 type QueryOpenQuestionsResponse struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	Questions           []*OpenQuestion        `protobuf:"bytes,1,rep,name=questions,proto3" json:"questions,omitempty"`
-	Total               uint32                 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
-	SnapshotBlockHeight uint64                 `protobuf:"varint,3,opt,name=snapshot_block_height,json=snapshotBlockHeight,proto3" json:"snapshot_block_height,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Questions []*OpenQuestion        `protobuf:"bytes,1,rep,name=questions,proto3" json:"questions,omitempty"`
+	// Matching conjectures in the examined fact window before applying limit.
+	// This is not a global population count when scan_limit_reached is true.
+	Total               uint32 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	SnapshotBlockHeight uint64 `protobuf:"varint,3,opt,name=snapshot_block_height,json=snapshotBlockHeight,proto3" json:"snapshot_block_height,omitempty"`
+	// Number of fact records examined in deterministic fact-ID order.
+	FactsExamined uint32 `protobuf:"varint,4,opt,name=facts_examined,json=factsExamined,proto3" json:"facts_examined,omitempty"`
+	// True when the 5,000-fact safety ceiling was reached. In that case,
+	// questions are oldest-first only within the examined window.
+	ScanLimitReached bool `protobuf:"varint,5,opt,name=scan_limit_reached,json=scanLimitReached,proto3" json:"scan_limit_reached,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *QueryOpenQuestionsResponse) Reset() {
@@ -10871,6 +10880,20 @@ func (x *QueryOpenQuestionsResponse) GetSnapshotBlockHeight() uint64 {
 		return x.SnapshotBlockHeight
 	}
 	return 0
+}
+
+func (x *QueryOpenQuestionsResponse) GetFactsExamined() uint32 {
+	if x != nil {
+		return x.FactsExamined
+	}
+	return 0
+}
+
+func (x *QueryOpenQuestionsResponse) GetScanLimitReached() bool {
+	if x != nil {
+		return x.ScanLimitReached
+	}
+	return false
 }
 
 type QueryBundleToKRequest struct {
@@ -11775,11 +11798,13 @@ const file_zerone_knowledge_v1_query_proto_rawDesc = "" +
 	"\x0fposted_at_block\x18\x06 \x01(\x04R\rpostedAtBlock\x12'\n" +
 	"\x0fsurvived_probes\x18\a \x01(\x04R\x0esurvivedProbes\x12\x16\n" +
 	"\x06energy\x18\b \x01(\x04R\x06energy\x12'\n" +
-	"\x0funder_challenge\x18\t \x01(\bR\x0eunderChallenge\"\xa7\x01\n" +
+	"\x0funder_challenge\x18\t \x01(\bR\x0eunderChallenge\"\xfc\x01\n" +
 	"\x1aQueryOpenQuestionsResponse\x12?\n" +
 	"\tquestions\x18\x01 \x03(\v2!.zerone.knowledge.v1.OpenQuestionR\tquestions\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\rR\x05total\x122\n" +
-	"\x15snapshot_block_height\x18\x03 \x01(\x04R\x13snapshotBlockHeight\"}\n" +
+	"\x15snapshot_block_height\x18\x03 \x01(\x04R\x13snapshotBlockHeight\x12%\n" +
+	"\x0efacts_examined\x18\x04 \x01(\rR\rfactsExamined\x12,\n" +
+	"\x12scan_limit_reached\x18\x05 \x01(\bR\x10scanLimitReached\"}\n" +
 	"\x15QueryBundleToKRequest\x12<\n" +
 	"\bselector\x18\x01 \x01(\v2 .zerone.knowledge.v1.ToKSelectorR\bselector\x12&\n" +
 	"\x0fat_block_height\x18\x02 \x01(\x04R\ratBlockHeight\"P\n" +

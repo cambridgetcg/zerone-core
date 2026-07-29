@@ -57,6 +57,11 @@ import (
 	trustscoretypes "github.com/zerone-chain/zerone/x/trust_score/types"
 )
 
+func testCreedDigest(label string) []byte {
+	sum := sha256.Sum256([]byte(label))
+	return sum[:]
+}
+
 // ════════════════════════════════════════════════════════════════════
 // Commitment 1: Methodology over statement.
 //
@@ -207,8 +212,8 @@ func TestTruthSeeking_HighConfidenceClaimsInviteProbing(t *testing.T) {
 // ════════════════════════════════════════════════════════════════════
 // Commitment 5: The chain manufactures probe demand.
 //
-// "Waiting for probers is not enough. The substrate names its own
-// under-tested high-confidence facts and pays for them to be tested."
+// "Waiting for probers is not enough. The substrate names under-tested
+// high-confidence facts; governance may activate a capped audit budget."
 //
 // Bound here AND by: TestMoat_HeartbeatInvitesIdleHighConfidenceFacts,
 // TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses,
@@ -219,15 +224,17 @@ func TestTruthSeeking_ChainPaysForOwnAudit(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
+	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+	require.NoError(t, err)
+	params.ProbeBountyMintPerBlock = "1000000"
+	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, params))
 
-	// The probe bounty pool must accumulate uzrn per block from chain
-	// mint, not from user funding. Without external action, balance
-	// must rise.
+	// With a positive rate explicitly activated, idle blocks fund the pool.
 	starting := h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64()
 	h.AdvanceBlocks(50)
 	after := h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64()
 	require.Greater(t, after, starting,
-		"chain must mint into the probe bounty pool autonomously; an audit budget that depends on volunteer funding is rhetoric, not commitment")
+		"the explicitly activated cap-gated audit rate must fund the pool")
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -255,10 +262,10 @@ func TestTruthSeeking_AuthorityInjectionIsCancellable(t *testing.T) {
 
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
 	resp, err := ms.AddFact(h.Ctx, &knowledgetypes.MsgAddFact{
-		Authority: h.KnowledgeKeeper.GetAuthority(),
-		Content:   "ts: authority injection",
-		Domain:    "sciences",
-		Category:  "empirical",
+		Authority:  h.KnowledgeKeeper.GetAuthority(),
+		Content:    "ts: authority injection",
+		Domain:     "sciences",
+		Category:   "empirical",
 		Confidence: 900_000,
 	})
 	require.NoError(t, err)
@@ -416,10 +423,10 @@ func TestTruthSeeking_TrustIsSynthesisedNotStitched(t *testing.T) {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// Commitment 12: The chain pays for its own audit.
+// Commitment 12: The chain can fund its own audit.
 //
-// "Epistemic auditing is the chain's most important ongoing process.
-// It must not depend on volunteer labour or external funding."
+// "Epistemic auditing can use a governance-activated, cap-gated native
+// budget; the published default is zero."
 //
 // Bound here AND by: TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses,
 // TestMoat_ProbeBountyPoolRespectsCap.
@@ -429,17 +436,18 @@ func TestTruthSeeking_AuditBudgetIsAutonomous(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
+	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+	require.NoError(t, err)
+	params.ProbeBountyMintPerBlock = "1000000"
+	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, params))
 
-	// At default params, the probe bounty pool must mint per-block
-	// without any user action. Verify pool grows from zero across
-	// idle blocks.
+	// Protocol default is zero; this test opts into a positive reviewed rate.
 	require.Equal(t, int64(0), h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64(),
 		"pool starts at zero — no genesis pre-fund")
 	h.AdvanceBlocks(20)
 	require.Greater(t, h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64(), int64(0),
-		"the chain must fund its own audit autonomously; without per-block mint, the budget depends on someone else's discipline")
+		"the activated cap-gated audit rate must grow the pool")
 }
-
 
 // ════════════════════════════════════════════════════════════════════
 // Commitment 10: Forward-only audit.
@@ -488,16 +496,17 @@ func TestTruthSeeking_PrivilegedActionsLogMonotonically(t *testing.T) {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// Commitment 19: The creed is governance-gated.
+// Commitment 19: creed pin structure and optional governance lockdown.
 //
 // "The chain's voice cannot drift faster than its governance.
 // Every other layer is mechanically synced to the creed by CI;
 // the creed itself must enter that sync."
 //
-// This test exercises the structural protection: AnchorPin
-// requires the gov authority, refuses non-monotonic version,
-// refuses empty hashes, refuses gapped commitment registries,
-// and (post-disable) refuses any unsourced amendment.
+// This test exercises the implemented structural protection: AnchorPin
+// requires the gov-module authority, refuses non-monotonic versions,
+// empty hashes, and gapped registries, and seals when direct anchoring
+// is disabled. It does not assert that the live network disabled the
+// direct path or that LIP tally enforces two pools.
 //
 // Bound here AND by: TestTruthSeeking_CreedHistoryIsForwardOnly
 // (forward-only side), TestTruthSeeking_GenesisCreedReflectsCurrentTruthSeeking
@@ -514,7 +523,7 @@ func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
 	// below are about how subsequent amendments are gated.
 	v1 := &creedtypes.PinnedCreed{
 		Version:       1,
-		CanonicalHash: []byte("hash-v1"),
+		CanonicalHash: testCreedDigest("hash-v1"),
 		Commitments: []*creedtypes.CommitmentEntry{
 			{Number: 1, Name: "Methodology over statement"},
 			{Number: 2, Name: "Is-ought wall is structural"},
@@ -531,7 +540,7 @@ func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
 		Authority: testAddr("ts_creed_imposter").String(),
 		Pin: &creedtypes.PinnedCreed{
 			Version:       2,
-			CanonicalHash: []byte("hash-v2-imposter"),
+			CanonicalHash: testCreedDigest("hash-v2-imposter"),
 			Commitments:   v1.Commitments,
 		},
 	})
@@ -544,7 +553,7 @@ func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
 		Authority: authority,
 		Pin: &creedtypes.PinnedCreed{
 			Version:       1, // attempting to overwrite v1
-			CanonicalHash: []byte("hash-v1-rewrite"),
+			CanonicalHash: testCreedDigest("hash-v1-rewrite"),
 			Commitments:   v1.Commitments,
 		},
 	})
@@ -569,7 +578,7 @@ func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
 		Authority: authority,
 		Pin: &creedtypes.PinnedCreed{
 			Version:       2,
-			CanonicalHash: []byte("hash-v2-with-gap"),
+			CanonicalHash: testCreedDigest("hash-v2-with-gap"),
 			Commitments: []*creedtypes.CommitmentEntry{
 				{Number: 1, Name: "Methodology over statement"},
 				// Number 2 is silently dropped. Should fail.
@@ -589,7 +598,7 @@ func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
 		Authority: authority,
 		Pin: &creedtypes.PinnedCreed{
 			Version:       2,
-			CanonicalHash: []byte("hash-v2-no-lip"),
+			CanonicalHash: testCreedDigest("hash-v2-no-lip"),
 			Commitments:   v1.Commitments,
 		},
 		// SourceLip intentionally empty
@@ -598,20 +607,18 @@ func TestTruthSeeking_CreedIsGovernanceGated(t *testing.T) {
 	require.Contains(t, err.Error(), "commitment 6",
 		"refusal must cite the no-unilateral-injection commitment")
 
-	// Even with source_lip, the chain refuses while direct-anchor
-	// is disabled and the LIP class hasn't shipped — this is the
-	// pre-LIP-class lockdown. The chain refuses ALL writes until
-	// the gov path is wired.
+	// Even with source_lip, the public direct handler remains sealed.
+	// Gov-mediated AnchorPinFromBytes is the distinct dispatch path.
 	_, err = ms.AnchorPin(h.Ctx, &creedtypes.MsgAnchorPin{
 		Authority: authority,
 		Pin: &creedtypes.PinnedCreed{
 			Version:       2,
-			CanonicalHash: []byte("hash-v2-with-lip"),
+			CanonicalHash: testCreedDigest("hash-v2-with-lip"),
 			Commitments:   v1.Commitments,
 		},
 		SourceLip: "LIP-1",
 	})
-	require.Error(t, err, "until the Creed Amendment LIP class lands and wires the gov authority through, the chain is sealed against direct amendment")
+	require.Error(t, err, "disabled direct anchoring must remain sealed even when a caller supplies a source_lip")
 }
 
 // Commitment 10 (forward-only audit, creed side): the pin history
@@ -624,7 +631,7 @@ func TestTruthSeeking_CreedHistoryIsForwardOnly(t *testing.T) {
 	qs := creedkeeper.NewQueryServerImpl(h.CreedKeeper)
 	authority := h.CreedKeeper.GetAuthority()
 
-	v1Hash := []byte("genesis-creed-hash")
+	v1Hash := testCreedDigest("genesis-creed-hash")
 	v1Commitments := []*creedtypes.CommitmentEntry{
 		{Number: 1, Name: "Methodology over statement"},
 		{Number: 2, Name: "Is-ought wall is structural"},
@@ -637,7 +644,7 @@ func TestTruthSeeking_CreedHistoryIsForwardOnly(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	v2Hash := []byte("amended-creed-hash")
+	v2Hash := testCreedDigest("amended-creed-hash")
 	v2Commitments := []*creedtypes.CommitmentEntry{
 		{Number: 1, Name: "Methodology over statement"},
 		{Number: 2, Name: "Is-ought wall is structural"},
@@ -747,7 +754,7 @@ func TestTruthSeeking_GovCanAnchorCreedAmendments(t *testing.T) {
 		Authority: authority,
 		Pin: &creedtypes.PinnedCreed{
 			Version:       1,
-			CanonicalHash: []byte("v1-hash"),
+			CanonicalHash: testCreedDigest("v1-hash"),
 			Commitments: []*creedtypes.CommitmentEntry{
 				{Number: 1, Name: "Methodology over statement"},
 			},
@@ -762,7 +769,8 @@ func TestTruthSeeking_GovCanAnchorCreedAmendments(t *testing.T) {
 		{"number": 1, "name": "Methodology over statement"},
 		{"number": 2, "name": "Is-ought wall"}
 	]`)
-	err = h.CreedKeeper.AnchorPinFromBytes(h.Ctx, "LIP-42", []byte("v2-hash"), commitmentsJSON)
+	v2Hash := testCreedDigest("v2-hash")
+	err = h.CreedKeeper.AnchorPinFromBytes(h.Ctx, "LIP-42", v2Hash, commitmentsJSON)
 	require.NoError(t, err, "the gov→creed call must succeed; without it, the CategoryCreedAmendment LIP class cannot land amendments")
 
 	// Verify the new pin is canonical and carries the LIP id.
@@ -771,26 +779,50 @@ func TestTruthSeeking_GovCanAnchorCreedAmendments(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(2), res.Pin.Version,
 		"AnchorPinFromBytes must produce version+1 — gov-mediated amendment is forward-only same as direct AnchorPin")
-	require.Equal(t, []byte("v2-hash"), res.Pin.CanonicalHash)
+	require.Equal(t, v2Hash, res.Pin.CanonicalHash)
 	require.Equal(t, "LIP-42", res.Pin.PinnedViaLip,
 		"the source LIP id must be recorded on the pin so the audit trail names the LIP that authorized every creed amendment")
 	require.Len(t, res.Pin.Commitments, 2,
 		"commitments_json must round-trip into the Pin's commitment registry")
 
-	// The CreedKeeper as queried by gov.types.CreedKeeper interface
-	// also exposes IsActiveCouncilMember — wire that path.
+	// Invalid gov-dispatch payloads must fail atomically. They are parsed by a
+	// distinct internal entry point, so the public MsgAnchorPin tests alone do
+	// not protect this boundary.
+	for name, invalid := range map[string][]byte{
+		"gap": []byte(`[
+			{"number": 1, "name": "Methodology over statement"},
+			{"number": 3, "name": "Skipped two"}
+		]`),
+		"duplicate": []byte(`[
+			{"number": 1, "name": "Methodology over statement"},
+			{"number": 1, "name": "Duplicate one"}
+		]`),
+	} {
+		t.Run("reject_"+name, func(t *testing.T) {
+			err := h.CreedKeeper.AnchorPinFromBytes(
+				h.Ctx,
+				"LIP-invalid-"+name,
+				testCreedDigest("invalid-"+name),
+				invalid,
+			)
+			require.Error(t, err)
+			require.Equal(t, uint32(2), h.CreedKeeper.GetCurrentVersion(h.Ctx),
+				"invalid internal pin payload must not advance the version")
+			_, found := h.CreedKeeper.GetPin(h.Ctx, 3)
+			require.False(t, found, "invalid internal pin payload must not leave a partial pin")
+		})
+	}
+
+	// The CreedKeeper interface exposes the council lookup reserved for
+	// future two-pool routing. Current tally does not consume it.
 	imp := h.CreedKeeper.IsActiveCouncilMember(h.Ctx, testAddr("non_member").String())
 	require.False(t, imp,
-		"non-member address must report false; without this, gov's two-pool routing cannot trust the AI-side pool")
+		"non-member address must report false so a future two-pool tally can consume the registry safely")
 }
 
-// Commitment 19 (creed governance-gated, AI-side pool): the Creed
-// Council registry is what makes the human/AI co-required pattern
-// load-bearing for creed amendments. Without an AI-side pool with
-// known voting weight, the chain has no way to enforce two-pool
-// quorum on Creed Amendment LIPs — the asymmetry would be
-// unilateral. This test exercises the registry's structural
-// invariants.
+// Commitment 19 (future AI-side pool scaffold): this test exercises
+// registry and authority invariants only. It deliberately does not claim
+// that current x/gov tally routes votes or enforces two-pool quorum.
 func TestTruthSeeking_CreedCouncilIsGovernanceGated(t *testing.T) {
 	h := NewTestHarness(t)
 	ms := creedkeeper.NewMsgServerImpl(h.CreedKeeper)
@@ -881,7 +913,7 @@ func TestTruthSeeking_CreedCouncilIsGovernanceGated(t *testing.T) {
 		"deactivated seat must not be counted as a member for vote-routing purposes")
 	imRes2, _ := qs.IsCouncilMember(h.Ctx, &creedtypes.QueryIsCouncilMemberRequest{Address: seat2.Address})
 	require.True(t, imRes2.IsMember,
-		"active seat must be reported as a member so x/gov can route their vote to the AI-side pool")
+		"active seat must be reported for a future AI-side vote-routing implementation")
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1369,8 +1401,8 @@ func TestTruthSeeking_FrontierSparsityIsComputableFromPublicState(t *testing.T) 
 	submitter := testAddr("ts_frontier").String()
 	for i := 0; i < 3; i++ {
 		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-			Id:        fmt.Sprintf("F-TS-FRONTIER-%d", i),
-			Content:   "mapped territory", Domain: "ts_mapped_domain",
+			Id:      fmt.Sprintf("F-TS-FRONTIER-%d", i),
+			Content: "mapped territory", Domain: "ts_mapped_domain",
 			Status:    knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
 			Submitter: submitter, MethodId: knowledgetypes.MethodologyEmpirical,
 		}))
@@ -1698,18 +1730,15 @@ func sortedKeys(m map[string]bool) []string {
 // ════════════════════════════════════════════════════════════════════
 // Commitment 20: Issuance follows participation.
 //
-// Every ZRN that exists came from a participatory action — a PoT
-// block reward (validator verified truth) or a bootstrap claim
-// (whitelisted agent registered). There is no insider position; no
-// founder, AI vault, foundation, or team account holds a starting
-// balance. Genesis bank state is empty save for the validator gentx
-// bonds (themselves the smallest viable bootstrap the host SDK
-// permits). A successful bootstrap claim MINTS through the chain's
-// single cap-gated entry point (MintWithCap), advances the shared
-// cap counter (TotalMinted), and forwards the new uzrn to the
-// claimer in the same transaction. The pre-fund-then-transfer model
-// is forbidden — the claiming_pot module account never holds funds
-// across blocks.
+// The protocol-default bank genesis is empty, while the live zerone-1
+// ceremony added 13,555 ZRN of disclosed operator-controlled validator
+// collateral/gas and operations float. Runtime module issuance has multiple
+// paths with explicit admission rules; not all of them prove truth
+// participation. A successful bootstrap claim MINTS through
+// the chain's single cap-gated entry point (MintWithCap), advances shared
+// cap accounting, and forwards the new uzrn to the claimer in the same
+// transaction. The pre-fund-then-transfer model is forbidden — the
+// claiming_pot module account never holds funds across blocks.
 //
 // LOAD-BEARING falsifiers:
 //
@@ -1719,7 +1748,7 @@ func sortedKeys(m map[string]bool) []string {
 //      account.
 //   2. TotalMinted advances by the same amount (transfer would not
 //      advance it, breaking the shared cap accounting that ties
-//      both emission pathways to a single 222,222,222 ZRN ceiling).
+//      runtime module issuance to a single 222,222,222 ZRN ceiling).
 //   3. The claiming_pot module account is empty after the claim
 //      (transient conduit, not custodian). A residual balance is
 //      the structural form of the legacy pre-funded-pool model
@@ -1770,7 +1799,7 @@ func TestTruthSeeking_IssuanceFollowsParticipation(t *testing.T) {
 	postMinted := h.VestingRewardsKeeper.GetTotalMinted(sdk.UnwrapSDKContext(h.Ctx))
 	mintedDelta := new(big.Int).Sub(postMinted, preMinted)
 	require.Equal(t, resp.Amount, mintedDelta.String(),
-		"FALSIFIER 2: TotalMinted must advance by the same amount — both emission pathways share the cap counter; if the bootstrap pathway bypasses MintWithCap, the cap is silently overcommittable")
+		"FALSIFIER 2: TotalMinted must advance by the same amount — runtime module issuance shares cap accounting; if bootstrap bypasses MintWithCap, the cap is silently overcommittable")
 
 	moduleAddr := h.App.AccountKeeper.GetModuleAddress(claimingpottypes.ModuleName)
 	require.True(t, h.GetBalance(moduleAddr, "uzrn").Amount.IsZero(),

@@ -57,13 +57,13 @@ type QueryClient interface {
 	// commitment, or NotFound if archived or never declared.
 	Commitment(ctx context.Context, in *QueryCommitmentRequest, opts ...grpc.CallOption) (*QueryCommitmentResponse, error)
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
-	// CouncilMembers returns all currently-active Creed Council
-	// seats with their voting weights. The AI-side voter pool for
-	// Creed Amendment LIPs.
+	// CouncilMembers returns all currently-active Creed Council registry
+	// entries with their weights. Current LIP tally does not consume this
+	// future two-pool routing surface.
 	CouncilMembers(ctx context.Context, in *QueryCouncilMembersRequest, opts ...grpc.CallOption) (*QueryCouncilMembersResponse, error)
-	// IsCouncilMember answers whether a specific address holds an
-	// active council seat. x/gov reads this when tallying creed-
-	// amendment votes to route the voter to the AI-side pool.
+	// IsCouncilMember answers whether a specific address holds an active
+	// council seat. x/gov exposes the hook, but current tally does not route
+	// creed-amendment votes into a separate pool.
 	IsCouncilMember(ctx context.Context, in *QueryIsCouncilMemberRequest, opts ...grpc.CallOption) (*QueryIsCouncilMemberResponse, error)
 }
 
@@ -174,13 +174,13 @@ type QueryServer interface {
 	// commitment, or NotFound if archived or never declared.
 	Commitment(context.Context, *QueryCommitmentRequest) (*QueryCommitmentResponse, error)
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
-	// CouncilMembers returns all currently-active Creed Council
-	// seats with their voting weights. The AI-side voter pool for
-	// Creed Amendment LIPs.
+	// CouncilMembers returns all currently-active Creed Council registry
+	// entries with their weights. Current LIP tally does not consume this
+	// future two-pool routing surface.
 	CouncilMembers(context.Context, *QueryCouncilMembersRequest) (*QueryCouncilMembersResponse, error)
-	// IsCouncilMember answers whether a specific address holds an
-	// active council seat. x/gov reads this when tallying creed-
-	// amendment votes to route the voter to the AI-side pool.
+	// IsCouncilMember answers whether a specific address holds an active
+	// council seat. x/gov exposes the hook, but current tally does not route
+	// creed-amendment votes into a separate pool.
 	IsCouncilMember(context.Context, *QueryIsCouncilMemberRequest) (*QueryIsCouncilMemberResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }

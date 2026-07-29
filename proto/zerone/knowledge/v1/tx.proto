@@ -141,9 +141,9 @@ service Msg {
   rpc ChallengeContribution(MsgChallengeContribution) returns (MsgChallengeContributionResponse);
   // ResolveContributionChallenge settles an open challenge (verifier/authority).
   rpc ResolveContributionChallenge(MsgResolveContributionChallenge) returns (MsgResolveContributionChallengeResponse);
-  // ClaimTrainingFundDisbursement — pipeline operator claims post-hoc reward
-  // once the ModelCard has accumulated live calibration. Gated on calibration
-  // floor + reproducibility proof; 50/50 immediate/vesting split.
+  // ClaimTrainingFundDisbursement is release-disabled. The legacy
+  // client-chosen id is not a replay-safe one-shot eligibility key, so current
+  // consensus refuses every claim before minting.
   rpc ClaimTrainingFundDisbursement(MsgClaimTrainingFundDisbursement) returns (MsgClaimTrainingFundDisbursementResponse);
 
   // ─── Route B Wave 5: training data format ─────────────────────────────
@@ -709,16 +709,18 @@ message MsgResolveContributionChallenge {
   string note            = 4;
 }
 message MsgResolveContributionChallengeResponse {
-  string payout_to_winner = 1;   // uzrn the winner received
+  string payout_to_winner = 1;   // upheld: escrowed bond refund; rejected: "0"
 }
 
-// ─── Wave 4: training fund post-hoc disbursement ──────────────────────────
+// ─── Wave 4: disabled training-fund disbursement placeholder ───────────────
 message MsgClaimTrainingFundDisbursement {
   option (cosmos.msg.v1.signer) = "claimant";
 
   string claimant   = 1;
   string model_id   = 2;
-  string id         = 3;   // unique disbursement id (client-chosen)
+  // Legacy client-chosen identifier. It does not bind a unique reward
+  // entitlement; this is why the current handler is fail-closed.
+  string id         = 3;
 }
 message MsgClaimTrainingFundDisbursementResponse {
   string total_amount    = 1;

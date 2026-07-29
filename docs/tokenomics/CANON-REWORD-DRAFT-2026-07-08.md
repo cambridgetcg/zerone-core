@@ -2,6 +2,10 @@
 
 **Status: DRAFT. Do NOT deploy. Do NOT touch the genesis hash until Yu signs off.**
 
+> **Historical and superseded.** This draft was not adopted verbatim. Current
+> source truth lives in `docs/tokenomics/README.md`,
+> `deploy/mainnet/TRUST.md`, and the checked-in genesis artifacts.
+
 Why this exists: the mainnet genesis design (§10 / §10a / §12 / §13) makes the
 old literal canon — *"zero pre-mine / bank supply = 0"* — **factually false and
 unsatisfiable**. A Cosmos/CometBFT chain cannot boot with an empty bank: it needs

@@ -71,6 +71,7 @@ func TestMsgServer_SubmitExternalAttestation_PendingClaimsFailClosed(t *testing.
 	link := &types.SubstrateLink{
 		AdapterId:     "wiki-v1",
 		PendingClaims: []*types.PendingClaim{{ClaimContent: "the sky is blue", Domain: "physics"}},
+		Source:        validExternalSource("wiki-v1"),
 	}
 	link.LinkHash = keeper.ComputeLinkHash(link)
 

@@ -18,49 +18,30 @@ import (
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
-// TestZeroneSelf_FullEconomicLoop closes the deepest economic recursion:
-// a sponsor escrows ZRN against a bounty for verified facts in the
-// `zerone_self` domain → a submitter attests to a ZERONE commit via the
-// `zerone-self-v1` substrate-bridge adapter → the chain verifies the
-// pending claim → the sponsorship fulfillment pays the submitter from
-// escrow. Every artifact in the loop is ZERONE describing ZERONE through
-// ZERONE's own machinery.
+// TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState proves two
+// narrower facts: the public bridge refuses zerone-self pending claims, and a
+// separately verified fact can fulfill a sponsorship bounty. The test writes
+// post-bridge attestation/fact state directly; it is not end-to-end evidence
+// that the adapter translates, verifies, settles, or pays lineage royalties.
 //
-// What the chain has proven, end-to-end:
+// What the scaffold proves:
 //
-//   - External value (sponsor's ZRN) buys verified knowledge about ZERONE
-//     itself. Self-documentation is a paid economic activity.
-//   - The submitter earns the sponsorship payout AND (separately,
-//     through the substrate_bridge audit budget) the M4 substrate-link
-//     reward. The chain pays twice for one verified self-attestation
-//     because the work satisfies two doctrinal mandates at once.
-//   - The fact lands in `zerone_self` with the submitter as its origin,
-//     making the submitter citable by future facts. Downstream lineage
-//     (M6) will route royalty backward through this attestation when
-//     other facts cite it.
+//   - Pending-claim submission fails closed before escrow.
+//   - Sponsorship pays the submitter recorded on a verified fact.
+//   - The missing translation boundary cannot be hidden by the later payout.
 //
-// Doctrinal bindings:
-//
-//   - UW (recursion): the chain's reward path consumes a substrate-link
-//     produced by the chain's own adapter pointing at the chain's own
-//     repo.
-//   - M2 (substrate-link mandate): the attestation gates through
-//     ComputeLinkHash; sponsorship gates on fact verification status.
-//   - Sponsorship commitment 8 (panel weights skill, not bond): the
-//     sponsor did not authorize the payout; the chain's verification
-//     did. The sponsor only funded the participation.
-//   - Sponsorship commitment 20 (issuance follows participation):
-//     payout follows verified work; sponsor's escrow circulates, no new
-//     mint.
+// The scaffold binds fail-closed pending-claim admission, sponsorship's
+// status/domain checks, escrow-only payout, and pair idempotency. It does not
+// bind panel verification or connect the payout to the refused attestation.
 //
 // Spec: docs/specs/adapters/zerone-self-v1.md; docs/RECURSIVE_ZERONE.md.
-func TestZeroneSelf_FullEconomicLoop(t *testing.T) {
+func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// ── Setup ────────────────────────────────────────────────────────
 
-	// 1. Register the zerone-self-v1 adapter and the zerone_self domain
-	//    (in production, both ship via gov LIPs at adapter activation).
+	// 1. Register the zerone-self-v1 adapter and zerone_self domain directly.
+	//    Adapter-registration LIP dispatch is not wired in current source.
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
 		AdapterId:              selfcompile.AdapterID,
 		SourceType:             "zerone-git",
@@ -151,13 +132,11 @@ func TestZeroneSelf_FullEconomicLoop(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION, att.Status)
 
-	// ── Step 3: simulate verification (resolves the pending claim) ───
-
-	// Production: a verification round runs in x/knowledge with
-	// commit/reveal/aggregate; on ACCEPT, the claim becomes a Fact.
-	// Test: we shortcut to the post-verification state by writing the
-	// Fact directly (this is what a successful verification round would
-	// produce) and informing substrate_bridge.
+	// ── Step 3: write the verified-status fixture directly ───────────
+	//
+	// No verification round runs in this test, and substrate_bridge is not
+	// informed of a resolution. This deliberately isolates later sponsorship
+	// behavior from the missing translation.
 	const selfFactID = "zerone-self-fact-loop-1"
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id:               selfFactID,
@@ -183,7 +162,7 @@ func TestZeroneSelf_FullEconomicLoop(t *testing.T) {
 		BountyId: bountyID,
 		FactId:   selfFactID,
 	})
-	require.NoError(t, err, "fulfillment must succeed — fact is verified, in domain, in window, not already claimed")
+	require.NoError(t, err, "fulfillment must succeed — fixture has verified status, matching domain/window, and is unused")
 	require.Equal(t, submitter.String(), fulfillResp.Worker,
 		"worker MUST be fact.Submitter, NOT caller — the chain reads provenance, not who-pressed-the-button")
 	require.Equal(t, "1000000", fulfillResp.AmountPaid)
@@ -192,8 +171,9 @@ func TestZeroneSelf_FullEconomicLoop(t *testing.T) {
 	// ── Step 5: the recursion is bound at the bank layer ──
 
 	// The submitter's balance increased by exactly the per-artifact price.
-	// External value (sponsor's escrowed ZRN) has flowed to the submitter
-	// gated entirely by ZERONE's own verification of a fact about ZERONE.
+	// Sponsor escrow flowed to the submitter because the directly written
+	// fixture had VERIFIED status. This test does not prove how it acquired
+	// that status.
 	submitterPostFulfill := h.App.BankKeeper.GetBalance(h.Ctx, submitter, zeroneapp.BondDenom)
 	require.Equal(t, sdkmath.NewInt(1_000_000), submitterPostFulfill.Amount.Sub(submitterPreFulfill.Amount),
 		"submitter must receive exactly price_per_artifact from the bounty's escrow")
@@ -213,7 +193,7 @@ func TestZeroneSelf_FullEconomicLoop(t *testing.T) {
 		BountyId: bountyID,
 		FactId:   selfFactID,
 	})
-	require.Error(t, err, "same (bounty, fact) pair cannot fulfill twice — each verified attestation pays at most once per bounty")
+	require.Error(t, err, "same (bounty, fact) pair cannot fulfill twice — each staged fact pays at most once per bounty")
 }
 
 // TestZeroneSelf_MultipleFulfillmentsCompoundEarnings drives the same
@@ -221,15 +201,15 @@ func TestZeroneSelf_FullEconomicLoop(t *testing.T) {
 // confirming the bounty fills exactly when target_count is reached and
 // total payout = price × target_count.
 //
-// This is the dynamic shape of the recursive economy: each verified
-// self-attestation pays, and submitters can compound earnings across
-// many commits in their bounty's lifetime.
+// This exercises repeated sponsorship fulfillment against three directly
+// written VERIFIED-status facts. It does not ingest self-attestations or git
+// commits through the bridge.
 func TestZeroneSelf_MultipleFulfillmentsCompoundEarnings(t *testing.T) {
 	h := NewTestHarness(t)
 
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
-		AdapterId: selfcompile.AdapterID,
-		Status:    substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		AdapterId:              selfcompile.AdapterID,
+		Status:                 substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
 		MinAttestationBondUzrn: "222000",
 	}))
 	require.NoError(t, h.KnowledgeKeeper.SetDomain(h.Ctx, &knowledgetypes.Domain{

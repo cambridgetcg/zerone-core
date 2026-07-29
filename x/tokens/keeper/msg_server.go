@@ -654,6 +654,9 @@ func (s *msgServer) CreateEmissionPeriod(goCtx context.Context, msg *types.MsgCr
 	if msg.Authority != s.GetAuthority() {
 		return nil, fmt.Errorf("unauthorized: expected %s, got %s", s.GetAuthority(), msg.Authority)
 	}
+	if s.GetParams(ctx).EmissionEpochBlocks == 0 {
+		return nil, types.ErrEmissionsDisabled
+	}
 
 	if msg.EndBlock <= msg.StartBlock {
 		return nil, types.ErrInvalidEmissionRange

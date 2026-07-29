@@ -51,23 +51,22 @@ func NewClaimCmd() *cobra.Command {
 }
 
 // NewAddBootstrapEntryCmd builds a tx that admits one or more late
-// bootstrap entries. Authority-gated — the --from address must equal
-// the module's GetAuthority() (the governance account on mainnet).
+// bootstrap entries. Authority-gated — the --from address must equal either
+// the module's GetAuthority() or its configured BootstrapRegistrar.
 //
-// Direct CLI use is intended for testnet operators. On mainnet, the
-// message is wrapped in a governance LIP so admission is deliberate
-// and audited (commitment 20: continuously, governance-gated).
+// Operational use requires a release-bound network packet. The live genesis
+// registrar is a disclosed, capped and governance-revocable custodial path.
 func NewAddBootstrapEntryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-bootstrap-entry [addr1,addr2,...]",
-		Short: "(governance) Admit one or more late bootstrap entries",
+		Short: "(authority) Admit one or more late bootstrap entries",
 		Long: `Admit late participants by creating one bootstrap pot per address. Each
 address gets a single-claimant pot (0.222 ZRN, instant vest). Duplicates
 are silently skipped. Authority-gated — the --from address must equal
-the claiming_pot module authority (governance on mainnet).
+the claiming_pot module authority or configured BootstrapRegistrar.
 
-Direct CLI use is for testnet operators. Mainnet must wrap this message
-in a governance LIP so admission is deliberate and audited.
+Operational use requires a release-bound packet; this command is not by itself
+authorization to admit participants on a shared network.
 
 Example:
   zeroned tx claiming_pot add-bootstrap-entry zrn1abc...,zrn1def... --from authority`,

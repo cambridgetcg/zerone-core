@@ -16,7 +16,7 @@ message LineageEdge {
   string downstream_class_id       = 4;
 
   CitationType citation_type        = 5;
-  uint32       contribution_share_bps = 6;
+  uint32       contribution_share_bps = 6; // 10,000 scale: 10,000 = 100%
   uint32       depth_from_downstream  = 7;
 
   uint64 created_at_block         = 8;

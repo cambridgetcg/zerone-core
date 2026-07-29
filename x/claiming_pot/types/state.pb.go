@@ -379,9 +379,10 @@ type Params struct {
 	// pathway — governance remains the only admitter. Revocation is a single
 	// param change setting this back to "".
 	BootstrapRegistrar string `protobuf:"bytes,3,opt,name=bootstrap_registrar,json=bootstrapRegistrar,proto3" json:"bootstrap_registrar,omitempty"` // default: ""
-	// bootstrap_emission_cap_uzrn is the lifetime cap on total bootstrap
-	// issuance: (bootstrap entries ever created) x 222,000 uzrn must never
-	// exceed this value. Applies to gov-authority AND registrar admissions.
+	// bootstrap_emission_cap_uzrn is the shared lifetime commitment cap for
+	// bootstrap entries and legacy general pots. Every pot is charged
+	// ceil(total_amount / 222,000) fixed-size units. Applies to governance and
+	// registrar admissions.
 	BootstrapEmissionCapUzrn string `protobuf:"bytes,4,opt,name=bootstrap_emission_cap_uzrn,json=bootstrapEmissionCapUzrn,proto3" json:"bootstrap_emission_cap_uzrn,omitempty"` // default: "222222000000" (222,222 ZRN = 0.1% of max supply)
 	// bootstrap_daily_admission_cap is the maximum number of registrar
 	// admissions per 34,272-block window (~1 day). Gov-authority admissions

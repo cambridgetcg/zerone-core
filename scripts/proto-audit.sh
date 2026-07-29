@@ -1,6 +1,7 @@
 #!/bin/bash
-# Proto-Go Consistency Audit
-# Verifies that generated Go code matches proto definitions.
+# Protobuf Artifact Consistency Audit
+# Verifies that generated Go code and the canonical Swagger inventory match
+# the protobuf definitions.
 # Exit 1 if any mismatch found.
 #
 # Usage: bash scripts/proto-audit.sh
@@ -13,15 +14,16 @@ cd "$REPO_ROOT"
 
 FAIL=0
 
-echo "=== Step 1: Regenerating proto ==="
+echo "=== Step 1: Regenerating protobuf and Swagger artifacts ==="
 make proto-gen
+make proto-swagger-gen
 
 echo ""
 echo "=== Step 2: Checking for drift in generated files ==="
-if ! git diff --quiet -- '*.pb.go' '*.pb.gw.go'; then
-    echo "ERROR: Proto-generated files are stale. Run 'make proto-gen' and commit the results."
+if ! git diff --quiet -- '*.pb.go' '*.pb.gw.go' 'docs/swagger-ui/swagger.json'; then
+    echo "ERROR: Protobuf-generated files are stale. Run 'make proto-gen proto-swagger-gen' and commit the results."
     echo ""
-    git diff --stat -- '*.pb.go' '*.pb.gw.go'
+    git diff --stat -- '*.pb.go' '*.pb.gw.go' 'docs/swagger-ui/swagger.json'
     FAIL=1
 else
     echo "OK: No drift detected."

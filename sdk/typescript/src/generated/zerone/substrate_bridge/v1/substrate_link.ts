@@ -3,12 +3,11 @@ import { AxisProjection, ExternalSource, CitationType } from "./types";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
- * SubstrateLink is the deterministic provenance from external content
- * to ToK fact-IDs (existing + pending). Two sections — cited_facts MUST
- * exist in x/knowledge at commit time; pending_claims are auto-submitted
- * as Claims and the attestation is held in AWAITING_RESOLUTION until
- * they resolve. M2 satisfied: every pending claim becomes a real
- * on-chain claim with full provenance.
+ * SubstrateLink commits caller-declared external provenance to ToK fact IDs.
+ * cited_facts MUST exist in x/knowledge at commit time.
+ * pending_claims is a reserved future integration surface: current
+ * MsgSubmitExternalAttestation rejects a nonempty list because translation
+ * into x/knowledge is not wired.
  * @name SubstrateLink
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.SubstrateLink
@@ -20,7 +19,7 @@ export interface SubstrateLink {
   adapterId: string;
   source?: ExternalSource;
   /**
-   * sha256 of canonical form
+   * sha256 of canonical declared fields
    */
   linkHash: Uint8Array;
 }
@@ -40,10 +39,10 @@ export interface FactCitation {
   citationContext: string;
 }
 /**
- * PendingClaim is a Claim auto-submitted at commit phase. Shape mirrors
- * x/knowledge.Claim so the substrate_bridge keeper can call
- * x/knowledge.SetClaim directly. claim_relations cite existing facts;
- * they are NOT recursive pending claims (one-hop deferral only).
+ * PendingClaim is the reserved shape for a future x/knowledge translation.
+ * It is not accepted by current public attestation submission. When that
+ * integration is implemented, claim_relations may cite existing facts only;
+ * they are not recursive pending claims.
  * @name PendingClaim
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.PendingClaim
@@ -77,6 +76,9 @@ export interface ClaimRelation {
    * DEDUCTIVE | INDUCTIVE | etc.
    */
   inference: string;
+  /**
+   * reserved path; 10,000 scale
+   */
   inferenceStrengthBps: number;
 }
 function createBaseSubstrateLink(): SubstrateLink {
@@ -90,12 +92,11 @@ function createBaseSubstrateLink(): SubstrateLink {
   };
 }
 /**
- * SubstrateLink is the deterministic provenance from external content
- * to ToK fact-IDs (existing + pending). Two sections — cited_facts MUST
- * exist in x/knowledge at commit time; pending_claims are auto-submitted
- * as Claims and the attestation is held in AWAITING_RESOLUTION until
- * they resolve. M2 satisfied: every pending claim becomes a real
- * on-chain claim with full provenance.
+ * SubstrateLink commits caller-declared external provenance to ToK fact IDs.
+ * cited_facts MUST exist in x/knowledge at commit time.
+ * pending_claims is a reserved future integration surface: current
+ * MsgSubmitExternalAttestation rejects a nonempty list because translation
+ * into x/knowledge is not wired.
  * @name SubstrateLink
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.SubstrateLink
@@ -235,10 +236,10 @@ function createBasePendingClaim(): PendingClaim {
   };
 }
 /**
- * PendingClaim is a Claim auto-submitted at commit phase. Shape mirrors
- * x/knowledge.Claim so the substrate_bridge keeper can call
- * x/knowledge.SetClaim directly. claim_relations cite existing facts;
- * they are NOT recursive pending claims (one-hop deferral only).
+ * PendingClaim is the reserved shape for a future x/knowledge translation.
+ * It is not accepted by current public attestation submission. When that
+ * integration is implemented, claim_relations may cite existing facts only;
+ * they are not recursive pending claims.
  * @name PendingClaim
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.PendingClaim

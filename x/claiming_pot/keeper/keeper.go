@@ -101,25 +101,37 @@ func (k Keeper) GetParams(ctx context.Context) *types.Params {
 
 // ---------- Counter ----------
 
-func (k Keeper) GetNextPotID(ctx context.Context) uint64 {
+func (k Keeper) GetPotCounter(ctx context.Context) uint64 {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	bz, err := kvStore.Get(types.PotCounterKey)
-	if err != nil || bz == nil {
-		bz = make([]byte, 8)
+	if err != nil || len(bz) != 8 {
+		return 0
 	}
-	counter := binary.BigEndian.Uint64(bz)
+	return binary.BigEndian.Uint64(bz)
+}
+
+func (k Keeper) SetPotCounter(ctx context.Context, counter uint64) {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz := make([]byte, 8)
+	binary.BigEndian.PutUint64(bz, counter)
+	_ = kvStore.Set(types.PotCounterKey, bz)
+}
+
+func (k Keeper) GetNextPotID(ctx context.Context) (uint64, error) {
+	counter := k.GetPotCounter(ctx)
+	if counter == ^uint64(0) {
+		return 0, fmt.Errorf("pot counter exhausted")
+	}
 	counter++
-	newBz := make([]byte, 8)
-	binary.BigEndian.PutUint64(newBz, counter)
-	_ = kvStore.Set(types.PotCounterKey, newBz)
-	return counter
+	k.SetPotCounter(ctx, counter)
+	return counter, nil
 }
 
 // ---------- Bootstrap emission accounting ----------
 
-// GetBootstrapMintedEntries returns the number of bootstrap entries ever
-// created (genesis + admissions). Monotonic: pots are never deleted and
-// DEPLETED pots stay in state, so this never decreases.
+// GetBootstrapMintedEntries returns fixed-size lifetime commitment units under
+// the historical method name. Units are charged for bootstrap entries and
+// legacy general pots and never decrease.
 func (k Keeper) GetBootstrapMintedEntries(ctx context.Context) uint64 {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	bz, err := kvStore.Get(types.BootstrapMintedEntriesKey)
@@ -157,6 +169,17 @@ func (k Keeper) SetBootstrapWindowCount(ctx context.Context, windowIndex, count 
 	binary.BigEndian.PutUint64(bz[:8], windowIndex)
 	binary.BigEndian.PutUint64(bz[8:], count)
 	_ = kvStore.Set(types.BootstrapAdmissionWindowKey, bz)
+}
+
+// GetBootstrapWindowState returns the raw persisted registrar rate-limit
+// window, including a historical window that is not current at ctx height.
+func (k Keeper) GetBootstrapWindowState(ctx context.Context) (uint64, uint64) {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz, err := kvStore.Get(types.BootstrapAdmissionWindowKey)
+	if err != nil || len(bz) != 16 {
+		return 0, 0
+	}
+	return binary.BigEndian.Uint64(bz[:8]), binary.BigEndian.Uint64(bz[8:])
 }
 
 // ---------- ClaimingPot CRUD ----------
@@ -439,21 +462,43 @@ func (k Keeper) InitGenesis(ctx context.Context, genState *types.GenesisState) {
 	if genState.Params != nil {
 		k.SetParams(ctx, genState.Params)
 	}
-	// Genesis bootstrap pots consume the same lifetime emission budget as
-	// post-genesis admissions, so seed the minted-entries counter from
-	// them. The counter is fully derivable (pots are never deleted), which
-	// keeps export → import round-trips consistent without a genesis field.
-	bootstrapEntries := uint64(0)
+	// Derive conservative minima for backwards-compatible genesis files that
+	// predate explicit replay/accounting fields. Current exports preserve the
+	// exact monotonic counter, committed units, and registrar window.
+	derivedUnits := uint64(0)
+	maxPotSequence := uint64(0)
 	for _, pot := range genState.Pots {
+		if pot == nil {
+			continue
+		}
 		k.SetPot(ctx, pot)
-		if strings.HasPrefix(pot.Id, types.BootstrapPotIDPrefix) {
-			bootstrapEntries++
+		if units, err := types.PotCommitmentUnits(pot.TotalAmount); err == nil {
+			if ^uint64(0)-derivedUnits < units {
+				panic("claiming_pot genesis commitment units overflow")
+			}
+			derivedUnits += units
+		}
+		if sequence, ok := types.GeneralPotSequence(pot.Id); ok && sequence > maxPotSequence {
+			maxPotSequence = sequence
 		}
 	}
-	if bootstrapEntries > 0 {
-		k.SetBootstrapMintedEntries(ctx, bootstrapEntries)
+	committedUnits := genState.LifetimeCommittedUnits
+	if committedUnits < derivedUnits {
+		committedUnits = derivedUnits
+	}
+	k.SetBootstrapMintedEntries(ctx, committedUnits)
+	potCounter := genState.PotCounter
+	if potCounter < maxPotSequence {
+		potCounter = maxPotSequence
+	}
+	k.SetPotCounter(ctx, potCounter)
+	if genState.AdmissionWindowIndex != 0 || genState.AdmissionWindowCount != 0 {
+		k.SetBootstrapWindowCount(ctx, genState.AdmissionWindowIndex, genState.AdmissionWindowCount)
 	}
 	for _, claim := range genState.Claims {
+		if claim == nil {
+			continue
+		}
 		k.SetClaim(ctx, claim)
 	}
 }
@@ -462,9 +507,14 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
 	pots := k.GetAllPots(ctx)
 	claims := k.GetAllClaims(ctx)
+	windowIndex, windowCount := k.GetBootstrapWindowState(ctx)
 	return &types.GenesisState{
-		Params: params,
-		Pots:   pots,
-		Claims: claims,
+		Params:                 params,
+		Pots:                   pots,
+		Claims:                 claims,
+		PotCounter:             k.GetPotCounter(ctx),
+		LifetimeCommittedUnits: k.GetBootstrapMintedEntries(ctx),
+		AdmissionWindowIndex:   windowIndex,
+		AdmissionWindowCount:   windowCount,
 	}
 }

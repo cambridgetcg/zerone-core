@@ -25,10 +25,13 @@ publication are separate events and are stated explicitly when they occur.
   correlations remain observational and do not reduce another wallet's vote.
 - Substrate axis projections have a protocol-wide ceiling, and settlement
   clamps legacy over-ceiling values.
+- The misleading `lineage_royalty_paid` event is replaced by
+  `lineage_royalty_accrued`; lineage propagation records accounting only and
+  does not transfer coins to upstream authors.
 - Falsification clawback requires an adjudicated verdict.
 - Genesis/state validation and protobuf ownership handling are hardened.
 - Manual API inventories now defer to the generated Swagger document, which
-  contains 214 paths and 438 definitions across the current application.
+  contains 215 paths and 440 definitions across the current application.
 
 ### Consensus activation
 
@@ -45,6 +48,11 @@ binaries. Source publication alone does not activate this behavior.
   by an untrusted sender.
 - Cosmos SDK/IBC-Go family migration, general authz, reward-bearing Sigstore
   registration, and rich remote-document parsing.
+- Production component signing: current CI neither requests GitHub OIDC nor
+  emits a Sigstore bundle, and the authority verifier currently validates the
+  declared bundle structure rather than performing Fulcio/Rekor-backed
+  cryptographic verification. Validator/image deployment remains NO-GO until
+  both production signing and trusted-root verification exist.
 
 ### Publication status
 

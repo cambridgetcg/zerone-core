@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -288,21 +289,33 @@ func (m msgServer) UpdateParams(
 	goCtx context.Context,
 	msg *types.MsgUpdateParams,
 ) (*types.MsgUpdateParamsResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("message must not be nil")
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	if msg.Authority != m.Keeper.GetAuthority() {
 		return nil, types.ErrUnauthorized
 	}
 
-	if msg.Params != nil {
-		// Enforce the founder-share governance contract (cap + address immutability)
-		current := m.Keeper.GetParams(ctx)
-		if err := types.ValidateFounderShareChange(current, msg.Params); err != nil {
-			return nil, err
-		}
-
-		m.Keeper.SetParams(ctx, msg.Params)
+	if msg.Params == nil {
+		return nil, fmt.Errorf("params must not be nil")
 	}
+
+	if err := types.ValidateParams(msg.Params); err != nil {
+		return nil, fmt.Errorf("invalid vesting_rewards params: %w", err)
+	}
+
+	// Enforce the founder-share governance contract (cap + address immutability)
+	current := m.Keeper.GetParams(ctx)
+	if err := types.ValidateFounderShareChange(current, msg.Params); err != nil {
+		return nil, err
+	}
+	if err := types.ValidateRuntimeParamChange(current, msg.Params); err != nil {
+		return nil, err
+	}
+
+	m.Keeper.SetParams(ctx, msg.Params)
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.vesting_rewards.update_params",

@@ -8,8 +8,8 @@
 //
 // The output is exactly what a submitter would attest under the
 // zerone-self-v1 adapter (see docs/specs/adapters/zerone-self-v1.md).
-// Validators re-run this binary on the cited commit-sha to verify the
-// submitted link matches (compiler-drift slash protection).
+// Current consensus does not execute this binary or enforce the registered
+// compiler digest; it is an off-chain construction and audit utility.
 //
 // Determinism: identical commit-sha in same git history → identical bytes
 // out (down to the canonical-JSON byte order). Re-run anywhere with git

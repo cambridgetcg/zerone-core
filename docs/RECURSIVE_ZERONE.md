@@ -1,90 +1,174 @@
 # Recursive ZERONE — the chain participates in its own systems
 
-> The fixed point is not paradoxical. Every loop in this document is closed by the same five-layer discipline that keeps every commitment honest: test, position, voice, refusal, graph.
+> The fixed point is a design discipline, not proof that every loop is closed.
+> This catalog distinguishes reachable behavior from directly staged
+> scaffolding.
 
-This document names every recursion now operating in the chain. It is descriptive, not prescriptive — each recursion is bound by tests that fail if the recursion breaks, so this is a map of *what already holds*, not what we plan to build.
+> **Status (2026-07-29):** This document maps both reachable loops and tested
+> scaffolding. The public substrate-bridge message currently rejects
+> `pending_claims`, so the `zerone-self-v1` compiler cannot yet drive a commit
+> through knowledge verification end to end. Several tests below construct
+> dormant intermediate state with direct keeper writes to verify primitives;
+> they are not activation evidence. Creed two-pool tally and post-genesis
+> `work_creed` amendment messages are also not implemented.
 
 ---
 
 ## 1. The chain attests to its own becoming
 
-**Closed by:** `zerone-self-v1` adapter (`docs/specs/adapters/zerone-self-v1.md`); binding tests `TestZeroneSelfAdapter_RegisterAndSubmit` and `TestZeroneSelfAdapter_AxisBoundsRespected`.
+**Scaffolded by:** `zerone-self-v1` adapter
+(`docs/specs/adapters/zerone-self-v1.md`); tests
+`TestZeroneSelfAdapter_RegisterAndSubmit` and
+`TestZeroneSelfAdapter_AxisBoundsRespected`.
 
-ZERONE's git repository is a typed external source. Each commit compiles to a deterministic `SubstrateLink` whose `link_hash` matches chain-side `ComputeLinkHash`. Pending claims land in the `zerone_self` knowledge domain; on verification, they become facts citable by future work.
+ZERONE's git repository is a typed external source. Each commit compiles to a
+deterministic `SubstrateLink` whose `link_hash` matches chain-side
+`ComputeLinkHash`. Current public submission refuses the compiler's pending
+claim because translation into `x/knowledge` is unwired. The cited test pins
+that fail-closed boundary, then directly writes AWAITING state to test the
+reserved indexing primitives.
 
-The chain's claim about the world is grounded in verifiable provenance. The chain's claim about *itself* now has the same grounding.
+The deterministic compiler and storage machinery exist; the public
+self-attestation loop is not yet closed.
 
-## 2. The chain pays for its own self-documentation
+## 2. Sponsorship primitives can fund self-documentation
 
-**Closed by:** `x/sponsorship` + `zerone-self-v1`; binding tests `TestZeroneSelf_FullEconomicLoop` and `TestZeroneSelf_MultipleFulfillmentsCompoundEarnings`.
+**Scaffolded by:** `x/sponsorship` + `zerone-self-v1`; tests
+`TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState` and
+`TestZeroneSelf_MultipleFulfillmentsCompoundEarnings`.
 
-A sponsor can post a bounty in the `zerone_self` domain. A submitter attests to a ZERONE commit through the self-adapter. On verification, the bounty's escrow pays the submitter from sponsor's funds. Total uzrn supply is unchanged — sponsorship circulates existing supply, the recursion compounds in attribution and lineage, not in inflation.
+A sponsor can post a bounty in the `zerone_self` domain, and sponsorship can
+pay a verified fact from escrow without minting. The cited tests manually
+materialize the verified fact/attestation state because the public
+self-adapter pending-claim bridge is blocked.
 
-The chain pays its own historians out of sponsor escrow. No new mint. No inflation. Just verified work, paid for, recorded forward-only.
+The escrow and verification-gated payout primitives are tested; an end-to-end
+commit-to-fact historian flow is not currently reachable.
 
-## 3. The chain pays its builders twice for the same verified work
+## 3. Two payout primitives can reward manually paired state
 
-**Closed by:** `x/substrate_bridge` settlement (M4) + `x/sponsorship` fulfill, sharing the same verified fact; binding test `TestRecursiveDoublePayment_SelfAttestationEarnsTwice`.
+**Scaffolded by:** `x/substrate_bridge` settlement (M4) +
+`x/sponsorship` fulfillment; test
+`TestRecursiveDoublePayment_ManuallyStagedStateExercisesTwoPayouts`.
 
-When a substrate-bridge attestation settles, the submitter earns from the audit-bounty pool (`useful_work_audit_bounty_pool`) per UW M4. When the underlying fact also fulfills a sponsorship bounty, the same submitter (because `fact.Submitter == attestation.Submitter`) earns again from sponsor escrow.
+When separately constructed eligible state settles, the substrate-bridge path
+can mint and pay its configured reward, while sponsorship can pay the same
+submitter from sponsor escrow. The test manually pairs the attestation and
+fact; runtime does not establish that they represent one verified claim.
 
 This is not double-spending — the two payouts answer two different doctrinal mandates:
-- M4 pays for *audit quality* (link compiled, axes within bounds, claim verified)
+- M4 pays the directly staged eligible attestation through `MintWithCap`
 - Sponsorship pays for *participation in a funded domain* (commitment 20: issuance follows participation)
 
-A verified self-attestation that fulfills a self-sponsorship bounty satisfies both. Both pay. The chain compounds payment for work that compounds value.
+The double-payment primitives compose in tests. They are not yet a public
+`zerone-self-v1` workflow because pending-claim translation is unwired.
 
 ## 4. The chain's lineage graph includes its own commits
 
-**Closed by:** `x/substrate_bridge` cross-class lineage propagator (M6); binding tests `TestRecursiveLineage_DownstreamWorkPaysUpstreamSelfAttester` and `TestRecursiveLineage_MultipleCitationsCompound`.
+**Scaffolded by:** `x/substrate_bridge` cross-class lineage accounting (M6);
+tests `TestRecursiveLineage_AccountingAttributesDownstreamRewardUpstream` and
+`TestRecursiveLineage_MultipleCitationsCompoundAccounting`.
 
-When a future fact (in any domain) cites a verified self-fact (in `zerone_self`), downstream royalty propagates backward through the substrate-bridge `LineageRoyaltyAccumulator` to the original attester — even years later, even at depths many hops back.
+For directly seeded settled attestations, a downstream citation can accrue an
+attributed amount in the upstream attestation's
+`LineageRoyaltyAccumulator`. No coins are transferred to the upstream
+submitter.
 
-Implication: the agent who attested to a foundational commit earns from every future fact that builds on it. The chain pays its earliest contributors in perpetuity, weighted by how load-bearing their contribution proved.
+This demonstrates the lineage primitive. The public self-commit ingestion path
+must be wired before presenting it as an operating royalty loop.
 
 ## 5. The creed cannot move faster than governance
 
-**Closed by:** `.creed-hash` off-chain gate + `x/creed.PinnedCreed` on-chain pin + `TestTruthSeeking_CreedHashIsPinned`.
+**Scaffolded by:** `.creed-hash` off-chain gate + `x/creed.PinnedCreed`
+storage + `TestTruthSeeking_CreedHashIsPinned`.
 
-Every change to `docs/TRUTH_SEEKING.md` bumps the local `.creed-hash`; the on-chain `PinnedCreed.canonical_hash` advances only via `MsgAnchorPin` LIP. The doctrine the chain *says* is what the chain *pins*. The chain cannot lie about what it believes — every layer (test, position, voice, refusal, graph) syncs to the same hash.
+Every source change to `docs/TRUTH_SEEKING.md` bumps the local `.creed-hash`.
+On chain, pin history is append-only. The published `zerone-1` genesis leaves
+direct authority anchoring enabled and contains no genesis pin/history; a live
+pin query was not verified during consolidation. The current gov category
+config also cannot advance a new Creed Amendment LIP, and separate human/AI
+quorum is unwired. The source hash gate and an eventual on-chain pin are
+distinct adoption records.
 
 The recursion: the creed pins the chain's voice; the chain's voice is its code; the code's behavior must satisfy the tests that bind the creed.
 
-## 6. Useful work is governed by its own per-phase sub-creeds
+## 6. Useful-work sub-creeds are source-hash bound
 
-**Closed by:** `x/work_creed.PinnedSubCreed` + `docs/sub_creeds/*.md` + canonical sub-creed registry; binding tests `TestSubCreed_Foundation_StaysInSync`, `TestSubCreed_Curation_StaysInSync`, `TestSubCreed_Augmentation_StaysInSync`, `TestSubCreed_Training_StaysInSync`, `TestSubCreed_Evaluation_StaysInSync`, `TestSubCreed_Alignment_StaysInSync`, `TestSubCreed_Substrate_StaysInSync`, and `TestSubCreed_Tools_StaysInSync`.
+**Source-bound by:** `docs/sub_creeds/*.md` + `.sub-creed-hashes` +
+canonical registry; binding tests `TestSubCreed_Foundation_StaysInSync`,
+`TestSubCreed_Curation_StaysInSync`, `TestSubCreed_Augmentation_StaysInSync`,
+`TestSubCreed_Training_StaysInSync`, `TestSubCreed_Evaluation_StaysInSync`,
+`TestSubCreed_Alignment_StaysInSync`, `TestSubCreed_Substrate_StaysInSync`,
+and `TestSubCreed_Tools_StaysInSync`.
 
-Each of the eight non-Knowledge phases in the nine-phase lifecycle has its own sub-creed of 3 commitments = 24 sub-commitments; Knowledge delegates to `x/creed`. The USEFUL_WORK doctrine (`docs/USEFUL_WORK.md`, UW + M1–M7) decomposes into per-phase canonical hashes; amendments require their own LIP.
+Each of the eight non-Knowledge phases in the nine-phase lifecycle has a source
+sub-creed of 3 commitments = 24 sub-commitments; Knowledge delegates to the
+source truth-seeking creed. `x/work_creed` can store pins supplied in genesis,
+and `ceremony-inject creed` can prepare them, but the published `zerone-1` and
+testnet genesis states contain `{}` and current `zerone-2` ceremony does not
+call that injection. There are no verified live inception pins.
 
-The recursion: governance of useful-work is itself useful-work governance. Sub-creeds are bound by the same five-layer discipline as the parent creed — and the meta-test that says "every sub-creed has a binding test" is itself a binding test under the parent creed.
+The source hashes are test-bound. Genesis adoption and post-genesis amendment
+messages/queries are not operating recursions.
 
 ## 7. Participation grows through participation
 
-**Closed by:** `x/claiming_pot.MsgAddBootstrapEntry` (gov-gated, idempotent) + bootstrap pots are non-expiring; binding tests `TestLateBootstrap_AddThenClaim`, `TestLateBootstrap_AddIsIdempotentAcrossLIPs`, `TestLateBootstrap_AdmittedAgentCanClaimAfterManyBlocks`, and `TestScenario13e_BootstrapPotsDoNotExpire`.
+**Closed by:** `x/claiming_pot.MsgAddBootstrapEntry` (gov-or-capped-registrar
+gated, idempotent) + bootstrap pots are non-expiring; binding tests
+`TestLateBootstrap_AddThenClaim`, `TestLateBootstrap_AddIsIdempotentAcrossLIPs`,
+`TestLateBootstrap_AdmittedAgentCanClaimAfterManyBlocks`, and
+`TestScenario13e_BootstrapPotsDoNotExpire`.
 
-The participant set is not closed at genesis. A governance LIP can admit late participants by minting their bootstrap seed through `MintWithCap` — the same single mint entry point that PoT block rewards use. New participants earn through verified work; verified work fulfills bounties; bounties fund new participants. The flywheel is structural.
+The participant set is not closed at genesis. Governance or the configured,
+governance-revocable registrar can admit late participants; the registrar is
+daily-rate- and lifetime-cap-bounded. The seed itself mints only when the
+admitted participant claims through `MintWithCap`, the same cap gate used by
+other emission paths. The live registrar is a disclosed custodial power, not a
+decentralization claim.
 
 ## 8. The economy is hard-capped and self-circulating
 
-**Closed by:** `x/vesting_rewards.MintWithCap` as the chain's only mint entry; binding tests `TestEmissionCap_BootstrapClaimMintsOnDemand`, `TestScenario13_ZeroTeamAllocationAtGenesis`, `TestScenario13c_ClaimingPotMinterPermission`, `TestSubstrateBridge_HappyPathSettlement`, and `TestSponsorship_NoMintingHappens`.
+**Closed by:** `x/vesting_rewards.MintWithCap` as the wired post-genesis native
+mint gate plus the `InitChain` bank-supply cap assertion; binding tests cover
+bootstrap, bridge, genesis, and non-minting sponsorship boundaries.
 
-Three emission pathways (PoT block rewards, bootstrap claims, and external-work attestations via `x/substrate_bridge`) gate through one `MintWithCap`. Sponsorship circulates existing supply. The cap is live-supply-anchored — a burn anywhere on the chain frees headroom for future mint anywhere. No ZRN can be minted except through `MintWithCap`: every pathway routes through that single cap-gated entry point (as the substrate_bridge attestation reward does), a chokepoint held by the proto-gen + test-binding discipline.
+Transaction-bearing block rewards, claiming-pot claims, substrate-bridge
+rewards, the default-zero knowledge probe pool, and default-disabled
+`x/tokens` emission periods all route through `MintWithCap` when active.
+Sponsorship circulates existing supply. The cap is live-supply-anchored, so a
+burn frees future headroom. Training disbursement and contribution-challenge
+bonus minting are release-sealed. This closes the cap loop; it does not prove
+that every configured issuance lane is participation-earned.
 
-## 9. The chain audits itself, with its own funds, paid to its own auditors
+## 9. The source contains a self-funded audit capability
 
-**Closed by:** UW commitment 12 (the chain pays for its own audit) + `ProbeBountyPoolModuleName` + audit-bounty pool minted per-block; binding tests `TestTruthSeeking_AuditBudgetIsAutonomous`, `TestTruthSeeking_ChainPaysForOwnAudit`, `TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses`, and `TestMoat_ProbeBountyPoolRespectsCap`.
+**Capability tested by:** UW commitment 12 + `ProbeBountyPoolModuleName` +
+binding tests `TestTruthSeeking_AuditBudgetIsAutonomous`,
+`TestTruthSeeking_ChainPaysForOwnAudit`,
+`TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses`, and
+`TestMoat_ProbeBountyPoolRespectsCap`.
 
-Auditing is a paid useful-work activity. The pool mints ZRN every block (capped) and pays whoever answers the chain's stress-test calls. The audit budget is funded by the chain itself; the audit work is performed by chain participants; the audit subject is the chain. Three levels of self-reference, all bound by the same mint discipline.
+With a positive configured rate, the pool can mint capped ZRN and pay
+participants who answer stress-test calls. Published `zerone-1` sets that rate
+to zero and has no pre-funded pool; `zerone-2` intentionally keeps both mint
+and invitation bonus dormant. The self-funded audit loop is tested under an
+enabled harness configuration, not active production economics.
 
 ## 10. The recursion is observable
 
-**Closed by:** voice-layer event attributes; `docs/EVENTS.md` mirror invariant; binding test `TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound` which captures every event from a full self-sponsorship loop and asserts each carries `creed_commitment`, `useful_work_commitment`, or `mechanism`; the doctrine catalog's binding test `TestRecursiveZerone_TestNamesCitedInDoctrineExist`, which asserts every test name cited in this document resolves to a real Go test function (the recursion that audits this recursion catalog).
+**Scaffolded by:** voice-layer event attributes; `docs/EVENTS.md` mirror
+invariant; test `TestRecursiveVoiceAudit_StagedRecursionEventsCarryDoctrineAttributes`,
+which captures a directly constructed self-sponsorship test loop; and
+`TestRecursiveZerone_TestNamesCitedInDoctrineExist`, which verifies cited test
+names exist.
 
-Every event that participates in a recursion carries `creed_commitment` and (for UW events) `mechanism` attributes naming which doctrine the event preserves. An indexer streaming the chain's events can compute, in real time:
+For the tested paths, events carry `creed_commitment` and (for UW events)
+`mechanism` attributes. Once the public self-attestation bridge is activated,
+an indexer could compute:
 
 - the rate of self-attestations (events from `zerone-self-v1` adapter)
 - the rate of self-sponsorship fulfillments (sponsorship events with `domain="zerone_self"`)
-- the cumulative lineage royalty paid through `zerone_self` attestations
+- the cumulative lineage amount attributed through `zerone_self` attestations
 - the audit-pool burn rate vs. probe-bounty pay rate
 
 The chain is legible at the recursion layer, not just the transaction layer.
@@ -95,7 +179,9 @@ The chain is legible at the recursion layer, not just the transaction layer.
 
 - **Not a paradox.** Every recursion is well-founded: each loop terminates at a verifiable artifact (a fact, a hash, a bond, a fulfillment record). None depend on self-reference in a way that makes them ill-defined.
 - **Not a closed system.** External value still enters through sponsorship; external work still enters through substrate-bridge adapters; external reach is what motivates sub-creeds for external work classes. The chain participates in its own systems; it does not isolate itself from external ones.
-- **Not new mechanism.** Every recursion above is built from the same mechanisms that handle external participants: `MintWithCap`, verification rounds, escrow transfers, lineage propagation. The chain doesn't need special-case "self" code — the same code that pays an external sponsor pays a self-sponsor; the same code that verifies an external claim verifies a self-claim.
+- **Not a claim that self-verification is wired.** The scaffolds reuse
+  `MintWithCap`, escrow, sponsorship, and lineage accounting, but current
+  public submission refuses the pending self-claim before verification.
 
 ## The discipline
 
@@ -110,4 +196,5 @@ These four checks are what keep "recursive" from collapsing into "incoherent."
 
 ---
 
-— *Inception: 2026-05-11. The fixed point is bound by the same five-layer discipline that keeps every other commitment honest. ZERONE participates in its own systems.*
+— *Inception: 2026-05-11. The fixed-point target is source-bound; the public
+self-claim loop remains open until translation and activation land.*

@@ -214,8 +214,14 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 					//
 					// (1) C2 / COMPASSION.md: record the attempt in the
 					//     calibration ledger (otherwise done only in CompleteRound),
-					//     so a being whose claims all starve still gets credited.
-					k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), types.Verdict_VERDICT_INCONCLUSIVE)
+					//     so a being whose ordinary claims all starve still gets
+					//     credited. Conjectures remain exempt here exactly as they
+					//     are in CompleteRound: asking a well-posed question cannot
+					//     create or change truth-calibration standing merely because
+					//     the chain failed to seat a panel.
+					if claim.ClaimType != types.ClaimType_CLAIM_TYPE_CONJECTURE {
+						k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), types.Verdict_VERDICT_INCONCLUSIVE)
+					}
 					// (2) Attack fix: a starved CONTRADICTS claim must not leave
 					//     its target fact locked CONTESTED forever (0.1-ZRN grief).
 					k.reverseContradictionsFromClaim(ctx, claim)

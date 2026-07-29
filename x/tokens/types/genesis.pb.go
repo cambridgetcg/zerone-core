@@ -69,9 +69,12 @@ func (x *GenesisState) GetParams() *Params {
 // Params holds the tokens module parameters.
 // All fields default to zero (module is a stub at genesis).
 type Params struct {
-	state               protoimpl.MessageState `protogen:"open.v1"`
-	EmissionEpochBlocks uint64                 `protobuf:"varint,1,opt,name=emission_epoch_blocks,json=emissionEpochBlocks,proto3" json:"emission_epoch_blocks,omitempty"` // blocks per emission epoch (0 = disabled)
-	DefaultFeeBps       string                 `protobuf:"bytes,2,opt,name=default_fee_bps,json=defaultFeeBps,proto3" json:"default_fee_bps,omitempty"`                    // default swap fee in BPS (unused, reserved)
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Consensus activation latch for native uzrn EmissionPeriod creation and
+	// processing. 0 disables both. A nonzero value enables the per-block periods;
+	// its numeric epoch cadence is otherwise reserved in current execution.
+	EmissionEpochBlocks uint64 `protobuf:"varint,1,opt,name=emission_epoch_blocks,json=emissionEpochBlocks,proto3" json:"emission_epoch_blocks,omitempty"`
+	DefaultFeeBps       string `protobuf:"bytes,2,opt,name=default_fee_bps,json=defaultFeeBps,proto3" json:"default_fee_bps,omitempty"` // default swap fee in BPS (unused, reserved)
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }

@@ -24,10 +24,9 @@ type Keeper struct {
 	bankKeeper      types.BankKeeper
 	stakingKeeper   types.StakingKeeper
 	distrKeeper     types.DistributionKeeper // optional; honors withdraw-address mappings for reward payouts
-	knowledgeKeeper types.KnowledgeKeeper    // optional; gates block reward by verification rate (thesis claim 1)
+	knowledgeKeeper types.KnowledgeKeeper    // optional; scales block reward by survived-challenge rate
 
 	authority string
-
 
 	// blockTxCount is set by PotPreBlocker each block with the user transaction count
 	// (excluding vote extension injection pseudo-txs). Read by BeginBlock to determine
@@ -49,12 +48,12 @@ func NewKeeper(
 	authority string,
 ) Keeper {
 	return Keeper{
-		cdc:          cdc,
-		storeService: storeService,
-		bankKeeper:   bk,
+		cdc:           cdc,
+		storeService:  storeService,
+		bankKeeper:    bk,
 		stakingKeeper: sk,
-		authority:    authority,
-		blockTxCount: new(int),
+		authority:     authority,
+		blockTxCount:  new(int),
 	}
 }
 
@@ -74,9 +73,8 @@ func prefixEndBytes(prefix []byte) []byte {
 	return nil
 }
 
-// SetKnowledgeKeeper wires the knowledge keeper so block rewards can be
-// coupled to verification throughput. Nil-safe: when unset, block rewards
-// fall back to the pure decay schedule.
+// SetKnowledgeKeeper wires the survived/(survived+disproven) signal used to
+// scale block rewards. Nil-safe: when unset, rewards use the decay schedule.
 func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) {
 	k.knowledgeKeeper = kk
 }
@@ -217,8 +215,9 @@ func (k Keeper) isFounderShareActive(ctx sdk.Context, params *types.Params) bool
 	if params.FounderShareBps == 0 || params.FounderAddress == "" {
 		return false
 	}
-	// NOTE: GovernanceActivationHeight sunset has been removed.
-	// The founder share is permanent and governance-immune.
+	// GovernanceActivationHeight no longer creates an automatic sunset.
+	// Governance may still lower, zero, or restore FounderShareBps within the
+	// founding cap; an already-set address remains immutable.
 	return true
 }
 
@@ -255,7 +254,8 @@ func (k Keeper) SetCategoryConfig(ctx sdk.Context, cfg *types.CategoryConfig) {
 	}
 }
 
-// GetTotalMinted returns the total ZRN minted so far (in uzrn).
+// GetTotalMinted returns the shared MintWithCap accounting ledger. It begins
+// from imported InitialFundBalance and excludes direct bank/genesis minting.
 func (k Keeper) GetTotalMinted(ctx sdk.Context) *big.Int {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := store.Get(types.TotalMintedKey)
@@ -269,7 +269,7 @@ func (k Keeper) GetTotalMinted(ctx sdk.Context) *big.Int {
 	return total
 }
 
-// SetTotalMinted stores the total ZRN minted so far (in uzrn).
+// SetTotalMinted stores the shared MintWithCap accounting ledger (in uzrn).
 func (k Keeper) SetTotalMinted(ctx sdk.Context, amount *big.Int) {
 	store := k.storeService.OpenKVStore(ctx)
 	if err := store.Set(types.TotalMintedKey, []byte(amount.String())); err != nil {
@@ -282,21 +282,18 @@ func (k Keeper) SetTotalMinted(ctx sdk.Context, amount *big.Int) {
 // bank supply (not cumulative totalMinted) so burned tokens free headroom
 // for future minting.
 //
-// This is the chain's single cap-gated mint entry point. All three emission
-// pathways gate through it:
+// This is the wired application's single cap-gated native mint entry point.
+// Current callers include:
 //
-//   - PoT block rewards: x/vesting_rewards calls MintWithCap with its own
-//     module name (recipientModule = vesting_rewards).
-//   - Bootstrap claims: x/claiming_pot calls MintWithCap with its module
-//     name (recipientModule = claiming_pot), then sends the minted coins
-//     to the claimer in the same transaction.
+//   - transaction-bearing block rewards from x/vesting_rewards;
+//   - bootstrap and legacy general-pot claims from x/claiming_pot;
 //   - External-work attestations: x/substrate_bridge calls MintWithCap with
-//     its module name (recipientModule = substrate_bridge), then sends the
-//     settled reward to the attestation submitter.
+//     its audit-bounty pool module, then settles the reward to the submitter.
+//   - the default-disabled x/knowledge probe pool and x/tokens emission
+//     periods when governance activates their nonzero latches.
 //
-// Doctrine: docs/tokenomics/GENESIS.md (zero team allocation, three
-// participation-gated emission pathways). The function exists so the cap
-// is enforced once and only once across the chain.
+// The function exists so the post-genesis cap is enforced once across native
+// mint callers; InitChainer independently rejects over-cap genesis supply.
 func (k Keeper) MintWithCap(ctx sdk.Context, recipientModule string, amount *big.Int) (*big.Int, error) {
 	if amount.Sign() <= 0 {
 		return new(big.Int), nil
@@ -354,6 +351,23 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 			k.SetVestingSchedule(ctx, schedule)
 		}
 	}
+	// Backward-compatible genesis without explicit indexes derives them from
+	// schedule replay. New exports restore the exact live mapping afterward.
+	for _, index := range gs.ClaimScheduleIndexes {
+		if index != nil {
+			k.SetClaimScheduleIndex(ctx, index.ClaimId, index.VestingId)
+		}
+	}
+	for _, record := range gs.ClawbackRecords {
+		if record != nil {
+			k.SetClawbackRecord(ctx, record)
+		}
+	}
+	for _, distribution := range gs.BlockRewardDistributions {
+		if distribution != nil {
+			k.SetBlockRewardDistribution(ctx, distribution)
+		}
+	}
 
 	totalMinted := new(big.Int)
 	if gs.Params != nil && gs.Params.InitialFundBalance != "" && gs.Params.InitialFundBalance != "0" {
@@ -370,9 +384,12 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	totalMinted := k.GetTotalMinted(ctx)
 	params.InitialFundBalance = totalMinted.String()
 	return &types.GenesisState{
-		Params:           params,
-		CategoryConfigs:  k.GetAllCategoryConfigs(ctx),
-		VestingSchedules: k.GetAllActiveVestingSchedules(ctx),
+		Params:                   params,
+		CategoryConfigs:          k.GetAllCategoryConfigs(ctx),
+		VestingSchedules:         k.GetAllVestingSchedules(ctx),
+		ClawbackRecords:          k.GetAllClawbackRecords(ctx),
+		BlockRewardDistributions: k.GetAllBlockRewardDistributions(ctx),
+		ClaimScheduleIndexes:     k.GetAllClaimScheduleIndexes(ctx),
 	}
 }
 

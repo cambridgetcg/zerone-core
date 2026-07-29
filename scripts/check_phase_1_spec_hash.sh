@@ -3,11 +3,10 @@
 # check_phase_1_spec_hash.sh — verify the Phase 1 useful-work
 # orchestrator design spec has not drifted from .phase-1-spec-hash.
 #
-# Mirror of check_creed_hash.sh applied to a specification document.
-# The Phase 1 spec is itself a Contribution under PIPELINE_IMPROVEMENT/
-# SUBSTRATE — the chain pays for its own design. Hash-anchoring the
-# spec extends the same off-chain enforcement the doctrines receive
-# to the design artifacts that decide the chain's behaviour.
+# Mirror of check_creed_hash.sh applied to a historical specification
+# document. Hash-anchoring the Phase 1 spec extends the same off-chain
+# enforcement the doctrines receive to a design artifact that shaped the
+# source. It does not create an on-chain Contribution record.
 #
 # UW: ZERONE is recursive — the chain's design is among the work the
 # chain pays for, and the spec is hash-bound the same way the doctrines
@@ -60,9 +59,9 @@ Actual (computed):          $ACTUAL
 If you intentionally changed the spec, update $HASH_FILE to:
   $ACTUAL
 
-The spec is itself a Contribution (PIPELINE_IMPROVEMENT/SUBSTRATE).
-The hash bump is the visible signal that the chain's own design has
-shifted, prompting full diff review.
+The spec is protected by repository-local hash review; this does not imply an
+on-chain Contribution record. The hash bump is the visible signal that the
+chain's design record has shifted, prompting full diff review.
 EOF
   exit 1
 fi

@@ -56,7 +56,7 @@ activity.
 ### Generated REST and transaction coverage
 
 All generated custom query gateways are registered. The canonical generated
-Swagger document currently contains 214 paths and 438 definitions:
+Swagger document currently contains 215 paths and 440 definitions:
 [`docs/swagger-ui/swagger.json`](../swagger-ui/swagger.json).
 
 The repository TypeScript package contains protobuf/direct-signing codecs for
@@ -124,16 +124,17 @@ The validator currently pins Cosmos SDK 0.50 and IBC-Go 8. Their migration must
 be a separate, rehearsed consensus program with store/module migrations,
 relayer compatibility testing, recovery practice, and an explicit height.
 
-## Ranked next integrations
+## Implemented TypeScript SDK boundary
 
-- typed protobuf/direct-signing codecs for all 166 request messages in
-  Zerone's 20 `Msg` services;
-- a registry that composes with CosmJS's standard Cosmos message types;
-- generic CAIP-2 and CAIP-10 parsing plus the Cosmos chain-reference profile;
-- an explicit Zerone network descriptor and checksum-aware `zrn` account IDs;
-- a strict offline consumer for Zerone's unsigned in-toto provenance profile;
-  and
-- a separate validator for the opaque `did:zrn` labels accepted by `x/auth`.
+- Typed protobuf/direct-signing codecs cover all 166 request messages in
+  Zerone's 20 `Msg` services.
+- The registry composes with CosmJS's standard Cosmos message types.
+- CAIP-2 and CAIP-10 parsing implements the Cosmos chain-reference profile.
+- The Zerone network descriptor provides checksum-aware `zrn` account IDs.
+- A strict offline consumer handles Zerone's unsigned in-toto provenance
+  profile.
+- A separate validator handles the opaque `did:zrn` labels accepted by
+  `x/auth`.
 
 Generation is reproducible from local protobuf inputs. CI regenerates the
 client, checks source and output digests, rejects tracked or untracked drift,

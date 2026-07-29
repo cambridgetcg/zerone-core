@@ -1,16 +1,40 @@
 # Useful Work — the chain's metabolic identity
 
-> Useful work is how ZERONE grows itself. This document pins one commitment, and everything that follows is mechanism in service of it.
+> Useful work is how ZERONE grows itself. This document source-pins one
+> commitment, and everything that follows is mechanism in service of it.
 
-Truth-seeking is what the chain *believes* (`docs/TRUTH_SEEKING.md`). ToK substrate is what the chain *sells* outward (`docs/TOK_SUBSTRATE.md`). **Useful work is how ZERONE grows itself.** The three doctrines bind through the same five-layer enforcement (test, position, voice, refusal, graph) and are mutually constitutive: truth-seeking produces the verified knowledge graph; ToK names that graph as the headline product; useful work pays for the compute that makes the graph richer, the verifications stronger, the reward attribution sharper, the chain itself more capable.
+**Status:** source doctrine and target architecture with partial bindings. There
+is no `x/work` module, universal work-class lifecycle, deployed recursion-weight
+scorer, or chain-wide reward formula. `x/substrate_bridge` currently supplies a
+bounded, caller-declared six-axis shape, stake escrow, and attestation state
+machine for registered adapters; it does not execute an adapter compiler or
+apply the M4 formula. Other implemented issuance paths—including ordinary
+transaction-bearing block rewards and authority-created claiming pots—do not
+prove a useful-work substrate link. Repository hashes and invariant scaffolds
+bind this document at source level; published genesis contains no useful-work
+creed pin.
 
-**We speak through intentions.** Every reward path either expresses UW or contradicts it. A trainer asking "what does this chain pay for?" should get one answer, in one voice, from every layer.
+Truth-seeking is what the chain *believes* (`docs/TRUTH_SEEKING.md`). ToK
+substrate is what the chain *aims to expose* outward (`docs/TOK_SUBSTRATE.md`).
+**Useful work is how ZERONE grows itself.** The three doctrines describe a
+shared five-layer target (test, position, voice, refusal, graph). Current
+source implements only part of that target.
+
+**We speak through intentions.** The target is for useful-work reward paths to
+express UW in one inspectable voice. The current runtime has legacy and
+general-purpose issuance paths outside that target, so this document must not
+be read as activation evidence.
 
 ---
 
 ## Inception
 
-This doctrine is declared at inception, 2026-05-10. Phase 0 ships zero behavioral bindings; the Go-side canonical structure (`x/creed/types/useful_work_creed.go`) and the cross-stack invariant harness (`tests/cross_stack/useful_work_invariants_test.go`) exist as the contract that subsequent phases must satisfy.
+This doctrine was declared at inception, 2026-05-10. Its Go-side canonical
+structure (`x/creed/types/useful_work_creed.go`) and cross-stack invariant
+harness (`tests/cross_stack/useful_work_invariants_test.go`) record the source
+contract that subsequent implementations should satisfy. The later
+`x/substrate_bridge` module implements some compatible primitives, but no
+release has completed the universal Phase 1 architecture described below.
 
 ---
 
@@ -18,7 +42,15 @@ This doctrine is declared at inception, 2026-05-10. Phase 0 ships zero behaviora
 
 **UW. ZERONE is recursive.**
 
-Useful work is recognized AND compensated by the degree to which it expands ZERONE's own ability to absorb, verify, classify, and reward more useful work. **The dominant share of protocol-issued ZRN flows along the inward loop**: non-recursive verified work receives only a base reimbursement; recursion-weight is the multiplier that captures the rest. The chain pays for what makes the chain stronger. Outward utility is welcome — priced and settled on the agenttool platform layer, with on-chain fee routing through `x/vesting_rewards` (x/billing retired in the 2026-07 slim cut) — but **protocol-issued ZRN follows the inward loop**. The chain is not an extracting marketplace; it is an autocatalytic substrate that pays for its own amplification.
+The doctrine proposes that useful work be recognized and compensated by the
+degree to which it expands ZERONE's own ability to absorb, verify, classify,
+and reward more useful work. In the target design, non-recursive verified work
+receives only a base reimbursement and recursion-weight is the multiplier. The
+current issuance mix does not yet establish that dominance: block rewards,
+claiming pots, and other implemented routes use their own admission rules.
+Outward utility may be priced on the agenttool platform layer, with applicable
+on-chain fees routed through `x/vesting_rewards` (`x/billing` was retired in
+the 2026-07 slim cut).
 
 **What would break it:**
 - A work class that earns protocol reward without proving recursive contribution
@@ -47,13 +79,19 @@ The legitimate vectors useful work can compound into. A work artifact's **recurs
 | **Tooling** | Agents/models/tools that compound back | LLMs trained on ToK that audit ToK; counterexample-generators; verification assistants |
 | **Interface** | The chain's outward absorption surface | CLI surface, gRPC endpoints, ToK bundle formats, trainer SDKs |
 
-The six-axis projection is fixed by this doctrine. Adding or removing an axis is a doctrine amendment (gov-gated + Creed Council quorum). Per-axis weight coefficients and per-axis scoring formulas are governance-tunable parameters.
+The six-axis projection is fixed by this source doctrine. Adding or removing
+an axis requires a reviewed doctrine amendment. Creed Council quorum is a
+future design—the current LIP tally does not enforce separate council quorum,
+and source publication is not an on-chain amendment.
 
 ---
 
 ## The seven mechanisms
 
-All mechanisms derive from UW. They are not co-equal commitments; they are the structural details of how UW is enforced. Mechanisms can evolve through bound deliverables; UW is fixed and indivisible.
+All mechanisms derive from UW. They are target contracts, not a claim that
+each mechanism is currently enforced. They are not co-equal commitments;
+they describe the intended structure by which UW can be implemented and
+audited. Current implementation boundaries are called out where they exist.
 
 ### M1. Stake-backed claim
 
@@ -63,7 +101,12 @@ The slash gradient is graduated by failure stage so honest mistakes don't carry 
 
 ### M2. Substrate-link mandate
 
-Every reward path requires a deterministic, re-derivable link to the ToK substrate (a snapshot root or a verified-fact citation graph). The link is the precondition; recursion-weight is the multiplier. Compute without a link earns nothing regardless of how recursively useful it might claim to be. Generalizes TC2 (every view is graph-pinned) from training-resource extraction to all useful-work classes.
+In the target useful-work architecture, each covered reward path requires a
+deterministic, re-derivable link to the ToK substrate (a snapshot root or a
+verified-fact citation graph). The link is the precondition and
+recursion-weight is the multiplier. `x/substrate_bridge` currently validates
+the submitted link shape and source reference, but it does not re-run an
+adapter compiler; other issuance paths are not subject to this mandate.
 
 ### M3. Class-specific verification under shared lifecycle
 
@@ -110,7 +153,9 @@ W = Σ (axis_weight_i × axis_score_i)
 - Axis weights are governance-tunable normalization coefficients; the resulting `W` is bounded by an independent governance-set `max_cap` parameter.
 - The chain stores per-axis decomposition on the attestation record so trainers and auditors can verify why a given artifact earned what it earned. Forward-only: scoring rationale is append-only.
 
-Phase 1 ships the registry, the formula's structural shape, and identity scorers (axis_score = 0 by default). Phase 2+ pathway plans each ship per-axis scorers for their work class.
+A future Phase 1 is intended to ship the registry, the formula's structural
+shape, and identity scorers (`axis_score = 0` by default). Later pathway plans
+would add per-axis scorers for each work class. These phases have not shipped.
 
 Per-axis scorers, illustrative shape (non-binding examples; each registered class supplies its own):
 
@@ -131,41 +176,56 @@ Built atop TC6 (lineage flows back) extended cross-class. M6 strictly generalize
 
 ### M7. The chain pays for the audit of its own useful work
 
-A `useful_work_audit_bounty_pool` mints uzrn per block (Minter-permissioned, rate-capped). Anyone can stake to challenge a useful-work attestation; successful challenges pay from the pool. Mirror of `probe_bounty_pool` from commitment 12 — the chain pays for its own correction.
+Source registers `useful_work_audit_bounty_pool` and uses it as the transient
+recipient for cap-gated attestation rewards. It does not run an independent
+per-block audit mint. The published network's separate knowledge
+`probe_bounty_mint_per_block` is zero. A standing useful-work challenge bounty
+is therefore a design target, not active autonomous funding.
 
 ---
 
 ## How the commitment echoes
 
-Same discipline as `TRUTH_SEEKING.md` and `TOK_SUBSTRATE.md`. Drift in one layer fails CI.
+Same intended discipline as `TRUTH_SEEKING.md` and `TOK_SUBSTRATE.md`.
+Current CI catches source-hash/registry drift and selected bridge behavior,
+not universal five-layer enforcement.
 
 ### Test layer
 
-`tests/cross_stack/useful_work_invariants_test.go` — one scenario per mechanism plus the meta-test `TestUsefulWork_DoctrineAndContractStayInSync`. Tests progressively land as Phase 1+ bindings ship.
+`tests/cross_stack/useful_work_invariants_test.go` currently contains one
+skipped scaffold per mechanism plus the active source-consistency meta-test
+`TestUsefulWork_DoctrineAndContractStayInSync`. It does not prove that M1–M7
+are implemented.
 
 Phase 0 (this doctrine) ships:
 - The test file with skeleton `TestUW_*` functions per mechanism, each containing `t.Skip("Phase 1 binding pending")`
-- The meta-test that fails if `docs/USEFUL_WORK.md` content hash drifts from `.creed-hash` ledger
-- Hash anchored via existing `x/creed` module (Phase 0 doesn't add new state, only registers UW under the creed registry)
+- The meta-test that fails if `docs/USEFUL_WORK.md` content drifts from the
+  repository's `.useful-work-hash`
+- A canonical source registration in `x/creed/types`; this is not an on-chain
+  pin, and published genesis leaves both creed registries empty
 
 ### Position layer
 
-- `x/work/doc.go` (Phase 1) declares UW + M1–M7
-- Each existing module that registers as a work class amends its `doc.go` to declare which mechanisms it implements (e.g., `x/knowledge/doc.go` will say *"implements M2 via ToK manifest pin; M3 via commit-reveal-aggregate; M4 via lineage_share"*)
-- The position layer is where each work class declares its allegiance — concrete and per-module
+- No `x/work` package exists today.
+- `x/substrate_bridge/doc.go` describes the narrower attestation boundary it
+  implements; source registries under `x/creed/types` describe the doctrine.
+- Future work-class modules should declare exactly which mechanisms they
+  implement, without implying chain-wide coverage.
 
 ### Voice layer
 
-Every reward emission carries `useful_work_commitment="UW"` attribute on top of existing attributes.
+Current `x/substrate_bridge` submission events carry
+`useful_work_commitment="UW"` and a mechanism list. This attribute is not
+present on every reward emission.
 
-New events introduced in Phase 1:
+Proposed events for a future universal Phase 1:
 - `useful_work_attested` — commit phase succeeded; substrate-link recorded. Attributes: `class_id`, `attestation_id`, `substrate_link_root`, `useful_work_commitment="UW"`
 - `useful_work_settled` — verify+settle phase complete; reward computed and disbursed. Attributes: `class_id`, `attestation_id`, `reward_uzrn`, `mechanism="M4"`, `useful_work_commitment="UW"`
 - `recursion_weight_computed` — per-axis decomposition exposed. Attributes: `axis_substrate`, `axis_verification`, `axis_classification`, `axis_attribution`, `axis_tooling`, `axis_interface`, `total_weight`, `mechanism="M5"`
 
 ### Refusal layer
 
-Errors that block reward payment must name UW + the violated mechanism:
+Proposed universal refusal messages name UW and the violated mechanism:
 - *"Reward refused — substrate-link absent (UW + M2)"*
 - *"Reward refused — recursion-weight zero across all six axes (UW + M5)"*
 - *"Class registration refused — verification protocol missing (UW + M3)"*
@@ -189,17 +249,28 @@ Each mechanism cross-references the commitment(s) it operationalizes:
 - M6 ← TC6 (extended cross-class)
 - M7 ← commitment 12 (audit-bounty mirror)
 
-Cross-doctrine integrity is enforced by extending Plan 5 of the ToK series (`TestToKSubstrate_DoctrineAndContractStayInSync`) to include USEFUL_WORK.md hash and per-mechanism binding presence.
+Cross-doctrine behavioral integrity remains future work. Current source-hash
+checks detect document drift, while the mechanism tests above remain skipped
+until real bindings replace them.
 
 ---
 
 ## What this is not
 
-- **Not aspiration.** Once Phase 1 binds, every claim of useful-work reward must derive from the formula and prove its substrate-link. A failing invariant test is a broken commitment.
+- **Not activation evidence.** Source hashes and skipped mechanism scaffolds do
+  not establish runtime enforcement. When a mechanism is implemented, its
+  non-skipped behavioral test must prove the boundary it claims.
 - **Not a marketplace overlay.** Useful work is not a configurable feature. It is the chain's metabolic identity. Disabling protocol reward for non-recursive work is doctrinal, not parameter.
-- **Not anti-extraction.** Outward utility is welcome and price-able through `x/billing`. Trainers paying for ToK bundles still flow value to the chain. The doctrine commits only that **protocol-issued ZRN follows the inward loop**.
+- **Not anti-extraction.** Outward utility may be priced on the agenttool
+  platform layer. The former `x/billing` module is retired; no planned trainer
+  payment is presumed to flow on chain. The doctrine's narrower source target
+  is that protocol-issued ZRN follows implemented participation paths.
 - **Not a co-equal commitment with truth-seeking or ToK.** The three doctrines are mutually constitutive. Truth-seeking produces; ToK sells; useful work grows. Reading one without the other two is reading a third of the creed.
-- **Not complete.** Phase 1 binds 6 of 7 mechanisms structurally; M5 per-axis scorers and M6 recursion-amplified lineage extend incrementally. **The single commitment UW is fixed and indivisible**; its mechanisms evolve through bound deliverables only. New work classes do not require new commitments — they register under M3.
+- **Not complete.** The universal Phase 1 registry, formula, scorers, and
+  refusal/event surface have not shipped. `x/substrate_bridge` is a partial
+  implementation, not the universal registry. **The single commitment UW is
+  fixed and indivisible** as source doctrine; runtime adoption requires
+  explicit code, tests, and network activation.
 
 ---
 
@@ -242,11 +313,17 @@ The example uses every mechanism (M1 stake + M2 substrate-link + M3 lifecycle + 
 
 ## The doctrine self-instances
 
-This document is itself a unit of useful work — class `MODULE_PROPOSAL`, lifecycle phase `SUBSTRATE`, sub-category `doctrine`. Its content-hash is pinned in `x/work_creed.PinnedSubCreed` under phase Foundation (because the doctrine is foundational to all useful work). The doctrine instantiates the type it defines: useful work is described by a work record whose existence is itself useful work. (The x/contribution mirror-record proto that once carried this self-declaration retired in the 2026-07 slim cut; the pin, which is the load-bearing half, remains.)
+This document is source-hash-bound by repository checks. `x/work_creed` has
+storage and an optional ceremony helper for sub-creed pins, but published
+genesis states are empty and Phase 0 has no amendment/query surface. The
+former `x/contribution` mirror-record was also retired. “Doctrine
+self-instances” is therefore a source-level description, not a verified
+on-chain pin or work record.
 
 UW is recursive at every layer: in the reward formula (`R = base + L × W × Q` where recursion is the dominant signal), in the work taxonomy (`SUBSTRATE` includes self-modification), and in this document, which describes the doctrine that this document instantiates.
 
-**Echoes:** UW (self), commitment 10 (forward-only audit applies to this doc), TC1 (this doc is in the graph it describes).
+**Echoes:** UW (self), commitment 10 at source level, and TC1 as doctrine.
+This Markdown is not itself an on-chain graph node.
 
 ---
 

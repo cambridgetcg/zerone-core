@@ -280,7 +280,11 @@ Governance parameter update.
 - `authority` -- governance address
 
 ### zerone.claiming_pot.bootstrap_entry_added
-Emitted when governance admits a late participant via `MsgAddBootstrapEntry`. One event per address newly added (not per request). Skipped duplicates emit nothing. Commitment 20 (extended): the participant set is plural and growing, governance-gated, never closed at genesis.
+Emitted when the gov authority or configured, governance-revocable bootstrap
+registrar admits a late participant via `MsgAddBootstrapEntry`. One event per
+address newly added (not per request); skipped duplicates emit nothing.
+Commitment 20 (extended): admission is bounded and observable, and the
+participant set is not closed at genesis.
 - `address` -- bech32 address of the newly-admitted agent
 - `pot_id` -- `bootstrap-<address>` (the deterministic per-agent pot ID)
 - `block` -- block height at which the entry was added
@@ -320,7 +324,11 @@ A counterexample reached `min_votes` and resolved. Status flips to VALIDATED if 
 ## creed
 
 ### zerone.creed.pinned
-A new canonical creed version was anchored on chain. Carries the SHA256 hash of the new `docs/TRUTH_SEEKING.md`, the LIP that authorized the pin (empty for the genesis pin), and the count of commitment entries in the registry. Embodies commitments 6 (no unilateral injection — extended from facts to the chain's voice itself), 10 (forward-only audit — pins are append-only by monotonic version, prior versions remain queryable), and 19 (the creed is governance-gated — this event IS the protection commitment 19 names made observable).
+A canonical creed version was anchored on chain. It carries the proposed
+SHA256 hash, an optional source LIP, and the commitment count. While
+`direct_anchor_enabled=true`, a post-genesis gov-authority pin may also have an
+empty `source_lip`; emptiness does not prove genesis origin. The event makes
+the append-only write observable but does not prove dual-pool approval.
 - `version` -- the new canonical version (current+1 at write time)
 - `canonical_hash` -- hex-encoded SHA256 of normalized TRUTH_SEEKING.md
 - `source_lip` -- LIP id that authorized the amendment (empty for genesis pin)
@@ -328,12 +336,17 @@ A new canonical creed version was anchored on chain. Carries the SHA256 hash of 
 - `creed_commitment` -- "6,10,19"
 
 ### zerone.creed.params_updated
-Module parameters updated. Most consequential field is `direct_anchor_enabled` — once flipped to false at mainnet, the only legitimate path to a new pin is through a passed `CategoryCreedAmendment` LIP.
+Module parameters updated. When `direct_anchor_enabled` is false, the public
+direct handler is sealed and only the internal gov-dispatch path can write.
+The published `zerone-1` value is true, and its Creed Amendment category is
+not currently configured to advance.
 - `authority` -- governance address
 - `direct_anchor_enabled` -- "true" | "false"
 
 ### zerone.creed.council_member_updated
-A Creed Council seat was added, updated, or deactivated. The council is the AI-side voter pool for `CategoryCreedAmendment` LIPs (commitment 19). Initial seats are genesis-curated; future capability-gated admissions enter via the Creed Amendment LIP class.
+A Creed Council registry entry was added, updated, or deactivated. This is a
+future AI-side vote-routing surface; current ordinary LIP tally does not read
+it or enforce separate pool quorum.
 - `address` -- bech32 of the seat
 - `active` -- "true" | "false"
 - `voting_weight_bps` -- 0..1_000_000
@@ -941,7 +954,8 @@ Research fund proposal executed.
 ---
 
 ### zerone.knowledge.bootstrap_sponsored
-Claim sponsored via bootstrap fund (gas-free).
+Knowledge review fee sponsored from the bootstrap fund. Consensus transaction
+gas and fee requirements still apply.
 - `address_claims_used` -- number of claims used by this address
 - `claim_id` -- sponsored claim identifier
 - `fee_amount` -- fee deducted from bootstrap fund
@@ -1416,7 +1430,9 @@ Governance authority resolved an attribution challenge (Route B Wave 4e). A futu
 - `resolver` -- authority address
 
 ### zerone.knowledge.training_fund_disbursed
-Post-hoc, calibration-gated training-fund reward paid to a pipeline operator (Route B Wave 4f). 50% released immediately; 50% held in vesting escrow with clawback rights.
+Retained historical/future event shape for a post-hoc training-fund reward.
+Current consensus release-disables `ClaimTrainingFundDisbursement`, so a fresh
+network does not emit this event through the public claim API.
 - `disbursement_id`
 - `model_id`
 - `claimant` -- pipeline operator
@@ -1820,16 +1836,19 @@ Validator slashed.
 ## substrate_bridge
 
 External-work attestations: a submitter bonds uzrn and posts a `SubstrateLink`
-through a gov-registered adapter; settlement returns honest bonds, mints
-formula rewards through the single supply-cap gate, and burns slashed bonds.
+through an active genesis-seeded or gov-authority-registered adapter;
+settlement returns honest bonds, mints formula rewards through the single
+supply-cap gate, and burns slashed bonds.
 Witness-only attestations (no cited facts, no pending claims) carry provenance
 without verifiable knowledge — if their adapter registers a
 `witness_reward_uzrn`, the reward is escrowed under a challenge window and
 minted only on survival (mirror of the knowledge survival-gate).
 
 ### external_attestation_submitted
-An attestation passed validation and its bond was escrowed. Status is READY
-(witness-only or all-cited links) or AWAITING_RESOLUTION (pending claims).
+An attestation passed validation and its bond was escrowed. Current public
+submission accepts witness-only or cited-fact links and records READY.
+Nonempty pending claims fail closed because translation into `x/knowledge` is
+not wired; AWAITING_RESOLUTION is reserved for that future integration.
 - `attestation_id` -- assigned attestation id
 - `useful_work_commitment` -- "UW"
 
@@ -1846,12 +1865,13 @@ Attestation settled in full: bond returned whole, reward (if any) minted via
 - `mechanism` -- "M4" (reward formula R = base + L × W × Q)
 
 ### external_attestation_partial
-Attestation settled partially: some pending claims were rejected, so the
-reward's L term scaled by the verified ratio. Bond still returns whole.
+Reserved settlement event for the future pending-claim integration. Current
+public submission rejects pending claims before escrow, so it cannot reach
+this path.
 - `attestation_id` -- attestation id
 - `reward_uzrn` -- amount actually minted and paid
 - `useful_work_commitment` -- "UW"
-- `mechanism` -- "M1,M4"
+- `mechanism` -- "M4" (partial settlement returns the full bond)
 
 ### external_attestation_rejected
 Attestation rejected (rejection ratio or verified-ratio floor tripped). The
@@ -1896,7 +1916,9 @@ circulation for work that did not survive.
 - `reason` -- cancellation reason
 
 ### adapter_registered
-Governance registered (or updated) an adapter recipe.
+The configured gov authority directly registered or updated an adapter recipe.
+Genesis-seeded adapters do not emit this event. CategoryAdapterRegistration
+LIP payload dispatch is not wired.
 - `adapter_id` -- adapter id
 
 ### adapter_suspended
@@ -1916,11 +1938,15 @@ A settled attestation cited an upstream attestation; a lineage edge was
 recorded for royalty accounting.
 - `edge_id` -- upstream→downstream edge id
 
-### lineage_royalty_paid
-Lineage royalty accrued to an upstream attestation's accumulator
-(accounting-only; no coin movement at Phase 0).
-- `attestation_id` -- upstream attestation id
-- `amount` -- accrued uzrn
+### lineage_royalty_accrued
+Accounting amount accrued to an upstream attestation; no coins move.
+- `edge_id` -- lineage edge id
+- `upstream_attestation_id` -- upstream attestation id
+- `downstream_attestation_id` -- downstream attestation id
+- `accrued_amount_uzrn` -- accounting amount derived from the downstream reward
+- `propagation_depth` -- traversal depth
+- `useful_work_commitment` -- "UW"
+- `mechanism` -- "M6"
 
 ---
 
@@ -2085,8 +2111,8 @@ Vesting schedule fully released.
 - `released_amount` -- total released amount
 
 ### zerone.vesting_rewards.knowledge_coupling_applied
-Block reward scaled by verification throughput (T9 / thesis claim 1).
-- `verification_rate_bps` -- accepted/terminal ratio in BPS
+Block reward scaled by the survived-challenge rate.
+- `survived_challenge_rate_bps` -- survived/(survived + disproven) in BPS
 - `target_bps` -- configured target rate
 - `multiplier_bps` -- applied reward multiplier in BPS
 

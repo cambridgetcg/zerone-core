@@ -11,13 +11,16 @@ message GenesisState {
   Params                       params            = 1;
   repeated CategoryConfig      category_configs   = 2;
   repeated VestingSchedule     vesting_schedules  = 3;
+  repeated ClawbackRecord      clawback_records   = 4;
+  repeated BlockRewardDistribution block_reward_distributions = 5;
+  repeated ClaimScheduleIndex  claim_schedule_indexes = 6;
 }
 
 // Params defines the vesting_rewards module parameters.
 message Params {
   // Block rewards
   string block_reward = 1;                           // base block reward in uzrn (default: "10000000" = 10 ZRN)
-  uint64 reward_decay_bps = 2;                       // per-epoch decay (default: 850,000 = 0.85x on 1M scale)
+  uint64 reward_decay_bps = 2;                       // per-epoch decay (default: 994,478 = 0.994478x on 1M scale)
   uint64 blocks_per_reward_epoch = 3;                // blocks per decay epoch (default: 100,000)
 
   // Revenue split (governance-adjustable)
@@ -27,27 +30,33 @@ message Params {
   // Founder share
   uint64 founder_share_bps = 6;                      // founder's share of research fund (default: 70,000 = 7% on 1M scale)
   string founder_address = 7;                        // bech32, empty = disabled
-  uint64 governance_activation_height = 8;           // DEPRECATED — founder share is governance-immune
+  uint64 governance_activation_height = 8;           // DEPRECATED — retained for wire compatibility; not an activation gate
 
-  // Category reward multipliers
+  // Compatibility-only declarations. Current reward execution does not read
+  // these entries; runtime updates must preserve them.
   repeated CategoryRewardConfig category_reward_configs = 9;
 
-  // Research fund
-  string research_fund_module_account = 10;          // module account name for research fund
+  // Compatibility-only. Runtime routes to the compiled research_fund module
+  // account and rejects changing this field.
+  string research_fund_module_account = 10;
 
   // Vesting parameters
-  bool   vesting_enabled = 11;                       // whether truth-linked vesting is active
-  uint64 released_clawback_rate = 12;                // bps of released clawed back on falsification (default: 3300 = 33%)
+  // Compatibility-only: not an execution gate; runtime updates must preserve it.
+  bool   vesting_enabled = 11;
+  uint64 released_clawback_rate = 12;                // 10,000 scale: default 3300 = 33% of released value
   uint32 min_validators_for_full_reward = 13;        // target validator count for full block reward (default: 22)
-  uint64 empty_block_reward_rate = 14;               // bps of reward for empty blocks (default: 0)
+  uint64 empty_block_reward_rate = 14;               // 10,000 scale: 10,000 = 100%; default 0
   string floor_reward = 15;                          // minimum reward per block in uzrn (default: "100000" = 0.1 ZRN)
-  string initial_fund_balance = 16;                  // uzrn total fund at genesis (default: "0" = pure PoT)
+  // Genesis/import-export TotalMinted bookkeeping only; runtime updates must
+  // preserve it and it is not a spendable fund balance.
+  string initial_fund_balance = 16;
 
-  // Knowledge-coupled block reward (T9 / thesis claim 1).
+  // Survived-challenge-coupled block reward.
   // When enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).
-  // Below target verification rate → reward decays faster; at target → full reward.
+  // Rate = survived / (survived + disproven); unchallenged facts are excluded.
+  // Below target → reward is reduced; at target → full reward.
   // 0 target = disabled (backward compat).
-  uint64 knowledge_coupling_target_bps = 17;          // target verification rate in BPS (default: 700,000 = 70%)
+  uint64 knowledge_coupling_target_bps = 17;          // target survived-challenge rate in BPS (default: 700,000 = 70%)
   uint64 knowledge_coupling_floor_bps = 18;           // minimum reward multiplier in BPS (default: 500,000 = 50%)
 }
 

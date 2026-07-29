@@ -12,8 +12,13 @@ const (
 	EventTypeAdapterSuspended  = "adapter_suspended"
 	EventTypeAdapterTombstoned = "adapter_tombstoned"
 
-	EventTypeLineageEdgeCreated = "lineage_edge_created"
-	EventTypeLineageRoyaltyPaid = "lineage_royalty_paid"
+	EventTypeLineageEdgeCreated    = "lineage_edge_created"
+	EventTypeLineageRoyaltyAccrued = "lineage_royalty_accrued"
+
+	// EventTypeLineageRoyaltyPaid is retained as a deprecated Go symbol for
+	// source compatibility. Runtime emits EventTypeLineageRoyaltyAccrued;
+	// no coin payment occurs in the current lineage accountant.
+	EventTypeLineageRoyaltyPaid = EventTypeLineageRoyaltyAccrued
 
 	EventTypeWitnessRewardEscrowed  = "witness_reward_escrowed"
 	EventTypeWitnessRewardReleased  = "witness_reward_released"

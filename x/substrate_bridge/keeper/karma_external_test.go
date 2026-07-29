@@ -143,6 +143,7 @@ func TestValidateLink_ExactlyMaxCitedFactsAccepted(t *testing.T) {
 	link := &types.SubstrateLink{
 		AdapterId:  "wiki-v1",
 		CitedFacts: citedFacts(types.MaxCitedFactsPerLink), // 16, all resolvable
+		Source:     validExternalSource("wiki-v1"),
 	}
 	require.NoError(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()))
 }
@@ -156,12 +157,12 @@ func TestValidateLink_SourceOnlyLinkUnaffectedByCitedFactsCap(t *testing.T) {
 
 	sourceOnly := &types.SubstrateLink{
 		AdapterId: "agenttool-invocation-v1",
-		Source:    &types.ExternalSource{SourceId: "inv-1", ContentHash: []byte{0x01}},
+		Source:    validExternalSource("agenttool-invocation-v1"),
 	}
 	require.NoError(t, k.ValidateLink(ctx, sourceOnly, defaultSubstrateBridgeParams()))
 
 	empty := &types.SubstrateLink{AdapterId: "agenttool-invocation-v1"}
-	require.NoError(t, k.ValidateLink(ctx, empty, defaultSubstrateBridgeParams()))
+	require.ErrorIs(t, k.ValidateLink(ctx, empty, defaultSubstrateBridgeParams()), types.ErrSourceRequired)
 }
 
 // ─── EXTERNAL_CITE recognition at settlement ────────────────────────────────

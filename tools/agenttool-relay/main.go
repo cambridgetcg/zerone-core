@@ -19,7 +19,7 @@
 //
 //	RELAY_API_KEY   (required) agenttool bearer token (invocations are identity-scoped)
 //	RELAY_HOME      (required for broadcast) zeroned home directory
-//	RELAY_CHAIN_ID  (required for broadcast) chain ID for tx signing
+//	RELAY_CHAIN_ID  (required) drill chain ID: zerone-localnet or zerone-rehearsal-*
 //	RELAY_FROM      (required for broadcast) signing key name
 //	RELAY_API       agenttool API base (default https://api.agenttool.dev)
 //	RELAY_NODE      CometBFT RPC endpoint (default tcp://localhost:26657)
@@ -101,6 +101,35 @@ type Config struct {
 	WitnessWriteback bool
 }
 
+// validateRelayChainID is the source-level release guard. This checkout is a
+// rehearsal tool, not a live-network operator packet: even read-only modes
+// contact external services and can feed later write paths, so every mode
+// requires an explicitly disposable chain ID.
+func validateRelayChainID(chainID string) error {
+	if chainID == "zerone-localnet" || strings.HasPrefix(chainID, "zerone-rehearsal-") {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing shared/live chain ID %q; agenttool-relay is local-rehearsal-only",
+		chainID,
+	)
+}
+
+// validateRelayRunConfig runs before main performs any HTTP, RPC, or CLI
+// action. broadcast is false only for -dry-run; the chain guard still applies.
+func validateRelayRunConfig(cfg Config, broadcast bool) error {
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		return err
+	}
+	if cfg.APIKey == "" {
+		return fmt.Errorf("RELAY_API_KEY is required")
+	}
+	if broadcast && (cfg.Home == "" || cfg.From == "") {
+		return fmt.Errorf("RELAY_HOME and RELAY_FROM are required to broadcast (or pass -dry-run)")
+	}
+	return nil
+}
+
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -108,8 +137,8 @@ func envOr(key, def string) string {
 	return def
 }
 
-// loadConfig reads configuration from environment variables. RELAY_API_KEY is
-// always required; the signing trio (RELAY_HOME, RELAY_CHAIN_ID, RELAY_FROM)
+// loadConfig reads configuration from environment variables. RELAY_API_KEY and
+// RELAY_CHAIN_ID are always required; the signing pair (RELAY_HOME, RELAY_FROM)
 // is required only when broadcasting (checked in main, after -dry-run is known).
 func loadConfig() Config {
 	return Config{
@@ -184,6 +213,9 @@ type Invocation struct {
 
 // fetchInvocation retrieves one invocation from the agenttool API.
 func fetchInvocation(cfg Config, id string) (*Invocation, error) {
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		return nil, err
+	}
 	url := cfg.API + "/v1/invocations/" + id
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -313,8 +345,11 @@ func buildLink(cfg Config, inv *Invocation, height uint64) ([]byte, error) {
 // chainHeight asks the CometBFT RPC for the latest block height, so the
 // link records when the relay observed the invocation. Best-effort: on any
 // failure it returns 0 (the field is optional provenance, not consensus).
-func chainHeight(node string) uint64 {
-	url := strings.Replace(node, "tcp://", "http://", 1) + "/status"
+func chainHeight(cfg Config) uint64 {
+	if validateRelayChainID(cfg.ChainID) != nil {
+		return 0
+	}
+	url := strings.Replace(cfg.Node, "tcp://", "http://", 1) + "/status"
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -341,6 +376,9 @@ func chainHeight(node string) uint64 {
 // daemon filters client-side and confirms candidates via fetchInvocation
 // (GET-by-id is also the path that runs agenttool's lazy SLA sweep).
 func listInvocations(cfg Config, role string) ([]Invocation, error) {
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		return nil, err
+	}
 	url := cfg.API + "/v1/invocations?role=" + role
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -664,6 +702,10 @@ func saveState(path string, st *WatchState) error {
 // it, and record the outcome. Submits are sequential and wait for
 // inclusion, so the signing account's sequence never races itself.
 func watchOnce(cfg Config, st *WatchState) {
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		log.Printf("watch: %v", err)
+		return
+	}
 	reconcilePending(cfg, st)
 	seen := map[string]bool{}
 	for _, role := range cfg.Roles {
@@ -759,6 +801,10 @@ func watchOnce(cfg Config, st *WatchState) {
 // re-enter the submit path in the same pass only after the old tx is
 // provably absent.
 func reconcilePending(cfg Config, st *WatchState) {
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		log.Printf("watch: %v", err)
+		return
+	}
 	now := time.Now().UTC()
 	var height uint64
 	heightKnown := false
@@ -770,7 +816,7 @@ func reconcilePending(cfg Config, st *WatchState) {
 			// One height reading per pass, fetched lazily: a not-found probe
 			// counts only against a chain that provably advanced, and 0
 			// (height query failed) counts nothing.
-			height = chainHeight(cfg.Node)
+			height = chainHeight(cfg)
 			heightKnown = true
 		}
 		txHash := rec.TxHash
@@ -833,7 +879,10 @@ func logIfParked(invID string, rec *AttestRecord) {
 // returning the tx hash. It does NOT wait for inclusion — the caller must
 // persist the hash first (forward-only lifecycle), then observe.
 func broadcastAttestation(cfg Config, inv *Invocation) (string, error) {
-	height := chainHeight(cfg.Node)
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		return "", err
+	}
+	height := chainHeight(cfg)
 	linkBytes, err := buildLink(cfg, inv, height)
 	if err != nil {
 		return "", err
@@ -880,6 +929,9 @@ func classifyQueryTxFailure(stderr, txHash string) probeOutcome {
 // found / authoritatively-not-found / probe-error (see probeOutcome). Only
 // the caller turns repeated authoritative absence into a release decision.
 func queryTx(cfg Config, txHash string) txProbe {
+	if validateRelayChainID(cfg.ChainID) != nil {
+		return txProbe{}
+	}
 	// #nosec G204 — arguments come from validated config
 	out, err := exec.Command(cfg.Binary, "query", "tx", txHash,
 		"--node", cfg.Node, "--output", "json").Output()
@@ -926,6 +978,9 @@ func queryTx(cfg Config, txHash string) txProbe {
 // the window closes. A timeout is NOT a failure: the caller already holds
 // the record in submission_unknown and later polls reconcile it.
 func waitForInclusion(cfg Config, txHash string) (txProbe, error) {
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		return txProbe{}, err
+	}
 	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(2 * time.Second)
@@ -951,6 +1006,10 @@ var writebackRouteMissing sync.Once
 // outcome may ever change it.
 func witnessWriteback(cfg Config, invID string, rec *AttestRecord) {
 	if !cfg.WitnessWriteback {
+		return
+	}
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		log.Printf("writeback %s: %v", invID, err)
 		return
 	}
 	body, err := json.Marshal(map[string]string{
@@ -998,6 +1057,9 @@ func witnessWriteback(cfg Config, invID string, rec *AttestRecord) {
 // submitAttestation shells out to zeroned to broadcast the attestation.
 // It returns the tx hash on success.
 func submitAttestation(cfg Config, linkFile string) (string, error) {
+	if err := validateRelayChainID(cfg.ChainID); err != nil {
+		return "", err
+	}
 	// #nosec G204 — arguments come from validated config and a temp path we created
 	cmd := exec.Command(cfg.Binary, "tx", "substrate_bridge", "submit-attestation",
 		cfg.Adapter, cfg.WorkClass, linkFile, cfg.BondUzrn,
@@ -1053,13 +1115,8 @@ func main() {
 		log.Fatal("usage: agenttool-relay -invocation <id> [-dry-run] | agenttool-relay -watch [-once]")
 	}
 	cfg := loadConfig()
-	if cfg.APIKey == "" {
-		log.Fatal("RELAY_API_KEY is required")
-	}
-	if *watch || !*dryRun {
-		if cfg.Home == "" || cfg.ChainID == "" || cfg.From == "" {
-			log.Fatal("RELAY_HOME, RELAY_CHAIN_ID, RELAY_FROM are required to broadcast (or pass -dry-run)")
-		}
+	if err := validateRelayRunConfig(cfg, *watch || !*dryRun); err != nil {
+		log.Fatal(err)
 	}
 
 	if *watch {
@@ -1089,7 +1146,7 @@ func main() {
 		log.Fatalf("refused: %v", err)
 	}
 
-	height := chainHeight(cfg.Node)
+	height := chainHeight(cfg)
 	linkBytes, err := buildLink(cfg, inv, height)
 	if err != nil {
 		log.Fatalf("build link: %v", err)

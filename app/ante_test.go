@@ -152,7 +152,6 @@ func TestIsVoteMsg(t *testing.T) {
 	}
 }
 
-
 func TestIsClaimSubmissionMsg(t *testing.T) {
 	trueCases := []string{
 		"/zerone.knowledge.v1.MsgSubmitClaim",
@@ -282,13 +281,6 @@ func TestAllGasCostsBelowTxLimit(t *testing.T) {
 	}
 }
 
-func TestFeeRoutingBPSSumTo1000000(t *testing.T) {
-	if ResearchContributionBPS+ValidatorFeeBPS != 1000000 {
-		t.Errorf("ResearchContributionBPS (%d) + ValidatorFeeBPS (%d) = %d, want 1000000",
-			ResearchContributionBPS, ValidatorFeeBPS, ResearchContributionBPS+ValidatorFeeBPS)
-	}
-}
-
 // ---------- EstimateTransactionGas Tests ----------
 
 func TestEstimateTransactionGas_KnownType(t *testing.T) {
@@ -390,7 +382,6 @@ func TestMsgTypeURLToGas_AllEntriesReferenceValidCosts(t *testing.T) {
 		}
 	}
 }
-
 
 // ---------- ZRNGasDecorator Tests ----------
 
@@ -599,4 +590,3 @@ func TestBootstrapWindowRetired(t *testing.T) {
 		t.Fatalf("BootstrapEndBlock = %d, mainnet genesis requires 0", BootstrapEndBlock)
 	}
 }
-

@@ -5,19 +5,18 @@ option go_package = "github.com/zerone-chain/zerone/x/substrate_bridge/types";
 
 import "zerone/substrate_bridge/v1/types.proto";
 
-// SubstrateLink is the deterministic provenance from external content
-// to ToK fact-IDs (existing + pending). Two sections — cited_facts MUST
-// exist in x/knowledge at commit time; pending_claims are auto-submitted
-// as Claims and the attestation is held in AWAITING_RESOLUTION until
-// they resolve. M2 satisfied: every pending claim becomes a real
-// on-chain claim with full provenance.
+// SubstrateLink commits caller-declared external provenance to ToK fact IDs.
+// cited_facts MUST exist in x/knowledge at commit time.
+// pending_claims is a reserved future integration surface: current
+// MsgSubmitExternalAttestation rejects a nonempty list because translation
+// into x/knowledge is not wired.
 message SubstrateLink {
   repeated FactCitation cited_facts    = 1;
   repeated PendingClaim pending_claims = 2;
   AxisProjection        recursion_weight = 3;
   string                adapter_id     = 4;
   ExternalSource        source         = 5;
-  bytes                 link_hash      = 6;  // sha256 of canonical form
+  bytes                 link_hash      = 6;  // sha256 of canonical declared fields
 }
 
 // FactCitation is one outgoing edge in the substrate-link. citation_type
@@ -28,10 +27,10 @@ message FactCitation {
   string       citation_context = 3;  // optional excerpt for audit
 }
 
-// PendingClaim is a Claim auto-submitted at commit phase. Shape mirrors
-// x/knowledge.Claim so the substrate_bridge keeper can call
-// x/knowledge.SetClaim directly. claim_relations cite existing facts;
-// they are NOT recursive pending claims (one-hop deferral only).
+// PendingClaim is the reserved shape for a future x/knowledge translation.
+// It is not accepted by current public attestation submission. When that
+// integration is implemented, claim_relations may cite existing facts only;
+// they are not recursive pending claims.
 message PendingClaim {
   string claim_content    = 1;
   string proposed_fact_id = 2;  // optional; chain assigns if empty
@@ -48,5 +47,5 @@ message ClaimRelation {
   string target_fact_id = 1;
   string relation       = 2;  // SUPPORTS | REQUIRES | etc. (mirrors x/knowledge)
   string inference      = 3;  // DEDUCTIVE | INDUCTIVE | etc.
-  uint32 inference_strength_bps = 4;
+  uint32 inference_strength_bps = 4; // reserved path; 10,000 scale
 }

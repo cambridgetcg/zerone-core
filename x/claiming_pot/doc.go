@@ -1,91 +1,42 @@
-// Package claiming_pot preserves the truth-seeking commitment that
-// issuance follows participation — the chain has no privileged
-// starting balances; ZRN enters circulation either as a PoT block
-// reward (paid to validators verifying truth) or as a bootstrap
-// claim (paid to whitelisted agents who register).
+// Package claiming_pot implements Zerone's bootstrap-claim emission pathway.
 //
-// docs/TRUTH_SEEKING.md, commitment 20: every ZRN that exists came
-// from a participatory action. The claiming_pot module materializes
-// the bootstrap pathway. There is no founder pre-mine, no AI vault
-// pre-mine, no foundation treasury at genesis; this module is what
-// gives an agent enough ZRN to act on-chain — the participation seed
-// — without giving anyone the privilege of starting with a balance.
+// docs/TRUTH_SEEKING.md commitment 20 says post-genesis issuance follows
+// participation and genesis privilege must be disclosed. The live zerone-1
+// genesis created 13,555 ZRN of operator-controlled validator
+// collateral/gas and transferable operations float. Beyond that disclosed
+// scaffolding, three cap-gated paths can mint: PoT block rewards, bootstrap
+// claims, and substrate-bridge rewards for external work that survives its
+// challenge rules. This package owns only the bootstrap path.
 //
-// Doctrinal compliance is structural, not procedural:
+// The structural boundaries are:
 //
-//   - The claiming_pot module account holds Minter permission so
-//     the bootstrap pathway mints rather than transfers (commitment
-//     20: pre-fund-then-transfer would smuggle privilege back in).
-//   - Claim() routes through x/vesting_rewards.MintWithCap, the
-//     chain's single cap-gated mint entry point. Both emission
-//     pathways (block rewards, bootstrap claims) share the same
-//     cap accounting. The 222,222,222 ZRN hard cap binds total
-//     emission across both streams.
-//   - The module account is a transient conduit. Claim() mints
-//     into it, then immediately forwards to the claimer in the
-//     same transaction. The module account never holds a positive
-//     balance across blocks; if it did, the doctrine would have
-//     collapsed back to the legacy pre-funded-pool model.
-//   - Per-agent amount is fixed at 0.222 ZRN (PerAgentBootstrapUzrn).
-//     Each whitelisted agent gets exactly this much, never more,
-//     regardless of when they claim. Implemented as one pot per
-//     agent (BootstrapPotIDPrefix + agentAddr) via
-//     MakeBootstrapPotForAgent; the genesis ceremony populates one
-//     per address in the operator's whitelist.
-//   - Pot configuration is part of GenesisState; the bootstrap
-//     pots are seeded by tools/bootstrap-loader before chain start.
-//   - The whitelist is plural and growing, not closed at genesis.
-//     MsgAddBootstrapEntry — authority-gated, idempotent — admits
-//     late-arriving participants by creating one bootstrap pot per
-//     address. The chain's "no insider position" doctrine is
-//     preserved because admission requires a governance LIP, not
-//     founder fiat (echoes commitment 19: creed is governance-
-//     gated). The participation set is curated by governance, not
-//     frozen.
-//   - Bootstrap pots never auto-expire. ProcessPotExpiry skips any
-//     pot whose ID carries BootstrapPotIDPrefix; the only terminal
-//     state for a bootstrap pot is DEPLETED via successful claim.
-//     A participation seed waits for the participant — late arrival
-//     is not exclusion.
+//   - Claim routes through vesting_rewards.MintWithCap. Tokens are minted into
+//     the claiming_pot module account and forwarded to the claimant in the same
+//     transaction; the module is a conduit, not a pre-funded treasury.
+//   - Each bootstrap entry is a one-address pot for 222,000 uzrn (0.222 ZRN).
+//     Bootstrap pots do not auto-expire and become terminal only after claim.
+//   - MsgAddBootstrapEntry accepts either the gov authority or the optional
+//     Params.BootstrapRegistrar. The published zerone-1 genesis sets the
+//     registrar to the operator operations address; that is a real custodial
+//     admission power, not community governance.
+//   - Registrar admission is bounded by BootstrapDailyAdmissionCap and the
+//     lifetime BootstrapEmissionCapUzrn. Governance admission bypasses the
+//     daily window but not the lifetime emission cap. Governance can revoke
+//     the registrar by setting it to the empty string.
+//   - Duplicate entries are skipped and an over-cap batch fails atomically.
+//     No entry consumes mint headroom until its participant claims.
 //
-// What this module is, and is not:
+// This is commitment 20's narrow promise: post-genesis ZRN emitted through
+// this module follows the admitted participant's claim and shares the global
+// hard-cap check. It is not a promise that admission itself is permissionless,
+// decentralized, or governance-only. Operational onboarding from this source
+// head remains paused until a release-bound packet re-authorizes it.
 //
-//   - It IS the bootstrap emission pathway. Every uzrn it disburses
-//     was minted on demand through MintWithCap, never pre-funded.
-//   - It IS commitment 20's mechanism made concrete: agents claim,
-//     the chain mints, the cap counter advances.
-//   - It is NOT a treasury. No team, foundation, or guardian holds
-//     a balance through this module. The pots are for participation
-//     seeding; the only authorized recipients are the whitelisted
-//     agent addresses configured at genesis ceremony.
-//   - It is NOT a duplicate of vesting_rewards' block-reward path.
-//     vesting_rewards mints to validators verifying truth; claiming_
-//     pot mints to agents joining the chain. Different participatory
-//     actions, complementary pathways, shared cap.
-//   - It is NOT capable of bypassing the cap. ErrCapReached is
-//     surfaced to claimants when MintWithCap returns zero remaining
-//     headroom; cap-clipped mints (when the request exceeds remaining
-//     headroom) honor the clip and the claimer receives less than
-//     the nominal amount rather than the chain breaching its cap.
-//   - It IS the surface through which governance admits late
-//     participants. MsgAddBootstrapEntry is the on-chain expression
-//     of "the participant set grows through deliberate, audited
-//     choice." Direct CLI use is for testnet; mainnet flows through
-//     a governance LIP wrapping the message.
-//
-// Refusal voice (commitment 20):
+// Refusal voice:
 //
 //   - ErrCapReached: "bootstrap mint refused (commitment 20:
 //     issuance follows participation, hard cap reached)".
 //
-// Voice layer:
-//
-//   - claiming_pot.pot_claimed events carry creed_commitment="20"
-//     to identify the bootstrap pathway alongside other minting
-//     emissions an off-chain indexer might aggregate.
-//   - claiming_pot.bootstrap_entry_added events carry
-//     creed_commitment="20" and announce a governance-gated late
-//     admission — one event per *newly-added* address (skipped
-//     duplicates emit nothing). Off-chain indexers can use this to
-//     visualize the participant set's growth post-genesis.
+// Events carry creed_commitment="20" so observers can distinguish bootstrap
+// issuance and admission from the other cap-gated pathways.
 package claiming_pot

@@ -12,7 +12,7 @@
 # Options:
 #   --home <dir>           Dedicated local/rehearsal node home (required)
 #   --mode <mode>          Preset: validator|fullnode|seed|archive (default: validator)
-#   --gas-prices <prices>  Minimum gas prices (default: 0.025uzrn)
+#   --gas-prices <prices>  Minimum gas prices (default: 1uzrn)
 #   --enable-api           Enable REST API on port 1317
 #   --enable-grpc          Enable gRPC on port 9090
 #   --prometheus           Enable Prometheus metrics on port 26660
@@ -29,7 +29,7 @@ set -euo pipefail
 
 ZERONED_HOME=""
 MODE="validator"
-GAS_PRICES="0.025uzrn"
+GAS_PRICES="1uzrn"
 ENABLE_API=""
 ENABLE_GRPC=""
 ENABLE_PROMETHEUS=""

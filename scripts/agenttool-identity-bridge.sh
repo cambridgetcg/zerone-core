@@ -57,9 +57,19 @@ info() { printf '\033[1;34m  ->\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m  OK\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31mFAIL\033[0m %s\n' "$*" >&2; exit 1; }
 
+# This convenience bridge creates keys, moves funds, and drives governance.
+# It is never a live-network operator packet: refuse before the first CLI/RPC
+# action unless the chain ID names a disposable repository rehearsal.
+case "${CHAIN_ID}" in
+  zerone-localnet|zerone-rehearsal-*) ;;
+  *)
+    die "refusing shared/live chain ID ${CHAIN_ID:-unknown}; agenttool identity bridge is local-rehearsal-only"
+    ;;
+esac
+
 wait_tx() { # wait_tx <txhash> <label>
-  local hash="$1" label="$2" i
-  for i in $(seq 1 20); do
+  local hash="$1" label="$2"
+  for _ in $(seq 1 20); do
     if out=$("${BINARY}" query tx "${hash}" --node "${NODE}" -o json 2>/dev/null); then
       local code
       code=$(jq -r .code <<<"${out}")
@@ -139,7 +149,7 @@ PROP
     wait_tx "${HASH}" "${V} voted yes"
   done
   info "waiting for voting period to end…"
-  for i in $(seq 1 40); do
+  for _ in $(seq 1 40); do
     STATUS=$("${BINARY}" query gov proposal "${PROP_ID}" --node "${NODE}" -o json | jq -r .proposal.status)
     [ "${STATUS}" != "PROPOSAL_STATUS_VOTING_PERIOD" ] && break
     sleep 3

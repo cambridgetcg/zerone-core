@@ -82,6 +82,7 @@ func TestValidateLink_AtCeilingAcceptedWithDeclaredBounds(t *testing.T) {
 
 	link := &types.SubstrateLink{
 		AdapterId: "declared-bounds-v1",
+		Source:    validExternalSource("declared-bounds-v1"),
 		RecursionWeight: &types.AxisProjection{
 			AxisSubstrate:    types.MaxAxisProjectionBps,
 			AxisVerification: 500_000,

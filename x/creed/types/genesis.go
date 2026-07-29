@@ -1,19 +1,19 @@
 package types
 
-// DefaultParams returns sensible defaults for pre-launch and
-// development chains. Mainnet genesis SHOULD override Authority
-// to the gov module account address and set DirectAnchorEnabled
-// to false once x/gov.CategoryCreedAmendment ships.
+// DefaultParams preserves the historical direct-authority anchor posture.
+// Production deployments must not infer governance-only amendment from this
+// default: a release must first configure a working Creed Amendment category
+// and then explicitly set DirectAnchorEnabled false.
 func DefaultParams() *Params {
 	return &Params{
-		Authority:           "",  // app-init wires this to the gov module account
-		DirectAnchorEnabled: true, // pre-launch and dev chains
+		Authority:           "",   // compatibility-only; keeper constructor owns runtime authority
+		DirectAnchorEnabled: true, // explicit historical default; not governance-only
 	}
 }
 
-// DefaultGenesis returns a non-pinned starting state. Real chains
-// MUST replace GenesisPin with the canonical Genesis Creed before
-// any commitment-citing event passes CI's hash check.
+// DefaultGenesis returns a non-pinned starting state. Deployments may
+// explicitly supply GenesisPin, but no runtime or repository-CI check proves
+// that a running network did so; consumers must query network state.
 func DefaultGenesis() *GenesisState {
 	return &GenesisState{
 		Params:     DefaultParams(),
@@ -59,33 +59,8 @@ func validatePin(p *PinnedCreed) error {
 	if p.Version == 0 {
 		return ErrVersionNotMonotonic.Wrap("version must be ≥ 1")
 	}
-	if len(p.CanonicalHash) == 0 {
-		return ErrEmptyHash
+	if err := ValidateCanonicalHash(p.CanonicalHash); err != nil {
+		return err
 	}
-	seen := map[uint32]bool{}
-	maxNum := uint32(0)
-	for _, c := range p.Commitments {
-		if c == nil {
-			return ErrCommitmentNumberInvalid.Wrap("nil commitment entry")
-		}
-		if c.Number == 0 {
-			return ErrCommitmentNumberInvalid.Wrap("commitment number must be ≥ 1")
-		}
-		if seen[c.Number] {
-			return ErrDuplicateCommitment.Wrapf("commitment %d", c.Number)
-		}
-		seen[c.Number] = true
-		if c.Number > maxNum {
-			maxNum = c.Number
-		}
-	}
-	// Numbers 1..maxNum must all be present (archived or active).
-	// This prevents accidental drop of a commitment without a
-	// corresponding archive transition.
-	for n := uint32(1); n <= maxNum; n++ {
-		if !seen[n] {
-			return ErrCommitmentNumberInvalid.Wrapf("commitment %d missing — archive an entry rather than dropping it", n)
-		}
-	}
-	return nil
+	return ValidateCommitmentRegistryAtHeight(p.Commitments, p.PinnedAtHeight)
 }

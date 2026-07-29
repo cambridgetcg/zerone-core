@@ -72,6 +72,37 @@ func (k Keeper) GetVestingByClaimId(ctx sdk.Context, claimId string) (*types.Ves
 	return k.GetVestingSchedule(ctx, string(vestingIdBz))
 }
 
+// SetClaimScheduleIndex restores an explicit claim -> schedule mapping.
+// It is used after schedule replay during genesis import so duplicate legacy
+// claim IDs do not silently select a different economic record.
+func (k Keeper) SetClaimScheduleIndex(ctx sdk.Context, claimID, vestingID string) {
+	store := k.storeService.OpenKVStore(ctx)
+	key := append(types.ClaimRecordKeyPrefix, []byte(claimID)...)
+	if err := store.Set(key, []byte(vestingID)); err != nil {
+		panic("failed to set claim index: " + err.Error())
+	}
+}
+
+// GetAllClaimScheduleIndexes exports the live claim -> schedule lookup rather
+// than attempting to derive it from primary schedule iteration order.
+func (k Keeper) GetAllClaimScheduleIndexes(ctx sdk.Context) []*types.ClaimScheduleIndex {
+	store := k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(types.ClaimRecordKeyPrefix, prefixEndBytes(types.ClaimRecordKeyPrefix))
+	if err != nil {
+		return nil
+	}
+	defer iter.Close()
+
+	var indexes []*types.ClaimScheduleIndex
+	for ; iter.Valid(); iter.Next() {
+		indexes = append(indexes, &types.ClaimScheduleIndex{
+			ClaimId:   string(iter.Key()[len(types.ClaimRecordKeyPrefix):]),
+			VestingId: string(iter.Value()),
+		})
+	}
+	return indexes
+}
+
 // GetVestingSchedulesByRecipient returns all vesting schedules for a recipient.
 func (k Keeper) GetVestingSchedulesByRecipient(ctx sdk.Context, recipient string) []*types.VestingSchedule {
 	store := k.storeService.OpenKVStore(ctx)
@@ -116,6 +147,24 @@ func (k Keeper) GetAllActiveVestingSchedules(ctx sdk.Context) []*types.VestingSc
 	return schedules
 }
 
+// GetAllVestingSchedules returns every schedule, including terminal history.
+func (k Keeper) GetAllVestingSchedules(ctx sdk.Context) []*types.VestingSchedule {
+	store := k.storeService.OpenKVStore(ctx)
+	var schedules []*types.VestingSchedule
+	iter, err := store.Iterator(types.VestingScheduleKeyPrefix, prefixEndBytes(types.VestingScheduleKeyPrefix))
+	if err != nil {
+		return schedules
+	}
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		var schedule types.VestingSchedule
+		if err := proto.Unmarshal(iter.Value(), &schedule); err == nil {
+			schedules = append(schedules, &schedule)
+		}
+	}
+	return schedules
+}
+
 // SetClawbackRecord stores a clawback record.
 func (k Keeper) SetClawbackRecord(ctx sdk.Context, record *types.ClawbackRecord) {
 	store := k.storeService.OpenKVStore(ctx)
@@ -144,6 +193,24 @@ func (k Keeper) GetClawbackRecord(ctx sdk.Context, id string) (*types.ClawbackRe
 	return &record, true
 }
 
+// GetAllClawbackRecords returns the complete falsification history.
+func (k Keeper) GetAllClawbackRecords(ctx sdk.Context) []*types.ClawbackRecord {
+	store := k.storeService.OpenKVStore(ctx)
+	var records []*types.ClawbackRecord
+	iter, err := store.Iterator(types.FalsificationKeyPrefix, prefixEndBytes(types.FalsificationKeyPrefix))
+	if err != nil {
+		return records
+	}
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		var record types.ClawbackRecord
+		if err := proto.Unmarshal(iter.Value(), &record); err == nil {
+			records = append(records, &record)
+		}
+	}
+	return records
+}
+
 // SetBlockRewardDistribution stores a block reward distribution record.
 func (k Keeper) SetBlockRewardDistribution(ctx sdk.Context, dist *types.BlockRewardDistribution) {
 	store := k.storeService.OpenKVStore(ctx)
@@ -155,4 +222,22 @@ func (k Keeper) SetBlockRewardDistribution(ctx sdk.Context, dist *types.BlockRew
 	if err := store.Set(key, bz); err != nil {
 		return
 	}
+}
+
+// GetAllBlockRewardDistributions returns all persisted block-reward records.
+func (k Keeper) GetAllBlockRewardDistributions(ctx sdk.Context) []*types.BlockRewardDistribution {
+	store := k.storeService.OpenKVStore(ctx)
+	var distributions []*types.BlockRewardDistribution
+	iter, err := store.Iterator(types.BlockRewardKeyPrefix, prefixEndBytes(types.BlockRewardKeyPrefix))
+	if err != nil {
+		return distributions
+	}
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		var distribution types.BlockRewardDistribution
+		if err := proto.Unmarshal(iter.Value(), &distribution); err == nil {
+			distributions = append(distributions, &distribution)
+		}
+	}
+	return distributions
 }

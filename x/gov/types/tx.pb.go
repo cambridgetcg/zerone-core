@@ -1082,9 +1082,9 @@ type MsgAttachCreedAmendmentPin struct {
 	CanonicalHash []byte                 `protobuf:"bytes,3,opt,name=canonical_hash,json=canonicalHash,proto3" json:"canonical_hash,omitempty"` // sha256 of normalized TRUTH_SEEKING.md as it would land
 	// commitments_json carries the JSON-encoded list of commitment
 	// entries (number, name, archived, etc.) that the new pin should
-	// contain. The keeper unmarshals this on attach for validation
-	// and again on pass to construct the PinnedCreed argument to
-	// x/creed.AnchorPin. The shape mirrors x/creed.CommitmentEntry.
+	// contain. The gov handler unmarshals and structurally validates this on
+	// attach; the creed keeper repeats the same validation before any on-chain
+	// pin write. The shape mirrors x/creed.CommitmentEntry.
 	CommitmentsJson []byte `protobuf:"bytes,4,opt,name=commitments_json,json=commitmentsJson,proto3" json:"commitments_json,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache

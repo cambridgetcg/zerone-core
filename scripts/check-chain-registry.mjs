@@ -21,6 +21,10 @@ const appTemplate = await readFile(
   path.join(repositoryRoot, "config/app.toml.template"),
   "utf8",
 );
+const gasConstants = await readFile(
+  path.join(repositoryRoot, "app/gas.go"),
+  "utf8",
+);
 const mainnetEntrypoint = await readFile(
   path.join(repositoryRoot, "deploy/mainnet/entrypoint.sh"),
   "utf8",
@@ -53,7 +57,15 @@ assert.deepEqual(
 
 const feeToken = chain.fees.fee_tokens[0];
 assert.equal(feeToken.denom, nativeAsset.base);
-assert.equal(feeToken.fixed_min_gas_price, 0.025);
+assert.match(gasConstants, /MinGasPrice\s+uint64\s*=\s*1\b/);
+assert.equal(feeToken.fixed_min_gas_price, 1);
+assert.equal(feeToken.low_gas_price, 1);
+assert.equal(feeToken.average_gas_price, 1);
+assert.ok(feeToken.high_gas_price >= feeToken.average_gas_price);
+assert.match(dashboardConfig, /gasPriceStep: \{ low: 1, average: 1, high: 1\.2 \}/);
+// The running zerone-1 process still declares a lower node-local mempool
+// threshold. The consensus ante floor above is authoritative for wallets and
+// is therefore what Chain Registry fee metadata must advertise.
 assert.match(appTemplate, /minimum-gas-prices = "0\.025uzrn"/);
 assert.match(mainnetEntrypoint, /minimum-gas-prices 0\.025uzrn/);
 assert.equal(chain.staking.staking_tokens[0].denom, nativeAsset.base);
@@ -72,6 +84,7 @@ assert.equal(chain.apis.rest, undefined);
 assert.equal(chain.codebase.recommended_version, undefined);
 assert.equal(chain.codebase.binaries, undefined);
 assert.equal(chain.codebase.ibc, undefined);
+assert.equal(chain.peers, undefined);
 assert.equal(chain.explorers[0].url, "https://zerone.ai/");
 assert.equal(chain.snapshots, undefined);
 

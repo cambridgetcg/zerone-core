@@ -1,5 +1,12 @@
 # Authority bundle contract
 
+> **Current source limitation — deployment NO-GO.** The verifier checks the
+> component signature bundle's declared shape, identity, issuer, and digest,
+> but does not yet perform cryptographic Sigstore verification against trusted
+> Fulcio/Rekor material. Repository CI also does not request GitHub OIDC or
+> produce these component signatures. The fixture bundle is only a structural
+> rehearsal; do not treat a passing fixture-shaped check as image provenance.
+
 The production authority bundle is an append-only directory of public release,
 signed authority, transaction, configuration, and evidence bytes. It contains
 no private keys, mnemonics, signer state, credentials, Fly tokens, or node data.

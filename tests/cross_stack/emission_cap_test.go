@@ -14,21 +14,24 @@ import (
 )
 
 // ════════════════════════════════════════════════════════════════════
-// Doctrine binding: THREE emission pathways, ONE cap-gated mint entry.
+// Doctrine binding: multiple emission pathways, ONE cap-gated runtime mint entry.
 //
-// The chain has exactly three pathways for ZRN to enter circulation —
-// PoT block rewards (x/vesting_rewards), bootstrap claims
-// (x/claiming_pot), and external-work attestation rewards
-// (x/substrate_bridge). Every pathway gates through MintWithCap. This
+// Runtime module issuance includes transaction-bearing block rewards
+// (x/vesting_rewards), claiming-pot claims (x/claiming_pot), external-work
+// attestation rewards (x/substrate_bridge), and configurable knowledge/tokens
+// emissions that are inert by default. Every compiled runtime pathway gates
+// through MintWithCap. InitChainer separately checks direct genesis supply.
+// This
 // test drives a real bootstrap claim through the live keepers and
 // confirms the bank's uzrn supply increases by the claim amount
 // (proving mint, not transfer from a pre-funded module account).
 // TestSubstrateBridge_HappyPathSettlement binds the external-work path.
 //
-// Doctrine: docs/tokenomics/GENESIS.md ("Zero Team Allocation"); docs/
-// tokenomics/SUPPLY.md ("Emission Pathways"). The pre-fund-then-transfer model
-// would let bootstrap claims leak supply outside the cap-tracking
-// counter; this test refuses that model.
+// Doctrine: docs/tokenomics/GENESIS.md ("Genesis and Participation-Gated
+// Issuance"); docs/tokenomics/SUPPLY.md ("Emission Pathways"). The live
+// genesis balances are deployment-specific and disclosed; this test binds
+// the post-genesis mint path. The pre-fund-then-transfer model would let
+// bootstrap claims leak supply outside the cap-tracking counter.
 // ════════════════════════════════════════════════════════════════════
 
 // TestEmissionCap_BootstrapClaimMintsOnDemand confirms that a successful

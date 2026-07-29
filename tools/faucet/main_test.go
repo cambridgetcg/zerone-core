@@ -11,6 +11,67 @@ import (
 	"time"
 )
 
+func TestValidateFaucetChainID(t *testing.T) {
+	tests := []struct {
+		chainID string
+		allowed bool
+	}{
+		{chainID: "zerone-localnet", allowed: true},
+		{chainID: "zerone-rehearsal-1", allowed: true},
+		{chainID: "zerone-rehearsal-faucet-drill", allowed: true},
+		{chainID: "", allowed: false},
+		{chainID: "zerone-1", allowed: false},
+		{chainID: "zerone-testnet-1", allowed: false},
+		{chainID: "zerone-rehearsal", allowed: false},
+		{chainID: "prefix-zerone-localnet", allowed: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.chainID, func(t *testing.T) {
+			err := validateFaucetChainID(tc.chainID)
+			if (err == nil) != tc.allowed {
+				t.Fatalf("validateFaucetChainID(%q) error = %v, allowed = %v", tc.chainID, err, tc.allowed)
+			}
+		})
+	}
+}
+
+func TestSendTokensRefusesSharedLiveChainBeforeExec(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "invoked")
+	binary := filepath.Join(dir, "zeroned")
+	t.Setenv("GUARD_MARKER", marker)
+	t.Setenv("PATH", dir)
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nprintf 'invoked\\n' > \"$GUARD_MARKER\"\nexit 99\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	f := &Faucet{cfg: Config{ChainID: "zerone-1"}}
+	_, err := f.sendTokens("zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu", 1)
+	if err == nil || !strings.Contains(err.Error(), "shared/live") {
+		t.Fatalf("unsafe faucet send did not fail at the chain guard: %v", err)
+	}
+	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
+		t.Fatalf("zeroned ran before chain refusal; marker stat error = %v", statErr)
+	}
+}
+
+func TestFaucetHandlerRefusesSharedLiveChain(t *testing.T) {
+	f := newTestFaucet()
+	f.cfg.ChainID = "zerone-testnet-1"
+	req := httptest.NewRequest(http.MethodPost, "/faucet", strings.NewReader(
+		`{"address":"zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu"}`,
+	))
+	rec := httptest.NewRecorder()
+
+	f.handleFaucet(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("unsafe-chain status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
+	}
+	if !strings.Contains(rec.Body.String(), "shared/live") {
+		t.Fatalf("unsafe-chain response did not explain refusal: %s", rec.Body.String())
+	}
+}
+
 // ---------------------------------------------------------------------------
 // TestIsValidAddress — table-driven
 // ---------------------------------------------------------------------------
@@ -73,6 +134,7 @@ func newTestFaucet() *Faucet {
 			Amount:        100000000,
 			CooldownHours: 24,
 			MaxTotal:      10000000000000,
+			ChainID:       "zerone-localnet",
 		},
 		state: State{
 			Requests: make(map[string]string),
@@ -280,7 +342,7 @@ func TestSaveLoadState(t *testing.T) {
 		state: State{
 			TotalDistributed: 42000000,
 			Requests: map[string]string{
-				"zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu": "2026-02-27T12:00:00Z",
+				"zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu":   "2026-02-27T12:00:00Z",
 				"zrn1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0000": "2026-02-27T13:00:00Z",
 			},
 		},

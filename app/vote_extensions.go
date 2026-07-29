@@ -13,6 +13,14 @@ import (
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
+// potVoteExtensionsReleaseEnabled is a source-level safety latch. The current
+// vote-extension transport does not bind the self-declared valoper address to
+// CometBFT's authenticated consensus voter, and the keeper-side selection
+// helper does not yet verify the VRF proof against that voter's consensus
+// public key. Keep the official binary unable to emit or accept non-empty PoT
+// extensions until both bindings exist and are covered by adversarial tests.
+const potVoteExtensionsReleaseEnabled = false
+
 // VoteExtensionConfig holds per-validator configuration for vote extensions.
 type VoteExtensionConfig struct {
 	// ValidatorAddress is the validator's bech32 operator address.
@@ -49,6 +57,10 @@ func (app *ZeroneApp) ExtendVoteHandler() sdk.ExtendVoteHandler {
 				err = nil
 			}
 		}()
+
+		if !potVoteExtensionsReleaseEnabled {
+			return emptyVoteExtension()
+		}
 
 		// Skip if not configured (e.g., non-validator node)
 		if app.VoteExtConfig == nil ||
@@ -242,9 +254,9 @@ func (app *ZeroneApp) VerifyVoteExtensionHandler() sdk.VerifyVoteExtensionHandle
 
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Error("PANIC in VerifyVoteExtension — accepting extension to preserve liveness",
+				logger.Error("PANIC in VerifyVoteExtension — rejecting extension",
 					"height", req.Height, "panic", fmt.Sprintf("%v", r))
-				resp = acceptExtension()
+				resp = rejectExtension()
 				err = nil
 			}
 		}()
@@ -252,6 +264,11 @@ func (app *ZeroneApp) VerifyVoteExtensionHandler() sdk.VerifyVoteExtensionHandle
 		// Empty extensions are always valid
 		if len(req.VoteExtension) == 0 {
 			return acceptExtension(), nil
+		}
+		if !potVoteExtensionsReleaseEnabled {
+			logger.Warn("non-empty PoT vote extension rejected: release safety latch is closed",
+				"height", req.Height)
+			return rejectExtension(), nil
 		}
 
 		var ext VoteExtension

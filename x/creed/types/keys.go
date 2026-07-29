@@ -34,7 +34,8 @@ var (
 	CommitmentIndexPrefix = []byte{0x03}
 
 	// CouncilMemberPrefix indexes Creed Council seats by bech32
-	// address. The AI-side voter pool for Creed Amendment LIPs.
+	// address. This is a future two-pool routing surface; current LIP
+	// tally does not consume it.
 	// Append-only with mutation in place: setting active=false is
 	// the structural form of archival (commitment 10: forward-
 	// only audit applies — the seat record persists).

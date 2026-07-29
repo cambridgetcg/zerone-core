@@ -3,10 +3,10 @@
 // becomes catastrophe.
 //
 // docs/TRUTH_SEEKING.md, commitment 11 (per-system scope): "Trust must
-// be queryable, synthesised from many signals." Where x/trust_score
-// answers per-address and x/governance_synthesis answers per-chain,
-// this module is the upstream observation layer — the sensors whose
-// readings those queries depend on.
+// be queryable, synthesised from many signals." x/trust_score answers
+// per-address. The former on-chain governance_synthesis module was retired;
+// per-chain composition belongs to clients/indexers reading public signals.
+// This module remains an upstream observation layer.
 //
 // docs/TRUTH_SEEKING.md, commitment 12 (chain pays for its own audit):
 // the alignment correction pipeline records suggested corrections in

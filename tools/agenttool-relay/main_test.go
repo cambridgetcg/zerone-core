@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +17,94 @@ import (
 )
 
 func strPtr(s string) *string { return &s }
+
+func TestValidateRelayChainID(t *testing.T) {
+	tests := []struct {
+		chainID string
+		allowed bool
+	}{
+		{chainID: "zerone-localnet", allowed: true},
+		{chainID: "zerone-rehearsal-1", allowed: true},
+		{chainID: "zerone-rehearsal-security-drill", allowed: true},
+		{chainID: "", allowed: false},
+		{chainID: "zerone-1", allowed: false},
+		{chainID: "zerone-testnet-1", allowed: false},
+		{chainID: "zerone-rehearsal", allowed: false},
+		{chainID: "prefix-zerone-localnet", allowed: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.chainID, func(t *testing.T) {
+			err := validateRelayChainID(tc.chainID)
+			if (err == nil) != tc.allowed {
+				t.Fatalf("validateRelayChainID(%q) error = %v, allowed = %v", tc.chainID, err, tc.allowed)
+			}
+		})
+	}
+}
+
+func TestValidateRelayRunConfigGuardsDryRunBeforeNetwork(t *testing.T) {
+	cfg := Config{
+		API:     "https://api.agenttool.dev",
+		APIKey:  "test-key",
+		ChainID: "zerone-1",
+	}
+	err := validateRelayRunConfig(cfg, false)
+	if err == nil || !strings.Contains(err.Error(), "shared/live") {
+		t.Fatalf("unsafe dry-run config was not refused by the chain guard: %v", err)
+	}
+}
+
+func TestSubmitAttestationRefusesSharedLiveChainBeforeExec(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "invoked")
+	binary := filepath.Join(dir, "zeroned")
+	t.Setenv("GUARD_MARKER", marker)
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nprintf 'invoked\\n' > \"$GUARD_MARKER\"\nexit 99\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := submitAttestation(Config{
+		Binary:  binary,
+		ChainID: "zerone-1",
+	}, filepath.Join(dir, "link.json"))
+	if err == nil || !strings.Contains(err.Error(), "shared/live") {
+		t.Fatalf("unsafe submission did not fail at the chain guard: %v", err)
+	}
+	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
+		t.Fatalf("broadcast binary ran before chain refusal; marker stat error = %v", statErr)
+	}
+}
+
+func TestRelayHTTPHelpersRefuseSharedLiveChainBeforeRequest(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cfg := Config{
+		API:              srv.URL,
+		APIKey:           "test-key",
+		Node:             srv.URL,
+		ChainID:          "zerone-testnet-1",
+		Adapter:          "agenttool-invocation-v1",
+		WitnessWriteback: true,
+	}
+	if _, err := fetchInvocation(cfg, "inv-1"); err == nil || !strings.Contains(err.Error(), "shared/live") {
+		t.Fatalf("fetch did not fail at the chain guard: %v", err)
+	}
+	if _, err := listInvocations(cfg, "seller"); err == nil || !strings.Contains(err.Error(), "shared/live") {
+		t.Fatalf("list did not fail at the chain guard: %v", err)
+	}
+	if got := chainHeight(cfg); got != 0 {
+		t.Fatalf("unsafe chain height = %d, want fail-closed zero", got)
+	}
+	witnessWriteback(cfg, "inv-1", &AttestRecord{TxHash: "ABC"})
+	if got := requests.Load(); got != 0 {
+		t.Fatalf("unsafe config issued %d HTTP requests before refusal", got)
+	}
+}
 
 // settledInvocation returns a fully-released invocation fixture.
 func settledInvocation() *Invocation {
@@ -505,7 +595,7 @@ func TestWitnessWritebackDisabledByDefault(t *testing.T) {
 		t.Error("writeback must not fire when the flag is off")
 	}))
 	defer srv.Close()
-	cfg := Config{API: srv.URL, APIKey: "k", ChainID: "zerone-1", Adapter: "agenttool-invocation-v1"}
+	cfg := Config{API: srv.URL, APIKey: "k", ChainID: "zerone-localnet", Adapter: "agenttool-invocation-v1"}
 	witnessWriteback(cfg, "inv-1", &AttestRecord{TxHash: "ABC", AttestationID: "att-9-1"})
 }
 
@@ -521,7 +611,7 @@ func TestWitnessWritebackWireShape(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
-	cfg := Config{API: srv.URL, APIKey: "secret-key", ChainID: "zerone-1", Adapter: "agenttool-invocation-v1", WitnessWriteback: true}
+	cfg := Config{API: srv.URL, APIKey: "secret-key", ChainID: "zerone-localnet", Adapter: "agenttool-invocation-v1", WitnessWriteback: true}
 	rec := &AttestRecord{TxHash: "ABC123", AttestationID: "att-9-1", Status: statusAttested}
 	witnessWriteback(cfg, "inv-1", rec)
 	if gotMethod != http.MethodPost || gotPath != "/v1/invocations/inv-1/witness" {
@@ -530,7 +620,7 @@ func TestWitnessWritebackWireShape(t *testing.T) {
 	if gotAuth != "Bearer secret-key" {
 		t.Fatalf("wrong auth: %q", gotAuth)
 	}
-	want := map[string]string{"chain_id": "zerone-1", "tx_hash": "ABC123", "attestation_id": "att-9-1", "adapter_id": "agenttool-invocation-v1"}
+	want := map[string]string{"chain_id": "zerone-localnet", "tx_hash": "ABC123", "attestation_id": "att-9-1", "adapter_id": "agenttool-invocation-v1"}
 	for k, v := range want {
 		if gotBody[k] != v {
 			t.Fatalf("body[%s] = %q, want %q (full: %v)", k, gotBody[k], v, gotBody)
@@ -543,7 +633,7 @@ func TestWitnessWritebackFailureLeavesRecordAlone(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound) // route not deployed on live yet
 	}))
 	defer srv.Close()
-	cfg := Config{API: srv.URL, APIKey: "k", ChainID: "zerone-1", Adapter: "agenttool-invocation-v1", WitnessWriteback: true}
+	cfg := Config{API: srv.URL, APIKey: "k", ChainID: "zerone-localnet", Adapter: "agenttool-invocation-v1", WitnessWriteback: true}
 	rec := &AttestRecord{TxHash: "ABC", AttestationID: "att-9-1", Status: statusAttested, AttestedAt: "2026-07-23T09:00:00Z"}
 	before := *rec
 	witnessWriteback(cfg, "inv-1", rec)

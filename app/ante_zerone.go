@@ -406,8 +406,8 @@ var msgTypeURLToGas = map[string]uint64{
 
 // ---------- Fee Router Decorator ----------
 
-// FeeRouterDecorator splits collected fees: 7% to research fund, 93% to validators.
-// This implements the ZRN fee routing from core/billing/reward_router.ts.
+// FeeRouterDecorator observes fees whose actual routing is performed by
+// vesting_rewards.RouteFees using the current on-chain RevenueSplit params.
 type FeeRouterDecorator struct {
 	bankKeeper bankkeeper.Keeper
 }
@@ -418,11 +418,11 @@ func NewFeeRouterDecorator(bk bankkeeper.Keeper) FeeRouterDecorator {
 }
 
 func (frd FeeRouterDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
-	// Fee routing is handled in x/vesting_rewards BeginBlocker via keeper.RouteFees().
-	// The BeginBlocker sweeps 7% of fee_collector to research_fund before
-	// x/distribution's BeginBlocker sends the remaining 93% to validators.
+	// Fee routing is handled in x/vesting_rewards BeginBlocker via
+	// keeper.RouteFees(). This decorator does not hold that keeper and must not
+	// report a hard-coded split that can drift from on-chain params.
 	//
-	// This decorator only logs the intended split for observability.
+	// Log only the observed fee and the authoritative source of routing data.
 
 	feeTx, ok := tx.(sdk.FeeTx)
 	if !ok {
@@ -436,8 +436,7 @@ func (frd FeeRouterDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 
 	ctx.Logger().Debug("ZRN fee routing",
 		"total_fee", fee.String(),
-		"research_share_bps", ResearchContributionBPS,
-		"validator_share_bps", ValidatorFeeBPS,
+		"split_source", "x/vesting_rewards revenue_split params",
 	)
 
 	return next(ctx, tx, simulate)

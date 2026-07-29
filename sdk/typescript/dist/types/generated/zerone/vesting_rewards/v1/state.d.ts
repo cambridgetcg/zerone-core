@@ -97,6 +97,18 @@ export interface VestingSchedule {
     citationCount: number;
 }
 /**
+ * ClaimScheduleIndex preserves the current claim_id -> vesting_id lookup.
+ * Multiple legacy schedules may share a claim ID, so schedule replay order
+ * alone cannot reconstruct which schedule the live index selected.
+ * @name ClaimScheduleIndex
+ * @package zerone.vesting_rewards.v1
+ * @see proto type: zerone.vesting_rewards.v1.ClaimScheduleIndex
+ */
+export interface ClaimScheduleIndex {
+    claimId: string;
+    vestingId: string;
+}
+/**
  * CategoryConfig defines release curve parameters for a vesting category.
  * @name CategoryConfig
  * @package zerone.vesting_rewards.v1
@@ -208,7 +220,8 @@ export interface BlockRewardDistribution {
      */
     validatorCount: number;
     /**
-     * remaining fund balance (bigint as string)
+     * Legacy field name: cumulative shared MintWithCap accounting ledger after
+     * this distribution, not a spendable fund balance or full supply history.
      */
     fundBalanceAfter: string;
     /**
@@ -271,6 +284,20 @@ export declare const VestingSchedule: {
     encode(message: VestingSchedule, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): VestingSchedule;
     fromPartial(object: DeepPartial<VestingSchedule>): VestingSchedule;
+};
+/**
+ * ClaimScheduleIndex preserves the current claim_id -> vesting_id lookup.
+ * Multiple legacy schedules may share a claim ID, so schedule replay order
+ * alone cannot reconstruct which schedule the live index selected.
+ * @name ClaimScheduleIndex
+ * @package zerone.vesting_rewards.v1
+ * @see proto type: zerone.vesting_rewards.v1.ClaimScheduleIndex
+ */
+export declare const ClaimScheduleIndex: {
+    typeUrl: string;
+    encode(message: ClaimScheduleIndex, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): ClaimScheduleIndex;
+    fromPartial(object: DeepPartial<ClaimScheduleIndex>): ClaimScheduleIndex;
 };
 /**
  * CategoryConfig defines release curve parameters for a vesting category.

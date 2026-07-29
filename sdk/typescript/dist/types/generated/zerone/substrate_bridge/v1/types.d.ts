@@ -22,10 +22,10 @@ export declare enum CitationType {
 export declare function citationTypeFromJSON(object: any): CitationType;
 export declare function citationTypeToJSON(object: CitationType): string;
 /**
- * ExternalSource is a typed reference to off-chain content that an
- * adapter has fetched. The content_hash is the cryptographic anchor:
- * substrate-link re-derivation matches if and only if the source's
- * content_hash matches what the adapter binary produced.
+ * ExternalSource is caller-declared off-chain provenance. Consensus requires
+ * adapter_id to match the enclosing link and content_hash to have SHA-256
+ * width. It does not fetch external content, execute an adapter/compiler, or
+ * verify the declared digest against external bytes.
  * @name ExternalSource
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.ExternalSource
@@ -41,7 +41,7 @@ export interface ExternalSource {
      */
     sourceUrl: string;
     /**
-     * sha256 of fetched content
+     * declared SHA-256 digest; width checked only
      */
     contentHash: Uint8Array;
     fetchedAtBlock: bigint;
@@ -80,10 +80,10 @@ export interface AxisBounds {
     axisInterfaceMax: bigint;
 }
 /**
- * ExternalSource is a typed reference to off-chain content that an
- * adapter has fetched. The content_hash is the cryptographic anchor:
- * substrate-link re-derivation matches if and only if the source's
- * content_hash matches what the adapter binary produced.
+ * ExternalSource is caller-declared off-chain provenance. Consensus requires
+ * adapter_id to match the enclosing link and content_hash to have SHA-256
+ * width. It does not fetch external content, execute an adapter/compiler, or
+ * verify the declared digest against external bytes.
  * @name ExternalSource
  * @package zerone.substrate_bridge.v1
  * @see proto type: zerone.substrate_bridge.v1.ExternalSource

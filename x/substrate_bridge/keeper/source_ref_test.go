@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"crypto/sha256"
 	"math/big"
 	"testing"
 
@@ -68,12 +69,13 @@ func newUnarmedKeeperFull(t *testing.T) (keeper.Keeper, sdk.Context, *stubBankKe
 // sourcedLink builds a valid witness-only link for (adapter, source) with a
 // correct canonical hash. fetchedAt lets replay tests vary a hashed field.
 func sourcedLink(adapterID, sourceID string, fetchedAt uint64) *types.SubstrateLink {
+	digest := sha256.Sum256([]byte(adapterID + "\x00" + sourceID))
 	link := &types.SubstrateLink{
 		AdapterId: adapterID,
 		Source: &types.ExternalSource{
 			AdapterId:      adapterID,
 			SourceId:       sourceID,
-			ContentHash:    []byte{0xAA, 0xBB},
+			ContentHash:    digest[:],
 			FetchedAtBlock: fetchedAt,
 		},
 	}

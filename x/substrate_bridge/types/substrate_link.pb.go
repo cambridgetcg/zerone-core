@@ -21,12 +21,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SubstrateLink is the deterministic provenance from external content
-// to ToK fact-IDs (existing + pending). Two sections — cited_facts MUST
-// exist in x/knowledge at commit time; pending_claims are auto-submitted
-// as Claims and the attestation is held in AWAITING_RESOLUTION until
-// they resolve. M2 satisfied: every pending claim becomes a real
-// on-chain claim with full provenance.
+// SubstrateLink commits caller-declared external provenance to ToK fact IDs.
+// cited_facts MUST exist in x/knowledge at commit time.
+// pending_claims is a reserved future integration surface: current
+// MsgSubmitExternalAttestation rejects a nonempty list because translation
+// into x/knowledge is not wired.
 type SubstrateLink struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	CitedFacts      []*FactCitation        `protobuf:"bytes,1,rep,name=cited_facts,json=citedFacts,proto3" json:"cited_facts,omitempty"`
@@ -34,7 +33,7 @@ type SubstrateLink struct {
 	RecursionWeight *AxisProjection        `protobuf:"bytes,3,opt,name=recursion_weight,json=recursionWeight,proto3" json:"recursion_weight,omitempty"`
 	AdapterId       string                 `protobuf:"bytes,4,opt,name=adapter_id,json=adapterId,proto3" json:"adapter_id,omitempty"`
 	Source          *ExternalSource        `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`
-	LinkHash        []byte                 `protobuf:"bytes,6,opt,name=link_hash,json=linkHash,proto3" json:"link_hash,omitempty"` // sha256 of canonical form
+	LinkHash        []byte                 `protobuf:"bytes,6,opt,name=link_hash,json=linkHash,proto3" json:"link_hash,omitempty"` // sha256 of canonical declared fields
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -173,10 +172,10 @@ func (x *FactCitation) GetCitationContext() string {
 	return ""
 }
 
-// PendingClaim is a Claim auto-submitted at commit phase. Shape mirrors
-// x/knowledge.Claim so the substrate_bridge keeper can call
-// x/knowledge.SetClaim directly. claim_relations cite existing facts;
-// they are NOT recursive pending claims (one-hop deferral only).
+// PendingClaim is the reserved shape for a future x/knowledge translation.
+// It is not accepted by current public attestation submission. When that
+// integration is implemented, claim_relations may cite existing facts only;
+// they are not recursive pending claims.
 type PendingClaim struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	ClaimContent   string                 `protobuf:"bytes,1,opt,name=claim_content,json=claimContent,proto3" json:"claim_content,omitempty"`
@@ -260,9 +259,9 @@ func (x *PendingClaim) GetRelations() []*ClaimRelation {
 type ClaimRelation struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	TargetFactId         string                 `protobuf:"bytes,1,opt,name=target_fact_id,json=targetFactId,proto3" json:"target_fact_id,omitempty"`
-	Relation             string                 `protobuf:"bytes,2,opt,name=relation,proto3" json:"relation,omitempty"`   // SUPPORTS | REQUIRES | etc. (mirrors x/knowledge)
-	Inference            string                 `protobuf:"bytes,3,opt,name=inference,proto3" json:"inference,omitempty"` // DEDUCTIVE | INDUCTIVE | etc.
-	InferenceStrengthBps uint32                 `protobuf:"varint,4,opt,name=inference_strength_bps,json=inferenceStrengthBps,proto3" json:"inference_strength_bps,omitempty"`
+	Relation             string                 `protobuf:"bytes,2,opt,name=relation,proto3" json:"relation,omitempty"`                                                        // SUPPORTS | REQUIRES | etc. (mirrors x/knowledge)
+	Inference            string                 `protobuf:"bytes,3,opt,name=inference,proto3" json:"inference,omitempty"`                                                      // DEDUCTIVE | INDUCTIVE | etc.
+	InferenceStrengthBps uint32                 `protobuf:"varint,4,opt,name=inference_strength_bps,json=inferenceStrengthBps,proto3" json:"inference_strength_bps,omitempty"` // reserved path; 10,000 scale
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }

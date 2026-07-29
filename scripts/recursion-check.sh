@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Recursion Check — verify every recursion in docs/RECURSIVE_ZERONE.md holds
+# Recursion Check — verify cited recursion source bindings
 # ═══════════════════════════════════════════════════════════════════════════
 #
-# Runs the binding tests for each numbered recursion in the doctrine
-# (RECURSIVE_ZERONE.md). Prints PASS/FAIL per recursion. Exit 0 if all
-# recursions still hold; exit 1 if any recursion's binding test fails.
+# Runs the cited tests for each numbered section in RECURSIVE_ZERONE.md.
+# Passing proves those source capabilities, not live-network activation.
 #
 # Use this before merging changes that touch any module participating in
 # the recursion catalog (sponsorship, substrate_bridge, claiming_pot,
@@ -56,32 +55,32 @@ run_recursion() {
 
 echo
 echo "═══════════════════════════════════════════════════════════════════"
-echo "  Recursion Check — docs/RECURSIVE_ZERONE.md"
+echo "  Recursion Source-Binding Check — docs/RECURSIVE_ZERONE.md"
 echo "═══════════════════════════════════════════════════════════════════"
 echo
 
 # Recursion 1: chain attests to its own becoming
-run_recursion 1 "chain attests to its own becoming" \
+run_recursion 1 "self-adapter compiler and dormant bridge are test-bound" \
   "TestZeroneSelfAdapter"
 
-# Recursion 2: chain pays for its own self-documentation
-run_recursion 2 "chain pays for its own self-documentation" \
-  "TestZeroneSelf_FullEconomicLoop|TestZeroneSelf_MultipleFulfillmentsCompoundEarnings"
+# Recursion 2: sponsorship primitives can fund self-documentation
+run_recursion 2 "self-domain sponsorship primitives compose in tests" \
+  "TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState|TestZeroneSelf_MultipleFulfillmentsCompoundEarnings"
 
 # Recursion 3: chain pays its builders twice for the same verified work
-run_recursion 3 "chain pays builders twice for one verified self-attestation" \
-  "TestRecursiveDoublePayment_SelfAttestationEarnsTwice"
+run_recursion 3 "double-payment primitives compose in tests" \
+  "TestRecursiveDoublePayment_ManuallyStagedStateExercisesTwoPayouts"
 
 # Recursion 4: chain's lineage graph includes its own commits
-run_recursion 4 "lineage graph includes the chain's own commits" \
-  "TestRecursiveLineage_DownstreamWorkPaysUpstreamSelfAttester|TestRecursiveLineage_MultipleCitationsCompound"
+run_recursion 4 "self-lineage primitives compose in tests" \
+  "TestRecursiveLineage_AccountingAttributesDownstreamRewardUpstream|TestRecursiveLineage_MultipleCitationsCompoundAccounting"
 
 # Recursion 5: creed cannot move faster than governance
-run_recursion 5 "creed cannot move faster than governance" \
+run_recursion 5 "creed source hash is repository-bound" \
   "TestTruthSeeking_CreedHashIsPinned"
 
-# Recursion 6: useful work is governed by per-phase sub-creeds
-run_recursion 6 "useful work is governed by per-phase sub-creeds" \
+# Recursion 6: useful-work sub-creeds are source-hash bound
+run_recursion 6 "useful-work sub-creeds are source-hash bound" \
   "TestSubCreed_(Alignment|Augmentation|Curation|Evaluation|Foundation|Substrate|Tools|Training)_StaysInSync"
 
 # Recursion 7: participation grows through participation
@@ -90,22 +89,21 @@ run_recursion 7 "participation grows through participation" \
 
 # Recursion 8: economy is hard-capped and self-circulating
 run_recursion 8 "economy is hard-capped and self-circulating" \
-  "TestEmissionCap_BootstrapClaimMintsOnDemand|TestScenario13_ZeroTeamAllocationAtGenesis|TestScenario13c_ClaimingPotMinterPermission|TestSubstrateBridge_HappyPathSettlement|TestSponsorship_NoMintingHappens"
+  "TestEmissionCap_BootstrapClaimMintsOnDemand|TestScenario13_ProtocolDefaultGenesisHasNoBalances|TestScenario13c_ClaimingPotMinterPermission|TestSubstrateBridge_HappyPathSettlement|TestSponsorship_NoMintingHappens"
 
-# Recursion 9: chain audits itself with an autonomous, capped bounty pool
-run_recursion 9 "chain audits itself with its own funded bounty pool" \
+# Recursion 9: autonomous audit budget capability
+run_recursion 9 "autonomous audit budget capability is test-bound" \
   "TestTruthSeeking_AuditBudgetIsAutonomous|TestTruthSeeking_ChainPaysForOwnAudit|TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses|TestMoat_ProbeBountyPoolRespectsCap"
 
 # Recursion 10: recursion catalog and voice layer audit their own bindings
 run_recursion 10 "recursion catalog and voice audit their own bindings" \
-  "TestRecursiveZerone_TestNamesCitedInDoctrineExist|TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound"
+  "TestRecursiveZerone_TestNamesCitedInDoctrineExist|TestRecursiveVoiceAudit_StagedRecursionEventsCarryDoctrineAttributes"
 
 echo
 echo "═══════════════════════════════════════════════════════════════════"
 if [ "${FAIL}" -eq 0 ]; then
-  printf "  %bAll %d recursions hold.%b\n" "${GREEN}" "${TOTAL}" "${RESET}"
-  echo "  The chain participates in its own systems; every loop terminates"
-  echo "  at a verifiable artifact bound by the test layer."
+  printf "  %bAll %d cited source bindings pass.%b\n" "${GREEN}" "${TOTAL}" "${RESET}"
+  echo "  This result does not assert live deployment or public-path reachability."
   echo "═══════════════════════════════════════════════════════════════════"
   exit 0
 else

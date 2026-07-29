@@ -1,10 +1,10 @@
 package types
 
 // CanonicalCommitments is the canonical name-by-number registry
-// of the chain's commitments at the time this binary was built.
-// Operators authoring genesis.json should use this list (via
-// BuildGenesisCreed) so the on-chain Genesis Creed matches the
-// docs/TRUTH_SEEKING.md the binary is shipping.
+// of the source commitments at the time this binary was built.
+// Operators may use this list via BuildGenesisCreed when explicitly
+// constructing a genesis pin. Repository CI does not prove a deployed
+// genesis used it.
 //
 // To add a new commitment:
 //  1. Add the section to docs/TRUTH_SEEKING.md (with **Echoes**
@@ -46,14 +46,14 @@ var CanonicalCommitments = []struct {
 
 // BuildGenesisCreed materializes the canonical commitment list
 // into a v1 PinnedCreed for use in GenesisState.GenesisPin. The
-// canonical_hash MUST match the actual sha256 of the normalized
-// docs/TRUTH_SEEKING.md the binary is shipping; the
-// TestTruthSeeking_GenesisCreedReflectsCurrentTruthSeeking
-// invariant test catches drift between the two.
+// Callers are responsible for supplying the intended canonical hash.
+// TestTruthSeeking_GenesisCreedReflectsCurrentTruthSeeking checks only the
+// numbered source registry; scripts/check_creed_hash.sh separately binds the
+// markdown to .creed-hash. Neither check inspects a running network.
 //
 // IntroducedViaLip is intentionally empty for genesis-installed
-// commitments — no LIP precedes genesis, and post-genesis
-// amendments must cite the LIP that authorized them.
+// commitments—no LIP precedes genesis. Later direct-authority pins can also
+// omit a LIP while direct anchoring remains enabled.
 func BuildGenesisCreed(canonicalHash []byte, atHeight uint64) *PinnedCreed {
 	cs := make([]*CommitmentEntry, 0, len(CanonicalCommitments))
 	for _, c := range CanonicalCommitments {

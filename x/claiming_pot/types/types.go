@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -141,6 +142,31 @@ func DefaultGenesis() *GenesisState {
 	}
 }
 
+// PotCommitmentUnits returns ceil(total_amount / PerAgentBootstrapUzrn).
+// Bootstrap and legacy general pots share this fixed-size lifetime budget.
+func PotCommitmentUnits(totalAmount string) (uint64, error) {
+	total := new(big.Int)
+	if _, ok := total.SetString(totalAmount, 10); !ok || total.Sign() <= 0 {
+		return 0, fmt.Errorf("total_amount must be a positive integer: %q", totalAmount)
+	}
+	perUnit, _ := new(big.Int).SetString(PerAgentBootstrapUzrn, 10)
+	units := new(big.Int).Add(total, new(big.Int).Sub(perUnit, big.NewInt(1)))
+	units.Quo(units, perUnit)
+	if !units.IsUint64() {
+		return 0, fmt.Errorf("total_amount commits more than uint64 units: %q", totalAmount)
+	}
+	return units.Uint64(), nil
+}
+
+// GeneralPotSequence parses the canonical legacy general-pot ID `pot-N`.
+func GeneralPotSequence(id string) (uint64, bool) {
+	if !strings.HasPrefix(id, "pot-") {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(strings.TrimPrefix(id, "pot-"), 10, 64)
+	return n, err == nil && n > 0
+}
+
 // Validate validates the genesis state.
 func (gs *GenesisState) Validate() error {
 	if gs.Params != nil {
@@ -148,27 +174,104 @@ func (gs *GenesisState) Validate() error {
 			return fmt.Errorf("invalid params: %w", err)
 		}
 	}
-	seen := make(map[string]bool)
-	bootstrapEntries := int64(0)
-	for _, pot := range gs.Pots {
-		if seen[pot.Id] {
+	potByID := make(map[string]*ClaimingPot)
+	derivedUnits := new(big.Int)
+	var maxPotSequence uint64
+	for i, pot := range gs.Pots {
+		if pot == nil {
+			return fmt.Errorf("nil pot at index %d", i)
+		}
+		if pot.Id == "" {
+			return fmt.Errorf("pot at index %d has empty id", i)
+		}
+		if _, exists := potByID[pot.Id]; exists {
 			return fmt.Errorf("duplicate pot id: %s", pot.Id)
 		}
-		seen[pot.Id] = true
-		if strings.HasPrefix(pot.Id, BootstrapPotIDPrefix) {
-			bootstrapEntries++
+		potByID[pot.Id] = pot
+		if sequence, ok := GeneralPotSequence(pot.Id); ok && sequence > maxPotSequence {
+			maxPotSequence = sequence
+		}
+		units, err := PotCommitmentUnits(pot.TotalAmount)
+		if err != nil {
+			return fmt.Errorf("pot %s: %w", pot.Id, err)
+		}
+		derivedUnits.Add(derivedUnits, new(big.Int).SetUint64(units))
+		claimed := new(big.Int)
+		if _, ok := claimed.SetString(pot.ClaimedAmount, 10); !ok || claimed.Sign() < 0 {
+			return fmt.Errorf("pot %s claimed_amount must be a non-negative integer: %q", pot.Id, pot.ClaimedAmount)
+		}
+		total, _ := new(big.Int).SetString(pot.TotalAmount, 10)
+		if claimed.Cmp(total) > 0 {
+			return fmt.Errorf("pot %s claimed_amount %s exceeds total_amount %s", pot.Id, claimed, total)
+		}
+		if pot.Schedule == nil {
+			return fmt.Errorf("pot %s schedule must not be nil", pot.Id)
+		}
+		if pot.Schedule.EndBlock <= pot.Schedule.StartBlock {
+			return fmt.Errorf("pot %s end_block must be greater than start_block", pot.Id)
 		}
 	}
-	// Genesis bootstrap pots consume the same lifetime emission budget as
-	// post-genesis admissions — catch a ceremony that over-injects.
+	// Every genesis pot consumes the same fixed-size lifetime budget as
+	// post-genesis admissions and general-pot creation.
 	params := gs.Params
 	if params == nil {
 		params = DefaultParams()
 	}
 	perEntry, _ := new(big.Int).SetString(PerAgentBootstrapUzrn, 10)
-	committed := new(big.Int).Mul(big.NewInt(bootstrapEntries), perEntry)
+	committedUnits := new(big.Int).Set(derivedUnits)
+	if gs.LifetimeCommittedUnits != 0 {
+		exportedUnits := new(big.Int).SetUint64(gs.LifetimeCommittedUnits)
+		if exportedUnits.Cmp(derivedUnits) < 0 {
+			return fmt.Errorf("lifetime_committed_units %s is below pot-derived minimum %s", exportedUnits, derivedUnits)
+		}
+		committedUnits = exportedUnits
+	}
+	committed := new(big.Int).Mul(committedUnits, perEntry)
 	if committed.Cmp(params.BootstrapEmissionCap()) > 0 {
-		return fmt.Errorf("genesis bootstrap pots commit %s uzrn > bootstrap_emission_cap_uzrn %s", committed, params.BootstrapEmissionCap())
+		return fmt.Errorf("genesis pots commit %s uzrn > bootstrap_emission_cap_uzrn %s", committed, params.BootstrapEmissionCap())
+	}
+	if gs.PotCounter != 0 && gs.PotCounter < maxPotSequence {
+		return fmt.Errorf("pot_counter %d is below highest general pot sequence %d", gs.PotCounter, maxPotSequence)
+	}
+	if gs.PotCounter == ^uint64(0) || maxPotSequence == ^uint64(0) {
+		return fmt.Errorf("pot_counter must leave room for the next general pot id")
+	}
+	seenClaims := make(map[string]bool)
+	claimedByPot := make(map[string]*big.Int)
+	for i, claim := range gs.Claims {
+		if claim == nil {
+			return fmt.Errorf("nil claim at index %d", i)
+		}
+		pot, exists := potByID[claim.PotId]
+		if !exists {
+			return fmt.Errorf("claim at index %d references unknown pot %q", i, claim.PotId)
+		}
+		if _, err := sdk.AccAddressFromBech32(claim.Claimant); err != nil {
+			return fmt.Errorf("claim at index %d has invalid claimant: %w", i, err)
+		}
+		key := claim.PotId + "\x00" + claim.Claimant
+		if seenClaims[key] {
+			return fmt.Errorf("duplicate claim for pot %s and claimant %s", claim.PotId, claim.Claimant)
+		}
+		seenClaims[key] = true
+		amount := new(big.Int)
+		if _, ok := amount.SetString(claim.Amount, 10); !ok || amount.Sign() <= 0 {
+			return fmt.Errorf("claim at index %d amount must be a positive integer: %q", i, claim.Amount)
+		}
+		if claimedByPot[pot.Id] == nil {
+			claimedByPot[pot.Id] = new(big.Int)
+		}
+		claimedByPot[pot.Id].Add(claimedByPot[pot.Id], amount)
+	}
+	for _, pot := range gs.Pots {
+		recorded := claimedByPot[pot.Id]
+		if recorded == nil {
+			recorded = new(big.Int)
+		}
+		claimed, _ := new(big.Int).SetString(pot.ClaimedAmount, 10)
+		if recorded.Cmp(claimed) != 0 {
+			return fmt.Errorf("pot %s claimed_amount %s does not match exported claims %s", pot.Id, claimed, recorded)
+		}
 	}
 	return nil
 }

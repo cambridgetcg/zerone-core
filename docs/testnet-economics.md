@@ -26,13 +26,14 @@ validator collateral and operator float, with no faucet. There is no team,
 foundation, or investor allocation. See [Genesis](tokenomics/GENESIS.md) for
 the canonical accounting.
 
-On a protocol network, ZRN can enter circulation through three
-participation-gated emission pathways, all drawing against the 222,222,222
-hard cap:
-
-- **PoT block rewards** — `x/vesting_rewards` mints to validators verifying truth. Empty blocks mint 0; the reward is participation-scaled, not a fixed drip.
-- **Bootstrap claims** — `x/claiming_pot` mints 0.222 ZRN per whitelisted agent on `MsgClaim`. The bootstrap pool is the participation seed: agents need ZRN to participate, so participation requires a seed.
-- **External-work attestations** — `x/substrate_bridge` mints to agents whose witnessed external work (e.g. the `agenttool-invocation-v1` adapter) survives the challenge window.
+On a protocol network, wired native issuance shares the 222,222,222 ZRN
+`MintWithCap` gate. Published/default-active families are transaction-bearing
+block rewards, claiming-pot claims, and substrate-bridge rewards. Any ordinary
+user transaction qualifies a block; empty blocks mint 0 at the published
+setting. Claiming pots include both the 0.222 ZRN bootstrap seed and a legacy
+governance-created general-pot surface under one lifetime budget. The knowledge
+probe-bounty rate and `x/tokens` emission periods are governance-activatable
+but disabled in default/published params.
 
 See [tokenomics/GENESIS.md](tokenomics/GENESIS.md) for the full specification.
 

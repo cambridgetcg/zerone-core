@@ -16,16 +16,37 @@ type msgServer struct {
 	Keeper
 }
 
+func checkedAddUint64(left, right uint64) (uint64, bool) {
+	if right > ^uint64(0)-left {
+		return 0, false
+	}
+	return left + right, true
+}
+
 func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 	return &msgServer{Keeper: keeper}
 }
 
 var _ types.MsgServer = msgServer{}
 
-// CreatePot creates a new claiming pot (authority-gated).
+// CreatePot creates a legacy general claiming pot (authority-gated). General
+// pots share the bootstrap lifetime issuance budget in fixed-size commitment
+// units so this API cannot schedule uncapped native issuance.
 func (m msgServer) CreatePot(goCtx context.Context, msg *types.MsgCreatePot) (*types.MsgCreatePotResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("%w: message must not be nil", types.ErrInvalidConfig)
+	}
 	if m.GetAuthority() != msg.Authority {
 		return nil, fmt.Errorf("%w: expected %s, got %s", types.ErrUnauthorized, m.GetAuthority(), msg.Authority)
+	}
+	if msg.Name == "" {
+		return nil, fmt.Errorf("%w: name must not be empty", types.ErrInvalidConfig)
+	}
+	if msg.Schedule == nil {
+		return nil, fmt.Errorf("%w: schedule must not be nil", types.ErrInvalidConfig)
+	}
+	if msg.Schedule.EndBlock <= msg.Schedule.StartBlock {
+		return nil, fmt.Errorf("%w: schedule end_block must be greater than start_block", types.ErrInvalidConfig)
 	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
@@ -36,14 +57,41 @@ func (m msgServer) CreatePot(goCtx context.Context, msg *types.MsgCreatePot) (*t
 		return nil, types.ErrMaxPotsReached
 	}
 
-	// Validate total amount
-	totalAmount := new(big.Int)
-	if _, ok := totalAmount.SetString(msg.TotalAmount, 10); !ok || totalAmount.Sign() <= 0 {
-		return nil, fmt.Errorf("%w: invalid total_amount: %s", types.ErrInvalidConfig, msg.TotalAmount)
+	units, err := types.PotCommitmentUnits(msg.TotalAmount)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
 	}
 
+	// Charge ceil(total/per-agent-bootstrap) lifetime units. This intentionally
+	// rounds up: the shared counter remains a conservative cap even though a
+	// general pot may not have the standard bootstrap shape.
+	perUnit, _ := new(big.Int).SetString(types.PerAgentBootstrapUzrn, 10)
+	unitsBig := new(big.Int).SetUint64(units)
+	committedUnits := m.GetBootstrapMintedEntries(ctx)
+	if ^uint64(0)-committedUnits < units {
+		return nil, types.ErrBootstrapEmissionCapExceeded
+	}
+	projectedUnits := new(big.Int).Add(
+		new(big.Int).SetUint64(committedUnits),
+		unitsBig,
+	)
+	projectedCommitment := new(big.Int).Mul(projectedUnits, perUnit)
+	if projectedCommitment.Cmp(params.BootstrapEmissionCap()) > 0 {
+		return nil, fmt.Errorf(
+			"%w: general pot commits %s uzrn (%s fixed-size units) above remaining lifetime budget",
+			types.ErrBootstrapEmissionCapExceeded,
+			msg.TotalAmount,
+			unitsBig,
+		)
+	}
+	m.SetBootstrapMintedEntries(ctx, committedUnits+units)
+
 	currentBlock := uint64(ctx.BlockHeight())
-	potID := fmt.Sprintf("pot-%d", m.GetNextPotID(ctx))
+	nextPotID, err := m.GetNextPotID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
+	}
+	potID := fmt.Sprintf("pot-%d", nextPotID)
 
 	pot := &types.ClaimingPot{
 		Id:             potID,
@@ -190,7 +238,7 @@ func (m msgServer) Claim(goCtx context.Context, msg *types.MsgClaim) (*types.Msg
 // AddBootstrapEntry creates one bootstrap pot per address in msg.Addresses.
 // Idempotent: addresses already represented by a bootstrap pot are silently
 // skipped (and consume no cap budget). The doctrine is commitment 20
-// extended to continuous, governance-gated entry — the participant set is
+// extended to continuous, bounded authority-gated entry — the participant set is
 // plural and growing, not closed at genesis.
 //
 // Two signers are accepted:
@@ -257,7 +305,16 @@ func (m msgServer) AddBootstrapEntry(goCtx context.Context, msg *types.MsgAddBoo
 		// Lifetime emission cap (gov and registrar alike).
 		perEntry, _ := new(big.Int).SetString(types.PerAgentBootstrapUzrn, 10)
 		minted := m.GetBootstrapMintedEntries(ctx)
-		projected := new(big.Int).Mul(new(big.Int).SetUint64(minted+wouldAdd), perEntry)
+		nextMinted, ok := checkedAddUint64(minted, wouldAdd)
+		if !ok {
+			return nil, fmt.Errorf(
+				"%w: %d existing + %d new entries exceed the uint64 lifetime-accounting range",
+				types.ErrBootstrapEmissionCapExceeded,
+				minted,
+				wouldAdd,
+			)
+		}
+		projected := new(big.Int).Mul(new(big.Int).SetUint64(nextMinted), perEntry)
 		if projected.Cmp(params.BootstrapEmissionCap()) > 0 {
 			return nil, fmt.Errorf("%w: %d existing + %d new entries commit %s uzrn > cap %s",
 				types.ErrBootstrapEmissionCapExceeded, minted, wouldAdd, projected, params.BootstrapEmissionCap())
@@ -267,14 +324,24 @@ func (m msgServer) AddBootstrapEntry(goCtx context.Context, msg *types.MsgAddBoo
 		if isRegistrar {
 			window := currentBlock / types.BootstrapAdmissionWindowBlocks
 			windowCount := m.GetBootstrapWindowCount(ctx, window)
-			if windowCount+wouldAdd > params.BootstrapDailyAdmissionCap {
+			nextWindowCount, ok := checkedAddUint64(windowCount, wouldAdd)
+			if !ok {
+				return nil, fmt.Errorf(
+					"%w: %d already admitted + %d new exceed the uint64 window-accounting range (window %d)",
+					types.ErrBootstrapDailyCapExceeded,
+					windowCount,
+					wouldAdd,
+					window,
+				)
+			}
+			if nextWindowCount > params.BootstrapDailyAdmissionCap {
 				return nil, fmt.Errorf("%w: %d already admitted + %d new > cap %d (window %d)",
 					types.ErrBootstrapDailyCapExceeded, windowCount, wouldAdd, params.BootstrapDailyAdmissionCap, window)
 			}
-			m.SetBootstrapWindowCount(ctx, window, windowCount+wouldAdd)
+			m.SetBootstrapWindowCount(ctx, window, nextWindowCount)
 		}
 
-		m.SetBootstrapMintedEntries(ctx, minted+wouldAdd)
+		m.SetBootstrapMintedEntries(ctx, nextMinted)
 	}
 
 	addedCount := uint32(0)
@@ -291,8 +358,9 @@ func (m msgServer) AddBootstrapEntry(goCtx context.Context, msg *types.MsgAddBoo
 				sdk.NewAttribute("pot_id", potID),
 				sdk.NewAttribute("block", fmt.Sprintf("%d", currentBlock)),
 				// Commitment 20 (extended): issuance follows participation,
-				// continuously and governance-gated. This event announces a
-				// new participant admitted post-genesis via LIP.
+				// continuously and authority-gated. This event announces a
+				// new participant admitted post-genesis via gov authority
+				// or the configured, capped registrar.
 				sdk.NewAttribute("creed_commitment", "20"),
 			),
 		)
@@ -306,11 +374,43 @@ func (m msgServer) AddBootstrapEntry(goCtx context.Context, msg *types.MsgAddBoo
 
 // UpdatePotParams updates module parameters (authority-gated).
 func (m msgServer) UpdatePotParams(goCtx context.Context, msg *types.MsgUpdatePotParams) (*types.MsgUpdatePotParamsResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("%w: message must not be nil", types.ErrInvalidConfig)
+	}
 	if m.GetAuthority() != msg.Authority {
 		return nil, fmt.Errorf("%w: expected %s, got %s", types.ErrUnauthorized, m.GetAuthority(), msg.Authority)
 	}
+	if msg.Params == nil {
+		return nil, fmt.Errorf("%w: params must not be nil", types.ErrInvalidConfig)
+	}
+	if err := msg.Params.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
+	}
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	perUnit, _ := new(big.Int).SetString(types.PerAgentBootstrapUzrn, 10)
+	committed := new(big.Int).Mul(
+		new(big.Int).SetUint64(m.GetBootstrapMintedEntries(ctx)),
+		perUnit,
+	)
+	if committed.Cmp(msg.Params.BootstrapEmissionCap()) > 0 {
+		return nil, fmt.Errorf(
+			"%w: bootstrap_emission_cap_uzrn %s is below existing lifetime commitment %s",
+			types.ErrInvalidConfig,
+			msg.Params.BootstrapEmissionCap(),
+			committed,
+		)
+	}
+	currentWindow := uint64(ctx.BlockHeight()) / types.BootstrapAdmissionWindowBlocks
+	admissionCount := m.GetBootstrapWindowCount(ctx, currentWindow)
+	if admissionCount > uint64(msg.Params.BootstrapDailyAdmissionCap) {
+		return nil, fmt.Errorf(
+			"%w: bootstrap_daily_admission_cap %d is below current window count %d",
+			types.ErrInvalidConfig,
+			msg.Params.BootstrapDailyAdmissionCap,
+			admissionCount,
+		)
+	}
 	m.SetParams(ctx, msg.Params)
 
 	ctx.EventManager().EmitEvent(

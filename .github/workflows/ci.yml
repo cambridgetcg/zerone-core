@@ -55,6 +55,8 @@ jobs:
         run: |
           bash scripts/zerone-2-bootstrap-tx-broadcast_test.sh
           bash scripts/zerone-phase-tx-broadcast_test.sh
+      - name: Shared and live network broadcast guards
+        run: bash scripts/shared-live-network-guards-test.sh
       - name: Mainnet terminal checkpoint rehearsal
         run: bash deploy/mainnet/halt-checkpoint-rehearsal.sh
       - name: Deterministic post-halt archive config authority

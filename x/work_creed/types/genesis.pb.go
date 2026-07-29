@@ -21,9 +21,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// GenesisState is the genesis state of the x/work_creed module. At
-// chain inception, it contains 8 PinnedSubCreed entries (one per
-// non-Knowledge lifecycle phase, all at version 1).
+// GenesisState is the x/work_creed genesis state. It is empty by default.
+// A ceremony may explicitly add one version-1 pin per non-Knowledge phase.
 type GenesisState struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	PinnedSubCreeds []*PinnedSubCreed      `protobuf:"bytes,1,rep,name=pinned_sub_creeds,json=pinnedSubCreeds,proto3" json:"pinned_sub_creeds,omitempty"`

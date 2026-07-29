@@ -226,9 +226,12 @@ Response payload:
 
 ---
 
-## 8. (Optional) Post-training reward claim
+## 8. Post-training reward claim (disabled)
 
-If the model's `deployment_address` accumulates live calibration above `training_fund_calibration_floor_bps`, the operator can claim a post-hoc reward:
+The RPC remains in the schema for compatibility, but current consensus refuses
+every call. The legacy request uses a client-chosen `id` and does not bind a
+deterministic, one-shot model/manifest/epoch entitlement; allowing it would let
+one calibrated model mint repeatedly under fresh ids.
 
 ```
 Msg → ClaimTrainingFundDisbursement
@@ -237,7 +240,11 @@ Msg → ClaimTrainingFundDisbursement
   id:       disb-xyz
 ```
 
-50% released immediately; 50% held in vesting escrow for `training_fund_vesting_epochs`. Calibration drop or governance deprecation triggers clawback.
+Expected result: `training-fund disbursement disabled: replay-safe one-shot
+eligibility is not implemented`. No ZRN is minted and no disbursement record is
+created. A future activation requires a deterministic entitlement key,
+ownership binding, rate limits, debit/replay invariants, and new consensus
+tests.
 
 ---
 

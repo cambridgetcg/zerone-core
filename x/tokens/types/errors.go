@@ -31,4 +31,5 @@ var (
 	ErrEmissionNotFound     = errors.Register(ModuleName, 30, "emission period not found")
 	ErrInvalidEmissionRange = errors.Register(ModuleName, 31, "end_block must be greater than start_block")
 	ErrEmissionInactive     = errors.Register(ModuleName, 32, "emission period is already inactive")
+	ErrEmissionsDisabled    = errors.Register(ModuleName, 33, "native emission periods are disabled")
 )

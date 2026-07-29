@@ -10,19 +10,15 @@ import (
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
-// PropagateLineage distributes a depth-decayed royalty flow from the
-// downstream attestation back through its lineage DAG. Budget is
+// PropagateLineage records depth-decayed attribution derived from the
+// downstream attestation reward across its lineage DAG. Budget is
 // downstreamReward × Params.LineageShareBps (default 30%). Decay
 // per-hop is Params.DecayBpsPerHop. Halts at Params.MaxPropagationDepth
 // or when remaining share < Params.MinPropagationUzrn.
 //
-// Lineage payments come from the downstream's reward, NOT new minting
-// (no inflation pressure; M4 formula unchanged).
-//
-// The caller is responsible for the actual SendCoinsFromModuleToAccount
-// — this function returns the (recipient_addr, amount) list and updates
-// LineageEdge.SettlementPaymentUzrn + LineageRoyaltyAccumulator.
-// In practice the caller will be Settlement.SettleAttestation.
+// This function does not reserve, debit, or transfer coins. Compatibility
+// fields named SettlementPaymentUzrn and LineageRoyaltyAccumulator store
+// accounting amounts only.
 func (k Keeper) PropagateLineage(ctx context.Context, downstreamID string, downstreamReward sdkmath.Int) error {
 	params := k.GetParams(ctx)
 	lineageShareBps := sdkmath.NewIntFromUint64(uint64(params.LineageShareBps))
@@ -107,14 +103,14 @@ func (k Keeper) propagateRecursive(
 		store := sdkCtx.KVStore(k.storeKey)
 		store.Set(types.LineageEdgeKey(types.EdgeID(e.UpstreamAttestationId, e.DownstreamAttestationId)), k.cdc.MustMarshal(e))
 
-		// Emit lineage_royalty_paid event (M6: propagation hop).
+		// Emit an accounting-only lineage accrual event (M6 propagation hop).
 		edgeID := types.EdgeID(e.UpstreamAttestationId, e.DownstreamAttestationId)
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-			EventTypeLineageRoyaltyPaid,
+			EventTypeLineageRoyaltyAccrued,
 			sdk.NewAttribute("edge_id", edgeID),
 			sdk.NewAttribute("upstream_attestation_id", e.UpstreamAttestationId),
 			sdk.NewAttribute("downstream_attestation_id", e.DownstreamAttestationId),
-			sdk.NewAttribute("royalty_amount", share.String()),
+			sdk.NewAttribute("accrued_amount_uzrn", share.String()),
 			sdk.NewAttribute("propagation_depth", fmt.Sprintf("%d", depth)),
 			sdk.NewAttribute(AttrUsefulWorkCommitment, "UW"),
 			sdk.NewAttribute(AttrMechanism, "M6"),

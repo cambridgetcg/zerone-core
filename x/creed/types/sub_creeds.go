@@ -1,7 +1,7 @@
 package types
 
 // SubCreedCommitment is one numbered commitment within a lifecycle
-// phase's sub-creed. Number is the phase-local commitment index
+// phase's source sub-creed. Number is the phase-local commitment index
 // (1-based); Code is the doctrine's short identifier (e.g., "F1",
 // "C3"); Name is the short label that must match the corresponding
 // "## Code. <Name>" header in docs/sub_creeds/<phase>.md.
@@ -11,10 +11,9 @@ type SubCreedCommitment struct {
 	Name   string // short label matching the markdown H2 header
 }
 
-// SubCreedDef is the canonical per-phase commitment list at the time
-// this binary was built. Sub-creeds extend by appending new
-// commitments via CategoryUsefulWorkAmendment LIPs; mechanism
-// removal requires full doctrine amendment.
+// SubCreedDef is the source per-phase commitment list at the time this
+// binary was built. Phase 0 has no post-genesis amendment Msg; future
+// governance integration must not be inferred from this registry.
 //
 // At inception (2026-05-10), each phase ships exactly 3 commitments.
 // Knowledge phase has zero commitments here — it delegates to
@@ -24,10 +23,8 @@ type SubCreedDef struct {
 	Commitments []SubCreedCommitment
 }
 
-// CanonicalSubCreeds is the registry. The order matches
-// CanonicalLifecyclePhases. Sub-creed amendment writes a new entry to
-// the on-chain x/work_creed PinnedSubCreed history (Phase 1+); this
-// constant is the build-time inception baseline.
+// CanonicalSubCreeds is the build-time inception registry. The order matches
+// CanonicalLifecyclePhases. Historical pin writes are future Phase 1+ work.
 var CanonicalSubCreeds = []SubCreedDef{
 	{
 		Phase: LifecyclePhaseFoundation,

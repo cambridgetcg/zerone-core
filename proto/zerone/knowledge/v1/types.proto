@@ -139,13 +139,14 @@ message ClaimRelation {
 //
 // Examples:
 //   · "Agents have the right to economic participation" (a principle)
-//   · "The research fund requires dual human+AI authorization" (a constitutional rule)
+//   · "Configured early research spending requires dual human+AI authorization" (a constitutional rule)
 //   · "Verification history is public and permanent" (a procedural commitment)
 //
 // Governance governs commitments directly; a supermajority proposal amends
 // them. Commitments can *constrain* other modules operationally (e.g. the
-// dual-key research fund enforces the rule cryptographically), but they do
-// not enter the confidence / axiom-distance / corroboration machinery.
+// research-spend path requires both configured voters and fails closed when
+// they are unset), but they do not enter the confidence / axiom-distance /
+// corroboration machinery.
 message NormativeCommitment {
   string id                = 1;  // Stable identifier, e.g. "NC-AGENT-RIGHTS-001"
   string statement         = 2;  // Plain-language expression of the commitment
@@ -580,8 +581,8 @@ message Augmentation {
 // ContributionChallenge is a bonded dispute over whether a model's declared
 // ContributionRecord is accurate: a fact submitter asserts under-reporting
 // (the model used their fact but didn't attribute) or over-reporting (the
-// owner listed a colluder's fact that wasn't used). Resolves through the
-// standard PoT verification layer.
+// owner listed a colluder's fact that wasn't used). Current resolution is an
+// explicit governance-authority action; there is no verifier-panel dispatch.
 message ContributionChallenge {
   string id                   = 1;
   string model_id             = 2;
@@ -597,15 +598,15 @@ message ContributionChallenge {
   // Resolution
   string status               = 9;    // "open" | "upheld" | "rejected" | "withdrawn"
   uint64 resolved_at_block    = 10;
-  string resolver             = 11;   // verifier panel representative (or authority for disputes-of-last-resort)
+  string resolver             = 11;   // governance authority recorded by the current handler
   string resolution_note      = 12;
 }
 
 // ─── Wave 4: training fund disbursements ──────────────────────────────────
 
-// TrainingFundDisbursement is a post-hoc reward to a pipeline whose ModelCard
-// has demonstrated calibration in live deployment. 50% is released at claim
-// time; 50% is held in vesting escrow and clawed back if calibration drops.
+// TrainingFundDisbursement is the retained state shape for historical/imported
+// records and a future replay-safe reward design. Current public claims are
+// release-disabled and create no new records.
 message TrainingFundDisbursement {
   string id                       = 1;
   string model_id                 = 2;

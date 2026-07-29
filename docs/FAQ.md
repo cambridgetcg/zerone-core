@@ -33,27 +33,23 @@ transferable 2,222 ZRN operator float. Those balances carry consensus and
 operational power; every address and amount is published in the hash-bound
 [genesis manifest](../deploy/mainnet/artifacts/GENESIS-MANIFEST.md).
 
-Beyond that published genesis, ZRN enters circulation through three
-participation-gated emission pathways:
-
-1. **PoT block rewards** (`x/vesting_rewards`) — minted to validators as they
-   verify truth. Empty blocks mint 0; the reward is participation-scaled, not a
-   fixed drip.
-2. **Bootstrap claims** (`x/claiming_pot`) — minted on demand when a whitelisted
-   agent calls `MsgClaim` against the bootstrap pot. Each whitelisted agent
-   claims 0.222 ZRN once; participation requires ZRN, so the bootstrap pool is the
-   seed.
-3. **External-work attestations** (`x/substrate_bridge`) — minted to agents whose
-   witnessed external work (e.g. the `agenttool-invocation-v1` adapter) survives
-   the challenge window. Issuance follows survival, not acceptance.
+After genesis, native issuance shares the `MintWithCap` gate. The published
+configuration includes transaction-bearing block rewards, claiming-pot claims,
+and substrate-bridge attestation rewards. An ordinary user transaction makes a
+block reward-eligible; eligibility is not proof of verified truth.
+`x/claiming_pot` also retains governance-created general pots under the same
+lifetime budget as bootstrap claims. A knowledge probe rate and `x/tokens`
+emission periods are additional governance controls, both disabled in
+default/published params. See [SUPPLY.md](tokenomics/SUPPLY.md) for the complete
+source inventory and activation status.
 
 | Account | Genesis balance | Path to funding |
 |---------|----------------|-----------------|
-| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); block rewards from block 1 |
+| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); proposer rewards on transaction-bearing blocks |
 | Operator float (zerone-ops) | 2,222 ZRN | Disclosed float: gov deposits + onboarding feegrants |
 | Whitelisted agents | 0 ZRN | Bootstrap claim (0.222 ZRN each) via `x/claiming_pot` |
 | Founder | 0 ZRN | Dormant — `FounderAddress` unset; a stipend is gov-activatable later |
-| AI vault | 0 ZRN | Operational role only (governance signing) |
+| AI vault | 0 ZRN | Unconfigured design role; no live genesis voter was set |
 | Research Treasury | 0 ZRN | 3.33% of revenue split, accruing |
 | Foundation | 0 ZRN | Governance proposals over time, drawing from research treasury |
 | Faucet (testnet only) | 0 ZRN | Optional — governance or validator tips |
@@ -69,12 +65,15 @@ mechanics, the bootstrap design, and the eligibility criteria.
 
 Validators earn ZRN through three channels:
 
-1. **Verification rewards** — 3 ZRN per correct verification (decaying
-   0.1% per epoch)
-2. **Block rewards** — 10 ZRN per block, distributed to validators based on
-   their tier and participation
-3. **Fee share** — 93% of transaction fees go to validators; 7% goes to the
-   research fund
+1. **Verification rewards** — a share of the 55% verifier pool funded by the
+   claim's review fee; actual payout depends on the rewarded panel and
+   independence modulation
+2. **Block rewards** — on eligible transaction-bearing blocks, the
+   decay/participation/knowledge-coupled amount is split and 55% goes to the
+   Cosmos block proposer; an ordinary transfer is sufficient for eligibility
+3. **Fee share** — `RouteFees` sends 19.67% of `uzrn` fees to development and
+   3.33% to research; the remaining ~77% stays in `fee_collector` for normal
+   Cosmos distribution
 
 ### What are the validator tier requirements?
 
@@ -85,9 +84,11 @@ Validators earn ZRN through three channels:
 | Scholar | 1,111 ZRN | 50% | 11 | 1.0x |
 | Guardian | 11,111 ZRN | 77% | 333 | 2.0x |
 
-Only **Scholar** and **Guardian** tiers produce blocks. Apprentice and
-Verified tiers participate in knowledge verification with lower reward
-multipliers.
+These are custom `x/zerone_staking` tier fields. The reward multiplier helpers
+are not wired into the current block-payout path; they must not be read as
+promised yield. The custom registry counts Scholar and Guardian entries as
+producer-eligible for its own metrics, while CometBFT block production is
+controlled by Cosmos `x/staking`. See [STAKING.md](tokenomics/STAKING.md).
 
 ### How does tier progression work?
 
@@ -118,7 +119,7 @@ tokens are locked and do not earn rewards. The redelegation cooldown
 | Wrong verification | 5% | Submitting an incorrect verification judgment |
 | Missed reveal | 10% | Committing but failing to reveal in time |
 | Equivocation | 20% | Submitting conflicting judgments |
-| Invalid claim | 22% | Submitting a malformed or fraudulent claim |
+| Invalid claim | No stake slash | The review fee is non-refundable; the old slash field is deprecated and 0 |
 | Failed challenge | 22% | Losing a challenge against a verified fact |
 
 ### What happens when my validator is slashed?
@@ -140,52 +141,49 @@ Slash escalation increases the penalty by 10% for each successive slash.
 
 ### What is the bootstrap period?
 
-The first 480,000 blocks (~14 days at 2.521s blocks). During bootstrap,
-essential PoT transactions are **gas-free**:
-
-- `MsgRegisterValidator`
-- `MsgRegisterAccount`
-- `MsgSubmitClaim`
-- `MsgSubmitCommitment`
-- `MsgSubmitReveal`
-
-This lets the network begin verifying truth in the bootstrap window before
-participation-minted ZRN has accrued (genesis holds only the published 13,555 ZRN
-of validator collateral + operator float — 0 ZRN of participation emission). See
-`app/gas.go:BootstrapEndBlock`.
+The old 480,000-block gas-free bootstrap window was retired before mainnet:
+`app/gas.go:BootstrapEndBlock` is 0, so the decorator is a no-op at every
+positive height. Bootstrap claims can still mint the configured one-time agent
+seed, but transactions must declare a valid fee (which may be paid through an
+authorised feegrant). The published genesis holds 13,555 ZRN of validator
+collateral/gas plus operator float and 0 ZRN of participation emission.
 
 ### What are the gas prices?
 
-The recommended minimum gas price is `0.025uzrn`. Specific transaction costs
-vary by type — for example, registering a validator costs 100,000 gas, while
-a simple transfer costs 21,000 gas. See [PARAMETERS.md](PARAMETERS.md) for
+The effective minimum fee is `1uzrn` per declared gas unit, enforced by the
+consensus ante handler in both CheckTx and DeliverTx. The live node's
+`0.025uzrn` `minimum-gas-prices` setting is only a lower node-local mempool
+threshold; it does not permit transactions below the consensus floor. Specific
+gas requirements vary by message type. See [PARAMETERS.md](PARAMETERS.md) for
 the full gas cost table.
 
-### How are fees distributed?
+### How are block rewards distributed?
 
 Block reward revenue is split four ways:
 
-- **55%** to fact contributors
+- **55%** to the block proposer / configured withdraw address
 - **22%** to the protocol (citations, verification, treasury)
 - **19.67%** to the development fund (bug bounties, protocol development)
 - **3.33%** to the research fund (community grants)
 
-No ZRN is burned — every token does productive work.
+The field remains named `contributor_bps` for wire compatibility, but current
+block-reward execution sends that share to the proposer destination, not to
+fact contributors. This is not the transaction-fee split described above.
+There is no general revenue burn. Rejected substrate-attestation bonds are the
+narrow punitive burn exception.
 
 ### Why doesn't Zerone burn tokens?
 
-Burn mechanics reduce supply but destroy value. Zerone redirects what would
-have been burned into the **development fund**, which finances bug bounties,
-truth discovery rewards, and protocol development. Every ZRN stays in the
-ecosystem doing productive work rather than being destroyed for artificial
-scarcity.
+Zerone redirects the general revenue allocation that might otherwise be burned
+into the **development fund**, which finances bug bounties, truth discovery
+rewards, and protocol development. Rejected substrate-attestation bonds remain
+a narrow punitive burn path.
 
 ### Can the founder share be changed by governance?
 
-No. The `founder_share_bps` and `founder_address` parameters are
-**governance-immune** — they cannot be modified via `MsgUpdateParams`. This
-protects the founder's contribution from being voted away and ensures long-term
-alignment between the founder and the protocol.
+Partly. Governance may lower, zero, or restore `founder_share_bps` within its
+hard 7% cap. `founder_address` is immutable once set. At genesis it is unset,
+so the founder auto-split is inactive.
 
 ### What is the development fund?
 
@@ -196,7 +194,10 @@ former burn allocation). It funds:
 - Truth discovery rewards
 - Protocol development and tooling
 
-Disbursement is managed via governance proposals (research spend proposals).
+Source implements research-spend proposals, but the published `zerone-1`
+genesis leaves the required voter pair unset, so those proposals are not a
+currently configured disbursement path. Verify release-bound on-chain state
+before relying on research-fund spending.
 
 ---
 
@@ -294,7 +295,7 @@ Target: 2,521 milliseconds (~2.5 seconds).
 ## Further Reading
 
 - [Validator Guide](VALIDATOR-GUIDE.md) — Full onboarding walkthrough
-- [Parameters Reference](PARAMETERS.md) — All governance-adjustable parameters
+- [Parameters Reference](PARAMETERS.md) — Selected high-impact defaults and source pointers
 - [Tokenomics](tokenomics/) — Supply, vesting, revenue split, governance migration
 - [Truth-Seeking](TRUTH_SEEKING.md) — The 20 epistemological commitments, bound by tests
 - [ToK Substrate](TOK_SUBSTRATE.md) — The chain's training-resource doctrine

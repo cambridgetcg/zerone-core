@@ -9,7 +9,7 @@ import (
 // NewAnteHandler returns an AnteHandler with:
 // 1. Standard Cosmos SDK decorators (explicit chain, not wrapped)
 // 2. ZRN-specific gas cost validation
-// 3. Fee routing: 7% to research fund, 93% to validators
+// 3. Fee routing: 19.67% development, 3.33% research, ~77% normal distribution
 // 4. Zerone custom decorators:
 //   - Bootstrap gas-free period for PoT bootstrap
 //   - Emergency halt gate (block non-emergency txs when halted)

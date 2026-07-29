@@ -65,6 +65,11 @@
   "peerDependencies": {
     "@cosmjs/proto-signing": "0.39.0"
   },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "minimatch@5.1.0": "5.1.8",
+    "tmp@0.0.33": "0.2.7"
+  },
   "devDependencies": {
     "@bufbuild/buf": "1.65.0",
     "@cosmjs/proto-signing": "0.39.0",

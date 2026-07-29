@@ -11,56 +11,58 @@ message Params {
   // ─── Core verification ───────────────────────────────────────────────────
   uint64 min_verifiers            = 1;  // default: 3
   uint64 max_verifiers            = 2;  // default: 22
-  uint64 commit_phase_blocks      = 3;  // default: 4
-  uint64 reveal_phase_blocks      = 4;  // default: 4
-  uint64 aggregation_phase_blocks = 5;  // default: 3
+  uint64 commit_phase_blocks      = 3;  // default: 200
+  uint64 reveal_phase_blocks      = 4;  // default: 200
+  uint64 aggregation_phase_blocks = 5;  // default: 50
   uint64 claim_cooldown_blocks    = 6;  // default: 50
 
   // ─── Confidence scoring ──────────────────────────────────────────────────
-  uint64 initial_confidence               = 7;  // default: 500,000 (50%)
-  uint64 confidence_boost_per_verification = 8;  // default: 50,000  (5%)
+  uint64 initial_confidence               = 7;  // compatibility-only; not read; runtime-immutable
+  uint64 confidence_boost_per_verification = 8;  // compatibility-only; not read; runtime-immutable
   uint64 confidence_threshold             = 9;  // default: 770,000 (77%) acceptance
-  uint64 quorum_threshold                 = 10; // default: 660,000 (66%)
+  uint64 quorum_threshold                 = 10; // compatibility-only; not read; runtime-immutable
 
-  // ─── Slashing — MUST be non-zero (B22-3 audit) ──────────────────────────
+  // ─── Verifier slashing ──────────────────────────────────────────────────
   uint64 wrong_verification_slash_bps = 11; // default: 50,000  (5%)
   uint64 missed_reveal_slash_bps      = 12; // default: 100,000 (10%)
-  uint64 equivocation_slash_bps       = 13; // default: 200,000 (20%)
-  uint64 invalid_claim_slash_bps      = 14; // DEPRECATED (R19-6): no longer used — review fee is non-refundable
+  uint64 equivocation_slash_bps       = 13; // compatibility-only; not read; runtime-immutable
+  uint64 invalid_claim_slash_bps      = 14; // DEPRECATED; no longer used; runtime-immutable
 
-  // ─── Rewards ─────────────────────────────────────────────────────────────
-  string verification_reward           = 15; // default: "3000000" (3 ZRN in uzrn)
-  uint64 verification_reward_decay_bps = 16; // default: 999,000 (0.999× per epoch)
+  // ─── Compatibility-only reward metadata ─────────────────────────────────
+  // Round payout divides the 55% review-fee pool and does not use these values.
+  // Runtime updates must preserve them.
+  string verification_reward           = 15;
+  uint64 verification_reward_decay_bps = 16;
 
   // ─── Claim validation ────────────────────────────────────────────────────
   uint64 min_claim_text_length = 17; // default: 20
-  uint64 max_claim_text_length = 18; // default: 10,000
+  uint64 max_claim_text_length = 18; // default: 1,000
   string min_review_fee        = 19; // default: "100000" (0.1 ZRN) — non-refundable review fee
 
   // ─── Adversarial verification ────────────────────────────────────────────
-  bool   adversarial_verification_enabled = 20; // default: true
-  uint64 provisional_threshold            = 21; // default: 500,000 (50%)
-  uint64 reject_threshold                 = 22; // default: 300,000 (30%)
+  bool   adversarial_verification_enabled = 20; // compatibility-only; not a challenge gate; runtime-immutable
+  uint64 provisional_threshold            = 21; // compatibility-only; not read; runtime-immutable
+  uint64 reject_threshold                 = 22; // compatibility-only; not read; runtime-immutable
   uint64 challenge_duration_blocks        = 23; // default: 34,272 (1 day)
   string min_challenge_stake              = 24; // default: "11000000" (11 ZRN)
-  uint64 failed_challenge_slash_bps       = 25; // default: 220,000 (22%)
+  uint64 failed_challenge_slash_bps       = 25; // compatibility-only; settlement uses fixed routing; runtime-immutable
   uint64 successful_challenge_reward_bps  = 26; // default: 300,000 (30%)
-  uint64 max_concurrent_challenges        = 27; // default: 3
+  uint64 max_concurrent_challenges        = 27; // compatibility-only; not enforced; runtime-immutable
 
   // ─── Citation economics ──────────────────────────────────────────────────
-  uint64 citation_share_bps    = 28; // default: 150,000 (15%)
-  uint64 cross_domain_bonus_bps = 29; // default: 200,000 (20%)
+  uint64 citation_share_bps    = 28; // compatibility-only; not read; runtime-immutable
+  uint64 cross_domain_bonus_bps = 29; // compatibility-only; not read; runtime-immutable
 
   // ─── Extended governance params ─────────────────────────────────────────
-  uint64 max_facts_per_domain        = 30; // default: 100,000
-  uint64 fact_expiry_blocks          = 31; // default: 0 (no expiry)
-  uint64 cross_stratum_discount_bps  = 32; // default: 0
-  uint64 max_validators_per_round    = 34; // default: 22
+  uint64 max_facts_per_domain        = 30; // compatibility-only; not enforced; runtime-immutable
+  uint64 fact_expiry_blocks          = 31; // compatibility-only; no expiry sweep reads it; runtime-immutable
+  uint64 cross_stratum_discount_bps  = 32; // compatibility-only; not read; runtime-immutable
+  uint64 max_validators_per_round    = 34; // compatibility-only; not read; runtime-immutable
   uint64 confidence_growth_epoch     = 38; // default: 1,111 blocks
   uint64 confidence_growth_per_epoch_bps = 39; // default: 11,000 (1.1%)
-  uint64 max_survival_confidence     = 40; // default: 770,000 (77%)
+  uint64 max_survival_confidence     = 40; // compatibility-only; not read; runtime-immutable
   uint64 survived_challenge_confidence_cap = 41; // default: 880,000 (88%)
-  uint64 max_apprentice_validators   = 42; // default: 111 (Sybil cap)
+  uint64 max_apprentice_validators   = 42; // compatibility-only; not enforced; runtime-immutable
 
   // ─── Removed (v4→v5): dead anti-slop / FARM & citation-gaming params ──────
   // Field 33/35/36/37 (citation-gaming), 43–48 (FARM anti-gaming) and 50
@@ -70,8 +72,9 @@ message Params {
   reserved 33, 35, 36, 37, 43, 44, 45, 46, 47, 48, 50;
   reserved "novelty_bonus_bps", "max_citations_per_claim", "citation_decay_per_level", "self_citation_discount_bps", "conformity_threshold_bps", "calibration_trivial_threshold", "misbehavior_rejection_threshold", "min_domain_contributors_for_novelty", "min_participation_rate_bps", "challenge_stake_ratio_min_bps", "malformed_claim_slash_bps";
 
-  // ─── Research fund ───────────────────────────────────────────────────────
-  uint64 research_fund_share_bps = 49; // default: 130,000 (13%)
+  // Compatibility-only and runtime-immutable. Review-fee routing uses a
+  // hard-coded residual ~3.33% after its other fixed shares.
+  uint64 research_fund_share_bps = 49;
 
   // ─── Fitness scoring ─────────────────────────────────────────────────────
   uint64 fitness_epoch_blocks        = 51;  // Blocks per fitness epoch
@@ -114,7 +117,7 @@ message Params {
   uint64 reproduction_max_children                  = 82;  // Max direct children per fact
 
   // ─── Novelty detection ──────────────────────────────────────────────────
-  uint64 novelty_common_knowledge_penalty_bps = 83;  // Default penalty for common knowledge match
+  uint64 novelty_common_knowledge_penalty_bps = 83;  // compatibility-only; not read; runtime-immutable
   uint64 novelty_subject_overlap_penalty_bps  = 84;  // Penalty per existing fact with same subject
   uint64 novelty_precision_bonus_bps          = 85;  // Bonus if more precise than existing
   uint64 novelty_cross_domain_bonus_bps       = 86;  // Bonus if subject spans multiple domains
@@ -130,7 +133,7 @@ message Params {
   repeated string authorized_demand_reporters = 94; // Addresses allowed to report demand
 
   // ─── Competition (niche dynamics) ──────────────────────────────────
-  uint64 competition_niche_dominance_bonus_bps = 95;  // Fitness bonus for niche leader (BPS)
+  uint64 competition_niche_dominance_bonus_bps = 95;  // compatibility-only; not read; runtime-immutable
   uint64 competition_redundancy_threshold_bps  = 96;  // Below this ratio of leader fitness = redundant (BPS)
   uint64 competition_max_niche_size            = 97;  // Max facts per niche before forced pruning
   uint64 competition_symbiosis_bonus_bps       = 98;  // Fitness bonus per SUPPORTS link to healthy fact (BPS)
@@ -151,7 +154,7 @@ message Params {
 
   // ─── Multi-level energy thresholds (R28-4) ──────────────────────────
   uint64 metabolism_active_threshold     = 107; // Energy below which fact → AT_RISK (default: 300,000 = 30%)
-  uint64 metabolism_extinction_threshold = 108; // Energy below which (for N epochs) → EXTINCT (default: 10,000 = 1%)
+  uint64 metabolism_extinction_threshold = 108; // compatibility-only; not read; runtime-immutable
   uint64 max_confidence                  = 109; // Hard cap on confidence (default: 880,000 = 88%)
 
   // ─── Role bonuses (R28-5) ──────────────────────────────────────────────
@@ -186,7 +189,7 @@ message Params {
   uint64 mentorship_capacity_bonus    = 130; // Carrying capacity bonus per graduation (default: 5)
 
   // ─── Social verification adjustment (R31-2: Water → Fire) ──────────────
-  uint64 social_saturation_threshold = 131; // Partnership density above which verification relaxes (default: 10)
+  uint64 social_saturation_threshold = 131; // compatibility-only; not read; runtime-immutable
   uint64 observation_window_blocks   = 132; // Lookback window for verification health metrics (default: 10000)
 
   // ─── Consensus integrity (T1 mitigation) ────────────────────────────────
@@ -231,19 +234,23 @@ message Params {
   // Disproval clawback — after a fact goes DISPROVEN, this fraction of the
   // recent training revenue is clawed back from the submitter into the
   // research fund.
-  uint64 disproval_clawback_bps = 142; // default: 500,000 (50%)
-  uint64 disproval_clawback_window_epochs = 143; // default: 30
+  uint64 disproval_clawback_bps = 142; // compatibility-only; not read; runtime-immutable
+  uint64 disproval_clawback_window_epochs = 143; // compatibility-only; not read; runtime-immutable
   // Training-fund post-hoc disbursement params.
-  uint64 training_fund_calibration_floor_bps = 144; // default: 500,000 (50%) — below = no disbursement
-  uint64 training_fund_vesting_epochs        = 145; // default: 60
-  uint64 training_fund_methodology_diversity_bonus_bps = 146; // default: 100,000 per distinct method beyond 1
-  string training_fund_base_reward          = 147; // default: "1000000000" (1,000 ZRN in uzrn)
+  // Retained for the release-sealed training-disbursement API; current
+  // execution returns before reading these fields. Runtime-immutable.
+  uint64 training_fund_calibration_floor_bps = 144;
+  uint64 training_fund_vesting_epochs        = 145;
+  uint64 training_fund_methodology_diversity_bonus_bps = 146;
+  string training_fund_base_reward          = 147;
   // Contribution challenge — challenger bond size (uzrn as string).
   string contribution_challenge_bond        = 148; // default: "5000000" (5 ZRN)
-  uint64 contribution_challenge_reward_multiplier_bps = 149; // default: 2,000,000 (winner takes bond × 2)
+  // Compatibility-only; reward minting is disabled until a replay-safe,
+  // one-shot entitlement exists. Runtime updates must preserve this field.
+  uint64 contribution_challenge_reward_multiplier_bps = 149;
   // Sponsor-veto forfeiture: if a sponsor vetoes a passing verdict, they
   // forfeit this fraction of the variant payout to the research fund.
-  uint64 sponsor_veto_forfeit_bps = 150; // default: 1,000,000 (100% — full forfeiture)
+  uint64 sponsor_veto_forfeit_bps = 150; // compatibility-only; not read; runtime-immutable
 
   // ─── Wave 14: internal-hack resilience ───────────────────────────────
   // Upper bound on any single module pause window. Even if authority
@@ -271,7 +278,7 @@ message Params {
   // treasury) into a dedicated pool so the chain self-sustains its own
   // audit economy. successful-probe bonuses draw from this pool first;
   // if the pool is empty, fall back to protocol treasury.
-  string probe_bounty_mint_per_block = 156; // uzrn minted per block (default "1000000" = 1 ZRN)
+  string probe_bounty_mint_per_block = 156; // cap-gated uzrn per block; default "0" (disabled)
   string probe_bounty_max_pool_size  = 157; // cap on pool balance (default "1000000000000" = 1,000,000 ZRN)
 
   // ─── Wave 15b: invitation bonuses ──────────────────────────────────────
@@ -309,7 +316,10 @@ message GenesisState {
   repeated Claim            pending_claims = 3;
   repeated VerificationRound active_rounds = 4;
   repeated Domain           domains       = 5;
-  string bootstrap_fund_allocation                 = 6; // Initial fund allocation (uzrn) — one-time genesis mint
+  // Optional target module balance restored/minted during InitGenesis.
+  // Protocol default is "0"; deployment artifacts must disclose any nonzero
+  // allocation.
+  string bootstrap_fund_allocation                 = 6;
   repeated CommonKnowledgeEntry common_knowledge   = 7; // Seeded common knowledge entries
 
   // ─── Route B Wave 8: full state round-trip ─────────────────────────────

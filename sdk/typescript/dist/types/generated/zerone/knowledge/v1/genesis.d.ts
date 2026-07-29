@@ -27,15 +27,15 @@ export interface Params {
      */
     maxVerifiers: bigint;
     /**
-     * default: 4
+     * default: 200
      */
     commitPhaseBlocks: bigint;
     /**
-     * default: 4
+     * default: 200
      */
     revealPhaseBlocks: bigint;
     /**
-     * default: 3
+     * default: 50
      */
     aggregationPhaseBlocks: bigint;
     /**
@@ -47,7 +47,7 @@ export interface Params {
      */
     initialConfidence: bigint;
     /**
-     * default: 50,000  (5%)
+     * compatibility-only; not read; runtime-immutable
      */
     confidenceBoostPerVerification: bigint;
     /**
@@ -55,11 +55,11 @@ export interface Params {
      */
     confidenceThreshold: bigint;
     /**
-     * default: 660,000 (66%)
+     * compatibility-only; not read; runtime-immutable
      */
     quorumThreshold: bigint;
     /**
-     * ─── Slashing — MUST be non-zero (B22-3 audit) ──────────────────────────
+     * ─── Verifier slashing ──────────────────────────────────────────────────
      */
     wrongVerificationSlashBps: bigint;
     /**
@@ -67,27 +67,26 @@ export interface Params {
      */
     missedRevealSlashBps: bigint;
     /**
-     * default: 200,000 (20%)
+     * compatibility-only; not read; runtime-immutable
      */
     equivocationSlashBps: bigint;
     /**
-     * DEPRECATED (R19-6): no longer used — review fee is non-refundable
+     * DEPRECATED; no longer used; runtime-immutable
      */
     invalidClaimSlashBps: bigint;
     /**
-     * ─── Rewards ─────────────────────────────────────────────────────────────
+     * ─── Compatibility-only reward metadata ─────────────────────────────────
+     * Round payout divides the 55% review-fee pool and does not use these values.
+     * Runtime updates must preserve them.
      */
     verificationReward: string;
-    /**
-     * default: 999,000 (0.999× per epoch)
-     */
     verificationRewardDecayBps: bigint;
     /**
      * ─── Claim validation ────────────────────────────────────────────────────
      */
     minClaimTextLength: bigint;
     /**
-     * default: 10,000
+     * default: 1,000
      */
     maxClaimTextLength: bigint;
     /**
@@ -99,11 +98,11 @@ export interface Params {
      */
     adversarialVerificationEnabled: boolean;
     /**
-     * default: 500,000 (50%)
+     * compatibility-only; not read; runtime-immutable
      */
     provisionalThreshold: bigint;
     /**
-     * default: 300,000 (30%)
+     * compatibility-only; not read; runtime-immutable
      */
     rejectThreshold: bigint;
     /**
@@ -115,7 +114,7 @@ export interface Params {
      */
     minChallengeStake: string;
     /**
-     * default: 220,000 (22%)
+     * compatibility-only; settlement uses fixed routing; runtime-immutable
      */
     failedChallengeSlashBps: bigint;
     /**
@@ -123,7 +122,7 @@ export interface Params {
      */
     successfulChallengeRewardBps: bigint;
     /**
-     * default: 3
+     * compatibility-only; not enforced; runtime-immutable
      */
     maxConcurrentChallenges: bigint;
     /**
@@ -131,7 +130,7 @@ export interface Params {
      */
     citationShareBps: bigint;
     /**
-     * default: 200,000 (20%)
+     * compatibility-only; not read; runtime-immutable
      */
     crossDomainBonusBps: bigint;
     /**
@@ -139,15 +138,15 @@ export interface Params {
      */
     maxFactsPerDomain: bigint;
     /**
-     * default: 0 (no expiry)
+     * compatibility-only; no expiry sweep reads it; runtime-immutable
      */
     factExpiryBlocks: bigint;
     /**
-     * default: 0
+     * compatibility-only; not read; runtime-immutable
      */
     crossStratumDiscountBps: bigint;
     /**
-     * default: 22
+     * compatibility-only; not read; runtime-immutable
      */
     maxValidatorsPerRound: bigint;
     /**
@@ -159,7 +158,7 @@ export interface Params {
      */
     confidenceGrowthPerEpochBps: bigint;
     /**
-     * default: 770,000 (77%)
+     * compatibility-only; not read; runtime-immutable
      */
     maxSurvivalConfidence: bigint;
     /**
@@ -167,11 +166,12 @@ export interface Params {
      */
     survivedChallengeConfidenceCap: bigint;
     /**
-     * default: 111 (Sybil cap)
+     * compatibility-only; not enforced; runtime-immutable
      */
     maxApprenticeValidators: bigint;
     /**
-     * ─── Research fund ───────────────────────────────────────────────────────
+     * Compatibility-only and runtime-immutable. Review-fee routing uses a
+     * hard-coded residual ~3.33% after its other fixed shares.
      */
     researchFundShareBps: bigint;
     /**
@@ -403,7 +403,7 @@ export interface Params {
      */
     metabolismActiveThreshold: bigint;
     /**
-     * Energy below which (for N epochs) → EXTINCT (default: 10,000 = 1%)
+     * compatibility-only; not read; runtime-immutable
      */
     metabolismExtinctionThreshold: bigint;
     /**
@@ -565,31 +565,25 @@ export interface Params {
      */
     disprovalClawbackBps: bigint;
     /**
-     * default: 30
+     * compatibility-only; not read; runtime-immutable
      */
     disprovalClawbackWindowEpochs: bigint;
     /**
      * Training-fund post-hoc disbursement params.
+     * Retained for the release-sealed training-disbursement API; current
+     * execution returns before reading these fields. Runtime-immutable.
      */
     trainingFundCalibrationFloorBps: bigint;
-    /**
-     * default: 60
-     */
     trainingFundVestingEpochs: bigint;
-    /**
-     * default: 100,000 per distinct method beyond 1
-     */
     trainingFundMethodologyDiversityBonusBps: bigint;
-    /**
-     * default: "1000000000" (1,000 ZRN in uzrn)
-     */
     trainingFundBaseReward: string;
     /**
      * Contribution challenge — challenger bond size (uzrn as string).
      */
     contributionChallengeBond: string;
     /**
-     * default: 2,000,000 (winner takes bond × 2)
+     * Compatibility-only; reward minting is disabled until a replay-safe,
+     * one-shot entitlement exists. Runtime updates must preserve this field.
      */
     contributionChallengeRewardMultiplierBps: bigint;
     /**
@@ -687,7 +681,9 @@ export interface GenesisState {
     activeRounds: VerificationRound[];
     domains: Domain[];
     /**
-     * Initial fund allocation (uzrn) — one-time genesis mint
+     * Optional target module balance restored/minted during InitGenesis.
+     * Protocol default is "0"; deployment artifacts must disclose any nonzero
+     * allocation.
      */
     bootstrapFundAllocation: string;
     /**

@@ -98,6 +98,22 @@ func TestEmissionPeriod_Iterate(t *testing.T) {
 // CreateEmissionPeriod
 // -----------------------------------------------------------------------
 
+func TestCreateEmissionPeriod_DefaultLatchRefuses(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	srv := keeper.NewMsgServerImpl(k)
+
+	_, err := srv.CreateEmissionPeriod(ctx, &types.MsgCreateEmissionPeriod{
+		Authority:      testAuthority,
+		StartBlock:     200,
+		EndBlock:       500,
+		AmountPerBlock: "1000",
+		Recipient:      testCreator,
+	})
+	if err == nil {
+		t.Fatal("expected default-disabled native emission surface to refuse creation")
+	}
+}
+
 func TestCreateEmissionPeriod_Success(t *testing.T) {
 	_, ctx, srv := setupMsgServer(t)
 

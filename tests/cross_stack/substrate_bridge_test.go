@@ -54,7 +54,7 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 		Source: &substratebridgetypes.ExternalSource{
 			AdapterId:   "test-wiki",
 			SourceId:    "article-happy-path",
-			ContentHash: []byte{0x01},
+			ContentHash: make([]byte, 32),
 		},
 		CitedFacts: []*substratebridgetypes.FactCitation{
 			{FactId: "seed-fact", CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},

@@ -3,15 +3,15 @@ package zerone.substrate_bridge.v1;
 
 option go_package = "github.com/zerone-chain/zerone/x/substrate_bridge/types";
 
-// ExternalSource is a typed reference to off-chain content that an
-// adapter has fetched. The content_hash is the cryptographic anchor:
-// substrate-link re-derivation matches if and only if the source's
-// content_hash matches what the adapter binary produced.
+// ExternalSource is caller-declared off-chain provenance. Consensus requires
+// adapter_id to match the enclosing link and content_hash to have SHA-256
+// width. It does not fetch external content, execute an adapter/compiler, or
+// verify the declared digest against external bytes.
 message ExternalSource {
   string adapter_id       = 1;
   string source_id        = 2;  // e.g. Wikipedia article ID
   string source_url       = 3;  // optional; for audit
-  bytes  content_hash     = 4;  // sha256 of fetched content
+  bytes  content_hash     = 4;  // declared SHA-256 digest; width checked only
   uint64 fetched_at_block = 5;
 }
 

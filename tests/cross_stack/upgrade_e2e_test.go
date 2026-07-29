@@ -305,7 +305,7 @@ func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 	// The two errors mark the two halves of the fix — the migration closes the
 	// drain for adapters that already exist, the gate closes it for any adapter
 	// registered without bounds later. This test exercises the first.
-	require.ErrorIs(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, drain, &substrateParams),
+	require.ErrorIs(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, drain, substrateParams),
 		substratebridgetypes.ErrAxisOverflow,
 		"a weighted claim must not survive the upgrade")
 
@@ -313,11 +313,12 @@ func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 	relayShaped := &substratebridgetypes.SubstrateLink{
 		AdapterId: "agenttool-invocation-v1",
 		Source: &substratebridgetypes.ExternalSource{
-			AdapterId: "agenttool-invocation-v1",
-			SourceId:  "inv-normal",
+			AdapterId:   "agenttool-invocation-v1",
+			SourceId:    "inv-normal",
+			ContentHash: make([]byte, 32),
 		},
 	}
-	require.NoError(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, relayShaped, &substrateParams),
+	require.NoError(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, relayShaped, substrateParams),
 		"the upgrade must not stall the live bridge")
 
 	require.Equal(t, "migrated",
@@ -334,6 +335,7 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 		fromVM[name] = version
 	}
 	fromVM["knowledge"] = 5
+	fromVM["claiming_pot"] = 1
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
@@ -343,6 +345,7 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, uint64(6), toVM["knowledge"])
+	require.Equal(t, uint64(2), toVM["claiming_pot"])
 	require.Equal(t, "true",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
 		"knowledge migration marker proves the module activation boundary ran")
@@ -364,6 +367,7 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 		fromVM[name] = version
 	}
 	fromVM["knowledge"] = 5
+	fromVM["claiming_pot"] = 1
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
@@ -374,6 +378,7 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 	require.NoError(t, err,
 		"a permissionless unrelated ballot must not be able to halt a scheduled upgrade")
 	require.Equal(t, uint64(6), toVM["knowledge"])
+	require.Equal(t, uint64(2), toVM["claiming_pot"])
 	require.Equal(t, "true",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
 	require.Equal(t, "migrated",

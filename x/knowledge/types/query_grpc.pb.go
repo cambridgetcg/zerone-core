@@ -347,17 +347,18 @@ type QueryClient interface {
 	EpistemicTemperature(ctx context.Context, in *QueryEpistemicTemperatureRequest, opts ...grpc.CallOption) (*QueryEpistemicTemperatureResponse, error)
 	// RoleElasticity queries domain role elasticity and track record (R29-3).
 	RoleElasticity(ctx context.Context, in *QueryRoleElasticityRequest, opts ...grpc.CallOption) (*QueryRoleElasticityResponse, error)
-	// IdleFacts returns facts the chain has invited for stress-testing
-	// (Wave 15). High-confidence facts that have gone idle for longer than
-	// ProbeInvitationIdleThresholdBlocks are surfaced here so external
-	// prober agents can compete to probe them. Sorted by time-since-invite
+	// IdleFacts returns still-VERIFIED or ACTIVE facts the chain has invited
+	// for stress-testing (Wave 15) and that have not been corroborated since
+	// the invitation. Each request examines and returns at most 256 facts.
+	// Within that bounded scan window, results are sorted by time-since-invite
 	// descending (oldest invitations first — they're the most under-tested).
 	IdleFacts(ctx context.Context, in *QueryIdleFactsRequest, opts ...grpc.CallOption) (*QueryIdleFactsResponse, error)
-	// OpenQuestions surfaces what the chain does NOT know: live conjectures
-	// standing at FACT_STATUS_PROVISIONAL, awaiting refutation. Where
-	// IdleFacts lists settled beliefs that have gone untested, this lists
-	// propositions that were never settled at all. Read-free, like every
-	// other query on this surface.
+	// OpenQuestions surfaces what the chain does NOT know: every nonterminal
+	// conjecture still awaiting refutation. PROVISIONAL, CHALLENGED, AT_RISK,
+	// and EXPIRED conjectures remain open; only resolved terminal states are
+	// omitted. Where IdleFacts lists settled beliefs that have gone untested,
+	// this lists propositions that were never settled at all. Read-free, like
+	// every other query on this surface.
 	OpenQuestions(ctx context.Context, in *QueryOpenQuestionsRequest, opts ...grpc.CallOption) (*QueryOpenQuestionsResponse, error)
 	// BundleToK is the headline trainer-facing endpoint (TC1).
 	// Extracts a deterministic, snapshot-pinned subgraph per selector.
@@ -1508,17 +1509,18 @@ type QueryServer interface {
 	EpistemicTemperature(context.Context, *QueryEpistemicTemperatureRequest) (*QueryEpistemicTemperatureResponse, error)
 	// RoleElasticity queries domain role elasticity and track record (R29-3).
 	RoleElasticity(context.Context, *QueryRoleElasticityRequest) (*QueryRoleElasticityResponse, error)
-	// IdleFacts returns facts the chain has invited for stress-testing
-	// (Wave 15). High-confidence facts that have gone idle for longer than
-	// ProbeInvitationIdleThresholdBlocks are surfaced here so external
-	// prober agents can compete to probe them. Sorted by time-since-invite
+	// IdleFacts returns still-VERIFIED or ACTIVE facts the chain has invited
+	// for stress-testing (Wave 15) and that have not been corroborated since
+	// the invitation. Each request examines and returns at most 256 facts.
+	// Within that bounded scan window, results are sorted by time-since-invite
 	// descending (oldest invitations first — they're the most under-tested).
 	IdleFacts(context.Context, *QueryIdleFactsRequest) (*QueryIdleFactsResponse, error)
-	// OpenQuestions surfaces what the chain does NOT know: live conjectures
-	// standing at FACT_STATUS_PROVISIONAL, awaiting refutation. Where
-	// IdleFacts lists settled beliefs that have gone untested, this lists
-	// propositions that were never settled at all. Read-free, like every
-	// other query on this surface.
+	// OpenQuestions surfaces what the chain does NOT know: every nonterminal
+	// conjecture still awaiting refutation. PROVISIONAL, CHALLENGED, AT_RISK,
+	// and EXPIRED conjectures remain open; only resolved terminal states are
+	// omitted. Where IdleFacts lists settled beliefs that have gone untested,
+	// this lists propositions that were never settled at all. Read-free, like
+	// every other query on this surface.
 	OpenQuestions(context.Context, *QueryOpenQuestionsRequest) (*QueryOpenQuestionsResponse, error)
 	// BundleToK is the headline trainer-facing endpoint (TC1).
 	// Extracts a deterministic, snapshot-pinned subgraph per selector.

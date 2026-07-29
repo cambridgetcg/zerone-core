@@ -32,7 +32,7 @@ type LineageEdge struct {
 	UpstreamClassId         string                 `protobuf:"bytes,3,opt,name=upstream_class_id,json=upstreamClassId,proto3" json:"upstream_class_id,omitempty"`
 	DownstreamClassId       string                 `protobuf:"bytes,4,opt,name=downstream_class_id,json=downstreamClassId,proto3" json:"downstream_class_id,omitempty"`
 	CitationType            CitationType           `protobuf:"varint,5,opt,name=citation_type,json=citationType,proto3,enum=zerone.substrate_bridge.v1.CitationType" json:"citation_type,omitempty"`
-	ContributionShareBps    uint32                 `protobuf:"varint,6,opt,name=contribution_share_bps,json=contributionShareBps,proto3" json:"contribution_share_bps,omitempty"`
+	ContributionShareBps    uint32                 `protobuf:"varint,6,opt,name=contribution_share_bps,json=contributionShareBps,proto3" json:"contribution_share_bps,omitempty"` // 10,000 scale: 10,000 = 100%
 	DepthFromDownstream     uint32                 `protobuf:"varint,7,opt,name=depth_from_downstream,json=depthFromDownstream,proto3" json:"depth_from_downstream,omitempty"`
 	CreatedAtBlock          uint64                 `protobuf:"varint,8,opt,name=created_at_block,json=createdAtBlock,proto3" json:"created_at_block,omitempty"`
 	SettlementPaymentUzrn   string                 `protobuf:"bytes,9,opt,name=settlement_payment_uzrn,json=settlementPaymentUzrn,proto3" json:"settlement_payment_uzrn,omitempty"`

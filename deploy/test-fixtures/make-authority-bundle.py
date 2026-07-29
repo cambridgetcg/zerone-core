@@ -115,6 +115,13 @@ COMPONENT_BUILD_RECIPES = {
     "zerone_2_runtime": "deploy/networks/zerone-2/runtime/build-image.sh",
     "query_gateway": "deploy/query-gateway/build-image.sh",
 }
+CANONICAL_COMPONENT_SIGNER_IDENTITY = (
+    "https://github.com/cambridgetcg/zerone-core/"
+    ".github/workflows/ci.yml@refs/heads/main"
+)
+CANONICAL_COMPONENT_CERTIFICATE_ISSUER = (
+    "https://token.actions.githubusercontent.com"
+)
 
 
 def make_component_artifacts(
@@ -198,8 +205,8 @@ def make_component_artifacts(
             "image_ref": image_ref,
             "image_digest": f"sha256:{image_digest}",
             "bundle_sha256": digest((output / names["signature_bundle"]).read_bytes()),
-            "signer_identity": "https://github.com/zerone-chain/zerone/.github/workflows/release.yml",
-            "certificate_issuer": "https://token.actions.githubusercontent.com",
+            "signer_identity": CANONICAL_COMPONENT_SIGNER_IDENTITY,
+            "certificate_issuer": CANONICAL_COMPONENT_CERTIFICATE_ISSUER,
             "signed_at": "2026-07-10T09:12:00Z",
             "verified_at": "2026-07-10T09:13:00Z",
             "transparency_log_verified": True,

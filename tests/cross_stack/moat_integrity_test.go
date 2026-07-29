@@ -232,9 +232,9 @@ func TestMoat_ChallengeStakeSettled(t *testing.T) {
 	victimFact := &knowledgetypes.Fact{
 		Id: "F-MOAT-VICTIM", Content: "a bad fact that will be disproven",
 		Domain: "sciences", Category: "empirical",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		Submitter: testAddr("moat_chal_victim_sub").String(),
-		MethodId: knowledgetypes.MethodologyEmpirical,
+		Status:     knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter:  testAddr("moat_chal_victim_sub").String(),
+		MethodId:   knowledgetypes.MethodologyEmpirical,
 		Confidence: 800_000,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, victimFact))
@@ -390,13 +390,13 @@ func TestMoat_TVWHardensWithSurvivedAttacks(t *testing.T) {
 	submitter := testAddr("moat_hardening_sub").String()
 	mkFact := func(id string, corroboration uint64) {
 		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-			Id:         id,
-			Content:    "hardened truth candidate",
-			Domain:     "sciences",
-			Status:     knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-			Submitter:  submitter,
-			MethodId:   knowledgetypes.MethodologyEmpirical,
-			Confidence: 900_000,
+			Id:                              id,
+			Content:                         "hardened truth candidate",
+			Domain:                          "sciences",
+			Status:                          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+			Submitter:                       submitter,
+			MethodId:                        knowledgetypes.MethodologyEmpirical,
+			Confidence:                      900_000,
 			CorroborationCount:              corroboration,
 			SubmitterCalibrationSnapshotBps: 800_000,
 			AxiomDistance:                   2,
@@ -453,9 +453,9 @@ func TestMoat_FailedProbesEarnParticipationReward(t *testing.T) {
 	surviving := &knowledgetypes.Fact{
 		Id: "F-MOAT-SURVIVOR", Content: "a fact that will survive the probe",
 		Domain: "sciences", Category: "empirical",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		Submitter: testAddr("moat_probe_sub").String(),
-		MethodId: knowledgetypes.MethodologyEmpirical,
+		Status:     knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter:  testAddr("moat_probe_sub").String(),
+		MethodId:   knowledgetypes.MethodologyEmpirical,
 		Confidence: 900_000,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, surviving))
@@ -595,11 +595,11 @@ func TestMoat_HeartbeatInvitesIdleHighConfidenceFacts(t *testing.T) {
 	mkFact := func(id string, confidence uint64, verifiedAtBlock uint64) {
 		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 			Id: id, Content: "probe candidate",
-			Domain: "sciences",
-			Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-			Submitter: submitter,
-			MethodId: knowledgetypes.MethodologyEmpirical,
-			Confidence: confidence,
+			Domain:          "sciences",
+			Status:          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+			Submitter:       submitter,
+			MethodId:        knowledgetypes.MethodologyEmpirical,
+			Confidence:      confidence,
 			VerifiedAtBlock: verifiedAtBlock,
 		}))
 	}
@@ -662,11 +662,11 @@ func TestMoat_ProbeInvitationClearsOnCorroboration(t *testing.T) {
 	submitter := testAddr("moat_probe_cleared").String()
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-PROBE-CLEARED", Content: "will be probed",
-		Domain: "sciences",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		Submitter: submitter,
-		MethodId: knowledgetypes.MethodologyEmpirical,
-		Confidence: 900_000,
+		Domain:          "sciences",
+		Status:          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter:       submitter,
+		MethodId:        knowledgetypes.MethodologyEmpirical,
+		Confidence:      900_000,
 		VerifiedAtBlock: 1,
 	}))
 
@@ -690,20 +690,23 @@ func TestMoat_ProbeInvitationClearsOnCorroboration(t *testing.T) {
 	}
 }
 
-// The probe bounty pool (Wave 15) must accumulate uzrn per block and
-// fund successful-probe bonuses. Decouples epistemic-auditing budget
-// from protocol treasury so continuous auditing has its own funding
-// stream that doesn't compete with other governance priorities.
+// When explicitly activated, the probe bounty pool accumulates uzrn per block
+// and funds successful-probe bonuses. Protocol defaults keep this issuance
+// disabled until governance reviews and sets a positive rate.
 func TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
+	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
+	require.NoError(t, err)
+	params.ProbeBountyMintPerBlock = "1000000"
+	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, params))
 
 	// Starting balance should be zero.
 	require.Equal(t, int64(0), h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64(),
 		"probe bounty pool starts empty")
 
-	// Heartbeat runs on each block; with default mint of 1 ZRN/block,
+	// Heartbeat runs on each block; with the test-enabled 1 ZRN/block rate,
 	// 100 blocks should yield 100 ZRN (100_000_000 uzrn).
 	h.AdvanceBlocks(100)
 	pool := h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64()
@@ -833,24 +836,24 @@ func TestMoat_PanelWeightedByStakeTimesCalibration(t *testing.T) {
 	}
 }
 
-// Invitation bonus (Wave 15b). When a prober answers a chain-issued
-// stress-test invitation, the pool pays them a flat bonus regardless
-// of outcome. Converts the invitation from a demand signal into a
-// standing offer: the chain doesn't just say "please probe this fact"
-// — it says "here's uzrn waiting for whoever does." The bonus fires
-// even when the probe fails because the audit activity itself is
-// what the chain is paying for.
+// Invitation bonus (Wave 15b). When governance explicitly funds the probe
+// bounty pool and a prober answers a chain-issued stress-test invitation, the
+// pool pays them a flat bonus regardless of outcome. The bonus fires even when
+// the probe fails because the audit activity itself is what the chain is
+// paying for.
 func TestMoat_InvitationBonusPaidToAnswerer(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
-	// Shorten invitation threshold + fund the pool before probing.
+	// Shorten the invitation threshold and explicitly activate capped probe
+	// bounty issuance before probing. Protocol defaults leave it disabled.
 	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
 	require.NoError(t, err)
 	params.ProbeInvitationIdleThresholdBlocks = 50
 	params.ProbeInvitationBatchSize = 10
-	params.InvitationBonusAmount = "500000" // 0.5 ZRN
+	params.ProbeBountyMintPerBlock = "1000000" // test-only activation: 1 ZRN/block
+	params.InvitationBonusAmount = "500000"    // 0.5 ZRN
 	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, params))
 
 	// Seed an invited target fact.
@@ -858,9 +861,9 @@ func TestMoat_InvitationBonusPaidToAnswerer(t *testing.T) {
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-INVITED", Content: "idle high-conf target",
 		Domain: "sciences", Category: "empirical",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		Submitter: submitter,
-		MethodId: knowledgetypes.MethodologyEmpirical,
+		Status:     knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter:  submitter,
+		MethodId:   knowledgetypes.MethodologyEmpirical,
 		Confidence: 900_000, VerifiedAtBlock: 1,
 	}))
 
@@ -927,10 +930,10 @@ func TestMoat_GuardianVetoCancelsAuthorityFactInjection(t *testing.T) {
 	// Authority proposes a fact. With the veto window enabled, the
 	// fact does NOT materialize immediately — it queues.
 	resp, err := ms.AddFact(h.Ctx, &knowledgetypes.MsgAddFact{
-		Authority: authority,
-		Content:   "moat test: authority injection that will be vetoed",
-		Domain:    "sciences",
-		Category:  "empirical",
+		Authority:  authority,
+		Content:    "moat test: authority injection that will be vetoed",
+		Domain:     "sciences",
+		Category:   "empirical",
 		Confidence: 950_000,
 	})
 	require.NoError(t, err)
@@ -981,10 +984,10 @@ func TestMoat_PendingFactMaterializesAfterVetoWindow(t *testing.T) {
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
 	authority := h.KnowledgeKeeper.GetAuthority()
 	resp, err := ms.AddFact(h.Ctx, &knowledgetypes.MsgAddFact{
-		Authority: authority,
-		Content:   "moat test: legitimate authority injection",
-		Domain:    "sciences",
-		Category:  "empirical",
+		Authority:  authority,
+		Content:    "moat test: legitimate authority injection",
+		Domain:     "sciences",
+		Category:   "empirical",
 		Confidence: 900_000,
 	})
 	require.NoError(t, err)
@@ -1023,10 +1026,10 @@ func TestMoat_NonGuardianCannotVetoFactInjection(t *testing.T) {
 
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
 	resp, err := ms.AddFact(h.Ctx, &knowledgetypes.MsgAddFact{
-		Authority: h.KnowledgeKeeper.GetAuthority(),
-		Content:   "moat test: non-guardian veto attempt",
-		Domain:    "sciences",
-		Category:  "empirical",
+		Authority:  h.KnowledgeKeeper.GetAuthority(),
+		Content:    "moat test: non-guardian veto attempt",
+		Domain:     "sciences",
+		Category:   "empirical",
 		Confidence: 900_000,
 	})
 	require.NoError(t, err)

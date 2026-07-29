@@ -265,18 +265,23 @@ func TestBootstrapFundStatus_Query(t *testing.T) {
 }
 
 func TestGenesisInit_FundAllocated(t *testing.T) {
-	// Genesis allocation mints correct amount to fund
+	// The explicitly funded test fixture mints the declared target amount.
 	_, ctx, bk := setupKnowledgeTestWithBank(t)
 
-	// setupKnowledgeTestWithBank calls InitGenesis with DefaultGenesis()
-	// which has BootstrapFundAllocation: "22222000000"
 	require.Equal(t, int64(22_222_000_000), bk.minted.AmountOf("uzrn").Int64(),
-		"genesis should mint 22,222 ZRN to bootstrap fund")
+		"funded test genesis should mint 22,222 ZRN to bootstrap fund")
 
 	// Module balance should also be set
 	fundBal := bk.moduleBalances[types.BootstrapFundModuleName]
 	require.False(t, fundBal.IsZero(), "bootstrap fund module should have balance after genesis")
 	_ = ctx
+}
+
+func TestGenesisInit_ProtocolDefaultMintsNoBootstrapFund(t *testing.T) {
+	_, _, bk := setupKnowledgeTestWithBankGenesis(t, types.DefaultGenesis())
+	require.True(t, bk.minted.AmountOf("uzrn").IsZero(),
+		"protocol DefaultGenesis must not mint a hidden bootstrap allocation")
+	require.True(t, bk.moduleBalances[types.BootstrapFundModuleName].IsZero())
 }
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────

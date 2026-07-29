@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/cosmos/gogoproto/proto"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -59,9 +59,8 @@ func (k Keeper) DeletePendingFactInjection(ctx context.Context, id string) error
 }
 
 // IterateAllPendingFactInjections yields every pending fact injection
-// regardless of execute_at_block. Used by external synthesizers (e.g.,
-// x/governance_synthesis.SystemHealth) that need to count the queue
-// without filtering by maturity.
+// regardless of execute_at_block. Used by queries or off-chain composers
+// that need to count the queue without filtering by maturity.
 func (k Keeper) IterateAllPendingFactInjections(ctx context.Context, cb func(*types.PendingFactInjection) bool) {
 	store := k.storeService.OpenKVStore(ctx)
 	iter, err := store.Iterator(types.PendingFactInjectionKeyPrefix, prefixEndBytes(types.PendingFactInjectionKeyPrefix))

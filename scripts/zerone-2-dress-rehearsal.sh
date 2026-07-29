@@ -74,7 +74,7 @@ configure_home() {
   sed_in_place 's|^timeout_commit = .*|timeout_commit = "500ms"|' "${config}"
   sed_in_place 's|^prometheus = .*|prometheus = false|' "${config}"
   sed_in_place 's|^pprof_laddr = .*|pprof_laddr = ""|' "${config}"
-  sed_in_place 's|^minimum-gas-prices = .*|minimum-gas-prices = "0.025uzrn"|' "${app}"
+  sed_in_place 's|^minimum-gas-prices = .*|minimum-gas-prices = "1uzrn"|' "${app}"
   sed_in_place 's|^pruning = .*|pruning = "nothing"|' "${app}"
   sed_in_place 's|^address = "tcp://localhost:1317"|address = "tcp://127.0.0.1:31317"|' "${app}"
   sed_in_place 's|^address = "localhost:9090"|address = "127.0.0.1:39090"|' "${app}"
@@ -84,7 +84,7 @@ configure_home() {
 
 start_node() {
   local home="$1" log="$2"
-  "${BINARY}" start --home "${home}" --minimum-gas-prices 0.025uzrn \
+  "${BINARY}" start --home "${home}" --minimum-gas-prices 1uzrn \
     --rpc.laddr tcp://127.0.0.1:37657 \
     --p2p.laddr tcp://127.0.0.1:37656 \
     --api.address tcp://127.0.0.1:31317 \

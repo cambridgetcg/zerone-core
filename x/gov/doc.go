@@ -2,8 +2,8 @@
 // the chain's governance surface for parameter amendments, research
 // fund spend approvals, election of governance seats, and attached
 // upgrade plans. LIPs progress through staged voting (submit, stake,
-// advance, cast, withdraw) with vote weight read from x/qualification
-// rather than raw bond.
+// advance, cast, withdraw). Current vote weight is delegated bonded
+// stake read from x/staking; qualification does not replace raw bond.
 //
 // Truth-seeking position:
 //
@@ -28,10 +28,9 @@
 // docs/TRUTH_SEEKING.md, commitment 11 (trust is queryable): the
 // chain's governance posture — open LIPs, recent passes, current
 // vote tallies, research-spend approvals, attached upgrade plans —
-// must be readable as a structured surface, not stitched together
-// from disjoint per-LIP queries. x/governance_synthesis composes the
-// system-level view; this module is the upstream that produces the
-// raw governance signals that synthesis reads. Without legible
+// must remain queryable. The former on-chain governance_synthesis module
+// was retired; clients/indexers compose system views from this module's
+// public query surfaces. Without legible
 // governance, "the chain pays for its own audit" (commitment 12) is
 // a slogan: someone has to be able to see WHO authorised the audit
 // budget that funds the probes.
@@ -41,10 +40,11 @@
 //   - It IS the parameter-amendment substrate. Truth-load-bearing
 //     params (probe stake scaling, qualification thresholds, audit
 //     budget mints) flow through here when amended.
-//   - It IS the research-spend authorisation surface. Movement of
-//     uzrn out of the research fund requires both human-side and
-//     AI-side governance approval — the structural form of the
-//     human/AI co-governance promise the Truth Paper makes.
+//   - It IS the configurable research-spend authorisation surface.
+//     When a human-side and AI-side voter pair is set, movement of
+//     uzrn out of the research fund requires both approvals. With
+//     the pair unset, submission fails closed. The published
+//     zerone-1 genesis leaves that pair unset.
 //   - It is NOT a venue for adopting beliefs without record. Every
 //     LIP carries its provenance; every vote is preserved; every
 //     resolution is dated and signed at the consensus layer.

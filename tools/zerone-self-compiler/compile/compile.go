@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	// AdapterID is the canonical adapter identifier — must match the
-	// AdapterRegistration registered on chain via gov LIP.
+	// AdapterID is the proposed canonical adapter identifier. A future
+	// authorized activation would register the same value; current
+	// adapter-registration LIP dispatch is unwired.
 	AdapterID = "zerone-self-v1"
 
 	// SourceURLBase is the canonical URL prefix for ZERONE's git history.

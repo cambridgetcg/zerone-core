@@ -182,16 +182,27 @@ func (k Keeper) CurrentCommitment(ctx context.Context, number uint32) (*types.Co
 	return nil, false
 }
 
-// AnchorPin records a new pin at version+1. The handler in
-// msg_server.go validates the pin's structural invariants before
-// calling this.
+// AnchorPin records a structurally valid new pin at version+1. All write
+// paths call this method so governance dispatch cannot bypass the same
+// registry invariants enforced for authority-direct messages.
 func (k Keeper) AnchorPin(ctx context.Context, p *types.PinnedCreed) error {
 	if p == nil {
 		return fmt.Errorf("nil pin")
 	}
+	if err := types.ValidateCanonicalHash(p.CanonicalHash); err != nil {
+		return err
+	}
 	cur := k.GetCurrentVersion(ctx)
 	if p.Version != cur+1 {
-		return types.ErrVersionNotMonotonic.Wrapf("expected version %d, got %d", cur+1, p.Version)
+		return types.ErrVersionNotMonotonic.Wrapf(
+			"commitment 10: expected version %d (current+1), got %d",
+			cur+1,
+			p.Version,
+		)
+	}
+	height := uint64(sdk.UnwrapSDKContext(ctx).BlockHeight())
+	if err := types.ValidateCommitmentRegistryAtHeight(p.Commitments, height); err != nil {
+		return err
 	}
 
 	return k.SetPin(ctx, p)
@@ -204,11 +215,11 @@ func (k Keeper) AnchorPin(ctx context.Context, p *types.PinnedCreed) error {
 // it under the next version with sourceLip recorded as the
 // authorizer.
 //
-// docs/TRUTH_SEEKING.md commitment 19: this is the structural form
-// of the post-launch creed-amendment path. direct_anchor_enabled
-// can be false at that point — this entry is gov-mediated, so the
-// gov authority's call counts whether or not the direct path is
-// open.
+// docs/TRUTH_SEEKING.md commitment 19: this is the gov-to-creed dispatch
+// primitive. direct_anchor_enabled may be false because this bypasses the
+// public direct handler. Whether a LIP can reach this call—and under what
+// tally—is determined by x/gov configuration; current live configuration
+// does not establish dual-pool governance.
 func (k Keeper) AnchorPinFromBytes(ctx context.Context, sourceLip string, canonicalHash []byte, commitmentsJSON []byte) error {
 	if len(canonicalHash) == 0 {
 		return types.ErrEmptyHash
@@ -228,7 +239,7 @@ func (k Keeper) AnchorPinFromBytes(ctx context.Context, sourceLip string, canoni
 		PinnedViaLip:   sourceLip,
 		Commitments:    commitments,
 	}
-	return k.SetPin(ctx, pin)
+	return k.AnchorPin(ctx, pin)
 }
 
 // ── Council registry ───────────────────────────────────────────────

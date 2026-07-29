@@ -481,20 +481,21 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/role_elasticity/{domain}";
   }
 
-  // IdleFacts returns facts the chain has invited for stress-testing
-  // (Wave 15). High-confidence facts that have gone idle for longer than
-  // ProbeInvitationIdleThresholdBlocks are surfaced here so external
-  // prober agents can compete to probe them. Sorted by time-since-invite
+  // IdleFacts returns still-VERIFIED or ACTIVE facts the chain has invited
+  // for stress-testing (Wave 15) and that have not been corroborated since
+  // the invitation. Each request examines and returns at most 256 facts.
+  // Within that bounded scan window, results are sorted by time-since-invite
   // descending (oldest invitations first — they're the most under-tested).
   rpc IdleFacts(QueryIdleFactsRequest) returns (QueryIdleFactsResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/idle_facts";
   }
 
-  // OpenQuestions surfaces what the chain does NOT know: live conjectures
-  // standing at FACT_STATUS_PROVISIONAL, awaiting refutation. Where
-  // IdleFacts lists settled beliefs that have gone untested, this lists
-  // propositions that were never settled at all. Read-free, like every
-  // other query on this surface.
+  // OpenQuestions surfaces what the chain does NOT know: every nonterminal
+  // conjecture still awaiting refutation. PROVISIONAL, CHALLENGED, AT_RISK,
+  // and EXPIRED conjectures remain open; only resolved terminal states are
+  // omitted. Where IdleFacts lists settled beliefs that have gone untested,
+  // this lists propositions that were never settled at all. Read-free, like
+  // every other query on this surface.
   rpc OpenQuestions(QueryOpenQuestionsRequest) returns (QueryOpenQuestionsResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/open_questions";
   }
@@ -1278,7 +1279,7 @@ message IdleFact {
 
 message QueryIdleFactsRequest {
   string domain = 1;  // optional filter; empty = all domains
-  uint32 limit  = 2;  // optional cap; 0 = default (50)
+  uint32 limit  = 2;  // 0 = default (50); values above 256 clamp to 256
 }
 
 message QueryIdleFactsResponse {
@@ -1593,7 +1594,9 @@ message QueryPrivilegedActionsResponse {
 
 message QueryOpenQuestionsRequest {
   string domain = 1;  // empty = all domains
-  uint32 limit  = 2;  // 0 = default 100, hard-capped
+  // Result cap within the bounded fact scan. 0 = default 100; values above
+  // the 5,000-fact scan cap are clamped before allocation.
+  uint32 limit  = 2;
 }
 
 // OpenQuestion is a live conjecture: an unsettled proposition the chain is
@@ -1618,8 +1621,15 @@ message OpenQuestion {
 
 message QueryOpenQuestionsResponse {
   repeated OpenQuestion questions = 1;
+  // Matching conjectures in the examined fact window before applying limit.
+  // This is not a global population count when scan_limit_reached is true.
   uint32 total                    = 2;
   uint64 snapshot_block_height    = 3;
+  // Number of fact records examined in deterministic fact-ID order.
+  uint32 facts_examined            = 4;
+  // True when the 5,000-fact safety ceiling was reached. In that case,
+  // questions are oldest-first only within the examined window.
+  bool scan_limit_reached          = 5;
 }
 
 // ─── ToK Foundation queries (TC1) ────────────────────────────────────────────

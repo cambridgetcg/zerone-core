@@ -87,19 +87,19 @@ func (k Keeper) DistributeRevenue(
 	}
 
 	routing := &types.RewardRouting{
-		Source:           string(source),
-		OriginalAmount:   amount,
-		ContributorShare: contributorAmount.String(),
-		ProtocolShare:    protocolAmount.String(),
-		ResearchShare:    researchAmount.String(),
+		Source:            string(source),
+		OriginalAmount:    amount,
+		ContributorShare:  contributorAmount.String(),
+		ProtocolShare:     protocolAmount.String(),
+		ResearchShare:     researchAmount.String(),
 		DevelopmentAmount: devAmount.String(),
-		Recipient:        recipient,
-		FactId:           factId,
-		BlockNumber:      uint64(ctx.BlockHeight()),
-		FounderShare:     founderShare.String(),
-		CitationPool:     citationPool.String(),
-		VerificationPool: verificationPool.String(),
-		TreasuryShare:    treasuryShare.String(),
+		Recipient:         recipient,
+		FactId:            factId,
+		BlockNumber:       uint64(ctx.BlockHeight()),
+		FounderShare:      founderShare.String(),
+		CitationPool:      citationPool.String(),
+		VerificationPool:  verificationPool.String(),
+		TreasuryShare:     treasuryShare.String(),
 	}
 
 	return routing, nil
@@ -338,10 +338,11 @@ func (k Keeper) GetEpochBlockRewardPool(ctx sdk.Context, epoch uint64) uint64 {
 	return pool.Uint64()
 }
 
-// DistributeBlockReward mints and distributes block production rewards via pure PoT.
+// DistributeBlockReward mints and distributes block-production rewards.
 //
-// All ZRN is minted per-block through PoT consensus, capped at 222,222,222 ZRN.
-// The reward is scaled by validator participation:
+// Any non-injection user transaction makes the block eligible; an ordinary
+// transfer qualifies, so eligibility is not proof that new knowledge was
+// verified. The reward is scaled by validator participation:
 //
 //	reward = baseReward * min(1, activeValidators / targetValidators)
 //
@@ -357,17 +358,17 @@ func (k Keeper) DistributeBlockReward(
 
 	emptyDist := func() *types.BlockRewardDistribution {
 		return &types.BlockRewardDistribution{
-			BlockHeight:    height,
-			ProducerReward: "0",
-			ResearchShare:  "0",
-			TotalMinted:    "0",
-			ValidatorCount: activeValidatorCount,
-			DevelopmentAmount:     "0",
-			ProtocolShare:  "0",
+			BlockHeight:       height,
+			ProducerReward:    "0",
+			ResearchShare:     "0",
+			TotalMinted:       "0",
+			ValidatorCount:    activeValidatorCount,
+			DevelopmentAmount: "0",
+			ProtocolShare:     "0",
 		}
 	}
 
-	// Empty block check: 0% reward for empty blocks (PoT alignment)
+	// Empty user-transaction block check.
 	if !hasTransactions && params.EmptyBlockRewardRate == 0 {
 		return emptyDist(), nil
 	}
@@ -456,14 +457,14 @@ func (k Keeper) DistributeBlockReward(
 	}
 
 	dist := &types.BlockRewardDistribution{
-		BlockHeight:    height,
-		ProducerReward: routing.ContributorShare,
-		ResearchShare:  routing.ResearchShare,
-		TotalMinted:    routing.OriginalAmount,
-		ValidatorCount: activeValidatorCount,
-		FounderShare:   routing.FounderShare,
-		DevelopmentAmount:     routing.DevelopmentAmount,
-		ProtocolShare:  routing.ProtocolShare,
+		BlockHeight:       height,
+		ProducerReward:    routing.ContributorShare,
+		ResearchShare:     routing.ResearchShare,
+		TotalMinted:       routing.OriginalAmount,
+		ValidatorCount:    activeValidatorCount,
+		FounderShare:      routing.FounderShare,
+		DevelopmentAmount: routing.DevelopmentAmount,
+		ProtocolShare:     routing.ProtocolShare,
 	}
 
 	// Distribute minted coins via bank keeper

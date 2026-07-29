@@ -3,20 +3,20 @@
 //
 // Each non-Knowledge lifecycle phase has its own sub-creed under
 // docs/sub_creeds/<phase>.md; this module's Keeper.SubCreedPin records
-// pin the canonical hash of that doc at a specific version. Pins form
-// a forward-only history: amendments produce new versions; prior
-// versions remain queryable (commitment 10).
+// pin the canonical hash of that doc at a specific version. Phase 0 stores
+// inception pins only; post-genesis amendment/history APIs are future work.
 //
-// The Knowledge phase delegates its sub-creed to the existing
-// docs/TRUTH_SEEKING.md, pinned by x/creed. x/work_creed never holds
-// a Knowledge pin; SetSubCreedPin rejects phase=1.
+// The Knowledge phase delegates its source doctrine to
+// docs/TRUTH_SEEKING.md and the optional x/creed pin registry.
+// Published genesis has no such pin. x/work_creed never holds a Knowledge
+// pin; SetSubCreedPin rejects phase=1.
 //
 // Phase 0 ships:
 //   - PinnedSubCreed + GenesisState protobuf types
 //   - Keeper with Get/Set/Iterate + Init/ExportGenesis
 //   - Module skeleton wired into app.go
 //
-// Phase 1+ adds:
+// Not implemented in Phase 0; a future phase may add:
 //   - MsgAnchorSubCreedPin (gov-only) for sub-creed amendment LIPs
 //   - QueryPinAtVersion for historical pin retrieval
 //   - SubCreedAmended event with creed_commitment="UW", mechanism="M3"

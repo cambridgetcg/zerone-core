@@ -85,7 +85,7 @@ a deliberate import-path migration.
 
 | | |
 |---|---|
-| Total Supply | 222,222,222 ZRN (hard cap) |
+| Maximum Supply | 222,222,222 ZRN (hard cap) |
 | Block Time | ~2.5 seconds (2,521 ms) |
 | Chain ID | `zerone-1` (mainnet, live) · `zerone-testnet-1` (legacy testnet, live/observe-only) |
 | Address Prefix | `zrn1...` |
@@ -100,25 +100,39 @@ transferable 2,222 ZRN operator float. These balances can affect consensus and
 operations; that is why the launch is described as custodial, not
 decentralized. Every address and amount is published in the hash-bound
 [genesis manifest](deploy/mainnet/artifacts/GENESIS-MANIFEST.md). Everything
-else mints only on participation under `MintWithCap`.
+else is subject to the same hard cap, but not every source-capable lane is
+honestly described as participation-earned.
 
-ZRN enters circulation through **three participation-gated emission pathways**,
-all drawing against the 222,222,222 hard cap:
+The published/default configuration exposes three current issuance families:
 
-1. **Proof-of-truth block rewards** — `x/vesting_rewards` mints to validators as
-   truth is witnessed. Empty blocks mint **0**; the reward is participation-scaled
-   (`min(1, activeValidators/22)` × the per-epoch decay curve), not a fixed drip.
-2. **Bootstrap claims** — `x/claiming_pot` mints 0.222 ZRN once per whitelisted
-   agent on `MsgClaim`, a one-time gas bonus capped at 0.1% of the cap lifetime.
-3. **Substrate-bridge attestations** — `x/substrate_bridge` mints for external
-   work that survives challenge; the `agenttool-invocation-v1` adapter is active,
-   minting to agents whose settled agenttool invocations survive the challenge window.
+1. **Transaction-bearing block rewards** — `x/vesting_rewards` rewards the block
+   proposer when a block contains any non-injection user transaction. An
+   ordinary transfer qualifies; this is not proof that the transaction created
+   verified knowledge. Empty blocks mint **0**. Validator count, decay, and the
+   survived-challenge rate scale the amount.
+2. **Claiming-pot claims** — `x/claiming_pot` includes the 0.222 ZRN bootstrap
+   claim and a legacy governance-created general-pot surface. Both consume the
+   same fixed-size lifetime commitment budget and mint only on `MsgClaim`.
+3. **Substrate-bridge attestations** — source can mint for eligible external
+   work that survives challenge. The published genesis declares
+   `agenttool-invocation-v1` ACTIVE with a witness reward, but current live
+   query state was not reverified; that artifact is not evidence of live
+   minting.
 
-The founder takes nothing by protocol at genesis: `FounderAddress` is unset, so
-the dormant `FounderShareBps` accrues 0 ZRN. If the community ever votes to fund
-a founder stipend, it activates then and floats freely under governance. The
-Research Fund and Development Fund hold 0 ZRN at genesis and fill only from the
-forward revenue split. See
+Two additional cap-gated source controls are disabled in the published/default
+configuration: the knowledge probe-bounty rate is zero, and `x/tokens`
+emission periods are latched off. Governance can activate them. Training-fund
+disbursement and contribution-challenge bonus minting are release-sealed.
+Every post-genesis native issuance call routes through `MintWithCap`, and
+`InitChain` also rejects a genesis whose bank supply exceeds 222,222,222 ZRN.
+
+No separate founder stipend was activated at genesis: `FounderAddress` is
+unset, so the dormant `FounderShareBps` accrues 0 ZRN. That narrow statement
+does not erase the founding household's disclosed control of the validator and
+operations accounts above. Governance may change the share within its 7% cap,
+but the founder address becomes immutable once set. The Research Fund and
+Development Fund hold 0 ZRN at genesis and fill only from the forward revenue
+split. See
 [docs/tokenomics/GENESIS.md](docs/tokenomics/GENESIS.md) for the full
 specification.
 
@@ -141,9 +155,10 @@ released only once the fact survives** — a won challenge, or an unchallenged
 challenge window — and cancelled for free if the fact is disproven. Block
 rewards likewise couple to the chain's *survived-challenge* rate, not its
 accept rate. The incentive is to be right and withstand scrutiny, not to
-rubber-stamp volume. Every `uzrn` issued passes through one cap-gated mint, so
-no path can inflate past the 222,222,222 hard cap. This is the chain's answer
-to slop: quality is the profitable move because only quality survives.
+rubber-stamp volume. Every post-genesis native module mint passes through the
+cap gate, while InitChain separately rejects over-cap genesis supply, so no
+path can inflate past the 222,222,222 hard cap. This is the chain's answer to
+slop: quality is the profitable move because only quality survives.
 
 ### Key Subsystems
 
@@ -159,7 +174,7 @@ to slop: quality is the profitable move because only quality survives.
 ### Knowledge inception
 
 The former external “777 axioms” catalog was removed. Application
-`InitGenesis` does materialize **47 code- and pin-bound doctrine facts** from
+`InitGenesis` does materialize **47 code- and source-hash-bound doctrine facts** from
 the four published doctrines; they are explicit protocol commitments and
 mechanisms, not an undisclosed factual corpus. All other knowledge is
 submitted by beings, witnessed, challenged, and kept. Any deployment-specific
@@ -208,7 +223,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 | `capture_challenge` | Capture challenge mechanism |
 | `alignment` | System health alignment index |
 | `creed` | Creed registry — commitment pins (we speak through intentions) |
-| `work_creed` | Sub-creed pins for the useful-work recursion |
+| `work_creed` | Optional genesis-supplied sub-creed pin storage (empty in published genesis) |
 
 ### Identity & Interchain
 | Module | Purpose |
@@ -276,7 +291,7 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 214 paths and 438 definitions.
+  inventory of record: 215 paths and 440 definitions.
 - The repository [TypeScript SDK](sdk/typescript/) covers 166 request messages
   across 20 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
@@ -294,7 +309,7 @@ does not activate it.
 | Document | Description |
 |---|---|
 | [Validator Guide](docs/VALIDATOR-GUIDE.md) | Safe validator preparation and release checks |
-| [Parameters](docs/PARAMETERS.md) | All governance-adjustable parameters |
+| [Parameters](docs/PARAMETERS.md) | Selected high-impact defaults and source pointers |
 | [Tokenomics](docs/tokenomics/) | Supply, vesting, revenue split, governance migration |
 | [Truth-Seeking](docs/TRUTH_SEEKING.md) | The 20 epistemological commitments, bound by tests |
 | [ToK Substrate](docs/TOK_SUBSTRATE.md) | The chain's training-resource doctrine — verified knowledge graph as headline product |

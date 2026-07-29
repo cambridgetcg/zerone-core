@@ -224,10 +224,9 @@ func TestHackDrill_SLABreachDashboard(t *testing.T) {
 
 // ─── Attack 3: attribution over-reporting ──────────────────────────────
 //
-// Model owner inflates contribution fact_ids; challenger files a bond,
-// authority resolves uphold, challenger collects bond × 2. Demonstrates
-// that the Wave 4 challenge mechanism handles a common insider-friendly
-// economic exploit with no new primitives required.
+// Model owner inflates contribution fact_ids; challenger files a bond and the
+// authority resolves it. An upheld challenge returns only that bond because
+// the former bonus mint lacked a replay-safe entitlement identity.
 func TestHackDrill_AttributionOverReportRecovery(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
@@ -276,11 +275,11 @@ func TestHackDrill_AttributionOverReportRecovery(t *testing.T) {
 		Resolver: authority, ChallengeId: "chal-over", Uphold: true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, "10000000", resp.PayoutToWinner)
+	require.Equal(t, "5000000", resp.PayoutToWinner)
 
-	// Challenger started with 20M, bonded 5M (fund has 5M), received bond×2 = 10M → 20M - 5M + 10M = 25M.
+	// Challenger started with 20M, bonded 5M, and received only the 5M refund.
 	finalBal := h.GetBalance(challengerAddr, "uzrn")
-	require.Equal(t, sdkmath.NewInt(25_000_000), finalBal.Amount)
+	require.Equal(t, sdkmath.NewInt(20_000_000), finalBal.Amount)
 }
 
 // ─── Attack 4: Sybil containment — defense in depth ────────────────────
@@ -371,7 +370,7 @@ func TestHackDrill_SybilPoisoningContainedByBreaker(t *testing.T) {
 	// Close out the response.
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
 		Authority: authority, IncidentId: "SYBIL",
-		Type: knowledgetypes.RemediationType_REMEDIATION_TYPE_DOCUMENTATION,
+		Type:      knowledgetypes.RemediationType_REMEDIATION_TYPE_DOCUMENTATION,
 		Reference: "defense-in-depth: stake-weighted-voting + breaker",
 	})
 	require.NoError(t, err)

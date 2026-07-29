@@ -3,22 +3,16 @@ package cross_stack_test
 // Useful-work invariants. Each TestUW_MN test in this file binds one
 // mechanism from docs/USEFUL_WORK.md. The file's meta-test
 // TestUsefulWork_DoctrineAndContractStayInSync enforces no drift
-// between the doctrine (markdown), the canonical Go registration
+// between the doctrine (markdown), the canonical source registration
 // (x/creed/types/useful_work_creed.go), the on-disk hash
 // (.useful-work-hash), and the test scaffold (this file).
 //
-// Phase 0 (this commit's vintage) ships:
+// The source-consistency layer ships:
 //   - The meta-test (active; passes if doctrine + registry + hash + tests stay aligned)
 //   - Seven skeleton TestUW_M1..M7 tests, each calling t.Skip("Phase 1 binding pending")
 //
-// Phase 1+ replaces the t.Skip body with real bindings as the x/work
-// primitive and per-class plans land.
-//
-// Cross-doctrine integrity (USEFUL_WORK + TRUTH_SEEKING + TOK_SUBSTRATE
-// staying mutually consistent) is enforced by Plan 5 of the ToK series
-// when it adds TestToKSubstrate_DoctrineAndContractStayInSync; that
-// future test will read this file and the truth-seeking invariant file
-// to confirm cross-doctrine echoes match.
+// A future implementation replaces each t.Skip body with a real binding.
+// No x/work primitive exists in current source.
 
 import (
 	"crypto/sha256"
@@ -43,7 +37,7 @@ import (
 // ════════════════════════════════════════════════════════════════════
 
 // M1: Stake-backed claim.
-// Phase 1 binding: x/work primitive enforces claim-stake invariants —
+// Proposed binding: a universal work primitive enforces claim-stake invariants —
 // agents staking ZRN against work claims; correctness pays the stake
 // back plus reward; fraud slashes the stake.
 func TestUW_M1_StakeBackedClaim(t *testing.T) {
@@ -51,7 +45,7 @@ func TestUW_M1_StakeBackedClaim(t *testing.T) {
 }
 
 // M2: Substrate-link mandate.
-// Phase 1 binding: x/work attestation refuses settlement when the
+// Proposed binding: universal work attestation refuses settlement when the
 // claim's substrate-link is missing or fails re-derivation; reward
 // stays zero regardless of recursion-weight claimed.
 func TestUW_M2_SubstrateLinkMandate(t *testing.T) {
@@ -59,7 +53,7 @@ func TestUW_M2_SubstrateLinkMandate(t *testing.T) {
 }
 
 // M3: Class-specific verification under shared lifecycle.
-// Phase 1 binding: work-class registry enforces commit→reveal→verify
+// Proposed binding: a work-class registry enforces commit→reveal→verify
 // →settle lifecycle across all classes; class-specific judgment
 // localized to verify phase. Class registration is governance-gated.
 func TestUW_M3_ClassSpecificVerificationSharedLifecycle(t *testing.T) {
@@ -67,7 +61,7 @@ func TestUW_M3_ClassSpecificVerificationSharedLifecycle(t *testing.T) {
 }
 
 // M4: Reward formula R = base + L × W × Q.
-// Phase 1 binding: reward-accounting layer applies the formula;
+// Proposed binding: a reward-accounting layer applies the formula;
 // non-recursive verified work receives base only; substrate-link zero
 // produces total zero; recursion-weight scales the dominant share.
 func TestUW_M4_RewardFormula(t *testing.T) {
@@ -75,7 +69,7 @@ func TestUW_M4_RewardFormula(t *testing.T) {
 }
 
 // M5: Recursion-weight projection over six axes.
-// Phase 1 binding: per-axis decomposition stored on attestation
+// Proposed binding: per-axis decomposition stored on attestation
 // record forward-only; W = Σ axis_weight_i × axis_score_i; identity
 // scorers at Phase 1, real scorers in Phase 2+ pathway plans.
 func TestUW_M5_RecursionWeightProjection(t *testing.T) {
@@ -91,9 +85,8 @@ func TestUW_M6_LineagePropagatesAndRecurses(t *testing.T) {
 }
 
 // M7: The chain pays for the audit of its own useful work.
-// Phase 1 binding: useful_work_audit_bounty_pool module account
-// mints uzrn per block (Minter-permissioned, rate-capped); challenge
-// stakers pay-out from the pool on successful challenge.
+// Proposed binding: a useful-work audit pool funds successful challenges.
+// Current source has no autonomous useful-work audit mint.
 func TestUW_M7_AuditBountyPool(t *testing.T) {
 	t.Skip("Phase 1 binding pending — useful_work_audit_bounty_pool will bind M7")
 }

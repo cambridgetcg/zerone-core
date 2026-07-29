@@ -155,8 +155,8 @@ func TestCompile_AxisHeuristics(t *testing.T) {
 
 func TestCompile_Deterministic(t *testing.T) {
 	// Two compiles of the same CommitMeta must produce identical LinkHash
-	// AND identical Source.ContentHash. This is the property that lets
-	// validators re-derive a submitter's link to check for compiler drift.
+	// AND identical Source.ContentHash. This proves utility determinism;
+	// current consensus does not execute or enforce this compiler.
 	a, err := compile.Compile(fixture(), 1)
 	if err != nil {
 		t.Fatal(err)
@@ -175,9 +175,7 @@ func TestCompile_Deterministic(t *testing.T) {
 
 func TestCompile_TouchedFilesOrderInvariant(t *testing.T) {
 	// Re-arranging TouchedFiles must not change the link's content_hash
-	// (the compiler sorts before hashing). This is what keeps validators
-	// honest — they re-derive from git's natural order, but the hash is
-	// stable regardless.
+	// because the compiler sorts before hashing.
 	m1 := fixture()
 	m2 := fixture()
 	m2.TouchedFiles = []string{

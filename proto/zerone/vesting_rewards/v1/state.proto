@@ -29,6 +29,14 @@ message VestingSchedule {
   uint32 citation_count        = 22; // citations by other accepted facts (accelerates)
 }
 
+// ClaimScheduleIndex preserves the current claim_id -> vesting_id lookup.
+// Multiple legacy schedules may share a claim ID, so schedule replay order
+// alone cannot reconstruct which schedule the live index selected.
+message ClaimScheduleIndex {
+  string claim_id   = 1;
+  string vesting_id = 2;
+}
+
 // CategoryConfig defines release curve parameters for a vesting category.
 message CategoryConfig {
   string category         = 1; // epistemic category name
@@ -61,7 +69,9 @@ message BlockRewardDistribution {
   string research_share     = 3; // research fund share (bigint as string)
   string total_minted       = 4; // total new tokens (bigint as string)
   uint32 validator_count    = 5; // active validators
-  string fund_balance_after = 6; // remaining fund balance (bigint as string)
+  // Legacy field name: cumulative shared MintWithCap accounting ledger after
+  // this distribution, not a spendable fund balance or full supply history.
+  string fund_balance_after = 6;
   string founder_share      = 7; // founder's operational share (bigint as string)
   string development_amount  = 8; // development fund amount (bigint as string)
   string protocol_share     = 9; // protocol share (bigint as string)

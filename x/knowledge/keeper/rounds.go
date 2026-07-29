@@ -266,9 +266,9 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	// Settle the challenger's staked escrow. Legitimate falsification is the
 	// engine of truth-discovery on this chain; if successful challenges earn
 	// nothing and failed challenges confiscate the full stake, no rational
-	// actor challenges bad facts. Wire the SuccessfulChallengeRewardBps /
-	// FailedChallengeSlashBps params that were defined in Wave ~2 but never
-	// connected. See also the Wave 14b moat-integrity audit.
+	// actor challenges bad facts. SuccessfulChallengeRewardBps controls the
+	// accepted-challenge bonus. FailedChallengeSlashBps is retained
+	// compatibility metadata; rejected-challenge routing below is fixed.
 	if claim.ProvisionalFactId != "" {
 		k.settleChallengeStake(ctx, claim, result.Verdict, params)
 	}
@@ -1085,10 +1085,8 @@ func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challen
 //	  - pay SuccessfulChallengeRewardBps × stake as bonus, drawn from
 //	    protocol treasury — the reward-for-finding-bad-facts signal
 //	VERDICT_REJECT (challenge failed, fact survived):
-//	  - route the 45% remainder to protocol treasury instead of leaving it
-//	    stranded; this is the FailedChallengeSlashBps the fact's defender
-//	    pays via the verifier pool plus what the chain absorbs from the
-//	    collusion-farming attacker
+//	  - route the fixed 45% remainder to protocol treasury instead of leaving
+//	    it stranded; FailedChallengeSlashBps is not consulted
 //	other verdicts: funds stay in the knowledge module account as a no-op.
 func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, verdict types.Verdict, params *types.Params) {
 	if k.bankKeeper == nil || claim == nil || claim.Stake == "" {

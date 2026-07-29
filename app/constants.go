@@ -2,22 +2,32 @@ package app
 
 // ZRN Issuance Doctrine
 //
-// The chain has no per-account allocation constants. ZRN enters
-// circulation through two participation-gated emission pathways:
+// The application has no per-account allocation constants. A deployment
+// ceremony may still add balances, and the live zerone-1 genesis did so:
+// 11,333 ZRN of validator collateral/gas and 2,222 ZRN of transferable
+// operator float. Those 13,555 ZRN are disclosed in the genesis manifest.
 //
-//   - x/vesting_rewards: PoT block rewards minted to validators
-//     verifying truth (decay curve, floor, validator scaling).
-//   - x/claiming_pot: bootstrap claims minted on demand to
-//     whitelisted agents (0.222 ZRN each).
+// After genesis, all native issuance in the wired application routes through
+// x/vesting_rewards.MintWithCap. Source-capable callers include:
 //
-// Both pathways gate through MintWithCap against the hard cap
-// of 222,222,222 ZRN (see x/vesting_rewards/types/keys.go:MaxSupplyUzrn).
-// Neither grants anyone a privileged starting balance.
+//   - x/vesting_rewards: block-proposer rewards on transaction-bearing
+//     blocks (ordinary user transactions qualify), with decay, validator,
+//     and survived-challenge scaling.
+//   - x/claiming_pot: bootstrap and legacy general-pot claims.
+//   - x/substrate_bridge: external-work rewards minted after an
+//     attestation survives its challenge rules.
+//   - x/knowledge: a governance-configurable probe-bounty rate, default 0.
+//   - x/tokens: governance-created emission periods, disabled while the
+//     default/published activation latch is 0.
+//
+// Training-fund disbursements and contribution-challenge bonus minting are
+// release-sealed. InitChainer separately rejects an authored/imported bank
+// supply above the 222,222,222 ZRN hard cap.
 //
 // This file therefore carries no per-account allocation constants —
 // no founder, no AI vault, no validator, no foundation, no research-
-// fund, no claiming-pots-total. Issuance follows participation; the
-// doctrine refuses any other model.
+// fund, no claiming-pots-total. That source-level property does not erase
+// deployment-specific genesis balances.
 //
 // Full doctrine: docs/tokenomics/GENESIS.md.
 

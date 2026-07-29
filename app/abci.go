@@ -160,7 +160,7 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 	txs := make([][]byte, 0, len(req.Txs)+1)
 
 	// Process vote extensions from previous block (if available)
-	if len(req.LocalLastCommit.Votes) > 0 {
+	if potVoteExtensionsReleaseEnabled && len(req.LocalLastCommit.Votes) > 0 {
 		injection := app.processVoteExtensions(ctx, req.LocalLastCommit.Votes)
 
 		if len(injection.Commitments) > 0 || len(injection.Reveals) > 0 {
@@ -235,6 +235,13 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 
 	for i, txBytes := range req.Txs {
 		if IsVoteExtInjectionTx(txBytes) {
+			if !potVoteExtensionsReleaseEnabled {
+				logger.Warn("vote extension injection rejected: release safety latch is closed",
+					"index", i)
+				return &abci.ResponseProcessProposal{
+					Status: abci.ResponseProcessProposal_REJECT,
+				}, nil
+			}
 			if len(txBytes) > MaxVEXInjectionBytes {
 				logger.Warn("vote extension injection tx exceeds size limit",
 					"index", i, "size", len(txBytes), "max", MaxVEXInjectionBytes)
@@ -312,7 +319,7 @@ func (app *ZeroneApp) PotPreBlocker(ctx sdk.Context, req *abci.RequestFinalizeBl
 	}
 
 	// Check first tx for VEX injection
-	if len(req.Txs) > 0 && IsVoteExtInjectionTx(req.Txs[0]) {
+	if potVoteExtensionsReleaseEnabled && len(req.Txs) > 0 && IsVoteExtInjectionTx(req.Txs[0]) {
 		app.ProcessVoteExtInjection(ctx, req.Txs[0])
 	}
 
@@ -405,6 +412,10 @@ func (app *ZeroneApp) processVoteExtensions(
 // Called from PreBlocker before BeginBlock phase transitions.
 func (app *ZeroneApp) ProcessVoteExtInjection(ctx sdk.Context, data []byte) {
 	logger := ctx.Logger().With("module", "abci", "handler", "PreBlocker")
+	if !potVoteExtensionsReleaseEnabled {
+		logger.Warn("vote extension injection ignored: release safety latch is closed")
+		return
+	}
 
 	defer func() {
 		if r := recover(); r != nil {

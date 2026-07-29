@@ -29,8 +29,8 @@ type BankKeeper interface {
 // x/claiming_pot uses MintWithCap to mint bootstrap claims into its own
 // module account; the cap is enforced once, regardless of which emission
 // pathway calls. See docs/tokenomics/SUPPLY.md (emission pathways) and
-// docs/tokenomics/GENESIS.md (zero team allocation, two participation-
-// gated emission pathways).
+// docs/tokenomics/GENESIS.md (disclosed genesis balances and three
+// participation-gated post-genesis emission pathways).
 type VestingRewardsKeeper interface {
 	MintWithCap(ctx sdk.Context, recipientModule string, amount *big.Int) (*big.Int, error)
 }

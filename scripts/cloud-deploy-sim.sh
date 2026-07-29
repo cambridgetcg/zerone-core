@@ -40,7 +40,9 @@ ok()     { echo -e "\033[1;32m  OK\033[0m $*"; }
 warn()   { echo -e "\033[1;33m  !!\033[0m $*"; }
 phase()  { echo -e "\n\033[1;36m═══ $* ═══\033[0m"; }
 timing() {
-  local start=$1 end=$(date +%s)
+  local start="$1"
+  local end
+  end=$(date +%s)
   echo "   ⏱  $(( end - start ))s"
 }
 
@@ -97,10 +99,6 @@ PHASE_START=$(date +%s)
 
 log_result "PHASE 1: Create simulated VPS"
 log_result "---"
-
-# Determine host gateway for Docker
-# On Docker Desktop for Mac, host.docker.internal works
-HOST_ADDR="host.docker.internal"
 
 info "Pulling Ubuntu 22.04..."
 docker pull "${IMAGE_NAME}" >/dev/null 2>&1
@@ -353,7 +351,7 @@ Wants=network-online.target
 
 [Service]
 User=root
-ExecStart=/usr/local/bin/zeroned start --home /root/.zeroned --minimum-gas-prices 0.025uzrn
+ExecStart=/usr/local/bin/zeroned start --home /root/.zeroned --minimum-gas-prices 1uzrn
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
@@ -566,7 +564,7 @@ log_result "| fail2ban | NICE TO HAVE | Protects SSH but not critical for testne
 log_result "| RPC/API behind Cloudflare | OVERKILL for testnet | Direct access fine for testnet |"
 log_result "| Backup validator | OVERKILL for testnet | Test failover manually |"
 log_result "| IBC relayers | N/A for testnet | No IBC channels yet |"
-log_result "| minimum-gas-prices = 0.025uzrn | CORRECT | Matches docs recommendation |"
+log_result "| minimum-gas-prices = 1uzrn | CORRECT | Matches consensus fee floor |"
 log_result "| Block time 2521ms | CORRECT | Matches configure-node.sh defaults |"
 log_result "| LimitNOFILE=65535 | CORRECT | Prevents fd exhaustion under load |"
 log_result ""

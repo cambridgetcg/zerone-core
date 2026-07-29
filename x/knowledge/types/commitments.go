@@ -19,8 +19,8 @@ func DefaultCommitments() []*NormativeCommitment {
 	return []*NormativeCommitment{
 		{
 			Id:        "NC-DUAL-KEY-RESEARCH",
-			Statement: "Spending from the research fund requires BOTH human and AI signatures; neither alone can move it.",
-			Rationale: "Dual authorization over the research fund is cryptographically enforced in app-layer key management. The rule is a value the chain has committed to, not a fact about the world.",
+			Statement: "The early research-fund model requires BOTH human-side and AI-side approvals; an unconfigured voter pair must disable spending.",
+			Rationale: "The app-layer research-spend path enforces both configured voters and fails closed when they are unset. The published zerone-1 genesis leaves them unset. This is a normative commitment and source constraint, not a claim that a live AI vault is configured.",
 			Category:  CommitmentCategoryConstitutional,
 			Tags:      []string{"governance", "research_fund", "ai_oversight", "human_oversight"},
 			Version:   1,

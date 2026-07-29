@@ -21,30 +21,21 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// GenesisState seeds the chain's pinned creed at version 1. The
-// genesis pin establishes the baseline against which all future
-// creed amendments are measured. Any commitment in TRUTH_SEEKING.md
-// at testnet→mainnet transition becomes part of the Genesis Creed
-// and is recorded with introduced_via_lip="" (no LIP precedes
-// genesis).
+// GenesisState can seed an optional version-1 creed pin and history.
+// Default and published zerone-1 genesis states omit the pin.
 type GenesisState struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Params *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	// The version-1 pin. If empty at chain start, x/creed
-	// InitGenesis seeds a placeholder that subsequent governance
-	// must replace before any commitment-citing event passes
-	// CI's hash check. In normal mainnet startup this MUST be
-	// populated with the canonical Genesis Creed.
+	// Optional version-1 pin. If empty, InitGenesis stores no pin; it does not
+	// synthesize a placeholder. Repository CI does not inspect live state.
 	GenesisPin *PinnedCreed `protobuf:"bytes,2,opt,name=genesis_pin,json=genesisPin,proto3" json:"genesis_pin,omitempty"`
 	// Optional historical pins for chains that migrate from a
 	// pre-x/creed state. Sorted by version ascending. Each must be
 	// strictly older than genesis_pin.
 	History []*PinnedCreed `protobuf:"bytes,3,rep,name=history,proto3" json:"history,omitempty"`
-	// Initial Creed Council members. At launch this is a curated
-	// set of AI-side home addresses representing diverse capability
-	// profiles. Their voting_weight_bps should sum to
-	// ≤ 1_000_000; future capability-gated admissions enter via
-	// Creed Amendment LIPs.
+	// Initial Creed Council registry. This is a future two-pool
+	// vote-routing surface; current ordinary LIP tally does not read it.
+	// voting_weight_bps should sum to ≤ 1_000_000.
 	CouncilMembers []*CreedCouncilMember `protobuf:"bytes,4,rep,name=council_members,json=councilMembers,proto3" json:"council_members,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -110,14 +101,13 @@ func (x *GenesisState) GetCouncilMembers() []*CreedCouncilMember {
 
 type Params struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Authority that may call MsgAnchorPin pre-LIP-class. Once
-	// x/gov.CategoryCreedAmendment ships, this should match the gov
-	// module account so only LIP-resolved amendments succeed.
+	// Compatibility-only metadata. Runtime authorization uses the keeper
+	// constructor's gov-module authority and rejects changes to this field.
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	// Whether direct authority-gated AnchorPin calls are enabled.
-	// Pre-launch: true (so genesis can pin and one-off corrections
-	// are possible). Post-launch: false, with all pins flowing
-	// through the LIP class.
+	// Source default and published zerone-1 genesis: true. A future
+	// governance-only activation must configure the amendment category and
+	// set this false through a release-bound change.
 	DirectAnchorEnabled bool `protobuf:"varint,2,opt,name=direct_anchor_enabled,json=directAnchorEnabled,proto3" json:"direct_anchor_enabled,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache

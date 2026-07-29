@@ -273,7 +273,7 @@ cmp -s "${VAL1_FIXTURE}/config/node_key.json" \
   "${VAL_HOME}/config/node_key.json" || fail "validator node key was not restored exactly"
 [ ! -e "${LEAK_FILE}" ] || fail "bootstrap secrets reached a zeroned child"
 grep -q '^role=validator$' "${VAL_HOME}/.runtime-initialized" || fail "validator marker missing"
-grep -q -- '--minimum-gas-prices 0.025uzrn' "${VAL_ARGS}" || fail "start args were not fixed"
+grep -q -- '--minimum-gas-prices 1uzrn' "${VAL_ARGS}" || fail "start args were not fixed"
 if grep -Eq '^(VALIDATOR_KEY_B64|NODE_KEY_B64|PRIV_VALIDATOR_KEY_B64)=' "${VAL_ENV}"; then
   fail "bootstrap secrets reached the daemon environment"
 fi

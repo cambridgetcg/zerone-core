@@ -23,8 +23,7 @@ import (
 )
 
 func defaultSubstrateBridgeParams() *types.Params {
-	params := types.DefaultParams()
-	return &params
+	return types.DefaultParams()
 }
 
 func setupSubstrateBridgeKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
@@ -49,7 +48,7 @@ func setupSubstrateBridgeKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
-	k.SetDedupeArmed(ctx) // fixtures exercise submission; arm as InitGenesis would
+	k.SetDedupeArmed(ctx) // submission fixtures exercise the armed replay wall
 
 	return k, ctx
 }
@@ -151,7 +150,7 @@ func setupSubstrateBridgeKeeperFull(t *testing.T) (keeper.Keeper, sdk.Context, *
 	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
-	k.SetDedupeArmed(ctx) // fixtures exercise submission; arm as InitGenesis would
+	k.SetDedupeArmed(ctx) // submission fixtures exercise the armed replay wall
 
 	return k, ctx, bk, vk
 }
@@ -181,7 +180,7 @@ func setupSubstrateBridgeKeeperWithBank(t *testing.T) (keeper.Keeper, sdk.Contex
 	if err := k.SetParams(ctx, types.DefaultParams()); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
-	k.SetDedupeArmed(ctx) // fixtures exercise submission; arm as InitGenesis would
+	k.SetDedupeArmed(ctx) // submission fixtures exercise the armed replay wall
 
 	return k, ctx
 }

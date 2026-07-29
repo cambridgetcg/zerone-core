@@ -84,7 +84,9 @@ A model owner lists a fact in `ContributionRecord.fact_ids` they never trained o
 1. `MsgOpenIncident` — P2 incident documenting the suspicion.
 2. `MsgChallengeContribution` by any party (5 ZRN bond).
 3. `MsgResolveContributionChallenge` with `uphold: true`.
-4. Challenger paid bond × 2; over-reporter implicitly penalised.
+4. Challenger's bond returned without a bonus mint. The former multiplier
+   reward is disabled because fresh client-chosen IDs could replay the same
+   economic claim; the model owner is not automatically slashed.
 5. `MsgRecordRemediation` links the challenge to the incident.
 6. `MsgResolveIncident`.
 

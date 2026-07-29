@@ -64,6 +64,7 @@ func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 func setupMsgServer(t *testing.T) (*keeper.Keeper, sdk.Context, types.MsgServer) {
 	t.Helper()
 	k, ctx := setupKeeper(t)
+	k.SetParams(ctx, &types.Params{EmissionEpochBlocks: 1})
 	srv := keeper.NewMsgServerImpl(k)
 	return &k, ctx, srv
 }

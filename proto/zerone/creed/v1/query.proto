@@ -46,16 +46,16 @@ service Query {
     option (google.api.http).get = "/zerone/creed/v1/params";
   }
 
-  // CouncilMembers returns all currently-active Creed Council
-  // seats with their voting weights. The AI-side voter pool for
-  // Creed Amendment LIPs.
+  // CouncilMembers returns all currently-active Creed Council registry
+  // entries with their weights. Current LIP tally does not consume this
+  // future two-pool routing surface.
   rpc CouncilMembers(QueryCouncilMembersRequest) returns (QueryCouncilMembersResponse) {
     option (google.api.http).get = "/zerone/creed/v1/council";
   }
 
-  // IsCouncilMember answers whether a specific address holds an
-  // active council seat. x/gov reads this when tallying creed-
-  // amendment votes to route the voter to the AI-side pool.
+  // IsCouncilMember answers whether a specific address holds an active
+  // council seat. x/gov exposes the hook, but current tally does not route
+  // creed-amendment votes into a separate pool.
   rpc IsCouncilMember(QueryIsCouncilMemberRequest) returns (QueryIsCouncilMemberResponse) {
     option (google.api.http).get = "/zerone/creed/v1/council/is_member/{address}";
   }

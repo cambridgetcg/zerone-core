@@ -1,6 +1,7 @@
 version: v1
 plugins:
-  - plugin: buf.build/grpc-ecosystem/openapiv2
+  - plugin: buf.build/grpc-ecosystem/openapiv2:v2.28.0
+    revision: 1
     out: ../tmp-swagger-gen
     opt:
       - logtostderr=true

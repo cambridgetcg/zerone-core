@@ -26,15 +26,14 @@ type MsgAnchorPin struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Authority string                 `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	// The new pinned creed. version MUST equal currentPin.version+1.
-	// canonical_hash MUST be non-empty. commitments MUST satisfy:
+	// canonical_hash MUST be exactly 32 bytes. commitments MUST satisfy:
 	//   - all numbers unique
-	//   - numbers are 1..N for some N (no gaps unless the missing
-	//     number's prior entry is archived in this same version)
+	//   - numbers are 1..N for some N; archived entries remain present
 	//   - introduced_at_height ≤ block_height for all entries
 	Pin *PinnedCreed `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
-	// The LIP id this pin came from. Required when params.
-	// direct_anchor_enabled is false. Empty allowed only for
-	// genesis-equivalent pre-launch pins.
+	// Optional source LIP id. The public AnchorPin handler is entirely sealed
+	// when direct_anchor_enabled=false. While enabled, this may be empty for
+	// any authority-direct pin, including after genesis.
 	SourceLip     string `protobuf:"bytes,3,opt,name=source_lip,json=sourceLip,proto3" json:"source_lip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -230,9 +229,9 @@ type MsgUpdateCouncilMember struct {
 	// the same address are updated in place (their admitted_at_height
 	// is preserved if unchanged).
 	Member *CreedCouncilMember `protobuf:"bytes,2,opt,name=member,proto3" json:"member,omitempty"`
-	// LIP id that authorized this change. Required when params.
-	// direct_anchor_enabled is false. Empty allowed only for
-	// pre-launch council seeding outside of gov.
+	// Claimed source LIP id. Required by this handler when
+	// direct_anchor_enabled=false, but the handler does not itself verify LIP
+	// passage. While direct anchoring is enabled this may be empty.
 	SourceLip     string `protobuf:"bytes,3,opt,name=source_lip,json=sourceLip,proto3" json:"source_lip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

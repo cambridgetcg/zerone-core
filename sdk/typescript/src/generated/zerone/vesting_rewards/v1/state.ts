@@ -98,6 +98,18 @@ export interface VestingSchedule {
   citationCount: number;
 }
 /**
+ * ClaimScheduleIndex preserves the current claim_id -> vesting_id lookup.
+ * Multiple legacy schedules may share a claim ID, so schedule replay order
+ * alone cannot reconstruct which schedule the live index selected.
+ * @name ClaimScheduleIndex
+ * @package zerone.vesting_rewards.v1
+ * @see proto type: zerone.vesting_rewards.v1.ClaimScheduleIndex
+ */
+export interface ClaimScheduleIndex {
+  claimId: string;
+  vestingId: string;
+}
+/**
  * CategoryConfig defines release curve parameters for a vesting category.
  * @name CategoryConfig
  * @package zerone.vesting_rewards.v1
@@ -209,7 +221,8 @@ export interface BlockRewardDistribution {
    */
   validatorCount: number;
   /**
-   * remaining fund balance (bigint as string)
+   * Legacy field name: cumulative shared MintWithCap accounting ledger after
+   * this distribution, not a spendable fund balance or full supply history.
    */
   fundBalanceAfter: string;
   /**
@@ -468,6 +481,58 @@ export const VestingSchedule = {
     message.updatedAt = object.updatedAt !== undefined && object.updatedAt !== null ? BigInt(object.updatedAt.toString()) : BigInt(0);
     message.corroborationCount = object.corroborationCount ?? 0;
     message.citationCount = object.citationCount ?? 0;
+    return message;
+  }
+};
+function createBaseClaimScheduleIndex(): ClaimScheduleIndex {
+  return {
+    claimId: "",
+    vestingId: ""
+  };
+}
+/**
+ * ClaimScheduleIndex preserves the current claim_id -> vesting_id lookup.
+ * Multiple legacy schedules may share a claim ID, so schedule replay order
+ * alone cannot reconstruct which schedule the live index selected.
+ * @name ClaimScheduleIndex
+ * @package zerone.vesting_rewards.v1
+ * @see proto type: zerone.vesting_rewards.v1.ClaimScheduleIndex
+ */
+export const ClaimScheduleIndex = {
+  typeUrl: "/zerone.vesting_rewards.v1.ClaimScheduleIndex",
+  encode(message: ClaimScheduleIndex, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.claimId !== "") {
+      writer.uint32(10).string(message.claimId);
+    }
+    if (message.vestingId !== "") {
+      writer.uint32(18).string(message.vestingId);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): ClaimScheduleIndex {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseClaimScheduleIndex();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.claimId = reader.string();
+          break;
+        case 2:
+          message.vestingId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<ClaimScheduleIndex>): ClaimScheduleIndex {
+    const message = createBaseClaimScheduleIndex();
+    message.claimId = object.claimId ?? "";
+    message.vestingId = object.vestingId ?? "";
     return message;
   }
 };

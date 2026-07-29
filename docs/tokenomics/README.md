@@ -1,20 +1,21 @@
 # Zerone Tokenomics
 
-> **Status:** Pre-testnet review (2026-02-23)  
+> **Status:** Source-reviewed for the live custodial launch (2026-07-29)
 > **Token:** ZRN (micro-denomination: uzrn, 1 ZRN = 1,000,000 uzrn)  
 > **Chain:** Cosmos SDK v0.50, CometBFT consensus
 
 ## Overview
 
-Zerone is a **Proof-of-Truth** (PoT) blockchain where post-genesis tokens are
-minted through participation rather than proof-of-work inflation. There was no
-ICO or investor sale. The live custodial genesis did create real
+Zerone is a **Proof-of-Truth** (PoT) research blockchain. There was no ICO or
+investor sale. The live custodial genesis did create real
 operator-controlled scaffolding: 11,333 ZRN of validator collateral
 (11,111 bonded + 222 spendable gas) and a transferable 2,222 ZRN operator
 float, 13,555 ZRN total (0.0061% of cap), with every address published.
-Subsequent minting has three participation-gated pathways — block rewards for
-eligible verification work, one-time bootstrap claims, and rewards for external
-work that survives challenge.
+Post-genesis native issuance shares one `MintWithCap` gate. The published
+configuration has transaction-bearing block rewards, claiming-pot claims, and
+substrate-bridge rewards; an ordinary user transaction qualifies a block for
+the first lane. Default-zero knowledge probe issuance and default-disabled
+`x/tokens` emission periods are additional governance-activatable controls.
 
 ## Documents in This Directory
 
@@ -26,7 +27,7 @@ work that survives challenge.
 | [STAKING.md](STAKING.md) | Tiered validator system, staking economics, slashing |
 | [GENESIS.md](GENESIS.md) | Genesis distribution, bootstrap accounts, and ceremony |
 | [SINKS-AND-FLOWS.md](SINKS-AND-FLOWS.md) | Complete map of where ZRN is created, destroyed, and moves |
-| [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | 4-phase research fund governance: from founder pair to full community |
+| [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | 4-phase research-fund model; the live genesis voter pair is unconfigured |
 | [REVIEW.md](REVIEW.md) | Honest assessment: strengths, risks, open questions |
 
 ## Quick Numbers
@@ -34,26 +35,34 @@ work that survives challenge.
 | Metric | Value |
 |--------|-------|
 | **Max Supply** | 222,222,222 ZRN (hard cap, enforced in code) |
-| **Genesis Supply** | 13,555 ZRN (0.0061% of cap) — validator collateral + operator float, published; 0 sellable allocation |
+| **Genesis Supply** | 13,555 ZRN (0.0061% of cap) — 11,333 validator collateral/gas + 2,222 transferable operator float, published |
 | **Initial Block Reward** | 10 ZRN/block |
 | **Block Time** | ~2.521 seconds |
 | **Epoch Length** | 100,000 blocks (~2.9 days) |
 | **Decay Rate** | 0.994478× per epoch (1-year half-life) |
 | **Floor Reward** | 0.1 ZRN/block |
-| **Revenue to Contributors** | 55% |
+| **Block reward to proposer / configured withdraw address** | 55% |
 | **Revenue to Protocol** | 22% |
 | **Revenue to Development** | 19.67% (bug bounties, truth discovery, protocol dev) |
 | **Revenue to Research Fund** | 3.33% |
-| **Burn** | 0% — every ZRN does productive work |
+| **General Burn Share** | 0%; rejected substrate-attestation bonds are the narrow burn exception |
 
 ## Design Philosophy
 
-1. **Truth creates value, not computation.** Block rewards flow only when the chain produces verified knowledge. Empty blocks earn nothing.
+1. **Truth coupling is partial and measurable.** Empty blocks earn nothing, but
+   any non-injection user transaction—including an ordinary transfer—makes a
+   block reward-eligible. Validator count and the survived-challenge rate scale
+   the reward; transaction eligibility alone is not proof of verified truth.
 
-2. **Every token works.** No burn — all revenue goes to productive purposes. The 222M supply cap provides natural scarcity; artificial deflation through burning is unnecessary when you can fund bug bounties and truth discovery instead.
+2. **Revenue is routed, not burned.** There is no general revenue burn share;
+   rejected substrate-attestation bonds are the narrow punitive exception. The
+   222M supply cap provides the primary scarcity boundary.
 
 3. **Knowledge has memory.** Rewards vest according to epistemic category — mathematical proofs vest slowly (because they should last forever), oracle feeds vest quickly (because they expire). If a claim is falsified, rewards are clawed back.
 
 4. **Anti-capture as infrastructure.** HHI-based concentration monitoring, tiered validators with reputation requirements, and cross-stratum verification make knowledge monopolies structurally expensive to maintain.
 
-5. **The chain can heal itself.** The autopoiesis module adjusts slash severity and economic parameters based on a System Stability Index (SSI), within governance-bounded rails. The alignment module monitors five health dimensions. The chain doesn't just enforce rules — it adapts them.
+5. **The chain can observe itself.** The alignment module records five health
+   dimensions and advisory corrections. The former autopoiesis regulator was
+   retired; current corrections do not automatically rewrite slash or
+   economic parameters.

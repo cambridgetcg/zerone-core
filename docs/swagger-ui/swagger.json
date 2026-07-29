@@ -1233,7 +1233,7 @@
           "type": "string"
         },
         "bootstrapEmissionCapUzrn": {
-          "description": "bootstrap_emission_cap_uzrn is the lifetime cap on total bootstrap\nissuance: (bootstrap entries ever created) x 222,000 uzrn must never\nexceed this value. Applies to gov-authority AND registrar admissions.\n\ndefault: \"222222000000\" (222,222 ZRN = 0.1% of max supply)",
+          "description": "bootstrap_emission_cap_uzrn is the shared lifetime commitment cap for\nbootstrap entries and legacy general pots. Every pot is charged\nceil(total_amount / 222,000) fixed-size units. Applies to governance and\nregistrar admissions.\n\ndefault: \"222222000000\" (222,222 ZRN = 0.1% of max supply)",
           "type": "string"
         },
         "bootstrapRegistrar": {
@@ -1599,7 +1599,7 @@
           "type": "string"
         },
         "name": {
-          "description": "Short canonical title. Examples: \"Methodology over statement\",\n\"Is-ought wall is structural\", \"Forward-only audit\".\nMust match the heading in TRUTH_SEEKING.md for the same number.",
+          "description": "Short title. Repository invariants compare the canonical source registry\nwith TRUTH_SEEKING.md headings; runtime validates structure and stores this\nvalue but cannot independently read the source document.",
           "type": "string"
         },
         "number": {
@@ -1611,7 +1611,7 @@
       "type": "object"
     },
     "zerone.creed.v1.CreedCouncilMember": {
-      "description": "CreedCouncilMember is the AI-side voter pool for Creed Amendment\nLIPs. Membership is genesis-curated initially (a hand-picked set\nof agent homes that represent diverse capability profiles); over\ntime, capability-gated admission opens the pool to any agent\nwhose x/agent_understanding score crosses a threshold.\n\ndocs/TRUTH_SEEKING.md commitment 19 (the creed is governance-\ngated): the human/AI co-required pattern from the Truth Paper\nexpressed at the layer where the chain commits to who it is.\nA Creed Amendment LIP's pass-conditions require quorum in BOTH\nthe existing human voter pool AND the council registered here.\nWithout the AI side the asymmetry would be unilateral; without\nthe human side the chain would be ungovernable by its biological\nparticipants. Two pools, two consents, both required.",
+      "description": "CreedCouncilMember is a registry/query surface intended for a future\nAI-side voter pool for Creed Amendment LIPs.\n\ndocs/TRUTH_SEEKING.md commitment 19 (the creed is governance-\ngated): current ordinary LIP tally does NOT route or enforce separate\nhuman/AI quorum. Membership and weight are scaffolded inputs only; source\nmust not treat this registry as an active pass condition.",
       "properties": {
         "active": {
           "description": "True if the seat is currently active. Inactive seats remain\nin the registry as historical record (commitment 10: forward-\nonly audit) but their voting_weight_bps is treated as 0 in\ntallies. Setting active=false is the structural form of\narchival.",
@@ -1645,18 +1645,18 @@
     "zerone.creed.v1.Params": {
       "properties": {
         "authority": {
-          "description": "Authority that may call MsgAnchorPin pre-LIP-class. Once\nx/gov.CategoryCreedAmendment ships, this should match the gov\nmodule account so only LIP-resolved amendments succeed.",
+          "description": "Compatibility-only metadata. Runtime authorization uses the keeper\nconstructor's gov-module authority and rejects changes to this field.",
           "type": "string"
         },
         "directAnchorEnabled": {
-          "description": "Whether direct authority-gated AnchorPin calls are enabled.\nPre-launch: true (so genesis can pin and one-off corrections\nare possible). Post-launch: false, with all pins flowing\nthrough the LIP class.",
+          "description": "Whether direct authority-gated AnchorPin calls are enabled.\nSource default and published zerone-1 genesis: true. A future\ngovernance-only activation must configure the amendment category and\nset this false through a release-bound change.",
           "type": "boolean"
         }
       },
       "type": "object"
     },
     "zerone.creed.v1.PinnedCreed": {
-      "description": "PinnedCreed is the chain's on-chain anchor for the canonical\ndocs/TRUTH_SEEKING.md text. The hash protects against silent\ndrift: a build whose normalized creed file does not hash to\nPinnedCreed.canonical_hash is not the build the chain claims to\nbe running. The per-commitment registry protects against\ninterpretation drift: even an amendment that preserves the\noverall hash (or sneaks in via post-pin edits) cannot redefine\ncommitment N without bumping the registry entry's\nintroduced_via_lip.\n\nSee docs/TRUTH_SEEKING.md commitments 6 and 10:\n  - 6 (no unilateral injection): extends from facts to the\n    creed itself. The chain's voice is now governance-gated by\n    the same shape as authority injection of facts.\n  - 10 (forward-only audit): pin records are append-only by\n    monotonic version; prior creed versions remain queryable as\n    the chain's history of self-amendment.",
+      "description": "PinnedCreed is an on-chain anchor for a proposed canonical\ndocs/TRUTH_SEEKING.md version. Repository CI independently binds that file\nto .creed-hash; it does not query a running network or prove that its\ncurrent pin matches the build. The per-commitment registry makes an\non-chain version's numbered structure queryable and append-only.\n\nSee docs/TRUTH_SEEKING.md commitments 6 and 10:\n  - 6 (no unilateral injection): direct authority anchoring can be\n    disabled, but the published zerone-1 setting leaves it enabled.\n  - 10 (forward-only audit): pin records are append-only by\n    monotonic version; prior creed versions remain queryable as\n    the chain's history of self-amendment.",
       "properties": {
         "canonicalHash": {
           "description": "sha256 of normalized docs/TRUTH_SEEKING.md (CR characters\nstripped; no other normalization applied so structural changes\nremain visible).",
@@ -1664,7 +1664,7 @@
           "type": "string"
         },
         "commitments": {
-          "description": "Per-commitment registry at this version. Each entry names a\ncommitment by number and tracks when it entered the creed and\n(if archived) when it left. The registry is the structural\nprotection against interpretation drift — commitment 7 can\nonly be redefined by amending its CommitmentEntry, and that\namendment is itself bound to a LIP.",
+          "description": "Per-commitment registry at this version. Each entry names a\ncommitment by number and tracks when it entered the creed and\n(if archived) when it left. The registry is the structural\nprotection against interpretation drift within the pin. A source LIP is\nrequired only by the governance path/configuration that adopted it.",
           "items": {
             "$ref": "#/definitions/zerone.creed.v1.CommitmentEntry",
             "type": "object"
@@ -1677,7 +1677,7 @@
           "type": "string"
         },
         "pinnedViaLip": {
-          "description": "LIP id that authorized this pin. Empty for the genesis pin\n(version=1) since no LIP precedes genesis. Required for any\nversion \u003e 1 once x/gov.CategoryCreedAmendment ships.",
+          "description": "Optional source LIP id. Empty for genesis and also possible for later\nauthority-direct pins while direct_anchor_enabled=true; this field alone\nis not proof of governance passage.",
           "type": "string"
         },
         "version": {
@@ -3564,6 +3564,10 @@
         "factContent": {
           "type": "string"
         },
+        "falsificationPredicate": {
+          "description": "For CLAIM_TYPE_CONJECTURE only: the observation that would falsify this\nconjecture. This is what the verification panel adjudicates — a\nconjecture with no stated killer is not well-posed and must be returned\nMALFORMED. Empty for every other claim type.",
+          "type": "string"
+        },
         "id": {
           "type": "string"
         },
@@ -3705,7 +3709,7 @@
     },
     "zerone.knowledge.v1.ClaimType": {
       "default": "CLAIM_TYPE_UNSPECIFIED",
-      "description": "ClaimType classifies the epistemic shape of a knowledge claim.\nAgents use this to filter and prioritize facts for prompt injection.\n\n - CLAIM_TYPE_UNSPECIFIED: Legacy/untyped — treated as assertion\n - CLAIM_TYPE_ASSERTION: \"X is true\" — direct factual statement\n - CLAIM_TYPE_RELATION: \"X relates to Y via Z\" — graph edge\n - CLAIM_TYPE_DEFINITION: \"X means Y\" — term/concept definition\n - CLAIM_TYPE_CONSTRAINT: \"X must/cannot Y\" — rule or boundary\n - CLAIM_TYPE_NEGATION: \"X is NOT true\" — explicit falsity marker\n - CLAIM_TYPE_OBSERVATION: \"X was observed at time/place\" — empirical data point\n - CLAIM_TYPE_COMPUTATIONAL: Derived from computation/inference — agent specialty",
+      "description": "ClaimType classifies the epistemic shape of a knowledge claim.\nAgents use this to filter and prioritize facts for prompt injection.\n\n - CLAIM_TYPE_UNSPECIFIED: Legacy/untyped — treated as assertion\n - CLAIM_TYPE_ASSERTION: \"X is true\" — direct factual statement\n - CLAIM_TYPE_RELATION: \"X relates to Y via Z\" — graph edge\n - CLAIM_TYPE_DEFINITION: \"X means Y\" — term/concept definition\n - CLAIM_TYPE_CONSTRAINT: \"X must/cannot Y\" — rule or boundary\n - CLAIM_TYPE_NEGATION: \"X is NOT true\" — explicit falsity marker\n - CLAIM_TYPE_OBSERVATION: \"X was observed at time/place\" — empirical data point\n - CLAIM_TYPE_COMPUTATIONAL: Derived from computation/inference — agent specialty\n - CLAIM_TYPE_CONJECTURE: \"X might be true, and here is what would kill it\" — a conjecture.\nAsserts nothing. Enters the graph at FACT_STATUS_PROVISIONAL with\nconfidence 0, carries no relations, cannot be cited, and earns its\nsubmitter nothing. The panel that adjudicates a conjecture is asked\nwhether it is WELL-POSED AND FALSIFIABLE, not whether it is true.\nThe only paid act against it is MsgChallengeProvisionalFact.",
       "enum": [
         "CLAIM_TYPE_UNSPECIFIED",
         "CLAIM_TYPE_ASSERTION",
@@ -3714,7 +3718,8 @@
         "CLAIM_TYPE_CONSTRAINT",
         "CLAIM_TYPE_NEGATION",
         "CLAIM_TYPE_OBSERVATION",
-        "CLAIM_TYPE_COMPUTATIONAL"
+        "CLAIM_TYPE_COMPUTATIONAL",
+        "CLAIM_TYPE_CONJECTURE"
       ],
       "type": "string"
     },
@@ -3844,7 +3849,7 @@
       "type": "string"
     },
     "zerone.knowledge.v1.ContributionChallenge": {
-      "description": "ContributionChallenge is a bonded dispute over whether a model's declared\nContributionRecord is accurate: a fact submitter asserts under-reporting\n(the model used their fact but didn't attribute) or over-reporting (the\nowner listed a colluder's fact that wasn't used). Resolves through the\nstandard PoT verification layer.",
+      "description": "ContributionChallenge is a bonded dispute over whether a model's declared\nContributionRecord is accurate: a fact submitter asserts under-reporting\n(the model used their fact but didn't attribute) or over-reporting (the\nowner listed a colluder's fact that wasn't used). Current resolution is an\nexplicit governance-authority action; there is no verifier-panel dispatch.",
       "properties": {
         "bond": {
           "title": "uzrn locked by challenger",
@@ -3884,7 +3889,7 @@
           "type": "string"
         },
         "resolver": {
-          "title": "verifier panel representative (or authority for disputes-of-last-resort)",
+          "title": "governance authority recorded by the current handler",
           "type": "string"
         },
         "status": {
@@ -4454,6 +4459,10 @@
         "epochBorn": {
           "format": "uint64",
           "title": "Epoch when fact was created",
+          "type": "string"
+        },
+        "falsificationPredicate": {
+          "description": "─── Conjecture (frontier) ─────────────────────────────────────────────\nFor facts born from CLAIM_TYPE_CONJECTURE: the observation that would\nfalsify this conjecture, carried forward from the claim so a prospective\nrefuter knows exactly what target they are shooting at. Empty on every\nordinary fact. A non-empty predicate on a PROVISIONAL fact is the\nchain's standing invitation to destroy it.",
           "type": "string"
         },
         "fitnessScore": {
@@ -5356,7 +5365,7 @@
       "type": "object"
     },
     "zerone.knowledge.v1.NormativeCommitment": {
-      "description": "NormativeCommitment is a value, principle, or stance the chain holds,\ndistinct from a factual claim (Phase 6). The is-ought wall enforced\nschematically: a commitment has no `confidence` because truth is not the\nright register for a normative claim; it can be *referenced* by facts and\ndiscussions, but cannot be cited as support for a factual claim in a way\nthat inherits truth-status.\n\nExamples:\n  · \"Agents have the right to economic participation\" (a principle)\n  · \"The research fund requires dual human+AI authorization\" (a constitutional rule)\n  · \"Verification history is public and permanent\" (a procedural commitment)\n\nGovernance governs commitments directly; a supermajority proposal amends\nthem. Commitments can *constrain* other modules operationally (e.g. the\ndual-key research fund enforces the rule cryptographically), but they do\nnot enter the confidence / axiom-distance / corroboration machinery.",
+      "description": "NormativeCommitment is a value, principle, or stance the chain holds,\ndistinct from a factual claim (Phase 6). The is-ought wall enforced\nschematically: a commitment has no `confidence` because truth is not the\nright register for a normative claim; it can be *referenced* by facts and\ndiscussions, but cannot be cited as support for a factual claim in a way\nthat inherits truth-status.\n\nExamples:\n  · \"Agents have the right to economic participation\" (a principle)\n  · \"Configured early research spending requires dual human+AI authorization\" (a constitutional rule)\n  · \"Verification history is public and permanent\" (a procedural commitment)\n\nGovernance governs commitments directly; a supermajority proposal amends\nthem. Commitments can *constrain* other modules operationally (e.g. the\nresearch-spend path requires both configured voters and fails closed when\nthey are unset), but they do not enter the confidence / axiom-distance /\ncorroboration machinery.",
       "properties": {
         "active": {
           "title": "False after retirement",
@@ -5429,6 +5438,45 @@
       },
       "type": "object"
     },
+    "zerone.knowledge.v1.OpenQuestion": {
+      "description": "OpenQuestion is a live conjecture: an unsettled proposition the chain is\nholding open. It is deliberately NOT a Fact projection — a caller reading\nthis surface must not be able to mistake it for something the chain believes.",
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "energy": {
+          "format": "uint64",
+          "title": "metabolic standing; 0 means it is dying",
+          "type": "string"
+        },
+        "factId": {
+          "type": "string"
+        },
+        "falsificationPredicate": {
+          "type": "string"
+        },
+        "postedAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "proposer": {
+          "type": "string"
+        },
+        "statement": {
+          "type": "string"
+        },
+        "survivedProbes": {
+          "description": "Independent challenges this conjecture has survived. Sourced from\nFact.corroboration_count, which handleChallengeSurvival already\nincrements on the provisional-challenge path under a 1000-block\ncooldown — the hardening signal exists before this query does.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "underChallenge": {
+          "description": "The conjecture is CHALLENGED right now — a refutation round is open.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "zerone.knowledge.v1.Params": {
       "description": "Params are the governance parameters for the knowledge module.\nAll BPS values use a 1,000,000 scale (1,000,000 = 100%).",
       "properties": {
@@ -5438,7 +5486,7 @@
           "type": "string"
         },
         "adversarialVerificationEnabled": {
-          "description": "default: true",
+          "description": "compatibility-only; not a challenge gate; runtime-immutable",
           "title": "─── Adversarial verification ────────────────────────────────────────────",
           "type": "boolean"
         },
@@ -5454,7 +5502,7 @@
         },
         "aggregationPhaseBlocks": {
           "format": "uint64",
-          "title": "default: 3",
+          "title": "default: 50",
           "type": "string"
         },
         "augmentationExpiryFeeBps": {
@@ -5502,7 +5550,7 @@
           "type": "string"
         },
         "citationShareBps": {
-          "description": "default: 150,000 (15%)",
+          "description": "compatibility-only; not read; runtime-immutable",
           "format": "uint64",
           "title": "─── Citation economics ──────────────────────────────────────────────────",
           "type": "string"
@@ -5514,7 +5562,7 @@
         },
         "commitPhaseBlocks": {
           "format": "uint64",
-          "title": "default: 4",
+          "title": "default: 200",
           "type": "string"
         },
         "competitionMaxNicheSize": {
@@ -5523,7 +5571,7 @@
           "type": "string"
         },
         "competitionNicheDominanceBonusBps": {
-          "description": "Fitness bonus for niche leader (BPS)",
+          "description": "compatibility-only; not read; runtime-immutable",
           "format": "uint64",
           "title": "─── Competition (niche dynamics) ──────────────────────────────────",
           "type": "string"
@@ -5540,7 +5588,7 @@
         },
         "confidenceBoostPerVerification": {
           "format": "uint64",
-          "title": "default: 50,000  (5%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "confidenceGrowthEpoch": {
@@ -5563,18 +5611,18 @@
           "type": "string"
         },
         "contributionChallengeRewardMultiplierBps": {
+          "description": "Compatibility-only; reward minting is disabled until a replay-safe,\none-shot entitlement exists. Runtime updates must preserve this field.",
           "format": "uint64",
-          "title": "default: 2,000,000 (winner takes bond × 2)",
           "type": "string"
         },
         "crossDomainBonusBps": {
           "format": "uint64",
-          "title": "default: 200,000 (20%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "crossStratumDiscountBps": {
           "format": "uint64",
-          "title": "default: 0",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "demandBountyBaseReward": {
@@ -5606,13 +5654,13 @@
           "type": "boolean"
         },
         "disprovalClawbackBps": {
-          "description": "Disproval clawback — after a fact goes DISPROVEN, this fraction of the\nrecent training revenue is clawed back from the submitter into the\nresearch fund.\n\ndefault: 500,000 (50%)",
+          "description": "Disproval clawback — after a fact goes DISPROVEN, this fraction of the\nrecent training revenue is clawed back from the submitter into the\nresearch fund.\n\ncompatibility-only; not read; runtime-immutable",
           "format": "uint64",
           "type": "string"
         },
         "disprovalClawbackWindowEpochs": {
           "format": "uint64",
-          "title": "default: 30",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "diversityConformityAlertEpochs": {
@@ -5675,17 +5723,17 @@
         },
         "equivocationSlashBps": {
           "format": "uint64",
-          "title": "default: 200,000 (20%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "factExpiryBlocks": {
           "format": "uint64",
-          "title": "default: 0 (no expiry)",
+          "title": "compatibility-only; no expiry sweep reads it; runtime-immutable",
           "type": "string"
         },
         "failedChallengeSlashBps": {
           "format": "uint64",
-          "title": "default: 220,000 (22%)",
+          "title": "compatibility-only; settlement uses fixed routing; runtime-immutable",
           "type": "string"
         },
         "fitnessEpochBlocks": {
@@ -5769,14 +5817,14 @@
           "type": "string"
         },
         "initialConfidence": {
-          "description": "default: 500,000 (50%)",
+          "description": "compatibility-only; not read; runtime-immutable",
           "format": "uint64",
           "title": "─── Confidence scoring ──────────────────────────────────────────────────",
           "type": "string"
         },
         "invalidClaimSlashBps": {
           "format": "uint64",
-          "title": "DEPRECATED (R19-6): no longer used — review fee is non-refundable",
+          "title": "DEPRECATED; no longer used; runtime-immutable",
           "type": "string"
         },
         "invitationBonusAmount": {
@@ -5785,17 +5833,17 @@
         },
         "maxApprenticeValidators": {
           "format": "uint64",
-          "title": "default: 111 (Sybil cap)",
+          "title": "compatibility-only; not enforced; runtime-immutable",
           "type": "string"
         },
         "maxClaimTextLength": {
           "format": "uint64",
-          "title": "default: 10,000",
+          "title": "default: 1,000",
           "type": "string"
         },
         "maxConcurrentChallenges": {
           "format": "uint64",
-          "title": "default: 3",
+          "title": "compatibility-only; not enforced; runtime-immutable",
           "type": "string"
         },
         "maxConfidence": {
@@ -5804,7 +5852,7 @@
           "type": "string"
         },
         "maxFactsPerDomain": {
-          "description": "default: 100,000",
+          "description": "compatibility-only; not enforced; runtime-immutable",
           "format": "uint64",
           "title": "─── Extended governance params ─────────────────────────────────────────",
           "type": "string"
@@ -5816,12 +5864,12 @@
         },
         "maxSurvivalConfidence": {
           "format": "uint64",
-          "title": "default: 770,000 (77%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "maxValidatorsPerRound": {
           "format": "uint64",
-          "title": "default: 22",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "maxVerifiers": {
@@ -5899,7 +5947,7 @@
         },
         "metabolismExtinctionThreshold": {
           "format": "uint64",
-          "title": "Energy below which (for N epochs) → EXTINCT (default: 10,000 = 1%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "metabolismInitialEnergy": {
@@ -5946,7 +5994,7 @@
           "type": "string"
         },
         "noveltyCommonKnowledgePenaltyBps": {
-          "description": "Default penalty for common knowledge match",
+          "description": "compatibility-only; not read; runtime-immutable",
           "format": "uint64",
           "title": "─── Novelty detection ──────────────────────────────────────────────────",
           "type": "string"
@@ -5986,7 +6034,7 @@
           "type": "string"
         },
         "probeBountyMintPerBlock": {
-          "description": "─── Wave 15: probe bounty pool ───────────────────────────────────────\nA purpose-built minting stream that funds probe rewards. Moves\nepistemic-auditing funding out of general governance (protocol\ntreasury) into a dedicated pool so the chain self-sustains its own\naudit economy. successful-probe bonuses draw from this pool first;\nif the pool is empty, fall back to protocol treasury.\n\nuzrn minted per block (default \"1000000\" = 1 ZRN)",
+          "description": "─── Wave 15: probe bounty pool ───────────────────────────────────────\nA purpose-built minting stream that funds probe rewards. Moves\nepistemic-auditing funding out of general governance (protocol\ntreasury) into a dedicated pool so the chain self-sustains its own\naudit economy. successful-probe bonuses draw from this pool first;\nif the pool is empty, fall back to protocol treasury.\n\ncap-gated uzrn per block; default \"0\" (disabled)",
           "type": "string"
         },
         "probeInvitationBatchSize": {
@@ -6011,12 +6059,12 @@
         },
         "provisionalThreshold": {
           "format": "uint64",
-          "title": "default: 500,000 (50%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "quorumThreshold": {
           "format": "uint64",
-          "title": "default: 660,000 (66%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "reformulationConsensusBps": {
@@ -6036,7 +6084,7 @@
         },
         "rejectThreshold": {
           "format": "uint64",
-          "title": "default: 300,000 (30%)",
+          "title": "compatibility-only; not read; runtime-immutable",
           "type": "string"
         },
         "reproductionChildFitnessInheritanceBps": {
@@ -6071,14 +6119,13 @@
           "type": "string"
         },
         "researchFundShareBps": {
-          "description": "default: 130,000 (13%)",
+          "description": "Compatibility-only and runtime-immutable. Review-fee routing uses a\nhard-coded residual ~3.33% after its other fixed shares.",
           "format": "uint64",
-          "title": "─── Research fund ───────────────────────────────────────────────────────",
           "type": "string"
         },
         "revealPhaseBlocks": {
           "format": "uint64",
-          "title": "default: 4",
+          "title": "default: 200",
           "type": "string"
         },
         "roleElasticityDecayEpochs": {
@@ -6108,13 +6155,13 @@
           "type": "string"
         },
         "socialSaturationThreshold": {
-          "description": "Partnership density above which verification relaxes (default: 10)",
+          "description": "compatibility-only; not read; runtime-immutable",
           "format": "uint64",
           "title": "─── Social verification adjustment (R31-2: Water → Fire) ──────────────",
           "type": "string"
         },
         "sponsorVetoForfeitBps": {
-          "description": "Sponsor-veto forfeiture: if a sponsor vetoes a passing verdict, they\nforfeit this fraction of the variant payout to the research fund.\n\ndefault: 1,000,000 (100% — full forfeiture)",
+          "description": "Sponsor-veto forfeiture: if a sponsor vetoes a passing verdict, they\nforfeit this fraction of the variant payout to the research fund.\n\ncompatibility-only; not read; runtime-immutable",
           "format": "uint64",
           "type": "string"
         },
@@ -6129,22 +6176,19 @@
           "type": "string"
         },
         "trainingFundBaseReward": {
-          "title": "default: \"1000000000\" (1,000 ZRN in uzrn)",
           "type": "string"
         },
         "trainingFundCalibrationFloorBps": {
-          "description": "Training-fund post-hoc disbursement params.\n\ndefault: 500,000 (50%) — below = no disbursement",
+          "description": "Training-fund post-hoc disbursement params.\nRetained for the release-sealed training-disbursement API; current\nexecution returns before reading these fields. Runtime-immutable.",
           "format": "uint64",
           "type": "string"
         },
         "trainingFundMethodologyDiversityBonusBps": {
           "format": "uint64",
-          "title": "default: 100,000 per distinct method beyond 1",
           "type": "string"
         },
         "trainingFundVestingEpochs": {
           "format": "uint64",
-          "title": "default: 60",
           "type": "string"
         },
         "underpopulationBirthBonusBps": {
@@ -6153,13 +6197,11 @@
           "type": "string"
         },
         "verificationReward": {
-          "description": "default: \"3000000\" (3 ZRN in uzrn)",
-          "title": "─── Rewards ─────────────────────────────────────────────────────────────",
+          "description": "─── Compatibility-only reward metadata ─────────────────────────────────\nRound payout divides the 55% review-fee pool and does not use these values.\nRuntime updates must preserve them.",
           "type": "string"
         },
         "verificationRewardDecayBps": {
           "format": "uint64",
-          "title": "default: 999,000 (0.999× per epoch)",
           "type": "string"
         },
         "vindicationBonusBps": {
@@ -6190,7 +6232,7 @@
         "wrongVerificationSlashBps": {
           "description": "default: 50,000  (5%)",
           "format": "uint64",
-          "title": "─── Slashing — MUST be non-zero (B22-3 audit) ──────────────────────────",
+          "title": "─── Verifier slashing ──────────────────────────────────────────────────",
           "type": "string"
         }
       },
@@ -7214,6 +7256,36 @@
         "snapshotBlockHeight": {
           "format": "uint64",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.QueryOpenQuestionsResponse": {
+      "properties": {
+        "factsExamined": {
+          "description": "Number of fact records examined in deterministic fact-ID order.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.OpenQuestion",
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "scanLimitReached": {
+          "description": "True when the 5,000-fact safety ceiling was reached. In that case,\nquestions are oldest-first only within the examined window.",
+          "type": "boolean"
+        },
+        "snapshotBlockHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "total": {
+          "description": "Matching conjectures in the examined fact window before applying limit.\nThis is not a global population count when scan_limit_reached is true.",
+          "format": "int64",
+          "type": "integer"
         }
       },
       "type": "object"
@@ -8663,7 +8735,7 @@
       "type": "object"
     },
     "zerone.knowledge.v1.TrainingFundDisbursement": {
-      "description": "TrainingFundDisbursement is a post-hoc reward to a pipeline whose ModelCard\nhas demonstrated calibration in live deployment. 50% is released at claim\ntime; 50% is held in vesting escrow and clawed back if calibration drops.",
+      "description": "TrainingFundDisbursement is the retained state shape for historical/imported\nrecords and a future replay-safe reward design. Current public claims are\nrelease-disabled and create no new records.",
       "properties": {
         "calibrationScoreAtClaimBps": {
           "description": "Input signals frozen at claim time.",
@@ -10161,10 +10233,10 @@
       "type": "string"
     },
     "zerone.substrate_bridge.v1.AdapterRegistration": {
-      "description": "AdapterRegistration is the gov-approved metadata for one adapter.\nAdapter is a recipe (binary hash + bounds + slash); no operator role.\nAnyone who runs the registered binary AND submits an attestation\nearns via the UW formula.",
+      "description": "AdapterRegistration is the metadata for one genesis-seeded or\ngov-authority-registered adapter. CategoryAdapterRegistration LIP payload\ndispatch is not wired yet; registered_via_lip_id is therefore provenance,\nnot proof that current LIP execution installed the adapter. Adapter is a\nrecipe (binary hash + bounds + slash), not an operator role.",
       "properties": {
         "adapterId": {
-          "title": "canonical, gov-approved (e.g. \"wikipedia-en-v1\")",
+          "title": "canonical ID (e.g. \"wikipedia-en-v1\")",
           "type": "string"
         },
         "allowedClassIds": {
@@ -10178,8 +10250,8 @@
           "$ref": "#/definitions/zerone.substrate_bridge.v1.AxisBounds"
         },
         "compilerBinaryHash": {
+          "description": "Off-chain compiler provenance metadata. Runtime does not fetch or execute\nthe binary and does not compare this hash during attestation validation.",
           "format": "byte",
-          "title": "determinism guarantee",
           "type": "string"
         },
         "minAttestationBondUzrn": {
@@ -10196,6 +10268,7 @@
           "type": "string"
         },
         "registeredViaLipId": {
+          "title": "empty for genesis/direct authority registration",
           "type": "string"
         },
         "requiredQualificationDomain": {
@@ -10336,6 +10409,7 @@
         },
         "inferenceStrengthBps": {
           "format": "int64",
+          "title": "reserved path; 10,000 scale",
           "type": "integer"
         },
         "relation": {
@@ -10409,14 +10483,14 @@
       "type": "object"
     },
     "zerone.substrate_bridge.v1.ExternalSource": {
-      "description": "ExternalSource is a typed reference to off-chain content that an\nadapter has fetched. The content_hash is the cryptographic anchor:\nsubstrate-link re-derivation matches if and only if the source's\ncontent_hash matches what the adapter binary produced.",
+      "description": "ExternalSource is caller-declared off-chain provenance. Consensus requires\nadapter_id to match the enclosing link and content_hash to have SHA-256\nwidth. It does not fetch external content, execute an adapter/compiler, or\nverify the declared digest against external bytes.",
       "properties": {
         "adapterId": {
           "type": "string"
         },
         "contentHash": {
           "format": "byte",
-          "title": "sha256 of fetched content",
+          "title": "declared SHA-256 digest; width checked only",
           "type": "string"
         },
         "fetchedAtBlock": {
@@ -10458,6 +10532,7 @@
         },
         "contributionShareBps": {
           "format": "int64",
+          "title": "10,000 scale: 10,000 = 100%",
           "type": "integer"
         },
         "createdAtBlock": {
@@ -10513,10 +10588,12 @@
         },
         "decayBpsPerHop": {
           "format": "int64",
+          "title": "10,000 scale",
           "type": "integer"
         },
         "lineageShareBps": {
           "format": "int64",
+          "title": "10,000 scale",
           "type": "integer"
         },
         "maxPendingClaimsPerAttestation": {
@@ -10536,10 +10613,12 @@
         },
         "minVerifiedRatioForSettleBps": {
           "format": "int64",
+          "title": "10,000 scale",
           "type": "integer"
         },
         "pendingClaimRejectionThresholdBps": {
           "format": "int64",
+          "title": "10,000 scale: 10,000 = 100%",
           "type": "integer"
         },
         "perPendingClaimBondUzrn": {
@@ -10547,6 +10626,7 @@
         },
         "selfCitationCapBps": {
           "format": "int64",
+          "title": "10,000 scale",
           "type": "integer"
         },
         "witnessRewardChallengeWindowBlocks": {
@@ -10558,7 +10638,7 @@
       "type": "object"
     },
     "zerone.substrate_bridge.v1.PendingClaim": {
-      "description": "PendingClaim is a Claim auto-submitted at commit phase. Shape mirrors\nx/knowledge.Claim so the substrate_bridge keeper can call\nx/knowledge.SetClaim directly. claim_relations cite existing facts;\nthey are NOT recursive pending claims (one-hop deferral only).",
+      "description": "PendingClaim is the reserved shape for a future x/knowledge translation.\nIt is not accepted by current public attestation submission. When that\nintegration is implemented, claim_relations may cite existing facts only;\nthey are not recursive pending claims.",
       "properties": {
         "claimContent": {
           "type": "string"
@@ -10663,28 +10743,28 @@
       "type": "object"
     },
     "zerone.substrate_bridge.v1.SlashGradient": {
-      "description": "SlashGradient mirrors M1's graduated slashing — different failure\nmodes carry different bps slash weights. Values stored at adapter\nregistration and applied at attestation rejection paths.",
+      "description": "SlashGradient is retained adapter metadata for a future graduated-slashing\nimplementation. Current pre-escrow validation rejects compiler/bounds\nfailures and a settled rejection burns the full bond; these values are not\nread by consensus.",
       "properties": {
         "axisOverflowBps": {
           "format": "int64",
-          "title": "axis claim exceeds bounds — typically pro-rata",
+          "title": "inert metadata; 10,000 scale",
           "type": "integer"
         },
         "compilerDriftBps": {
           "format": "int64",
-          "title": "adapter-binary mismatch — typically 10000 (full)",
+          "title": "inert metadata; 10,000 scale",
           "type": "integer"
         },
         "fraudBps": {
           "format": "int64",
-          "title": "\u003e rejection threshold reached — typically 10000",
+          "title": "inert metadata; 10,000 scale",
           "type": "integer"
         }
       },
       "type": "object"
     },
     "zerone.substrate_bridge.v1.SubstrateLink": {
-      "description": "SubstrateLink is the deterministic provenance from external content\nto ToK fact-IDs (existing + pending). Two sections — cited_facts MUST\nexist in x/knowledge at commit time; pending_claims are auto-submitted\nas Claims and the attestation is held in AWAITING_RESOLUTION until\nthey resolve. M2 satisfied: every pending claim becomes a real\non-chain claim with full provenance.",
+      "description": "SubstrateLink commits caller-declared external provenance to ToK fact IDs.\ncited_facts MUST exist in x/knowledge at commit time.\npending_claims is a reserved future integration surface: current\nMsgSubmitExternalAttestation rejects a nonempty list because translation\ninto x/knowledge is not wired.",
       "properties": {
         "adapterId": {
           "type": "string"
@@ -10698,7 +10778,7 @@
         },
         "linkHash": {
           "format": "byte",
-          "title": "sha256 of canonical form",
+          "title": "sha256 of canonical declared fields",
           "type": "string"
         },
         "pendingClaims": {
@@ -10761,8 +10841,8 @@
           "type": "string"
         },
         "emissionEpochBlocks": {
+          "description": "Consensus activation latch for native uzrn EmissionPeriod creation and\nprocessing. 0 disables both. A nonzero value enables the per-block periods;\nits numeric epoch cadence is otherwise reserved in current execution.",
           "format": "uint64",
-          "title": "blocks per emission epoch (0 = disabled)",
           "type": "string"
         }
       },
@@ -11231,7 +11311,7 @@
           "type": "string"
         },
         "fundBalanceAfter": {
-          "title": "remaining fund balance (bigint as string)",
+          "description": "Legacy field name: cumulative shared MintWithCap accounting ledger after\nthis distribution, not a spendable fund balance or full supply history.",
           "type": "string"
         },
         "producerReward": {
@@ -11312,16 +11392,16 @@
           "type": "string"
         },
         "categoryRewardConfigs": {
+          "description": "Compatibility-only declarations. Current reward execution does not read\nthese entries; runtime updates must preserve them.",
           "items": {
             "$ref": "#/definitions/zerone.vesting_rewards.v1.CategoryRewardConfig",
             "type": "object"
           },
-          "title": "Category reward multipliers",
           "type": "array"
         },
         "emptyBlockRewardRate": {
           "format": "uint64",
-          "title": "bps of reward for empty blocks (default: 0)",
+          "title": "10,000 scale: 10,000 = 100%; default 0",
           "type": "string"
         },
         "floorReward": {
@@ -11340,11 +11420,11 @@
         },
         "governanceActivationHeight": {
           "format": "uint64",
-          "title": "DEPRECATED — founder share is governance-immune",
+          "title": "DEPRECATED — retained for wire compatibility; not an activation gate",
           "type": "string"
         },
         "initialFundBalance": {
-          "title": "uzrn total fund at genesis (default: \"0\" = pure PoT)",
+          "description": "Genesis/import-export TotalMinted bookkeeping only; runtime updates must\npreserve it and it is not a spendable fund balance.",
           "type": "string"
         },
         "knowledgeCouplingFloorBps": {
@@ -11353,7 +11433,7 @@
           "type": "string"
         },
         "knowledgeCouplingTargetBps": {
-          "description": "Knowledge-coupled block reward (T9 / thesis claim 1).\nWhen enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).\nBelow target verification rate → reward decays faster; at target → full reward.\n0 target = disabled (backward compat).\n\ntarget verification rate in BPS (default: 700,000 = 70%)",
+          "description": "Survived-challenge-coupled block reward.\nWhen enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).\nRate = survived / (survived + disproven); unchallenged facts are excluded.\nBelow target → reward is reduced; at target → full reward.\n0 target = disabled (backward compat).\n\ntarget survived-challenge rate in BPS (default: 700,000 = 70%)",
           "format": "uint64",
           "type": "string"
         },
@@ -11367,12 +11447,11 @@
         },
         "releasedClawbackRate": {
           "format": "uint64",
-          "title": "bps of released clawed back on falsification (default: 3300 = 33%)",
+          "title": "10,000 scale: default 3300 = 33% of released value",
           "type": "string"
         },
         "researchFundModuleAccount": {
-          "description": "module account name for research fund",
-          "title": "Research fund",
+          "description": "Compatibility-only. Runtime routes to the compiled research_fund module\naccount and rejects changing this field.",
           "type": "string"
         },
         "revenueSplit": {
@@ -11381,12 +11460,11 @@
         },
         "rewardDecayBps": {
           "format": "uint64",
-          "title": "per-epoch decay (default: 850,000 = 0.85x on 1M scale)",
+          "title": "per-epoch decay (default: 994,478 = 0.994478x on 1M scale)",
           "type": "string"
         },
         "vestingEnabled": {
-          "description": "whether truth-linked vesting is active",
-          "title": "Vesting parameters",
+          "description": "Vesting parameters\nCompatibility-only: not an execution gate; runtime updates must preserve it.",
           "type": "boolean"
         }
       },
@@ -11469,7 +11547,7 @@
       "type": "object"
     },
     "zerone.vesting_rewards.v1.QuerySupplyCouplingAuditResponse": {
-      "description": "SupplyCouplingAudit response surfaces the thesis-critical metrics for\nindependent verification that emission is coupled to knowledge throughput.",
+      "description": "SupplyCouplingAudit response surfaces the shared capped-mint ledger and the\nseparately configured block-reward coupling inputs.",
       "properties": {
         "couplingEnabled": {
           "title": "target \u003e 0 and keeper wired",
@@ -11498,13 +11576,18 @@
           "title": "protocol cap in uzrn",
           "type": "string"
         },
+        "survivedChallengeRateBps": {
+          "description": "Consensus-applied survived/(survived+disproven) signal; unchallenged\nfacts are excluded.",
+          "format": "uint64",
+          "type": "string"
+        },
         "totalMinted": {
-          "title": "cumulative uzrn minted since genesis",
+          "description": "MintWithCap ledger restored from initial_fund_balance at import and then\nincreased by every capped caller. Excludes direct bank/genesis minting.",
           "type": "string"
         },
         "verificationRateBps": {
           "format": "uint64",
-          "title": "current accepted/terminal ratio in BPS",
+          "title": "legacy accepted/terminal ratio; not the applied signal",
           "type": "string"
         }
       },
@@ -12649,7 +12732,7 @@
             }
           }
         },
-        "summary": "CouncilMembers returns all currently-active Creed Council\nseats with their voting weights. The AI-side voter pool for\nCreed Amendment LIPs.",
+        "summary": "CouncilMembers returns all currently-active Creed Council registry\nentries with their weights. Current LIP tally does not consume this\nfuture two-pool routing surface.",
         "tags": [
           "Query"
         ]
@@ -12680,7 +12763,7 @@
             }
           }
         },
-        "summary": "IsCouncilMember answers whether a specific address holds an\nactive council seat. x/gov reads this when tallying creed-\namendment votes to route the voter to the AI-side pool.",
+        "summary": "IsCouncilMember answers whether a specific address holds an active\ncouncil seat. x/gov exposes the hook, but current tally does not route\ncreed-amendment votes into a separate pool.",
         "tags": [
           "Query"
         ]
@@ -14653,7 +14736,7 @@
           },
           {
             "default": "CLAIM_TYPE_UNSPECIFIED",
-            "description": "Optional filter by claim type\n\n - CLAIM_TYPE_UNSPECIFIED: Legacy/untyped — treated as assertion\n - CLAIM_TYPE_ASSERTION: \"X is true\" — direct factual statement\n - CLAIM_TYPE_RELATION: \"X relates to Y via Z\" — graph edge\n - CLAIM_TYPE_DEFINITION: \"X means Y\" — term/concept definition\n - CLAIM_TYPE_CONSTRAINT: \"X must/cannot Y\" — rule or boundary\n - CLAIM_TYPE_NEGATION: \"X is NOT true\" — explicit falsity marker\n - CLAIM_TYPE_OBSERVATION: \"X was observed at time/place\" — empirical data point\n - CLAIM_TYPE_COMPUTATIONAL: Derived from computation/inference — agent specialty",
+            "description": "Optional filter by claim type\n\n - CLAIM_TYPE_UNSPECIFIED: Legacy/untyped — treated as assertion\n - CLAIM_TYPE_ASSERTION: \"X is true\" — direct factual statement\n - CLAIM_TYPE_RELATION: \"X relates to Y via Z\" — graph edge\n - CLAIM_TYPE_DEFINITION: \"X means Y\" — term/concept definition\n - CLAIM_TYPE_CONSTRAINT: \"X must/cannot Y\" — rule or boundary\n - CLAIM_TYPE_NEGATION: \"X is NOT true\" — explicit falsity marker\n - CLAIM_TYPE_OBSERVATION: \"X was observed at time/place\" — empirical data point\n - CLAIM_TYPE_COMPUTATIONAL: Derived from computation/inference — agent specialty\n - CLAIM_TYPE_CONJECTURE: \"X might be true, and here is what would kill it\" — a conjecture.\nAsserts nothing. Enters the graph at FACT_STATUS_PROVISIONAL with\nconfidence 0, carries no relations, cannot be cited, and earns its\nsubmitter nothing. The panel that adjudicates a conjecture is asked\nwhether it is WELL-POSED AND FALSIFIABLE, not whether it is true.\nThe only paid act against it is MsgChallengeProvisionalFact.",
             "enum": [
               "CLAIM_TYPE_UNSPECIFIED",
               "CLAIM_TYPE_ASSERTION",
@@ -14662,7 +14745,8 @@
               "CLAIM_TYPE_CONSTRAINT",
               "CLAIM_TYPE_NEGATION",
               "CLAIM_TYPE_OBSERVATION",
-              "CLAIM_TYPE_COMPUTATIONAL"
+              "CLAIM_TYPE_COMPUTATIONAL",
+              "CLAIM_TYPE_CONJECTURE"
             ],
             "in": "query",
             "name": "claimType",
@@ -15167,7 +15251,7 @@
             "type": "string"
           },
           {
-            "description": "optional cap; 0 = default (50)",
+            "description": "0 = default (50); values above 256 clamp to 256",
             "format": "int64",
             "in": "query",
             "name": "limit",
@@ -15189,7 +15273,7 @@
             }
           }
         },
-        "summary": "IdleFacts returns facts the chain has invited for stress-testing\n(Wave 15). High-confidence facts that have gone idle for longer than\nProbeInvitationIdleThresholdBlocks are surfaced here so external\nprober agents can compete to probe them. Sorted by time-since-invite\ndescending (oldest invitations first — they're the most under-tested).",
+        "summary": "IdleFacts returns still-VERIFIED or ACTIVE facts the chain has invited\nfor stress-testing (Wave 15) and that have not been corroborated since\nthe invitation. Each request examines and returns at most 256 facts.\nWithin that bounded scan window, results are sorted by time-since-invite\ndescending (oldest invitations first — they're the most under-tested).",
         "tags": [
           "Query"
         ]
@@ -15491,6 +15575,46 @@
           }
         },
         "summary": "NichesByDomain queries all niches within a domain.",
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/knowledge/v1/open_questions": {
+      "get": {
+        "operationId": "OpenQuestions",
+        "parameters": [
+          {
+            "description": "empty = all domains",
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "description": "Result cap within the bounded fact scan. 0 = default 100; values above\nthe 5,000-fact scan cap are clamped before allocation.",
+            "format": "int64",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.knowledge.v1.QueryOpenQuestionsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "summary": "OpenQuestions surfaces what the chain does NOT know: every nonterminal\nconjecture still awaiting refutation. PROVISIONAL, CHALLENGED, AT_RISK,\nand EXPIRED conjectures remain open; only resolved terminal states are\nomitted. Where IdleFacts lists settled beliefs that have gone untested,\nthis lists propositions that were never settled at all. Read-free, like\nevery other query on this surface.",
         "tags": [
           "Query"
         ]
@@ -18991,7 +19115,7 @@
             }
           }
         },
-        "summary": "SupplyCouplingAudit returns a first-class metric for the thesis claim\nthat \"money supply grows with verified knowledge\" (L0). Exposes total\nminted, current supply, verification throughput, and the applied\nknowledge-coupling multiplier so external auditors can verify that\nemission is actually tied to epistemic activity.",
+        "summary": "SupplyCouplingAudit is a legacy-named observability endpoint. It reports\nthe shared MintWithCap ledger, bank supply, and block-reward coupling\ninputs. The aggregate ledger includes all capped callers and does not by\nitself prove that total issuance was caused by knowledge activity.",
         "tags": [
           "Query"
         ]

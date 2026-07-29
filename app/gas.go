@@ -138,9 +138,9 @@ var TransactionGasCosts = map[string]uint64{
 	"update_qualification_params": 40_000,
 
 	// Capture defense
-	"request_capture_qualification":  80_000,
-	"endorse_capture_qualification":  40_000,
-	"update_capture_defense_params":  40_000,
+	"request_capture_qualification": 80_000,
+	"endorse_capture_qualification": 40_000,
+	"update_capture_defense_params": 40_000,
 
 	// Capture challenge
 	"submit_capture_challenge":        100_000,
@@ -179,8 +179,8 @@ var TransactionGasCosts = map[string]uint64{
 	"activate_alignment": 40_000,
 
 	// Liquidity pool
-	"create_pool":     80_000,
-	"lp_swap":         40_000,
+	"create_pool":         80_000,
+	"lp_swap":             40_000,
 	"lp_add_liquidity":    60_000,
 	"lp_remove_liquidity": 60_000,
 
@@ -189,12 +189,10 @@ var TransactionGasCosts = map[string]uint64{
 	"remove_rate_limit": 30_000,
 }
 
-// Fee routing constants (basis points, 1000000 = 100%).
-const (
-	ResearchContributionBPS uint64 = 70000  // 7% to research fund
-	ValidatorFeeBPS         uint64 = 930000 // 93% to block producer / validators
-	BurnRateBPS             uint64 = 50000  // 5% burn rate (applied at penalty sites)
-)
+// BurnRateBPS is the 5% burn rate applied at penalty sites. Transaction-fee
+// routing has no constants here: x/vesting_rewards.RouteFees reads the
+// governance-controlled RevenueSplit from module state.
+const BurnRateBPS uint64 = 50000
 
 // Bootstrap gas-free period: RETIRED at mainnet genesis (window = 0 blocks).
 //

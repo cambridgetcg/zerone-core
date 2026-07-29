@@ -18,8 +18,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/stretchr/testify/require"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	"google.golang.org/protobuf/proto"
 
 	commontypes "github.com/zerone-chain/zerone/x/common/types"
 	vestingrewards "github.com/zerone-chain/zerone/x/vesting_rewards"
@@ -540,8 +542,6 @@ func (m *mockBankKeeper) MintCoins(_ context.Context, _ string, amounts sdk.Coin
 	}
 	return nil
 }
-
-
 
 func (m *mockBankKeeper) GetSupply(_ context.Context, denom string) sdk.Coin {
 	if amt, ok := m.supply[denom]; ok {
@@ -1305,6 +1305,106 @@ func TestExportGenesis_PreservesTotalMinted(t *testing.T) {
 	}
 }
 
+func TestExportGenesis_PreservesTerminalSchedulesAndHistory(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	recipient := sdk.AccAddress("history_recipient___").String()
+	schedules := []*types.VestingSchedule{
+		{Id: "vesting-active", ClaimId: "claim-active", Recipient: recipient, Status: string(types.VestingStatusActive)},
+		{Id: "vesting-completed", ClaimId: "claim-completed", Recipient: recipient, Status: string(types.VestingStatusCompleted)},
+		{Id: "vesting-falsified", ClaimId: "claim-falsified", Recipient: recipient, Status: string(types.VestingStatusFalsified)},
+	}
+	for _, schedule := range schedules {
+		k.SetVestingSchedule(ctx, schedule)
+	}
+	k.SetClawbackRecord(ctx, &types.ClawbackRecord{
+		Id: "clawback-1", VestingId: "vesting-falsified", UnvestedForfeited: "7",
+	})
+	k.SetBlockRewardDistribution(ctx, &types.BlockRewardDistribution{
+		BlockHeight: 9, TotalMinted: "11", FundBalanceAfter: "22",
+	})
+
+	exported := k.ExportGenesis(ctx)
+	if len(exported.VestingSchedules) != 3 {
+		t.Fatalf("exported %d schedules, want 3 including terminal history", len(exported.VestingSchedules))
+	}
+	if len(exported.ClawbackRecords) != 1 || len(exported.BlockRewardDistributions) != 1 {
+		t.Fatalf(
+			"export lost history: clawbacks=%d block_rewards=%d",
+			len(exported.ClawbackRecords),
+			len(exported.BlockRewardDistributions),
+		)
+	}
+
+	bz, err := proto.Marshal(exported)
+	if err != nil {
+		t.Fatalf("marshal exported genesis: %v", err)
+	}
+	var restored types.GenesisState
+	if err := proto.Unmarshal(bz, &restored); err != nil {
+		t.Fatalf("unmarshal exported genesis: %v", err)
+	}
+	k2, ctx2 := setupKeeper(t)
+	k2.InitGenesis(ctx2, &restored)
+
+	for _, schedule := range schedules {
+		got, found := k2.GetVestingSchedule(ctx2, schedule.Id)
+		if !found || got.Status != schedule.Status {
+			t.Fatalf("schedule %s not restored with status %s", schedule.Id, schedule.Status)
+		}
+	}
+	if _, found := k2.GetVestingByClaimId(ctx2, "claim-falsified"); !found {
+		t.Fatal("terminal claim index not restored")
+	}
+	if got := len(k2.GetVestingSchedulesByRecipient(ctx2, recipient)); got != 3 {
+		t.Fatalf("recipient index restored %d schedules, want 3", got)
+	}
+	if got := len(k2.GetAllActiveVestingSchedules(ctx2)); got != 1 {
+		t.Fatalf("active index restored %d schedules, want 1", got)
+	}
+	if _, found := k2.GetClawbackRecord(ctx2, "clawback-1"); !found {
+		t.Fatal("clawback record not restored")
+	}
+	if got := k2.GetAllBlockRewardDistributions(ctx2); len(got) != 1 {
+		t.Fatalf("block-reward history restored %d records, want 1", len(got))
+	}
+}
+
+func TestExportGenesis_PreservesExplicitClaimIndexWithDuplicateLegacyClaims(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	recipient := sdk.AccAddress("duplicate_claim_idx_").String()
+
+	// Primary-key iteration restores "vesting-z" after "vesting-a", which
+	// would silently change the selected schedule without an explicit index.
+	k.SetVestingSchedule(ctx, &types.VestingSchedule{
+		Id: "vesting-z", ClaimId: "legacy-duplicate-claim", Recipient: recipient,
+		Status: string(types.VestingStatusActive),
+	})
+	k.SetVestingSchedule(ctx, &types.VestingSchedule{
+		Id: "vesting-a", ClaimId: "legacy-duplicate-claim", Recipient: recipient,
+		Status: string(types.VestingStatusPaused),
+	})
+	before, found := k.GetVestingByClaimId(ctx, "legacy-duplicate-claim")
+	require.True(t, found)
+	require.Equal(t, "vesting-a", before.Id)
+
+	exported := k.ExportGenesis(ctx)
+	require.NoError(t, exported.Validate())
+	require.Len(t, exported.ClaimScheduleIndexes, 1)
+	require.Equal(t, "vesting-a", exported.ClaimScheduleIndexes[0].VestingId)
+
+	bz, err := proto.Marshal(exported)
+	require.NoError(t, err)
+	var restored types.GenesisState
+	require.NoError(t, proto.Unmarshal(bz, &restored))
+
+	k2, ctx2 := setupKeeper(t)
+	k2.InitGenesis(ctx2, &restored)
+	after, found := k2.GetVestingByClaimId(ctx2, "legacy-duplicate-claim")
+	require.True(t, found)
+	require.Equal(t, before.Id, after.Id,
+		"relaunch must preserve the live claim index, not primary-key replay order")
+}
+
 // ---------- 4-Way Block Reward Distribution Accounting ----------
 
 func TestDistributeBlockReward_4WayAccounting(t *testing.T) {
@@ -1534,9 +1634,9 @@ func TestFounderSplitDisabled(t *testing.T) {
 	}
 }
 
-func TestFounderSplitPermanent(t *testing.T) {
-	// Governance sunset was removed — founder share is permanent and governance-immune.
-	// Even with GovernanceActivationHeight set, founder remains active.
+func TestFounderSplitIgnoresDeprecatedActivationHeight(t *testing.T) {
+	// The automatic height sunset was removed. A nonzero configured share with
+	// an address remains active until governance changes the BPS.
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
@@ -1547,9 +1647,9 @@ func TestFounderSplitPermanent(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	// Founder share is permanent: 333000 * 70000 / 1000000 = 23310
+	// Configured founder share: 333000 * 70000 / 1000000 = 23310
 	if dist.FounderShare != "23310" {
-		t.Errorf("expected founder share 23310 (permanent), got %s", dist.FounderShare)
+		t.Errorf("expected configured founder share 23310, got %s", dist.FounderShare)
 	}
 	// Net research: 333000 - 23310 = 309690
 	if dist.ResearchShare != "309690" {
@@ -1601,9 +1701,9 @@ func TestDepositToResearchFund_NoFounderAddress(t *testing.T) {
 	}
 }
 
-func TestDepositToResearchFund_FounderPermanent(t *testing.T) {
-	// Governance sunset removed — founder share is permanent.
-	// Even with GovernanceActivationHeight set, founder split still applies.
+func TestDepositToResearchFund_IgnoresDeprecatedActivationHeight(t *testing.T) {
+	// The deprecated height field does not switch off an otherwise active
+	// configured share; governance can still change the BPS.
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
@@ -1617,12 +1717,12 @@ func TestDepositToResearchFund_FounderPermanent(t *testing.T) {
 	// 7% founder: 100000 * 70000 / 1000000 = 7000; research: 93000
 	researchCoins := bk.sentToModule["research_fund"]
 	if researchCoins.AmountOf("uzrn").Int64() != 93000 {
-		t.Errorf("expected 93000 to research_fund (founder permanent), got %d", researchCoins.AmountOf("uzrn").Int64())
+		t.Errorf("expected 93000 to research_fund with configured founder, got %d", researchCoins.AmountOf("uzrn").Int64())
 	}
 
 	founderCoins := bk.sentToAccount[founderAddr]
 	if founderCoins.AmountOf("uzrn").Int64() != 7000 {
-		t.Errorf("expected 7000 to founder (permanent), got %d", founderCoins.AmountOf("uzrn").Int64())
+		t.Errorf("expected 7000 to configured founder, got %d", founderCoins.AmountOf("uzrn").Int64())
 	}
 }
 
@@ -1684,84 +1784,164 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 // Design §10: FounderShareBps floats within [0, FounderShareCapBps] under
 // governance; FounderAddress stays immutable once set.
 
+func TestUpdateParamsRejectsUnsafeRewardConfiguration(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*types.Params)
+	}{
+		{
+			name: "zero reward epoch",
+			mutate: func(p *types.Params) {
+				p.BlocksPerRewardEpoch = 0
+			},
+		},
+		{
+			name: "non-numeric block reward",
+			mutate: func(p *types.Params) {
+				p.BlockReward = "not-an-integer"
+			},
+		},
+		{
+			name: "empty reward above 100 percent",
+			mutate: func(p *types.Params) {
+				p.EmptyBlockRewardRate = 10_001
+			},
+		},
+		{
+			name: "clawback above 100 percent",
+			mutate: func(p *types.Params) {
+				p.ReleasedClawbackRate = 10_001
+			},
+		},
+		{
+			name: "knowledge floor above 100 percent",
+			mutate: func(p *types.Params) {
+				p.KnowledgeCouplingFloorBps = 1_000_001
+			},
+		},
+		{
+			name: "overflow-shaped revenue component",
+			mutate: func(p *types.Params) {
+				p.RevenueSplit.ContributorBps = ^uint64(0)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ms, k, ctx := setupMsgServer(t)
+			before := k.GetParams(ctx)
+			proposed := types.DefaultParams()
+			tt.mutate(proposed)
+
+			if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+				Authority: "authority",
+				Params:    proposed,
+			}); err == nil {
+				t.Fatal("expected invalid params to be rejected")
+			}
+
+			after := k.GetParams(ctx)
+			if after.BlocksPerRewardEpoch != before.BlocksPerRewardEpoch ||
+				after.BlockReward != before.BlockReward ||
+				after.EmptyBlockRewardRate != before.EmptyBlockRewardRate ||
+				after.ReleasedClawbackRate != before.ReleasedClawbackRate ||
+				after.KnowledgeCouplingFloorBps != before.KnowledgeCouplingFloorBps ||
+				after.RevenueSplit.ContributorBps != before.RevenueSplit.ContributorBps {
+				t.Fatal("rejected parameter update mutated keeper state")
+			}
+		})
+	}
+}
+
+func TestUpdateParamsRejectsNilParams(t *testing.T) {
+	ms, _, ctx := setupMsgServer(t)
+	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "authority",
+		Params:    nil,
+	}); err == nil {
+		t.Fatal("expected nil params to be rejected")
+	}
+}
+
 func TestFounderShareGovernance(t *testing.T) {
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	otherAddr := sdk.AccAddress("another_founder_____").String()
 
 	tests := []struct {
-		name        string
-		initialBps  uint64
-		initialAddr string
-		proposedBps uint64
+		name         string
+		initialBps   uint64
+		initialAddr  string
+		proposedBps  uint64
 		proposedAddr string
-		wantErr     error
+		wantErr      error
 	}{
 		{
-			name:        "lower share accepted",
-			initialBps:  70000,
-			initialAddr: founderAddr,
-			proposedBps: 50000,
+			name:         "lower share accepted",
+			initialBps:   70000,
+			initialAddr:  founderAddr,
+			proposedBps:  50000,
 			proposedAddr: founderAddr,
 		},
 		{
-			name:        "zero share accepted",
-			initialBps:  70000,
-			initialAddr: founderAddr,
-			proposedBps: 0,
+			name:         "zero share accepted",
+			initialBps:   70000,
+			initialAddr:  founderAddr,
+			proposedBps:  0,
 			proposedAddr: founderAddr,
 		},
 		{
-			name:        "restore share to founding cap accepted",
-			initialBps:  0,
-			initialAddr: founderAddr,
-			proposedBps: types.FounderShareCapBps,
+			name:         "restore share to founding cap accepted",
+			initialBps:   0,
+			initialAddr:  founderAddr,
+			proposedBps:  types.FounderShareCapBps,
 			proposedAddr: founderAddr,
 		},
 		{
-			name:        "identical values accepted",
-			initialBps:  70000,
-			initialAddr: founderAddr,
-			proposedBps: 70000,
+			name:         "identical values accepted",
+			initialBps:   70000,
+			initialAddr:  founderAddr,
+			proposedBps:  70000,
 			proposedAddr: founderAddr,
 		},
 		{
-			name:        "initial set accepted",
-			initialBps:  0,
-			initialAddr: "",
-			proposedBps: 70000,
+			name:         "initial set accepted",
+			initialBps:   0,
+			initialAddr:  "",
+			proposedBps:  70000,
 			proposedAddr: founderAddr,
 		},
 		{
-			name:        "raise above founding cap rejected",
-			initialBps:  70000,
-			initialAddr: founderAddr,
-			proposedBps: types.FounderShareCapBps + 1,
+			name:         "raise above founding cap rejected",
+			initialBps:   70000,
+			initialAddr:  founderAddr,
+			proposedBps:  types.FounderShareCapBps + 1,
 			proposedAddr: founderAddr,
-			wantErr:     types.ErrFounderShareCapExceeded,
+			wantErr:      types.ErrFounderShareCapExceeded,
 		},
 		{
-			name:        "raise above cap from zeroed share rejected",
-			initialBps:  0,
-			initialAddr: founderAddr,
-			proposedBps: 80000,
+			name:         "raise above cap from zeroed share rejected",
+			initialBps:   0,
+			initialAddr:  founderAddr,
+			proposedBps:  80000,
 			proposedAddr: founderAddr,
-			wantErr:     types.ErrFounderShareCapExceeded,
+			wantErr:      types.ErrFounderShareCapExceeded,
 		},
 		{
-			name:        "address change rejected",
-			initialBps:  70000,
-			initialAddr: founderAddr,
-			proposedBps: 70000,
+			name:         "address change rejected",
+			initialBps:   70000,
+			initialAddr:  founderAddr,
+			proposedBps:  70000,
 			proposedAddr: otherAddr,
-			wantErr:     types.ErrFounderAddressImmutable,
+			wantErr:      types.ErrFounderAddressImmutable,
 		},
 		{
-			name:        "address change alongside share lowering rejected",
-			initialBps:  70000,
-			initialAddr: founderAddr,
-			proposedBps: 10000,
+			name:         "address change alongside share lowering rejected",
+			initialBps:   70000,
+			initialAddr:  founderAddr,
+			proposedBps:  10000,
 			proposedAddr: otherAddr,
-			wantErr:     types.ErrFounderAddressImmutable,
+			wantErr:      types.ErrFounderAddressImmutable,
 		},
 	}
 
@@ -2025,9 +2205,9 @@ func TestBeginBlock_UnresolvableProposerSkipsReward(t *testing.T) {
 	}
 }
 
-func TestNoGovernanceSunset(t *testing.T) {
-	// Governance sunset was removed. isFounderShareActive returns true regardless
-	// of block height when founder address is set.
+func TestNoAutomaticHeightSunset(t *testing.T) {
+	// The deprecated height does not create an automatic sunset. This test does
+	// not constrain governance's separate ability to change FounderShareBps.
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 
@@ -2124,16 +2304,19 @@ func TestQueryFounderShareStatus_Inactive(t *testing.T) {
 
 // ─── SupplyCouplingAudit (L0 thesis metric) ──────────────────────────────
 
-// stubKnowledgeKeeper returns a configurable verification rate for the audit,
-// and a configurable set of disproven fact ids for the falsification gate.
+// stubKnowledgeKeeper exposes independently configurable legacy acceptance and
+// survived-challenge rates plus disproven fact IDs.
 type stubKnowledgeKeeper struct {
-	rate      uint64
-	disproven map[string]bool
+	rate         uint64
+	survivedRate uint64
+	disproven    map[string]bool
 }
 
 func (s *stubKnowledgeKeeper) GetVerificationRate(_ context.Context) uint64 { return s.rate }
 
-func (s *stubKnowledgeKeeper) GetSurvivedChallengeRate(_ context.Context) uint64 { return s.rate }
+func (s *stubKnowledgeKeeper) GetSurvivedChallengeRate(_ context.Context) uint64 {
+	return s.survivedRate
+}
 
 func (s *stubKnowledgeKeeper) IsFactDisproven(_ context.Context, factID string) bool {
 	return s.disproven[factID]
@@ -2166,7 +2349,7 @@ func TestQuerySupplyCouplingAudit_RateAboveTarget(t *testing.T) {
 	sk := &mockStakingKeeper{activeCount: 22}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
 
-	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{rate: 850_000}) // above 70% target
+	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{rate: 850_000, survivedRate: 850_000}) // above 70% target
 	qs := keeper.NewQueryServerImpl(k)
 
 	resp, err := qs.SupplyCouplingAudit(ctx, &types.QuerySupplyCouplingAuditRequest{})
@@ -2189,8 +2372,8 @@ func TestQuerySupplyCouplingAudit_RateBelowTarget(t *testing.T) {
 	sk := &mockStakingKeeper{activeCount: 22}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
 
-	// Verification rate 350k, target 700k → multiplier = 500k (at floor).
-	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{rate: 350_000})
+	// Survival rate 350k, target 700k → multiplier = 500k (at floor).
+	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{rate: 350_000, survivedRate: 350_000})
 	qs := keeper.NewQueryServerImpl(k)
 
 	resp, err := qs.SupplyCouplingAudit(ctx, &types.QuerySupplyCouplingAuditRequest{})
@@ -2204,6 +2387,36 @@ func TestQuerySupplyCouplingAudit_RateBelowTarget(t *testing.T) {
 	}
 }
 
+func TestQuerySupplyCouplingAudit_UsesSurvivalRateForAppliedMultiplier(t *testing.T) {
+	bk := newMockBankKeeper()
+	k, ctx := setupKeeperWithBank(t, bk, &mockStakingKeeper{activeCount: 22})
+	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{
+		rate:         850_000,
+		survivedRate: 350_000,
+	})
+
+	resp, err := keeper.NewQueryServerImpl(k).SupplyCouplingAudit(
+		ctx,
+		&types.QuerySupplyCouplingAuditRequest{},
+	)
+	if err != nil {
+		t.Fatalf("SupplyCouplingAudit failed: %v", err)
+	}
+	if resp.VerificationRateBps != 850_000 {
+		t.Fatalf("legacy verification rate = %d, want 850000", resp.VerificationRateBps)
+	}
+	if resp.SurvivedChallengeRateBps != 350_000 {
+		t.Fatalf("survival rate = %d, want 350000", resp.SurvivedChallengeRateBps)
+	}
+	if resp.EffectiveCouplingMultiplierBps != resp.KnowledgeCouplingFloorBps {
+		t.Fatalf(
+			"multiplier must follow survival rate: got %d, floor %d",
+			resp.EffectiveCouplingMultiplierBps,
+			resp.KnowledgeCouplingFloorBps,
+		)
+	}
+}
+
 // ==================== Custom RevenueSplit Params Test ====================
 
 func TestDistributeRevenue_CustomSplit(t *testing.T) {
@@ -2213,7 +2426,7 @@ func TestDistributeRevenue_CustomSplit(t *testing.T) {
 		ContributorBps: 400000,
 		ProtocolBps:    300000,
 		ResearchBps:    200000,
-		DevelopmentBps:        100000,
+		DevelopmentBps: 100000,
 	}
 	gs.Params.ProtocolSubSplit = &commontypes.ProtocolSubSplit{
 		CitationBps:     600000,

@@ -22,11 +22,10 @@ const (
 )
 
 // PinnedSubCreed is the on-chain record that anchors a per-phase
-// sub-creed at a specific version. The on-chain history is append-only
-// (commitment 10): amendments produce new versions; prior versions
-// remain queryable. At Phase 0, the genesis state contains the
-// inception pins for the 8 non-Knowledge phases; subsequent amendments
-// are gov-LIP-driven and land in Phase 1+.
+// sub-creed at a specific version. Phase 0 can accept pins explicitly
+// supplied by a genesis ceremony, but default and published genesis states
+// are empty. Post-genesis amendment messages and historical-pin queries are
+// not implemented.
 type PinnedSubCreed struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// phase is the LifecyclePhase value (0..8). Knowledge (1) is not
@@ -44,8 +43,8 @@ type PinnedSubCreed struct {
 	// anchored_at_block is the height at which this pin was recorded.
 	// 0 for the genesis pin (no block at genesis).
 	AnchoredAtBlock uint64 `protobuf:"varint,5,opt,name=anchored_at_block,json=anchoredAtBlock,proto3" json:"anchored_at_block,omitempty"`
-	// source_lip references the gov LIP that caused this pin (empty for
-	// genesis pins; required post-genesis per S2 / commitment 19).
+	// source_lip is reserved for a future post-genesis amendment path.
+	// It is empty on ceremony-supplied genesis pins.
 	SourceLip string `protobuf:"bytes,6,opt,name=source_lip,json=sourceLip,proto3" json:"source_lip,omitempty"`
 	// commitment_codes is the ordered list of commitment codes pinned
 	// at this version (e.g., ["F1", "F2", "F3"] for the inception

@@ -109,9 +109,10 @@ export interface Params {
      */
     bootstrapRegistrar: string;
     /**
-     * bootstrap_emission_cap_uzrn is the lifetime cap on total bootstrap
-     * issuance: (bootstrap entries ever created) x 222,000 uzrn must never
-     * exceed this value. Applies to gov-authority AND registrar admissions.
+     * bootstrap_emission_cap_uzrn is the shared lifetime commitment cap for
+     * bootstrap entries and legacy general pots. Every pot is charged
+     * ceil(total_amount / 222,000) fixed-size units. Applies to governance and
+     * registrar admissions.
      */
     bootstrapEmissionCapUzrn: string;
     /**

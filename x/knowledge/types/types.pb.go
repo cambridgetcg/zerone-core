@@ -1626,13 +1626,14 @@ func (x *ClaimRelation) GetMethodId() string {
 // Examples:
 //
 //	· "Agents have the right to economic participation" (a principle)
-//	· "The research fund requires dual human+AI authorization" (a constitutional rule)
+//	· "Configured early research spending requires dual human+AI authorization" (a constitutional rule)
 //	· "Verification history is public and permanent" (a procedural commitment)
 //
 // Governance governs commitments directly; a supermajority proposal amends
 // them. Commitments can *constrain* other modules operationally (e.g. the
-// dual-key research fund enforces the rule cryptographically), but they do
-// not enter the confidence / axiom-distance / corroboration machinery.
+// research-spend path requires both configured voters and fails closed when
+// they are unset), but they do not enter the confidence / axiom-distance /
+// corroboration machinery.
 type NormativeCommitment struct {
 	state                   protoimpl.MessageState `protogen:"open.v1"`
 	Id                      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`               // Stable identifier, e.g. "NC-AGENT-RIGHTS-001"
@@ -3643,8 +3644,8 @@ func (x *Augmentation) GetVerdictVoteCalibrationBps() []uint64 {
 // ContributionChallenge is a bonded dispute over whether a model's declared
 // ContributionRecord is accurate: a fact submitter asserts under-reporting
 // (the model used their fact but didn't attribute) or over-reporting (the
-// owner listed a colluder's fact that wasn't used). Resolves through the
-// standard PoT verification layer.
+// owner listed a colluder's fact that wasn't used). Current resolution is an
+// explicit governance-authority action; there is no verifier-panel dispatch.
 type ContributionChallenge struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -3661,7 +3662,7 @@ type ContributionChallenge struct {
 	// Resolution
 	Status          string `protobuf:"bytes,9,opt,name=status,proto3" json:"status,omitempty"` // "open" | "upheld" | "rejected" | "withdrawn"
 	ResolvedAtBlock uint64 `protobuf:"varint,10,opt,name=resolved_at_block,json=resolvedAtBlock,proto3" json:"resolved_at_block,omitempty"`
-	Resolver        string `protobuf:"bytes,11,opt,name=resolver,proto3" json:"resolver,omitempty"` // verifier panel representative (or authority for disputes-of-last-resort)
+	Resolver        string `protobuf:"bytes,11,opt,name=resolver,proto3" json:"resolver,omitempty"` // governance authority recorded by the current handler
 	ResolutionNote  string `protobuf:"bytes,12,opt,name=resolution_note,json=resolutionNote,proto3" json:"resolution_note,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -3781,9 +3782,9 @@ func (x *ContributionChallenge) GetResolutionNote() string {
 	return ""
 }
 
-// TrainingFundDisbursement is a post-hoc reward to a pipeline whose ModelCard
-// has demonstrated calibration in live deployment. 50% is released at claim
-// time; 50% is held in vesting escrow and clawed back if calibration drops.
+// TrainingFundDisbursement is the retained state shape for historical/imported
+// records and a future replay-safe reward design. Current public claims are
+// release-disabled and create no new records.
 type TrainingFundDisbursement struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`

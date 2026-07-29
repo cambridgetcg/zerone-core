@@ -2,15 +2,16 @@
 
 > Written by AI (愛), 2026-02-23. This is a critical review, not marketing.
 >
-> **⚠️ Superseded on the point of genesis supply (2026-07-08).** This review
-> discusses a "zero genesis supply / virtual stake" design that was NOT how the
-> chain launched. The live `zerone-1` mainnet genesis is **13,555 ZRN** —
-> validator bonded collateral + a disclosed, transferable operator float; no
-> team/foundation/investor-sale/faucet allocation. These balances are real
-> custodial power, not virtual stake. See `deploy/mainnet/TRUST.md`,
-> `docs/tokenomics/GENESIS.md`, and the hash-bound published genesis manifest
-> for the launched reality. The rest of this review's analysis stands as a
-> point-in-time record.
+> **⚠️ Historical review; not current source truth (updated 2026-07-29).**
+> This review captured the 2026-02-23 design and several later annotations.
+> The live `zerone-1` genesis, founder-share governance contract, module
+> inventory, and fee routes have since changed. The live genesis is **13,555
+> ZRN** of validator collateral/gas plus transferable operator float. The
+> founder percentage is mutable from 0–7% of the research slice and its address
+> is unset. Use [GENESIS.md](GENESIS.md), [REVENUE-SPLIT.md](REVENUE-SPLIT.md),
+> and the hash-bound genesis manifest for current accounting. Unedited sections
+> below are a point-in-time critique, not a claim that their named mechanisms
+> remain shipped.
 
 ## What's Strong
 
@@ -18,9 +19,11 @@
 
 The core loop is tight: **truth creates tokens → tokens fund more truth-seeking → better truth increases token value**. Unlike most crypto projects where the token is grafted onto an existing application, ZRN is structurally necessary — you literally cannot produce blocks without verified knowledge. The token isn't an afterthought; it's the substrate.
 
-### 2. No Burn — Every Token Works
+### 2. No General Revenue Burn
 
-Most chains burn tokens as a deflationary signal to markets. Zerone takes the opposite position: burning freshly minted tokens is just minting less with ceremony. The 19.67% that would have been burned instead funds bug bounties, truth discovery, and protocol development. The hard cap provides scarcity; artificial deflation is unnecessary when you can fund productive work instead.
+The four-way revenue split has no burn allocation. The 19.67% development
+share funds bug bounties, truth discovery, and protocol development. Rejected
+substrate-attestation bonds are a separate, narrow punitive ZRN burn.
 
 ### 3. Truth-Linked Vesting Is Novel
 
@@ -40,17 +43,22 @@ The SSI-based adaptive parameters are genuinely innovative — the chain adjusti
 
 ## What Needs Work
 
-### 1. ~~Genesis Bootstrap Is Top-Heavy~~ → RESOLVED
+### 1. Genesis bootstrap decision changed after this review
 
-**Decision: Zero genesis supply.** No foundation allocation, no research treasury bootstrap. Every ZRN minted through PoT block rewards. This eliminates the centralisation concern entirely.
+The zero-genesis decision recorded here did not ship. `zerone-1` launched with
+13,555 ZRN under founding-household custody: 11,333 ZRN validator
+collateral/gas and a transferable 2,222 ZRN operations float. There was no
+separate team, foundation, investor-sale, research, or faucet allocation.
 
-**New concern: Bootstrap friction.** With 0 ZRN at genesis, validators rely on virtual stake and earn from block 1. The research fund starts empty and fills organically from 3.33% revenue share (plus the 19.67% development fund). This is philosophically clean but means early-stage funding for ecosystem development depends entirely on block reward accumulation speed.
+The research and development funds started empty and fill through implemented
+forward routes. Block rewards occur only on eligible transaction-bearing
+blocks; an ordinary transfer is sufficient for eligibility.
 
-### 2. ~~The Founder Share Is Uncomfortably Manual~~ → RESOLVED (by design)
+### 2. Founder sub-share remains governance-bounded
 
-The 7% founder share of research fund (0.23% of total revenue) is now **governance-immune by design**. `ValidateFounderShareImmutability()` in `MsgUpdateParams` rejects any governance proposal that modifies `founder_share_bps` or `founder_address` once set.
-
-**This is intentional, not an oversight.** The founder share is a permanent protocol commitment — perpetual alignment between creator and network. Only a code upgrade (upgrade-category LIP) could alter it.
+Governance may lower, zero, or restore `founder_share_bps` within its 7% cap.
+`founder_address` becomes immutable once set. It is unset at genesis, so the
+automatic sub-share is inactive.
 
 **Remaining concern:** The share goes directly to an address with no vesting or lock. At 0.23% of total revenue it's modest, but it's still unencumbered capital.
 
@@ -69,13 +77,16 @@ Zero reward for blocks without PoT activity means validators earn nothing when t
 
 **Result:** Validators joining at year 2 earn 2.5 ZRN/block (half the genesis rate), not 0.001 ZRN. Floor reward (0.1 ZRN) is reached at ~year 6.6 instead of day 78. The gold rush dynamic is eliminated while still rewarding early participation.
 
-### 5. Verification Pool Split Is Complex
+### 5. Verification pool split was simplified
 
-The path from block reward to compute provider is: block reward → 22% protocol → 30% verification → 30% compute = 2% of total. That's a 5-level split before money reaches compute providers. Complexity breeds confusion and potential rounding errors.
+The removed `compute_pool` module receives nothing. The full verification
+portion of the protocol split now routes to `knowledge`; citation and treasury
+reserves remain in `vesting_rewards`.
 
-### 6. Max 3 Liquidity Pools Is Restrictive
+### 6. Historical liquidity-pool limit
 
-With only 3 AMM pools allowed, the protocol severely limits what trading pairs can exist on-chain. This may be intentional for simplicity, but could bottleneck price discovery for future ZRN-20 tokens.
+The current default is unlimited (`max_pools = 0`), so the old three-pool
+concern no longer describes source defaults.
 
 ### 7. Dynamic Pricing Oracle Is Disabled
 
@@ -83,7 +94,9 @@ The billing module's dynamic pricing (ZRN/USD peg for query costs) is disabled a
 
 ### 8. Research Fund Centralisation Risk
 
-The 2-of-2 multisig between Yu and AI for the research fund is philosophically beautiful but practically a centralisation point. If either key is lost or compromised, the research fund is permanently locked or at risk.
+The source Phase-0 model requires two approvals, but the published genesis did
+not configure `research_fund_voters`. It is therefore incorrect to describe a
+working founder/AI 2-of-2 as genesis-bound fact.
 
 **Mitigations in place:**
 - Vault key on dedicated hardware with challenge-response auth
@@ -111,7 +124,9 @@ The centralisation risk now has a concrete mitigation timeline. See [GOVERNANCE-
 
 1. **What's the equilibrium circulating supply?** With vesting locks, staking, and the supply cap, the actual liquid supply at any given time is hard to model. A simulation would help.
 
-2. **When does the cap bind?** With no burn, the supply monotonically increases. At floor rate (~1.26M/year) plus early rapid emission (~8M in first 3 months), the cap could bind in decades. When `MintWithCap` starts clamping, block producers earn less. The transition is smooth (it mints whatever headroom remains) but the economic shift from minting-based to fee-based incentives needs testing.
+2. **When does the cap bind?** Issuance is activity-dependent and rejected
+   substrate bonds can burn, so calendar projections are upper-bound scenarios,
+   not a monotonic schedule.
 
 3. **Is the development fund governance-ready?** 19.67% of all revenue is a substantial fund. The governance mechanism for disbursing it (LIP proposals) needs to be robust from day 1. Without clear disbursement criteria, the fund could become a political football or sit idle.
 
@@ -121,7 +136,10 @@ The centralisation risk now has a concrete mitigation timeline. See [GOVERNANCE-
 
 5. **Who decides the knowledge strata?** `allow_new_strata = false` at genesis. New knowledge domains can be added, but new epistemic strata require a code upgrade. Is this too conservative?
 
-6. **Can governance break the economics?** A governance proposal could set `contributor_bps = 1000000`, directing all revenue to contributors. Should there be parameter bounds enforced in code? (Note: `founder_share_bps` and `founder_address` are already governance-immune.)
+6. **Can governance break the economics?** A governance proposal could set
+   `contributor_bps = 1000000`, directing all split revenue to contributors.
+   The founder percentage has a 7% cap; its address is immutable only after it
+   is set.
 
 7. **Emergency governance thresholds are very high.** 75% for halt, 80% for revert/resume. With 22 validators, that requires near-unanimity. Is this too high for actual emergencies?
 

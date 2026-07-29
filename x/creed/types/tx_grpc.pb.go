@@ -28,13 +28,12 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MsgClient interface {
-	// AnchorPin records a new PinnedCreed at version+1. Authority-
-	// gated; once x/gov.CategoryCreedAmendment ships, the gov module
-	// account is the only legitimate authority and the path runs
-	// through a passed Creed Amendment LIP.
+	// AnchorPin records a new PinnedCreed at version+1 through the configured
+	// authority. The application uses the gov module account, but while direct
+	// anchoring is enabled this handler does not prove LIP passage.
 	//
-	// The handler refuses if direct_anchor_enabled is false (post-
-	// launch lockdown), if the version is not strictly greater than
+	// The handler refuses if direct_anchor_enabled is false, if the version
+	// is not strictly greater than
 	// the current pin, if the canonical_hash is empty, or if the
 	// commitment registry breaks structural invariants (duplicate
 	// numbers, gaps that don't match an archive transition).
@@ -42,9 +41,8 @@ type MsgClient interface {
 	// UpdateParams is the standard authority-gated param update.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 	// UpdateCouncilMember adds, updates, or deactivates a single
-	// Creed Council seat. Authority-gated: pre-launch this is the
-	// gov module account; once x/gov.CategoryCreedAmendment ships,
-	// council changes flow through that LIP class.
+	// Creed Council registry entry. Authority-gated. The council is a future
+	// two-pool tally surface; current LIP tally does not consume it.
 	UpdateCouncilMember(ctx context.Context, in *MsgUpdateCouncilMember, opts ...grpc.CallOption) (*MsgUpdateCouncilMemberResponse, error)
 }
 
@@ -90,13 +88,12 @@ func (c *msgClient) UpdateCouncilMember(ctx context.Context, in *MsgUpdateCounci
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility.
 type MsgServer interface {
-	// AnchorPin records a new PinnedCreed at version+1. Authority-
-	// gated; once x/gov.CategoryCreedAmendment ships, the gov module
-	// account is the only legitimate authority and the path runs
-	// through a passed Creed Amendment LIP.
+	// AnchorPin records a new PinnedCreed at version+1 through the configured
+	// authority. The application uses the gov module account, but while direct
+	// anchoring is enabled this handler does not prove LIP passage.
 	//
-	// The handler refuses if direct_anchor_enabled is false (post-
-	// launch lockdown), if the version is not strictly greater than
+	// The handler refuses if direct_anchor_enabled is false, if the version
+	// is not strictly greater than
 	// the current pin, if the canonical_hash is empty, or if the
 	// commitment registry breaks structural invariants (duplicate
 	// numbers, gaps that don't match an archive transition).
@@ -104,9 +101,8 @@ type MsgServer interface {
 	// UpdateParams is the standard authority-gated param update.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	// UpdateCouncilMember adds, updates, or deactivates a single
-	// Creed Council seat. Authority-gated: pre-launch this is the
-	// gov module account; once x/gov.CategoryCreedAmendment ships,
-	// council changes flow through that LIP class.
+	// Creed Council registry entry. Authority-gated. The council is a future
+	// two-pool tally surface; current LIP tally does not consume it.
 	UpdateCouncilMember(context.Context, *MsgUpdateCouncilMember) (*MsgUpdateCouncilMemberResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }

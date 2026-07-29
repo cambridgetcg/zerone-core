@@ -28,51 +28,54 @@ type Params struct {
 	// ─── Core verification ───────────────────────────────────────────────────
 	MinVerifiers           uint64 `protobuf:"varint,1,opt,name=min_verifiers,json=minVerifiers,proto3" json:"min_verifiers,omitempty"`                                 // default: 3
 	MaxVerifiers           uint64 `protobuf:"varint,2,opt,name=max_verifiers,json=maxVerifiers,proto3" json:"max_verifiers,omitempty"`                                 // default: 22
-	CommitPhaseBlocks      uint64 `protobuf:"varint,3,opt,name=commit_phase_blocks,json=commitPhaseBlocks,proto3" json:"commit_phase_blocks,omitempty"`                // default: 4
-	RevealPhaseBlocks      uint64 `protobuf:"varint,4,opt,name=reveal_phase_blocks,json=revealPhaseBlocks,proto3" json:"reveal_phase_blocks,omitempty"`                // default: 4
-	AggregationPhaseBlocks uint64 `protobuf:"varint,5,opt,name=aggregation_phase_blocks,json=aggregationPhaseBlocks,proto3" json:"aggregation_phase_blocks,omitempty"` // default: 3
+	CommitPhaseBlocks      uint64 `protobuf:"varint,3,opt,name=commit_phase_blocks,json=commitPhaseBlocks,proto3" json:"commit_phase_blocks,omitempty"`                // default: 200
+	RevealPhaseBlocks      uint64 `protobuf:"varint,4,opt,name=reveal_phase_blocks,json=revealPhaseBlocks,proto3" json:"reveal_phase_blocks,omitempty"`                // default: 200
+	AggregationPhaseBlocks uint64 `protobuf:"varint,5,opt,name=aggregation_phase_blocks,json=aggregationPhaseBlocks,proto3" json:"aggregation_phase_blocks,omitempty"` // default: 50
 	ClaimCooldownBlocks    uint64 `protobuf:"varint,6,opt,name=claim_cooldown_blocks,json=claimCooldownBlocks,proto3" json:"claim_cooldown_blocks,omitempty"`          // default: 50
 	// ─── Confidence scoring ──────────────────────────────────────────────────
-	InitialConfidence              uint64 `protobuf:"varint,7,opt,name=initial_confidence,json=initialConfidence,proto3" json:"initial_confidence,omitempty"`                                            // default: 500,000 (50%)
-	ConfidenceBoostPerVerification uint64 `protobuf:"varint,8,opt,name=confidence_boost_per_verification,json=confidenceBoostPerVerification,proto3" json:"confidence_boost_per_verification,omitempty"` // default: 50,000  (5%)
+	InitialConfidence              uint64 `protobuf:"varint,7,opt,name=initial_confidence,json=initialConfidence,proto3" json:"initial_confidence,omitempty"`                                            // compatibility-only; not read; runtime-immutable
+	ConfidenceBoostPerVerification uint64 `protobuf:"varint,8,opt,name=confidence_boost_per_verification,json=confidenceBoostPerVerification,proto3" json:"confidence_boost_per_verification,omitempty"` // compatibility-only; not read; runtime-immutable
 	ConfidenceThreshold            uint64 `protobuf:"varint,9,opt,name=confidence_threshold,json=confidenceThreshold,proto3" json:"confidence_threshold,omitempty"`                                      // default: 770,000 (77%) acceptance
-	QuorumThreshold                uint64 `protobuf:"varint,10,opt,name=quorum_threshold,json=quorumThreshold,proto3" json:"quorum_threshold,omitempty"`                                                 // default: 660,000 (66%)
-	// ─── Slashing — MUST be non-zero (B22-3 audit) ──────────────────────────
+	QuorumThreshold                uint64 `protobuf:"varint,10,opt,name=quorum_threshold,json=quorumThreshold,proto3" json:"quorum_threshold,omitempty"`                                                 // compatibility-only; not read; runtime-immutable
+	// ─── Verifier slashing ──────────────────────────────────────────────────
 	WrongVerificationSlashBps uint64 `protobuf:"varint,11,opt,name=wrong_verification_slash_bps,json=wrongVerificationSlashBps,proto3" json:"wrong_verification_slash_bps,omitempty"` // default: 50,000  (5%)
 	MissedRevealSlashBps      uint64 `protobuf:"varint,12,opt,name=missed_reveal_slash_bps,json=missedRevealSlashBps,proto3" json:"missed_reveal_slash_bps,omitempty"`                // default: 100,000 (10%)
-	EquivocationSlashBps      uint64 `protobuf:"varint,13,opt,name=equivocation_slash_bps,json=equivocationSlashBps,proto3" json:"equivocation_slash_bps,omitempty"`                  // default: 200,000 (20%)
-	InvalidClaimSlashBps      uint64 `protobuf:"varint,14,opt,name=invalid_claim_slash_bps,json=invalidClaimSlashBps,proto3" json:"invalid_claim_slash_bps,omitempty"`                // DEPRECATED (R19-6): no longer used — review fee is non-refundable
-	// ─── Rewards ─────────────────────────────────────────────────────────────
-	VerificationReward         string `protobuf:"bytes,15,opt,name=verification_reward,json=verificationReward,proto3" json:"verification_reward,omitempty"`                              // default: "3000000" (3 ZRN in uzrn)
-	VerificationRewardDecayBps uint64 `protobuf:"varint,16,opt,name=verification_reward_decay_bps,json=verificationRewardDecayBps,proto3" json:"verification_reward_decay_bps,omitempty"` // default: 999,000 (0.999× per epoch)
+	EquivocationSlashBps      uint64 `protobuf:"varint,13,opt,name=equivocation_slash_bps,json=equivocationSlashBps,proto3" json:"equivocation_slash_bps,omitempty"`                  // compatibility-only; not read; runtime-immutable
+	InvalidClaimSlashBps      uint64 `protobuf:"varint,14,opt,name=invalid_claim_slash_bps,json=invalidClaimSlashBps,proto3" json:"invalid_claim_slash_bps,omitempty"`                // DEPRECATED; no longer used; runtime-immutable
+	// ─── Compatibility-only reward metadata ─────────────────────────────────
+	// Round payout divides the 55% review-fee pool and does not use these values.
+	// Runtime updates must preserve them.
+	VerificationReward         string `protobuf:"bytes,15,opt,name=verification_reward,json=verificationReward,proto3" json:"verification_reward,omitempty"`
+	VerificationRewardDecayBps uint64 `protobuf:"varint,16,opt,name=verification_reward_decay_bps,json=verificationRewardDecayBps,proto3" json:"verification_reward_decay_bps,omitempty"`
 	// ─── Claim validation ────────────────────────────────────────────────────
 	MinClaimTextLength uint64 `protobuf:"varint,17,opt,name=min_claim_text_length,json=minClaimTextLength,proto3" json:"min_claim_text_length,omitempty"` // default: 20
-	MaxClaimTextLength uint64 `protobuf:"varint,18,opt,name=max_claim_text_length,json=maxClaimTextLength,proto3" json:"max_claim_text_length,omitempty"` // default: 10,000
+	MaxClaimTextLength uint64 `protobuf:"varint,18,opt,name=max_claim_text_length,json=maxClaimTextLength,proto3" json:"max_claim_text_length,omitempty"` // default: 1,000
 	MinReviewFee       string `protobuf:"bytes,19,opt,name=min_review_fee,json=minReviewFee,proto3" json:"min_review_fee,omitempty"`                      // default: "100000" (0.1 ZRN) — non-refundable review fee
 	// ─── Adversarial verification ────────────────────────────────────────────
-	AdversarialVerificationEnabled bool   `protobuf:"varint,20,opt,name=adversarial_verification_enabled,json=adversarialVerificationEnabled,proto3" json:"adversarial_verification_enabled,omitempty"` // default: true
-	ProvisionalThreshold           uint64 `protobuf:"varint,21,opt,name=provisional_threshold,json=provisionalThreshold,proto3" json:"provisional_threshold,omitempty"`                                 // default: 500,000 (50%)
-	RejectThreshold                uint64 `protobuf:"varint,22,opt,name=reject_threshold,json=rejectThreshold,proto3" json:"reject_threshold,omitempty"`                                                // default: 300,000 (30%)
+	AdversarialVerificationEnabled bool   `protobuf:"varint,20,opt,name=adversarial_verification_enabled,json=adversarialVerificationEnabled,proto3" json:"adversarial_verification_enabled,omitempty"` // compatibility-only; not a challenge gate; runtime-immutable
+	ProvisionalThreshold           uint64 `protobuf:"varint,21,opt,name=provisional_threshold,json=provisionalThreshold,proto3" json:"provisional_threshold,omitempty"`                                 // compatibility-only; not read; runtime-immutable
+	RejectThreshold                uint64 `protobuf:"varint,22,opt,name=reject_threshold,json=rejectThreshold,proto3" json:"reject_threshold,omitempty"`                                                // compatibility-only; not read; runtime-immutable
 	ChallengeDurationBlocks        uint64 `protobuf:"varint,23,opt,name=challenge_duration_blocks,json=challengeDurationBlocks,proto3" json:"challenge_duration_blocks,omitempty"`                      // default: 34,272 (1 day)
 	MinChallengeStake              string `protobuf:"bytes,24,opt,name=min_challenge_stake,json=minChallengeStake,proto3" json:"min_challenge_stake,omitempty"`                                         // default: "11000000" (11 ZRN)
-	FailedChallengeSlashBps        uint64 `protobuf:"varint,25,opt,name=failed_challenge_slash_bps,json=failedChallengeSlashBps,proto3" json:"failed_challenge_slash_bps,omitempty"`                    // default: 220,000 (22%)
+	FailedChallengeSlashBps        uint64 `protobuf:"varint,25,opt,name=failed_challenge_slash_bps,json=failedChallengeSlashBps,proto3" json:"failed_challenge_slash_bps,omitempty"`                    // compatibility-only; settlement uses fixed routing; runtime-immutable
 	SuccessfulChallengeRewardBps   uint64 `protobuf:"varint,26,opt,name=successful_challenge_reward_bps,json=successfulChallengeRewardBps,proto3" json:"successful_challenge_reward_bps,omitempty"`     // default: 300,000 (30%)
-	MaxConcurrentChallenges        uint64 `protobuf:"varint,27,opt,name=max_concurrent_challenges,json=maxConcurrentChallenges,proto3" json:"max_concurrent_challenges,omitempty"`                      // default: 3
+	MaxConcurrentChallenges        uint64 `protobuf:"varint,27,opt,name=max_concurrent_challenges,json=maxConcurrentChallenges,proto3" json:"max_concurrent_challenges,omitempty"`                      // compatibility-only; not enforced; runtime-immutable
 	// ─── Citation economics ──────────────────────────────────────────────────
-	CitationShareBps    uint64 `protobuf:"varint,28,opt,name=citation_share_bps,json=citationShareBps,proto3" json:"citation_share_bps,omitempty"`            // default: 150,000 (15%)
-	CrossDomainBonusBps uint64 `protobuf:"varint,29,opt,name=cross_domain_bonus_bps,json=crossDomainBonusBps,proto3" json:"cross_domain_bonus_bps,omitempty"` // default: 200,000 (20%)
+	CitationShareBps    uint64 `protobuf:"varint,28,opt,name=citation_share_bps,json=citationShareBps,proto3" json:"citation_share_bps,omitempty"`            // compatibility-only; not read; runtime-immutable
+	CrossDomainBonusBps uint64 `protobuf:"varint,29,opt,name=cross_domain_bonus_bps,json=crossDomainBonusBps,proto3" json:"cross_domain_bonus_bps,omitempty"` // compatibility-only; not read; runtime-immutable
 	// ─── Extended governance params ─────────────────────────────────────────
-	MaxFactsPerDomain              uint64 `protobuf:"varint,30,opt,name=max_facts_per_domain,json=maxFactsPerDomain,proto3" json:"max_facts_per_domain,omitempty"`                                        // default: 100,000
-	FactExpiryBlocks               uint64 `protobuf:"varint,31,opt,name=fact_expiry_blocks,json=factExpiryBlocks,proto3" json:"fact_expiry_blocks,omitempty"`                                             // default: 0 (no expiry)
-	CrossStratumDiscountBps        uint64 `protobuf:"varint,32,opt,name=cross_stratum_discount_bps,json=crossStratumDiscountBps,proto3" json:"cross_stratum_discount_bps,omitempty"`                      // default: 0
-	MaxValidatorsPerRound          uint64 `protobuf:"varint,34,opt,name=max_validators_per_round,json=maxValidatorsPerRound,proto3" json:"max_validators_per_round,omitempty"`                            // default: 22
+	MaxFactsPerDomain              uint64 `protobuf:"varint,30,opt,name=max_facts_per_domain,json=maxFactsPerDomain,proto3" json:"max_facts_per_domain,omitempty"`                                        // compatibility-only; not enforced; runtime-immutable
+	FactExpiryBlocks               uint64 `protobuf:"varint,31,opt,name=fact_expiry_blocks,json=factExpiryBlocks,proto3" json:"fact_expiry_blocks,omitempty"`                                             // compatibility-only; no expiry sweep reads it; runtime-immutable
+	CrossStratumDiscountBps        uint64 `protobuf:"varint,32,opt,name=cross_stratum_discount_bps,json=crossStratumDiscountBps,proto3" json:"cross_stratum_discount_bps,omitempty"`                      // compatibility-only; not read; runtime-immutable
+	MaxValidatorsPerRound          uint64 `protobuf:"varint,34,opt,name=max_validators_per_round,json=maxValidatorsPerRound,proto3" json:"max_validators_per_round,omitempty"`                            // compatibility-only; not read; runtime-immutable
 	ConfidenceGrowthEpoch          uint64 `protobuf:"varint,38,opt,name=confidence_growth_epoch,json=confidenceGrowthEpoch,proto3" json:"confidence_growth_epoch,omitempty"`                              // default: 1,111 blocks
 	ConfidenceGrowthPerEpochBps    uint64 `protobuf:"varint,39,opt,name=confidence_growth_per_epoch_bps,json=confidenceGrowthPerEpochBps,proto3" json:"confidence_growth_per_epoch_bps,omitempty"`        // default: 11,000 (1.1%)
-	MaxSurvivalConfidence          uint64 `protobuf:"varint,40,opt,name=max_survival_confidence,json=maxSurvivalConfidence,proto3" json:"max_survival_confidence,omitempty"`                              // default: 770,000 (77%)
+	MaxSurvivalConfidence          uint64 `protobuf:"varint,40,opt,name=max_survival_confidence,json=maxSurvivalConfidence,proto3" json:"max_survival_confidence,omitempty"`                              // compatibility-only; not read; runtime-immutable
 	SurvivedChallengeConfidenceCap uint64 `protobuf:"varint,41,opt,name=survived_challenge_confidence_cap,json=survivedChallengeConfidenceCap,proto3" json:"survived_challenge_confidence_cap,omitempty"` // default: 880,000 (88%)
-	MaxApprenticeValidators        uint64 `protobuf:"varint,42,opt,name=max_apprentice_validators,json=maxApprenticeValidators,proto3" json:"max_apprentice_validators,omitempty"`                        // default: 111 (Sybil cap)
-	// ─── Research fund ───────────────────────────────────────────────────────
-	ResearchFundShareBps uint64 `protobuf:"varint,49,opt,name=research_fund_share_bps,json=researchFundShareBps,proto3" json:"research_fund_share_bps,omitempty"` // default: 130,000 (13%)
+	MaxApprenticeValidators        uint64 `protobuf:"varint,42,opt,name=max_apprentice_validators,json=maxApprenticeValidators,proto3" json:"max_apprentice_validators,omitempty"`                        // compatibility-only; not enforced; runtime-immutable
+	// Compatibility-only and runtime-immutable. Review-fee routing uses a
+	// hard-coded residual ~3.33% after its other fixed shares.
+	ResearchFundShareBps uint64 `protobuf:"varint,49,opt,name=research_fund_share_bps,json=researchFundShareBps,proto3" json:"research_fund_share_bps,omitempty"`
 	// ─── Fitness scoring ─────────────────────────────────────────────────────
 	FitnessEpochBlocks       uint64 `protobuf:"varint,51,opt,name=fitness_epoch_blocks,json=fitnessEpochBlocks,proto3" json:"fitness_epoch_blocks,omitempty"`                     // Blocks per fitness epoch
 	FitnessWeightQueryBps    uint64 `protobuf:"varint,52,opt,name=fitness_weight_query_bps,json=fitnessWeightQueryBps,proto3" json:"fitness_weight_query_bps,omitempty"`          // Weight for query rate
@@ -110,7 +113,7 @@ type Params struct {
 	ReproductionChildFitnessInheritanceBps uint64 `protobuf:"varint,81,opt,name=reproduction_child_fitness_inheritance_bps,json=reproductionChildFitnessInheritanceBps,proto3" json:"reproduction_child_fitness_inheritance_bps,omitempty"` // % of parent fitness inherited by child
 	ReproductionMaxChildren                uint64 `protobuf:"varint,82,opt,name=reproduction_max_children,json=reproductionMaxChildren,proto3" json:"reproduction_max_children,omitempty"`                                                  // Max direct children per fact
 	// ─── Novelty detection ──────────────────────────────────────────────────
-	NoveltyCommonKnowledgePenaltyBps uint64 `protobuf:"varint,83,opt,name=novelty_common_knowledge_penalty_bps,json=noveltyCommonKnowledgePenaltyBps,proto3" json:"novelty_common_knowledge_penalty_bps,omitempty"` // Default penalty for common knowledge match
+	NoveltyCommonKnowledgePenaltyBps uint64 `protobuf:"varint,83,opt,name=novelty_common_knowledge_penalty_bps,json=noveltyCommonKnowledgePenaltyBps,proto3" json:"novelty_common_knowledge_penalty_bps,omitempty"` // compatibility-only; not read; runtime-immutable
 	NoveltySubjectOverlapPenaltyBps  uint64 `protobuf:"varint,84,opt,name=novelty_subject_overlap_penalty_bps,json=noveltySubjectOverlapPenaltyBps,proto3" json:"novelty_subject_overlap_penalty_bps,omitempty"`    // Penalty per existing fact with same subject
 	NoveltyPrecisionBonusBps         uint64 `protobuf:"varint,85,opt,name=novelty_precision_bonus_bps,json=noveltyPrecisionBonusBps,proto3" json:"novelty_precision_bonus_bps,omitempty"`                           // Bonus if more precise than existing
 	NoveltyCrossDomainBonusBps       uint64 `protobuf:"varint,86,opt,name=novelty_cross_domain_bonus_bps,json=noveltyCrossDomainBonusBps,proto3" json:"novelty_cross_domain_bonus_bps,omitempty"`                   // Bonus if subject spans multiple domains
@@ -124,7 +127,7 @@ type Params struct {
 	DemandTrackingEnabled     bool     `protobuf:"varint,93,opt,name=demand_tracking_enabled,json=demandTrackingEnabled,proto3" json:"demand_tracking_enabled,omitempty"`                // Enable/disable demand tracking
 	AuthorizedDemandReporters []string `protobuf:"bytes,94,rep,name=authorized_demand_reporters,json=authorizedDemandReporters,proto3" json:"authorized_demand_reporters,omitempty"`     // Addresses allowed to report demand
 	// ─── Competition (niche dynamics) ──────────────────────────────────
-	CompetitionNicheDominanceBonusBps uint64 `protobuf:"varint,95,opt,name=competition_niche_dominance_bonus_bps,json=competitionNicheDominanceBonusBps,proto3" json:"competition_niche_dominance_bonus_bps,omitempty"` // Fitness bonus for niche leader (BPS)
+	CompetitionNicheDominanceBonusBps uint64 `protobuf:"varint,95,opt,name=competition_niche_dominance_bonus_bps,json=competitionNicheDominanceBonusBps,proto3" json:"competition_niche_dominance_bonus_bps,omitempty"` // compatibility-only; not read; runtime-immutable
 	CompetitionRedundancyThresholdBps uint64 `protobuf:"varint,96,opt,name=competition_redundancy_threshold_bps,json=competitionRedundancyThresholdBps,proto3" json:"competition_redundancy_threshold_bps,omitempty"`   // Below this ratio of leader fitness = redundant (BPS)
 	CompetitionMaxNicheSize           uint64 `protobuf:"varint,97,opt,name=competition_max_niche_size,json=competitionMaxNicheSize,proto3" json:"competition_max_niche_size,omitempty"`                                 // Max facts per niche before forced pruning
 	CompetitionSymbiosisBonusBps      uint64 `protobuf:"varint,98,opt,name=competition_symbiosis_bonus_bps,json=competitionSymbiosisBonusBps,proto3" json:"competition_symbiosis_bonus_bps,omitempty"`                  // Fitness bonus per SUPPORTS link to healthy fact (BPS)
@@ -141,7 +144,7 @@ type Params struct {
 	VindicationWindowBlocks  uint64 `protobuf:"varint,106,opt,name=vindication_window_blocks,json=vindicationWindowBlocks,proto3" json:"vindication_window_blocks,omitempty"`    // How long escrowed entries are eligible (default: 100000)
 	// ─── Multi-level energy thresholds (R28-4) ──────────────────────────
 	MetabolismActiveThreshold     uint64 `protobuf:"varint,107,opt,name=metabolism_active_threshold,json=metabolismActiveThreshold,proto3" json:"metabolism_active_threshold,omitempty"`             // Energy below which fact → AT_RISK (default: 300,000 = 30%)
-	MetabolismExtinctionThreshold uint64 `protobuf:"varint,108,opt,name=metabolism_extinction_threshold,json=metabolismExtinctionThreshold,proto3" json:"metabolism_extinction_threshold,omitempty"` // Energy below which (for N epochs) → EXTINCT (default: 10,000 = 1%)
+	MetabolismExtinctionThreshold uint64 `protobuf:"varint,108,opt,name=metabolism_extinction_threshold,json=metabolismExtinctionThreshold,proto3" json:"metabolism_extinction_threshold,omitempty"` // compatibility-only; not read; runtime-immutable
 	MaxConfidence                 uint64 `protobuf:"varint,109,opt,name=max_confidence,json=maxConfidence,proto3" json:"max_confidence,omitempty"`                                                   // Hard cap on confidence (default: 880,000 = 88%)
 	// ─── Role bonuses (R28-5) ──────────────────────────────────────────────
 	HumanEmpiricalBonusBps     uint64 `protobuf:"varint,110,opt,name=human_empirical_bonus_bps,json=humanEmpiricalBonusBps,proto3" json:"human_empirical_bonus_bps,omitempty"`             // +15% confidence for human OBSERVATION claims (BPS)
@@ -170,7 +173,7 @@ type Params struct {
 	MentorshipDividendEnergy uint64 `protobuf:"varint,129,opt,name=mentorship_dividend_energy,json=mentorshipDividendEnergy,proto3" json:"mentorship_dividend_energy,omitempty"` // Energy added to domain on mentorship graduation (default: 50,000)
 	MentorshipCapacityBonus  uint64 `protobuf:"varint,130,opt,name=mentorship_capacity_bonus,json=mentorshipCapacityBonus,proto3" json:"mentorship_capacity_bonus,omitempty"`    // Carrying capacity bonus per graduation (default: 5)
 	// ─── Social verification adjustment (R31-2: Water → Fire) ──────────────
-	SocialSaturationThreshold uint64 `protobuf:"varint,131,opt,name=social_saturation_threshold,json=socialSaturationThreshold,proto3" json:"social_saturation_threshold,omitempty"` // Partnership density above which verification relaxes (default: 10)
+	SocialSaturationThreshold uint64 `protobuf:"varint,131,opt,name=social_saturation_threshold,json=socialSaturationThreshold,proto3" json:"social_saturation_threshold,omitempty"` // compatibility-only; not read; runtime-immutable
 	ObservationWindowBlocks   uint64 `protobuf:"varint,132,opt,name=observation_window_blocks,json=observationWindowBlocks,proto3" json:"observation_window_blocks,omitempty"`       // Lookback window for verification health metrics (default: 10000)
 	// ─── Consensus integrity (T1 mitigation) ────────────────────────────────
 	// Minimum distinct verifier headcount that must vote with the verdict, in
@@ -211,19 +214,23 @@ type Params struct {
 	// Disproval clawback — after a fact goes DISPROVEN, this fraction of the
 	// recent training revenue is clawed back from the submitter into the
 	// research fund.
-	DisprovalClawbackBps          uint64 `protobuf:"varint,142,opt,name=disproval_clawback_bps,json=disprovalClawbackBps,proto3" json:"disproval_clawback_bps,omitempty"`                              // default: 500,000 (50%)
-	DisprovalClawbackWindowEpochs uint64 `protobuf:"varint,143,opt,name=disproval_clawback_window_epochs,json=disprovalClawbackWindowEpochs,proto3" json:"disproval_clawback_window_epochs,omitempty"` // default: 30
+	DisprovalClawbackBps          uint64 `protobuf:"varint,142,opt,name=disproval_clawback_bps,json=disprovalClawbackBps,proto3" json:"disproval_clawback_bps,omitempty"`                              // compatibility-only; not read; runtime-immutable
+	DisprovalClawbackWindowEpochs uint64 `protobuf:"varint,143,opt,name=disproval_clawback_window_epochs,json=disprovalClawbackWindowEpochs,proto3" json:"disproval_clawback_window_epochs,omitempty"` // compatibility-only; not read; runtime-immutable
 	// Training-fund post-hoc disbursement params.
-	TrainingFundCalibrationFloorBps          uint64 `protobuf:"varint,144,opt,name=training_fund_calibration_floor_bps,json=trainingFundCalibrationFloorBps,proto3" json:"training_fund_calibration_floor_bps,omitempty"`                              // default: 500,000 (50%) — below = no disbursement
-	TrainingFundVestingEpochs                uint64 `protobuf:"varint,145,opt,name=training_fund_vesting_epochs,json=trainingFundVestingEpochs,proto3" json:"training_fund_vesting_epochs,omitempty"`                                                  // default: 60
-	TrainingFundMethodologyDiversityBonusBps uint64 `protobuf:"varint,146,opt,name=training_fund_methodology_diversity_bonus_bps,json=trainingFundMethodologyDiversityBonusBps,proto3" json:"training_fund_methodology_diversity_bonus_bps,omitempty"` // default: 100,000 per distinct method beyond 1
-	TrainingFundBaseReward                   string `protobuf:"bytes,147,opt,name=training_fund_base_reward,json=trainingFundBaseReward,proto3" json:"training_fund_base_reward,omitempty"`                                                            // default: "1000000000" (1,000 ZRN in uzrn)
+	// Retained for the release-sealed training-disbursement API; current
+	// execution returns before reading these fields. Runtime-immutable.
+	TrainingFundCalibrationFloorBps          uint64 `protobuf:"varint,144,opt,name=training_fund_calibration_floor_bps,json=trainingFundCalibrationFloorBps,proto3" json:"training_fund_calibration_floor_bps,omitempty"`
+	TrainingFundVestingEpochs                uint64 `protobuf:"varint,145,opt,name=training_fund_vesting_epochs,json=trainingFundVestingEpochs,proto3" json:"training_fund_vesting_epochs,omitempty"`
+	TrainingFundMethodologyDiversityBonusBps uint64 `protobuf:"varint,146,opt,name=training_fund_methodology_diversity_bonus_bps,json=trainingFundMethodologyDiversityBonusBps,proto3" json:"training_fund_methodology_diversity_bonus_bps,omitempty"`
+	TrainingFundBaseReward                   string `protobuf:"bytes,147,opt,name=training_fund_base_reward,json=trainingFundBaseReward,proto3" json:"training_fund_base_reward,omitempty"`
 	// Contribution challenge — challenger bond size (uzrn as string).
-	ContributionChallengeBond                string `protobuf:"bytes,148,opt,name=contribution_challenge_bond,json=contributionChallengeBond,proto3" json:"contribution_challenge_bond,omitempty"`                                                   // default: "5000000" (5 ZRN)
-	ContributionChallengeRewardMultiplierBps uint64 `protobuf:"varint,149,opt,name=contribution_challenge_reward_multiplier_bps,json=contributionChallengeRewardMultiplierBps,proto3" json:"contribution_challenge_reward_multiplier_bps,omitempty"` // default: 2,000,000 (winner takes bond × 2)
+	ContributionChallengeBond string `protobuf:"bytes,148,opt,name=contribution_challenge_bond,json=contributionChallengeBond,proto3" json:"contribution_challenge_bond,omitempty"` // default: "5000000" (5 ZRN)
+	// Compatibility-only; reward minting is disabled until a replay-safe,
+	// one-shot entitlement exists. Runtime updates must preserve this field.
+	ContributionChallengeRewardMultiplierBps uint64 `protobuf:"varint,149,opt,name=contribution_challenge_reward_multiplier_bps,json=contributionChallengeRewardMultiplierBps,proto3" json:"contribution_challenge_reward_multiplier_bps,omitempty"`
 	// Sponsor-veto forfeiture: if a sponsor vetoes a passing verdict, they
 	// forfeit this fraction of the variant payout to the research fund.
-	SponsorVetoForfeitBps uint64 `protobuf:"varint,150,opt,name=sponsor_veto_forfeit_bps,json=sponsorVetoForfeitBps,proto3" json:"sponsor_veto_forfeit_bps,omitempty"` // default: 1,000,000 (100% — full forfeiture)
+	SponsorVetoForfeitBps uint64 `protobuf:"varint,150,opt,name=sponsor_veto_forfeit_bps,json=sponsorVetoForfeitBps,proto3" json:"sponsor_veto_forfeit_bps,omitempty"` // compatibility-only; not read; runtime-immutable
 	// ─── Wave 14: internal-hack resilience ───────────────────────────────
 	// Upper bound on any single module pause window. Even if authority
 	// sets auto_unpause_at_block=0 (intending indefinite), the handler
@@ -248,7 +255,7 @@ type Params struct {
 	// treasury) into a dedicated pool so the chain self-sustains its own
 	// audit economy. successful-probe bonuses draw from this pool first;
 	// if the pool is empty, fall back to protocol treasury.
-	ProbeBountyMintPerBlock string `protobuf:"bytes,156,opt,name=probe_bounty_mint_per_block,json=probeBountyMintPerBlock,proto3" json:"probe_bounty_mint_per_block,omitempty"` // uzrn minted per block (default "1000000" = 1 ZRN)
+	ProbeBountyMintPerBlock string `protobuf:"bytes,156,opt,name=probe_bounty_mint_per_block,json=probeBountyMintPerBlock,proto3" json:"probe_bounty_mint_per_block,omitempty"` // cap-gated uzrn per block; default "0" (disabled)
 	ProbeBountyMaxPoolSize  string `protobuf:"bytes,157,opt,name=probe_bounty_max_pool_size,json=probeBountyMaxPoolSize,proto3" json:"probe_bounty_max_pool_size,omitempty"`    // cap on pool balance (default "1000000000000" = 1,000,000 ZRN)
 	// ─── Wave 15b: invitation bonuses ──────────────────────────────────────
 	// When a prober acts on a fact the chain has explicitly invited for
@@ -1354,14 +1361,17 @@ func (x *Params) GetAddFactVetoWindowBlocks() uint64 {
 
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
-	state                     protoimpl.MessageState      `protogen:"open.v1"`
-	Params                    *Params                     `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Facts                     []*Fact                     `protobuf:"bytes,2,rep,name=facts,proto3" json:"facts,omitempty"`
-	PendingClaims             []*Claim                    `protobuf:"bytes,3,rep,name=pending_claims,json=pendingClaims,proto3" json:"pending_claims,omitempty"`
-	ActiveRounds              []*VerificationRound        `protobuf:"bytes,4,rep,name=active_rounds,json=activeRounds,proto3" json:"active_rounds,omitempty"`
-	Domains                   []*Domain                   `protobuf:"bytes,5,rep,name=domains,proto3" json:"domains,omitempty"`
-	BootstrapFundAllocation   string                      `protobuf:"bytes,6,opt,name=bootstrap_fund_allocation,json=bootstrapFundAllocation,proto3" json:"bootstrap_fund_allocation,omitempty"` // Initial fund allocation (uzrn) — one-time genesis mint
-	CommonKnowledge           []*CommonKnowledgeEntry     `protobuf:"bytes,7,rep,name=common_knowledge,json=commonKnowledge,proto3" json:"common_knowledge,omitempty"`                           // Seeded common knowledge entries
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Facts         []*Fact                `protobuf:"bytes,2,rep,name=facts,proto3" json:"facts,omitempty"`
+	PendingClaims []*Claim               `protobuf:"bytes,3,rep,name=pending_claims,json=pendingClaims,proto3" json:"pending_claims,omitempty"`
+	ActiveRounds  []*VerificationRound   `protobuf:"bytes,4,rep,name=active_rounds,json=activeRounds,proto3" json:"active_rounds,omitempty"`
+	Domains       []*Domain              `protobuf:"bytes,5,rep,name=domains,proto3" json:"domains,omitempty"`
+	// Optional target module balance restored/minted during InitGenesis.
+	// Protocol default is "0"; deployment artifacts must disclose any nonzero
+	// allocation.
+	BootstrapFundAllocation   string                      `protobuf:"bytes,6,opt,name=bootstrap_fund_allocation,json=bootstrapFundAllocation,proto3" json:"bootstrap_fund_allocation,omitempty"`
+	CommonKnowledge           []*CommonKnowledgeEntry     `protobuf:"bytes,7,rep,name=common_knowledge,json=commonKnowledge,proto3" json:"common_knowledge,omitempty"` // Seeded common knowledge entries
 	Methodologies             []*Methodology              `protobuf:"bytes,20,rep,name=methodologies,proto3" json:"methodologies,omitempty"`
 	NormativeCommitments      []*NormativeCommitment      `protobuf:"bytes,21,rep,name=normative_commitments,json=normativeCommitments,proto3" json:"normative_commitments,omitempty"`
 	TokenizerSpec             *TokenizerSpec              `protobuf:"bytes,30,opt,name=tokenizer_spec,json=tokenizerSpec,proto3" json:"tokenizer_spec,omitempty"`                        // current

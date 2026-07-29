@@ -254,9 +254,9 @@ export interface MsgAttachCreedAmendmentPin {
   /**
    * commitments_json carries the JSON-encoded list of commitment
    * entries (number, name, archived, etc.) that the new pin should
-   * contain. The keeper unmarshals this on attach for validation
-   * and again on pass to construct the PinnedCreed argument to
-   * x/creed.AnchorPin. The shape mirrors x/creed.CommitmentEntry.
+   * contain. The gov handler unmarshals and structurally validates this on
+   * attach; the creed keeper repeats the same validation before any on-chain
+   * pin write. The shape mirrors x/creed.CommitmentEntry.
    */
   commitmentsJson: Uint8Array;
 }

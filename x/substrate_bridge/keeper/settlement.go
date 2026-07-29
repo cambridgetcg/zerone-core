@@ -285,7 +285,7 @@ func (k Keeper) finalizeSettle(
 	mechanism := "M4" // M4: reward formula R = base + L × W × Q
 	if finalStatus == types.AttestationStatus_ATTESTATION_STATUS_PARTIAL {
 		eventType = EventTypeExternalAttestationPartial
-		mechanism = "M1,M4" // M1 for slash, M4 for partial reward
+		mechanism = "M4" // partial settlement returns the full bond; no M1 slash
 	}
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		eventType,

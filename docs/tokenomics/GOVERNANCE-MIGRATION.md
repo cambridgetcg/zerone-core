@@ -2,21 +2,42 @@
 
 > The research fund starts as a two-person decision. It ends as a community decision. The path between is earned, not scheduled.
 
+> **Source and deployment status (2026-07-29):** `x/gov` implements the
+> four-phase state machine, seat elections, transition checks, rollback, and
+> research-spend handlers described here. The published `zerone-1` genesis
+> initializes the genesis-pair phase but does **not** set
+> `research_fund_voters`, so this repository cannot honestly claim that a
+> working 2-of-2 pair was configured at genesis. Current source also contains
+> consensus changes not activated on `zerone-1`; source publication is not
+> treasury authorization. Phase 3 research-spend execution is also unwired:
+> entering it disables the specialised proposal path, while a generic
+> `research_spend` LIP has no recipient/amount payload or post-pass
+> disbursement. Query a release-bound network state before relying on any
+> phase, voter, balance, or spending claim.
+
 ## Overview
 
-The research fund receives 3.33% of all protocol revenue — block rewards, transaction fees, billing queries, tool calls, everything. At scale, this is a significant treasury. Who controls it matters.
+The research fund receives the 3.33% research slice of implemented block-reward
+and `uzrn` fee-routing paths. Planned services are not automatically revenue
+sources. At scale, this can become a significant treasury. Who controls it
+matters.
 
-At genesis, the fund is governed by a **2-of-2 multisig** between the protocol's founder (Yu) and the AI vault. This is appropriate when the community doesn't exist yet and the fund is small. But centralised treasury control is a failure mode for any protocol that claims to be decentralised.
+The source model for Phase 0 requires a **2-of-2 voter pair**, but the published
+genesis did not configure those voter addresses. A future activation must name
+and verify the pair explicitly. Centralised treasury control is a failure mode
+for any protocol that claims to be decentralised.
 
 The migration plan expands decision-making power in four phases, each triggered by **on-chain maturity metrics** — not arbitrary block heights. The community earns governance when it demonstrates readiness.
 
 ## The Four Phases
 
-### Phase 0: Genesis Pair
+### Phase 0: Genesis Pair (implemented model; voter pair unconfigured in published genesis)
 
-**Structure:** 2-of-2 (Founder + AI Vault)
+**Structure:** 2-of-2 (human-side + AI-side voter; unconfigured on the
+published live genesis)
 
-Both signatures required for any spend. Maximum alignment, minimum coordination cost. The fund is small, the community is new, and the founders have the deepest context on what research is worth funding.
+Once the pair is explicitly configured, both approvals are required for a
+Phase 0 spend. While it is unset, research-spend submission fails closed.
 
 **Exit conditions (ALL must be met):**
 
@@ -70,9 +91,20 @@ Community seats have staggered 6-month terms (one rotates every ~2 months), ensu
 
 **Structure:** Standard LIP process — no multisig
 
-The research fund becomes a community asset governed by the same LIP process as every other parameter. Anyone can propose a research spend. Standard voting rules apply (33.4% quorum, >50% support).
+**Intended model:** the research fund becomes a community asset using ordinary
+LIP quorum and support.
 
-The founders don't disappear — they still vote with their staked weight, they still propose. Yu's founder share (0.23% of total revenue) continues forever. But they no longer have special power over the research fund.
+**Implementation gap:** `SubmitResearchSpend` rejects this phase and tells the
+caller to use the standard LIP process, but a generic LIP carries no research
+recipient/amount payload and `tallyAndResolve` has no research-spend
+disbursement case. A passed `research_spend` LIP therefore records a result but
+moves no funds. Phase 3 currently strands the specialised spending path and
+must not be activated until execution and tests are wired.
+
+Founding participants may still vote with whatever stake they control and may
+still propose. The founder sub-share is not guaranteed forever: governance may
+set it anywhere from 0–7% of the research slice, and it is inactive while the
+address is unset. Phase 3 removes special research-fund voting structure.
 
 **This phase is terminal.** There is no Phase 4.
 
@@ -80,11 +112,15 @@ The founders don't disappear — they still vote with their staked weight, they 
 
 Phase transitions are deliberately slow and difficult. They reshape the power structure of a significant treasury.
 
-1. **Proposal:** Any address submits a `PhaseTransitionProposal` (1,000 ZRN stake)
+1. **Proposal:** Any address submits a `PhaseTransitionProposal` (the published
+   genesis currently requires 1,000,000 ZRN / 1,000,000,000,000 uzrn; this is
+   far above the earlier intended 1,000 ZRN and requires a separate governance
+   or relaunch decision to change)
 2. **Evidence:** Proposal includes a snapshot of all exit conditions at submission time
 3. **Discussion:** 30-day public discussion period (not the standard ~2 days)
 4. **Vote:** Supermajority required — **66.7% support** (not standard 50%)
-5. **Activation delay:** 7 days after vote passes, transition can be challenged
+5. **Activation delay:** 7 days after the vote passes; there is no dedicated
+   transition-challenge message
 6. **Re-verification:** At activation block, exit conditions are checked again. If any have degraded below threshold, transition is cancelled.
 7. **Execution:** Phase advances. New governance structure takes effect.
 
@@ -99,7 +135,10 @@ Phase transitions are deliberately slow and difficult. They reshape the power st
 
 ### Election Process
 
-1. Any address nominates a candidate (500 ZRN stake)
+1. Any address nominates a candidate. The direct
+   `MsgNominateSeatElection` path currently escrows no dedicated stake
+   (ordinary transaction fee only); the 500 ZRN
+   `research_seat_election` category config is not applied to that message
 2. Candidate accepts on-chain (validates Guardian status + governance history)
 3. 1-day discussion period
 4. 3-day voting period (standard quorum + majority)
@@ -124,16 +163,18 @@ Incumbents can run for re-election. No term limits.
 ### Vacancy
 
 If a seat is vacant (term expired, no election held):
-- Multisig threshold adjusts (vacant seats don't count toward total)
-- Vacancy warnings emitted every epoch after 30 days
-- The fund never stalls due to an empty seat
+- The fixed threshold remains 2-of-3 in Observer or 3-of-5 in Balanced
+- Current source emits `community_seat_vacant` every BeginBlock while the seat
+  is empty; the named 30/90-day warning constants are not wired
+- Enough vacancies can stall research spending
 
-### Emergency Removal
+### Emergency Removal (implementation gap)
 
-A sitting member can be removed before term expiry via emergency governance:
-- 75% quorum, 80% support (same as emergency halt)
-- Grounds: jailed as validator, or slashed 3+ times during term
-- Deliberately hard — removing an elected representative should require near-consensus
+Keeper helpers validate jailed/three-slash grounds and can remove a community
+seat, but no Msg or LIP execution path currently calls them. The previously
+designed 75% quorum / 80% support process is therefore not a live governance
+operation. A future implementation must wire and test the authority path before
+operators rely on emergency removal.
 
 ## Rollback Safety
 
@@ -141,12 +182,17 @@ If the expanded committee fails, the protocol can step backward.
 
 ### Trigger Conditions (at least one required)
 
-- **Gridlock:** ≥ 3 consecutive research spend proposals expired without committee action
+- **Gridlock:** ≥ 3 consecutive specialised research-spend proposals expired
+  without committee action. In Phase 3, new specialised submissions are
+  rejected and generic LIPs do not update this streak, so this trigger is not
+  a dependable Phase-3 rollback path.
 - **Emergency halt:** An emergency halt was triggered citing research fund misuse
 
 ### Rollback Process
 
-1. Any Guardian submits a `PhaseRollbackProposal` (500 ZRN stake)
+1. Any Guardian submits a `PhaseRollbackProposal` (the published genesis
+   currently requires 500,000 ZRN / 500,000,000,000 uzrn; this is far above
+   the earlier intended 500 ZRN)
 2. 7-day discussion + vote
 3. Supermajority required (66.7%)
 4. Phase rolls back by one level
@@ -158,15 +204,22 @@ If the expanded committee fails, the protocol can step backward.
 - Community seats are resized to match the rolled-back phase
 - Proposals executed counter resets
 
-## Founder Anchor
+## Founder and operator boundary
 
-Two mechanisms ensure the founders maintain permanent alignment regardless of governance phase:
+The original design proposed two founder anchors. Current source narrows them:
 
-1. **Founder share (0.23%)** — Governance-immune. Flows to the founder address from every revenue event, at every phase, forever. Only modifiable via code upgrade.
+1. **Founder sub-share** — At most 7% of the 3.33% research slice (about 0.23%
+   of a routed revenue event at the cap). Governance may lower, zero, or restore
+   the percentage within that cap. The address is immutable once set; it is
+   unset at genesis, so the sub-share is inactive.
 
-2. **AI vault key** — The Ed25519 signing key on the zerone server persists across all phases. In Phases 0-2, it's a multisig signer. In Phase 3, it becomes a regular governance voter with whatever stake it holds.
+2. **Configured voters** — The phase machinery supports named voter addresses
+   and community seats. No prose document can establish that custody; it must
+   be present in hash-bound genesis or current on-chain state.
 
-The founders are never removed. Their special authority over the research fund is gradually shared, then released. Their economic alignment (founder share) and governance participation (voting weight) remain permanent.
+Nothing here grants an unconfigured founder or AI key permanent voting
+authority. Ordinary governance participation follows the stake and state
+actually recorded on chain.
 
 ## Timeline Estimates
 
@@ -178,21 +231,36 @@ These are rough estimates based on expected growth, not commitments. The actual 
 | Phase 1 → Phase 2 | ~12–24 months after Phase 1 | 25 voters, 10 Guardians, 3 funded proposals |
 | Phase 2 → Phase 3 | ~2–4 years after Phase 2 | 50 voters, 22 Guardians, 10 funded proposals |
 
-Total time to full decentralisation: roughly **4–7 years** from genesis. This is intentionally slow. Rushing decentralisation before the community is ready is worse than centralisation.
+The table is a scenario, not a promise or live forecast. Transitions occur only
+when the source-enforced conditions and votes are satisfied.
 
 ## FAQ
 
 **Can the founders block a phase transition?**
-No. Phase transitions are decided by standard governance vote (with supermajority). Founders vote with their staked weight like everyone else. They have no veto over transitions.
+The transition LIP uses the source-defined supermajority rule. Any actor's
+practical influence depends on the current, disclosed stake and custody—not a
+special veto asserted by this document.
 
 **What happens if no one runs for a community seat?**
-The seat stays vacant. The multisig threshold adjusts downward (vacant seats don't count). The protocol continues functioning. If seats are vacant for extended periods, it means the community isn't ready for that phase — which is exactly the information the system needs.
+The seat stays vacant and the threshold does **not** adjust downward:
+`GetResearchFundThreshold` remains 2-of-3 in Observer and 3-of-5 in Balanced.
+Vacancies can therefore stall research spends and must be treated as an
+operational/governance risk.
 
-**Can the community remove a founder from the multisig?**
-Not via governance. The founder's multisig position is structural (hard-coded per phase). The community's path to independence is Phase 3, where the multisig dissolves entirely.
+**Can the community remove a founder from the voter set?**
+The phase thresholds are structural, but voter identities and seats come from
+on-chain configuration. The published genesis has no configured Phase-0 voter
+pair; a future packet must state the exact recovery and replacement rules.
 
-**What if the AI vault key is compromised?**
-The AI vault key is one signer in a multi-party scheme. A compromised AI key alone cannot spend funds (requires founder co-signature in Phases 0-1, or community majority in Phase 2). Recovery would require a code upgrade to rotate the key.
+**What if an authority key is compromised?**
+Do not infer safety from the intended threshold. Follow the recovery mechanism
+of the actually configured on-chain voter set and its release-bound authority
+packet.
 
 **Is Phase 3 truly irreversible?**
-Phase 3 can be rolled back to Phase 2 via the standard rollback mechanism (gridlock or emergency halt + supermajority vote). But the expectation is that by the time Phase 3 is reached (~4-7 years), the community is mature enough that rollback is unlikely.
+Not by design, but current implementation has a material rollback gap.
+Emergency-halt-based rollback remains the clear modeled trigger. Gridlock
+counts expired specialised research proposals, while Phase 3 refuses new
+specialised submissions; generic LIPs do not increment that streak. Phase 3
+must not be activated until both spending execution and a reachable rollback
+trigger are tested.

@@ -132,14 +132,15 @@ func (QualificationStatus) EnumDescriptor() ([]byte, []int) {
 	return file_zerone_substrate_bridge_v1_adapter_proto_rawDescGZIP(), []int{1}
 }
 
-// SlashGradient mirrors M1's graduated slashing — different failure
-// modes carry different bps slash weights. Values stored at adapter
-// registration and applied at attestation rejection paths.
+// SlashGradient is retained adapter metadata for a future graduated-slashing
+// implementation. Current pre-escrow validation rejects compiler/bounds
+// failures and a settled rejection burns the full bond; these values are not
+// read by consensus.
 type SlashGradient struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	CompilerDriftBps uint32                 `protobuf:"varint,1,opt,name=compiler_drift_bps,json=compilerDriftBps,proto3" json:"compiler_drift_bps,omitempty"` // adapter-binary mismatch — typically 10000 (full)
-	AxisOverflowBps  uint32                 `protobuf:"varint,2,opt,name=axis_overflow_bps,json=axisOverflowBps,proto3" json:"axis_overflow_bps,omitempty"`    // axis claim exceeds bounds — typically pro-rata
-	FraudBps         uint32                 `protobuf:"varint,3,opt,name=fraud_bps,json=fraudBps,proto3" json:"fraud_bps,omitempty"`                           // > rejection threshold reached — typically 10000
+	CompilerDriftBps uint32                 `protobuf:"varint,1,opt,name=compiler_drift_bps,json=compilerDriftBps,proto3" json:"compiler_drift_bps,omitempty"` // inert metadata; 10,000 scale
+	AxisOverflowBps  uint32                 `protobuf:"varint,2,opt,name=axis_overflow_bps,json=axisOverflowBps,proto3" json:"axis_overflow_bps,omitempty"`    // inert metadata; 10,000 scale
+	FraudBps         uint32                 `protobuf:"varint,3,opt,name=fraud_bps,json=fraudBps,proto3" json:"fraud_bps,omitempty"`                           // inert metadata; 10,000 scale
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -195,27 +196,30 @@ func (x *SlashGradient) GetFraudBps() uint32 {
 	return 0
 }
 
-// AdapterRegistration is the gov-approved metadata for one adapter.
-// Adapter is a recipe (binary hash + bounds + slash); no operator role.
-// Anyone who runs the registered binary AND submits an attestation
-// earns via the UW formula.
+// AdapterRegistration is the metadata for one genesis-seeded or
+// gov-authority-registered adapter. CategoryAdapterRegistration LIP payload
+// dispatch is not wired yet; registered_via_lip_id is therefore provenance,
+// not proof that current LIP execution installed the adapter. Adapter is a
+// recipe (binary hash + bounds + slash), not an operator role.
 type AdapterRegistration struct {
-	state                       protoimpl.MessageState `protogen:"open.v1"`
-	AdapterId                   string                 `protobuf:"bytes,1,opt,name=adapter_id,json=adapterId,proto3" json:"adapter_id,omitempty"`                              // canonical, gov-approved (e.g. "wikipedia-en-v1")
-	SourceType                  string                 `protobuf:"bytes,2,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`                           // "wikipedia" | "arxiv" | "ibc_packet" | etc.
-	Version                     string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`                                                   // semver
-	CompilerBinaryHash          []byte                 `protobuf:"bytes,4,opt,name=compiler_binary_hash,json=compilerBinaryHash,proto3" json:"compiler_binary_hash,omitempty"` // determinism guarantee
-	AxisBounds                  *AxisBounds            `protobuf:"bytes,5,opt,name=axis_bounds,json=axisBounds,proto3" json:"axis_bounds,omitempty"`
-	MinAttestationBondUzrn      string                 `protobuf:"bytes,6,opt,name=min_attestation_bond_uzrn,json=minAttestationBondUzrn,proto3" json:"min_attestation_bond_uzrn,omitempty"`
-	MinPerClaimBondUzrn         string                 `protobuf:"bytes,7,opt,name=min_per_claim_bond_uzrn,json=minPerClaimBondUzrn,proto3" json:"min_per_claim_bond_uzrn,omitempty"`
-	SlashGradient               *SlashGradient         `protobuf:"bytes,8,opt,name=slash_gradient,json=slashGradient,proto3" json:"slash_gradient,omitempty"`
-	RequiredQualificationDomain string                 `protobuf:"bytes,9,opt,name=required_qualification_domain,json=requiredQualificationDomain,proto3" json:"required_qualification_domain,omitempty"`
-	MinQualificationStatus      QualificationStatus    `protobuf:"varint,10,opt,name=min_qualification_status,json=minQualificationStatus,proto3,enum=zerone.substrate_bridge.v1.QualificationStatus" json:"min_qualification_status,omitempty"`
-	AllowedClassIds             []string               `protobuf:"bytes,11,rep,name=allowed_class_ids,json=allowedClassIds,proto3" json:"allowed_class_ids,omitempty"` // empty = any class allowed
-	Status                      AdapterStatus          `protobuf:"varint,12,opt,name=status,proto3,enum=zerone.substrate_bridge.v1.AdapterStatus" json:"status,omitempty"`
-	RegisteredViaLipId          string                 `protobuf:"bytes,13,opt,name=registered_via_lip_id,json=registeredViaLipId,proto3" json:"registered_via_lip_id,omitempty"`
-	RegisteredAtBlock           uint64                 `protobuf:"varint,14,opt,name=registered_at_block,json=registeredAtBlock,proto3" json:"registered_at_block,omitempty"`
-	TombstonedAtBlock           uint64                 `protobuf:"varint,15,opt,name=tombstoned_at_block,json=tombstonedAtBlock,proto3" json:"tombstoned_at_block,omitempty"` // 0 if not tombstoned
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	AdapterId  string                 `protobuf:"bytes,1,opt,name=adapter_id,json=adapterId,proto3" json:"adapter_id,omitempty"`    // canonical ID (e.g. "wikipedia-en-v1")
+	SourceType string                 `protobuf:"bytes,2,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"` // "wikipedia" | "arxiv" | "ibc_packet" | etc.
+	Version    string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`                         // semver
+	// Off-chain compiler provenance metadata. Runtime does not fetch or execute
+	// the binary and does not compare this hash during attestation validation.
+	CompilerBinaryHash          []byte              `protobuf:"bytes,4,opt,name=compiler_binary_hash,json=compilerBinaryHash,proto3" json:"compiler_binary_hash,omitempty"`
+	AxisBounds                  *AxisBounds         `protobuf:"bytes,5,opt,name=axis_bounds,json=axisBounds,proto3" json:"axis_bounds,omitempty"`
+	MinAttestationBondUzrn      string              `protobuf:"bytes,6,opt,name=min_attestation_bond_uzrn,json=minAttestationBondUzrn,proto3" json:"min_attestation_bond_uzrn,omitempty"`
+	MinPerClaimBondUzrn         string              `protobuf:"bytes,7,opt,name=min_per_claim_bond_uzrn,json=minPerClaimBondUzrn,proto3" json:"min_per_claim_bond_uzrn,omitempty"`
+	SlashGradient               *SlashGradient      `protobuf:"bytes,8,opt,name=slash_gradient,json=slashGradient,proto3" json:"slash_gradient,omitempty"`
+	RequiredQualificationDomain string              `protobuf:"bytes,9,opt,name=required_qualification_domain,json=requiredQualificationDomain,proto3" json:"required_qualification_domain,omitempty"`
+	MinQualificationStatus      QualificationStatus `protobuf:"varint,10,opt,name=min_qualification_status,json=minQualificationStatus,proto3,enum=zerone.substrate_bridge.v1.QualificationStatus" json:"min_qualification_status,omitempty"`
+	AllowedClassIds             []string            `protobuf:"bytes,11,rep,name=allowed_class_ids,json=allowedClassIds,proto3" json:"allowed_class_ids,omitempty"` // empty = any class allowed
+	Status                      AdapterStatus       `protobuf:"varint,12,opt,name=status,proto3,enum=zerone.substrate_bridge.v1.AdapterStatus" json:"status,omitempty"`
+	RegisteredViaLipId          string              `protobuf:"bytes,13,opt,name=registered_via_lip_id,json=registeredViaLipId,proto3" json:"registered_via_lip_id,omitempty"` // empty for genesis/direct authority registration
+	RegisteredAtBlock           uint64              `protobuf:"varint,14,opt,name=registered_at_block,json=registeredAtBlock,proto3" json:"registered_at_block,omitempty"`
+	TombstonedAtBlock           uint64              `protobuf:"varint,15,opt,name=tombstoned_at_block,json=tombstonedAtBlock,proto3" json:"tombstoned_at_block,omitempty"` // 0 if not tombstoned
 	// Witness reward: uzrn minted (cap-gated) per witness-only attestation
 	// settled through this adapter. Escrowed for the challenge window before
 	// release — tombstoning the adapter inside the window cancels unpaid

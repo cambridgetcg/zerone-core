@@ -316,17 +316,10 @@ func newApp(
 ) servertypes.Application {
 	baseappOptions := server.DefaultBaseappOptions(appOpts)
 
-	zeroneApp := app.NewZeroneApp(
+	return app.NewZeroneApp(
 		logger, db, traceStore, true, appOpts,
 		baseappOptions...,
 	)
-
-	// Opt-in PoT verifier wiring: populates VoteExtConfig from priv_validator_key
-	// + [vote-extensions] validator-address. No-op unless the node opts in; inert
-	// until the chain enables vote_extensions_enable_height.
-	zeroneApp.ConfigureVoteExtensions(appOpts, logger)
-
-	return zeroneApp
 }
 
 // appExport creates a new ZeroneApp and exports its state.

@@ -9,4 +9,23 @@ import "zerone/substrate_bridge/v1/adapter.proto";
 message GenesisState {
   Params params = 1;
   repeated AdapterRegistration adapters = 2;
+
+  // Exact replay/economic keeper state that cannot be reconstructed from
+  // Params or AdapterRegistration alone. Entries are restricted by genesis
+  // validation to the attestation, pending-claim, lineage, witness-reward,
+  // source-reference, counter, and dedupe-arming keyspaces. Params and adapter
+  // keyspaces are deliberately forbidden here so typed fields remain the only
+  // way to initialize them.
+  //
+  // Keeping the raw key/value form preserves source-ref holder selection and
+  // every secondary index exactly across export/import. That is essential for
+  // the one-source/one-mint replay wall: rebuilding from duplicate historical
+  // attestations could otherwise choose a different holder.
+  repeated GenesisStateEntry state_entries = 3;
+}
+
+// GenesisStateEntry is one allow-listed substrate_bridge KV entry.
+message GenesisStateEntry {
+  bytes key = 1;
+  bytes value = 2;
 }

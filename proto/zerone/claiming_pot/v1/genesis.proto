@@ -8,4 +8,15 @@ message GenesisState {
   Params params = 1;
   repeated ClaimingPot pots = 2;
   repeated Claim claims = 3;
+  // Monotonic suffix last assigned to a legacy general pot (`pot-N`).
+  // Export/import must preserve it so a relaunch cannot overwrite a pot.
+  uint64 pot_counter = 4;
+  // Lifetime fixed-size commitment units already charged across every pot.
+  // One unit is PerAgentBootstrapUzrn. This is monotonic and may be larger
+  // than the units derivable from pots only for conservative legacy imports.
+  uint64 lifetime_committed_units = 5;
+  // Registrar rate-limit state. Both values are consensus-economic replay
+  // protection and must survive export/import.
+  uint64 admission_window_index = 6;
+  uint64 admission_window_count = 7;
 }

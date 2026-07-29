@@ -4296,7 +4296,7 @@ func (x *MsgResolveContributionChallenge) GetNote() string {
 
 type MsgResolveContributionChallengeResponse struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	PayoutToWinner string                 `protobuf:"bytes,1,opt,name=payout_to_winner,json=payoutToWinner,proto3" json:"payout_to_winner,omitempty"` // uzrn the winner received
+	PayoutToWinner string                 `protobuf:"bytes,1,opt,name=payout_to_winner,json=payoutToWinner,proto3" json:"payout_to_winner,omitempty"` // upheld: escrowed bond refund; rejected: "0"
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -4338,12 +4338,14 @@ func (x *MsgResolveContributionChallengeResponse) GetPayoutToWinner() string {
 	return ""
 }
 
-// ─── Wave 4: training fund post-hoc disbursement ──────────────────────────
+// ─── Wave 4: disabled training-fund disbursement placeholder ───────────────
 type MsgClaimTrainingFundDisbursement struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Claimant      string                 `protobuf:"bytes,1,opt,name=claimant,proto3" json:"claimant,omitempty"`
-	ModelId       string                 `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
-	Id            string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"` // unique disbursement id (client-chosen)
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Claimant string                 `protobuf:"bytes,1,opt,name=claimant,proto3" json:"claimant,omitempty"`
+	ModelId  string                 `protobuf:"bytes,2,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
+	// Legacy client-chosen identifier. It does not bind a unique reward
+	// entitlement; this is why the current handler is fail-closed.
+	Id            string `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

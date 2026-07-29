@@ -3,20 +3,18 @@
 # check_specs_and_plans_hashes.sh — verify every spec/plan listed in
 # .specs-and-plans-hashes matches its pinned content-hash.
 #
-# Mirror of check_sub_creed_hashes.sh applied to design specs and
-# implementation plans. Each document declares at its tail that it is
-# itself a Contribution of class PIPELINE_IMPROVEMENT, lifecycle phase
-# SUBSTRATE. UW: the chain pays for its own design and execution; the
-# design artifacts are among the work, and are hash-bound the same way
-# the doctrines are.
+# Mirror of check_sub_creed_hashes.sh applied to historical design specs and
+# implementation plans. Some documents preserve their contemporary
+# self-description as Contributions; the generic x/contribution runtime was
+# later retired, so those statements are historical rather than proof of an
+# on-chain record. The artifacts remain hash-bound for source review.
 #
 # Format of .specs-and-plans-hashes (whitespace-separated triples,
 # one per line, blank lines + lines starting with `#` ignored):
 #   <short-name> <sha256>  <path/to/doc.md>
 #
 # To intentionally amend a spec/plan:
-#   1. Edit the .md file (including its closing "This document is a
-#      Contribution" section if relevant).
+#   1. Edit the .md file.
 #   2. Run this script — it prints the new computed hash on mismatch.
 #   3. Update .specs-and-plans-hashes with the new hash on that line.
 #   4. If the manifest-of-hashes (.recursion-manifest-hash) exists,

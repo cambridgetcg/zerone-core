@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,13 +11,22 @@ import (
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
+func validExternalSource(adapterID string) *types.ExternalSource {
+	digest := sha256.Sum256([]byte("declared-source:" + adapterID))
+	return &types.ExternalSource{
+		AdapterId:   adapterID,
+		SourceId:    "source-1",
+		ContentHash: digest[:],
+	}
+}
+
 func TestComputeLinkHash_Deterministic(t *testing.T) {
 	link := &types.SubstrateLink{
 		AdapterId:       "wiki-v1",
 		CitedFacts:      []*types.FactCitation{{FactId: "fact-1", CitationType: types.CitationType_CITATION_TYPE_SUPPORTS}},
 		PendingClaims:   []*types.PendingClaim{{ClaimContent: "X is Y", Domain: "history", MethodologyId: "wiki-cite"}},
 		RecursionWeight: &types.AxisProjection{AxisSubstrate: 100},
-		Source:          &types.ExternalSource{SourceId: "Q42", ContentHash: []byte{0x01}},
+		Source:          validExternalSource("wiki-v1"),
 	}
 	h1 := keeper.ComputeLinkHash(link)
 	h2 := keeper.ComputeLinkHash(link)
@@ -69,6 +79,56 @@ func TestValidateLink_TooManyPendingClaims(t *testing.T) {
 	require.ErrorIs(t, k.ValidateLink(ctx, link, p), types.ErrTooManyPendingClaims)
 }
 
+func TestValidateLink_SourceRequired(t *testing.T) {
+	k, ctx := setupSubstrateBridgeKeeper(t)
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "wiki-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+	}))
+
+	require.ErrorIs(
+		t,
+		k.ValidateLink(ctx, &types.SubstrateLink{AdapterId: "wiki-v1"}, types.DefaultParams()),
+		types.ErrSourceRequired,
+	)
+}
+
+func TestValidateLink_SourceAdapterMustMatchLink(t *testing.T) {
+	k, ctx := setupSubstrateBridgeKeeper(t)
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "wiki-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+	}))
+	link := &types.SubstrateLink{
+		AdapterId: "wiki-v1",
+		Source:    validExternalSource("other-adapter"),
+	}
+
+	require.ErrorIs(t, k.ValidateLink(ctx, link, types.DefaultParams()), types.ErrSourceAdapterIdMismatch)
+}
+
+func TestValidateLink_SourceContentHashMustHaveSHA256Width(t *testing.T) {
+	k, ctx := setupSubstrateBridgeKeeper(t)
+	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
+		AdapterId: "wiki-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+	}))
+
+	for _, length := range []int{0, sha256.Size - 1, sha256.Size, sha256.Size + 1} {
+		t.Run(fmt.Sprintf("%d_bytes", length), func(t *testing.T) {
+			link := &types.SubstrateLink{
+				AdapterId: "wiki-v1",
+				Source:    validExternalSource("wiki-v1"),
+			}
+			link.Source.ContentHash = make([]byte, length)
+
+			err := k.ValidateLink(ctx, link, types.DefaultParams())
+			if length == sha256.Size {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, types.ErrInvalidSourceContentHash)
+		})
+	}
+}
+
 func TestValidateLink_AxisOverflow(t *testing.T) {
 	k, ctx := setupSubstrateBridgeKeeper(t)
 	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
@@ -119,7 +179,10 @@ func TestValidateLink_UnweightedLinkStillPassesUnboundedAdapter(t *testing.T) {
 		AdapterId: "unbounded-v1",
 		Status:    types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
 	}))
-	link := &types.SubstrateLink{AdapterId: "unbounded-v1"} // no RecursionWeight
+	link := &types.SubstrateLink{
+		AdapterId: "unbounded-v1",
+		Source:    validExternalSource("unbounded-v1"),
+	} // no RecursionWeight
 	require.NoError(t, k.ValidateLink(ctx, link, defaultSubstrateBridgeParams()))
 }
 
@@ -142,6 +205,7 @@ func TestValidateLink_ExplicitZeroBoundsRefuseWeightButAllowNone(t *testing.T) {
 	zero := &types.SubstrateLink{
 		AdapterId:       "declared-v1",
 		RecursionWeight: &types.AxisProjection{},
+		Source:          validExternalSource("declared-v1"),
 	}
 	require.NoError(t, k.ValidateLink(ctx, zero, defaultSubstrateBridgeParams()))
 }

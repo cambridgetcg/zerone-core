@@ -394,6 +394,35 @@ expect_rejected "provenance subject drift" \
   "provenance does not bind source/build/image/binary" \
   run_cutover_pre "${provenance}"
 
+signer_identity=$(clone_bundle component-signer-identity)
+canonical_mutate \
+  "${signer_identity}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json" \
+  '.signer_identity =
+    "https://github.com/other/zerone-core/.github/workflows/ci.yml@refs/heads/main"'
+signer_identity_sha=$(sha256_file \
+  "${signer_identity}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${signer_identity}/RELEASE-PACKET.json" \
+  '.components.zerone_2_runtime.signature_sha256 = $sha' \
+  --arg sha "${signer_identity_sha}"
+expect_rejected "non-canonical component signer identity" \
+  "image signature evidence is incomplete or mismatched" \
+  run_cutover_pre "${signer_identity}"
+
+certificate_issuer=$(clone_bundle component-certificate-issuer)
+canonical_mutate \
+  "${certificate_issuer}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json" \
+  '.certificate_issuer = "https://issuer.example"'
+certificate_issuer_sha=$(sha256_file \
+  "${certificate_issuer}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${certificate_issuer}/RELEASE-PACKET.json" \
+  '.components.zerone_2_runtime.signature_sha256 = $sha' \
+  --arg sha "${certificate_issuer_sha}"
+expect_rejected "non-canonical component certificate issuer" \
+  "image signature evidence is incomplete or mismatched" \
+  run_cutover_pre "${certificate_issuer}"
+
 registration=$(clone_bundle registration-evidence)
 canonical_mutate "${registration}/DARK-REGISTRATION-EVIDENCE.json" \
   '.custom_validator_registration.deliver_code = 1'

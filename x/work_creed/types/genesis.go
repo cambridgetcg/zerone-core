@@ -7,9 +7,8 @@ import (
 	"cosmossdk.io/errors"
 )
 
-// DefaultGenesis returns the default genesis state — empty at Phase 0
-// without genesis pins. The app.go genesis populator inserts the
-// inception pins at chain genesis (see Task 19's keeper.InitGenesis).
+// DefaultGenesis returns an empty Phase 0 state. Pins appear only when a
+// ceremony explicitly injects them; app startup does not synthesize them.
 func DefaultGenesis() *GenesisState {
 	return &GenesisState{
 		PinnedSubCreeds: []*PinnedSubCreed{},

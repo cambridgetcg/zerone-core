@@ -7,24 +7,24 @@ func DefaultParams() *Params {
 	return &Params{
 		VotingPeriodBlocks:     102816,
 		DiscussionPeriodBlocks: 68544,
-		QuorumThresholdBps:     334000,  // 33.4% on 1M scale
-		SupportThresholdBps:    500000,  // 50% on 1M scale
-		MinLipStake:            "1000000",   // 1 ZRN
-		MinVoteStake:           "0",         // no minimum to vote
+		QuorumThresholdBps:     334000,    // 33.4% on 1M scale
+		SupportThresholdBps:    500000,    // 50% on 1M scale
+		MinLipStake:            "1000000", // 1 ZRN
+		MinVoteStake:           "0",       // no minimum to vote
 		CategoryConfigs: []*CategoryConfig{
-			{Category: CategoryParameter, RequiredStakeUzrn: "1000000000", ReviewBlocks: 34272},      // 1000 ZRN, ~1 day
-			{Category: CategoryUpgrade, RequiredStakeUzrn: "800000000", ReviewBlocks: 34272},          // 800 ZRN, ~1 day
-			{Category: CategoryText, RequiredStakeUzrn: "400000000", ReviewBlocks: 17136},             // 400 ZRN, ~12h
-			{Category: CategoryResearchSpend, RequiredStakeUzrn: "200000000", ReviewBlocks: 17136},    // 200 ZRN, ~12h
-			{Category: CategorySeatElection, RequiredStakeUzrn: "500000000", ReviewBlocks: 34272},           // 500 ZRN, ~1 day
-			{Category: CategoryPhaseTransition, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000},  // 1,000 ZRN, ~30 days
-			{Category: CategoryPhaseRollback, RequiredStakeUzrn: "500000000000", ReviewBlocks: 240000},      // 500 ZRN, ~7 days
+			{Category: CategoryParameter, RequiredStakeUzrn: "1000000000", ReviewBlocks: 34272},            // 1000 ZRN, ~1 day
+			{Category: CategoryUpgrade, RequiredStakeUzrn: "800000000", ReviewBlocks: 34272},               // 800 ZRN, ~1 day
+			{Category: CategoryText, RequiredStakeUzrn: "400000000", ReviewBlocks: 17136},                  // 400 ZRN, ~12h
+			{Category: CategoryResearchSpend, RequiredStakeUzrn: "200000000", ReviewBlocks: 17136},         // 200 ZRN, ~12h
+			{Category: CategorySeatElection, RequiredStakeUzrn: "500000000", ReviewBlocks: 34272},          // 500 ZRN, ~1 day
+			{Category: CategoryPhaseTransition, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000}, // 1,000,000 ZRN, ~30 days
+			{Category: CategoryPhaseRollback, RequiredStakeUzrn: "500000000000", ReviewBlocks: 240000},     // 500,000 ZRN, ~7 days
 			// CategoryAdapterRegistration: same stake + review window as CategoryCreedAmendment
 			// (not yet in this list — see commitment 20 rationale in types.go). Requires
-			// 1,000 ZRN stake and ~30-day review, identical to phase-transition weight,
+			// 1,000,000 ZRN stake and ~30-day review, identical to phase-transition weight,
 			// because expanding the trusted external-source surface is as consequential
 			// as altering governance phase. Mirrors the high bar of CategoryCreedAmendment.
-			{Category: CategoryAdapterRegistration, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000}, // 1,000 ZRN, ~30 days
+			{Category: CategoryAdapterRegistration, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000}, // 1,000,000 ZRN, ~30 days
 		},
 		ResearchFundVoters:       nil,
 		ResearchDiscussionBlocks: 68544,
@@ -48,12 +48,12 @@ func DefaultResearchFundGovernanceState() *ResearchFundGovernanceState {
 // DefaultGenesisState returns the default genesis state for the governance module.
 func DefaultGenesisState() *GenesisState {
 	return &GenesisState{
-		Params:                  DefaultParams(),
-		Lips:                    nil,
-		Votes:                   nil,
-		NextLipNumber:           1,
+		Params:                 DefaultParams(),
+		Lips:                   nil,
+		Votes:                  nil,
+		NextLipNumber:          1,
 		NextSeatElectionNumber: 1,
-		ResearchFundGovernance:  DefaultResearchFundGovernanceState(),
+		ResearchFundGovernance: DefaultResearchFundGovernanceState(),
 	}
 }
 

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 
+	abci "github.com/cometbft/cometbft/abci/types"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
@@ -45,6 +47,12 @@ func TestExtendVote_ProducesVRF(t *testing.T) {
 	require.Equal(t, "zrn1testvalidator", app.VoteExtConfig.ValidatorAddress)
 	require.Len(t, app.VoteExtConfig.ValidatorPrivateKey, 64)
 
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	resp, err := handler(ctx, &abci.RequestExtendVote{Height: 1})
+	require.NoError(t, err)
+	require.Empty(t, resp.VoteExtension,
+		"the release safety latch must suppress extensions even when a caller injects local config")
+
 	// The VoteExtension struct should support VRF fields
 	ext := zeroneapp.VoteExtension{
 		ValidatorAddress: "zrn1testvalidator",
@@ -66,6 +74,44 @@ func TestExtendVote_ProducesVRF(t *testing.T) {
 	require.NoError(t, json.Unmarshal(bz, &decoded))
 	require.Equal(t, "aabb1122", decoded.Commitments[0].VRFOutput)
 	require.Equal(t, "ccdd3344", decoded.Commitments[0].VRFProof)
+}
+
+func TestVerifyVoteExtension_ReleaseLatchRejectsNonEmpty(t *testing.T) {
+	app := newTestApp(t)
+	handler := app.VerifyVoteExtensionHandler()
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+
+	emptyResp, err := handler(ctx, &abci.RequestVerifyVoteExtension{Height: 1})
+	require.NoError(t, err)
+	require.Equal(t, abci.ResponseVerifyVoteExtension_ACCEPT, emptyResp.Status,
+		"CometBFT permits empty extensions while the feature is disabled")
+
+	nonEmpty, err := json.Marshal(zeroneapp.VoteExtension{
+		ValidatorAddress: "zrn1selfdeclared",
+	})
+	require.NoError(t, err)
+	rejected, err := handler(ctx, &abci.RequestVerifyVoteExtension{
+		Height:        1,
+		VoteExtension: nonEmpty,
+	})
+	require.NoError(t, err)
+	require.Equal(t, abci.ResponseVerifyVoteExtension_REJECT, rejected.Status,
+		"no self-declared validator extension may pass before identity and VRF binding exist")
+}
+
+func TestProcessProposal_ReleaseLatchRejectsInjection(t *testing.T) {
+	app := newTestApp(t)
+	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	injection, err := zeroneapp.EncodeVoteExtInjection(zeroneapp.VoteExtInjection{})
+	require.NoError(t, err)
+
+	resp, err := app.ProcessProposalHandler()(ctx, &abci.RequestProcessProposal{
+		Height: 1,
+		Txs:    [][]byte{injection},
+	})
+	require.NoError(t, err)
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, resp.Status,
+		"the release must reject synthetic vote-extension injection pseudo-transactions")
 }
 
 // ---------- VerifyVoteExtension tests ----------

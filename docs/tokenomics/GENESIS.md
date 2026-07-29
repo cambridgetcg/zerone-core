@@ -1,4 +1,4 @@
-# Genesis and Participation-Gated Issuance
+# Genesis and Native Issuance
 
 ## Live `zerone-1` genesis
 
@@ -25,21 +25,25 @@ balances is documented in [TRUST.md](../../deploy/mainnet/TRUST.md).
 
 ## Issuance after genesis
 
-All post-genesis minting is intended to pass through
-`x/vesting_rewards.MintWithCap`, which refuses to exceed the hard cap:
+All wired post-genesis native minting passes through
+`x/vesting_rewards.MintWithCap`, and `InitChain` rejects a bank supply above
+the hard cap:
 
 | Pathway | Module | Trigger |
 |---|---|---|
-| Proof-of-Truth rewards | `x/vesting_rewards` | eligible verification/block participation |
-| Bootstrap claims | `x/claiming_pot` | an authorised agent claims its one-time 0.222 ZRN seed |
+| Transaction-bearing block rewards | `x/vesting_rewards` | any non-injection user transaction; validator count and survival rate scale the amount |
+| Claiming-pot claims | `x/claiming_pot` | an eligible participant claims a bootstrap or legacy authority-created general pot |
 | External-work attestations | `x/substrate_bridge` | witnessed work survives its challenge window |
+| Probe-bounty pool (default/published rate 0) | `x/knowledge` | governance sets a positive rate |
+| Emission periods (default/published latch 0) | `x/tokens` | governance enables and schedules a period |
 
 The distinction matters:
 
 - genesis scaffolding is disclosed operator power;
 - a bootstrap pot is configuration, not a pre-funded module balance; and
-- later issuance must be caused by a recorded participation event and remain
-  under the shared cap.
+- later issuance has a recorded trigger and remains under the shared cap, but
+  authority-configured pots and emission periods mean the trigger is not
+  universally proof of earned participation.
 
 The protocol-default **bank** genesis built by application code may be empty.
 The knowledge keeper separately materializes 47 code- and pin-bound doctrine

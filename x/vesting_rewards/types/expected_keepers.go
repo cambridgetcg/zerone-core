@@ -37,9 +37,8 @@ type DistributionKeeper interface {
 	GetDelegatorWithdrawAddr(ctx context.Context, delAddr sdk.AccAddress) (sdk.AccAddress, error)
 }
 
-// KnowledgeKeeper exposes the verification rate so block rewards can be
-// coupled to knowledge throughput (T9 / thesis claim 1). Nil-safe: when this
-// keeper is not wired, block rewards fall back to the pure decay schedule.
+// KnowledgeKeeper exposes legacy acceptance telemetry and the challenged-fact
+// survival signal used by block-reward scaling.
 type KnowledgeKeeper interface {
 	// GetVerificationRate is the legacy accept-rate (accepted/terminal). Retained
 	// for the supply-coupling audit query; no longer drives block emission.

@@ -22,12 +22,23 @@ const (
 )
 
 type GenesisState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Pots          []*ClaimingPot         `protobuf:"bytes,2,rep,name=pots,proto3" json:"pots,omitempty"`
-	Claims        []*Claim               `protobuf:"bytes,3,rep,name=claims,proto3" json:"claims,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Params *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Pots   []*ClaimingPot         `protobuf:"bytes,2,rep,name=pots,proto3" json:"pots,omitempty"`
+	Claims []*Claim               `protobuf:"bytes,3,rep,name=claims,proto3" json:"claims,omitempty"`
+	// Monotonic suffix last assigned to a legacy general pot (`pot-N`).
+	// Export/import must preserve it so a relaunch cannot overwrite a pot.
+	PotCounter uint64 `protobuf:"varint,4,opt,name=pot_counter,json=potCounter,proto3" json:"pot_counter,omitempty"`
+	// Lifetime fixed-size commitment units already charged across every pot.
+	// One unit is PerAgentBootstrapUzrn. This is monotonic and may be larger
+	// than the units derivable from pots only for conservative legacy imports.
+	LifetimeCommittedUnits uint64 `protobuf:"varint,5,opt,name=lifetime_committed_units,json=lifetimeCommittedUnits,proto3" json:"lifetime_committed_units,omitempty"`
+	// Registrar rate-limit state. Both values are consensus-economic replay
+	// protection and must survive export/import.
+	AdmissionWindowIndex uint64 `protobuf:"varint,6,opt,name=admission_window_index,json=admissionWindowIndex,proto3" json:"admission_window_index,omitempty"`
+	AdmissionWindowCount uint64 `protobuf:"varint,7,opt,name=admission_window_count,json=admissionWindowCount,proto3" json:"admission_window_count,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -81,15 +92,48 @@ func (x *GenesisState) GetClaims() []*Claim {
 	return nil
 }
 
+func (x *GenesisState) GetPotCounter() uint64 {
+	if x != nil {
+		return x.PotCounter
+	}
+	return 0
+}
+
+func (x *GenesisState) GetLifetimeCommittedUnits() uint64 {
+	if x != nil {
+		return x.LifetimeCommittedUnits
+	}
+	return 0
+}
+
+func (x *GenesisState) GetAdmissionWindowIndex() uint64 {
+	if x != nil {
+		return x.AdmissionWindowIndex
+	}
+	return 0
+}
+
+func (x *GenesisState) GetAdmissionWindowCount() uint64 {
+	if x != nil {
+		return x.AdmissionWindowCount
+	}
+	return 0
+}
+
 var File_zerone_claiming_pot_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_claiming_pot_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"$zerone/claiming_pot/v1/genesis.proto\x12\x16zerone.claiming_pot.v1\x1a\"zerone/claiming_pot/v1/state.proto\"\xb6\x01\n" +
+	"$zerone/claiming_pot/v1/genesis.proto\x12\x16zerone.claiming_pot.v1\x1a\"zerone/claiming_pot/v1/state.proto\"\xfd\x02\n" +
 	"\fGenesisState\x126\n" +
 	"\x06params\x18\x01 \x01(\v2\x1e.zerone.claiming_pot.v1.ParamsR\x06params\x127\n" +
 	"\x04pots\x18\x02 \x03(\v2#.zerone.claiming_pot.v1.ClaimingPotR\x04pots\x125\n" +
-	"\x06claims\x18\x03 \x03(\v2\x1d.zerone.claiming_pot.v1.ClaimR\x06claimsB5Z3github.com/zerone-chain/zerone/x/claiming_pot/typesb\x06proto3"
+	"\x06claims\x18\x03 \x03(\v2\x1d.zerone.claiming_pot.v1.ClaimR\x06claims\x12\x1f\n" +
+	"\vpot_counter\x18\x04 \x01(\x04R\n" +
+	"potCounter\x128\n" +
+	"\x18lifetime_committed_units\x18\x05 \x01(\x04R\x16lifetimeCommittedUnits\x124\n" +
+	"\x16admission_window_index\x18\x06 \x01(\x04R\x14admissionWindowIndex\x124\n" +
+	"\x16admission_window_count\x18\a \x01(\x04R\x14admissionWindowCountB5Z3github.com/zerone-chain/zerone/x/claiming_pot/typesb\x06proto3"
 
 var (
 	file_zerone_claiming_pot_v1_genesis_proto_rawDescOnce sync.Once

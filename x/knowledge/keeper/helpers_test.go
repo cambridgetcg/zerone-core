@@ -206,6 +206,19 @@ func setupKnowledgeTest(t *testing.T) (keeper.Keeper, sdk.Context) {
 // setupKnowledgeTestWithBank creates a Keeper and returns the bank keeper for tracking.
 func setupKnowledgeTestWithBank(t *testing.T) (keeper.Keeper, sdk.Context, *trackingBankKeeper) {
 	t.Helper()
+	gs := types.DefaultGenesis()
+	// Most legacy keeper tests exercise sponsored-claim accounting and need a
+	// funded pool. Keep that funding explicit in the test fixture; it is not
+	// the protocol DefaultGenesis contract.
+	gs.BootstrapFundAllocation = "22222000000"
+	return setupKnowledgeTestWithBankGenesis(t, gs)
+}
+
+func setupKnowledgeTestWithBankGenesis(
+	t *testing.T,
+	gs *types.GenesisState,
+) (keeper.Keeper, sdk.Context, *trackingBankKeeper) {
+	t.Helper()
 
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	db := dbm.NewMemDB()
@@ -228,7 +241,7 @@ func setupKnowledgeTestWithBank(t *testing.T) (keeper.Keeper, sdk.Context, *trac
 	)
 
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100}, false, log.NewNopLogger())
-	require.NoError(t, k.InitGenesis(ctx, types.DefaultGenesis()))
+	require.NoError(t, k.InitGenesis(ctx, gs))
 
 	return k, ctx, bk
 }

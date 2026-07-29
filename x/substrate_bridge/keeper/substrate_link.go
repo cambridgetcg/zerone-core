@@ -140,5 +140,15 @@ func (k Keeper) ValidateLink(ctx context.Context, l *types.SubstrateLink, p *typ
 			}
 		}
 	}
+	if l.Source == nil || l.Source.SourceId == "" {
+		return types.ErrSourceRequired
+	}
+	if l.Source.AdapterId != l.AdapterId {
+		return types.ErrSourceAdapterIdMismatch
+	}
+	if len(l.Source.ContentHash) != sha256.Size {
+		return types.ErrInvalidSourceContentHash.Wrapf(
+			"got %d bytes; want %d", len(l.Source.ContentHash), sha256.Size)
+	}
 	return nil
 }

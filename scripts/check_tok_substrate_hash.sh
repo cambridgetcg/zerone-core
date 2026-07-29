@@ -6,10 +6,11 @@
 # Mirror of check_strange_loop_hash.sh applied to the training-resource
 # doctrine. The on-chain pin lives in x/knowledge/types/tok_substrate_creed.go
 # (Go-side build-time canonical structure); this script catches accidental
-# drift in PRs even before the chain has the canonical record on-chain. The
-# cross-stack meta-test TestToKSubstrate_DoctrineAndContractStayInSync also
-# enforces this in CI; the script provides the same enforcement on local
-# dev machines via `make creed-check`.
+# drift in PRs even before the chain has the canonical record on-chain.
+# Active TC0–TC5 cross-stack tests cover the shipped selector, snapshot,
+# cascade, and event behavior. This script provides the document hash
+# enforcement on local dev machines and in CI via `make creed-check`; there
+# is no universal ToK-substrate doctrine meta-test in current source.
 #
 # To intentionally amend the doctrine:
 #   1. Edit docs/TOK_SUBSTRATE.md.

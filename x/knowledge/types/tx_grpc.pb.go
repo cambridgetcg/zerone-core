@@ -163,9 +163,9 @@ type MsgClient interface {
 	ChallengeContribution(ctx context.Context, in *MsgChallengeContribution, opts ...grpc.CallOption) (*MsgChallengeContributionResponse, error)
 	// ResolveContributionChallenge settles an open challenge (verifier/authority).
 	ResolveContributionChallenge(ctx context.Context, in *MsgResolveContributionChallenge, opts ...grpc.CallOption) (*MsgResolveContributionChallengeResponse, error)
-	// ClaimTrainingFundDisbursement — pipeline operator claims post-hoc reward
-	// once the ModelCard has accumulated live calibration. Gated on calibration
-	// floor + reproducibility proof; 50/50 immediate/vesting split.
+	// ClaimTrainingFundDisbursement is release-disabled. The legacy
+	// client-chosen id is not a replay-safe one-shot eligibility key, so current
+	// consensus refuses every claim before minting.
 	ClaimTrainingFundDisbursement(ctx context.Context, in *MsgClaimTrainingFundDisbursement, opts ...grpc.CallOption) (*MsgClaimTrainingFundDisbursementResponse, error)
 	// ─── Route B Wave 5: training data format ─────────────────────────────
 	// AmendTraceSchema governance-amends the MethodologyApplicationTrace
@@ -825,9 +825,9 @@ type MsgServer interface {
 	ChallengeContribution(context.Context, *MsgChallengeContribution) (*MsgChallengeContributionResponse, error)
 	// ResolveContributionChallenge settles an open challenge (verifier/authority).
 	ResolveContributionChallenge(context.Context, *MsgResolveContributionChallenge) (*MsgResolveContributionChallengeResponse, error)
-	// ClaimTrainingFundDisbursement — pipeline operator claims post-hoc reward
-	// once the ModelCard has accumulated live calibration. Gated on calibration
-	// floor + reproducibility proof; 50/50 immediate/vesting split.
+	// ClaimTrainingFundDisbursement is release-disabled. The legacy
+	// client-chosen id is not a replay-safe one-shot eligibility key, so current
+	// consensus refuses every claim before minting.
 	ClaimTrainingFundDisbursement(context.Context, *MsgClaimTrainingFundDisbursement) (*MsgClaimTrainingFundDisbursementResponse, error)
 	// ─── Route B Wave 5: training data format ─────────────────────────────
 	// AmendTraceSchema governance-amends the MethodologyApplicationTrace

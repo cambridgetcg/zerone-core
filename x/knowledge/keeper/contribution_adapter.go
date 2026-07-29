@@ -7,9 +7,9 @@ import (
 )
 
 // GetClaimVerificationScore returns the PoT verification score (0..1_000_000 BPS)
-// for a claim by id, plus a found flag. Implements the
-// x/contribution/adapter/knowledgeclaim.KnowledgeKeeperReader interface so
-// x/contribution can wire this keeper as its KNOWLEDGE_CLAIM data source.
+// for a claim by id, plus a found flag. This legacy compatibility helper is
+// retained for downstream interfaces that used the retired generic
+// x/contribution adapter; it is not app-wired in the current runtime.
 //
 // Semantics:
 //   - claim absent → (0, false)
