@@ -11,7 +11,8 @@ consensus module, enable IBC, or expand the public gateway. It provides:
 - generic CAIP-2 and CAIP-10 syntax handling;
 - the Cosmos namespace's direct/hashed chain-reference algorithm;
 - checksum-aware `zrn` account IDs;
-- canonical CIDv1 preflight for new agent-home memory references; and
+- canonical CIDv1 preflight for new agent-home memory references;
+- bounded feegrant builders for sponsor-funded onboarding; and
 - a separate validator for the `did:zrn` identifiers accepted by `x/auth`.
 
 ## Use the transaction registry
@@ -110,6 +111,59 @@ This helper is opt-in. The generated `MsgUpdateMemoryCID` codec still accepts a
 plain string, while the Go CLI invokes the preflight automatically. Current
 validator consensus continues to accept historical opaque memory references
 until a coordinated upgrade defines and audits a chain-wide policy.
+
+## Sponsor bounded onboarding fees
+
+```ts
+import { defineZeroneNetwork } from "@zerone-chain/sdk/caip";
+import {
+  makeBoundedFeeGrant,
+  makeRevokeFeeGrant,
+  makeSponsoredFee,
+} from "@zerone-chain/sdk/feegrant";
+
+const network = defineZeroneNetwork("zerone-1");
+const granter = "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf";
+const grantee = "zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5s75sh2";
+
+const grant = makeBoundedFeeGrant({
+  network,
+  granter,
+  grantee,
+  spendLimit: [{ denom: "uzrn", amount: "100000" }],
+  expiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  allowedMessageTypeUrls: ["/zerone.claiming_pot.v1.MsgClaim"],
+});
+
+// Sign and broadcast `grant` as the granter. Standard feegrant codecs are in
+// CosmJS's defaultRegistryTypes.
+
+const fee = makeSponsoredFee({
+  network,
+  granter,
+  amount: [{ denom: "uzrn", amount: "2500" }],
+  gas: "200000",
+});
+// Sign and broadcast the allowed onboarding message as `grantee`, passing
+// `fee` to SigningStargateClient.signAndBroadcast.
+
+const revoke = makeRevokeFeeGrant({ network, granter, grantee });
+```
+
+The grant builder always nests a finite `BasicAllowance` inside an
+`AllowedMsgAllowance`. It requires a positive spend limit, a future expiry,
+and one or more exact protobuf message type URLs. It rejects duplicate or
+noncanonical coins, wildcard-like URLs, self-grants, and a conservative set of
+emergency, upgrade, governance, parameter, admin, freeze, unfreeze, and key
+rotation controls.
+
+Feegrant pays transaction fees only: it does not let the grantee sign messages
+as the granter. The helper does not query, broadcast, or prove that the
+allowance exists; applications should query the connected chain, show the
+budget and expiry to both parties, and handle revocation. These guardrails are
+client policy rather than new consensus validation, so lower-level Cosmos SDK
+clients can still construct other allowance shapes. CosmJS applications can
+use `setupFeegrantExtension` from `@cosmjs/stargate` for allowance queries.
 
 ## Develop
 

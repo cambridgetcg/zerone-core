@@ -193,8 +193,13 @@ coin type are final. Do not invent the coin type to accelerate wallet listing.
 ### 2. Sponsored-gas UX now; delegated authority only after an ante audit
 
 [`x/feegrant`](https://docs.cosmos.network/sdk/v0.50/build/modules/feegrant/README)
-is already wired. Expose its allowance queries, grant/revoke flows, and
-fee-granter signing helpers for sponsor-funded onboarding.
+is already wired. Zerone's runtime CLI already exposes allowance queries plus
+grant, revoke, and prune transactions. The TypeScript SDK now builds a finite
+`BasicAllowance` wrapped by `AllowedMsgAllowance`, a revoke message, and the
+fee-granter field used by CosmJS for sponsor-funded onboarding. The builder
+requires an explicit positive budget, future expiry, and exact allowed message
+type URLs; it also rejects privileged control-plane URLs. These are client
+guardrails, not added consensus restrictions.
 
 Do not wire Cosmos SDK
 [`x/authz`](https://docs.cosmos.network/sdk/v0.50/build/modules/authz/README)

@@ -1,4 +1,15 @@
 import {
+  CidError,
+  asZeroneMemoryCid,
+  parseCanonicalCidV1
+} from "./chunk-QI25M5F7.js";
+import {
+  FeeGrantError,
+  makeBoundedFeeGrant,
+  makeRevokeFeeGrant,
+  makeSponsoredFee
+} from "./chunk-CKRFQCA2.js";
+import {
   CaipError,
   asExistingZeroneDid,
   cosmosChainId,
@@ -11,11 +22,6 @@ import {
   zeroneAccountId
 } from "./chunk-YKTHEBLN.js";
 import {
-  CidError,
-  asZeroneMemoryCid,
-  parseCanonicalCidV1
-} from "./chunk-QI25M5F7.js";
-import {
   createZeroneRegistry,
   registerZeroneMessages,
   zeroneRegistryTypes
@@ -25,6 +31,7 @@ import "./chunk-MLKGABMK.js";
 export {
   CaipError,
   CidError,
+  FeeGrantError,
   asExistingZeroneDid,
   asZeroneMemoryCid,
   cosmosChainId,
@@ -32,6 +39,9 @@ export {
   defineZeroneNetwork,
   formatCaip10,
   formatCaip2,
+  makeBoundedFeeGrant,
+  makeRevokeFeeGrant,
+  makeSponsoredFee,
   parseCaip10,
   parseCaip2,
   parseCanonicalCidV1,
