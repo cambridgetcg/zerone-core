@@ -22,6 +22,7 @@ const UpgradeNameCompassionCalibrationV1 = "compassion-calibration-v1"
 const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
+const UpgradeNameAuthAnteHardeningV1 = "auth-ante-hardening-v1"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -318,6 +319,39 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// auth-ante-hardening-v1 — closes the omitted-public-key policy bypass.
+	// Cosmos permits SignerInfo.public_key to be absent once x/auth stores the
+	// account key. SDK implementations that support that wire shape authenticate
+	// the signer with the stored key; the old Zerone decorators instead inspected
+	// the optional transaction key and would silently skip frozen, DID, and
+	// capability checks when it was absent. The new binary derives those
+	// addresses from SigVerifiableTx.GetSigners and fails closed on extraction
+	// errors. The current SDK v0.50 signing-adapter panic for this wire shape is a
+	// separate dependency-migration blocker; Zerone policy must not rely on it.
+	//
+	// There is no store schema change. The named handler exists because this
+	// changes transaction validity and must activate at a coordinated upgrade
+	// height, never through a mixed-validator rolling deployment.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameAuthAnteHardeningV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			app.ReconcileModuleAccountPerms(ctx)
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_auth-ante-hardening-v1", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
@@ -376,6 +410,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameSubstrateDedupeV1:
 		// Migration-only — the source-ref index is a new prefix inside the
 		// existing substrate_bridge store; no store keys added or removed.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameAgenttoolSeamV1, UpgradeNameAuthAnteHardeningV1:
+		// Code/record migration only; neither upgrade adds or removes a module
+		// store key.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

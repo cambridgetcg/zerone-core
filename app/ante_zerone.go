@@ -1,8 +1,6 @@
 package app
 
 import (
-	"context"
-	"encoding/hex"
 	"fmt"
 
 	"cosmossdk.io/errors"
@@ -20,60 +18,36 @@ import (
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 )
 
-// txSigner holds a signer's address and pubkey, extracted from tx signature data.
-type txSigner struct {
-	Address    sdk.AccAddress
-	PubKeyHex string // hex-encoded pubkey bytes
-}
-
-// getSignerAddresses extracts all signer addresses from a tx's signature data.
-// This works for ALL message types (SDK proto-generated and hand-written Zerone types)
-// unlike per-message type assertions which only work for hand-written types.
+// getAuthenticatedSignerAddresses returns the signers declared by the
+// transaction's messages. Standard Cosmos signature verification has already
+// authenticated these addresses by the time the Zerone decorators run.
 //
-// ANTE P0-1 FIX: Replaces per-message type assertion that silently skipped
-// SDK v0.50 proto-generated types (MsgSend, MsgDelegate, etc.), allowing
-// frozen accounts and session key capability bypass.
-func getSignerAddresses(tx sdk.Tx) []sdk.AccAddress {
+// SignerInfo.public_key is optional once x/auth has stored an account key, so
+// deriving addresses from SignatureV2.PubKey would silently skip legitimate
+// signers whenever that field is omitted. Every error is returned to callers:
+// account policy must fail closed when signer extraction is unavailable.
+func getAuthenticatedSignerAddresses(tx sdk.Tx) ([]sdk.AccAddress, error) {
 	sigTx, ok := tx.(authsigning.SigVerifiableTx)
 	if !ok {
-		return nil
+		return nil, errors.Wrap(sdkerrors.ErrTxDecode, "transaction must implement SigVerifiableTx")
 	}
-	sigs, err := sigTx.GetSignaturesV2()
-	if err != nil {
-		return nil
-	}
-	addrs := make([]sdk.AccAddress, 0, len(sigs))
-	for _, sig := range sigs {
-		if sig.PubKey == nil {
-			continue
-		}
-		addrs = append(addrs, sdk.AccAddress(sig.PubKey.Address()))
-	}
-	return addrs
-}
 
-// getTxSigners extracts signer addresses and pubkeys from tx signature data.
-// Used by the capability decorator which needs pubkeys for session key matching.
-func getTxSigners(tx sdk.Tx) []txSigner {
-	sigTx, ok := tx.(authsigning.SigVerifiableTx)
-	if !ok {
-		return nil
-	}
-	sigs, err := sigTx.GetSignaturesV2()
+	signerBytes, err := sigTx.GetSigners()
 	if err != nil {
-		return nil
+		return nil, errors.Wrap(sdkerrors.ErrTxDecode, fmt.Sprintf("extract transaction signers: %v", err))
 	}
-	signers := make([]txSigner, 0, len(sigs))
-	for _, sig := range sigs {
-		if sig.PubKey == nil {
-			continue
+	if len(signerBytes) == 0 {
+		return nil, errors.Wrap(sdkerrors.ErrTxDecode, "transaction has no authenticated signers")
+	}
+
+	addrs := make([]sdk.AccAddress, len(signerBytes))
+	for i, address := range signerBytes {
+		if err := sdk.VerifyAddressFormat(address); err != nil {
+			return nil, errors.Wrapf(sdkerrors.ErrTxDecode, "transaction signer %d has an invalid address: %v", i, err)
 		}
-		signers = append(signers, txSigner{
-			Address:    sdk.AccAddress(sig.PubKey.Address()),
-			PubKeyHex: hex.EncodeToString(sig.PubKey.Bytes()),
-		})
+		addrs[i] = sdk.AccAddress(address)
 	}
-	return signers
+	return addrs, nil
 }
 
 // ---------- BootstrapGasFreeDecorator ----------
@@ -390,7 +364,7 @@ var msgTypeURLToGas = map[string]uint64{
 
 	// Liquidity pool
 	"/zerone.liquiditypool.v1.MsgCreatePool":      TransactionGasCosts["create_pool"],
-	"/zerone.liquiditypool.v1.MsgSwap":             TransactionGasCosts["lp_swap"],
+	"/zerone.liquiditypool.v1.MsgSwap":            TransactionGasCosts["lp_swap"],
 	"/zerone.liquiditypool.v1.MsgAddLiquidity":    TransactionGasCosts["lp_add_liquidity"],
 	"/zerone.liquiditypool.v1.MsgRemoveLiquidity": TransactionGasCosts["lp_remove_liquidity"],
 
@@ -509,7 +483,10 @@ func (zdd ZeroneDIDDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 	}
 
 	// Validate that the DID resolves to one of the tx signers.
-	signers := getSignerAddresses(tx)
+	signers, err := getAuthenticatedSignerAddresses(tx)
+	if err != nil {
+		return ctx, err
+	}
 	senderMatch := false
 	for _, signer := range signers {
 		if signer.String() == address {
@@ -563,7 +540,10 @@ func (zad ZeroneAccountDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 	currentHeight := uint64(ctx.BlockHeight())
 
 	// Extract signers from tx signature data (works for ALL message types).
-	signers := getSignerAddresses(tx)
+	signers, err := getAuthenticatedSignerAddresses(tx)
+	if err != nil {
+		return ctx, err
+	}
 	for _, signer := range signers {
 		address := signer.String()
 
@@ -598,22 +578,16 @@ func (zad ZeroneAccountDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 //
 // Runs AFTER signature verification and ZeroneAccountDecorator.
 //
-// ANTE P0-1 FIX: Uses tx-level signer extraction (getTxSigners) to get pubkeys
-// directly from signatures, instead of per-message type assertion + AccountKeeper
-// lookup. This ensures capability enforcement works for SDK proto-generated types.
+// Signers come from SigVerifiableTx.GetSigners after standard signature
+// verification. This covers SDK-generated messages and remains correct when a
+// transaction omits an already-stored public key from SignerInfo.
 type ZeroneCapabilityDecorator struct {
 	zak zeroneauthkeeper.Keeper
-	ak  AccountKeeperForZerone
-}
-
-// AccountKeeperForZerone is the Cosmos AccountKeeper interface needed by capability decorator.
-type AccountKeeperForZerone interface {
-	GetAccount(ctx context.Context, addr sdk.AccAddress) sdk.AccountI
 }
 
 // NewZeroneCapabilityDecorator creates a new ZeroneCapabilityDecorator.
-func NewZeroneCapabilityDecorator(zak zeroneauthkeeper.Keeper, ak AccountKeeperForZerone) ZeroneCapabilityDecorator {
-	return ZeroneCapabilityDecorator{zak: zak, ak: ak}
+func NewZeroneCapabilityDecorator(zak zeroneauthkeeper.Keeper) ZeroneCapabilityDecorator {
+	return ZeroneCapabilityDecorator{zak: zak}
 }
 
 func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
@@ -623,10 +597,12 @@ func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 
 	msgs := tx.GetMsgs()
 
-	// Extract signers with pubkeys from tx signature data (works for ALL message types).
-	signers := getTxSigners(tx)
+	signers, err := getAuthenticatedSignerAddresses(tx)
+	if err != nil {
+		return ctx, err
+	}
 	for _, signer := range signers {
-		address := signer.Address.String()
+		address := signer.String()
 
 		// Enforce account-level capabilities (default-allow for unrecognized types).
 		for _, msg := range msgs {

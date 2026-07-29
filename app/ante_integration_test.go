@@ -39,15 +39,17 @@ import (
 // mockSignedTx implements authsigning.SigVerifiableTx + sdk.FeeTx + sdk.TxWithMemo
 // to allow testing decorators that extract signers from tx signature data.
 type mockSignedTx struct {
-	msgs  []sdk.Msg
-	fee   sdk.Coins
-	gas   uint64
-	memo  string
-	sigV2 []signing.SignatureV2
+	msgs      []sdk.Msg
+	fee       sdk.Coins
+	gas       uint64
+	memo      string
+	sigV2     []signing.SignatureV2
+	signers   [][]byte
+	signerErr error
 }
 
 func (m mockSignedTx) GetMsgs() []sdk.Msg                              { return m.msgs }
-func (m mockSignedTx) GetMsgsV2() ([]protov2.Message, error)            { return nil, nil }
+func (m mockSignedTx) GetMsgsV2() ([]protov2.Message, error)           { return nil, nil }
 func (m mockSignedTx) ValidateBasic() error                            { return nil }
 func (m mockSignedTx) GetGas() uint64                                  { return m.gas }
 func (m mockSignedTx) GetFee() sdk.Coins                               { return m.fee }
@@ -55,7 +57,7 @@ func (m mockSignedTx) FeePayer() []byte                                { return 
 func (m mockSignedTx) FeeGranter() []byte                              { return nil }
 func (m mockSignedTx) GetMemo() string                                 { return m.memo }
 func (m mockSignedTx) GetSignaturesV2() ([]signing.SignatureV2, error) { return m.sigV2, nil }
-func (m mockSignedTx) GetSigners() ([][]byte, error)                   { return nil, nil }
+func (m mockSignedTx) GetSigners() ([][]byte, error)                   { return m.signers, m.signerErr }
 func (m mockSignedTx) GetPubKeys() ([]cryptotypes.PubKey, error) {
 	pks := make([]cryptotypes.PubKey, len(m.sigV2))
 	for i, sig := range m.sigV2 {
@@ -73,17 +75,20 @@ var _ authsigning.SigVerifiableTx = mockSignedTx{}
 // newMockSignedTx creates a mockSignedTx with proper signature data from Ed25519 private keys.
 func newMockSignedTx(keys []*ed25519.PrivKey, msgs []sdk.Msg, fee sdk.Coins, gas uint64) mockSignedTx {
 	sigs := make([]signing.SignatureV2, len(keys))
+	signers := make([][]byte, len(keys))
 	for i, key := range keys {
 		sigs[i] = signing.SignatureV2{
 			PubKey: key.PubKey(),
 			Data:   &signing.SingleSignatureData{SignMode: signing.SignMode_SIGN_MODE_DIRECT},
 		}
+		signers[i] = key.PubKey().Address()
 	}
 	return mockSignedTx{
-		msgs:  msgs,
-		fee:   fee,
-		gas:   gas,
-		sigV2: sigs,
+		msgs:    msgs,
+		fee:     fee,
+		gas:     gas,
+		sigV2:   sigs,
+		signers: signers,
 	}
 }
 
@@ -95,12 +100,6 @@ func newMockSignedTxWithMemo(keys []*ed25519.PrivKey, msgs []sdk.Msg, fee sdk.Co
 }
 
 // ---------- Mock keepers for ante tests ----------
-
-type mockCosmosAccountKeeperForAnte struct{}
-
-func (m mockCosmosAccountKeeperForAnte) GetAccount(_ context.Context, _ sdk.AccAddress) sdk.AccountI {
-	return nil
-}
 
 type mockStakingKeeperForEmergency struct{}
 
@@ -287,6 +286,69 @@ func TestAnteIntegration_FrozenAccountRejected(t *testing.T) {
 	}
 	if !zeroneauthtypes.ErrAccountFrozen.Is(err) {
 		t.Fatalf("expected ErrAccountFrozen, got: %v", err)
+	}
+}
+
+func TestAnteIntegration_FrozenAccountRejectedWhenSignerInfoOmitsPubKey(t *testing.T) {
+	ak, _, ctx := setupBothKeepers(t)
+
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	registerZeroneAccount(t, ak, ctx, addr.String(), true)
+
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+	// Cosmos permits this once the BaseAccount already stores the key. The
+	// message-derived signer must still be subject to Zerone account policy.
+	tx.sigV2[0].PubKey = nil
+
+	_, err := NewZeroneAccountDecorator(ak).AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil || !zeroneauthtypes.ErrAccountFrozen.Is(err) {
+		t.Fatalf("omitted public key must not bypass frozen-account policy, got: %v", err)
+	}
+}
+
+func TestAnteIntegration_SignerExtractionFailsClosed(t *testing.T) {
+	ak, _, ctx := setupBothKeepers(t)
+	decorator := NewZeroneAccountDecorator(ak)
+
+	tests := []struct {
+		name string
+		tx   mockSignedTx
+	}{
+		{
+			name: "signer extraction error",
+			tx: mockSignedTx{
+				msgs:      []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+				signerErr: sdkerrors.ErrInvalidAddress,
+			},
+		},
+		{
+			name: "empty signer address",
+			tx: mockSignedTx{
+				msgs:    []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+				signers: [][]byte{nil},
+			},
+		},
+		{
+			name: "no signers",
+			tx: mockSignedTx{
+				msgs: []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := decorator.AnteHandle(ctx, tc.tx, false, passThroughHandler)
+			if err == nil || !sdkerrors.ErrTxDecode.Is(err) {
+				t.Fatalf("signer extraction must fail closed with ErrTxDecode, got: %v", err)
+			}
+		})
 	}
 }
 
@@ -526,6 +588,7 @@ func TestAnteIntegration_DIDResolutionFromMemo(t *testing.T) {
 		100_000,
 		did,
 	)
+	tx.sigV2[0].PubKey = nil
 
 	// Use a handler that captures the context to check for events
 	var receivedCtx sdk.Context
@@ -717,7 +780,7 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 				registerZeroneAccountWithType(t, ak, ctx, addr.String(), tc.accountType, tc.flags)
 			}
 
-			decorator := NewZeroneCapabilityDecorator(ak, mockCosmosAccountKeeperForAnte{})
+			decorator := NewZeroneCapabilityDecorator(ak)
 			tx := newMockSignedTx(
 				[]*ed25519.PrivKey{key},
 				[]sdk.Msg{mockMsg{typeURL: tc.msgType}},
@@ -742,3 +805,30 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 	}
 }
 
+func TestAnteIntegration_CapabilityRejectedWhenSignerInfoOmitsPubKey(t *testing.T) {
+	ak, _, ctx := setupBothKeepers(t)
+
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	registerZeroneAccountWithType(
+		t,
+		ak,
+		ctx,
+		addr.String(),
+		"contract",
+		&zeroneauthtypes.AccountFlags{CanSubmitClaims: false},
+	)
+
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{mockMsg{typeURL: "/zerone.knowledge.v1.MsgSubmitClaim"}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+	tx.sigV2[0].PubKey = nil
+
+	_, err := NewZeroneCapabilityDecorator(ak).AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil || !zeroneauthtypes.ErrAccountCapabilityDenied.Is(err) {
+		t.Fatalf("omitted public key must not bypass account capability policy, got: %v", err)
+	}
+}

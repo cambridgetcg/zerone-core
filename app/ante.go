@@ -15,7 +15,7 @@ import (
 //   - Emergency halt gate (block non-emergency txs when halted)
 //   - DID resolution and validation
 //   - Frozen account enforcement + LastActiveBlock tracking
-//   - Session key capability enforcement
+//   - Account capability enforcement
 //   - Sybil funding tracker for vote-weight decay
 func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 	return sdk.ChainAnteDecorators(
@@ -54,6 +54,6 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 		// --- Zerone Post-Auth (signer authenticated) ---
 		NewZeroneDIDDecorator(app.ZeroneAuthKeeper),
 		NewZeroneAccountDecorator(app.ZeroneAuthKeeper),
-		NewZeroneCapabilityDecorator(app.ZeroneAuthKeeper, app.AccountKeeper),
+		NewZeroneCapabilityDecorator(app.ZeroneAuthKeeper),
 	)
 }

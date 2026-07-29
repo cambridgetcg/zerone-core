@@ -260,6 +260,29 @@ reference. A card advertises capabilities; it does not by itself prove control
 of a Zerone identity, authorize a transaction, or justify exposing private home
 state.
 
+## Prepared: fail-closed authentication policy
+
+Zerone's post-auth DID, frozen-account, and capability decorators now derive
+authenticated addresses from `SigVerifiableTx.GetSigners()` and propagate
+extraction errors. They no longer infer the signer from the optional
+`SignerInfo.public_key` field. A real TxRaw regression fixture covers a stored
+account key with that wire field omitted.
+
+This transaction-validity change is registered as
+`auth-ante-hardening-v1` and must activate at one coordinated binary height,
+not as a mixed-validator rolling deployment. It has no module store migration.
+Cosmos SDK 0.50.15 itself panics in its v2 signing adapter on the omitted-key
+wire shape; Cosmos SDK 0.53.8 contains the upstream
+[nil-key adapter fix](https://github.com/cosmos/cosmos-sdk/commit/a91a822eb2339d563bbe8c7bc61d71fa6c6c60e2).
+Dependency migration and this app-level policy regression both have to pass
+before the upgrade is scheduled.
+
+This repair does not make the current `did:zrn` lifecycle trustworthy.
+Registration still lacks identity-key proof of possession, rotation does not
+verify its authorization signature, legacy identifier aliases are ambiguous,
+and terminal deactivation is absent. Those remain a separate state/protobuf
+migration after a live-state census.
+
 ## Explicit deferrals
 
 - No W3C DID document or Verifiable Credential claim until `did:zrn`
