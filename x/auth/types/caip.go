@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 )
@@ -26,6 +27,9 @@ var directCosmosChainReference = regexp.MustCompile(`^[-a-zA-Z0-9]{1,32}$`)
 func CosmosChainReference(chainID string) (string, error) {
 	if chainID == "" {
 		return "", fmt.Errorf("chain ID cannot be empty")
+	}
+	if !utf8.ValidString(chainID) {
+		return "", fmt.Errorf("chain ID must be valid UTF-8")
 	}
 
 	if directCosmosChainReference.MatchString(chainID) &&

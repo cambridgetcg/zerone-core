@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	"github.com/zerone-chain/zerone/x/training_provenance/types"
 )
@@ -95,8 +96,12 @@ func newInTotoQueryTestServer(manifests map[string]*knowledgetypes.TrainingManif
 	return NewQueryServerImpl(k), ctx
 }
 
+func emptyFlatManifestRoot() string {
+	return knowledgekeeper.ComputeManifestMerkleRoot(knowledgekeeper.SelectedManifestIDs{})
+}
+
 func TestQueryInTotoStatementStatusCodes(t *testing.T) {
-	const validRoot = "7e4a9b03c4d6f8e1023456789abcdef07e4a9b03c4d6f8e1023456789abcdef0"
+	validRoot := emptyFlatManifestRoot()
 	query, ctx := newInTotoQueryTestServer(map[string]*knowledgetypes.TrainingManifest{
 		"draft": {
 			ManifestId: "draft",
@@ -116,6 +121,12 @@ func TestQueryInTotoStatementStatusCodes(t *testing.T) {
 			ManifestId: "corrupt-root",
 			ChainId:    "zerone-origin-1",
 			MerkleRoot: "not-a-sha256",
+			Status:     knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
+		},
+		"wrong-root": {
+			ManifestId: "wrong-root",
+			ChainId:    "zerone-origin-1",
+			MerkleRoot: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			Status:     knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
 		},
 		"legacy-empty-source": {
@@ -165,9 +176,14 @@ func TestQueryInTotoStatementStatusCodes(t *testing.T) {
 		})
 	}
 
-	_, err = query.InTotoStatement(ctx, &types.QueryInTotoStatementRequest{ManifestId: "corrupt-root"})
-	require.Equal(t, codes.DataLoss, status.Code(err))
-	require.ErrorContains(t, err, "data loss")
+	for _, manifestID := range []string{"corrupt-root", "wrong-root"} {
+		t.Run(manifestID, func(t *testing.T) {
+			_, err := query.InTotoStatement(ctx, &types.QueryInTotoStatementRequest{ManifestId: manifestID})
+			require.Equal(t, codes.DataLoss, status.Code(err))
+			require.ErrorContains(t, err, "data loss")
+			require.ErrorContains(t, err, "included ID sets")
+		})
+	}
 
 	_, err = query.InTotoStatement(ctx, &types.QueryInTotoStatementRequest{ManifestId: "mismatched-id"})
 	require.Equal(t, codes.DataLoss, status.Code(err))
@@ -183,7 +199,7 @@ func TestQueryInTotoStatementStatusCodes(t *testing.T) {
 }
 
 func TestQueryInTotoStatementAcceptsFlatSealedStatuses(t *testing.T) {
-	const validRoot = "7e4a9b03c4d6f8e1023456789abcdef07e4a9b03c4d6f8e1023456789abcdef0"
+	validRoot := emptyFlatManifestRoot()
 	accepted := []knowledgetypes.ManifestStatus{
 		knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
 		knowledgetypes.ManifestStatus_MANIFEST_STATUS_ATTESTED,
@@ -221,7 +237,7 @@ func TestQueryInTotoStatementUnwiredKeeperIsInternal(t *testing.T) {
 }
 
 func TestQueryInTotoStatementEmptyObservedChainIsInternal(t *testing.T) {
-	const validRoot = "7e4a9b03c4d6f8e1023456789abcdef07e4a9b03c4d6f8e1023456789abcdef0"
+	validRoot := emptyFlatManifestRoot()
 	k := NewKeeper(nil)
 	k.SetKnowledgeKeeper(&inTotoKnowledgeStub{manifests: map[string]*knowledgetypes.TrainingManifest{
 		"manifest": {
@@ -239,4 +255,50 @@ func TestQueryInTotoStatementEmptyObservedChainIsInternal(t *testing.T) {
 	)
 	require.Equal(t, codes.Internal, status.Code(err))
 	require.ErrorContains(t, err, "observed_on_chain_id")
+}
+
+func TestQueryProvenanceCertificateStatusCodes(t *testing.T) {
+	query, ctx := newInTotoQueryTestServer(map[string]*knowledgetypes.TrainingManifest{
+		"valid": {
+			ManifestId: "valid",
+			ChainId:    "zerone-origin-1",
+			MerkleRoot: emptyFlatManifestRoot(),
+			Status:     knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
+		},
+		"mismatched-id": {
+			ManifestId: "different-id",
+			ChainId:    "zerone-origin-1",
+			MerkleRoot: emptyFlatManifestRoot(),
+			Status:     knowledgetypes.ManifestStatus_MANIFEST_STATUS_FINALIZED,
+		},
+	})
+
+	for name, req := range map[string]*types.QueryProvenanceCertificateRequest{
+		"nil request": nil,
+		"empty id":    {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := query.ProvenanceCertificate(ctx, req)
+			require.Equal(t, codes.InvalidArgument, status.Code(err))
+		})
+	}
+
+	_, err := query.ProvenanceCertificate(ctx, &types.QueryProvenanceCertificateRequest{ManifestId: "missing"})
+	require.Equal(t, codes.NotFound, status.Code(err))
+
+	_, err = query.ProvenanceCertificate(ctx, &types.QueryProvenanceCertificateRequest{ManifestId: "mismatched-id"})
+	require.Equal(t, codes.DataLoss, status.Code(err))
+	require.ErrorContains(t, err, `manifest key "mismatched-id" contains ID "different-id"`)
+
+	response, err := query.ProvenanceCertificate(ctx, &types.QueryProvenanceCertificateRequest{ManifestId: "valid"})
+	require.NoError(t, err)
+	require.Equal(t, "valid", response.Certificate.ManifestId)
+
+	unwired := NewQueryServerImpl(NewKeeper(nil))
+	_, err = unwired.ProvenanceCertificate(
+		context.Background(),
+		&types.QueryProvenanceCertificateRequest{ManifestId: "valid"},
+	)
+	require.Equal(t, codes.Internal, status.Code(err))
+	require.ErrorContains(t, err, "knowledge keeper not wired")
 }

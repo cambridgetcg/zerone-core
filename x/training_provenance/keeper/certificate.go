@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -9,6 +10,11 @@ import (
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	"github.com/zerone-chain/zerone/x/training_provenance/types"
+)
+
+var (
+	errCertificateManifestNotFound = errors.New("training manifest not found")
+	errCertificateDataLoss         = errors.New("provenance certificate data loss")
 )
 
 // BuildCertificate synthesizes a ProvenanceCertificate for the given
@@ -36,7 +42,15 @@ func (k Keeper) BuildCertificate(ctx context.Context, manifestID string) (*types
 	}
 	manifest, ok := k.knowledgeKeeper.GetTrainingManifest(ctx, manifestID)
 	if !ok || manifest == nil {
-		return nil, fmt.Errorf("manifest %s not found", manifestID)
+		return nil, fmt.Errorf("%w: %s", errCertificateManifestNotFound, manifestID)
+	}
+	if manifest.ManifestId != manifestID {
+		return nil, fmt.Errorf(
+			"%w: manifest key %q contains ID %q",
+			errCertificateDataLoss,
+			manifestID,
+			manifest.ManifestId,
+		)
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 

@@ -34,6 +34,7 @@ func TestCosmosChainReference(t *testing.T) {
 		{name: "long official vector", chainID: longChainID, want: "hashed-0204c92a0388779d"},
 		{name: "space official vector", chainID: " ", want: "hashed-36a9e7f1c95b82ff"},
 		{name: "empty", wantErr: true},
+		{name: "invalid UTF-8", chainID: string([]byte{0xff}), wantErr: true},
 	}
 
 	for _, tt := range tests {

@@ -29,8 +29,13 @@ func (q queryServer) ProvenanceCertificate(ctx context.Context, req *types.Query
 		return nil, status.Error(codes.InvalidArgument, "manifest_id required")
 	}
 	cert, err := q.keeper.BuildCertificate(ctx, req.ManifestId)
-	if err != nil {
+	switch {
+	case errors.Is(err, errCertificateManifestNotFound):
 		return nil, status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, errCertificateDataLoss):
+		return nil, status.Error(codes.DataLoss, err.Error())
+	case err != nil:
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &types.QueryProvenanceCertificateResponse{Certificate: cert}, nil
 }
