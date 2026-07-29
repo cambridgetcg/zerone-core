@@ -44,7 +44,7 @@ func TestCertificateToInTotoStatement(t *testing.T) {
 			"name": "zerone://zerone-origin-1/training-corpus/manifest%2Fa",
 			"digest": {"sha256": "7e4a9b03c4d6f8e1023456789abcdef07e4a9b03c4d6f8e1023456789abcdef0"}
 		}],
-		"predicateType": "https://github.com/cambridgetcg/zerone-core/blob/03033b0d1cc3665b08335bfe095abe9feb27ba89/docs/specs/attestations/training-provenance-v1.md",
+		"predicateType": "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md",
 		"predicate": {
 			"sourceChainId": "zerone-origin-1",
 			"observedOnChainId": "zerone-observer-2",
