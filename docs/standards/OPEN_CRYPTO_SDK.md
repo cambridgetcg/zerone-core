@@ -85,8 +85,10 @@ manifests because its certificate counts direct fact/action/domain coverage,
 while its incident count is module-global rather than manifest-specific. The
 versioned
 [predicate specification](../specs/attestations/training-provenance-v1.md)
-records those exact boundaries and freezes them: a semantic change requires a
-new predicate version and URI.
+records those exact boundaries and freezes them. The emitted Predicate TypeURI
+is pinned to the exact repository revision carrying that specification rather
+than a mutable branch; a semantic change requires a new predicate version and
+URI.
 
 This is an unsigned, current-state projection with no store, transaction,
 reward, or consensus-version change. A producer can sign the returned JSON
