@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	corestore "cosmossdk.io/core/store"
@@ -28,16 +29,15 @@ import (
 
 var errInjectedIBCCleanup = errors.New("injected IBC cleanup failure")
 
-type failingIBCCleanupStore struct {
+type failingIBCPrefixEnumerator struct {
 	dbm.DB
 
 	iteratorOpenErr  error
 	iteratorErr      error
 	iteratorCloseErr error
-	deleteErr        error
 }
 
-func (s failingIBCCleanupStore) Iterator(start, end []byte) (corestore.Iterator, error) {
+func (s failingIBCPrefixEnumerator) Iterator(start, end []byte) (corestore.Iterator, error) {
 	if s.iteratorOpenErr != nil {
 		return nil, s.iteratorOpenErr
 	}
@@ -52,11 +52,33 @@ func (s failingIBCCleanupStore) Iterator(start, end []byte) (corestore.Iterator,
 	}, nil
 }
 
-func (s failingIBCCleanupStore) Delete(key []byte) error {
+type failingIBCPrefixMutationStore struct {
+	store ibcPrefixMutationStore
+
+	deleteErr       error
+	hasErr          error
+	keepAfterDelete bool
+	deleteCalls     *int
+}
+
+func (s failingIBCPrefixMutationStore) Delete(key []byte) error {
+	if s.deleteCalls != nil {
+		(*s.deleteCalls)++
+	}
 	if s.deleteErr != nil {
 		return s.deleteErr
 	}
-	return s.DB.Delete(key)
+	if s.keepAfterDelete {
+		return nil
+	}
+	return s.store.Delete(key)
+}
+
+func (s failingIBCPrefixMutationStore) Has(key []byte) (bool, error) {
+	if s.hasErr != nil {
+		return false, s.hasErr
+	}
+	return s.store.Has(key)
 }
 
 type failingIBCCleanupIterator struct {
@@ -76,6 +98,112 @@ func (i failingIBCCleanupIterator) Error() error {
 func (i failingIBCCleanupIterator) Close() error {
 	underlyingErr := i.Iterator.Close()
 	return errors.Join(underlyingErr, i.closeErr)
+}
+
+type silentlyTruncatedIBCPrefixEnumerator struct {
+	ibcPrefixEnumerator
+
+	prefix []byte
+	limit  int
+}
+
+func (s silentlyTruncatedIBCPrefixEnumerator) Iterator(start, end []byte) (corestore.Iterator, error) {
+	iterator, err := s.ibcPrefixEnumerator.Iterator(start, end)
+	if err != nil || string(start) != string(s.prefix) {
+		return iterator, err
+	}
+	return &silentlyTruncatedIterator{
+		Iterator:  iterator,
+		remaining: s.limit,
+	}, nil
+}
+
+type silentlyTruncatedIterator struct {
+	corestore.Iterator
+
+	remaining int
+}
+
+func (i *silentlyTruncatedIterator) Valid() bool {
+	return i.remaining > 0 && i.Iterator.Valid()
+}
+
+func (i *silentlyTruncatedIterator) Next() {
+	i.remaining--
+	if i.remaining > 0 {
+		i.Iterator.Next()
+	}
+}
+
+type reusedKeyBufferEnumerator struct {
+	keys [][]byte
+}
+
+func (s reusedKeyBufferEnumerator) Iterator(start, end []byte) (corestore.Iterator, error) {
+	iterator := &reusedKeyBufferIterator{
+		start: start,
+		end:   end,
+		keys:  s.keys,
+	}
+	iterator.loadKey()
+	return iterator, nil
+}
+
+type reusedKeyBufferIterator struct {
+	start  []byte
+	end    []byte
+	keys   [][]byte
+	index  int
+	buffer []byte
+	closed bool
+}
+
+func (i *reusedKeyBufferIterator) Domain() ([]byte, []byte) {
+	return i.start, i.end
+}
+
+func (i *reusedKeyBufferIterator) Valid() bool {
+	return !i.closed && i.index < len(i.keys)
+}
+
+func (i *reusedKeyBufferIterator) Next() {
+	i.index++
+	i.loadKey()
+}
+
+func (i *reusedKeyBufferIterator) Key() []byte {
+	return i.buffer
+}
+
+func (i *reusedKeyBufferIterator) Value() []byte {
+	return nil
+}
+
+func (i *reusedKeyBufferIterator) Error() error {
+	return nil
+}
+
+func (i *reusedKeyBufferIterator) Close() error {
+	i.closed = true
+	return nil
+}
+
+func (i *reusedKeyBufferIterator) loadKey() {
+	if i.index < len(i.keys) {
+		i.buffer = append(i.buffer[:0], i.keys[i.index]...)
+	}
+}
+
+func mustSDK053IBC10Manifest(
+	t *testing.T,
+	channelUpgradeKeys, pruningSequenceKeys [][]byte,
+) sdk053IBC10PlanInfo {
+	t.Helper()
+	raw, err := BuildSDK053IBC10PlanInfo(channelUpgradeKeys, pruningSequenceKeys)
+	require.NoError(t, err)
+	manifest, err := parseSDK053IBC10PlanInfo(raw)
+	require.NoError(t, err)
+	return manifest
 }
 
 func TestSDK053IBC10StoreUpgrades(t *testing.T) {
@@ -105,13 +233,13 @@ func TestDeleteObsoleteIBCChannelPrefixes(t *testing.T) {
 		"pruningSequenceStart-not-a-child": []byte("keep"),
 	}
 
-	// Exercise the same SDK cache-merge iterator and error-returning runtime
-	// adapter used by the upgrade handler, with legacy keys in committed state.
+	// Exercise the same split used by the upgrade handler: enumerate directly
+	// from committed IAVL state, but stage every deletion in the block cache.
 	rootStore := rootmulti.NewStore(dbm.NewMemDB(), log.NewNopLogger(), metrics.NewNoOpMetrics())
 	ibcKey := storetypes.NewKVStoreKey("ibc-prefix-cleanup-test")
 	rootStore.MountStoreWithDB(ibcKey, storetypes.StoreTypeIAVL, nil)
 	require.NoError(t, rootStore.LoadLatestVersion())
-	committedIBCStore := rootStore.GetKVStore(ibcKey)
+	committedIBCStore := rootStore.GetCommitKVStore(ibcKey)
 	for key, value := range obsolete {
 		committedIBCStore.Set([]byte(key), value)
 	}
@@ -120,87 +248,386 @@ func TestDeleteObsoleteIBCChannelPrefixes(t *testing.T) {
 	}
 	rootStore.Commit()
 
-	ctx := sdk.NewContext(rootStore.CacheMultiStore(), cmtproto.Header{}, false, log.NewNopLogger())
-	store := sdkruntime.NewKVStoreService(ibcKey).OpenKVStore(ctx)
+	cacheMultiStore := rootStore.CacheMultiStore()
+	ctx := sdk.NewContext(cacheMultiStore, cmtproto.Header{}, false, log.NewNopLogger())
+	mutationStore := sdkruntime.NewKVStoreService(ibcKey).OpenKVStore(ctx)
 
-	deleted, err := deleteObsoleteIBCChannelPrefixes(store)
+	channelUpgradeKeys := make([][]byte, 0, 3)
+	pruningSequenceKeys := make([][]byte, 0, 1)
+	for key := range obsolete {
+		switch {
+		case strings.HasPrefix(key, legacyIBCChannelUpgradesPrefix):
+			channelUpgradeKeys = append(channelUpgradeKeys, []byte(key))
+		case strings.HasPrefix(key, legacyIBCPruningSequencePrefix):
+			pruningSequenceKeys = append(pruningSequenceKeys, []byte(key))
+		default:
+			t.Fatalf("obsolete test key %q is outside cleanup domains", key)
+		}
+	}
+	manifest := mustSDK053IBC10Manifest(t, channelUpgradeKeys, pruningSequenceKeys)
+	deleted, err := deleteObsoleteIBCChannelPrefixes(
+		committedIBCPrefixEnumerator{store: committedIBCStore},
+		mutationStore,
+		manifest,
+	)
 	require.NoError(t, err)
 	require.Equal(t, len(obsolete), deleted)
 
 	for key := range obsolete {
-		value, err := store.Get([]byte(key))
+		value, err := mutationStore.Get([]byte(key))
 		require.NoError(t, err)
 		require.Nil(t, value, "%s must be removed", key)
+		require.Equal(
+			t,
+			obsolete[key],
+			committedIBCStore.Get([]byte(key)),
+			"%s must remain in committed state until the cache writes",
+			key,
+		)
 	}
 	for key, expected := range retained {
-		value, err := store.Get([]byte(key))
+		value, err := mutationStore.Get([]byte(key))
 		require.NoError(t, err)
 		require.Equal(t, expected, value, "%s must be preserved byte-for-byte", key)
+		require.Equal(t, expected, committedIBCStore.Get([]byte(key)))
 	}
 
-	// Re-running the repair is a no-op, which matters if an upgrade block is
-	// replayed after a rollback.
-	deleted, err = deleteObsoleteIBCChannelPrefixes(store)
+	cacheMultiStore.Write()
+	rootStore.Commit()
+	for key := range obsolete {
+		require.Nil(t, committedIBCStore.Get([]byte(key)), "%s must be absent after commit", key)
+	}
+	for key, expected := range retained {
+		require.Equal(t, expected, committedIBCStore.Get([]byte(key)))
+	}
+
+	// Re-running against the newly committed state is a no-op, which matters
+	// if an operator retries the repair after a completed rehearsal.
+	replayCache := rootStore.CacheMultiStore()
+	replayCtx := sdk.NewContext(replayCache, cmtproto.Header{}, false, log.NewNopLogger())
+	replayMutationStore := sdkruntime.NewKVStoreService(ibcKey).OpenKVStore(replayCtx)
+	deleted, err = deleteObsoleteIBCChannelPrefixes(
+		committedIBCPrefixEnumerator{store: committedIBCStore},
+		replayMutationStore,
+		mustSDK053IBC10Manifest(t, nil, nil),
+	)
 	require.NoError(t, err)
 	require.Zero(t, deleted)
 }
 
 func TestDeleteObsoleteIBCChannelPrefixesFailsClosed(t *testing.T) {
 	testCases := []struct {
-		name  string
-		store failingIBCCleanupStore
-		want  string
+		name             string
+		iteratorOpenErr  error
+		iteratorErr      error
+		iteratorCloseErr error
+		deleteErr        error
+		hasErr           error
+		keepAfterDelete  bool
+		want             string
 	}{
 		{
-			name: "iterator open",
-			store: failingIBCCleanupStore{
-				DB:              dbm.NewMemDB(),
-				iteratorOpenErr: errInjectedIBCCleanup,
-			},
-			want: "open iterator",
+			name:            "iterator open",
+			iteratorOpenErr: errInjectedIBCCleanup,
+			want:            "open iterator",
 		},
 		{
-			name: "iterator traversal",
-			store: failingIBCCleanupStore{
-				DB:          dbm.NewMemDB(),
-				iteratorErr: errInjectedIBCCleanup,
-			},
-			want: "iterate obsolete IBC prefix",
+			name:        "iterator traversal",
+			iteratorErr: errInjectedIBCCleanup,
+			want:        "iterate obsolete IBC prefix",
 		},
 		{
-			name: "iterator close",
-			store: failingIBCCleanupStore{
-				DB:               dbm.NewMemDB(),
-				iteratorCloseErr: errInjectedIBCCleanup,
-			},
-			want: "close iterator",
+			name:             "iterator close",
+			iteratorCloseErr: errInjectedIBCCleanup,
+			want:             "close iterator",
 		},
 		{
-			name: "delete",
-			store: failingIBCCleanupStore{
-				DB:        dbm.NewMemDB(),
-				deleteErr: errInjectedIBCCleanup,
-			},
-			want: "delete obsolete IBC key",
+			name:      "delete",
+			deleteErr: errInjectedIBCCleanup,
+			want:      "delete obsolete IBC key",
+		},
+		{
+			name:   "post-delete lookup",
+			hasErr: errInjectedIBCCleanup,
+			want:   "verify obsolete IBC key",
+		},
+		{
+			name:            "delete has no effect",
+			keepAfterDelete: true,
+			want:            "key remains in upgrade cache",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.store.deleteErr != nil {
-				require.NoError(t, tc.store.DB.Set(
-					[]byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0"),
-					[]byte("upgrade"),
-				))
+			key := []byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0")
+			enumerationDB := dbm.NewMemDB()
+			mutationDB := dbm.NewMemDB()
+			require.NoError(t, enumerationDB.Set(key, []byte("upgrade")))
+			require.NoError(t, mutationDB.Set(key, []byte("upgrade")))
+
+			enumerator := failingIBCPrefixEnumerator{
+				DB:               enumerationDB,
+				iteratorOpenErr:  tc.iteratorOpenErr,
+				iteratorErr:      tc.iteratorErr,
+				iteratorCloseErr: tc.iteratorCloseErr,
+			}
+			mutationStore := failingIBCPrefixMutationStore{
+				store:           mutationDB,
+				deleteErr:       tc.deleteErr,
+				hasErr:          tc.hasErr,
+				keepAfterDelete: tc.keepAfterDelete,
 			}
 
-			deleted, err := deleteObsoleteIBCChannelPrefixes(tc.store)
+			deleted, err := deleteObsoleteIBCChannelPrefixes(
+				enumerator,
+				mutationStore,
+				mustSDK053IBC10Manifest(t, [][]byte{key}, nil),
+			)
 			require.Error(t, err)
-			require.ErrorIs(t, err, errInjectedIBCCleanup)
+			if tc.keepAfterDelete {
+				require.NotErrorIs(t, err, errInjectedIBCCleanup)
+			} else {
+				require.ErrorIs(t, err, errInjectedIBCCleanup)
+			}
 			require.Contains(t, err.Error(), tc.want)
 			require.Zero(t, deleted)
 		})
 	}
+}
+
+func TestDeleteObsoleteIBCChannelPrefixesFailureDoesNotMutateCommittedStore(t *testing.T) {
+	rootStore := rootmulti.NewStore(dbm.NewMemDB(), log.NewNopLogger(), metrics.NewNoOpMetrics())
+	ibcKey := storetypes.NewKVStoreKey("ibc-prefix-cleanup-rollback-test")
+	rootStore.MountStoreWithDB(ibcKey, storetypes.StoreTypeIAVL, nil)
+	require.NoError(t, rootStore.LoadLatestVersion())
+
+	key := []byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0")
+	value := []byte("upgrade")
+	committedIBCStore := rootStore.GetCommitKVStore(ibcKey)
+	committedIBCStore.Set(key, value)
+	rootStore.Commit()
+
+	cacheMultiStore := rootStore.CacheMultiStore()
+	ctx := sdk.NewContext(cacheMultiStore, cmtproto.Header{}, false, log.NewNopLogger())
+	cachedStore := sdkruntime.NewKVStoreService(ibcKey).OpenKVStore(ctx)
+	failingMutationStore := failingIBCPrefixMutationStore{
+		store:  cachedStore,
+		hasErr: errInjectedIBCCleanup,
+	}
+
+	deleted, err := deleteObsoleteIBCChannelPrefixes(
+		committedIBCPrefixEnumerator{store: committedIBCStore},
+		failingMutationStore,
+		mustSDK053IBC10Manifest(t, [][]byte{key}, nil),
+	)
+	require.ErrorIs(t, err, errInjectedIBCCleanup)
+	require.Zero(t, deleted)
+
+	cachedValue, getErr := cachedStore.Get(key)
+	require.NoError(t, getErr)
+	require.Nil(t, cachedValue, "the failed repair may contain staged cache writes")
+	require.Equal(
+		t,
+		value,
+		committedIBCStore.Get(key),
+		"discarding the failed upgrade cache must leave committed state intact",
+	)
+}
+
+func TestDeleteObsoleteIBCChannelPrefixesRejectsSilentPartialEnumeration(t *testing.T) {
+	firstKey := []byte("channelUpgrades/counterpartyUpgrade/ports/transfer/channels/channel-0")
+	secondKey := []byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0")
+	enumerationDB := dbm.NewMemDB()
+	mutationDB := dbm.NewMemDB()
+	for _, key := range [][]byte{firstKey, secondKey} {
+		require.NoError(t, enumerationDB.Set(key, []byte("upgrade")))
+		require.NoError(t, mutationDB.Set(key, []byte("upgrade")))
+	}
+
+	enumerator := silentlyTruncatedIBCPrefixEnumerator{
+		ibcPrefixEnumerator: failingIBCPrefixEnumerator{DB: enumerationDB},
+		prefix:              []byte(legacyIBCChannelUpgradesPrefix),
+		limit:               1,
+	}
+	deleteCalls := 0
+	deleted, err := deleteObsoleteIBCChannelPrefixes(
+		enumerator,
+		failingIBCPrefixMutationStore{store: mutationDB, deleteCalls: &deleteCalls},
+		mustSDK053IBC10Manifest(t, [][]byte{firstKey, secondKey}, nil),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "does not match plan manifest")
+	require.Zero(t, deleted)
+	require.Zero(t, deleteCalls)
+	for _, key := range [][]byte{firstKey, secondKey} {
+		has, hasErr := mutationDB.Has(key)
+		require.NoError(t, hasErr)
+		require.True(t, has, "%q must remain because completeness was not proven", key)
+	}
+}
+
+func TestDeleteObsoleteIBCChannelPrefixesChecksBothManifestsBeforeDeleting(t *testing.T) {
+	channelKey := []byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0")
+	pruningKey := []byte("pruningSequenceStart/ports/transfer/channels/channel-0")
+	enumerationDB := dbm.NewMemDB()
+	mutationDB := dbm.NewMemDB()
+	for _, key := range [][]byte{channelKey, pruningKey} {
+		require.NoError(t, enumerationDB.Set(key, []byte("state")))
+		require.NoError(t, mutationDB.Set(key, []byte("state")))
+	}
+
+	// The channel commitment matches, but the pruning commitment deliberately
+	// claims an empty set. No channel key may be deleted before the second
+	// domain has also matched.
+	deleteCalls := 0
+	deleted, err := deleteObsoleteIBCChannelPrefixes(
+		failingIBCPrefixEnumerator{DB: enumerationDB},
+		failingIBCPrefixMutationStore{store: mutationDB, deleteCalls: &deleteCalls},
+		mustSDK053IBC10Manifest(t, [][]byte{channelKey}, nil),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), legacyIBCPruningSequencePrefix)
+	require.Zero(t, deleted)
+	require.Zero(t, deleteCalls)
+	for _, key := range [][]byte{channelKey, pruningKey} {
+		has, hasErr := mutationDB.Has(key)
+		require.NoError(t, hasErr)
+		require.True(t, has, "%q must remain until both manifests match", key)
+	}
+}
+
+func TestDeleteObsoleteIBCChannelPrefixesRejectsSameCountKeySubstitution(t *testing.T) {
+	expectedKeys := [][]byte{
+		[]byte("channelUpgrades/counterpartyUpgrade/ports/transfer/channels/channel-0"),
+		[]byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0"),
+	}
+	actualKeys := [][]byte{
+		expectedKeys[0],
+		[]byte("channelUpgrades/upgrades/ports/transfer/channels/channel-9"),
+	}
+	enumerationDB := dbm.NewMemDB()
+	mutationDB := dbm.NewMemDB()
+	for _, key := range actualKeys {
+		require.NoError(t, enumerationDB.Set(key, []byte("upgrade")))
+		require.NoError(t, mutationDB.Set(key, []byte("upgrade")))
+	}
+
+	deleteCalls := 0
+	deleted, err := deleteObsoleteIBCChannelPrefixes(
+		failingIBCPrefixEnumerator{DB: enumerationDB},
+		failingIBCPrefixMutationStore{store: mutationDB, deleteCalls: &deleteCalls},
+		mustSDK053IBC10Manifest(t, expectedKeys, nil),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "does not match plan manifest")
+	require.Zero(t, deleted)
+	require.Zero(t, deleteCalls, "equal counts must not bypass the keyset digest")
+}
+
+func TestCollectStoreKeysWithPrefixClonesReusedIteratorKeyBuffer(t *testing.T) {
+	keys := [][]byte{
+		[]byte("channelUpgrades/upgrades/ports/transfer/channels/channel-0"),
+		[]byte("channelUpgrades/upgrades/ports/transfer/channels/channel-1"),
+	}
+	collected, err := collectStoreKeysWithPrefix(
+		reusedKeyBufferEnumerator{keys: keys},
+		[]byte(legacyIBCChannelUpgradesPrefix),
+		uint64(len(keys)),
+	)
+	require.NoError(t, err)
+	require.Equal(t, keys, collected)
+	require.NotSame(t, &collected[0][0], &collected[1][0])
+}
+
+func TestCollectStoreKeysWithPrefixReturnsTraversalAndCloseErrors(t *testing.T) {
+	traversalErr := errors.New("traversal failed")
+	closeErr := errors.New("close failed")
+	_, err := collectStoreKeysWithPrefix(
+		failingIBCPrefixEnumerator{
+			DB:               dbm.NewMemDB(),
+			iteratorErr:      traversalErr,
+			iteratorCloseErr: closeErr,
+		},
+		[]byte(legacyIBCChannelUpgradesPrefix),
+		0,
+	)
+	require.ErrorIs(t, err, traversalErr)
+	require.ErrorIs(t, err, closeErr)
+}
+
+func TestSDK053IBC10PlanInfoIsStrictAndCanonical(t *testing.T) {
+	const emptySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	const emptyInfo = `{"schema":"zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1","channel_upgrades":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"pruning_sequence_start":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}`
+
+	built, err := BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, emptyInfo, built)
+	manifest, err := parseSDK053IBC10PlanInfo(built)
+	require.NoError(t, err)
+	require.Equal(t, "0", manifest.ChannelUpgrades.KeyCount)
+	require.Equal(t, emptySHA256, manifest.ChannelUpgrades.KeysSHA256)
+
+	nonEmpty, err := BuildSDK053IBC10PlanInfo(
+		[][]byte{[]byte("channelUpgrades/a")},
+		nil,
+	)
+	require.NoError(t, err)
+	nonEmptyManifest, err := parseSDK053IBC10PlanInfo(nonEmpty)
+	require.NoError(t, err)
+	require.Equal(t, "1", nonEmptyManifest.ChannelUpgrades.KeyCount)
+	require.Equal(
+		t,
+		"a7009f386a4870c5e9825050e952bcf489e916eed29269771ff7713444d57767",
+		nonEmptyManifest.ChannelUpgrades.KeysSHA256,
+	)
+	sortedInfo, err := BuildSDK053IBC10PlanInfo(
+		[][]byte{[]byte("channelUpgrades/a"), []byte("channelUpgrades/b")},
+		nil,
+	)
+	require.NoError(t, err)
+	reversedInfo, err := BuildSDK053IBC10PlanInfo(
+		[][]byte{[]byte("channelUpgrades/b"), []byte("channelUpgrades/a")},
+		nil,
+	)
+	require.NoError(t, err)
+	require.Equal(t, sortedInfo, reversedInfo, "input order must not affect the canonical keyset")
+
+	duplicateSchema := strings.Replace(
+		built,
+		`{"schema":"`+SDK053IBC10PlanInfoSchema+`",`,
+		`{"schema":"`+SDK053IBC10PlanInfoSchema+`","schema":"`+SDK053IBC10PlanInfoSchema+`",`,
+		1,
+	)
+	testCases := []struct {
+		name string
+		raw  string
+	}{
+		{name: "missing", raw: ""},
+		{name: "whitespace", raw: " " + built},
+		{name: "duplicate field", raw: duplicateSchema},
+		{name: "unknown field", raw: strings.TrimSuffix(built, "}") + `,"unknown":true}`},
+		{name: "missing field", raw: strings.Replace(built, `"key_count":"0",`, "", 1)},
+		{name: "trailing value", raw: built + `{}`},
+		{name: "uppercase digest", raw: strings.Replace(built, emptySHA256, strings.ToUpper(emptySHA256), 1)},
+		{name: "noncanonical count", raw: strings.Replace(built, `"key_count":"0"`, `"key_count":"00"`, 1)},
+		{name: "excessive count", raw: strings.Replace(built, `"key_count":"0"`, `"key_count":"100001"`, 1)},
+		{name: "oversize", raw: strings.Repeat("x", maxSDK053IBC10PlanInfoByteCount+1)},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseSDK053IBC10PlanInfo(tc.raw)
+			require.Error(t, err)
+		})
+	}
+
+	_, err = BuildSDK053IBC10PlanInfo(
+		[][]byte{[]byte(legacyIBCChannelUpgradesPrefix + "duplicate"), []byte(legacyIBCChannelUpgradesPrefix + "duplicate")},
+		nil,
+	)
+	require.ErrorContains(t, err, "duplicate")
+	_, err = BuildSDK053IBC10PlanInfo([][]byte{[]byte("recvStartSequence/not-obsolete")}, nil)
+	require.ErrorContains(t, err, "outside prefix")
 }
 
 func TestSDK053IBC10StoreLoaderDeletesLegacyStoresAndRestarts(t *testing.T) {

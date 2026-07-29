@@ -105,7 +105,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 		},
 		{
 			UpgradeName: UpgradeNameSDK053IBC10,
-			Description: "sdk-0.53-ibc-10 — one coordinated activation for fail-closed authenticated-signer policy and the Cosmos SDK v0.50 / IBC-Go v8 to SDK v0.53 / IBC-Go v10 migration; validates source IBC versions, refuses to orphan ICS-29 funds, runs module migrations, writes the auth hardening marker, and removes legacy capability/fee stores.",
+			Description: "sdk-0.53-ibc-10 — one coordinated activation for fail-closed authenticated-signer policy and the Cosmos SDK v0.50 / IBC-Go v8 to SDK v0.53 / IBC-Go v10 migration; requires the raw-DB legacy IBC keyset commitment in plan info, validates source IBC versions, refuses to orphan ICS-29 funds, runs module migrations, writes the auth hardening marker, and removes legacy capability/fee stores.",
 		},
 	}
 
@@ -137,6 +137,19 @@ func (app *ZeroneApp) KnownUpgradeNames() []string {
 // height plan machinery. Production flow on a live chain goes through
 // governance + the upgrade module's BeginBlocker, not this function.
 func (app *ZeroneApp) RunUpgradeHandlerForTests(ctx context.Context, name string, fromVM module.VersionMap, height int64) (module.VersionMap, error) {
+	return app.RunUpgradeHandlerWithInfoForTests(ctx, name, fromVM, height, "e2e test")
+}
+
+// RunUpgradeHandlerWithInfoForTests is RunUpgradeHandlerForTests with an
+// explicit plan.Info payload for handlers whose consensus guards commit
+// upgrade-specific rehearsal evidence.
+func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
+	ctx context.Context,
+	name string,
+	fromVM module.VersionMap,
+	height int64,
+	info string,
+) (module.VersionMap, error) {
 	if !app.UpgradeKeeper.HasHandler(name) {
 		return nil, fmt.Errorf("no upgrade handler registered for %q", name)
 	}
@@ -145,7 +158,7 @@ func (app *ZeroneApp) RunUpgradeHandlerForTests(ctx context.Context, name string
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, fromVM); err != nil {
 		return nil, fmt.Errorf("seed pre-upgrade vm: %w", err)
 	}
-	plan := upgradetypes.Plan{Name: name, Height: height, Info: "e2e test"}
+	plan := upgradetypes.Plan{Name: name, Height: height, Info: info}
 	if err := app.UpgradeKeeper.ApplyUpgrade(ctx, plan); err != nil {
 		return nil, fmt.Errorf("apply upgrade: %w", err)
 	}

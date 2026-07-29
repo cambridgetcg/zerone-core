@@ -387,9 +387,36 @@ The unified handler also repairs an
 [IBC-Go v10.7.0 channel-migration defect](https://github.com/cosmos/ibc-go/blob/v10.7.0/modules/core/04-channel/migrations/v10/store.go#L111-L123).
 That upstream migration calls exact-key deletion on `channelUpgrades` and
 `pruningSequenceStart`, while the v8 records are child keys below
-`channelUpgrades/…` and `pruningSequenceStart/…`. After module migrations
-succeed, Zerone enumerates, closes the iterators, and deletes the real child
-keys; any iterator or deletion error aborts before the auth-hardening marker.
+`channelUpgrades/…` and `pruningSequenceStart/…`. Neither the SDK cache-merge
+iterator nor IAVL v1.2.2 can prove complete traversal: both have paths that
+silently terminate without exposing the underlying error. The coordinated
+upgrade therefore requires governance to commit an independently collected raw
+old-database keyset manifest in the plan's `info`. The normal v8 genesis export
+omits these keys and cannot produce that manifest.
+
+The plan info is exact, compact canonical JSON with no whitespace, duplicate,
+unknown, missing, or trailing fields:
+
+```json
+{"schema":"zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1","channel_upgrades":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"pruning_sequence_start":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
+```
+
+For each fixed domain, sort the full logical IBC-substore keys by raw bytes,
+reject duplicates, then hash the concatenation of
+`uint64_big_endian(key_length) || key`. Counts are canonical unsigned decimal
+strings; the example locks the empty-set vector to `SHA256("")`. Plan info is
+limited to 2,048 bytes, and each domain is bounded to 100,000 keys and 32 MiB
+of aggregate key bytes.
+
+Before `RunMigrations`, Zerone enumerates the unwrapped committed H-1 IAVL view
+and requires both count-and-digest commitments to match before the first
+deletion. A silent partial traversal, same-count key substitution, malformed
+manifest, or explicit iterator error halts the upgrade. After migrations
+succeed, the verified keys are deleted only through the upgrade context cache
+and each absence is checked. The committed parent remains unchanged unless the
+complete upgrade block commits; any failure occurs before the auth-hardening
+marker.
+
 The repair deliberately preserves `recvStartSequence/…` byte-for-byte because
 IBC-Go v10 still uses it for replay protection, and likewise preserves packet
 commitments, acknowledgements, and receipts. The old-database rehearsal must

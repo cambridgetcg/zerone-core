@@ -32,6 +32,14 @@ cosmovisor — runs the handler and the chain resumes.
    `zeroned tx gov submit-proposal plan.json --from <key>` → vote → passes.
    Verify: `zeroned query upgrade plan`.
 
+   The `sdk-0.53-ibc-10` handler is stricter: its `info` is not free-form
+   checksum text. It must be the canonical legacy-IBC keyset commitment
+   documented in [OPEN_CRYPTO_SDK.md](standards/OPEN_CRYPTO_SDK.md), produced
+   from a trusted frozen-state raw validator database snapshot used for the
+   migration rehearsal. Preserve its height and app-hash evidence and keep IBC
+   state frozen through activation. A normal genesis export cannot see the
+   committed keys.
+
 3. **Stage the new binary before H.** Manual: have it ready. Cosmovisor:
    place it at `cosmovisor/upgrades/<name>/bin/zeroned` under `DAEMON_HOME`
    (`make cosmovisor-init` scaffolds this; keep

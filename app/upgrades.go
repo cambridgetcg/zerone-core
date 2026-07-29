@@ -3,9 +3,16 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
+	"strconv"
+	"strings"
 
 	corestore "cosmossdk.io/core/store"
 	storetypes "cosmossdk.io/store/types"
@@ -33,8 +40,13 @@ const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameSDK053IBC10 = "sdk-0.53-ibc-10"
 
 const (
-	legacyCapabilityStoreKey = "capability"
-	legacyIBCFeeStoreKey     = "feeibc"
+	SDK053IBC10PlanInfoSchema = "zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1"
+
+	legacyCapabilityStoreKey        = "capability"
+	legacyIBCFeeStoreKey            = "feeibc"
+	maxSDK053IBC10PlanInfoByteCount = 2048
+	maxLegacyIBCManifestKeyCount    = 100_000
+	maxLegacyIBCManifestKeyBytes    = 32 << 20
 
 	// IBC-Go v8 stores channel-upgrade and pruning records below these
 	// slash-terminated domains. IBC-Go v10.7.0's v10 migration calls Delete on
@@ -42,10 +54,6 @@ const (
 	// the child records therefore survive unless the application removes them.
 	legacyIBCChannelUpgradesPrefix = "channelUpgrades/"
 	legacyIBCPruningSequencePrefix = "pruningSequenceStart/"
-
-	// Cosmos SDK cacheMergeIterator.Error reports this value on ordinary
-	// exhaustion rather than nil. All other iterator errors remain fatal.
-	exhaustedCacheMergeIteratorError = "invalid cacheMergeIterator"
 )
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
@@ -392,6 +400,19 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 				)
 			}
 
+			legacyIBCManifest, err := parseSDK053IBC10PlanInfo(plan.Info)
+			if err != nil {
+				return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
+			}
+
+			legacyIBCKeys, err := app.verifyObsoleteIBCChannelState(legacyIBCManifest)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q failed to verify obsolete IBC v8 channel state: %w",
+					plan.Name, err,
+				)
+			}
+
 			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 			if err != nil {
 				return nil, err
@@ -399,12 +420,13 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 
 			// IBC-Go v10.7.0 intends to remove the v8 channel-upgrade and
 			// pruning domains, but its migration deletes only the bare
-			// prefix keys. Enumerate and delete the actual child keys after
-			// all module migrations have succeeded. recvStartSequence and
-			// packet commitments/acks/receipts are deliberately outside
-			// these prefixes and must survive for replay protection and
-			// unfinished packet lifecycles.
-			deletedIBCKeys, err := app.deleteObsoleteIBCChannelState(ctx)
+			// prefix keys. The actual child keys were completely enumerated
+			// and committed against plan.Info before migrations; stage their
+			// deletion now that all module migrations have succeeded.
+			// recvStartSequence and packet commitments/acks/receipts are
+			// deliberately outside these prefixes and must survive for replay
+			// protection and unfinished packet lifecycles.
+			deletedIBCKeys, err := app.deleteObsoleteIBCChannelState(ctx, legacyIBCKeys)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"upgrade %q failed to remove obsolete IBC v8 channel state: %w",
@@ -432,46 +454,320 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	)
 }
 
-type ibcPrefixCleanupStore interface {
+type ibcPrefixEnumerator interface {
 	Iterator(start, end []byte) (corestore.Iterator, error)
-	Delete(key []byte) error
 }
 
-// deleteObsoleteIBCChannelState repairs an upstream IBC-Go v10.7.0 migration
-// defect. It is intentionally narrower than "delete old IBC state": only
-// channelUpgrades/* and pruningSequenceStart/* are obsolete. In particular,
+type ibcPrefixMutationStore interface {
+	Delete(key []byte) error
+	Has(key []byte) (bool, error)
+}
+
+type legacyIBCKeySetManifest struct {
+	KeyCount   string `json:"key_count"`
+	KeysSHA256 string `json:"keys_sha256"`
+}
+
+type sdk053IBC10PlanInfo struct {
+	Schema               string                  `json:"schema"`
+	ChannelUpgrades      legacyIBCKeySetManifest `json:"channel_upgrades"`
+	PruningSequenceStart legacyIBCKeySetManifest `json:"pruning_sequence_start"`
+}
+
+// committedIBCPrefixEnumerator adapts the legacy SDK store interface to the
+// error-returning core interface. IAVL panics if opening an iterator fails, so
+// an open failure remains fail-closed. Traversal errors are checked too, but
+// completeness does not trust Error: IAVL v1.2.2 can silently drop a traversal
+// error, so the plan's independently collected keyset manifest is authoritative.
+type committedIBCPrefixEnumerator struct {
+	store storetypes.CommitKVStore
+}
+
+func (s committedIBCPrefixEnumerator) Iterator(start, end []byte) (corestore.Iterator, error) {
+	if s.store == nil {
+		return nil, errors.New("committed IBC prefix enumeration store is nil")
+	}
+	return s.store.Iterator(start, end), nil
+}
+
+// BuildSDK053IBC10PlanInfo constructs the canonical plan.Info commitment from
+// a complete raw old-database census. It does not inspect state or establish
+// census completeness for the caller.
+func BuildSDK053IBC10PlanInfo(channelUpgradeKeys, pruningSequenceKeys [][]byte) (string, error) {
+	channelUpgradeKeys, err := normalizeLegacyIBCManifestKeys(
+		[]byte(legacyIBCChannelUpgradesPrefix),
+		channelUpgradeKeys,
+	)
+	if err != nil {
+		return "", err
+	}
+	pruningSequenceKeys, err = normalizeLegacyIBCManifestKeys(
+		[]byte(legacyIBCPruningSequencePrefix),
+		pruningSequenceKeys,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	info := sdk053IBC10PlanInfo{
+		Schema:               SDK053IBC10PlanInfoSchema,
+		ChannelUpgrades:      makeLegacyIBCKeySetManifest(channelUpgradeKeys),
+		PruningSequenceStart: makeLegacyIBCKeySetManifest(pruningSequenceKeys),
+	}
+	bz, err := json.Marshal(info)
+	if err != nil {
+		return "", fmt.Errorf("marshal %s plan info: %w", UpgradeNameSDK053IBC10, err)
+	}
+	if len(bz) > maxSDK053IBC10PlanInfoByteCount {
+		return "", fmt.Errorf(
+			"%s plan info exceeds %d bytes",
+			UpgradeNameSDK053IBC10,
+			maxSDK053IBC10PlanInfoByteCount,
+		)
+	}
+	return string(bz), nil
+}
+
+func normalizeLegacyIBCManifestKeys(prefix []byte, keys [][]byte) ([][]byte, error) {
+	if len(keys) > maxLegacyIBCManifestKeyCount {
+		return nil, fmt.Errorf(
+			"manifest for prefix %q exceeds %d keys",
+			prefix,
+			maxLegacyIBCManifestKeyCount,
+		)
+	}
+	normalized := make([][]byte, len(keys))
+	totalBytes := 0
+	for i, key := range keys {
+		if !bytes.HasPrefix(key, prefix) {
+			return nil, fmt.Errorf("manifest key %q is outside prefix %q", key, prefix)
+		}
+		if len(key) > maxLegacyIBCManifestKeyBytes-totalBytes {
+			return nil, fmt.Errorf(
+				"manifest for prefix %q exceeds %d aggregate key bytes",
+				prefix,
+				maxLegacyIBCManifestKeyBytes,
+			)
+		}
+		totalBytes += len(key)
+		normalized[i] = bytes.Clone(key)
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		return bytes.Compare(normalized[i], normalized[j]) < 0
+	})
+	for i := 1; i < len(normalized); i++ {
+		if bytes.Equal(normalized[i-1], normalized[i]) {
+			return nil, fmt.Errorf("manifest for prefix %q contains duplicate key %q", prefix, normalized[i])
+		}
+	}
+	return normalized, nil
+}
+
+func makeLegacyIBCKeySetManifest(keys [][]byte) legacyIBCKeySetManifest {
+	return legacyIBCKeySetManifest{
+		KeyCount:   strconv.FormatUint(uint64(len(keys)), 10),
+		KeysSHA256: hashLengthPrefixedKeys(keys),
+	}
+}
+
+func hashLengthPrefixedKeys(keys [][]byte) string {
+	hasher := sha256.New()
+	var length [8]byte
+	for _, key := range keys {
+		binary.BigEndian.PutUint64(length[:], uint64(len(key)))
+		_, _ = hasher.Write(length[:])
+		_, _ = hasher.Write(key)
+	}
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func parseSDK053IBC10PlanInfo(raw string) (sdk053IBC10PlanInfo, error) {
+	if raw == "" {
+		return sdk053IBC10PlanInfo{}, errors.New("missing mandatory legacy IBC keyset manifest")
+	}
+	if len(raw) > maxSDK053IBC10PlanInfoByteCount {
+		return sdk053IBC10PlanInfo{}, fmt.Errorf(
+			"legacy IBC keyset manifest exceeds %d bytes",
+			maxSDK053IBC10PlanInfoByteCount,
+		)
+	}
+
+	var info sdk053IBC10PlanInfo
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&info); err != nil {
+		return sdk053IBC10PlanInfo{}, fmt.Errorf("decode legacy IBC keyset manifest: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return sdk053IBC10PlanInfo{}, errors.New("legacy IBC keyset manifest has trailing JSON data")
+		}
+		return sdk053IBC10PlanInfo{}, fmt.Errorf("decode trailing legacy IBC keyset manifest data: %w", err)
+	}
+
+	canonical, err := json.Marshal(info)
+	if err != nil {
+		return sdk053IBC10PlanInfo{}, fmt.Errorf("canonicalize legacy IBC keyset manifest: %w", err)
+	}
+	if raw != string(canonical) {
+		return sdk053IBC10PlanInfo{}, errors.New(
+			"legacy IBC keyset manifest must be canonical JSON with fixed field order and no whitespace or duplicate fields",
+		)
+	}
+	if info.Schema != SDK053IBC10PlanInfoSchema {
+		return sdk053IBC10PlanInfo{}, fmt.Errorf(
+			"legacy IBC keyset manifest schema must be %q: got %q",
+			SDK053IBC10PlanInfoSchema,
+			info.Schema,
+		)
+	}
+	if err := validateLegacyIBCKeySetManifest("channel_upgrades", info.ChannelUpgrades); err != nil {
+		return sdk053IBC10PlanInfo{}, err
+	}
+	if err := validateLegacyIBCKeySetManifest("pruning_sequence_start", info.PruningSequenceStart); err != nil {
+		return sdk053IBC10PlanInfo{}, err
+	}
+	return info, nil
+}
+
+func validateLegacyIBCKeySetManifest(name string, manifest legacyIBCKeySetManifest) error {
+	count, err := strconv.ParseUint(manifest.KeyCount, 10, 64)
+	if err != nil || strconv.FormatUint(count, 10) != manifest.KeyCount {
+		return fmt.Errorf("%s key_count must be a canonical unsigned decimal string", name)
+	}
+	if count > maxLegacyIBCManifestKeyCount {
+		return fmt.Errorf("%s key_count exceeds %d", name, maxLegacyIBCManifestKeyCount)
+	}
+	if len(manifest.KeysSHA256) != sha256.Size*2 ||
+		manifest.KeysSHA256 != strings.ToLower(manifest.KeysSHA256) {
+		return fmt.Errorf("%s keys_sha256 must be 64 lowercase hexadecimal characters", name)
+	}
+	if _, err := hex.DecodeString(manifest.KeysSHA256); err != nil {
+		return fmt.Errorf("%s keys_sha256 must be 64 lowercase hexadecimal characters: %w", name, err)
+	}
+	return nil
+}
+
+// verifyObsoleteIBCChannelState verifies the complete H-1 keysets before
+// module migrations run. It is intentionally narrower than "old IBC state":
 // recvStartSequence/* remains live replay-protection state in IBC-Go v10.
-func (app *ZeroneApp) deleteObsoleteIBCChannelState(ctx context.Context) (int, error) {
+func (app *ZeroneApp) verifyObsoleteIBCChannelState(
+	manifest sdk053IBC10PlanInfo,
+) ([][]byte, error) {
+	key, ok := app.keys[ibcexported.StoreKey]
+	if !ok || key == nil {
+		return nil, fmt.Errorf("IBC store key %q is not mounted", ibcexported.StoreKey)
+	}
+
+	// The handler is the first module PreBlocker, before any transaction
+	// execution. These v8 auxiliary children already exist in the last
+	// committed state, and the v10 migration neither creates nor successfully
+	// deletes them. Enumerating the unwrapped committed IAVL store therefore
+	// avoids cacheMergeIterator. The independently committed plan manifest
+	// supplies the completeness guarantee because both cacheMergeIterator and
+	// IAVL v1.2.2 can mask traversal failures.
+	committedStore := app.CommitMultiStore().GetCommitKVStore(key)
+	return collectObsoleteIBCChannelPrefixKeys(
+		committedIBCPrefixEnumerator{store: committedStore},
+		manifest,
+	)
+}
+
+// deleteObsoleteIBCChannelState stages the already verified keyset in the
+// upgrade block cache after module migrations succeed.
+func (app *ZeroneApp) deleteObsoleteIBCChannelState(
+	ctx context.Context,
+	keys [][]byte,
+) (int, error) {
 	key, ok := app.keys[ibcexported.StoreKey]
 	if !ok || key == nil {
 		return 0, fmt.Errorf("IBC store key %q is not mounted", ibcexported.StoreKey)
 	}
-
-	store := sdkruntime.NewKVStoreService(key).OpenKVStore(ctx)
-	return deleteObsoleteIBCChannelPrefixes(store)
+	mutationStore := sdkruntime.NewKVStoreService(key).OpenKVStore(ctx)
+	return deleteObsoleteIBCChannelKeys(mutationStore, keys)
 }
 
-func deleteObsoleteIBCChannelPrefixes(store ibcPrefixCleanupStore) (int, error) {
-	if store == nil {
-		return 0, errors.New("IBC prefix cleanup store is nil")
+func deleteObsoleteIBCChannelPrefixes(
+	enumerator ibcPrefixEnumerator,
+	mutationStore ibcPrefixMutationStore,
+	manifest sdk053IBC10PlanInfo,
+) (int, error) {
+	keys, err := collectObsoleteIBCChannelPrefixKeys(enumerator, manifest)
+	if err != nil {
+		return 0, err
+	}
+	return deleteObsoleteIBCChannelKeys(mutationStore, keys)
+}
+
+func collectObsoleteIBCChannelPrefixKeys(
+	enumerator ibcPrefixEnumerator,
+	manifest sdk053IBC10PlanInfo,
+) ([][]byte, error) {
+	if enumerator == nil {
+		return nil, errors.New("IBC prefix enumeration store is nil")
 	}
 
-	prefixes := [][]byte{
-		[]byte(legacyIBCChannelUpgradesPrefix),
-		[]byte(legacyIBCPruningSequencePrefix),
+	domains := []struct {
+		prefix   []byte
+		expected legacyIBCKeySetManifest
+	}{
+		{
+			prefix:   []byte(legacyIBCChannelUpgradesPrefix),
+			expected: manifest.ChannelUpgrades,
+		},
+		{
+			prefix:   []byte(legacyIBCPruningSequencePrefix),
+			expected: manifest.PruningSequenceStart,
+		},
 	}
 	keys := make([][]byte, 0)
-	for _, prefix := range prefixes {
-		prefixKeys, err := collectStoreKeysWithPrefix(store, prefix)
+	for _, domain := range domains {
+		expectedCount, err := strconv.ParseUint(domain.expected.KeyCount, 10, 64)
+		if err != nil || expectedCount > maxLegacyIBCManifestKeyCount {
+			return nil, fmt.Errorf(
+				"obsolete IBC prefix %q has invalid manifest key_count %q",
+				domain.prefix,
+				domain.expected.KeyCount,
+			)
+		}
+		prefixKeys, err := collectStoreKeysWithPrefix(enumerator, domain.prefix, expectedCount)
 		if err != nil {
-			return 0, err
+			return nil, err
+		}
+		actual := makeLegacyIBCKeySetManifest(prefixKeys)
+		if actual != domain.expected {
+			return nil, fmt.Errorf(
+				"obsolete IBC prefix %q does not match plan manifest: expected count=%s sha256=%s, got count=%s sha256=%s",
+				domain.prefix,
+				domain.expected.KeyCount,
+				domain.expected.KeysSHA256,
+				actual.KeyCount,
+				actual.KeysSHA256,
+			)
 		}
 		keys = append(keys, prefixKeys...)
 	}
+	return keys, nil
+}
 
+func deleteObsoleteIBCChannelKeys(
+	mutationStore ibcPrefixMutationStore,
+	keys [][]byte,
+) (int, error) {
+	if mutationStore == nil {
+		return 0, errors.New("IBC prefix mutation store is nil")
+	}
 	for i, key := range keys {
-		if err := store.Delete(key); err != nil {
+		if err := mutationStore.Delete(key); err != nil {
 			return i, fmt.Errorf("delete obsolete IBC key %q: %w", key, err)
+		}
+		has, err := mutationStore.Has(key)
+		if err != nil {
+			return i, fmt.Errorf("verify obsolete IBC key %q deletion: %w", key, err)
+		}
+		if has {
+			return i, fmt.Errorf("verify obsolete IBC key %q deletion: key remains in upgrade cache", key)
 		}
 	}
 	return len(keys), nil
@@ -479,7 +775,11 @@ func deleteObsoleteIBCChannelPrefixes(store ibcPrefixCleanupStore) (int, error) 
 
 // collectStoreKeysWithPrefix closes the iterator before any caller writes to
 // the same domain, as required by the Cosmos store iterator contract.
-func collectStoreKeysWithPrefix(store ibcPrefixCleanupStore, prefix []byte) ([][]byte, error) {
+func collectStoreKeysWithPrefix(
+	store ibcPrefixEnumerator,
+	prefix []byte,
+	expectedCount uint64,
+) ([][]byte, error) {
 	if len(prefix) == 0 {
 		return nil, errors.New("refusing to enumerate an empty IBC store prefix")
 	}
@@ -492,7 +792,8 @@ func collectStoreKeysWithPrefix(store ibcPrefixCleanupStore, prefix []byte) ([][
 		return nil, fmt.Errorf("open iterator for obsolete IBC prefix %q: nil iterator", prefix)
 	}
 
-	keys := make([][]byte, 0)
+	keys := make([][]byte, 0, int(expectedCount))
+	totalKeyBytes := 0
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if !bytes.HasPrefix(key, prefix) {
@@ -506,15 +807,44 @@ func collectStoreKeysWithPrefix(store ibcPrefixCleanupStore, prefix []byte) ([][
 			}
 			return nil, errors.Join(iterationErr, closeErr)
 		}
+		if uint64(len(keys)) >= expectedCount {
+			iterationErr := fmt.Errorf(
+				"iterator for obsolete IBC prefix %q exceeded plan manifest count %d",
+				prefix, expectedCount,
+			)
+			closeErr := iterator.Close()
+			if closeErr != nil {
+				closeErr = fmt.Errorf("close iterator for obsolete IBC prefix %q: %w", prefix, closeErr)
+			}
+			return nil, errors.Join(iterationErr, closeErr)
+		}
+		if len(key) > maxLegacyIBCManifestKeyBytes-totalKeyBytes {
+			iterationErr := fmt.Errorf(
+				"iterator for obsolete IBC prefix %q exceeded %d aggregate key bytes",
+				prefix, maxLegacyIBCManifestKeyBytes,
+			)
+			closeErr := iterator.Close()
+			if closeErr != nil {
+				closeErr = fmt.Errorf("close iterator for obsolete IBC prefix %q: %w", prefix, closeErr)
+			}
+			return nil, errors.Join(iterationErr, closeErr)
+		}
+		if len(keys) > 0 && bytes.Compare(keys[len(keys)-1], key) >= 0 {
+			iterationErr := fmt.Errorf(
+				"iterator for obsolete IBC prefix %q returned keys out of strict byte order: %q then %q",
+				prefix, keys[len(keys)-1], key,
+			)
+			closeErr := iterator.Close()
+			if closeErr != nil {
+				closeErr = fmt.Errorf("close iterator for obsolete IBC prefix %q: %w", prefix, closeErr)
+			}
+			return nil, errors.Join(iterationErr, closeErr)
+		}
+		totalKeyBytes += len(key)
 		keys = append(keys, bytes.Clone(key))
 	}
 
 	iterationErr := iterator.Error()
-	if iterationErr != nil &&
-		!iterator.Valid() &&
-		iterationErr.Error() == exhaustedCacheMergeIteratorError {
-		iterationErr = nil
-	}
 	if iterationErr != nil {
 		iterationErr = fmt.Errorf("iterate obsolete IBC prefix %q: %w", prefix, iterationErr)
 	}

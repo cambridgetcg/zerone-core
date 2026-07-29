@@ -237,11 +237,14 @@ func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
 	fromVM["capability"] = 1
 	fromVM["feeibc"] = 2
 
-	toVM, err := h.App.RunUpgradeHandlerForTests(
+	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	toVM, err := h.App.RunUpgradeHandlerWithInfoForTests(
 		h.Ctx,
 		zeroneapp.UpgradeNameSDK053IBC10,
 		fromVM,
 		h.Height(),
+		planInfo,
 	)
 	require.NoError(t, err)
 	require.Equal(t, uint64(8), toVM["ibc"], "IBC core must run v6→v7→v8 migrations")
@@ -260,6 +263,35 @@ func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
 	targetVM := h.App.CurrentModuleVersionMap()
 	require.NotContains(t, targetVM, "capability")
 	require.NotContains(t, targetVM, "feeibc")
+}
+
+func TestUpgrade_SDK053IBC10RefusesMissingKeysetManifestBeforeAuthMarker(t *testing.T) {
+	h := NewTestHarness(t)
+
+	current := h.App.CurrentModuleVersionMap()
+	fromVM := make(module.VersionMap, len(current)+2)
+	for name, version := range current {
+		fromVM[name] = version
+	}
+	fromVM["ibc"] = 6
+	fromVM["transfer"] = 5
+	fromVM["interchainaccounts"] = 3
+	fromVM["capability"] = 1
+	fromVM["feeibc"] = 2
+
+	_, err := h.App.RunUpgradeHandlerWithInfoForTests(
+		h.Ctx,
+		zeroneapp.UpgradeNameSDK053IBC10,
+		fromVM,
+		h.Height(),
+		"",
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing mandatory legacy IBC keyset manifest")
+	require.Empty(
+		t,
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_auth-ante-hardening-v1"),
+	)
 }
 
 func TestUpgrade_SDK053IBC10RefusesUnexpectedSourceVersionBeforeAuthMarker(t *testing.T) {
