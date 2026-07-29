@@ -52,9 +52,9 @@ The recursion: the creed pins the chain's voice; the chain's voice is its code; 
 
 ## 6. Useful work is governed by its own per-phase sub-creeds
 
-**Closed by:** `x/work_creed.PinnedSubCreed` + `docs/sub_creeds/*.md` + canonical sub-creed registry.
+**Closed by:** `x/work_creed.PinnedSubCreed` + `docs/sub_creeds/*.md` + canonical sub-creed registry; binding tests `TestSubCreed_Foundation_StaysInSync`, `TestSubCreed_Curation_StaysInSync`, `TestSubCreed_Augmentation_StaysInSync`, `TestSubCreed_Training_StaysInSync`, `TestSubCreed_Evaluation_StaysInSync`, `TestSubCreed_Alignment_StaysInSync`, `TestSubCreed_Substrate_StaysInSync`, and `TestSubCreed_Tools_StaysInSync`.
 
-Each of the 8 lifecycle phases (Knowledge delegated to `x/creed`) has its own sub-creed of 3 commitments = 24 sub-commitments. The USEFUL_WORK doctrine (`docs/USEFUL_WORK.md`, UW + M1–M7) decomposes into per-phase canonical hashes; amendments require their own LIP.
+Each of the eight non-Knowledge phases in the nine-phase lifecycle has its own sub-creed of 3 commitments = 24 sub-commitments; Knowledge delegates to `x/creed`. The USEFUL_WORK doctrine (`docs/USEFUL_WORK.md`, UW + M1–M7) decomposes into per-phase canonical hashes; amendments require their own LIP.
 
 The recursion: governance of useful-work is itself useful-work governance. Sub-creeds are bound by the same five-layer discipline as the parent creed — and the meta-test that says "every sub-creed has a binding test" is itself a binding test under the parent creed.
 
@@ -72,7 +72,7 @@ Three emission pathways (PoT block rewards, bootstrap claims, and external-work 
 
 ## 9. The chain audits itself, with its own funds, paid to its own auditors
 
-**Closed by:** UW commitment 12 (the chain pays for its own audit) + `ProbeBountyPoolModuleName` + audit-bounty pool minted per-block.
+**Closed by:** UW commitment 12 (the chain pays for its own audit) + `ProbeBountyPoolModuleName` + audit-bounty pool minted per-block; binding tests `TestTruthSeeking_AuditBudgetIsAutonomous`, `TestTruthSeeking_ChainPaysForOwnAudit`, `TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses`, and `TestMoat_ProbeBountyPoolRespectsCap`.
 
 Auditing is a paid useful-work activity. The pool mints ZRN every block (capped) and pays whoever answers the chain's stress-test calls. The audit budget is funded by the chain itself; the audit work is performed by chain participants; the audit subject is the chain. Three levels of self-reference, all bound by the same mint discipline.
 

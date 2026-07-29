@@ -80,6 +80,10 @@ run_recursion 4 "lineage graph includes the chain's own commits" \
 run_recursion 5 "creed cannot move faster than governance" \
   "TestTruthSeeking_CreedHashIsPinned"
 
+# Recursion 6: useful work is governed by per-phase sub-creeds
+run_recursion 6 "useful work is governed by per-phase sub-creeds" \
+  "TestSubCreed_(Alignment|Augmentation|Curation|Evaluation|Foundation|Substrate|Tools|Training)_StaysInSync"
+
 # Recursion 7: participation grows through participation
 run_recursion 7 "participation grows through participation" \
   "TestLateBootstrap|TestScenario13e_BootstrapPotsDoNotExpire"
@@ -88,13 +92,13 @@ run_recursion 7 "participation grows through participation" \
 run_recursion 8 "economy is hard-capped and self-circulating" \
   "TestEmissionCap_BootstrapClaimMintsOnDemand|TestScenario13_ZeroTeamAllocationAtGenesis|TestScenario13c_ClaimingPotMinterPermission|TestSubstrateBridge_HappyPathSettlement|TestSponsorship_NoMintingHappens"
 
-# Recursion 10a: recursion catalog audits itself
-run_recursion 10 "recursion catalog audits itself" \
-  "TestRecursiveZerone_TestNamesCitedInDoctrineExist"
+# Recursion 9: chain audits itself with an autonomous, capped bounty pool
+run_recursion 9 "chain audits itself with its own funded bounty pool" \
+  "TestTruthSeeking_AuditBudgetIsAutonomous|TestTruthSeeking_ChainPaysForOwnAudit|TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses|TestMoat_ProbeBountyPoolRespectsCap"
 
-# Recursion 10b: chain audits its own voice
-run_recursion 10 "chain audits its own voice (per-event doctrine bound)" \
-  "TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound"
+# Recursion 10: recursion catalog and voice layer audit their own bindings
+run_recursion 10 "recursion catalog and voice audit their own bindings" \
+  "TestRecursiveZerone_TestNamesCitedInDoctrineExist|TestRecursiveVoiceAudit_EveryEventInTheLoopIsDoctrineBound"
 
 echo
 echo "═══════════════════════════════════════════════════════════════════"
