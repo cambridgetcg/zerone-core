@@ -272,6 +272,50 @@ export interface MsgRegisterStratum {
 export interface MsgRegisterStratumResponse {
 }
 /**
+ * MsgPostConjecture submits an unsettled proposition. It asserts nothing:
+ * the resulting Fact carries confidence 0, cites nothing, cannot be cited,
+ * is excluded from the training corpus, and pays its proposer no reward.
+ * The review fee is the proposer's only cost and is non-refundable, exactly
+ * as for an ordinary claim.
+ *
+ * The panel's question is "is this well-posed and falsifiable?". A conjecture
+ * with no falsification predicate — or one that is not truth-apt — is
+ * returned VERDICT_MALFORMED and no Fact is created.
+ * @name MsgPostConjecture
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjecture
+ */
+export interface MsgPostConjecture {
+    proposer: string;
+    /**
+     * the conjecture itself
+     */
+    statement: string;
+    /**
+     * what observation would kill it
+     */
+    falsificationPredicate: string;
+    domain: string;
+    category: string;
+    /**
+     * uzrn review fee, same schedule as a claim
+     */
+    stake: string;
+    /**
+     * optional: why this is worth asking
+     */
+    reasoningTrace: string;
+}
+/**
+ * @name MsgPostConjectureResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjectureResponse
+ */
+export interface MsgPostConjectureResponse {
+    claimId: string;
+    roundId: string;
+}
+/**
  * @name MsgChallengeProvisionalFact
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgChallengeProvisionalFact
@@ -1404,6 +1448,37 @@ export declare const MsgRegisterStratumResponse: {
     encode(_: MsgRegisterStratumResponse, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): MsgRegisterStratumResponse;
     fromPartial(_: DeepPartial<MsgRegisterStratumResponse>): MsgRegisterStratumResponse;
+};
+/**
+ * MsgPostConjecture submits an unsettled proposition. It asserts nothing:
+ * the resulting Fact carries confidence 0, cites nothing, cannot be cited,
+ * is excluded from the training corpus, and pays its proposer no reward.
+ * The review fee is the proposer's only cost and is non-refundable, exactly
+ * as for an ordinary claim.
+ *
+ * The panel's question is "is this well-posed and falsifiable?". A conjecture
+ * with no falsification predicate — or one that is not truth-apt — is
+ * returned VERDICT_MALFORMED and no Fact is created.
+ * @name MsgPostConjecture
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjecture
+ */
+export declare const MsgPostConjecture: {
+    typeUrl: string;
+    encode(message: MsgPostConjecture, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgPostConjecture;
+    fromPartial(object: DeepPartial<MsgPostConjecture>): MsgPostConjecture;
+};
+/**
+ * @name MsgPostConjectureResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjectureResponse
+ */
+export declare const MsgPostConjectureResponse: {
+    typeUrl: string;
+    encode(message: MsgPostConjectureResponse, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgPostConjectureResponse;
+    fromPartial(object: DeepPartial<MsgPostConjectureResponse>): MsgPostConjectureResponse;
 };
 /**
  * @name MsgChallengeProvisionalFact

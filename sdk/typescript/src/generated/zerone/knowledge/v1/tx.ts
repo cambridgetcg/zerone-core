@@ -267,6 +267,50 @@ export interface MsgRegisterStratum {
  */
 export interface MsgRegisterStratumResponse {}
 /**
+ * MsgPostConjecture submits an unsettled proposition. It asserts nothing:
+ * the resulting Fact carries confidence 0, cites nothing, cannot be cited,
+ * is excluded from the training corpus, and pays its proposer no reward.
+ * The review fee is the proposer's only cost and is non-refundable, exactly
+ * as for an ordinary claim.
+ *
+ * The panel's question is "is this well-posed and falsifiable?". A conjecture
+ * with no falsification predicate — or one that is not truth-apt — is
+ * returned VERDICT_MALFORMED and no Fact is created.
+ * @name MsgPostConjecture
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjecture
+ */
+export interface MsgPostConjecture {
+  proposer: string;
+  /**
+   * the conjecture itself
+   */
+  statement: string;
+  /**
+   * what observation would kill it
+   */
+  falsificationPredicate: string;
+  domain: string;
+  category: string;
+  /**
+   * uzrn review fee, same schedule as a claim
+   */
+  stake: string;
+  /**
+   * optional: why this is worth asking
+   */
+  reasoningTrace: string;
+}
+/**
+ * @name MsgPostConjectureResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjectureResponse
+ */
+export interface MsgPostConjectureResponse {
+  claimId: string;
+  roundId: string;
+}
+/**
  * @name MsgChallengeProvisionalFact
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgChallengeProvisionalFact
@@ -2357,6 +2401,153 @@ export const MsgRegisterStratumResponse = {
   },
   fromPartial(_: DeepPartial<MsgRegisterStratumResponse>): MsgRegisterStratumResponse {
     const message = createBaseMsgRegisterStratumResponse();
+    return message;
+  }
+};
+function createBaseMsgPostConjecture(): MsgPostConjecture {
+  return {
+    proposer: "",
+    statement: "",
+    falsificationPredicate: "",
+    domain: "",
+    category: "",
+    stake: "",
+    reasoningTrace: ""
+  };
+}
+/**
+ * MsgPostConjecture submits an unsettled proposition. It asserts nothing:
+ * the resulting Fact carries confidence 0, cites nothing, cannot be cited,
+ * is excluded from the training corpus, and pays its proposer no reward.
+ * The review fee is the proposer's only cost and is non-refundable, exactly
+ * as for an ordinary claim.
+ *
+ * The panel's question is "is this well-posed and falsifiable?". A conjecture
+ * with no falsification predicate — or one that is not truth-apt — is
+ * returned VERDICT_MALFORMED and no Fact is created.
+ * @name MsgPostConjecture
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjecture
+ */
+export const MsgPostConjecture = {
+  typeUrl: "/zerone.knowledge.v1.MsgPostConjecture",
+  encode(message: MsgPostConjecture, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.proposer !== "") {
+      writer.uint32(10).string(message.proposer);
+    }
+    if (message.statement !== "") {
+      writer.uint32(18).string(message.statement);
+    }
+    if (message.falsificationPredicate !== "") {
+      writer.uint32(26).string(message.falsificationPredicate);
+    }
+    if (message.domain !== "") {
+      writer.uint32(34).string(message.domain);
+    }
+    if (message.category !== "") {
+      writer.uint32(42).string(message.category);
+    }
+    if (message.stake !== "") {
+      writer.uint32(50).string(message.stake);
+    }
+    if (message.reasoningTrace !== "") {
+      writer.uint32(58).string(message.reasoningTrace);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgPostConjecture {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgPostConjecture();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.proposer = reader.string();
+          break;
+        case 2:
+          message.statement = reader.string();
+          break;
+        case 3:
+          message.falsificationPredicate = reader.string();
+          break;
+        case 4:
+          message.domain = reader.string();
+          break;
+        case 5:
+          message.category = reader.string();
+          break;
+        case 6:
+          message.stake = reader.string();
+          break;
+        case 7:
+          message.reasoningTrace = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgPostConjecture>): MsgPostConjecture {
+    const message = createBaseMsgPostConjecture();
+    message.proposer = object.proposer ?? "";
+    message.statement = object.statement ?? "";
+    message.falsificationPredicate = object.falsificationPredicate ?? "";
+    message.domain = object.domain ?? "";
+    message.category = object.category ?? "";
+    message.stake = object.stake ?? "";
+    message.reasoningTrace = object.reasoningTrace ?? "";
+    return message;
+  }
+};
+function createBaseMsgPostConjectureResponse(): MsgPostConjectureResponse {
+  return {
+    claimId: "",
+    roundId: ""
+  };
+}
+/**
+ * @name MsgPostConjectureResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgPostConjectureResponse
+ */
+export const MsgPostConjectureResponse = {
+  typeUrl: "/zerone.knowledge.v1.MsgPostConjectureResponse",
+  encode(message: MsgPostConjectureResponse, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.claimId !== "") {
+      writer.uint32(10).string(message.claimId);
+    }
+    if (message.roundId !== "") {
+      writer.uint32(18).string(message.roundId);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgPostConjectureResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgPostConjectureResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.claimId = reader.string();
+          break;
+        case 2:
+          message.roundId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgPostConjectureResponse>): MsgPostConjectureResponse {
+    const message = createBaseMsgPostConjectureResponse();
+    message.claimId = object.claimId ?? "";
+    message.roundId = object.roundId ?? "";
     return message;
   }
 };

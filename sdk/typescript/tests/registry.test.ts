@@ -5,8 +5,8 @@ import { createZeroneRegistry, zeroneRegistryTypes } from "../src/registry";
 
 describe("Zerone transaction registry", () => {
   it("contains every unique Zerone request type", () => {
-    assert.equal(zeroneRegistryTypes.length, 165);
-    assert.equal(new Set(zeroneRegistryTypes.map(([typeUrl]) => typeUrl)).size, 165);
+    assert.equal(zeroneRegistryTypes.length, 166);
+    assert.equal(new Set(zeroneRegistryTypes.map(([typeUrl]) => typeUrl)).size, 166);
   });
 
   it("composes safely with the standard Cosmos registry", () => {
@@ -20,6 +20,7 @@ describe("Zerone transaction registry", () => {
     );
     assert.ok(registry.lookupType("/zerone.auth.v1.MsgRegisterAccount"));
     assert.ok(registry.lookupType("/zerone.knowledge.v1.MsgSubmitClaim"));
+    assert.ok(registry.lookupType("/zerone.knowledge.v1.MsgPostConjecture"));
     assert.ok(
       registry.lookupType(
         "/zerone.substrate_bridge.v1.MsgSubmitExternalAttestation",

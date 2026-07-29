@@ -84,6 +84,15 @@ export declare enum ClaimType {
     CLAIM_TYPE_OBSERVATION = 6,
     /** CLAIM_TYPE_COMPUTATIONAL - Derived from computation/inference — agent specialty */
     CLAIM_TYPE_COMPUTATIONAL = 7,
+    /**
+     * CLAIM_TYPE_CONJECTURE - "X might be true, and here is what would kill it" — a conjecture.
+     * Asserts nothing. Enters the graph at FACT_STATUS_PROVISIONAL with
+     * confidence 0, carries no relations, cannot be cited, and earns its
+     * submitter nothing. The panel that adjudicates a conjecture is asked
+     * whether it is WELL-POSED AND FALSIFIABLE, not whether it is true.
+     * The only paid act against it is MsgChallengeProvisionalFact.
+     */
+    CLAIM_TYPE_CONJECTURE = 8,
     UNRECOGNIZED = -1
 }
 export declare function claimTypeFromJSON(object: any): ClaimType;
@@ -896,6 +905,15 @@ export interface Fact {
      * when the fact's status/confidence changes or the heartbeat re-invites.
      */
     probeInvitedAtBlock: bigint;
+    /**
+     * ─── Conjecture (frontier) ─────────────────────────────────────────────
+     * For facts born from CLAIM_TYPE_CONJECTURE: the observation that would
+     * falsify this conjecture, carried forward from the claim so a prospective
+     * refuter knows exactly what target they are shooting at. Empty on every
+     * ordinary fact. A non-empty predicate on a PROVISIONAL fact is the
+     * chain's standing invitation to destroy it.
+     */
+    falsificationPredicate: string;
 }
 /**
  * TokenizerSpec is the governance-ratified contract that names the special
@@ -1523,6 +1541,13 @@ export interface Claim {
      * so the full dispute is reconstructible from one record.
      */
     rebuttalText: string;
+    /**
+     * For CLAIM_TYPE_CONJECTURE only: the observation that would falsify this
+     * conjecture. This is what the verification panel adjudicates — a
+     * conjecture with no stated killer is not well-posed and must be returned
+     * MALFORMED. Empty for every other claim type.
+     */
+    falsificationPredicate: string;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.

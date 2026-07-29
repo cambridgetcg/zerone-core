@@ -41,7 +41,7 @@ for (const moduleName of modules) {
 const missing = [...expected].filter((typeUrl) => !actual.has(typeUrl)).sort();
 const extra = [...actual].filter((typeUrl) => !expected.has(typeUrl)).sort();
 
-if (missing.length || extra.length || actual.size !== 165) {
+if (missing.length || extra.length || actual.size !== 166) {
   throw new Error(
     [
       `Registry mismatch: ${actual.size} generated, ${expected.size} expected`,

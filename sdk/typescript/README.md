@@ -5,7 +5,7 @@ TypeScript transaction codecs and interoperable identifiers for Zerone.
 The first release deliberately stays at the client boundary. It does not add a
 consensus module, enable IBC, or expand the public gateway. It provides:
 
-- generated codecs and message composers for all 165 request messages in
+- generated codecs and message composers for all 166 request messages in
   Zerone's 20 `Msg` services;
 - a registry that composes with CosmJS's standard Cosmos message types;
 - generic CAIP-2 and CAIP-10 syntax handling;

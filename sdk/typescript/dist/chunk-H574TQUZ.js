@@ -9061,6 +9061,8 @@ __export(tx_exports12, {
   MsgPatronizeFactResponse: () => MsgPatronizeFactResponse,
   MsgPauseModule: () => MsgPauseModule,
   MsgPauseModuleResponse: () => MsgPauseModuleResponse,
+  MsgPostConjecture: () => MsgPostConjecture,
+  MsgPostConjectureResponse: () => MsgPostConjectureResponse,
   MsgProposeDomain: () => MsgProposeDomain,
   MsgProposeDomainResponse: () => MsgProposeDomainResponse,
   MsgProposeResearchFund: () => MsgProposeResearchFund,
@@ -12013,6 +12015,134 @@ var MsgRegisterStratumResponse = {
   },
   fromPartial(_) {
     const message = createBaseMsgRegisterStratumResponse();
+    return message;
+  }
+};
+function createBaseMsgPostConjecture() {
+  return {
+    proposer: "",
+    statement: "",
+    falsificationPredicate: "",
+    domain: "",
+    category: "",
+    stake: "",
+    reasoningTrace: ""
+  };
+}
+var MsgPostConjecture = {
+  typeUrl: "/zerone.knowledge.v1.MsgPostConjecture",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.proposer !== "") {
+      writer.uint32(10).string(message.proposer);
+    }
+    if (message.statement !== "") {
+      writer.uint32(18).string(message.statement);
+    }
+    if (message.falsificationPredicate !== "") {
+      writer.uint32(26).string(message.falsificationPredicate);
+    }
+    if (message.domain !== "") {
+      writer.uint32(34).string(message.domain);
+    }
+    if (message.category !== "") {
+      writer.uint32(42).string(message.category);
+    }
+    if (message.stake !== "") {
+      writer.uint32(50).string(message.stake);
+    }
+    if (message.reasoningTrace !== "") {
+      writer.uint32(58).string(message.reasoningTrace);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgPostConjecture();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.proposer = reader.string();
+          break;
+        case 2:
+          message.statement = reader.string();
+          break;
+        case 3:
+          message.falsificationPredicate = reader.string();
+          break;
+        case 4:
+          message.domain = reader.string();
+          break;
+        case 5:
+          message.category = reader.string();
+          break;
+        case 6:
+          message.stake = reader.string();
+          break;
+        case 7:
+          message.reasoningTrace = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgPostConjecture();
+    message.proposer = object.proposer ?? "";
+    message.statement = object.statement ?? "";
+    message.falsificationPredicate = object.falsificationPredicate ?? "";
+    message.domain = object.domain ?? "";
+    message.category = object.category ?? "";
+    message.stake = object.stake ?? "";
+    message.reasoningTrace = object.reasoningTrace ?? "";
+    return message;
+  }
+};
+function createBaseMsgPostConjectureResponse() {
+  return {
+    claimId: "",
+    roundId: ""
+  };
+}
+var MsgPostConjectureResponse = {
+  typeUrl: "/zerone.knowledge.v1.MsgPostConjectureResponse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.claimId !== "") {
+      writer.uint32(10).string(message.claimId);
+    }
+    if (message.roundId !== "") {
+      writer.uint32(18).string(message.roundId);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgPostConjectureResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.claimId = reader.string();
+          break;
+        case 2:
+          message.roundId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgPostConjectureResponse();
+    message.claimId = object.claimId ?? "";
+    message.roundId = object.roundId ?? "";
     return message;
   }
 };
@@ -15720,7 +15850,7 @@ var MsgVetoFactInjectionResponse = {
 };
 
 // src/generated/zerone/knowledge/v1/tx.registry.ts
-var registry12 = [["/zerone.knowledge.v1.MsgSubmitClaim", MsgSubmitClaim], ["/zerone.knowledge.v1.MsgSubmitCommitment", MsgSubmitCommitment], ["/zerone.knowledge.v1.MsgSubmitReveal", MsgSubmitReveal], ["/zerone.knowledge.v1.MsgChallengeFact", MsgChallengeFact], ["/zerone.knowledge.v1.MsgAddFact", MsgAddFact], ["/zerone.knowledge.v1.MsgSubmitContradiction", MsgSubmitContradiction], ["/zerone.knowledge.v1.MsgPatronizeFact", MsgPatronizeFact], ["/zerone.knowledge.v1.MsgProposeDomain", MsgProposeDomain], ["/zerone.knowledge.v1.MsgEndorseDomainProposal", MsgEndorseDomainProposal], ["/zerone.knowledge.v1.MsgChallengeDomainProposal", MsgChallengeDomainProposal], ["/zerone.knowledge.v1.MsgRegisterStratum", MsgRegisterStratum], ["/zerone.knowledge.v1.MsgChallengeProvisionalFact", MsgChallengeProvisionalFact], ["/zerone.knowledge.v1.MsgUpdateParams", MsgUpdateParams11], ["/zerone.knowledge.v1.MsgUpdateExtendedParams", MsgUpdateExtendedParams], ["/zerone.knowledge.v1.MsgProposeResearchFund", MsgProposeResearchFund], ["/zerone.knowledge.v1.MsgVoteResearchProposal", MsgVoteResearchProposal], ["/zerone.knowledge.v1.MsgExecuteResearchProposal", MsgExecuteResearchProposal], ["/zerone.knowledge.v1.MsgAddCommonKnowledge", MsgAddCommonKnowledge], ["/zerone.knowledge.v1.MsgRemoveCommonKnowledge", MsgRemoveCommonKnowledge], ["/zerone.knowledge.v1.MsgReportDemand", MsgReportDemand], ["/zerone.knowledge.v1.MsgRateFact", MsgRateFact], ["/zerone.knowledge.v1.MsgRegisterTrainingPipeline", MsgRegisterTrainingPipeline], ["/zerone.knowledge.v1.MsgUpdateTrainingPipeline", MsgUpdateTrainingPipeline], ["/zerone.knowledge.v1.MsgRegisterModelCard", MsgRegisterModelCard], ["/zerone.knowledge.v1.MsgUpdateModelCard", MsgUpdateModelCard], ["/zerone.knowledge.v1.MsgRetireModelCard", MsgRetireModelCard], ["/zerone.knowledge.v1.MsgAmendTokenizerSpec", MsgAmendTokenizerSpec], ["/zerone.knowledge.v1.MsgAttributeContributions", MsgAttributeContributions], ["/zerone.knowledge.v1.MsgAttestTraining", MsgAttestTraining], ["/zerone.knowledge.v1.MsgCreateAugmentationBounty", MsgCreateAugmentationBounty], ["/zerone.knowledge.v1.MsgSubmitAugmentation", MsgSubmitAugmentation], ["/zerone.knowledge.v1.MsgAcceptAugmentation", MsgAcceptAugmentation], ["/zerone.knowledge.v1.MsgVoteOnAugmentation", MsgVoteOnAugmentation], ["/zerone.knowledge.v1.MsgSponsorVetoAugmentation", MsgSponsorVetoAugmentation], ["/zerone.knowledge.v1.MsgChallengeContribution", MsgChallengeContribution], ["/zerone.knowledge.v1.MsgResolveContributionChallenge", MsgResolveContributionChallenge], ["/zerone.knowledge.v1.MsgClaimTrainingFundDisbursement", MsgClaimTrainingFundDisbursement], ["/zerone.knowledge.v1.MsgAmendTraceSchema", MsgAmendTraceSchema], ["/zerone.knowledge.v1.MsgCreateTrainingManifest", MsgCreateTrainingManifest], ["/zerone.knowledge.v1.MsgFinalizeTrainingManifest", MsgFinalizeTrainingManifest], ["/zerone.knowledge.v1.MsgBindManifestToAttestation", MsgBindManifestToAttestation], ["/zerone.knowledge.v1.MsgOpenIncident", MsgOpenIncident], ["/zerone.knowledge.v1.MsgRecordRemediation", MsgRecordRemediation], ["/zerone.knowledge.v1.MsgResolveIncident", MsgResolveIncident], ["/zerone.knowledge.v1.MsgCloseIncident", MsgCloseIncident], ["/zerone.knowledge.v1.MsgPauseModule", MsgPauseModule], ["/zerone.knowledge.v1.MsgUnpauseModule", MsgUnpauseModule], ["/zerone.knowledge.v1.MsgCorrectManifestMerkleRoot", MsgCorrectManifestMerkleRoot], ["/zerone.knowledge.v1.MsgVetoFactInjection", MsgVetoFactInjection]];
+var registry12 = [["/zerone.knowledge.v1.MsgSubmitClaim", MsgSubmitClaim], ["/zerone.knowledge.v1.MsgSubmitCommitment", MsgSubmitCommitment], ["/zerone.knowledge.v1.MsgSubmitReveal", MsgSubmitReveal], ["/zerone.knowledge.v1.MsgChallengeFact", MsgChallengeFact], ["/zerone.knowledge.v1.MsgAddFact", MsgAddFact], ["/zerone.knowledge.v1.MsgSubmitContradiction", MsgSubmitContradiction], ["/zerone.knowledge.v1.MsgPatronizeFact", MsgPatronizeFact], ["/zerone.knowledge.v1.MsgProposeDomain", MsgProposeDomain], ["/zerone.knowledge.v1.MsgEndorseDomainProposal", MsgEndorseDomainProposal], ["/zerone.knowledge.v1.MsgChallengeDomainProposal", MsgChallengeDomainProposal], ["/zerone.knowledge.v1.MsgRegisterStratum", MsgRegisterStratum], ["/zerone.knowledge.v1.MsgPostConjecture", MsgPostConjecture], ["/zerone.knowledge.v1.MsgChallengeProvisionalFact", MsgChallengeProvisionalFact], ["/zerone.knowledge.v1.MsgUpdateParams", MsgUpdateParams11], ["/zerone.knowledge.v1.MsgUpdateExtendedParams", MsgUpdateExtendedParams], ["/zerone.knowledge.v1.MsgProposeResearchFund", MsgProposeResearchFund], ["/zerone.knowledge.v1.MsgVoteResearchProposal", MsgVoteResearchProposal], ["/zerone.knowledge.v1.MsgExecuteResearchProposal", MsgExecuteResearchProposal], ["/zerone.knowledge.v1.MsgAddCommonKnowledge", MsgAddCommonKnowledge], ["/zerone.knowledge.v1.MsgRemoveCommonKnowledge", MsgRemoveCommonKnowledge], ["/zerone.knowledge.v1.MsgReportDemand", MsgReportDemand], ["/zerone.knowledge.v1.MsgRateFact", MsgRateFact], ["/zerone.knowledge.v1.MsgRegisterTrainingPipeline", MsgRegisterTrainingPipeline], ["/zerone.knowledge.v1.MsgUpdateTrainingPipeline", MsgUpdateTrainingPipeline], ["/zerone.knowledge.v1.MsgRegisterModelCard", MsgRegisterModelCard], ["/zerone.knowledge.v1.MsgUpdateModelCard", MsgUpdateModelCard], ["/zerone.knowledge.v1.MsgRetireModelCard", MsgRetireModelCard], ["/zerone.knowledge.v1.MsgAmendTokenizerSpec", MsgAmendTokenizerSpec], ["/zerone.knowledge.v1.MsgAttributeContributions", MsgAttributeContributions], ["/zerone.knowledge.v1.MsgAttestTraining", MsgAttestTraining], ["/zerone.knowledge.v1.MsgCreateAugmentationBounty", MsgCreateAugmentationBounty], ["/zerone.knowledge.v1.MsgSubmitAugmentation", MsgSubmitAugmentation], ["/zerone.knowledge.v1.MsgAcceptAugmentation", MsgAcceptAugmentation], ["/zerone.knowledge.v1.MsgVoteOnAugmentation", MsgVoteOnAugmentation], ["/zerone.knowledge.v1.MsgSponsorVetoAugmentation", MsgSponsorVetoAugmentation], ["/zerone.knowledge.v1.MsgChallengeContribution", MsgChallengeContribution], ["/zerone.knowledge.v1.MsgResolveContributionChallenge", MsgResolveContributionChallenge], ["/zerone.knowledge.v1.MsgClaimTrainingFundDisbursement", MsgClaimTrainingFundDisbursement], ["/zerone.knowledge.v1.MsgAmendTraceSchema", MsgAmendTraceSchema], ["/zerone.knowledge.v1.MsgCreateTrainingManifest", MsgCreateTrainingManifest], ["/zerone.knowledge.v1.MsgFinalizeTrainingManifest", MsgFinalizeTrainingManifest], ["/zerone.knowledge.v1.MsgBindManifestToAttestation", MsgBindManifestToAttestation], ["/zerone.knowledge.v1.MsgOpenIncident", MsgOpenIncident], ["/zerone.knowledge.v1.MsgRecordRemediation", MsgRecordRemediation], ["/zerone.knowledge.v1.MsgResolveIncident", MsgResolveIncident], ["/zerone.knowledge.v1.MsgCloseIncident", MsgCloseIncident], ["/zerone.knowledge.v1.MsgPauseModule", MsgPauseModule], ["/zerone.knowledge.v1.MsgUnpauseModule", MsgUnpauseModule], ["/zerone.knowledge.v1.MsgCorrectManifestMerkleRoot", MsgCorrectManifestMerkleRoot], ["/zerone.knowledge.v1.MsgVetoFactInjection", MsgVetoFactInjection]];
 var MessageComposer12 = {
   encoded: {
     submitClaim(value) {
@@ -15787,6 +15917,12 @@ var MessageComposer12 = {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgRegisterStratum",
         value: MsgRegisterStratum.encode(value).finish()
+      };
+    },
+    postConjecture(value) {
+      return {
+        typeUrl: "/zerone.knowledge.v1.MsgPostConjecture",
+        value: MsgPostConjecture.encode(value).finish()
       };
     },
     challengeProvisionalFact(value) {
@@ -16085,6 +16221,12 @@ var MessageComposer12 = {
         value
       };
     },
+    postConjecture(value) {
+      return {
+        typeUrl: "/zerone.knowledge.v1.MsgPostConjecture",
+        value
+      };
+    },
     challengeProvisionalFact(value) {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgChallengeProvisionalFact",
@@ -16379,6 +16521,12 @@ var MessageComposer12 = {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgRegisterStratum",
         value: MsgRegisterStratum.fromPartial(value)
+      };
+    },
+    postConjecture(value) {
+      return {
+        typeUrl: "/zerone.knowledge.v1.MsgPostConjecture",
+        value: MsgPostConjecture.fromPartial(value)
       };
     },
     challengeProvisionalFact(value) {

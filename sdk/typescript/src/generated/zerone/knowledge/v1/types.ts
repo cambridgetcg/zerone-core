@@ -322,6 +322,15 @@ export enum ClaimType {
   CLAIM_TYPE_OBSERVATION = 6,
   /** CLAIM_TYPE_COMPUTATIONAL - Derived from computation/inference — agent specialty */
   CLAIM_TYPE_COMPUTATIONAL = 7,
+  /**
+   * CLAIM_TYPE_CONJECTURE - "X might be true, and here is what would kill it" — a conjecture.
+   * Asserts nothing. Enters the graph at FACT_STATUS_PROVISIONAL with
+   * confidence 0, carries no relations, cannot be cited, and earns its
+   * submitter nothing. The panel that adjudicates a conjecture is asked
+   * whether it is WELL-POSED AND FALSIFIABLE, not whether it is true.
+   * The only paid act against it is MsgChallengeProvisionalFact.
+   */
+  CLAIM_TYPE_CONJECTURE = 8,
   UNRECOGNIZED = -1,
 }
 export function claimTypeFromJSON(object: any): ClaimType {
@@ -350,6 +359,9 @@ export function claimTypeFromJSON(object: any): ClaimType {
     case 7:
     case "CLAIM_TYPE_COMPUTATIONAL":
       return ClaimType.CLAIM_TYPE_COMPUTATIONAL;
+    case 8:
+    case "CLAIM_TYPE_CONJECTURE":
+      return ClaimType.CLAIM_TYPE_CONJECTURE;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -374,6 +386,8 @@ export function claimTypeToJSON(object: ClaimType): string {
       return "CLAIM_TYPE_OBSERVATION";
     case ClaimType.CLAIM_TYPE_COMPUTATIONAL:
       return "CLAIM_TYPE_COMPUTATIONAL";
+    case ClaimType.CLAIM_TYPE_CONJECTURE:
+      return "CLAIM_TYPE_CONJECTURE";
     case ClaimType.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
@@ -2008,6 +2022,15 @@ export interface Fact {
    * when the fact's status/confidence changes or the heartbeat re-invites.
    */
   probeInvitedAtBlock: bigint;
+  /**
+   * ─── Conjecture (frontier) ─────────────────────────────────────────────
+   * For facts born from CLAIM_TYPE_CONJECTURE: the observation that would
+   * falsify this conjecture, carried forward from the claim so a prospective
+   * refuter knows exactly what target they are shooting at. Empty on every
+   * ordinary fact. A non-empty predicate on a PROVISIONAL fact is the
+   * chain's standing invitation to destroy it.
+   */
+  falsificationPredicate: string;
 }
 /**
  * TokenizerSpec is the governance-ratified contract that names the special
@@ -2635,6 +2658,13 @@ export interface Claim {
    * so the full dispute is reconstructible from one record.
    */
   rebuttalText: string;
+  /**
+   * For CLAIM_TYPE_CONJECTURE only: the observation that would falsify this
+   * conjecture. This is what the verification panel adjudicates — a
+   * conjecture with no stated killer is not well-posed and must be returned
+   * MALFORMED. Empty for every other claim type.
+   */
+  falsificationPredicate: string;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -4306,7 +4336,8 @@ function createBaseFact(): Fact {
     trainingRevenueEarned: "",
     trainingRevenueEarnedRecent: "",
     revenueClawbackBlock: BigInt(0),
-    probeInvitedAtBlock: BigInt(0)
+    probeInvitedAtBlock: BigInt(0),
+    falsificationPredicate: ""
   };
 }
 /**
@@ -4511,6 +4542,9 @@ export const Fact = {
     if (message.probeInvitedAtBlock !== BigInt(0)) {
       writer.uint32(592).uint64(message.probeInvitedAtBlock);
     }
+    if (message.falsificationPredicate !== "") {
+      writer.uint32(602).string(message.falsificationPredicate);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Fact {
@@ -4712,6 +4746,9 @@ export const Fact = {
         case 74:
           message.probeInvitedAtBlock = reader.uint64();
           break;
+        case 75:
+          message.falsificationPredicate = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -4785,6 +4822,7 @@ export const Fact = {
     message.trainingRevenueEarnedRecent = object.trainingRevenueEarnedRecent ?? "";
     message.revenueClawbackBlock = object.revenueClawbackBlock !== undefined && object.revenueClawbackBlock !== null ? BigInt(object.revenueClawbackBlock.toString()) : BigInt(0);
     message.probeInvitedAtBlock = object.probeInvitedAtBlock !== undefined && object.probeInvitedAtBlock !== null ? BigInt(object.probeInvitedAtBlock.toString()) : BigInt(0);
+    message.falsificationPredicate = object.falsificationPredicate ?? "";
     return message;
   }
 };
@@ -6503,7 +6541,8 @@ function createBaseClaim(): Claim {
     methodId: "",
     reasoningTrace: "",
     argumentText: "",
-    rebuttalText: ""
+    rebuttalText: "",
+    falsificationPredicate: ""
   };
 }
 /**
@@ -6584,6 +6623,9 @@ export const Claim = {
     if (message.rebuttalText !== "") {
       writer.uint32(186).string(message.rebuttalText);
     }
+    if (message.falsificationPredicate !== "") {
+      writer.uint32(194).string(message.falsificationPredicate);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Claim {
@@ -6662,6 +6704,9 @@ export const Claim = {
         case 23:
           message.rebuttalText = reader.string();
           break;
+        case 24:
+          message.falsificationPredicate = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6694,6 +6739,7 @@ export const Claim = {
     message.reasoningTrace = object.reasoningTrace ?? "";
     message.argumentText = object.argumentText ?? "";
     message.rebuttalText = object.rebuttalText ?? "";
+    message.falsificationPredicate = object.falsificationPredicate ?? "";
     return message;
   }
 };

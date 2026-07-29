@@ -21,8 +21,8 @@ import {
   createZeroneRegistry,
   registerZeroneMessages,
   zeroneRegistryTypes
-} from "./chunk-NJ7IJR6N.js";
-import "./chunk-7TSRAZ4X.js";
+} from "./chunk-QHS324VJ.js";
+import "./chunk-H574TQUZ.js";
 import "./chunk-MLKGABMK.js";
 export {
   CaipError,
