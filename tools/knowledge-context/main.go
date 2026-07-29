@@ -72,7 +72,7 @@ type ClaimStructure struct {
 	Predicate     string   `json:"predicate,omitempty"`
 	Object        string   `json:"object,omitempty"`
 	Scope         string   `json:"scope,omitempty"`
-	TemporalScope string   `json:"temporal_scope,omitempty"`
+	TemporalScope string   `json:"temporalScope,omitempty"`
 	Negatable     bool     `json:"negatable,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 }
@@ -87,33 +87,35 @@ type Fact struct {
 	Submitter     string          `json:"submitter"`
 	Stratum       string          `json:"stratum,omitempty"`
 	References    []string        `json:"references,omitempty"`
-	ClaimID       string          `json:"claim_id,omitempty"`
-	ClaimType     string          `json:"claim_type,omitempty"`
+	ClaimID       string          `json:"claimId,omitempty"`
+	ClaimType     string          `json:"claimType,omitempty"`
 	Structure     *ClaimStructure `json:"structure,omitempty"`
-	CanonicalForm string          `json:"canonical_form,omitempty"`
-	CanonicalHash string          `json:"canonical_hash,omitempty"`
-	FitnessScore  string          `json:"fitness_score,omitempty"`
+	CanonicalForm string          `json:"canonicalForm,omitempty"`
+	CanonicalHash string          `json:"canonicalHash,omitempty"`
+	FitnessScore  string          `json:"fitnessScore,omitempty"`
 	Energy        string          `json:"energy,omitempty"`
-	EnergyCap     string          `json:"energy_cap,omitempty"`
+	EnergyCap     string          `json:"energyCap,omitempty"`
+	// Metabolism fields
+	QueryCountEpoch string `json:"queryCountEpoch,omitempty"`
 	// Niche fields
-	NicheKey      string `json:"niche_key,omitempty"`
-	NicheLeader   bool   `json:"niche_leader,omitempty"`
-	NicheRank     string `json:"niche_rank,omitempty"`
-	NicheSize     string `json:"niche_size,omitempty"`
-	CompetitionTax string `json:"competition_tax,omitempty"`
+	NicheKey      string `json:"nicheKey,omitempty"`
+	NicheLeader   bool   `json:"nicheLeader,omitempty"`
+	NicheRank     string `json:"nicheRank,omitempty"`
+	NicheSize     string `json:"nicheSize,omitempty"`
+	CompetitionTax string `json:"competitionTax,omitempty"`
 	// Lineage fields
-	ParentFactId  string   `json:"parent_fact_id,omitempty"`
-	ChildFactIds  []string `json:"child_fact_ids,omitempty"`
-	LineageDepth  string   `json:"lineage_depth,omitempty"`
-	ProgenyCount  string   `json:"progeny_count,omitempty"`
-	LineageRootId string   `json:"lineage_root_id,omitempty"`
+	ParentFactId  string   `json:"parentFactId,omitempty"`
+	ChildFactIds  []string `json:"childFactIds,omitempty"`
+	LineageDepth  string   `json:"lineageDepth,omitempty"`
+	ProgenyCount  string   `json:"progenyCount,omitempty"`
+	LineageRootId string   `json:"lineageRootId,omitempty"`
 }
 
 type FactRelation struct {
-	SourceFactId   string `json:"source_fact_id"`
-	TargetFactId   string `json:"target_fact_id"`
+	SourceFactId   string `json:"sourceFactId"`
+	TargetFactId   string `json:"targetFactId"`
 	Relation       string `json:"relation"`
-	CreatedAtBlock string `json:"created_at_block"`
+	CreatedAtBlock string `json:"createdAtBlock"`
 	Creator        string `json:"creator"`
 }
 

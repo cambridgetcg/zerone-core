@@ -22,9 +22,9 @@ func (k Keeper) GetEligibleValidators(ctx context.Context, domain string) ([]*ty
 	if err != nil {
 		return nil, err
 	}
-	for _, validator := range validators {
+	for i, validator := range validators {
 		if validator == nil {
-			return nil, fmt.Errorf("active validator info must not be nil")
+			return nil, fmt.Errorf("staking keeper returned nil validator info at index %d", i)
 		}
 	}
 

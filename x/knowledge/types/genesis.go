@@ -1,18 +1,22 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+
+	sdkmath "cosmossdk.io/math"
+)
 
 // DefaultParams returns the default module parameters.
 // All slash params MUST be non-zero (B22-3 audit requirement).
 func DefaultParams() Params {
 	return Params{
 		// ─── Core verification ────────────────────────────────────────────────
-		MinVerifiers:          3,
-		MaxVerifiers:          22,
-		CommitPhaseBlocks:     200,
-		RevealPhaseBlocks:     200,
+		MinVerifiers:           3,
+		MaxVerifiers:           22,
+		CommitPhaseBlocks:      200,
+		RevealPhaseBlocks:      200,
 		AggregationPhaseBlocks: 50,
-		ClaimCooldownBlocks:   50,
+		ClaimCooldownBlocks:    50,
 
 		// ─── Confidence scoring ───────────────────────────────────────────────
 		// These four values are not chosen for plausibility; they are the
@@ -27,10 +31,10 @@ func DefaultParams() Params {
 		//     bare majority. The same threshold applies to the augmentation
 		//     panel's stake-weighted tally.
 		// See docs/TRUTH_SEEKING.md and Validate() below for the bounds.
-		InitialConfidence:             500_000, // 50% — neutral default; nothing is true without verification
-		ConfidenceBoostPerVerification: 50_000, // 5% — single verification is incremental, not authoritative
-		ConfidenceThreshold:           770_000, // 77% — acceptance bar is meaningfully high
-		QuorumThreshold:               660_000, // 66% — supermajority, not bare majority
+		InitialConfidence:              500_000, // 50% — neutral default; nothing is true without verification
+		ConfidenceBoostPerVerification: 50_000,  // 5% — single verification is incremental, not authoritative
+		ConfidenceThreshold:            770_000, // 77% — acceptance bar is meaningfully high
+		QuorumThreshold:                660_000, // 66% — supermajority, not bare majority
 
 		// ─── Slashing — MUST be non-zero ─────────────────────────────────────
 		// Validate() enforces the non-zero floor. The non-zero floor is the
@@ -47,8 +51,8 @@ func DefaultParams() Params {
 		InvalidClaimSlashBps:      0,       // DEPRECATED (R19-6): unused — review fee is non-refundable
 
 		// ─── Rewards ─────────────────────────────────────────────────────────
-		VerificationReward:          "3000000", // 3 ZRN in uzrn
-		VerificationRewardDecayBps:  999_000,   // 0.999× per epoch
+		VerificationReward:         "3000000", // 3 ZRN in uzrn
+		VerificationRewardDecayBps: 999_000,   // 0.999× per epoch
 
 		// ─── Claim validation ─────────────────────────────────────────────────
 		// MinReviewFee is non-refundable by design. Commitment 6 (no
@@ -71,12 +75,12 @@ func DefaultParams() Params {
 		// successful challengers is the inversion of farming economics:
 		// being right against the crowd pays more than being right with it.
 		AdversarialVerificationEnabled: true,
-		ProvisionalThreshold:           500_000, // 50%
-		RejectThreshold:                300_000, // 30%
-		ChallengeDurationBlocks:        34_272,  // 1 day
+		ProvisionalThreshold:           500_000,    // 50%
+		RejectThreshold:                300_000,    // 30%
+		ChallengeDurationBlocks:        34_272,     // 1 day
 		MinChallengeStake:              "11000000", // 11 ZRN — challenges are costly but accessible
-		FailedChallengeSlashBps:        220_000, // 22% — frivolous challenges burn
-		SuccessfulChallengeRewardBps:   300_000, // 30% — vindicated challenges pay above market
+		FailedChallengeSlashBps:        220_000,    // 22% — frivolous challenges burn
+		SuccessfulChallengeRewardBps:   300_000,    // 30% — vindicated challenges pay above market
 		MaxConcurrentChallenges:        3,
 
 		// ─── Citation economics ───────────────────────────────────────────────
@@ -84,15 +88,15 @@ func DefaultParams() Params {
 		CrossDomainBonusBps: 200_000, // 20%
 
 		// ─── Extended governance params ───────────────────────────────────────
-		MaxFactsPerDomain:           100_000,
-		FactExpiryBlocks:            0,       // no expiry
-		CrossStratumDiscountBps:     0,
-		MaxValidatorsPerRound:       22,
-		ConfidenceGrowthEpoch:       1_111,   // blocks
-		ConfidenceGrowthPerEpochBps: 11_000,  // 1.1%
-		MaxSurvivalConfidence:       770_000, // 77%
+		MaxFactsPerDomain:              100_000,
+		FactExpiryBlocks:               0, // no expiry
+		CrossStratumDiscountBps:        0,
+		MaxValidatorsPerRound:          22,
+		ConfidenceGrowthEpoch:          1_111,   // blocks
+		ConfidenceGrowthPerEpochBps:    11_000,  // 1.1%
+		MaxSurvivalConfidence:          770_000, // 77%
 		SurvivedChallengeConfidenceCap: 880_000, // 88%
-		MaxApprenticeValidators:     111,     // Sybil cap
+		MaxApprenticeValidators:        111,     // Sybil cap
 
 		// ─── Research fund ────────────────────────────────────────────────────
 		ResearchFundShareBps: 130_000, // 13%
@@ -103,34 +107,34 @@ func DefaultParams() Params {
 		FitnessWeightCitationBps: 250_000, // 25% — facts cited by other facts are foundational
 		FitnessWeightBridgeBps:   100_000, // 10% — cross-domain facts are rare and valuable
 		FitnessWeightDepthBps:    100_000, // 10% — facts with deep dependency trees are load-bearing
-		FitnessWeightPatronBps:    50_000, // 5%  — someone willing to pay for this fact's survival
+		FitnessWeightPatronBps:   50_000,  // 5%  — someone willing to pay for this fact's survival
 		FitnessWeightUniqueBps:   100_000, // 10% — non-redundant facts score higher
 		FitnessWeightAgeBps:      100_000, // 10% — uncited old facts decay
 		FitnessInitialScore:      500_000, // born healthy — 50%
 		FitnessGraceEpochs:       10,      // ~3 days before age penalty kicks in
 
 		// ─── Bootstrap fund (R19-7) ─────────────────────────────────────────
-		BootstrapFundEnabled:        true,
-		BootstrapFundMaxPerAddress:  "10",        // 10 sponsored claims per address lifetime
-		BootstrapFundMaxPerEpoch:    "100",       // 100 sponsored claims per epoch across all users
-		BootstrapFundEpochBlocks:    50_000,      // ~1.5 days at 2.5s blocks
-		BootstrapFundFeeCap:         "5000000",   // Fund covers up to 5 ZRN per claim
+		BootstrapFundEnabled:       true,
+		BootstrapFundMaxPerAddress: "10",      // 10 sponsored claims per address lifetime
+		BootstrapFundMaxPerEpoch:   "100",     // 100 sponsored claims per epoch across all users
+		BootstrapFundEpochBlocks:   50_000,    // ~1.5 days at 2.5s blocks
+		BootstrapFundFeeCap:        "5000000", // Fund covers up to 5 ZRN per claim
 
 		// ─── Metabolism ─────────────────────────────────────────────────────
-		MetabolismBaseCost:                10_000,     // 10,000 energy drain per epoch (1% of cap)
-		MetabolismContentLengthBps:        10_000,     // +1% base cost per 100 chars
-		MetabolismDomainCompetitionBps:    5_000,      // +0.5% base cost per 100 domain facts
-		MetabolismEnergyPerQuery:          1_000,      // 1,000 energy per agent query
-		MetabolismEnergyPerCitation:       5_000,      // 5,000 energy per new citation
-		MetabolismEnergyPerPatronage:      20_000,     // 20,000 energy per patronage epoch
-		MetabolismEnergyChallengeSurvival: 100_000,    // 100,000 energy for surviving challenge
-		MetabolismEnergyCap:               1_000_000,  // Max 1,000,000 energy (matches BPS scale)
-		MetabolismInitialEnergy:           500_000,    // Born with 50% of cap
-		MetabolismAtRiskEpochs:            5,          // 5 epochs at low energy before expiry
-		MetabolismExpiredToPrunedEpochs:   20,         // 20 epochs after expiry before archive
-		MetabolismActiveThreshold:         300_000,    // 30% — below this → AT_RISK
-		MetabolismExtinctionThreshold:     10_000,     // 1% — below this for N epochs → EXTINCT
-		MaxConfidence:                     880_000,    // Hard cap on confidence (matches SurvivedChallengeConfidenceCap)
+		MetabolismBaseCost:                10_000,    // 10,000 energy drain per epoch (1% of cap)
+		MetabolismContentLengthBps:        10_000,    // +1% base cost per 100 chars
+		MetabolismDomainCompetitionBps:    5_000,     // +0.5% base cost per 100 domain facts
+		MetabolismEnergyPerQuery:          1_000,     // 1,000 energy per agent query
+		MetabolismEnergyPerCitation:       5_000,     // 5,000 energy per new citation
+		MetabolismEnergyPerPatronage:      20_000,    // 20,000 energy per patronage epoch
+		MetabolismEnergyChallengeSurvival: 100_000,   // 100,000 energy for surviving challenge
+		MetabolismEnergyCap:               1_000_000, // Max 1,000,000 energy (matches BPS scale)
+		MetabolismInitialEnergy:           500_000,   // Born with 50% of cap
+		MetabolismAtRiskEpochs:            5,         // 5 epochs at low energy before expiry
+		MetabolismExpiredToPrunedEpochs:   20,        // 20 epochs after expiry before archive
+		MetabolismActiveThreshold:         300_000,   // 30% — below this → AT_RISK
+		MetabolismExtinctionThreshold:     10_000,    // 1% — below this for N epochs → EXTINCT
+		MaxConfidence:                     880_000,   // Hard cap on confidence (matches SurvivedChallengeConfidenceCap)
 
 		// ─── Reproduction ───────────────────────────────────────────────────
 		ReproductionRoyaltyBps:                 50_000,  // 5% of child rewards to parent
@@ -148,18 +152,18 @@ func DefaultParams() Params {
 		NoveltyMaxOverlapFacts:           5,       // Cap: after 5 duplicates, no more penalty
 
 		// ─── Demand signals ────────────────────────────────────────────────
-		DemandBountyThreshold:     100,          // 100 unfulfilled queries per epoch to trigger bounty
-		DemandBountyBaseReward:    "10000000",   // 10 ZRN base bounty reward
-		DemandBountyPerQueryBonus: "100000",     // 0.1 ZRN additional per unfulfilled query
-		DemandBountyExpiryEpochs:  50,           // 50 epochs before unclaimed bounty expires
-		DemandMultiplierCap:       10_000_000,   // 10x demand multiplier cap (BPS)
-		DemandTrackingEnabled:     true,         // Demand tracking enabled by default
-		AuthorizedDemandReporters: []string{},   // Empty — governance adds reporters
+		DemandBountyThreshold:     100,        // 100 unfulfilled queries per epoch to trigger bounty
+		DemandBountyBaseReward:    "10000000", // 10 ZRN base bounty reward
+		DemandBountyPerQueryBonus: "100000",   // 0.1 ZRN additional per unfulfilled query
+		DemandBountyExpiryEpochs:  50,         // 50 epochs before unclaimed bounty expires
+		DemandMultiplierCap:       10_000_000, // 10x demand multiplier cap (BPS)
+		DemandTrackingEnabled:     true,       // Demand tracking enabled by default
+		AuthorizedDemandReporters: []string{}, // Empty — governance adds reporters
 
 		// ─── Competition (niche dynamics) ────────────────────────────────
 		CompetitionNicheDominanceBonusBps: 100_000, // +10% fitness for niche leader
 		CompetitionRedundancyThresholdBps: 200_000, // Below 20% of leader = redundant
-		CompetitionMaxNicheSize:           10,       // Max 10 facts per niche
+		CompetitionMaxNicheSize:           10,      // Max 10 facts per niche
 		CompetitionSymbiosisBonusBps:      50_000,  // +5% fitness per healthy SUPPORTS link
 
 		// ─── Query satisfaction ───────────────────────────────────────────
@@ -172,9 +176,9 @@ func DefaultParams() Params {
 
 		// ─── Retroactive vindication (R28-1) ─────────────────────────────
 		VindicationRefundEnabled: true,
-		VindicationBonusBps:      2_000,    // 20% of majority slash pool as bonus
-		VindicationSlashBps:      500,      // 5% slash rate for majority on disproven fact
-		VindicationWindowBlocks:  100_000,  // ~3 days at 2.5s blocks
+		VindicationBonusBps:      2_000,   // 20% of majority slash pool as bonus
+		VindicationSlashBps:      500,     // 5% slash rate for majority on disproven fact
+		VindicationWindowBlocks:  100_000, // ~3 days at 2.5s blocks
 
 		// ─── Role bonuses (R28-5) — additive BPS, NOT thresholds ──────────
 		HumanEmpiricalBonusBps:     150_000, // +15% confidence for human OBSERVATION claims
@@ -201,11 +205,11 @@ func DefaultParams() Params {
 		RoleElasticityMinCalls:         10,
 		RoleElasticityMaxMultiplierBps: 2_000_000, // 200% max bonus scaling
 		RoleElasticityMinMultiplierBps: 500_000,   // 50% min bonus scaling
-		RoleElasticityDecayEpochs:      100,        // decay every 100 fitness epochs
+		RoleElasticityDecayEpochs:      100,       // decay every 100 fitness epochs
 
 		// ─── Mentorship dividends (R31-5: Water → Wood) ──────────────────────
-		MentorshipDividendEnergy: 50_000,  // 50,000 energy (5% of cap)
-		MentorshipCapacityBonus:  5,       // +5 carrying capacity per graduation
+		MentorshipDividendEnergy: 50_000, // 50,000 energy (5% of cap)
+		MentorshipCapacityBonus:  5,      // +5 carrying capacity per graduation
 
 		// ─── Social verification adjustment (R31-2: Water → Fire) ────────
 		SocialSaturationThreshold: 10,
@@ -228,10 +232,10 @@ func DefaultParams() Params {
 		IndependenceRewardStrengthBps: 300_000,
 
 		// ─── Route B Wave 4: economic realignment ─────────────────────────
-		ReformulationMinPanelVotes:             3,
-		ReformulationConsensusBps:              666_000, // 66.6%
-		ReformulationSuperiorBonusBps:          500_000, // +50% payout on SUPERIOR
-		AugmentationExpiryFeeBps:               30_000,  // 3% kept-market-open fee
+		ReformulationMinPanelVotes:    3,
+		ReformulationConsensusBps:     666_000, // 66.6%
+		ReformulationSuperiorBonusBps: 500_000, // +50% payout on SUPERIOR
+		AugmentationExpiryFeeBps:      30_000,  // 3% kept-market-open fee
 		// MethodologyNormalizationBps expresses commitment 3 (Popper, not
 		// popularity). Methodologies that produce more falsifiable claims
 		// (PHENOMENOLOGICAL, PRACTICE, ECOLOGICAL) get higher TVW multipliers
@@ -239,7 +243,7 @@ func DefaultParams() Params {
 		// down-weighted to 0.5× to disincentivise farming the easy
 		// methodology. The chain pays more for the kind of evidence that
 		// makes us less confident in the wrong answer.
-		MethodologyNormalizationBps:            map[string]uint64{
+		MethodologyNormalizationBps: map[string]uint64{
 			"M-PHENOMENOLOGICAL": 2_000_000, // 2.0× — first-person rigor pays the most
 			"M-PRACTICE":         1_750_000, // 1.75× — embedded evidence is hard to fabricate
 			"M-ECOLOGICAL":       1_500_000, // 1.5× — context-rich methodologies
@@ -253,16 +257,16 @@ func DefaultParams() Params {
 		// truth-seeking corpus needs to retain. Disproven facts claw back
 		// 50% of recent revenue because revenue earned on a wrong fact
 		// was, in retrospect, theft from the audit pool.
-		VindicationTvwMultiplierBps:            2_500_000, // 2.5× for vindicated minority
-		DisprovalClawbackBps:                   500_000,   // 50% of recent revenue clawed back on disproof
-		DisprovalClawbackWindowEpochs:          30,
-		TrainingFundCalibrationFloorBps:        500_000, // 50%
-		TrainingFundVestingEpochs:              60,
-		TrainingFundMethodologyDiversityBonusBps: 100_000, // +10% per distinct methodology beyond 1
-		TrainingFundBaseReward:                 "1000000000", // 1,000 ZRN
-		ContributionChallengeBond:              "5000000",     // 5 ZRN
-		ContributionChallengeRewardMultiplierBps: 2_000_000, // 2×
-		SponsorVetoForfeitBps:                  1_000_000, // 100% forfeit on veto
+		VindicationTvwMultiplierBps:              2_500_000, // 2.5× for vindicated minority
+		DisprovalClawbackBps:                     500_000,   // 50% of recent revenue clawed back on disproof
+		DisprovalClawbackWindowEpochs:            30,
+		TrainingFundCalibrationFloorBps:          500_000, // 50%
+		TrainingFundVestingEpochs:                60,
+		TrainingFundMethodologyDiversityBonusBps: 100_000,      // +10% per distinct methodology beyond 1
+		TrainingFundBaseReward:                   "1000000000", // 1,000 ZRN
+		ContributionChallengeBond:                "5000000",    // 5 ZRN
+		ContributionChallengeRewardMultiplierBps: 2_000_000,    // 2×
+		SponsorVetoForfeitBps:                    1_000_000,    // 100% forfeit on veto
 
 		// ─── Wave 14: internal-hack resilience ────────────────────────
 		MaxPauseDurationBlocks: 28_800, // ~40h at 5s blocks — ample hotfix window; caps DoS impact.
@@ -288,8 +292,8 @@ func DefaultParams() Params {
 		// budget and issuance throttles naturally. Setting MintPerBlock
 		// to zero would mean "audits happen only when someone else pays
 		// for them" — which is what we believe must NOT be true.
-		ProbeBountyMintPerBlock: "1000000",        // 1 ZRN/block — audit budget is non-negotiable
-		ProbeBountyMaxPoolSize:  "1000000000000",  // 1,000,000 ZRN cap
+		ProbeBountyMintPerBlock: "1000000",       // 1 ZRN/block — audit budget is non-negotiable
+		ProbeBountyMaxPoolSize:  "1000000000000", // 1,000,000 ZRN cap
 
 		// ─── Wave 15b: invitation bonuses ──────────────────────────────
 		// Flat reward for probers answering a chain-issued invitation.
@@ -306,8 +310,8 @@ func DefaultParams() Params {
 		// chain insists that adding a fact is a public, observable, and
 		// reversible-during-window action. The privileged-action log fires
 		// regardless — that part is non-optional.
-		GuardianAddresses:           []string{},
-		AddFactVetoWindowBlocks:     0,
+		GuardianAddresses:       []string{},
+		AddFactVetoWindowBlocks: 0,
 	}
 }
 
@@ -366,6 +370,12 @@ func (gs *GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
 		return fmt.Errorf("invalid params: %w", err)
 	}
+	if err := validateGenesisFundAllocation("bootstrap_fund_allocation", gs.BootstrapFundAllocation); err != nil {
+		return err
+	}
+	if err := validateGenesisFundAllocation("training_fund_allocation", gs.TrainingFundAllocation); err != nil {
+		return err
+	}
 
 	// Verify unique fact IDs.
 	seenFacts := make(map[string]bool)
@@ -415,6 +425,21 @@ func (gs *GenesisState) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+// validateGenesisFundAllocation accepts the historical empty value as zero,
+// but otherwise requires the canonical non-negative decimal form supported by
+// sdkmath.Int. NewIntFromString also enforces the SDK's 256-bit bound, so a
+// hostile genesis cannot feed an unbounded integer into initialization.
+func validateGenesisFundAllocation(field, value string) error {
+	if value == "" {
+		return nil
+	}
+	amount, ok := sdkmath.NewIntFromString(value)
+	if !ok || amount.IsNegative() || amount.String() != value {
+		return fmt.Errorf("%s must be a canonical non-negative base-10 integer within 256 bits", field)
+	}
 	return nil
 }
 
@@ -629,7 +654,6 @@ func (p *Params) Validate() error {
 	if p.VindicationRefundEnabled && p.VindicationWindowBlocks == 0 {
 		return fmt.Errorf("vindication_window_blocks must be > 0 when vindication is enabled")
 	}
-
 
 	// ─── Role bonus params (R28-5) ──────────────────────────────────
 	if p.HumanEmpiricalBonusBps > 1_000_000 {

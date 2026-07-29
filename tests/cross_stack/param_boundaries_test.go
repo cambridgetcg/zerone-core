@@ -22,7 +22,6 @@ func TestGovernanceParamBoundaries(t *testing.T) {
 		defaults proto.Message
 		validate func(proto.Message) error
 	}
-
 	knowledgeDefaults := knowtypes.DefaultParams()
 	alignmentDefaults := aligntypes.DefaultParams()
 	specs := []paramSpec{
