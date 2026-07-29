@@ -1,0 +1,42 @@
+# OPEN-BETA-only public query gateway after verified link-initiation evidence.
+# RPC and REST share one query-only HTTPS URL.
+app = "replace-zerone-2-query-gateway-app"
+primary_region = "replace-region"
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[build]
+  image = "replace-with-pinned-query-gateway-image-digest"
+
+[env]
+  GATEWAY_ROLE = "zerone-2-query"
+  EXPECTED_CHAIN_ID = "zerone-2"
+  UPSTREAM_HOST = "replace-zerone-2-edge-app.internal"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  [services.concurrency]
+    type = "requests"
+    soft_limit = 80
+    hard_limit = 120
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/gateway-health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -1,0 +1,128 @@
+{
+  "schema": "zerone-2-open-beta-decision-v1",
+  "decision": "REPLACE_WITH_GO_OR_NO_GO",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "operator": "REPLACE_WITH_OPERATOR_ID",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "OPEN-BETA-DECISION.json.sig"
+  },
+  "release_packet": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "dark_start_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "dark_start_initiation_evidence": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "dark_registration_evidence": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "cutover_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "cutover_initiation_evidence": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "archive_adoption_authority": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "final_checkpoint": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "archive_readiness": {
+    "candidate_readiness_sha256": "REPLACE_WITH_64_HEX",
+    "final_runtime_marker_sha256": "REPLACE_WITH_64_HEX",
+    "private_a_a_probe_evidence_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "successor_revalidation_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "public_notice_sha256": "REPLACE_WITH_PUBLIC_NOTICE_64_HEX",
+  "history_link_transaction": {
+    "chain_id": "zerone-2",
+    "signed_tx_bytes_sha256": "REPLACE_WITH_64_HEX",
+    "expected_transaction_hash": "REPLACE_WITH_UPPERCASE_64_HEX",
+    "sender": "REPLACE_WITH_ZERONE_ADDRESS",
+    "message_type": "/cosmos.bank.v1beta1.MsgSend",
+    "recipient_equals_sender": true,
+    "amount": "1uzrn",
+    "fee": "200000uzrn",
+    "gas_limit": "200000",
+    "timeout_height": "REPLACE_WITH_POSITIVE_HEIGHT",
+    "memo": "zerone_1_final_checkpoint_sha256=REPLACE_WITH_FINAL_CHECKPOINT_64_HEX",
+    "must_not_reference_open_beta_payload": true
+  },
+  "deployment_configs": {
+    "zerone_2_edge_public": {
+      "app": "REPLACE_WITH_ZERONE_2_EDGE_APP",
+      "role": "edge",
+      "image_component": "zerone_2_runtime",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_ZERONE_2_RUNTIME_REPOSITORY@sha256:REPLACE_WITH_ZERONE_2_RUNTIME_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_2_gateway_public": {
+      "app": "REPLACE_WITH_ZERONE_2_GATEWAY_APP",
+      "role": "zerone-2-query",
+      "image_component": "query_gateway",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "zerone_1_archive_gateway": {
+      "app": "REPLACE_WITH_ZERONE_1_ARCHIVE_GATEWAY_APP",
+      "role": "zerone-1-archive-query",
+      "image_component": "query_gateway",
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
+      "sha256": "REPLACE_WITH_64_HEX"
+    }
+  },
+  "public_coordinates": {
+    "zerone_2_p2p": "REPLACE_NODE_ID@REPLACE_HOST:26656",
+    "zerone_2_rpc": "https://REPLACE_RPC_HOST",
+    "zerone_2_rest": "https://REPLACE_REST_HOST",
+    "zerone_1_archive_rpc": "https://REPLACE_ARCHIVE_RPC_HOST",
+    "zerone_1_archive_rest": "https://REPLACE_ARCHIVE_REST_HOST",
+    "canonical_dns_change_manifest_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "authorization_semantics": {
+    "initiation_event": "successful zerone-2 commit of the exact pre-signed history-link transaction bytes and expected transaction hash",
+    "initiation_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "broadcast_not_after": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+    "minimum_inclusion_margin_seconds": 300,
+    "if_not_initiated_by_deadline": "authorization lapses; keep every public service absent, do not change DNS, and issue a new decision and transaction if still appropriate",
+    "after_initiation": "only exact public-profile deployments, endpoint and DNS publication, final evidence publication, and bounded beta monitoring remain authorized while the signed preconditions remain satisfiable"
+  },
+  "scope_if_go": [
+    "broadcast only the exact pre-signed zerone-2 history-link transaction before the initiation deadline",
+    "after its successful commit, deploy exact public zerone-2 edge and query-gateway configs",
+    "after its successful commit, deploy exact public zerone-1 archive query-gateway config against the already-private archive origin",
+    "publish exact public P2P and query coordinates and apply the reviewed DNS change manifest",
+    "publish final checkpoint, signatures, evidence hashes, registration receipts, and postmortem",
+    "monitor the initial public beta continuously"
+  ],
+  "required_preconditions": [
+    "old zerone-1 signer remains fenced and cannot restart",
+    "archive adoption authority and final checkpoint signatures verify under the release-authorized transition fingerprint",
+    "private archive A/A readiness evidence remains byte-stable",
+    "private zerone-2 health and protocol-dark invariants were freshly revalidated",
+    "all three public config mappings equal the immutable release packet",
+    "public notice hash and endpoint coordinates are consistent"
+  ],
+  "initial_beta_exclusions": [
+    "public gRPC",
+    "hosted transaction submission",
+    "direct plaintext RPC or REST origins",
+    "direct zerone-1 balance migration",
+    "vote extensions and PoT",
+    "external IBC, transfer, or ICA",
+    "bridge, claims, automatic issuance, knowledge rewards, alignment, counterexamples, or liquidity activation"
+  ]
+}

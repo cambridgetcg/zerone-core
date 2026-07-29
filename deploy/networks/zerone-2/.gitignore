@@ -1,0 +1,8 @@
+artifacts/
+*.mnemonic
+*private*
+*secret*
+*seed*
+node_key.json
+priv_validator_key.json
+priv_validator_state.json

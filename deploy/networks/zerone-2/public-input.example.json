@@ -1,0 +1,21 @@
+{
+  "schema": "zerone-2-public-ceremony-input-v2",
+  "chain_id": "zerone-2",
+  "genesis_time": "REPLACE_WITH_RFC3339_UTC_GENESIS_TIME",
+  "validator": {
+    "account_address": "zrn1REPLACE_WITH_NEW_VALIDATOR_ACCOUNT",
+    "moniker": "zerone-2-custodian",
+    "custody_disclosure": "One publicly disclosed operator-controlled genesis validator; f=0"
+  },
+  "operations": {
+    "account_address": "zrn1REPLACE_WITH_NEW_OPERATIONS_ACCOUNT"
+  },
+  "release": {
+    "source_commit": "REPLACE_WITH_40_HEX_COMMIT",
+    "release_tag": "v2.0.0-zerone-2",
+    "tag_signer_fingerprint": "REPLACE_WITH_40_OR_64_HEX_OPENPGP_FINGERPRINT",
+    "binary_sha256": "REPLACE_WITH_64_HEX_SHA256",
+    "binary_goos": "linux",
+    "binary_goarch": "REPLACE_WITH_AMD64_OR_ARM64"
+  }
+}
