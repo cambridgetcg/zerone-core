@@ -11,6 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
+	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 )
 
 const UpgradeNameTestnet = "v1.0.0-testnet"
@@ -22,6 +24,7 @@ const UpgradeNameCompassionCalibrationV1 = "compassion-calibration-v1"
 const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
+const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -318,6 +321,61 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// consolidation-safety-v1 — coordinated activation boundary for the
+	// consensus-facing work consolidated in July 2026:
+	//
+	//   - conjectures enter as non-citable PROVISIONAL questions and never
+	//     acquire factual standing merely by surviving a challenge;
+	//   - starved challenge rounds settle locks and restore the challenged
+	//     record to its type-appropriate status;
+	//   - governance applies the existing funding-correlation detector to the
+	//     immutable vote weight;
+	//   - substrate axis projections obey a protocol-wide ceiling, including
+	//     settlement of legacy stored records;
+	//   - falsification clawback requires an adjudicated disproven fact;
+	//   - knowledge probe work is cursor-bounded and K-alpha recognition is
+	//     emitted only for eligible factual survival.
+	//
+	// Existing records need no rewrite. knowledge v5→v6 provides a verifiable
+	// module-version boundary so operators cannot mistake a plain binary restart
+	// for the scheduled activation.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameConsolidationSafetyV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			// The vote-weight rule changes at this boundary. Refuse to switch
+			// while any unrelated LIP is mid-ballot: votes already cast retain
+			// their immutable historical weight, so a mid-vote activation would
+			// otherwise apply different rules to early and late voters.
+			votingLIPs := app.ZeroneGovKeeper.GetLIPsByStatus(
+				sdk.UnwrapSDKContext(ctx),
+				zeronegovtypes.StatusVoting,
+			)
+			if len(votingLIPs) != 0 {
+				return nil, fmt.Errorf(
+					"%s requires a quiet governance boundary: %d LIP(s) still voting",
+					UpgradeNameConsolidationSafetyV1,
+					len(votingLIPs),
+				)
+			}
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
+			app.ReconcileModuleAccountPerms(ctx)
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_consolidation-safety-v1", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
@@ -376,6 +434,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameSubstrateDedupeV1:
 		// Migration-only — the source-ref index is a new prefix inside the
 		// existing substrate_bridge store; no store keys added or removed.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameAgenttoolSeamV1, UpgradeNameConsolidationSafetyV1:
+		// Migration-only — both upgrades operate within existing module stores
+		// and add no top-level store keys.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

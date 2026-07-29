@@ -21,13 +21,14 @@ import (
 // ── Scenario P0 — critical bug requiring emergency halt + upgrade ──────
 //
 // Simulated flow:
-//   1. Authority opens a P0 incident (chain-halt-class bug).
-//   2. Records an EMERGENCY_HALT remediation pointing at a ceremony id.
-//   3. Records a NAMED_UPGRADE remediation pointing at a registered handler.
-//   4. Runs the upgrade via RunUpgradeHandlerForTests — the actual fix.
-//   5. Records a documentation remediation with the post-mortem URI.
-//   6. Resolves the incident.
-//   7. Closes it.
+//  1. Authority opens a P0 incident (chain-halt-class bug).
+//  2. Records an EMERGENCY_HALT remediation pointing at a ceremony id.
+//  3. Records a NAMED_UPGRADE remediation pointing at a registered handler.
+//  4. Runs the upgrade via RunUpgradeHandlerForTests — the actual fix.
+//  5. Records a documentation remediation with the post-mortem URI.
+//  6. Resolves the incident.
+//  7. Closes it.
+//
 // Asserts full status progression, SLA tracking, event-log audit trail.
 func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 	h := NewTestHarness(t)
@@ -58,11 +59,11 @@ func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 
 	// 2. Record emergency halt — the chain is halted via x/emergency ceremony.
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
-		Authority:   authority,
-		IncidentId:  "ZR-2026-0001",
-		Type:        knowledgetypes.RemediationType_REMEDIATION_TYPE_EMERGENCY_HALT,
-		Reference:   "ceremony-halt-42",
-		Note:        "chain halted at block 12345 pending hotfix binary",
+		Authority:  authority,
+		IncidentId: "ZR-2026-0001",
+		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_EMERGENCY_HALT,
+		Reference:  "ceremony-halt-42",
+		Note:       "chain halted at block 12345 pending hotfix binary",
 	})
 	require.NoError(t, err)
 	recMitigating, _ := h.KnowledgeKeeper.GetIncidentRecord(h.Ctx, "ZR-2026-0001")
@@ -72,11 +73,11 @@ func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 
 	// 3. Record a named-upgrade remediation; point at the registered upgrade.
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
-		Authority:   authority,
-		IncidentId:  "ZR-2026-0001",
-		Type:        knowledgetypes.RemediationType_REMEDIATION_TYPE_NAMED_UPGRADE,
-		Reference:   zeroneapp.UpgradeNameTestnetV3,
-		Note:        "fix ships as v1.0.2-testnet knowledge v3→v4 migration",
+		Authority:  authority,
+		IncidentId: "ZR-2026-0001",
+		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_NAMED_UPGRADE,
+		Reference:  zeroneapp.UpgradeNameTestnetV3,
+		Note:       "fix ships as v1.0.2-testnet knowledge v3→v4 migration",
 	})
 	require.NoError(t, err)
 
@@ -89,25 +90,25 @@ func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 	fromVM["knowledge"] = 3
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
 	require.NoError(t, err)
-	require.Equal(t, uint64(5), toVM["knowledge"], "upgrade referenced by remediation succeeded")
+	require.Equal(t, uint64(6), toVM["knowledge"], "upgrade referenced by remediation succeeded")
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
 		"remediation's named upgrade actually ran on the chain")
 
 	// 5. Emergency resume + documentation remediations.
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
-		Authority:   authority,
-		IncidentId:  "ZR-2026-0001",
-		Type:        knowledgetypes.RemediationType_REMEDIATION_TYPE_EMERGENCY_RESUME,
-		Reference:   "ceremony-resume-43",
-		Note:        "chain resumed on upgraded binary at block 12400",
+		Authority:  authority,
+		IncidentId: "ZR-2026-0001",
+		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_EMERGENCY_RESUME,
+		Reference:  "ceremony-resume-43",
+		Note:       "chain resumed on upgraded binary at block 12400",
 	})
 	require.NoError(t, err)
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
-		Authority:   authority,
-		IncidentId:  "ZR-2026-0001",
-		Type:        knowledgetypes.RemediationType_REMEDIATION_TYPE_DOCUMENTATION,
-		Reference:   "ipfs://Qm.../post-mortem-ZR-2026-0001.md",
-		Note:        "post-mortem published; TVW underflow cause-and-fix analysis",
+		Authority:  authority,
+		IncidentId: "ZR-2026-0001",
+		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_DOCUMENTATION,
+		Reference:  "ipfs://Qm.../post-mortem-ZR-2026-0001.md",
+		Note:       "post-mortem published; TVW underflow cause-and-fix analysis",
 	})
 	require.NoError(t, err)
 
@@ -177,11 +178,11 @@ func TestIncident_P1_ParamAmendmentHotfix(t *testing.T) {
 
 	// Record the remediation.
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
-		Authority:   authority,
-		IncidentId:  "ZR-2026-0002",
-		Type:        knowledgetypes.RemediationType_REMEDIATION_TYPE_PARAM_AMENDMENT,
-		Reference:   "Params.ReformulationConsensusBps=750000",
-		Note:        "tightened consensus from 666k BPS to 750k BPS",
+		Authority:  authority,
+		IncidentId: "ZR-2026-0002",
+		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_PARAM_AMENDMENT,
+		Reference:  "Params.ReformulationConsensusBps=750000",
+		Note:       "tightened consensus from 666k BPS to 750k BPS",
 	})
 	require.NoError(t, err)
 
@@ -237,11 +238,11 @@ func TestIncident_P2_SchemaAmendment(t *testing.T) {
 
 	// Record the remediation with a schema reference.
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
-		Authority:   authority,
-		IncidentId:  "ZR-2026-0003",
-		Type:        knowledgetypes.RemediationType_REMEDIATION_TYPE_SCHEMA_AMENDMENT,
-		Reference:   "TraceSchema@v2",
-		Note:        "amended to v2 with hedge-vocabulary references",
+		Authority:  authority,
+		IncidentId: "ZR-2026-0003",
+		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_SCHEMA_AMENDMENT,
+		Reference:  "TraceSchema@v2",
+		Note:       "amended to v2 with hedge-vocabulary references",
 	})
 	require.NoError(t, err)
 
@@ -331,9 +332,9 @@ func TestIncident_DashboardQueries(t *testing.T) {
 
 	// Three incidents: one P0 still open, one P1 resolved, one P3 open.
 	for _, spec := range []struct {
-		id       string
-		sev      knowledgetypes.IncidentSeverity
-		resolve  bool
+		id      string
+		sev     knowledgetypes.IncidentSeverity
+		resolve bool
 	}{
 		{"OPEN-P0", knowledgetypes.IncidentSeverity_INCIDENT_SEVERITY_P0, false},
 		{"DONE-P1", knowledgetypes.IncidentSeverity_INCIDENT_SEVERITY_P1, true},
@@ -346,7 +347,7 @@ func TestIncident_DashboardQueries(t *testing.T) {
 		if spec.resolve {
 			_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
 				Authority: authority, IncidentId: spec.id,
-				Type: knowledgetypes.RemediationType_REMEDIATION_TYPE_DOCUMENTATION,
+				Type:      knowledgetypes.RemediationType_REMEDIATION_TYPE_DOCUMENTATION,
 				Reference: "docs",
 			})
 			require.NoError(t, err)

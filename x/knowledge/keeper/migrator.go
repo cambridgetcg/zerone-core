@@ -43,3 +43,10 @@ func (m Migrator) Migrate3to4(ctx sdk.Context) error {
 func (m Migrator) Migrate4to5(ctx sdk.Context) error {
 	return v5.Migrate(ctx, m.keeper)
 }
+
+// Migrate5to6 marks the coordinated activation boundary for the consolidation
+// safety release. The release adds consensus behavior and message surfaces but
+// does not require an in-place rewrite of existing knowledge records.
+func (m Migrator) Migrate5to6(ctx sdk.Context) error {
+	return m.keeper.WriteMigrationMarker(ctx, "migration_v6_complete", "true")
+}

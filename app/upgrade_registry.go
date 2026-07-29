@@ -103,6 +103,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameAgenttoolSeamV1,
 			Description: "agenttool-seam-v1 — axis-bounds drain closed: recursion_weight multiplies the settlement reward, so it is refused against an adapter that declares no ceiling instead of being waved through. Handler gives every bounds-less adapter an explicit empty ceiling, retiring 'unbounded' as a reachable state.",
 		},
+		{
+			UpgradeName: UpgradeNameConsolidationSafetyV1,
+			Description: "consolidation-safety-v1 — coordinated activation for provisional conjectures, starvation-safe challenge settlement, sybil-decayed governance weights, protocol-wide substrate axis ceilings, adjudicated falsification clawback, bounded probes, and K-alpha recognition; knowledge v5→v6 records the boundary.",
+		},
 	}
 
 	return ChainVersionReport{

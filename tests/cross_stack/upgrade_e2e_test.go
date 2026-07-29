@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
+	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
@@ -38,12 +39,12 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 			"handler for %q must be registered to match the lineage entry", n)
 	}
 
-	// Knowledge module is at ConsensusVersion 5 (v5: dead-param removal).
+	// Knowledge module is at ConsensusVersion 6 (consolidation activation).
 	var sawKnowledge bool
 	for _, m := range report.Modules {
 		if m.ModuleName == "knowledge" {
 			sawKnowledge = true
-			require.Equal(t, uint64(5), m.ConsensusVersion,
+			require.Equal(t, uint64(6), m.ConsensusVersion,
 				"knowledge module advertises its current ConsensusVersion")
 		}
 	}
@@ -70,8 +71,8 @@ func TestUpgrade_V1ToV2MigrationPipeline(t *testing.T) {
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
 	require.NoError(t, err, "v1.0.1-testnet handler completes without error")
-	require.Equal(t, uint64(5), toVM["knowledge"],
-		"knowledge module advances to its current ConsensusVersion (5) via full migration chain")
+	require.Equal(t, uint64(6), toVM["knowledge"],
+		"knowledge module advances to its current ConsensusVersion (6) via full migration chain")
 
 	// All migrations ran in sequence — each wrote its marker.
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v2_complete"),
@@ -79,7 +80,9 @@ func TestUpgrade_V1ToV2MigrationPipeline(t *testing.T) {
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
 		"v3→v4 migration marker proves Migrate3to4 ran mid-chain")
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
-		"v4→v5 migration marker proves Migrate4to5 ran at the end of the chain")
+		"v4→v5 migration marker proves Migrate4to5 ran")
+	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
+		"v5→v6 migration marker proves Migrate5to6 ran at the end of the chain")
 
 	// The v1.0.1 handler-level marker was written by the upgrade handler itself.
 	handlerMarker := h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1")
@@ -109,14 +112,16 @@ func TestUpgrade_V3ToV4KnowledgeMigrationPipeline(t *testing.T) {
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
 	require.NoError(t, err)
-	require.Equal(t, uint64(5), toVM["knowledge"],
-		"knowledge module is now at ConsensusVersion 5 post-migration (chain now extends 3→4→5)")
+	require.Equal(t, uint64(6), toVM["knowledge"],
+		"knowledge module is now at ConsensusVersion 6 post-migration (chain now extends 3→4→5→6)")
 
 	// v4 + v5 migration markers prove Migrate3to4 and Migrate4to5 both ran.
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
 		"v4 migration marker present")
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
 		"v5 migration marker present")
+	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
+		"v6 migration marker present")
 
 	// TraceSchema is present post-upgrade.
 	schema, ok := h.KnowledgeKeeper.GetTraceSchema(h.Ctx)
@@ -213,6 +218,7 @@ func TestUpgrade_LineageParityWithHandlers(t *testing.T) {
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameTestnetV3)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameDoctrineMetabolismExemptV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSubstrateDedupeV1)
+	require.Contains(t, lineageNames, zeroneapp.UpgradeNameConsolidationSafetyV1)
 }
 
 // TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1
@@ -293,12 +299,13 @@ func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 			AxisTooling: ^uint64(0), AxisInterface: ^uint64(0),
 		},
 	}
+	substrateParams := substratebridgetypes.DefaultParams()
 	// ErrAxisOverflow, not ErrAdapterAxisBoundsUnset: after the migration this
 	// adapter *does* declare a ceiling, so the claim is refused for exceeding it.
 	// The two errors mark the two halves of the fix — the migration closes the
 	// drain for adapters that already exist, the gate closes it for any adapter
 	// registered without bounds later. This test exercises the first.
-	require.ErrorIs(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, drain, substratebridgetypes.DefaultParams()),
+	require.ErrorIs(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, drain, &substrateParams),
 		substratebridgetypes.ErrAxisOverflow,
 		"a weighted claim must not survive the upgrade")
 
@@ -310,10 +317,63 @@ func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 			SourceId:  "inv-normal",
 		},
 	}
-	require.NoError(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, relayShaped, substratebridgetypes.DefaultParams()),
+	require.NoError(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, relayShaped, &substrateParams),
 		"the upgrade must not stall the live bridge")
 
 	require.Equal(t, "migrated",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_agenttool-seam-v1"),
 		"handler must write the agenttool-seam-v1 migration marker")
+}
+
+func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
+	h := NewTestHarness(t)
+
+	current := h.App.CurrentModuleVersionMap()
+	fromVM := make(module.VersionMap, len(current))
+	for name, version := range current {
+		fromVM[name] = version
+	}
+	fromVM["knowledge"] = 5
+
+	toVM, err := h.App.RunUpgradeHandlerForTests(
+		h.Ctx,
+		zeroneapp.UpgradeNameConsolidationSafetyV1,
+		fromVM,
+		h.Height(),
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint64(6), toVM["knowledge"])
+	require.Equal(t, "true",
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
+		"knowledge migration marker proves the module activation boundary ran")
+	require.Equal(t, "migrated",
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"),
+		"handler marker proves the named upgrade ran")
+}
+
+func TestUpgrade_ConsolidationSafetyV1RejectsMidBallotActivation(t *testing.T) {
+	h := NewTestHarness(t)
+	h.GovKeeper.SetLIP(h.Ctx, &zeronegovtypes.LIP{
+		Id:    "LIP-live-ballot",
+		Stage: zeronegovtypes.StatusVoting,
+	})
+
+	current := h.App.CurrentModuleVersionMap()
+	fromVM := make(module.VersionMap, len(current))
+	for name, version := range current {
+		fromVM[name] = version
+	}
+	fromVM["knowledge"] = 5
+
+	_, err := h.App.RunUpgradeHandlerForTests(
+		h.Ctx,
+		zeroneapp.UpgradeNameConsolidationSafetyV1,
+		fromVM,
+		h.Height(),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "requires a quiet governance boundary")
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
+	require.Empty(t,
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"))
 }

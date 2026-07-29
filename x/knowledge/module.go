@@ -118,6 +118,11 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 4, migrator.Migrate4to5); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration v4→v5: %v", types.ModuleName, err))
 	}
+	// v5→v6: coordinated activation boundary for conjectures, starvation-safe
+	// challenge settlement, bounded probe scans, and K-alpha recognition.
+	if err := cfg.RegisterMigration(types.ModuleName, 5, migrator.Migrate5to6); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration v5→v6: %v", types.ModuleName, err))
+	}
 }
 
 // RegisterInvariants is a no-op for now; invariants are added in R2-2.
@@ -146,5 +151,6 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 // ConsensusVersion returns the module's consensus version.
 // Lineage: v1 (initial) → v2 (marker) → v3 (R29 param backfill) → v4 (Wave 10:
 // TraceSchema backfill + marker) → v5 (drop 11 dead anti-slop/FARM/citation-
-// gaming params). Bump this when you add a new migration.
-func (AppModule) ConsensusVersion() uint64 { return 5 }
+// gaming params) → v6 (consolidation safety activation marker). Bump this when
+// you add a new migration.
+func (AppModule) ConsensusVersion() uint64 { return 6 }

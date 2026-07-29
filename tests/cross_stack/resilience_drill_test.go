@@ -19,20 +19,20 @@ import (
 // has a working damage-containment + recovery pipeline end-to-end.
 
 // TestResilience_FullDrillP0 — end-to-end simulation:
-//   1. Bug discovered: a future build of CreateTrainingManifest would
-//      corrupt child merkle roots. Open P0 incident.
-//   2. Pause the knowledge module (circuit breaker on — writes refuse).
-//   3. Verify the write-path rejects with a clear error.
-//   4. Record a PauseModule remediation on the incident.
-//   5. Register the named upgrade (already registered in app.go).
-//   6. Apply the upgrade via RunUpgradeHandlerForTests.
-//   7. Verify the v4 migration marker present (fix "deployed").
-//   8. Record a NAMED_UPGRADE remediation on the incident.
-//   9. Unpause the knowledge module.
-//   10. Verify the write-path succeeds again.
-//   11. Record DOCUMENTATION remediation.
-//   12. Resolve the incident + close.
-//   13. Dashboard queries confirm zero open incidents, zero paused modules.
+//  1. Bug discovered: a future build of CreateTrainingManifest would
+//     corrupt child merkle roots. Open P0 incident.
+//  2. Pause the knowledge module (circuit breaker on — writes refuse).
+//  3. Verify the write-path rejects with a clear error.
+//  4. Record a PauseModule remediation on the incident.
+//  5. Register the named upgrade (already registered in app.go).
+//  6. Apply the upgrade via RunUpgradeHandlerForTests.
+//  7. Verify the v4 migration marker present (fix "deployed").
+//  8. Record a NAMED_UPGRADE remediation on the incident.
+//  9. Unpause the knowledge module.
+//  10. Verify the write-path succeeds again.
+//  11. Record DOCUMENTATION remediation.
+//  12. Resolve the incident + close.
+//  13. Dashboard queries confirm zero open incidents, zero paused modules.
 func TestResilience_FullDrillP0(t *testing.T) {
 	h := NewTestHarness(t)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
@@ -107,11 +107,12 @@ func TestResilience_FullDrillP0(t *testing.T) {
 	fromVM["knowledge"] = 3 // simulate chain at pre-upgrade state
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
 	require.NoError(t, err, "named upgrade runs despite the module being paused (handlers, not migrations, gate writes)")
-	require.Equal(t, uint64(5), toVM["knowledge"])
+	require.Equal(t, uint64(6), toVM["knowledge"])
 
 	// ── STEP 7: migration marker present — fix "deployed" ─────────────
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"))
 	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"))
+	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
 
 	// ── STEP 8: record the named-upgrade remediation ──────────────────
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
