@@ -112,13 +112,41 @@ weight, or automatic reward. Reward-bearing adapter registration remains
 blocked on reproducible compiler policy, retained evidence, and an independent
 challenge procedure.
 
+## Implemented: Proof of Constructive Adaptation shadow evaluator
+
+The offline [`poca-shadow`](../../tools/poca-shadow) tool evaluates a bounded,
+versioned capability DAG over normalized local evidence. Its first dogfood
+profile pins SLSA v1.2 Build L2, in-toto Statement v1, and SLSA provenance v1.
+It produces deterministic node-level `DECLARED_PASS` projections and refusal
+reasons, declared control-cluster counts, a content-derived claim ID, and a
+permanently zero-reward shadow certificate.
+
+The evaluator rejects unknown fields, duplicate JSON keys and IDs, unsafe
+URLs, malformed digests, cross-profile drift, graph cycles, duplicate receipt
+counting, and non-zero economics. It performs no network fetch, signature
+verification, chain query, store write, transaction, qualification update, or
+reward action. Declared cluster labels remain assertions rather than proof of
+economic independence. Closed rule names are bound to exact external policy
+digests, and each receipt records an environment digest; those digests prove
+byte identity, not policy quality or execution.
+
+The tool can wrap the certificate in an unsigned in-toto Statement v1 whose
+outer and inner subjects match. A separate Sigstore workflow may sign and
+verify those bytes under pinned policy. Neither a structurally valid shadow
+certificate nor its signature proves the truth of an industrial predicate.
+The optional crown CI gate requires a separately reviewed expected profile
+digest; profile lifecycle status remains document-declared in v0.
+The exact boundary is fixed in
+[`proof-constructive-adaptation-v0`](../specs/attestations/proof-constructive-adaptation-v0.md).
+
 ## Consensus boundary
 
-The CAIP and in-toto projections and the off-chain Sigstore compiler do not by
-themselves require a consensus migration. The wider consolidation also
-contains consensus-visible knowledge, vesting, and substrate
-changes. Existing networks must activate those through the coordinated
-`consolidation-safety-v1` upgrade; publishing source does not activate them.
+The CAIP and in-toto projections, off-chain Sigstore compiler, and PoCA shadow
+evaluator do not by themselves require a consensus migration. The wider
+consolidation also contains consensus-visible knowledge, vesting, and
+substrate changes. Existing networks must activate those through the
+coordinated `consolidation-safety-v1` upgrade; publishing source does not
+activate them.
 
 The validator currently pins Cosmos SDK 0.50 and IBC-Go 8. Their migration must
 be a separate, rehearsed consensus program with store/module migrations,
