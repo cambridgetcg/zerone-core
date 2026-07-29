@@ -282,7 +282,7 @@ func (k Keeper) SetTotalMinted(ctx sdk.Context, amount *big.Int) {
 // bank supply (not cumulative totalMinted) so burned tokens free headroom
 // for future minting.
 //
-// This is the chain's single cap-gated mint entry point. Both emission
+// This is the chain's single cap-gated mint entry point. All three emission
 // pathways gate through it:
 //
 //   - PoT block rewards: x/vesting_rewards calls MintWithCap with its own
@@ -290,8 +290,11 @@ func (k Keeper) SetTotalMinted(ctx sdk.Context, amount *big.Int) {
 //   - Bootstrap claims: x/claiming_pot calls MintWithCap with its module
 //     name (recipientModule = claiming_pot), then sends the minted coins
 //     to the claimer in the same transaction.
+//   - External-work attestations: x/substrate_bridge calls MintWithCap with
+//     its module name (recipientModule = substrate_bridge), then sends the
+//     settled reward to the attestation submitter.
 //
-// Doctrine: docs/tokenomics/GENESIS.md (zero team allocation, two
+// Doctrine: docs/tokenomics/GENESIS.md (zero team allocation, three
 // participation-gated emission pathways). The function exists so the cap
 // is enforced once and only once across the chain.
 func (k Keeper) MintWithCap(ctx sdk.Context, recipientModule string, amount *big.Int) (*big.Int, error) {

@@ -1,6 +1,7 @@
 package cross_stack_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -87,6 +88,7 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 
 	// 4. BeginBlocker drains READY → SETTLED: the bond comes home and the
 	// reward mints fresh through MintWithCap — never from other bonds.
+	preMinted := h.VestingRewardsKeeper.GetTotalMinted(sdk.UnwrapSDKContext(h.Ctx))
 	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(h.Ctx))
 
 	att, found = h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
@@ -97,6 +99,11 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 
 	reward, ok := sdkmath.NewIntFromString(att.RewardUzrn)
 	require.True(t, ok)
+	postMinted := h.VestingRewardsKeeper.GetTotalMinted(sdk.UnwrapSDKContext(h.Ctx))
+	mintedDelta := new(big.Int).Sub(postMinted, preMinted)
+	require.Equal(t, att.RewardUzrn, mintedDelta.String(),
+		"vesting_rewards.TotalMinted delta (%s) must equal settlement reward (%s) — substrate settlement must gate through MintWithCap", mintedDelta, att.RewardUzrn)
+
 	final := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
 	require.True(t, final.Amount.Equal(preSubmit.Amount.Add(reward)),
 		"settlement must return the whole bond and pay the minted reward")

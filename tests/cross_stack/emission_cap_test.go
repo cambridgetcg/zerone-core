@@ -14,18 +14,19 @@ import (
 )
 
 // ════════════════════════════════════════════════════════════════════
-// Doctrine binding: TWO emission pathways, ONE cap-gated mint entry.
+// Doctrine binding: THREE emission pathways, ONE cap-gated mint entry.
 //
-// The chain has exactly two pathways for ZRN to enter circulation —
-// PoT block rewards (x/vesting_rewards) and bootstrap claims
-// (x/claiming_pot). Both pathways gate through MintWithCap. This test
-// drives a real bootstrap claim through the live keepers and confirms
-// the bank's uzrn supply increases by the claim amount (proving mint,
-// not transfer from a pre-funded module account).
+// The chain has exactly three pathways for ZRN to enter circulation —
+// PoT block rewards (x/vesting_rewards), bootstrap claims
+// (x/claiming_pot), and external-work attestation rewards
+// (x/substrate_bridge). Every pathway gates through MintWithCap. This
+// test drives a real bootstrap claim through the live keepers and
+// confirms the bank's uzrn supply increases by the claim amount
+// (proving mint, not transfer from a pre-funded module account).
+// TestSubstrateBridge_HappyPathSettlement binds the external-work path.
 //
-// Doctrine: docs/tokenomics/GENESIS.md ("Zero Team Allocation — Two
-// Emission Paths, Both Gated by Participation"); docs/tokenomics/
-// SUPPLY.md ("Emission Pathways"). The pre-fund-then-transfer model
+// Doctrine: docs/tokenomics/GENESIS.md ("Zero Team Allocation"); docs/
+// tokenomics/SUPPLY.md ("Emission Pathways"). The pre-fund-then-transfer model
 // would let bootstrap claims leak supply outside the cap-tracking
 // counter; this test refuses that model.
 // ════════════════════════════════════════════════════════════════════
@@ -94,7 +95,7 @@ func TestEmissionCap_BootstrapClaimMintsOnDemand(t *testing.T) {
 	postMinted := h.VestingRewardsKeeper.GetTotalMinted(sdk.UnwrapSDKContext(h.Ctx))
 	mintedDelta := new(big.Int).Sub(postMinted, preMinted)
 	require.Equal(t, resp.Amount, mintedDelta.String(),
-		"vesting_rewards.TotalMinted delta (%s) must equal claim amount (%s) — both emission pathways share the cap counter", mintedDelta, resp.Amount)
+		"vesting_rewards.TotalMinted delta (%s) must equal claim amount (%s) — all emission pathways share the cap counter", mintedDelta, resp.Amount)
 
 	// Module account is transient — should have zero uzrn balance after
 	// the claim. The mint flowed in and the SendCoinsFromModuleToAccount
