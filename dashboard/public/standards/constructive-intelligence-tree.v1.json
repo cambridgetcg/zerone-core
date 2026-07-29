@@ -1,0 +1,1524 @@
+{
+  "schema": "zerone.constructive-intelligence-tree/v1",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "snapshotDate": "2026-07-29",
+  "policyVersion": "1.0.0",
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "authorizesSecurityTesting": false,
+    "assertsProtocolSecurity": false,
+    "performsNetworkRequests": false,
+    "publishesConfidentialEvidence": false
+  },
+  "policy": {
+    "artifactEdgeTypes": [
+      "ATTACKS",
+      "DEPLOYS",
+      "DISPROVES",
+      "IMPLEMENTS",
+      "MAINTAINS",
+      "PROVES",
+      "REPAIRS",
+      "REPLICATES",
+      "SUPERSEDES"
+    ],
+    "breakthroughRecognition": {
+      "authorSelected": false,
+      "minimumEvidenceLevel": "E3",
+      "requiresPriorArtDelta": true,
+      "requiresAdoptionOrDescendantImpact": true
+    },
+    "funding": {
+      "skillUnlockCreatesReward": false,
+      "externalWorkDefault": "sponsor-escrow",
+      "protocolIssuanceGate": "recursive-useful-work-only",
+      "timeAloneUnlocksEvidence": false
+    },
+    "independence": {
+      "minimumEffectiveClusters": 3,
+      "minimumOrganizationRoots": 2,
+      "minimumImplementationRoots": 2,
+      "minimumExecutionEnvironments": 2,
+      "assignmentAfterArtifactFreeze": true,
+      "reviewPayOutcomeIndependent": true,
+      "rawAddressCountIsEvidence": false
+    },
+    "disclosure": {
+      "safetyIsHardGate": true,
+      "unknownSecurityImpactEscalatesTo": "private-coordinated-repair",
+      "publicExploitPlaintextAllowed": false,
+      "vendorHasPayoutVeto": false
+    },
+    "milestones": [
+      {
+        "level": "E0",
+        "name": "committed",
+        "rewardBps": 0,
+        "treatment": "precedence-only"
+      },
+      {
+        "level": "E1",
+        "name": "inspectable",
+        "rewardBps": 0,
+        "treatment": "verified-cost-only"
+      },
+      {
+        "level": "E2",
+        "name": "class-verified",
+        "rewardBps": 1500,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E3",
+        "name": "independently-reproduced",
+        "rewardBps": 2000,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E4",
+        "name": "adversarially-survived-or-fix-tested",
+        "rewardBps": 1500,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E5",
+        "name": "independently-adopted",
+        "rewardBps": 2500,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E6",
+        "name": "maintained",
+        "rewardBps": 1000,
+        "treatment": "milestone"
+      }
+    ],
+    "challengeReserveBps": 1500
+  },
+  "roots": [
+    "math-proofcraft@1"
+  ],
+  "nodes": [
+    {
+      "id": "assurance-conformance-interoperability@1",
+      "title": "Conformance and interoperability",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Turn exact normative requirements into cross-implementation behavior and reusable minimized regression fixtures.",
+      "prerequisites": [
+        "assurance-differential-fuzzing@1",
+        "assurance-vectors-negative-tests@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A version-pinned conformance matrix with executable positive and negative cases.",
+        "Independent results from at least two implementation or toolchain roots.",
+        "Minimized, reproducible divergence fixtures with explicit expected behavior."
+      ],
+      "revalidationTriggers": [
+        "A referenced standard is updated, obsoleted, or gains relevant errata.",
+        "A tested implementation changes its parser, state machine, or cryptographic backend."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "assurance-constant-time-memory-safety@1",
+      "title": "Constant-time and memory-safety evidence",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Relate source and binary behavior to explicit leakage, memory, range, and fault models.",
+      "prerequisites": [
+        "security-side-channels-faults@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "A pinned source and binary digest with compiler, flags, platform, and measurement environment.",
+        "A declared leakage or memory-safety model and reproducible analysis method.",
+        "Evidence that distinguishes source-level, binary-level, statistical, and formal claims."
+      ],
+      "revalidationTriggers": [
+        "Compiler, optimization flags, target architecture, dependency, or implementation revision changes.",
+        "The leakage, memory, or fault model changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "assurance-coordinated-disclosure@1",
+      "title": "Coordinated vulnerability disclosure",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Reduce harm while independently validating, repairing, and eventually publishing security findings.",
+      "prerequisites": [
+        "security-threat-models-games@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A disclosure policy with acknowledgement, reproduction, fix, disclosure, and escalation deadlines.",
+        "A confidential-evidence handling plan that excludes exploit plaintext and target-identifying metadata from public ledgers.",
+        "A sanitized publication template preserving method, scope, credit, and repair evidence."
+      ],
+      "revalidationTriggers": [
+        "Disclosure policy, legal constraints, vendor contact, or neutral escalation path changes.",
+        "A finding changes from theoretical to operationally exploitable."
+      ],
+      "standards": [
+        {
+          "canonicalId": "certcc:guide-to-cvd:2022",
+          "authority": "CERT/CC",
+          "title": "CERT Guide to Coordinated Vulnerability Disclosure",
+          "revision": "2022",
+          "authorityStatus": "Maintained guidance",
+          "normalizedMaturity": "maintained-policy",
+          "specification": "https://certcc.github.io/CERT-Guide-to-CVD/",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "assurance-differential-fuzzing@1",
+      "title": "Differential testing and fuzzing",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Generate bounded inputs, compare independent oracles, minimize divergences, and preserve exact reproductions.",
+      "prerequisites": [
+        "assurance-vectors-negative-tests@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A deterministic corpus generator with seed and toolchain digests.",
+        "At least two justified oracles or implementations and a divergence classifier.",
+        "Minimized reproducers that preserve exact input bytes and environment."
+      ],
+      "revalidationTriggers": [
+        "Generator, oracle, parser, dependency, or implementation versions change.",
+        "Coverage claims or target threat models change."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "assurance-formal-verification@1",
+      "title": "Formal protocol and implementation verification",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "State exact theorems, assumptions, bounds, refinement claims, and reproducible checker environments.",
+      "prerequisites": [
+        "math-proofcraft@1",
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "The exact theorem, model, attacker assumptions, bounds, and mapping to a pinned specification or implementation.",
+        "A reproducible checker environment with all axioms, admits, trusted bases, and generated artifacts disclosed.",
+        "An independent check that distinguishes bounded model exploration, protocol proof, and implementation proof."
+      ],
+      "revalidationTriggers": [
+        "The theorem, model, trusted base, checker, specification, or implementation mapping changes.",
+        "A counterexample invalidates an assumption or refinement step."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "assurance-vectors-negative-tests@1",
+      "title": "Known-answer and negative test vectors",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Bind exact bytes, parameters, expected outputs, rejection behavior, and provenance into reusable test oracles.",
+      "prerequisites": [
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Canonical input and output bytes with generator provenance and exact parameter identifiers.",
+        "Positive, boundary, malformed, and rejection cases tied to normative requirements.",
+        "A deterministic runner and a statement of what passing does and does not establish."
+      ],
+      "revalidationTriggers": [
+        "Standard text, errata, parameter registry, serialization, generator, or implementation behavior changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "crypto-aead@1",
+      "title": "Authenticated encryption with associated data",
+      "stage": "primitive",
+      "domain": "cryptography",
+      "summary": "Reason about nonce discipline, authenticity, confidentiality, key separation, bounds, and misuse limits.",
+      "prerequisites": [
+        "crypto-hash-mac-kdf@1",
+        "math-probability-information-complexity@1",
+        "security-threat-models-games@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A security-game analysis with explicit nonce, key, query, forgery, and data limits.",
+        "Exact-byte vectors covering associated data, empty inputs, failure, and nonce-boundary behavior.",
+        "A toy or wrapper implementation explicitly barred from unreviewed production use."
+      ],
+      "revalidationTriggers": [
+        "Primitive, parameter, nonce policy, usage bound, library, or protocol composition changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "crypto-classical-public-key@1",
+      "title": "Classical public-key cryptography",
+      "stage": "primitive",
+      "domain": "cryptography",
+      "summary": "Connect finite-field and elliptic-curve assumptions to encodings, signatures, key exchange, and validation.",
+      "prerequisites": [
+        "math-algebra-finite-fields@1",
+        "math-probability-information-complexity@1",
+        "security-threat-models-games@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A reduction or attack analysis with exact group, curve, encoding, and validation assumptions.",
+        "Negative vectors for malformed points, subgroup behavior, signatures, and key agreement inputs.",
+        "A composition note distinguishing primitive guarantees from protocol guarantees."
+      ],
+      "revalidationTriggers": [
+        "Algorithm, curve, group, encoding, validation rule, library, or protocol composition changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "crypto-hash-mac-kdf@1",
+      "title": "Hash, MAC, and key-derivation discipline",
+      "stage": "primitive",
+      "domain": "cryptography",
+      "summary": "Reason about collision, preimage, pseudorandomness, extraction, expansion, and domain or key separation.",
+      "prerequisites": [
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Exact-byte exercises demonstrating encoding, domain separation, truncation, salt, context, and key separation.",
+        "A security-property matrix that does not substitute collision resistance for MAC or KDF guarantees.",
+        "A toy or wrapper implementation explicitly barred from unreviewed production use."
+      ],
+      "revalidationTriggers": [
+        "Primitive, parameter, encoding, domain-separation label, library, or protocol composition changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "crypto-ml-dsa@fips204",
+      "title": "ML-DSA under FIPS 204",
+      "stage": "primitive",
+      "domain": "cryptography",
+      "summary": "Connect module-lattice signature mathematics to exact FIPS 204 algorithms, parameters, encodings, and implementation evidence.",
+      "prerequisites": [
+        "crypto-hash-mac-kdf@1",
+        "math-lattices-polynomial-rings@1",
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Exact FIPS 204 parameter, serialization, signing, verification, and rejection vectors.",
+        "A reproducible link between reference algorithms and an implementation revision.",
+        "Errata-aware evidence that distinguishes algorithm conformance from module certification."
+      ],
+      "revalidationTriggers": [
+        "NIST publishes corrections, errata, implementation guidance, or a revised edition.",
+        "Sampling, arithmetic, serialization, randomness, or implementation revision changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "nist:fips:204:2024",
+          "authority": "NIST",
+          "title": "Module-Lattice-Based Digital Signature Standard",
+          "revision": "2024-08-13",
+          "authorityStatus": "Final FIPS; future corrections announced",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.FIPS.204",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "crypto-ml-kem@fips203",
+      "title": "ML-KEM under FIPS 203 and SP 800-227",
+      "stage": "primitive",
+      "domain": "cryptography",
+      "summary": "Connect module-lattice KEM mathematics to exact FIPS 203 algorithms and NIST secure-use guidance.",
+      "prerequisites": [
+        "math-lattices-polynomial-rings@1",
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Exact parameter, serialization, encapsulation, decapsulation, malformed-ciphertext, and implicit-rejection vectors.",
+        "A reproducible link between FIPS algorithms, SP 800-227 usage requirements, and an implementation revision.",
+        "Errata-aware evidence that distinguishes algorithm conformance from module certification."
+      ],
+      "revalidationTriggers": [
+        "NIST publishes corrections, errata, KEM guidance, or a revised edition.",
+        "Arithmetic, serialization, implicit rejection, randomness, or implementation revision changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "nist:fips:203:2024",
+          "authority": "NIST",
+          "title": "Module-Lattice-Based Key-Encapsulation Mechanism Standard",
+          "revision": "2024-08-13",
+          "authorityStatus": "Final FIPS; future correction announced",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.FIPS.203",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        },
+        {
+          "canonicalId": "nist:sp:800-227:2025",
+          "authority": "NIST",
+          "title": "Recommendations for Key-Encapsulation Mechanisms",
+          "revision": "2025-09-18",
+          "authorityStatus": "Final Special Publication",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.SP.800-227",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "crypto-slh-dsa@fips205",
+      "title": "SLH-DSA under FIPS 205",
+      "stage": "primitive",
+      "domain": "cryptography",
+      "summary": "Connect hash-based signature structures to exact FIPS 205 algorithms, parameters, encodings, and implementation evidence.",
+      "prerequisites": [
+        "crypto-hash-mac-kdf@1",
+        "math-probability-information-complexity@1",
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Exact FIPS 205 parameter, serialization, signing, verification, and rejection vectors.",
+        "A reproducible link between the hash-based construction and an implementation revision.",
+        "Evidence that distinguishes algorithm conformance from module certification."
+      ],
+      "revalidationTriggers": [
+        "NIST publishes corrections, errata, implementation guidance, or a revised edition.",
+        "Hash instantiation, addressing, serialization, randomness, or implementation revision changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "nist:fips:205:2024",
+          "authority": "NIST",
+          "title": "Stateless Hash-Based Digital Signature Standard",
+          "revision": "2024-08-13",
+          "authorityStatus": "Final FIPS",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.FIPS.205",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "math-algebra-finite-fields@1",
+      "title": "Finite-field and elliptic-curve algebra",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Construct and audit arguments over groups, rings, finite fields, scalar multiplication, and encodings.",
+      "prerequisites": [
+        "math-proofcraft@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Checkable exercises covering group order, fields, inverses, subgroups, curves, and point encodings.",
+        "At least one counterexample showing how an omitted validation condition breaks an argument.",
+        "A reproducible algebra notebook or proof artifact with no hidden assumptions."
+      ],
+      "revalidationTriggers": [
+        "The assessment theorem set, proof checker, or encoding model changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "math-lattices-polynomial-rings@1",
+      "title": "Lattices and polynomial rings",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Relate linear algebra modulo q, quotient rings, distributions, transforms, and lattice assumptions.",
+      "prerequisites": [
+        "math-probability-information-complexity@1",
+        "math-proofcraft@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Checkable exercises over modules, quotient rings, sampling, noise growth, and number-theoretic transforms.",
+        "A reduction map that names every assumption and parameter dependency.",
+        "A reproducible arithmetic artifact with boundary and range cases."
+      ],
+      "revalidationTriggers": [
+        "The assumption, parameter, arithmetic model, assessment theorem set, or checker changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "math-probability-information-complexity@1",
+      "title": "Probability, information, and complexity",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Work precisely with conditional probability, entropy, negligible functions, reductions, and randomized algorithms.",
+      "prerequisites": [
+        "math-proofcraft@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Checkable exercises in conditional probability, entropy, asymptotics, negligible bounds, and reductions.",
+        "At least one explicit failure caused by conditioning, independence, or asymptotic misuse.",
+        "A reproducible proof or computation artifact with parameterized bounds."
+      ],
+      "revalidationTriggers": [
+        "The assessment theorem set, checker, probability model, or complexity model changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "math-proofcraft@1",
+      "title": "Proof construction and counterexamples",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "State propositions, quantify assumptions, prove invariants, construct counterexamples, and separate evidence from confidence.",
+      "prerequisites": [],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A checkable portfolio using direct proof, induction, contradiction, invariants, and counterexamples.",
+        "Every theorem states its assumptions, quantifiers, domain, and falsifiers.",
+        "At least one repaired proof whose original hidden assumption is made explicit."
+      ],
+      "revalidationTriggers": [
+        "The assessment theorem set, proof checker, trusted base, or review rubric changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-cosmos-ibc-migration@2026q3",
+      "title": "Cosmos SDK and IBC migration assurance",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Prove state, sign-byte, AppHash, consensus, and packet-lifecycle behavior across a supported release-family migration.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "assurance-formal-verification@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "A source/target release-family matrix with exact SDK, CometBFT, IBC-Go, Go, and protobuf versions.",
+        "Deterministic store migration, export/import, sign-byte, AppHash, replay, and rollback evidence.",
+        "IBC client, connection, channel, packet, timeout, relayer, and proof fixtures across independent implementations where available."
+      ],
+      "revalidationTriggers": [
+        "Cosmos release-family or IBC-Go support policy changes.",
+        "SDK, CometBFT, IBC-Go, Go, protobuf, store schema, or upgrade handler changes.",
+        "A relevant security advisory or consensus-breaking change is published."
+      ],
+      "standards": [
+        {
+          "canonicalId": "cosmos:release-family:2025.1",
+          "authority": "Cosmos SDK",
+          "title": "Cosmos release family 2025.1",
+          "revision": "status snapshot 2026-07-29",
+          "authorityStatus": "Maintained release family: SDK 0.53.x, CometBFT 0.38.x, IBC-Go 10.x",
+          "normalizedMaturity": "maintained-policy",
+          "specification": "https://docs.cosmos.network/sdk/latest/release-family",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        },
+        {
+          "canonicalId": "cosmos:release-family:2026.1",
+          "authority": "Cosmos SDK",
+          "title": "Cosmos release family 2026.1",
+          "revision": "status snapshot 2026-07-29",
+          "authorityStatus": "Maintained release family: SDK 0.55.x, CometBFT 0.40.x, IBC-Go 11.x",
+          "normalizedMaturity": "maintained-policy",
+          "specification": "https://docs.cosmos.network/sdk/latest/release-family",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/plans/2026-07-06-slim-cut-migration-map.md",
+        "docs/specs/constructive-intelligence-tree-v1.md",
+        "go.mod"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-hpke@rfc9180",
+      "title": "HPKE under RFC 9180",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Test HPKE modes, suite identifiers, labeled key schedule, nonce construction, exporters, validation, and composition assumptions.",
+      "prerequisites": [
+        "assurance-coordinated-disclosure@1",
+        "assurance-vectors-negative-tests@1",
+        "crypto-aead@1",
+        "crypto-classical-public-key@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Parity with official RFC 9180 vectors for every claimed mode and suite.",
+        "Negative cases for identifiers, keys, context, exporter, sequence, nonce, and input validation.",
+        "A composition note limiting claims to RFC 9180 and the declared application protocol."
+      ],
+      "revalidationTriggers": [
+        "The IETF standards-track HPKE successor changes state or revision.",
+        "RFC 9180 errata, registry, suite, dependency, or implementation behavior changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "irtf:rfc:9180",
+          "authority": "IRTF CFRG",
+          "title": "Hybrid Public Key Encryption",
+          "revision": "2022-02",
+          "authorityStatus": "Informational RFC; IETF standards-track successor pending",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9180.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-mls@rfc9420",
+      "title": "Messaging Layer Security under RFC 9420",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Model TreeKEM state, epochs, proposals, commits, joins, authentication, forward secrecy, and post-compromise security assumptions.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "assurance-formal-verification@1",
+        "protocol-hpke@rfc9180"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A pinned MLS cipher suite and complete normative dependency closure.",
+        "Vector parity against mlswg/mls-implementations commit cfd450286d1bfd9cd2519b95c80f9771f94a5b1a plus multi-epoch add, update, remove, join, PSK, stale-proposal, and negative-transition cases.",
+        "An explicit separation between protocol, authentication-service, delivery-service, and implementation assumptions."
+      ],
+      "revalidationTriggers": [
+        "RFC 9420 errata, extension, cipher-suite registry, HPKE dependency, or implementation behavior changes.",
+        "The application authentication or delivery model changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "ietf:rfc:9420",
+          "authority": "IETF",
+          "title": "The Messaging Layer Security (MLS) Protocol",
+          "revision": "2023-07",
+          "authorityStatus": "Proposed Standard",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9420.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        },
+        {
+          "canonicalId": "irtf:rfc:9180",
+          "authority": "IRTF CFRG",
+          "title": "Hybrid Public Key Encryption",
+          "revision": "2022-02",
+          "authorityStatus": "Informational RFC; IETF standards-track successor pending",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9180.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-oauth-fapi@2025",
+      "title": "OAuth Security BCP and FAPI 2.0",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Bind browser, authorization-server, client, resource-server, issuer, redirect, token, sender-constraining, and replay behavior to current security profiles.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "Negative conformance cases for exact redirects, issuer mix-up, PKCE, PAR, sender constraining, replay, and key rotation.",
+        "A mapping from implementation behavior to RFC 9700 and the FAPI 2.0 attacker-model assumptions.",
+        "Tests limited to owned local deployments or explicitly authorized targets."
+      ],
+      "revalidationTriggers": [
+        "OAuth BCP, registry, FAPI profile, attacker model, conformance suite, browser, or implementation behavior changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "ietf:rfc:9700",
+          "authority": "IETF",
+          "title": "Best Current Practice for OAuth 2.0 Security",
+          "revision": "2025-01",
+          "authorityStatus": "Best Current Practice 240",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9700.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        },
+        {
+          "canonicalId": "oidf:fapi2-attacker-model:20250222",
+          "authority": "OpenID Foundation",
+          "title": "FAPI 2.0 Attacker Model",
+          "revision": "Final, 2025-02-22",
+          "authorityStatus": "Final OpenID Specification",
+          "normalizedMaturity": "final",
+          "specification": "https://openid.net/specs/fapi-attacker-model-2_0-final.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        },
+        {
+          "canonicalId": "oidf:fapi2-security-profile:20250222",
+          "authority": "OpenID Foundation",
+          "title": "FAPI 2.0 Security Profile",
+          "revision": "Final, 2025-02-22",
+          "authorityStatus": "Final OpenID Specification",
+          "normalizedMaturity": "final",
+          "specification": "https://openid.net/specs/fapi-security-profile-2_0-final.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-quic@rfc9000",
+      "title": "QUIC v1 transport and TLS integration",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Test QUIC transport and TLS integration as one pinned security scope rather than treating RFC 9000 alone as sufficient.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "protocol-tls13@rfc9846",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "Exact Initial secret, Retry, packet protection, header protection, packet-number, key-update, migration, and state-transition vectors.",
+        "A compound RFC 9000 and RFC 9001 conformance scope with explicit RFC 9002 inclusion only when loss recovery is tested.",
+        "Cross-implementation fixtures executed only in owned or authorized environments."
+      ],
+      "revalidationTriggers": [
+        "QUIC RFC errata, extension, registry, TLS dependency, interop runner, or implementation behavior changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "ietf:rfc:9000",
+          "authority": "IETF",
+          "title": "QUIC: A UDP-Based Multiplexed and Secure Transport",
+          "revision": "2021-05",
+          "authorityStatus": "Proposed Standard",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9000.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        },
+        {
+          "canonicalId": "ietf:rfc:9001",
+          "authority": "IETF",
+          "title": "Using TLS to Secure QUIC",
+          "revision": "2021-05",
+          "authorityStatus": "Proposed Standard",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9001.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-software-supply-chain@2026q3",
+      "title": "in-toto, SLSA, and Sigstore verification",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Separate authenticated statements, artifact binding, transparency evidence, builder identity, and semantic policy.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "crypto-classical-public-key@1",
+        "crypto-hash-mac-kdf@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Cross-language Statement, DSSE PAE, subject-digest, predicate, and canonical-value fixtures.",
+        "Exact Sigstore bundle media-type, identity, trust-root, time, inclusion, offline, and failure-policy tests.",
+        "A SLSA policy that distinguishes signed provenance from evidence that builder and workflow expectations were satisfied."
+      ],
+      "revalidationTriggers": [
+        "in-toto, SLSA, Sigstore bundle, trust root, transparency log, conformance suite, or verifier policy changes.",
+        "A referenced mutable project status changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "in-toto:attestation:1.2.0",
+          "authority": "in-toto",
+          "title": "in-toto Attestation Framework",
+          "revision": "v1.2.0 (commit df02077bf97218a8860a5c534eff1f1381f56984)",
+          "authorityStatus": "Released project specification",
+          "normalizedMaturity": "project-specification",
+          "specification": "https://github.com/in-toto/attestation/tree/df02077bf97218a8860a5c534eff1f1381f56984",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        },
+        {
+          "canonicalId": "sigstore:bundle:v0.3",
+          "authority": "Sigstore",
+          "title": "Sigstore bundle media type v0.3",
+          "revision": "protobuf-specs v0.5.1 (commit 3001afe9102b15b04ca1b91efccd613976bdf514)",
+          "authorityStatus": "Current project bundle version",
+          "normalizedMaturity": "project-specification",
+          "specification": "https://github.com/sigstore/protobuf-specs/blob/3001afe9102b15b04ca1b91efccd613976bdf514/protos/sigstore_bundle.proto",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        },
+        {
+          "canonicalId": "slsa:spec:1.2",
+          "authority": "SLSA",
+          "title": "Supply-chain Levels for Software Artifacts specification",
+          "revision": "v1.2",
+          "authorityStatus": "Approved specification",
+          "normalizedMaturity": "approved",
+          "specification": "https://slsa.dev/spec/v1.2/",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/adapters/sigstore-in-toto-v1.md",
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-tls13@rfc9846",
+      "title": "TLS 1.3 under RFC 9846",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Treat RFC 9846, which obsoletes RFC 8446 while retaining TLS 1.3, as an exact executable state and byte contract.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "assurance-vectors-negative-tests@1",
+        "crypto-aead@1",
+        "crypto-classical-public-key@1",
+        "crypto-hash-mac-kdf@1",
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "An executable RFC 8446 to RFC 9846 delta map with exact normative citations and each tested stack commit's claimed RFC profile.",
+        "A directional RFC 9846 Section 4.3.8 oracle: senders must not reuse a KeyShare across connections, while receivers must permit peer reuse for interoperability.",
+        "Transcript, key-schedule, KeyShare, HelloRetryRequest, 0-RTT, KeyUpdate, alert, and negative-state fixtures.",
+        "Results from independent TLS implementations executed only in owned or authorized environments; RFC 8446-only sender reuse is recorded as an adoption gap, not RFC 9846 nonconformance."
+      ],
+      "revalidationTriggers": [
+        "RFC 9846 gains errata, updates, obsoletion, registry changes, or security guidance.",
+        "TLS implementation, cryptographic backend, extension, or test oracle changes."
+      ],
+      "standards": [
+        {
+          "canonicalId": "ietf:rfc:8446",
+          "authority": "IETF",
+          "title": "The Transport Layer Security (TLS) Protocol Version 1.3",
+          "revision": "2018-08",
+          "authorityStatus": "Proposed Standard; obsoleted by RFC 9846",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc8446.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        },
+        {
+          "canonicalId": "ietf:rfc:9846",
+          "authority": "IETF",
+          "title": "The Transport Layer Security (TLS) Protocol Version 1.3",
+          "revision": "2026-07",
+          "authorityStatus": "Proposed Standard; obsoletes RFC 8446",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9846.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "protocol-webauthn@level2",
+      "title": "WebAuthn Level 2 relying-party verification",
+      "stage": "protocol",
+      "domain": "protocols",
+      "summary": "Test origin, RP ID, challenge, ceremony, authenticator data, CBOR, signature, counter, user-presence, user-verification, and recovery assumptions.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "crypto-classical-public-key@1",
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "Relying-party negative vectors for origin, RP ID, challenge single use, CBOR, algorithm policy, flags, counters, and backup state.",
+        "A virtual-authenticator or owned-device harness with exact browser, authenticator, and verifier versions.",
+        "A separate account-recovery and synchronized-credential threat model."
+      ],
+      "revalidationTriggers": [
+        "The dated Level 2 Recommendation, relevant errata, browser, authenticator, CBOR, algorithm, or recovery behavior changes.",
+        "Level 3 reaches a new maturity state relevant to the tested behavior."
+      ],
+      "standards": [
+        {
+          "canonicalId": "w3c:webauthn:2:20210408",
+          "authority": "W3C",
+          "title": "Web Authentication: An API for accessing Public Key Credentials Level 2",
+          "revision": "2021-04-08",
+          "authorityStatus": "W3C Recommendation",
+          "normalizedMaturity": "recommendation",
+          "specification": "https://www.w3.org/TR/2021/REC-webauthn-2-20210408/",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "quest-mls-state-invariants@1",
+      "title": "Season 0: MLS state-machine invariants",
+      "stage": "quest",
+      "domain": "quests",
+      "summary": "Bind explicit MLS attacker assumptions and state invariants to a pinned mlswg interoperability corpus, negative transitions, and independent implementations.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "assurance-formal-verification@1",
+        "protocol-mls@rfc9420"
+      ],
+      "attainmentEvidence": "E5",
+      "rewardEligibility": "sponsor-milestones",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A mechanized or executable RFC 9420 state model with explicit cipher suite, dependencies, attacker assumptions, and bounds.",
+        "Vector parity against mlswg/mls-implementations commit cfd450286d1bfd9cd2519b95c80f9771f94a5b1a and negative multi-epoch add, update, remove, join, proposal, commit, PSK, and stale-state cases.",
+        "Independent execution against at least two MLS implementation roots with minimized interoperability repairs.",
+        "Unexpected failures and counterexamples are quarantined before public logs until disclosure triage classifies them as safe."
+      ],
+      "revalidationTriggers": [
+        "RFC 9420, its HPKE dependency, cipher-suite registry, pinned mlswg interoperability corpus, checker, or implementation behavior changes.",
+        "A result changes an adversarial accept/reject decision and requires confidential handling."
+      ],
+      "standards": [
+        {
+          "canonicalId": "ietf:rfc:9420",
+          "authority": "IETF",
+          "title": "The Messaging Layer Security (MLS) Protocol",
+          "revision": "2023-07",
+          "authorityStatus": "Proposed Standard",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9420.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        },
+        {
+          "canonicalId": "irtf:rfc:9180",
+          "authority": "IRTF CFRG",
+          "title": "Hybrid Public Key Encryption",
+          "revision": "2022-02",
+          "authorityStatus": "Informational RFC; IETF standards-track successor pending",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9180.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-05"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/plans/2026-07-29-constructive-intelligence-tree-design.md",
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "cipher-suite=MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
+          "epochs<=16",
+          "execution-environments>=2",
+          "group-size<=32",
+          "implementations>=2",
+          "mls-interop-corpus=github.com/mlswg/mls-implementations@cfd450286d1bfd9cd2519b95c80f9771f94a5b1a",
+          "proposals-per-commit<=8",
+          "required-transition-classes=add,commit,join,proposal,psk,remove,stale-state,update",
+          "transition-traces<=10000",
+          "transition-traces>=32"
+        ],
+        "scopeHash": "460a766befb636077033e036809cdb2dd68f05f4d4a1fc3d8e6ed80c696b2168",
+        "coverageTargets": [
+          {
+            "id": "mls-add",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 4,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "mls-join",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 4,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "mls-proposal-commit",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 4,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "mls-psk",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 4,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "mls-remove",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 4,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "mls-stale-state",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 4,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "mls-update",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 4,
+            "requiresCheckerOrCorpusDigest": true
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumImplementationRoots": 2,
+        "minimumExecutionEnvironments": 2,
+        "adoptionReceiptTypes": [
+          "maintained-fixture",
+          "maintained-release",
+          "upstream-merge"
+        ],
+        "privateEscalationRequired": true,
+        "prepublicationTriageRequired": true
+      }
+    },
+    {
+      "id": "quest-pqc-cross-library-conformance@1",
+      "title": "Season 0: FIPS 203/204/205 cross-library assurance",
+      "stage": "quest",
+      "domain": "quests",
+      "summary": "Create reusable cross-library vectors, malformed inputs, errata mappings, implicit-rejection checks, and constant-time evidence.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-constant-time-memory-safety@1",
+        "assurance-coordinated-disclosure@1",
+        "assurance-vectors-negative-tests@1",
+        "crypto-ml-dsa@fips204",
+        "crypto-ml-kem@fips203",
+        "crypto-slh-dsa@fips205"
+      ],
+      "attainmentEvidence": "E5",
+      "rewardEligibility": "sponsor-milestones",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A deterministic cross-library corpus for FIPS 203, 204, and 205 with exact implementation and toolchain versions.",
+        "A 2026-07-29 oracle snapshot of published FIPS text and NIST planning notes; announced future FIPS 203 and 204 corrections are not silently applied.",
+        "Known-answer, malformed encoding, parameter, rejection, errata, boundary, and cross-library divergence fixtures with at least three implementation roots per algorithm.",
+        "ML-KEM malformed-ciphertext and implicit-rejection checks; ML-DSA and SLH-DSA invalid-signature plus signing/randomness checks.",
+        "Constant-time evidence for every algorithm and implementation root in the bounded corpus, across the declared execution environments; memory-safety evidence where relevant, with explicit source, binary, platform, leakage, and measurement scope.",
+        "Unexpected failures, leakage evidence, and counterexamples are quarantined before public logs until disclosure triage classifies them as safe."
+      ],
+      "revalidationTriggers": [
+        "NIST correction, errata, ACVP, SP 800-227, implementation, compiler, corpus, or measurement method changes.",
+        "A result changes an adversarial accept/reject decision and requires confidential handling."
+      ],
+      "standards": [
+        {
+          "canonicalId": "nist:fips:203:2024",
+          "authority": "NIST",
+          "title": "Module-Lattice-Based Key-Encapsulation Mechanism Standard",
+          "revision": "2024-08-13",
+          "authorityStatus": "Final FIPS; future correction announced",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.FIPS.203",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        },
+        {
+          "canonicalId": "nist:fips:204:2024",
+          "authority": "NIST",
+          "title": "Module-Lattice-Based Digital Signature Standard",
+          "revision": "2024-08-13",
+          "authorityStatus": "Final FIPS; future corrections announced",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.FIPS.204",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        },
+        {
+          "canonicalId": "nist:fips:205:2024",
+          "authority": "NIST",
+          "title": "Stateless Hash-Based Digital Signature Standard",
+          "revision": "2024-08-13",
+          "authorityStatus": "Final FIPS",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.FIPS.205",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        },
+        {
+          "canonicalId": "nist:sp:800-227:2025",
+          "authority": "NIST",
+          "title": "Recommendations for Key-Encapsulation Mechanisms",
+          "revision": "2025-09-18",
+          "authorityStatus": "Final Special Publication",
+          "normalizedMaturity": "final",
+          "specification": "https://doi.org/10.6028/NIST.SP.800-227",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-10-27"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/plans/2026-07-29-constructive-intelligence-tree-design.md",
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "algorithms=ML-KEM,ML-DSA,SLH-DSA",
+          "constant-time-evidence=per-algorithm-per-implementation-root",
+          "errata-oracle=published-FIPS-text;planning-notes-observed-2026-07-29;future-corrections-not-applied",
+          "execution-environments>=2",
+          "implementations-per-algorithm>=3",
+          "ml-dsa=invalid-signature-and-signing-randomness",
+          "ml-kem=malformed-ciphertext-and-implicit-rejection",
+          "parameter-sets=all-FIPS203-FIPS204-FIPS205-approved",
+          "slh-dsa=invalid-signature-and-signing-randomness"
+        ],
+        "scopeHash": "dd6d6d908873f1cdad7fe85b21bee25467f2ade06fa6f0e5cb46c9ae970ff53c",
+        "coverageTargets": [
+          {
+            "id": "ml-dsa-constant-time",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 3,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 6,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "ml-dsa-fips204",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 3,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 32,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "ml-kem-constant-time",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 3,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 6,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "ml-kem-fips203",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 3,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 32,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "slh-dsa-constant-time",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 3,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 6,
+            "requiresCheckerOrCorpusDigest": true
+          },
+          {
+            "id": "slh-dsa-fips205",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 3,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 32,
+            "requiresCheckerOrCorpusDigest": true
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumImplementationRoots": 3,
+        "minimumExecutionEnvironments": 2,
+        "adoptionReceiptTypes": [
+          "maintained-fixture",
+          "maintained-release",
+          "standards-disposition",
+          "upstream-merge"
+        ],
+        "privateEscalationRequired": true,
+        "prepublicationTriageRequired": true
+      }
+    },
+    {
+      "id": "quest-tls-rfc9846-keyshare-reuse@1",
+      "title": "Season 0: RFC 9846 KeyShare-reuse conformance",
+      "stage": "quest",
+      "domain": "quests",
+      "summary": "Turn the RFC 8446 to RFC 9846 directional KeyShare sender non-reuse and receiver-tolerance requirements into executable cross-stack evidence.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-coordinated-disclosure@1",
+        "assurance-differential-fuzzing@1",
+        "assurance-formal-verification@1",
+        "protocol-tls13@rfc9846"
+      ],
+      "attainmentEvidence": "E5",
+      "rewardEligibility": "sponsor-milestones",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "An exact RFC 8446 to RFC 9846 normative delta with each tested stack commit's claimed RFC profile.",
+        "A directional RFC 9846 Section 4.3.8 oracle: senders must not reuse a KeyShare across connections, while receivers must permit peer reuse for interoperability.",
+        "Negative and conformance results from at least three independent TLS implementation roots and two execution environments.",
+        "A minimized upstream regression test or independently maintained conformance fixture with implementation receipts; RFC 8446-only sender reuse is an adoption gap, not RFC 9846 nonconformance.",
+        "Unexpected failures and counterexamples are quarantined before public logs until disclosure triage classifies them as safe."
+      ],
+      "revalidationTriggers": [
+        "RFC 9846 errata, TLS registry, implementation, cryptographic backend, test oracle, or upstream fixture changes.",
+        "A result changes an adversarial accept/reject decision and requires confidential handling."
+      ],
+      "standards": [
+        {
+          "canonicalId": "ietf:rfc:8446",
+          "authority": "IETF",
+          "title": "The Transport Layer Security (TLS) Protocol Version 1.3",
+          "revision": "2018-08",
+          "authorityStatus": "Proposed Standard; obsoleted by RFC 9846",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc8446.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        },
+        {
+          "canonicalId": "ietf:rfc:9846",
+          "authority": "IETF",
+          "title": "The Transport Layer Security (TLS) Protocol Version 1.3",
+          "revision": "2026-07",
+          "authorityStatus": "Proposed Standard; obsoletes RFC 8446",
+          "normalizedMaturity": "published",
+          "specification": "https://www.rfc-editor.org/rfc/rfc9846.html",
+          "statusCheckedAt": "2026-07-29",
+          "reviewAfter": "2026-08-28"
+        }
+      ],
+      "repositoryReferences": [
+        "docs/plans/2026-07-29-constructive-intelligence-tree-design.md",
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "execution-environments>=2",
+          "implementations>=3",
+          "receiver-rule=permit-peer-keyshare-reuse",
+          "rfc9846-section=4.3.8",
+          "sender-rule=forbid-cross-connection-keyshare-reuse",
+          "stack-claims-recorded=true",
+          "targets=owned-or-explicitly-authorized"
+        ],
+        "scopeHash": "cfb276b6a18ab0c1658317fbe2e495910d6b3199b139a1867d9e7e4d26d15fa8",
+        "coverageTargets": [
+          {
+            "id": "tls-rfc9846-keyshare-reuse",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 3,
+            "minimumExecutionEnvironments": 2,
+            "minimumCases": 12,
+            "requiresCheckerOrCorpusDigest": true
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumImplementationRoots": 3,
+        "minimumExecutionEnvironments": 2,
+        "adoptionReceiptTypes": [
+          "maintained-fixture",
+          "standards-disposition",
+          "upstream-merge"
+        ],
+        "privateEscalationRequired": true,
+        "prepublicationTriageRequired": true
+      }
+    },
+    {
+      "id": "security-side-channels-faults@1",
+      "title": "Side channels and fault models",
+      "stage": "foundation",
+      "domain": "security",
+      "summary": "Specify timing, cache, power, electromagnetic, memory, compiler, microarchitectural, and fault assumptions before measuring.",
+      "prerequisites": [
+        "security-threat-models-games@1",
+        "systems-exact-bytes-state-machines@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "A bounded leakage or fault model naming attacker access, secrets, observations, noise, platform, and limits.",
+        "A reproducible owned-device or simulated experiment with negative controls.",
+        "A conclusion scoped to the tested binary, platform, method, and statistical or formal bound."
+      ],
+      "revalidationTriggers": [
+        "Attacker access, platform, compiler, binary, dependency, measurement method, or fault model changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "security-threat-models-games@1",
+      "title": "Threat models and security games",
+      "stage": "foundation",
+      "domain": "security",
+      "summary": "Name assets, actors, trust boundaries, capabilities, queries, wins, assumptions, exclusions, and compositional limits.",
+      "prerequisites": [
+        "math-probability-information-complexity@1",
+        "math-proofcraft@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A formal or executable threat model with assets, actors, trust boundaries, attacker queries, win conditions, and exclusions.",
+        "At least one attack trace exploiting an omitted assumption and one repaired model.",
+        "A composition analysis separating primitive, protocol, implementation, deployment, and recovery claims."
+      ],
+      "revalidationTriggers": [
+        "Attacker capability, trust boundary, deployment, protocol, implementation, or assessment game changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    },
+    {
+      "id": "systems-exact-bytes-state-machines@1",
+      "title": "Exact bytes, parsers, and state machines",
+      "stage": "foundation",
+      "domain": "systems",
+      "summary": "Treat encoding, canonicalization, bounds, parser behavior, concurrency, replay, and transitions as part of the security proof.",
+      "prerequisites": [
+        "math-proofcraft@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "A byte-exact parser and state-machine exercise with canonicalization, bounds, invalid inputs, replay, and transition invariants.",
+        "Differential fixtures exposing at least one ambiguity or divergent acceptance path.",
+        "A reproducible model or test harness with explicit concurrency and failure assumptions."
+      ],
+      "revalidationTriggers": [
+        "Encoding, parser, state-machine, concurrency, canonicalization, or assessment model changes."
+      ],
+      "standards": [],
+      "repositoryReferences": [
+        "docs/specs/constructive-intelligence-tree-v1.md"
+      ],
+      "acceptance": null
+    }
+  ]
+}
