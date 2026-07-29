@@ -100,6 +100,8 @@ jobs:
       - name: Verify packed SDK public exports
         working-directory: sdk/typescript
         run: npm run check:publish
+      - name: Verify packed SDK leaves committed distribution unchanged
+        run: test -z "$(git status --porcelain --untracked-files=all -- sdk/typescript/dist)"
       - name: Install dashboard dependencies
         working-directory: dashboard
         run: npm ci
