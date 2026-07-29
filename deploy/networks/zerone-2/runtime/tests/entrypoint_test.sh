@@ -532,7 +532,7 @@ if grep -Eqi '^COPY .*\b(mnemonic|node_key|priv_validator_key)' "${RUNTIME_DIR}/
 fi
 grep -q '^readonly BINARY="/usr/local/bin/zeroned"$' \
   "${RUNTIME_DIR}/entrypoint.sh" || fail "runtime binary path is not immutable"
-if rg -q 'ZERONED_BINARY' "${RUNTIME_DIR}/entrypoint.sh"; then
+if grep -q 'ZERONED_BINARY' "${RUNTIME_DIR}/entrypoint.sh"; then
   fail "production runtime accepts a zeroned binary override"
 fi
 grep -q 'EXPECTED_BINARY_SHA256=.*binary_sha256' \
@@ -546,7 +546,7 @@ grep -q 'test "${TARGETARCH}" = "${BINARY_GOARCH}"' \
 # shellcheck disable=SC2016
 grep -q 'BINARY_VERSION_OUTPUT=$(/usr/local/bin/zeroned version' \
   "${RUNTIME_DIR}/Dockerfile" || fail "target stage does not execute the release binary"
-if rg -q 'BINARY_VERSION_OUTPUT|"\$\{RELEASE_BINARY\}" version' \
+if grep -Eq 'BINARY_VERSION_OUTPUT|"\$\{RELEASE_BINARY\}" version' \
   "${RUNTIME_DIR}/build-image.sh"; then
   fail "host build wrapper executes the target release binary"
 fi
@@ -565,23 +565,23 @@ grep -q '^RELEASE_BINARY="${SNAPSHOT}/release/zeroned"$' \
   fail "release verification does not consume the private binary snapshot"
 [ "$(grep -c '^verify_clean_source_checkout$' "${RUNTIME_DIR}/build-image.sh")" -ge 2 ] || \
   fail "source checkout is not rechecked immediately before Docker"
-if rg -q '^\[\[services\]\]' "${RUNTIME_DIR}/fly.validator.example.toml"; then
+if grep -q '^\[\[services\]\]' "${RUNTIME_DIR}/fly.validator.example.toml"; then
   fail "validator Fly example exposes a public service"
 fi
 grep -q '^  QUERY_ORIGIN_ENABLED = "false"$' \
   "${RUNTIME_DIR}/fly.edge.example.toml" || fail "private-soak Fly profile is not fail-closed"
-if rg -q '^\[\[services\]\]' "${RUNTIME_DIR}/fly.edge.example.toml"; then
+if grep -q '^\[\[services\]\]' "${RUNTIME_DIR}/fly.edge.example.toml"; then
   fail "private-soak Fly profile exposes a public API or P2P transaction relay"
 fi
 grep -q '^  QUERY_ORIGIN_ENABLED = "true"$' \
   "${RUNTIME_DIR}/fly.edge.query-soak.example.toml" || \
   fail "query-soak profile does not open the private origin"
-if rg -q '^\[\[services\]\]' "${RUNTIME_DIR}/fly.edge.query-soak.example.toml"; then
+if grep -q '^\[\[services\]\]' "${RUNTIME_DIR}/fly.edge.query-soak.example.toml"; then
   fail "query-soak profile exposes a public Fly service"
 fi
 grep -q '^  QUERY_ORIGIN_ENABLED = "true"$' \
   "${RUNTIME_DIR}/fly.edge.public.example.toml" || fail "public Fly profile lacks its query origin"
-rg -q 'hard_limit' "${RUNTIME_DIR}/fly.edge.public.example.toml" || \
+grep -q 'hard_limit' "${RUNTIME_DIR}/fly.edge.public.example.toml" || \
   fail "public edge Fly profile lacks connection bounds"
 [ "$(grep -c '^\[\[services\]\]$' \
   "${RUNTIME_DIR}/fly.edge.public.example.toml")" -eq 1 ] || \
@@ -589,9 +589,9 @@ rg -q 'hard_limit' "${RUNTIME_DIR}/fly.edge.public.example.toml" || \
 grep -q '^  internal_port = 26656$' \
   "${RUNTIME_DIR}/fly.edge.public.example.toml" || \
   fail "public edge Fly profile does not expose P2P"
-rg -q 'services.tcp_checks' "${RUNTIME_DIR}/fly.edge.public.example.toml" || \
+grep -q 'services.tcp_checks' "${RUNTIME_DIR}/fly.edge.public.example.toml" || \
   fail "public edge Fly profile lacks a P2P TCP health check"
-if rg -q 'services.http_checks|internal_port = (26657|1317|9090)' \
+if grep -Eq 'services.http_checks|internal_port = (26657|1317|9090)' \
   "${RUNTIME_DIR}/fly.edge.public.example.toml"; then
   fail "public edge Fly profile directly exposes a query service"
 fi
