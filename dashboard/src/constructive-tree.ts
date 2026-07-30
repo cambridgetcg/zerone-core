@@ -1004,65 +1004,77 @@ export async function fetchConstructiveIntelligenceTree(
 ): Promise<ConstructiveIntelligenceTree> {
   const fetcher = options.fetcher ?? fetch;
   const timeoutMs = options.timeoutMs ?? 8_000;
-  const signal = AbortSignal.timeout(timeoutMs);
+  const controller = new AbortController();
+  const deadline = globalThis.setTimeout(() => {
+    controller.abort(
+      new DOMException("Static curriculum request timed out", "TimeoutError"),
+    );
+  }, timeoutMs);
+  const signal = controller.signal;
   const baseUrl =
     options.baseUrl ??
     (typeof window === "undefined" ? undefined : window.location.href);
-  let response: Response;
   try {
-    response = await fetcher(CONSTRUCTIVE_TREE_ENDPOINT, {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-      redirect: "error",
-      signal,
-    });
-  } catch (error) {
-    if (
-      error instanceof DOMException &&
-      (error.name === "AbortError" || error.name === "TimeoutError")
-    ) {
-      throw new ConstructiveTreeDataError("Static curriculum request timed out");
+    let response: Response;
+    try {
+      response = await fetcher(CONSTRUCTIVE_TREE_ENDPOINT, {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+        redirect: "error",
+        signal,
+      });
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        (error.name === "AbortError" || error.name === "TimeoutError")
+      ) {
+        throw new ConstructiveTreeDataError(
+          "Static curriculum request timed out",
+        );
+      }
+      throw new ConstructiveTreeDataError("Static curriculum is unavailable");
     }
-    throw new ConstructiveTreeDataError("Static curriculum is unavailable");
+    if (!response.ok) {
+      throw new ConstructiveTreeDataError(
+        `Static curriculum returned HTTP ${response.status}`,
+      );
+    }
+    const contentType = response.headers.get("content-type");
+    if (contentType !== null && !/\bjson\b/i.test(contentType)) {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum returned a non-JSON response",
+      );
+    }
+    const declaredLength = response.headers.get("content-length");
+    if (
+      declaredLength !== null &&
+      (!/^\d+$/.test(declaredLength) ||
+        Number(declaredLength) > CONSTRUCTIVE_TREE_MAX_BYTES)
+    ) {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum exceeded its size limit",
+      );
+    }
+    assertCanonicalResponseUrl(response, baseUrl);
+    const bytes = await readBoundedResponse(response, signal);
+    if ((await sha256Hex(bytes)) !== CONSTRUCTIVE_TREE_SHA256) {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum did not match the reviewed canonical digest",
+      );
+    }
+    let raw: string;
+    try {
+      raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum was not valid UTF-8",
+      );
+    }
+    return parseConstructiveIntelligenceTreeJson(raw);
+  } finally {
+    globalThis.clearTimeout(deadline);
   }
-  if (!response.ok) {
-    throw new ConstructiveTreeDataError(
-      `Static curriculum returned HTTP ${response.status}`,
-    );
-  }
-  const contentType = response.headers.get("content-type");
-  if (contentType !== null && !/\bjson\b/i.test(contentType)) {
-    throw new ConstructiveTreeDataError(
-      "Static curriculum returned a non-JSON response",
-    );
-  }
-  const declaredLength = response.headers.get("content-length");
-  if (
-    declaredLength !== null &&
-    (!/^\d+$/.test(declaredLength) ||
-      Number(declaredLength) > CONSTRUCTIVE_TREE_MAX_BYTES)
-  ) {
-    throw new ConstructiveTreeDataError(
-      "Static curriculum exceeded its size limit",
-    );
-  }
-  assertCanonicalResponseUrl(response, baseUrl);
-  const bytes = await readBoundedResponse(response, signal);
-  if ((await sha256Hex(bytes)) !== CONSTRUCTIVE_TREE_SHA256) {
-    throw new ConstructiveTreeDataError(
-      "Static curriculum did not match the reviewed canonical digest",
-    );
-  }
-  let raw: string;
-  try {
-    raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  } catch {
-    throw new ConstructiveTreeDataError(
-      "Static curriculum was not valid UTF-8",
-    );
-  }
-  return parseConstructiveIntelligenceTreeJson(raw);
 }
 
 export function buildConstructiveTreeIndex(
