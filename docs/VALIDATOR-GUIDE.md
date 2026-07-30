@@ -71,32 +71,54 @@ docker run -v ~/.zeroned:/root/.zeroned zerone:latest init my-node --chain-id ze
 docker compose up -d
 ```
 
-For validators with Cosmovisor auto-upgrades:
+For validators using the pinned Cosmovisor supervisor:
 
 ```bash
-docker build -f Dockerfile.validator -t zerone-validator:latest .
+export ZERONE_VERSION='vX.Y.Z' # exact governed semantic version
+export ZERONE_COMMIT='<40-lowercase-reviewed-source-commit>'
+export ZERONE_SOURCE_DATE_EPOCH='<positive-reviewed-unix-epoch>'
+
+docker build \
+  --build-arg VERSION="${ZERONE_VERSION}" \
+  --build-arg COMMIT="${ZERONE_COMMIT}" \
+  --build-arg SOURCE_DATE_EPOCH="${ZERONE_SOURCE_DATE_EPOCH}" \
+  -f Dockerfile.validator \
+  -t "zerone-validator:${ZERONE_VERSION}" .
 ```
 
 ### Pre-built binary
 
-Download the binary for your platform from the releases page:
+Pin an exact release tag and platform artifact. Never install from a mutable
+`latest` URL on a validator:
 
 ```bash
-# Linux amd64
-curl -L https://github.com/zerone-chain/zerone/releases/latest/download/zeroned-linux-amd64 -o zeroned
+export ZERONE_VERSION='vX.Y.Z' # replace with the governed, exact release tag
+export ZERONE_ARTIFACT='zeroned-linux-amd64' # or the exact arm64/darwin artifact
+export ZERONE_RELEASE_BASE="https://github.com/zerone-chain/zerone/releases/download/${ZERONE_VERSION}"
 
-# Linux arm64
-curl -L https://github.com/zerone-chain/zerone/releases/latest/download/zeroned-linux-arm64 -o zeroned
+curl --fail --location --proto '=https' --tlsv1.2 \
+  "${ZERONE_RELEASE_BASE}/${ZERONE_ARTIFACT}" \
+  --output "${ZERONE_ARTIFACT}"
 
-# macOS arm64 (Apple Silicon)
-curl -L https://github.com/zerone-chain/zerone/releases/latest/download/zeroned-darwin-arm64 -o zeroned
+# Obtain this value from the separately authenticated, signed release
+# manifest/provenance named by the upgrade operations manifest.
+export ZERONE_BINARY_SHA256='<64-lowercase-hex-digest>'
+if command -v sha256sum >/dev/null 2>&1; then
+  ZERONE_ACTUAL_SHA256="$(sha256sum "${ZERONE_ARTIFACT}" | awk '{print $1}')"
+else
+  ZERONE_ACTUAL_SHA256="$(shasum -a 256 "${ZERONE_ARTIFACT}" | awk '{print $1}')"
+fi
+test "${ZERONE_ACTUAL_SHA256}" = "${ZERONE_BINARY_SHA256}"
 
-chmod +x zeroned
-sudo mv zeroned /usr/local/bin/
+chmod 0755 "${ZERONE_ARTIFACT}"
+sudo install -m 0755 "${ZERONE_ARTIFACT}" /usr/local/bin/zeroned
 zeroned version
 ```
 
-Verify the checksum against the `.sha256` file published with each release.
+Do not trust a checksum merely because it is downloaded beside the binary.
+Verify the signed release manifest/provenance, source commit, upgrade name,
+and target height through an independent channel as described in the
+[canonical operations runbook](UPGRADE_AND_INCIDENT_OPERATIONS.md).
 
 ---
 
@@ -179,8 +201,11 @@ zeroned status | jq '.sync_info.catching_up'
 
 ## Becoming a Validator
 
-Zerone uses a two-step registration process: **register your account**, then
-**register as a validator**.
+Zerone currently has two independent staking systems. Cosmos SDK
+`x/staking` controls the CometBFT block-producing validator set.
+`x/zerone_staking` controls Proof-of-Truth tiers and Guardian eligibility.
+An external validator that needs both roles must register in both; neither
+record creates the other.
 
 ### Step 1: Create a key
 
@@ -197,38 +222,77 @@ cover your self-delegation plus transaction fees.
 
 ### Step 3: Register your account
 
-<!-- Source: x/auth/client/cli/tx.go:44-76 -->
+The one-shot onboarding command generates a separate Ed25519 identity key,
+derives its `did:zrn` identifier, saves the private identity locally, and
+registers the public identity on-chain:
 
 ```bash
-zeroned tx auth register-account \
-  "did:zerone:my-validator" \
-  "$(zeroned keys show my-validator --pubkey --output json | jq -r .key)" \
-  "validator" \
+zeroned tx zerone_auth onboard human \
+  --identity-out "$HOME/.zeroned/identities/my-validator.ed25519.json" \
   --from my-validator \
   --chain-id zerone-testnet-1 \
   --fees 5000uzrn
 ```
 
-Arguments:
-- `did` - Your decentralized identifier (DID) string
-- `public-key` - Your account's public key (hex)
-- `account-type` - Account type: `"validator"`, `"agent"`, or `"user"`
+Keep that identity file separate from the transaction key and consensus key.
+The valid account types are `agent`, `human`, `contract`, and `system`; there
+is no `validator` account type.
 
-Optional flags:
-- `--operational-key-hash` - Hash of your operational key
-- `--metadata` - Account metadata (JSON string)
+### Step 4: Create the consensus validator
 
-### Step 4: Register as a validator
-
-<!-- Source: x/staking/client/cli/tx.go:35-74 -->
+Cosmos SDK v0.53 takes a reviewed JSON file. The `pubkey` is the exact JSON
+object emitted by the new node's Comet consensus key:
 
 ```bash
-zeroned tx staking register-validator \
-  "$(zeroned comet show-validator)" \
-  111000uzrn \
+zeroned comet show-validator > validator-pubkey.json
+
+jq -n \
+  --slurpfile pubkey validator-pubkey.json \
+  '{
+    pubkey: $pubkey[0],
+    amount: "1000000uzrn",
+    moniker: "My Validator",
+    identity: "",
+    website: "https://example.com",
+    security: "",
+    details: "A Zerone validator",
+    "commission-rate": "0.05",
+    "commission-max-rate": "0.20",
+    "commission-max-change-rate": "0.01",
+    "min-self-delegation": "1"
+  }' > validator.json
+
+zeroned tx staking create-validator validator.json \
+  --from my-validator \
+  --chain-id zerone-testnet-1 \
+  --gas auto --gas-adjustment 1.4 \
+  --fees 5000uzrn
+```
+
+Hash and review both JSON files before broadcast. Then query the resulting
+`zrnvaloper1...` record and the Comet validator set at fixed heights; a
+successful transaction alone does not prove that the intended public key and
+power are active.
+
+### Step 5: Register for Proof of Truth
+
+The custom CLI takes a lowercase hex public key and a raw integer number of
+`uzrn`, not a coin string. This is a second, separate self-delegation:
+
+```bash
+CONSENSUS_PUBKEY_HEX="$(
+  zeroned comet show-validator |
+    jq -r .key |
+    openssl base64 -d -A |
+    xxd -p -c 256
+)"
+
+zeroned tx zerone_staking register-validator \
+  "${CONSENSUS_PUBKEY_HEX}" \
+  111000 \
   --commission 500 \
   --moniker "My Validator" \
-  --identity "did:zerone:my-validator" \
+  --identity "did:zrn:<identity-public-key-hex>" \
   --website "https://example.com" \
   --details "A Zerone validator" \
   --from my-validator \
@@ -237,8 +301,10 @@ zeroned tx staking register-validator \
 ```
 
 Arguments:
-- `pubkey-hex` - Your CometBFT consensus public key
-- `self-delegation` - Amount to self-delegate (e.g., `111000uzrn` for Apprentice tier)
+- `pubkey-hex` - raw 32-byte CometBFT consensus public key as 64 lowercase
+  hex characters
+- `self-delegation` - raw integer amount in `uzrn` (for example, `111000`
+  for the Apprentice minimum)
 
 Flags:
 - `--commission` - Commission rate in basis points (BPS). Max 10,000 (= 100%). Example: `500` = 5%
@@ -247,25 +313,23 @@ Flags:
 - `--website` - Website URL (max 140 characters)
 - `--details` - Description (max 2,000 characters)
 
-> **Note:** Zerone uses `register-validator`, NOT the standard Cosmos SDK
-> `create-validator` command. The `--commission` flag accepts basis points
-> (not a decimal fraction).
+The custom record does not make the node a Comet block producer, and the SDK
+record does not make it a Proof-of-Truth validator. The custom commission is
+basis points, while the SDK commission fields are decimal fractions. The
+custom module currently checks only that `consensus_pubkey` is non-empty; it
+does not decode the hex, prove key possession, or bind the field to the SDK
+validator. Treat it as locally verified metadata, not consensus identity
+proof. See the [key-replacement
+runbook](UPGRADE_AND_INCIDENT_OPERATIONS.md#1141-one-validator-key-replacement)
+before changing either identity on a live validator.
 
-### Bootstrap period
+### Fees start at block 1
 
-During the first 480,000 blocks (~14 days), these transaction types are
-**gas-free**:
-
-<!-- Source: app/gas.go:364-371 -->
-
-- `MsgRegisterValidator`
-- `MsgRegisterAccount`
-- `MsgSubmitClaim`
-- `MsgSubmitCommitment`
-- `MsgSubmitReveal`
-
-This allows the network to bootstrap Proof of Truth consensus before fees
-are collected.
+The former 480,000-block gas-free bootstrap window is retired:
+`app.BootstrapEndBlock` is `0`. Validators must configure and publish a
+non-zero `minimum-gas-prices` policy from launch. Any onboarding subsidy must
+use an explicit, auditable mechanism such as fee grants; do not assume the
+listed Proof-of-Truth or registration messages are generally fee-free.
 
 ---
 
@@ -307,11 +371,14 @@ Your tier is computed automatically based on your current stake, reputation
 score, verification count, and accuracy. Increase your self-delegation with:
 
 ```bash
-zeroned tx staking update-stake 1000000000uzrn \
+zeroned tx zerone_staking update-stake 1000000000 \
   --increase \
   --from my-validator \
   --chain-id zerone-testnet-1
 ```
+
+The custom amount is again a raw integer in `uzrn`. This transaction does not
+change Cosmos SDK consensus power.
 
 ---
 
@@ -360,28 +427,62 @@ Citation economics distribute 15% of rewards to cited fact authors, with a
 
 ## Cosmovisor Setup
 
-Cosmovisor automates binary upgrades through governance proposals. See
-[`cosmovisor/README.md`](../cosmovisor/README.md) for the full setup guide.
+Cosmovisor switches to a previously staged binary when an on-chain
+`x/upgrade` plan reaches H. An old binary without the handler stops before H
+commits, leaving H−1 as the last committed state; the staged binary starts
+from H−1 and may commit H. Once H commits, recover forward with a new named
+upgrade or an explicitly authorized fork—never by restarting the old binary
+as if H did not happen.
+
+Use this section with the canonical [Upgrade and Incident Operations
+runbook](UPGRADE_AND_INCIDENT_OPERATIONS.md) and the full
+[`cosmovisor/README.md`](../cosmovisor/README.md). An `x/emergency`
+transaction quarantine is separate from this planned upgrade boundary and
+does not stop block production.
 
 Quick setup:
 
 ```bash
-# Install cosmovisor
-go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest
+# Install the version exercised by this Zerone release; never use @latest on
+# a validator.
+go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@v1.7.1
+go version -m "$(command -v cosmovisor)" |
+  awk '$1 == "mod" && $2 == "cosmossdk.io/tools/cosmovisor" { print $2, $3 }'
 
-# Initialize (copies binary to cosmovisor/genesis/bin/)
-make cosmovisor-init
-
-# Set environment
 export DAEMON_NAME=zeroned
 export DAEMON_HOME=$HOME/.zeroned
 export DAEMON_ALLOW_DOWNLOAD_BINARIES=false
+export DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM=true
 export DAEMON_RESTART_AFTER_UPGRADE=true
 export DAEMON_LOG_BUFFER_SIZE=512
+export UNSAFE_SKIP_BACKUP=false
+
+# Initialize the configured daemon home with the exact installed genesis
+# binary. The repository Make target writes a repository-local test tree and
+# is not a substitute for validator initialization.
+cosmovisor init "$(command -v zeroned)"
 
 # Start via cosmovisor
 cosmovisor run start
 ```
+
+The version check must report
+`cosmossdk.io/tools/cosmovisor v1.7.1`. Keep binary downloads disabled and
+stage the exact independently verified release at
+`$DAEMON_HOME/cosmovisor/upgrades/<upgrade-name>/bin/zeroned` before H.
+Compare its SHA-256 to the authenticated release manifest on every validator.
+`DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM=true` is defense in depth if download
+policy is ever changed; it does not verify a manually staged binary.
+`UNSAFE_SKIP_BACKUP=false` retains Cosmovisor's pre-upgrade data backup, so
+verify the backup location has sufficient free space during rehearsal.
+
+For `Dockerfile.validator`, bind-mount a persistent `DAEMON_HOME` whose
+`config/genesis.json`, peers, key material, and node configuration were
+prepared and independently verified before startup. The image entrypoint
+copies its pinned `/usr/local/bin/zeroned` into
+`cosmovisor/genesis/bin/zeroned` only when that path is absent; it refuses to
+overwrite an existing non-executable path. It does not create or trust a
+genesis file for you.
 
 Or use the join script with `--cosmovisor` flag:
 
@@ -534,4 +635,4 @@ zeroned start --minimum-gas-prices 0.025uzrn
 
 - [Parameters Reference](PARAMETERS.md) — All governance-adjustable parameters
 - [FAQ](FAQ.md) — Frequently asked questions
-- [Cosmovisor Setup](../cosmovisor/README.md) — Automated upgrade management
+- [Cosmovisor Setup](../cosmovisor/README.md) — Pinned upgrade supervision

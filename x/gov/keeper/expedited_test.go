@@ -172,7 +172,9 @@ func TestWoodEarth_ManualAdvance_ExpeditesKnowledgeLIP(t *testing.T) {
 	k.SetAlignmentKeeper(ak)
 
 	params := k.GetParams(ctx)
+	params.DiscussionPeriodBlocks = 0
 	baseVotingPeriod := params.VotingPeriodBlocks
+	k.SetParams(ctx, params)
 
 	// Create msgServer AFTER setting alignment keeper so the copy includes it.
 	ms := keeper.NewMsgServerImpl(k)

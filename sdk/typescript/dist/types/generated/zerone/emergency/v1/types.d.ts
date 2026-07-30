@@ -43,6 +43,72 @@ export interface EmergencyResumeProposal {
     resumeStateRoot: string;
     haltCeremonyId: string;
     revertCeremonyId: string;
+    justification: string;
+    /**
+     * SHA-256 of the canonical, signed recovery manifest reviewed by voters.
+     */
+    recoveryManifestSha256: string;
+}
+/**
+ * EmergencyRecoveryAuthorizationProposal asks the immutable Guardian
+ * electorate to authorize one exact SDK-governance recovery action while
+ * transaction admission remains quarantined.
+ * @name EmergencyRecoveryAuthorizationProposal
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorizationProposal
+ */
+export interface EmergencyRecoveryAuthorizationProposal {
+    id: string;
+    proposer: string;
+    haltCeremonyId: string;
+    sdkGovProposalId: bigint;
+    /**
+     * SHA-256 over the domain-separated TypeURL and raw Any value bytes of the
+     * proposal's sole MsgSoftwareUpgrade or MsgCancelUpgrade action.
+     */
+    actionSha256: string;
+    recoveryManifestSha256: string;
+    justification: string;
+    /**
+     * Canonical digest of the plan being scheduled or, for cancellation, the
+     * exact currently scheduled plan whose removal Guardians authorize.
+     */
+    upgradePlanSha256: string;
+    /**
+     * Account allowed to submit the pre-authorized next SDK proposal, preventing
+     * mempool observers from front-running the recovery envelope.
+     */
+    authorizedSubmitter: string;
+    /**
+     * "software_upgrade", "cancel_upgrade", or "revoke".
+     */
+    actionType: string;
+    generation: bigint;
+}
+/**
+ * EmergencyRecoveryAuthorization is the finalized, incident-bound capability
+ * for one exact SDK-governance proposal. It does not resume transactions.
+ * @name EmergencyRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorization
+ */
+export interface EmergencyRecoveryAuthorization {
+    haltCeremonyId: string;
+    authorizationCeremonyId: string;
+    sdkGovProposalId: bigint;
+    actionSha256: string;
+    recoveryManifestSha256: string;
+    authorizedAtBlock: bigint;
+    upgradePlanSha256: string;
+    /**
+     * Set after SDK governance reaches a terminal result. An authorization with
+     * a non-empty outcome cannot admit further votes, deposits, or execution.
+     */
+    terminalAtBlock: bigint;
+    outcome: string;
+    authorizedSubmitter: string;
+    actionType: string;
+    generation: bigint;
 }
 /**
  * EmergencyVote represents a prevote (yes/no).
@@ -84,6 +150,22 @@ export interface PrecommitEntry {
     value?: EmergencyPrecommit;
 }
 /**
+ * EmergencyElectorateMember is one address and its immutable voting power for
+ * a ceremony. The complete, sorted electorate is snapshotted when the
+ * ceremony opens so staking, council-expiry, and parameter changes cannot
+ * alter an in-flight decision.
+ * @name EmergencyElectorateMember
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyElectorateMember
+ */
+export interface EmergencyElectorateMember {
+    address: string;
+    /**
+     * positive bigint string
+     */
+    power: string;
+}
+/**
  * EmergencyCeremony tracks a 2-phase BFT ceremony (prevote → precommit).
  * @name EmergencyCeremony
  * @package zerone.emergency.v1
@@ -119,6 +201,21 @@ export interface EmergencyCeremony {
      */
     precommitStake: string;
     failureReason: string;
+    /**
+     * Version 1 snapshots the exact electorate and quorum policy at creation.
+     * A non-terminal legacy ceremony without a complete snapshot fails closed.
+     */
+    electorateSnapshotVersion: number;
+    electorate: EmergencyElectorateMember[];
+    /**
+     * positive bigint string
+     */
+    electorateTotalPower: string;
+    /**
+     * 1,000,000 = 100%
+     */
+    quorumThreshold: bigint;
+    minDistinctVoters: bigint;
 }
 /**
  * EmergencyAuditEntry records a single emergency action for the audit trail.
@@ -171,6 +268,33 @@ export declare const EmergencyResumeProposal: {
     fromPartial(object: DeepPartial<EmergencyResumeProposal>): EmergencyResumeProposal;
 };
 /**
+ * EmergencyRecoveryAuthorizationProposal asks the immutable Guardian
+ * electorate to authorize one exact SDK-governance recovery action while
+ * transaction admission remains quarantined.
+ * @name EmergencyRecoveryAuthorizationProposal
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorizationProposal
+ */
+export declare const EmergencyRecoveryAuthorizationProposal: {
+    typeUrl: string;
+    encode(message: EmergencyRecoveryAuthorizationProposal, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): EmergencyRecoveryAuthorizationProposal;
+    fromPartial(object: DeepPartial<EmergencyRecoveryAuthorizationProposal>): EmergencyRecoveryAuthorizationProposal;
+};
+/**
+ * EmergencyRecoveryAuthorization is the finalized, incident-bound capability
+ * for one exact SDK-governance proposal. It does not resume transactions.
+ * @name EmergencyRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorization
+ */
+export declare const EmergencyRecoveryAuthorization: {
+    typeUrl: string;
+    encode(message: EmergencyRecoveryAuthorization, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): EmergencyRecoveryAuthorization;
+    fromPartial(object: DeepPartial<EmergencyRecoveryAuthorization>): EmergencyRecoveryAuthorization;
+};
+/**
  * EmergencyVote represents a prevote (yes/no).
  * @name EmergencyVote
  * @package zerone.emergency.v1
@@ -217,6 +341,21 @@ export declare const PrecommitEntry: {
     encode(message: PrecommitEntry, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): PrecommitEntry;
     fromPartial(object: DeepPartial<PrecommitEntry>): PrecommitEntry;
+};
+/**
+ * EmergencyElectorateMember is one address and its immutable voting power for
+ * a ceremony. The complete, sorted electorate is snapshotted when the
+ * ceremony opens so staking, council-expiry, and parameter changes cannot
+ * alter an in-flight decision.
+ * @name EmergencyElectorateMember
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyElectorateMember
+ */
+export declare const EmergencyElectorateMember: {
+    typeUrl: string;
+    encode(message: EmergencyElectorateMember, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): EmergencyElectorateMember;
+    fromPartial(object: DeepPartial<EmergencyElectorateMember>): EmergencyElectorateMember;
 };
 /**
  * EmergencyCeremony tracks a 2-phase BFT ceremony (prevote → precommit).

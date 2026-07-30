@@ -29,6 +29,7 @@ set -euo pipefail
 CHAIN_ID="zerone-testnet-1"
 DENOM="uzrn"
 MIN_GAS_PRICES="0.025${DENOM}"
+COSMOVISOR_VERSION="v1.7.1"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Defaults
@@ -209,10 +210,25 @@ setup_cosmovisor() {
 
   info "Setting up Cosmovisor..."
 
-  # Install cosmovisor if not present
+  command -v go >/dev/null 2>&1 || die "Go is required to install and verify Cosmovisor ${COSMOVISOR_VERSION}."
+
+  # Install only the release exercised by Zerone's validator workflow.
   if ! command -v cosmovisor >/dev/null 2>&1; then
-    info "Installing cosmovisor..."
-    go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@latest || die "Failed to install cosmovisor"
+    info "Installing cosmovisor ${COSMOVISOR_VERSION}..."
+    go install "cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@${COSMOVISOR_VERSION}" \
+      || die "Failed to install cosmovisor ${COSMOVISOR_VERSION}"
+    hash -r
+  fi
+
+  local cosmovisor_path installed_version
+  cosmovisor_path="$(command -v cosmovisor)" \
+    || die "cosmovisor was installed outside PATH; add \$(go env GOPATH)/bin to PATH and retry"
+  installed_version="$(
+    go version -m "${cosmovisor_path}" 2>/dev/null \
+      | awk '$1 == "mod" && $2 == "cosmossdk.io/tools/cosmovisor" { print $3; exit }'
+  )"
+  if [[ "${installed_version}" != "${COSMOVISOR_VERSION}" ]]; then
+    die "Unsupported cosmovisor at ${cosmovisor_path}: expected ${COSMOVISOR_VERSION}, found ${installed_version:-unknown}. Install the pinned version with: go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@${COSMOVISOR_VERSION}"
   fi
 
   # Create directory structure
@@ -231,11 +247,14 @@ setup_cosmovisor() {
 DAEMON_NAME=zeroned
 DAEMON_HOME=${ZERONED_HOME}
 DAEMON_ALLOW_DOWNLOAD_BINARIES=false
+DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM=true
 DAEMON_RESTART_AFTER_UPGRADE=true
 DAEMON_LOG_BUFFER_SIZE=512
+UNSAFE_SKIP_BACKUP=false
 EOF
 
-  ok "Cosmovisor configured at ${cv_dir}"
+  ok "Cosmovisor ${COSMOVISOR_VERSION} configured at ${cv_dir}"
+  info "Validator auto-downloads are disabled; stage and verify every upgrade binary before its activation height."
   info "Start with: source ${env_file} && cosmovisor run start"
 }
 
@@ -262,11 +281,13 @@ setup_systemd() {
 Description=Zerone Node (zerone-testnet-1)
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
 
 [Service]
 User=${USER}
 ExecStart=${exec_start}
-Restart=always
+Restart=on-abnormal
 RestartSec=3
 LimitNOFILE=65535
 EnvironmentFile=${env_file}
@@ -281,11 +302,13 @@ EOF
 Description=Zerone Node (zerone-testnet-1)
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
 
 [Service]
 User=${USER}
 ExecStart=${exec_start}
-Restart=always
+Restart=on-abnormal
 RestartSec=3
 LimitNOFILE=65535
 

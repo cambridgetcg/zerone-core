@@ -16,17 +16,23 @@ import (
 
 	corestore "cosmossdk.io/core/store"
 	storeiavl "cosmossdk.io/store/iavl"
+	"cosmossdk.io/store/rootmulti"
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdkruntime "github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	sdkgovtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+
+	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
+	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 )
 
 const UpgradeNameTestnet = "v1.0.0-testnet"
@@ -50,13 +56,23 @@ const (
 	maxLegacyIBCManifestKeyCount    = 100_000
 	maxLegacyIBCManifestKeyBytes    = 32 << 20
 
+	activationSourceEmergencyVersion = 1
+	activationSourceSDKGovVersion    = 5
+	activationSourceZeroneGovVersion = 2
+
 	// IBC-Go v8 stores channel-upgrade and pruning records below these
 	// slash-terminated domains. IBC-Go v10.7.0's v10 migration calls Delete on
 	// the bare prefixes instead, but Cosmos SDK KVStore deletion is exact-key:
 	// the child records therefore survive unless the application removes them.
 	legacyIBCChannelUpgradesPrefix = "channelUpgrades/"
 	legacyIBCPruningSequencePrefix = "pruningSequenceStart/"
+
+	sdk053IBC10UpgradeMarker      = "upgrade_marker_sdk-0.53-ibc-10"
+	sdk053IBC10UpgradeMarkerValue = "migrated-with-loader-proof-v1"
+	sdk053IBC10NativeMarker       = "chain_lineage_native_sdk-0.53-ibc-10"
 )
+
+type sdk053IBC10PreflightDryRunContextKey struct{}
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -364,30 +380,47 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			expectedIBCVersions := []struct {
-				name    string
-				version uint64
-			}{
-				{ibcexported.ModuleName, 6},
-				{ibctransfertypes.ModuleName, 5},
-				{icatypes.ModuleName, 3},
-				{legacyCapabilityStoreKey, 1},
-				{legacyIBCFeeStoreKey, 2},
+			if err := app.requireSDK053IBC10LoaderProof(ctx, plan); err != nil {
+				return nil, err
 			}
-			for _, expected := range expectedIBCVersions {
-				version, ok := fromVM[expected.name]
-				if !ok {
-					return nil, fmt.Errorf(
-						"upgrade %q requires source module %q at consensus version %d: module is absent from version map",
-						plan.Name, expected.name, expected.version,
-					)
-				}
-				if version != expected.version {
-					return nil, fmt.Errorf(
-						"upgrade %q requires source module %q at consensus version %d: got %d",
-						plan.Name, expected.name, expected.version, version,
-					)
-				}
+			legacyIBCManifest, err := parseSDK053IBC10PlanInfo(plan.Info)
+			if err != nil {
+				return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
+			}
+			activationPrestate, err := app.collectAndVerifyActivationPrestate()
+			if err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q committed activation prestate failed complete-IAVL verification: %w",
+					plan.Name,
+					err,
+				)
+			}
+
+			if err := app.ensureNoActiveEmergencyGovProposals(
+				ctx,
+				activationPrestate.SDKGovExecutableProposals,
+			); err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q SDK governance authority audit failed: %w",
+					plan.Name,
+					err,
+				)
+			}
+
+			if err := requireActivationSafetySourceVersions(plan.Name, fromVM); err != nil {
+				return nil, err
+			}
+			if err := ensureNoUnattributedCustomUpgradeStake(
+				activationPrestate.CustomGovStake,
+			); err != nil {
+				return nil, fmt.Errorf("upgrade %q: %w", plan.Name, err)
+			}
+
+			if err := requireSDK053IBC10SourceVersions(
+				plan.Name,
+				fromVM,
+			); err != nil {
+				return nil, err
 			}
 
 			// IBC-Go v10 removes ICS-29. Its state can contain unresolved packet
@@ -402,11 +435,6 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 				)
 			}
 
-			legacyIBCManifest, err := parseSDK053IBC10PlanInfo(plan.Info)
-			if err != nil {
-				return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
-			}
-
 			legacyIBCKeys, err := app.verifyObsoleteIBCChannelState(legacyIBCManifest)
 			if err != nil {
 				return nil, fmt.Errorf(
@@ -415,9 +443,51 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 				)
 			}
 
+			// This is the only plan a pre-SDK chain can execute at H. Reconcile
+			// emergency state only after every immutable source-state and
+			// version precondition has passed, but before RunMigrations or any
+			// hardened getter can observe legacy state.
+			terminalized, err :=
+				app.EmergencyKeeper.PrepareOperationsSafetyV2FromSnapshot(
+					ctx,
+					activationPrestate.EmergencySnapshot,
+				)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q emergency precondition failed: %w",
+					plan.Name,
+					err,
+				)
+			}
+			app.Logger().Info(fmt.Sprintf(
+				"%s: terminalized %d inconsistent legacy emergency ceremony record(s)",
+				plan.Name,
+				terminalized,
+			))
+
 			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 			if err != nil {
 				return nil, err
+			}
+			// SetModuleVersionMap merges entries and never deletes keys. Remove
+			// the two retired source modules explicitly so a post-H restart can
+			// distinguish a completed migration from the destructive
+			// unsafe-skip aftermath where roots vanished but source versions
+			// remained.
+			delete(toVM, legacyCapabilityStoreKey)
+			delete(toVM, legacyIBCFeeStoreKey)
+			versionStore := sdk.UnwrapSDKContext(ctx).KVStore(
+				app.keys[upgradetypes.StoreKey],
+			)
+			for _, retiredModule := range []string{
+				legacyCapabilityStoreKey,
+				legacyIBCFeeStoreKey,
+			} {
+				versionKey := append(
+					[]byte{upgradetypes.VersionMapByte},
+					[]byte(retiredModule)...,
+				)
+				versionStore.Delete(versionKey)
 			}
 
 			// IBC-Go v10.7.0 intends to remove the v8 channel-upgrade and
@@ -450,10 +520,113 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_auth-ante-hardening-v1", "migrated"); err != nil {
 				return nil, err
 			}
+			retired, err := app.retireCommittedCustomUpgradeLIPs(
+				sdk.UnwrapSDKContext(ctx),
+				activationPrestate.CustomGovLIPs,
+			)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q custom governance retirement failed: %w",
+					plan.Name,
+					err,
+				)
+			}
+			app.Logger().Info(fmt.Sprintf(
+				"%s: retired %d non-terminal custom-governance upgrade LIP(s)",
+				plan.Name,
+				retired,
+			))
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(
+				ctx,
+				"upgrade_marker_upgrade-incident-operations-v1",
+				"migrated",
+			); err != nil {
+				return nil, err
+			}
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(
+				ctx,
+				sdk053IBC10UpgradeMarker,
+				sdk053IBC10UpgradeMarkerValue,
+			); err != nil {
+				return nil, err
+			}
 
 			return toVM, nil
 		},
 	)
+
+}
+
+func (app *ZeroneApp) requireSDK053IBC10LoaderProof(
+	ctx context.Context,
+	plan upgradetypes.Plan,
+) error {
+	proof := app.sdk053IBC10LoaderProof
+	if proof == nil ||
+		!proof.legacyRootsComplete ||
+		!proof.feeLockAbsent {
+		return fmt.Errorf(
+			"upgrade %q requires a consumed destructive-loader proof for both legacy roots and the H-1 fee lock",
+			plan.Name,
+		)
+	}
+	if proof.preflightOnly {
+		offlineDryRun, _ := ctx.Value(
+			sdk053IBC10PreflightDryRunContextKey{},
+		).(bool)
+		if !offlineDryRun {
+			return fmt.Errorf(
+				"upgrade %q refuses an offline preflight proof during ABCI execution",
+				plan.Name,
+			)
+		}
+	}
+	if proof.upgradeHeight != plan.Height ||
+		proof.preUpgradeVersion+1 != plan.Height {
+		return fmt.Errorf(
+			"upgrade %q loader proof targets pre-height %d and activation height %d, not plan height %d",
+			plan.Name,
+			proof.preUpgradeVersion,
+			proof.upgradeHeight,
+			plan.Height,
+		)
+	}
+	return nil
+}
+
+func requireActivationSafetySourceVersions(
+	planName string,
+	fromVM module.VersionMap,
+) error {
+	expectedVersions := []struct {
+		name    string
+		version uint64
+	}{
+		{emergencytypes.ModuleName, activationSourceEmergencyVersion},
+		{sdkgovtypes.ModuleName, activationSourceSDKGovVersion},
+		{zeronegovtypes.ModuleName, activationSourceZeroneGovVersion},
+	}
+	for _, expected := range expectedVersions {
+		version, ok := fromVM[expected.name]
+		if !ok {
+			return fmt.Errorf(
+				"upgrade %q requires authenticated source module %q at consensus version %d: module is absent from version map",
+				planName,
+				expected.name,
+				expected.version,
+			)
+		}
+		if version != expected.version {
+			return fmt.Errorf(
+				"upgrade %q requires authenticated source module %q at consensus version %d: got %d",
+				planName,
+				expected.name,
+				expected.version,
+				version,
+			)
+		}
+	}
+	return nil
 }
 
 type ibcPrefixEnumerator interface {
@@ -510,7 +683,6 @@ func BuildSDK053IBC10PlanInfo(channelUpgradeKeys, pruningSequenceKeys [][]byte) 
 	if err != nil {
 		return "", err
 	}
-
 	info := sdk053IBC10PlanInfo{
 		Schema:               SDK053IBC10PlanInfoSchema,
 		ChannelUpgrades:      makeLegacyIBCKeySetManifest(channelUpgradeKeys),
@@ -867,6 +1039,44 @@ func (app *ZeroneApp) RegisterStoreUpgrades() error {
 	if err != nil {
 		return fmt.Errorf("read upgrade info from disk: %w", err)
 	}
+	legacyStores, err := committedLegacyStoreNames(app.db)
+	if err != nil {
+		return fmt.Errorf("inspect committed legacy store roots: %w", err)
+	}
+	app.sdk053IBC10LegacyStoresAtStartup = legacyStores
+	hasCapability := legacyStores[legacyCapabilityStoreKey]
+	hasFeeIBC := legacyStores[legacyIBCFeeStoreKey]
+	if hasCapability != hasFeeIBC {
+		return fmt.Errorf(
+			"refusing startup with incomplete legacy SDK/IBC roots: %s=%t %s=%t",
+			legacyCapabilityStoreKey,
+			hasCapability,
+			legacyIBCFeeStoreKey,
+			hasFeeIBC,
+		)
+	}
+	if hasCapability {
+		latest := rootmulti.GetLatestVersion(app.db)
+		if upgradeInfo.Name != UpgradeNameSDK053IBC10 ||
+			upgradeInfo.Height != latest+1 {
+			return fmt.Errorf(
+				"committed legacy SDK/IBC roots at height %d require local upgrade-info.json plan %q at exact height %d; got name=%q height=%d",
+				latest,
+				UpgradeNameSDK053IBC10,
+				latest+1,
+				upgradeInfo.Name,
+				upgradeInfo.Height,
+			)
+		}
+		if app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+			return fmt.Errorf(
+				"refusing --unsafe-skip-upgrades %d with the %q binary while committed legacy SDK/IBC roots remain; only the exact old binary may participate in a coordinated skip fork",
+				upgradeInfo.Height,
+				UpgradeNameSDK053IBC10,
+			)
+		}
+		app.sdk053IBC10DiskUpgradeInfo = upgradeInfo
+	}
 	if upgradeInfo.Name == "" || app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
 		return nil
 	}
@@ -932,9 +1142,183 @@ func (app *ZeroneApp) RegisterStoreUpgrades() error {
 		// longer part of the normal app mount set, so the coordinated loader
 		// mounts them for this one migration only and removes them atomically.
 		// The capability memory store is ephemeral and needs no deletion.
-		app.SetStoreLoader(sdk053IBC10StoreLoader(upgradeInfo.Height))
+		app.SetStoreLoader(sdk053IBC10StoreLoaderWithProof(
+			upgradeInfo.Height,
+			func(proof sdk053IBC10StoreLoaderProof) {
+				app.sdk053IBC10LoaderProof = &proof
+			},
+		))
+
 	}
 
+	return nil
+}
+
+// ValidateSDK053IBC10StartupCoordination runs only after LoadLatestVersion has
+// made the committed x/upgrade plan readable. The local upgrade-info file may
+// select a store loader, but it is never authority to delete stores: when the
+// old roots existed at process start, the loader proof and on-chain plan must
+// exactly agree before the application can serve, propose, or commit a block.
+func (app *ZeroneApp) ValidateSDK053IBC10StartupCoordination() error {
+	if app.activationPreflightReadOnly {
+		return nil
+	}
+	legacyStores := app.sdk053IBC10LegacyStoresAtStartup
+	if !legacyStores[legacyCapabilityStoreKey] &&
+		!legacyStores[legacyIBCFeeStoreKey] {
+		return app.validateSDK053IBC10CompletedOrNativeLineage()
+	}
+	if !legacyStores[legacyCapabilityStoreKey] ||
+		!legacyStores[legacyIBCFeeStoreKey] {
+		return fmt.Errorf("legacy SDK/IBC startup roots are incomplete")
+	}
+	proof := app.sdk053IBC10LoaderProof
+	if proof == nil ||
+		!proof.legacyRootsComplete ||
+		!proof.feeLockAbsent ||
+		proof.preflightOnly {
+		return fmt.Errorf(
+			"the %q destructive store loader did not produce a complete H-1 root and fee-lock proof",
+			UpgradeNameSDK053IBC10,
+		)
+	}
+	diskPlan := app.sdk053IBC10DiskUpgradeInfo
+	if proof.upgradeHeight != diskPlan.Height ||
+		proof.preUpgradeVersion+1 != diskPlan.Height {
+		return fmt.Errorf(
+			"the %q loader proof does not match local upgrade-info height %d: pre=%d target=%d",
+			UpgradeNameSDK053IBC10,
+			diskPlan.Height,
+			proof.preUpgradeVersion,
+			proof.upgradeHeight,
+		)
+	}
+	ctx := app.NewUncachedContext(
+		true,
+		cmtproto.Header{Height: proof.preUpgradeVersion},
+	)
+	onChainPlan, err := app.UpgradeKeeper.GetUpgradePlan(ctx)
+	if err != nil {
+		return fmt.Errorf(
+			"read committed on-chain plan after destructive loader staging: %w",
+			err,
+		)
+	}
+	if onChainPlan.Name != diskPlan.Name ||
+		onChainPlan.Height != diskPlan.Height ||
+		onChainPlan.Info != diskPlan.Info {
+		diskInfoSHA := sha256.Sum256([]byte(diskPlan.Info))
+		onChainInfoSHA := sha256.Sum256([]byte(onChainPlan.Info))
+		return fmt.Errorf(
+			"local upgrade-info is not the exact committed on-chain plan: disk=(%q,%d,%x) chain=(%q,%d,%x)",
+			diskPlan.Name,
+			diskPlan.Height,
+			diskInfoSHA,
+			onChainPlan.Name,
+			onChainPlan.Height,
+			onChainInfoSHA,
+		)
+	}
+	return nil
+}
+
+func (app *ZeroneApp) validateSDK053IBC10CompletedOrNativeLineage() error {
+	latest := app.CommitMultiStore().LastCommitID().Version
+	if latest == 0 {
+		return nil
+	}
+	ctx := app.NewUncachedContext(
+		true,
+		cmtproto.Header{Height: latest},
+	)
+	versionMap, err := app.UpgradeKeeper.GetModuleVersionMap(ctx)
+	if err != nil {
+		return fmt.Errorf(
+			"read module version map for SDK/IBC startup lineage: %w",
+			err,
+		)
+	}
+	for _, expected := range []struct {
+		name    string
+		version uint64
+	}{
+		{ibcexported.ModuleName, 8},
+		{ibctransfertypes.ModuleName, 6},
+		{icatypes.ModuleName, 3},
+	} {
+		version, found := versionMap[expected.name]
+		if !found || version != expected.version {
+			return fmt.Errorf(
+				"legacy roots are absent but module %q is not at required post-v10 consensus version %d: found=%t version=%d",
+				expected.name,
+				expected.version,
+				found,
+				version,
+			)
+		}
+	}
+	for _, removed := range []string{
+		legacyCapabilityStoreKey,
+		legacyIBCFeeStoreKey,
+	} {
+		if version, found := versionMap[removed]; found {
+			return fmt.Errorf(
+				"legacy root %q is absent but its source module version %d remains; refusing possible unsafe-skip aftermath",
+				removed,
+				version,
+			)
+		}
+	}
+	upgradeMarker, err := app.KnowledgeKeeper.ReadMigrationMarkerChecked(
+		ctx,
+		sdk053IBC10UpgradeMarker,
+	)
+	if err != nil {
+		return err
+	}
+	nativeMarker, err := app.KnowledgeKeeper.ReadMigrationMarkerChecked(
+		ctx,
+		sdk053IBC10NativeMarker,
+	)
+	if err != nil {
+		return err
+	}
+	doneHeight, err := app.UpgradeKeeper.GetDoneHeight(
+		ctx,
+		UpgradeNameSDK053IBC10,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"read %q done height for startup lineage: %w",
+			UpgradeNameSDK053IBC10,
+			err,
+		)
+	}
+	switch {
+	case doneHeight > 0:
+		if doneHeight > latest ||
+			upgradeMarker != sdk053IBC10UpgradeMarkerValue ||
+			nativeMarker != "" {
+			return fmt.Errorf(
+				"invalid upgraded SDK/IBC lineage: latest=%d done_height=%d upgrade_marker=%q native_marker=%q",
+				latest,
+				doneHeight,
+				upgradeMarker,
+				nativeMarker,
+			)
+		}
+	case nativeMarker == "genesis":
+		if upgradeMarker != "" {
+			return fmt.Errorf(
+				"native SDK/IBC lineage conflicts with upgrade marker %q",
+				upgradeMarker,
+			)
+		}
+	default:
+		return fmt.Errorf(
+			"legacy SDK/IBC roots are absent without an exact completed-upgrade or native-genesis lineage marker",
+		)
+	}
 	return nil
 }
 
@@ -948,6 +1332,13 @@ func sdk053IBC10StoreUpgrades() storetypes.StoreUpgrades {
 }
 
 func sdk053IBC10StoreLoader(upgradeHeight int64) baseapp.StoreLoader {
+	return sdk053IBC10StoreLoaderWithProof(upgradeHeight, nil)
+}
+
+func sdk053IBC10StoreLoaderWithProof(
+	upgradeHeight int64,
+	recordProof func(sdk053IBC10StoreLoaderProof),
+) baseapp.StoreLoader {
 	storeUpgrades := sdk053IBC10StoreUpgrades()
 
 	return func(ms storetypes.CommitMultiStore) error {
@@ -975,10 +1366,21 @@ func sdk053IBC10StoreLoader(upgradeHeight int64) baseapp.StoreLoader {
 		// from genesis export, and any presence (regardless of value) disables
 		// fee processing. A loader error aborts startup before any commit, so
 		// the old database remains restartable by the v8 binary.
-		return rejectLegacyIBCFeeLock(
+		if err := rejectLegacyIBCFeeLock(
 			ms.GetCommitKVStore(legacyIBCFeeKey),
 			preUpgradeVersion,
-		)
+		); err != nil {
+			return err
+		}
+		if recordProof != nil {
+			recordProof(sdk053IBC10StoreLoaderProof{
+				upgradeHeight:       upgradeHeight,
+				preUpgradeVersion:   preUpgradeVersion,
+				legacyRootsComplete: true,
+				feeLockAbsent:       true,
+			})
+		}
+		return nil
 	}
 }
 

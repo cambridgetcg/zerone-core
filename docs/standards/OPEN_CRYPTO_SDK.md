@@ -126,15 +126,22 @@ off-chain. The [adapter specification](../specs/adapters/sigstore-in-toto-v1.md)
 requires governance to pin the compiler build, trust-root digest, invocation
 policy, and challenge procedure before registration.
 
-## Upgrade constraint: separate from boundary integrations
+## Activation-gated SDK/IBC upgrade
 
-The validator currently pins Cosmos SDK `v0.50.15` and IBC-Go `v8.8.0`.
-The current [Cosmos release-family guidance](https://docs.cosmos.network/sdk/latest/release-family)
-lists SDK `0.54.x` with IBC-Go `v11.x` and marks SDK `0.50.x` and lower
-end-of-life. Treat that as a high-priority, coordinated consensus-upgrade
-program—not as a dependency bump bundled with these read-only standards seams.
-It needs module/store migrations, relayer and counterparty compatibility
-testing, a rehearsal network, and an explicit activation height.
+The source target now pins Cosmos SDK `v0.53.8`, IBC-Go `v10.7.0`, and
+CometBFT `v0.38.25`. Those dependency changes are a coordinated consensus
+upgrade named `sdk-0.53-ibc-10`, not a library bump made live by merging code.
+The handler, legacy-store proof, H−1 read-only activation preflight, module
+migrations, operational staging, and recovery gates are specified in the
+[upgrade and incident operations
+runbook](../UPGRADE_AND_INCIDENT_OPERATIONS.md).
+
+Read-only public queries on 2026-07-30 found both deployed networks still on
+their legacy module lineage, CometBFT `v0.38.19`, and with no current
+`x/upgrade` plan. Code readiness therefore must not be described as
+deployment. Scheduling still requires standard SDK governance, exact
+manifest-bound plan information, rehearsal from the real H−1 state, and an
+explicit activation height.
 
 ## Implemented: generated TypeScript transaction SDK
 

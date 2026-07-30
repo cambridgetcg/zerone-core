@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -676,6 +678,35 @@ func TestSDK053IBC10StoreLoaderAllowsUnrelatedFeeStateAndRestarts(t *testing.T) 
 	require.Equal(t, "retained", commitInfo.StoreInfos[0].Name)
 }
 
+func TestSDK053IBC10HandlerRejectsOfflineProofOutsideDryRunContext(t *testing.T) {
+	application := &ZeroneApp{
+		sdk053IBC10LoaderProof: &sdk053IBC10StoreLoaderProof{
+			upgradeHeight:       2,
+			preUpgradeVersion:   1,
+			legacyRootsComplete: true,
+			feeLockAbsent:       true,
+			preflightOnly:       true,
+		},
+	}
+	plan := upgradetypes.Plan{Name: UpgradeNameSDK053IBC10, Height: 2}
+	err := application.requireSDK053IBC10LoaderProof(
+		context.Background(),
+		plan,
+	)
+	require.ErrorContains(t, err, "refuses an offline preflight proof")
+	require.NoError(
+		t,
+		application.requireSDK053IBC10LoaderProof(
+			context.WithValue(
+				context.Background(),
+				sdk053IBC10PreflightDryRunContextKey{},
+				true,
+			),
+			plan,
+		),
+	)
+}
+
 func TestSDK053IBC10StoreLoaderRejectsLegacyFeeLockAndPreservesOldDatabase(t *testing.T) {
 	for _, disableFastNode := range []bool{false, true} {
 		for _, lockedValue := range [][]byte{{0x01}, {0x02}} {
@@ -945,4 +976,299 @@ func TestRegisterStoreUpgradesHonorsUnsafeSkipHeight(t *testing.T) {
 	)
 	require.True(t, app.UpgradeKeeper.IsSkipHeight(2))
 	require.NoError(t, app.RegisterStoreUpgrades())
+}
+
+func TestRegisterStoreUpgradesRequiresExactLocalPlanForCommittedLegacyRoots(
+	t *testing.T,
+) {
+	tests := []struct {
+		name      string
+		writePlan *upgradetypes.Plan
+		wantError string
+	}{
+		{
+			name:      "missing",
+			wantError: "require local upgrade-info.json",
+		},
+		{
+			name: "wrong name",
+			writePlan: &upgradetypes.Plan{
+				Name:   UpgradeNameTestnet,
+				Height: 2,
+			},
+			wantError: "require local upgrade-info.json",
+		},
+		{
+			name: "wrong height",
+			writePlan: &upgradetypes.Plan{
+				Name:   UpgradeNameSDK053IBC10,
+				Height: 3,
+			},
+			wantError: "exact height 2",
+		},
+		{
+			name: "exact",
+			writePlan: &upgradetypes.Plan{
+				Name:   UpgradeNameSDK053IBC10,
+				Height: 2,
+				Info:   "exact-info",
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			db, _ := commitLegacySDK053IBC10Roots(t)
+			home := t.TempDir()
+			require.NoError(t, os.MkdirAll(
+				filepath.Join(home, "data"),
+				0o700,
+			))
+			if test.writePlan != nil {
+				raw, err := json.Marshal(test.writePlan)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(
+					filepath.Join(
+						home,
+						"data",
+						upgradetypes.UpgradeInfoFilename,
+					),
+					raw,
+					0o600,
+				))
+			}
+			application := NewActivationPreflightApp(
+				log.NewNopLogger(),
+				db,
+				nil,
+				false,
+				simtestutil.AppOptionsMap{flags.FlagHome: home},
+			)
+			err := application.RegisterStoreUpgrades()
+			if test.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.wantError)
+			}
+		})
+	}
+}
+
+func TestRegisterStoreUpgradesRejectsSkipWithLegacyRootsAndPreservesCommit(
+	t *testing.T,
+) {
+	db, oldCommitID := commitLegacySDK053IBC10Roots(t)
+	home := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, "data"), 0o700))
+	raw, err := json.Marshal(upgradetypes.Plan{
+		Name:   UpgradeNameSDK053IBC10,
+		Height: 2,
+		Info:   "exact-info",
+	})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(home, "data", upgradetypes.UpgradeInfoFilename),
+		raw,
+		0o600,
+	))
+	application := NewActivationPreflightApp(
+		log.NewNopLogger(),
+		db,
+		nil,
+		false,
+		simtestutil.AppOptionsMap{
+			flags.FlagHome:                home,
+			server.FlagUnsafeSkipUpgrades: []int{2},
+		},
+	)
+	err = application.RegisterStoreUpgrades()
+	require.ErrorContains(t, err, "refusing --unsafe-skip-upgrades 2")
+
+	reopened := rootmulti.NewStore(
+		db,
+		log.NewNopLogger(),
+		metrics.NewNoOpMetrics(),
+	)
+	for _, name := range []string{
+		"retained",
+		legacyCapabilityStoreKey,
+		legacyIBCFeeStoreKey,
+	} {
+		reopened.MountStoreWithDB(
+			storetypes.NewKVStoreKey(name),
+			storetypes.StoreTypeIAVL,
+			nil,
+		)
+	}
+	require.NoError(t, reopened.LoadLatestVersion())
+	require.Equal(t, oldCommitID, reopened.LastCommitID())
+	for _, name := range []string{
+		legacyCapabilityStoreKey,
+		legacyIBCFeeStoreKey,
+	} {
+		require.Equal(
+			t,
+			[]byte("preserved"),
+			reopened.GetStoreByName(name).(storetypes.KVStore).Get(
+				[]byte("legacy"),
+			),
+		)
+	}
+}
+
+func commitLegacySDK053IBC10Roots(
+	t *testing.T,
+) (dbm.DB, storetypes.CommitID) {
+	t.Helper()
+	db := dbm.NewMemDB()
+	store := rootmulti.NewStore(
+		db,
+		log.NewNopLogger(),
+		metrics.NewNoOpMetrics(),
+	)
+	for _, name := range []string{
+		"retained",
+		legacyCapabilityStoreKey,
+		legacyIBCFeeStoreKey,
+	} {
+		store.MountStoreWithDB(
+			storetypes.NewKVStoreKey(name),
+			storetypes.StoreTypeIAVL,
+			nil,
+		)
+	}
+	require.NoError(t, store.LoadLatestVersion())
+	store.GetStoreByName("retained").(storetypes.KVStore).Set(
+		[]byte("retained"),
+		[]byte("preserved"),
+	)
+	for _, name := range []string{
+		legacyCapabilityStoreKey,
+		legacyIBCFeeStoreKey,
+	} {
+		store.GetStoreByName(name).(storetypes.KVStore).Set(
+			[]byte("legacy"),
+			[]byte("preserved"),
+		)
+	}
+	return db, store.Commit()
+}
+
+func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
+	currentVM := map[string]uint64{
+		"ibc":                8,
+		"transfer":           6,
+		"interchainaccounts": 3,
+	}
+	sourceVM := map[string]uint64{
+		"ibc":                    6,
+		"transfer":               5,
+		"interchainaccounts":     3,
+		legacyCapabilityStoreKey: 1,
+		legacyIBCFeeStoreKey:     2,
+	}
+	tests := []struct {
+		name          string
+		versionMap    map[string]uint64
+		upgradeMarker string
+		nativeMarker  string
+		doneHeight    int64
+		wantError     string
+	}{
+		{
+			name:         "native v10 genesis",
+			versionMap:   currentVM,
+			nativeMarker: "genesis",
+		},
+		{
+			name:          "loader attested completed upgrade",
+			versionMap:    currentVM,
+			upgradeMarker: sdk053IBC10UpgradeMarkerValue,
+			doneHeight:    1,
+		},
+		{
+			name:       "unsafe skip aftermath retains source versions",
+			versionMap: sourceVM,
+			wantError:  "not at required post-v10 consensus version",
+		},
+		{
+			name:          "earlier unproved marker is refused",
+			versionMap:    currentVM,
+			upgradeMarker: "migrated",
+			doneHeight:    1,
+			wantError:     "invalid upgraded SDK/IBC lineage",
+		},
+		{
+			name:       "done height without loader marker is refused",
+			versionMap: currentVM,
+			doneHeight: 1,
+			wantError:  "invalid upgraded SDK/IBC lineage",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			application := NewZeroneApp(
+				log.NewNopLogger(),
+				dbm.NewMemDB(),
+				nil,
+				false,
+				simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+			)
+			require.NoError(t, application.LoadLatestVersion())
+			ctx := application.NewUncachedContext(
+				false,
+				cmtproto.Header{Height: 1},
+			)
+			require.NoError(
+				t,
+				application.UpgradeKeeper.SetModuleVersionMap(
+					ctx,
+					test.versionMap,
+				),
+			)
+			if test.upgradeMarker != "" {
+				require.NoError(
+					t,
+					application.KnowledgeKeeper.WriteMigrationMarker(
+						ctx,
+						sdk053IBC10UpgradeMarker,
+						test.upgradeMarker,
+					),
+				)
+			}
+			if test.nativeMarker != "" {
+				require.NoError(
+					t,
+					application.KnowledgeKeeper.WriteMigrationMarker(
+						ctx,
+						sdk053IBC10NativeMarker,
+						test.nativeMarker,
+					),
+				)
+			}
+			if test.doneHeight > 0 {
+				key := make([]byte, 9+len(UpgradeNameSDK053IBC10))
+				key[0] = upgradetypes.DoneByte
+				binary.BigEndian.PutUint64(
+					key[1:9],
+					uint64(test.doneHeight),
+				)
+				copy(key[9:], UpgradeNameSDK053IBC10)
+				ctx.KVStore(
+					application.keys[upgradetypes.StoreKey],
+				).Set(key, []byte{1})
+			}
+			require.Equal(
+				t,
+				int64(1),
+				application.CommitMultiStore().Commit().Version,
+			)
+			err := application.
+				validateSDK053IBC10CompletedOrNativeLineage()
+			if test.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.wantError)
+			}
+		})
+	}
 }

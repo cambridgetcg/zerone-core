@@ -11,6 +11,32 @@ message GenesisState {
   string status = 2;
   repeated EmergencyCeremony ceremonies = 3;
   repeated EmergencyAuditEntry audit_log = 4;
+  // Identifier of the halt ceremony (or deterministic legacy quarantine
+  // marker) that an evidence-bound resume must reference.
+  string active_halt_ceremony_id = 5;
+  // Block at which transaction quarantine began. This is an escalation
+  // clock, never an automatic resume deadline.
+  uint64 halt_start_block = 6;
+  // Per-Guardian and global proposal counters are consensus anti-abuse state,
+  // not disposable node-local telemetry. They must survive export/import.
+  repeated GuardianProposalCount guardian_proposal_counts = 7;
+  uint64 epoch_proposal_count = 8;
+  uint64 last_proposal_block = 9;
+  // Most recent quarantine escalation boundary already reported. Persisting
+  // it makes diagnostics idempotent across restart and resume voting.
+  uint64 last_halt_escalation_block = 10;
+  // Block in which an affirmative resume finalized. Transaction admission
+  // remains quarantined through this entire block and reopens at H+1.
+  uint64 quarantine_release_block = 11;
+  // Finalized Guardian authorization for one exact SDK governance recovery
+  // proposal in the currently active quarantine incident.
+  EmergencyRecoveryAuthorization recovery_authorization = 12;
+}
+
+// GuardianProposalCount is one canonical, sorted anti-abuse counter.
+message GuardianProposalCount {
+  string guardian = 1;
+  uint64 count = 2;
 }
 
 // Params defines the emergency module parameters.
@@ -31,7 +57,9 @@ message Params {
   uint64 resume_precommit_blocks = 11;
   uint64 resume_timeout_blocks = 12;
 
-  // Anti-abuse limits.
+  // One shared anti-abuse budget for halt, resume, recovery-authorization,
+  // and recovery-revocation ceremonies. A Guardian cannot bypass a limit by
+  // switching ceremony lanes.
   uint64 max_proposals_per_epoch = 13;
   uint64 max_proposals_per_guardian_per_epoch = 14;
   uint64 cooldown_blocks = 15;
@@ -49,6 +77,7 @@ message Params {
   uint64 council_expiry_block = 21;
   string council_virtual_stake = 22;  // uzrn bigint string
 
-  // Auto-resume: max halt duration before automatic resume.
+  // Escalation deadline. Crossing it alerts operators but never resumes
+  // transaction admission automatically.
   uint64 max_halt_duration_blocks = 23;
 }

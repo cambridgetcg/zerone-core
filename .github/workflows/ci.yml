@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 env:
   GO_VERSION: "1.25.12"
@@ -168,3 +167,68 @@ jobs:
         run: node scripts/check-chain-registry.mjs
       - name: Validate with the pinned upstream registry CLI
         run: scripts/validate-chain-registry.sh
+
+  deployment-images:
+    name: "Deployment image (${{ matrix.profile }})"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: mainnet
+            dockerfile: deploy/mainnet/Dockerfile
+          - profile: testnet
+            dockerfile: deploy/testnet/Dockerfile
+          - profile: cosmovisor-validator
+            dockerfile: Dockerfile.validator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify secret-deny build-context rules
+        run: |
+          grep -Fxq '**/priv_validator_key.json' .dockerignore
+          grep -Fxq '**/priv_validator_state.json' .dockerignore
+          grep -Fxq '**/node_key.json' .dockerignore
+          grep -Fxq '.env' .dockerignore
+          grep -Fxq '.env.*' .dockerignore
+      - name: Build from repository-root context
+        env:
+          CI_IMAGE_VERSION: v0.0.0-ci
+        run: |
+          ci_source_date_epoch="$(git show -s --format=%ct "${GITHUB_SHA}")"
+          docker build \
+            --build-arg "VERSION=${CI_IMAGE_VERSION}" \
+            --build-arg "COMMIT=${GITHUB_SHA}" \
+            --build-arg "SOURCE_DATE_EPOCH=${ci_source_date_epoch}" \
+            --file "${{ matrix.dockerfile }}" \
+            --tag "zerone-${{ matrix.profile }}:ci" \
+            .
+          test "$(
+            docker run --rm \
+              --entrypoint /usr/local/bin/zeroned \
+              "zerone-${{ matrix.profile }}:ci" version
+          )" = "${CI_IMAGE_VERSION}"
+          test "$(
+            docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+              "zerone-${{ matrix.profile }}:ci"
+          )" = "${GITHUB_SHA}"
+          test "$(
+            docker image inspect \
+              --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' \
+              "zerone-${{ matrix.profile }}:ci"
+          )" = "${CI_IMAGE_VERSION}"
+          test "$(
+            docker image inspect \
+              --format '{{ index .Config.Labels "io.zerone.source-date-epoch" }}' \
+              "zerone-${{ matrix.profile }}:ci"
+          )" = "${ci_source_date_epoch}"
+      - name: Refuse embedded consensus or P2P key files
+        run: |
+          found="$(
+            docker run --rm --entrypoint /bin/sh zerone-${{ matrix.profile }}:ci \
+              -c 'find / -type f \( -name priv_validator_key.json -o -name priv_validator_state.json -o -name node_key.json \) -print 2>/dev/null'
+          )"
+          test -z "$found"

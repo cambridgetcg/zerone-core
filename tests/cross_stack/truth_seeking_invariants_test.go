@@ -41,6 +41,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	claimingpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
@@ -255,10 +256,10 @@ func TestTruthSeeking_AuthorityInjectionIsCancellable(t *testing.T) {
 
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
 	resp, err := ms.AddFact(h.Ctx, &knowledgetypes.MsgAddFact{
-		Authority: h.KnowledgeKeeper.GetAuthority(),
-		Content:   "ts: authority injection",
-		Domain:    "sciences",
-		Category:  "empirical",
+		Authority:  h.KnowledgeKeeper.GetAuthority(),
+		Content:    "ts: authority injection",
+		Domain:     "sciences",
+		Category:   "empirical",
 		Confidence: 900_000,
 	})
 	require.NoError(t, err)
@@ -439,7 +440,6 @@ func TestTruthSeeking_AuditBudgetIsAutonomous(t *testing.T) {
 	require.Greater(t, h.KnowledgeKeeper.ProbeBountyPoolBalance(h.Ctx).Int64(), int64(0),
 		"the chain must fund its own audit autonomously; without per-block mint, the budget depends on someone else's discipline")
 }
-
 
 // ════════════════════════════════════════════════════════════════════
 // Commitment 10: Forward-only audit.
@@ -908,19 +908,37 @@ func TestTruthSeeking_EmergencyCeremoniesAreImmutablePostFinalize(t *testing.T) 
 	// commitment under test here is what happens AFTER finalization,
 	// not how a ceremony reaches that phase).
 	haltID := "ts-emergency-halt-1"
-	_, err := h.EmergencyKeeper.CreateHaltCeremony(h.Ctx, &emergencytypes.EmergencyHaltProposal{
+	haltProposal := &emergencytypes.EmergencyHaltProposal{
 		Id:              haltID,
 		Proposer:        testAddr("ts_emergency_proposer").String(),
 		Reason:          "truth-seeking invariant: halt audit immutability",
 		ProposedAtBlock: uint64(h.Ctx.BlockHeight()),
-	})
+	}
+	haltProposalData, err := proto.Marshal(haltProposal)
 	require.NoError(t, err)
-
-	ceremony, found := h.EmergencyKeeper.GetCeremony(h.Ctx, haltID)
-	require.True(t, found, "halt ceremony must exist before finalization")
-	ceremony.Phase = string(emergencytypes.PhaseFinalized)
+	ceremony := &emergencytypes.EmergencyCeremony{
+		Id:                        haltID,
+		Type:                      string(emergencytypes.CeremonyHalt),
+		Phase:                     string(emergencytypes.PhaseFinalized),
+		ProposalData:              haltProposalData,
+		StartBlock:                uint64(h.Ctx.BlockHeight()),
+		PrevoteDeadline:           uint64(h.Ctx.BlockHeight()) + 1,
+		PrecommitDeadline:         uint64(h.Ctx.BlockHeight()) + 2,
+		TimeoutDeadline:           uint64(h.Ctx.BlockHeight()) + 3,
+		YesPrevoteStake:           "0",
+		NoPrevoteStake:            "0",
+		PrecommitStake:            "0",
+		ElectorateSnapshotVersion: emergencytypes.ElectorateSnapshotVersionV1,
+		Electorate: []*emergencytypes.EmergencyElectorateMember{{
+			Address: haltProposal.Proposer,
+			Power:   "1",
+		}},
+		ElectorateTotalPower: "1",
+		QuorumThreshold:      1_000_000,
+		MinDistinctVoters:    1,
+	}
 	require.NoError(t, h.EmergencyKeeper.SetCeremony(h.Ctx, ceremony))
-
+	h.EmergencyKeeper.SetEmergencyStatus(h.Ctx, emergencytypes.StatusHaltVoting)
 	h.EmergencyKeeper.HandleCeremonyFinalization(h.Ctx, haltID)
 
 	// Snapshot the audit log immediately after the halt finalization.
@@ -966,18 +984,38 @@ func TestTruthSeeking_EmergencyCeremoniesAreImmutablePostFinalize(t *testing.T) 
 
 	// Second ceremony: a resume. Same drive-to-finalized pattern.
 	resumeID := "ts-emergency-resume-1"
-	_, err = h.EmergencyKeeper.CreateResumeCeremony(h.Ctx, &emergencytypes.EmergencyResumeProposal{
-		Id:             resumeID,
-		Proposer:       testAddr("ts_emergency_proposer").String(),
-		HaltCeremonyId: haltID,
-	})
+	resumeProposal := &emergencytypes.EmergencyResumeProposal{
+		Id:                     resumeID,
+		Proposer:               testAddr("ts_emergency_proposer").String(),
+		HaltCeremonyId:         haltID,
+		Justification:          "independently verified recovery manifest",
+		RecoveryManifestSha256: strings.Repeat("a", emergencytypes.SHA256HexLength),
+	}
+	resumeProposalData, err := proto.Marshal(resumeProposal)
 	require.NoError(t, err)
-
-	ceremony, found = h.EmergencyKeeper.GetCeremony(h.Ctx, resumeID)
-	require.True(t, found, "resume ceremony must exist before finalization")
-	ceremony.Phase = string(emergencytypes.PhaseFinalized)
+	ceremony = &emergencytypes.EmergencyCeremony{
+		Id:                        resumeID,
+		Type:                      string(emergencytypes.CeremonyResume),
+		Phase:                     string(emergencytypes.PhaseFinalized),
+		ProposalData:              resumeProposalData,
+		StartBlock:                uint64(h.Ctx.BlockHeight()),
+		PrevoteDeadline:           uint64(h.Ctx.BlockHeight()) + 1,
+		PrecommitDeadline:         uint64(h.Ctx.BlockHeight()) + 2,
+		TimeoutDeadline:           uint64(h.Ctx.BlockHeight()) + 3,
+		YesPrevoteStake:           "0",
+		NoPrevoteStake:            "0",
+		PrecommitStake:            "0",
+		ElectorateSnapshotVersion: emergencytypes.ElectorateSnapshotVersionV1,
+		Electorate: []*emergencytypes.EmergencyElectorateMember{{
+			Address: resumeProposal.Proposer,
+			Power:   "1",
+		}},
+		ElectorateTotalPower: "1",
+		QuorumThreshold:      1_000_000,
+		MinDistinctVoters:    1,
+	}
 	require.NoError(t, h.EmergencyKeeper.SetCeremony(h.Ctx, ceremony))
-
+	h.EmergencyKeeper.SetEmergencyStatus(h.Ctx, emergencytypes.StatusResumeVoting)
 	h.EmergencyKeeper.HandleCeremonyFinalization(h.Ctx, resumeID)
 
 	// Re-read the audit log. The contract:
@@ -1369,8 +1407,8 @@ func TestTruthSeeking_FrontierSparsityIsComputableFromPublicState(t *testing.T) 
 	submitter := testAddr("ts_frontier").String()
 	for i := 0; i < 3; i++ {
 		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-			Id:        fmt.Sprintf("F-TS-FRONTIER-%d", i),
-			Content:   "mapped territory", Domain: "ts_mapped_domain",
+			Id:      fmt.Sprintf("F-TS-FRONTIER-%d", i),
+			Content: "mapped territory", Domain: "ts_mapped_domain",
 			Status:    knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
 			Submitter: submitter, MethodId: knowledgetypes.MethodologyEmpirical,
 		}))
@@ -1516,7 +1554,7 @@ func TestTruthSeeking_CreedCommitmentDocMatchesCode(t *testing.T) {
 // ─── helpers for voice-layer doc-mirror tests ────────────────────────
 
 // walkCodeEventNames returns the set of zerone.<module>.<action> event
-// names emitted anywhere under x/. Detection scans for the first
+// names emitted anywhere under x/ or app/. Detection scans for the first
 // quoted zerone string in the ~200 chars after each `sdk.NewEvent(`
 // call site — same heuristic as tests/integration/events_audit_test.go's
 // extractEventTypes, kept self-contained here so this binder does not
@@ -1525,34 +1563,36 @@ func walkCodeEventNames(t *testing.T) map[string]bool {
 	t.Helper()
 	eventTypeRe := regexp.MustCompile(`"(zerone\.[a-z_]+\.[a-z_]+)"`)
 	events := make(map[string]bool)
-	err := filepath.Walk("../../x", func(path string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, ".pb.go") {
-			return nil
-		}
-		body, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		text := string(body)
-		parts := strings.Split(text, "sdk.NewEvent(")
-		for i := 1; i < len(parts); i++ {
-			snippet := parts[i]
-			if len(snippet) > 200 {
-				snippet = snippet[:200]
+	for _, sourceRoot := range []string{"../../x", "../../app"} {
+		err := filepath.Walk(sourceRoot, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
-			if m := eventTypeRe.FindStringSubmatch(snippet); m != nil {
-				events[m[1]] = true
+			if info.IsDir() {
+				return nil
 			}
-		}
-		return nil
-	})
-	require.NoError(t, err, "walking x/ for event names failed")
+			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, ".pb.go") {
+				return nil
+			}
+			body, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			text := string(body)
+			parts := strings.Split(text, "sdk.NewEvent(")
+			for i := 1; i < len(parts); i++ {
+				snippet := parts[i]
+				if len(snippet) > 200 {
+					snippet = snippet[:200]
+				}
+				if m := eventTypeRe.FindStringSubmatch(snippet); m != nil {
+					events[m[1]] = true
+				}
+			}
+			return nil
+		})
+		require.NoError(t, err, "walking %s for event names failed", sourceRoot)
+	}
 	return events
 }
 

@@ -209,8 +209,11 @@ type EmergencyResumeProposal struct {
 	ResumeStateRoot  string                 `protobuf:"bytes,5,opt,name=resume_state_root,json=resumeStateRoot,proto3" json:"resume_state_root,omitempty"`
 	HaltCeremonyId   string                 `protobuf:"bytes,6,opt,name=halt_ceremony_id,json=haltCeremonyId,proto3" json:"halt_ceremony_id,omitempty"`
 	RevertCeremonyId string                 `protobuf:"bytes,7,opt,name=revert_ceremony_id,json=revertCeremonyId,proto3" json:"revert_ceremony_id,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	Justification    string                 `protobuf:"bytes,8,opt,name=justification,proto3" json:"justification,omitempty"`
+	// SHA-256 of the canonical, signed recovery manifest reviewed by voters.
+	RecoveryManifestSha256 string `protobuf:"bytes,9,opt,name=recovery_manifest_sha256,json=recoveryManifestSha256,proto3" json:"recovery_manifest_sha256,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *EmergencyResumeProposal) Reset() {
@@ -292,6 +295,290 @@ func (x *EmergencyResumeProposal) GetRevertCeremonyId() string {
 	return ""
 }
 
+func (x *EmergencyResumeProposal) GetJustification() string {
+	if x != nil {
+		return x.Justification
+	}
+	return ""
+}
+
+func (x *EmergencyResumeProposal) GetRecoveryManifestSha256() string {
+	if x != nil {
+		return x.RecoveryManifestSha256
+	}
+	return ""
+}
+
+// EmergencyRecoveryAuthorizationProposal asks the immutable Guardian
+// electorate to authorize one exact SDK-governance recovery action while
+// transaction admission remains quarantined.
+type EmergencyRecoveryAuthorizationProposal struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Proposer         string                 `protobuf:"bytes,2,opt,name=proposer,proto3" json:"proposer,omitempty"`
+	HaltCeremonyId   string                 `protobuf:"bytes,3,opt,name=halt_ceremony_id,json=haltCeremonyId,proto3" json:"halt_ceremony_id,omitempty"`
+	SdkGovProposalId uint64                 `protobuf:"varint,4,opt,name=sdk_gov_proposal_id,json=sdkGovProposalId,proto3" json:"sdk_gov_proposal_id,omitempty"`
+	// SHA-256 over the domain-separated TypeURL and raw Any value bytes of the
+	// proposal's sole MsgSoftwareUpgrade or MsgCancelUpgrade action.
+	ActionSha256           string `protobuf:"bytes,5,opt,name=action_sha256,json=actionSha256,proto3" json:"action_sha256,omitempty"`
+	RecoveryManifestSha256 string `protobuf:"bytes,6,opt,name=recovery_manifest_sha256,json=recoveryManifestSha256,proto3" json:"recovery_manifest_sha256,omitempty"`
+	Justification          string `protobuf:"bytes,7,opt,name=justification,proto3" json:"justification,omitempty"`
+	// Canonical digest of the plan being scheduled or, for cancellation, the
+	// exact currently scheduled plan whose removal Guardians authorize.
+	UpgradePlanSha256 string `protobuf:"bytes,8,opt,name=upgrade_plan_sha256,json=upgradePlanSha256,proto3" json:"upgrade_plan_sha256,omitempty"`
+	// Account allowed to submit the pre-authorized next SDK proposal, preventing
+	// mempool observers from front-running the recovery envelope.
+	AuthorizedSubmitter string `protobuf:"bytes,9,opt,name=authorized_submitter,json=authorizedSubmitter,proto3" json:"authorized_submitter,omitempty"`
+	// "software_upgrade", "cancel_upgrade", or "revoke".
+	ActionType    string `protobuf:"bytes,10,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"`
+	Generation    uint64 `protobuf:"varint,11,opt,name=generation,proto3" json:"generation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) Reset() {
+	*x = EmergencyRecoveryAuthorizationProposal{}
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmergencyRecoveryAuthorizationProposal) ProtoMessage() {}
+
+func (x *EmergencyRecoveryAuthorizationProposal) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmergencyRecoveryAuthorizationProposal.ProtoReflect.Descriptor instead.
+func (*EmergencyRecoveryAuthorizationProposal) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetProposer() string {
+	if x != nil {
+		return x.Proposer
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetHaltCeremonyId() string {
+	if x != nil {
+		return x.HaltCeremonyId
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetSdkGovProposalId() uint64 {
+	if x != nil {
+		return x.SdkGovProposalId
+	}
+	return 0
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetActionSha256() string {
+	if x != nil {
+		return x.ActionSha256
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetRecoveryManifestSha256() string {
+	if x != nil {
+		return x.RecoveryManifestSha256
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetJustification() string {
+	if x != nil {
+		return x.Justification
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetUpgradePlanSha256() string {
+	if x != nil {
+		return x.UpgradePlanSha256
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetAuthorizedSubmitter() string {
+	if x != nil {
+		return x.AuthorizedSubmitter
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetActionType() string {
+	if x != nil {
+		return x.ActionType
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorizationProposal) GetGeneration() uint64 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
+// EmergencyRecoveryAuthorization is the finalized, incident-bound capability
+// for one exact SDK-governance proposal. It does not resume transactions.
+type EmergencyRecoveryAuthorization struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	HaltCeremonyId          string                 `protobuf:"bytes,1,opt,name=halt_ceremony_id,json=haltCeremonyId,proto3" json:"halt_ceremony_id,omitempty"`
+	AuthorizationCeremonyId string                 `protobuf:"bytes,2,opt,name=authorization_ceremony_id,json=authorizationCeremonyId,proto3" json:"authorization_ceremony_id,omitempty"`
+	SdkGovProposalId        uint64                 `protobuf:"varint,3,opt,name=sdk_gov_proposal_id,json=sdkGovProposalId,proto3" json:"sdk_gov_proposal_id,omitempty"`
+	ActionSha256            string                 `protobuf:"bytes,4,opt,name=action_sha256,json=actionSha256,proto3" json:"action_sha256,omitempty"`
+	RecoveryManifestSha256  string                 `protobuf:"bytes,5,opt,name=recovery_manifest_sha256,json=recoveryManifestSha256,proto3" json:"recovery_manifest_sha256,omitempty"`
+	AuthorizedAtBlock       uint64                 `protobuf:"varint,6,opt,name=authorized_at_block,json=authorizedAtBlock,proto3" json:"authorized_at_block,omitempty"`
+	UpgradePlanSha256       string                 `protobuf:"bytes,7,opt,name=upgrade_plan_sha256,json=upgradePlanSha256,proto3" json:"upgrade_plan_sha256,omitempty"`
+	// Set after SDK governance reaches a terminal result. An authorization with
+	// a non-empty outcome cannot admit further votes, deposits, or execution.
+	TerminalAtBlock     uint64 `protobuf:"varint,8,opt,name=terminal_at_block,json=terminalAtBlock,proto3" json:"terminal_at_block,omitempty"`
+	Outcome             string `protobuf:"bytes,9,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	AuthorizedSubmitter string `protobuf:"bytes,10,opt,name=authorized_submitter,json=authorizedSubmitter,proto3" json:"authorized_submitter,omitempty"`
+	ActionType          string `protobuf:"bytes,11,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"`
+	Generation          uint64 `protobuf:"varint,12,opt,name=generation,proto3" json:"generation,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *EmergencyRecoveryAuthorization) Reset() {
+	*x = EmergencyRecoveryAuthorization{}
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmergencyRecoveryAuthorization) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmergencyRecoveryAuthorization) ProtoMessage() {}
+
+func (x *EmergencyRecoveryAuthorization) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmergencyRecoveryAuthorization.ProtoReflect.Descriptor instead.
+func (*EmergencyRecoveryAuthorization) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *EmergencyRecoveryAuthorization) GetHaltCeremonyId() string {
+	if x != nil {
+		return x.HaltCeremonyId
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetAuthorizationCeremonyId() string {
+	if x != nil {
+		return x.AuthorizationCeremonyId
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetSdkGovProposalId() uint64 {
+	if x != nil {
+		return x.SdkGovProposalId
+	}
+	return 0
+}
+
+func (x *EmergencyRecoveryAuthorization) GetActionSha256() string {
+	if x != nil {
+		return x.ActionSha256
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetRecoveryManifestSha256() string {
+	if x != nil {
+		return x.RecoveryManifestSha256
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetAuthorizedAtBlock() uint64 {
+	if x != nil {
+		return x.AuthorizedAtBlock
+	}
+	return 0
+}
+
+func (x *EmergencyRecoveryAuthorization) GetUpgradePlanSha256() string {
+	if x != nil {
+		return x.UpgradePlanSha256
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetTerminalAtBlock() uint64 {
+	if x != nil {
+		return x.TerminalAtBlock
+	}
+	return 0
+}
+
+func (x *EmergencyRecoveryAuthorization) GetOutcome() string {
+	if x != nil {
+		return x.Outcome
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetAuthorizedSubmitter() string {
+	if x != nil {
+		return x.AuthorizedSubmitter
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetActionType() string {
+	if x != nil {
+		return x.ActionType
+	}
+	return ""
+}
+
+func (x *EmergencyRecoveryAuthorization) GetGeneration() uint64 {
+	if x != nil {
+		return x.Generation
+	}
+	return 0
+}
+
 // EmergencyVote represents a prevote (yes/no).
 type EmergencyVote struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -303,7 +590,7 @@ type EmergencyVote struct {
 
 func (x *EmergencyVote) Reset() {
 	*x = EmergencyVote{}
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[3]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -315,7 +602,7 @@ func (x *EmergencyVote) String() string {
 func (*EmergencyVote) ProtoMessage() {}
 
 func (x *EmergencyVote) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[3]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -328,7 +615,7 @@ func (x *EmergencyVote) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmergencyVote.ProtoReflect.Descriptor instead.
 func (*EmergencyVote) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{3}
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *EmergencyVote) GetVoter() string {
@@ -355,7 +642,7 @@ type EmergencyPrecommit struct {
 
 func (x *EmergencyPrecommit) Reset() {
 	*x = EmergencyPrecommit{}
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[4]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -367,7 +654,7 @@ func (x *EmergencyPrecommit) String() string {
 func (*EmergencyPrecommit) ProtoMessage() {}
 
 func (x *EmergencyPrecommit) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[4]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -380,7 +667,7 @@ func (x *EmergencyPrecommit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmergencyPrecommit.ProtoReflect.Descriptor instead.
 func (*EmergencyPrecommit) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{4}
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *EmergencyPrecommit) GetVoter() string {
@@ -401,7 +688,7 @@ type PrevoteEntry struct {
 
 func (x *PrevoteEntry) Reset() {
 	*x = PrevoteEntry{}
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[5]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -413,7 +700,7 @@ func (x *PrevoteEntry) String() string {
 func (*PrevoteEntry) ProtoMessage() {}
 
 func (x *PrevoteEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[5]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -426,7 +713,7 @@ func (x *PrevoteEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrevoteEntry.ProtoReflect.Descriptor instead.
 func (*PrevoteEntry) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{5}
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PrevoteEntry) GetKey() string {
@@ -454,7 +741,7 @@ type PrecommitEntry struct {
 
 func (x *PrecommitEntry) Reset() {
 	*x = PrecommitEntry{}
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[6]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -466,7 +753,7 @@ func (x *PrecommitEntry) String() string {
 func (*PrecommitEntry) ProtoMessage() {}
 
 func (x *PrecommitEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[6]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -479,7 +766,7 @@ func (x *PrecommitEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrecommitEntry.ProtoReflect.Descriptor instead.
 func (*PrecommitEntry) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{6}
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *PrecommitEntry) GetKey() string {
@@ -494,6 +781,62 @@ func (x *PrecommitEntry) GetValue() *EmergencyPrecommit {
 		return x.Value
 	}
 	return nil
+}
+
+// EmergencyElectorateMember is one address and its immutable voting power for
+// a ceremony. The complete, sorted electorate is snapshotted when the
+// ceremony opens so staking, council-expiry, and parameter changes cannot
+// alter an in-flight decision.
+type EmergencyElectorateMember struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Power         string                 `protobuf:"bytes,2,opt,name=power,proto3" json:"power,omitempty"` // positive bigint string
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EmergencyElectorateMember) Reset() {
+	*x = EmergencyElectorateMember{}
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmergencyElectorateMember) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmergencyElectorateMember) ProtoMessage() {}
+
+func (x *EmergencyElectorateMember) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmergencyElectorateMember.ProtoReflect.Descriptor instead.
+func (*EmergencyElectorateMember) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *EmergencyElectorateMember) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *EmergencyElectorateMember) GetPower() string {
+	if x != nil {
+		return x.Power
+	}
+	return ""
 }
 
 // EmergencyCeremony tracks a 2-phase BFT ceremony (prevote → precommit).
@@ -513,13 +856,20 @@ type EmergencyCeremony struct {
 	NoPrevoteStake    string                 `protobuf:"bytes,12,opt,name=no_prevote_stake,json=noPrevoteStake,proto3" json:"no_prevote_stake,omitempty"`    // bigint string
 	PrecommitStake    string                 `protobuf:"bytes,13,opt,name=precommit_stake,json=precommitStake,proto3" json:"precommit_stake,omitempty"`      // bigint string
 	FailureReason     string                 `protobuf:"bytes,14,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Version 1 snapshots the exact electorate and quorum policy at creation.
+	// A non-terminal legacy ceremony without a complete snapshot fails closed.
+	ElectorateSnapshotVersion uint32                       `protobuf:"varint,15,opt,name=electorate_snapshot_version,json=electorateSnapshotVersion,proto3" json:"electorate_snapshot_version,omitempty"`
+	Electorate                []*EmergencyElectorateMember `protobuf:"bytes,16,rep,name=electorate,proto3" json:"electorate,omitempty"`
+	ElectorateTotalPower      string                       `protobuf:"bytes,17,opt,name=electorate_total_power,json=electorateTotalPower,proto3" json:"electorate_total_power,omitempty"` // positive bigint string
+	QuorumThreshold           uint64                       `protobuf:"varint,18,opt,name=quorum_threshold,json=quorumThreshold,proto3" json:"quorum_threshold,omitempty"`                 // 1,000,000 = 100%
+	MinDistinctVoters         uint64                       `protobuf:"varint,19,opt,name=min_distinct_voters,json=minDistinctVoters,proto3" json:"min_distinct_voters,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *EmergencyCeremony) Reset() {
 	*x = EmergencyCeremony{}
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[7]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -531,7 +881,7 @@ func (x *EmergencyCeremony) String() string {
 func (*EmergencyCeremony) ProtoMessage() {}
 
 func (x *EmergencyCeremony) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[7]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -544,7 +894,7 @@ func (x *EmergencyCeremony) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmergencyCeremony.ProtoReflect.Descriptor instead.
 func (*EmergencyCeremony) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{7}
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *EmergencyCeremony) GetId() string {
@@ -645,6 +995,41 @@ func (x *EmergencyCeremony) GetFailureReason() string {
 	return ""
 }
 
+func (x *EmergencyCeremony) GetElectorateSnapshotVersion() uint32 {
+	if x != nil {
+		return x.ElectorateSnapshotVersion
+	}
+	return 0
+}
+
+func (x *EmergencyCeremony) GetElectorate() []*EmergencyElectorateMember {
+	if x != nil {
+		return x.Electorate
+	}
+	return nil
+}
+
+func (x *EmergencyCeremony) GetElectorateTotalPower() string {
+	if x != nil {
+		return x.ElectorateTotalPower
+	}
+	return ""
+}
+
+func (x *EmergencyCeremony) GetQuorumThreshold() uint64 {
+	if x != nil {
+		return x.QuorumThreshold
+	}
+	return 0
+}
+
+func (x *EmergencyCeremony) GetMinDistinctVoters() uint64 {
+	if x != nil {
+		return x.MinDistinctVoters
+	}
+	return 0
+}
+
 // EmergencyAuditEntry records a single emergency action for the audit trail.
 type EmergencyAuditEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -660,7 +1045,7 @@ type EmergencyAuditEntry struct {
 
 func (x *EmergencyAuditEntry) Reset() {
 	*x = EmergencyAuditEntry{}
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[8]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -672,7 +1057,7 @@ func (x *EmergencyAuditEntry) String() string {
 func (*EmergencyAuditEntry) ProtoMessage() {}
 
 func (x *EmergencyAuditEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_types_proto_msgTypes[8]
+	mi := &file_zerone_emergency_v1_types_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -685,7 +1070,7 @@ func (x *EmergencyAuditEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmergencyAuditEntry.ProtoReflect.Descriptor instead.
 func (*EmergencyAuditEntry) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{8}
+	return file_zerone_emergency_v1_types_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *EmergencyAuditEntry) GetTimestamp() int64 {
@@ -749,7 +1134,7 @@ const file_zerone_emergency_v1_types_proto_rawDesc = "" +
 	"\x11target_block_hash\x18\x04 \x01(\tR\x0ftargetBlockHash\x12*\n" +
 	"\x11target_state_root\x18\x05 \x01(\tR\x0ftargetStateRoot\x12$\n" +
 	"\rjustification\x18\x06 \x01(\tR\rjustification\x12(\n" +
-	"\x10halt_ceremony_id\x18\a \x01(\tR\x0ehaltCeremonyId\"\x9f\x02\n" +
+	"\x10halt_ceremony_id\x18\a \x01(\tR\x0ehaltCeremonyId\"\xff\x02\n" +
 	"\x17EmergencyResumeProposal\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\bproposer\x18\x02 \x01(\tR\bproposer\x12*\n" +
@@ -757,7 +1142,42 @@ const file_zerone_emergency_v1_types_proto_rawDesc = "" +
 	"\x10resume_from_hash\x18\x04 \x01(\tR\x0eresumeFromHash\x12*\n" +
 	"\x11resume_state_root\x18\x05 \x01(\tR\x0fresumeStateRoot\x12(\n" +
 	"\x10halt_ceremony_id\x18\x06 \x01(\tR\x0ehaltCeremonyId\x12,\n" +
-	"\x12revert_ceremony_id\x18\a \x01(\tR\x10revertCeremonyId\"?\n" +
+	"\x12revert_ceremony_id\x18\a \x01(\tR\x10revertCeremonyId\x12$\n" +
+	"\rjustification\x18\b \x01(\tR\rjustification\x128\n" +
+	"\x18recovery_manifest_sha256\x18\t \x01(\tR\x16recoveryManifestSha256\"\xd6\x03\n" +
+	"&EmergencyRecoveryAuthorizationProposal\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bproposer\x18\x02 \x01(\tR\bproposer\x12(\n" +
+	"\x10halt_ceremony_id\x18\x03 \x01(\tR\x0ehaltCeremonyId\x12-\n" +
+	"\x13sdk_gov_proposal_id\x18\x04 \x01(\x04R\x10sdkGovProposalId\x12#\n" +
+	"\raction_sha256\x18\x05 \x01(\tR\factionSha256\x128\n" +
+	"\x18recovery_manifest_sha256\x18\x06 \x01(\tR\x16recoveryManifestSha256\x12$\n" +
+	"\rjustification\x18\a \x01(\tR\rjustification\x12.\n" +
+	"\x13upgrade_plan_sha256\x18\b \x01(\tR\x11upgradePlanSha256\x121\n" +
+	"\x14authorized_submitter\x18\t \x01(\tR\x13authorizedSubmitter\x12\x1f\n" +
+	"\vaction_type\x18\n" +
+	" \x01(\tR\n" +
+	"actionType\x12\x1e\n" +
+	"\n" +
+	"generation\x18\v \x01(\x04R\n" +
+	"generation\"\xae\x04\n" +
+	"\x1eEmergencyRecoveryAuthorization\x12(\n" +
+	"\x10halt_ceremony_id\x18\x01 \x01(\tR\x0ehaltCeremonyId\x12:\n" +
+	"\x19authorization_ceremony_id\x18\x02 \x01(\tR\x17authorizationCeremonyId\x12-\n" +
+	"\x13sdk_gov_proposal_id\x18\x03 \x01(\x04R\x10sdkGovProposalId\x12#\n" +
+	"\raction_sha256\x18\x04 \x01(\tR\factionSha256\x128\n" +
+	"\x18recovery_manifest_sha256\x18\x05 \x01(\tR\x16recoveryManifestSha256\x12.\n" +
+	"\x13authorized_at_block\x18\x06 \x01(\x04R\x11authorizedAtBlock\x12.\n" +
+	"\x13upgrade_plan_sha256\x18\a \x01(\tR\x11upgradePlanSha256\x12*\n" +
+	"\x11terminal_at_block\x18\b \x01(\x04R\x0fterminalAtBlock\x12\x18\n" +
+	"\aoutcome\x18\t \x01(\tR\aoutcome\x121\n" +
+	"\x14authorized_submitter\x18\n" +
+	" \x01(\tR\x13authorizedSubmitter\x12\x1f\n" +
+	"\vaction_type\x18\v \x01(\tR\n" +
+	"actionType\x12\x1e\n" +
+	"\n" +
+	"generation\x18\f \x01(\x04R\n" +
+	"generation\"?\n" +
 	"\rEmergencyVote\x12\x14\n" +
 	"\x05voter\x18\x01 \x01(\tR\x05voter\x12\x18\n" +
 	"\aapprove\x18\x02 \x01(\bR\aapprove\"*\n" +
@@ -768,7 +1188,10 @@ const file_zerone_emergency_v1_types_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2\".zerone.emergency.v1.EmergencyVoteR\x05value\"a\n" +
 	"\x0ePrecommitEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12=\n" +
-	"\x05value\x18\x02 \x01(\v2'.zerone.emergency.v1.EmergencyPrecommitR\x05value\"\xc2\x04\n" +
+	"\x05value\x18\x02 \x01(\v2'.zerone.emergency.v1.EmergencyPrecommitR\x05value\"K\n" +
+	"\x19EmergencyElectorateMember\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x14\n" +
+	"\x05power\x18\x02 \x01(\tR\x05power\"\xe3\x06\n" +
 	"\x11EmergencyCeremony\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x14\n" +
@@ -787,7 +1210,14 @@ const file_zerone_emergency_v1_types_proto_rawDesc = "" +
 	"\x11yes_prevote_stake\x18\v \x01(\tR\x0fyesPrevoteStake\x12(\n" +
 	"\x10no_prevote_stake\x18\f \x01(\tR\x0enoPrevoteStake\x12'\n" +
 	"\x0fprecommit_stake\x18\r \x01(\tR\x0eprecommitStake\x12%\n" +
-	"\x0efailure_reason\x18\x0e \x01(\tR\rfailureReason\"\xbf\x01\n" +
+	"\x0efailure_reason\x18\x0e \x01(\tR\rfailureReason\x12>\n" +
+	"\x1belectorate_snapshot_version\x18\x0f \x01(\rR\x19electorateSnapshotVersion\x12N\n" +
+	"\n" +
+	"electorate\x18\x10 \x03(\v2..zerone.emergency.v1.EmergencyElectorateMemberR\n" +
+	"electorate\x124\n" +
+	"\x16electorate_total_power\x18\x11 \x01(\tR\x14electorateTotalPower\x12)\n" +
+	"\x10quorum_threshold\x18\x12 \x01(\x04R\x0fquorumThreshold\x12.\n" +
+	"\x13min_distinct_voters\x18\x13 \x01(\x04R\x11minDistinctVoters\"\xbf\x01\n" +
 	"\x13EmergencyAuditEntry\x12\x1c\n" +
 	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12!\n" +
 	"\fblock_number\x18\x02 \x01(\x04R\vblockNumber\x12\x16\n" +
@@ -809,28 +1239,32 @@ func file_zerone_emergency_v1_types_proto_rawDescGZIP() []byte {
 	return file_zerone_emergency_v1_types_proto_rawDescData
 }
 
-var file_zerone_emergency_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_zerone_emergency_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_zerone_emergency_v1_types_proto_goTypes = []any{
-	(*EmergencyHaltProposal)(nil),   // 0: zerone.emergency.v1.EmergencyHaltProposal
-	(*EmergencyRevertProposal)(nil), // 1: zerone.emergency.v1.EmergencyRevertProposal
-	(*EmergencyResumeProposal)(nil), // 2: zerone.emergency.v1.EmergencyResumeProposal
-	(*EmergencyVote)(nil),           // 3: zerone.emergency.v1.EmergencyVote
-	(*EmergencyPrecommit)(nil),      // 4: zerone.emergency.v1.EmergencyPrecommit
-	(*PrevoteEntry)(nil),            // 5: zerone.emergency.v1.PrevoteEntry
-	(*PrecommitEntry)(nil),          // 6: zerone.emergency.v1.PrecommitEntry
-	(*EmergencyCeremony)(nil),       // 7: zerone.emergency.v1.EmergencyCeremony
-	(*EmergencyAuditEntry)(nil),     // 8: zerone.emergency.v1.EmergencyAuditEntry
+	(*EmergencyHaltProposal)(nil),                  // 0: zerone.emergency.v1.EmergencyHaltProposal
+	(*EmergencyRevertProposal)(nil),                // 1: zerone.emergency.v1.EmergencyRevertProposal
+	(*EmergencyResumeProposal)(nil),                // 2: zerone.emergency.v1.EmergencyResumeProposal
+	(*EmergencyRecoveryAuthorizationProposal)(nil), // 3: zerone.emergency.v1.EmergencyRecoveryAuthorizationProposal
+	(*EmergencyRecoveryAuthorization)(nil),         // 4: zerone.emergency.v1.EmergencyRecoveryAuthorization
+	(*EmergencyVote)(nil),                          // 5: zerone.emergency.v1.EmergencyVote
+	(*EmergencyPrecommit)(nil),                     // 6: zerone.emergency.v1.EmergencyPrecommit
+	(*PrevoteEntry)(nil),                           // 7: zerone.emergency.v1.PrevoteEntry
+	(*PrecommitEntry)(nil),                         // 8: zerone.emergency.v1.PrecommitEntry
+	(*EmergencyElectorateMember)(nil),              // 9: zerone.emergency.v1.EmergencyElectorateMember
+	(*EmergencyCeremony)(nil),                      // 10: zerone.emergency.v1.EmergencyCeremony
+	(*EmergencyAuditEntry)(nil),                    // 11: zerone.emergency.v1.EmergencyAuditEntry
 }
 var file_zerone_emergency_v1_types_proto_depIdxs = []int32{
-	3, // 0: zerone.emergency.v1.PrevoteEntry.value:type_name -> zerone.emergency.v1.EmergencyVote
-	4, // 1: zerone.emergency.v1.PrecommitEntry.value:type_name -> zerone.emergency.v1.EmergencyPrecommit
-	5, // 2: zerone.emergency.v1.EmergencyCeremony.prevotes:type_name -> zerone.emergency.v1.PrevoteEntry
-	6, // 3: zerone.emergency.v1.EmergencyCeremony.precommits:type_name -> zerone.emergency.v1.PrecommitEntry
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5, // 0: zerone.emergency.v1.PrevoteEntry.value:type_name -> zerone.emergency.v1.EmergencyVote
+	6, // 1: zerone.emergency.v1.PrecommitEntry.value:type_name -> zerone.emergency.v1.EmergencyPrecommit
+	7, // 2: zerone.emergency.v1.EmergencyCeremony.prevotes:type_name -> zerone.emergency.v1.PrevoteEntry
+	8, // 3: zerone.emergency.v1.EmergencyCeremony.precommits:type_name -> zerone.emergency.v1.PrecommitEntry
+	9, // 4: zerone.emergency.v1.EmergencyCeremony.electorate:type_name -> zerone.emergency.v1.EmergencyElectorateMember
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_zerone_emergency_v1_types_proto_init() }
@@ -844,7 +1278,7 @@ func file_zerone_emergency_v1_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_emergency_v1_types_proto_rawDesc), len(file_zerone_emergency_v1_types_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

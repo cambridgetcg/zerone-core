@@ -16,6 +16,8 @@ service Msg {
   rpc VoteRevert(MsgVoteRevert) returns (MsgVoteRevertResponse);
   rpc ProposeResume(MsgProposeResume) returns (MsgProposeResumeResponse);
   rpc VoteResume(MsgVoteResume) returns (MsgVoteResumeResponse);
+  rpc ProposeRecoveryAuthorization(MsgProposeRecoveryAuthorization) returns (MsgProposeRecoveryAuthorizationResponse);
+  rpc VoteRecoveryAuthorization(MsgVoteRecoveryAuthorization) returns (MsgVoteRecoveryAuthorizationResponse);
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
 
@@ -78,6 +80,8 @@ message MsgProposeResume {
   option (cosmos.msg.v1.signer) = "proposer";
   string proposer = 1;
   string justification = 2;
+  // Lowercase 64-character SHA-256 of the canonical recovery manifest.
+  string recovery_manifest_sha256 = 3;
 }
 
 message MsgProposeResumeResponse {
@@ -94,6 +98,38 @@ message MsgVoteResume {
 message MsgVoteResumeResponse {
   bool quorum_reached = 1;
   bool chain_resumed = 2;
+}
+
+message MsgProposeRecoveryAuthorization {
+  option (cosmos.msg.v1.signer) = "proposer";
+  string proposer = 1;
+  uint64 sdk_gov_proposal_id = 2;
+  // Canonical lowercase SHA-256 of the proposal's sole recovery action.
+  string action_sha256 = 3;
+  // Canonical lowercase SHA-256 of the reviewed, signed recovery manifest.
+  string recovery_manifest_sha256 = 4;
+  string justification = 5;
+  string upgrade_plan_sha256 = 6;
+  string authorized_submitter = 7;
+  // software_upgrade, cancel_upgrade, or revoke. A revoke ceremony repeats
+  // the exact hashes, proposal ID, and submitter of the live authorization.
+  string action_type = 8;
+}
+
+message MsgProposeRecoveryAuthorizationResponse {
+  string proposal_id = 1;
+}
+
+message MsgVoteRecoveryAuthorization {
+  option (cosmos.msg.v1.signer) = "voter";
+  string voter = 1;
+  string proposal_id = 2;
+  bool approve = 3;
+}
+
+message MsgVoteRecoveryAuthorizationResponse {
+  bool quorum_reached = 1;
+  bool recovery_authorized = 2;
 }
 
 message MsgUpdateParams {

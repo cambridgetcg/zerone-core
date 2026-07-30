@@ -1294,6 +1294,102 @@ func (x *QueryResearchFundSeatsResponse) GetActiveSeatCount() uint32 {
 	return 0
 }
 
+type QueryEmergencyTransitionHoldRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryEmergencyTransitionHoldRequest) Reset() {
+	*x = QueryEmergencyTransitionHoldRequest{}
+	mi := &file_zerone_gov_v1_query_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryEmergencyTransitionHoldRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryEmergencyTransitionHoldRequest) ProtoMessage() {}
+
+func (x *QueryEmergencyTransitionHoldRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_gov_v1_query_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryEmergencyTransitionHoldRequest.ProtoReflect.Descriptor instead.
+func (*QueryEmergencyTransitionHoldRequest) Descriptor() ([]byte, []int) {
+	return file_zerone_gov_v1_query_proto_rawDescGZIP(), []int{26}
+}
+
+type QueryEmergencyTransitionHoldResponse struct {
+	state            protoimpl.MessageState   `protogen:"open.v1"`
+	Held             bool                     `protobuf:"varint,1,opt,name=held,proto3" json:"held,omitempty"`
+	Hold             *EmergencyTransitionHold `protobuf:"bytes,2,opt,name=hold,proto3" json:"hold,omitempty"`
+	ReleaseMechanism string                   `protobuf:"bytes,3,opt,name=release_mechanism,json=releaseMechanism,proto3" json:"release_mechanism,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *QueryEmergencyTransitionHoldResponse) Reset() {
+	*x = QueryEmergencyTransitionHoldResponse{}
+	mi := &file_zerone_gov_v1_query_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryEmergencyTransitionHoldResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryEmergencyTransitionHoldResponse) ProtoMessage() {}
+
+func (x *QueryEmergencyTransitionHoldResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_gov_v1_query_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryEmergencyTransitionHoldResponse.ProtoReflect.Descriptor instead.
+func (*QueryEmergencyTransitionHoldResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_gov_v1_query_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *QueryEmergencyTransitionHoldResponse) GetHeld() bool {
+	if x != nil {
+		return x.Held
+	}
+	return false
+}
+
+func (x *QueryEmergencyTransitionHoldResponse) GetHold() *EmergencyTransitionHold {
+	if x != nil {
+		return x.Hold
+	}
+	return nil
+}
+
+func (x *QueryEmergencyTransitionHoldResponse) GetReleaseMechanism() string {
+	if x != nil {
+		return x.ReleaseMechanism
+	}
+	return ""
+}
+
 var File_zerone_gov_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_gov_v1_query_proto_rawDesc = "" +
@@ -1369,7 +1465,12 @@ const file_zerone_gov_v1_query_proto_rawDesc = "" +
 	"\x1eQueryResearchFundSeatsResponse\x12'\n" +
 	"\x0fcommunity_seats\x18\x01 \x03(\tR\x0ecommunitySeats\x12/\n" +
 	"\x14seat_term_end_blocks\x18\x02 \x03(\x04R\x11seatTermEndBlocks\x12*\n" +
-	"\x11active_seat_count\x18\x03 \x01(\rR\x0factiveSeatCount2\x86\x0e\n" +
+	"\x11active_seat_count\x18\x03 \x01(\rR\x0factiveSeatCount\"%\n" +
+	"#QueryEmergencyTransitionHoldRequest\"\xa3\x01\n" +
+	"$QueryEmergencyTransitionHoldResponse\x12\x12\n" +
+	"\x04held\x18\x01 \x01(\bR\x04held\x12:\n" +
+	"\x04hold\x18\x02 \x01(\v2&.zerone.gov.v1.EmergencyTransitionHoldR\x04hold\x12+\n" +
+	"\x11release_mechanism\x18\x03 \x01(\tR\x10releaseMechanism2\xbd\x0f\n" +
 	"\x05Query\x12k\n" +
 	"\x03LIP\x12\x1e.zerone.gov.v1.QueryLIPRequest\x1a\x1f.zerone.gov.v1.QueryLIPResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/zerone/gov/v1/lip/{lip_id}\x12f\n" +
 	"\x04LIPs\x12\x1f.zerone.gov.v1.QueryLIPsRequest\x1a .zerone.gov.v1.QueryLIPsResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/zerone/gov/v1/lips\x12{\n" +
@@ -1383,7 +1484,8 @@ const file_zerone_gov_v1_query_proto_rawDesc = "" +
 	"\x16ResearchFundGovernance\x121.zerone.gov.v1.QueryResearchFundGovernanceRequest\x1a2.zerone.gov.v1.QueryResearchFundGovernanceResponse\"/\x82\xd3\xe4\x93\x02)\x12'/zerone/gov/v1/research_fund_governance\x12\x95\x01\n" +
 	"\fSeatElection\x12'.zerone.gov.v1.QuerySeatElectionRequest\x1a(.zerone.gov.v1.QuerySeatElectionResponse\"2\x82\xd3\xe4\x93\x02,\x12*/zerone/gov/v1/seat_election/{proposal_id}\x12\x8b\x01\n" +
 	"\rSeatElections\x12(.zerone.gov.v1.QuerySeatElectionsRequest\x1a).zerone.gov.v1.QuerySeatElectionsResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/zerone/gov/v1/seat_elections\x12\x9c\x01\n" +
-	"\x11ResearchFundSeats\x12,.zerone.gov.v1.QueryResearchFundSeatsRequest\x1a-.zerone.gov.v1.QueryResearchFundSeatsResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/zerone/gov/v1/research_fund_seatsB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
+	"\x11ResearchFundSeats\x12,.zerone.gov.v1.QueryResearchFundSeatsRequest\x1a-.zerone.gov.v1.QueryResearchFundSeatsResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/zerone/gov/v1/research_fund_seats\x12\xb4\x01\n" +
+	"\x17EmergencyTransitionHold\x122.zerone.gov.v1.QueryEmergencyTransitionHoldRequest\x1a3.zerone.gov.v1.QueryEmergencyTransitionHoldResponse\"0\x82\xd3\xe4\x93\x02*\x12(/zerone/gov/v1/emergency_transition_holdB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
 
 var (
 	file_zerone_gov_v1_query_proto_rawDescOnce sync.Once
@@ -1397,90 +1499,96 @@ func file_zerone_gov_v1_query_proto_rawDescGZIP() []byte {
 	return file_zerone_gov_v1_query_proto_rawDescData
 }
 
-var file_zerone_gov_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_zerone_gov_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_zerone_gov_v1_query_proto_goTypes = []any{
-	(*QueryLIPRequest)(nil),                     // 0: zerone.gov.v1.QueryLIPRequest
-	(*QueryLIPResponse)(nil),                    // 1: zerone.gov.v1.QueryLIPResponse
-	(*QueryLIPsRequest)(nil),                    // 2: zerone.gov.v1.QueryLIPsRequest
-	(*QueryLIPsResponse)(nil),                   // 3: zerone.gov.v1.QueryLIPsResponse
-	(*QueryVoteRequest)(nil),                    // 4: zerone.gov.v1.QueryVoteRequest
-	(*QueryVoteResponse)(nil),                   // 5: zerone.gov.v1.QueryVoteResponse
-	(*QueryVotesRequest)(nil),                   // 6: zerone.gov.v1.QueryVotesRequest
-	(*QueryVotesResponse)(nil),                  // 7: zerone.gov.v1.QueryVotesResponse
-	(*QueryTallyResultRequest)(nil),             // 8: zerone.gov.v1.QueryTallyResultRequest
-	(*QueryTallyResultResponse)(nil),            // 9: zerone.gov.v1.QueryTallyResultResponse
-	(*QueryParamsRequest)(nil),                  // 10: zerone.gov.v1.QueryParamsRequest
-	(*QueryParamsResponse)(nil),                 // 11: zerone.gov.v1.QueryParamsResponse
-	(*QueryResearchSpendRequest)(nil),           // 12: zerone.gov.v1.QueryResearchSpendRequest
-	(*QueryResearchSpendResponse)(nil),          // 13: zerone.gov.v1.QueryResearchSpendResponse
-	(*QueryResearchSpendsRequest)(nil),          // 14: zerone.gov.v1.QueryResearchSpendsRequest
-	(*QueryResearchSpendsResponse)(nil),         // 15: zerone.gov.v1.QueryResearchSpendsResponse
-	(*QueryResearchVotersRequest)(nil),          // 16: zerone.gov.v1.QueryResearchVotersRequest
-	(*QueryResearchVotersResponse)(nil),         // 17: zerone.gov.v1.QueryResearchVotersResponse
-	(*QueryResearchFundGovernanceRequest)(nil),  // 18: zerone.gov.v1.QueryResearchFundGovernanceRequest
-	(*QueryResearchFundGovernanceResponse)(nil), // 19: zerone.gov.v1.QueryResearchFundGovernanceResponse
-	(*QuerySeatElectionRequest)(nil),            // 20: zerone.gov.v1.QuerySeatElectionRequest
-	(*QuerySeatElectionResponse)(nil),           // 21: zerone.gov.v1.QuerySeatElectionResponse
-	(*QuerySeatElectionsRequest)(nil),           // 22: zerone.gov.v1.QuerySeatElectionsRequest
-	(*QuerySeatElectionsResponse)(nil),          // 23: zerone.gov.v1.QuerySeatElectionsResponse
-	(*QueryResearchFundSeatsRequest)(nil),       // 24: zerone.gov.v1.QueryResearchFundSeatsRequest
-	(*QueryResearchFundSeatsResponse)(nil),      // 25: zerone.gov.v1.QueryResearchFundSeatsResponse
-	(*LIP)(nil),                                 // 26: zerone.gov.v1.LIP
-	(*Vote)(nil),                                // 27: zerone.gov.v1.Vote
-	(*Params)(nil),                              // 28: zerone.gov.v1.Params
-	(*ResearchSpendProposal)(nil),               // 29: zerone.gov.v1.ResearchSpendProposal
-	(*ResearchFundVoters)(nil),                  // 30: zerone.gov.v1.ResearchFundVoters
-	(*ResearchFundGovernanceState)(nil),         // 31: zerone.gov.v1.ResearchFundGovernanceState
-	(*PhaseTransitionConditions)(nil),           // 32: zerone.gov.v1.PhaseTransitionConditions
-	(*SeatElectionProposal)(nil),                // 33: zerone.gov.v1.SeatElectionProposal
-	(*SeatElectionVote)(nil),                    // 34: zerone.gov.v1.SeatElectionVote
+	(*QueryLIPRequest)(nil),                      // 0: zerone.gov.v1.QueryLIPRequest
+	(*QueryLIPResponse)(nil),                     // 1: zerone.gov.v1.QueryLIPResponse
+	(*QueryLIPsRequest)(nil),                     // 2: zerone.gov.v1.QueryLIPsRequest
+	(*QueryLIPsResponse)(nil),                    // 3: zerone.gov.v1.QueryLIPsResponse
+	(*QueryVoteRequest)(nil),                     // 4: zerone.gov.v1.QueryVoteRequest
+	(*QueryVoteResponse)(nil),                    // 5: zerone.gov.v1.QueryVoteResponse
+	(*QueryVotesRequest)(nil),                    // 6: zerone.gov.v1.QueryVotesRequest
+	(*QueryVotesResponse)(nil),                   // 7: zerone.gov.v1.QueryVotesResponse
+	(*QueryTallyResultRequest)(nil),              // 8: zerone.gov.v1.QueryTallyResultRequest
+	(*QueryTallyResultResponse)(nil),             // 9: zerone.gov.v1.QueryTallyResultResponse
+	(*QueryParamsRequest)(nil),                   // 10: zerone.gov.v1.QueryParamsRequest
+	(*QueryParamsResponse)(nil),                  // 11: zerone.gov.v1.QueryParamsResponse
+	(*QueryResearchSpendRequest)(nil),            // 12: zerone.gov.v1.QueryResearchSpendRequest
+	(*QueryResearchSpendResponse)(nil),           // 13: zerone.gov.v1.QueryResearchSpendResponse
+	(*QueryResearchSpendsRequest)(nil),           // 14: zerone.gov.v1.QueryResearchSpendsRequest
+	(*QueryResearchSpendsResponse)(nil),          // 15: zerone.gov.v1.QueryResearchSpendsResponse
+	(*QueryResearchVotersRequest)(nil),           // 16: zerone.gov.v1.QueryResearchVotersRequest
+	(*QueryResearchVotersResponse)(nil),          // 17: zerone.gov.v1.QueryResearchVotersResponse
+	(*QueryResearchFundGovernanceRequest)(nil),   // 18: zerone.gov.v1.QueryResearchFundGovernanceRequest
+	(*QueryResearchFundGovernanceResponse)(nil),  // 19: zerone.gov.v1.QueryResearchFundGovernanceResponse
+	(*QuerySeatElectionRequest)(nil),             // 20: zerone.gov.v1.QuerySeatElectionRequest
+	(*QuerySeatElectionResponse)(nil),            // 21: zerone.gov.v1.QuerySeatElectionResponse
+	(*QuerySeatElectionsRequest)(nil),            // 22: zerone.gov.v1.QuerySeatElectionsRequest
+	(*QuerySeatElectionsResponse)(nil),           // 23: zerone.gov.v1.QuerySeatElectionsResponse
+	(*QueryResearchFundSeatsRequest)(nil),        // 24: zerone.gov.v1.QueryResearchFundSeatsRequest
+	(*QueryResearchFundSeatsResponse)(nil),       // 25: zerone.gov.v1.QueryResearchFundSeatsResponse
+	(*QueryEmergencyTransitionHoldRequest)(nil),  // 26: zerone.gov.v1.QueryEmergencyTransitionHoldRequest
+	(*QueryEmergencyTransitionHoldResponse)(nil), // 27: zerone.gov.v1.QueryEmergencyTransitionHoldResponse
+	(*LIP)(nil),                         // 28: zerone.gov.v1.LIP
+	(*Vote)(nil),                        // 29: zerone.gov.v1.Vote
+	(*Params)(nil),                      // 30: zerone.gov.v1.Params
+	(*ResearchSpendProposal)(nil),       // 31: zerone.gov.v1.ResearchSpendProposal
+	(*ResearchFundVoters)(nil),          // 32: zerone.gov.v1.ResearchFundVoters
+	(*ResearchFundGovernanceState)(nil), // 33: zerone.gov.v1.ResearchFundGovernanceState
+	(*PhaseTransitionConditions)(nil),   // 34: zerone.gov.v1.PhaseTransitionConditions
+	(*SeatElectionProposal)(nil),        // 35: zerone.gov.v1.SeatElectionProposal
+	(*SeatElectionVote)(nil),            // 36: zerone.gov.v1.SeatElectionVote
+	(*EmergencyTransitionHold)(nil),     // 37: zerone.gov.v1.EmergencyTransitionHold
 }
 var file_zerone_gov_v1_query_proto_depIdxs = []int32{
-	26, // 0: zerone.gov.v1.QueryLIPResponse.lip:type_name -> zerone.gov.v1.LIP
-	27, // 1: zerone.gov.v1.QueryLIPResponse.votes:type_name -> zerone.gov.v1.Vote
-	26, // 2: zerone.gov.v1.QueryLIPsResponse.lips:type_name -> zerone.gov.v1.LIP
-	27, // 3: zerone.gov.v1.QueryVoteResponse.vote:type_name -> zerone.gov.v1.Vote
-	27, // 4: zerone.gov.v1.QueryVotesResponse.votes:type_name -> zerone.gov.v1.Vote
-	28, // 5: zerone.gov.v1.QueryParamsResponse.params:type_name -> zerone.gov.v1.Params
-	29, // 6: zerone.gov.v1.QueryResearchSpendResponse.proposal:type_name -> zerone.gov.v1.ResearchSpendProposal
-	29, // 7: zerone.gov.v1.QueryResearchSpendsResponse.proposals:type_name -> zerone.gov.v1.ResearchSpendProposal
-	30, // 8: zerone.gov.v1.QueryResearchVotersResponse.voters:type_name -> zerone.gov.v1.ResearchFundVoters
-	31, // 9: zerone.gov.v1.QueryResearchFundGovernanceResponse.state:type_name -> zerone.gov.v1.ResearchFundGovernanceState
-	32, // 10: zerone.gov.v1.QueryResearchFundGovernanceResponse.current_conditions:type_name -> zerone.gov.v1.PhaseTransitionConditions
-	33, // 11: zerone.gov.v1.QuerySeatElectionResponse.proposal:type_name -> zerone.gov.v1.SeatElectionProposal
-	34, // 12: zerone.gov.v1.QuerySeatElectionResponse.votes:type_name -> zerone.gov.v1.SeatElectionVote
-	33, // 13: zerone.gov.v1.QuerySeatElectionsResponse.proposals:type_name -> zerone.gov.v1.SeatElectionProposal
-	0,  // 14: zerone.gov.v1.Query.LIP:input_type -> zerone.gov.v1.QueryLIPRequest
-	2,  // 15: zerone.gov.v1.Query.LIPs:input_type -> zerone.gov.v1.QueryLIPsRequest
-	4,  // 16: zerone.gov.v1.Query.Vote:input_type -> zerone.gov.v1.QueryVoteRequest
-	6,  // 17: zerone.gov.v1.Query.Votes:input_type -> zerone.gov.v1.QueryVotesRequest
-	8,  // 18: zerone.gov.v1.Query.TallyResult:input_type -> zerone.gov.v1.QueryTallyResultRequest
-	10, // 19: zerone.gov.v1.Query.Params:input_type -> zerone.gov.v1.QueryParamsRequest
-	12, // 20: zerone.gov.v1.Query.ResearchSpend:input_type -> zerone.gov.v1.QueryResearchSpendRequest
-	14, // 21: zerone.gov.v1.Query.ResearchSpends:input_type -> zerone.gov.v1.QueryResearchSpendsRequest
-	16, // 22: zerone.gov.v1.Query.ResearchVoters:input_type -> zerone.gov.v1.QueryResearchVotersRequest
-	18, // 23: zerone.gov.v1.Query.ResearchFundGovernance:input_type -> zerone.gov.v1.QueryResearchFundGovernanceRequest
-	20, // 24: zerone.gov.v1.Query.SeatElection:input_type -> zerone.gov.v1.QuerySeatElectionRequest
-	22, // 25: zerone.gov.v1.Query.SeatElections:input_type -> zerone.gov.v1.QuerySeatElectionsRequest
-	24, // 26: zerone.gov.v1.Query.ResearchFundSeats:input_type -> zerone.gov.v1.QueryResearchFundSeatsRequest
-	1,  // 27: zerone.gov.v1.Query.LIP:output_type -> zerone.gov.v1.QueryLIPResponse
-	3,  // 28: zerone.gov.v1.Query.LIPs:output_type -> zerone.gov.v1.QueryLIPsResponse
-	5,  // 29: zerone.gov.v1.Query.Vote:output_type -> zerone.gov.v1.QueryVoteResponse
-	7,  // 30: zerone.gov.v1.Query.Votes:output_type -> zerone.gov.v1.QueryVotesResponse
-	9,  // 31: zerone.gov.v1.Query.TallyResult:output_type -> zerone.gov.v1.QueryTallyResultResponse
-	11, // 32: zerone.gov.v1.Query.Params:output_type -> zerone.gov.v1.QueryParamsResponse
-	13, // 33: zerone.gov.v1.Query.ResearchSpend:output_type -> zerone.gov.v1.QueryResearchSpendResponse
-	15, // 34: zerone.gov.v1.Query.ResearchSpends:output_type -> zerone.gov.v1.QueryResearchSpendsResponse
-	17, // 35: zerone.gov.v1.Query.ResearchVoters:output_type -> zerone.gov.v1.QueryResearchVotersResponse
-	19, // 36: zerone.gov.v1.Query.ResearchFundGovernance:output_type -> zerone.gov.v1.QueryResearchFundGovernanceResponse
-	21, // 37: zerone.gov.v1.Query.SeatElection:output_type -> zerone.gov.v1.QuerySeatElectionResponse
-	23, // 38: zerone.gov.v1.Query.SeatElections:output_type -> zerone.gov.v1.QuerySeatElectionsResponse
-	25, // 39: zerone.gov.v1.Query.ResearchFundSeats:output_type -> zerone.gov.v1.QueryResearchFundSeatsResponse
-	27, // [27:40] is the sub-list for method output_type
-	14, // [14:27] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	28, // 0: zerone.gov.v1.QueryLIPResponse.lip:type_name -> zerone.gov.v1.LIP
+	29, // 1: zerone.gov.v1.QueryLIPResponse.votes:type_name -> zerone.gov.v1.Vote
+	28, // 2: zerone.gov.v1.QueryLIPsResponse.lips:type_name -> zerone.gov.v1.LIP
+	29, // 3: zerone.gov.v1.QueryVoteResponse.vote:type_name -> zerone.gov.v1.Vote
+	29, // 4: zerone.gov.v1.QueryVotesResponse.votes:type_name -> zerone.gov.v1.Vote
+	30, // 5: zerone.gov.v1.QueryParamsResponse.params:type_name -> zerone.gov.v1.Params
+	31, // 6: zerone.gov.v1.QueryResearchSpendResponse.proposal:type_name -> zerone.gov.v1.ResearchSpendProposal
+	31, // 7: zerone.gov.v1.QueryResearchSpendsResponse.proposals:type_name -> zerone.gov.v1.ResearchSpendProposal
+	32, // 8: zerone.gov.v1.QueryResearchVotersResponse.voters:type_name -> zerone.gov.v1.ResearchFundVoters
+	33, // 9: zerone.gov.v1.QueryResearchFundGovernanceResponse.state:type_name -> zerone.gov.v1.ResearchFundGovernanceState
+	34, // 10: zerone.gov.v1.QueryResearchFundGovernanceResponse.current_conditions:type_name -> zerone.gov.v1.PhaseTransitionConditions
+	35, // 11: zerone.gov.v1.QuerySeatElectionResponse.proposal:type_name -> zerone.gov.v1.SeatElectionProposal
+	36, // 12: zerone.gov.v1.QuerySeatElectionResponse.votes:type_name -> zerone.gov.v1.SeatElectionVote
+	35, // 13: zerone.gov.v1.QuerySeatElectionsResponse.proposals:type_name -> zerone.gov.v1.SeatElectionProposal
+	37, // 14: zerone.gov.v1.QueryEmergencyTransitionHoldResponse.hold:type_name -> zerone.gov.v1.EmergencyTransitionHold
+	0,  // 15: zerone.gov.v1.Query.LIP:input_type -> zerone.gov.v1.QueryLIPRequest
+	2,  // 16: zerone.gov.v1.Query.LIPs:input_type -> zerone.gov.v1.QueryLIPsRequest
+	4,  // 17: zerone.gov.v1.Query.Vote:input_type -> zerone.gov.v1.QueryVoteRequest
+	6,  // 18: zerone.gov.v1.Query.Votes:input_type -> zerone.gov.v1.QueryVotesRequest
+	8,  // 19: zerone.gov.v1.Query.TallyResult:input_type -> zerone.gov.v1.QueryTallyResultRequest
+	10, // 20: zerone.gov.v1.Query.Params:input_type -> zerone.gov.v1.QueryParamsRequest
+	12, // 21: zerone.gov.v1.Query.ResearchSpend:input_type -> zerone.gov.v1.QueryResearchSpendRequest
+	14, // 22: zerone.gov.v1.Query.ResearchSpends:input_type -> zerone.gov.v1.QueryResearchSpendsRequest
+	16, // 23: zerone.gov.v1.Query.ResearchVoters:input_type -> zerone.gov.v1.QueryResearchVotersRequest
+	18, // 24: zerone.gov.v1.Query.ResearchFundGovernance:input_type -> zerone.gov.v1.QueryResearchFundGovernanceRequest
+	20, // 25: zerone.gov.v1.Query.SeatElection:input_type -> zerone.gov.v1.QuerySeatElectionRequest
+	22, // 26: zerone.gov.v1.Query.SeatElections:input_type -> zerone.gov.v1.QuerySeatElectionsRequest
+	24, // 27: zerone.gov.v1.Query.ResearchFundSeats:input_type -> zerone.gov.v1.QueryResearchFundSeatsRequest
+	26, // 28: zerone.gov.v1.Query.EmergencyTransitionHold:input_type -> zerone.gov.v1.QueryEmergencyTransitionHoldRequest
+	1,  // 29: zerone.gov.v1.Query.LIP:output_type -> zerone.gov.v1.QueryLIPResponse
+	3,  // 30: zerone.gov.v1.Query.LIPs:output_type -> zerone.gov.v1.QueryLIPsResponse
+	5,  // 31: zerone.gov.v1.Query.Vote:output_type -> zerone.gov.v1.QueryVoteResponse
+	7,  // 32: zerone.gov.v1.Query.Votes:output_type -> zerone.gov.v1.QueryVotesResponse
+	9,  // 33: zerone.gov.v1.Query.TallyResult:output_type -> zerone.gov.v1.QueryTallyResultResponse
+	11, // 34: zerone.gov.v1.Query.Params:output_type -> zerone.gov.v1.QueryParamsResponse
+	13, // 35: zerone.gov.v1.Query.ResearchSpend:output_type -> zerone.gov.v1.QueryResearchSpendResponse
+	15, // 36: zerone.gov.v1.Query.ResearchSpends:output_type -> zerone.gov.v1.QueryResearchSpendsResponse
+	17, // 37: zerone.gov.v1.Query.ResearchVoters:output_type -> zerone.gov.v1.QueryResearchVotersResponse
+	19, // 38: zerone.gov.v1.Query.ResearchFundGovernance:output_type -> zerone.gov.v1.QueryResearchFundGovernanceResponse
+	21, // 39: zerone.gov.v1.Query.SeatElection:output_type -> zerone.gov.v1.QuerySeatElectionResponse
+	23, // 40: zerone.gov.v1.Query.SeatElections:output_type -> zerone.gov.v1.QuerySeatElectionsResponse
+	25, // 41: zerone.gov.v1.Query.ResearchFundSeats:output_type -> zerone.gov.v1.QueryResearchFundSeatsResponse
+	27, // 42: zerone.gov.v1.Query.EmergencyTransitionHold:output_type -> zerone.gov.v1.QueryEmergencyTransitionHoldResponse
+	29, // [29:43] is the sub-list for method output_type
+	15, // [15:29] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_zerone_gov_v1_query_proto_init() }
@@ -1496,7 +1604,7 @@ func file_zerone_gov_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_gov_v1_query_proto_rawDesc), len(file_zerone_gov_v1_query_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   26,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

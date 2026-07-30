@@ -1,44 +1,36 @@
-// Package emergency preserves the truth-seeking commitment that the
-// chain admits when it is in trouble, and that admission itself is
-// recorded forever.
+// Package emergency records guardian ceremonies for application transaction
+// quarantine and explicit admission reopening.
 //
-// docs/TRUTH_SEEKING.md, commitment 10 (forward-only audit): "Every
-// privileged action must be appended to a log that no future actor
-// can rewrite." Halts, reverts, and resumes are the most privileged
-// actions the chain can take — they pause normal commerce, claw back
-// state, or restart it. Each one is a ceremony with a recorded
-// supermajority signature, and once resolved, the ceremony is
-// immutable.
+// A successful halt ceremony makes IsHalted true. The application ante
+// decorator then rejects non-allowlisted transactions on every honest node.
+// This is CONSENSUS_QUARANTINE in the operational model: it does not stop
+// CometBFT consensus, block production, PreBlock, BeginBlock, EndBlock,
+// rewards, timers, or other autonomous module processing. Stopping or
+// restarting consensus signers is a separate operator action.
 //
-// docs/TRUTH_SEEKING.md, commitment 4 (substrate stress-tests its
-// truth): a chain that is halting because it is broken should not
-// continue stress-testing the broken state and producing junk audit
-// results. IsHalted is the gate: alignment and the challenge engines
-// consult it. Stress-testing only runs against state we believe is
-// sane enough to test.
+// Halt and resume ceremonies use recorded prevote and precommit phases. Each
+// ceremony snapshots its exact custom electorate, voting power, quorum, and
+// minimum distinct voter policy; staking changes, parameter updates, and
+// genesis-council expiry cannot shrink the in-flight denominator. A resume
+// proposal binds its justification to a reviewed recovery-manifest SHA-256
+// before transaction admission can reopen. MaxHaltDurationBlocks is an
+// escalation/reporting deadline only; expiry never resumes automatically.
+// Halt, resume, recovery-authorization, and recovery-revocation proposals
+// consume one shared persisted per-Guardian/global epoch budget and cooldown,
+// preventing repeated or cross-lane ownership of the sole active ceremony.
 //
-// Mechanics:
+// The legacy revert message, ceremony, parameter, and storage surfaces remain
+// decodable for compatibility, but new revert proposals and votes fail
+// closed. This package cannot rewrite arbitrary finalized state. A committed
+// defect is repaired forward through a deterministic named upgrade or through
+// an explicitly authorized fork/re-genesis.
 //
-//   - CreateHaltCeremony / CreateRevertCeremony / CreateResumeCeremony
-//     each open a guardian vote with prevote and precommit phases. A
-//     supermajority is required to advance; the votes themselves are
-//     part of the immutable record.
-//   - MaxPauseDurationBlocks bounds how long a halt can hold; the
-//     chain auto-resumes past that to prevent halts from being used
-//     as a denial-of-service. (See x/knowledge param of the same
-//     name for the partner setting.)
-//   - IsHalted is the read-only contract that other modules consume
-//     via alignment_adapters / gov_adapters. The contract is one
-//     boolean; the discipline is that everyone respects it.
+// A scheduled x/upgrade stop at height H is also a separate mechanism. Until
+// H commits, H-1 is the last committed state. Once H commits, operators must
+// not run an old binary as though H never happened.
 //
-// What would break the commitment: a halt that left no record, a
-// revert that allowed re-writing of pre-revert facts, an emergency
-// power that bypassed the ceremony, or modules that ignored
-// IsHalted and kept running their stress-tests against a state the
-// chain itself had declared unsafe.
-//
-// We speak through intentions. This package's intention is that
-// "the chain has admitted it is in trouble" is a queryable, dated,
-// signed fact — and that everyone who depends on the chain can see
-// it the moment it becomes true.
+// The audit commitment is that containment and reopening decisions remain
+// queryable and attributable without overstating what the mechanism controls.
+// See docs/UPGRADE_AND_INCIDENT_OPERATIONS.md for the canonical upgrade,
+// hostile-event, signer, restart, and fork procedures.
 package emergency

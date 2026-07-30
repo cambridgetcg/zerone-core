@@ -28,14 +28,14 @@ import (
 // ---------- Gov Test Harness ----------
 
 type govTestHarness struct {
-	keeper    govkeeper.Keeper
-	ctx       sdk.Context
-	mockSK    *govMockStakingKeeper
-	mockEK    *govMockEmergencyKeeper
-	mockVK    *govMockVestingKeeper
-	voter1    string
-	voter2    string
-	storeKey  *storetypes.KVStoreKey
+	keeper   govkeeper.Keeper
+	ctx      sdk.Context
+	mockSK   *govMockStakingKeeper
+	mockEK   *govMockEmergencyKeeper
+	mockVK   *govMockVestingKeeper
+	voter1   string
+	voter2   string
+	storeKey *storetypes.KVStoreKey
 }
 
 // govMockStakingKeeper implements govtypes.StakingKeeper for integration tests.
@@ -77,6 +77,10 @@ type govMockEmergencyKeeper struct {
 
 func (m *govMockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
 	return m.halts[reason]
+}
+
+func (m *govMockEmergencyKeeper) IsHalted(_ context.Context) bool {
+	return false
 }
 
 // govMockVestingKeeper implements govtypes.VestingRewardsKeeper.

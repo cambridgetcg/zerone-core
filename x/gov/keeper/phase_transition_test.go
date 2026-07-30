@@ -167,8 +167,8 @@ func TestPhaseTransition_MetadataCreation(t *testing.T) {
 	// that bypasses validation and directly creates metadata.
 
 	lip := &types.LIP{
-		Id:       "LIP-100",
-		Category: types.CategoryPhaseTransition,
+		Id:          "LIP-100",
+		Category:    types.CategoryPhaseTransition,
 		Description: `{"target_phase": 2}`,
 	}
 
@@ -178,9 +178,9 @@ func TestPhaseTransition_MetadataCreation(t *testing.T) {
 
 	// Direct metadata creation.
 	meta := &types.PhaseTransitionProposal{
-		LipID:       lip.Id,
-		TargetPhase: types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER,
-		Stage:       types.PhaseTransitionStagePending,
+		LipID:           lip.Id,
+		TargetPhase:     types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER,
+		Stage:           types.PhaseTransitionStagePending,
 		ActivationBlock: 3_000_000,
 	}
 	k.SetPhaseTransitionMeta(ctx, meta)
@@ -708,8 +708,8 @@ func TestHasActivePhaseTransitionLIP(t *testing.T) {
 	}
 
 	k.SetPhaseTransitionMeta(ctx, &types.PhaseTransitionProposal{
-		LipID:   "LIP-1",
-		Stage:   types.PhaseTransitionStagePending,
+		LipID: "LIP-1",
+		Stage: types.PhaseTransitionStagePending,
 	})
 
 	if !k.HasActivePhaseTransitionLIP(ctx) {
@@ -760,8 +760,8 @@ func TestPhaseTransition_CancelPreservesReason(t *testing.T) {
 	k, ctx, _, _ := setupPhaseTransitionKeeper(t, "1000000000000", 100)
 
 	meta := &types.PhaseTransitionProposal{
-		LipID:   "LIP-1",
-		Stage:   types.PhaseTransitionStagePending,
+		LipID: "LIP-1",
+		Stage: types.PhaseTransitionStagePending,
 	}
 	k.SetPhaseTransitionMeta(ctx, meta)
 

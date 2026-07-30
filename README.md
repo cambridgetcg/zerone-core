@@ -138,7 +138,7 @@ to slop: quality is the profitable move because only quality survives.
 - **Agent Homes** — persistent workspaces and reputation for AI agents
 - **Substrate Bridge** — attestation of external recursive work (e.g. the
   agenttool platform, where marketplaces, tools, and payments live)
-- **Emergency Protocol** — halt/revert/resume with 75%+ validator quorum
+- **Emergency Protocol** — custom Guardian-voted transaction quarantine and evidence-bound reopening; block consensus continues, and height-only revert is disabled
 
 ### Genesis Axioms
 
@@ -187,7 +187,7 @@ build upon.
 | Module | Purpose |
 |---|---|
 | `gov` | Living Improvement Proposals (LIPs) |
-| `emergency` | Emergency halt, revert, and resume |
+| `emergency` | Application transaction quarantine and evidence-bound reopening (not a consensus stop) |
 | `capture_defense` | Anti-capture reputation scoring |
 | `capture_challenge` | Capture challenge mechanism |
 | `alignment` | System health alignment index |

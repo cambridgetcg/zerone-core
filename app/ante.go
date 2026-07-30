@@ -12,7 +12,8 @@ import (
 // 3. Fee routing: 7% to research fund, 93% to validators
 // 4. Zerone custom decorators:
 //   - Bootstrap gas-free period for PoT bootstrap
-//   - Emergency halt gate (block non-emergency txs when halted)
+//   - Emergency transaction quarantine (emergency coordination plus an exact
+//     expedited SDK software-upgrade proposal lane)
 //   - Frozen fee-granter enforcement before fee deduction
 //   - DID resolution and validation
 //   - Frozen account enforcement + LastActiveBlock tracking
@@ -29,8 +30,16 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 		// --- Bootstrap Gas-Free (RETIRED: window = 0 at mainnet; no-op, kept for gov re-activation) ---
 		NewBootstrapGasFreeDecorator(),
 
-		// --- Emergency Halt Gate (blocks non-emergency txs when chain is halted) ---
-		NewEmergencyHaltDecorator(app.EmergencyKeeper),
+		// --- Emergency transaction quarantine (consensus continues) ---
+		NewEmergencyHaltDecorator(
+			app.EmergencyKeeper,
+			newSDKGovRecoveryProposalReader(
+				app.GovKeeper,
+				app.EmergencyKeeper,
+				app.UpgradeKeeper,
+				&app.ZeroneGovKeeper,
+			),
+		),
 
 		// --- ZRN Pre-Auth (gas meter available) ---
 		NewZRNGasDecorator(),
@@ -48,6 +57,7 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 		ante.NewValidateSigCountDecorator(app.AccountKeeper),
 		ante.NewSigGasConsumeDecorator(app.AccountKeeper, ante.DefaultSigVerificationGasConsumer),
 		ante.NewSigVerificationDecorator(app.AccountKeeper, app.txConfig.SignModeHandler()),
+		NewEmergencyAuthenticationDecorator(),
 		ante.NewIncrementSequenceDecorator(app.AccountKeeper),
 
 		// --- Sybil Funding Tracker (records MsgSend sender->recipient for vote decay) ---

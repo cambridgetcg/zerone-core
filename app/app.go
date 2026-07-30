@@ -23,6 +23,8 @@ import (
 	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
+	storemetrics "cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/evidence"
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
@@ -54,6 +56,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -188,6 +191,53 @@ import (
 )
 
 // App-level constants are defined in app/constants.go.
+
+type sdk053IBC10StoreLoaderProof struct {
+	upgradeHeight       int64
+	preUpgradeVersion   int64
+	legacyRootsComplete bool
+	feeLockAbsent       bool
+	preflightOnly       bool
+}
+
+func committedLegacyStoreNames(
+	db dbm.DB,
+) (map[string]bool, error) {
+	result := map[string]bool{
+		legacyCapabilityStoreKey: false,
+		legacyIBCFeeStoreKey:     false,
+	}
+	latest := rootmulti.GetLatestVersion(db)
+	if latest == 0 {
+		return result, nil
+	}
+	inspector := rootmulti.NewStore(
+		db,
+		log.NewNopLogger(),
+		storemetrics.NewNoOpMetrics(),
+	)
+	commitInfo, err := inspector.GetCommitInfo(latest)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"inspect committed store set at version %d: %w",
+			latest,
+			err,
+		)
+	}
+	if commitInfo.Version != latest {
+		return nil, fmt.Errorf(
+			"committed store metadata version %d does not match latest version %d",
+			commitInfo.Version,
+			latest,
+		)
+	}
+	for _, storeInfo := range commitInfo.StoreInfos {
+		if _, tracked := result[storeInfo.Name]; tracked {
+			result[storeInfo.Name] = true
+		}
+	}
+	return result, nil
+}
 
 var (
 	// DefaultNodeHome is the default home directory for the node.
@@ -337,6 +387,7 @@ func MakeEncodingConfig() EncodingConfig {
 	ModuleBasics.RegisterInterfaces(interfaceRegistry)
 	ModuleBasics.RegisterLegacyAminoCodec(legacyAmino)
 	txtypes.RegisterInterfaces(interfaceRegistry)
+	authz.RegisterInterfaces(interfaceRegistry)
 
 	return EncodingConfig{
 		InterfaceRegistry: interfaceRegistry,
@@ -353,10 +404,17 @@ type GenesisState map[string]json.RawMessage
 type ZeroneApp struct {
 	*baseapp.BaseApp
 
+	db                dbm.DB
 	legacyAmino       *codec.LegacyAmino
 	appCodec          codec.Codec
 	txConfig          client.TxConfig
 	interfaceRegistry codectypes.InterfaceRegistry
+
+	sdk053IBC10LegacyStoresAtStartup map[string]bool
+	sdk053IBC10DiskUpgradeInfo       upgradetypes.Plan
+	sdk053IBC10LoaderProof           *sdk053IBC10StoreLoaderProof
+	activationPreflightReadOnly      bool
+	unsafeSkipUpgradeHeights         map[int64]bool
 
 	// Store keys
 	keys  map[string]*storetypes.KVStoreKey
@@ -441,6 +499,48 @@ func NewZeroneApp(
 	appOpts servertypes.AppOptions,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *ZeroneApp {
+	return newZeroneApp(
+		logger,
+		db,
+		traceStore,
+		loadLatest,
+		appOpts,
+		false,
+		baseAppOptions...,
+	)
+}
+
+// NewActivationPreflightApp creates the variant used only against an isolated
+// application-DB copy. Offline mode is a constructor capability, not a Viper
+// option that a normal daemon start can inject.
+func NewActivationPreflightApp(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	loadLatest bool,
+	appOpts servertypes.AppOptions,
+	baseAppOptions ...func(*baseapp.BaseApp),
+) *ZeroneApp {
+	return newZeroneApp(
+		logger,
+		db,
+		traceStore,
+		loadLatest,
+		appOpts,
+		true,
+		baseAppOptions...,
+	)
+}
+
+func newZeroneApp(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	loadLatest bool,
+	appOpts servertypes.AppOptions,
+	activationPreflightReadOnly bool,
+	baseAppOptions ...func(*baseapp.BaseApp),
+) *ZeroneApp {
 	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(codectypes.InterfaceRegistryOptions{
 		ProtoFiles: proto.HybridResolver,
 		SigningOptions: signing.Options{
@@ -461,6 +561,7 @@ func NewZeroneApp(
 	ModuleBasics.RegisterInterfaces(interfaceRegistry)
 	ModuleBasics.RegisterLegacyAminoCodec(legacyAmino)
 	txtypes.RegisterInterfaces(interfaceRegistry)
+	authz.RegisterInterfaces(interfaceRegistry)
 	// IBC light client types must be registered for tx decoding (Any unpacking).
 	// Registered here rather than in ModuleBasics because their DefaultGenesis returns nil.
 	ibctm.RegisterInterfaces(interfaceRegistry)
@@ -472,6 +573,10 @@ func NewZeroneApp(
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 
 	// ---- Store Keys ----
+	committedLegacyStores := map[string]bool{
+		legacyCapabilityStoreKey: false,
+		legacyIBCFeeStoreKey:     false,
+	}
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey,
 		banktypes.StoreKey,
@@ -510,16 +615,39 @@ func NewZeroneApp(
 		zeroneworkcreedtypes.StoreKey,
 		substratebridgetypes.StoreKey,
 	)
+	if activationPreflightReadOnly {
+		legacyStores, err := committedLegacyStoreNames(db)
+		if err != nil {
+			panic(
+				fmt.Sprintf(
+					"failed to inspect committed stores for read-only activation preflight: %s",
+					err,
+				),
+			)
+		}
+		for _, name := range []string{
+			legacyCapabilityStoreKey,
+			legacyIBCFeeStoreKey,
+		} {
+			if legacyStores[name] {
+				keys[name] = storetypes.NewKVStoreKey(name)
+			}
+		}
+		committedLegacyStores = legacyStores
+	}
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 
 	app := &ZeroneApp{
-		BaseApp:           bApp,
-		legacyAmino:       legacyAmino,
-		appCodec:          appCodec,
-		txConfig:          txConfig,
-		interfaceRegistry: interfaceRegistry,
-		keys:              keys,
-		tkeys:             tkeys,
+		BaseApp:                          bApp,
+		db:                               db,
+		legacyAmino:                      legacyAmino,
+		appCodec:                         appCodec,
+		txConfig:                         txConfig,
+		interfaceRegistry:                interfaceRegistry,
+		keys:                             keys,
+		tkeys:                            tkeys,
+		sdk053IBC10LegacyStoresAtStartup: committedLegacyStores,
+		activationPreflightReadOnly:      activationPreflightReadOnly,
 	}
 
 	// ---- Module Keepers ----
@@ -593,8 +721,10 @@ func NewZeroneApp(
 	if upgradeHomePath == "" {
 		upgradeHomePath = DefaultNodeHome
 	}
+	configuredSkipUpgradeHeights := skipUpgradeHeights(appOpts)
+	app.unsafeSkipUpgradeHeights = configuredSkipUpgradeHeights
 	app.UpgradeKeeper = upgradekeeper.NewKeeper(
-		skipUpgradeHeights(appOpts),
+		configuredSkipUpgradeHeights,
 		sdkruntime.NewKVStoreService(keys[upgradetypes.StoreKey]),
 		appCodec,
 		upgradeHomePath,
@@ -772,7 +902,6 @@ func NewZeroneApp(
 		govStakingAdapter,
 	)
 	app.ZeroneGovKeeper.SetVestingKeeper(&app.VestingRewardsKeeper)
-	app.ZeroneGovKeeper.SetUpgradeKeeper(NewGovUpgradeAdapter(app.UpgradeKeeper))
 	app.ZeroneGovKeeper.SetParamRouter(NewGovParamRouter())
 
 	qualificationStakingAdapter := zeronestakingkeeper.NewQualificationStakingKeeperAdapter(app.ZeroneStakingKeeper)
@@ -798,6 +927,13 @@ func NewZeroneApp(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		emergencyStakingAdapter,
+	)
+	app.EmergencyKeeper.SetRecoveryAuthorizationTargetVerifier(
+		newSDKGovRecoveryProposalReader(
+			app.GovKeeper,
+			app.EmergencyKeeper,
+			app.UpgradeKeeper,
+		),
 	)
 	app.ZeroneGovKeeper.SetEmergencyKeeper(zeroneemergencykeeper.NewGovEmergencyAdapter(app.EmergencyKeeper))
 
@@ -1029,10 +1165,25 @@ func NewZeroneApp(
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper, nil),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, nil),
 		distr.NewAppModule(appCodec, app.DistrKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil),
-		gov.NewAppModule(appCodec, app.GovKeeper, app.AccountKeeper, app.BankKeeper, nil),
+		newEmergencyAwareGovAppModule(
+			gov.NewAppModule(
+				appCodec,
+				app.GovKeeper,
+				app.AccountKeeper,
+				app.BankKeeper,
+				nil,
+			),
+			app.GovKeeper,
+			app.EmergencyKeeper,
+			app.UpgradeKeeper,
+			app.ZeroneGovKeeper,
+		),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil, appCodec.InterfaceRegistry()),
 		feegrantmodule.NewAppModule(appCodec, app.AccountKeeper, app.BankKeeper, app.FeeGrantKeeper, appCodec.InterfaceRegistry()),
-		upgrade.NewAppModule(app.UpgradeKeeper, addresscodec.NewBech32Codec(AccountAddressPrefix)),
+		newSingletonUpgradeAppModule(
+			app.UpgradeKeeper,
+			addresscodec.NewBech32Codec(AccountAddressPrefix),
+		),
 		evidence.NewAppModule(app.EvidenceKeeper),
 		consensus.NewAppModule(appCodec, app.ConsensusKeeper),
 		ibc.NewAppModule(app.IBCKeeper),
@@ -1048,7 +1199,11 @@ func NewZeroneApp(
 		zeroneknowledge.NewAppModule(appCodec, app.KnowledgeKeeper),
 		zeronetokens.NewAppModule(appCodec, app.TokensKeeper),
 		zeroneliquiditypool.NewAppModule(appCodec, app.LiquidityPoolKeeper),
-		zeronegov.NewAppModule(appCodec, app.ZeroneGovKeeper),
+		newEmergencyAwareCustomGovAppModule(
+			zeronegov.NewAppModule(appCodec, app.ZeroneGovKeeper),
+			app.ZeroneGovKeeper,
+			app.EmergencyKeeper,
+		),
 		zeronequalification.NewAppModule(appCodec, app.QualificationKeeper),
 		zeroneemergency.NewAppModule(appCodec, app.EmergencyKeeper),
 		zeronecapturedefense.NewAppModule(appCodec, app.CaptureDefenseKeeper),
@@ -1205,9 +1360,13 @@ func NewZeroneApp(
 	// Register upgrade handlers (must be after RegisterServices, before LoadLatestVersion).
 	app.RegisterUpgradeHandlers()
 
-	// Configure store loaders for upgrades that add/remove store keys (must be before LoadLatestVersion).
-	if err := app.RegisterStoreUpgrades(); err != nil {
-		panic(fmt.Sprintf("failed to configure upgrade store loader: %s", err))
+	// Configure store loaders for upgrades that add/remove store keys (must be
+	// before LoadLatestVersion). The offline verifier instead mounts old stores
+	// read-only and must never stage their deletion.
+	if !activationPreflightReadOnly {
+		if err := app.RegisterStoreUpgrades(); err != nil {
+			panic(fmt.Sprintf("failed to configure upgrade store loader: %s", err))
+		}
 	}
 
 	// Mount stores
@@ -1250,7 +1409,14 @@ func NewZeroneApp(
 			logger.Error("error loading latest version", "err", err)
 			os.Exit(1)
 		}
-
+		if err := app.ValidateSDK053IBC10StartupCoordination(); err != nil {
+			logger.Error(
+				"refusing unsafe SDK/IBC startup",
+				"err",
+				err,
+			)
+			os.Exit(1)
+		}
 	}
 
 	return app
@@ -1279,6 +1445,16 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	if err != nil {
 		return nil, err
+	}
+	if err := app.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		sdk053IBC10NativeMarker,
+		"genesis",
+	); err != nil {
+		return nil, fmt.Errorf(
+			"write native SDK/IBC genesis lineage marker: %w",
+			err,
+		)
 	}
 
 	// Write a sentinel key to every IAVL store so that none remain empty.

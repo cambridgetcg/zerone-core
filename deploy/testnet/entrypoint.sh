@@ -1,80 +1,18 @@
 #!/usr/bin/env bash
-# First-boot seeder for the zerone-testnet-1 fly node.
-# On an empty volume: lay down the baked genesis + node key, take the
-# validator signing key from a fly secret (falls back to the baked key for
-# local docker runs), and tune config for a public single validator.
 set -euo pipefail
 
-HOME_DIR="${ZERONE_HOME:-/data/.zeroned}"
-SEED="/testnet-seed"
+export ZERONE_CHAIN_ID="zerone-testnet-1"
+export ZERONE_SEED="/testnet-seed"
+export ZERONE_DEFAULT_MONIKER="zerone-testnet-fly"
+export ZERONE_GENESIS_SHA256="a2a5499fcd43668f328b0ab504ad9f7c3aadd65f7abd8a4f3991b927872a6a2a"
 
-if [ ! -f "${HOME_DIR}/config/genesis.json" ]; then
-  echo "[entrypoint] fresh volume — seeding ${HOME_DIR}"
-  zeroned init "${MONIKER:-zerone-testnet-fly}" --chain-id zerone-testnet-1 \
-    --default-denom uzrn --home "${HOME_DIR}" >/dev/null 2>&1
-
-  cp "${SEED}/genesis.json"  "${HOME_DIR}/config/genesis.json"
-  cp "${SEED}/node_key.json" "${HOME_DIR}/config/node_key.json"
-
-  # Validator signing key: prefer the fly secret, else the baked play key.
-  if [ -n "${PRIV_VALIDATOR_KEY_B64:-}" ]; then
-    echo "${PRIV_VALIDATOR_KEY_B64}" | base64 -d > "${HOME_DIR}/config/priv_validator_key.json"
-    echo "[entrypoint] validator key from secret"
-  else
-    cp "${SEED}/priv_validator_key.json" "${HOME_DIR}/config/priv_validator_key.json"
-    echo "[entrypoint] validator key from baked seed (play testnet)"
+common_entrypoint="/usr/local/libexec/zerone-fly-validator-entrypoint"
+if [[ ! -x "${common_entrypoint}" ]]; then
+  script_directory="${BASH_SOURCE[0]%/*}"
+  if [[ "${script_directory}" == "${BASH_SOURCE[0]}" ]]; then
+    script_directory="."
   fi
-
-  CFG="${HOME_DIR}/config/config.toml"
-  APP="${HOME_DIR}/config/app.toml"
-
-  # RPC + P2P bind on all interfaces.
-  sed -i 's|^laddr = "tcp://127.0.0.1:26657"|laddr = "tcp://0.0.0.0:26657"|' "${CFG}"
-  # A public single-validator node serves clients, not a strict peer mesh.
-  sed -i 's|^addr_book_strict = true|addr_book_strict = false|' "${CFG}"
-  sed -i 's|^allow_duplicate_ip = false|allow_duplicate_ip = true|' "${CFG}"
-  sed -i 's|^cors_allowed_origins = \[\]|cors_allowed_origins = ["*"]|' "${CFG}"
-
-  # REST already enabled by default; just make it public + CORS, and gRPC public.
-  sed -i 's|^address = "tcp://localhost:1317"|address = "tcp://0.0.0.0:1317"|' "${APP}"
-  sed -i 's|^enabled-unsafe-cors = false|enabled-unsafe-cors = true|' "${APP}"
-  sed -i 's|^address = "localhost:9090"|address = "0.0.0.0:9090"|' "${APP}"
-else
-  echo "[entrypoint] existing volume — resuming"
+  export ZERONE_SEED="${script_directory}/artifacts"
+  common_entrypoint="${script_directory}/../fly-validator-entrypoint-common.sh"
 fi
-
-# Advertise the public P2P address on EVERY boot (the dedicated IP is known
-# only after allocation, and peers must dial a routable address to sync).
-if [ -n "${EXTERNAL_ADDRESS:-}" ]; then
-  sed -i "s|^external_address = .*|external_address = \"${EXTERNAL_ADDRESS}\"|" "${HOME_DIR}/config/config.toml"
-  echo "[entrypoint] external_address = ${EXTERNAL_ADDRESS}"
-fi
-
-# The node validates app.toml's minimum-gas-prices BEFORE the --minimum-gas-prices
-# flag override, so it must be non-empty in app.toml. Set it on EVERY boot
-# (handles a resumed volume too); replace an existing line or append if missing.
-APP="${HOME_DIR}/config/app.toml"
-if grep -q '^minimum-gas-prices' "${APP}"; then
-  sed -i 's|^minimum-gas-prices = .*|minimum-gas-prices = "0.025uzrn"|' "${APP}"
-else
-  printf '\nminimum-gas-prices = "0.025uzrn"\n' >> "${APP}"
-fi
-echo "[entrypoint] $(grep '^minimum-gas-prices' "${APP}")"
-
-# Run the node directly. cosmovisor was trialled here and removed on 2026-07-25:
-# in an immutable-image deployment it cannot help with a NEW upgrade (the
-# replacement binary only ever arrives by deploying an image), and it actively
-# hurt. At the agenttool-seam-v1 halt it exited 1, fly's crash-loop backoff then
-# STOPPED the machine, RPC went dark, and the machine still needed a manual
-# start after the correct image was deployed.
-#
-# Without it the same halt is a good one: the node stays up, RPC keeps
-# answering, the log says UPGRADE "<name>" NEEDED, and deploying the
-# pre-built image resumes the chain in ~90s. Pre-building the image before the
-# upgrade height is what actually turned a 28h outage into ~2min — that is the
-# practice worth keeping, not the supervisor.
-#
-# EXTRA_START_FLAGS: incident escape hatch settable via `fly secrets set` /
-# [env] without an image rebuild — e.g. "--unsafe-skip-upgrades <height>" to
-# skip a bad upgrade plan after redeploying the previous image.
-exec zeroned start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn ${EXTRA_START_FLAGS:-}
+exec "${common_entrypoint}"

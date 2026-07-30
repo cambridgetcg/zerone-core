@@ -231,6 +231,41 @@ func TestResearchSpend_Timeout(t *testing.T) {
 	}
 }
 
+func TestResearchSpend_VoteRejectsExpiredDeadlineWithoutBeginBlock(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	voter1, _ := setupResearchVoters(t, k, ctx)
+	mock := &mockVestingKeeper{}
+	k.SetVestingKeeper(mock)
+
+	resp, err := k.SubmitResearchSpend(ctx, &types.MsgSubmitResearchSpend{
+		Proposer:  voter1,
+		Title:     "deadline must be locally enforced",
+		Recipient: testAddr("recipient"),
+		Amount:    "100000000",
+	})
+	if err != nil {
+		t.Fatalf("submit research spend: %v", err)
+	}
+	prop, found := k.GetResearchSpendProposal(ctx, resp.ProposalId)
+	if !found {
+		t.Fatal("submitted research spend missing")
+	}
+	prop.Stage = string(types.ResearchStageVoting)
+	prop.VotingEndsAt = uint64(ctx.BlockHeight())
+	k.SetResearchSpendProposal(ctx, prop)
+
+	if _, err := k.VoteResearchSpend(ctx, &types.MsgVoteResearchSpend{
+		Voter:      voter1,
+		ProposalId: resp.ProposalId,
+		Vote:       "yes",
+	}); !types.ErrVotingPeriodEnded.Is(err) {
+		t.Fatalf("expired vote error = %v, want ErrVotingPeriodEnded", err)
+	}
+	if mock.disburseCalled {
+		t.Fatal("expired vote disbursed research funds")
+	}
+}
+
 func TestResearchSpend_DoubleVote(t *testing.T) {
 	k, ctx := setupKeeper(t)
 	voter1, _ := setupResearchVoters(t, k, ctx)

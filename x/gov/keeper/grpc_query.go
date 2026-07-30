@@ -117,6 +117,23 @@ func (qs *queryServer) Params(goCtx context.Context, _ *types.QueryParamsRequest
 	return &types.QueryParamsResponse{Params: params}, nil
 }
 
+// EmergencyTransitionHold reports the durable post-quarantine review gate.
+func (qs *queryServer) EmergencyTransitionHold(
+	goCtx context.Context,
+	_ *types.QueryEmergencyTransitionHoldRequest,
+) (*types.QueryEmergencyTransitionHoldResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	hold, found, err := qs.GetEmergencyTransitionHold(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryEmergencyTransitionHoldResponse{
+		Held:             found,
+		Hold:             hold,
+		ReleaseMechanism: "future_named_software_upgrade_with_no_current_release_api_after_complete_queue_reconciliation",
+	}, nil
+}
+
 // --- Research Spend Query Handlers ---
 
 // ResearchSpend returns a single research spend proposal by ID.

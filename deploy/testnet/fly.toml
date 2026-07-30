@@ -1,9 +1,12 @@
-# zerone-testnet-1 — single public validator on fly.io
+# zerone-testnet-1 — transitional custodial validator on fly.io.
+# No RPC/REST/gRPC service is published from the consensus-key machine.
 app = "zerone-testnet-1"
 primary_region = "lhr"
 
 [build]
-  dockerfile = "Dockerfile"
+  # Build from the repository root with reviewed VERSION, full 40-hex COMMIT,
+  # and SOURCE_DATE_EPOCH values supplied through repeated --build-arg flags.
+  dockerfile = "deploy/testnet/Dockerfile"
 
 [env]
   MONIKER = "zerone-testnet-fly-0"
@@ -13,28 +16,6 @@ primary_region = "lhr"
 [mounts]
   source = "zerone_data"
   destination = "/data"
-
-# CometBFT RPC (26657) — HTTP, public.
-[[services]]
-  internal_port = 26657
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
-  [[services.ports]]
-    port = 26657
-    handlers = ["http"]
-
-# REST / LCD (1317) — HTTP, public.
-[[services]]
-  internal_port = 1317
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
-  [[services.ports]]
-    port = 1317
-    handlers = ["http"]
 
 # P2P (26656) — raw TCP so other nodes can peer/sync.
 [[services]]

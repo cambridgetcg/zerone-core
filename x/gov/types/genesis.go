@@ -1,24 +1,30 @@
 package types
 
-import "fmt"
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"fmt"
+	"strings"
+)
 
 // DefaultParams returns the default governance parameters.
 func DefaultParams() *Params {
 	return &Params{
 		VotingPeriodBlocks:     102816,
 		DiscussionPeriodBlocks: 68544,
-		QuorumThresholdBps:     334000,  // 33.4% on 1M scale
-		SupportThresholdBps:    500000,  // 50% on 1M scale
-		MinLipStake:            "1000000",   // 1 ZRN
-		MinVoteStake:           "0",         // no minimum to vote
+		QuorumThresholdBps:     334000,    // 33.4% on 1M scale
+		SupportThresholdBps:    500000,    // 50% on 1M scale
+		MinLipStake:            "1000000", // 1 ZRN
+		MinVoteStake:           "0",       // no minimum to vote
 		CategoryConfigs: []*CategoryConfig{
-			{Category: CategoryParameter, RequiredStakeUzrn: "1000000000", ReviewBlocks: 34272},      // 1000 ZRN, ~1 day
-			{Category: CategoryUpgrade, RequiredStakeUzrn: "800000000", ReviewBlocks: 34272},          // 800 ZRN, ~1 day
-			{Category: CategoryText, RequiredStakeUzrn: "400000000", ReviewBlocks: 17136},             // 400 ZRN, ~12h
-			{Category: CategoryResearchSpend, RequiredStakeUzrn: "200000000", ReviewBlocks: 17136},    // 200 ZRN, ~12h
-			{Category: CategorySeatElection, RequiredStakeUzrn: "500000000", ReviewBlocks: 34272},           // 500 ZRN, ~1 day
-			{Category: CategoryPhaseTransition, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000},  // 1,000 ZRN, ~30 days
-			{Category: CategoryPhaseRollback, RequiredStakeUzrn: "500000000000", ReviewBlocks: 240000},      // 500 ZRN, ~7 days
+			{Category: CategoryParameter, RequiredStakeUzrn: "1000000000", ReviewBlocks: 34272},            // 1000 ZRN, ~1 day
+			{Category: CategoryUpgrade, RequiredStakeUzrn: "800000000", ReviewBlocks: 34272},               // 800 ZRN, ~1 day
+			{Category: CategoryText, RequiredStakeUzrn: "400000000", ReviewBlocks: 17136},                  // 400 ZRN, ~12h
+			{Category: CategoryResearchSpend, RequiredStakeUzrn: "200000000", ReviewBlocks: 17136},         // 200 ZRN, ~12h
+			{Category: CategorySeatElection, RequiredStakeUzrn: "500000000", ReviewBlocks: 34272},          // 500 ZRN, ~1 day
+			{Category: CategoryPhaseTransition, RequiredStakeUzrn: "1000000000000", ReviewBlocks: 1030000}, // 1,000 ZRN, ~30 days
+			{Category: CategoryPhaseRollback, RequiredStakeUzrn: "500000000000", ReviewBlocks: 240000},     // 500 ZRN, ~7 days
 			// CategoryAdapterRegistration: same stake + review window as CategoryCreedAmendment
 			// (not yet in this list — see commitment 20 rationale in types.go). Requires
 			// 1,000 ZRN stake and ~30-day review, identical to phase-transition weight,
@@ -48,12 +54,12 @@ func DefaultResearchFundGovernanceState() *ResearchFundGovernanceState {
 // DefaultGenesisState returns the default genesis state for the governance module.
 func DefaultGenesisState() *GenesisState {
 	return &GenesisState{
-		Params:                  DefaultParams(),
-		Lips:                    nil,
-		Votes:                   nil,
-		NextLipNumber:           1,
+		Params:                 DefaultParams(),
+		Lips:                   nil,
+		Votes:                  nil,
+		NextLipNumber:          1,
 		NextSeatElectionNumber: 1,
-		ResearchFundGovernance:  DefaultResearchFundGovernanceState(),
+		ResearchFundGovernance: DefaultResearchFundGovernanceState(),
 	}
 }
 
@@ -67,6 +73,9 @@ func (gs *GenesisState) Validate() error {
 	}
 	if gs.NextLipNumber == 0 {
 		return fmt.Errorf("next_lip_number must be >= 1")
+	}
+	if err := ValidateEmergencyTransitionHold(gs.EmergencyTransitionHold); err != nil {
+		return err
 	}
 	// Check for duplicate LIP IDs.
 	seen := make(map[string]bool)
@@ -97,6 +106,77 @@ func (gs *GenesisState) Validate() error {
 		}
 	}
 	return nil
+}
+
+// ValidateEmergencyTransitionHold validates the durable post-quarantine
+// custom-governance review gate.
+func ValidateEmergencyTransitionHold(hold *EmergencyTransitionHold) error {
+	if hold == nil {
+		return nil
+	}
+	if hold.IncidentId == "" ||
+		strings.TrimSpace(hold.IncidentId) != hold.IncidentId ||
+		len(hold.IncidentId) > 512 {
+		return fmt.Errorf(
+			"emergency transition hold incident_id must be non-empty, trimmed, and at most 512 bytes",
+		)
+	}
+	if hold.ActivatedAtBlock == 0 {
+		return fmt.Errorf(
+			"emergency transition hold activated_at_block must be positive",
+		)
+	}
+	if hold.LatestIncidentId == "" ||
+		strings.TrimSpace(hold.LatestIncidentId) != hold.LatestIncidentId ||
+		len(hold.LatestIncidentId) > 512 {
+		return fmt.Errorf(
+			"emergency transition hold latest_incident_id must be non-empty, trimmed, and at most 512 bytes",
+		)
+	}
+	if hold.IncidentCount == 0 {
+		return fmt.Errorf(
+			"emergency transition hold incident_count must be positive",
+		)
+	}
+	if len(hold.IncidentLineageSha256) != 32 {
+		return fmt.Errorf(
+			"emergency transition hold incident_lineage_sha256 must be 32 bytes",
+		)
+	}
+	if hold.IncidentCount == 1 &&
+		hold.LatestIncidentId != hold.IncidentId {
+		return fmt.Errorf(
+			"single-incident emergency transition hold must use the same first and latest incident",
+		)
+	}
+	if hold.IncidentCount == 1 &&
+		!bytes.Equal(
+			hold.IncidentLineageSha256,
+			AdvanceEmergencyIncidentLineage(nil, hold.IncidentId),
+		) {
+		return fmt.Errorf(
+			"single-incident emergency transition hold has an invalid lineage commitment",
+		)
+	}
+	return nil
+}
+
+// AdvanceEmergencyIncidentLineage returns the fixed-size, domain-separated
+// rolling commitment after observing incidentID. previous must be nil for the
+// first incident or exactly one SHA-256 digest for a later incident.
+func AdvanceEmergencyIncidentLineage(previous []byte, incidentID string) []byte {
+	hasher := sha256.New()
+	_, _ = hasher.Write([]byte(
+		"zerone.gov/emergency-transition-incident-lineage/v1\x00",
+	))
+	if len(previous) == sha256.Size {
+		_, _ = hasher.Write(previous)
+	}
+	var size [8]byte
+	binary.BigEndian.PutUint64(size[:], uint64(len(incidentID)))
+	_, _ = hasher.Write(size[:])
+	_, _ = hasher.Write([]byte(incidentID))
+	return hasher.Sum(nil)
 }
 
 // Validate validates the governance parameters.

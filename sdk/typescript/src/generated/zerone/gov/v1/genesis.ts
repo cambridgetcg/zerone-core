@@ -87,6 +87,33 @@ export interface GenesisCreedAmendmentPin {
   commitmentsJson: Uint8Array;
 }
 /**
+ * EmergencyTransitionHold is the durable post-incident review gate for every
+ * automatic custom-governance transition. It is created when transaction
+ * quarantine is observed and is not cleared by an ordinary resume ceremony.
+ * @name EmergencyTransitionHold
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.EmergencyTransitionHold
+ */
+export interface EmergencyTransitionHold {
+  incidentId: string;
+  activatedAtBlock: bigint;
+  /**
+   * Most recently observed quarantine incident. incident_id remains the first
+   * incident for compact API compatibility.
+   */
+  latestIncidentId: string;
+  /**
+   * Number of chronological incident observations committed by this hold.
+   */
+  incidentCount: bigint;
+  /**
+   * Domain-separated rolling SHA-256 commitment to the complete chronological
+   * incident lineage. This keeps consensus state bounded even if a review hold
+   * spans many independently finalized quarantine incidents.
+   */
+  incidentLineageSha256: Uint8Array;
+}
+/**
  * GenesisState defines the governance module's genesis state.
  * @name GenesisState
  * @package zerone.gov.v1
@@ -103,6 +130,7 @@ export interface GenesisState {
   seatElectionVotes: SeatElectionVote[];
   nextSeatElectionNumber: bigint;
   creedAmendmentPins: GenesisCreedAmendmentPin[];
+  emergencyTransitionHold?: EmergencyTransitionHold;
 }
 function createBaseParams(): Params {
   return {
@@ -385,6 +413,82 @@ export const GenesisCreedAmendmentPin = {
     return message;
   }
 };
+function createBaseEmergencyTransitionHold(): EmergencyTransitionHold {
+  return {
+    incidentId: "",
+    activatedAtBlock: BigInt(0),
+    latestIncidentId: "",
+    incidentCount: BigInt(0),
+    incidentLineageSha256: new Uint8Array()
+  };
+}
+/**
+ * EmergencyTransitionHold is the durable post-incident review gate for every
+ * automatic custom-governance transition. It is created when transaction
+ * quarantine is observed and is not cleared by an ordinary resume ceremony.
+ * @name EmergencyTransitionHold
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.EmergencyTransitionHold
+ */
+export const EmergencyTransitionHold = {
+  typeUrl: "/zerone.gov.v1.EmergencyTransitionHold",
+  encode(message: EmergencyTransitionHold, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.incidentId !== "") {
+      writer.uint32(10).string(message.incidentId);
+    }
+    if (message.activatedAtBlock !== BigInt(0)) {
+      writer.uint32(16).uint64(message.activatedAtBlock);
+    }
+    if (message.latestIncidentId !== "") {
+      writer.uint32(26).string(message.latestIncidentId);
+    }
+    if (message.incidentCount !== BigInt(0)) {
+      writer.uint32(32).uint64(message.incidentCount);
+    }
+    if (message.incidentLineageSha256.length !== 0) {
+      writer.uint32(42).bytes(message.incidentLineageSha256);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): EmergencyTransitionHold {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEmergencyTransitionHold();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.incidentId = reader.string();
+          break;
+        case 2:
+          message.activatedAtBlock = reader.uint64();
+          break;
+        case 3:
+          message.latestIncidentId = reader.string();
+          break;
+        case 4:
+          message.incidentCount = reader.uint64();
+          break;
+        case 5:
+          message.incidentLineageSha256 = reader.bytes();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<EmergencyTransitionHold>): EmergencyTransitionHold {
+    const message = createBaseEmergencyTransitionHold();
+    message.incidentId = object.incidentId ?? "";
+    message.activatedAtBlock = object.activatedAtBlock !== undefined && object.activatedAtBlock !== null ? BigInt(object.activatedAtBlock.toString()) : BigInt(0);
+    message.latestIncidentId = object.latestIncidentId ?? "";
+    message.incidentCount = object.incidentCount !== undefined && object.incidentCount !== null ? BigInt(object.incidentCount.toString()) : BigInt(0);
+    message.incidentLineageSha256 = object.incidentLineageSha256 ?? new Uint8Array();
+    return message;
+  }
+};
 function createBaseGenesisState(): GenesisState {
   return {
     params: undefined,
@@ -396,7 +500,8 @@ function createBaseGenesisState(): GenesisState {
     seatElections: [],
     seatElectionVotes: [],
     nextSeatElectionNumber: BigInt(0),
-    creedAmendmentPins: []
+    creedAmendmentPins: [],
+    emergencyTransitionHold: undefined
   };
 }
 /**
@@ -438,6 +543,9 @@ export const GenesisState = {
     for (const v of message.creedAmendmentPins) {
       GenesisCreedAmendmentPin.encode(v!, writer.uint32(82).fork()).ldelim();
     }
+    if (message.emergencyTransitionHold !== undefined) {
+      EmergencyTransitionHold.encode(message.emergencyTransitionHold, writer.uint32(90).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -477,6 +585,9 @@ export const GenesisState = {
         case 10:
           message.creedAmendmentPins.push(GenesisCreedAmendmentPin.decode(reader, reader.uint32()));
           break;
+        case 11:
+          message.emergencyTransitionHold = EmergencyTransitionHold.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -496,6 +607,7 @@ export const GenesisState = {
     message.seatElectionVotes = object.seatElectionVotes?.map(e => SeatElectionVote.fromPartial(e)) || [];
     message.nextSeatElectionNumber = object.nextSeatElectionNumber !== undefined && object.nextSeatElectionNumber !== null ? BigInt(object.nextSeatElectionNumber.toString()) : BigInt(0);
     message.creedAmendmentPins = object.creedAmendmentPins?.map(e => GenesisCreedAmendmentPin.fromPartial(e)) || [];
+    message.emergencyTransitionHold = object.emergencyTransitionHold !== undefined && object.emergencyTransitionHold !== null ? EmergencyTransitionHold.fromPartial(object.emergencyTransitionHold) : undefined;
     return message;
   }
 };

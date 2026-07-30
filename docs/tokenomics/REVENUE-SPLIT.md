@@ -89,7 +89,7 @@ A permanent 7% deduction from the research fund portion. **This share is hardene
 - This goes directly to the founder's address (not locked/vested)
 - If founder address is empty (pre-launch), 100% goes to research fund
 
-**Why governance-immune?** The founder share is a permanent protocol commitment, not a temporary bootstrap mechanism. It ensures the protocol's creator has perpetual alignment with the network's success. Governance can change almost everything else — but not this. It would take a code upgrade (which governance *can* propose via an upgrade-category LIP) to modify the founder share, requiring far higher coordination than a simple parameter change.
+**Why governance-immune?** The founder share is a permanent protocol commitment, not a temporary bootstrap mechanism. It ensures the protocol's creator has perpetual alignment with the network's success. Governance can change almost everything else — but not this. It would take a code upgrade scheduled through standard Cosmos SDK governance to modify the founder share, requiring far higher coordination than a simple parameter change.
 
 **Enforcement:** `ValidateFounderShareImmutability()` in `MsgUpdateParams` rejects any governance proposal that attempts to modify `founder_share_bps` or `founder_address` once set.
 

@@ -514,8 +514,10 @@ type MsgProposeResume struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Proposer      string                 `protobuf:"bytes,1,opt,name=proposer,proto3" json:"proposer,omitempty"`
 	Justification string                 `protobuf:"bytes,2,opt,name=justification,proto3" json:"justification,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Lowercase 64-character SHA-256 of the canonical recovery manifest.
+	RecoveryManifestSha256 string `protobuf:"bytes,3,opt,name=recovery_manifest_sha256,json=recoveryManifestSha256,proto3" json:"recovery_manifest_sha256,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *MsgProposeResume) Reset() {
@@ -558,6 +560,13 @@ func (x *MsgProposeResume) GetProposer() string {
 func (x *MsgProposeResume) GetJustification() string {
 	if x != nil {
 		return x.Justification
+	}
+	return ""
+}
+
+func (x *MsgProposeResume) GetRecoveryManifestSha256() string {
+	if x != nil {
+		return x.RecoveryManifestSha256
 	}
 	return ""
 }
@@ -718,6 +727,266 @@ func (x *MsgVoteResumeResponse) GetChainResumed() bool {
 	return false
 }
 
+type MsgProposeRecoveryAuthorization struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Proposer         string                 `protobuf:"bytes,1,opt,name=proposer,proto3" json:"proposer,omitempty"`
+	SdkGovProposalId uint64                 `protobuf:"varint,2,opt,name=sdk_gov_proposal_id,json=sdkGovProposalId,proto3" json:"sdk_gov_proposal_id,omitempty"`
+	// Canonical lowercase SHA-256 of the proposal's sole recovery action.
+	ActionSha256 string `protobuf:"bytes,3,opt,name=action_sha256,json=actionSha256,proto3" json:"action_sha256,omitempty"`
+	// Canonical lowercase SHA-256 of the reviewed, signed recovery manifest.
+	RecoveryManifestSha256 string `protobuf:"bytes,4,opt,name=recovery_manifest_sha256,json=recoveryManifestSha256,proto3" json:"recovery_manifest_sha256,omitempty"`
+	Justification          string `protobuf:"bytes,5,opt,name=justification,proto3" json:"justification,omitempty"`
+	UpgradePlanSha256      string `protobuf:"bytes,6,opt,name=upgrade_plan_sha256,json=upgradePlanSha256,proto3" json:"upgrade_plan_sha256,omitempty"`
+	AuthorizedSubmitter    string `protobuf:"bytes,7,opt,name=authorized_submitter,json=authorizedSubmitter,proto3" json:"authorized_submitter,omitempty"`
+	// software_upgrade, cancel_upgrade, or revoke. A revoke ceremony repeats
+	// the exact hashes, proposal ID, and submitter of the live authorization.
+	ActionType    string `protobuf:"bytes,8,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgProposeRecoveryAuthorization) Reset() {
+	*x = MsgProposeRecoveryAuthorization{}
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgProposeRecoveryAuthorization) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgProposeRecoveryAuthorization) ProtoMessage() {}
+
+func (x *MsgProposeRecoveryAuthorization) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgProposeRecoveryAuthorization.ProtoReflect.Descriptor instead.
+func (*MsgProposeRecoveryAuthorization) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetProposer() string {
+	if x != nil {
+		return x.Proposer
+	}
+	return ""
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetSdkGovProposalId() uint64 {
+	if x != nil {
+		return x.SdkGovProposalId
+	}
+	return 0
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetActionSha256() string {
+	if x != nil {
+		return x.ActionSha256
+	}
+	return ""
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetRecoveryManifestSha256() string {
+	if x != nil {
+		return x.RecoveryManifestSha256
+	}
+	return ""
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetJustification() string {
+	if x != nil {
+		return x.Justification
+	}
+	return ""
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetUpgradePlanSha256() string {
+	if x != nil {
+		return x.UpgradePlanSha256
+	}
+	return ""
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetAuthorizedSubmitter() string {
+	if x != nil {
+		return x.AuthorizedSubmitter
+	}
+	return ""
+}
+
+func (x *MsgProposeRecoveryAuthorization) GetActionType() string {
+	if x != nil {
+		return x.ActionType
+	}
+	return ""
+}
+
+type MsgProposeRecoveryAuthorizationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProposalId    string                 `protobuf:"bytes,1,opt,name=proposal_id,json=proposalId,proto3" json:"proposal_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgProposeRecoveryAuthorizationResponse) Reset() {
+	*x = MsgProposeRecoveryAuthorizationResponse{}
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgProposeRecoveryAuthorizationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgProposeRecoveryAuthorizationResponse) ProtoMessage() {}
+
+func (x *MsgProposeRecoveryAuthorizationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgProposeRecoveryAuthorizationResponse.ProtoReflect.Descriptor instead.
+func (*MsgProposeRecoveryAuthorizationResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *MsgProposeRecoveryAuthorizationResponse) GetProposalId() string {
+	if x != nil {
+		return x.ProposalId
+	}
+	return ""
+}
+
+type MsgVoteRecoveryAuthorization struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Voter         string                 `protobuf:"bytes,1,opt,name=voter,proto3" json:"voter,omitempty"`
+	ProposalId    string                 `protobuf:"bytes,2,opt,name=proposal_id,json=proposalId,proto3" json:"proposal_id,omitempty"`
+	Approve       bool                   `protobuf:"varint,3,opt,name=approve,proto3" json:"approve,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgVoteRecoveryAuthorization) Reset() {
+	*x = MsgVoteRecoveryAuthorization{}
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgVoteRecoveryAuthorization) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgVoteRecoveryAuthorization) ProtoMessage() {}
+
+func (x *MsgVoteRecoveryAuthorization) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgVoteRecoveryAuthorization.ProtoReflect.Descriptor instead.
+func (*MsgVoteRecoveryAuthorization) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *MsgVoteRecoveryAuthorization) GetVoter() string {
+	if x != nil {
+		return x.Voter
+	}
+	return ""
+}
+
+func (x *MsgVoteRecoveryAuthorization) GetProposalId() string {
+	if x != nil {
+		return x.ProposalId
+	}
+	return ""
+}
+
+func (x *MsgVoteRecoveryAuthorization) GetApprove() bool {
+	if x != nil {
+		return x.Approve
+	}
+	return false
+}
+
+type MsgVoteRecoveryAuthorizationResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	QuorumReached      bool                   `protobuf:"varint,1,opt,name=quorum_reached,json=quorumReached,proto3" json:"quorum_reached,omitempty"`
+	RecoveryAuthorized bool                   `protobuf:"varint,2,opt,name=recovery_authorized,json=recoveryAuthorized,proto3" json:"recovery_authorized,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *MsgVoteRecoveryAuthorizationResponse) Reset() {
+	*x = MsgVoteRecoveryAuthorizationResponse{}
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgVoteRecoveryAuthorizationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgVoteRecoveryAuthorizationResponse) ProtoMessage() {}
+
+func (x *MsgVoteRecoveryAuthorizationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgVoteRecoveryAuthorizationResponse.ProtoReflect.Descriptor instead.
+func (*MsgVoteRecoveryAuthorizationResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *MsgVoteRecoveryAuthorizationResponse) GetQuorumReached() bool {
+	if x != nil {
+		return x.QuorumReached
+	}
+	return false
+}
+
+func (x *MsgVoteRecoveryAuthorizationResponse) GetRecoveryAuthorized() bool {
+	if x != nil {
+		return x.RecoveryAuthorized
+	}
+	return false
+}
+
 type MsgUpdateParams struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Authority     string                 `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
@@ -728,7 +997,7 @@ type MsgUpdateParams struct {
 
 func (x *MsgUpdateParams) Reset() {
 	*x = MsgUpdateParams{}
-	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[12]
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -740,7 +1009,7 @@ func (x *MsgUpdateParams) String() string {
 func (*MsgUpdateParams) ProtoMessage() {}
 
 func (x *MsgUpdateParams) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[12]
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -753,7 +1022,7 @@ func (x *MsgUpdateParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateParams.ProtoReflect.Descriptor instead.
 func (*MsgUpdateParams) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{12}
+	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *MsgUpdateParams) GetAuthority() string {
@@ -778,7 +1047,7 @@ type MsgUpdateParamsResponse struct {
 
 func (x *MsgUpdateParamsResponse) Reset() {
 	*x = MsgUpdateParamsResponse{}
-	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[13]
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -790,7 +1059,7 @@ func (x *MsgUpdateParamsResponse) String() string {
 func (*MsgUpdateParamsResponse) ProtoMessage() {}
 
 func (x *MsgUpdateParamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[13]
+	mi := &file_zerone_emergency_v1_tx_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -803,7 +1072,7 @@ func (x *MsgUpdateParamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MsgUpdateParamsResponse.ProtoReflect.Descriptor instead.
 func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{13}
+	return file_zerone_emergency_v1_tx_proto_rawDescGZIP(), []int{17}
 }
 
 var File_zerone_emergency_v1_tx_proto protoreflect.FileDescriptor
@@ -842,10 +1111,11 @@ const file_zerone_emergency_v1_tx_proto_rawDesc = "" +
 	"\x82\xe7\xb0*\x05voter\"g\n" +
 	"\x15MsgVoteRevertResponse\x12%\n" +
 	"\x0equorum_reached\x18\x01 \x01(\bR\rquorumReached\x12'\n" +
-	"\x0frevert_executed\x18\x02 \x01(\bR\x0erevertExecuted\"c\n" +
+	"\x0frevert_executed\x18\x02 \x01(\bR\x0erevertExecuted\"\x9d\x01\n" +
 	"\x10MsgProposeResume\x12\x1a\n" +
 	"\bproposer\x18\x01 \x01(\tR\bproposer\x12$\n" +
-	"\rjustification\x18\x02 \x01(\tR\rjustification:\r\x82\xe7\xb0*\bproposer\";\n" +
+	"\rjustification\x18\x02 \x01(\tR\rjustification\x128\n" +
+	"\x18recovery_manifest_sha256\x18\x03 \x01(\tR\x16recoveryManifestSha256:\r\x82\xe7\xb0*\bproposer\";\n" +
 	"\x18MsgProposeResumeResponse\x12\x1f\n" +
 	"\vproposal_id\x18\x01 \x01(\tR\n" +
 	"proposalId\"l\n" +
@@ -857,7 +1127,29 @@ const file_zerone_emergency_v1_tx_proto_rawDesc = "" +
 	"\x82\xe7\xb0*\x05voter\"c\n" +
 	"\x15MsgVoteResumeResponse\x12%\n" +
 	"\x0equorum_reached\x18\x01 \x01(\bR\rquorumReached\x12#\n" +
-	"\rchain_resumed\x18\x02 \x01(\bR\fchainResumed\"t\n" +
+	"\rchain_resumed\x18\x02 \x01(\bR\fchainResumed\"\x84\x03\n" +
+	"\x1fMsgProposeRecoveryAuthorization\x12\x1a\n" +
+	"\bproposer\x18\x01 \x01(\tR\bproposer\x12-\n" +
+	"\x13sdk_gov_proposal_id\x18\x02 \x01(\x04R\x10sdkGovProposalId\x12#\n" +
+	"\raction_sha256\x18\x03 \x01(\tR\factionSha256\x128\n" +
+	"\x18recovery_manifest_sha256\x18\x04 \x01(\tR\x16recoveryManifestSha256\x12$\n" +
+	"\rjustification\x18\x05 \x01(\tR\rjustification\x12.\n" +
+	"\x13upgrade_plan_sha256\x18\x06 \x01(\tR\x11upgradePlanSha256\x121\n" +
+	"\x14authorized_submitter\x18\a \x01(\tR\x13authorizedSubmitter\x12\x1f\n" +
+	"\vaction_type\x18\b \x01(\tR\n" +
+	"actionType:\r\x82\xe7\xb0*\bproposer\"J\n" +
+	"'MsgProposeRecoveryAuthorizationResponse\x12\x1f\n" +
+	"\vproposal_id\x18\x01 \x01(\tR\n" +
+	"proposalId\"{\n" +
+	"\x1cMsgVoteRecoveryAuthorization\x12\x14\n" +
+	"\x05voter\x18\x01 \x01(\tR\x05voter\x12\x1f\n" +
+	"\vproposal_id\x18\x02 \x01(\tR\n" +
+	"proposalId\x12\x18\n" +
+	"\aapprove\x18\x03 \x01(\bR\aapprove:\n" +
+	"\x82\xe7\xb0*\x05voter\"~\n" +
+	"$MsgVoteRecoveryAuthorizationResponse\x12%\n" +
+	"\x0equorum_reached\x18\x01 \x01(\bR\rquorumReached\x12/\n" +
+	"\x13recovery_authorized\x18\x02 \x01(\bR\x12recoveryAuthorized\"t\n" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x123\n" +
 	"\x06params\x18\x02 \x01(\v2\x1b.zerone.emergency.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
@@ -867,7 +1159,7 @@ const file_zerone_emergency_v1_tx_proto_rawDesc = "" +
 	"\"EMERGENCY_CATEGORY_SECURITY_BREACH\x10\x01\x12(\n" +
 	"$EMERGENCY_CATEGORY_CONSENSUS_FAILURE\x10\x02\x12'\n" +
 	"#EMERGENCY_CATEGORY_ECONOMIC_EXPLOIT\x10\x03\x12'\n" +
-	"#EMERGENCY_CATEGORY_STATE_CORRUPTION\x10\x042\xb3\x05\n" +
+	"#EMERGENCY_CATEGORY_STATE_CORRUPTION\x10\x042\xd4\a\n" +
 	"\x03Msg\x12_\n" +
 	"\vProposeHalt\x12#.zerone.emergency.v1.MsgProposeHalt\x1a+.zerone.emergency.v1.MsgProposeHaltResponse\x12V\n" +
 	"\bVoteHalt\x12 .zerone.emergency.v1.MsgVoteHalt\x1a(.zerone.emergency.v1.MsgVoteHaltResponse\x12e\n" +
@@ -876,7 +1168,9 @@ const file_zerone_emergency_v1_tx_proto_rawDesc = "" +
 	"VoteRevert\x12\".zerone.emergency.v1.MsgVoteRevert\x1a*.zerone.emergency.v1.MsgVoteRevertResponse\x12e\n" +
 	"\rProposeResume\x12%.zerone.emergency.v1.MsgProposeResume\x1a-.zerone.emergency.v1.MsgProposeResumeResponse\x12\\\n" +
 	"\n" +
-	"VoteResume\x12\".zerone.emergency.v1.MsgVoteResume\x1a*.zerone.emergency.v1.MsgVoteResumeResponse\x12b\n" +
+	"VoteResume\x12\".zerone.emergency.v1.MsgVoteResume\x1a*.zerone.emergency.v1.MsgVoteResumeResponse\x12\x92\x01\n" +
+	"\x1cProposeRecoveryAuthorization\x124.zerone.emergency.v1.MsgProposeRecoveryAuthorization\x1a<.zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse\x12\x89\x01\n" +
+	"\x19VoteRecoveryAuthorization\x121.zerone.emergency.v1.MsgVoteRecoveryAuthorization\x1a9.zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse\x12b\n" +
 	"\fUpdateParams\x12$.zerone.emergency.v1.MsgUpdateParams\x1a,.zerone.emergency.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B2Z0github.com/zerone-chain/zerone/x/emergency/typesb\x06proto3"
 
 var (
@@ -892,44 +1186,52 @@ func file_zerone_emergency_v1_tx_proto_rawDescGZIP() []byte {
 }
 
 var file_zerone_emergency_v1_tx_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_zerone_emergency_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_zerone_emergency_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_zerone_emergency_v1_tx_proto_goTypes = []any{
-	(EmergencyCategory)(0),           // 0: zerone.emergency.v1.EmergencyCategory
-	(*MsgProposeHalt)(nil),           // 1: zerone.emergency.v1.MsgProposeHalt
-	(*MsgProposeHaltResponse)(nil),   // 2: zerone.emergency.v1.MsgProposeHaltResponse
-	(*MsgVoteHalt)(nil),              // 3: zerone.emergency.v1.MsgVoteHalt
-	(*MsgVoteHaltResponse)(nil),      // 4: zerone.emergency.v1.MsgVoteHaltResponse
-	(*MsgProposeRevert)(nil),         // 5: zerone.emergency.v1.MsgProposeRevert
-	(*MsgProposeRevertResponse)(nil), // 6: zerone.emergency.v1.MsgProposeRevertResponse
-	(*MsgVoteRevert)(nil),            // 7: zerone.emergency.v1.MsgVoteRevert
-	(*MsgVoteRevertResponse)(nil),    // 8: zerone.emergency.v1.MsgVoteRevertResponse
-	(*MsgProposeResume)(nil),         // 9: zerone.emergency.v1.MsgProposeResume
-	(*MsgProposeResumeResponse)(nil), // 10: zerone.emergency.v1.MsgProposeResumeResponse
-	(*MsgVoteResume)(nil),            // 11: zerone.emergency.v1.MsgVoteResume
-	(*MsgVoteResumeResponse)(nil),    // 12: zerone.emergency.v1.MsgVoteResumeResponse
-	(*MsgUpdateParams)(nil),          // 13: zerone.emergency.v1.MsgUpdateParams
-	(*MsgUpdateParamsResponse)(nil),  // 14: zerone.emergency.v1.MsgUpdateParamsResponse
-	(*Params)(nil),                   // 15: zerone.emergency.v1.Params
+	(EmergencyCategory)(0),                          // 0: zerone.emergency.v1.EmergencyCategory
+	(*MsgProposeHalt)(nil),                          // 1: zerone.emergency.v1.MsgProposeHalt
+	(*MsgProposeHaltResponse)(nil),                  // 2: zerone.emergency.v1.MsgProposeHaltResponse
+	(*MsgVoteHalt)(nil),                             // 3: zerone.emergency.v1.MsgVoteHalt
+	(*MsgVoteHaltResponse)(nil),                     // 4: zerone.emergency.v1.MsgVoteHaltResponse
+	(*MsgProposeRevert)(nil),                        // 5: zerone.emergency.v1.MsgProposeRevert
+	(*MsgProposeRevertResponse)(nil),                // 6: zerone.emergency.v1.MsgProposeRevertResponse
+	(*MsgVoteRevert)(nil),                           // 7: zerone.emergency.v1.MsgVoteRevert
+	(*MsgVoteRevertResponse)(nil),                   // 8: zerone.emergency.v1.MsgVoteRevertResponse
+	(*MsgProposeResume)(nil),                        // 9: zerone.emergency.v1.MsgProposeResume
+	(*MsgProposeResumeResponse)(nil),                // 10: zerone.emergency.v1.MsgProposeResumeResponse
+	(*MsgVoteResume)(nil),                           // 11: zerone.emergency.v1.MsgVoteResume
+	(*MsgVoteResumeResponse)(nil),                   // 12: zerone.emergency.v1.MsgVoteResumeResponse
+	(*MsgProposeRecoveryAuthorization)(nil),         // 13: zerone.emergency.v1.MsgProposeRecoveryAuthorization
+	(*MsgProposeRecoveryAuthorizationResponse)(nil), // 14: zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse
+	(*MsgVoteRecoveryAuthorization)(nil),            // 15: zerone.emergency.v1.MsgVoteRecoveryAuthorization
+	(*MsgVoteRecoveryAuthorizationResponse)(nil),    // 16: zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse
+	(*MsgUpdateParams)(nil),                         // 17: zerone.emergency.v1.MsgUpdateParams
+	(*MsgUpdateParamsResponse)(nil),                 // 18: zerone.emergency.v1.MsgUpdateParamsResponse
+	(*Params)(nil),                                  // 19: zerone.emergency.v1.Params
 }
 var file_zerone_emergency_v1_tx_proto_depIdxs = []int32{
 	0,  // 0: zerone.emergency.v1.MsgProposeHalt.category:type_name -> zerone.emergency.v1.EmergencyCategory
-	15, // 1: zerone.emergency.v1.MsgUpdateParams.params:type_name -> zerone.emergency.v1.Params
+	19, // 1: zerone.emergency.v1.MsgUpdateParams.params:type_name -> zerone.emergency.v1.Params
 	1,  // 2: zerone.emergency.v1.Msg.ProposeHalt:input_type -> zerone.emergency.v1.MsgProposeHalt
 	3,  // 3: zerone.emergency.v1.Msg.VoteHalt:input_type -> zerone.emergency.v1.MsgVoteHalt
 	5,  // 4: zerone.emergency.v1.Msg.ProposeRevert:input_type -> zerone.emergency.v1.MsgProposeRevert
 	7,  // 5: zerone.emergency.v1.Msg.VoteRevert:input_type -> zerone.emergency.v1.MsgVoteRevert
 	9,  // 6: zerone.emergency.v1.Msg.ProposeResume:input_type -> zerone.emergency.v1.MsgProposeResume
 	11, // 7: zerone.emergency.v1.Msg.VoteResume:input_type -> zerone.emergency.v1.MsgVoteResume
-	13, // 8: zerone.emergency.v1.Msg.UpdateParams:input_type -> zerone.emergency.v1.MsgUpdateParams
-	2,  // 9: zerone.emergency.v1.Msg.ProposeHalt:output_type -> zerone.emergency.v1.MsgProposeHaltResponse
-	4,  // 10: zerone.emergency.v1.Msg.VoteHalt:output_type -> zerone.emergency.v1.MsgVoteHaltResponse
-	6,  // 11: zerone.emergency.v1.Msg.ProposeRevert:output_type -> zerone.emergency.v1.MsgProposeRevertResponse
-	8,  // 12: zerone.emergency.v1.Msg.VoteRevert:output_type -> zerone.emergency.v1.MsgVoteRevertResponse
-	10, // 13: zerone.emergency.v1.Msg.ProposeResume:output_type -> zerone.emergency.v1.MsgProposeResumeResponse
-	12, // 14: zerone.emergency.v1.Msg.VoteResume:output_type -> zerone.emergency.v1.MsgVoteResumeResponse
-	14, // 15: zerone.emergency.v1.Msg.UpdateParams:output_type -> zerone.emergency.v1.MsgUpdateParamsResponse
-	9,  // [9:16] is the sub-list for method output_type
-	2,  // [2:9] is the sub-list for method input_type
+	13, // 8: zerone.emergency.v1.Msg.ProposeRecoveryAuthorization:input_type -> zerone.emergency.v1.MsgProposeRecoveryAuthorization
+	15, // 9: zerone.emergency.v1.Msg.VoteRecoveryAuthorization:input_type -> zerone.emergency.v1.MsgVoteRecoveryAuthorization
+	17, // 10: zerone.emergency.v1.Msg.UpdateParams:input_type -> zerone.emergency.v1.MsgUpdateParams
+	2,  // 11: zerone.emergency.v1.Msg.ProposeHalt:output_type -> zerone.emergency.v1.MsgProposeHaltResponse
+	4,  // 12: zerone.emergency.v1.Msg.VoteHalt:output_type -> zerone.emergency.v1.MsgVoteHaltResponse
+	6,  // 13: zerone.emergency.v1.Msg.ProposeRevert:output_type -> zerone.emergency.v1.MsgProposeRevertResponse
+	8,  // 14: zerone.emergency.v1.Msg.VoteRevert:output_type -> zerone.emergency.v1.MsgVoteRevertResponse
+	10, // 15: zerone.emergency.v1.Msg.ProposeResume:output_type -> zerone.emergency.v1.MsgProposeResumeResponse
+	12, // 16: zerone.emergency.v1.Msg.VoteResume:output_type -> zerone.emergency.v1.MsgVoteResumeResponse
+	14, // 17: zerone.emergency.v1.Msg.ProposeRecoveryAuthorization:output_type -> zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse
+	16, // 18: zerone.emergency.v1.Msg.VoteRecoveryAuthorization:output_type -> zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse
+	18, // 19: zerone.emergency.v1.Msg.UpdateParams:output_type -> zerone.emergency.v1.MsgUpdateParamsResponse
+	11, // [11:20] is the sub-list for method output_type
+	2,  // [2:11] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -947,7 +1249,7 @@ func file_zerone_emergency_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_emergency_v1_tx_proto_rawDesc), len(file_zerone_emergency_v1_tx_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

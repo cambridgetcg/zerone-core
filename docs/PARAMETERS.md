@@ -299,6 +299,9 @@ Phase transition thresholds, community seat election mechanics, and rollback saf
 
 #### Rollback Parameters
 
+Here *rollback* means reversal of a custom governance-migration phase. It does
+not mean rewriting committed blockchain state.
+
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | `rollback_stake` | 500 ZRN | Stake required to propose a rollback |
@@ -349,32 +352,53 @@ Epistemic domain and stratum management.
 
 ## emergency
 
-Emergency halt, revert, and resume parameters.
+Application transaction-quarantine ceremony parameters. These guardians and
+quorums belong to Zerone's custom staking/emergency system; they are not
+CometBFT validator voting power. A successful halt ceremony rejects
+non-allowlisted transactions but does not stop block production, module
+timers, PreBlock, BeginBlock, or EndBlock. A resume ceremony reopens
+transaction admission; it does not restart a stopped signer. See the
+canonical [Upgrade and Incident Operations
+runbook](UPGRADE_AND_INCIDENT_OPERATIONS.md).
+
+Each new ceremony snapshots the exact sorted eligible electorate, each
+member's effective power, its quorum threshold, and `min_distinct_voters`.
+Later staking changes, parameter amendments, or genesis-council expiry do not
+shrink an in-flight denominator. A non-terminal pre-hardening ceremony
+without that snapshot is terminalized; a resume failure remains quarantined.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `halt_quorum` | uint64 | 750,000 (75%) | **Quorum for emergency halt** |
-| `revert_quorum` | uint64 | 800,000 (80%) | **Quorum for state revert** |
-| `resume_quorum` | uint64 | 800,000 (80%) | **Quorum for resuming chain** |
-| `halt_prevote_blocks` | uint64 | 11 | Halt prevote phase duration |
-| `halt_precommit_blocks` | uint64 | 11 | Halt precommit phase duration |
-| `halt_timeout_blocks` | uint64 | 44 | Halt timeout |
-| `revert_prevote_blocks` | uint64 | 22 | Revert prevote phase duration |
-| `revert_precommit_blocks` | uint64 | 22 | Revert precommit phase duration |
-| `revert_timeout_blocks` | uint64 | 111 | Revert timeout |
-| `resume_prevote_blocks` | uint64 | 22 | Resume prevote phase duration |
-| `resume_precommit_blocks` | uint64 | 22 | Resume precommit phase duration |
-| `resume_timeout_blocks` | uint64 | 111 | Resume timeout |
-| `max_proposals_per_epoch` | uint64 | 3 | Max emergency proposals per epoch |
-| `max_proposals_per_guardian_per_epoch` | uint64 | 1 | Max proposals per guardian per epoch |
-| `cooldown_blocks` | uint64 | 111 | Cooldown between emergency proposals |
-| `min_guardian_stake` | string | "111111000000" (111,111 ZRN) | **Minimum stake for emergency proposer** |
+| `halt_quorum` | uint64 | 750,000 (75%) | Quorum for entering application transaction quarantine |
+| `revert_quorum` | uint64 | 800,000 (80%) | Legacy revert-ceremony field retained for state compatibility; arbitrary finalized-state revert is disabled |
+| `resume_quorum` | uint64 | 800,000 (80%) | Quorum for reopening application transaction admission |
+| `halt_prevote_blocks` | uint64 | 11 | Transaction-quarantine prevote phase duration |
+| `halt_precommit_blocks` | uint64 | 11 | Transaction-quarantine precommit phase duration |
+| `halt_timeout_blocks` | uint64 | 44 | Transaction-quarantine ceremony timeout |
+| `revert_prevote_blocks` | uint64 | 22 | Legacy disabled-revert prevote field |
+| `revert_precommit_blocks` | uint64 | 22 | Legacy disabled-revert precommit field |
+| `revert_timeout_blocks` | uint64 | 111 | Legacy disabled-revert timeout field |
+| `resume_prevote_blocks` | uint64 | 22 | Admission-reopen prevote phase duration |
+| `resume_precommit_blocks` | uint64 | 22 | Admission-reopen precommit phase duration |
+| `resume_timeout_blocks` | uint64 | 111 | Admission-reopen ceremony timeout |
+| `max_proposals_per_epoch` | uint64 | 3 | Shared maximum across halt, resume, recovery-authorization, and recovery-revocation ceremonies per epoch |
+| `max_proposals_per_guardian_per_epoch` | uint64 | 1 | Shared per-Guardian maximum across all ceremony lanes; switching lanes cannot bypass it |
+| `cooldown_blocks` | uint64 | 111 | Global cooldown between accepted proposals in any emergency ceremony lane |
+| `min_guardian_stake` | string | "111111000000" (111,111 ZRN) | Minimum total active Guardian power required when opening any ceremony outside the active genesis-council exception |
 | `min_distinct_voters` | uint64 | 4 | Minimum distinct voters for quorum |
-| `max_revert_depth` | uint64 | 111,111 | Maximum revert depth (blocks) |
+| `max_revert_depth` | uint64 | 111,111 | Legacy disabled-revert bound retained for state compatibility; not authority to rewrite committed history |
 | `epoch_blocks` | uint64 | 34,272 (~1 day) | Emergency epoch duration |
-| `max_halt_duration_blocks` | uint64 | 34,272 (~1 day) | Auto-resume after halt |
+| `max_halt_duration_blocks` | uint64 | 34,272 (~1 day) | Quarantine escalation/reporting deadline; exceeding it does not resume automatically |
 | `council_virtual_stake` | string | "11111000000" (11,111 ZRN) | Genesis council virtual stake |
 | `council_expiry_block` | uint64 | 0 | Block at which genesis council expires |
+
+There is no automatic resume and no generic arbitrary-height finalized-state
+rollback. Recovery from a committed defect is a deterministic forward named
+upgrade or an explicitly authorized fork/re-genesis. Because the default
+per-Guardian budget is one proposal per emergency epoch, incident roles must
+coordinate which Guardian opens each ceremony; a rejected attempt cannot
+monopolize the sole active slot, while a different Guardian may proceed after
+the shared cooldown.
 
 ---
 

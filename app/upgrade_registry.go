@@ -105,7 +105,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 		},
 		{
 			UpgradeName: UpgradeNameSDK053IBC10,
-			Description: "sdk-0.53-ibc-10 — one coordinated activation for fail-closed authenticated-signer policy and the Cosmos SDK v0.50 / IBC-Go v8 to SDK v0.53 / IBC-Go v10 migration; requires the raw-DB legacy IBC keyset commitment in plan info, validates source IBC versions, refuses to orphan ICS-29 funds, runs module migrations, writes the auth hardening marker, and removes legacy capability/fee stores.",
+			Description: "sdk-0.53-ibc-10 — one coordinated activation for SDK/IBC migration, fail-closed signer policy, and upgrade/incident operations hardening; reconciles legacy emergency state before hardened getters, requires the raw-DB IBC keyset commitment, validates source versions, refuses to orphan ICS-29 funds, removes legacy stores, and retires the custom software-upgrade lane.",
 		},
 	}
 
@@ -159,7 +159,26 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 		return nil, fmt.Errorf("seed pre-upgrade vm: %w", err)
 	}
 	plan := upgradetypes.Plan{Name: name, Height: height, Info: info}
-	if err := app.UpgradeKeeper.ApplyUpgrade(ctx, plan); err != nil {
+	applyContext := ctx
+	if plan.Name == UpgradeNameSDK053IBC10 {
+		previousProof := app.sdk053IBC10LoaderProof
+		app.sdk053IBC10LoaderProof = &sdk053IBC10StoreLoaderProof{
+			upgradeHeight:       plan.Height,
+			preUpgradeVersion:   plan.Height - 1,
+			legacyRootsComplete: true,
+			feeLockAbsent:       true,
+			preflightOnly:       true,
+		}
+		defer func() {
+			app.sdk053IBC10LoaderProof = previousProof
+		}()
+		applyContext = context.WithValue(
+			ctx,
+			sdk053IBC10PreflightDryRunContextKey{},
+			true,
+		)
+	}
+	if err := app.UpgradeKeeper.ApplyUpgrade(applyContext, plan); err != nil {
 		return nil, fmt.Errorf("apply upgrade: %w", err)
 	}
 	return app.UpgradeKeeper.GetModuleVersionMap(ctx)

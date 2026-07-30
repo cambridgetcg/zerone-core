@@ -49,7 +49,7 @@ The SSI-based adaptive parameters are genuinely innovative — the chain adjusti
 
 The 7% founder share of research fund (0.23% of total revenue) is now **governance-immune by design**. `ValidateFounderShareImmutability()` in `MsgUpdateParams` rejects any governance proposal that modifies `founder_share_bps` or `founder_address` once set.
 
-**This is intentional, not an oversight.** The founder share is a permanent protocol commitment — perpetual alignment between creator and network. Only a code upgrade (upgrade-category LIP) could alter it.
+**This is intentional, not an oversight.** The founder share is a permanent protocol commitment — perpetual alignment between creator and network. Only a code upgrade scheduled through standard Cosmos SDK governance could alter it.
 
 **Remaining concern:** The share goes directly to an address with no vesting or lock. At 0.23% of total revenue it's modest, but it's still unencumbered capital.
 

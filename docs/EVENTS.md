@@ -344,10 +344,20 @@ A Creed Council seat was added, updated, or deactivated. The council is the AI-s
 ## emergency
 
 ### zerone.emergency.halt_proposed
-Emergency halt ceremony proposed.
+Application transaction-quarantine ceremony proposed. This does not assert
+that CometBFT consensus or block production stopped.
 - `ceremony_id` -- ceremony ID
 - `proposer` -- proposer address
 - `reason` -- halt reason
+
+### zerone.emergency.ceremony_proposal_budget_consumed
+An accepted halt, resume, recovery-authorization, or revocation proposal
+consumed one unit from the shared per-Guardian and global anti-grief epoch
+budgets. Failed transactions do not persist this event or the counter writes.
+- `proposer` -- Guardian address whose shared budget was consumed
+- `block_height` -- block that accepted the proposal
+- `guardian_epoch_count` -- this Guardian's new count in the current epoch
+- `global_epoch_count` -- all Guardians' new count in the current epoch
 
 ### zerone.emergency.vote_halt
 Halt vote cast.
@@ -355,28 +365,93 @@ Halt vote cast.
 - `voter` -- voter address
 - `approve` -- `"true"` or `"false"`
 
-### zerone.emergency.revert_proposed
-Emergency revert ceremony proposed.
-- `ceremony_id` -- ceremony ID
-- `proposer` -- proposer address
-- `target_block` -- target revert block
-
-### zerone.emergency.vote_revert
-Revert vote cast.
-- `ceremony_id` -- ceremony ID
-- `voter` -- voter address
-- `approve` -- `"true"` or `"false"`
+`MsgProposeRevert` and `MsgVoteRevert` are retained only for wire
+compatibility and return `ErrUnsafeRevertDisabled`; they emit no
+`revert_proposed` or `vote_revert` event.
 
 ### zerone.emergency.resume_proposed
-Resume ceremony proposed.
+An evidence-bound recovery generation was accepted for voting.
 - `ceremony_id` -- ceremony ID
 - `proposer` -- proposer address
+- `halt_ceremony_id` -- active quarantine linkage
+- `recovery_generation` -- monotonically increasing generation for this
+  `{halt_ceremony_id, proposer}` pair, beginning at `"1"`
+- `recovery_manifest_sha256` -- verified, independently anchored
+  `RECOVERY_READY` operations-journal head
+
+A later generation is accepted only after the preceding ceremony failed, a
+later block has begun, and `recovery_manifest_sha256` has changed. An active or
+finalized generation cannot be displaced, and unchanged evidence cannot be
+replayed. This bounded O(1) attempt cursor is persisted in consensus state; it
+does not emit a separate event.
 
 ### zerone.emergency.vote_resume
 Resume vote cast.
 - `ceremony_id` -- ceremony ID
 - `voter` -- voter address
 - `approve` -- `"true"` or `"false"`
+
+### zerone.emergency.recovery_authorization_proposed
+A Guardian opened a ceremony for one exact expedited SDK-governance recovery
+action while application transactions remain quarantined.
+- `ceremony_id` -- recovery-authorization ceremony ID
+- `halt_ceremony_id` -- active incident/quarantine ID
+- `sdk_gov_proposal_id` -- exact next SDK-governance proposal ID
+- `generation` -- incident-local authorization generation
+- `action_type` -- `software_upgrade`, `cancel_upgrade`, or `revoke`
+- `action_sha256` -- domain-separated digest of the exact protobuf action
+- `upgrade_plan_sha256` -- digest of the exact target/scheduled plan
+- `recovery_manifest_sha256` -- independently reviewed incident evidence head
+- `authorized_submitter` -- sole address allowed to submit the SDK proposal
+
+### zerone.emergency.vote_recovery_authorization
+A Guardian cast a prevote or affirmative precommit for an exact recovery
+authorization.
+- `ceremony_id` -- recovery-authorization ceremony ID
+- `voter` -- Guardian address
+- `approve` -- `"true"` or `"false"`; negative precommits are not admitted
+
+### zerone.emergency.recovery_authorized
+Guardian quorum finalized one exact recovery capability. Transaction admission
+remains quarantined; this event does not itself schedule or cancel an upgrade.
+- `ceremony_id` -- finalized authorization ceremony ID
+- `halt_ceremony_id` -- active incident/quarantine ID
+- `sdk_gov_proposal_id` -- exact authorized SDK proposal ID
+- `generation` -- incident-local authorization generation
+- `action_type` -- `software_upgrade` or `cancel_upgrade`
+- `action_sha256` -- exact action digest
+- `upgrade_plan_sha256` -- exact plan digest
+- `recovery_manifest_sha256` -- reviewed incident evidence head
+- `superseded_authorization_ceremony_id` -- prior terminal generation, if any
+- `authorized_submitter` -- sole permitted SDK proposal submitter
+- `transaction_admission` -- `remains_quarantined`
+
+### zerone.emergency.recovery_revoked
+Guardian quorum closed a still-live recovery capability. If its SDK proposal
+was already submitted, quarantine reconciliation terminalizes it before
+execution.
+- `ceremony_id` -- revocation ceremony ID
+- `revoked_authorization_ceremony_id` -- capability that was closed
+- `sdk_gov_proposal_id` -- exact SDK proposal ID
+- `action_sha256` -- revoked action digest
+- `transaction_admission` -- `recovery_capability_closed`
+
+### zerone.emergency.recovery_authorization_terminal
+The exact authorized SDK-governance action reached a terminal outcome, or its
+pre-authorized proposal ID was skipped. The capability cannot be reused.
+- `authorization_ceremony_id` -- original authorization ceremony ID; absent
+  only when the proposal ID was skipped before a proposal record existed
+- `sdk_gov_proposal_id` -- exact terminal SDK proposal ID
+- `outcome` -- `passed`, `failed`, or `rejected`
+- `reason` -- deterministic reconciliation reason
+
+### zerone.emergency.operations_safety_activated
+The named upgrade completed the height- and immutable-snapshot-bound emergency
+module v1-to-v2 migration.
+- `consensus_version` -- `"2"`
+- `activation_height` -- named upgrade height
+- `h_minus_one_snapshot_sha256` -- complete verified emergency-store snapshot
+  digest prepared by the upgrade handler
 
 ### zerone.emergency.params_updated
 Governance parameter update.
@@ -385,29 +460,81 @@ Governance parameter update.
 ### zerone.emergency.ceremony_advanced
 Ceremony phase advanced (prevote quorum reached).
 - `ceremony_id` -- ceremony ID
-- `ceremony_type` -- `halt`, `revert`, or `resume`
+- `ceremony_type` -- `halt`, `revert`, `resume`, or
+  `recovery_authorization`
 - `phase` -- new phase
 - `yes_prevote_stake` -- total yes stake
 
 ### zerone.emergency.ceremony_finalized
-Ceremony finalized and executed.
+Transaction quarantine or evidence-bound reopening finalized.
 - `ceremony_id` -- ceremony ID
-- `ceremony_type` -- `halt`, `revert`, or `resume`
+- `ceremony_type` -- `halt` or `resume`
 - `status` -- resulting chain status
 - `block_height` -- finalization block
+- `restriction_scope` -- `application_transactions` on halt
+- `consensus_continues` -- `"true"` on halt; a capability statement, not
+  observed liveness
+- `recovery_manifest_sha256` -- present on resume
 - `creed_commitment` -- "10"
 
-### zerone.emergency.revert_required
-Revert ceremony finalized; operator action required.
+### zerone.emergency.revert_refused
+A legacy finalized height-only revert was refused; transaction quarantine
+remains active.
 - `ceremony_id` -- ceremony ID
-- `target_height` -- rollback target height
-- `target_hash` -- rollback target hash
-- `action` -- operator instructions
+- `target_height` -- unauthenticated legacy target, for audit only
+- `status` -- `halted`
+- `action` -- forward recovery/social-fork guidance
 - `creed_commitment` -- "10"
+
+### zerone.emergency.legacy_revert_normalized
+An in-place legacy `revert_voting`/`reverting` state was converted into a
+recoverable transaction quarantine without executing rollback.
+- `ceremony_id` -- retained legacy incident linkage
+- `quarantine_id` -- finalized halt ID when recoverable, otherwise the
+  deterministic legacy quarantine marker required by a new resume
+- `status` -- `halted`
+- `target_height` -- legacy target, for audit only
+- `action` -- evidence-bound resume guidance
+
+### zerone.emergency.legacy_quarantine_repaired
+An older live quarantined state lacked incident linkage and/or an escalation
+start block. BeginBlock repaired the missing metadata without reopening
+transaction admission.
+- `ceremony_id` -- recovered finalized halt ID or deterministic legacy marker
+- `status` -- `halted` or `resume_voting`
+- `halt_start_block` -- repaired escalation-clock start
 
 ---
 
 ## gov
+
+### zerone.gov.custom_transition_hold_activated
+The first application-transaction quarantine installed the durable custom
+governance review hold.
+- `incident_id` -- first incident ID bound to the hold
+- `latest_incident_id` -- most recent incident ID
+- `incident_count` -- number of incidents folded into the hold
+- `incident_lineage_sha256` -- rolling incident-lineage commitment
+- `activated_at_block` -- first activation height
+
+### zerone.gov.custom_transition_hold_extended
+A later quarantine was folded into the existing durable custom-governance
+review hold.
+- `incident_id` -- first incident ID retained by the hold
+- `latest_incident_id` -- newly folded incident ID
+- `incident_count` -- updated incident count
+- `incident_lineage_sha256` -- updated rolling lineage commitment
+- `activated_at_block` -- original activation height
+
+### zerone.gov.custom_transitions_frozen
+Custom governance BeginBlock transitions are frozen during application
+quarantine and remain frozen after resume until a future named upgrade
+performs complete queue reconciliation. There is no current release message.
+- `block_height` -- current block
+- `reason` -- `application_transaction_quarantine` or
+  `post_quarantine_review_hold`
+- `incident_id` -- first incident bound to the hold
+- `release_mechanism` -- explicit future named-upgrade requirement
 
 ### zerone.gov.lip_submitted
 LIP (Living Improvement Proposal) created.
@@ -609,18 +736,65 @@ Seat nomination expired without acceptance.
 - `candidate` -- candidate address
 - `proposal_id` -- election proposal identifier
 
-### zerone.gov.upgrade_plan_attached
-Software upgrade plan attached to a LIP.
-- `height` -- scheduled upgrade height
-- `lip_id` -- originating LIP identifier
-- `upgrade_name` -- upgrade plan name
-- `creed_commitment` -- "10"
-
 ### zerone.gov.upgrade_scheduled
-Software upgrade scheduled for execution.
+Historical, pre-retirement event only. Current code must not emit this event
+or call `ScheduleUpgrade` from custom `x/gov`.
 - `height` -- scheduled upgrade height
 - `lip_id` -- originating LIP identifier
 - `upgrade_name` -- upgrade plan name
+
+### zerone.gov.custom_upgrade_authority_retired
+The coordinated operations-safety upgrade terminalized one or more imported
+non-terminal custom upgrade LIPs without calling `ScheduleUpgrade`. This is
+one bounded aggregate event, not one event per LIP. Historical records remain
+queryable. Activation fails before any retirement mutation if a candidate has
+invalid or nonzero aggregate stake, because legacy state has no per-staker
+claimant ledger.
+- `retired_count` -- number of custom upgrade LIPs terminalized
+- `new_stage` -- `failed`
+- `stake_reconciliation` --
+  `manual: legacy state has no per-staker escrow ledger`
+- `canonical_authority` -- `cosmos.gov.v1`
+
+### zerone.gov.proposals_quarantined
+*EndBlock.* Application transaction quarantine permanently failed
+deadline-due standard SDK governance proposals outside the exact recovery
+lane, removed their active/deposit queue entries, and refunded and deleted
+their deposits. The sweep covers only the same due range that upstream SDK
+governance would otherwise process at the current block time. This includes
+proposals admitted before the halt finalized whose deadline falls in the halt
+block. Exact expedited proposals containing one `MsgSoftwareUpgrade` or one
+`MsgCancelUpgrade` remain eligible for normal SDK tally and execution.
+
+Future-deadline proposals are not scanned or mutated; they remain frozen in
+their queues while quarantine blocks their ordinary votes and deposits.
+Operators must inventory and review them before reopening admission. Resume
+does not erase them. Any already scheduled `x/upgrade` plan must be handled
+through the exact recovery upgrade/cancel lane, and retained proposal effects
+must be included in the recovery review; upstream governance can process a
+retained proposal when its deadline becomes due after resume.
+
+The module emits at most one fixed-shape aggregate event for a nonempty sweep,
+not one event per failed proposal.
+- `failed_count` -- number of due inactive and active queue entries failed
+- `queue_manifest_sha256` -- deterministic lowercase SHA-256 commitment to the
+  failed queue domain, deadline, key proposal ID, and value proposal ID entries
+- `allowed_lane` -- `expedited_single_upgrade_or_cancel`
+
+### zerone.gov.upgrade_voting_blocked
+Compatibility safety event for a legacy custom upgrade LIP that attempted to
+enter voting before the coordinated authority-retirement upgrade terminalized
+it. New custom upgrade submissions, staking, manual advancement, and plan
+attachment already fail closed.
+- `lip_id` -- legacy custom LIP identifier
+- `reason` -- fail-closed authority error
+- `prospective_voting_end_block` -- voting end that was not activated
+
+### zerone.gov.upgrade_schedule_failed
+Compatibility safety event if an imported legacy custom upgrade LIP reaches
+tally resolution before retirement and the scheduling boundary refuses it.
+- `lip_id` -- legacy custom LIP identifier
+- `reason` -- fail-closed scheduling error
 
 ### zerone.gov.creed_amendment_pin_attached
 A candidate `PinnedCreed` payload was attached to a `creed_amendment` LIP. On LIP pass, x/gov will call `x/creed.AnchorPinFromBytes` with this payload (commitment 19: the chain's voice is governance-gated). Voters consent to the payload as it stands at vote-time; mid-flight payload swaps are refused.

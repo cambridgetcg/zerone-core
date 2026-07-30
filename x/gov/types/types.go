@@ -1,7 +1,9 @@
 package types
 
 import (
+	"fmt"
 	"math/big"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -113,6 +115,11 @@ func IsTerminalSeatStage(stage string) bool {
 
 // BPSScale is the basis point scale used for quorum and support thresholds.
 const BPSScale = uint64(1_000_000)
+
+const (
+	MaxUpgradeNameBytes = 128
+	MaxUpgradeInfoBytes = 64 * 1024
+)
 
 // IsTerminal returns true if the status is a terminal state.
 func IsTerminal(status string) bool {
@@ -296,11 +303,32 @@ func (m *MsgAttachUpgradePlan) ValidateBasic() error {
 	if m.LipId == "" {
 		return ErrInvalidParams
 	}
-	if m.UpgradeName == "" {
+	if err := ValidateUpgradePlanFields(m.UpgradeName, m.Height, m.Info); err != nil {
 		return ErrInvalidParams
 	}
-	if m.Height <= 0 {
-		return ErrInvalidParams
+	return nil
+}
+
+// ValidateUpgradePlanFields validates the immutable payload that is copied into
+// the SDK x/upgrade plan. The info field is mandatory because it is the
+// operator-facing commitment to release artifacts and migration instructions.
+func ValidateUpgradePlanFields(name string, height int64, info string) error {
+	if name == "" || strings.TrimSpace(name) != name || len(name) > MaxUpgradeNameBytes {
+		return fmt.Errorf("upgrade name must be 1..%d bytes without surrounding whitespace", MaxUpgradeNameBytes)
+	}
+	for _, char := range name {
+		isASCIIAlphaNumeric := char >= 'a' && char <= 'z' ||
+			char >= 'A' && char <= 'Z' ||
+			char >= '0' && char <= '9'
+		if !isASCIIAlphaNumeric && char != '.' && char != '_' && char != '-' {
+			return fmt.Errorf("upgrade name contains unsupported character %q", char)
+		}
+	}
+	if height <= 0 {
+		return fmt.Errorf("upgrade height must be positive")
+	}
+	if strings.TrimSpace(info) == "" || len(info) > MaxUpgradeInfoBytes {
+		return fmt.Errorf("upgrade info must be 1..%d bytes", MaxUpgradeInfoBytes)
 	}
 	return nil
 }
@@ -432,10 +460,10 @@ func GetResearchFundThreshold(phase ResearchFundPhase) (required uint32, total u
 const (
 	TransitionDiscussionBlocks = uint64(1_030_000) // ~30 days
 	TransitionActivationDelay  = uint64(240_000)   // ~7 days
-	TransitionSupermajorityBps = uint64(667_000)    // 66.7% on 1M scale
-	RollbackCooldownBlocks     = uint64(3_700_000)  // ~3 months
-	RollbackReviewBlocks       = uint64(240_000)    // ~7 days (faster than forward)
-	RollbackGridlockThreshold  = 3                  // consecutive expired proposals
+	TransitionSupermajorityBps = uint64(667_000)   // 66.7% on 1M scale
+	RollbackCooldownBlocks     = uint64(3_700_000) // ~3 months
+	RollbackReviewBlocks       = uint64(240_000)   // ~7 days (faster than forward)
+	RollbackGridlockThreshold  = 3                 // consecutive expired proposals
 )
 
 // Phase transition proposal stage constants.
@@ -453,13 +481,13 @@ const (
 // post-vote phase transition lifecycle (activation delay, condition recheck).
 // Voting is handled through the standard LIP voting system with supermajority.
 type PhaseTransitionProposal struct {
-	LipID              string                    `json:"lip_id"`
-	TargetPhase        ResearchFundPhase         `json:"target_phase"`
+	LipID              string                     `json:"lip_id"`
+	TargetPhase        ResearchFundPhase          `json:"target_phase"`
 	ConditionsSnapshot *PhaseTransitionConditions `json:"conditions_snapshot,omitempty"`
-	Stage              string                    `json:"stage"` // pending_activation, activated, cancelled
-	ActivationBlock    uint64                    `json:"activation_block"`
-	IsRollback         bool                      `json:"is_rollback"`
-	CancelReason       string                    `json:"cancel_reason,omitempty"`
+	Stage              string                     `json:"stage"` // pending_activation, activated, cancelled
+	ActivationBlock    uint64                     `json:"activation_block"`
+	IsRollback         bool                       `json:"is_rollback"`
+	CancelReason       string                     `json:"cancel_reason,omitempty"`
 }
 
 // IsTerminalPhaseTransitionStage returns true if the stage is terminal.
@@ -610,4 +638,3 @@ type PhaseTransitionMeta struct {
 func IsPhaseTransitionCategory(category string) bool {
 	return category == CategoryPhaseTransition || category == CategoryPhaseRollback
 }
-

@@ -25,6 +25,10 @@ const mainnetEntrypoint = await readFile(
   path.join(repositoryRoot, "deploy/mainnet/entrypoint.sh"),
   "utf8",
 );
+const sharedValidatorEntrypoint = await readFile(
+  path.join(repositoryRoot, "deploy/fly-validator-entrypoint-common.sh"),
+  "utf8",
+);
 
 assert.equal(chain.chain_name, "zerone");
 assert.equal(assetList.chain_name, chain.chain_name);
@@ -55,7 +59,16 @@ const feeToken = chain.fees.fee_tokens[0];
 assert.equal(feeToken.denom, nativeAsset.base);
 assert.equal(feeToken.fixed_min_gas_price, 0.025);
 assert.match(appTemplate, /minimum-gas-prices = "0\.025uzrn"/);
-assert.match(mainnetEntrypoint, /minimum-gas-prices 0\.025uzrn/);
+assert.match(
+  mainnetEntrypoint,
+  /zerone-fly-validator-entrypoint/,
+  "mainnet wrapper must delegate to the reviewed shared validator entrypoint",
+);
+assert.match(
+  sharedValidatorEntrypoint,
+  /minimum-gas-prices 0\.025uzrn/,
+  "shared validator entrypoint must enforce the published fixed gas price",
+);
 assert.equal(chain.staking.staking_tokens[0].denom, nativeAsset.base);
 assert.equal(
   chain.staking.lock_duration.time,

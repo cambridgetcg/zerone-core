@@ -133,6 +133,10 @@ export interface MsgVoteRevertResponse {
 export interface MsgProposeResume {
   proposer: string;
   justification: string;
+  /**
+   * Lowercase 64-character SHA-256 of the canonical recovery manifest.
+   */
+  recoveryManifestSha256: string;
 }
 /**
  * @name MsgProposeResumeResponse
@@ -160,6 +164,58 @@ export interface MsgVoteResume {
 export interface MsgVoteResumeResponse {
   quorumReached: boolean;
   chainResumed: boolean;
+}
+/**
+ * @name MsgProposeRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorization
+ */
+export interface MsgProposeRecoveryAuthorization {
+  proposer: string;
+  sdkGovProposalId: bigint;
+  /**
+   * Canonical lowercase SHA-256 of the proposal's sole recovery action.
+   */
+  actionSha256: string;
+  /**
+   * Canonical lowercase SHA-256 of the reviewed, signed recovery manifest.
+   */
+  recoveryManifestSha256: string;
+  justification: string;
+  upgradePlanSha256: string;
+  authorizedSubmitter: string;
+  /**
+   * software_upgrade, cancel_upgrade, or revoke. A revoke ceremony repeats
+   * the exact hashes, proposal ID, and submitter of the live authorization.
+   */
+  actionType: string;
+}
+/**
+ * @name MsgProposeRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse
+ */
+export interface MsgProposeRecoveryAuthorizationResponse {
+  proposalId: string;
+}
+/**
+ * @name MsgVoteRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorization
+ */
+export interface MsgVoteRecoveryAuthorization {
+  voter: string;
+  proposalId: string;
+  approve: boolean;
+}
+/**
+ * @name MsgVoteRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse
+ */
+export interface MsgVoteRecoveryAuthorizationResponse {
+  quorumReached: boolean;
+  recoveryAuthorized: boolean;
 }
 /**
  * @name MsgUpdateParams
@@ -587,7 +643,8 @@ export const MsgVoteRevertResponse = {
 function createBaseMsgProposeResume(): MsgProposeResume {
   return {
     proposer: "",
-    justification: ""
+    justification: "",
+    recoveryManifestSha256: ""
   };
 }
 /**
@@ -604,6 +661,9 @@ export const MsgProposeResume = {
     if (message.justification !== "") {
       writer.uint32(18).string(message.justification);
     }
+    if (message.recoveryManifestSha256 !== "") {
+      writer.uint32(26).string(message.recoveryManifestSha256);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): MsgProposeResume {
@@ -619,6 +679,9 @@ export const MsgProposeResume = {
         case 2:
           message.justification = reader.string();
           break;
+        case 3:
+          message.recoveryManifestSha256 = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -630,6 +693,7 @@ export const MsgProposeResume = {
     const message = createBaseMsgProposeResume();
     message.proposer = object.proposer ?? "";
     message.justification = object.justification ?? "";
+    message.recoveryManifestSha256 = object.recoveryManifestSha256 ?? "";
     return message;
   }
 };
@@ -777,6 +841,250 @@ export const MsgVoteResumeResponse = {
     const message = createBaseMsgVoteResumeResponse();
     message.quorumReached = object.quorumReached ?? false;
     message.chainResumed = object.chainResumed ?? false;
+    return message;
+  }
+};
+function createBaseMsgProposeRecoveryAuthorization(): MsgProposeRecoveryAuthorization {
+  return {
+    proposer: "",
+    sdkGovProposalId: BigInt(0),
+    actionSha256: "",
+    recoveryManifestSha256: "",
+    justification: "",
+    upgradePlanSha256: "",
+    authorizedSubmitter: "",
+    actionType: ""
+  };
+}
+/**
+ * @name MsgProposeRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorization
+ */
+export const MsgProposeRecoveryAuthorization = {
+  typeUrl: "/zerone.emergency.v1.MsgProposeRecoveryAuthorization",
+  encode(message: MsgProposeRecoveryAuthorization, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.proposer !== "") {
+      writer.uint32(10).string(message.proposer);
+    }
+    if (message.sdkGovProposalId !== BigInt(0)) {
+      writer.uint32(16).uint64(message.sdkGovProposalId);
+    }
+    if (message.actionSha256 !== "") {
+      writer.uint32(26).string(message.actionSha256);
+    }
+    if (message.recoveryManifestSha256 !== "") {
+      writer.uint32(34).string(message.recoveryManifestSha256);
+    }
+    if (message.justification !== "") {
+      writer.uint32(42).string(message.justification);
+    }
+    if (message.upgradePlanSha256 !== "") {
+      writer.uint32(50).string(message.upgradePlanSha256);
+    }
+    if (message.authorizedSubmitter !== "") {
+      writer.uint32(58).string(message.authorizedSubmitter);
+    }
+    if (message.actionType !== "") {
+      writer.uint32(66).string(message.actionType);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgProposeRecoveryAuthorization {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgProposeRecoveryAuthorization();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.proposer = reader.string();
+          break;
+        case 2:
+          message.sdkGovProposalId = reader.uint64();
+          break;
+        case 3:
+          message.actionSha256 = reader.string();
+          break;
+        case 4:
+          message.recoveryManifestSha256 = reader.string();
+          break;
+        case 5:
+          message.justification = reader.string();
+          break;
+        case 6:
+          message.upgradePlanSha256 = reader.string();
+          break;
+        case 7:
+          message.authorizedSubmitter = reader.string();
+          break;
+        case 8:
+          message.actionType = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgProposeRecoveryAuthorization>): MsgProposeRecoveryAuthorization {
+    const message = createBaseMsgProposeRecoveryAuthorization();
+    message.proposer = object.proposer ?? "";
+    message.sdkGovProposalId = object.sdkGovProposalId !== undefined && object.sdkGovProposalId !== null ? BigInt(object.sdkGovProposalId.toString()) : BigInt(0);
+    message.actionSha256 = object.actionSha256 ?? "";
+    message.recoveryManifestSha256 = object.recoveryManifestSha256 ?? "";
+    message.justification = object.justification ?? "";
+    message.upgradePlanSha256 = object.upgradePlanSha256 ?? "";
+    message.authorizedSubmitter = object.authorizedSubmitter ?? "";
+    message.actionType = object.actionType ?? "";
+    return message;
+  }
+};
+function createBaseMsgProposeRecoveryAuthorizationResponse(): MsgProposeRecoveryAuthorizationResponse {
+  return {
+    proposalId: ""
+  };
+}
+/**
+ * @name MsgProposeRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse
+ */
+export const MsgProposeRecoveryAuthorizationResponse = {
+  typeUrl: "/zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse",
+  encode(message: MsgProposeRecoveryAuthorizationResponse, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.proposalId !== "") {
+      writer.uint32(10).string(message.proposalId);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgProposeRecoveryAuthorizationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgProposeRecoveryAuthorizationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.proposalId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgProposeRecoveryAuthorizationResponse>): MsgProposeRecoveryAuthorizationResponse {
+    const message = createBaseMsgProposeRecoveryAuthorizationResponse();
+    message.proposalId = object.proposalId ?? "";
+    return message;
+  }
+};
+function createBaseMsgVoteRecoveryAuthorization(): MsgVoteRecoveryAuthorization {
+  return {
+    voter: "",
+    proposalId: "",
+    approve: false
+  };
+}
+/**
+ * @name MsgVoteRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorization
+ */
+export const MsgVoteRecoveryAuthorization = {
+  typeUrl: "/zerone.emergency.v1.MsgVoteRecoveryAuthorization",
+  encode(message: MsgVoteRecoveryAuthorization, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.voter !== "") {
+      writer.uint32(10).string(message.voter);
+    }
+    if (message.proposalId !== "") {
+      writer.uint32(18).string(message.proposalId);
+    }
+    if (message.approve === true) {
+      writer.uint32(24).bool(message.approve);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgVoteRecoveryAuthorization {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgVoteRecoveryAuthorization();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.voter = reader.string();
+          break;
+        case 2:
+          message.proposalId = reader.string();
+          break;
+        case 3:
+          message.approve = reader.bool();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgVoteRecoveryAuthorization>): MsgVoteRecoveryAuthorization {
+    const message = createBaseMsgVoteRecoveryAuthorization();
+    message.voter = object.voter ?? "";
+    message.proposalId = object.proposalId ?? "";
+    message.approve = object.approve ?? false;
+    return message;
+  }
+};
+function createBaseMsgVoteRecoveryAuthorizationResponse(): MsgVoteRecoveryAuthorizationResponse {
+  return {
+    quorumReached: false,
+    recoveryAuthorized: false
+  };
+}
+/**
+ * @name MsgVoteRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse
+ */
+export const MsgVoteRecoveryAuthorizationResponse = {
+  typeUrl: "/zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse",
+  encode(message: MsgVoteRecoveryAuthorizationResponse, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.quorumReached === true) {
+      writer.uint32(8).bool(message.quorumReached);
+    }
+    if (message.recoveryAuthorized === true) {
+      writer.uint32(16).bool(message.recoveryAuthorized);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgVoteRecoveryAuthorizationResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgVoteRecoveryAuthorizationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.quorumReached = reader.bool();
+          break;
+        case 2:
+          message.recoveryAuthorized = reader.bool();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgVoteRecoveryAuthorizationResponse>): MsgVoteRecoveryAuthorizationResponse {
+    const message = createBaseMsgVoteRecoveryAuthorizationResponse();
+    message.quorumReached = object.quorumReached ?? false;
+    message.recoveryAuthorized = object.recoveryAuthorized ?? false;
     return message;
   }
 };

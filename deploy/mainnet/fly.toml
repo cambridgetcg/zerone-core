@@ -1,9 +1,12 @@
-# zerone-1 — custodial launch, single public validator on fly.io
+# zerone-1 — transitional custodial validator on fly.io.
+# No RPC/REST/gRPC service is published from the consensus-key machine.
 app = "zerone-1"
 primary_region = "lhr"
 
 [build]
-  dockerfile = "Dockerfile"
+  # Build from the repository root with reviewed VERSION, full 40-hex COMMIT,
+  # and SOURCE_DATE_EPOCH values supplied through repeated --build-arg flags.
+  dockerfile = "deploy/mainnet/Dockerfile"
 
 [env]
   MONIKER = "zerone-1-fly-0"
@@ -15,26 +18,6 @@ primary_region = "lhr"
   destination = "/data"
 
 [[services]]
-  internal_port = 26657
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
-  [[services.ports]]
-    port = 26657
-    handlers = ["http"]
-
-[[services]]
-  internal_port = 1317
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
-  [[services.ports]]
-    port = 1317
-    handlers = ["http"]
-
-[[services]]
   internal_port = 26656
   protocol = "tcp"
   auto_stop_machines = false
@@ -42,17 +25,6 @@ primary_region = "lhr"
   min_machines_running = 1
   [[services.ports]]
     port = 26656
-
-# gRPC (9090) — raw TCP (h2c/plaintext), no HTTP handler. Needed by IBC
-# relayers (hermes) for the client/connection/channel handshake queries.
-[[services]]
-  internal_port = 9090
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
-  [[services.ports]]
-    port = 9090
 
 [[vm]]
   size = "shared-cpu-2x"
