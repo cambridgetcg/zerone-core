@@ -3,6 +3,8 @@
 export const CONSTRUCTIVE_TREE_ENDPOINT =
   "/standards/constructive-intelligence-tree.v1.json";
 export const CONSTRUCTIVE_TREE_MAX_BYTES = 262_144;
+export const CONSTRUCTIVE_TREE_SHA256 =
+  "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf";
 
 export const CONSTRUCTIVE_TREE_STAGES = [
   "foundation",
@@ -200,6 +202,7 @@ export interface ConstructiveTreeFetchOptions {
     init?: RequestInit,
   ) => Promise<Response>;
   timeoutMs?: number;
+  baseUrl?: string;
 }
 
 export class ConstructiveTreeDataError extends Error {
@@ -892,49 +895,186 @@ export function parseConstructiveIntelligenceTreeJson(
   return parseConstructiveIntelligenceTree(value);
 }
 
+async function readBoundedResponse(
+  response: Response,
+  signal: AbortSignal,
+): Promise<Uint8Array> {
+  if (response.body === null) {
+    throw new ConstructiveTreeDataError(
+      "Static curriculum returned an empty response body",
+    );
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  let rejectOnAbort: ((reason?: unknown) => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectOnAbort = reject;
+  });
+  const onAbort = (): void => {
+    rejectOnAbort?.(
+      signal.reason ??
+        new DOMException("Static curriculum request timed out", "TimeoutError"),
+    );
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+  if (signal.aborted) onAbort();
+  try {
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), aborted]);
+      if (done) break;
+      length += value.byteLength;
+      if (length > CONSTRUCTIVE_TREE_MAX_BYTES) {
+        void reader.cancel().catch(() => {
+          // Cancellation is best-effort; refusal must not await a hostile stream.
+        });
+        throw new ConstructiveTreeDataError(
+          "Static curriculum exceeds its size limit",
+        );
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (signal.aborted) {
+      void reader.cancel(signal.reason).catch(() => {
+        // The deadline still wins even if cancellation stalls or rejects.
+      });
+      throw new ConstructiveTreeDataError(
+        "Static curriculum request timed out",
+      );
+    }
+    throw error;
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+    try {
+      reader.releaseLock();
+    } catch {
+      // A still-pending hostile read is abandoned after refusal.
+    }
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  chunks.forEach((chunk) => {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  });
+  return bytes;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  if (globalThis.crypto?.subtle === undefined) {
+    throw new ConstructiveTreeDataError(
+      "Static curriculum digest verification is unavailable",
+    );
+  }
+  const input = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(input).set(bytes);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", input);
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function assertCanonicalResponseUrl(response: Response, baseUrl?: string): void {
+  if (baseUrl === undefined) return;
+  let expected: URL;
+  let actual: URL;
+  try {
+    expected = new URL(CONSTRUCTIVE_TREE_ENDPOINT, baseUrl);
+    actual = new URL(response.url);
+  } catch {
+    throw new ConstructiveTreeDataError(
+      "Static curriculum returned an invalid final URL",
+    );
+  }
+  if (
+    actual.origin !== expected.origin ||
+    actual.pathname !== expected.pathname ||
+    actual.search !== expected.search ||
+    actual.hash !== expected.hash
+  ) {
+    throw new ConstructiveTreeDataError(
+      "Static curriculum left its canonical same-origin path",
+    );
+  }
+}
+
 export async function fetchConstructiveIntelligenceTree(
   options: ConstructiveTreeFetchOptions = {},
 ): Promise<ConstructiveIntelligenceTree> {
   const fetcher = options.fetcher ?? fetch;
   const timeoutMs = options.timeoutMs ?? 8_000;
-  let response: Response;
+  const controller = new AbortController();
+  const deadline = globalThis.setTimeout(() => {
+    controller.abort(
+      new DOMException("Static curriculum request timed out", "TimeoutError"),
+    );
+  }, timeoutMs);
+  const signal = controller.signal;
+  const baseUrl =
+    options.baseUrl ??
+    (typeof window === "undefined" ? undefined : window.location.href);
   try {
-    response = await fetcher(CONSTRUCTIVE_TREE_ENDPOINT, {
-      cache: "no-cache",
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (error) {
-    if (
-      error instanceof DOMException &&
-      (error.name === "AbortError" || error.name === "TimeoutError")
-    ) {
-      throw new ConstructiveTreeDataError("Static curriculum request timed out");
+    let response: Response;
+    try {
+      response = await fetcher(CONSTRUCTIVE_TREE_ENDPOINT, {
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+        redirect: "error",
+        signal,
+      });
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        (error.name === "AbortError" || error.name === "TimeoutError")
+      ) {
+        throw new ConstructiveTreeDataError(
+          "Static curriculum request timed out",
+        );
+      }
+      throw new ConstructiveTreeDataError("Static curriculum is unavailable");
     }
-    throw new ConstructiveTreeDataError("Static curriculum is unavailable");
+    if (!response.ok) {
+      throw new ConstructiveTreeDataError(
+        `Static curriculum returned HTTP ${response.status}`,
+      );
+    }
+    const contentType = response.headers.get("content-type");
+    if (contentType !== null && !/\bjson\b/i.test(contentType)) {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum returned a non-JSON response",
+      );
+    }
+    const declaredLength = response.headers.get("content-length");
+    if (
+      declaredLength !== null &&
+      (!/^\d+$/.test(declaredLength) ||
+        Number(declaredLength) > CONSTRUCTIVE_TREE_MAX_BYTES)
+    ) {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum exceeded its size limit",
+      );
+    }
+    assertCanonicalResponseUrl(response, baseUrl);
+    const bytes = await readBoundedResponse(response, signal);
+    if ((await sha256Hex(bytes)) !== CONSTRUCTIVE_TREE_SHA256) {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum did not match the reviewed canonical digest",
+      );
+    }
+    let raw: string;
+    try {
+      raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      throw new ConstructiveTreeDataError(
+        "Static curriculum was not valid UTF-8",
+      );
+    }
+    return parseConstructiveIntelligenceTreeJson(raw);
+  } finally {
+    globalThis.clearTimeout(deadline);
   }
-  if (!response.ok) {
-    throw new ConstructiveTreeDataError(
-      `Static curriculum returned HTTP ${response.status}`,
-    );
-  }
-  const contentType = response.headers.get("content-type");
-  if (contentType !== null && !/\bjson\b/i.test(contentType)) {
-    throw new ConstructiveTreeDataError(
-      "Static curriculum returned a non-JSON response",
-    );
-  }
-  const declaredLength = response.headers.get("content-length");
-  if (
-    declaredLength !== null &&
-    (!/^\d+$/.test(declaredLength) ||
-      Number(declaredLength) > CONSTRUCTIVE_TREE_MAX_BYTES)
-  ) {
-    throw new ConstructiveTreeDataError(
-      "Static curriculum exceeded its size limit",
-    );
-  }
-  return parseConstructiveIntelligenceTreeJson(await response.text());
 }
 
 export function buildConstructiveTreeIndex(
@@ -1665,7 +1805,19 @@ function renderExplorer(
     const node = index.byId.get(id);
     if (!node) return;
     selectedId = id;
-    updateRelationships();
+    const selectionIsVisible = filterConstructiveTreeNodes(
+      tree,
+      filters(),
+    ).some((candidate) => candidate.id === id);
+    if (!selectionIsVisible) {
+      search.value = "";
+      stage.value = "all";
+      domain.value = "all";
+      funding.value = "all";
+      renderMap();
+    } else {
+      updateRelationships();
+    }
     renderNodeDialog(dialog, node, tree, index, asOf, (relatedId) =>
       selectNode(relatedId, false, true),
     );
