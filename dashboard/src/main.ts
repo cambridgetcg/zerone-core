@@ -13,6 +13,7 @@ import {
   FEEGRANT_SPONSORSHIP_ENABLED,
   HARD_CAP_ZRN,
 } from "./config";
+import { initialiseConstructiveTree } from "./constructive-tree";
 import type { FeeGrantAllowance } from "./feegrant";
 import type { WalletState } from "./wallet";
 
@@ -64,6 +65,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
   "feegrant-revoke-submit",
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
+const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -977,6 +979,7 @@ window.addEventListener("keplr_keystorechange", () => {
 });
 
 initialiseReveal();
+void initialiseConstructiveTree(constructiveTreeRoot);
 void refreshNetwork(false);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
