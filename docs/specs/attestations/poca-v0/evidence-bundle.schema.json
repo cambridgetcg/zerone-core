@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/poca-v0/evidence-bundle.schema.json",
+  "title": "Zerone EvidenceBundle v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "profile_version",
+    "subject",
+    "baseline_digest",
+    "lineage_digest",
+    "participants",
+    "evidence",
+    "unresolved_challenge_digests"
+  ],
+  "properties": {
+    "schema": {
+      "const": "zerone.evidence-bundle/v0"
+    },
+    "profile_id": {
+      "$ref": "#/$defs/id"
+    },
+    "profile_version": {
+      "$ref": "#/$defs/id"
+    },
+    "subject": {
+      "$ref": "#/$defs/artifact"
+    },
+    "baseline_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "lineage_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "participants": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/participant"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/receipt"
+      }
+    },
+    "unresolved_challenge_digests": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:@/-]{0,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "https": {
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "^https://[^?#]+$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "media_type",
+        "digest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9!#$&^_.+-]+/[A-Za-z0-9!#$&^_.+-]+$"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_uri": {
+          "$ref": "#/$defs/https"
+        }
+      }
+    },
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "role",
+        "identity",
+        "control_cluster_claim"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "CLAIMANT",
+            "PRODUCER",
+            "SPONSOR",
+            "VERIFIER",
+            "ADOPTER",
+            "OPERATOR",
+            "CHALLENGER"
+          ]
+        },
+        "identity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "control_cluster_claim": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "verification_rule": {
+      "enum": [
+        "FROZEN_BASELINE_AND_GUARDRAILS",
+        "SIGSTORE_SIGNATURE_AND_SUBJECT",
+        "SLSA_BUILD_V1_EXPECTATIONS",
+        "ALL_TEST_CASES_PASS",
+        "BYTE_IDENTICAL_SUBJECT",
+        "CAUSAL_HOLDOUT_GAIN",
+        "INTEROPERABILITY_SUITE_PASS",
+        "SLO_AND_GUARDRAILS_PASS",
+        "ROLLBACK_COMPLETED",
+        "INDEPENDENT_ADOPTION_RECEIPT",
+        "ZERONE_RECURSION_LINK",
+        "CHAIN_RECORD_MATCHES"
+      ]
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "requirement_id",
+        "producer_participant_id",
+        "observer_participant_id",
+        "result",
+        "verification_rule",
+        "policy_digest",
+        "subject_digest",
+        "environment_digest",
+        "statement_digest",
+        "verification_receipt_digest"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "requirement_id": {
+          "$ref": "#/$defs/id"
+        },
+        "producer_participant_id": {
+          "$ref": "#/$defs/id"
+        },
+        "observer_participant_id": {
+          "$ref": "#/$defs/id"
+        },
+        "result": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "predicate_type": {
+          "$ref": "#/$defs/https"
+        },
+        "verification_rule": {
+          "$ref": "#/$defs/verification_rule"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "subject_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "environment_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "statement_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "verification_receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_uri": {
+          "$ref": "#/$defs/https"
+        }
+      }
+    }
+  }
+}

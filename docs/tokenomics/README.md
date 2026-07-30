@@ -29,6 +29,7 @@ the first lane. Default-zero knowledge probe issuance and default-disabled
 | [SINKS-AND-FLOWS.md](SINKS-AND-FLOWS.md) | Complete map of where ZRN is created, destroyed, and moves |
 | [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | 4-phase research-fund model; the live genesis voter pair is unconfigured |
 | [REVIEW.md](REVIEW.md) | Honest assessment: strengths, risks, open questions |
+| [CONSTRUCTIVE-INTELLIGENCE-REWARDS.md](CONSTRUCTIVE-INTELLIGENCE-REWARDS.md) | Pre-consensus reward projection from the canonical capability tree onto artifact evidence, with power separation and fail-closed release gates |
 
 ## Quick Numbers
 
