@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   CONSTRUCTIVE_TREE_ENDPOINT,
   CONSTRUCTIVE_TREE_MAX_BYTES,
+  CONSTRUCTIVE_TREE_SHA256,
   CONSTRUCTIVE_TREE_STAGES,
   ConstructiveTreeDataError,
   buildConstructiveTreeIndex,
@@ -67,6 +69,26 @@ function jsonResponse(
       ...init.headers,
     },
   });
+}
+
+async function settlesWithin<T>(
+  promise: Promise<T>,
+  milliseconds: number,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`promise did not settle within ${milliseconds}ms`)),
+          milliseconds,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 describe("constructive-tree runtime presentation guard", () => {
@@ -223,7 +245,14 @@ describe("constructive-tree runtime presentation guard", () => {
 });
 
 describe("constructive-tree bounded static fetch", () => {
-  it("uses the same-origin versioned endpoint with no-cache and a timeout", async () => {
+  it("pins the reviewed canonical document digest", () => {
+    assert.equal(
+      createHash("sha256").update(canonicalRaw).digest("hex"),
+      CONSTRUCTIVE_TREE_SHA256,
+    );
+  });
+
+  it("uses the same-origin versioned endpoint with no-store, redirect refusal, and a timeout", async () => {
     let inputSeen: RequestInfo | URL | undefined;
     let initSeen: RequestInit | undefined;
     const tree = await fetchConstructiveIntelligenceTree({
@@ -234,13 +263,51 @@ describe("constructive-tree bounded static fetch", () => {
       },
     });
     assert.equal(inputSeen, CONSTRUCTIVE_TREE_ENDPOINT);
-    assert.equal(initSeen?.cache, "no-cache");
+    assert.equal(initSeen?.cache, "no-store");
+    assert.equal(initSeen?.credentials, "same-origin");
+    assert.equal(initSeen?.redirect, "error");
     assert.equal(
       new Headers(initSeen?.headers).get("accept"),
       "application/json",
     );
     assert.ok(initSeen?.signal instanceof AbortSignal);
     assert.equal(tree.nodes.length, 30);
+  });
+
+  it("rejects content drift and a final URL outside the exact same-origin path", async () => {
+    await assert.rejects(
+      fetchConstructiveIntelligenceTree({
+        fetcher: async () =>
+          jsonResponse(canonicalRaw.replace('"policyVersion": "1.0.0"', '"policyVersion": "1.0.1"')),
+      }),
+      /reviewed canonical digest/,
+    );
+
+    const redirected = jsonResponse();
+    Object.defineProperty(redirected, "url", {
+      value:
+        "https://attacker.example/standards/constructive-intelligence-tree.v1.json",
+    });
+    await assert.rejects(
+      fetchConstructiveIntelligenceTree({
+        baseUrl: "https://zerone.ai/",
+        fetcher: async () => redirected,
+      }),
+      /canonical same-origin path/,
+    );
+
+    const queryDrift = jsonResponse();
+    Object.defineProperty(queryDrift, "url", {
+      value:
+        "https://zerone.ai/standards/constructive-intelligence-tree.v1.json?revision=unreviewed",
+    });
+    await assert.rejects(
+      fetchConstructiveIntelligenceTree({
+        baseUrl: "https://zerone.ai/",
+        fetcher: async () => queryDrift,
+      }),
+      /canonical same-origin path/,
+    );
   });
 
   it("rejects HTTP, media-type, declared-size, and streamed-size failures", async () => {
@@ -274,6 +341,26 @@ describe("constructive-tree bounded static fetch", () => {
       fetchConstructiveIntelligenceTree({
         fetcher: async () =>
           jsonResponse(" ".repeat(CONSTRUCTIVE_TREE_MAX_BYTES + 1)),
+      }),
+      /exceeds/,
+    );
+
+    const oversizedChunk = new Uint8Array(
+      Math.floor(CONSTRUCTIVE_TREE_MAX_BYTES / 2) + 1,
+    ).fill(0x20);
+    await assert.rejects(
+      fetchConstructiveIntelligenceTree({
+        fetcher: async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(oversizedChunk);
+                controller.enqueue(oversizedChunk);
+                controller.close();
+              },
+            }),
+            { headers: { "content-type": "application/json" } },
+          ),
       }),
       /exceeds/,
     );
@@ -311,6 +398,74 @@ describe("constructive-tree bounded static fetch", () => {
     const recovered = await fetchConstructiveIntelligenceTree({ fetcher });
     assert.equal(recovered.nodes.length, 30);
     assert.equal(attempt, 2);
+  });
+
+  it("applies the same deadline while consuming a stalled response body", async () => {
+    let cancelled = false;
+    await assert.rejects(
+      fetchConstructiveIntelligenceTree({
+        timeoutMs: 5,
+        fetcher: async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('{"schema":'));
+              },
+              cancel() {
+                cancelled = true;
+              },
+            }),
+            { headers: { "content-type": "application/json" } },
+          ),
+      }),
+      /timed out/,
+    );
+    assert.equal(cancelled, true);
+  });
+
+  it("refuses overflow and timeout even when hostile stream cancellation never settles", async () => {
+    const neverCancels = (): Promise<void> => new Promise(() => {});
+    const oversizedChunk = new Uint8Array(
+      CONSTRUCTIVE_TREE_MAX_BYTES + 1,
+    ).fill(0x20);
+    await assert.rejects(
+      settlesWithin(
+        fetchConstructiveIntelligenceTree({
+          fetcher: async () =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(oversizedChunk);
+                },
+                cancel: neverCancels,
+              }),
+              { headers: { "content-type": "application/json" } },
+            ),
+        }),
+        100,
+      ),
+      /exceeds/,
+    );
+
+    await assert.rejects(
+      settlesWithin(
+        fetchConstructiveIntelligenceTree({
+          timeoutMs: 5,
+          fetcher: async () =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(new TextEncoder().encode('{"schema":'));
+                },
+                cancel: neverCancels,
+              }),
+              { headers: { "content-type": "application/json" } },
+            ),
+        }),
+        100,
+      ),
+      /timed out/,
+    );
   });
 });
 

@@ -19,11 +19,12 @@ HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
 The 技能樹 explorer reads the checked-in
 `/standards/constructive-intelligence-tree.v1.json` at runtime. The browser
-bounds the response to 262,144 UTF-8 bytes, checks the critical schema,
-authority, economic, safety, graph, and funding boundaries, then renders data
+refuses redirects, requires the exact same-origin path, streams at most 262,144
+bytes, and pins the reviewed document SHA-256 before parsing or rendering it
 with DOM text nodes. It does not use `innerHTML`. The dependency-free build
-validator remains the normative validation gate; the browser guard exists to
-fail closed instead of presenting a malformed or boundary-weakened response.
+validator remains the normative validation gate; the exact digest makes any
+tree revision fail closed in the browser until that revision has passed the
+validator and its reviewed digest is deliberately updated.
 
 The explorer is historical curriculum, not live chain or bounty state. A skill
 unlock grants no qualification and creates no ZRN claim. The three Season 0
