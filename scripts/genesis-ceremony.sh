@@ -18,6 +18,12 @@
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
+umask 077
+
+if [[ "${ZERONE_OPERATION_CONTEXT:-genesis}" == "recovery" ]]; then
+  echo "genesis-ceremony.sh is genesis-only and must not be used for validator recovery" >&2
+  exit 1
+fi
 
 # ── Constants ────────────────────────────────────────────────────────────
 

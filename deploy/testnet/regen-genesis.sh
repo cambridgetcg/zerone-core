@@ -15,6 +15,12 @@
 # Requires: build/zeroned freshly built from HEAD; jq; the artifacts/ identity files.
 
 set -euo pipefail
+umask 077
+
+if [[ "${ZERONE_OPERATION_CONTEXT:-genesis}" == "recovery" ]]; then
+  echo "regen-genesis.sh is genesis-only and must not be used for validator recovery" >&2
+  exit 1
+fi
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BINARY="${BINARY:-${PROJECT_ROOT}/build/zeroned}"

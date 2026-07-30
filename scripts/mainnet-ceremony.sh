@@ -62,6 +62,12 @@
 # Env overrides: BINARY OUT_DIR CHAIN_ID GENESIS_TIME
 
 set -euo pipefail
+umask 077
+
+if [[ "${ZERONE_OPERATION_CONTEXT:-genesis}" == "recovery" ]]; then
+  echo "mainnet-ceremony.sh is genesis-only and must not be used for validator recovery" >&2
+  exit 1
+fi
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY="${BINARY:-${PROJECT_ROOT}/build/zeroned}"

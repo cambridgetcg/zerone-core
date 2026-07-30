@@ -1329,21 +1329,35 @@ upgrade lane for a reviewed deterministic migration or select fork/re-genesis.
 ##### Suspect sole-key fork boundary
 
 For a possible 1/1 consensus-key compromise, stop at the last independently
-agreed safe commit and follow section 13. In addition to its normal gates, the
-rewrite must deterministically remove the old SDK validator and associated
-signing authority, add the fresh validator, reconcile SDK staking,
-distribution, slashing, evidence, custom `zerone_staking`, governance, and
-emergency state, and select a new chain ID/revision. Generate every consensus,
-P2P, transaction-authority, and recovery key fresh when its custody is in
-doubt. Start validators isolated on new volumes, compare the signed
-genesis/application hash and initial validator set, then connect them.
+agreed safe commit and follow section 13. Classify consensus-key custody
+separately from SDK operator, governance, and custom Guardian custody:
+
+- If only the consensus key is suspect and an independent assessment proves
+  the existing SDK operator `PASS/RETAIN`, the narrow
+  [`tools/fork-genesis`](../tools/fork-genesis/) compiler may rotate that one
+  consensus key. It requires one bonded/unjailed validator, exact stopped
+  `H+1` export and checkpoint bindings, empty IBC, no pending governance,
+  upgrade, or genesis transactions, a new chain revision, and a quarantined
+  start. It preserves the proven-safe operator and refuses every broader
+  rewrite.
+- If the SDK operator, governance authority, or custom Guardian is suspect or
+  unknown, a full-identity rewrite must remove and replace every affected
+  privilege and reconcile staking, distribution, slashing, evidence,
+  `zerone_staking`, governance, emergency, and supply state. The narrow
+  compiler deliberately cannot do this.
+
+The currently deployed legacy 1/1 images may have exposed operator authority,
+and that custody has not been independently proved. Production therefore
+starts `SUSPECT/NO_GO`; the existence of the narrow compiler does not authorize
+its use until the operator assessment is `PASS/RETAIN`. A full-identity
+compiler is not present in this repository, so a failed or unknown operator
+assessment remains a release blocker.
 
 There is no safe shortcut consisting of replacing
 `priv_validator_key.json`, deleting `priv_validator_state.json`, restoring a
 snapshot under the new key, or asking the suspect key to sign “one final”
-transition. A fork tool or state rewrite that does not yet exist must be
-implemented, reviewed, and reproduced; its absence is a blocker, not
-permission to hand-edit genesis.
+transition. An unsupported rewrite profile must be implemented, reviewed, and
+reproduced; its absence is a blocker, not permission to hand-edit genesis.
 
 ### 11.5 Database corruption
 
@@ -1381,6 +1395,22 @@ their app hashes converge.
   public infrastructure.
 - If a validator cannot determine the canonical peer set safely, stop its
   signer rather than risk equivocation.
+
+The deployable reference boundary is
+[`deploy/topology`](../deploy/topology/): two disposable P2P-only sentries, a
+separate read-only query edge, unique encrypted volumes, digest-pinned images,
+fresh zero-power identities, and signer restart policy `no`. Its clean
+`legacy-full-node` image target may extract only the exact hashed `zeroned`
+binary from a historical image; it never inherits that image's filesystem
+layers or keys. Extraction is containment, not source provenance, and requires
+an external binary-origin decision.
+
+Move a live validator behind that boundary only after both sentries are
+independently synced and probed. Remove public signer services and addresses
+in a separate controlled transition; never apply a sentry template to the
+signer or couple edge deployment with signer restart. A hostile sentry/query
+node is stopped and replaced from a reviewed digest on a new volume—its old
+identity and volume are not restarted.
 
 Upstream recommends sentry nodes and warns against public validator RPC:
 [CometBFT production guidance](https://docs.cometbft.com/v0.38/core/running-in-production)
@@ -1442,28 +1472,58 @@ There is no middle category called “deep rollback.”
 2. Stop relayers and public transaction ingress on every controlled endpoint.
 3. Identify the last common committed height using headers and commits, not
    local database height alone.
-4. Freeze and hash all candidate databases, exports, logs, binaries, and
-   evidence.
+4. Prove the validator process and platform restart route are stopped. Freeze
+   the source read-only; create a
+   [`validator-home-manifest`](../tools/validator-home-manifest/) from that
+   stopped evidence and hash candidate databases, exports, logs, binaries, and
+   control-plane records.
 5. Select the export/rewrite base and state why every later block is retained
-   or abandoned.
-6. Write deterministic rewrite tooling with input hash, output hash, invariant
-   report, and independent reproduction.
-7. Reconcile total supply, module accounts, vesting, staking, governance,
-   evidence, incidents, and every IBC obligation.
-8. Choose a unique chain ID/revision and initial height. Publish the relation
-   to the old chain.
-9. Decide whether consensus and authority keys are retained, rotated, or
-   retired. Suspect keys are never retained.
-10. Generate genesis, run application validation plus
-    [tools/genesis-check](../tools/genesis-check/), and reproduce its exact
-    SHA-256 independently.
-11. Publish the genesis, rewrite tool, manifest chain, discarded-height range,
-    supply report, validator set, and IBC/counterparty plan.
-12. Obtain fork/re-genesis authorization from section 5.
-13. Start isolated nodes, compare genesis/app hashes, then connect validators.
-14. Keep public writes and IBC closed until post-genesis acceptance passes.
-15. Mark old signer identities `RETIRED` where appropriate and monitor both
-    histories for accidental signing.
+   or abandoned. Bind the height, block ID, app hash, last block time, signed
+   commit, validator set, and exact compact SDK export bytes.
+6. Seal separate custody findings for consensus, P2P, SDK operator, governance,
+   custom Guardian, build, registry, and recovery authorities. Missing evidence
+   is `UNKNOWN`, never `PASS`.
+7. Select an implemented rewrite profile. For
+   `consensus-key-only`, the SDK operator must independently pass
+   `RETAIN_PROVEN_SAFE`; otherwise stop because the available compiler does not
+   support the required identity rewrite.
+8. Independently pin the incident, custody assessment, rewrite policy,
+   compiler executable digest, fresh key, target chain revision/time, and two
+   reproducer tuples with distinct control domains and signing keys.
+9. Run [`fork-genesis`](../tools/fork-genesis/) in both domains. Require
+   byte-identical target genesis and output digest. Each reproducer signs an
+   external attestation over its exact compiler-report file digest; a report
+   self-hash alone is not execution proof.
+10. Reconcile total supply, module accounts, vesting, staking, governance,
+    evidence, incidents, custom modules, and every IBC obligation. The narrow
+    profile only accepts empty IBC and its two explicit v8-to-v10 empty-state
+    schema migrations.
+11. Validate the target with the target application and
+    [tools/genesis-check](../tools/genesis-check/). Initialize and commit it
+    twice in isolated environments, then compare genesis, initial validator
+    set, app hash, quarantine state, module digest inventory, and supply.
+12. Run the deterministic
+    [`operations-rehearsal`](../tools/operations-rehearsal/) fault suite
+    against pinned, signed collector evidence. Exercise stale evidence,
+    duplicate execution, wrong binary, wrong height, same-volume restore,
+    overlapping signers, process restart, tampered artifacts, and divergent
+    reproduction.
+13. Seal the release around the matching genesis, both compiler reports,
+    rehearsal, stopped-home manifest, fresh-volume proof, topology, journal,
+    and signed approvals. Then sign the final fork choice; it is intentionally
+    downstream of compilation to avoid a hash cycle.
+14. Run [`validator-recovery-gate`](../tools/validator-recovery-gate/) from
+    exact pinned files. Any invalid identity derivation, untrusted approval,
+    evidence omission, profile mismatch, or reproduction mismatch is `NO_GO`.
+15. Obtain the fork/re-genesis authorization from section 5. A tool result
+    cannot substitute for the required human/institutional authority.
+16. Only after both gates pass, create wholly new stopped volumes and isolated
+    Machines with restart policy `no`. Compare genesis, app hash, validator
+    identity, signer state, binary digest, and network exposure before
+    connecting validators.
+17. Keep public writes and IBC closed through the observation window. Mark old
+    signer identities `RETIRED` where appropriate, retain old evidence
+    read-only, and monitor both histories for accidental signing.
 
 The external manifest chain preserves the incident evidence that an on-chain
 rewind or rewritten genesis would otherwise remove. Re-anchor its latest hash
@@ -1487,12 +1547,16 @@ captured.
 | Signer stop/resume | Required power stops; chain state is classified correctly; no signer double-signs; resume requires a new manifest. |
 | 1/1 custodial | Sole signer stop stalls chain; all reports carry the custodial exception and do not claim independent quorum. |
 | Key compromise | Suspect signer is isolated, evidence preserved, replacement/retirement rehearsed without parallel key use. |
+| Stopped-home evidence | Validator PID/executable/home, platform restart policy, source filesystem identity, and stop interval are externally bound; unrelated PID, stale stop proof, hard-linked key, and same-volume destination all fail. |
 | DB restore | Clean-stop snapshot restores on a new host; app hash verifies; replay reaches canonical height before signing. |
+| Containment topology | Two sentries and a query edge use fresh zero-power identities and distinct volumes; signer has no public service or auto-restart; hostile edge replacement never starts the signer. |
 | DDoS | Public writes are quarantined while private consensus and operator diagnostics remain available through sentries. |
 | IBC containment | Owned relayers stop, all exact tuples/clients/packets/escrow are inventoried, an unconfigured denom is detected as fail-open, and reopen is separately authorized. |
 | Expired client | Operators identify the expired/near-expiry path and exercise counterparty/client recovery without inventing packet or escrow state. |
 | Supply invariant | Pre/post equations detect an injected one-unit discrepancy and block verification. |
-| Fork/re-genesis | Independent genesis reproduction, unique chain identity, supply equality, IBC treatment, old-key retirement, and manifest re-anchoring pass. |
+| Evidence trust | A self-hashed but unsigned collector envelope, an unpinned signer, missing inventory membership, and a replayed stale observation all fail closed. |
+| Recovery gate tamper | Invalid Bech32/derived identity, forged GO report, mismatched compiler output, untrusted role approval, wrong rewrite profile, and altered selected file all return `NO_GO`. |
+| Fork/re-genesis | Two policy-authorized signed reproductions match exactly; unique chain identity, supply equality, IBC treatment, quarantine, old-key retirement, and manifest re-anchoring pass. |
 
 ### 14.2 Release acceptance
 

@@ -12,6 +12,7 @@ docs/home-e2e-report.md
 **/priv_validator_state.json
 **/node_key.json
 **/*.mnemonic
+**/*.seed
 **/keyring*/
 .env
 .env.*

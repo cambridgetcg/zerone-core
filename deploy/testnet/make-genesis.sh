@@ -18,6 +18,12 @@
 # Usage: deploy/testnet/make-genesis.sh [output-dir]
 
 set -euo pipefail
+umask 077
+
+if [[ "${ZERONE_OPERATION_CONTEXT:-genesis}" == "recovery" ]]; then
+  echo "make-genesis.sh is genesis-only and must not be used for validator recovery" >&2
+  exit 1
+fi
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BINARY="${BINARY:-${PROJECT_ROOT}/build/zeroned}"

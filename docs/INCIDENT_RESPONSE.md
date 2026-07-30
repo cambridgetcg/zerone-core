@@ -117,7 +117,13 @@ never infer one from another.
 5. **Design and attest the recovery.** Follow the canonical runbook. Rehearse
    the exact release from the last common committed state, independently
    verify artifacts, reconcile supply and IBC, and obtain the required
-   recovery authorization.
+   recovery authorization. The offline
+   [`validator-home-manifest`](../tools/validator-home-manifest/),
+   [`operations-rehearsal`](../tools/operations-rehearsal/),
+   [`fork-genesis`](../tools/fork-genesis/), and
+   [`validator-recovery-gate`](../tools/validator-recovery-gate/) tools are
+   fail-closed evidence processors; their success is necessary only for the
+   profile they implement and never substitutes for authorization.
 6. **Activate the recovery.**
 
    - If a safe chain can still process governance, schedule the attested
