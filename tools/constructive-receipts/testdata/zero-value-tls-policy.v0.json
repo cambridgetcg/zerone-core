@@ -1,0 +1,54 @@
+{
+  "schema": "zerone.constructive-intelligence-zero-value-policy/v0",
+  "tree_normative_digest": "43f65d91d700c9ed7a874f0a34520fc815d51d89a67255aa75f7e8be4ecd7a9a",
+  "quest_node_id": "quest-tls-rfc9846-keyshare-reuse@1",
+  "quest_node_normative_digest": "bcefb7c2d177c79d135722bf38a689d122fe564eb39ebec873b0020dacb46206",
+  "scope_hash": "cfb276b6a18ab0c1658317fbe2e495910d6b3199b139a1867d9e7e4d26d15fa8",
+  "acceptance_policy_digest": "ed3163a6a2fc321dbe4174f85f746285d93dc83617bee57b9d1f82e46850a60b",
+  "standards": [
+    {
+      "canonical_id": "ietf:rfc:8446",
+      "revision": "2018-08",
+      "edition_digest": "4c0d47028adaf58ac3d7b96dba6a2501719147d23d052360f349b70057c63302"
+    },
+    {
+      "canonical_id": "ietf:rfc:9846",
+      "revision": "2026-07",
+      "edition_digest": "86236a1ee07087a422a92974650f95d4d9fb6ea9d6cd421fad8cd36e5613216f"
+    }
+  ],
+  "canonical_subject_roots": [
+    "component:tls-keyshare-reuse-oracle",
+    "standard:ietf:rfc:8446#section-4.2.8",
+    "standard:ietf:rfc:9846#section-4.3.8"
+  ],
+  "threat_model_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "falsifiers_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "permitted_target_and_test_environment_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "escalation_policy_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+  "conflict_cluster_policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+  "quality_rubric_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+  "method_or_adapter_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+  "roles": {
+    "claimant_control_root": "control:claimant:tls-fixture",
+    "sponsor_control_root": "control:sponsor:season-zero",
+    "technical_evaluator_control_roots": [
+      "control:evaluator:a",
+      "control:evaluator:b",
+      "control:evaluator:c"
+    ],
+    "payout_authorizer_control_root": "control:authorizer:zero-value"
+  },
+  "value_boundary": {
+    "denomination": null,
+    "total_cap": 0,
+    "verified_cost_budget": 0,
+    "outcome_pool": 0,
+    "reviewer_budget": 0,
+    "administration_and_fee_budget": 0,
+    "escrow_receipt": null,
+    "schedule_instantiated": false,
+    "expiry": null,
+    "refund_path": null
+  }
+}

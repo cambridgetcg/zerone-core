@@ -7,6 +7,12 @@ It neither reads nor changes chain state. It is not an implementation of a
 Zerone reward path or an adapter for the canonical
 [constructive-intelligence tree v1](../../docs/specs/constructive-intelligence-tree-v1.md).
 
+The same command also contains a deliberately separate exact-integer
+[shadow capacity ledger](../../docs/tokenomics/CONSTRUCTIVE-INTELLIGENCE-SHADOW-LEDGER.md).
+That fixture tests one-shot reattribution of quarantined, still-unpaid
+capacity. It uses unnamed model units, authenticates none of its inputs,
+settles exactly `0 ZRN`, and closes no production integration gate.
+
 The simulator makes nine mechanism boundaries executable:
 
 1. evidence and reward attach to a semantic-equivalence cluster, not a person,
@@ -53,8 +59,32 @@ go test ./tools/constructive-rewards
 go run ./tools/constructive-rewards -mode report
 go run ./tools/constructive-rewards -mode sweep
 go run ./tools/constructive-rewards -mode model
+go run ./tools/constructive-rewards -mode shadow
 go run ./tools/constructive-rewards -format json
 ```
+
+`-mode shadow` prints the exact fixed vector:
+
+```text
+event                 A    Z    L    Q    X    R
+accrue                100    0  100    0    0    0
+fund                  100   30   70    0    0    0
+final-invalidation    100   30    0   60   10    0
+reattribute           100   30   50   10   10   50
+```
+
+The CLI uses `Q` as the compact display label for quarantined capacity; the
+normative design uses \(Y\) to avoid collision with \(Q_{C,e}\), which already
+means new gross accrual. Use `-mode shadow -format json` for named fields.
+Behavior-complete restore requires both the snapshot and its expected
+SHA-256 state commitment from a separately trusted location. Keeping both
+under one attacker provides no rollback or authenticity guarantee. Restore
+rejects noncanonical snapshot encodings and unreachable cross-lot successor
+states, chronological live-claim inversions, unjustified quarantine, and
+controller graphs not emitted by the monotone linker; a successful restore
+snapshots back to the same commitment. The caller-provided epoch remains a
+trust boundary and must come from an authenticated authoritative source before
+any integration.
 
 The release check is deliberately fail-closed:
 
@@ -105,9 +135,11 @@ assumption failure, not evidence of decentralization. The executable verifies
 artifact-count invariance only after a semantic cluster is supplied; it does
 not discover equivalence. Its frontier is one economic scalar rather than a
 per-node revocable 技能樹. Backlog persists only when a cluster is evaluated;
-there is no production scheduler, eligibility-lot expiry, or
-extinguished-to-date counter. It also does not consume tree-v1 node digests,
-typed receipts, sponsor escrow compartments, or exact milestone transitions.
+there is no production scheduler. The separate shadow ledger has exact
+eligibility-lot expiry and extinguishment, but it is a generic counterfactual
+machine with caller-declared roots, receipts, support, controllers, and final
+decisions. Neither mode consumes authenticated tree-v1 node digests, sponsor
+escrow compartments, or exact milestone transitions.
 Controller allocations are calculator totals, not role/tranche bank
 transfers, and the cap is cluster-lifetime rather than a persistent
 program-wide limit. These omissions remain explicit integration failures, so

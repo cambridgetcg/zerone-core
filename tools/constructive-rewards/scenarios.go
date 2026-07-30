@@ -924,7 +924,7 @@ func integrationGates() []GateResult {
 			Class:  "integration",
 			Name:   "canonical-tree-receipt-binding",
 			Passed: false,
-			Detail: "the calculator does not consume tree-v1 node digests, typed receipts, sponsor escrow, or its E0-E6 milestone compartments",
+			Detail: "a zero-value offline adapter validates tree-v1 typed receipts, but neither calculator nor ledger consumes its decision or binds sponsor escrow and E0-E6 compartments",
 		},
 		{
 			Class:  "integration",
@@ -948,7 +948,7 @@ func integrationGates() []GateResult {
 			Class:  "integration",
 			Name:   "cap-poisoning-replacement-policy",
 			Passed: false,
-			Detail: "irreversible accrual prevents double pay but no bounded transition reassigns still-unpaid capacity after false maturation",
+			Detail: "an exact one-shot local shadow transition exists, but no authenticated production adjudication, root, controller, or receipt binding executes it",
 		},
 		{
 			Class:  "integration",
@@ -960,7 +960,7 @@ func integrationGates() []GateResult {
 			Class:  "integration",
 			Name:   "backlog-expiry-extinguishment",
 			Passed: false,
-			Detail: "the scalar model assumes no expiry; it has no per-accrual eligibility lots or irreversible extinguished-to-date counter",
+			Detail: "the exact local shadow ledger has expiring lots and irreversible extinguishment, but no production scheduler or durable authenticated state executes them",
 		},
 		{
 			Class:  "integration",

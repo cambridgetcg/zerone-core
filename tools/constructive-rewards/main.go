@@ -2,6 +2,7 @@
 //
 //	go run ./tools/constructive-rewards -mode report
 //	go run ./tools/constructive-rewards -mode sweep
+//	go run ./tools/constructive-rewards -mode shadow
 //	go run ./tools/constructive-rewards -mode release # expected to fail closed
 package main
 
@@ -27,7 +28,7 @@ func parseFlags(args []string, stderr io.Writer) (cliConfig, error) {
 	flags := flag.NewFlagSet("constructive-rewards", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	config := cliConfig{}
-	flags.StringVar(&config.mode, "mode", "report", "report, sweep, model, or release")
+	flags.StringVar(&config.mode, "mode", "report", "report, sweep, model, shadow, or release")
 	flags.StringVar(&config.format, "format", "text", "text or json")
 	flags.Float64Var(&config.budget, "budget", defaults.Budget, "illustrative epoch budget")
 	flags.Float64Var(&config.alpha, "alpha", defaults.Alpha, "scarcity-allocation concavity in (0,1]")
@@ -44,7 +45,7 @@ func parseFlags(args []string, stderr io.Writer) (cliConfig, error) {
 		return cliConfig{}, fmt.Errorf("unexpected positional arguments: %s", strings.Join(flags.Args(), " "))
 	}
 	switch config.mode {
-	case "report", "sweep", "model", "release":
+	case "report", "sweep", "model", "shadow", "release":
 	default:
 		return cliConfig{}, fmt.Errorf("unknown mode %q", config.mode)
 	}
@@ -142,11 +143,61 @@ func printReport(out io.Writer, report SimulationReport) {
 	)
 }
 
+func printShadowReport(out io.Writer, report ShadowScenarioReport) {
+	fmt.Fprintln(out, "ZERONE CONSTRUCTIVE-CAPACITY SHADOW LEDGER")
+	fmt.Fprintln(out, "local counterfactual; non-authoritative; no network observation or settlement")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "event                 A    Z    L    Q    X    R")
+	for _, step := range report.Trace {
+		snapshot := step.Snapshot
+		fmt.Fprintf(
+			out,
+			"%-20s %4d %4d %4d %4d %4d %4d\n",
+			step.Event,
+			snapshot.Accrued,
+			snapshot.Funded,
+			snapshot.Live,
+			snapshot.Quarantined,
+			snapshot.Extinguished,
+			snapshot.ReplacementUsed,
+		)
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintf(
+		out,
+		"exact checks passed: %t | settlement: %d ZRN | integration ready: %t\n",
+		report.Checks.Passed,
+		report.SettlementZRN,
+		report.IntegrationReady,
+	)
+}
+
 func run(args []string, stdout, stderr io.Writer) int {
 	config, err := parseFlags(args, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "constructive-rewards: %v\n", err)
 		return 2
+	}
+	if config.mode == "shadow" {
+		report, err := RunShadowScenario()
+		if err != nil {
+			fmt.Fprintf(stderr, "constructive-rewards: %v\n", err)
+			return 2
+		}
+		if config.format == "json" {
+			encoder := json.NewEncoder(stdout)
+			encoder.SetIndent("", "  ")
+			if err := encoder.Encode(report); err != nil {
+				fmt.Fprintf(stderr, "constructive-rewards: encode shadow report: %v\n", err)
+				return 2
+			}
+		} else {
+			printShadowReport(stdout, report)
+		}
+		if !report.Checks.Passed {
+			return 1
+		}
+		return 0
 	}
 	params := DefaultParams()
 	params.Budget = config.budget

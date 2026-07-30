@@ -1,0 +1,366 @@
+{
+  "schema": "zerone.constructive-intelligence-receipt-shadow/v0",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "authorizesSecurityTesting": false,
+    "assertsProtocolSecurity": false,
+    "performsNetworkRequests": false,
+    "publishesConfidentialEvidence": false
+  },
+  "checkedForUseAt": "2026-07-30",
+  "treeBinding": {
+    "treeSchema": "zerone.constructive-intelligence-tree/v1",
+    "policyVersion": "1.0.0",
+    "treeNormativeDigest": "43f65d91d700c9ed7a874f0a34520fc815d51d89a67255aa75f7e8be4ecd7a9a",
+    "treeDocumentDigest": "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    "questNodeId": "quest-tls-rfc9846-keyshare-reuse@1",
+    "questNodeNormativeDigest": "bcefb7c2d177c79d135722bf38a689d122fe564eb39ebec873b0020dacb46206",
+    "scopeHash": "cfb276b6a18ab0c1658317fbe2e495910d6b3199b139a1867d9e7e4d26d15fa8",
+    "acceptancePolicyDigest": "ed3163a6a2fc321dbe4174f85f746285d93dc83617bee57b9d1f82e46850a60b",
+    "standardsSnapshotDigest": "8a8bfc542b2f894e14478db834331bc1a210a6a358bebf2d7dc1e6ad1fb1c2a5"
+  },
+  "policyRevision": {
+    "schema": "zerone.constructive-intelligence-zero-value-policy/v0",
+    "tree_normative_digest": "43f65d91d700c9ed7a874f0a34520fc815d51d89a67255aa75f7e8be4ecd7a9a",
+    "quest_node_id": "quest-tls-rfc9846-keyshare-reuse@1",
+    "quest_node_normative_digest": "bcefb7c2d177c79d135722bf38a689d122fe564eb39ebec873b0020dacb46206",
+    "scope_hash": "cfb276b6a18ab0c1658317fbe2e495910d6b3199b139a1867d9e7e4d26d15fa8",
+    "acceptance_policy_digest": "ed3163a6a2fc321dbe4174f85f746285d93dc83617bee57b9d1f82e46850a60b",
+    "standards": [
+      {
+        "canonical_id": "ietf:rfc:8446",
+        "revision": "2018-08",
+        "edition_digest": "4c0d47028adaf58ac3d7b96dba6a2501719147d23d052360f349b70057c63302"
+      },
+      {
+        "canonical_id": "ietf:rfc:9846",
+        "revision": "2026-07",
+        "edition_digest": "86236a1ee07087a422a92974650f95d4d9fb6ea9d6cd421fad8cd36e5613216f"
+      }
+    ],
+    "canonical_subject_roots": [
+      "component:tls-keyshare-reuse-oracle",
+      "standard:ietf:rfc:8446#section-4.2.8",
+      "standard:ietf:rfc:9846#section-4.3.8"
+    ],
+    "threat_model_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "falsifiers_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+    "permitted_target_and_test_environment_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+    "escalation_policy_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "conflict_cluster_policy_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "quality_rubric_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+    "method_or_adapter_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+    "roles": {
+      "claimant_control_root": "control:claimant:tls-fixture",
+      "sponsor_control_root": "control:sponsor:season-zero",
+      "technical_evaluator_control_roots": [
+        "control:evaluator:a",
+        "control:evaluator:b",
+        "control:evaluator:c"
+      ],
+      "payout_authorizer_control_root": "control:authorizer:zero-value"
+    },
+    "value_boundary": {
+      "denomination": null,
+      "total_cap": 0,
+      "verified_cost_budget": 0,
+      "outcome_pool": 0,
+      "reviewer_budget": 0,
+      "administration_and_fee_budget": 0,
+      "escrow_receipt": null,
+      "schedule_instantiated": false,
+      "expiry": null,
+      "refund_path": null
+    }
+  },
+  "receipts": [
+    {
+      "evidence_id": "f591a97432de23c9d55d69b6473aa29f68912eeff5250f2dd7f4b2dd74c45e35",
+      "deliverable_key": "4d60b8baadbde19bc0b49e9cfef966c8d8f13183af3097200089c39b72496a41",
+      "immutable_bounty_and_policy_revision_digest": "09671a857ffc9832d7cce4797f34e3b793d0b6caa18a04c040991aac2fd91a7b",
+      "artifact_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "canonical_subject_roots": [
+        "component:tls-keyshare-reuse-oracle",
+        "standard:ietf:rfc:8446#section-4.2.8",
+        "standard:ietf:rfc:9846#section-4.3.8"
+      ],
+      "prior_deliverable_and_overlap_claim": {
+        "prior_deliverable_key": null,
+        "overlap_claim_digest": null,
+        "independently_reviewed_delta": false,
+        "edge_type": null
+      },
+      "standards_reference_and_revision": [
+        {
+          "canonical_id": "ietf:rfc:8446",
+          "revision": "2018-08",
+          "edition_digest": "4c0d47028adaf58ac3d7b96dba6a2501719147d23d052360f349b70057c63302"
+        },
+        {
+          "canonical_id": "ietf:rfc:9846",
+          "revision": "2026-07",
+          "edition_digest": "86236a1ee07087a422a92974650f95d4d9fb6ea9d6cd421fad8cd36e5613216f"
+        }
+      ],
+      "evidence_level_and_scope": {
+        "level": "E3",
+        "quest_node_id": "quest-tls-rfc9846-keyshare-reuse@1",
+        "quest_node_normative_digest": "bcefb7c2d177c79d135722bf38a689d122fe564eb39ebec873b0020dacb46206",
+        "scope_hash": "cfb276b6a18ab0c1658317fbe2e495910d6b3199b139a1867d9e7e4d26d15fa8",
+        "acceptance_policy_digest": "ed3163a6a2fc321dbe4174f85f746285d93dc83617bee57b9d1f82e46850a60b",
+        "coverage_target_id": "tls-rfc9846-keyshare-reuse",
+        "case_ids": [
+          "case-001",
+          "case-002",
+          "case-003",
+          "case-004"
+        ],
+        "checker_or_corpus_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+        "adoption_receipt_type": null,
+        "adopter_control_root": null,
+        "evidence_payload_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "method_or_adapter_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+      "source_system": "fixture:tls-lab",
+      "source_record_or_event_id": "run:evaluator-a",
+      "source_revision": "1",
+      "payee_and_role": {
+        "payee_id": "payee:evaluator-a",
+        "role": "technical-evaluator",
+        "control_root": "control:evaluator:a"
+      },
+      "verifier_control_cluster": "control:evaluator:a",
+      "organization_or_control_root": "org:tls-lab:alpha",
+      "implementation_or_toolchain_root": "impl:tls:alpha",
+      "execution_environment_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "conflict_disclosures": {
+        "complete": true,
+        "related_control_roots": [
+          "control:evaluator:a"
+        ],
+        "outcome_contingent_compensation": false,
+        "claimant_authored_or_controlled_subject": false,
+        "claimant_reviewed_subject": false,
+        "claimant_knowingly_preserved_subject": false,
+        "deliberately_planted_or_retained_defect": false,
+        "claimant_controlled_adoption": false,
+        "self_created_break_fix_loop": false,
+        "concealed_causal_involvement": false
+      },
+      "authorization_and_safety_decision": {
+        "authorized_target": true,
+        "safety_gate_passed": true,
+        "disclosure_lane": "open-construction",
+        "unknown_security_impact": false,
+        "prepublication_triage_completed": true,
+        "private_escalation_applied": false,
+        "public_exploit_plaintext_present": false,
+        "confidential_evidence_published": false,
+        "vendor_veto_required": false,
+        "asserts_protocol_security": false,
+        "performs_network_requests": false
+      },
+      "result": {
+        "result_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "quality_micros": 1000000,
+        "method_completed": true
+      },
+      "created_at": "2026-07-30T10:00:00Z",
+      "supersedes": null
+    },
+    {
+      "evidence_id": "7df4145e9403d626b2bc79f89961b88d07d65dabf5c629af6d40adb8d9d7f0a5",
+      "deliverable_key": "4d60b8baadbde19bc0b49e9cfef966c8d8f13183af3097200089c39b72496a41",
+      "immutable_bounty_and_policy_revision_digest": "09671a857ffc9832d7cce4797f34e3b793d0b6caa18a04c040991aac2fd91a7b",
+      "artifact_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "canonical_subject_roots": [
+        "component:tls-keyshare-reuse-oracle",
+        "standard:ietf:rfc:8446#section-4.2.8",
+        "standard:ietf:rfc:9846#section-4.3.8"
+      ],
+      "prior_deliverable_and_overlap_claim": {
+        "prior_deliverable_key": null,
+        "overlap_claim_digest": null,
+        "independently_reviewed_delta": false,
+        "edge_type": null
+      },
+      "standards_reference_and_revision": [
+        {
+          "canonical_id": "ietf:rfc:8446",
+          "revision": "2018-08",
+          "edition_digest": "4c0d47028adaf58ac3d7b96dba6a2501719147d23d052360f349b70057c63302"
+        },
+        {
+          "canonical_id": "ietf:rfc:9846",
+          "revision": "2026-07",
+          "edition_digest": "86236a1ee07087a422a92974650f95d4d9fb6ea9d6cd421fad8cd36e5613216f"
+        }
+      ],
+      "evidence_level_and_scope": {
+        "level": "E3",
+        "quest_node_id": "quest-tls-rfc9846-keyshare-reuse@1",
+        "quest_node_normative_digest": "bcefb7c2d177c79d135722bf38a689d122fe564eb39ebec873b0020dacb46206",
+        "scope_hash": "cfb276b6a18ab0c1658317fbe2e495910d6b3199b139a1867d9e7e4d26d15fa8",
+        "acceptance_policy_digest": "ed3163a6a2fc321dbe4174f85f746285d93dc83617bee57b9d1f82e46850a60b",
+        "coverage_target_id": "tls-rfc9846-keyshare-reuse",
+        "case_ids": [
+          "case-005",
+          "case-006",
+          "case-007",
+          "case-008"
+        ],
+        "checker_or_corpus_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+        "adoption_receipt_type": null,
+        "adopter_control_root": null,
+        "evidence_payload_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "method_or_adapter_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+      "source_system": "fixture:tls-lab",
+      "source_record_or_event_id": "run:evaluator-b",
+      "source_revision": "1",
+      "payee_and_role": {
+        "payee_id": "payee:evaluator-b",
+        "role": "technical-evaluator",
+        "control_root": "control:evaluator:b"
+      },
+      "verifier_control_cluster": "control:evaluator:b",
+      "organization_or_control_root": "org:tls-lab:beta",
+      "implementation_or_toolchain_root": "impl:tls:beta",
+      "execution_environment_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "conflict_disclosures": {
+        "complete": true,
+        "related_control_roots": [
+          "control:evaluator:b"
+        ],
+        "outcome_contingent_compensation": false,
+        "claimant_authored_or_controlled_subject": false,
+        "claimant_reviewed_subject": false,
+        "claimant_knowingly_preserved_subject": false,
+        "deliberately_planted_or_retained_defect": false,
+        "claimant_controlled_adoption": false,
+        "self_created_break_fix_loop": false,
+        "concealed_causal_involvement": false
+      },
+      "authorization_and_safety_decision": {
+        "authorized_target": true,
+        "safety_gate_passed": true,
+        "disclosure_lane": "open-construction",
+        "unknown_security_impact": false,
+        "prepublication_triage_completed": true,
+        "private_escalation_applied": false,
+        "public_exploit_plaintext_present": false,
+        "confidential_evidence_published": false,
+        "vendor_veto_required": false,
+        "asserts_protocol_security": false,
+        "performs_network_requests": false
+      },
+      "result": {
+        "result_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "quality_micros": 1000000,
+        "method_completed": true
+      },
+      "created_at": "2026-07-30T10:05:00Z",
+      "supersedes": null
+    },
+    {
+      "evidence_id": "2731f39204e4785222696d2bf80e42efa2632a145d317a0b2daf35b435d11bf1",
+      "deliverable_key": "4d60b8baadbde19bc0b49e9cfef966c8d8f13183af3097200089c39b72496a41",
+      "immutable_bounty_and_policy_revision_digest": "09671a857ffc9832d7cce4797f34e3b793d0b6caa18a04c040991aac2fd91a7b",
+      "artifact_digest": "8888888888888888888888888888888888888888888888888888888888888888",
+      "canonical_subject_roots": [
+        "component:tls-keyshare-reuse-oracle",
+        "standard:ietf:rfc:8446#section-4.2.8",
+        "standard:ietf:rfc:9846#section-4.3.8"
+      ],
+      "prior_deliverable_and_overlap_claim": {
+        "prior_deliverable_key": null,
+        "overlap_claim_digest": null,
+        "independently_reviewed_delta": false,
+        "edge_type": null
+      },
+      "standards_reference_and_revision": [
+        {
+          "canonical_id": "ietf:rfc:8446",
+          "revision": "2018-08",
+          "edition_digest": "4c0d47028adaf58ac3d7b96dba6a2501719147d23d052360f349b70057c63302"
+        },
+        {
+          "canonical_id": "ietf:rfc:9846",
+          "revision": "2026-07",
+          "edition_digest": "86236a1ee07087a422a92974650f95d4d9fb6ea9d6cd421fad8cd36e5613216f"
+        }
+      ],
+      "evidence_level_and_scope": {
+        "level": "E3",
+        "quest_node_id": "quest-tls-rfc9846-keyshare-reuse@1",
+        "quest_node_normative_digest": "bcefb7c2d177c79d135722bf38a689d122fe564eb39ebec873b0020dacb46206",
+        "scope_hash": "cfb276b6a18ab0c1658317fbe2e495910d6b3199b139a1867d9e7e4d26d15fa8",
+        "acceptance_policy_digest": "ed3163a6a2fc321dbe4174f85f746285d93dc83617bee57b9d1f82e46850a60b",
+        "coverage_target_id": "tls-rfc9846-keyshare-reuse",
+        "case_ids": [
+          "case-009",
+          "case-010",
+          "case-011",
+          "case-012"
+        ],
+        "checker_or_corpus_digest": "9999999999999999999999999999999999999999999999999999999999999999",
+        "adoption_receipt_type": null,
+        "adopter_control_root": null,
+        "evidence_payload_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "method_or_adapter_digest": "7777777777777777777777777777777777777777777777777777777777777777",
+      "source_system": "fixture:tls-lab",
+      "source_record_or_event_id": "run:evaluator-c",
+      "source_revision": "1",
+      "payee_and_role": {
+        "payee_id": "payee:evaluator-c",
+        "role": "technical-evaluator",
+        "control_root": "control:evaluator:c"
+      },
+      "verifier_control_cluster": "control:evaluator:c",
+      "organization_or_control_root": "org:tls-lab:alpha",
+      "implementation_or_toolchain_root": "impl:tls:gamma",
+      "execution_environment_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "conflict_disclosures": {
+        "complete": true,
+        "related_control_roots": [
+          "control:evaluator:c"
+        ],
+        "outcome_contingent_compensation": false,
+        "claimant_authored_or_controlled_subject": false,
+        "claimant_reviewed_subject": false,
+        "claimant_knowingly_preserved_subject": false,
+        "deliberately_planted_or_retained_defect": false,
+        "claimant_controlled_adoption": false,
+        "self_created_break_fix_loop": false,
+        "concealed_causal_involvement": false
+      },
+      "authorization_and_safety_decision": {
+        "authorized_target": true,
+        "safety_gate_passed": true,
+        "disclosure_lane": "open-construction",
+        "unknown_security_impact": false,
+        "prepublication_triage_completed": true,
+        "private_escalation_applied": false,
+        "public_exploit_plaintext_present": false,
+        "confidential_evidence_published": false,
+        "vendor_veto_required": false,
+        "asserts_protocol_security": false,
+        "performs_network_requests": false
+      },
+      "result": {
+        "result_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "quality_micros": 1000000,
+        "method_completed": true
+      },
+      "created_at": "2026-07-30T10:10:00Z",
+      "supersedes": null
+    }
+  ]
+}

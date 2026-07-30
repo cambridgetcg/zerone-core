@@ -130,7 +130,11 @@ Notation:
 | \(A_{C,e}\) | irreversible economic accrued target |
 | \(Q_{C,e}\) | new gross accrual from economic-target movement |
 | \(Z_{C,e^-}\) | amount actually funded before epoch \(e\) |
+| \(L_{C,e^-}\) | live, still-unpaid eligibility before epoch \(e\) |
+| \(Y_{C,e^-}\) | quarantined, still-unpaid capacity before epoch \(e\) |
 | \(X_{C,e^-}\) | unfunded eligibility irreversibly extinguished before epoch \(e\) |
+| \(R_{C,e^-}\) | cumulative quarantined capacity reattributed to valid successors |
+| \(\bar R_C\) | snapshotted lifetime replacement bound |
 | \(D_{C,e}\) | current eligible demand, including scarcity backlog |
 | \(F_{C,e}\) | amount actually funded and reserved in epoch \(e\) |
 | \(B_e\) | fixed, escrowed reward budget for epoch \(e\) |
@@ -436,15 +440,13 @@ make an already reached economic target payable again.
 That conservatism creates a distinct **cap-poisoning** risk: a compromised or
 mistaken maturation process could transiently raise \(A_C\) on invalid
 evidence, then leave an honest successor unable to create new gross accrual at
-the same frontier. The current design does not pretend to solve that tradeoff.
-A production policy needs a bounded replacement or reattribution transition
-that can move still-unpaid entitlement to later valid evidence without
-lowering \(A_C\), reopening any paid amount, exceeding \(K_C\), or rewarding
-the controller that caused the invalidation. That likely requires an explicit
-quarantined or reattributable state distinct from \(X_C\): under the rule below,
-an amount already moved into \(X_C\) is extinguished and cannot be reassigned.
-Until a replacement transition survives adversarial review, cap-poisoning
-resistance is a failed integration gate.
+the same frontier. Section 7 now specifies a conservative one-shot shadow
+transition for still-unpaid capacity. It never lowers \(A_C\), reopens funded
+capacity, exceeds \(K_C\), renews a deadline, or moves an amount out of
+\(X_C\). This is an exact local accounting experiment, not a production cure:
+authenticated adjudication, semantic-root identity, controller closure,
+durable receipt binding, and program-wide exposure remain absent. Therefore
+cap-poisoning resistance remains a failed integration gate.
 
 A jump from \(0\) to \(0.8\) and the same matured frontier traversed as
 \(0\rightarrow0.4\rightarrow0.6\rightarrow0.8\) create the same cumulative
@@ -459,31 +461,90 @@ Before epoch \(e\) opens, the funding ledger escrows a fixed budget \(B_e\).
 There is no submitter-selected prize and no promise against expected future
 revenue.
 
-Let \(Z_{C,e^-}\) be the cumulative amount actually funded for cluster \(C\)
-before the epoch. Let \(X_{C,e^-}\) be cumulative gross accrual that was never
-funded and has been irreversibly extinguished by its precommitted expiry or an
-adjudicated invalidation. Funded and extinguished amounts are disjoint and
-MUST satisfy:
+Let \(Z_{C,e^-}\) be cumulative funded capacity, \(L_{C,e^-}\) live unpaid
+eligibility, \(Y_{C,e^-}\) quarantined unpaid capacity, and \(X_{C,e^-}\)
+irreversibly extinguished capacity. These are disjoint and MUST satisfy the
+exact partition:
 
 \[
-0\le Z_{C,e^-}+X_{C,e^-}\le A_{C,e}.
+A_{C,e}
+=
+Z_{C,e^-}+L_{C,e^-}+Y_{C,e^-}+X_{C,e^-}
+\le K_C.
 \]
 
-Current eligible demand includes only live scarcity backlog:
+Here \(L_C=L_C^{(0)}+L_C^{(1)}\), where generation zero is original capacity
+and generation one is a one-shot valid-successor attribution. Current eligible
+demand is exactly the live scarcity backlog:
 
 \[
-D_{C,e}
-=
-\max(0,A_{C,e}-Z_{C,e^-}-X_{C,e^-}).
+D_{C,e}=L_{C,e^-}.
 \]
 
 Each \(Q_{C,e}\) creates a canonically ordered eligibility lot with a
-snapshotted terminal deadline. When an unfunded remainder expires or is
-invalidated, that exact remainder increments \(X_C\); neither later recovery
-nor a repeated proposal can decrement \(X_C\). A revision cannot renew an
-older lot's deadline merely by repackaging it. Only frontier movement above
-the prior economic target creates a new lot. A production ledger therefore
-stores the lots and their disposition, not only the three aggregate scalars.
+snapshotted terminal deadline and starts in \(L_C^{(0)}\). A revision cannot
+renew that deadline merely by repackaging it. Only frontier movement above the
+prior economic target creates a new lot.
+
+For bounded replacement, policy snapshots
+\(\bar R_C=\lfloor\rho_C K_C\rfloor\), and the ledger stores cumulative
+reattribution \(R_C\). At every state:
+
+\[
+R_C+Y_C\le\bar R_C\le K_C.
+\]
+
+A raw challenge makes no economic transition. After a final adjudicated
+invalidation of original live amount \(\ell\), the ledger moves
+
+\[
+y=\min\!\left(\ell,\bar R_C-R_C-Y_C\right)
+\]
+
+from \(L_C^{(0)}\) to \(Y_C\), and moves the remaining \(\ell-y\) to \(X_C\).
+Funded \(Z_C\) is terminal and never reopens. For a valid successor with
+independently certified clean-support target \(S_C\), define:
+
+\[
+h_C=\max\!\left(0,\min(A_C,S_C)-Z_C-L_C\right),
+\]
+
+\[
+r_C=\min\!\left(Y_C^{\mathrm{unexpired}},\bar R_C-R_C,h_C\right).
+\]
+
+The ledger moves exactly \(r_C\), not a caller-selected amount, from \(Y_C\)
+to \(L_C^{(1)}\), draining lots by earliest inherited deadline and then
+immutable lot ID. It increments \(R_C\) by the same amount, so reattribution
+changes neither \(A_C\), \(Z_C\), nor \(X_C\). A generation-one invalidation
+moves \(L_C^{(1)}\) directly to \(X_C\), never back to \(Y_C\). Expiry runs
+before funding, invalidation, or replacement at the deadline and moves every
+unfunded \(L_C^{(0)}\), \(L_C^{(1)}\), and \(Y_C\) remainder to \(X_C\).
+
+Every successor stays under the same immutable economic root and snapshotted
+policy, inherits the source lot's deadline, and receives no new queue age or
+priority. Its beneficiary, dependency, and evaluator controller closures MUST
+be mutually disjoint and disjoint from the culpable, challenger, adjudicator,
+and other excluded closures. Controller links are monotone for the entitlement
+lifetime: a later merge propagates exclusion and extinguishes tainted live
+generation-one capacity, while a claimed split cannot clear it.
+
+Amounts already in \(Z_C\) or \(X_C\) are terminal. Cross-root replacement,
+semantic-root balance merges, caller-selected replacement quantities,
+replacement cycling, receipt replay, and deadline refresh all fail closed. A
+production ledger therefore stores lot partitions, source and successor
+receipts with per-successor disposition and controller history, original
+deadlines, replacement exposure, final decision IDs, controller links, and
+event replay IDs—not only aggregate scalars. Snapshot restore additionally
+requires the latest state commitment from a separately trusted anchor; a
+self-contained unkeyed checksum cannot prevent coherent rollback. Restore
+also rejects noncanonical representations, globally reused successor
+receipts, concurrent live successors, and any replacement attribution whose
+source receipt lacks final invalidation. Quarantine likewise requires final
+source invalidation; live successor history and monotone controller graphs
+must be states the transition machine can actually emit. Any future
+caller-provided epoch must come from an authenticated authoritative clock
+because expiry precedes submitted-event validation.
 
 If total eligible demand fits inside the budget, every cluster is funded in
 full:
@@ -520,10 +581,13 @@ turning one result into more funding merely by pacing its disclosure across
 quiet epochs. Production scheduling MUST include eligible backlogs
 deterministically rather than rely on proposer transaction order.
 
-The offline executable models the conservative no-expiry case \(X_C=0\) and
-requires the caller to resubmit a cluster for its backlog to compete. It does
-not implement eligibility lots, terminal extinguishment, or automatic
-scheduling; each is an explicit integration failure.
+The generic floating-point simulator models the conservative no-expiry case
+\(X_C=Y_C=R_C=0\) and requires the caller to resubmit a cluster for its backlog
+to compete. A separate exact-integer `-mode shadow` fixture implements the
+lot-level one-shot transition above with model units only. Neither mode
+automatically schedules production cohorts or authenticates any tree,
+receipt, adjudication, controller, escrow, or settlement transition; each
+remains an explicit integration failure.
 
 The unallocated amount is:
 
@@ -1423,8 +1487,8 @@ Every staged release MUST prove:
     cannot create reward; every funded transition verifies the exact
     prospective quest, policy, node, receipt, and escrow-compartment digests.
 23. **Backlog terminality:** every gross-accrual lot is eventually funded or
-    irreversibly extinguished; expiry cannot be reset by repackaging, and
-    \(Z_C+X_C\le A_C\) always holds.
+    irreversibly extinguished; expiry cannot be reset by repackaging,
+    \(A_C=Z_C+L_C+Y_C+X_C\), and \(R_C+Y_C\le\bar R_C\) always hold.
 24. **Cap-poisoning resistance:** invalid maturation cannot permanently
     exclude a later valid successor from still-unpaid cluster capacity, while
     replacement cannot reopen paid value, reward the invalidating controller,
@@ -1456,10 +1520,12 @@ parameters, cluster caps and credit partitions, economic high-water marks,
 funded/direct counters, and replay IDs. It uses no on-chain state and no
 transferable value. It does not consume canonical tree/receipt digests,
 `E0`–`E6` escrow compartments, or v1 independence/disclosure floors, and it
-does not implement the per-node revocable 技能樹, expiring eligibility lots,
-cap-poisoning replacement, automatic backlog scheduling,
+does not implement the per-node revocable 技能樹, automatic backlog scheduling,
 milestone/role/commons settlement, or a program-wide controller ceiling. The
-first results and the corrections found by adversarial review are recorded in
+same tool now also contains a separate exact-integer, zero-value shadow ledger
+with expiring eligibility lots and bounded one-shot cap-poisoning replacement.
+That fixture authenticates none of its inputs and closes no integration gate.
+The first results and the corrections found by adversarial review are recorded in
 [`../simulation/CONSTRUCTIVE-REWARD-SWEEP.md`](../simulation/CONSTRUCTIVE-REWARD-SWEEP.md).
 Stage 1 still requires a second independent implementation,
 semantic/controller ground-truth fixtures, a curated historical corpus, and

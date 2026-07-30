@@ -1,0 +1,568 @@
+{
+  "schema": "zerone.local-power-reward-lab/v1",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "transferableValue": false,
+  "chainStateRead": false,
+  "sources": {
+    "generatorVersion": "power-lab-projection-v1",
+    "tree": {
+      "schema": "zerone.constructive-intelligence-tree/v1",
+      "policyVersion": "1.0.0",
+      "snapshotDate": "2026-07-29",
+      "sha256": "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf"
+    },
+    "simulation": {
+      "sha256": "b7ce7806ed9466664eab9358fd306fc946702b172621136256eb84647d9ce36f"
+    },
+    "shadowLedger": {
+      "sha256": "2c419dd1b49fe0dc21cfe8fee608b104fa56583bf43c9203ea19585e35f4bc31"
+    }
+  },
+  "treeBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "authorizesSecurityTesting": false,
+    "assertsProtocolSecurity": false,
+    "performsNetworkRequests": false,
+    "publishesConfidentialEvidence": false
+  },
+  "capability": {
+    "roots": [
+      "math-proofcraft@1"
+    ],
+    "nodeCount": 30,
+    "questCount": 3,
+    "mathNodes": [
+      {
+        "id": "math-algebra-finite-fields@1",
+        "title": "Finite-field and elliptic-curve algebra",
+        "stage": "foundation",
+        "domain": "mathematics",
+        "prerequisites": [
+          "math-proofcraft@1"
+        ],
+        "rewardEligibility": "qualification-only"
+      },
+      {
+        "id": "math-lattices-polynomial-rings@1",
+        "title": "Lattices and polynomial rings",
+        "stage": "foundation",
+        "domain": "mathematics",
+        "prerequisites": [
+          "math-probability-information-complexity@1",
+          "math-proofcraft@1"
+        ],
+        "rewardEligibility": "qualification-only"
+      },
+      {
+        "id": "math-probability-information-complexity@1",
+        "title": "Probability, information, and complexity",
+        "stage": "foundation",
+        "domain": "mathematics",
+        "prerequisites": [
+          "math-proofcraft@1"
+        ],
+        "rewardEligibility": "qualification-only"
+      },
+      {
+        "id": "math-proofcraft@1",
+        "title": "Proof construction and counterexamples",
+        "stage": "foundation",
+        "domain": "mathematics",
+        "prerequisites": [],
+        "rewardEligibility": "qualification-only"
+      }
+    ],
+    "skillUnlockCreatesReward": false,
+    "protocolIssuanceGate": "recursive-useful-work-only"
+  },
+  "powerStress": {
+    "kind": "synthetic-captured-policy-stress",
+    "causallyLinkedToIllustrativeEpoch": false,
+    "controllerInference": "synthetic-policy-labels",
+    "minimumEffectiveCount": 2,
+    "minimumNakamotoCount": 2,
+    "surfaces": [
+      {
+        "id": "consensus-block-ordering",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "stake-governance",
+        "hhi": 0.37500000000000006,
+        "effectiveCount": 2.666666666666666,
+        "nakamotoCount": 1,
+        "largestShare": 0.55,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": false
+      },
+      {
+        "id": "epistemic-review",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "scorer-registry-authorship",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "semantic-cluster-adjudication",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "controller-attestation",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "proof-data-trust",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "proposal-authorship",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "treasury-authorization",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "reward-flow",
+        "hhi": 0.21200000000000002,
+        "effectiveCount": 4.716981132075471,
+        "nakamotoCount": 2,
+        "largestShare": 0.28,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "model-families",
+        "hhi": 0.25,
+        "effectiveCount": 4,
+        "nakamotoCount": 2,
+        "largestShare": 0.25,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": true
+      },
+      {
+        "id": "infrastructure",
+        "hhi": 0.6600000000000001,
+        "effectiveCount": 1.515151515151515,
+        "nakamotoCount": 1,
+        "largestShare": 0.8,
+        "coalitionThreshold": 0.34,
+        "passesIllustrativeFloor": false
+      }
+    ],
+    "history": null,
+    "uncertainty": null,
+    "jointPathCut": null
+  },
+  "shadowEpoch": {
+    "kind": "synthetic-balanced-policy-allocation",
+    "unit": "model-unit",
+    "budget": 1000,
+    "direct": 999.9999999999999,
+    "commons": 0,
+    "unallocated": 1.1368683772161603e-13,
+    "unfundedDemand": 1490.1906177540677,
+    "clusters": [
+      {
+        "id": "formal-result-alpha",
+        "artifactCount": 3,
+        "highWater": 0.8560589519930887,
+        "lifetimeCap": 1200,
+        "newGrossAccrual": 1027.2707423917063,
+        "eligibleDemand": 1027.2707423917063,
+        "counterfactualFunded": 384.3799505005838,
+        "fundedToDate": 384.3799505005838,
+        "unfundedDemand": 642.8907918911225,
+        "direct": 384.3799505005838,
+        "commons": 0,
+        "canonicalTreeReceipt": null,
+        "evidenceMilestone": null,
+        "extinguishedToDate": null,
+        "eligibilityLots": null,
+        "settlementZrn": 0,
+        "settlementState": "blocked"
+      },
+      {
+        "id": "negative-result-beta",
+        "artifactCount": 2,
+        "highWater": 0.7228491724752507,
+        "lifetimeCap": 900,
+        "newGrossAccrual": 650.5642552277257,
+        "eligibleDemand": 650.5642552277257,
+        "counterfactualFunded": 285.63022204465943,
+        "fundedToDate": 285.63022204465943,
+        "unfundedDemand": 364.9340331830662,
+        "direct": 285.63022204465943,
+        "commons": 0,
+        "canonicalTreeReceipt": null,
+        "evidenceMilestone": null,
+        "extinguishedToDate": null,
+        "eligibilityLots": null,
+        "settlementZrn": 0,
+        "settlementState": "blocked"
+      },
+      {
+        "id": "portable-method-gamma",
+        "artifactCount": 2,
+        "highWater": 0.8123556201346359,
+        "lifetimeCap": 1000,
+        "newGrossAccrual": 812.355620134636,
+        "eligibleDemand": 812.355620134636,
+        "counterfactualFunded": 329.98982745475666,
+        "fundedToDate": 329.98982745475666,
+        "unfundedDemand": 482.3657926798793,
+        "direct": 329.98982745475666,
+        "commons": 0,
+        "canonicalTreeReceipt": null,
+        "evidenceMilestone": null,
+        "extinguishedToDate": null,
+        "eligibilityLots": null,
+        "settlementZrn": 0,
+        "settlementState": "blocked"
+      }
+    ]
+  },
+  "capacityShadow": {
+    "schema": "zerone.constructive-capacity-shadow/v1",
+    "arithmeticVersion": "constructive-shadow-ledger-int-v1",
+    "unit": "model-unit",
+    "authoritative": false,
+    "networkObserved": false,
+    "rewardBearing": false,
+    "transferableValue": false,
+    "movesFunds": false,
+    "settlementZrn": 0,
+    "integrationReady": false,
+    "trace": [
+      {
+        "event": "accrue",
+        "epoch": 1,
+        "accrued": 100,
+        "funded": 0,
+        "live": 100,
+        "quarantined": 0,
+        "extinguished": 0,
+        "replacementUsed": 0,
+        "deadline": 10
+      },
+      {
+        "event": "fund",
+        "epoch": 2,
+        "accrued": 100,
+        "funded": 30,
+        "live": 70,
+        "quarantined": 0,
+        "extinguished": 0,
+        "replacementUsed": 0,
+        "deadline": 10
+      },
+      {
+        "event": "final-invalidation",
+        "epoch": 3,
+        "accrued": 100,
+        "funded": 30,
+        "live": 0,
+        "quarantined": 60,
+        "extinguished": 10,
+        "replacementUsed": 0,
+        "deadline": 10
+      },
+      {
+        "event": "reattribute",
+        "epoch": 4,
+        "accrued": 100,
+        "funded": 30,
+        "live": 50,
+        "quarantined": 10,
+        "extinguished": 10,
+        "replacementUsed": 50,
+        "deadline": 10
+      }
+    ],
+    "checks": {
+      "exact_partition": true,
+      "accrued_unchanged_by_reattribute": true,
+      "funded_unchanged_by_reattribute": true,
+      "extinguished_unchanged_by_reattribute": true,
+      "replacement_exposure_within_cap": true,
+      "replacement_inherited_deadline": true,
+      "replacement_generation_at_most_one": true,
+      "passed": true
+    }
+  },
+  "ledgerLanes": [
+    {
+      "id": "validity",
+      "status": "synthetic-evidence-only",
+      "detail": "The score fixture has provenance, validity and safety inputs; no canonical proof or receipt is consumed."
+    },
+    {
+      "id": "novelty-priority",
+      "status": "preclustered-assumption",
+      "detail": "Artifacts arrive in assumed semantic clusters; priority commitments, disputes and adjudication are absent."
+    },
+    {
+      "id": "significance-consequence",
+      "status": "synthetic-score-input",
+      "detail": "Marginal-use inputs are illustrative and are not independently observed adoption or descendant impact."
+    },
+    {
+      "id": "attribution-credit",
+      "status": "synthetic-controller-credits",
+      "detail": "Controller credit partitions are fixed fixtures; controller attestation and attribution appeals are absent."
+    },
+    {
+      "id": "funding-liability",
+      "status": "counterfactual-only",
+      "detail": "Model-unit allocations and backlog are calculated without escrow, expiry lots, extinguishment or bank settlement."
+    },
+    {
+      "id": "governance-authority",
+      "status": "absent",
+      "detail": "No proposal, chamber approval, activation height, payout authority or chain release decision is represented."
+    }
+  ],
+  "release": {
+    "settlementEnabled": false,
+    "claimable": false,
+    "settlementZrn": 0,
+    "modelChecksPassed": true,
+    "integrationReady": false,
+    "modelPassCount": 12,
+    "integrationFailCount": 19,
+    "gates": [
+      {
+        "class": "model",
+        "name": "budget-conservation",
+        "passed": true,
+        "detail": "direct + commons + unallocated = 1000.000000000 of 1000.000000000"
+      },
+      {
+        "class": "model",
+        "name": "preclustered-artifact-count-invariance",
+        "passed": true,
+        "detail": "given one equivalence cluster: funded 820.493541338/820.493541338 direct 200.000000000/200.000000000 commons 620.493541338/620.493541338"
+      },
+      {
+        "class": "model",
+        "name": "controller-alias-collapse",
+        "passed": true,
+        "detail": "100 linked aliases alone n_eff 1.000000000; mixed panel count 2.000000000/2.000000000 score 0.738716053/0.738716053"
+      },
+      {
+        "class": "model",
+        "name": "temporal-accrual-no-pacing-advantage",
+        "passed": true,
+        "detail": "isolated scarce gross 797.681706260/797.681706260 direct 200.000000000/200.000000000; competing funded jump/pace 100.072890865/93.317652754 backlog 697.608815395/704.364053506"
+      },
+      {
+        "class": "model",
+        "name": "correlation-discount",
+        "passed": true,
+        "detail": "100 controller signals at rho=.2 yield n_eff 4.807692308"
+      },
+      {
+        "class": "model",
+        "name": "replication-quorum",
+        "passed": true,
+        "detail": "zero submitted/controller/effective replication signals fail the reward gate"
+      },
+      {
+        "class": "model",
+        "name": "multi-surface-decentralization-gate",
+        "passed": true,
+        "detail": "all 12 policy-owned surfaces are required; 80% captured infrastructure fails the gate"
+      },
+      {
+        "class": "model",
+        "name": "safety-non-compensation",
+        "passed": true,
+        "detail": "safety is a hard threshold; stronger passing safety evidence does not scale artifact score"
+      },
+      {
+        "class": "model",
+        "name": "strictly-proper-reviewer-payment",
+        "passed": true,
+        "detail": "positive affine Brier payment is maximized by truthful probabilities on the tested grid"
+      },
+      {
+        "class": "model",
+        "name": "state-owned-replay-protection",
+        "passed": true,
+        "detail": "behavior-complete snapshots restore replay IDs, parameters, credits, and economic state"
+      },
+      {
+        "class": "model",
+        "name": "power-non-conversion",
+        "passed": true,
+        "detail": "changing liquid wealth and reward balance changes neither review nor civic voice"
+      },
+      {
+        "class": "model",
+        "name": "parameter-sweep-invariants",
+        "passed": true,
+        "detail": "all alpha/cap cells preserve budget, cluster-lifetime cap, and newcomer reachability"
+      },
+      {
+        "class": "integration",
+        "name": "canonical-tree-receipt-binding",
+        "passed": false,
+        "detail": "a zero-value offline adapter validates tree-v1 typed receipts, but neither calculator nor ledger consumes its decision or binds sponsor escrow and E0-E6 compartments"
+      },
+      {
+        "class": "integration",
+        "name": "canonical-independence-disclosure",
+        "passed": false,
+        "detail": "tree-v1 organization, implementation, environment, assignment, authorization, and disclosure-lane floors are not enforced"
+      },
+      {
+        "class": "integration",
+        "name": "semantic-equivalence-system",
+        "passed": false,
+        "detail": "the model assumes preclustered artifacts; no production theorem/proof DAG adjudicator is wired"
+      },
+      {
+        "class": "integration",
+        "name": "node-frontier-revocation-ledger",
+        "passed": false,
+        "detail": "the model has one irreversible economic scalar, not per-node epistemic frontiers and revocation transitions"
+      },
+      {
+        "class": "integration",
+        "name": "cap-poisoning-replacement-policy",
+        "passed": false,
+        "detail": "an exact one-shot local shadow transition exists, but no authenticated production adjudication, root, controller, or receipt binding executes it"
+      },
+      {
+        "class": "integration",
+        "name": "deterministic-backlog-scheduler",
+        "passed": false,
+        "detail": "eligible backlog persists when a cluster is evaluated, but no production scheduler automatically carries every backlog into later cohorts"
+      },
+      {
+        "class": "integration",
+        "name": "backlog-expiry-extinguishment",
+        "passed": false,
+        "detail": "the exact local shadow ledger has expiring lots and irreversible extinguishment, but no production scheduler or durable authenticated state executes them"
+      },
+      {
+        "class": "integration",
+        "name": "controller-correlation-attestation",
+        "passed": false,
+        "detail": "controller/family labels, correlations, appeals, and privacy-preserving attestations are not implemented"
+      },
+      {
+        "class": "integration",
+        "name": "authoritative-power-and-path-cut",
+        "passed": false,
+        "detail": "the model requires 12 policy-owned surfaces; authenticated live snapshots and joint path-cut analysis are absent"
+      },
+      {
+        "class": "integration",
+        "name": "program-wide-controller-exposure",
+        "passed": false,
+        "detail": "cluster-lifetime caps exist in-model; a persistent cross-cluster program cap is not designed"
+      },
+      {
+        "class": "integration",
+        "name": "collateralized-reserve",
+        "passed": false,
+        "detail": "no dedicated pre-funded breakthrough reserve and resolve-or-expire ledger exists"
+      },
+      {
+        "class": "integration",
+        "name": "atomic-role-commons-settlement",
+        "passed": false,
+        "detail": "the calculator has controller totals only; no role/tranche bank batch or commons paid-to-date state exists"
+      },
+      {
+        "class": "integration",
+        "name": "terminal-disposition",
+        "passed": false,
+        "detail": "expiry, invalidation, missing roles, and unused tranche weight are not executed into named commons or refund accounts"
+      },
+      {
+        "class": "integration",
+        "name": "durable-replay-ledger",
+        "passed": false,
+        "detail": "behavior-complete in-memory snapshots exist, but no durable consensus replay store or migration exists"
+      },
+      {
+        "class": "integration",
+        "name": "governance-power-separation",
+        "passed": false,
+        "detail": "current custom governance reads bonded stake; reward-to-power conversion remains possible"
+      },
+      {
+        "class": "integration",
+        "name": "formal-proof-verification",
+        "passed": false,
+        "detail": "pinned multi-kernel builds and axiom-policy checks are not consensus-enforced"
+      },
+      {
+        "class": "integration",
+        "name": "reviewer-outcome-and-budget-enforcement",
+        "passed": false,
+        "detail": "the proper-score primitive lacks assignment uniqueness, exogenous outcome, effort, and isolated-budget plumbing"
+      },
+      {
+        "class": "integration",
+        "name": "fixed-point-independent-implementation",
+        "passed": false,
+        "detail": "the exploratory float model has no second exact implementation or golden vectors"
+      },
+      {
+        "class": "integration",
+        "name": "external-red-team",
+        "passed": false,
+        "detail": "internal adversarial passes drove corrections; independent external reproduction remains required"
+      }
+    ]
+  }
+}

@@ -34,6 +34,38 @@ exist. Standards review dates are shown in the interface. Once one passes, the
 viewer remains useful as a historical snapshot but warns that active use must
 fail closed until the authority metadata is revalidated.
 
+## Local zero-value power lab
+
+The constructive-intelligence power garden and shadow allocation are a
+separate, synthetic research fixture. They are non-authoritative,
+non-network-observed, non-reward-bearing, and settle exactly **0 ZRN**.
+
+```bash
+npm run generate:lab-fixture
+npm run lab
+```
+
+Open `http://127.0.0.1:4174/power-lab.html`. Use this dedicated command rather
+than the ordinary dashboard dev server: its Vite config binds loopback, has no
+mainnet proxy, and serves only checked-in data generated from the deterministic
+Go report and canonical tree.
+
+The fixture lives under `src/power-lab/`, is not linked from the production
+dashboard, and is not an input to the default Vite build. The production build
+fails if the lab HTML, fixture schema, or masthead marker appears anywhere in
+`dist/`. Do not add the lab as a Rollup input, move its fixture under `public/`,
+or deploy a dedicated lab build or Pages preview.
+
+The page includes both the older floating-point scarcity allocation and a
+separate exact-integer quarantine trace. The latter displays
+`A = Z + L + Y + X`, the bounded `R + Y` exposure, inherited expiry, and the
+fixed `100/30/60/10/50` counterexample. It remains an explanation of local
+model units with `0 ZRN` settlement.
+
+`npm run check` also executes the separate zero-value typed-receipt adapter
+suite under `../tools/constructive-receipts/`. Structural receipt validation
+does not feed the calculator, qualify work, activate rewards, or move funds.
+
 ## Build and check
 
 ```bash

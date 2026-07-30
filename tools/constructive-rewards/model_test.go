@@ -1099,6 +1099,16 @@ func TestCLIExitCodes(t *testing.T) {
 
 	stdout.Reset()
 	stderr.Reset()
+	if code := run([]string{"-mode", "shadow"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("shadow mode exit = %d, stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "settlement: 0 ZRN") ||
+		!strings.Contains(stdout.String(), "integration ready: false") {
+		t.Fatalf("shadow output crossed/missed its boundary: %s", stdout.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
 	if code := run([]string{"-alpha", "0"}, &stdout, &stderr); code != 2 {
 		t.Fatalf("invalid parameters exit = %d, want usage/error 2", code)
 	}
