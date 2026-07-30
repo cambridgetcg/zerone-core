@@ -828,7 +828,7 @@ fi
 
 node_pid=""
 nginx_pid=""
-# shellcheck disable=SC2329 # invoked indirectly by the EXIT trap
+# shellcheck disable=SC2317,SC2329 # invoked indirectly by the EXIT trap
 cleanup_children() {
   set +e
   if [[ -n "${nginx_pid}" ]]; then
