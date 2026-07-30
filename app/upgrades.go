@@ -23,6 +23,7 @@ const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
+const UpgradeNameLiquiditySafetyV2 = "liquiditypool-safety-v2"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -358,6 +359,43 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// liquiditypool-safety-v2 — the named post-consolidation readiness
+	// checkpoint for
+	// liquiditypool consensus v4. The v4 state transition makes pool lifecycle
+	// explicit and bounded: final exits close rather than leave re-seedable
+	// zero-supply pools, governance controls pool status, pool growth is finite,
+	// creator-selected fees are disabled, asset/creator admission starts empty,
+	// fee math uses a strict parts-per-million scale, and oracle reads remain
+	// fail-closed unless a quote denom and ACTIVE pool are both approved.
+	//
+	// consolidation-safety-v1 is already pending and must be scheduled first.
+	// Its RunMigrations call may advance liquiditypool v3→v4 before this named
+	// checkpoint is reached. That is intentional and safe: RunMigrations skips a
+	// module already at its current ConsensusVersion, while this handler still
+	// reconciles stored module-account permissions and records the dedicated
+	// liquidity readiness marker. Operators must not enable native pools or
+	// their oracle before this later upgrade and its release gates pass.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameLiquiditySafetyV2,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
+			app.ReconcileModuleAccountPerms(ctx)
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_liquiditypool-safety-v2", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
@@ -422,6 +460,13 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameAgenttoolSeamV1, UpgradeNameConsolidationSafetyV1:
 		// Migration-only — both upgrades operate within existing module stores
 		// and add no top-level store keys.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameLiquiditySafetyV2:
+		// Migration-only — liquiditypool v3→v4 uses new fields and prefixes in
+		// the existing liquiditypool store. If consolidation-safety-v1 already
+		// advanced the module to v4, RunMigrations skips it safely.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

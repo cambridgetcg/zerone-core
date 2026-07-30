@@ -71,7 +71,11 @@ func NewQueryPoolsCmd() *cobra.Command {
 				return err
 			}
 
-			req := &types.QueryPoolsRequest{}
+			pageRequest, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			req := &types.QueryPoolsRequest{Pagination: pageRequest}
 			resp := &types.QueryPoolsResponse{}
 			if err := clientCtx.Invoke(cmd.Context(), "/zerone.liquiditypool.v1.Query/Pools", req, resp); err != nil {
 				return fmt.Errorf("failed to query pools: %w", err)
@@ -82,6 +86,7 @@ func NewQueryPoolsCmd() *cobra.Command {
 	}
 
 	flags.AddQueryFlagsToCmd(cmd)
+	flags.AddPaginationFlagsToCmd(cmd, "pools")
 	return cmd
 }
 

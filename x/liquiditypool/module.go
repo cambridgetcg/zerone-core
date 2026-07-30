@@ -64,7 +64,7 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, config client.TxEncod
 // types.RegisterQueryHandlerClient (app/app.go) for this module.
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
 
-func (AppModuleBasic) GetTxCmd() *cobra.Command   { return nil }
+func (AppModuleBasic) GetTxCmd() *cobra.Command    { return nil }
 func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
 
 // AppModule implements the AppModule interface.
@@ -94,6 +94,13 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 2, migrator.Migrate2to3); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 3, migrator.Migrate3to4); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
+	}
+}
+
+func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
+	keeper.RegisterInvariants(ir, am.keeper)
 }
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) {
@@ -112,12 +119,16 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 // it from the pool's creation height so the TWAP divisor is exact).
 // ConsensusVersion 3: Params gains BillingQuoteDenoms (Migrate2to3 persists
 // the empty — fail-closed — default for existing state).
-func (AppModule) ConsensusVersion() uint64 { return 3 }
+// ConsensusVersion 4: explicit pool lifecycle, collision-safe/open indexes,
+// exportable next ID, retained windowed TWAP observations, finite pool bounds,
+// and fail-closed creator/denom admission.
+func (AppModule) ConsensusVersion() uint64 { return 4 }
 
-// BeginBlock updates TWAP accumulators for all pools each block.
+// BeginBlock updates TWAP accumulators through the finite open-pool index.
 func (am AppModule) BeginBlock(goCtx context.Context) error {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	am.keeper.IteratePools(ctx, func(pool *types.Pool) bool {
+	am.keeper.ProcessTWAPGarbageCollection(ctx)
+	am.keeper.IterateOpenPools(ctx, func(pool *types.Pool) bool {
 		am.keeper.UpdateTWAPAccumulator(ctx, pool)
 		return false
 	})

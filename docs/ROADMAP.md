@@ -35,15 +35,23 @@ line:
 - K-alpha recognition events and bounded accounting guards;
 - state/genesis validation and protobuf ownership fixes;
 - CAIP account projections, unsigned in-toto provenance, the isolated Sigstore
-  compiler, and the repository TypeScript SDK; and
+  compiler, and the repository TypeScript SDK;
+- liquiditypool consensus v4 with finite open-pool work, explicit governed
+  statuses, immutable final exits, strict PPM arithmetic, bounded TWAP history,
+  and fail-closed oracle selection; and
 - the fail-closed `zerone-2` release and authority kit.
 
 Several items above change consensus-visible behavior. They are source-complete
 only after their tests pass; they are **not live** merely because the code is
-published. Activation requires the named `consolidation-safety-v1` coordinated
-upgrade, an agreed height, matching validator binaries, and the normal
-upgrade/recovery rehearsal. Never mix this binary with an older validator
-binary at the same height.
+published. The consolidation work requires the named
+`consolidation-safety-v1` coordinated upgrade. Its migration pass is expected
+to activate and record liquiditypool v4. The distinct, later
+`liquiditypool-safety-v2` checkpoint records operational readiness rather than
+gating the code a second time; native pool/oracle activation remains forbidden
+until that checkpoint and
+[its release gates](LIQUIDITYPOOL-SAFETY-V2.md) pass. Each upgrade requires an
+agreed height, matching validator binaries, and the normal upgrade/recovery
+rehearsal. Never mix binaries at the same height.
 
 ## Publication boundary
 
@@ -71,18 +79,23 @@ must all be satisfied before any phase they authorize.
 2. **Prepare the consensus release.** Independently review
    `consolidation-safety-v1`, rehearse migration/export/restart paths, build
    reproducible binaries, and obtain an explicit activation decision.
-3. **Complete `zerone-2` authority.** Run the two-machine ceremony comparison,
+3. **Prepare liquidity separately.** After consolidation is applied and
+   verified, schedule `liquiditypool-safety-v2` at a later height; keep native
+   pool creation and oracle allowlisting disabled until invariants, application
+   lifecycle tests, restart rehearsal, and the governance capital decision all
+   pass.
+4. **Complete `zerone-2` authority.** Run the two-machine ceremony comparison,
    bind signed source and immutable artifacts, satisfy every phase-specific
    gate, and keep all services private until their signed decision permits
    otherwise.
-4. **Publish ecosystem artifacts separately.** Give the TypeScript SDK its own
+5. **Publish ecosystem artifacts separately.** Give the TypeScript SDK its own
    registry verification and npm release decision. Publish Chain Registry
    metadata only after chain identity, genesis, endpoints, denomination, and
    coin type are final.
-5. **Continue boundary-first standards work.** Priorities are feegrant UX,
+6. **Continue boundary-first standards work.** Priorities are feegrant UX,
    audited delegated authority, AgentTool x402, an ERC-8004-inspired profile,
    and digest-only CID/in-toto/SPDX/C2PA/A2A integrations.
-6. **Modernize the consensus stack.** Cosmos SDK 0.50 and IBC-Go 8 require a
+7. **Modernize the consensus stack.** Cosmos SDK 0.50 and IBC-Go 8 require a
    planned, rehearsed migration rather than an opportunistic dependency bump.
 
 ## Explicit deferrals

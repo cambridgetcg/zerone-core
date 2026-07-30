@@ -1,6 +1,20 @@
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
 /**
+ * PoolStatus is the governed lifecycle state of a pool. CLOSED is an
+ * immutable tombstone produced only by the final LP exit.
+ */
+export declare enum PoolStatus {
+    POOL_STATUS_UNSPECIFIED = 0,
+    POOL_STATUS_ACTIVE = 1,
+    POOL_STATUS_SWAPS_PAUSED = 2,
+    POOL_STATUS_EXIT_ONLY = 3,
+    POOL_STATUS_CLOSED = 4,
+    UNRECOGNIZED = -1
+}
+export declare function poolStatusFromJSON(object: any): PoolStatus;
+export declare function poolStatusToJSON(object: PoolStatus): string;
+/**
  * Pool represents a constant-product AMM liquidity pool.
  * @name Pool
  * @package zerone.liquiditypool.v1
@@ -36,6 +50,11 @@ export interface Pool {
      * reentrancy guard
      */
     locked: boolean;
+    status: PoolStatus;
+    /**
+     * zero unless status is CLOSED
+     */
+    closedAtBlock: bigint;
 }
 /**
  * TWAPAccumulator stores cumulative price data for TWAP oracle.
@@ -59,6 +78,25 @@ export interface TWAPAccumulator {
      * height accumulation began — TWAP divisor is last_block - start_block
      */
     startBlock: bigint;
+}
+/**
+ * TWAPObservation is a retained cumulative-price checkpoint. One checkpoint
+ * is stored per open pool per block, bounded by Params.twap_window_blocks.
+ * @name TWAPObservation
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.TWAPObservation
+ */
+export interface TWAPObservation {
+    poolId: string;
+    blockHeight: bigint;
+    /**
+     * bigint string (1e12 scale)
+     */
+    cumPriceAToB: string;
+    /**
+     * bigint string (1e12 scale)
+     */
+    cumPriceBToA: string;
 }
 /**
  * SwapResult contains the output of a swap calculation.
@@ -105,6 +143,19 @@ export declare const TWAPAccumulator: {
     encode(message: TWAPAccumulator, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): TWAPAccumulator;
     fromPartial(object: DeepPartial<TWAPAccumulator>): TWAPAccumulator;
+};
+/**
+ * TWAPObservation is a retained cumulative-price checkpoint. One checkpoint
+ * is stored per open pool per block, bounded by Params.twap_window_blocks.
+ * @name TWAPObservation
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.TWAPObservation
+ */
+export declare const TWAPObservation: {
+    typeUrl: string;
+    encode(message: TWAPObservation, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): TWAPObservation;
+    fromPartial(object: DeepPartial<TWAPObservation>): TWAPObservation;
 };
 /**
  * SwapResult contains the output of a swap calculation.

@@ -17,6 +17,7 @@ await build({
   entryPoints: {
     index: "src/index.ts",
     caip: "src/caip.ts",
+    liquidity: "src/liquidity.ts",
     messages: "src/messages.ts",
     provenance: "src/provenance.ts",
     registry: "src/registry.ts",

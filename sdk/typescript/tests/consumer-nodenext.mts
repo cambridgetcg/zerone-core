@@ -1,5 +1,9 @@
 import { cosmosChainId, zeroneRegistryTypes } from "@zerone-chain/sdk";
 import {
+  LIQUIDITY_FEE_SCALE,
+  minimumOutputForSlippage,
+} from "@zerone-chain/sdk/liquidity";
+import {
   auth,
   authMessages,
 } from "@zerone-chain/sdk/messages";
@@ -27,4 +31,6 @@ void [
   registry,
   zeroneRegistryTypes,
   IN_TOTO_STATEMENT_V1_TYPE,
+  LIQUIDITY_FEE_SCALE,
+  minimumOutputForSlippage("100", 10_000n),
 ];

@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -12,19 +11,66 @@ const (
 	// side: zerone pools are ZRN-quoted by design.
 	ZRNDenom = "uzrn"
 
-	// MaxSwapFeeBps caps the per-pool swap fee at creation: 10% on the 1M
-	// bps scale. Higher fees are griefing pools, not markets. Zero is
-	// allowed (= use the module default).
+	// MaxSwapFeeBps caps the governance-controlled default swap fee at 10%
+	// on the 1M bps scale. Pool creation must pass zero and inherit that
+	// default so creators cannot override governance policy.
 	MaxSwapFeeBps = 100_000
+
+	// MaxPoolsCap bounds all per-block and invariant work over open pools.
+	MaxPoolsCap = 64
+
+	// MaxPoolRecordsCap bounds immutable tombstones, export/invariant scans and
+	// pagination over the chain's full pool lifetime. IDs are never reused.
+	MaxPoolRecordsCap = 10_000
+
+	// MaxTWAPWindowBlocks bounds retained observations per open pool.
+	MaxTWAPWindowBlocks = 10_000
+
+	// MaxAdmissionEntries bounds governance allowlist lookup/query size.
+	MaxAdmissionEntries = 32
 )
+
+func ValidatePoolDenom(denom string) error {
+	if err := sdk.ValidateDenom(denom); err != nil {
+		return ErrInvalidDenom.Wrapf("%q: %v", denom, err)
+	}
+	return nil
+}
+
+func IsOpenPoolStatus(status PoolStatus) bool {
+	switch status {
+	case PoolStatus_POOL_STATUS_ACTIVE,
+		PoolStatus_POOL_STATUS_SWAPS_PAUSED,
+		PoolStatus_POOL_STATUS_EXIT_ONLY:
+		return true
+	default:
+		return false
+	}
+}
+
+func CanSwap(status PoolStatus) bool {
+	return status == PoolStatus_POOL_STATUS_ACTIVE
+}
+
+func CanAddLiquidity(status PoolStatus) bool {
+	return status == PoolStatus_POOL_STATUS_ACTIVE ||
+		status == PoolStatus_POOL_STATUS_SWAPS_PAUSED
+}
+
+func CanRemoveLiquidity(status PoolStatus) bool {
+	return IsOpenPoolStatus(status)
+}
 
 // ValidateBasic performs stateless validation for MsgCreatePool.
 func (m *MsgCreatePool) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Creator); err != nil {
 		return fmt.Errorf("invalid creator address: %w", err)
 	}
-	if m.DenomA == "" || m.DenomB == "" {
-		return ErrInvalidDenom
+	if err := ValidatePoolDenom(m.DenomA); err != nil {
+		return err
+	}
+	if err := ValidatePoolDenom(m.DenomB); err != nil {
+		return err
 	}
 	if m.DenomA == m.DenomB {
 		return ErrSameDenom
@@ -32,15 +78,13 @@ func (m *MsgCreatePool) ValidateBasic() error {
 	if m.DenomA != ZRNDenom && m.DenomB != ZRNDenom {
 		return ErrMissingZRNSide
 	}
-	amtA := new(big.Int)
-	if _, ok := amtA.SetString(m.AmountA, 10); !ok || amtA.Sign() <= 0 {
-		return ErrZeroAmount
+	if _, err := ParsePositiveAmount(m.AmountA); err != nil {
+		return err
 	}
-	amtB := new(big.Int)
-	if _, ok := amtB.SetString(m.AmountB, 10); !ok || amtB.Sign() <= 0 {
-		return ErrZeroAmount
+	if _, err := ParsePositiveAmount(m.AmountB); err != nil {
+		return err
 	}
-	if m.SwapFeeBps > MaxSwapFeeBps {
+	if m.SwapFeeBps != 0 {
 		return ErrInvalidSwapFee
 	}
 	return nil
@@ -54,12 +98,17 @@ func (m *MsgSwap) ValidateBasic() error {
 	if m.PoolId == "" {
 		return ErrPoolNotFound
 	}
-	if m.TokenInDenom == "" {
-		return ErrInvalidDenom
+	if _, err := ParsePoolID(m.PoolId); err != nil {
+		return ErrPoolNotFound.Wrap(err.Error())
 	}
-	amt := new(big.Int)
-	if _, ok := amt.SetString(m.TokenInAmount, 10); !ok || amt.Sign() <= 0 {
-		return ErrZeroAmount
+	if err := ValidatePoolDenom(m.TokenInDenom); err != nil {
+		return err
+	}
+	if _, err := ParsePositiveAmount(m.TokenInAmount); err != nil {
+		return err
+	}
+	if _, err := ParseOptionalPositiveAmount(m.MinTokenOut); err != nil {
+		return fmt.Errorf("invalid min_token_out: %w", err)
 	}
 	return nil
 }
@@ -72,13 +121,17 @@ func (m *MsgAddLiquidity) ValidateBasic() error {
 	if m.PoolId == "" {
 		return ErrPoolNotFound
 	}
-	amtA := new(big.Int)
-	if _, ok := amtA.SetString(m.AmountA, 10); !ok || amtA.Sign() <= 0 {
-		return ErrZeroAmount
+	if _, err := ParsePoolID(m.PoolId); err != nil {
+		return ErrPoolNotFound.Wrap(err.Error())
 	}
-	amtB := new(big.Int)
-	if _, ok := amtB.SetString(m.AmountB, 10); !ok || amtB.Sign() <= 0 {
-		return ErrZeroAmount
+	if _, err := ParsePositiveAmount(m.AmountA); err != nil {
+		return err
+	}
+	if _, err := ParsePositiveAmount(m.AmountB); err != nil {
+		return err
+	}
+	if _, err := ParseOptionalPositiveAmount(m.MinLpTokens); err != nil {
+		return fmt.Errorf("invalid min_lp_tokens: %w", err)
 	}
 	return nil
 }
@@ -91,9 +144,46 @@ func (m *MsgRemoveLiquidity) ValidateBasic() error {
 	if m.PoolId == "" {
 		return ErrPoolNotFound
 	}
-	lp := new(big.Int)
-	if _, ok := lp.SetString(m.LpTokens, 10); !ok || lp.Sign() <= 0 {
-		return ErrZeroAmount
+	if _, err := ParsePoolID(m.PoolId); err != nil {
+		return ErrPoolNotFound.Wrap(err.Error())
+	}
+	if _, err := ParsePositiveAmount(m.LpTokens); err != nil {
+		return err
+	}
+	if _, err := ParseOptionalPositiveAmount(m.MinAmountA); err != nil {
+		return fmt.Errorf("invalid min_amount_a: %w", err)
+	}
+	if _, err := ParseOptionalPositiveAmount(m.MinAmountB); err != nil {
+		return fmt.Errorf("invalid min_amount_b: %w", err)
 	}
 	return nil
+}
+
+func (m *MsgUpdateParams) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
+		return fmt.Errorf("invalid authority address: %w", err)
+	}
+	if m.Params == nil {
+		return fmt.Errorf("params cannot be nil")
+	}
+	return m.Params.Validate()
+}
+
+func (m *MsgSetPoolStatus) ValidateBasic() error {
+	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
+		return fmt.Errorf("invalid authority address: %w", err)
+	}
+	if _, err := ParsePoolID(m.PoolId); err != nil {
+		return ErrPoolNotFound.Wrap(err.Error())
+	}
+	switch m.Status {
+	case PoolStatus_POOL_STATUS_ACTIVE,
+		PoolStatus_POOL_STATUS_SWAPS_PAUSED,
+		PoolStatus_POOL_STATUS_EXIT_ONLY:
+		return nil
+	case PoolStatus_POOL_STATUS_CLOSED:
+		return ErrInvalidPoolStatus.Wrap("CLOSED is produced only by the final LP exit")
+	default:
+		return ErrInvalidPoolStatus
+	}
 }

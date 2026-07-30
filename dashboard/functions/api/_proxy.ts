@@ -151,6 +151,36 @@ function validPagination(search: URLSearchParams): boolean {
   return true;
 }
 
+function validPoolPagination(search: URLSearchParams): boolean {
+  const allowed = new Set([
+    "pagination.limit",
+    "pagination.key",
+    "pagination.count_total",
+  ]);
+  for (const key of search.keys()) {
+    if (!allowed.has(key) || search.getAll(key).length !== 1) return false;
+  }
+  if (
+    smallPositiveInteger(search.get("pagination.limit"), 100) === null
+  ) {
+    return false;
+  }
+  const key = search.get("pagination.key");
+  const countTotal = search.get("pagination.count_total");
+  if (key === null) {
+    return countTotal === "true" && search.size === 2;
+  }
+  return (
+    countTotal === null &&
+    search.size === 2 &&
+    key.length <= 344 &&
+    /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+      key,
+    ) &&
+    key.length > 0
+  );
+}
+
 async function readLimitedBody(request: Request): Promise<string | null> {
   const declaredLength = request.headers.get("content-length");
   if (declaredLength !== null) {
@@ -340,7 +370,9 @@ function validRpcGet(path: string, search: URLSearchParams): boolean {
 
 export function validRestRequest(path: string, search: URLSearchParams): boolean {
   if (path === SYNCING_ROUTE) return search.size === 0;
-  if (path === "zerone/liquiditypool/v1/pools") return search.size === 0;
+  if (path === "zerone/liquiditypool/v1/pools") {
+    return validPoolPagination(search);
+  }
   if (path === "zerone/liquiditypool/v1/params") return search.size === 0;
   if (path === "cosmos/bank/v1beta1/denoms_metadata/uzrn") return search.size === 0;
   if (path === "cosmos/bank/v1beta1/supply/by_denom") {

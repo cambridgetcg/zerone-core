@@ -6,8 +6,11 @@
 > Operational decisions must query an authorised network at a bound height and
 > use a release-matched binary.
 
-All custom-module BPS values use a 1,000,000 scale unless a field explicitly
-says otherwise. Token amounts are integer strings in `uzrn`
+Custom-module percentage fields historically named `_bps` use a 1,000,000
+parts-per-million scale unless a field explicitly says otherwise. They are not
+conventional 10,000-denominator basis points. New documentation and proposal
+reviews call the unit PPM while preserving legacy protobuf field names where
+wire compatibility requires it. Token amounts are integer strings in `uzrn`
 (1 ZRN = 1,000,000 uzrn).
 
 ## Sources of truth
@@ -84,6 +87,40 @@ are reserved in protobuf and must not be presented as active controls.
 
 `founder_share_bps` is governance-mutable within its 7% cap.
 `founder_address` becomes immutable once set.
+
+### Liquiditypool safety v2
+
+These are source defaults for liquiditypool consensus v4, not a claim about a
+running chain:
+
+| Field | Source default / rule |
+|---|---:|
+| `default_swap_fee_bps` (legacy wire name) | 3,000 PPM (0.3%) |
+| Maximum per-pool swap fee | 100,000 PPM (10%) |
+| `protocol_fee_bps` (legacy wire name) | 450,000 PPM; 45% of the floor-rounded fee is routed only when the swap input is `uzrn` |
+| `max_pools` | 16 open pools; valid range 1–64, zero/unlimited is invalid |
+| `min_initial_liquidity` | 10,000,000,000 uzrn (10,000 ZRN on the ZRN side) |
+| `min_reserve` | 1 base unit |
+| `billing_quote_denoms` | empty; oracle disabled fail-closed |
+| `allowed_pool_denoms` | empty; unconsumed one-shot counter-denom creation grants, consumed on successful creation |
+| `pool_creators` | empty; no account may fund/create a pool |
+
+In consensus v4, `twap_window_blocks` may be increased within its bound but
+cannot be decreased by an ordinary Params update. Shrinking retained history
+requires a future bounded cleanup migration; rejecting an immediate shrink
+prevents the next BeginBlock from attempting thousands of synchronous deletes.
+
+Pool status is governance-controlled: `ACTIVE`, `SWAPS_PAUSED`, `EXIT_ONLY`,
+then immutable `CLOSED` after the final LP exit. Oracle selection additionally
+requires an allowlisted quote denom and an `ACTIVE` pool. See
+[LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md) before constructing a
+proposal. Liquiditypool denom admission does not bypass `x/bank`: both `uzrn`
+and the counter-denom must also be send-enabled before initial liquidity can
+enter module custody. `GetZRNPrice` is a raw base-unit ratio scaled by
+1,000,000; the source-approved defaults intentionally keep its allowlist empty.
+Before enabling a quote denom, governance must bind its base-unit exponent,
+consumer conversion, and a decimal-normalized per-denom oracle TVL floor; the
+global one-base-unit `min_reserve` is not sufficient for oracle admission.
 
 ### Governance
 

@@ -1,5 +1,18 @@
 import { CHAIN_ID, DECIMALS, DENOM, REST_ENDPOINT, RPC_ENDPOINT } from "./config";
 import type { FeeGrantAllowance } from "./feegrant";
+import {
+  normalizeLiquidityParams,
+  normalizeLiquidityPool,
+  type LiquidityParams,
+  type LiquidityPool,
+  type RawLiquidityParamsResponse,
+} from "./liquidity";
+
+export type {
+  LiquidityParams,
+  LiquidityPool,
+  LiquidityPoolLifecycleStatus,
+} from "./liquidity";
 
 interface RpcStatusResponse {
   result?: {
@@ -27,44 +40,21 @@ interface RpcValidatorsResponse {
   };
 }
 
-interface RawPool {
-  poolId?: string;
-  pool_id?: string;
-  denomA?: string;
-  denom_a?: string;
-  denomB?: string;
-  denom_b?: string;
-  reserveA?: string;
-  reserve_a?: string;
-  reserveB?: string;
-  reserve_b?: string;
-  swapFeeBps?: string | number;
-  swap_fee_bps?: string | number;
-  lpTokenSupply?: string;
-  lp_token_supply?: string;
-  lpDenom?: string;
-  lp_denom?: string;
-  creator?: string;
-  createdAtBlock?: string | number;
-  created_at_block?: string | number;
-  locked?: boolean;
+export const LIQUIDITY_POOL_PAGE_LIMIT = 100;
+export const LIQUIDITY_POOL_RECORD_CAP = 500;
+export const LIQUIDITY_POOL_LIFETIME_CAP = 10_000;
+
+export interface LiquidityPoolRegistry {
+  pools: LiquidityPool[];
+  total: string;
+  complete: boolean;
+  recordCap: number;
 }
 
-interface PoolsResponse {
-  pools?: RawPool[];
-}
-
-interface ParamsResponse {
-  params?: {
-    defaultSwapFeeBps?: string;
-    default_swap_fee_bps?: string;
-    protocolFeeBps?: string;
-    protocol_fee_bps?: string;
-    minInitialLiquidity?: string;
-    min_initial_liquidity?: string;
-    twapWindowBlocks?: string;
-    twap_window_blocks?: string;
-  };
+interface LiquidityPoolPage {
+  pools: LiquidityPool[];
+  nextKey: string | null;
+  total: string | null;
 }
 
 interface RpcBlockchainResponse {
@@ -93,27 +83,6 @@ interface RawAccountIdentifier {
   created_at_block?: unknown;
 }
 
-export interface LiquidityPool {
-  id: string;
-  denomA: string;
-  denomB: string;
-  reserveA: string;
-  reserveB: string;
-  swapFeeBps: number;
-  lpSupply: string;
-  lpDenom: string;
-  creator: string;
-  createdAtBlock: number;
-  locked: boolean;
-}
-
-export interface LiquidityParams {
-  defaultSwapFeeBps: number;
-  protocolFeeBps: number;
-  minInitialLiquidity: string;
-  twapWindowBlocks: number;
-}
-
 export interface NetworkSnapshot {
   chainId: string;
   height: number;
@@ -124,7 +93,7 @@ export interface NetworkSnapshot {
   supplyUzrn: string | null;
   validators: number | null;
   validatorMonikers: string[];
-  pools: LiquidityPool[] | null;
+  poolRegistry: LiquidityPoolRegistry | null;
   liquidityParams: LiquidityParams | null;
 }
 
@@ -179,6 +148,18 @@ async function boundedResponseJson(
   }
 }
 
+async function fetchBoundedJson(
+  url: string,
+  timeoutMs = 8_000,
+): Promise<unknown> {
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response.ok) throw new Error(`Mainnet returned HTTP ${response.status}`);
+  return boundedResponseJson(response);
+}
+
 function rpcUrl(path: string, params?: Record<string, string>): string {
   const url = new URL(`${RPC_ENDPOINT}/${path.replace(/^\//, "")}`);
   Object.entries(params ?? {}).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -197,7 +178,9 @@ function uint(value: unknown): number | null {
 }
 
 function amount(value: unknown): string | null {
-  return typeof value === "string" && /^\d+$/.test(value) ? value : null;
+  return typeof value === "string" && /^(?:0|[1-9]\d*)$/.test(value)
+    ? value
+    : null;
 }
 
 function boundedText(value: unknown, maxLength = 256): string | null {
@@ -208,6 +191,62 @@ function boundedText(value: unknown, maxLength = 256): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function uint64String(value: unknown): string | null {
+  if (
+    typeof value !== "string" ||
+    value.length > 20 ||
+    !/^(?:0|[1-9]\d*)$/.test(value)
+  ) {
+    return null;
+  }
+  return BigInt(value) <= (1n << 64n) - 1n ? value : null;
+}
+
+function paginationKey(value: unknown): string | null | undefined {
+  if (value === null || value === undefined || value === "") return null;
+  if (
+    typeof value !== "string" ||
+    value.length > 344 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+      value,
+    )
+  ) {
+    return undefined;
+  }
+  return value;
+}
+
+function normalizeLiquidityPoolPage(value: unknown): LiquidityPoolPage | null {
+  if (!isRecord(value) || !Array.isArray(value.pools)) return null;
+  if (value.pools.length > LIQUIDITY_POOL_PAGE_LIMIT) return null;
+  const pagination = value.pagination;
+  if (!isRecord(pagination)) return null;
+  const nextKey = paginationKey(
+    pagination.next_key ?? pagination.nextKey,
+  );
+  if (nextKey === undefined) return null;
+  const rawTotal = pagination.total;
+  const total =
+    rawTotal === null || rawTotal === undefined
+      ? null
+      : uint64String(rawTotal);
+  if (
+    rawTotal !== null &&
+    rawTotal !== undefined &&
+    (total === null ||
+      BigInt(total) > BigInt(LIQUIDITY_POOL_LIFETIME_CAP))
+  ) {
+    return null;
+  }
+  const pools = value.pools.map(normalizeLiquidityPool);
+  if (pools.some((pool) => pool === null)) return null;
+  return {
+    pools: pools as LiquidityPool[],
+    nextKey,
+    total,
+  };
 }
 
 function uintString(value: unknown): string | null {
@@ -271,67 +310,87 @@ function normalizeAccountIdentifier(
   };
 }
 
-function normalizePool(pool: RawPool): LiquidityPool | null {
-  const id = boundedText(pool.poolId ?? pool.pool_id);
-  const denomA = boundedText(pool.denomA ?? pool.denom_a, 160);
-  const denomB = boundedText(pool.denomB ?? pool.denom_b, 160);
-  const reserveA = amount(pool.reserveA ?? pool.reserve_a);
-  const reserveB = amount(pool.reserveB ?? pool.reserve_b);
-  const fee = uint(pool.swapFeeBps ?? pool.swap_fee_bps);
-  const lpSupply = amount(pool.lpTokenSupply ?? pool.lp_token_supply);
-  const createdAtBlock = uint(pool.createdAtBlock ?? pool.created_at_block);
-  if (
-    !id ||
-    !denomA ||
-    !denomB ||
-    reserveA === null ||
-    reserveB === null ||
-    fee === null ||
-    lpSupply === null ||
-    createdAtBlock === null
-  ) {
-    return null;
-  }
-  return {
-    id,
-    denomA,
-    denomB,
-    reserveA,
-    reserveB,
-    swapFeeBps: fee,
-    lpSupply,
-    lpDenom: boundedText(pool.lpDenom ?? pool.lp_denom, 256) ?? "—",
-    creator: boundedText(pool.creator, 128) ?? "—",
-    createdAtBlock,
-    locked: Boolean(pool.locked),
-  };
-}
+export async function getLiquidityPoolRegistry(): Promise<LiquidityPoolRegistry> {
+  const pools: LiquidityPool[] = [];
+  const seenPoolIds = new Set<string>();
+  const seenKeys = new Set<string>();
+  let nextKey: string | null = null;
+  let reportedTotal: string | null = null;
 
-function normalizeParams(response: ParamsResponse): LiquidityParams | null {
-  const params = response.params;
-  if (!params) return null;
-  const defaultSwapFeeBps = uint(
-    params.defaultSwapFeeBps ?? params.default_swap_fee_bps,
-  );
-  const protocolFeeBps = uint(params.protocolFeeBps ?? params.protocol_fee_bps);
-  const minInitialLiquidity = amount(
-    params.minInitialLiquidity ?? params.min_initial_liquidity,
-  );
-  const twapWindowBlocks = uint(params.twapWindowBlocks ?? params.twap_window_blocks);
-  if (
-    defaultSwapFeeBps === null ||
-    protocolFeeBps === null ||
-    minInitialLiquidity === null ||
-    twapWindowBlocks === null
+  for (
+    let pageNumber = 0;
+    pageNumber < LIQUIDITY_POOL_RECORD_CAP / LIQUIDITY_POOL_PAGE_LIMIT;
+    pageNumber += 1
   ) {
-    return null;
+    const query = new URLSearchParams({
+      "pagination.limit": String(LIQUIDITY_POOL_PAGE_LIMIT),
+    });
+    if (nextKey === null) {
+      query.set("pagination.count_total", "true");
+    } else {
+      query.set("pagination.key", nextKey);
+    }
+    const response = await fetchBoundedJson(
+      restUrl(`/zerone/liquiditypool/v1/pools?${query.toString()}`),
+    );
+    const page = normalizeLiquidityPoolPage(response);
+    if (!page) {
+      throw new Error("Mainnet returned a malformed liquidity pool page.");
+    }
+    if (pageNumber === 0) {
+      if (page.total === null) {
+        throw new Error("Mainnet omitted the liquidity pool registry total.");
+      }
+      reportedTotal = page.total;
+    }
+
+    const remaining = LIQUIDITY_POOL_RECORD_CAP - pools.length;
+    const retainedPools = page.pools.slice(0, remaining);
+    for (const pool of retainedPools) {
+      if (seenPoolIds.has(pool.id)) {
+        throw new Error("Liquidity pool pagination repeated a pool.");
+      }
+      seenPoolIds.add(pool.id);
+      pools.push(pool);
+    }
+
+    if (reportedTotal === null) {
+      throw new Error("Mainnet omitted the liquidity pool registry total.");
+    }
+    const total = BigInt(reportedTotal);
+    if (page.nextKey === null) {
+      if (BigInt(pools.length) !== total || retainedPools.length !== page.pools.length) {
+        throw new Error("Liquidity pool pagination total was inconsistent.");
+      }
+      return {
+        pools,
+        total: reportedTotal,
+        complete: true,
+        recordCap: LIQUIDITY_POOL_RECORD_CAP,
+      };
+    }
+    if (page.pools.length === 0 || total <= BigInt(pools.length)) {
+      throw new Error("Liquidity pool pagination cursor was inconsistent.");
+    }
+    if (
+      pools.length === LIQUIDITY_POOL_RECORD_CAP ||
+      retainedPools.length !== page.pools.length
+    ) {
+      return {
+        pools,
+        total: reportedTotal,
+        complete: false,
+        recordCap: LIQUIDITY_POOL_RECORD_CAP,
+      };
+    }
+    if (seenKeys.has(page.nextKey)) {
+      throw new Error("Liquidity pool pagination repeated a cursor.");
+    }
+    seenKeys.add(page.nextKey);
+    nextKey = page.nextKey;
   }
-  return {
-    defaultSwapFeeBps,
-    protocolFeeBps,
-    minInitialLiquidity,
-    twapWindowBlocks,
-  };
+
+  throw new Error("Liquidity pool response exceeded its record cap.");
 }
 
 export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
@@ -360,14 +419,15 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
         restUrl(`/cosmos/bank/v1beta1/supply/by_denom?denom=${DENOM}`),
       ),
       fetchJson<RpcValidatorsResponse>(rpcUrl("validators", { page: "1", per_page: "100" })),
-      fetchJson<PoolsResponse>(restUrl("/zerone/liquiditypool/v1/pools")),
-      fetchJson<ParamsResponse>(restUrl("/zerone/liquiditypool/v1/params")),
+      getLiquidityPoolRegistry(),
+      fetchJson<RawLiquidityParamsResponse>(
+        restUrl("/zerone/liquiditypool/v1/params"),
+      ),
     ]);
 
   const netInfo = netInfoResult.status === "fulfilled" ? netInfoResult.value : {};
   const supply = supplyResult.status === "fulfilled" ? supplyResult.value : {};
   const validators = validatorsResult.status === "fulfilled" ? validatorsResult.value : {};
-  const pools = poolsResult.status === "fulfilled" ? poolsResult.value : {};
   const params = paramsResult.status === "fulfilled" ? paramsResult.value : {};
   const validatorList = Array.isArray(validators.result?.validators)
     ? validators.result.validators
@@ -376,12 +436,6 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
   const issuedSupply =
     supply.amount?.denom === DENOM ? amount(supply.amount.amount) : null;
   const validatorTotal = uint(validators.result?.total);
-  const rawPools = Array.isArray(pools.pools) ? pools.pools : null;
-  const normalizedPools = rawPools?.map(normalizePool) ?? null;
-  const poolsValid = normalizedPools?.every(
-    (pool): pool is LiquidityPool => pool !== null,
-  );
-
   return {
     chainId,
     height,
@@ -399,10 +453,12 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
     validatorMonikers: statusResult.node_info?.moniker
       ? [statusResult.node_info.moniker]
       : [],
-    pools:
-      poolsResult.status === "fulfilled" && poolsValid ? normalizedPools : null,
+    poolRegistry:
+      poolsResult.status === "fulfilled" ? poolsResult.value : null,
     liquidityParams:
-      paramsResult.status === "fulfilled" ? normalizeParams(params) : null,
+      paramsResult.status === "fulfilled"
+        ? normalizeLiquidityParams(params)
+        : null,
   };
 }
 

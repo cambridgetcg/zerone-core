@@ -1,4 +1,5 @@
 import { Params } from "./genesis.js";
+import { PoolStatus } from "./types.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
 /**
@@ -8,7 +9,7 @@ import { DeepPartial } from "../../../helpers.js";
  */
 export interface MsgCreatePool {
     /**
-     * governance authority address
+     * governance-allowlisted initial liquidity funder
      */
     creator: string;
     denomA: string;
@@ -22,7 +23,7 @@ export interface MsgCreatePool {
      */
     amountB: string;
     /**
-     * 0 = use default
+     * must be 0; the governed default is used
      */
     swapFeeBps: bigint;
 }
@@ -160,6 +161,23 @@ export interface MsgUpdateParams {
 export interface MsgUpdateParamsResponse {
 }
 /**
+ * @name MsgSetPoolStatus
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatus
+ */
+export interface MsgSetPoolStatus {
+    authority: string;
+    poolId: string;
+    status: PoolStatus;
+}
+/**
+ * @name MsgSetPoolStatusResponse
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatusResponse
+ */
+export interface MsgSetPoolStatusResponse {
+}
+/**
  * @name MsgCreatePool
  * @package zerone.liquiditypool.v1
  * @see proto type: zerone.liquiditypool.v1.MsgCreatePool
@@ -268,4 +286,26 @@ export declare const MsgUpdateParamsResponse: {
     encode(_: MsgUpdateParamsResponse, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): MsgUpdateParamsResponse;
     fromPartial(_: DeepPartial<MsgUpdateParamsResponse>): MsgUpdateParamsResponse;
+};
+/**
+ * @name MsgSetPoolStatus
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatus
+ */
+export declare const MsgSetPoolStatus: {
+    typeUrl: string;
+    encode(message: MsgSetPoolStatus, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgSetPoolStatus;
+    fromPartial(object: DeepPartial<MsgSetPoolStatus>): MsgSetPoolStatus;
+};
+/**
+ * @name MsgSetPoolStatusResponse
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatusResponse
+ */
+export declare const MsgSetPoolStatusResponse: {
+    typeUrl: string;
+    encode(_: MsgSetPoolStatusResponse, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgSetPoolStatusResponse;
+    fromPartial(_: DeepPartial<MsgSetPoolStatusResponse>): MsgSetPoolStatusResponse;
 };

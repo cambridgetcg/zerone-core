@@ -3,6 +3,16 @@ package zerone.liquiditypool.v1;
 
 option go_package = "github.com/zerone-chain/zerone/x/liquiditypool/types";
 
+// PoolStatus is the governed lifecycle state of a pool. CLOSED is an
+// immutable tombstone produced only by the final LP exit.
+enum PoolStatus {
+  POOL_STATUS_UNSPECIFIED = 0;
+  POOL_STATUS_ACTIVE = 1;
+  POOL_STATUS_SWAPS_PAUSED = 2;
+  POOL_STATUS_EXIT_ONLY = 3;
+  POOL_STATUS_CLOSED = 4;
+}
+
 // Pool represents a constant-product AMM liquidity pool.
 message Pool {
   string pool_id         = 1;
@@ -16,6 +26,8 @@ message Pool {
   string creator         = 9;
   uint64 created_at_block = 10;
   bool   locked          = 11; // reentrancy guard
+  PoolStatus status      = 12;
+  uint64 closed_at_block = 13; // zero unless status is CLOSED
 }
 
 // TWAPAccumulator stores cumulative price data for TWAP oracle.
@@ -26,6 +38,15 @@ message TWAPAccumulator {
   string cum_price_a_to_b = 3; // bigint string (1e12 scale)
   string cum_price_b_to_a = 4; // bigint string (1e12 scale)
   uint64 start_block     = 5; // height accumulation began — TWAP divisor is last_block - start_block
+}
+
+// TWAPObservation is a retained cumulative-price checkpoint. One checkpoint
+// is stored per open pool per block, bounded by Params.twap_window_blocks.
+message TWAPObservation {
+  string pool_id          = 1;
+  uint64 block_height     = 2;
+  string cum_price_a_to_b = 3; // bigint string (1e12 scale)
+  string cum_price_b_to_a = 4; // bigint string (1e12 scale)
 }
 
 // SwapResult contains the output of a swap calculation.

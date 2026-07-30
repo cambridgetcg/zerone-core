@@ -7,6 +7,7 @@
 package types
 
 import (
+	query "github.com/cosmos/cosmos-sdk/types/query"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -112,6 +113,7 @@ func (x *QueryPoolResponse) GetPool() *Pool {
 
 type QueryPoolsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pagination    *query.PageRequest     `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -146,9 +148,17 @@ func (*QueryPoolsRequest) Descriptor() ([]byte, []int) {
 	return file_zerone_liquiditypool_v1_query_proto_rawDescGZIP(), []int{2}
 }
 
+func (x *QueryPoolsRequest) GetPagination() *query.PageRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
 type QueryPoolsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pools         []*Pool                `protobuf:"bytes,1,rep,name=pools,proto3" json:"pools,omitempty"`
+	Pagination    *query.PageResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -186,6 +196,13 @@ func (*QueryPoolsResponse) Descriptor() ([]byte, []int) {
 func (x *QueryPoolsResponse) GetPools() []*Pool {
 	if x != nil {
 		return x.Pools
+	}
+	return nil
+}
+
+func (x *QueryPoolsResponse) GetPagination() *query.PageResponse {
+	if x != nil {
+		return x.Pagination
 	}
 	return nil
 }
@@ -490,14 +507,20 @@ var File_zerone_liquiditypool_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_liquiditypool_v1_query_proto_rawDesc = "" +
 	"\n" +
-	"#zerone/liquiditypool/v1/query.proto\x12\x17zerone.liquiditypool.v1\x1a\x1cgoogle/api/annotations.proto\x1a#zerone/liquiditypool/v1/types.proto\x1a%zerone/liquiditypool/v1/genesis.proto\"+\n" +
+	"#zerone/liquiditypool/v1/query.proto\x12\x17zerone.liquiditypool.v1\x1a\x1cgoogle/api/annotations.proto\x1a*cosmos/base/query/v1beta1/pagination.proto\x1a#zerone/liquiditypool/v1/types.proto\x1a%zerone/liquiditypool/v1/genesis.proto\"+\n" +
 	"\x10QueryPoolRequest\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\"F\n" +
 	"\x11QueryPoolResponse\x121\n" +
-	"\x04pool\x18\x01 \x01(\v2\x1d.zerone.liquiditypool.v1.PoolR\x04pool\"\x13\n" +
-	"\x11QueryPoolsRequest\"I\n" +
+	"\x04pool\x18\x01 \x01(\v2\x1d.zerone.liquiditypool.v1.PoolR\x04pool\"[\n" +
+	"\x11QueryPoolsRequest\x12F\n" +
+	"\n" +
+	"pagination\x18\x01 \x01(\v2&.cosmos.base.query.v1beta1.PageRequestR\n" +
+	"pagination\"\x92\x01\n" +
 	"\x12QueryPoolsResponse\x123\n" +
-	"\x05pools\x18\x01 \x03(\v2\x1d.zerone.liquiditypool.v1.PoolR\x05pools\"b\n" +
+	"\x05pools\x18\x01 \x03(\v2\x1d.zerone.liquiditypool.v1.PoolR\x05pools\x12G\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2'.cosmos.base.query.v1beta1.PageResponseR\n" +
+	"pagination\"b\n" +
 	"\x10QueryTWAPRequest\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12\x1d\n" +
 	"\n" +
@@ -548,29 +571,33 @@ var file_zerone_liquiditypool_v1_query_proto_goTypes = []any{
 	(*QueryParamsRequest)(nil),        // 8: zerone.liquiditypool.v1.QueryParamsRequest
 	(*QueryParamsResponse)(nil),       // 9: zerone.liquiditypool.v1.QueryParamsResponse
 	(*Pool)(nil),                      // 10: zerone.liquiditypool.v1.Pool
-	(*SwapResult)(nil),                // 11: zerone.liquiditypool.v1.SwapResult
-	(*Params)(nil),                    // 12: zerone.liquiditypool.v1.Params
+	(*query.PageRequest)(nil),         // 11: cosmos.base.query.v1beta1.PageRequest
+	(*query.PageResponse)(nil),        // 12: cosmos.base.query.v1beta1.PageResponse
+	(*SwapResult)(nil),                // 13: zerone.liquiditypool.v1.SwapResult
+	(*Params)(nil),                    // 14: zerone.liquiditypool.v1.Params
 }
 var file_zerone_liquiditypool_v1_query_proto_depIdxs = []int32{
 	10, // 0: zerone.liquiditypool.v1.QueryPoolResponse.pool:type_name -> zerone.liquiditypool.v1.Pool
-	10, // 1: zerone.liquiditypool.v1.QueryPoolsResponse.pools:type_name -> zerone.liquiditypool.v1.Pool
-	11, // 2: zerone.liquiditypool.v1.QuerySimulateSwapResponse.result:type_name -> zerone.liquiditypool.v1.SwapResult
-	12, // 3: zerone.liquiditypool.v1.QueryParamsResponse.params:type_name -> zerone.liquiditypool.v1.Params
-	0,  // 4: zerone.liquiditypool.v1.Query.Pool:input_type -> zerone.liquiditypool.v1.QueryPoolRequest
-	2,  // 5: zerone.liquiditypool.v1.Query.Pools:input_type -> zerone.liquiditypool.v1.QueryPoolsRequest
-	4,  // 6: zerone.liquiditypool.v1.Query.TWAP:input_type -> zerone.liquiditypool.v1.QueryTWAPRequest
-	6,  // 7: zerone.liquiditypool.v1.Query.SimulateSwap:input_type -> zerone.liquiditypool.v1.QuerySimulateSwapRequest
-	8,  // 8: zerone.liquiditypool.v1.Query.Params:input_type -> zerone.liquiditypool.v1.QueryParamsRequest
-	1,  // 9: zerone.liquiditypool.v1.Query.Pool:output_type -> zerone.liquiditypool.v1.QueryPoolResponse
-	3,  // 10: zerone.liquiditypool.v1.Query.Pools:output_type -> zerone.liquiditypool.v1.QueryPoolsResponse
-	5,  // 11: zerone.liquiditypool.v1.Query.TWAP:output_type -> zerone.liquiditypool.v1.QueryTWAPResponse
-	7,  // 12: zerone.liquiditypool.v1.Query.SimulateSwap:output_type -> zerone.liquiditypool.v1.QuerySimulateSwapResponse
-	9,  // 13: zerone.liquiditypool.v1.Query.Params:output_type -> zerone.liquiditypool.v1.QueryParamsResponse
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	11, // 1: zerone.liquiditypool.v1.QueryPoolsRequest.pagination:type_name -> cosmos.base.query.v1beta1.PageRequest
+	10, // 2: zerone.liquiditypool.v1.QueryPoolsResponse.pools:type_name -> zerone.liquiditypool.v1.Pool
+	12, // 3: zerone.liquiditypool.v1.QueryPoolsResponse.pagination:type_name -> cosmos.base.query.v1beta1.PageResponse
+	13, // 4: zerone.liquiditypool.v1.QuerySimulateSwapResponse.result:type_name -> zerone.liquiditypool.v1.SwapResult
+	14, // 5: zerone.liquiditypool.v1.QueryParamsResponse.params:type_name -> zerone.liquiditypool.v1.Params
+	0,  // 6: zerone.liquiditypool.v1.Query.Pool:input_type -> zerone.liquiditypool.v1.QueryPoolRequest
+	2,  // 7: zerone.liquiditypool.v1.Query.Pools:input_type -> zerone.liquiditypool.v1.QueryPoolsRequest
+	4,  // 8: zerone.liquiditypool.v1.Query.TWAP:input_type -> zerone.liquiditypool.v1.QueryTWAPRequest
+	6,  // 9: zerone.liquiditypool.v1.Query.SimulateSwap:input_type -> zerone.liquiditypool.v1.QuerySimulateSwapRequest
+	8,  // 10: zerone.liquiditypool.v1.Query.Params:input_type -> zerone.liquiditypool.v1.QueryParamsRequest
+	1,  // 11: zerone.liquiditypool.v1.Query.Pool:output_type -> zerone.liquiditypool.v1.QueryPoolResponse
+	3,  // 12: zerone.liquiditypool.v1.Query.Pools:output_type -> zerone.liquiditypool.v1.QueryPoolsResponse
+	5,  // 13: zerone.liquiditypool.v1.Query.TWAP:output_type -> zerone.liquiditypool.v1.QueryTWAPResponse
+	7,  // 14: zerone.liquiditypool.v1.Query.SimulateSwap:output_type -> zerone.liquiditypool.v1.QuerySimulateSwapResponse
+	9,  // 15: zerone.liquiditypool.v1.Query.Params:output_type -> zerone.liquiditypool.v1.QueryParamsResponse
+	11, // [11:16] is the sub-list for method output_type
+	6,  // [6:11] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_zerone_liquiditypool_v1_query_proto_init() }

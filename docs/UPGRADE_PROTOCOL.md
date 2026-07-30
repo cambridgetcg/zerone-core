@@ -11,6 +11,18 @@ Upgrades in Zerone are engineered at four layers that reinforce each other:
 
 The test layer exercises all four, end-to-end, via `app.RunUpgradeHandlerForTests` — see `tests/cross_stack/upgrade_e2e_test.go`.
 
+The current production lineage is ordered
+`consolidation-safety-v1` → `liquiditypool-safety-v2`. The first
+`RunMigrations` is expected to activate and advance liquiditypool to v4; the
+later named handler is an intentionally idempotent readiness marker. Native
+pool/oracle activation remains gated by
+[LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md), not merely by the
+module version.
+
+The liquidity v3→v4 migration quarantines every positive legacy pool as
+`EXIT_ONLY`; it never turns on trading or deposits as a side effect of the
+earlier generic migration pass.
+
 ---
 
 ## How to add a migration (the 5-step recipe)
@@ -206,6 +218,11 @@ For purely additive proto changes with no state shape change, no new upgrade nam
 4. Unknown handler rejection — no silent success on a non-existent upgrade name.
 5. Marker idempotency — first writer wins; conflicting writes preserve the original.
 6. Lineage parity — handlers ↔ lineage entries ↔ constants all align.
+7. Ordered liquidity rollout — consolidation migrates liquiditypool v3→v4
+   and activates the v4 state semantics; the later
+   `liquiditypool-safety-v2` checkpoint records release readiness and
+   reconciles module-account permissions. Neither handler admits a native
+   pool or billing quote denom.
 
 **Run it before every upgrade release.** If this passes, the mechanism works; if a new wave's migration is correct, it's part of this test; if it isn't, the wave has no verified upgrade path.
 

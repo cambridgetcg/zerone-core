@@ -141,6 +141,25 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
 - Liquidity is read-only in this release. Mainnet currently has no pools, and
   transaction controls remain hidden until pools exist and the flow is tested
   against mainnet safeguards.
+- The liquidity panel distinguishes ACTIVE, swaps-paused, exit-only, closed
+  tombstone, and pre-v4 records. An explicit `UNSPECIFIED` v4 lifecycle is
+  rejected rather than displayed as valid state. It shows the finite open-pool
+  cap, minimum reserve, billing quote allowlist, pending one-shot
+  counter-denom grants, and the persistent creator allowlist. A successful
+  creation consumes its denom grant; recreating the same pair after closure
+  requires governance to grant that denom again. Empty billing and creation
+  admission state is rendered as disabled/fail-closed, never as implied market
+  availability. A nonempty billing allowlist is displayed only as configured
+  candidates: serving a price still requires an ACTIVE pool, both denoms
+  send-enabled, reserve floors, and a complete configured TWAP.
+- Pool history is fetched in pages of 100 through a narrowly allowlisted edge
+  query. The dashboard loads at most 500 lifetime records per refresh, while
+  retaining the chain-reported total and clearly labelling a registry truncated
+  at that display cap. The response is also rejected if its total or any pool ID
+  exceeds the chain's 10,000-record lifetime cap.
+- The configured TWAP window is presented as the retained/default query span,
+  while each response's `window_used` remains authoritative for the span
+  actually served.
 - Standard bank sends use CosmJS's standard registry and do not load Zerone's
   custom transaction codecs. The local `@zerone-chain/sdk` package supplies
   generated Protobuf codecs for all Zerone transaction modules so future

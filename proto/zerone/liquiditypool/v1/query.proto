@@ -4,6 +4,7 @@ package zerone.liquiditypool.v1;
 option go_package = "github.com/zerone-chain/zerone/x/liquiditypool/types";
 
 import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
 import "zerone/liquiditypool/v1/types.proto";
 import "zerone/liquiditypool/v1/genesis.proto";
 
@@ -37,9 +38,12 @@ message QueryPoolResponse {
 
 // --- Pools ---
 
-message QueryPoolsRequest {}
+message QueryPoolsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
 message QueryPoolsResponse {
   repeated Pool pools = 1;
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
 }
 
 // --- TWAP ---

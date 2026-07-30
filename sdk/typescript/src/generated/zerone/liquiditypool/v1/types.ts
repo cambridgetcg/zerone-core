@@ -2,6 +2,58 @@
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
+ * PoolStatus is the governed lifecycle state of a pool. CLOSED is an
+ * immutable tombstone produced only by the final LP exit.
+ */
+export enum PoolStatus {
+  POOL_STATUS_UNSPECIFIED = 0,
+  POOL_STATUS_ACTIVE = 1,
+  POOL_STATUS_SWAPS_PAUSED = 2,
+  POOL_STATUS_EXIT_ONLY = 3,
+  POOL_STATUS_CLOSED = 4,
+  UNRECOGNIZED = -1,
+}
+export function poolStatusFromJSON(object: any): PoolStatus {
+  switch (object) {
+    case 0:
+    case "POOL_STATUS_UNSPECIFIED":
+      return PoolStatus.POOL_STATUS_UNSPECIFIED;
+    case 1:
+    case "POOL_STATUS_ACTIVE":
+      return PoolStatus.POOL_STATUS_ACTIVE;
+    case 2:
+    case "POOL_STATUS_SWAPS_PAUSED":
+      return PoolStatus.POOL_STATUS_SWAPS_PAUSED;
+    case 3:
+    case "POOL_STATUS_EXIT_ONLY":
+      return PoolStatus.POOL_STATUS_EXIT_ONLY;
+    case 4:
+    case "POOL_STATUS_CLOSED":
+      return PoolStatus.POOL_STATUS_CLOSED;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return PoolStatus.UNRECOGNIZED;
+  }
+}
+export function poolStatusToJSON(object: PoolStatus): string {
+  switch (object) {
+    case PoolStatus.POOL_STATUS_UNSPECIFIED:
+      return "POOL_STATUS_UNSPECIFIED";
+    case PoolStatus.POOL_STATUS_ACTIVE:
+      return "POOL_STATUS_ACTIVE";
+    case PoolStatus.POOL_STATUS_SWAPS_PAUSED:
+      return "POOL_STATUS_SWAPS_PAUSED";
+    case PoolStatus.POOL_STATUS_EXIT_ONLY:
+      return "POOL_STATUS_EXIT_ONLY";
+    case PoolStatus.POOL_STATUS_CLOSED:
+      return "POOL_STATUS_CLOSED";
+    case PoolStatus.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+/**
  * Pool represents a constant-product AMM liquidity pool.
  * @name Pool
  * @package zerone.liquiditypool.v1
@@ -37,6 +89,11 @@ export interface Pool {
    * reentrancy guard
    */
   locked: boolean;
+  status: PoolStatus;
+  /**
+   * zero unless status is CLOSED
+   */
+  closedAtBlock: bigint;
 }
 /**
  * TWAPAccumulator stores cumulative price data for TWAP oracle.
@@ -60,6 +117,25 @@ export interface TWAPAccumulator {
    * height accumulation began — TWAP divisor is last_block - start_block
    */
   startBlock: bigint;
+}
+/**
+ * TWAPObservation is a retained cumulative-price checkpoint. One checkpoint
+ * is stored per open pool per block, bounded by Params.twap_window_blocks.
+ * @name TWAPObservation
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.TWAPObservation
+ */
+export interface TWAPObservation {
+  poolId: string;
+  blockHeight: bigint;
+  /**
+   * bigint string (1e12 scale)
+   */
+  cumPriceAToB: string;
+  /**
+   * bigint string (1e12 scale)
+   */
+  cumPriceBToA: string;
 }
 /**
  * SwapResult contains the output of a swap calculation.
@@ -94,7 +170,9 @@ function createBasePool(): Pool {
     lpDenom: "",
     creator: "",
     createdAtBlock: BigInt(0),
-    locked: false
+    locked: false,
+    status: 0,
+    closedAtBlock: BigInt(0)
   };
 }
 /**
@@ -139,6 +217,12 @@ export const Pool = {
     if (message.locked === true) {
       writer.uint32(88).bool(message.locked);
     }
+    if (message.status !== 0) {
+      writer.uint32(96).int32(message.status);
+    }
+    if (message.closedAtBlock !== BigInt(0)) {
+      writer.uint32(104).uint64(message.closedAtBlock);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Pool {
@@ -181,6 +265,12 @@ export const Pool = {
         case 11:
           message.locked = reader.bool();
           break;
+        case 12:
+          message.status = reader.int32() as any;
+          break;
+        case 13:
+          message.closedAtBlock = reader.uint64();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -201,6 +291,8 @@ export const Pool = {
     message.creator = object.creator ?? "";
     message.createdAtBlock = object.createdAtBlock !== undefined && object.createdAtBlock !== null ? BigInt(object.createdAtBlock.toString()) : BigInt(0);
     message.locked = object.locked ?? false;
+    message.status = object.status ?? 0;
+    message.closedAtBlock = object.closedAtBlock !== undefined && object.closedAtBlock !== null ? BigInt(object.closedAtBlock.toString()) : BigInt(0);
     return message;
   }
 };
@@ -276,6 +368,73 @@ export const TWAPAccumulator = {
     message.cumPriceAToB = object.cumPriceAToB ?? "";
     message.cumPriceBToA = object.cumPriceBToA ?? "";
     message.startBlock = object.startBlock !== undefined && object.startBlock !== null ? BigInt(object.startBlock.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseTWAPObservation(): TWAPObservation {
+  return {
+    poolId: "",
+    blockHeight: BigInt(0),
+    cumPriceAToB: "",
+    cumPriceBToA: ""
+  };
+}
+/**
+ * TWAPObservation is a retained cumulative-price checkpoint. One checkpoint
+ * is stored per open pool per block, bounded by Params.twap_window_blocks.
+ * @name TWAPObservation
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.TWAPObservation
+ */
+export const TWAPObservation = {
+  typeUrl: "/zerone.liquiditypool.v1.TWAPObservation",
+  encode(message: TWAPObservation, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.poolId !== "") {
+      writer.uint32(10).string(message.poolId);
+    }
+    if (message.blockHeight !== BigInt(0)) {
+      writer.uint32(16).uint64(message.blockHeight);
+    }
+    if (message.cumPriceAToB !== "") {
+      writer.uint32(26).string(message.cumPriceAToB);
+    }
+    if (message.cumPriceBToA !== "") {
+      writer.uint32(34).string(message.cumPriceBToA);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): TWAPObservation {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseTWAPObservation();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.poolId = reader.string();
+          break;
+        case 2:
+          message.blockHeight = reader.uint64();
+          break;
+        case 3:
+          message.cumPriceAToB = reader.string();
+          break;
+        case 4:
+          message.cumPriceBToA = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<TWAPObservation>): TWAPObservation {
+    const message = createBaseTWAPObservation();
+    message.poolId = object.poolId ?? "";
+    message.blockHeight = object.blockHeight !== undefined && object.blockHeight !== null ? BigInt(object.blockHeight.toString()) : BigInt(0);
+    message.cumPriceAToB = object.cumPriceAToB ?? "";
+    message.cumPriceBToA = object.cumPriceBToA ?? "";
     return message;
   }
 };

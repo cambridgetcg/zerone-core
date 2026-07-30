@@ -23,6 +23,7 @@ service Msg {
 
   // Governance
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  rpc SetPoolStatus(MsgSetPoolStatus) returns (MsgSetPoolStatusResponse);
 }
 
 // --- CreatePool ---
@@ -30,12 +31,12 @@ service Msg {
 message MsgCreatePool {
   option (cosmos.msg.v1.signer) = "creator";
 
-  string creator      = 1; // governance authority address
+  string creator      = 1; // governance-allowlisted initial liquidity funder
   string denom_a      = 2;
   string denom_b      = 3;
   string amount_a     = 4; // bigint string
   string amount_b     = 5; // bigint string
-  uint64 swap_fee_bps = 6; // 0 = use default
+  uint64 swap_fee_bps = 6; // must be 0; the governed default is used
 }
 message MsgCreatePoolResponse {
   string pool_id = 1;
@@ -99,3 +100,14 @@ message MsgUpdateParams {
   Params params    = 2;
 }
 message MsgUpdateParamsResponse {}
+
+// --- SetPoolStatus ---
+
+message MsgSetPoolStatus {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1;
+  string pool_id   = 2;
+  PoolStatus status = 3;
+}
+message MsgSetPoolStatusResponse {}

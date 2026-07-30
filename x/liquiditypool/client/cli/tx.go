@@ -36,7 +36,7 @@ func NewTxCmd() *cobra.Command {
 func NewCreatePoolCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-pool [denom-a] [denom-b] [amount-a] [amount-b] [swap-fee-bps]",
-		Short: "Create a new liquidity pool with initial liquidity",
+		Short: "Fund an admitted pool as an allowlisted creator (swap-fee-bps must be 0)",
 		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)

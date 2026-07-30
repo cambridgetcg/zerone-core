@@ -6,26 +6,25 @@ import "math/big"
 var bpsBasis = big.NewInt(1_000_000)
 
 // CalculateSwapOutput computes the output amount for a constant-product swap.
-// Formula: dy = y * dx / (x + dx)  (after fee deduction from dx)
+// Formula uses a scaled denominator so fractional fees still affect price
+// even when the whole-coin fee_amount rounds to zero:
 //
-// Fee is deducted from the input before the swap:
-//
-//	effectiveIn = tokenIn * (1_000_000 - feeBps) / 1_000_000
-//	tokenOut = reserveOut * effectiveIn / (reserveIn + effectiveIn)
+//	weightedIn = tokenIn * (1_000_000 - feeBps)
+//	tokenOut = reserveOut * weightedIn /
+//	           (reserveIn * 1_000_000 + weightedIn)
 func CalculateSwapOutput(reserveIn, reserveOut, tokenIn *big.Int, feeBps uint64) (tokenOut, feeAmount *big.Int) {
-	if reserveIn.Sign() <= 0 || reserveOut.Sign() <= 0 || tokenIn.Sign() <= 0 {
+	if reserveIn.Sign() <= 0 || reserveOut.Sign() <= 0 || tokenIn.Sign() <= 0 || feeBps > 1_000_000 {
 		return new(big.Int), new(big.Int)
 	}
 
-	// Fee deduction
 	feeAmount = new(big.Int).Mul(tokenIn, big.NewInt(int64(feeBps)))
 	feeAmount.Div(feeAmount, bpsBasis)
 
-	effectiveIn := new(big.Int).Sub(tokenIn, feeAmount)
-
-	// dy = y * dx / (x + dx)
-	numerator := new(big.Int).Mul(reserveOut, effectiveIn)
-	denominator := new(big.Int).Add(reserveIn, effectiveIn)
+	feeMultiplier := new(big.Int).Sub(bpsBasis, new(big.Int).SetUint64(feeBps))
+	weightedIn := new(big.Int).Mul(tokenIn, feeMultiplier)
+	numerator := new(big.Int).Mul(reserveOut, weightedIn)
+	denominator := new(big.Int).Mul(reserveIn, bpsBasis)
+	denominator.Add(denominator, weightedIn)
 
 	tokenOut = new(big.Int).Div(numerator, denominator)
 	return tokenOut, feeAmount
@@ -95,27 +94,74 @@ func CalculateProportionalDeposit(reserveA, reserveB, desiredA, desiredB *big.In
 	return requiredA, new(big.Int).Set(desiredB)
 }
 
+// CalculateDepositForShares derives both the LP shares and the exact
+// proportional assets backing those shares. Asset requirements use ceiling
+// division, which prevents a positive one-sided donation from minting zero LP
+// tokens when reserves are highly asymmetric.
+func CalculateDepositForShares(
+	reserveA, reserveB, desiredA, desiredB, totalSupply *big.Int,
+) (actualA, actualB, lpTokens *big.Int) {
+	zero := func() (*big.Int, *big.Int, *big.Int) {
+		return new(big.Int), new(big.Int), new(big.Int)
+	}
+	if reserveA.Sign() <= 0 || reserveB.Sign() <= 0 ||
+		desiredA.Sign() <= 0 || desiredB.Sign() <= 0 || totalSupply.Sign() <= 0 {
+		return zero()
+	}
+
+	lpTokens = CalculateLPTokensForDeposit(reserveA, reserveB, desiredA, desiredB, totalSupply)
+	if lpTokens.Sign() <= 0 {
+		return zero()
+	}
+	actualA = ceilDiv(new(big.Int).Mul(lpTokens, reserveA), totalSupply)
+	actualB = ceilDiv(new(big.Int).Mul(lpTokens, reserveB), totalSupply)
+	if actualA.Sign() <= 0 || actualB.Sign() <= 0 ||
+		actualA.Cmp(desiredA) > 0 || actualB.Cmp(desiredB) > 0 {
+		return zero()
+	}
+	return actualA, actualB, lpTokens
+}
+
+func ceilDiv(numerator, denominator *big.Int) *big.Int {
+	if numerator.Sign() <= 0 || denominator.Sign() <= 0 {
+		return new(big.Int)
+	}
+	adjusted := new(big.Int).Sub(denominator, big.NewInt(1))
+	adjusted.Add(adjusted, numerator)
+	return adjusted.Div(adjusted, denominator)
+}
+
 // CalculatePriceImpactBps computes the price impact in basis points (1M scale).
 // priceImpact = 1 - (tokenOut * reserveIn) / (tokenIn * reserveOut)
 func CalculatePriceImpactBps(reserveIn, reserveOut, tokenIn, tokenOut *big.Int) uint64 {
-	if tokenIn.Sign() <= 0 || reserveOut.Sign() <= 0 {
+	return CalculatePriceImpactBpsWithFee(reserveIn, reserveOut, tokenIn, tokenOut, 0)
+}
+
+// CalculatePriceImpactBpsWithFee measures curve impact against the
+// post-fee infinitesimal quote, so the configured spread is not mislabeled as
+// market impact. The returned scale remains 1,000,000 for wire compatibility.
+func CalculatePriceImpactBpsWithFee(
+	reserveIn, reserveOut, tokenIn, tokenOut *big.Int,
+	feeBps uint64,
+) uint64 {
+	if reserveIn.Sign() <= 0 || tokenIn.Sign() <= 0 || reserveOut.Sign() <= 0 ||
+		tokenOut.Sign() < 0 || feeBps > 1_000_000 {
 		return 0
 	}
-	// ideal = tokenIn * reserveOut / reserveIn
-	ideal := new(big.Int).Mul(tokenIn, reserveOut)
-	ideal.Div(ideal, reserveIn)
-
-	if ideal.Sign() <= 0 {
+	feeMultiplier := new(big.Int).Sub(bpsBasis, new(big.Int).SetUint64(feeBps))
+	idealNumerator := new(big.Int).Mul(tokenIn, feeMultiplier)
+	idealNumerator.Mul(idealNumerator, reserveOut)
+	if idealNumerator.Sign() <= 0 {
 		return 0
 	}
-
-	// impact = (ideal - tokenOut) * 1M / ideal
-	diff := new(big.Int).Sub(ideal, tokenOut)
+	idealDenominator := new(big.Int).Mul(reserveIn, bpsBasis)
+	actualNumerator := new(big.Int).Mul(tokenOut, idealDenominator)
+	diff := new(big.Int).Sub(idealNumerator, actualNumerator)
 	if diff.Sign() <= 0 {
 		return 0
 	}
 	impact := new(big.Int).Mul(diff, bpsBasis)
-	impact.Div(impact, ideal)
+	impact.Div(impact, idealNumerator)
 
 	return impact.Uint64()
 }

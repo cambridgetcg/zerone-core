@@ -1,9 +1,11 @@
 package keeper
 
 import (
+	"fmt"
 	"math/big"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/liquiditypool/types"
 )
@@ -11,9 +13,83 @@ import (
 // twapScale is the precision scale for TWAP accumulators (1e12).
 var twapScale = new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil)
 
-// UpdateTWAPAccumulator records the current spot prices into the TWAP accumulator.
-// Called at each block via BeginBlock for all active pools.
+const (
+	// These two independent bounds keep stale-history cleanup a small,
+	// deterministic fraction of block work even after many pools close.
+	twapGCDeletesPerBlock = 64
+	twapGCMarkersPerBlock = 64
+)
+
+// ProcessTWAPGarbageCollection deletes a bounded number of checkpoints for
+// closed pools. Accumulators are removed synchronously at close, so queued
+// checkpoints are unreachable historical storage, not live oracle state.
+func (k Keeper) ProcessTWAPGarbageCollection(ctx sdk.Context) {
+	store := k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(
+		types.TWAPGarbageCollectPrefix,
+		prefixEndBytes(types.TWAPGarbageCollectPrefix),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to iterate TWAP garbage-collection queue: %v", err))
+	}
+	type marker struct {
+		key    []byte
+		poolID string
+	}
+	markers := make([]marker, 0, twapGCMarkersPerBlock)
+	for ; iter.Valid() && len(markers) < twapGCMarkersPerBlock; iter.Next() {
+		key := append([]byte(nil), iter.Key()...)
+		if len(key) <= len(types.TWAPGarbageCollectPrefix) {
+			iter.Close()
+			panic(fmt.Sprintf("malformed TWAP garbage-collection key %X", key))
+		}
+		markers = append(markers, marker{
+			key:    key,
+			poolID: string(key[len(types.TWAPGarbageCollectPrefix):]),
+		})
+	}
+	iter.Close()
+
+	remainingDeletes := twapGCDeletesPerBlock
+	for _, queued := range markers {
+		prefix := types.TWAPObservationPoolPrefix(queued.poolID)
+		observationIter, err := store.Iterator(prefix, prefixEndBytes(prefix))
+		if err != nil {
+			panic(fmt.Sprintf("failed to iterate queued TWAP observations: %v", err))
+		}
+		keys := make([][]byte, 0, remainingDeletes)
+		for ; observationIter.Valid() && len(keys) < remainingDeletes; observationIter.Next() {
+			keys = append(keys, append([]byte(nil), observationIter.Key()...))
+		}
+		hasMore := observationIter.Valid()
+		observationIter.Close()
+		for _, key := range keys {
+			if err := store.Delete(key); err != nil {
+				panic(fmt.Sprintf("failed to garbage-collect TWAP observation: %v", err))
+			}
+		}
+		remainingDeletes -= len(keys)
+		if !hasMore {
+			if err := store.Delete(queued.key); err != nil {
+				panic(fmt.Sprintf("failed to complete TWAP garbage collection: %v", err))
+			}
+		}
+		if remainingDeletes == 0 {
+			break
+		}
+	}
+}
+
+// UpdateTWAPAccumulator advances a pool's cumulative prices and persists one
+// bounded observation for the current block. BeginBlock calls it through the
+// finite open-pool index, so closed tombstones add no recurring work.
 func (k Keeper) UpdateTWAPAccumulator(ctx sdk.Context, pool *types.Pool) {
+	if pool.Status == types.PoolStatus_POOL_STATUS_CLOSED {
+		return
+	}
+	if ctx.BlockHeight() < 0 {
+		panic("liquiditypool cannot update TWAP at a negative block height")
+	}
 	currentBlock := uint64(ctx.BlockHeight())
 
 	acc, found := k.GetTWAPAccumulator(ctx, pool.PoolId)
@@ -26,134 +102,197 @@ func (k Keeper) UpdateTWAPAccumulator(ctx sdk.Context, pool *types.Pool) {
 			CumPriceBToA: "0",
 		}
 		k.SetTWAPAccumulator(ctx, acc)
-		return // initialized; no delta to accumulate yet
+		k.SetTWAPObservation(ctx, &types.TWAPObservation{
+			PoolId:       pool.PoolId,
+			BlockHeight:  currentBlock,
+			CumPriceAToB: "0",
+			CumPriceBToA: "0",
+		})
+		return
 	}
-
 	if currentBlock <= acc.LastBlock {
-		return // already updated this block
-	}
-
-	blocksDelta := currentBlock - acc.LastBlock
-
-	reserveA := new(big.Int)
-	reserveA.SetString(pool.ReserveA, 10)
-	reserveB := new(big.Int)
-	reserveB.SetString(pool.ReserveB, 10)
-
-	if reserveA.Sign() <= 0 || reserveB.Sign() <= 0 {
 		return
 	}
 
-	// cumPriceAToB += (reserveB / reserveA) * blocksDelta, scaled by 1e12
+	reserveA, err := types.ParsePositiveAmount(pool.ReserveA)
+	if err != nil {
+		panic(fmt.Sprintf("invalid reserve_a for TWAP pool %s: %v", pool.PoolId, err))
+	}
+	reserveB, err := types.ParsePositiveAmount(pool.ReserveB)
+	if err != nil {
+		panic(fmt.Sprintf("invalid reserve_b for TWAP pool %s: %v", pool.PoolId, err))
+	}
+	cumAtoB, err := types.ParseCumulativeAmount(acc.CumPriceAToB)
+	if err != nil {
+		panic(fmt.Sprintf("invalid cumulative A/B price for pool %s: %v", pool.PoolId, err))
+	}
+	cumBtoA, err := types.ParseCumulativeAmount(acc.CumPriceBToA)
+	if err != nil {
+		panic(fmt.Sprintf("invalid cumulative B/A price for pool %s: %v", pool.PoolId, err))
+	}
+
+	blocksDelta := currentBlock - acc.LastBlock
 	priceAtoB := new(big.Int).Mul(reserveB, twapScale)
 	priceAtoB.Div(priceAtoB, reserveA)
 	priceAtoB.Mul(priceAtoB, new(big.Int).SetUint64(blocksDelta))
+	cumAtoB.Add(cumAtoB, priceAtoB)
 
 	priceBtoA := new(big.Int).Mul(reserveA, twapScale)
 	priceBtoA.Div(priceBtoA, reserveB)
 	priceBtoA.Mul(priceBtoA, new(big.Int).SetUint64(blocksDelta))
-
-	cumAtoB := new(big.Int)
-	cumAtoB.SetString(acc.CumPriceAToB, 10)
-	cumAtoB.Add(cumAtoB, priceAtoB)
-
-	cumBtoA := new(big.Int)
-	cumBtoA.SetString(acc.CumPriceBToA, 10)
 	cumBtoA.Add(cumBtoA, priceBtoA)
 
 	acc.CumPriceAToB = cumAtoB.String()
 	acc.CumPriceBToA = cumBtoA.String()
 	acc.LastBlock = currentBlock
-
 	k.SetTWAPAccumulator(ctx, acc)
+	k.SetTWAPObservation(ctx, &types.TWAPObservation{
+		PoolId:       pool.PoolId,
+		BlockHeight:  currentBlock,
+		CumPriceAToB: acc.CumPriceAToB,
+		CumPriceBToA: acc.CumPriceBToA,
+	})
+	k.pruneTWAPObservations(ctx, pool.PoolId, currentBlock, k.GetParams(ctx).TwapWindowBlocks)
 }
 
-// GetTWAP computes the time-weighted average price since the accumulator
-// began (pool creation). Returns the price of baseDenom in quote terms,
-// scaled by 1e6, plus the span of blocks the average covers.
-//
-// The `window` argument is accepted for interface stability but the result
-// is a since-inception average — true windowed TWAP needs historical
-// snapshots the accumulator does not store. Falls back to spot price when
-// there is no accumulated history yet.
-func (k Keeper) GetTWAP(ctx sdk.Context, poolId string, baseDenom string, window uint64) (*big.Int, uint64, error) {
-	_ = window // since-inception average; see doc comment
+func (k Keeper) pruneTWAPObservations(ctx sdk.Context, poolID string, currentBlock, retention uint64) {
+	if currentBlock <= retention {
+		return
+	}
+	cutoff := currentBlock - retention
+	store := k.storeService.OpenKVStore(ctx)
+	prefix := types.TWAPObservationPoolPrefix(poolID)
+	iter, err := store.Iterator(prefix, prefixEndBytes(prefix))
+	if err != nil {
+		panic(fmt.Sprintf("failed to iterate TWAP observations for pruning: %v", err))
+	}
+	var keys [][]byte
+	for ; iter.Valid(); iter.Next() {
+		height, ok := types.TWAPObservationHeight(iter.Key())
+		if !ok {
+			badKey := append([]byte(nil), iter.Key()...)
+			iter.Close()
+			panic(fmt.Sprintf("malformed TWAP observation key %X", badKey))
+		}
+		if height >= cutoff {
+			break
+		}
+		keys = append(keys, append([]byte(nil), iter.Key()...))
+	}
+	iter.Close()
+	for _, key := range keys {
+		if err := store.Delete(key); err != nil {
+			panic(fmt.Sprintf("failed to prune TWAP observation: %v", err))
+		}
+	}
+}
 
-	pool, found := k.GetPool(ctx, poolId)
+// GetTWAP returns the block-weighted arithmetic average over the requested
+// retained window. A zero window selects Params.twap_window_blocks. If the
+// pool is younger than the request, window_used truthfully reports the shorter
+// available span.
+func (k Keeper) GetTWAP(ctx sdk.Context, poolID, baseDenom string, window uint64) (*big.Int, uint64, error) {
+	pool, found := k.GetPool(ctx, poolID)
 	if !found {
 		return nil, 0, types.ErrPoolNotFound
 	}
+	if pool.Status == types.PoolStatus_POOL_STATUS_CLOSED {
+		return nil, 0, types.ErrPoolNotActive
+	}
+	if baseDenom != pool.DenomA && baseDenom != pool.DenomB {
+		return nil, 0, types.ErrDenomNotInPool
+	}
 
-	acc, found := k.GetTWAPAccumulator(ctx, poolId)
+	retention := k.GetParams(ctx).TwapWindowBlocks
+	if window == 0 {
+		window = retention
+	}
+	if window > retention {
+		return nil, 0, types.ErrTWAPWindowUnavailable.Wrapf(
+			"requested %d blocks exceeds retained %d", window, retention,
+		)
+	}
+
+	acc, found := k.GetTWAPAccumulator(ctx, poolID)
 	if !found {
-		// No TWAP history — return spot price scaled by 1e6
+		return k.getSpotPrice(pool, baseDenom)
+	}
+	currentCum, err := cumulativeForBase(acc.CumPriceAToB, acc.CumPriceBToA, baseDenom == pool.DenomA)
+	if err != nil {
+		return nil, 0, types.ErrInvalidPoolState.Wrap(err.Error())
+	}
+	target := uint64(0)
+	if acc.LastBlock > window {
+		target = acc.LastBlock - window
+	}
+
+	var selected *types.TWAPObservation
+	k.IterateTWAPObservations(ctx, poolID, func(observation *types.TWAPObservation) bool {
+		if observation.BlockHeight >= target {
+			selected = proto.Clone(observation).(*types.TWAPObservation)
+			return true
+		}
+		return false
+	})
+	if selected == nil || selected.BlockHeight >= acc.LastBlock {
 		return k.getSpotPrice(pool, baseDenom)
 	}
 
-	// Blocks actually accumulated: LastBlock - StartBlock. Pre-migration
-	// accumulators decode StartBlock=0 — fall back to the pool's creation
-	// height, which CreatePool seeds in the same block as the accumulator.
-	start := acc.StartBlock
-	if start == 0 {
-		start = pool.CreatedAtBlock
+	previousCum, err := cumulativeForBase(
+		selected.CumPriceAToB,
+		selected.CumPriceBToA,
+		baseDenom == pool.DenomA,
+	)
+	if err != nil {
+		return nil, 0, types.ErrInvalidPoolState.Wrap(err.Error())
 	}
-	if acc.LastBlock <= start {
-		return k.getSpotPrice(pool, baseDenom)
+	if currentCum.Cmp(previousCum) < 0 {
+		return nil, 0, types.ErrInvalidPoolState.Wrap("TWAP cumulative price decreased")
 	}
-	blocksDelta := acc.LastBlock - start
+	span := acc.LastBlock - selected.BlockHeight
+	delta := new(big.Int).Sub(currentCum, previousCum)
+	numerator := new(big.Int).Mul(delta, big.NewInt(1_000_000))
+	divisor := new(big.Int).Mul(new(big.Int).SetUint64(span), twapScale)
+	return numerator.Div(numerator, divisor), span, nil
+}
 
-	var cumPrice *big.Int
-	if baseDenom == pool.DenomA {
-		cumPrice = new(big.Int)
-		cumPrice.SetString(acc.CumPriceAToB, 10)
-	} else {
-		cumPrice = new(big.Int)
-		cumPrice.SetString(acc.CumPriceBToA, 10)
+func cumulativeForBase(aToB, bToA string, baseIsA bool) (*big.Int, error) {
+	if baseIsA {
+		return types.ParseCumulativeAmount(aToB)
 	}
-
-	if cumPrice.Sign() == 0 {
-		return k.getSpotPrice(pool, baseDenom)
-	}
-
-	// TWAP = cumPrice * 1e6 / (blocksDelta * twapScale)
-	scale1e6 := big.NewInt(1_000_000)
-	twap := new(big.Int).Mul(cumPrice, scale1e6)
-	divisor := new(big.Int).Mul(new(big.Int).SetUint64(blocksDelta), twapScale)
-	twap.Div(twap, divisor)
-
-	return twap, blocksDelta, nil
+	return types.ParseCumulativeAmount(bToA)
 }
 
 // getSpotPrice returns spot price of baseDenom in quote terms, scaled by 1e6.
 func (k Keeper) getSpotPrice(pool *types.Pool, baseDenom string) (*big.Int, uint64, error) {
-	reserveA := new(big.Int)
-	reserveA.SetString(pool.ReserveA, 10)
-	reserveB := new(big.Int)
-	reserveB.SetString(pool.ReserveB, 10)
-
-	if reserveA.Sign() == 0 || reserveB.Sign() == 0 {
-		return big.NewInt(0), 0, nil
+	if baseDenom != pool.DenomA && baseDenom != pool.DenomB {
+		return nil, 0, types.ErrDenomNotInPool
+	}
+	reserveA, err := types.ParsePositiveAmount(pool.ReserveA)
+	if err != nil {
+		return nil, 0, types.ErrInvalidPoolState.Wrapf("reserve_a: %v", err)
+	}
+	reserveB, err := types.ParsePositiveAmount(pool.ReserveB)
+	if err != nil {
+		return nil, 0, types.ErrInvalidPoolState.Wrapf("reserve_b: %v", err)
 	}
 
 	scale := big.NewInt(1_000_000)
-	var price *big.Int
 	if baseDenom == pool.DenomA {
-		// price = reserveB * 1e6 / reserveA
-		price = new(big.Int).Mul(reserveB, scale)
-		price.Div(price, reserveA)
-	} else {
-		// price = reserveA * 1e6 / reserveB
-		price = new(big.Int).Mul(reserveA, scale)
-		price.Div(price, reserveB)
+		price := new(big.Int).Mul(reserveB, scale)
+		return price.Div(price, reserveA), 0, nil
 	}
-	return price, 0, nil
+	price := new(big.Int).Mul(reserveA, scale)
+	return price.Div(price, reserveB), 0, nil
 }
 
-// GetSpotPrice returns the spot price for external use (e.g., off-chain price readers).
-func (k Keeper) GetSpotPrice(ctx sdk.Context, poolId, baseDenom string) (*big.Int, error) {
-	pool, found := k.GetPool(ctx, poolId)
+func (k Keeper) GetSpotPrice(ctx sdk.Context, poolID, baseDenom string) (*big.Int, error) {
+	pool, found := k.GetPool(ctx, poolID)
 	if !found {
 		return nil, types.ErrPoolNotFound
+	}
+	if pool.Status == types.PoolStatus_POOL_STATUS_CLOSED {
+		return nil, types.ErrPoolNotActive
 	}
 	price, _, err := k.getSpotPrice(pool, baseDenom)
 	return price, err

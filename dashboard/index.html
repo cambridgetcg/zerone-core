@@ -191,8 +191,9 @@
               <h2 id="liquidity-title">Liquidity</h2>
             </div>
             <p>
-              Constant-product pools, protocol-native and fully readable. Pool creation
-              is governance-controlled during the custodial launch.
+              Constant-product pools, protocol-native and fully readable. Governance
+              grants one-shot counter-denom admission and controls lifecycle status;
+              allowlisted creators sign and fund pool creation.
             </p>
           </div>
 
@@ -200,8 +201,27 @@
             <div><span>Default swap fee</span><strong id="swap-fee">—</strong></div>
             <div><span>Protocol share</span><strong id="protocol-fee">—</strong></div>
             <div><span>Minimum initial ZRN</span><strong id="minimum-liquidity">—</strong></div>
-            <div><span>TWAP window</span><strong id="twap-window">—</strong></div>
+            <div><span>Maximum open pools</span><strong id="max-pools">—</strong></div>
+            <div><span>Minimum reserve / side</span><strong id="minimum-reserve">—</strong></div>
+            <div>
+              <span>Billing oracle</span>
+              <strong id="billing-oracle">—</strong>
+              <small id="billing-quotes">Reading quote allowlist</small>
+            </div>
+            <div>
+              <span>Pending one-shot denom grants</span>
+              <strong id="pool-denoms">—</strong>
+              <small>Consumed after successful creation</small>
+            </div>
+            <div>
+              <span>Approved pool creators</span>
+              <strong id="pool-creators">—</strong>
+              <small id="pool-creators-list">Reading creator allowlist</small>
+            </div>
           </div>
+          <p class="protocol-truth" id="oracle-truth">
+            Reading the query-reported TWAP retention/default and oracle boundary.
+          </p>
 
           <div class="pool-surface reveal">
             <div class="surface-toolbar">

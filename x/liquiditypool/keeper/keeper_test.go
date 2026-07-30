@@ -29,11 +29,21 @@ func init() {
 	config.SetBech32PrefixForAccount("zrn", "zrnpub")
 	config.SetBech32PrefixForValidator("zrnvaloper", "zrnvaloperpub")
 	config.SetBech32PrefixForConsensusNode("zrnvalcons", "zrnvalconspub")
+	testAuthority = sdk.AccAddress([]byte{
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	}).String()
+	testSender = sdk.AccAddress([]byte{
+		2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+		2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	}).String()
 }
 
-const (
-	testAuthority = "zrn1authority"
-	testChainID   = "zerone-test-1"
+const testChainID = "zerone-test-1"
+
+var (
+	testAuthority string
+	testSender    string
 )
 
 // ---------- Mock BankKeeper ----------
@@ -41,13 +51,22 @@ const (
 type mockBankKeeper struct {
 	balances       map[string]map[string]int64
 	moduleBalances map[string]map[string]int64
+	sendDisabled   map[string]bool
 }
 
 func newMockBankKeeper() *mockBankKeeper {
 	return &mockBankKeeper{
 		balances:       make(map[string]map[string]int64),
 		moduleBalances: make(map[string]map[string]int64),
+		sendDisabled:   make(map[string]bool),
 	}
+}
+
+func defaultTestParams() *types.Params {
+	params := types.DefaultParams()
+	params.AllowedPoolDenoms = []string{"uatom", "uosmo", "ujunk", "uusdc"}
+	params.PoolCreators = []string{testAuthority}
+	return params
 }
 
 func (m *mockBankKeeper) setBalance(addr, denom string, amount int64) {
@@ -170,6 +189,7 @@ func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
 	k := keeper.NewKeeper(cdc, storeService, mockBK, testAuthority)
 
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100, ChainID: testChainID}, false, log.NewNopLogger())
+	k.SetParams(ctx, defaultTestParams())
 
 	return k, ctx, mockBK
 }
@@ -410,6 +430,12 @@ func TestTWAPAccumulatorCRUD(t *testing.T) {
 	}
 
 	k.SetTWAPAccumulator(ctx, acc)
+	k.SetTWAPObservation(ctx, &types.TWAPObservation{
+		PoolId:       acc.PoolId,
+		BlockHeight:  acc.LastBlock,
+		CumPriceAToB: acc.CumPriceAToB,
+		CumPriceBToA: acc.CumPriceBToA,
+	})
 
 	got, found := k.GetTWAPAccumulator(ctx, "pool-1")
 	if !found {
@@ -430,7 +456,7 @@ func TestParamsGetSet(t *testing.T) {
 	}
 
 	// Set custom params
-	custom := types.DefaultParams()
+	custom := defaultTestParams()
 	custom.MaxPools = 10
 	custom.DefaultSwapFeeBps = 5_000
 	k.SetParams(ctx, custom)
@@ -471,16 +497,27 @@ func TestGenesisExportImport(t *testing.T) {
 		ReserveB:      "2000000",
 		SwapFeeBps:    30_000,
 		LpTokenSupply: "1414213",
+		LpDenom:       "lp/pool-1",
+		Creator:       testAuthority,
+		Status:        types.PoolStatus_POOL_STATUS_ACTIVE,
 	}
 	k.SetPool(ctx, pool)
+	k.SetNextPoolId(ctx, 2)
 
 	acc := &types.TWAPAccumulator{
 		PoolId:       "pool-1",
 		LastBlock:    100,
+		StartBlock:   100,
 		CumPriceAToB: "5000000000",
 		CumPriceBToA: "2500000000",
 	}
 	k.SetTWAPAccumulator(ctx, acc)
+	k.SetTWAPObservation(ctx, &types.TWAPObservation{
+		PoolId:       acc.PoolId,
+		BlockHeight:  acc.LastBlock,
+		CumPriceAToB: acc.CumPriceAToB,
+		CumPriceBToA: acc.CumPriceBToA,
+	})
 
 	// Export
 	gs := k.ExportGenesis(ctx)
@@ -559,7 +596,7 @@ func TestCreatePool_MaxPoolsReached(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 
 	// Set max pools to 1
-	params := types.DefaultParams()
+	params := defaultTestParams()
 	params.MaxPools = 1
 	k.SetParams(ctx, params)
 
@@ -687,8 +724,8 @@ func TestCreatePool_CounterSidePositiveSuffices(t *testing.T) {
 	}
 }
 
-// TestCreatePool_SwapFeeCap pins the creation fee cap: > 10% (100,000 on the
-// 1M scale) is rejected, exactly 10% is accepted, 0 falls back to the default.
+// TestCreatePool_SwapFeeCap pins governed fee selection: every non-zero
+// create-time override is rejected and zero uses the governed default.
 func TestCreatePool_SwapFeeCap(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 
@@ -707,25 +744,21 @@ func TestCreatePool_SwapFeeCap(t *testing.T) {
 		t.Errorf("expected ErrInvalidSwapFee above the cap, got %v", err)
 	}
 
-	resp, err := ms.CreatePool(ctx, &types.MsgCreatePool{
+	_, err = ms.CreatePool(ctx, &types.MsgCreatePool{
 		Creator:    testAuthority,
 		DenomA:     "uzrn",
 		DenomB:     "uatom",
 		AmountA:    "100000000000",
 		AmountB:    "100000000000",
-		SwapFeeBps: types.MaxSwapFeeBps, // exactly 10% is allowed
+		SwapFeeBps: types.MaxSwapFeeBps,
 	})
-	if err != nil {
-		t.Fatalf("expected fee exactly at cap to be accepted, got %v", err)
-	}
-	pool, _ := k.GetPool(ctx, resp.PoolId)
-	if pool.SwapFeeBps != types.MaxSwapFeeBps {
-		t.Errorf("expected SwapFeeBps %d, got %d", types.MaxSwapFeeBps, pool.SwapFeeBps)
+	if !errors.Is(err, types.ErrInvalidSwapFee) {
+		t.Fatalf("expected custom fee at cap to be rejected, got %v", err)
 	}
 
 	// Zero fee = use module default.
 	bk.setBalance(testAuthority, "uosmo", 1_000_000_000_000_000)
-	resp, err = ms.CreatePool(ctx, &types.MsgCreatePool{
+	resp, err := ms.CreatePool(ctx, &types.MsgCreatePool{
 		Creator: testAuthority,
 		DenomA:  "uzrn",
 		DenomB:  "uosmo",
@@ -735,14 +768,14 @@ func TestCreatePool_SwapFeeCap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected zero fee (default fallback) to be accepted, got %v", err)
 	}
-	pool, _ = k.GetPool(ctx, resp.PoolId)
-	if pool.SwapFeeBps != types.DefaultParams().DefaultSwapFeeBps {
-		t.Errorf("expected default fee %d, got %d", types.DefaultParams().DefaultSwapFeeBps, pool.SwapFeeBps)
+	pool, _ := k.GetPool(ctx, resp.PoolId)
+	if pool.SwapFeeBps != defaultTestParams().DefaultSwapFeeBps {
+		t.Errorf("expected default fee %d, got %d", defaultTestParams().DefaultSwapFeeBps, pool.SwapFeeBps)
 	}
 }
 
 // TestMsgCreatePool_ValidateBasic covers the stateless mirrors of the
-// creation gates: fee cap and the mandatory uzrn side.
+// creation gates: governed-default fee selection and the mandatory uzrn side.
 func TestMsgCreatePool_ValidateBasic(t *testing.T) {
 	creator := sdk.AccAddress([]byte("validate_basic_test_")).String()
 	newMsg := func(denomA, denomB string, feeBps uint64) *types.MsgCreatePool {
@@ -764,8 +797,8 @@ func TestMsgCreatePool_ValidateBasic(t *testing.T) {
 		t.Errorf("expected ErrInvalidSwapFee, got %v", err)
 	}
 
-	if err := newMsg("uzrn", "uatom", types.MaxSwapFeeBps).ValidateBasic(); err != nil {
-		t.Errorf("fee exactly at cap should pass ValidateBasic, got %v", err)
+	if err := newMsg("uzrn", "uatom", types.MaxSwapFeeBps).ValidateBasic(); !errors.Is(err, types.ErrInvalidSwapFee) {
+		t.Errorf("expected custom fee at the cap to be rejected, got %v", err)
 	}
 
 	if err := newMsg("uatom", "uosmo", 0).ValidateBasic(); !errors.Is(err, types.ErrMissingZRNSide) {
@@ -781,7 +814,7 @@ func TestSwap_Success(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
 	resp, err := ms.Swap(ctx, &types.MsgSwap{
@@ -813,7 +846,7 @@ func TestSwap_SlippageProtection(t *testing.T) {
 	ms, _, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
 	// Set impossibly high minimum output
@@ -833,7 +866,7 @@ func TestSwap_PoolNotFound(t *testing.T) {
 	ms, _, ctx, _ := setupMsgServer(t)
 
 	_, err := ms.Swap(ctx, &types.MsgSwap{
-		Sender:        "zrn1sender0000000000000000000000",
+		Sender:        testSender,
 		PoolId:        "nonexistent",
 		TokenInDenom:  "uzrn",
 		TokenInAmount: "10000",
@@ -847,7 +880,7 @@ func TestSwap_WrongDenom(t *testing.T) {
 	ms, _, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uosmo", 100_000)
 
 	_, err := ms.Swap(ctx, &types.MsgSwap{
@@ -870,7 +903,7 @@ func TestSwap_LockedPool(t *testing.T) {
 	pool.Locked = true
 	k.SetPool(ctx, pool)
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
 	_, err := ms.Swap(ctx, &types.MsgSwap{
@@ -888,7 +921,7 @@ func TestSwap_UnlocksAfterCompletion(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
 	_, err := ms.Swap(ctx, &types.MsgSwap{
@@ -912,7 +945,7 @@ func TestSwap_BothDirections(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 	bk.setBalance(senderAddr, "uatom", 100_000)
 
@@ -954,7 +987,7 @@ func TestSwap_BothDirections(t *testing.T) {
 func TestSwap_MinReserveCheck(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	// Create a pool with small reserves to test min_reserve
-	params := types.DefaultParams()
+	params := defaultTestParams()
 	params.MinReserve = "1000"
 	params.MinInitialLiquidity = "1" // allow small pools for this test
 	k.SetParams(ctx, params)
@@ -973,7 +1006,7 @@ func TestSwap_MinReserveCheck(t *testing.T) {
 		t.Fatalf("create pool failed: %v", err)
 	}
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 10_000)
 
 	// Try to swap nearly all of one side
@@ -997,7 +1030,7 @@ func TestSwap_ProtocolFeeToFeeCollector(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
 	// Default pool fee 3,000 bps (0.3%), default protocol share 450,000 (45%).
@@ -1043,13 +1076,13 @@ func TestSwap_ProtocolFeeToFeeCollector(t *testing.T) {
 func TestSwap_ZeroProtocolFee(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 
-	params := types.DefaultParams()
+	params := defaultTestParams()
 	params.ProtocolFeeBps = 0
 	k.SetParams(ctx, params)
 
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
 	_, err := ms.Swap(ctx, &types.MsgSwap{
@@ -1080,7 +1113,7 @@ func TestSwap_CounterDenomInTakesNoProtocolFee(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uatom", 100_000)
 
 	resp, err := ms.Swap(ctx, &types.MsgSwap{
@@ -1125,7 +1158,7 @@ func TestSwap_CounterDenomInTakesNoProtocolFee(t *testing.T) {
 // MinInitialLiquidity / MinReserve on the UpdateParams path (the audit found
 // SetString silently keeps a partial-parse prefix, collapsing the floor).
 func TestParamsValidate_BigintStrings(t *testing.T) {
-	base := func() *types.Params { return types.DefaultParams() }
+	base := func() *types.Params { return defaultTestParams() }
 
 	ok := base()
 	if err := ok.Validate(); err != nil {
@@ -1168,7 +1201,7 @@ func TestAddLiquidity_LockedPool(t *testing.T) {
 	pool.Locked = true
 	k.SetPool(ctx, pool)
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 1_000_000)
 	bk.setBalance(senderAddr, "uatom", 2_000_000)
 
@@ -1188,7 +1221,7 @@ func TestAddLiquidity_UnlocksAfterCompletion(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 1_000_000)
 	bk.setBalance(senderAddr, "uatom", 2_000_000)
 
@@ -1226,7 +1259,7 @@ func TestAddLiquidity_Success(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 1_000_000)
 	bk.setBalance(senderAddr, "uatom", 2_000_000)
 
@@ -1260,7 +1293,7 @@ func TestAddLiquidity_SlippageCheck(t *testing.T) {
 	ms, _, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 1_000_000)
 	bk.setBalance(senderAddr, "uatom", 2_000_000)
 
@@ -1280,7 +1313,7 @@ func TestAddLiquidity_ProportionalDeposit(t *testing.T) {
 	ms, _, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 1_000_000)
 	bk.setBalance(senderAddr, "uatom", 2_000_000)
 
@@ -1314,7 +1347,7 @@ func TestRemoveLiquidity_Success(t *testing.T) {
 	pool, _ := k.GetPool(ctx, poolId)
 	totalLP := pool.LpTokenSupply
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	lpDenom := types.LPDenom(poolId)
 
 	// Parse total LP and take 10%
@@ -1357,7 +1390,7 @@ func TestRemoveLiquidity_SlippageCheckA(t *testing.T) {
 	totalLPBig.SetString(pool.LpTokenSupply, 10)
 	tenPercent := new(big.Int).Div(totalLPBig, big.NewInt(10))
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, types.LPDenom(poolId), tenPercent.Int64())
 
 	_, err := ms.RemoveLiquidity(ctx, &types.MsgRemoveLiquidity{
@@ -1375,7 +1408,7 @@ func TestRemoveLiquidity_ExceedsSupply(t *testing.T) {
 	ms, _, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, types.LPDenom(poolId), 999_999_999)
 
 	_, err := ms.RemoveLiquidity(ctx, &types.MsgRemoveLiquidity{
@@ -1397,7 +1430,7 @@ func TestRemoveLiquidity_LockedPool(t *testing.T) {
 	pool.Locked = true
 	k.SetPool(ctx, pool)
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, types.LPDenom(poolId), 1_000_000)
 
 	_, err := ms.RemoveLiquidity(ctx, &types.MsgRemoveLiquidity{
@@ -1421,7 +1454,7 @@ func TestRemoveLiquidity_UnlocksAfterCompletion(t *testing.T) {
 	totalLPBig.SetString(pool.LpTokenSupply, 10)
 	tenPercent := new(big.Int).Div(totalLPBig, big.NewInt(10))
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, types.LPDenom(poolId), tenPercent.Int64()*2)
 
 	if _, err := ms.RemoveLiquidity(ctx, &types.MsgRemoveLiquidity{
@@ -1458,7 +1491,7 @@ func TestRemoveLiquidity_UnlocksAfterCompletion(t *testing.T) {
 func TestUpdateParams_Success(t *testing.T) {
 	ms, k, ctx, _ := setupMsgServer(t)
 
-	newParams := types.DefaultParams()
+	newParams := defaultTestParams()
 	newParams.MaxPools = 50
 	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
 		Authority: testAuthority,
@@ -1479,7 +1512,7 @@ func TestUpdateParams_Unauthorized(t *testing.T) {
 
 	_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
 		Authority: "zrn1unauthorized0000000000000000",
-		Params:    types.DefaultParams(),
+		Params:    defaultTestParams(),
 	})
 	if err == nil {
 		t.Error("expected unauthorized error")
@@ -1490,9 +1523,9 @@ func TestUpdateParams_Unauthorized(t *testing.T) {
 // a default swap fee above the 10% creation cap, or a bad/uzrn entry in the
 // oracle allowlist, cannot enter state.
 func TestUpdateParams_RejectsInvalid(t *testing.T) {
-	ms, _, ctx, _ := setupMsgServer(t)
+	ms, k, ctx, _ := setupMsgServer(t)
 
-	overCap := types.DefaultParams()
+	overCap := defaultTestParams()
 	overCap.DefaultSwapFeeBps = types.MaxSwapFeeBps + 1
 	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
 		Authority: testAuthority,
@@ -1501,7 +1534,7 @@ func TestUpdateParams_RejectsInvalid(t *testing.T) {
 		t.Error("expected error for default_swap_fee_bps above cap")
 	}
 
-	zrnQuote := types.DefaultParams()
+	zrnQuote := defaultTestParams()
 	zrnQuote.BillingQuoteDenoms = []string{"uzrn"}
 	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
 		Authority: testAuthority,
@@ -1510,13 +1543,25 @@ func TestUpdateParams_RejectsInvalid(t *testing.T) {
 		t.Error("expected error for uzrn in billing_quote_denoms")
 	}
 
-	valid := types.DefaultParams()
+	valid := defaultTestParams()
 	valid.BillingQuoteDenoms = []string{"uusdc", "ibc/ABCDEF0123456789"}
 	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
 		Authority: testAuthority,
 		Params:    valid,
 	}); err != nil {
 		t.Errorf("expected valid allowlist to be accepted, got %v", err)
+	}
+
+	shrunkTWAP := defaultTestParams()
+	shrunkTWAP.TwapWindowBlocks--
+	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: testAuthority,
+		Params:    shrunkTWAP,
+	}); err == nil {
+		t.Fatal("expected v4 TWAP retention shrink to be rejected")
+	}
+	if got := k.GetParams(ctx).TwapWindowBlocks; got != valid.TwapWindowBlocks {
+		t.Fatalf("rejected TWAP shrink changed params to %d", got)
 	}
 }
 
@@ -1687,7 +1732,7 @@ func TestMigrator_Migrate2to3(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 
 	// Simulate pre-v3 stored params: field absent (nil).
-	old := types.DefaultParams()
+	old := defaultTestParams()
 	old.MaxPools = 7 // non-default value to prove preservation
 	old.BillingQuoteDenoms = nil
 	k.SetParams(ctx, old)
@@ -1737,10 +1782,11 @@ func TestGetSpotPrice(t *testing.T) {
 }
 
 func TestGetZRNPrice(t *testing.T) {
-	k, ctx, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
-	params := types.DefaultParams()
+	params := defaultTestParams()
 	params.BillingQuoteDenoms = []string{"uusdc"}
+	params.TwapWindowBlocks = 10
 	k.SetParams(ctx, params)
 
 	pool := &types.Pool{
@@ -1749,8 +1795,12 @@ func TestGetZRNPrice(t *testing.T) {
 		DenomB:   "uusdc",
 		ReserveA: "1000000",
 		ReserveB: "5000000",
+		Status:   types.PoolStatus_POOL_STATUS_ACTIVE,
 	}
 	k.SetPool(ctx, pool)
+	k.UpdateTWAPAccumulator(ctx, pool)
+	ctx = ctx.WithBlockHeight(110)
+	k.UpdateTWAPAccumulator(ctx, pool)
 
 	price, err := k.GetZRNPrice(ctx, "uusdc")
 	if err != nil {
@@ -1760,12 +1810,17 @@ func TestGetZRNPrice(t *testing.T) {
 	if price.Int64() != 5_000_000 {
 		t.Errorf("expected ZRN price 5000000, got %s", price.String())
 	}
+
+	bk.sendDisabled["uusdc"] = true
+	if _, err := k.GetZRNPrice(ctx, "uusdc"); err == nil {
+		t.Fatal("oracle returned a price from a send-disabled market")
+	}
 }
 
 func TestGetZRNPrice_NoPool(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 
-	params := types.DefaultParams()
+	params := defaultTestParams()
 	params.BillingQuoteDenoms = []string{"uusdc"}
 	k.SetParams(ctx, params)
 
@@ -1805,7 +1860,7 @@ func TestGetZRNPrice_FailClosedByDefault(t *testing.T) {
 func TestGetZRNPrice_QuoteDenomFiltered(t *testing.T) {
 	k, ctx, _ := setupKeeper(t)
 
-	params := types.DefaultParams()
+	params := defaultTestParams()
 	params.BillingQuoteDenoms = []string{"uusdc"}
 	k.SetParams(ctx, params)
 
@@ -1900,6 +1955,7 @@ func TestQuerySimulateSwap(t *testing.T) {
 		ReserveA:   "1000000",
 		ReserveB:   "2000000",
 		SwapFeeBps: 3_000,
+		Status:     types.PoolStatus_POOL_STATUS_ACTIVE,
 	}
 	k.SetPool(ctx, pool)
 
@@ -1937,7 +1993,7 @@ func TestSwap_FeeAccruesToPool(t *testing.T) {
 	k0 := new(big.Int).Mul(rA0, rB0) // initial k
 
 	// Execute a swap
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
 	_, err := ms.Swap(ctx, &types.MsgSwap{
@@ -1967,7 +2023,7 @@ func TestRoundTrip_AddRemoveLiquidity(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 1_000_000)
 	bk.setBalance(senderAddr, "uatom", 2_000_000)
 
@@ -2035,7 +2091,7 @@ func TestMultipleSwaps_PriceMovement(t *testing.T) {
 	}
 
 	// Execute multiple swaps buying uatom with uzrn — should push price down
-	senderAddr := "zrn1sender0000000000000000000000"
+	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 10_000_000)
 
 	for i := 0; i < 5; i++ {

@@ -5,6 +5,13 @@
 > Everything below is verifiable on-chain from the addresses and pool id given.
 > If any number here disagrees with the chain, the chain is right — go check.
 
+> **Separate from native liquiditypool safety v2.** Everything documented here
+> is an external `osmo-test-5` proof-of-concept. It does not activate
+> `x/liquiditypool`, satisfy the native v4 release gates, inherit native pool
+> status controls, or feed the native billing oracle. Native activation is
+> governed by
+> [LIQUIDITYPOOL-SAFETY-V2.md](../LIQUIDITYPOOL-SAFETY-V2.md).
+
 ## The one-paragraph truth
 
 There is a working **pipe** between zerone-1 and Osmosis: ZRN can leave

@@ -8,16 +8,24 @@ import "zerone/liquiditypool/v1/types.proto";
 // Params defines the liquiditypool module parameters.
 message Params {
   uint64 default_swap_fee_bps  = 1; // default swap fee (1M bps scale)
-  uint64 max_pools             = 2; // maximum number of active pools
+  uint64 max_pools             = 2; // maximum number of open (non-CLOSED) pools
   string min_initial_liquidity = 3; // minimum uzrn-side liquidity in base units (bigint string)
   uint64 twap_window_blocks    = 4; // default TWAP window in blocks
-  uint64 protocol_fee_bps      = 5; // protocol's share of swap fees (1M bps scale)
+  // Protocol share of the floor-rounded fee, applied only to ZRN-input swaps
+  // (1M bps scale).
+  uint64 protocol_fee_bps      = 5;
   string min_reserve           = 6; // minimum reserve after swap (bigint string, default "1")
   // Quote denoms the ZRN price oracle (GetZRNPrice) may price against.
   // Empty (the default) = the oracle selects NO pool — fail-closed, so
   // consumers fall back exactly as when no pool exists (e.g. billing's
   // Tier-1 manual override).
   repeated string billing_quote_denoms = 7;
+  // Unconsumed one-shot counter-denom grants for pool creation. A successful
+  // creation removes its denom; empty keeps native pool creation frozen.
+  repeated string allowed_pool_denoms = 8;
+  // Accounts governance trusts to fund/create admitted pools. Empty keeps
+  // native pool creation frozen.
+  repeated string pool_creators = 9;
 }
 
 // GenesisState defines the liquiditypool module genesis state.
@@ -25,4 +33,8 @@ message GenesisState {
   Params params                            = 1;
   repeated Pool pools                      = 2;
   repeated TWAPAccumulator twap_accumulators = 3;
+  // The next monotonically increasing numeric pool ID. Zero is accepted only
+  // as a legacy-import sentinel and is reconstructed from the maximum pool ID.
+  uint64 next_pool_id                      = 4;
+  repeated TWAPObservation twap_observations = 5;
 }

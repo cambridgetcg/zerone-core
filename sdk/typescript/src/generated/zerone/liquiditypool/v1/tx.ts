@@ -1,5 +1,6 @@
 //@ts-nocheck
 import { Params } from "./genesis";
+import { PoolStatus } from "./types";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
@@ -9,7 +10,7 @@ import { DeepPartial } from "../../../helpers";
  */
 export interface MsgCreatePool {
   /**
-   * governance authority address
+   * governance-allowlisted initial liquidity funder
    */
   creator: string;
   denomA: string;
@@ -23,7 +24,7 @@ export interface MsgCreatePool {
    */
   amountB: string;
   /**
-   * 0 = use default
+   * must be 0; the governed default is used
    */
   swapFeeBps: bigint;
 }
@@ -159,6 +160,22 @@ export interface MsgUpdateParams {
  * @see proto type: zerone.liquiditypool.v1.MsgUpdateParamsResponse
  */
 export interface MsgUpdateParamsResponse {}
+/**
+ * @name MsgSetPoolStatus
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatus
+ */
+export interface MsgSetPoolStatus {
+  authority: string;
+  poolId: string;
+  status: PoolStatus;
+}
+/**
+ * @name MsgSetPoolStatusResponse
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatusResponse
+ */
+export interface MsgSetPoolStatusResponse {}
 function createBaseMsgCreatePool(): MsgCreatePool {
   return {
     creator: "",
@@ -733,6 +750,95 @@ export const MsgUpdateParamsResponse = {
   },
   fromPartial(_: DeepPartial<MsgUpdateParamsResponse>): MsgUpdateParamsResponse {
     const message = createBaseMsgUpdateParamsResponse();
+    return message;
+  }
+};
+function createBaseMsgSetPoolStatus(): MsgSetPoolStatus {
+  return {
+    authority: "",
+    poolId: "",
+    status: 0
+  };
+}
+/**
+ * @name MsgSetPoolStatus
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatus
+ */
+export const MsgSetPoolStatus = {
+  typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatus",
+  encode(message: MsgSetPoolStatus, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.poolId !== "") {
+      writer.uint32(18).string(message.poolId);
+    }
+    if (message.status !== 0) {
+      writer.uint32(24).int32(message.status);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgSetPoolStatus {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetPoolStatus();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.authority = reader.string();
+          break;
+        case 2:
+          message.poolId = reader.string();
+          break;
+        case 3:
+          message.status = reader.int32() as any;
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgSetPoolStatus>): MsgSetPoolStatus {
+    const message = createBaseMsgSetPoolStatus();
+    message.authority = object.authority ?? "";
+    message.poolId = object.poolId ?? "";
+    message.status = object.status ?? 0;
+    return message;
+  }
+};
+function createBaseMsgSetPoolStatusResponse(): MsgSetPoolStatusResponse {
+  return {};
+}
+/**
+ * @name MsgSetPoolStatusResponse
+ * @package zerone.liquiditypool.v1
+ * @see proto type: zerone.liquiditypool.v1.MsgSetPoolStatusResponse
+ */
+export const MsgSetPoolStatusResponse = {
+  typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatusResponse",
+  encode(_: MsgSetPoolStatusResponse, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgSetPoolStatusResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgSetPoolStatusResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(_: DeepPartial<MsgSetPoolStatusResponse>): MsgSetPoolStatusResponse {
+    const message = createBaseMsgSetPoolStatusResponse();
     return message;
   }
 };

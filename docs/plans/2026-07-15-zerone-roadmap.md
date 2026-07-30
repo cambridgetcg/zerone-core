@@ -62,9 +62,13 @@ The substrate already exists; the channels are **built-but-not-opened**:
 
 - **IBC transfer + ICA are wired** (ibc-go v8), guarded by `x/ibcratelimit`, and
   we hold hermes relayer keys for zerone-1. This *is* the Cosmos-ecosystem rail.
-- **`x/liquiditypool`** is hardened (Phase-1 gates shipped in
-  `liquiditypool-hardening-v1`) but gated shut: `maxPools=0`, 0 pools, empty
-  quote-denom allowlist — deliberately closed until real liquidity arrives.
+- **`x/liquiditypool`** has a source-approved consensus v4 safety release but
+  remains network-gated: the live inventory must stay at 0 native pools with an
+  empty quote-denom allowlist through the ordered
+  `consolidation-safety-v1` → `liquiditypool-safety-v2` upgrades. V4 uses a
+  finite open-pool cap (default 16), explicit status controls, immutable final
+  exits, and strict PPM math. See
+  [the activation runbook](../LIQUIDITYPOOL-SAFETY-V2.md).
 - **`x/substrate_bridge`** is the *work→value* lane (external attestation → ZRN),
   not a crypto↔crypto bridge — a different, already-live pipe.
 
@@ -81,12 +85,17 @@ than breadth for a young chain), then Osmosis. Cost: relayer config + one
 channel handshake; hermes keys already exist. Reversible.
 
 **Phase E2 — Seed the first pool (the on/off ramp).**
-Flip `maxPools` > 0 via gov param, add `uusdc`(IBC) to `billingQuoteDenoms`, and
-open a **ZRN ↔ ibc/USDC** pool with real initial liquidity (`minInitialLiquidity`
-is 10,000 ZRN today — tune it). Now ZRN has a price and anyone can swap in/out.
-The hardening gates (fail-closed billing oracle, protocol-fee-to-collector,
-locked add/remove, ZRN-quoted floor, 10% swap-fee ceiling) are already in place.
-*This is the actual "exchange in and out."*
+After both named upgrades and every invariant/lifecycle gate pass, verify the
+finite `maxPools` setting. Governance then admits `ibc/USDC` in
+`allowedPoolDenoms` and a transparent initial-liquidity account in
+`poolCreators`; that account—not the governance module—signs and funds
+`MsgCreatePool` for a **ZRN ↔ ibc/USDC** pool
+(`minInitialLiquidity` is 10,000 ZRN today — tune it deliberately).
+Creator-selected fees are disabled; the governed default applies. New pools
+start `ACTIVE`, so the create transaction is the activation decision. Add
+`ibc/USDC` to `billingQuoteDenoms` only in a separate reviewed oracle decision
+after the active pool's depth and behavior are verified. *This is the actual
+"exchange in and out."*
 
 **Phase E3 — Widen (later, on demand).**
 More pairs (ZRN↔ATOM, ZRN↔OSMO) once the first works; an EVM lane via

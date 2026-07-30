@@ -30,6 +30,7 @@ const typescriptCompiler = join(
 const consumerSource = `
 import * as root from "@zerone-chain/sdk";
 import * as caip from "@zerone-chain/sdk/caip";
+import * as liquidity from "@zerone-chain/sdk/liquidity";
 import * as messages from "@zerone-chain/sdk/messages";
 import * as registry from "@zerone-chain/sdk/registry";
 
@@ -53,6 +54,10 @@ const registered = registry.createZeroneRegistry([]);
 
 assert(root.cosmosChainId("zerone-1") === "cosmos:zerone-1", "root export failed");
 assert(network.chainId === "cosmos:zerone-1", "caip export failed");
+assert(
+  liquidity.minimumOutputForSlippage("100", 10_000n) === "99",
+  "liquidity export failed",
+);
 assert(
   encoded.typeUrl === "/zerone.auth.v1.MsgRegisterAccount" &&
     encoded.value instanceof Uint8Array,

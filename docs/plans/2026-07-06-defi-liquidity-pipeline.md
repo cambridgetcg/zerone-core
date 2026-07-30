@@ -4,6 +4,13 @@
 usability), D (`6463ff8`). Maps how ZRN earned for witnessed agenttool work
 becomes liquid, priced, and portable — and every gate on that path.*
 
+> **Historical plan:** the native activation contract has since advanced to
+> liquiditypool consensus v4. Do not use the “localnet-ready NOW” language
+> below as release authority. The current ordered upgrade, lifecycle, invariant,
+> PPM, governance, and oracle gates are in
+> [LIQUIDITYPOOL-SAFETY-V2.md](../LIQUIDITYPOOL-SAFETY-V2.md). The Osmosis
+> testnet proof-of-concept remains a separate external venue.
+
 The pipeline in one line:
 
 ```
@@ -52,15 +59,17 @@ runs on self-dealt volume *knowingly*.
 - Any account creates a ZRN-20 token with real feature flags from the CLI
   (`--mintable --burnable --pausable --wrappable`), wraps it to a bank denom
   `zrn20/{tokenId}` carrying denom metadata — IBC/AMM-compatible.
-- Pool creation is gov-gated and **actually submittable** (the missing
+- Pool creation was gov-account-gated and **actually submittable** (the missing
   `cosmos.msg.v1.signer` annotations meant no liquiditypool/billing/
   compute_pool/discovery/schedule tx was ever broadcastable — fixed in D).
-  Runbook: fund the gov module account with both denoms → gov v1 proposal
-  carrying `MsgCreatePool{creator: govAddr}` → swaps/liquidity permissionless
-  from the existing CLI.
-- TWAP is an honest since-inception average (divisor = blocks accumulated,
-  not absolute height; the spot-price short-circuit is gone). The billing
-  module's Tier-2 ZRN/USD oracle consumes it.
+  That funding path is retired by v4: governance now admits counter-denoms and
+  creator accounts through params, then the admitted account signs and funds
+  `MsgCreatePool` itself. Never fund the governance module from this historical
+  instruction.
+- Historical v3 TWAP used a since-inception divisor based on blocks
+  accumulated rather than absolute height. V4 supersedes it with bounded,
+  retained rolling checkpoints; `window_used` reports the actual served span,
+  and billing refuses an incomplete configured window.
 
 **Hardening gates before real traffic (each verified in code, none blocks the
 localnet demo):**
@@ -76,12 +85,12 @@ localnet demo):**
 | No REST/gRPC-gateway routes for liquiditypool | `module.go:61` | explorers/wallets can't read pools over REST |
 
 **Cold-start arithmetic:** pool floor is 10,000 ZRN-equivalent; agents seed
-at 0.222 ZRN and earn ~0.222 ZRN per witnessed invocation. Either (a) the
-development fund (fed by the 19.67% split) seeds protocol-owned liquidity
-via a gov bank-send + `MsgCreatePool` (LP shares then sit in the gov
-account — protocol-owned liquidity, movable only by further proposals), or
-(b) the floor is lowered pre-launch (genesis param, no migration). Prefer
-(a): POL matches the zero-pre-mine ethos.
+at 0.222 ZRN and earn ~0.222 ZRN per witnessed invocation. Either (a)
+governance admits a clearly identified development-fund account as a pool
+creator, that account seeds protocol-owned liquidity and receives the LP
+shares, or (b) governance deliberately lowers the floor before admitting a
+creator. Prefer (a): labeled POL matches the zero-pre-mine ethos without
+mixing pool capital with the governance module account.
 
 ## Phase 2 — IBC egress (public testnet)
 

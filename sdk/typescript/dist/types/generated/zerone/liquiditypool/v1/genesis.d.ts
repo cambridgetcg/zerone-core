@@ -1,4 +1,4 @@
-import { Pool, TWAPAccumulator } from "./types.js";
+import { Pool, TWAPAccumulator, TWAPObservation } from "./types.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
 /**
@@ -13,7 +13,7 @@ export interface Params {
      */
     defaultSwapFeeBps: bigint;
     /**
-     * maximum number of active pools
+     * maximum number of open (non-CLOSED) pools
      */
     maxPools: bigint;
     /**
@@ -25,7 +25,8 @@ export interface Params {
      */
     twapWindowBlocks: bigint;
     /**
-     * protocol's share of swap fees (1M bps scale)
+     * Protocol share of the floor-rounded fee, applied only to ZRN-input swaps
+     * (1M bps scale).
      */
     protocolFeeBps: bigint;
     /**
@@ -39,6 +40,16 @@ export interface Params {
      * Tier-1 manual override).
      */
     billingQuoteDenoms: string[];
+    /**
+     * Unconsumed one-shot counter-denom grants for pool creation. A successful
+     * creation removes its denom; empty keeps native pool creation frozen.
+     */
+    allowedPoolDenoms: string[];
+    /**
+     * Accounts governance trusts to fund/create admitted pools. Empty keeps
+     * native pool creation frozen.
+     */
+    poolCreators: string[];
 }
 /**
  * GenesisState defines the liquiditypool module genesis state.
@@ -50,6 +61,12 @@ export interface GenesisState {
     params?: Params;
     pools: Pool[];
     twapAccumulators: TWAPAccumulator[];
+    /**
+     * The next monotonically increasing numeric pool ID. Zero is accepted only
+     * as a legacy-import sentinel and is reconstructed from the maximum pool ID.
+     */
+    nextPoolId: bigint;
+    twapObservations: TWAPObservation[];
 }
 /**
  * Params defines the liquiditypool module parameters.

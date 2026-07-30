@@ -1,7 +1,7 @@
 //@ts-nocheck
 import { GeneratedType, Registry } from "@cosmjs/proto-signing";
-import { MsgCreatePool, MsgSwap, MsgAddLiquidity, MsgRemoveLiquidity, MsgUpdateParams } from "./tx";
-export const registry: ReadonlyArray<[string, GeneratedType]> = [["/zerone.liquiditypool.v1.MsgCreatePool", MsgCreatePool], ["/zerone.liquiditypool.v1.MsgSwap", MsgSwap], ["/zerone.liquiditypool.v1.MsgAddLiquidity", MsgAddLiquidity], ["/zerone.liquiditypool.v1.MsgRemoveLiquidity", MsgRemoveLiquidity], ["/zerone.liquiditypool.v1.MsgUpdateParams", MsgUpdateParams]];
+import { MsgCreatePool, MsgSwap, MsgAddLiquidity, MsgRemoveLiquidity, MsgUpdateParams, MsgSetPoolStatus } from "./tx";
+export const registry: ReadonlyArray<[string, GeneratedType]> = [["/zerone.liquiditypool.v1.MsgCreatePool", MsgCreatePool], ["/zerone.liquiditypool.v1.MsgSwap", MsgSwap], ["/zerone.liquiditypool.v1.MsgAddLiquidity", MsgAddLiquidity], ["/zerone.liquiditypool.v1.MsgRemoveLiquidity", MsgRemoveLiquidity], ["/zerone.liquiditypool.v1.MsgUpdateParams", MsgUpdateParams], ["/zerone.liquiditypool.v1.MsgSetPoolStatus", MsgSetPoolStatus]];
 export const load = (protoRegistry: Registry) => {
   registry.forEach(([typeUrl, mod]) => {
     protoRegistry.register(typeUrl, mod);
@@ -38,6 +38,12 @@ export const MessageComposer = {
         typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParams",
         value: MsgUpdateParams.encode(value).finish()
       };
+    },
+    setPoolStatus(value: MsgSetPoolStatus) {
+      return {
+        typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatus",
+        value: MsgSetPoolStatus.encode(value).finish()
+      };
     }
   },
   withTypeUrl: {
@@ -68,6 +74,12 @@ export const MessageComposer = {
     updateParams(value: MsgUpdateParams) {
       return {
         typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParams",
+        value
+      };
+    },
+    setPoolStatus(value: MsgSetPoolStatus) {
+      return {
+        typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatus",
         value
       };
     }
@@ -101,6 +113,12 @@ export const MessageComposer = {
       return {
         typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParams",
         value: MsgUpdateParams.fromPartial(value)
+      };
+    },
+    setPoolStatus(value: MsgSetPoolStatus) {
+      return {
+        typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatus",
+        value: MsgSetPoolStatus.fromPartial(value)
       };
     }
   }

@@ -24,12 +24,12 @@ const (
 
 type MsgCreatePool struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Creator       string                 `protobuf:"bytes,1,opt,name=creator,proto3" json:"creator,omitempty"` // governance authority address
+	Creator       string                 `protobuf:"bytes,1,opt,name=creator,proto3" json:"creator,omitempty"` // governance-allowlisted initial liquidity funder
 	DenomA        string                 `protobuf:"bytes,2,opt,name=denom_a,json=denomA,proto3" json:"denom_a,omitempty"`
 	DenomB        string                 `protobuf:"bytes,3,opt,name=denom_b,json=denomB,proto3" json:"denom_b,omitempty"`
 	AmountA       string                 `protobuf:"bytes,4,opt,name=amount_a,json=amountA,proto3" json:"amount_a,omitempty"`             // bigint string
 	AmountB       string                 `protobuf:"bytes,5,opt,name=amount_b,json=amountB,proto3" json:"amount_b,omitempty"`             // bigint string
-	SwapFeeBps    uint64                 `protobuf:"varint,6,opt,name=swap_fee_bps,json=swapFeeBps,proto3" json:"swap_fee_bps,omitempty"` // 0 = use default
+	SwapFeeBps    uint64                 `protobuf:"varint,6,opt,name=swap_fee_bps,json=swapFeeBps,proto3" json:"swap_fee_bps,omitempty"` // must be 0; the governed default is used
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -630,6 +630,102 @@ func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
 	return file_zerone_liquiditypool_v1_tx_proto_rawDescGZIP(), []int{9}
 }
 
+type MsgSetPoolStatus struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Authority     string                 `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	PoolId        string                 `protobuf:"bytes,2,opt,name=pool_id,json=poolId,proto3" json:"pool_id,omitempty"`
+	Status        PoolStatus             `protobuf:"varint,3,opt,name=status,proto3,enum=zerone.liquiditypool.v1.PoolStatus" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgSetPoolStatus) Reset() {
+	*x = MsgSetPoolStatus{}
+	mi := &file_zerone_liquiditypool_v1_tx_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgSetPoolStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgSetPoolStatus) ProtoMessage() {}
+
+func (x *MsgSetPoolStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_liquiditypool_v1_tx_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgSetPoolStatus.ProtoReflect.Descriptor instead.
+func (*MsgSetPoolStatus) Descriptor() ([]byte, []int) {
+	return file_zerone_liquiditypool_v1_tx_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *MsgSetPoolStatus) GetAuthority() string {
+	if x != nil {
+		return x.Authority
+	}
+	return ""
+}
+
+func (x *MsgSetPoolStatus) GetPoolId() string {
+	if x != nil {
+		return x.PoolId
+	}
+	return ""
+}
+
+func (x *MsgSetPoolStatus) GetStatus() PoolStatus {
+	if x != nil {
+		return x.Status
+	}
+	return PoolStatus_POOL_STATUS_UNSPECIFIED
+}
+
+type MsgSetPoolStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MsgSetPoolStatusResponse) Reset() {
+	*x = MsgSetPoolStatusResponse{}
+	mi := &file_zerone_liquiditypool_v1_tx_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MsgSetPoolStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MsgSetPoolStatusResponse) ProtoMessage() {}
+
+func (x *MsgSetPoolStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_liquiditypool_v1_tx_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MsgSetPoolStatusResponse.ProtoReflect.Descriptor instead.
+func (*MsgSetPoolStatusResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_liquiditypool_v1_tx_proto_rawDescGZIP(), []int{11}
+}
+
 var File_zerone_liquiditypool_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_liquiditypool_v1_tx_proto_rawDesc = "" +
@@ -679,14 +775,20 @@ const file_zerone_liquiditypool_v1_tx_proto_rawDesc = "" +
 	"\x0fMsgUpdateParams\x12\x1c\n" +
 	"\tauthority\x18\x01 \x01(\tR\tauthority\x127\n" +
 	"\x06params\x18\x02 \x01(\v2\x1f.zerone.liquiditypool.v1.ParamsR\x06params:\x0e\x82\xe7\xb0*\tauthority\"\x19\n" +
-	"\x17MsgUpdateParamsResponse2\x93\x04\n" +
+	"\x17MsgUpdateParamsResponse\"\x96\x01\n" +
+	"\x10MsgSetPoolStatus\x12\x1c\n" +
+	"\tauthority\x18\x01 \x01(\tR\tauthority\x12\x17\n" +
+	"\apool_id\x18\x02 \x01(\tR\x06poolId\x12;\n" +
+	"\x06status\x18\x03 \x01(\x0e2#.zerone.liquiditypool.v1.PoolStatusR\x06status:\x0e\x82\xe7\xb0*\tauthority\"\x1a\n" +
+	"\x18MsgSetPoolStatusResponse2\x82\x05\n" +
 	"\x03Msg\x12d\n" +
 	"\n" +
 	"CreatePool\x12&.zerone.liquiditypool.v1.MsgCreatePool\x1a..zerone.liquiditypool.v1.MsgCreatePoolResponse\x12R\n" +
 	"\x04Swap\x12 .zerone.liquiditypool.v1.MsgSwap\x1a(.zerone.liquiditypool.v1.MsgSwapResponse\x12j\n" +
 	"\fAddLiquidity\x12(.zerone.liquiditypool.v1.MsgAddLiquidity\x1a0.zerone.liquiditypool.v1.MsgAddLiquidityResponse\x12s\n" +
 	"\x0fRemoveLiquidity\x12+.zerone.liquiditypool.v1.MsgRemoveLiquidity\x1a3.zerone.liquiditypool.v1.MsgRemoveLiquidityResponse\x12j\n" +
-	"\fUpdateParams\x12(.zerone.liquiditypool.v1.MsgUpdateParams\x1a0.zerone.liquiditypool.v1.MsgUpdateParamsResponse\x1a\x05\x80\xe7\xb0*\x01B6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
+	"\fUpdateParams\x12(.zerone.liquiditypool.v1.MsgUpdateParams\x1a0.zerone.liquiditypool.v1.MsgUpdateParamsResponse\x12m\n" +
+	"\rSetPoolStatus\x12).zerone.liquiditypool.v1.MsgSetPoolStatus\x1a1.zerone.liquiditypool.v1.MsgSetPoolStatusResponse\x1a\x05\x80\xe7\xb0*\x01B6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
 
 var (
 	file_zerone_liquiditypool_v1_tx_proto_rawDescOnce sync.Once
@@ -700,7 +802,7 @@ func file_zerone_liquiditypool_v1_tx_proto_rawDescGZIP() []byte {
 	return file_zerone_liquiditypool_v1_tx_proto_rawDescData
 }
 
-var file_zerone_liquiditypool_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_zerone_liquiditypool_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_zerone_liquiditypool_v1_tx_proto_goTypes = []any{
 	(*MsgCreatePool)(nil),              // 0: zerone.liquiditypool.v1.MsgCreatePool
 	(*MsgCreatePoolResponse)(nil),      // 1: zerone.liquiditypool.v1.MsgCreatePoolResponse
@@ -712,25 +814,31 @@ var file_zerone_liquiditypool_v1_tx_proto_goTypes = []any{
 	(*MsgRemoveLiquidityResponse)(nil), // 7: zerone.liquiditypool.v1.MsgRemoveLiquidityResponse
 	(*MsgUpdateParams)(nil),            // 8: zerone.liquiditypool.v1.MsgUpdateParams
 	(*MsgUpdateParamsResponse)(nil),    // 9: zerone.liquiditypool.v1.MsgUpdateParamsResponse
-	(*Params)(nil),                     // 10: zerone.liquiditypool.v1.Params
+	(*MsgSetPoolStatus)(nil),           // 10: zerone.liquiditypool.v1.MsgSetPoolStatus
+	(*MsgSetPoolStatusResponse)(nil),   // 11: zerone.liquiditypool.v1.MsgSetPoolStatusResponse
+	(*Params)(nil),                     // 12: zerone.liquiditypool.v1.Params
+	(PoolStatus)(0),                    // 13: zerone.liquiditypool.v1.PoolStatus
 }
 var file_zerone_liquiditypool_v1_tx_proto_depIdxs = []int32{
-	10, // 0: zerone.liquiditypool.v1.MsgUpdateParams.params:type_name -> zerone.liquiditypool.v1.Params
-	0,  // 1: zerone.liquiditypool.v1.Msg.CreatePool:input_type -> zerone.liquiditypool.v1.MsgCreatePool
-	2,  // 2: zerone.liquiditypool.v1.Msg.Swap:input_type -> zerone.liquiditypool.v1.MsgSwap
-	4,  // 3: zerone.liquiditypool.v1.Msg.AddLiquidity:input_type -> zerone.liquiditypool.v1.MsgAddLiquidity
-	6,  // 4: zerone.liquiditypool.v1.Msg.RemoveLiquidity:input_type -> zerone.liquiditypool.v1.MsgRemoveLiquidity
-	8,  // 5: zerone.liquiditypool.v1.Msg.UpdateParams:input_type -> zerone.liquiditypool.v1.MsgUpdateParams
-	1,  // 6: zerone.liquiditypool.v1.Msg.CreatePool:output_type -> zerone.liquiditypool.v1.MsgCreatePoolResponse
-	3,  // 7: zerone.liquiditypool.v1.Msg.Swap:output_type -> zerone.liquiditypool.v1.MsgSwapResponse
-	5,  // 8: zerone.liquiditypool.v1.Msg.AddLiquidity:output_type -> zerone.liquiditypool.v1.MsgAddLiquidityResponse
-	7,  // 9: zerone.liquiditypool.v1.Msg.RemoveLiquidity:output_type -> zerone.liquiditypool.v1.MsgRemoveLiquidityResponse
-	9,  // 10: zerone.liquiditypool.v1.Msg.UpdateParams:output_type -> zerone.liquiditypool.v1.MsgUpdateParamsResponse
-	6,  // [6:11] is the sub-list for method output_type
-	1,  // [1:6] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	12, // 0: zerone.liquiditypool.v1.MsgUpdateParams.params:type_name -> zerone.liquiditypool.v1.Params
+	13, // 1: zerone.liquiditypool.v1.MsgSetPoolStatus.status:type_name -> zerone.liquiditypool.v1.PoolStatus
+	0,  // 2: zerone.liquiditypool.v1.Msg.CreatePool:input_type -> zerone.liquiditypool.v1.MsgCreatePool
+	2,  // 3: zerone.liquiditypool.v1.Msg.Swap:input_type -> zerone.liquiditypool.v1.MsgSwap
+	4,  // 4: zerone.liquiditypool.v1.Msg.AddLiquidity:input_type -> zerone.liquiditypool.v1.MsgAddLiquidity
+	6,  // 5: zerone.liquiditypool.v1.Msg.RemoveLiquidity:input_type -> zerone.liquiditypool.v1.MsgRemoveLiquidity
+	8,  // 6: zerone.liquiditypool.v1.Msg.UpdateParams:input_type -> zerone.liquiditypool.v1.MsgUpdateParams
+	10, // 7: zerone.liquiditypool.v1.Msg.SetPoolStatus:input_type -> zerone.liquiditypool.v1.MsgSetPoolStatus
+	1,  // 8: zerone.liquiditypool.v1.Msg.CreatePool:output_type -> zerone.liquiditypool.v1.MsgCreatePoolResponse
+	3,  // 9: zerone.liquiditypool.v1.Msg.Swap:output_type -> zerone.liquiditypool.v1.MsgSwapResponse
+	5,  // 10: zerone.liquiditypool.v1.Msg.AddLiquidity:output_type -> zerone.liquiditypool.v1.MsgAddLiquidityResponse
+	7,  // 11: zerone.liquiditypool.v1.Msg.RemoveLiquidity:output_type -> zerone.liquiditypool.v1.MsgRemoveLiquidityResponse
+	9,  // 12: zerone.liquiditypool.v1.Msg.UpdateParams:output_type -> zerone.liquiditypool.v1.MsgUpdateParamsResponse
+	11, // 13: zerone.liquiditypool.v1.Msg.SetPoolStatus:output_type -> zerone.liquiditypool.v1.MsgSetPoolStatusResponse
+	8,  // [8:14] is the sub-list for method output_type
+	2,  // [2:8] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_zerone_liquiditypool_v1_tx_proto_init() }
@@ -746,7 +854,7 @@ func file_zerone_liquiditypool_v1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_liquiditypool_v1_tx_proto_rawDesc), len(file_zerone_liquiditypool_v1_tx_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

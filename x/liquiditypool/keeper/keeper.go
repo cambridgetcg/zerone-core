@@ -52,12 +52,15 @@ func (k Keeper) GetAuthority() string {
 func (k Keeper) GetParams(ctx sdk.Context) *types.Params {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	bz, err := kvStore.Get(types.ParamsKey)
-	if err != nil || bz == nil {
+	if err != nil {
+		panic(fmt.Sprintf("failed to read liquiditypool params: %v", err))
+	}
+	if bz == nil {
 		return types.DefaultParams()
 	}
 	var params types.Params
 	if err := proto.Unmarshal(bz, &params); err != nil {
-		return types.DefaultParams()
+		panic(fmt.Sprintf("failed to decode liquiditypool params: %v", err))
 	}
 	return &params
 }
@@ -76,19 +79,33 @@ func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) {
 // --- Genesis ---
 
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
-	if gs.Params != nil {
-		k.SetParams(ctx, gs.Params)
+	if err := gs.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid liquiditypool genesis: %v", err))
 	}
+	k.SetParams(ctx, gs.Params)
+	k.DeleteSecondaryIndexes(ctx)
 	for _, pool := range gs.Pools {
-		if pool != nil {
-			k.SetPool(ctx, pool)
-		}
+		k.SetPool(ctx, pool)
 	}
 	for _, acc := range gs.TwapAccumulators {
-		if acc != nil {
-			k.SetTWAPAccumulator(ctx, acc)
+		k.SetTWAPAccumulator(ctx, acc)
+	}
+	for _, observation := range gs.TwapObservations {
+		k.SetTWAPObservation(ctx, observation)
+	}
+
+	nextPoolID := gs.NextPoolId
+	var derived uint64 = 1
+	for _, pool := range gs.Pools {
+		id, _ := types.ParsePoolID(pool.PoolId)
+		if id >= derived {
+			derived = id + 1
 		}
 	}
+	if nextPoolID < derived {
+		nextPoolID = derived
+	}
+	k.SetNextPoolId(ctx, nextPoolID)
 }
 
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
@@ -102,10 +119,25 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		accs = append(accs, a)
 		return false
 	})
+	var observations []*types.TWAPObservation
+	accumulatorPools := make(map[string]struct{}, len(accs))
+	for _, acc := range accs {
+		accumulatorPools[acc.PoolId] = struct{}{}
+	}
+	k.IterateTWAPObservations(ctx, "", func(observation *types.TWAPObservation) bool {
+		// Closed-pool checkpoints queued for bounded garbage collection are
+		// not live state and must not leak into an exported v4 genesis.
+		if _, live := accumulatorPools[observation.PoolId]; live {
+			observations = append(observations, observation)
+		}
+		return false
+	})
 	return &types.GenesisState{
 		Params:           k.GetParams(ctx),
 		Pools:            pools,
 		TwapAccumulators: accs,
+		NextPoolId:       k.GetNextPoolId(ctx),
+		TwapObservations: observations,
 	}
 }
 
@@ -123,28 +155,44 @@ func (k Keeper) ExportGenesisJSON(ctx sdk.Context) json.RawMessage {
 func (k Keeper) GetNextPoolId(ctx sdk.Context) uint64 {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	bz, err := kvStore.Get(types.PoolCounterKey)
-	if err != nil || bz == nil {
+	if err != nil {
+		panic(fmt.Sprintf("failed to read pool counter: %v", err))
+	}
+	if bz == nil {
 		return 1
 	}
 	counter := new(big.Int).SetBytes(bz)
+	if !counter.IsUint64() || counter.Sign() <= 0 {
+		panic("invalid liquiditypool next pool ID")
+	}
 	return counter.Uint64()
 }
 
-func (k Keeper) IncrementPoolCounter(ctx sdk.Context) uint64 {
-	current := k.GetNextPoolId(ctx)
-	next := current + 1
+func (k Keeper) SetNextPoolId(ctx sdk.Context, next uint64) {
+	if next == 0 {
+		panic("liquiditypool next pool ID must be positive")
+	}
 	kvStore := k.storeService.OpenKVStore(ctx)
 	bz := new(big.Int).SetUint64(next).Bytes()
 	if err := kvStore.Set(types.PoolCounterKey, bz); err != nil {
 		panic(fmt.Sprintf("failed to set pool counter: %v", err))
 	}
+}
+
+func (k Keeper) IncrementPoolCounter(ctx sdk.Context) uint64 {
+	current := k.GetNextPoolId(ctx)
+	if current == ^uint64(0) {
+		panic("liquiditypool pool ID space exhausted")
+	}
+	next := current + 1
+	k.SetNextPoolId(ctx, next)
 	return current
 }
 
 // --- Cross-module price oracle ---
 
-// GetZRNPrice returns the current ZRN price in the quote denom, scaled by 1e6.
-// Returns (price, error). Price = reserve_quote * 1e6 / reserve_zrn.
+// GetZRNPrice returns the retained-window ZRN arithmetic price in the quote
+// denom, scaled by 1e6. It requires a complete configured observation window.
 //
 // Only quote denoms allowlisted in params.BillingQuoteDenoms are priced:
 // any other ZRN pair could poison chain-wide dynamic pricing (a worthless
@@ -168,28 +216,48 @@ func (k Keeper) GetZRNPrice(ctx sdk.Context, quoteDenom string) (sdkmath.Int, er
 	if pool == nil {
 		return sdkmath.ZeroInt(), types.ErrNoPool
 	}
-	reserveA := new(big.Int)
-	reserveA.SetString(pool.ReserveA, 10)
-	reserveB := new(big.Int)
-	reserveB.SetString(pool.ReserveB, 10)
-
-	if reserveA.Sign() == 0 {
-		return sdkmath.ZeroInt(), fmt.Errorf("zero reserve for uzrn")
+	if pool.Status != types.PoolStatus_POOL_STATUS_ACTIVE {
+		return sdkmath.ZeroInt(), types.ErrPoolNotActive
 	}
-
-	// Determine which reserve is uzrn
-	var zrnReserve, quoteReserve *big.Int
-	if pool.DenomA == types.ZRNDenom {
-		zrnReserve = reserveA
-		quoteReserve = reserveB
-	} else {
-		zrnReserve = reserveB
-		quoteReserve = reserveA
+	if k.bankKeeper != nil {
+		sendProbe := sdk.NewCoins(
+			sdk.NewCoin(pool.DenomA, sdkmath.OneInt()),
+			sdk.NewCoin(pool.DenomB, sdkmath.OneInt()),
+		)
+		if err := k.bankKeeper.IsSendEnabledCoins(ctx, sendProbe...); err != nil {
+			return sdkmath.ZeroInt(), types.ErrNoPool.Wrapf(
+				"oracle pool contains a send-disabled denom: %v", err,
+			)
+		}
 	}
-
-	// price = quoteReserve * 1e6 / zrnReserve
-	price := new(big.Int).Mul(quoteReserve, big.NewInt(1_000_000))
-	price.Div(price, zrnReserve)
+	reserveA, err := types.ParsePositiveAmount(pool.ReserveA)
+	if err != nil {
+		return sdkmath.ZeroInt(), types.ErrInvalidPoolState.Wrapf("reserve_a: %v", err)
+	}
+	reserveB, err := types.ParsePositiveAmount(pool.ReserveB)
+	if err != nil {
+		return sdkmath.ZeroInt(), types.ErrInvalidPoolState.Wrapf("reserve_b: %v", err)
+	}
+	minReserve, err := types.ParseNonNegativeAmount(k.GetParams(ctx).MinReserve)
+	if err != nil {
+		return sdkmath.ZeroInt(), types.ErrInvalidPoolState.Wrapf("min_reserve: %v", err)
+	}
+	if reserveA.Cmp(minReserve) < 0 || reserveB.Cmp(minReserve) < 0 {
+		return sdkmath.ZeroInt(), types.ErrReserveBelowMinimum
+	}
+	params := k.GetParams(ctx)
+	price, windowUsed, err := k.GetTWAP(ctx, pool.PoolId, types.ZRNDenom, params.TwapWindowBlocks)
+	if err != nil {
+		return sdkmath.ZeroInt(), err
+	}
+	if windowUsed < params.TwapWindowBlocks {
+		return sdkmath.ZeroInt(), types.ErrTWAPWindowUnavailable.Wrapf(
+			"pool has %d of %d required blocks", windowUsed, params.TwapWindowBlocks,
+		)
+	}
+	if price.Sign() <= 0 || price.BitLen() > sdkmath.MaxBitLen {
+		return sdkmath.ZeroInt(), types.ErrInvalidPoolState.Wrap("TWAP price is zero or out of range")
+	}
 	return sdkmath.NewIntFromBigInt(price), nil
 }
 

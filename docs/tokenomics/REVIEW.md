@@ -85,12 +85,25 @@ reserves remain in `vesting_rewards`.
 
 ### 6. Historical liquidity-pool limit
 
-The current default is unlimited (`max_pools = 0`), so the old three-pool
-concern no longer describes source defaults.
+The old v3 source/live shape decoded an omitted `max_pools` as zero/unlimited.
+The source-approved v4 migration replaces zero with 16 open pools and validates
+a 1–64 range; a larger legacy policy value is clamped to 64 after separately
+rejecting more than 64 actual open pools. A separate hard lifetime namespace
+cap permits at most 10,000 monotonic pool records; neither bound is a claim
+that v4 is already active on the running network.
 
 ### 7. Dynamic Pricing Oracle Is Disabled
 
-The billing module's dynamic pricing (ZRN/USD peg for query costs) is disabled at genesis. When enabled, it introduces oracle dependency. The 3-tier fallback (TWAP → manual governance → min/max bounds) is reasonable, but the TWAP requires active liquidity pools (see above — max 3 pools).
+The billing module's dynamic pricing (ZRN/USD peg for query costs) is disabled
+at genesis. When enabled, it introduces oracle dependency. The fallback
+sequence remains useful, but v4's native source is fail-closed: the quote denom
+must be governed, the pool must be `ACTIVE`, both denoms must be send-enabled,
+reserves must meet the floor, and a complete configured rolling TWAP window
+must exist. The returned price is a base-unit ratio scaled by 1,000,000, not a
+decimal-normalized display price. Quote-denom activation therefore also
+requires an explicit exponent/conversion rule and a per-denom,
+decimal-normalized oracle TVL floor; the generic one-base-unit execution floor
+does not satisfy that policy.
 
 ### 8. Research Fund Centralisation Risk
 

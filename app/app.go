@@ -801,10 +801,24 @@ func NewZeroneApp(
 	// Emission-period minting gates through the chain's single cap-gated mint.
 	app.TokensKeeper.SetVestingRewardsKeeper(app.VestingRewardsKeeper)
 
+	// Give x/liquiditypool a restricted bank-keeper copy: its Minter module
+	// permission may create only canonical lp/pool-N denoms. The unrestricted
+	// application BankKeeper remains available to modules with their own
+	// independently audited mint surfaces.
+	liquidityBankKeeper := app.BankKeeper.WithMintCoinsRestriction(
+		func(_ context.Context, coins sdk.Coins) error {
+			for _, coin := range coins {
+				if _, err := zeronelptypes.ParseLPDenom(coin.Denom); err != nil {
+					return fmt.Errorf("liquiditypool mint restriction: %w", err)
+				}
+			}
+			return nil
+		},
+	)
 	app.LiquidityPoolKeeper = zeronelpkeeper.NewKeeper(
 		appCodec,
 		sdkruntime.NewKVStoreService(keys[zeronelptypes.StoreKey]),
-		app.BankKeeper,
+		liquidityBankKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 

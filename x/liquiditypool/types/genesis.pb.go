@@ -25,18 +25,26 @@ const (
 type Params struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	DefaultSwapFeeBps   uint64                 `protobuf:"varint,1,opt,name=default_swap_fee_bps,json=defaultSwapFeeBps,proto3" json:"default_swap_fee_bps,omitempty"`    // default swap fee (1M bps scale)
-	MaxPools            uint64                 `protobuf:"varint,2,opt,name=max_pools,json=maxPools,proto3" json:"max_pools,omitempty"`                                   // maximum number of active pools
+	MaxPools            uint64                 `protobuf:"varint,2,opt,name=max_pools,json=maxPools,proto3" json:"max_pools,omitempty"`                                   // maximum number of open (non-CLOSED) pools
 	MinInitialLiquidity string                 `protobuf:"bytes,3,opt,name=min_initial_liquidity,json=minInitialLiquidity,proto3" json:"min_initial_liquidity,omitempty"` // minimum uzrn-side liquidity in base units (bigint string)
 	TwapWindowBlocks    uint64                 `protobuf:"varint,4,opt,name=twap_window_blocks,json=twapWindowBlocks,proto3" json:"twap_window_blocks,omitempty"`         // default TWAP window in blocks
-	ProtocolFeeBps      uint64                 `protobuf:"varint,5,opt,name=protocol_fee_bps,json=protocolFeeBps,proto3" json:"protocol_fee_bps,omitempty"`               // protocol's share of swap fees (1M bps scale)
-	MinReserve          string                 `protobuf:"bytes,6,opt,name=min_reserve,json=minReserve,proto3" json:"min_reserve,omitempty"`                              // minimum reserve after swap (bigint string, default "1")
+	// Protocol share of the floor-rounded fee, applied only to ZRN-input swaps
+	// (1M bps scale).
+	ProtocolFeeBps uint64 `protobuf:"varint,5,opt,name=protocol_fee_bps,json=protocolFeeBps,proto3" json:"protocol_fee_bps,omitempty"`
+	MinReserve     string `protobuf:"bytes,6,opt,name=min_reserve,json=minReserve,proto3" json:"min_reserve,omitempty"` // minimum reserve after swap (bigint string, default "1")
 	// Quote denoms the ZRN price oracle (GetZRNPrice) may price against.
 	// Empty (the default) = the oracle selects NO pool — fail-closed, so
 	// consumers fall back exactly as when no pool exists (e.g. billing's
 	// Tier-1 manual override).
 	BillingQuoteDenoms []string `protobuf:"bytes,7,rep,name=billing_quote_denoms,json=billingQuoteDenoms,proto3" json:"billing_quote_denoms,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Unconsumed one-shot counter-denom grants for pool creation. A successful
+	// creation removes its denom; empty keeps native pool creation frozen.
+	AllowedPoolDenoms []string `protobuf:"bytes,8,rep,name=allowed_pool_denoms,json=allowedPoolDenoms,proto3" json:"allowed_pool_denoms,omitempty"`
+	// Accounts governance trusts to fund/create admitted pools. Empty keeps
+	// native pool creation frozen.
+	PoolCreators  []string `protobuf:"bytes,9,rep,name=pool_creators,json=poolCreators,proto3" json:"pool_creators,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -118,12 +126,30 @@ func (x *Params) GetBillingQuoteDenoms() []string {
 	return nil
 }
 
+func (x *Params) GetAllowedPoolDenoms() []string {
+	if x != nil {
+		return x.AllowedPoolDenoms
+	}
+	return nil
+}
+
+func (x *Params) GetPoolCreators() []string {
+	if x != nil {
+		return x.PoolCreators
+	}
+	return nil
+}
+
 // GenesisState defines the liquiditypool module genesis state.
 type GenesisState struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Params           *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
 	Pools            []*Pool                `protobuf:"bytes,2,rep,name=pools,proto3" json:"pools,omitempty"`
 	TwapAccumulators []*TWAPAccumulator     `protobuf:"bytes,3,rep,name=twap_accumulators,json=twapAccumulators,proto3" json:"twap_accumulators,omitempty"`
+	// The next monotonically increasing numeric pool ID. Zero is accepted only
+	// as a legacy-import sentinel and is reconstructed from the maximum pool ID.
+	NextPoolId       uint64             `protobuf:"varint,4,opt,name=next_pool_id,json=nextPoolId,proto3" json:"next_pool_id,omitempty"`
+	TwapObservations []*TWAPObservation `protobuf:"bytes,5,rep,name=twap_observations,json=twapObservations,proto3" json:"twap_observations,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -179,11 +205,25 @@ func (x *GenesisState) GetTwapAccumulators() []*TWAPAccumulator {
 	return nil
 }
 
+func (x *GenesisState) GetNextPoolId() uint64 {
+	if x != nil {
+		return x.NextPoolId
+	}
+	return 0
+}
+
+func (x *GenesisState) GetTwapObservations() []*TWAPObservation {
+	if x != nil {
+		return x.TwapObservations
+	}
+	return nil
+}
+
 var File_zerone_liquiditypool_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_liquiditypool_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"%zerone/liquiditypool/v1/genesis.proto\x12\x17zerone.liquiditypool.v1\x1a#zerone/liquiditypool/v1/types.proto\"\xb5\x02\n" +
+	"%zerone/liquiditypool/v1/genesis.proto\x12\x17zerone.liquiditypool.v1\x1a#zerone/liquiditypool/v1/types.proto\"\x8a\x03\n" +
 	"\x06Params\x12/\n" +
 	"\x14default_swap_fee_bps\x18\x01 \x01(\x04R\x11defaultSwapFeeBps\x12\x1b\n" +
 	"\tmax_pools\x18\x02 \x01(\x04R\bmaxPools\x122\n" +
@@ -192,11 +232,16 @@ const file_zerone_liquiditypool_v1_genesis_proto_rawDesc = "" +
 	"\x10protocol_fee_bps\x18\x05 \x01(\x04R\x0eprotocolFeeBps\x12\x1f\n" +
 	"\vmin_reserve\x18\x06 \x01(\tR\n" +
 	"minReserve\x120\n" +
-	"\x14billing_quote_denoms\x18\a \x03(\tR\x12billingQuoteDenoms\"\xd3\x01\n" +
+	"\x14billing_quote_denoms\x18\a \x03(\tR\x12billingQuoteDenoms\x12.\n" +
+	"\x13allowed_pool_denoms\x18\b \x03(\tR\x11allowedPoolDenoms\x12#\n" +
+	"\rpool_creators\x18\t \x03(\tR\fpoolCreators\"\xcc\x02\n" +
 	"\fGenesisState\x127\n" +
 	"\x06params\x18\x01 \x01(\v2\x1f.zerone.liquiditypool.v1.ParamsR\x06params\x123\n" +
 	"\x05pools\x18\x02 \x03(\v2\x1d.zerone.liquiditypool.v1.PoolR\x05pools\x12U\n" +
-	"\x11twap_accumulators\x18\x03 \x03(\v2(.zerone.liquiditypool.v1.TWAPAccumulatorR\x10twapAccumulatorsB6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
+	"\x11twap_accumulators\x18\x03 \x03(\v2(.zerone.liquiditypool.v1.TWAPAccumulatorR\x10twapAccumulators\x12 \n" +
+	"\fnext_pool_id\x18\x04 \x01(\x04R\n" +
+	"nextPoolId\x12U\n" +
+	"\x11twap_observations\x18\x05 \x03(\v2(.zerone.liquiditypool.v1.TWAPObservationR\x10twapObservationsB6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
 
 var (
 	file_zerone_liquiditypool_v1_genesis_proto_rawDescOnce sync.Once
@@ -216,16 +261,18 @@ var file_zerone_liquiditypool_v1_genesis_proto_goTypes = []any{
 	(*GenesisState)(nil),    // 1: zerone.liquiditypool.v1.GenesisState
 	(*Pool)(nil),            // 2: zerone.liquiditypool.v1.Pool
 	(*TWAPAccumulator)(nil), // 3: zerone.liquiditypool.v1.TWAPAccumulator
+	(*TWAPObservation)(nil), // 4: zerone.liquiditypool.v1.TWAPObservation
 }
 var file_zerone_liquiditypool_v1_genesis_proto_depIdxs = []int32{
 	0, // 0: zerone.liquiditypool.v1.GenesisState.params:type_name -> zerone.liquiditypool.v1.Params
 	2, // 1: zerone.liquiditypool.v1.GenesisState.pools:type_name -> zerone.liquiditypool.v1.Pool
 	3, // 2: zerone.liquiditypool.v1.GenesisState.twap_accumulators:type_name -> zerone.liquiditypool.v1.TWAPAccumulator
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 3: zerone.liquiditypool.v1.GenesisState.twap_observations:type_name -> zerone.liquiditypool.v1.TWAPObservation
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_zerone_liquiditypool_v1_genesis_proto_init() }

@@ -880,11 +880,16 @@
     justify-content: center;
     gap: 0.5rem;
     border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
     padding: 1rem 1.25rem;
   }
 
-  .protocol-strip > div:last-child {
+  .protocol-strip > div:nth-child(4n) {
     border-right: 0;
+  }
+
+  .protocol-strip > div:nth-last-child(-n + 4) {
+    border-bottom: 0;
   }
 
   .protocol-strip span {
@@ -898,6 +903,22 @@
     font-family: var(--mono);
     font-size: 0.95rem;
     font-weight: 500;
+  }
+
+  .protocol-strip small {
+    overflow: hidden;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .protocol-truth {
+    margin-top: 0.85rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    line-height: 1.65;
   }
 
   .pool-surface {
@@ -1104,12 +1125,22 @@
     font-size: 0.62rem;
   }
 
-  .pool-status.ready {
+  .pool-status.active {
     color: var(--green);
   }
 
-  .pool-status.locked {
+  .pool-status.locked,
+  .pool-status.paused,
+  .pool-status.exit-only {
     color: var(--amber);
+  }
+
+  .pool-status.closed {
+    color: var(--red);
+  }
+
+  .pool-status.unknown {
+    color: var(--muted);
   }
 
   .block-table-wrap {
@@ -2705,12 +2736,20 @@
       grid-template-columns: repeat(2, 1fr);
     }
 
-    .protocol-strip > div:nth-child(2) {
+    .protocol-strip > div:nth-child(4n) {
+      border-right: 1px solid var(--line);
+    }
+
+    .protocol-strip > div:nth-child(2n) {
       border-right: 0;
     }
 
-    .protocol-strip > div:nth-child(-n + 2) {
+    .protocol-strip > div:nth-last-child(-n + 4) {
       border-bottom: 1px solid var(--line);
+    }
+
+    .protocol-strip > div:nth-last-child(-n + 2) {
+      border-bottom: 0;
     }
 
     .network-grid {
@@ -3034,7 +3073,10 @@
     }
 
     .protocol-strip > div,
-    .protocol-strip > div:nth-child(2) {
+    .protocol-strip > div:nth-child(2n),
+    .protocol-strip > div:nth-child(4n),
+    .protocol-strip > div:nth-last-child(-n + 2),
+    .protocol-strip > div:nth-last-child(-n + 4) {
       min-height: 75px;
       border-right: 0;
       border-bottom: 1px solid var(--line);

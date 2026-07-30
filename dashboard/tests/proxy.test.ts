@@ -365,6 +365,85 @@ const GRANTER = "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf";
 const GRANTEE = "zrn100mxrvv5chhhrj0yd9y4q8354z4edm42mukf5r";
 const ADDRESS_WITH_V = "zrn10d07y265gmmuvt4z0w9aw880jnsr700j47tt89";
 
+describe("liquidity-pool REST edge pagination", () => {
+  const path = "zerone/liquiditypool/v1/pools";
+
+  it("allows only the bounded first-page and cursor-page query shapes", () => {
+    assert.equal(
+      validRestRequest(
+        path,
+        new URLSearchParams({
+          "pagination.limit": "100",
+          "pagination.count_total": "true",
+        }),
+      ),
+      true,
+    );
+    assert.equal(
+      validRestRequest(
+        path,
+        new URLSearchParams({
+          "pagination.limit": "100",
+          "pagination.key": "AQID",
+        }),
+      ),
+      true,
+    );
+  });
+
+  it("rejects unbounded, ambiguous, and malformed pool pagination", () => {
+    for (const search of [
+      new URLSearchParams(),
+      new URLSearchParams({ "pagination.limit": "100" }),
+      new URLSearchParams({
+        "pagination.limit": "101",
+        "pagination.count_total": "true",
+      }),
+      new URLSearchParams({
+        "pagination.limit": "100",
+        "pagination.count_total": "false",
+      }),
+      new URLSearchParams({
+        "pagination.limit": "100",
+        "pagination.key": "AQID",
+        "pagination.count_total": "true",
+      }),
+      new URLSearchParams({
+        "pagination.limit": "100",
+        "pagination.key": "***",
+      }),
+      new URLSearchParams({
+        "pagination.limit": "100",
+        "pagination.offset": "1",
+      }),
+    ]) {
+      assert.equal(validRestRequest(path, search), false);
+    }
+    const duplicate = new URLSearchParams({
+      "pagination.count_total": "true",
+    });
+    duplicate.append("pagination.limit", "100");
+    duplicate.append("pagination.limit", "50");
+    assert.equal(validRestRequest(path, duplicate), false);
+  });
+
+  it("forwards an allowed bounded pool cursor unchanged", async () => {
+    const testHarness = harness();
+    const url =
+      "https://dashboard.invalid/api/rest/zerone/liquiditypool/v1/pools?pagination.limit=100&pagination.key=AQID";
+    const { context } = pagesContext(url, path);
+
+    const response = await proxyRequest(context, "rest", testHarness.runtime);
+
+    assert.equal(response.status, 200);
+    assert.equal(testHarness.calls.length, 1);
+    assert.equal(
+      String(testHarness.calls[0]?.input),
+      "https://rest.invalid/zerone/liquiditypool/v1/pools?pagination.limit=100&pagination.key=AQID",
+    );
+  });
+});
+
 describe("feegrant REST edge allowlist", () => {
   it("allows only exact-pair and bounded grantee query shapes", () => {
     assert.equal(

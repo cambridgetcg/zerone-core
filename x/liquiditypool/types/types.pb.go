@@ -21,6 +21,63 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// PoolStatus is the governed lifecycle state of a pool. CLOSED is an
+// immutable tombstone produced only by the final LP exit.
+type PoolStatus int32
+
+const (
+	PoolStatus_POOL_STATUS_UNSPECIFIED  PoolStatus = 0
+	PoolStatus_POOL_STATUS_ACTIVE       PoolStatus = 1
+	PoolStatus_POOL_STATUS_SWAPS_PAUSED PoolStatus = 2
+	PoolStatus_POOL_STATUS_EXIT_ONLY    PoolStatus = 3
+	PoolStatus_POOL_STATUS_CLOSED       PoolStatus = 4
+)
+
+// Enum value maps for PoolStatus.
+var (
+	PoolStatus_name = map[int32]string{
+		0: "POOL_STATUS_UNSPECIFIED",
+		1: "POOL_STATUS_ACTIVE",
+		2: "POOL_STATUS_SWAPS_PAUSED",
+		3: "POOL_STATUS_EXIT_ONLY",
+		4: "POOL_STATUS_CLOSED",
+	}
+	PoolStatus_value = map[string]int32{
+		"POOL_STATUS_UNSPECIFIED":  0,
+		"POOL_STATUS_ACTIVE":       1,
+		"POOL_STATUS_SWAPS_PAUSED": 2,
+		"POOL_STATUS_EXIT_ONLY":    3,
+		"POOL_STATUS_CLOSED":       4,
+	}
+)
+
+func (x PoolStatus) Enum() *PoolStatus {
+	p := new(PoolStatus)
+	*p = x
+	return p
+}
+
+func (x PoolStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PoolStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_zerone_liquiditypool_v1_types_proto_enumTypes[0].Descriptor()
+}
+
+func (PoolStatus) Type() protoreflect.EnumType {
+	return &file_zerone_liquiditypool_v1_types_proto_enumTypes[0]
+}
+
+func (x PoolStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PoolStatus.Descriptor instead.
+func (PoolStatus) EnumDescriptor() ([]byte, []int) {
+	return file_zerone_liquiditypool_v1_types_proto_rawDescGZIP(), []int{0}
+}
+
 // Pool represents a constant-product AMM liquidity pool.
 type Pool struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -35,6 +92,8 @@ type Pool struct {
 	Creator        string                 `protobuf:"bytes,9,opt,name=creator,proto3" json:"creator,omitempty"`
 	CreatedAtBlock uint64                 `protobuf:"varint,10,opt,name=created_at_block,json=createdAtBlock,proto3" json:"created_at_block,omitempty"`
 	Locked         bool                   `protobuf:"varint,11,opt,name=locked,proto3" json:"locked,omitempty"` // reentrancy guard
+	Status         PoolStatus             `protobuf:"varint,12,opt,name=status,proto3,enum=zerone.liquiditypool.v1.PoolStatus" json:"status,omitempty"`
+	ClosedAtBlock  uint64                 `protobuf:"varint,13,opt,name=closed_at_block,json=closedAtBlock,proto3" json:"closed_at_block,omitempty"` // zero unless status is CLOSED
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -146,6 +205,20 @@ func (x *Pool) GetLocked() bool {
 	return false
 }
 
+func (x *Pool) GetStatus() PoolStatus {
+	if x != nil {
+		return x.Status
+	}
+	return PoolStatus_POOL_STATUS_UNSPECIFIED
+}
+
+func (x *Pool) GetClosedAtBlock() uint64 {
+	if x != nil {
+		return x.ClosedAtBlock
+	}
+	return 0
+}
+
 // TWAPAccumulator stores cumulative price data for TWAP oracle.
 // One record per pool, O(1) updates.
 type TWAPAccumulator struct {
@@ -224,6 +297,76 @@ func (x *TWAPAccumulator) GetStartBlock() uint64 {
 	return 0
 }
 
+// TWAPObservation is a retained cumulative-price checkpoint. One checkpoint
+// is stored per open pool per block, bounded by Params.twap_window_blocks.
+type TWAPObservation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PoolId        string                 `protobuf:"bytes,1,opt,name=pool_id,json=poolId,proto3" json:"pool_id,omitempty"`
+	BlockHeight   uint64                 `protobuf:"varint,2,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+	CumPriceAToB  string                 `protobuf:"bytes,3,opt,name=cum_price_a_to_b,json=cumPriceAToB,proto3" json:"cum_price_a_to_b,omitempty"` // bigint string (1e12 scale)
+	CumPriceBToA  string                 `protobuf:"bytes,4,opt,name=cum_price_b_to_a,json=cumPriceBToA,proto3" json:"cum_price_b_to_a,omitempty"` // bigint string (1e12 scale)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TWAPObservation) Reset() {
+	*x = TWAPObservation{}
+	mi := &file_zerone_liquiditypool_v1_types_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TWAPObservation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TWAPObservation) ProtoMessage() {}
+
+func (x *TWAPObservation) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_liquiditypool_v1_types_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TWAPObservation.ProtoReflect.Descriptor instead.
+func (*TWAPObservation) Descriptor() ([]byte, []int) {
+	return file_zerone_liquiditypool_v1_types_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TWAPObservation) GetPoolId() string {
+	if x != nil {
+		return x.PoolId
+	}
+	return ""
+}
+
+func (x *TWAPObservation) GetBlockHeight() uint64 {
+	if x != nil {
+		return x.BlockHeight
+	}
+	return 0
+}
+
+func (x *TWAPObservation) GetCumPriceAToB() string {
+	if x != nil {
+		return x.CumPriceAToB
+	}
+	return ""
+}
+
+func (x *TWAPObservation) GetCumPriceBToA() string {
+	if x != nil {
+		return x.CumPriceBToA
+	}
+	return ""
+}
+
 // SwapResult contains the output of a swap calculation.
 type SwapResult struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -237,7 +380,7 @@ type SwapResult struct {
 
 func (x *SwapResult) Reset() {
 	*x = SwapResult{}
-	mi := &file_zerone_liquiditypool_v1_types_proto_msgTypes[2]
+	mi := &file_zerone_liquiditypool_v1_types_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -249,7 +392,7 @@ func (x *SwapResult) String() string {
 func (*SwapResult) ProtoMessage() {}
 
 func (x *SwapResult) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_liquiditypool_v1_types_proto_msgTypes[2]
+	mi := &file_zerone_liquiditypool_v1_types_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -262,7 +405,7 @@ func (x *SwapResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapResult.ProtoReflect.Descriptor instead.
 func (*SwapResult) Descriptor() ([]byte, []int) {
-	return file_zerone_liquiditypool_v1_types_proto_rawDescGZIP(), []int{2}
+	return file_zerone_liquiditypool_v1_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SwapResult) GetTokenOutDenom() string {
@@ -297,7 +440,7 @@ var File_zerone_liquiditypool_v1_types_proto protoreflect.FileDescriptor
 
 const file_zerone_liquiditypool_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"#zerone/liquiditypool/v1/types.proto\x12\x17zerone.liquiditypool.v1\"\xcc\x02\n" +
+	"#zerone/liquiditypool/v1/types.proto\x12\x17zerone.liquiditypool.v1\"\xb1\x03\n" +
 	"\x04Pool\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12\x17\n" +
 	"\adenom_a\x18\x02 \x01(\tR\x06denomA\x12\x17\n" +
@@ -311,7 +454,9 @@ const file_zerone_liquiditypool_v1_types_proto_rawDesc = "" +
 	"\acreator\x18\t \x01(\tR\acreator\x12(\n" +
 	"\x10created_at_block\x18\n" +
 	" \x01(\x04R\x0ecreatedAtBlock\x12\x16\n" +
-	"\x06locked\x18\v \x01(\bR\x06locked\"\xba\x01\n" +
+	"\x06locked\x18\v \x01(\bR\x06locked\x12;\n" +
+	"\x06status\x18\f \x01(\x0e2#.zerone.liquiditypool.v1.PoolStatusR\x06status\x12&\n" +
+	"\x0fclosed_at_block\x18\r \x01(\x04R\rclosedAtBlock\"\xba\x01\n" +
 	"\x0fTWAPAccumulator\x12\x17\n" +
 	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12\x1d\n" +
 	"\n" +
@@ -319,14 +464,26 @@ const file_zerone_liquiditypool_v1_types_proto_rawDesc = "" +
 	"\x10cum_price_a_to_b\x18\x03 \x01(\tR\fcumPriceAToB\x12&\n" +
 	"\x10cum_price_b_to_a\x18\x04 \x01(\tR\fcumPriceBToA\x12\x1f\n" +
 	"\vstart_block\x18\x05 \x01(\x04R\n" +
-	"startBlock\"\xa7\x01\n" +
+	"startBlock\"\x9d\x01\n" +
+	"\x0fTWAPObservation\x12\x17\n" +
+	"\apool_id\x18\x01 \x01(\tR\x06poolId\x12!\n" +
+	"\fblock_height\x18\x02 \x01(\x04R\vblockHeight\x12&\n" +
+	"\x10cum_price_a_to_b\x18\x03 \x01(\tR\fcumPriceAToB\x12&\n" +
+	"\x10cum_price_b_to_a\x18\x04 \x01(\tR\fcumPriceBToA\"\xa7\x01\n" +
 	"\n" +
 	"SwapResult\x12&\n" +
 	"\x0ftoken_out_denom\x18\x01 \x01(\tR\rtokenOutDenom\x12(\n" +
 	"\x10token_out_amount\x18\x02 \x01(\tR\x0etokenOutAmount\x12\x1d\n" +
 	"\n" +
 	"fee_amount\x18\x03 \x01(\tR\tfeeAmount\x12(\n" +
-	"\x10price_impact_bps\x18\x04 \x01(\x04R\x0epriceImpactBpsB6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
+	"\x10price_impact_bps\x18\x04 \x01(\x04R\x0epriceImpactBps*\x92\x01\n" +
+	"\n" +
+	"PoolStatus\x12\x1b\n" +
+	"\x17POOL_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12POOL_STATUS_ACTIVE\x10\x01\x12\x1c\n" +
+	"\x18POOL_STATUS_SWAPS_PAUSED\x10\x02\x12\x19\n" +
+	"\x15POOL_STATUS_EXIT_ONLY\x10\x03\x12\x16\n" +
+	"\x12POOL_STATUS_CLOSED\x10\x04B6Z4github.com/zerone-chain/zerone/x/liquiditypool/typesb\x06proto3"
 
 var (
 	file_zerone_liquiditypool_v1_types_proto_rawDescOnce sync.Once
@@ -340,18 +497,22 @@ func file_zerone_liquiditypool_v1_types_proto_rawDescGZIP() []byte {
 	return file_zerone_liquiditypool_v1_types_proto_rawDescData
 }
 
-var file_zerone_liquiditypool_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_zerone_liquiditypool_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_zerone_liquiditypool_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_zerone_liquiditypool_v1_types_proto_goTypes = []any{
-	(*Pool)(nil),            // 0: zerone.liquiditypool.v1.Pool
-	(*TWAPAccumulator)(nil), // 1: zerone.liquiditypool.v1.TWAPAccumulator
-	(*SwapResult)(nil),      // 2: zerone.liquiditypool.v1.SwapResult
+	(PoolStatus)(0),         // 0: zerone.liquiditypool.v1.PoolStatus
+	(*Pool)(nil),            // 1: zerone.liquiditypool.v1.Pool
+	(*TWAPAccumulator)(nil), // 2: zerone.liquiditypool.v1.TWAPAccumulator
+	(*TWAPObservation)(nil), // 3: zerone.liquiditypool.v1.TWAPObservation
+	(*SwapResult)(nil),      // 4: zerone.liquiditypool.v1.SwapResult
 }
 var file_zerone_liquiditypool_v1_types_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: zerone.liquiditypool.v1.Pool.status:type_name -> zerone.liquiditypool.v1.PoolStatus
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_zerone_liquiditypool_v1_types_proto_init() }
@@ -364,13 +525,14 @@ func file_zerone_liquiditypool_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_liquiditypool_v1_types_proto_rawDesc), len(file_zerone_liquiditypool_v1_types_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   3,
+			NumEnums:      1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_zerone_liquiditypool_v1_types_proto_goTypes,
 		DependencyIndexes: file_zerone_liquiditypool_v1_types_proto_depIdxs,
+		EnumInfos:         file_zerone_liquiditypool_v1_types_proto_enumTypes,
 		MessageInfos:      file_zerone_liquiditypool_v1_types_proto_msgTypes,
 	}.Build()
 	File_zerone_liquiditypool_v1_types_proto = out.File

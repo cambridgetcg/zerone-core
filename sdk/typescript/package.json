@@ -31,6 +31,10 @@
       "types": "./dist/types/caip.d.ts",
       "import": "./dist/caip.js"
     },
+    "./liquidity": {
+      "types": "./dist/types/liquidity.d.ts",
+      "import": "./dist/liquidity.js"
+    },
     "./messages": {
       "types": "./dist/types/messages.d.ts",
       "import": "./dist/messages.js"

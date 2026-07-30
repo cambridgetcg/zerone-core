@@ -18,6 +18,28 @@ old binary halts at that height (`UPGRADE <name> NEEDED`) and writes
 `data/upgrade-info.json`. The new binary — swapped in by hand or by
 cosmovisor — runs the handler and the chain resumes.
 
+## Pending release order
+
+Existing networks currently have two ordered release checkpoints:
+
+1. `consolidation-safety-v1`; then
+2. `liquiditypool-safety-v2` at a distinct, later height.
+
+Both handlers run module migrations and reconcile stored module-account
+permissions. The first handler is expected to activate and advance
+liquiditypool to consensus v4; the second is a readiness marker, not a second
+technical gate, and remains safe because an already-current module is skipped.
+Neither checkpoint by itself authorizes a native pool or its oracle.
+
+Before scheduling the combined sequence, bind a live query proving there are
+zero native pools and no billing quote-denom allowlist. Valid legacy pools
+migrate `EXIT_ONLY`, so a network with any existing pool still needs a separately
+reviewed transition. After the first v4 migration pass, verify its new
+`allowed_pool_denoms` and `pool_creators` are empty before any params update.
+The complete no-go gates, status lifecycle, governance path, and
+Osmosis-testnet separation are in
+[LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md).
+
 ## Operator steps
 
 1. **Prepare and review the code.** New named handler (copy the
@@ -56,6 +78,11 @@ cosmovisor — runs the handler and the chain resumes.
 6. **Verify.** `zeroned query upgrade applied <name>` returns the height;
    the knowledge marker `upgrade_marker_<version>` reads `migrated`; all
    validators report the same height and keep producing.
+
+For `liquiditypool-safety-v2`, verification does not authorize a pool by
+itself. Invariants and application lifecycle tests must also pass on the exact
+release, and native pool creation plus oracle quote allowlisting remain
+separate governance actions.
 
 ## Rollback
 

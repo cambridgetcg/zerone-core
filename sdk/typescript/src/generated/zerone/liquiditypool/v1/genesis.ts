@@ -1,5 +1,5 @@
 //@ts-nocheck
-import { Pool, TWAPAccumulator } from "./types";
+import { Pool, TWAPAccumulator, TWAPObservation } from "./types";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
@@ -14,7 +14,7 @@ export interface Params {
    */
   defaultSwapFeeBps: bigint;
   /**
-   * maximum number of active pools
+   * maximum number of open (non-CLOSED) pools
    */
   maxPools: bigint;
   /**
@@ -26,7 +26,8 @@ export interface Params {
    */
   twapWindowBlocks: bigint;
   /**
-   * protocol's share of swap fees (1M bps scale)
+   * Protocol share of the floor-rounded fee, applied only to ZRN-input swaps
+   * (1M bps scale).
    */
   protocolFeeBps: bigint;
   /**
@@ -40,6 +41,16 @@ export interface Params {
    * Tier-1 manual override).
    */
   billingQuoteDenoms: string[];
+  /**
+   * Unconsumed one-shot counter-denom grants for pool creation. A successful
+   * creation removes its denom; empty keeps native pool creation frozen.
+   */
+  allowedPoolDenoms: string[];
+  /**
+   * Accounts governance trusts to fund/create admitted pools. Empty keeps
+   * native pool creation frozen.
+   */
+  poolCreators: string[];
 }
 /**
  * GenesisState defines the liquiditypool module genesis state.
@@ -51,6 +62,12 @@ export interface GenesisState {
   params?: Params;
   pools: Pool[];
   twapAccumulators: TWAPAccumulator[];
+  /**
+   * The next monotonically increasing numeric pool ID. Zero is accepted only
+   * as a legacy-import sentinel and is reconstructed from the maximum pool ID.
+   */
+  nextPoolId: bigint;
+  twapObservations: TWAPObservation[];
 }
 function createBaseParams(): Params {
   return {
@@ -60,7 +77,9 @@ function createBaseParams(): Params {
     twapWindowBlocks: BigInt(0),
     protocolFeeBps: BigInt(0),
     minReserve: "",
-    billingQuoteDenoms: []
+    billingQuoteDenoms: [],
+    allowedPoolDenoms: [],
+    poolCreators: []
   };
 }
 /**
@@ -93,6 +112,12 @@ export const Params = {
     for (const v of message.billingQuoteDenoms) {
       writer.uint32(58).string(v!);
     }
+    for (const v of message.allowedPoolDenoms) {
+      writer.uint32(66).string(v!);
+    }
+    for (const v of message.poolCreators) {
+      writer.uint32(74).string(v!);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Params {
@@ -123,6 +148,12 @@ export const Params = {
         case 7:
           message.billingQuoteDenoms.push(reader.string());
           break;
+        case 8:
+          message.allowedPoolDenoms.push(reader.string());
+          break;
+        case 9:
+          message.poolCreators.push(reader.string());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -139,6 +170,8 @@ export const Params = {
     message.protocolFeeBps = object.protocolFeeBps !== undefined && object.protocolFeeBps !== null ? BigInt(object.protocolFeeBps.toString()) : BigInt(0);
     message.minReserve = object.minReserve ?? "";
     message.billingQuoteDenoms = object.billingQuoteDenoms?.map(e => e) || [];
+    message.allowedPoolDenoms = object.allowedPoolDenoms?.map(e => e) || [];
+    message.poolCreators = object.poolCreators?.map(e => e) || [];
     return message;
   }
 };
@@ -146,7 +179,9 @@ function createBaseGenesisState(): GenesisState {
   return {
     params: undefined,
     pools: [],
-    twapAccumulators: []
+    twapAccumulators: [],
+    nextPoolId: BigInt(0),
+    twapObservations: []
   };
 }
 /**
@@ -167,6 +202,12 @@ export const GenesisState = {
     for (const v of message.twapAccumulators) {
       TWAPAccumulator.encode(v!, writer.uint32(26).fork()).ldelim();
     }
+    if (message.nextPoolId !== BigInt(0)) {
+      writer.uint32(32).uint64(message.nextPoolId);
+    }
+    for (const v of message.twapObservations) {
+      TWAPObservation.encode(v!, writer.uint32(42).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -185,6 +226,12 @@ export const GenesisState = {
         case 3:
           message.twapAccumulators.push(TWAPAccumulator.decode(reader, reader.uint32()));
           break;
+        case 4:
+          message.nextPoolId = reader.uint64();
+          break;
+        case 5:
+          message.twapObservations.push(TWAPObservation.decode(reader, reader.uint32()));
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -197,6 +244,8 @@ export const GenesisState = {
     message.params = object.params !== undefined && object.params !== null ? Params.fromPartial(object.params) : undefined;
     message.pools = object.pools?.map(e => Pool.fromPartial(e)) || [];
     message.twapAccumulators = object.twapAccumulators?.map(e => TWAPAccumulator.fromPartial(e)) || [];
+    message.nextPoolId = object.nextPoolId !== undefined && object.nextPoolId !== null ? BigInt(object.nextPoolId.toString()) : BigInt(0);
+    message.twapObservations = object.twapObservations?.map(e => TWAPObservation.fromPartial(e)) || [];
     return message;
   }
 };

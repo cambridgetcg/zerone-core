@@ -1552,6 +1552,8 @@ Liquidity pool created.
 - `reserve_a` -- initial reserve A
 - `reserve_b` -- initial reserve B
 - `lp_tokens` -- LP tokens minted
+- `status` -- initial pool status (`POOL_STATUS_ACTIVE` in v4)
+- `counter_denom_admission_consumed` -- one-shot governed counter-denom grant consumed by this creation
 
 ### zerone.liquiditypool.swap
 Token swap executed.
@@ -1562,6 +1564,7 @@ Token swap executed.
 - `token_out` -- output denomination
 - `amount_out` -- output amount
 - `fee` -- fee amount
+- `protocol_fee` -- protocol share of the floor-rounded fee; nonzero only when `token_in` is `uzrn`
 
 ### zerone.liquiditypool.liquidity_added
 Liquidity added to pool.
@@ -1578,10 +1581,19 @@ Liquidity removed from pool.
 - `lp_tokens_burned` -- LP tokens burned
 - `amount_a` -- returned token A
 - `amount_b` -- returned token B
+- `pool_closed` -- `true` when this final exit created the immutable tombstone
 
 ### zerone.liquiditypool.update_params
 Governance parameter update.
 - `authority` -- governance address
+
+### zerone.liquiditypool.pool_status_changed
+Governance changed an open pool's operating status. `CLOSED` is not reachable
+through this event; only the final LP exit can close a pool.
+- `pool_id` -- pool identifier
+- `previous_status` -- status before the governance action
+- `status` -- new `ACTIVE`, `SWAPS_PAUSED`, or `EXIT_ONLY` status
+- `authority` -- governance authority address
 
 ---
 

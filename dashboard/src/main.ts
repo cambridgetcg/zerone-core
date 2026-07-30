@@ -5,6 +5,7 @@ import {
   microToDisplay,
   type LiquidityParams,
   type LiquidityPool,
+  type LiquidityPoolRegistry,
   type NetworkSnapshot,
   type RecentBlock,
 } from "./api";
@@ -90,6 +91,10 @@ function formatHeight(height: number): string {
   return new Intl.NumberFormat("en-GB").format(height);
 }
 
+function formatCount(value: string): string {
+  return BigInt(value).toLocaleString("en-GB");
+}
+
 function timeAgo(value: string): string {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return "unknown";
@@ -156,9 +161,45 @@ function renderLiquidityParams(params: LiquidityParams | null): void {
   byId("minimum-liquidity").textContent = params
     ? `${microToDisplay(params.minInitialLiquidity, 0)} ZRN`
     : "Unavailable";
-  byId("twap-window").textContent = params
-    ? `${formatHeight(params.twapWindowBlocks)} blocks`
+  byId("max-pools").textContent = params
+    ? `${formatHeight(params.maxPools)} open`
     : "Unavailable";
+  byId("minimum-reserve").textContent = params
+    ? `${BigInt(params.minReserve).toLocaleString("en-GB")} base ${params.minReserve === "1" ? "unit" : "units"}`
+    : "Unavailable";
+  byId("billing-oracle").textContent = params
+    ? params.billingOracleEnabled
+      ? "Candidates configured · live gates apply"
+      : "Disabled · fail-closed"
+    : "Unavailable";
+  byId("billing-quotes").textContent = params
+    ? params.billingQuoteDenoms.length > 0
+      ? `Allowlist: ${params.billingQuoteDenoms.join(", ")}`
+      : "Quote allowlist is empty"
+    : "Parameter query unavailable";
+  const poolDenoms = byId("pool-denoms");
+  poolDenoms.textContent = params
+    ? params.allowedPoolDenoms.length > 0
+      ? params.allowedPoolDenoms.join(", ")
+      : "None pending · fail-closed"
+    : "Unavailable";
+  poolDenoms.title = params?.allowedPoolDenoms.join(", ") ?? "";
+  const poolCreators = byId("pool-creators");
+  poolCreators.textContent = params
+    ? params.poolCreators.length > 0
+      ? `${params.poolCreators.length} approved`
+      : "None · fail-closed"
+    : "Unavailable";
+  const creatorAllowlist = byId("pool-creators-list");
+  creatorAllowlist.textContent = params
+    ? params.poolCreators.length > 0
+      ? params.poolCreators.join(", ")
+      : "Creator allowlist is empty"
+    : "Parameter query unavailable";
+  creatorAllowlist.title = params?.poolCreators.join(", ") ?? "";
+  byId("oracle-truth").textContent = params
+    ? `The ${formatHeight(params.twapWindowBlocks)}-block TWAP setting is the retention and default-query window; each response's window_used proves the actual served span. Billing price discovery ${params.billingOracleEnabled ? "has allowlisted quote-denom candidates, but serves one only from an ACTIVE pool when both denoms are send-enabled, reserves meet the floor, and a complete configured TWAP exists." : "selects no pool while the quote allowlist is empty."} Pool creation ${params.poolCreationEnabled ? "requires a pending one-shot counter-denom grant and an allowlisted creator; successful creation consumes that denom grant." : "is fail-closed while either no one-shot denom grant is pending or the creator allowlist is empty."}`
+    : "TWAP and billing-oracle state cannot be inferred while the parameter query is unavailable.";
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -176,10 +217,31 @@ function poolReserve(amount: string, denom: string): string {
   return denom === "uzrn" ? `${microToDisplay(amount)} ZRN` : `${amount} ${denom}`;
 }
 
-function renderPoolRegistry(pools: LiquidityPool[] | null): void {
+function poolStatusPresentation(pool: LiquidityPool): {
+  label: string;
+  className: string;
+} {
+  if (pool.locked) {
+    return { label: `${pool.status.replaceAll("_", " ")} · busy`, className: "locked" };
+  }
+  switch (pool.status) {
+    case "ACTIVE":
+      return { label: "Active", className: "active" };
+    case "SWAPS_PAUSED":
+      return { label: "Swaps paused", className: "paused" };
+    case "EXIT_ONLY":
+      return { label: "Exit only", className: "exit-only" };
+    case "CLOSED":
+      return { label: "Closed tombstone", className: "closed" };
+    case "PRE_V4":
+      return { label: "Pre-v4 · status absent", className: "unknown" };
+  }
+}
+
+function renderPoolRegistry(registry: LiquidityPoolRegistry | null): void {
   poolContent.replaceChildren();
 
-  if (pools === null) {
+  if (registry === null) {
     poolHeading.textContent = "Registry unavailable";
     const state = element("div", "pool-empty error-state");
     state.append(
@@ -191,30 +253,44 @@ function renderPoolRegistry(pools: LiquidityPool[] | null): void {
     return;
   }
 
+  const { pools } = registry;
   if (pools.length === 0) {
     poolHeading.textContent = "No pools on zerone-1";
     const state = element("div", "pool-empty");
     state.append(
       element("div", "empty-symbol", "0"),
-      element("h3", "", "No governance-approved pools exist yet."),
+      element("h3", "", "No admitted creator has opened a pool yet."),
       element(
         "p",
         "",
-        "There is currently no on-chain ZRN exchange rate, swap route, TVL, or APY. The first pool can only be created by governance.",
+        "There is currently no on-chain ZRN exchange rate, swap route, TVL, or APY. Governance first grants a counter-denom for one creation and admits a creator through Params; that allowlisted creator then signs and funds pool creation. A successful creation consumes the denom grant.",
       ),
     );
     const notes = element("div", "empty-notes");
     [
       "AMM module live",
-      "Hardening applied at block 44,636",
-      "Creation is governance-only",
+      "Governance grants one-shot denom admission and controls pool status",
+      "Allowlisted creators sign and fund creation",
+      "Successful creation consumes its denom grant",
+      "LP exits remain permissionless",
+      "Billing oracle requires allowlist plus live eligibility gates",
+      "Closed pools remain readable tombstones",
     ].forEach((note) => notes.append(element("span", "", note)));
     state.append(notes);
     poolContent.append(state);
     return;
   }
 
-  poolHeading.textContent = `${pools.length} live ${pools.length === 1 ? "pool" : "pools"}`;
+  const activePools = pools.filter((pool) => pool.status === "ACTIVE").length;
+  const preV4Pools = pools.filter((pool) => pool.status === "PRE_V4").length;
+  if (!registry.complete) {
+    poolHeading.textContent = `${pools.length} of ${formatCount(registry.total)} shown · ${activePools} active among shown`;
+  } else {
+    poolHeading.textContent =
+      preV4Pools > 0
+        ? `${formatCount(registry.total)} registered · ${preV4Pools} without lifecycle metadata`
+        : `${formatCount(registry.total)} registered · ${activePools} active`;
+  }
   const list = element("div", "pool-list");
   pools.forEach((pool) => {
     const row = element("article", "pool-row");
@@ -234,8 +310,15 @@ function renderPoolRegistry(pools: LiquidityPool[] | null): void {
       element("span", "", "Swap fee"),
       element("strong", "", percentFromMillionScale(pool.swapFeeBps)),
     );
-    const status = element("span", `pool-status ${pool.locked ? "locked" : "ready"}`);
-    status.textContent = pool.locked ? "Busy" : "Readable";
+    const presentation = poolStatusPresentation(pool);
+    const status = element(
+      "span",
+      `pool-status ${presentation.className}`,
+      presentation.label,
+    );
+    if (pool.closedAtBlock !== null) {
+      status.title = `Closed at block ${formatHeight(pool.closedAtBlock)}`;
+    }
     row.append(pair, reserves, fee, status);
     list.append(row);
   });
@@ -333,13 +416,34 @@ function updateSnapshot(next: NetworkSnapshot): void {
         ? "No peers visible from this RPC node"
         : `${next.peers} ${next.peers === 1 ? "peer" : "peers"} connected to this RPC node`;
 
-  updateMetric(poolValue, next.pools === null ? null : String(next.pools.length));
+  const poolRegistry = next.poolRegistry;
+  const pools = poolRegistry?.pools ?? null;
+  updateMetric(
+    poolValue,
+    poolRegistry === null ? null : formatCount(poolRegistry.total),
+  );
+  const activePoolCount =
+    pools?.filter((pool) => pool.status === "ACTIVE").length ?? 0;
+  const restrictedPoolCount =
+    pools?.filter(
+      (pool) =>
+        pool.status === "SWAPS_PAUSED" ||
+        pool.status === "EXIT_ONLY",
+    ).length ?? 0;
+  const closedPoolCount =
+    pools?.filter((pool) => pool.status === "CLOSED").length ?? 0;
+  const preV4PoolCount =
+    pools?.filter((pool) => pool.status === "PRE_V4").length ?? 0;
   poolNote.textContent =
-    next.pools === null
+    poolRegistry === null
       ? "Pool registry unavailable"
-      : next.pools.length === 0
+      : poolRegistry.pools.length === 0
         ? "No on-chain market yet"
-        : `${next.pools.length} governance-approved ${next.pools.length === 1 ? "pool" : "pools"}`;
+        : !poolRegistry.complete
+          ? `${poolRegistry.pools.length} records shown of ${formatCount(poolRegistry.total)} · display cap ${poolRegistry.recordCap}`
+        : preV4PoolCount > 0
+          ? `${preV4PoolCount} ${preV4PoolCount === 1 ? "record has" : "records have"} no lifecycle metadata`
+          : `${activePoolCount} active · ${restrictedPoolCount} restricted · ${closedPoolCount} closed`;
 
   if (next.validators !== null && next.peers !== null) {
     custodyCopy.textContent = `The unsealed custodial launch has ${next.validators} consensus ${next.validators === 1 ? "validator" : "validators"}; the public RPC node currently sees ${next.peers} connected ${next.peers === 1 ? "peer" : "peers"}. Block production and governance are not distributed yet, and the operator retains the disclosed ability to halt, revert, or re-genesis.`;
@@ -350,10 +454,10 @@ function updateSnapshot(next: NetworkSnapshot): void {
     paramsSignature = nextParamsSignature;
     renderLiquidityParams(next.liquidityParams);
   }
-  const nextPoolsSignature = JSON.stringify(next.pools);
+  const nextPoolsSignature = JSON.stringify(next.poolRegistry);
   if (nextPoolsSignature !== poolsSignature) {
     poolsSignature = nextPoolsSignature;
-    renderPoolRegistry(next.pools);
+    renderPoolRegistry(next.poolRegistry);
   }
 }
 

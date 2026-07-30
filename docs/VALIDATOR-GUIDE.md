@@ -97,6 +97,11 @@ have not been checked against the selected release.
 The consolidated source includes consensus-visible knowledge, vesting, and
 substrate hardening. Existing networks require the coordinated
 `consolidation-safety-v1` upgrade before that behavior can become active.
+The source-approved liquiditypool v4 release then requires the distinct,
+later `liquiditypool-safety-v2` readiness checkpoint. The earlier handler is
+expected to run the v3→v4 module migration and activate its semantics; neither
+that transition nor the later marker authorizes native pool creation or oracle
+allowlisting.
 
 Before activation:
 
@@ -108,6 +113,14 @@ Before activation:
   sequence.
 
 Publishing the source commit is not the upgrade.
+
+Before the ordered two-upgrade sequence, the release packet must bind a
+same-height query proving zero native pools and an empty billing quote-denom
+allowlist. Positive legacy pools migrate `EXIT_ONLY`, so holders may withdraw
+without silently enabling swaps, deposits, or oracle use; any existing pool
+still requires a separately reviewed transition. See
+[LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md) for the full
+invariant, lifecycle, PPM, governance, and external-Osmosis separation gates.
 
 ## `zerone-2`
 

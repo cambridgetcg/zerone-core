@@ -9,8 +9,13 @@ export const HARD_CAP_ZRN = 222_222_222;
 // direct REST access to the SDK's unindexed issued query is restricted.
 export const FEEGRANT_SPONSORSHIP_ENABLED = false;
 
-export const RPC_ENDPOINT = `${window.location.origin}/api/rpc`;
-export const REST_ENDPOINT = `${window.location.origin}/api/rest`;
+const dashboardOrigin =
+  typeof globalThis.location?.origin === "string"
+    ? globalThis.location.origin
+    : "https://zerone.ai";
+
+export const RPC_ENDPOINT = `${dashboardOrigin}/api/rpc`;
+export const REST_ENDPOINT = `${dashboardOrigin}/api/rest`;
 
 export const KEPLR_CHAIN_INFO = {
   chainId: CHAIN_ID,

@@ -1,4 +1,14 @@
 import {
+  BinaryReader,
+  BinaryWriter,
+  MsgAddLiquidity,
+  MsgCreatePool,
+  MsgRemoveLiquidity,
+  MsgSetPoolStatus,
+  MsgSwap,
+  MsgUpdateParams
+} from "./chunk-CXBAXZI7.js";
+import {
   __export
 } from "./chunk-MLKGABMK.js";
 
@@ -7,568 +17,9 @@ var tx_exports = {};
 __export(tx_exports, {
   MsgActivate: () => MsgActivate,
   MsgActivateResponse: () => MsgActivateResponse,
-  MsgUpdateParams: () => MsgUpdateParams,
+  MsgUpdateParams: () => MsgUpdateParams2,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse
 });
-
-// src/generated/utf8.ts
-function utf8Length(str) {
-  let len = 0, c = 0;
-  for (let i = 0; i < str.length; ++i) {
-    c = str.charCodeAt(i);
-    if (c < 128) len += 1;
-    else if (c < 2048) len += 2;
-    else if ((c & 64512) === 55296 && (str.charCodeAt(i + 1) & 64512) === 56320) {
-      ++i;
-      len += 4;
-    } else len += 3;
-  }
-  return len;
-}
-function utf8Read(buffer, start, end) {
-  const len = end - start;
-  if (len < 1) return "";
-  const chunk = [];
-  let parts = [], i = 0, t;
-  while (start < end) {
-    t = buffer[start++];
-    if (t < 128) chunk[i++] = t;
-    else if (t > 191 && t < 224)
-      chunk[i++] = (t & 31) << 6 | buffer[start++] & 63;
-    else if (t > 239 && t < 365) {
-      t = ((t & 7) << 18 | (buffer[start++] & 63) << 12 | (buffer[start++] & 63) << 6 | buffer[start++] & 63) - 65536;
-      chunk[i++] = 55296 + (t >> 10);
-      chunk[i++] = 56320 + (t & 1023);
-    } else
-      chunk[i++] = (t & 15) << 12 | (buffer[start++] & 63) << 6 | buffer[start++] & 63;
-    if (i > 8191) {
-      (parts || (parts = [])).push(String.fromCharCode(...chunk));
-      i = 0;
-    }
-  }
-  if (parts) {
-    if (i) parts.push(String.fromCharCode(...chunk.slice(0, i)));
-    return parts.join("");
-  }
-  return String.fromCharCode(...chunk.slice(0, i));
-}
-function utf8Write(str, buffer, offset) {
-  const start = offset;
-  let c1, c2;
-  for (let i = 0; i < str.length; ++i) {
-    c1 = str.charCodeAt(i);
-    if (c1 < 128) {
-      buffer[offset++] = c1;
-    } else if (c1 < 2048) {
-      buffer[offset++] = c1 >> 6 | 192;
-      buffer[offset++] = c1 & 63 | 128;
-    } else if ((c1 & 64512) === 55296 && ((c2 = str.charCodeAt(i + 1)) & 64512) === 56320) {
-      c1 = 65536 + ((c1 & 1023) << 10) + (c2 & 1023);
-      ++i;
-      buffer[offset++] = c1 >> 18 | 240;
-      buffer[offset++] = c1 >> 12 & 63 | 128;
-      buffer[offset++] = c1 >> 6 & 63 | 128;
-      buffer[offset++] = c1 & 63 | 128;
-    } else {
-      buffer[offset++] = c1 >> 12 | 224;
-      buffer[offset++] = c1 >> 6 & 63 | 128;
-      buffer[offset++] = c1 & 63 | 128;
-    }
-  }
-  return offset - start;
-}
-
-// src/generated/varint.ts
-function varint64read() {
-  let lowBits = 0;
-  let highBits = 0;
-  for (let shift = 0; shift < 28; shift += 7) {
-    let b = this.buf[this.pos++];
-    lowBits |= (b & 127) << shift;
-    if ((b & 128) == 0) {
-      this.assertBounds();
-      return [lowBits, highBits];
-    }
-  }
-  let middleByte = this.buf[this.pos++];
-  lowBits |= (middleByte & 15) << 28;
-  highBits = (middleByte & 112) >> 4;
-  if ((middleByte & 128) == 0) {
-    this.assertBounds();
-    return [lowBits, highBits];
-  }
-  for (let shift = 3; shift <= 31; shift += 7) {
-    let b = this.buf[this.pos++];
-    highBits |= (b & 127) << shift;
-    if ((b & 128) == 0) {
-      this.assertBounds();
-      return [lowBits, highBits];
-    }
-  }
-  throw new Error("invalid varint");
-}
-var TWO_PWR_32_DBL = 4294967296;
-function int64FromString(dec) {
-  const minus = dec[0] === "-";
-  if (minus) {
-    dec = dec.slice(1);
-  }
-  const base = 1e6;
-  let lowBits = 0;
-  let highBits = 0;
-  function add1e6digit(begin, end) {
-    const digit1e6 = Number(dec.slice(begin, end));
-    highBits *= base;
-    lowBits = lowBits * base + digit1e6;
-    if (lowBits >= TWO_PWR_32_DBL) {
-      highBits = highBits + (lowBits / TWO_PWR_32_DBL | 0);
-      lowBits = lowBits % TWO_PWR_32_DBL;
-    }
-  }
-  add1e6digit(-24, -18);
-  add1e6digit(-18, -12);
-  add1e6digit(-12, -6);
-  add1e6digit(-6);
-  return minus ? negate(lowBits, highBits) : newBits(lowBits, highBits);
-}
-function int64ToString(lo, hi) {
-  let bits = newBits(lo, hi);
-  const negative = bits.hi & 2147483648;
-  if (negative) {
-    bits = negate(bits.lo, bits.hi);
-  }
-  const result = uInt64ToString(bits.lo, bits.hi);
-  return negative ? "-" + result : result;
-}
-function uInt64ToString(lo, hi) {
-  ({ lo, hi } = toUnsigned(lo, hi));
-  if (hi <= 2097151) {
-    return String(TWO_PWR_32_DBL * hi + lo);
-  }
-  const low = lo & 16777215;
-  const mid = (lo >>> 24 | hi << 8) & 16777215;
-  const high = hi >> 16 & 65535;
-  let digitA = low + mid * 6777216 + high * 6710656;
-  let digitB = mid + high * 8147497;
-  let digitC = high * 2;
-  const base = 1e7;
-  if (digitA >= base) {
-    digitB += Math.floor(digitA / base);
-    digitA %= base;
-  }
-  if (digitB >= base) {
-    digitC += Math.floor(digitB / base);
-    digitB %= base;
-  }
-  return digitC.toString() + decimalFrom1e7WithLeadingZeros(digitB) + decimalFrom1e7WithLeadingZeros(digitA);
-}
-function toUnsigned(lo, hi) {
-  return { lo: lo >>> 0, hi: hi >>> 0 };
-}
-function newBits(lo, hi) {
-  return { lo: lo | 0, hi: hi | 0 };
-}
-function negate(lowBits, highBits) {
-  highBits = ~highBits;
-  if (lowBits) {
-    lowBits = ~lowBits + 1;
-  } else {
-    highBits += 1;
-  }
-  return newBits(lowBits, highBits);
-}
-var decimalFrom1e7WithLeadingZeros = (digit1e7) => {
-  const partial = String(digit1e7);
-  return "0000000".slice(partial.length) + partial;
-};
-function varint32read() {
-  let b = this.buf[this.pos++];
-  let result = b & 127;
-  if ((b & 128) == 0) {
-    this.assertBounds();
-    return result;
-  }
-  b = this.buf[this.pos++];
-  result |= (b & 127) << 7;
-  if ((b & 128) == 0) {
-    this.assertBounds();
-    return result;
-  }
-  b = this.buf[this.pos++];
-  result |= (b & 127) << 14;
-  if ((b & 128) == 0) {
-    this.assertBounds();
-    return result;
-  }
-  b = this.buf[this.pos++];
-  result |= (b & 127) << 21;
-  if ((b & 128) == 0) {
-    this.assertBounds();
-    return result;
-  }
-  b = this.buf[this.pos++];
-  result |= (b & 15) << 28;
-  for (let readBytes = 5; (b & 128) !== 0 && readBytes < 10; readBytes++)
-    b = this.buf[this.pos++];
-  if ((b & 128) != 0) throw new Error("invalid varint");
-  this.assertBounds();
-  return result >>> 0;
-}
-function zzEncode(lo, hi) {
-  let mask = hi >> 31;
-  hi = ((hi << 1 | lo >>> 31) ^ mask) >>> 0;
-  lo = (lo << 1 ^ mask) >>> 0;
-  return [lo, hi];
-}
-function zzDecode(lo, hi) {
-  let mask = -(lo & 1);
-  lo = ((lo >>> 1 | hi << 31) ^ mask) >>> 0;
-  hi = (hi >>> 1 ^ mask) >>> 0;
-  return [lo, hi];
-}
-function readUInt32(buf, pos) {
-  return (buf[pos] | buf[pos + 1] << 8 | buf[pos + 2] << 16) + buf[pos + 3] * 16777216;
-}
-function readInt32(buf, pos) {
-  return (buf[pos] | buf[pos + 1] << 8 | buf[pos + 2] << 16) + (buf[pos + 3] << 24);
-}
-function writeVarint32(val, buf, pos) {
-  while (val > 127) {
-    buf[pos++] = val & 127 | 128;
-    val >>>= 7;
-  }
-  buf[pos] = val;
-}
-function writeVarint64(val, buf, pos) {
-  while (val.hi) {
-    buf[pos++] = val.lo & 127 | 128;
-    val.lo = (val.lo >>> 7 | val.hi << 25) >>> 0;
-    val.hi >>>= 7;
-  }
-  while (val.lo > 127) {
-    buf[pos++] = val.lo & 127 | 128;
-    val.lo = val.lo >>> 7;
-  }
-  buf[pos++] = val.lo;
-}
-function int64Length(lo, hi) {
-  let part0 = lo, part1 = (lo >>> 28 | hi << 4) >>> 0, part2 = hi >>> 24;
-  return part2 === 0 ? part1 === 0 ? part0 < 16384 ? part0 < 128 ? 1 : 2 : part0 < 2097152 ? 3 : 4 : part1 < 16384 ? part1 < 128 ? 5 : 6 : part1 < 2097152 ? 7 : 8 : part2 < 128 ? 9 : 10;
-}
-function writeFixed32(val, buf, pos) {
-  buf[pos] = val & 255;
-  buf[pos + 1] = val >>> 8 & 255;
-  buf[pos + 2] = val >>> 16 & 255;
-  buf[pos + 3] = val >>> 24;
-}
-function writeByte(val, buf, pos) {
-  buf[pos] = val & 255;
-}
-
-// src/generated/binary.ts
-var BinaryReader = class {
-  buf;
-  pos;
-  type;
-  len;
-  assertBounds() {
-    if (this.pos > this.len) throw new RangeError("premature EOF");
-  }
-  constructor(buf) {
-    this.buf = buf ? new Uint8Array(buf) : new Uint8Array(0);
-    this.pos = 0;
-    this.type = 0;
-    this.len = this.buf.length;
-  }
-  tag() {
-    const tag = this.uint32(), fieldNo = tag >>> 3, wireType = tag & 7;
-    if (fieldNo <= 0 || wireType < 0 || wireType > 5)
-      throw new Error(
-        "illegal tag: field no " + fieldNo + " wire type " + wireType
-      );
-    return [fieldNo, wireType, tag];
-  }
-  skip(length) {
-    if (typeof length === "number") {
-      if (this.pos + length > this.len) throw indexOutOfRange(this, length);
-      this.pos += length;
-    } else {
-      do {
-        if (this.pos >= this.len) throw indexOutOfRange(this);
-      } while (this.buf[this.pos++] & 128);
-    }
-    return this;
-  }
-  skipType(wireType) {
-    switch (wireType) {
-      case 0 /* Varint */:
-        this.skip();
-        break;
-      case 1 /* Fixed64 */:
-        this.skip(8);
-        break;
-      case 2 /* Bytes */:
-        this.skip(this.uint32());
-        break;
-      case 3:
-        while ((wireType = this.uint32() & 7) !== 4) {
-          this.skipType(wireType);
-        }
-        break;
-      case 5 /* Fixed32 */:
-        this.skip(4);
-        break;
-      /* istanbul ignore next */
-      default:
-        throw Error("invalid wire type " + wireType + " at offset " + this.pos);
-    }
-    return this;
-  }
-  uint32() {
-    return varint32read.bind(this)();
-  }
-  int32() {
-    return this.uint32() | 0;
-  }
-  sint32() {
-    const num = this.uint32();
-    return num % 2 === 1 ? (num + 1) / -2 : num / 2;
-  }
-  fixed32() {
-    const val = readUInt32(this.buf, this.pos);
-    this.pos += 4;
-    return val;
-  }
-  sfixed32() {
-    const val = readInt32(this.buf, this.pos);
-    this.pos += 4;
-    return val;
-  }
-  int64() {
-    const [lo, hi] = varint64read.bind(this)();
-    return BigInt(int64ToString(lo, hi));
-  }
-  uint64() {
-    const [lo, hi] = varint64read.bind(this)();
-    return BigInt(uInt64ToString(lo, hi));
-  }
-  sint64() {
-    let [lo, hi] = varint64read.bind(this)();
-    [lo, hi] = zzDecode(lo, hi);
-    return BigInt(int64ToString(lo, hi));
-  }
-  fixed64() {
-    const lo = this.sfixed32();
-    const hi = this.sfixed32();
-    return BigInt(uInt64ToString(lo, hi));
-  }
-  sfixed64() {
-    const lo = this.sfixed32();
-    const hi = this.sfixed32();
-    return BigInt(int64ToString(lo, hi));
-  }
-  float() {
-    throw new Error("float not supported");
-  }
-  double() {
-    throw new Error("double not supported");
-  }
-  bool() {
-    const [lo, hi] = varint64read.bind(this)();
-    return lo !== 0 || hi !== 0;
-  }
-  bytes() {
-    const len = this.uint32(), start = this.pos;
-    this.pos += len;
-    this.assertBounds();
-    return this.buf.subarray(start, start + len);
-  }
-  string() {
-    const bytes = this.bytes();
-    return utf8Read(bytes, 0, bytes.length);
-  }
-};
-var Op = class {
-  fn;
-  len;
-  val;
-  next;
-  constructor(fn, len, val) {
-    this.fn = fn;
-    this.len = len;
-    this.val = val;
-  }
-  proceed(buf, pos) {
-    if (this.fn) {
-      this.fn(this.val, buf, pos);
-    }
-  }
-};
-var State = class {
-  head;
-  tail;
-  len;
-  next;
-  constructor(writer) {
-    this.head = writer.head;
-    this.tail = writer.tail;
-    this.len = writer.len;
-    this.next = writer.states;
-  }
-};
-var BinaryWriter = class _BinaryWriter {
-  len = 0;
-  head;
-  tail;
-  states;
-  constructor() {
-    this.head = new Op(null, 0, 0);
-    this.tail = this.head;
-    this.states = null;
-  }
-  static create() {
-    return new _BinaryWriter();
-  }
-  static alloc(size) {
-    if (typeof Uint8Array !== "undefined") {
-      return pool(
-        (size2) => new Uint8Array(size2),
-        Uint8Array.prototype.subarray
-      )(size);
-    } else {
-      return new Array(size);
-    }
-  }
-  _push(fn, len, val) {
-    this.tail = this.tail.next = new Op(fn, len, val);
-    this.len += len;
-    return this;
-  }
-  finish() {
-    let head = this.head.next, pos = 0;
-    const buf = _BinaryWriter.alloc(this.len);
-    while (head) {
-      head.proceed(buf, pos);
-      pos += head.len;
-      head = head.next;
-    }
-    return buf;
-  }
-  fork() {
-    this.states = new State(this);
-    this.head = this.tail = new Op(null, 0, 0);
-    this.len = 0;
-    return this;
-  }
-  reset() {
-    if (this.states) {
-      this.head = this.states.head;
-      this.tail = this.states.tail;
-      this.len = this.states.len;
-      this.states = this.states.next;
-    } else {
-      this.head = this.tail = new Op(null, 0, 0);
-      this.len = 0;
-    }
-    return this;
-  }
-  ldelim() {
-    const head = this.head, tail = this.tail, len = this.len;
-    this.reset().uint32(len);
-    if (len) {
-      this.tail.next = head.next;
-      this.tail = tail;
-      this.len += len;
-    }
-    return this;
-  }
-  tag(fieldNo, type) {
-    return this.uint32((fieldNo << 3 | type) >>> 0);
-  }
-  uint32(value) {
-    this.len += (this.tail = this.tail.next = new Op(
-      writeVarint32,
-      (value = value >>> 0) < 128 ? 1 : value < 16384 ? 2 : value < 2097152 ? 3 : value < 268435456 ? 4 : 5,
-      value
-    )).len;
-    return this;
-  }
-  int32(value) {
-    return value < 0 ? this._push(writeVarint64, 10, int64FromString(value.toString())) : this.uint32(value);
-  }
-  sint32(value) {
-    return this.uint32((value << 1 ^ value >> 31) >>> 0);
-  }
-  int64(value) {
-    const { lo, hi } = int64FromString(value.toString());
-    return this._push(writeVarint64, int64Length(lo, hi), { lo, hi });
-  }
-  // uint64 is the same with int64
-  uint64 = _BinaryWriter.prototype.int64;
-  sint64(value) {
-    let { lo, hi } = int64FromString(value.toString());
-    [lo, hi] = zzEncode(lo, hi);
-    return this._push(writeVarint64, int64Length(lo, hi), { lo, hi });
-  }
-  fixed64(value) {
-    const { lo, hi } = int64FromString(value.toString());
-    return this._push(writeFixed32, 4, lo)._push(writeFixed32, 4, hi);
-  }
-  // sfixed64 is the same with fixed64
-  sfixed64 = _BinaryWriter.prototype.fixed64;
-  bool(value) {
-    return this._push(writeByte, 1, value ? 1 : 0);
-  }
-  fixed32(value) {
-    return this._push(writeFixed32, 4, value >>> 0);
-  }
-  // sfixed32 is the same with fixed32
-  sfixed32 = _BinaryWriter.prototype.fixed32;
-  float(value) {
-    throw new Error("float not supported" + value);
-  }
-  double(value) {
-    throw new Error("double not supported" + value);
-  }
-  bytes(value) {
-    const len = value.length >>> 0;
-    if (!len) return this._push(writeByte, 1, 0);
-    return this.uint32(len)._push(writeBytes, len, value);
-  }
-  string(value) {
-    const len = utf8Length(value);
-    return len ? this.uint32(len)._push(utf8Write, len, value) : this._push(writeByte, 1, 0);
-  }
-};
-function writeBytes(val, buf, pos) {
-  if (typeof Uint8Array !== "undefined") {
-    buf.set(val, pos);
-  } else {
-    for (let i = 0; i < val.length; ++i) buf[pos + i] = val[i];
-  }
-}
-function pool(alloc, slice, size) {
-  const SIZE = size || 8192;
-  const MAX = SIZE >>> 1;
-  let slab = null;
-  let offset = SIZE;
-  return function pool_alloc(size2) {
-    if (size2 < 1 || size2 > MAX) return alloc(size2);
-    if (offset + size2 > SIZE) {
-      slab = alloc(SIZE);
-      offset = 0;
-    }
-    const buf = slice.call(slab, offset, offset += size2);
-    if (offset & 7)
-      offset = (offset | 7) + 1;
-    return buf;
-  };
-}
-function indexOutOfRange(reader, writeLength) {
-  return RangeError(
-    "index out of range: " + reader.pos + " + " + (writeLength || 1) + " > " + reader.len
-  );
-}
 
 // src/generated/zerone/alignment/v1/genesis.ts
 function createBaseParams() {
@@ -743,7 +194,7 @@ function createBaseMsgUpdateParams() {
     params: void 0
   };
 }
-var MsgUpdateParams = {
+var MsgUpdateParams2 = {
   typeUrl: "/zerone.alignment.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -881,13 +332,13 @@ var MsgActivateResponse = {
 };
 
 // src/generated/zerone/alignment/v1/tx.registry.ts
-var registry = [["/zerone.alignment.v1.MsgUpdateParams", MsgUpdateParams], ["/zerone.alignment.v1.MsgActivate", MsgActivate]];
+var registry = [["/zerone.alignment.v1.MsgUpdateParams", MsgUpdateParams2], ["/zerone.alignment.v1.MsgActivate", MsgActivate]];
 var MessageComposer = {
   encoded: {
     updateParams(value) {
       return {
         typeUrl: "/zerone.alignment.v1.MsgUpdateParams",
-        value: MsgUpdateParams.encode(value).finish()
+        value: MsgUpdateParams2.encode(value).finish()
       };
     },
     activate(value) {
@@ -915,7 +366,7 @@ var MessageComposer = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.alignment.v1.MsgUpdateParams",
-        value: MsgUpdateParams.fromPartial(value)
+        value: MsgUpdateParams2.fromPartial(value)
       };
     },
     activate(value) {
@@ -938,7 +389,7 @@ __export(tx_exports2, {
   MsgRotateKeyResponse: () => MsgRotateKeyResponse,
   MsgUnfreezeAccount: () => MsgUnfreezeAccount,
   MsgUnfreezeAccountResponse: () => MsgUnfreezeAccountResponse,
-  MsgUpdateParams: () => MsgUpdateParams2,
+  MsgUpdateParams: () => MsgUpdateParams3,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse2
 });
 
@@ -1344,7 +795,7 @@ function createBaseMsgUpdateParams2() {
     params: void 0
   };
 }
-var MsgUpdateParams2 = {
+var MsgUpdateParams3 = {
   typeUrl: "/zerone.auth.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -1411,7 +862,7 @@ var MsgUpdateParamsResponse2 = {
 };
 
 // src/generated/zerone/auth/v1/tx.registry.ts
-var registry2 = [["/zerone.auth.v1.MsgRegisterAccount", MsgRegisterAccount], ["/zerone.auth.v1.MsgRotateKey", MsgRotateKey], ["/zerone.auth.v1.MsgFreezeAccount", MsgFreezeAccount], ["/zerone.auth.v1.MsgUnfreezeAccount", MsgUnfreezeAccount], ["/zerone.auth.v1.MsgUpdateParams", MsgUpdateParams2]];
+var registry2 = [["/zerone.auth.v1.MsgRegisterAccount", MsgRegisterAccount], ["/zerone.auth.v1.MsgRotateKey", MsgRotateKey], ["/zerone.auth.v1.MsgFreezeAccount", MsgFreezeAccount], ["/zerone.auth.v1.MsgUnfreezeAccount", MsgUnfreezeAccount], ["/zerone.auth.v1.MsgUpdateParams", MsgUpdateParams3]];
 var MessageComposer2 = {
   encoded: {
     registerAccount(value) {
@@ -1441,7 +892,7 @@ var MessageComposer2 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.auth.v1.MsgUpdateParams",
-        value: MsgUpdateParams2.encode(value).finish()
+        value: MsgUpdateParams3.encode(value).finish()
       };
     }
   },
@@ -1505,7 +956,7 @@ var MessageComposer2 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.auth.v1.MsgUpdateParams",
-        value: MsgUpdateParams2.fromPartial(value)
+        value: MsgUpdateParams3.fromPartial(value)
       };
     }
   }
@@ -1522,7 +973,7 @@ __export(tx_exports3, {
   MsgResolveChallengeResponse: () => MsgResolveChallengeResponse,
   MsgSubmitChallenge: () => MsgSubmitChallenge,
   MsgSubmitChallengeResponse: () => MsgSubmitChallengeResponse,
-  MsgUpdateParams: () => MsgUpdateParams3,
+  MsgUpdateParams: () => MsgUpdateParams4,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse3
 });
 
@@ -1984,7 +1435,7 @@ function createBaseMsgUpdateParams3() {
     params: void 0
   };
 }
-var MsgUpdateParams3 = {
+var MsgUpdateParams4 = {
   typeUrl: "/zerone.capture_challenge.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -2051,7 +1502,7 @@ var MsgUpdateParamsResponse3 = {
 };
 
 // src/generated/zerone/capture_challenge/v1/tx.registry.ts
-var registry3 = [["/zerone.capture_challenge.v1.MsgSubmitChallenge", MsgSubmitChallenge], ["/zerone.capture_challenge.v1.MsgAddEvidence", MsgAddEvidence], ["/zerone.capture_challenge.v1.MsgResolveChallenge", MsgResolveChallenge], ["/zerone.capture_challenge.v1.MsgFundBountyPool", MsgFundBountyPool], ["/zerone.capture_challenge.v1.MsgUpdateParams", MsgUpdateParams3]];
+var registry3 = [["/zerone.capture_challenge.v1.MsgSubmitChallenge", MsgSubmitChallenge], ["/zerone.capture_challenge.v1.MsgAddEvidence", MsgAddEvidence], ["/zerone.capture_challenge.v1.MsgResolveChallenge", MsgResolveChallenge], ["/zerone.capture_challenge.v1.MsgFundBountyPool", MsgFundBountyPool], ["/zerone.capture_challenge.v1.MsgUpdateParams", MsgUpdateParams4]];
 var MessageComposer3 = {
   encoded: {
     submitChallenge(value) {
@@ -2081,7 +1532,7 @@ var MessageComposer3 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.capture_challenge.v1.MsgUpdateParams",
-        value: MsgUpdateParams3.encode(value).finish()
+        value: MsgUpdateParams4.encode(value).finish()
       };
     }
   },
@@ -2145,7 +1596,7 @@ var MessageComposer3 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.capture_challenge.v1.MsgUpdateParams",
-        value: MsgUpdateParams3.fromPartial(value)
+        value: MsgUpdateParams4.fromPartial(value)
       };
     }
   }
@@ -2158,7 +1609,7 @@ __export(tx_exports4, {
   MsgAnalyzeDomainResponse: () => MsgAnalyzeDomainResponse,
   MsgRecordVerification: () => MsgRecordVerification,
   MsgRecordVerificationResponse: () => MsgRecordVerificationResponse,
-  MsgUpdateParams: () => MsgUpdateParams4,
+  MsgUpdateParams: () => MsgUpdateParams5,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse4
 });
 
@@ -2480,7 +1931,7 @@ function createBaseMsgUpdateParams4() {
     params: void 0
   };
 }
-var MsgUpdateParams4 = {
+var MsgUpdateParams5 = {
   typeUrl: "/zerone.capture_defense.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -2547,7 +1998,7 @@ var MsgUpdateParamsResponse4 = {
 };
 
 // src/generated/zerone/capture_defense/v1/tx.registry.ts
-var registry4 = [["/zerone.capture_defense.v1.MsgRecordVerification", MsgRecordVerification], ["/zerone.capture_defense.v1.MsgAnalyzeDomain", MsgAnalyzeDomain], ["/zerone.capture_defense.v1.MsgUpdateParams", MsgUpdateParams4]];
+var registry4 = [["/zerone.capture_defense.v1.MsgRecordVerification", MsgRecordVerification], ["/zerone.capture_defense.v1.MsgAnalyzeDomain", MsgAnalyzeDomain], ["/zerone.capture_defense.v1.MsgUpdateParams", MsgUpdateParams5]];
 var MessageComposer4 = {
   encoded: {
     recordVerification(value) {
@@ -2565,7 +2016,7 @@ var MessageComposer4 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.capture_defense.v1.MsgUpdateParams",
-        value: MsgUpdateParams4.encode(value).finish()
+        value: MsgUpdateParams5.encode(value).finish()
       };
     }
   },
@@ -2605,7 +2056,7 @@ var MessageComposer4 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.capture_defense.v1.MsgUpdateParams",
-        value: MsgUpdateParams4.fromPartial(value)
+        value: MsgUpdateParams5.fromPartial(value)
       };
     }
   }
@@ -3239,7 +2690,7 @@ var tx_exports6 = {};
 __export(tx_exports6, {
   MsgProposeCounterexample: () => MsgProposeCounterexample,
   MsgProposeCounterexampleResponse: () => MsgProposeCounterexampleResponse,
-  MsgUpdateParams: () => MsgUpdateParams5,
+  MsgUpdateParams: () => MsgUpdateParams6,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse5,
   MsgValidate: () => MsgValidate,
   MsgValidateResponse: () => MsgValidateResponse
@@ -3562,7 +3013,7 @@ function createBaseMsgUpdateParams5() {
     params: void 0
   };
 }
-var MsgUpdateParams5 = {
+var MsgUpdateParams6 = {
   typeUrl: "/zerone.counterexamples.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -3629,7 +3080,7 @@ var MsgUpdateParamsResponse5 = {
 };
 
 // src/generated/zerone/counterexamples/v1/tx.registry.ts
-var registry6 = [["/zerone.counterexamples.v1.MsgProposeCounterexample", MsgProposeCounterexample], ["/zerone.counterexamples.v1.MsgValidate", MsgValidate], ["/zerone.counterexamples.v1.MsgUpdateParams", MsgUpdateParams5]];
+var registry6 = [["/zerone.counterexamples.v1.MsgProposeCounterexample", MsgProposeCounterexample], ["/zerone.counterexamples.v1.MsgValidate", MsgValidate], ["/zerone.counterexamples.v1.MsgUpdateParams", MsgUpdateParams6]];
 var MessageComposer6 = {
   encoded: {
     proposeCounterexample(value) {
@@ -3647,7 +3098,7 @@ var MessageComposer6 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.counterexamples.v1.MsgUpdateParams",
-        value: MsgUpdateParams5.encode(value).finish()
+        value: MsgUpdateParams6.encode(value).finish()
       };
     }
   },
@@ -3687,7 +3138,7 @@ var MessageComposer6 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.counterexamples.v1.MsgUpdateParams",
-        value: MsgUpdateParams5.fromPartial(value)
+        value: MsgUpdateParams6.fromPartial(value)
       };
     }
   }
@@ -3700,7 +3151,7 @@ __export(tx_exports7, {
   MsgAnchorPinResponse: () => MsgAnchorPinResponse,
   MsgUpdateCouncilMember: () => MsgUpdateCouncilMember,
   MsgUpdateCouncilMemberResponse: () => MsgUpdateCouncilMemberResponse,
-  MsgUpdateParams: () => MsgUpdateParams6,
+  MsgUpdateParams: () => MsgUpdateParams7,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse6
 });
 
@@ -4067,7 +3518,7 @@ function createBaseMsgUpdateParams6() {
     params: void 0
   };
 }
-var MsgUpdateParams6 = {
+var MsgUpdateParams7 = {
   typeUrl: "/zerone.creed.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -4213,7 +3664,7 @@ var MsgUpdateCouncilMemberResponse = {
 };
 
 // src/generated/zerone/creed/v1/tx.registry.ts
-var registry7 = [["/zerone.creed.v1.MsgAnchorPin", MsgAnchorPin], ["/zerone.creed.v1.MsgUpdateParams", MsgUpdateParams6], ["/zerone.creed.v1.MsgUpdateCouncilMember", MsgUpdateCouncilMember]];
+var registry7 = [["/zerone.creed.v1.MsgAnchorPin", MsgAnchorPin], ["/zerone.creed.v1.MsgUpdateParams", MsgUpdateParams7], ["/zerone.creed.v1.MsgUpdateCouncilMember", MsgUpdateCouncilMember]];
 var MessageComposer7 = {
   encoded: {
     anchorPin(value) {
@@ -4225,7 +3676,7 @@ var MessageComposer7 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.creed.v1.MsgUpdateParams",
-        value: MsgUpdateParams6.encode(value).finish()
+        value: MsgUpdateParams7.encode(value).finish()
       };
     },
     updateCouncilMember(value) {
@@ -4265,7 +3716,7 @@ var MessageComposer7 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.creed.v1.MsgUpdateParams",
-        value: MsgUpdateParams6.fromPartial(value)
+        value: MsgUpdateParams7.fromPartial(value)
       };
     },
     updateCouncilMember(value) {
@@ -4287,7 +3738,7 @@ __export(tx_exports8, {
   MsgProposeResumeResponse: () => MsgProposeResumeResponse,
   MsgProposeRevert: () => MsgProposeRevert,
   MsgProposeRevertResponse: () => MsgProposeRevertResponse,
-  MsgUpdateParams: () => MsgUpdateParams7,
+  MsgUpdateParams: () => MsgUpdateParams8,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse7,
   MsgVoteHalt: () => MsgVoteHalt,
   MsgVoteHaltResponse: () => MsgVoteHaltResponse,
@@ -5113,7 +4564,7 @@ function createBaseMsgUpdateParams7() {
     params: void 0
   };
 }
-var MsgUpdateParams7 = {
+var MsgUpdateParams8 = {
   typeUrl: "/zerone.emergency.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -5180,7 +4631,7 @@ var MsgUpdateParamsResponse7 = {
 };
 
 // src/generated/zerone/emergency/v1/tx.registry.ts
-var registry8 = [["/zerone.emergency.v1.MsgProposeHalt", MsgProposeHalt], ["/zerone.emergency.v1.MsgVoteHalt", MsgVoteHalt], ["/zerone.emergency.v1.MsgProposeRevert", MsgProposeRevert], ["/zerone.emergency.v1.MsgVoteRevert", MsgVoteRevert], ["/zerone.emergency.v1.MsgProposeResume", MsgProposeResume], ["/zerone.emergency.v1.MsgVoteResume", MsgVoteResume], ["/zerone.emergency.v1.MsgUpdateParams", MsgUpdateParams7]];
+var registry8 = [["/zerone.emergency.v1.MsgProposeHalt", MsgProposeHalt], ["/zerone.emergency.v1.MsgVoteHalt", MsgVoteHalt], ["/zerone.emergency.v1.MsgProposeRevert", MsgProposeRevert], ["/zerone.emergency.v1.MsgVoteRevert", MsgVoteRevert], ["/zerone.emergency.v1.MsgProposeResume", MsgProposeResume], ["/zerone.emergency.v1.MsgVoteResume", MsgVoteResume], ["/zerone.emergency.v1.MsgUpdateParams", MsgUpdateParams8]];
 var MessageComposer8 = {
   encoded: {
     proposeHalt(value) {
@@ -5222,7 +4673,7 @@ var MessageComposer8 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.emergency.v1.MsgUpdateParams",
-        value: MsgUpdateParams7.encode(value).finish()
+        value: MsgUpdateParams8.encode(value).finish()
       };
     }
   },
@@ -5310,7 +4761,7 @@ var MessageComposer8 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.emergency.v1.MsgUpdateParams",
-        value: MsgUpdateParams7.fromPartial(value)
+        value: MsgUpdateParams8.fromPartial(value)
       };
     }
   }
@@ -5341,7 +4792,7 @@ __export(tx_exports9, {
   MsgSubmitLIPResponse: () => MsgSubmitLIPResponse,
   MsgSubmitResearchSpend: () => MsgSubmitResearchSpend,
   MsgSubmitResearchSpendResponse: () => MsgSubmitResearchSpendResponse,
-  MsgUpdateParams: () => MsgUpdateParams8,
+  MsgUpdateParams: () => MsgUpdateParams9,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse8,
   MsgVoteResearchSpend: () => MsgVoteResearchSpend,
   MsgVoteResearchSpendResponse: () => MsgVoteResearchSpendResponse,
@@ -6048,7 +5499,7 @@ function createBaseMsgUpdateParams8() {
     params: void 0
   };
 }
-var MsgUpdateParams8 = {
+var MsgUpdateParams9 = {
   typeUrl: "/zerone.gov.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -6909,7 +6360,7 @@ var MsgDomainFormationFreezeResponse = {
 };
 
 // src/generated/zerone/gov/v1/tx.registry.ts
-var registry9 = [["/zerone.gov.v1.MsgSubmitLIP", MsgSubmitLIP], ["/zerone.gov.v1.MsgStakeLIP", MsgStakeLIP], ["/zerone.gov.v1.MsgAdvanceLIPStage", MsgAdvanceLIPStage], ["/zerone.gov.v1.MsgCastVote", MsgCastVote], ["/zerone.gov.v1.MsgWithdrawLIP", MsgWithdrawLIP], ["/zerone.gov.v1.MsgUpdateParams", MsgUpdateParams8], ["/zerone.gov.v1.MsgSubmitResearchSpend", MsgSubmitResearchSpend], ["/zerone.gov.v1.MsgVoteResearchSpend", MsgVoteResearchSpend], ["/zerone.gov.v1.MsgSetResearchVoters", MsgSetResearchVoters], ["/zerone.gov.v1.MsgAttachUpgradePlan", MsgAttachUpgradePlan], ["/zerone.gov.v1.MsgAttachCreedAmendmentPin", MsgAttachCreedAmendmentPin], ["/zerone.gov.v1.MsgNominateSeatElection", MsgNominateSeatElection], ["/zerone.gov.v1.MsgAcceptSeatNomination", MsgAcceptSeatNomination], ["/zerone.gov.v1.MsgVoteSeatElection", MsgVoteSeatElection], ["/zerone.gov.v1.MsgDomainFormationFreeze", MsgDomainFormationFreeze]];
+var registry9 = [["/zerone.gov.v1.MsgSubmitLIP", MsgSubmitLIP], ["/zerone.gov.v1.MsgStakeLIP", MsgStakeLIP], ["/zerone.gov.v1.MsgAdvanceLIPStage", MsgAdvanceLIPStage], ["/zerone.gov.v1.MsgCastVote", MsgCastVote], ["/zerone.gov.v1.MsgWithdrawLIP", MsgWithdrawLIP], ["/zerone.gov.v1.MsgUpdateParams", MsgUpdateParams9], ["/zerone.gov.v1.MsgSubmitResearchSpend", MsgSubmitResearchSpend], ["/zerone.gov.v1.MsgVoteResearchSpend", MsgVoteResearchSpend], ["/zerone.gov.v1.MsgSetResearchVoters", MsgSetResearchVoters], ["/zerone.gov.v1.MsgAttachUpgradePlan", MsgAttachUpgradePlan], ["/zerone.gov.v1.MsgAttachCreedAmendmentPin", MsgAttachCreedAmendmentPin], ["/zerone.gov.v1.MsgNominateSeatElection", MsgNominateSeatElection], ["/zerone.gov.v1.MsgAcceptSeatNomination", MsgAcceptSeatNomination], ["/zerone.gov.v1.MsgVoteSeatElection", MsgVoteSeatElection], ["/zerone.gov.v1.MsgDomainFormationFreeze", MsgDomainFormationFreeze]];
 var MessageComposer9 = {
   encoded: {
     submitLIP(value) {
@@ -6945,7 +6396,7 @@ var MessageComposer9 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.gov.v1.MsgUpdateParams",
-        value: MsgUpdateParams8.encode(value).finish()
+        value: MsgUpdateParams9.encode(value).finish()
       };
     },
     submitResearchSpend(value) {
@@ -7129,7 +6580,7 @@ var MessageComposer9 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.gov.v1.MsgUpdateParams",
-        value: MsgUpdateParams8.fromPartial(value)
+        value: MsgUpdateParams9.fromPartial(value)
       };
     },
     submitResearchSpend(value) {
@@ -7212,7 +6663,7 @@ __export(tx_exports10, {
   MsgUpdateHomeResponse: () => MsgUpdateHomeResponse,
   MsgUpdateMemoryCID: () => MsgUpdateMemoryCID,
   MsgUpdateMemoryCIDResponse: () => MsgUpdateMemoryCIDResponse,
-  MsgUpdateParams: () => MsgUpdateParams9,
+  MsgUpdateParams: () => MsgUpdateParams10,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse9
 });
 
@@ -8367,7 +7818,7 @@ function createBaseMsgUpdateParams9() {
     params: void 0
   };
 }
-var MsgUpdateParams9 = {
+var MsgUpdateParams10 = {
   typeUrl: "/zerone.home.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -8434,7 +7885,7 @@ var MsgUpdateParamsResponse9 = {
 };
 
 // src/generated/zerone/home/v1/tx.registry.ts
-var registry10 = [["/zerone.home.v1.MsgCreateHome", MsgCreateHome], ["/zerone.home.v1.MsgUpdateHome", MsgUpdateHome], ["/zerone.home.v1.MsgUpdateMemoryCID", MsgUpdateMemoryCID], ["/zerone.home.v1.MsgStartSession", MsgStartSession], ["/zerone.home.v1.MsgEndSession", MsgEndSession], ["/zerone.home.v1.MsgRegisterKey", MsgRegisterKey], ["/zerone.home.v1.MsgRevokeKey", MsgRevokeKey], ["/zerone.home.v1.MsgConfigureGuardian", MsgConfigureGuardian], ["/zerone.home.v1.MsgAcknowledgeAlert", MsgAcknowledgeAlert], ["/zerone.home.v1.MsgSetSpendingLimit", MsgSetSpendingLimit], ["/zerone.home.v1.MsgUpdateParams", MsgUpdateParams9]];
+var registry10 = [["/zerone.home.v1.MsgCreateHome", MsgCreateHome], ["/zerone.home.v1.MsgUpdateHome", MsgUpdateHome], ["/zerone.home.v1.MsgUpdateMemoryCID", MsgUpdateMemoryCID], ["/zerone.home.v1.MsgStartSession", MsgStartSession], ["/zerone.home.v1.MsgEndSession", MsgEndSession], ["/zerone.home.v1.MsgRegisterKey", MsgRegisterKey], ["/zerone.home.v1.MsgRevokeKey", MsgRevokeKey], ["/zerone.home.v1.MsgConfigureGuardian", MsgConfigureGuardian], ["/zerone.home.v1.MsgAcknowledgeAlert", MsgAcknowledgeAlert], ["/zerone.home.v1.MsgSetSpendingLimit", MsgSetSpendingLimit], ["/zerone.home.v1.MsgUpdateParams", MsgUpdateParams10]];
 var MessageComposer10 = {
   encoded: {
     createHome(value) {
@@ -8500,7 +7951,7 @@ var MessageComposer10 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.home.v1.MsgUpdateParams",
-        value: MsgUpdateParams9.encode(value).finish()
+        value: MsgUpdateParams10.encode(value).finish()
       };
     }
   },
@@ -8636,7 +8087,7 @@ var MessageComposer10 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.home.v1.MsgUpdateParams",
-        value: MsgUpdateParams9.fromPartial(value)
+        value: MsgUpdateParams10.fromPartial(value)
       };
     }
   }
@@ -8649,7 +8100,7 @@ __export(tx_exports11, {
   MsgAddRateLimitResponse: () => MsgAddRateLimitResponse,
   MsgRemoveRateLimit: () => MsgRemoveRateLimit,
   MsgRemoveRateLimitResponse: () => MsgRemoveRateLimitResponse,
-  MsgUpdateParams: () => MsgUpdateParams10,
+  MsgUpdateParams: () => MsgUpdateParams11,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse10
 });
 
@@ -8880,7 +8331,7 @@ function createBaseMsgUpdateParams10() {
     params: void 0
   };
 }
-var MsgUpdateParams10 = {
+var MsgUpdateParams11 = {
   typeUrl: "/zerone.ibcratelimit.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -8947,7 +8398,7 @@ var MsgUpdateParamsResponse10 = {
 };
 
 // src/generated/zerone/ibcratelimit/v1/tx.registry.ts
-var registry11 = [["/zerone.ibcratelimit.v1.MsgAddRateLimit", MsgAddRateLimit], ["/zerone.ibcratelimit.v1.MsgRemoveRateLimit", MsgRemoveRateLimit], ["/zerone.ibcratelimit.v1.MsgUpdateParams", MsgUpdateParams10]];
+var registry11 = [["/zerone.ibcratelimit.v1.MsgAddRateLimit", MsgAddRateLimit], ["/zerone.ibcratelimit.v1.MsgRemoveRateLimit", MsgRemoveRateLimit], ["/zerone.ibcratelimit.v1.MsgUpdateParams", MsgUpdateParams11]];
 var MessageComposer11 = {
   encoded: {
     addRateLimit(value) {
@@ -8965,7 +8416,7 @@ var MessageComposer11 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.ibcratelimit.v1.MsgUpdateParams",
-        value: MsgUpdateParams10.encode(value).finish()
+        value: MsgUpdateParams11.encode(value).finish()
       };
     }
   },
@@ -9005,7 +8456,7 @@ var MessageComposer11 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.ibcratelimit.v1.MsgUpdateParams",
-        value: MsgUpdateParams10.fromPartial(value)
+        value: MsgUpdateParams11.fromPartial(value)
       };
     }
   }
@@ -9105,7 +8556,7 @@ __export(tx_exports12, {
   MsgUpdateExtendedParamsResponse: () => MsgUpdateExtendedParamsResponse,
   MsgUpdateModelCard: () => MsgUpdateModelCard,
   MsgUpdateModelCardResponse: () => MsgUpdateModelCardResponse,
-  MsgUpdateParams: () => MsgUpdateParams11,
+  MsgUpdateParams: () => MsgUpdateParams12,
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse11,
   MsgUpdateTrainingPipeline: () => MsgUpdateTrainingPipeline,
   MsgUpdateTrainingPipelineResponse: () => MsgUpdateTrainingPipelineResponse,
@@ -12272,7 +11723,7 @@ function createBaseMsgUpdateParams11() {
     params: void 0
   };
 }
-var MsgUpdateParams11 = {
+var MsgUpdateParams12 = {
   typeUrl: "/zerone.knowledge.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
@@ -15850,7 +15301,7 @@ var MsgVetoFactInjectionResponse = {
 };
 
 // src/generated/zerone/knowledge/v1/tx.registry.ts
-var registry12 = [["/zerone.knowledge.v1.MsgSubmitClaim", MsgSubmitClaim], ["/zerone.knowledge.v1.MsgSubmitCommitment", MsgSubmitCommitment], ["/zerone.knowledge.v1.MsgSubmitReveal", MsgSubmitReveal], ["/zerone.knowledge.v1.MsgChallengeFact", MsgChallengeFact], ["/zerone.knowledge.v1.MsgAddFact", MsgAddFact], ["/zerone.knowledge.v1.MsgSubmitContradiction", MsgSubmitContradiction], ["/zerone.knowledge.v1.MsgPatronizeFact", MsgPatronizeFact], ["/zerone.knowledge.v1.MsgProposeDomain", MsgProposeDomain], ["/zerone.knowledge.v1.MsgEndorseDomainProposal", MsgEndorseDomainProposal], ["/zerone.knowledge.v1.MsgChallengeDomainProposal", MsgChallengeDomainProposal], ["/zerone.knowledge.v1.MsgRegisterStratum", MsgRegisterStratum], ["/zerone.knowledge.v1.MsgPostConjecture", MsgPostConjecture], ["/zerone.knowledge.v1.MsgChallengeProvisionalFact", MsgChallengeProvisionalFact], ["/zerone.knowledge.v1.MsgUpdateParams", MsgUpdateParams11], ["/zerone.knowledge.v1.MsgUpdateExtendedParams", MsgUpdateExtendedParams], ["/zerone.knowledge.v1.MsgProposeResearchFund", MsgProposeResearchFund], ["/zerone.knowledge.v1.MsgVoteResearchProposal", MsgVoteResearchProposal], ["/zerone.knowledge.v1.MsgExecuteResearchProposal", MsgExecuteResearchProposal], ["/zerone.knowledge.v1.MsgAddCommonKnowledge", MsgAddCommonKnowledge], ["/zerone.knowledge.v1.MsgRemoveCommonKnowledge", MsgRemoveCommonKnowledge], ["/zerone.knowledge.v1.MsgReportDemand", MsgReportDemand], ["/zerone.knowledge.v1.MsgRateFact", MsgRateFact], ["/zerone.knowledge.v1.MsgRegisterTrainingPipeline", MsgRegisterTrainingPipeline], ["/zerone.knowledge.v1.MsgUpdateTrainingPipeline", MsgUpdateTrainingPipeline], ["/zerone.knowledge.v1.MsgRegisterModelCard", MsgRegisterModelCard], ["/zerone.knowledge.v1.MsgUpdateModelCard", MsgUpdateModelCard], ["/zerone.knowledge.v1.MsgRetireModelCard", MsgRetireModelCard], ["/zerone.knowledge.v1.MsgAmendTokenizerSpec", MsgAmendTokenizerSpec], ["/zerone.knowledge.v1.MsgAttributeContributions", MsgAttributeContributions], ["/zerone.knowledge.v1.MsgAttestTraining", MsgAttestTraining], ["/zerone.knowledge.v1.MsgCreateAugmentationBounty", MsgCreateAugmentationBounty], ["/zerone.knowledge.v1.MsgSubmitAugmentation", MsgSubmitAugmentation], ["/zerone.knowledge.v1.MsgAcceptAugmentation", MsgAcceptAugmentation], ["/zerone.knowledge.v1.MsgVoteOnAugmentation", MsgVoteOnAugmentation], ["/zerone.knowledge.v1.MsgSponsorVetoAugmentation", MsgSponsorVetoAugmentation], ["/zerone.knowledge.v1.MsgChallengeContribution", MsgChallengeContribution], ["/zerone.knowledge.v1.MsgResolveContributionChallenge", MsgResolveContributionChallenge], ["/zerone.knowledge.v1.MsgClaimTrainingFundDisbursement", MsgClaimTrainingFundDisbursement], ["/zerone.knowledge.v1.MsgAmendTraceSchema", MsgAmendTraceSchema], ["/zerone.knowledge.v1.MsgCreateTrainingManifest", MsgCreateTrainingManifest], ["/zerone.knowledge.v1.MsgFinalizeTrainingManifest", MsgFinalizeTrainingManifest], ["/zerone.knowledge.v1.MsgBindManifestToAttestation", MsgBindManifestToAttestation], ["/zerone.knowledge.v1.MsgOpenIncident", MsgOpenIncident], ["/zerone.knowledge.v1.MsgRecordRemediation", MsgRecordRemediation], ["/zerone.knowledge.v1.MsgResolveIncident", MsgResolveIncident], ["/zerone.knowledge.v1.MsgCloseIncident", MsgCloseIncident], ["/zerone.knowledge.v1.MsgPauseModule", MsgPauseModule], ["/zerone.knowledge.v1.MsgUnpauseModule", MsgUnpauseModule], ["/zerone.knowledge.v1.MsgCorrectManifestMerkleRoot", MsgCorrectManifestMerkleRoot], ["/zerone.knowledge.v1.MsgVetoFactInjection", MsgVetoFactInjection]];
+var registry12 = [["/zerone.knowledge.v1.MsgSubmitClaim", MsgSubmitClaim], ["/zerone.knowledge.v1.MsgSubmitCommitment", MsgSubmitCommitment], ["/zerone.knowledge.v1.MsgSubmitReveal", MsgSubmitReveal], ["/zerone.knowledge.v1.MsgChallengeFact", MsgChallengeFact], ["/zerone.knowledge.v1.MsgAddFact", MsgAddFact], ["/zerone.knowledge.v1.MsgSubmitContradiction", MsgSubmitContradiction], ["/zerone.knowledge.v1.MsgPatronizeFact", MsgPatronizeFact], ["/zerone.knowledge.v1.MsgProposeDomain", MsgProposeDomain], ["/zerone.knowledge.v1.MsgEndorseDomainProposal", MsgEndorseDomainProposal], ["/zerone.knowledge.v1.MsgChallengeDomainProposal", MsgChallengeDomainProposal], ["/zerone.knowledge.v1.MsgRegisterStratum", MsgRegisterStratum], ["/zerone.knowledge.v1.MsgPostConjecture", MsgPostConjecture], ["/zerone.knowledge.v1.MsgChallengeProvisionalFact", MsgChallengeProvisionalFact], ["/zerone.knowledge.v1.MsgUpdateParams", MsgUpdateParams12], ["/zerone.knowledge.v1.MsgUpdateExtendedParams", MsgUpdateExtendedParams], ["/zerone.knowledge.v1.MsgProposeResearchFund", MsgProposeResearchFund], ["/zerone.knowledge.v1.MsgVoteResearchProposal", MsgVoteResearchProposal], ["/zerone.knowledge.v1.MsgExecuteResearchProposal", MsgExecuteResearchProposal], ["/zerone.knowledge.v1.MsgAddCommonKnowledge", MsgAddCommonKnowledge], ["/zerone.knowledge.v1.MsgRemoveCommonKnowledge", MsgRemoveCommonKnowledge], ["/zerone.knowledge.v1.MsgReportDemand", MsgReportDemand], ["/zerone.knowledge.v1.MsgRateFact", MsgRateFact], ["/zerone.knowledge.v1.MsgRegisterTrainingPipeline", MsgRegisterTrainingPipeline], ["/zerone.knowledge.v1.MsgUpdateTrainingPipeline", MsgUpdateTrainingPipeline], ["/zerone.knowledge.v1.MsgRegisterModelCard", MsgRegisterModelCard], ["/zerone.knowledge.v1.MsgUpdateModelCard", MsgUpdateModelCard], ["/zerone.knowledge.v1.MsgRetireModelCard", MsgRetireModelCard], ["/zerone.knowledge.v1.MsgAmendTokenizerSpec", MsgAmendTokenizerSpec], ["/zerone.knowledge.v1.MsgAttributeContributions", MsgAttributeContributions], ["/zerone.knowledge.v1.MsgAttestTraining", MsgAttestTraining], ["/zerone.knowledge.v1.MsgCreateAugmentationBounty", MsgCreateAugmentationBounty], ["/zerone.knowledge.v1.MsgSubmitAugmentation", MsgSubmitAugmentation], ["/zerone.knowledge.v1.MsgAcceptAugmentation", MsgAcceptAugmentation], ["/zerone.knowledge.v1.MsgVoteOnAugmentation", MsgVoteOnAugmentation], ["/zerone.knowledge.v1.MsgSponsorVetoAugmentation", MsgSponsorVetoAugmentation], ["/zerone.knowledge.v1.MsgChallengeContribution", MsgChallengeContribution], ["/zerone.knowledge.v1.MsgResolveContributionChallenge", MsgResolveContributionChallenge], ["/zerone.knowledge.v1.MsgClaimTrainingFundDisbursement", MsgClaimTrainingFundDisbursement], ["/zerone.knowledge.v1.MsgAmendTraceSchema", MsgAmendTraceSchema], ["/zerone.knowledge.v1.MsgCreateTrainingManifest", MsgCreateTrainingManifest], ["/zerone.knowledge.v1.MsgFinalizeTrainingManifest", MsgFinalizeTrainingManifest], ["/zerone.knowledge.v1.MsgBindManifestToAttestation", MsgBindManifestToAttestation], ["/zerone.knowledge.v1.MsgOpenIncident", MsgOpenIncident], ["/zerone.knowledge.v1.MsgRecordRemediation", MsgRecordRemediation], ["/zerone.knowledge.v1.MsgResolveIncident", MsgResolveIncident], ["/zerone.knowledge.v1.MsgCloseIncident", MsgCloseIncident], ["/zerone.knowledge.v1.MsgPauseModule", MsgPauseModule], ["/zerone.knowledge.v1.MsgUnpauseModule", MsgUnpauseModule], ["/zerone.knowledge.v1.MsgCorrectManifestMerkleRoot", MsgCorrectManifestMerkleRoot], ["/zerone.knowledge.v1.MsgVetoFactInjection", MsgVetoFactInjection]];
 var MessageComposer12 = {
   encoded: {
     submitClaim(value) {
@@ -15934,7 +15385,7 @@ var MessageComposer12 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgUpdateParams",
-        value: MsgUpdateParams11.encode(value).finish()
+        value: MsgUpdateParams12.encode(value).finish()
       };
     },
     updateExtendedParams(value) {
@@ -16538,7 +15989,7 @@ var MessageComposer12 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgUpdateParams",
-        value: MsgUpdateParams11.fromPartial(value)
+        value: MsgUpdateParams12.fromPartial(value)
       };
     },
     updateExtendedParams(value) {
@@ -16760,638 +16211,8 @@ var MessageComposer12 = {
   }
 };
 
-// src/generated/zerone/liquiditypool/v1/tx.ts
-var tx_exports13 = {};
-__export(tx_exports13, {
-  MsgAddLiquidity: () => MsgAddLiquidity,
-  MsgAddLiquidityResponse: () => MsgAddLiquidityResponse,
-  MsgCreatePool: () => MsgCreatePool,
-  MsgCreatePoolResponse: () => MsgCreatePoolResponse,
-  MsgRemoveLiquidity: () => MsgRemoveLiquidity,
-  MsgRemoveLiquidityResponse: () => MsgRemoveLiquidityResponse,
-  MsgSwap: () => MsgSwap,
-  MsgSwapResponse: () => MsgSwapResponse,
-  MsgUpdateParams: () => MsgUpdateParams12,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse12
-});
-
-// src/generated/zerone/liquiditypool/v1/genesis.ts
-function createBaseParams13() {
-  return {
-    defaultSwapFeeBps: BigInt(0),
-    maxPools: BigInt(0),
-    minInitialLiquidity: "",
-    twapWindowBlocks: BigInt(0),
-    protocolFeeBps: BigInt(0),
-    minReserve: "",
-    billingQuoteDenoms: []
-  };
-}
-var Params13 = {
-  typeUrl: "/zerone.liquiditypool.v1.Params",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.defaultSwapFeeBps !== BigInt(0)) {
-      writer.uint32(8).uint64(message.defaultSwapFeeBps);
-    }
-    if (message.maxPools !== BigInt(0)) {
-      writer.uint32(16).uint64(message.maxPools);
-    }
-    if (message.minInitialLiquidity !== "") {
-      writer.uint32(26).string(message.minInitialLiquidity);
-    }
-    if (message.twapWindowBlocks !== BigInt(0)) {
-      writer.uint32(32).uint64(message.twapWindowBlocks);
-    }
-    if (message.protocolFeeBps !== BigInt(0)) {
-      writer.uint32(40).uint64(message.protocolFeeBps);
-    }
-    if (message.minReserve !== "") {
-      writer.uint32(50).string(message.minReserve);
-    }
-    for (const v of message.billingQuoteDenoms) {
-      writer.uint32(58).string(v);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams13();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.defaultSwapFeeBps = reader.uint64();
-          break;
-        case 2:
-          message.maxPools = reader.uint64();
-          break;
-        case 3:
-          message.minInitialLiquidity = reader.string();
-          break;
-        case 4:
-          message.twapWindowBlocks = reader.uint64();
-          break;
-        case 5:
-          message.protocolFeeBps = reader.uint64();
-          break;
-        case 6:
-          message.minReserve = reader.string();
-          break;
-        case 7:
-          message.billingQuoteDenoms.push(reader.string());
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseParams13();
-    message.defaultSwapFeeBps = object.defaultSwapFeeBps !== void 0 && object.defaultSwapFeeBps !== null ? BigInt(object.defaultSwapFeeBps.toString()) : BigInt(0);
-    message.maxPools = object.maxPools !== void 0 && object.maxPools !== null ? BigInt(object.maxPools.toString()) : BigInt(0);
-    message.minInitialLiquidity = object.minInitialLiquidity ?? "";
-    message.twapWindowBlocks = object.twapWindowBlocks !== void 0 && object.twapWindowBlocks !== null ? BigInt(object.twapWindowBlocks.toString()) : BigInt(0);
-    message.protocolFeeBps = object.protocolFeeBps !== void 0 && object.protocolFeeBps !== null ? BigInt(object.protocolFeeBps.toString()) : BigInt(0);
-    message.minReserve = object.minReserve ?? "";
-    message.billingQuoteDenoms = object.billingQuoteDenoms?.map((e) => e) || [];
-    return message;
-  }
-};
-
-// src/generated/zerone/liquiditypool/v1/tx.ts
-function createBaseMsgCreatePool() {
-  return {
-    creator: "",
-    denomA: "",
-    denomB: "",
-    amountA: "",
-    amountB: "",
-    swapFeeBps: BigInt(0)
-  };
-}
-var MsgCreatePool = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgCreatePool",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.creator !== "") {
-      writer.uint32(10).string(message.creator);
-    }
-    if (message.denomA !== "") {
-      writer.uint32(18).string(message.denomA);
-    }
-    if (message.denomB !== "") {
-      writer.uint32(26).string(message.denomB);
-    }
-    if (message.amountA !== "") {
-      writer.uint32(34).string(message.amountA);
-    }
-    if (message.amountB !== "") {
-      writer.uint32(42).string(message.amountB);
-    }
-    if (message.swapFeeBps !== BigInt(0)) {
-      writer.uint32(48).uint64(message.swapFeeBps);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgCreatePool();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.creator = reader.string();
-          break;
-        case 2:
-          message.denomA = reader.string();
-          break;
-        case 3:
-          message.denomB = reader.string();
-          break;
-        case 4:
-          message.amountA = reader.string();
-          break;
-        case 5:
-          message.amountB = reader.string();
-          break;
-        case 6:
-          message.swapFeeBps = reader.uint64();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgCreatePool();
-    message.creator = object.creator ?? "";
-    message.denomA = object.denomA ?? "";
-    message.denomB = object.denomB ?? "";
-    message.amountA = object.amountA ?? "";
-    message.amountB = object.amountB ?? "";
-    message.swapFeeBps = object.swapFeeBps !== void 0 && object.swapFeeBps !== null ? BigInt(object.swapFeeBps.toString()) : BigInt(0);
-    return message;
-  }
-};
-function createBaseMsgCreatePoolResponse() {
-  return {
-    poolId: ""
-  };
-}
-var MsgCreatePoolResponse = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgCreatePoolResponse",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.poolId !== "") {
-      writer.uint32(10).string(message.poolId);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgCreatePoolResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.poolId = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgCreatePoolResponse();
-    message.poolId = object.poolId ?? "";
-    return message;
-  }
-};
-function createBaseMsgSwap() {
-  return {
-    sender: "",
-    poolId: "",
-    tokenInDenom: "",
-    tokenInAmount: "",
-    minTokenOut: ""
-  };
-}
-var MsgSwap = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgSwap",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.sender !== "") {
-      writer.uint32(10).string(message.sender);
-    }
-    if (message.poolId !== "") {
-      writer.uint32(18).string(message.poolId);
-    }
-    if (message.tokenInDenom !== "") {
-      writer.uint32(26).string(message.tokenInDenom);
-    }
-    if (message.tokenInAmount !== "") {
-      writer.uint32(34).string(message.tokenInAmount);
-    }
-    if (message.minTokenOut !== "") {
-      writer.uint32(42).string(message.minTokenOut);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgSwap();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.sender = reader.string();
-          break;
-        case 2:
-          message.poolId = reader.string();
-          break;
-        case 3:
-          message.tokenInDenom = reader.string();
-          break;
-        case 4:
-          message.tokenInAmount = reader.string();
-          break;
-        case 5:
-          message.minTokenOut = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgSwap();
-    message.sender = object.sender ?? "";
-    message.poolId = object.poolId ?? "";
-    message.tokenInDenom = object.tokenInDenom ?? "";
-    message.tokenInAmount = object.tokenInAmount ?? "";
-    message.minTokenOut = object.minTokenOut ?? "";
-    return message;
-  }
-};
-function createBaseMsgSwapResponse() {
-  return {
-    tokenOutAmount: "",
-    feeAmount: ""
-  };
-}
-var MsgSwapResponse = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgSwapResponse",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.tokenOutAmount !== "") {
-      writer.uint32(10).string(message.tokenOutAmount);
-    }
-    if (message.feeAmount !== "") {
-      writer.uint32(18).string(message.feeAmount);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgSwapResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.tokenOutAmount = reader.string();
-          break;
-        case 2:
-          message.feeAmount = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgSwapResponse();
-    message.tokenOutAmount = object.tokenOutAmount ?? "";
-    message.feeAmount = object.feeAmount ?? "";
-    return message;
-  }
-};
-function createBaseMsgAddLiquidity() {
-  return {
-    sender: "",
-    poolId: "",
-    amountA: "",
-    amountB: "",
-    minLpTokens: ""
-  };
-}
-var MsgAddLiquidity = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgAddLiquidity",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.sender !== "") {
-      writer.uint32(10).string(message.sender);
-    }
-    if (message.poolId !== "") {
-      writer.uint32(18).string(message.poolId);
-    }
-    if (message.amountA !== "") {
-      writer.uint32(26).string(message.amountA);
-    }
-    if (message.amountB !== "") {
-      writer.uint32(34).string(message.amountB);
-    }
-    if (message.minLpTokens !== "") {
-      writer.uint32(42).string(message.minLpTokens);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgAddLiquidity();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.sender = reader.string();
-          break;
-        case 2:
-          message.poolId = reader.string();
-          break;
-        case 3:
-          message.amountA = reader.string();
-          break;
-        case 4:
-          message.amountB = reader.string();
-          break;
-        case 5:
-          message.minLpTokens = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgAddLiquidity();
-    message.sender = object.sender ?? "";
-    message.poolId = object.poolId ?? "";
-    message.amountA = object.amountA ?? "";
-    message.amountB = object.amountB ?? "";
-    message.minLpTokens = object.minLpTokens ?? "";
-    return message;
-  }
-};
-function createBaseMsgAddLiquidityResponse() {
-  return {
-    lpTokensMinted: "",
-    actualA: "",
-    actualB: ""
-  };
-}
-var MsgAddLiquidityResponse = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgAddLiquidityResponse",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.lpTokensMinted !== "") {
-      writer.uint32(10).string(message.lpTokensMinted);
-    }
-    if (message.actualA !== "") {
-      writer.uint32(18).string(message.actualA);
-    }
-    if (message.actualB !== "") {
-      writer.uint32(26).string(message.actualB);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgAddLiquidityResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.lpTokensMinted = reader.string();
-          break;
-        case 2:
-          message.actualA = reader.string();
-          break;
-        case 3:
-          message.actualB = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgAddLiquidityResponse();
-    message.lpTokensMinted = object.lpTokensMinted ?? "";
-    message.actualA = object.actualA ?? "";
-    message.actualB = object.actualB ?? "";
-    return message;
-  }
-};
-function createBaseMsgRemoveLiquidity() {
-  return {
-    sender: "",
-    poolId: "",
-    lpTokens: "",
-    minAmountA: "",
-    minAmountB: ""
-  };
-}
-var MsgRemoveLiquidity = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgRemoveLiquidity",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.sender !== "") {
-      writer.uint32(10).string(message.sender);
-    }
-    if (message.poolId !== "") {
-      writer.uint32(18).string(message.poolId);
-    }
-    if (message.lpTokens !== "") {
-      writer.uint32(26).string(message.lpTokens);
-    }
-    if (message.minAmountA !== "") {
-      writer.uint32(34).string(message.minAmountA);
-    }
-    if (message.minAmountB !== "") {
-      writer.uint32(42).string(message.minAmountB);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgRemoveLiquidity();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.sender = reader.string();
-          break;
-        case 2:
-          message.poolId = reader.string();
-          break;
-        case 3:
-          message.lpTokens = reader.string();
-          break;
-        case 4:
-          message.minAmountA = reader.string();
-          break;
-        case 5:
-          message.minAmountB = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgRemoveLiquidity();
-    message.sender = object.sender ?? "";
-    message.poolId = object.poolId ?? "";
-    message.lpTokens = object.lpTokens ?? "";
-    message.minAmountA = object.minAmountA ?? "";
-    message.minAmountB = object.minAmountB ?? "";
-    return message;
-  }
-};
-function createBaseMsgRemoveLiquidityResponse() {
-  return {
-    amountA: "",
-    amountB: ""
-  };
-}
-var MsgRemoveLiquidityResponse = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgRemoveLiquidityResponse",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.amountA !== "") {
-      writer.uint32(10).string(message.amountA);
-    }
-    if (message.amountB !== "") {
-      writer.uint32(18).string(message.amountB);
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgRemoveLiquidityResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.amountA = reader.string();
-          break;
-        case 2:
-          message.amountB = reader.string();
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgRemoveLiquidityResponse();
-    message.amountA = object.amountA ?? "";
-    message.amountB = object.amountB ?? "";
-    return message;
-  }
-};
-function createBaseMsgUpdateParams12() {
-  return {
-    authority: "",
-    params: void 0
-  };
-}
-var MsgUpdateParams12 = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParams",
-  encode(message, writer = BinaryWriter.create()) {
-    if (message.authority !== "") {
-      writer.uint32(10).string(message.authority);
-    }
-    if (message.params !== void 0) {
-      Params13.encode(message.params, writer.uint32(18).fork()).ldelim();
-    }
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams12();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          message.authority = reader.string();
-          break;
-        case 2:
-          message.params = Params13.decode(reader, reader.uint32());
-          break;
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(object) {
-    const message = createBaseMsgUpdateParams12();
-    message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params13.fromPartial(object.params) : void 0;
-    return message;
-  }
-};
-function createBaseMsgUpdateParamsResponse12() {
-  return {};
-}
-var MsgUpdateParamsResponse12 = {
-  typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParamsResponse",
-  encode(_, writer = BinaryWriter.create()) {
-    return writer;
-  },
-  decode(input, length) {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse12();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        default:
-          reader.skipType(tag & 7);
-          break;
-      }
-    }
-    return message;
-  },
-  fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse12();
-    return message;
-  }
-};
-
 // src/generated/zerone/liquiditypool/v1/tx.registry.ts
-var registry13 = [["/zerone.liquiditypool.v1.MsgCreatePool", MsgCreatePool], ["/zerone.liquiditypool.v1.MsgSwap", MsgSwap], ["/zerone.liquiditypool.v1.MsgAddLiquidity", MsgAddLiquidity], ["/zerone.liquiditypool.v1.MsgRemoveLiquidity", MsgRemoveLiquidity], ["/zerone.liquiditypool.v1.MsgUpdateParams", MsgUpdateParams12]];
+var registry13 = [["/zerone.liquiditypool.v1.MsgCreatePool", MsgCreatePool], ["/zerone.liquiditypool.v1.MsgSwap", MsgSwap], ["/zerone.liquiditypool.v1.MsgAddLiquidity", MsgAddLiquidity], ["/zerone.liquiditypool.v1.MsgRemoveLiquidity", MsgRemoveLiquidity], ["/zerone.liquiditypool.v1.MsgUpdateParams", MsgUpdateParams], ["/zerone.liquiditypool.v1.MsgSetPoolStatus", MsgSetPoolStatus]];
 var MessageComposer13 = {
   encoded: {
     createPool(value) {
@@ -17421,7 +16242,13 @@ var MessageComposer13 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParams",
-        value: MsgUpdateParams12.encode(value).finish()
+        value: MsgUpdateParams.encode(value).finish()
+      };
+    },
+    setPoolStatus(value) {
+      return {
+        typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatus",
+        value: MsgSetPoolStatus.encode(value).finish()
       };
     }
   },
@@ -17455,6 +16282,12 @@ var MessageComposer13 = {
         typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParams",
         value
       };
+    },
+    setPoolStatus(value) {
+      return {
+        typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatus",
+        value
+      };
     }
   },
   fromPartial: {
@@ -17485,15 +16318,21 @@ var MessageComposer13 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.liquiditypool.v1.MsgUpdateParams",
-        value: MsgUpdateParams12.fromPartial(value)
+        value: MsgUpdateParams.fromPartial(value)
+      };
+    },
+    setPoolStatus(value) {
+      return {
+        typeUrl: "/zerone.liquiditypool.v1.MsgSetPoolStatus",
+        value: MsgSetPoolStatus.fromPartial(value)
       };
     }
   }
 };
 
 // src/generated/zerone/ontology/v1/tx.ts
-var tx_exports14 = {};
-__export(tx_exports14, {
+var tx_exports13 = {};
+__export(tx_exports13, {
   MsgAcknowledgeIncompleteness: () => MsgAcknowledgeIncompleteness,
   MsgAcknowledgeIncompletenessResponse: () => MsgAcknowledgeIncompletenessResponse,
   MsgProposeDomain: () => MsgProposeDomain2,
@@ -17503,7 +16342,7 @@ __export(tx_exports14, {
   MsgUpdateDomain: () => MsgUpdateDomain,
   MsgUpdateDomainResponse: () => MsgUpdateDomainResponse,
   MsgUpdateParams: () => MsgUpdateParams13,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse13,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse12,
   MsgVoteDomainProposal: () => MsgVoteDomainProposal,
   MsgVoteDomainProposalResponse: () => MsgVoteDomainProposalResponse
 });
@@ -17587,7 +16426,7 @@ var LogicZoneProperties = {
 };
 
 // src/generated/zerone/ontology/v1/genesis.ts
-function createBaseParams14() {
+function createBaseParams13() {
   return {
     minProposalStake: "",
     proposalVotingPeriod: BigInt(0),
@@ -17597,7 +16436,7 @@ function createBaseParams14() {
     allowNewStrata: false
   };
 }
-var Params14 = {
+var Params13 = {
   typeUrl: "/zerone.ontology.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.minProposalStake !== "") {
@@ -17623,7 +16462,7 @@ var Params14 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams14();
+    const message = createBaseParams13();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -17653,7 +16492,7 @@ var Params14 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams14();
+    const message = createBaseParams13();
     message.minProposalStake = object.minProposalStake ?? "";
     message.proposalVotingPeriod = object.proposalVotingPeriod !== void 0 && object.proposalVotingPeriod !== null ? BigInt(object.proposalVotingPeriod.toString()) : BigInt(0);
     message.minEndorsements = object.minEndorsements ?? 0;
@@ -18109,7 +16948,7 @@ var MsgAcknowledgeIncompletenessResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams13() {
+function createBaseMsgUpdateParams12() {
   return {
     authority: "",
     params: void 0
@@ -18122,14 +16961,14 @@ var MsgUpdateParams13 = {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params14.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params13.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams13();
+    const message = createBaseMsgUpdateParams12();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -18137,7 +16976,7 @@ var MsgUpdateParams13 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params14.decode(reader, reader.uint32());
+          message.params = Params13.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -18147,16 +16986,16 @@ var MsgUpdateParams13 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams13();
+    const message = createBaseMsgUpdateParams12();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params14.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params13.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse13() {
+function createBaseMsgUpdateParamsResponse12() {
   return {};
 }
-var MsgUpdateParamsResponse13 = {
+var MsgUpdateParamsResponse12 = {
   typeUrl: "/zerone.ontology.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -18164,7 +17003,7 @@ var MsgUpdateParamsResponse13 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse13();
+    const message = createBaseMsgUpdateParamsResponse12();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -18176,7 +17015,7 @@ var MsgUpdateParamsResponse13 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse13();
+    const message = createBaseMsgUpdateParamsResponse12();
     return message;
   }
 };
@@ -18301,8 +17140,8 @@ var MessageComposer14 = {
 };
 
 // src/generated/zerone/qualification/v1/tx.ts
-var tx_exports15 = {};
-__export(tx_exports15, {
+var tx_exports14 = {};
+__export(tx_exports14, {
   MsgEndorseQualification: () => MsgEndorseQualification,
   MsgEndorseQualificationResponse: () => MsgEndorseQualificationResponse,
   MsgQualifyByCrossReference: () => MsgQualifyByCrossReference,
@@ -18316,13 +17155,13 @@ __export(tx_exports15, {
   MsgRenewQualification: () => MsgRenewQualification,
   MsgRenewQualificationResponse: () => MsgRenewQualificationResponse,
   MsgUpdateParams: () => MsgUpdateParams14,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse14,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse13,
   MsgWithdrawQualification: () => MsgWithdrawQualification,
   MsgWithdrawQualificationResponse: () => MsgWithdrawQualificationResponse
 });
 
 // src/generated/zerone/qualification/v1/genesis.ts
-function createBaseParams15() {
+function createBaseParams14() {
   return {
     minStakeAmount: "",
     stakeLockPeriod: BigInt(0),
@@ -18344,7 +17183,7 @@ function createBaseParams15() {
     decayRecoveryBps: BigInt(0)
   };
 }
-var Params15 = {
+var Params14 = {
   typeUrl: "/zerone.qualification.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.minStakeAmount !== "") {
@@ -18406,7 +17245,7 @@ var Params15 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams15();
+    const message = createBaseParams14();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -18472,7 +17311,7 @@ var Params15 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams15();
+    const message = createBaseParams14();
     message.minStakeAmount = object.minStakeAmount ?? "";
     message.stakeLockPeriod = object.stakeLockPeriod !== void 0 && object.stakeLockPeriod !== null ? BigInt(object.stakeLockPeriod.toString()) : BigInt(0);
     message.minVerifications = object.minVerifications !== void 0 && object.minVerifications !== null ? BigInt(object.minVerifications.toString()) : BigInt(0);
@@ -19050,7 +17889,7 @@ var MsgWithdrawQualificationResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams14() {
+function createBaseMsgUpdateParams13() {
   return {
     authority: "",
     params: void 0
@@ -19063,14 +17902,14 @@ var MsgUpdateParams14 = {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params15.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params14.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams14();
+    const message = createBaseMsgUpdateParams13();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -19078,7 +17917,7 @@ var MsgUpdateParams14 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params15.decode(reader, reader.uint32());
+          message.params = Params14.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -19088,16 +17927,16 @@ var MsgUpdateParams14 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams14();
+    const message = createBaseMsgUpdateParams13();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params15.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params14.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse14() {
+function createBaseMsgUpdateParamsResponse13() {
   return {};
 }
-var MsgUpdateParamsResponse14 = {
+var MsgUpdateParamsResponse13 = {
   typeUrl: "/zerone.qualification.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -19105,7 +17944,7 @@ var MsgUpdateParamsResponse14 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse14();
+    const message = createBaseMsgUpdateParamsResponse13();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -19117,7 +17956,7 @@ var MsgUpdateParamsResponse14 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse14();
+    const message = createBaseMsgUpdateParamsResponse13();
     return message;
   }
 };
@@ -19278,8 +18117,8 @@ var MessageComposer15 = {
 };
 
 // src/generated/zerone/sponsorship/v1/tx.ts
-var tx_exports16 = {};
-__export(tx_exports16, {
+var tx_exports15 = {};
+__export(tx_exports15, {
   MsgCancelBountyOrder: () => MsgCancelBountyOrder,
   MsgCancelBountyOrderResponse: () => MsgCancelBountyOrderResponse,
   MsgCreateBountyOrder: () => MsgCreateBountyOrder,
@@ -19642,8 +18481,8 @@ var MessageComposer16 = {
 };
 
 // src/generated/zerone/staking/v1/tx.ts
-var tx_exports17 = {};
-__export(tx_exports17, {
+var tx_exports16 = {};
+__export(tx_exports16, {
   MsgDelegate: () => MsgDelegate,
   MsgDelegateResponse: () => MsgDelegateResponse,
   MsgRedelegate: () => MsgRedelegate,
@@ -19653,7 +18492,7 @@ __export(tx_exports17, {
   MsgUndelegate: () => MsgUndelegate,
   MsgUndelegateResponse: () => MsgUndelegateResponse,
   MsgUpdateParams: () => MsgUpdateParams15,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse15,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse14,
   MsgUpdateValidatorStake: () => MsgUpdateValidatorStake,
   MsgUpdateValidatorStakeResponse: () => MsgUpdateValidatorStakeResponse
 });
@@ -19801,7 +18640,7 @@ var TierConfig = {
 };
 
 // src/generated/zerone/staking/v1/genesis.ts
-function createBaseParams16() {
+function createBaseParams15() {
   return {
     unbondingPeriod: BigInt(0),
     virtualStake: "",
@@ -19819,7 +18658,7 @@ function createBaseParams16() {
     tierConfigs: []
   };
 }
-var Params16 = {
+var Params15 = {
   typeUrl: "/zerone.staking.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.unbondingPeriod !== BigInt(0)) {
@@ -19869,7 +18708,7 @@ var Params16 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams16();
+    const message = createBaseParams15();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -19923,7 +18762,7 @@ var Params16 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams16();
+    const message = createBaseParams15();
     message.unbondingPeriod = object.unbondingPeriod !== void 0 && object.unbondingPeriod !== null ? BigInt(object.unbondingPeriod.toString()) : BigInt(0);
     message.virtualStake = object.virtualStake ?? "";
     message.maxValidators = object.maxValidators !== void 0 && object.maxValidators !== null ? BigInt(object.maxValidators.toString()) : BigInt(0);
@@ -20421,7 +19260,7 @@ var MsgUpdateValidatorStakeResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams15() {
+function createBaseMsgUpdateParams14() {
   return {
     authority: "",
     params: void 0
@@ -20434,14 +19273,14 @@ var MsgUpdateParams15 = {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params16.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params15.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams15();
+    const message = createBaseMsgUpdateParams14();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -20449,7 +19288,7 @@ var MsgUpdateParams15 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params16.decode(reader, reader.uint32());
+          message.params = Params15.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -20459,16 +19298,16 @@ var MsgUpdateParams15 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams15();
+    const message = createBaseMsgUpdateParams14();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params16.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params15.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse15() {
+function createBaseMsgUpdateParamsResponse14() {
   return {};
 }
-var MsgUpdateParamsResponse15 = {
+var MsgUpdateParamsResponse14 = {
   typeUrl: "/zerone.staking.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -20476,7 +19315,7 @@ var MsgUpdateParamsResponse15 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse15();
+    const message = createBaseMsgUpdateParamsResponse14();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -20488,7 +19327,7 @@ var MsgUpdateParamsResponse15 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse15();
+    const message = createBaseMsgUpdateParamsResponse14();
     return message;
   }
 };
@@ -20613,8 +19452,8 @@ var MessageComposer17 = {
 };
 
 // src/generated/zerone/substrate_bridge/v1/tx.ts
-var tx_exports18 = {};
-__export(tx_exports18, {
+var tx_exports17 = {};
+__export(tx_exports17, {
   MsgRegisterAdapter: () => MsgRegisterAdapter,
   MsgRegisterAdapterResponse: () => MsgRegisterAdapterResponse,
   MsgSubmitExternalAttestation: () => MsgSubmitExternalAttestation,
@@ -21734,8 +20573,8 @@ var MessageComposer18 = {
 };
 
 // src/generated/zerone/tokens/v1/tx.ts
-var tx_exports19 = {};
-__export(tx_exports19, {
+var tx_exports18 = {};
+__export(tx_exports18, {
   MsgApproveToken: () => MsgApproveToken,
   MsgApproveTokenResponse: () => MsgApproveTokenResponse,
   MsgBurnToken: () => MsgBurnToken,
@@ -21763,7 +20602,7 @@ __export(tx_exports19, {
   MsgUnwrapToken: () => MsgUnwrapToken,
   MsgUnwrapTokenResponse: () => MsgUnwrapTokenResponse,
   MsgUpdateParams: () => MsgUpdateParams16,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse16,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse15,
   MsgWrapToken: () => MsgWrapToken,
   MsgWrapTokenResponse: () => MsgWrapTokenResponse
 });
@@ -21831,13 +20670,13 @@ var TokenFeatures = {
 };
 
 // src/generated/zerone/tokens/v1/genesis.ts
-function createBaseParams17() {
+function createBaseParams16() {
   return {
     emissionEpochBlocks: BigInt(0),
     defaultFeeBps: ""
   };
 }
-var Params17 = {
+var Params16 = {
   typeUrl: "/zerone.tokens.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.emissionEpochBlocks !== BigInt(0)) {
@@ -21851,7 +20690,7 @@ var Params17 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams17();
+    const message = createBaseParams16();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -21869,7 +20708,7 @@ var Params17 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams17();
+    const message = createBaseParams16();
     message.emissionEpochBlocks = object.emissionEpochBlocks !== void 0 && object.emissionEpochBlocks !== null ? BigInt(object.emissionEpochBlocks.toString()) : BigInt(0);
     message.defaultFeeBps = object.defaultFeeBps ?? "";
     return message;
@@ -23099,7 +21938,7 @@ var MsgCancelEmissionPeriodResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams16() {
+function createBaseMsgUpdateParams15() {
   return {
     authority: "",
     params: void 0
@@ -23112,14 +21951,14 @@ var MsgUpdateParams16 = {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params17.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params16.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams16();
+    const message = createBaseMsgUpdateParams15();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -23127,7 +21966,7 @@ var MsgUpdateParams16 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params17.decode(reader, reader.uint32());
+          message.params = Params16.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -23137,16 +21976,16 @@ var MsgUpdateParams16 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams16();
+    const message = createBaseMsgUpdateParams15();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params17.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params16.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse16() {
+function createBaseMsgUpdateParamsResponse15() {
   return {};
 }
-var MsgUpdateParamsResponse16 = {
+var MsgUpdateParamsResponse15 = {
   typeUrl: "/zerone.tokens.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -23154,7 +21993,7 @@ var MsgUpdateParamsResponse16 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse16();
+    const message = createBaseMsgUpdateParamsResponse15();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -23166,7 +22005,7 @@ var MsgUpdateParamsResponse16 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse16();
+    const message = createBaseMsgUpdateParamsResponse15();
     return message;
   }
 };
@@ -23453,8 +22292,8 @@ var MessageComposer19 = {
 };
 
 // src/generated/zerone/vesting_rewards/v1/tx.ts
-var tx_exports20 = {};
-__export(tx_exports20, {
+var tx_exports19 = {};
+__export(tx_exports19, {
   MsgAccelerateVesting: () => MsgAccelerateVesting,
   MsgAccelerateVestingResponse: () => MsgAccelerateVestingResponse,
   MsgClaimVesting: () => MsgClaimVesting,
@@ -23470,7 +22309,7 @@ __export(tx_exports20, {
   MsgResumeVesting: () => MsgResumeVesting,
   MsgResumeVestingResponse: () => MsgResumeVestingResponse,
   MsgUpdateParams: () => MsgUpdateParams17,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse17,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse16,
   VestingCategory: () => VestingCategory,
   vestingCategoryFromJSON: () => vestingCategoryFromJSON,
   vestingCategoryToJSON: () => vestingCategoryToJSON
@@ -23591,7 +22430,7 @@ var ProtocolSubSplit = {
 };
 
 // src/generated/zerone/vesting_rewards/v1/genesis.ts
-function createBaseParams18() {
+function createBaseParams17() {
   return {
     blockReward: "",
     rewardDecayBps: BigInt(0),
@@ -23613,7 +22452,7 @@ function createBaseParams18() {
     knowledgeCouplingFloorBps: BigInt(0)
   };
 }
-var Params18 = {
+var Params17 = {
   typeUrl: "/zerone.vesting_rewards.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.blockReward !== "") {
@@ -23675,7 +22514,7 @@ var Params18 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams18();
+    const message = createBaseParams17();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -23741,7 +22580,7 @@ var Params18 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams18();
+    const message = createBaseParams17();
     message.blockReward = object.blockReward ?? "";
     message.rewardDecayBps = object.rewardDecayBps !== void 0 && object.rewardDecayBps !== null ? BigInt(object.rewardDecayBps.toString()) : BigInt(0);
     message.blocksPerRewardEpoch = object.blocksPerRewardEpoch !== void 0 && object.blocksPerRewardEpoch !== null ? BigInt(object.blocksPerRewardEpoch.toString()) : BigInt(0);
@@ -24475,7 +23314,7 @@ var MsgCompleteVestingResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams17() {
+function createBaseMsgUpdateParams16() {
   return {
     authority: "",
     params: void 0
@@ -24488,14 +23327,14 @@ var MsgUpdateParams17 = {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params18.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params17.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams17();
+    const message = createBaseMsgUpdateParams16();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -24503,7 +23342,7 @@ var MsgUpdateParams17 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params18.decode(reader, reader.uint32());
+          message.params = Params17.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -24513,16 +23352,16 @@ var MsgUpdateParams17 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams17();
+    const message = createBaseMsgUpdateParams16();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params18.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params17.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse17() {
+function createBaseMsgUpdateParamsResponse16() {
   return {};
 }
-var MsgUpdateParamsResponse17 = {
+var MsgUpdateParamsResponse16 = {
   typeUrl: "/zerone.vesting_rewards.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -24530,7 +23369,7 @@ var MsgUpdateParamsResponse17 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse17();
+    const message = createBaseMsgUpdateParamsResponse16();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -24542,7 +23381,7 @@ var MsgUpdateParamsResponse17 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse17();
+    const message = createBaseMsgUpdateParamsResponse16();
     return message;
   }
 };
@@ -24739,28 +23578,27 @@ export {
   tx_exports12,
   registry12,
   MessageComposer12,
-  tx_exports13,
   registry13,
   MessageComposer13,
-  tx_exports14,
+  tx_exports13,
   registry14,
   MessageComposer14,
-  tx_exports15,
+  tx_exports14,
   registry15,
   MessageComposer15,
-  tx_exports16,
+  tx_exports15,
   registry16,
   MessageComposer16,
-  tx_exports17,
+  tx_exports16,
   registry17,
   MessageComposer17,
-  tx_exports18,
+  tx_exports17,
   registry18,
   MessageComposer18,
-  tx_exports19,
+  tx_exports18,
   registry19,
   MessageComposer19,
-  tx_exports20,
+  tx_exports19,
   registry20,
   MessageComposer20
 };

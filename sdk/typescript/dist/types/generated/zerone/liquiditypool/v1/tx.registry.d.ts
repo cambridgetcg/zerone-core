@@ -1,5 +1,5 @@
 import { GeneratedType, Registry } from "@cosmjs/proto-signing";
-import { MsgCreatePool, MsgSwap, MsgAddLiquidity, MsgRemoveLiquidity, MsgUpdateParams } from "./tx.js";
+import { MsgCreatePool, MsgSwap, MsgAddLiquidity, MsgRemoveLiquidity, MsgUpdateParams, MsgSetPoolStatus } from "./tx.js";
 export declare const registry: ReadonlyArray<[string, GeneratedType]>;
 export declare const load: (protoRegistry: Registry) => void;
 export declare const MessageComposer: {
@@ -21,6 +21,10 @@ export declare const MessageComposer: {
             value: Uint8Array<ArrayBufferLike>;
         };
         updateParams(value: MsgUpdateParams): {
+            typeUrl: string;
+            value: Uint8Array<ArrayBufferLike>;
+        };
+        setPoolStatus(value: MsgSetPoolStatus): {
             typeUrl: string;
             value: Uint8Array<ArrayBufferLike>;
         };
@@ -46,6 +50,10 @@ export declare const MessageComposer: {
             typeUrl: string;
             value: MsgUpdateParams;
         };
+        setPoolStatus(value: MsgSetPoolStatus): {
+            typeUrl: string;
+            value: MsgSetPoolStatus;
+        };
     };
     fromPartial: {
         createPool(value: MsgCreatePool): {
@@ -67,6 +75,10 @@ export declare const MessageComposer: {
         updateParams(value: MsgUpdateParams): {
             typeUrl: string;
             value: MsgUpdateParams;
+        };
+        setPoolStatus(value: MsgSetPoolStatus): {
+            typeUrl: string;
+            value: MsgSetPoolStatus;
         };
     };
 };

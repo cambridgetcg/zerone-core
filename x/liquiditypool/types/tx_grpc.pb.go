@@ -24,6 +24,7 @@ const (
 	Msg_AddLiquidity_FullMethodName    = "/zerone.liquiditypool.v1.Msg/AddLiquidity"
 	Msg_RemoveLiquidity_FullMethodName = "/zerone.liquiditypool.v1.Msg/RemoveLiquidity"
 	Msg_UpdateParams_FullMethodName    = "/zerone.liquiditypool.v1.Msg/UpdateParams"
+	Msg_SetPoolStatus_FullMethodName   = "/zerone.liquiditypool.v1.Msg/SetPoolStatus"
 )
 
 // MsgClient is the client API for Msg service.
@@ -41,6 +42,7 @@ type MsgClient interface {
 	RemoveLiquidity(ctx context.Context, in *MsgRemoveLiquidity, opts ...grpc.CallOption) (*MsgRemoveLiquidityResponse, error)
 	// Governance
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
+	SetPoolStatus(ctx context.Context, in *MsgSetPoolStatus, opts ...grpc.CallOption) (*MsgSetPoolStatusResponse, error)
 }
 
 type msgClient struct {
@@ -101,6 +103,16 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 	return out, nil
 }
 
+func (c *msgClient) SetPoolStatus(ctx context.Context, in *MsgSetPoolStatus, opts ...grpc.CallOption) (*MsgSetPoolStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgSetPoolStatusResponse)
+	err := c.cc.Invoke(ctx, Msg_SetPoolStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 // All implementations must embed UnimplementedMsgServer
 // for forward compatibility.
@@ -116,6 +128,7 @@ type MsgServer interface {
 	RemoveLiquidity(context.Context, *MsgRemoveLiquidity) (*MsgRemoveLiquidityResponse, error)
 	// Governance
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
+	SetPoolStatus(context.Context, *MsgSetPoolStatus) (*MsgSetPoolStatusResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
 
@@ -140,6 +153,9 @@ func (UnimplementedMsgServer) RemoveLiquidity(context.Context, *MsgRemoveLiquidi
 }
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateParams not implemented")
+}
+func (UnimplementedMsgServer) SetPoolStatus(context.Context, *MsgSetPoolStatus) (*MsgSetPoolStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetPoolStatus not implemented")
 }
 func (UnimplementedMsgServer) mustEmbedUnimplementedMsgServer() {}
 func (UnimplementedMsgServer) testEmbeddedByValue()             {}
@@ -252,6 +268,24 @@ func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_SetPoolStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgSetPoolStatus)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).SetPoolStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_SetPoolStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).SetPoolStatus(ctx, req.(*MsgSetPoolStatus))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Msg_ServiceDesc is the grpc.ServiceDesc for Msg service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -278,6 +312,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateParams",
 			Handler:    _Msg_UpdateParams_Handler,
+		},
+		{
+			MethodName: "SetPoolStatus",
+			Handler:    _Msg_SetPoolStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
