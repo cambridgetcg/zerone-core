@@ -10,10 +10,13 @@
     "check": "npm run check:index && npm run check:tree && npm test && tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
     "check:index": "node scripts/validate-adapter-index.mjs public/standards/adapter-index.v1.json && node --test scripts/adapter-index.test.mjs",
     "check:tree": "node scripts/validate-constructive-intelligence-tree.mjs public/standards/constructive-intelligence-tree.v1.json && node --test scripts/constructive-intelligence-tree.test.mjs",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "NODE_OPTIONS=--preserve-symlinks tsx --test tests/*.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cosmjs/amino": "0.39.0",
+    "@cosmjs/crypto": "0.39.0",
+    "@cosmjs/encoding": "0.39.0",
     "@cosmjs/proto-signing": "0.39.0",
     "@cosmjs/stargate": "0.39.0",
     "@zerone-chain/sdk": "file:../sdk/typescript",

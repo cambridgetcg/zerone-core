@@ -48,6 +48,56 @@ it cannot contact the production node. `npm run build` repeats those gates,
 builds the Vite application, and compiles Pages Functions with the repository's
 pinned Wrangler version.
 
+## Pi account onboarding pilot
+
+The repository contains a staged Pi account sign-in pilot. It is off by
+default and does not change anonymous dashboard access or ordinary Keplr use.
+Pi sign-in authenticates an app-specific Pi account only; it is not KYC,
+unique-human proof, a Pi wallet assertion, or a Zerone identity.
+
+The optional second phase asks Keplr for one signature in the draft ADR-036
+off-chain format to link a `zerone-1` address. It has a separate consent screen
+and activation flag. It never falls back to a transaction. Neither phase
+enables Pi payments, asset bridging, rewards, qualification, validator
+behavior, or a consensus change.
+
+Browser build flags:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VITE_PI_PILOT_ENABLED` | unset/false | Renders the Pi sign-in pilot. |
+| `VITE_PI_WALLET_PROOF_ENABLED` | unset/false | Renders the optional wallet-proof controls after Pi sign-in. |
+
+Pages Function configuration:
+
+| Variable or binding | Required value |
+| --- | --- |
+| `PI_PILOT_ENABLED` | Exact string `true` to serve Pi authentication. |
+| `PI_WALLET_PROOF_ENABLED` | Exact string `true` to serve wallet-proof routes. |
+| `PI_CLIENT_ID` | Public client ID from the reviewed Pi developer app. |
+| `PI_PUBLIC_ORIGIN` | Exact dashboard origin; HTTPS except for a loopback development origin. |
+| `PI_SUBJECT_PEPPER` | Deployment secret containing at least 32 random bytes. |
+| `PI_AUTH_DB` | D1 binding with the checked-in migration applied. |
+
+`.dev.vars.example` documents the edge values without containing a usable
+secret. Vite does not read `.dev.vars`; supply the two `VITE_` values to the
+build environment separately. Vite's development server alone also does not
+emulate D1-backed Pages Functions, so an end-to-end sign-in test needs a Pages
+runtime with the `PI_AUTH_DB` binding.
+
+Before activation, register the exact
+`<PI_PUBLIC_ORIGIN>/pi/callback/` redirect in the Pi developer portal, apply the
+SQL under `migrations/` to the intended D1 database, configure each environment
+separately, add reviewed Cloudflare rate-limit rules for `/api/pi/authorize`
+and `/api/pi/session`, establish the documented expired-row retention
+procedure, and disable Cloudflare Web Analytics automatic JavaScript injection.
+Verify the live dashboard response contains no third-party executable code,
+then validate phase A before enabling phase B. Preview and production must not
+share a subject pepper, D1 database, cookie state, or Pi redirect registration.
+See
+[`docs/specs/pi-account-onboarding-pilot-v1.md`](../docs/specs/pi-account-onboarding-pilot-v1.md)
+for the threat model, privacy boundary, acceptance gates, and rollback order.
+
 ## Deploy
 
 The Cloudflare Pages project is `zerone-ai`. From this directory:
@@ -77,6 +127,17 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
 - Constructive-tree strings and links are also treated as untrusted
   presentation data. Specification links must be credential-free HTTPS URLs,
   and repository references must remain safe relative paths.
+- Pi callback tokens are erased from the URL before parsing and are posted once
+  to a same-origin edge route. Bearers and raw Pi account subjects are never
+  persisted.
+- Pi routes are separate from the wildcard-CORS RPC/REST proxy. They require
+  exact-origin and session-bound CSRF checks for mutations, return `no-store`,
+  and use D1 for single-use state, sessions, challenges, and binding uniqueness.
+- Optional Zerone wallet linking verifies the exact stored draft ADR-036-format
+  challenge and derives the `zrn` address from the submitted secp256k1 public
+  key. The edge verifier performs no RPC, REST, broadcast, payment, bridge, or
+  chain write; connecting the ordinary dashboard wallet can still make its
+  existing read-only balance and identity queries.
 - Liquidity is read-only in this release. Mainnet currently has no pools, and
   transaction controls remain hidden until pools exist and the flow is tested
   against mainnet safeguards.

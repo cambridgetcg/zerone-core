@@ -81,6 +81,10 @@ let walletEpoch = 0;
 
 const loadWallet = () => import("./wallet");
 const BANK_SEND_FEE_UZRN = 200_000n;
+const PI_PILOT_ENABLED =
+  import.meta.env.VITE_PI_PILOT_ENABLED === "true";
+const PI_WALLET_PROOF_ENABLED =
+  import.meta.env.VITE_PI_WALLET_PROOF_ENABLED === "true";
 
 function formatHeight(height: number): string {
   return new Intl.NumberFormat("en-GB").format(height);
@@ -924,6 +928,29 @@ function initialiseReveal(): void {
   items.forEach((item) => observer.observe(item));
 }
 
+async function initialisePiPilotIfEnabled(): Promise<void> {
+  if (!PI_PILOT_ENABLED) return;
+  try {
+    const { initialisePiPilot } = await import("./pi-ui");
+    await initialisePiPilot({
+      walletProofEnabled: PI_WALLET_PROOF_ENABLED,
+      getWallet: () => connectedWallet,
+      connectWallet: async () => {
+        await handleWalletConnect();
+        return connectedWallet;
+      },
+      signWalletProof: async (wallet, message) =>
+        (await loadWallet()).signWalletControlProof(wallet, message),
+      notify: showToast,
+    });
+  } catch {
+    showToast(
+      "The optional Pi pilot is unavailable. The dashboard and Keplr remain available.",
+      "error",
+    );
+  }
+}
+
 document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
   button.addEventListener("click", () => void handleWalletConnect());
 });
@@ -978,6 +1005,7 @@ window.addEventListener("keplr_keystorechange", () => {
   void handleWalletConnect();
 });
 
+void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const initialNetworkReady = refreshNetwork(false);

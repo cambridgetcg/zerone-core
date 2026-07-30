@@ -1,0 +1,9 @@
+# Cloudflare Pages Functions read these values. Copy only to an ignored local
+# .dev.vars file; configure production values and the PI_AUTH_DB D1 binding in
+# the deployment environment.
+PI_PILOT_ENABLED=false
+PI_WALLET_PROOF_ENABLED=false
+PI_CLIENT_ID=replace-with-the-pi-app-client-id
+PI_PUBLIC_ORIGIN=http://127.0.0.1:4173
+# Intentionally invalid: generate and insert at least 32 random bytes.
+PI_SUBJECT_PEPPER=replace-me

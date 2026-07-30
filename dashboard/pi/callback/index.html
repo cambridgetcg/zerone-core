@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>(()=>{let value=location.hash;history.replaceState(history.state,"",location.pathname+location.search);Object.defineProperty(window,"__takeZeronePiCallbackFragment",{configurable:true,value:()=>{const captured=value;value="";delete window.__takeZeronePiCallbackFragment;return captured}})})();</script>
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <title>Finishing Pi Sign-in · Zerone</title>
+    <link rel="stylesheet" href="./callback.css" />
+  </head>
+  <body>
+    <main aria-labelledby="callback-title">
+      <span class="kicker">Optional Pi account pilot</span>
+      <h1 id="callback-title">Finishing sign-in…</h1>
+      <p id="callback-status" role="status" aria-live="polite">
+        Confirming the Pi account with Zerone. No wallet or on-chain action is
+        being requested.
+      </p>
+      <a id="callback-return" href="/#contribute" hidden>Return to Zerone</a>
+    </main>
+    <script type="module" src="/src/pi-callback.ts"></script>
+  </body>
+</html>

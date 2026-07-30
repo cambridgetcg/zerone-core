@@ -213,6 +213,23 @@ AgentTool seams are labelled according to their narrower source, local-tool,
 or external-service boundaries. Serving the file performs no upstream request
 and does not make the dashboard proxy authoritative.
 
+## Source-prepared: Pi account onboarding pilot
+
+The dashboard contains a separately gated, application-layer
+[Pi account onboarding pilot](../specs/pi-account-onboarding-pilot-v1.md).
+Phase A authenticates an app-specific Pi account with Pi's fixed `/v2/me`
+endpoint. Phase B can independently prove control of one `zerone-1` key with a
+short-lived signature in the draft ADR-036 off-chain format.
+
+This is not a crypto adapter or identity standard and is deliberately absent
+from the public adapter capability index. Pi authentication is not proof of
+KYC, unique humanity, a Pi wallet, a Zerone identity, qualification, or reward
+eligibility. Wallet proof is not a transaction and proves only control of one
+key for one challenge. Both browser and edge flags default off; D1 migration
+and explicit deployment configuration are required before either phase exists
+at runtime. No Pi wallet scope, payment, bridge, validator, consensus, or
+reward path is added.
+
 ## Implemented reads; activation-gated Cosmos SDK fee sponsorship
 
 The dashboard exposes the indexed grantee allowance query, exact-pair lookup,

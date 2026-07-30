@@ -48,6 +48,11 @@ interface KeplrApi {
   experimentalSuggestChain(chainInfo: typeof KEPLR_CHAIN_INFO): Promise<void>;
   enable(chainId: string): Promise<void>;
   getKey(chainId: string): Promise<KeplrKey>;
+  signArbitrary?(
+    chainId: string,
+    signer: string,
+    data: string | Uint8Array,
+  ): Promise<WalletArbitrarySignature>;
 }
 
 declare global {
@@ -67,6 +72,14 @@ export interface WalletState {
   frozen?: boolean;
   createdAtBlock?: string;
   incomingFeeGrants: FeeGrantAllowance[] | null;
+}
+
+export interface WalletArbitrarySignature {
+  pub_key: {
+    type: "tendermint/PubKeySecp256k1";
+    value: string;
+  };
+  signature: string;
 }
 
 const BANK_SEND_GAS = 200_000;
@@ -98,6 +111,31 @@ function accountIdFor(address: string): ZeroneAccountId {
   } catch {
     throw new Error("Enter a valid zrn1… mainnet address.");
   }
+}
+
+function requireCurrentWalletKey(
+  key: KeplrKey,
+  wallet: WalletState,
+): void {
+  const currentAccountId = accountIdFor(key.bech32Address);
+  if (
+    key.bech32Address !== wallet.address ||
+    currentAccountId !== wallet.accountId
+  ) {
+    throw new Error(
+      "Keplr changed accounts. Reconnect the exact wallet before signing.",
+    );
+  }
+}
+
+function validBase64(value: string, maximum: number): boolean {
+  return (
+    value.length > 0 &&
+    value.length <= maximum &&
+    /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+      value,
+    )
+  );
 }
 
 function requireMatchingIdentifier(
@@ -183,6 +221,54 @@ export async function refreshWallet(wallet: WalletState): Promise<WalletState> {
   return identifier
     ? { ...refreshed, ...identityFields(identifier) }
     : refreshed;
+}
+
+export async function signWalletControlProof(
+  wallet: WalletState,
+  message: string,
+): Promise<WalletArbitrarySignature> {
+  const keplr = requireKeplr();
+  if (typeof keplr.signArbitrary !== "function") {
+    throw new Error(
+      "This optional proof requires Keplr text signing. No transaction fallback is available.",
+    );
+  }
+  if (
+    message.length === 0 ||
+    message.length > 4_096 ||
+    /[\u0000\u007f]/.test(message)
+  ) {
+    throw new Error("The wallet proof challenge is invalid.");
+  }
+
+  await keplr.enable(CHAIN_ID);
+  requireCurrentWalletKey(await keplr.getKey(CHAIN_ID), wallet);
+  const signature = await keplr.signArbitrary(
+    CHAIN_ID,
+    wallet.address,
+    message,
+  );
+  requireCurrentWalletKey(await keplr.getKey(CHAIN_ID), wallet);
+
+  if (
+    typeof signature !== "object" ||
+    signature === null ||
+    typeof signature.pub_key !== "object" ||
+    signature.pub_key === null ||
+    signature.pub_key.type !== "tendermint/PubKeySecp256k1" ||
+    !validBase64(signature.pub_key.value, 256) ||
+    !validBase64(signature.signature, 256)
+  ) {
+    throw new Error("Keplr returned an invalid text signature.");
+  }
+
+  return {
+    pub_key: {
+      type: "tendermint/PubKeySecp256k1",
+      value: signature.pub_key.value,
+    },
+    signature: signature.signature,
+  };
 }
 
 function displayToMicro(amount: string): string {

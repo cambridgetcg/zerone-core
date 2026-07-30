@@ -34,6 +34,7 @@
           <a href="#activity">Activity</a>
           <a href="#network">Network</a>
           <a href="#skills">Skills</a>
+          <a href="#contribute" id="pi-nav" hidden>Contribute</a>
         </nav>
 
         <div class="topbar-actions">
@@ -312,6 +313,105 @@
             </p>
           </noscript>
         </section>
+
+        <section
+          class="section split-section pi-section"
+          id="contribute"
+          aria-labelledby="contribute-title"
+          hidden
+        >
+          <div class="section-heading reveal">
+            <div class="eyebrow"><span>07</span> Optional account pilot</div>
+            <h2 id="contribute-title">A Pi account can introduce you.</h2>
+            <p>
+              Use Pi Sign-in to explore a small onboarding pilot, or browse
+              Zerone’s public skill tree without signing in. Pi authenticates an
+              account only—not KYC, unique-human status, a Zerone identity,
+              wallet control, qualification, or a reward.
+            </p>
+          </div>
+
+          <div class="wallet-card pi-card reveal">
+            <div class="pi-panel" id="pi-signed-out">
+              <span class="card-kicker">Pi account pilot</span>
+              <h3>Start with a public path.</h3>
+              <p>
+                We request an app-specific Pi account identifier and Pi username
+                only. We do not request a Pi wallet address, passphrase, KYC
+                record, payment, bridge, or on-chain transaction.
+              </p>
+              <div class="pi-actions">
+                <a
+                  class="button button-ghost"
+                  href="#skills"
+                >Browse without signing in</a>
+                <button class="button button-primary" id="pi-consent-open" type="button">
+                  Review Pi Sign-in
+                </button>
+              </div>
+              <p class="pi-footnote">
+                Pi Sign-in itself: no rewards · no payments · no wallet link
+              </p>
+            </div>
+
+            <div class="pi-panel" id="pi-signed-in" hidden>
+              <div class="pi-card-top">
+                <div>
+                  <span class="card-kicker">Pi account authenticated</span>
+                  <h3>Hello, <span id="pi-username">Pi account</span>.</h3>
+                </div>
+                <span class="connected-badge"><i></i> Account login</span>
+              </div>
+              <p>
+                This session remains separate from Keplr and zerone-1. It does
+                not create a Zerone account or contribution record.
+              </p>
+              <dl class="pi-status-grid">
+                <div><dt>Pi Sign-in</dt><dd>Account authenticated</dd></div>
+                <div><dt>KYC / unique-human status</dt><dd>Not requested or established</dd></div>
+                <div><dt>Zerone identity</dt><dd>Not created</dd></div>
+                <div><dt>On-chain action</dt><dd>None</dd></div>
+                <div id="pi-linked-address-row" hidden>
+                  <dt>Zerone address proof</dt>
+                  <dd><code id="pi-linked-address">Not linked</code></dd>
+                </div>
+              </dl>
+              <div class="pi-paths">
+                <span class="card-kicker">Public starting paths</span>
+                <ul>
+                  <li>Proof construction and counterexamples</li>
+                  <li>Threat models and security games</li>
+                  <li>Exact bytes, parsers, and state machines</li>
+                </ul>
+                <p>
+                  Reading a path submits no evidence, grants no qualification,
+                  activates no reward, and creates no ZRN claim.
+                </p>
+              </div>
+              <div class="pi-proof-panel" id="pi-wallet-proof" hidden>
+                <span class="card-kicker">Separate optional wallet proof</span>
+                <p id="pi-wallet-proof-status"></p>
+                <div class="pi-actions">
+                  <button class="button button-ghost" id="pi-proof-review" type="button">
+                    Review address proof
+                  </button>
+                  <button class="button button-ghost" id="pi-proof-remove" type="button" hidden>
+                    Remove address proof
+                  </button>
+                </div>
+              </div>
+              <div class="pi-actions">
+                <a
+                  class="button button-primary"
+                  href="#skills"
+                >Open public skill tree</a>
+                <button class="button button-ghost" id="pi-logout" type="button">
+                  End Pi session
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <footer class="footer">
@@ -380,6 +480,119 @@
           <button class="button button-primary full" id="feegrant-submit" type="submit">Review grant in Keplr</button>
         </form>
       </div>
+    </dialog>
+
+    <dialog class="send-dialog pi-consent-dialog" id="pi-consent-dialog" aria-labelledby="pi-consent-title">
+      <form id="pi-consent-form">
+        <div class="dialog-head">
+          <div>
+            <span class="card-kicker">Optional Pi account pilot</span>
+            <h2 id="pi-consent-title">Before you continue</h2>
+          </div>
+          <button class="dialog-close" id="pi-consent-close" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="dialog-intro">
+          Pi Sign-in is a login handoff. Zerone uses it only to authenticate
+          your Pi account for this pilot. A separate Zerone address-control
+          proof may be offered later and remains optional.
+        </p>
+        <div class="pi-consent-list">
+          <section>
+            <h3>What is shared</h3>
+            <p>
+              Pi provides an app-specific account identifier and username. A
+              short-lived access token is sent once to Zerone’s server to
+              confirm them with Pi, then discarded.
+            </p>
+          </section>
+          <section>
+            <h3>What is not requested or established</h3>
+            <p>
+              No Pi wallet address, passphrase, KYC document, or payment is
+              requested. Sign-in does not reveal Pi KYC status or prove unique
+              humanity, Zerone identity, wallet control, qualification, or
+              reward eligibility.
+            </p>
+          </section>
+        </div>
+        <label class="pi-check-row">
+          <input id="pi-consent-check" type="checkbox" required />
+          <span>
+            I understand Pi Sign-in itself creates no payment, bridge, wallet
+            link, on-chain transaction, qualification, reward, or ZRN claim.
+            Any separately offered Zerone address proof requires another
+            explicit consent.
+          </span>
+        </label>
+        <div class="send-notice">
+          <span aria-hidden="true">◆</span>
+          <p>
+            The ordinary dashboard, Keplr wallet, and public skill tree remain
+            available without Pi Sign-in.
+          </p>
+        </div>
+        <a
+          class="pi-policy-link"
+          href="https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/pi-account-onboarding-pilot-v1.md"
+          target="_blank"
+          rel="noreferrer"
+        >Read the pilot boundary ↗</a>
+        <button class="button button-primary full" id="pi-consent-submit" type="submit">
+          Continue to Pi
+        </button>
+      </form>
+    </dialog>
+
+    <dialog class="send-dialog pi-consent-dialog" id="pi-proof-dialog" aria-labelledby="pi-proof-title">
+      <form id="pi-proof-form">
+        <div class="dialog-head">
+          <div>
+            <span class="card-kicker">Separate optional phase</span>
+            <h2 id="pi-proof-title">Prove address control</h2>
+          </div>
+          <button class="dialog-close" id="pi-proof-close" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="dialog-intro">
+          Keplr will be asked to sign a text-only challenge using the draft
+          ADR-036 format for the exact connected <code>zrn1…</code> address. No
+          transaction fallback exists.
+        </p>
+        <div class="pi-consent-list">
+          <section>
+            <h3>What this can demonstrate</h3>
+            <p>
+              Control of one Zerone address at the time of signing, bound to
+              this Pi pilot session and a short-lived, single-use challenge.
+            </p>
+          </section>
+          <section>
+            <h3>What this cannot demonstrate</h3>
+            <p>
+              Pi KYC, unique humanity, a Zerone identity, ongoing wallet
+              control, qualification, reward eligibility, or ownership of any
+              Pi wallet.
+            </p>
+          </section>
+        </div>
+        <label class="pi-check-row">
+          <input id="pi-proof-check" type="checkbox" required />
+          <span>
+            I understand this is a separate text-signature proof. It broadcasts
+            no transaction, spends no ZRN, moves no funds, and creates no
+            payment, qualification, or reward.
+          </span>
+        </label>
+        <div class="send-notice">
+          <span aria-hidden="true">◆</span>
+          <p>
+            Check the exact address and challenge in Keplr. Declining leaves
+            both accounts and the dashboard unchanged.
+          </p>
+        </div>
+        <button class="button button-primary full" id="pi-proof-submit" type="submit">
+          Sign text proof in Keplr
+        </button>
+      </form>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
