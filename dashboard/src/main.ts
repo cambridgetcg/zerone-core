@@ -979,8 +979,18 @@ window.addEventListener("keplr_keystorechange", () => {
 });
 
 initialiseReveal();
-void initialiseConstructiveTree(constructiveTreeRoot);
-void refreshNetwork(false);
+const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
+const initialNetworkReady = refreshNetwork(false);
+void Promise.allSettled([constructiveTreeReady, initialNetworkReady]).then(
+  () => {
+    if (window.location.hash !== "#skills") return;
+    window.requestAnimationFrame(() => {
+      constructiveTreeRoot.closest<HTMLElement>("#skills")?.scrollIntoView({
+        block: "start",
+      });
+    });
+  },
+);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);
