@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/constructive-receipt-shadow-v0/receipt.schema.json",
+  "title": "Zerone Constructive Receipt v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "bridge_version",
+    "assurance",
+    "status",
+    "receipt_id",
+    "source",
+    "tree",
+    "poca",
+    "namespace_relation",
+    "qualification",
+    "economic_effect",
+    "amount_uzrn",
+    "escrow",
+    "refusal_reasons",
+    "limitations"
+  ],
+  "properties": {
+    "schema": {
+      "const": "zerone.constructive-receipt/v0"
+    },
+    "bridge_version": {
+      "const": "constructive-receipts/v0"
+    },
+    "assurance": {
+      "const": "UNVERIFIED_SHADOW_PROJECTION"
+    },
+    "status": {
+      "enum": [
+        "CANDIDATE",
+        "REFUSED"
+      ]
+    },
+    "receipt_id": {
+      "$ref": "#/$defs/digest"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_system",
+        "record_id",
+        "revision",
+        "consumption_key",
+        "consumption_state",
+        "replay_protection"
+      ],
+      "properties": {
+        "source_system": {
+          "$ref": "#/$defs/id"
+        },
+        "record_id": {
+          "$ref": "#/$defs/id"
+        },
+        "revision": {
+          "$ref": "#/$defs/id"
+        },
+        "consumption_key": {
+          "$ref": "#/$defs/digest"
+        },
+        "consumption_state": {
+          "const": "NOT_RECORDED"
+        },
+        "replay_protection": {
+          "const": "NONE_OFFLINE"
+        }
+      }
+    },
+    "tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_namespace",
+        "schema",
+        "policy_version",
+        "policy_digest",
+        "document_digest",
+        "node_id",
+        "node_digest",
+        "required_attainment_evidence",
+        "granted_attainment_evidence"
+      ],
+      "properties": {
+        "evidence_namespace": {
+          "const": "zerone.constructive-tree-evidence/v1"
+        },
+        "schema": {
+          "const": "zerone.constructive-intelligence-tree/v1"
+        },
+        "policy_version": {
+          "const": "1.0.0"
+        },
+        "policy_digest": {
+          "const": "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7"
+        },
+        "document_digest": {
+          "const": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf"
+        },
+        "node_id": {
+          "const": "protocol-software-supply-chain@2026q3"
+        },
+        "node_digest": {
+          "const": "sha256:862f9f2d70b51dd03e6fc761eb91487e38c83064414b77d11548ead110356104"
+        },
+        "required_attainment_evidence": {
+          "const": "E3"
+        },
+        "granted_attainment_evidence": {
+          "const": "NONE"
+        }
+      }
+    },
+    "poca": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_namespace",
+        "profile_id",
+        "profile_version",
+        "profile_status",
+        "profile_digest",
+        "evidence_bundle_digest",
+        "claim_id",
+        "subject_digest",
+        "attained_tier",
+        "crown_status",
+        "assurance"
+      ],
+      "properties": {
+        "evidence_namespace": {
+          "const": "zerone.poca-shadow-evidence/v0"
+        },
+        "profile_id": {
+          "$ref": "#/$defs/id"
+        },
+        "profile_version": {
+          "$ref": "#/$defs/id"
+        },
+        "profile_status": {
+          "enum": [
+            "DRAFT",
+            "DECLARED_RATIFIED",
+            "SUPERSEDED"
+          ]
+        },
+        "profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evidence_bundle_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "claim_id": {
+          "$ref": "#/$defs/digest"
+        },
+        "subject_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "attained_tier": {
+          "enum": [
+            "NONE",
+            "E0_ASSERTED",
+            "E1_REPRODUCED",
+            "E2_CONFORMANT",
+            "E3_CAUSAL",
+            "E4_TRANSFERRED",
+            "E5_REUSED"
+          ]
+        },
+        "crown_status": {
+          "enum": [
+            "DECLARED_PASS",
+            "BLOCKED",
+            "FAILED"
+          ]
+        },
+        "assurance": {
+          "const": "UNVERIFIED_SHADOW_PROJECTION"
+        }
+      }
+    },
+    "namespace_relation": {
+      "const": "NO_EQUIVALENCE"
+    },
+    "qualification": {
+      "const": "NONE"
+    },
+    "economic_effect": {
+      "const": "NONE"
+    },
+    "amount_uzrn": {
+      "const": "0"
+    },
+    "escrow": {
+      "$ref": "#/$defs/escrow"
+    },
+    "refusal_reasons": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/refusal"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "CANDIDATE is not tree attainment, qualification, certification, payment authorization, or entitlement"
+        },
+        {
+          "const": "PoCA tier labels and constructive-tree evidence levels are separate namespaces with no ordinal or semantic equivalence"
+        },
+        {
+          "const": "profile lifecycle, participant roles, control clusters, policy authority, and PoCA results remain declarations"
+        },
+        {
+          "const": "the bridge does not verify Sigstore signatures, identities, trust roots, transparency evidence, or external predicate semantics"
+        },
+        {
+          "const": "the source tuple is caller-declared and the deterministic consumption key is not a replay ledger or proof that a source event is unconsumed"
+        },
+        {
+          "const": "the output is offline, unsigned, unanchored, and retains UNVERIFIED_SHADOW_PROJECTION assurance"
+        }
+      ],
+      "items": false,
+      "minItems": 6,
+      "maxItems": 6
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "CANDIDATE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "refusal_reasons": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "refusal_reasons": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:@/-]{0,127}$"
+    },
+    "escrow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "denom",
+        "funded_escrow_uzrn",
+        "verified_cost_budget_uzrn",
+        "claimant_milestone_tranches_uzrn",
+        "challenge_and_remediation_reserve_uzrn",
+        "reviewer_budget_uzrn",
+        "administration_and_fee_budget_uzrn",
+        "refundable_balance_uzrn",
+        "conservation_check"
+      ],
+      "properties": {
+        "schema": {
+          "const": "zerone.zero-escrow-compartments/v0"
+        },
+        "denom": {
+          "const": "uzrn"
+        },
+        "funded_escrow_uzrn": {
+          "const": "0"
+        },
+        "verified_cost_budget_uzrn": {
+          "const": "0"
+        },
+        "claimant_milestone_tranches_uzrn": {
+          "const": "0"
+        },
+        "challenge_and_remediation_reserve_uzrn": {
+          "const": "0"
+        },
+        "reviewer_budget_uzrn": {
+          "const": "0"
+        },
+        "administration_and_fee_budget_uzrn": {
+          "const": "0"
+        },
+        "refundable_balance_uzrn": {
+          "const": "0"
+        },
+        "conservation_check": {
+          "const": "ZERO_BALANCED"
+        }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "detail"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "POCA_INDEPENDENT_REBUILD_NOT_DECLARED_PASS",
+            "POCA_PROFILE_NOT_DECLARED_RATIFIED",
+            "POCA_SLSA_NODE_NOT_DECLARED_PASS",
+            "POCA_TARGET_STANDARD_BINDING_INCOMPLETE",
+            "POCA_UNRESOLVED_CHALLENGE"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    }
+  }
+}

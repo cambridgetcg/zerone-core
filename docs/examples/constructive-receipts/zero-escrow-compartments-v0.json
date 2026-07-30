@@ -1,0 +1,12 @@
+{
+  "schema": "zerone.zero-escrow-compartments/v0",
+  "denom": "uzrn",
+  "funded_escrow_uzrn": "0",
+  "verified_cost_budget_uzrn": "0",
+  "claimant_milestone_tranches_uzrn": "0",
+  "challenge_and_remediation_reserve_uzrn": "0",
+  "reviewer_budget_uzrn": "0",
+  "administration_and_fee_budget_uzrn": "0",
+  "refundable_balance_uzrn": "0",
+  "conservation_check": "ZERO_BALANCED"
+}

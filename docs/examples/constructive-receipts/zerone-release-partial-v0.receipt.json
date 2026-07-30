@@ -1,0 +1,73 @@
+{
+  "schema": "zerone.constructive-receipt/v0",
+  "bridge_version": "constructive-receipts/v0",
+  "assurance": "UNVERIFIED_SHADOW_PROJECTION",
+  "status": "REFUSED",
+  "receipt_id": "sha256:54cc3e31a69cba6892095c175d62383c27466b23a2f107b6c448db9eaaccfc8a",
+  "source": {
+    "source_system": "zerone.poca-shadow/v0",
+    "record_id": "zerone-release-partial-v0",
+    "revision": "fixture-1",
+    "consumption_key": "sha256:8df1821e9ddded60ea67920eafb2e08cd4e0048bd1fc7b979510818a0c51b5a3",
+    "consumption_state": "NOT_RECORDED",
+    "replay_protection": "NONE_OFFLINE"
+  },
+  "tree": {
+    "evidence_namespace": "zerone.constructive-tree-evidence/v1",
+    "schema": "zerone.constructive-intelligence-tree/v1",
+    "policy_version": "1.0.0",
+    "policy_digest": "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7",
+    "document_digest": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    "node_id": "protocol-software-supply-chain@2026q3",
+    "node_digest": "sha256:862f9f2d70b51dd03e6fc761eb91487e38c83064414b77d11548ead110356104",
+    "required_attainment_evidence": "E3",
+    "granted_attainment_evidence": "NONE"
+  },
+  "poca": {
+    "evidence_namespace": "zerone.poca-shadow-evidence/v0",
+    "profile_id": "zerone.release.slsa-build-l2",
+    "profile_version": "0.1.0",
+    "profile_status": "DRAFT",
+    "profile_digest": "sha256:1ca9318cca35d231636b48d8a11e498bebb64b4eeaf3aa0b64051e3138214c8b",
+    "evidence_bundle_digest": "sha256:1a71481fc5a0d0789563a14a07c95a8af10de252f8bc88e5ca72f1328125663f",
+    "claim_id": "sha256:e9f7f0b62637b9f62b1360239c8c68c6e8c19cbf176da0fe2ef8a28e4e88824f",
+    "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "attained_tier": "E2_CONFORMANT",
+    "crown_status": "BLOCKED",
+    "assurance": "UNVERIFIED_SHADOW_PROJECTION"
+  },
+  "namespace_relation": "NO_EQUIVALENCE",
+  "qualification": "NONE",
+  "economic_effect": "NONE",
+  "amount_uzrn": "0",
+  "escrow": {
+    "schema": "zerone.zero-escrow-compartments/v0",
+    "denom": "uzrn",
+    "funded_escrow_uzrn": "0",
+    "verified_cost_budget_uzrn": "0",
+    "claimant_milestone_tranches_uzrn": "0",
+    "challenge_and_remediation_reserve_uzrn": "0",
+    "reviewer_budget_uzrn": "0",
+    "administration_and_fee_budget_uzrn": "0",
+    "refundable_balance_uzrn": "0",
+    "conservation_check": "ZERO_BALANCED"
+  },
+  "refusal_reasons": [
+    {
+      "code": "POCA_PROFILE_NOT_DECLARED_RATIFIED",
+      "detail": "profile status is DRAFT"
+    },
+    {
+      "code": "POCA_TARGET_STANDARD_BINDING_INCOMPLETE",
+      "detail": "missing exact PoCA standard binding(s): https://github.com/sigstore/protobuf-specs/blob/3001afe9102b15b04ca1b91efccd613976bdf514/protos/sigstore_bundle.proto @ 0.3 / Bundle v0.3 signature, identity, trust-root, time, and inclusion policy"
+    }
+  ],
+  "limitations": [
+    "CANDIDATE is not tree attainment, qualification, certification, payment authorization, or entitlement",
+    "PoCA tier labels and constructive-tree evidence levels are separate namespaces with no ordinal or semantic equivalence",
+    "profile lifecycle, participant roles, control clusters, policy authority, and PoCA results remain declarations",
+    "the bridge does not verify Sigstore signatures, identities, trust roots, transparency evidence, or external predicate semantics",
+    "the source tuple is caller-declared and the deterministic consumption key is not a replay ledger or proof that a source event is unconsumed",
+    "the output is offline, unsigned, unanchored, and retains UNVERIFIED_SHADOW_PROJECTION assurance"
+  ]
+}
