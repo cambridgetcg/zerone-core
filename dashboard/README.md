@@ -15,6 +15,24 @@ Vite proxies `/api/rpc` and `/api/rest` to the public mainnet node in local
 development. Production uses the Pages Functions in `functions/api/` so the
 HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
+## Constructive-intelligence explorer
+
+The 技能樹 explorer reads the checked-in
+`/standards/constructive-intelligence-tree.v1.json` at runtime. The browser
+bounds the response to 262,144 UTF-8 bytes, checks the critical schema,
+authority, economic, safety, graph, and funding boundaries, then renders data
+with DOM text nodes. It does not use `innerHTML`. The dependency-free build
+validator remains the normative validation gate; the browser guard exists to
+fail closed instead of presenting a malformed or boundary-weakened response.
+
+The explorer is historical curriculum, not live chain or bounty state. A skill
+unlock grants no qualification and creates no ZRN claim. The three Season 0
+quests are sponsor-milestone templates only; a separate immutable funded case,
+acceptance policy, and escrow receipt would be required before a payout could
+exist. Standards review dates are shown in the interface. Once one passes, the
+viewer remains useful as a historical snapshot but warns that active use must
+fail closed until the authority metadata is revalidated.
+
 ## Build and check
 
 ```bash
@@ -55,6 +73,9 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
 - The edge RPC proxy allows public query methods plus transaction broadcast,
   and rejects every other JSON-RPC method.
 - Chain-provided strings are rendered with `textContent`, never `innerHTML`.
+- Constructive-tree strings and links are also treated as untrusted
+  presentation data. Specification links must be credential-free HTTPS URLs,
+  and repository references must remain safe relative paths.
 - Liquidity is read-only in this release. Mainnet currently has no pools, and
   transaction controls remain hidden until pools exist and the flow is tested
   against mainnet safeguards.

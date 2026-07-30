@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#09090c" />
     <meta
       name="description"
-      content="The live Zerone mainnet dashboard: wallet, liquidity, blocks, supply, and an honest view of the network."
+      content="The live Zerone mainnet dashboard: wallet, liquidity, blocks, supply, and a static constructive-intelligence skill tree."
     />
     <meta property="og:title" content="ZERONE — Mainnet Dashboard" />
     <meta
@@ -33,6 +33,7 @@
           <a href="#liquidity">Liquidity</a>
           <a href="#activity">Activity</a>
           <a href="#network">Network</a>
+          <a href="#skills">Skills</a>
         </nav>
 
         <div class="topbar-actions">
@@ -65,6 +66,9 @@
                 target="_blank"
                 rel="noreferrer"
               >Read the code <span aria-hidden="true">↗</span></a>
+              <a class="button button-ghost" href="#skills">
+                Explore 技能樹 <span aria-hidden="true">↓</span>
+              </a>
             </div>
           </div>
 
@@ -275,6 +279,38 @@
               </div>
             </article>
           </div>
+        </section>
+
+        <section class="section ci-tree-section" id="skills" aria-labelledby="skills-title">
+          <div class="section-heading horizontal reveal">
+            <div>
+              <div class="eyebrow"><span>06</span> Constructive intelligence · 技能樹</div>
+              <h2 id="skills-title">Constructive intelligence</h2>
+            </div>
+            <p>
+              Trace the mathematics, cryptographic primitives, assurance work,
+              and industrial protocols behind Zerone’s experimental curriculum.
+              This static standard grants no qualification and activates no reward.
+            </p>
+          </div>
+
+          <div
+            class="ci-tree-root"
+            id="constructive-tree-root"
+            aria-busy="true"
+          >
+            <div class="ci-tree-loading" role="status">
+              <div class="loading-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+              <p>Loading the versioned capability graph…</p>
+            </div>
+          </div>
+          <noscript>
+            <p class="ci-tree-noscript">
+              JavaScript is required for the interactive explorer. The
+              <a href="/standards/constructive-intelligence-tree.v1.json">raw static standard</a>
+              remains available directly.
+            </p>
+          </noscript>
         </section>
       </main>
 
