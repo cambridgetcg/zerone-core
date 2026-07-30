@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/constructive-receipt-shadow-v0/request.schema.json",
+  "title": "Zerone Constructive Receipt Request v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "target",
+    "poca",
+    "source"
+  ],
+  "properties": {
+    "schema": {
+      "const": "zerone.constructive-receipt-request/v0"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tree_schema",
+        "tree_policy_version",
+        "tree_policy_digest",
+        "tree_document_digest",
+        "node_id",
+        "node_digest"
+      ],
+      "properties": {
+        "tree_schema": {
+          "const": "zerone.constructive-intelligence-tree/v1"
+        },
+        "tree_policy_version": {
+          "const": "1.0.0"
+        },
+        "tree_policy_digest": {
+          "const": "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7"
+        },
+        "tree_document_digest": {
+          "const": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf"
+        },
+        "node_id": {
+          "const": "protocol-software-supply-chain@2026q3"
+        },
+        "node_digest": {
+          "const": "sha256:862f9f2d70b51dd03e6fc761eb91487e38c83064414b77d11548ead110356104"
+        }
+      }
+    },
+    "poca": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_id",
+        "profile_version",
+        "profile_digest",
+        "evidence_bundle_digest",
+        "subject_digest"
+      ],
+      "properties": {
+        "profile_id": {
+          "$ref": "#/$defs/id"
+        },
+        "profile_version": {
+          "$ref": "#/$defs/id"
+        },
+        "profile_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evidence_bundle_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "subject_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_system",
+        "record_id",
+        "revision"
+      ],
+      "properties": {
+        "source_system": {
+          "$ref": "#/$defs/id"
+        },
+        "record_id": {
+          "$ref": "#/$defs/id"
+        },
+        "revision": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:@/-]{0,127}$"
+    }
+  }
+}

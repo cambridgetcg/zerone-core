@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/constructive-receipt-shadow-v0/zero-escrow-compartments.schema.json",
+  "title": "Zerone Zero Escrow Compartments v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "denom",
+    "funded_escrow_uzrn",
+    "verified_cost_budget_uzrn",
+    "claimant_milestone_tranches_uzrn",
+    "challenge_and_remediation_reserve_uzrn",
+    "reviewer_budget_uzrn",
+    "administration_and_fee_budget_uzrn",
+    "refundable_balance_uzrn",
+    "conservation_check"
+  ],
+  "properties": {
+    "schema": {
+      "const": "zerone.zero-escrow-compartments/v0"
+    },
+    "denom": {
+      "const": "uzrn"
+    },
+    "funded_escrow_uzrn": {
+      "const": "0"
+    },
+    "verified_cost_budget_uzrn": {
+      "const": "0"
+    },
+    "claimant_milestone_tranches_uzrn": {
+      "const": "0"
+    },
+    "challenge_and_remediation_reserve_uzrn": {
+      "const": "0"
+    },
+    "reviewer_budget_uzrn": {
+      "const": "0"
+    },
+    "administration_and_fee_budget_uzrn": {
+      "const": "0"
+    },
+    "refundable_balance_uzrn": {
+      "const": "0"
+    },
+    "conservation_check": {
+      "const": "ZERO_BALANCED"
+    }
+  }
+}

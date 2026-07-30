@@ -1,0 +1,23 @@
+{
+  "schema": "zerone.constructive-receipt-request/v0",
+  "target": {
+    "tree_schema": "zerone.constructive-intelligence-tree/v1",
+    "tree_policy_version": "1.0.0",
+    "tree_policy_digest": "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7",
+    "tree_document_digest": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    "node_id": "protocol-software-supply-chain@2026q3",
+    "node_digest": "sha256:862f9f2d70b51dd03e6fc761eb91487e38c83064414b77d11548ead110356104"
+  },
+  "poca": {
+    "profile_id": "zerone.release.slsa-build-l2",
+    "profile_version": "0.1.0",
+    "profile_digest": "sha256:1ca9318cca35d231636b48d8a11e498bebb64b4eeaf3aa0b64051e3138214c8b",
+    "evidence_bundle_digest": "sha256:1a71481fc5a0d0789563a14a07c95a8af10de252f8bc88e5ca72f1328125663f",
+    "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "source": {
+    "source_system": "zerone.poca-shadow/v0",
+    "record_id": "zerone-release-partial-v0",
+    "revision": "fixture-1"
+  }
+}
