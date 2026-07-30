@@ -2,3 +2,7 @@ merged-spec f9e1dc08e67382e4167886408e86a572ebc962b3f6cc40dfea95e6867b005eb6  do
 phase-0-plan bf47f681f80a69bdd9ae65dac85e46d8fb20a8b11a06c4979691174e5cc5dbab  docs/plans/2026-05-10-useful-work-phase-0-plan.md
 phase-0-extension-plan e617bcb78d2e4093aab530f252377734d6f48e2e2f0676f6a5c6039404950fd7  docs/plans/2026-05-10-recursive-useful-work-phase-0-extension-plan.md
 phase-1-plan 2f812d9f89770b3db92214163442e052a800c2c2a989cbbc851bb46171e0ccf1  docs/plans/2026-05-10-useful-work-phase-1-orchestrator-plan.md
+poca-v0-spec 0db68c2a3e9a319ce578595967d65a8e6457f928e7e46c1b235a5b8536ae9dfb  docs/specs/attestations/proof-constructive-adaptation-v0.md
+poca-v0-profile-schema bc1a099d3e7e0d91e7de3d2935c2093d572ac14bcadf2ece8e97113955cc094d  docs/specs/attestations/poca-v0/standard-profile.schema.json
+poca-v0-evidence-schema 9eac2faa9029726b5311bdf630f0b83e8c2d241be1a414b4d7d1776aad9a113a  docs/specs/attestations/poca-v0/evidence-bundle.schema.json
+poca-v0-certificate-schema 9f494b1cd302b894a3bc403d494f856c4878c48ab2f920a362602f15ab77f01c  docs/specs/attestations/poca-v0/breakthrough-certificate.schema.json

@@ -1,0 +1,134 @@
+{
+  "schema": "zerone.evidence-bundle/v0",
+  "profile_id": "zerone.release.slsa-build-l2",
+  "profile_version": "0.1.0",
+  "subject": {
+    "name": "zeroned-linux-amd64.example",
+    "media_type": "application/octet-stream",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_uri": "https://artifacts.example.invalid/zeroned-linux-amd64"
+  },
+  "baseline_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "lineage_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "participants": [
+    {
+      "id": "claimant",
+      "role": "CLAIMANT",
+      "identity": "cosmos:zerone-2:zrn1exampleclaimant",
+      "control_cluster_claim": "cluster.release-team"
+    },
+    {
+      "id": "operator",
+      "role": "OPERATOR",
+      "identity": "cosmos:zerone-2:zrn1exampleoperator",
+      "control_cluster_claim": "cluster.release-team"
+    },
+    {
+      "id": "sponsor",
+      "role": "SPONSOR",
+      "identity": "https://sponsor.example.invalid",
+      "control_cluster_claim": "cluster.release-sponsor"
+    },
+    {
+      "id": "verifier-a",
+      "role": "VERIFIER",
+      "identity": "https://verifier-a.example.invalid",
+      "control_cluster_claim": "cluster.verifier-a"
+    },
+    {
+      "id": "verifier-b",
+      "role": "VERIFIER",
+      "identity": "https://verifier-b.example.invalid",
+      "control_cluster_claim": "cluster.verifier-b"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "problem-contract",
+      "requirement_id": "ground.problem-contract",
+      "producer_participant_id": "claimant",
+      "observer_participant_id": "sponsor",
+      "result": "PASS",
+      "verification_rule": "FROZEN_BASELINE_AND_GUARDRAILS",
+      "policy_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "statement_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "verification_receipt_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "source_uri": "https://evidence.example.invalid/problem-contract"
+    },
+    {
+      "id": "signed-provenance",
+      "requirement_id": "ground.signed-provenance",
+      "producer_participant_id": "claimant",
+      "observer_participant_id": "verifier-a",
+      "result": "PASS",
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "verification_rule": "SIGSTORE_SIGNATURE_AND_SUBJECT",
+      "policy_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "statement_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "verification_receipt_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "source_uri": "https://evidence.example.invalid/signed-provenance"
+    },
+    {
+      "id": "rollback-safety",
+      "requirement_id": "ground.rollback-safety",
+      "producer_participant_id": "claimant",
+      "observer_participant_id": "operator",
+      "result": "PASS",
+      "verification_rule": "ROLLBACK_COMPLETED",
+      "policy_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "statement_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "verification_receipt_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "source_uri": "https://evidence.example.invalid/rollback-safety"
+    },
+    {
+      "id": "slsa-conformance",
+      "requirement_id": "standard.slsa-build-l2",
+      "producer_participant_id": "claimant",
+      "observer_participant_id": "verifier-a",
+      "result": "PASS",
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "verification_rule": "SLSA_BUILD_V1_EXPECTATIONS",
+      "policy_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "statement_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "verification_receipt_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "source_uri": "https://evidence.example.invalid/slsa-conformance"
+    },
+    {
+      "id": "independent-rebuild-a",
+      "requirement_id": "capability.independent-rebuild",
+      "producer_participant_id": "claimant",
+      "observer_participant_id": "verifier-a",
+      "result": "PASS",
+      "verification_rule": "BYTE_IDENTICAL_SUBJECT",
+      "policy_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "statement_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "verification_receipt_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "source_uri": "https://evidence.example.invalid/rebuild-a"
+    },
+    {
+      "id": "independent-rebuild-b",
+      "requirement_id": "capability.independent-rebuild",
+      "producer_participant_id": "claimant",
+      "observer_participant_id": "verifier-b",
+      "result": "PASS",
+      "verification_rule": "BYTE_IDENTICAL_SUBJECT",
+      "policy_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "subject_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "environment_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "statement_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "verification_receipt_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "source_uri": "https://evidence.example.invalid/rebuild-b"
+    }
+  ],
+  "unresolved_challenge_digests": []
+}
