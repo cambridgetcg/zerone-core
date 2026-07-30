@@ -21,6 +21,10 @@ publication are separate events and are stated explicitly when they occur.
 
 - Starved knowledge challenges settle without leaving facts locked and restore
   conjectures to their type-appropriate status.
+- A manual, approval-environment SDK release workflow now requires an
+  annotated `sdk-v<version>` tag at current `main`, rebuilds and verifies the
+  package, and publishes the one packed tarball with provenance. The workflow
+  does not itself grant npm scope authority or publish unless explicitly run.
 - Governance vote weights remain based on bonded stake; permissionless funding
   correlations remain observational and do not reduce another wallet's vote.
 - Substrate axis projections have a protocol-wide ceiling, and settlement

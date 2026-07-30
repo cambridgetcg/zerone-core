@@ -24,6 +24,23 @@ npm --prefix sdk/typescript run build
 Do not document `npm install @zerone-chain/sdk` as available until a separate
 registry release is verified.
 
+The manual
+[`publish-sdk.yml`](../../.github/workflows/publish-sdk.yml) workflow is the
+package-release path. It refuses branch refs and lightweight tags, requires
+`sdk-v<package version>` at the current `main` commit, regenerates and checks
+the SDK, audits the runtime dependency graph, rebuilds the committed
+distribution, verifies the packed exports, and publishes that exact tarball
+with GitHub provenance. Its `npm-sdk-release` environment is a deployment
+boundary, not npm authority by itself.
+
+Because npm trusted publishing and staged publishing require an existing
+package, the first publication also requires a separately authorized,
+short-lived credential with write access to the `zerone-chain` npm scope.
+Remove that bootstrap credential immediately after `0.1.0`, configure this
+workflow as the package's trusted publisher, and independently compare the
+registry tarball digest with the workflow's recorded digest. Merging or
+manually viewing the workflow performs no publication.
+
 ## Implemented boundary seams
 
 ### Portable account identifiers
