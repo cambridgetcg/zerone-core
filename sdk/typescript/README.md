@@ -263,9 +263,9 @@ npm run check:publish
 
 `check:publish` runs the package's normal `npm pack` lifecycle, installs that
 exact tarball into a fresh temporary strict NodeNext project, and type-checks
-and executes imports from the root, `caip`, `liquidity`, `messages`, and
-`registry` public entry points. The temporary package and consumer are removed
-after the gate.
+and executes imports from the root, `caip`, `liquidity`, `messages`,
+`provenance`, and `registry` public entry points. The temporary package and
+consumer are removed after the gate.
 
 Regeneration uses the package's pinned local Buf CLI:
 

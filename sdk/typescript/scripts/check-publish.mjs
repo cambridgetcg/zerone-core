@@ -32,6 +32,7 @@ import * as root from "@zerone-chain/sdk";
 import * as caip from "@zerone-chain/sdk/caip";
 import * as liquidity from "@zerone-chain/sdk/liquidity";
 import * as messages from "@zerone-chain/sdk/messages";
+import * as provenance from "@zerone-chain/sdk/provenance";
 import * as registry from "@zerone-chain/sdk/registry";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -62,6 +63,11 @@ assert(
   encoded.typeUrl === "/zerone.auth.v1.MsgRegisterAccount" &&
     encoded.value instanceof Uint8Array,
   "messages export failed",
+);
+assert(
+  provenance.IN_TOTO_STATEMENT_V1_TYPE ===
+    "https://in-toto.io/Statement/v1",
+  "provenance export failed",
 );
 assert(registry.zeroneRegistryTypes.length > 0, "registry export is empty");
 assert(
