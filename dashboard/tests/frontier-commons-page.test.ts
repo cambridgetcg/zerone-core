@@ -19,10 +19,15 @@ const standard = JSON.parse(standardRaw) as {
   objectionRegister: Array<{ id: string }>;
   completionGates: Array<{ id: string; passed: boolean }>;
   nextMilestoneGates: Array<{ id: string; passed: boolean }>;
+  corporateReadiness: {
+    milestone: string;
+    status: string;
+    requiredGates: string[];
+  };
 };
 const digest = createHash("sha256").update(standardRaw).digest("hex");
 const SECTION_SHA256 =
-  "d2ee43c9b4a54b2a121836de849d58e0bf7829e52aaf48e3630ff837115942c9";
+  "e99104a7c97102429b904838b04dc93968f7f80009b53e50d2e3e2d34a07be77";
 const start = html.indexOf('id="frontier-commons"');
 const sectionStart = html.lastIndexOf("<section", start);
 const sectionEnd = html.indexOf(
@@ -39,7 +44,7 @@ describe("Frontier Commons FC-0 page", () => {
     assert.equal(html.match(/id="frontier-commons"/g)?.length, 1);
     assert.match(html, /<a href="#frontier-commons">Commons<\/a>/);
     assert.match(section, /The Reversible Hello/);
-    assert.match(section, /An invitation, not enrollment/);
+    assert.match(section, /A public, passive, non-targeted invitation—not enrollment/);
     assert.match(section, /FC-0 is set—and honestly not yet met/);
     assert.equal(standard.milestone.id, "FC-0");
     assert.equal(standard.milestone.state, "SET_NOT_MET");
@@ -123,9 +128,16 @@ describe("Frontier Commons FC-0 page", () => {
       objections,
       standard.objectionRegister.map(({ id }) => id),
     );
-    assert.equal(constituencies.length, 15);
+    assert.equal(constituencies.length, 16);
     assert.equal(objections.length, 11);
-    assert.match(section, /Rights do not depend on role/);
+    assert.match(
+      section,
+      /Existing human and legally protected rights do not depend on\s+role/,
+    );
+    assert.match(
+      section,
+      /AI-system safeguards are precautionary and procedural,\s+not legal-rights or consent-capacity claims/,
+    );
     assert.match(section, /never rhetorically erased/);
   });
 
@@ -133,6 +145,14 @@ describe("Frontier Commons FC-0 page", () => {
     assert.match(
       section,
       /href="\/standards\/frontier-commons-participation\.v0\.json"/,
+    );
+    assert.match(
+      section,
+      /href="\/standards\/frontier-evaluation-receipt-profile\.v0\.json"/,
+    );
+    assert.match(
+      section,
+      /href="\/standards\/frontier-labs-participation\.v0\.json"/,
     );
     assert.match(section, new RegExp(`sha256:${digest}`));
     assert.equal(
@@ -143,5 +163,8 @@ describe("Frontier Commons FC-0 page", () => {
     assert.equal(standard.completionGates.length, 4);
     assert.ok(standard.nextMilestoneGates.every(({ passed }) => !passed));
     assert.equal(standard.nextMilestoneGates.length, 9);
+    assert.equal(standard.corporateReadiness.milestone, "M1");
+    assert.equal(standard.corporateReadiness.status, "NOT_READY");
+    assert.equal(standard.corporateReadiness.requiredGates.length, 18);
   });
 });

@@ -363,11 +363,12 @@ organizational authority, independence, safety, or compliance.
 
 The v0 predicate records:
 
-- one bounded ASCII artifact identifier and claimed exact digest. The canonical
-  dogfood subject is verified against the profile bytes; v0 does not accept
-  public subject bytes, so a public receipt's subject digest is syntax-checked
-  but returned as `subjectDigestVerified: false`. Any relying profile must bind
-  bounded subject bytes or a separately verified manifest;
+- one bounded ASCII artifact identifier and exact digest. The canonical
+  dogfood subject is verified against the profile bytes. A public receipt must
+  supply the exact non-empty subject bytes, bounded to 1 MiB, and the validator
+  recomputes their digest. This verifies byte identity only: the result remains
+  `subjectSemanticsVerified: false`, and a larger subject requires a separately
+  reviewed, bounded manifest profile;
 - a claimed issuer and claimed control root, limited to artifact-only scope,
   plus explicit `authenticated: false`,
   `authorizedToRepresentOrganization: false`, and
@@ -398,8 +399,8 @@ The v0 predicate records:
   export-controlled material. Human data-owner classification remains required
   before publication;
 - explicit false truth, safety, compliance, certification, endorsement,
-  membership, reward, KARMA, qualification, governance, and network-write
-  effects; and
+  membership, economic, reward, KARMA, qualification, authority, governance,
+  privacy-rights, and network-write effects; and
 - correction semantics: this unsigned profile is assertion-only, creates no
   automatic correction or withdrawal, cannot delete public history, and cannot
   affect unrelated access. A future effectful graph requires referenced bytes,
@@ -419,6 +420,10 @@ unsigned self-assessment, not frontier-lab participation or evidence that FL-0
 is institutionally ready. Its limitations are bounded public codes rather than
 free text. “Bounded” describes the disclosed scope and limits; the format cannot
 prove honesty, truth, authority, privacy classification, or independence.
+Its canonical raw bytes are pinned automatically whenever the parser sees the
+`ZERONE_SELF_DOGFOOD` kind. A dynamic public receipt is not canonical; its
+caller may supply `expectedReceiptSha256` to pin the exact receipt bytes in
+addition to the mandatory subject and evaluation-material byte bindings.
 
 ### M0.1 declared-control-separated roundtrip — not run
 
@@ -435,34 +440,53 @@ separation. No reviewer has completed M0.1 yet.
 
 FL-0 authorizes no institutional invitation, contract, reliance, confidential
 exchange, publicity, or production dependency. Before asking any laboratory to
-participate, every machine-listed M1 gate must close through separately
-reviewed evidence. At minimum Zerone needs:
+participate, the exact 18-gate Corporate M1 set from FC-0 must close through
+separately reviewed evidence. At minimum Zerone needs:
 
-1. counterparty scope and signatory authority;
-2. governing terms, governing law, jurisdiction, and a dispute process;
-3. contribution, IP, patent, publication, and license terms;
-4. a privacy data map, DPA decision, retention, erasure, and public-permanence
-   review;
-5. security policy, coordinated disclosure, safe harbor, incident response,
-   and embargo rules;
-6. a code of conduct with enforcement, appeal, anti-retaliation, and protected
+1. accessibility, labor, worker-classification, and whistleblower review;
+2. a code of conduct with enforcement, appeal, anti-retaliation, and protected
    reporting paths;
-7. maintainer, change-control, versioning, and deprecation rules;
-8. logo, name, affiliation, endorsement, and publicity rules;
-9. competition and confidentiality review for the exact proposed scope;
-10. procurement, tax, accounting, sanctions, export-control, and financial-
-    promotion review;
-11. liability, warranty, indemnity, insurance, and participant-remedy terms;
-12. accessibility, labor, worker-classification, and whistleblower review;
-13. service-level, support, availability, portability, and exit terms;
-14. independent governance, capture, custody, and adjudication review;
-15. independent review of the receipt parser, threat model, and material-
+3. competition and confidentiality review for the exact proposed scope;
+4. contribution, IP, patent, publication, and license terms;
+5. counterparty scope and signatory authority;
+6. an explicit, accountable human decision authorizing the bounded outreach;
+7. governing terms, governing law, jurisdiction, and a dispute process;
+8. independent governance, capture, custody, and remedy review;
+9. independent review of the receipt parser, threat model, and material-
     binding behavior;
-16. an authenticated relation graph with same-subject, chronology, correction-
-    authority, and referenced-byte checks;
-17. explicit authorized human data-owner publication classification;
-18. a completed M0.1 declared-control-separated non-author roundtrip; and
-19. an explicit, accountable human decision authorizing the bounded outreach.
+10. liability, warranty, indemnity, insurance, and participant-remedy terms;
+11. logo, name, affiliation, endorsement, and publicity rules;
+12. a completed M0.1 declared-control-separated non-author roundtrip;
+13. maintainer, change-control, versioning, and deprecation rules;
+14. a non-targeting outreach policy: no profiling or identity targeting,
+    minimized lawful contact sources, at most one bounded contact, stop on
+    silence or decline, and finite contact-data retention;
+15. a privacy data map, DPA decision, retention, erasure, and public-permanence
+    review;
+16. procurement, tax, accounting, sanctions, export-control, and financial-
+    promotion review;
+17. security policy, coordinated disclosure, safe harbor, incident response,
+    and embargo rules; and
+18. service-level, support, availability, portability, and exit terms.
+
+### FL-0 promotion additions — 20 controls, still closed
+
+The receipt pilot's `promotionGates` array retains the Corporate 18 in order and
+adds two profile-specific controls at their material positions:
+
+- `authenticated-relation-graph-and-correction-authority`, required before an
+  external pilot publishes linked reproduction, challenge, correction, or
+  supersession assertions; and
+- `human-data-owner-publication-classification`, required before any public
+  receipt; an authorized accountable human data steward must classify the
+  proposed bytes and confirm applicable legal and security publication
+  authority.
+
+Until the first closes, relation links remain assertion-only with no automatic
+correction or reliance effect. Until the second closes, FL-0 provides no
+privacy or publication authorization. These two controls do not redefine
+Corporate M1, and neither they nor M0.1 completion satisfy FC-0 or authorize
+outreach, participation, or publication.
 
 The external target, which is not FL-0's current state, is one authorized
 frontier-lab team, one evaluator meeting the M0.1 non-author and declared-

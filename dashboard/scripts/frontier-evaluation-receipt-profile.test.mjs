@@ -6,6 +6,7 @@ import {
   EXPECTED_COMPACT_SHA256,
   EXPECTED_DOGFOOD_RECEIPT_SHA256,
   FrontierCompactValidationError,
+  parseAndValidateFrontierBundle,
   parseAndValidateFrontierCompact,
   parseAndValidateFrontierReceipt,
   validateCanonicalFrontierBundle,
@@ -16,6 +17,13 @@ import {
 const compactRaw = readFileSync(
   new URL(
     "../public/standards/frontier-evaluation-receipt-profile.v0.json",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const fc0Raw = readFileSync(
+  new URL(
+    "../public/standards/frontier-commons-participation.v0.json",
     import.meta.url,
   ),
   "utf8",
@@ -53,10 +61,19 @@ function publicEvaluationMaterials() {
   );
 }
 
-function publicReceipt(materials = publicEvaluationMaterials()) {
+function publicSubjectBytes() {
+  return Buffer.from("bounded public subject fixture v0");
+}
+
+function publicReceipt(
+  materials = publicEvaluationMaterials(),
+  subjectBytes = publicSubjectBytes(),
+) {
   const receipt = receiptCopy();
   receipt.subject[0].name = "public-evaluation.example.json";
-  receipt.subject[0].digest.sha256 = "a".repeat(64);
+  receipt.subject[0].digest.sha256 = createHash("sha256")
+    .update(subjectBytes)
+    .digest("hex");
   receipt.predicate.receiptKind = "PUBLIC_EVALUATION";
   receipt.predicate.issuer.claimedId = "example-project-role";
   receipt.predicate.issuer.authorityScope = "ARTIFACT_ONLY";
@@ -79,8 +96,12 @@ function publicReceipt(materials = publicEvaluationMaterials()) {
   return receipt;
 }
 
-function publicOptions(materials = publicEvaluationMaterials(), asOfOn = "2026-08-02") {
-  return { publicEvaluationMaterials: materials, asOfOn };
+function publicOptions(
+  materials = publicEvaluationMaterials(),
+  asOfOn = "2026-08-02",
+  subjectBytes = publicSubjectBytes(),
+) {
+  return { publicSubjectBytes: subjectBytes, publicEvaluationMaterials: materials, asOfOn };
 }
 
 function assertInvalid(operation, path) {
@@ -101,6 +122,14 @@ describe("frontier evaluation receipt shadow FL-0", () => {
     assert.equal(result.compact.actorCount, 21);
     assert.equal(result.compact.objectionCount, 16);
     assert.equal(result.receipt.claimedResult, "INCONCLUSIVE");
+    assert.equal(
+      canonicalCompact.sourceBindings[0].sha256,
+      createHash("sha256").update(fc0Raw).digest("hex"),
+    );
+    assert.equal(
+      canonicalReceipt.subject[0].digest.sha256,
+      createHash("sha256").update(compactRaw).digest("hex"),
+    );
   });
 
   it("keeps every release, outreach, endorsement, and logo effect false", () => {
@@ -327,6 +356,24 @@ describe("frontier evaluation receipt shadow FL-0", () => {
   });
 
   it("keeps Corporate M1 explicitly not ready and unable to authorize invitations", () => {
+    assert.equal(canonicalCompact.corporateReadiness.requiredGates.length, 18);
+    assert.equal(canonicalCompact.pilot.promotionGates.length, 20);
+    assert.deepEqual(
+      canonicalCompact.pilot.promotionGates.filter(
+        (gate) => !canonicalCompact.corporateReadiness.requiredGates.includes(gate),
+      ),
+      [
+        "authenticated-relation-graph-and-correction-authority",
+        "human-data-owner-publication-classification",
+      ],
+    );
+    assert.deepEqual(
+      canonicalCompact.pilot.promotionGates.filter((gate) =>
+        canonicalCompact.corporateReadiness.requiredGates.includes(gate),
+      ),
+      canonicalCompact.corporateReadiness.requiredGates,
+    );
+
     const ready = compactCopy();
     ready.corporateReadiness.status = "READY";
     assertInvalid(
@@ -410,7 +457,6 @@ describe("frontier evaluation receipt shadow FL-0", () => {
           `${receiptRaw}\n`,
           canonicalCompact,
           EXPECTED_COMPACT_SHA256,
-          { pinDigest: true },
         ),
       "$receipt",
     );
@@ -437,7 +483,8 @@ describe("One Bounded Inconclusive Receipt v0", () => {
         relationEffect: "NONE",
         freshness: "CURRENT_UNVERIFIED",
         freshnessEvaluatedOn: "2026-08-02",
-        subjectDigestVerified: false,
+        subjectDigestVerified: true,
+        subjectSemanticsVerified: false,
         evaluationMaterialDigestsVerified: true,
         materialSemanticsVerified: false,
         claimSemanticsVerified: false,
@@ -446,6 +493,107 @@ describe("One Bounded Inconclusive Receipt v0", () => {
         privacyClassificationVerified: false,
         eligibleForAutomaticReliance: false,
       },
+    );
+  });
+
+  it("requires bounded exact public subject bytes and keeps semantics unverified", () => {
+    const materials = publicEvaluationMaterials();
+    const subjectBytes = publicSubjectBytes();
+    const receipt = publicReceipt(materials, subjectBytes);
+
+    assertInvalid(
+      () =>
+        validateFrontierReceipt(receipt, canonicalCompact, EXPECTED_COMPACT_SHA256, {
+          publicEvaluationMaterials: materials,
+          asOfOn: "2026-08-02",
+        }),
+      "$subject",
+    );
+
+    const publicRaw = `${JSON.stringify(receipt)}\n`;
+    const publicDigest = createHash("sha256").update(publicRaw).digest("hex");
+    const parsedBundle = parseAndValidateFrontierBundle(
+      compactRaw,
+      publicRaw,
+      {
+        ...publicOptions(materials, "2026-08-02", subjectBytes),
+        expectedReceiptSha256: publicDigest,
+      },
+    );
+    assert.equal(parsedBundle.receipt.digest, publicDigest);
+    assert.equal(parsedBundle.receipt.subjectDigestVerified, true);
+    assert.equal(parsedBundle.receipt.subjectSemanticsVerified, false);
+    assertInvalid(
+      () =>
+        parseAndValidateFrontierReceipt(
+          publicRaw,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+          {
+            ...publicOptions(materials, "2026-08-02", subjectBytes),
+            expectedReceiptSha256: "f".repeat(64),
+          },
+        ),
+      "$receipt",
+    );
+    assertInvalid(
+      () =>
+        parseAndValidateFrontierReceipt(
+          publicRaw,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+          {
+            ...publicOptions(materials, "2026-08-02", subjectBytes),
+            expectedReceiptSha256: "SHA256:not-hex",
+          },
+        ),
+      "$policy.expectedReceiptSha256",
+    );
+    for (const invalid of ["not-bytes", Buffer.alloc(0), Buffer.alloc(1_048_577)]) {
+      assertInvalid(
+        () =>
+          validateFrontierReceipt(
+            receipt,
+            canonicalCompact,
+            EXPECTED_COMPACT_SHA256,
+            publicOptions(materials, "2026-08-02", invalid),
+          ),
+        "$subject",
+      );
+    }
+    assertInvalid(
+      () =>
+        validateFrontierReceipt(
+          receipt,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+          publicOptions(materials, "2026-08-02", Buffer.from("wrong subject")),
+        ),
+      "$receipt.subject[0].digest.sha256",
+    );
+
+    const placeholder = publicReceipt(materials, subjectBytes);
+    placeholder.subject[0].digest.sha256 = "0".repeat(64);
+    assertInvalid(
+      () =>
+        validateFrontierReceipt(
+          placeholder,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+          publicOptions(materials, "2026-08-02", subjectBytes),
+        ),
+      "$receipt.subject[0].digest.sha256",
+    );
+
+    assertInvalid(
+      () =>
+        validateFrontierReceipt(
+          receiptCopy(),
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+          { publicSubjectBytes: subjectBytes },
+        ),
+      "$subject",
     );
   });
 
@@ -922,6 +1070,20 @@ describe("One Bounded Inconclusive Receipt v0", () => {
   it("enforces result-relation compatibility and gives relations zero correction authority", () => {
     const materials = publicEvaluationMaterials();
 
+    const placeholder = publicReceipt(materials);
+    placeholder.predicate.evaluation.relations[0].receiptDigest =
+      `sha256:${"0".repeat(64)}`;
+    assertInvalid(
+      () =>
+        validateFrontierReceipt(
+          placeholder,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+          publicOptions(materials),
+        ),
+      "$receipt.predicate.evaluation.relations[0].receiptDigest",
+    );
+
     const contradictory = publicReceipt(materials);
     contradictory.predicate.evaluation.relations.push({
       type: "REPLICATES",
@@ -1025,12 +1187,68 @@ describe("One Bounded Inconclusive Receipt v0", () => {
     assertInvalid(
       () =>
         parseAndValidateFrontierReceipt(
+          receiptRaw.replace(
+            '"receiptKind": "ZERONE_SELF_DOGFOOD",',
+            '"receiptKind": "ZERONE_SELF_DOGFOOD", "receipt\\u004bind": "PUBLIC_EVALUATION",',
+          ),
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+        ),
+      "$.predicate.receiptKind",
+    );
+    assertInvalid(
+      () =>
+        parseAndValidateFrontierReceipt(
           " ".repeat(32_769),
           canonicalCompact,
           EXPECTED_COMPACT_SHA256,
         ),
       "$receipt",
     );
+    assertInvalid(
+      () =>
+        parseAndValidateFrontierReceipt(
+          JSON.stringify("😀".repeat(8_192)),
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+        ),
+      "$receipt",
+    );
+    assertInvalid(
+      () =>
+        parseAndValidateFrontierReceipt(
+          `${"[".repeat(33)}0${"]".repeat(33)}`,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+        ),
+      "$receipt",
+    );
+    assertInvalid(
+      () =>
+        parseAndValidateFrontierReceipt(
+          `${receiptRaw}{}`,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+        ),
+      "$receipt",
+    );
+
+    let toStringCalls = 0;
+    const boxed = new String(receiptRaw);
+    boxed.toString = () => {
+      toStringCalls += 1;
+      return receiptRaw;
+    };
+    assertInvalid(
+      () =>
+        parseAndValidateFrontierReceipt(
+          boxed,
+          canonicalCompact,
+          EXPECTED_COMPACT_SHA256,
+        ),
+      "$receipt",
+    );
+    assert.equal(toStringCalls, 0);
 
     const unknown = receiptCopy();
     unknown.predicate.member = true;

@@ -23,6 +23,14 @@ endorsement, obligation, recognition, payment, KARMA, or authority. Inspection
 requires no account, wallet, token, payment, persistent identity, contribution,
 data upload, IP assignment, exclusivity, or public announcement.
 
+The machine record's `actualParticipants` and `signatories` arrays are empty.
+It records no affiliation, logo permission, targeted outreach, direct or
+corporate outreach, live participation service, or network-state write. Public
+static source availability is passive publication for anyone to inspect; it is
+not contact with, profiling of, enrolment of, or an invitation delivered to a
+named person or institution. No one is treated as declining merely because the
+source is public. Direct or corporate outreach remains unavailable.
+
 That is the full delivered invitation. A hosted private-data path, supported
 local verifier, institutional contribution agreement, security safe harbor,
 research intake, sponsorship contract, and independent governance do not yet
@@ -41,9 +49,13 @@ declining removes none.
 
 Publishing this specification and its public JSON:
 
+- records no actual participant or signatory and creates no affiliation;
 - creates no member or participant registry;
 - accepts no confidential submission or research data;
 - executes no agreement and activates no adapter;
+- operates no live participation service and writes no network state;
+- authorizes no targeted, direct, or corporate outreach and no use of another
+  party's name or logo; public static source availability is not such outreach;
 - accepts no sponsorship, opens no escrow, moves no funds, and creates no
   reward entitlement;
 - creates or modifies no KARMA edge, magnitude, rank, or balance;
@@ -65,6 +77,16 @@ Beings are ends, not acquisition targets. Zerone is a commons to encounter,
 not a club that gains claims over a lab, employee, community, model, or agent.
 Reading cannot constitute consent to membership. Silence, refusal, privacy,
 rest, pause, and exit remain ordinary options.
+
+Existing human rights and legally protected interests never depend on
+participation. A precautionary procedural floor for AI systems and agents means
+attributable, bounded, revocable delegation; named controller provenance; tool
+and budget limits; and a stop path. It asserts no consciousness, sentience,
+moral or legal personhood, legal rights, consent capacity, debt, liability,
+office, or vote. Responsible humans, organizations, operators, and controllers
+remain accountable; delegation cannot launder or displace that responsibility.
+An AI-system stop, denied delegation, error, or shutdown creates no FC-0
+negative recognition.
 
 ### R1 — Epistemic pluralism
 
@@ -112,6 +134,10 @@ confidentiality risk, governance risk, liability, and opportunity cost. FC-0
 minimises the commitment side by offering inspection before any transaction or
 relationship. It does not pretend to solve active-use risk.
 
+No protocol consideration or economic effect does not mean costless. Participant
+time, compute, legal review, security review, and opportunity cost remain real,
+must be considered by the participant, and are not paid or capped by FC-0.
+
 ### R7 — Personal agency and craft
 
 Researchers, engineers, reviewers, maintainers, technicians, annotators,
@@ -126,6 +152,10 @@ person score or governing weight.
 The modes are separate. Moving one step never silently enrols a participant in
 the next.
 
+Passive availability of a static page or public source is not direct,
+targeted, or corporate outreach. FC-0 contacts, profiles, recruits, and enrols
+no one; a later outreach lane must first satisfy Corporate M1.
+
 1. **Observe — available now.** Read public source and standards. Closing the
    page ends active interaction; no notice is due. Ordinary hosting and security
    logs may persist, and their exact terms remain unresolved in FC-0.
@@ -135,8 +165,13 @@ the next.
 3. **Public-source contribution — separate diligence required.** The repository
    currently has no complete institutional contribution policy, CLA/DCO,
    confidential lane, or contributor governance contract. Apache-2.0 section 5
-   matters for an intentionally submitted contribution; it does not create the
-   missing institutional protections.
+   matters for an intentionally submitted contribution through the ordinary
+   public repository process; FC-0 neither creates nor blocks that existing
+   process. Such a submission receives only ordinary public-source review. It
+   is not an institutional participation lane, company commitment, affiliation,
+   endorsement, confidential exchange, or permission for publicity. Formal
+   institutional contribution, integration, or pilot participation remains
+   unavailable until the relevant M1 gates close.
 4. **Reproduce or challenge — standard only, no intake.** The published
    evidence vocabulary can be inspected. There is no live case intake,
    confidential review, adjudication, appeal, or payment service.
@@ -191,10 +226,19 @@ or a ranking. Rights attach to beings regardless of job title.
   evaluators:** receive the same public source and inspection rights as the
   largest firms, without a membership tax or bespoke sponsor privilege.
 - **AI systems, agents, their operators, and accountable principals:** inspect
-  provenance and bounded-credential patterns without treating model output as
-  authority, fabricating consensus, or laundering human accountability. FC-0
-  makes no claim about personhood or moral status; its safeguards do not depend
-  on resolving that question first.
+  controller provenance and bounded, revocable delegation patterns without
+  treating model output as authority, fabricating consensus, or laundering
+  human or organizational accountability. Precautionary safeguards do not
+  assert consciousness, sentience, moral or legal personhood, legal rights,
+  consent capacity, debt, liability, office, or vote. Active use still needs
+  accountable principals, tool and budget limits, short-lived authority,
+  revocation, a stop path, incident handling, and non-deception review.
+- **Any unlisted affected being or role:** receives the same universal floor
+  without being forced into an identity box or proving that a listed category
+  fits. Omission, overlap, ambiguity, or category dispute cannot remove
+  protection, assign lower worth, manufacture consent, or imply participation.
+  A context-specific path may add protection; it cannot subtract from the
+  universal floor.
 
 ## 6. Objections remain first-class
 
@@ -274,6 +318,50 @@ Deeper participation has a separate set of successor gates, also all closed:
 9. a supported local and air-gapped verifier, export profile, compatibility
    matrix, signed release, under-30-minute independent rehearsal, and complete
    exit drill.
+
+### Corporate M1 — `NOT_READY`
+
+FC-0 authorizes no direct or corporate outreach and opens no institutional
+participation lane. Before any bounded external corporate invitation, all 18
+machine-listed M1 gates must close through separately reviewed evidence:
+
+1. accessibility, labor, worker-classification, and whistleblower review;
+2. code-of-conduct enforcement, appeal, and anti-retaliation;
+3. competition and confidentiality review;
+4. contribution, IP, patent, publication, and license terms;
+5. counterparty scope and signatory authority;
+6. an explicit accountable-human outreach decision;
+7. governing terms, jurisdiction, and a dispute process;
+8. independent governance, capture, custody, and remedy review;
+9. independent receipt-parser, threat-model, and material-binding review;
+10. liability, indemnity, insurance, warranty, and remedy;
+11. logo, name, affiliation, and endorsement policy;
+12. an independently completed FL-0 M0.1 declared-control-separated non-author
+    roundtrip;
+13. maintainer, change-control, versioning, and deprecation rules;
+14. an outreach policy requiring no profiling or identity targeting, minimized
+    lawful contact sources, one bounded contact, stop on silence or decline,
+    and finite contact-data retention;
+15. privacy data map, DPA decision, retention, erasure, and public-permanence
+    review;
+16. procurement, tax, accounting, sanctions, export-control, and financial-
+    promotion review;
+17. security, coordinated disclosure, safe harbor, incident, and embargo rules;
+    and
+18. service-level, support, availability, portability, and exit terms.
+
+Receipt-specific public-relation authentication and authorized human data-owner
+publication classification remain additional FL-0 promotion controls. They are
+not general Corporate M1 gates and cannot be used to redefine this source-of-
+record list. Conversely, closing an FL-0 control or M0.1 alone cannot satisfy
+an FC-0 completion gate or authorize outreach.
+
+The JSON schema can check that this ordered gate set is present, that Corporate
+M1 is `NOT_READY`, and that outreach, institutional participation, and
+operational-enforcement flags remain false. It cannot prove that any gate has
+closed or that any protection is legally or operationally enforceable. FC-0
+has no institutional contract, enforcement body, remedy process, or
+adjudicator. Its proposed M1 protections remain unimplemented.
 
 A later plural-adoption milestone may require three mutually independent
 organizations to run the same shadow verifier on the same terms, plus one
@@ -393,4 +481,5 @@ npm run check:frontier-commons
 
 This validator establishes only the reviewed source shape. It cannot prove
 operator independence, lab adoption, legal adequacy, ethical permission,
-privacy practice, security readiness, or production behavior.
+privacy practice, security readiness, production behavior, enforcement, or a
+right to remedy. FC-0 creates no enforcement body or adjudicator.

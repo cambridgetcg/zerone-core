@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   FRONTIER_PARTICIPATION_MAX_BYTES,
   FRONTIER_PARTICIPATION_SHA256,
@@ -11,6 +11,10 @@ import {
 } from "../src/frontier-participation";
 
 const MAX_JSON_NESTING = 64;
+const REPOSITORY_ROOT = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 
 const EXPECTED_RELEASE_FLAGS = [
   "authoritative",
@@ -471,6 +475,26 @@ function validateSemantics(
   }
   if (root.mode !== "INVITATION_ONLY") {
     fail("$.mode", "must remain INVITATION_ONLY");
+  }
+
+  if ((root.actualParticipants as unknown[]).length !== 0) {
+    fail("$.actualParticipants", "must remain empty");
+  }
+  if ((root.signatories as unknown[]).length !== 0) {
+    fail("$.signatories", "must remain empty");
+  }
+  for (const [id, binding] of Object.entries(
+    contract.layerRelationship.sourceBindings,
+  )) {
+    const actualDigest = sha256(
+      readFileSync(resolve(REPOSITORY_ROOT, binding.path), "utf8"),
+    );
+    if (actualDigest !== binding.sha256) {
+      fail(
+        `$.layerRelationship.sourceBindings.${id}.sha256`,
+        "does not match the referenced repository bytes",
+      );
+    }
   }
 
   const covenantFloor = record(root.covenantFloor, "$.covenantFloor");

@@ -22,6 +22,20 @@ const canonicalRaw = readFileSync(
   ),
   "utf8",
 );
+const fc0Raw = readFileSync(
+  new URL(
+    "../public/standards/frontier-commons-participation.v0.json",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const fl0Raw = readFileSync(
+  new URL(
+    "../public/standards/frontier-evaluation-receipt-profile.v0.json",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const canonical = JSON.parse(canonicalRaw) as Record<string, any>;
 
 function copy(): Record<string, any> {
@@ -128,6 +142,8 @@ describe("frontier participation compact runtime guard", () => {
     assert.equal(compact.title, "Frontier Participation Compact v0");
     assert.equal(compact.status, "STATIC_READY");
     assert.equal(compact.mode, "INVITATION_ONLY");
+    assert.deepEqual(compact.actualParticipants, []);
+    assert.deepEqual(compact.signatories, []);
     assert.equal(compact.thesis, "The door opens both ways");
     assert.equal(compact.covenantFloor.invariants.length, 8);
     assert.equal(compact.adversarialReview.length, 4);
@@ -135,6 +151,31 @@ describe("frontier participation compact runtime guard", () => {
     assert.equal(compact.reasoningLadder.length, 7);
     assert.equal(compact.roles.length, 15);
     assert.equal(compact.acceptanceTests.length, 9);
+    assert.equal(
+      compact.layerRelationship.role,
+      "SUBORDINATE_STATIC_COVENANT_FLOOR",
+    );
+    assert.equal(compact.layerRelationship.invitationSurfaceOfRecord, "FC-0");
+    assert.equal(
+      compact.layerRelationship.sourceBindings.fc0.sha256,
+      createHash("sha256").update(fc0Raw).digest("hex"),
+    );
+    assert.equal(
+      compact.layerRelationship.sourceBindings.fl0.sha256,
+      createHash("sha256").update(fl0Raw).digest("hex"),
+    );
+    assert.ok(
+      [
+        compact.layerRelationship.replacesFc0,
+        compact.layerRelationship.amendsFc0,
+        compact.layerRelationship.extendsFc0Invitation,
+        compact.layerRelationship.satisfiesFc0CompletionGates,
+        compact.layerRelationship.satisfiesCorporateM1Gates,
+        compact.layerRelationship.authorizesOutreach,
+        compact.layerRelationship.authorizesParticipation,
+        compact.layerRelationship.laneBoundary.mappingCreatesMembership,
+      ].every((value) => value === false),
+    );
     assert.equal(
       createHash("sha256").update(canonicalRaw).digest("hex"),
       FRONTIER_PARTICIPATION_SHA256,
@@ -319,9 +360,9 @@ describe("frontier participation compact runtime guard", () => {
     assert.ok(profile.identityControlDifferential.labels.includes("raw-karma"));
     assert.deepEqual(profile.identityControlDifferential.equalOutputs, [
       "evidence-decision",
-      "reward-envelope",
-      "eligibility",
-      "voice",
+      "bounded-task-reward-envelope",
+      "claim-or-evidence-eligibility",
+      "claim-or-evidence-visibility",
     ]);
     assert.equal(
       profile.identityControlDifferential.controllerMergeMayOnlyReduceDuplicateVoice,
@@ -337,6 +378,33 @@ describe("frontier participation compact runtime guard", () => {
     assert.equal(profile.nonManipulationAndPluralism.termsPublicBeforeAction, true);
     assert.equal(profile.nonManipulationAndPluralism.termsFrozenBeforeAction, true);
     assert.equal(profile.nonManipulationAndPluralism.rewardTermsFrozenBeforeWork, true);
+    assert.equal(
+      compact.aiResponsibilityBoundary.actorLabelBlindnessScope,
+      "CLAIM_AND_EVIDENCE_TREATMENT_ONLY",
+    );
+    assert.equal(
+      compact.aiResponsibilityBoundary.safeguardStatus,
+      "PRECAUTIONARY_AND_PROCEDURAL",
+    );
+    assert.equal(
+      compact.aiResponsibilityBoundary
+        .accountableHumansOrganisationsOperatorsAndControllersRemainResponsible,
+      true,
+    );
+    assert.ok(
+      [
+        compact.aiResponsibilityBoundary.technicalStopOrDeniedDelegationIsLegalRefusal,
+        compact.aiResponsibilityBoundary.technicalOutputIsAssent,
+        compact.aiResponsibilityBoundary.claimsConsciousness,
+        compact.aiResponsibilityBoundary.claimsSentience,
+        compact.aiResponsibilityBoundary.claimsPersonhood,
+        compact.aiResponsibilityBoundary.claimsLegalRights,
+        compact.aiResponsibilityBoundary.claimsConsentCapacity,
+        compact.aiResponsibilityBoundary.claimsDebtOrLiability,
+        compact.aiResponsibilityBoundary.grantsOfficeOrVote,
+        compact.aiResponsibilityBoundary.moralUncertaintyTransfersResponsibility,
+      ].every((value) => value === false),
+    );
     assert.deepEqual(
       profile.nonManipulationAndPluralism.rewardMustNotDependOn,
       ["ideological-alignment", "engagement", "conformity"],
@@ -357,6 +425,13 @@ describe("frontier participation compact runtime guard", () => {
     const mutations: Array<[string, (value: Record<string, any>) => void]> = [
       ["unknown top-level", (value) => { value.prize = "join"; }],
       ["unknown nested", (value) => { value.releaseBoundary.outreach = false; }],
+      ["claimed participant", (value) => { value.actualParticipants.push("lab"); }],
+      ["claimed signatory", (value) => { value.signatories.push("person"); }],
+      ["FC-0 source path drift", (value) => { value.layerRelationship.sourceBindings.fc0.path = "README.md"; }],
+      ["FL-0 source hash drift", (value) => { value.layerRelationship.sourceBindings.fl0.sha256 = "0".repeat(64); }],
+      ["compact replaces FC-0", (value) => { value.layerRelationship.replacesFc0 = true; }],
+      ["compact satisfies M1", (value) => { value.layerRelationship.satisfiesCorporateM1Gates = true; }],
+      ["compact authorizes outreach", (value) => { value.layerRelationship.authorizesOutreach = true; }],
       ["membership", (value) => { value.releaseBoundary.activatesMembership = true; }],
       ["money", (value) => { value.releaseBoundary.movesFunds = true; }],
       ["zero fact", (value) => { value.zeroFacts[0].value = "1"; }],
@@ -383,6 +458,10 @@ describe("frontier participation compact runtime guard", () => {
       ["exit fee", (value) => { value.philosophicalFloorProfile.exitReality.exitFeeAllowed = true; }],
       ["identity label", (value) => { value.philosophicalFloorProfile.identityControlDifferential.labels.pop(); }],
       ["controller link disclosure", (value) => { value.philosophicalFloorProfile.identityControlDifferential.controllerMergeMayRevealLinks = true; }],
+      ["generic legal voice", (value) => { value.philosophicalFloorProfile.identityControlDifferential.equalOutputs[3] = "voice"; }],
+      ["AI personhood claim", (value) => { value.aiResponsibilityBoundary.claimsPersonhood = true; }],
+      ["AI legal-refusal claim", (value) => { value.aiResponsibilityBoundary.technicalStopOrDeniedDelegationIsLegalRefusal = true; }],
+      ["AI responsibility laundering", (value) => { value.aiResponsibilityBoundary.accountableHumansOrganisationsOperatorsAndControllersRemainResponsible = false; }],
       ["onboarding default", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.onboardingDefaultOff = false; }],
       ["public terms", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.termsPublicBeforeAction = false; }],
       ["frozen terms", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.termsFrozenBeforeAction = false; }],
@@ -740,7 +819,7 @@ describe("frontier participation compact runtime guard", () => {
           (node) =>
             node.className === "frontier-participation-boundary is-warning",
         ).length,
-        1,
+        3,
       );
       assert.match(copy, /Legitimate no/);
       assert.match(copy, /never-joined being is the negative control/i);
@@ -750,7 +829,10 @@ describe("frontier participation compact runtime guard", () => {
       );
       assert.match(copy, /Possible future value/);
       assert.match(copy, /Required before any operational pilot/);
-      assert.match(copy, /Compact verified and ready to inspect/);
+      assert.match(copy, /Compact bytes verified; source ready to inspect/);
+      assert.match(copy, /invitation surface: FC-0/);
+      assert.match(copy, /satisfies zero FC-0 completion or Corporate M1 gates/);
+      assert.match(copy, /Actor-label blindness applies only to claim and evidence treatment/);
       assert.match(copy, /Layer 1 · the Covenant floor/);
       assert.match(copy, /One value per consent dimension\s+YES · true/);
       assert.match(copy, /Five machine-readable blocking profiles/);

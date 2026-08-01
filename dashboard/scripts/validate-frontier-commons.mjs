@@ -17,6 +17,8 @@ const TOP_LEVEL_KEYS = [
   "governanceBearing",
   "snapshotDate",
   "purpose",
+  "participationFacts",
+  "costBoundary",
   "milestone",
   "releaseBoundary",
   "constitutionalBindings",
@@ -27,6 +29,32 @@ const TOP_LEVEL_KEYS = [
   "objectionRegister",
   "completionGates",
   "nextMilestoneGates",
+  "corporateReadiness",
+];
+const PARTICIPATION_FACT_KEYS = [
+  "scope",
+  "publicStaticSourceAvailability",
+  "actualParticipants",
+  "signatories",
+  "createsAffiliation",
+  "authorizesLogoUse",
+  "authorizesTargetedOutreach",
+  "authorizesDirectOrCorporateOutreach",
+  "operatesLiveParticipationService",
+  "writesNetworkState",
+];
+const PARTICIPATION_FACT_FALSE_KEYS = [
+  "createsAffiliation",
+  "authorizesLogoUse",
+  "authorizesTargetedOutreach",
+  "authorizesDirectOrCorporateOutreach",
+  "operatesLiveParticipationService",
+  "writesNetworkState",
+];
+const COST_BOUNDARY_KEYS = [
+  "protocolConsideration",
+  "claimsCostlessParticipation",
+  "disclosedNonMoneyCosts",
 ];
 const MILESTONE_KEYS = [
   "id",
@@ -122,6 +150,19 @@ const OBJECTION_KEYS = [
   "fc0DoesNotResolve",
 ];
 const GATE_KEYS = ["id", "passed", "requirement"];
+const CORPORATE_READINESS_KEYS = [
+  "milestone",
+  "status",
+  "authorizesExternalCorporateInvitation",
+  "authorizesInstitutionalParticipationLane",
+  "protectionsOperationallyEnforced",
+  "requiredGates",
+];
+const CORPORATE_READINESS_FALSE_KEYS = [
+  "authorizesExternalCorporateInvitation",
+  "authorizesInstitutionalParticipationLane",
+  "protectionsOperationallyEnforced",
+];
 
 const EXPECTED_BINDINGS = Object.freeze([
   Object.freeze({
@@ -196,6 +237,7 @@ const EXPECTED_CONSTITUENCY_IDS = [
   "early-career-contractors-and-technicians",
   "independent-and-smaller-labs",
   "ai-systems-agents-and-operators",
+  "unlisted-affected-being-or-role",
 ];
 const EXPECTED_OBJECTIONS = Object.freeze([
   Object.freeze({ id: "lock-in-and-exclusivity", state: "RESOLVED_FOR_READ_ONLY" }),
@@ -227,8 +269,35 @@ const EXPECTED_COMPLETION_GATE_IDS = [
   "C2-non-operator-review",
   "C3-fork-and-exit-rehearsal",
 ];
+const EXPECTED_NON_MONEY_COSTS = [
+  "time",
+  "compute",
+  "legal-review",
+  "security-review",
+  "opportunity-cost",
+];
+const EXPECTED_CORPORATE_GATE_IDS = [
+  "accessibility-labor-worker-classification-and-whistleblower-review",
+  "code-of-conduct-enforcement-appeal-and-anti-retaliation",
+  "competition-and-confidentiality-review",
+  "contribution-ip-patent-publication-and-license-terms",
+  "counterparty-scope-and-signatory-authority",
+  "explicit-accountable-human-outreach-decision",
+  "governing-terms-jurisdiction-and-dispute-process",
+  "independent-governance-capture-custody-and-remedy-review",
+  "independent-receipt-parser-threat-model-and-material-binding-review",
+  "liability-indemnity-insurance-warranty-and-remedy",
+  "logo-name-affiliation-and-endorsement-policy",
+  "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
+  "maintainer-change-control-versioning-and-deprecation",
+  "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
+  "privacy-data-map-dpa-retention-erasure-and-public-permanence",
+  "procurement-tax-accounting-sanctions-export-and-financial-promotion",
+  "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
+  "service-level-support-availability-portability-and-exit",
+];
 const FRONTIER_COMMONS_CANONICAL_SEMANTIC_SHA256 =
-  "92b9354be2cde5f96921169e932b8711cc00580cbecb9016bebf4733320beb6f";
+  "6f378c4a5e108e4ee1a17ae47d641e50c6d991505d83de089adb5beedba17e58";
 const TRUE_RIGHTS = new Set([
   "voluntary",
   "rightToDecline",
@@ -316,6 +385,66 @@ function exactStringArray(value, expected, path) {
   value.forEach((candidate, index) => {
     exact(text(candidate, `${path}[${index}]`, 128), expected[index], `${path}[${index}]`);
   });
+}
+
+function validateParticipationFacts(value) {
+  const path = "$.participationFacts";
+  const facts = record(value, path);
+  exactKeys(facts, PARTICIPATION_FACT_KEYS, path);
+  exact(
+    text(facts.scope, `${path}.scope`, 64),
+    "PUBLIC_STATIC_SOURCE_ONLY",
+    `${path}.scope`,
+  );
+  trueOnly(
+    facts.publicStaticSourceAvailability,
+    `${path}.publicStaticSourceAvailability`,
+  );
+  array(facts.actualParticipants, `${path}.actualParticipants`, 0);
+  array(facts.signatories, `${path}.signatories`, 0);
+  for (const key of PARTICIPATION_FACT_FALSE_KEYS) {
+    falseOnly(facts[key], `${path}.${key}`);
+  }
+}
+
+function validateCostBoundary(value) {
+  const path = "$.costBoundary";
+  const boundary = record(value, path);
+  exactKeys(boundary, COST_BOUNDARY_KEYS, path);
+  exact(
+    text(boundary.protocolConsideration, `${path}.protocolConsideration`, 32),
+    "NONE",
+    `${path}.protocolConsideration`,
+  );
+  falseOnly(
+    boundary.claimsCostlessParticipation,
+    `${path}.claimsCostlessParticipation`,
+  );
+  exactStringArray(
+    boundary.disclosedNonMoneyCosts,
+    EXPECTED_NON_MONEY_COSTS,
+    `${path}.disclosedNonMoneyCosts`,
+  );
+}
+
+function validateCorporateReadiness(value) {
+  const path = "$.corporateReadiness";
+  const readiness = record(value, path);
+  exactKeys(readiness, CORPORATE_READINESS_KEYS, path);
+  exact(text(readiness.milestone, `${path}.milestone`, 16), "M1", `${path}.milestone`);
+  exact(
+    text(readiness.status, `${path}.status`, 32),
+    "NOT_READY",
+    `${path}.status`,
+  );
+  for (const key of CORPORATE_READINESS_FALSE_KEYS) {
+    falseOnly(readiness[key], `${path}.${key}`);
+  }
+  exactStringArray(
+    readiness.requiredGates,
+    EXPECTED_CORPORATE_GATE_IDS,
+    `${path}.requiredGates`,
+  );
 }
 
 function validateBinding(value, index) {
@@ -423,7 +552,7 @@ function validateGate(value, index) {
   text(gate.requirement, `${path}.requirement`);
 }
 
-export function validateFrontierCommons(value) {
+function validateFrontierCommons(value) {
   const root = record(value, "$");
   exactKeys(root, TOP_LEVEL_KEYS, "$");
   exact(root.schema, FRONTIER_COMMONS_SCHEMA, "$.schema");
@@ -439,6 +568,8 @@ export function validateFrontierCommons(value) {
   }
   exact(root.snapshotDate, "2026-08-01", "$.snapshotDate");
   text(root.purpose, "$.purpose");
+  validateParticipationFacts(root.participationFacts);
+  validateCostBoundary(root.costBoundary);
 
   const milestone = record(root.milestone, "$.milestone");
   exactKeys(milestone, MILESTONE_KEYS, "$.milestone");
@@ -519,6 +650,7 @@ export function validateFrontierCommons(value) {
   array(root.nextMilestoneGates, "$.nextMilestoneGates", EXPECTED_GATE_IDS.length).forEach(
     validateGate,
   );
+  validateCorporateReadiness(root.corporateReadiness);
 
   const machineText = JSON.stringify(root);
   if (NAMED_LAB_PATTERN.test(machineText)) {
@@ -545,6 +677,7 @@ export function validateFrontierCommons(value) {
     objectionCount: EXPECTED_OBJECTIONS.length,
     completionGateCount: EXPECTED_COMPLETION_GATE_IDS.length,
     openGateCount: EXPECTED_GATE_IDS.length,
+    corporateGateCount: EXPECTED_CORPORATE_GATE_IDS.length,
   });
 }
 
@@ -672,6 +805,6 @@ if (invokedPath === SCRIPT_PATH) {
   const result = parseAndValidateFrontierCommons(raw);
   const digest = createHash("sha256").update(raw).digest("hex");
   console.log(
-    `frontier commons ${result.milestone} is valid (${result.reasoningCount} reasoning layers, ${result.constituencyCount} constituency lenses, ${result.completionGateCount} completion and ${result.openGateCount} successor gates closed, sha256:${digest})`,
+    `frontier commons ${result.milestone} is valid (${result.reasoningCount} reasoning layers, ${result.constituencyCount} constituency lenses, ${result.completionGateCount} completion and ${result.openGateCount} successor gates unmet; ${result.corporateGateCount} corporate M1 gates required, sha256:${digest})`,
   );
 }

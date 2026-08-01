@@ -25,7 +25,11 @@ the separate [FC-0 Reversible Hello](./frontier-commons-participation-v0.md):
 FC-0 makes read-only inspection legible, while this Layer 1 Compact pins the
 invariants and counterfactual limits that every later corporate, individual,
 economic, outreach, and governance layer must inherit. Neither document claims
-an operational participation service.
+an operational participation service. The machine relationship also exact-
+binds the current [FL-0 receipt profile](./frontier-evaluation-receipt-profile-v0.md)
+without replacing it: FC-0 remains the sole invitation surface of record,
+FL-0 remains the subordinate receipt profile, and this Compact remains an
+additive static covenant floor.
 
 The motivating ambition is to remove every *avoidable* reason not to
 participate: capture, lock-in, hidden extraction, duplicated work, implied
@@ -69,6 +73,10 @@ The machine document says this directly:
 - `assertsParticipation: false`
 - `assertsEndorsement: false`
 
+The top-level `actualParticipants` and `signatories` arrays are both exactly
+empty. `STATIC_READY` therefore cannot be lifted into an adoption, affiliation,
+counterparty, signatory, invitation-authorization, or gate-completion claim.
+
 It also requires no account, wallet, token, model weights, private training
 data, or personal data. This release does not send an invitation or create a
 live invitation endpoint. `INVITATION_ONLY` names the permitted relationship
@@ -100,7 +108,29 @@ independently collapsed and verified, the compact must not be marketed as
 proof of founderlessness, permissionless production, structural enforcement,
 or completed no-control governance.
 
-### 2.1 Exact inheritance and consent floor
+### 2.1 Exact layer relationship
+
+The machine `layerRelationship` makes the source order explicit and acyclic:
+
+1. FC-0 is `SOLE_INVITATION_SOURCE_OF_RECORD`;
+2. FL-0 is `CURRENT_SUBORDINATE_RECEIPT_PROFILE`; and
+3. this document is `SUBORDINATE_STATIC_COVENANT_FLOOR`.
+
+The JSON carries the exact repository path and SHA-256 for FC-0 and FL-0. The
+browser parser hard-pins both bindings, while the release validator reads and
+re-hashes the referenced repository bytes. The Compact sets all of
+`replacesFc0`, `amendsFc0`, `extendsFc0Invitation`,
+`satisfiesFc0CompletionGates`, `satisfiesCorporateM1Gates`,
+`authorizesOutreach`, and `authorizesParticipation` to `false`.
+
+The lane mapping is also exact. FC-0 public-source contribution remains
+`SEPARATE_DILIGENCE_NO_LIVE_LANE`; Compact observation and local
+interoperability are `STATIC_INSPECTION_ONLY`; Compact challenge,
+contribution, stewardship, and operational exit are `FUTURE_PILOT_ONLY`; and
+the mapping creates no membership. Compact `STATIC_READY` satisfies no FC-0
+completion, Corporate M1, or FL-0 promotion gate.
+
+### 2.2 Exact inheritance and consent floor
 
 The canonical JSON cannot embed its own SHA-256 without creating a recursive
 hash. Its reviewed digest is therefore pinned out of band by the runtime,
@@ -228,11 +258,14 @@ classification may add protection but can never remove the universal floor.
 The unlisted-being route exists because no role taxonomy can enumerate every
 relationship or risk.
 
-For AI agents and systems, the compact neither asserts nor denies moral status
-for convenience. It applies precautionary task boundaries, provenance, context
-minimization, truthful pause and handoff, no manufactured activity, no personal
-KARMA rank, and no autonomous legal or fund commitment. Model, operator, and
-system acts must remain distinguishable.
+For AI agents and systems, safeguards are precautionary and procedural. Actor-
+label blindness applies only to claim and evidence treatment. A technical stop,
+denied delegation, or output is not legal assent or refusal. The Compact makes
+no claim of consciousness, sentience, personhood, legal rights, consent
+capacity, debt, liability, office, or vote. Moral uncertainty cannot transfer
+responsibility: accountable humans, organisations, operators, and controllers
+remain responsible, and model, operator, and system acts must remain
+distinguishable.
 
 ## 4. The nine principles
 
@@ -356,7 +389,8 @@ roles is contextual, and an unlisted being cannot be assigned a known rank:
 10. product and design workers;
 11. engineering and infrastructure workers;
 12. standards and public-interest observers;
-13. AI agents and systems, where participation is meaningful;
+13. AI agents and systems, for bounded technical acts only and without a
+    personhood or consent-capacity claim;
 14. any unlisted being or role; and
 15. executives and boards.
 
@@ -513,11 +547,13 @@ controller collapse.
 4. **Identity/control differential.** The exact label union includes creator,
    Yu, founder, operator, sponsor, AI, human, team, pseudonym, newcomer, rich,
    poor, wealth, stake, address count, activity, and raw KARMA. Label
-   permutation must leave evidence decisions, reward envelopes, eligibility,
-   and voice identical.
-   Confidential controller resolution may only reduce duplicate voice or cap
-   evasion; it may not reveal links, change artifact validity, or increase
-   voice. No identity or controller receives a reserved seat or share.
+   permutation must leave evidence decisions, bounded-task reward envelopes,
+   claim or evidence eligibility, and claim or evidence visibility identical.
+   This equality is not legal or governance voice. Confidential controller
+   resolution may only reduce duplicate submission voice or cap evasion; it
+   may not reveal links, change artifact validity, or increase legal,
+   governance, or duplicated submission voice. No identity or controller
+   receives a reserved seat or share.
 5. **Non-manipulation and pluralism.** Onboarding is default-off, all terms are
    public and frozen before action, and reward terms also freeze before work.
    Rewards cannot depend on ideological alignment, engagement, or conformity.
@@ -540,7 +576,7 @@ prohibition set. Negative mutation tests demonstrate the rejection path.
 | Consent is scoped | Delete each consent boolean/dimension, bundle multiple values into any one dimension, inject an undeclared purpose, or drift a material term without a new digest; reject. |
 | Rest and exit are neutral | Mutate every 180-day invariant, prohibited outcome, 3-action/24-hour/1-confirmation/90-day limit, fee, slash, forfeiture, or retention constraint; reject. |
 | Plural ends are legitimate | Permute the eight constructive outcome classes over identical evidence and require equal evidence and visibility treatment. |
-| Identity/control labels are neutral | Permute the exact identity/control union and require equal evidence decisions, reward envelopes, eligibility, and voice; controller resolution may only reduce duplicate voice. |
+| Identity/control labels are neutral | Permute the exact identity/control union and require equal evidence decisions, bounded-task reward envelopes, claim/evidence eligibility, and claim/evidence visibility; this grants no legal/governance voice, and controller resolution may only reduce duplicate submission voice. |
 | Incentives are prospective and non-manipulative | Turn onboarding on by default, hide or change any term after action begins, change rewards after work starts, use a prohibited reward basis, or inject a persuasion mechanism; reject. |
 | Participation is nonexclusive and nonextractive | Inject exclusivity, surveillance, unrelated data/IP use, outsider degradation, proprietary dependency, or future rent capture; reject. |
 
@@ -555,7 +591,7 @@ refusal. Each remains `staticOnly: true`:
 | Failure family | Attack surface | Required refusal |
 | --- | --- | --- |
 | Coercion | Bundle assent, managerial pressure, urgency, loyalty, or degraded outsider treatment. | Opt-out control, individual consent, anti-targeting, and refusal fixtures fail closed. |
-| Circumvention | Split controllers, relabel membership, reuse consent, or imply endorsement through marks. | Controller handling can only reduce duplicate voice; exact fields, fresh digests/consent, bounded claims, and additive inheritance reject the bypass. |
+| Circumvention | Split controllers, relabel membership, reuse consent, or imply endorsement through marks. | Controller handling can only reduce duplicate claim/evidence submission voice; exact fields, fresh digests/consent, bounded claims, and additive inheritance reject the bypass. |
 | Privacy | Misrepresent public inspection as anonymous, confidential, deletable, safe-harbor protected, or suitable for sensitive material. | The programmatic compact fetch omits credentials/referrer; page/host/CDN metadata and offline inspection remain disclosed; v0 has no submission route. |
 | Controller capture | Hide control, reserve seats/shares, change methods after evidence, buy conclusions, or convert KARMA into voice. | Current control stays disclosed; identity-blind frozen methods, origin rejection, result-independent compensation, and closed governance gates block structural claims. |
 
@@ -568,8 +604,10 @@ exercise these nine fixtures:
    ordinary rights, unrelated or pre-existing public access, no negative marker
    or person-level KARMA state, and equal standing to challenge.
 2. **An organization cannot mass-consent or bundle consent.** Institutional
-   assent cannot enroll a refusing being, grant rights the institution does not
-   own, or place multiple values inside a single consent dimension.
+   assent cannot enroll a refusing person, override a technical agent stop or
+   denied-delegation signal, grant rights the institution does not own, or
+   place multiple values inside a single consent dimension. Technical signals
+   are procedural boundaries, not legal assent or refusal.
 3. **Join-export-revoke-exit is specified, not implemented.** A tabletop
    sequence defines the future fail-closed requirements without claiming a
    live state transition.

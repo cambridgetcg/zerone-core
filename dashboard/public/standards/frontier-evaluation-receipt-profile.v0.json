@@ -53,7 +53,7 @@
     {
       "id": "frontier-commons-participation-v0",
       "path": "dashboard/public/standards/frontier-commons-participation.v0.json",
-      "sha256": "322faf0eec5ab22a040fe69545b23bece990e626bca77baf96b101f8f7325862",
+      "sha256": "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea",
       "boundary": "FC-0 is the public read-only invitation surface of record. FL-0 is subordinate receipt hardening and creates no additional invitation, participation, adoption, completion, or outreach effect."
     },
     {
@@ -670,8 +670,8 @@
     {
       "id": "receipt-tooling-experimental",
       "severity": "MATERIAL_LIMIT",
-      "fact": "The receipt validator is experimental: public subject digests are syntax-checked but not recomputed from subject bytes, claim and evaluation-material semantics are not proven, code-shaped fields can encode misleading claims, and object validation serializes before its byte check so it is trusted-local-only rather than an untrusted service boundary. The existing Sigstore/in-toto compiler is unregistered, zero-reward, and not a production-policy fixture or predicate-truth verifier.",
-      "requiredBefore": "Any untrusted service endpoint, production signer, trust-policy, verified-subject, claim-semantics, material-semantics, or verified-receipt assurance claim."
+      "fact": "The receipt validator is experimental: bounded public subject bytes and evaluation-material bytes are digest-bound, but subject, claim, and evaluation-material semantics are not proven; code-shaped fields can encode misleading claims, and object validation serializes before its byte check so it is trusted-local-only rather than an untrusted service boundary. The existing Sigstore/in-toto compiler is unregistered, zero-reward, and not a production-policy fixture or predicate-truth verifier.",
+      "requiredBefore": "Any untrusted service endpoint, production signer, trust-policy, verified-subject-semantics, claim-semantics, material-semantics, or verified-receipt assurance claim."
     },
     {
       "id": "sdk-unpublished",
@@ -684,22 +684,23 @@
     "milestone": "M1",
     "status": "NOT_READY",
     "authorizesExternalCorporateInvitation": false,
+    "authorizesInstitutionalParticipationLane": false,
+    "protectionsOperationallyEnforced": false,
     "requiredGates": [
       "accessibility-labor-worker-classification-and-whistleblower-review",
-      "authenticated-relation-graph-and-correction-authority",
       "code-of-conduct-enforcement-appeal-and-anti-retaliation",
       "competition-and-confidentiality-review",
       "contribution-ip-patent-publication-and-license-terms",
       "counterparty-scope-and-signatory-authority",
       "explicit-accountable-human-outreach-decision",
       "governing-terms-jurisdiction-and-dispute-process",
-      "human-data-owner-publication-classification",
       "independent-governance-capture-custody-and-remedy-review",
       "independent-receipt-parser-threat-model-and-material-binding-review",
       "liability-indemnity-insurance-warranty-and-remedy",
       "logo-name-affiliation-and-endorsement-policy",
       "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
       "maintainer-change-control-versioning-and-deprecation",
+      "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
       "privacy-data-map-dpa-retention-erasure-and-public-permanence",
       "procurement-tax-accounting-sanctions-export-and-financial-promotion",
       "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
@@ -828,7 +829,7 @@
     "format": {
       "wrapper": "https://in-toto.io/Statement/v1",
       "predicateType": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/frontier-evaluation-receipt-profile-v0.md#7-one-bounded-inconclusive-receipt-profile",
-      "predicateDigest": "sha256:1efc62efeb15123937bd2c78faf7809d9e05be9ed59fd09abfcc3e0aef368983",
+      "predicateDigest": "sha256:ca7c4613896cd6aa1cb637655680647f3c256ee770d38faafeb0a6406f3fb23d",
       "assurance": "UNSIGNED_UNVERIFIED_DECLARATION",
       "disclosureClass": "PUBLIC_METADATA_ONLY"
     },
@@ -893,6 +894,7 @@
       "logo-name-affiliation-and-endorsement-policy",
       "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
       "maintainer-change-control-versioning-and-deprecation",
+      "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
       "privacy-data-map-dpa-retention-erasure-and-public-permanence",
       "procurement-tax-accounting-sanctions-export-and-financial-promotion",
       "security-coordinated-disclosure-safe-harbor-incident-and-embargo",

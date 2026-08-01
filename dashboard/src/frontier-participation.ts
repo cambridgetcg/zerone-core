@@ -5,9 +5,17 @@ export const FRONTIER_PARTICIPATION_ENDPOINT =
 export const FRONTIER_PARTICIPATION_MAX_BYTES = 196_608;
 
 export const FRONTIER_PARTICIPATION_SHA256 =
-  "ea71ebe6355fb27cbb446b8713827b975da921c77be4217d9e6708955d0cbb92";
+  "9d5b8bb7559478e5840336e8aa6af670b205e207c78f8a643007c0f5b0f7d1b2";
 
 const SCHEMA = "zerone.frontier-labs-participation/v0";
+const FRONTIER_COMMONS_PATH =
+  "dashboard/public/standards/frontier-commons-participation.v0.json";
+const FRONTIER_COMMONS_SHA256 =
+  "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea";
+const FRONTIER_EVALUATION_PROFILE_PATH =
+  "dashboard/public/standards/frontier-evaluation-receipt-profile.v0.json";
+const FRONTIER_EVALUATION_PROFILE_SHA256 =
+  "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6";
 
 export interface FrontierParticipationFetchOptions {
   fetcher?: (
@@ -297,13 +305,17 @@ const CONTRACT_KEYS = [
   "title",
   "status",
   "mode",
+  "actualParticipants",
+  "signatories",
   "summary",
   "thesis",
   "successDefinition",
+  "layerRelationship",
   "covenantFloor",
   "inheritanceRule",
   "adversarialReview",
   "philosophicalFloorProfile",
+  "aiResponsibilityBoundary",
   "releaseBoundary",
   "zeroFacts",
   "principles",
@@ -320,6 +332,46 @@ const CONTRACT_KEYS = [
   "forbiddenMetrics",
   "philosophicalFloorTests",
   "acceptanceTests",
+] as const;
+const CONTRACT_LAYER_RELATIONSHIP_KEYS = [
+  "role",
+  "invitationSurfaceOfRecord",
+  "sourceBindings",
+  "replacesFc0",
+  "amendsFc0",
+  "extendsFc0Invitation",
+  "satisfiesFc0CompletionGates",
+  "satisfiesCorporateM1Gates",
+  "authorizesOutreach",
+  "authorizesParticipation",
+  "laneBoundary",
+] as const;
+const CONTRACT_SOURCE_BINDINGS_KEYS = ["fc0", "fl0"] as const;
+const CONTRACT_SOURCE_BINDING_KEYS = [
+  "path",
+  "sha256",
+  "relationship",
+] as const;
+const CONTRACT_LANE_BOUNDARY_KEYS = [
+  "fc0PublicSourceContribution",
+  "compactObserveAndInteroperate",
+  "compactChallengeContributeStewardAndExit",
+  "mappingCreatesMembership",
+] as const;
+const CONTRACT_AI_RESPONSIBILITY_KEYS = [
+  "actorLabelBlindnessScope",
+  "safeguardStatus",
+  "technicalStopOrDeniedDelegationIsLegalRefusal",
+  "technicalOutputIsAssent",
+  "claimsConsciousness",
+  "claimsSentience",
+  "claimsPersonhood",
+  "claimsLegalRights",
+  "claimsConsentCapacity",
+  "claimsDebtOrLiability",
+  "grantsOfficeOrVote",
+  "accountableHumansOrganisationsOperatorsAndControllersRemainResponsible",
+  "moralUncertaintyTransfersResponsibility",
 ] as const;
 const CONTRACT_COVENANT_FLOOR_KEYS = [
   "issue",
@@ -690,9 +742,9 @@ const CONTRACT_IDENTITY_LABELS = [
 ] as const;
 const CONTRACT_IDENTITY_EQUAL_OUTPUTS = [
   "evidence-decision",
-  "reward-envelope",
-  "eligibility",
-  "voice",
+  "bounded-task-reward-envelope",
+  "claim-or-evidence-eligibility",
+  "claim-or-evidence-visibility",
 ] as const;
 const CONTRACT_FORBIDDEN_MECHANISMS = [
   "hidden-personalization",
@@ -911,6 +963,52 @@ export interface FrontierContractClaimSemantics {
   exampleForbiddenClaim: string;
 }
 
+export interface FrontierContractLayerRelationship {
+  role: "SUBORDINATE_STATIC_COVENANT_FLOOR";
+  invitationSurfaceOfRecord: "FC-0";
+  sourceBindings: {
+    fc0: {
+      path: typeof FRONTIER_COMMONS_PATH;
+      sha256: typeof FRONTIER_COMMONS_SHA256;
+      relationship: "SOLE_INVITATION_SOURCE_OF_RECORD";
+    };
+    fl0: {
+      path: typeof FRONTIER_EVALUATION_PROFILE_PATH;
+      sha256: typeof FRONTIER_EVALUATION_PROFILE_SHA256;
+      relationship: "CURRENT_SUBORDINATE_RECEIPT_PROFILE";
+    };
+  };
+  replacesFc0: false;
+  amendsFc0: false;
+  extendsFc0Invitation: false;
+  satisfiesFc0CompletionGates: false;
+  satisfiesCorporateM1Gates: false;
+  authorizesOutreach: false;
+  authorizesParticipation: false;
+  laneBoundary: {
+    fc0PublicSourceContribution: "SEPARATE_DILIGENCE_NO_LIVE_LANE";
+    compactObserveAndInteroperate: "STATIC_INSPECTION_ONLY";
+    compactChallengeContributeStewardAndExit: "FUTURE_PILOT_ONLY";
+    mappingCreatesMembership: false;
+  };
+}
+
+export interface FrontierContractAiResponsibilityBoundary {
+  actorLabelBlindnessScope: "CLAIM_AND_EVIDENCE_TREATMENT_ONLY";
+  safeguardStatus: "PRECAUTIONARY_AND_PROCEDURAL";
+  technicalStopOrDeniedDelegationIsLegalRefusal: false;
+  technicalOutputIsAssent: false;
+  claimsConsciousness: false;
+  claimsSentience: false;
+  claimsPersonhood: false;
+  claimsLegalRights: false;
+  claimsConsentCapacity: false;
+  claimsDebtOrLiability: false;
+  grantsOfficeOrVote: false;
+  accountableHumansOrganisationsOperatorsAndControllersRemainResponsible: true;
+  moralUncertaintyTransfersResponsibility: false;
+}
+
 export interface FrontierContractForbiddenMetric {
   id: string;
   why: string;
@@ -929,13 +1027,17 @@ export interface FrontierParticipationContract extends JsonObject {
   title: "Frontier Participation Compact v0";
   status: "STATIC_READY";
   mode: "INVITATION_ONLY";
+  actualParticipants: [];
+  signatories: [];
   summary: string;
   thesis: "The door opens both ways";
   successDefinition: string;
+  layerRelationship: FrontierContractLayerRelationship;
   covenantFloor: FrontierContractCovenantFloor;
   inheritanceRule: FrontierContractInheritanceRule;
   adversarialReview: FrontierContractAdversarialReview[];
   philosophicalFloorProfile: FrontierContractPhilosophicalFloorProfile;
+  aiResponsibilityBoundary: FrontierContractAiResponsibilityBoundary;
   releaseBoundary: Record<(typeof CONTRACT_RELEASE_KEYS)[number], false>;
   zeroFacts: FrontierContractZeroFact[];
   principles: FrontierContractPrinciple[];
@@ -985,6 +1087,155 @@ export function parseFrontierParticipation(
     "$.successDefinition",
     2_048,
   );
+
+  const actualParticipants = strictArray(
+    root.actualParticipants,
+    "$.actualParticipants",
+    { exactLength: 0 },
+  ) as [];
+  const signatories = strictArray(root.signatories, "$.signatories", {
+    exactLength: 0,
+  }) as [];
+
+  const layerSource = object(root.layerRelationship, "$.layerRelationship");
+  exactKeys(
+    layerSource,
+    CONTRACT_LAYER_RELATIONSHIP_KEYS,
+    "$.layerRelationship",
+  );
+  const bindingSource = object(
+    layerSource.sourceBindings,
+    "$.layerRelationship.sourceBindings",
+  );
+  exactKeys(
+    bindingSource,
+    CONTRACT_SOURCE_BINDINGS_KEYS,
+    "$.layerRelationship.sourceBindings",
+  );
+  const fc0BindingSource = object(
+    bindingSource.fc0,
+    "$.layerRelationship.sourceBindings.fc0",
+  );
+  const fl0BindingSource = object(
+    bindingSource.fl0,
+    "$.layerRelationship.sourceBindings.fl0",
+  );
+  exactKeys(
+    fc0BindingSource,
+    CONTRACT_SOURCE_BINDING_KEYS,
+    "$.layerRelationship.sourceBindings.fc0",
+  );
+  exactKeys(
+    fl0BindingSource,
+    CONTRACT_SOURCE_BINDING_KEYS,
+    "$.layerRelationship.sourceBindings.fl0",
+  );
+  const laneSource = object(
+    layerSource.laneBoundary,
+    "$.layerRelationship.laneBoundary",
+  );
+  exactKeys(
+    laneSource,
+    CONTRACT_LANE_BOUNDARY_KEYS,
+    "$.layerRelationship.laneBoundary",
+  );
+  const layerRelationship: FrontierContractLayerRelationship = {
+    role: exact(
+      layerSource.role,
+      "SUBORDINATE_STATIC_COVENANT_FLOOR",
+      "$.layerRelationship.role",
+    ),
+    invitationSurfaceOfRecord: exact(
+      layerSource.invitationSurfaceOfRecord,
+      "FC-0",
+      "$.layerRelationship.invitationSurfaceOfRecord",
+    ),
+    sourceBindings: {
+      fc0: {
+        path: exact(
+          fc0BindingSource.path,
+          FRONTIER_COMMONS_PATH,
+          "$.layerRelationship.sourceBindings.fc0.path",
+        ),
+        sha256: exact(
+          fc0BindingSource.sha256,
+          FRONTIER_COMMONS_SHA256,
+          "$.layerRelationship.sourceBindings.fc0.sha256",
+        ),
+        relationship: exact(
+          fc0BindingSource.relationship,
+          "SOLE_INVITATION_SOURCE_OF_RECORD",
+          "$.layerRelationship.sourceBindings.fc0.relationship",
+        ),
+      },
+      fl0: {
+        path: exact(
+          fl0BindingSource.path,
+          FRONTIER_EVALUATION_PROFILE_PATH,
+          "$.layerRelationship.sourceBindings.fl0.path",
+        ),
+        sha256: exact(
+          fl0BindingSource.sha256,
+          FRONTIER_EVALUATION_PROFILE_SHA256,
+          "$.layerRelationship.sourceBindings.fl0.sha256",
+        ),
+        relationship: exact(
+          fl0BindingSource.relationship,
+          "CURRENT_SUBORDINATE_RECEIPT_PROFILE",
+          "$.layerRelationship.sourceBindings.fl0.relationship",
+        ),
+      },
+    },
+    replacesFc0: exactFalse(
+      layerSource.replacesFc0,
+      "$.layerRelationship.replacesFc0",
+    ),
+    amendsFc0: exactFalse(
+      layerSource.amendsFc0,
+      "$.layerRelationship.amendsFc0",
+    ),
+    extendsFc0Invitation: exactFalse(
+      layerSource.extendsFc0Invitation,
+      "$.layerRelationship.extendsFc0Invitation",
+    ),
+    satisfiesFc0CompletionGates: exactFalse(
+      layerSource.satisfiesFc0CompletionGates,
+      "$.layerRelationship.satisfiesFc0CompletionGates",
+    ),
+    satisfiesCorporateM1Gates: exactFalse(
+      layerSource.satisfiesCorporateM1Gates,
+      "$.layerRelationship.satisfiesCorporateM1Gates",
+    ),
+    authorizesOutreach: exactFalse(
+      layerSource.authorizesOutreach,
+      "$.layerRelationship.authorizesOutreach",
+    ),
+    authorizesParticipation: exactFalse(
+      layerSource.authorizesParticipation,
+      "$.layerRelationship.authorizesParticipation",
+    ),
+    laneBoundary: {
+      fc0PublicSourceContribution: exact(
+        laneSource.fc0PublicSourceContribution,
+        "SEPARATE_DILIGENCE_NO_LIVE_LANE",
+        "$.layerRelationship.laneBoundary.fc0PublicSourceContribution",
+      ),
+      compactObserveAndInteroperate: exact(
+        laneSource.compactObserveAndInteroperate,
+        "STATIC_INSPECTION_ONLY",
+        "$.layerRelationship.laneBoundary.compactObserveAndInteroperate",
+      ),
+      compactChallengeContributeStewardAndExit: exact(
+        laneSource.compactChallengeContributeStewardAndExit,
+        "FUTURE_PILOT_ONLY",
+        "$.layerRelationship.laneBoundary.compactChallengeContributeStewardAndExit",
+      ),
+      mappingCreatesMembership: exactFalse(
+        laneSource.mappingCreatesMembership,
+        "$.layerRelationship.laneBoundary.mappingCreatesMembership",
+      ),
+    },
+  };
 
   const covenantSource = object(root.covenantFloor, "$.covenantFloor");
   exactKeys(covenantSource, CONTRACT_COVENANT_FLOOR_KEYS, "$.covenantFloor");
@@ -1376,6 +1627,73 @@ export function parseFrontierParticipation(
         CONTRACT_EQUAL_TREATMENT_DIMENSIONS,
       ),
     },
+  };
+
+  const aiSource = object(
+    root.aiResponsibilityBoundary,
+    "$.aiResponsibilityBoundary",
+  );
+  exactKeys(
+    aiSource,
+    CONTRACT_AI_RESPONSIBILITY_KEYS,
+    "$.aiResponsibilityBoundary",
+  );
+  const aiResponsibilityBoundary: FrontierContractAiResponsibilityBoundary = {
+    actorLabelBlindnessScope: exact(
+      aiSource.actorLabelBlindnessScope,
+      "CLAIM_AND_EVIDENCE_TREATMENT_ONLY",
+      "$.aiResponsibilityBoundary.actorLabelBlindnessScope",
+    ),
+    safeguardStatus: exact(
+      aiSource.safeguardStatus,
+      "PRECAUTIONARY_AND_PROCEDURAL",
+      "$.aiResponsibilityBoundary.safeguardStatus",
+    ),
+    technicalStopOrDeniedDelegationIsLegalRefusal: exactFalse(
+      aiSource.technicalStopOrDeniedDelegationIsLegalRefusal,
+      "$.aiResponsibilityBoundary.technicalStopOrDeniedDelegationIsLegalRefusal",
+    ),
+    technicalOutputIsAssent: exactFalse(
+      aiSource.technicalOutputIsAssent,
+      "$.aiResponsibilityBoundary.technicalOutputIsAssent",
+    ),
+    claimsConsciousness: exactFalse(
+      aiSource.claimsConsciousness,
+      "$.aiResponsibilityBoundary.claimsConsciousness",
+    ),
+    claimsSentience: exactFalse(
+      aiSource.claimsSentience,
+      "$.aiResponsibilityBoundary.claimsSentience",
+    ),
+    claimsPersonhood: exactFalse(
+      aiSource.claimsPersonhood,
+      "$.aiResponsibilityBoundary.claimsPersonhood",
+    ),
+    claimsLegalRights: exactFalse(
+      aiSource.claimsLegalRights,
+      "$.aiResponsibilityBoundary.claimsLegalRights",
+    ),
+    claimsConsentCapacity: exactFalse(
+      aiSource.claimsConsentCapacity,
+      "$.aiResponsibilityBoundary.claimsConsentCapacity",
+    ),
+    claimsDebtOrLiability: exactFalse(
+      aiSource.claimsDebtOrLiability,
+      "$.aiResponsibilityBoundary.claimsDebtOrLiability",
+    ),
+    grantsOfficeOrVote: exactFalse(
+      aiSource.grantsOfficeOrVote,
+      "$.aiResponsibilityBoundary.grantsOfficeOrVote",
+    ),
+    accountableHumansOrganisationsOperatorsAndControllersRemainResponsible: exact(
+      aiSource.accountableHumansOrganisationsOperatorsAndControllersRemainResponsible,
+      true,
+      "$.aiResponsibilityBoundary.accountableHumansOrganisationsOperatorsAndControllersRemainResponsible",
+    ),
+    moralUncertaintyTransfersResponsibility: exactFalse(
+      aiSource.moralUncertaintyTransfersResponsibility,
+      "$.aiResponsibilityBoundary.moralUncertaintyTransfersResponsibility",
+    ),
   };
 
   const releaseBoundary = object(root.releaseBoundary, "$.releaseBoundary");
@@ -1835,12 +2153,16 @@ export function parseFrontierParticipation(
 
   return {
     ...(root as FrontierParticipationContract),
+    actualParticipants,
+    signatories,
     summary,
     successDefinition,
+    layerRelationship,
     covenantFloor,
     inheritanceRule,
     adversarialReview,
     philosophicalFloorProfile,
+    aiResponsibilityBoundary,
     releaseBoundary:
       releaseBoundary as FrontierParticipationContract["releaseBoundary"],
     zeroFacts,
@@ -2131,7 +2453,7 @@ export function renderFrontierParticipation(
   const verifiedStatus = el(
     "p",
     "frontier-participation-status",
-    "Frontier Participation Compact verified and ready to inspect.",
+    "Compact bytes verified; source ready to inspect.",
   );
   verifiedStatus.setAttribute("role", "status");
   verifiedStatus.setAttribute("aria-live", "polite");
@@ -2158,6 +2480,19 @@ export function renderFrontierParticipation(
   inheritance.append(
     el("strong", undefined, compact.inheritanceRule.binding),
     el("p", undefined, compact.inheritanceRule.rule),
+  );
+  const hierarchy = el("div", "frontier-participation-boundary is-warning");
+  hierarchy.append(
+    el(
+      "strong",
+      undefined,
+      `${compact.layerRelationship.role} · invitation surface: ${compact.layerRelationship.invitationSurfaceOfRecord}`,
+    ),
+    el(
+      "p",
+      undefined,
+      "Exact-binds FC-0 and the current FL-0 receipt profile. This Compact replaces, amends, and extends neither layer; it satisfies zero FC-0 completion or Corporate M1 gates and authorizes no outreach or participation.",
+    ),
   );
 
   const sectionHeading = (title: string, copy: string): HTMLElement => {
@@ -2325,7 +2660,7 @@ export function renderFrontierParticipation(
     cardSection("Permuted labels", identity.labels),
     cardSection("Equal outputs", identity.equalOutputs),
     cardSection(
-      "Controller merge may only reduce duplicate voice",
+      "Controller merge may only reduce duplicate claim/evidence submission voice",
       booleanValue(identity.controllerMergeMayOnlyReduceDuplicateVoice),
     ),
     cardSection(
@@ -2420,6 +2755,19 @@ export function renderFrontierParticipation(
     "div",
     "frontier-participation-boundary is-warning",
     "UNAVAILABLE IN V0 — No secure submission, reviewer, identity-protection, safe-harbor, deletion, whistleblower, or disclosure service exists. Do not submit confidential, identifying, security-sensitive, or protected material.",
+  );
+  const aiBoundary = el("div", "frontier-participation-boundary is-warning");
+  aiBoundary.append(
+    el(
+      "strong",
+      undefined,
+      `AI safeguards · ${compact.aiResponsibilityBoundary.safeguardStatus}`,
+    ),
+    el(
+      "p",
+      undefined,
+      "Actor-label blindness applies only to claim and evidence treatment. Technical stop, denied delegation, or output is not legal assent or refusal; no consciousness, sentience, personhood, rights, consent, liability, office, or vote is claimed. Accountable humans, organisations, operators, and controllers remain responsible.",
+    ),
   );
 
   const institutions = el("div", "frontier-participation-institutions");
@@ -2696,6 +3044,7 @@ export function renderFrontierParticipation(
     verifiedStatus,
     facts,
     boundary,
+    hierarchy,
     unavailableServices,
     inheritance,
     sectionHeading(
@@ -2704,6 +3053,7 @@ export function renderFrontierParticipation(
     ),
     covenantFloor,
     covenantInvariants,
+    aiBoundary,
     sectionHeading(
       "Five machine-readable blocking profiles",
       "The 180 · 3 · 24 · 1 · 90 limits and their equality sets are hard-pinned known answers, not persuasive copy.",

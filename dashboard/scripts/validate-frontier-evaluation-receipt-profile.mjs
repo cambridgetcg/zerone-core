@@ -8,16 +8,17 @@ export const RECEIPT_SCHEMA = "zerone.frontier-evaluation-receipt/v0";
 export const STATEMENT_V1 = "https://in-toto.io/Statement/v1";
 export const COMPACT_MAX_BYTES = 65_536;
 export const RECEIPT_MAX_BYTES = 32_768;
+export const PUBLIC_EVALUATION_SUBJECT_MAX_BYTES = 1_048_576;
 export const PUBLIC_EVALUATION_MATERIAL_MAX_BYTES = 1_048_576;
 export const PUBLIC_EVALUATION_MATERIALS_MAX_BYTES = 4_194_304;
 export const EXPECTED_COMPACT_SHA256 =
-  "0371b3f7d9fc5e1162e8b99a48c13b05da0e0e28e67934c11634af7e7655841d";
+  "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6";
 export const EXPECTED_DOGFOOD_RECEIPT_SHA256 =
-  "32a8baee116e1b75d76ecc04071031ef0efc81efc9f7f6f16514677bd8ba67d7";
+  "5a415b733bd0c18d22070add6911f69947c04f06fce7aab0d6d4a3ce9065e306";
 export const EXPECTED_COMPACT_SEMANTIC_SHA256 =
-  "8172bfc5385841650523aa50f199bbbb7ece486ac03cf302d73257acdb0aa81e";
+  "37b4dd7a1e19a225ee63d71f5bc9051f99c32fbab3f9e4f60949eb1d9be78871";
 export const EXPECTED_DOGFOOD_SEMANTIC_SHA256 =
-  "27725579fa9cc30539fd2a25cec0dba667f0789b7a7bcd4b39764d88afb630f8";
+  "6a74db972ececbccd9c5654a5ca0a912f67bfecfe27c1d04f2417b4ea5b368f7";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPOSITORY_ROOT = resolve(dirname(SCRIPT_PATH), "../..");
@@ -132,6 +133,8 @@ const CORPORATE_READINESS_KEYS = [
   "milestone",
   "status",
   "authorizesExternalCorporateInvitation",
+  "authorizesInstitutionalParticipationLane",
+  "protectionsOperationallyEnforced",
   "requiredGates",
 ];
 const OBJECTION_KEYS = [
@@ -351,6 +354,26 @@ const REQUIRED_STOP_CONDITIONS = [
 ];
 const REQUIRED_CORPORATE_GATES = [
   "accessibility-labor-worker-classification-and-whistleblower-review",
+  "code-of-conduct-enforcement-appeal-and-anti-retaliation",
+  "competition-and-confidentiality-review",
+  "contribution-ip-patent-publication-and-license-terms",
+  "counterparty-scope-and-signatory-authority",
+  "explicit-accountable-human-outreach-decision",
+  "governing-terms-jurisdiction-and-dispute-process",
+  "independent-governance-capture-custody-and-remedy-review",
+  "independent-receipt-parser-threat-model-and-material-binding-review",
+  "liability-indemnity-insurance-warranty-and-remedy",
+  "logo-name-affiliation-and-endorsement-policy",
+  "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
+  "maintainer-change-control-versioning-and-deprecation",
+  "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
+  "privacy-data-map-dpa-retention-erasure-and-public-permanence",
+  "procurement-tax-accounting-sanctions-export-and-financial-promotion",
+  "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
+  "service-level-support-availability-portability-and-exit",
+];
+const REQUIRED_PROMOTION_GATES = [
+  "accessibility-labor-worker-classification-and-whistleblower-review",
   "authenticated-relation-graph-and-correction-authority",
   "code-of-conduct-enforcement-appeal-and-anti-retaliation",
   "competition-and-confidentiality-review",
@@ -365,12 +388,12 @@ const REQUIRED_CORPORATE_GATES = [
   "logo-name-affiliation-and-endorsement-policy",
   "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
   "maintainer-change-control-versioning-and-deprecation",
+  "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
   "privacy-data-map-dpa-retention-erasure-and-public-permanence",
   "procurement-tax-accounting-sanctions-export-and-financial-promotion",
   "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
   "service-level-support-availability-portability-and-exit",
 ];
-const REQUIRED_PROMOTION_GATES = REQUIRED_CORPORATE_GATES;
 
 const LANE_STATUS = Object.freeze({
   inspect: "SOURCE_AVAILABLE",
@@ -747,7 +770,40 @@ function validateCorporateReadiness(value) {
     readiness.authorizesExternalCorporateInvitation,
     `${path}.authorizesExternalCorporateInvitation`,
   );
+  falseOnly(
+    readiness.authorizesInstitutionalParticipationLane,
+    `${path}.authorizesInstitutionalParticipationLane`,
+  );
+  falseOnly(
+    readiness.protectionsOperationallyEnforced,
+    `${path}.protectionsOperationallyEnforced`,
+  );
   exactArray(readiness.requiredGates, REQUIRED_CORPORATE_GATES, `${path}.requiredGates`);
+
+  const fc0 = JSON.parse(
+    readFileSync(
+      resolve(
+        REPOSITORY_ROOT,
+        "dashboard/public/standards/frontier-commons-participation.v0.json",
+      ),
+      "utf8",
+    ),
+  );
+  const fc0Readiness = record(fc0.corporateReadiness, "$fc0.corporateReadiness");
+  exactString(fc0Readiness.milestone, "M1", "$fc0.corporateReadiness.milestone");
+  exactString(fc0Readiness.status, "NOT_READY", "$fc0.corporateReadiness.status");
+  for (const key of [
+    "authorizesExternalCorporateInvitation",
+    "authorizesInstitutionalParticipationLane",
+    "protectionsOperationallyEnforced",
+  ]) {
+    falseOnly(fc0Readiness[key], `$fc0.corporateReadiness.${key}`);
+  }
+  exactArray(
+    fc0Readiness.requiredGates,
+    REQUIRED_CORPORATE_GATES,
+    "$fc0.corporateReadiness.requiredGates",
+  );
 }
 
 function validatePilot(value) {
@@ -800,6 +856,11 @@ function validatePilot(value) {
   return { receiptPath, format };
 }
 
+/**
+ * Trusted-local object entry point. Serialization may invoke getters, toJSON,
+ * or Proxy traps. Use parseAndValidateFrontierCompact or
+ * parseAndValidateFrontierBundle for untrusted serialized input.
+ */
 export function validateFrontierCompact(value) {
   const compact = record(inertJsonSnapshot(value, "$", COMPACT_MAX_BYTES), "$");
   exactKeys(compact, TOP_LEVEL_KEYS, "$");
@@ -1075,10 +1136,13 @@ const EFFECT_KEYS = [
   "certification",
   "endorsement",
   "membership",
+  "economic",
   "reward",
   "karma",
   "qualification",
+  "authority",
   "governance",
+  "privacyRights",
   "networkWrite",
 ];
 const CORRECTION_KEYS = [
@@ -1136,11 +1200,28 @@ function validatePublicEvaluationMaterials(value, evaluation) {
   }
 }
 
+function validatePublicSubject(value, expectedDigest) {
+  const path = "$subject";
+  if (!Buffer.isBuffer(value)) {
+    fail(path, "must be a Buffer containing the exact public subject bytes");
+  }
+  if (value.length === 0) fail(path, "must not be empty");
+  if (value.length > PUBLIC_EVALUATION_SUBJECT_MAX_BYTES) {
+    fail(path, `must be at most ${PUBLIC_EVALUATION_SUBJECT_MAX_BYTES} bytes`);
+  }
+  exactString(expectedDigest, sha256(value), "$receipt.subject[0].digest.sha256");
+}
+
+/**
+ * Trusted-local object entry point. Serialization may invoke getters, toJSON,
+ * or Proxy traps. Use parseAndValidateFrontierBundle for untrusted receipt
+ * JSON; subject and evaluation material bytes remain separate Buffer inputs.
+ */
 export function validateFrontierReceipt(
   value,
   compact,
   compactDigest,
-  { publicEvaluationMaterials, asOfOn } = {},
+  { publicSubjectBytes, publicEvaluationMaterials, asOfOn } = {},
 ) {
   compact = inertJsonSnapshot(compact, "$compact", COMPACT_MAX_BYTES);
   value = inertJsonSnapshot(value, "$receipt", RECEIPT_MAX_BYTES);
@@ -1232,6 +1313,9 @@ export function validateFrontierReceipt(
     freshness = evaluatedOn >= reviewAfterOn ? "REVIEW_DUE_UNVERIFIED" : "CURRENT_UNVERIFIED";
   }
   if (predicate.receiptKind !== "PUBLIC_EVALUATION") {
+    if (publicSubjectBytes !== undefined) {
+      fail("$subject", "must be absent for dogfood receipts");
+    }
     if (publicEvaluationMaterials !== undefined) {
       fail("$materials", "must be absent for dogfood receipts");
     }
@@ -1239,6 +1323,9 @@ export function validateFrontierReceipt(
       nullOnly(evaluation[key], `$receipt.predicate.evaluation.${key}`);
     }
   } else {
+    if (subjectDigests.sha256 === "0".repeat(64)) {
+      fail("$receipt.subject[0].digest.sha256", "must not be an all-zero placeholder");
+    }
     for (const key of EVALUATION_DIGEST_KEYS) {
       const value = digest(evaluation[key], `$receipt.predicate.evaluation.${key}`);
       if (value === `sha256:${"0".repeat(64)}`) {
@@ -1249,6 +1336,10 @@ export function validateFrontierReceipt(
       fail("$materials", "must supply the exact bytes for all seven public evaluation digests");
     }
     validatePublicEvaluationMaterials(publicEvaluationMaterials, evaluation);
+    if (publicSubjectBytes === undefined) {
+      fail("$subject", "must supply the exact public subject bytes");
+    }
+    validatePublicSubject(publicSubjectBytes, subjectDigests.sha256);
   }
   exactString(
     evaluation.disclosureClass,
@@ -1293,6 +1384,9 @@ export function validateFrontierReceipt(
       fail(`${path}.type`, "has an unknown relation type");
     }
     const relationDigest = digest(relation.receiptDigest, `${path}.receiptDigest`);
+    if (relationDigest === `sha256:${"0".repeat(64)}`) {
+      fail(`${path}.receiptDigest`, "must not be an all-zero placeholder");
+    }
     relationKeys.push(`${relation.type}\u0000${relationDigest}`);
   }
   if (new Set(relationKeys).size !== relationKeys.length) {
@@ -1417,7 +1511,8 @@ export function validateFrontierReceipt(
     relationEffect: "NONE",
     freshness,
     freshnessEvaluatedOn,
-    subjectDigestVerified: predicate.receiptKind === "ZERONE_SELF_DOGFOOD",
+    subjectDigestVerified: true,
+    subjectSemanticsVerified: false,
     evaluationMaterialDigestsVerified: predicate.receiptKind === "PUBLIC_EVALUATION",
     materialSemanticsVerified: false,
     claimSemanticsVerified: false,
@@ -1432,32 +1527,59 @@ export function parseAndValidateFrontierReceipt(
   raw,
   compact,
   compactDigest,
-  { pinDigest = false, publicEvaluationMaterials, asOfOn } = {},
+  {
+    expectedReceiptSha256,
+    publicSubjectBytes,
+    publicEvaluationMaterials,
+    asOfOn,
+  } = {},
 ) {
   const value = parseRaw(raw, "$receipt", RECEIPT_MAX_BYTES);
   const digestValue = sha256(raw);
-  if (pinDigest && digestValue !== EXPECTED_DOGFOOD_RECEIPT_SHA256) {
+  const result = validateFrontierReceipt(value, compact, compactDigest, {
+    publicSubjectBytes,
+    publicEvaluationMaterials,
+    asOfOn,
+  });
+  if (
+    value.predicate.receiptKind === "ZERONE_SELF_DOGFOOD" &&
+    digestValue !== EXPECTED_DOGFOOD_RECEIPT_SHA256
+  ) {
     fail("$receipt", "dogfood receipt bytes differ from the reviewed FL-0 digest");
   }
+  if (expectedReceiptSha256 !== undefined) {
+    if (
+      typeof expectedReceiptSha256 !== "string" ||
+      !HEX_DIGEST_PATTERN.test(expectedReceiptSha256)
+    ) {
+      fail("$policy.expectedReceiptSha256", "must be 64 lowercase hex characters");
+    }
+    exactString(digestValue, expectedReceiptSha256, "$receipt");
+  }
   return Object.freeze({
-    ...validateFrontierReceipt(value, compact, compactDigest, {
-      publicEvaluationMaterials,
-      asOfOn,
-    }),
+    ...result,
     digest: digestValue,
   });
 }
 
-export function validateCanonicalFrontierBundle(compactRaw, receiptRaw) {
+export function parseAndValidateFrontierBundle(
+  compactRaw,
+  receiptRaw,
+  options = {},
+) {
   const compactResult = parseAndValidateFrontierCompact(compactRaw, { pinDigest: true });
   const compact = JSON.parse(compactRaw);
   const receiptResult = parseAndValidateFrontierReceipt(
     receiptRaw,
     compact,
     compactResult.digest,
-    { pinDigest: true },
+    options,
   );
   return Object.freeze({ compact: compactResult, receipt: receiptResult });
+}
+
+export function validateCanonicalFrontierBundle(compactRaw, receiptRaw) {
+  return parseAndValidateFrontierBundle(compactRaw, receiptRaw);
 }
 
 function runCli() {
@@ -1474,7 +1596,7 @@ function runCli() {
       readFileSync(resolve(process.argv[3]), "utf8"),
     );
     console.log(
-      `frontier receipt profile: SOURCE-SHAPE PASS; authority, adoption, subject binding for public receipts, material semantics, privacy classification, and enforcement NOT VERIFIED (${result.compact.rightCount} draft rights, ${result.compact.actorCount} actor scopes, ${result.compact.objectionCount} objections; profile sha256 ${result.compact.digest}; dogfood claimed ${result.receipt.claimedResult} sha256 ${result.receipt.digest})`,
+      `frontier receipt profile: SOURCE-SHAPE PASS; authority, adoption, subject semantics, material semantics, privacy classification, and enforcement NOT VERIFIED (${result.compact.rightCount} draft rights, ${result.compact.actorCount} actor scopes, ${result.compact.objectionCount} objections; profile sha256 ${result.compact.digest}; dogfood claimed ${result.receipt.claimedResult} sha256 ${result.receipt.digest})`,
     );
   } catch (error) {
     console.error(`frontier receipt profile: FAIL: ${error.message}`);

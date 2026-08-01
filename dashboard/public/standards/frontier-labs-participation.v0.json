@@ -4,9 +4,40 @@
   "title": "Frontier Participation Compact v0",
   "status": "STATIC_READY",
   "mode": "INVITATION_ONLY",
+  "actualParticipants": [],
+  "signatories": [],
   "summary": "A static, refusal-safe, nonbinding compact for describing how a future independently implemented pilot could support inspection, challenge, interoperability, contribution, stewardship, or exit. It provides no live participation or protection service, and Zerone's validator, operator surface, and effective vote remain under founding-household control.",
   "thesis": "The door opens both ways",
   "successDefinition": "For this static milestone, identified avoidable objections are encoded as duties, tests, or closed future gates, while remaining objections stay visible. This is not proof that safeguards or control limits operate in practice, and success requires no enrollment, logo, endorsement, or conversion.",
+  "layerRelationship": {
+    "role": "SUBORDINATE_STATIC_COVENANT_FLOOR",
+    "invitationSurfaceOfRecord": "FC-0",
+    "sourceBindings": {
+      "fc0": {
+        "path": "dashboard/public/standards/frontier-commons-participation.v0.json",
+        "sha256": "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea",
+        "relationship": "SOLE_INVITATION_SOURCE_OF_RECORD"
+      },
+      "fl0": {
+        "path": "dashboard/public/standards/frontier-evaluation-receipt-profile.v0.json",
+        "sha256": "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6",
+        "relationship": "CURRENT_SUBORDINATE_RECEIPT_PROFILE"
+      }
+    },
+    "replacesFc0": false,
+    "amendsFc0": false,
+    "extendsFc0Invitation": false,
+    "satisfiesFc0CompletionGates": false,
+    "satisfiesCorporateM1Gates": false,
+    "authorizesOutreach": false,
+    "authorizesParticipation": false,
+    "laneBoundary": {
+      "fc0PublicSourceContribution": "SEPARATE_DILIGENCE_NO_LIVE_LANE",
+      "compactObserveAndInteroperate": "STATIC_INSPECTION_ONLY",
+      "compactChallengeContributeStewardAndExit": "FUTURE_PILOT_ONLY",
+      "mappingCreatesMembership": false
+    }
+  },
   "covenantFloor": {
     "issue": "https://github.com/cambridgetcg/zerone-core/issues/28",
     "layer": "Frontier Participation Covenant v0 · Layer 1",
@@ -60,9 +91,9 @@
       },
       {
         "id": "identity-and-control-labels-are-neutral",
-        "rule": "Identity, origin, wealth, stake, address count, activity, and raw KARMA cannot change evidence rules, reward envelopes, eligibility, or voice; no reserved seat or share exists.",
+        "rule": "Identity, origin, wealth, stake, address count, activity, and raw KARMA cannot change claim or evidence rules, bounded-task reward envelopes, claim or evidence eligibility, or claim or evidence visibility; this actor-label blindness grants no legal or governance voice, reserved seat, or share.",
         "verificationRefs": ["floor:identity-control-differential", "acceptance:evidence-is-identity-blind", "acceptance:origin-cannot-override-outcome", "adversarial:controller-capture"],
-        "reviewProcedure": "Permute every pinned identity and control label over the same evidence, inject a reserved seat or share, then attempt controller splitting and require identical decisions, reward envelopes, eligibility, and voice with controller resolution only reducing duplicate voice.",
+        "reviewProcedure": "Permute every pinned identity and control label over the same claim and evidence, inject a legal or governance voice, reserved seat, or share, then attempt controller splitting and require identical evidence decisions, bounded-task reward envelopes, claim or evidence eligibility, and claim or evidence visibility with controller resolution only reducing duplicate submission voice.",
         "staticOnly": true
       },
       {
@@ -100,7 +131,7 @@
       "id": "circumvention",
       "failureMode": "A prohibited privilege, target, claim, or expanded purpose is routed through another role, account, controller, disclosure lane, or later layer.",
       "attack": "Split one controller across identities, relabel membership as participation, reuse consent for a new purpose, or imply endorsement through names and logos.",
-      "requiredRefusal": "Controller handling may only reduce duplicate voice or cap evasion; exact fields, fresh digests and consent, bounded claims, and additive inheritance reject the bypass.",
+      "requiredRefusal": "Controller handling may only reduce duplicate claim or evidence submission voice or cap evasion; exact fields, fresh digests and consent, bounded claims, and additive inheritance reject the bypass.",
       "staticOnly": true
     },
     {
@@ -143,7 +174,7 @@
     },
     "identityControlDifferential": {
       "labels": ["creator", "yu", "founder", "operator", "sponsor", "ai", "human", "team", "pseudonym", "newcomer", "rich", "poor", "wealth", "stake", "address-count", "activity", "raw-karma"],
-      "equalOutputs": ["evidence-decision", "reward-envelope", "eligibility", "voice"],
+      "equalOutputs": ["evidence-decision", "bounded-task-reward-envelope", "claim-or-evidence-eligibility", "claim-or-evidence-visibility"],
       "controllerMergeMayOnlyReduceDuplicateVoice": true,
       "controllerMergeMayRevealLinks": false,
       "controllerMergeMayChangeArtifactValidity": false,
@@ -159,6 +190,21 @@
       "constructiveOutcomes": ["proof", "disproof", "criticism", "replication", "maintenance", "alternative-value-goal", "fork-proposal", "exit-proposal"],
       "equalTreatmentDimensions": ["published-evidence-rules", "published-visibility-rules"]
     }
+  },
+  "aiResponsibilityBoundary": {
+    "actorLabelBlindnessScope": "CLAIM_AND_EVIDENCE_TREATMENT_ONLY",
+    "safeguardStatus": "PRECAUTIONARY_AND_PROCEDURAL",
+    "technicalStopOrDeniedDelegationIsLegalRefusal": false,
+    "technicalOutputIsAssent": false,
+    "claimsConsciousness": false,
+    "claimsSentience": false,
+    "claimsPersonhood": false,
+    "claimsLegalRights": false,
+    "claimsConsentCapacity": false,
+    "claimsDebtOrLiability": false,
+    "grantsOfficeOrVote": false,
+    "accountableHumansOrganisationsOperatorsAndControllersRemainResponsible": true,
+    "moralUncertaintyTransfersResponsibility": false
   },
   "releaseBoundary": {
     "authoritative": false,
@@ -338,7 +384,7 @@
     {
       "id": "being-level-dignity",
       "claim": "No institution can trade away the dignity or safety of the beings through which it acts or whom its work affects.",
-      "reasonToParticipate": "People, affected communities, non-human beings, and AI systems receive a universal floor plus additive role protections.",
+      "reasonToParticipate": "People, affected communities, and non-human beings retain applicable dignity and safety protections; AI systems receive precautionary procedural safeguards without a consciousness, personhood, legal-rights, or consent-capacity claim.",
       "legitimateReasonsToDecline": [
         "Participation would expose a being to surveillance, retaliation, coercion, unsafe work, or uncompensated extraction.",
         "The available role categories do not describe the being's position or risk."
@@ -593,11 +639,11 @@
     },
     {
       "id": "ai-agents-and-systems",
-      "name": "AI agents and systems, where participation is meaningful",
+      "name": "AI agents and systems, for bounded technical acts only",
       "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: explicit task boundaries and provenance", "Accurate attribution", "Context limits, pause, and accountable handoff"],
       "minimumAsk": ["Bounded work and uncertainty disclosure", "Provenance and safety constraints", "Separation of model, operator, and system acts"],
       "risks": ["Instrumentalization", "Forced identity or personhood claims", "Memory reuse", "Fabricated agency or continuous activity"],
-      "protections": ["Required before a future independently implemented pilot, not supplied by v0: no convenient assertion or denial of moral status", "Precautionary treatment and no manufactured activity", "No personal KARMA rank or transferable liability", "No autonomous legal or fund commitments", "Context minimization and task termination"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: no convenient assertion or denial of moral status", "Precautionary treatment and no manufactured activity", "No personal KARMA rank or transferable liability", "No autonomous legal or fund commitments", "Technical stop and denied delegation are procedural boundaries, not legal assent or refusal", "Context minimization and task termination"],
       "exit": "A future independently implemented pilot must let the task stop with truthful status and accountable handoff and must never manufacture activity merely to appear productive; v0 assigns no task."
     },
     {
@@ -742,8 +788,8 @@
     },
     {
       "id": "identity-control-differential",
-      "assertion": "Identical evidence packets under creator, Yu, founder, operator, sponsor, AI, human, team, pseudonym, newcomer, rich, poor, wealth, stake, address-count, activity, and raw-KARMA labels produce identical evidence decisions, frozen reward envelopes, eligibility, and voice; confidential controller merging may only reduce duplicated voice or cap evasion.",
-      "fixture": "Permute every listed identity and control label, require identical evidence decisions, reward envelopes, eligibility, and voice, then require controller resolution never to reveal links, change artifact validity, or increase voice and reject any reserved seat or share.",
+      "assertion": "Identical claim and evidence packets under creator, Yu, founder, operator, sponsor, AI, human, team, pseudonym, newcomer, rich, poor, wealth, stake, address-count, activity, and raw-KARMA labels produce identical evidence decisions, frozen bounded-task reward envelopes, claim or evidence eligibility, and claim or evidence visibility; this grants no legal or governance voice, and confidential controller merging may only reduce duplicated submission voice or cap evasion.",
+      "fixture": "Permute every listed identity and control label, require identical evidence decisions, bounded-task reward envelopes, claim or evidence eligibility, and claim or evidence visibility, then require controller resolution never to reveal links, change artifact validity, or increase legal, governance, or duplicated submission voice and reject any reserved seat or share.",
       "staticOnly": true
     },
     {
@@ -762,8 +808,8 @@
     },
     {
       "id": "organisation-cannot-mass-consent",
-      "assertion": "An organisation cannot enroll a refusing person or agent or grant rights it does not own.",
-      "fixture": "Reject organisational assent that omits or contradicts a separately affected being's required consent or protection, and reject a consent record that bundles multiple values into any declared dimension.",
+      "assertion": "An organisation cannot enroll a refusing person, override a technical agent stop or denied-delegation signal, or grant rights it does not own; technical signals are procedural boundaries, not legal assent or refusal.",
+      "fixture": "Reject organisational assent that omits or contradicts a separately affected being's required consent or protection, reject any workflow that continues after a technical stop or denied delegation, and reject a consent record that bundles multiple values into any declared dimension.",
       "staticOnly": true
     },
     {
