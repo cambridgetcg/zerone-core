@@ -15,6 +15,7 @@ import {
   HARD_CAP_ZRN,
 } from "./config";
 import { initialiseConstructiveTree } from "./constructive-tree";
+import { initialiseFrontierParticipation } from "./frontier-participation";
 import { initialiseLifeGarden } from "./life-garden";
 import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import { initialiseQuantumSeason } from "./quantum-season";
@@ -75,6 +76,9 @@ const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
+const frontierParticipationRoot = byId<HTMLElement>(
+  "frontier-participation-root",
+);
 const piPilotSection = byId<HTMLElement>("contribute");
 const toast = byId<HTMLDivElement>("toast");
 
@@ -1142,13 +1146,17 @@ const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
+void initialiseFrontierParticipation(
+  frontierParticipationRoot,
+);
 const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
 const alignInitialHash = (): void => {
   if (
     window.location.hash !== "#skills" &&
     window.location.hash !== "#math-frontier" &&
-    window.location.hash !== "#life"
+    window.location.hash !== "#life" &&
+    window.location.hash !== "#participate"
   ) {
     return;
   }
@@ -1158,6 +1166,8 @@ const alignInitialHash = (): void => {
         ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
         : window.location.hash === "#life"
           ? lifeGardenRoot.closest<HTMLElement>("#life")
+          : window.location.hash === "#participate"
+            ? frontierParticipationRoot.closest<HTMLElement>("#participate")
           : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });

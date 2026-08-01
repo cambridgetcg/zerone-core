@@ -25,7 +25,10 @@ const SECTION_SHA256 =
   "d2ee43c9b4a54b2a121836de849d58e0bf7829e52aaf48e3630ff837115942c9";
 const start = html.indexOf('id="frontier-commons"');
 const sectionStart = html.lastIndexOf("<section", start);
-const sectionEnd = html.indexOf('<section\n          class="section split-section pi-section"', start);
+const sectionEnd = html.indexOf(
+  '<section\n          class="section frontier-participation-section"',
+  start,
+);
 assert.ok(start >= 0, "missing #frontier-commons");
 assert.ok(sectionStart >= 0, "missing FC-0 section start");
 assert.ok(sectionEnd > start, "missing FC-0 section end");
@@ -40,6 +43,9 @@ describe("Frontier Commons FC-0 page", () => {
     assert.match(section, /FC-0 is set—and honestly not yet met/);
     assert.equal(standard.milestone.id, "FC-0");
     assert.equal(standard.milestone.state, "SET_NOT_MET");
+    assert.ok(html.indexOf('id="life"') < start);
+    assert.ok(start < html.indexOf('id="participate"'));
+    assert.ok(html.indexOf('id="participate"') < html.indexOf('id="contribute"'));
   });
 
   it("renders the exact zero-effect boundary and no enrollment action", () => {

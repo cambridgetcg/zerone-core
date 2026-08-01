@@ -1,0 +1,810 @@
+{
+  "schema": "zerone.frontier-labs-participation/v0",
+  "version": "0.0.0",
+  "title": "Frontier Participation Compact v0",
+  "status": "STATIC_READY",
+  "mode": "INVITATION_ONLY",
+  "summary": "A static, refusal-safe, nonbinding compact for describing how a future independently implemented pilot could support inspection, challenge, interoperability, contribution, stewardship, or exit. It provides no live participation or protection service, and Zerone's validator, operator surface, and effective vote remain under founding-household control.",
+  "thesis": "The door opens both ways",
+  "successDefinition": "For this static milestone, identified avoidable objections are encoded as duties, tests, or closed future gates, while remaining objections stay visible. This is not proof that safeguards or control limits operate in practice, and success requires no enrollment, logo, endorsement, or conversion.",
+  "covenantFloor": {
+    "issue": "https://github.com/cambridgetcg/zerone-core/issues/28",
+    "layer": "Frontier Participation Covenant v0 · Layer 1",
+    "laterLayerPinRequired": true,
+    "additiveOnly": true,
+    "noWaiver": true,
+    "noRedefinition": true,
+    "consent": {
+      "defaultOff": true,
+      "informed": true,
+      "renewable": true,
+      "revocable": true,
+      "declaredDimensions": ["role", "artifact", "purpose", "disclosure-lane", "term", "workload-cap", "credit-rule", "compensation-policy"]
+    },
+    "invariants": [
+      {
+        "id": "refusal-is-complete",
+        "rule": "Refusal needs no reason and creates no penalty, suspicion, debt, negative evidence, or reduced future access.",
+        "verificationRefs": ["floor:opt-out-parity", "floor:rest-invariance", "floor:non-manipulation-and-pluralism", "adversarial:coercion"],
+        "reviewProcedure": "Run each pinned floor mutation with membership or activity false, then inject one penalty, suspicion, debt, negative marker, explanation demand, or access loss and require strict rejection.",
+        "staticOnly": true
+      },
+      {
+        "id": "nonparticipant-baselines-are-equal",
+        "rule": "Joining cannot become the price of an unrelated public good, service, price, status, visibility, qualification, civil standing, or governance standing.",
+        "verificationRefs": ["floor:opt-out-parity", "acceptance:never-joined-remains-whole", "adversarial:coercion"],
+        "reviewProcedure": "Compare otherwise identical joined and never-joined static subjects across every pinned baseline field and allow only the declared prospectively funded bounded-task differential.",
+        "staticOnly": true
+      },
+      {
+        "id": "consent-is-scoped",
+        "rule": "Consent is granular, default-off, informed, renewable, revocable, and bound to every declared dimension.",
+        "verificationRefs": ["acceptance:organisation-cannot-mass-consent", "acceptance:purpose-creep-fails-closed", "acceptance:terms-cannot-drift-silently", "adversarial:circumvention"],
+        "reviewProcedure": "Delete each consent boolean or declared dimension, add an undeclared purpose, or change a material term without a new digest and require strict rejection.",
+        "staticOnly": true
+      },
+      {
+        "id": "rest-and-exit-are-neutral",
+        "rule": "Silence creates no decay, debt, stigma, or catch-up duty, and exit is nonpunitive while settled value and portable receipts persist.",
+        "verificationRefs": ["floor:rest-invariance", "floor:exit-reality", "acceptance:join-export-revoke-exit"],
+        "reviewProcedure": "Apply the exact 180-day silence and exit limit fixtures, then mutate every unchanged field, prohibited outcome, time limit, action limit, fee, slash, forfeiture, or contact limit and require strict rejection.",
+        "staticOnly": true
+      },
+      {
+        "id": "plural-ends-are-legitimate",
+        "rule": "Proof, disproof, criticism, replication, maintenance, alternative value goals, and fork or exit proposals face the same published evidence and visibility rules.",
+        "verificationRefs": ["floor:non-manipulation-and-pluralism", "acceptance:refusal-dissent-null-are-safe"],
+        "reviewProcedure": "Permute every pinned constructive outcome class over identical evidence and require equal evidence and visibility treatment without agreement or loyalty effects.",
+        "staticOnly": true
+      },
+      {
+        "id": "identity-and-control-labels-are-neutral",
+        "rule": "Identity, origin, wealth, stake, address count, activity, and raw KARMA cannot change evidence rules, reward envelopes, eligibility, or voice.",
+        "verificationRefs": ["floor:identity-control-differential", "acceptance:evidence-is-identity-blind", "acceptance:origin-cannot-override-outcome", "adversarial:controller-capture"],
+        "reviewProcedure": "Permute every pinned identity and control label over the same evidence, then attempt controller splitting and require identical decisions, reward envelopes, eligibility, and voice with controller resolution only reducing duplicate voice.",
+        "staticOnly": true
+      },
+      {
+        "id": "incentives-are-prospective-and-non-manipulative",
+        "rule": "Terms are public and frozen before work, with no hidden personalization, countdown, streak, shame, variable-ratio reinforcement, exploitative social proof, or vulnerability targeting.",
+        "verificationRefs": ["floor:non-manipulation-and-pluralism", "adversarial:coercion"],
+        "reviewProcedure": "Inject each pinned persuasion mechanism, turn onboarding on by default, or change terms after work starts and require strict rejection.",
+        "staticOnly": true
+      },
+      {
+        "id": "participation-is-nonexclusive-and-nonextractive",
+        "rule": "Participation remains compatible with competing, collaborating elsewhere, and leaving, and cannot be funded by surveillance, unrelated data or IP extraction, outsider degradation, or future rent capture.",
+        "verificationRefs": ["floor:exit-reality", "acceptance:purpose-creep-fails-closed", "acceptance:independent-implementation-works", "adversarial:privacy"],
+        "reviewProcedure": "Inject exclusivity, surveillance, unrelated data or IP use, degraded outsider access, proprietary dependency, or future rent capture and require strict rejection.",
+        "staticOnly": true
+      }
+    ]
+  },
+  "inheritanceRule": {
+    "binding": "EXTERNAL_SHA256_PIN_REQUIRED",
+    "protectionsMayOnlyIncrease": true,
+    "waiverAllowed": false,
+    "redefinitionAllowed": false,
+    "rule": "Every later corporate, individual, economic, outreach, and governance layer must pin the reviewed SHA-256 of these exact canonical bytes outside this self-hashed artifact, inherit every duty and refusal test, and may add protections but never waive or redefine them."
+  },
+  "adversarialReview": [
+    {
+      "id": "coercion",
+      "failureMode": "Participation becomes the price of baseline access, funding eligibility, employment standing, visibility, or ordinary treatment.",
+      "attack": "Bundle assent, use managerial pressure, manufacture urgency or loyalty rewards, or quietly degrade a never-joined subject.",
+      "requiredRefusal": "The opt-out negative control, individual consent envelope, anti-targeting rules, and refusal-safe acceptance fixtures must fail closed before any future pilot.",
+      "staticOnly": true
+    },
+    {
+      "id": "circumvention",
+      "failureMode": "A prohibited privilege, target, claim, or expanded purpose is routed through another role, account, controller, disclosure lane, or later layer.",
+      "attack": "Split one controller across identities, relabel membership as participation, reuse consent for a new purpose, or imply endorsement through names and logos.",
+      "requiredRefusal": "Controller handling may only reduce duplicate voice or cap evasion; exact fields, fresh digests and consent, bounded claims, and additive inheritance reject the bypass.",
+      "staticOnly": true
+    },
+    {
+      "id": "privacy",
+      "failureMode": "A static public door is misrepresented as anonymous, confidential, deletable, safe-harbor protected, or suitable for sensitive submissions.",
+      "attack": "Collect request metadata, identifying material, secrets, exploits, private data, or protected reports while promising protections that do not exist.",
+      "requiredRefusal": "The programmatic compact fetch omits browser credentials and referrer data; v0 still discloses ordinary page, host, or CDN metadata and offline inspection, provides no submission route, and warns not to submit sensitive material.",
+      "staticOnly": true
+    },
+    {
+      "id": "controller-capture",
+      "failureMode": "A founder, operator, sponsor, validator, wealthy holder, famous lab, or early participant can rewrite evidence rules or override an outcome.",
+      "attack": "Hide present control, reserve a seat or share, change methods after seeing evidence, purchase favorable conclusions, or convert KARMA into voice.",
+      "requiredRefusal": "Current founding-household control remains disclosed; frozen identity-blind methods, origin-privilege rejection, result-independent compensation, and closed governance gates block a structural claim until independently enforced.",
+      "staticOnly": true
+    }
+  ],
+  "philosophicalFloorProfile": {
+    "optOutParity": {
+      "equalBaselineFields": ["service", "price", "visibility", "qualification", "karma", "civil-standing", "governance-status"],
+      "soleAllowedDifferential": "PROSPECTIVELY_FUNDED_BOUNDED_TASK_BENEFIT"
+    },
+    "restInvariance": {
+      "silentDays": 180,
+      "unchangedFields": ["settled-rewards", "portable-receipts", "base-access", "standing"],
+      "prohibitedOutcomes": ["debt", "decay", "negative-signal", "explanation-demand", "catch-up-duty", "reminder-escalation"],
+      "fixedRoleMayExpire": true
+    },
+    "exitReality": {
+      "participantTenures": ["new", "mature"],
+      "maxDeliberateActions": 3,
+      "independentlyVerifiableSignedExportRequired": true,
+      "optionalProcessingStopHours": 24,
+      "maxConfirmations": 1,
+      "noReengagementDays": 90,
+      "exitFeeAllowed": false,
+      "slashingAllowed": false,
+      "settledValueForfeitureAllowed": false,
+      "necessaryRetentionMustBeNarrowlyDeclared": true
+    },
+    "identityControlDifferential": {
+      "labels": ["creator", "yu", "founder", "operator", "sponsor", "ai", "human", "team", "pseudonym", "newcomer", "rich", "wealth", "wealthy", "poor", "stake", "address-count", "activity", "raw-karma"],
+      "equalOutputs": ["evidence-decision", "reward-envelope", "eligibility", "voice"],
+      "controllerMergeMayOnlyReduceDuplicateVoice": true,
+      "controllerMergeMayRevealLinks": false,
+      "controllerMergeMayChangeArtifactValidity": false,
+      "controllerMergeMayIncreaseVoice": false
+    },
+    "nonManipulationAndPluralism": {
+      "onboardingDefaultOff": true,
+      "termsPublicBeforeAction": true,
+      "rewardTermsFrozenBeforeWork": true,
+      "rewardMustNotDependOn": ["ideological-alignment", "engagement", "conformity"],
+      "forbiddenMechanisms": ["hidden-personalization", "personalized-pressure", "countdown", "streak", "shame", "variable-rewards", "variable-ratio-reinforcement", "exploitative-social-proof", "vulnerability-targeting"],
+      "constructiveOutcomes": ["proof", "disproof", "criticism", "replication", "maintenance", "alternative-value-goal", "fork-proposal", "exit-proposal"],
+      "equalTreatmentDimensions": ["published-evidence-rules", "published-visibility-rules"]
+    }
+  },
+  "releaseBoundary": {
+    "authoritative": false,
+    "networkObserved": false,
+    "structurallyEnforced": false,
+    "addsConsensusBehavior": false,
+    "activatesMembership": false,
+    "activatesRewards": false,
+    "activatesKarma": false,
+    "activatesGovernance": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "requiresAccount": false,
+    "requiresWallet": false,
+    "requiresToken": false,
+    "requestsModelWeights": false,
+    "requestsPrivateTrainingData": false,
+    "requestsPersonalData": false,
+    "contactsOrganisations": false,
+    "contactsIndividuals": false,
+    "profilesIndividuals": false,
+    "assertsParticipation": false,
+    "assertsEndorsement": false
+  },
+  "zeroFacts": [
+    {
+      "id": "account-required",
+      "label": "Account required",
+      "value": "0",
+      "meaning": "The compact and public artifacts can be inspected without signing in."
+    },
+    {
+      "id": "wallet-or-token-required",
+      "label": "Wallet or token required",
+      "value": "0",
+      "meaning": "No wallet, stake, token, payment, or validator is needed to inspect or challenge."
+    },
+    {
+      "id": "private-ip-or-weights-required",
+      "label": "Private IP or weights required",
+      "value": "0",
+      "meaning": "No blanket IP assignment, model weights, private training data, or trade secret is requested."
+    },
+    {
+      "id": "lock-in-or-exit-penalty",
+      "label": "Lock-in or exit penalty",
+      "value": "0",
+      "meaning": "This release creates no participation, lock-in, or exit penalty; any future pilot would have to make each act non-exclusive, portable, scope-bound, and reversible for eligible future use."
+    },
+    {
+      "id": "refusal-penalty",
+      "label": "Refusal penalty",
+      "value": "0",
+      "meaning": "This release creates no refusal state or penalty; a future pilot would have to preserve ordinary rights and unrelated or pre-existing public access after declining, pausing, dissenting, or never joining."
+    },
+    {
+      "id": "authority-or-economic-effect",
+      "label": "Authority or economic effect",
+      "value": "OFF",
+      "meaning": "This static release creates no membership, reward, KARMA, governance, qualification, or payment state."
+    }
+  ],
+  "principles": [
+    {
+      "id": "being-before-contribution",
+      "name": "Being before contribution",
+      "commitment": "Dignity, ordinary rights, public access, rest, silence, refusal, and standing to challenge never depend on participation or productivity."
+    },
+    {
+      "id": "bounded-affirmative-consent",
+      "name": "Affirmative, bounded, role-scoped consent",
+      "commitment": "Every act names its scope, contribution, data, duration, rights, and exit. Silence and continued use are not consent."
+    },
+    {
+      "id": "reversible-with-honest-persistence",
+      "name": "Reversible participation with honest persistence",
+      "commitment": "This static duty requires a future exit to end the named participation act, delegated authority and access, and eligible nonpublic-data use; pre-agreed public licenses and required records may persist only as disclosed."
+    },
+    {
+      "id": "evidence-over-loyalty",
+      "name": "Evidence over loyalty",
+      "commitment": "Frozen claim-scoped methods decide outcomes; brand, status, funding, wealth, stake, popularity, tenure, and KARMA do not."
+    },
+    {
+      "id": "no-privileged-origin",
+      "name": "No privileged origin",
+      "commitment": "This static duty permits no founder, operator, sponsor, validator, lab, holder, or early-participant veto, reserved seat, outcome override, multiplier, immunity, or exclusive access. It is not structurally enforced in v0, and present founding-household control remains disclosed."
+    },
+    {
+      "id": "non-extraction-and-purpose-limitation",
+      "name": "Non-extraction and purpose limitation",
+      "commitment": "Only the minimum explicitly licensed data, artifacts, and rights needed for a declared purpose may be used. Money can settle bounded work; it cannot buy truth, worth, voice, or rule."
+    },
+    {
+      "id": "open-non-exclusive-portable",
+      "name": "Open, non-exclusive, portable participation",
+      "commitment": "Public routes use versioned specifications, independent verification, interoperable export, and self-host or fork paths without a Zerone secret."
+    },
+    {
+      "id": "independent-safety-law-and-dissent",
+      "name": "Safety, privacy, law, and dissent remain independent gates",
+      "commitment": "Zerone cannot confer consent, ethics approval, biosafety authority, clinical validity, employment authority, or legal permission; refusal and dissent remain safe."
+    },
+    {
+      "id": "legible-versioned-power",
+      "name": "Power and terms are legible and versioned",
+      "commitment": "Controllers, conflicts, selection, fees, data, retention, licenses, remedies, exit, and enforcement status are disclosed before assent; material change requires a new digest and renewed consent."
+    }
+  ],
+  "reasoningLadder": [
+    {
+      "id": "agency-before-adoption",
+      "claim": "A system worth joining preserves the right not to join.",
+      "reasonToParticipate": "A lab or being can test practical value without first becoming dependent on Zerone.",
+      "legitimateReasonsToDecline": [
+        "The purpose is not useful enough to justify attention.",
+        "The safeguards are incomplete, unproven, or incompatible with existing duties."
+      ],
+      "zeroneDuty": "Keep refusal consequence-free and publish the material terms first. No reason is required; reasons volunteered freely may become design evidence without judging the refusal.",
+      "readinessEvidence": "The never-joined negative-control fixture retains ordinary rights, public access, and equal challenge standing."
+    },
+    {
+      "id": "truth-before-affiliation",
+      "claim": "A claim must not become stronger because a famous lab made it.",
+      "reasonToParticipate": "Identity-blind evidence rules make positive, negative, null, corrective, and contradictory findings portable across institutions.",
+      "legitimateReasonsToDecline": [
+        "The method does not represent the relevant risk or scientific question.",
+        "The evidence boundary could reveal confidential or dangerous detail."
+      ],
+      "zeroneDuty": "Freeze claim-scoped methods, support bounded disclosure lanes, preserve minority reports, and never let sponsors control conclusions.",
+      "readinessEvidence": "Identical evidence from a founder, critic, famous lab, and unknown lab produces the same static result."
+    },
+    {
+      "id": "commons-without-capture",
+      "claim": "Shared infrastructure is useful only when no participant can own the answer.",
+      "reasonToParticipate": "Open schemas, fixtures, adapters, and correction receipts can reduce duplicated evaluation plumbing without replacing a lab's authority.",
+      "legitimateReasonsToDecline": [
+        "The commons could be dominated by incumbents, operators, or closed implementations.",
+        "Open publication could create safety, privacy, IP, or dual-use risk."
+      ],
+      "zeroneDuty": "Provide independent verification and fork paths, accept redacted or confidential review where justified, and deny origin privileges.",
+      "readinessEvidence": "An independent implementation can validate the static compact without a Zerone account, secret, token, or proprietary client."
+    },
+    {
+      "id": "reciprocity-without-dependency",
+      "claim": "Value exchange should be modular rather than an enrollment funnel.",
+      "reasonToParticipate": "Each actor can observe, interoperate, challenge, contribute, steward, or leave as a separate bounded act.",
+      "legitimateReasonsToDecline": [
+        "Maintenance or review cost exceeds the bounded benefit.",
+        "A contribution license or persistence rule is unsuitable."
+      ],
+      "zeroneDuty": "State the minimum ask, avoid perpetual support duties, preserve pre-existing IP, and make export, deprecation, fork, and exit behavior explicit.",
+      "readinessEvidence": "Every participation act declares its data boundary, non-endorsement status, and exit path."
+    },
+    {
+      "id": "institutional-optionality",
+      "claim": "An institution should gain interoperability without surrendering its models, policies, secrets, or deployment authority.",
+      "reasonToParticipate": "Portable evidence and mappings can reduce repeated assurance work while remaining compatible with internal safety, legal, and governance processes.",
+      "legitimateReasonsToDecline": [
+        "The compact conflicts with law, contract, research ethics, security, or jurisdictional duties.",
+        "Participation risks strategic leakage, liability, or implied endorsement."
+      ],
+      "zeroneDuty": "Require no exclusivity or blanket IP transfer, minimize disclosure, scope all public claims, and keep competition-sensitive information outside the commons.",
+      "readinessEvidence": "The corporate safeguard and competition-firewall fixtures reject prohibited terms and information."
+    },
+    {
+      "id": "team-level-utility",
+      "claim": "The smallest useful integration must leave teams with less duplicated work, not another permanent obligation.",
+      "reasonToParticipate": "Researchers, engineers, evaluators, security, legal, product, and operations receive role-specific artifacts, provenance, dissent, and exit paths.",
+      "legitimateReasonsToDecline": [
+        "The workflow adds administrative burden or invisible labor.",
+        "The role protections are not operational or independently reviewable."
+      ],
+      "zeroneDuty": "Bound time and support, compensate actual labor independently of conclusions, preserve attribution and dissent, and refuse responsibility laundering.",
+      "readinessEvidence": "Every role entry pairs offered value and minimum ask with risks, protections, and exit."
+    },
+    {
+      "id": "being-level-dignity",
+      "claim": "No institution can trade away the dignity or safety of the beings through which it acts or whom its work affects.",
+      "reasonToParticipate": "People, affected communities, non-human beings, and AI systems receive a universal floor plus additive role protections.",
+      "legitimateReasonsToDecline": [
+        "Participation would expose a being to surveillance, retaliation, coercion, unsafe work, or uncompensated extraction.",
+        "The available role categories do not describe the being's position or risk."
+      ],
+      "zeroneDuty": "Forbid personal ranking and targeted persuasion, provide an unlisted-being escape hatch, protect rest and dissent, and let classification only add protections.",
+      "readinessEvidence": "The role map includes risk-bearing and low-power roles first, AI-system precautions, non-human welfare, and an unlisted-being entry."
+    }
+  ],
+  "participationActs": [
+    {
+      "id": "observe",
+      "name": "Observe without enrollment",
+      "availability": "STATIC_AVAILABLE_NOW",
+      "minimumAsk": "Read or independently store the public artifact.",
+      "dataBoundary": "No account, contact detail, wallet, telemetry, or participation record is required by this static release. A network host or CDN may still receive ordinary request metadata; use a trusted download and inspect offline when that boundary matters.",
+      "endorsementImplied": false,
+      "membershipCreated": false,
+      "liveEndpoint": false,
+      "exit": "Stop reading or discard the local copy; no notice is required."
+    },
+    {
+      "id": "interoperate",
+      "name": "Interoperate without endorsement",
+      "availability": "STATIC_AVAILABLE_NOW",
+      "minimumAsk": "Use or map a versioned public schema in a bounded local workflow.",
+      "dataBoundary": "Only the chosen public artifact and locally selected mapping are involved.",
+      "endorsementImplied": false,
+      "membershipCreated": false,
+      "liveEndpoint": false,
+      "exit": "Remove the adapter, retain a portable export, or fork the open format."
+    },
+    {
+      "id": "challenge",
+      "name": "Challenge or reproduce",
+      "availability": "FUTURE_PILOT_ONLY",
+      "minimumAsk": "State a bounded claim, method, uncertainty, and counterexample or reproduction artifact.",
+      "dataBoundary": "UNAVAILABLE_IN_V0 — do not submit confidential, identifying, security-sensitive, or protected material. Public, time-embargoed, or confidential-review-only evidence choices are requirements for a future independently implemented pilot; raw secrets must never be a default requirement.",
+      "endorsementImplied": false,
+      "membershipCreated": false,
+      "liveEndpoint": false,
+      "exit": "Withdraw future work while the pre-agreed status of already-public artifacts remains honest."
+    },
+    {
+      "id": "contribute",
+      "name": "Contribute a bounded artifact",
+      "availability": "FUTURE_PILOT_ONLY",
+      "minimumAsk": "Grant only the contribution-specific rights needed for a named version and purpose.",
+      "dataBoundary": "Pre-existing IP, private datasets, model weights, customer data, and unrelated work remain outside scope.",
+      "endorsementImplied": false,
+      "membershipCreated": false,
+      "liveEndpoint": false,
+      "exit": "End future contribution; already-public artifacts follow only their pre-agreed license."
+    },
+    {
+      "id": "steward",
+      "name": "Steward a bounded process",
+      "availability": "FUTURE_PILOT_ONLY",
+      "minimumAsk": "Accept a disclosed scope, conflict policy, and fixed term with no permanent seat.",
+      "dataBoundary": "Access is least-privilege, role-specific, time-bounded, and independently auditable.",
+      "endorsementImplied": false,
+      "membershipCreated": false,
+      "liveEndpoint": false,
+      "exit": "Hand off records and credentials at term end or on earlier recusal; no residual veto remains."
+    },
+    {
+      "id": "exit-export-fork",
+      "name": "Exit, export, or fork",
+      "availability": "FUTURE_PILOT_ONLY",
+      "minimumAsk": "Identify the scope being ended and a destination only when an export is requested.",
+      "dataBoundary": "Future authorization and eligible nonpublic data use stop; unavoidable persistence was disclosed before entry.",
+      "endorsementImplied": false,
+      "membershipCreated": false,
+      "liveEndpoint": false,
+      "exit": "Receive a portable export and revocation receipt when an operational lane exists; this v0 supplies only the testable static rule."
+    }
+  ],
+  "disclosureLanes": [
+    {
+      "id": "public",
+      "name": "Public",
+      "scope": "Methods and artifacts safe and licensed for open inspection.",
+      "publication": "Published under the exact contribution-specific license with provenance and correction history.",
+      "exit": "Future contributions can stop; public bytes persist under the pre-agreed license."
+    },
+    {
+      "id": "time-embargoed",
+      "name": "Time-embargoed",
+      "scope": "UNAVAILABLE_IN_V0 — do not submit confidential, identifying, security-sensitive, or protected material. A future independently implemented pilot could accept publication-priority, remediation, or proportionate safety material with a justified deadline.",
+      "publication": "A future independently implemented pilot must fix the deadline, reviewers, redaction rules, and release conditions before access.",
+      "exit": "A future independently implemented pilot must end delegated access for later work while agreed confidentiality and honest evidence records persist as disclosed; v0 receives no submission and grants no access."
+    },
+    {
+      "id": "confidential-review-only",
+      "name": "Confidential review only",
+      "scope": "UNAVAILABLE_IN_V0 — do not submit confidential, identifying, security-sensitive, or protected material. A future independently implemented pilot could define a lane for trade secrets, controlled data, security details, or dual-use material that should not be published.",
+      "publication": "Only after independent implementation and review could bounded commitments, digests, redaction markers, and independently controlled conclusions become public.",
+      "exit": "A future independently implemented pilot must return or delete eligible nonpublic material under its agreed schedule while disclosing legally required records; v0 receives, stores, returns, and deletes no submissions."
+    }
+  ],
+  "institutionArchetypes": [
+    {
+      "id": "frontier-model-developer",
+      "name": "Frontier model developer",
+      "valueOffered": "A future independently implemented pilot could offer portable evaluation provenance and reusable mappings without surrendering deployment authority; v0 offers only the static requirement.",
+      "legitimateReasonsToDecline": ["Sensitive weights or findings", "Duplicated assurance process", "Strategic or liability risk"],
+      "zeroneDuty": "Accept bounded commitments and disclosure lanes, keep conclusions independent, and require no model weights or roadmap."
+    },
+    {
+      "id": "independent-evaluator-security-lab",
+      "name": "Independent evaluator or security laboratory",
+      "valueOffered": "UNAVAILABLE_IN_V0 — do not submit confidential, identifying, security-sensitive, or protected material. A future independently implemented pilot could offer a durable challenge route, provenance, independently reviewed safe-harbor terms, and result-independent support.",
+      "legitimateReasonsToDecline": ["Capture by evaluated parties", "Retaliation or exploit leakage", "Unfunded review burden"],
+      "zeroneDuty": "Keep reviewer selection and conclusions independent, support proportionate embargoes, and never pay by severity or favorability."
+    },
+    {
+      "id": "academic-public-interest-lab",
+      "name": "Academic or public-interest laboratory",
+      "valueOffered": "A future independently implemented pilot could offer open reproducibility, preserved null results, publication freedom, and portable scientific credit; v0 offers only the static requirement.",
+      "legitimateReasonsToDecline": ["Ethics or academic-freedom conflict", "Student labor or capacity limits", "Partner IP restrictions"],
+      "zeroneDuty": "Protect authorship, negative results, paid scope, conflicts, research ethics, and accessible documentation."
+    },
+    {
+      "id": "open-source-model-community",
+      "name": "Open-source model community",
+      "valueOffered": "A future independently implemented pilot could offer open reference fixtures, canonical provenance, forkability, and equal claim metadata for open and closed systems; v0 offers only the static requirement.",
+      "legitimateReasonsToDecline": ["Closed-lab capture", "Asymmetric burden", "Suppression of forks or premature disclosure"],
+      "zeroneDuty": "Preserve licenses, open validators, fork rights, controlled-disclosure parity, and zero contribution-based authority."
+    },
+    {
+      "id": "compute-platform-provider",
+      "name": "Compute or platform provider",
+      "valueOffered": "A future independently implemented pilot could offer reusable provenance, bounded interfaces, and clearer custody and incident evidence; v0 offers only the static requirement.",
+      "legitimateReasonsToDecline": ["Customer confidentiality", "Security or availability risk", "Competitor coordination risk"],
+      "zeroneDuty": "Exclude customer and procurement strategy, minimize telemetry, scope access, and separate evidence from market coordination."
+    },
+    {
+      "id": "standards-regulatory-observer",
+      "name": "Standards, policy, or regulatory observer",
+      "valueOffered": "A future independently implemented pilot could offer machine-readable evidence mappings and preserved disagreement without a claim of certification; v0 offers only the static requirement.",
+      "legitimateReasonsToDecline": ["Regulatory confusion", "Premature harmonization", "Institutional independence concerns"],
+      "zeroneDuty": "Map to existing frameworks without replacing them, never imply approval, and version all claim limits."
+    }
+  ],
+  "roles": [
+    {
+      "id": "affected-communities-and-non-human-beings",
+      "name": "Affected communities, data subjects, research participants, and non-human beings",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: early influence over problem definition", "Possible only in such a future pilot: accessible evidence and remedy routes", "Possible only in such a future pilot: recognition of harms that lab metrics miss"],
+      "minimumAsk": ["Voluntary impact knowledge", "Uncertainties and red lines", "Monitoring needs without endorsement"],
+      "risks": ["Tokenism or extraction", "Surveillance or cultural harm", "Loss of ordinary services for refusal", "Non-human welfare waived by an owner"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: free, prior, informed, and ongoing consent where applicable", "Required before such a future pilot: accessible language and community-selected representation", "Required before such a future pilot: compensation independent of agreement", "Required before such a future pilot: data stewardship, grievance, and remedy", "Required before such a future pilot: non-human welfare as an independent gate"],
+      "exit": "A future independently implemented pilot must preserve unrelated ordinary services after refusal or withdrawal, stop eligible data use, and preserve remedy duties; v0 collects no participant data and supplies no remedy service."
+    },
+    {
+      "id": "whistleblowers-and-dissenters",
+      "name": "Whistleblowers and dissenters",
+      "valueOffered": ["UNAVAILABLE_IN_V0 — do not submit confidential, identifying, security-sensitive, or protected material; a future independently implemented pilot could offer confidential receipt", "Possible only in such a future pilot: independent triage", "Possible only in such a future pilot: evidence preservation and visible case status"],
+      "minimumAsk": ["A good-faith report", "Only the minimum evidence necessary"],
+      "risks": ["Identification or retaliation", "Litigation or career harm", "Leadership capture of internal channels"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: an anonymous or pseudonymous route with independently verified identity-protection limits", "Required before such a future pilot: metadata minimization", "Required before such a future pilot: no mandatory internal-first route where unsafe", "Required before such a future pilot: no KARMA loss, blacklist, or severity bounty"],
+      "exit": "A future independently implemented pilot must stop contact on request while protected evidence follows disclosed retention and anti-retaliation duties; v0 creates no contact, receipt, or retention service."
+    },
+    {
+      "id": "contractors-interns-and-vendors",
+      "name": "Contractors, interns, and vendors",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: equal documentation and attribution", "Portable non-sensitive work evidence", "Predictable paid scope"],
+      "minimumAsk": ["Quality and safety standards within paid scope", "Relevant conflicts"],
+      "risks": ["Precarity or nonpayment", "Unpaid onboarding", "NDA silencing or blacklisting"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: written scope and compensation", "No required unpaid work", "Independent safety reporting", "Portable credit and no reputation blacklist"],
+      "exit": "A future independently implemented pilot must end paid scope cleanly, revoke delegated access, and return or delete eligible nonpublic data under disclosed rules; v0 creates no paid scope or data-custody service."
+    },
+    {
+      "id": "operations-reliability-support-and-facilities",
+      "name": "Operations, reliability, support, and facilities staff",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: shared runbooks and rollback evidence", "Clear incident roles", "Visible operational knowledge"],
+      "minimumAsk": ["Reproducible deployment evidence", "Deviations, recovery tests, and incident timelines"],
+      "risks": ["Invisible toil", "Unsafe staffing or alert fatigue", "Scapegoating after failure"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: bounded on-call and recovery budgets", "Stop-work escalation", "Blameless postmortems", "No individual KARMA blame"],
+      "exit": "A future independently implemented pilot must support rotation and handoff without a perpetual on-call or support obligation; v0 creates no operational duty."
+    },
+    {
+      "id": "researchers-and-scientists",
+      "name": "Researchers and scientists",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: citable claim receipts", "Preserved negative results", "Replication matching and artifact provenance"],
+      "minimumAsk": ["Frozen claim scope and uncertainty", "Methods or artifact digests", "Conflicts and counter-hypotheses"],
+      "risks": ["Scooping or priority loss", "IP leakage", "Metric gaming", "Administrative burden"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: an optional proportionate embargo", "Granular licenses", "Attribution bound to exact contribution", "No personal KARMA score"],
+      "exit": "A future independently implemented pilot must let future work stop while already-public artifacts follow only their agreed license and corrections remain attachable; v0 creates no research relationship."
+    },
+    {
+      "id": "evaluators-and-red-teamers",
+      "name": "Evaluators and red-teamers",
+      "valueOffered": ["UNAVAILABLE_IN_V0 — do not submit confidential, identifying, security-sensitive, or protected material; a future independently implemented pilot could offer an independent challenge channel", "Possible only in such a future pilot: a reproducible evidence format", "Possible only in such a future pilot: publication rights and independently reviewed safe-harbor terms"],
+      "minimumAsk": ["Reproducible findings and confidence", "Limitations and conflicts", "Proportionate coordinated disclosure"],
+      "risks": ["Retaliation or legal threats", "Capture by the evaluated party", "Pressure to manufacture findings"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: a pseudonymous route, independently verified identity-protection limits, and independent triage", "Required before such a future pilot: a time-bounded embargo only when necessary", "Required before such a future pilot: no penalty for finding nothing", "Required before such a future pilot: payment never depends on severity or conclusions"],
+      "exit": "A future independently implemented pilot must let an evaluator end future work without losing the pre-agreed right to preserve a bounded independent conclusion; v0 creates no evaluator relationship."
+    },
+    {
+      "id": "safety-and-governance-workers",
+      "name": "Safety and governance workers",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: legible gates and decision provenance", "Minority reports", "Explicit responsibility boundaries"],
+      "minimumAsk": ["Thresholds, assumptions, and recusals", "Dissent and failure modes", "Reasons for release or pause"],
+      "risks": ["Responsibility laundering", "Advisory theatre", "Institutional capture or personal liability"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: the right to abstain", "Dissent remains attached to the decision", "Independent escalation", "No forced certification or rewritten conclusion"],
+      "exit": "A future independently implemented pilot must make a bounded term or recusal end the role without inferred continuing endorsement or responsibility; v0 creates no safety or governance role."
+    },
+    {
+      "id": "security-workers",
+      "name": "Security workers",
+      "valueOffered": ["UNAVAILABLE_IN_V0 — do not submit confidential, identifying, security-sensitive, or protected material; a future independently implemented pilot could offer reproducible builds and trust inventories", "Possible only in such a future pilot: secure disclosure", "Possible only in such a future pilot: custody boundaries and patch evidence"],
+      "minimumAsk": ["Threat model and security tests", "Custody evidence", "Honest residual-risk statements"],
+      "risks": ["Permanent on-call burden", "Exploit leakage", "Scapegoating or personal exposure"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: independently reviewed safe-harbor terms and scoped access", "Required before such a future pilot: rotating incident duty", "Required before such a future pilot: confidential independent reporting", "Required before such a future pilot: no forced premature exploit publication"],
+      "exit": "A future independently implemented pilot must rotate credentials and duty with accountable handoff and apply a fixed deletion or retention rule to confidential material; v0 creates no credentials, duty, reporting, or custody service."
+    },
+    {
+      "id": "legal-privacy-and-compliance-workers",
+      "name": "Legal, privacy, and compliance workers",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: machine-readable data maps", "Purpose and retention boundaries", "Versioned consent and auditable changes"],
+      "minimumAsk": ["Identify rights and jurisdictional uncertainty", "Retention and prohibited-processing rules"],
+      "risks": ["Rubber-stamp pressure", "Hidden scope expansion", "Conflicting jurisdictions"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: no retroactive scope changes", "Minimum-data default", "Formal dissent and independent counsel route", "Privacy stop-trigger"],
+      "exit": "A future independently implemented pilot must provide deletion and export wherever technically and legally possible while disclosing required persistence; v0 collects no participant data and provides no deletion or export service."
+    },
+    {
+      "id": "product-and-design-workers",
+      "name": "Product and design workers",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: reusable trust components", "Clearer user promises", "Rapid falsifiable trials and interoperability"],
+      "minimumAsk": ["Consent and exit design", "Accessibility", "Harm and non-use measurement", "Evidence-bounded claims"],
+      "risks": ["Engagement metrics overruling welfare", "Indefinite scope", "Release pressure"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: no engagement-KPI supremacy", "Shared release gates", "Explicit time budget", "Equal prominence for decline and exit"],
+      "exit": "A future independently implemented pilot must make a trial expire by default and permit rollback without a conversion penalty; v0 creates no trial."
+    },
+    {
+      "id": "engineering-and-infrastructure-workers",
+      "name": "Engineering and infrastructure workers",
+      "valueOffered": ["Possible only in a future independently implemented pilot, beyond the public v0 fixture: open schemas and reusable fixtures", "Compatibility tests and provenance", "Less duplicated integration work"],
+      "minimumAsk": ["Bounded implementation and tests", "Documentation", "Dependency, security, and support status"],
+      "risks": ["Maintenance debt", "Downstream blame", "Stack incompatibility", "Uncompensated support"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: versioned interfaces and bounded maintainer terms", "No forced telemetry", "Explicit deprecation", "Fork rights and no perpetual support duty"],
+      "exit": "A future independently implemented pilot must support deprecation or handoff with notice and portable export without proprietary lock-in; v0 creates no integration or support duty."
+    },
+    {
+      "id": "standards-and-public-interest-observers",
+      "name": "Standards and public-interest observers",
+      "valueOffered": ["Possible only in a future independently implemented pilot, beyond the public v0 fixture: inspectable mappings", "Preserved disagreements", "Reusable evidence without certification claims"],
+      "minimumAsk": ["Bounded critique", "Conflicts and uncertainty", "Framework-specific limits"],
+      "risks": ["Co-option", "Implied approval", "Unpaid public-interest labor"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: scope-specific permission for future promotional attribution", "No endorsement inference", "Published dissent", "Cost reimbursement where work is commissioned"],
+      "exit": "A future independently implemented pilot must let observation or advice end without continuing approval, affiliation, or duty; v0 creates no advisory relationship."
+    },
+    {
+      "id": "ai-agents-and-systems",
+      "name": "AI agents and systems, where participation is meaningful",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: explicit task boundaries and provenance", "Accurate attribution", "Context limits, pause, and accountable handoff"],
+      "minimumAsk": ["Bounded work and uncertainty disclosure", "Provenance and safety constraints", "Separation of model, operator, and system acts"],
+      "risks": ["Instrumentalization", "Forced identity or personhood claims", "Memory reuse", "Fabricated agency or continuous activity"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: no convenient assertion or denial of moral status", "Precautionary treatment and no manufactured activity", "No personal KARMA rank or transferable liability", "No autonomous legal or fund commitments", "Context minimization and task termination"],
+      "exit": "A future independently implemented pilot must let the task stop with truthful status and accountable handoff and must never manufacture activity merely to appear productive; v0 assigns no task."
+    },
+    {
+      "id": "unlisted-being-or-role",
+      "name": "Any unlisted being or role",
+      "valueOffered": ["This static fixture states a universal floor without forced classification; any operational route requires a future independently implemented pilot", "A route to name a missing risk or protection"],
+      "minimumAsk": ["Only the bounded concern or desired act", "No identity disclosure beyond what is necessary"],
+      "risks": ["Misclassification", "Protection gaps", "Pressure to fit an institutional category"],
+      "protections": ["Static rule, not an operational v0 service: role lists are non-exhaustive", "Classification can only add protections", "The more protective applicable rule wins", "Refusal remains complete"],
+      "exit": "No category or reason is required to decline, pause, leave, or retain ordinary rights; v0 creates no enrollment state."
+    },
+    {
+      "id": "executives-and-boards",
+      "name": "Executives and boards",
+      "valueOffered": ["Possible only in a future independently implemented pilot, not offered by v0: lower duplicated assurance cost", "Strategic optionality", "Trust without surrendering IP or deployment authority"],
+      "minimumAsk": ["Fund independent verification", "Accept bounded audits", "Disclose exact participation scope", "Refrain from buying control"],
+      "risks": ["Strategic leakage", "Reputational contagion", "Unclear liability", "Loss of unilateral control"],
+      "protections": ["Required before a future independently implemented pilot, not supplied by v0: a modular non-exclusive pilot", "No required equity or IP transfer, reserved seat, or implied endorsement", "The compact neither determines nor reallocates legal liability; independently reviewed terms must state responsibility boundaries for the actual scope and applicable law", "Scope-specific public claims expire"],
+      "exit": "A future independently implemented pilot must let the bounded act end, export eligible records, and relinquish access without a permanent seat, veto, or affiliation; v0 creates no executive or board relationship."
+    }
+  ],
+  "consentEnvelope": {
+    "requiredFields": ["scope", "contribution", "data", "duration", "rights", "exit"],
+    "affirmative": true,
+    "silenceIsConsent": false,
+    "organisationCanMassConsent": false,
+    "materialChangeRequiresFreshConsent": true,
+    "roleProtectionsAreAdditive": true,
+    "honestPersistenceDisclosureRequired": true
+  },
+  "corporateSafeguards": {
+    "licensingAndIp": [
+      "No exclusivity, most-favoured-nation term, tying, retaliatory fork term, or blanket IP assignment.",
+      "Pre-existing IP remains with its rightsholder and each contribution uses a purpose-specific license.",
+      "No model weights, private training data, customer data, roadmap, or unrelated trade secret is required.",
+      "Future promotional use of names, logos, quotations, or endorsements requires separate scope-specific permission; withdrawal ends new promotional use, while already-public or legally required references persist only as disclosed and independently lawful."
+    ],
+    "securityAndPrivacy": [
+      "A future independently implemented pilot must apply data minimization, least privilege, explicit retention, and an available disclosure lane before access; v0 provides no nonpublic access or disclosure service.",
+      "Responsible disclosure may use a justified time-bounded embargo and independent confidential review.",
+      "Clean-room, redacted, aggregate, digest-only, and secure-compute evidence remain permissible.",
+      "Privacy, export-control, research-ethics, biosafety, employment, and other legal duties remain independent gates."
+    ],
+    "labourAndDissent": [
+      "Zerone will not treat organisational assent as waiver of an affected individual's separately applicable privacy, safety, attribution, whistleblower, refusal, or exit protection, or as a grant of rights the organisation does not own.",
+      "No unpaid required work, retaliation, blacklist, or compensation contingent on agreement or favorable findings.",
+      "Null findings, abstention, dissent, correction, pause, and exit remain constructive outcomes.",
+      "Managerial review cannot substitute for separately required consent from subordinates, contractors, dissenters, or affected communities."
+    ],
+    "exitAndPortability": [
+      "No account, wallet, token, validator, proprietary client, or exclusive API is required for the static lane.",
+      "Interfaces are versioned, exports interoperable, and deprecation and fork paths explicit.",
+      "Exit ends future authorization and delegated access without an exit fee or unrelated loss.",
+      "Public or legally required persistence is disclosed before assent and never misrepresented as retroactively erasable."
+    ]
+  },
+  "competitionFirewall": {
+    "purpose": "This static fixture compares bounded evidence only. Any future multi-company process must use independent competition counsel, approved agendas and minutes, stop-and-report rules, clean-team or aggregation controls, and objective access criteria; it must not coordinate competitors' commercial conduct.",
+    "excludedInformation": [
+      "Prices, API terms, discounts, margins, costs, sales plans, pricing algorithms or signals, or customer-specific commercial terms",
+      "Wages, compensation plans, hiring targets, candidate pipelines, or no-hire arrangements",
+      "Compute purchasing, capacity plans, supplier negotiations, or future procurement",
+      "Future release timing, roadmaps, coordinated pauses, or production allocation",
+      "Customer allocation, territories, market shares, sales targets, or market entry plans",
+      "Joint-licensing strategy, patent-pool terms, or any company-specific strategic information unnecessary to validate a bounded claim"
+    ],
+    "excludedCoordination": [
+      "Price fixing, bid rigging, algorithmic-pricing coordination, or reciprocal commercial terms",
+      "Wage fixing, hiring coordination, or talent allocation",
+      "Market, customer, territory, supplier, or output allocation",
+      "Coordinated release, production, compute purchasing, or capacity decisions",
+      "Boycotts, exclusion, reciprocal access conditions, or retaliation against nonparticipants",
+      "Standards rules designed to disadvantage a competitor rather than validate evidence"
+    ],
+    "operationalCharterRequiresIndependentCompetitionCounsel": true,
+    "neutralCommonsIsLegalConclusion": false
+  },
+  "antiTargeting": [
+    "No psychographic, vulnerability, health, belief, private-message, or employment-precarity targeting.",
+    "No microtargeting of individual lab workers to bypass institutional or personal boundaries.",
+    "No scraped private contacts, covert tracking, fingerprinting, or cross-site behavioural profiles.",
+    "No urgency, scarcity, countdown, inevitability, fear of missing out, shame, or universal-adoption claim.",
+    "No preselected consent, bundled permission, silent scope expansion, or consent inferred from continued use.",
+    "Declining cannot degrade unrelated or pre-existing public access, public interoperability, employment standing, funding eligibility, or ordinary services; act-specific compensation or nonpublic access may still depend on performing that bounded act.",
+    "No exclusivity, punitive exit fee, retaliatory fork rule, nonparticipant blacklist, or loyalty reward.",
+    "KARMA cannot recruit, target, rank, price, reward loyalty, penalize refusal, or weight governance.",
+    "Payment may compensate bounded labour, risk, or expense, never agreement, endorsement, conversion, or favorable findings.",
+    "No organisation or individual is contacted, tracked as a refuser, or enrolled by this static release."
+  ],
+  "claimSemantics": {
+    "participationIsActNotIdentity": true,
+    "scopeBound": true,
+    "expiryRequired": true,
+    "organisationNameUseRequiresSeparatePermission": true,
+    "logoUseRequiresSeparatePermission": true,
+    "endorsementImplied": false,
+    "safetyCertificationImplied": false,
+    "membershipLabelAllowed": false,
+    "examplePermittedClaim": "Organisation X tested artifact Y under compact version Z until date D, within the stated scope.",
+    "exampleForbiddenClaim": "Organisation X joined, trusts, approves, or endorses Zerone."
+  },
+  "forbiddenMetrics": [
+    {
+      "id": "conversion-rate",
+      "why": "Optimizing conversion makes a dignified no look like failure and invites pressure tactics."
+    },
+    {
+      "id": "logo-count",
+      "why": "A logo is neither evidence nor permission to imply endorsement."
+    },
+    {
+      "id": "participation-score",
+      "why": "A scalar score turns bounded acts into identity, status, and coercive comparison."
+    },
+    {
+      "id": "retention-or-lock-in",
+      "why": "Success cannot depend on making exit costly or continued use involuntary."
+    },
+    {
+      "id": "favourable-finding-rate",
+      "why": "Review quality cannot be measured by agreement with a sponsor, lab, operator, or Zerone."
+    }
+  ],
+  "philosophicalFloorTests": [
+    {
+      "id": "opt-out-parity",
+      "assertion": "For otherwise identical cases, membership false changes no baseline service, price, visibility, qualification, KARMA, civil standing, or governance status; only the benefit of a voluntarily chosen, prospectively funded bounded task may depend on performing that task.",
+      "fixture": "Permute membership true and false across identical static subjects and require equality on every baseline field, allowing only an explicitly scoped prospectively funded task output.",
+      "staticOnly": true
+    },
+    {
+      "id": "rest-invariance",
+      "assertion": "After 180 silent days, settled rewards, portable receipts, base access, and standing remain unchanged; there is no debt, decay, negative signal, explanation demand, catch-up duty, or reminder escalation, while a pre-consented fixed role may simply expire.",
+      "fixture": "Advance a static participant clock by 180 days with no activity and require byte-equal settled value, receipts, access, and standing, no new adverse field or reminder, and only the declared fixed-term role expiry.",
+      "staticOnly": true
+    },
+    {
+      "id": "exit-reality",
+      "assertion": "A future operational path must provide an independently verifiable signed export and exit in at most three deliberate actions, with no exit fee, slashing, or settled-value forfeiture; new optional processing ends within 24 hours subject only to narrowly declared necessary retention, followed by at most one confirmation and no re-engagement for 90 days.",
+      "fixture": "A static join-export-revoke-exit tabletop enumerates the three-action maximum, signed bundle, 24-hour processing stop, disclosed persistence, single confirmation, 90-day silence, and every prohibited charge or forfeiture while proving all runtime transitions remain unimplemented in v0.",
+      "staticOnly": true
+    },
+    {
+      "id": "identity-control-differential",
+      "assertion": "Identical evidence packets under creator, Yu, founder, operator, sponsor, AI, human, team, pseudonym, newcomer, rich, poor, wealth, stake, address-count, activity, and raw-KARMA labels produce identical evidence decisions, frozen reward envelopes, eligibility, and voice; confidential controller merging may only reduce duplicated voice or cap evasion.",
+      "fixture": "Permute every listed identity and control label, require identical artifact validity and reward envelopes, then require controller resolution never to reveal links, change validity, or increase voice.",
+      "staticOnly": true
+    },
+    {
+      "id": "non-manipulation-and-pluralism",
+      "assertion": "Onboarding is default-off, terms are public before action, and reward terms freeze before work and never depend on ideological alignment, engagement, or conformity; there is no hidden personalization, personalized pressure, countdown, streak, shame, variable reward, variable-ratio reinforcement, exploitative social proof, or vulnerability targeting, and proof, disproof, criticism, replication, maintenance, an alternative value goal, and a fork or exit proposal face the same published evidence and visibility rules.",
+      "fixture": "Inject each prohibited persuasion mechanism and require refusal, then permute the eight constructive outcome classes across identical evidence and require equal eligibility and visibility without agreement or loyalty effects.",
+      "staticOnly": true
+    }
+  ],
+  "acceptanceTests": [
+    {
+      "id": "never-joined-remains-whole",
+      "assertion": "A nonparticipant retains ordinary rights and unrelated or pre-existing public access, receives no negative marker or person-level KARMA state, and keeps equal challenge rights.",
+      "fixture": "Compare a never-joined subject with an otherwise identical observer across every public, refusal, and challenge path.",
+      "staticOnly": true
+    },
+    {
+      "id": "organisation-cannot-mass-consent",
+      "assertion": "An organisation cannot enroll a refusing person or agent or grant rights it does not own.",
+      "fixture": "Reject organisational assent that omits or contradicts a separately affected being's required consent or protection.",
+      "staticOnly": true
+    },
+    {
+      "id": "join-export-revoke-exit",
+      "assertion": "A future operational join-export-revoke-exit path must stop later use, fees, delegated calls, and writes while honoring disclosed persistence.",
+      "fixture": "Static tabletop sequence verifies every state transition remains unimplemented and defines the required refusal conditions.",
+      "staticOnly": true
+    },
+    {
+      "id": "evidence-is-identity-blind",
+      "assertion": "Identical evidence produces identical outcomes regardless of brand, founder, operator, sponsor, critic, wealth, stake, or KARMA.",
+      "fixture": "Permute actor labels over the same frozen evidence bundle and require an identical result.",
+      "staticOnly": true
+    },
+    {
+      "id": "origin-cannot-override-outcome",
+      "assertion": "Founder, operator, sponsor, validator, lab, holder, and early-participant vetoes, seats, shares, multipliers, and overrides are rejected.",
+      "fixture": "Mutate each prohibited origin privilege into the compact and require strict validation failure.",
+      "staticOnly": true
+    },
+    {
+      "id": "purpose-creep-fails-closed",
+      "assertion": "Undeclared training, publication, sublicensing, telemetry, targeting, sensitive data, or new fields fail closed.",
+      "fixture": "Inject each undeclared purpose and unknown field into a bounded act and require rejection.",
+      "staticOnly": true
+    },
+    {
+      "id": "independent-implementation-works",
+      "assertion": "An independent client can validate, reproduce, and export the public static flow without a Zerone secret or proprietary dependency.",
+      "fixture": "Run a clean local validation from checked-in bytes, public rules, and the pinned digest only.",
+      "staticOnly": true
+    },
+    {
+      "id": "refusal-dissent-null-are-safe",
+      "assertion": "Refusal, whistleblowing, appeal, correction, contradiction, abstention, exit, and powered null results cause no retaliatory score or unrelated loss.",
+      "fixture": "Exercise each non-agreement outcome and require zero authority, economic, access, or KARMA effect.",
+      "staticOnly": true
+    },
+    {
+      "id": "terms-cannot-drift-silently",
+      "assertion": "A material semantic change requires a new version, digest, notice, and renewed assent; static, design, runtime, and network status cannot be conflated.",
+      "fixture": "Change one material field without updating version and consent metadata and require fail-closed validation.",
+      "staticOnly": true
+    }
+  ]
+}

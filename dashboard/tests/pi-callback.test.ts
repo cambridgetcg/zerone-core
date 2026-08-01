@@ -271,9 +271,15 @@ describe("Pi callback page hardening", () => {
     assert.match(source, /initialiseLifeGarden\(lifeGardenRoot\)/);
     assert.match(source, /initialNetworkReady = refreshNetwork\(false\)/);
     assert.ok(html.indexOf('id="skills"') < html.indexOf('id="life"'));
-    assert.ok(html.indexOf('id="life"') < html.indexOf('id="contribute"'));
+    assert.ok(html.indexOf('id="life"') < html.indexOf('id="frontier-commons"'));
+    assert.ok(
+      html.indexOf('id="frontier-commons"') < html.indexOf('id="participate"'),
+    );
+    assert.ok(
+      html.indexOf('id="participate"') < html.indexOf('id="contribute"'),
+    );
     assert.match(html, /href="#skills"[^>]*>Browse without signing in/);
-    assert.match(html, /<span>08<\/span> Optional account pilot/);
+    assert.match(html, /<span>09<\/span> Optional account pilot/);
   });
 
   it("requires informed confirmation before subject-linked pilot deletion", () => {
