@@ -238,7 +238,7 @@ describe("Pi callback page hardening", () => {
       source,
       /initialiseConstructiveTree\(constructiveTreeRoot\)/,
     );
-    assert.match(source, /void refreshNetwork\(false\)/);
+    assert.match(source, /initialNetworkReady = refreshNetwork\(false\)/);
     assert.ok(html.indexOf('id="skills"') < html.indexOf('id="contribute"'));
     assert.match(html, /href="#skills"[^>]*>Browse without signing in/);
     assert.match(html, /<span>07<\/span> Optional account pilot/);
