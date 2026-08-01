@@ -1,6 +1,6 @@
 # Zerone development roadmap
 
-> Status snapshot: 2026-07-29. This is a dependency-ordered roadmap, not a
+> Status snapshot: 2026-08-01. This is a dependency-ordered roadmap, not a
 > release promise.
 
 ## Current shape
@@ -33,25 +33,23 @@ line:
 - protocol-wide substrate-axis ceilings and settlement clamps;
 - adjudicated falsification clawback;
 - K-alpha recognition events and bounded accounting guards;
+- permanent source-level founder revenue renunciation, with a dedicated
+  non-hitchhiking `founder-renunciation-v1` boundary;
 - state/genesis validation and protobuf ownership fixes;
 - CAIP account projections, unsigned in-toto provenance, the isolated Sigstore
   compiler, and the repository TypeScript SDK;
-- liquiditypool consensus v4 with finite open-pool work, explicit governed
-  statuses, immutable final exits, strict PPM arithmetic, bounded TWAP history,
-  and fail-closed oracle selection; and
+- liquiditypool consensus v5 with finite lifecycle work, explicit governed
+  statuses, immutable final exits, bounded TWAP history, and permanent
+  LP-only swap fees; and
 - the fail-closed `zerone-2` release and authority kit.
 
 Several items above change consensus-visible behavior. They are source-complete
 only after their tests pass; they are **not live** merely because the code is
-published. The consolidation work requires the named
-`consolidation-safety-v1` coordinated upgrade. Its migration pass is expected
-to activate and record liquiditypool v4. The distinct, later
-`liquiditypool-safety-v2` checkpoint records operational readiness rather than
-gating the code a second time; native pool/oracle activation remains forbidden
-until that checkpoint and
-[its release gates](LIQUIDITYPOOL-SAFETY-V2.md) pass. Each upgrade requires an
-agreed height, matching validator binaries, and the normal upgrade/recovery
-rehearsal. Never mix binaries at the same height.
+published. Consensus changes are split into exact binaries:
+`consolidation-safety-v1` (H1, K5→6/P1→2/L3→5/V1→1) and the later
+`founder-renunciation-v1` (H2, V1→2 only). Each requires its own agreed
+height, matching validator binaries, independent review, and
+upgrade/recovery rehearsal. Never mix binaries at the same height.
 
 ## Publication boundary
 
@@ -73,17 +71,16 @@ must all be satisfied before any phase they authorize.
 
 ## Next, in order
 
-1. **Close the source consolidation.** Regenerate protobuf and Swagger
-   artifacts, run creed/recursion integrity checks, complete Go and TypeScript
-   tests, and publish the exact reviewed commit to GitHub.
-2. **Prepare the consensus release.** Independently review
-   `consolidation-safety-v1`, rehearse migration/export/restart paths, build
-   reproducible binaries, and obtain an explicit activation decision.
-3. **Prepare liquidity separately.** After consolidation is applied and
-   verified, schedule `liquiditypool-safety-v2` at a later height; keep native
-   pool creation and oracle allowlisting disabled until invariants, application
-   lifecycle tests, restart rehearsal, and the governance capital decision all
-   pass.
+1. **Keep H1 exact.** The accepted H1 source is
+   `65c19cd8b00bdfff9b80705b776fd0d49719398a`; independently reproduce its
+   binaries and rehearse migration/export/restart before any activation vote.
+2. **Finish and independently audit H2.** Bind the replacement
+   `founder-renunciation-v1` descendant, reproduce binaries, and prove its
+   composite startup, real-PreBlock migration, rollback, supply, Params, and
+   module-permission invariants. The rejected `4bffb6d2` is not provenance.
+3. **Activate only in order, if separately authorized.** H1 must complete and
+   be verified before H2 can even start on the halted V1 state. No unsafe skip
+   or plan-less restart is accepted.
 4. **Complete `zerone-2` authority.** Run the two-machine ceremony comparison,
    bind signed source and immutable artifacts, satisfy every phase-specific
    gate, and keep all services private until their signed decision permits

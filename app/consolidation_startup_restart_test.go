@@ -155,7 +155,7 @@ func restartPreVersionMap(app *ZeroneApp) map[string]uint64 {
 	return consolidationPreVersionMap(app.CurrentModuleVersionMap())
 }
 
-func TestNativeConsolidationLineageIsWrittenAtGenesisAndAcceptedOnRestart(t *testing.T) {
+func TestNativeH1AndH2LineageIsWrittenAtGenesisAndAcceptedOnRestart(t *testing.T) {
 	db := dbm.NewMemDB()
 	home := t.TempDir()
 	app := newRestartTestApp(t, db, home)
@@ -175,6 +175,19 @@ func TestNativeConsolidationLineageIsWrittenAtGenesisAndAcceptedOnRestart(t *tes
 	)
 	require.NoError(t, err)
 	require.False(t, h1Found)
+	h2Value, h2NativeFound, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationNativeLineageMarker,
+	)
+	require.NoError(t, err)
+	require.True(t, h2NativeFound)
+	require.Equal(t, founderRenunciationNativeLineageValue, h2Value)
+	_, h2Found, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationMigrationMarker,
+	)
+	require.NoError(t, err)
+	require.False(t, h2Found)
 	require.NotNil(t, newRestartTestApp(t, db, home))
 }
 
@@ -201,7 +214,10 @@ func TestExactPendingH1RestartRequiresMatchingCommittedAndDiskPlans(t *testing.T
 	_, err = app.Commit()
 	require.NoError(t, err)
 	require.Equal(t, app.LastBlockHeight()+1, plan.Height)
-	require.NotNil(t, newRestartTestApp(t, db, home))
+	// An H2 binary must never execute H1. Even an otherwise exact H1 pending
+	// halt is outside H2's four accepted states; operators must first complete
+	// H1 with the accepted H1 binary.
+	require.Panics(t, func() { _ = newRestartTestApp(t, db, home) })
 
 	require.Panics(t, func() {
 		_ = NewZeroneApp(
@@ -252,30 +268,29 @@ func TestMarkerWithoutDoneRefusesCompletedRestart(t *testing.T) {
 	require.Panics(t, func() { _ = newRestartTestApp(t, db, home) })
 }
 
-func TestCompletedH1EvidenceIsAcceptedOnRestart(t *testing.T) {
+func TestCompletedH1WithoutExactPendingH2PlanIsRejected(t *testing.T) {
 	db := dbm.NewMemDB()
 	home := t.TempDir()
 	app := newRestartTestApp(t, db, home)
 	initRestartTestChain(t, app)
 
 	ctx := restartMutationContext(app)
-	deleteNativeLineageMarker(app, ctx)
-	plan := upgradetypes.Plan{
-		Name:   UpgradeNameConsolidationSafetyV1,
-		Height: app.LastBlockHeight() + 1,
-		Info:   restartCanonicalPlanInfo,
-	}
-	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, restartPreVersionMap(app)))
-	require.NoError(t, app.UpgradeKeeper.DumpUpgradeInfoToDisk(plan.Height, plan))
-	require.NoError(t, app.UpgradeKeeper.ApplyUpgrade(ctx, plan))
+	deleteRestartMarker(app, ctx, consolidationNativeLineageMarker)
+	deleteRestartMarker(app, ctx, founderRenunciationNativeLineageMarker)
+	require.NoError(t, app.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		consolidationMigrationMarker,
+		"migrated",
+	))
+	setRestartDoneHeight(app, ctx, UpgradeNameConsolidationSafetyV1, 1)
+	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(
+		ctx,
+		founderRenunciationPreVersionMap(app.CurrentModuleVersionMap()),
+	))
+	setLegacyFounderParams(t, app, ctx, "")
 	commitRestartMutation(t, app)
 
-	restarted := newRestartTestApp(t, db, home)
-	done, err := restarted.UpgradeKeeper.GetDoneHeight(
-		restartReadContext(restarted),
-		UpgradeNameConsolidationSafetyV1,
-	)
-	require.NoError(t, err)
-	require.Positive(t, done)
-	require.LessOrEqual(t, done, restarted.LastBlockHeight())
+	// H1 completion alone is necessary but not sufficient: exact committed and
+	// local H2 plans at latest+1 are mandatory for the V1 executable surface.
+	require.Panics(t, func() { _ = newRestartTestApp(t, db, home) })
 }

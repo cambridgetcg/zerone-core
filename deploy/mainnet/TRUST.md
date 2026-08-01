@@ -69,10 +69,14 @@ Until then: break things, tell us what broke. After then: the record is sacred
   diluted as independent operators and earned-stake agents join.
 - **Bootstrap registrar** (currently the operator float) — admits agents to claim
   the 0.222 ZRN bonus, capped at 5,000/day and 0.1% of cap lifetime, **gov-revocable**.
-- **Founder share** — **dormant.** No FounderAddress at genesis; the operator
-  receives no separate automatic founder sub-share. This does not erase the
-  disclosed operator-controlled validator and operations balances. Governance
-  may set the percentage within its 7% cap; the address is immutable once set.
+- **Founder share** — **dormant on the current launch record; retired in source
+  v2.** No FounderAddress was set at genesis, so the operator receives no
+  separate automatic founder sub-share. The separately named
+  `founder-renunciation-v1` upgrade, if scheduled and accepted, would fix the
+  compatibility fields at zero/empty and remove the path; it is not live
+  merely because source exists.
+  Neither state erases the disclosed operator-controlled validator,
+  operations balances, or sole effective vote.
 - **Parameters** — mutability depends on the specific module and invariant.
   The published genesis enables ICS-20 send/receive and the ICA host with a
   wildcard message allow-list. No public IBC peer, channel, or application

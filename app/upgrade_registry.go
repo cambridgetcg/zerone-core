@@ -107,6 +107,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameConsolidationSafetyV1,
 			Description: "consolidation-safety-v1 — exact H1 K5→6/P1→2/L3→5/V1→1 boundary: provisional knowledge safety, bounded claiming-pot issuance, liquidity lifecycle hardening, and permanent LP-only swap fees; founder retirement remains reserved for H2.",
 		},
+		{
+			UpgradeName: UpgradeNameFounderRenunciationV1,
+			Description: "founder-renunciation-v1 — exact H2 V1→2 boundary after proven H1: permanently retires founder revenue and arbitrary-transaction block minting, with strict lineage, Params, and module-account permission proofs.",
+		},
 	}
 
 	return ChainVersionReport{

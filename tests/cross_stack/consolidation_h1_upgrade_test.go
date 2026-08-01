@@ -28,6 +28,12 @@ func h1Prestate(t *testing.T, h *TestHarness) module.VersionMap {
 	require.Equal(t, uint64(6), target[knowledgetypes.ModuleName])
 	require.Equal(t, uint64(2), target[claimingpottypes.ModuleName])
 	require.Equal(t, uint64(5), target[liquiditypooltypes.ModuleName])
+	if target[vestingrewardstypes.ModuleName] == 2 {
+		t.Skip(
+			"exact H1 execution tests belong to accepted H1 source 65c19cd8; " +
+				"the H2 binary must target vesting_rewards v2 and separately tests that it refuses to execute H1",
+		)
+	}
 	require.Equal(t, uint64(1), target[vestingrewardstypes.ModuleName],
 		"H1 source must not contain the H2 vesting transition")
 

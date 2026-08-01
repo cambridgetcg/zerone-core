@@ -28,8 +28,10 @@ const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
+const UpgradeNameFounderRenunciationV1 = "founder-renunciation-v1"
 
 const consolidationMigrationMarker = "upgrade_marker_consolidation-safety-v1"
+const founderRenunciationMigrationMarker = "upgrade_marker_founder-renunciation-v1"
 
 type consolidationVersionBoundary struct {
 	module string
@@ -61,17 +63,6 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	boundaryModules := make(map[string]struct{}, len(consolidationVersionBoundaries))
 	for _, boundary := range consolidationVersionBoundaries {
 		boundaryModules[boundary.module] = struct{}{}
-		got, ok := targetVM[boundary.module]
-		if !ok || got != boundary.after {
-			return nil, fmt.Errorf(
-				"upgrade %q requires binary target %s=%d; got %d (present=%t)",
-				UpgradeNameConsolidationSafetyV1,
-				boundary.module,
-				boundary.after,
-				got,
-				ok,
-			)
-		}
 	}
 	for _, name := range sortedVersionMapNames(fromVM) {
 		if _, known := targetVM[name]; !known {
@@ -85,14 +76,16 @@ func (app *ZeroneApp) runMigrationsForPlan(
 
 	if plan.Name != UpgradeNameConsolidationSafetyV1 {
 		for _, boundary := range consolidationVersionBoundaries {
+			want, targetFound := targetVM[boundary.module]
 			got, ok := fromVM[boundary.module]
-			if !ok || got != boundary.after {
+			if !targetFound || !ok || got != want {
 				return nil, fmt.Errorf(
-					"upgrade %q cannot carry the %q bundle: require %s=%d, got %d (present=%t)",
+					"upgrade %q cannot carry the %q H1 or %q H2 boundary: require current %s=%d, got %d (present=%t)",
 					plan.Name,
 					UpgradeNameConsolidationSafetyV1,
+					UpgradeNameFounderRenunciationV1,
 					boundary.module,
-					boundary.after,
+					want,
 					got,
 					ok,
 				)
@@ -102,6 +95,17 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	}
 
 	for _, boundary := range consolidationVersionBoundaries {
+		targetVersion, targetFound := targetVM[boundary.module]
+		if !targetFound || targetVersion != boundary.after {
+			return nil, fmt.Errorf(
+				"upgrade %q requires binary target %s=%d; got %d (present=%t)",
+				UpgradeNameConsolidationSafetyV1,
+				boundary.module,
+				boundary.after,
+				targetVersion,
+				targetFound,
+			)
+		}
 		got, ok := fromVM[boundary.module]
 		if !ok || got != boundary.before {
 			return nil, fmt.Errorf(
@@ -532,15 +536,23 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// founder-renunciation-v1 (H2) is deliberately separate from H1. Its
+	// handler re-proves the exact completed-H1 lineage, exact V1 VersionMap,
+	// canonical on-chain/local H2 plan, strict migratable Params, and safe
+	// heights before allowing the sole vesting_rewards v1→v2 migration.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameFounderRenunciationV1,
+		app.handleFounderRenunciationUpgrade,
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
 // module store keys. Call this BEFORE LoadLatestVersion.
-func (app *ZeroneApp) RegisterStoreUpgrades() {
+func (app *ZeroneApp) RegisterStoreUpgrades() error {
 	upgradeInfo, err := app.UpgradeKeeper.ReadUpgradeInfoFromDisk()
 	if err != nil {
-		// No pending upgrade — nothing to do.
-		return
+		return fmt.Errorf("read local upgrade-info.json for store loader: %w", err)
 	}
 
 	switch upgradeInfo.Name {
@@ -593,12 +605,15 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 
-	case UpgradeNameAgenttoolSeamV1, UpgradeNameConsolidationSafetyV1:
-		// Migration-only — both upgrades operate within existing module stores
+	case UpgradeNameAgenttoolSeamV1,
+		UpgradeNameConsolidationSafetyV1,
+		UpgradeNameFounderRenunciationV1:
+		// Migration-only — these upgrades operate within existing module stores
 		// and add no top-level store keys.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}
+	return nil
 }
 
 // ReconcileModuleAccountPerms rebuilds every EXISTING module account whose

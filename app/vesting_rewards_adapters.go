@@ -9,13 +9,13 @@ import (
 )
 
 // vestingRewardsStakingAdapter adapts the SDK x/staking keeper to the
-// x/vesting_rewards expected StakingKeeper interface. It supplies:
+// x/vesting_rewards compatibility interface. Consensus v2 does not use either
+// method to issue automatic rewards. It supplies:
 //
-//   - GetActiveValidatorCount: bonded validator count for reward scaling
-//     (min(1, active/target) participation factor).
-//   - GetValidatorByConsAddr: consensus-address → validator resolution so
-//     block rewards are paid to the OPERATOR account instead of the
-//     unspendable consensus address.
+//   - GetActiveValidatorCount: bonded validator telemetry retained for old
+//     integrations.
+//   - GetValidatorByConsAddr: consensus-address → validator resolution for the
+//     historical proposer-address helper.
 type vestingRewardsStakingAdapter struct {
 	sk *stakingkeeper.Keeper
 }

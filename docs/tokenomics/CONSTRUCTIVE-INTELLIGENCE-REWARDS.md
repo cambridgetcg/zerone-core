@@ -24,7 +24,8 @@ As of 2026-07-29:
 - its planned genesis profile is protocol-dark: vote extensions are disabled,
   knowledge admission is priced above the hard supply cap, knowledge reward
   rates and allocations are zero, the substrate bridge has no adapters, and
-  the nominal block reward rounds to zero with the launch roster.
+  vesting-rewards v2 retires the nominal transaction-presence block reward
+  entirely.
 
 The dark posture is intentional. Adding this file MUST NOT change genesis,
 module parameters, handlers, migrations, supply, governance authority, or the

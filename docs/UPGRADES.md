@@ -20,25 +20,23 @@ cosmovisor — runs the handler and the chain resumes.
 
 ## Pending release order
 
-Existing networks currently have two ordered release checkpoints:
+Existing networks have two exact, ordered SDK 0.50 source boundaries:
 
-1. `consolidation-safety-v1`; then
-2. `liquiditypool-safety-v2` at a distinct, later height.
+1. `consolidation-safety-v1` (H1), using independently accepted source commit
+   `65c19cd8b00bdfff9b80705b776fd0d49719398a`; then
+2. `founder-renunciation-v1` (H2), using a separately audited descendant.
 
-Both handlers run module migrations and reconcile stored module-account
-permissions. The first handler is expected to activate and advance
-liquiditypool to consensus v4; the second is a readiness marker, not a second
-technical gate, and remains safe because an already-current module is skipped.
-Neither checkpoint by itself authorizes a native pool or its oracle.
+H1 produces the exact K6/P2/L5/V1 VersionMap, migrated marker, and positive
+done height. Only that completed state may halt for H2. The H2 binary cannot
+start on an H1 prestate, a plan-less V1 state, or a different plan; it advances
+only vesting_rewards V1→V2 and reconciles its existing module account to empty
+permissions.
 
-Before scheduling the combined sequence, bind a live query proving there are
-zero native pools and no billing quote-denom allowlist. Valid legacy pools
-migrate `EXIT_ONLY`, so a network with any existing pool still needs a separately
-reviewed transition. After the first v4 migration pass, verify its new
-`allowed_pool_denoms` and `pool_creators` are empty before any params update.
-The complete no-go gates, status lifecycle, governance path, and
-Osmosis-testnet separation are in
-[LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md).
+Release digests are boundary-specific. Never use H2 to execute H1 and never
+build moving `main` for either pending plan. The rejected former H2 commit
+`4bffb6d218819bed1c29c7a0be7779ad31c64a97` is not release provenance.
+See [FOUNDER-RENUNCIATION-V1.md](FOUNDER-RENUNCIATION-V1.md) for the composite
+startup and handler evidence wall.
 
 ## Operator steps
 
@@ -84,11 +82,20 @@ itself. Invariants and application lifecycle tests must also pass on the exact
 release, and native pool creation plus oracle quote allowlisting remain
 separate governance actions.
 
+For `founder-renunciation-v1`, verify `vesting_rewards=2`, both ordered
+H1/H2 markers and done heights, zero/empty founder and automatic-reward
+compatibility fields, empty stored vesting module permissions, unchanged
+supply, complete research routing, and a failed ordinary-governance
+restoration attempt. See
+[FOUNDER-RENUNCIATION-V1.md](FOUNDER-RENUNCIATION-V1.md).
+
 ## Rollback
 
-Before H: gov `MsgCancelUpgrade`. After a bad halt: restart old binaries
-with `--unsafe-skip-upgrades <H>` — by social consensus only, never
-unilaterally.
+Before H: governance may submit `MsgCancelUpgrade`. H2 deliberately refuses
+`--unsafe-skip-upgrades` at either the inherited H1 completion height or the
+H2 height; skipping would destroy the proof this binary requires. Recovery
+after a bad halt must use the signed ceremony runbook and exact prior binary,
+with validators agreeing on state and next action—never a unilateral skip.
 
 ## Rules that keep upgrades boring
 

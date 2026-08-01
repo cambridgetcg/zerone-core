@@ -11,13 +11,24 @@ Upgrades in Zerone are engineered at four layers that reinforce each other:
 
 The test layer exercises all four, end-to-end, via `app.RunUpgradeHandlerForTests` — see `tests/cross_stack/upgrade_e2e_test.go`.
 
-The current production lineage is ordered
-`consolidation-safety-v1` → `liquiditypool-safety-v2`. The first
-`RunMigrations` is expected to activate and advance liquiditypool to v4; the
-later named handler is an intentionally idempotent readiness marker. Native
-pool/oracle activation remains gated by
-[LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md), not merely by the
-module version.
+The current SDK 0.50 lineage is ordered `consolidation-safety-v1` (H1) →
+`founder-renunciation-v1` (H2). H1 is the exact K5→6/P1→2/L3→5/V1→1
+boundary. H2 is the sole V1→2 vesting transition and may run only after exact
+H1 marker/done evidence.
+
+H2 is deliberately non-hitchhiking. Its startup wall requires full VersionMap
+equality, strict persisted Params, exact canonical committed/local plan
+identity, marker presence (not merely values), ordered done heights, and no
+unsafe skip. Its handler re-proves those inputs before mutation, asserts full
+V2 Params/VersionMap/permission poststate, and writes its marker last. Earlier
+plan names must use their exact historical release binary, never moving
+`main`.
+
+Historical v1 genesis artifacts are immutable compatibility evidence, not v2
+genesis templates. Validate or replay them with the exact historical v1 binary;
+the v2 binary intentionally rejects their retired founder parameters and must
+reach existing state through the named migration rather than a rewritten
+genesis.
 
 The liquidity v3→v4 migration quarantines every positive legacy pool as
 `EXIT_ONLY`; it never turns on trading or deposits as a side effect of the
@@ -223,6 +234,10 @@ For purely additive proto changes with no state shape change, no new upgrade nam
    `liquiditypool-safety-v2` checkpoint records release readiness and
    reconciles module-account permissions. Neither handler admits a native
    pool or billing quote denom.
+8. Founder-renunciation separation — unrelated plans fail before they can
+   advance vesting-rewards v1→v2; the dedicated name accepts only the exact
+   single-module prestate, clears the compatibility fields, asserts v2, and
+   only then records its marker.
 
 **Run it before every upgrade release.** If this passes, the mechanism works; if a new wave's migration is correct, it's part of this test; if it isn't, the wave has no verified upgrade path.
 

@@ -132,9 +132,11 @@ decentralization claim.
 mint gate plus the `InitChain` bank-supply cap assertion; binding tests cover
 bootstrap, bridge, genesis, and non-minting sponsorship boundaries.
 
-Transaction-bearing block rewards, claiming-pot claims, substrate-bridge
-rewards, the default-zero knowledge probe pool, and default-disabled
-`x/tokens` emission periods all route through `MintWithCap` when active.
+Claiming-pot claims, substrate-bridge rewards, the default-zero knowledge probe
+pool, and default-disabled `x/tokens` emission periods all route through
+`MintWithCap` when active. Vesting-rewards consensus v2 retires automatic
+transaction-bearing block rewards; its named upgrade remains a separate
+activation boundary.
 Sponsorship circulates existing supply. The cap is live-supply-anchored, so a
 burn frees future headroom. Training disbursement and contribution-challenge
 bonus minting are release-sealed. This closes the cap loop; it does not prove

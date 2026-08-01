@@ -612,10 +612,10 @@ func (*QueryFounderShareStatusRequest) Descriptor() ([]byte, []int) {
 
 type QueryFounderShareStatusResponse struct {
 	state                      protoimpl.MessageState `protogen:"open.v1"`
-	Active                     bool                   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`
-	FounderShareBps            uint64                 `protobuf:"varint,2,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`
-	FounderAddress             string                 `protobuf:"bytes,3,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`
-	GovernanceActivationHeight uint64                 `protobuf:"varint,4,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"`
+	Active                     bool                   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`                                                                             // compatibility field; always false in v2+
+	FounderShareBps            uint64                 `protobuf:"varint,2,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`                                  // stored compatibility value; v1->v2 migration sets zero
+	FounderAddress             string                 `protobuf:"bytes,3,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`                                        // stored compatibility value; v1->v2 migration clears it
+	GovernanceActivationHeight uint64                 `protobuf:"varint,4,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"` // deprecated; never activates the retired path
 	CurrentHeight              uint64                 `protobuf:"varint,5,opt,name=current_height,json=currentHeight,proto3" json:"current_height,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
@@ -724,7 +724,7 @@ func (*QuerySupplyCouplingAuditRequest) Descriptor() ([]byte, []int) {
 }
 
 // SupplyCouplingAudit response surfaces the shared capped-mint ledger and the
-// separately configured block-reward coupling inputs.
+// separately configured, retired block-reward coupling inputs.
 type QuerySupplyCouplingAuditResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// MintWithCap ledger restored from initial_fund_balance at import and then
@@ -733,12 +733,12 @@ type QuerySupplyCouplingAuditResponse struct {
 	CurrentSupply                  string `protobuf:"bytes,2,opt,name=current_supply,json=currentSupply,proto3" json:"current_supply,omitempty"`                                                         // live bank supply in uzrn
 	MaxSupply                      string `protobuf:"bytes,3,opt,name=max_supply,json=maxSupply,proto3" json:"max_supply,omitempty"`                                                                     // protocol cap in uzrn
 	VerificationRateBps            uint64 `protobuf:"varint,4,opt,name=verification_rate_bps,json=verificationRateBps,proto3" json:"verification_rate_bps,omitempty"`                                    // legacy accepted/terminal ratio; not the applied signal
-	KnowledgeCouplingTargetBps     uint64 `protobuf:"varint,5,opt,name=knowledge_coupling_target_bps,json=knowledgeCouplingTargetBps,proto3" json:"knowledge_coupling_target_bps,omitempty"`             // configured target rate
-	KnowledgeCouplingFloorBps      uint64 `protobuf:"varint,6,opt,name=knowledge_coupling_floor_bps,json=knowledgeCouplingFloorBps,proto3" json:"knowledge_coupling_floor_bps,omitempty"`                // configured floor multiplier
-	EffectiveCouplingMultiplierBps uint64 `protobuf:"varint,7,opt,name=effective_coupling_multiplier_bps,json=effectiveCouplingMultiplierBps,proto3" json:"effective_coupling_multiplier_bps,omitempty"` // current applied multiplier
-	CouplingEnabled                bool   `protobuf:"varint,8,opt,name=coupling_enabled,json=couplingEnabled,proto3" json:"coupling_enabled,omitempty"`                                                  // target > 0 and keeper wired
-	// Consensus-applied survived/(survived+disproven) signal; unchallenged
-	// facts are excluded.
+	KnowledgeCouplingTargetBps     uint64 `protobuf:"varint,5,opt,name=knowledge_coupling_target_bps,json=knowledgeCouplingTargetBps,proto3" json:"knowledge_coupling_target_bps,omitempty"`             // retired configured target rate
+	KnowledgeCouplingFloorBps      uint64 `protobuf:"varint,6,opt,name=knowledge_coupling_floor_bps,json=knowledgeCouplingFloorBps,proto3" json:"knowledge_coupling_floor_bps,omitempty"`                // retired configured floor multiplier
+	EffectiveCouplingMultiplierBps uint64 `protobuf:"varint,7,opt,name=effective_coupling_multiplier_bps,json=effectiveCouplingMultiplierBps,proto3" json:"effective_coupling_multiplier_bps,omitempty"` // always zero in consensus v2
+	CouplingEnabled                bool   `protobuf:"varint,8,opt,name=coupling_enabled,json=couplingEnabled,proto3" json:"coupling_enabled,omitempty"`                                                  // always false in consensus v2
+	// Observed survived/(survived+disproven) signal; unchallenged facts are
+	// excluded. It does not drive automatic issuance in consensus v2.
 	SurvivedChallengeRateBps uint64 `protobuf:"varint,9,opt,name=survived_challenge_rate_bps,json=survivedChallengeRateBps,proto3" json:"survived_challenge_rate_bps,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache

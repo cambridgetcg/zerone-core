@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"reflect"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	commontypes "github.com/zerone-chain/zerone/x/common/types"
 )
 
@@ -34,33 +32,31 @@ func DefaultProtocolSubSplit() *commontypes.ProtocolSubSplit {
 // DefaultParams returns default module parameters.
 func DefaultParams() *Params {
 	return &Params{
-		BlockReward:                "10000000", // 10 ZRN base
-		RewardDecayBps:             994478,     // ~1-year half-life (0.994478x per 100K-block epoch)
-		BlocksPerRewardEpoch:       100000,     // ~2.9 days at 2521ms
+		BlockReward:                "0",    // arbitrary-transaction block minting retired
+		RewardDecayBps:             994478, // ~1-year half-life (0.994478x per 100K-block epoch)
+		BlocksPerRewardEpoch:       100000, // ~2.9 days at 2521ms
 		RevenueSplit:               DefaultRevenueSplit(),
 		ProtocolSubSplit:           DefaultProtocolSubSplit(),
-		FounderShareBps:            70000, // 7% of research fund
-		FounderAddress:             "",    // disabled by default
-		GovernanceActivationHeight: 0,     // no sunset
+		FounderShareBps:            0,  // retired wire field
+		FounderAddress:             "", // retired wire field
+		GovernanceActivationHeight: 0,  // no sunset
 		CategoryRewardConfigs:      DefaultCategoryRewardConfigs(),
 		ResearchFundModuleAccount:  ResearchFundModuleName,
 		VestingEnabled:             true,
 		ReleasedClawbackRate:       3300, // 33% of released clawed back
 		MinValidatorsForFullReward: 22,
-		EmptyBlockRewardRate:       0,        // 0% for empty blocks (PoT)
-		FloorReward:                "100000", // 0.1 ZRN in uzrn
-		InitialFundBalance:         "0",      // pure PoT
+		EmptyBlockRewardRate:       0,   // retired; must remain zero
+		FloorReward:                "0", // arbitrary-transaction block minting retired
+		InitialFundBalance:         "0", // genesis/export compatibility bookkeeping
 
-		// Knowledge-coupled block reward (T9 / thesis claim 1).
-		// Target rate 70% → at or above target, full reward. Below, reward
-		// scales linearly down to a floor of 50%. Ties money supply growth
-		// to survived/(survived+disproven) challenged-fact outcomes.
+		// Retired reward-coupling wire fields, pinned for deterministic legacy
+		// queries. Consensus v2 never uses them to drive automatic issuance.
 		KnowledgeCouplingTargetBps: 700_000,
 		KnowledgeCouplingFloorBps:  500_000,
 	}
 }
 
-// DefaultCategoryRewardConfigs returns per-category block reward multipliers.
+// DefaultCategoryRewardConfigs returns retired per-category compatibility data.
 func DefaultCategoryRewardConfigs() []*CategoryRewardConfig {
 	return []*CategoryRewardConfig{
 		{Category: string(CategoryAxiomatic), MultiplierBps: 1200000},     // 1.2x
@@ -196,17 +192,20 @@ func ValidateParams(p *Params) error {
 	if p.RewardDecayBps > 1000000 {
 		return fmt.Errorf("reward_decay_bps cannot exceed 1000000 (1.0)")
 	}
-	if err := validatePositiveInteger("block_reward", p.BlockReward); err != nil {
+	if err := validateNonNegativeInteger("block_reward", p.BlockReward); err != nil {
 		return err
 	}
-	if err := validatePositiveInteger("floor_reward", p.FloorReward); err != nil {
+	if err := validateNonNegativeInteger("floor_reward", p.FloorReward); err != nil {
 		return err
+	}
+	if p.BlockReward != "0" || p.FloorReward != "0" || p.EmptyBlockRewardRate != 0 {
+		return ErrAutomaticRewardRetired
 	}
 	if err := validateNonNegativeInteger("initial_fund_balance", p.InitialFundBalance); err != nil {
 		return err
 	}
-	if p.FounderShareBps > 1000000 {
-		return fmt.Errorf("founder_share_bps cannot exceed 1000000 (100%%)")
+	if p.FounderShareBps != 0 || p.FounderAddress != "" {
+		return ErrFounderShareRenounced
 	}
 	if p.ReleasedClawbackRate > 10_000 {
 		return fmt.Errorf("released_clawback_rate cannot exceed 10000 (100%%)")
@@ -220,45 +219,22 @@ func ValidateParams(p *Params) error {
 	if p.KnowledgeCouplingFloorBps > 1_000_000 {
 		return fmt.Errorf("knowledge_coupling_floor_bps cannot exceed 1000000 (100%%)")
 	}
-	if p.FounderShareBps > 0 && p.FounderAddress != "" {
-		if _, err := sdk.AccAddressFromBech32(p.FounderAddress); err != nil {
-			return fmt.Errorf("invalid founder_address: %w", err)
-		}
-	}
 	return nil
 }
 
-// FounderShareCapBps is the founding-level cap on FounderShareBps (7% of the
-// research slice, on the 1,000,000 scale). Governance may lower, zero, or
-// restore the share anywhere within [0, FounderShareCapBps], but can never
-// raise it above the founding level — the cap protects agents from
-// capture-inflating the founder cut (design §10).
-const FounderShareCapBps = 70000
+// FounderShareCapBps is retained for Go API compatibility. Version 2 retires
+// the identity-based founder tap, so its only valid value is zero.
+const FounderShareCapBps = 0
 
-// ValidateFounderShareChange enforces the founder-share governance contract
-// (design §10, supersedes the old full-immutability rule):
-//
-//   - FounderShareBps is GOV-MUTABLE within [0, FounderShareCapBps]. The
-//     founder submits to the government he created — the share can be lowered
-//     or zeroed if governance judges it unearned, and later restored — but a
-//     proposal can never push it above the founding cap.
-//   - FounderAddress remains IMMUTABLE once set. A mutable share plus a
-//     mutable address would be a theft surface, not accountability.
+// ValidateFounderShareChange keeps the retired compatibility fields fixed at
+// zero/empty. No governance vote can recreate an identity-based revenue tap.
 func ValidateFounderShareChange(current *Params, proposed *Params) error {
 	if proposed == nil {
 		return nil
 	}
-
-	// Founder share may move, but never above the founding cap.
-	if proposed.FounderShareBps > FounderShareCapBps {
-		return ErrFounderShareCapExceeded
+	if proposed.FounderShareBps != 0 || proposed.FounderAddress != "" {
+		return ErrFounderShareRenounced
 	}
-
-	// If founder address was already set (non-empty), it cannot be changed.
-	if current != nil && current.FounderAddress != "" && proposed.FounderAddress != current.FounderAddress {
-		return ErrFounderAddressImmutable
-	}
-
 	return nil
 }
 
@@ -283,6 +259,13 @@ func ValidateRuntimeParamChange(current, proposed *Params) error {
 	}
 	if proposed.InitialFundBalance != current.InitialFundBalance {
 		return fmt.Errorf("initial_fund_balance is genesis/export bookkeeping and runtime-immutable")
+	}
+	if proposed.RewardDecayBps != current.RewardDecayBps ||
+		proposed.BlocksPerRewardEpoch != current.BlocksPerRewardEpoch ||
+		proposed.MinValidatorsForFullReward != current.MinValidatorsForFullReward ||
+		proposed.KnowledgeCouplingTargetBps != current.KnowledgeCouplingTargetBps ||
+		proposed.KnowledgeCouplingFloorBps != current.KnowledgeCouplingFloorBps {
+		return fmt.Errorf("retired block-reward schedule fields are runtime-immutable")
 	}
 	return nil
 }

@@ -2122,12 +2122,6 @@ Vesting schedule fully released.
 - `vesting_id` -- vesting ID
 - `released_amount` -- total released amount
 
-### zerone.vesting_rewards.knowledge_coupling_applied
-Block reward scaled by the survived-challenge rate.
-- `survived_challenge_rate_bps` -- survived/(survived + disproven) in BPS
-- `target_bps` -- configured target rate
-- `multiplier_bps` -- applied reward multiplier in BPS
-
 ### zerone.vesting_rewards.update_params
 Governance parameter update.
 - `authority` -- governance address
@@ -2138,15 +2132,8 @@ Research fund deposit via revenue routing.
 - `denom` -- denomination
 - `total` -- total routed
 - `research` -- research fund share
-- `founder` -- founder share
-
-### zerone.vesting_rewards.block_reward_distributed
-*BeginBlock.* Block reward distributed to producer.
-- `block_height` -- block height
-- `producer` -- block producer address
-- `total_minted` -- total newly minted tokens
-- `producer_reward` -- producer's share
-- `active_validators` -- active validator count
+- `founder` -- compatibility attribute; always `0` for v2+ events (legacy
+  history may contain a nonzero value)
 
 ---
 

@@ -103,9 +103,9 @@ func TestScenario13_ProtocolDefaultGenesisHasNoBalances(t *testing.T) {
 		"protocol-default genesis must not create positive ZRN balances; deployment ceremonies are audited separately. violations: %v", violations)
 
 	// No positive supply. Total protocol-default supply is 0. Post-genesis
-	// native minting has multiple cap-gated callers, including
-	// transaction-bearing block rewards, quota-bounded claiming pots, and
-	// qualifying knowledge or external-work reward paths.
+	// native minting has multiple cap-gated callers, including quota-bounded
+	// claiming pots and qualifying knowledge or external-work reward paths.
+	// Vesting-rewards v2 retires automatic block rewards.
 	for _, supply := range bankGen.Supply {
 		if supply.Denom == zeroneapp.BondDenom {
 			require.True(t, supply.Amount.IsZero(),

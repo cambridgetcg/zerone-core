@@ -36,7 +36,8 @@ Each epistemic category has its own vesting curve, reflecting how durable that t
 
 ## Category Reward Multipliers
 
-Beyond vesting timing, each category also has a reward multiplier applied to block rewards:
+The protobuf retains historical per-category block-reward multipliers, but
+vesting-rewards v2 retires automatic block rewards and does not consume them:
 
 | Category | Multiplier | Rationale |
 |----------|-----------|-----------|

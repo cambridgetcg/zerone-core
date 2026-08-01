@@ -282,9 +282,8 @@ func (m msgServer) CompleteVesting(
 // UpdateParams updates the module parameters.
 // Only callable by module authority (governance).
 //
-// INVARIANT (design §10): FounderShareBps is gov-mutable within
-// [0, FounderShareCapBps] — it can be lowered, zeroed, or restored, but never
-// raised above the founding cap. FounderAddress is immutable once set.
+// INVARIANT: founder benefit is permanently renounced. The compatibility
+// fields must remain zero and empty; governance cannot restore the tap.
 func (m msgServer) UpdateParams(
 	goCtx context.Context,
 	msg *types.MsgUpdateParams,
@@ -302,20 +301,21 @@ func (m msgServer) UpdateParams(
 		return nil, fmt.Errorf("params must not be nil")
 	}
 
-	if err := types.ValidateParams(msg.Params); err != nil {
-		return nil, fmt.Errorf("invalid vesting_rewards params: %w", err)
-	}
-
-	// Enforce the founder-share governance contract (cap + address immutability)
+	// Enforce permanent founder renunciation before any state write.
 	current := m.Keeper.GetParams(ctx)
 	if err := types.ValidateFounderShareChange(current, msg.Params); err != nil {
 		return nil, err
+	}
+	if err := types.ValidateParams(msg.Params); err != nil {
+		return nil, fmt.Errorf("invalid vesting_rewards params: %w", err)
 	}
 	if err := types.ValidateRuntimeParamChange(current, msg.Params); err != nil {
 		return nil, err
 	}
 
-	m.Keeper.SetParams(ctx, msg.Params)
+	if err := m.Keeper.SetParams(ctx, msg.Params); err != nil {
+		return nil, fmt.Errorf("store vesting_rewards params: %w", err)
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.vesting_rewards.update_params",

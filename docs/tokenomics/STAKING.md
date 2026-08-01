@@ -41,18 +41,12 @@ tier multiplier as realised yield.
 
 ## Block rewards
 
-`vesting_rewards` reads the active bonded-validator count from Cosmos
-`x/staking`. On an eligible non-empty block it:
-
-1. applies decay, bonded-validator scaling, and knowledge-survival coupling;
-2. mints only within the 222,222,222 ZRN cap; and
-3. routes 55% of the minted amount to the block proposer, 22% to protocol
-   pools/reserves, 19.67% to development, and 3.33% to research.
-
-It does not apply the custom Guardian 2× field. Empty blocks mint 0 under
-defaults. Because issuance depends on activity, validator count, decay,
-knowledge outcomes, and the cap, this document does not promise an hourly or
-annual yield.
+Vesting-rewards v2 retires automatic block rewards. It does not read
+transaction presence or active-validator count to mint, and it pays no
+proposer amount. The old validator-scaling, decay, floor, and
+knowledge-coupling fields remain wire-readable but inert. Validators should
+model only observed verification-fee payouts and normal Cosmos fee
+distribution; this document promises no hourly or annual yield.
 
 ## Knowledge verification rewards
 
@@ -65,8 +59,8 @@ withhold part of a verifier's share and route it to development. A flat
 ## Fees
 
 For accumulated `uzrn` transaction fees, `RouteFees` sends 19.67% to
-development and 3.33% through research/founder routing. Approximately 77%
-remains in `fee_collector` for normal Cosmos distribution. See
+development and 3.33% in full to research through the canonical depositor.
+Approximately 77% remains in `fee_collector` for normal Cosmos distribution. See
 [REVENUE-SPLIT.md](REVENUE-SPLIT.md).
 
 ## Custom staking defaults

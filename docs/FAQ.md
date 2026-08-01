@@ -33,22 +33,22 @@ transferable 2,222 ZRN operator float. Those balances carry consensus and
 operational power; every address and amount is published in the hash-bound
 [genesis manifest](../deploy/mainnet/artifacts/GENESIS-MANIFEST.md).
 
-After genesis, native issuance shares the `MintWithCap` gate. The published
-configuration includes transaction-bearing block rewards, claiming-pot claims,
-and substrate-bridge attestation rewards. An ordinary user transaction makes a
-block reward-eligible; eligibility is not proof of verified truth.
-`x/claiming_pot` also retains governance-created general pots under the same
-lifetime budget as bootstrap claims. A knowledge probe rate and `x/tokens`
-emission periods are additional governance controls, both disabled in
-default/published params. See [SUPPLY.md](tokenomics/SUPPLY.md) for the complete
-source inventory and activation status.
+After genesis, native issuance shares the `MintWithCap` gate. Vesting-rewards
+consensus v2 retires transaction-bearing block rewards completely. Remaining
+enabled source paths are claiming-pot claims and survival-gated
+substrate-bridge attestations. `x/claiming_pot` retains governance-created
+general pots under the same lifetime budget as bootstrap claims. A knowledge
+probe rate and `x/tokens` emission periods are additional governance controls,
+both disabled in default/published params. See
+[SUPPLY.md](tokenomics/SUPPLY.md) for the complete source inventory and
+activation status.
 
 | Account | Genesis balance | Path to funding |
 |---------|----------------|-----------------|
-| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); proposer rewards on transaction-bearing blocks |
+| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); normal Cosmos fee distribution |
 | Operator float (zerone-ops) | 2,222 ZRN | Disclosed float: gov deposits + onboarding feegrants |
 | Whitelisted agents | 0 ZRN | Bootstrap claim (0.222 ZRN each) via `x/claiming_pot` |
-| Founder | 0 ZRN | Dormant — `FounderAddress` unset; a stipend is gov-activatable later |
+| Founder-specific stipend | 0 ZRN | Retired in source v2; activation requires `founder-renunciation-v1` |
 | AI vault | 0 ZRN | Unconfigured design role; no live genesis voter was set |
 | Research Treasury | 0 ZRN | 3.33% of revenue split, accruing |
 | Foundation | 0 ZRN | Governance proposals over time, drawing from research treasury |
@@ -63,17 +63,18 @@ mechanics, the bootstrap design, and the eligibility criteria.
 
 ### How do I earn ZRN as a validator?
 
-Validators earn ZRN through three channels:
+Validators can earn ZRN through two live economic channels:
 
 1. **Verification rewards** — a share of the 55% verifier pool funded by the
    claim's review fee; actual payout depends on the rewarded panel and
    independence modulation
-2. **Block rewards** — on eligible transaction-bearing blocks, the
-   decay/participation/knowledge-coupled amount is split and 55% goes to the
-   Cosmos block proposer; an ordinary transfer is sufficient for eligibility
-3. **Fee share** — `RouteFees` sends 19.67% of `uzrn` fees to development and
+2. **Fee share** — `RouteFees` sends 19.67% of `uzrn` fees to development and
    3.33% to research; the remaining ~77% stays in `fee_collector` for normal
    Cosmos distribution
+
+The former automatic transaction-bearing block mint is retired in
+vesting-rewards v2. Its historical records and schedule fields remain
+queryable but cannot produce new rewards.
 
 ### What are the validator tier requirements?
 
@@ -159,18 +160,13 @@ the full gas cost table.
 
 ### How are block rewards distributed?
 
-Block reward revenue is split four ways:
-
-- **55%** to the block proposer / configured withdraw address
-- **22%** to the protocol (citations, verification, treasury)
-- **19.67%** to the development fund (bug bounties, protocol development)
-- **3.33%** to the research fund (community grants)
-
-The field remains named `contributor_bps` for wire compatibility, but current
-block-reward execution sends that share to the proposer destination, not to
-fact contributors. This is not the transaction-fee split described above.
-There is no general revenue burn. Rejected substrate-attestation bonds are the
-narrow punitive burn exception.
+They are not: vesting-rewards consensus v2 performs no automatic per-block,
+per-transaction-presence, proposer, or epoch mint. The old four-way split
+remains available only as a compatibility helper for explicit caller-supplied
+revenue. Transaction fees follow the separate live path: 19.67% development,
+3.33% research, and the remaining ~77% normal Cosmos distribution. There is no
+general revenue burn; rejected substrate-attestation bonds are the narrow
+punitive exception.
 
 ### Why doesn't Zerone burn tokens?
 
@@ -181,14 +177,20 @@ a narrow punitive burn path.
 
 ### Can the founder share be changed by governance?
 
-Partly. Governance may lower, zero, or restore `founder_share_bps` within its
-hard 7% cap. `founder_address` is immutable once set. At genesis it is unset,
-so the founder auto-split is inactive.
+No in vesting-rewards consensus v2. `founder_share_bps` is fixed at `0`,
+`founder_address` is fixed empty, storage validation rejects either value being
+restored, and reward routing contains no founder recipient. The compatibility
+fields remain on the wire and historical v1 records remain truthful.
+
+This change requires the named `founder-renunciation-v1` coordinated upgrade;
+source publication alone does not change the running chain. It removes a
+status-derived revenue path, not ordinary permissionless participation or the
+separately disclosed founding household's present validator and voting power.
 
 ### What is the development fund?
 
-The development fund receives 19.67% of block reward revenue (replacing the
-former burn allocation). It funds:
+The development fund receives 19.67% of routed `uzrn` transaction fees and
+the development component of any explicit caller-supplied revenue. It funds:
 
 - Bug bounties and security audits
 - Truth discovery rewards

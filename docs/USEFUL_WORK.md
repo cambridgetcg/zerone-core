@@ -8,9 +8,10 @@ is no `x/work` module, universal work-class lifecycle, deployed recursion-weight
 scorer, or chain-wide reward formula. `x/substrate_bridge` currently supplies a
 bounded, caller-declared six-axis shape, stake escrow, and attestation state
 machine for registered adapters; it does not execute an adapter compiler or
-apply the M4 formula. Other implemented issuance paths—including ordinary
-transaction-bearing block rewards and authority-created claiming pots—do not
-prove a useful-work substrate link. Repository hashes and invariant scaffolds
+apply the M4 formula. Other implemented issuance paths—including
+authority-created claiming pots—do not prove a useful-work substrate link.
+Vesting-rewards consensus v2 retires automatic block rewards, but source
+publication is not activation evidence. Repository hashes and invariant scaffolds
 bind this document at source level; published genesis contains no useful-work
 creed pin.
 
@@ -46,8 +47,9 @@ The doctrine proposes that useful work be recognized and compensated by the
 degree to which it expands ZERONE's own ability to absorb, verify, classify,
 and reward more useful work. In the target design, non-recursive verified work
 receives only a base reimbursement and recursion-weight is the multiplier. The
-current issuance mix does not yet establish that dominance: block rewards,
-claiming pots, and other implemented routes use their own admission rules.
+current issuance mix does not yet establish that dominance: claiming pots and
+other implemented routes use their own admission rules. The retired automatic
+block-reward compatibility surface is not an issuance route in consensus v2.
 Outward utility may be priced on the agenttool platform layer, with applicable
 on-chain fees routed through `x/vesting_rewards` (`x/billing` was retired in
 the 2026-07 slim cut).

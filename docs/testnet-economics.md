@@ -27,13 +27,14 @@ foundation, or investor allocation. See [Genesis](tokenomics/GENESIS.md) for
 the canonical accounting.
 
 On a protocol network, wired native issuance shares the 222,222,222 ZRN
-`MintWithCap` gate. Published/default-active families are transaction-bearing
-block rewards, claiming-pot claims, and substrate-bridge rewards. Any ordinary
-user transaction qualifies a block; empty blocks mint 0 at the published
-setting. Claiming pots include both the 0.222 ZRN bootstrap seed and a legacy
-governance-created general-pot surface under one lifetime budget. The knowledge
-probe-bounty rate and `x/tokens` emission periods are governance-activatable
-but disabled in default/published params.
+`MintWithCap` gate. In vesting-rewards consensus v2, source-capable families
+are claiming-pot claims, substrate-bridge rewards, the knowledge probe bounty,
+and `x/tokens` emission periods; automatic block rewards are retired. Claiming
+pots include both the 0.222 ZRN bootstrap seed and a legacy governance-created
+general-pot surface under one lifetime budget. The knowledge probe-bounty rate
+and `x/tokens` emission periods are governance-activatable but disabled in
+default/published params. The named H2 source is not a claim that any running
+network has activated it.
 
 See [tokenomics/GENESIS.md](tokenomics/GENESIS.md) for the full specification.
 

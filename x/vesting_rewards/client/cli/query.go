@@ -204,11 +204,11 @@ func NewQueryResearchFundBalanceCmd() *cobra.Command {
 	return cmd
 }
 
-// NewQueryFounderShareStatusCmd creates a CLI command to query the founder share status.
+// NewQueryFounderShareStatusCmd queries the retired founder compatibility fields.
 func NewQueryFounderShareStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "founder-share-status",
-		Short: "Query the current founder share configuration and activation status",
+		Short: "Query the retired founder-share compatibility status",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)

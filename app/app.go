@@ -271,7 +271,7 @@ var (
 		// mint, but the standing permission bypassed the 222M cap census).
 		zeroneauthtypes.ModuleName:                       nil,
 		zeronestakingtypes.ModuleName:                    {authtypes.Burner, authtypes.Staking},
-		vestingrewardstypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // Minter for block rewards, Burner retained for interface compat
+		vestingrewardstypes.ModuleName:                   nil,                                  // routing/vesting escrow only; v2 retires automatic block minting
 		vestingrewardstypes.ResearchFundModuleName:       nil,                                  // research_fund: receive-only
 		vestingrewardstypes.DevelopmentFundModuleName:    nil,                                  // development_fund: receive-only
 		zeroneontologytypes.ModuleName:                   nil,                                  // ontology: receive proposal stake
@@ -763,15 +763,15 @@ func NewZeroneApp(
 		appCodec,
 		sdkruntime.NewKVStoreService(keys[vestingrewardstypes.StoreKey]),
 		app.BankKeeper,
-		// SDK staking adapter: active-validator count for reward scaling and
-		// consensus→operator resolution so block rewards land at spendable
-		// operator accounts.
+		// SDK staking adapter retained for historical reward-query and proposer-
+		// resolution compatibility. Consensus v2 never invokes it to issue an
+		// automatic reward.
 		vestingRewardsStakingAdapter{sk: app.StakingKeeper},
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
-	// Honor x/distribution withdraw-address mappings for reward payouts
-	// (validator block rewards + founder share, design §8b). Must be wired
-	// BEFORE any value copies of the keeper are handed to other modules.
+	// Preserve x/distribution withdraw-address resolution for the historical
+	// compatibility helper. Must be wired before keeper value copies are handed
+	// to other modules; consensus v2 has no proposer or founder payout path.
 	app.VestingRewardsKeeper.SetDistributionKeeper(app.DistrKeeper)
 
 	app.ZeroneOntologyKeeper = zeroneontologykeeper.NewKeeper(
@@ -1013,8 +1013,8 @@ func NewZeroneApp(
 	alignmentPacingAdapter := zeronealignmentkeeper.NewAlignmentPacingAdapter(app.AlignmentKeeper)
 	app.KnowledgeKeeper.SetPacingKeeper(alignmentPacingAdapter)
 	app.CaptureDefenseKeeper.SetPacingKeeper(alignmentPacingAdapter)
-	// Knowledge-coupled block reward (T9 / thesis claim 1): block rewards scale
-	// with verification throughput once this adapter is wired.
+	// Preserve knowledge telemetry for vesting audit queries and the disproven-
+	// fact clawback gate. Consensus v2 does not couple it to automatic issuance.
 	app.VestingRewardsKeeper.SetKnowledgeKeeper(zeroneknowledgekeeper.NewVestingRewardsKnowledgeAdapter(app.KnowledgeKeeper))
 
 	// ---- Claiming Pot keeper (R7-6) ----
@@ -1267,7 +1267,9 @@ func NewZeroneApp(
 	app.RegisterUpgradeHandlers()
 
 	// Configure store loaders for upgrades that add/remove store keys (must be before LoadLatestVersion).
-	app.RegisterStoreUpgrades()
+	if err := app.RegisterStoreUpgrades(); err != nil {
+		panic(fmt.Sprintf("refusing unreadable local upgrade evidence: %v", err))
+	}
 
 	// Mount stores
 	app.MountKVStores(keys)
@@ -1310,11 +1312,11 @@ func NewZeroneApp(
 			logger.Error("error loading latest version", "err", err)
 			os.Exit(1)
 		}
-		lineage, err := app.verifyConsolidationStartupLineage()
+		lineage, err := app.verifyFounderRenunciationStartupLineage()
 		if err != nil {
-			panic(fmt.Sprintf("refusing unsafe consolidation lineage at startup: %v", err))
+			panic(fmt.Sprintf("refusing unsafe H1→H2 lineage at startup: %v", err))
 		}
-		logger.Info("verified consolidation startup lineage", "lineage", lineage)
+		logger.Info("verified H1→H2 startup lineage", "lineage", lineage)
 	}
 
 	return app
@@ -1362,6 +1364,34 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 	}
 	if marker, found, markerErr := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
 		ctx,
+		founderRenunciationMigrationMarker,
+	); markerErr != nil {
+		return nil, fmt.Errorf("verify H2 marker absence at native genesis: %w", markerErr)
+	} else if found {
+		return nil, fmt.Errorf(
+			"native genesis requires H2 marker %q absent; found %q",
+			founderRenunciationMigrationMarker,
+			marker,
+		)
+	}
+	if doneHeight, doneErr := app.UpgradeKeeper.GetDoneHeight(
+		ctx,
+		UpgradeNameConsolidationSafetyV1,
+	); doneErr != nil {
+		return nil, fmt.Errorf("verify H1 done height at native genesis: %w", doneErr)
+	} else if doneHeight != 0 {
+		return nil, fmt.Errorf("native genesis requires H1 done height 0; got %d", doneHeight)
+	}
+	if doneHeight, doneErr := app.UpgradeKeeper.GetDoneHeight(
+		ctx,
+		UpgradeNameFounderRenunciationV1,
+	); doneErr != nil {
+		return nil, fmt.Errorf("verify H2 done height at native genesis: %w", doneErr)
+	} else if doneHeight != 0 {
+		return nil, fmt.Errorf("native genesis requires H2 done height 0; got %d", doneHeight)
+	}
+	if marker, found, markerErr := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
 		consolidationNativeLineageMarker,
 	); markerErr != nil {
 		return nil, fmt.Errorf("verify native lineage marker absence at genesis: %w", markerErr)
@@ -1372,12 +1402,31 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			marker,
 		)
 	}
+	if marker, found, markerErr := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationNativeLineageMarker,
+	); markerErr != nil {
+		return nil, fmt.Errorf("verify H2 native lineage marker absence at genesis: %w", markerErr)
+	} else if found {
+		return nil, fmt.Errorf(
+			"native genesis requires lineage marker %q absent; found %q",
+			founderRenunciationNativeLineageMarker,
+			marker,
+		)
+	}
 	if err := app.KnowledgeKeeper.WriteMigrationMarker(
 		ctx,
 		consolidationNativeLineageMarker,
 		consolidationNativeLineageValue,
 	); err != nil {
 		return nil, fmt.Errorf("write native consolidation lineage marker: %w", err)
+	}
+	if err := app.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		founderRenunciationNativeLineageMarker,
+		founderRenunciationNativeLineageValue,
+	); err != nil {
+		return nil, fmt.Errorf("write native founder-renunciation lineage marker: %w", err)
 	}
 	maxSupply, ok := new(big.Int).SetString(vestingrewardstypes.MaxSupplyUzrn, 10)
 	if !ok {

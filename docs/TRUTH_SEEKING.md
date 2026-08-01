@@ -315,29 +315,31 @@ stake affects consensus and that float can move. There is no separate team,
 foundation, investor-sale, research, or faucet allocation; every address and
 amount is published.
 
-The current runtime does not prove the stronger slogan that every new unit is
-earned by truth verification. A block reward is eligible on a
-transaction-bearing block, and an ordinary transfer qualifies. Governance
-authority can create general claiming pots within their shared lifetime cap.
-Other compiled mint routes are external-attestation settlement, an optional
-knowledge probe bounty whose published/default rate is zero, and optional
-`x/tokens` per-block emission whose default is disabled. Bootstrap claims are
-whitelist participation, but admission includes a disclosed operator
-registrar. This commitment is therefore a target for participation-shaped
-economics plus a present requirement that every actual issuance authority and
-exception be named.
+The current source does not prove the stronger slogan that every new unit is
+earned by truth verification. Vesting-rewards consensus v2 retires automatic
+transaction-bearing block rewards if the named H2 upgrade is activated, but
+governance authority can still create general claiming pots within their
+shared lifetime cap. Other compiled mint routes are external-attestation
+settlement, an optional knowledge probe bounty whose published/default rate is
+zero, and optional `x/tokens` per-block emission whose default is disabled.
+Bootstrap claims are whitelist participation, but admission includes a
+disclosed operator registrar. Source publication alone does not establish the
+running network's phase. This commitment is therefore a target for
+participation-shaped economics plus a present requirement that every actual
+issuance authority and exception be named.
 
 **Code expression**: `x/vesting_rewards.MintWithCap` is the shared cap-gated
 entry point for runtime module issuance. It accepts a recipient module name,
 mints into that account, and refuses to overshoot `MaxSupplyUzrn`
-(222,222,222 ZRN). Current callers include eligible block rewards,
-`x/claiming_pot` claims (bootstrap and authority-created general pots),
-`x/substrate_bridge` settlement/witness escrow, the configurable knowledge
-probe bounty, and configurable `x/tokens` emission. The latter two are inert
-under published/default parameters. Public training-fund release and the
-former contribution-challenge bonus do not mint in this release. `InitChainer`
-also rejects a bank genesis whose `uzrn` supply exceeds the same hard cap,
-because genesis balances do not pass through `MintWithCap`.
+(222,222,222 ZRN). Consensus-v2 callers include `x/claiming_pot` claims
+(bootstrap and authority-created general pots), `x/substrate_bridge`
+settlement/witness escrow, the configurable knowledge probe bounty, and
+configurable `x/tokens` emission. The latter two are inert under
+published/default parameters. Automatic block rewards, public training-fund
+release, and the former contribution-challenge bonus do not mint in this
+source version. `InitChainer` also rejects a bank genesis whose `uzrn` supply
+exceeds the same hard cap, because genesis balances do not pass through
+`MintWithCap`.
 
 The published genesis declares `agenttool-invocation-v1` ACTIVE, but live
 adapter query state was not reverified, so source does not claim it is

@@ -11,18 +11,18 @@ investor sale. The live custodial genesis did create real
 operator-controlled scaffolding: 11,333 ZRN of validator collateral
 (11,111 bonded + 222 spendable gas) and a transferable 2,222 ZRN operator
 float, 13,555 ZRN total (0.0061% of cap), with every address published.
-Post-genesis native issuance shares one `MintWithCap` gate. The published
-configuration has transaction-bearing block rewards, claiming-pot claims, and
-substrate-bridge rewards; an ordinary user transaction qualifies a block for
-the first lane. Default-zero knowledge probe issuance and default-disabled
-`x/tokens` emission periods are additional governance-activatable controls.
+Post-genesis native issuance shares one `MintWithCap` gate. Vesting-rewards
+v2 retires transaction-bearing block rewards. Enabled source paths are
+claiming-pot claims and survival-gated substrate-bridge rewards. Default-zero
+knowledge probe issuance and default-disabled `x/tokens` emission periods are
+additional governance-activatable controls.
 
 ## Documents in This Directory
 
 | File | Description |
 |------|-------------|
-| [SUPPLY.md](SUPPLY.md) | Supply cap, emission schedule, decay curve, and long-term projections |
-| [REVENUE-SPLIT.md](REVENUE-SPLIT.md) | The 4-way revenue split, protocol sub-split, and founder sunset |
+| [SUPPLY.md](SUPPLY.md) | Supply cap, source-capable issuance families, retired automatic mint, and evidence-bound projections |
+| [REVENUE-SPLIT.md](REVENUE-SPLIT.md) | The 4-way revenue split, protocol sub-split, and founder retirement |
 | [VESTING.md](VESTING.md) | Truth-linked vesting: epistemic categories, release curves, clawback |
 | [STAKING.md](STAKING.md) | Tiered validator system, staking economics, slashing |
 | [GENESIS.md](GENESIS.md) | Genesis distribution, bootstrap accounts, and ceremony |
@@ -38,12 +38,12 @@ the first lane. Default-zero knowledge probe issuance and default-disabled
 |--------|-------|
 | **Max Supply** | 222,222,222 ZRN (hard cap, enforced in code) |
 | **Genesis Supply** | 13,555 ZRN (0.0061% of cap) — 11,333 validator collateral/gas + 2,222 transferable operator float, published |
-| **Initial Block Reward** | 10 ZRN/block |
+| **Automatic Block Reward** | 0; retired in vesting_rewards v2 |
 | **Block Time** | ~2.521 seconds |
-| **Epoch Length** | 100,000 blocks (~2.9 days) |
-| **Decay Rate** | 0.994478× per epoch (1-year half-life) |
-| **Floor Reward** | 0.1 ZRN/block |
-| **Block reward to proposer / configured withdraw address** | 55% |
+| **Retired reward epoch metadata** | 100,000 blocks (~2.9 days) |
+| **Retired decay metadata** | 0.994478× per epoch (historical 1-year half-life model) |
+| **Floor Reward** | 0; retired compatibility field |
+| **Caller-supplied revenue contributor share** | 55% |
 | **Revenue to Protocol** | 22% |
 | **Revenue to Development** | 19.67% (bug bounties, truth discovery, protocol dev) |
 | **Revenue to Research Fund** | 3.33% |
@@ -51,10 +51,10 @@ the first lane. Default-zero knowledge probe issuance and default-disabled
 
 ## Design Philosophy
 
-1. **Truth coupling is partial and measurable.** Empty blocks earn nothing, but
-   any non-injection user transaction—including an ordinary transfer—makes a
-   block reward-eligible. Validator count and the survived-challenge rate scale
-   the reward; transaction eligibility alone is not proof of verified truth.
+1. **Issuance requires more than proposer-controlled inclusion.** Consensus v2
+   never mints merely because a block contains an ordinary transaction.
+   Legacy decay, validator, and survived-challenge coupling fields remain
+   observable but do not drive automatic issuance.
 
 2. **Revenue is routed, not burned.** There is no general revenue burn share;
    rejected substrate-attestation bonds are the narrow punitive exception. The

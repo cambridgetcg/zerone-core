@@ -308,8 +308,11 @@ func TestExplicitParamsSmokeTest(t *testing.T) {
 	t.Run("VestingRewards", func(t *testing.T) {
 		p := h.VestingRewardsKeeper.GetParams(h.Ctx)
 		require.NotNil(t, p)
-		require.NotEmpty(t, p.BlockReward, "BlockReward must be set")
-		require.NotEqual(t, "0", p.BlockReward, "BlockReward must be non-zero")
+		require.Equal(t, "0", p.BlockReward, "automatic BlockReward is retired in v2")
+		require.Equal(t, "0", p.FloorReward, "automatic FloorReward is retired in v2")
+		require.Zero(t, p.EmptyBlockRewardRate)
+		require.Zero(t, p.FounderShareBps)
+		require.Empty(t, p.FounderAddress)
 		require.Greater(t, p.MinValidatorsForFullReward, uint32(0), "MinValidatorsForFullReward")
 		require.Greater(t, p.BlocksPerRewardEpoch, uint64(0), "BlocksPerRewardEpoch")
 		require.Greater(t, p.RewardDecayBps, uint64(0), "RewardDecayBps")

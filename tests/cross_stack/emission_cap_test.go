@@ -16,11 +16,11 @@ import (
 // ════════════════════════════════════════════════════════════════════
 // Doctrine binding: multiple emission pathways, ONE cap-gated runtime mint entry.
 //
-// Runtime module issuance includes transaction-bearing block rewards
-// (x/vesting_rewards), claiming-pot claims (x/claiming_pot), external-work
-// attestation rewards (x/substrate_bridge), and configurable knowledge/tokens
-// emissions that are inert by default. Every compiled runtime pathway gates
-// through MintWithCap. InitChainer separately checks direct genesis supply.
+// Runtime module issuance includes claiming-pot claims (x/claiming_pot),
+// external-work attestation rewards (x/substrate_bridge), and configurable
+// knowledge/tokens emissions that are inert by default. Every compiled runtime
+// pathway gates through MintWithCap. Vesting-rewards v2 retires automatic block
+// rewards; InitChainer separately checks direct genesis supply.
 // This
 // test drives a real bootstrap claim through the live keepers and
 // confirms the bank's uzrn supply increases by the claim amount
@@ -94,7 +94,8 @@ func TestEmissionCap_BootstrapClaimMintsOnDemand(t *testing.T) {
 
 	// vesting_rewards TotalMinted counter advanced by the same amount —
 	// confirming the bootstrap pathway gated through MintWithCap and
-	// participates in the same cap budget as block rewards.
+	// participates in the shared cap budget used by every remaining issuance
+	// family.
 	postMinted := h.VestingRewardsKeeper.GetTotalMinted(sdk.UnwrapSDKContext(h.Ctx))
 	mintedDelta := new(big.Int).Sub(postMinted, preMinted)
 	require.Equal(t, resp.Amount, mintedDelta.String(),

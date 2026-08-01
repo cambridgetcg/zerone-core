@@ -103,21 +103,21 @@ decentralized. Every address and amount is published in the hash-bound
 else is subject to the same hard cap, but not every source-capable lane is
 honestly described as participation-earned.
 
-The published/default configuration exposes three current issuance families:
+The source exposes two enabled post-genesis issuance families:
 
-1. **Transaction-bearing block rewards** — `x/vesting_rewards` rewards the block
-   proposer when a block contains any non-injection user transaction. An
-   ordinary transfer qualifies; this is not proof that the transaction created
-   verified knowledge. Empty blocks mint **0**. Validator count, decay, and the
-   survived-challenge rate scale the amount.
-2. **Claiming-pot claims** — `x/claiming_pot` includes the 0.222 ZRN bootstrap
+1. **Claiming-pot claims** — `x/claiming_pot` includes the 0.222 ZRN bootstrap
    claim and a legacy governance-created general-pot surface. Both consume the
    same fixed-size lifetime commitment budget and mint only on `MsgClaim`.
-3. **Substrate-bridge attestations** — source can mint for eligible external
+2. **Substrate-bridge attestations** — source can mint for eligible external
    work that survives challenge. The published genesis declares
    `agenttool-invocation-v1` ACTIVE with a witness reward, but current live
    query state was not reverified; that artifact is not evidence of live
    minting.
+
+Vesting-rewards consensus v2 permanently retires the former
+transaction-presence block mint. Its schedule fields and historical records
+remain wire-readable, but no proposal transaction count, validator count,
+decay setting, or knowledge-coupling value can trigger automatic issuance.
 
 Two additional cap-gated source controls are disabled in the published/default
 configuration: the knowledge probe-bounty rate is zero, and `x/tokens`
@@ -126,13 +126,14 @@ disbursement and contribution-challenge bonus minting are release-sealed.
 Every post-genesis native issuance call routes through `MintWithCap`, and
 `InitChain` also rejects a genesis whose bank supply exceeds 222,222,222 ZRN.
 
-No separate founder stipend was activated at genesis: `FounderAddress` is
-unset, so the dormant `FounderShareBps` accrues 0 ZRN. That narrow statement
-does not erase the founding household's disclosed control of the validator and
-operations accounts above. Governance may change the share within its 7% cap,
-but the founder address becomes immutable once set. The Research Fund and
-Development Fund hold 0 ZRN at genesis and fill only from the forward revenue
-split. See
+No separate founder stipend was activated at genesis. Vesting-rewards
+consensus v2 goes further: `FounderShareBps` is fixed at `0`, `FounderAddress`
+is fixed empty, and the former payout branch is removed. Activation requires
+a separate governance schedule and accepted `founder-renunciation-v1` release;
+source publication is not live-chain evidence. This does not erase the founding household's
+disclosed validator, operations-account, or voting control. The Research Fund
+and Development Fund hold 0 ZRN at genesis and fill from fee and explicit
+caller-supplied revenue routing, not an automatic block mint. See
 [docs/tokenomics/GENESIS.md](docs/tokenomics/GENESIS.md) for the full
 specification.
 
@@ -204,7 +205,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 |---|---|
 | `staking` | 4-tier PoT staking (Apprentice → Guardian) |
 | `qualification` | Domain-specific validator certification |
-| `vesting_rewards` | Block rewards, vesting curves, revenue splits |
+| `vesting_rewards` | Vesting curves, fee/revenue routing, historical reward records; automatic block mint retired in v2 |
 
 ### Agent Economy
 | Module | Purpose |

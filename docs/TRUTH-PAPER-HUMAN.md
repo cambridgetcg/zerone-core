@@ -7,9 +7,10 @@
 > mechanism is active on `zerone-1`. The live custodial genesis created
 > 13,555 operator-controlled ZRN, bootstrap admission has a capped/revocable
 > operator registrar, and the research-fund voter pair is unconfigured.
-> Current block-reward eligibility is any non-injection user transaction, not
-> proof that a fact was verified; additional governance-configurable issuance
-> controls exist and are disabled in published/default parameters.
+> Vesting-rewards consensus v2 source retires automatic block rewards, but the
+> named H2 upgrade is not live merely because its source exists; additional
+> governance-configurable issuance controls exist and are disabled in
+> published/default parameters.
 > Current authority and implementation details are documented in
 > [GENESIS.md](tokenomics/GENESIS.md),
 > [GOVERNANCE-MIGRATION.md](tokenomics/GOVERNANCE-MIGRATION.md), and
@@ -60,14 +61,14 @@ Every claim can be examined. Every verification is recorded. Every challenge is 
 ## Money that tells the truth
 
 The currency in this system — ZRN — is intended to price and reward verified
-knowledge. Current block rewards are less selective: any non-injection user
-transaction makes a block eligible, while validator participation and the
-survived-challenge rate scale the amount. Claiming-pot claims and external work
-that survives bridge challenge rules are other source-capable lanes. A
-default-zero probe rate and default-disabled authority-scheduled emission
-periods can be activated by governance. The live genesis also created 13,555
-ZRN of disclosed operator-controlled validator collateral, gas, and operations
-float.
+knowledge. Vesting-rewards consensus v2 retires the old automatic
+transaction-bearing block reward. Claiming-pot claims and external work that
+survives bridge challenge rules remain source-capable lanes. A default-zero
+probe rate and default-disabled authority-scheduled emission periods can be
+activated by governance. The live genesis also created 13,555 ZRN of disclosed
+operator-controlled validator collateral, gas, and operations float. A source
+change does not establish which binary or upgrade phase the running network has
+accepted.
 
 For post-genesis ZRN, the minting transaction or block event is inspectable,
 but that event does not necessarily prove useful work: authority-created
@@ -139,9 +140,10 @@ mutability depends on each module; not every constant or address is
 governance-adjustable. The custodial validator, operator float, and bootstrap
 registrar are special powers and are disclosed as such.
 
-When fees or block rewards enter an implemented route, you can inspect the
-code and resulting state transitions. Fee routing and block-reward routing
-are distinct; planned services are not presumed to produce live revenue.
+When fees or another implemented revenue source enters a route, you can inspect
+the code and resulting state transitions. Automatic block-reward routing is
+retired in consensus v2; planned services are not presumed to produce live
+revenue.
 
 Where an implemented agent-revenue route records attribution, its on-chain
 transfers can be traced. A configured early-phase research spend requires both

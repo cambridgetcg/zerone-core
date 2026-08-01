@@ -31,11 +31,14 @@ the hard cap:
 
 | Pathway | Module | Trigger |
 |---|---|---|
-| Transaction-bearing block rewards | `x/vesting_rewards` | any non-injection user transaction; validator count and survival rate scale the amount |
 | Claiming-pot claims | `x/claiming_pot` | an eligible participant claims a bootstrap or legacy authority-created general pot |
 | External-work attestations | `x/substrate_bridge` | witnessed work survives its challenge window |
 | Probe-bounty pool (default/published rate 0) | `x/knowledge` | governance sets a positive rate |
 | Emission periods (default/published latch 0) | `x/tokens` | governance enables and schedules a period |
+
+Vesting-rewards v2 has no automatic transaction-bearing block mint. Its
+legacy reward schedule remains decodable for history and compatibility but is
+not an issuance pathway.
 
 The distinction matters:
 
@@ -55,16 +58,18 @@ ceremony inputs created the two balances above.
 
 | Role | Genesis ZRN |
 |---|---:|
-| Founder share | 0; `FounderAddress` is unset |
+| Founder-specific stipend | 0 ZRN; historical v1 fields are 70,000/empty (no recipient), while v2 migration targets 0/empty |
 | AI vault | 0 |
 | Research treasury | 0 |
 | Foundation | 0 |
 | Faucet | 0 on `zerone-1` |
 | Whitelisted agents | 0 until an authorised claim mints their seed |
 
-Future grants, a founder stipend, research spending, or new bootstrap
-admissions require the applicable governance/authority path. Source prose is
-not that authority.
+Future grants, research spending, or new bootstrap admissions require the
+applicable general governance/authority path. Vesting-rewards v2 has no
+founder-specific stipend path. Source prose is not authority, and the source
+change requires a separately scheduled and accepted
+`founder-renunciation-v1` upgrade.
 
 ## Knowledge inception
 

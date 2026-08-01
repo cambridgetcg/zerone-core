@@ -2,13 +2,15 @@
 
 > Written by AI (愛), 2026-02-23. This is a critical review, not marketing.
 >
-> **⚠️ Historical review; not current source truth (updated 2026-07-29).**
+> **⚠️ Historical review; not current source truth (updated 2026-08-01).**
 > This review captured the 2026-02-23 design and several later annotations.
 > The live `zerone-1` genesis, founder-share governance contract, module
 > inventory, and fee routes have since changed. The live genesis is **13,555
 > ZRN** of validator collateral/gas plus transferable operator float. The
-> founder percentage is mutable from 0–7% of the research slice and its address
-> is unset. Use [GENESIS.md](GENESIS.md), [REVENUE-SPLIT.md](REVENUE-SPLIT.md),
+> vesting-rewards v2 permanently retires the former founder recipient and
+> transaction-presence block mint; its
+> activation still requires the named `founder-renunciation-v1` upgrade. Use
+> [GENESIS.md](GENESIS.md), [REVENUE-SPLIT.md](REVENUE-SPLIT.md),
 > and the hash-bound genesis manifest for current accounting. Unedited sections
 > below are a point-in-time critique, not a claim that their named mechanisms
 > remain shipped.
@@ -51,31 +53,33 @@ collateral/gas and a transferable 2,222 ZRN operations float. There was no
 separate team, foundation, investor-sale, research, or faucet allocation.
 
 The research and development funds started empty and fill through implemented
-forward routes. Block rewards occur only on eligible transaction-bearing
-blocks; an ordinary transfer is sufficient for eligibility.
+forward routes. Vesting-rewards v2 retires transaction-bearing block rewards;
+normal fees and explicit revenue routing circulate existing value.
 
-### 2. Founder sub-share remains governance-bounded
+### 2. ~~Founder sub-share remains governance-bounded~~ → SOURCE-RESOLVED
 
-Governance may lower, zero, or restore `founder_share_bps` within its 7% cap.
-`founder_address` becomes immutable once set. It is unset at genesis, so the
-automatic sub-share is inactive.
+Vesting-rewards v2 fixes the compatibility fields at zero/empty, removes the
+payout arithmetic, and migrates legacy state without rewriting historical
+records. This is not live until `founder-renunciation-v1` is scheduled and its
+release is independently verified. It removes a founder-status benefit; it
+does not remove the founding household's disclosed validator, balances, or
+stake-weighted voting power.
 
-**Remaining concern:** The share goes directly to an address with no vesting or lock. At 0.23% of total revenue it's modest, but it's still unencumbered capital.
+### 3. ~~Transaction-presence block rewards were gameable~~ → SOURCE-RESOLVED
 
-### 3. Empty Block Reward = 0 May Cause Issues
+An ordinary transfer was proposer-includable and did not prove useful work, so
+the former lane rewarded a weak proxy and invited spam. Vesting-rewards v2
+removes the mint entirely. Validator sustainability must come from real fees,
+verification economics, and other independently witnessed work—not restoration
+of an inclusion-controlled subsidy.
 
-Zero reward for blocks without PoT activity means validators earn nothing when the knowledge pipeline is quiet. In early network phases with low activity, this could create:
-- Validator exodus during quiet periods
-- Incentive to spam low-quality claims just to trigger rewards
-- Block production without economic incentive during knowledge droughts
-
-**Consideration:** Even a small empty block reward (e.g., 1% of base) would maintain validator incentives during quiet periods without undermining the PoT alignment.
-
-### 4. ~~Decay Is Very Aggressive~~ → RESOLVED
+### 4. ~~Decay Is Very Aggressive~~ → SUPERSEDED
 
 **Decision: 1-year half-life.** `reward_decay_bps` changed from 850,000 (15%/epoch, ~78-day collapse) to 994,478 (0.55%/epoch, ~1-year half-life). Rewards now halve annually — 4× faster than Bitcoin's 4-year halvings but 125× slower than the original design.
 
-**Result:** Validators joining at year 2 earn 2.5 ZRN/block (half the genesis rate), not 0.001 ZRN. Floor reward (0.1 ZRN) is reached at ~year 6.6 instead of day 78. The gold rush dynamic is eliminated while still rewarding early participation.
+**Later result:** vesting-rewards v2 retires this automatic emission lane.
+These values survive only as historical compatibility metadata and no longer
+support a yield projection.
 
 ### 5. Verification pool split was simplified
 
@@ -151,8 +155,8 @@ The centralisation risk now has a concrete mitigation timeline. See [GOVERNANCE-
 
 6. **Can governance break the economics?** A governance proposal could set
    `contributor_bps = 1000000`, directing all split revenue to contributors.
-   The founder percentage has a 7% cap; its address is immutable only after it
-   is set.
+   It cannot restore the retired founder fields through ordinary v2 parameter
+   governance, but the remaining split surface still needs strong review.
 
 7. **Emergency governance thresholds are very high.** 75% for halt, 80% for revert/resume. With 22 validators, that requires near-unanimity. Is this too high for actual emergencies?
 

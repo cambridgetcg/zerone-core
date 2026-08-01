@@ -18,8 +18,21 @@ var (
 	ErrInvalidAccelerationType  = errors.Register(ModuleName, 14, "invalid acceleration type")
 	ErrScheduleAlreadyCompleted = errors.Register(ModuleName, 15, "vesting schedule already completed")
 	ErrNotRecipientOrAuthority  = errors.Register(ModuleName, 16, "sender is not recipient or authority")
-	ErrFounderAddressImmutable  = errors.Register(ModuleName, 17, "founder address is immutable once set")
+	// Deprecated: retained with its historical text so clients keep stable codes and messages.
+	ErrFounderAddressImmutable = errors.Register(ModuleName, 17, "founder address is immutable once set")
+	// Deprecated: retained with its historical text so clients keep stable codes and messages.
 	ErrFounderShareCapExceeded  = errors.Register(ModuleName, 18, "founder share cannot exceed the founding cap (70000 bps)")
 	ErrFactNotDisproven         = errors.Register(ModuleName, 19, "linked fact has not been disproven — falsification clawback requires an adjudicated FACT_STATUS_DISPROVEN")
 	ErrAdjudicationUnavailable  = errors.Register(ModuleName, 20, "cannot verify falsification: knowledge keeper not wired")
+	ErrFounderShareRenounced    = errors.Register(ModuleName, 21, "founder share and address are permanently renounced")
+	ErrAutomaticRewardRetired   = errors.Register(ModuleName, 22, "transaction-presence block rewards are permanently retired")
+	ErrFounderMigrationRequired = errors.Register(
+		ModuleName,
+		23,
+		"legacy founder or automatic-reward fields may only be cleared by the v1 to v2 migration",
+	)
+
+	// Deprecated: use ErrFounderShareRenounced. This alias preserves source
+	// compatibility without registering a second error at code 21.
+	ErrFounderShareRetired = ErrFounderShareRenounced
 )

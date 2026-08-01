@@ -190,8 +190,9 @@ func TestUpgrade_LineageParityWithHandlers(t *testing.T) {
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameDoctrineMetabolismExemptV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSubstrateDedupeV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameConsolidationSafetyV1)
-	require.Equal(t, zeroneapp.UpgradeNameConsolidationSafetyV1, lineageNames[len(lineageNames)-1],
-		"H1 must be the final executable plan in this source-only binary")
+	require.Contains(t, lineageNames, zeroneapp.UpgradeNameFounderRenunciationV1)
+	require.Equal(t, zeroneapp.UpgradeNameFounderRenunciationV1, lineageNames[len(lineageNames)-1],
+		"H2 must be the final executable plan in the replacement source binary")
 }
 
 // TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1
@@ -299,7 +300,7 @@ func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 		"handler must write the agenttool-seam-v1 migration marker")
 }
 
-func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
+func TestUpgrade_H2BinaryRefusesToExecuteConsolidationH1(t *testing.T) {
 	h := NewTestHarness(t)
 
 	current := h.App.CurrentModuleVersionMap()
@@ -317,20 +318,13 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 		fromVM,
 		h.Height(),
 	)
-	require.NoError(t, err)
-	require.Equal(t, uint64(6), toVM["knowledge"])
-	require.Equal(t, uint64(2), toVM["claiming_pot"])
-	require.Equal(t, uint64(5), toVM[liquiditypooltypes.ModuleName])
-	require.Equal(t, uint64(1), toVM["vesting_rewards"])
-	require.Equal(t, "true",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
-		"knowledge migration marker proves the module activation boundary ran")
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"),
-		"handler marker proves the named upgrade ran")
+	require.ErrorContains(t, err, "requires binary target vesting_rewards=1")
+	require.Nil(t, toVM)
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"))
 }
 
-func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *testing.T) {
+func TestUpgrade_H2RefusalDoesNotRewriteUnrelatedBallot(t *testing.T) {
 	h := NewTestHarness(t)
 	h.GovKeeper.SetLIP(h.Ctx, &zeronegovtypes.LIP{
 		Id:    "LIP-live-ballot",
@@ -352,16 +346,10 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 		fromVM,
 		h.Height(),
 	)
-	require.NoError(t, err,
-		"a permissionless unrelated ballot must not be able to halt a scheduled upgrade")
-	require.Equal(t, uint64(6), toVM["knowledge"])
-	require.Equal(t, uint64(2), toVM["claiming_pot"])
-	require.Equal(t, uint64(5), toVM[liquiditypooltypes.ModuleName])
-	require.Equal(t, uint64(1), toVM["vesting_rewards"])
-	require.Equal(t, "true",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"))
+	require.ErrorContains(t, err, "requires binary target vesting_rewards=1")
+	require.Nil(t, toVM)
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"))
 	lip, found := h.GovKeeper.GetLIP(h.Ctx, "LIP-live-ballot")
 	require.True(t, found)
 	require.Equal(t, zeronegovtypes.StatusVoting, lip.Stage,

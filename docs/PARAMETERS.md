@@ -74,19 +74,24 @@ are reserved in protobuf and must not be presented as active controls.
 | `min_stake_for_verification` | 111,000 uzrn |
 | `virtual_stake` | 11,000,000 uzrn |
 
-### Block rewards and fees
+### Retired block rewards and live fees
 
 | Field | Source default |
 |---|---:|
-| Block reward | 10,000,000 uzrn before decay/scaling |
+| Block reward | 0 (retired compatibility field) |
+| Floor reward | 0 (retired compatibility field) |
 | Empty-block reward rate | 0 |
-| Validators for full reward | 22 |
+| Validators for full reward | 22 (retired schedule metadata) |
 | Consensus fee floor | 1 uzrn per declared gas unit |
-| Revenue split | 55% block proposer (`contributor_bps` wire name) / 22% protocol / 19.67% development / 3.33% research |
-| Founder sub-share | Up to 7% of research; inactive while address is empty |
+| Revenue split | Compatibility/caller-supplied routing: 55% contributor / 22% protocol / 19.67% development / 3.33% research |
+| Founder compatibility fields | `founder_share_bps = 0`; `founder_address = ""` |
 
-`founder_share_bps` is governance-mutable within its 7% cap.
-`founder_address` becomes immutable once set.
+Vesting-rewards consensus v2 rejects any nonzero share or nonempty founder
+address, any nonzero block/floor reward, or any nonzero empty-block rate at
+validation and at the storage boundary. The v1→v2 migration clears legacy
+values while preserving historical reward records. Decay, epoch, validator,
+category-multiplier, and coupling fields remain inert compatibility metadata.
+Activation requires the named `founder-renunciation-v1` coordinated upgrade.
 
 ### Liquiditypool safety v2
 
