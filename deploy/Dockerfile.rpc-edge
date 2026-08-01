@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1.7
+
+# Stateless compatibility edge for zerone-rpc.fly.dev. It uses the same
+# deny-by-default policy as a public query node, but reaches the existing
+# mainnet node through its already-published endpoints while the signer
+# topology remains unchanged.
+ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
+
+FROM ${RUNTIME_IMAGE}
+
+ARG VERSION
+ARG COMMIT
+ARG SOURCE_DATE_EPOCH
+
+LABEL org.opencontainers.image.source="https://github.com/cambridgetcg/zerone-core" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      io.zerone.source-date-epoch="${SOURCE_DATE_EPOCH}" \
+      io.zerone.node-class="stateless-read-only-rpc-edge" \
+      io.zerone.upstream-boundary="existing-mainnet-public-rpc-rest"
+
+RUN printf '%s' "${VERSION}" | grep -Eq '^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' \
+    && printf '%s' "${COMMIT}" | grep -Eq '^[0-9a-f]{40}$' \
+    && printf '%s' "${SOURCE_DATE_EPOCH}" | grep -Eq '^[1-9][0-9]*$' \
+    && sed -i \
+      -e 's|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/20260713T000000Z|g' \
+      -e 's|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/20260713T000000Z|g' \
+      /etc/apt/sources.list.d/debian.sources \
+    && printf 'Acquire::Check-Valid-Until "false";\n' >/etc/apt/apt.conf.d/99snapshot \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates nginx-light \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+
+COPY deploy/public-edge-nginx.conf /etc/nginx/zerone-rpc.conf
+
+RUN nginx -t -c /etc/nginx/zerone-rpc.conf \
+    && sed -i \
+      -e 's|server 127.0.0.1:26657;|server 169.155.55.44:26657;|' \
+      -e 's|server 127.0.0.1:1317;|server 169.155.55.44:1317;|' \
+      /etc/nginx/zerone-rpc.conf \
+    && test "$(grep -c 'server 169.155.55.44:26657;' /etc/nginx/zerone-rpc.conf)" = 1 \
+    && test "$(grep -c 'server 169.155.55.44:1317;' /etc/nginx/zerone-rpc.conf)" = 1 \
+    && ! grep -F 'server 127.0.0.1:' /etc/nginx/zerone-rpc.conf \
+    && nginx -t -c /etc/nginx/zerone-rpc.conf
+
+EXPOSE 8080
+STOPSIGNAL SIGQUIT
+ENTRYPOINT ["/usr/sbin/nginx"]
+CMD ["-c", "/etc/nginx/zerone-rpc.conf", "-g", "daemon off;"]

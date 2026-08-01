@@ -157,6 +157,16 @@ bundle and wrapper source; they do not attribute the legacy executable. Its
 separate labels record the source image digest, executable digest, and
 `source-revision=unattributed`.
 
+The legacy source image is itself a custody surface even though it is not an
+ancestor of the emitted runtime image. Never pull it through a shared or
+persistent third-party build cache. Use a reviewed isolated builder whose
+cache volume can be destroyed immediately after the push, record that
+destruction as release evidence, and resolve the pushed tag to a digest before
+any Machine references it. Fly's default organization-scoped Depot cache is
+not an acceptable legacy-extraction builder. If a historically key-bearing
+image reaches any persistent cache, quarantine the result and reset that cache
+before continuing.
+
 ## Upgrade and hostile-event behavior
 
 The persisted role manifest deliberately binds the binary, genesis, gateway
