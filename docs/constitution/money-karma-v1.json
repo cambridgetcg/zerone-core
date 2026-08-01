@@ -20,7 +20,10 @@
     "v2_beneficiary_substitution_allowed": false,
     "ordinary_parameter_governance_may_change": false,
     "future_coordinated_code_change_technically_possible": true,
-    "compatibility_fields_only": true
+    "compatibility_fields_only": true,
+    "migration_release": "consolidation-safety-v1",
+    "exact_prestate_required": true,
+    "ordinary_named_upgrade_hitchhiking_allowed": false
   },
   "karma": {
     "stage": "K_ALPHA",
@@ -68,6 +71,13 @@
     "sole_founding_household_controls_effective_vote": true,
     "present_no_control_achieved": false,
     "independent_governance_proven": false
+  },
+  "activation_exclusions": {
+    "h1_activates_karma": false,
+    "h1_activates_life_sciences_overlay": false,
+    "h1_activates_constructive_rewards": false,
+    "skill_tree_position_activates_issuance": false,
+    "breakthrough_label_activates_issuance": false
   },
   "effects": {
     "economic": false,

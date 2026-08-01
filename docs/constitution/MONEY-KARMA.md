@@ -26,7 +26,7 @@ The v2 `vesting_rewards` founder-specific economic share is permanently zero. It
 
 Under v2 and ordinary parameter governance, no proposal, withdrawal-address substitution, successor, household member, foundation, or renamed beneficiary can restore or route around that renunciation. The protobuf fields may remain temporarily for wire compatibility; they are not a latent option. The named migration clears legacy bytes, valid v2 state accepts only zero and empty, and production reward routing contains no founder payout branch. Before migration, queries preserve the stored v1 compatibility values as historical evidence while v2 execution ignores them and reports the path inactive.
 
-This is a constitutional prohibition, not a claim that coordinated future source code is physically impossible. A separately coordinated code change could technically invent a different distribution; it would replace or breach this contract rather than exercise a v2 founder parameter. Ordinary named upgrades are prevented from silently carrying the v2 founder migration.
+This is a constitutional prohibition, not a claim that coordinated future source code is physically impossible. A separately coordinated code change could technically invent a different distribution; it would replace or breach this contract rather than exercise a v2 founder parameter. The v2 migration belongs only to the atomic `consolidation-safety-v1` (H1) boundary: the handler requires the exact four-module prestate, requires every unrelated module already current, and proves the complete target poststate before writing its activation marker. Every other named handler requires all four H1 modules already current, so an older or unrelated plan cannot silently carry this migration.
 
 This is an economic renunciation, not proof of operational decentralization.
 
@@ -74,5 +74,7 @@ This is a boundary for future design, not an implemented consumer. The current e
 ## Effect statement
 
 This artifact has no economic, governance, consensus, or authority effect. It neither changes a running chain nor authorizes deployment. Its executable test witnesses source invariants and refuses accidental KARMA consumers in sensitive production modules; it does not prove that every off-chain operator is independent.
+
+H1 does not activate KARMA, the life-sciences shadow skill tree, constructive-intelligence rewards, or token issuance for a skill-tree position or “breakthrough” label. Those remain separate release questions with their release gates closed.
 
 Activation would require a separately named release, independent review, migration and rollback analysis, public evidence, and the ordinary network coordination process. Until then: the v2 founder-specific benefit is constitutionally zero in source; KARMA remains event-only; this artifact creates no KARMA governance or economic consumer.

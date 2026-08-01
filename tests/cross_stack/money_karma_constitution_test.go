@@ -47,6 +47,9 @@ type moneyKarmaConstitution struct {
 		OrdinaryParameterGovernanceMayChange           *bool   `json:"ordinary_parameter_governance_may_change"`
 		FutureCoordinatedCodeChangeTechnicallyPossible *bool   `json:"future_coordinated_code_change_technically_possible"`
 		CompatibilityFieldsOnly                        *bool   `json:"compatibility_fields_only"`
+		MigrationRelease                               *string `json:"migration_release"`
+		ExactPrestateRequired                          *bool   `json:"exact_prestate_required"`
+		OrdinaryNamedUpgradeHitchhikingAllowed         *bool   `json:"ordinary_named_upgrade_hitchhiking_allowed"`
 	} `json:"founder_renunciation"`
 	Karma struct {
 		Stage               *string `json:"stage"`
@@ -95,6 +98,13 @@ type moneyKarmaConstitution struct {
 		PresentNoControlAchieved               *bool   `json:"present_no_control_achieved"`
 		IndependentGovernanceProven            *bool   `json:"independent_governance_proven"`
 	} `json:"operational_caveat"`
+	ActivationExclusions struct {
+		H1ActivatesKarma                   *bool `json:"h1_activates_karma"`
+		H1ActivatesLifeSciencesOverlay     *bool `json:"h1_activates_life_sciences_overlay"`
+		H1ActivatesConstructiveRewards     *bool `json:"h1_activates_constructive_rewards"`
+		SkillTreePositionActivatesIssuance *bool `json:"skill_tree_position_activates_issuance"`
+		BreakthroughLabelActivatesIssuance *bool `json:"breakthrough_label_activates_issuance"`
+	} `json:"activation_exclusions"`
 	Effects struct {
 		Economic   *bool `json:"economic"`
 		Governance *bool `json:"governance"`
@@ -132,6 +142,7 @@ func TestMoneyKarma_ConstitutionIsStrictAndEffectless(t *testing.T) {
 		"founder.v2_fields_restorable":             contract.FounderRenunciation.V2FieldsRestorable,
 		"founder.v2_beneficiary_substitution":      contract.FounderRenunciation.V2BeneficiarySubstitutionAllowed,
 		"founder.ordinary_governance_may_change":   contract.FounderRenunciation.OrdinaryParameterGovernanceMayChange,
+		"founder.ordinary_upgrade_hitchhiking":     contract.FounderRenunciation.OrdinaryNamedUpgradeHitchhikingAllowed,
 		"karma.transferable":                       contract.Karma.Transferable,
 		"karma.delegable":                          contract.Karma.Delegable,
 		"karma.saleable":                           contract.Karma.Saleable,
@@ -154,6 +165,11 @@ func TestMoneyKarma_ConstitutionIsStrictAndEffectless(t *testing.T) {
 		"research.future.unilateral_execution":     contract.ResearchGovernance.FutureBoundary.UnilateralExecution,
 		"operations.present_no_control_achieved":   contract.OperationalCaveat.PresentNoControlAchieved,
 		"operations.independent_governance_proven": contract.OperationalCaveat.IndependentGovernanceProven,
+		"activation.h1_activates_karma":            contract.ActivationExclusions.H1ActivatesKarma,
+		"activation.h1_activates_life_overlay":     contract.ActivationExclusions.H1ActivatesLifeSciencesOverlay,
+		"activation.h1_activates_rewards":          contract.ActivationExclusions.H1ActivatesConstructiveRewards,
+		"activation.skill_position_issues":         contract.ActivationExclusions.SkillTreePositionActivatesIssuance,
+		"activation.breakthrough_label_issues":     contract.ActivationExclusions.BreakthroughLabelActivatesIssuance,
 		"effects.economic":                         contract.Effects.Economic,
 		"effects.governance":                       contract.Effects.Governance,
 		"effects.consensus":                        contract.Effects.Consensus,
@@ -162,6 +178,7 @@ func TestMoneyKarma_ConstitutionIsStrictAndEffectless(t *testing.T) {
 	requireTrue(t, map[string]*bool{
 		"founder.compatibility_fields_only":                 contract.FounderRenunciation.CompatibilityFieldsOnly,
 		"founder.future_code_change_technically_possible":   contract.FounderRenunciation.FutureCoordinatedCodeChangeTechnicallyPossible,
+		"founder.exact_prestate_required":                   contract.FounderRenunciation.ExactPrestateRequired,
 		"research.current_authority_spending_path_exists":   contract.ResearchGovernance.CurrentAuthorityManagedSpendingPathExists,
 		"research.future.controller_collapsed":              contract.ResearchGovernance.FutureBoundary.ControllerCollapsed,
 		"research.future.bounded_eligibility":               contract.ResearchGovernance.FutureBoundary.BoundedEligibility,
@@ -178,6 +195,7 @@ func TestMoneyKarma_ConstitutionIsStrictAndEffectless(t *testing.T) {
 	requireUint64(t, "founder.share_bps", contract.FounderRenunciation.ShareBps, 0)
 	requireString(t, "founder.address", contract.FounderRenunciation.Address, "")
 	requireString(t, "founder.scope", contract.FounderRenunciation.Scope, "VESTING_REWARDS_V2_FOUNDER_COMPATIBILITY_FIELDS")
+	requireString(t, "founder.migration_release", contract.FounderRenunciation.MigrationRelease, "consolidation-safety-v1")
 	requireString(t, "karma.stage", contract.Karma.Stage, "K_ALPHA")
 	requireString(t, "karma.representation", contract.Karma.Representation, "EVENT_ONLY")
 	requireString(t, "karma.event_type", contract.Karma.EventType, "zerone.karma.edge")
@@ -195,18 +213,18 @@ func TestMoneyKarma_FounderRenunciationIsExecutable(t *testing.T) {
 	withShare := proto.Clone(current).(*vestingtypes.Params)
 	withShare.FounderShareBps = 1
 	require.Error(t, vestingtypes.ValidateParams(withShare), "any non-zero founder share must be invalid")
-	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withShare), vestingtypes.ErrFounderShareRenounced)
+	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withShare), vestingtypes.ErrFounderShareRetired)
 
 	withAddress := proto.Clone(current).(*vestingtypes.Params)
 	withAddress.FounderAddress = "zerone1beneficiarycannotrestorefoundertap"
 	require.Error(t, vestingtypes.ValidateParams(withAddress), "any founder address must be invalid")
-	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withAddress), vestingtypes.ErrFounderShareRenounced)
+	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withAddress), vestingtypes.ErrFounderShareRetired)
 
 	withBoth := proto.Clone(current).(*vestingtypes.Params)
 	withBoth.FounderShareBps = 70_000
 	withBoth.FounderAddress = "zerone1renamedbeneficiaryisstillabeneficiary"
 	require.Error(t, vestingtypes.ValidateParams(withBoth))
-	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withBoth), vestingtypes.ErrFounderShareRenounced)
+	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withBoth), vestingtypes.ErrFounderShareRetired)
 
 	proposedZero := proto.Clone(current).(*vestingtypes.Params)
 	require.NoError(t, vestingtypes.ValidateFounderShareChange(current, proposedZero), "the only admissible proposal preserves zero and empty")
