@@ -745,15 +745,15 @@
           <section>
             <h3>What remains temporarily or separately</h3>
             <p>
-              A keyed subject tombstone remains for at most 12 minutes to block
-              a Pi sign-in that started before this deletion from restoring the
-              session.
-              Minimal unindexed anti-replay fingerprints and tombstones cannot
-              be selected by this account action and remain behind the
-              separate operator retention gate. They contain no raw Pi UID,
+              A keyed subject tombstone blocks restoration for exactly 12
+              minutes. Its row may remain until operator cleanup. Minimal
+              unindexed anti-replay commitments and challenge tombstones cannot
+              be selected by this account action and remain behind separate
+              security-retention controls. They contain no raw Pi UID,
               username, bearer, wallet address, or KYC data. Logical deletion
-              may also remain provider-recoverable for the deployed database’s
-              configured D1 Time Travel window.
+              may also remain provider-recoverable for up to 30 days on a
+              Workers Paid plan or seven days on a Workers Free plan; the
+              deployed plan decides the window.
             </p>
           </section>
         </div>

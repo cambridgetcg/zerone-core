@@ -150,12 +150,13 @@ the directly linked replay row for the authenticated internal subject, then
 clears both Pi pilot cookies. Pi OAuth/bearer anti-replay rows and already
 orphaned challenge tombstones deliberately contain no subject index, so they
 cannot be selected by account and remain only until the age-based retention
-procedure removes them. A keyed subject deletion guard remains for at most 12
-minutes and refuses any session whose server-created OAuth flow did not start
-strictly after deletion. Logical deletion may remain provider-recoverable for
-the deployed D1 database's configured Time Travel window. The interface
-discloses these distinctions. Deletion does not alter the person's Pi account,
-Keplr wallet, or any blockchain state.
+procedure removes them. A keyed subject deletion guard is effective for exactly
+12 minutes and refuses any session whose server-created OAuth flow did not
+start strictly after deletion. Its row may remain until operator cleanup.
+Logical deletion may remain provider-recoverable for up to 30 days on a Workers
+Paid plan or seven days on a Workers Free plan, depending on the deployed
+database. The interface discloses these distinctions. Deletion does not alter
+the person's Pi account, Keplr wallet, or any blockchain state.
 
 Deletion addresses only the currently authenticated app-specific Pi subject.
 Pi may issue a different app-specific `uid` after a person revokes app
@@ -222,3 +223,4 @@ activation decision.
 - [Cosmos ADR-036: arbitrary signature](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-036-arbitrary-signature.md)
 - [CAIP-10 account IDs](https://chainagnostic.org/CAIPs/caip-10)
 - [Cloudflare D1 Workers Binding API](https://developers.cloudflare.com/d1/worker-api/d1-database/)
+- [Cloudflare D1 limits and Time Travel windows](https://developers.cloudflare.com/d1/platform/limits/)

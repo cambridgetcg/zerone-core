@@ -72,14 +72,15 @@ discard it.
 
 An authenticated deletion control removes all subject-linked Pi pilot
 sessions, the active address binding, outstanding challenges, and rotation
-aliases in one D1 transition. A keyed subject tombstone retained for at most
-12 minutes prevents an OAuth flow started before deletion from recreating the
-session. Minimal
+aliases in one D1 transition. A keyed subject tombstone prevents an OAuth flow
+started before deletion from recreating the session for exactly 12 minutes;
+the row may remain until operator cleanup. Minimal
 unindexed anti-replay fingerprints remain outside account-selectable deletion
 and therefore remain part of the separate production retention gate. This
 control never changes the person's Pi account, Keplr wallet, or blockchain
-state. Logical deletion may remain provider-recoverable for the database's
-configured D1 Time Travel window. The control addresses only the current
+state. Logical deletion may remain provider-recoverable for up to 30 days on a
+Workers Paid plan or seven days on a Workers Free plan, depending on the
+deployed plan. The control addresses only the current
 app-specific Pi subject: a replacement UID issued after permission revocation
 is never joined to older records by username, so inactive historical records
 also require a finite operator retention policy.
