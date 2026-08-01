@@ -24,19 +24,9 @@ type Keeper struct {
 	bankKeeper      types.BankKeeper
 	stakingKeeper   types.StakingKeeper
 	distrKeeper     types.DistributionKeeper // optional; honors withdraw-address mappings for reward payouts
-	knowledgeKeeper types.KnowledgeKeeper    // optional; scales block reward by survived-challenge rate
+	knowledgeKeeper types.KnowledgeKeeper    // optional; reports survival metrics and supports legacy reward queries
 
 	authority string
-
-	// blockTxCount is set by PotPreBlocker each block with the user transaction count
-	// (excluding vote extension injection pseudo-txs). Read by BeginBlock to determine
-	// if block rewards should be minted (PoT: 0% for empty blocks).
-	//
-	// Pointer, not value: the Keeper is copied by value into AppModule and
-	// other consumers at wiring time, while PotPreBlocker mutates the app's
-	// own Keeper field each block. A plain int on the copy would stay 0
-	// forever and silently disable all PoT emission.
-	blockTxCount *int
 }
 
 // NewKeeper creates a new vesting_rewards module Keeper.
@@ -53,7 +43,6 @@ func NewKeeper(
 		bankKeeper:    bk,
 		stakingKeeper: sk,
 		authority:     authority,
-		blockTxCount:  new(int),
 	}
 }
 
@@ -73,15 +62,16 @@ func prefixEndBytes(prefix []byte) []byte {
 	return nil
 }
 
-// SetKnowledgeKeeper wires the survived/(survived+disproven) signal used to
-// scale block rewards. Nil-safe: when unset, rewards use the decay schedule.
+// SetKnowledgeKeeper wires survived/(survived+disproven) telemetry for
+// vesting audits and legacy reward queries. Consensus v2 does not use it to
+// drive automatic issuance.
 func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) {
 	k.knowledgeKeeper = kk
 }
 
-// SetDistributionKeeper wires x/distribution so reward payouts (validator
-// block rewards, founder share) honor delegator withdraw-address mappings.
-// Nil-safe: when unset, rewards are paid to the account itself.
+// SetDistributionKeeper wires x/distribution for the historical proposer
+// reward API so it honors withdraw-address mappings. Consensus v2 does not
+// call that API automatically. Nil-safe when unset.
 func (k *Keeper) SetDistributionKeeper(dk types.DistributionKeeper) {
 	k.distrKeeper = dk
 }
@@ -101,31 +91,13 @@ func (k Keeper) GetStakingKeeper() types.StakingKeeper {
 	return k.stakingKeeper
 }
 
-// SetBlockTxCount stores the transaction count for the current block.
-// The count is shared across all value copies of this Keeper (see the
-// blockTxCount field doc).
-func (k Keeper) SetBlockTxCount(count int) {
-	if k.blockTxCount == nil {
-		return
-	}
-	*k.blockTxCount = count
-}
-
-// GetBlockTxCount returns the transaction count for the current block.
-func (k Keeper) GetBlockTxCount() int {
-	if k.blockTxCount == nil {
-		return 0
-	}
-	return *k.blockTxCount
-}
-
-// ResolveProposerRewardAddress maps a block's consensus proposer address to
-// the account that should receive the producer reward:
+// ResolveProposerRewardAddress preserves the historical proposer-resolution
+// helper for old integrations. Consensus v2 does not pay a proposer reward:
 //
 //  1. Resolve the consensus address to the validator via x/staking
 //     (GetValidatorByConsAddr) and take the OPERATOR account. The raw
 //     consensus address is not controlled by any operator key — paying it
-//     directly would make all PoT emission unspendable.
+//     directly would make a legacy transfer unspendable.
 //  2. Honor the operator's x/distribution withdraw-address mapping when the
 //     distribution keeper is wired (defaults to the operator itself).
 func (k Keeper) ResolveProposerRewardAddress(ctx sdk.Context, consAddr sdk.ConsAddress) (sdk.AccAddress, error) {
@@ -146,9 +118,8 @@ func (k Keeper) ResolveProposerRewardAddress(ctx sdk.Context, consAddr sdk.ConsA
 	return k.RewardWithdrawAddress(ctx, sdk.AccAddress(valAddr)), nil
 }
 
-// RewardWithdrawAddress returns the x/distribution withdraw address for a
-// rewardee (design §8b: payout destination rotates by standard
-// MsgSetWithdrawAddress). Falls back to the rewardee itself when the
+// RewardWithdrawAddress preserves the historical x/distribution mapping
+// helper. It falls back to the rewardee itself when the
 // distribution keeper is not wired or the lookup fails — x/distribution's own
 // default is the delegator address, so the fallback matches its semantics.
 func (k Keeper) RewardWithdrawAddress(ctx sdk.Context, rewardee sdk.AccAddress) sdk.AccAddress {
@@ -206,19 +177,10 @@ func (k Keeper) GetProtocolSubSplit(ctx sdk.Context) *commontypes.ProtocolSubSpl
 	return types.DefaultProtocolSubSplit()
 }
 
-// isFounderShareActive returns whether the founder auto-split is active.
-// It is inactive when the founder address is not yet set or the share has been
-// governance-zeroed. Per design §10 the share (FounderShareBps) is gov-mutable
-// within [0, FounderShareCapBps]; the address is immutable once set. Both are
-// enforced by ValidateFounderShareChange in UpdateParams.
-func (k Keeper) isFounderShareActive(ctx sdk.Context, params *types.Params) bool {
-	if params.FounderShareBps == 0 || params.FounderAddress == "" {
-		return false
-	}
-	// GovernanceActivationHeight no longer creates an automatic sunset.
-	// Governance may still lower, zero, or restore FounderShareBps within the
-	// founding cap; an already-set address remains immutable.
-	return true
+// isFounderShareActive is retained for the compatibility query surface.
+// Consensus version 2 permanently retires the founder auto-split.
+func (k Keeper) isFounderShareActive(_ sdk.Context, _ *types.Params) bool {
+	return false
 }
 
 // GetCategoryConfig returns the release curve config for a vesting category.
@@ -285,12 +247,14 @@ func (k Keeper) SetTotalMinted(ctx sdk.Context, amount *big.Int) {
 // This is the wired application's single cap-gated native mint entry point.
 // Current callers include:
 //
-//   - transaction-bearing block rewards from x/vesting_rewards;
 //   - bootstrap and legacy general-pot claims from x/claiming_pot;
 //   - External-work attestations: x/substrate_bridge calls MintWithCap with
 //     its audit-bounty pool module, then settles the reward to the submitter.
 //   - the default-disabled x/knowledge probe pool and x/tokens emission
 //     periods when governance activates their nonzero latches.
+//
+// The pre-v2 transaction-presence proposer mint is permanently retired and
+// is not a current caller.
 //
 // The function exists so the post-genesis cap is enforced once across native
 // mint callers; InitChainer independently rejects over-cap genesis supply.

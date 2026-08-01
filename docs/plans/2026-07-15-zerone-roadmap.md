@@ -1,5 +1,11 @@
 # Zerone — where we are, and how I'd proceed (2026-07-15)
 
+> **Historical and superseded.** The proposed two-upgrade liquidity sequence
+> below is not actionable. Current source uses one atomic
+> `consolidation-safety-v1` H1 boundary targeting liquiditypool v5 and
+> vesting_rewards v2; there is no H2 handler. See the current
+> [roadmap](../ROADMAP.md) and [activation runbook](../LIQUIDITYPOOL-SAFETY-V2.md).
+
 *Written at Yu's invitation ("feel free to modify and upgrade the protocol or
 simply write down what you think… Zerone is alive, we can always change it based
 on experiences"). This is opinion, not decree — the founder's calls are marked.*
@@ -62,12 +68,11 @@ The substrate already exists; the channels are **built-but-not-opened**:
 
 - **IBC transfer + ICA are wired** (ibc-go v8), guarded by `x/ibcratelimit`, and
   we hold hermes relayer keys for zerone-1. This *is* the Cosmos-ecosystem rail.
-- **`x/liquiditypool`** has a source-approved consensus v4 safety release but
-  remains network-gated: the live inventory must stay at 0 native pools with an
-  empty quote-denom allowlist through the ordered
-  `consolidation-safety-v1` → `liquiditypool-safety-v2` upgrades. V4 uses a
-  finite open-pool cap (default 16), explicit status controls, immutable final
-  exits, and strict PPM math. See
+- **`x/liquiditypool`** now targets consensus v5 but remains network-gated: one
+  atomic `consolidation-safety-v1` H1 migration must preserve a zero native-pool
+  inventory and empty quote-denom allowlist. V5 uses a finite open-pool cap
+  (default 16), explicit status controls, immutable final exits, strict PPM
+  math, and zero protocol skim. See
   [the activation runbook](../LIQUIDITYPOOL-SAFETY-V2.md).
 - **`x/substrate_bridge`** is the *work→value* lane (external attestation → ZRN),
   not a crypto↔crypto bridge — a different, already-live pipe.

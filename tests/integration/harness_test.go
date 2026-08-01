@@ -202,13 +202,14 @@ func setupRevenueHarness(t *testing.T) *revenueTestHarness {
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
 
-	// Vesting keeper with founder address configured
+	// Vesting keeper with consensus-v2 neutral economics.
 	vk := vestingkeeper.NewKeeper(cdc, runtime.NewKVStoreService(vestingStoreKey), bk, sk, "authority")
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
-	// Init vesting genesis with founder configured
+	// The founder compatibility fields and automatic block-reward fields remain
+	// fixed at their zero defaults. founderAddr is retained only as a sentinel
+	// account against which tests can assert that no identity payout occurs.
 	gs := vestingtypes.DefaultGenesis()
-	gs.Params.FounderAddress = founderAddr.String()
 	vk.InitGenesis(ctx, gs)
 
 	return &revenueTestHarness{

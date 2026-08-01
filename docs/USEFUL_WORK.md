@@ -8,11 +8,11 @@ is no `x/work` module, universal work-class lifecycle, deployed recursion-weight
 scorer, or chain-wide reward formula. `x/substrate_bridge` currently supplies a
 bounded, caller-declared six-axis shape, stake escrow, and attestation state
 machine for registered adapters; it does not execute an adapter compiler or
-apply the M4 formula. Other implemented issuance paths—including ordinary
-transaction-bearing block rewards and authority-created claiming pots—do not
-prove a useful-work substrate link. Repository hashes and invariant scaffolds
-bind this document at source level; published genesis contains no useful-work
-creed pin.
+apply the M4 formula. Atomic H1 retires ordinary transaction-bearing block
+issuance; authority-created claiming pots and other remaining mint lanes still
+do not prove a useful-work substrate link. Repository hashes and invariant
+scaffolds bind this document at source level; published genesis contains no
+useful-work creed pin.
 
 Truth-seeking is what the chain *believes* (`docs/TRUTH_SEEKING.md`). ToK
 substrate is what the chain *aims to expose* outward (`docs/TOK_SUBSTRATE.md`).
@@ -46,8 +46,9 @@ The doctrine proposes that useful work be recognized and compensated by the
 degree to which it expands ZERONE's own ability to absorb, verify, classify,
 and reward more useful work. In the target design, non-recursive verified work
 receives only a base reimbursement and recursion-weight is the multiplier. The
-current issuance mix does not yet establish that dominance: block rewards,
-claiming pots, and other implemented routes use their own admission rules.
+current issuance mix does not yet establish that dominance: claiming pots and
+other implemented routes use their own admission rules, while automatic block
+issuance is retired at H1.
 Outward utility may be priced on the agenttool platform layer, with applicable
 on-chain fees routed through `x/vesting_rewards` (`x/billing` was retired in
 the 2026-07 slim cut).

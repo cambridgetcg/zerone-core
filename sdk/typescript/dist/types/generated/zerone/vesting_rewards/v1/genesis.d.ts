@@ -24,16 +24,12 @@ export interface GenesisState {
  */
 export interface Params {
     /**
-     * Block rewards
+     * Retired transaction-presence block-reward fields. Consensus v2 requires
+     * block_reward and floor_reward to be "0" and empty_block_reward_rate to be
+     * zero. The remaining schedule fields are inert compatibility metadata.
      */
     blockReward: string;
-    /**
-     * per-epoch decay (default: 994,478 = 0.994478x on 1M scale)
-     */
     rewardDecayBps: bigint;
-    /**
-     * blocks per decay epoch (default: 100,000)
-     */
     blocksPerRewardEpoch: bigint;
     /**
      * Revenue split (governance-adjustable)
@@ -41,12 +37,10 @@ export interface Params {
     revenueSplit?: RevenueSplit;
     protocolSubSplit?: ProtocolSubSplit;
     /**
-     * Founder share
+     * Retired compatibility fields. Consensus v2 requires zero and empty;
+     * governance cannot recreate an identity-based founder revenue tap.
      */
     founderShareBps: bigint;
-    /**
-     * bech32, empty = disabled
-     */
     founderAddress: string;
     /**
      * DEPRECATED — retained for wire compatibility; not an activation gate
@@ -72,15 +66,15 @@ export interface Params {
      */
     releasedClawbackRate: bigint;
     /**
-     * target validator count for full block reward (default: 22)
+     * inert compatibility metadata
      */
     minValidatorsForFullReward: number;
     /**
-     * 10,000 scale: 10,000 = 100%; default 0
+     * retired; must be zero
      */
     emptyBlockRewardRate: bigint;
     /**
-     * minimum reward per block in uzrn (default: "100000" = 0.1 ZRN)
+     * retired; must be "0"
      */
     floorReward: string;
     /**
@@ -89,11 +83,7 @@ export interface Params {
      */
     initialFundBalance: string;
     /**
-     * Survived-challenge-coupled block reward.
-     * When enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).
-     * Rate = survived / (survived + disproven); unchallenged facts are excluded.
-     * Below target → reward is reduced; at target → full reward.
-     * 0 target = disabled (backward compat).
+     * Inert compatibility metadata from the retired block-reward path.
      */
     knowledgeCouplingTargetBps: bigint;
     /**
@@ -102,7 +92,7 @@ export interface Params {
     knowledgeCouplingFloorBps: bigint;
 }
 /**
- * CategoryRewardConfig defines a per-category block reward multiplier.
+ * CategoryRewardConfig preserves a retired per-category reward multiplier.
  * @name CategoryRewardConfig
  * @package zerone.vesting_rewards.v1
  * @see proto type: zerone.vesting_rewards.v1.CategoryRewardConfig
@@ -142,7 +132,7 @@ export declare const Params: {
     fromPartial(object: DeepPartial<Params>): Params;
 };
 /**
- * CategoryRewardConfig defines a per-category block reward multiplier.
+ * CategoryRewardConfig preserves a retired per-category reward multiplier.
  * @name CategoryRewardConfig
  * @package zerone.vesting_rewards.v1
  * @see proto type: zerone.vesting_rewards.v1.CategoryRewardConfig

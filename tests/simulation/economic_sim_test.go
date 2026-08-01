@@ -34,13 +34,14 @@ import (
 // ============================================================================
 // R9-5 — Economic Simulation: 1000-Block Run
 //
-// Simulates 1000+ blocks of chain operation, verifying token conservation,
-// pool solvency, reward decay, and economic stability.
+// Simulates 1000 blocks of chain operation, verifying token conservation,
+// full research routing, zero identity payouts, zero transaction-presence
+// issuance, and validator compensation from real fees.
 // ============================================================================
 
 const (
 	simBlocks           = 1000
-	simBlocksPerEpoch   = 100 // epoch check + reward decay interval
+	simBlocksPerEpoch   = 100 // epoch-invariant interval
 	simValidatorCount   = 4
 	simAgentCount       = 10
 	simInitialFactCount = 50
@@ -84,8 +85,6 @@ func TestEconomicSimulation(t *testing.T) {
 	// Init vesting genesis with simulation-tuned params.
 	gs := vestingtypes.DefaultGenesis()
 	gs.Params.BlocksPerRewardEpoch = simBlocksPerEpoch
-	founderAddr := sdk.AccAddress("founder_sim_________")
-	gs.Params.FounderAddress = founderAddr.String()
 	vk.InitGenesis(ctx, gs)
 
 	// ---- Seed state ----
@@ -97,21 +96,22 @@ func TestEconomicSimulation(t *testing.T) {
 	t.Logf("initial supply: %s uzrn (%.2f ZRN)", initialSupply, uzrnToZrn(initialSupply))
 
 	state := &SimState{
-		bank:               bank,
-		vestingKeeper:      vk,
-		ctx:                ctx,
-		validators:         validators,
-		agents:             agents,
-		tools:              tools,
-		moduleNames:        moduleNames,
-		founderAddr:        founderAddr,
-		currentBlockReward: sdkmath.ZeroInt(),
-		lastEpochReward:    sdkmath.ZeroInt(),
-		totalMinted:        sdkmath.ZeroInt(),
-		totalBurned:        sdkmath.ZeroInt(),
-		initialSupply:      initialSupply,
-		factsAdded:         simInitialFactCount,
-		toolRevenue:        sdkmath.ZeroInt(),
+		bank:                bank,
+		vestingKeeper:       vk,
+		ctx:                 ctx,
+		validators:          validators,
+		agents:              agents,
+		tools:               tools,
+		moduleNames:         moduleNames,
+		currentBlockReward:  sdkmath.ZeroInt(),
+		totalMinted:         sdkmath.ZeroInt(),
+		totalFeesCharged:    sdkmath.ZeroInt(),
+		totalFeeResearch:    sdkmath.ZeroInt(),
+		totalFeeDevelopment: sdkmath.ZeroInt(),
+		totalValidatorFees:  sdkmath.ZeroInt(),
+		initialSupply:       initialSupply,
+		factsAdded:          simInitialFactCount,
+		toolRevenue:         sdkmath.ZeroInt(),
 	}
 
 	// ---- Activity generator ----
@@ -141,7 +141,7 @@ func TestEconomicSimulation(t *testing.T) {
 	csvW := csv.NewWriter(csvFile)
 	defer csvW.Flush()
 	_ = csvW.Write([]string{
-		"block", "epoch", "block_reward", "total_minted", "total_development",
+		"block", "epoch", "automatic_block_reward", "automatic_total_minted", "fee_development_routed",
 		"supply", "research_fund", "knowledge_pool", "compute_pool",
 		"activity_count", "facts_total",
 	})
@@ -158,47 +158,62 @@ func TestEconomicSimulation(t *testing.T) {
 
 		// Generate and execute random activity.
 		activities := gen.GenerateBlock(height)
-		state.hasTransactions = len(activities) > 0
+		hasTransactions := len(activities) > 0
 
 		for _, act := range activities {
 			executeActivity(state, act)
 		}
 
-		// ---- Distribute block reward ----
+		// ---- Prove transaction presence cannot trigger issuance ----
 		producer := validators[int(height)%len(validators)]
 		dist, err := vk.DistributeBlockReward(
 			ctx,
 			producer.addr.String(),
 			sk.activeCount,
-			state.hasTransactions,
+			hasTransactions,
 		)
 		if err != nil {
-			t.Fatalf("block %d: DistributeBlockReward failed: %v", height, err)
+			t.Fatalf("block %d: retired reward compatibility path failed: %v", height, err)
 		}
-
-		mintedBig := new(big.Int)
-		mintedBig.SetString(dist.TotalMinted, 10)
-		if mintedBig.Sign() > 0 {
-			state.totalMinted = state.totalMinted.Add(sdkmath.NewIntFromBigInt(mintedBig))
-			state.currentBlockReward = sdkmath.NewIntFromBigInt(mintedBig)
+		if dist.TotalMinted != "0" || dist.ProducerReward != "0" || dist.ResearchShare != "0" ||
+			dist.DevelopmentAmount != "0" || dist.ProtocolShare != "0" ||
+			(dist.FounderShare != "" && dist.FounderShare != "0") {
+			t.Fatalf("block %d: transaction presence produced automatic value: %+v", height, dist)
 		}
-
-		// Track producer earnings as contributor share only (55% of minted).
-		producerBig := new(big.Int)
-		producerBig.SetString(dist.ProducerReward, 10)
-		if producerBig.Sign() > 0 {
-			producer.totalEarned = producer.totalEarned.Add(sdkmath.NewIntFromBigInt(producerBig))
-		}
-
-		devBig := new(big.Int)
-		devBig.SetString(dist.DevelopmentAmount, 10)
-		if devBig.Sign() > 0 {
-			state.totalBurned = state.totalBurned.Add(sdkmath.NewIntFromBigInt(devBig))
-		}
+		state.currentBlockReward = sdkmath.ZeroInt()
 
 		// ---- Route accumulated fees ----
+		feesToRoute := bank.moduleBalance(authtypes.FeeCollectorName, "uzrn")
+		researchBefore := bank.moduleBalance(vestingtypes.ResearchFundModuleName, "uzrn")
+		developmentBefore := bank.moduleBalance(vestingtypes.DevelopmentFundModuleName, "uzrn")
 		if err := vk.RouteFees(ctx); err != nil {
 			t.Fatalf("block %d: RouteFees failed: %v", height, err)
+		}
+
+		researchDelta := bank.moduleBalance(vestingtypes.ResearchFundModuleName, "uzrn").Sub(researchBefore)
+		developmentDelta := bank.moduleBalance(vestingtypes.DevelopmentFundModuleName, "uzrn").Sub(developmentBefore)
+		split := vk.GetRevenueSplit(ctx)
+		expectedResearch := feesToRoute.MulRaw(int64(split.ResearchBps)).QuoRaw(1_000_000)
+		expectedDevelopment := feesToRoute.MulRaw(int64(split.DevelopmentBps)).QuoRaw(1_000_000)
+		if !researchDelta.Equal(expectedResearch) || !developmentDelta.Equal(expectedDevelopment) {
+			t.Fatalf("block %d: real fee route mismatch: fees=%s research=%s/%s development=%s/%s",
+				height, feesToRoute, researchDelta, expectedResearch, developmentDelta, expectedDevelopment)
+		}
+		state.totalFeeResearch = state.totalFeeResearch.Add(researchDelta)
+		state.totalFeeDevelopment = state.totalFeeDevelopment.Add(developmentDelta)
+
+		// Simulate x/distribution's same-block sweep of the remainder. This keeps
+		// prior validator fees from being routed through the research/development
+		// split again on subsequent blocks.
+		validatorFees := bank.moduleBalance(authtypes.FeeCollectorName, "uzrn")
+		if validatorFees.IsPositive() {
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", validatorFees))
+			if err := bank.SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, producer.addr, coins); err != nil {
+				t.Fatalf("block %d: validator fee sweep failed: %v", height, err)
+			}
+			producer.totalEarned = producer.totalEarned.Add(validatorFees)
+			producer.feeEarned = producer.feeEarned.Add(validatorFees)
+			state.totalValidatorFees = state.totalValidatorFees.Add(validatorFees)
 		}
 
 		// ---- Per-block invariants ----
@@ -211,11 +226,10 @@ func TestEconomicSimulation(t *testing.T) {
 			if err := runInvariants(state, epochInv); err != nil {
 				t.Fatal(err)
 			}
-			state.lastEpochReward = state.currentBlockReward
-			t.Logf("epoch %d (block %d): supply=%s, minted=%s, dev_fund=%s, facts=%d",
+			t.Logf("epoch %d (block %d): supply=%s, automatic_mint=%s, fee_development=%s, facts=%d",
 				state.currentEpoch, height,
 				bank.GetSupply(nil, "uzrn").Amount,
-				state.totalMinted, state.totalBurned, state.factsAdded)
+				state.totalMinted, state.totalFeeDevelopment, state.factsAdded)
 		}
 
 		// ---- CSV row ----
@@ -224,7 +238,7 @@ func TestEconomicSimulation(t *testing.T) {
 			fmt.Sprintf("%d", state.currentEpoch),
 			state.currentBlockReward.String(),
 			state.totalMinted.String(),
-			state.totalBurned.String(),
+			state.totalFeeDevelopment.String(),
 			bank.GetSupply(nil, "uzrn").Amount.String(),
 			bank.moduleBalance("research_fund", "uzrn").String(),
 			bank.moduleBalance("knowledge", "uzrn").String(),
@@ -253,8 +267,11 @@ func TestEconomicSimulation(t *testing.T) {
 	t.Log(sep)
 	t.Logf("Duration:        %v", elapsed)
 	t.Logf("Initial supply:  %s uzrn (%.2f ZRN)", state.initialSupply, uzrnToZrn(state.initialSupply))
-	t.Logf("Total minted:    %s uzrn (%.2f ZRN)", state.totalMinted, uzrnToZrn(state.totalMinted))
-	t.Logf("Development:     %s uzrn (%.2f ZRN)", state.totalBurned, uzrnToZrn(state.totalBurned))
+	t.Logf("Automatic mint:  %s uzrn (%.2f ZRN)", state.totalMinted, uzrnToZrn(state.totalMinted))
+	t.Logf("Fees charged:    %s uzrn", state.totalFeesCharged)
+	t.Logf("Fee research:    %s uzrn", state.totalFeeResearch)
+	t.Logf("Fee development: %s uzrn", state.totalFeeDevelopment)
+	t.Logf("Validator fees:  %s uzrn", state.totalValidatorFees)
 	t.Logf("Final supply:    %s uzrn (%.2f ZRN)", supply, uzrnToZrn(supply))
 	t.Logf("Research fund:   %s uzrn", bank.moduleBalance("research_fund", "uzrn"))
 	t.Logf("Knowledge pool:  %s uzrn", bank.moduleBalance("knowledge", "uzrn"))
@@ -267,8 +284,8 @@ func TestEconomicSimulation(t *testing.T) {
 	t.Log("VALIDATORS:")
 	for _, v := range validators {
 		bal := bank.GetBalance(nil, v.addr, "uzrn").Amount
-		t.Logf("  Tier %d: balance=%s, earned=%s, staked=%s",
-			v.tier, bal, v.totalEarned, v.staked)
+		t.Logf("  Tier %d: balance=%s, earned=%s, fee_earned=%s, staked=%s",
+			v.tier, bal, v.totalEarned, v.feeEarned, v.staked)
 	}
 
 	t.Log("")
@@ -303,6 +320,7 @@ func seedValidators(t *testing.T, bank *simBankKeeper) []*simValidator {
 	}
 	for _, v := range validators {
 		v.totalEarned = sdkmath.ZeroInt()
+		v.feeEarned = sdkmath.ZeroInt()
 		liquid := v.staked.Quo(sdkmath.NewInt(10))
 		total := v.staked.Add(liquid)
 		coins := sdk.NewCoins(sdk.NewCoin("uzrn", total))
@@ -371,6 +389,7 @@ func executeActivity(s *SimState, act SimActivity) {
 		if err := bank.SendCoinsFromAccountToModule(nil, act.Actor, authtypes.FeeCollectorName, gasCoins); err != nil {
 			return // insufficient funds — skip
 		}
+		s.totalFeesCharged = s.totalFeesCharged.Add(act.Gas)
 	}
 
 	switch act.Type {

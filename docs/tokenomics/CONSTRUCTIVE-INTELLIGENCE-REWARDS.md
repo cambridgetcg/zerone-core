@@ -24,7 +24,7 @@ As of 2026-07-29:
 - its planned genesis profile is protocol-dark: vote extensions are disabled,
   knowledge admission is priced above the hard supply cap, knowledge reward
   rates and allocations are zero, the substrate bridge has no adapters, and
-  the nominal block reward rounds to zero with the launch roster.
+  atomic H1 retires transaction-presence block issuance at the source level.
 
 The dark posture is intentional. Adding this file MUST NOT change genesis,
 module parameters, handlers, migrations, supply, governance authority, or the
@@ -1506,13 +1506,18 @@ credits have no conversion promise to ZRN or future governance rights.
 ### Stage 4 — capped sponsor-funded formal-mathematics quest
 
 Tree v1 contains qualification-only mathematics nodes, not a general
-reward-bearing mathematics quest. A pilot therefore first requires a reviewed
-new quest/template and prospective policy version. It remains small,
-pre-funded through sponsor escrow, opt-in, and off the protocol-issuance path;
-budgets, cluster caps, controller caps, and total liabilities are deliberately
-small. If even minimal settlement is later projected onto Zerone, `zerone-2`
-and the adapter each require their own audited release and signed GO decision.
-Ordinary knowledge rewards and governance remain untouched.
+reward-bearing mathematics quest. The source-only
+[Math Frontier v0](../specs/constructive-intelligence-math-frontier-v0.md)
+now supplies a separate zero-value formal-construction quest template without
+mutating the digest-pinned core tree. It is not the pilot or its activation:
+an actual packet still requires independent review, a prospective policy
+version, a small pre-funded sponsor escrow, controller-resolved evidence and
+an explicit sunset. It remains opt-in and off the protocol-issuance path;
+budgets, cluster caps, controller caps, and total liabilities must be
+deliberately small. If even minimal settlement is later projected onto
+Zerone, `zerone-2` and the adapter each require their own audited release and
+signed GO decision. Ordinary knowledge rewards and governance remain
+untouched.
 
 ### Stage 5 — bounded class expansion
 

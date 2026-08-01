@@ -12,7 +12,7 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// Revenue split constants (Option C) — matches block rewards.
+// Review-fee revenue split constants (Option C).
 // Uses 1,000,000 BPS scale (1,000,000 = 100%).
 const (
 	reviewFeeContributorBps = 550_000 // 55% → verifier reward pool
@@ -58,7 +58,7 @@ func (k Keeper) distributeReviewFee(ctx context.Context, feeAmount uint64) error
 		}
 	}
 
-	// Send research share via canonical depositor (handles founder split).
+	// Send the full research share via the canonical depositor.
 	if researchAmt > 0 {
 		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(new(big.Int).SetUint64(researchAmt))))
 		if k.vestingRewardsKeeper != nil {

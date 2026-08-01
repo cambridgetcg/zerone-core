@@ -377,68 +377,59 @@ fi
 
 record_phase_time "Phase 2 (registration)" "$(($(date +%s) - PHASE2_START))"
 
-# ── Phase 3: Block Rewards Flowing ───────────────────────────────────────
+# ── Phase 3: Fee Routing Without Automatic Issuance ──────────────────────
 
-header "Phase 3: Block Rewards Flowing"
+header "Phase 3: Fee Routing Without Automatic Issuance"
 PHASE3_START=$(date +%s)
 
-# Submit a few txs to generate fee revenue
-info "Generating transactions for block rewards..."
+# Snapshot native supply and the two explicit public-good fee destinations.
+SUPPLY_BEFORE=$(${BINARY} query bank total --denom "${DENOM}" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.supply.amount // .amount.amount // "0"' 2>/dev/null || echo "0")
+RESEARCH_FUND_ADDR=$(${BINARY} query auth module-account research_fund ${NODE_FLAG} --output json 2>/dev/null | jq -r '.account.value.address // .account.base_account.address // empty' 2>/dev/null || echo "")
+DEVELOPMENT_FUND_ADDR=$(${BINARY} query auth module-account development_fund ${NODE_FLAG} --output json 2>/dev/null | jq -r '.account.value.address // .account.base_account.address // empty' 2>/dev/null || echo "")
+
+RESEARCH_BEFORE="0"
+if [ -n "$RESEARCH_FUND_ADDR" ]; then
+  RESEARCH_BEFORE=$(${BINARY} query bank balances "$RESEARCH_FUND_ADDR" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balances[] | select(.denom=="uzrn") | .amount // "0"' 2>/dev/null || echo "0")
+fi
+DEVELOPMENT_BEFORE="0"
+if [ -n "$DEVELOPMENT_FUND_ADDR" ]; then
+  DEVELOPMENT_BEFORE=$(${BINARY} query bank balances "$DEVELOPMENT_FUND_ADDR" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balances[] | select(.denom=="uzrn") | .amount // "0"' 2>/dev/null || echo "0")
+fi
+
+# Submit fee-bearing transactions. Their fees may circulate to validators and
+# public-good funds, but transaction presence must never increase supply.
+info "Generating fee-bearing transactions..."
+FEE_TX_COUNT=0
 for i in 1 2 3; do
-  send_tx "${BINARY} tx bank send ${FAUCET_ADDR} ${ALICE_ADDR} 1${DENOM} --from faucet ${TX_FLAGS}" || true
+  if send_tx "${BINARY} tx bank send ${FAUCET_ADDR} ${ALICE_ADDR} 1${DENOM} --from faucet ${TX_FLAGS}"; then
+    FEE_TX_COUNT=$((FEE_TX_COUNT + 1))
+  fi
   sleep 3
 done
-sleep 6
+wait_blocks 2
 
-# Check fund balances
-CHECKPOINT2_PASS=true
+SUPPLY_AFTER=$(${BINARY} query bank total --denom "${DENOM}" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.supply.amount // .amount.amount // "0"' 2>/dev/null || echo "0")
+RESEARCH_AFTER="0"
+if [ -n "$RESEARCH_FUND_ADDR" ]; then
+  RESEARCH_AFTER=$(${BINARY} query bank balances "$RESEARCH_FUND_ADDR" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balances[] | select(.denom=="uzrn") | .amount // "0"' 2>/dev/null || echo "0")
+fi
+DEVELOPMENT_AFTER="0"
+if [ -n "$DEVELOPMENT_FUND_ADDR" ]; then
+  DEVELOPMENT_AFTER=$(${BINARY} query bank balances "$DEVELOPMENT_FUND_ADDR" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balances[] | select(.denom=="uzrn") | .amount // "0"' 2>/dev/null || echo "0")
+fi
 
-# Protocol Treasury (amino JSON: .account.value.address)
-info "Querying protocol_treasury..."
-TREASURY_ADDR=$(${BINARY} query auth module-account protocol_treasury ${NODE_FLAG} --output json 2>/dev/null | jq -r '.account.value.address // .account.base_account.address // empty' 2>/dev/null || echo "")
-if [ -n "$TREASURY_ADDR" ]; then
-  TREASURY_BAL=$(${BINARY} query bank balances "$TREASURY_ADDR" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balances[] | select(.denom=="uzrn") | .amount // "0"' 2>/dev/null || echo "0")
-  info "Protocol Treasury ($TREASURY_ADDR) balance: ${TREASURY_BAL} uzrn"
+info "Native supply: ${SUPPLY_BEFORE} → ${SUPPLY_AFTER} uzrn"
+info "Research fund: ${RESEARCH_BEFORE} → ${RESEARCH_AFTER} uzrn"
+info "Development fund: ${DEVELOPMENT_BEFORE} → ${DEVELOPMENT_AFTER} uzrn"
+
+if [ "$FEE_TX_COUNT" -gt 0 ] && [ "$SUPPLY_AFTER" = "$SUPPLY_BEFORE" ] && \
+   { [ "$RESEARCH_AFTER" -gt "$RESEARCH_BEFORE" ] || [ "$DEVELOPMENT_AFTER" -gt "$DEVELOPMENT_BEFORE" ]; }; then
+  pass "2" "${FEE_TX_COUNT} fee-bearing txs routed existing value without automatic issuance"
 else
-  warn "Could not find protocol_treasury module account"
-  TREASURY_BAL="0"
+  fail "2" "fee routing invariant failed (txs=${FEE_TX_COUNT}, supply=${SUPPLY_BEFORE}→${SUPPLY_AFTER}, research=${RESEARCH_BEFORE}→${RESEARCH_AFTER}, development=${DEVELOPMENT_BEFORE}→${DEVELOPMENT_AFTER})"
 fi
 
-# Research Fund
-info "Querying research_fund..."
-RESEARCH_BAL=$(${BINARY} query vesting_rewards research-fund-balance ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balance.amount // empty' 2>/dev/null || echo "")
-if [ -z "$RESEARCH_BAL" ]; then
-  RESEARCH_FUND_ADDR=$(${BINARY} query auth module-account research_fund ${NODE_FLAG} --output json 2>/dev/null | jq -r '.account.value.address // .account.base_account.address // empty' 2>/dev/null || echo "")
-  if [ -n "$RESEARCH_FUND_ADDR" ]; then
-    RESEARCH_BAL=$(${BINARY} query bank balances "$RESEARCH_FUND_ADDR" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balances[] | select(.denom=="uzrn") | .amount // "0"' 2>/dev/null || echo "0")
-  else
-    RESEARCH_BAL="0"
-  fi
-fi
-info "Research Fund balance: ${RESEARCH_BAL} uzrn"
-
-# Also check vesting_rewards module itself (accumulates citation + treasury shares)
-VESTING_MODULE_ADDR=$(${BINARY} query auth module-account vesting_rewards ${NODE_FLAG} --output json 2>/dev/null | jq -r '.account.value.address // .account.base_account.address // empty' 2>/dev/null || echo "")
-VESTING_BAL="0"
-if [ -n "$VESTING_MODULE_ADDR" ]; then
-  VESTING_BAL=$(${BINARY} query bank balances "$VESTING_MODULE_ADDR" ${NODE_FLAG} --output json 2>/dev/null | jq -r '.balances[] | select(.denom=="uzrn") | .amount // "0"' 2>/dev/null || echo "0")
-  info "Vesting rewards module ($VESTING_MODULE_ADDR) balance: ${VESTING_BAL} uzrn"
-fi
-
-# Check if any funds accumulated
-if [ "${TREASURY_BAL:-0}" != "0" ] || [ "${RESEARCH_BAL:-0}" != "0" ] || [ "${VESTING_BAL:-0}" != "0" ]; then
-  pass "2" "Fund balances non-zero (Treasury: ${TREASURY_BAL}, Research: ${RESEARCH_BAL}, Vesting: ${VESTING_BAL})"
-else
-  # KNOWN BUG: VestingRewardsKeeper.stakingKeeper is nil (set as nil in app.go constructor,
-  # never wired). This means activeValidatorCount=0 → hasTransactions=false → no block rewards.
-  # The protocol_treasury module account is also a placeholder (never receives funds by design).
-  warn "Fund balances are zero — KNOWN BUG: VestingRewardsKeeper staking keeper is nil"
-  warn "  → activeValidatorCount always 0 → hasTransactions always false → no block rewards minted"
-  warn "  → Fix: wire staking keeper into VestingRewardsKeeper in app/app.go"
-  fail "2" "Block rewards not flowing (staking keeper nil in vesting_rewards)"
-fi
-
-record_phase_time "Phase 3 (block rewards)" "$(($(date +%s) - PHASE3_START))"
+record_phase_time "Phase 3 (fee routing, zero automatic issuance)" "$(($(date +%s) - PHASE3_START))"
 
 # ── Phase 4: Domain Qualification ────────────────────────────────────────
 
