@@ -324,7 +324,7 @@ does not activate it.
 | [Epigenetics Capability Garden](docs/specs/epigenetics-capability-garden-v1.md) | Seven-stage life-science tree and inactive sponsor-escrow breakthrough template |
 | [KARMA Foundation](docs/KARMA.md) | Contextual recognition without money, person rank, ownership, or governing weight |
 | [Quantum QEC Season 1](docs/specs/constructive-intelligence-quantum-qec-v0.md) | Digest-pinned quantum capability path and zero-value breakthrough-reward envelope |
-| [Frontier Commons FC-0](docs/specs/frontier-commons-participation-v0.md) | Reversible read-only invitation from first principles through institutional and personal adoption lenses |
+| [Frontier Commons FC-0](docs/specs/frontier-commons-participation-v0.md) | Canonical reversible read-only source publication with a [bounded internal `INCONCLUSIVE` self-receipt](docs/specs/frontier-commons-receipt-v0.md); operational proof remains `SET_NOT_MET`, with no participant, signatory, endorsement, or external/corporate invitation claim |
 | [Events](docs/EVENTS.md) | On-chain event reference |
 | [Launch Checklist](docs/LAUNCH-CHECKLIST.md) | Testnet launch checklist |
 | [Truth Paper](docs/TRUTH-PAPER-HUMAN.md) | Proof of Truth design paper |

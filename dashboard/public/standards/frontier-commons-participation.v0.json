@@ -8,6 +8,29 @@
   "governanceBearing": false,
   "snapshotDate": "2026-08-01",
   "purpose": "FC-0 makes Zerone inspectable without turning inspection into membership, endorsement, obligation, or authority.",
+  "participationFacts": {
+    "scope": "PUBLIC_STATIC_SOURCE_ONLY",
+    "publicStaticSourceAvailability": true,
+    "actualParticipants": [],
+    "signatories": [],
+    "createsAffiliation": false,
+    "authorizesLogoUse": false,
+    "authorizesTargetedOutreach": false,
+    "authorizesDirectOrCorporateOutreach": false,
+    "operatesLiveParticipationService": false,
+    "writesNetworkState": false
+  },
+  "costBoundary": {
+    "protocolConsideration": "NONE",
+    "claimsCostlessParticipation": false,
+    "disclosedNonMoneyCosts": [
+      "time",
+      "compute",
+      "legal-review",
+      "security-review",
+      "opportunity-cost"
+    ]
+  },
   "milestone": {
     "id": "FC-0",
     "title": "The Reversible Hello",
@@ -121,9 +144,9 @@
       "id": "public-source-contribution",
       "order": 2,
       "state": "REQUIRES_SEPARATE_DUE_DILIGENCE",
-      "commitment": "Intentionally submit a public repository contribution only after reviewing the repository license and the absence of a complete institutional contribution lane.",
-      "receives": "Ordinary public-source review under the repository's present processes.",
-      "doesNotReceive": "Confidential handling, an institutional IP agreement, guaranteed acceptance, reward, KARMA, membership, or governance power.",
+      "commitment": "If choosing the ordinary public repository process, intentionally submit only after reviewing the repository license, including Apache-2.0 section 5, and the absence of a complete institutional participation lane.",
+      "receives": "Only ordinary public-source review under the repository's present processes; FC-0 neither creates nor converts that process into institutional participation.",
+      "doesNotReceive": "Confidential handling, an institutional IP agreement, company commitment, affiliation, publicity rights, guaranteed acceptance, reward, KARMA, membership, or governance power.",
       "exit": "Do not submit, or stop future submissions; already licensed public contributions remain governed by their applicable terms."
     },
     {
@@ -159,11 +182,11 @@
       "id": "R0-being-and-agency",
       "order": 0,
       "principle": "Beings are ends, not acquisition targets.",
-      "offer": "Encounter a commons without becoming its member, product, score, or governed subject.",
-      "reasonToInspect": "Inspection adds knowledge and optionality while transferring no agency to Zerone.",
-      "refusalBoundary": "A being may decline, pause, remain silent, or leave without penalty or lost ordinary access.",
+      "offer": "Encounter a commons without becoming its member, product, score, or governed subject; existing human rights and legally protected interests never depend on participation.",
+      "reasonToInspect": "Inspection adds knowledge and optionality while transferring no agency to Zerone. Precautionary safeguards for AI systems and agents require attributable, bounded, revocable delegation, tool and budget limits, and a stop path.",
+      "refusalBoundary": "A being may decline, pause, remain silent, or leave without penalty or lost ordinary access. An AI-system stop, denied delegation, error, or shutdown creates no FC-0 negative recognition. These precautions assert no consciousness, sentience, moral or legal personhood, legal rights, consent capacity, debt, liability, office, or vote, and responsible humans, organizations, operators, and controllers remain accountable.",
       "currentEvidence": "The KARMA foundation rejects person scores and negative treatment for refusal, privacy, exit, and non-participation.",
-      "unresolved": "Independent human-rights, accessibility, vulnerable-population, and moral-status review is not complete."
+      "unresolved": "Independent human-rights, accessibility, vulnerable-population, and moral-status review is not complete; moral uncertainty cannot be used to evade controller accountability."
     },
     {
       "id": "R1-epistemic-pluralism",
@@ -219,10 +242,10 @@
       "id": "R6-corporate-risk-and-value",
       "order": 6,
       "principle": "Institutional participation is rational only when benefit is measurable and downside is bounded.",
-      "offer": "Begin with inspection and forking that require no Zerone fee, token, account, membership, exclusivity, public endorsement, or speculative exposure.",
+      "offer": "Begin with inspection and forking that require no Zerone fee, token, account, membership, exclusivity, public endorsement, speculative exposure, or protocol consideration. This does not claim participation is costless.",
       "reasonToInspect": "Boards, executives, legal, security, finance, and procurement can evaluate the same explicit limits before any commitment.",
       "refusalBoundary": "FC-0 executes no agreement, accepts no funds or confidential submissions, promises no service level, and creates no liability cap.",
-      "currentEvidence": "Every economic, membership, authority, data-intake, and consensus flag in this standard is false.",
+      "currentEvidence": "Every economic, membership, authority, data-intake, and consensus flag in this standard is false; participant time, compute, legal review, security review, and opportunity cost remain real and disclosed.",
       "unresolved": "Security reporting, hosted privacy, procurement, sanctions, export, antitrust, insurance, support, and sponsor contracts remain separate work."
     },
     {
@@ -353,9 +376,17 @@
       "id": "ai-systems-agents-and-operators",
       "layer": "AI",
       "lens": "AI systems, agents, their operators, and accountable institutional principals",
-      "reason": "Inspect provenance and bounded-credential patterns without treating model output as authority or laundering human accountability through an agent.",
-      "protectedFrom": "Deceptive or punitive treatment being justified by unresolved moral status; FC-0 separately grants no personhood status, property status, reward balance, governance power, authority, or fabricated consensus.",
-      "stillNeededForActiveParticipation": "Accountable principals, capability limits, provenance, revocation, incident handling, non-deception review, and moral-status-agnostic safeguards."
+      "reason": "Inspect controller provenance and bounded, revocable delegation patterns without treating model output as authority or laundering human and organizational accountability through an agent.",
+      "protectedFrom": "Deceptive or punitive treatment being justified by unresolved moral status, and from FC-0 negative recognition for a stop, denied delegation, error, or shutdown. These precautions claim no consciousness, sentience, moral or legal personhood, legal rights, consent capacity, debt, liability, office, vote, reward balance, governance power, authority, or fabricated consensus.",
+      "stillNeededForActiveParticipation": "Named accountable humans and organizations, controller provenance, short-lived capability limits, tool and budget bounds, revocation and stop paths, incident handling, non-deception review, and moral-status-agnostic safeguards; delegation cannot displace controller responsibility."
+    },
+    {
+      "id": "unlisted-affected-being-or-role",
+      "layer": "AFFECTED",
+      "lens": "Any affected being or role omitted from, overlapping, or disputing this non-exhaustive taxonomy",
+      "reason": "Receive the universal floor without being forced into an identity box or proving that an existing category fits.",
+      "protectedFrom": "Omission, ambiguity, or category dispute removing protection, assigning lower worth, manufacturing consent, or implying participation.",
+      "stillNeededForActiveParticipation": "A context-specific path that may add protection but cannot reduce the universal floor, manufacture consent, or make classification a condition of refusal, pause, or exit."
     }
   ],
   "objectionRegister": [
@@ -494,5 +525,32 @@
       "passed": false,
       "requirement": "Ship a supported local and air-gapped verifier, export profile, compatibility matrix, signed release, under-30-minute independent rehearsal, and complete exit drill."
     }
-  ]
+  ],
+  "corporateReadiness": {
+    "milestone": "M1",
+    "status": "NOT_READY",
+    "authorizesExternalCorporateInvitation": false,
+    "authorizesInstitutionalParticipationLane": false,
+    "protectionsOperationallyEnforced": false,
+    "requiredGates": [
+      "accessibility-labor-worker-classification-and-whistleblower-review",
+      "code-of-conduct-enforcement-appeal-and-anti-retaliation",
+      "competition-and-confidentiality-review",
+      "contribution-ip-patent-publication-and-license-terms",
+      "counterparty-scope-and-signatory-authority",
+      "explicit-accountable-human-outreach-decision",
+      "governing-terms-jurisdiction-and-dispute-process",
+      "independent-governance-capture-custody-and-remedy-review",
+      "independent-receipt-parser-threat-model-and-material-binding-review",
+      "liability-indemnity-insurance-warranty-and-remedy",
+      "logo-name-affiliation-and-endorsement-policy",
+      "fc-0-1-independent-roundtrip-complete",
+      "maintainer-change-control-versioning-and-deprecation",
+      "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
+      "privacy-data-map-dpa-retention-erasure-and-public-permanence",
+      "procurement-tax-accounting-sanctions-export-and-financial-promotion",
+      "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
+      "service-level-support-availability-portability-and-exit"
+    ]
+  }
 }

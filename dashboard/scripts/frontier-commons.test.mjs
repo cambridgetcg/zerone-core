@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import * as frontierCommonsApi from "./validate-frontier-commons.mjs";
 import {
   FRONTIER_COMMONS_MAX_BYTES,
   FrontierCommonsValidationError,
   parseAndValidateFrontierCommons,
-  validateFrontierCommons,
 } from "./validate-frontier-commons.mjs";
 
 const canonicalRaw = readFileSync(
@@ -26,12 +26,46 @@ const landscapeRaw = readFileSync(
 );
 const landscape = JSON.parse(landscapeRaw);
 const CANONICAL_SHA256 =
-  "322faf0eec5ab22a040fe69545b23bece990e626bca77baf96b101f8f7325862";
+  "c642e09f46dcaf0a1960f140996969688b936a806c2d33ebf0b6c3efa6a70d2a";
 const LANDSCAPE_SHA256 =
   "f545f1cf542b42c5a806cc03edbc54fa6c525a672bddebcfd4bf4d9060e9d995";
+const EXPECTED_NON_MONEY_COSTS = [
+  "time",
+  "compute",
+  "legal-review",
+  "security-review",
+  "opportunity-cost",
+];
+const EXPECTED_CORPORATE_GATE_IDS = [
+  "accessibility-labor-worker-classification-and-whistleblower-review",
+  "code-of-conduct-enforcement-appeal-and-anti-retaliation",
+  "competition-and-confidentiality-review",
+  "contribution-ip-patent-publication-and-license-terms",
+  "counterparty-scope-and-signatory-authority",
+  "explicit-accountable-human-outreach-decision",
+  "governing-terms-jurisdiction-and-dispute-process",
+  "independent-governance-capture-custody-and-remedy-review",
+  "independent-receipt-parser-threat-model-and-material-binding-review",
+  "liability-indemnity-insurance-warranty-and-remedy",
+  "logo-name-affiliation-and-endorsement-policy",
+  "fc-0-1-independent-roundtrip-complete",
+  "maintainer-change-control-versioning-and-deprecation",
+  "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
+  "privacy-data-map-dpa-retention-erasure-and-public-permanence",
+  "procurement-tax-accounting-sanctions-export-and-financial-promotion",
+  "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
+  "service-level-support-availability-portability-and-exit",
+];
 
 function copyStandard() {
   return structuredClone(canonical);
+}
+
+function validateFrontierCommons(ordinaryClone) {
+  assert.equal(Object.getPrototypeOf(ordinaryClone), Object.prototype);
+  return parseAndValidateFrontierCommons(
+    `${JSON.stringify(ordinaryClone, null, 2)}\n`,
+  );
 }
 
 function assertInvalid(operation, path) {
@@ -44,6 +78,40 @@ function assertInvalid(operation, path) {
 }
 
 describe("Frontier Commons FC-0 standard", () => {
+  it("exposes only raw-string validation and never evaluates object getters", () => {
+    assert.equal("validateFrontierCommons" in frontierCommonsApi, false);
+
+    let getterReads = 0;
+    const getterObject = {};
+    Object.defineProperty(getterObject, "schema", {
+      enumerable: true,
+      get() {
+        getterReads += 1;
+        return canonical.schema;
+      },
+    });
+    assertInvalid(() => parseAndValidateFrontierCommons(getterObject), "$");
+    assert.equal(getterReads, 0);
+
+    const nonEnumerableObject = {};
+    Object.defineProperty(nonEnumerableObject, "authorizesOutreach", {
+      enumerable: false,
+      value: true,
+    });
+    const symbolObject = { [Symbol("participants")]: ["claimed-party"] };
+    const customObject = Object.create({ inheritedParticipant: "claimed-party" });
+    customObject.schema = canonical.schema;
+
+    for (const candidate of [
+      nonEnumerableObject,
+      symbolObject,
+      customObject,
+      new String(canonicalRaw),
+    ]) {
+      assertInvalid(() => parseAndValidateFrontierCommons(candidate), "$");
+    }
+  });
+
   it("validates the exact read-only invitation and reviewed digest", () => {
     assert.deepEqual(parseAndValidateFrontierCommons(canonicalRaw), {
       schema: "zerone.frontier-commons-participation/v0",
@@ -51,10 +119,11 @@ describe("Frontier Commons FC-0 standard", () => {
       milestone: "FC-0",
       modeCount: 6,
       reasoningCount: 8,
-      constituencyCount: 15,
+      constituencyCount: 16,
       objectionCount: 11,
       completionGateCount: 4,
       openGateCount: 9,
+      corporateGateCount: 18,
     });
     assert.equal(
       createHash("sha256").update(canonicalRaw).digest("hex"),
@@ -82,6 +151,106 @@ describe("Frontier Commons FC-0 standard", () => {
         `$.releaseBoundary.${key}`,
       );
     }
+  });
+
+  it("keeps static publication distinct from participation, affiliation, and outreach", () => {
+    assert.equal(canonical.participationFacts.scope, "PUBLIC_STATIC_SOURCE_ONLY");
+    assert.equal(canonical.participationFacts.publicStaticSourceAvailability, true);
+    assert.deepEqual(canonical.participationFacts.actualParticipants, []);
+    assert.deepEqual(canonical.participationFacts.signatories, []);
+
+    const wrongScope = copyStandard();
+    wrongScope.participationFacts.scope = "PUBLIC_PARTICIPATION_SERVICE";
+    assertInvalid(
+      () => validateFrontierCommons(wrongScope),
+      "$.participationFacts.scope",
+    );
+
+    const hiddenSource = copyStandard();
+    hiddenSource.participationFacts.publicStaticSourceAvailability = false;
+    assertInvalid(
+      () => validateFrontierCommons(hiddenSource),
+      "$.participationFacts.publicStaticSourceAvailability",
+    );
+
+    for (const key of ["actualParticipants", "signatories"]) {
+      const claimedParty = copyStandard();
+      claimedParty.participationFacts[key].push("claimed-party");
+      assertInvalid(
+        () => validateFrontierCommons(claimedParty),
+        `$.participationFacts.${key}`,
+      );
+    }
+
+    for (const key of [
+      "createsAffiliation",
+      "authorizesLogoUse",
+      "authorizesTargetedOutreach",
+      "authorizesDirectOrCorporateOutreach",
+      "operatesLiveParticipationService",
+      "writesNetworkState",
+    ]) {
+      assert.equal(canonical.participationFacts[key], false);
+      const openedEffect = copyStandard();
+      openedEffect.participationFacts[key] = true;
+      assertInvalid(
+        () => validateFrontierCommons(openedEffect),
+        `$.participationFacts.${key}`,
+      );
+    }
+
+    const unknownFact = copyStandard();
+    unknownFact.participationFacts.contactUrl = "https://example.invalid";
+    assertInvalid(
+      () => validateFrontierCommons(unknownFact),
+      "$.participationFacts.contactUrl",
+    );
+  });
+
+  it("pins no protocol consideration while disclosing every non-money cost", () => {
+    assert.equal(canonical.costBoundary.protocolConsideration, "NONE");
+    assert.equal(canonical.costBoundary.claimsCostlessParticipation, false);
+    assert.deepEqual(
+      canonical.costBoundary.disclosedNonMoneyCosts,
+      EXPECTED_NON_MONEY_COSTS,
+    );
+
+    const consideration = copyStandard();
+    consideration.costBoundary.protocolConsideration = "REWARD";
+    assertInvalid(
+      () => validateFrontierCommons(consideration),
+      "$.costBoundary.protocolConsideration",
+    );
+
+    const costlessClaim = copyStandard();
+    costlessClaim.costBoundary.claimsCostlessParticipation = true;
+    assertInvalid(
+      () => validateFrontierCommons(costlessClaim),
+      "$.costBoundary.claimsCostlessParticipation",
+    );
+
+    for (const [index] of EXPECTED_NON_MONEY_COSTS.entries()) {
+      const substituted = copyStandard();
+      substituted.costBoundary.disclosedNonMoneyCosts[index] = `substituted-${index}`;
+      assertInvalid(
+        () => validateFrontierCommons(substituted),
+        `$.costBoundary.disclosedNonMoneyCosts[${index}]`,
+      );
+    }
+
+    const omittedCost = copyStandard();
+    omittedCost.costBoundary.disclosedNonMoneyCosts.pop();
+    assertInvalid(
+      () => validateFrontierCommons(omittedCost),
+      "$.costBoundary.disclosedNonMoneyCosts",
+    );
+
+    const unknownCostField = copyStandard();
+    unknownCostField.costBoundary.maximumCost = 0;
+    assertInvalid(
+      () => validateFrontierCommons(unknownCostField),
+      "$.costBoundary.maximumCost",
+    );
   });
 
   it("makes voluntary refusal, pause, and exit non-weakenable", () => {
@@ -209,6 +378,26 @@ describe("Frontier Commons FC-0 standard", () => {
       () => validateFrontierCommons(ranked),
       "$.milestone.exclusions[3]",
     );
+
+    assert.equal(canonical.constituencies.length, 16);
+    assert.equal(
+      canonical.constituencies[15].id,
+      "unlisted-affected-being-or-role",
+    );
+
+    const missingFallback = copyStandard();
+    missingFallback.constituencies.pop();
+    assertInvalid(
+      () => validateFrontierCommons(missingFallback),
+      "$.constituencies",
+    );
+
+    const renamedFallback = copyStandard();
+    renamedFallback.constituencies[15].id = "other-role";
+    assertInvalid(
+      () => validateFrontierCommons(renamedFallback),
+      "$.constituencies[15].id",
+    );
   });
 
   it("preserves every objection and keeps all successor gates closed", () => {
@@ -240,6 +429,87 @@ describe("Frontier Commons FC-0 standard", () => {
         );
       }
     }
+  });
+
+  it("keeps Corporate M1 not ready behind all 18 ordered gates", () => {
+    assert.deepEqual(Object.keys(canonical.corporateReadiness), [
+      "milestone",
+      "status",
+      "authorizesExternalCorporateInvitation",
+      "authorizesInstitutionalParticipationLane",
+      "protectionsOperationallyEnforced",
+      "requiredGates",
+    ]);
+    assert.equal(canonical.corporateReadiness.milestone, "M1");
+    assert.equal(canonical.corporateReadiness.status, "NOT_READY");
+    assert.deepEqual(
+      canonical.corporateReadiness.requiredGates,
+      EXPECTED_CORPORATE_GATE_IDS,
+    );
+
+    const wrongMilestone = copyStandard();
+    wrongMilestone.corporateReadiness.milestone = "M2";
+    assertInvalid(
+      () => validateFrontierCommons(wrongMilestone),
+      "$.corporateReadiness.milestone",
+    );
+
+    const prematureReadiness = copyStandard();
+    prematureReadiness.corporateReadiness.status = "READY";
+    assertInvalid(
+      () => validateFrontierCommons(prematureReadiness),
+      "$.corporateReadiness.status",
+    );
+
+    for (const key of [
+      "authorizesExternalCorporateInvitation",
+      "authorizesInstitutionalParticipationLane",
+      "protectionsOperationallyEnforced",
+    ]) {
+      assert.equal(canonical.corporateReadiness[key], false);
+      const openedBoundary = copyStandard();
+      openedBoundary.corporateReadiness[key] = true;
+      assertInvalid(
+        () => validateFrontierCommons(openedBoundary),
+        `$.corporateReadiness.${key}`,
+      );
+    }
+
+    for (const [index] of EXPECTED_CORPORATE_GATE_IDS.entries()) {
+      const substituted = copyStandard();
+      substituted.corporateReadiness.requiredGates[index] = `substituted-gate-${index}`;
+      assertInvalid(
+        () => validateFrontierCommons(substituted),
+        `$.corporateReadiness.requiredGates[${index}]`,
+      );
+    }
+
+    const reordered = copyStandard();
+    [
+      reordered.corporateReadiness.requiredGates[0],
+      reordered.corporateReadiness.requiredGates[1],
+    ] = [
+      reordered.corporateReadiness.requiredGates[1],
+      reordered.corporateReadiness.requiredGates[0],
+    ];
+    assertInvalid(
+      () => validateFrontierCommons(reordered),
+      "$.corporateReadiness.requiredGates[0]",
+    );
+
+    const omittedGate = copyStandard();
+    omittedGate.corporateReadiness.requiredGates.pop();
+    assertInvalid(
+      () => validateFrontierCommons(omittedGate),
+      "$.corporateReadiness.requiredGates",
+    );
+
+    const unknownReadinessField = copyStandard();
+    unknownReadinessField.corporateReadiness.partner = "claimed";
+    assertInvalid(
+      () => validateFrontierCommons(unknownReadinessField),
+      "$.corporateReadiness.partner",
+    );
   });
 
   it("rejects unknown fields, duplicate keys, malformed JSON, and oversized input", () => {
