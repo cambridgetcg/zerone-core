@@ -5,7 +5,9 @@ app = "zerone-rpc"
 primary_region = "lhr"
 
 [build]
-  dockerfile = "Dockerfile.rpc-edge"
+  # Deliberately invalid until a separately built, scanned, pushed, and
+  # resolved immutable image digest is reviewed for this deployment.
+  image = "REPLACE_WITH_PINNED_RPC_EDGE_IMAGE_DIGEST"
 
 [http_service]
   internal_port = 8080
