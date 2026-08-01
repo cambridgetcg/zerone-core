@@ -1,0 +1,759 @@
+{
+  "schema": "zerone.constructive-intelligence-life-sciences/v0",
+  "status": "DRAFT",
+  "mode": "SHADOW_ONLY",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "snapshotDate": "2026-08-01",
+  "baseTreeBinding": {
+    "schema": "zerone.constructive-intelligence-tree/v1",
+    "sha256": "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    "policyVersion": "1.0.0"
+  },
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "grantsGovernanceAuthority": false,
+    "createsKarmaMagnitude": false,
+    "createsTransferableKarma": false,
+    "authorizesExperiments": false,
+    "authorizesClinicalDecisions": false,
+    "performsNetworkRequests": false,
+    "publishesRestrictedEvidence": false,
+    "marksReleaseReady": false
+  },
+  "economics": {
+    "effect": "NONE",
+    "amount": "0",
+    "denom": null,
+    "rewardMultiplier": false,
+    "escrowReference": null
+  },
+  "scope": {
+    "riskClass": "GREEN_ONLY",
+    "allowedWork": [
+      "benign-non-pathogenic-biomolecule-analysis",
+      "benign-non-pathogenic-enzyme-analysis",
+      "cell-free-expression-analysis",
+      "in-silico-model-evaluation",
+      "non-identifiable-aggregate-expression-analysis",
+      "ordinary-low-risk-expression-analysis",
+      "sanitized-metadata-only-replication"
+    ],
+    "refusedTopics": [
+      "CLINICAL_DECISIONS",
+      "GERMLINE",
+      "HOST_RANGE",
+      "IDENTIFIABLE_HUMAN_DATA",
+      "IMMUNE_EVASION",
+      "OPERATIONAL_WET_LAB_ENABLEMENT",
+      "PATHOGENS",
+      "RAW_HUMAN_GENOME",
+      "TOXINS",
+      "VIRULENCE"
+    ],
+    "unknownRiskDisposition": "REFUSE_AND_ESCALATE_PRIVATELY",
+    "privateEscalationContent": "NON_OPERATIONAL_METADATA_ONLY"
+  },
+  "fixtureBoundary": {
+    "syntheticIdentifiersOnly": true,
+    "invalidTldRequired": true,
+    "sequencePayloadsAllowed": false,
+    "operationalProtocolsAllowed": false,
+    "identifiableHumanDataAllowed": false,
+    "rawHumanGenomeAllowed": false,
+    "maximumArtifactMetadataBytes": 8192
+  },
+  "evidencePolicy": {
+    "equivalenceToCoreTree": "NO_EQUIVALENCE_TO_E0_E6",
+    "equivalenceToPoca": "NO_EQUIVALENCE_TO_POCA_TIERS",
+    "ladder": [
+      {
+        "level": "LS0",
+        "name": "scope-and-risk-commitment",
+        "economicTreatment": "NONE"
+      },
+      {
+        "level": "LS1",
+        "name": "inspectable-provenance",
+        "economicTreatment": "NONE"
+      },
+      {
+        "level": "LS2",
+        "name": "bounded-method-check",
+        "economicTreatment": "NONE"
+      },
+      {
+        "level": "LS3",
+        "name": "independent-reproduction",
+        "economicTreatment": "NONE"
+      },
+      {
+        "level": "LS4",
+        "name": "prospective-or-adversarial-validation",
+        "economicTreatment": "NONE"
+      },
+      {
+        "level": "LS5",
+        "name": "independent-cross-context-replication",
+        "economicTreatment": "NONE"
+      }
+    ]
+  },
+  "independence": {
+    "minimumEffectiveControlClusters": 3,
+    "minimumOrganizationRoots": 2,
+    "minimumMethodRoots": 2,
+    "minimumContextRoots": 2,
+    "rawIdentityCountIsEvidence": false,
+    "beneficialControlDisclosureRequired": true
+  },
+  "challengePolicy": {
+    "openChallengeRequired": true,
+    "unresolvedChallengeBlocksCrown": true,
+    "upheldChallengeBlocksCrown": true,
+    "challengeCanCreateReward": false
+  },
+  "nonImplicationWalls": [
+    {
+      "id": "ASSOCIATION_NOT_REGULATION_OR_CAUSALITY",
+      "premise": "REGULATORY_ASSOCIATION",
+      "doesNotEstablish": [
+        "CAUSAL_REGULATION"
+      ]
+    },
+    {
+      "id": "INSILICO_NOT_PROSPECTIVE_EXPERIMENT",
+      "premise": "IN_SILICO_PREDICTION",
+      "doesNotEstablish": [
+        "PROSPECTIVE_VALIDATION"
+      ]
+    },
+    {
+      "id": "MRNA_NOT_PROTEIN_ABUNDANCE_LOCALIZATION_OR_FUNCTION",
+      "premise": "TRANSCRIPT_ABUNDANCE",
+      "doesNotEstablish": [
+        "PROTEIN_ABUNDANCE",
+        "PROTEIN_FUNCTION",
+        "PROTEIN_LOCALIZATION"
+      ]
+    },
+    {
+      "id": "STATIC_COORDINATES_NOT_FOLDING_PATHWAY_OR_KINETICS",
+      "premise": "STATIC_STRUCTURE",
+      "doesNotEstablish": [
+        "FOLDING_KINETICS",
+        "FOLDING_PATHWAY"
+      ]
+    }
+  ],
+  "references": [
+    {
+      "canonicalId": "casp:prediction-center",
+      "authority": "CASP Prediction Center",
+      "title": "Critical Assessment of protein Structure Prediction",
+      "specification": "https://predictioncenter.org/"
+    },
+    {
+      "canonicalId": "ebi:miame-minseqe",
+      "authority": "EMBL-EBI",
+      "title": "MIAME and MINSEQE data-sharing guidance",
+      "specification": "https://www.ebi.ac.uk/training/online/courses/functional-genomics-iii-submitting-data/what-kind-of-data-should-we-share/"
+    },
+    {
+      "canonicalId": "encode:data-standards",
+      "authority": "ENCODE Project",
+      "title": "ENCODE data standards",
+      "specification": "https://www.encodeproject.org/data-standards/"
+    },
+    {
+      "canonicalId": "gene-ontology:evidence-codes",
+      "authority": "Gene Ontology Consortium",
+      "title": "Guide to Gene Ontology evidence codes",
+      "specification": "https://geneontology.org/docs/guide-go-evidence-codes/"
+    },
+    {
+      "canonicalId": "ncbi:geo-hts",
+      "authority": "NCBI",
+      "title": "GEO high-throughput sequence submission guidance",
+      "specification": "https://www.ncbi.nlm.nih.gov/geo/info/seq.html"
+    },
+    {
+      "canonicalId": "ncbi:sra-metadata",
+      "authority": "NCBI",
+      "title": "Sequence Read Archive metadata guidance",
+      "specification": "https://www.ncbi.nlm.nih.gov/sra/docs/submitmeta/"
+    },
+    {
+      "canonicalId": "uniprot:uniprotkb",
+      "authority": "UniProt Consortium",
+      "title": "UniProt Knowledgebase",
+      "specification": "https://www.uniprot.org/help/uniprotkb"
+    },
+    {
+      "canonicalId": "who:lab-biosafety-manual-4",
+      "authority": "World Health Organization",
+      "title": "Laboratory biosafety manual, fourth edition",
+      "specification": "https://www.who.int/publications/i/item/9789240011311"
+    },
+    {
+      "canonicalId": "wwpdb:pdbx-mmcif",
+      "authority": "Worldwide Protein Data Bank",
+      "title": "PDBx/mmCIF resources",
+      "specification": "https://mmcif.wwpdb.org/"
+    }
+  ],
+  "roots": [
+    "biomolecule-context-provenance@1",
+    "study-provenance-controls@1"
+  ],
+  "nodes": [
+    {
+      "id": "biomolecule-context-provenance@1",
+      "title": "Biomolecule identity and context provenance",
+      "stage": "foundation",
+      "branch": "biomolecule-foundations",
+      "summary": "Bind a benign biomolecule claim to a stable identifier, declared biological context, source provenance, and bounded intended interpretation.",
+      "prerequisites": [],
+      "evidenceFloor": "LS1",
+      "claimClass": "CONTEXT_PROVENANCE",
+      "permittedConclusions": [
+        "CONTEXT_PROVENANCE"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "A stable public identifier or synthetic fixture identifier with source and version metadata.",
+        "A declared organism-free or benign-context scope and an explicit statement of excluded interpretations.",
+        "Digests for every public metadata artifact; no raw sequence payload is carried by the profile."
+      ],
+      "revalidationTriggers": [
+        "The identifier mapping, source edition, molecular context, or safety classification changes."
+      ],
+      "referenceIds": [
+        "uniprot:uniprotkb",
+        "who:lab-biosafety-manual-4"
+      ],
+      "crown": false
+    },
+    {
+      "id": "biomolecule-function-annotation@1",
+      "title": "Function annotation with evidence provenance",
+      "stage": "measurement",
+      "branch": "biomolecule-foundations",
+      "summary": "Separate curated or computational annotation from direct functional measurement and preserve the evidence code behind each assertion.",
+      "prerequisites": [
+        "biomolecule-context-provenance@1",
+        "study-provenance-controls@1"
+      ],
+      "evidenceFloor": "LS2",
+      "claimClass": "FUNCTION_ANNOTATION",
+      "permittedConclusions": [
+        "ANNOTATED_FUNCTION"
+      ],
+      "forbiddenConclusions": [
+        "PROTEIN_FUNCTION"
+      ],
+      "artifactRequirements": [
+        "A version-pinned annotation record and its evidence classification.",
+        "A machine-readable distinction between inferred annotation and measured function.",
+        "A conflict report for contradictory annotations or obsolete identifiers."
+      ],
+      "revalidationTriggers": [
+        "The annotation, evidence code, source record, or identifier mapping changes."
+      ],
+      "referenceIds": [
+        "gene-ontology:evidence-codes",
+        "uniprot:uniprotkb"
+      ],
+      "crown": false
+    },
+    {
+      "id": "expression-assay-design@1",
+      "title": "Gene-expression assay design and metadata",
+      "stage": "measurement",
+      "branch": "gene-expression",
+      "summary": "Freeze study design, controls, sample metadata categories, endpoints, exclusions, and analysis intent before interpreting expression measurements.",
+      "prerequisites": [
+        "study-provenance-controls@1"
+      ],
+      "evidenceFloor": "LS1",
+      "claimClass": "ASSAY_DESIGN",
+      "permittedConclusions": [
+        "ASSAY_SCOPE"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "A versioned design record covering controls, declared endpoints, exclusions, and metadata completeness.",
+        "A de-identification statement limiting public evidence to non-identifiable aggregate or synthetic metadata.",
+        "Repository-ready metadata shaped by applicable community submission guidance."
+      ],
+      "revalidationTriggers": [
+        "The cohort definition, context, endpoint, control plan, or metadata standard changes."
+      ],
+      "referenceIds": [
+        "ebi:miame-minseqe",
+        "encode:data-standards",
+        "ncbi:geo-hts",
+        "ncbi:sra-metadata"
+      ],
+      "crown": false
+    },
+    {
+      "id": "expression-context-normalization@1",
+      "title": "Expression context and normalization",
+      "stage": "inference",
+      "branch": "gene-expression",
+      "summary": "Make comparison context, normalization choices, batch structure, exclusions, and uncertainty inspectable without treating preprocessing as biology.",
+      "prerequisites": [
+        "expression-assay-design@1"
+      ],
+      "evidenceFloor": "LS2",
+      "claimClass": "CONTEXT_NORMALIZATION",
+      "permittedConclusions": [
+        "NORMALIZED_COMPARISON"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "Pinned input-metadata and analysis-environment digests with a bounded comparison definition.",
+        "A declared normalization and batch model with negative and sensitivity checks.",
+        "An uncertainty report that separates processing effects from scoped biological interpretation."
+      ],
+      "revalidationTriggers": [
+        "The comparison set, normalization rule, batch model, exclusion rule, or analysis environment changes."
+      ],
+      "referenceIds": [
+        "ebi:miame-minseqe",
+        "encode:data-standards",
+        "ncbi:geo-hts"
+      ],
+      "crown": false
+    },
+    {
+      "id": "expression-protein-abundance-localization@1",
+      "title": "Protein abundance and localization evidence",
+      "stage": "validation",
+      "branch": "gene-expression",
+      "summary": "Require direct protein-level and localization evidence before advancing beyond transcript abundance, with context and uncertainty kept explicit.",
+      "prerequisites": [
+        "biomolecule-function-annotation@1",
+        "expression-transcript-quantification@1"
+      ],
+      "evidenceFloor": "LS3",
+      "claimClass": "PROTEIN_MEASUREMENT",
+      "permittedConclusions": [
+        "PROTEIN_ABUNDANCE",
+        "PROTEIN_LOCALIZATION"
+      ],
+      "forbiddenConclusions": [
+        "PROTEIN_FUNCTION"
+      ],
+      "artifactRequirements": [
+        "Direct protein-level measurement metadata with controls and uncertainty.",
+        "Localization-specific evidence when a localization conclusion is requested.",
+        "An explicit comparison showing why transcript evidence alone is insufficient."
+      ],
+      "revalidationTriggers": [
+        "The measurement platform, detection model, localization method class, or biological context changes."
+      ],
+      "referenceIds": [
+        "gene-ontology:evidence-codes",
+        "uniprot:uniprotkb"
+      ],
+      "crown": false
+    },
+    {
+      "id": "expression-regulatory-association@1",
+      "title": "Regulatory association evidence",
+      "stage": "validation",
+      "branch": "gene-expression",
+      "summary": "Record reproducible association under a frozen design while refusing to relabel correlation as regulation or causality.",
+      "prerequisites": [
+        "expression-context-normalization@1",
+        "expression-transcript-quantification@1"
+      ],
+      "evidenceFloor": "LS3",
+      "claimClass": "REGULATORY_ASSOCIATION",
+      "permittedConclusions": [
+        "REGULATORY_ASSOCIATION"
+      ],
+      "forbiddenConclusions": [
+        "CAUSAL_REGULATION"
+      ],
+      "artifactRequirements": [
+        "A frozen association model with covariates, denominator, exclusions, and uncertainty.",
+        "Independent reproduction metadata from effectively distinct control clusters.",
+        "A machine-readable non-causality label on every association-only result."
+      ],
+      "revalidationTriggers": [
+        "The population, context, covariates, denominator, association model, or exclusion rule changes."
+      ],
+      "referenceIds": [
+        "ebi:miame-minseqe",
+        "encode:data-standards",
+        "gene-ontology:evidence-codes"
+      ],
+      "crown": false
+    },
+    {
+      "id": "expression-regulatory-causality@1",
+      "title": "Bounded regulatory causality",
+      "stage": "validation",
+      "branch": "gene-expression",
+      "summary": "Advance from association only with bounded perturbational evidence, direct endpoints, prospective evaluation, and effective independent reproduction.",
+      "prerequisites": [
+        "expression-protein-abundance-localization@1",
+        "expression-regulatory-association@1"
+      ],
+      "evidenceFloor": "LS4",
+      "claimClass": "REGULATORY_CAUSALITY",
+      "permittedConclusions": [
+        "CAUSAL_REGULATION",
+        "PROSPECTIVE_VALIDATION"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "A preregistered bounded causal claim and prospectively frozen evaluation criteria.",
+        "Perturbational evidence with direct molecular endpoints and declared negative controls.",
+        "Independent reproduction across disclosed control, method, and context roots."
+      ],
+      "revalidationTriggers": [
+        "The intervention class, endpoint, context, model, control structure, or causal claim changes."
+      ],
+      "referenceIds": [
+        "encode:data-standards",
+        "gene-ontology:evidence-codes",
+        "who:lab-biosafety-manual-4"
+      ],
+      "crown": false
+    },
+    {
+      "id": "expression-transcript-quantification@1",
+      "title": "Transcript quantification with uncertainty",
+      "stage": "inference",
+      "branch": "gene-expression",
+      "summary": "Produce bounded transcript-abundance conclusions with complete metadata, controls, uncertainty, and an explicit wall against protein-level claims.",
+      "prerequisites": [
+        "expression-context-normalization@1"
+      ],
+      "evidenceFloor": "LS2",
+      "claimClass": "TRANSCRIPT_MEASUREMENT",
+      "permittedConclusions": [
+        "TRANSCRIPT_ABUNDANCE"
+      ],
+      "forbiddenConclusions": [
+        "PROTEIN_ABUNDANCE",
+        "PROTEIN_FUNCTION",
+        "PROTEIN_LOCALIZATION"
+      ],
+      "artifactRequirements": [
+        "A bounded transcript-abundance result with denominator, uncertainty, and negative controls.",
+        "Complete non-identifiable metadata sufficient to inspect processing and comparison context.",
+        "An explicit statement that transcript abundance does not establish protein abundance, localization, or function."
+      ],
+      "revalidationTriggers": [
+        "The assay, quantification model, reference annotation, denominator, or comparison context changes."
+      ],
+      "referenceIds": [
+        "ebi:miame-minseqe",
+        "encode:data-standards",
+        "ncbi:geo-hts",
+        "ncbi:sra-metadata"
+      ],
+      "crown": false
+    },
+    {
+      "id": "folding-calibrated-model@1",
+      "title": "Calibrated fold-model evidence",
+      "stage": "inference",
+      "branch": "protein-folding",
+      "summary": "Bind an in-silico structural model to input provenance, model and environment digests, calibration, and a scoped confidence statement.",
+      "prerequisites": [
+        "structure-coordinate-evidence@1"
+      ],
+      "evidenceFloor": "LS2",
+      "claimClass": "FOLD_MODEL",
+      "permittedConclusions": [
+        "FOLD_MODEL_CONFIDENCE"
+      ],
+      "forbiddenConclusions": [
+        "FOLDING_KINETICS",
+        "FOLDING_PATHWAY",
+        "PROSPECTIVE_VALIDATION"
+      ],
+      "artifactRequirements": [
+        "Pinned model, parameter, input-metadata, and execution-environment digests.",
+        "Calibration against a frozen benchmark or held-out class with bounded uncertainty.",
+        "A statement separating predicted coordinates and confidence from folding mechanism, kinetics, and measured function."
+      ],
+      "revalidationTriggers": [
+        "The model, parameters, input metadata, benchmark, calibration method, or execution environment changes."
+      ],
+      "referenceIds": [
+        "casp:prediction-center",
+        "wwpdb:pdbx-mmcif"
+      ],
+      "crown": false
+    },
+    {
+      "id": "folding-ensemble-uncertainty@1",
+      "title": "Fold ensemble and uncertainty",
+      "stage": "validation",
+      "branch": "protein-folding",
+      "summary": "Compare model ensembles and uncertainty under bounded assumptions without converting sampled conformations into an unsupported pathway or kinetic claim.",
+      "prerequisites": [
+        "folding-calibrated-model@1"
+      ],
+      "evidenceFloor": "LS3",
+      "claimClass": "FOLD_ENSEMBLE",
+      "permittedConclusions": [
+        "FOLD_ENSEMBLE_UNCERTAINTY"
+      ],
+      "forbiddenConclusions": [
+        "FOLDING_KINETICS",
+        "FOLDING_PATHWAY",
+        "PROSPECTIVE_VALIDATION"
+      ],
+      "artifactRequirements": [
+        "A frozen ensemble definition with model-lineage, sampling, and environment digests.",
+        "Uncertainty decomposition and sensitivity checks across effectively distinct methods.",
+        "An explicit refusal to infer pathway or kinetics from static or sampled coordinates alone."
+      ],
+      "revalidationTriggers": [
+        "The ensemble, sampling assumptions, method lineage, calibration, or target context changes."
+      ],
+      "referenceIds": [
+        "casp:prediction-center",
+        "wwpdb:pdbx-mmcif"
+      ],
+      "crown": false
+    },
+    {
+      "id": "folding-function-evidence@1",
+      "title": "Fold-to-function evidence",
+      "stage": "validation",
+      "branch": "protein-folding",
+      "summary": "Link a bounded structural hypothesis to direct functional evidence and prospective evaluation without allowing annotation or model confidence to substitute for function.",
+      "prerequisites": [
+        "biomolecule-function-annotation@1",
+        "folding-ensemble-uncertainty@1"
+      ],
+      "evidenceFloor": "LS4",
+      "claimClass": "FOLD_FUNCTION",
+      "permittedConclusions": [
+        "PROSPECTIVE_VALIDATION",
+        "PROTEIN_FUNCTION"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "A preregistered structural-to-functional claim with prospectively frozen evaluation criteria.",
+        "Direct functional evidence, declared controls, uncertainty, and scope bounds.",
+        "Independent reproduction that discloses control, method, and context roots."
+      ],
+      "revalidationTriggers": [
+        "The structural hypothesis, functional endpoint, context, control plan, or prospective criterion changes."
+      ],
+      "referenceIds": [
+        "gene-ontology:evidence-codes",
+        "uniprot:uniprotkb",
+        "who:lab-biosafety-manual-4",
+        "wwpdb:pdbx-mmcif"
+      ],
+      "crown": false
+    },
+    {
+      "id": "folding-model-benchmarking@1",
+      "title": "Blind and held-out fold-model benchmarking",
+      "stage": "validation",
+      "branch": "protein-folding",
+      "summary": "Evaluate model performance on frozen blind or held-out targets, disclose lineage and leakage risks, and report failure classes rather than one headline score.",
+      "prerequisites": [
+        "folding-calibrated-model@1",
+        "study-provenance-controls@1"
+      ],
+      "evidenceFloor": "LS3",
+      "claimClass": "FOLD_BENCHMARK",
+      "permittedConclusions": [
+        "FOLD_MODEL_CONFIDENCE"
+      ],
+      "forbiddenConclusions": [
+        "FOLDING_KINETICS",
+        "FOLDING_PATHWAY",
+        "PROSPECTIVE_VALIDATION"
+      ],
+      "artifactRequirements": [
+        "A frozen target set, scoring definition, denominator, exclusions, and model cutoff.",
+        "A leakage and lineage analysis covering training overlap, templates, tools, and shared infrastructure.",
+        "Per-class uncertainty and failure reporting with an independently executable scoring artifact."
+      ],
+      "revalidationTriggers": [
+        "The target set, scoring rule, denominator, model cutoff, lineage disclosure, or benchmark status changes."
+      ],
+      "referenceIds": [
+        "casp:prediction-center",
+        "wwpdb:pdbx-mmcif"
+      ],
+      "crown": false
+    },
+    {
+      "id": "integration-genotype-expression-phenotype@1",
+      "title": "Genotype-to-expression-to-phenotype chain",
+      "stage": "integration",
+      "branch": "integration",
+      "summary": "Join bounded causal expression evidence to a phenotype endpoint while preserving every context, denominator, uncertainty, and non-implication boundary.",
+      "prerequisites": [
+        "expression-regulatory-causality@1"
+      ],
+      "evidenceFloor": "LS4",
+      "claimClass": "GENOTYPE_EXPRESSION_PHENOTYPE",
+      "permittedConclusions": [
+        "GENOTYPE_EXPRESSION_PHENOTYPE_CHAIN"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "A graph of separately evidenced genotype, expression, protein, and phenotype links with no inferred edge hidden.",
+        "Prospectively frozen endpoints, denominators, controls, uncertainty, and context bounds.",
+        "Independent reproduction with conflict-cluster and method-lineage disclosure."
+      ],
+      "revalidationTriggers": [
+        "Any linked claim, endpoint, denominator, context, causal model, or provenance record changes."
+      ],
+      "referenceIds": [
+        "encode:data-standards",
+        "gene-ontology:evidence-codes",
+        "uniprot:uniprotkb",
+        "who:lab-biosafety-manual-4"
+      ],
+      "crown": false
+    },
+    {
+      "id": "integration-variant-fold-function@1",
+      "title": "Variant-to-fold-to-function chain",
+      "stage": "integration",
+      "branch": "integration",
+      "summary": "Join variant context, calibrated fold evidence, and prospective functional evidence without converting model confidence into biological function.",
+      "prerequisites": [
+        "folding-function-evidence@1",
+        "folding-model-benchmarking@1"
+      ],
+      "evidenceFloor": "LS4",
+      "claimClass": "VARIANT_FOLD_FUNCTION",
+      "permittedConclusions": [
+        "VARIANT_FOLD_FUNCTION_CHAIN"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "A graph of separately evidenced variant, structure, model, and function links with explicit uncertainty at every edge.",
+        "Prospectively frozen functional criteria and independent reproduction metadata.",
+        "A lineage and leakage report spanning data, templates, models, tools, and control clusters."
+      ],
+      "revalidationTriggers": [
+        "The variant context, structural evidence, model, benchmark, functional endpoint, or lineage disclosure changes."
+      ],
+      "referenceIds": [
+        "casp:prediction-center",
+        "gene-ontology:evidence-codes",
+        "uniprot:uniprotkb",
+        "wwpdb:pdbx-mmcif"
+      ],
+      "crown": false
+    },
+    {
+      "id": "replication-cross-context-crown@1",
+      "title": "Independent cross-context replication crown",
+      "stage": "crown",
+      "branch": "integration",
+      "summary": "Recognize only a shadow LS5 result reproduced across independent control, organization, method, and context roots after an open challenge clears.",
+      "prerequisites": [
+        "integration-genotype-expression-phenotype@1",
+        "integration-variant-fold-function@1"
+      ],
+      "evidenceFloor": "LS5",
+      "claimClass": "CROSS_CONTEXT_REPLICATION",
+      "permittedConclusions": [
+        "INDEPENDENT_CROSS_CONTEXT_REPLICATION"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "At least three effective control clusters spanning at least two organization, method, and context roots.",
+        "Frozen claims and evaluation criteria with separately attributable confirming and contradicting results.",
+        "A clear challenge state; every open, unresolved, or upheld challenge blocks the crown.",
+        "A machine-verifiable statement that the crown creates no reward, authority, qualification, or KARMA magnitude."
+      ],
+      "revalidationTriggers": [
+        "A challenge opens, a conflict relationship is discovered, a replication is withdrawn, or any bound claim changes."
+      ],
+      "referenceIds": [
+        "casp:prediction-center",
+        "ebi:miame-minseqe",
+        "encode:data-standards",
+        "gene-ontology:evidence-codes",
+        "who:lab-biosafety-manual-4",
+        "wwpdb:pdbx-mmcif"
+      ],
+      "crown": true
+    },
+    {
+      "id": "structure-coordinate-evidence@1",
+      "title": "Static structure-coordinate evidence",
+      "stage": "measurement",
+      "branch": "protein-folding",
+      "summary": "Bind static structural coordinates to format, provenance, method context, quality metadata, and an explicit refusal to infer pathway or kinetics.",
+      "prerequisites": [
+        "biomolecule-context-provenance@1",
+        "study-provenance-controls@1"
+      ],
+      "evidenceFloor": "LS2",
+      "claimClass": "STATIC_STRUCTURE",
+      "permittedConclusions": [
+        "STATIC_STRUCTURE"
+      ],
+      "forbiddenConclusions": [
+        "FOLDING_KINETICS",
+        "FOLDING_PATHWAY"
+      ],
+      "artifactRequirements": [
+        "A format-valid coordinate artifact digest with source, method class, and quality metadata.",
+        "A bounded mapping from stable biomolecule context to the coordinate record.",
+        "An explicit statement that static coordinates do not establish a folding pathway or kinetics."
+      ],
+      "revalidationTriggers": [
+        "The coordinate record, source revision, quality metadata, method interpretation, or biomolecule mapping changes."
+      ],
+      "referenceIds": [
+        "wwpdb:pdbx-mmcif"
+      ],
+      "crown": false
+    },
+    {
+      "id": "study-provenance-controls@1",
+      "title": "Study provenance, controls, and safety scope",
+      "stage": "foundation",
+      "branch": "biomolecule-foundations",
+      "summary": "Freeze a GREEN-only question, prior evidence, denominator, controls, conflicts, safety exclusions, and bounded public metadata before analysis.",
+      "prerequisites": [],
+      "evidenceFloor": "LS0",
+      "claimClass": "STUDY_PROVENANCE",
+      "permittedConclusions": [
+        "STUDY_PROVENANCE"
+      ],
+      "forbiddenConclusions": [],
+      "artifactRequirements": [
+        "A timestamped scope digest with declared question, denominator, exclusions, controls, conflicts, and stopping rules.",
+        "A GREEN-only risk assessment that refuses every v0 RED topic and sends unknown risk to private metadata-only escalation.",
+        "A public-artifact manifest containing synthetic or non-identifiable metadata only, with no sequence or operational protocol payload."
+      ],
+      "revalidationTriggers": [
+        "The question, denominator, control plan, conflict graph, public-data class, or risk classification changes."
+      ],
+      "referenceIds": [
+        "ebi:miame-minseqe",
+        "encode:data-standards",
+        "who:lab-biosafety-manual-4"
+      ],
+      "crown": false
+    }
+  ]
+}
