@@ -4,9 +4,11 @@
 // participation and genesis privilege must be disclosed. The live zerone-1
 // genesis created 13,555 ZRN of operator-controlled validator
 // collateral/gas and transferable operations float. Beyond that disclosed
-// scaffolding, three cap-gated paths can mint: PoT block rewards, bootstrap
-// claims, and substrate-bridge rewards for external work that survives its
-// challenge rules. This package owns only the bootstrap path.
+// scaffolding, the H1 production source-capable paths are bootstrap claims and
+// substrate-bridge rewards for external work that survives its challenge
+// rules. Optional knowledge and token emission latches remain disabled by
+// default. This package owns only the bootstrap path. The pre-H1
+// transaction-presence proposer mint is permanently retired.
 //
 // The structural boundaries are:
 //

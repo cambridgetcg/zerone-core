@@ -116,7 +116,8 @@ func (q queryServer) ResearchFundBalance(goCtx context.Context, _ *types.QueryRe
 	}, nil
 }
 
-// FounderShareStatus returns whether the founder auto-split is active and its parameters.
+// FounderShareStatus preserves the legacy query while reporting the retired,
+// permanently inactive founder auto-split.
 func (q queryServer) FounderShareStatus(goCtx context.Context, _ *types.QueryFounderShareStatusRequest) (*types.QueryFounderShareStatusResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
@@ -135,7 +136,9 @@ func (q queryServer) FounderShareStatus(goCtx context.Context, _ *types.QueryFou
 // SupplyCouplingAudit is a legacy-named observability endpoint. TotalMinted is
 // the shared MintWithCap ledger (plus its imported initial value), not a
 // knowledge-only counter and not a full history of direct genesis/bank minting.
-// The other fields expose the block-reward coupling inputs separately.
+// Legacy coupling configuration and knowledge rates remain observable, but v2
+// reports coupling disabled and an effective multiplier of zero because no
+// automatic block reward consumes them.
 func (q queryServer) SupplyCouplingAudit(goCtx context.Context, _ *types.QuerySupplyCouplingAuditRequest) (*types.QuerySupplyCouplingAuditResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	params := q.Keeper.GetParams(ctx)
@@ -153,20 +156,6 @@ func (q queryServer) SupplyCouplingAudit(goCtx context.Context, _ *types.QuerySu
 		survivedChallengeRate = q.Keeper.knowledgeKeeper.GetSurvivedChallengeRate(ctx)
 	}
 
-	const bps uint64 = 1_000_000
-	var effectiveMultiplier uint64 = bps
-	couplingEnabled := params.KnowledgeCouplingTargetBps > 0 && q.Keeper.knowledgeKeeper != nil
-	if couplingEnabled {
-		if survivedChallengeRate >= params.KnowledgeCouplingTargetBps {
-			effectiveMultiplier = bps
-		} else {
-			effectiveMultiplier = survivedChallengeRate * bps / params.KnowledgeCouplingTargetBps
-			if effectiveMultiplier < params.KnowledgeCouplingFloorBps {
-				effectiveMultiplier = params.KnowledgeCouplingFloorBps
-			}
-		}
-	}
-
 	return &types.QuerySupplyCouplingAuditResponse{
 		TotalMinted:                    totalMinted,
 		CurrentSupply:                  currentSupply,
@@ -174,8 +163,8 @@ func (q queryServer) SupplyCouplingAudit(goCtx context.Context, _ *types.QuerySu
 		VerificationRateBps:            verificationRate,
 		KnowledgeCouplingTargetBps:     params.KnowledgeCouplingTargetBps,
 		KnowledgeCouplingFloorBps:      params.KnowledgeCouplingFloorBps,
-		EffectiveCouplingMultiplierBps: effectiveMultiplier,
-		CouplingEnabled:                couplingEnabled,
+		EffectiveCouplingMultiplierBps: 0,
+		CouplingEnabled:                false,
 		SurvivedChallengeRateBps:       survivedChallengeRate,
 	}, nil
 }

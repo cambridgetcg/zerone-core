@@ -24,7 +24,7 @@ As of 2026-07-29:
 - its planned genesis profile is protocol-dark: vote extensions are disabled,
   knowledge admission is priced above the hard supply cap, knowledge reward
   rates and allocations are zero, the substrate bridge has no adapters, and
-  the nominal block reward rounds to zero with the launch roster.
+  atomic H1 retires transaction-presence block issuance at the source level.
 
 The dark posture is intentional. Adding this file MUST NOT change genesis,
 module parameters, handlers, migrations, supply, governance authority, or the
@@ -220,6 +220,32 @@ snapshots. An expired standards pin, unknown node, changed normative digest,
 or reward request from a qualification-only node fails closed. Refreshing
 descriptive standards status cannot mutate a historical entitlement, while a
 normative node or policy change requires a prospective version.
+
+### 3.3 Quantum/QEC extension and reward shape
+
+The first additive quantum branch is specified at
+[`../specs/constructive-intelligence-quantum-qec-v0.md`](../specs/constructive-intelligence-quantum-qec-v0.md)
+and published as a separately digest-pinned extension. It does not rewrite the
+reviewed v1 base tree, receipt format, or proof-of-constructive-action pins.
+Its 12 capability nodes culminate in one correlated-noise quantum-error-
+correction replication quest with frozen baselines, seeds, resources, stopping
+rules, uncertainty reporting, and independent control-cluster requirements.
+
+Two reward axes remain separate:
+
+1. **Release timing** follows the inherited E2–E6 milestone ladder plus a
+   challenge/remediation reserve.
+2. **Attribution** divides a future prefunded reward across originating work,
+   independent replication, review, downstream adoption, falsification, and
+   maintenance.
+
+The published quantum template carries `amount = 0`, no escrow, no claim, no
+founder share, and no governance power. B0–B5 are retrospective research
+profiles, not assignable badges or payment inputs. KARMA events likewise remain
+non-transferable observations: they provide no scalar rank, payout oracle,
+vote weight, veto, qualification, or operator privilege. Any future eligibility
+use must be separately versioned, capture-resistant, capped, and activated by a
+release-bound process.
 
 ## 4. Six ledgers that MUST remain separate
 

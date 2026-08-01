@@ -5,6 +5,7 @@ export declare const ZERONE_MAX_SWAP_FEE = 100000n;
 export declare const COSMOS_UINT64_MAX = 18446744073709551615n;
 export declare const COSMOS_AMOUNT_MAX: bigint;
 export declare const ZERONE_MAX_POOL_RECORDS = 10000n;
+export declare const LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE: "fee_collector";
 export declare const MSG_CREATE_POOL_TYPE_URL: "/zerone.liquiditypool.v1.MsgCreatePool";
 export declare const MSG_SWAP_TYPE_URL: "/zerone.liquiditypool.v1.MsgSwap";
 export declare const MSG_UPDATE_LIQUIDITY_PARAMS_TYPE_URL: "/zerone.liquiditypool.v1.MsgUpdateParams";
@@ -53,6 +54,11 @@ export interface ZeroneLiquidityParams {
     readonly maxPools: bigint;
     readonly minInitialLiquidity: string;
     readonly twapWindowBlocks: bigint;
+    /**
+     * Legacy wire field `protocol_fee_bps`, expressed in millionths/PPM.
+     * Consensus v5 fixes this to zero. A nonzero value describes the legacy
+     * ZRN-input-only protocol skim used by older chain state.
+     */
     readonly protocolFeeMillionths: bigint;
     readonly minReserve: string;
     readonly billingQuoteDenoms: readonly string[];
@@ -86,6 +92,27 @@ export interface LiquiditySwapSimulation {
     readonly tokenOutAmount: string;
     readonly feeAmount: string;
     readonly priceImpactMillionths: bigint;
+    /** Block height reported by the REST query response metadata. */
+    readonly observedHeight: bigint;
+}
+export type LiquiditySwapFeePolicy = "NO_PROTOCOL_SKIM" | "LEGACY_ZRN_INPUT_PROTOCOL_SKIM";
+export interface LiquiditySwapFeeDisclosureRequest {
+    readonly tokenInDenom: string;
+    /** Chain-reported, floor-rounded total swap fee in input-denom base units. */
+    readonly feeAmount: string;
+    /** Legacy wire value `protocol_fee_bps`, expressed in millionths/PPM. */
+    readonly protocolFeeMillionths: bigint;
+}
+export interface LiquiditySwapFeeDisclosure {
+    readonly policy: LiquiditySwapFeePolicy;
+    readonly tokenInDenom: string;
+    readonly totalFeeAmount: string;
+    /** Whole input-denom base units retained in pool reserves for LP holders. */
+    readonly poolRetainedFeeAmount: string;
+    readonly protocolFeeAmount: string;
+    readonly protocolFeeMillionths: bigint;
+    /** Null when this swap transfers no protocol fee. */
+    readonly protocolFeeDestinationModule: typeof LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE | null;
 }
 export interface ConstantProductExactInRequest {
     readonly reserveIn: string;
@@ -214,8 +241,25 @@ export interface ExactInSwapPlanRequest {
     readonly minimumTokenOut: string;
     readonly timeoutHeight: bigint;
 }
+export interface PrepareExactInSwapRequest {
+    readonly sender: string;
+    readonly poolId: string;
+    readonly tokenInDenom: string;
+    readonly tokenInAmount: string;
+    /** Binds the prepared transaction to the pair/direction selected by the user. */
+    readonly expectedTokenOutDenom: string;
+    readonly slippageMillionths: bigint;
+    readonly lifetimeBlocks: bigint;
+}
+export interface PreparedExactInSwap {
+    readonly simulation: LiquiditySwapSimulation;
+    readonly feeDisclosure: LiquiditySwapFeeDisclosure;
+    readonly minimumTokenOut: string;
+    readonly plan: TimedTransactionPlan;
+}
 export declare function parseCanonicalPositiveAmount(value: string, field?: string): bigint;
 export declare function minimumOutputForSlippage(tokenOutAmount: string, slippageMillionths: bigint): string;
+export declare function discloseLiquiditySwapFee(request: LiquiditySwapFeeDisclosureRequest): LiquiditySwapFeeDisclosure;
 export declare function quoteConstantProductExactIn(request: ConstantProductExactInRequest): ConstantProductExactInQuote;
 export declare class ZeroneLiquidityRestClient implements ExactInLiquidityAdapter {
     #private;
@@ -226,6 +270,7 @@ export declare class ZeroneLiquidityRestClient implements ExactInLiquidityAdapte
     params(): Promise<ZeroneLiquidityParams>;
     twap(poolId: string, baseDenom: string, window?: bigint): Promise<LiquidityTwap>;
     simulateSwap(poolId: string, tokenInDenom: string, tokenInAmount: string): Promise<LiquiditySwapSimulation>;
+    prepareExactInSwap(request: PrepareExactInSwapRequest): Promise<PreparedExactInSwap>;
     quoteExactIn(request: ExactInLiquidityQuoteRequest): Promise<ExactInLiquidityQuote>;
 }
 export declare function createLiquidityAdmissionUpdateMessage(request: LiquidityAdmissionProposalRequest): CosmosProtoAny;

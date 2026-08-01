@@ -271,7 +271,7 @@ var (
 		// mint, but the standing permission bypassed the 222M cap census).
 		zeroneauthtypes.ModuleName:                       nil,
 		zeronestakingtypes.ModuleName:                    {authtypes.Burner, authtypes.Staking},
-		vestingrewardstypes.ModuleName:                   {authtypes.Minter, authtypes.Burner}, // Minter for block rewards, Burner retained for interface compat
+		vestingrewardstypes.ModuleName:                   nil,                                  // routing/vesting escrow only; v2 retires automatic block minting
 		vestingrewardstypes.ResearchFundModuleName:       nil,                                  // research_fund: receive-only
 		vestingrewardstypes.DevelopmentFundModuleName:    nil,                                  // development_fund: receive-only
 		zeroneontologytypes.ModuleName:                   nil,                                  // ontology: receive proposal stake
@@ -763,15 +763,14 @@ func NewZeroneApp(
 		appCodec,
 		sdkruntime.NewKVStoreService(keys[vestingrewardstypes.StoreKey]),
 		app.BankKeeper,
-		// SDK staking adapter: active-validator count for reward scaling and
-		// consensus→operator resolution so block rewards land at spendable
-		// operator accounts.
+		// SDK staking adapter retained for historical distribution records and
+		// vesting compatibility queries. Consensus v2 performs no proposer mint.
 		vestingRewardsStakingAdapter{sk: app.StakingKeeper},
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
-	// Honor x/distribution withdraw-address mappings for reward payouts
-	// (validator block rewards + founder share, design §8b). Must be wired
-	// BEFORE any value copies of the keeper are handed to other modules.
+	// Honor x/distribution withdraw-address mappings in the legacy reward API.
+	// Must be wired BEFORE any value copies of the keeper are handed to other
+	// modules. Consensus v2 never invokes that proposer-reward path.
 	app.VestingRewardsKeeper.SetDistributionKeeper(app.DistrKeeper)
 
 	app.ZeroneOntologyKeeper = zeroneontologykeeper.NewKeeper(
@@ -1009,8 +1008,8 @@ func NewZeroneApp(
 	alignmentPacingAdapter := zeronealignmentkeeper.NewAlignmentPacingAdapter(app.AlignmentKeeper)
 	app.KnowledgeKeeper.SetPacingKeeper(alignmentPacingAdapter)
 	app.CaptureDefenseKeeper.SetPacingKeeper(alignmentPacingAdapter)
-	// Knowledge-coupled block reward (T9 / thesis claim 1): block rewards scale
-	// with verification throughput once this adapter is wired.
+	// Retain survival telemetry for vesting audits and the historical reward
+	// query surface. It does not drive automatic issuance in consensus v2.
 	app.VestingRewardsKeeper.SetKnowledgeKeeper(zeroneknowledgekeeper.NewVestingRewardsKnowledgeAdapter(app.KnowledgeKeeper))
 
 	// ---- Claiming Pot keeper (R7-6) ----

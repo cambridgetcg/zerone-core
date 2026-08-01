@@ -5,9 +5,9 @@ usability), D (`6463ff8`). Maps how ZRN earned for witnessed agenttool work
 becomes liquid, priced, and portable — and every gate on that path.*
 
 > **Historical plan:** the native activation contract has since advanced to
-> liquiditypool consensus v4. Do not use the “localnet-ready NOW” language
-> below as release authority. The current ordered upgrade, lifecycle, invariant,
-> PPM, governance, and oracle gates are in
+> liquiditypool consensus v5 at one atomic H1 boundary. Do not use the
+> “localnet-ready NOW” or multi-height language below as release authority. The
+> current lifecycle, neutrality, snapshot, recovery, PPM, governance, and oracle gates are in
 > [LIQUIDITYPOOL-SAFETY-V2.md](../LIQUIDITYPOOL-SAFETY-V2.md). The Osmosis
 > testnet proof-of-concept remains a separate external venue.
 

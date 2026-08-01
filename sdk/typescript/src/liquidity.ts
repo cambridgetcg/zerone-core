@@ -13,6 +13,8 @@ export const ZERONE_MAX_SWAP_FEE = 100_000n;
 export const COSMOS_UINT64_MAX = 18_446_744_073_709_551_615n;
 export const COSMOS_AMOUNT_MAX = (1n << 256n) - 1n;
 export const ZERONE_MAX_POOL_RECORDS = 10_000n;
+export const LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE =
+  "fee_collector" as const;
 
 export const MSG_CREATE_POOL_TYPE_URL =
   "/zerone.liquiditypool.v1.MsgCreatePool" as const;
@@ -102,6 +104,11 @@ export interface ZeroneLiquidityParams {
   readonly maxPools: bigint;
   readonly minInitialLiquidity: string;
   readonly twapWindowBlocks: bigint;
+  /**
+   * Legacy wire field `protocol_fee_bps`, expressed in millionths/PPM.
+   * Consensus v5 fixes this to zero. A nonzero value describes the legacy
+   * ZRN-input-only protocol skim used by older chain state.
+   */
   readonly protocolFeeMillionths: bigint;
   readonly minReserve: string;
   readonly billingQuoteDenoms: readonly string[];
@@ -139,6 +146,34 @@ export interface LiquiditySwapSimulation {
   readonly tokenOutAmount: string;
   readonly feeAmount: string;
   readonly priceImpactMillionths: bigint;
+  /** Block height reported by the REST query response metadata. */
+  readonly observedHeight: bigint;
+}
+
+export type LiquiditySwapFeePolicy =
+  | "NO_PROTOCOL_SKIM"
+  | "LEGACY_ZRN_INPUT_PROTOCOL_SKIM";
+
+export interface LiquiditySwapFeeDisclosureRequest {
+  readonly tokenInDenom: string;
+  /** Chain-reported, floor-rounded total swap fee in input-denom base units. */
+  readonly feeAmount: string;
+  /** Legacy wire value `protocol_fee_bps`, expressed in millionths/PPM. */
+  readonly protocolFeeMillionths: bigint;
+}
+
+export interface LiquiditySwapFeeDisclosure {
+  readonly policy: LiquiditySwapFeePolicy;
+  readonly tokenInDenom: string;
+  readonly totalFeeAmount: string;
+  /** Whole input-denom base units retained in pool reserves for LP holders. */
+  readonly poolRetainedFeeAmount: string;
+  readonly protocolFeeAmount: string;
+  readonly protocolFeeMillionths: bigint;
+  /** Null when this swap transfers no protocol fee. */
+  readonly protocolFeeDestinationModule:
+    | typeof LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE
+    | null;
 }
 
 export interface ConstantProductExactInRequest {
@@ -287,6 +322,24 @@ export interface ExactInSwapPlanRequest {
   readonly tokenInAmount: string;
   readonly minimumTokenOut: string;
   readonly timeoutHeight: bigint;
+}
+
+export interface PrepareExactInSwapRequest {
+  readonly sender: string;
+  readonly poolId: string;
+  readonly tokenInDenom: string;
+  readonly tokenInAmount: string;
+  /** Binds the prepared transaction to the pair/direction selected by the user. */
+  readonly expectedTokenOutDenom: string;
+  readonly slippageMillionths: bigint;
+  readonly lifetimeBlocks: bigint;
+}
+
+export interface PreparedExactInSwap {
+  readonly simulation: LiquiditySwapSimulation;
+  readonly feeDisclosure: LiquiditySwapFeeDisclosure;
+  readonly minimumTokenOut: string;
+  readonly plan: TimedTransactionPlan;
 }
 
 const CANONICAL_UINT_PATTERN = /^(?:0|[1-9][0-9]*)$/;
@@ -795,20 +848,20 @@ function parseParams(value: unknown): ZeroneLiquidityParams {
     "$.params.poolCreators",
   );
   const billingOracleEnabled = billingQuoteDenoms.length > 0;
-  const poolCreationEnabled =
-    allowedPoolDenoms.length > 0 && poolCreators.length > 0;
   const maxPools = parseUint64(
     wireField(params, "maxPools", "max_pools", "$.params.maxPools"),
     "$.params.maxPools",
     0n,
   );
-  if (maxPools < 1n || maxPools > 64n) {
+  if (maxPools > 64n) {
     return fail(
       "INVALID_RESPONSE",
       "$.params.maxPools",
-      "must be between 1 and 64",
+      "must be between 0 and 64 (legacy zero means disabled)",
     );
   }
+  const poolCreationEnabled =
+    maxPools > 0n && allowedPoolDenoms.length > 0 && poolCreators.length > 0;
   const twapWindowBlocks = parseUint64(
     wireField(
       params,
@@ -934,6 +987,40 @@ export function minimumOutputForSlippage(
   const derived =
     (output * (LIQUIDITY_FEE_SCALE - slippage)) / LIQUIDITY_FEE_SCALE;
   return (derived > 0n ? derived : 1n).toString();
+}
+
+export function discloseLiquiditySwapFee(
+  request: LiquiditySwapFeeDisclosureRequest,
+): LiquiditySwapFeeDisclosure {
+  const tokenInDenom = validateDenom(request.tokenInDenom, "tokenInDenom");
+  const totalFee = parseCanonicalAmount(request.feeAmount, "feeAmount", false);
+  const protocolFeeMillionths = parseMillionths(
+    request.protocolFeeMillionths,
+    "protocolFeeMillionths",
+    LIQUIDITY_FEE_SCALE + 1n,
+    "INVALID_FEE",
+  );
+  const policy: LiquiditySwapFeePolicy =
+    protocolFeeMillionths === 0n
+      ? "NO_PROTOCOL_SKIM"
+      : "LEGACY_ZRN_INPUT_PROTOCOL_SKIM";
+  const protocolFee =
+    tokenInDenom === "uzrn" && protocolFeeMillionths > 0n
+      ? (totalFee * protocolFeeMillionths) / LIQUIDITY_FEE_SCALE
+      : 0n;
+
+  return Object.freeze({
+    policy,
+    tokenInDenom,
+    totalFeeAmount: totalFee.toString(),
+    poolRetainedFeeAmount: (totalFee - protocolFee).toString(),
+    protocolFeeAmount: protocolFee.toString(),
+    protocolFeeMillionths,
+    protocolFeeDestinationModule:
+      protocolFee > 0n
+        ? LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE
+        : null,
+  });
 }
 
 export function quoteConstantProductExactIn(
@@ -1066,6 +1153,43 @@ function validateRestOptions(
   };
 }
 
+interface LiquidityRestJsonObservation {
+  readonly value: unknown;
+  readonly observedHeight: bigint | null;
+}
+
+function restObservedHeight(headers: Headers, field: string): bigint | null {
+  const candidates = [
+    headers.get("x-cosmos-block-height"),
+    headers.get("grpc-metadata-x-cosmos-block-height"),
+  ].filter((value): value is string => value !== null);
+  if (candidates.length === 0) return null;
+
+  let observedHeight: bigint | null = null;
+  for (const value of candidates) {
+    if (!CANONICAL_POSITIVE_PATTERN.test(value)) {
+      return fail(
+        "INVALID_RESPONSE",
+        field,
+        "must be a canonical positive decimal uint64",
+      );
+    }
+    const parsed = BigInt(value);
+    if (parsed > COSMOS_UINT64_MAX) {
+      return fail("INVALID_RESPONSE", field, "exceeds uint64");
+    }
+    if (observedHeight !== null && parsed !== observedHeight) {
+      return fail(
+        "INVALID_RESPONSE",
+        field,
+        "contains conflicting Cosmos block heights",
+      );
+    }
+    observedHeight = parsed;
+  }
+  return observedHeight;
+}
+
 export class ZeroneLiquidityRestClient implements ExactInLiquidityAdapter {
   readonly id = "zerone/liquiditypool/v1";
 
@@ -1082,7 +1206,10 @@ export class ZeroneLiquidityRestClient implements ExactInLiquidityAdapter {
     this.#maximumResponseBytes = validated.maximumResponseBytes;
   }
 
-  async #json(path: string, search?: URLSearchParams): Promise<unknown> {
+  async #jsonObservation(
+    path: string,
+    search?: URLSearchParams,
+  ): Promise<LiquidityRestJsonObservation> {
     const url = new URL(path.replace(/^\/+/, ""), this.#baseUrl);
     if (search !== undefined) url.search = search.toString();
     const response = await this.#fetch(url, {
@@ -1121,8 +1248,9 @@ export class ZeroneLiquidityRestClient implements ExactInLiquidityAdapter {
         "REST response exceeded its configured byte limit",
       );
     }
+    let value: unknown;
     try {
-      return JSON.parse(text) as unknown;
+      value = JSON.parse(text) as unknown;
     } catch {
       return fail(
         "INVALID_RESPONSE",
@@ -1130,6 +1258,17 @@ export class ZeroneLiquidityRestClient implements ExactInLiquidityAdapter {
         "REST response was not valid JSON",
       );
     }
+    return Object.freeze({
+      value,
+      observedHeight: restObservedHeight(
+        response.headers,
+        `${url.pathname} response height`,
+      ),
+    });
+  }
+
+  async #json(path: string, search?: URLSearchParams): Promise<unknown> {
+    return (await this.#jsonObservation(path, search)).value;
   }
 
   async pool(poolId: string): Promise<ZeroneLiquidityPool> {
@@ -1254,11 +1393,18 @@ export class ZeroneLiquidityRestClient implements ExactInLiquidityAdapter {
       tokenInDenom: denom,
       tokenInAmount,
     });
+    const path =
+      `zerone/liquiditypool/v1/simulate/${encodeURIComponent(id)}`;
+    const observation = await this.#jsonObservation(path, search);
+    if (observation.observedHeight === null) {
+      return fail(
+        "INVALID_RESPONSE",
+        `${path} response height`,
+        "is required to prepare an expiring transaction",
+      );
+    }
     const response = record(
-      await this.#json(
-        `zerone/liquiditypool/v1/simulate/${encodeURIComponent(id)}`,
-        search,
-      ),
+      observation.value,
       "$",
     );
     const result = record(response.result, "$.result");
@@ -1294,6 +1440,87 @@ export class ZeroneLiquidityRestClient implements ExactInLiquidityAdapter {
       tokenOutAmount: String(tokenOutAmount),
       feeAmount: String(feeAmount),
       priceImpactMillionths,
+      observedHeight: observation.observedHeight,
+    });
+  }
+
+  async prepareExactInSwap(
+    request: PrepareExactInSwapRequest,
+  ): Promise<PreparedExactInSwap> {
+    const sender = validateZeroneAddress(request.sender, "sender");
+    const poolId = validatePoolId(request.poolId);
+    const tokenInDenom = validateDenom(
+      request.tokenInDenom,
+      "tokenInDenom",
+    );
+    parseCanonicalPositiveAmount(request.tokenInAmount, "tokenInAmount");
+    const expectedTokenOutDenom = validateDenom(
+      request.expectedTokenOutDenom,
+      "expectedTokenOutDenom",
+    );
+    if (expectedTokenOutDenom === tokenInDenom) {
+      return fail(
+        "INVALID_DENOM",
+        "expectedTokenOutDenom",
+        "must differ from tokenInDenom",
+      );
+    }
+    const slippageMillionths = parseMillionths(
+      request.slippageMillionths,
+      "slippageMillionths",
+      LIQUIDITY_FEE_SCALE,
+      "INVALID_SLIPPAGE",
+    );
+    const lifetimeBlocks = parseUint64(
+      request.lifetimeBlocks,
+      "lifetimeBlocks",
+    );
+    if (lifetimeBlocks === 0n) {
+      return fail(
+        "INVALID_UINT64",
+        "lifetimeBlocks",
+        "must be greater than zero",
+      );
+    }
+
+    const [simulation, params] = await Promise.all([
+      this.simulateSwap(poolId, tokenInDenom, request.tokenInAmount),
+      this.params(),
+    ]);
+    if (simulation.tokenOutDenom !== expectedTokenOutDenom) {
+      return fail(
+        "INVALID_RESPONSE",
+        "simulation.tokenOutDenom",
+        `expected ${expectedTokenOutDenom}; received ${simulation.tokenOutDenom}`,
+      );
+    }
+
+    const minimumTokenOut = minimumOutputForSlippage(
+      simulation.tokenOutAmount,
+      slippageMillionths,
+    );
+    const feeDisclosure = discloseLiquiditySwapFee({
+      tokenInDenom,
+      feeAmount: simulation.feeAmount,
+      protocolFeeMillionths: params.protocolFeeMillionths,
+    });
+    const plan = createExactInSwapPlan({
+      sender,
+      poolId,
+      tokenInDenom,
+      tokenInAmount: request.tokenInAmount,
+      minimumTokenOut,
+      timeoutHeight: timeoutHeightAfter(
+        simulation.observedHeight,
+        lifetimeBlocks,
+      ),
+    });
+
+    return Object.freeze({
+      simulation,
+      feeDisclosure,
+      minimumTokenOut,
+      plan,
     });
   }
 

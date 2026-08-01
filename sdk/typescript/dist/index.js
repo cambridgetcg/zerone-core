@@ -14,6 +14,7 @@ import {
   COSMOS_AMOUNT_MAX,
   COSMOS_UINT64_MAX,
   LIQUIDITY_FEE_SCALE,
+  LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE,
   LIQUIDITY_POOL_STATUS,
   LiquidityClientError,
   MSG_CREATE_POOL_TYPE_URL,
@@ -27,12 +28,13 @@ import {
   createLiquidityAdmissionProposal,
   createLiquidityAdmissionUpdateMessage,
   createPoolMessage,
+  discloseLiquiditySwapFee,
   minimumOutputForSlippage,
   parseCanonicalPositiveAmount,
   quoteConstantProductExactIn,
   timeoutHeightAfter,
   withTimeoutHeight
-} from "./chunk-XQFUMRBC.js";
+} from "./chunk-NBKX643F.js";
 import {
   IN_TOTO_STATEMENT_V1_TYPE,
   ProvenanceParseError,
@@ -54,6 +56,7 @@ export {
   CaipError,
   IN_TOTO_STATEMENT_V1_TYPE,
   LIQUIDITY_FEE_SCALE,
+  LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE,
   LIQUIDITY_POOL_STATUS,
   LiquidityClientError,
   MSG_CREATE_POOL_TYPE_URL,
@@ -74,6 +77,7 @@ export {
   createPoolMessage,
   createZeroneRegistry,
   defineZeroneNetwork,
+  discloseLiquiditySwapFee,
   formatCaip10,
   formatCaip2,
   minimumOutputForSlippage,

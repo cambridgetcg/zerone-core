@@ -36,22 +36,24 @@ line:
 - state/genesis validation and protobuf ownership fixes;
 - CAIP account projections, unsigned in-toto provenance, the isolated Sigstore
   compiler, and the repository TypeScript SDK;
-- liquiditypool consensus v4 with finite open-pool work, explicit governed
+- liquiditypool consensus v5 with finite open-pool work, explicit governed
   statuses, immutable final exits, strict PPM arithmetic, bounded TWAP history,
-  and fail-closed oracle selection; and
+  fail-closed oracle selection, and LP-only swap-fee retention;
+- vesting_rewards consensus v2 with the founder auto-split and
+  transaction-presence proposer mint permanently retired; and
 - the fail-closed `zerone-2` release and authority kit.
 
 Several items above change consensus-visible behavior. They are source-complete
 only after their tests pass; they are **not live** merely because the code is
 published. The consolidation work requires the named
-`consolidation-safety-v1` coordinated upgrade. Its migration pass is expected
-to activate and record liquiditypool v4. The distinct, later
-`liquiditypool-safety-v2` checkpoint records operational readiness rather than
-gating the code a second time; native pool/oracle activation remains forbidden
-until that checkpoint and
-[its release gates](LIQUIDITYPOOL-SAFETY-V2.md) pass. Each upgrade requires an
-agreed height, matching validator binaries, and the normal upgrade/recovery
-rehearsal. Never mix binaries at the same height.
+`consolidation-safety-v1` coordinated upgrade. Its atomic migration pass is
+expected to record liquiditypool v5 and vesting_rewards v2. There is no later
+`liquiditypool-safety-v2` software-upgrade handler. Native pool/oracle
+activation remains forbidden until
+[the separate release and governance gates](LIQUIDITYPOOL-SAFETY-V2.md) pass.
+H1 requires an agreed height, matching validator binaries, an exact pre-H1
+snapshot, and the normal upgrade/recovery rehearsal. Never mix binaries at the
+same height.
 
 ## Publication boundary
 
@@ -79,11 +81,11 @@ must all be satisfied before any phase they authorize.
 2. **Prepare the consensus release.** Independently review
    `consolidation-safety-v1`, rehearse migration/export/restart paths, build
    reproducible binaries, and obtain an explicit activation decision.
-3. **Prepare liquidity separately.** After consolidation is applied and
-   verified, schedule `liquiditypool-safety-v2` at a later height; keep native
-   pool creation and oracle allowlisting disabled until invariants, application
-   lifecycle tests, restart rehearsal, and the governance capital decision all
-   pass.
+3. **Prepare liquidity admission separately.** After atomic H1 is applied and
+   verified, keep native pool creation and oracle allowlisting disabled until
+   invariants, application lifecycle tests, restart rehearsal, and separate
+   governance capital/asset/price-depth decisions all pass. This is not a
+   second software-upgrade height.
 4. **Complete `zerone-2` authority.** Run the two-machine ceremony comparison,
    bind signed source and immutable artifacts, satisfy every phase-specific
    gate, and keep all services private until their signed decision permits

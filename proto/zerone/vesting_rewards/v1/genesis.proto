@@ -18,18 +18,21 @@ message GenesisState {
 
 // Params defines the vesting_rewards module parameters.
 message Params {
-  // Block rewards
-  string block_reward = 1;                           // base block reward in uzrn (default: "10000000" = 10 ZRN)
-  uint64 reward_decay_bps = 2;                       // per-epoch decay (default: 994,478 = 0.994478x on 1M scale)
-  uint64 blocks_per_reward_epoch = 3;                // blocks per decay epoch (default: 100,000)
+  // Retired transaction-presence block-reward fields. Consensus v2 requires
+  // block_reward and floor_reward to be "0" and empty_block_reward_rate to be
+  // zero. The remaining schedule fields are inert compatibility metadata.
+  string block_reward = 1;
+  uint64 reward_decay_bps = 2;
+  uint64 blocks_per_reward_epoch = 3;
 
   // Revenue split (governance-adjustable)
   zerone.common.v1.RevenueSplit revenue_split = 4;
   zerone.common.v1.ProtocolSubSplit protocol_sub_split = 5;
 
-  // Founder share
-  uint64 founder_share_bps = 6;                      // founder's share of research fund (default: 70,000 = 7% on 1M scale)
-  string founder_address = 7;                        // bech32, empty = disabled
+  // Retired compatibility fields. Consensus v2 requires zero and empty;
+  // governance cannot recreate an identity-based founder revenue tap.
+  uint64 founder_share_bps = 6;
+  string founder_address = 7;
   uint64 governance_activation_height = 8;           // DEPRECATED — retained for wire compatibility; not an activation gate
 
   // Compatibility-only declarations. Current reward execution does not read
@@ -44,23 +47,19 @@ message Params {
   // Compatibility-only: not an execution gate; runtime updates must preserve it.
   bool   vesting_enabled = 11;
   uint64 released_clawback_rate = 12;                // 10,000 scale: default 3300 = 33% of released value
-  uint32 min_validators_for_full_reward = 13;        // target validator count for full block reward (default: 22)
-  uint64 empty_block_reward_rate = 14;               // 10,000 scale: 10,000 = 100%; default 0
-  string floor_reward = 15;                          // minimum reward per block in uzrn (default: "100000" = 0.1 ZRN)
+  uint32 min_validators_for_full_reward = 13;        // inert compatibility metadata
+  uint64 empty_block_reward_rate = 14;               // retired; must be zero
+  string floor_reward = 15;                          // retired; must be "0"
   // Genesis/import-export TotalMinted bookkeeping only; runtime updates must
   // preserve it and it is not a spendable fund balance.
   string initial_fund_balance = 16;
 
-  // Survived-challenge-coupled block reward.
-  // When enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).
-  // Rate = survived / (survived + disproven); unchallenged facts are excluded.
-  // Below target → reward is reduced; at target → full reward.
-  // 0 target = disabled (backward compat).
+  // Inert compatibility metadata from the retired block-reward path.
   uint64 knowledge_coupling_target_bps = 17;          // target survived-challenge rate in BPS (default: 700,000 = 70%)
   uint64 knowledge_coupling_floor_bps = 18;           // minimum reward multiplier in BPS (default: 500,000 = 50%)
 }
 
-// CategoryRewardConfig defines a per-category block reward multiplier.
+// CategoryRewardConfig preserves a retired per-category reward multiplier.
 message CategoryRewardConfig {
   string category = 1;                               // epistemic category name
   uint64 multiplier_bps = 2;                         // 1,000,000 = 1.0x

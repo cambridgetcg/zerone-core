@@ -22,4 +22,6 @@ var (
 	ErrFounderShareCapExceeded  = errors.Register(ModuleName, 18, "founder share cannot exceed the founding cap (70000 bps)")
 	ErrFactNotDisproven         = errors.Register(ModuleName, 19, "linked fact has not been disproven — falsification clawback requires an adjudicated FACT_STATUS_DISPROVEN")
 	ErrAdjudicationUnavailable  = errors.Register(ModuleName, 20, "cannot verify falsification: knowledge keeper not wired")
+	ErrFounderShareRetired      = errors.Register(ModuleName, 21, "founder share is permanently retired")
+	ErrAutomaticRewardRetired   = errors.Register(ModuleName, 22, "transaction-presence block rewards are permanently retired")
 )

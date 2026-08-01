@@ -15,6 +15,7 @@ import {
   HARD_CAP_ZRN,
 } from "./config";
 import { initialiseConstructiveTree } from "./constructive-tree";
+import { initialiseQuantumSeason } from "./quantum-season";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import type { WalletState } from "./wallet";
@@ -68,6 +69,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
+const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const toast = byId<HTMLDivElement>("toast");
 
@@ -160,13 +162,17 @@ function renderLiquidityParams(params: LiquidityParams | null): void {
     ? percentFromMillionScale(params.defaultSwapFeeBps)
     : "Unavailable";
   byId("protocol-fee").textContent = params
-    ? `${percentFromMillionScale(params.protocolFeeBps)} · ZRN-in fee`
+    ? params.protocolFeePolicy === "LP_ONLY_NO_PROTOCOL_SKIM"
+      ? "0% · LPs keep all swap fees"
+      : `${percentFromMillionScale(params.protocolFeeBps)} · legacy pre-H1 ZRN-fee skim`
     : "Unavailable";
   byId("minimum-liquidity").textContent = params
     ? `${microToDisplay(params.minInitialLiquidity, 0)} ZRN`
     : "Unavailable";
   byId("max-pools").textContent = params
-    ? `${formatHeight(params.maxPools)} open`
+    ? params.maxPools === 0
+      ? "Disabled · pre-H1"
+      : `${formatHeight(params.maxPools)} open`
     : "Unavailable";
   byId("minimum-reserve").textContent = params
     ? `${BigInt(params.minReserve).toLocaleString("en-GB")} base ${params.minReserve === "1" ? "unit" : "units"}`
@@ -1127,29 +1133,35 @@ window.addEventListener("keplr_keystorechange", () => {
 
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
+const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 void initialisePiPilotIfEnabled();
-void refreshNetwork(false);
+const initialNetworkReady = refreshNetwork(false);
+const alignInitialHash = (): void => {
+  if (
+    window.location.hash !== "#skills" &&
+    window.location.hash !== "#math-frontier"
+  ) {
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    const target =
+      window.location.hash === "#math-frontier"
+        ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+        : constructiveTreeRoot.closest<HTMLElement>("#skills");
+    target?.scrollIntoView({ block: "start", behavior: "instant" });
+  });
+};
 void Promise.allSettled([
   constructiveTreeReady,
   mathFrontierReady,
-]).then(
-  () => {
-    if (
-      window.location.hash !== "#skills" &&
-      window.location.hash !== "#math-frontier"
-    ) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      const target =
-        window.location.hash === "#math-frontier"
-          ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-          : constructiveTreeRoot.closest<HTMLElement>("#skills");
-      target?.scrollIntoView({ block: "start", behavior: "instant" });
-    });
-  },
-);
+]).then(alignInitialHash);
+void Promise.allSettled([
+  constructiveTreeReady,
+  mathFrontierReady,
+  initialNetworkReady,
+]).then(alignInitialHash);
+void Promise.allSettled([quantumSeasonReady]);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);

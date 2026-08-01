@@ -18,26 +18,29 @@ old binary halts at that height (`UPGRADE <name> NEEDED`) and writes
 `data/upgrade-info.json`. The new binary — swapped in by hand or by
 cosmovisor — runs the handler and the chain resumes.
 
-## Pending release order
+## Pending atomic release
 
-Existing networks currently have two ordered release checkpoints:
+Existing networks have one pending software-upgrade boundary:
+`consolidation-safety-v1` at H1. The exact H1 binary calls module migrations,
+reconciles stored module-account permissions, and records one handler marker.
+Among its other safety changes, the resulting module-version map must report:
 
-1. `consolidation-safety-v1`; then
-2. `liquiditypool-safety-v2` at a distinct, later height.
+- `liquiditypool = 5`; and
+- `vesting_rewards = 2`.
 
-Both handlers run module migrations and reconcile stored module-account
-permissions. The first handler is expected to activate and advance
-liquiditypool to consensus v4; the second is a readiness marker, not a second
-technical gate, and remains safe because an already-current module is skipped.
-Neither checkpoint by itself authorizes a native pool or its oracle.
+There is no `liquiditypool-safety-v2` H2 handler in the H1 binary. Advertising
+a future handler early is unsafe under the SDK upgrade guard, and a redundant
+second height would not add a technical activation boundary. Native pool
+creation and oracle use remain disabled after H1 until their separate
+governance, capital, bank-send, price/depth, and recovery gates pass.
 
-Before scheduling the combined sequence, bind a live query proving there are
-zero native pools and no billing quote-denom allowlist. Valid legacy pools
-migrate `EXIT_ONLY`, so a network with any existing pool still needs a separately
-reviewed transition. After the first v4 migration pass, verify its new
-`allowed_pool_denoms` and `pool_creators` are empty before any params update.
-The complete no-go gates, status lifecycle, governance path, and
-Osmosis-testnet separation are in
+Before scheduling H1, bind a same-height live snapshot proving there are zero
+native pools and no billing quote-denom allowlist. Valid legacy pools migrate
+`EXIT_ONLY`, so a network with any existing pool still needs a separately
+reviewed transition. After H1, verify `allowed_pool_denoms`, `pool_creators`,
+and `billing_quote_denoms` are empty before accepting any Params update. The
+complete no-go gates, economic-neutrality transition, status lifecycle,
+governance path, and Osmosis-testnet separation are in
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md).
 
 ## Operator steps
@@ -79,10 +82,12 @@ Osmosis-testnet separation are in
    the knowledge marker `upgrade_marker_<version>` reads `migrated`; all
    validators report the same height and keep producing.
 
-For `liquiditypool-safety-v2`, verification does not authorize a pool by
-itself. Invariants and application lifecycle tests must also pass on the exact
-release, and native pool creation plus oracle quote allowlisting remain
-separate governance actions.
+H1 verification does not authorize a pool by itself. Invariants and
+application lifecycle tests must also pass on the exact release, and native
+pool creation plus oracle quote allowlisting remain separate governance
+actions. H1 must additionally prove `protocol_fee_bps = 0`, founder fields are
+zero/empty, transaction-presence rewards are zero, and real transaction-fee
+routing still operates.
 
 ## Rollback
 

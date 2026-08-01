@@ -316,22 +316,25 @@ foundation, investor-sale, research, or faucet allocation; every address and
 amount is published.
 
 The current runtime does not prove the stronger slogan that every new unit is
-earned by truth verification. A block reward is eligible on a
-transaction-bearing block, and an ordinary transfer qualifies. Governance
-authority can create general claiming pots within their shared lifetime cap.
-Other compiled mint routes are external-attestation settlement, an optional
-knowledge probe bounty whose published/default rate is zero, and optional
-`x/tokens` per-block emission whose default is disabled. Bootstrap claims are
-whitelist participation, but admission includes a disclosed operator
-registrar. This commitment is therefore a target for participation-shaped
-economics plus a present requirement that every actual issuance authority and
-exception be named.
+earned by truth verification. Governance authority can create general claiming
+pots within their shared lifetime cap. Other compiled mint routes are
+external-attestation settlement, an optional knowledge probe bounty whose
+published/default rate is zero, and optional `x/tokens` per-block emission
+whose default is disabled. Bootstrap claims are whitelist participation, but
+admission includes a disclosed operator registrar. Historical `zerone-1` state
+before `consolidation-safety-v1` also configured a proposer reward for any
+transaction-bearing block; an ordinary transfer qualified. The H1 source
+retires that proposer-controlled trigger, fixes its reward parameters at zero,
+and removes `vesting_rewards` mint authority. That change is not live until the
+named software-upgrade vote applies it. This commitment is therefore a target
+for participation-shaped economics plus a present requirement that every
+actual issuance authority and exception be named.
 
 **Code expression**: `x/vesting_rewards.MintWithCap` is the shared cap-gated
 entry point for runtime module issuance. It accepts a recipient module name,
 mints into that account, and refuses to overshoot `MaxSupplyUzrn`
-(222,222,222 ZRN). Current callers include eligible block rewards,
-`x/claiming_pot` claims (bootstrap and authority-created general pots),
+(222,222,222 ZRN). H1 production callers include `x/claiming_pot` claims (bootstrap
+and authority-created general pots),
 `x/substrate_bridge` settlement/witness escrow, the configurable knowledge
 probe bounty, and configurable `x/tokens` emission. The latter two are inert
 under published/default parameters. Public training-fund release and the

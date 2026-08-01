@@ -14,7 +14,7 @@ func DefaultParams() *Params {
 		MaxPools:            16,            // finite bound on open pools and per-block TWAP work
 		MinInitialLiquidity: "10000000000", // 10,000 ZRN in uzrn (uzrn side of the pool)
 		TwapWindowBlocks:    1000,          // ~42 minutes at 2.521s blocks
-		ProtocolFeeBps:      450_000,       // 45% of swap fees go to protocol (fee_collector)
+		ProtocolFeeBps:      0,             // retired wire field: all swap fees remain with LPs
 		MinReserve:          "1",           // minimum reserve after swap
 		BillingQuoteDenoms:  []string{},    // empty = ZRN price oracle disabled (fail-closed)
 		AllowedPoolDenoms:   []string{},    // empty = pool creation frozen (fail-closed)
@@ -236,8 +236,8 @@ func (p *Params) Validate() error {
 	if p.TwapWindowBlocks == 0 || p.TwapWindowBlocks > MaxTWAPWindowBlocks {
 		return fmt.Errorf("twap_window_blocks must be between 1 and %d", MaxTWAPWindowBlocks)
 	}
-	if p.ProtocolFeeBps > 1_000_000 {
-		return fmt.Errorf("protocol_fee_bps cannot exceed 1000000")
+	if p.ProtocolFeeBps != 0 {
+		return fmt.Errorf("protocol_fee_bps is retired and must be zero")
 	}
 	// MinInitialLiquidity and MinReserve are bigint strings consumed via
 	// SetString(_, 10) in the msg server, which silently keeps a partial-parse

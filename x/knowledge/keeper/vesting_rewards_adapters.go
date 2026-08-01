@@ -7,9 +7,9 @@ import (
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
-// VestingRewardsKnowledgeAdapter wraps the knowledge Keeper to satisfy
-// vesting_rewards/types.KnowledgeKeeper. This allows block rewards to be
-// coupled to verification throughput (T9 / thesis claim 1).
+// VestingRewardsKnowledgeAdapter wraps the knowledge Keeper to satisfy the
+// vesting_rewards/types.KnowledgeKeeper compatibility interface. Consensus v2
+// keeps the telemetry queryable but does not couple it to automatic issuance.
 type VestingRewardsKnowledgeAdapter struct {
 	alignmentAdapter *AlignmentKnowledgeAdapter
 	keeper           Keeper
@@ -33,7 +33,7 @@ func (a *VestingRewardsKnowledgeAdapter) GetVerificationRate(ctx context.Context
 }
 
 // GetSurvivedChallengeRate delegates to the survival-gate calculation —
-// survived/(survived+disproven) facts. This is what block emission couples to.
+// survived/(survived+disproven) facts — for audit and legacy calculations.
 func (a *VestingRewardsKnowledgeAdapter) GetSurvivedChallengeRate(ctx context.Context) uint64 {
 	return a.alignmentAdapter.GetSurvivedChallengeRate(ctx)
 }

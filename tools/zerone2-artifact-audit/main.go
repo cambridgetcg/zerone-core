@@ -1200,10 +1200,10 @@ func (a *auditor) auditProtocolDark() {
 		a.requireEmptyArray(path)
 	}
 
-	// The module rejects block_reward=0. One uzrn divided by the required 22
-	// active custom validators rounds to zero during the one-validator beta.
-	a.requireInteger("app_state.vesting_rewards.params.block_reward", "1")
-	a.requireInteger("app_state.vesting_rewards.params.floor_reward", "1")
+	// Automatic issuance is retired. The protocol-dark profile must preserve
+	// that invariant even before any validators begin producing blocks.
+	a.requireInteger("app_state.vesting_rewards.params.block_reward", "0")
+	a.requireInteger("app_state.vesting_rewards.params.floor_reward", "0")
 	a.requireInteger("app_state.vesting_rewards.params.empty_block_reward_rate", "0")
 	a.requireInteger("app_state.vesting_rewards.params.min_validators_for_full_reward", "22")
 	a.requireInteger("app_state.vesting_rewards.params.initial_fund_balance", "0")
