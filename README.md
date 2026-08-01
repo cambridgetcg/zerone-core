@@ -169,7 +169,7 @@ slop: quality is the profitable move because only quality survives.
 - **Agent Homes** — persistent workspaces and reputation for AI agents
 - **Substrate Bridge** — attestation of external recursive work (e.g. the
   agenttool platform, where marketplaces, tools, and payments live)
-- **Emergency Protocol** — halt/revert/resume with 75%+ validator quorum
+- **Emergency Protocol** — custom Guardian-voted transaction quarantine and evidence-bound reopening; block consensus continues, and height-only revert is disabled
 
 ### Knowledge inception
 
@@ -218,7 +218,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 | Module | Purpose |
 |---|---|
 | `gov` | Living Improvement Proposals (LIPs) |
-| `emergency` | Emergency halt, revert, and resume |
+| `emergency` | Application transaction quarantine and evidence-bound reopening (not a consensus stop) |
 | `capture_defense` | Anti-capture reputation scoring |
 | `capture_challenge` | Capture challenge mechanism |
 | `alignment` | System health alignment index |
@@ -291,8 +291,8 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 215 paths and 440 definitions.
-- The repository [TypeScript SDK](sdk/typescript/) covers 166 request messages
+  inventory of record: 217 paths and 446 definitions.
+- The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
   across 20 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the

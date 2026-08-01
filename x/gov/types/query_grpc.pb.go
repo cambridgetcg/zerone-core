@@ -19,19 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Query_LIP_FullMethodName                    = "/zerone.gov.v1.Query/LIP"
-	Query_LIPs_FullMethodName                   = "/zerone.gov.v1.Query/LIPs"
-	Query_Vote_FullMethodName                   = "/zerone.gov.v1.Query/Vote"
-	Query_Votes_FullMethodName                  = "/zerone.gov.v1.Query/Votes"
-	Query_TallyResult_FullMethodName            = "/zerone.gov.v1.Query/TallyResult"
-	Query_Params_FullMethodName                 = "/zerone.gov.v1.Query/Params"
-	Query_ResearchSpend_FullMethodName          = "/zerone.gov.v1.Query/ResearchSpend"
-	Query_ResearchSpends_FullMethodName         = "/zerone.gov.v1.Query/ResearchSpends"
-	Query_ResearchVoters_FullMethodName         = "/zerone.gov.v1.Query/ResearchVoters"
-	Query_ResearchFundGovernance_FullMethodName = "/zerone.gov.v1.Query/ResearchFundGovernance"
-	Query_SeatElection_FullMethodName           = "/zerone.gov.v1.Query/SeatElection"
-	Query_SeatElections_FullMethodName          = "/zerone.gov.v1.Query/SeatElections"
-	Query_ResearchFundSeats_FullMethodName      = "/zerone.gov.v1.Query/ResearchFundSeats"
+	Query_LIP_FullMethodName                     = "/zerone.gov.v1.Query/LIP"
+	Query_LIPs_FullMethodName                    = "/zerone.gov.v1.Query/LIPs"
+	Query_Vote_FullMethodName                    = "/zerone.gov.v1.Query/Vote"
+	Query_Votes_FullMethodName                   = "/zerone.gov.v1.Query/Votes"
+	Query_TallyResult_FullMethodName             = "/zerone.gov.v1.Query/TallyResult"
+	Query_Params_FullMethodName                  = "/zerone.gov.v1.Query/Params"
+	Query_ResearchSpend_FullMethodName           = "/zerone.gov.v1.Query/ResearchSpend"
+	Query_ResearchSpends_FullMethodName          = "/zerone.gov.v1.Query/ResearchSpends"
+	Query_ResearchVoters_FullMethodName          = "/zerone.gov.v1.Query/ResearchVoters"
+	Query_ResearchFundGovernance_FullMethodName  = "/zerone.gov.v1.Query/ResearchFundGovernance"
+	Query_SeatElection_FullMethodName            = "/zerone.gov.v1.Query/SeatElection"
+	Query_SeatElections_FullMethodName           = "/zerone.gov.v1.Query/SeatElections"
+	Query_ResearchFundSeats_FullMethodName       = "/zerone.gov.v1.Query/ResearchFundSeats"
+	Query_EmergencyTransitionHold_FullMethodName = "/zerone.gov.v1.Query/EmergencyTransitionHold"
 )
 
 // QueryClient is the client API for Query service.
@@ -53,6 +54,7 @@ type QueryClient interface {
 	SeatElection(ctx context.Context, in *QuerySeatElectionRequest, opts ...grpc.CallOption) (*QuerySeatElectionResponse, error)
 	SeatElections(ctx context.Context, in *QuerySeatElectionsRequest, opts ...grpc.CallOption) (*QuerySeatElectionsResponse, error)
 	ResearchFundSeats(ctx context.Context, in *QueryResearchFundSeatsRequest, opts ...grpc.CallOption) (*QueryResearchFundSeatsResponse, error)
+	EmergencyTransitionHold(ctx context.Context, in *QueryEmergencyTransitionHoldRequest, opts ...grpc.CallOption) (*QueryEmergencyTransitionHoldResponse, error)
 }
 
 type queryClient struct {
@@ -193,6 +195,16 @@ func (c *queryClient) ResearchFundSeats(ctx context.Context, in *QueryResearchFu
 	return out, nil
 }
 
+func (c *queryClient) EmergencyTransitionHold(ctx context.Context, in *QueryEmergencyTransitionHoldRequest, opts ...grpc.CallOption) (*QueryEmergencyTransitionHoldResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryEmergencyTransitionHoldResponse)
+	err := c.cc.Invoke(ctx, Query_EmergencyTransitionHold_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -212,6 +224,7 @@ type QueryServer interface {
 	SeatElection(context.Context, *QuerySeatElectionRequest) (*QuerySeatElectionResponse, error)
 	SeatElections(context.Context, *QuerySeatElectionsRequest) (*QuerySeatElectionsResponse, error)
 	ResearchFundSeats(context.Context, *QueryResearchFundSeatsRequest) (*QueryResearchFundSeatsResponse, error)
+	EmergencyTransitionHold(context.Context, *QueryEmergencyTransitionHoldRequest) (*QueryEmergencyTransitionHoldResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -260,6 +273,9 @@ func (UnimplementedQueryServer) SeatElections(context.Context, *QuerySeatElectio
 }
 func (UnimplementedQueryServer) ResearchFundSeats(context.Context, *QueryResearchFundSeatsRequest) (*QueryResearchFundSeatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ResearchFundSeats not implemented")
+}
+func (UnimplementedQueryServer) EmergencyTransitionHold(context.Context, *QueryEmergencyTransitionHoldRequest) (*QueryEmergencyTransitionHoldResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EmergencyTransitionHold not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -516,6 +532,24 @@ func _Query_ResearchFundSeats_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_EmergencyTransitionHold_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryEmergencyTransitionHoldRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).EmergencyTransitionHold(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_EmergencyTransitionHold_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).EmergencyTransitionHold(ctx, req.(*QueryEmergencyTransitionHoldRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -574,6 +608,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResearchFundSeats",
 			Handler:    _Query_ResearchFundSeats_Handler,
+		},
+		{
+			MethodName: "EmergencyTransitionHold",
+			Handler:    _Query_EmergencyTransitionHold_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

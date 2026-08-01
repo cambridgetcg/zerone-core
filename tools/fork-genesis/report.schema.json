@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zerone.network/schemas/fork-genesis-report-v1.json",
+  "title": "Zerone deterministic fork-genesis compiler report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile",
+    "reproducer_id",
+    "reproducer_control_domain",
+    "reproducer_public_key",
+    "incident_id",
+    "source_genesis_sha256",
+    "policy_file_sha256",
+    "policy_sha256",
+    "source_chain_id",
+    "target_chain_id",
+    "initial_height",
+    "source_block_id_sha256",
+    "source_app_hash_sha256",
+    "source_last_block_time",
+    "source_signed_commit_sha256",
+    "source_validator_set_sha256",
+    "old_consensus_address",
+    "new_consensus_address",
+    "old_consensus_public_key",
+    "new_consensus_public_key",
+    "operator_disposition",
+    "custody_assessment_sha256",
+    "fork_policy_sha256",
+    "rewrite_tool_sha256",
+    "ibc_disposition",
+    "emergency_start_mode",
+    "schema_migrations",
+    "module_digests",
+    "output_genesis_sha256",
+    "report_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "zerone.fork-genesis.report/v1"
+    },
+    "profile": {
+      "const": "consensus-key-only"
+    },
+    "reproducer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "reproducer_control_domain": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "reproducer_public_key": {
+      "$ref": "#/$defs/ed25519_hex"
+    },
+    "incident_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source_genesis_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "policy_file_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_chain_id": {
+      "type": "string"
+    },
+    "target_chain_id": {
+      "type": "string"
+    },
+    "initial_height": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "source_block_id_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_app_hash_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_last_block_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_signed_commit_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_validator_set_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "old_consensus_address": {
+      "type": "string",
+      "minLength": 1
+    },
+    "new_consensus_address": {
+      "type": "string",
+      "minLength": 1
+    },
+    "old_consensus_public_key": {
+      "$ref": "#/$defs/ed25519"
+    },
+    "new_consensus_public_key": {
+      "$ref": "#/$defs/ed25519"
+    },
+    "operator_disposition": {
+      "const": "RETAIN_PROVEN_SAFE"
+    },
+    "custody_assessment_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "fork_policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "rewrite_tool_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "ibc_disposition": {
+      "const": "require-empty"
+    },
+    "emergency_start_mode": {
+      "const": "CONSENSUS_QUARANTINE"
+    },
+    "schema_migrations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ibc-transfer-v8-empty-denom-traces-to-v10-empty-denoms",
+          "ibc-core-v8-empty-to-v10-empty-v2-state"
+        ]
+      }
+    },
+    "module_digests": {
+      "type": "array",
+      "minItems": 17,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "module",
+          "before_sha256",
+          "after_sha256",
+          "changed"
+        ],
+        "properties": {
+          "module": {
+            "type": "string"
+          },
+          "before_sha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "after_sha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "changed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "output_genesis_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "report_sha256": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ed25519": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{43}=$"
+    },
+    "ed25519_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

@@ -10,8 +10,11 @@ import (
 	"testing"
 )
 
-// TestEventAudit_AllHandlersEmitEvents verifies that every message handler
-// in every Zerone module emits at least one event.
+// TestEventAudit_AllHandlersEmitEvents verifies that every successful message
+// handler in every Zerone module emits at least one event. A handler that
+// unconditionally returns an error may opt out with an explicit in-body
+// "event-audit: fail-closed" annotation: SDK transaction events are discarded
+// on error, so pretending such an event is durable would be misleading.
 //
 // It scans msg_server.go files, identifies handler functions, and checks
 // that each contains an EmitEvent call.
@@ -41,21 +44,36 @@ func TestEventAudit_AllHandlersEmitEvents(t *testing.T) {
 	// Regex to identify handler functions (methods on msgServer).
 	handlerRe := regexp.MustCompile(`^func \(.*\b(?:ms|m|k)\b.*\) (\w+)\(`)
 	emitRe := regexp.MustCompile(`EmitEvent|EmitTypedEvent`)
+	failClosedRe := regexp.MustCompile(`event-audit:\s*fail-closed`)
+	approvedFailClosed := map[string]bool{
+		"emergency.ProposeRevert": true,
+		"emergency.VoteRevert":    true,
+		"gov.AttachUpgradePlan":   true,
+	}
 
 	var missing []string
+	var unapprovedExemptions []string
 
 	for _, file := range msgServerFiles {
 		moduleName := extractModuleName(file)
-		handlers := extractHandlers(t, file, handlerRe, emitRe)
+		handlers := extractHandlers(t, file, handlerRe, emitRe, failClosedRe)
 		for _, h := range handlers {
-			if !h.hasEvent {
-				missing = append(missing, fmt.Sprintf("%s.%s", moduleName, h.name))
+			handlerName := fmt.Sprintf("%s.%s", moduleName, h.name)
+			if h.failClosed && !approvedFailClosed[handlerName] {
+				unapprovedExemptions = append(unapprovedExemptions, handlerName)
+			}
+			if !h.hasEvent && !(h.failClosed && approvedFailClosed[handlerName]) {
+				missing = append(missing, handlerName)
 			}
 		}
 	}
 
+	if len(unapprovedExemptions) > 0 {
+		t.Errorf("handlers use an unreviewed fail-closed event exemption (%d):\n  %s",
+			len(unapprovedExemptions), strings.Join(unapprovedExemptions, "\n  "))
+	}
 	if len(missing) > 0 {
-		t.Errorf("handlers missing event emission (%d):\n  %s",
+		t.Errorf("handlers missing event emission or explicit fail-closed annotation (%d):\n  %s",
 			len(missing), strings.Join(missing, "\n  "))
 	}
 }
@@ -208,31 +226,35 @@ func TestEventAudit_AttributeValuesAreStrings(t *testing.T) {
 // in the codebase has a corresponding entry in docs/EVENTS.md.
 func TestEventAudit_DocumentationCompleteness(t *testing.T) {
 	root := findProjectRoot(t)
-	modulesDir := filepath.Join(root, "x")
 	eventsDocPath := filepath.Join(root, "docs", "EVENTS.md")
 
 	// Collect all event types from the codebase.
 	// Handles both inline sdk.NewEvent("type" and multiline sdk.NewEvent(\n"type"
 	codebaseEvents := make(map[string]bool)
 
-	err := filepath.Walk(modulesDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, ".pb.go") {
+	for _, sourceDir := range []string{
+		filepath.Join(root, "x"),
+		filepath.Join(root, "app"),
+	} {
+		err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, ".pb.go") {
+				return nil
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			for _, eventType := range extractEventTypes(string(data)) {
+				codebaseEvents[eventType] = true
+			}
 			return nil
-		}
-		data, err := os.ReadFile(path)
+		})
 		if err != nil {
-			return err
+			t.Fatalf("failed to walk source directory %s: %v", sourceDir, err)
 		}
-		for _, eventType := range extractEventTypes(string(data)) {
-			codebaseEvents[eventType] = true
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("failed to walk modules directory: %v", err)
 	}
 
 	// Parse documented events from EVENTS.md (### zerone.module.action headings).
@@ -384,11 +406,12 @@ func min(a, b int) int {
 }
 
 type handlerInfo struct {
-	name     string
-	hasEvent bool
+	name       string
+	hasEvent   bool
+	failClosed bool
 }
 
-func extractHandlers(t *testing.T, path string, handlerRe, emitRe *regexp.Regexp) []handlerInfo {
+func extractHandlers(t *testing.T, path string, handlerRe, emitRe, failClosedRe *regexp.Regexp) []handlerInfo {
 	t.Helper()
 
 	file, err := os.Open(path)
@@ -408,13 +431,13 @@ func extractHandlers(t *testing.T, path string, handlerRe, emitRe *regexp.Regexp
 
 	// Non-handler methods and internal helpers to skip.
 	skipMethods := map[string]bool{
-		"NewMsgServerImpl":        true,
+		"NewMsgServerImpl":         true,
 		"NewResearchMsgServerImpl": true,
-		"markAccountInactive":     true,
-		"checkEligibility":        true,
-		"addVoteAudit":            true,
-		"isValidStatusTransition": true,
-		"intersectPermissions":    true,
+		"markAccountInactive":      true,
+		"checkEligibility":         true,
+		"addVoteAudit":             true,
+		"isValidStatusTransition":  true,
+		"intersectPermissions":     true,
 	}
 
 	scanner := bufio.NewScanner(file)
@@ -430,7 +453,7 @@ func extractHandlers(t *testing.T, path string, handlerRe, emitRe *regexp.Regexp
 				inHandler = true
 				braceDepth = 0
 				enteredBody = false
-				handlers = append(handlers, handlerInfo{name: name, hasEvent: false})
+				handlers = append(handlers, handlerInfo{name: name})
 			}
 		}
 
@@ -443,6 +466,9 @@ func extractHandlers(t *testing.T, path string, handlerRe, emitRe *regexp.Regexp
 
 			if emitRe.MatchString(line) || delegateRe.MatchString(line) {
 				handlers[len(handlers)-1].hasEvent = true
+			}
+			if failClosedRe.MatchString(line) {
+				handlers[len(handlers)-1].failClosed = true
 			}
 
 			if enteredBody && braceDepth <= 0 {

@@ -1,7 +1,7 @@
 # Running the Local Testnet
 
 ## Prerequisites
-- Go 1.24+
+- Go 1.25.12
 - jq 1.6+
 
 ## Quick Start

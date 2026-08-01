@@ -3,6 +3,8 @@ package keeper
 import (
 	"context"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/zerone-chain/zerone/x/emergency/types"
 )
 
@@ -20,10 +22,44 @@ var _ types.QueryServer = queryServer{}
 
 // Status returns the current emergency status.
 func (q queryServer) Status(goCtx context.Context, _ *types.QueryStatusRequest) (*types.QueryStatusResponse, error) {
+	status := q.GetEmergencyStatus(goCtx)
+	params := q.GetParams(goCtx)
+	readiness := q.GetGuardianReadiness(goCtx)
+	startedAt := q.GetHaltStartBlock(goCtx)
+	restricted := q.IsHalted(goCtx)
+	releaseBlock := q.GetQuarantineReleaseBlock(goCtx)
+	reopensAt := uint64(0)
+	if releaseBlock != 0 {
+		reopensAt = releaseBlock + 1
+	}
+
+	deadlineExceeded := false
+	if restricted && startedAt > 0 {
+		currentHeight := sdk.UnwrapSDKContext(goCtx).BlockHeight()
+		if currentHeight >= 0 {
+			current := uint64(currentHeight)
+			deadlineExceeded = current >= startedAt &&
+				current-startedAt >= params.MaxHaltDurationBlocks
+		}
+	}
+
 	return &types.QueryStatusResponse{
-		Status:               string(q.GetEmergencyStatus(goCtx)),
-		IsHalted:             q.IsHalted(goCtx),
-		ActiveHaltCeremonyId: q.GetActiveHaltCeremonyId(goCtx),
+		Status:                      string(status),
+		IsHalted:                    restricted,
+		ActiveHaltCeremonyId:        q.GetActiveHaltCeremonyId(goCtx),
+		RestrictionScope:            "application_transactions",
+		ConsensusContinues:          true,
+		EligibleGuardians:           readiness.EligibleGuardians,
+		EffectiveGuardianStake:      readiness.EffectiveStake.String(),
+		MinimumDistinctVoters:       params.MinDistinctVoters,
+		HaltCeremonyReady:           readiness.Ready,
+		ReadinessReason:             readiness.Reason,
+		AutomaticResumeEnabled:      false,
+		ArbitraryStateRevertEnabled: false,
+		QuarantineDeadlineExceeded:  deadlineExceeded,
+		QuarantineStartedAtBlock:    startedAt,
+		QuarantineReleaseBlock:      releaseBlock,
+		AdmissionReopensAtBlock:     reopensAt,
 	}, nil
 }
 
@@ -96,4 +132,20 @@ func (q queryServer) AuditLog(goCtx context.Context, req *types.QueryAuditLogReq
 func (q queryServer) Params(goCtx context.Context, _ *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
 	params := q.GetParams(goCtx)
 	return &types.QueryParamsResponse{Params: params}, nil
+}
+
+// RecoveryAuthorization returns the current incident-bound SDK governance
+// recovery capability, including terminal outcome when consumed.
+func (q queryServer) RecoveryAuthorization(
+	goCtx context.Context,
+	_ *types.QueryRecoveryAuthorizationRequest,
+) (*types.QueryRecoveryAuthorizationResponse, error) {
+	authorization, found, err := q.GetRecoveryAuthorization(goCtx)
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryRecoveryAuthorizationResponse{
+		Found:         found,
+		Authorization: authorization,
+	}, nil
 }

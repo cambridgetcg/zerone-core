@@ -38,3 +38,9 @@ func (a *GovEmergencyAdapter) CountHaltsForReason(ctx context.Context, _ string)
 	})
 	return count
 }
+
+// IsHalted reports application-transaction quarantine, including the
+// same-block post-resume release latch.
+func (a *GovEmergencyAdapter) IsHalted(ctx context.Context) bool {
+	return a.k.IsHalted(ctx)
+}

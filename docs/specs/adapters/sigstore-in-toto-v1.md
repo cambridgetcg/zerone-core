@@ -20,7 +20,7 @@ meaning belongs in a separately governed adapter version.
   `tools/sigstore-substrate-compiler`
 - Runtime network access: none
 - Sigstore SDK: `github.com/sigstore/sigstore-go` v1.2.2
-- Tool module: Go 1.25.8, isolated from the Go 1.24 validator module
+- Tool module: Go 1.25.12, isolated from the validator module's dependency graph
 
 Version 1.2.2 is intentionally pinned: v1.2.1 includes the upstream
 GHSA-wqqc-jjcq-vfxm remediation and v1.2.2 tightens empty certificate-identity

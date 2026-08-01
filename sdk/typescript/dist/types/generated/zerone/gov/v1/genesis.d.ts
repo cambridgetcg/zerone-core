@@ -86,6 +86,33 @@ export interface GenesisCreedAmendmentPin {
     commitmentsJson: Uint8Array;
 }
 /**
+ * EmergencyTransitionHold is the durable post-incident review gate for every
+ * automatic custom-governance transition. It is created when transaction
+ * quarantine is observed and is not cleared by an ordinary resume ceremony.
+ * @name EmergencyTransitionHold
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.EmergencyTransitionHold
+ */
+export interface EmergencyTransitionHold {
+    incidentId: string;
+    activatedAtBlock: bigint;
+    /**
+     * Most recently observed quarantine incident. incident_id remains the first
+     * incident for compact API compatibility.
+     */
+    latestIncidentId: string;
+    /**
+     * Number of chronological incident observations committed by this hold.
+     */
+    incidentCount: bigint;
+    /**
+     * Domain-separated rolling SHA-256 commitment to the complete chronological
+     * incident lineage. This keeps consensus state bounded even if a review hold
+     * spans many independently finalized quarantine incidents.
+     */
+    incidentLineageSha256: Uint8Array;
+}
+/**
  * GenesisState defines the governance module's genesis state.
  * @name GenesisState
  * @package zerone.gov.v1
@@ -102,6 +129,7 @@ export interface GenesisState {
     seatElectionVotes: SeatElectionVote[];
     nextSeatElectionNumber: bigint;
     creedAmendmentPins: GenesisCreedAmendmentPin[];
+    emergencyTransitionHold?: EmergencyTransitionHold;
 }
 /**
  * Params defines the governance module parameters.
@@ -151,6 +179,20 @@ export declare const GenesisCreedAmendmentPin: {
     encode(message: GenesisCreedAmendmentPin, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisCreedAmendmentPin;
     fromPartial(object: DeepPartial<GenesisCreedAmendmentPin>): GenesisCreedAmendmentPin;
+};
+/**
+ * EmergencyTransitionHold is the durable post-incident review gate for every
+ * automatic custom-governance transition. It is created when transaction
+ * quarantine is observed and is not cleared by an ordinary resume ceremony.
+ * @name EmergencyTransitionHold
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.EmergencyTransitionHold
+ */
+export declare const EmergencyTransitionHold: {
+    typeUrl: string;
+    encode(message: EmergencyTransitionHold, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): EmergencyTransitionHold;
+    fromPartial(object: DeepPartial<EmergencyTransitionHold>): EmergencyTransitionHold;
 };
 /**
  * GenesisState defines the governance module's genesis state.

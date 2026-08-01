@@ -1,7 +1,9 @@
 package types
 
 import (
+	"fmt"
 	"math/big"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -105,6 +107,11 @@ func IsTerminalSeatStage(stage string) bool {
 
 // BPSScale is the basis point scale used for quorum and support thresholds.
 const BPSScale = uint64(1_000_000)
+
+const (
+	MaxUpgradeNameBytes = 128
+	MaxUpgradeInfoBytes = 64 * 1024
+)
 
 // IsTerminal returns true if the status is a terminal state.
 func IsTerminal(status string) bool {
@@ -288,11 +295,32 @@ func (m *MsgAttachUpgradePlan) ValidateBasic() error {
 	if m.LipId == "" {
 		return ErrInvalidParams
 	}
-	if m.UpgradeName == "" {
+	if err := ValidateUpgradePlanFields(m.UpgradeName, m.Height, m.Info); err != nil {
 		return ErrInvalidParams
 	}
-	if m.Height <= 0 {
-		return ErrInvalidParams
+	return nil
+}
+
+// ValidateUpgradePlanFields validates the immutable payload that is copied into
+// the SDK x/upgrade plan. The info field is mandatory because it is the
+// operator-facing commitment to release artifacts and migration instructions.
+func ValidateUpgradePlanFields(name string, height int64, info string) error {
+	if name == "" || strings.TrimSpace(name) != name || len(name) > MaxUpgradeNameBytes {
+		return fmt.Errorf("upgrade name must be 1..%d bytes without surrounding whitespace", MaxUpgradeNameBytes)
+	}
+	for _, char := range name {
+		isASCIIAlphaNumeric := char >= 'a' && char <= 'z' ||
+			char >= 'A' && char <= 'Z' ||
+			char >= '0' && char <= '9'
+		if !isASCIIAlphaNumeric && char != '.' && char != '_' && char != '-' {
+			return fmt.Errorf("upgrade name contains unsupported character %q", char)
+		}
+	}
+	if height <= 0 {
+		return fmt.Errorf("upgrade height must be positive")
+	}
+	if strings.TrimSpace(info) == "" || len(info) > MaxUpgradeInfoBytes {
+		return fmt.Errorf("upgrade info must be 1..%d bytes", MaxUpgradeInfoBytes)
 	}
 	return nil
 }

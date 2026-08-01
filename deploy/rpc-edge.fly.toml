@@ -1,0 +1,33 @@
+# Stateless read-only compatibility edge for the existing mainnet endpoint.
+# This does not close the signer's directly published ports and therefore is
+# interface hardening, not validator containment.
+app = "zerone-rpc"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile.rpc-edge"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 100
+    hard_limit = 200
+  [[http_service.checks]]
+    grace_period = "5s"
+    interval = "15s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "3s"
+
+[[restart]]
+  policy = "on-failure"
+  retries = 10
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

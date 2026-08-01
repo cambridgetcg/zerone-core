@@ -11,7 +11,9 @@ consensus module, enable IBC, or expand the public gateway. It provides:
 - a strict, bigint-safe liquidity REST and constant-product quote adapter;
 - generic CAIP-2 and CAIP-10 syntax handling;
 - the Cosmos namespace's direct/hashed chain-reference algorithm;
-- checksum-aware `zrn` account IDs; and
+- checksum-aware `zrn` account IDs;
+- canonical CIDv1 preflight for new agent-home memory references;
+- bounded feegrant builders for sponsor-funded onboarding; and
 - a separate validator for the `did:zrn` identifiers accepted by `x/auth`.
 
 ## Use the transaction registry
@@ -242,6 +244,89 @@ belonging to an unrelated Cosmos network. Use the chain ID reported by the
 connected node. A future `zerone-2` is a different CAIP-2 chain even if state
 and addresses survive a reboot.
 
+## Validate memory CIDs before signing
+
+```ts
+import { asZeroneMemoryCid, parseCanonicalCidV1 } from "@zerone-chain/sdk/cid";
+
+const memoryCid = asZeroneMemoryCid(
+  "bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm",
+);
+const details = parseCanonicalCidV1(memoryCid);
+// details.codec, details.multihashCode, details.digestBytes
+```
+
+The helper requires CIDv1 in Zerone's chosen lowercase-base32 representation
+and applies `x/home`'s current 256-byte text limit. CID itself permits other
+multibase strings for the same identifier. Parsing validates only the content
+address structure; it does not hash the referenced bytes or establish their
+availability, authenticity, or confidentiality.
+
+This helper is opt-in. The generated `MsgUpdateMemoryCID` codec still accepts a
+plain string, while the Go CLI invokes the preflight automatically. Current
+validator consensus continues to accept historical opaque memory references
+until a coordinated upgrade defines and audits a chain-wide policy.
+
+## Sponsor bounded onboarding fees
+
+```ts
+import { defineZeroneNetwork } from "@zerone-chain/sdk/caip";
+import {
+  makeBoundedFeeGrant,
+  makeRevokeFeeGrant,
+  makeSponsoredFee,
+} from "@zerone-chain/sdk/feegrant";
+
+const network = defineZeroneNetwork("zerone-1");
+const granter = "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf";
+const grantee = "zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5s75sh2";
+
+const grant = makeBoundedFeeGrant({
+  network,
+  granter,
+  grantee,
+  spendLimit: [{ denom: "uzrn", amount: "100000" }],
+  expiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  allowedMessageTypeUrls: ["/zerone.claiming_pot.v1.MsgClaim"],
+});
+
+// Sign and broadcast `grant` as the granter. Standard feegrant codecs are in
+// CosmJS's defaultRegistryTypes.
+
+const fee = makeSponsoredFee({
+  network,
+  granter,
+  amount: [{ denom: "uzrn", amount: "2500" }],
+  gas: "200000",
+});
+// Sign and broadcast the allowed onboarding message as `grantee`, passing
+// `fee` to SigningStargateClient.signAndBroadcast.
+
+const revoke = makeRevokeFeeGrant({ network, granter, grantee });
+```
+
+The grant builder always nests a finite `BasicAllowance` inside an
+`AllowedMsgAllowance`. It requires a positive spend limit, a future expiry,
+and one or more exact protobuf message type URLs. Its policy currently
+allowlists only `/zerone.claiming_pot.v1.MsgClaim`; every other type, including
+nested authorization envelopes, is rejected until its signer and authority
+behavior receives a separate review. It also rejects duplicate or noncanonical
+coins, wildcard-like URLs, and self-grants. Applications that intentionally
+need another allowance shape can use the standard Cosmos feegrant codecs
+directly and own that broader policy.
+
+Feegrant pays transaction fees only: it does not let the grantee sign messages
+as the granter. The helper does not query, broadcast, or prove that the
+allowance exists; applications should query the connected chain, show the
+budget and expiry to both parties, and handle revocation. These guardrails are
+client policy rather than new consensus validation, so lower-level Cosmos SDK
+clients can still construct other allowance shapes. Sponsored gas is capped at
+CosmJS's exact Int53 range so every accepted fee remains signable by the pinned
+client. Expiry is checked against the application's wall clock while block time
+is authoritative, so callers should leave a practical clock-skew and inclusion
+margin. Use a direct protobuf signer; CosmJS 0.39 does not provide legacy Amino
+feegrant converters. CosmJS applications can use `setupFeegrantExtension` from
+`@cosmjs/stargate` for allowance queries.
 ## Parse an unsigned provenance projection
 
 ```ts
@@ -272,8 +357,8 @@ npm run check:publish
 
 `check:publish` runs the package's normal `npm pack` lifecycle, installs that
 exact tarball into a fresh temporary strict NodeNext project, and type-checks
-and executes imports from the root, `caip`, `liquidity`, `messages`,
-`provenance`, and `registry` public entry points. The temporary package and
+and executes imports from the root, `caip`, `cid`, `feegrant`, `liquidity`,
+`messages`, `provenance`, and `registry` public entry points. The temporary package and
 consumer are removed after the gate.
 
 Regeneration uses the package's pinned local Buf CLI:

@@ -15,7 +15,7 @@
 #   scripts/localnet.sh logs [N] # Tail validator N's logs (default: all)
 #   scripts/localnet.sh clean    # Stop + remove all state
 #
-# Requires: go (1.24+), jq >= 1.6
+# Requires: Go 1.25.12 exactly, jq >= 1.6
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -30,6 +30,7 @@ COORDINATOR_HOME="${BASE_DIR}/coordinator"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY="${PROJECT_ROOT}/build/zeroned"
 KEYRING="test"
+REQUIRED_GO_VERSION="go1.25.12"
 
 BASE_P2P_PORT=26600
 
@@ -53,7 +54,9 @@ warn() { echo -e "\033[1;33m  !!\033[0m $*"; }
 
 check_deps() {
   command -v jq >/dev/null 2>&1 || die "jq >= 1.6 required. Install: brew install jq"
-  command -v go >/dev/null 2>&1 || die "go >= 1.24 required."
+  command -v go >/dev/null 2>&1 || die "Go 1.25.12 required."
+  [[ "$(go env GOVERSION 2>/dev/null)" == "${REQUIRED_GO_VERSION}" ]] ||
+    die "Go 1.25.12 required; found $(go env GOVERSION 2>/dev/null || echo unavailable)."
 }
 
 # Atomic jq patch on coordinator genesis

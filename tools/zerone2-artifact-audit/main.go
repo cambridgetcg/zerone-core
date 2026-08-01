@@ -871,7 +871,8 @@ func (a *auditor) auditGentx() {
 		return
 	}
 	a.requireExactObjectKeys("app_state.genutil.gen_txs[0].body", body,
-		"messages", "memo", "timeout_height", "extension_options", "non_critical_extension_options")
+		"messages", "memo", "timeout_height", "extension_options", "non_critical_extension_options",
+		"unordered", "timeout_timestamp")
 	memo, ok := body["memo"].(string)
 	if !ok || memo == "" {
 		a.add("app_state.genutil.gen_txs[0].body.memo", "must declare the validator node ID")
@@ -886,6 +887,12 @@ func (a *auditor) auditGentx() {
 	a.requireIntegerValue("app_state.genutil.gen_txs[0].body.timeout_height", body["timeout_height"], "0")
 	a.requireEmptyArrayValue("app_state.genutil.gen_txs[0].body.extension_options", body["extension_options"], true)
 	a.requireEmptyArrayValue("app_state.genutil.gen_txs[0].body.non_critical_extension_options", body["non_critical_extension_options"], true)
+	if unordered, ok := body["unordered"].(bool); !ok || unordered {
+		a.add("app_state.genutil.gen_txs[0].body.unordered", "must be explicit false")
+	}
+	if timeout, exists := body["timeout_timestamp"]; !exists || timeout != nil {
+		a.add("app_state.genutil.gen_txs[0].body.timeout_timestamp", "must be explicit null")
+	}
 	messages, ok := body["messages"].([]any)
 	if !ok || len(messages) != 1 {
 		a.add("app_state.genutil.gen_txs[0].body.messages", "must contain exactly one MsgCreateValidator")
@@ -1118,12 +1125,30 @@ func verifyGentxSignature(txJSON []byte, expectedAddress string) (err error) {
 }
 
 func (a *auditor) auditProtocolDark() {
-	// IBC-go v8 creates the 09-localhost client during InitGenesis even when
+	// IBC-go v10 creates the 09-localhost client during InitGenesis even when
 	// create_localhost is false. Whitelist that internal client only so the
 	// first export remains valid without enabling any external client type.
 	// ICS-20 transfer and both ICA roles remain explicitly disabled.
 	a.requireStringArray("app_state.ibc.client_genesis.params.allowed_clients", []string{"09-localhost"})
 	a.requireBool("app_state.ibc.client_genesis.create_localhost", false)
+	transfer, _ := a.get("app_state.transfer")
+	transferObject := a.requireExactObjectKeys(
+		"app_state.transfer",
+		transfer,
+		"port_id",
+		"denoms",
+		"params",
+		"total_escrowed",
+	)
+	if transferObject != nil {
+		a.requireExactObjectKeys(
+			"app_state.transfer.params",
+			transferObject["params"],
+			"send_enabled",
+			"receive_enabled",
+		)
+	}
+	a.requireString("app_state.transfer.port_id", "transfer")
 	for _, path := range []string{
 		"app_state.ibc.client_genesis.clients",
 		"app_state.ibc.client_genesis.clients_consensus",
@@ -1134,7 +1159,7 @@ func (a *auditor) auditProtocolDark() {
 		"app_state.ibc.channel_genesis.acknowledgements",
 		"app_state.ibc.channel_genesis.commitments",
 		"app_state.ibc.channel_genesis.receipts",
-		"app_state.transfer.denom_traces",
+		"app_state.transfer.denoms",
 		"app_state.transfer.total_escrowed",
 	} {
 		a.requireEmptyArray(path)

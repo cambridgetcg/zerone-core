@@ -19,13 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Msg_ProposeHalt_FullMethodName   = "/zerone.emergency.v1.Msg/ProposeHalt"
-	Msg_VoteHalt_FullMethodName      = "/zerone.emergency.v1.Msg/VoteHalt"
-	Msg_ProposeRevert_FullMethodName = "/zerone.emergency.v1.Msg/ProposeRevert"
-	Msg_VoteRevert_FullMethodName    = "/zerone.emergency.v1.Msg/VoteRevert"
-	Msg_ProposeResume_FullMethodName = "/zerone.emergency.v1.Msg/ProposeResume"
-	Msg_VoteResume_FullMethodName    = "/zerone.emergency.v1.Msg/VoteResume"
-	Msg_UpdateParams_FullMethodName  = "/zerone.emergency.v1.Msg/UpdateParams"
+	Msg_ProposeHalt_FullMethodName                  = "/zerone.emergency.v1.Msg/ProposeHalt"
+	Msg_VoteHalt_FullMethodName                     = "/zerone.emergency.v1.Msg/VoteHalt"
+	Msg_ProposeRevert_FullMethodName                = "/zerone.emergency.v1.Msg/ProposeRevert"
+	Msg_VoteRevert_FullMethodName                   = "/zerone.emergency.v1.Msg/VoteRevert"
+	Msg_ProposeResume_FullMethodName                = "/zerone.emergency.v1.Msg/ProposeResume"
+	Msg_VoteResume_FullMethodName                   = "/zerone.emergency.v1.Msg/VoteResume"
+	Msg_ProposeRecoveryAuthorization_FullMethodName = "/zerone.emergency.v1.Msg/ProposeRecoveryAuthorization"
+	Msg_VoteRecoveryAuthorization_FullMethodName    = "/zerone.emergency.v1.Msg/VoteRecoveryAuthorization"
+	Msg_UpdateParams_FullMethodName                 = "/zerone.emergency.v1.Msg/UpdateParams"
 )
 
 // MsgClient is the client API for Msg service.
@@ -40,6 +42,8 @@ type MsgClient interface {
 	VoteRevert(ctx context.Context, in *MsgVoteRevert, opts ...grpc.CallOption) (*MsgVoteRevertResponse, error)
 	ProposeResume(ctx context.Context, in *MsgProposeResume, opts ...grpc.CallOption) (*MsgProposeResumeResponse, error)
 	VoteResume(ctx context.Context, in *MsgVoteResume, opts ...grpc.CallOption) (*MsgVoteResumeResponse, error)
+	ProposeRecoveryAuthorization(ctx context.Context, in *MsgProposeRecoveryAuthorization, opts ...grpc.CallOption) (*MsgProposeRecoveryAuthorizationResponse, error)
+	VoteRecoveryAuthorization(ctx context.Context, in *MsgVoteRecoveryAuthorization, opts ...grpc.CallOption) (*MsgVoteRecoveryAuthorizationResponse, error)
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 }
 
@@ -111,6 +115,26 @@ func (c *msgClient) VoteResume(ctx context.Context, in *MsgVoteResume, opts ...g
 	return out, nil
 }
 
+func (c *msgClient) ProposeRecoveryAuthorization(ctx context.Context, in *MsgProposeRecoveryAuthorization, opts ...grpc.CallOption) (*MsgProposeRecoveryAuthorizationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgProposeRecoveryAuthorizationResponse)
+	err := c.cc.Invoke(ctx, Msg_ProposeRecoveryAuthorization_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) VoteRecoveryAuthorization(ctx context.Context, in *MsgVoteRecoveryAuthorization, opts ...grpc.CallOption) (*MsgVoteRecoveryAuthorizationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgVoteRecoveryAuthorizationResponse)
+	err := c.cc.Invoke(ctx, Msg_VoteRecoveryAuthorization_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MsgUpdateParamsResponse)
@@ -133,6 +157,8 @@ type MsgServer interface {
 	VoteRevert(context.Context, *MsgVoteRevert) (*MsgVoteRevertResponse, error)
 	ProposeResume(context.Context, *MsgProposeResume) (*MsgProposeResumeResponse, error)
 	VoteResume(context.Context, *MsgVoteResume) (*MsgVoteResumeResponse, error)
+	ProposeRecoveryAuthorization(context.Context, *MsgProposeRecoveryAuthorization) (*MsgProposeRecoveryAuthorizationResponse, error)
+	VoteRecoveryAuthorization(context.Context, *MsgVoteRecoveryAuthorization) (*MsgVoteRecoveryAuthorizationResponse, error)
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 	mustEmbedUnimplementedMsgServer()
 }
@@ -161,6 +187,12 @@ func (UnimplementedMsgServer) ProposeResume(context.Context, *MsgProposeResume) 
 }
 func (UnimplementedMsgServer) VoteResume(context.Context, *MsgVoteResume) (*MsgVoteResumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VoteResume not implemented")
+}
+func (UnimplementedMsgServer) ProposeRecoveryAuthorization(context.Context, *MsgProposeRecoveryAuthorization) (*MsgProposeRecoveryAuthorizationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProposeRecoveryAuthorization not implemented")
+}
+func (UnimplementedMsgServer) VoteRecoveryAuthorization(context.Context, *MsgVoteRecoveryAuthorization) (*MsgVoteRecoveryAuthorizationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VoteRecoveryAuthorization not implemented")
 }
 func (UnimplementedMsgServer) UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateParams not implemented")
@@ -294,6 +326,42 @@ func _Msg_VoteResume_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_ProposeRecoveryAuthorization_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgProposeRecoveryAuthorization)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).ProposeRecoveryAuthorization(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_ProposeRecoveryAuthorization_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).ProposeRecoveryAuthorization(ctx, req.(*MsgProposeRecoveryAuthorization))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_VoteRecoveryAuthorization_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgVoteRecoveryAuthorization)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).VoteRecoveryAuthorization(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_VoteRecoveryAuthorization_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).VoteRecoveryAuthorization(ctx, req.(*MsgVoteRecoveryAuthorization))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_UpdateParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgUpdateParams)
 	if err := dec(in); err != nil {
@@ -342,6 +410,14 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VoteResume",
 			Handler:    _Msg_VoteResume_Handler,
+		},
+		{
+			MethodName: "ProposeRecoveryAuthorization",
+			Handler:    _Msg_ProposeRecoveryAuthorization_Handler,
+		},
+		{
+			MethodName: "VoteRecoveryAuthorization",
+			Handler:    _Msg_VoteRecoveryAuthorization_Handler,
 		},
 		{
 			MethodName: "UpdateParams",

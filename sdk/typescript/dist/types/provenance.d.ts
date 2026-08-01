@@ -1,6 +1,6 @@
 declare const uint64DecimalBrand: unique symbol;
 export declare const IN_TOTO_STATEMENT_V1_TYPE: "https://in-toto.io/Statement/v1";
-export declare const ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE: "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/training-provenance-v1.md";
+export declare const ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE: "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md";
 /**
  * Defensive consumer limits. These are SDK parsing bounds, not consensus
  * rules, and intentionally make no claim about historical on-chain IDs.

@@ -28,6 +28,8 @@ Under v2 and ordinary parameter governance, no proposal, withdrawal-address subs
 
 This is a constitutional prohibition, not a claim that coordinated future source code is physically impossible. A separately coordinated code change could technically invent a different distribution; it would replace or breach this contract rather than exercise a v2 founder parameter. The v2 migration belongs only to the atomic `consolidation-safety-v1` (H1) boundary: the handler requires the exact four-module prestate, requires every unrelated module already current, and proves the complete target poststate before writing its activation marker. Every other named handler requires all four H1 modules already current, so an older or unrelated plan cannot silently carry this migration.
 
+H1 and `sdk-0.53-ibc-10` are necessarily two separately frozen binaries as well as two separately named upgrades. The H1 release artifact must come from a reviewed pre-SDK-0.53 lineage whose unrelated target versions match the live SDK v0.50 / IBC-Go v8 state. A post-SDK integrated tip has different unrelated target versions and is not an admissible H1 artifact for that legacy state. Only a later, separately attested SDK/IBC artifact may follow the committed H1 marker and exact four-module poststate. Source co-residence of both handlers is not authority to combine, reorder, or deploy them.
+
 This is an economic renunciation, not proof of operational decentralization.
 
 ## K-alpha is deliberately unpriced

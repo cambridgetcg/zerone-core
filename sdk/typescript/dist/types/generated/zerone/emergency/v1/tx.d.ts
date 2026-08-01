@@ -94,6 +94,10 @@ export interface MsgVoteRevertResponse {
 export interface MsgProposeResume {
     proposer: string;
     justification: string;
+    /**
+     * Lowercase 64-character SHA-256 of the canonical recovery manifest.
+     */
+    recoveryManifestSha256: string;
 }
 /**
  * @name MsgProposeResumeResponse
@@ -121,6 +125,58 @@ export interface MsgVoteResume {
 export interface MsgVoteResumeResponse {
     quorumReached: boolean;
     chainResumed: boolean;
+}
+/**
+ * @name MsgProposeRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorization
+ */
+export interface MsgProposeRecoveryAuthorization {
+    proposer: string;
+    sdkGovProposalId: bigint;
+    /**
+     * Canonical lowercase SHA-256 of the proposal's sole recovery action.
+     */
+    actionSha256: string;
+    /**
+     * Canonical lowercase SHA-256 of the reviewed, signed recovery manifest.
+     */
+    recoveryManifestSha256: string;
+    justification: string;
+    upgradePlanSha256: string;
+    authorizedSubmitter: string;
+    /**
+     * software_upgrade, cancel_upgrade, or revoke. A revoke ceremony repeats
+     * the exact hashes, proposal ID, and submitter of the live authorization.
+     */
+    actionType: string;
+}
+/**
+ * @name MsgProposeRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse
+ */
+export interface MsgProposeRecoveryAuthorizationResponse {
+    proposalId: string;
+}
+/**
+ * @name MsgVoteRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorization
+ */
+export interface MsgVoteRecoveryAuthorization {
+    voter: string;
+    proposalId: string;
+    approve: boolean;
+}
+/**
+ * @name MsgVoteRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse
+ */
+export interface MsgVoteRecoveryAuthorizationResponse {
+    quorumReached: boolean;
+    recoveryAuthorized: boolean;
 }
 /**
  * @name MsgUpdateParams
@@ -269,6 +325,50 @@ export declare const MsgVoteResumeResponse: {
     encode(message: MsgVoteResumeResponse, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): MsgVoteResumeResponse;
     fromPartial(object: DeepPartial<MsgVoteResumeResponse>): MsgVoteResumeResponse;
+};
+/**
+ * @name MsgProposeRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorization
+ */
+export declare const MsgProposeRecoveryAuthorization: {
+    typeUrl: string;
+    encode(message: MsgProposeRecoveryAuthorization, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgProposeRecoveryAuthorization;
+    fromPartial(object: DeepPartial<MsgProposeRecoveryAuthorization>): MsgProposeRecoveryAuthorization;
+};
+/**
+ * @name MsgProposeRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse
+ */
+export declare const MsgProposeRecoveryAuthorizationResponse: {
+    typeUrl: string;
+    encode(message: MsgProposeRecoveryAuthorizationResponse, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgProposeRecoveryAuthorizationResponse;
+    fromPartial(object: DeepPartial<MsgProposeRecoveryAuthorizationResponse>): MsgProposeRecoveryAuthorizationResponse;
+};
+/**
+ * @name MsgVoteRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorization
+ */
+export declare const MsgVoteRecoveryAuthorization: {
+    typeUrl: string;
+    encode(message: MsgVoteRecoveryAuthorization, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgVoteRecoveryAuthorization;
+    fromPartial(object: DeepPartial<MsgVoteRecoveryAuthorization>): MsgVoteRecoveryAuthorization;
+};
+/**
+ * @name MsgVoteRecoveryAuthorizationResponse
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse
+ */
+export declare const MsgVoteRecoveryAuthorizationResponse: {
+    typeUrl: string;
+    encode(message: MsgVoteRecoveryAuthorizationResponse, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgVoteRecoveryAuthorizationResponse;
+    fromPartial(object: DeepPartial<MsgVoteRecoveryAuthorizationResponse>): MsgVoteRecoveryAuthorizationResponse;
 };
 /**
  * @name MsgUpdateParams

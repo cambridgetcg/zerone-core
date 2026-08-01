@@ -48,6 +48,9 @@ service Query {
   rpc ResearchFundSeats(QueryResearchFundSeatsRequest) returns (QueryResearchFundSeatsResponse) {
     option (google.api.http).get = "/zerone/gov/v1/research_fund_seats";
   }
+  rpc EmergencyTransitionHold(QueryEmergencyTransitionHoldRequest) returns (QueryEmergencyTransitionHoldResponse) {
+    option (google.api.http).get = "/zerone/gov/v1/emergency_transition_hold";
+  }
 }
 
 message QueryLIPRequest {
@@ -164,4 +167,12 @@ message QueryResearchFundSeatsResponse {
   repeated string community_seats = 1;
   repeated uint64 seat_term_end_blocks = 2;
   uint32 active_seat_count = 3;
+}
+
+message QueryEmergencyTransitionHoldRequest {}
+
+message QueryEmergencyTransitionHoldResponse {
+  bool held = 1;
+  EmergencyTransitionHold hold = 2;
+  string release_mechanism = 3;
 }

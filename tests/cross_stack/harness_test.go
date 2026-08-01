@@ -1,6 +1,7 @@
 package cross_stack_test
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -10,6 +11,8 @@ import (
 
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmted25519 "github.com/cometbft/cometbft/crypto/ed25519"
@@ -59,9 +62,11 @@ const testChainID = "zerone-test-1"
 // TestHarness provides a full app context for cross-module integration tests.
 // All keepers are real (not mocked) and share state through the same app instance.
 type TestHarness struct {
-	T   *testing.T
-	App *zeroneapp.ZeroneApp
-	Ctx sdk.Context
+	T    *testing.T
+	App  *zeroneapp.ZeroneApp
+	Ctx  sdk.Context
+	DB   dbm.DB
+	Home string
 
 	// Zerone custom module keepers
 	AuthKeeper    zeroneauthkeeper.Keeper
@@ -213,12 +218,13 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	t.Helper()
 
 	db := dbm.NewMemDB()
+	home := t.TempDir()
 	app := zeroneapp.NewZeroneApp(
 		log.NewNopLogger(),
 		db,
 		nil,  // traceStore
 		true, // loadLatest
-		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+		simtestutil.NewAppOptionsWithFlagHome(home),
 		baseapp.SetChainID(testChainID),
 	)
 
@@ -234,7 +240,7 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	})
 	require.NoError(t, err)
 
-	// Cosmos SDK v0.50 keeps InitChain writes in finalizeBlockState. The
+	// The ABCI++ lifecycle keeps InitChain writes in finalizeBlockState. The
 	// initial FinalizeBlock writes that cache into the root multistore before
 	// Commit persists it; committing directly would discard module genesis.
 	_, err = app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
@@ -246,6 +252,8 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	h := &TestHarness{
 		T:               t,
 		App:             app,
+		DB:              db,
+		Home:            home,
 		AuthKeeper:      app.ZeroneAuthKeeper,
 		StakingKeeper:   app.ZeroneStakingKeeper,
 		BankKeeper:      app.BankKeeper,
@@ -329,6 +337,40 @@ func (h *TestHarness) FundAccount(addr sdk.AccAddress, amount sdk.Coins) error {
 		return err
 	}
 	return h.App.BankKeeper.SendCoinsFromModuleToAccount(h.Ctx, moduleName, addr, amount)
+}
+
+// SeedCompletedUpgrade records the immutable x/upgrade done-height fact used
+// to model a prior binary activation in cross-stack tests.
+func (h *TestHarness) SeedCompletedUpgrade(name string, height int64) {
+	h.T.Helper()
+	require.NotEmpty(h.T, name)
+	require.Positive(h.T, height)
+	key := make([]byte, 9+len(name))
+	key[0] = upgradetypes.DoneByte
+	binary.BigEndian.PutUint64(key[1:9], uint64(height))
+	copy(key[9:], name)
+	h.Ctx.KVStore(
+		h.App.GetStoreKeyForTests(upgradetypes.StoreKey),
+	).Set(key, []byte{1})
+}
+
+// CommitHMinusOne writes the harness cache into the root store and refreshes
+// the context. Upgrade handlers that audit the unwrapped committed IAVL state
+// must only see records that really existed in the last committed block.
+func (h *TestHarness) CommitHMinusOne() {
+	h.T.Helper()
+	cache, ok := h.Ctx.MultiStore().(storetypes.CacheMultiStore)
+	require.True(h.T, ok, "test context must use a cache multistore")
+	cache.Write()
+	h.App.CommitMultiStore().Commit()
+	h.Ctx = h.App.NewUncachedContext(
+		true,
+		cmtproto.Header{
+			Height:  h.currentHeight,
+			ChainID: testChainID,
+		},
+	).WithBlockHeight(h.currentHeight).
+		WithChainID(testChainID)
 }
 
 // AdvanceBlocks simulates advancing the chain by n blocks.

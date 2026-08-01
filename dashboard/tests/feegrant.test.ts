@@ -291,6 +291,26 @@ describe("bounded feegrant messages", () => {
     );
   });
 
+  it("preserves post-2038 expirations in the encoded allowance", () => {
+    const now = Date.parse("2099-01-01T00:00:00Z");
+    const expiration = new Date(now + 7 * 24 * 60 * 60 * 1_000 + 123);
+    const message = createBoundedGrantMessage({
+      granter: GRANTER,
+      grantee: GRANTEE,
+      spendLimitZrn: "1",
+      expiration,
+      allowedMessages: [CLAIM_TYPE_URL],
+      now,
+    });
+    const grant = message.value as MsgGrantAllowance;
+    const restricted = AllowedMsgAllowance.decode(grant.allowance!.value);
+    const basic = BasicAllowance.decode(restricted.allowance!.value);
+    assert.deepEqual(basic.expiration, {
+      seconds: BigInt(Math.floor(expiration.getTime() / 1_000)),
+      nanos: 123_000_000,
+    });
+  });
+
   it("rejects self-grants, broad scopes, excessive caps, and excessive duration", () => {
     const base = {
       granter: GRANTER,

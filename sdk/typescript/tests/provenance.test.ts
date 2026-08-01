@@ -82,6 +82,13 @@ function certificate(value: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe("unsigned Zerone in-toto provenance", () => {
+  it("pins the predicate profile to an immutable specification revision", () => {
+    assert.equal(
+      ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
+      "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md",
+    );
+  });
+
   it("parses the exact v1 profile and preserves uint64 values as strings", () => {
     const parsed = parse();
 

@@ -1,7 +1,9 @@
 package types
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -24,9 +26,10 @@ const (
 type CeremonyType string
 
 const (
-	CeremonyHalt   CeremonyType = "halt"
-	CeremonyRevert CeremonyType = "revert"
-	CeremonyResume CeremonyType = "resume"
+	CeremonyHalt                  CeremonyType = "halt"
+	CeremonyRevert                CeremonyType = "revert"
+	CeremonyResume                CeremonyType = "resume"
+	CeremonyRecoveryAuthorization CeremonyType = "recovery_authorization"
 )
 
 // Ceremony phase constants.
@@ -43,25 +46,51 @@ const (
 type AuditAction string
 
 const (
-	AuditHaltProposed    AuditAction = "halt_proposed"
-	AuditHaltPrevote     AuditAction = "halt_prevote"
-	AuditHaltPrecommit   AuditAction = "halt_precommit"
-	AuditHaltExecuted    AuditAction = "halt_executed"
-	AuditHaltFailed      AuditAction = "halt_failed"
-	AuditRevertProposed  AuditAction = "revert_proposed"
-	AuditRevertPrevote   AuditAction = "revert_prevote"
-	AuditRevertPrecommit AuditAction = "revert_precommit"
-	AuditRevertExecuted  AuditAction = "revert_executed"
-	AuditRevertFailed    AuditAction = "revert_failed"
-	AuditResumeProposed  AuditAction = "resume_proposed"
-	AuditResumePrevote   AuditAction = "resume_prevote"
-	AuditResumePrecommit AuditAction = "resume_precommit"
-	AuditResumeExecuted  AuditAction = "resume_executed"
-	AuditResumeFailed    AuditAction = "resume_failed"
+	AuditHaltProposed                   AuditAction = "halt_proposed"
+	AuditHaltPrevote                    AuditAction = "halt_prevote"
+	AuditHaltPrecommit                  AuditAction = "halt_precommit"
+	AuditHaltExecuted                   AuditAction = "halt_executed"
+	AuditHaltFailed                     AuditAction = "halt_failed"
+	AuditRevertProposed                 AuditAction = "revert_proposed"
+	AuditRevertPrevote                  AuditAction = "revert_prevote"
+	AuditRevertPrecommit                AuditAction = "revert_precommit"
+	AuditRevertExecuted                 AuditAction = "revert_executed"
+	AuditRevertFailed                   AuditAction = "revert_failed"
+	AuditResumeProposed                 AuditAction = "resume_proposed"
+	AuditResumePrevote                  AuditAction = "resume_prevote"
+	AuditResumePrecommit                AuditAction = "resume_precommit"
+	AuditResumeExecuted                 AuditAction = "resume_executed"
+	AuditResumeFailed                   AuditAction = "resume_failed"
+	AuditRecoveryAuthorizationProposed  AuditAction = "recovery_authorization_proposed"
+	AuditRecoveryAuthorizationPrevote   AuditAction = "recovery_authorization_prevote"
+	AuditRecoveryAuthorizationPrecommit AuditAction = "recovery_authorization_precommit"
+	AuditRecoveryAuthorized             AuditAction = "recovery_authorized"
+	AuditRecoveryRevoked                AuditAction = "recovery_revoked"
+	AuditRecoveryAuthorizationFailed    AuditAction = "recovery_authorization_failed"
+	AuditLegacyNormalized               AuditAction = "legacy_state_normalized"
 )
 
 // Guardian tier constant (must match staking module TierGuardian value = 4).
 const TierGuardian = uint32(4)
+
+const (
+	MaxEmergencyReasonBytes       = 4096
+	MaxRecoveryJustificationBytes = 4096
+	MaxEmergencyElectorateSize    = 100
+	SHA256HexLength               = 64
+	ElectorateSnapshotVersionV1   = uint32(1)
+)
+
+const (
+	MsgProposeHaltTypeURL                  = "/zerone.emergency.v1.MsgProposeHalt"
+	MsgVoteHaltTypeURL                     = "/zerone.emergency.v1.MsgVoteHalt"
+	MsgProposeRevertTypeURL                = "/zerone.emergency.v1.MsgProposeRevert"
+	MsgVoteRevertTypeURL                   = "/zerone.emergency.v1.MsgVoteRevert"
+	MsgProposeResumeTypeURL                = "/zerone.emergency.v1.MsgProposeResume"
+	MsgVoteResumeTypeURL                   = "/zerone.emergency.v1.MsgVoteResume"
+	MsgProposeRecoveryAuthorizationTypeURL = "/zerone.emergency.v1.MsgProposeRecoveryAuthorization"
+	MsgVoteRecoveryAuthorizationTypeURL    = "/zerone.emergency.v1.MsgVoteRecoveryAuthorization"
+)
 
 // --- Ceremony helpers ---
 
@@ -118,6 +147,9 @@ func (msg *MsgProposeHalt) ValidateBasic() error {
 	}
 	if msg.Reason == "" {
 		return fmt.Errorf("reason cannot be empty")
+	}
+	if len(msg.Reason) > MaxEmergencyReasonBytes {
+		return fmt.Errorf("reason cannot exceed %d bytes", MaxEmergencyReasonBytes)
 	}
 	return nil
 }
@@ -188,6 +220,15 @@ func (msg *MsgProposeResume) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(msg.Proposer); err != nil {
 		return fmt.Errorf("invalid proposer address: %w", err)
 	}
+	if msg.Justification == "" {
+		return fmt.Errorf("justification cannot be empty")
+	}
+	if len(msg.Justification) > MaxRecoveryJustificationBytes {
+		return fmt.Errorf("justification cannot exceed %d bytes", MaxRecoveryJustificationBytes)
+	}
+	if !IsLowerSHA256(msg.RecoveryManifestSha256) {
+		return fmt.Errorf("recovery_manifest_sha256 must be exactly %d lowercase hexadecimal characters", SHA256HexLength)
+	}
 	return nil
 }
 
@@ -210,6 +251,79 @@ func (msg *MsgVoteResume) ValidateBasic() error {
 }
 
 func (msg *MsgVoteResume) GetSigners() []sdk.AccAddress {
+	addr, _ := sdk.AccAddressFromBech32(msg.Voter)
+	return []sdk.AccAddress{addr}
+}
+
+func (msg *MsgProposeRecoveryAuthorization) ValidateBasic() error {
+	if msg.Proposer == "" {
+		return fmt.Errorf("proposer cannot be empty")
+	}
+	if _, err := sdk.AccAddressFromBech32(msg.Proposer); err != nil {
+		return fmt.Errorf("invalid proposer address: %w", err)
+	}
+	if msg.SdkGovProposalId == 0 {
+		return fmt.Errorf("sdk_gov_proposal_id must be positive")
+	}
+	if !IsLowerSHA256(msg.ActionSha256) {
+		return fmt.Errorf(
+			"action_sha256 must be exactly %d lowercase hexadecimal characters",
+			SHA256HexLength,
+		)
+	}
+	if !IsLowerSHA256(msg.RecoveryManifestSha256) {
+		return fmt.Errorf(
+			"recovery_manifest_sha256 must be exactly %d lowercase hexadecimal characters",
+			SHA256HexLength,
+		)
+	}
+	if !IsLowerSHA256(msg.UpgradePlanSha256) {
+		return fmt.Errorf(
+			"upgrade_plan_sha256 must be exactly %d lowercase hexadecimal characters",
+			SHA256HexLength,
+		)
+	}
+	if _, err := sdk.AccAddressFromBech32(msg.AuthorizedSubmitter); err != nil {
+		return fmt.Errorf("invalid authorized_submitter address: %w", err)
+	}
+	switch msg.ActionType {
+	case "software_upgrade", "cancel_upgrade", "revoke":
+	default:
+		return fmt.Errorf(
+			"action_type must be software_upgrade, cancel_upgrade, or revoke",
+		)
+	}
+	if msg.Justification == "" {
+		return fmt.Errorf("justification cannot be empty")
+	}
+	if len(msg.Justification) > MaxRecoveryJustificationBytes {
+		return fmt.Errorf(
+			"justification cannot exceed %d bytes",
+			MaxRecoveryJustificationBytes,
+		)
+	}
+	return nil
+}
+
+func (msg *MsgProposeRecoveryAuthorization) GetSigners() []sdk.AccAddress {
+	addr, _ := sdk.AccAddressFromBech32(msg.Proposer)
+	return []sdk.AccAddress{addr}
+}
+
+func (msg *MsgVoteRecoveryAuthorization) ValidateBasic() error {
+	if msg.Voter == "" {
+		return fmt.Errorf("voter cannot be empty")
+	}
+	if _, err := sdk.AccAddressFromBech32(msg.Voter); err != nil {
+		return fmt.Errorf("invalid voter address: %w", err)
+	}
+	if msg.ProposalId == "" {
+		return fmt.Errorf("proposal_id cannot be empty")
+	}
+	return nil
+}
+
+func (msg *MsgVoteRecoveryAuthorization) GetSigners() []sdk.AccAddress {
 	addr, _ := sdk.AccAddressFromBech32(msg.Voter)
 	return []sdk.AccAddress{addr}
 }
@@ -238,6 +352,8 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgVoteRevert{}, "emergency/MsgVoteRevert", nil)
 	cdc.RegisterConcrete(&MsgProposeResume{}, "emergency/MsgProposeResume", nil)
 	cdc.RegisterConcrete(&MsgVoteResume{}, "emergency/MsgVoteResume", nil)
+	cdc.RegisterConcrete(&MsgProposeRecoveryAuthorization{}, "emergency/MsgProposeRecoveryAuthorization", nil)
+	cdc.RegisterConcrete(&MsgVoteRecoveryAuthorization{}, "emergency/MsgVoteRecoveryAuthorization", nil)
 	cdc.RegisterConcrete(&MsgUpdateParams{}, "emergency/MsgUpdateParams", nil)
 }
 
@@ -249,16 +365,50 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgVoteRevert{},
 		&MsgProposeResume{},
 		&MsgVoteResume{},
+		&MsgProposeRecoveryAuthorization{},
+		&MsgVoteRecoveryAuthorization{},
 		&MsgUpdateParams{},
 	)
 }
 
-// IsEmergencyMsg returns true if the given message is an emergency module transaction.
+// IsLowerSHA256 reports whether value is a canonical lowercase SHA-256 hex
+// digest. Recovery ceremonies bind to canonical manifest bytes through this
+// exact representation.
+func IsLowerSHA256(value string) bool {
+	if len(value) != SHA256HexLength || value != strings.ToLower(value) {
+		return false
+	}
+	decoded, err := hex.DecodeString(value)
+	return err == nil && len(decoded) == SHA256HexLength/2
+}
+
+// IsEmergencyMsg returns true if the given message belongs to the emergency
+// coordination module. The ante layer may apply a narrower policy; in
+// particular, legacy height-only revert messages are decoded but fail closed in
+// the message server.
 func IsEmergencyMsg(msg sdk.Msg) bool {
 	switch msg.(type) {
 	case *MsgProposeHalt, *MsgVoteHalt,
 		*MsgProposeRevert, *MsgVoteRevert,
-		*MsgProposeResume, *MsgVoteResume:
+		*MsgProposeResume, *MsgVoteResume,
+		*MsgProposeRecoveryAuthorization,
+		*MsgVoteRecoveryAuthorization:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsEmergencyTypeURL is the Any-level equivalent of IsEmergencyMsg. It lets
+// admission and upgrade audits reject emergency coordination hidden inside
+// governance/authz wrappers without trusting an Any's cached concrete value.
+func IsEmergencyTypeURL(typeURL string) bool {
+	switch typeURL {
+	case MsgProposeHaltTypeURL, MsgVoteHaltTypeURL,
+		MsgProposeRevertTypeURL, MsgVoteRevertTypeURL,
+		MsgProposeResumeTypeURL, MsgVoteResumeTypeURL,
+		MsgProposeRecoveryAuthorizationTypeURL,
+		MsgVoteRecoveryAuthorizationTypeURL:
 		return true
 	default:
 		return false
