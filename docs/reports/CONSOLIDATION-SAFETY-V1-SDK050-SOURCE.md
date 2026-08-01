@@ -2,6 +2,12 @@
 
 Status: **source only; activation NO-GO**
 
+The earlier source snapshot
+`1c0cee9cca80233bf72acc78ee310795db721317` was rejected by independent
+review and is retained only as rejected provenance. It is not an acceptable
+H1 source or binary identity. The additive replacement described here must
+receive a new commit identity and pass a fresh independent audit.
+
 This branch constructs the historical H1 binary boundary on Cosmos SDK
 `v0.50.15` and IBC-Go `v8.8.0`. It is based on source commit
 `315dafae4ec76952b3994d6740a1c2f18d3ec231`, the last reviewed point with
@@ -37,10 +43,67 @@ Liquidity v5 retires `protocol_fee_bps` at zero. The direct `3 → 5` path runs
 the lifecycle/index migration before the economic-neutrality migration, while
 normalizing the retired field before v4 whole-state validation. Swap execution
 keeps the complete fee in pool reserves for LP holders and cannot route a
-protocol skim. A plan-less restart against legacy state cannot silently gain
-that behavior: the nonzero legacy field acts as an activation sentinel and the
-swap and public simulation/quote paths fail closed until H1 has migrated it to
-zero.
+protocol skim.
+
+The zero field is defense in depth, not activation evidence: zero was legal in
+legacy state and an old `MsgUpdateParams` could write it. Every liquidity
+message (`CreatePool`, `Swap`, `AddLiquidity`, `RemoveLiquidity`,
+`UpdateParams`, and `SetPoolStatus`) and both authoritative quote surfaces
+(`CheckedSwapQuote` and gRPC `SimulateSwap`) require all of the following
+before reading mutation-dependent pool state:
+
+- an actual, decodable, consensus-valid Params record with
+  `protocol_fee_bps=0`; and
+- exactly one valid lineage:
+  - migrated: H1 marker `migrated`, native marker absent, and
+    `0 < H1 done height <= current height`; or
+  - native: H1 marker truly absent, native marker
+    `chain_lineage_native_consolidation-safety-v1=genesis`, H1 done height
+    zero, and a positive current height.
+
+Missing readers, missing Params, read failures, present-empty or forged
+markers, both markers together, zero/future migrated done heights, nonzero
+fees, and a direct `4 → 5` migration without global lineage evidence all fail
+without pool, Params, TWAP, bank, lock, counter, or event mutation.
+
+## Startup lineage wall
+
+The v5 app-wide behavior is protected before ABCI service, not only at the
+liquidity call sites. Immediately after `LoadLatestVersion`, and before
+`NewZeroneApp` returns, an uncached read-only committed-state check accepts
+only these deliberately separate states:
+
+1. **Uninitialized bootstrap:** committed height zero, empty VersionMap, no
+   lineage marker, no H1 done height, and no on-chain or disk plan. This is
+   only the pre-`InitChain` construction state. `InitChainer` writes the
+   separate native marker; an empty VersionMap is never treated as native or
+   migrated lineage.
+2. **Pending historical H1:** the exact complete pre-VersionMap, both lineage
+   markers truly absent, H1 done height zero, no unsafe skip at H1, and an
+   exact committed H1 plan at `latest+1`. Local `upgrade-info.json` must exist
+   and match the committed name, height, and Info byte for byte.
+3. **Completed historical H1:** the exact complete post-VersionMap, only the
+   H1 marker with value `migrated`, and a positive done height no greater than
+   latest. A retained disk halt packet is allowed only when it is canonical H1
+   metadata for that exact completed height; conflicting or stale evidence is
+   refused.
+4. **Native v5 genesis:** the exact complete target VersionMap, only the native
+   marker with value `genesis`, H1 done height zero, and no local upgrade-info
+   packet. A native chain does not claim that H1 ran.
+
+Every VersionMap comparison is full-map equality. Missing or unknown keys,
+unrelated catch-up, intermediate versions, and partial pre/post mixtures are
+refused. A stale legacy database with no exact halted H1 plan therefore cannot
+start this binary at all; K6/P2/L5 behavior is unavailable because no app is
+returned to serve ABCI.
+
+For pending H1 only, `Plan.Info` is a public, non-secret JSON object of at most
+4,096 bytes. It must contain at least one key and use compact, sorted-key
+canonical encoding; duplicate keys, whitespace variants, trailing values,
+and non-integer or non-canonical numbers are refused. This removes local versus
+on-chain parsing ambiguity. It defines no release fields and does **not** bind
+a source commit, executable, checksum, signer, or release packet; those remain
+separate release-ceremony requirements.
 
 H1 does not contain or execute the founder-renunciation migration. The exact
 H2 source is separately frozen at
@@ -50,7 +113,7 @@ consume independent evidence of both boundaries.
 
 ## Evidence and limitations
 
-Successful H1 execution produces the conjunction of:
+Successful historical H1 execution produces the conjunction of:
 
 1. the exact poststate module map (`K6/P2/L5/V1` plus every other exact target),
 2. the append-only knowledge-store marker

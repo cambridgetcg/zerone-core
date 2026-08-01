@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -8,6 +9,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/x/liquiditypool/types"
+)
+
+const (
+	h1UpgradeName        = "consolidation-safety-v1"
+	h1MigrationMarker    = "upgrade_marker_consolidation-safety-v1"
+	nativeLineageMarker  = "chain_lineage_native_consolidation-safety-v1"
+	nativeLineageGenesis = "genesis"
 )
 
 type checkedSwapQuote struct {
@@ -20,18 +28,86 @@ type checkedSwapQuote struct {
 	denomOut   string
 }
 
-// requireLiquidityV5Activated makes the retired protocol-fee field an
-// activation sentinel shared by executable swaps and their public quote path.
-// A v5 binary started against pre-H1 state must neither execute nor advertise
-// the post-H1 economics before the named migration writes zero.
+// requireLiquidityV5Activated proves exactly one accepted chain lineage: the
+// global named H1 upgrade completed at or before this height, or this chain was
+// born natively from the v5 source. It then checks the retired-fee sentinel as
+// defense in depth. The local zero is never sole activation evidence: zero was
+// legal before H1 and historical MsgUpdateParams could write it directly.
 func (k Keeper) requireLiquidityV5Activated(ctx sdk.Context) error {
-	if protocolFeeBps := k.GetParams(ctx).ProtocolFeeBps; protocolFeeBps != 0 {
+	h1Marker, h1Found, nativeMarker, nativeFound, doneHeight, err := k.readActivationEvidence(ctx)
+	if err != nil {
+		return fmt.Errorf("liquiditypool consensus v5 activation evidence unreadable: %w", err)
+	}
+	currentHeight := ctx.BlockHeight()
+	migratedLineage := h1Found && h1Marker == "migrated" && !nativeFound &&
+		doneHeight > 0 && currentHeight > 0 && doneHeight <= currentHeight
+	nativeLineage := !h1Found && nativeFound && nativeMarker == nativeLineageGenesis &&
+		doneHeight == 0 && currentHeight > 0
+	if !migratedLineage && !nativeLineage {
 		return fmt.Errorf(
-			"liquiditypool consensus v5 is not activated: protocol_fee_bps=%d; require migrated zero",
+			"liquiditypool consensus v5 is not activated: require exactly one valid migrated or native lineage; H1=%q (present=%t), native=%q (present=%t), done=%d, current=%d",
+			h1Marker,
+			h1Found,
+			nativeMarker,
+			nativeFound,
+			doneHeight,
+			currentHeight,
+		)
+	}
+	params, err := k.getStoredParamsChecked(ctx)
+	if err != nil {
+		return fmt.Errorf(
+			"liquiditypool consensus v5 is not activated: params proof invalid: %w",
+			err,
+		)
+	}
+	if protocolFeeBps := params.ProtocolFeeBps; protocolFeeBps != 0 {
+		return fmt.Errorf(
+			"liquiditypool consensus v5 is not activated: protocol_fee_bps=%d; require zero after accepted lineage proof",
 			protocolFeeBps,
 		)
 	}
 	return nil
+}
+
+// readActivationEvidence turns a missing dependency and even a malformed
+// cross-module store panic into an ordinary fail-closed error. It performs no
+// writes and deliberately reads both facts from the same SDK context.
+func (k Keeper) readActivationEvidence(ctx context.Context) (
+	h1Marker string,
+	h1Found bool,
+	nativeMarker string,
+	nativeFound bool,
+	doneHeight int64,
+	err error,
+) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("panic while reading H1 evidence: %v", recovered)
+		}
+	}()
+	if k.activationEvidence == nil {
+		return "", false, "", false, 0, fmt.Errorf("activation evidence reader is not configured")
+	}
+	h1Marker, h1Found, err = k.activationEvidence.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		h1MigrationMarker,
+	)
+	if err != nil {
+		return "", false, "", false, 0, fmt.Errorf("read H1 migration marker: %w", err)
+	}
+	nativeMarker, nativeFound, err = k.activationEvidence.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		nativeLineageMarker,
+	)
+	if err != nil {
+		return "", false, "", false, 0, fmt.Errorf("read native lineage marker: %w", err)
+	}
+	doneHeight, err = k.activationEvidence.GetDoneHeight(ctx, h1UpgradeName)
+	if err != nil {
+		return "", false, "", false, 0, fmt.Errorf("read H1 done height: %w", err)
+	}
+	return h1Marker, h1Found, nativeMarker, nativeFound, doneHeight, nil
 }
 
 // CheckedSwapQuote is the public quote surface shared by gRPC simulation and
@@ -44,9 +120,6 @@ func (k Keeper) CheckedSwapQuote(
 	ctx sdk.Context,
 	poolID, tokenInDenom, tokenInAmount string,
 ) (*types.SwapResult, error) {
-	if err := k.requireLiquidityV5Activated(ctx); err != nil {
-		return nil, err
-	}
 	quote, err := k.checkedSwapQuote(ctx, poolID, tokenInDenom, tokenInAmount)
 	if err != nil {
 		return nil, err
@@ -69,6 +142,11 @@ func (k Keeper) checkedSwapQuote(
 	ctx sdk.Context,
 	poolID, tokenInDenom, tokenInAmount string,
 ) (*checkedSwapQuote, error) {
+	// Keep the proof inside the private primitive so future same-package
+	// callers cannot accidentally bypass the activation wall.
+	if err := k.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	pool, found := k.GetPool(ctx, poolID)
 	if !found {
 		return nil, types.ErrPoolNotFound

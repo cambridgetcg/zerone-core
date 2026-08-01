@@ -26,6 +26,9 @@ var _ types.MsgServer = msgServer{}
 // CreatePool creates a governed constant-product AMM pool.
 func (m msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (*types.MsgCreatePoolResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := m.Keeper.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, err
 	}
@@ -179,13 +182,7 @@ func (m msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (
 
 func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSwapResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	// A plan-less restart of the v5 source against legacy v3/v4 state must not
-	// silently change fee routing before the named H1 migration. The legacy
-	// nonzero field is therefore an activation sentinel: fail closed until the
-	// 3→5 or 4→5 migration retires it at zero.
-	if err := m.Keeper.requireLiquidityV5Activated(ctx); err != nil {
-		return nil, err
-	}
+	// checkedSwapQuote starts with the shared lineage activation proof.
 	quote, err := m.Keeper.checkedSwapQuote(ctx, msg.PoolId, msg.TokenInDenom, msg.TokenInAmount)
 	if err != nil {
 		return nil, err
@@ -269,6 +266,9 @@ func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSw
 
 func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidity) (*types.MsgAddLiquidityResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := m.Keeper.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	pool, found := m.Keeper.GetPool(ctx, msg.PoolId)
 	if !found {
 		return nil, types.ErrPoolNotFound
@@ -377,6 +377,9 @@ func (m msgServer) AddLiquidity(goCtx context.Context, msg *types.MsgAddLiquidit
 
 func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLiquidity) (*types.MsgRemoveLiquidityResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := m.Keeper.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	pool, found := m.Keeper.GetPool(ctx, msg.PoolId)
 	if !found {
 		return nil, types.ErrPoolNotFound
@@ -497,6 +500,10 @@ func (m msgServer) RemoveLiquidity(goCtx context.Context, msg *types.MsgRemoveLi
 }
 
 func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := m.Keeper.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	if m.Keeper.GetAuthority() != msg.Authority {
 		return nil, fmt.Errorf("unauthorized: expected %s, got %s", m.Keeper.GetAuthority(), msg.Authority)
 	}
@@ -506,7 +513,6 @@ func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 	if err := msg.Params.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	ctx := sdk.UnwrapSDKContext(goCtx)
 	if m.Keeper.CountOpenPools(ctx) > msg.Params.MaxPools {
 		return nil, types.ErrMaxPoolsReached.Wrap("max_pools cannot be lower than current open pool count")
 	}
@@ -525,13 +531,16 @@ func (m msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 }
 
 func (m msgServer) SetPoolStatus(goCtx context.Context, msg *types.MsgSetPoolStatus) (*types.MsgSetPoolStatusResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := m.Keeper.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	if m.Keeper.GetAuthority() != msg.Authority {
 		return nil, types.ErrUnauthorized
 	}
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, err
 	}
-	ctx := sdk.UnwrapSDKContext(goCtx)
 	pool, found := m.Keeper.GetPool(ctx, msg.PoolId)
 	if !found {
 		return nil, types.ErrPoolNotFound

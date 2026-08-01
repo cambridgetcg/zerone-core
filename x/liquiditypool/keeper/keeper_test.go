@@ -47,6 +47,39 @@ var (
 	testSender    string
 )
 
+type h1ActivationEvidence struct {
+	marker            string
+	markerFound       bool
+	markerErr         error
+	nativeMarker      string
+	nativeMarkerFound bool
+	nativeMarkerErr   error
+	doneHeight        int64
+	doneErr           error
+}
+
+func activeH1Evidence(height int64) *h1ActivationEvidence {
+	return &h1ActivationEvidence{
+		marker:      "migrated",
+		markerFound: true,
+		doneHeight:  height,
+	}
+}
+
+func (e *h1ActivationEvidence) ReadMigrationMarkerPresenceChecked(
+	_ context.Context,
+	key string,
+) (string, bool, error) {
+	if key == "chain_lineage_native_consolidation-safety-v1" {
+		return e.nativeMarker, e.nativeMarkerFound, e.nativeMarkerErr
+	}
+	return e.marker, e.markerFound, e.markerErr
+}
+
+func (e *h1ActivationEvidence) GetDoneHeight(context.Context, string) (int64, error) {
+	return e.doneHeight, e.doneErr
+}
+
 // ---------- Mock BankKeeper ----------
 
 type mockBankKeeper struct {
@@ -187,7 +220,13 @@ func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
 	mockBK := newMockBankKeeper()
 
 	storeService := runtime.NewKVStoreService(storeKey)
-	k := keeper.NewKeeper(cdc, storeService, mockBK, testAuthority)
+	k := keeper.NewKeeper(
+		cdc,
+		storeService,
+		mockBK,
+		testAuthority,
+		activeH1Evidence(100),
+	)
 
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100, ChainID: testChainID}, false, log.NewNopLogger())
 	k.SetParams(ctx, defaultTestParams())

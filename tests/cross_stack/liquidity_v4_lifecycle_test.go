@@ -17,7 +17,16 @@ import (
 
 func TestLiquidityPoolV4RealAppLifecycle(t *testing.T) {
 	h := NewTestHarness(t)
+	// This legacy harness commits InitChain without FinalizeBlock, so genesis
+	// cache writes are not flushed (see the proper restart harness). Restore the
+	// native-lineage fact explicitly before exercising production liquidity.
+	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(
+		h.Ctx,
+		"chain_lineage_native_consolidation-safety-v1",
+		"genesis",
+	))
 	keeper := h.App.LiquidityPoolKeeper
+	keeper.SetParams(h.Ctx, keeper.GetParams(h.Ctx))
 	msgServer := liquiditypoolkeeper.NewMsgServerImpl(keeper)
 
 	creator := sdk.AccAddress(bytes.Repeat([]byte{0x31}, 20))

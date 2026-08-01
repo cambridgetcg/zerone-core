@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strings"
 	"testing"
 
 	corestore "cosmossdk.io/core/store"
@@ -40,6 +41,7 @@ type v4Harness struct {
 	bank        *mockBankKeeper
 	store       corestore.KVStoreService
 	authority   string
+	activation  *h1ActivationEvidence
 }
 
 type v4BankSnapshot struct {
@@ -105,7 +107,14 @@ func newV4Harness(t *testing.T) v4Harness {
 	cdc := codec.NewProtoCodec(registry)
 	bank := newMockBankKeeper()
 	authority := sdk.AccAddress(bytes.Repeat([]byte{0x41}, 20)).String()
-	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(storeKey), bank, authority)
+	activation := activeH1Evidence(v4TestBlockHeight)
+	k := keeper.NewKeeper(
+		cdc,
+		runtime.NewKVStoreService(storeKey),
+		bank,
+		authority,
+		activation,
+	)
 	ctx := sdk.NewContext(
 		stateStore,
 		cmtproto.Header{Height: v4TestBlockHeight, ChainID: testChainID},
@@ -131,6 +140,7 @@ func newV4Harness(t *testing.T) v4Harness {
 		bank:        bank,
 		store:       runtime.NewKVStoreService(storeKey),
 		authority:   authority,
+		activation:  activation,
 	}
 }
 
@@ -151,7 +161,14 @@ func newV4InvariantHarness(t *testing.T) v4Harness {
 	invariantBank := &v4InvariantBankKeeper{mockBankKeeper: bank}
 	authority := sdk.AccAddress(bytes.Repeat([]byte{0x41}, 20)).String()
 	storeService := runtime.NewKVStoreService(storeKey)
-	k := keeper.NewKeeper(cdc, storeService, invariantBank, authority)
+	activation := activeH1Evidence(v4TestBlockHeight)
+	k := keeper.NewKeeper(
+		cdc,
+		storeService,
+		invariantBank,
+		authority,
+		activation,
+	)
 	ctx := sdk.NewContext(
 		stateStore,
 		cmtproto.Header{Height: v4TestBlockHeight, ChainID: testChainID},
@@ -171,6 +188,7 @@ func newV4InvariantHarness(t *testing.T) v4Harness {
 		bank:        bank,
 		store:       storeService,
 		authority:   authority,
+		activation:  activation,
 	}
 }
 
@@ -1617,4 +1635,407 @@ func TestV4CheckedQuoteRejectsHostileWireInputWithoutPanic(t *testing.T) {
 	})
 	v4AssertPoolUnchanged(t, h, poolBefore)
 	v4AssertBankUnchanged(t, h.bank, bankBefore)
+}
+
+func TestV5GlobalActivationProofGatesEveryMsgAndQuoteWithoutMutation(t *testing.T) {
+	operations := []struct {
+		name      string
+		operation func(v4Harness, *types.Pool) error
+	}{
+		{
+			name: "create pool",
+			operation: func(h v4Harness, _ *types.Pool) error {
+				_, err := h.msgServer.CreatePool(h.ctx, &types.MsgCreatePool{
+					Creator: h.authority,
+					DenomA:  types.ZRNDenom,
+					DenomB:  "uosmo",
+					AmountA: "10000000000",
+					AmountB: "5000000000",
+				})
+				return err
+			},
+		},
+		{
+			name: "swap",
+			operation: func(h v4Harness, pool *types.Pool) error {
+				_, err := h.msgServer.Swap(h.ctx, &types.MsgSwap{
+					Sender: h.authority, PoolId: pool.PoolId,
+					TokenInDenom: pool.DenomA, TokenInAmount: "10000",
+				})
+				return err
+			},
+		},
+		{
+			name: "add liquidity",
+			operation: func(h v4Harness, pool *types.Pool) error {
+				_, err := h.msgServer.AddLiquidity(h.ctx, &types.MsgAddLiquidity{
+					Sender: h.authority, PoolId: pool.PoolId,
+					AmountA: "10000", AmountB: "5000",
+				})
+				return err
+			},
+		},
+		{
+			name: "remove liquidity",
+			operation: func(h v4Harness, pool *types.Pool) error {
+				_, err := h.msgServer.RemoveLiquidity(h.ctx, &types.MsgRemoveLiquidity{
+					Sender: h.authority, PoolId: pool.PoolId, LpTokens: "1",
+				})
+				return err
+			},
+		},
+		{
+			name: "update params cannot manufacture zero sentinel",
+			operation: func(h v4Harness, _ *types.Pool) error {
+				params := proto.Clone(h.keeper.GetParams(h.ctx)).(*types.Params)
+				params.ProtocolFeeBps = 0
+				_, err := h.msgServer.UpdateParams(h.ctx, &types.MsgUpdateParams{
+					Authority: h.authority,
+					Params:    params,
+				})
+				return err
+			},
+		},
+		{
+			name: "set pool status",
+			operation: func(h v4Harness, pool *types.Pool) error {
+				_, err := h.msgServer.SetPoolStatus(h.ctx, &types.MsgSetPoolStatus{
+					Authority: h.authority,
+					PoolId:    pool.PoolId,
+					Status:    types.PoolStatus_POOL_STATUS_EXIT_ONLY,
+				})
+				return err
+			},
+		},
+		{
+			name: "grpc simulate quote",
+			operation: func(h v4Harness, pool *types.Pool) error {
+				_, err := h.queryServer.SimulateSwap(h.ctx, &types.QuerySimulateSwapRequest{
+					PoolId: pool.PoolId, TokenInDenom: pool.DenomA, TokenInAmount: "10000",
+				})
+				return err
+			},
+		},
+		{
+			name: "public checked quote",
+			operation: func(h v4Harness, pool *types.Pool) error {
+				_, err := h.keeper.CheckedSwapQuote(h.ctx, pool.PoolId, pool.DenomA, "10000")
+				return err
+			},
+		},
+	}
+
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			h := newV4Harness(t)
+			pool := v4CreatePool(t, h, "uatom", "10000000000", "5000000000")
+			v4Fund(h.bank, h.authority, types.ZRNDenom, "uatom", "uosmo", pool.LpDenom)
+			poolBefore := proto.Clone(pool).(*types.Pool)
+			paramsBefore := proto.Clone(h.keeper.GetParams(h.ctx)).(*types.Params)
+			accumulatorBefore, accumulatorFound := h.keeper.GetTWAPAccumulator(h.ctx, pool.PoolId)
+			if accumulatorFound {
+				accumulatorBefore = proto.Clone(accumulatorBefore).(*types.TWAPAccumulator)
+			}
+			counterBefore := h.keeper.GetNextPoolId(h.ctx)
+			bankBefore := v4SnapshotBank(h.bank)
+			eventsBefore := len(h.ctx.EventManager().Events())
+
+			// Zero was legal before H1. With the global marker truly absent and
+			// done=0, it must not activate any behavior.
+			h.activation.marker = ""
+			h.activation.markerFound = false
+			h.activation.doneHeight = 0
+
+			err := operation.operation(h, pool)
+			if err == nil || !strings.Contains(err.Error(), "consensus v5 is not activated") {
+				t.Fatalf("operation escaped global H1 wall: %v", err)
+			}
+			v4AssertPoolUnchanged(t, h, poolBefore)
+			v4AssertBankUnchanged(t, h.bank, bankBefore)
+			if got := h.keeper.GetNextPoolId(h.ctx); got != counterBefore {
+				t.Fatalf("pool counter mutated: got %d want %d", got, counterBefore)
+			}
+			if got := h.keeper.GetParams(h.ctx); !proto.Equal(got, paramsBefore) {
+				t.Fatalf("params mutated on rejected operation:\nwant=%s\ngot=%s", paramsBefore, got)
+			}
+			accumulatorAfter, foundAfter := h.keeper.GetTWAPAccumulator(h.ctx, pool.PoolId)
+			if foundAfter != accumulatorFound ||
+				(foundAfter && !proto.Equal(accumulatorAfter, accumulatorBefore)) {
+				t.Fatalf("TWAP accumulator mutated on rejected operation")
+			}
+			if got := len(h.ctx.EventManager().Events()); got != eventsBefore {
+				t.Fatalf("events mutated: got %d want %d", got, eventsBefore)
+			}
+		})
+	}
+}
+
+func TestV5ActivationEvidenceConjunctionFailsClosed(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(v4Harness)
+	}{
+		{
+			name: "marker absent despite zero sentinel",
+			mutate: func(h v4Harness) {
+				h.activation.marker = ""
+				h.activation.markerFound = false
+			},
+		},
+		{
+			name: "historical present-empty marker",
+			mutate: func(h v4Harness) {
+				h.activation.marker = ""
+				h.activation.markerFound = true
+			},
+		},
+		{
+			name: "forged marker",
+			mutate: func(h v4Harness) {
+				h.activation.marker = "forged"
+				h.activation.markerFound = true
+			},
+		},
+		{
+			name: "conflicting native marker",
+			mutate: func(h v4Harness) {
+				h.activation.nativeMarker = "genesis"
+				h.activation.nativeMarkerFound = true
+			},
+		},
+		{
+			name: "native present-empty marker",
+			mutate: func(h v4Harness) {
+				h.activation.marker = ""
+				h.activation.markerFound = false
+				h.activation.doneHeight = 0
+				h.activation.nativeMarker = ""
+				h.activation.nativeMarkerFound = true
+			},
+		},
+		{
+			name: "forged native marker",
+			mutate: func(h v4Harness) {
+				h.activation.marker = ""
+				h.activation.markerFound = false
+				h.activation.doneHeight = 0
+				h.activation.nativeMarker = "forged"
+				h.activation.nativeMarkerFound = true
+			},
+		},
+		{
+			name: "native marker read error",
+			mutate: func(h v4Harness) {
+				h.activation.nativeMarkerErr = errors.New("native marker unavailable")
+			},
+		},
+		{
+			name: "marker read error",
+			mutate: func(h v4Harness) {
+				h.activation.markerErr = errors.New("marker unavailable")
+			},
+		},
+		{
+			name: "marker before done",
+			mutate: func(h v4Harness) {
+				h.activation.doneHeight = 0
+			},
+		},
+		{
+			name: "future done",
+			mutate: func(h v4Harness) {
+				h.activation.doneHeight = v4TestBlockHeight + 1
+			},
+		},
+		{
+			name: "done read error",
+			mutate: func(h v4Harness) {
+				h.activation.doneErr = errors.New("done unavailable")
+			},
+		},
+		{
+			name: "nonzero local sentinel despite exact global evidence",
+			mutate: func(h v4Harness) {
+				params := h.keeper.GetParams(h.ctx)
+				params.ProtocolFeeBps = 450_000
+				h.keeper.SetParams(h.ctx, params)
+			},
+		},
+		{
+			name: "missing params cannot default to a zero sentinel",
+			mutate: func(h v4Harness) {
+				if err := h.store.OpenKVStore(h.ctx).Delete(types.ParamsKey); err != nil {
+					panic(err)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newV4Harness(t)
+			pool := v4CreatePool(t, h, "uatom", "10000000000", "5000000000")
+			poolBefore := proto.Clone(pool).(*types.Pool)
+			bankBefore := v4SnapshotBank(h.bank)
+			eventsBefore := len(h.ctx.EventManager().Events())
+			tc.mutate(h)
+
+			_, err := h.keeper.CheckedSwapQuote(h.ctx, pool.PoolId, pool.DenomA, "10000")
+			if err == nil || !strings.Contains(err.Error(), "consensus v5") {
+				t.Fatalf("inexact activation evidence was accepted: %v", err)
+			}
+			v4AssertPoolUnchanged(t, h, poolBefore)
+			v4AssertBankUnchanged(t, h.bank, bankBefore)
+			if got := len(h.ctx.EventManager().Events()); got != eventsBefore {
+				t.Fatalf("rejected proof emitted events: got %d want %d", got, eventsBefore)
+			}
+		})
+	}
+}
+
+func TestV5UnconfiguredActivationReaderFailsClosedWithoutMutation(t *testing.T) {
+	h := newV4Harness(t)
+	pool := v4CreatePool(t, h, "uatom", "10000000000", "5000000000")
+	poolBefore := proto.Clone(pool).(*types.Pool)
+	bankBefore := v4SnapshotBank(h.bank)
+	eventsBefore := len(h.ctx.EventManager().Events())
+
+	registry := codectypes.NewInterfaceRegistry()
+	unconfigured := keeper.NewKeeper(
+		codec.NewProtoCodec(registry),
+		h.store,
+		h.bank,
+		h.authority,
+	)
+	_, err := unconfigured.CheckedSwapQuote(h.ctx, pool.PoolId, pool.DenomA, "10000")
+	if err == nil || !strings.Contains(err.Error(), "evidence reader is not configured") {
+		t.Fatalf("unconfigured evidence reader did not fail closed: %v", err)
+	}
+	v4AssertPoolUnchanged(t, h, poolBefore)
+	v4AssertBankUnchanged(t, h.bank, bankBefore)
+	if got := len(h.ctx.EventManager().Events()); got != eventsBefore {
+		t.Fatalf("unconfigured proof emitted events: got %d want %d", got, eventsBefore)
+	}
+}
+
+func TestV5ExactEvidenceAndZeroSentinelUnlocksAllQuotePaths(t *testing.T) {
+	h := newV4Harness(t)
+	pool := v4CreatePool(t, h, "uatom", "10000000000", "5000000000")
+
+	checked, err := h.keeper.CheckedSwapQuote(h.ctx, pool.PoolId, pool.DenomA, "10000")
+	if err != nil {
+		t.Fatalf("exact global evidence plus zero sentinel rejected checked quote: %v", err)
+	}
+	simulated, err := h.queryServer.SimulateSwap(h.ctx, &types.QuerySimulateSwapRequest{
+		PoolId: pool.PoolId, TokenInDenom: pool.DenomA, TokenInAmount: "10000",
+	})
+	if err != nil {
+		t.Fatalf("exact global evidence plus zero sentinel rejected simulation: %v", err)
+	}
+	if !proto.Equal(checked, simulated.Result) {
+		t.Fatalf("checked and simulated quote diverged: checked=%v simulated=%v", checked, simulated.Result)
+	}
+}
+
+func TestV5NativeLineageUnlocksAllSixMsgsAndBothQuotePaths(t *testing.T) {
+	h := newV4Harness(t)
+	h.activation.marker = ""
+	h.activation.markerFound = false
+	h.activation.doneHeight = 0
+	h.activation.nativeMarker = "genesis"
+	h.activation.nativeMarkerFound = true
+	v4Fund(h.bank, h.authority, types.ZRNDenom, "uatom")
+
+	created, err := h.msgServer.CreatePool(h.ctx, &types.MsgCreatePool{
+		Creator: h.authority,
+		DenomA:  types.ZRNDenom,
+		DenomB:  "uatom",
+		AmountA: "10000000000",
+		AmountB: "5000000000",
+	})
+	if err != nil {
+		t.Fatalf("native CreatePool: %v", err)
+	}
+	pool, found := h.keeper.GetPool(h.ctx, created.PoolId)
+	if !found {
+		t.Fatalf("native-created pool %q missing", created.PoolId)
+	}
+
+	if _, err := h.keeper.CheckedSwapQuote(h.ctx, pool.PoolId, pool.DenomA, "10000"); err != nil {
+		t.Fatalf("native CheckedSwapQuote: %v", err)
+	}
+	if _, err := h.queryServer.SimulateSwap(h.ctx, &types.QuerySimulateSwapRequest{
+		PoolId: pool.PoolId, TokenInDenom: pool.DenomA, TokenInAmount: "10000",
+	}); err != nil {
+		t.Fatalf("native SimulateSwap: %v", err)
+	}
+	if _, err := h.msgServer.AddLiquidity(h.ctx, &types.MsgAddLiquidity{
+		Sender: h.authority, PoolId: pool.PoolId, AmountA: "10000", AmountB: "5000",
+	}); err != nil {
+		t.Fatalf("native AddLiquidity: %v", err)
+	}
+	if _, err := h.msgServer.Swap(h.ctx, &types.MsgSwap{
+		Sender: h.authority, PoolId: pool.PoolId,
+		TokenInDenom: pool.DenomA, TokenInAmount: "10000",
+	}); err != nil {
+		t.Fatalf("native Swap: %v", err)
+	}
+	params := proto.Clone(h.keeper.GetParams(h.ctx)).(*types.Params)
+	if _, err := h.msgServer.UpdateParams(h.ctx, &types.MsgUpdateParams{
+		Authority: h.authority,
+		Params:    params,
+	}); err != nil {
+		t.Fatalf("native UpdateParams: %v", err)
+	}
+	if _, err := h.msgServer.SetPoolStatus(h.ctx, &types.MsgSetPoolStatus{
+		Authority: h.authority,
+		PoolId:    pool.PoolId,
+		Status:    types.PoolStatus_POOL_STATUS_EXIT_ONLY,
+	}); err != nil {
+		t.Fatalf("native SetPoolStatus: %v", err)
+	}
+	if _, err := h.msgServer.RemoveLiquidity(h.ctx, &types.MsgRemoveLiquidity{
+		Sender: h.authority, PoolId: pool.PoolId, LpTokens: "1000000",
+	}); err != nil {
+		t.Fatalf("native RemoveLiquidity: %v", err)
+	}
+}
+
+func TestV5MigrationAloneCannotManufactureGlobalActivation(t *testing.T) {
+	h := newV4Harness(t)
+	pool := v4CreatePool(t, h, "uatom", "10000000000", "5000000000")
+	v4Fund(h.bank, h.authority, pool.DenomA)
+
+	params := h.keeper.GetParams(h.ctx)
+	params.ProtocolFeeBps = 450_000
+	h.keeper.SetParams(h.ctx, params)
+	h.activation.marker = ""
+	h.activation.markerFound = false
+	h.activation.doneHeight = 0
+
+	if err := keeper.NewMigrator(h.keeper).Migrate4to5(h.ctx); err != nil {
+		t.Fatalf("direct v4→v5 migration: %v", err)
+	}
+	if got := h.keeper.GetParams(h.ctx).ProtocolFeeBps; got != 0 {
+		t.Fatalf("v4→v5 did not retire sentinel: %d", got)
+	}
+	_, err := h.msgServer.Swap(h.ctx, &types.MsgSwap{
+		Sender: h.authority, PoolId: pool.PoolId,
+		TokenInDenom: pool.DenomA, TokenInAmount: "10000",
+	})
+	if err == nil || !strings.Contains(err.Error(), "consensus v5 is not activated") {
+		t.Fatalf("local migration alone unlocked global behavior: %v", err)
+	}
+
+	// The same unchanged local state becomes usable only after both global
+	// evidence facts exist at a non-future height.
+	h.activation.marker = "migrated"
+	h.activation.markerFound = true
+	h.activation.doneHeight = v4TestBlockHeight
+	if _, err := h.msgServer.Swap(h.ctx, &types.MsgSwap{
+		Sender: h.authority, PoolId: pool.PoolId,
+		TokenInDenom: pool.DenomA, TokenInAmount: "10000",
+	}); err != nil {
+		t.Fatalf("exact global evidence did not unlock migrated state: %v", err)
+	}
 }

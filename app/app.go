@@ -820,6 +820,10 @@ func NewZeroneApp(
 		sdkruntime.NewKVStoreService(keys[zeronelptypes.StoreKey]),
 		liquidityBankKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		liquidityActivationEvidence{
+			markers: app.KnowledgeKeeper,
+			done:    app.UpgradeKeeper,
+		},
 	)
 
 	govStakingAdapter := zeronestakingkeeper.NewGovStakingKeeperAdapter(app.ZeroneStakingKeeper)
@@ -1306,7 +1310,11 @@ func NewZeroneApp(
 			logger.Error("error loading latest version", "err", err)
 			os.Exit(1)
 		}
-
+		lineage, err := app.verifyConsolidationStartupLineage()
+		if err != nil {
+			panic(fmt.Sprintf("refusing unsafe consolidation lineage at startup: %v", err))
+		}
+		logger.Info("verified consolidation startup lineage", "lineage", lineage)
 	}
 
 	return app
@@ -1335,6 +1343,41 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	if err != nil {
 		return nil, err
+	}
+	// A chain born directly from this binary is not evidence that the named H1
+	// migration ran. Give native genesis its own append-only lineage marker so
+	// later startup can distinguish it from both a migrated chain and an empty
+	// or partially rewritten store.
+	if marker, found, markerErr := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		consolidationMigrationMarker,
+	); markerErr != nil {
+		return nil, fmt.Errorf("verify H1 marker absence at native genesis: %w", markerErr)
+	} else if found {
+		return nil, fmt.Errorf(
+			"native genesis requires H1 marker %q absent; found %q",
+			consolidationMigrationMarker,
+			marker,
+		)
+	}
+	if marker, found, markerErr := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		consolidationNativeLineageMarker,
+	); markerErr != nil {
+		return nil, fmt.Errorf("verify native lineage marker absence at genesis: %w", markerErr)
+	} else if found {
+		return nil, fmt.Errorf(
+			"native genesis requires lineage marker %q absent; found %q",
+			consolidationNativeLineageMarker,
+			marker,
+		)
+	}
+	if err := app.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		consolidationNativeLineageMarker,
+		consolidationNativeLineageValue,
+	); err != nil {
+		return nil, fmt.Errorf("write native consolidation lineage marker: %w", err)
 	}
 	maxSupply, ok := new(big.Int).SetString(vestingrewardstypes.MaxSupplyUzrn, 10)
 	if !ok {

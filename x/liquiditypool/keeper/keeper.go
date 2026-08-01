@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -18,10 +19,20 @@ import (
 
 // Keeper manages the liquiditypool module's state.
 type Keeper struct {
-	cdc          codec.Codec
-	storeService store.KVStoreService
-	bankKeeper   types.BankKeeper
-	authority    string
+	cdc                codec.Codec
+	storeService       store.KVStoreService
+	bankKeeper         types.BankKeeper
+	authority          string
+	activationEvidence ActivationEvidenceReader
+}
+
+// ActivationEvidenceReader is the deliberately narrow cross-module surface
+// needed to prove an accepted migrated-H1 or native-v5 lineage. A retired
+// liquidity parameter is not sufficient evidence: zero was valid legacy state
+// and could historically be written through MsgUpdateParams.
+type ActivationEvidenceReader interface {
+	ReadMigrationMarkerPresenceChecked(context.Context, string) (string, bool, error)
+	GetDoneHeight(context.Context, string) (int64, error)
 }
 
 // NewKeeper creates a new liquiditypool module Keeper.
@@ -30,12 +41,21 @@ func NewKeeper(
 	storeService store.KVStoreService,
 	bk types.BankKeeper,
 	authority string,
+	activationEvidence ...ActivationEvidenceReader,
 ) Keeper {
+	if len(activationEvidence) > 1 {
+		panic("liquiditypool keeper accepts at most one activation evidence reader")
+	}
+	var evidence ActivationEvidenceReader
+	if len(activationEvidence) == 1 {
+		evidence = activationEvidence[0]
+	}
 	return Keeper{
-		cdc:          cdc,
-		storeService: storeService,
-		bankKeeper:   bk,
-		authority:    authority,
+		cdc:                cdc,
+		storeService:       storeService,
+		bankKeeper:         bk,
+		authority:          authority,
+		activationEvidence: evidence,
 	}
 }
 
@@ -50,19 +70,52 @@ func (k Keeper) GetAuthority() string {
 // --- Params ---
 
 func (k Keeper) GetParams(ctx sdk.Context) *types.Params {
+	params, err := k.getParamsChecked(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return params
+}
+
+// getParamsChecked preserves the ordinary genesis-compatible default while
+// allowing storage and decoding errors to be handled explicitly by callers.
+func (k Keeper) getParamsChecked(ctx context.Context) (*types.Params, error) {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	bz, err := kvStore.Get(types.ParamsKey)
 	if err != nil {
-		panic(fmt.Sprintf("failed to read liquiditypool params: %v", err))
+		return nil, fmt.Errorf("read liquiditypool params: %w", err)
 	}
 	if bz == nil {
-		return types.DefaultParams()
+		return types.DefaultParams(), nil
 	}
 	var params types.Params
 	if err := proto.Unmarshal(bz, &params); err != nil {
-		panic(fmt.Sprintf("failed to decode liquiditypool params: %v", err))
+		return nil, fmt.Errorf("decode liquiditypool params: %w", err)
 	}
-	return &params
+	return &params, nil
+}
+
+// getStoredParamsChecked is stricter than the ordinary genesis-compatible
+// getter: activation evidence must include an actual, decodable, valid Params
+// record. A deleted key must not silently become DefaultParams and therefore a
+// counterfeit zero sentinel.
+func (k Keeper) getStoredParamsChecked(ctx context.Context) (*types.Params, error) {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz, err := kvStore.Get(types.ParamsKey)
+	if err != nil {
+		return nil, fmt.Errorf("read liquiditypool params: %w", err)
+	}
+	if bz == nil {
+		return nil, fmt.Errorf("liquiditypool params key is absent")
+	}
+	var params types.Params
+	if err := proto.Unmarshal(bz, &params); err != nil {
+		return nil, fmt.Errorf("decode liquiditypool params: %w", err)
+	}
+	if err := params.Validate(); err != nil {
+		return nil, fmt.Errorf("validate liquiditypool params: %w", err)
+	}
+	return &params, nil
 }
 
 func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) {
