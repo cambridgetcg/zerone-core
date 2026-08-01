@@ -770,6 +770,7 @@ func TestRPCEdgeImageUsesReadOnlyBoundary(t *testing.T) {
 	config := string(configBytes)
 	for _, required := range []string{
 		`app = "zerone-rpc"`,
+		`image = "REPLACE_WITH_PINNED_RPC_EDGE_IMAGE_DIGEST"`,
 		`internal_port = 8080`,
 		`force_https = true`,
 		`auto_stop_machines = false`,
@@ -781,7 +782,7 @@ func TestRPCEdgeImageUsesReadOnlyBoundary(t *testing.T) {
 			t.Fatalf("RPC edge Fly profile is missing %q", required)
 		}
 	}
-	for _, forbidden := range []string{"[[mounts]]", "[[services]]", "26656", "26657", "1317", "9090"} {
+	for _, forbidden := range []string{"dockerfile =", "[[mounts]]", "[[services]]", "26656", "26657", "1317", "9090"} {
 		if strings.Contains(config, forbidden) {
 			t.Fatalf("RPC edge Fly profile unexpectedly exposes or mounts %q", forbidden)
 		}

@@ -776,18 +776,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Verify closed RPC edge build context
+        run: bash deploy/build-rpc-edge-image_test.sh
       - name: Build and validate stateless read-only edge
         env:
           CI_IMAGE_VERSION: v0.0.0-ci
+          CI_RUNTIME_IMAGE: docker.io/library/debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
         run: |
-          ci_source_date_epoch="$(git show -s --format=%ct "${GITHUB_SHA}")"
-          docker build \
-            --build-arg "VERSION=${CI_IMAGE_VERSION}" \
-            --build-arg "COMMIT=${GITHUB_SHA}" \
-            --build-arg "SOURCE_DATE_EPOCH=${ci_source_date_epoch}" \
-            --file deploy/Dockerfile.rpc-edge \
-            --tag zerone-rpc-edge:ci \
-            .
+          RPC_EDGE_SOURCE_COMMIT="${GITHUB_SHA}" \
+          RPC_EDGE_VERSION="${CI_IMAGE_VERSION}" \
+          RUNTIME_IMAGE="${CI_RUNTIME_IMAGE}" \
+            deploy/build-rpc-edge-image.sh zerone-rpc-edge:ci
           test "$(
             docker image inspect \
               --format '{{ index .Config.Labels "io.zerone.node-class" }}' \
