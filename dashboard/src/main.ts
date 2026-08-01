@@ -17,6 +17,7 @@ import {
 import { initialiseConstructiveTree } from "./constructive-tree";
 import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import type { FeeGrantAllowance } from "./feegrant";
+import { initialiseMathFrontier } from "./math-frontier";
 import type { WalletState } from "./wallet";
 
 const byId = <T extends HTMLElement>(id: string): T => {
@@ -69,6 +70,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
 const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
+const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -1115,18 +1117,26 @@ void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
-const initialNetworkReady = refreshNetwork(false);
+const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
+void refreshNetwork(false);
 void Promise.allSettled([
   constructiveTreeReady,
   lifeSciencesTreeReady,
-  initialNetworkReady,
+  mathFrontierReady,
 ]).then(
   () => {
-    if (window.location.hash !== "#skills") return;
+    if (
+      window.location.hash !== "#skills" &&
+      window.location.hash !== "#math-frontier"
+    ) {
+      return;
+    }
     window.requestAnimationFrame(() => {
-      constructiveTreeRoot.closest<HTMLElement>("#skills")?.scrollIntoView({
-        block: "start",
-      });
+      const target =
+        window.location.hash === "#math-frontier"
+          ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+          : constructiveTreeRoot.closest<HTMLElement>("#skills");
+      target?.scrollIntoView({ block: "start", behavior: "instant" });
     });
   },
 );
