@@ -2,8 +2,11 @@ package keeper
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
@@ -65,6 +68,86 @@ func legacyEconomicParams() *types.Params {
 	params.FloorReward = "100000"
 	params.EmptyBlockRewardRate = 500
 	return params
+}
+
+func TestGetStoredParamsCheckedNeverFallsBackToDefaults(t *testing.T) {
+	t.Run("read error", func(t *testing.T) {
+		readErr := errors.New("injected params read failure")
+		k := NewKeeper(
+			nil,
+			paramsReadErrorStoreService{err: readErr},
+			nil,
+			nil,
+			"authority",
+		)
+		_, err := k.GetStoredParamsChecked(sdk.Context{})
+		require.ErrorIs(t, err, readErr)
+	})
+
+	t.Run("missing", func(t *testing.T) {
+		k, ctx := setupStrictMigrationKeeper(t)
+		_, err := k.GetStoredParamsChecked(ctx)
+		require.ErrorContains(t, err, "vesting_rewards params are missing")
+		require.Nil(t, readRawMigrationParams(t, k, ctx))
+	})
+
+	t.Run("corrupt", func(t *testing.T) {
+		k, ctx := setupStrictMigrationKeeper(t)
+		corrupt := []byte{0xff, 0x01}
+		require.NoError(t, k.storeService.OpenKVStore(ctx).Set(
+			types.ParamsKey,
+			corrupt,
+		))
+		_, err := k.GetStoredParamsChecked(ctx)
+		require.ErrorContains(t, err, "unmarshal params")
+		require.Equal(t, corrupt, readRawMigrationParams(t, k, ctx))
+	})
+
+	t.Run("exact persisted value", func(t *testing.T) {
+		k, ctx := setupStrictMigrationKeeper(t)
+		expected := types.DefaultParams()
+		written := writeRawMigrationParams(t, k, ctx, expected)
+		actual, err := k.GetStoredParamsChecked(ctx)
+		require.NoError(t, err)
+		require.True(t, proto.Equal(expected, actual))
+		require.Equal(t, written, readRawMigrationParams(t, k, ctx))
+	})
+}
+
+type paramsReadErrorStoreService struct {
+	err error
+}
+
+func (s paramsReadErrorStoreService) OpenKVStore(context.Context) corestore.KVStore {
+	return paramsReadErrorStore{err: s.err}
+}
+
+type paramsReadErrorStore struct {
+	err error
+}
+
+func (s paramsReadErrorStore) Get([]byte) ([]byte, error) {
+	return nil, s.err
+}
+
+func (paramsReadErrorStore) Has([]byte) (bool, error) {
+	return false, nil
+}
+
+func (paramsReadErrorStore) Set([]byte, []byte) error {
+	return nil
+}
+
+func (paramsReadErrorStore) Delete([]byte) error {
+	return nil
+}
+
+func (paramsReadErrorStore) Iterator([]byte, []byte) (corestore.Iterator, error) {
+	return nil, errors.New("iterator unsupported")
+}
+
+func (paramsReadErrorStore) ReverseIterator([]byte, []byte) (corestore.Iterator, error) {
+	return nil, errors.New("reverse iterator unsupported")
 }
 
 func TestMigrate1to2StrictReadFailsOnMissingParams(t *testing.T) {

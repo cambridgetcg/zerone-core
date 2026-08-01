@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	unifiedUpgradeName = "sdk-0.53-ibc-10"
-	unifiedPlanInfo    = `{"schema":"zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1","channel_upgrades":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"pruning_sequence_start":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}`
+	unifiedUpgradeName                = "sdk-0.53-ibc-10"
+	unifiedPlanInfo                   = `{"schema":"zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1","channel_upgrades":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"pruning_sequence_start":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}`
+	sdk053IBC10SourceVersionMapSHA256 = "de3f0e0d9769adf2a7375f921d78f25365bc2f9a8b42d8c80de5982affa20127"
 )
 
 func unifiedPlanDocument(t *testing.T) []byte {
@@ -560,6 +561,7 @@ func TestFlyExactHeightHandoffBindsPlanAndHMinusOneAppHash(t *testing.T) {
 	validatorKeyDigest := strings.Repeat("2", 64)
 	nodeKeyDigest := strings.Repeat("3", 64)
 	genesisDigest := strings.Repeat("9", 64)
+	h2PlanIdentityDigest := strings.Repeat("a", 64)
 	planEvidence := unifiedPlanDocument(t)
 	upgradeInfo := unifiedUpgradeInfoDocument(t)
 	installFakeCommand(t, fakeBin, "fly", fmt.Sprintf(`#!/bin/sh
@@ -637,11 +639,12 @@ esac
 	writeFile(t, planEvidencePath, planEvidence, 0o600)
 	planDigest := fileDigest(planEvidence)
 	preflightWithoutDigest := []byte(fmt.Sprintf(
-		`{"schema":"zerone.activation-preflight/v3","scope":"scheduled-plan-h-minus-one","activation_ready":true,"chain_id":"zerone-1","genesis_sha256":"%s","upgrade_info_sha256":"%s","plan_name":"sdk-0.53-ibc-10","plan_height":100,"plan_info_sha256":"%s","blocks_until_activation":1,"unsafe_skip_upgrade_heights":[],"unsafe_skip_config_sha256":"%s","source_data_manifest_sha256":"%s","source_data_file_count":2,"source_data_bytes":4096,"completed_checks":["complete_iavl_roots_bound_to_app_hash","exact_safety_source_versions","sdk_governance_emergency_authority_audit","zero_unattributed_custom_upgrade_stake","effective_unsafe_skip_configuration_bound","scheduled_plan_exact_h_minus_one","named_handler_plan_specific_preconditions","scheduled_height_not_unsafe_skipped","exact_upgrade_handler_cache_dry_run","source_database_never_opened","isolated_copy_manifest_exact","source_manifest_unchanged_after_verification","expected_chain_height_app_hash_tuple_matched","genesis_chain_id_and_digest_bound","local_upgrade_info_exactly_matches_committed_plan"],"height":99,"app_hash":"%s","safety_source_versions":{"emergency":1,"gov":5,"zerone_gov":2},"custom_gov_unattributed_stake_uzrn":"0"}`,
+		`{"schema":"zerone.activation-preflight/v5","scope":"scheduled-plan-h-minus-one","activation_ready":true,"chain_id":"zerone-1","genesis_sha256":"%s","upgrade_info_sha256":"%s","plan_name":"sdk-0.53-ibc-10","plan_height":100,"plan_info_sha256":"%s","blocks_until_activation":1,"unsafe_skip_upgrade_heights":[],"unsafe_skip_config_sha256":"%s","source_version_map_sha256":"`+sdk053IBC10SourceVersionMapSHA256+`","h2_plan_identity_sha256":"%s","source_data_manifest_sha256":"%s","source_data_file_count":2,"source_data_bytes":4096,"completed_checks":["complete_iavl_roots_bound_to_app_hash","exact_safety_source_versions","sdk_governance_emergency_authority_audit","zero_unattributed_custom_upgrade_stake","effective_unsafe_skip_configuration_bound","scheduled_plan_exact_h_minus_one","named_handler_plan_specific_preconditions","exact_full_source_module_version_map","ordered_h1_h2_marker_and_done_height_proofs","h2_plan_identity_state_evidence","founder_renunciation_zero_poststate","scheduled_height_not_unsafe_skipped","exact_upgrade_handler_cache_dry_run","source_database_never_opened","isolated_copy_manifest_exact","source_manifest_unchanged_after_verification","expected_chain_height_app_hash_tuple_matched","genesis_chain_id_and_digest_bound","local_upgrade_info_exactly_matches_committed_plan"],"height":99,"app_hash":"%s","safety_source_versions":{"emergency":1,"gov":5,"zerone_gov":2},"custom_gov_unattributed_stake_uzrn":"0"}`,
 		genesisDigest,
 		fileDigest(upgradeInfo),
 		fileDigest([]byte(unifiedPlanInfo)),
 		strings.Repeat("6", 64),
+		h2PlanIdentityDigest,
 		strings.Repeat("7", 64),
 		appHash,
 	))
@@ -707,30 +710,34 @@ esac
 	))
 	writeFile(t, exitEvidencePath, exitEvidence, 0o600)
 	exitEvidenceDigest := fileDigest(exitEvidence)
-	confirmation := strings.Join([]string{
-		"zerone-validator",
-		machineID,
-		volumeID,
-		"zerone-1",
-		currentImageDigest,
-		imageDigest,
-		configDigest,
-		unifiedUpgradeName,
-		"100",
-		planDigest,
-		preflightFileDigest,
-		armEvidenceDigest,
-		exitEvidenceDigest,
-		"99",
-		appHash,
-		"100",
-		upgradeAppHash,
-		validatorAddress,
-		nodeID,
-		validatorKeyDigest,
-		nodeKeyDigest,
-		genesisDigest,
-	}, ":")
+	handoffConfirmation := func(preflightDigest, exitDigest string) string {
+		return strings.Join([]string{
+			"zerone-validator",
+			machineID,
+			volumeID,
+			"zerone-1",
+			currentImageDigest,
+			imageDigest,
+			configDigest,
+			unifiedUpgradeName,
+			"100",
+			planDigest,
+			preflightDigest,
+			h2PlanIdentityDigest,
+			armEvidenceDigest,
+			exitDigest,
+			"99",
+			appHash,
+			"100",
+			upgradeAppHash,
+			validatorAddress,
+			nodeID,
+			validatorKeyDigest,
+			nodeKeyDigest,
+			genesisDigest,
+		}, ":")
+	}
+	confirmation := handoffConfirmation(preflightFileDigest, exitEvidenceDigest)
 	command := exec.Command("bash", "fly-exact-height-handoff.sh")
 	command.Env = cleanEnvironment(
 		"PATH="+fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"),
@@ -786,6 +793,245 @@ esac
 	}
 	if strings.Contains(string(invocations), "machine stop ") {
 		t.Fatalf("verified handoff unexpectedly triggered fail-stop:\n%s", invocations)
+	}
+
+	withEnvironmentOverrides := func(
+		environment []string,
+		overrides ...string,
+	) []string {
+		overrideKeys := make(map[string]struct{}, len(overrides))
+		for _, override := range overrides {
+			key, _, _ := strings.Cut(override, "=")
+			overrideKeys[key] = struct{}{}
+		}
+		updated := make([]string, 0, len(environment)+len(overrides))
+		for _, entry := range environment {
+			key, _, _ := strings.Cut(entry, "=")
+			if _, replaced := overrideKeys[key]; replaced {
+				continue
+			}
+			updated = append(updated, entry)
+		}
+		return append(updated, overrides...)
+	}
+
+	for _, testCase := range []struct {
+		name            string
+		mutate          func(string) string
+		wantError       string
+		beforeFlyAction bool
+	}{
+		{
+			name: "missing exact source VersionMap digest",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					`"source_version_map_sha256":"`+sdk053IBC10SourceVersionMapSHA256+`",`,
+					"",
+					1,
+				)
+			},
+		},
+		{
+			name: "wrong exact source VersionMap digest",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					sdk053IBC10SourceVersionMapSHA256,
+					strings.Repeat("0", 64),
+					1,
+				)
+			},
+		},
+		{
+			name: "missing H2 plan identity state evidence",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					`"h2_plan_identity_sha256":"`+h2PlanIdentityDigest+`",`,
+					"",
+					1,
+				)
+			},
+			wantError:       "must report the observed H2 plan identity",
+			beforeFlyAction: true,
+		},
+		{
+			name: "empty H2 plan identity state evidence",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					h2PlanIdentityDigest,
+					"",
+					1,
+				)
+			},
+			wantError:       "must report the observed H2 plan identity",
+			beforeFlyAction: true,
+		},
+		{
+			name: "uppercase H2 plan identity state evidence",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					h2PlanIdentityDigest,
+					strings.ToUpper(h2PlanIdentityDigest),
+					1,
+				)
+			},
+			wantError:       "must report the observed H2 plan identity",
+			beforeFlyAction: true,
+		},
+		{
+			name: "malformed H2 plan identity state evidence",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					h2PlanIdentityDigest,
+					"not-a-sha256",
+					1,
+				)
+			},
+			wantError:       "must report the observed H2 plan identity",
+			beforeFlyAction: true,
+		},
+		{
+			name: "missing exact full source VersionMap check",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					`"exact_full_source_module_version_map",`,
+					"",
+					1,
+				)
+			},
+		},
+		{
+			name: "missing ordered H1 H2 lineage check",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					`"ordered_h1_h2_marker_and_done_height_proofs",`,
+					"",
+					1,
+				)
+			},
+		},
+		{
+			name: "missing H2 plan identity state check",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					`"h2_plan_identity_state_evidence",`,
+					"",
+					1,
+				)
+			},
+		},
+		{
+			name: "missing founder renunciation zero poststate check",
+			mutate: func(report string) string {
+				return strings.Replace(
+					report,
+					`"founder_renunciation_zero_poststate",`,
+					"",
+					1,
+				)
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			if err := os.Remove(flyLog); err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
+			mutatedWithoutDigest := []byte(testCase.mutate(
+				string(preflightWithoutDigest),
+			))
+			if string(mutatedWithoutDigest) == string(preflightWithoutDigest) {
+				t.Fatal("negative preflight mutation did not change the fixture")
+			}
+			mutatedEmbeddedDigest := fileDigest(mutatedWithoutDigest)
+			mutatedReport := []byte(strings.Replace(
+				string(mutatedWithoutDigest),
+				`"upgrade_info_sha256":"`+fileDigest(upgradeInfo)+`",`,
+				`"upgrade_info_sha256":"`+fileDigest(upgradeInfo)+`","report_sha256":"`+
+					mutatedEmbeddedDigest+`",`,
+				1,
+			))
+			mutationRoot := t.TempDir()
+			mutatedReportPath := filepath.Join(
+				mutationRoot,
+				"activation-preflight.json",
+			)
+			writeFile(t, mutatedReportPath, mutatedReport, 0o600)
+			mutatedReportFileDigest := fileDigest(mutatedReport)
+
+			mutatedExitEvidence := []byte(strings.Replace(
+				string(exitEvidence),
+				preflightFileDigest,
+				mutatedReportFileDigest,
+				1,
+			))
+			mutatedExitEvidencePath := filepath.Join(
+				mutationRoot,
+				"exit-evidence.json",
+			)
+			writeFile(t, mutatedExitEvidencePath, mutatedExitEvidence, 0o600)
+			mutatedExitEvidenceDigest := fileDigest(mutatedExitEvidence)
+
+			rejected := exec.Command("bash", "fly-exact-height-handoff.sh")
+			rejected.Env = withEnvironmentOverrides(
+				command.Env,
+				"ACTIVATION_PREFLIGHT_REPORT_PATH="+mutatedReportPath,
+				"ACTIVATION_PREFLIGHT_REPORT_SHA256="+mutatedReportFileDigest,
+				"UPGRADE_EXIT_EVIDENCE_PATH="+mutatedExitEvidencePath,
+				"UPGRADE_EXIT_EVIDENCE_SHA256="+mutatedExitEvidenceDigest,
+				"FLY_HANDOFF_CONFIRMATION="+handoffConfirmation(
+					mutatedReportFileDigest,
+					mutatedExitEvidenceDigest,
+				),
+			)
+			rejectedOutput, rejectedErr := rejected.CombinedOutput()
+			if rejectedErr == nil {
+				t.Fatalf(
+					"expected source-lineage preflight rejection, output:\n%s",
+					rejectedOutput,
+				)
+			}
+			wantError := testCase.wantError
+			if wantError == "" {
+				wantError = "activation-preflight report does not bind the exact v5"
+			}
+			if !strings.Contains(string(rejectedOutput), wantError) {
+				t.Fatalf(
+					"unexpected source-lineage preflight rejection:\n%s",
+					rejectedOutput,
+				)
+			}
+			invocations, err := os.ReadFile(flyLog)
+			if err != nil && !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
+			if testCase.beforeFlyAction && len(invocations) != 0 {
+				t.Fatalf(
+					"Fly was invoked before rejecting invalid H2 plan identity evidence:\n%s",
+					invocations,
+				)
+			}
+			for _, mutation := range []string{
+				"machine update ",
+				"machine start ",
+				"machine stop ",
+			} {
+				if strings.Contains(string(invocations), mutation) {
+					t.Fatalf(
+						"Fly mutation %q occurred after invalid source-lineage proof:\n%s",
+						mutation,
+						invocations,
+					)
+				}
+			}
+		})
 	}
 
 	t.Run("stopped machine config drift fails before target mutation", func(t *testing.T) {

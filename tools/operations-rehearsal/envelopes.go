@@ -82,6 +82,7 @@ type ActivationPreflightObservation struct {
 	Height                  int64  `json:"height"`
 	AppHash                 string `json:"app_hash"`
 	ReportSHA256            string `json:"report_sha256"`
+	H2PlanIdentitySHA256    string `json:"h2_plan_identity_sha256"`
 	GateSatisfied           bool   `json:"gate_satisfied"`
 	SourceDatabaseUnchanged bool   `json:"source_database_unchanged"`
 	SourceVersionsExact     bool   `json:"source_versions_exact"`
@@ -535,15 +536,18 @@ func validateObservation(kind string, observation any) error {
 		}
 		return validateSHA256("observed Plan.Info SHA-256", value.PlanInfoSHA256)
 	case ActivationPreflightObservation:
-		if value.ReportSchema != "zerone.activation-preflight/v3" || !value.GateSatisfied ||
+		if value.ReportSchema != "zerone.activation-preflight/v5" || !value.GateSatisfied ||
 			!value.SourceDatabaseUnchanged || !value.SourceVersionsExact ||
 			!value.PlanInfoExact {
-			return fmt.Errorf("activation-preflight observations do not prove the v3 read-only gate")
+			return fmt.Errorf("activation-preflight observations do not prove the v5 read-only gate")
 		}
 		if err := positive("height", value.Height); err != nil {
 			return err
 		}
 		if err := validateSHA256("activation AppHash", value.AppHash); err != nil {
+			return err
+		}
+		if err := validateSHA256("H2 plan identity SHA-256", value.H2PlanIdentitySHA256); err != nil {
 			return err
 		}
 		return validateSHA256("activation report SHA-256", value.ReportSHA256)

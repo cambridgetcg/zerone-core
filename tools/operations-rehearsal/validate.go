@@ -290,6 +290,9 @@ func validateUpgrade(scenario UpgradeScenario) error {
 	if err := validateSHA256("Plan.Info SHA-256", scenario.PlanInfoSHA256); err != nil {
 		return err
 	}
+	if err := validateSHA256("H2 plan identity SHA-256", scenario.H2PlanIdentitySHA256); err != nil {
+		return err
+	}
 	if scenario.UpgradeHeight <= 1 ||
 		scenario.OldLastCommittedHeight != scenario.UpgradeHeight-1 ||
 		scenario.AppliedPlanHeight != scenario.UpgradeHeight {

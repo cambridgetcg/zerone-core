@@ -49,6 +49,7 @@ const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
+const UpgradeNameFounderRenunciationV1 = "founder-renunciation-v1"
 const UpgradeNameSDK053IBC10 = "sdk-0.53-ibc-10"
 
 const (
@@ -79,164 +80,54 @@ const (
 
 type sdk053IBC10PreflightDryRunContextKey struct{}
 
-type consolidationVersionBoundary struct {
-	module string
-	before uint64
-	after  uint64
+type completedPreSDKTransitionVersion struct {
+	upgrade string
+	module  string
+	version uint64
 }
 
-var consolidationVersionBoundaries = []consolidationVersionBoundary{
-	{module: knowledgetypes.ModuleName, before: 5, after: 6},
-	{module: claimingpottypes.ModuleName, before: 1, after: 2},
-	{module: liquiditypooltypes.ModuleName, before: 3, after: 5},
-	{module: vestingrewardstypes.ModuleName, before: 1, after: 2},
+var completedPreSDKTransitionVersions = []completedPreSDKTransitionVersion{
+	{upgrade: UpgradeNameConsolidationSafetyV1, module: knowledgetypes.ModuleName, version: 6},
+	{upgrade: UpgradeNameConsolidationSafetyV1, module: claimingpottypes.ModuleName, version: 2},
+	{upgrade: UpgradeNameConsolidationSafetyV1, module: liquiditypooltypes.ModuleName, version: 5},
+	{upgrade: UpgradeNameFounderRenunciationV1, module: vestingrewardstypes.ModuleName, version: 2},
 }
 
-// runMigrationsForPlan prevents the atomic H1 bundle from silently riding an
-// older or unrelated named upgrade. The consolidated release is valid only
-// from its exact four-module prestate, with every other module already at this
-// binary's target. Its marker is written by the caller only after this helper
-// proves the complete poststate.
+// runMigrationsForPlan prevents either pre-SDK transition from silently riding
+// an older or unrelated named upgrade registered by this SDK v0.53 binary.
+// The runnable H1 and H2 handlers belong only to their dedicated pre-SDK
+// releases; this binary consumes their post-version boundaries but cannot
+// execute either transition itself.
 func (app *ZeroneApp) runMigrationsForPlan(
 	ctx context.Context,
 	plan upgradetypes.Plan,
 	fromVM module.VersionMap,
 ) (module.VersionMap, error) {
-	targetVM, err := app.validateMigrationBoundaryForPlan(plan, fromVM)
-	if err != nil {
+	if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
 		return nil, err
 	}
-
-	toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
-	if err != nil {
-		return nil, err
-	}
-	if plan.Name != UpgradeNameConsolidationSafetyV1 {
-		return toVM, nil
-	}
-	if len(toVM) != len(targetVM) {
-		return nil, fmt.Errorf(
-			"upgrade %q produced invalid poststate size %d; require %d",
-			plan.Name,
-			len(toVM),
-			len(targetVM),
-		)
-	}
-	for _, name := range sortedVersionMapNames(targetVM) {
-		want := targetVM[name]
-		got, ok := toVM[name]
-		if !ok || got != want {
-			return nil, fmt.Errorf(
-				"upgrade %q produced invalid poststate %s=%d; require %d (present=%t)",
-				plan.Name,
-				name,
-				got,
-				want,
-				ok,
-			)
-		}
-	}
-	return toVM, nil
+	return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 }
 
-// validateMigrationBoundaryForPlan is a pure preflight: it performs no store
-// writes and runs no migrators. The production handler and its end-to-end test
-// helper share it so omitted VersionMap entries cannot be hidden by the SDK's
-// additive SetModuleVersionMap test setup.
-func (app *ZeroneApp) validateMigrationBoundaryForPlan(
-	plan upgradetypes.Plan,
+func requireCompletedPreSDKTransitionVersions(
+	planName string,
 	fromVM module.VersionMap,
-) (module.VersionMap, error) {
-	targetVM := app.ModuleManager.GetVersionMap()
-	boundaryModules := make(map[string]struct{}, len(consolidationVersionBoundaries))
-	for _, boundary := range consolidationVersionBoundaries {
-		boundaryModules[boundary.module] = struct{}{}
-		got, ok := targetVM[boundary.module]
-		if !ok || got != boundary.after {
-			return nil, fmt.Errorf(
-				"upgrade %q requires binary target %s=%d; got %d (present=%t)",
-				UpgradeNameConsolidationSafetyV1,
-				boundary.module,
-				boundary.after,
+) error {
+	for _, prerequisite := range completedPreSDKTransitionVersions {
+		got, present := fromVM[prerequisite.module]
+		if !present || got != prerequisite.version {
+			return fmt.Errorf(
+				"upgrade %q cannot carry prerequisite transition %q: require %s=%d, got %d (present=%t)",
+				planName,
+				prerequisite.upgrade,
+				prerequisite.module,
+				prerequisite.version,
 				got,
-				ok,
+				present,
 			)
 		}
 	}
-	for _, name := range sortedVersionMapNames(fromVM) {
-		if _, known := targetVM[name]; !known {
-			return nil, fmt.Errorf(
-				"upgrade %q refuses unknown module version entry %q",
-				plan.Name,
-				name,
-			)
-		}
-	}
-
-	if plan.Name != UpgradeNameConsolidationSafetyV1 {
-		for _, boundary := range consolidationVersionBoundaries {
-			got, ok := fromVM[boundary.module]
-			if !ok || got != boundary.after {
-				return nil, fmt.Errorf(
-					"upgrade %q cannot carry the %q bundle: require %s=%d, got %d (present=%t)",
-					plan.Name,
-					UpgradeNameConsolidationSafetyV1,
-					boundary.module,
-					boundary.after,
-					got,
-					ok,
-				)
-			}
-		}
-		return targetVM, nil
-	}
-
-	for _, boundary := range consolidationVersionBoundaries {
-		got, ok := fromVM[boundary.module]
-		if !ok || got != boundary.before {
-			return nil, fmt.Errorf(
-				"upgrade %q requires exact prestate %s=%d; got %d (present=%t)",
-				plan.Name,
-				boundary.module,
-				boundary.before,
-				got,
-				ok,
-			)
-		}
-	}
-
-	names := make([]string, 0, len(targetVM))
-	for name := range targetVM {
-		if _, isBoundary := boundaryModules[name]; !isBoundary {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		want := targetVM[name]
-		got, ok := fromVM[name]
-		if !ok || got != want {
-			return nil, fmt.Errorf(
-				"upgrade %q refuses unrelated migration for module %q: require version %d, got %d (present=%t)",
-				plan.Name,
-				name,
-				want,
-				got,
-				ok,
-			)
-		}
-	}
-
-	return targetVM, nil
-}
-
-func sortedVersionMapNames(vm module.VersionMap) []string {
-	names := make([]string, 0, len(vm))
-	for name := range vm {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return nil
 }
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
@@ -536,47 +427,6 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		},
 	)
 
-	// consolidation-safety-v1 — coordinated activation boundary for the
-	// consensus-facing work consolidated in July 2026:
-	//
-	//   - conjectures enter as non-citable PROVISIONAL questions and never
-	//     acquire factual standing merely by surviving a challenge;
-	//   - starved challenge rounds settle locks and restore the challenged
-	//     record to its type-appropriate status;
-	//   - substrate axis projections obey a protocol-wide ceiling, including
-	//     settlement of legacy stored records;
-	//   - falsification clawback requires an adjudicated disproven fact;
-	//   - knowledge probe work is cursor-bounded and K-alpha recognition is
-	//     emitted only for eligible factual survival;
-	//   - liquidity v5 keeps every swap fee in the pool for bearer LP shares;
-	//   - vesting_rewards v2 retires the founder tap and arbitrary-transaction
-	//     proposer mint while preserving routing of real transaction fees.
-	//
-	// knowledge v5→v6, liquiditypool v3→v5, and vesting_rewards v1→v2 provide
-	// verifiable module-version boundaries. The
-	// claiming_pot v1→v2 migration charges pre-upgrade general pots against the
-	// lifetime issuance budget and reconstructs their monotonic ID counter.
-	// Operators therefore cannot mistake a plain binary restart for activation.
-	app.UpgradeKeeper.SetUpgradeHandler(
-		UpgradeNameConsolidationSafetyV1,
-		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
-			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-
-			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
-			if err != nil {
-				return nil, err
-			}
-
-			app.ReconcileModuleAccountPerms(ctx)
-
-			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_consolidation-safety-v1", "migrated"); err != nil {
-				return nil, err
-			}
-
-			return toVM, nil
-		},
-	)
-
 	// sdk-0.53-ibc-10 — moves the app from Cosmos SDK v0.50 / IBC-Go v8
 	// to the smallest currently supported release family (SDK v0.53 /
 	// IBC-Go v10). The IBC versions are pinned to the exact versions shipped
@@ -594,10 +444,21 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			if err != nil {
 				return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
 			}
-			if err := app.requireConsolidationActivationBoundary(
-				ctx,
+			if err := requireActivationSafetySourceVersions(plan.Name, fromVM); err != nil {
+				return nil, err
+			}
+			if err := requireSDK053IBC10SourceVersions(
 				plan.Name,
 				fromVM,
+			); err != nil {
+				return nil, err
+			}
+			if err := app.requirePreSDKTransitionLineage(
+				ctx,
+				plan.Name,
+				plan.Height,
+				fromVM,
+				nil,
 			); err != nil {
 				return nil, err
 			}
@@ -621,20 +482,10 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 				)
 			}
 
-			if err := requireActivationSafetySourceVersions(plan.Name, fromVM); err != nil {
-				return nil, err
-			}
 			if err := ensureNoUnattributedCustomUpgradeStake(
 				activationPrestate.CustomGovStake,
 			); err != nil {
 				return nil, fmt.Errorf("upgrade %q: %w", plan.Name, err)
-			}
-
-			if err := requireSDK053IBC10SourceVersions(
-				plan.Name,
-				fromVM,
-			); err != nil {
-				return nil, err
 			}
 
 			// IBC-Go v10 removes ICS-29. Its state can contain unresolved packet
@@ -1351,11 +1202,6 @@ func (app *ZeroneApp) RegisterStoreUpgrades() error {
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 
-	case UpgradeNameConsolidationSafetyV1:
-		// Migration-only — operates within existing module stores and adds no
-		// top-level store keys.
-		storeUpgrades := storetypes.StoreUpgrades{}
-		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	case UpgradeNameSDK053IBC10:
 		// IBC-Go v10 removes both modules. Their persistent IAVL keys are no
 		// longer part of the normal app mount set, so the coordinated loader
@@ -1437,6 +1283,25 @@ func (app *ZeroneApp) ValidateSDK053IBC10StartupCoordination() error {
 			onChainInfoSHA,
 		)
 	}
+	versionMap, err := app.UpgradeKeeper.GetModuleVersionMap(ctx)
+	if err != nil {
+		return fmt.Errorf(
+			"read migrated pre-H3 module VersionMap during startup coordination: %w",
+			err,
+		)
+	}
+	if err := app.requirePreSDKTransitionLineage(
+		ctx,
+		onChainPlan.Name,
+		onChainPlan.Height,
+		versionMap,
+		nil,
+	); err != nil {
+		return fmt.Errorf(
+			"migrated pre-H3 startup lineage is invalid: %w",
+			err,
+		)
+	}
 	return nil
 }
 
@@ -1487,17 +1352,19 @@ func (app *ZeroneApp) validateSDK053IBC10CompletedOrNativeLineage() error {
 			)
 		}
 	}
-	upgradeMarker, err := app.KnowledgeKeeper.ReadMigrationMarkerChecked(
-		ctx,
-		sdk053IBC10UpgradeMarker,
-	)
+	upgradeMarker, upgradeMarkerFound, err :=
+		app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+			ctx,
+			sdk053IBC10UpgradeMarker,
+		)
 	if err != nil {
 		return err
 	}
-	nativeMarker, err := app.KnowledgeKeeper.ReadMigrationMarkerChecked(
-		ctx,
-		sdk053IBC10NativeMarker,
-	)
+	nativeMarker, nativeMarkerFound, err :=
+		app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+			ctx,
+			sdk053IBC10NativeMarker,
+		)
 	if err != nil {
 		return err
 	}
@@ -1513,23 +1380,51 @@ func (app *ZeroneApp) validateSDK053IBC10CompletedOrNativeLineage() error {
 		)
 	}
 	switch {
-	case doneHeight > 0:
-		if doneHeight > latest ||
-			upgradeMarker != sdk053IBC10UpgradeMarkerValue ||
-			nativeMarker != "" {
+	case nativeMarkerFound:
+		if nativeMarker != "genesis" ||
+			upgradeMarkerFound ||
+			doneHeight != 0 {
 			return fmt.Errorf(
-				"invalid upgraded SDK/IBC lineage: latest=%d done_height=%d upgrade_marker=%q native_marker=%q",
+				"invalid native SDK/IBC lineage: latest=%d done_height=%d upgrade_marker=(found=%t value=%q) native_marker=(found=%t value=%q)",
 				latest,
 				doneHeight,
+				upgradeMarkerFound,
 				upgradeMarker,
+				nativeMarkerFound,
 				nativeMarker,
 			)
 		}
-	case nativeMarker == "genesis":
-		if upgradeMarker != "" {
+		if err := app.requireNativeH3LineagePoststate(
+			ctx,
+			UpgradeNameSDK053IBC10,
+		); err != nil {
+			return fmt.Errorf("invalid native SDK/IBC poststate: %w", err)
+		}
+	case upgradeMarkerFound || doneHeight != 0:
+		if doneHeight <= 0 ||
+			doneHeight > latest ||
+			!upgradeMarkerFound ||
+			upgradeMarker != sdk053IBC10UpgradeMarkerValue ||
+			nativeMarkerFound {
 			return fmt.Errorf(
-				"native SDK/IBC lineage conflicts with upgrade marker %q",
+				"invalid upgraded SDK/IBC lineage: latest=%d done_height=%d upgrade_marker=(found=%t value=%q) native_marker=(found=%t value=%q)",
+				latest,
+				doneHeight,
+				upgradeMarkerFound,
 				upgradeMarker,
+				nativeMarkerFound,
+				nativeMarker,
+			)
+		}
+		if err := app.requireMigratedPreSDKTransitionLineage(
+			ctx,
+			UpgradeNameSDK053IBC10,
+			doneHeight,
+			nil,
+		); err != nil {
+			return fmt.Errorf(
+				"invalid completed SDK/IBC retained pre-SDK lineage: %w",
+				err,
 			)
 		}
 	default:

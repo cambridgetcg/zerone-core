@@ -90,7 +90,7 @@ func TestSDK053IBC10ActivationAuditsTerminalProposalInActiveSDKGovQueue(
 		t,
 		h,
 		sdk053IBC10SourceVM(h),
-		h.Height()+1,
+		testH3ActivationHeight,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "active SDK governance queue proposal")
@@ -123,7 +123,7 @@ func TestSDK053IBC10ActivationRejectsPendingAuthzWrappedEmergencyGovProposal(t *
 		t,
 		h,
 		sdk053IBC10SourceVM(h),
-		h.Height(),
+		testH3ActivationHeight,
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "SDK governance authority audit failed")
@@ -187,7 +187,7 @@ func TestSDK053IBC10ActivationSkipsUnknownMessagesOnlyInTerminalGovProposals(
 				t,
 				h,
 				sdk053IBC10SourceVM(h),
-				h.Height()+1,
+				testH3ActivationHeight,
 			)
 			if testCase.wantError {
 				require.Error(t, err)

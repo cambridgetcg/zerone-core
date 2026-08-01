@@ -200,6 +200,9 @@ func verifyUpgradeObservations(report Report, typed map[string]TypedEnvelope) er
 		preflight.AppHash != scenario.PreUpgradeAppHash {
 		return fmt.Errorf("activation-preflight observations do not match H-1")
 	}
+	if preflight.H2PlanIdentitySHA256 != scenario.H2PlanIdentitySHA256 {
+		return fmt.Errorf("activation-preflight H2 plan identity does not match the upgrade index")
+	}
 	oldExit, err := observationFor[OldExitObservation](scenario.Evidence, "old-exit", typed)
 	if err != nil {
 		return err

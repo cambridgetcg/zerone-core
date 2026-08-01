@@ -1447,11 +1447,51 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			genesisState[banktypes.ModuleName] = app.appCodec.MustMarshalJSON(&bankGenState)
 		}
 	}
+	vestingGenesisRaw, found := genesisState[vestingrewardstypes.ModuleName]
+	if !found {
+		return nil, fmt.Errorf(
+			"native genesis requires %s state",
+			vestingrewardstypes.ModuleName,
+		)
+	}
+	var vestingGenesis vestingrewardstypes.GenesisState
+	if err := json.Unmarshal(vestingGenesisRaw, &vestingGenesis); err != nil {
+		return nil, fmt.Errorf(
+			"decode native %s genesis: %w",
+			vestingrewardstypes.ModuleName,
+			err,
+		)
+	}
+	if err := vestingGenesis.Validate(); err != nil {
+		return nil, fmt.Errorf(
+			"invalid native %s genesis: %w",
+			vestingrewardstypes.ModuleName,
+			err,
+		)
+	}
 
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap())
 	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	if err != nil {
 		return nil, err
+	}
+	if err := app.requireAbsentH3TransitionEvidence(
+		ctx,
+		UpgradeNameSDK053IBC10,
+	); err != nil {
+		return nil, fmt.Errorf(
+			"refusing native SDK/IBC genesis lineage: %w",
+			err,
+		)
+	}
+	if err := app.requireNativeH3LineagePoststate(
+		ctx,
+		UpgradeNameSDK053IBC10,
+	); err != nil {
+		return nil, fmt.Errorf(
+			"refusing native SDK/IBC genesis lineage: %w",
+			err,
+		)
 	}
 	maxSupply, ok := new(big.Int).SetString(vestingrewardstypes.MaxSupplyUzrn, 10)
 	if !ok {
