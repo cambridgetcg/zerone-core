@@ -1,0 +1,588 @@
+{
+  "schema": "zerone.constructive-intelligence-tree-extension/v0",
+  "seasonId": "quantum-qec-2026q3",
+  "title": "Quantum error-correction decoder garden",
+  "snapshotDate": "2026-08-01",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "base": {
+    "schema": "zerone.constructive-intelligence-tree/v1",
+    "policyVersion": "1.0.0",
+    "endpoint": "/standards/constructive-intelligence-tree.v1.json",
+    "documentSha256": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    "policySha256": "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7"
+  },
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "authorizesSecurityTesting": false,
+    "assertsProtocolSecurity": false,
+    "performsNetworkRequests": false,
+    "publishesConfidentialEvidence": false
+  },
+  "karma": {
+    "status": "OBSERVATIONAL",
+    "register": "artifact-relation",
+    "transferable": false,
+    "scalarRank": false,
+    "truthOracle": false,
+    "payoutWeight": false,
+    "voteWeight": false,
+    "founderReservedPower": false,
+    "futureUse": "capped-randomized-eligibility-only",
+    "activationRequires": [
+      "appeal-and-reversible-pilot",
+      "controller-clustering-and-pair-caps",
+      "independent-validator-stake-host-and-upgrade-control",
+      "minimum-organization-and-implementation-diversity",
+      "prospective-named-upgrade-replay-tests-and-activation-height",
+      "public-reasons-delay-and-challenge-window",
+      "role-separation-and-recipient-conflict-exclusion"
+    ]
+  },
+  "breakthroughLens": [
+    {
+      "level": "B0",
+      "name": "reproduction",
+      "requires": "Known-result capability demonstration",
+      "assignable": false
+    },
+    {
+      "level": "B1",
+      "name": "independent-replication",
+      "requires": "REPLICATES plus E3",
+      "assignable": false
+    },
+    {
+      "level": "B2",
+      "name": "bounded-extension",
+      "requires": "Prior-art delta plus E3",
+      "assignable": false
+    },
+    {
+      "level": "B3",
+      "name": "enabling-artifact",
+      "requires": "Independent E5 adoption",
+      "assignable": false
+    },
+    {
+      "level": "B4",
+      "name": "breakthrough",
+      "requires": "Retrospective PROVES or DISPROVES, E3, prior-art delta, and independent adoption or descendant impact",
+      "assignable": false
+    },
+    {
+      "level": "B5",
+      "name": "field-shift",
+      "requires": "Multiple independent IMPLEMENTS, DEPLOYS, or MAINTAINS descendants through E5 or E6",
+      "assignable": false
+    }
+  ],
+  "rewardPolicy": {
+    "status": "UNFUNDED_TEMPLATE",
+    "denom": "uzrn",
+    "fundedAmount": "0",
+    "escrowReceipt": null,
+    "claimable": false,
+    "founderShareBps": 0,
+    "founderReservedSeats": 0,
+    "karmaWeightBps": 0,
+    "rewardCreatesGovernancePower": false,
+    "skillUnlockCreatesReward": false,
+    "timeAloneUnlocksEvidence": false,
+    "milestones": [
+      {
+        "level": "E0",
+        "name": "committed",
+        "rewardBps": 0,
+        "treatment": "precedence-only"
+      },
+      {
+        "level": "E1",
+        "name": "inspectable",
+        "rewardBps": 0,
+        "treatment": "verified-cost-only"
+      },
+      {
+        "level": "E2",
+        "name": "class-verified",
+        "rewardBps": 1500,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E3",
+        "name": "independently-reproduced",
+        "rewardBps": 2000,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E4",
+        "name": "adversarially-survived-or-fix-tested",
+        "rewardBps": 1500,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E5",
+        "name": "independently-adopted",
+        "rewardBps": 2500,
+        "treatment": "milestone"
+      },
+      {
+        "level": "E6",
+        "name": "maintained",
+        "rewardBps": 1000,
+        "treatment": "milestone"
+      }
+    ],
+    "challengeReserveBps": 1500,
+    "attributionBps": {
+      "originatingArtifact": 3000,
+      "independentReplication": 2500,
+      "independentReview": 1000,
+      "downstreamAdoption": 2500,
+      "falsificationAndChallenge": 700,
+      "safetyAndMaintenance": 300
+    }
+  },
+  "standards": [
+    {
+      "canonicalId": "doi:10.1038/s41467-026-70556-3",
+      "authority": "Nature Communications",
+      "title": "Decoding correlated errors in quantum LDPC codes",
+      "revision": "version of record 2026-05-01",
+      "authorityStatus": "open-access version of record",
+      "normalizedMaturity": "published",
+      "specification": "https://doi.org/10.1038/s41467-026-70556-3",
+      "statusCheckedAt": "2026-08-01",
+      "reviewAfter": "2026-09-01",
+      "treatment": "reproduction-target-not-truth-oracle"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "assurance-quantum-benchmarking-metrology@1",
+      "title": "Quantum benchmarking and metrology",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Precommit benchmarks, uncertainty, resource budgets, baselines, exclusions, and stopping rules before held-out execution.",
+      "prerequisites": [
+        "assurance-quantum-numerical-reproducibility@1",
+        "math-quantum-open-systems-control@1",
+        "math-statistical-inference-metrology@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "A frozen benchmark manifest with code, data, baseline, seeds, metrics, exclusions, uncertainty method, stopping rule, and content digests.",
+        "Matched accounting for wall time, CPU, GPU, FPGA, memory, energy, tuning access, and parallelism.",
+        "Raw trials and negative results sufficient to recompute every reported interval."
+      ],
+      "revalidationTriggers": [
+        "Benchmark corpus, noise model, hardware, compiler, measurement method, baseline, or uncertainty procedure changes."
+      ]
+    },
+    {
+      "id": "assurance-quantum-independent-replication@1",
+      "title": "Independent quantum replication",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Separate control, implementation, and execution roots so a rerun cannot masquerade as independent reproduction.",
+      "prerequisites": [
+        "assurance-conformance-interoperability@1",
+        "assurance-quantum-benchmarking-metrology@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "At least three effective controller clusters across two organization roots, two implementation roots, and two execution environments.",
+        "Independent reconstruction from the declared method rather than only rerunning an originator-controlled image.",
+        "Disclosed conflicts, shared infrastructure, common model families, reused code, and failed replications."
+      ],
+      "revalidationTriggers": [
+        "Controller relationships, implementation roots, execution environments, dependencies, or conflict disclosures change."
+      ]
+    },
+    {
+      "id": "assurance-quantum-numerical-reproducibility@1",
+      "title": "Quantum numerical reproducibility",
+      "stage": "assurance",
+      "domain": "assurance",
+      "summary": "Bind quantum simulations to exact algorithms, precision, convergence tests, error bounds, and independently executable artifacts.",
+      "prerequisites": [
+        "assurance-formal-verification@1",
+        "math-quantum-states-dynamics@1"
+      ],
+      "attainmentEvidence": "E3",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Executable numerical artifact with source, environment lock, deterministic seeds where applicable, and raw outputs.",
+        "Precision, conditioning, convergence, truncation, finite-size, and approximation error analysis.",
+        "Independent checker or cross-method comparison for declared invariants."
+      ],
+      "revalidationTriggers": [
+        "Algorithm, precision, dependency, compiler, execution platform, checker, or error model changes."
+      ]
+    },
+    {
+      "id": "math-complex-linear-algebra@1",
+      "title": "Complex linear algebra",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Reason with complex vector spaces, operators, eigensystems, unitary maps, positivity, and numerical conditioning.",
+      "prerequisites": [
+        "math-proofcraft@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Checkable derivations and counterexamples covering spectral decomposition, unitary evolution, positive operators, and conditioning.",
+        "Exact assumptions and finite-dimensional bounds for every numerical demonstration."
+      ],
+      "revalidationTriggers": [
+        "Changed operator class, dimensional assumptions, numerical method, or precision model."
+      ]
+    },
+    {
+      "id": "math-differential-equations-fourier@1",
+      "title": "Differential equations and Fourier methods",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Connect differential evolution, boundary conditions, transforms, Green functions, stability, and discretization error.",
+      "prerequisites": [
+        "math-proofcraft@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Solved analytic and numerical cases with explicit initial and boundary conditions.",
+        "Stability, convergence, discretization, and transform-convention checks."
+      ],
+      "revalidationTriggers": [
+        "Equation class, boundary assumptions, discretization, solver, or transform convention changes."
+      ]
+    },
+    {
+      "id": "math-quantum-error-correction@1",
+      "title": "Quantum error correction",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Relate stabilizer codes, detector error models, degeneracy, decoding, logical failure, and fault-tolerant resource tradeoffs.",
+      "prerequisites": [
+        "math-probability-information-complexity@1",
+        "math-quantum-measurement-entanglement@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Executable constructions for representative stabilizer and quantum LDPC codes with declared noise and decoder assumptions.",
+        "Logical-error, threshold, latency, degeneracy, finite-size, and resource analyses with uncertainty.",
+        "Counterexamples showing where a decoder or asymptotic claim fails."
+      ],
+      "revalidationTriggers": [
+        "Code family, circuit, detector model, noise, decoder, metric, or resource-accounting method changes."
+      ]
+    },
+    {
+      "id": "math-quantum-many-body-symmetry@1",
+      "title": "Quantum many-body systems and symmetry",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Use symmetry, locality, tensor structure, phase behavior, and controlled approximation across interacting quantum systems.",
+      "prerequisites": [
+        "math-quantum-measurement-entanglement@1",
+        "math-tensor-spectral-operators@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Cross-method results with explicit finite-size, truncation, symmetry, and boundary assumptions.",
+        "At least one adversarial case where a favored approximation or diagnostic fails."
+      ],
+      "revalidationTriggers": [
+        "Hamiltonian family, symmetry, boundary, approximation, scale, or numerical method changes."
+      ]
+    },
+    {
+      "id": "math-quantum-measurement-entanglement@1",
+      "title": "Quantum measurement and entanglement",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Reason about generalized measurement, composite systems, channels, entanglement, tomography, and operational uncertainty.",
+      "prerequisites": [
+        "math-quantum-states-dynamics@1",
+        "math-statistical-inference-metrology@1",
+        "math-tensor-spectral-operators@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Checkable measurement and channel calculations with explicit subsystem and tensor-order conventions.",
+        "Tomography or estimation cases reporting identifiability, uncertainty, bias, and failure modes."
+      ],
+      "revalidationTriggers": [
+        "Measurement model, channel assumptions, subsystem factorization, estimator, or uncertainty method changes."
+      ]
+    },
+    {
+      "id": "math-quantum-open-systems-control@1",
+      "title": "Open quantum systems and control",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Model noise, dissipation, feedback, identifiability, controllability, and hardware-bounded intervention without idealizing away the environment.",
+      "prerequisites": [
+        "math-quantum-measurement-entanglement@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "controlled-operations",
+      "artifactRequirements": [
+        "Open-system dynamics with declared Markov, bath, measurement, latency, actuator, and calibration assumptions.",
+        "Robustness and identifiability checks across bounded model mismatch and control constraints."
+      ],
+      "revalidationTriggers": [
+        "Noise, bath, device, calibration, feedback, actuator, latency, or safety envelope changes."
+      ]
+    },
+    {
+      "id": "math-quantum-states-dynamics@1",
+      "title": "Quantum states and dynamics",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Derive state, observable, density-operator, Hamiltonian, and channel evolution with explicit conventions and limits.",
+      "prerequisites": [
+        "math-complex-linear-algebra@1",
+        "math-differential-equations-fourier@1",
+        "math-probability-information-complexity@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Checkable derivations in state-vector and density-operator form with units and tensor conventions.",
+        "Executable closed-system and channel examples with conserved quantities and limiting cases."
+      ],
+      "revalidationTriggers": [
+        "State space, Hamiltonian, channel, convention, approximation, or numerical representation changes."
+      ]
+    },
+    {
+      "id": "math-statistical-inference-metrology@1",
+      "title": "Statistical inference and metrology",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Design estimators and experiments with calibration, identifiability, uncertainty, stopping rules, and multiple-comparison controls.",
+      "prerequisites": [
+        "math-probability-information-complexity@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Precommitted estimands, sampling plan, stopping rule, exclusions, and uncertainty procedure.",
+        "Synthetic and real calibration cases exposing bias, non-identifiability, leakage, and multiple testing."
+      ],
+      "revalidationTriggers": [
+        "Estimator, sampling, calibration, stopping, exclusion, or uncertainty procedure changes."
+      ]
+    },
+    {
+      "id": "math-tensor-spectral-operators@1",
+      "title": "Tensor and spectral operators",
+      "stage": "foundation",
+      "domain": "mathematics",
+      "summary": "Work with tensor products, decompositions, operator norms, spectral approximations, and entanglement-relevant structure.",
+      "prerequisites": [
+        "math-complex-linear-algebra@1"
+      ],
+      "attainmentEvidence": "E2",
+      "rewardEligibility": "qualification-only",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Checkable tensor-order, decomposition, norm, rank, truncation, and spectral-error examples.",
+        "Counterexamples for unstable decompositions and misleading low-rank approximations."
+      ],
+      "revalidationTriggers": [
+        "Tensor convention, norm, decomposition, truncation, or spectral algorithm changes."
+      ]
+    },
+    {
+      "id": "quest-quantum-decoder-correlated-noise@1",
+      "title": "Season 1: correlated-noise QEC decoder garden",
+      "stage": "quest",
+      "domain": "quests",
+      "summary": "Reproduce and extend a correlated-noise quantum LDPC decoder under frozen baselines, held-out trials, uncertainty, and matched compute and energy accounting.",
+      "prerequisites": [
+        "assurance-quantum-independent-replication@1",
+        "math-quantum-error-correction@1"
+      ],
+      "attainmentEvidence": "E5",
+      "rewardEligibility": "sponsor-milestones",
+      "defaultDisclosureLane": "open-construction",
+      "artifactRequirements": [
+        "Exact Version of Record, [[72,12,6]], [[90,8,10]], and [[144,12,12]] BB fixtures, p=0.001 through 0.006 circuit bundles, data, decoder, baseline, noise corpus, seed, confidence procedure, stopping rule, metric, environment, and accounting-method digests frozen before held-out execution.",
+        "For every logical-error fixture-by-physical-error-by-implementation-root-by-execution-environment cell, acceptance requires the declared minimum cases, at least 100 logical failures, a two-sided 99% interval, and relative half-width at most 30%.",
+        "Latency cells use a precommitted latency quantile and deadline, the declared minimum cases, and either a two-sided 99% quantile interval or a 99% one-sided deadline-miss upper bound; zero deadline misses may therefore be conclusive.",
+        "Logical error rate and latency with raw trials, uncertainty intervals, negative results, and matched CPU, GPU, FPGA, memory, wall-time, parallelism, tuning-access, and energy accounting; exhausting a frozen compute cap is inconclusive and cannot pass.",
+        "A rare-event method may replace direct sampling only as a separately reviewed unbiased estimator with content-digested method, review receipt, and variance-and-coverage validation.",
+        "Independent reimplementation across the declared controller, organization, implementation, and execution-environment roots.",
+        "Unexpected safety- or security-relevant results quarantined until prepublication triage permits disclosure."
+      ],
+      "revalidationTriggers": [
+        "The pinned publication, data, code, baseline, code family, noise model, hardware, metric, decoder, or accounting method changes.",
+        "A result changes an adversarial accept or reject decision and requires confidential handling."
+      ],
+      "standardIds": [
+        "doi:10.1038/s41467-026-70556-3"
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "baseline=bposd-order-zero-randomized-serial-at-frozen-commit",
+          "bb-fixtures=[[72,12,6],[90,8,10],[144,12,12]]",
+          "cell=fixture-x-physical-error-x-implementation-root-x-execution-environment",
+          "circuit-and-artifact-digests=required-before-case-opens",
+          "circuit-provenance=stim-version-of-record-references-27-and-50",
+          "compute-cap-exhaustion=inconclusive-no-pass",
+          "confidence=logical-failure-two-sided-99-percent-relative-half-width-lte-0.30",
+          "d10-and-d12-circuit-ensemble-size=24",
+          "event-floor=100-logical-failures-per-logical-error-cell",
+          "latency=precommitted-quantile-and-deadline-at-99-percent-confidence-zero-misses-eligible",
+          "minimum-cases=coverage-target-specific-per-cell",
+          "noise-model=uniform-depolarizing-circuit-level",
+          "physical-error-grid=0.001,0.002,0.003,0.004,0.005,0.006",
+          "primary-metrics=logical-error-rate,latency",
+          "random-seeds=committed-before-execution",
+          "rare-event-alternative=separately-reviewed-unbiased-estimator-only",
+          "stopping-rule=event-and-confidence-gates-before-compute-cap",
+          "tuning-access-and-resource-budget=frozen-before-case-opens"
+        ],
+        "scopeHash": "750cb52831f333b6be906c0fd3105d679992ef4e553d28653a9f5ad25adad355",
+        "fixtures": [
+          {
+            "id": "bb-72-12-6",
+            "n": 72,
+            "k": 12,
+            "distance": 6
+          },
+          {
+            "id": "bb-90-8-10",
+            "n": 90,
+            "k": 8,
+            "distance": 10
+          },
+          {
+            "id": "bb-144-12-12",
+            "n": 144,
+            "k": 12,
+            "distance": 12
+          }
+        ],
+        "physicalErrorGrid": [
+          "0.001",
+          "0.002",
+          "0.003",
+          "0.004",
+          "0.005",
+          "0.006"
+        ],
+        "cellDefinition": "fixture-x-physical-error-x-implementation-root-x-execution-environment",
+        "requiredCaseBindings": [
+          "baseline-artifact-sha256",
+          "circuit-bundle-sha256-per-fixture",
+          "confidence-procedure-sha256",
+          "decoder-artifact-sha256-per-implementation-root",
+          "environment-manifest-sha256-per-execution-environment",
+          "fixture-matrix-sha256-per-fixture",
+          "noise-corpus-sha256-per-cell",
+          "resource-accounting-method-sha256",
+          "stopping-rule-sha256"
+        ],
+        "circuitProvenance": "stim-circuits-from-version-of-record-references-27-and-50",
+        "distance10And12CircuitEnsembleSize": 24,
+        "computeCapExhaustion": "inconclusive-no-pass",
+        "rareEventAlternative": {
+          "appliesTo": "logical-error-cells-only",
+          "condition": "separately-reviewed-unbiased-estimator-only",
+          "methodDigestRequired": true,
+          "reviewReceiptDigestRequired": true,
+          "unbiasedEstimatorRequired": true,
+          "varianceAndCoverageValidationRequired": true
+        },
+        "coverageTargets": [
+          {
+            "id": "baseline-regression",
+            "cellDefinition": "fixture-x-physical-error-x-implementation-root-x-execution-environment",
+            "analysisMode": "bernoulli-logical-failure",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCasesPerCell": 100000,
+            "minimumLogicalFailuresPerCell": 100,
+            "confidenceLevelBps": 9900,
+            "confidenceProcedure": "two-sided-binomial-interval",
+            "maximumRelativeHalfWidthBps": 3000,
+            "requiresCheckerOrCorpusDigest": true,
+            "requiresCircuitAndArtifactDigests": true,
+            "requiresConfidenceProcedureDigest": true
+          },
+          {
+            "id": "correlated-noise-logical-error-rate",
+            "cellDefinition": "fixture-x-physical-error-x-implementation-root-x-execution-environment",
+            "analysisMode": "bernoulli-logical-failure",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCasesPerCell": 1000000,
+            "minimumLogicalFailuresPerCell": 100,
+            "confidenceLevelBps": 9900,
+            "confidenceProcedure": "two-sided-binomial-interval",
+            "maximumRelativeHalfWidthBps": 3000,
+            "requiresCheckerOrCorpusDigest": true,
+            "requiresCircuitAndArtifactDigests": true,
+            "requiresConfidenceProcedureDigest": true
+          },
+          {
+            "id": "matched-resource-latency",
+            "cellDefinition": "fixture-x-physical-error-x-implementation-root-x-execution-environment",
+            "analysisMode": "latency-quantile-and-deadline",
+            "minimumEffectiveClusters": 3,
+            "minimumOrganizationRoots": 2,
+            "minimumImplementationRoots": 2,
+            "minimumExecutionEnvironments": 2,
+            "minimumCasesPerCell": 100000,
+            "latencyEstimand": "precommitted-quantile-and-deadline",
+            "confidenceLevelBps": 9900,
+            "confidenceProcedure": "two-sided-quantile-interval-or-one-sided-deadline-miss-upper-bound",
+            "zeroDeadlineMissesMayBeConclusive": true,
+            "requiresCheckerOrCorpusDigest": true,
+            "requiresCircuitAndArtifactDigests": true,
+            "requiresConfidenceProcedureDigest": true
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumImplementationRoots": 2,
+        "minimumExecutionEnvironments": 2,
+        "adoptionReceiptTypes": [
+          "maintained-fixture",
+          "upstream-merge"
+        ],
+        "privateEscalationRequired": true,
+        "prepublicationTriageRequired": true
+      }
+    }
+  ]
+}

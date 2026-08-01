@@ -16,6 +16,7 @@ import {
 } from "./config";
 import { initialiseConstructiveTree } from "./constructive-tree";
 import { initialiseLifeSciencesTree } from "./life-sciences-tree";
+import { initialiseQuantumSeason } from "./quantum-season";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import type { WalletState } from "./wallet";
@@ -70,6 +71,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
 const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
+const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const toast = byId<HTMLDivElement>("toast");
 
@@ -1121,6 +1123,7 @@ void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
+const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const initialNetworkReady = refreshNetwork(false);
 const alignInitialHash = (): void => {
@@ -1140,13 +1143,16 @@ const alignInitialHash = (): void => {
 };
 void Promise.allSettled([
   constructiveTreeReady,
-  lifeSciencesTreeReady,
   mathFrontierReady,
 ]).then(alignInitialHash);
 void Promise.allSettled([
   constructiveTreeReady,
   mathFrontierReady,
   initialNetworkReady,
+]).then(alignInitialHash);
+void Promise.allSettled([
+  lifeSciencesTreeReady,
+  quantumSeasonReady,
 ]).then(alignInitialHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);

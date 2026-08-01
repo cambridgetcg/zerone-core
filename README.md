@@ -322,6 +322,7 @@ does not activate it.
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |
 | [API Reference](docs/API.md) | Generated REST/gRPC discovery and usage |
 | [Open Crypto SDK](docs/standards/OPEN_CRYPTO_SDK.md) | SDK availability and standards seams |
+| [Quantum QEC Season 1](docs/specs/constructive-intelligence-quantum-qec-v0.md) | Digest-pinned quantum capability path and zero-value breakthrough-reward envelope |
 | [Events](docs/EVENTS.md) | On-chain event reference |
 | [Launch Checklist](docs/LAUNCH-CHECKLIST.md) | Testnet launch checklist |
 | [Truth Paper](docs/TRUTH-PAPER-HUMAN.md) | Proof of Truth design paper |
