@@ -1,0 +1,1210 @@
+{
+  "schema": "zerone.epigenetics-capability-garden/v1",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "snapshotDate": "2026-08-01",
+  "policyVersion": "1.0.0",
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "authorizesBiologicalExperimentation": false,
+    "authorizesHumanIntervention": false,
+    "publishesIdentifiableGenomicData": false,
+    "assertsClinicalValidity": false
+  },
+  "evidenceLadder": [
+    {
+      "level": "E0",
+      "name": "question-frozen",
+      "rewardBps": 0,
+      "meaning": "A bounded question, prior-art search plan, outcomes, exclusions, and safety lane are frozen before results are known."
+    },
+    {
+      "level": "E1",
+      "name": "inspectable",
+      "rewardBps": 0,
+      "meaning": "Protocol, sample lineage, consent or data-use scope, analysis code, and immutable artifact pointers are inspectable."
+    },
+    {
+      "level": "E2",
+      "name": "assay-controlled",
+      "rewardBps": 1500,
+      "meaning": "The result survives declared assay controls and an internal reproduction from frozen inputs."
+    },
+    {
+      "level": "E3",
+      "name": "independently-reproduced",
+      "rewardBps": 2500,
+      "meaning": "An independent cluster reproduces the bounded claim with separately rooted data and analysis lineage."
+    },
+    {
+      "level": "E4",
+      "name": "causally-challenged",
+      "rewardBps": 2500,
+      "meaning": "Perturbation, orthogonal measurement, rescue, or frozen causal triangulation survives a serious counter-hypothesis."
+    },
+    {
+      "level": "E5",
+      "name": "prospectively-generalised",
+      "rewardBps": 1500,
+      "meaning": "A frozen prediction generalises to a new cohort, context, assay, or useful descendant without retrofitting."
+    },
+    {
+      "level": "E6",
+      "name": "maintained-impact",
+      "rewardBps": 500,
+      "meaning": "The result remains useful and reproducible through maintenance, challenge, correction, and material descendant work."
+    }
+  ],
+  "policy": {
+    "breakthroughRecognition": {
+      "authorSelected": false,
+      "minimumEvidenceLevel": "E5",
+      "requiresPriorArtDelta": true,
+      "requiresIndependentReproduction": true,
+      "requiresProspectiveOrDescendantImpact": true,
+      "noveltyAloneIsSufficient": false,
+      "poweredNullResultsRemainEvidence": true
+    },
+    "funding": {
+      "skillUnlockCreatesReward": false,
+      "candidateSource": "voluntary-external-sponsor-escrow-only",
+      "protocolIssuance": "disabled",
+      "templateStatus": "simulation-only",
+      "timeAloneUnlocksEvidence": false,
+      "challengeReserveBps": 1500,
+      "sponsorCaseSchema": "zerone.breakthrough-sponsor-case/v1-required",
+      "dashboardCanActivateCase": false,
+      "frozenClaimAndArtifactDigestsRequired": true,
+      "milestoneAcceptanceTestsRequired": true,
+      "nullFailureContradictionTreatmentRequired": true,
+      "reviewerConflictPolicyRequired": true,
+      "correctionRecoveryPolicyRequired": true,
+      "expiryRefundPolicyRequired": true,
+      "escrowFundingReceiptRequired": true
+    },
+    "independence": {
+      "minimumEffectiveClusters": 3,
+      "minimumOrganizationRoots": 2,
+      "minimumDataRoots": 2,
+      "minimumAnalysisPipelineRoots": 2,
+      "assignmentAfterArtifactFreeze": true,
+      "reviewPayOutcomeIndependent": true,
+      "rawAddressCountIsEvidence": false
+    },
+    "humanData": {
+      "rawIdentifiableDataOnPublicLedger": false,
+      "consentOrDataUseScopeRequired": true,
+      "accessLaneAttestationRequired": true,
+      "controlledAccessRequiredWhereConsentPolicyOrLawRequires": true,
+      "unrestrictedAccessRequiresConsentPolicyAndLawAllow": true,
+      "institutionalCertificationRequiredWhereApplicable": true,
+      "publicArtifactsUseMetadataAndDigestsOnly": true
+    },
+    "safety": {
+      "animalWelfareReviewRequiredWhereApplicable": true,
+      "biosafetyRiskAssessmentRequired": true,
+      "ethicalReviewIsHardGate": true,
+      "unapprovedHumanInterventionEligible": false,
+      "heritableHumanGenomeInterventionEligible": false,
+      "clinicalClaimsRequireRegulatoryEvidence": true,
+      "unknownHarmEscalatesTo": "regulated-human"
+    }
+  },
+  "prerequisiteSemantics": {
+    "default": "all-listed-required",
+    "grouped": [
+      {
+        "nodeId": "analysis-batch-confounding@1",
+        "allOf": [
+          "integrity-statistics-reproducibility@1"
+        ],
+        "atLeast": {
+          "count": 1,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1",
+            "assay-rna-seq@1"
+          ]
+        }
+      },
+      {
+        "nodeId": "analysis-multi-omic-integration@1",
+        "allOf": [
+          "analysis-batch-confounding@1"
+        ],
+        "atLeast": {
+          "count": 2,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1",
+            "assay-rna-seq@1"
+          ]
+        }
+      },
+      {
+        "nodeId": "assay-single-cell-multiome@1",
+        "allOf": [
+          "foundation-cell-identity@1"
+        ],
+        "atLeast": {
+          "count": 2,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1",
+            "assay-rna-seq@1"
+          ]
+        }
+      },
+      {
+        "nodeId": "intervention-epigenome-editing@1",
+        "allOf": [
+          "analysis-causal-graphs@1"
+        ],
+        "atLeast": {
+          "count": 1,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1"
+          ]
+        }
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "4dn-data-model@2026-08",
+      "authority": "4D Nucleome Data Coordination and Integration Center",
+      "title": "4DN data model",
+      "url": "https://data.4dnucleome.org/help/user-guide/data-model",
+      "kind": "official-guidance",
+      "supportScope": "Provenance and entity relationships among biosamples, experiments, files, and analyses; not a causal-inference or novelty method.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "crisproff@cell-2021",
+      "authority": "Cell",
+      "title": "Genome-wide programmable transcriptional memory by CRISPR-based epigenome editing",
+      "url": "https://doi.org/10.1016/j.cell.2021.03.025",
+      "kind": "primary-research",
+      "supportScope": "A primary-research example of programmable epigenome editing and transcriptional memory; not a universal protocol or clinical claim.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "dunedinpace@elife-2022",
+      "authority": "eLife",
+      "title": "DunedinPACE, a DNA methylation biomarker of the pace of aging",
+      "url": "https://doi.org/10.7554/eLife.73420",
+      "kind": "primary-research",
+      "supportScope": "Primary derivation from 20-year, four-wave longitudinal organ-system data, evaluated in five additional datasets and technical replicates spanning 450K and EPIC arrays, with explicit single-country and cohort limitations. Supports longitudinal, assay-shift, external-dataset, calibration, and failure reporting; it does not establish clinical validity, intervention benefit, or a causal ageing mechanism.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "encode-data-standards@2026-08",
+      "authority": "ENCODE Project",
+      "title": "ENCODE data standards",
+      "url": "https://www.encodeproject.org/data-standards/",
+      "kind": "official-guidance",
+      "supportScope": "Assay-specific experimental controls, metadata, data quality, and reporting practices used by ENCODE.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "hhs-common-rule@2026-08",
+      "authority": "United States Department of Health and Human Services",
+      "title": "Federal Policy for the Protection of Human Subjects (Common Rule)",
+      "url": "https://www.hhs.gov/ohrp/regulations-and-policy/regulations/common-rule/index.html",
+      "kind": "official-policy",
+      "supportScope": "United States human-participant protection requirements and applicability; other jurisdictions require their own review.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "higgins-chen-pc-clocks@nature-aging-2022",
+      "authority": "Nature Aging",
+      "title": "A computational solution for bolstering reliability of epigenetic clocks: implications for clinical trials and longitudinal tracking",
+      "url": "https://doi.org/10.1038/s43587-022-00248-2",
+      "kind": "primary-research",
+      "supportScope": "Primary study of technical-replicate reliability, power, and longitudinal sensitivity of epigenetic clocks across replicate datasets and longitudinal cohorts. Supports explicit reliability checks and failed-transport reporting; it does not establish biological causality, clinical validity, or intervention benefit.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "horvath-race-ethnicity@genome-biology-2016",
+      "authority": "Genome Biology",
+      "title": "An epigenetic clock analysis of race/ethnicity, sex, and coronary heart disease",
+      "url": "https://doi.org/10.1186/s13059-016-1030-0",
+      "kind": "primary-research",
+      "supportScope": "Primary multi-dataset analysis across blood, saliva, brain, seven racial or ethnic groups, sex, and blood-cell composition, showing context-dependent epigenetic-age measures. Supports a frozen cohort, tissue, ancestry, sex, and composition transport matrix; it does not license biological essentialism, clinical use, or causal interpretation.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "nih-biosafety-policy@2026-08",
+      "authority": "National Institutes of Health Office of Science Policy",
+      "title": "Biosafety and Biosecurity Policy",
+      "url": "https://osp.od.nih.gov/policies/biosafety-and-biosecurity-policy/",
+      "kind": "official-policy",
+      "supportScope": "NIH biosafety and biosecurity policy context, including risk assessment and applicable institutional oversight.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "nih-controlled-access@2025",
+      "authority": "National Institutes of Health",
+      "title": "Best practices for controlled-access genomic data",
+      "url": "https://sharing.nih.gov/sites/default/files/flmngr/NIH_Best_Practices_for_Controlled-Access_Data_Subject_to_the_NIH_GDS_Policy.pdf",
+      "kind": "official-policy",
+      "supportScope": "Safeguards for genomic data assigned to a controlled-access lane under NIH policy; not a claim that every dataset requires that lane.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "nih-gds@2026-08",
+      "authority": "National Institutes of Health",
+      "title": "Genomic Data Sharing Policy overview",
+      "url": "https://sharing.nih.gov/genomic-data-sharing-policy/about-genomic-data-sharing",
+      "kind": "official-policy",
+      "supportScope": "NIH genomic-data sharing, consent, and access-policy context for covered research; not an ageing-method validation source.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "nih-institutional-certifications@2026-08",
+      "authority": "National Institutes of Health",
+      "title": "Institutional certifications for genomic data sharing",
+      "url": "https://sharing.nih.gov/genomic-data-sharing-policy/institutional-certifications/about-institutional-certifications",
+      "kind": "official-policy",
+      "supportScope": "Institutional certification expectations for NIH genomic-data sharing where the policy applies.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "nih-preclinical-rigor@2026-08",
+      "authority": "National Institutes of Health Office of Extramural Research",
+      "title": "Principles and Guidelines for Reporting Preclinical Research",
+      "url": "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/principles-guidelines-reporting-preclinical-research",
+      "kind": "official-guidance",
+      "supportScope": "Official reporting guidance for distinguishing independent biological data points from technical replicates; reporting exact N, uncertainty, randomization, blinding, sample-size estimation, exclusions, omitted or null results, and data and software availability. It supports auditable rigor but does not by itself establish independent replication.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "nih-rigor-prior-research@2026-08",
+      "authority": "National Institutes of Health Office of Extramural Research",
+      "title": "Guidance: Rigor and Reproducibility in Grant Applications",
+      "url": "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/guidance",
+      "kind": "official-guidance",
+      "supportScope": "Official guidance requiring assessment of strengths and weaknesses in published and unpublished prior research and plans to address gaps. Supports an inspectable prior-research matrix; it does not determine legal novelty, inventorship, priority, ownership, or patentability.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "olaw-phs-policy@2026-08",
+      "authority": "National Institutes of Health Office of Laboratory Animal Welfare",
+      "title": "Public Health Service Policy on Humane Care and Use of Laboratory Animals",
+      "url": "https://olaw.nih.gov/node/74",
+      "kind": "official-policy",
+      "supportScope": "Animal-welfare oversight for PHS-supported activities involving live vertebrate animals where applicable.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "relton-two-step-emr@ije-2012",
+      "authority": "International Journal of Epidemiology",
+      "title": "Two-step epigenetic Mendelian randomization: a strategy for establishing the causal role of epigenetic processes in pathways to disease",
+      "url": "https://doi.org/10.1093/ije/dyr233",
+      "kind": "primary-research",
+      "supportScope": "Original epigenetics-specific causal-method framework separating exposure-to-epigenetic-change and epigenetic-change-to-outcome questions while surfacing confounding, reverse causation, population stratification, pleiotropy, and instrument assumptions. It is one bounded identification strategy, not causal proof by itself.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "scnmt-seq@nature-communications-2018",
+      "authority": "Nature Communications",
+      "title": "Single-cell multi-omics profiling links dynamic DNA methylation to cell fate decision in mouse embryonic stem cells",
+      "url": "https://doi.org/10.1038/s41467-018-03149-4",
+      "kind": "primary-research",
+      "supportScope": "A primary-research example of joint single-cell methylation, chromatin-accessibility, and transcription measurement in mouse embryonic stem cells.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "scpair@nature-communications-2024",
+      "authority": "Nature Communications",
+      "title": "scPair: Boosting single cell multimodal analysis by leveraging implicit feature selection and single cell atlases",
+      "url": "https://doi.org/10.1038/s41467-024-53971-2",
+      "kind": "primary-research",
+      "supportScope": "A primary computational study of paired single-cell RNA and chromatin-accessibility data. It supports the two-modality meaning of multimodal and explicit modality-specific validation; it does not turn inferred features into measurements or establish biological causality.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "who-laboratory-biosafety@4",
+      "authority": "World Health Organization",
+      "title": "Laboratory biosafety manual, fourth edition",
+      "url": "https://www.who.int/publications/i/item/9789240011311",
+      "kind": "official-guidance",
+      "supportScope": "A risk-based laboratory biosafety framework; local law and institutional containment decisions still govern.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "wipo-pct-novelty@2026",
+      "authority": "World Intellectual Property Organization",
+      "title": "PCT International Search and Preliminary Examination Guidelines — Chapter 12: Novelty",
+      "url": "https://www.wipo.int/en/web/pct-system/texts/ispe/12_01_02",
+      "kind": "official-guidance",
+      "supportScope": "Official PCT guidance for comparing a defined claim element by element against enabling prior-art disclosures; probabilities or possibilities are insufficient. Borrowed only as an inspectable delta discipline: this garden makes no patentability, priority, inventorship, ownership, or other legal conclusion.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    }
+  ],
+  "roots": [
+    "integrity-consent-data-governance@1",
+    "integrity-experimental-design@1"
+  ],
+  "nodes": [
+    {
+      "id": "analysis-batch-confounding@1",
+      "title": "Batch, composition, and confounding",
+      "stage": "inference",
+      "domain": "computation",
+      "kind": "analysis",
+      "summary": "Separate technical batch, cell composition, ancestry, treatment, environment, and hidden structure before attributing an epigenetic effect.",
+      "prerequisites": [
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1",
+        "assay-rna-seq@1",
+        "integrity-statistics-reproducibility@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A frozen causal and nuisance-variable map with justified adjustment sets.",
+        "Sensitivity analyses that expose, rather than silently erase, batch and composition dependence."
+      ],
+      "failureModes": [
+        "Treating a corrected embedding as proof that confounding was removed.",
+        "Conflating cell-frequency shifts with within-cell regulatory change."
+      ],
+      "sourceIds": [
+        "encode-data-standards@2026-08",
+        "horvath-race-ethnicity@genome-biology-2016"
+      ]
+    },
+    {
+      "id": "analysis-causal-graphs@1",
+      "title": "Causal graphs and counter-hypotheses",
+      "stage": "inference",
+      "domain": "causality",
+      "kind": "analysis",
+      "summary": "Turn associations into explicit causal candidates, competing explanations, intervention targets, and conditions under which the claim should fail.",
+      "prerequisites": [
+        "analysis-batch-confounding@1",
+        "foundation-gene-regulation@1",
+        "integrity-experimental-design@1"
+      ],
+      "evidenceContribution": "E4",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A directed claim graph naming exposures, mediators, outcomes, confounders, colliders, and unmeasured alternatives.",
+        "At least one discriminating prediction for each serious counter-hypothesis."
+      ],
+      "failureModes": [
+        "Calling temporal order or feature importance causal identification.",
+        "Selecting an adjustment set after observing the preferred result."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "relton-two-step-emr@ije-2012"
+      ]
+    },
+    {
+      "id": "analysis-cell-state-trajectory@1",
+      "title": "Multi-omic cell state, trajectory, and memory",
+      "stage": "inference",
+      "domain": "single-cell",
+      "kind": "analysis",
+      "summary": "Infer bounded state transitions without mistaking an embedding, pseudotime axis, or sampled mixture for observed lineage.",
+      "prerequisites": [
+        "analysis-batch-confounding@1",
+        "assay-single-cell-multiome@1",
+        "foundation-cell-identity@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "Frozen state definitions, uncertainty, alternative roots, and topology sensitivity.",
+        "Independent lineage, time-course, perturbation, or orthogonal evidence for directional claims."
+      ],
+      "failureModes": [
+        "Presenting pseudotime as directly observed time.",
+        "Defining cell identities from the same markers later claimed as discoveries."
+      ],
+      "sourceIds": [
+        "scnmt-seq@nature-communications-2018"
+      ]
+    },
+    {
+      "id": "analysis-multi-omic-integration@1",
+      "title": "Multi-omic integration without collapse",
+      "stage": "inference",
+      "domain": "single-cell",
+      "kind": "analysis",
+      "summary": "Relate methylation, accessibility, chromatin, transcription, genotype, phenotype, space, and time while preserving modality-specific uncertainty.",
+      "prerequisites": [
+        "analysis-batch-confounding@1",
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1",
+        "assay-rna-seq@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "Modality-specific QC, missingness, uncertainty, and alignment diagnostics.",
+        "Ablations showing which conclusions survive removal or substitution of each modality."
+      ],
+      "failureModes": [
+        "Treating a shared latent space as a biological mechanism.",
+        "Allowing the largest or cleanest modality to dominate silently."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "scnmt-seq@nature-communications-2018",
+        "scpair@nature-communications-2024"
+      ]
+    },
+    {
+      "id": "assay-atac-cuttag@1",
+      "title": "Accessibility and chromatin-state assays",
+      "stage": "measurement",
+      "domain": "chromatin",
+      "kind": "protocol",
+      "summary": "Design and qualify accessibility, factor-binding, and histone-mark measurements with assay-specific controls rather than one universal quality score.",
+      "prerequisites": [
+        "foundation-chromatin-regulation@1",
+        "integrity-provenance-metadata@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "Versioned wet-lab and computational protocols with positive, negative, input, and batch controls appropriate to the assay.",
+        "Library, enrichment, complexity, replicate, and exclusion metrics reported before biological interpretation."
+      ],
+      "failureModes": [
+        "Applying one QC threshold across incompatible assay classes.",
+        "Interpreting open or marked chromatin as sufficient evidence of regulatory function."
+      ],
+      "sourceIds": [
+        "encode-data-standards@2026-08"
+      ]
+    },
+    {
+      "id": "assay-bisulfite-methylation@1",
+      "title": "DNA methylation and hydroxymethylation assays",
+      "stage": "measurement",
+      "domain": "methylation",
+      "kind": "protocol",
+      "summary": "Measure cytosine modification with explicit conversion, coverage, cell-composition, locus, and chemistry limits.",
+      "prerequisites": [
+        "foundation-dna-methylation@1",
+        "integrity-provenance-metadata@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "Conversion and spike-in controls, coverage distributions, duplicate handling, and a frozen locus universe.",
+        "A declared method for distinguishing or explicitly not distinguishing 5mC and 5hmC."
+      ],
+      "failureModes": [
+        "Calling sparse or composition-shifted measurements locus-specific regulation.",
+        "Treating bisulfite signal as chemically specific when the assay is not."
+      ],
+      "sourceIds": [
+        "encode-data-standards@2026-08",
+        "scnmt-seq@nature-communications-2018"
+      ]
+    },
+    {
+      "id": "assay-rna-seq@1",
+      "title": "Transcript abundance and regulation",
+      "stage": "measurement",
+      "domain": "transcriptomics",
+      "kind": "protocol",
+      "summary": "Measure transcriptional state with library, mapping, normalization, replicate, and compositional assumptions made inspectable.",
+      "prerequisites": [
+        "foundation-gene-regulation@1",
+        "integrity-provenance-metadata@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "Library strategy, reference, alignment or quantification, filtering, and normalization versions.",
+        "Replicate concordance, complexity, contamination, strandedness, and exclusion evidence appropriate to the design."
+      ],
+      "failureModes": [
+        "Treating normalized abundance as an absolute molecule count without calibration.",
+        "Inferring regulatory direction from differential abundance alone."
+      ],
+      "sourceIds": [
+        "encode-data-standards@2026-08"
+      ]
+    },
+    {
+      "id": "assay-single-cell-multiome@1",
+      "title": "Single-cell multi-omic measurement",
+      "stage": "measurement",
+      "domain": "single-cell",
+      "kind": "protocol",
+      "summary": "Preserve cell-level lineage across modalities while bounding dropout, doublets, ambient signal, sparse coverage, and destructive sampling.",
+      "prerequisites": [
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1",
+        "assay-rna-seq@1",
+        "foundation-cell-identity@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "A cell-to-library-to-file lineage with chemistry, barcode, filtering, and doublet decisions.",
+        "Modality-specific detection, missingness, depth, and replicate distributions before joint embedding."
+      ],
+      "failureModes": [
+        "Discarding cells until a preferred trajectory appears.",
+        "Treating imputed values as observed molecular measurements."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "scnmt-seq@nature-communications-2018",
+        "scpair@nature-communications-2024"
+      ]
+    },
+    {
+      "id": "assay-spatial-epigenomics@1",
+      "title": "Spatial chromatin and tissue context",
+      "stage": "measurement",
+      "domain": "chromatin",
+      "kind": "protocol",
+      "summary": "Anchor chromatin-state measurements to tissue geometry, sampling scale, morphology, neighbourhood, and registration uncertainty.",
+      "prerequisites": [
+        "assay-atac-cuttag@1",
+        "foundation-cell-identity@1",
+        "integrity-provenance-metadata@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "Registered image, region, section, assay, and analysis lineage with spatial resolution and uncertainty.",
+        "Controls for tissue handling, section effects, bleed, segmentation, and neighbourhood definition."
+      ],
+      "failureModes": [
+        "Attributing spatial autocorrelation to cell-cell regulation without a discriminating design.",
+        "Ignoring registration and segmentation uncertainty."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "encode-data-standards@2026-08"
+      ]
+    },
+    {
+      "id": "foundation-cell-identity@1",
+      "title": "Cell identity is contextual",
+      "stage": "trunk",
+      "domain": "foundations",
+      "kind": "foundation",
+      "summary": "Treat cell identity as a bounded, revisable model of state, lineage, environment, anatomy, and measurement—not an eternal label.",
+      "prerequisites": [
+        "integrity-experimental-design@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "Operational identity criteria, context, exclusions, uncertainty, and alternative classifications.",
+        "A plan to test marker circularity and state-versus-lineage ambiguity."
+      ],
+      "failureModes": [
+        "Reifying a cluster label into a stable biological essence.",
+        "Using the discovery features themselves as independent identity validation."
+      ],
+      "sourceIds": [
+        "scnmt-seq@nature-communications-2018"
+      ]
+    },
+    {
+      "id": "foundation-chromatin-regulation@1",
+      "title": "Chromatin, nucleosomes, and regulatory access",
+      "stage": "trunk",
+      "domain": "chromatin",
+      "kind": "foundation",
+      "summary": "Relate chromatin accessibility, histone state, binding, three-dimensional contact, and transcription without collapsing correlation into control.",
+      "prerequisites": [
+        "foundation-gene-regulation@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A mechanism map distinguishing access, occupancy, modification, contact, transcription, and phenotype.",
+        "Counterexamples showing why each observed layer is not sufficient alone."
+      ],
+      "failureModes": [
+        "Calling an accessible locus an enhancer without functional evidence.",
+        "Assuming a histone mark is a unidirectional causal instruction."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "encode-data-standards@2026-08"
+      ]
+    },
+    {
+      "id": "foundation-dna-methylation@1",
+      "title": "DNA methylation and regulatory memory",
+      "stage": "trunk",
+      "domain": "methylation",
+      "kind": "foundation",
+      "summary": "Distinguish cytosine chemistry, maintenance, erasure, cell mixture, genomic context, regulatory association, and experimentally demonstrated memory.",
+      "prerequisites": [
+        "foundation-gene-regulation@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A locus- and cell-context model separating mark, reader, writer, eraser, expression, and phenotype.",
+        "Explicit alternative explanations from sequence, composition, exposure, development, and technical chemistry."
+      ],
+      "failureModes": [
+        "Treating methylation percentage as a homogeneous property of every cell.",
+        "Calling an age- or disease-associated mark a causal memory without intervention or triangulation."
+      ],
+      "sourceIds": [
+        "scnmt-seq@nature-communications-2018"
+      ]
+    },
+    {
+      "id": "foundation-gene-regulation@1",
+      "title": "Gene regulation across layers",
+      "stage": "trunk",
+      "domain": "foundations",
+      "kind": "foundation",
+      "summary": "Model regulation across sequence, transcription factors, chromatin, RNA, environment, feedback, development, and measurement timescale.",
+      "prerequisites": [
+        "integrity-experimental-design@1",
+        "integrity-statistics-reproducibility@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A bounded regulatory model with named spatial, temporal, cellular, and environmental scope.",
+        "Competing mechanisms and measurements that could distinguish them."
+      ],
+      "failureModes": [
+        "Confusing a molecular association with a complete regulatory mechanism.",
+        "Generalising across cell types, developmental windows, or environments without evidence."
+      ],
+      "sourceIds": [
+        "encode-data-standards@2026-08"
+      ]
+    },
+    {
+      "id": "integrity-consent-data-governance@1",
+      "title": "Consent, data use, privacy, and biosafety",
+      "stage": "soil",
+      "domain": "integrity",
+      "kind": "foundation",
+      "summary": "Make participant rights, permitted use, access, retention, withdrawal limits, biological risk, and disclosure boundaries part of the evidence—not paperwork beside it.",
+      "prerequisites": [],
+      "evidenceContribution": "E1",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "regulated-human",
+      "artifactRequirements": [
+        "Consent or data-use scope, access lane, institutional certification where applicable, and a data minimisation plan.",
+        "A public artifact plan restricted to non-identifying metadata, digests, access-lane attestations, and aggregate claims.",
+        "Applicable human-participant, biosafety, and animal-welfare determinations with risk, containment, incident, and waste controls resolved before work."
+      ],
+      "failureModes": [
+        "Publishing raw or readily re-identifiable genomic information as proof.",
+        "Treating consent for one purpose, population, or access lane as universal permission.",
+        "Treating data-use approval as human-participant, biosafety, or animal-welfare approval."
+      ],
+      "sourceIds": [
+        "hhs-common-rule@2026-08",
+        "nih-biosafety-policy@2026-08",
+        "nih-controlled-access@2025",
+        "nih-gds@2026-08",
+        "nih-institutional-certifications@2026-08",
+        "olaw-phs-policy@2026-08",
+        "who-laboratory-biosafety@4"
+      ]
+    },
+    {
+      "id": "integrity-experimental-design@1",
+      "title": "Questions before results",
+      "stage": "soil",
+      "domain": "integrity",
+      "kind": "foundation",
+      "summary": "Freeze the biological question, unit, intervention or exposure, outcomes, comparison, exclusions, estimand, counter-hypotheses, and decision rules before seeing the preferred answer.",
+      "prerequisites": [],
+      "evidenceContribution": "E1",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A time-stamped protocol or preregistration with hypotheses, nulls, sampling, power, exclusions, and analysis decisions.",
+        "A scope hash covering organism, tissue, cell context, time, assay, cohort, and intended claim."
+      ],
+      "failureModes": [
+        "Retrofitting a question to the strongest observed association.",
+        "Leaving the experimental unit or multiplicity family undefined."
+      ],
+      "sourceIds": [
+        "encode-data-standards@2026-08",
+        "nih-preclinical-rigor@2026-08"
+      ]
+    },
+    {
+      "id": "integrity-provenance-metadata@1",
+      "title": "Biosample-to-claim provenance",
+      "stage": "soil",
+      "domain": "integrity",
+      "kind": "foundation",
+      "summary": "Keep donor, biosample, preparation, experiment, file, analysis step, model, figure, and bounded claim as distinct linked objects.",
+      "prerequisites": [
+        "integrity-consent-data-governance@1",
+        "integrity-experimental-design@1"
+      ],
+      "evidenceContribution": "E1",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "Immutable digests and explicit edges for samples, protocols, files, software, parameters, analyses, figures, and claims.",
+        "Correction and supersession links that preserve prior states rather than silently rewriting them."
+      ],
+      "failureModes": [
+        "Treating a repository landing page as complete lineage.",
+        "Collapsing biological replicates, technical replicates, files, and analysis reruns into one count."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "nih-gds@2026-08"
+      ]
+    },
+    {
+      "id": "integrity-statistics-reproducibility@1",
+      "title": "Statistics, uncertainty, and reproducibility",
+      "stage": "soil",
+      "domain": "integrity",
+      "kind": "foundation",
+      "summary": "Bound power, multiplicity, effect size, uncertainty, missingness, model choice, leakage, and independent reproduction before using significance as evidence.",
+      "prerequisites": [
+        "integrity-experimental-design@1"
+      ],
+      "evidenceContribution": "E2",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A frozen estimand, power or precision analysis, multiplicity family, uncertainty interval, and missing-data plan.",
+        "Executable analysis with locked dependencies, seeds, input digests, and positive and negative controls."
+      ],
+      "failureModes": [
+        "Equating a thresholded p-value with importance, causality, or truth.",
+        "Calling rerunning the same code on the same data independent replication."
+      ],
+      "sourceIds": [
+        "dunedinpace@elife-2022",
+        "encode-data-standards@2026-08",
+        "higgins-chen-pc-clocks@nature-aging-2022",
+        "nih-preclinical-rigor@2026-08"
+      ]
+    },
+    {
+      "id": "intervention-epigenome-editing@1",
+      "title": "Targeted epigenome perturbation",
+      "stage": "intervention",
+      "domain": "intervention",
+      "kind": "intervention",
+      "summary": "Perturb a regulatory locus or effector with explicit targeting, delivery, dose, timing, specificity, durability, reversibility, and off-target evidence.",
+      "prerequisites": [
+        "analysis-causal-graphs@1",
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1"
+      ],
+      "evidenceContribution": "E4",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "Target, effector, delivery, dose, time, controls, viability, off-target search, and containment plan.",
+        "Orthogonal molecular and phenotypic readouts with blinded or otherwise protected analysis where practical."
+      ],
+      "failureModes": [
+        "Attributing a phenotype to the intended epigenetic change without delivery and off-target controls.",
+        "Treating durable repression in one system as safe or reversible in humans."
+      ],
+      "sourceIds": [
+        "crisproff@cell-2021"
+      ]
+    },
+    {
+      "id": "intervention-perturbation-rescue@1",
+      "title": "Perturbation, rescue, and reversal",
+      "stage": "intervention",
+      "domain": "causality",
+      "kind": "intervention",
+      "summary": "Challenge a causal claim by changing the proposed regulator, observing the bounded consequence, and rescuing or reversing it through an independently justified route.",
+      "prerequisites": [
+        "analysis-causal-graphs@1",
+        "intervention-epigenome-editing@1"
+      ],
+      "evidenceContribution": "E4",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "Frozen perturbation and rescue logic that distinguishes necessity, sufficiency, mediation, compensation, and toxicity.",
+        "Independent controls for guide, effector, delivery, dose, time, cell state, and measurement."
+      ],
+      "failureModes": [
+        "Calling one perturbation sufficient causal proof despite shared off-target mechanisms.",
+        "Using a rescue that changes multiple uncontrolled pathways."
+      ],
+      "sourceIds": [
+        "crisproff@cell-2021"
+      ]
+    },
+    {
+      "id": "quest-ageing-clock-transportability@1",
+      "title": "Quest: transportable ageing signal",
+      "stage": "quest",
+      "domain": "quests",
+      "kind": "quest",
+      "summary": "Find a bounded epigenetic ageing signal that survives frozen external cohorts, assay shifts, ancestry and cell-composition checks, longitudinal challenge, and intervention-aware interpretation.",
+      "prerequisites": [
+        "analysis-batch-confounding@1",
+        "validation-independent-replication@1",
+        "validation-prior-art-delta@1"
+      ],
+      "evidenceContribution": "E5",
+      "rewardEligibility": "sponsor-template-only",
+      "safetyTier": "regulated-human",
+      "artifactRequirements": [
+        "A frozen transportability matrix across cohort, tissue, ancestry, age range, cell composition, assay, and longitudinal setting.",
+        "External predictions reported with calibration, uncertainty, failures, exclusions, and no clinical-validity claim."
+      ],
+      "failureModes": [
+        "Equating chronological-age prediction with a causal or clinically actionable ageing mechanism.",
+        "Tuning repeatedly on nominally external cohorts."
+      ],
+      "sourceIds": [
+        "dunedinpace@elife-2022",
+        "higgins-chen-pc-clocks@nature-aging-2022",
+        "horvath-race-ethnicity@genome-biology-2016",
+        "nih-gds@2026-08"
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "assay-lanes=claim-appropriate;multi-omics-not-universal",
+          "clinical-validity-claim=false",
+          "cohort-roots>=2",
+          "external-cohort-frozen-before-evaluation=true",
+          "human-data-access-lane-attested=true",
+          "longitudinal-or-prospective-context>=1",
+          "signal-definition=frozen-before-external-evaluation",
+          "transportability-dimensions=age-range,ancestry,assay,cell-composition,cohort,tissue"
+        ],
+        "scopeHash": "bc7092d310e20fd4cf97f43226cd320a9cc60ccfa599eebf37c10bde4851c97e",
+        "milestones": [
+          {
+            "id": "causal-interpretation-bounded",
+            "evidenceLevel": "E4",
+            "acceptanceTest": "A frozen counter-hypothesis challenge narrows causal interpretation without converting age prediction into mechanism or clinical validity."
+          },
+          {
+            "id": "external-transportability",
+            "evidenceLevel": "E5",
+            "acceptanceTest": "The pre-frozen signal is evaluated in untouched external or longitudinal contexts with calibration, uncertainty, exclusions, and failures reported."
+          },
+          {
+            "id": "independent-reproduction",
+            "evidenceLevel": "E3",
+            "acceptanceTest": "Three effective clusters across at least two organisation, data, and analysis-pipeline roots reproduce the same bounded signal definition."
+          },
+          {
+            "id": "scope-and-prior-art-freeze",
+            "evidenceLevel": "E0",
+            "acceptanceTest": "Signal, cohort lanes, transport dimensions, exclusions, prior-art delta, and non-clinical claim boundary are frozen before external evaluation."
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumDataRoots": 2,
+        "minimumAnalysisPipelineRoots": 2,
+        "requiredReceiptTypes": [
+          "causal-challenge",
+          "independent-reproduction",
+          "prior-art-delta",
+          "prospective-or-descendant-impact",
+          "safety-lane"
+        ],
+        "nullFailureContradictionRule": "preserve-and-report-no-scope-mutation-no-automatic-reward",
+        "safetyApprovalSubstitutionAllowed": false
+      }
+    },
+    {
+      "id": "quest-causal-regulatory-locus@1",
+      "title": "Quest: causal regulatory locus",
+      "stage": "quest",
+      "domain": "quests",
+      "kind": "quest",
+      "summary": "Carry one locus from bounded association through orthogonal assay, targeted perturbation, rescue, independent reproduction, and useful descendant work.",
+      "prerequisites": [
+        "intervention-perturbation-rescue@1",
+        "validation-independent-replication@1",
+        "validation-prior-art-delta@1"
+      ],
+      "evidenceContribution": "E5",
+      "rewardEligibility": "sponsor-template-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "A frozen chain from prior-art delta and locus definition to perturbation, orthogonal readouts, rescue, and external reproduction.",
+        "A counterexample and challenge package that can disprove or narrow each causal edge."
+      ],
+      "failureModes": [
+        "Moving the locus, cell context, endpoint, or mechanism after a failed test.",
+        "Counting multiple analyses of one biological root as independent reproduction."
+      ],
+      "sourceIds": [
+        "crisproff@cell-2021",
+        "encode-data-standards@2026-08"
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "cell-context=frozen",
+          "clinical-validity-claim=false",
+          "intervention-target=locus-and-effector-frozen",
+          "off-target-assessment=claim-appropriate",
+          "orthogonal-readouts>=2-nonshared-failure-modes",
+          "rescue-or-reversal-route=independently-justified",
+          "safety-lane=attested-before-intervention",
+          "useful-descendant-or-prospective-test>=1"
+        ],
+        "scopeHash": "f7be1374d10d847a6dc6ff4b51754d892e79d9cdca92eae91bc42cf6077f7559",
+        "milestones": [
+          {
+            "id": "causal-challenge-and-rescue",
+            "evidenceLevel": "E4",
+            "acceptanceTest": "A targeted perturbation, at least two orthogonal readouts, and an independently justified rescue or reversal survive frozen off-target and toxicity alternatives."
+          },
+          {
+            "id": "independent-reproduction",
+            "evidenceLevel": "E3",
+            "acceptanceTest": "Three effective clusters across at least two organisation, data, and analysis-pipeline roots reproduce the frozen locus claim."
+          },
+          {
+            "id": "prospective-or-descendant-use",
+            "evidenceLevel": "E5",
+            "acceptanceTest": "A predeclared new-context prediction or an independently rooted descendant uses, narrows, repairs, or disproves the same causal edge."
+          },
+          {
+            "id": "scope-and-prior-art-freeze",
+            "evidenceLevel": "E0",
+            "acceptanceTest": "Locus, effector, cell context, endpoints, counter-hypotheses, safety lane, and prior-art delta are frozen before intervention results."
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumDataRoots": 2,
+        "minimumAnalysisPipelineRoots": 2,
+        "requiredReceiptTypes": [
+          "causal-challenge",
+          "independent-reproduction",
+          "prior-art-delta",
+          "prospective-or-descendant-impact",
+          "safety-lane"
+        ],
+        "nullFailureContradictionRule": "preserve-and-report-no-scope-mutation-no-automatic-reward",
+        "safetyApprovalSubstitutionAllowed": false
+      }
+    },
+    {
+      "id": "quest-cell-fate-memory@1",
+      "title": "Quest: writable and reversible cell-fate memory",
+      "stage": "quest",
+      "domain": "quests",
+      "kind": "quest",
+      "summary": "Demonstrate a context-bounded regulatory memory that can be written, read across time and state, challenged, reversed or rescued, and independently reproduced.",
+      "prerequisites": [
+        "analysis-cell-state-trajectory@1",
+        "intervention-perturbation-rescue@1",
+        "validation-independent-replication@1",
+        "validation-prior-art-delta@1"
+      ],
+      "evidenceContribution": "E5",
+      "rewardEligibility": "sponsor-template-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "A frozen definition of memory, time horizon, state transition, write, read, erasure or rescue, and context boundary.",
+        "Lineage-aware, orthogonal, and independently rooted evidence separating persistence from selection or composition."
+      ],
+      "failureModes": [
+        "Calling persistent population composition a memory in individual cells.",
+        "Ignoring selection, toxicity, clonal expansion, or irreversible genomic alteration."
+      ],
+      "sourceIds": [
+        "crisproff@cell-2021",
+        "scnmt-seq@nature-communications-2018"
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "cell-context-and-lineage-definition=frozen",
+          "clinical-validity-claim=false",
+          "erasure-rescue-or-reversal=frozen",
+          "genomic-alteration-excluded-or-disclosed=true",
+          "lineage-aware-observation-required=true",
+          "memory-time-horizon=frozen",
+          "selection-composition-and-toxicity-challenged=true",
+          "useful-descendant-or-prospective-context>=1",
+          "write-and-read-definition=frozen"
+        ],
+        "scopeHash": "ef2bc00a7932849b1bcf422489031f0e5f41d7955a785c207d88301338b9aee2",
+        "milestones": [
+          {
+            "id": "independent-reproduction",
+            "evidenceLevel": "E3",
+            "acceptanceTest": "Three effective clusters across at least two organisation, data, and analysis-pipeline roots reproduce the frozen memory definition and time horizon."
+          },
+          {
+            "id": "persistence-alternative-challenge",
+            "evidenceLevel": "E4",
+            "acceptanceTest": "Lineage-aware write, read, erasure, rescue, or reversal evidence survives frozen selection, composition, toxicity, clonal-expansion, and genomic-alteration alternatives."
+          },
+          {
+            "id": "prospective-or-descendant-use",
+            "evidenceLevel": "E5",
+            "acceptanceTest": "A predeclared new cell context or independently rooted descendant uses, narrows, repairs, or disproves the same bounded memory mechanism."
+          },
+          {
+            "id": "scope-and-prior-art-freeze",
+            "evidenceLevel": "E0",
+            "acceptanceTest": "Memory, write, read, time horizon, cell context, lineage, reversibility, safety lane, and prior-art delta are frozen before results."
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumDataRoots": 2,
+        "minimumAnalysisPipelineRoots": 2,
+        "requiredReceiptTypes": [
+          "causal-challenge",
+          "independent-reproduction",
+          "prior-art-delta",
+          "prospective-or-descendant-impact",
+          "safety-lane"
+        ],
+        "nullFailureContradictionRule": "preserve-and-report-no-scope-mutation-no-automatic-reward",
+        "safetyApprovalSubstitutionAllowed": false
+      }
+    },
+    {
+      "id": "validation-independent-replication@1",
+      "title": "Independent biological replication",
+      "stage": "canopy",
+      "domain": "causality",
+      "kind": "validation",
+      "summary": "Reproduce a frozen bounded claim across separately rooted people, organisations, biosamples, preparation, assay execution, analysis pipelines, and decision authority.",
+      "prerequisites": [
+        "integrity-experimental-design@1",
+        "integrity-provenance-metadata@1",
+        "integrity-statistics-reproducibility@1"
+      ],
+      "evidenceContribution": "E3",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "A frozen claim and independence matrix disclosed before the reproducer learns the preferred result where practical.",
+        "All failed, partial, null, contradictory, and successful reproductions linked to the same claim scope."
+      ],
+      "failureModes": [
+        "Counting addresses, sites, or coauthors without examining shared control and lineage.",
+        "Publishing only successful replications or silently changing the claim."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "encode-data-standards@2026-08",
+        "nih-preclinical-rigor@2026-08"
+      ]
+    },
+    {
+      "id": "validation-orthogonal-assays@1",
+      "title": "Orthogonal assays and negative evidence",
+      "stage": "canopy",
+      "domain": "causality",
+      "kind": "validation",
+      "summary": "Challenge a claim with measurements whose failure modes and physical principles are sufficiently different to add information.",
+      "prerequisites": [
+        "foundation-gene-regulation@1",
+        "integrity-experimental-design@1",
+        "integrity-provenance-metadata@1"
+      ],
+      "evidenceContribution": "E4",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "controlled-biological",
+      "artifactRequirements": [
+        "At least two named, claim-appropriate assays with demonstrably nonshared physical principles and failure modes, plus an independence argument for samples, batches, operators, and analysis paths.",
+        "Predicted agreement, disagreement, and decisive failure patterns fixed before comparison."
+      ],
+      "failureModes": [
+        "Calling two kits built on the same chemistry orthogonal.",
+        "Discarding discordance as noise without updating the claim."
+      ],
+      "sourceIds": [
+        "encode-data-standards@2026-08"
+      ]
+    },
+    {
+      "id": "validation-prior-art-delta@1",
+      "title": "Prior-art delta and descendant value",
+      "stage": "canopy",
+      "domain": "integrity",
+      "kind": "validation",
+      "summary": "Define exactly what changed relative to prior art and measure whether later independent work uses, repairs, disproves, generalises, or supersedes it.",
+      "prerequisites": [
+        "analysis-causal-graphs@1",
+        "integrity-provenance-metadata@1"
+      ],
+      "evidenceContribution": "cross-cutting",
+      "rewardEligibility": "capability-evidence-only",
+      "safetyTier": "open-computational",
+      "artifactRequirements": [
+        "A versioned prior-art matrix and claim-level delta frozen before breakthrough review.",
+        "Independent descendant receipts that name exact implemented, reused, repaired, disproved, or generalised edges."
+      ],
+      "failureModes": [
+        "Using novelty language without an inspectable comparison set.",
+        "Counting attention, citations, or token transfers as scientific impact by themselves."
+      ],
+      "sourceIds": [
+        "4dn-data-model@2026-08",
+        "nih-rigor-prior-research@2026-08",
+        "wipo-pct-novelty@2026"
+      ]
+    }
+  ]
+}

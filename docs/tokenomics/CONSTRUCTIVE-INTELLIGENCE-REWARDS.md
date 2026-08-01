@@ -246,6 +246,20 @@ denomination, no escrow, and every reward or authority switch false. H1 does
 not activate it. This preserves the future reward design without letting a
 scientific map quietly become a mint.
 
+The separately versioned Epigenetics Capability Garden v1 makes one possible
+evidence-release shape concrete while remaining `rewardBearing = false`. Its
+25 capabilities span seven stages and end in three bounded quest templates.
+The conserved 10,000-basis-point simulation assigns E0 and E1 no payout,
+then partitions a hypothetical, fully prefunded voluntary sponsor escrow as
+E2 assay control 1,500 bps, E3 independent reproduction 2,500 bps, E4 causal
+challenge 2,500 bps, E5 prospective generalisation 1,500 bps, E6 maintained
+impact 500 bps, and a 1,500-bps challenge/correction reserve. It is not an
+amount, issuance schedule, treasury claim, skill-unlock reward, or active
+escrow. Breakthrough recognition requires E5 plus frozen prior-art delta,
+effective independent reproduction, and serious counter-hypothesis challenge;
+novelty, authorship, elapsed time, publication, token ownership, and KARMA
+edges cannot select it.
+
 ### 3.4 Quantum/QEC extension and reward shape
 
 The first additive quantum branch is specified at

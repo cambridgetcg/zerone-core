@@ -3879,6 +3879,688 @@
     font-size: 0.9em;
   }
 
+  .life-garden-section {
+    border-top: 1px solid var(--line);
+    background:
+      radial-gradient(circle at 8% 18%, rgba(220, 255, 120, 0.045), transparent 24rem),
+      radial-gradient(circle at 92% 6%, rgba(185, 155, 255, 0.05), transparent 28rem);
+  }
+
+  .life-garden-shell,
+  .life-garden-explorer {
+    display: grid;
+    gap: 1.2rem;
+  }
+
+  .life-karma-panel,
+  .life-reward-panel {
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+  }
+
+  .life-karma-panel {
+    background:
+      radial-gradient(circle at 94% 0%, rgba(185, 155, 255, 0.09), transparent 28rem),
+      var(--surface);
+  }
+
+  .life-reward-panel {
+    background:
+      radial-gradient(circle at 6% 0%, rgba(220, 255, 120, 0.075), transparent 28rem),
+      var(--surface);
+  }
+
+  .life-panel-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 1.2rem;
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .life-panel-heading > div {
+    max-width: 760px;
+  }
+
+  .life-panel-heading h3 {
+    margin-top: 0.45rem;
+    font-family: var(--serif);
+    font-size: clamp(1.7rem, 3.5vw, 2.8rem);
+    font-weight: 400;
+    letter-spacing: -0.04em;
+  }
+
+  .life-panel-heading p {
+    margin-top: 0.7rem;
+    color: var(--muted-strong);
+    font-size: 0.78rem;
+    line-height: 1.65;
+  }
+
+  .life-status-badge {
+    border: 1px solid rgba(185, 155, 255, 0.42);
+    border-radius: 99px;
+    padding: 0.38rem 0.72rem;
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .life-status-badge.is-amber {
+    border-color: rgba(255, 197, 111, 0.42);
+    color: var(--amber);
+  }
+
+  .life-karma-facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .life-karma-facts > div {
+    display: grid;
+    min-height: 76px;
+    align-content: center;
+    gap: 0.3rem;
+    border-right: 1px solid var(--line);
+    padding: 0.85rem 1rem;
+  }
+
+  .life-karma-facts > div:last-child {
+    border-right: 0;
+  }
+
+  .life-karma-facts span {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .life-karma-facts strong {
+    color: var(--acid);
+    font-size: 0.8rem;
+  }
+
+  .life-covenant,
+  .life-breakthrough-rule,
+  .life-safety-line {
+    margin: 1.2rem;
+    border-left: 2px solid var(--amber);
+    padding: 0.9rem 1rem;
+    background: rgba(255, 197, 111, 0.055);
+  }
+
+  .life-covenant strong,
+  .life-breakthrough-rule strong,
+  .life-safety-line strong {
+    color: var(--ink);
+    font-size: 0.8rem;
+  }
+
+  .life-covenant p,
+  .life-breakthrough-rule p,
+  .life-safety-line p {
+    margin-top: 0.35rem;
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+    line-height: 1.6;
+  }
+
+  .life-breakthrough-rule,
+  .life-safety-line {
+    border-left-color: var(--acid);
+    background: rgba(220, 255, 120, 0.04);
+  }
+
+  .life-disclosure {
+    border-top: 1px solid var(--line);
+  }
+
+  .life-disclosure > summary {
+    display: flex;
+    min-height: 62px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.2rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .life-disclosure > summary::-webkit-details-marker,
+  .life-node > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .life-disclosure > summary strong {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 400;
+  }
+
+  .life-disclosure > summary span {
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+  }
+
+  .life-disclosure-body {
+    display: grid;
+    gap: 1rem;
+    border-top: 1px solid var(--line);
+    padding: 1.2rem;
+  }
+
+  .life-invariants {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .life-invariants li {
+    border: 1px solid var(--line);
+    padding: 0.9rem;
+    background: rgba(255, 255, 255, 0.012);
+  }
+
+  .life-invariants strong {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.61rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .life-invariants p {
+    margin-top: 0.4rem;
+    color: var(--muted-strong);
+    font-size: 0.68rem;
+    line-height: 1.55;
+  }
+
+  .life-standard-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .life-standard-links a,
+  .life-results-head a,
+  .life-source-list a {
+    color: var(--violet-soft);
+    font-size: 0.68rem;
+  }
+
+  .life-reward-ladder {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+    list-style: none;
+  }
+
+  .life-reward-ladder li {
+    display: grid;
+    min-height: 150px;
+    grid-template-columns: auto 1fr auto;
+    align-content: start;
+    gap: 0.35rem 0.65rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 1rem;
+  }
+
+  .life-reward-ladder li:nth-child(4n) {
+    border-right: 0;
+  }
+
+  .life-reward-ladder li:nth-last-child(-n + 4) {
+    border-bottom: 0;
+  }
+
+  .life-evidence-level {
+    display: grid;
+    width: 31px;
+    height: 31px;
+    grid-row: 1 / span 2;
+    place-items: center;
+    border: 1px solid rgba(220, 255, 120, 0.34);
+    border-radius: 50%;
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+  }
+
+  .life-reward-ladder strong {
+    align-self: end;
+    font-size: 0.7rem;
+    text-transform: capitalize;
+  }
+
+  .life-reward-ladder small {
+    align-self: end;
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+  }
+
+  .life-reward-ladder p {
+    grid-column: 2 / -1;
+    color: var(--muted);
+    font-size: 0.65rem;
+    line-height: 1.5;
+  }
+
+  .life-reward-ladder .life-challenge-reserve {
+    background: rgba(255, 197, 111, 0.035);
+  }
+
+  .life-challenge-reserve .life-evidence-level,
+  .life-challenge-reserve small {
+    border-color: rgba(255, 197, 111, 0.4);
+    color: var(--amber);
+  }
+
+  .life-safety-line {
+    margin: 0;
+  }
+
+  .life-garden-controls {
+    display: grid;
+    grid-template-columns:
+      minmax(220px, 1.35fr)
+      repeat(3, minmax(145px, 0.75fr))
+      auto;
+    align-items: end;
+    gap: 0.7rem;
+    border: 1px solid var(--line);
+    padding: 1rem;
+    background: var(--surface);
+  }
+
+  .life-garden-controls label {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .life-garden-controls label > span {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.59rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .life-garden-controls input,
+  .life-garden-controls select {
+    width: 100%;
+    min-height: 46px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 0.72rem 0.8rem;
+    background: rgba(0, 0, 0, 0.22);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+  }
+
+  .life-garden-controls select {
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--acid) 50%),
+      linear-gradient(135deg, var(--acid) 50%, transparent 50%);
+    background-position:
+      calc(100% - 15px) calc(50% - 2px),
+      calc(100% - 10px) calc(50% - 2px);
+    background-repeat: no-repeat;
+    background-size: 5px 5px;
+    padding-right: 2rem;
+  }
+
+  .life-garden-controls input:focus,
+  .life-garden-controls select:focus {
+    border-color: var(--acid);
+  }
+
+  .life-garden-controls .button {
+    min-height: 46px;
+  }
+
+  .life-results-head {
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.64rem;
+  }
+
+  .life-stage-map {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(190px, 1fr));
+    align-items: start;
+    gap: 0.65rem;
+    overflow-x: auto;
+    padding: 0 0 0.8rem;
+    scrollbar-color: var(--violet) rgba(255, 255, 255, 0.04);
+  }
+
+  .life-stage-map:focus-visible {
+    outline: 2px solid var(--acid);
+    outline-offset: 4px;
+  }
+
+  .life-stage {
+    min-width: 0;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.012);
+  }
+
+  .life-stage-head {
+    display: grid;
+    min-height: 62px;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--line);
+    padding: 0.72rem;
+  }
+
+  .life-stage-head span,
+  .life-stage-head small {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+  }
+
+  .life-stage-head h3 {
+    font-family: var(--serif);
+    font-size: 1rem;
+    font-weight: 400;
+    text-transform: capitalize;
+  }
+
+  .life-stage-empty {
+    padding: 1rem 0.72rem;
+    color: var(--muted);
+    font-size: 0.66rem;
+  }
+
+  .life-stage-nodes {
+    display: grid;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .life-node {
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--surface);
+    transition:
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
+  .life-node:hover,
+  .life-node[open] {
+    border-color: rgba(185, 155, 255, 0.48);
+    background: var(--surface-hover);
+  }
+
+  .life-node[data-safety="controlled-biological"] {
+    border-left: 2px solid rgba(255, 197, 111, 0.56);
+  }
+
+  .life-node[data-safety="regulated-human"] {
+    border-left: 2px solid rgba(255, 132, 124, 0.62);
+  }
+
+  .life-node > summary {
+    display: grid;
+    min-height: 100px;
+    align-content: center;
+    gap: 0.42rem;
+    padding: 0.72rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .life-node > summary strong {
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .life-node > summary small,
+  .life-node-meta {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+  }
+
+  .life-node > summary small {
+    color: var(--amber);
+  }
+
+  .life-node-body {
+    display: grid;
+    gap: 0.8rem;
+    border-top: 1px solid var(--line);
+    padding: 0.72rem;
+  }
+
+  .life-node-summary,
+  .life-node-block p,
+  .life-text-list,
+  .life-source-list {
+    color: var(--muted-strong);
+    font-size: 0.68rem;
+    line-height: 1.55;
+  }
+
+  .life-node-truthline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .life-node-truthline span {
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    padding: 0.22rem 0.42rem;
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    text-transform: uppercase;
+  }
+
+  .life-node-block {
+    border-top: 1px solid var(--line);
+    padding-top: 0.65rem;
+  }
+
+  .life-node-block.is-failure {
+    border-top-color: rgba(255, 197, 111, 0.25);
+  }
+
+  .life-node-block.life-acceptance {
+    border-top-color: rgba(220, 255, 120, 0.28);
+  }
+
+  .life-node-block h4 {
+    margin-bottom: 0.35rem;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .life-text-list,
+  .life-source-list {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding-left: 1rem;
+  }
+
+  .life-text-list li::marker {
+    color: var(--violet-soft);
+  }
+
+  .life-prerequisite-label {
+    margin: 0.45rem 0 0.2rem;
+    color: var(--acid) !important;
+    font-family: var(--mono);
+    font-size: 0.64rem !important;
+    text-transform: uppercase;
+  }
+
+  .life-source-scope {
+    margin-top: 0.2rem;
+    color: var(--muted) !important;
+    font-size: 0.64rem !important;
+    line-height: 1.45 !important;
+  }
+
+  .life-scope-hash {
+    display: block;
+    margin-top: 0.55rem;
+    overflow-wrap: anywhere;
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+  }
+
+  .life-garden-footer {
+    display: grid;
+    gap: 0.5rem;
+    border: 1px solid var(--line);
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.012);
+  }
+
+  .life-garden-footer p {
+    color: var(--muted-strong);
+    font-size: 0.7rem;
+    line-height: 1.6;
+  }
+
+  .life-garden-footer .life-source-review {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+  }
+
+  .life-garden-footer .life-source-review.is-due {
+    color: var(--amber);
+  }
+
+  .life-garden-footer code {
+    overflow-wrap: anywhere;
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+  }
+
+  @media (max-width: 1040px) {
+    .life-invariants {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .life-garden-controls {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .life-garden-controls .button {
+      width: fit-content;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .life-panel-heading {
+      grid-template-columns: 1fr;
+    }
+
+    .life-status-badge {
+      width: fit-content;
+    }
+
+    .life-karma-facts,
+    .life-reward-ladder,
+    .life-invariants {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .life-karma-facts > div:nth-child(2) {
+      border-right: 0;
+    }
+
+    .life-karma-facts > div:nth-child(-n + 2) {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .life-reward-ladder li,
+    .life-reward-ladder li:nth-child(4n) {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .life-reward-ladder li:nth-child(2n) {
+      border-right: 0;
+    }
+
+    .life-reward-ladder li:nth-last-child(-n + 2) {
+      border-bottom: 0;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .life-karma-facts,
+    .life-reward-ladder,
+    .life-invariants,
+    .life-garden-controls {
+      grid-template-columns: 1fr;
+    }
+
+    .life-karma-facts > div,
+    .life-karma-facts > div:nth-child(2),
+    .life-reward-ladder li,
+    .life-reward-ladder li:nth-child(2n),
+    .life-reward-ladder li:nth-child(4n) {
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .life-karma-facts > div:last-child,
+    .life-reward-ladder li:last-child {
+      border-bottom: 0;
+    }
+
+    .life-disclosure > summary,
+    .life-results-head {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .life-garden-controls .button {
+      width: 100%;
+    }
+  }
+
   .toast {
     position: fixed;
     z-index: 90;
