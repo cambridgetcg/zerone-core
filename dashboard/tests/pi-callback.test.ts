@@ -202,18 +202,30 @@ describe("Pi callback page hardening", () => {
     assert.doesNotMatch(callbackHeaders, /cloudflare|unsafe-inline/);
   });
 
-  it("refuses automatic response-body transformations", () => {
+  it("refuses automatic HTML transformations without weakening cache policy", () => {
     const headers = readFileSync(HEADERS_PATH, "utf8");
-    const globalEnd = headers.indexOf("\n/pi/callback/*");
-    const globalHeaders = headers.slice(0, globalEnd);
+    const rootStart = headers.indexOf("\n/\n");
+    const rootEnd = headers.indexOf("\n/index.html", rootStart);
+    const rootHeaders = headers.slice(rootStart, rootEnd);
+    const indexStart = rootEnd;
+    const indexEnd = headers.indexOf("\n/pi/callback/*", indexStart);
+    const indexHeaders = headers.slice(indexStart, indexEnd);
     const assetsStart = headers.indexOf("/assets/*");
     const assetHeaders = headers.slice(assetsStart);
 
-    assert.match(globalHeaders, /Cache-Control: no-transform/);
+    assert.match(
+      rootHeaders,
+      /Cache-Control: public, max-age=0, must-revalidate, no-transform/,
+    );
+    assert.match(
+      indexHeaders,
+      /Cache-Control: public, max-age=0, must-revalidate, no-transform/,
+    );
     assert.match(
       assetHeaders,
-      /Cache-Control: public, max-age=31536000, immutable, no-transform/,
+      /Cache-Control: public, max-age=31536000, immutable/,
     );
+    assert.doesNotMatch(assetHeaders, /no-transform/);
   });
 
   it("keeps bearer material out of storage, logging, and rendered copy", () => {
