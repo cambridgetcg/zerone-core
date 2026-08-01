@@ -15,6 +15,7 @@ import {
   HARD_CAP_ZRN,
 } from "./config";
 import { initialiseConstructiveTree } from "./constructive-tree";
+import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import type { FeeGrantAllowance } from "./feegrant";
 import type { WalletState } from "./wallet";
 
@@ -67,6 +68,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
+const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -1112,8 +1114,13 @@ window.addEventListener("keplr_keystorechange", () => {
 void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
+const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const initialNetworkReady = refreshNetwork(false);
-void Promise.allSettled([constructiveTreeReady, initialNetworkReady]).then(
+void Promise.allSettled([
+  constructiveTreeReady,
+  lifeSciencesTreeReady,
+  initialNetworkReady,
+]).then(
   () => {
     if (window.location.hash !== "#skills") return;
     window.requestAnimationFrame(() => {

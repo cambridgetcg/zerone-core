@@ -7,9 +7,10 @@
     "dev": "vite",
     "build": "npm run check && vite build && npm run build:functions",
     "build:functions": "wrangler pages functions build functions --outdir .wrangler/functions-build",
-    "check": "npm run check:index && npm run check:tree && npm test && tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
+    "check": "npm run check:index && npm run check:tree && npm run check:life-sciences && npm test && tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
     "check:index": "node scripts/validate-adapter-index.mjs public/standards/adapter-index.v1.json && node --test scripts/adapter-index.test.mjs",
     "check:tree": "node scripts/validate-constructive-intelligence-tree.mjs public/standards/constructive-intelligence-tree.v1.json && node --test scripts/constructive-intelligence-tree.test.mjs",
+    "check:life-sciences": "node scripts/validate-constructive-intelligence-life-sciences.mjs public/standards/constructive-intelligence-life-sciences.v0.json && node --test scripts/constructive-intelligence-life-sciences.test.mjs",
     "test": "NODE_OPTIONS=--preserve-symlinks tsx --test tests/*.test.ts",
     "preview": "vite preview"
   },

@@ -1388,6 +1388,252 @@
     gap: 1.2rem;
   }
 
+  .life-sciences-overlay {
+    margin-top: 5rem;
+    border-top: 1px solid var(--line);
+    padding-top: 4rem;
+  }
+
+  .life-sciences-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    align-items: end;
+    gap: 2rem;
+  }
+
+  .life-sciences-heading h3 {
+    max-width: 820px;
+    margin-top: 0.8rem;
+    font-family: var(--serif);
+    font-size: clamp(2.35rem, 5vw, 4.6rem);
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+  }
+
+  .life-sciences-heading > p {
+    max-width: 580px;
+    color: var(--muted-strong);
+    line-height: 1.75;
+  }
+
+  .ls-tree-root {
+    margin-top: 2.5rem;
+  }
+
+  .ls-tree {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .ls-tree-facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .ls-tree-facts > div {
+    min-height: 92px;
+    border-right: 1px solid var(--line);
+    padding: 1rem;
+  }
+
+  .ls-tree-facts > div:last-child {
+    border-right: 0;
+  }
+
+  .ls-tree-facts span,
+  .ls-tree-node-meta,
+  .ls-tree-node-body small {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .ls-tree-facts strong {
+    display: block;
+    margin-top: 0.7rem;
+    color: var(--ink);
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .ls-tree-boundary {
+    display: grid;
+    grid-template-columns: 210px 1fr;
+    gap: 1.2rem;
+    border: 1px solid color-mix(in srgb, var(--violet) 45%, var(--line));
+    padding: 1.1rem;
+    background: color-mix(in srgb, var(--violet) 7%, var(--surface));
+  }
+
+  .ls-tree-boundary strong {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .ls-tree-boundary p {
+    color: var(--muted-strong);
+    font-size: 0.76rem;
+    line-height: 1.65;
+  }
+
+  .ls-tree-walls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .ls-tree-walls article {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-content: start;
+    min-height: 128px;
+    gap: 0.6rem;
+    padding: 1rem;
+    background: var(--surface);
+  }
+
+  .ls-tree-walls span {
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+
+  .ls-tree-walls strong {
+    color: var(--violet-soft);
+    font-size: 1.1rem;
+  }
+
+  .ls-tree-walls p {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .ls-tree-map {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .ls-tree-branch {
+    border: 1px solid var(--line);
+    padding: 1.2rem;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+  }
+
+  .ls-tree-branch h3 {
+    margin: 0.45rem 0 1rem;
+    font-family: var(--serif);
+    font-size: 1.55rem;
+    font-weight: 400;
+  }
+
+  .ls-tree-branch ol {
+    display: grid;
+    gap: 0.55rem;
+    list-style: none;
+  }
+
+  .ls-tree-branch details {
+    border: 1px solid var(--line);
+    background: var(--surface-raised);
+  }
+
+  .ls-tree-branch details.is-crown {
+    border-color: color-mix(in srgb, var(--violet) 65%, var(--line));
+    background: color-mix(in srgb, var(--violet) 8%, var(--surface-raised));
+  }
+
+  .ls-tree-branch summary {
+    display: grid;
+    gap: 0.5rem;
+    min-height: 76px;
+    padding: 0.85rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .ls-tree-branch summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ls-tree-branch summary::after {
+    content: "+";
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    align-self: center;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .ls-tree-branch details[open] summary::after {
+    content: "−";
+  }
+
+  .ls-tree-node-meta {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .ls-tree-node-meta span:first-child {
+    color: var(--violet-soft);
+  }
+
+  .ls-tree-branch summary > strong {
+    color: var(--ink);
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .ls-tree-node-body {
+    display: grid;
+    gap: 0.75rem;
+    border-top: 1px solid var(--line);
+    padding: 0.9rem;
+  }
+
+  .ls-tree-node-body p {
+    color: var(--muted-strong);
+    font-size: 0.75rem;
+    line-height: 1.65;
+  }
+
+  .ls-tree-node-body small {
+    line-height: 1.55;
+    text-transform: none;
+  }
+
+  .ls-tree-node-body .ls-tree-refusal {
+    color: #e8a68f;
+  }
+
+  .ls-tree-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 1rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.64rem;
+  }
+
   .ci-tree-policy-wrap {
     display: grid;
     gap: 1rem;
@@ -2670,6 +2916,10 @@
     .ci-tree-map {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .ls-tree-walls {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (max-width: 820px) {
@@ -2770,6 +3020,23 @@
 
     .ci-tree-map {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .life-sciences-heading,
+    .ls-tree-map {
+      grid-template-columns: 1fr;
+    }
+
+    .ls-tree-facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ls-tree-facts > div:nth-child(2) {
+      border-right: 0;
+    }
+
+    .ls-tree-facts > div:nth-child(-n + 2) {
+      border-bottom: 1px solid var(--line);
     }
 
     .pi-card,
@@ -2882,6 +3149,43 @@
 
     .section-heading h2 {
       font-size: 3.5rem;
+    }
+
+    .life-sciences-overlay {
+      margin-top: 3.5rem;
+      padding-top: 3rem;
+    }
+
+    .life-sciences-heading h3 {
+      font-size: clamp(2.6rem, 14vw, 4rem);
+    }
+
+    .ls-tree-facts,
+    .ls-tree-walls {
+      grid-template-columns: 1fr;
+    }
+
+    .ls-tree-facts > div,
+    .ls-tree-facts > div:nth-child(2) {
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .ls-tree-facts > div:last-child {
+      border-bottom: 0;
+    }
+
+    .ls-tree-boundary {
+      grid-template-columns: 1fr;
+    }
+
+    .ls-tree-footer {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .ls-tree-footer .button {
+      width: 100%;
     }
 
     .wallet-card,
