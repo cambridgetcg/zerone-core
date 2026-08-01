@@ -505,8 +505,8 @@ patch_genesis '
   | .app_state.knowledge.bootstrap_fund_allocation = "0"
   | .app_state.knowledge.training_fund_allocation = "0"
 
-  | .app_state.vesting_rewards.params.block_reward = "1"
-  | .app_state.vesting_rewards.params.floor_reward = "1"
+  | .app_state.vesting_rewards.params.block_reward = "0"
+  | .app_state.vesting_rewards.params.floor_reward = "0"
   | .app_state.vesting_rewards.params.empty_block_reward_rate = 0
   | .app_state.vesting_rewards.params.min_validators_for_full_reward = 22
   | .app_state.vesting_rewards.params.initial_fund_balance = "0"
