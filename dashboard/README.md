@@ -97,14 +97,16 @@ An authenticated deletion control removes all subject-linked Pi pilot
 sessions, the active address binding, outstanding challenges, challenge-rate
 events, and rotation aliases in one D1 transition. Each OAuth-flow insert
 snapshots a D1-serialized deletion epoch; deletion atomically increments that
-epoch and writes keyed subject guards. For exactly 12 minutes, a guard prevents
-a flow with an older epoch from recreating the session, without comparing
-worker wall clocks; a later flow may sign in afresh. The row may remain until
-operator cleanup. Minimal
-unindexed anti-replay fingerprints remain outside account-selectable deletion
-and therefore remain part of the separate production retention gate. This
-control never changes the person's Pi account, Keplr wallet, or blockchain
-state. Logical deletion may remain provider-recoverable for up to 30 days on a
+epoch and writes keyed subject guards carrying a fresh random operation
+commitment. Every destructive statement must match that exact operation, so a
+failed stale-keyset request cannot reuse an older stored guard. For exactly 12
+minutes, a guard prevents a flow with an older epoch from recreating the
+session, without comparing worker wall clocks; a later flow may sign in afresh.
+The row may remain until operator cleanup. Minimal account-unlinked anti-replay
+fingerprints remain outside account-selectable deletion and therefore remain
+part of the separate production retention gate. This control never changes the
+person's Pi account, Keplr wallet, or blockchain state. Logical deletion may
+remain provider-recoverable for up to 30 days on a
 Workers Paid plan or seven days on a Workers Free plan, depending on the
 deployed plan. The control addresses only the current
 app-specific Pi subject: a replacement UID issued after permission revocation

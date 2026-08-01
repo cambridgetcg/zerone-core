@@ -1131,6 +1131,7 @@ export class D1PiRepository implements PiRepository {
     guardExpiresAt: number,
     expectedActivePepperVersion: number,
     expectedKeysetFingerprint: string,
+    operationHash: string,
   ): Promise<boolean> {
     if (
       !Number.isSafeInteger(now) ||
@@ -1138,7 +1139,8 @@ export class D1PiRepository implements PiRepository {
       guardExpiresAt <= now ||
       !Number.isSafeInteger(expectedActivePepperVersion) ||
       expectedActivePepperVersion < 1 ||
-      expectedKeysetFingerprint.length !== 43
+      expectedKeysetFingerprint.length !== 43 ||
+      operationHash.length !== 43
     ) {
       return false;
     }
@@ -1146,6 +1148,7 @@ export class D1PiRepository implements PiRepository {
       SELECT 1
       FROM pi_subject_deletion_guards
       WHERE subject_hash = ?
+        AND operation_hash = ?
         AND deletion_epoch = (
           SELECT current_epoch
           FROM pi_identity_deletion_epoch
@@ -1172,8 +1175,9 @@ export class D1PiRepository implements PiRepository {
         this.database
           .prepare(
             `INSERT INTO pi_subject_deletion_guards
-               (subject_hash, deleted_at, expires_at, deletion_epoch)
-             SELECT ?, ?, ?, current_epoch
+               (subject_hash, deleted_at, expires_at, deletion_epoch,
+                operation_hash)
+             SELECT ?, ?, ?, current_epoch, ?
              FROM pi_identity_deletion_epoch
              WHERE singleton = 1
                AND EXISTS (
@@ -1192,7 +1196,8 @@ export class D1PiRepository implements PiRepository {
                  pi_subject_deletion_guards.expires_at,
                  excluded.expires_at
                ),
-               deletion_epoch = excluded.deletion_epoch
+               deletion_epoch = excluded.deletion_epoch,
+               operation_hash = excluded.operation_hash
              WHERE pi_subject_deletion_guards.deletion_epoch <
                    excluded.deletion_epoch
              RETURNING subject_hash`,
@@ -1201,14 +1206,16 @@ export class D1PiRepository implements PiRepository {
             subjectHash,
             now,
             guardExpiresAt,
+            operationHash,
             expectedActivePepperVersion,
             expectedKeysetFingerprint,
           ),
         this.database
           .prepare(
             `INSERT INTO pi_subject_deletion_guards
-               (subject_hash, deleted_at, expires_at, deletion_epoch)
-             SELECT a.alias_hash, ?, ?, e.current_epoch
+               (subject_hash, deleted_at, expires_at, deletion_epoch,
+                operation_hash)
+             SELECT a.alias_hash, ?, ?, e.current_epoch, ?
              FROM pi_subject_aliases AS a
              CROSS JOIN pi_identity_deletion_epoch AS e
              WHERE e.singleton = 1
@@ -1223,15 +1230,18 @@ export class D1PiRepository implements PiRepository {
                  pi_subject_deletion_guards.expires_at,
                  excluded.expires_at
                ),
-               deletion_epoch = excluded.deletion_epoch
+               deletion_epoch = excluded.deletion_epoch,
+               operation_hash = excluded.operation_hash
              WHERE pi_subject_deletion_guards.deletion_epoch <
                    excluded.deletion_epoch`,
           )
           .bind(
             now,
             guardExpiresAt,
+            operationHash,
             subjectHash,
             subjectHash,
+            operationHash,
           ),
         this.database
           .prepare(
@@ -1242,6 +1252,7 @@ export class D1PiRepository implements PiRepository {
           .bind(
             subjectHash,
             subjectHash,
+            operationHash,
           ),
         this.database
           .prepare(
@@ -1264,6 +1275,7 @@ export class D1PiRepository implements PiRepository {
             subjectHash,
             subjectHash,
             subjectHash,
+            operationHash,
           ),
         this.database
           .prepare(
@@ -1274,6 +1286,7 @@ export class D1PiRepository implements PiRepository {
           .bind(
             subjectHash,
             subjectHash,
+            operationHash,
           ),
         this.database
           .prepare(
@@ -1284,6 +1297,7 @@ export class D1PiRepository implements PiRepository {
           .bind(
             subjectHash,
             subjectHash,
+            operationHash,
           ),
         this.database
           .prepare(
@@ -1294,6 +1308,7 @@ export class D1PiRepository implements PiRepository {
           .bind(
             subjectHash,
             subjectHash,
+            operationHash,
           ),
         this.database
           .prepare(
@@ -1304,6 +1319,7 @@ export class D1PiRepository implements PiRepository {
           .bind(
             subjectHash,
             subjectHash,
+            operationHash,
           ),
       ]);
       return (

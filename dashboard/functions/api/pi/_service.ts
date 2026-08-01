@@ -908,6 +908,9 @@ async function deletePilotData(
     now + PI_SUBJECT_DELETION_GUARD_MS,
     activePepper(config).version,
     keysetFingerprint,
+    hashOpaque(
+      `zerone-pi-deletion-operation-v1\u0000${opaqueToken(runtime.randomBytes(32))}`,
+    ),
   );
   if (!deleted) {
     return jsonError("Pi pilot data could not be deleted", 409);

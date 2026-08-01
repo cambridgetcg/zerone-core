@@ -60,7 +60,8 @@ CREATE TABLE pi_subject_deletion_guards (
   subject_hash TEXT PRIMARY KEY NOT NULL CHECK (length(subject_hash) = 43),
   deleted_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL CHECK (expires_at > deleted_at),
-  deletion_epoch INTEGER NOT NULL CHECK (deletion_epoch > 0)
+  deletion_epoch INTEGER NOT NULL CHECK (deletion_epoch > 0),
+  operation_hash TEXT NOT NULL CHECK (length(operation_hash) = 43)
 ) STRICT;
 
 CREATE INDEX pi_subject_deletion_guards_expiry

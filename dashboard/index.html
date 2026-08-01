@@ -690,9 +690,9 @@
           <section>
             <h3>What is shared</h3>
             <p>
-              Pi provides an app-specific account identifier and username. A
-              short-lived access token is sent once to Zerone’s server to
-              confirm them with Pi, then discarded.
+              Pi provides an app-specific account identifier and username. An
+              access token is sent once to Zerone’s server to confirm them
+              with Pi, then discarded.
             </p>
           </section>
           <section>
@@ -804,17 +804,21 @@
             <h3>What is deleted</h3>
             <p>
               Subject-linked session usernames and token digests, active
-              Zerone address binding, outstanding proof challenges, and
-              subject-key aliases used during pepper rotation.
+              Zerone address binding, outstanding proof challenges, their
+              challenge-request rate records, and subject-key aliases used
+              during pepper rotation.
             </p>
           </section>
           <section>
-            <h3>What remains temporarily or separately</h3>
+            <h3>What can remain separately or in provider recovery</h3>
             <p>
-              A keyed subject tombstone blocks restoration for exactly 12
-              minutes. Its row may remain until operator cleanup. Minimal
-              unindexed anti-replay commitments and challenge tombstones cannot
-              be selected by this account action and remain behind separate
+              A keyed subject guard blocks older in-flight authorization for
+              exactly 12 minutes; its row may remain until operator cleanup.
+              Minimal bearer replay commitments are not subject-linked or
+              selectable by this account action. Promoted markers are not
+              eligible for ordinary cleanup and may be retained indefinitely
+              unless a separately approved purge policy replaces that rule.
+              Account-unlinked challenge tombstones remain behind separate
               security-retention controls. They contain no raw Pi UID,
               username, bearer, wallet address, or KYC data. Logical deletion
               may also remain provider-recoverable for up to 30 days on a

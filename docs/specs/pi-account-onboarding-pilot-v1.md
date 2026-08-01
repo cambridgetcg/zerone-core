@@ -231,8 +231,8 @@ The pilot may retain:
 - immutable pepper-version/key-fingerprint pins and a monotonic active-version
   high-water mark, plus the current exact keyset fingerprint;
 - a D1-serialized identity-deletion epoch high-water mark; and
-- short-lived keyed subject-deletion guards and minimal replay/security
-  tombstones.
+- short-lived keyed subject-deletion guards carrying a random per-deletion
+  operation commitment, and minimal replay/security tombstones.
 
 It must not retain Pi bearer tokens, raw Pi `uid`, Pi wallet addresses, wallet
 passphrases, KYC data, Zerone private keys, or signed transactions.
@@ -265,12 +265,15 @@ aliases. On success the edge clears both Pi pilot cookies. Before deleting
 aliases it writes keyed, pseudonymous guards for the canonical and alias
 subject digests. Each OAuth-flow insert snapshots the current deletion epoch
 from D1, and deletion increments that epoch in the same serialized D1 batch
-that writes the guards. For exactly 12 minutes, session insertion rejects a
-flow whose snapshot precedes a matching guard's epoch; a flow inserted after
-deletion snapshots the new epoch and may sign in afresh. This ordering does not
-compare worker wall clocks. The guard becomes eligible for physical cleanup at
-its expiry and may remain stored until the manual cleanup is invoked. Deletion
-does not alter the person's Pi account, Keplr wallet, or any blockchain state.
+that writes the guards. The canonical guard also carries a fresh random
+operation commitment; every destructive statement must match it, so a failed
+or stale keyset precondition cannot authorize deletion through an older guard.
+For exactly 12 minutes, session insertion rejects a flow whose snapshot
+precedes a matching guard's epoch; a flow inserted after deletion snapshots the
+new epoch and may sign in afresh. This ordering does not compare worker wall
+clocks. The guard becomes eligible for physical cleanup at its expiry and may
+remain stored until the manual cleanup is invoked. Deletion does not alter the
+person's Pi account, Keplr wallet, or any blockchain state.
 
 Deletion addresses only the currently authenticated app-specific Pi subject.
 Pi may issue a different app-specific `uid` after a person revokes app
@@ -340,6 +343,9 @@ conditional session insertion prevent a pre-deletion flow from resurrecting
 the deleted subject. The 12-minute guard window exceeds the ten-minute OAuth
 lifetime plus the bounded upstream-request allowance; wall-clock values set
 expiry only and never establish before-versus-after deletion ordering.
+Every subject-deletion mutation additionally requires the fresh operation
+commitment written by that exact batch. An expired but not yet cleaned guard
+cannot be reused by a stale request whose keyset precondition failed.
 
 Migration labels every pre-SHA bearer claim as `legacy-keyed-v1`, latches
 immutable legacy evidence when any such row exists, and rejects later
@@ -386,6 +392,9 @@ Before phase A activation:
   deletion epochs under inverted worker clocks and repeated multi-alias
   deletion, fresh post-deletion authorization, and guard-expiry cleanup tests
   pass;
+- a stale-keyset deletion raced after guard expiry and fresh reauthentication
+  returns failure without mutating the restored session, challenge, rate
+  event, alias, prior guard, or deletion-epoch state;
 - explicit pilot-data deletion rejects missing confirmation, cross-origin
   requests, and stale CSRF while atomically removing all subject-linked
   sessions and optional wallet state without affecting another subject;

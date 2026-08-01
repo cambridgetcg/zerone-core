@@ -96,6 +96,7 @@ class MemoryPiRepository implements PiRepository {
       readonly deletedAt: number;
       readonly expiresAt: number;
       readonly deletionEpoch: number;
+      readonly operationHash: string;
     }
   >();
   readonly bindingChallengeHashes = new Map<string, string>();
@@ -489,11 +490,13 @@ class MemoryPiRepository implements PiRepository {
     guardExpiresAt: number,
     expectedActivePepperVersion: number,
     expectedKeysetFingerprint: string,
+    operationHash: string,
   ): Promise<boolean> {
     if (
       guardExpiresAt <= now ||
       this.activePepperVersion !== expectedActivePepperVersion ||
-      this.configuredKeysetFingerprint !== expectedKeysetFingerprint
+      this.configuredKeysetFingerprint !== expectedKeysetFingerprint ||
+      operationHash.length !== 43
     ) {
       return false;
     }
@@ -507,6 +510,7 @@ class MemoryPiRepository implements PiRepository {
         deletedAt: now,
         expiresAt: guardExpiresAt,
         deletionEpoch,
+        operationHash,
       });
     }
     for (const challenge of [...this.challenges.values()]) {
@@ -1318,14 +1322,23 @@ test("data deletion requires explicit confirmation and atomically removes subjec
   const clearedCookies = deleted.headers.get("Set-Cookie") ?? "";
   assert.match(clearedCookies, /__Host-zrn-pi-session=.*Max-Age=0/u);
   assert.match(clearedCookies, /__Host-zrn-pi-oauth=.*Max-Age=0/u);
+  const deletionGuard = testHarness.repository.deletionGuards.get(
+    session.subjectHash,
+  );
+  assert.ok(deletionGuard);
   assert.deepEqual(
-    testHarness.repository.deletionGuards.get(session.subjectHash),
+    {
+      deletedAt: deletionGuard.deletedAt,
+      expiresAt: deletionGuard.expiresAt,
+      deletionEpoch: deletionGuard.deletionEpoch,
+    },
     {
       deletedAt: deletionAt,
       expiresAt: deletionAt + PI_SUBJECT_DELETION_GUARD_MS,
       deletionEpoch: 1,
     },
   );
+  assert.equal(deletionGuard.operationHash.length, 43);
   assert.equal(
     [...testHarness.repository.sessions.values()].some(
       (candidate) => candidate.subjectHash === session.subjectHash,
@@ -2049,6 +2062,7 @@ test("subject deletion epochs order pending /v2/me races at equal timestamps", a
       deletionAt,
       deletionAt + PI_SUBJECT_DELETION_GUARD_MS,
       ...memoryPepperConfiguration(testHarness.repository),
+      hashOpaque("memory-delete-operation-pending"),
     ),
     true,
   );
@@ -2062,6 +2076,7 @@ test("subject deletion epochs order pending /v2/me races at equal timestamps", a
     deletedAt: deletionAt,
     expiresAt: deletionAt + 12 * 60 * 1_000,
     deletionEpoch: 1,
+    operationHash: hashOpaque("memory-delete-operation-pending"),
   });
 
   testHarness.setNow(deletionAt + 1);
@@ -2077,6 +2092,7 @@ test("subject deletion epochs order pending /v2/me races at equal timestamps", a
       deletionAt + 2,
       deletionAt + 2 + PI_SUBJECT_DELETION_GUARD_MS,
       ...memoryPepperConfiguration(testHarness.repository),
+      hashOpaque("memory-delete-operation-after-restore"),
     ),
     true,
   );
@@ -2094,6 +2110,7 @@ test("subject deletion epochs order pending /v2/me races at equal timestamps", a
     deletionAt,
     deletionAt + PI_SUBJECT_DELETION_GUARD_MS,
     ...memoryPepperConfiguration(equalHarness.repository),
+    hashOpaque("memory-delete-operation-equal-timestamp"),
   );
   const equalFlow = await startOAuth(equalHarness);
   const equalTimestamp = await handlePiRequest(
@@ -3105,6 +3122,7 @@ describe("D1 migration and atomic constraints", () => {
         guardExpiry,
         1,
         keysetFingerprint,
+        hashOpaque("delete-operation-injected-failure"),
       ),
       /injected D1 batch failure/u,
     );
@@ -3122,6 +3140,7 @@ describe("D1 migration and atomic constraints", () => {
         guardExpiry,
         1,
         keysetFingerprint,
+        hashOpaque("delete-operation-atomic-success"),
       ),
       true,
     );
@@ -3247,6 +3266,7 @@ describe("D1 migration and atomic constraints", () => {
         deletedAt + PI_SUBJECT_DELETION_GUARD_MS,
         1,
         keysetFingerprint,
+        hashOpaque("delete-operation-epoch-order"),
       ),
       true,
     );
@@ -3365,6 +3385,7 @@ describe("D1 migration and atomic constraints", () => {
         firstGuardExpiry,
         2,
         keysetFingerprint,
+        hashOpaque("delete-operation-inverted-first"),
       ),
       true,
     );
@@ -3401,6 +3422,7 @@ describe("D1 migration and atomic constraints", () => {
         secondGuardExpiry,
         2,
         keysetFingerprint,
+        hashOpaque("delete-operation-inverted-second"),
       ),
       true,
     );
@@ -3532,6 +3554,7 @@ describe("D1 migration and atomic constraints", () => {
         guardExpiry,
         1,
         piPepperKeysetFingerprint(1, [v1Pin]),
+        hashOpaque("delete-operation-config-first-stale"),
       ),
       false,
     );
@@ -3558,6 +3581,7 @@ describe("D1 migration and atomic constraints", () => {
         guardExpiry,
         2,
         piPepperKeysetFingerprint(2, [v2Pin, v1Pin]),
+        hashOpaque("delete-operation-config-first-current"),
       ),
       true,
     );
@@ -3659,6 +3683,154 @@ describe("D1 migration and atomic constraints", () => {
       await repository.ensurePepperConfiguration(2, [v2Pin], guardExpiry),
       true,
     );
+    database.close();
+  });
+
+  it("keeps restored subject data when a stale-keyset deletion precondition fails", async () => {
+    const { database, repository } = lifecycleDatabase();
+    const now = 500_000;
+    const v1Pin = {
+      version: 1,
+      fingerprint: hashOpaque("stale-delete-v1-pin"),
+    };
+    const v2Pin = {
+      version: 2,
+      fingerprint: hashOpaque("stale-delete-v2-pin"),
+    };
+    const v1Keyset = piPepperKeysetFingerprint(1, [v1Pin]);
+    const v2Keyset = piPepperKeysetFingerprint(2, [v2Pin, v1Pin]);
+    const subjectHash = hashOpaque("stale-delete-restored-subject");
+    const alias = { pepperVersion: 1, aliasHash: subjectHash };
+
+    assert.equal(
+      await repository.ensurePepperConfiguration(1, [v1Pin], now),
+      true,
+    );
+    assert.equal(
+      await repository.replaceSubjectSessions(
+        repositorySession("stale-delete-initial", subjectHash, now),
+        [alias],
+        0,
+        now,
+        v1Keyset,
+      ),
+      true,
+    );
+
+    const deletedAt = now + 1;
+    const guardExpiry = deletedAt + PI_SUBJECT_DELETION_GUARD_MS;
+    const originalOperation = hashOpaque("stale-delete-original-operation");
+    assert.equal(
+      await repository.deleteSubject(
+        subjectHash,
+        deletedAt,
+        guardExpiry,
+        1,
+        v1Keyset,
+        originalOperation,
+      ),
+      true,
+    );
+
+    const restoredAt = guardExpiry + 1;
+    const restoredSession = repositorySession(
+      "stale-delete-restored",
+      subjectHash,
+      restoredAt,
+    );
+    assert.equal(
+      await repository.replaceSubjectSessions(
+        restoredSession,
+        [alias],
+        1,
+        restoredAt,
+        v1Keyset,
+      ),
+      true,
+    );
+    const address = `zrn1${"t".repeat(38)}`;
+    assert.equal(
+      await repository.createChallenge(
+        {
+          idHash: hashOpaque("stale-delete-restored-challenge"),
+          sessionHash: restoredSession.tokenHash,
+          subjectHash,
+          address,
+          accountId: `cosmos:zerone-1:${address}`,
+          message: "restored challenge",
+          createdAt: restoredAt,
+          expiresAt: restoredAt + 60_000,
+        },
+        restoredAt - PI_CHALLENGE_RATE_WINDOW_MS,
+        5,
+        restoredAt - 1_000,
+      ),
+      true,
+    );
+    assert.equal(
+      await repository.ensurePepperConfiguration(
+        2,
+        [v2Pin, v1Pin],
+        restoredAt + 1,
+      ),
+      true,
+    );
+
+    assert.equal(
+      await repository.deleteSubject(
+        subjectHash,
+        restoredAt + 2,
+        restoredAt + 2 + PI_SUBJECT_DELETION_GUARD_MS,
+        1,
+        v1Keyset,
+        hashOpaque("stale-delete-rejected-operation"),
+      ),
+      false,
+    );
+    assert.deepEqual(
+      {
+        ...(database
+          .prepare(
+            `SELECT deleted_at, expires_at, deletion_epoch, operation_hash
+             FROM pi_subject_deletion_guards
+             WHERE subject_hash = ?`,
+          )
+          .get(subjectHash) ?? {}),
+      },
+      {
+        deleted_at: deletedAt,
+        expires_at: guardExpiry,
+        deletion_epoch: 1,
+        operation_hash: originalOperation,
+      },
+    );
+    assert.equal(
+      database.prepare(`SELECT current_epoch FROM pi_identity_deletion_epoch`)
+        .get()?.current_epoch,
+      1,
+    );
+    assert.deepEqual(
+      {
+        ...(database
+          .prepare(
+            `SELECT active_version, keyset_fingerprint FROM pi_pepper_state`,
+          )
+          .get() ?? {}),
+      },
+      { active_version: 2, keyset_fingerprint: v2Keyset },
+    );
+    for (const table of [
+      "pi_sessions",
+      "pi_wallet_challenges",
+      "pi_wallet_challenge_rate_events",
+      "pi_subject_aliases",
+    ]) {
+      assert.equal(
+        database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()?.count,
+        1,
+        `${table} must survive the rejected stale-keyset deletion`,
+      );
+    }
     database.close();
   });
 
@@ -3853,14 +4025,17 @@ describe("D1 migration and atomic constraints", () => {
     database
       .prepare(
         `INSERT INTO pi_subject_deletion_guards
-           (subject_hash, deleted_at, expires_at, deletion_epoch)
-         VALUES (?, 1, ?, 1), (?, 1, ?, 1)`,
+           (subject_hash, deleted_at, expires_at, deletion_epoch,
+            operation_hash)
+         VALUES (?, 1, ?, 1, ?), (?, 1, ?, 1, ?)`,
       )
       .run(
         hashOpaque("guard-at-boundary"),
         now,
+        hashOpaque("guard-operation-at-boundary"),
         hashOpaque("guard-after-boundary"),
         now + 1,
+        hashOpaque("guard-operation-after-boundary"),
       );
 
     const result = await repository.cleanupExpired({

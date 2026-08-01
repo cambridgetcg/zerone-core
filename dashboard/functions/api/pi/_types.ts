@@ -195,6 +195,7 @@ export interface PiRepository {
     guardExpiresAt: number,
     expectedActivePepperVersion: number,
     expectedKeysetFingerprint: string,
+    operationHash: string,
   ): Promise<boolean>;
   cleanupExpired(policy: PiRetentionPolicy): Promise<PiRetentionResult>;
 }

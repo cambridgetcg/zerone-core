@@ -253,8 +253,8 @@ describe("Pi callback page hardening", () => {
     assert.match(ui, /deletePiPilotData\(session\.csrfToken\)/u);
     assert.match(html, /id="pi-data-dialog"/u);
     assert.match(html, /id="pi-data-check" type="checkbox" required/u);
-    assert.match(html, /tombstone blocks restoration for exactly 12[\s\S]*?row may remain until operator cleanup/u);
-    assert.match(html, /unindexed anti-replay commitments/u);
+    assert.match(html, /subject guard blocks older in-flight authorization[\s\S]*?row may remain until operator cleanup/u);
+    assert.match(html, /Promoted markers[\s\S]*?may be retained indefinitely/u);
     assert.match(html, /30 days on a[\s\S]*?Workers Paid plan[\s\S]*?seven days on a Workers Free plan/u);
     assert.match(html, /currently authenticated app-specific/u);
     assert.match(html, /not my Pi account/u);
