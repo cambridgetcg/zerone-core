@@ -534,6 +534,107 @@
                   activates no reward, and creates no ZRN claim.
                 </p>
               </div>
+              <section
+                class="pi-compass"
+                id="pi-constructive-compass"
+                aria-labelledby="pi-compass-title"
+                hidden
+              >
+                <div class="pi-compass-head">
+                  <span class="card-kicker">Optional · page-memory only</span>
+                  <h4 id="pi-compass-title">Choose a direction for this visit.</h4>
+                  <p id="pi-compass-privacy">
+                    A Pi account introduced this session. Your choice below is
+                    about where you want to look—not who you are. It stays only
+                    in this page’s memory. This control does not send the choice
+                    to Pi or Zerone servers, and refresh or Pi logout clears it.
+                  </p>
+                </div>
+                <form id="pi-compass-form">
+                  <fieldset aria-describedby="pi-compass-privacy">
+                    <legend>Pick one temporary learning intention</legend>
+                    <div class="pi-compass-options">
+                      <label>
+                        <input
+                          type="radio"
+                          name="pi-compass-path"
+                          value="follow-question"
+                          required
+                        />
+                        <span>
+                          <i aria-hidden="true">?</i>
+                          <strong>Follow the question</strong>
+                          <small>Proof, uncertainty, checkable claims</small>
+                        </span>
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="pi-compass-path"
+                          value="guard-edges"
+                          required
+                        />
+                        <span>
+                          <i aria-hidden="true">◇</i>
+                          <strong>Guard the edges</strong>
+                          <small>Failure modes, repair, careful disclosure</small>
+                        </span>
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="pi-compass-path"
+                          value="make-exact"
+                          required
+                        />
+                        <span>
+                          <i aria-hidden="true">≡</i>
+                          <strong>Make it exact</strong>
+                          <small>Bytes, rejection rules, interoperability</small>
+                        </span>
+                      </label>
+                    </div>
+                  </fieldset>
+                  <label class="pi-compass-consent">
+                    <input id="pi-compass-consent" type="checkbox" required />
+                    <span>
+                      Use this choice only to open public skill-tree views in
+                      this page.
+                    </span>
+                  </label>
+                  <button class="button button-primary" type="submit">
+                    Make a temporary trail
+                  </button>
+                </form>
+                <section
+                  class="pi-compass-result"
+                  id="pi-compass-result"
+                  aria-labelledby="pi-compass-result-title"
+                  tabindex="-1"
+                  hidden
+                >
+                  <div class="pi-compass-result-head">
+                    <div>
+                      <span class="card-kicker">Your page-only trail</span>
+                      <h4 id="pi-compass-result-title">Your temporary trail</h4>
+                    </div>
+                    <button
+                      class="button button-ghost compact"
+                      id="pi-compass-reset"
+                      type="button"
+                    >Clear trail</button>
+                  </div>
+                  <p id="pi-compass-result-copy"></p>
+                  <ol id="pi-compass-trail"></ol>
+                  <p id="pi-compass-status" role="status" aria-live="polite"></p>
+                </section>
+                <p class="pi-compass-boundary">
+                  This compass requests or infers no KYC or unique-human
+                  status. It creates no identity, profile, evaluation, evidence
+                  record, qualification, reward, payment, wallet action, or
+                  chain write.
+                </p>
+              </section>
               <div class="pi-proof-panel" id="pi-wallet-proof" hidden>
                 <span class="card-kicker">Separate optional wallet proof</span>
                 <p id="pi-wallet-proof-status"></p>
@@ -553,6 +654,9 @@
                 >Open public skill tree</a>
                 <button class="button button-ghost" id="pi-logout" type="button">
                   End Pi session
+                </button>
+                <button class="button button-ghost pi-data-open" id="pi-data-open" type="button">
+                  Delete pilot data
                 </button>
               </div>
             </div>
@@ -646,9 +750,9 @@
           <section>
             <h3>What is shared</h3>
             <p>
-              Pi provides an app-specific account identifier and username. A
-              short-lived access token is sent once to Zerone’s server to
-              confirm them with Pi, then discarded.
+              Pi provides an app-specific account identifier and username. An
+              access token is sent once to Zerone’s server to confirm them
+              with Pi, then discarded.
             </p>
           </section>
           <section>
@@ -737,6 +841,74 @@
         </div>
         <button class="button button-primary full" id="pi-proof-submit" type="submit">
           Sign text proof in Keplr
+        </button>
+      </form>
+    </dialog>
+
+    <dialog class="send-dialog pi-consent-dialog pi-data-dialog" id="pi-data-dialog" aria-labelledby="pi-data-title">
+      <form id="pi-data-form">
+        <div class="dialog-head">
+          <div>
+            <span class="card-kicker">Privacy control</span>
+            <h2 id="pi-data-title" tabindex="-1">Delete subject-linked pilot data?</h2>
+          </div>
+          <button class="dialog-close" id="pi-data-close" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="dialog-intro">
+          This ends every Zerone Pi pilot session associated with the current
+          app-specific subject and removes its active address proof and
+          outstanding challenges. This cannot be undone from this session.
+        </p>
+        <div class="pi-consent-list">
+          <section>
+            <h3>What is deleted</h3>
+            <p>
+              Subject-linked session usernames and token digests, active
+              Zerone address binding, outstanding proof challenges, their
+              challenge-request rate records, and subject-key aliases used
+              during pepper rotation.
+            </p>
+          </section>
+          <section>
+            <h3>What can remain separately or in provider recovery</h3>
+            <p>
+              A keyed subject guard blocks older in-flight authorization for
+              exactly 12 minutes; its row may remain until operator cleanup.
+              Minimal bearer replay commitments are not subject-linked or
+              selectable by this account action. Promoted markers are not
+              eligible for ordinary cleanup and may be retained indefinitely
+              unless a separately approved purge policy replaces that rule.
+              Account-unlinked challenge tombstones remain behind separate
+              security-retention controls. They contain no raw Pi UID,
+              username, bearer, wallet address, or KYC data. Logical deletion
+              may also remain provider-recoverable for up to 30 days on a
+              Workers Paid plan or seven days on a Workers Free plan; the
+              deployed plan decides the window.
+            </p>
+          </section>
+        </div>
+        <label class="pi-check-row pi-data-check-row">
+          <input id="pi-data-check" type="checkbox" required />
+          <span>
+            I understand this deletes Zerone’s subject-linked pilot records,
+            not my Pi account. It does not revoke or alter Pi, Keplr, any
+            wallet key, funds, qualification, reward, or blockchain state.
+          </span>
+        </label>
+        <div class="send-notice pi-data-notice">
+          <span aria-hidden="true">◆</span>
+          <p>
+            A later fresh Pi Sign-in is a new choice and may create new pilot
+            data after the deletion guard accepts that newer authorization.
+            This action addresses only the currently authenticated app-specific
+            subject. If Pi later replaces that UID after app permission is
+            revoked, Zerone will not merge old records by username; inactive
+            records remain governed by the operator retention gate.
+          </p>
+        </div>
+        <p class="pi-data-status" id="pi-data-status" role="status" aria-live="polite"></p>
+        <button class="button button-danger full" id="pi-data-submit" type="submit">
+          Delete subject-linked pilot data
         </button>
       </form>
     </dialog>

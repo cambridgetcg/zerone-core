@@ -7,3 +7,16 @@ PI_CLIENT_ID=replace-with-the-pi-app-client-id
 PI_PUBLIC_ORIGIN=http://127.0.0.1:4173
 # Intentionally invalid: generate and insert at least 32 random bytes.
 PI_SUBJECT_PEPPER=replace-me
+# Optional; omission preserves the legacy active version 1. Versions are
+# positive integers and must only increase when the active pepper changes.
+PI_SUBJECT_PEPPER_VERSION=1
+# Optional secret containing a strict JSON array of previous version/key pairs
+# used only during a rotation overlap. Keep versions unique, ascending, and
+# lower than the active version; every pepper must be distinct and contain
+# 32-1024 bytes. [] means no previous keys.
+PI_SUBJECT_PEPPER_PREVIOUS=[]
+# Set exactly true only after operators record a clean target D1 and review its
+# deployment history to confirm pre-SHA code never served it. An empty database
+# or legacy latch alone is not historical proof. Keep false otherwise; enabled
+# requests then fail closed with HTTP 503.
+PI_BEARER_SHA_CLEAN_START_CONFIRMED=false

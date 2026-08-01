@@ -75,6 +75,7 @@ const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
+const piPilotSection = byId<HTMLElement>("contribute");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -94,6 +95,8 @@ const PI_PILOT_ENABLED =
   import.meta.env.VITE_PI_PILOT_ENABLED === "true";
 const PI_WALLET_PROOF_ENABLED =
   import.meta.env.VITE_PI_WALLET_PROOF_ENABLED === "true";
+const PI_CONSTRUCTIVE_COMPASS_ENABLED =
+  import.meta.env.VITE_PI_CONSTRUCTIVE_COMPASS_ENABLED === "true";
 
 function formatHeight(height: number): string {
   return new Intl.NumberFormat("en-GB").format(height);
@@ -1050,6 +1053,18 @@ async function initialisePiPilotIfEnabled(): Promise<void> {
     const { initialisePiPilot } = await import("./pi-ui");
     await initialisePiPilot({
       walletProofEnabled: PI_WALLET_PROOF_ENABLED,
+      constructiveCompass: PI_CONSTRUCTIVE_COMPASS_ENABLED
+        ? constructiveTreeReady.then((constructiveTree) =>
+            constructiveTree
+              ? {
+                  resolveCapability: (id: string) =>
+                    constructiveTree.resolveCapability(id),
+                  openCapability: (id: string) =>
+                    constructiveTree.openCapability(id),
+                }
+              : null,
+          )
+        : null,
       getWallet: () => connectedWallet,
       connectWallet: async () => {
         await handleWalletConnect();
@@ -1121,13 +1136,13 @@ window.addEventListener("keplr_keystorechange", () => {
   void handleWalletConnect();
 });
 
-void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
+const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
 const alignInitialHash = (): void => {
   if (
@@ -1147,6 +1162,12 @@ const alignInitialHash = (): void => {
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
+const alignPiHash = (): void => {
+  if (window.location.hash !== "#contribute" || piPilotSection.hidden) return;
+  window.requestAnimationFrame(() => {
+    piPilotSection.scrollIntoView({ block: "start", behavior: "instant" });
+  });
+};
 void Promise.allSettled([
   constructiveTreeReady,
   lifeSciencesTreeReady,
@@ -1162,6 +1183,7 @@ void Promise.allSettled([
   lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
+void piPilotReady.then(alignPiHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);

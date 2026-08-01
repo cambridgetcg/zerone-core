@@ -10,7 +10,10 @@ import {
   keyedHash,
   opaqueToken,
 } from "./_crypto";
-import { D1PiRepository } from "./_store";
+import {
+  D1PiRepository,
+  piPepperKeysetFingerprint,
+} from "./_store";
 import {
   parsePiStdSignature,
   verifyAdr36Signature,
@@ -24,7 +27,14 @@ import type {
   PiRuntime,
   PiSession,
   PiSessionEnvelope,
+  PiSubjectAlias,
 } from "./_types";
+
+export {
+  PI_BEARER_PENDING_TTL_MS,
+  PI_CHALLENGE_RATE_WINDOW_MS,
+} from "./_types";
+import { PI_CHALLENGE_RATE_WINDOW_MS } from "./_types";
 
 export type PiEndpoint =
   | "authorize"
@@ -32,15 +42,21 @@ export type PiEndpoint =
   | "me"
   | "logout"
   | "challenge"
-  | "bind";
+  | "bind"
+  | "data";
 
 type JsonRecord = Record<string, unknown>;
+
+interface PiPepperKey {
+  readonly version: number;
+  readonly pepper: string;
+}
 
 interface PiConfig {
   readonly clientId: string;
   readonly origin: string;
   readonly redirectUri: string;
-  readonly subjectPepper: string;
+  readonly subjectPeppers: readonly PiPepperKey[];
   readonly walletProofEnabled: boolean;
 }
 
@@ -49,6 +65,7 @@ interface AuthenticatedSession {
   readonly tokenHash: string;
   readonly session: PiSession;
   readonly csrfToken: string;
+  readonly pepperKey: PiPepperKey;
 }
 
 interface PiProfile {
@@ -68,13 +85,18 @@ const OAUTH_COOKIE = "__Host-zrn-pi-oauth";
 const SESSION_COOKIE = "__Host-zrn-pi-session";
 const OAUTH_TTL_MS = 10 * 60 * 1_000;
 const SESSION_TTL_MS = 8 * 60 * 60 * 1_000;
+const SESSION_IDLE_MS = 30 * 60 * 1_000;
 const CHALLENGE_TTL_MS = 5 * 60 * 1_000;
-const CHALLENGE_RATE_WINDOW_MS = 60 * 1_000;
 const MAX_CHALLENGES_PER_WINDOW = 5;
 const MAX_REQUEST_BODY_BYTES = 8_192;
 const MAX_PROFILE_BODY_BYTES = 16_384;
 const PI_UPSTREAM_TIMEOUT_MS = 8_000;
 const WALLET_LINK_CONSENT_VERSION = "pi-wallet-link-v1";
+const DATA_DELETION_CONFIRMATION = "delete-pi-pilot-data-v1";
+const MAX_SUBJECT_PEPPER_BYTES = 1_024;
+const MAX_SUBJECT_PEPPER_KEYS = 8;
+
+export const PI_SUBJECT_DELETION_GUARD_MS = 12 * 60 * 1_000;
 
 const API_HEADERS = {
   "Cache-Control": "no-store",
@@ -176,18 +198,89 @@ function safeUid(value: unknown): value is string {
   );
 }
 
+function validSubjectPepper(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const bytes = new TextEncoder().encode(value).length;
+  return bytes >= 32 && bytes <= MAX_SUBJECT_PEPPER_BYTES;
+}
+
+function parseActivePepperVersion(value: string | undefined): number | null {
+  if (value === undefined) return 1;
+  if (!/^[1-9]\d*$/u.test(value)) return null;
+  const version = Number(value);
+  return Number.isSafeInteger(version) &&
+    version <= 2_147_483_647 &&
+    String(version) === value
+    ? version
+    : null;
+}
+
+function parseSubjectPeppers(env: PiEnv): readonly PiPepperKey[] | null {
+  const activeVersion = parseActivePepperVersion(
+    env.PI_SUBJECT_PEPPER_VERSION,
+  );
+  if (activeVersion === null || !validSubjectPepper(env.PI_SUBJECT_PEPPER)) {
+    return null;
+  }
+
+  let previousValue: unknown = [];
+  if (env.PI_SUBJECT_PEPPER_PREVIOUS !== undefined) {
+    try {
+      previousValue = JSON.parse(env.PI_SUBJECT_PEPPER_PREVIOUS) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (
+    !Array.isArray(previousValue) ||
+    previousValue.length >= MAX_SUBJECT_PEPPER_KEYS
+  ) {
+    return null;
+  }
+
+  const previous: PiPepperKey[] = [];
+  let lastVersion = 0;
+  for (const value of previousValue) {
+    if (
+      !isRecord(value) ||
+      !hasOnlyKeys(value, ["version", "pepper"]) ||
+      typeof value.version !== "number" ||
+      !Number.isSafeInteger(value.version) ||
+      value.version <= lastVersion ||
+      value.version >= activeVersion ||
+      value.version > 2_147_483_647 ||
+      !validSubjectPepper(value.pepper)
+    ) {
+      return null;
+    }
+    previous.push({ version: value.version, pepper: value.pepper });
+    lastVersion = value.version;
+  }
+  const subjectPeppers = [
+    { version: activeVersion, pepper: env.PI_SUBJECT_PEPPER },
+    ...previous,
+  ];
+  if (
+    new Set(subjectPeppers.map((key) => key.pepper)).size !==
+    subjectPeppers.length
+  ) {
+    return null;
+  }
+  return subjectPeppers;
+}
+
 function parseConfig(env: PiEnv): PiConfig | null {
   const clientId = env.PI_CLIENT_ID;
   const configuredOrigin = env.PI_PUBLIC_ORIGIN;
-  const subjectPepper = env.PI_SUBJECT_PEPPER;
+  const subjectPeppers = parseSubjectPeppers(env);
   if (
+    env.PI_BEARER_SHA_CLEAN_START_CONFIRMED !== "true" ||
     typeof clientId !== "string" ||
     clientId.length < 1 ||
     clientId.length > 256 ||
     !/^[\x21-\x7e]+$/u.test(clientId) ||
     typeof configuredOrigin !== "string" ||
-    typeof subjectPepper !== "string" ||
-    new TextEncoder().encode(subjectPepper).length < 32
+    subjectPeppers === null
   ) {
     return null;
   }
@@ -218,7 +311,7 @@ function parseConfig(env: PiEnv): PiConfig | null {
     clientId,
     origin: origin.origin,
     redirectUri: new URL("/pi/callback/", origin.origin).toString(),
-    subjectPepper,
+    subjectPeppers,
     walletProofEnabled: env.PI_WALLET_PROOF_ENABLED === "true",
   };
 }
@@ -410,9 +503,66 @@ async function verifyPiProfile(
   }
 }
 
-async function csrfToken(config: PiConfig, rawSessionToken: string): Promise<string> {
+function activePepper(config: PiConfig): PiPepperKey {
+  const active = config.subjectPeppers[0];
+  if (!active) throw new Error("Active Pi subject pepper is missing");
+  return active;
+}
+
+function pepperForVersion(
+  config: PiConfig,
+  version: number,
+): PiPepperKey | null {
+  return config.subjectPeppers.find((key) => key.version === version) ?? null;
+}
+
+async function pepperConfigurationIsCurrent(
+  config: PiConfig,
+  runtime: PiRuntime,
+): Promise<string | null> {
+  const active = activePepper(config);
+  const pins = await Promise.all(
+    config.subjectPeppers.map(async (key) => ({
+      version: key.version,
+      fingerprint: await keyedHash(
+        key.pepper,
+        `zerone-pi-pepper-key-fingerprint-v1\u0000${config.origin}`,
+      ),
+    })),
+  );
+  const current = await runtime.repository.ensurePepperConfiguration(
+    active.version,
+    pins,
+    runtime.now(),
+  );
+  return current ? piPepperKeysetFingerprint(active.version, pins) : null;
+}
+
+function bearerReplayCommitment(accessToken: string): string {
+  return hashOpaque(`zerone-pi-bearer-replay-v1\u0000${accessToken}`);
+}
+
+async function subjectAliases(
+  config: PiConfig,
+  uid: string,
+): Promise<readonly PiSubjectAlias[]> {
+  return Promise.all(
+    config.subjectPeppers.map(async (key) => ({
+      pepperVersion: key.version,
+      aliasHash: await keyedHash(
+        key.pepper,
+        `zerone-pi-subject-v1\u0000${uid}`,
+      ),
+    })),
+  );
+}
+
+async function csrfToken(
+  pepperKey: PiPepperKey,
+  rawSessionToken: string,
+): Promise<string> {
   return keyedHash(
-    config.subjectPepper,
+    pepperKey.pepper,
     `zerone-pi-csrf-v1\u0000${rawSessionToken}`,
   );
 }
@@ -425,13 +575,21 @@ async function authenticate(
   const cookie = readOpaqueCookie(request, SESSION_COOKIE);
   if (!cookie.valid || !cookie.value) return null;
   const tokenHash = hashOpaque(cookie.value);
-  const session = await runtime.repository.getSession(tokenHash, runtime.now());
+  const now = runtime.now();
+  const session = await runtime.repository.getSession(
+    tokenHash,
+    now,
+    now - SESSION_IDLE_MS,
+  );
   if (!session) return null;
+  const pepperKey = pepperForVersion(config, session.pepperVersion);
+  if (!pepperKey) return null;
   return {
     rawToken: cookie.value,
     tokenHash,
     session,
-    csrfToken: await csrfToken(config, cookie.value),
+    csrfToken: await csrfToken(pepperKey, cookie.value),
+    pepperKey,
   };
 }
 
@@ -449,6 +607,37 @@ async function authenticateMutation(
     constantTimeEqual(presented, authenticated.csrfToken)
     ? authenticated
     : null;
+}
+
+async function rotatedAuthentication(
+  authenticated: AuthenticatedSession,
+  config: PiConfig,
+  runtime: PiRuntime,
+  now: number,
+): Promise<AuthenticatedSession | null> {
+  if (authenticated.session.expiresAt <= now) return null;
+  const pepperKey = activePepper(config);
+  const rawToken = opaqueToken(runtime.randomBytes(32));
+  const tokenHash = hashOpaque(rawToken);
+  const session: PiSession = {
+    tokenHash,
+    subjectHash: authenticated.session.subjectHash,
+    username: authenticated.session.username,
+    pepperVersion: pepperKey.version,
+    lastSeenAt: now,
+    expiresAt: authenticated.session.expiresAt,
+  };
+  return {
+    rawToken,
+    tokenHash,
+    session,
+    csrfToken: await csrfToken(pepperKey, rawToken),
+    pepperKey,
+  };
+}
+
+function remainingSessionSeconds(session: PiSession, now: number): number {
+  return Math.max(0, Math.floor((session.expiresAt - now) / 1_000));
 }
 
 function envelope(
@@ -543,6 +732,7 @@ async function createSession(
   request: Request,
   config: PiConfig,
   runtime: PiRuntime,
+  keysetFingerprint: string,
 ): Promise<Response> {
   if (request.method !== "POST") return methodNotAllowed(["POST"]);
   if (!mutationOriginIsValid(request, config) || !queryIsEmpty(request)) {
@@ -564,16 +754,18 @@ async function createSession(
   }
 
   const now = runtime.now();
+  const activeKey = activePepper(config);
+  const stateHash = hashOpaque(body.value.state);
+  const browserHash = hashOpaque(oauthCookie.value);
+  const replayCommitment = bearerReplayCommitment(body.value.accessToken);
   const consumed = await runtime.repository.consumeOAuthFlow(
-    hashOpaque(body.value.state),
-    hashOpaque(oauthCookie.value),
-    await keyedHash(
-      config.subjectPepper,
-      `zerone-pi-bearer-v1\u0000${body.value.accessToken}`,
-    ),
+    stateHash,
+    browserHash,
+    replayCommitment,
+    activeKey.version,
     now,
   );
-  if (!consumed) {
+  if (consumed === null) {
     return jsonError("Pi authorization state was not accepted", 400);
   }
   const clearOAuth = (headers: Headers) => {
@@ -582,33 +774,57 @@ async function createSession(
 
   const profile = await verifyPiProfile(body.value.accessToken, runtime);
   if (profile.kind === "unauthorized") {
+    await runtime.repository.rejectBearerClaim(
+      replayCommitment,
+      stateHash,
+      browserHash,
+    );
     return jsonError("Pi sign-in was not accepted", 401, clearOAuth);
   }
   if (profile.kind === "unavailable") {
     return jsonError("Pi identity is temporarily unavailable", 502, clearOAuth);
   }
 
-  const oldSession = readOpaqueCookie(request, SESSION_COOKIE);
-  if (oldSession.valid && oldSession.value) {
-    await runtime.repository.revokeSession(hashOpaque(oldSession.value), now);
+  const promoted = await runtime.repository.promoteBearerClaim(
+    replayCommitment,
+    stateHash,
+    browserHash,
+  );
+  if (!promoted) {
+    return jsonError("Pi authorization must be restarted", 409, clearOAuth);
   }
 
+  const createdAt = runtime.now();
+  const aliases = await subjectAliases(config, profile.profile.uid);
+  const canonicalSubject = await runtime.repository.resolveSubject(aliases);
+  if (!canonicalSubject) {
+    return jsonError("Pi authorization must be restarted", 409, clearOAuth);
+  }
   const rawSessionToken = opaqueToken(runtime.randomBytes(32));
   const session: PiSession = {
     tokenHash: hashOpaque(rawSessionToken),
-    subjectHash: await keyedHash(
-      config.subjectPepper,
-      `zerone-pi-subject-v1\u0000${profile.profile.uid}`,
-    ),
+    subjectHash: canonicalSubject,
     username: profile.profile.username,
-    expiresAt: now + SESSION_TTL_MS,
+    pepperVersion: activeKey.version,
+    lastSeenAt: createdAt,
+    expiresAt: createdAt + SESSION_TTL_MS,
   };
-  await runtime.repository.createSession(session, now);
+  const replaced = await runtime.repository.replaceSubjectSessions(
+    session,
+    aliases,
+    consumed,
+    createdAt,
+    keysetFingerprint,
+  );
+  if (!replaced) {
+    return jsonError("Pi authorization must be restarted", 409, clearOAuth);
+  }
   const authenticated: AuthenticatedSession = {
     rawToken: rawSessionToken,
     tokenHash: session.tokenHash,
     session,
-    csrfToken: await csrfToken(config, rawSessionToken),
+    csrfToken: await csrfToken(activeKey, rawSessionToken),
+    pepperKey: activeKey,
   };
 
   return jsonResponse(envelope(config, authenticated), 200, (headers) => {
@@ -661,6 +877,47 @@ async function logout(
   );
   return jsonResponse(envelope(config), 200, (headers) => {
     headers.append("Set-Cookie", clearCookie(SESSION_COOKIE));
+  });
+}
+
+async function deletePilotData(
+  request: Request,
+  config: PiConfig,
+  runtime: PiRuntime,
+  keysetFingerprint: string,
+): Promise<Response> {
+  if (request.method !== "DELETE") return methodNotAllowed(["DELETE"]);
+  if (!queryIsEmpty(request)) {
+    return jsonError("Invalid Pi data-deletion request", 400);
+  }
+  const body = await readJsonBody(request);
+  if (
+    !body.ok ||
+    !hasOnlyKeys(body.value, ["confirmation"]) ||
+    body.value.confirmation !== DATA_DELETION_CONFIRMATION
+  ) {
+    return jsonError("Invalid Pi data-deletion request", 400);
+  }
+  const authenticated = await authenticateMutation(request, config, runtime);
+  if (!authenticated) return jsonError("Pi session was not accepted", 401);
+
+  const now = runtime.now();
+  const deleted = await runtime.repository.deleteSubject(
+    authenticated.session.subjectHash,
+    now,
+    now + PI_SUBJECT_DELETION_GUARD_MS,
+    activePepper(config).version,
+    keysetFingerprint,
+    hashOpaque(
+      `zerone-pi-deletion-operation-v1\u0000${opaqueToken(runtime.randomBytes(32))}`,
+    ),
+  );
+  if (!deleted) {
+    return jsonError("Pi pilot data could not be deleted", 409);
+  }
+  return jsonResponse(envelope(config), 200, (headers) => {
+    headers.append("Set-Cookie", clearCookie(SESSION_COOKIE));
+    headers.append("Set-Cookie", clearCookie(OAUTH_COOKIE));
   });
 }
 
@@ -746,7 +1003,7 @@ async function createChallenge(
   const expiresAt = now + CHALLENGE_TTL_MS;
   const challengeId = opaqueToken(runtime.randomBytes(32));
   const sessionBinding = await keyedHash(
-    config.subjectPepper,
+    authenticated.pepperKey.pepper,
     [
       "zerone-pi-wallet-session-binding-v1",
       authenticated.session.subjectHash,
@@ -775,8 +1032,9 @@ async function createChallenge(
   };
   const created = await runtime.repository.createChallenge(
     challenge,
-    now - CHALLENGE_RATE_WINDOW_MS,
+    now - PI_CHALLENGE_RATE_WINDOW_MS,
     MAX_CHALLENGES_PER_WINDOW,
+    now - SESSION_IDLE_MS,
   );
   if (!created) {
     if (
@@ -813,11 +1071,35 @@ async function bind(
     if (!hasOnlyKeys(body.value, [])) {
       return jsonError("Invalid wallet binding request", 400);
     }
-    await runtime.repository.deleteBinding(
-      authenticated.session.subjectHash,
-      runtime.now(),
+    const now = runtime.now();
+    const rotated = await rotatedAuthentication(
+      authenticated,
+      config,
+      runtime,
+      now,
     );
-    return jsonResponse(envelope(config, authenticated));
+    if (
+      !rotated ||
+      !(await runtime.repository.deleteBinding(
+        authenticated.session.subjectHash,
+        authenticated.tokenHash,
+        rotated.session,
+        now - SESSION_IDLE_MS,
+        now,
+      ))
+    ) {
+      return jsonError("Wallet binding could not be removed", 409);
+    }
+    return jsonResponse(envelope(config, rotated), 200, (headers) => {
+      headers.append(
+        "Set-Cookie",
+        setCookie(
+          SESSION_COOKIE,
+          rotated.rawToken,
+          remainingSessionSeconds(rotated.session, now),
+        ),
+      );
+    });
   }
 
   if (!config.walletProofEnabled) {
@@ -834,11 +1116,13 @@ async function bind(
   if (!signature) return jsonError("Invalid wallet binding request", 400);
 
   const challengeHash = hashOpaque(body.value.challengeId);
+  const challengeReadAt = runtime.now();
   const challenge = await runtime.repository.getChallenge(
     challengeHash,
     authenticated.tokenHash,
     authenticated.session.subjectHash,
-    runtime.now(),
+    challengeReadAt,
+    challengeReadAt - SESSION_IDLE_MS,
   );
   if (!challenge) {
     return jsonError("Wallet challenge was not accepted", 409);
@@ -846,18 +1130,39 @@ async function bind(
   if (!verifyAdr36Signature(challenge.address, challenge.message, signature)) {
     return jsonError("Wallet proof was not accepted", 400);
   }
+  const now = runtime.now();
+  const rotated = await rotatedAuthentication(
+    authenticated,
+    config,
+    runtime,
+    now,
+  );
+  if (!rotated) {
+    return jsonError("Wallet binding could not be completed", 409);
+  }
   const binding = await runtime.repository.bindChallenge(
     challengeHash,
     authenticated.tokenHash,
     authenticated.session.subjectHash,
     walletProofHash(challenge.message, signature),
     WALLET_LINK_CONSENT_VERSION,
-    runtime.now(),
+    rotated.session,
+    now - SESSION_IDLE_MS,
+    now,
   );
   if (!binding) {
     return jsonError("Wallet binding could not be completed", 409);
   }
-  return jsonResponse(envelope(config, authenticated, binding));
+  return jsonResponse(envelope(config, rotated, binding), 200, (headers) => {
+    headers.append(
+      "Set-Cookie",
+      setCookie(
+        SESSION_COOKIE,
+        rotated.rawToken,
+        remainingSessionSeconds(rotated.session, now),
+      ),
+    );
+  });
 }
 
 export async function handlePiRequest(
@@ -870,12 +1175,16 @@ export async function handlePiRequest(
   if (!enabled) return disabledResponse(endpoint, request);
   const config = parseConfig(env);
   if (!config) return jsonError("Pi pilot is temporarily unavailable", 503);
+  const keysetFingerprint = await pepperConfigurationIsCurrent(config, runtime);
+  if (keysetFingerprint === null) {
+    return jsonError("Pi pilot is temporarily unavailable", 503);
+  }
 
   switch (endpoint) {
     case "authorize":
       return authorize(request, config, runtime);
     case "session":
-      return createSession(request, config, runtime);
+      return createSession(request, config, runtime, keysetFingerprint);
     case "me":
       return getMe(request, config, runtime);
     case "logout":
@@ -884,6 +1193,8 @@ export async function handlePiRequest(
       return createChallenge(request, config, runtime);
     case "bind":
       return bind(request, config, runtime);
+    case "data":
+      return deletePilotData(request, config, runtime, keysetFingerprint);
   }
 }
 
