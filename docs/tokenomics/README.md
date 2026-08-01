@@ -33,7 +33,7 @@ issuance pathways retain their own evidence and governance rules. See
 | [REVENUE-SPLIT.md](REVENUE-SPLIT.md) | Real transaction-fee routing, LP compensation, and retired compatibility fields |
 | [VESTING.md](VESTING.md) | Truth-linked vesting schedules and clawback |
 | [STAKING.md](STAKING.md) | Custom tiers, Cosmos staking, fees, and validator economics |
-| [GENESIS.md](GENESIS.md) | Immutable launch distribution and prospective H1 boundary |
+| [GENESIS.md](GENESIS.md) | Immutable launch distribution and prospective H1/H2 boundaries |
 | [SINKS-AND-FLOWS.md](SINKS-AND-FLOWS.md) | Source-backed map of ZRN creation, destruction, locks, and movement |
 | [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | Research-fund committee model and implementation gaps |
 | [LIQUIDITY-TRANSPARENCY.md](LIQUIDITY-TRANSPARENCY.md) | External Osmosis testnet position, separate from the native module |
@@ -43,12 +43,12 @@ issuance pathways retain their own evidence and governance rules. See
 
 ## Quick boundaries
 
-| Metric | Source/H1 value |
+| Metric | Source boundary |
 |---|---:|
 | Maximum supply | 222,222,222 ZRN |
 | Live genesis supply | 13,555 ZRN (0.0061% of cap) |
-| Transaction-presence block reward | 0 after H1 |
-| Founder protocol share | 0 after H1 |
+| Transaction-presence block reward | 0 after H2 |
+| Founder protocol share | 0 after H2 |
 | Liquidity protocol skim | 0 after H1 |
 | Default pool swap fee | 0.3%, retained by LP-backed reserves |
 | Real `uzrn` transaction-fee routing | 19.67% development / 3.33% research / ~77% normal distribution |
@@ -65,5 +65,5 @@ issuance pathways retain their own evidence and governance rules. See
 4. **Work rewards require evidence.** Supply-cap compliance is necessary but
    not sufficient; each mint lane must bind a successful, non-self-attested
    trigger.
-5. **History is not rewritten.** Genesis and pre-H1 events remain the truthful
+5. **History is not rewritten.** Genesis and pre-H1/pre-H2 events remain the truthful
    record; migration changes prospective runtime state only.

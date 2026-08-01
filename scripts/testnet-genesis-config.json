@@ -1,12 +1,13 @@
 {
   "_meta": {
-    "description": "Zerone testnet genesis configuration reference",
+    "description": "Legacy Zerone testnet parameter reference (non-executable)",
+    "status": "HISTORICAL_NON_EXECUTABLE_REFERENCE",
     "chain_id": "zerone-testnet-1",
     "genesis_time": "2026-07-01T00:00:00Z",
     "block_time_ms": 2521,
     "denom": "uzrn",
-    "generated_by": "scripts/testnet-genesis.sh",
-    "_note": "Values marked [TESTNET] differ from production defaults. Production values shown in _prod fields."
+    "generated_by": "historical scripts/testnet-genesis.sh (not present)",
+    "_note": "No current script consumes this document and it is not a coherent v2 genesis. Values marked [TESTNET] differ from historical production defaults; retired economic fields are zeroed to prevent unsafe copy-forward."
   },
   "consensus": {
     "_note": "CometBFT consensus parameters",
@@ -254,9 +255,9 @@
       }
     },
     "vesting_rewards": {
-      "_note": "Block rewards with evidence-category vesting schedules and revenue splits",
+      "_note": "Evidence-category vesting schedules and fee revenue splits; automatic rewards are retired",
       "params": {
-        "block_reward": "10000000",
+        "block_reward": "0",
         "reward_decay_bps": 994478,
         "reward_decay_bps_note": "1-year half-life: rewards halve annually (prod=994478)",
         "blocks_per_reward_epoch": 50000,
@@ -269,7 +270,7 @@
         "min_validators_for_full_reward": 11,
         "min_validators_for_full_reward_[TESTNET]": "prod=22, halved for smaller testnet validator set",
         "empty_block_reward_rate": 0,
-        "floor_reward": "100000",
+        "floor_reward": "0",
         "initial_fund_balance": "0",
         "revenue_split": {
           "contributor_bps": 550000,
@@ -541,7 +542,7 @@
         "max_pools": 3,
         "min_initial_liquidity": "10000000000",
         "twap_window_blocks": 1000,
-        "protocol_fee_bps": 450000,
+        "protocol_fee_bps": 0,
         "min_reserve": "1"
       }
     },

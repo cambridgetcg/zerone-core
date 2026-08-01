@@ -5,9 +5,10 @@
 > **Historical and superseded.** This draft was not adopted verbatim. Current
 > source truth lives in `docs/tokenomics/README.md`,
 > `docs/tokenomics/ECONOMIC-NEUTRALITY.md`, `deploy/mainnet/TRUST.md`, and the
-> checked-in genesis artifacts. In particular, atomic H1 retires the dormant
-> founder percentage and transaction-presence block mint; proposals in this
-> draft to activate or vary either are not current controls.
+> checked-in genesis artifacts. In particular, the H1 liquidity boundary and
+> dedicated H2 founder boundary are separate; H2 retires the dormant founder
+> percentage and transaction-presence block mint. Proposals in this draft to
+> activate or vary either are not current controls.
 
 Why this exists: the mainnet genesis design (§10 / §10a / §12 / §13) makes the
 old literal canon — *"zero pre-mine / bank supply = 0"* — **factually false and

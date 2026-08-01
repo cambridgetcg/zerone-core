@@ -73,4 +73,9 @@ revenue recipient and ordinary parameter governance cannot restore one.
 It may not say that founders can never benefit under general permissionless
 rules, that a future coordinated software upgrade is metaphysically
 impossible, or that validator/operator/governance control is decentralised.
-The current trust disclosure remains authoritative for operational control.
+This upgrade does not retire ordinary validator/delegator economics or
+concentrated validator and upgrade control, the bootstrap registrar's bounded
+admission discretion, other default-disabled governance issuance paths, or the
+identity-bound research-voter and disbursement surface. The current trust
+disclosure remains authoritative for operational control; each excluded
+surface requires its own evidence and, if retired, its own named boundary.

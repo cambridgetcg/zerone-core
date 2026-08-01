@@ -70,28 +70,25 @@ type moneyKarmaConstitution struct {
 		DedicatedStateStore *bool   `json:"dedicated_state_store"`
 	} `json:"karma"`
 	ResearchGovernance struct {
-		SpendingPolicy                            *string `json:"spending_policy"`
+		Scope                                     *string `json:"scope"`
 		RuntimeIndependencePredicateEnforced      *bool   `json:"runtime_independence_predicate_enforced"`
 		CurrentAuthorityManagedSpendingPathExists *bool   `json:"current_authority_managed_spending_path_exists"`
+		CurrentIdentityBound                      *bool   `json:"current_identity_bound"`
 		ArtifactAuthorizesSpending                *bool   `json:"artifact_authorizes_spending"`
+		ArtifactDisablesSpending                  *bool   `json:"artifact_disables_spending"`
+		ArtifactRefusesDisbursement               *bool   `json:"artifact_refuses_disbursement"`
+		ArtifactChangesGovernance                 *bool   `json:"artifact_changes_governance"`
 		CurrentKarmaConsumer                      *bool   `json:"current_karma_consumer"`
-		FutureBoundary                            struct {
-			ControllerCollapsed          *bool `json:"controller_collapsed"`
-			BoundedEligibility           *bool `json:"bounded_eligibility"`
-			BoundedSortition             *bool `json:"bounded_sortition"`
-			IndependentCheckChamber      *bool `json:"independent_check_chamber"`
-			RotationAndConcentrationCaps *bool `json:"rotation_and_concentration_caps"`
-			ConflictDisclosure           *bool `json:"conflict_disclosure"`
-			ChallengeAndTimelock         *bool `json:"challenge_and_timelock"`
-			ScalarWeighting              *bool `json:"scalar_weighting"`
-			UnilateralExecution          *bool `json:"unilateral_execution"`
-		} `json:"future_boundary"`
 	} `json:"research_governance"`
 	OperationalCaveat struct {
 		AsOf                                   *string `json:"as_of"`
 		SoleFoundingHouseholdControlsValidator *bool   `json:"sole_founding_household_controls_validator"`
 		SoleFoundingHouseholdControlsOperator  *bool   `json:"sole_founding_household_controls_operator"`
 		SoleFoundingHouseholdControlsVote      *bool   `json:"sole_founding_household_controls_effective_vote"`
+		ValidatorEconomicsRemain               *bool   `json:"validator_economics_remain"`
+		BootstrapRegistrarDiscretionRemains    *bool   `json:"bootstrap_registrar_discretion_remains"`
+		DefaultDisabledGovernanceIssuance      *bool   `json:"default_disabled_governance_issuance_remains"`
+		IdentityBoundResearchSpendingRemains   *bool   `json:"identity_bound_research_spending_remains"`
 		PresentNoControlAchieved               *bool   `json:"present_no_control_achieved"`
 		IndependentGovernanceProven            *bool   `json:"independent_governance_proven"`
 	} `json:"operational_caveat"`
@@ -148,10 +145,11 @@ func TestMoneyKarma_ConstitutionIsStrictAndEffectless(t *testing.T) {
 		"karma.numeric_magnitude":                  contract.Karma.NumericMagnitude,
 		"karma.dedicated_state_store":              contract.Karma.DedicatedStateStore,
 		"research.artifact_authorizes_spending":    contract.ResearchGovernance.ArtifactAuthorizesSpending,
+		"research.artifact_disables_spending":      contract.ResearchGovernance.ArtifactDisablesSpending,
+		"research.artifact_refuses_disbursement":   contract.ResearchGovernance.ArtifactRefusesDisbursement,
+		"research.artifact_changes_governance":     contract.ResearchGovernance.ArtifactChangesGovernance,
 		"research.runtime_independence_enforced":   contract.ResearchGovernance.RuntimeIndependencePredicateEnforced,
 		"research.current_karma_consumer":          contract.ResearchGovernance.CurrentKarmaConsumer,
-		"research.future.scalar_weighting":         contract.ResearchGovernance.FutureBoundary.ScalarWeighting,
-		"research.future.unilateral_execution":     contract.ResearchGovernance.FutureBoundary.UnilateralExecution,
 		"operations.present_no_control_achieved":   contract.OperationalCaveat.PresentNoControlAchieved,
 		"operations.independent_governance_proven": contract.OperationalCaveat.IndependentGovernanceProven,
 		"effects.economic":                         contract.Effects.Economic,
@@ -163,16 +161,14 @@ func TestMoneyKarma_ConstitutionIsStrictAndEffectless(t *testing.T) {
 		"founder.compatibility_fields_only":                 contract.FounderRenunciation.CompatibilityFieldsOnly,
 		"founder.future_code_change_technically_possible":   contract.FounderRenunciation.FutureCoordinatedCodeChangeTechnicallyPossible,
 		"research.current_authority_spending_path_exists":   contract.ResearchGovernance.CurrentAuthorityManagedSpendingPathExists,
-		"research.future.controller_collapsed":              contract.ResearchGovernance.FutureBoundary.ControllerCollapsed,
-		"research.future.bounded_eligibility":               contract.ResearchGovernance.FutureBoundary.BoundedEligibility,
-		"research.future.bounded_sortition":                 contract.ResearchGovernance.FutureBoundary.BoundedSortition,
-		"research.future.independent_check_chamber":         contract.ResearchGovernance.FutureBoundary.IndependentCheckChamber,
-		"research.future.rotation_and_concentration_caps":   contract.ResearchGovernance.FutureBoundary.RotationAndConcentrationCaps,
-		"research.future.conflict_disclosure":               contract.ResearchGovernance.FutureBoundary.ConflictDisclosure,
-		"research.future.challenge_and_timelock":            contract.ResearchGovernance.FutureBoundary.ChallengeAndTimelock,
+		"research.current_identity_bound":                   contract.ResearchGovernance.CurrentIdentityBound,
 		"operations.sole_household_controls_validator":      contract.OperationalCaveat.SoleFoundingHouseholdControlsValidator,
 		"operations.sole_household_controls_operator":       contract.OperationalCaveat.SoleFoundingHouseholdControlsOperator,
 		"operations.sole_household_controls_effective_vote": contract.OperationalCaveat.SoleFoundingHouseholdControlsVote,
+		"operations.validator_economics_remain":             contract.OperationalCaveat.ValidatorEconomicsRemain,
+		"operations.bootstrap_registrar_discretion_remains": contract.OperationalCaveat.BootstrapRegistrarDiscretionRemains,
+		"operations.default_disabled_governance_issuance":   contract.OperationalCaveat.DefaultDisabledGovernanceIssuance,
+		"operations.identity_bound_research_spending":       contract.OperationalCaveat.IdentityBoundResearchSpendingRemains,
 	})
 
 	requireUint64(t, "founder.share_bps", contract.FounderRenunciation.ShareBps, 0)
@@ -182,7 +178,7 @@ func TestMoneyKarma_ConstitutionIsStrictAndEffectless(t *testing.T) {
 	requireString(t, "karma.representation", contract.Karma.Representation, "EVENT_ONLY")
 	requireString(t, "karma.event_type", contract.Karma.EventType, "zerone.karma.edge")
 	requireString(t, "karma.meaning", contract.Karma.Meaning, "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH")
-	requireString(t, "research.spending_policy", contract.ResearchGovernance.SpendingPolicy, "NORMATIVE_FAIL_CLOSED_UNTIL_GENUINELY_INDEPENDENT")
+	requireString(t, "research.scope", contract.ResearchGovernance.Scope, "OUT_OF_SCOPE_UNCHANGED")
 	requireString(t, "operational_caveat.as_of", contract.OperationalCaveat.AsOf, "2026-08-01")
 }
 

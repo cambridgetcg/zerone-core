@@ -50,26 +50,28 @@ As of 2026-08-01, the disclosed operating posture remains concentrated: one foun
 
 Source renunciation removes one economic control surface. It does not erase validator custody, deployment credentials, voting power, key custody, or correlated identities. Those must be reduced and independently evidenced on their own release path.
 
-## Research spending policy is fail-closed
+In particular, this founder boundary does **not** retire ordinary
+validator/delegator economics or concentrated validator and upgrade control;
+the bootstrap registrar's bounded admission discretion; other
+governance-activatable issuance paths that are disabled by default; or the
+current identity-bound research-voter and disbursement surface. None is a
+continuation of the retired founder percentage, but each remains a distinct
+control or economic surface requiring its own evidence and, where appropriate,
+its own named retirement.
 
-This constitution authorizes no research spending and no governance activation. Its normative release policy is fail-closed: research spending must not be released as independently governed until release evidence demonstrates genuine independence. If a runtime or operational path cannot be shown to satisfy that condition, its release status is **NO-GO**.
+## Research spending and future governance are out of scope
 
-That independence predicate is **not implemented by the current runtime**. The present authority-managed research-spend path can configure voters and execute disbursements without proving controller independence. This document neither disables that path nor mislabels it as independent; production activation remains a separate operational NO-GO.
+The current authority-managed research-spend path can configure identity-bound
+voters and execute disbursements without proving controller independence. This
+artifact leaves that runtime exactly as it is: it neither authorizes nor
+disables research spending, refuses a disbursement, changes a voter or phase,
+or introduces a governance migration. The path must not be mislabelled as
+independent merely because founder revenue is retired.
 
-Bonded stake alone is not independence. A semantic “founder seat,” “AI seat,” or household-controlled committee is not independence. Renaming a controller does not create another controller.
-
-## The only admissible future governance shape
-
-A later, separately reviewed experiment may let KARMA contribute to a bounded governance check only if all of the following hold:
-
-1. identities are collapsed to independently evidenced controllers before eligibility or selection;
-2. KARMA can qualify a bounded candidate pool, never scale ballot weight;
-3. selection uses bounded sortition, rotation, term limits, concentration caps, and conflict-of-interest disclosure;
-4. the selected body is an independent check chamber, not a unilateral executor;
-5. challenges and a public timelock precede execution;
-6. no KARMA edge, count, score, or aggregate directly determines payout, token issuance, proposal passage, or spending.
-
-This is a boundary for future design, not an implemented consumer. The current effect remains zero.
+Likewise, this artifact creates no future KARMA-governance design. Any proposal
+to store, aggregate, qualify with, vote with, or otherwise consume KARMA needs
+its own reviewed constitution, implementation, migration boundary, and public
+evidence. No such proposal is smuggled into founder renunciation.
 
 ## Effect statement
 

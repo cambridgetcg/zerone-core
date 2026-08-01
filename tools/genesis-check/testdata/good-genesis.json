@@ -15,7 +15,9 @@
   "app_state": {
     "vesting_rewards": {
       "params": {
-        "block_reward": "10000000",
+        "block_reward": "0",
+        "floor_reward": "0",
+        "empty_block_reward_rate": "0",
         "founder_share_bps": "0",
         "founder_address": "",
         "revenue_split": {

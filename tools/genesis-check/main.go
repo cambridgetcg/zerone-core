@@ -213,45 +213,58 @@ func checkProtocolSubSplit(c *checker, g map[string]interface{}) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  3. Historical Founder Share (x/vesting_rewards)
+//  3. Founder Renunciation (x/vesting_rewards)
 // ════════════════════════════════════════════════════════════════════════
 
 func checkFounderShare(c *checker, g map[string]interface{}) {
-	c.section("Historical Founder Share")
+	c.section("Founder Renunciation")
 
-	// This checker also audits immutable pre-H1 launch artifacts, so it reports
-	// their configured v1 field rather than rewriting history. Vesting_rewards
-	// v2 rejects this value in a fresh/imported genesis and clears it at H1.
+	// Current checker profiles describe fresh/imported v2 state. Exact v1
+	// launch artifacts remain immutable historical evidence, but replaying or
+	// auditing them requires the corresponding historical release binary rather
+	// than relaxing this v2 admission boundary.
 
 	shareBps, _ := digUint64(g, "app_state", "vesting_rewards", "params", "founder_share_bps")
 	addr, _ := digString(g, "app_state", "vesting_rewards", "params", "founder_address")
 
-	if shareBps == 0 {
-		if addr == "" {
-			c.pass("No founder share configured")
-		} else {
-			c.warn("founder_address set (%s) but founder_share_bps is 0", addr)
-		}
-		return
+	if shareBps != 0 {
+		c.fail("founder_share_bps must be 0 in vesting_rewards v2; got %d", shareBps)
+	} else {
+		c.pass("Founder share is permanently zero")
 	}
 
-	if addr == "" {
-		if c.profile == "production" {
-			c.fail("founder_address required when founder_share_bps = %d", shareBps)
-		} else {
-			c.warn("founder_address empty but founder_share_bps = %d", shareBps)
-		}
-	} else if !validBech32(addr) {
-		c.fail("founder_address is not valid bech32: %s", addr)
+	if addr != "" {
+		c.fail("founder_address must be empty in vesting_rewards v2; got %s", addr)
 	} else {
-		c.pass("Founder address valid (%s...)", addr[:min(len(addr), 16)])
+		c.pass("Founder address is permanently empty")
 	}
+}
 
-	// founder_share_bps is BPS of the research allocation (70,000 = 7% of research)
-	if shareBps > 100_000 {
-		c.warn("founder_share_bps = %d (>10%% of research allocation)", shareBps)
+// ════════════════════════════════════════════════════════════════════════
+//  4. Retired Automatic Rewards (x/vesting_rewards)
+// ════════════════════════════════════════════════════════════════════════
+
+func checkAutomaticRewards(c *checker, g map[string]interface{}) {
+	c.section("Retired Automatic Rewards")
+
+	blockReward, blockRewardPresent := digString(g, "app_state", "vesting_rewards", "params", "block_reward")
+	floorReward, floorRewardPresent := digString(g, "app_state", "vesting_rewards", "params", "floor_reward")
+	emptyBlockRewardRate, _ := digUint64(g, "app_state", "vesting_rewards", "params", "empty_block_reward_rate")
+
+	if !blockRewardPresent || blockReward != "0" {
+		c.fail("block_reward must be the explicit string \"0\" in vesting_rewards v2; got %q (present=%t)", blockReward, blockRewardPresent)
 	} else {
-		c.pass("Founder share = %d BPS of research", shareBps)
+		c.pass("Transaction-presence block reward is permanently zero")
+	}
+	if !floorRewardPresent || floorReward != "0" {
+		c.fail("floor_reward must be the explicit string \"0\" in vesting_rewards v2; got %q (present=%t)", floorReward, floorRewardPresent)
+	} else {
+		c.pass("Automatic floor reward is permanently zero")
+	}
+	if emptyBlockRewardRate != 0 {
+		c.fail("empty_block_reward_rate must be 0 in vesting_rewards v2; got %d", emptyBlockRewardRate)
+	} else {
+		c.pass("Empty-block reward rate is permanently zero")
 	}
 }
 
@@ -901,6 +914,7 @@ func main() {
 	checkRevenueSplit(c, genesis)
 	checkProtocolSubSplit(c, genesis)
 	checkFounderShare(c, genesis)
+	checkAutomaticRewards(c, genesis)
 	checkResearchFundVoters(c, genesis)
 	checkKnowledgeFitnessWeights(c, genesis)
 	checkDemandFitnessCoupling(c, genesis)

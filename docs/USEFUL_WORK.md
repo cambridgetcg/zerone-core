@@ -48,7 +48,7 @@ and reward more useful work. In the target design, non-recursive verified work
 receives only a base reimbursement and recursion-weight is the multiplier. The
 current issuance mix does not yet establish that dominance: claiming pots and
 other implemented routes use their own admission rules, while automatic block
-issuance is retired at H1.
+issuance is retired at H2.
 Outward utility may be priced on the agenttool platform layer, with applicable
 on-chain fees routed through `x/vesting_rewards` (`x/billing` was retired in
 the 2026-07 slim cut).

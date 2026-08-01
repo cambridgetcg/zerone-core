@@ -322,19 +322,19 @@ external-attestation settlement, an optional knowledge probe bounty whose
 published/default rate is zero, and optional `x/tokens` per-block emission
 whose default is disabled. Bootstrap claims are whitelist participation, but
 admission includes a disclosed operator registrar. Historical `zerone-1` state
-before `consolidation-safety-v1` also configured a proposer reward for any
-transaction-bearing block; an ordinary transfer qualified. The H1 source
-retires that proposer-controlled trigger, fixes its reward parameters at zero,
-and removes `vesting_rewards` mint authority. That change is not live until the
-named software-upgrade vote applies it. This commitment is therefore a target
-for participation-shaped economics plus a present requirement that every
-actual issuance authority and exception be named.
+before `founder-renunciation-v1` also configured a proposer reward for any
+transaction-bearing block; an ordinary transfer qualified. The dedicated H2
+source retires that proposer-controlled trigger, fixes its reward parameters at
+zero, and removes `vesting_rewards` mint authority. That change is not live
+until the named software-upgrade vote applies it. This commitment is therefore
+a target for participation-shaped economics plus a present requirement that
+every actual issuance authority and exception be named.
 
 **Code expression**: `x/vesting_rewards.MintWithCap` is the shared cap-gated
 entry point for runtime module issuance. It accepts a recipient module name,
 mints into that account, and refuses to overshoot `MaxSupplyUzrn`
-(222,222,222 ZRN). H1 production callers include `x/claiming_pot` claims (bootstrap
-and authority-created general pots),
+(222,222,222 ZRN). H2 production callers include `x/claiming_pot` claims
+(bootstrap and authority-created general pots),
 `x/substrate_bridge` settlement/witness escrow, the configurable knowledge
 probe bounty, and configurable `x/tokens` emission. The latter two are inert
 under published/default parameters. Public training-fund release and the

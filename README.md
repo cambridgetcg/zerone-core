@@ -150,17 +150,18 @@ verification. Honest witness earns rewards; dishonest witness is slashed.
 
 ### Issuance follows survival, not acceptance
 
-ZERONE mints for *survived falsification*, never for mere acceptance. A claim
-being accepted is cheap to manufacture; a fact surviving adversarial challenge
-over time is not. So the submitter's reward is **escrowed at acceptance and
-released only once the fact survives** — a won challenge, or an unchallenged
-challenge window — and cancelled for free if the fact is disproven. Block
-rewards likewise couple to the chain's *survived-challenge* rate, not its
-accept rate. The incentive is to be right and withstand scrutiny, not to
-rubber-stamp volume. Every post-genesis native module mint passes through the
-cap gate, while InitChain separately rejects over-cap genesis supply, so no
-path can inflate past the 222,222,222 hard cap. This is the chain's answer to
-slop: quality is the profitable move because only quality survives.
+ZERONE's submitter-reward eligibility follows *survived falsification*, never
+mere acceptance. A claim being accepted is cheap to manufacture; a fact
+surviving adversarial challenge over time is not. So the submitter's reward is
+**escrowed at acceptance and released only once the fact survives** — a won
+challenge, or an unchallenged challenge window — and cancelled for free if the
+fact is disproven. The former transaction-presence block lane is retired in
+vesting_rewards v2; it mints nothing and couples to no rate. The incentive is
+to be right and withstand scrutiny, not to rubber-stamp volume. Every
+post-genesis native module mint passes through the cap gate, while InitChain
+separately rejects over-cap genesis supply, so no path can inflate past the
+222,222,222 hard cap. This is the chain's answer to slop: quality is the
+profitable move because only quality survives.
 
 ### Key Subsystems
 
@@ -206,7 +207,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 |---|---|
 | `staking` | 4-tier PoT staking (Apprentice → Guardian) |
 | `qualification` | Domain-specific validator certification |
-| `vesting_rewards` | Block rewards, vesting curves, revenue splits |
+| `vesting_rewards` | Vesting curves, actual-fee revenue splits, retired block-reward compatibility |
 
 ### Agent Economy
 | Module | Purpose |

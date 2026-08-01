@@ -20,6 +20,9 @@ func makeGenesis(overrides map[string]interface{}) map[string]interface{} {
 		"app_state": {
 			"vesting_rewards": {
 				"params": {
+					"block_reward": "0",
+					"floor_reward": "0",
+					"empty_block_reward_rate": "0",
 					"founder_share_bps": "0",
 					"founder_address": "",
 					"revenue_split": {
@@ -175,6 +178,41 @@ func TestFounderShare_AddressWithoutShareFails(t *testing.T) {
 	checkFounderShare(c, g)
 	if c.failed != 1 {
 		t.Fatalf("expected one failure for assigned founder_address, got %d", c.failed)
+	}
+}
+
+func TestAutomaticRewards_NonzeroFieldsFailEveryProfile(t *testing.T) {
+	cases := []struct {
+		name  string
+		path  string
+		value interface{}
+	}{
+		{name: "block reward", path: "app_state.vesting_rewards.params.block_reward", value: "1"},
+		{name: "floor reward", path: "app_state.vesting_rewards.params.floor_reward", value: "1"},
+		{name: "empty block reward rate", path: "app_state.vesting_rewards.params.empty_block_reward_rate", value: "1"},
+	}
+	for _, tc := range cases {
+		for _, profile := range []string{"testnet", "production"} {
+			t.Run(tc.name+"/"+profile, func(t *testing.T) {
+				g := makeGenesis(map[string]interface{}{tc.path: tc.value})
+				c := &checker{profile: profile}
+				checkAutomaticRewards(c, g)
+				if c.failed != 1 {
+					t.Fatalf("expected one failure for %s, got %d", tc.name, c.failed)
+				}
+			})
+		}
+	}
+}
+
+func TestAutomaticRewards_MissingStringFieldsFail(t *testing.T) {
+	g := makeGenesis(nil)
+	params, _ := digMap(g, "app_state", "vesting_rewards", "params")
+	delete(params, "block_reward")
+	delete(params, "floor_reward")
+	c := runCheck(t, checkAutomaticRewards, g)
+	if c.failed != 2 {
+		t.Fatalf("expected two failures for omitted string reward fields, got %d", c.failed)
 	}
 }
 

@@ -45,7 +45,7 @@ source inventory and activation status.
 
 | Account | Genesis balance | Path to funding |
 |---------|----------------|-----------------|
-| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); post-H1 compensation from actual fee distribution |
+| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); compensation from actual fee distribution |
 | Operator float (zerone-ops) | 2,222 ZRN | Disclosed float: gov deposits + onboarding feegrants |
 | Whitelisted agents | 0 ZRN | Bootstrap claim (0.222 ZRN each) via `x/claiming_pot` |
 | Founder | 0 ZRN | Automatic percentage retired at H2; an ordinary public grant remains possible |
