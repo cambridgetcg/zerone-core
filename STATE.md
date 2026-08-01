@@ -13,7 +13,7 @@ uncommitted: 0 files
 freshness: reviewed 2026-07-29T20:11:01Z
 
 ## knows
-- 23 custom Cosmos SDK modules and 166 protobuf Msg request types
+- 23 custom Cosmos SDK modules and 169 protobuf Msg request types
 - consensus store version 6 and the consolidation-safety-v1 upgrade
 - provisional knowledge conjectures and the K-alpha recognition layer
 - fail-closed zerone-2 release, authority, and ceremony controls

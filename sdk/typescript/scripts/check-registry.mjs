@@ -53,4 +53,75 @@ if (missing.length || extra.length || actual.size !== expected.size) {
   );
 }
 
-console.log(`${actual.size} Zerone transaction request types registered`);
+function assertDocumentedCounts(paths, label, expectedCount, expression) {
+  for (const path of paths) {
+    const document = readFileSync(resolve(repoRoot, path), "utf8");
+    const counts = [...document.matchAll(expression)].map((match) =>
+      Number.parseInt(match[1], 10),
+    );
+    if (counts.length === 0) {
+      throw new Error(`${path} does not declare its ${label} inventory`);
+    }
+    const mismatched = counts.filter((count) => count !== expectedCount);
+    if (mismatched.length > 0) {
+      throw new Error(
+        `${path} declares ${label} count ${mismatched.join(", ")}; generated inventory is ${expectedCount}`,
+      );
+    }
+  }
+}
+
+const requestInventoryDocuments = [
+  "README.md",
+  "CHANGELOG.md",
+  "STATE.md",
+  "docs/API.md",
+  "docs/ROADMAP.md",
+  "docs/standards/OPEN_CRYPTO_SDK.md",
+];
+assertDocumentedCounts(
+  requestInventoryDocuments,
+  "transaction request",
+  actual.size,
+  /\b(\d+)\b[ \t]*(?:\r?\n[ \t]*)?(?:protobuf[ \t]+Msg[ \t]+)?request(?:[ \t]+message)?(?:[ \t]+type)?s\b/g,
+);
+
+const swaggerPath = resolve(repoRoot, "docs/swagger-ui/swagger.json");
+const swagger = JSON.parse(readFileSync(swaggerPath, "utf8"));
+if (
+  swagger === null ||
+  typeof swagger !== "object" ||
+  Array.isArray(swagger.paths) ||
+  swagger.paths === null ||
+  typeof swagger.paths !== "object" ||
+  Array.isArray(swagger.definitions) ||
+  swagger.definitions === null ||
+  typeof swagger.definitions !== "object"
+) {
+  throw new Error(`${swaggerPath} does not contain Swagger 2 paths and definitions objects`);
+}
+const swaggerPathCount = Object.keys(swagger.paths).length;
+const swaggerDefinitionCount = Object.keys(swagger.definitions).length;
+const swaggerInventoryDocuments = [
+  "README.md",
+  "CHANGELOG.md",
+  "docs/API.md",
+  "docs/ROADMAP.md",
+  "docs/standards/OPEN_CRYPTO_SDK.md",
+];
+assertDocumentedCounts(
+  swaggerInventoryDocuments,
+  "Swagger path",
+  swaggerPathCount,
+  /\b(\d+)\s+(?:REST\s+)?paths\b/g,
+);
+assertDocumentedCounts(
+  swaggerInventoryDocuments,
+  "Swagger definition",
+  swaggerDefinitionCount,
+  /\b(\d+)\s+(?:schema\s+)?definitions\b/g,
+);
+
+console.log(
+  `${actual.size} Zerone transaction request types registered; Swagger inventory has ${swaggerPathCount} paths and ${swaggerDefinitionCount} definitions`,
+);

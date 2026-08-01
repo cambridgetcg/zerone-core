@@ -1238,6 +1238,41 @@ func TestSDK053IBC10RefusesMissingOrWrongConsolidationBoundaryBeforeMutation(
 	}
 }
 
+func TestSDK053IBC10ScheduledPreflightRefusesPersistedUnconsolidatedVersion(
+	t *testing.T,
+) {
+	h := NewTestHarness(t)
+	seedConsolidationBoundary(t, h)
+	versionMap := sdk053IBC10SourceVM(h)
+	versionMap[knowledgetypes.ModuleName] = 5
+	require.NoError(t, h.App.UpgradeKeeper.SetModuleVersionMap(
+		h.Ctx,
+		versionMap,
+	))
+	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	plan := upgradetypes.Plan{
+		Name:   zeroneapp.UpgradeNameSDK053IBC10,
+		Height: h.App.CommitMultiStore().LastCommitID().Version + 2,
+		Info:   planInfo,
+	}
+	require.NoError(t, h.App.UpgradeKeeper.ScheduleUpgrade(h.Ctx, plan))
+	h.CommitHMinusOne()
+	require.Equal(t, plan.Height-1,
+		h.App.CommitMultiStore().LastCommitID().Version,
+		"fixture must exercise the exact scheduled H-1 verifier",
+	)
+
+	report, err := h.App.VerifyScheduledActivationPrestate()
+	require.ErrorContains(t, err,
+		`requires prerequisite module "knowledge" at consensus version 6: got 5`)
+	require.False(t, report.ActivationReady)
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(
+		h.Ctx,
+		"upgrade_marker_sdk-0.53-ibc-10",
+	), "H-1 refusal must happen before the handler dry-run")
+}
+
 func TestSDK053IBC10RefusesMissingOrWrongSafetySourceVersionsBeforeMutation(
 	t *testing.T,
 ) {

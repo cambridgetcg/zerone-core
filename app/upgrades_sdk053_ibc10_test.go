@@ -707,6 +707,119 @@ func TestSDK053IBC10HandlerRejectsOfflineProofOutsideDryRunContext(t *testing.T)
 	)
 }
 
+func TestSDK053IBC10NamedPreflightRefusesUnconsolidatedBoundaryBeforeProof(
+	t *testing.T,
+) {
+	planInfo, err := BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	baseVersionMap := map[string]uint64{
+		"knowledge":              6,
+		"claiming_pot":           2,
+		"liquiditypool":          5,
+		"vesting_rewards":        2,
+		"ibc":                    6,
+		"transfer":               5,
+		"interchainaccounts":     3,
+		legacyCapabilityStoreKey: 1,
+		legacyIBCFeeStoreKey:     2,
+	}
+	tests := []struct {
+		name      string
+		marker    string
+		corrupt   func(map[string]uint64)
+		wantError string
+	}{
+		{
+			name:   "missing consolidation version",
+			marker: consolidationSafetyMarkerValue,
+			corrupt: func(versionMap map[string]uint64) {
+				delete(versionMap, "knowledge")
+			},
+			wantError: `requires prerequisite module "knowledge" at consensus version 6: module is absent`,
+		},
+		{
+			name:   "wrong consolidation version",
+			marker: consolidationSafetyMarkerValue,
+			corrupt: func(versionMap map[string]uint64) {
+				versionMap["knowledge"] = 5
+			},
+			wantError: `requires prerequisite module "knowledge" at consensus version 6: got 5`,
+		},
+		{
+			name:      "missing consolidation marker",
+			wantError: `requires prerequisite marker "upgrade_marker_consolidation-safety-v1"="migrated": got ""`,
+		},
+		{
+			name:      "wrong consolidation marker",
+			marker:    "unexpected",
+			wantError: `requires prerequisite marker "upgrade_marker_consolidation-safety-v1"="migrated": got "unexpected"`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			application := NewZeroneApp(
+				log.NewNopLogger(),
+				dbm.NewMemDB(),
+				nil,
+				true,
+				simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+			)
+			ctx := application.NewUncachedContext(
+				false,
+				cmtproto.Header{Height: 1},
+			)
+			if test.marker != "" {
+				require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+					ctx,
+					consolidationSafetyMarker,
+					test.marker,
+				))
+			}
+			commitID := application.CommitMultiStore().Commit()
+			require.Equal(t, int64(1), commitID.Version)
+			ctx = application.NewUncachedContext(
+				true,
+				cmtproto.Header{Height: commitID.Version},
+			)
+
+			versionMap := make(map[string]uint64, len(baseVersionMap))
+			for name, version := range baseVersionMap {
+				versionMap[name] = version
+			}
+			if test.corrupt != nil {
+				test.corrupt(versionMap)
+			}
+			markerBefore := application.KnowledgeKeeper.ReadMigrationMarker(
+				ctx,
+				consolidationSafetyMarker,
+			)
+			require.Nil(t, application.sdk053IBC10LoaderProof)
+
+			err := application.verifyNamedActivationPreconditions(
+				ctx,
+				upgradetypes.Plan{
+					Name:   UpgradeNameSDK053IBC10,
+					Height: commitID.Version + 1,
+					Info:   planInfo,
+				},
+				versionMap,
+				commitID.Version,
+			)
+			require.ErrorContains(t, err, test.wantError)
+			require.Nil(t, application.sdk053IBC10LoaderProof,
+				"H-1 refusal must happen before recording a loader proof")
+			require.Equal(t, markerBefore,
+				application.KnowledgeKeeper.ReadMigrationMarker(
+					ctx,
+					consolidationSafetyMarker,
+				),
+				"H-1 refusal must not mutate the consolidation boundary",
+			)
+		})
+	}
+}
+
 func TestSDK053IBC10StoreLoaderRejectsLegacyFeeLockAndPreservesOldDatabase(t *testing.T) {
 	for _, disableFastNode := range []bool{false, true} {
 		for _, lockedValue := range [][]byte{{0x01}, {0x02}} {

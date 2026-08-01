@@ -291,8 +291,8 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 215 paths and 440 definitions.
-- The repository [TypeScript SDK](sdk/typescript/) covers 166 request messages
+  inventory of record: 217 paths and 446 definitions.
+- The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
   across 20 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the
@@ -320,6 +320,7 @@ does not activate it.
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |
 | [API Reference](docs/API.md) | Generated REST/gRPC discovery and usage |
 | [Open Crypto SDK](docs/standards/OPEN_CRYPTO_SDK.md) | SDK availability and standards seams |
+| [Quantum QEC Season 1](docs/specs/constructive-intelligence-quantum-qec-v0.md) | Digest-pinned quantum capability path and zero-value breakthrough-reward envelope |
 | [Events](docs/EVENTS.md) | On-chain event reference |
 | [Launch Checklist](docs/LAUNCH-CHECKLIST.md) | Testnet launch checklist |
 | [Truth Paper](docs/TRUTH-PAPER-HUMAN.md) | Proof of Truth design paper |
