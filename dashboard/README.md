@@ -69,6 +69,15 @@ exists only in page memory: it is not posted, persisted, attached to the Pi
 account, treated as identity or evidence, or shared with wallet code. Refresh,
 clear, and Pi logout discard it.
 
+An authenticated deletion control removes all subject-linked Pi pilot
+sessions, the active address binding, outstanding challenges, and rotation
+aliases in one D1 transition. A short-lived keyed subject tombstone prevents
+an OAuth flow started before deletion from recreating the session. Minimal
+unindexed anti-replay fingerprints remain outside account-selectable deletion
+and therefore remain part of the separate production retention gate. This
+control never changes the person's Pi account, Keplr wallet, or blockchain
+state.
+
 Browser build flags:
 
 | Variable | Default | Purpose |

@@ -1,6 +1,7 @@
 import {
   beginPiSignIn,
   bindWalletProof,
+  deletePiPilotData,
   endPiSession,
   getPiSession,
   removeWalletProof,
@@ -76,6 +77,7 @@ export async function initialisePiPilot(
   const proofReviewButton = byId<HTMLButtonElement>("pi-proof-review");
   const proofRemoveButton = byId<HTMLButtonElement>("pi-proof-remove");
   const logoutButton = byId<HTMLButtonElement>("pi-logout");
+  const dataOpenButton = byId<HTMLButtonElement>("pi-data-open");
 
   const consentDialog = byId<HTMLDialogElement>("pi-consent-dialog");
   const consentForm = byId<HTMLFormElement>("pi-consent-form");
@@ -89,9 +91,16 @@ export async function initialisePiPilot(
   const proofClose = byId<HTMLButtonElement>("pi-proof-close");
   const proofSubmit = byId<HTMLButtonElement>("pi-proof-submit");
 
+  const dataDialog = byId<HTMLDialogElement>("pi-data-dialog");
+  const dataForm = byId<HTMLFormElement>("pi-data-form");
+  const dataCheck = byId<HTMLInputElement>("pi-data-check");
+  const dataClose = byId<HTMLButtonElement>("pi-data-close");
+  const dataSubmit = byId<HTMLButtonElement>("pi-data-submit");
+
   let authPending = false;
   let proofPending = false;
   let sessionPending = false;
+  let dataPending = false;
   let constructiveCompass: PiConstructiveCompassController | null = null;
 
   const render = (): void => {
@@ -155,6 +164,7 @@ export async function initialisePiPilot(
 
   attachDialogClose(consentDialog, consentClose, () => authPending);
   attachDialogClose(proofDialog, proofClose, () => proofPending);
+  attachDialogClose(dataDialog, dataClose, () => dataPending);
 
   byId("pi-consent-open").addEventListener("click", () => {
     consentCheck.checked = false;
@@ -209,6 +219,51 @@ export async function initialisePiPilot(
       sessionPending = false;
       logoutButton.disabled = false;
       logoutButton.textContent = "End Pi session";
+    }
+  });
+
+  dataOpenButton.addEventListener("click", () => {
+    if (sessionPending || dataPending || !session.authenticated) return;
+    dataCheck.checked = false;
+    dataDialog.showModal();
+    window.setTimeout(() => dataCheck.focus(), 0);
+  });
+
+  dataForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (
+      sessionPending ||
+      dataPending ||
+      !dataCheck.checked ||
+      !session.authenticated ||
+      !session.csrfToken
+    ) {
+      return;
+    }
+
+    dataPending = true;
+    sessionPending = true;
+    dataClose.disabled = true;
+    dataSubmit.disabled = true;
+    dataSubmit.textContent = "Deleting pilot data…";
+    try {
+      session = await deletePiPilotData(session.csrfToken);
+      render();
+      dataDialog.close();
+      options.notify(
+        "Subject-linked Pi pilot data deleted. Your Pi account, Keplr wallet, and blockchain state were not changed.",
+      );
+    } catch {
+      options.notify(
+        "Pilot-data deletion could not be confirmed. Your Pi account, Keplr wallet, and blockchain state were not changed.",
+        "error",
+      );
+    } finally {
+      dataPending = false;
+      sessionPending = false;
+      dataClose.disabled = false;
+      dataSubmit.disabled = false;
+      dataSubmit.textContent = "Delete subject-linked pilot data";
     }
   });
 

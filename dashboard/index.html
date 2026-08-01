@@ -529,6 +529,9 @@
                 <button class="button button-ghost" id="pi-logout" type="button">
                   End Pi session
                 </button>
+                <button class="button button-ghost pi-data-open" id="pi-data-open" type="button">
+                  Delete pilot data
+                </button>
               </div>
             </div>
           </div>
@@ -712,6 +715,62 @@
         </div>
         <button class="button button-primary full" id="pi-proof-submit" type="submit">
           Sign text proof in Keplr
+        </button>
+      </form>
+    </dialog>
+
+    <dialog class="send-dialog pi-consent-dialog pi-data-dialog" id="pi-data-dialog" aria-labelledby="pi-data-title">
+      <form id="pi-data-form">
+        <div class="dialog-head">
+          <div>
+            <span class="card-kicker">Privacy control</span>
+            <h2 id="pi-data-title">Delete subject-linked pilot data?</h2>
+          </div>
+          <button class="dialog-close" id="pi-data-close" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="dialog-intro">
+          This ends every Zerone Pi pilot session associated with the current
+          app-specific subject and removes its active address proof and
+          outstanding challenges. This cannot be undone from this session.
+        </p>
+        <div class="pi-consent-list">
+          <section>
+            <h3>What is deleted</h3>
+            <p>
+              Subject-linked session usernames and token digests, active
+              Zerone address binding, outstanding proof challenges, and
+              subject-key aliases used during pepper rotation.
+            </p>
+          </section>
+          <section>
+            <h3>What remains temporarily or separately</h3>
+            <p>
+              A short-lived keyed subject tombstone blocks a Pi sign-in that
+              started before this deletion from restoring the session.
+              Minimal unindexed anti-replay fingerprints and tombstones cannot
+              be selected by this account action and remain behind the
+              separate operator retention gate. They contain no raw Pi UID,
+              username, bearer, wallet address, or KYC data.
+            </p>
+          </section>
+        </div>
+        <label class="pi-check-row pi-data-check-row">
+          <input id="pi-data-check" type="checkbox" required />
+          <span>
+            I understand this deletes Zerone’s subject-linked pilot records,
+            not my Pi account. It does not revoke or alter Pi, Keplr, any
+            wallet key, funds, qualification, reward, or blockchain state.
+          </span>
+        </label>
+        <div class="send-notice pi-data-notice">
+          <span aria-hidden="true">◆</span>
+          <p>
+            A later fresh Pi Sign-in is a new choice and may create new pilot
+            data after the deletion guard accepts that newer authorization.
+          </p>
+        </div>
+        <button class="button button-danger full" id="pi-data-submit" type="submit">
+          Delete subject-linked pilot data
         </button>
       </form>
     </dialog>

@@ -816,6 +816,64 @@ test("data deletion requires explicit confirmation and atomically removes subjec
   assert.equal(missingConfirmation.status, 400);
   assert.equal(testHarness.repository.sessions.has(sessionHash), true);
 
+  const extraField = await handlePiRequest(
+    "data",
+    authenticatedRequest(
+      "/api/pi/data",
+      "DELETE",
+      signedIn,
+      {
+        confirmation: "delete-pi-pilot-data-v1",
+        unexpected: true,
+      },
+    ),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal(extraField.status, 400);
+
+  const queryString = await handlePiRequest(
+    "data",
+    authenticatedRequest(
+      "/api/pi/data?unexpected=1",
+      "DELETE",
+      signedIn,
+      { confirmation: "delete-pi-pilot-data-v1" },
+    ),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal(queryString.status, 400);
+
+  const wrongMethod = await handlePiRequest(
+    "data",
+    authenticatedRequest(
+      "/api/pi/data",
+      "POST",
+      signedIn,
+      { confirmation: "delete-pi-pilot-data-v1" },
+    ),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal(wrongMethod.status, 405);
+  assert.equal(wrongMethod.headers.get("Allow"), "DELETE");
+
+  const badCsrf = await handlePiRequest(
+    "data",
+    authenticatedRequest(
+      "/api/pi/data",
+      "DELETE",
+      signedIn,
+      { confirmation: "delete-pi-pilot-data-v1" },
+      { "X-Zerone-CSRF": "Z".repeat(43) },
+    ),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal(badCsrf.status, 401);
+  assert.equal(testHarness.repository.sessions.has(sessionHash), true);
+
   const badOrigin = await handlePiRequest(
     "data",
     authenticatedRequest(
@@ -1714,6 +1772,83 @@ describe("D1 migration and atomic constraints", () => {
         5,
       ),
       false,
+    );
+    database.close();
+  });
+
+  it("rolls the entire subject deletion back if any D1 statement fails", async () => {
+    const database = new DatabaseSync(":memory:");
+    database.exec(
+      readFileSync(
+        new URL("../migrations/0001_pi_identity.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    const repository = new D1PiRepository(new SqliteD1Database(database));
+    const now = 90_000;
+    const subjectHash = hashOpaque("rollback-subject");
+    const session: PiSession = {
+      tokenHash: hashOpaque("rollback-session"),
+      subjectHash,
+      username: "rollback",
+      expiresAt: now + 10_000,
+    };
+    await repository.createSession(session, now);
+    const address = `zrn1${"z".repeat(38)}`;
+    const challenge: PiChallenge = {
+      idHash: hashOpaque("rollback-challenge"),
+      sessionHash: session.tokenHash,
+      subjectHash,
+      address,
+      accountId: `cosmos:zerone-1:${address}`,
+      message: "rollback challenge",
+      createdAt: now,
+      expiresAt: now + 1_000,
+    };
+    assert.equal(
+      await repository.createChallenge(challenge, now - 1_000, 5),
+      true,
+    );
+    assert.ok(
+      await repository.bindChallenge(
+        challenge.idHash,
+        session.tokenHash,
+        subjectHash,
+        hashOpaque("rollback-proof"),
+        "pi-wallet-link-v1",
+        now + 1,
+      ),
+    );
+    database.exec(
+      `CREATE TRIGGER pi_test_refuse_session_delete
+       BEFORE DELETE ON pi_sessions
+       WHEN OLD.subject_hash = '${subjectHash}'
+       BEGIN
+         SELECT RAISE(ABORT, 'injected subject deletion failure');
+       END;`,
+    );
+
+    await assert.rejects(
+      () => repository.deleteSubject(subjectHash),
+      /injected subject deletion failure/u,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_sessions WHERE subject_hash = ?")
+        .get(subjectHash)?.count,
+      1,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_wallet_bindings WHERE subject_hash = ?")
+        .get(subjectHash)?.count,
+      1,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_wallet_challenge_uses WHERE challenge_hash = ?")
+        .get(challenge.idHash)?.count,
+      1,
     );
     database.close();
   });

@@ -2408,6 +2408,16 @@
     gap: 0.65rem;
   }
 
+  .pi-actions .pi-data-open {
+    border-color: rgba(255, 132, 124, 0.3);
+    color: var(--red);
+  }
+
+  .pi-actions .pi-data-open:hover {
+    border-color: var(--red);
+    background: rgba(255, 132, 124, 0.06);
+  }
+
   .pi-footnote {
     color: var(--amber) !important;
     font-family: var(--mono);
@@ -2818,6 +2828,34 @@
     color: var(--violet-soft);
     font-family: var(--mono);
     font-size: 0.9em;
+  }
+
+  .button-danger {
+    border-color: rgba(255, 132, 124, 0.72);
+    background: rgba(255, 132, 124, 0.1);
+    color: var(--red);
+  }
+
+  .button-danger:hover {
+    border-color: var(--red);
+    background: rgba(255, 132, 124, 0.16);
+  }
+
+  .pi-data-dialog .pi-consent-list section:last-child {
+    border-color: rgba(255, 197, 111, 0.25);
+  }
+
+  .pi-data-dialog .pi-consent-list section:last-child h3 {
+    color: var(--amber);
+  }
+
+  .pi-data-check-row {
+    border-color: rgba(255, 132, 124, 0.32) !important;
+    background: rgba(255, 132, 124, 0.045) !important;
+  }
+
+  .pi-data-notice {
+    border-color: rgba(255, 197, 111, 0.26);
   }
 
   .toast {

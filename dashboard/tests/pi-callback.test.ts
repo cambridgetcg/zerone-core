@@ -243,6 +243,21 @@ describe("Pi callback page hardening", () => {
     assert.match(html, /href="#skills"[^>]*>Browse without signing in/);
     assert.match(html, /<span>07<\/span> Optional account pilot/);
   });
+
+  it("requires informed confirmation before subject-linked pilot deletion", () => {
+    const source = readFileSync(PI_TRANSPORT_PATH, "utf8");
+    const ui = readFileSync(resolve(DASHBOARD_ROOT, "src/pi-ui.ts"), "utf8");
+    const html = readFileSync(MAIN_HTML_PATH, "utf8");
+    assert.match(source, /piRequest\("\/api\/pi\/data"/u);
+    assert.match(source, /confirmation: "delete-pi-pilot-data-v1"/u);
+    assert.match(ui, /deletePiPilotData\(session\.csrfToken\)/u);
+    assert.match(html, /id="pi-data-dialog"/u);
+    assert.match(html, /id="pi-data-check" type="checkbox" required/u);
+    assert.match(html, /short-lived keyed subject tombstone/u);
+    assert.match(html, /Minimal unindexed anti-replay fingerprints/u);
+    assert.match(html, /not my Pi account/u);
+    assert.match(html, /does not revoke or alter Pi, Keplr/u);
+  });
 });
 
 describe("Keplr text-only Zerone wallet proof", () => {
