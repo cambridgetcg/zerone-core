@@ -15,6 +15,7 @@ import {
   HARD_CAP_ZRN,
 } from "./config";
 import { initialiseConstructiveTree } from "./constructive-tree";
+import { initialiseQuantumSeason } from "./quantum-season";
 import type { FeeGrantAllowance } from "./feegrant";
 import type { WalletState } from "./wallet";
 
@@ -67,6 +68,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
+const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -1112,8 +1114,13 @@ window.addEventListener("keplr_keystorechange", () => {
 void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
+const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const initialNetworkReady = refreshNetwork(false);
-void Promise.allSettled([constructiveTreeReady, initialNetworkReady]).then(
+void Promise.allSettled([
+  constructiveTreeReady,
+  quantumSeasonReady,
+  initialNetworkReady,
+]).then(
   () => {
     if (window.location.hash !== "#skills") return;
     window.requestAnimationFrame(() => {
