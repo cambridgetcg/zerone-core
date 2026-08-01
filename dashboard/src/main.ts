@@ -1119,27 +1119,31 @@ void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
-void refreshNetwork(false);
+const initialNetworkReady = refreshNetwork(false);
+const alignInitialHash = (): void => {
+  if (
+    window.location.hash !== "#skills" &&
+    window.location.hash !== "#math-frontier"
+  ) {
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    const target =
+      window.location.hash === "#math-frontier"
+        ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+        : constructiveTreeRoot.closest<HTMLElement>("#skills");
+    target?.scrollIntoView({ block: "start", behavior: "instant" });
+  });
+};
 void Promise.allSettled([
   constructiveTreeReady,
   mathFrontierReady,
-]).then(
-  () => {
-    if (
-      window.location.hash !== "#skills" &&
-      window.location.hash !== "#math-frontier"
-    ) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      const target =
-        window.location.hash === "#math-frontier"
-          ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-          : constructiveTreeRoot.closest<HTMLElement>("#skills");
-      target?.scrollIntoView({ block: "start", behavior: "instant" });
-    });
-  },
-);
+]).then(alignInitialHash);
+void Promise.allSettled([
+  constructiveTreeReady,
+  mathFrontierReady,
+  initialNetworkReady,
+]).then(alignInitialHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);

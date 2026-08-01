@@ -2049,6 +2049,7 @@ export async function initialiseMathFrontier(
         requestAnimationFrame(() => {
           root.closest<HTMLElement>("#math-frontier")?.scrollIntoView({
             block: "start",
+            behavior: "instant",
           });
         });
       }
