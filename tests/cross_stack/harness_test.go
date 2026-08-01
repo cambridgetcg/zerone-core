@@ -1,6 +1,7 @@
 package cross_stack_test
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -8,8 +9,10 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
-	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmted25519 "github.com/cometbft/cometbft/crypto/ed25519"
@@ -17,8 +20,8 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -29,27 +32,27 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
-	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	zeronestakingkeeper "github.com/zerone-chain/zerone/x/staking/keeper"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
+	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 
 	// R7 module keepers
 	zeronealignmentkeeper "github.com/zerone-chain/zerone/x/alignment/keeper"
-	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
-	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
-	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
-	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
-	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
-	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
-	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
 	zeronecckeeper "github.com/zerone-chain/zerone/x/capture_challenge/keeper"
-	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
-	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
-	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
+	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
+	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecreedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
-	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
+	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
+	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
+	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
+	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
+	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
+	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
 	zeronesubstratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
+	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
+	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
+	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 )
 
 const testChainID = "zerone-test-1"
@@ -59,9 +62,11 @@ const testChainID = "zerone-test-1"
 // TestHarness provides a full app context for cross-module integration tests.
 // All keepers are real (not mocked) and share state through the same app instance.
 type TestHarness struct {
-	T   *testing.T
-	App *zeroneapp.ZeroneApp
-	Ctx sdk.Context
+	T    *testing.T
+	App  *zeroneapp.ZeroneApp
+	Ctx  sdk.Context
+	DB   dbm.DB
+	Home string
 
 	// Zerone custom module keepers
 	AuthKeeper    zeroneauthkeeper.Keeper
@@ -86,9 +91,9 @@ type TestHarness struct {
 	QualificationKeeper      zeronequalificationkeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
-	CounterexamplesKeeper     zeronecounterexkeeper.Keeper
-	CreedKeeper               zeronecreedkeeper.Keeper
-	SubstrateBridgeKeeper     zeronesubstratebridgekeeper.Keeper
+	CounterexamplesKeeper    zeronecounterexkeeper.Keeper
+	CreedKeeper              zeronecreedkeeper.Keeper
+	SubstrateBridgeKeeper    zeronesubstratebridgekeeper.Keeper
 
 	// Standard Cosmos SDK keepers
 	BankKeeper    bankkeeper.Keeper
@@ -213,12 +218,13 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	t.Helper()
 
 	db := dbm.NewMemDB()
+	home := t.TempDir()
 	app := zeroneapp.NewZeroneApp(
 		log.NewNopLogger(),
 		db,
 		nil,  // traceStore
 		true, // loadLatest
-		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+		simtestutil.NewAppOptionsWithFlagHome(home),
 		baseapp.SetChainID(testChainID),
 	)
 
@@ -238,10 +244,12 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	require.NoError(t, err)
 
 	h := &TestHarness{
-		T:             t,
-		App:           app,
-		AuthKeeper:    app.ZeroneAuthKeeper,
-		StakingKeeper: app.ZeroneStakingKeeper,
+		T:               t,
+		App:             app,
+		DB:              db,
+		Home:            home,
+		AuthKeeper:      app.ZeroneAuthKeeper,
+		StakingKeeper:   app.ZeroneStakingKeeper,
 		BankKeeper:      app.BankKeeper,
 		AccountKeeper:   app.AccountKeeper,
 		KnowledgeKeeper: app.KnowledgeKeeper,
@@ -253,9 +261,9 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		QualificationKeeper:      app.QualificationKeeper,
 		TrainingProvenanceKeeper: app.TrainingProvenanceKeeper,
 		TrustScoreKeeper:         app.TrustScoreKeeper,
-		CounterexamplesKeeper:     app.CounterexamplesKeeper,
-		CreedKeeper:               app.CreedKeeper,
-		SubstrateBridgeKeeper:     app.SubstrateBridgeKeeper,
+		CounterexamplesKeeper:    app.CounterexamplesKeeper,
+		CreedKeeper:              app.CreedKeeper,
+		SubstrateBridgeKeeper:    app.SubstrateBridgeKeeper,
 
 		// R7 keepers
 		AlignmentKeeper:      app.AlignmentKeeper,
@@ -321,6 +329,40 @@ func (h *TestHarness) FundAccount(addr sdk.AccAddress, amount sdk.Coins) error {
 		return err
 	}
 	return h.App.BankKeeper.SendCoinsFromModuleToAccount(h.Ctx, moduleName, addr, amount)
+}
+
+// SeedCompletedUpgrade records the immutable x/upgrade done-height fact used
+// to model a prior binary activation in cross-stack tests.
+func (h *TestHarness) SeedCompletedUpgrade(name string, height int64) {
+	h.T.Helper()
+	require.NotEmpty(h.T, name)
+	require.Positive(h.T, height)
+	key := make([]byte, 9+len(name))
+	key[0] = upgradetypes.DoneByte
+	binary.BigEndian.PutUint64(key[1:9], uint64(height))
+	copy(key[9:], name)
+	h.Ctx.KVStore(
+		h.App.GetStoreKeyForTests(upgradetypes.StoreKey),
+	).Set(key, []byte{1})
+}
+
+// CommitHMinusOne writes the harness cache into the root store and refreshes
+// the context. Upgrade handlers that audit the unwrapped committed IAVL state
+// must only see records that really existed in the last committed block.
+func (h *TestHarness) CommitHMinusOne() {
+	h.T.Helper()
+	cache, ok := h.Ctx.MultiStore().(storetypes.CacheMultiStore)
+	require.True(h.T, ok, "test context must use a cache multistore")
+	cache.Write()
+	h.App.CommitMultiStore().Commit()
+	h.Ctx = h.App.NewUncachedContext(
+		true,
+		cmtproto.Header{
+			Height:  h.currentHeight,
+			ChainID: testChainID,
+		},
+	).WithBlockHeight(h.currentHeight).
+		WithChainID(testChainID)
 }
 
 // AdvanceBlocks simulates advancing the chain by n blocks.
@@ -404,4 +446,3 @@ func min(a, b int) int {
 func (h *TestHarness) Height() int64 {
 	return h.currentHeight
 }
-

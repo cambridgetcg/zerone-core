@@ -1,79 +1,70 @@
 package app
 
 import (
-	"context"
-	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"cosmossdk.io/errors"
 	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
 	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
 	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
 	emergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
+	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 )
 
-// txSigner holds a signer's address and pubkey, extracted from tx signature data.
-type txSigner struct {
-	Address   sdk.AccAddress
-	PubKeyHex string // hex-encoded pubkey bytes
-}
+const (
+	// Emergency executable inspection runs before signature verification and
+	// gas charging. Bound every dimension controlled by transaction bytes so a
+	// recursive authz/governance wrapper cannot turn the isolation check into
+	// unmetered work.
+	maxEmergencyExecutableDepth    = 16
+	maxEmergencyExecutableMessages = 256
+	maxEmergencyExecutableAnyBytes = 1 << 20
+)
 
-// getSignerAddresses extracts all signer addresses from a tx's signature data.
-// This works for ALL message types (SDK proto-generated and hand-written Zerone types)
-// unlike per-message type assertions which only work for hand-written types.
+// getAuthenticatedSignerAddresses returns the signers declared by the
+// transaction's messages. Standard Cosmos signature verification has already
+// authenticated these addresses by the time the Zerone decorators run.
 //
-// ANTE P0-1 FIX: Replaces per-message type assertion that silently skipped
-// SDK v0.50 proto-generated types (MsgSend, MsgDelegate, etc.), allowing
-// frozen accounts and session key capability bypass.
-func getSignerAddresses(tx sdk.Tx) []sdk.AccAddress {
+// SignerInfo.public_key is optional once x/auth has stored an account key, so
+// deriving addresses from SignatureV2.PubKey would silently skip legitimate
+// signers whenever that field is omitted. Every error is returned to callers:
+// account policy must fail closed when signer extraction is unavailable.
+func getAuthenticatedSignerAddresses(tx sdk.Tx) ([]sdk.AccAddress, error) {
 	sigTx, ok := tx.(authsigning.SigVerifiableTx)
 	if !ok {
-		return nil
+		return nil, errors.Wrap(sdkerrors.ErrTxDecode, "transaction must implement SigVerifiableTx")
 	}
-	sigs, err := sigTx.GetSignaturesV2()
-	if err != nil {
-		return nil
-	}
-	addrs := make([]sdk.AccAddress, 0, len(sigs))
-	for _, sig := range sigs {
-		if sig.PubKey == nil {
-			continue
-		}
-		addrs = append(addrs, sdk.AccAddress(sig.PubKey.Address()))
-	}
-	return addrs
-}
 
-// getTxSigners extracts signer addresses and pubkeys from tx signature data.
-// Used by the capability decorator which needs pubkeys for session key matching.
-func getTxSigners(tx sdk.Tx) []txSigner {
-	sigTx, ok := tx.(authsigning.SigVerifiableTx)
-	if !ok {
-		return nil
-	}
-	sigs, err := sigTx.GetSignaturesV2()
+	signerBytes, err := sigTx.GetSigners()
 	if err != nil {
-		return nil
+		return nil, errors.Wrap(sdkerrors.ErrTxDecode, fmt.Sprintf("extract transaction signers: %v", err))
 	}
-	signers := make([]txSigner, 0, len(sigs))
-	for _, sig := range sigs {
-		if sig.PubKey == nil {
-			continue
+	if len(signerBytes) == 0 {
+		return nil, errors.Wrap(sdkerrors.ErrTxDecode, "transaction has no authenticated signers")
+	}
+
+	addrs := make([]sdk.AccAddress, len(signerBytes))
+	for i, address := range signerBytes {
+		if err := sdk.VerifyAddressFormat(address); err != nil {
+			return nil, errors.Wrapf(sdkerrors.ErrTxDecode, "transaction signer %d has an invalid address: %v", i, err)
 		}
-		signers = append(signers, txSigner{
-			Address:   sdk.AccAddress(sig.PubKey.Address()),
-			PubKeyHex: hex.EncodeToString(sig.PubKey.Bytes()),
-		})
+		addrs[i] = sdk.AccAddress(address)
 	}
-	return signers
+	return addrs, nil
 }
 
 // ---------- BootstrapGasFreeDecorator ----------
@@ -123,38 +114,338 @@ func (bgd BootstrapGasFreeDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 
 // ---------- EmergencyHaltDecorator ----------
 
-// EmergencyHaltDecorator blocks all non-emergency transactions when the chain
-// is in a halted state. Emergency module messages (propose/vote halt/revert/resume)
-// are always allowed so guardians can coordinate recovery.
+// EmergencyHaltDecorator enforces an application transaction quarantine. It
+// does NOT halt CometBFT consensus: blocks, PreBlock, BeginBlock, and EndBlock
+// continue. Emergency coordination messages and a narrowly scoped expedited
+// software-upgrade governance lane remain available for recovery.
 //
 // Placed early in the ante chain (after SetUpContext, before gas/fee processing)
-// so halted transactions don't consume gas or fees.
+// so quarantined transactions don't consume gas or fees.
 type EmergencyHaltDecorator struct {
-	ek emergencykeeper.Keeper
+	ek                     emergencykeeper.Keeper
+	recoveryProposalReader EmergencyRecoveryProposalReader
+}
+
+// EmergencyRecoveryProposalReader identifies SDK governance proposals whose
+// only action is an expedited software upgrade or upgrade cancellation.
+// Quarantine must not reopen a general governance execution lane.
+type EmergencyRecoveryProposalReader interface {
+	IsAuthorizedRecoverySubmission(
+		ctx sdk.Context,
+		msg *govv1.MsgSubmitProposal,
+	) bool
+	IsExpeditedRecoveryProposal(ctx sdk.Context, proposalID uint64) bool
+}
+
+type emergencyGovernanceReviewReader interface {
+	IsGovernanceReviewHeld(ctx sdk.Context) (bool, error)
 }
 
 // NewEmergencyHaltDecorator creates a new EmergencyHaltDecorator.
-func NewEmergencyHaltDecorator(ek emergencykeeper.Keeper) EmergencyHaltDecorator {
-	return EmergencyHaltDecorator{ek: ek}
+//
+// The optional reader keeps focused decorator tests and downstream integrations
+// source-compatible. Without a reader, only proposal submission (which can be
+// checked from the message itself) is available; votes and deposits fail
+// closed because their target proposal cannot be authenticated.
+func NewEmergencyHaltDecorator(
+	ek emergencykeeper.Keeper,
+	readers ...EmergencyRecoveryProposalReader,
+) EmergencyHaltDecorator {
+	var reader EmergencyRecoveryProposalReader
+	if len(readers) > 0 {
+		reader = readers[0]
+	}
+	return EmergencyHaltDecorator{ek: ek, recoveryProposalReader: reader}
 }
 
 func (ehd EmergencyHaltDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+	msgs := tx.GetMsgs()
+	scan, err := scanEmergencyExecutables(msgs)
+	if err != nil {
+		return ctx, errors.Wrap(
+			sdkerrors.ErrTxDecode,
+			fmt.Sprintf("inspect wrapped executable messages for emergency isolation: %v", err),
+		)
+	}
+	if scan.containsWrappedEmergency {
+		// Emergency transitions must execute as direct, isolated top-level
+		// messages. This rejects authz and SDK-governance wrappers,
+		// including recursive combinations of the two.
+		return ctx, emergencytypes.ErrUnsafeEmergencyBatch
+	}
+	if scan.containsSDKGovMutation || scan.containsICAHostReceive {
+		if reviewReader, ok :=
+			ehd.recoveryProposalReader.(emergencyGovernanceReviewReader); ok {
+			reviewHeld, err := reviewReader.IsGovernanceReviewHeld(ctx)
+			if err != nil {
+				return ctx, errors.Wrap(
+					zeronegovtypes.ErrEmergencyTransitionHold,
+					fmt.Sprintf(
+						"read post-incident governance review hold: %v",
+						err,
+					),
+				)
+			}
+			if reviewHeld && !ehd.ek.IsHalted(ctx) {
+				return ctx, errors.Wrap(
+					zeronegovtypes.ErrEmergencyTransitionHold,
+					"standard SDK governance admission and ICA-host callbacks are frozen until a named upgrade completes post-incident queue reconciliation",
+				)
+			}
+		}
+	}
+
+	containsEmergencyMessage := false
+	for _, msg := range msgs {
+		if emergencytypes.IsEmergencyMsg(msg) {
+			containsEmergencyMessage = true
+		}
+	}
+	if containsEmergencyMessage {
+		// Ante runs once before all messages execute. A final halt precommit
+		// can activate quarantine midway through a multi-message transaction,
+		// so no ordinary tail may share that atomic execution context.
+		for _, msg := range msgs {
+			if !emergencytypes.IsEmergencyMsg(msg) {
+				return ctx, emergencytypes.ErrUnsafeEmergencyBatch
+			}
+		}
+	}
+
 	if simulate {
 		return next(ctx, tx, simulate)
 	}
 
-	if !ehd.ek.IsHalted(ctx) {
+	status := ehd.ek.GetEmergencyStatus(ctx)
+	restricted := ehd.ek.IsHalted(ctx)
+	if !restricted && status == emergencytypes.StatusHaltVoting {
+		// Opening a halt vote is not itself authority to quarantine ordinary
+		// transactions. Only block ICA-host callbacks here because their
+		// embedded SDK-message batch bypasses this ante handler and could
+		// finalize the halt before executing an ordinary tail.
+		if scan.containsICAHostReceive {
+			return ctx, emergencytypes.ErrChainHalted
+		}
 		return next(ctx, tx, simulate)
 	}
 
-	// Chain is halted — only allow emergency module messages
-	for _, msg := range tx.GetMsgs() {
-		if !emergencytypes.IsEmergencyMsg(msg) {
+	if !restricted {
+		return next(ctx, tx, simulate)
+	}
+
+	// Application transaction quarantine is active.
+	for _, msg := range msgs {
+		if emergencytypes.IsEmergencyMsg(msg) {
+			continue
+		}
+		if !ehd.isRecoveryGovernanceMessage(ctx, msg) {
 			return ctx, emergencytypes.ErrChainHalted
+		}
+		// Ante observes one pre-message state snapshot. Two authorized
+		// submissions in one transaction could both see the same next SDK
+		// proposal ID before the first consumes it, so every recovery
+		// governance action must be isolated.
+		if len(msgs) != 1 {
+			return ctx, emergencytypes.ErrUnsafeEmergencyBatch
 		}
 	}
 
 	return next(ctx, tx, simulate)
+}
+
+// EmergencyAuthenticationDecorator marks a direct, isolated emergency
+// transaction only after the standard signature-verification decorator has
+// authenticated its declared signers. Message servers require this marker, so
+// SDK governance EndBlock execution, IBC callbacks, authz wrappers, and direct
+// router calls cannot impersonate Guardian addresses.
+type EmergencyAuthenticationDecorator struct{}
+
+// NewEmergencyAuthenticationDecorator creates the post-signature marker.
+func NewEmergencyAuthenticationDecorator() EmergencyAuthenticationDecorator {
+	return EmergencyAuthenticationDecorator{}
+}
+
+func (EmergencyAuthenticationDecorator) AnteHandle(
+	ctx sdk.Context,
+	tx sdk.Tx,
+	simulate bool,
+	next sdk.AnteHandler,
+) (sdk.Context, error) {
+	msgs := tx.GetMsgs()
+	if len(msgs) == 0 {
+		return next(ctx, tx, simulate)
+	}
+	for _, msg := range msgs {
+		if !emergencytypes.IsEmergencyMsg(msg) {
+			return next(ctx, tx, simulate)
+		}
+	}
+	return next(emergencytypes.WithAuthenticatedEmergencyTx(ctx), tx, simulate)
+}
+
+type emergencyExecutableScanResult struct {
+	containsEmergency        bool
+	containsWrappedEmergency bool
+	containsICAHostReceive   bool
+	containsSDKGovMutation   bool
+}
+
+type emergencyExecutableScanItem struct {
+	msg   sdk.Msg
+	depth int
+}
+
+func scanEmergencyExecutables(
+	msgs []sdk.Msg,
+) (emergencyExecutableScanResult, error) {
+	result := emergencyExecutableScanResult{}
+	stack := make([]emergencyExecutableScanItem, 0, len(msgs))
+	for i := len(msgs) - 1; i >= 0; i-- {
+		stack = append(stack, emergencyExecutableScanItem{msg: msgs[i]})
+	}
+
+	nodes := 0
+	anyBytes := 0
+	for len(stack) > 0 {
+		item := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if item.msg == nil {
+			return result, fmt.Errorf("executable message is nil")
+		}
+		if item.depth > maxEmergencyExecutableDepth {
+			return result, fmt.Errorf(
+				"executable wrapper depth %d exceeds limit %d",
+				item.depth,
+				maxEmergencyExecutableDepth,
+			)
+		}
+		nodes++
+		if nodes > maxEmergencyExecutableMessages {
+			return result, fmt.Errorf(
+				"executable message count exceeds limit %d",
+				maxEmergencyExecutableMessages,
+			)
+		}
+
+		if emergencytypes.IsEmergencyMsg(item.msg) {
+			result.containsEmergency = true
+			if item.depth > 0 {
+				result.containsWrappedEmergency = true
+			}
+		}
+		typeURL := sdk.MsgTypeURL(item.msg)
+		if strings.HasPrefix(typeURL, "/cosmos.gov.v1.Msg") ||
+			strings.HasPrefix(typeURL, "/cosmos.gov.v1beta1.Msg") {
+			result.containsSDKGovMutation = true
+		}
+		if recv, ok := item.msg.(*channeltypes.MsgRecvPacket); ok &&
+			recv.Packet.DestinationPort == icatypes.HostPortID {
+			result.containsICAHostReceive = true
+		}
+
+		var messages []*codectypes.Any
+		switch typed := item.msg.(type) {
+		case *authz.MsgExec:
+			messages = typed.Msgs
+		case *govv1.MsgSubmitProposal:
+			messages = typed.Messages
+		default:
+			continue
+		}
+		if item.depth == maxEmergencyExecutableDepth && len(messages) > 0 {
+			return result, fmt.Errorf(
+				"executable wrapper depth exceeds limit %d",
+				maxEmergencyExecutableDepth,
+			)
+		}
+		for i := len(messages) - 1; i >= 0; i-- {
+			message := messages[i]
+			if message == nil {
+				return result, fmt.Errorf("executable wrapper contains a nil Any")
+			}
+			encodedSize := len(message.TypeUrl) + len(message.Value)
+			if encodedSize > maxEmergencyExecutableAnyBytes-anyBytes {
+				return result, fmt.Errorf(
+					"executable Any bytes exceed limit %d",
+					maxEmergencyExecutableAnyBytes,
+				)
+			}
+			anyBytes += encodedSize
+			if emergencytypes.IsEmergencyTypeURL(message.TypeUrl) {
+				result.containsEmergency = true
+				result.containsWrappedEmergency = true
+			}
+			if message.TypeUrl == sdk.MsgTypeURL(&channeltypes.MsgRecvPacket{}) {
+				nested, ok := message.GetCachedValue().(*channeltypes.MsgRecvPacket)
+				if !ok {
+					return result, fmt.Errorf(
+						"ICA candidate %s is not unpacked",
+						message.TypeUrl,
+					)
+				}
+				if nested.Packet.DestinationPort == icatypes.HostPortID {
+					result.containsICAHostReceive = true
+				}
+			}
+			nested, ok := message.GetCachedValue().(sdk.Msg)
+			if !ok {
+				return result, fmt.Errorf(
+					"executable wrapper message %s is not unpacked",
+					message.TypeUrl,
+				)
+			}
+			stack = append(stack, emergencyExecutableScanItem{
+				msg:   nested,
+				depth: item.depth + 1,
+			})
+		}
+	}
+	return result, nil
+}
+
+func containsWrappedEmergencyMessage(msg sdk.Msg) (bool, error) {
+	result, err := scanEmergencyExecutables([]sdk.Msg{msg})
+	if err != nil {
+		return false, err
+	}
+	return result.containsWrappedEmergency, nil
+}
+
+func containsEmergencyExecutableMessage(msgs []sdk.Msg) (bool, error) {
+	result, err := scanEmergencyExecutables(msgs)
+	if err != nil {
+		return false, err
+	}
+	return result.containsEmergency, nil
+}
+
+func containsICAHostReceive(msgs []sdk.Msg) bool {
+	result, err := scanEmergencyExecutables(msgs)
+	return err != nil || result.containsICAHostReceive
+}
+
+func (ehd EmergencyHaltDecorator) isRecoveryGovernanceMessage(ctx sdk.Context, msg sdk.Msg) bool {
+	switch typed := msg.(type) {
+	case *govv1.MsgSubmitProposal:
+		return ehd.recoveryProposalReader != nil &&
+			ehd.recoveryProposalReader.IsAuthorizedRecoverySubmission(
+				ctx,
+				typed,
+			)
+	case *govv1.MsgVote:
+		return ehd.isExpeditedRecoveryProposal(ctx, typed.ProposalId)
+	case *govv1.MsgVoteWeighted:
+		return ehd.isExpeditedRecoveryProposal(ctx, typed.ProposalId)
+	case *govv1.MsgDeposit:
+		return ehd.isExpeditedRecoveryProposal(ctx, typed.ProposalId)
+	default:
+		return false
+	}
+}
+
+func (ehd EmergencyHaltDecorator) isExpeditedRecoveryProposal(ctx sdk.Context, proposalID uint64) bool {
+	return ehd.recoveryProposalReader != nil &&
+		ehd.recoveryProposalReader.IsExpeditedRecoveryProposal(ctx, proposalID)
 }
 
 // ---------- ZRNGasDecorator ----------
@@ -508,7 +799,10 @@ func (zdd ZeroneDIDDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 	}
 
 	// Validate that the DID resolves to one of the tx signers.
-	signers := getSignerAddresses(tx)
+	signers, err := getAuthenticatedSignerAddresses(tx)
+	if err != nil {
+		return ctx, err
+	}
 	senderMatch := false
 	for _, signer := range signers {
 		if signer.String() == address {
@@ -615,7 +909,10 @@ func (zad ZeroneAccountDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 	currentHeight := uint64(ctx.BlockHeight())
 
 	// Extract signers from tx signature data (works for ALL message types).
-	signers := getSignerAddresses(tx)
+	signers, err := getAuthenticatedSignerAddresses(tx)
+	if err != nil {
+		return ctx, err
+	}
 	for _, signer := range signers {
 		address := signer.String()
 
@@ -650,22 +947,16 @@ func (zad ZeroneAccountDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 //
 // Runs AFTER signature verification and ZeroneAccountDecorator.
 //
-// ANTE P0-1 FIX: Uses tx-level signer extraction (getTxSigners) to get pubkeys
-// directly from signatures, instead of per-message type assertion + AccountKeeper
-// lookup. This ensures capability enforcement works for SDK proto-generated types.
+// Signers come from SigVerifiableTx.GetSigners after standard signature
+// verification. This covers SDK-generated messages and remains correct when a
+// transaction omits an already-stored public key from SignerInfo.
 type ZeroneCapabilityDecorator struct {
 	zak zeroneauthkeeper.Keeper
-	ak  AccountKeeperForZerone
-}
-
-// AccountKeeperForZerone is the Cosmos AccountKeeper interface needed by capability decorator.
-type AccountKeeperForZerone interface {
-	GetAccount(ctx context.Context, addr sdk.AccAddress) sdk.AccountI
 }
 
 // NewZeroneCapabilityDecorator creates a new ZeroneCapabilityDecorator.
-func NewZeroneCapabilityDecorator(zak zeroneauthkeeper.Keeper, ak AccountKeeperForZerone) ZeroneCapabilityDecorator {
-	return ZeroneCapabilityDecorator{zak: zak, ak: ak}
+func NewZeroneCapabilityDecorator(zak zeroneauthkeeper.Keeper) ZeroneCapabilityDecorator {
+	return ZeroneCapabilityDecorator{zak: zak}
 }
 
 func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
@@ -675,10 +966,12 @@ func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 
 	msgs := tx.GetMsgs()
 
-	// Extract signers with pubkeys from tx signature data (works for ALL message types).
-	signers := getTxSigners(tx)
+	signers, err := getAuthenticatedSignerAddresses(tx)
+	if err != nil {
+		return ctx, err
+	}
 	for _, signer := range signers {
-		address := signer.Address.String()
+		address := signer.String()
 
 		// Enforce account-level capabilities (default-allow for unrecognized types).
 		for _, msg := range msgs {

@@ -191,6 +191,9 @@ func (k Keeper) CountCommunitySeatVotes(ctx sdk.Context, state *types.ResearchFu
 
 // SubmitResearchSpend creates a new research fund spend proposal.
 func (k Keeper) SubmitResearchSpend(ctx sdk.Context, msg *types.MsgSubmitResearchSpend) (*types.MsgSubmitResearchSpendResponse, error) {
+	if err := k.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 
 	// Check voters are configured.
@@ -270,6 +273,9 @@ func (k Keeper) SubmitResearchSpend(ctx sdk.Context, msg *types.MsgSubmitResearc
 
 // VoteResearchSpend casts a vote on a research spend proposal.
 func (k Keeper) VoteResearchSpend(ctx sdk.Context, msg *types.MsgVoteResearchSpend) (*types.MsgVoteResearchSpendResponse, error) {
+	if err := k.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 
 	// Check voters are configured.
@@ -287,6 +293,13 @@ func (k Keeper) VoteResearchSpend(ctx sdk.Context, msg *types.MsgVoteResearchSpe
 	prop, found := k.GetResearchSpendProposal(ctx, msg.ProposalId)
 	if !found {
 		return nil, types.ErrResearchProposalNotFound
+	}
+	// BeginBlock normally terminalizes an expired proposal first. A durable
+	// incident review hold intentionally suppresses that automatic pass, so
+	// enforce the same deadline locally as defense in depth. A late vote must
+	// never execute a spend merely because the expiry worker was frozen.
+	if currentHeight >= prop.VotingEndsAt {
+		return nil, types.ErrVotingPeriodEnded
 	}
 
 	// Must be in voting stage.
@@ -363,6 +376,9 @@ func (k Keeper) VoteResearchSpend(ctx sdk.Context, msg *types.MsgVoteResearchSpe
 
 // SetResearchVoters configures the 2-of-2 research fund voters (authority only).
 func (k Keeper) SetResearchVoters(ctx sdk.Context, msg *types.MsgSetResearchVoters) (*types.MsgSetResearchVotersResponse, error) {
+	if err := k.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	if k.GetAuthority() != msg.Authority {
 		return nil, types.ErrUnauthorized
 	}

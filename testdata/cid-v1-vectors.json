@@ -1,0 +1,56 @@
+[
+  {
+    "name": "canonical-libp2p-key",
+    "value": "bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm",
+    "parse": true,
+    "memory": true
+  },
+  {
+    "name": "cidv0",
+    "value": "QmYwAPJzv5CZsnAzt8auVZRnZrmPaUe2rLCsShjUEiB2yR",
+    "parse": false,
+    "memory": false
+  },
+  {
+    "name": "cidv1-base58btc",
+    "value": "zdvgqEMYmNeH5fKciougvQcfzMcNjF3Z1tPouJ8C7pc3pe63k",
+    "parse": false,
+    "memory": false
+  },
+  {
+    "name": "cidv1-base36",
+    "value": "k2k4r8o7jbwn9l23g4tdef0g9pvq3gkcegkyoqedv2bny4y7nxrgto5n",
+    "parse": false,
+    "memory": false
+  },
+  {
+    "name": "cidv1-base32upper",
+    "value": "BAFZBEIGAI3EOY2CCC7YBWJFZ5R3RDXQRINWI4RWYTLY24TDBH6YK7ZSLRM",
+    "parse": false,
+    "memory": false
+  },
+  {
+    "name": "non-minimal-version-varint",
+    "value": "bqeaheeraybdmr3diiil7agzexhwhoeo6cfbwzdsg3cnpdlsmme73bl7gjofq",
+    "parse": false,
+    "memory": false
+  },
+  {
+    "name": "truncated-version-varint",
+    "value": "bqe",
+    "parse": false,
+    "memory": false
+  },
+  {
+    "name": "leading-space",
+    "value": " bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm",
+    "parse": false,
+    "memory": false
+  },
+  {
+    "name": "trailing-newline",
+    "value": "bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm\n",
+    "parse": false,
+    "memory": false
+  }
+]

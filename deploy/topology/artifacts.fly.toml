@@ -1,0 +1,8 @@
+# Registry-only application used to publish immutable containment candidates.
+# This profile intentionally defines no services, volumes, or runtime settings.
+# Use it only with `fly deploy --build-only --push`; it is not a Machine profile.
+app = "zerone-containment-artifacts"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "../Dockerfile.full-node"

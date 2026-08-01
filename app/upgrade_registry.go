@@ -107,6 +107,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameConsolidationSafetyV1,
 			Description: "consolidation-safety-v1 — atomic safety and economic-neutrality activation: provisional conjectures, starvation-safe challenge settlement, substrate axis ceilings, adjudicated clawback, bounded probes, liquiditypool v5 LP-only fees, and vesting_rewards v2 retirement of founder and transaction-presence rewards.",
 		},
+		{
+			UpgradeName: UpgradeNameSDK053IBC10,
+			Description: "sdk-0.53-ibc-10 — one coordinated activation for SDK/IBC migration, fail-closed signer policy, and upgrade/incident operations hardening; reconciles legacy emergency state before hardened getters, requires the raw-DB IBC keyset commitment, validates source versions, refuses to orphan ICS-29 funds, removes legacy stores, and retires the custom software-upgrade lane.",
+		},
 	}
 
 	return ChainVersionReport{
@@ -137,6 +141,19 @@ func (app *ZeroneApp) KnownUpgradeNames() []string {
 // height plan machinery. Production flow on a live chain goes through
 // governance + the upgrade module's BeginBlocker, not this function.
 func (app *ZeroneApp) RunUpgradeHandlerForTests(ctx context.Context, name string, fromVM module.VersionMap, height int64) (module.VersionMap, error) {
+	return app.RunUpgradeHandlerWithInfoForTests(ctx, name, fromVM, height, "e2e test")
+}
+
+// RunUpgradeHandlerWithInfoForTests is RunUpgradeHandlerForTests with an
+// explicit plan.Info payload for handlers whose consensus guards commit
+// upgrade-specific rehearsal evidence.
+func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
+	ctx context.Context,
+	name string,
+	fromVM module.VersionMap,
+	height int64,
+	info string,
+) (module.VersionMap, error) {
 	if !app.UpgradeKeeper.HasHandler(name) {
 		return nil, fmt.Errorf("no upgrade handler registered for %q", name)
 	}
@@ -145,8 +162,27 @@ func (app *ZeroneApp) RunUpgradeHandlerForTests(ctx context.Context, name string
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, fromVM); err != nil {
 		return nil, fmt.Errorf("seed pre-upgrade vm: %w", err)
 	}
-	plan := upgradetypes.Plan{Name: name, Height: height, Info: "e2e test"}
-	if err := app.UpgradeKeeper.ApplyUpgrade(ctx, plan); err != nil {
+	plan := upgradetypes.Plan{Name: name, Height: height, Info: info}
+	applyContext := ctx
+	if plan.Name == UpgradeNameSDK053IBC10 {
+		previousProof := app.sdk053IBC10LoaderProof
+		app.sdk053IBC10LoaderProof = &sdk053IBC10StoreLoaderProof{
+			upgradeHeight:       plan.Height,
+			preUpgradeVersion:   plan.Height - 1,
+			legacyRootsComplete: true,
+			feeLockAbsent:       true,
+			preflightOnly:       true,
+		}
+		defer func() {
+			app.sdk053IBC10LoaderProof = previousProof
+		}()
+		applyContext = context.WithValue(
+			ctx,
+			sdk053IBC10PreflightDryRunContextKey{},
+			true,
+		)
+	}
+	if err := app.UpgradeKeeper.ApplyUpgrade(applyContext, plan); err != nil {
 		return nil, fmt.Errorf("apply upgrade: %w", err)
 	}
 	return app.UpgradeKeeper.GetModuleVersionMap(ctx)

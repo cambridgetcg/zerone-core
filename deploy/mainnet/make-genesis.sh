@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
+
+if [[ "${ZERONE_OPERATION_CONTEXT:-genesis}" == "recovery" ]]; then
+  echo "make-genesis.sh is genesis-only and must not be used for validator recovery" >&2
+  exit 1
+fi
 
 cat >&2 <<'EOF'
 REFUSED: deploy/mainnet/make-genesis.sh is retired.

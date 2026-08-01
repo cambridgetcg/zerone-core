@@ -1,6 +1,12 @@
 package types
 
-import "fmt"
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"fmt"
+	"strings"
+)
 
 // DefaultParams returns the default governance parameters.
 func DefaultParams() *Params {
@@ -68,6 +74,9 @@ func (gs *GenesisState) Validate() error {
 	if gs.NextLipNumber == 0 {
 		return fmt.Errorf("next_lip_number must be >= 1")
 	}
+	if err := ValidateEmergencyTransitionHold(gs.EmergencyTransitionHold); err != nil {
+		return err
+	}
 	// Check for duplicate LIP IDs.
 	seen := make(map[string]bool)
 	for _, lip := range gs.Lips {
@@ -97,6 +106,77 @@ func (gs *GenesisState) Validate() error {
 		}
 	}
 	return nil
+}
+
+// ValidateEmergencyTransitionHold validates the durable post-quarantine
+// custom-governance review gate.
+func ValidateEmergencyTransitionHold(hold *EmergencyTransitionHold) error {
+	if hold == nil {
+		return nil
+	}
+	if hold.IncidentId == "" ||
+		strings.TrimSpace(hold.IncidentId) != hold.IncidentId ||
+		len(hold.IncidentId) > 512 {
+		return fmt.Errorf(
+			"emergency transition hold incident_id must be non-empty, trimmed, and at most 512 bytes",
+		)
+	}
+	if hold.ActivatedAtBlock == 0 {
+		return fmt.Errorf(
+			"emergency transition hold activated_at_block must be positive",
+		)
+	}
+	if hold.LatestIncidentId == "" ||
+		strings.TrimSpace(hold.LatestIncidentId) != hold.LatestIncidentId ||
+		len(hold.LatestIncidentId) > 512 {
+		return fmt.Errorf(
+			"emergency transition hold latest_incident_id must be non-empty, trimmed, and at most 512 bytes",
+		)
+	}
+	if hold.IncidentCount == 0 {
+		return fmt.Errorf(
+			"emergency transition hold incident_count must be positive",
+		)
+	}
+	if len(hold.IncidentLineageSha256) != 32 {
+		return fmt.Errorf(
+			"emergency transition hold incident_lineage_sha256 must be 32 bytes",
+		)
+	}
+	if hold.IncidentCount == 1 &&
+		hold.LatestIncidentId != hold.IncidentId {
+		return fmt.Errorf(
+			"single-incident emergency transition hold must use the same first and latest incident",
+		)
+	}
+	if hold.IncidentCount == 1 &&
+		!bytes.Equal(
+			hold.IncidentLineageSha256,
+			AdvanceEmergencyIncidentLineage(nil, hold.IncidentId),
+		) {
+		return fmt.Errorf(
+			"single-incident emergency transition hold has an invalid lineage commitment",
+		)
+	}
+	return nil
+}
+
+// AdvanceEmergencyIncidentLineage returns the fixed-size, domain-separated
+// rolling commitment after observing incidentID. previous must be nil for the
+// first incident or exactly one SHA-256 digest for a later incident.
+func AdvanceEmergencyIncidentLineage(previous []byte, incidentID string) []byte {
+	hasher := sha256.New()
+	_, _ = hasher.Write([]byte(
+		"zerone.gov/emergency-transition-incident-lineage/v1\x00",
+	))
+	if len(previous) == sha256.Size {
+		_, _ = hasher.Write(previous)
+	}
+	var size [8]byte
+	binary.BigEndian.PutUint64(size[:], uint64(len(incidentID)))
+	_, _ = hasher.Write(size[:])
+	_, _ = hasher.Write([]byte(incidentID))
+	return hasher.Sum(nil)
 }
 
 // Validate validates the governance parameters.

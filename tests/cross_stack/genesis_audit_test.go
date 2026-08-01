@@ -307,13 +307,13 @@ func TestScenario16_InvalidGenesisRejection(t *testing.T) {
 	t.Run("Emergency_InvalidStatus", func(t *testing.T) {
 		genState := app.DefaultGenesis()
 		emGen := emergencytypes.DefaultGenesis()
-		emGen.Params.HaltPrevoteBlocks = 0 // invalid: must be > 0
+		emGen.Status = "unsafe_unknown_status"
 		bz, err := codec.MarshalJSON(emGen)
 		require.NoError(t, err)
 		genState[emergencytypes.ModuleName] = bz
 
 		err = zeroneapp.ModuleBasics.ValidateGenesis(codec, txConfig, genState)
-		require.Error(t, err, "zero halt_prevote_blocks should be rejected")
+		require.Error(t, err, "unknown emergency status should be rejected")
 		t.Logf("rejected with: %v", err)
 	})
 }

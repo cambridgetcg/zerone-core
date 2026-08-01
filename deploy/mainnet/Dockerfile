@@ -3,8 +3,8 @@
 # This Dockerfile is only for the custody-free context assembled by
 # deploy/mainnet/build-image.sh. Never point a Docker client at the repository
 # root: even files which are not copied can be uploaded to a remote builder.
-ARG GO_IMAGE=golang:1.24-bookworm
-ARG RUNTIME_IMAGE=debian:bookworm-slim
+ARG GO_IMAGE=golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58
+ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 FROM ${GO_IMAGE} AS builder
 WORKDIR /src
 COPY .sanitized-mainnet-context-v1 /src/.sanitized-mainnet-context-v1
@@ -44,7 +44,19 @@ RUN test "${TARGETOS}/${TARGETARCH}" = "linux/amd64" && \
 
 # Runtime stage
 FROM ${RUNTIME_IMAGE}
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl jq util-linux \
+ARG VERSION
+ARG COMMIT
+ARG SOURCE_DATE_EPOCH
+LABEL org.opencontainers.image.source="https://github.com/cambridgetcg/zerone-core" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.version="${VERSION}" \
+      io.zerone.source-date-epoch="${SOURCE_DATE_EPOCH}"
+RUN sed -i \
+      -e 's|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/20260713T000000Z|g' \
+      -e 's|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/20260713T000000Z|g' \
+      /etc/apt/sources.list.d/debian.sources \
+    && printf 'Acquire::Check-Valid-Until "false";\n' >/etc/apt/apt.conf.d/99snapshot \
+    && apt-get update && apt-get install -y --no-install-recommends ca-certificates curl jq util-linux \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /out/zeroned /usr/local/bin/zeroned
 # The public genesis is safe to bake into the image. Private P2P and validator

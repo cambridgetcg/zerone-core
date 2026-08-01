@@ -8,26 +8,27 @@ const (
 
 // Store key prefixes.
 var (
-	LIPKeyPrefix            = []byte{0x01}
-	VoteKeyPrefix           = []byte{0x02}
-	VoteDedupePrefix        = []byte{0x03}
-	ParamsKey               = []byte{0x04}
-	LIPCounterKey           = []byte{0x05}
-	ResearchSpendKeyPrefix  = []byte{0x06}
-	ResearchVotersKey       = []byte{0x07}
-	ResearchSpendCounterKey = []byte{0x08}
-	FundingRecordKeyPrefix  = []byte{0x0A}
-	SybilParamsKey          = []byte{0x0B}
-	UpgradePlanKeyPrefix           = []byte{0x0C}
-	ResearchFundGovernanceKey      = []byte{0x0D}
-	DistinctVoterKeyPrefix         = []byte{0x0E}
-	ResearchCommunityVotePrefix    = []byte{0x0F}
-	SeatElectionKeyPrefix          = []byte{0x10}
-	SeatElectionVoteKeyPrefix      = []byte{0x11}
-	SeatElectionCounterKey         = []byte{0x12}
-	SeatElectionVoteDedupePrefix       = []byte{0x13}
-	PhaseTransitionKeyPrefix = []byte{0x14} // lip_id -> PhaseTransitionProposal
-	CreedAmendmentPinPrefix  = []byte{0x15} // lip_id -> attached creed-amendment payload
+	LIPKeyPrefix                 = []byte{0x01}
+	VoteKeyPrefix                = []byte{0x02}
+	VoteDedupePrefix             = []byte{0x03}
+	ParamsKey                    = []byte{0x04}
+	LIPCounterKey                = []byte{0x05}
+	ResearchSpendKeyPrefix       = []byte{0x06}
+	ResearchVotersKey            = []byte{0x07}
+	ResearchSpendCounterKey      = []byte{0x08}
+	FundingRecordKeyPrefix       = []byte{0x0A}
+	SybilParamsKey               = []byte{0x0B}
+	UpgradePlanKeyPrefix         = []byte{0x0C}
+	ResearchFundGovernanceKey    = []byte{0x0D}
+	DistinctVoterKeyPrefix       = []byte{0x0E}
+	ResearchCommunityVotePrefix  = []byte{0x0F}
+	SeatElectionKeyPrefix        = []byte{0x10}
+	SeatElectionVoteKeyPrefix    = []byte{0x11}
+	SeatElectionCounterKey       = []byte{0x12}
+	SeatElectionVoteDedupePrefix = []byte{0x13}
+	PhaseTransitionKeyPrefix     = []byte{0x14} // lip_id -> PhaseTransitionProposal
+	CreedAmendmentPinPrefix      = []byte{0x15} // lip_id -> attached creed-amendment payload
+	EmergencyTransitionHoldKey   = []byte{0x16}
 )
 
 // LIPKey returns the store key for a LIP by id.

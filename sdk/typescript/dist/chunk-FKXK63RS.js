@@ -1,6 +1,6 @@
 // src/provenance.ts
 var IN_TOTO_STATEMENT_V1_TYPE = "https://in-toto.io/Statement/v1";
-var ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE = "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/training-provenance-v1.md";
+var ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE = "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md";
 var ZERONE_PROVENANCE_LIMITS = Object.freeze({
   maxJsonBytes: 1048576,
   maxManifestIdBytes: 512,

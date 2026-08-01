@@ -37,12 +37,12 @@ for required in \
   '/runtime/entrypoint.sh' '/public/genesis.json'; do
   grep -q "${required}$" "${TMP}/context-files" || fail "context omitted ${required}"
 done
-if rg -q '/(deploy|\.git|build|scripts|prompts|cosmovisor|keyring|artifacts)/' \
+if grep -Eq '/(deploy|[.]git|build|scripts|prompts|cosmovisor|keyring|artifacts)/' \
   "${TMP}/context-files"; then
   sed -n '1,80p' "${TMP}/context-files" >&2
   fail "repository or custody directory entered the Docker context"
 fi
-if rg -q '(\.mnemonic|node_key\.json|priv_validator_(key|state)\.json)$' \
+if grep -Eq '([.]mnemonic|node_key[.]json|priv_validator_(key|state)[.]json)$' \
   "${TMP}/context-files"; then
   fail "custody file entered the Docker context"
 fi

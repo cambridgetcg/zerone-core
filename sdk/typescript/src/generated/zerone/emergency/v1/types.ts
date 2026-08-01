@@ -44,6 +44,72 @@ export interface EmergencyResumeProposal {
   resumeStateRoot: string;
   haltCeremonyId: string;
   revertCeremonyId: string;
+  justification: string;
+  /**
+   * SHA-256 of the canonical, signed recovery manifest reviewed by voters.
+   */
+  recoveryManifestSha256: string;
+}
+/**
+ * EmergencyRecoveryAuthorizationProposal asks the immutable Guardian
+ * electorate to authorize one exact SDK-governance recovery action while
+ * transaction admission remains quarantined.
+ * @name EmergencyRecoveryAuthorizationProposal
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorizationProposal
+ */
+export interface EmergencyRecoveryAuthorizationProposal {
+  id: string;
+  proposer: string;
+  haltCeremonyId: string;
+  sdkGovProposalId: bigint;
+  /**
+   * SHA-256 over the domain-separated TypeURL and raw Any value bytes of the
+   * proposal's sole MsgSoftwareUpgrade or MsgCancelUpgrade action.
+   */
+  actionSha256: string;
+  recoveryManifestSha256: string;
+  justification: string;
+  /**
+   * Canonical digest of the plan being scheduled or, for cancellation, the
+   * exact currently scheduled plan whose removal Guardians authorize.
+   */
+  upgradePlanSha256: string;
+  /**
+   * Account allowed to submit the pre-authorized next SDK proposal, preventing
+   * mempool observers from front-running the recovery envelope.
+   */
+  authorizedSubmitter: string;
+  /**
+   * "software_upgrade", "cancel_upgrade", or "revoke".
+   */
+  actionType: string;
+  generation: bigint;
+}
+/**
+ * EmergencyRecoveryAuthorization is the finalized, incident-bound capability
+ * for one exact SDK-governance proposal. It does not resume transactions.
+ * @name EmergencyRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorization
+ */
+export interface EmergencyRecoveryAuthorization {
+  haltCeremonyId: string;
+  authorizationCeremonyId: string;
+  sdkGovProposalId: bigint;
+  actionSha256: string;
+  recoveryManifestSha256: string;
+  authorizedAtBlock: bigint;
+  upgradePlanSha256: string;
+  /**
+   * Set after SDK governance reaches a terminal result. An authorization with
+   * a non-empty outcome cannot admit further votes, deposits, or execution.
+   */
+  terminalAtBlock: bigint;
+  outcome: string;
+  authorizedSubmitter: string;
+  actionType: string;
+  generation: bigint;
 }
 /**
  * EmergencyVote represents a prevote (yes/no).
@@ -85,6 +151,22 @@ export interface PrecommitEntry {
   value?: EmergencyPrecommit;
 }
 /**
+ * EmergencyElectorateMember is one address and its immutable voting power for
+ * a ceremony. The complete, sorted electorate is snapshotted when the
+ * ceremony opens so staking, council-expiry, and parameter changes cannot
+ * alter an in-flight decision.
+ * @name EmergencyElectorateMember
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyElectorateMember
+ */
+export interface EmergencyElectorateMember {
+  address: string;
+  /**
+   * positive bigint string
+   */
+  power: string;
+}
+/**
  * EmergencyCeremony tracks a 2-phase BFT ceremony (prevote → precommit).
  * @name EmergencyCeremony
  * @package zerone.emergency.v1
@@ -120,6 +202,21 @@ export interface EmergencyCeremony {
    */
   precommitStake: string;
   failureReason: string;
+  /**
+   * Version 1 snapshots the exact electorate and quorum policy at creation.
+   * A non-terminal legacy ceremony without a complete snapshot fails closed.
+   */
+  electorateSnapshotVersion: number;
+  electorate: EmergencyElectorateMember[];
+  /**
+   * positive bigint string
+   */
+  electorateTotalPower: string;
+  /**
+   * 1,000,000 = 100%
+   */
+  quorumThreshold: bigint;
+  minDistinctVoters: bigint;
 }
 /**
  * EmergencyAuditEntry records a single emergency action for the audit trail.
@@ -315,7 +412,9 @@ function createBaseEmergencyResumeProposal(): EmergencyResumeProposal {
     resumeFromHash: "",
     resumeStateRoot: "",
     haltCeremonyId: "",
-    revertCeremonyId: ""
+    revertCeremonyId: "",
+    justification: "",
+    recoveryManifestSha256: ""
   };
 }
 /**
@@ -348,6 +447,12 @@ export const EmergencyResumeProposal = {
     if (message.revertCeremonyId !== "") {
       writer.uint32(58).string(message.revertCeremonyId);
     }
+    if (message.justification !== "") {
+      writer.uint32(66).string(message.justification);
+    }
+    if (message.recoveryManifestSha256 !== "") {
+      writer.uint32(74).string(message.recoveryManifestSha256);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): EmergencyResumeProposal {
@@ -378,6 +483,12 @@ export const EmergencyResumeProposal = {
         case 7:
           message.revertCeremonyId = reader.string();
           break;
+        case 8:
+          message.justification = reader.string();
+          break;
+        case 9:
+          message.recoveryManifestSha256 = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -394,6 +505,263 @@ export const EmergencyResumeProposal = {
     message.resumeStateRoot = object.resumeStateRoot ?? "";
     message.haltCeremonyId = object.haltCeremonyId ?? "";
     message.revertCeremonyId = object.revertCeremonyId ?? "";
+    message.justification = object.justification ?? "";
+    message.recoveryManifestSha256 = object.recoveryManifestSha256 ?? "";
+    return message;
+  }
+};
+function createBaseEmergencyRecoveryAuthorizationProposal(): EmergencyRecoveryAuthorizationProposal {
+  return {
+    id: "",
+    proposer: "",
+    haltCeremonyId: "",
+    sdkGovProposalId: BigInt(0),
+    actionSha256: "",
+    recoveryManifestSha256: "",
+    justification: "",
+    upgradePlanSha256: "",
+    authorizedSubmitter: "",
+    actionType: "",
+    generation: BigInt(0)
+  };
+}
+/**
+ * EmergencyRecoveryAuthorizationProposal asks the immutable Guardian
+ * electorate to authorize one exact SDK-governance recovery action while
+ * transaction admission remains quarantined.
+ * @name EmergencyRecoveryAuthorizationProposal
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorizationProposal
+ */
+export const EmergencyRecoveryAuthorizationProposal = {
+  typeUrl: "/zerone.emergency.v1.EmergencyRecoveryAuthorizationProposal",
+  encode(message: EmergencyRecoveryAuthorizationProposal, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.proposer !== "") {
+      writer.uint32(18).string(message.proposer);
+    }
+    if (message.haltCeremonyId !== "") {
+      writer.uint32(26).string(message.haltCeremonyId);
+    }
+    if (message.sdkGovProposalId !== BigInt(0)) {
+      writer.uint32(32).uint64(message.sdkGovProposalId);
+    }
+    if (message.actionSha256 !== "") {
+      writer.uint32(42).string(message.actionSha256);
+    }
+    if (message.recoveryManifestSha256 !== "") {
+      writer.uint32(50).string(message.recoveryManifestSha256);
+    }
+    if (message.justification !== "") {
+      writer.uint32(58).string(message.justification);
+    }
+    if (message.upgradePlanSha256 !== "") {
+      writer.uint32(66).string(message.upgradePlanSha256);
+    }
+    if (message.authorizedSubmitter !== "") {
+      writer.uint32(74).string(message.authorizedSubmitter);
+    }
+    if (message.actionType !== "") {
+      writer.uint32(82).string(message.actionType);
+    }
+    if (message.generation !== BigInt(0)) {
+      writer.uint32(88).uint64(message.generation);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): EmergencyRecoveryAuthorizationProposal {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEmergencyRecoveryAuthorizationProposal();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.id = reader.string();
+          break;
+        case 2:
+          message.proposer = reader.string();
+          break;
+        case 3:
+          message.haltCeremonyId = reader.string();
+          break;
+        case 4:
+          message.sdkGovProposalId = reader.uint64();
+          break;
+        case 5:
+          message.actionSha256 = reader.string();
+          break;
+        case 6:
+          message.recoveryManifestSha256 = reader.string();
+          break;
+        case 7:
+          message.justification = reader.string();
+          break;
+        case 8:
+          message.upgradePlanSha256 = reader.string();
+          break;
+        case 9:
+          message.authorizedSubmitter = reader.string();
+          break;
+        case 10:
+          message.actionType = reader.string();
+          break;
+        case 11:
+          message.generation = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<EmergencyRecoveryAuthorizationProposal>): EmergencyRecoveryAuthorizationProposal {
+    const message = createBaseEmergencyRecoveryAuthorizationProposal();
+    message.id = object.id ?? "";
+    message.proposer = object.proposer ?? "";
+    message.haltCeremonyId = object.haltCeremonyId ?? "";
+    message.sdkGovProposalId = object.sdkGovProposalId !== undefined && object.sdkGovProposalId !== null ? BigInt(object.sdkGovProposalId.toString()) : BigInt(0);
+    message.actionSha256 = object.actionSha256 ?? "";
+    message.recoveryManifestSha256 = object.recoveryManifestSha256 ?? "";
+    message.justification = object.justification ?? "";
+    message.upgradePlanSha256 = object.upgradePlanSha256 ?? "";
+    message.authorizedSubmitter = object.authorizedSubmitter ?? "";
+    message.actionType = object.actionType ?? "";
+    message.generation = object.generation !== undefined && object.generation !== null ? BigInt(object.generation.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseEmergencyRecoveryAuthorization(): EmergencyRecoveryAuthorization {
+  return {
+    haltCeremonyId: "",
+    authorizationCeremonyId: "",
+    sdkGovProposalId: BigInt(0),
+    actionSha256: "",
+    recoveryManifestSha256: "",
+    authorizedAtBlock: BigInt(0),
+    upgradePlanSha256: "",
+    terminalAtBlock: BigInt(0),
+    outcome: "",
+    authorizedSubmitter: "",
+    actionType: "",
+    generation: BigInt(0)
+  };
+}
+/**
+ * EmergencyRecoveryAuthorization is the finalized, incident-bound capability
+ * for one exact SDK-governance proposal. It does not resume transactions.
+ * @name EmergencyRecoveryAuthorization
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyRecoveryAuthorization
+ */
+export const EmergencyRecoveryAuthorization = {
+  typeUrl: "/zerone.emergency.v1.EmergencyRecoveryAuthorization",
+  encode(message: EmergencyRecoveryAuthorization, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.haltCeremonyId !== "") {
+      writer.uint32(10).string(message.haltCeremonyId);
+    }
+    if (message.authorizationCeremonyId !== "") {
+      writer.uint32(18).string(message.authorizationCeremonyId);
+    }
+    if (message.sdkGovProposalId !== BigInt(0)) {
+      writer.uint32(24).uint64(message.sdkGovProposalId);
+    }
+    if (message.actionSha256 !== "") {
+      writer.uint32(34).string(message.actionSha256);
+    }
+    if (message.recoveryManifestSha256 !== "") {
+      writer.uint32(42).string(message.recoveryManifestSha256);
+    }
+    if (message.authorizedAtBlock !== BigInt(0)) {
+      writer.uint32(48).uint64(message.authorizedAtBlock);
+    }
+    if (message.upgradePlanSha256 !== "") {
+      writer.uint32(58).string(message.upgradePlanSha256);
+    }
+    if (message.terminalAtBlock !== BigInt(0)) {
+      writer.uint32(64).uint64(message.terminalAtBlock);
+    }
+    if (message.outcome !== "") {
+      writer.uint32(74).string(message.outcome);
+    }
+    if (message.authorizedSubmitter !== "") {
+      writer.uint32(82).string(message.authorizedSubmitter);
+    }
+    if (message.actionType !== "") {
+      writer.uint32(90).string(message.actionType);
+    }
+    if (message.generation !== BigInt(0)) {
+      writer.uint32(96).uint64(message.generation);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): EmergencyRecoveryAuthorization {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEmergencyRecoveryAuthorization();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.haltCeremonyId = reader.string();
+          break;
+        case 2:
+          message.authorizationCeremonyId = reader.string();
+          break;
+        case 3:
+          message.sdkGovProposalId = reader.uint64();
+          break;
+        case 4:
+          message.actionSha256 = reader.string();
+          break;
+        case 5:
+          message.recoveryManifestSha256 = reader.string();
+          break;
+        case 6:
+          message.authorizedAtBlock = reader.uint64();
+          break;
+        case 7:
+          message.upgradePlanSha256 = reader.string();
+          break;
+        case 8:
+          message.terminalAtBlock = reader.uint64();
+          break;
+        case 9:
+          message.outcome = reader.string();
+          break;
+        case 10:
+          message.authorizedSubmitter = reader.string();
+          break;
+        case 11:
+          message.actionType = reader.string();
+          break;
+        case 12:
+          message.generation = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<EmergencyRecoveryAuthorization>): EmergencyRecoveryAuthorization {
+    const message = createBaseEmergencyRecoveryAuthorization();
+    message.haltCeremonyId = object.haltCeremonyId ?? "";
+    message.authorizationCeremonyId = object.authorizationCeremonyId ?? "";
+    message.sdkGovProposalId = object.sdkGovProposalId !== undefined && object.sdkGovProposalId !== null ? BigInt(object.sdkGovProposalId.toString()) : BigInt(0);
+    message.actionSha256 = object.actionSha256 ?? "";
+    message.recoveryManifestSha256 = object.recoveryManifestSha256 ?? "";
+    message.authorizedAtBlock = object.authorizedAtBlock !== undefined && object.authorizedAtBlock !== null ? BigInt(object.authorizedAtBlock.toString()) : BigInt(0);
+    message.upgradePlanSha256 = object.upgradePlanSha256 ?? "";
+    message.terminalAtBlock = object.terminalAtBlock !== undefined && object.terminalAtBlock !== null ? BigInt(object.terminalAtBlock.toString()) : BigInt(0);
+    message.outcome = object.outcome ?? "";
+    message.authorizedSubmitter = object.authorizedSubmitter ?? "";
+    message.actionType = object.actionType ?? "";
+    message.generation = object.generation !== undefined && object.generation !== null ? BigInt(object.generation.toString()) : BigInt(0);
     return message;
   }
 };
@@ -589,6 +957,59 @@ export const PrecommitEntry = {
     return message;
   }
 };
+function createBaseEmergencyElectorateMember(): EmergencyElectorateMember {
+  return {
+    address: "",
+    power: ""
+  };
+}
+/**
+ * EmergencyElectorateMember is one address and its immutable voting power for
+ * a ceremony. The complete, sorted electorate is snapshotted when the
+ * ceremony opens so staking, council-expiry, and parameter changes cannot
+ * alter an in-flight decision.
+ * @name EmergencyElectorateMember
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.EmergencyElectorateMember
+ */
+export const EmergencyElectorateMember = {
+  typeUrl: "/zerone.emergency.v1.EmergencyElectorateMember",
+  encode(message: EmergencyElectorateMember, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.address !== "") {
+      writer.uint32(10).string(message.address);
+    }
+    if (message.power !== "") {
+      writer.uint32(18).string(message.power);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): EmergencyElectorateMember {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEmergencyElectorateMember();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.address = reader.string();
+          break;
+        case 2:
+          message.power = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<EmergencyElectorateMember>): EmergencyElectorateMember {
+    const message = createBaseEmergencyElectorateMember();
+    message.address = object.address ?? "";
+    message.power = object.power ?? "";
+    return message;
+  }
+};
 function createBaseEmergencyCeremony(): EmergencyCeremony {
   return {
     id: "",
@@ -604,7 +1025,12 @@ function createBaseEmergencyCeremony(): EmergencyCeremony {
     yesPrevoteStake: "",
     noPrevoteStake: "",
     precommitStake: "",
-    failureReason: ""
+    failureReason: "",
+    electorateSnapshotVersion: 0,
+    electorate: [],
+    electorateTotalPower: "",
+    quorumThreshold: BigInt(0),
+    minDistinctVoters: BigInt(0)
   };
 }
 /**
@@ -658,6 +1084,21 @@ export const EmergencyCeremony = {
     if (message.failureReason !== "") {
       writer.uint32(114).string(message.failureReason);
     }
+    if (message.electorateSnapshotVersion !== 0) {
+      writer.uint32(120).uint32(message.electorateSnapshotVersion);
+    }
+    for (const v of message.electorate) {
+      EmergencyElectorateMember.encode(v!, writer.uint32(130).fork()).ldelim();
+    }
+    if (message.electorateTotalPower !== "") {
+      writer.uint32(138).string(message.electorateTotalPower);
+    }
+    if (message.quorumThreshold !== BigInt(0)) {
+      writer.uint32(144).uint64(message.quorumThreshold);
+    }
+    if (message.minDistinctVoters !== BigInt(0)) {
+      writer.uint32(152).uint64(message.minDistinctVoters);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): EmergencyCeremony {
@@ -709,6 +1150,21 @@ export const EmergencyCeremony = {
         case 14:
           message.failureReason = reader.string();
           break;
+        case 15:
+          message.electorateSnapshotVersion = reader.uint32();
+          break;
+        case 16:
+          message.electorate.push(EmergencyElectorateMember.decode(reader, reader.uint32()));
+          break;
+        case 17:
+          message.electorateTotalPower = reader.string();
+          break;
+        case 18:
+          message.quorumThreshold = reader.uint64();
+          break;
+        case 19:
+          message.minDistinctVoters = reader.uint64();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -732,6 +1188,11 @@ export const EmergencyCeremony = {
     message.noPrevoteStake = object.noPrevoteStake ?? "";
     message.precommitStake = object.precommitStake ?? "";
     message.failureReason = object.failureReason ?? "";
+    message.electorateSnapshotVersion = object.electorateSnapshotVersion ?? 0;
+    message.electorate = object.electorate?.map(e => EmergencyElectorateMember.fromPartial(e)) || [];
+    message.electorateTotalPower = object.electorateTotalPower ?? "";
+    message.quorumThreshold = object.quorumThreshold !== undefined && object.quorumThreshold !== null ? BigInt(object.quorumThreshold.toString()) : BigInt(0);
+    message.minDistinctVoters = object.minDistinctVoters !== undefined && object.minDistinctVoters !== null ? BigInt(object.minDistinctVoters.toString()) : BigInt(0);
     return message;
   }
 };

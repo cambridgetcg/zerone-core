@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -29,6 +30,9 @@ var _ types.MsgServer = (*msgServer)(nil)
 // SubmitLIP creates a new LIP in "draft" stage.
 func (ms *msgServer) SubmitLIP(goCtx context.Context, msg *types.MsgSubmitLIP) (*types.MsgSubmitLIPResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	// Validate minimum stake.
 	params := ms.GetParams(ctx)
@@ -42,6 +46,9 @@ func (ms *msgServer) SubmitLIP(goCtx context.Context, msg *types.MsgSubmitLIP) (
 	category := msg.Category
 	if category == "" {
 		category = types.CategoryText // default
+	}
+	if category == types.CategoryUpgrade {
+		return nil, customUpgradeAuthorityRetiredError()
 	}
 
 	// Escrow initial stake (transfer from proposer to module account).
@@ -112,6 +119,9 @@ func (ms *msgServer) SubmitLIP(goCtx context.Context, msg *types.MsgSubmitLIP) (
 // threshold is met, the LIP advances from "draft" to "review".
 func (ms *msgServer) StakeLIP(goCtx context.Context, msg *types.MsgStakeLIP) (*types.MsgStakeLIPResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	lip, found := ms.GetLIP(ctx, msg.LipId)
 	if !found {
@@ -120,6 +130,9 @@ func (ms *msgServer) StakeLIP(goCtx context.Context, msg *types.MsgStakeLIP) (*t
 
 	if types.IsTerminal(lip.Stage) {
 		return nil, types.ErrTerminalState
+	}
+	if lip.Category == types.CategoryUpgrade {
+		return nil, customUpgradeAuthorityRetiredError()
 	}
 
 	// Escrow stake.
@@ -171,10 +184,16 @@ func (ms *msgServer) StakeLIP(goCtx context.Context, msg *types.MsgStakeLIP) (*t
 // last_call → voting: sets voting_end_block.
 func (ms *msgServer) AdvanceLIPStage(goCtx context.Context, msg *types.MsgAdvanceLIPStage) (*types.MsgAdvanceLIPStageResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	lip, found := ms.GetLIP(ctx, msg.LipId)
 	if !found {
 		return nil, types.ErrLIPNotFound
+	}
+	if lip.Category == types.CategoryUpgrade {
+		return nil, customUpgradeAuthorityRetiredError()
 	}
 
 	// Only proposer can advance.
@@ -197,15 +216,38 @@ func (ms *msgServer) AdvanceLIPStage(goCtx context.Context, msg *types.MsgAdvanc
 		if catCfg != nil {
 			reviewBlocks = catCfg.ReviewBlocks
 		}
-		if currentHeight < lip.ReviewStartedBlock+reviewBlocks {
+		if reviewBlocks > ^uint64(0)-lip.ReviewStartedBlock {
+			return nil, errorsmod.Wrap(types.ErrInvalidParams, "review end height overflows uint64")
+		}
+		reviewEnd := lip.ReviewStartedBlock + reviewBlocks
+		if currentHeight < reviewEnd {
 			return nil, types.ErrInvalidStatus
 		}
 		lip.Stage = types.StatusLastCall
 		lip.LastCallStartedBlock = currentHeight
 
 	case types.StatusLastCall:
+		if params.DiscussionPeriodBlocks > ^uint64(0)-lip.LastCallStartedBlock {
+			return nil, errorsmod.Wrap(types.ErrInvalidParams, "discussion end height overflows uint64")
+		}
+		discussionEnd := lip.LastCallStartedBlock + params.DiscussionPeriodBlocks
+		if currentHeight < discussionEnd {
+			return nil, errorsmod.Wrapf(
+				types.ErrDiscussionPeriodActive,
+				"discussion ends at block %d",
+				discussionEnd,
+			)
+		}
+		votingPeriod := ms.getEffectiveVotingPeriod(ctx, lip, params)
+		if votingPeriod > ^uint64(0)-currentHeight {
+			return nil, errorsmod.Wrap(types.ErrInvalidParams, "voting end height overflows uint64")
+		}
+		votingEnd := currentHeight + votingPeriod
+		if err := ms.validateUpgradePlanForVoting(ctx, lip, votingEnd); err != nil {
+			return nil, err
+		}
 		lip.Stage = types.StatusVoting
-		lip.VotingEndBlock = currentHeight + ms.getEffectiveVotingPeriod(ctx, lip, params)
+		lip.VotingEndBlock = votingEnd
 
 	default:
 		return nil, types.ErrInvalidStatus
@@ -233,6 +275,9 @@ func (ms *msgServer) AdvanceLIPStage(goCtx context.Context, msg *types.MsgAdvanc
 // CastVote casts a stake-weighted vote on a LIP in voting stage.
 func (ms *msgServer) CastVote(goCtx context.Context, msg *types.MsgCastVote) (*types.MsgCastVoteResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	lip, found := ms.GetLIP(ctx, msg.LipId)
 	if !found {
@@ -359,6 +404,9 @@ func (ms *msgServer) WithdrawLIP(goCtx context.Context, msg *types.MsgWithdrawLI
 // UpdateParams updates governance parameters (authority only).
 func (ms *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	if ms.GetAuthority() != msg.Authority {
 		return nil, types.ErrUnauthorized
@@ -377,7 +425,14 @@ func (ms *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePar
 
 // AttachUpgradePlan attaches a software upgrade plan to an upgrade-category LIP.
 func (ms *msgServer) AttachUpgradePlan(goCtx context.Context, msg *types.MsgAttachUpgradePlan) (*types.MsgAttachUpgradePlanResponse, error) {
+	// event-audit: fail-closed; failed transaction events are not durable.
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	lip, found := ms.GetLIP(ctx, msg.LipId)
 	if !found {
@@ -393,44 +448,7 @@ func (ms *msgServer) AttachUpgradePlan(goCtx context.Context, msg *types.MsgAtta
 	if lip.Category != types.CategoryUpgrade {
 		return nil, fmt.Errorf("only upgrade-category LIPs can carry upgrade plans")
 	}
-
-	// Cannot attach to terminal LIPs.
-	if types.IsTerminal(lip.Stage) {
-		return nil, fmt.Errorf("cannot attach upgrade plan to terminal LIP")
-	}
-
-	// Check if an upgrade plan already exists for this LIP.
-	if _, exists := ms.GetUpgradePlan(ctx, msg.LipId); exists {
-		return nil, fmt.Errorf("upgrade plan already attached to LIP %s", msg.LipId)
-	}
-
-	// Validate upgrade plan fields.
-	if msg.Height <= 0 {
-		return nil, fmt.Errorf("upgrade height must be positive")
-	}
-
-	plan := &types.UpgradePlan{
-		Name:   msg.UpgradeName,
-		Height: msg.Height,
-		Info:   msg.Info,
-	}
-	ms.SetUpgradePlan(ctx, msg.LipId, plan)
-
-	// Commitment 10 (forward-only audit): an attached upgrade plan
-	// binds the LIP to a specific named upgrade at a specific block
-	// height. The attachment is permanent record of what the chain
-	// would do if this LIP passes — an upgrade cannot be silently
-	// switched out for a different one after attachment.
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent("zerone.gov.upgrade_plan_attached",
-			sdk.NewAttribute("lip_id", msg.LipId),
-			sdk.NewAttribute("upgrade_name", msg.UpgradeName),
-			sdk.NewAttribute("height", fmt.Sprintf("%d", msg.Height)),
-			sdk.NewAttribute("creed_commitment", "10"),
-		),
-	)
-
-	return &types.MsgAttachUpgradePlanResponse{}, nil
+	return nil, customUpgradeAuthorityRetiredError()
 }
 
 // AttachCreedAmendmentPin attaches a candidate PinnedCreed payload
@@ -443,6 +461,9 @@ func (ms *msgServer) AttachCreedAmendmentPin(goCtx context.Context, msg *types.M
 		return nil, err
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	lip, found := ms.GetLIP(ctx, msg.LipId)
 	if !found {
@@ -508,6 +529,9 @@ func (ms *msgServer) AttachCreedAmendmentPin(goCtx context.Context, msg *types.M
 // reads this witnessed decree; the chain keeps only the dated, signed record.
 func (ms *msgServer) DomainFormationFreeze(goCtx context.Context, msg *types.MsgDomainFormationFreeze) (*types.MsgDomainFormationFreezeResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 
 	if ms.GetAuthority() != msg.Authority {
 		return nil, types.ErrUnauthorized
@@ -539,18 +563,27 @@ func (ms *msgServer) DomainFormationFreeze(goCtx context.Context, msg *types.Msg
 // SubmitResearchSpend delegates to the keeper's SubmitResearchSpend method.
 func (ms *msgServer) SubmitResearchSpend(goCtx context.Context, msg *types.MsgSubmitResearchSpend) (*types.MsgSubmitResearchSpendResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	return ms.Keeper.SubmitResearchSpend(ctx, msg)
 }
 
 // VoteResearchSpend delegates to the keeper's VoteResearchSpend method.
 func (ms *msgServer) VoteResearchSpend(goCtx context.Context, msg *types.MsgVoteResearchSpend) (*types.MsgVoteResearchSpendResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	return ms.Keeper.VoteResearchSpend(ctx, msg)
 }
 
 // SetResearchVoters delegates to the keeper's SetResearchVoters method.
 func (ms *msgServer) SetResearchVoters(goCtx context.Context, msg *types.MsgSetResearchVoters) (*types.MsgSetResearchVotersResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	return ms.Keeper.SetResearchVoters(ctx, msg)
 }
 
@@ -559,17 +592,26 @@ func (ms *msgServer) SetResearchVoters(goCtx context.Context, msg *types.MsgSetR
 // NominateSeatElection delegates to the keeper's NominateSeatElection method.
 func (ms *msgServer) NominateSeatElection(goCtx context.Context, msg *types.MsgNominateSeatElection) (*types.MsgNominateSeatElectionResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	return ms.Keeper.NominateSeatElection(ctx, msg)
 }
 
 // AcceptSeatNomination delegates to the keeper's AcceptSeatNomination method.
 func (ms *msgServer) AcceptSeatNomination(goCtx context.Context, msg *types.MsgAcceptSeatNomination) (*types.MsgAcceptSeatNominationResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	return ms.Keeper.AcceptSeatNomination(ctx, msg)
 }
 
 // VoteSeatElection delegates to the keeper's VoteSeatElection method.
 func (ms *msgServer) VoteSeatElection(goCtx context.Context, msg *types.MsgVoteSeatElection) (*types.MsgVoteSeatElectionResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	return ms.Keeper.VoteSeatElection(ctx, msg)
 }

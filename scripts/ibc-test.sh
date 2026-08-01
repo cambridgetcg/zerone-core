@@ -10,7 +10,7 @@
 #   5. Reports pass/fail results
 #
 # Prerequisites:
-#   - Go 1.24+ (for building zeroned and relayer)
+#   - Go 1.25.12 (for building zeroned and relayer)
 #   - jq (for JSON parsing)
 #   - curl (for REST queries)
 #

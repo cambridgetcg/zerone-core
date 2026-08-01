@@ -23,13 +23,33 @@ const (
 
 // GenesisState defines the emergency module's genesis state.
 type GenesisState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
-	Ceremonies    []*EmergencyCeremony   `protobuf:"bytes,3,rep,name=ceremonies,proto3" json:"ceremonies,omitempty"`
-	AuditLog      []*EmergencyAuditEntry `protobuf:"bytes,4,rep,name=audit_log,json=auditLog,proto3" json:"audit_log,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Params     *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Status     string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Ceremonies []*EmergencyCeremony   `protobuf:"bytes,3,rep,name=ceremonies,proto3" json:"ceremonies,omitempty"`
+	AuditLog   []*EmergencyAuditEntry `protobuf:"bytes,4,rep,name=audit_log,json=auditLog,proto3" json:"audit_log,omitempty"`
+	// Identifier of the halt ceremony (or deterministic legacy quarantine
+	// marker) that an evidence-bound resume must reference.
+	ActiveHaltCeremonyId string `protobuf:"bytes,5,opt,name=active_halt_ceremony_id,json=activeHaltCeremonyId,proto3" json:"active_halt_ceremony_id,omitempty"`
+	// Block at which transaction quarantine began. This is an escalation
+	// clock, never an automatic resume deadline.
+	HaltStartBlock uint64 `protobuf:"varint,6,opt,name=halt_start_block,json=haltStartBlock,proto3" json:"halt_start_block,omitempty"`
+	// Per-Guardian and global proposal counters are consensus anti-abuse state,
+	// not disposable node-local telemetry. They must survive export/import.
+	GuardianProposalCounts []*GuardianProposalCount `protobuf:"bytes,7,rep,name=guardian_proposal_counts,json=guardianProposalCounts,proto3" json:"guardian_proposal_counts,omitempty"`
+	EpochProposalCount     uint64                   `protobuf:"varint,8,opt,name=epoch_proposal_count,json=epochProposalCount,proto3" json:"epoch_proposal_count,omitempty"`
+	LastProposalBlock      uint64                   `protobuf:"varint,9,opt,name=last_proposal_block,json=lastProposalBlock,proto3" json:"last_proposal_block,omitempty"`
+	// Most recent quarantine escalation boundary already reported. Persisting
+	// it makes diagnostics idempotent across restart and resume voting.
+	LastHaltEscalationBlock uint64 `protobuf:"varint,10,opt,name=last_halt_escalation_block,json=lastHaltEscalationBlock,proto3" json:"last_halt_escalation_block,omitempty"`
+	// Block in which an affirmative resume finalized. Transaction admission
+	// remains quarantined through this entire block and reopens at H+1.
+	QuarantineReleaseBlock uint64 `protobuf:"varint,11,opt,name=quarantine_release_block,json=quarantineReleaseBlock,proto3" json:"quarantine_release_block,omitempty"`
+	// Finalized Guardian authorization for one exact SDK governance recovery
+	// proposal in the currently active quarantine incident.
+	RecoveryAuthorization *EmergencyRecoveryAuthorization `protobuf:"bytes,12,opt,name=recovery_authorization,json=recoveryAuthorization,proto3" json:"recovery_authorization,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -90,6 +110,115 @@ func (x *GenesisState) GetAuditLog() []*EmergencyAuditEntry {
 	return nil
 }
 
+func (x *GenesisState) GetActiveHaltCeremonyId() string {
+	if x != nil {
+		return x.ActiveHaltCeremonyId
+	}
+	return ""
+}
+
+func (x *GenesisState) GetHaltStartBlock() uint64 {
+	if x != nil {
+		return x.HaltStartBlock
+	}
+	return 0
+}
+
+func (x *GenesisState) GetGuardianProposalCounts() []*GuardianProposalCount {
+	if x != nil {
+		return x.GuardianProposalCounts
+	}
+	return nil
+}
+
+func (x *GenesisState) GetEpochProposalCount() uint64 {
+	if x != nil {
+		return x.EpochProposalCount
+	}
+	return 0
+}
+
+func (x *GenesisState) GetLastProposalBlock() uint64 {
+	if x != nil {
+		return x.LastProposalBlock
+	}
+	return 0
+}
+
+func (x *GenesisState) GetLastHaltEscalationBlock() uint64 {
+	if x != nil {
+		return x.LastHaltEscalationBlock
+	}
+	return 0
+}
+
+func (x *GenesisState) GetQuarantineReleaseBlock() uint64 {
+	if x != nil {
+		return x.QuarantineReleaseBlock
+	}
+	return 0
+}
+
+func (x *GenesisState) GetRecoveryAuthorization() *EmergencyRecoveryAuthorization {
+	if x != nil {
+		return x.RecoveryAuthorization
+	}
+	return nil
+}
+
+// GuardianProposalCount is one canonical, sorted anti-abuse counter.
+type GuardianProposalCount struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Guardian      string                 `protobuf:"bytes,1,opt,name=guardian,proto3" json:"guardian,omitempty"`
+	Count         uint64                 `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GuardianProposalCount) Reset() {
+	*x = GuardianProposalCount{}
+	mi := &file_zerone_emergency_v1_genesis_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GuardianProposalCount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GuardianProposalCount) ProtoMessage() {}
+
+func (x *GuardianProposalCount) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_genesis_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GuardianProposalCount.ProtoReflect.Descriptor instead.
+func (*GuardianProposalCount) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_genesis_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *GuardianProposalCount) GetGuardian() string {
+	if x != nil {
+		return x.Guardian
+	}
+	return ""
+}
+
+func (x *GuardianProposalCount) GetCount() uint64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 // Params defines the emergency module parameters.
 type Params struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -107,7 +236,9 @@ type Params struct {
 	ResumePrevoteBlocks   uint64 `protobuf:"varint,10,opt,name=resume_prevote_blocks,json=resumePrevoteBlocks,proto3" json:"resume_prevote_blocks,omitempty"`
 	ResumePrecommitBlocks uint64 `protobuf:"varint,11,opt,name=resume_precommit_blocks,json=resumePrecommitBlocks,proto3" json:"resume_precommit_blocks,omitempty"`
 	ResumeTimeoutBlocks   uint64 `protobuf:"varint,12,opt,name=resume_timeout_blocks,json=resumeTimeoutBlocks,proto3" json:"resume_timeout_blocks,omitempty"`
-	// Anti-abuse limits.
+	// One shared anti-abuse budget for halt, resume, recovery-authorization,
+	// and recovery-revocation ceremonies. A Guardian cannot bypass a limit by
+	// switching ceremony lanes.
 	MaxProposalsPerEpoch            uint64 `protobuf:"varint,13,opt,name=max_proposals_per_epoch,json=maxProposalsPerEpoch,proto3" json:"max_proposals_per_epoch,omitempty"`
 	MaxProposalsPerGuardianPerEpoch uint64 `protobuf:"varint,14,opt,name=max_proposals_per_guardian_per_epoch,json=maxProposalsPerGuardianPerEpoch,proto3" json:"max_proposals_per_guardian_per_epoch,omitempty"`
 	CooldownBlocks                  uint64 `protobuf:"varint,15,opt,name=cooldown_blocks,json=cooldownBlocks,proto3" json:"cooldown_blocks,omitempty"`
@@ -121,7 +252,8 @@ type Params struct {
 	GenesisCouncil      []string `protobuf:"bytes,20,rep,name=genesis_council,json=genesisCouncil,proto3" json:"genesis_council,omitempty"`
 	CouncilExpiryBlock  uint64   `protobuf:"varint,21,opt,name=council_expiry_block,json=councilExpiryBlock,proto3" json:"council_expiry_block,omitempty"`
 	CouncilVirtualStake string   `protobuf:"bytes,22,opt,name=council_virtual_stake,json=councilVirtualStake,proto3" json:"council_virtual_stake,omitempty"` // uzrn bigint string
-	// Auto-resume: max halt duration before automatic resume.
+	// Escalation deadline. Crossing it alerts operators but never resumes
+	// transaction admission automatically.
 	MaxHaltDurationBlocks uint64 `protobuf:"varint,23,opt,name=max_halt_duration_blocks,json=maxHaltDurationBlocks,proto3" json:"max_halt_duration_blocks,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
@@ -129,7 +261,7 @@ type Params struct {
 
 func (x *Params) Reset() {
 	*x = Params{}
-	mi := &file_zerone_emergency_v1_genesis_proto_msgTypes[1]
+	mi := &file_zerone_emergency_v1_genesis_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -141,7 +273,7 @@ func (x *Params) String() string {
 func (*Params) ProtoMessage() {}
 
 func (x *Params) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_emergency_v1_genesis_proto_msgTypes[1]
+	mi := &file_zerone_emergency_v1_genesis_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -154,7 +286,7 @@ func (x *Params) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Params.ProtoReflect.Descriptor instead.
 func (*Params) Descriptor() ([]byte, []int) {
-	return file_zerone_emergency_v1_genesis_proto_rawDescGZIP(), []int{1}
+	return file_zerone_emergency_v1_genesis_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Params) GetHaltQuorum() uint64 {
@@ -322,14 +454,26 @@ var File_zerone_emergency_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_emergency_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/emergency/v1/genesis.proto\x12\x13zerone.emergency.v1\x1a\x1fzerone/emergency/v1/types.proto\"\xea\x01\n" +
+	"!zerone/emergency/v1/genesis.proto\x12\x13zerone.emergency.v1\x1a\x1fzerone/emergency/v1/types.proto\"\xf6\x05\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.emergency.v1.ParamsR\x06params\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12F\n" +
 	"\n" +
 	"ceremonies\x18\x03 \x03(\v2&.zerone.emergency.v1.EmergencyCeremonyR\n" +
 	"ceremonies\x12E\n" +
-	"\taudit_log\x18\x04 \x03(\v2(.zerone.emergency.v1.EmergencyAuditEntryR\bauditLog\"\xe9\b\n" +
+	"\taudit_log\x18\x04 \x03(\v2(.zerone.emergency.v1.EmergencyAuditEntryR\bauditLog\x125\n" +
+	"\x17active_halt_ceremony_id\x18\x05 \x01(\tR\x14activeHaltCeremonyId\x12(\n" +
+	"\x10halt_start_block\x18\x06 \x01(\x04R\x0ehaltStartBlock\x12d\n" +
+	"\x18guardian_proposal_counts\x18\a \x03(\v2*.zerone.emergency.v1.GuardianProposalCountR\x16guardianProposalCounts\x120\n" +
+	"\x14epoch_proposal_count\x18\b \x01(\x04R\x12epochProposalCount\x12.\n" +
+	"\x13last_proposal_block\x18\t \x01(\x04R\x11lastProposalBlock\x12;\n" +
+	"\x1alast_halt_escalation_block\x18\n" +
+	" \x01(\x04R\x17lastHaltEscalationBlock\x128\n" +
+	"\x18quarantine_release_block\x18\v \x01(\x04R\x16quarantineReleaseBlock\x12j\n" +
+	"\x16recovery_authorization\x18\f \x01(\v23.zerone.emergency.v1.EmergencyRecoveryAuthorizationR\x15recoveryAuthorization\"I\n" +
+	"\x15GuardianProposalCount\x12\x1a\n" +
+	"\bguardian\x18\x01 \x01(\tR\bguardian\x12\x14\n" +
+	"\x05count\x18\x02 \x01(\x04R\x05count\"\xe9\b\n" +
 	"\x06Params\x12\x1f\n" +
 	"\vhalt_quorum\x18\x01 \x01(\x04R\n" +
 	"haltQuorum\x12#\n" +
@@ -369,22 +513,26 @@ func file_zerone_emergency_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_zerone_emergency_v1_genesis_proto_rawDescData
 }
 
-var file_zerone_emergency_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_zerone_emergency_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_zerone_emergency_v1_genesis_proto_goTypes = []any{
-	(*GenesisState)(nil),        // 0: zerone.emergency.v1.GenesisState
-	(*Params)(nil),              // 1: zerone.emergency.v1.Params
-	(*EmergencyCeremony)(nil),   // 2: zerone.emergency.v1.EmergencyCeremony
-	(*EmergencyAuditEntry)(nil), // 3: zerone.emergency.v1.EmergencyAuditEntry
+	(*GenesisState)(nil),                   // 0: zerone.emergency.v1.GenesisState
+	(*GuardianProposalCount)(nil),          // 1: zerone.emergency.v1.GuardianProposalCount
+	(*Params)(nil),                         // 2: zerone.emergency.v1.Params
+	(*EmergencyCeremony)(nil),              // 3: zerone.emergency.v1.EmergencyCeremony
+	(*EmergencyAuditEntry)(nil),            // 4: zerone.emergency.v1.EmergencyAuditEntry
+	(*EmergencyRecoveryAuthorization)(nil), // 5: zerone.emergency.v1.EmergencyRecoveryAuthorization
 }
 var file_zerone_emergency_v1_genesis_proto_depIdxs = []int32{
-	1, // 0: zerone.emergency.v1.GenesisState.params:type_name -> zerone.emergency.v1.Params
-	2, // 1: zerone.emergency.v1.GenesisState.ceremonies:type_name -> zerone.emergency.v1.EmergencyCeremony
-	3, // 2: zerone.emergency.v1.GenesisState.audit_log:type_name -> zerone.emergency.v1.EmergencyAuditEntry
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: zerone.emergency.v1.GenesisState.params:type_name -> zerone.emergency.v1.Params
+	3, // 1: zerone.emergency.v1.GenesisState.ceremonies:type_name -> zerone.emergency.v1.EmergencyCeremony
+	4, // 2: zerone.emergency.v1.GenesisState.audit_log:type_name -> zerone.emergency.v1.EmergencyAuditEntry
+	1, // 3: zerone.emergency.v1.GenesisState.guardian_proposal_counts:type_name -> zerone.emergency.v1.GuardianProposalCount
+	5, // 4: zerone.emergency.v1.GenesisState.recovery_authorization:type_name -> zerone.emergency.v1.EmergencyRecoveryAuthorization
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_zerone_emergency_v1_genesis_proto_init() }
@@ -399,7 +547,7 @@ func file_zerone_emergency_v1_genesis_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_emergency_v1_genesis_proto_rawDesc), len(file_zerone_emergency_v1_genesis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

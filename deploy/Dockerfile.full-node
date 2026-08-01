@@ -1,0 +1,156 @@
+# syntax=docker/dockerfile:1.7
+
+# One clean, non-signing image for the sentry and public-query roles.
+#
+# Standard build:
+#   docker build --file deploy/Dockerfile.full-node \
+#     --build-arg NETWORK=mainnet \
+#     --build-arg VERSION=vX.Y.Z \
+#     --build-arg COMMIT=<40-lowercase-hex> \
+#     --build-arg SOURCE_DATE_EPOCH=<positive-unix-seconds> .
+#
+# Legacy extraction build:
+#   docker build --target legacy-full-node \
+#     --file deploy/Dockerfile.full-node \
+#     --build-arg NETWORK=mainnet \
+#     --build-arg LEGACY_SOURCE_IMAGE=registry.fly.io/app@sha256:<digest> \
+#     --build-arg LEGACY_ZERONED_SHA256=<digest> \
+#     --build-arg VERSION=<containment-bundle-semver> \
+#     --build-arg COMMIT=<40-lowercase-hex> \
+#     --build-arg SOURCE_DATE_EPOCH=<positive-unix-seconds> .
+#
+# The legacy target copies only /usr/local/bin/zeroned out of the authenticated
+# parent. Its final filesystem starts from the same clean Debian base as a
+# normal build, so historical key files and key-bearing image layers are not
+# ancestors of the emitted runtime image.
+
+ARG GO_IMAGE=golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58
+ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
+ARG LEGACY_SOURCE_IMAGE=debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
+
+FROM ${GO_IMAGE} AS builder
+
+ARG VERSION
+ARG COMMIT
+ARG SOURCE_DATE_EPOCH
+ARG NETWORK
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN printf '%s' "${VERSION}" | grep -Eq '^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' \
+    && printf '%s' "${COMMIT}" | grep -Eq '^[0-9a-f]{40}$' \
+    && printf '%s' "${SOURCE_DATE_EPOCH}" | grep -Eq '^[1-9][0-9]*$' \
+    && SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH}" make build VERSION="${VERSION}" COMMIT="${COMMIT}" \
+    && test "$(/src/build/zeroned version)" = "${VERSION}" \
+    && /src/build/zeroned version --long | grep -F "commit: ${COMMIT}" >/dev/null \
+    && printf '%s' "${NETWORK}" | grep -Eq '^(mainnet|testnet)$' \
+    && genesis_path="/src/deploy/${NETWORK}/artifacts/genesis.json" \
+    && if /src/build/zeroned genesis validate "${genesis_path}" >/dev/null 2>&1; then \
+         :; \
+       elif /src/build/zeroned validate-genesis "${genesis_path}" >/dev/null 2>&1; then \
+         :; \
+       else \
+         echo "source binary cannot decode the image-frozen ${NETWORK} genesis" >&2; \
+         exit 1; \
+       fi
+
+FROM ${LEGACY_SOURCE_IMAGE} AS legacy-source
+
+ARG LEGACY_SOURCE_IMAGE
+ARG LEGACY_ZERONED_SHA256
+
+RUN printf '%s' "${LEGACY_SOURCE_IMAGE}" \
+      | grep -Eq '^([A-Za-z0-9._-]+(:[0-9]+)?/)+[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$' \
+    && printf '%s' "${LEGACY_ZERONED_SHA256}" | grep -Eq '^[0-9a-f]{64}$' \
+    && test -x /usr/local/bin/zeroned \
+    && test ! -L /usr/local/bin/zeroned \
+    && test "$(sha256sum /usr/local/bin/zeroned | awk '{print $1}')" = "${LEGACY_ZERONED_SHA256}"
+
+FROM ${RUNTIME_IMAGE} AS runtime-base
+
+ARG NETWORK
+ARG VERSION
+ARG COMMIT
+ARG SOURCE_DATE_EPOCH
+
+LABEL org.opencontainers.image.source="https://github.com/cambridgetcg/zerone-core" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.version="${VERSION}" \
+      io.zerone.source-date-epoch="${SOURCE_DATE_EPOCH}" \
+      io.zerone.node-class="non-signing-full-node" \
+      io.zerone.network="${NETWORK}"
+
+RUN printf '%s' "${NETWORK}" | grep -Eq '^(mainnet|testnet)$' \
+    && printf '%s' "${VERSION}" | grep -Eq '^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' \
+    && printf '%s' "${COMMIT}" | grep -Eq '^[0-9a-f]{40}$' \
+    && printf '%s' "${SOURCE_DATE_EPOCH}" | grep -Eq '^[1-9][0-9]*$' \
+    && sed -i \
+      -e 's|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/20260713T000000Z|g' \
+      -e 's|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/20260713T000000Z|g' \
+      /etc/apt/sources.list.d/debian.sources \
+    && printf 'Acquire::Check-Valid-Until "false";\n' >/etc/apt/apt.conf.d/99snapshot \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends bash ca-certificates jq nginx-light \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+
+COPY deploy/mainnet/artifacts/genesis.json /usr/local/share/zerone/genesis-mainnet.json
+COPY deploy/testnet/artifacts/genesis.json /usr/local/share/zerone/genesis-testnet.json
+COPY --chmod=0755 deploy/fly-full-node-entrypoint.sh /usr/local/bin/fly-full-node-entrypoint
+COPY deploy/public-edge-nginx.conf /usr/local/share/zerone/public-edge-nginx.conf
+
+RUN case "${NETWORK}" in \
+      mainnet) expected_chain_id=zerone-1 ;; \
+      testnet) expected_chain_id=zerone-testnet-1 ;; \
+      *) exit 1 ;; \
+    esac \
+    && mv "/usr/local/share/zerone/genesis-${NETWORK}.json" /usr/local/share/zerone/genesis.json \
+    && rm -f /usr/local/share/zerone/genesis-mainnet.json /usr/local/share/zerone/genesis-testnet.json \
+    && jq -e --arg chain_id "${expected_chain_id}" \
+      'type == "object" and .chain_id == $chain_id' \
+      /usr/local/share/zerone/genesis.json >/dev/null \
+    && printf '%s\n' "${expected_chain_id}" >/usr/local/share/zerone/chain-id \
+    && sha256sum /usr/local/share/zerone/genesis.json \
+      | awk '{print $1}' >/usr/local/share/zerone/genesis.sha256 \
+    && ln -s /usr/sbin/nginx /usr/local/bin/nginx \
+    && chmod 0644 \
+      /usr/local/share/zerone/chain-id \
+      /usr/local/share/zerone/genesis.json \
+      /usr/local/share/zerone/genesis.sha256 \
+      /usr/local/share/zerone/public-edge-nginx.conf
+
+ENV ZERONE_HOME=/data/.zeroned
+EXPOSE 26656 8080
+ENTRYPOINT ["/usr/local/bin/fly-full-node-entrypoint"]
+
+FROM runtime-base AS legacy-full-node
+
+ARG LEGACY_SOURCE_IMAGE
+ARG LEGACY_ZERONED_SHA256
+LABEL io.zerone.zeroned-origin="digest-pinned-legacy-image-extraction" \
+      io.zerone.zeroned-source-image="${LEGACY_SOURCE_IMAGE}" \
+      io.zerone.zeroned-sha256="${LEGACY_ZERONED_SHA256}" \
+      io.zerone.zeroned-source-revision="unattributed"
+COPY --from=legacy-source /usr/local/bin/zeroned /usr/local/bin/zeroned
+RUN test "$(sha256sum /usr/local/bin/zeroned | awk '{print $1}')" = "${LEGACY_ZERONED_SHA256}" \
+    && if /usr/local/bin/zeroned genesis validate /usr/local/share/zerone/genesis.json >/dev/null 2>&1; then \
+         :; \
+       elif /usr/local/bin/zeroned validate-genesis /usr/local/share/zerone/genesis.json >/dev/null 2>&1; then \
+         :; \
+       else \
+         echo "legacy binary cannot decode the image-frozen genesis" >&2; \
+         exit 1; \
+       fi \
+    && printf '%s\n' "${LEGACY_ZERONED_SHA256}" >/usr/local/share/zerone/zeroned.sha256 \
+    && chmod 0755 /usr/local/bin/zeroned \
+    && chmod 0644 /usr/local/share/zerone/zeroned.sha256
+
+FROM runtime-base AS full-node
+
+LABEL io.zerone.zeroned-origin="source-build-at-oci-revision"
+COPY --from=builder /src/build/zeroned /usr/local/bin/zeroned
+RUN sha256sum /usr/local/bin/zeroned \
+      | awk '{print $1}' >/usr/local/share/zerone/zeroned.sha256 \
+    && chmod 0755 /usr/local/bin/zeroned \
+    && chmod 0644 /usr/local/share/zerone/zeroned.sha256

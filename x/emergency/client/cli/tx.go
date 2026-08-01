@@ -26,18 +26,94 @@ func NewTxCmd() *cobra.Command {
 	txCmd.AddCommand(
 		NewProposeHaltCmd(),
 		NewVoteHaltCmd(),
-		NewProposeRevertCmd(),
 		NewProposeResumeCmd(),
+		NewVoteResumeCmd(),
+		NewProposeRecoveryAuthorizationCmd(),
+		NewVoteRecoveryAuthorizationCmd(),
 	)
 
 	return txCmd
+}
+
+// NewProposeRecoveryAuthorizationCmd creates a Guardian proposal that binds
+// the exact next SDK governance ID, action, target plan, manifest, and allowed
+// submitter before quarantine admits proposal submission.
+func NewProposeRecoveryAuthorizationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "propose-recovery-authorization [next-sdk-gov-proposal-id] " +
+			"[software_upgrade|cancel_upgrade] [action-sha256] " +
+			"[upgrade-plan-sha256] [recovery-manifest-sha256] " +
+			"[authorized-submitter] [justification]",
+		Short: "Propose an incident-bound SDK governance recovery authorization (Guardian-only)",
+		Args:  cobra.ExactArgs(7),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			proposalID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf(
+					"invalid next SDK governance proposal id: %w",
+					err,
+				)
+			}
+			msg := &types.MsgProposeRecoveryAuthorization{
+				Proposer:               clientCtx.GetFromAddress().String(),
+				SdkGovProposalId:       proposalID,
+				ActionType:             args[1],
+				ActionSha256:           args[2],
+				UpgradePlanSha256:      args[3],
+				RecoveryManifestSha256: args[4],
+				AuthorizedSubmitter:    args[5],
+				Justification:          args[6],
+			}
+			return tx.GenerateOrBroadcastTxCLI(
+				clientCtx,
+				cmd.Flags(),
+				msg,
+			)
+		},
+	}
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func NewVoteRecoveryAuthorizationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "vote-recovery-authorization [ceremony-id] [approve: true/false]",
+		Short: "Vote on an exact SDK governance recovery authorization (Guardian-only)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			approve, err := strconv.ParseBool(args[1])
+			if err != nil {
+				return fmt.Errorf("invalid approve value: %w", err)
+			}
+			msg := &types.MsgVoteRecoveryAuthorization{
+				Voter:      clientCtx.GetFromAddress().String(),
+				ProposalId: args[0],
+				Approve:    approve,
+			}
+			return tx.GenerateOrBroadcastTxCLI(
+				clientCtx,
+				cmd.Flags(),
+				msg,
+			)
+		},
+	}
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
 }
 
 // NewProposeHaltCmd creates a CLI command for MsgProposeHalt.
 func NewProposeHaltCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "propose-halt [reason]",
-		Short: "Propose an emergency chain halt (Guardian-only)",
+		Short: "Propose an emergency transaction quarantine (Guardian-only)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -62,7 +138,7 @@ func NewProposeHaltCmd() *cobra.Command {
 func NewVoteHaltCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vote-halt [proposal-id] [approve: true/false]",
-		Short: "Vote on a halt ceremony (Guardian-only)",
+		Short: "Vote on a transaction-quarantine ceremony (Guardian-only)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -89,30 +165,17 @@ func NewVoteHaltCmd() *cobra.Command {
 	return cmd
 }
 
-// NewProposeRevertCmd creates a CLI command for MsgProposeRevert.
+// NewProposeRevertCmd is retained for source compatibility, but deliberately
+// refuses to construct a height-only rollback request. Arbitrary finalized
+// history cannot be selected safely without a hash-bound recovery manifest and
+// explicit social coordination.
 func NewProposeRevertCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "propose-revert [target-height] [justification]",
-		Short: "Propose a state revert (Guardian-only, chain must be halted)",
+		Short: "Disabled: arbitrary height-only state revert is unsafe",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx, err := client.GetClientTxContext(cmd)
-			if err != nil {
-				return err
-			}
-
-			height, err := strconv.ParseUint(args[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid target height: %w", err)
-			}
-
-			msg := &types.MsgProposeRevert{
-				Proposer:      clientCtx.GetFromAddress().String(),
-				RevertToHeight: height,
-				Justification: args[1],
-			}
-
-			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return types.ErrUnsafeRevertDisabled
 		},
 	}
 
@@ -123,9 +186,9 @@ func NewProposeRevertCmd() *cobra.Command {
 // NewProposeResumeCmd creates a CLI command for MsgProposeResume.
 func NewProposeResumeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "propose-resume",
-		Short: "Propose chain resume (Guardian-only, chain must be halted)",
-		Args:  cobra.NoArgs,
+		Use:   "propose-resume [recovery-manifest-sha256] [justification]",
+		Short: "Propose reopening transaction admission using the verified RECOVERY_READY journal head",
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -133,7 +196,40 @@ func NewProposeResumeCmd() *cobra.Command {
 			}
 
 			msg := &types.MsgProposeResume{
-				Proposer: clientCtx.GetFromAddress().String(),
+				Proposer:               clientCtx.GetFromAddress().String(),
+				RecoveryManifestSha256: args[0],
+				Justification:          args[1],
+			}
+
+			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewVoteResumeCmd creates a CLI command for MsgVoteResume.
+func NewVoteResumeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "vote-resume [proposal-id] [approve: true/false]",
+		Short: "Vote to reopen transaction admission after recovery verification",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			approve, err := strconv.ParseBool(args[1])
+			if err != nil {
+				return fmt.Errorf("invalid approve value: %w", err)
+			}
+
+			msg := &types.MsgVoteResume{
+				Voter:      clientCtx.GetFromAddress().String(),
+				ProposalId: args[0],
+				Approve:    approve,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)

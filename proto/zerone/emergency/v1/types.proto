@@ -33,6 +33,52 @@ message EmergencyResumeProposal {
   string resume_state_root = 5;
   string halt_ceremony_id = 6;
   string revert_ceremony_id = 7;
+  string justification = 8;
+  // SHA-256 of the canonical, signed recovery manifest reviewed by voters.
+  string recovery_manifest_sha256 = 9;
+}
+
+// EmergencyRecoveryAuthorizationProposal asks the immutable Guardian
+// electorate to authorize one exact SDK-governance recovery action while
+// transaction admission remains quarantined.
+message EmergencyRecoveryAuthorizationProposal {
+  string id = 1;
+  string proposer = 2;
+  string halt_ceremony_id = 3;
+  uint64 sdk_gov_proposal_id = 4;
+  // SHA-256 over the domain-separated TypeURL and raw Any value bytes of the
+  // proposal's sole MsgSoftwareUpgrade or MsgCancelUpgrade action.
+  string action_sha256 = 5;
+  string recovery_manifest_sha256 = 6;
+  string justification = 7;
+  // Canonical digest of the plan being scheduled or, for cancellation, the
+  // exact currently scheduled plan whose removal Guardians authorize.
+  string upgrade_plan_sha256 = 8;
+  // Account allowed to submit the pre-authorized next SDK proposal, preventing
+  // mempool observers from front-running the recovery envelope.
+  string authorized_submitter = 9;
+  // "software_upgrade", "cancel_upgrade", or "revoke".
+  string action_type = 10;
+  uint64 generation = 11;
+}
+
+// EmergencyRecoveryAuthorization is the finalized, incident-bound capability
+// for one exact SDK-governance proposal. It does not resume transactions.
+message EmergencyRecoveryAuthorization {
+  string halt_ceremony_id = 1;
+  string authorization_ceremony_id = 2;
+  uint64 sdk_gov_proposal_id = 3;
+  string action_sha256 = 4;
+  string recovery_manifest_sha256 = 5;
+  uint64 authorized_at_block = 6;
+  string upgrade_plan_sha256 = 7;
+  // Set after SDK governance reaches a terminal result. An authorization with
+  // a non-empty outcome cannot admit further votes, deposits, or execution.
+  uint64 terminal_at_block = 8;
+  string outcome = 9;
+  string authorized_submitter = 10;
+  string action_type = 11;
+  uint64 generation = 12;
 }
 
 // EmergencyVote represents a prevote (yes/no).
@@ -58,6 +104,15 @@ message PrecommitEntry {
   EmergencyPrecommit value = 2;
 }
 
+// EmergencyElectorateMember is one address and its immutable voting power for
+// a ceremony. The complete, sorted electorate is snapshotted when the
+// ceremony opens so staking, council-expiry, and parameter changes cannot
+// alter an in-flight decision.
+message EmergencyElectorateMember {
+  string address = 1;
+  string power = 2;  // positive bigint string
+}
+
 // EmergencyCeremony tracks a 2-phase BFT ceremony (prevote → precommit).
 message EmergencyCeremony {
   string id = 1;
@@ -74,6 +129,13 @@ message EmergencyCeremony {
   string no_prevote_stake = 12;    // bigint string
   string precommit_stake = 13;     // bigint string
   string failure_reason = 14;
+  // Version 1 snapshots the exact electorate and quorum policy at creation.
+  // A non-terminal legacy ceremony without a complete snapshot fails closed.
+  uint32 electorate_snapshot_version = 15;
+  repeated EmergencyElectorateMember electorate = 16;
+  string electorate_total_power = 17;  // positive bigint string
+  uint64 quorum_threshold = 18;         // 1,000,000 = 100%
+  uint64 min_distinct_voters = 19;
 }
 
 // EmergencyAuditEntry records a single emergency action for the audit trail.

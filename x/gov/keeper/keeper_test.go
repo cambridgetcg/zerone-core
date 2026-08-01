@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -76,12 +77,31 @@ func (m *mockStakingKeeper) GetSlashCount(_ context.Context, _ string) (uint64, 
 type mockUpgradeKeeper struct {
 	called bool
 	plan   *types.UpgradePlan
+	err    error
 }
 
 func (m *mockUpgradeKeeper) ScheduleUpgrade(_ context.Context, plan *types.UpgradePlan) error {
 	m.called = true
 	m.plan = plan
-	return nil
+	return m.err
+}
+
+func seedLegacyUpgradeLIP(k keeper.Keeper, ctx sdk.Context, id, stage string) *types.LIP {
+	lip := &types.LIP{
+		Id:             id,
+		Title:          "Legacy custom upgrade",
+		Description:    "Imported before custom software-upgrade authority was retired",
+		Category:       types.CategoryUpgrade,
+		Proposer:       testAddr("alice"),
+		Stage:          stage,
+		StakedAmount:   "1000000",
+		YesStake:       "0",
+		NoStake:        "0",
+		AbstainStake:   "0",
+		CreatedAtBlock: uint64(ctx.BlockHeight()),
+	}
+	k.SetLIP(ctx, lip)
+	return lip
 }
 
 // ---------- Test Setup ----------
@@ -225,6 +245,7 @@ func TestLIPLifecycle_FullPath(t *testing.T) {
 	k.SetLIP(ctx, lip)
 	// Override category config to 0 review blocks for test
 	params2 := k.GetParams(ctx)
+	params2.DiscussionPeriodBlocks = 0
 	for _, cc := range params2.CategoryConfigs {
 		cc.ReviewBlocks = 0
 	}
@@ -591,6 +612,7 @@ func TestAdvanceLIPStage_LastCallToVoting(t *testing.T) {
 
 	params := k.GetParams(ctx)
 	params.VotingPeriodBlocks = 100
+	params.DiscussionPeriodBlocks = 0
 	for _, cc := range params.CategoryConfigs {
 		cc.ReviewBlocks = 0
 	}
@@ -619,6 +641,51 @@ func TestAdvanceLIPStage_LastCallToVoting(t *testing.T) {
 	}
 	if lip.VotingEndBlock != 200 { // 100 + 100
 		t.Errorf("expected voting_end_block=200, got %d", lip.VotingEndBlock)
+	}
+}
+
+func TestAdvanceLIPStage_EnforcesDiscussionPeriod(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	ms := keeper.NewMsgServerImpl(k)
+	params := k.GetParams(ctx)
+	params.DiscussionPeriodBlocks = 10
+	params.VotingPeriodBlocks = 20
+	k.SetParams(ctx, params)
+
+	resp, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
+		Proposer:     testAddr("alice"),
+		Title:        "Discussion invariant",
+		Description:  "Manual advancement must not bypass last call.",
+		Category:     types.CategoryText,
+		InitialStake: "1000000",
+	})
+	if err != nil {
+		t.Fatalf("submit LIP: %v", err)
+	}
+	lip, _ := k.GetLIP(ctx, resp.LipId)
+	lip.Stage = types.StatusLastCall
+	lip.LastCallStartedBlock = uint64(ctx.BlockHeight())
+	k.SetLIP(ctx, lip)
+
+	_, err = ms.AdvanceLIPStage(ctx, &types.MsgAdvanceLIPStage{
+		Authority: testAddr("alice"),
+		LipId:     resp.LipId,
+	})
+	if err == nil || !types.ErrDiscussionPeriodActive.Is(err) {
+		t.Fatalf("expected active discussion period to block manual advance, got: %v", err)
+	}
+
+	ctx = ctx.WithBlockHeight(110)
+	_, err = ms.AdvanceLIPStage(ctx, &types.MsgAdvanceLIPStage{
+		Authority: testAddr("alice"),
+		LipId:     resp.LipId,
+	})
+	if err != nil {
+		t.Fatalf("advance at discussion boundary: %v", err)
+	}
+	lip, _ = k.GetLIP(ctx, resp.LipId)
+	if lip.Stage != types.StatusVoting || lip.VotingEndBlock != 130 {
+		t.Fatalf("unexpected voting transition: %+v", lip)
 	}
 }
 
@@ -873,6 +940,63 @@ func TestInitExportGenesis(t *testing.T) {
 	}
 	if gs.NextLipNumber != 2 {
 		t.Errorf("expected next_lip=2, got %d", gs.NextLipNumber)
+	}
+}
+
+func TestEmergencyTransitionHoldGenesisRoundTripAndBoundedLineage(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	hold, created, err := k.EnsureEmergencyTransitionHold(
+		ctx,
+		"halt-genesis-roundtrip",
+	)
+	if err != nil || !created {
+		t.Fatalf("create emergency transition hold: created=%t err=%v", created, err)
+	}
+	hold, extended, err := k.EnsureEmergencyTransitionHold(
+		ctx,
+		"halt-second-incident-before-release",
+	)
+	if err != nil || !extended ||
+		hold.IncidentCount != 2 ||
+		hold.LatestIncidentId != "halt-second-incident-before-release" ||
+		len(hold.IncidentLineageSha256) != 32 {
+		t.Fatalf("extend incident lineage: hold=%+v extended=%t err=%v", hold, extended, err)
+	}
+	secondDigest := append([]byte(nil), hold.IncidentLineageSha256...)
+	if _, changed, err := k.EnsureEmergencyTransitionHold(
+		ctx,
+		hold.LatestIncidentId,
+	); err != nil || changed {
+		t.Fatalf("duplicate incident changed lineage: changed=%t err=%v", changed, err)
+	}
+	if got, _, err := k.GetEmergencyTransitionHold(ctx); err != nil ||
+		!bytes.Equal(got.IncidentLineageSha256, secondDigest) {
+		t.Fatalf("idempotent ensure changed lineage: hold=%+v err=%v", got, err)
+	}
+
+	exported := k.ExportGenesis(ctx)
+	if exported.EmergencyTransitionHold == nil ||
+		exported.EmergencyTransitionHold.IncidentId != hold.IncidentId {
+		t.Fatalf("export omitted emergency transition hold: %+v", exported)
+	}
+	if err := exported.Validate(); err != nil {
+		t.Fatalf("exported custom governance genesis is invalid: %v", err)
+	}
+
+	k2, ctx2 := setupKeeper(t)
+	k2.InitGenesis(ctx2, exported)
+	restored, found, err := k2.GetEmergencyTransitionHold(ctx2)
+	if err != nil || !found ||
+		restored.IncidentId != hold.IncidentId ||
+		restored.IncidentCount != hold.IncidentCount ||
+		!bytes.Equal(
+			restored.IncidentLineageSha256,
+			hold.IncidentLineageSha256,
+		) {
+		t.Fatalf("restored emergency transition hold = %+v found=%t err=%v", restored, found, err)
+	}
+	if err := k2.RequireNoEmergencyTransitionHold(ctx2); err == nil {
+		t.Fatal("restored hold did not remain fail-closed without a release API")
 	}
 }
 
@@ -1425,14 +1549,11 @@ func TestCmpBigIntStrings(t *testing.T) {
 // ---------- Upgrade Plan Tests ----------
 
 func TestAttachUpgradePlan_FullLifecycle(t *testing.T) {
-	k, ctx, mock := setupWithStaking(t, "1000000")
+	k, ctx, _ := setupWithStaking(t, "1000000")
 	ms := keeper.NewMsgServerImpl(k)
-
-	// Wire mock upgrade keeper.
 	mockUK := &mockUpgradeKeeper{}
 	k.SetUpgradeKeeper(mockUK)
 
-	// 1. Submit an upgrade-category LIP.
 	resp, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
 		Proposer:     testAddr("alice"),
 		Title:        "v2.0.0 Upgrade",
@@ -1440,87 +1561,33 @@ func TestAttachUpgradePlan_FullLifecycle(t *testing.T) {
 		Category:     types.CategoryUpgrade,
 		InitialStake: "1000000",
 	})
-	if err != nil {
-		t.Fatalf("submit failed: %v", err)
+	if err == nil || !types.ErrUpgradeScheduleFailed.Is(err) {
+		t.Fatalf("custom upgrade submission must be retired at admission, got response=%+v err=%v", resp, err)
 	}
-	lipID := resp.LipId
-
-	// 2. Attach an upgrade plan.
-	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer:    testAddr("alice"),
-		LipId:       lipID,
-		UpgradeName: "v2.0.0",
-		Height:      500,
-		Info:        "https://github.com/zerone-chain/zerone/releases/v2.0.0",
-	})
-	if err != nil {
-		t.Fatalf("attach upgrade plan failed: %v", err)
+	if mockUK.called {
+		t.Fatal("retired custom authority must not call ScheduleUpgrade")
 	}
-
-	// Verify plan was stored.
-	plan, found := k.GetUpgradePlan(ctx, lipID)
-	if !found {
-		t.Fatal("upgrade plan not found after attach")
-	}
-	if plan.Name != "v2.0.0" {
-		t.Errorf("plan name: got %q, want %q", plan.Name, "v2.0.0")
-	}
-	if plan.Height != 500 {
-		t.Errorf("plan height: got %d, want 500", plan.Height)
-	}
-
-	// 3. Advance LIP to voting and vote to pass.
-	lip, _ := k.GetLIP(ctx, lipID)
-	lip.Stage = types.StatusVoting
-	lip.VotingEndBlock = 100 // expires at current height
-	k.SetLIP(ctx, lip)
-
-	mock.delegations[testAddr("voter1")] = "500000" // 50% of total
-	ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: testAddr("voter1"), LipId: lipID, Option: types.VoteYes,
-	})
-
-	// 4. Run BeginBlocker to tally — should pass and call ScheduleUpgrade.
-	k.BeginBlocker(ctx)
-
-	// 5. Assert LIP passed and ScheduleUpgrade was called.
-	lip, _ = k.GetLIP(ctx, lipID)
-	if lip.Stage != types.StatusPassed {
-		t.Errorf("expected passed, got %s", lip.Stage)
-	}
-	if !mockUK.called {
-		t.Fatal("ScheduleUpgrade was not called on the mock upgrade keeper")
-	}
-	if mockUK.plan.Name != "v2.0.0" {
-		t.Errorf("scheduled plan name: got %q, want %q", mockUK.plan.Name, "v2.0.0")
-	}
-	if mockUK.plan.Height != 500 {
-		t.Errorf("scheduled plan height: got %d, want 500", mockUK.plan.Height)
-	}
-	if mockUK.plan.Info != "https://github.com/zerone-chain/zerone/releases/v2.0.0" {
-		t.Errorf("scheduled plan info mismatch")
+	if _, found := k.GetLIP(ctx, "LIP-1"); found {
+		t.Fatal("rejected custom upgrade submission must not create a LIP")
 	}
 }
 
 func TestAttachUpgradePlan_Validations(t *testing.T) {
 	k, ctx := setupKeeper(t)
 	ms := keeper.NewMsgServerImpl(k)
-
-	// Submit upgrade LIP.
-	ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice"), Title: "Upgrade", Description: "Test",
-		Category: types.CategoryUpgrade, InitialStake: "1000000",
-	})
-	// Submit text LIP for category check.
-	ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
+	seedLegacyUpgradeLIP(k, ctx, "LEGACY-UPGRADE", types.StatusDraft)
+	_, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
 		Proposer: testAddr("alice"), Title: "Text", Description: "Test",
 		Category: types.CategoryText, InitialStake: "1000000",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Wrong proposer.
-	_, err := ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("bob"), LipId: "LIP-1",
-		UpgradeName: "v2", Height: 500,
+	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
+		Proposer: testAddr("bob"), LipId: "LEGACY-UPGRADE",
+		UpgradeName: "v2", Height: 500, Info: "release manifest",
 	})
 	if err == nil {
 		t.Error("expected error for wrong proposer")
@@ -1528,8 +1595,8 @@ func TestAttachUpgradePlan_Validations(t *testing.T) {
 
 	// Wrong category (text, not upgrade).
 	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("alice"), LipId: "LIP-2",
-		UpgradeName: "v2", Height: 500,
+		Proposer: testAddr("alice"), LipId: "LIP-1",
+		UpgradeName: "v2", Height: 500, Info: "release manifest",
 	})
 	if err == nil {
 		t.Error("expected error for non-upgrade category")
@@ -1537,65 +1604,50 @@ func TestAttachUpgradePlan_Validations(t *testing.T) {
 
 	// Invalid height.
 	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("alice"), LipId: "LIP-1",
-		UpgradeName: "v2", Height: 0,
+		Proposer: testAddr("alice"), LipId: "LEGACY-UPGRADE",
+		UpgradeName: "v2", Height: 0, Info: "release manifest",
 	})
 	if err == nil {
 		t.Error("expected error for zero height")
 	}
 
-	// Terminal LIP.
-	lip, _ := k.GetLIP(ctx, "LIP-1")
-	lip.Stage = types.StatusPassed
-	k.SetLIP(ctx, lip)
+	// Even a structurally valid attachment to an imported upgrade LIP is
+	// rejected because standard SDK governance is the sole authority.
 	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("alice"), LipId: "LIP-1",
-		UpgradeName: "v2", Height: 500,
+		Proposer: testAddr("alice"), LipId: "LEGACY-UPGRADE",
+		UpgradeName: "v2", Height: 500, Info: "release manifest",
 	})
-	if err == nil {
-		t.Error("expected error for terminal LIP")
+	if err == nil || !types.ErrUpgradeScheduleFailed.Is(err) {
+		t.Fatalf("expected retired authority error, got %v", err)
 	}
 }
 
 func TestAttachUpgradePlan_NoDuplicate(t *testing.T) {
 	k, ctx := setupKeeper(t)
 	ms := keeper.NewMsgServerImpl(k)
-
-	ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice"), Title: "Upgrade", Description: "Test",
-		Category: types.CategoryUpgrade, InitialStake: "1000000",
+	seedLegacyUpgradeLIP(k, ctx, "LEGACY-UPGRADE", types.StatusDraft)
+	k.SetUpgradePlan(ctx, "LEGACY-UPGRADE", &types.UpgradePlan{
+		Name: "v2", Height: 500, Info: "historical release manifest",
 	})
 
-	// First attach succeeds.
 	_, err := ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("alice"), LipId: "LIP-1",
-		UpgradeName: "v2", Height: 500,
+		Proposer: testAddr("alice"), LipId: "LEGACY-UPGRADE",
+		UpgradeName: "v3", Height: 600, Info: "replacement manifest",
 	})
-	if err != nil {
-		t.Fatalf("first attach failed: %v", err)
+	if err == nil || !types.ErrUpgradeScheduleFailed.Is(err) {
+		t.Fatalf("legacy plan replacement must be refused by retired authority, got %v", err)
 	}
-
-	// Second attach fails (duplicate).
-	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("alice"), LipId: "LIP-1",
-		UpgradeName: "v3", Height: 600,
-	})
-	if err == nil {
-		t.Error("expected error for duplicate upgrade plan")
+	plan, found := k.GetUpgradePlan(ctx, "LEGACY-UPGRADE")
+	if !found || plan.Name != "v2" || plan.Height != 500 {
+		t.Fatalf("historical plan must remain immutable/queryable: %+v", plan)
 	}
 }
 
 func TestUpgradePlan_GenesisRoundtrip(t *testing.T) {
 	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice"), Title: "Upgrade", Description: "Test",
-		Category: types.CategoryUpgrade, InitialStake: "1000000",
-	})
-	ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("alice"), LipId: "LIP-1",
-		UpgradeName: "v2.0.0", Height: 500, Info: "release notes",
+	seedLegacyUpgradeLIP(k, ctx, "LEGACY-UPGRADE", types.StatusFailed)
+	k.SetUpgradePlan(ctx, "LEGACY-UPGRADE", &types.UpgradePlan{
+		Name: "v2.0.0", Height: 500, Info: "release notes",
 	})
 
 	// Export and reimport.
@@ -1607,7 +1659,7 @@ func TestUpgradePlan_GenesisRoundtrip(t *testing.T) {
 	k2, ctx2 := setupKeeper(t)
 	k2.InitGenesis(ctx2, gs)
 
-	plan, found := k2.GetUpgradePlan(ctx2, "LIP-1")
+	plan, found := k2.GetUpgradePlan(ctx2, "LEGACY-UPGRADE")
 	if !found {
 		t.Fatal("upgrade plan not found after genesis roundtrip")
 	}
@@ -1629,32 +1681,113 @@ func TestUpgradePlan_NoScheduleWithoutPlan(t *testing.T) {
 	mockUK := &mockUpgradeKeeper{}
 	k.SetUpgradeKeeper(mockUK)
 
-	// Submit upgrade LIP WITHOUT attaching a plan.
-	ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice"), Title: "Upgrade No Plan", Description: "Test",
-		Category: types.CategoryUpgrade, InitialStake: "1000000",
-	})
-
-	lip, _ := k.GetLIP(ctx, "LIP-1")
-	lip.Stage = types.StatusVoting
+	// Import a pre-retirement upgrade LIP without a plan.
+	lip := seedLegacyUpgradeLIP(k, ctx, "LEGACY-UPGRADE", types.StatusVoting)
 	lip.VotingEndBlock = 100
 	k.SetLIP(ctx, lip)
 
 	mock.delegations[testAddr("voter1")] = "500000"
 	ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: testAddr("voter1"), LipId: "LIP-1", Option: types.VoteYes,
+		Voter: testAddr("voter1"), LipId: lip.Id, Option: types.VoteYes,
 	})
 
 	k.BeginBlocker(ctx)
 
-	// LIP should pass but ScheduleUpgrade should NOT be called (no plan).
-	lip, _ = k.GetLIP(ctx, "LIP-1")
-	if lip.Stage != types.StatusPassed {
-		t.Errorf("expected passed, got %s", lip.Stage)
+	// An approved upgrade cannot be represented as passed unless scheduling
+	// also succeeds.
+	lip, _ = k.GetLIP(ctx, lip.Id)
+	if lip.Stage != types.StatusFailed {
+		t.Errorf("expected fail-closed status, got %s", lip.Stage)
 	}
 	if mockUK.called {
 		t.Error("ScheduleUpgrade should not be called when no plan is attached")
 	}
+}
+
+func TestLegacyUpgradeLIPCannotAdvanceOrMutate(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	ms := keeper.NewMsgServerImpl(k)
+	lip := seedLegacyUpgradeLIP(k, ctx, "LEGACY-UPGRADE", types.StatusLastCall)
+	k.SetUpgradePlan(ctx, lip.Id, &types.UpgradePlan{
+		Name: "v2", Height: 40000, Info: "historical release manifest",
+	})
+
+	_, err := ms.AdvanceLIPStage(ctx, &types.MsgAdvanceLIPStage{
+		Authority: testAddr("alice"),
+		LipId:     lip.Id,
+	})
+	if err == nil || !types.ErrUpgradeScheduleFailed.Is(err) {
+		t.Fatalf("expected retired custom upgrade authority to be refused, got: %v", err)
+	}
+	lip, _ = k.GetLIP(ctx, lip.Id)
+	if lip.Stage != types.StatusLastCall {
+		t.Fatalf("failed transition must leave LIP in last_call, got %s", lip.Stage)
+	}
+
+	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
+		Proposer:    testAddr("alice"),
+		LipId:       lip.Id,
+		UpgradeName: "v3",
+		Height:      200000,
+		Info:        "replacement manifest",
+	})
+	if err == nil || !types.ErrUpgradeScheduleFailed.Is(err) {
+		t.Fatalf("expected retired authority to block mutation, got: %v", err)
+	}
+}
+
+func TestUpgradePlan_ScheduleErrorFailsClosed(t *testing.T) {
+	k, ctx, _ := setupWithStaking(t, "1000000")
+	mockUK := &mockUpgradeKeeper{err: fmt.Errorf("existing SDK upgrade plan")}
+	k.SetUpgradeKeeper(mockUK)
+
+	lip := seedLegacyUpgradeLIP(k, ctx, "LEGACY-CONFLICT", types.StatusVoting)
+	lip.VotingEndBlock = uint64(ctx.BlockHeight())
+	lip.YesStake = "1000000"
+	lip.UniqueVoters = 1
+	k.SetLIP(ctx, lip)
+	k.SetUpgradePlan(ctx, lip.Id, &types.UpgradePlan{
+		Name: "v2", Height: 40000, Info: "historical release manifest",
+	})
+
+	k.BeginBlocker(ctx)
+
+	lip, _ = k.GetLIP(ctx, lip.Id)
+	if lip.Stage != types.StatusFailed {
+		t.Fatalf("legacy custom upgrade must resolve to failed, got %s", lip.Stage)
+	}
+	foundFailureEvent := false
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type == "zerone.gov.upgrade_schedule_failed" {
+			foundFailureEvent = true
+		}
+	}
+	if !foundFailureEvent {
+		t.Fatal("expected deterministic upgrade_schedule_failed event")
+	}
+	if mockUK.called {
+		t.Fatal("retired legacy path must not attempt scheduling")
+	}
+}
+
+func TestBeginBlockerAcceptsNormalCacheIteratorExhaustion(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	k.SetLIP(ctx, &types.LIP{
+		Id:       "LIP-cache-eof",
+		Category: types.CategoryText,
+		Stage:    types.StatusDraft,
+	})
+	cacheCtx := ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf(
+				"normal cacheMergeIterator exhaustion must not panic BeginBlock: %v",
+				recovered,
+			)
+		}
+	}()
+	k.BeginBlocker(cacheCtx)
 }
 
 // ---------- Research Fund Threshold Tests ----------
@@ -1785,7 +1918,8 @@ func TestGetResearchFundBalance_NilBankKeeper(t *testing.T) {
 // ---------- Mock Emergency Keeper ----------
 
 type mockEmergencyKeeper struct {
-	halts map[string]uint64
+	halts  map[string]uint64
+	halted bool
 }
 
 func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
@@ -1793,6 +1927,10 @@ func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason stri
 		return m.halts[reason]
 	}
 	return 0
+}
+
+func (m *mockEmergencyKeeper) IsHalted(_ context.Context) bool {
+	return m.halted
 }
 
 // ---------- Phase Exit Condition Tests ----------
@@ -1894,11 +2032,11 @@ func TestGenesisRoundtrip_ResearchFundGovernance(t *testing.T) {
 
 	// Set non-default governance state.
 	state := &types.ResearchFundGovernanceState{
-		CurrentPhase:            types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER,
-		CommunitySeats:          []string{testAddr("seat1"), testAddr("seat2")},
+		CurrentPhase:             types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER,
+		CommunitySeats:           []string{testAddr("seat1"), testAddr("seat2")},
 		ProposalsExecutedInPhase: 3,
-		PhaseStartedAtBlock:     50000,
-		LastTransitionBlock:     50000,
+		PhaseStartedAtBlock:      50000,
+		LastTransitionBlock:      50000,
 	}
 	k.SetResearchFundGovernanceState(ctx, state)
 
@@ -2051,15 +2189,15 @@ func TestLIPAmendment_StakeOnReview(t *testing.T) {
 	}
 }
 
-// TestLIPCategoryValidation verifies that each valid category can be
-// used to submit a LIP successfully.
+// TestLIPCategoryValidation verifies ordinary custom LIP categories remain
+// available while executable software upgrades are routed exclusively through
+// standard SDK governance.
 func TestLIPCategoryValidation(t *testing.T) {
 	k, ctx := setupKeeper(t)
 	ms := keeper.NewMsgServerImpl(k)
 
 	categories := []string{
 		types.CategoryParameter,
-		types.CategoryUpgrade,
 		types.CategoryText,
 		types.CategoryResearchSpend,
 	}
@@ -2082,6 +2220,12 @@ func TestLIPCategoryValidation(t *testing.T) {
 			}
 			_ = i
 		})
+	}
+	if _, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
+		Proposer: testAddr("alice"), Title: "Retired upgrade", Description: "Test",
+		Category: types.CategoryUpgrade, InitialStake: "1000000",
+	}); err == nil || !types.ErrUpgradeScheduleFailed.Is(err) {
+		t.Fatalf("upgrade category should route to standard SDK governance, got %v", err)
 	}
 }
 
@@ -2258,83 +2402,62 @@ func TestParamChangeRollbackOnError(t *testing.T) {
 
 // ========== NEW PORTED TESTS: Upgrade Proposals ==========
 
-// TestUpgradeLIPScheduled verifies that when an upgrade-category LIP with a
-// plan passes, the upgrade is scheduled on the mock upgrade keeper.
+// TestUpgradeLIPScheduled verifies that an imported custom upgrade LIP is
+// retired without touching x/upgrade; standard SDK governance is the only
+// executable authority.
 func TestUpgradeLIPScheduled(t *testing.T) {
-	k, ctx, mock := setupWithStaking(t, "1000000")
-	ms := keeper.NewMsgServerImpl(k)
+	k, ctx, _ := setupWithStaking(t, "1000000")
 
 	mockUK := &mockUpgradeKeeper{}
 	k.SetUpgradeKeeper(mockUK)
 
-	resp, _ := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice"), Title: "Scheduled Upgrade", Description: "Test",
-		Category: types.CategoryUpgrade, InitialStake: "1000000",
-	})
-	ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer: testAddr("alice"), LipId: resp.LipId,
-		UpgradeName: "v3.0.0", Height: 9999, Info: "release-v3",
-	})
-
-	lip, _ := k.GetLIP(ctx, resp.LipId)
-	lip.Stage = types.StatusVoting
+	lip := seedLegacyUpgradeLIP(k, ctx, "LEGACY-SCHEDULED", types.StatusVoting)
 	lip.VotingEndBlock = 100
 	k.SetLIP(ctx, lip)
-
-	mock.delegations[testAddr("voter1")] = "500000"
-	ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: testAddr("voter1"), LipId: resp.LipId, Option: types.VoteYes,
+	k.SetUpgradePlan(ctx, lip.Id, &types.UpgradePlan{
+		Name: "v3.0.0", Height: 40000, Info: "release-v3",
 	})
 
 	k.BeginBlocker(ctx)
 
-	if !mockUK.called {
-		t.Fatal("expected ScheduleUpgrade to be called")
+	if mockUK.called {
+		t.Fatal("retired custom authority must not call ScheduleUpgrade")
 	}
-	if mockUK.plan.Name != "v3.0.0" {
-		t.Errorf("plan name: got %q, want v3.0.0", mockUK.plan.Name)
-	}
-	if mockUK.plan.Height != 9999 {
-		t.Errorf("plan height: got %d, want 9999", mockUK.plan.Height)
+	lip, _ = k.GetLIP(ctx, lip.Id)
+	if lip.Stage != types.StatusFailed {
+		t.Fatalf("legacy custom upgrade LIP must fail closed, got %s", lip.Stage)
 	}
 }
 
 // TestUpgradeLIPHeightValidation verifies that attaching an upgrade plan
 // with height=0 or negative height fails validation.
 func TestUpgradeLIPHeightValidation(t *testing.T) {
-	k, ctx := setupKeeper(t)
-	ms := keeper.NewMsgServerImpl(k)
-
-	ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer: testAddr("alice"), Title: "Height Test", Description: "Test",
-		Category: types.CategoryUpgrade, InitialStake: "1000000",
-	})
-
 	// Zero height.
-	_, err := ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
+	err := (&types.MsgAttachUpgradePlan{
 		Proposer: testAddr("alice"), LipId: "LIP-1",
 		UpgradeName: "v2", Height: 0,
-	})
+	}).ValidateBasic()
 	if err == nil {
 		t.Error("expected error for zero height")
 	}
 
 	// Negative height.
-	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
+	err = (&types.MsgAttachUpgradePlan{
 		Proposer: testAddr("alice"), LipId: "LIP-1",
 		UpgradeName: "v2", Height: -1,
-	})
+	}).ValidateBasic()
 	if err == nil {
 		t.Error("expected error for negative height")
 	}
 
-	// Valid height should succeed.
-	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
+	// A structurally valid historical payload remains decodable even though
+	// the executable custom authority is retired.
+	err = (&types.MsgAttachUpgradePlan{
 		Proposer: testAddr("alice"), LipId: "LIP-1",
-		UpgradeName: "v2", Height: 1000,
-	})
+		UpgradeName: "v2", Height: 1000, Info: "release manifest",
+	}).ValidateBasic()
 	if err != nil {
-		t.Fatalf("expected success for valid height, got %v", err)
+		t.Fatalf("expected structurally valid payload, got %v", err)
 	}
 }
 
@@ -2771,12 +2894,14 @@ func TestValidateBasic_MsgAttachUpgradePlan(t *testing.T) {
 		msg     types.MsgAttachUpgradePlan
 		wantErr bool
 	}{
-		{"valid", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2", Height: 500}, false},
-		{"invalid addr", types.MsgAttachUpgradePlan{Proposer: "bad", LipId: "LIP-1", UpgradeName: "v2", Height: 500}, true},
-		{"empty lip_id", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "", UpgradeName: "v2", Height: 500}, true},
-		{"empty name", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "", Height: 500}, true},
-		{"zero height", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2", Height: 0}, true},
-		{"negative height", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2", Height: -1}, true},
+		{"valid", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2", Height: 500, Info: "release manifest"}, false},
+		{"invalid addr", types.MsgAttachUpgradePlan{Proposer: "bad", LipId: "LIP-1", UpgradeName: "v2", Height: 500, Info: "release manifest"}, true},
+		{"empty lip_id", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "", UpgradeName: "v2", Height: 500, Info: "release manifest"}, true},
+		{"empty name", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "", Height: 500, Info: "release manifest"}, true},
+		{"invalid name", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2 unsafe", Height: 500, Info: "release manifest"}, true},
+		{"zero height", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2", Height: 0, Info: "release manifest"}, true},
+		{"negative height", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2", Height: -1, Info: "release manifest"}, true},
+		{"empty info", types.MsgAttachUpgradePlan{Proposer: testAddr("alice"), LipId: "LIP-1", UpgradeName: "v2", Height: 500}, true},
 	}
 
 	for i := range tests {

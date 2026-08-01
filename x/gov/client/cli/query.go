@@ -37,9 +37,40 @@ func NewQueryCmd() *cobra.Command {
 		NewQuerySeatElectionCmd(),
 		NewQuerySeatElectionsCmd(),
 		NewQueryPendingPhaseTransitionCmd(),
+		NewQueryEmergencyTransitionHoldCmd(),
 	)
 
 	return queryCmd
+}
+
+func NewQueryEmergencyTransitionHoldCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "emergency-transition-hold",
+		Short: "Query the durable post-incident custom-governance review hold",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			req := &types.QueryEmergencyTransitionHoldRequest{}
+			resp := &types.QueryEmergencyTransitionHoldResponse{}
+			if err := clientCtx.Invoke(
+				cmd.Context(),
+				"/zerone.gov.v1.Query/EmergencyTransitionHold",
+				req,
+				resp,
+			); err != nil {
+				return fmt.Errorf(
+					"failed to query emergency transition hold: %w",
+					err,
+				)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
 }
 
 // NewQueryLIPCmd returns the command to query a LIP by ID.

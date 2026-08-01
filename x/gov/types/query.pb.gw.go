@@ -474,6 +474,27 @@ func local_request_Query_ResearchFundSeats_0(ctx context.Context, marshaler runt
 	return msg, metadata, err
 }
 
+func request_Query_EmergencyTransitionHold_0(ctx context.Context, marshaler runtime.Marshaler, client QueryClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq QueryEmergencyTransitionHoldRequest
+		metadata runtime.ServerMetadata
+	)
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.EmergencyTransitionHold(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_Query_EmergencyTransitionHold_0(ctx context.Context, marshaler runtime.Marshaler, server QueryServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq QueryEmergencyTransitionHoldRequest
+		metadata runtime.ServerMetadata
+	)
+	msg, err := server.EmergencyTransitionHold(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 // RegisterQueryHandlerServer registers the http handlers for service Query to "mux".
 // UnaryRPC     :call QueryServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
@@ -740,6 +761,26 @@ func RegisterQueryHandlerServer(ctx context.Context, mux *runtime.ServeMux, serv
 		}
 		forward_Query_ResearchFundSeats_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodGet, pattern_Query_EmergencyTransitionHold_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/zerone.gov.v1.Query/EmergencyTransitionHold", runtime.WithHTTPPathPattern("/zerone/gov/v1/emergency_transition_hold"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_Query_EmergencyTransitionHold_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_Query_EmergencyTransitionHold_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 
 	return nil
 }
@@ -1001,37 +1042,56 @@ func RegisterQueryHandlerClient(ctx context.Context, mux *runtime.ServeMux, clie
 		}
 		forward_Query_ResearchFundSeats_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodGet, pattern_Query_EmergencyTransitionHold_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/zerone.gov.v1.Query/EmergencyTransitionHold", runtime.WithHTTPPathPattern("/zerone/gov/v1/emergency_transition_hold"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Query_EmergencyTransitionHold_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_Query_EmergencyTransitionHold_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	return nil
 }
 
 var (
-	pattern_Query_LIP_0                    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"zerone", "gov", "v1", "lip", "lip_id"}, ""))
-	pattern_Query_LIPs_0                   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "lips"}, ""))
-	pattern_Query_Vote_0                   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5, 1, 0, 4, 1, 5, 6}, []string{"zerone", "gov", "v1", "lip", "lip_id", "vote", "voter"}, ""))
-	pattern_Query_Votes_0                  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"zerone", "gov", "v1", "lip", "lip_id", "votes"}, ""))
-	pattern_Query_TallyResult_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"zerone", "gov", "v1", "lip", "lip_id", "tally"}, ""))
-	pattern_Query_Params_0                 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "params"}, ""))
-	pattern_Query_ResearchSpend_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"zerone", "gov", "v1", "research_spend", "proposal_id"}, ""))
-	pattern_Query_ResearchSpends_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_spends"}, ""))
-	pattern_Query_ResearchVoters_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_voters"}, ""))
-	pattern_Query_ResearchFundGovernance_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_fund_governance"}, ""))
-	pattern_Query_SeatElection_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"zerone", "gov", "v1", "seat_election", "proposal_id"}, ""))
-	pattern_Query_SeatElections_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "seat_elections"}, ""))
-	pattern_Query_ResearchFundSeats_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_fund_seats"}, ""))
+	pattern_Query_LIP_0                     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"zerone", "gov", "v1", "lip", "lip_id"}, ""))
+	pattern_Query_LIPs_0                    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "lips"}, ""))
+	pattern_Query_Vote_0                    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5, 1, 0, 4, 1, 5, 6}, []string{"zerone", "gov", "v1", "lip", "lip_id", "vote", "voter"}, ""))
+	pattern_Query_Votes_0                   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"zerone", "gov", "v1", "lip", "lip_id", "votes"}, ""))
+	pattern_Query_TallyResult_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"zerone", "gov", "v1", "lip", "lip_id", "tally"}, ""))
+	pattern_Query_Params_0                  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "params"}, ""))
+	pattern_Query_ResearchSpend_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"zerone", "gov", "v1", "research_spend", "proposal_id"}, ""))
+	pattern_Query_ResearchSpends_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_spends"}, ""))
+	pattern_Query_ResearchVoters_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_voters"}, ""))
+	pattern_Query_ResearchFundGovernance_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_fund_governance"}, ""))
+	pattern_Query_SeatElection_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"zerone", "gov", "v1", "seat_election", "proposal_id"}, ""))
+	pattern_Query_SeatElections_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "seat_elections"}, ""))
+	pattern_Query_ResearchFundSeats_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "research_fund_seats"}, ""))
+	pattern_Query_EmergencyTransitionHold_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"zerone", "gov", "v1", "emergency_transition_hold"}, ""))
 )
 
 var (
-	forward_Query_LIP_0                    = runtime.ForwardResponseMessage
-	forward_Query_LIPs_0                   = runtime.ForwardResponseMessage
-	forward_Query_Vote_0                   = runtime.ForwardResponseMessage
-	forward_Query_Votes_0                  = runtime.ForwardResponseMessage
-	forward_Query_TallyResult_0            = runtime.ForwardResponseMessage
-	forward_Query_Params_0                 = runtime.ForwardResponseMessage
-	forward_Query_ResearchSpend_0          = runtime.ForwardResponseMessage
-	forward_Query_ResearchSpends_0         = runtime.ForwardResponseMessage
-	forward_Query_ResearchVoters_0         = runtime.ForwardResponseMessage
-	forward_Query_ResearchFundGovernance_0 = runtime.ForwardResponseMessage
-	forward_Query_SeatElection_0           = runtime.ForwardResponseMessage
-	forward_Query_SeatElections_0          = runtime.ForwardResponseMessage
-	forward_Query_ResearchFundSeats_0      = runtime.ForwardResponseMessage
+	forward_Query_LIP_0                     = runtime.ForwardResponseMessage
+	forward_Query_LIPs_0                    = runtime.ForwardResponseMessage
+	forward_Query_Vote_0                    = runtime.ForwardResponseMessage
+	forward_Query_Votes_0                   = runtime.ForwardResponseMessage
+	forward_Query_TallyResult_0             = runtime.ForwardResponseMessage
+	forward_Query_Params_0                  = runtime.ForwardResponseMessage
+	forward_Query_ResearchSpend_0           = runtime.ForwardResponseMessage
+	forward_Query_ResearchSpends_0          = runtime.ForwardResponseMessage
+	forward_Query_ResearchVoters_0          = runtime.ForwardResponseMessage
+	forward_Query_ResearchFundGovernance_0  = runtime.ForwardResponseMessage
+	forward_Query_SeatElection_0            = runtime.ForwardResponseMessage
+	forward_Query_SeatElections_0           = runtime.ForwardResponseMessage
+	forward_Query_ResearchFundSeats_0       = runtime.ForwardResponseMessage
+	forward_Query_EmergencyTransitionHold_0 = runtime.ForwardResponseMessage
 )

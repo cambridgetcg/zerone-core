@@ -52,6 +52,7 @@ type FundingRecorder interface {
 // EmergencyKeeper defines the emergency module interface for governance condition checking.
 type EmergencyKeeper interface {
 	CountHaltsForReason(ctx context.Context, reason string) uint64
+	IsHalted(ctx context.Context) bool
 }
 
 // AlignmentKeeper defines the alignment module interface for health-aware governance.

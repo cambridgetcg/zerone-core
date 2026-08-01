@@ -1,5 +1,5 @@
 import { GeneratedType, Registry } from "@cosmjs/proto-signing";
-import { MsgProposeHalt, MsgVoteHalt, MsgProposeRevert, MsgVoteRevert, MsgProposeResume, MsgVoteResume, MsgUpdateParams } from "./tx.js";
+import { MsgProposeHalt, MsgVoteHalt, MsgProposeRevert, MsgVoteRevert, MsgProposeResume, MsgVoteResume, MsgProposeRecoveryAuthorization, MsgVoteRecoveryAuthorization, MsgUpdateParams } from "./tx.js";
 export declare const registry: ReadonlyArray<[string, GeneratedType]>;
 export declare const load: (protoRegistry: Registry) => void;
 export declare const MessageComposer: {
@@ -25,6 +25,14 @@ export declare const MessageComposer: {
             value: Uint8Array<ArrayBufferLike>;
         };
         voteResume(value: MsgVoteResume): {
+            typeUrl: string;
+            value: Uint8Array<ArrayBufferLike>;
+        };
+        proposeRecoveryAuthorization(value: MsgProposeRecoveryAuthorization): {
+            typeUrl: string;
+            value: Uint8Array<ArrayBufferLike>;
+        };
+        voteRecoveryAuthorization(value: MsgVoteRecoveryAuthorization): {
             typeUrl: string;
             value: Uint8Array<ArrayBufferLike>;
         };
@@ -58,6 +66,14 @@ export declare const MessageComposer: {
             typeUrl: string;
             value: MsgVoteResume;
         };
+        proposeRecoveryAuthorization(value: MsgProposeRecoveryAuthorization): {
+            typeUrl: string;
+            value: MsgProposeRecoveryAuthorization;
+        };
+        voteRecoveryAuthorization(value: MsgVoteRecoveryAuthorization): {
+            typeUrl: string;
+            value: MsgVoteRecoveryAuthorization;
+        };
         updateParams(value: MsgUpdateParams): {
             typeUrl: string;
             value: MsgUpdateParams;
@@ -87,6 +103,14 @@ export declare const MessageComposer: {
         voteResume(value: MsgVoteResume): {
             typeUrl: string;
             value: MsgVoteResume;
+        };
+        proposeRecoveryAuthorization(value: MsgProposeRecoveryAuthorization): {
+            typeUrl: string;
+            value: MsgProposeRecoveryAuthorization;
+        };
+        voteRecoveryAuthorization(value: MsgVoteRecoveryAuthorization): {
+            typeUrl: string;
+            value: MsgVoteRecoveryAuthorization;
         };
         updateParams(value: MsgUpdateParams): {
             typeUrl: string;
