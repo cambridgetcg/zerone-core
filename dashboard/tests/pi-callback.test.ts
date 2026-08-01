@@ -259,7 +259,9 @@ describe("Pi callback page hardening", () => {
       /VITE_PI_WALLET_PROOF_ENABLED === "true"/,
     );
     assert.match(source, /if \(!PI_PILOT_ENABLED\) return/);
-    assert.match(source, /void initialisePiPilotIfEnabled\(\)/);
+    assert.match(source, /const piPilotReady = initialisePiPilotIfEnabled\(\)/);
+    assert.match(source, /window\.location\.hash !== "#contribute" \|\| piPilotSection\.hidden/);
+    assert.match(source, /piPilotReady\.then\(alignPiHash\)/);
     assert.match(
       source,
       /initialiseConstructiveTree\(constructiveTreeRoot\)/,
@@ -272,6 +274,29 @@ describe("Pi callback page hardening", () => {
     assert.ok(html.indexOf('id="life"') < html.indexOf('id="contribute"'));
     assert.match(html, /href="#skills"[^>]*>Browse without signing in/);
     assert.match(html, /<span>08<\/span> Optional account pilot/);
+  });
+
+  it("requires informed confirmation before subject-linked pilot deletion", () => {
+    const source = readFileSync(PI_TRANSPORT_PATH, "utf8");
+    const ui = readFileSync(resolve(DASHBOARD_ROOT, "src/pi-ui.ts"), "utf8");
+    const html = readFileSync(MAIN_HTML_PATH, "utf8");
+    assert.match(source, /piRequest\("\/api\/pi\/data"/u);
+    assert.match(source, /confirmation: "delete-pi-pilot-data-v1"/u);
+    assert.match(ui, /deletePiPilotData\(session\.csrfToken\)/u);
+    assert.match(html, /id="pi-data-dialog"/u);
+    assert.match(html, /id="pi-data-check" type="checkbox" required/u);
+    assert.match(html, /subject guard blocks older in-flight authorization[\s\S]*?row may remain until operator cleanup/u);
+    assert.match(html, /Promoted markers[\s\S]*?may be retained indefinitely/u);
+    assert.match(html, /30 days on a[\s\S]*?Workers Paid plan[\s\S]*?seven days on a Workers Free plan/u);
+    assert.match(html, /currently authenticated app-specific/u);
+    assert.match(html, /not my Pi account/u);
+    assert.match(html, /does not revoke or alter Pi, Keplr/u);
+    assert.match(html, /id="pi-data-title" tabindex="-1"/u);
+    assert.match(html, /id="pi-data-status" role="status" aria-live="polite"/u);
+    assert.match(ui, /dataForm\.setAttribute\("aria-busy", "true"\)/u);
+    assert.match(ui, /dataTitle\.focus\(\)/u);
+    assert.match(ui, /dataDialog\.close\(\);\s*consentOpenButton\.focus\(\)/u);
+    assert.doesNotMatch(ui, /cancel[\s\S]{0,100}preventDefault/u);
   });
 });
 

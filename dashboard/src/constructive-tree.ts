@@ -174,6 +174,16 @@ export interface ConstructiveTreeIndex {
   dependentsById: ReadonlyMap<string, readonly ConstructiveTreeNode[]>;
 }
 
+export interface ConstructiveTreeCapabilityReference {
+  readonly id: string;
+  readonly title: string;
+}
+
+export interface ConstructiveTreeController {
+  openCapability(id: string): boolean;
+  resolveCapability(id: string): ConstructiveTreeCapabilityReference | null;
+}
+
 export interface ConstructiveTreeFilters {
   query: string;
   stage: ConstructiveTreeStage | "all";
@@ -1683,7 +1693,7 @@ function renderExplorer(
   root: HTMLElement,
   tree: ConstructiveIntelligenceTree,
   asOf: string,
-): void {
+): ConstructiveTreeController {
   const index = buildConstructiveTreeIndex(tree);
   const container = element("div", "ci-tree-explorer");
   container.append(renderPolicy(tree, asOf));
@@ -1938,6 +1948,22 @@ function renderExplorer(
       selectNode(relatedId, false, true),
     );
   }
+  return Object.freeze({
+    openCapability(id: string): boolean {
+      if (!index.byId.has(id)) return false;
+      root.closest<HTMLElement>("#skills")?.scrollIntoView({
+        block: "start",
+      });
+      selectNode(id, true, true);
+      return true;
+    },
+    resolveCapability(id: string): ConstructiveTreeCapabilityReference | null {
+      const capability = index.byId.get(id);
+      return capability
+        ? Object.freeze({ id: capability.id, title: capability.title })
+        : null;
+    },
+  });
 }
 
 function todayUtc(): string {
@@ -1947,12 +1973,16 @@ function todayUtc(): string {
 export async function initialiseConstructiveTree(
   root: HTMLElement,
   options: ConstructiveTreeFetchOptions & { asOf?: string } = {},
-): Promise<void> {
-  const load = async (): Promise<void> => {
+): Promise<ConstructiveTreeController | null> {
+  const load = async (): Promise<ConstructiveTreeController | null> => {
     root.setAttribute("aria-busy", "true");
     try {
       const tree = await fetchConstructiveIntelligenceTree(options);
-      renderExplorer(root, tree, options.asOf ?? todayUtc());
+      const controller = renderExplorer(
+        root,
+        tree,
+        options.asOf ?? todayUtc(),
+      );
       if (window.location.hash === "#skills") {
         requestAnimationFrame(() => {
           root.closest<HTMLElement>("#skills")?.scrollIntoView({
@@ -1960,6 +1990,7 @@ export async function initialiseConstructiveTree(
           });
         });
       }
+      return controller;
     } catch (error) {
       root.setAttribute("aria-busy", "false");
       const state = element("div", "ci-tree-load-error");
@@ -1989,7 +2020,8 @@ export async function initialiseConstructiveTree(
       actions.append(retry, source);
       state.append(actions);
       root.replaceChildren(state);
+      return null;
     }
   };
-  await load();
+  return load();
 }
