@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -1021,20 +1022,18 @@ func TestSwap_MinReserveCheck(t *testing.T) {
 	}
 }
 
-// TestSwap_ProtocolFeeToFeeCollector pins gate 2: the protocol's share of
-// the swap fee (fee × protocol_fee_bps / 1e6) moves from the pool module
-// account to fee_collector, reserves shrink by exactly that share (so LP
-// share math stays honest), and the module account balance still equals the
-// recorded reserves.
-func TestSwap_ProtocolFeeToFeeCollector(t *testing.T) {
+// TestSwap_FeesRemainWithLiquidityProviders pins the consensus-v5 economic
+// boundary: no swap skim leaves module custody, so the full trading fee
+// accrues to LP shares through the increased reserves.
+func TestSwap_FeesRemainWithLiquidityProviders(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
 
 	senderAddr := testSender
 	bk.setBalance(senderAddr, "uzrn", 100_000)
 
-	// Default pool fee 3,000 bps (0.3%), default protocol share 450,000 (45%).
-	// tokenIn 10,000 -> fee = 30 -> protocol share = 30*450000/1e6 = 13 (floor).
+	// Default pool fee is 3,000 PPM (0.3%). tokenIn 10,000 reports fee 30,
+	// while every input unit remains in the pool.
 	resp, err := ms.Swap(ctx, &types.MsgSwap{
 		Sender:        senderAddr,
 		PoolId:        poolId,
@@ -1048,16 +1047,38 @@ func TestSwap_ProtocolFeeToFeeCollector(t *testing.T) {
 		t.Fatalf("expected total fee 30, got %s", resp.FeeAmount)
 	}
 
-	// Protocol share landed in fee_collector.
+	// No liquidity revenue lands in fee_collector.
 	got := bk.moduleBalances["fee_collector"]["uzrn"]
-	if got != 13 {
-		t.Errorf("expected 13 uzrn in fee_collector, got %d", got)
+	if got != 0 {
+		t.Errorf("expected no uzrn in fee_collector, got %d", got)
 	}
 
-	// Reserves: input side gains tokenIn minus the protocol share.
+	// Reserves gain the complete input; LP ownership remains proportional.
 	pool, _ := k.GetPool(ctx, poolId)
-	if pool.ReserveA != "100000009987" { // 100B + 10,000 - 13
-		t.Errorf("expected reserve A 100000009987, got %s", pool.ReserveA)
+	if pool.ReserveA != "100000010000" {
+		t.Errorf("expected reserve A 100000010000, got %s", pool.ReserveA)
+	}
+	var sawSwap bool
+	var sawProtocolFee bool
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type != "zerone.liquiditypool.swap" {
+			continue
+		}
+		sawSwap = true
+		for _, attr := range event.Attributes {
+			if attr.Key == "protocol_fee" {
+				sawProtocolFee = true
+				if attr.Value != "0" {
+					t.Fatalf("swap event advertised a retired protocol fee: %s", attr.Value)
+				}
+			}
+		}
+	}
+	if !sawSwap {
+		t.Fatal("expected swap event")
+	}
+	if !sawProtocolFee {
+		t.Fatal("swap event omitted protocol_fee compatibility attribute")
 	}
 
 	// Reserve accounting matches actual module holdings for both denoms.
@@ -1071,44 +1092,66 @@ func TestSwap_ProtocolFeeToFeeCollector(t *testing.T) {
 	}
 }
 
-// TestSwap_ZeroProtocolFee: with protocol_fee_bps = 0 the whole fee accrues
-// to LPs and nothing reaches fee_collector.
-func TestSwap_ZeroProtocolFee(t *testing.T) {
-	ms, k, ctx, bk := setupMsgServer(t)
-
+func TestParamsRejectProtocolSkim(t *testing.T) {
 	params := defaultTestParams()
-	params.ProtocolFeeBps = 0
-	k.SetParams(ctx, params)
+	params.ProtocolFeeBps = 1
+	if err := params.Validate(); err == nil {
+		t.Fatal("nonzero protocol_fee_bps was accepted")
+	}
+}
 
-	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+func TestSwapRefusesLegacyFeeStateBeforeV5Migration(t *testing.T) {
+	ms, k, ctx, bk := setupMsgServer(t)
+	poolID := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
+	bk.setBalance(testSender, "uzrn", 100_000)
 
-	senderAddr := testSender
-	bk.setBalance(senderAddr, "uzrn", 100_000)
+	legacyParams := k.GetParams(ctx)
+	legacyParams.ProtocolFeeBps = 450_000
+	k.SetParams(ctx, legacyParams)
+	poolBefore, _ := k.GetPool(ctx, poolID)
+	senderBefore := bk.balances[testSender]["uzrn"]
+	moduleBefore := bk.moduleBalances[types.ModuleName]["uzrn"]
+	eventCountBefore := len(ctx.EventManager().Events())
 
 	_, err := ms.Swap(ctx, &types.MsgSwap{
-		Sender:        senderAddr,
-		PoolId:        poolId,
+		Sender:        testSender,
+		PoolId:        poolID,
 		TokenInDenom:  "uzrn",
 		TokenInAmount: "10000",
 	})
-	if err != nil {
-		t.Fatalf("swap failed: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "consensus v5 is not activated") {
+		t.Fatalf("legacy fee state must fail closed before H1, got %v", err)
+	}
+	poolAfter, _ := k.GetPool(ctx, poolID)
+	if poolAfter.ReserveA != poolBefore.ReserveA || poolAfter.ReserveB != poolBefore.ReserveB || poolAfter.Locked != poolBefore.Locked {
+		t.Fatalf("refused pre-H1 swap changed pool: before=%v after=%v", poolBefore, poolAfter)
+	}
+	if got := bk.balances[testSender]["uzrn"]; got != senderBefore {
+		t.Fatalf("refused pre-H1 swap changed sender balance: got %d want %d", got, senderBefore)
+	}
+	if got := bk.moduleBalances[types.ModuleName]["uzrn"]; got != moduleBefore {
+		t.Fatalf("refused pre-H1 swap changed module balance: got %d want %d", got, moduleBefore)
+	}
+	if got := len(ctx.EventManager().Events()); got != eventCountBefore {
+		t.Fatalf("refused pre-H1 swap emitted events: got count %d want %d", got, eventCountBefore)
 	}
 
-	if got := bk.moduleBalances["fee_collector"]["uzrn"]; got != 0 {
-		t.Errorf("expected no protocol fee, fee_collector holds %d", got)
+	if err := keeper.NewMigrator(k).Migrate4to5(ctx); err != nil {
+		t.Fatalf("migrate legacy fee state to v5: %v", err)
 	}
-	pool, _ := k.GetPool(ctx, poolId)
-	if pool.ReserveA != "100000010000" { // full tokenIn stays with the pool
-		t.Errorf("expected reserve A 100000010000, got %s", pool.ReserveA)
+	if _, err := ms.Swap(ctx, &types.MsgSwap{
+		Sender:        testSender,
+		PoolId:        poolID,
+		TokenInDenom:  "uzrn",
+		TokenInAmount: "10000",
+	}); err != nil {
+		t.Fatalf("v5 migration did not unlock swap execution: %v", err)
 	}
 }
 
 // TestSwap_CounterDenomInTakesNoProtocolFee pins the fee-routing fix: on a
-// swap whose INPUT is the counter (non-uzrn) denom, NO protocol fee is skimmed
-// (RouteFees only splits uzrn), the whole fee accrues to LPs, fee_collector
-// receives nothing, and recorded reserves still match module holdings on both
-// sides. Guards the asymmetric else-branch the audit found untested.
+// swap whose INPUT is the counter (non-uzrn) denom also keeps the complete fee
+// in reserves. This guards fee neutrality in both trade directions.
 func TestSwap_CounterDenomInTakesNoProtocolFee(t *testing.T) {
 	ms, k, ctx, bk := setupMsgServer(t)
 	poolId := createTestPool(t, ms, ctx, bk, "uzrn", "uatom", "100000000000", "200000000000")
@@ -1974,6 +2017,41 @@ func TestQuerySimulateSwap(t *testing.T) {
 	outAmt.SetString(resp.Result.TokenOutAmount, 10)
 	if outAmt.Sign() <= 0 {
 		t.Error("expected positive simulated output")
+	}
+}
+
+func TestQuerySimulateSwapRefusesLegacyFeeStateBeforeV5Migration(t *testing.T) {
+	k, ctx, _ := setupKeeper(t)
+	qs := keeper.NewQueryServerImpl(k)
+	pool := &types.Pool{
+		PoolId:     "pool-1",
+		DenomA:     "uzrn",
+		DenomB:     "uatom",
+		ReserveA:   "1000000",
+		ReserveB:   "2000000",
+		SwapFeeBps: 3_000,
+		Status:     types.PoolStatus_POOL_STATUS_ACTIVE,
+	}
+	k.SetPool(ctx, pool)
+	legacyParams := k.GetParams(ctx)
+	legacyParams.ProtocolFeeBps = 450_000
+	k.SetParams(ctx, legacyParams)
+	eventCountBefore := len(ctx.EventManager().Events())
+
+	_, err := qs.SimulateSwap(ctx, &types.QuerySimulateSwapRequest{
+		PoolId:        pool.PoolId,
+		TokenInDenom:  pool.DenomA,
+		TokenInAmount: "10000",
+	})
+	if err == nil || !strings.Contains(err.Error(), "consensus v5 is not activated") {
+		t.Fatalf("legacy fee state must not advertise a v5 quote, got %v", err)
+	}
+	stored, found := k.GetPool(ctx, pool.PoolId)
+	if !found || stored.ReserveA != pool.ReserveA || stored.ReserveB != pool.ReserveB || stored.Locked != pool.Locked {
+		t.Fatalf("refused pre-H1 quote changed pool: want=%v got=%v", pool, stored)
+	}
+	if got := len(ctx.EventManager().Events()); got != eventCountBefore {
+		t.Fatalf("refused pre-H1 quote emitted events: got count %d want %d", got, eventCountBefore)
 	}
 }
 

@@ -65,6 +65,10 @@ func (m Migrator) Migrate2to3(ctx sdk.Context) error {
 // history and starts a truthful observation window at the upgrade height.
 func (m Migrator) Migrate3to4(ctx sdk.Context) error {
 	params := m.keeper.GetParams(ctx)
+	// This H1 binary executes 3→4→5 sequentially. Normalize the retired fee
+	// field before v4's whole-state validation so the direct 3→5 transition
+	// cannot fail on a value that v5 removes immediately afterwards.
+	params.ProtocolFeeBps = 0
 	if params.MaxPools == 0 {
 		params.MaxPools = types.DefaultParams().MaxPools
 	} else if params.MaxPools > types.MaxPoolsCap {
@@ -170,5 +174,19 @@ func (m Migrator) Migrate3to4(ctx sdk.Context) error {
 	if report, broken := StateConsistencyInvariant(m.keeper)(ctx); broken {
 		return fmt.Errorf("v4 post-migration bank/state audit failed: %s", report)
 	}
+	return nil
+}
+
+// Migrate4to5 permanently retires the protocol swap skim for chains that
+// already recorded liquiditypool consensus v4. Migrate3to4 normalizes the
+// field only for direct 3→5 execution; this explicit boundary prevents a v4
+// version map from skipping the economic transition.
+func (m Migrator) Migrate4to5(ctx sdk.Context) error {
+	params := m.keeper.GetParams(ctx)
+	params.ProtocolFeeBps = 0
+	if err := params.Validate(); err != nil {
+		return fmt.Errorf("v5 params migration: %w", err)
+	}
+	m.keeper.SetParams(ctx, params)
 	return nil
 }

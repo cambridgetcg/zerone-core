@@ -9157,7 +9157,7 @@
           "type": "array"
         },
         "protocolFeeBps": {
-          "description": "Protocol share of the floor-rounded fee, applied only to ZRN-input swaps\n(1M bps scale).",
+          "description": "Protocol share of the floor-rounded fee, applied only to ZRN-input swaps\n(1M bps scale).\nRetained for wire compatibility. Consensus v5 requires zero: the\nprotocol takes no swap skim and the full fee remains in pool reserves.",
           "format": "uint64",
           "type": "string"
         },

@@ -105,11 +105,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 		},
 		{
 			UpgradeName: UpgradeNameConsolidationSafetyV1,
-			Description: "consolidation-safety-v1 — coordinated activation for provisional conjectures, starvation-safe challenge settlement, protocol-wide substrate axis ceilings, adjudicated falsification clawback, bounded probes, and K-alpha recognition; knowledge v5→v6 records the boundary.",
-		},
-		{
-			UpgradeName: UpgradeNameLiquiditySafetyV2,
-			Description: "liquiditypool-safety-v2 — post-consolidation readiness checkpoint for liquiditypool consensus v4: closed final-exit tombstones, governance status and asset/creator admission, finite pool growth, governed fees with strict PPM math, and fail-closed ACTIVE-pool oracle selection; safe when an earlier RunMigrations already activated and recorded liquiditypool v4.",
+			Description: "consolidation-safety-v1 — exact H1 K5→6/P1→2/L3→5/V1→1 boundary: provisional knowledge safety, bounded claiming-pot issuance, liquidity lifecycle hardening, and permanent LP-only swap fees; founder retirement remains reserved for H2.",
 		},
 	}
 
@@ -154,6 +150,13 @@ func (app *ZeroneApp) RunUpgradeHandlerForTests(ctx context.Context, name string
 		return nil, fmt.Errorf("apply upgrade: %w", err)
 	}
 	return app.UpgradeKeeper.GetModuleVersionMap(ctx)
+}
+
+// RunMigrationsForPlanForTests exercises the plan/version boundary directly.
+// Unlike UpgradeKeeper.SetModuleVersionMap, it preserves omitted entries, so
+// negative tests can prove that a missing H1 bundle member fails closed.
+func (app *ZeroneApp) RunMigrationsForPlanForTests(ctx context.Context, name string, fromVM module.VersionMap, height int64) (module.VersionMap, error) {
+	return app.runMigrationsForPlan(ctx, upgradetypes.Plan{Name: name, Height: height, Info: "boundary test"}, fromVM)
 }
 
 // CurrentModuleVersionMap returns the module manager's current

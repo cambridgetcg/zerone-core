@@ -97,6 +97,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 3, migrator.Migrate3to4); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 4, migrator.Migrate4to5); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
+	}
 }
 
 func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
@@ -122,7 +125,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 // ConsensusVersion 4: explicit pool lifecycle, collision-safe/open indexes,
 // exportable next ID, retained windowed TWAP observations, finite pool bounds,
 // and fail-closed creator/denom admission.
-func (AppModule) ConsensusVersion() uint64 { return 4 }
+// ConsensusVersion 5: protocol_fee_bps is retired at zero and all swap fees
+// remain in pool reserves for LP holders pro rata.
+func (AppModule) ConsensusVersion() uint64 { return 5 }
 
 // BeginBlock updates TWAP accumulators through the finite open-pool index.
 func (am AppModule) BeginBlock(goCtx context.Context) error {

@@ -11,6 +11,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
+	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
+	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 const UpgradeNameTestnet = "v1.0.0-testnet"
@@ -23,7 +28,152 @@ const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
-const UpgradeNameLiquiditySafetyV2 = "liquiditypool-safety-v2"
+
+const consolidationMigrationMarker = "upgrade_marker_consolidation-safety-v1"
+
+type consolidationVersionBoundary struct {
+	module string
+	before uint64
+	after  uint64
+}
+
+// H1 is exactly three state transitions and one explicit non-transition.
+// vesting_rewards remains v1 here; its sole v1→v2 transition belongs to the
+// separately frozen H2 founder-renunciation binary.
+var consolidationVersionBoundaries = []consolidationVersionBoundary{
+	{module: knowledgetypes.ModuleName, before: 5, after: 6},
+	{module: claimingpottypes.ModuleName, before: 1, after: 2},
+	{module: liquiditypooltypes.ModuleName, before: 3, after: 5},
+	{module: vestingrewardstypes.ModuleName, before: 1, after: 1},
+}
+
+// runMigrationsForPlan prevents the atomic H1 bundle from silently riding an
+// older or unrelated named upgrade. H1 is valid only from its exact module-map
+// prestate: K5/P1/L3/V1, with every other module already at this binary's
+// target. Its marker is written by the caller only after this helper proves the
+// complete K6/P2/L5/V1 poststate.
+func (app *ZeroneApp) runMigrationsForPlan(
+	ctx context.Context,
+	plan upgradetypes.Plan,
+	fromVM module.VersionMap,
+) (module.VersionMap, error) {
+	targetVM := app.ModuleManager.GetVersionMap()
+	boundaryModules := make(map[string]struct{}, len(consolidationVersionBoundaries))
+	for _, boundary := range consolidationVersionBoundaries {
+		boundaryModules[boundary.module] = struct{}{}
+		got, ok := targetVM[boundary.module]
+		if !ok || got != boundary.after {
+			return nil, fmt.Errorf(
+				"upgrade %q requires binary target %s=%d; got %d (present=%t)",
+				UpgradeNameConsolidationSafetyV1,
+				boundary.module,
+				boundary.after,
+				got,
+				ok,
+			)
+		}
+	}
+	for _, name := range sortedVersionMapNames(fromVM) {
+		if _, known := targetVM[name]; !known {
+			return nil, fmt.Errorf(
+				"upgrade %q refuses unknown module version entry %q",
+				plan.Name,
+				name,
+			)
+		}
+	}
+
+	if plan.Name != UpgradeNameConsolidationSafetyV1 {
+		for _, boundary := range consolidationVersionBoundaries {
+			got, ok := fromVM[boundary.module]
+			if !ok || got != boundary.after {
+				return nil, fmt.Errorf(
+					"upgrade %q cannot carry the %q bundle: require %s=%d, got %d (present=%t)",
+					plan.Name,
+					UpgradeNameConsolidationSafetyV1,
+					boundary.module,
+					boundary.after,
+					got,
+					ok,
+				)
+			}
+		}
+		return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+	}
+
+	for _, boundary := range consolidationVersionBoundaries {
+		got, ok := fromVM[boundary.module]
+		if !ok || got != boundary.before {
+			return nil, fmt.Errorf(
+				"upgrade %q requires exact prestate %s=%d; got %d (present=%t)",
+				plan.Name,
+				boundary.module,
+				boundary.before,
+				got,
+				ok,
+			)
+		}
+	}
+
+	names := make([]string, 0, len(targetVM))
+	for name := range targetVM {
+		if _, isBoundary := boundaryModules[name]; !isBoundary {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		want := targetVM[name]
+		got, ok := fromVM[name]
+		if !ok || got != want {
+			return nil, fmt.Errorf(
+				"upgrade %q refuses unrelated migration for module %q: require version %d, got %d (present=%t)",
+				plan.Name,
+				name,
+				want,
+				got,
+				ok,
+			)
+		}
+	}
+
+	toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+	if err != nil {
+		return nil, err
+	}
+	if len(toVM) != len(targetVM) {
+		return nil, fmt.Errorf(
+			"upgrade %q produced invalid poststate size %d; require %d",
+			plan.Name,
+			len(toVM),
+			len(targetVM),
+		)
+	}
+	for _, name := range sortedVersionMapNames(targetVM) {
+		want := targetVM[name]
+		got, ok := toVM[name]
+		if !ok || got != want {
+			return nil, fmt.Errorf(
+				"upgrade %q produced invalid poststate %s=%d; require %d (present=%t)",
+				plan.Name,
+				name,
+				got,
+				want,
+				ok,
+			)
+		}
+	}
+	return toVM, nil
+}
+
+func sortedVersionMapNames(vm module.VersionMap) []string {
+	names := make([]string, 0, len(vm))
+	for name := range vm {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -37,7 +187,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		UpgradeNameTestnet,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-			return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			return app.runMigrationsForPlan(ctx, plan, fromVM)
 		},
 	)
 
@@ -49,7 +199,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +223,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -99,7 +249,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -131,7 +281,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -162,7 +312,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -202,7 +352,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -242,7 +392,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -298,7 +448,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -333,18 +483,41 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	//     settlement of legacy stored records;
 	//   - falsification clawback requires an adjudicated disproven fact;
 	//   - knowledge probe work is cursor-bounded and K-alpha recognition is
-	//     emitted only for eligible factual survival.
+	//     emitted only for eligible factual survival;
+	//   - liquiditypool v5 keeps every swap fee in the pool for bearer LP
+	//     shares and permanently refuses a protocol skim.
 	//
-	// knowledge v5→v6 provides a verifiable module-version boundary. The
-	// claiming_pot v1→v2 migration charges pre-upgrade general pots against the
-	// lifetime issuance budget and reconstructs their monotonic ID counter.
+	// H1 is the exact K5→6/P1→2/L3→5/V1→1 boundary. The claiming_pot migration
+	// charges pre-upgrade general pots against the lifetime issuance budget and
+	// reconstructs their monotonic ID counter. vesting_rewards remains v1; its
+	// founder-retirement migration is reserved exclusively for H2.
 	// Operators therefore cannot mistake a plain binary restart for activation.
 	app.UpgradeKeeper.SetUpgradeHandler(
 		UpgradeNameConsolidationSafetyV1,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			marker, markerFound, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+				ctx,
+				consolidationMigrationMarker,
+			)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q cannot verify migration marker absence: %w",
+					plan.Name,
+					err,
+				)
+			}
+			if markerFound {
+				return nil, fmt.Errorf(
+					"upgrade %q requires migration marker %q to be absent before execution; found %q",
+					plan.Name,
+					consolidationMigrationMarker,
+					marker,
+				)
+			}
+
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -352,44 +525,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			// Permanent reconcile step (kept in every handler — see v1.0.3).
 			app.ReconcileModuleAccountPerms(ctx)
 
-			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_consolidation-safety-v1", "migrated"); err != nil {
-				return nil, err
-			}
-
-			return toVM, nil
-		},
-	)
-
-	// liquiditypool-safety-v2 — the named post-consolidation readiness
-	// checkpoint for
-	// liquiditypool consensus v4. The v4 state transition makes pool lifecycle
-	// explicit and bounded: final exits close rather than leave re-seedable
-	// zero-supply pools, governance controls pool status, pool growth is finite,
-	// creator-selected fees are disabled, asset/creator admission starts empty,
-	// fee math uses a strict parts-per-million scale, and oracle reads remain
-	// fail-closed unless a quote denom and ACTIVE pool are both approved.
-	//
-	// consolidation-safety-v1 is already pending and must be scheduled first.
-	// Its RunMigrations call may advance liquiditypool v3→v4 before this named
-	// checkpoint is reached. That is intentional and safe: RunMigrations skips a
-	// module already at its current ConsensusVersion, while this handler still
-	// reconciles stored module-account permissions and records the dedicated
-	// liquidity readiness marker. Operators must not enable native pools or
-	// their oracle before this later upgrade and its release gates pass.
-	app.UpgradeKeeper.SetUpgradeHandler(
-		UpgradeNameLiquiditySafetyV2,
-		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
-			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
-			if err != nil {
-				return nil, err
-			}
-
-			// Permanent reconcile step (kept in every handler — see v1.0.3).
-			app.ReconcileModuleAccountPerms(ctx)
-
-			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_liquiditypool-safety-v2", "migrated"); err != nil {
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, consolidationMigrationMarker, "migrated"); err != nil {
 				return nil, err
 			}
 
@@ -460,13 +596,6 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameAgenttoolSeamV1, UpgradeNameConsolidationSafetyV1:
 		// Migration-only — both upgrades operate within existing module stores
 		// and add no top-level store keys.
-		storeUpgrades := storetypes.StoreUpgrades{}
-		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
-
-	case UpgradeNameLiquiditySafetyV2:
-		// Migration-only — liquiditypool v3→v4 uses new fields and prefixes in
-		// the existing liquiditypool store. If consolidation-safety-v1 already
-		// advanced the module to v4, RunMigrations skips it safely.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

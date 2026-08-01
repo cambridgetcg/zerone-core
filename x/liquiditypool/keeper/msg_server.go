@@ -8,7 +8,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/zerone-chain/zerone/x/liquiditypool/types"
 )
@@ -180,6 +179,13 @@ func (m msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (
 
 func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSwapResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	// A plan-less restart of the v5 source against legacy v3/v4 state must not
+	// silently change fee routing before the named H1 migration. The legacy
+	// nonzero field is therefore an activation sentinel: fail closed until the
+	// 3→5 or 4→5 migration retires it at zero.
+	if err := m.Keeper.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	quote, err := m.Keeper.checkedSwapQuote(ctx, msg.PoolId, msg.TokenInDenom, msg.TokenInAmount)
 	if err != nil {
 		return nil, err
@@ -210,12 +216,11 @@ func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSw
 		m.Keeper.SetPool(ctx, quote.pool)
 	}
 
-	params := m.Keeper.GetParams(ctx)
+	// Consensus v5 has no protocol skim. The complete input amount remains in
+	// module custody, while the constant-product spread increases reserves for
+	// LP holders pro rata. Keep the zero-valued event field for wire/indexer
+	// compatibility with the pre-v5 implementation.
 	protocolFee := new(big.Int)
-	if msg.TokenInDenom == types.ZRNDenom {
-		protocolFee.Mul(quote.feeAmount, new(big.Int).SetUint64(params.ProtocolFeeBps))
-		protocolFee.Div(protocolFee, bpsBasis)
-	}
 	if m.Keeper.bankKeeper != nil {
 		if err := m.Keeper.bankKeeper.SendCoinsFromAccountToModule(
 			ctx, senderAddr, types.ModuleName, inCoins,
@@ -230,19 +235,6 @@ func (m msgServer) Swap(goCtx context.Context, msg *types.MsgSwap) (*types.MsgSw
 			unlock()
 			return nil, fmt.Errorf("output transfer failed: %w", err)
 		}
-		if protocolFee.Sign() > 0 {
-			protocolCoins := sdk.NewCoins(
-				sdk.NewCoin(msg.TokenInDenom, sdkmath.NewIntFromBigInt(protocolFee)),
-			)
-			if err := m.Keeper.bankKeeper.SendCoinsFromModuleToModule(
-				ctx, types.ModuleName, authtypes.FeeCollectorName, protocolCoins,
-			); err != nil {
-				unlock()
-				return nil, fmt.Errorf("protocol fee transfer failed: %w", err)
-			}
-		}
-	} else {
-		protocolFee.SetInt64(0)
 	}
 
 	newReserveIn := new(big.Int).Add(quote.reserveIn, quote.tokenIn)

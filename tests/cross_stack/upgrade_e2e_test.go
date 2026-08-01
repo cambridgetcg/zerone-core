@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/types/module"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
@@ -52,22 +51,18 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 				"knowledge module advertises its current ConsensusVersion")
 		case liquiditypooltypes.ModuleName:
 			sawLiquidityPool = true
-			require.Equal(t, uint64(4), m.ConsensusVersion,
-				"liquiditypool module advertises the safety-v2 ConsensusVersion")
+			require.Equal(t, uint64(5), m.ConsensusVersion,
+				"liquiditypool module advertises the H1 economic-neutrality version")
 		}
 	}
 	require.True(t, sawKnowledge, "knowledge module appears in report")
 	require.True(t, sawLiquidityPool, "liquiditypool module appears in report")
 }
 
-// TestUpgrade_V1ToV2MigrationPipeline — exercise the v1.0.1-testnet upgrade
-// against the knowledge module downshifted from its current ConsensusVersion
-// to v1. Exercises the full pipeline Migrate1to2 → Migrate2to3 → Migrate3to4
-// in sequence. Other modules stay at their current version (no migration
-// runs for them — we're not testing SDK-module migrations here, which have
-// their own Cosmos SDK test coverage and require test fixtures this harness
-// doesn't set up).
-func TestUpgrade_V1ToV2MigrationPipeline(t *testing.T) {
+// Historical handlers cannot be reused to smuggle any member of the atomic H1
+// bundle across its activation boundary. Module migrator unit tests retain
+// coverage of the old mechanics; this cross-stack test covers plan identity.
+func TestUpgrade_OldV1ToV2PlanRefusesH1Catchup(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Build fromVM: all modules at current, knowledge downshifted to v1.
@@ -79,30 +74,16 @@ func TestUpgrade_V1ToV2MigrationPipeline(t *testing.T) {
 	fromVM["knowledge"] = 1
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
-	require.NoError(t, err, "v1.0.1-testnet handler completes without error")
-	require.Equal(t, uint64(6), toVM["knowledge"],
-		"knowledge module advances to its current ConsensusVersion (6) via full migration chain")
-
-	// All migrations ran in sequence — each wrote its marker.
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v2_complete"),
-		"v1→v2 migration marker proves Migrate1to2 ran")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
-		"v3→v4 migration marker proves Migrate3to4 ran mid-chain")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
-		"v4→v5 migration marker proves Migrate4to5 ran")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
-		"v5→v6 migration marker proves Migrate5to6 ran at the end of the chain")
-
-	// The v1.0.1 handler-level marker was written by the upgrade handler itself.
-	handlerMarker := h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1")
-	require.Equal(t, "migrated", handlerMarker,
-		"handler-level marker proves the named upgrade handler executed")
+	require.Error(t, err)
+	require.Nil(t, toVM)
+	require.Contains(t, err.Error(), "cannot carry")
+	require.Contains(t, err.Error(), zeroneapp.UpgradeNameConsolidationSafetyV1)
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1"),
+		"a refused historical plan must not claim activation")
 }
 
-// TestUpgrade_V3ToV4KnowledgeMigrationPipeline — exercise the
-// v1.0.2-testnet upgrade, which in turn fires the knowledge v3→v4
-// migration (TraceSchema backfill + v4 marker).
-func TestUpgrade_V3ToV4KnowledgeMigrationPipeline(t *testing.T) {
+func TestUpgrade_OldV3ToV4PlanRefusesH1Catchup(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Synthetic fromVM: knowledge at v3, everything else at current.
@@ -113,33 +94,14 @@ func TestUpgrade_V3ToV4KnowledgeMigrationPipeline(t *testing.T) {
 	}
 	fromVM["knowledge"] = 3 // downshift so v3→v4 migration fires
 
-	// NO pre-seeded TraceSchema — the v4 migration must backfill it.
-	_, seeded := h.KnowledgeKeeper.GetTraceSchema(h.Ctx)
-	if seeded {
-		t.Log("trace schema already present pre-upgrade; v4 migration will be a no-op on schema")
-	}
-
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
-	require.NoError(t, err)
-	require.Equal(t, uint64(6), toVM["knowledge"],
-		"knowledge module is now at ConsensusVersion 6 post-migration (chain now extends 3→4→5→6)")
-
-	// v4 + v5 migration markers prove Migrate3to4 and Migrate4to5 both ran.
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
-		"v4 migration marker present")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
-		"v5 migration marker present")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
-		"v6 migration marker present")
-
-	// TraceSchema is present post-upgrade.
-	schema, ok := h.KnowledgeKeeper.GetTraceSchema(h.Ctx)
-	require.True(t, ok, "TraceSchema is backfilled by v4 migration")
-	require.Equal(t, uint64(1), schema.Version)
-
-	// v1.0.2 handler-level marker.
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.2"))
+	require.Error(t, err)
+	require.Nil(t, toVM)
+	require.Contains(t, err.Error(), "cannot carry")
+	require.Contains(t, err.Error(), zeroneapp.UpgradeNameConsolidationSafetyV1)
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"))
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.2"),
+		"a refused historical plan must not claim activation")
 }
 
 // TestUpgrade_UnknownHandlerRejected — calling an unregistered upgrade
@@ -199,8 +161,8 @@ func TestUpgrade_MigrationMarkerIdempotent(t *testing.T) {
 	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(h.Ctx, "test_marker", "alpha"))
 	require.Equal(t, "alpha", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "test_marker"))
 
-	// Different value — preserves original, does not error (warns via log).
-	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(h.Ctx, "test_marker", "beta"))
+	// Different value — preserves original and fails closed.
+	require.Error(t, h.KnowledgeKeeper.WriteMigrationMarker(h.Ctx, "test_marker", "beta"))
 	require.Equal(t, "alpha", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "test_marker"),
 		"first writer wins: conflicting value does not overwrite")
 }
@@ -228,23 +190,8 @@ func TestUpgrade_LineageParityWithHandlers(t *testing.T) {
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameDoctrineMetabolismExemptV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSubstrateDedupeV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameConsolidationSafetyV1)
-	require.Contains(t, lineageNames, zeroneapp.UpgradeNameLiquiditySafetyV2)
-
-	// Operators must apply the already-pending consolidation boundary first.
-	// Keep the advertised lineage in that same order.
-	var consolidationIndex, liquidityIndex = -1, -1
-	for i, name := range lineageNames {
-		switch name {
-		case zeroneapp.UpgradeNameConsolidationSafetyV1:
-			consolidationIndex = i
-		case zeroneapp.UpgradeNameLiquiditySafetyV2:
-			liquidityIndex = i
-		}
-	}
-	require.NotEqual(t, -1, consolidationIndex)
-	require.NotEqual(t, -1, liquidityIndex)
-	require.Less(t, consolidationIndex, liquidityIndex,
-		"liquiditypool-safety-v2 must be advertised after consolidation-safety-v1")
+	require.Equal(t, zeroneapp.UpgradeNameConsolidationSafetyV1, lineageNames[len(lineageNames)-1],
+		"H1 must be the final executable plan in this source-only binary")
 }
 
 // TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1
@@ -362,6 +309,7 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 	}
 	fromVM["knowledge"] = 5
 	fromVM["claiming_pot"] = 1
+	fromVM[liquiditypooltypes.ModuleName] = 3
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
@@ -372,6 +320,8 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(6), toVM["knowledge"])
 	require.Equal(t, uint64(2), toVM["claiming_pot"])
+	require.Equal(t, uint64(5), toVM[liquiditypooltypes.ModuleName])
+	require.Equal(t, uint64(1), toVM["vesting_rewards"])
 	require.Equal(t, "true",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
 		"knowledge migration marker proves the module activation boundary ran")
@@ -394,6 +344,7 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 	}
 	fromVM["knowledge"] = 5
 	fromVM["claiming_pot"] = 1
+	fromVM[liquiditypooltypes.ModuleName] = 3
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
@@ -405,6 +356,8 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 		"a permissionless unrelated ballot must not be able to halt a scheduled upgrade")
 	require.Equal(t, uint64(6), toVM["knowledge"])
 	require.Equal(t, uint64(2), toVM["claiming_pot"])
+	require.Equal(t, uint64(5), toVM[liquiditypooltypes.ModuleName])
+	require.Equal(t, uint64(1), toVM["vesting_rewards"])
 	require.Equal(t, "true",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
 	require.Equal(t, "migrated",
@@ -413,100 +366,4 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 	require.True(t, found)
 	require.Equal(t, zeronegovtypes.StatusVoting, lip.Stage,
 		"the upgrade must not rewrite an unrelated ballot")
-}
-
-// TestUpgrade_LiquiditySafetyV2AfterConsolidationIsIdempotent binds the
-// production sequencing rule. consolidation-safety-v1 runs migrations first
-// and may therefore advance liquiditypool v3→v4. The later, dedicated
-// liquiditypool-safety-v2 handler must still succeed, keep the module at v4,
-// reconcile permissions, and record its own readiness checkpoint.
-func TestUpgrade_LiquiditySafetyV2AfterConsolidationIsIdempotent(t *testing.T) {
-	h := NewTestHarness(t)
-
-	current := h.App.CurrentModuleVersionMap()
-	require.Equal(t, uint64(4), current[liquiditypooltypes.ModuleName],
-		"test requires the approved liquiditypool consensus v4 binary")
-
-	// Reproduce the v3 params shape: zero meant unlimited and neither
-	// creation-admission field existed on the wire.
-	legacyParams := h.App.LiquidityPoolKeeper.GetParams(h.Ctx)
-	legacyParams.MaxPools = 0
-	legacyParams.AllowedPoolDenoms = nil
-	legacyParams.PoolCreators = nil
-	h.App.LiquidityPoolKeeper.SetParams(h.Ctx, legacyParams)
-
-	beforeConsolidation := make(module.VersionMap, len(current))
-	for name, version := range current {
-		beforeConsolidation[name] = version
-	}
-	beforeConsolidation[liquiditypooltypes.ModuleName] = 3
-
-	afterConsolidation, err := h.App.RunUpgradeHandlerForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameConsolidationSafetyV1,
-		beforeConsolidation,
-		h.Height(),
-	)
-	require.NoError(t, err)
-	require.Equal(t, uint64(4), afterConsolidation[liquiditypooltypes.ModuleName],
-		"the earlier RunMigrations may already advance liquiditypool to v4")
-	migratedParams := h.App.LiquidityPoolKeeper.GetParams(h.Ctx)
-	require.Equal(t, uint64(16), migratedParams.MaxPools,
-		"v4 migration must replace the legacy unlimited pool cap")
-	require.Empty(t, migratedParams.AllowedPoolDenoms,
-		"v4 migration must leave asset admission fail-closed")
-	require.Empty(t, migratedParams.PoolCreators,
-		"v4 migration must leave creator admission fail-closed")
-
-	afterLiquidityReadiness, err := h.App.RunUpgradeHandlerForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameLiquiditySafetyV2,
-		afterConsolidation,
-		h.Height()+1,
-	)
-	require.NoError(t, err,
-		"the named liquidity readiness checkpoint must be safe after v4 already migrated")
-	require.Equal(t, uint64(4), afterLiquidityReadiness[liquiditypooltypes.ModuleName])
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_liquiditypool-safety-v2"),
-		"the dedicated handler marker proves the later readiness checkpoint ran")
-}
-
-// TestUpgrade_LiquiditySafetyV2ReconcilesModulePermissions proves the new
-// handler retains the permanent safety step shared by all release handlers.
-func TestUpgrade_LiquiditySafetyV2ReconcilesModulePermissions(t *testing.T) {
-	h := NewTestHarness(t)
-
-	moduleAccount := h.AccountKeeper.GetModuleAccount(h.Ctx, liquiditypooltypes.ModuleName)
-	require.NotNil(t, moduleAccount)
-
-	// Reproduce an old stored account whose permissions drifted from maccPerms.
-	h.AccountKeeper.SetModuleAccount(h.Ctx, authtypes.NewModuleAccount(
-		authtypes.NewBaseAccount(
-			moduleAccount.GetAddress(),
-			nil,
-			moduleAccount.GetAccountNumber(),
-			moduleAccount.GetSequence(),
-		),
-		liquiditypooltypes.ModuleName,
-	))
-
-	drifted := h.AccountKeeper.GetModuleAccount(h.Ctx, liquiditypooltypes.ModuleName)
-	require.Empty(t, drifted.GetPermissions(), "precondition: stored permissions drifted")
-
-	fromVM := h.App.CurrentModuleVersionMap()
-	toVM, err := h.App.RunUpgradeHandlerForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameLiquiditySafetyV2,
-		fromVM,
-		h.Height(),
-	)
-	require.NoError(t, err)
-	require.Equal(t, uint64(4), toVM[liquiditypooltypes.ModuleName])
-
-	reconciled := h.AccountKeeper.GetModuleAccount(h.Ctx, liquiditypooltypes.ModuleName)
-	require.ElementsMatch(t,
-		[]string{authtypes.Minter, authtypes.Burner},
-		reconciled.GetPermissions(),
-		"handler must restore the permissions declared by app maccPerms")
 }

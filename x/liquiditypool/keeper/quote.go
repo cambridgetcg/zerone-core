@@ -20,6 +20,20 @@ type checkedSwapQuote struct {
 	denomOut   string
 }
 
+// requireLiquidityV5Activated makes the retired protocol-fee field an
+// activation sentinel shared by executable swaps and their public quote path.
+// A v5 binary started against pre-H1 state must neither execute nor advertise
+// the post-H1 economics before the named migration writes zero.
+func (k Keeper) requireLiquidityV5Activated(ctx sdk.Context) error {
+	if protocolFeeBps := k.GetParams(ctx).ProtocolFeeBps; protocolFeeBps != 0 {
+		return fmt.Errorf(
+			"liquiditypool consensus v5 is not activated: protocol_fee_bps=%d; require migrated zero",
+			protocolFeeBps,
+		)
+	}
+	return nil
+}
+
 // CheckedSwapQuote is the public quote surface shared by gRPC simulation and
 // execution. A successful result has passed the same pool-state and bank-denom
 // gates against the same unchanged state: lifecycle, lock, integer bounds,
@@ -30,6 +44,9 @@ func (k Keeper) CheckedSwapQuote(
 	ctx sdk.Context,
 	poolID, tokenInDenom, tokenInAmount string,
 ) (*types.SwapResult, error) {
+	if err := k.requireLiquidityV5Activated(ctx); err != nil {
+		return nil, err
+	}
 	quote, err := k.checkedSwapQuote(ctx, poolID, tokenInDenom, tokenInAmount)
 	if err != nil {
 		return nil, err
