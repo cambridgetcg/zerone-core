@@ -23,12 +23,12 @@ import (
 // Tracks per-address balances with full debit/credit semantics.
 
 type simBankKeeper struct {
-	mu             sync.Mutex
-	balances       map[string]sdk.Coins
-	supply         map[string]sdkmath.Int
-	modules        map[string]sdk.AccAddress
-	cumulMinted    sdkmath.Int // total uzrn ever minted
-	cumulBurned    sdkmath.Int // total uzrn ever burned
+	mu          sync.Mutex
+	balances    map[string]sdk.Coins
+	supply      map[string]sdkmath.Int
+	modules     map[string]sdk.AccAddress
+	cumulMinted sdkmath.Int // total uzrn ever minted
+	cumulBurned sdkmath.Int // total uzrn ever burned
 }
 
 func newSimBankKeeper(moduleNames []string) *simBankKeeper {
@@ -241,7 +241,6 @@ type SimState struct {
 	agents      []*simAgent
 	tools       []*simTool
 	moduleNames []string
-	founderAddr sdk.AccAddress
 
 	currentHeight      int64
 	currentEpoch       int
@@ -414,9 +413,6 @@ func checkNoOrphanedTokens(s *SimState) error {
 	for _, mod := range s.moduleNames {
 		knownAddrs[s.bank.moduleAddr(mod)] = true
 	}
-	if s.founderAddr != nil {
-		knownAddrs[s.founderAddr.String()] = true
-	}
 	orphaned := sdkmath.ZeroInt()
 	for addr, coins := range s.bank.balances {
 		if !knownAddrs[addr] {
@@ -486,13 +482,11 @@ func checkToolRevenueGenerated(s *SimState) error {
 
 func checkFounderShareImmutable(s *SimState) error {
 	params := s.vestingKeeper.GetParams(s.ctx)
-	// Founder share params must match genesis values (70000 BPS, founder_sim address).
-	if params.FounderShareBps != 70000 {
-		return fmt.Errorf("founder share BPS changed: expected 70000, got %d", params.FounderShareBps)
+	if params.FounderShareBps != 0 {
+		return fmt.Errorf("founder share BPS changed: expected 0, got %d", params.FounderShareBps)
 	}
-	if s.founderAddr != nil && params.FounderAddress != s.founderAddr.String() {
-		return fmt.Errorf("founder address changed: expected %s, got %s",
-			s.founderAddr.String(), params.FounderAddress)
+	if params.FounderAddress != "" {
+		return fmt.Errorf("founder address changed: expected empty, got %s", params.FounderAddress)
 	}
 	return nil
 }

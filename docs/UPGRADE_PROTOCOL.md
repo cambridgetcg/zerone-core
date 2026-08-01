@@ -12,12 +12,28 @@ Upgrades in Zerone are engineered at four layers that reinforce each other:
 The test layer exercises all four, end-to-end, via `app.RunUpgradeHandlerForTests` — see `tests/cross_stack/upgrade_e2e_test.go`.
 
 The current production lineage is ordered
-`consolidation-safety-v1` → `liquiditypool-safety-v2`. The first
+`consolidation-safety-v1` → `liquiditypool-safety-v2` →
+`founder-renunciation-v1`. The first
 `RunMigrations` is expected to activate and advance liquiditypool to v4; the
 later named handler is an intentionally idempotent readiness marker. Native
 pool/oracle activation remains gated by
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md), not merely by the
 module version.
+
+The final step is deliberately non-hitchhiking. While a chain still reports
+`vesting_rewards=1`, the combined source binary refuses every other plan name;
+only `founder-renunciation-v1` may run the v1→v2 migration. Earlier plan names
+must use their exact historical release binary, never moving `main`.
+The dedicated handler additionally requires `vesting_rewards=1`, every other
+module at the release binary's current version, and a binary that targets
+exactly vesting-rewards v2; only after it observes poststate v2 may it write
+the handler marker.
+
+Historical v1 genesis artifacts are immutable compatibility evidence, not v2
+genesis templates. Validate or replay them with the exact historical v1 binary;
+the v2 binary intentionally rejects their retired founder parameters and must
+reach existing state through the named migration rather than a rewritten
+genesis.
 
 The liquidity v3→v4 migration quarantines every positive legacy pool as
 `EXIT_ONLY`; it never turns on trading or deposits as a side effect of the
@@ -223,6 +239,10 @@ For purely additive proto changes with no state shape change, no new upgrade nam
    `liquiditypool-safety-v2` checkpoint records release readiness and
    reconciles module-account permissions. Neither handler admits a native
    pool or billing quote denom.
+8. Founder-renunciation separation — unrelated plans fail before they can
+   advance vesting-rewards v1→v2; the dedicated name accepts only the exact
+   single-module prestate, clears the compatibility fields, asserts v2, and
+   only then records its marker.
 
 **Run it before every upgrade release.** If this passes, the mechanism works; if a new wave's migration is correct, it's part of this test; if it isn't, the wave has no verified upgrade path.
 

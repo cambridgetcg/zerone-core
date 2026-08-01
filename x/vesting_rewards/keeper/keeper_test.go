@@ -1561,27 +1561,26 @@ func TestRouteFees_OnlyProcessesUzrn(t *testing.T) {
 	}
 }
 
-// ==================== Founder Auto-Split Tests ====================
+// ==================== Permanent Founder Renunciation Tests ====================
 
-func setupFounderKeeper(t *testing.T, bk *mockBankKeeper, founderAddr string, govHeight uint64) (keeper.Keeper, sdk.Context) {
+func setupFounderKeeper(t *testing.T, bk *mockBankKeeper, _ string, govHeight uint64) (keeper.Keeper, sdk.Context) {
 	t.Helper()
 	gs := types.DefaultGenesis()
-	gs.Params.FounderShareBps = 70000
-	gs.Params.FounderAddress = founderAddr
 	gs.Params.GovernanceActivationHeight = govHeight
 	return setupKeeperWithBankAndGenesis(t, bk, &mockStakingKeeper{activeCount: 22}, gs)
 }
 
-func TestFounderAutoSplit(t *testing.T) {
-	// Block reward with founder: verify 7% of research goes to founder.
+func TestFounderRenunciationRoutesCompleteResearchShare(t *testing.T) {
+	// The v2 source state routes the complete research share and exposes only a
+	// zero-valued compatibility output. Legacy-state clearing is tested by the
+	// dedicated v1-to-v2 migrator tests.
 	// Math (epoch 0, full validators):
 	//   Total minted:       10,000,000
 	//   Contributor 55%:    5,500,000
 	//   Protocol 22%:       2,200,000
 	//   Research 3.33%:     333,000
 	//   Development 19.67%: 1,967,000 (remainder)
-	//   Founder (7% of research): 333,000 * 70000 / 1000000 = 23,310
-	//   Net research:       333,000 - 23,310 = 309,690
+	//   Founder:             0 (constitutionally renounced)
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
@@ -1595,23 +1594,23 @@ func TestFounderAutoSplit(t *testing.T) {
 	if dist.TotalMinted != "10000000" {
 		t.Errorf("expected total minted 10000000, got %s", dist.TotalMinted)
 	}
-	if dist.FounderShare != "23310" {
-		t.Errorf("expected founder share 23310, got %s", dist.FounderShare)
+	if dist.FounderShare != "0" {
+		t.Errorf("expected founder share 0, got %s", dist.FounderShare)
 	}
-	if dist.ResearchShare != "309690" {
-		t.Errorf("expected net research share 309690, got %s", dist.ResearchShare)
+	if dist.ResearchShare != "333000" {
+		t.Errorf("expected full research share 333000, got %s", dist.ResearchShare)
 	}
 	if dist.ProducerReward != "5500000" {
 		t.Errorf("expected producer reward 5500000, got %s", dist.ProducerReward)
 	}
 
 	founderCoins := bk.sentToAccount[founderAddr]
-	if founderCoins.AmountOf("uzrn").Int64() != 23310 {
-		t.Errorf("expected 23310 uzrn to founder, got %d", founderCoins.AmountOf("uzrn").Int64())
+	if founderCoins.AmountOf("uzrn").Int64() != 0 {
+		t.Errorf("expected no founder transfer, got %d", founderCoins.AmountOf("uzrn").Int64())
 	}
 	researchCoins := bk.sentToModule["research_fund"]
-	if researchCoins.AmountOf("uzrn").Int64() != 309690 {
-		t.Errorf("expected 309690 uzrn to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
+	if researchCoins.AmountOf("uzrn").Int64() != 333000 {
+		t.Errorf("expected 333000 uzrn to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
 	}
 }
 
@@ -1634,9 +1633,7 @@ func TestFounderSplitDisabled(t *testing.T) {
 	}
 }
 
-func TestFounderSplitIgnoresDeprecatedActivationHeight(t *testing.T) {
-	// The automatic height sunset was removed. A nonzero configured share with
-	// an address remains active until governance changes the BPS.
+func TestDeprecatedActivationHeightCannotReactivateFounderSplit(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
@@ -1647,19 +1644,17 @@ func TestFounderSplitIgnoresDeprecatedActivationHeight(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	// Configured founder share: 333000 * 70000 / 1000000 = 23310
-	if dist.FounderShare != "23310" {
-		t.Errorf("expected configured founder share 23310, got %s", dist.FounderShare)
+	if dist.FounderShare != "0" {
+		t.Errorf("expected founder share to remain zero, got %s", dist.FounderShare)
 	}
-	// Net research: 333000 - 23310 = 309690
-	if dist.ResearchShare != "309690" {
-		t.Errorf("expected net research share 309690, got %s", dist.ResearchShare)
+	if dist.ResearchShare != "333000" {
+		t.Errorf("expected full research share 333000, got %s", dist.ResearchShare)
 	}
 }
 
 // ==================== DepositToResearchFund Tests ====================
 
-func TestDepositToResearchFund_BasicSplit(t *testing.T) {
+func TestDepositToResearchFund_RoutesAllToResearch(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
@@ -1671,13 +1666,13 @@ func TestDepositToResearchFund_BasicSplit(t *testing.T) {
 	}
 
 	researchCoins := bk.sentToModule["research_fund"]
-	if researchCoins.AmountOf("uzrn").Int64() != 93000 {
-		t.Errorf("expected 93000 to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
+	if researchCoins.AmountOf("uzrn").Int64() != 100000 {
+		t.Errorf("expected 100000 to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
 	}
 
 	founderCoins := bk.sentToAccount[founderAddr]
-	if founderCoins.AmountOf("uzrn").Int64() != 7000 {
-		t.Errorf("expected 7000 to founder, got %d", founderCoins.AmountOf("uzrn").Int64())
+	if founderCoins.AmountOf("uzrn").Int64() != 0 {
+		t.Errorf("expected no founder transfer, got %d", founderCoins.AmountOf("uzrn").Int64())
 	}
 }
 
@@ -1701,9 +1696,7 @@ func TestDepositToResearchFund_NoFounderAddress(t *testing.T) {
 	}
 }
 
-func TestDepositToResearchFund_IgnoresDeprecatedActivationHeight(t *testing.T) {
-	// The deprecated height field does not switch off an otherwise active
-	// configured share; governance can still change the BPS.
+func TestDepositToResearchFund_DeprecatedHeightCannotReactivateFounder(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
@@ -1714,15 +1707,14 @@ func TestDepositToResearchFund_IgnoresDeprecatedActivationHeight(t *testing.T) {
 		t.Fatalf("DepositToResearchFund failed: %v", err)
 	}
 
-	// 7% founder: 100000 * 70000 / 1000000 = 7000; research: 93000
 	researchCoins := bk.sentToModule["research_fund"]
-	if researchCoins.AmountOf("uzrn").Int64() != 93000 {
-		t.Errorf("expected 93000 to research_fund with configured founder, got %d", researchCoins.AmountOf("uzrn").Int64())
+	if researchCoins.AmountOf("uzrn").Int64() != 100000 {
+		t.Errorf("expected 100000 to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
 	}
 
 	founderCoins := bk.sentToAccount[founderAddr]
-	if founderCoins.AmountOf("uzrn").Int64() != 7000 {
-		t.Errorf("expected 7000 to configured founder, got %d", founderCoins.AmountOf("uzrn").Int64())
+	if founderCoins.AmountOf("uzrn").Int64() != 0 {
+		t.Errorf("expected no founder transfer, got %d", founderCoins.AmountOf("uzrn").Int64())
 	}
 }
 
@@ -1767,11 +1759,11 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 			if attrs["total"] != "100000" {
 				t.Errorf("expected total=100000, got %s", attrs["total"])
 			}
-			if attrs["research"] != "93000" {
-				t.Errorf("expected research=93000, got %s", attrs["research"])
+			if attrs["research"] != "100000" {
+				t.Errorf("expected research=100000, got %s", attrs["research"])
 			}
-			if attrs["founder"] != "7000" {
-				t.Errorf("expected founder=7000, got %s", attrs["founder"])
+			if attrs["founder"] != "0" {
+				t.Errorf("expected founder=0, got %s", attrs["founder"])
 			}
 		}
 	}
@@ -1780,9 +1772,8 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 	}
 }
 
-// ==================== Founder Share Governance Tests ====================
-// Design §10: FounderShareBps floats within [0, FounderShareCapBps] under
-// governance; FounderAddress stays immutable once set.
+// ==================== Founder Renunciation Governance Tests ====================
+// In v2, ordinary governance cannot set either founder compatibility field.
 
 func TestUpdateParamsRejectsUnsafeRewardConfiguration(t *testing.T) {
 	tests := []struct {
@@ -1866,141 +1857,35 @@ func TestUpdateParamsRejectsNilParams(t *testing.T) {
 
 func TestFounderShareGovernance(t *testing.T) {
 	founderAddr := sdk.AccAddress("founder_____________").String()
-	otherAddr := sdk.AccAddress("another_founder_____").String()
-
-	tests := []struct {
-		name         string
-		initialBps   uint64
-		initialAddr  string
-		proposedBps  uint64
-		proposedAddr string
-		wantErr      error
-	}{
-		{
-			name:         "lower share accepted",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  50000,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "zero share accepted",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  0,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "restore share to founding cap accepted",
-			initialBps:   0,
-			initialAddr:  founderAddr,
-			proposedBps:  types.FounderShareCapBps,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "identical values accepted",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  70000,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "initial set accepted",
-			initialBps:   0,
-			initialAddr:  "",
-			proposedBps:  70000,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "raise above founding cap rejected",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  types.FounderShareCapBps + 1,
-			proposedAddr: founderAddr,
-			wantErr:      types.ErrFounderShareCapExceeded,
-		},
-		{
-			name:         "raise above cap from zeroed share rejected",
-			initialBps:   0,
-			initialAddr:  founderAddr,
-			proposedBps:  80000,
-			proposedAddr: founderAddr,
-			wantErr:      types.ErrFounderShareCapExceeded,
-		},
-		{
-			name:         "address change rejected",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  70000,
-			proposedAddr: otherAddr,
-			wantErr:      types.ErrFounderAddressImmutable,
-		},
-		{
-			name:         "address change alongside share lowering rejected",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  10000,
-			proposedAddr: otherAddr,
-			wantErr:      types.ErrFounderAddressImmutable,
-		},
+	for _, mutate := range []func(*types.Params){
+		func(p *types.Params) { p.FounderShareBps = 1 },
+		func(p *types.Params) { p.FounderAddress = founderAddr },
+		func(p *types.Params) { p.FounderShareBps, p.FounderAddress = 70_000, founderAddr },
+	} {
+		ms, k, ctx := setupMsgServer(t)
+		proposed := types.DefaultParams()
+		mutate(proposed)
+		if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{Authority: "authority", Params: proposed}); err == nil {
+			t.Fatal("expected governance attempt to restore founder benefit to fail")
+		}
+		stored := k.GetParams(ctx)
+		if stored.FounderShareBps != 0 || stored.FounderAddress != "" {
+			t.Fatalf("rejected update changed renounced fields: %+v", stored)
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			bk := newMockBankKeeper()
-			gs := types.DefaultGenesis()
-			gs.Params.FounderShareBps = tt.initialBps
-			gs.Params.FounderAddress = tt.initialAddr
-			k, ctx := setupKeeperWithBankAndGenesis(t, bk, &mockStakingKeeper{activeCount: 22}, gs)
-
-			ms := keeper.NewMsgServerImpl(k)
-
-			newParams := types.DefaultParams()
-			newParams.FounderShareBps = tt.proposedBps
-			newParams.FounderAddress = tt.proposedAddr
-
-			_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
-				Authority: "authority",
-				Params:    newParams,
-			})
-
-			if tt.wantErr != nil {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if err != tt.wantErr {
-					t.Fatalf("expected %v, got %v", tt.wantErr, err)
-				}
-				// Rejected proposals must not mutate stored params.
-				params := k.GetParams(ctx)
-				if params.FounderShareBps != tt.initialBps {
-					t.Errorf("expected FounderShareBps unchanged at %d, got %d", tt.initialBps, params.FounderShareBps)
-				}
-				if params.FounderAddress != tt.initialAddr {
-					t.Errorf("expected FounderAddress unchanged at %q, got %q", tt.initialAddr, params.FounderAddress)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("expected success, got: %v", err)
-			}
-			params := k.GetParams(ctx)
-			if params.FounderShareBps != tt.proposedBps {
-				t.Errorf("expected FounderShareBps %d, got %d", tt.proposedBps, params.FounderShareBps)
-			}
-			if params.FounderAddress != tt.proposedAddr {
-				t.Errorf("expected FounderAddress %s, got %s", tt.proposedAddr, params.FounderAddress)
-			}
-		})
+	ms, k, ctx := setupMsgServer(t)
+	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{Authority: "authority", Params: types.DefaultParams()}); err != nil {
+		t.Fatalf("zero/empty founder compatibility fields must remain updateable: %v", err)
+	}
+	if got := k.GetParams(ctx); got.FounderShareBps != 0 || got.FounderAddress != "" {
+		t.Fatalf("renunciation drifted: %+v", got)
 	}
 }
 
-// ==================== Founder Withdraw-Address Routing Tests ====================
+// ==================== Withdraw Mapping Cannot Restore Founder Benefit ====================
 
-func TestDepositToResearchFund_FounderPaidAtWithdrawAddress(t *testing.T) {
-	// Design §8b: the founder share is paid to the x/distribution withdraw
-	// address of FounderAddress, not to FounderAddress directly.
+func TestDepositToResearchFund_WithdrawMappingCannotRestoreFounder(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________")
 	withdrawAddr := sdk.AccAddress("founder_withdraw____")
@@ -2014,30 +1899,11 @@ func TestDepositToResearchFund_FounderPaidAtWithdrawAddress(t *testing.T) {
 		t.Fatalf("DepositToResearchFund failed: %v", err)
 	}
 
-	// Founder 7% of 100000 = 7000, routed to the withdraw address.
-	if got := bk.sentToAccount[withdrawAddr.String()].AmountOf("uzrn").Int64(); got != 7000 {
-		t.Errorf("expected 7000 uzrn at withdraw address, got %d", got)
+	if got := bk.sentToAccount[withdrawAddr.String()].AmountOf("uzrn").Int64(); got != 0 {
+		t.Errorf("expected no founder withdrawal transfer, got %d", got)
 	}
-	if _, ok := bk.sentToAccount[founderAddr.String()]; ok {
-		t.Errorf("founder share paid to FounderAddress directly despite withdraw mapping: %v", bk.sentToAccount[founderAddr.String()])
-	}
-}
-
-func TestDepositToResearchFund_FounderDefaultWithdrawAddressIsSelf(t *testing.T) {
-	// When no withdraw mapping is set, x/distribution defaults to the
-	// delegator itself — the founder is paid directly.
-	bk := newMockBankKeeper()
-	founderAddr := sdk.AccAddress("founder_____________")
-	k, ctx := setupFounderKeeper(t, bk, founderAddr.String(), 0)
-	k.SetDistributionKeeper(&mockDistrKeeper{})
-
-	depositCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(100000)))
-	if err := k.DepositToResearchFund(ctx, "billing", depositCoins); err != nil {
-		t.Fatalf("DepositToResearchFund failed: %v", err)
-	}
-
-	if got := bk.sentToAccount[founderAddr.String()].AmountOf("uzrn").Int64(); got != 7000 {
-		t.Errorf("expected 7000 uzrn at founder address, got %d", got)
+	if got := bk.sentToModule[types.ResearchFundModuleName].AmountOf("uzrn").Int64(); got != 100000 {
+		t.Errorf("expected complete deposit in research fund, got %d", got)
 	}
 }
 
@@ -2205,13 +2071,11 @@ func TestBeginBlock_UnresolvableProposerSkipsReward(t *testing.T) {
 	}
 }
 
-func TestNoAutomaticHeightSunset(t *testing.T) {
-	// The deprecated height does not create an automatic sunset. This test does
-	// not constrain governance's separate ability to change FounderShareBps.
+func TestDeprecatedHeightCannotReactivateRenouncedFounderShare(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 
-	// Set GovernanceActivationHeight to 500 — should be ignored.
+	// A legacy nonzero share/address and the deprecated height are both ignored.
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
 
 	// Test at block 1 (before activation height)
@@ -2221,8 +2085,8 @@ func TestNoAutomaticHeightSunset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("block 1 reward failed: %v", err)
 	}
-	if dist1.FounderShare == "0" {
-		t.Error("expected founder share active at block 1 (no sunset)")
+	if dist1.FounderShare != "0" {
+		t.Errorf("expected founder share zero at block 1, got %s", dist1.FounderShare)
 	}
 
 	// Test at block 10000 (well after activation height)
@@ -2233,8 +2097,8 @@ func TestNoAutomaticHeightSunset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("block 10000 reward failed: %v", err)
 	}
-	if dist2.FounderShare == "0" {
-		t.Error("expected founder share active at block 10000 (no sunset)")
+	if dist2.FounderShare != "0" {
+		t.Errorf("expected founder share zero at block 10000, got %s", dist2.FounderShare)
 	}
 
 	// Both should yield the same founder share amount
@@ -2265,7 +2129,7 @@ func TestQueryResearchFundBalance(t *testing.T) {
 	}
 }
 
-func TestQueryFounderShareStatus_Active(t *testing.T) {
+func TestQueryFounderShareStatus_ReportedRenounced(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
@@ -2276,14 +2140,14 @@ func TestQueryFounderShareStatus_Active(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FounderShareStatus query failed: %v", err)
 	}
-	if !resp.Active {
-		t.Error("expected founder share to be active")
+	if resp.Active {
+		t.Error("expected founder share to remain inactive")
 	}
-	if resp.FounderShareBps != 70000 {
-		t.Errorf("expected 70000 bps, got %d", resp.FounderShareBps)
+	if resp.FounderShareBps != 0 {
+		t.Errorf("expected 0 bps, got %d", resp.FounderShareBps)
 	}
-	if resp.FounderAddress != founderAddr {
-		t.Errorf("expected founder address %s, got %s", founderAddr, resp.FounderAddress)
+	if resp.FounderAddress != "" {
+		t.Errorf("expected empty founder address, got %s", resp.FounderAddress)
 	}
 }
 

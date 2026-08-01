@@ -48,7 +48,7 @@ source inventory and activation status.
 | Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); proposer rewards on transaction-bearing blocks |
 | Operator float (zerone-ops) | 2,222 ZRN | Disclosed float: gov deposits + onboarding feegrants |
 | Whitelisted agents | 0 ZRN | Bootstrap claim (0.222 ZRN each) via `x/claiming_pot` |
-| Founder | 0 ZRN | Dormant — `FounderAddress` unset; a stipend is gov-activatable later |
+| Founder-specific stipend | 0 ZRN | Retired in source v2; activation requires `founder-renunciation-v1` |
 | AI vault | 0 ZRN | Unconfigured design role; no live genesis voter was set |
 | Research Treasury | 0 ZRN | 3.33% of revenue split, accruing |
 | Foundation | 0 ZRN | Governance proposals over time, drawing from research treasury |
@@ -181,9 +181,15 @@ a narrow punitive burn path.
 
 ### Can the founder share be changed by governance?
 
-Partly. Governance may lower, zero, or restore `founder_share_bps` within its
-hard 7% cap. `founder_address` is immutable once set. At genesis it is unset,
-so the founder auto-split is inactive.
+No in vesting-rewards consensus v2. `founder_share_bps` is fixed at `0`,
+`founder_address` is fixed empty, storage validation rejects either value being
+restored, and reward routing contains no founder recipient. The compatibility
+fields remain on the wire and historical v1 records remain truthful.
+
+This change requires the named `founder-renunciation-v1` coordinated upgrade;
+source publication alone does not change the running chain. It removes a
+status-derived revenue path, not ordinary permissionless participation or the
+separately disclosed founding household's present validator and voting power.
 
 ### What is the development fund?
 

@@ -117,9 +117,10 @@ type Params struct {
 	// Revenue split (governance-adjustable)
 	RevenueSplit     *types.RevenueSplit     `protobuf:"bytes,4,opt,name=revenue_split,json=revenueSplit,proto3" json:"revenue_split,omitempty"`
 	ProtocolSubSplit *types.ProtocolSubSplit `protobuf:"bytes,5,opt,name=protocol_sub_split,json=protocolSubSplit,proto3" json:"protocol_sub_split,omitempty"`
-	// Founder share
-	FounderShareBps            uint64 `protobuf:"varint,6,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`                                  // founder's share of research fund (default: 70,000 = 7% on 1M scale)
-	FounderAddress             string `protobuf:"bytes,7,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`                                        // bech32, empty = disabled
+	// Compatibility-only founder fields. The tap is constitutionally renounced:
+	// source validation requires 0/empty and governance cannot restore it.
+	FounderShareBps            uint64 `protobuf:"varint,6,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`
+	FounderAddress             string `protobuf:"bytes,7,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`
 	GovernanceActivationHeight uint64 `protobuf:"varint,8,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"` // DEPRECATED — retained for wire compatibility; not an activation gate
 	// Compatibility-only declarations. Current reward execution does not read
 	// these entries; runtime updates must preserve them.

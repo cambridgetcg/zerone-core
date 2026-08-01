@@ -370,12 +370,13 @@ type RewardRouting struct {
 	Recipient         string                 `protobuf:"bytes,7,opt,name=recipient,proto3" json:"recipient,omitempty"`                                          // bech32 recipient address
 	FactId            string                 `protobuf:"bytes,8,opt,name=fact_id,json=factId,proto3" json:"fact_id,omitempty"`                                  // related fact
 	BlockNumber       uint64                 `protobuf:"varint,9,opt,name=block_number,json=blockNumber,proto3" json:"block_number,omitempty"`                  // block height
-	FounderShare      string                 `protobuf:"bytes,10,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`               // founder's operational share (bigint as string)
-	CitationPool      string                 `protobuf:"bytes,11,opt,name=citation_pool,json=citationPool,proto3" json:"citation_pool,omitempty"`               // protocol sub-split: citations (bigint as string)
-	VerificationPool  string                 `protobuf:"bytes,12,opt,name=verification_pool,json=verificationPool,proto3" json:"verification_pool,omitempty"`   // protocol sub-split: verification (bigint as string)
-	TreasuryShare     string                 `protobuf:"bytes,13,opt,name=treasury_share,json=treasuryShare,proto3" json:"treasury_share,omitempty"`            // protocol sub-split: treasury (bigint as string)
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Compatibility field: zero in v2+ outputs; legacy records may be nonzero.
+	FounderShare     string `protobuf:"bytes,10,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`
+	CitationPool     string `protobuf:"bytes,11,opt,name=citation_pool,json=citationPool,proto3" json:"citation_pool,omitempty"`             // protocol sub-split: citations (bigint as string)
+	VerificationPool string `protobuf:"bytes,12,opt,name=verification_pool,json=verificationPool,proto3" json:"verification_pool,omitempty"` // protocol sub-split: verification (bigint as string)
+	TreasuryShare    string `protobuf:"bytes,13,opt,name=treasury_share,json=treasuryShare,proto3" json:"treasury_share,omitempty"`          // protocol sub-split: treasury (bigint as string)
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *RewardRouting) Reset() {
@@ -509,8 +510,9 @@ type BlockRewardDistribution struct {
 	ValidatorCount uint32                 `protobuf:"varint,5,opt,name=validator_count,json=validatorCount,proto3" json:"validator_count,omitempty"` // active validators
 	// Legacy field name: cumulative shared MintWithCap accounting ledger after
 	// this distribution, not a spendable fund balance or full supply history.
-	FundBalanceAfter  string `protobuf:"bytes,6,opt,name=fund_balance_after,json=fundBalanceAfter,proto3" json:"fund_balance_after,omitempty"`
-	FounderShare      string `protobuf:"bytes,7,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`                // founder's operational share (bigint as string)
+	FundBalanceAfter string `protobuf:"bytes,6,opt,name=fund_balance_after,json=fundBalanceAfter,proto3" json:"fund_balance_after,omitempty"`
+	// Compatibility field: zero in v2+ records; preserved legacy records may be nonzero.
+	FounderShare      string `protobuf:"bytes,7,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`
 	DevelopmentAmount string `protobuf:"bytes,8,opt,name=development_amount,json=developmentAmount,proto3" json:"development_amount,omitempty"` // development fund amount (bigint as string)
 	ProtocolShare     string `protobuf:"bytes,9,opt,name=protocol_share,json=protocolShare,proto3" json:"protocol_share,omitempty"`             // protocol share (bigint as string)
 	unknownFields     protoimpl.UnknownFields

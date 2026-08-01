@@ -84,8 +84,6 @@ func TestEconomicSimulation(t *testing.T) {
 	// Init vesting genesis with simulation-tuned params.
 	gs := vestingtypes.DefaultGenesis()
 	gs.Params.BlocksPerRewardEpoch = simBlocksPerEpoch
-	founderAddr := sdk.AccAddress("founder_sim_________")
-	gs.Params.FounderAddress = founderAddr.String()
 	vk.InitGenesis(ctx, gs)
 
 	// ---- Seed state ----
@@ -104,7 +102,6 @@ func TestEconomicSimulation(t *testing.T) {
 		agents:             agents,
 		tools:              tools,
 		moduleNames:        moduleNames,
-		founderAddr:        founderAddr,
 		currentBlockReward: sdkmath.ZeroInt(),
 		lastEpochReward:    sdkmath.ZeroInt(),
 		totalMinted:        sdkmath.ZeroInt(),

@@ -58,10 +58,10 @@ message QueryResearchFundBalanceResponse {
 }
 message QueryFounderShareStatusRequest {}
 message QueryFounderShareStatusResponse {
-  bool active = 1;
-  uint64 founder_share_bps = 2;
-  string founder_address = 3;
-  uint64 governance_activation_height = 4;
+  bool active = 1; // compatibility field; always false in v2+
+  uint64 founder_share_bps = 2; // stored compatibility value; v1->v2 migration sets zero
+  string founder_address = 3; // stored compatibility value; v1->v2 migration clears it
+  uint64 governance_activation_height = 4; // deprecated; never activates the retired path
   uint64 current_height = 5;
 }
 

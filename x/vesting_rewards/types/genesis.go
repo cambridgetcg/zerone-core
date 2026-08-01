@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"reflect"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	commontypes "github.com/zerone-chain/zerone/x/common/types"
 )
 
@@ -39,9 +37,9 @@ func DefaultParams() *Params {
 		BlocksPerRewardEpoch:       100000,     // ~2.9 days at 2521ms
 		RevenueSplit:               DefaultRevenueSplit(),
 		ProtocolSubSplit:           DefaultProtocolSubSplit(),
-		FounderShareBps:            70000, // 7% of research fund
-		FounderAddress:             "",    // disabled by default
-		GovernanceActivationHeight: 0,     // no sunset
+		FounderShareBps:            0,  // constitutionally renounced
+		FounderAddress:             "", // constitutionally unassigned
+		GovernanceActivationHeight: 0,  // no sunset
 		CategoryRewardConfigs:      DefaultCategoryRewardConfigs(),
 		ResearchFundModuleAccount:  ResearchFundModuleName,
 		VestingEnabled:             true,
@@ -205,8 +203,8 @@ func ValidateParams(p *Params) error {
 	if err := validateNonNegativeInteger("initial_fund_balance", p.InitialFundBalance); err != nil {
 		return err
 	}
-	if p.FounderShareBps > 1000000 {
-		return fmt.Errorf("founder_share_bps cannot exceed 1000000 (100%%)")
+	if p.FounderShareBps != 0 {
+		return fmt.Errorf("founder_share_bps is constitutionally fixed at 0")
 	}
 	if p.ReleasedClawbackRate > 10_000 {
 		return fmt.Errorf("released_clawback_rate cannot exceed 10000 (100%%)")
@@ -220,45 +218,26 @@ func ValidateParams(p *Params) error {
 	if p.KnowledgeCouplingFloorBps > 1_000_000 {
 		return fmt.Errorf("knowledge_coupling_floor_bps cannot exceed 1000000 (100%%)")
 	}
-	if p.FounderShareBps > 0 && p.FounderAddress != "" {
-		if _, err := sdk.AccAddressFromBech32(p.FounderAddress); err != nil {
-			return fmt.Errorf("invalid founder_address: %w", err)
-		}
+	if p.FounderAddress != "" {
+		return fmt.Errorf("founder_address is constitutionally fixed empty")
 	}
 	return nil
 }
 
-// FounderShareCapBps is the founding-level cap on FounderShareBps (7% of the
-// research slice, on the 1,000,000 scale). Governance may lower, zero, or
-// restore the share anywhere within [0, FounderShareCapBps], but can never
-// raise it above the founding level — the cap protects agents from
-// capture-inflating the founder cut (design §10).
-const FounderShareCapBps = 70000
+// FounderShareCapBps is retained as a source-compatibility constant. The
+// founder tap has been irreversibly renounced, so its only valid value is zero.
+const FounderShareCapBps = 0
 
-// ValidateFounderShareChange enforces the founder-share governance contract
-// (design §10, supersedes the old full-immutability rule):
-//
-//   - FounderShareBps is GOV-MUTABLE within [0, FounderShareCapBps]. The
-//     founder submits to the government he created — the share can be lowered
-//     or zeroed if governance judges it unearned, and later restored — but a
-//     proposal can never push it above the founding cap.
-//   - FounderAddress remains IMMUTABLE once set. A mutable share plus a
-//     mutable address would be a theft surface, not accountability.
-func ValidateFounderShareChange(current *Params, proposed *Params) error {
+// ValidateFounderShareChange enforces permanent founder renunciation. The
+// protobuf fields remain temporarily for wire compatibility, but governance
+// cannot set an address, restore a share, or substitute another beneficiary.
+func ValidateFounderShareChange(_ *Params, proposed *Params) error {
 	if proposed == nil {
 		return nil
 	}
-
-	// Founder share may move, but never above the founding cap.
-	if proposed.FounderShareBps > FounderShareCapBps {
-		return ErrFounderShareCapExceeded
+	if proposed.FounderShareBps != 0 || proposed.FounderAddress != "" {
+		return ErrFounderShareRenounced
 	}
-
-	// If founder address was already set (non-empty), it cannot be changed.
-	if current != nil && current.FounderAddress != "" && proposed.FounderAddress != current.FounderAddress {
-		return ErrFounderAddressImmutable
-	}
-
 	return nil
 }
 

@@ -131,7 +131,6 @@ func TestResearchFundDepositAndDisburse(t *testing.T) {
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
 	gs := vestingtypes.DefaultGenesis()
-	gs.Params.FounderAddress = founderAddr.String()
 	vk.InitGenesis(ctx, gs)
 
 	// Step 1: Deposit 1,000,000 uzrn to research fund
@@ -141,13 +140,12 @@ func TestResearchFundDepositAndDisburse(t *testing.T) {
 		t.Fatalf("deposit failed: %v", err)
 	}
 
-	// Verify 7% founder split on deposit
-	expectedFounderDeposit := sdkmath.NewInt(70000)
-	expectedResearchDeposit := sdkmath.NewInt(930000)
+	// The full deposit reaches research; the legacy founder recipient gets 0.
+	expectedResearchDeposit := sdkmath.NewInt(1000000)
 
 	founderGot := bk.totalSentToAddr(founderAddr.String())
-	if !founderGot.Equal(expectedFounderDeposit) {
-		t.Errorf("founder got %s on deposit, want %s", founderGot, expectedFounderDeposit)
+	if !founderGot.IsZero() {
+		t.Errorf("retired founder recipient got %s on deposit, want 0", founderGot)
 	}
 
 	researchGot := bk.totalSentToModule("research_fund")
@@ -197,7 +195,6 @@ func TestFeeRouterSplit(t *testing.T) {
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
 	gs := vestingtypes.DefaultGenesis()
-	gs.Params.FounderAddress = founderAddr.String()
 	vk.InitGenesis(ctx, gs)
 
 	// Seed fee_collector balance using the canonical module address
@@ -212,21 +209,19 @@ func TestFeeRouterSplit(t *testing.T) {
 	}
 
 	// RevenueSplit defaults: Research=33300 (3.33%), Development=196700 (19.67%)
-	// Research share: 3.33% of 1M = 33,300 → DepositToResearchFund (with 7% founder split)
+	// Research share: 3.33% of 1M = 33,300, deposited in full.
 	expectedResearchTotal := int64(33300)
-	expectedFounderFromFees := expectedResearchTotal * 70000 / 1000000 // 2,331
-	expectedResearchNet := expectedResearchTotal - expectedFounderFromFees
 
-	// Verify research fund received net research (after founder split)
+	// Verify the research fund received the complete research allocation.
 	researchGot := bk.totalSentToModule("research_fund")
-	if !researchGot.Equal(sdkmath.NewInt(expectedResearchNet)) {
-		t.Errorf("research_fund got %s, want %d", researchGot, expectedResearchNet)
+	if !researchGot.Equal(sdkmath.NewInt(expectedResearchTotal)) {
+		t.Errorf("research_fund got %s, want %d", researchGot, expectedResearchTotal)
 	}
 
-	// Verify founder got 7% of research share
+	// Verify the retired founder recipient received nothing.
 	founderGot := bk.totalSentToAddr(founderAddr.String())
-	if !founderGot.Equal(sdkmath.NewInt(expectedFounderFromFees)) {
-		t.Errorf("founder got %s from fees, want %d", founderGot, expectedFounderFromFees)
+	if !founderGot.IsZero() {
+		t.Errorf("retired founder recipient got %s from fees, want 0", founderGot)
 	}
 
 	// Development fund: 19.67% of 1M = 196,700 (no burn)
@@ -247,7 +242,7 @@ func TestFeeRouterSplit(t *testing.T) {
 	totalExtracted := expectedResearchTotal + expectedDev // 230,000
 	remaining := int64(1000000) - totalExtracted          // 770,000
 
-	// Research is escrowed through vesting_rewards (for founder split routing)
+	// Research is escrowed through vesting_rewards for canonical routing.
 	vestingSent := bk.totalSentToModule("vesting_rewards")
 	if !vestingSent.Equal(sdkmath.NewInt(expectedResearchTotal)) {
 		t.Errorf("vesting_rewards received %s, want %d (research escrow only)", vestingSent, expectedResearchTotal)

@@ -217,37 +217,19 @@ func checkProtocolSubSplit(c *checker, g map[string]interface{}) {
 // ════════════════════════════════════════════════════════════════════════
 
 func checkFounderShare(c *checker, g map[string]interface{}) {
-	c.section("Founder Share")
+	c.section("Founder Renunciation")
 
 	shareBps, _ := digUint64(g, "app_state", "vesting_rewards", "params", "founder_share_bps")
 	addr, _ := digString(g, "app_state", "vesting_rewards", "params", "founder_address")
 
-	if shareBps == 0 {
-		if addr == "" {
-			c.pass("No founder share configured")
-		} else {
-			c.warn("founder_address set (%s) but founder_share_bps is 0", addr)
-		}
-		return
+	if shareBps != 0 {
+		c.fail("founder_share_bps = %d; v2/new-chain genesis requires 0", shareBps)
 	}
-
-	if addr == "" {
-		if c.profile == "production" {
-			c.fail("founder_address required when founder_share_bps = %d", shareBps)
-		} else {
-			c.warn("founder_address empty but founder_share_bps = %d", shareBps)
-		}
-	} else if !validBech32(addr) {
-		c.fail("founder_address is not valid bech32: %s", addr)
-	} else {
-		c.pass("Founder address valid (%s...)", addr[:min(len(addr), 16)])
+	if addr != "" {
+		c.fail("founder_address is assigned; v2/new-chain genesis requires an empty value")
 	}
-
-	// founder_share_bps is BPS of the research allocation (70,000 = 7% of research)
-	if shareBps > 100_000 {
-		c.warn("founder_share_bps = %d (>10%% of research allocation)", shareBps)
-	} else {
-		c.pass("Founder share = %d BPS of research", shareBps)
+	if shareBps == 0 && addr == "" {
+		c.pass("Founder revenue recipient permanently unassigned (0 BPS, empty address)")
 	}
 }
 

@@ -27,9 +27,10 @@ message Params {
   zerone.common.v1.RevenueSplit revenue_split = 4;
   zerone.common.v1.ProtocolSubSplit protocol_sub_split = 5;
 
-  // Founder share
-  uint64 founder_share_bps = 6;                      // founder's share of research fund (default: 70,000 = 7% on 1M scale)
-  string founder_address = 7;                        // bech32, empty = disabled
+  // Compatibility-only founder fields. The tap is constitutionally renounced:
+  // source validation requires 0/empty and governance cannot restore it.
+  uint64 founder_share_bps = 6;
+  string founder_address = 7;
   uint64 governance_activation_height = 8;           // DEPRECATED — retained for wire compatibility; not an activation gate
 
   // Compatibility-only declarations. Current reward execution does not read

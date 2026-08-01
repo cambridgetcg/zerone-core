@@ -111,6 +111,10 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			UpgradeName: UpgradeNameLiquiditySafetyV2,
 			Description: "liquiditypool-safety-v2 — post-consolidation readiness checkpoint for liquiditypool consensus v4: closed final-exit tombstones, governance status and asset/creator admission, finite pool growth, governed fees with strict PPM math, and fail-closed ACTIVE-pool oracle selection; safe when an earlier RunMigrations already activated and recorded liquiditypool v4.",
 		},
+		{
+			UpgradeName: UpgradeNameFounderRenunciationV1,
+			Description: "founder-renunciation-v1 — dedicated vesting_rewards v1→v2 boundary: permanently clears the legacy founder share/address, removes founder payout arithmetic, and preserves historical records and wire fields.",
+		},
 	}
 
 	return ChainVersionReport{

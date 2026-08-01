@@ -18,8 +18,12 @@ var (
 	ErrInvalidAccelerationType  = errors.Register(ModuleName, 14, "invalid acceleration type")
 	ErrScheduleAlreadyCompleted = errors.Register(ModuleName, 15, "vesting schedule already completed")
 	ErrNotRecipientOrAuthority  = errors.Register(ModuleName, 16, "sender is not recipient or authority")
-	ErrFounderAddressImmutable  = errors.Register(ModuleName, 17, "founder address is immutable once set")
-	ErrFounderShareCapExceeded  = errors.Register(ModuleName, 18, "founder share cannot exceed the founding cap (70000 bps)")
+	// Deprecated: retained so historical clients keep stable error codes.
+	ErrFounderAddressImmutable = errors.Register(ModuleName, 17, "legacy founder address is retired")
+	// Deprecated: retained so historical clients keep stable error codes.
+	ErrFounderShareCapExceeded  = errors.Register(ModuleName, 18, "legacy founder share cap is permanently zero")
 	ErrFactNotDisproven         = errors.Register(ModuleName, 19, "linked fact has not been disproven — falsification clawback requires an adjudicated FACT_STATUS_DISPROVEN")
 	ErrAdjudicationUnavailable  = errors.Register(ModuleName, 20, "cannot verify falsification: knowledge keeper not wired")
+	ErrFounderShareRenounced    = errors.Register(ModuleName, 21, "founder share and address are permanently renounced")
+	ErrFounderMigrationRequired = errors.Register(ModuleName, 22, "legacy founder fields may only be cleared by the v1 to v2 migration")
 )

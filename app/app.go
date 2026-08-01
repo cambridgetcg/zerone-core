@@ -770,7 +770,7 @@ func NewZeroneApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 	// Honor x/distribution withdraw-address mappings for reward payouts
-	// (validator block rewards + founder share, design §8b). Must be wired
+	// (validator block rewards and other ordinary reward recipients). Must be wired
 	// BEFORE any value copies of the keeper are handed to other modules.
 	app.VestingRewardsKeeper.SetDistributionKeeper(app.DistrKeeper)
 

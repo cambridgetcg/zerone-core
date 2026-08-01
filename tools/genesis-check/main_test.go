@@ -154,14 +154,27 @@ func TestProtocolSubSplit_BadSum(t *testing.T) {
 // Founder Share
 // ────────────────────────────────────────────────────────────────────
 
-func TestFounderShare_ShareWithoutAddress(t *testing.T) {
+func TestFounderShare_NonzeroShareFailsEveryProfile(t *testing.T) {
 	g := makeGenesis(map[string]interface{}{
 		"app_state.vesting_rewards.params.founder_share_bps": "70000",
 	})
+	for _, profile := range []string{"testnet", "production"} {
+		c := &checker{profile: profile}
+		checkFounderShare(c, g)
+		if c.failed != 1 {
+			t.Fatalf("%s: expected one failure for nonzero founder_share_bps, got %d", profile, c.failed)
+		}
+	}
+}
+
+func TestFounderShare_AddressWithoutShareFails(t *testing.T) {
+	g := makeGenesis(map[string]interface{}{
+		"app_state.vesting_rewards.params.founder_address": "zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5d9pmh",
+	})
 	c := &checker{profile: "production"}
 	checkFounderShare(c, g)
-	if c.failed < 1 {
-		t.Fatal("expected failure: founder_share_bps > 0 but no address (production)")
+	if c.failed != 1 {
+		t.Fatalf("expected one failure for assigned founder_address, got %d", c.failed)
 	}
 }
 
@@ -185,9 +198,9 @@ func TestFitnessWeights_BadSum(t *testing.T) {
 
 func TestDemandFitnessCoupling_ZeroWeights(t *testing.T) {
 	g := makeGenesis(map[string]interface{}{
-		"app_state.knowledge.params.demand_tracking_enabled":          true,
-		"app_state.knowledge.params.fitness_weight_satisfaction_bps":  "0",
-		"app_state.knowledge.params.fitness_weight_query_bps":         "0",
+		"app_state.knowledge.params.demand_tracking_enabled":         true,
+		"app_state.knowledge.params.fitness_weight_satisfaction_bps": "0",
+		"app_state.knowledge.params.fitness_weight_query_bps":        "0",
 	})
 	c := runCheck(t, checkDemandFitnessCoupling, g)
 	if c.warnings != 2 {
@@ -211,7 +224,7 @@ func TestMetabolism_ZeroCostWithFitness(t *testing.T) {
 
 func TestMetabolism_FitnessDisabled(t *testing.T) {
 	g := makeGenesis(map[string]interface{}{
-		"app_state.knowledge.params.fitness_epoch_blocks":  "0",
+		"app_state.knowledge.params.fitness_epoch_blocks": "0",
 		"app_state.knowledge.params.metabolism_base_cost": "0",
 	})
 	c := runCheck(t, checkMetabolismConsistency, g)
@@ -226,8 +239,8 @@ func TestMetabolism_FitnessDisabled(t *testing.T) {
 
 func TestEnergyCap_LessThanBaseCost(t *testing.T) {
 	g := makeGenesis(map[string]interface{}{
-		"app_state.knowledge.params.metabolism_energy_cap":  "50",
-		"app_state.knowledge.params.metabolism_base_cost": "100",
+		"app_state.knowledge.params.metabolism_energy_cap": "50",
+		"app_state.knowledge.params.metabolism_base_cost":  "100",
 	})
 	c := runCheck(t, checkEnergyCap, g)
 	if c.failed != 1 {

@@ -83,10 +83,12 @@ are reserved in protobuf and must not be presented as active controls.
 | Validators for full reward | 22 |
 | Consensus fee floor | 1 uzrn per declared gas unit |
 | Revenue split | 55% block proposer (`contributor_bps` wire name) / 22% protocol / 19.67% development / 3.33% research |
-| Founder sub-share | Up to 7% of research; inactive while address is empty |
+| Founder compatibility fields | `founder_share_bps = 0`; `founder_address = ""` |
 
-`founder_share_bps` is governance-mutable within its 7% cap.
-`founder_address` becomes immutable once set.
+Vesting-rewards consensus v2 rejects any nonzero share or nonempty founder
+address at validation and at the storage boundary. The v1→v2 migration clears
+legacy values while preserving historical reward records. Activation requires
+the named `founder-renunciation-v1` coordinated upgrade.
 
 ### Liquiditypool safety v2
 

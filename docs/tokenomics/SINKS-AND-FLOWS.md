@@ -58,20 +58,22 @@ cap-gated eligible block reward
       ├─ 55% block producer
       ├─ 22% protocol reserves/pools
       ├─ 19.67% development_fund
-      └─ 3.33% research_fund (less active founder sub-share)
+      └─ 3.33% research_fund in full
 
 uzrn transaction fees
   └─ fee_collector
       ├─ 19.67% development_fund
-      ├─ 3.33% research/founder routing
+      ├─ 3.33% research_fund via canonical routing
       └─ ~77% normal Cosmos distribution
 
 ZRN-input AMM swap fee
   └─ governance-set protocol portion → fee_collector → fee routing above
 ```
 
-The founder sub-share is inactive while its address is empty. Governance may
-change its percentage within the 7% cap; the address is immutable once set.
+Vesting-rewards consensus v2 permanently fixes the legacy founder compatibility
+fields to zero/empty and contains no founder payout path. The v1→v2 migration
+is bound to the unscheduled `founder-renunciation-v1` upgrade; this source map
+does not assert that the running chain has activated it.
 
 See [REVENUE-SPLIT.md](REVENUE-SPLIT.md) for the routing details and
 [SUPPLY.md](SUPPLY.md) for activity-dependent emission.

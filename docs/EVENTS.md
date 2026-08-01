@@ -2138,7 +2138,8 @@ Research fund deposit via revenue routing.
 - `denom` -- denomination
 - `total` -- total routed
 - `research` -- research fund share
-- `founder` -- founder share
+- `founder` -- compatibility attribute; always `0` for v2+ events (legacy
+  history may contain a nonzero value)
 
 ### zerone.vesting_rewards.block_reward_distributed
 *BeginBlock.* Block reward distributed to producer.

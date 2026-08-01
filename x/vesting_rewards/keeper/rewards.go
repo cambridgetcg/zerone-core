@@ -18,7 +18,7 @@ import (
 // The split is driven by RevenueSplit from params (not constants):
 //   - ContributorBps: goes to the reward recipient (e.g. block producer)
 //   - ProtocolBps:    split further via ProtocolSubSplit (citation/verification/treasury)
-//   - ResearchBps:    deposited into the research fund (with founder auto-split)
+//   - ResearchBps:    deposited in full into the research fund
 //   - DevelopmentBps:    development fund (bug bounties, truth discovery, protocol development)
 //
 // All block-level rewards flow through this router for consistent revenue routing.
@@ -40,8 +40,6 @@ func (k Keeper) DistributeRevenue(
 
 	split := k.GetRevenueSplit(ctx)
 	subSplit := k.GetProtocolSubSplit(ctx)
-	params := k.GetParams(ctx)
-
 	bps := big.NewInt(1000000)
 
 	// 4-way split
@@ -78,14 +76,6 @@ func (k Keeper) DistributeRevenue(
 		treasuryShare.SetInt64(0)
 	}
 
-	// Founder share (deducted from research portion)
-	founderShare := new(big.Int)
-	if k.isFounderShareActive(ctx, params) {
-		founderShare = new(big.Int).Mul(researchAmount, big.NewInt(int64(params.FounderShareBps)))
-		founderShare.Div(founderShare, bps)
-		researchAmount.Sub(researchAmount, founderShare) // reduce research by founder portion
-	}
-
 	routing := &types.RewardRouting{
 		Source:            string(source),
 		OriginalAmount:    amount,
@@ -96,7 +86,7 @@ func (k Keeper) DistributeRevenue(
 		Recipient:         recipient,
 		FactId:            factId,
 		BlockNumber:       uint64(ctx.BlockHeight()),
-		FounderShare:      founderShare.String(),
+		FounderShare:      "0", // legacy response field; founder tap is renounced
 		CitationPool:      citationPool.String(),
 		VerificationPool:  verificationPool.String(),
 		TreasuryShare:     treasuryShare.String(),
@@ -142,7 +132,7 @@ func (k Keeper) RouteFees(ctx sdk.Context) error {
 				k.Logger(ctx).Warn("failed to escrow fee research share", "err", err)
 				continue
 			}
-			// Route through canonical depositor (handles founder split)
+			// Route through the canonical research depositor.
 			if err := k.DepositToResearchFund(ctx, types.ModuleName, researchCoins); err != nil {
 				k.Logger(ctx).Warn("failed to deposit fee research share", "err", err)
 			}
@@ -165,13 +155,11 @@ func (k Keeper) RouteFees(ctx sdk.Context) error {
 	return nil
 }
 
-// DepositToResearchFund routes a deposit to the research fund with founder auto-split.
-// All modules that send funds to research_fund SHOULD call this instead of sending directly,
-// so the founder's 7% share is consistently applied regardless of deposit source.
+// DepositToResearchFund routes a deposit in full to the research fund.
+// All modules that send funds to research_fund SHOULD call this instead of
+// sending directly so deposits remain auditable through one canonical path.
 //
 // sourceModule must hold the funds in its module account before calling this method.
-// The method splits the amount: 7% to founder (if active), remainder to research_fund.
-// Falls back to 100% research_fund if founder address is invalid/empty or governance has sunset.
 func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amount sdk.Coins) error {
 	if amount.IsZero() {
 		return nil
@@ -184,21 +172,12 @@ func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amou
 		}
 	}
 
-	params := k.GetParams(ctx)
-	founderActive := k.isFounderShareActive(ctx, params)
-
 	for _, coin := range amount {
 		if coin.Amount.IsZero() {
 			continue
 		}
 
-		founderAmount := sdkmath.ZeroInt()
 		researchAmount := coin.Amount
-
-		if founderActive {
-			founderAmount = coin.Amount.MulRaw(int64(params.FounderShareBps)).QuoRaw(1_000_000)
-			researchAmount = coin.Amount.Sub(founderAmount)
-		}
 
 		// Send research portion to research_fund
 		if researchAmount.IsPositive() {
@@ -208,38 +187,13 @@ func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amou
 			}
 		}
 
-		// Send founder portion to the founder's x/distribution withdraw address
-		// (design §8b): FounderAddress is the immutable identity anchor, but the
-		// payout DESTINATION rotates via standard MsgSetWithdrawAddress. Defaults
-		// to FounderAddress itself when no mapping is set.
-		if founderAmount.IsPositive() {
-			founderAddr, addrErr := sdk.AccAddressFromBech32(params.FounderAddress)
-			if addrErr != nil {
-				// Invalid founder address — send full amount to research_fund instead
-				fallbackCoins := sdk.NewCoins(sdk.NewCoin(coin.Denom, founderAmount))
-				if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.ResearchFundModuleName, fallbackCoins); err != nil {
-					return fmt.Errorf("research fund fallback deposit failed: %w", err)
-				}
-			} else {
-				payoutAddr := k.RewardWithdrawAddress(ctx, founderAddr)
-				founderCoins := sdk.NewCoins(sdk.NewCoin(coin.Denom, founderAmount))
-				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, payoutAddr, founderCoins); err != nil {
-					k.Logger(ctx).Warn("failed to send founder share, routing to research_fund",
-						"source", sourceModule, "error", err)
-					if err2 := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.ResearchFundModuleName, founderCoins); err2 != nil {
-						return fmt.Errorf("research fund fallback deposit failed: %w", err2)
-					}
-				}
-			}
-		}
-
 		ctx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.vesting_rewards.research_fund_deposit",
 			sdk.NewAttribute("source_module", sourceModule),
 			sdk.NewAttribute("denom", coin.Denom),
 			sdk.NewAttribute("total", coin.Amount.String()),
 			sdk.NewAttribute("research", researchAmount.String()),
-			sdk.NewAttribute("founder", founderAmount.String()),
+			sdk.NewAttribute("founder", "0"), // legacy attribute; tap is renounced
 		))
 	}
 
@@ -482,14 +436,13 @@ func (k Keeper) DistributeBlockReward(
 			}
 		}
 
-		// Route research + founder share through canonical depositor
+		// Route the full research share through the canonical depositor. The
+		// legacy FounderShare output remains zero and is never recombined into
+		// runtime arithmetic.
 		researchBig := new(big.Int)
 		researchBig.SetString(routing.ResearchShare, 10)
-		founderBig := new(big.Int)
-		founderBig.SetString(routing.FounderShare, 10)
-		grossResearch := new(big.Int).Add(researchBig, founderBig)
-		if grossResearch.Sign() > 0 {
-			researchCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(grossResearch)))
+		if researchBig.Sign() > 0 {
+			researchCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(researchBig)))
 			if err := k.DepositToResearchFund(ctx, types.ModuleName, researchCoins); err != nil {
 				k.Logger(ctx).Error("failed to deposit research share", "error", err)
 			}

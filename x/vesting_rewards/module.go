@@ -106,6 +106,10 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 
+	migrator := keeper.NewMigrator(am.keeper)
+	if err := cfg.RegisterMigration(types.ModuleName, 1, migrator.Migrate1to2); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
+	}
 }
 
 // InitGenesis initializes the module from genesis.
@@ -129,8 +133,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return bz
 }
 
-// ConsensusVersion returns the module's consensus version.
-func (AppModule) ConsensusVersion() uint64 { return 1 }
+// ConsensusVersion 2 permanently clears the legacy founder-share parameters;
+// historical distribution records and protobuf field numbers remain intact.
+func (AppModule) ConsensusVersion() uint64 { return 2 }
 
 // BeginBlock executes begin-block logic.
 // 1. Routes transaction fees through the 4-way revenue split.

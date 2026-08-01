@@ -1,6 +1,6 @@
 # Revenue Split
 
-> **Implementation status (2026-07-29):** This page documents the current
+> **Implementation status (2026-08-01):** This page documents the current
 > source tree. It does not claim that every conceptual Zerone service routes
 > through one universal function. The concrete runtime paths are
 > `vesting_rewards.DistributeBlockReward`,
@@ -18,7 +18,7 @@ the governance-adjustable four-way split:
 | Contributor | 55% | Block producer |
 | Protocol | 22% | 50% citation reserve, 30% knowledge verification pool, 20% treasury reserve |
 | Development | 19.67% | `development_fund` module account |
-| Research | 3.33% | `research_fund`, less an active founder sub-share |
+| Research | 3.33% | `research_fund` in full |
 
 The four primary values use a 1,000,000 BPS scale and must sum to 1,000,000.
 Development is calculated as the remainder during routing so integer rounding
@@ -35,7 +35,7 @@ wired. The full verification part goes to `knowledge`. The removed
 rewards:
 
 - 19.67% moves from `fee_collector` to `development_fund`;
-- 3.33% is deposited through the research/founder routing path; and
+- 3.33% is deposited in full through the canonical research routing path; and
 - the remaining approximately 77% stays in `fee_collector` for normal Cosmos
   distribution.
 
@@ -49,18 +49,24 @@ On ZRN-input swaps, the governance-set protocol share of the swap fee moves to
 `fee_collector`, where `RouteFees` handles it as `uzrn`. Counter-denom-input
 swaps take no protocol share; their fee remains with liquidity providers.
 
-## Founder sub-share
+## Founder recipient is retired
 
-The founder sub-share is a percentage of the research slice, not a fifth
-primary share. It is inactive while `founder_address` is empty.
+Vesting-rewards consensus v2 permanently retires the former founder
+sub-share. Its protobuf fields remain readable for historical/wire
+compatibility, but they are not control surfaces.
 
 | Parameter | Governance contract |
 |---|---|
-| `founder_share_bps` | Mutable within 0–70,000 BPS (0–7% of research) |
-| `founder_address` | May be set while empty; immutable once set |
+| `founder_share_bps` | Fixed at `0`; validation and storage reject any other value |
+| `founder_address` | Fixed empty; validation and storage reject any recipient |
 
-At genesis the address is empty, so the sub-share pays 0 ZRN. This says
-nothing about the separately disclosed operator-controlled genesis balances.
+The v1→v2 migration clears either legacy field regardless of its old value;
+all v2+ deposits route the complete research allocation to `research_fund`.
+Historical records and field numbers are preserved. This source change is
+activated only by the separately scheduled `founder-renunciation-v1` upgrade;
+it is not a claim about the currently running binary. It also says nothing
+about separately disclosed operator-controlled balances, ordinary permissionless
+participation, validator control, or stake-weighted governance.
 
 ## What is not implemented
 

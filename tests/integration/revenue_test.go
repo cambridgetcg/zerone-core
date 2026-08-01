@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"testing"
 
-	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
 	storetypes "cosmossdk.io/store/types"
@@ -42,27 +42,20 @@ func TestCompleteRevenueMap(t *testing.T) {
 	// 4-way revenue split: contributor 55%, protocol 22%, development 19.67%, research 3.33%
 	bps := big.NewInt(1000000)
 
-	// Gross research = 3.33% of total
-	grossResearch := new(big.Int).Mul(totalMinted, big.NewInt(33300))
-	grossResearch.Div(grossResearch, bps)
-
-	// Founder = 7% of gross research
-	expectedFounder := new(big.Int).Mul(grossResearch, big.NewInt(70000))
-	expectedFounder.Div(expectedFounder, bps)
-
-	// Net research = gross research - founder
-	expectedNetResearch := new(big.Int).Sub(grossResearch, expectedFounder)
+	// The complete 3.33% research allocation reaches the research fund.
+	expectedResearch := new(big.Int).Mul(totalMinted, big.NewInt(33300))
+	expectedResearch.Div(expectedResearch, bps)
 
 	researchShare := new(big.Int)
 	researchShare.SetString(dist.ResearchShare, 10)
-	if researchShare.Cmp(expectedNetResearch) != 0 {
-		t.Errorf("block reward research share: got %s, want %s", researchShare, expectedNetResearch)
+	if researchShare.Cmp(expectedResearch) != 0 {
+		t.Errorf("block reward research share: got %s, want %s", researchShare, expectedResearch)
 	}
 
 	founderShare := new(big.Int)
 	founderShare.SetString(dist.FounderShare, 10)
-	if founderShare.Cmp(expectedFounder) != 0 {
-		t.Errorf("block reward founder share: got %s, want %s", founderShare, expectedFounder)
+	if founderShare.Sign() != 0 {
+		t.Errorf("block reward founder compatibility field must be zero, got %s", founderShare)
 	}
 
 	// Contributor (producer) = 55% of total
@@ -92,15 +85,13 @@ func TestCompleteRevenueMap(t *testing.T) {
 
 }
 
-// ---------- Test 2: Founder Split Consistency ----------
+// ---------- Test 2: Founder Renunciation Across Deposit Sources ----------
 
-func TestFounderSplitAllSources(t *testing.T) {
+func TestFounderRenunciationAllSources(t *testing.T) {
 	h := setupRevenueHarness(t)
 	depositAmount := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1000000)))
 
-	// FounderShareBps = 70000 (7% on 1M scale)
-	expectedFounder := sdkmath.NewInt(70000)
-	expectedResearch := sdkmath.NewInt(930000)
+	expectedResearch := sdkmath.NewInt(1000000)
 
 	sources := []string{
 		"vesting_rewards",
@@ -123,7 +114,6 @@ func TestFounderSplitAllSources(t *testing.T) {
 			ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
 			gs := vestingtypes.DefaultGenesis()
-			gs.Params.FounderAddress = h.founderAddr.String()
 			vk.InitGenesis(ctx, gs)
 
 			err := vk.DepositToResearchFund(ctx, source, depositAmount)
@@ -132,8 +122,8 @@ func TestFounderSplitAllSources(t *testing.T) {
 			}
 
 			founderGot := bk.totalSentToAddr(h.founderAddr.String())
-			if !founderGot.Equal(expectedFounder) {
-				t.Errorf("founder got %s from %s, want %s", founderGot, source, expectedFounder)
+			if !founderGot.IsZero() {
+				t.Errorf("retired founder recipient got %s from %s, want 0", founderGot, source)
 			}
 
 			researchGot := bk.totalSentToModule("research_fund")
@@ -141,9 +131,8 @@ func TestFounderSplitAllSources(t *testing.T) {
 				t.Errorf("research_fund got %s from %s, want %s", researchGot, source, expectedResearch)
 			}
 
-			totalRouted := founderGot.Add(researchGot)
-			if !totalRouted.Equal(sdkmath.NewInt(1000000)) {
-				t.Errorf("total routed %s from %s, want 1000000 (dust detected)", totalRouted, source)
+			if !researchGot.Equal(sdkmath.NewInt(1000000)) {
+				t.Errorf("total routed %s from %s, want 1000000 (dust detected)", researchGot, source)
 			}
 		})
 	}
@@ -169,6 +158,9 @@ func TestNoDoubleTaxation(t *testing.T) {
 	researchNet.SetString(dist.ResearchShare, 10)
 	founderAmt := new(big.Int)
 	founderAmt.SetString(dist.FounderShare, 10)
+	if founderAmt.Sign() != 0 {
+		t.Fatalf("founder compatibility output must be zero, got %s", founderAmt)
+	}
 
 	// Knowledge module receives from protocol sub-split (30% verification × 70% to knowledge)
 	knowledgeModuleBalance := h.bk.totalSentToModule("knowledge")
@@ -198,12 +190,9 @@ func TestNoDoubleTaxation(t *testing.T) {
 	protocolShare := new(big.Int)
 	protocolShare.SetString(dist.ProtocolShare, 10)
 
-	// Gross research = net research + founder
-	grossResearch := new(big.Int).Add(researchNet, founderAmt)
-
-	// Total = producer + protocol + gross_research + burn
+	// Total = producer + protocol + research + development.
 	accounting := new(big.Int).Add(producerReward, protocolShare)
-	accounting.Add(accounting, grossResearch)
+	accounting.Add(accounting, researchNet)
 	accounting.Add(accounting, burnAmt)
 
 	if accounting.Cmp(totalMinted) != 0 {

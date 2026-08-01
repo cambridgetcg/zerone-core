@@ -65,8 +65,8 @@ withhold part of a verifier's share and route it to development. A flat
 ## Fees
 
 For accumulated `uzrn` transaction fees, `RouteFees` sends 19.67% to
-development and 3.33% through research/founder routing. Approximately 77%
-remains in `fee_collector` for normal Cosmos distribution. See
+development and 3.33% in full to research through the canonical depositor.
+Approximately 77% remains in `fee_collector` for normal Cosmos distribution. See
 [REVENUE-SPLIT.md](REVENUE-SPLIT.md).
 
 ## Custom staking defaults

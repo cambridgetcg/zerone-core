@@ -1,6 +1,6 @@
 # Zerone development roadmap
 
-> Status snapshot: 2026-07-29. This is a dependency-ordered roadmap, not a
+> Status snapshot: 2026-08-01. This is a dependency-ordered roadmap, not a
 > release promise.
 
 ## Current shape
@@ -33,6 +33,8 @@ line:
 - protocol-wide substrate-axis ceilings and settlement clamps;
 - adjudicated falsification clawback;
 - K-alpha recognition events and bounded accounting guards;
+- permanent source-level founder revenue renunciation, with a dedicated
+  non-hitchhiking `founder-renunciation-v1` boundary;
 - state/genesis validation and protobuf ownership fixes;
 - CAIP account projections, unsigned in-toto provenance, the isolated Sigstore
   compiler, and the repository TypeScript SDK;
@@ -84,18 +86,22 @@ must all be satisfied before any phase they authorize.
    pool creation and oracle allowlisting disabled until invariants, application
    lifecycle tests, restart rehearsal, and the governance capital decision all
    pass.
-4. **Complete `zerone-2` authority.** Run the two-machine ceremony comparison,
+4. **Retire the founder recipient separately.** After the earlier two plans
+   are applied with their exact historical binaries, bind and rehearse
+   `founder-renunciation-v1`; current combined source refuses to carry v2 under
+   another name.
+5. **Complete `zerone-2` authority.** Run the two-machine ceremony comparison,
    bind signed source and immutable artifacts, satisfy every phase-specific
    gate, and keep all services private until their signed decision permits
    otherwise.
-5. **Publish ecosystem artifacts separately.** Give the TypeScript SDK its own
+6. **Publish ecosystem artifacts separately.** Give the TypeScript SDK its own
    registry verification and npm release decision. Publish Chain Registry
    metadata only after chain identity, genesis, endpoints, denomination, and
    coin type are final.
-6. **Continue boundary-first standards work.** Priorities are feegrant UX,
+7. **Continue boundary-first standards work.** Priorities are feegrant UX,
    audited delegated authority, AgentTool x402, an ERC-8004-inspired profile,
    and digest-only CID/in-toto/SPDX/C2PA/A2A integrations.
-7. **Modernize the consensus stack.** Cosmos SDK 0.50 and IBC-Go 8 require a
+8. **Modernize the consensus stack.** Cosmos SDK 0.50 and IBC-Go 8 require a
    planned, rehearsed migration rather than an opportunistic dependency bump.
 
 ## Explicit deferrals

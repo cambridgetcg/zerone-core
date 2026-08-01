@@ -16,8 +16,8 @@
     "vesting_rewards": {
       "params": {
         "block_reward": "10000000",
-        "founder_share_bps": "70000",
-        "founder_address": "zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5d9pmh",
+        "founder_share_bps": "0",
+        "founder_address": "",
         "revenue_split": {
           "contributor_bps": "550000",
           "protocol_bps": "220000",

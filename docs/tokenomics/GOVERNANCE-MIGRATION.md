@@ -102,9 +102,10 @@ moves no funds. Phase 3 currently strands the specialised spending path and
 must not be activated until execution and tests are wired.
 
 Founding participants may still vote with whatever stake they control and may
-still propose. The founder sub-share is not guaranteed forever: governance may
-set it anywhere from 0–7% of the research slice, and it is inactive while the
-address is unset. Phase 3 removes special research-fund voting structure.
+still propose. Vesting-rewards v2 separately retires the founder-specific
+revenue recipient; ordinary parameter governance cannot restore it. Phase 3
+removes special research-fund voting structure but does not itself prove that
+controller independence exists.
 
 **This phase is terminal.** There is no Phase 4.
 
@@ -206,12 +207,13 @@ If the expanded committee fails, the protocol can step backward.
 
 ## Founder and operator boundary
 
-The original design proposed two founder anchors. Current source narrows them:
+The original design proposed two founder anchors. Current source retires the
+economic anchor and leaves the governance concentration explicit:
 
-1. **Founder sub-share** — At most 7% of the 3.33% research slice (about 0.23%
-   of a routed revenue event at the cap). Governance may lower, zero, or restore
-   the percentage within that cap. The address is immutable once set; it is
-   unset at genesis, so the sub-share is inactive.
+1. **Founder sub-share** — Retired in vesting-rewards consensus v2. Compatibility
+   fields are fixed at zero/empty and the payout path is removed. This is a
+   source boundary until the separately named `founder-renunciation-v1`
+   upgrade is scheduled and verified.
 
 2. **Configured voters** — The phase machinery supports named voter addresses
    and community seats. No prose document can establish that custody; it must
@@ -219,7 +221,8 @@ The original design proposed two founder anchors. Current source narrows them:
 
 Nothing here grants an unconfigured founder or AI key permanent voting
 authority. Ordinary governance participation follows the stake and state
-actually recorded on chain.
+actually recorded on chain; that remains concentrated today and is not made
+independent merely by retiring the revenue recipient.
 
 ## Timeline Estimates
 

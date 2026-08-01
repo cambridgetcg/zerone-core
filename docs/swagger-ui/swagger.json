@@ -11344,7 +11344,7 @@
           "type": "string"
         },
         "founderShare": {
-          "title": "founder's operational share (bigint as string)",
+          "description": "Compatibility field: zero in v2+ records; preserved legacy records may be nonzero.",
           "type": "string"
         },
         "fundBalanceAfter": {
@@ -11446,13 +11446,11 @@
           "type": "string"
         },
         "founderAddress": {
-          "title": "bech32, empty = disabled",
           "type": "string"
         },
         "founderShareBps": {
-          "description": "founder's share of research fund (default: 70,000 = 7% on 1M scale)",
+          "description": "Compatibility-only founder fields. The tap is constitutionally renounced:\nsource validation requires 0/empty and governance cannot restore it.",
           "format": "uint64",
-          "title": "Founder share",
           "type": "string"
         },
         "governanceActivationHeight": {
@@ -11537,6 +11535,7 @@
     "zerone.vesting_rewards.v1.QueryFounderShareStatusResponse": {
       "properties": {
         "active": {
+          "title": "compatibility field; always false in v2+",
           "type": "boolean"
         },
         "currentHeight": {
@@ -11544,14 +11543,17 @@
           "type": "string"
         },
         "founderAddress": {
+          "title": "stored compatibility value; v1-\u003ev2 migration clears it",
           "type": "string"
         },
         "founderShareBps": {
           "format": "uint64",
+          "title": "stored compatibility value; v1-\u003ev2 migration sets zero",
           "type": "string"
         },
         "governanceActivationHeight": {
           "format": "uint64",
+          "title": "deprecated; never activates the retired path",
           "type": "string"
         }
       },

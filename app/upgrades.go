@@ -11,6 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 const UpgradeNameTestnet = "v1.0.0-testnet"
@@ -24,6 +26,94 @@ const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
 const UpgradeNameLiquiditySafetyV2 = "liquiditypool-safety-v2"
+const UpgradeNameFounderRenunciationV1 = "founder-renunciation-v1"
+
+// runMigrationsForPlan prevents vesting_rewards v1→v2 from silently riding an
+// older or unrelated named upgrade. An exact earlier release binary may run
+// its historical plan; this combined source binary refuses that plan while the
+// chain still reports vesting_rewards v1. Only founder-renunciation-v1 may
+// cross the permanent founder-zero boundary.
+func (app *ZeroneApp) runMigrationsForPlan(
+	ctx context.Context,
+	plan upgradetypes.Plan,
+	fromVM module.VersionMap,
+) (module.VersionMap, error) {
+	if fromVM[vestingrewardstypes.ModuleName] < 2 && plan.Name != UpgradeNameFounderRenunciationV1 {
+		return nil, fmt.Errorf(
+			"upgrade %q cannot activate vesting_rewards v2; use the exact historical release for that plan or schedule %q",
+			plan.Name,
+			UpgradeNameFounderRenunciationV1,
+		)
+	}
+	if plan.Name == UpgradeNameFounderRenunciationV1 {
+		if err := app.validateFounderRenunciationPrestate(fromVM); err != nil {
+			return nil, err
+		}
+	}
+
+	toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+	if err != nil {
+		return nil, err
+	}
+	if plan.Name == UpgradeNameFounderRenunciationV1 {
+		if got := toVM[vestingrewardstypes.ModuleName]; got != 2 {
+			return nil, fmt.Errorf(
+				"upgrade %q produced vesting_rewards version %d; require exact poststate 2",
+				plan.Name,
+				got,
+			)
+		}
+	}
+	return toVM, nil
+}
+
+// validateFounderRenunciationPrestate makes the dedicated plan a single-module
+// migration boundary, not a generic catch-up bundle. The release binary itself
+// must target vesting_rewards v2; the live map must report v1 for that module
+// and the current version for every other module. Missing entries fail too,
+// because RunMigrations would otherwise initialize or advance them under this
+// plan name.
+func (app *ZeroneApp) validateFounderRenunciationPrestate(fromVM module.VersionMap) error {
+	target := app.ModuleManager.GetVersionMap()
+	if got := target[vestingrewardstypes.ModuleName]; got != 2 {
+		return fmt.Errorf(
+			"upgrade %q requires a release binary targeting vesting_rewards version 2; binary targets %d",
+			UpgradeNameFounderRenunciationV1,
+			got,
+		)
+	}
+	if got, ok := fromVM[vestingrewardstypes.ModuleName]; !ok || got != 1 {
+		return fmt.Errorf(
+			"upgrade %q requires exact prestate vesting_rewards=1; got version %d (present=%t)",
+			UpgradeNameFounderRenunciationV1,
+			got,
+			ok,
+		)
+	}
+
+	names := make([]string, 0, len(target))
+	for name := range target {
+		if name != vestingrewardstypes.ModuleName {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		want := target[name]
+		got, ok := fromVM[name]
+		if !ok || got != want {
+			return fmt.Errorf(
+				"upgrade %q refuses unrelated migration for module %q: require prestate version %d, got %d (present=%t)",
+				UpgradeNameFounderRenunciationV1,
+				name,
+				want,
+				got,
+				ok,
+			)
+		}
+	}
+	return nil
+}
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -37,7 +127,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		UpgradeNameTestnet,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-			return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			return app.runMigrationsForPlan(ctx, plan, fromVM)
 		},
 	)
 
@@ -49,7 +139,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +163,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -99,7 +189,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -131,7 +221,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -162,7 +252,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -202,7 +292,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -242,7 +332,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -298,7 +388,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -344,7 +434,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -381,7 +471,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -393,6 +483,30 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 				return nil, err
 			}
 
+			return toVM, nil
+		},
+	)
+
+	// founder-renunciation-v1 — dedicated activation boundary for
+	// vesting_rewards v1→v2. The migration clears both legacy founder fields;
+	// v2 reward routing contains no founder recipient or arithmetic. This name
+	// must receive its own release digest, rehearsal, and governance-selected
+	// height. Publishing source does not authorize using this binary for an
+	// earlier or unrelated upgrade plan.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameFounderRenunciationV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			app.ReconcileModuleAccountPerms(ctx)
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_founder-renunciation-v1", "migrated"); err != nil {
+				return nil, err
+			}
 			return toVM, nil
 		},
 	)
@@ -467,6 +581,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 		// Migration-only — liquiditypool v3→v4 uses new fields and prefixes in
 		// the existing liquiditypool store. If consolidation-safety-v1 already
 		// advanced the module to v4, RunMigrations skips it safely.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameFounderRenunciationV1:
+		// Migration-only — vesting_rewards v1→v2 rewrites existing Params and
+		// does not add or remove a top-level store key.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

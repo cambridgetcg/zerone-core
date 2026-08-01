@@ -20,16 +20,26 @@ cosmovisor — runs the handler and the chain resumes.
 
 ## Pending release order
 
-Existing networks currently have two ordered release checkpoints:
+Existing networks currently have three ordered release checkpoints:
 
 1. `consolidation-safety-v1`; then
-2. `liquiditypool-safety-v2` at a distinct, later height.
+2. `liquiditypool-safety-v2` at a distinct, later height; then
+3. `founder-renunciation-v1` at its own later height.
 
 Both handlers run module migrations and reconcile stored module-account
 permissions. The first handler is expected to activate and advance
 liquiditypool to consensus v4; the second is a readiness marker, not a second
 technical gate, and remains safe because an already-current module is skipped.
-Neither checkpoint by itself authorizes a native pool or its oracle.
+Neither of the first two checkpoints by itself authorizes a native pool or its
+oracle. The third is the only plan allowed by the combined source binary to
+advance `vesting_rewards` from v1 to v2.
+
+Release digests are plan-specific. If a network still reports
+`vesting_rewards=1`, this combined source binary deliberately refuses every
+older upgrade name rather than silently carrying founder renunciation under
+it. Use the exact reviewed historical binary for the first two plans, then the
+founder-renunciation release only for the third. Never build moving `main` for
+an earlier pending plan.
 
 Before scheduling the combined sequence, bind a live query proving there are
 zero native pools and no billing quote-denom allowlist. Valid legacy pools
@@ -83,6 +93,11 @@ For `liquiditypool-safety-v2`, verification does not authorize a pool by
 itself. Invariants and application lifecycle tests must also pass on the exact
 release, and native pool creation plus oracle quote allowlisting remain
 separate governance actions.
+
+For `founder-renunciation-v1`, verify `vesting_rewards=2`, zero/empty founder
+compatibility fields, the migration marker, complete research routing, and a
+failed ordinary-governance restoration attempt. See
+[FOUNDER-RENUNCIATION-V1.md](FOUNDER-RENUNCIATION-V1.md).
 
 ## Rollback
 

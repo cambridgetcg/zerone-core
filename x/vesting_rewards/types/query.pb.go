@@ -612,10 +612,10 @@ func (*QueryFounderShareStatusRequest) Descriptor() ([]byte, []int) {
 
 type QueryFounderShareStatusResponse struct {
 	state                      protoimpl.MessageState `protogen:"open.v1"`
-	Active                     bool                   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`
-	FounderShareBps            uint64                 `protobuf:"varint,2,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`
-	FounderAddress             string                 `protobuf:"bytes,3,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`
-	GovernanceActivationHeight uint64                 `protobuf:"varint,4,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"`
+	Active                     bool                   `protobuf:"varint,1,opt,name=active,proto3" json:"active,omitempty"`                                                                             // compatibility field; always false in v2+
+	FounderShareBps            uint64                 `protobuf:"varint,2,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`                                  // stored compatibility value; v1->v2 migration sets zero
+	FounderAddress             string                 `protobuf:"bytes,3,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`                                        // stored compatibility value; v1->v2 migration clears it
+	GovernanceActivationHeight uint64                 `protobuf:"varint,4,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"` // deprecated; never activates the retired path
 	CurrentHeight              uint64                 `protobuf:"varint,5,opt,name=current_height,json=currentHeight,proto3" json:"current_height,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache

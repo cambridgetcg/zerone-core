@@ -56,7 +56,8 @@ message RewardRouting {
   string recipient         = 7; // bech32 recipient address
   string fact_id           = 8; // related fact
   uint64 block_number      = 9; // block height
-  string founder_share     = 10; // founder's operational share (bigint as string)
+  // Compatibility field: zero in v2+ outputs; legacy records may be nonzero.
+  string founder_share     = 10;
   string citation_pool     = 11; // protocol sub-split: citations (bigint as string)
   string verification_pool = 12; // protocol sub-split: verification (bigint as string)
   string treasury_share    = 13; // protocol sub-split: treasury (bigint as string)
@@ -72,7 +73,8 @@ message BlockRewardDistribution {
   // Legacy field name: cumulative shared MintWithCap accounting ledger after
   // this distribution, not a spendable fund balance or full supply history.
   string fund_balance_after = 6;
-  string founder_share      = 7; // founder's operational share (bigint as string)
+  // Compatibility field: zero in v2+ records; preserved legacy records may be nonzero.
+  string founder_share      = 7;
   string development_amount  = 8; // development fund amount (bigint as string)
   string protocol_share     = 9; // protocol share (bigint as string)
 }

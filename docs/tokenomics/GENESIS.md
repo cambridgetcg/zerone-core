@@ -55,16 +55,17 @@ ceremony inputs created the two balances above.
 
 | Role | Genesis ZRN |
 |---|---:|
-| Founder share | 0; `FounderAddress` is unset |
+| Founder-specific stipend | 0 ZRN; historical v1 fields are 70,000/empty (no recipient), while v2 migration targets 0/empty |
 | AI vault | 0 |
 | Research treasury | 0 |
 | Foundation | 0 |
 | Faucet | 0 on `zerone-1` |
 | Whitelisted agents | 0 until an authorised claim mints their seed |
 
-Future grants, a founder stipend, research spending, or new bootstrap
-admissions require the applicable governance/authority path. Source prose is
-not that authority.
+Future grants, research spending, or new bootstrap admissions require the
+applicable general governance/authority path. Vesting-rewards v2 has no
+founder-specific stipend path. Source prose is not authority, and the source
+change requires the separately scheduled `founder-renunciation-v1` upgrade.
 
 ## Knowledge inception
 

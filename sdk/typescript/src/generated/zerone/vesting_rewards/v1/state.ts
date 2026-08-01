@@ -177,7 +177,7 @@ export interface RewardRouting {
    */
   blockNumber: bigint;
   /**
-   * founder's operational share (bigint as string)
+   * Compatibility field: zero in v2+ outputs; legacy records may be nonzero.
    */
   founderShare: string;
   /**
@@ -226,7 +226,7 @@ export interface BlockRewardDistribution {
    */
   fundBalanceAfter: string;
   /**
-   * founder's operational share (bigint as string)
+   * Compatibility field: zero in v2+ records; preserved legacy records may be nonzero.
    */
   founderShare: string;
   /**

@@ -41,12 +41,10 @@ export interface Params {
     revenueSplit?: RevenueSplit;
     protocolSubSplit?: ProtocolSubSplit;
     /**
-     * Founder share
+     * Compatibility-only founder fields. The tap is constitutionally renounced:
+     * source validation requires 0/empty and governance cannot restore it.
      */
     founderShareBps: bigint;
-    /**
-     * bech32, empty = disabled
-     */
     founderAddress: string;
     /**
      * DEPRECATED — retained for wire compatibility; not an activation gate

@@ -126,13 +126,14 @@ disbursement and contribution-challenge bonus minting are release-sealed.
 Every post-genesis native issuance call routes through `MintWithCap`, and
 `InitChain` also rejects a genesis whose bank supply exceeds 222,222,222 ZRN.
 
-No separate founder stipend was activated at genesis: `FounderAddress` is
-unset, so the dormant `FounderShareBps` accrues 0 ZRN. That narrow statement
-does not erase the founding household's disclosed control of the validator and
-operations accounts above. Governance may change the share within its 7% cap,
-but the founder address becomes immutable once set. The Research Fund and
-Development Fund hold 0 ZRN at genesis and fill only from the forward revenue
-split. See
+No separate founder stipend was activated at genesis. Vesting-rewards
+consensus v2 goes further: `FounderShareBps` is fixed at `0`, `FounderAddress`
+is fixed empty, and the former payout branch is removed. Activation requires
+the separately scheduled `founder-renunciation-v1` upgrade; source publication
+is not live-chain evidence. This does not erase the founding household's
+disclosed validator, operations-account, or voting control. The Research Fund
+and Development Fund hold 0 ZRN at genesis and fill only from the forward
+revenue split. See
 [docs/tokenomics/GENESIS.md](docs/tokenomics/GENESIS.md) for the full
 specification.
 

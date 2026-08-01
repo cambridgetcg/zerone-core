@@ -202,13 +202,12 @@ func setupRevenueHarness(t *testing.T) *revenueTestHarness {
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
 
-	// Vesting keeper with founder address configured
+	// Vesting keeper with the v2 founder recipient permanently unassigned.
 	vk := vestingkeeper.NewKeeper(cdc, runtime.NewKVStoreService(vestingStoreKey), bk, sk, "authority")
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
-	// Init vesting genesis with founder configured
+	// Keep a sentinel address only so tests can prove no account payout occurs.
 	gs := vestingtypes.DefaultGenesis()
-	gs.Params.FounderAddress = founderAddr.String()
 	vk.InitGenesis(ctx, gs)
 
 	return &revenueTestHarness{

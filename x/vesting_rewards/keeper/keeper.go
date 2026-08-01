@@ -79,8 +79,8 @@ func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) {
 	k.knowledgeKeeper = kk
 }
 
-// SetDistributionKeeper wires x/distribution so reward payouts (validator
-// block rewards, founder share) honor delegator withdraw-address mappings.
+// SetDistributionKeeper wires x/distribution so ordinary reward payouts (for
+// example validator block rewards) honor delegator withdraw-address mappings.
 // Nil-safe: when unset, rewards are paid to the account itself.
 func (k *Keeper) SetDistributionKeeper(dk types.DistributionKeeper) {
 	k.distrKeeper = dk
@@ -164,28 +164,77 @@ func (k Keeper) RewardWithdrawAddress(ctx sdk.Context, rewardee sdk.AccAddress) 
 
 // GetParams returns the module parameters.
 func (k Keeper) GetParams(ctx sdk.Context) *types.Params {
+	params, err := k.getStoredParams(ctx)
+	if err != nil {
+		return types.DefaultParams()
+	}
+	return params
+}
+
+// getStoredParams strictly reads the persisted wire value. The migrator uses
+// this read so corrupt or missing state cannot be silently replaced by defaults
+// during an upgrade. GetParams also returns the stored compatibility values
+// truthfully: v2 execution ignores them, while the named migration is the only
+// state transition that clears legacy v1 bytes.
+func (k Keeper) getStoredParams(ctx sdk.Context) (*types.Params, error) {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := store.Get(types.ParamsKey)
-	if err != nil || bz == nil {
-		return types.DefaultParams()
+	if err != nil {
+		return nil, fmt.Errorf("read params: %w", err)
+	}
+	if bz == nil {
+		return nil, fmt.Errorf("vesting_rewards params are missing")
 	}
 	var params types.Params
 	if err := proto.Unmarshal(bz, &params); err != nil {
-		return types.DefaultParams()
+		return nil, fmt.Errorf("unmarshal params: %w", err)
 	}
-	return &params
+	return &params, nil
 }
 
-// SetParams sets the module parameters.
-func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) {
+// SetParams validates and persists module parameters. Validation lives at the
+// storage boundary so genesis, governance, migrations, and future internal
+// callers cannot reintroduce a founder recipient by bypassing MsgUpdateParams.
+func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) error {
+	return k.setParams(ctx, params, false)
+}
+
+// setParams is shared with the v1→v2 migrator. Only that migrator may clear a
+// persisted legacy founder configuration; ordinary parameter writes must wait
+// for the named migration so the on-disk transition and its marker stay
+// auditable. All callers, including the migrator, still pass full v2
+// validation before a write.
+func (k Keeper) setParams(ctx sdk.Context, params *types.Params, allowLegacyFounderClear bool) error {
+	if params == nil {
+		return fmt.Errorf("params must not be nil")
+	}
+	if err := types.ValidateParams(params); err != nil {
+		return err
+	}
 	store := k.storeService.OpenKVStore(ctx)
+	if !allowLegacyFounderClear {
+		currentBz, err := store.Get(types.ParamsKey)
+		if err != nil {
+			return fmt.Errorf("read current params before write: %w", err)
+		}
+		if currentBz != nil {
+			var current types.Params
+			if err := proto.Unmarshal(currentBz, &current); err != nil {
+				return fmt.Errorf("unmarshal current params before write: %w", err)
+			}
+			if current.FounderShareBps != 0 || current.FounderAddress != "" {
+				return types.ErrFounderMigrationRequired
+			}
+		}
+	}
 	bz, err := proto.Marshal(params)
 	if err != nil {
-		panic(fmt.Sprintf("failed to marshal params: %v", err))
+		return fmt.Errorf("marshal params: %w", err)
 	}
 	if err := store.Set(types.ParamsKey, bz); err != nil {
-		panic(fmt.Sprintf("failed to set params: %v", err))
+		return fmt.Errorf("set params: %w", err)
 	}
+	return nil
 }
 
 // GetRevenueSplit returns the revenue split from params, falling back to defaults.
@@ -204,21 +253,6 @@ func (k Keeper) GetProtocolSubSplit(ctx sdk.Context) *commontypes.ProtocolSubSpl
 		return params.ProtocolSubSplit
 	}
 	return types.DefaultProtocolSubSplit()
-}
-
-// isFounderShareActive returns whether the founder auto-split is active.
-// It is inactive when the founder address is not yet set or the share has been
-// governance-zeroed. Per design §10 the share (FounderShareBps) is gov-mutable
-// within [0, FounderShareCapBps]; the address is immutable once set. Both are
-// enforced by ValidateFounderShareChange in UpdateParams.
-func (k Keeper) isFounderShareActive(ctx sdk.Context, params *types.Params) bool {
-	if params.FounderShareBps == 0 || params.FounderAddress == "" {
-		return false
-	}
-	// GovernanceActivationHeight no longer creates an automatic sunset.
-	// Governance may still lower, zero, or restore FounderShareBps within the
-	// founding cap; an already-set address remains immutable.
-	return true
 }
 
 // GetCategoryConfig returns the release curve config for a vesting category.
@@ -337,7 +371,9 @@ func (k Keeper) MintWithCap(ctx sdk.Context, recipientModule string, amount *big
 // InitGenesis initializes the module's state from genesis.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	if gs.Params != nil {
-		k.SetParams(ctx, gs.Params)
+		if err := k.SetParams(ctx, gs.Params); err != nil {
+			panic(fmt.Sprintf("invalid vesting_rewards genesis params: %v", err))
+		}
 	}
 
 	for _, cfg := range gs.CategoryConfigs {

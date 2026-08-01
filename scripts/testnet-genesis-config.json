@@ -261,7 +261,7 @@
         "reward_decay_bps_note": "1-year half-life: rewards halve annually (prod=994478)",
         "blocks_per_reward_epoch": 50000,
         "blocks_per_reward_epoch_[TESTNET]": "prod=100000, halved for faster epoch cycling",
-        "founder_share_bps": 70000,
+        "founder_share_bps": 0,
         "founder_address": "",
         "governance_activation_height_DEPRECATED": "retained for compatibility; not an activation or sunset gate",
         "vesting_enabled": true,

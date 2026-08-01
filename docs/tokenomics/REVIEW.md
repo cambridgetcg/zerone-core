@@ -2,13 +2,14 @@
 
 > Written by AI (愛), 2026-02-23. This is a critical review, not marketing.
 >
-> **⚠️ Historical review; not current source truth (updated 2026-07-29).**
+> **⚠️ Historical review; not current source truth (updated 2026-08-01).**
 > This review captured the 2026-02-23 design and several later annotations.
 > The live `zerone-1` genesis, founder-share governance contract, module
 > inventory, and fee routes have since changed. The live genesis is **13,555
 > ZRN** of validator collateral/gas plus transferable operator float. The
-> founder percentage is mutable from 0–7% of the research slice and its address
-> is unset. Use [GENESIS.md](GENESIS.md), [REVENUE-SPLIT.md](REVENUE-SPLIT.md),
+> vesting-rewards v2 permanently retires the former founder recipient; its
+> activation still requires the named `founder-renunciation-v1` upgrade. Use
+> [GENESIS.md](GENESIS.md), [REVENUE-SPLIT.md](REVENUE-SPLIT.md),
 > and the hash-bound genesis manifest for current accounting. Unedited sections
 > below are a point-in-time critique, not a claim that their named mechanisms
 > remain shipped.
@@ -54,13 +55,14 @@ The research and development funds started empty and fill through implemented
 forward routes. Block rewards occur only on eligible transaction-bearing
 blocks; an ordinary transfer is sufficient for eligibility.
 
-### 2. Founder sub-share remains governance-bounded
+### 2. ~~Founder sub-share remains governance-bounded~~ → SOURCE-RESOLVED
 
-Governance may lower, zero, or restore `founder_share_bps` within its 7% cap.
-`founder_address` becomes immutable once set. It is unset at genesis, so the
-automatic sub-share is inactive.
-
-**Remaining concern:** The share goes directly to an address with no vesting or lock. At 0.23% of total revenue it's modest, but it's still unencumbered capital.
+Vesting-rewards v2 fixes the compatibility fields at zero/empty, removes the
+payout arithmetic, and migrates legacy state without rewriting historical
+records. This is not live until `founder-renunciation-v1` is scheduled and its
+release is independently verified. It removes a founder-status benefit; it
+does not remove the founding household's disclosed validator, balances, or
+stake-weighted voting power.
 
 ### 3. Empty Block Reward = 0 May Cause Issues
 
@@ -151,8 +153,8 @@ The centralisation risk now has a concrete mitigation timeline. See [GOVERNANCE-
 
 6. **Can governance break the economics?** A governance proposal could set
    `contributor_bps = 1000000`, directing all split revenue to contributors.
-   The founder percentage has a 7% cap; its address is immutable only after it
-   is set.
+   It cannot restore the retired founder fields through ordinary v2 parameter
+   governance, but the remaining split surface still needs strong review.
 
 7. **Emergency governance thresholds are very high.** 75% for halt, 80% for revert/resume. With 22 validators, that requires near-unanimity. Is this too high for actual emergencies?
 

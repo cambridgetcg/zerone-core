@@ -116,15 +116,17 @@ func (q queryServer) ResearchFundBalance(goCtx context.Context, _ *types.QueryRe
 	}, nil
 }
 
-// FounderShareStatus returns whether the founder auto-split is active and its parameters.
+// FounderShareStatus retains the legacy query shape. Active is always false in
+// v2 execution, while the compatibility fields truthfully expose stored bytes:
+// a pre-migration v1 store may still show its legacy configuration and the
+// named migration clears both fields.
 func (q queryServer) FounderShareStatus(goCtx context.Context, _ *types.QueryFounderShareStatusRequest) (*types.QueryFounderShareStatusResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	params := q.Keeper.GetParams(ctx)
-	active := q.Keeper.isFounderShareActive(ctx, params)
 
 	return &types.QueryFounderShareStatusResponse{
-		Active:                     active,
+		Active:                     false,
 		FounderShareBps:            params.FounderShareBps,
 		FounderAddress:             params.FounderAddress,
 		GovernanceActivationHeight: params.GovernanceActivationHeight,
