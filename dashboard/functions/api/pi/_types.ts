@@ -112,6 +112,7 @@ export interface PiRepository {
   ): Promise<PiBinding | null>;
   getBinding(subjectHash: string): Promise<PiBinding | null>;
   deleteBinding(subjectHash: string, now: number): Promise<void>;
+  deleteSubject(subjectHash: string): Promise<void>;
 }
 
 export type PiFetch = (

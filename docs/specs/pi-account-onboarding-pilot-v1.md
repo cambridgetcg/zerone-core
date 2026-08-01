@@ -31,7 +31,8 @@ The implemented source:
   sessions, single-use OAuth state, and optional wallet-binding evidence in D1;
 - keeps normal dashboard browsing and Keplr wallet use available without Pi;
 - verifies an optional ADR-036 signature entirely off-chain; and
-- provides explicit logout, unlink, and expiry behavior.
+- provides explicit logout, unlink, expiry, and authenticated pilot-data
+  deletion behavior.
 
 It does not load the Pi JavaScript SDK, request `wallet_address`, use a Pi API
 key, call a Pi payment endpoint, accept a Pi passphrase, query Pi KYC status, or
@@ -140,9 +141,17 @@ rows are excluded from authentication and proof decisions, but the v1
 migration does not automate physical purging. Production activation therefore
 requires a reviewed D1 retention/cleanup procedure; until that exists, this
 source is not retention-complete. Logout revokes the current session. Unlink
-deletes the active wallet association. A later privacy endpoint may delete
-every pilot record for the authenticated internal subject; that endpoint is
-not claimed by v1 until implemented and tested.
+deletes the active wallet association.
+
+`DELETE /api/pi/data` requires the current session, exact Origin, session-bound
+CSRF, and a versioned explicit confirmation. In one D1 transaction it removes
+all session rows, the active wallet binding, every outstanding challenge, and
+the directly linked replay row for the authenticated internal subject, then
+clears both Pi pilot cookies. Pi OAuth/bearer anti-replay rows and already
+orphaned challenge tombstones deliberately contain no subject index, so they
+cannot be selected by account and remain only until the age-based retention
+procedure removes them. The interface discloses this distinction. Deletion
+does not alter the person's Pi account, Keplr wallet, or any blockchain state.
 
 ## Threat and failure model
 
@@ -168,7 +177,10 @@ Before phase A activation:
 - OAuth state mismatch, expiry, and concurrent replay tests pass;
 - only the fixed `/v2/me` upstream is reachable;
 - bearer-token non-persistence and bounded-error tests pass;
-- cookie, Origin, CSRF, cache, CSP, and referrer-policy checks pass; and
+- cookie, Origin, CSRF, cache, CSP, and referrer-policy checks pass;
+- explicit deletion rejects missing confirmation, cross-origin requests, and
+  stale CSRF while atomically removing all subject-linked sessions and optional
+  wallet state without affecting another subject; and
 - the UI copy and anonymous path receive product/security review.
 
 Before phase B activation:

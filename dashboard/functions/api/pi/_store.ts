@@ -189,6 +189,14 @@ export class D1PiRepository implements PiRepository {
            WHERE session_hash = ?
              AND created_at >= ?
          ) < ?
+           AND EXISTS (
+             SELECT 1
+             FROM pi_sessions AS s
+             WHERE s.token_hash = ?
+               AND s.subject_hash = ?
+               AND s.revoked_at IS NULL
+               AND s.expires_at > ?
+           )
            AND NOT EXISTS (
              SELECT 1
              FROM pi_wallet_bindings
@@ -208,6 +216,9 @@ export class D1PiRepository implements PiRepository {
         challenge.sessionHash,
         recentSince,
         maximumRecent,
+        challenge.sessionHash,
+        challenge.subjectHash,
+        challenge.createdAt,
         challenge.subjectHash,
       )
       .first<SqlRow>();
@@ -329,6 +340,43 @@ export class D1PiRepository implements PiRepository {
       this.database
         .prepare(
           `DELETE FROM pi_wallet_bindings
+           WHERE subject_hash = ?`,
+        )
+        .bind(subjectHash),
+    ]);
+  }
+
+  async deleteSubject(subjectHash: string): Promise<void> {
+    await this.database.batch([
+      this.database
+        .prepare(
+          `DELETE FROM pi_wallet_challenge_uses
+           WHERE challenge_hash IN (
+             SELECT id_hash
+             FROM pi_wallet_challenges
+             WHERE subject_hash = ?
+             UNION
+             SELECT challenge_hash
+             FROM pi_wallet_bindings
+             WHERE subject_hash = ?
+           )`,
+        )
+        .bind(subjectHash, subjectHash),
+      this.database
+        .prepare(
+          `DELETE FROM pi_wallet_challenges
+           WHERE subject_hash = ?`,
+        )
+        .bind(subjectHash),
+      this.database
+        .prepare(
+          `DELETE FROM pi_wallet_bindings
+           WHERE subject_hash = ?`,
+        )
+        .bind(subjectHash),
+      this.database
+        .prepare(
+          `DELETE FROM pi_sessions
            WHERE subject_hash = ?`,
         )
         .bind(subjectHash),

@@ -32,7 +32,8 @@ export type PiEndpoint =
   | "me"
   | "logout"
   | "challenge"
-  | "bind";
+  | "bind"
+  | "data";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -75,6 +76,7 @@ const MAX_REQUEST_BODY_BYTES = 8_192;
 const MAX_PROFILE_BODY_BYTES = 16_384;
 const PI_UPSTREAM_TIMEOUT_MS = 8_000;
 const WALLET_LINK_CONSENT_VERSION = "pi-wallet-link-v1";
+const DATA_DELETION_CONFIRMATION = "delete-pi-pilot-data-v1";
 
 const API_HEADERS = {
   "Cache-Control": "no-store",
@@ -664,6 +666,33 @@ async function logout(
   });
 }
 
+async function deletePilotData(
+  request: Request,
+  config: PiConfig,
+  runtime: PiRuntime,
+): Promise<Response> {
+  if (request.method !== "DELETE") return methodNotAllowed(["DELETE"]);
+  if (!queryIsEmpty(request)) {
+    return jsonError("Invalid Pi data-deletion request", 400);
+  }
+  const body = await readJsonBody(request);
+  if (
+    !body.ok ||
+    !hasOnlyKeys(body.value, ["confirmation"]) ||
+    body.value.confirmation !== DATA_DELETION_CONFIRMATION
+  ) {
+    return jsonError("Invalid Pi data-deletion request", 400);
+  }
+  const authenticated = await authenticateMutation(request, config, runtime);
+  if (!authenticated) return jsonError("Pi session was not accepted", 401);
+
+  await runtime.repository.deleteSubject(authenticated.session.subjectHash);
+  return jsonResponse(envelope(config), 200, (headers) => {
+    headers.append("Set-Cookie", clearCookie(SESSION_COOKIE));
+    headers.append("Set-Cookie", clearCookie(OAUTH_COOKIE));
+  });
+}
+
 function zeroneAccount(value: unknown): { address: string; accountId: string } | null {
   if (typeof value !== "string" || value.length !== 42) return null;
   try {
@@ -884,6 +913,8 @@ export async function handlePiRequest(
       return createChallenge(request, config, runtime);
     case "bind":
       return bind(request, config, runtime);
+    case "data":
+      return deletePilotData(request, config, runtime);
   }
 }
 

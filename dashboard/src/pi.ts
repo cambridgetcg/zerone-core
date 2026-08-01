@@ -312,6 +312,22 @@ export async function endPiSession(csrfToken: string): Promise<PiSession> {
   return session;
 }
 
+export async function deletePiPilotData(
+  csrfToken: string,
+): Promise<PiSession> {
+  const session = parsePiSession(
+    await piRequest("/api/pi/data", {
+      method: "DELETE",
+      body: { confirmation: "delete-pi-pilot-data-v1" },
+      csrfToken,
+    }),
+  );
+  if (!session.enabled || session.authenticated) {
+    throw new PiTransportError("The Pi pilot data was not deleted.");
+  }
+  return session;
+}
+
 export async function requestWalletChallenge(
   address: string,
   csrfToken: string,

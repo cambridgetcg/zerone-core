@@ -126,6 +126,10 @@ class MemoryPiRepository implements PiRepository {
     recentSince: number,
     maximumRecent: number,
   ): Promise<boolean> {
+    const activeSession = await this.getSession(
+      challenge.sessionHash,
+      challenge.createdAt,
+    );
     const recent = [...this.challenges.values()].filter(
       (candidate) =>
         candidate.sessionHash === challenge.sessionHash &&
@@ -134,6 +138,7 @@ class MemoryPiRepository implements PiRepository {
     if (
       recent >= maximumRecent ||
       this.challenges.has(challenge.idHash) ||
+      activeSession?.subjectHash !== challenge.subjectHash ||
       this.bindings.has(challenge.subjectHash)
     ) {
       return false;
@@ -210,6 +215,22 @@ class MemoryPiRepository implements PiRepository {
     for (const candidate of [...this.challenges.values()]) {
       if (candidate.subjectHash !== subjectHash) continue;
       this.challengeUses.add(candidate.idHash);
+      this.challenges.delete(candidate.idHash);
+    }
+  }
+
+  async deleteSubject(subjectHash: string): Promise<void> {
+    const binding = this.bindings.get(subjectHash);
+    if (binding) this.addressSubjects.delete(binding.address);
+    this.bindings.delete(subjectHash);
+    for (const [tokenHash, session] of this.sessions) {
+      if (session.subjectHash !== subjectHash) continue;
+      this.sessions.delete(tokenHash);
+      this.revoked.delete(tokenHash);
+    }
+    for (const candidate of [...this.challenges.values()]) {
+      if (candidate.subjectHash !== subjectHash) continue;
+      this.challengeUses.delete(candidate.idHash);
       this.challenges.delete(candidate.idHash);
     }
   }
@@ -748,6 +769,115 @@ test("me exposes sanitized state and mutations require exact Origin plus session
     authenticated: false,
   });
   assert.match(logout.headers.get("Set-Cookie") ?? "", /Max-Age=0/u);
+});
+
+test("data deletion requires explicit confirmation and atomically removes subject-linked pilot state", async () => {
+  const testHarness = harness();
+  const signedIn = await signIn(testHarness);
+  const sessionHash = hashOpaque(signedIn.sessionCookie);
+  const session = testHarness.repository.sessions.get(sessionHash);
+  if (!session) assert.fail("expected authenticated session");
+
+  const secondTokenHash = hashOpaque("second-session-for-subject");
+  await testHarness.repository.createSession({
+    ...session,
+    tokenHash: secondTokenHash,
+  });
+  const address = toBech32("zrn", new Uint8Array(20).fill(8));
+  testHarness.repository.bindings.set(session.subjectHash, {
+    subjectHash: session.subjectHash,
+    address,
+    accountId: `cosmos:zerone-1:${address}`,
+    consentVersion: "pi-wallet-link-v1",
+    boundAt: testHarness.runtime.now(),
+  });
+  testHarness.repository.addressSubjects.set(address, session.subjectHash);
+  const outstandingChallenge: PiChallenge = {
+    idHash: hashOpaque("privacy-delete-challenge"),
+    sessionHash,
+    subjectHash: session.subjectHash,
+    address,
+    accountId: `cosmos:zerone-1:${address}`,
+    message: "privacy deletion challenge",
+    createdAt: testHarness.runtime.now(),
+    expiresAt: testHarness.runtime.now() + 60_000,
+  };
+  testHarness.repository.challenges.set(
+    outstandingChallenge.idHash,
+    outstandingChallenge,
+  );
+
+  const missingConfirmation = await handlePiRequest(
+    "data",
+    authenticatedRequest("/api/pi/data", "DELETE", signedIn),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal(missingConfirmation.status, 400);
+  assert.equal(testHarness.repository.sessions.has(sessionHash), true);
+
+  const badOrigin = await handlePiRequest(
+    "data",
+    authenticatedRequest(
+      "/api/pi/data",
+      "DELETE",
+      signedIn,
+      { confirmation: "delete-pi-pilot-data-v1" },
+      { Origin: "https://attacker.invalid" },
+    ),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal(badOrigin.status, 401);
+  assert.equal(testHarness.repository.sessions.has(sessionHash), true);
+
+  const deleted = await handlePiRequest(
+    "data",
+    authenticatedRequest(
+      "/api/pi/data",
+      "DELETE",
+      signedIn,
+      { confirmation: "delete-pi-pilot-data-v1" },
+    ),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(await deleted.json(), {
+    enabled: true,
+    walletProofEnabled: true,
+    authenticated: false,
+  });
+  const clearedCookies = deleted.headers.get("Set-Cookie") ?? "";
+  assert.match(clearedCookies, /__Host-zrn-pi-session=.*Max-Age=0/u);
+  assert.match(clearedCookies, /__Host-zrn-pi-oauth=.*Max-Age=0/u);
+  assert.equal(
+    [...testHarness.repository.sessions.values()].some(
+      (candidate) => candidate.subjectHash === session.subjectHash,
+    ),
+    false,
+  );
+  assert.equal(testHarness.repository.bindings.has(session.subjectHash), false);
+  assert.equal(testHarness.repository.addressSubjects.has(address), false);
+  assert.equal(
+    [...testHarness.repository.challenges.values()].some(
+      (candidate) => candidate.subjectHash === session.subjectHash,
+    ),
+    false,
+  );
+  assert.equal(testHarness.repository.sessions.has(secondTokenHash), false);
+
+  const staleSession = await handlePiRequest(
+    "me",
+    new Request(`${ORIGIN}/api/pi/me`, {
+      headers: {
+        Cookie: `__Host-zrn-pi-session=${signedIn.sessionCookie}`,
+      },
+    }),
+    ENV,
+    testHarness.runtime,
+  );
+  assert.equal((await staleSession.json() as PiSessionEnvelope).authenticated, false);
 });
 
 test("wallet challenge is optional, session-bound, rate-limited, and explicitly off-chain", async () => {
@@ -1438,6 +1568,152 @@ describe("D1 migration and atomic constraints", () => {
         now + 6,
       ),
       null,
+    );
+    database.close();
+  });
+
+  it("deletes one subject's sessions, binding, challenges, and linked replay row without touching another subject", async () => {
+    const database = new DatabaseSync(":memory:");
+    database.exec(
+      readFileSync(
+        new URL("../migrations/0001_pi_identity.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    const repository = new D1PiRepository(new SqliteD1Database(database));
+    const now = 80_000;
+    const subjectOne = hashOpaque("privacy-subject-one");
+    const subjectTwo = hashOpaque("privacy-subject-two");
+    const sessionOne: PiSession = {
+      tokenHash: hashOpaque("privacy-session-one"),
+      subjectHash: subjectOne,
+      username: "one",
+      expiresAt: now + 10_000,
+    };
+    const sessionOneAgain: PiSession = {
+      ...sessionOne,
+      tokenHash: hashOpaque("privacy-session-one-again"),
+    };
+    const sessionTwo: PiSession = {
+      tokenHash: hashOpaque("privacy-session-two"),
+      subjectHash: subjectTwo,
+      username: "two",
+      expiresAt: now + 10_000,
+    };
+    await repository.createSession(sessionOne, now);
+    await repository.createSession(sessionOneAgain, now);
+    await repository.createSession(sessionTwo, now);
+
+    const addressOne = `zrn1${"q".repeat(38)}`;
+    const challengeOne: PiChallenge = {
+      idHash: hashOpaque("privacy-bound-challenge"),
+      sessionHash: sessionOne.tokenHash,
+      subjectHash: subjectOne,
+      address: addressOne,
+      accountId: `cosmos:zerone-1:${addressOne}`,
+      message: "privacy bound challenge",
+      createdAt: now,
+      expiresAt: now + 1_000,
+    };
+    assert.equal(
+      await repository.createChallenge(challengeOne, now - 1_000, 5),
+      true,
+    );
+    assert.ok(
+      await repository.bindChallenge(
+        challengeOne.idHash,
+        sessionOne.tokenHash,
+        subjectOne,
+        hashOpaque("privacy-proof"),
+        "pi-wallet-link-v1",
+        now + 1,
+      ),
+    );
+
+    const outstandingHash = hashOpaque("privacy-outstanding-challenge");
+    database
+      .prepare(
+        `INSERT INTO pi_wallet_challenges
+           (id_hash, session_hash, subject_hash, address, account_id, message,
+            created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        outstandingHash,
+        sessionOneAgain.tokenHash,
+        subjectOne,
+        addressOne,
+        `cosmos:zerone-1:${addressOne}`,
+        "privacy outstanding challenge",
+        now,
+        now + 1_000,
+      );
+
+    const addressTwo = `zrn1${"p".repeat(38)}`;
+    const challengeTwo: PiChallenge = {
+      ...challengeOne,
+      idHash: hashOpaque("privacy-other-challenge"),
+      sessionHash: sessionTwo.tokenHash,
+      subjectHash: subjectTwo,
+      address: addressTwo,
+      accountId: `cosmos:zerone-1:${addressTwo}`,
+      message: "privacy other challenge",
+    };
+    assert.equal(
+      await repository.createChallenge(challengeTwo, now - 1_000, 5),
+      true,
+    );
+
+    await repository.deleteSubject(subjectOne);
+
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_sessions WHERE subject_hash = ?")
+        .get(subjectOne)?.count,
+      0,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_wallet_bindings WHERE subject_hash = ?")
+        .get(subjectOne)?.count,
+      0,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_wallet_challenges WHERE subject_hash = ?")
+        .get(subjectOne)?.count,
+      0,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_wallet_challenge_uses WHERE challenge_hash = ?")
+        .get(challengeOne.idHash)?.count,
+      0,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_sessions WHERE subject_hash = ?")
+        .get(subjectTwo)?.count,
+      1,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT COUNT(*) AS count FROM pi_wallet_challenges WHERE subject_hash = ?")
+        .get(subjectTwo)?.count,
+      1,
+    );
+    assert.equal(
+      await repository.createChallenge(
+        {
+          ...challengeOne,
+          idHash: hashOpaque("privacy-post-delete-challenge"),
+          message: "privacy post-delete challenge",
+          createdAt: now + 2,
+        },
+        now - 1_000,
+        5,
+      ),
+      false,
     );
     database.close();
   });
