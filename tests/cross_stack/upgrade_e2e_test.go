@@ -326,9 +326,9 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 
 	current := h.App.CurrentModuleVersionMap()
 
-	// Reproduce the published pre-H1 economic parameter shapes. H1 is the one
-	// atomic boundary that advances lifecycle safety and retires control-linked
-	// automatic claims.
+	// Reproduce the published pre-H1 liquidity shape. Exact raw v1 vesting
+	// parameter clearing is covered inside the keeper package, where test code
+	// can reach the private migration seam without exporting a daemon bypass.
 	legacyLiquidity := h.App.LiquidityPoolKeeper.GetParams(h.Ctx)
 	legacyLiquidity.ProtocolFeeBps = 450_000
 	legacyLiquidity.MaxPools = 0
@@ -336,14 +336,6 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 	legacyLiquidity.PoolCreators = nil
 	legacyLiquidity.BillingQuoteDenoms = nil
 	h.App.LiquidityPoolKeeper.SetParams(h.Ctx, legacyLiquidity)
-
-	legacyRewards := h.App.VestingRewardsKeeper.GetParams(h.Ctx)
-	legacyRewards.FounderShareBps = 70_000
-	legacyRewards.FounderAddress = "zrn1legacyfounder00000000000000000000000"
-	legacyRewards.BlockReward = "10000000"
-	legacyRewards.FloorReward = "100000"
-	legacyRewards.EmptyBlockRewardRate = 250_000
-	require.NoError(t, h.App.SeedLegacyVestingRewardsParamsForTests(h.Ctx, legacyRewards))
 
 	fromVM := exactConsolidationPrestate(current)
 
@@ -441,7 +433,7 @@ func TestUpgrade_ConsolidationSafetyV1RefusesInexactBoundary(t *testing.T) {
 			fromVM := exactConsolidationPrestate(current)
 			tc.mutate(fromVM, current)
 
-			toVM, err := h.App.RunMigrationsForPlanForTests(
+			toVM, err := h.App.RunUpgradeHandlerForTests(
 				h.Ctx,
 				zeroneapp.UpgradeNameConsolidationSafetyV1,
 				fromVM,

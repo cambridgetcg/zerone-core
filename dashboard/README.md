@@ -34,6 +34,27 @@ exist. Standards review dates are shown in the interface. Once one passes, the
 viewer remains useful as a historical snapshot but warns that active use must
 fail closed until the authority metadata is revalidated.
 
+The Life Sciences v0 shadow overlay is separately digest-pinned at
+`/standards/constructive-intelligence-life-sciences.v0.json`. It maps benign
+biomolecule, protein-folding, gene-expression, and replication evidence while
+enforcing four non-implication walls and a GREEN-only refusal boundary. Its
+economics are exactly `NONE/0`, it creates no KARMA magnitude or qualification,
+and neither skill-tree position nor a breakthrough label activates issuance.
+The browser applies the same redirect, exact-path, media-type, byte-cap,
+deadline, digest, and text-node rendering boundary as the other static trees.
+
+The same page also loads the separately digest-pinned Quantum QEC Season 1
+extension at
+`/standards/constructive-intelligence-quantum-qec.v0.json`. It preserves the
+base tree bytes and adds a display-only path from quantum foundations to a
+correlated-noise decoder quest. Its canonical amount is `0 uzrn`, escrow is
+null, rewards and qualification are inactive, founder share and reserved seats
+are zero, and KARMA supplies neither payout nor vote weight. The B0–B5 display
+is a retrospective artifact-history lens, never a self-assigned badge. The
+quest pins the Nature Communications Version of Record dated 2026-05-01, exact
+BB fixtures and physical-error grid, content-digested circuits and artifacts,
+and per-cell statistical gates. Its source-check and review-after dates are
+visible; after the latter passes, active-use claims fail closed pending review.
 The nested Math Frontier explorer applies the same browser boundary to
 `/standards/constructive-intelligence-math-frontier.v0.json`: exact
 same-origin path, redirect refusal, 131,072-byte streaming limit, timeout,

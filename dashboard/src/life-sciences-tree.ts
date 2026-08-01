@@ -62,6 +62,15 @@ export interface LifeSciencesOverlay {
   nodes: LifeSciencesNode[];
 }
 
+export interface LifeSciencesTreeFetchOptions {
+  fetcher?: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Promise<Response>;
+  timeoutMs?: number;
+  baseUrl?: string;
+}
+
 export class LifeSciencesTreeError extends Error {
   constructor(message: string) {
     super(message);
@@ -264,30 +273,221 @@ function hex(bytes: ArrayBuffer): string {
   return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function fetchLifeSciencesOverlay(
-  fetcher: typeof fetch = fetch,
-): Promise<LifeSciencesOverlay> {
-  const response = await fetcher(LIFE_SCIENCES_TREE_ENDPOINT, {
-    cache: "no-store",
-    headers: { Accept: "application/json" },
+async function readBoundedResponse(
+  response: Response,
+  signal: AbortSignal,
+): Promise<Uint8Array> {
+  if (response.body === null) {
+    throw new LifeSciencesTreeError(
+      "Life-science overlay returned an empty response body",
+    );
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  let rejectOnAbort: ((reason?: unknown) => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectOnAbort = reject;
   });
-  if (!response.ok) throw new LifeSciencesTreeError(`Life-science overlay returned HTTP ${response.status}`);
-  const raw = await response.text();
-  const bytes = new TextEncoder().encode(raw);
-  if (bytes.byteLength > LIFE_SCIENCES_TREE_MAX_BYTES) {
-    throw new LifeSciencesTreeError("Life-science overlay exceeds its byte limit");
-  }
-  const digest = hex(await crypto.subtle.digest("SHA-256", bytes));
-  if (digest !== LIFE_SCIENCES_TREE_SHA256) {
-    throw new LifeSciencesTreeError("Life-science overlay bytes do not match the reviewed SHA-256");
-  }
-  let parsed: unknown;
+  const onAbort = (): void => {
+    rejectOnAbort?.(
+      signal.reason ??
+        new DOMException("Life-science overlay request timed out", "TimeoutError"),
+    );
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+  if (signal.aborted) onAbort();
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new LifeSciencesTreeError("Life-science overlay is not valid JSON");
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), aborted]);
+      if (done) break;
+      length += value.byteLength;
+      if (length > LIFE_SCIENCES_TREE_MAX_BYTES) {
+        void reader.cancel().catch(() => {
+          // Refusal must not wait for a hostile stream to accept cancellation.
+        });
+        throw new LifeSciencesTreeError(
+          "Life-science overlay exceeds its byte limit",
+        );
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (signal.aborted) {
+      void reader.cancel(signal.reason).catch(() => {
+        // The deadline wins even if cancellation stalls or rejects.
+      });
+      throw new LifeSciencesTreeError(
+        "Life-science overlay request timed out",
+      );
+    }
+    throw error;
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+    try {
+      reader.releaseLock();
+    } catch {
+      // A still-pending hostile read is abandoned after refusal.
+    }
   }
-  return parseLifeSciencesOverlay(parsed);
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  if (globalThis.crypto?.subtle === undefined) {
+    throw new LifeSciencesTreeError(
+      "Life-science overlay digest verification is unavailable",
+    );
+  }
+  const input = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(input).set(bytes);
+  return hex(await globalThis.crypto.subtle.digest("SHA-256", input));
+}
+
+function assertCanonicalResponseUrl(
+  response: Response,
+  baseUrl?: string,
+): void {
+  if (response.redirected) {
+    throw new LifeSciencesTreeError(
+      "Life-science overlay response was redirected",
+    );
+  }
+  if (baseUrl === undefined) return;
+  let expected: URL;
+  let actual: URL;
+  try {
+    expected = new URL(LIFE_SCIENCES_TREE_ENDPOINT, baseUrl);
+    actual = new URL(response.url);
+  } catch {
+    throw new LifeSciencesTreeError(
+      "Life-science overlay returned an invalid final URL",
+    );
+  }
+  if (
+    actual.origin !== expected.origin ||
+    actual.pathname !== expected.pathname ||
+    actual.search !== expected.search ||
+    actual.hash !== expected.hash
+  ) {
+    throw new LifeSciencesTreeError(
+      "Life-science overlay left its canonical same-origin path",
+    );
+  }
+}
+
+export async function fetchLifeSciencesOverlay(
+  options: LifeSciencesTreeFetchOptions = {},
+): Promise<LifeSciencesOverlay> {
+  const fetcher = options.fetcher ?? globalThis.fetch;
+  if (fetcher === undefined) {
+    throw new LifeSciencesTreeError("Life-science overlay is unavailable");
+  }
+  const controller = new AbortController();
+  const deadline = globalThis.setTimeout(() => {
+    controller.abort(
+      new DOMException("Life-science overlay request timed out", "TimeoutError"),
+    );
+  }, options.timeoutMs ?? 8_000);
+  const baseUrl =
+    options.baseUrl ??
+    (typeof window === "undefined" ? undefined : window.location.href);
+  try {
+    let response: Response;
+    let rejectFetchOnAbort: ((reason?: unknown) => void) | undefined;
+    const fetchAborted = new Promise<never>((_resolve, reject) => {
+      rejectFetchOnAbort = reject;
+    });
+    const onFetchAbort = (): void => {
+      rejectFetchOnAbort?.(
+        controller.signal.reason ??
+          new DOMException("Life-science overlay request timed out", "TimeoutError"),
+      );
+    };
+    controller.signal.addEventListener("abort", onFetchAbort, { once: true });
+    if (controller.signal.aborted) onFetchAbort();
+    try {
+      response = await Promise.race([
+        fetcher(LIFE_SCIENCES_TREE_ENDPOINT, {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+          redirect: "error",
+          signal: controller.signal,
+        }),
+        fetchAborted,
+      ]);
+    } catch (error) {
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException &&
+          (error.name === "AbortError" || error.name === "TimeoutError"))
+      ) {
+        throw new LifeSciencesTreeError(
+          "Life-science overlay request timed out",
+        );
+      }
+      throw new LifeSciencesTreeError("Life-science overlay is unavailable");
+    } finally {
+      controller.signal.removeEventListener("abort", onFetchAbort);
+    }
+    if (!response.ok) {
+      throw new LifeSciencesTreeError(
+        `Life-science overlay returned HTTP ${response.status}`,
+      );
+    }
+    assertCanonicalResponseUrl(response, baseUrl);
+    const contentType = response.headers.get("content-type");
+    if (contentType === null || !/\bjson\b/i.test(contentType)) {
+      throw new LifeSciencesTreeError(
+        "Life-science overlay returned a non-JSON response",
+      );
+    }
+    const declaredLength = response.headers.get("content-length");
+    if (declaredLength !== null) {
+      const length = Number(declaredLength);
+      if (
+        !/^\d+$/.test(declaredLength) ||
+        !Number.isSafeInteger(length) ||
+        length > LIFE_SCIENCES_TREE_MAX_BYTES
+      ) {
+        throw new LifeSciencesTreeError(
+          "Life-science overlay exceeds its byte limit",
+        );
+      }
+    }
+    const bytes = await readBoundedResponse(response, controller.signal);
+    if ((await sha256Hex(bytes)) !== LIFE_SCIENCES_TREE_SHA256) {
+      throw new LifeSciencesTreeError(
+        "Life-science overlay bytes do not match the reviewed SHA-256",
+      );
+    }
+    let raw: string;
+    try {
+      raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      throw new LifeSciencesTreeError(
+        "Life-science overlay is not valid UTF-8",
+      );
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new LifeSciencesTreeError(
+        "Life-science overlay is not valid JSON",
+      );
+    }
+    return parseLifeSciencesOverlay(parsed);
+  } finally {
+    globalThis.clearTimeout(deadline);
+  }
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(

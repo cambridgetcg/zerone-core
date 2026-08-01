@@ -6,11 +6,7 @@ import (
 	"sort"
 
 	upgradetypes "cosmossdk.io/x/upgrade/types"
-	sdkruntime "github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	"google.golang.org/protobuf/proto"
-
-	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 // ─── Wave 10: Module Version Registry ────────────────────────────────────
@@ -144,42 +140,19 @@ func (app *ZeroneApp) RunUpgradeHandlerForTests(ctx context.Context, name string
 	if !app.UpgradeKeeper.HasHandler(name) {
 		return nil, fmt.Errorf("no upgrade handler registered for %q", name)
 	}
+	plan := upgradetypes.Plan{Name: name, Height: height, Info: "e2e test"}
+	if _, err := app.validateMigrationBoundaryForPlan(plan, fromVM); err != nil {
+		return nil, fmt.Errorf("validate upgrade boundary: %w", err)
+	}
 	// Seed the on-chain module-version map to the pre-upgrade state so
 	// RunMigrations detects the correct delta per module.
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, fromVM); err != nil {
 		return nil, fmt.Errorf("seed pre-upgrade vm: %w", err)
 	}
-	plan := upgradetypes.Plan{Name: name, Height: height, Info: "e2e test"}
 	if err := app.UpgradeKeeper.ApplyUpgrade(ctx, plan); err != nil {
 		return nil, fmt.Errorf("apply upgrade: %w", err)
 	}
 	return app.UpgradeKeeper.GetModuleVersionMap(ctx)
-}
-
-// RunMigrationsForPlanForTests exercises the plan/version boundary directly.
-// Unlike UpgradeKeeper.SetModuleVersionMap, it preserves omitted entries, so
-// negative tests can prove that a missing H1 bundle member fails closed.
-func (app *ZeroneApp) RunMigrationsForPlanForTests(ctx context.Context, name string, fromVM module.VersionMap, height int64) (module.VersionMap, error) {
-	return app.runMigrationsForPlan(ctx, upgradetypes.Plan{Name: name, Height: height, Info: "boundary test"}, fromVM)
-}
-
-// SeedLegacyVestingRewardsParamsForTests writes the pre-v2 wire shape needed
-// by full-app H1 migration tests. The production keeper deliberately exposes
-// no legacy-write bypass; keeping this fixture seam at the app test boundary
-// prevents ordinary messages and keeper callers from impersonating H1.
-func (app *ZeroneApp) SeedLegacyVestingRewardsParamsForTests(ctx context.Context, params *vestingrewardstypes.Params) error {
-	if params == nil {
-		return fmt.Errorf("legacy vesting_rewards params must not be nil")
-	}
-	bz, err := proto.Marshal(params)
-	if err != nil {
-		return fmt.Errorf("marshal legacy vesting_rewards params: %w", err)
-	}
-	store := sdkruntime.NewKVStoreService(app.keys[vestingrewardstypes.StoreKey]).OpenKVStore(ctx)
-	if err := store.Set(vestingrewardstypes.ParamsKey, bz); err != nil {
-		return fmt.Errorf("seed legacy vesting_rewards params: %w", err)
-	}
-	return nil
 }
 
 // CurrentModuleVersionMap returns the module manager's current

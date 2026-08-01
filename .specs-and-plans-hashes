@@ -10,3 +10,5 @@ constructive-receipt-v0-spec 77354e26433e40ff6a363b9bb62f0228b662106fd3df50052c4
 constructive-receipt-v0-request-schema 5de62eb783f4c2ae0cfd006a09b776787e254b19fd3b3125abcc52070fffd096  docs/specs/attestations/constructive-receipt-shadow-v0/request.schema.json
 constructive-receipt-v0-receipt-schema 314d158f64761f407f46208b42b6dafd16b9f60310dad3d97c41e453c383c5a0  docs/specs/attestations/constructive-receipt-shadow-v0/receipt.schema.json
 constructive-receipt-v0-zero-escrow-schema 3f0015d065959c702e63dfe3812b64dccb729a4093a1567e03ea9517c2661c3d  docs/specs/attestations/constructive-receipt-shadow-v0/zero-escrow-compartments.schema.json
+constructive-intelligence-life-sciences-v0 45345ca37d96c1578bed313dad3436631c1923882b5e9d7c9e9c10a70abe7889  docs/specs/constructive-intelligence-life-sciences-v0.md
+constructive-intelligence-quantum-qec-v0 dd82b1f786ffc3466a5aa0ae9942db44c1137c346872238f6dc5f1f099e9531b  docs/specs/constructive-intelligence-quantum-qec-v0.md

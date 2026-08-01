@@ -52,6 +52,51 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	plan upgradetypes.Plan,
 	fromVM module.VersionMap,
 ) (module.VersionMap, error) {
+	targetVM, err := app.validateMigrationBoundaryForPlan(plan, fromVM)
+	if err != nil {
+		return nil, err
+	}
+
+	toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+	if err != nil {
+		return nil, err
+	}
+	if plan.Name != UpgradeNameConsolidationSafetyV1 {
+		return toVM, nil
+	}
+	if len(toVM) != len(targetVM) {
+		return nil, fmt.Errorf(
+			"upgrade %q produced invalid poststate size %d; require %d",
+			plan.Name,
+			len(toVM),
+			len(targetVM),
+		)
+	}
+	for _, name := range sortedVersionMapNames(targetVM) {
+		want := targetVM[name]
+		got, ok := toVM[name]
+		if !ok || got != want {
+			return nil, fmt.Errorf(
+				"upgrade %q produced invalid poststate %s=%d; require %d (present=%t)",
+				plan.Name,
+				name,
+				got,
+				want,
+				ok,
+			)
+		}
+	}
+	return toVM, nil
+}
+
+// validateMigrationBoundaryForPlan is a pure preflight: it performs no store
+// writes and runs no migrators. The production handler and its end-to-end test
+// helper share it so omitted VersionMap entries cannot be hidden by the SDK's
+// additive SetModuleVersionMap test setup.
+func (app *ZeroneApp) validateMigrationBoundaryForPlan(
+	plan upgradetypes.Plan,
+	fromVM module.VersionMap,
+) (module.VersionMap, error) {
 	targetVM := app.ModuleManager.GetVersionMap()
 	boundaryModules := make(map[string]struct{}, len(consolidationVersionBoundaries))
 	for _, boundary := range consolidationVersionBoundaries {
@@ -93,7 +138,7 @@ func (app *ZeroneApp) runMigrationsForPlan(
 				)
 			}
 		}
-		return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+		return targetVM, nil
 	}
 
 	for _, boundary := range consolidationVersionBoundaries {
@@ -132,33 +177,7 @@ func (app *ZeroneApp) runMigrationsForPlan(
 		}
 	}
 
-	toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
-	if err != nil {
-		return nil, err
-	}
-	if len(toVM) != len(targetVM) {
-		return nil, fmt.Errorf(
-			"upgrade %q produced invalid poststate size %d; require %d",
-			plan.Name,
-			len(toVM),
-			len(targetVM),
-		)
-	}
-	for _, name := range sortedVersionMapNames(targetVM) {
-		want := targetVM[name]
-		got, ok := toVM[name]
-		if !ok || got != want {
-			return nil, fmt.Errorf(
-				"upgrade %q produced invalid poststate %s=%d; require %d (present=%t)",
-				plan.Name,
-				name,
-				got,
-				want,
-				ok,
-			)
-		}
-	}
-	return toVM, nil
+	return targetVM, nil
 }
 
 func sortedVersionMapNames(vm module.VersionMap) []string {
