@@ -26,20 +26,43 @@ registry release is verified.
 
 The manual
 [`publish-sdk.yml`](../../.github/workflows/publish-sdk.yml) workflow is the
-package-release path. It refuses branch refs and lightweight tags, requires
-`sdk-v<package version>` at the current `main` commit, regenerates and checks
-the SDK, audits the runtime dependency graph, rebuilds the committed
-distribution, verifies the packed exports, and publishes that exact tarball
-with GitHub provenance. Its `npm-sdk-release` environment is a deployment
-boundary, not npm authority by itself.
+package-release path. It requires an explicit matching version input, refuses
+branch refs and lightweight tags, requires `sdk-v<package version>` at the
+current `main` commit, serializes release attempts, regenerates and checks the
+SDK, audits the runtime dependency graph, rebuilds the committed distribution,
+and verifies the packed exports. Its `npm-sdk-release` environment is a
+deployment boundary, not npm authority by itself.
 
 Because npm trusted publishing and staged publishing require an existing
-package, the first publication also requires a separately authorized,
-short-lived credential with write access to the `zerone-chain` npm scope.
-Remove that bootstrap credential immediately after `0.1.0`, configure this
-workflow as the package's trusted publisher, and independently compare the
-registry tarball digest with the workflow's recorded digest. Merging or
-manually viewing the workflow performs no publication.
+package, the first publication uses a separately authorized, shortest-lived
+granular credential with read/write access to only the `zerone-chain` npm
+scope and the minimum necessary 2FA bypass. Store it only as the
+`npm-sdk-release` environment's `NPM_TOKEN`. The workflow permits this direct
+bootstrap path only while the package is absent, publishes with GitHub
+provenance, and downloads the public registry tarball to prove it is
+byte-identical to the packed artifact.
+
+Immediately after `0.1.0`, revoke and remove that bootstrap credential. Then an
+npm owner with 2FA configures the one allowed trusted publisher as GitHub user
+or organization `cambridgetcg`, repository `zerone-core`, workflow filename
+`publish-sdk.yml`, environment `npm-sdk-release`, with **stage-only** authority.
+With the package directory as the working directory, npm 11.15 or newer can
+configure that identity with:
+
+```bash
+npm trust github @zerone-chain/sdk \
+  --repo cambridgetcg/zerone-core \
+  --file publish-sdk.yml \
+  --env npm-sdk-release \
+  --allow-stage-publish
+```
+
+For every later tag, the workflow refuses a lingering bootstrap token and
+submits the exact tarball with OIDC to npm's staging area. A maintainer must
+download and inspect that artifact, compare its recorded SHA-256, and approve
+it with 2FA before it becomes public. Package settings should then disallow
+traditional token publishing. Merging or manually viewing the workflow
+performs no publication.
 
 ## Implemented boundary seams
 
