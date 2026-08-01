@@ -124,11 +124,14 @@ Statuses:
 
 ## Governance Parameters
 
-All vesting parameters are adjustable via LIP proposals:
+The current `MsgUpdateParams` surface can change the revenue split, protocol
+sub-split, and `released_clawback_rate`, subject to validation. It cannot change
+the retired founder or automatic-reward fields, reward decay/epoch/validator or
+knowledge-coupling metadata, governance activation height, category reward
+multipliers, research-fund module name, `initial_fund_balance`, or
+`vesting_enabled` at runtime.
 
-| Parameter | Current | Description |
-|-----------|---------|-------------|
-| `vesting_enabled` | true | Master switch for vesting |
-| `released_clawback_rate` | 3,300 (33%) | % of released tokens clawed back on falsification |
-| Category configs | (see table) | Per-category half-life, cliff, max release |
-| Category multipliers | (see table) | Per-category reward multiplier |
+`vesting_enabled=true` is compatibility metadata, not a master execution switch;
+runtime updates must preserve it. The separate category release-curve configs
+(half-life, cliff, and maximum release) are genesis/export state and have no
+current governance update message.

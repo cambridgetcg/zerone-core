@@ -8,8 +8,9 @@ import (
 )
 
 // VestingRewardsKnowledgeAdapter wraps the knowledge Keeper to satisfy
-// vesting_rewards/types.KnowledgeKeeper. This allows block rewards to be
-// coupled to verification throughput (T9 / thesis claim 1).
+// vesting_rewards/types.KnowledgeKeeper. Consensus v2 retains these telemetry
+// and falsification adapters for audit queries and vesting logic; no automatic
+// block issuance consumes them.
 type VestingRewardsKnowledgeAdapter struct {
 	alignmentAdapter *AlignmentKnowledgeAdapter
 	keeper           Keeper
@@ -32,8 +33,9 @@ func (a *VestingRewardsKnowledgeAdapter) GetVerificationRate(ctx context.Context
 	return a.alignmentAdapter.GetVerificationRate(ctx)
 }
 
-// GetSurvivedChallengeRate delegates to the survival-gate calculation —
-// survived/(survived+disproven) facts. This is what block emission couples to.
+// GetSurvivedChallengeRate delegates to the retained survival-gate calculation:
+// survived/(survived+disproven) facts. It is audit telemetry in consensus v2,
+// not an automatic block-emission control.
 func (a *VestingRewardsKnowledgeAdapter) GetSurvivedChallengeRate(ctx context.Context) uint64 {
 	return a.alignmentAdapter.GetSurvivedChallengeRate(ctx)
 }

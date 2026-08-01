@@ -10,9 +10,9 @@ package app
 // After genesis, all native issuance in the wired application routes through
 // x/vesting_rewards.MintWithCap. Source-capable callers include:
 //
-//   - x/vesting_rewards: block-proposer rewards on transaction-bearing
-//     blocks (ordinary user transactions qualify), with decay, validator,
-//     and survived-challenge scaling.
+//   - x/vesting_rewards: the shared hard-cap mint service and fee/revenue
+//     router. Its former transaction-presence block-proposer mint is retired
+//     in consensus v2.
 //   - x/claiming_pot: bootstrap and legacy general-pot claims.
 //   - x/substrate_bridge: external-work rewards minted after an
 //     attestation survives its challenge rules.

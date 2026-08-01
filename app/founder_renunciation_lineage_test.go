@@ -40,6 +40,29 @@ func TestFounderRenunciationCanonicalTargetVersionMap(t *testing.T) {
 	require.NoError(t, validateFounderRenunciationTarget(target))
 }
 
+func TestFounderRenunciationPlanIdentityDigestIsCanonicalAndStable(t *testing.T) {
+	plan := upgradetypes.Plan{
+		Name:   UpgradeNameFounderRenunciationV1,
+		Height: 101,
+		Info:   canonicalH2PlanInfo,
+	}
+	digest, err := founderRenunciationPlanIdentityDigest(plan)
+	require.NoError(t, err)
+	require.Equal(t, "276673149a55b5ca476ab285ea6256975074212270aedae468c67486ad4ef91c", digest)
+	require.NoError(t, validateFounderRenunciationPlanIdentityDigest(digest))
+
+	different := plan
+	different.Info = `{"packet":"canonical-but-different"}`
+	differentDigest, err := founderRenunciationPlanIdentityDigest(different)
+	require.NoError(t, err)
+	require.NotEqual(t, digest, differentDigest)
+
+	noncanonical := plan
+	noncanonical.Info = `{"z":1,"a":2}`
+	_, err = founderRenunciationPlanIdentityDigest(noncanonical)
+	require.ErrorContains(t, err, "not canonical")
+}
+
 func legacyFounderParams() *vestingrewardstypes.Params {
 	params := vestingrewardstypes.DefaultParams()
 	params.FounderShareBps = 70_000
@@ -72,6 +95,15 @@ func pendingFounderStartupEvidence() founderRenunciationStartupEvidence {
 }
 
 func completedFounderStartupEvidence() founderRenunciationStartupEvidence {
+	plan := upgradetypes.Plan{
+		Name:   UpgradeNameFounderRenunciationV1,
+		Height: 101,
+		Info:   canonicalH2PlanInfo,
+	}
+	digest, err := founderRenunciationPlanIdentityDigest(plan)
+	if err != nil {
+		panic(err)
+	}
 	return founderRenunciationStartupEvidence{
 		latestHeight:  120,
 		versionMap:    founderStartupTargetVM(),
@@ -81,12 +113,10 @@ func completedFounderStartupEvidence() founderRenunciationStartupEvidence {
 		h2MarkerValue: "migrated",
 		h2MarkerFound: true,
 		h2DoneHeight:  101,
+		h2PlanDigest:  digest,
+		h2DigestFound: true,
 		params:        vestingrewardstypes.DefaultParams(),
-		diskPlan: upgradetypes.Plan{
-			Name:   UpgradeNameFounderRenunciationV1,
-			Height: 101,
-			Info:   canonicalH2PlanInfo,
-		},
+		diskPlan:      plan,
 		diskPlanFound: true,
 	}
 }
@@ -150,6 +180,12 @@ func TestFounderRenunciationStartupAcceptsOnlyFourExactStates(t *testing.T) {
 		wrongTarget,
 	)
 	require.ErrorContains(t, err, "binary target violates canonical H2 surface")
+
+	poisonedBootstrap := bootstrap
+	poisonedBootstrap.h2DigestFound = true
+	poisonedBootstrap.h2PlanDigest = fmt.Sprintf("%064x", 1)
+	_, err = validateFounderRenunciationStartupEvidence(poisonedBootstrap, target)
+	require.ErrorContains(t, err, "uninitialized height 0 contains lineage")
 }
 
 func TestPendingFounderRenunciationRejectsEveryAmbiguousEvidenceClass(t *testing.T) {
@@ -199,6 +235,10 @@ func TestPendingFounderRenunciationRejectsEveryAmbiguousEvidenceClass(t *testing
 			e.h2NativeFound = true
 			e.h2NativeValue = founderRenunciationNativeLineageValue
 		}, "H2 native marker"},
+		{"preseeded plan digest", func(e *founderRenunciationStartupEvidence) {
+			e.h2DigestFound = true
+			e.h2PlanDigest = fmt.Sprintf("%064x", 1)
+		}, "plan identity marker"},
 		{"H2 done before migration", func(e *founderRenunciationStartupEvidence) {
 			e.h2DoneHeight = 101
 		}, "done height 0"},
@@ -276,6 +316,19 @@ func TestCompletedFounderRenunciationRejectsForgedPoststate(t *testing.T) {
 		{"empty H2 marker", func(e *founderRenunciationStartupEvidence) {
 			e.h2MarkerValue = ""
 		}, "exact H2 migrated marker"},
+		{"missing plan digest", func(e *founderRenunciationStartupEvidence) {
+			e.h2DigestFound = false
+			e.h2PlanDigest = ""
+		}, "requires the H2 plan identity digest"},
+		{"present empty plan digest", func(e *founderRenunciationStartupEvidence) {
+			e.h2PlanDigest = ""
+		}, "require exactly"},
+		{"uppercase plan digest", func(e *founderRenunciationStartupEvidence) {
+			e.h2PlanDigest = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		}, "lowercase hexadecimal"},
+		{"forged plan digest", func(e *founderRenunciationStartupEvidence) {
+			e.h2PlanDigest = fmt.Sprintf("%064x", 1)
+		}, "does not match committed digest"},
 		{"native conflict", func(e *founderRenunciationStartupEvidence) {
 			e.h2NativeFound = true
 		}, "native H2 lineage conflicts"},
@@ -316,6 +369,9 @@ func TestCompletedFounderRenunciationRejectsForgedPoststate(t *testing.T) {
 		{"noncanonical disk info", func(e *founderRenunciationStartupEvidence) {
 			e.diskPlan.Info = `{"z":1,"a":2}`
 		}, "historical local H2 plan info"},
+		{"canonical different disk info", func(e *founderRenunciationStartupEvidence) {
+			e.diskPlan.Info = `{"packet":"different-but-canonical"}`
+		}, "does not match committed digest"},
 	}
 
 	for _, tc := range tests {
@@ -355,6 +411,10 @@ func TestNativeFounderRenunciationRequiresBothNativeMarkersAndNoMigrationProof(t
 			e.h2MarkerFound = true
 			e.h2MarkerValue = "migrated"
 		}, "migration marker"},
+		{"plan digest conflict", func(e *founderRenunciationStartupEvidence) {
+			e.h2DigestFound = true
+			e.h2PlanDigest = fmt.Sprintf("%064x", 1)
+		}, "plan identity digest"},
 		{"done conflict", func(e *founderRenunciationStartupEvidence) {
 			e.h2DoneHeight = 1
 		}, "both done heights 0"},
@@ -443,6 +503,14 @@ func TestFounderRenunciationHandlerEvidenceRequiresExactLivePlanAndPrestate(t *t
 		) {
 			e.vestingPermissions = []string{authtypes.Burner}
 		}, "exact H1 permissions"},
+		{"preseeded plan digest", func(
+			e *founderRenunciationStartupEvidence,
+			_ *upgradetypes.Plan,
+			_ module.VersionMap,
+		) {
+			e.h2DigestFound = true
+			e.h2PlanDigest = fmt.Sprintf("%064x", 1)
+		}, "plan identity marker truly absent"},
 	}
 
 	for _, tc := range tests {

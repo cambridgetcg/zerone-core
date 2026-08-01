@@ -98,3 +98,11 @@ func TestGenesisStateValidateClaimScheduleIndexes(t *testing.T) {
 		})
 	}
 }
+
+func TestGenesisStateValidateRejectsMissingParams(t *testing.T) {
+	state := DefaultGenesis()
+	state.Params = nil
+	if err := state.Validate(); err == nil || !strings.Contains(err.Error(), "params are required") {
+		t.Fatalf("Validate() error = %v, want missing-params refusal", err)
+	}
+}

@@ -1340,11 +1340,40 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			genesisState[banktypes.ModuleName] = app.appCodec.MustMarshalJSON(&bankGenState)
 		}
 	}
+	vestingGenesisRaw, found := genesisState[vestingrewardstypes.ModuleName]
+	if !found {
+		return nil, fmt.Errorf("native genesis requires %s state", vestingrewardstypes.ModuleName)
+	}
+	var vestingGenesis vestingrewardstypes.GenesisState
+	if err := json.Unmarshal(vestingGenesisRaw, &vestingGenesis); err != nil {
+		return nil, fmt.Errorf("decode native %s genesis: %w", vestingrewardstypes.ModuleName, err)
+	}
+	if err := vestingGenesis.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid native %s genesis: %w", vestingrewardstypes.ModuleName, err)
+	}
 
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap())
 	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	if err != nil {
 		return nil, err
+	}
+	storedVestingParams, err := app.VestingRewardsKeeper.GetStoredParamsChecked(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read strict native vesting_rewards params: %w", err)
+	}
+	if err := validateRetiredFounderRenunciationParams(storedVestingParams); err != nil {
+		return nil, fmt.Errorf("invalid native vesting_rewards params: %w", err)
+	}
+	vestingAccountFound, vestingPermissions, err :=
+		app.readVestingRewardsModuleAccountPermissions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("verify native vesting_rewards module account: %w", err)
+	}
+	if vestingAccountFound && len(vestingPermissions) != 0 {
+		return nil, fmt.Errorf(
+			"native vesting_rewards module account retains permissions %v",
+			vestingPermissions,
+		)
 	}
 	// A chain born directly from this binary is not evidence that the named H1
 	// migration ran. Give native genesis its own append-only lineage marker so
@@ -1372,6 +1401,18 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			"native genesis requires H2 marker %q absent; found %q",
 			founderRenunciationMigrationMarker,
 			marker,
+		)
+	}
+	if digest, found, markerErr := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationPlanIdentityMarker,
+	); markerErr != nil {
+		return nil, fmt.Errorf("verify H2 plan identity absence at native genesis: %w", markerErr)
+	} else if found {
+		return nil, fmt.Errorf(
+			"native genesis requires H2 plan identity marker %q absent; found %q",
+			founderRenunciationPlanIdentityMarker,
+			digest,
 		)
 	}
 	if doneHeight, doneErr := app.UpgradeKeeper.GetDoneHeight(

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,11 +25,12 @@ import (
 const (
 	founderRenunciationNativeLineageMarker = "chain_lineage_native_founder-renunciation-v1"
 	founderRenunciationNativeLineageValue  = "genesis"
+	founderRenunciationPlanIdentityMarker  = "upgrade_plan_identity_founder-renunciation-v1"
 )
 
 const (
 	// These values freeze the complete executable module surface consumed by
-	// H3. encoding/json deterministically sorts string map keys.
+	// H2. encoding/json deterministically sorts string map keys.
 	FounderRenunciationTargetVersionMapEntries = 40
 	FounderRenunciationTargetVersionMapSHA256  = "de3f0e0d9769adf2a7375f921d78f25365bc2f9a8b42d8c80de5982affa20127"
 )
@@ -55,6 +57,8 @@ type founderRenunciationStartupEvidence struct {
 	h2NativeValue string
 	h2NativeFound bool
 	h2DoneHeight  int64
+	h2PlanDigest  string
+	h2DigestFound bool
 
 	params *vestingrewardstypes.Params
 
@@ -145,6 +149,14 @@ func (app *ZeroneApp) readFounderRenunciationEvidence(
 	if err != nil {
 		return evidence, fmt.Errorf("read H2 done height: %w", err)
 	}
+	evidence.h2PlanDigest, evidence.h2DigestFound, err =
+		app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+			ctx,
+			founderRenunciationPlanIdentityMarker,
+		)
+	if err != nil {
+		return evidence, fmt.Errorf("read H2 plan identity digest: %w", err)
+	}
 
 	evidence.onChainPlan, err = app.UpgradeKeeper.GetUpgradePlan(ctx)
 	switch {
@@ -219,6 +231,7 @@ func validateFounderRenunciationStartupEvidence(
 		}
 		if evidence.h1MarkerFound || evidence.h1NativeFound ||
 			evidence.h2MarkerFound || evidence.h2NativeFound ||
+			evidence.h2DigestFound ||
 			evidence.h1DoneHeight != 0 || evidence.h2DoneHeight != 0 ||
 			evidence.onChainPlanFound || evidence.diskPlanFound ||
 			evidence.params != nil || evidence.vestingAccountFound {
@@ -319,6 +332,13 @@ func validatePendingFounderRenunciationLineage(
 	if evidence.h2NativeFound {
 		return "", fmt.Errorf("pending H2 conflicts with a present H2 native marker")
 	}
+	if evidence.h2DigestFound {
+		return "", fmt.Errorf(
+			"pending H2 requires plan identity marker %q truly absent; found %q",
+			founderRenunciationPlanIdentityMarker,
+			evidence.h2PlanDigest,
+		)
+	}
 	if evidence.h2DoneHeight != 0 {
 		return "", fmt.Errorf("pending H2 requires done height 0; got %d", evidence.h2DoneHeight)
 	}
@@ -382,6 +402,12 @@ func validateCompletedFounderRenunciationLineage(
 	if evidence.h1NativeFound || evidence.h2NativeFound {
 		return "", fmt.Errorf("completed H2 conflicts with a present native lineage marker")
 	}
+	if !evidence.h2DigestFound {
+		return "", fmt.Errorf("completed H2 requires the H2 plan identity digest")
+	}
+	if err := validateFounderRenunciationPlanIdentityDigest(evidence.h2PlanDigest); err != nil {
+		return "", fmt.Errorf("completed H2 plan identity digest: %w", err)
+	}
 	if evidence.h1DoneHeight <= 0 ||
 		evidence.h1DoneHeight >= evidence.h2DoneHeight ||
 		evidence.h2DoneHeight > evidence.latestHeight {
@@ -418,6 +444,9 @@ func validateNativeFounderRenunciationLineage(
 ) (string, error) {
 	if evidence.h1MarkerFound || evidence.h2MarkerFound {
 		return "", fmt.Errorf("native H2 lineage conflicts with a present migration marker")
+	}
+	if evidence.h2DigestFound {
+		return "", fmt.Errorf("native H2 lineage conflicts with a present H2 plan identity digest")
 	}
 	if !evidence.h1NativeFound ||
 		evidence.h1NativeValue != consolidationNativeLineageValue {
@@ -496,6 +525,61 @@ func validatePostFounderRenunciationPlans(
 	}
 	if err := validateCanonicalConsolidationPlanInfo(evidence.diskPlan.Info); err != nil {
 		return fmt.Errorf("historical local H2 plan info: %w", err)
+	}
+	digest, err := founderRenunciationPlanIdentityDigest(evidence.diskPlan)
+	if err != nil {
+		return fmt.Errorf("historical local H2 plan identity: %w", err)
+	}
+	if digest != evidence.h2PlanDigest {
+		return fmt.Errorf(
+			"historical local H2 plan identity digest %q does not match committed digest %q",
+			digest,
+			evidence.h2PlanDigest,
+		)
+	}
+	return nil
+}
+
+type founderRenunciationPlanIdentity struct {
+	Name   string `json:"name"`
+	Height int64  `json:"height"`
+	Info   string `json:"info"`
+}
+
+// founderRenunciationPlanIdentityDigest commits to the complete H2 plan
+// identity that the handler proved. Fixed field order plus canonical Info makes
+// encoding/json's compact output deterministic and unambiguous.
+func founderRenunciationPlanIdentityDigest(plan upgradetypes.Plan) (string, error) {
+	if err := plan.ValidateBasic(); err != nil {
+		return "", err
+	}
+	if plan.Name != UpgradeNameFounderRenunciationV1 {
+		return "", fmt.Errorf("require name %q; got %q", UpgradeNameFounderRenunciationV1, plan.Name)
+	}
+	if plan.Height <= 0 {
+		return "", fmt.Errorf("require a positive height; got %d", plan.Height)
+	}
+	if err := validateCanonicalConsolidationPlanInfo(plan.Info); err != nil {
+		return "", fmt.Errorf("canonical info: %w", err)
+	}
+	canonical, err := json.Marshal(founderRenunciationPlanIdentity{
+		Name:   plan.Name,
+		Height: plan.Height,
+		Info:   plan.Info,
+	})
+	if err != nil {
+		return "", fmt.Errorf("marshal canonical H2 plan identity: %w", err)
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(canonical)), nil
+}
+
+func validateFounderRenunciationPlanIdentityDigest(value string) error {
+	decoded, err := hex.DecodeString(value)
+	if err != nil {
+		return fmt.Errorf("decode lowercase SHA-256: %w", err)
+	}
+	if len(decoded) != sha256.Size || hex.EncodeToString(decoded) != value {
+		return fmt.Errorf("require exactly %d lowercase hexadecimal characters", sha256.Size*2)
 	}
 	return nil
 }
@@ -681,6 +765,33 @@ func (app *ZeroneApp) handleFounderRenunciationUpgrade(
 			h2Marker,
 		)
 	}
+	planDigestMarker, planDigestFound, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationPlanIdentityMarker,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("re-read H2 plan identity marker: %w", err)
+	}
+	if planDigestFound {
+		return nil, fmt.Errorf(
+			"H2 plan identity marker appeared before final writes with value %q",
+			planDigestMarker,
+		)
+	}
+	planDigest, err := founderRenunciationPlanIdentityDigest(plan)
+	if err != nil {
+		return nil, fmt.Errorf("encode proved H2 plan identity: %w", err)
+	}
+	if err := app.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		founderRenunciationPlanIdentityMarker,
+		planDigest,
+	); err != nil {
+		return nil, fmt.Errorf("write H2 plan identity marker: %w", err)
+	}
+	// The generic migrated marker is the final handler write and completion
+	// seal. SDK PreBlock executes inside a cache, so failure here rolls back the
+	// preceding digest, migration, and permission mutations as one unit.
 	if err := app.KnowledgeKeeper.WriteMigrationMarker(
 		ctx,
 		founderRenunciationMigrationMarker,
@@ -777,6 +888,12 @@ func validateFounderRenunciationHandlerEvidence(
 		return fmt.Errorf(
 			"H2 handler requires migration marker truly absent; found %q",
 			evidence.h2MarkerValue,
+		)
+	}
+	if evidence.h2DigestFound {
+		return fmt.Errorf(
+			"H2 handler requires plan identity marker truly absent; found %q",
+			evidence.h2PlanDigest,
 		)
 	}
 	if evidence.h2DoneHeight != 0 {

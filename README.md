@@ -147,19 +147,18 @@ Validators witness the truthfulness of knowledge claims — not transactions
 or puzzles. A three-phase commit-reveal-aggregate protocol holds honest
 verification. Honest witness earns rewards; dishonest witness is slashed.
 
-### Issuance follows survival, not acceptance
+### Survival gates knowledge-backed rewards, not every issuance path
 
-ZERONE mints for *survived falsification*, never for mere acceptance. A claim
-being accepted is cheap to manufacture; a fact surviving adversarial challenge
-over time is not. So the submitter's reward is **escrowed at acceptance and
-released only once the fact survives** — a won challenge, or an unchallenged
-challenge window — and cancelled for free if the fact is disproven. Block
-rewards likewise couple to the chain's *survived-challenge* rate, not its
-accept rate. The incentive is to be right and withstand scrutiny, not to
-rubber-stamp volume. Every post-genesis native module mint passes through the
-cap gate, while InitChain separately rejects over-cap genesis supply, so no
-path can inflate past the 222,222,222 hard cap. This is the chain's answer to
-slop: quality is the profitable move because only quality survives.
+Knowledge-side reward release and substrate-bridge work rewards are gated by
+surviving their applicable falsification or challenge process; mere acceptance
+is not enough. Claiming-pot claims are a separately bounded participation path,
+and the default-off knowledge-bounty and token-emission controls retain their
+own activation rules. They must not be described as universal
+survived-challenge issuance. Vesting-rewards v2 permanently retires automatic
+block issuance, so no block reward couples to acceptance, transaction presence,
+or the survived-challenge rate. Every remaining post-genesis native module mint
+passes through the cap gate, while InitChain separately rejects over-cap genesis
+supply, so no path can inflate past the 222,222,222 hard cap.
 
 ### Key Subsystems
 
@@ -292,8 +291,8 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 215 paths and 440 definitions.
-- The repository [TypeScript SDK](sdk/typescript/) covers 166 request messages
+  inventory of record: 215 paths and 441 definitions.
+- The repository [TypeScript SDK](sdk/typescript/) covers 167 request messages
   across 20 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the

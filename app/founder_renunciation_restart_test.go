@@ -15,6 +15,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
+	sdkruntime "github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
@@ -192,6 +193,8 @@ type founderConsensusSnapshot struct {
 	h1MarkerFound       bool
 	h2Marker            string
 	h2MarkerFound       bool
+	h2PlanDigest        string
+	h2DigestFound       bool
 	h1Done              int64
 	h2Done              int64
 	plan                upgradetypes.Plan
@@ -234,6 +237,11 @@ func snapshotFounderConsensus(
 		founderRenunciationMigrationMarker,
 	)
 	require.NoError(t, err)
+	h2PlanDigest, h2DigestFound, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationPlanIdentityMarker,
+	)
+	require.NoError(t, err)
 	h1Done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameConsolidationSafetyV1)
 	require.NoError(t, err)
 	h2Done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameFounderRenunciationV1)
@@ -262,6 +270,8 @@ func snapshotFounderConsensus(
 		h1MarkerFound:       h1Found,
 		h2Marker:            h2Marker,
 		h2MarkerFound:       h2Found,
+		h2PlanDigest:        h2PlanDigest,
+		h2DigestFound:       h2DigestFound,
 		h1Done:              h1Done,
 		h2Done:              h2Done,
 		plan:                plan,
@@ -275,6 +285,7 @@ func TestFounderRenunciationExecutesThroughRealPreBlockAndRestarts(t *testing.T)
 	require.Equal(t, plan, before.plan)
 	require.True(t, before.planFound)
 	require.False(t, before.h2MarkerFound)
+	require.False(t, before.h2DigestFound)
 	require.EqualValues(t, 0, before.h2Done)
 	require.ElementsMatch(t, []string{authtypes.Minter, authtypes.Burner}, before.vestingPermissions)
 	require.Equal(t, []string{authtypes.Minter}, before.developmentPerms)
@@ -293,6 +304,10 @@ func TestFounderRenunciationExecutesThroughRealPreBlockAndRestarts(t *testing.T)
 	require.Equal(t, "migrated", after.h1Marker)
 	require.True(t, after.h2MarkerFound)
 	require.Equal(t, "migrated", after.h2Marker)
+	require.True(t, after.h2DigestFound)
+	expectedPlanDigest, err := founderRenunciationPlanIdentityDigest(plan)
+	require.NoError(t, err)
+	require.Equal(t, expectedPlanDigest, after.h2PlanDigest)
 	require.EqualValues(t, 1, after.h1Done)
 	require.Equal(t, plan.Height, after.h2Done)
 	require.Equal(t, map[string]uint64(app.CurrentModuleVersionMap()), after.versionMap)
@@ -395,6 +410,163 @@ func TestFailedFounderRenunciationPreBlockRollsBackEveryConsensusMutation(t *tes
 	restarted := newRestartTestApp(t, db, home)
 	after := snapshotFounderConsensus(t, restarted, founder)
 	require.Equal(t, before, after)
+}
+
+type finalFounderMarkerFailureState struct {
+	writes      []string
+	digestValue string
+	panicFinal  bool
+}
+
+type finalFounderMarkerFailureService struct {
+	delegate corestore.KVStoreService
+	state    *finalFounderMarkerFailureState
+}
+
+func (s finalFounderMarkerFailureService) OpenKVStore(ctx context.Context) corestore.KVStore {
+	return &finalFounderMarkerFailureStore{
+		KVStore: s.delegate.OpenKVStore(ctx),
+		state:   s.state,
+	}
+}
+
+type finalFounderMarkerFailureStore struct {
+	corestore.KVStore
+	state *finalFounderMarkerFailureState
+}
+
+func (s *finalFounderMarkerFailureStore) Set(key, value []byte) error {
+	switch {
+	case bytes.Equal(key, markerStoreKey(founderRenunciationPlanIdentityMarker)):
+		s.state.writes = append(s.state.writes, founderRenunciationPlanIdentityMarker)
+		s.state.digestValue = string(value)
+		return s.KVStore.Set(key, value)
+	case bytes.Equal(key, markerStoreKey(founderRenunciationMigrationMarker)):
+		s.state.writes = append(s.state.writes, founderRenunciationMigrationMarker)
+		if s.state.panicFinal {
+			panic("injected final H2 marker panic")
+		}
+		return errors.New("injected final H2 marker write failure")
+	default:
+		return s.KVStore.Set(key, value)
+	}
+}
+
+func TestFinalFounderRenunciationMarkerFailureRollsBackDigestAndEveryMutation(t *testing.T) {
+	tests := []struct {
+		name       string
+		panicFinal bool
+		message    string
+	}{
+		{name: "error", message: "injected final H2 marker write failure"},
+		{name: "panic", panicFinal: true, message: "injected final H2 marker panic"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app, db, home, plan, founder := createPendingFounderRestart(t, true)
+			before := snapshotFounderConsensus(t, app, founder)
+			state := &finalFounderMarkerFailureState{panicFinal: tc.panicFinal}
+			app.KnowledgeKeeper = knowledgekeeper.NewKeeper(
+				finalFounderMarkerFailureService{
+					delegate: sdkruntime.NewKVStoreService(app.keys[knowledgetypes.StoreKey]),
+					state:    state,
+				},
+				app.appCodec,
+				"",
+				nil,
+				nil,
+			)
+
+			response, err := app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: plan.Height})
+			require.ErrorContains(t, err, tc.message)
+			if response != nil {
+				require.Empty(t, response.Events)
+			}
+			require.Equal(t, []string{
+				founderRenunciationPlanIdentityMarker,
+				founderRenunciationMigrationMarker,
+			}, state.writes)
+			expectedDigest, digestErr := founderRenunciationPlanIdentityDigest(plan)
+			require.NoError(t, digestErr)
+			require.Equal(t, expectedDigest, state.digestValue)
+
+			// The digest write reached the real FinalizeBlock cache before the
+			// completion seal failed. A fresh process must nevertheless observe the
+			// exact pre-H2 root, including an absent digest and pending plan.
+			restarted := newRestartTestApp(t, db, home)
+			require.Equal(t, before, snapshotFounderConsensus(t, restarted, founder))
+		})
+	}
+}
+
+func completeFounderRestart(
+	t *testing.T,
+) (*ZeroneApp, dbm.DB, string, upgradetypes.Plan, sdk.AccAddress) {
+	t.Helper()
+	app, db, home, plan, founder := createPendingFounderRestart(t, false)
+	_, err := app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: plan.Height})
+	require.NoError(t, err)
+	_, err = app.Commit()
+	require.NoError(t, err)
+	return app, db, home, plan, founder
+}
+
+func TestCompletedFounderRenunciationRestartRejectsPlanIdentityDrift(t *testing.T) {
+	app, db, home, plan, _ := completeFounderRestart(t)
+	drifted := plan
+	drifted.Info = `{"packet":"canonical-but-different"}`
+	require.NoError(t, app.UpgradeKeeper.DumpUpgradeInfoToDisk(drifted.Height, drifted))
+	require.Panics(t, func() { _ = newRestartTestApp(t, db, home) })
+}
+
+func TestCompletedFounderRenunciationRestartRejectsInvalidPersistedPlanDigest(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(sdk.Context, *ZeroneApp)
+	}{
+		{
+			name: "absent",
+			mutate: func(ctx sdk.Context, app *ZeroneApp) {
+				ctx.KVStore(app.keys[knowledgetypes.StoreKey]).
+					Delete(markerStoreKey(founderRenunciationPlanIdentityMarker))
+			},
+		},
+		{
+			name: "empty",
+			mutate: func(ctx sdk.Context, app *ZeroneApp) {
+				ctx.KVStore(app.keys[knowledgetypes.StoreKey]).
+					Set(markerStoreKey(founderRenunciationPlanIdentityMarker), []byte{})
+			},
+		},
+		{
+			name: "forged",
+			mutate: func(ctx sdk.Context, app *ZeroneApp) {
+				ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Set(
+					markerStoreKey(founderRenunciationPlanIdentityMarker),
+					[]byte("0000000000000000000000000000000000000000000000000000000000000000"),
+				)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app, db, home, _, _ := completeFounderRestart(t)
+			tc.mutate(restartMutationContext(app), app)
+			commitRestartMutation(t, app)
+			require.Panics(t, func() { _ = newRestartTestApp(t, db, home) })
+		})
+	}
+}
+
+func TestCompletedFounderRenunciationRestartAcceptsConsensusDigestWithoutDiskPacket(t *testing.T) {
+	app, db, home, _, founder := completeFounderRestart(t)
+	want := snapshotFounderConsensus(t, app, founder)
+	path := filepath.Join(home, "data", upgradetypes.UpgradeInfoFilename)
+	require.NoError(t, os.Remove(path))
+	restarted := newRestartTestApp(t, db, home)
+	require.Equal(t, want, snapshotFounderConsensus(t, restarted, founder))
 }
 
 func TestFounderRenunciationRestartRejectsCorruptPersistedEvidence(t *testing.T) {

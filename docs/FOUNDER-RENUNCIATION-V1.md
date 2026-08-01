@@ -1,6 +1,6 @@
 # Founder Renunciation v1
 
-> **Status: SOURCE-COMPLETE / RELEASE NO-GO.** No upgrade height, release
+> **Status: SOURCE CANDIDATE / RELEASE NO-GO.** No upgrade height, release
 > digest, validator quorum, rollback rehearsal, or live-state evidence is
 > selected by this document. Do not run this source against an existing
 > network except through the named `founder-renunciation-v1` plan after its
@@ -44,18 +44,23 @@ The only intended network boundary is the exact upgrade name
 Immediately after `LoadLatestVersion`, before returning an ABCI app, the
 binary performs an uncached, read-only composite H1→H2 proof. It accepts only:
 
-1. an empty height-zero bootstrap with no lineage, done, plan, Params, or
-   module-account evidence;
+1. an empty height-zero bootstrap with no lineage, done, plan, H2 plan-identity
+   digest, Params, or module-account evidence;
 2. exact pending H2: the full K6/P2/L5/V1 map, H1 migrated marker and positive
-   completed height, no native markers, H2 marker truly absent/done zero,
+   completed height, no native markers, H2 marker and plan-identity digest truly
+   absent/done zero,
    strict persisted V1 Params that can migrate to valid V2, an absent
    vesting module account or its exact H1 `Minter`/`Burner` permissions, and
    byte-identical canonical committed/local H2 plans at `latest+1`;
-3. exact completed H2: the full K6/P2/L5/V2 map, both migrated markers,
-   `0 < H1 done < H2 done <= latest`, valid zeroed V2 Params, and a vesting
-   module account that is either absent or, if present, has no permissions; or
+3. exact completed H2: the full K6/P2/L5/V2 map, both migrated markers, a
+   well-formed consensus-committed SHA-256 of the complete canonical H2 plan
+   identity, `0 < H1 done < H2 done <= latest`, valid zeroed V2 Params, and a
+   vesting module account that is either absent or, if present, has no
+   permissions; or
 4. direct H2 genesis: the full target map, both native markers exactly
-   `genesis`, both migration markers absent, and both done heights zero.
+   `genesis`, both migration markers and the H2 plan-identity digest absent,
+   both done heights zero, strict persisted V2 Params, and an absent or
+   permissionless vesting module account.
 
 Every VersionMap comparison is full-map equality. Missing, unknown, partial,
 intermediate, stale, conflicting, skipped, malformed, unreadable, plan-less,
@@ -68,15 +73,19 @@ canonical `Plan.Info`, strict migratable Params, and absence of unsafe skips
 before any state mutation. It then runs only vesting_rewards V1→V2, asserts the
 full target VersionMap and zero/valid Params, reconciles only the existing
 vesting module account to an empty permission set (without lazy creation or
-unrelated account rewrites), re-proves the H1 marker and H2 marker absence,
-and writes the H2 marker last. The SDK subsequently persists
+unrelated account rewrites), re-proves the H1 marker plus H2 completion/digest
+absence, writes the append-only SHA-256 plan-identity marker, and writes the
+generic H2 migrated marker last as the handler completion seal. The SDK subsequently persists
 the VersionMap, clears the plan, and writes the H2 done height in the same
 cached PreBlock transaction; any error rolls the whole block back.
 
 For pending and historical H2 packets, `Plan.Info` must be a non-empty public
 JSON object no larger than 4,096 bytes, compactly encoded with sorted keys,
-canonical integers, no duplicate keys, and no trailing value. It does not by
-itself bind a source commit or executable digest.
+canonical integers, no duplicate keys, and no trailing value. At execution the
+handler hashes deterministic fixed-field JSON containing the exact plan name,
+height, and canonical `Info`; a retained historical disk packet must recompute
+to that consensus digest. The digest does not by itself bind a source commit or
+executable digest.
 
 ## Height-bound executable semantics
 
@@ -95,28 +104,36 @@ until PreBlock at H. For example, the legacy founder-status query reports
 reports disabled/zero effective coupling, and a parameter update cannot clear
 or restore legacy retired fields outside the named migration. These
 query/CheckTx differences do not mutate consensus state and are not evidence
-that H2 completed; only the composite marker/done/VersionMap/Params/permission
-poststate is.
+that H2 completed; only the composite completion marker/plan digest/done/
+VersionMap/Params/permission poststate is.
 
 ## Source provenance
 
-This replacement source descends directly from the independently accepted H1
-commit `65c19cd8b00bdfff9b80705b776fd0d49719398a`. The former H2 commit
-`4bffb6d218819bed1c29c7a0be7779ad31c64a97` is explicitly rejected
-provenance: its plan-less startup could expose V2 execution without H1/H2
-activation evidence. It must not be tagged, released, deployed, scheduled, or
-treated as the source of this replacement. This document still authorizes no
-upgrade height or activation; the replacement commit and reproducible binary
-digests require a separate independent audit and release ceremony.
+This replacement line descends from the independently accepted H1 commit
+`65c19cd8b00bdfff9b80705b776fd0d49719398a`. The former H2 commit
+`4bffb6d218819bed1c29c7a0be7779ad31c64a97` and the superseded candidate
+`c0943ea91a4cc86e6b232b7675c7991795fd5d30` are explicitly rejected
+provenance. The first exposed V2 execution without complete H1/H2 activation
+evidence; the second did not strictly prove native V2 genesis before lineage
+markers and did not retain completed `Plan.Info` identity. Neither may be
+tagged, released, deployed, scheduled, or treated as accepted H2 source. This
+additive descendant preserves `c0943ea` unchanged as its parent for audit
+provenance. This document still authorizes no upgrade height or activation; the
+new candidate commit and reproducible binary digests require a separate
+independent audit and release ceremony.
 
 ## Historical genesis compatibility
 
 The hash-bound zerone-1 and public-testnet genesis artifacts retain their
-historical v1 founder fields and must not be rewritten. V2 validation and the
-current genesis-check profiles intentionally reject those legacy values for a
-new v2 genesis. Historical validation, replay, or state reconstruction must use
-the exact v1 release binary appropriate to the artifact; an existing network
-crosses the boundary only through the named state migration above.
+historical v1 founder fields and must not be rewritten. The H2 application's V2
+`GenesisState.Validate` rejects those values, and native H2 `InitChain` strictly
+re-proves the stored zeroed Params and account permissions before writing
+lineage markers. Existing `genesis-check` profiles retain their separately
+named historical/release behavior and are not evidence that a legacy artifact
+is valid as native H2 genesis. Historical validation, replay, or state
+reconstruction must use the exact v1 release binary appropriate to the
+artifact; an existing network crosses the boundary only through the named
+state migration above.
 
 Publishing, merging, or deploying the static dashboard does not satisfy these
 requirements and must not be described as a chain activation.

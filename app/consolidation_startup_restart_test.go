@@ -1,10 +1,12 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
 	"cosmossdk.io/core/header"
+	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
@@ -27,6 +29,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 const (
@@ -111,6 +115,79 @@ func restartGenesisWithValidator(t *testing.T, app *ZeroneApp) GenesisState {
 	return genesis
 }
 
+func setRestartVestingGenesis(
+	t *testing.T,
+	_ *ZeroneApp,
+	genesis GenesisState,
+	mutate func(*vestingrewardstypes.GenesisState),
+) {
+	t.Helper()
+	var state vestingrewardstypes.GenesisState
+	require.NoError(t, json.Unmarshal(genesis[vestingrewardstypes.ModuleName], &state))
+	mutate(&state)
+	raw, err := json.Marshal(&state)
+	require.NoError(t, err)
+	genesis[vestingrewardstypes.ModuleName] = raw
+}
+
+func appendRestartAuthAccount(
+	t *testing.T,
+	app *ZeroneApp,
+	genesis GenesisState,
+	account authtypes.GenesisAccount,
+) {
+	t.Helper()
+	var state authtypes.GenesisState
+	app.AppCodec().MustUnmarshalJSON(genesis[authtypes.ModuleName], &state)
+	accounts, err := authtypes.UnpackAccounts(state.Accounts)
+	require.NoError(t, err)
+	accounts = append(accounts, account)
+	genesis[authtypes.ModuleName] = app.AppCodec().MustMarshalJSON(
+		authtypes.NewGenesisState(state.Params, accounts),
+	)
+}
+
+type nativeParamsProofStoreService struct {
+	value []byte
+}
+
+func (s nativeParamsProofStoreService) OpenKVStore(context.Context) corestore.KVStore {
+	return nativeParamsProofStore{value: s.value}
+}
+
+type nativeParamsProofStore struct {
+	value []byte
+}
+
+func (s nativeParamsProofStore) Get([]byte) ([]byte, error) {
+	return append([]byte(nil), s.value...), nil
+}
+func (nativeParamsProofStore) Has([]byte) (bool, error) { return false, nil }
+func (nativeParamsProofStore) Set([]byte, []byte) error { return nil }
+func (nativeParamsProofStore) Delete([]byte) error      { return nil }
+func (nativeParamsProofStore) Iterator([]byte, []byte) (corestore.Iterator, error) {
+	return nil, nil
+}
+func (nativeParamsProofStore) ReverseIterator([]byte, []byte) (corestore.Iterator, error) {
+	return nil, nil
+}
+
+func assertFounderNativeMarkersAbsent(t *testing.T, app *ZeroneApp) {
+	t.Helper()
+	ctx := app.NewUncachedContext(false, cmtproto.Header{ChainID: restartTestChainID})
+	for _, marker := range []string{
+		consolidationNativeLineageMarker,
+		founderRenunciationNativeLineageMarker,
+		consolidationMigrationMarker,
+		founderRenunciationMigrationMarker,
+		founderRenunciationPlanIdentityMarker,
+	} {
+		_, found, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, marker)
+		require.NoError(t, err)
+		require.False(t, found, marker)
+	}
+}
+
 func initRestartTestChain(t *testing.T, app *ZeroneApp) {
 	t.Helper()
 	genesisBytes, err := json.Marshal(restartGenesisWithValidator(t, app))
@@ -188,6 +265,170 @@ func TestNativeH1AndH2LineageIsWrittenAtGenesisAndAcceptedOnRestart(t *testing.T
 	)
 	require.NoError(t, err)
 	require.False(t, h2Found)
+	_, h2DigestFound, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationPlanIdentityMarker,
+	)
+	require.NoError(t, err)
+	require.False(t, h2DigestFound)
+	params, err := app.VestingRewardsKeeper.GetStoredParamsChecked(ctx)
+	require.NoError(t, err)
+	require.NoError(t, validateRetiredFounderRenunciationParams(params))
+	accountFound, permissions, err := app.readVestingRewardsModuleAccountPermissions(ctx)
+	require.NoError(t, err)
+	require.True(t, !accountFound || len(permissions) == 0)
+	require.NotNil(t, newRestartTestApp(t, db, home))
+}
+
+func TestNativeFounderRenunciationGenesisRejectsInvalidStateBeforeLineageMarkers(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*testing.T, *ZeroneApp, GenesisState)
+		wantErr string
+	}{
+		{
+			name: "missing params",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				setRestartVestingGenesis(t, app, genesis, func(state *vestingrewardstypes.GenesisState) {
+					state.Params = nil
+				})
+			},
+			wantErr: "vesting_rewards params are required",
+		},
+		{
+			name: "corrupt genesis",
+			mutate: func(_ *testing.T, _ *ZeroneApp, genesis GenesisState) {
+				genesis[vestingrewardstypes.ModuleName] = []byte(`{"params":"corrupt"}`)
+			},
+			wantErr: "decode native vesting_rewards genesis",
+		},
+		{
+			name: "legacy params",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				setRestartVestingGenesis(t, app, genesis, func(state *vestingrewardstypes.GenesisState) {
+					state.Params = legacyFounderParams()
+				})
+			},
+			wantErr: "transaction-presence block rewards are permanently retired",
+		},
+		{
+			name: "missing stored params after module init",
+			mutate: func(_ *testing.T, app *ZeroneApp, _ GenesisState) {
+				app.VestingRewardsKeeper = vestingrewardskeeper.NewKeeper(
+					app.appCodec,
+					nativeParamsProofStoreService{},
+					nil,
+					nil,
+					"",
+				)
+			},
+			wantErr: "vesting_rewards params are missing",
+		},
+		{
+			name: "corrupt stored params after module init",
+			mutate: func(_ *testing.T, app *ZeroneApp, _ GenesisState) {
+				app.VestingRewardsKeeper = vestingrewardskeeper.NewKeeper(
+					app.appCodec,
+					nativeParamsProofStoreService{value: []byte{0xff, 0xff}},
+					nil,
+					nil,
+					"",
+				)
+			},
+			wantErr: "unmarshal params",
+		},
+		{
+			name: "minter permission",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				base := authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				)
+				appendRestartAuthAccount(t, app, genesis, authtypes.NewModuleAccount(
+					base, vestingrewardstypes.ModuleName, authtypes.Minter,
+				))
+			},
+			wantErr: "native vesting_rewards module account retains permissions",
+		},
+		{
+			name: "burner permission",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				base := authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				)
+				appendRestartAuthAccount(t, app, genesis, authtypes.NewModuleAccount(
+					base, vestingrewardstypes.ModuleName, authtypes.Burner,
+				))
+			},
+			wantErr: "native vesting_rewards module account retains permissions",
+		},
+		{
+			name: "base account at module address",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				appendRestartAuthAccount(t, app, genesis, authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				))
+			},
+			wantErr: "is not a module account",
+		},
+		{
+			name: "wrong module name at module address",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				base := authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				)
+				appendRestartAuthAccount(t, app, genesis, authtypes.NewModuleAccount(
+					base, "wrong-module-name",
+				))
+			},
+			wantErr: `has module name "wrong-module-name"`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			app := newRestartTestApp(t, dbm.NewMemDB(), t.TempDir())
+			genesis := restartGenesisWithValidator(t, app)
+			tc.mutate(t, app, genesis)
+			genesisBytes, err := json.Marshal(genesis)
+			require.NoError(t, err)
+			_, err = app.InitChain(&abci.RequestInitChain{
+				ChainId:         restartTestChainID,
+				AppStateBytes:   genesisBytes,
+				ConsensusParams: simtestutil.DefaultConsensusParams,
+			})
+			require.ErrorContains(t, err, tc.wantErr)
+			assertFounderNativeMarkersAbsent(t, app)
+		})
+	}
+}
+
+func TestNativeFounderRenunciationGenesisAcceptsPermissionlessModuleAccount(t *testing.T) {
+	db := dbm.NewMemDB()
+	home := t.TempDir()
+	app := newRestartTestApp(t, db, home)
+	genesis := restartGenesisWithValidator(t, app)
+	base := authtypes.NewBaseAccount(
+		authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+	)
+	appendRestartAuthAccount(t, app, genesis, authtypes.NewModuleAccount(
+		base, vestingrewardstypes.ModuleName,
+	))
+	genesisBytes, err := json.Marshal(genesis)
+	require.NoError(t, err)
+	_, err = app.InitChain(&abci.RequestInitChain{
+		ChainId:         restartTestChainID,
+		AppStateBytes:   genesisBytes,
+		ConsensusParams: simtestutil.DefaultConsensusParams,
+	})
+	require.NoError(t, err)
+	_, err = app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
+	require.NoError(t, err)
+	_, err = app.Commit()
+	require.NoError(t, err)
+	found, permissions, err := app.readVestingRewardsModuleAccountPermissions(restartReadContext(app))
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Empty(t, permissions)
 	require.NotNil(t, newRestartTestApp(t, db, home))
 }
 

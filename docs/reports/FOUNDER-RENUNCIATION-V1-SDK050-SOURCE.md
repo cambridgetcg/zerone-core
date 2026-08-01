@@ -17,10 +17,14 @@ The former H2 commit below is explicitly rejected provenance:
 `4bffb6d218819bed1c29c7a0be7779ad31c64a97`
 
 That rejected source did not require the complete H1→H2 activation proof at
-startup. It must not be tagged, released, deployed, scheduled, or used as a
-merge base for H2. The final replacement commit is identified externally by
-the independent auditor after this report and all source is committed; a
-commit cannot truthfully embed its own hash.
+startup. The later candidate `c0943ea91a4cc86e6b232b7675c7991795fd5d30`
+is also explicitly rejected: native genesis could write lineage markers
+without strict stored V2 Params/account proof, and completed state did not
+retain exact canonical `Plan.Info` identity. Neither rejected commit may be
+tagged, released, deployed, scheduled, or treated as accepted H2 source. This
+corrective source is an additive descendant of immutable `c0943ea`; the final
+candidate commit is identified externally by the independent auditor after all
+source is committed, because a commit cannot truthfully embed its own hash.
 
 No source commit, report, binary, or dashboard publication selects an upgrade
 height. This report authorizes no push, pull request, tag, release, deployment,
@@ -55,28 +59,39 @@ After `LoadLatestVersion`, startup performs uncached, read-only evidence reads
 and accepts exactly four states:
 
 1. **Bootstrap:** height zero; empty VersionMap; no lineage marker, done height,
-   plan, Params, or vesting module-account evidence.
+   H2 plan-identity digest, plan, Params, or vesting module-account evidence.
 2. **H2 pending after H1:** exact full H2 pre-map; exact H1 `migrated` marker;
-   `0 < H1 done <= latest`; both native markers absent; H2 marker truly absent;
-   H2 done zero; strict persisted V1 Params that become valid V2 Params by
+   `0 < H1 done <= latest`; both native markers absent; H2 marker and
+   plan-identity digest truly absent; H2 done zero; strict persisted V1 Params
+   that become valid V2 Params by
    clearing only the retired fields; a never-created vesting account or exact
    H1 `Minter`/`Burner` permissions; and identical committed/local canonical H2
    plans at `latest+1`, with H1 completed earlier and neither height skipped.
 3. **H2 completed after H1:** exact full target; both exact `migrated` markers;
-   no native markers; `0 < H1 done < H2 done <= latest`; valid V2 Params with
-   founder and automatic-reward fields pinned to zero/empty; and an absent or
-   permissionless vesting module account.
+   a well-formed consensus-committed SHA-256 of deterministic fixed-field JSON
+   containing the H2 plan name, height, and canonical `Info`; no native markers;
+   `0 < H1 done < H2 done <= latest`; valid V2 Params with founder and
+   automatic-reward fields pinned to zero/empty; and an absent or permissionless
+   vesting module account.
 4. **Native H2 genesis:** exact full target; exact inherited H1 and H2 native
-   `genesis` markers; no migration markers; both done heights zero; valid V2
-   Params; an absent or permissionless vesting account; and no local historical
-   upgrade packet.
+   `genesis` markers; no migration marker or H2 plan-identity digest; both done
+   heights zero; valid strictly persisted V2 Params; an absent or permissionless
+   vesting account; and no local historical upgrade packet.
 
 Reads propagate store and disk errors and convert evidence-read panics into
 startup refusal. A present empty marker is not absence. Pending H2 requires the
 on-chain and local plan identities to match in name, height, and canonical
-`Info`. Completed H2 may retain only its exact canonical historical local
-packet; any live on-chain H1/H2 plan, stale plan, conflicting packet, or unsafe
-skip refuses startup.
+`Info`. Completed H2 may retain only a canonical historical local packet whose
+complete identity recomputes to the consensus digest; the digest remains the
+identity commitment if the disk packet is absent. Any live on-chain H1/H2 plan,
+stale plan, conflicting packet, or unsafe skip refuses startup.
+
+At native genesis the app validates non-nil V2 Params before module init, then
+strictly reads the stored Params and proves an absent or exactly permissionless
+`vesting_rewards` module account immediately after module init and before either
+native lineage marker is written. Missing, corrupt, legacy, Minter/Burner, base
+account, or wrong-name evidence returns an InitChain error with both markers
+absent.
 
 ## Handler ordering and state scope
 
@@ -90,13 +105,17 @@ before mutation. It then:
 3. removes permissions from only an existing `vesting_rewards` module account,
    preserving address, account number, and sequence, without lazy creation or
    unrelated auth reconciliation;
-4. re-reads the H1 marker and proves the H2 marker is still absent; and
-5. writes the H2 migration marker last.
+4. re-reads the H1 marker and proves both the H2 plan-identity marker and generic
+   migration marker are still absent;
+5. writes the append-only lowercase SHA-256 plan-identity marker; and
+6. writes the generic H2 migration marker last as the handler completion seal.
 
 Cosmos SDK x/upgrade then persists the VersionMap, deletes the plan, and writes
 the done height inside the same cached PreBlock transaction. Any handler error
-rolls back migration, Params, permission, balance, plan, marker, event, and
-done-height mutations together.
+rolls back migration, Params, permission, balance, plan, digest marker,
+completion marker, event, and done-height mutations together. Error and panic
+injection on the final completion-marker write prove the preceding digest write
+and all earlier mutations disappear from the fresh committed restart root.
 
 ## Vesting-rewards v2 semantics
 
@@ -142,10 +161,16 @@ The source suite includes:
   payment, no automatic reward, and no vesting-account balance movement;
 - proof that H2 removes only vesting permissions while deliberately injected
   unrelated module-account permission drift remains unchanged;
-- failure injection after migration and permission reconciliation but before
-  the marker, proving byte-identical cached rollback and fresh restart state;
-- corrupt/missing Params, present-empty marker, malformed done bytes, marker
-  read errors, corrupt disk packet, and missing disk packet refusal;
+- failure injection after migration and permission reconciliation, plus error
+  and panic injection exactly on the final H2 marker after the digest write,
+  proving byte-identical cached rollback and fresh restart state;
+- native real-InitChain refusal for nil/corrupt/legacy Params, strict post-init
+  missing/corrupt Params, Minter/Burner, base-account, and wrong-name evidence,
+  with valid absent/permissionless-account cases;
+- absent, empty, malformed, forged, or packet-mismatched plan digests; canonical
+  but different historical `Info`; corrupt/missing Params; present-empty marker;
+  malformed done bytes; marker read errors; corrupt disk packet; and the valid
+  completed state with an absent retained disk packet;
 - vesting migration/immutability/unit tests, integration economics,
   simulation invariants, historical-handler boundary tests, protobuf/Swagger
   regeneration, TypeScript wire generation and consumer build, creed hashes,

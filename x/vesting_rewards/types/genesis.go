@@ -99,10 +99,11 @@ func DefaultGenesis() *GenesisState {
 
 // Validate performs basic genesis state validation.
 func (gs *GenesisState) Validate() error {
-	if gs.Params != nil {
-		if err := ValidateParams(gs.Params); err != nil {
-			return err
-		}
+	if gs.Params == nil {
+		return fmt.Errorf("vesting_rewards params are required")
+	}
+	if err := ValidateParams(gs.Params); err != nil {
+		return err
 	}
 	if len(gs.CategoryConfigs) == 0 {
 		return fmt.Errorf("at least one category config required")
