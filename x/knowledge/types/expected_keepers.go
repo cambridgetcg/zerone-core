@@ -76,7 +76,7 @@ type VestingRewardsKeeper interface {
 	CreateVestingScheduleFromKnowledge(ctx context.Context, claimID, factID, recipient, totalAmount, epistemicCategory string) error
 	// DistributeFalsificationReward distributes a falsification reward.
 	DistributeFalsificationReward(ctx context.Context, counterFactID, targetFactID, recipient, amount string) error
-	// GetEpochBlockRewardPool returns the estimated reward pool for an epoch (in uzrn).
+	// GetEpochBlockRewardPool is a retired compatibility query and returns zero.
 	GetEpochBlockRewardPool(ctx context.Context, epoch uint64) uint64
 	// PauseVestingByClaimId pauses vesting schedules associated with a claim.
 	PauseVestingByClaimId(ctx context.Context, claimID string) error

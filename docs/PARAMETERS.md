@@ -74,30 +74,33 @@ are reserved in protobuf and must not be presented as active controls.
 | `min_stake_for_verification` | 111,000 uzrn |
 | `virtual_stake` | 11,000,000 uzrn |
 
-### Block rewards and fees
+### Automatic rewards and real fees
 
 | Field | Source default |
 |---|---:|
-| Block reward | 10,000,000 uzrn before decay/scaling |
-| Empty-block reward rate | 0 |
-| Validators for full reward | 22 |
+| Transaction-presence block reward | 0; permanently retired in vesting_rewards v2 |
+| Floor reward | 0; retired compatibility field |
+| Empty-block reward rate | 0; retired compatibility field |
 | Consensus fee floor | 1 uzrn per declared gas unit |
-| Revenue split | 55% block proposer (`contributor_bps` wire name) / 22% protocol / 19.67% development / 3.33% research |
-| Founder sub-share | Up to 7% of research; inactive while address is empty |
+| Real `uzrn` transaction-fee routing | 19.67% development / 3.33% research / approximately 77% normal Cosmos distribution |
+| Founder sub-share | 0; permanently retired in vesting_rewards v2 |
 
-`founder_share_bps` is governance-mutable within its 7% cap.
-`founder_address` becomes immutable once set.
+The legacy `block_reward`, `floor_reward`, `founder_share_bps`, and
+`founder_address` wire fields remain for compatibility but must be zero/empty.
+Ordinary governance cannot reactivate them. `RouteFees` still routes actual
+fees collected from transactions; retirement concerns automatic issuance, not
+fee compensation.
 
-### Liquiditypool safety v2
+### Liquiditypool v5
 
-These are source defaults for liquiditypool consensus v4, not a claim about a
+These are source defaults for liquiditypool consensus v5, not a claim about a
 running chain:
 
 | Field | Source default / rule |
 |---|---:|
 | `default_swap_fee_bps` (legacy wire name) | 3,000 PPM (0.3%) |
 | Maximum per-pool swap fee | 100,000 PPM (10%) |
-| `protocol_fee_bps` (legacy wire name) | 450,000 PPM; 45% of the floor-rounded fee is routed only when the swap input is `uzrn` |
+| `protocol_fee_bps` (legacy wire name) | 0; retired and rejected if nonzero |
 | `max_pools` | 16 open pools; valid range 1–64, zero/unlimited is invalid |
 | `min_initial_liquidity` | 10,000,000,000 uzrn (10,000 ZRN on the ZRN side) |
 | `min_reserve` | 1 base unit |
@@ -105,7 +108,7 @@ running chain:
 | `allowed_pool_denoms` | empty; unconsumed one-shot counter-denom creation grants, consumed on successful creation |
 | `pool_creators` | empty; no account may fund/create a pool |
 
-In consensus v4, `twap_window_blocks` may be increased within its bound but
+In consensus v5, `twap_window_blocks` may be increased within its bound but
 cannot be decreased by an ordinary Params update. Shrinking retained history
 requires a future bounded cleanup migration; rejecting an immediate shrink
 prevents the next BeginBlock from attempting thousands of synchronous deletes.
@@ -114,10 +117,13 @@ Pool status is governance-controlled: `ACTIVE`, `SWAPS_PAUSED`, `EXIT_ONLY`,
 then immutable `CLOSED` after the final LP exit. Oracle selection additionally
 requires an allowlisted quote denom and an `ACTIVE` pool. See
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md) before constructing a
-proposal. Liquiditypool denom admission does not bypass `x/bank`: both `uzrn`
+proposal. The configured per-pool swap fee remains in reserves and therefore
+accrues pro rata to transferable LP shares; neither governance nor a named
+founder receives a skim. Liquiditypool denom admission does not bypass
+`x/bank`: both `uzrn`
 and the counter-denom must also be send-enabled before initial liquidity can
 enter module custody. `GetZRNPrice` is a raw base-unit ratio scaled by
-1,000,000; the source-approved defaults intentionally keep its allowlist empty.
+1,000,000; the source defaults intentionally keep its allowlist empty.
 Before enabling a quote denom, governance must bind its base-unit exponent,
 consumer conversion, and a decimal-normalized per-denom oracle TVL floor; the
 global one-base-unit `min_reserve` is not sufficient for oracle admission.

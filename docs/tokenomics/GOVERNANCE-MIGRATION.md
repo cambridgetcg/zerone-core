@@ -17,10 +17,12 @@
 
 ## Overview
 
-The research fund receives the 3.33% research slice of implemented block-reward
-and `uzrn` fee-routing paths. Planned services are not automatically revenue
-sources. At scale, this can become a significant treasury. Who controls it
-matters.
+After atomic H1, the research fund receives the 3.33% research slice of actual
+`uzrn` fee routing plus deposits from other concrete callers. The automatic
+transaction-presence block mint and founder sub-share are retired. Planned
+services and schema fields are not automatically revenue sources. At scale,
+the fund can still become significant, so custody and disbursement remain
+material.
 
 The source model for Phase 0 requires a **2-of-2 voter pair**, but the published
 genesis did not configure those voter addresses. A future activation must name
@@ -102,9 +104,9 @@ moves no funds. Phase 3 currently strands the specialised spending path and
 must not be activated until execution and tests are wired.
 
 Founding participants may still vote with whatever stake they control and may
-still propose. The founder sub-share is not guaranteed forever: governance may
-set it anywhere from 0–7% of the research slice, and it is inactive while the
-address is unset. Phase 3 removes special research-fund voting structure.
+still propose. Atomic H1 permanently retires the founder sub-share; Phase 3
+therefore changes only special research-fund voting structure, not an
+automatic founder payment.
 
 **This phase is terminal.** There is no Phase 4.
 
@@ -206,20 +208,24 @@ If the expanded committee fails, the protocol can step backward.
 
 ## Founder and operator boundary
 
-The original design proposed two founder anchors. Current source narrows them:
+The original design proposed two founder anchors. Atomic H1 removes one and
+keeps the other explicit:
 
-1. **Founder sub-share** — At most 7% of the 3.33% research slice (about 0.23%
-   of a routed revenue event at the cap). Governance may lower, zero, or restore
-   the percentage within that cap. The address is immutable once set; it is
-   unset at genesis, so the sub-share is inactive.
+1. **Automatic founder sub-share — retired.** The legacy percentage/address
+   fields are fixed at zero/empty in vesting_rewards v2. Governance cannot
+   restore the tap through an ordinary Params proposal.
 
-2. **Configured voters** — The phase machinery supports named voter addresses
-   and community seats. No prose document can establish that custody; it must
-   be present in hash-bound genesis or current on-chain state.
+2. **Configured voters — separate governance roles.** The phase machinery
+   supports named voter addresses and community seats. Labels such as
+   “Founder” and “AI” in the phase diagrams describe configured voter seats,
+   not an economic percentage. No prose document can establish that custody;
+   it must be present in hash-bound genesis or current on-chain state.
 
 Nothing here grants an unconfigured founder or AI key permanent voting
 authority. Ordinary governance participation follows the stake and state
-actually recorded on chain.
+actually recorded on chain. A publicly approved research grant may name any
+recipient, including a founding participant, but that is a discrete treasury
+decision rather than identity rent.
 
 ## Timeline Estimates
 

@@ -1,6 +1,7 @@
 import { cosmosChainId, zeroneRegistryTypes } from "@zerone-chain/sdk";
 import {
   LIQUIDITY_FEE_SCALE,
+  discloseLiquiditySwapFee,
   minimumOutputForSlippage,
 } from "@zerone-chain/sdk/liquidity";
 import {
@@ -24,6 +25,11 @@ const registerAccount: auth.MsgRegisterAccount = {
 };
 const encoded = authMessages.encoded.registerAccount(registerAccount);
 const registry = createZeroneRegistry(defaultRegistryTypes);
+const feeDisclosure = discloseLiquiditySwapFee({
+  tokenInDenom: "uzrn",
+  feeAmount: "30",
+  protocolFeeMillionths: 0n,
+});
 
 void [
   chainId,
@@ -32,5 +38,6 @@ void [
   zeroneRegistryTypes,
   IN_TOTO_STATEMENT_V1_TYPE,
   LIQUIDITY_FEE_SCALE,
+  feeDisclosure,
   minimumOutputForSlippage("100", 10_000n),
 ];

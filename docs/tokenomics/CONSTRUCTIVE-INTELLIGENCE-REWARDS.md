@@ -24,7 +24,7 @@ As of 2026-07-29:
 - its planned genesis profile is protocol-dark: vote extensions are disabled,
   knowledge admission is priced above the hard supply cap, knowledge reward
   rates and allocations are zero, the substrate bridge has no adapters, and
-  the nominal block reward rounds to zero with the launch roster.
+  atomic H1 retires transaction-presence block issuance at the source level.
 
 The dark posture is intentional. Adding this file MUST NOT change genesis,
 module parameters, handlers, migrations, supply, governance authority, or the

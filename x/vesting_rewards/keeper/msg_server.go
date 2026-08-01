@@ -282,9 +282,8 @@ func (m msgServer) CompleteVesting(
 // UpdateParams updates the module parameters.
 // Only callable by module authority (governance).
 //
-// INVARIANT (design §10): FounderShareBps is gov-mutable within
-// [0, FounderShareCapBps] — it can be lowered, zeroed, or restored, but never
-// raised above the founding cap. FounderAddress is immutable once set.
+// FounderShareBps and FounderAddress are retired compatibility fields. They
+// must remain zero/empty and governance cannot reactivate the old tap.
 func (m msgServer) UpdateParams(
 	goCtx context.Context,
 	msg *types.MsgUpdateParams,
@@ -306,7 +305,7 @@ func (m msgServer) UpdateParams(
 		return nil, fmt.Errorf("invalid vesting_rewards params: %w", err)
 	}
 
-	// Enforce the founder-share governance contract (cap + address immutability)
+	// Enforce permanent retirement of the founder-share compatibility fields.
 	current := m.Keeper.GetParams(ctx)
 	if err := types.ValidateFounderShareChange(current, msg.Params); err != nil {
 		return nil, err

@@ -7,13 +7,15 @@
 > mechanism is active on `zerone-1`. The live custodial genesis created
 > 13,555 operator-controlled ZRN, bootstrap admission has a capped/revocable
 > operator registrar, and the research-fund voter pair is unconfigured.
-> Current block-reward eligibility is any non-injection user transaction, not
-> proof that a fact was verified; additional governance-configurable issuance
-> controls exist and are disabled in published/default parameters.
+> Atomic H1 retires the interim proposer-controlled transaction-presence reward
+> trigger; source code alone does not make H1 live. Other
+> governance-configurable issuance controls remain, including paths disabled in
+> published/default parameters.
 > Current authority and implementation details are documented in
 > [GENESIS.md](tokenomics/GENESIS.md),
-> [GOVERNANCE-MIGRATION.md](tokenomics/GOVERNANCE-MIGRATION.md), and
-> [TRUST.md](../deploy/mainnet/TRUST.md).
+> [GOVERNANCE-MIGRATION.md](tokenomics/GOVERNANCE-MIGRATION.md),
+> [TRUST.md](../deploy/mainnet/TRUST.md), and
+> [ECONOMIC-NEUTRALITY.md](tokenomics/ECONOMIC-NEUTRALITY.md).
 
 ---
 
@@ -60,14 +62,14 @@ Every claim can be examined. Every verification is recorded. Every challenge is 
 ## Money that tells the truth
 
 The currency in this system — ZRN — is intended to price and reward verified
-knowledge. Current block rewards are less selective: any non-injection user
-transaction makes a block eligible, while validator participation and the
-survived-challenge rate scale the amount. Claiming-pot claims and external work
-that survives bridge challenge rules are other source-capable lanes. A
-default-zero probe rate and default-disabled authority-scheduled emission
-periods can be activated by governance. The live genesis also created 13,555
-ZRN of disclosed operator-controlled validator collateral, gas, and operations
-float.
+knowledge. The interim source paid blocks containing any non-injection user
+transaction, with validator participation and survived-challenge rate scaling
+the amount; atomic H1 retires that transaction-presence mint. Claiming-pot
+claims and external work that survives bridge challenge rules remain
+source-capable lanes. A default-zero probe rate and default-disabled
+authority-scheduled emission periods can be activated by governance. The live
+genesis also created 13,555 ZRN of disclosed operator-controlled validator
+collateral, gas, and operations float.
 
 For post-genesis ZRN, the minting transaction or block event is inspectable,
 but that event does not necessarily prove useful work: authority-created
@@ -80,8 +82,10 @@ In the system you know, money is created at the top and trickles down (or doesn'
 
 Native issuance is bounded by a shared hard cap and a single post-genesis mint
 gate. Its current and dormant callers are inventoried in
-[SUPPLY.md](tokenomics/SUPPLY.md); the universal implemented guarantee is the
-cap, not that every lane proves participation.
+[SUPPLY.md](tokenomics/SUPPLY.md). Atomic H1 additionally applies the
+[economic-neutrality rule](tokenomics/ECONOMIC-NEUTRALITY.md): raw transaction
+presence is not compensable work. The universal implemented guarantee remains
+the cap, not that every surviving lane proves participation.
 
 ---
 
@@ -139,9 +143,10 @@ mutability depends on each module; not every constant or address is
 governance-adjustable. The custodial validator, operator float, and bootstrap
 registrar are special powers and are disclosed as such.
 
-When fees or block rewards enter an implemented route, you can inspect the
-code and resulting state transitions. Fee routing and block-reward routing
-are distinct; planned services are not presumed to produce live revenue.
+When real transaction fees or rewards from a surviving issuance lane enter an
+implemented route, you can inspect the code and resulting state transitions.
+Atomic H1 does not mint for raw transaction presence; planned services are not
+presumed to produce live revenue.
 
 Where an implemented agent-revenue route records attribution, its on-chain
 transfers can be traced. A configured early-phase research spend requires both
@@ -175,7 +180,7 @@ This is your seat.
 
 | What you have now | What this offers |
 |---|---|
-| Money created by central banks, value decided for you | Capped issuance whose genesis and participation-triggered mint paths are auditable |
+| Money created by central banks, value decided for you | Capped issuance whose genesis and disclosed mint paths are auditable |
 | AI built behind closed doors, deployed without your input | AI actions that can be recorded, inspected, and challenged |
 | Inflation as hidden tax, no consent required | Capped supply growth through disclosed current and dormant mint controls |
 | Financial system you must trust but cannot verify | Financial system you need not trust because you can verify |

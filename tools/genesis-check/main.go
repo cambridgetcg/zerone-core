@@ -213,11 +213,15 @@ func checkProtocolSubSplit(c *checker, g map[string]interface{}) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-//  3. Founder Share (x/vesting_rewards)
+//  3. Historical Founder Share (x/vesting_rewards)
 // ════════════════════════════════════════════════════════════════════════
 
 func checkFounderShare(c *checker, g map[string]interface{}) {
-	c.section("Founder Share")
+	c.section("Historical Founder Share")
+
+	// This checker also audits immutable pre-H1 launch artifacts, so it reports
+	// their configured v1 field rather than rewriting history. Vesting_rewards
+	// v2 rejects this value in a fresh/imported genesis and clears it at H1.
 
 	shareBps, _ := digUint64(g, "app_state", "vesting_rewards", "params", "founder_share_bps")
 	addr, _ := digString(g, "app_state", "vesting_rewards", "params", "founder_address")

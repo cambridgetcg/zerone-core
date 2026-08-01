@@ -41,9 +41,9 @@ type QueryClient interface {
 	ResearchFundBalance(ctx context.Context, in *QueryResearchFundBalanceRequest, opts ...grpc.CallOption) (*QueryResearchFundBalanceResponse, error)
 	FounderShareStatus(ctx context.Context, in *QueryFounderShareStatusRequest, opts ...grpc.CallOption) (*QueryFounderShareStatusResponse, error)
 	// SupplyCouplingAudit is a legacy-named observability endpoint. It reports
-	// the shared MintWithCap ledger, bank supply, and block-reward coupling
-	// inputs. The aggregate ledger includes all capped callers and does not by
-	// itself prove that total issuance was caused by knowledge activity.
+	// the shared MintWithCap ledger, bank supply, retired block-reward settings,
+	// and knowledge telemetry. The aggregate ledger includes all capped callers
+	// and does not by itself prove that issuance was caused by knowledge work.
 	SupplyCouplingAudit(ctx context.Context, in *QuerySupplyCouplingAuditRequest, opts ...grpc.CallOption) (*QuerySupplyCouplingAuditResponse, error)
 }
 
@@ -147,9 +147,9 @@ type QueryServer interface {
 	ResearchFundBalance(context.Context, *QueryResearchFundBalanceRequest) (*QueryResearchFundBalanceResponse, error)
 	FounderShareStatus(context.Context, *QueryFounderShareStatusRequest) (*QueryFounderShareStatusResponse, error)
 	// SupplyCouplingAudit is a legacy-named observability endpoint. It reports
-	// the shared MintWithCap ledger, bank supply, and block-reward coupling
-	// inputs. The aggregate ledger includes all capped callers and does not by
-	// itself prove that total issuance was caused by knowledge activity.
+	// the shared MintWithCap ledger, bank supply, retired block-reward settings,
+	// and knowledge telemetry. The aggregate ledger includes all capped callers
+	// and does not by itself prove that issuance was caused by knowledge work.
 	SupplyCouplingAudit(context.Context, *QuerySupplyCouplingAuditRequest) (*QuerySupplyCouplingAuditResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }

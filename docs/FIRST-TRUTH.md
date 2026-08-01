@@ -69,11 +69,12 @@ slogan so that disproving us would be cheap if we lied.
 The then-current wording, on the record. Not "zero pre-mine" — the genesis
 *does* hold operating stake. The 2,222 ZRN operations float is transferable,
 so current documentation does not describe genesis as having zero sellable or
-insider position. The quoted issuance sentence is also historical: current
-runtime source permits transaction-bearing block rewards and
-authority-created, quota-bounded claiming pots in addition to external-work
-and knowledge reward paths. Current tokenomics documents, not this archived
-quote, describe those mint callers.
+insider position. The quoted issuance sentence is also historical: the interim
+runtime permitted transaction-bearing block rewards, but atomic H1 retires
+that lane. Current source still has authority-created, quota-bounded claiming
+pots, external-work settlement, and default-disabled knowledge/token emission
+controls. Current tokenomics documents, not this archived quote, describe
+those mint callers.
 
 > **"DISCLOSURE: the submitter and all 4 panel keys are operated by the
 > chain's founding household and funded from the operations float (the

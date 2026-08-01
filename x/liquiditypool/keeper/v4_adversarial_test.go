@@ -960,11 +960,67 @@ func v4LegacyPool(
 
 func v4SetLegacyParams(h v4Harness) {
 	params := types.DefaultParams()
+	params.ProtocolFeeBps = 450_000
 	params.MaxPools = 0
 	params.AllowedPoolDenoms = nil
 	params.PoolCreators = nil
 	params.BillingQuoteDenoms = nil
 	h.keeper.SetParams(h.ctx, params)
+}
+
+func TestV5MigrationOnlyRetiresProtocolSkim(t *testing.T) {
+	h := newV4InvariantHarness(t)
+	params := types.DefaultParams()
+	params.ProtocolFeeBps = 450_000
+	params.AllowedPoolDenoms = []string{"uatom"}
+	params.PoolCreators = []string{h.authority}
+	h.keeper.SetParams(h.ctx, params)
+
+	pool := v4LegacyPool(
+		"pool-1", "uatom", "10000000000", "5000000000", "7071067811", h.authority,
+	)
+	pool.Status = types.PoolStatus_POOL_STATUS_EXIT_ONLY
+	h.keeper.SetPool(h.ctx, pool)
+	acc := &types.TWAPAccumulator{
+		PoolId: pool.PoolId, LastBlock: 700, StartBlock: 600,
+		CumPriceAToB: "123", CumPriceBToA: "456",
+	}
+	h.keeper.SetTWAPAccumulator(h.ctx, acc)
+	h.keeper.SetNextPoolId(h.ctx, 2)
+	h.bank.moduleBalances[types.ModuleName] = map[string]int64{
+		pool.DenomA: 10_000_000_000,
+		pool.DenomB: 5_000_000_000,
+	}
+	h.bank.setBalance(h.authority, pool.LpDenom, 7_071_067_811)
+
+	poolBefore := proto.Clone(pool).(*types.Pool)
+	accBefore := proto.Clone(acc).(*types.TWAPAccumulator)
+	bankBefore := v4SnapshotBank(h.bank)
+	nextBefore := h.keeper.GetNextPoolId(h.ctx)
+
+	if err := keeper.NewMigrator(h.keeper).Migrate4to5(h.ctx); err != nil {
+		t.Fatalf("migrate v4 to v5: %v", err)
+	}
+	migrated := h.keeper.GetParams(h.ctx)
+	if migrated.ProtocolFeeBps != 0 {
+		t.Fatalf("protocol fee = %d, want retired zero", migrated.ProtocolFeeBps)
+	}
+	params.ProtocolFeeBps = 0
+	if !proto.Equal(params, migrated) {
+		t.Fatalf("migration changed unrelated params:\nwant=%s\ngot=%s", params, migrated)
+	}
+	v4AssertPoolUnchanged(t, h, poolBefore)
+	gotAcc, found := h.keeper.GetTWAPAccumulator(h.ctx, pool.PoolId)
+	if !found || !proto.Equal(accBefore, gotAcc) {
+		t.Fatalf("migration changed TWAP state: found=%t got=%v", found, gotAcc)
+	}
+	if indexed := h.keeper.GetPoolByDenoms(h.ctx, pool.DenomA, pool.DenomB); indexed == nil || indexed.PoolId != pool.PoolId {
+		t.Fatalf("migration changed pair index: %v", indexed)
+	}
+	if got := h.keeper.GetNextPoolId(h.ctx); got != nextBefore {
+		t.Fatalf("migration changed next pool ID: got %d want %d", got, nextBefore)
+	}
+	v4AssertBankUnchanged(t, h.bank, bankBefore)
 }
 
 func TestV4MigrationClassifiesLegacyPoolsAndRebuildsIdentityState(t *testing.T) {
@@ -1050,6 +1106,9 @@ func TestV4MigrationClassifiesLegacyPoolsAndRebuildsIdentityState(t *testing.T) 
 	params := h.keeper.GetParams(h.ctx)
 	if params.MaxPools != types.DefaultParams().MaxPools {
 		t.Fatalf("migrated max_pools = %d, want default %d", params.MaxPools, types.DefaultParams().MaxPools)
+	}
+	if params.ProtocolFeeBps != 0 {
+		t.Fatalf("migrated protocol_fee_bps = %d, want retired zero", params.ProtocolFeeBps)
 	}
 	if err := h.keeper.ExportGenesis(h.ctx).Validate(); err != nil {
 		t.Fatalf("post-migration export is invalid: %v", err)
