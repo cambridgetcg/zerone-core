@@ -118,10 +118,11 @@ func newFixture(t *testing.T) fixture {
 		t.Fatal(err)
 	}
 
-	// The checked-in live genesis predates liquiditypool consensus v4, where a
-	// zero MaxPools meant unlimited. This compiler test needs a source export
-	// that already satisfies the target application's module schemas so the
-	// narrow compiler can prove it changes no unrelated application state.
+	// The checked-in live genesis predates the consolidation boundary. This
+	// compiler test needs a source export that already satisfies the target
+	// application's economic module schemas so the narrow compiler can prove it
+	// changes no unrelated application state. A real fork must likewise apply
+	// the named consolidation upgrade first; fork-genesis is not a bypass.
 	var liquidityGenesis map[string]any
 	liquidityDecoder := json.NewDecoder(bytes.NewReader(appState["liquiditypool"]))
 	liquidityDecoder.UseNumber()
@@ -133,7 +134,27 @@ func newFixture(t *testing.T) fixture {
 		t.Fatal("liquiditypool fixture params are absent")
 	}
 	liquidityParams["max_pools"] = json.Number("16")
+	liquidityParams["protocol_fee_bps"] = json.Number("0")
 	appState["liquiditypool"], err = json.Marshal(liquidityGenesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rewardsGenesis map[string]any
+	rewardsDecoder := json.NewDecoder(bytes.NewReader(appState["vesting_rewards"]))
+	rewardsDecoder.UseNumber()
+	if err := rewardsDecoder.Decode(&rewardsGenesis); err != nil {
+		t.Fatal(err)
+	}
+	rewardsParams, ok := rewardsGenesis["params"].(map[string]any)
+	if !ok {
+		t.Fatal("vesting_rewards fixture params are absent")
+	}
+	rewardsParams["block_reward"] = "0"
+	rewardsParams["floor_reward"] = "0"
+	rewardsParams["empty_block_reward_rate"] = json.Number("0")
+	rewardsParams["founder_share_bps"] = json.Number("0")
+	rewardsParams["founder_address"] = ""
+	appState["vesting_rewards"], err = json.Marshal(rewardsGenesis)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,6 +443,28 @@ func TestCompileGenesisRejectsUnsafeProfiles(t *testing.T) {
 				})
 			},
 			wantErr: "must be an empty array",
+		},
+		{
+			name: "unretired liquidity protocol skim",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					liquidity := state["liquiditypool"].(map[string]any)
+					params := liquidity["params"].(map[string]any)
+					params["protocol_fee_bps"] = json.Number("1")
+				})
+			},
+			wantErr: "protocol_fee_bps is retired and must be zero",
+		},
+		{
+			name: "unretired automatic block reward",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					rewards := state["vesting_rewards"].(map[string]any)
+					params := rewards["params"].(map[string]any)
+					params["block_reward"] = "1"
+				})
+			},
+			wantErr: "transaction-presence block rewards are permanently retired",
 		},
 		{
 			name: "live IBC rate limit",
