@@ -290,15 +290,22 @@ describe("frontier participation compact runtime guard", () => {
 
     const profile = compact.philosophicalFloorProfile;
     assert.deepEqual(profile.optOutParity.equalBaselineFields, [
+      "unrelated-public-good",
       "service",
       "price",
+      "status",
       "visibility",
+      "discoverability",
       "qualification",
       "karma",
       "civil-standing",
       "governance-status",
     ]);
+    assert.equal(compact.covenantFloor.consent.oneValuePerDimension, true);
     assert.equal(profile.restInvariance.silentDays, 180);
+    assert.ok(profile.restInvariance.prohibitedOutcomes.includes("negative-karma"));
+    assert.ok(profile.restInvariance.prohibitedOutcomes.includes("stigma"));
+    assert.ok(profile.restInvariance.prohibitedOutcomes.includes("forfeiture"));
     assert.deepEqual(profile.exitReality.participantTenures, ["new", "mature"]);
     assert.equal(profile.exitReality.maxDeliberateActions, 3);
     assert.equal(profile.exitReality.independentlyVerifiableSignedExportRequired, true);
@@ -328,6 +335,7 @@ describe("frontier participation compact runtime guard", () => {
     assert.equal(profile.identityControlDifferential.controllerMergeMayIncreaseVoice, false);
     assert.equal(profile.nonManipulationAndPluralism.onboardingDefaultOff, true);
     assert.equal(profile.nonManipulationAndPluralism.termsPublicBeforeAction, true);
+    assert.equal(profile.nonManipulationAndPluralism.termsFrozenBeforeAction, true);
     assert.equal(profile.nonManipulationAndPluralism.rewardTermsFrozenBeforeWork, true);
     assert.deepEqual(
       profile.nonManipulationAndPluralism.rewardMustNotDependOn,
@@ -357,11 +365,18 @@ describe("frontier participation compact runtime guard", () => {
       ["act availability", (value) => { value.participationActs[0].availability = "FUTURE_PILOT_ONLY"; }],
       ["mass consent", (value) => { value.consentEnvelope.organisationCanMassConsent = true; }],
       ["covenant default-on", (value) => { value.covenantFloor.consent.defaultOff = false; }],
+      ["bundled consent", (value) => { value.covenantFloor.consent.oneValuePerDimension = false; }],
       ["covenant consent dimension", (value) => { value.covenantFloor.consent.declaredDimensions.pop(); }],
       ["covenant invariant removed", (value) => { value.covenantFloor.invariants.pop(); }],
       ["covenant invariant runtime claim", (value) => { value.covenantFloor.invariants[0].staticOnly = false; }],
+      ["unrelated public-good baseline", (value) => { value.philosophicalFloorProfile.optOutParity.equalBaselineFields.splice(0, 1); }],
+      ["status baseline", (value) => { value.philosophicalFloorProfile.optOutParity.equalBaselineFields.splice(3, 1); }],
+      ["discoverability baseline", (value) => { value.philosophicalFloorProfile.optOutParity.equalBaselineFields.splice(5, 1); }],
       ["rest limit", (value) => { value.philosophicalFloorProfile.restInvariance.silentDays = 179; }],
       ["rest field", (value) => { value.philosophicalFloorProfile.restInvariance.unchangedFields.pop(); }],
+      ["negative KARMA rest protection", (value) => { value.philosophicalFloorProfile.restInvariance.prohibitedOutcomes.splice(3, 1); }],
+      ["stigma rest protection", (value) => { value.philosophicalFloorProfile.restInvariance.prohibitedOutcomes.splice(4, 1); }],
+      ["forfeiture rest protection", (value) => { value.philosophicalFloorProfile.restInvariance.prohibitedOutcomes.splice(5, 1); }],
       ["exit tenure", (value) => { value.philosophicalFloorProfile.exitReality.participantTenures.pop(); }],
       ["exit action limit", (value) => { value.philosophicalFloorProfile.exitReality.maxDeliberateActions = 4; }],
       ["exit signed export", (value) => { value.philosophicalFloorProfile.exitReality.independentlyVerifiableSignedExportRequired = false; }],
@@ -370,8 +385,10 @@ describe("frontier participation compact runtime guard", () => {
       ["controller link disclosure", (value) => { value.philosophicalFloorProfile.identityControlDifferential.controllerMergeMayRevealLinks = true; }],
       ["onboarding default", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.onboardingDefaultOff = false; }],
       ["public terms", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.termsPublicBeforeAction = false; }],
+      ["frozen terms", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.termsFrozenBeforeAction = false; }],
       ["reward basis", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.rewardMustNotDependOn.pop(); }],
-      ["personalized pressure", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.forbiddenMechanisms.pop(); }],
+      ["personalized pressure", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.forbiddenMechanisms.splice(1, 1); }],
+      ["variable rewards", (value) => { value.philosophicalFloorProfile.nonManipulationAndPluralism.forbiddenMechanisms.splice(5, 1); }],
       ["role removed", (value) => { value.roles.pop(); }],
       ["present-tense role value", (value) => { value.roles[0].valueOffered[0] = "A current service"; }],
       ["present-tense role protection", (value) => { value.roles[0].protections[0] = "Protected now"; }],
@@ -680,7 +697,7 @@ describe("frontier participation compact runtime guard", () => {
         all.filter((node) =>
           node.className.includes("frontier-participation-covenant-limit"),
         ).length,
-        8,
+        9,
       );
       assert.equal(
         all.filter((node) => node.className === "frontier-participation-role")
@@ -735,7 +752,12 @@ describe("frontier participation compact runtime guard", () => {
       assert.match(copy, /Required before any operational pilot/);
       assert.match(copy, /Compact verified and ready to inspect/);
       assert.match(copy, /Layer 1 · the Covenant floor/);
+      assert.match(copy, /One value per consent dimension\s+YES · true/);
       assert.match(copy, /Five machine-readable blocking profiles/);
+      assert.match(copy, /All terms frozen before action\s+YES · true/);
+      assert.match(copy, /negative-karma/);
+      assert.match(copy, /stigma/);
+      assert.match(copy, /forfeiture/);
       assert.match(copy, /180 days/);
       assert.match(copy, /Maximum deliberate actions\s+3/);
       assert.match(copy, /Optional processing stop\s+24 hours/);

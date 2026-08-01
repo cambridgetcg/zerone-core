@@ -488,7 +488,13 @@ function validateSemantics(
     covenantFloor.consent,
     "$.covenantFloor.consent",
   );
-  for (const flag of ["defaultOff", "informed", "renewable", "revocable"]) {
+  for (const flag of [
+    "defaultOff",
+    "informed",
+    "renewable",
+    "revocable",
+    "oneValuePerDimension",
+  ]) {
     if (covenantConsent[flag] !== true) {
       fail(`$.covenantFloor.consent.${flag}`, "must remain true");
     }
@@ -561,6 +567,7 @@ function validateSemantics(
   for (const flag of [
     "onboardingDefaultOff",
     "termsPublicBeforeAction",
+    "termsFrozenBeforeAction",
     "rewardTermsFrozenBeforeWork",
   ]) {
     if (pluralismProfile[flag] !== true) {

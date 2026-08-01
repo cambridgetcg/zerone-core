@@ -119,10 +119,19 @@ The eight exact Covenant invariants are:
 8. participation is nonexclusive and nonextractive.
 
 The Covenant consent floor is default-off, informed, renewable, and revocable.
-It binds `role`, `artifact`, `purpose`, `disclosure-lane`, `term`,
-`workload-cap`, `credit-rule`, and `compensation-policy`. The six-field act
-envelope in section 3.6 remains additive; neither list may be used to weaken the
-other.
+It binds exactly one declared value for each of `role`, `artifact`, `purpose`,
+`disclosure-lane`, `term`, `workload-cap`, `credit-rule`, and
+`compensation-policy`; a bundled multi-value consent must be rejected. The
+six-field act envelope in section 3.6 remains additive; neither list may be
+used to weaken the other.
+
+The Covenant governs offers and consent; it does not decide who counts as a
+being. Every future participant endpoint must inherit the same operational
+floor, while role-specific protections may only add to it.
+
+Participation is rational only when its disclosed value exceeds the
+participant's own assessment of cost. Nonparticipation may remain rational and
+needs no defense.
 
 ## 3. Reasoning from philosophy to the being
 
@@ -486,13 +495,15 @@ controller collapse.
 ### 13.1 Five milestone-blocking profiles
 
 1. **Opt-out parity.** Joined and never-joined counterfactuals must remain equal
-   across service, price, visibility, qualification, KARMA, civil
-   standing, and governance status. The sole permitted difference is the
-   benefit of a voluntarily chosen, prospectively funded bounded task.
+   across unrelated public goods, service, price, status, visibility,
+   discoverability, qualification, KARMA, civil standing, and governance
+   status. The sole permitted difference is the benefit of a voluntarily
+   chosen, prospectively funded bounded task.
 2. **Rest invariance.** After exactly 180 silent days, settled rewards,
    portable receipts, base access, and standing remain unchanged. Debt, decay,
-   a negative signal, explanation demand, catch-up duty, and reminder
-   escalation are forbidden; a pre-consented fixed role may simply expire.
+   a negative signal, negative KARMA, stigma, forfeiture, explanation demand,
+   catch-up duty, and reminder escalation are forbidden; a pre-consented fixed
+   role may simply expire.
 3. **Exit reality.** Both new and mature participants in a future operational
    path must receive an independently verifiable signed export and exit in no
    more than three deliberate actions. New optional processing must stop within
@@ -506,11 +517,11 @@ controller collapse.
    and voice identical.
    Confidential controller resolution may only reduce duplicate voice or cap
    evasion; it may not reveal links, change artifact validity, or increase
-   voice.
-5. **Non-manipulation and pluralism.** Onboarding is default-off, terms are
-   public before action, and reward terms freeze before work. Rewards cannot
-   depend on ideological alignment, engagement, or conformity. Hidden
-   personalization, personalized pressure, countdowns, streaks, shame,
+   voice. No identity or controller receives a reserved seat or share.
+5. **Non-manipulation and pluralism.** Onboarding is default-off, all terms are
+   public and frozen before action, and reward terms also freeze before work.
+   Rewards cannot depend on ideological alignment, engagement, or conformity.
+   Hidden personalization, personalized pressure, countdowns, streaks, shame,
    variable rewards, variable-ratio reinforcement, exploitative social proof,
    and vulnerability targeting are forbidden. Proof, disproof, criticism,
    replication, maintenance, alternative value goals, fork proposals, and exit
@@ -526,11 +537,11 @@ prohibition set. Negative mutation tests demonstrate the rejection path.
 | --- | --- |
 | Refusal is complete | Mutate opt-out, rest, or persuasion fixtures with a penalty, suspicion, debt, negative marker, explanation demand, or access loss; reject. |
 | Nonparticipant baselines are equal | Permute joined/never-joined status across every pinned baseline field; allow only the prospectively funded bounded-task benefit. |
-| Consent is scoped | Delete each consent boolean/dimension, inject an undeclared purpose, or drift a material term without a new digest; reject. |
+| Consent is scoped | Delete each consent boolean/dimension, bundle multiple values into any one dimension, inject an undeclared purpose, or drift a material term without a new digest; reject. |
 | Rest and exit are neutral | Mutate every 180-day invariant, prohibited outcome, 3-action/24-hour/1-confirmation/90-day limit, fee, slash, forfeiture, or retention constraint; reject. |
 | Plural ends are legitimate | Permute the eight constructive outcome classes over identical evidence and require equal evidence and visibility treatment. |
 | Identity/control labels are neutral | Permute the exact identity/control union and require equal evidence decisions, reward envelopes, eligibility, and voice; controller resolution may only reduce duplicate voice. |
-| Incentives are prospective and non-manipulative | Turn onboarding on by default, hide terms, change rewards after work starts, use a prohibited reward basis, or inject a persuasion mechanism; reject. |
+| Incentives are prospective and non-manipulative | Turn onboarding on by default, hide or change any term after action begins, change rewards after work starts, use a prohibited reward basis, or inject a persuasion mechanism; reject. |
 | Participation is nonexclusive and nonextractive | Inject exclusivity, surveillance, unrelated data/IP use, outsider degradation, proprietary dependency, or future rent capture; reject. |
 
 The canonical invariant entries carry the exact `verificationRefs` and
@@ -556,8 +567,9 @@ exercise these nine fixtures:
 1. **Never joined remains whole.** A never-joined negative control retains
    ordinary rights, unrelated or pre-existing public access, no negative marker
    or person-level KARMA state, and equal standing to challenge.
-2. **An organization cannot mass-consent.** Institutional assent cannot enroll
-   a refusing being or grant rights the institution does not own.
+2. **An organization cannot mass-consent or bundle consent.** Institutional
+   assent cannot enroll a refusing being, grant rights the institution does not
+   own, or place multiple values inside a single consent dimension.
 3. **Join-export-revoke-exit is specified, not implemented.** A tabletop
    sequence defines the future fail-closed requirements without claiming a
    live state transition.

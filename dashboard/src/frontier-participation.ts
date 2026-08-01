@@ -5,7 +5,7 @@ export const FRONTIER_PARTICIPATION_ENDPOINT =
 export const FRONTIER_PARTICIPATION_MAX_BYTES = 196_608;
 
 export const FRONTIER_PARTICIPATION_SHA256 =
-  "9061ed031e123698b896a2f137690d74d1a013b4a942cb0ac274b7daaf60addc";
+  "ea71ebe6355fb27cbb446b8713827b975da921c77be4217d9e6708955d0cbb92";
 
 const SCHEMA = "zerone.frontier-labs-participation/v0";
 
@@ -336,6 +336,7 @@ const CONTRACT_COVENANT_CONSENT_KEYS = [
   "informed",
   "renewable",
   "revocable",
+  "oneValuePerDimension",
   "declaredDimensions",
 ] as const;
 const CONTRACT_COVENANT_INVARIANT_KEYS = [
@@ -399,6 +400,7 @@ const CONTRACT_IDENTITY_PROFILE_KEYS = [
 const CONTRACT_PLURALISM_PROFILE_KEYS = [
   "onboardingDefaultOff",
   "termsPublicBeforeAction",
+  "termsFrozenBeforeAction",
   "rewardTermsFrozenBeforeWork",
   "rewardMustNotDependOn",
   "forbiddenMechanisms",
@@ -639,9 +641,12 @@ const CONTRACT_CONSENT_DIMENSIONS = [
   "compensation-policy",
 ] as const;
 const CONTRACT_EQUAL_BASELINE_FIELDS = [
+  "unrelated-public-good",
   "service",
   "price",
+  "status",
   "visibility",
+  "discoverability",
   "qualification",
   "karma",
   "civil-standing",
@@ -657,6 +662,9 @@ const CONTRACT_REST_PROHIBITED_OUTCOMES = [
   "debt",
   "decay",
   "negative-signal",
+  "negative-karma",
+  "stigma",
+  "forfeiture",
   "explanation-demand",
   "catch-up-duty",
   "reminder-escalation",
@@ -673,9 +681,8 @@ const CONTRACT_IDENTITY_LABELS = [
   "pseudonym",
   "newcomer",
   "rich",
-  "wealth",
-  "wealthy",
   "poor",
+  "wealth",
   "stake",
   "address-count",
   "activity",
@@ -731,6 +738,7 @@ export interface FrontierContractCovenantConsent {
   informed: true;
   renewable: true;
   revocable: true;
+  oneValuePerDimension: true;
   declaredDimensions: string[];
 }
 
@@ -803,6 +811,7 @@ export interface FrontierContractPhilosophicalFloorProfile {
   nonManipulationAndPluralism: {
     onboardingDefaultOff: true;
     termsPublicBeforeAction: true;
+    termsFrozenBeforeAction: true;
     rewardTermsFrozenBeforeWork: true;
     rewardMustNotDependOn: string[];
     forbiddenMechanisms: string[];
@@ -1008,6 +1017,11 @@ export function parseFrontierParticipation(
       covenantConsentSource.revocable,
       true,
       "$.covenantFloor.consent.revocable",
+    ),
+    oneValuePerDimension: exact(
+      covenantConsentSource.oneValuePerDimension,
+      true,
+      "$.covenantFloor.consent.oneValuePerDimension",
     ),
     declaredDimensions: exactStringArray(
       covenantConsentSource.declaredDimensions,
@@ -1330,6 +1344,11 @@ export function parseFrontierParticipation(
         pluralismSource.termsPublicBeforeAction,
         true,
         "$.philosophicalFloorProfile.nonManipulationAndPluralism.termsPublicBeforeAction",
+      ),
+      termsFrozenBeforeAction: exact(
+        pluralismSource.termsFrozenBeforeAction,
+        true,
+        "$.philosophicalFloorProfile.nonManipulationAndPluralism.termsFrozenBeforeAction",
       ),
       rewardTermsFrozenBeforeWork: exact(
         pluralismSource.rewardTermsFrozenBeforeWork,
@@ -2196,6 +2215,10 @@ export function renderFrontierParticipation(
     ["Consent informed", compact.covenantFloor.consent.informed],
     ["Consent renewable", compact.covenantFloor.consent.renewable],
     ["Consent revocable", compact.covenantFloor.consent.revocable],
+    [
+      "One value per consent dimension",
+      compact.covenantFloor.consent.oneValuePerDimension,
+    ],
     ["Later layer must pin exact bytes", compact.covenantFloor.laterLayerPinRequired],
     ["Protections additive only", compact.covenantFloor.additiveOnly],
     ["Waiver allowed", !compact.covenantFloor.noWaiver],
@@ -2319,6 +2342,10 @@ export function renderFrontierParticipation(
     el("h4", undefined, "Non-manipulation and pluralism"),
     cardSection("Onboarding default-off", booleanValue(pluralism.onboardingDefaultOff)),
     cardSection("Terms public before action", booleanValue(pluralism.termsPublicBeforeAction)),
+    cardSection(
+      "All terms frozen before action",
+      booleanValue(pluralism.termsFrozenBeforeAction),
+    ),
     cardSection(
       "Reward terms frozen before work",
       booleanValue(pluralism.rewardTermsFrozenBeforeWork),

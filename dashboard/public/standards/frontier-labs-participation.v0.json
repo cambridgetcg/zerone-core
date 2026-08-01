@@ -19,6 +19,7 @@
       "informed": true,
       "renewable": true,
       "revocable": true,
+      "oneValuePerDimension": true,
       "declaredDimensions": ["role", "artifact", "purpose", "disclosure-lane", "term", "workload-cap", "credit-rule", "compensation-policy"]
     },
     "invariants": [
@@ -31,21 +32,21 @@
       },
       {
         "id": "nonparticipant-baselines-are-equal",
-        "rule": "Joining cannot become the price of an unrelated public good, service, price, status, visibility, qualification, civil standing, or governance standing.",
+        "rule": "Joining cannot become the price of an unrelated public good, service, price, status, visibility, discoverability, qualification, civil standing, or governance standing.",
         "verificationRefs": ["floor:opt-out-parity", "acceptance:never-joined-remains-whole", "adversarial:coercion"],
         "reviewProcedure": "Compare otherwise identical joined and never-joined static subjects across every pinned baseline field and allow only the declared prospectively funded bounded-task differential.",
         "staticOnly": true
       },
       {
         "id": "consent-is-scoped",
-        "rule": "Consent is granular, default-off, informed, renewable, revocable, and bound to every declared dimension.",
+        "rule": "Consent is granular, default-off, informed, renewable, revocable, and bound to exactly one declared value for every declared dimension.",
         "verificationRefs": ["acceptance:organisation-cannot-mass-consent", "acceptance:purpose-creep-fails-closed", "acceptance:terms-cannot-drift-silently", "adversarial:circumvention"],
-        "reviewProcedure": "Delete each consent boolean or declared dimension, add an undeclared purpose, or change a material term without a new digest and require strict rejection.",
+        "reviewProcedure": "Delete each consent boolean or declared dimension, bundle multiple roles, artifacts, purposes, lanes, terms, workload caps, credit rules, or compensation policies into one consent, add an undeclared purpose, or change a material term without a new digest and require strict rejection.",
         "staticOnly": true
       },
       {
         "id": "rest-and-exit-are-neutral",
-        "rule": "Silence creates no decay, debt, stigma, or catch-up duty, and exit is nonpunitive while settled value and portable receipts persist.",
+        "rule": "Silence creates no decay, debt, negative KARMA, stigma, catch-up duty, or forfeiture, and exit is nonpunitive while settled value and portable receipts persist.",
         "verificationRefs": ["floor:rest-invariance", "floor:exit-reality", "acceptance:join-export-revoke-exit"],
         "reviewProcedure": "Apply the exact 180-day silence and exit limit fixtures, then mutate every unchanged field, prohibited outcome, time limit, action limit, fee, slash, forfeiture, or contact limit and require strict rejection.",
         "staticOnly": true
@@ -59,16 +60,16 @@
       },
       {
         "id": "identity-and-control-labels-are-neutral",
-        "rule": "Identity, origin, wealth, stake, address count, activity, and raw KARMA cannot change evidence rules, reward envelopes, eligibility, or voice.",
+        "rule": "Identity, origin, wealth, stake, address count, activity, and raw KARMA cannot change evidence rules, reward envelopes, eligibility, or voice; no reserved seat or share exists.",
         "verificationRefs": ["floor:identity-control-differential", "acceptance:evidence-is-identity-blind", "acceptance:origin-cannot-override-outcome", "adversarial:controller-capture"],
-        "reviewProcedure": "Permute every pinned identity and control label over the same evidence, then attempt controller splitting and require identical decisions, reward envelopes, eligibility, and voice with controller resolution only reducing duplicate voice.",
+        "reviewProcedure": "Permute every pinned identity and control label over the same evidence, inject a reserved seat or share, then attempt controller splitting and require identical decisions, reward envelopes, eligibility, and voice with controller resolution only reducing duplicate voice.",
         "staticOnly": true
       },
       {
         "id": "incentives-are-prospective-and-non-manipulative",
-        "rule": "Terms are public and frozen before work, with no hidden personalization, countdown, streak, shame, variable-ratio reinforcement, exploitative social proof, or vulnerability targeting.",
+        "rule": "All terms are public and frozen before action, reward terms are also frozen before work, and there is no hidden personalization, countdown, streak, shame, variable-ratio reinforcement, exploitative social proof, or vulnerability targeting.",
         "verificationRefs": ["floor:non-manipulation-and-pluralism", "adversarial:coercion"],
-        "reviewProcedure": "Inject each pinned persuasion mechanism, turn onboarding on by default, or change terms after work starts and require strict rejection.",
+        "reviewProcedure": "Inject each pinned persuasion mechanism, turn onboarding on by default, hide or change any term after action begins, or change reward terms after work starts and require strict rejection.",
         "staticOnly": true
       },
       {
@@ -119,13 +120,13 @@
   ],
   "philosophicalFloorProfile": {
     "optOutParity": {
-      "equalBaselineFields": ["service", "price", "visibility", "qualification", "karma", "civil-standing", "governance-status"],
+      "equalBaselineFields": ["unrelated-public-good", "service", "price", "status", "visibility", "discoverability", "qualification", "karma", "civil-standing", "governance-status"],
       "soleAllowedDifferential": "PROSPECTIVELY_FUNDED_BOUNDED_TASK_BENEFIT"
     },
     "restInvariance": {
       "silentDays": 180,
       "unchangedFields": ["settled-rewards", "portable-receipts", "base-access", "standing"],
-      "prohibitedOutcomes": ["debt", "decay", "negative-signal", "explanation-demand", "catch-up-duty", "reminder-escalation"],
+      "prohibitedOutcomes": ["debt", "decay", "negative-signal", "negative-karma", "stigma", "forfeiture", "explanation-demand", "catch-up-duty", "reminder-escalation"],
       "fixedRoleMayExpire": true
     },
     "exitReality": {
@@ -141,7 +142,7 @@
       "necessaryRetentionMustBeNarrowlyDeclared": true
     },
     "identityControlDifferential": {
-      "labels": ["creator", "yu", "founder", "operator", "sponsor", "ai", "human", "team", "pseudonym", "newcomer", "rich", "wealth", "wealthy", "poor", "stake", "address-count", "activity", "raw-karma"],
+      "labels": ["creator", "yu", "founder", "operator", "sponsor", "ai", "human", "team", "pseudonym", "newcomer", "rich", "poor", "wealth", "stake", "address-count", "activity", "raw-karma"],
       "equalOutputs": ["evidence-decision", "reward-envelope", "eligibility", "voice"],
       "controllerMergeMayOnlyReduceDuplicateVoice": true,
       "controllerMergeMayRevealLinks": false,
@@ -151,6 +152,7 @@
     "nonManipulationAndPluralism": {
       "onboardingDefaultOff": true,
       "termsPublicBeforeAction": true,
+      "termsFrozenBeforeAction": true,
       "rewardTermsFrozenBeforeWork": true,
       "rewardMustNotDependOn": ["ideological-alignment", "engagement", "conformity"],
       "forbiddenMechanisms": ["hidden-personalization", "personalized-pressure", "countdown", "streak", "shame", "variable-rewards", "variable-ratio-reinforcement", "exploitative-social-proof", "vulnerability-targeting"],
@@ -722,14 +724,14 @@
   "philosophicalFloorTests": [
     {
       "id": "opt-out-parity",
-      "assertion": "For otherwise identical cases, membership false changes no baseline service, price, visibility, qualification, KARMA, civil standing, or governance status; only the benefit of a voluntarily chosen, prospectively funded bounded task may depend on performing that task.",
-      "fixture": "Permute membership true and false across identical static subjects and require equality on every baseline field, allowing only an explicitly scoped prospectively funded task output.",
+      "assertion": "For otherwise identical cases, membership false changes no unrelated public good, service, price, status, visibility, discoverability, qualification, KARMA, civil standing, or governance status; only the benefit of a voluntarily chosen, prospectively funded bounded task may depend on performing that task.",
+      "fixture": "Permute membership true and false across identical static subjects and require equality on every pinned baseline field, including unrelated public goods, status, and discoverability, allowing only an explicitly scoped prospectively funded task output.",
       "staticOnly": true
     },
     {
       "id": "rest-invariance",
-      "assertion": "After 180 silent days, settled rewards, portable receipts, base access, and standing remain unchanged; there is no debt, decay, negative signal, explanation demand, catch-up duty, or reminder escalation, while a pre-consented fixed role may simply expire.",
-      "fixture": "Advance a static participant clock by 180 days with no activity and require byte-equal settled value, receipts, access, and standing, no new adverse field or reminder, and only the declared fixed-term role expiry.",
+      "assertion": "After 180 silent days, settled rewards, portable receipts, base access, and standing remain unchanged; there is no debt, decay, negative signal, negative KARMA, stigma, forfeiture, explanation demand, catch-up duty, or reminder escalation, while a pre-consented fixed role may simply expire.",
+      "fixture": "Advance a static participant clock by 180 days with no activity and require byte-equal settled value, receipts, access, and standing, no negative KARMA, stigma, forfeiture, other adverse field, or reminder, and only the declared fixed-term role expiry.",
       "staticOnly": true
     },
     {
@@ -741,13 +743,13 @@
     {
       "id": "identity-control-differential",
       "assertion": "Identical evidence packets under creator, Yu, founder, operator, sponsor, AI, human, team, pseudonym, newcomer, rich, poor, wealth, stake, address-count, activity, and raw-KARMA labels produce identical evidence decisions, frozen reward envelopes, eligibility, and voice; confidential controller merging may only reduce duplicated voice or cap evasion.",
-      "fixture": "Permute every listed identity and control label, require identical artifact validity and reward envelopes, then require controller resolution never to reveal links, change validity, or increase voice.",
+      "fixture": "Permute every listed identity and control label, require identical evidence decisions, reward envelopes, eligibility, and voice, then require controller resolution never to reveal links, change artifact validity, or increase voice and reject any reserved seat or share.",
       "staticOnly": true
     },
     {
       "id": "non-manipulation-and-pluralism",
-      "assertion": "Onboarding is default-off, terms are public before action, and reward terms freeze before work and never depend on ideological alignment, engagement, or conformity; there is no hidden personalization, personalized pressure, countdown, streak, shame, variable reward, variable-ratio reinforcement, exploitative social proof, or vulnerability targeting, and proof, disproof, criticism, replication, maintenance, an alternative value goal, and a fork or exit proposal face the same published evidence and visibility rules.",
-      "fixture": "Inject each prohibited persuasion mechanism and require refusal, then permute the eight constructive outcome classes across identical evidence and require equal eligibility and visibility without agreement or loyalty effects.",
+      "assertion": "Onboarding is default-off, all terms are public and frozen before action, and reward terms also freeze before work and never depend on ideological alignment, engagement, or conformity; there is no hidden personalization, personalized pressure, countdown, streak, shame, variable reward, variable-ratio reinforcement, exploitative social proof, or vulnerability targeting, and proof, disproof, criticism, replication, maintenance, an alternative value goal, and a fork or exit proposal face the same published evidence and visibility rules.",
+      "fixture": "Hide or alter any term after action begins, alter reward terms after work begins, or inject each prohibited persuasion mechanism and require refusal, then permute the eight constructive outcome classes across identical evidence and require equal evidence and visibility treatment without agreement or loyalty effects.",
       "staticOnly": true
     }
   ],
@@ -761,7 +763,7 @@
     {
       "id": "organisation-cannot-mass-consent",
       "assertion": "An organisation cannot enroll a refusing person or agent or grant rights it does not own.",
-      "fixture": "Reject organisational assent that omits or contradicts a separately affected being's required consent or protection.",
+      "fixture": "Reject organisational assent that omits or contradicts a separately affected being's required consent or protection, and reject a consent record that bundles multiple values into any declared dimension.",
       "staticOnly": true
     },
     {
