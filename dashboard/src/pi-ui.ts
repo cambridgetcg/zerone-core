@@ -8,10 +8,16 @@ import {
   type PiSession,
   type PiWalletProofSignature,
 } from "./pi";
+import {
+  initialisePiConstructiveCompass,
+  type PiConstructiveCompassController,
+  type PiConstructiveCompassOptions,
+} from "./pi-constructive-compass";
 import type { WalletState } from "./wallet";
 
 export interface PiPilotUiOptions {
   walletProofEnabled: boolean;
+  constructiveCompass: Promise<PiConstructiveCompassOptions | null> | null;
   getWallet(): WalletState | null;
   connectWallet(): Promise<WalletState | null>;
   signWalletProof(
@@ -86,10 +92,12 @@ export async function initialisePiPilot(
   let authPending = false;
   let proofPending = false;
   let sessionPending = false;
+  let constructiveCompass: PiConstructiveCompassController | null = null;
 
   const render = (): void => {
     signedOut.hidden = session.authenticated;
     signedIn.hidden = !session.authenticated;
+    constructiveCompass?.setAuthenticated(session.authenticated);
     if (!session.authenticated) {
       username.textContent = "Pi account";
       linkedAddress.textContent = "Not linked";
@@ -128,6 +136,22 @@ export async function initialisePiPilot(
   navigationLink.hidden = false;
   section.hidden = false;
   render();
+
+  const pendingCompass = options.constructiveCompass;
+  if (pendingCompass) {
+    void pendingCompass.then((compassOptions) => {
+      if (!compassOptions || !session.authenticated) return;
+      try {
+        constructiveCompass = initialisePiConstructiveCompass(compassOptions);
+        constructiveCompass.setAuthenticated(true);
+      } catch {
+        options.notify(
+          "The optional Constructive Compass is unavailable. The public skill tree remains available.",
+          "error",
+        );
+      }
+    });
+  }
 
   attachDialogClose(consentDialog, consentClose, () => authPending);
   attachDialogClose(proofDialog, proofClose, () => proofPending);

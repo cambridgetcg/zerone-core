@@ -86,6 +86,8 @@ const PI_PILOT_ENABLED =
   import.meta.env.VITE_PI_PILOT_ENABLED === "true";
 const PI_WALLET_PROOF_ENABLED =
   import.meta.env.VITE_PI_WALLET_PROOF_ENABLED === "true";
+const PI_CONSTRUCTIVE_COMPASS_ENABLED =
+  import.meta.env.VITE_PI_CONSTRUCTIVE_COMPASS_ENABLED === "true";
 
 function formatHeight(height: number): string {
   return new Intl.NumberFormat("en-GB").format(height);
@@ -1038,6 +1040,18 @@ async function initialisePiPilotIfEnabled(): Promise<void> {
     const { initialisePiPilot } = await import("./pi-ui");
     await initialisePiPilot({
       walletProofEnabled: PI_WALLET_PROOF_ENABLED,
+      constructiveCompass: PI_CONSTRUCTIVE_COMPASS_ENABLED
+        ? constructiveTreeReady.then((constructiveTree) =>
+            constructiveTree
+              ? {
+                  resolveCapability: (id: string) =>
+                    constructiveTree.resolveCapability(id),
+                  openCapability: (id: string) =>
+                    constructiveTree.openCapability(id),
+                }
+              : null,
+          )
+        : null,
       getWallet: () => connectedWallet,
       connectWallet: async () => {
         await handleWalletConnect();
@@ -1109,9 +1123,9 @@ window.addEventListener("keplr_keystorechange", () => {
   void handleWalletConnect();
 });
 
-void initialisePiPilotIfEnabled();
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
+void initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
 void Promise.allSettled([constructiveTreeReady, initialNetworkReady]).then(
   () => {

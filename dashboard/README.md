@@ -61,12 +61,21 @@ and activation flag. It never falls back to a transaction. Neither phase
 enables Pi payments, asset bridging, rewards, qualification, validator
 behavior, or a consensus change.
 
+An independently flagged Constructive Compass may appear after Pi account
+authentication. It offers three fixed, non-evaluative trails into the public
+constructive-intelligence tree. Every trail is checked against the loaded
+canonical static snapshot before the control is shown. A visitor's choice
+exists only in page memory: it is not posted, persisted, attached to the Pi
+account, treated as identity or evidence, or shared with wallet code. Refresh,
+clear, and Pi logout discard it.
+
 Browser build flags:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `VITE_PI_PILOT_ENABLED` | unset/false | Renders the Pi sign-in pilot. |
 | `VITE_PI_WALLET_PROOF_ENABLED` | unset/false | Renders the optional wallet-proof controls after Pi sign-in. |
+| `VITE_PI_CONSTRUCTIVE_COMPASS_ENABLED` | unset/false | Renders the page-memory-only Constructive Compass after Pi sign-in. |
 
 Pages Function configuration:
 
@@ -80,7 +89,7 @@ Pages Function configuration:
 | `PI_AUTH_DB` | D1 binding with the checked-in migration applied. |
 
 `.dev.vars.example` documents the edge values without containing a usable
-secret. Vite does not read `.dev.vars`; supply the two `VITE_` values to the
+secret. Vite does not read `.dev.vars`; supply the three `VITE_` values to the
 build environment separately. Vite's development server alone also does not
 emulate D1-backed Pages Functions, so an end-to-end sign-in test needs a Pages
 runtime with the `PI_AUTH_DB` binding.

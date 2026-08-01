@@ -408,6 +408,107 @@
                   activates no reward, and creates no ZRN claim.
                 </p>
               </div>
+              <section
+                class="pi-compass"
+                id="pi-constructive-compass"
+                aria-labelledby="pi-compass-title"
+                hidden
+              >
+                <div class="pi-compass-head">
+                  <span class="card-kicker">Optional · private to this page</span>
+                  <h4 id="pi-compass-title">Choose a direction for this visit.</h4>
+                  <p id="pi-compass-privacy">
+                    A Pi account introduced this session. Your choice below is
+                    about where you want to look—not who you are. It stays only
+                    in this page’s memory, is not sent to Pi or Zerone, and
+                    disappears when you refresh or end the Pi session.
+                  </p>
+                </div>
+                <form id="pi-compass-form">
+                  <fieldset aria-describedby="pi-compass-privacy">
+                    <legend>Pick one temporary learning intention</legend>
+                    <div class="pi-compass-options">
+                      <label>
+                        <input
+                          type="radio"
+                          name="pi-compass-path"
+                          value="follow-question"
+                          required
+                        />
+                        <span>
+                          <i aria-hidden="true">?</i>
+                          <strong>Follow the question</strong>
+                          <small>Proof, uncertainty, checkable claims</small>
+                        </span>
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="pi-compass-path"
+                          value="guard-edges"
+                          required
+                        />
+                        <span>
+                          <i aria-hidden="true">◇</i>
+                          <strong>Guard the edges</strong>
+                          <small>Failure modes, repair, careful disclosure</small>
+                        </span>
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="pi-compass-path"
+                          value="make-exact"
+                          required
+                        />
+                        <span>
+                          <i aria-hidden="true">≡</i>
+                          <strong>Make it exact</strong>
+                          <small>Bytes, rejection rules, interoperability</small>
+                        </span>
+                      </label>
+                    </div>
+                  </fieldset>
+                  <label class="pi-compass-consent">
+                    <input id="pi-compass-consent" type="checkbox" required />
+                    <span>
+                      Use this choice only to open public skill-tree views in
+                      this page.
+                    </span>
+                  </label>
+                  <button class="button button-primary" type="submit">
+                    Make a temporary trail
+                  </button>
+                </form>
+                <section
+                  class="pi-compass-result"
+                  id="pi-compass-result"
+                  aria-labelledby="pi-compass-result-title"
+                  tabindex="-1"
+                  hidden
+                >
+                  <div class="pi-compass-result-head">
+                    <div>
+                      <span class="card-kicker">Your page-only trail</span>
+                      <h4 id="pi-compass-result-title">Your temporary trail</h4>
+                    </div>
+                    <button
+                      class="button button-ghost compact"
+                      id="pi-compass-reset"
+                      type="button"
+                    >Clear trail</button>
+                  </div>
+                  <p id="pi-compass-result-copy"></p>
+                  <ol id="pi-compass-trail"></ol>
+                  <p id="pi-compass-status" role="status" aria-live="polite"></p>
+                </section>
+                <p class="pi-compass-boundary">
+                  This compass requests or infers no KYC or unique-human
+                  status. It creates no identity, profile, evaluation, evidence
+                  record, qualification, reward, payment, wallet action, or
+                  chain write.
+                </p>
+              </section>
               <div class="pi-proof-panel" id="pi-wallet-proof" hidden>
                 <span class="card-kicker">Separate optional wallet proof</span>
                 <p id="pi-wallet-proof-status"></p>
