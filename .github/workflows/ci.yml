@@ -258,6 +258,44 @@ jobs:
           )"
           test -z "$found"
 
+  public-rpc-edge:
+    name: "Public RPC edge image"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and validate stateless read-only edge
+        env:
+          CI_IMAGE_VERSION: v0.0.0-ci
+        run: |
+          ci_source_date_epoch="$(git show -s --format=%ct "${GITHUB_SHA}")"
+          docker build \
+            --build-arg "VERSION=${CI_IMAGE_VERSION}" \
+            --build-arg "COMMIT=${GITHUB_SHA}" \
+            --build-arg "SOURCE_DATE_EPOCH=${ci_source_date_epoch}" \
+            --file deploy/Dockerfile.rpc-edge \
+            --tag zerone-rpc-edge:ci \
+            .
+          test "$(
+            docker image inspect \
+              --format '{{ index .Config.Labels "io.zerone.node-class" }}' \
+              zerone-rpc-edge:ci
+          )" = "stateless-read-only-rpc-edge"
+          docker run --rm \
+            --add-host zerone-1.internal:127.0.0.1 \
+            --entrypoint /usr/sbin/nginx \
+            zerone-rpc-edge:ci \
+            -t -c /etc/nginx/zerone-rpc.conf
+          found="$(
+            docker run --rm \
+              --entrypoint /bin/sh \
+              zerone-rpc-edge:ci \
+              -c 'find / -type f \( -name priv_validator_key.json -o -name priv_validator_state.json -o -name node_key.json \) -print 2>/dev/null'
+          )"
+          test -z "$found"
+
   chain-registry:
     name: "Chain Registry metadata"
     runs-on: ubuntu-24.04

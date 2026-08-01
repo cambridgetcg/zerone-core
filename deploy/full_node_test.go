@@ -665,19 +665,27 @@ func TestPublicEdgePolicyIsReadOnlyAndExplicit(t *testing.T) {
 	}
 	body := string(bodyBytes)
 	for _, required := range []string{
-		`$request_method !~ ^(GET|HEAD)$`,
+		`$request_method !~ ^(GET|HEAD|OPTIONS)$`,
+		`$request_method = OPTIONS`,
+		`add_header Access-Control-Allow-Origin "*" always`,
+		`proxy_hide_header Access-Control-Allow-Origin`,
+		`^/(?:rpc/)?(broadcast_tx_async|broadcast_tx_sync|broadcast_tx_commit|broadcast_evidence|unsafe_[a-z0-9_]+|dial_peers|dial_seeds)(/|$)`,
 		"broadcast_tx_async",
 		"broadcast_tx_sync",
 		"broadcast_tx_commit",
-		"unsafe_flush_mempool",
+		"broadcast_evidence",
 		"dial_peers",
 		"dial_seeds",
 		"subscribe",
 		"websocket",
 		"tx_search",
 		"block_search",
-		"cosmos/feegrant/v1beta1/issued",
-		"location = /cosmos/tx/v1beta1/txs",
+		`^/(?:rest/)?cosmos/feegrant/v1beta1/issued(/|$)`,
+		`^/(?:rest/)?cosmos/tx/v1beta1/txs/?$`,
+		`location ~ ^/rpc/(health|status|net_info|abci_info|abci_query|block|block_by_hash|block_results|commit|validators|consensus_params|genesis|genesis_chunked|header|header_by_hash|tx)/?$`,
+		`rewrite ^/rpc(/.*)$ $1 break;`,
+		`location ~ ^/rest/(cosmos|cosmos_proto|ibc|ibc_apps|zerone)/`,
+		`rewrite ^/rest(/.*)$ $1 break;`,
 		"proxy_pass http://zerone_comet_rpc",
 		"proxy_pass http://zerone_rest",
 		"location / {\n            return 404;",
@@ -693,9 +701,87 @@ func TestPublicEdgePolicyIsReadOnlyAndExplicit(t *testing.T) {
 		"127.0.0.1:9090",
 		"26656",
 		"proxy_pass http://$",
+		"location /rpc/",
+		"location /rest/",
+		"location ^~ /rpc/",
+		"location ^~ /rest/",
 	} {
 		if strings.Contains(body, forbidden) {
 			t.Fatalf("public edge unexpectedly contains %q", forbidden)
+		}
+	}
+	for upstream, want := range map[string]int{
+		"proxy_pass http://zerone_comet_rpc": 2,
+		"proxy_pass http://zerone_rest":      2,
+	} {
+		if got := strings.Count(body, upstream); got != want {
+			t.Fatalf("public edge has %d %q routes, want exactly %d explicit routes", got, upstream, want)
+		}
+	}
+	restAllow := strings.Index(body, `location ~ ^/rest/(cosmos|cosmos_proto|ibc|ibc_apps|zerone)/`)
+	for _, deny := range []string{
+		`location ~ ^/(?:rest/)?cosmos/feegrant/v1beta1/issued(/|$)`,
+		`location ~ ^/(?:rest/)?cosmos/tx/v1beta1/txs/?$`,
+	} {
+		denyAt := strings.Index(body, deny)
+		if denyAt < 0 || restAllow < 0 || denyAt > restAllow {
+			t.Fatalf("public REST deny %q must precede the prefix allowlist", deny)
+		}
+	}
+}
+
+func TestRPCEdgeImageUsesPrivateReadOnlyBoundary(t *testing.T) {
+	dockerfileBytes, err := os.ReadFile("Dockerfile.rpc-edge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(dockerfileBytes)
+	for _, required := range []string{
+		"debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818",
+		"snapshot.debian.org/archive/debian/20260713T000000Z",
+		"COPY deploy/public-edge-nginx.conf /etc/nginx/zerone-rpc.conf",
+		"server zerone-1.internal:26657",
+		"server zerone-1.internal:1317",
+		"nginx -t -c /etc/nginx/zerone-rpc.conf",
+		`io.zerone.node-class="stateless-read-only-rpc-edge"`,
+	} {
+		if !strings.Contains(dockerfile, required) {
+			t.Fatalf("RPC edge Dockerfile is missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"PRIV_VALIDATOR",
+		"NODE_KEY",
+		"/data",
+		"26656",
+		"9090",
+	} {
+		if strings.Contains(dockerfile, forbidden) {
+			t.Fatalf("RPC edge Dockerfile crosses boundary with %q", forbidden)
+		}
+	}
+
+	configBytes, err := os.ReadFile("rpc-edge.fly.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(configBytes)
+	for _, required := range []string{
+		`app = "zerone-rpc"`,
+		`internal_port = 8080`,
+		`force_https = true`,
+		`auto_stop_machines = false`,
+		`auto_start_machines = false`,
+		`path = "/healthz"`,
+		`policy = "on-failure"`,
+	} {
+		if !strings.Contains(config, required) {
+			t.Fatalf("RPC edge Fly profile is missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"[[mounts]]", "[[services]]", "26656", "26657", "1317", "9090"} {
+		if strings.Contains(config, forbidden) {
+			t.Fatalf("RPC edge Fly profile unexpectedly exposes or mounts %q", forbidden)
 		}
 	}
 }
