@@ -278,17 +278,19 @@ const EXPECTED_NON_MONEY_COSTS = [
 ];
 const EXPECTED_CORPORATE_GATE_IDS = [
   "accessibility-labor-worker-classification-and-whistleblower-review",
+  "authenticated-relation-graph-and-correction-authority",
   "code-of-conduct-enforcement-appeal-and-anti-retaliation",
   "competition-and-confidentiality-review",
   "contribution-ip-patent-publication-and-license-terms",
   "counterparty-scope-and-signatory-authority",
   "explicit-accountable-human-outreach-decision",
   "governing-terms-jurisdiction-and-dispute-process",
+  "human-data-owner-publication-classification",
   "independent-governance-capture-custody-and-remedy-review",
   "independent-receipt-parser-threat-model-and-material-binding-review",
   "liability-indemnity-insurance-warranty-and-remedy",
   "logo-name-affiliation-and-endorsement-policy",
-  "fc-0-1-independent-roundtrip-complete",
+  "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
   "maintainer-change-control-versioning-and-deprecation",
   "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
   "privacy-data-map-dpa-retention-erasure-and-public-permanence",
@@ -297,7 +299,7 @@ const EXPECTED_CORPORATE_GATE_IDS = [
   "service-level-support-availability-portability-and-exit",
 ];
 const FRONTIER_COMMONS_CANONICAL_SEMANTIC_SHA256 =
-  "a33884cbf6ab1d1b2baabbefd9c589c0e8dbb92d32701afee7cc6a9ad9a7cf06";
+  "1dd9c5abfe0d98400e3ee0db629582ca0f1d83e6afd0f98b7679df18bccaaf3e";
 const TRUE_RIGHTS = new Set([
   "voluntary",
   "rightToDecline",

@@ -26,7 +26,7 @@ const landscapeRaw = readFileSync(
 );
 const landscape = JSON.parse(landscapeRaw);
 const CANONICAL_SHA256 =
-  "c642e09f46dcaf0a1960f140996969688b936a806c2d33ebf0b6c3efa6a70d2a";
+  "eb4e5baaff47d5b61b2b2d6ed2d7053bef71c3a98321b7460648ed2b97f9ea22";
 const LANDSCAPE_SHA256 =
   "f545f1cf542b42c5a806cc03edbc54fa6c525a672bddebcfd4bf4d9060e9d995";
 const EXPECTED_NON_MONEY_COSTS = [
@@ -38,17 +38,19 @@ const EXPECTED_NON_MONEY_COSTS = [
 ];
 const EXPECTED_CORPORATE_GATE_IDS = [
   "accessibility-labor-worker-classification-and-whistleblower-review",
+  "authenticated-relation-graph-and-correction-authority",
   "code-of-conduct-enforcement-appeal-and-anti-retaliation",
   "competition-and-confidentiality-review",
   "contribution-ip-patent-publication-and-license-terms",
   "counterparty-scope-and-signatory-authority",
   "explicit-accountable-human-outreach-decision",
   "governing-terms-jurisdiction-and-dispute-process",
+  "human-data-owner-publication-classification",
   "independent-governance-capture-custody-and-remedy-review",
   "independent-receipt-parser-threat-model-and-material-binding-review",
   "liability-indemnity-insurance-warranty-and-remedy",
   "logo-name-affiliation-and-endorsement-policy",
-  "fc-0-1-independent-roundtrip-complete",
+  "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
   "maintainer-change-control-versioning-and-deprecation",
   "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
   "privacy-data-map-dpa-retention-erasure-and-public-permanence",
@@ -123,7 +125,7 @@ describe("Frontier Commons FC-0 standard", () => {
       objectionCount: 11,
       completionGateCount: 4,
       openGateCount: 9,
-      corporateGateCount: 18,
+      corporateGateCount: 20,
     });
     assert.equal(
       createHash("sha256").update(canonicalRaw).digest("hex"),
@@ -431,7 +433,7 @@ describe("Frontier Commons FC-0 standard", () => {
     }
   });
 
-  it("keeps Corporate M1 not ready behind all 18 ordered gates", () => {
+  it("keeps Corporate M1 not ready behind all 20 ordered gates", () => {
     assert.deepEqual(Object.keys(canonical.corporateReadiness), [
       "milestone",
       "status",

@@ -27,7 +27,7 @@ const standard = JSON.parse(standardRaw) as {
 };
 const digest = createHash("sha256").update(standardRaw).digest("hex");
 const SECTION_SHA256 =
-  "9e43ae0ab21cb1bd74b321518084bd2d0e89315a00b5b15067d9642fff6ea2db";
+  "cfbc37efa65b90ab70b867084ac24e7b6790ea05fd0f93238b11dbf98298c0c2";
 const start = html.indexOf('id="frontier-commons"');
 const sectionStart = html.lastIndexOf("<section", start);
 const sectionEnd = html.indexOf('<section\n          class="section split-section pi-section"', start);
@@ -135,7 +135,7 @@ describe("Frontier Commons FC-0 page", () => {
     );
     assert.match(
       section,
-      /href="\/standards\/frontier-commons-self-receipt\.v0\.json"/,
+      /href="\/standards\/frontier-evaluation-receipt-profile\.v0\.json"/,
     );
     assert.match(section, new RegExp(`sha256:${digest}`));
     assert.equal(
@@ -148,6 +148,6 @@ describe("Frontier Commons FC-0 page", () => {
     assert.equal(standard.nextMilestoneGates.length, 9);
     assert.equal(standard.corporateReadiness.milestone, "M1");
     assert.equal(standard.corporateReadiness.status, "NOT_READY");
-    assert.equal(standard.corporateReadiness.requiredGates.length, 18);
+    assert.equal(standard.corporateReadiness.requiredGates.length, 20);
   });
 });

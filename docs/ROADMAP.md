@@ -116,55 +116,56 @@ forking, opening an issue, or submitting such a patch does not create
 institutional participation, bind an employer, open a confidential lane, or
 satisfy the separately gated corporate contribution process.
 
-### FC-0.1 — `INTERNAL_DOGFOOD_ONLY` / `INDEPENDENT_ROUNDTRIP_NOT_RUN`
+### FL-0 / M0.1 — `INTERNAL_DOGFOOD_ONLY` / `NOT_RUN`
 
-The [Frontier Commons receipt v0](specs/frontier-commons-receipt-v0.md) is a
-subordinate evidence profile, not another participation contract. Its only
-current admissible instance is an exact-pinned, unsigned Zerone self-dogfood
-receipt whose result is `INCONCLUSIVE`, whose seven evaluation-material digests
-are `null`, and which records no external participant or signatory. The current
-validator rejects `PUBLIC_EVALUATION`.
+The [Frontier Evaluation Receipt Shadow FL-0](specs/frontier-evaluation-receipt-profile-v0.md)
+is the one subordinate evidence profile; it is not another participation
+contract. Its canonical instance is an exact-pinned, unsigned Zerone
+self-dogfood receipt whose result is `INCONCLUSIVE`, whose seven evaluation-
+material digests are `null`, and which records no external participant or
+signatory. The profile can validate bounded public-evaluation bytes offline,
+but Zerone operates no submission, signing, publication, or reliance service.
 
-FC-0.1 remains unperformed. A future independent roundtrip requires a
-separately reviewed activation that supplies and recomputes the public subject,
-all seven evaluation materials, and every related receipt from bounded raw
-bytes; applies independently configured signer policy; preserves result and
-relation coherence; uses authorized privacy or security classification rather
-than classifier inference; fails closed on mutation, replay, wrong identity or
-subject, duplicate keys, expiry, and policy drift; and rehearses correction,
-supersession, withdrawal of future reliance, and clean exit. `REFUSED`,
-`DIVERGED`, and `INCONCLUSIVE` remain acceptable outcomes.
+M0.1 remains unperformed. It requires a reviewer who did not author the
+subject, FL-0, or its validator to reproduce the canonical profile and receipt
+digests on a clean machine, exercise at least one fail-closed mutation, complete
+the local-copy exit rehearsal, disclose conflicts, and declare a claim-specific
+effective control root distinct from the issuer's declared root. That records a
+review process; v0 neither authenticates the roots nor proves independence.
 
 ### Corporate M1 — `NOT_READY`
 
 No institutional or corporate invitation is authorized. Corporate M1 remains
-`NOT_READY` until FC-0.1 succeeds and all 18 independently evidenced gates are
+`NOT_READY` until M0.1 succeeds and all 20 independently evidenced gates are
 closed for the exact proposed counterparty and scope:
 
 1. accessibility, labor, worker-classification, and whistleblower review;
-2. code of conduct, proportionate enforcement, appeal, anti-retaliation, and
+2. an authenticated relation graph with same-subject, chronology, correction-
+   authority, and referenced-byte checks;
+3. code of conduct, proportionate enforcement, appeal, anti-retaliation, and
    protected reporting;
-3. competition and confidentiality review for the exact scope;
-4. contribution, IP, patent, publication, and license terms;
-5. counterparty scope and signatory authority;
-6. an explicit, accountable human decision authorizing the bounded outreach;
-7. governing terms, governing law, jurisdiction, and dispute process;
-8. independent governance, capture, custody, and remedy review;
-9. independent receipt-parser, threat-model, and raw-material-binding review;
-10. liability, warranty, indemnity, insurance, and participant-remedy terms;
-11. logo, name, affiliation, endorsement, and publicity rules;
-12. a successful FC-0.1 independent roundtrip;
-13. maintainer, change-control, versioning, and deprecation rules;
-14. non-targeting outreach conduct: no profiling or identity targeting,
+4. competition and confidentiality review for the exact scope;
+5. contribution, IP, patent, publication, and license terms;
+6. counterparty scope and signatory authority;
+7. an explicit, accountable human decision authorizing the bounded outreach;
+8. governing terms, governing law, jurisdiction, and dispute process;
+9. explicit authorized human data-owner publication classification;
+10. independent governance, capture, custody, and remedy review;
+11. independent receipt-parser, threat-model, and raw-material-binding review;
+12. liability, warranty, indemnity, insurance, and participant-remedy terms;
+13. logo, name, affiliation, endorsement, and publicity rules;
+14. a successful M0.1 declared-control-separated non-author roundtrip;
+15. maintainer, change-control, versioning, and deprecation rules;
+16. non-targeting outreach conduct: no profiling or identity targeting,
     minimized lawful contact sources, at most one bounded contact, stop on
     silence or decline, and finite contact-data retention;
-15. privacy data map, DPA decision, retention, erasure, and public-permanence
+17. privacy data map, DPA decision, retention, erasure, and public-permanence
     review;
-16. procurement, tax, accounting, sanctions, export-control, and financial-
+18. procurement, tax, accounting, sanctions, export-control, and financial-
     promotion review;
-17. security policy, coordinated disclosure, safe harbor, incident response,
+19. security policy, coordinated disclosure, safe harbor, incident response,
     and embargo rules; and
-18. service-level, support, availability, portability, and exit terms.
+20. service-level, support, availability, portability, and exit terms.
 
 No stage has a calendar deadline, adoption quota, named prospect, logo target,
 conversion goal, favorable-result requirement, or presumption of consent. A

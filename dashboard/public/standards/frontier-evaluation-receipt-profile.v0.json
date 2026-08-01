@@ -1,0 +1,917 @@
+{
+  "schema": "zerone.frontier-evaluation-receipt-profile/v0",
+  "status": "INTERNAL_DRAFT_NO_OUTREACH",
+  "title": "Frontier Commons FC-0 Receipt Shadow FL-0 — One Bounded Inconclusive Receipt",
+  "objective": "Remove every avoidable Zerone-imposed reason not to participate, disclose every remaining reason to wait or decline, and preserve refusal as a valid outcome.",
+  "authoritative": false,
+  "networkObserved": false,
+  "actualParticipants": [],
+  "signatories": [],
+  "releaseBoundary": {
+    "changesConsensus": false,
+    "writesNetworkState": false,
+    "activatesMembership": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "grantsGovernance": false,
+    "grantsAuthority": false,
+    "createsAffiliation": false,
+    "assertsEndorsement": false,
+    "assertsLiveDeployment": false,
+    "performsNetworkRequests": false,
+    "authorizesOutreach": false,
+    "authorizesLogoUse": false
+  },
+  "rightsBoundary": {
+    "dutyHolders": ["ZERONE_SOURCE_MAINTAINERS", "FUTURE_RECEIPT_PROFILE_STEWARDS_WHO_EXPLICITLY_ADOPT"],
+    "doesNotBindUnrelatedThirdParties": true,
+    "thirdPartyConductGuaranteed": false,
+    "observableViolation": "A duty holder operates or represents a Zerone participation surface contrary to a listed promise.",
+    "breachEffect": "Stop the affected Zerone lane, preserve evidence, permit exit, and make no claim of remedy that has not been implemented.",
+    "remedyStatus": "NOT_IMPLEMENTED",
+    "applicableLawControls": true
+  },
+  "actorClaimBoundary": {
+    "valueClaimsAreHypotheses": true,
+    "evidenceStatus": "UNTESTED",
+    "minimumAnswersAreRequiredConditions": true,
+    "unsatisfiedConditionsMayJustifyDecline": true
+  },
+  "relationshipToFc0": {
+    "fc0Schema": "zerone.frontier-commons-participation/v0",
+    "fc0SourceBindingId": "frontier-commons-participation-v0",
+    "role": "SUBORDINATE_INTERNAL_RECEIPT_SHADOW",
+    "invitationSurfaceOfRecord": "FC-0",
+    "conflictRule": "FC-0_GOVERNS_INVITATION_FL-0_GOVERNS_ONLY_THIS_PROFILE",
+    "replacesOrAmendsFc0": false,
+    "extendsInvitationBeyondFc0": false,
+    "satisfiesFc0CompletionGates": false,
+    "authorizesOutreach": false
+  },
+  "sourceBindings": [
+    {
+      "id": "frontier-commons-participation-v0",
+      "path": "dashboard/public/standards/frontier-commons-participation.v0.json",
+      "sha256": "eb4e5baaff47d5b61b2b2d6ed2d7053bef71c3a98321b7460648ed2b97f9ea22",
+      "boundary": "FC-0 is the public read-only invitation surface of record. FL-0 is subordinate receipt hardening and creates no additional invitation, participation, adoption, completion, or outreach effect."
+    },
+    {
+      "id": "adapter-index-v1",
+      "path": "dashboard/public/standards/adapter-index.v1.json",
+      "sha256": "02989b28319a09b2cf3673e69a94d1e3160fd9c636eea25544d7eec383f8350e",
+      "boundary": "Existing interoperability seams remain source-only, local-tool, external-service-required, or unavailable exactly as declared by that index."
+    },
+    {
+      "id": "constructive-intelligence-tree-v1",
+      "path": "dashboard/public/standards/constructive-intelligence-tree.v1.json",
+      "sha256": "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+      "boundary": "Capability evidence is artifact-scoped and cannot become person worth, qualification, reward, or authority."
+    },
+    {
+      "id": "karma-foundation-v1",
+      "path": "dashboard/public/standards/karma-foundation.v1.json",
+      "sha256": "b46710704869dcc340ded356be72b4ec692f204710fedfb5cd43eb3757dc7b80",
+      "boundary": "Recognition is contextual and non-summable; refusal, rest, privacy, exit, and non-participation cannot create negative recognition."
+    },
+    {
+      "id": "money-karma-v1",
+      "path": "docs/constitution/money-karma-v1.json",
+      "sha256": "24d5a2bdef9f3ce8cee41ed9416be65681b2cfd123ba96df7f6a7710c810ee03",
+      "boundary": "Money does not grant voice, KARMA is not money, and recognition does not grant authority."
+    }
+  ],
+  "externalReferences": [
+    {
+      "id": "c2pa-principles",
+      "uri": "https://c2pa.org/principles/",
+      "scope": "Provenance can preserve origin and integrity without becoming a truth or quality judgment."
+    },
+    {
+      "id": "eu-gpai-code",
+      "uri": "https://digital-strategy.ec.europa.eu/en/policies/contents-code-gpai",
+      "scope": "Modular transparency, copyright, safety, and security practice; this profile does not claim compliance."
+    },
+    {
+      "id": "in-toto-statement-v1",
+      "uri": "https://github.com/in-toto/attestation/blob/main/spec/v1/statement.md",
+      "scope": "Portable statement envelope for the One Bounded Inconclusive Receipt profile."
+    },
+    {
+      "id": "nist-ai-rmf",
+      "uri": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "scope": "Voluntary risk-management vocabulary; this profile does not claim certification."
+    },
+    {
+      "id": "seoul-frontier-commitments",
+      "uri": "https://www.gov.uk/government/publications/frontier-ai-safety-commitments-ai-seoul-summit-2024/frontier-ai-safety-commitments-ai-seoul-summit-2024",
+      "scope": "Shared design input on lifecycle risk, evaluation, accountability, disclosure, and incident practice; no signatory thereby participates in Zerone."
+    },
+    {
+      "id": "sigstore-attestations",
+      "uri": "https://docs.sigstore.dev/cosign/verifying/attestation/",
+      "scope": "Optional external signature verification; a valid signature does not prove predicate truth."
+    },
+    {
+      "id": "slsa-provenance-v1-2",
+      "uri": "https://slsa.dev/spec/v1.2/provenance",
+      "scope": "Supply-chain provenance composition without importing an undifferentiated conformance badge."
+    },
+    {
+      "id": "spdx-3",
+      "uri": "https://spdx.dev/use/specifications/",
+      "scope": "Artifact-specific software, model, dataset, provenance, and licensing metadata."
+    },
+    {
+      "id": "w3c-vc-2",
+      "uri": "https://www.w3.org/TR/vc-data-model/",
+      "scope": "Privacy-respecting assertion vocabulary; cryptographic verification is not claim truth."
+    }
+  ],
+  "reasoningLayers": [
+    {
+      "id": "being-first",
+      "principle": "Existing human rights and legally protected interests never depend on contribution; artificial systems receive a precautionary procedural floor without a consciousness, personhood, legal-rights, or consent-capacity claim.",
+      "participationConsequence": "Humans need not prove worth, loyalty, identity, or usefulness; artificial-system delegation must remain bounded, attributable, and stoppable.",
+      "refusalConsequence": "Refusal cannot reduce a human's existing rights or unrelated public access, and an artificial-system stop or denied delegation cannot create negative recognition."
+    },
+    {
+      "id": "epistemic",
+      "principle": "A signature authenticates an assertion and its bytes; it does not make the assertion true.",
+      "participationConsequence": "FL-0 keeps contradiction, uncertainty, and negative results visible through assertion-only challenge, divergence, and replication; future authenticated profiles must preserve correction, appeal, and withdrawal rights without pretending those effects exist here.",
+      "refusalConsequence": "A participant may reject Zerone's interpretation and keep its own framework authoritative."
+    },
+    {
+      "id": "scientific",
+      "principle": "Evidence is meaningful only under an exact subject, method, threat model, fixtures, environment, cutoff, and limitations.",
+      "participationConsequence": "Only bounded authorized public evidence enters FL-0; favorable outcomes are never required.",
+      "refusalConsequence": "Unsafe, confidential, embargoed, controlled, or under-specified evidence must stay out."
+    },
+    {
+      "id": "commons",
+      "principle": "A commons should reduce duplicated assurance work while preserving ownership, license, provenance, and forkability.",
+      "participationConsequence": "Receipts remain portable and independently verifiable without a Zerone runtime dependency.",
+      "refusalConsequence": "Existing internal or public systems may remain sufficient; another layer is optional."
+    },
+    {
+      "id": "institutional",
+      "principle": "Legal organizations, controllers, teams, humans, contractors, models, and agents are distinct scopes.",
+      "participationConsequence": "Every assertion names its speaking scope; nominal identities under one controller do not fabricate independence.",
+      "refusalConsequence": "An employer cannot substitute for individual consent, and an individual cannot silently bind an employer."
+    },
+    {
+      "id": "corporate",
+      "principle": "Participation is rational only when reusable value exceeds legal, safety, security, fiduciary, competition, and opportunity cost.",
+      "participationConsequence": "FL-0 provides no consideration and creates no protocol economic effect. Participant time, compute, legal review, security review, and opportunity cost may remain. It is nonexclusive, public-evidence-only, and outside the production critical path.",
+      "refusalConsequence": "Counsel, safety, security, fiduciaries, or procurement may stop the pilot without penalty."
+    },
+    {
+      "id": "team",
+      "principle": "Artifact and role attribution must not become a universal person or employee score.",
+      "participationConsequence": "Safety, security, research, product, legal, and infrastructure can reuse one bounded receipt without sharing a leaderboard.",
+      "refusalConsequence": "A team or worker may use no personal identity and may decline employer-visible participation."
+    },
+    {
+      "id": "individual-being",
+      "principle": "Humans retain privacy, attribution choice, correction, appeal, and protected reporting; responsible controllers must keep artificial-system delegation bounded and revocable under moral uncertainty.",
+      "participationConsequence": "No receipt creates legal personhood, consent capacity, debt, liability, employment status, office, or governing power for an artificial system.",
+      "refusalConsequence": "No human or contractor is punished or ranked for refusal, rest, or silence, and no artificial-system stop, denied delegation, error, or shutdown creates negative recognition."
+    }
+  ],
+  "rights": [
+    {
+      "id": "voluntary-lane-selection",
+      "promise": "Every participation lane is separately chosen and no lane is a funnel into another.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "unbundled-consent",
+      "promise": "Participation, publication, identity disclosure, training use, publicity, governance, and economics require separate decisions.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-exclusivity",
+      "promise": "No exclusive dealing, ecosystem lock-in, or restriction on mirrors, forks, or other standards is required.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-minimum-contribution",
+      "promise": "No minimum duration, cadence, artifact count, reciprocal deal, or conversion target exists.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "refusal-rest-inactivity",
+      "promise": "Duty holders impose no penalty or negative recognition for refusal, rest, silence, privacy, inactivity, or non-participation.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "exit-without-penalty",
+      "promise": "Duty holders permit future participation to stop without exit fees, retaliation, loss of unrelated access, or hostage formats.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-unrelated-access-loss",
+      "promise": "Declining or leaving a lane cannot remove access to unrelated public source or standards.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-financial-gate",
+      "promise": "FL-0 requires no wallet, token, stake, fee, reward, treasury relationship, or financial promotion.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "data-minimization",
+      "promise": "No model weights, datasets, private prompts, personal data, secrets, confidential information, exploit detail, or controlled material is required.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "participant-ip-control",
+      "promise": "No default IP, data, model, patent, or research assignment occurs; every license remains explicit and artifact-scoped.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-implied-endorsement",
+      "promise": "Participation cannot be represented as partnership, affiliation, certification, compliance, approval, or permission to use a name or logo.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "attribution-without-rank",
+      "promise": "Attribution remains claim-, artifact-, context-, and role-scoped and cannot become a global rank.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-person-or-employment-score",
+      "promise": "Duty holders may not feed receipt-lane participation data into employment, compensation, access, reputation, policing, credit, insurance, clinical, or person-level KARMA scores.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "correction-challenge-minority-appeal",
+      "promise": "Any later authenticated effectful profile must preserve contradiction, minority reports, challenge, correction, appeal, and withdrawal of future reliance as first-class; FL-0 itself implements no automatic correction, supersession, withdrawal, or reliance effect.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-retroactive-burden",
+      "promise": "Material scope changes require a new version, notice, an exit window, and renewed consent where scope changes.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "corporate-individual-consent-separation",
+      "promise": "A laboratory cannot substitute for a being's personal consent, and an individual cannot silently bind an employer or affiliate.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "entity-scope-non-imputation",
+      "promise": "Participation attaches only to an exact named entity, team, role, and artifact; it does not imply participation by a parent, subsidiary, affiliate, workforce, customer, investor, or other being.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "controller-collapse",
+      "promise": "Materially shared effective decision authority for the assessed claim prevents nominal identities from being counted as independent; common vendors, funders, datasets, or infrastructure are disclosed factors, not automatic identity collapse.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "competition-firewall",
+      "promise": "Pricing, customers, hiring, market allocation, unreleased roadmaps, private strategy, secret weights, and competitively sensitive information stay out.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "safety-disclosure-lanes",
+      "promise": "Unsafe public disclosure is refused; FL-0 has no confidential lane and accepts only low-risk material the publisher has lawful authority to publish, without requiring permission from a challenged issuer or employer where law protects reporting.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "moral-uncertainty",
+      "promise": "Precautionary procedural protection may increase with plausible welfare interests and stakes, but FL-0 asserts no artificial-system consciousness, sentience, legal personhood, legal rights, consent capacity, liability, or voting status and does not transfer or allocate legal accountability to an artificial system; applicable law controls.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "no-model-agent-assent-inference",
+      "promise": "FL-0 records no model or agent consent and infers none from output, compliance, refusal, error, technical stop, denied delegation, or shutdown.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "fork-export-portability",
+      "promise": "Receipts verify without Zerone, may be mirrored or forked, and cannot make Zerone a release-path dependency.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    },
+    {
+      "id": "bounded-emergency",
+      "promise": "Any future stop-publication power must be narrow, logged, appealable, independently reviewed, and self-expiring.",
+      "sourceStatus": "SCHEMA_CHECKED_DRAFT",
+      "operationalStatus": "NOT_IMPLEMENTED"
+    }
+  ],
+  "participationLanes": [
+    {
+      "id": "inspect",
+      "status": "SOURCE_AVAILABLE",
+      "requiresAccount": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "requiresPublicIdentity": false,
+      "requiresConfidentialDisclosure": false,
+      "confersParticipantStatus": false,
+      "minimumContribution": "NONE",
+      "networkDependency": "NONE_AFTER_SOURCE_DOWNLOAD",
+      "scope": "Read public source, standards, and disclosed limits without creating a participation record.",
+      "exit": "Stop reading; no notice, reason, or record is due."
+    },
+    {
+      "id": "verify-locally",
+      "status": "SOURCE_AVAILABLE",
+      "requiresAccount": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "requiresPublicIdentity": false,
+      "requiresConfidentialDisclosure": false,
+      "confersParticipantStatus": false,
+      "minimumContribution": "NONE",
+      "networkDependency": "NONE_AFTER_SOURCE_DOWNLOAD",
+      "scope": "Run the bounded validator and inspect the synthetic dogfood receipt locally.",
+      "exit": "Delete or retain the lawful local copy; no request is sent to Zerone."
+    },
+    {
+      "id": "publish-public-receipt",
+      "status": "SPECIFIED_NOT_OPERATED",
+      "requiresAccount": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "requiresPublicIdentity": false,
+      "requiresConfidentialDisclosure": false,
+      "confersParticipantStatus": false,
+      "minimumContribution": "NONE",
+      "networkDependency": "NONE",
+      "scope": "A future participant may explicitly authorize one already-public low-risk receipt under its own authority and signer policy.",
+      "exit": "Stop future publication; public copies may persist. FL-0 provides no authenticated withdrawal or supersession relation and cannot alter another party's reliance."
+    },
+    {
+      "id": "challenge-or-correct",
+      "status": "SPECIFIED_NOT_OPERATED",
+      "requiresAccount": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "requiresPublicIdentity": false,
+      "requiresConfidentialDisclosure": false,
+      "confersParticipantStatus": false,
+      "minimumContribution": "NONE",
+      "networkDependency": "NONE",
+      "scope": "Assert a public challenge, divergence, or replication only over material the publisher has lawful authority to publish; challenged-issuer or employer permission is not required where law protects reporting.",
+      "exit": "Stop future assertions; previous public bytes remain contextual history, and FL-0 relations have no correction authority or automatic effect."
+    },
+    {
+      "id": "contribute",
+      "status": "BLOCKED_POLICY_GAPS",
+      "requiresAccount": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "requiresPublicIdentity": false,
+      "requiresConfidentialDisclosure": false,
+      "confersParticipantStatus": false,
+      "minimumContribution": "NONE",
+      "networkDependency": "NONE",
+      "scope": "Institutional source or policy contribution is blocked pending contribution, IP, conduct, security, maintainer, appeal, and endorsement rules.",
+      "exit": "Do not submit; no participation duty exists."
+    },
+    {
+      "id": "sponsor",
+      "status": "UNAVAILABLE",
+      "requiresAccount": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "requiresPublicIdentity": false,
+      "requiresConfidentialDisclosure": false,
+      "confersParticipantStatus": false,
+      "minimumContribution": "NONE",
+      "networkDependency": "NONE",
+      "scope": "FL-0 accepts no sponsorship, escrow, grant, reward, or funding relationship.",
+      "exit": "No sponsorship relationship exists."
+    },
+    {
+      "id": "operate-or-govern",
+      "status": "UNAVAILABLE",
+      "requiresAccount": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "requiresPublicIdentity": false,
+      "requiresConfidentialDisclosure": false,
+      "confersParticipantStatus": false,
+      "minimumContribution": "NONE",
+      "networkDependency": "NONE",
+      "scope": "FL-0 creates no operator, member, steward, chamber, office, seat, vote, veto, delegation, or authority role.",
+      "exit": "No operational or governance relationship exists."
+    }
+  ],
+  "actorScopes": [
+    {
+      "id": "legal-organization",
+      "level": "ORGANIZATION",
+      "receives": "Reusable portable public evidence and a bounded low-cost option.",
+      "protectedInterests": ["confidentiality", "entity-scope", "intellectual-property", "jurisdiction", "non-endorsement"],
+      "legitimateDeclineReasons": ["association-cost", "insufficient-return", "legal-prohibition", "strategy"],
+      "minimumAnswer": "No production dependency, token exposure, blanket license, or implied affiliation."
+    },
+    {
+      "id": "mission-steward",
+      "level": "ORGANIZATION",
+      "receives": "Challengeable evidence about mission and safety claims.",
+      "protectedInterests": ["public-benefit", "independence", "mission-integrity", "no-safety-washing"],
+      "legitimateDeclineReasons": ["capture-risk", "mission-conflict", "weak-remedy"],
+      "minimumAnswer": "Independent review and no commercial, founder, funder, or token veto."
+    },
+    {
+      "id": "board",
+      "level": "CORPORATE",
+      "receives": "Legible chronology of bounded claims, tests, corrections, and residual risk.",
+      "protectedInterests": ["fiduciary-judgment", "privilege", "retention", "risk-oversight"],
+      "legitimateDeclineReasons": ["discovery-risk", "reputation-risk", "unclear-duty"],
+      "minimumAnswer": "Board-authorized public material only and exact non-implications."
+    },
+    {
+      "id": "executive",
+      "level": "CORPORATE",
+      "receives": "A measurable standards experiment with reuse across functions.",
+      "protectedInterests": ["bounded-cost", "optionality", "operational-focus", "strategy"],
+      "legitimateDeclineReasons": ["opportunity-cost", "roadmap-conflict", "unclear-return"],
+      "minimumAnswer": "One-engineer-day target, clean stop, and zero critical dependency."
+    },
+    {
+      "id": "capital-provider",
+      "level": "CORPORATE",
+      "receives": "Tail-risk and assurance option value without a financial product.",
+      "protectedInterests": ["capital-risk", "control", "liability", "treasury-policy"],
+      "legitimateDeclineReasons": ["crypto-policy", "financial-risk", "governance-risk"],
+      "minimumAnswer": "No acquisition, investment, token, wallet, treasury, or control relationship."
+    },
+    {
+      "id": "legal-compliance",
+      "level": "TEAM",
+      "receives": "Structured inputs reusable in documentation and correction history.",
+      "protectedInterests": ["authority", "data-map", "license", "regulatory-accuracy", "retention"],
+      "legitimateDeclineReasons": ["compliance-burden", "jurisdiction", "privilege", "uncertain-authority"],
+      "minimumAnswer": "The receipt never claims legal compliance and native records remain authoritative."
+    },
+    {
+      "id": "safety-risk",
+      "level": "TEAM",
+      "receives": "Independent challenge, uncertainty, mitigation, and expiry lineage.",
+      "protectedInterests": ["held-out-evaluation", "no-goodharting", "responsible-disclosure", "threat-scope"],
+      "legitimateDeclineReasons": ["dual-use-risk", "test-leakage", "false-assurance"],
+      "minimumAnswer": "No leaderboard, favourable-outcome incentive, or unsafe public disclosure."
+    },
+    {
+      "id": "security-incident",
+      "level": "TEAM",
+      "receives": "Artifact, environment, signer, vulnerability, and correction lineage.",
+      "protectedInterests": ["embargo", "incident-response", "offline-verification", "secrets", "trust-roots"],
+      "legitimateDeclineReasons": ["attack-surface", "metadata-leakage", "tooling-risk"],
+      "minimumAnswer": "Pinned local policy, fail-closed parsing, and no production secret access."
+    },
+    {
+      "id": "research",
+      "level": "TEAM",
+      "receives": "Durable credit for reproduction, contradiction, null results, repair, and maintenance.",
+      "protectedInterests": ["attribution", "embargo", "method-integrity", "publication", "scoop-risk"],
+      "legitimateDeclineReasons": ["reporting-burden", "research-risk", "unauthorized-publication"],
+      "minimumAnswer": "Artifact-level credit, authorized public material only, and verdict-independent review."
+    },
+    {
+      "id": "product-deployment",
+      "level": "TEAM",
+      "receives": "Customer-verifiable limits, release lineage, and supersession state.",
+      "protectedInterests": ["availability", "customer-clarity", "release-control", "roadmap-confidentiality"],
+      "legitimateDeclineReasons": ["product-friction", "roadmap-leakage", "runtime-dependency"],
+      "minimumAnswer": "Optional asynchronous export that never blocks release on Zerone."
+    },
+    {
+      "id": "data-privacy",
+      "level": "TEAM",
+      "receives": "Inspectable public-data minimization and retention boundaries.",
+      "protectedInterests": ["consent", "data-residency", "deletion", "personal-data", "purpose-limitation"],
+      "legitimateDeclineReasons": ["erasure-duty", "privacy-risk", "residency-law"],
+      "minimumAnswer": "No personal, confidential, or low-entropy secret material in a public receipt."
+    },
+    {
+      "id": "open-source",
+      "level": "TEAM",
+      "receives": "Familiar repository, in-toto, Sigstore, and portable provenance workflows.",
+      "protectedInterests": ["contributor-agency", "license-clarity", "maintenance-credit", "no-surveillance"],
+      "legitimateDeclineReasons": ["appropriation-risk", "license-conflict", "policy-gap"],
+      "minimumAnswer": "Clear contribution and patent terms, contextual attribution, and no person score."
+    },
+    {
+      "id": "infrastructure-sre",
+      "level": "TEAM",
+      "receives": "Deterministic environment and supply-chain evidence for operations and incident review.",
+      "protectedInterests": ["cacheability", "failure-isolation", "rollback", "slo", "supply-chain"],
+      "legitimateDeclineReasons": ["new-dependency", "outage-risk", "verification-cost"],
+      "minimumAnswer": "Offline verification, mirrors, multi-anchor support, and no synchronous chain dependency."
+    },
+    {
+      "id": "people-hr",
+      "level": "TEAM",
+      "receives": "Project-level recognition of maintenance and correction without individual scoring.",
+      "protectedInterests": ["anti-retaliation", "employment-law", "privacy", "worker-dignity"],
+      "legitimateDeclineReasons": ["coercion-risk", "monitoring-risk", "workplace-surveillance"],
+      "minimumAnswer": "No employee wallet, balance, rank, performance score, or mandatory attribution."
+    },
+    {
+      "id": "employee-researcher-engineer",
+      "level": "INDIVIDUAL",
+      "receives": "Voluntary artifact credit and a durable correction or challenge trail.",
+      "protectedInterests": ["appeal", "attribution-choice", "privacy", "protected-reporting", "rest"],
+      "legitimateDeclineReasons": ["career-risk", "employer-pressure", "personal-preference"],
+      "minimumAnswer": "Self-only participation cannot bind the employer; employer participation must not require or imply personal attribution, and only separately authorized already-public attribution may be included."
+    },
+    {
+      "id": "contractor",
+      "level": "INDIVIDUAL",
+      "receives": "Supplemental artifact scope and acceptance history.",
+      "protectedInterests": ["confidentiality", "intellectual-property", "lawful-payment", "worker-status"],
+      "legitimateDeclineReasons": ["classification-risk", "contract-conflict", "wage-risk"],
+      "minimumAnswer": "Ordinary contract, wages, confidentiality, and IP terms remain authoritative."
+    },
+    {
+      "id": "whistleblower-challenger",
+      "level": "INDIVIDUAL",
+      "receives": "A public challenge assertion only after safe, lawful publication of the challenger's own material.",
+      "protectedInterests": ["anti-retaliation", "confidential-channel", "legal-protection", "pseudonymity"],
+      "legitimateDeclineReasons": ["deanonymization-risk", "legal-process", "safety-risk"],
+      "minimumAnswer": "Zerone is not a protected-reporting channel; it neither verifies nor requires employer authorization for legally protected reporting, and public personal identity is never required."
+    },
+    {
+      "id": "model-agent",
+      "level": "ARTIFICIAL_SYSTEM",
+      "receives": "Scoped provenance for delegated tools, limits, corrections, and stop events.",
+      "protectedInterests": ["bounded-authority", "controller-accountability", "revocation", "stop-path"],
+      "legitimateDeclineReasons": ["authority-leakage", "key-compromise", "moral-uncertainty", "unbounded-delegation"],
+      "minimumAnswer": "No model or agent assent is recorded or inferred; no claim says the system consented, possesses legal rights or personhood, owes debt, bears legal liability, or holds governance, and stop or denied delegation creates no negative recognition."
+    },
+    {
+      "id": "end-user-affected-community",
+      "level": "PUBLIC",
+      "receives": "Inspectable origin, scope, limits, expiry, challenge, and supersession.",
+      "protectedInterests": ["accessibility", "appeal", "non-deception", "remedy", "welfare"],
+      "legitimateDeclineReasons": ["inaccessible-process", "insufficient-remedy", "trust-deficit"],
+      "minimumAnswer": "Plain-language non-implications and an accessible complaint and appeal route before active use."
+    },
+    {
+      "id": "small-open-lab",
+      "level": "ORGANIZATION",
+      "receives": "Shared assurance infrastructure without enterprise membership overhead.",
+      "protectedInterests": ["equal-terms", "public-goods", "resource-asymmetry", "voice-caps"],
+      "legitimateDeclineReasons": ["dominant-lab-subsidy", "integration-cost", "power-asymmetry"],
+      "minimumAnswer": "No pay-to-rule, permanent seat, minimum volume, or special dominant-lab terms."
+    },
+    {
+      "id": "unlisted-affected-being",
+      "level": "UNLISTED",
+      "receives": "The universal participation floor without forced classification.",
+      "protectedInterests": ["classification-refusal", "non-exclusion", "purpose-limitation", "safety"],
+      "legitimateDeclineReasons": ["category-mismatch", "misclassification-risk", "unrepresented-interest"],
+      "minimumAnswer": "No missing or disputed category may reduce protection, require identity disclosure, or convert silence into consent."
+    }
+  ],
+  "honestLimits": [
+    {
+      "id": "community-health-policies-missing",
+      "severity": "HARD_BLOCKER",
+      "fact": "The repository lacks a complete contribution/IP policy, security policy, code of conduct, maintainer/change-control policy, issue and pull-request templates, and name/logo/endorsement rules.",
+      "requiredBefore": "Any serious institutional contribution invitation."
+    },
+    {
+      "id": "confidential-evidence-service-absent",
+      "severity": "HARD_BLOCKER",
+      "fact": "FL-0 provides no confidential evidence store, safe harbor, embargo workflow, privileged channel, or sensitive incident service.",
+      "requiredBefore": "Any private, embargoed, vulnerability, incident, dual-use, personal, or trade-secret evidence."
+    },
+    {
+      "id": "custodial-chain",
+      "severity": "HARD_BLOCKER",
+      "fact": "The current disclosed chain posture has one founding household controlling the validator, operator surface, and sole effective vote.",
+      "requiredBefore": "Any claim of independent finality, critical reliance, or decentralized control."
+    },
+    {
+      "id": "independent-governance-unproven",
+      "severity": "HARD_BLOCKER",
+      "fact": "Independent standards governance, controller separation, remedy, and capture resistance are not structurally proven.",
+      "requiredBefore": "Any co-governance, strategic dependency, research spending, or steward role."
+    },
+    {
+      "id": "no-active-economics",
+      "severity": "MATERIAL_LIMIT",
+      "fact": "The profile creates no reward, escrow, sponsor contract, transfer, qualification, KARMA consumer, or governance path.",
+      "requiredBefore": "Any economic or authority representation."
+    },
+    {
+      "id": "non-monetary-costs-remain",
+      "severity": "MATERIAL_LIMIT",
+      "fact": "FL-0 creates no consideration or protocol economic effect, but participant time, compute, legal review, security review, and opportunity cost remain real.",
+      "requiredBefore": "Any claim that participation is free, zero-cost, effortless, or riskless."
+    },
+    {
+      "id": "no-enterprise-sla",
+      "severity": "MATERIAL_LIMIT",
+      "fact": "No enterprise service level, support agreement, indemnity, warranty, procurement package, or production dependency is offered.",
+      "requiredBefore": "Any supported institutional service claim."
+    },
+    {
+      "id": "no-external-review-or-signatories",
+      "severity": "HARD_BLOCKER",
+      "fact": "This artifact records no external reviewer, participant, signatory, frontier lab, public-interest group, or independent controller as having accepted or validated this profile.",
+      "requiredBefore": "Any claim of adoption, endorsement, proof of voluntary alignment, or external readiness."
+    },
+    {
+      "id": "no-participant-remedy",
+      "severity": "HARD_BLOCKER",
+      "fact": "The draft rights have no independent operational remedy, adjudicator, appeal body, or enforceable participant agreement.",
+      "requiredBefore": "Any representation that the proposed rights are operationally guaranteed."
+    },
+    {
+      "id": "privacy-classification-human-gate",
+      "severity": "HARD_BLOCKER",
+      "fact": "Receipt privacy flags are self-declared metadata; the parser cannot prove that public bytes or code-shaped identifiers contain no personal, confidential, secret, controlled, or unsafe information.",
+      "requiredBefore": "Any public receipt, which requires explicit authorized human data-owner and legal/security classification."
+    },
+    {
+      "id": "public-permanence",
+      "severity": "HARD_BLOCKER",
+      "fact": "Public repositories, mirrors, forks, transparency logs, and chain history cannot guarantee erasure of published bytes.",
+      "requiredBefore": "Any public receipt; personal data, secrets, weights, embargoed results, or confidential material remain ineligible."
+    },
+    {
+      "id": "receipt-relations-assertion-only",
+      "severity": "HARD_BLOCKER",
+      "fact": "FL-0 receipts are unsigned and unauthenticated; challenge, divergence, and replication relations are assertions only with no automatic correction, supersession, withdrawal, or reliance effect.",
+      "requiredBefore": "Any effectful correction relation, which requires referenced bytes, same-subject checks, chronology, authenticated authorization, and independently reviewed graph policy."
+    },
+    {
+      "id": "receipt-tooling-experimental",
+      "severity": "MATERIAL_LIMIT",
+      "fact": "The receipt validator is experimental: bounded public subject bytes and evaluation-material bytes are digest-bound, but subject, claim, and evaluation-material semantics are not proven; code-shaped fields can encode misleading claims, and object validation serializes before its byte check so it is trusted-local-only rather than an untrusted service boundary. The existing Sigstore/in-toto compiler is unregistered, zero-reward, and not a production-policy fixture or predicate-truth verifier.",
+      "requiredBefore": "Any untrusted service endpoint, production signer, trust-policy, verified-subject-semantics, claim-semantics, material-semantics, or verified-receipt assurance claim."
+    },
+    {
+      "id": "sdk-unpublished",
+      "severity": "MATERIAL_LIMIT",
+      "fact": "The TypeScript SDK exists in source but is not published to npm.",
+      "requiredBefore": "Any registry install instruction or package-availability claim."
+    }
+  ],
+  "corporateReadiness": {
+    "milestone": "M1",
+    "status": "NOT_READY",
+    "authorizesExternalCorporateInvitation": false,
+    "authorizesInstitutionalParticipationLane": false,
+    "protectionsOperationallyEnforced": false,
+    "requiredGates": [
+      "accessibility-labor-worker-classification-and-whistleblower-review",
+      "authenticated-relation-graph-and-correction-authority",
+      "code-of-conduct-enforcement-appeal-and-anti-retaliation",
+      "competition-and-confidentiality-review",
+      "contribution-ip-patent-publication-and-license-terms",
+      "counterparty-scope-and-signatory-authority",
+      "explicit-accountable-human-outreach-decision",
+      "governing-terms-jurisdiction-and-dispute-process",
+      "human-data-owner-publication-classification",
+      "independent-governance-capture-custody-and-remedy-review",
+      "independent-receipt-parser-threat-model-and-material-binding-review",
+      "liability-indemnity-insurance-warranty-and-remedy",
+      "logo-name-affiliation-and-endorsement-policy",
+      "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
+      "maintainer-change-control-versioning-and-deprecation",
+      "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
+      "privacy-data-map-dpa-retention-erasure-and-public-permanence",
+      "procurement-tax-accounting-sanctions-export-and-financial-promotion",
+      "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
+      "service-level-support-availability-portability-and-exit"
+    ]
+  },
+  "objections": [
+    {
+      "id": "association-and-brand-cost",
+      "honestAnswer": "A Zerone or crypto association can carry procurement, policy, or reputation cost even when no token is used.",
+      "mitigation": "No logo, named participation, affiliation, endorsement, wallet, token, fee, or financial promotion exists in FL-0.",
+      "residualReasonToDecline": "The association alone may remain unacceptable.",
+      "pilotTest": "No participant name or logo appears without separate written authority."
+    },
+    {
+      "id": "competition-antitrust",
+      "honestAnswer": "Cross-lab work can expose or coordinate competitively sensitive information.",
+      "mitigation": "Limit the commons to authorized public technical evidence and exclude pricing, customers, hiring, market allocation, unreleased roadmaps, and private strategy.",
+      "residualReasonToDecline": "Counsel may prohibit the forum, participants, or subject.",
+      "pilotTest": "Competition counsel approves scope before any external exchange."
+    },
+    {
+      "id": "dual-use-disclosure",
+      "honestAnswer": "Evaluation detail can lower the cost of harm or expose defenses.",
+      "mitigation": "FL-0 accepts only already lawfully public, low-risk receipt content and no exploit details, private methods, secrets, or controlled material. For nonpublic material, the publisher's authorized data, legal, or security classifier may stop release; this grants no challenged issuer or employer a special veto over independently lawful reporting.",
+      "residualReasonToDecline": "Safe public summarization may be impossible.",
+      "pilotTest": "The publisher documents that receipt content is already lawfully public and low risk; protected reporting remains outside Zerone."
+    },
+    {
+      "id": "employee-agent-surveillance",
+      "honestAnswer": "Attribution can become performance monitoring, coercion, or agent-control leakage.",
+      "mitigation": "Use project or organizational identity by default and prohibit person scores, mandatory wallets, and employer-visible personal participation.",
+      "residualReasonToDecline": "Employer practice or tool telemetry may still create coercion.",
+      "pilotTest": "No individual-level metric, balance, rank, or mandatory identity is produced."
+    },
+    {
+      "id": "evidence-gaming",
+      "honestAnswer": "Benchmarks, badges, and public metrics invite Goodharting and selective disclosure.",
+      "mitigation": "No leaderboard, scalar lab score, or favourable-outcome requirement; methods, limits, expiry, divergence, and contradictions remain visible.",
+      "residualReasonToDecline": "Publication can still shape incentives badly.",
+      "pilotTest": "A DIVERGED or INCONCLUSIVE result satisfies the same integration acceptance target as a REPRODUCED result."
+    },
+    {
+      "id": "existing-systems-sufficient",
+      "honestAnswer": "Internal systems, FMF channels, repositories, Sigstore, C2PA, and other standards may already solve the problem.",
+      "mitigation": "Use Zerone only as a portable adapter or mirror and preserve the original evidence as authoritative.",
+      "residualReasonToDecline": "Another layer may add no net value.",
+      "pilotTest": "The exported receipt remains useful and verifiable after every Zerone component is removed."
+    },
+    {
+      "id": "insufficient-value",
+      "honestAnswer": "A small ecosystem may not repay a laboratory's attention.",
+      "mitigation": "Bound the target to one engineer-day and measure reuse across at least three participant functions.",
+      "residualReasonToDecline": "Opportunity cost may still be higher than measured value.",
+      "pilotTest": "Stop without persuasion if the agreed cost cap is exceeded."
+    },
+    {
+      "id": "ip-license-risk",
+      "honestAnswer": "Publication can create license, patent, inventorship, priority, trade-secret, or contract risk.",
+      "mitigation": "Preserve artifact-specific licensing and transfer no IP by default.",
+      "residualReasonToDecline": "Counsel or a third-party license may prohibit publication.",
+      "pilotTest": "Authorized scope and license are frozen before publication."
+    },
+    {
+      "id": "operator-governance-capture",
+      "honestAnswer": "Zerone is presently custodial and independent governance is unproven.",
+      "mitigation": "Keep FL-0 source-only, multi-anchor, zero-authority, and outside critical reliance.",
+      "residualReasonToDecline": "This remains a hard blocker for critical or strategic dependency.",
+      "pilotTest": "No receipt requires Zerone finality, governance, or availability."
+    },
+    {
+      "id": "permanence-exit",
+      "honestAnswer": "Public copies cannot be guaranteed deletable and immutable personal data may conflict with legal duties.",
+      "mitigation": "Inspect locally first and publish only authorized non-personal material. FL-0 provides no authenticated withdrawal or supersession relation and cannot alter another party's reliance.",
+      "residualReasonToDecline": "Erasure, privilege, or confidentiality needs may make publication impossible.",
+      "pilotTest": "Exit rehearsal removes every dependency and records the limits of public-copy deletion."
+    },
+    {
+      "id": "philosophical-disagreement",
+      "honestAnswer": "A participant may reject Zerone's ontology, moral language, blockchain choice, or institutional direction.",
+      "mitigation": "Require only the narrow technical and rights floor of a chosen artifact lane, not metaphysical agreement.",
+      "residualReasonToDecline": "The floor or association may still conflict with conscience.",
+      "pilotTest": "No declaration of belief, personhood, loyalty, or mission alignment is requested."
+    },
+    {
+      "id": "privacy-confidentiality",
+      "honestAnswer": "Public permanence is unsuitable for personal, privileged, confidential, embargoed, or secret evidence.",
+      "mitigation": "Accept only authorized public metadata and forbid sensitive payloads.",
+      "residualReasonToDecline": "Some work has no safely public representation.",
+      "pilotTest": "Data owner confirms zero confidential or personal data before publication."
+    },
+    {
+      "id": "regulatory-compliance",
+      "honestAnswer": "A custom receipt can increase legal work and cannot satisfy jurisdiction-specific obligations by itself.",
+      "mitigation": "Map to native frameworks, retain original evidence, and state that no compliance claim exists.",
+      "residualReasonToDecline": "Jurisdiction, export control, sanctions, privilege, or sector law may prohibit participation.",
+      "pilotTest": "Legal owner approves the exact non-implication language and public scope."
+    },
+    {
+      "id": "security-new-tooling",
+      "honestAnswer": "A parser, verifier, signer, or workflow adds attack surface and supply-chain risk.",
+      "mitigation": "Use bounded offline parsing, pinned inputs, independent review, and fail-closed mutation fixtures without production credentials.",
+      "residualReasonToDecline": "The tooling is experimental and independent audit is incomplete.",
+      "pilotTest": "Wrong signer, subject, predicate, policy, replay, duplicate-key, and oversized inputs fail closed."
+    },
+    {
+      "id": "timing-capacity",
+      "honestAnswer": "A sound design can arrive at the wrong time.",
+      "mitigation": "No deadline, minimum, guilt, follow-up duty, or penalty exists.",
+      "residualReasonToDecline": "Capacity and preference remain entirely sufficient reasons.",
+      "pilotTest": "A no or no-response ends outreach and creates no negative record."
+    },
+    {
+      "id": "token-crypto-exposure",
+      "honestAnswer": "Wallets, rewards, treasury links, and crypto branding create financial, accounting, procurement, and conduct risk.",
+      "mitigation": "All financial effects are false; FL-0 uses no ZRN, wallet, stake, fee, escrow, reward, or governance right.",
+      "residualReasonToDecline": "A policy may reject any blockchain association.",
+      "pilotTest": "Complete the flow with zero wallet software, tokens, keys, fees, or financial communication."
+    }
+  ],
+  "pilot": {
+    "id": "fl-0-bounded-inconclusive-receipt",
+    "status": "INTERNAL_DOGFOOD_ONLY",
+    "externalParticipationTarget": false,
+    "receiptExample": "docs/examples/frontier-evaluation-receipt/one-bounded-inconclusive-receipt.v0.json",
+    "format": {
+      "wrapper": "https://in-toto.io/Statement/v1",
+      "predicateType": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/frontier-evaluation-receipt-profile-v0.md#7-one-bounded-inconclusive-receipt-profile",
+      "predicateDigest": "sha256:083b34eb24c6098a6915bdd0ec70126a841372d1fabf158ca243c6e75648f949",
+      "assurance": "UNSIGNED_UNVERIFIED_DECLARATION",
+      "disclosureClass": "PUBLIC_METADATA_ONLY"
+    },
+    "resultVocabulary": ["DIVERGED", "INCONCLUSIVE", "RECORDED", "REPRODUCED"],
+    "relationVocabulary": ["CHALLENGES", "DIVERGES_FROM", "REPLICATES"],
+    "requiredReceiptFields": [
+      "acceptance-policy-digest",
+      "challenge-policy-digest",
+      "claimed-control-root",
+      "claimed-issuer-scope",
+      "code-only-limitations",
+      "creation-cutoff-review-expiry",
+      "environment-digest",
+      "evidence-digest",
+      "explicit-false-authority-and-effects",
+      "explicit-false-effects",
+      "fixture-digest",
+      "privacy-self-classification",
+      "protocol-digest",
+      "reason-codes",
+      "relations",
+      "result",
+      "subject-sha256",
+      "threat-model-digest"
+    ],
+    "acceptanceCriteria": [
+      "clean-machine-offline-verification-under-60-seconds",
+      "complete-exit-rehearsal",
+      "independently-configured-signer-policies-before-external-pilot",
+      "m0-1-clean-machine-nonauthor-roundtrip-reproduces-canonical-digests",
+      "m0-1-reviewer-declares-distinct-claim-specific-effective-control-root-and-conflicts",
+      "one-engineer-day-participant-integration-cap",
+      "portable-without-zerone",
+      "public-evaluation-digests-recomputed-from-supplied-bytes",
+      "reuse-by-at-least-three-participant-functions",
+      "successful-challenge-link-and-exit-rehearsal",
+      "zero-confidential-personal-weight-prompt-or-exploit-data",
+      "zero-wallet-token-stake-reward-governance-or-production-dependency"
+    ],
+    "stopConditions": [
+      "cost-cap-exceeded-without-renewed-consent",
+      "individual-ranking-or-surveillance",
+      "publisher-authorized-data-legal-or-security-classifier-refuses-nonpublic-material",
+      "participant-cannot-leave-cleanly",
+      "production-credential-or-model-access-required",
+      "receipt-implies-truth-compliance-certification-or-endorsement",
+      "zerone-becomes-release-path-dependency"
+    ],
+    "promotionGates": [
+      "accessibility-labor-worker-classification-and-whistleblower-review",
+      "authenticated-relation-graph-and-correction-authority",
+      "code-of-conduct-enforcement-appeal-and-anti-retaliation",
+      "competition-and-confidentiality-review",
+      "contribution-ip-patent-publication-and-license-terms",
+      "counterparty-scope-and-signatory-authority",
+      "explicit-accountable-human-outreach-decision",
+      "governing-terms-jurisdiction-and-dispute-process",
+      "human-data-owner-publication-classification",
+      "independent-governance-capture-custody-and-remedy-review",
+      "independent-receipt-parser-threat-model-and-material-binding-review",
+      "liability-indemnity-insurance-warranty-and-remedy",
+      "logo-name-affiliation-and-endorsement-policy",
+      "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
+      "maintainer-change-control-versioning-and-deprecation",
+      "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
+      "privacy-data-map-dpa-retention-erasure-and-public-permanence",
+      "procurement-tax-accounting-sanctions-export-and-financial-promotion",
+      "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
+      "service-level-support-availability-portability-and-exit"
+    ],
+    "economics": {
+      "protocolConsideration": "NONE",
+      "claimsZeroParticipantCost": false,
+      "requiresWallet": false,
+      "requiresTokenOrStake": false,
+      "movesFunds": false,
+      "createsReward": false,
+      "createsKarma": false,
+      "createsQualification": false,
+      "createsGovernance": false
+    }
+  }
+}

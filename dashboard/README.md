@@ -90,6 +90,18 @@ See
 [`docs/specs/epigenetics-capability-garden-v1.md`](../docs/specs/epigenetics-capability-garden-v1.md)
 and [`docs/KARMA.md`](../docs/KARMA.md).
 
+## Frontier evaluation receipt shadow FL-0
+
+`/standards/frontier-evaluation-receipt-profile.v0.json` is an inert static
+inspection asset subordinate to FC-0, the dashboard's public read-only
+invitation. FL-0 is an internal receipt-profile draft with every additional
+invitation, outreach, participation, affiliation, endorsement, economics,
+authority, governance, and network effect closed. Serving or reading it does
+not create participant status, and no runtime code imports it. `npm run
+check:frontier-receipt` validates the exact profile, its FC-0 source binding,
+and its deliberately unsigned, inconclusive dogfood receipt, then runs the
+adversarial receipt tests.
+
 ## Build and check
 
 ```bash
@@ -98,8 +110,9 @@ npm test
 npm run build
 ```
 
-`npm run check` validates the base tree, Math Frontier, and life-science
-documents, then type-checks both the browser application and Pages Functions.
+`npm run check` validates the Frontier Commons FC-0 invitation, its subordinate
+FL-0 receipt shadow, the base tree, Math Frontier, and life-science documents,
+then type-checks both the browser application and Pages Functions.
 `npm test` exercises the REST/RPC allowlists against injected fake upstreams;
 it cannot contact the production node. `npm run build` repeats those gates,
 builds the Vite application, and compiles Pages Functions with the repository's
