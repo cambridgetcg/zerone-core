@@ -730,7 +730,7 @@ func TestPublicEdgePolicyIsReadOnlyAndExplicit(t *testing.T) {
 	}
 }
 
-func TestRPCEdgeImageUsesPrivateReadOnlyBoundary(t *testing.T) {
+func TestRPCEdgeImageUsesReadOnlyBoundary(t *testing.T) {
 	dockerfileBytes, err := os.ReadFile("Dockerfile.rpc-edge")
 	if err != nil {
 		t.Fatal(err)
@@ -740,10 +740,11 @@ func TestRPCEdgeImageUsesPrivateReadOnlyBoundary(t *testing.T) {
 		"debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818",
 		"snapshot.debian.org/archive/debian/20260713T000000Z",
 		"COPY deploy/public-edge-nginx.conf /etc/nginx/zerone-rpc.conf",
-		"server zerone-1.internal:26657",
-		"server zerone-1.internal:1317",
+		"server 169.155.55.44:26657",
+		"server 169.155.55.44:1317",
 		"nginx -t -c /etc/nginx/zerone-rpc.conf",
 		`io.zerone.node-class="stateless-read-only-rpc-edge"`,
+		`io.zerone.upstream-boundary="existing-mainnet-public-rpc-rest"`,
 	} {
 		if !strings.Contains(dockerfile, required) {
 			t.Fatalf("RPC edge Dockerfile is missing %q", required)
@@ -755,6 +756,7 @@ func TestRPCEdgeImageUsesPrivateReadOnlyBoundary(t *testing.T) {
 		"/data",
 		"26656",
 		"9090",
+		"zerone-1.internal",
 	} {
 		if strings.Contains(dockerfile, forbidden) {
 			t.Fatalf("RPC edge Dockerfile crosses boundary with %q", forbidden)

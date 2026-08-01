@@ -3,7 +3,10 @@
 `zerone-rpc.fly.dev` is a stateless compatibility endpoint for mainnet reads.
 It preserves the existing `/rpc/*` and `/rest/*` paths, accepts only
 GET/HEAD queries (plus browser OPTIONS preflight), and sends admitted requests
-to `zerone-1.internal` over Fly's private network.
+to the existing mainnet RPC/REST endpoints. A staging probe proved that a newly
+created app could resolve but not reach `zerone-1.internal`, so this immediate
+edge deliberately preserves the current public upstream path instead of
+claiming an unproven private boundary.
 
 The policy is deny-by-default. Transaction and evidence broadcast, unsafe RPC,
 peer dialing, subscriptions, searches, the REST transaction collection, and

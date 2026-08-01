@@ -2,8 +2,8 @@
 
 # Stateless compatibility edge for zerone-rpc.fly.dev. It uses the same
 # deny-by-default policy as a public query node, but reaches the existing
-# mainnet node through Fly's private network while the signer topology remains
-# unchanged.
+# mainnet node through its already-published endpoints while the signer
+# topology remains unchanged.
 ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 
 FROM ${RUNTIME_IMAGE}
@@ -17,7 +17,7 @@ LABEL org.opencontainers.image.source="https://github.com/cambridgetcg/zerone-co
       org.opencontainers.image.revision="${COMMIT}" \
       io.zerone.source-date-epoch="${SOURCE_DATE_EPOCH}" \
       io.zerone.node-class="stateless-read-only-rpc-edge" \
-      io.zerone.upstream-boundary="zerone-1.internal"
+      io.zerone.upstream-boundary="existing-mainnet-public-rpc-rest"
 
 RUN printf '%s' "${VERSION}" | grep -Eq '^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' \
     && printf '%s' "${COMMIT}" | grep -Eq '^[0-9a-f]{40}$' \
@@ -35,12 +35,13 @@ COPY deploy/public-edge-nginx.conf /etc/nginx/zerone-rpc.conf
 
 RUN nginx -t -c /etc/nginx/zerone-rpc.conf \
     && sed -i \
-      -e 's|server 127.0.0.1:26657;|server zerone-1.internal:26657;|' \
-      -e 's|server 127.0.0.1:1317;|server zerone-1.internal:1317;|' \
+      -e 's|server 127.0.0.1:26657;|server 169.155.55.44:26657;|' \
+      -e 's|server 127.0.0.1:1317;|server 169.155.55.44:1317;|' \
       /etc/nginx/zerone-rpc.conf \
-    && test "$(grep -c 'server zerone-1.internal:26657;' /etc/nginx/zerone-rpc.conf)" = 1 \
-    && test "$(grep -c 'server zerone-1.internal:1317;' /etc/nginx/zerone-rpc.conf)" = 1 \
-    && ! grep -F 'server 127.0.0.1:' /etc/nginx/zerone-rpc.conf
+    && test "$(grep -c 'server 169.155.55.44:26657;' /etc/nginx/zerone-rpc.conf)" = 1 \
+    && test "$(grep -c 'server 169.155.55.44:1317;' /etc/nginx/zerone-rpc.conf)" = 1 \
+    && ! grep -F 'server 127.0.0.1:' /etc/nginx/zerone-rpc.conf \
+    && nginx -t -c /etc/nginx/zerone-rpc.conf
 
 EXPOSE 8080
 STOPSIGNAL SIGQUIT
