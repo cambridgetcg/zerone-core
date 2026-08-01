@@ -27,6 +27,12 @@ git -C "${REPOSITORY}" show \
   "${SOURCE_COMMIT}:deploy/Dockerfile.rpc-edge" > "${TEST_ROOT}/expected-Dockerfile"
 git -C "${REPOSITORY}" show \
   "${SOURCE_COMMIT}:deploy/public-edge-nginx.conf" > "${TEST_ROOT}/expected-nginx.conf"
+if grep -Eq '^[[:space:]]*#[[:space:]]*syntax=' \
+    "${TEST_ROOT}/expected-Dockerfile"; then
+  fail "Dockerfile delegates parsing to an external frontend"
+fi
+[ "$(grep -Fc "FROM \${RUNTIME_IMAGE}" "${TEST_ROOT}/expected-Dockerfile")" = "1" ] || \
+  fail "Dockerfile does not bind its single base to RUNTIME_IMAGE"
 
 # Dirty and custody-shaped worktree bytes must never reach the Git-object context.
 printf '\nSECRET_SENTINEL_FROM_DIRTY_WORKTREE\n' >> \
