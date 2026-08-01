@@ -62,7 +62,7 @@
   "policy": {
     "breakthroughRecognition": {
       "authorSelected": false,
-      "minimumEvidenceLevel": "E4",
+      "minimumEvidenceLevel": "E5",
       "requiresPriorArtDelta": true,
       "requiresIndependentReproduction": true,
       "requiresProspectiveOrDescendantImpact": true,
@@ -75,7 +75,16 @@
       "protocolIssuance": "disabled",
       "templateStatus": "simulation-only",
       "timeAloneUnlocksEvidence": false,
-      "challengeReserveBps": 1500
+      "challengeReserveBps": 1500,
+      "sponsorCaseSchema": "zerone.breakthrough-sponsor-case/v1-required",
+      "dashboardCanActivateCase": false,
+      "frozenClaimAndArtifactDigestsRequired": true,
+      "milestoneAcceptanceTestsRequired": true,
+      "nullFailureContradictionTreatmentRequired": true,
+      "reviewerConflictPolicyRequired": true,
+      "correctionRecoveryPolicyRequired": true,
+      "expiryRefundPolicyRequired": true,
+      "escrowFundingReceiptRequired": true
     },
     "independence": {
       "minimumEffectiveClusters": 3,
@@ -89,7 +98,9 @@
     "humanData": {
       "rawIdentifiableDataOnPublicLedger": false,
       "consentOrDataUseScopeRequired": true,
-      "controlledAccessAttestationRequired": true,
+      "accessLaneAttestationRequired": true,
+      "controlledAccessRequiredWhereConsentPolicyOrLawRequires": true,
+      "unrestrictedAccessRequiresConsentPolicyAndLawAllow": true,
       "institutionalCertificationRequiredWhereApplicable": true,
       "publicArtifactsUseMetadataAndDigestsOnly": true
     },
@@ -103,6 +114,66 @@
       "unknownHarmEscalatesTo": "regulated-human"
     }
   },
+  "prerequisiteSemantics": {
+    "default": "all-listed-required",
+    "grouped": [
+      {
+        "nodeId": "analysis-batch-confounding@1",
+        "allOf": [
+          "integrity-statistics-reproducibility@1"
+        ],
+        "atLeast": {
+          "count": 1,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1",
+            "assay-rna-seq@1"
+          ]
+        }
+      },
+      {
+        "nodeId": "analysis-multi-omic-integration@1",
+        "allOf": [
+          "analysis-batch-confounding@1"
+        ],
+        "atLeast": {
+          "count": 2,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1",
+            "assay-rna-seq@1"
+          ]
+        }
+      },
+      {
+        "nodeId": "assay-single-cell-multiome@1",
+        "allOf": [
+          "foundation-cell-identity@1"
+        ],
+        "atLeast": {
+          "count": 2,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1",
+            "assay-rna-seq@1"
+          ]
+        }
+      },
+      {
+        "nodeId": "intervention-epigenome-editing@1",
+        "allOf": [
+          "analysis-causal-graphs@1"
+        ],
+        "atLeast": {
+          "count": 1,
+          "of": [
+            "assay-atac-cuttag@1",
+            "assay-bisulfite-methylation@1"
+          ]
+        }
+      }
+    ]
+  },
   "sources": [
     {
       "id": "4dn-data-model@2026-08",
@@ -110,6 +181,7 @@
       "title": "4DN data model",
       "url": "https://data.4dnucleome.org/help/user-guide/data-model",
       "kind": "official-guidance",
+      "supportScope": "Provenance and entity relationships among biosamples, experiments, files, and analyses; not a causal-inference or novelty method.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
     },
@@ -119,6 +191,17 @@
       "title": "Genome-wide programmable transcriptional memory by CRISPR-based epigenome editing",
       "url": "https://doi.org/10.1016/j.cell.2021.03.025",
       "kind": "primary-research",
+      "supportScope": "A primary-research example of programmable epigenome editing and transcriptional memory; not a universal protocol or clinical claim.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "dunedinpace@elife-2022",
+      "authority": "eLife",
+      "title": "DunedinPACE, a DNA methylation biomarker of the pace of aging",
+      "url": "https://doi.org/10.7554/eLife.73420",
+      "kind": "primary-research",
+      "supportScope": "Primary derivation from 20-year, four-wave longitudinal organ-system data, evaluated in five additional datasets and technical replicates spanning 450K and EPIC arrays, with explicit single-country and cohort limitations. Supports longitudinal, assay-shift, external-dataset, calibration, and failure reporting; it does not establish clinical validity, intervention benefit, or a causal ageing mechanism.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2027-08-01"
     },
@@ -128,6 +211,7 @@
       "title": "ENCODE data standards",
       "url": "https://www.encodeproject.org/data-standards/",
       "kind": "official-guidance",
+      "supportScope": "Assay-specific experimental controls, metadata, data quality, and reporting practices used by ENCODE.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
     },
@@ -137,8 +221,29 @@
       "title": "Federal Policy for the Protection of Human Subjects (Common Rule)",
       "url": "https://www.hhs.gov/ohrp/regulations-and-policy/regulations/common-rule/index.html",
       "kind": "official-policy",
+      "supportScope": "United States human-participant protection requirements and applicability; other jurisdictions require their own review.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "higgins-chen-pc-clocks@nature-aging-2022",
+      "authority": "Nature Aging",
+      "title": "A computational solution for bolstering reliability of epigenetic clocks: implications for clinical trials and longitudinal tracking",
+      "url": "https://doi.org/10.1038/s43587-022-00248-2",
+      "kind": "primary-research",
+      "supportScope": "Primary study of technical-replicate reliability, power, and longitudinal sensitivity of epigenetic clocks across replicate datasets and longitudinal cohorts. Supports explicit reliability checks and failed-transport reporting; it does not establish biological causality, clinical validity, or intervention benefit.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "horvath-race-ethnicity@genome-biology-2016",
+      "authority": "Genome Biology",
+      "title": "An epigenetic clock analysis of race/ethnicity, sex, and coronary heart disease",
+      "url": "https://doi.org/10.1186/s13059-016-1030-0",
+      "kind": "primary-research",
+      "supportScope": "Primary multi-dataset analysis across blood, saliva, brain, seven racial or ethnic groups, sex, and blood-cell composition, showing context-dependent epigenetic-age measures. Supports a frozen cohort, tissue, ancestry, sex, and composition transport matrix; it does not license biological essentialism, clinical use, or causal interpretation.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
     },
     {
       "id": "nih-biosafety-policy@2026-08",
@@ -146,6 +251,7 @@
       "title": "Biosafety and Biosecurity Policy",
       "url": "https://osp.od.nih.gov/policies/biosafety-and-biosecurity-policy/",
       "kind": "official-policy",
+      "supportScope": "NIH biosafety and biosecurity policy context, including risk assessment and applicable institutional oversight.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
     },
@@ -155,6 +261,7 @@
       "title": "Best practices for controlled-access genomic data",
       "url": "https://sharing.nih.gov/sites/default/files/flmngr/NIH_Best_Practices_for_Controlled-Access_Data_Subject_to_the_NIH_GDS_Policy.pdf",
       "kind": "official-policy",
+      "supportScope": "Safeguards for genomic data assigned to a controlled-access lane under NIH policy; not a claim that every dataset requires that lane.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
     },
@@ -164,6 +271,7 @@
       "title": "Genomic Data Sharing Policy overview",
       "url": "https://sharing.nih.gov/genomic-data-sharing-policy/about-genomic-data-sharing",
       "kind": "official-policy",
+      "supportScope": "NIH genomic-data sharing, consent, and access-policy context for covered research; not an ageing-method validation source.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
     },
@@ -173,6 +281,27 @@
       "title": "Institutional certifications for genomic data sharing",
       "url": "https://sharing.nih.gov/genomic-data-sharing-policy/institutional-certifications/about-institutional-certifications",
       "kind": "official-policy",
+      "supportScope": "Institutional certification expectations for NIH genomic-data sharing where the policy applies.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "nih-preclinical-rigor@2026-08",
+      "authority": "National Institutes of Health Office of Extramural Research",
+      "title": "Principles and Guidelines for Reporting Preclinical Research",
+      "url": "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/principles-guidelines-reporting-preclinical-research",
+      "kind": "official-guidance",
+      "supportScope": "Official reporting guidance for distinguishing independent biological data points from technical replicates; reporting exact N, uncertainty, randomization, blinding, sample-size estimation, exclusions, omitted or null results, and data and software availability. It supports auditable rigor but does not by itself establish independent replication.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "nih-rigor-prior-research@2026-08",
+      "authority": "National Institutes of Health Office of Extramural Research",
+      "title": "Guidance: Rigor and Reproducibility in Grant Applications",
+      "url": "https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/guidance",
+      "kind": "official-guidance",
+      "supportScope": "Official guidance requiring assessment of strengths and weaknesses in published and unpublished prior research and plans to address gaps. Supports an inspectable prior-research matrix; it does not determine legal novelty, inventorship, priority, ownership, or patentability.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
     },
@@ -182,8 +311,19 @@
       "title": "Public Health Service Policy on Humane Care and Use of Laboratory Animals",
       "url": "https://olaw.nih.gov/node/74",
       "kind": "official-policy",
+      "supportScope": "Animal-welfare oversight for PHS-supported activities involving live vertebrate animals where applicable.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2026-11-01"
+    },
+    {
+      "id": "relton-two-step-emr@ije-2012",
+      "authority": "International Journal of Epidemiology",
+      "title": "Two-step epigenetic Mendelian randomization: a strategy for establishing the causal role of epigenetic processes in pathways to disease",
+      "url": "https://doi.org/10.1093/ije/dyr233",
+      "kind": "primary-research",
+      "supportScope": "Original epigenetics-specific causal-method framework separating exposure-to-epigenetic-change and epigenetic-change-to-outcome questions while surfacing confounding, reverse causation, population stratification, pleiotropy, and instrument assumptions. It is one bounded identification strategy, not causal proof by itself.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
     },
     {
       "id": "scnmt-seq@nature-communications-2018",
@@ -191,6 +331,17 @@
       "title": "Single-cell multi-omics profiling links dynamic DNA methylation to cell fate decision in mouse embryonic stem cells",
       "url": "https://doi.org/10.1038/s41467-018-03149-4",
       "kind": "primary-research",
+      "supportScope": "A primary-research example of joint single-cell methylation, chromatin-accessibility, and transcription measurement in mouse embryonic stem cells.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "scpair@nature-communications-2024",
+      "authority": "Nature Communications",
+      "title": "scPair: Boosting single cell multimodal analysis by leveraging implicit feature selection and single cell atlases",
+      "url": "https://doi.org/10.1038/s41467-024-53971-2",
+      "kind": "primary-research",
+      "supportScope": "A primary computational study of paired single-cell RNA and chromatin-accessibility data. It supports the two-modality meaning of multimodal and explicit modality-specific validation; it does not turn inferred features into measurements or establish biological causality.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2027-08-01"
     },
@@ -200,8 +351,19 @@
       "title": "Laboratory biosafety manual, fourth edition",
       "url": "https://www.who.int/publications/i/item/9789240011311",
       "kind": "official-guidance",
+      "supportScope": "A risk-based laboratory biosafety framework; local law and institutional containment decisions still govern.",
       "checkedAt": "2026-08-01",
       "reviewAfter": "2027-08-01"
+    },
+    {
+      "id": "wipo-pct-novelty@2026",
+      "authority": "World Intellectual Property Organization",
+      "title": "PCT International Search and Preliminary Examination Guidelines — Chapter 12: Novelty",
+      "url": "https://www.wipo.int/en/web/pct-system/texts/ispe/12_01_02",
+      "kind": "official-guidance",
+      "supportScope": "Official PCT guidance for comparing a defined claim element by element against enabling prior-art disclosures; probabilities or possibilities are insufficient. Borrowed only as an inspectable delta discipline: this garden makes no patentability, priority, inventorship, ownership, or other legal conclusion.",
+      "checkedAt": "2026-08-01",
+      "reviewAfter": "2026-11-01"
     }
   ],
   "roots": [
@@ -217,6 +379,8 @@
       "kind": "analysis",
       "summary": "Separate technical batch, cell composition, ancestry, treatment, environment, and hidden structure before attributing an epigenetic effect.",
       "prerequisites": [
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1",
         "assay-rna-seq@1",
         "integrity-statistics-reproducibility@1"
       ],
@@ -232,7 +396,8 @@
         "Conflating cell-frequency shifts with within-cell regulatory change."
       ],
       "sourceIds": [
-        "encode-data-standards@2026-08"
+        "encode-data-standards@2026-08",
+        "horvath-race-ethnicity@genome-biology-2016"
       ]
     },
     {
@@ -259,12 +424,13 @@
         "Selecting an adjustment set after observing the preferred result."
       ],
       "sourceIds": [
-        "4dn-data-model@2026-08"
+        "4dn-data-model@2026-08",
+        "relton-two-step-emr@ije-2012"
       ]
     },
     {
       "id": "analysis-cell-state-trajectory@1",
-      "title": "Cell state, trajectory, and memory",
+      "title": "Multi-omic cell state, trajectory, and memory",
       "stage": "inference",
       "domain": "single-cell",
       "kind": "analysis",
@@ -300,7 +466,7 @@
         "analysis-batch-confounding@1",
         "assay-atac-cuttag@1",
         "assay-bisulfite-methylation@1",
-        "assay-single-cell-multiome@1"
+        "assay-rna-seq@1"
       ],
       "evidenceContribution": "E2",
       "rewardEligibility": "capability-evidence-only",
@@ -315,7 +481,8 @@
       ],
       "sourceIds": [
         "4dn-data-model@2026-08",
-        "scnmt-seq@nature-communications-2018"
+        "scnmt-seq@nature-communications-2018",
+        "scpair@nature-communications-2024"
       ]
     },
     {
@@ -423,16 +590,17 @@
       ],
       "sourceIds": [
         "4dn-data-model@2026-08",
-        "scnmt-seq@nature-communications-2018"
+        "scnmt-seq@nature-communications-2018",
+        "scpair@nature-communications-2024"
       ]
     },
     {
       "id": "assay-spatial-epigenomics@1",
-      "title": "Spatial and tissue-context epigenomics",
+      "title": "Spatial chromatin and tissue context",
       "stage": "measurement",
       "domain": "chromatin",
       "kind": "protocol",
-      "summary": "Anchor regulatory measurements to tissue geometry, sampling scale, morphology, neighbourhood, and registration uncertainty.",
+      "summary": "Anchor chromatin-state measurements to tissue geometry, sampling scale, morphology, neighbourhood, and registration uncertainty.",
       "prerequisites": [
         "assay-atac-cuttag@1",
         "foundation-cell-identity@1",
@@ -569,7 +737,7 @@
       "safetyTier": "regulated-human",
       "artifactRequirements": [
         "Consent or data-use scope, access lane, institutional certification where applicable, and a data minimisation plan.",
-        "A public artifact plan restricted to non-identifying metadata, digests, controlled-access attestations, and aggregate claims.",
+        "A public artifact plan restricted to non-identifying metadata, digests, access-lane attestations, and aggregate claims.",
         "Applicable human-participant, biosafety, and animal-welfare determinations with risk, containment, incident, and waste controls resolved before work."
       ],
       "failureModes": [
@@ -607,7 +775,8 @@
         "Leaving the experimental unit or multiplicity family undefined."
       ],
       "sourceIds": [
-        "encode-data-standards@2026-08"
+        "encode-data-standards@2026-08",
+        "nih-preclinical-rigor@2026-08"
       ]
     },
     {
@@ -659,7 +828,10 @@
         "Calling rerunning the same code on the same data independent replication."
       ],
       "sourceIds": [
-        "encode-data-standards@2026-08"
+        "dunedinpace@elife-2022",
+        "encode-data-standards@2026-08",
+        "higgins-chen-pc-clocks@nature-aging-2022",
+        "nih-preclinical-rigor@2026-08"
       ]
     },
     {
@@ -723,7 +895,7 @@
       "kind": "quest",
       "summary": "Find a bounded epigenetic ageing signal that survives frozen external cohorts, assay shifts, ancestry and cell-composition checks, longitudinal challenge, and intervention-aware interpretation.",
       "prerequisites": [
-        "analysis-multi-omic-integration@1",
+        "analysis-batch-confounding@1",
         "validation-independent-replication@1",
         "validation-prior-art-delta@1"
       ],
@@ -739,8 +911,60 @@
         "Tuning repeatedly on nominally external cohorts."
       ],
       "sourceIds": [
+        "dunedinpace@elife-2022",
+        "higgins-chen-pc-clocks@nature-aging-2022",
+        "horvath-race-ethnicity@genome-biology-2016",
         "nih-gds@2026-08"
-      ]
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "assay-lanes=claim-appropriate;multi-omics-not-universal",
+          "clinical-validity-claim=false",
+          "cohort-roots>=2",
+          "external-cohort-frozen-before-evaluation=true",
+          "human-data-access-lane-attested=true",
+          "longitudinal-or-prospective-context>=1",
+          "signal-definition=frozen-before-external-evaluation",
+          "transportability-dimensions=age-range,ancestry,assay,cell-composition,cohort,tissue"
+        ],
+        "scopeHash": "bc7092d310e20fd4cf97f43226cd320a9cc60ccfa599eebf37c10bde4851c97e",
+        "milestones": [
+          {
+            "id": "causal-interpretation-bounded",
+            "evidenceLevel": "E4",
+            "acceptanceTest": "A frozen counter-hypothesis challenge narrows causal interpretation without converting age prediction into mechanism or clinical validity."
+          },
+          {
+            "id": "external-transportability",
+            "evidenceLevel": "E5",
+            "acceptanceTest": "The pre-frozen signal is evaluated in untouched external or longitudinal contexts with calibration, uncertainty, exclusions, and failures reported."
+          },
+          {
+            "id": "independent-reproduction",
+            "evidenceLevel": "E3",
+            "acceptanceTest": "Three effective clusters across at least two organisation, data, and analysis-pipeline roots reproduce the same bounded signal definition."
+          },
+          {
+            "id": "scope-and-prior-art-freeze",
+            "evidenceLevel": "E0",
+            "acceptanceTest": "Signal, cohort lanes, transport dimensions, exclusions, prior-art delta, and non-clinical claim boundary are frozen before external evaluation."
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumDataRoots": 2,
+        "minimumAnalysisPipelineRoots": 2,
+        "requiredReceiptTypes": [
+          "causal-challenge",
+          "independent-reproduction",
+          "prior-art-delta",
+          "prospective-or-descendant-impact",
+          "safety-lane"
+        ],
+        "nullFailureContradictionRule": "preserve-and-report-no-scope-mutation-no-automatic-reward",
+        "safetyApprovalSubstitutionAllowed": false
+      }
     },
     {
       "id": "quest-causal-regulatory-locus@1",
@@ -768,7 +992,56 @@
       "sourceIds": [
         "crisproff@cell-2021",
         "encode-data-standards@2026-08"
-      ]
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "cell-context=frozen",
+          "clinical-validity-claim=false",
+          "intervention-target=locus-and-effector-frozen",
+          "off-target-assessment=claim-appropriate",
+          "orthogonal-readouts>=2-nonshared-failure-modes",
+          "rescue-or-reversal-route=independently-justified",
+          "safety-lane=attested-before-intervention",
+          "useful-descendant-or-prospective-test>=1"
+        ],
+        "scopeHash": "f7be1374d10d847a6dc6ff4b51754d892e79d9cdca92eae91bc42cf6077f7559",
+        "milestones": [
+          {
+            "id": "causal-challenge-and-rescue",
+            "evidenceLevel": "E4",
+            "acceptanceTest": "A targeted perturbation, at least two orthogonal readouts, and an independently justified rescue or reversal survive frozen off-target and toxicity alternatives."
+          },
+          {
+            "id": "independent-reproduction",
+            "evidenceLevel": "E3",
+            "acceptanceTest": "Three effective clusters across at least two organisation, data, and analysis-pipeline roots reproduce the frozen locus claim."
+          },
+          {
+            "id": "prospective-or-descendant-use",
+            "evidenceLevel": "E5",
+            "acceptanceTest": "A predeclared new-context prediction or an independently rooted descendant uses, narrows, repairs, or disproves the same causal edge."
+          },
+          {
+            "id": "scope-and-prior-art-freeze",
+            "evidenceLevel": "E0",
+            "acceptanceTest": "Locus, effector, cell context, endpoints, counter-hypotheses, safety lane, and prior-art delta are frozen before intervention results."
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumDataRoots": 2,
+        "minimumAnalysisPipelineRoots": 2,
+        "requiredReceiptTypes": [
+          "causal-challenge",
+          "independent-reproduction",
+          "prior-art-delta",
+          "prospective-or-descendant-impact",
+          "safety-lane"
+        ],
+        "nullFailureContradictionRule": "preserve-and-report-no-scope-mutation-no-automatic-reward",
+        "safetyApprovalSubstitutionAllowed": false
+      }
     },
     {
       "id": "quest-cell-fate-memory@1",
@@ -797,7 +1070,57 @@
       "sourceIds": [
         "crisproff@cell-2021",
         "scnmt-seq@nature-communications-2018"
-      ]
+      ],
+      "acceptance": {
+        "targetEvidence": "E5",
+        "scopeBounds": [
+          "cell-context-and-lineage-definition=frozen",
+          "clinical-validity-claim=false",
+          "erasure-rescue-or-reversal=frozen",
+          "genomic-alteration-excluded-or-disclosed=true",
+          "lineage-aware-observation-required=true",
+          "memory-time-horizon=frozen",
+          "selection-composition-and-toxicity-challenged=true",
+          "useful-descendant-or-prospective-context>=1",
+          "write-and-read-definition=frozen"
+        ],
+        "scopeHash": "ef2bc00a7932849b1bcf422489031f0e5f41d7955a785c207d88301338b9aee2",
+        "milestones": [
+          {
+            "id": "independent-reproduction",
+            "evidenceLevel": "E3",
+            "acceptanceTest": "Three effective clusters across at least two organisation, data, and analysis-pipeline roots reproduce the frozen memory definition and time horizon."
+          },
+          {
+            "id": "persistence-alternative-challenge",
+            "evidenceLevel": "E4",
+            "acceptanceTest": "Lineage-aware write, read, erasure, rescue, or reversal evidence survives frozen selection, composition, toxicity, clonal-expansion, and genomic-alteration alternatives."
+          },
+          {
+            "id": "prospective-or-descendant-use",
+            "evidenceLevel": "E5",
+            "acceptanceTest": "A predeclared new cell context or independently rooted descendant uses, narrows, repairs, or disproves the same bounded memory mechanism."
+          },
+          {
+            "id": "scope-and-prior-art-freeze",
+            "evidenceLevel": "E0",
+            "acceptanceTest": "Memory, write, read, time horizon, cell context, lineage, reversibility, safety lane, and prior-art delta are frozen before results."
+          }
+        ],
+        "minimumEffectiveClusters": 3,
+        "minimumOrganizationRoots": 2,
+        "minimumDataRoots": 2,
+        "minimumAnalysisPipelineRoots": 2,
+        "requiredReceiptTypes": [
+          "causal-challenge",
+          "independent-reproduction",
+          "prior-art-delta",
+          "prospective-or-descendant-impact",
+          "safety-lane"
+        ],
+        "nullFailureContradictionRule": "preserve-and-report-no-scope-mutation-no-automatic-reward",
+        "safetyApprovalSubstitutionAllowed": false
+      }
     },
     {
       "id": "validation-independent-replication@1",
@@ -824,7 +1147,8 @@
       ],
       "sourceIds": [
         "4dn-data-model@2026-08",
-        "encode-data-standards@2026-08"
+        "encode-data-standards@2026-08",
+        "nih-preclinical-rigor@2026-08"
       ]
     },
     {
@@ -877,7 +1201,9 @@
         "Counting attention, citations, or token transfers as scientific impact by themselves."
       ],
       "sourceIds": [
-        "4dn-data-model@2026-08"
+        "4dn-data-model@2026-08",
+        "nih-rigor-prior-research@2026-08",
+        "wipo-pct-novelty@2026"
       ]
     }
   ]

@@ -39,6 +39,10 @@ const karmaRaw = readFileSync(
   new URL("../public/standards/karma-foundation.v1.json", import.meta.url),
   "utf8",
 );
+const lifeGardenSource = readFileSync(
+  new URL("../src/life-garden.ts", import.meta.url),
+  "utf8",
+);
 const gardenDocument = JSON.parse(gardenRaw) as MutableDocument;
 const karmaDocument = JSON.parse(karmaRaw) as MutableDocument;
 
@@ -81,7 +85,7 @@ function jsonResponse(body: string, init: ResponseInit = {}): Response {
 }
 
 describe("epigenetics capability garden", () => {
-  it("parses the reviewed 25-node, 56-edge, seven-stage garden", () => {
+  it("parses the reviewed 25-node, 58-edge, seven-stage garden", () => {
     const garden = parseEpigeneticsCapabilityGardenJson(gardenRaw);
     assert.equal(garden.schema, "zerone.epigenetics-capability-garden/v1");
     assert.equal(garden.nodes.length, 25);
@@ -90,7 +94,7 @@ describe("epigenetics capability garden", () => {
         (total, capability) => total + capability.prerequisites.length,
         0,
       ),
-      56,
+      58,
     );
     assert.deepEqual(
       [...new Set(garden.nodes.map((capability) => capability.stage))].sort(
@@ -105,7 +109,13 @@ describe("epigenetics capability garden", () => {
     );
     assert.equal(garden.rewardBearing, false);
     assert.equal(garden.policy.funding.protocolIssuance, "disabled");
-    assert.equal(garden.sources.length, 11);
+    assert.equal(garden.sources.length, 19);
+    assert.equal(garden.policy.breakthroughRecognition.minimumEvidenceLevel, "E5");
+    assert.equal(garden.policy.funding.dashboardCanActivateCase, false);
+    assert.equal(
+      garden.policy.humanData.controlledAccessRequiredWhereConsentPolicyOrLawRequires,
+      true,
+    );
     assert.equal(
       node(garden as unknown as MutableDocument, "analysis-causal-graphs@1")
         .evidenceContribution,
@@ -254,6 +264,92 @@ describe("epigenetics capability garden", () => {
         "integrity-provenance-metadata@1",
       ],
     );
+  });
+
+  it("pins four explicit threshold prerequisite rules and rejects semantic drift", () => {
+    const parsed = parseEpigeneticsCapabilityGardenJson(gardenRaw);
+    assert.deepEqual(
+      parsed.prerequisiteSemantics.grouped.map((rule) => [
+        rule.nodeId,
+        rule.allOf.length,
+        rule.atLeast.count,
+        rule.atLeast.of.length,
+      ]),
+      [
+        ["analysis-batch-confounding@1", 1, 1, 3],
+        ["analysis-multi-omic-integration@1", 1, 2, 3],
+        ["assay-single-cell-multiome@1", 1, 2, 3],
+        ["intervention-epigenome-editing@1", 1, 1, 2],
+      ],
+    );
+
+    for (const count of [0, -1, 1.5, 3]) {
+      const invalid = copyGarden();
+      invalid.prerequisiteSemantics.grouped[1].atLeast.count = count;
+      assert.throws(
+        () => parseEpigeneticsCapabilityGarden(invalid),
+        /safe integer|positive count smaller/,
+      );
+    }
+
+    const overlap = copyGarden();
+    overlap.prerequisiteSemantics.grouped[0].allOf = ["assay-atac-cuttag@1"];
+    assert.throws(
+      () => parseEpigeneticsCapabilityGarden(overlap),
+      /disjoint/,
+    );
+
+    const incompletePartition = copyGarden();
+    node(incompletePartition, "analysis-batch-confounding@1").prerequisites.pop();
+    assert.throws(
+      () => parseEpigeneticsCapabilityGarden(incompletePartition),
+      /partition/,
+    );
+
+    const questOverride = copyGarden();
+    questOverride.prerequisiteSemantics.grouped[3].nodeId =
+      "quest-causal-regulatory-locus@1";
+    assert.throws(
+      () => parseEpigeneticsCapabilityGarden(questOverride),
+      /quest prerequisites cannot use alternatives/,
+    );
+  });
+
+  it("requires bounded E0/E3/E4/E5 acceptance on every inactive quest", () => {
+    const garden = parseEpigeneticsCapabilityGardenJson(gardenRaw);
+    for (const quest of garden.nodes.filter((capability) => capability.kind === "quest")) {
+      assert.ok(quest.acceptance);
+      assert.equal(quest.acceptance.targetEvidence, "E5");
+      assert.deepEqual(
+        [...new Set(quest.acceptance.milestones.map((milestone) => milestone.evidenceLevel))]
+          .filter((level) => ["E0", "E3", "E4", "E5"].includes(level))
+          .sort(),
+        ["E0", "E3", "E4", "E5"],
+      );
+      assert.equal(quest.acceptance.safetyApprovalSubstitutionAllowed, false);
+    }
+
+    const downgraded = copyGarden();
+    node(downgraded, "quest-ageing-clock-transportability@1").acceptance.targetEvidence =
+      "E4";
+    assert.throws(
+      () => parseEpigeneticsCapabilityGarden(downgraded),
+      /targetEvidence/,
+    );
+
+    const missingFundingGate = copyGarden();
+    missingFundingGate.policy.funding.expiryRefundPolicyRequired = false;
+    assert.throws(
+      () => parseEpigeneticsCapabilityGarden(missingFundingGate),
+      /expiryRefundPolicyRequired/,
+    );
+  });
+
+  it("exposes threshold semantics and the horizontal map to keyboard users", () => {
+    assert.match(lifeGardenSource, /"All required"/);
+    assert.match(lifeGardenSource, /`At least \$\{grouped\.atLeast\.count\} of/);
+    assert.match(lifeGardenSource, /map\.setAttribute\("role", "region"\)/);
+    assert.match(lifeGardenSource, /map\.tabIndex = 0/);
   });
 
   it("pins exact milestone splits and formats basis points", () => {
@@ -410,7 +506,7 @@ describe("life-garden static-standard integrity", () => {
         depth: garden.maximumDepth,
         fanOut: garden.maximumFanOut,
       },
-      { nodes: 25, edges: 56, depth: 9, fanOut: 7 },
+      { nodes: 25, edges: 58, depth: 10, fanOut: 7 },
     );
     assert.equal(karma.closedGateCount, 8);
   });

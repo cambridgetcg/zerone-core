@@ -6,7 +6,7 @@ export const KARMA_FOUNDATION_ENDPOINT =
   "/standards/karma-foundation.v1.json";
 export const STATIC_STANDARD_MAX_BYTES = 262_144;
 export const EPIGENETICS_GARDEN_SHA256 =
-  "7603d89966b979ffb8798b81916dac03f6e584483be5615deba526972dd82da8";
+  "7d04efe9da46309bf97b850c9b80324b1a5c4035edb1008b9ba3ad0df2bcfa63";
 export const KARMA_FOUNDATION_SHA256 =
   "b46710704869dcc340ded356be72b4ec692f204710fedfb5cd43eb3757dc7b80";
 
@@ -95,7 +95,7 @@ export interface LifeGardenEvidenceStep {
 interface LifeGardenPolicy {
   breakthroughRecognition: {
     authorSelected: false;
-    minimumEvidenceLevel: "E4";
+    minimumEvidenceLevel: "E5";
     requiresPriorArtDelta: true;
     requiresIndependentReproduction: true;
     requiresProspectiveOrDescendantImpact: true;
@@ -109,6 +109,15 @@ interface LifeGardenPolicy {
     templateStatus: "simulation-only";
     timeAloneUnlocksEvidence: false;
     challengeReserveBps: 1500;
+    sponsorCaseSchema: "zerone.breakthrough-sponsor-case/v1-required";
+    dashboardCanActivateCase: false;
+    frozenClaimAndArtifactDigestsRequired: true;
+    milestoneAcceptanceTestsRequired: true;
+    nullFailureContradictionTreatmentRequired: true;
+    reviewerConflictPolicyRequired: true;
+    correctionRecoveryPolicyRequired: true;
+    expiryRefundPolicyRequired: true;
+    escrowFundingReceiptRequired: true;
   };
   independence: {
     minimumEffectiveClusters: 3;
@@ -122,7 +131,9 @@ interface LifeGardenPolicy {
   humanData: {
     rawIdentifiableDataOnPublicLedger: false;
     consentOrDataUseScopeRequired: true;
-    controlledAccessAttestationRequired: true;
+    accessLaneAttestationRequired: true;
+    controlledAccessRequiredWhereConsentPolicyOrLawRequires: true;
+    unrestrictedAccessRequiresConsentPolicyAndLawAllow: true;
     institutionalCertificationRequiredWhereApplicable: true;
     publicArtifactsUseMetadataAndDigestsOnly: true;
   };
@@ -143,8 +154,44 @@ export interface LifeGardenSource {
   title: string;
   url: string;
   kind: "official-guidance" | "official-policy" | "primary-research";
+  supportScope: string;
   checkedAt: string;
   reviewAfter: string;
+}
+
+export interface LifeGardenGroupedPrerequisite {
+  nodeId: string;
+  allOf: string[];
+  atLeast: {
+    count: number;
+    of: string[];
+  };
+}
+
+export interface LifeGardenPrerequisiteSemantics {
+  default: "all-listed-required";
+  grouped: LifeGardenGroupedPrerequisite[];
+}
+
+export interface LifeGardenQuestMilestone {
+  id: string;
+  evidenceLevel: LifeGardenEvidence;
+  acceptanceTest: string;
+}
+
+export interface LifeGardenQuestAcceptance {
+  targetEvidence: "E5";
+  scopeBounds: string[];
+  scopeHash: string;
+  milestones: LifeGardenQuestMilestone[];
+  minimumEffectiveClusters: 3;
+  minimumOrganizationRoots: 2;
+  minimumDataRoots: 2;
+  minimumAnalysisPipelineRoots: 2;
+  requiredReceiptTypes: string[];
+  nullFailureContradictionRule:
+    | "preserve-and-report-no-scope-mutation-no-automatic-reward";
+  safetyApprovalSubstitutionAllowed: false;
 }
 
 export interface LifeGardenNode {
@@ -161,6 +208,7 @@ export interface LifeGardenNode {
   artifactRequirements: string[];
   failureModes: string[];
   sourceIds: string[];
+  acceptance: LifeGardenQuestAcceptance | null;
 }
 
 export interface EpigeneticsCapabilityGarden {
@@ -173,6 +221,7 @@ export interface EpigeneticsCapabilityGarden {
   releaseBoundary: LifeGardenReleaseBoundary;
   evidenceLadder: LifeGardenEvidenceStep[];
   policy: LifeGardenPolicy;
+  prerequisiteSemantics: LifeGardenPrerequisiteSemantics;
   sources: LifeGardenSource[];
   roots: string[];
   nodes: LifeGardenNode[];
@@ -292,6 +341,7 @@ const GARDEN_TOP_LEVEL_KEYS = [
   "releaseBoundary",
   "evidenceLadder",
   "policy",
+  "prerequisiteSemantics",
   "sources",
   "roots",
   "nodes",
@@ -393,6 +443,11 @@ function asString(
     fail(path, `expected a non-empty string of at most ${maximum} characters`);
   }
   return value;
+}
+
+function asSafeInteger(value: unknown, path: string): number {
+  if (!Number.isSafeInteger(value)) fail(path, "expected a safe integer");
+  return value as number;
 }
 
 function asEnum<T extends readonly string[]>(
@@ -528,6 +583,15 @@ function parsePolicy(value: unknown, path: string): LifeGardenPolicy {
       "templateStatus",
       "timeAloneUnlocksEvidence",
       "challengeReserveBps",
+      "sponsorCaseSchema",
+      "dashboardCanActivateCase",
+      "frozenClaimAndArtifactDigestsRequired",
+      "milestoneAcceptanceTestsRequired",
+      "nullFailureContradictionTreatmentRequired",
+      "reviewerConflictPolicyRequired",
+      "correctionRecoveryPolicyRequired",
+      "expiryRefundPolicyRequired",
+      "escrowFundingReceiptRequired",
     ],
     `${path}.funding`,
   );
@@ -551,7 +615,9 @@ function parsePolicy(value: unknown, path: string): LifeGardenPolicy {
     [
       "rawIdentifiableDataOnPublicLedger",
       "consentOrDataUseScopeRequired",
-      "controlledAccessAttestationRequired",
+      "accessLaneAttestationRequired",
+      "controlledAccessRequiredWhereConsentPolicyOrLawRequires",
+      "unrestrictedAccessRequiresConsentPolicyAndLawAllow",
       "institutionalCertificationRequiredWhereApplicable",
       "publicArtifactsUseMetadataAndDigestsOnly",
     ],
@@ -580,7 +646,7 @@ function parsePolicy(value: unknown, path: string): LifeGardenPolicy {
       ),
       minimumEvidenceLevel: requireLiteral(
         breakthrough.minimumEvidenceLevel,
-        "E4",
+        "E5",
         `${path}.breakthroughRecognition.minimumEvidenceLevel`,
       ),
       requiresPriorArtDelta: requireTrue(
@@ -633,6 +699,43 @@ function parsePolicy(value: unknown, path: string): LifeGardenPolicy {
         1500,
         `${path}.funding.challengeReserveBps`,
       ),
+      sponsorCaseSchema: requireLiteral(
+        funding.sponsorCaseSchema,
+        "zerone.breakthrough-sponsor-case/v1-required",
+        `${path}.funding.sponsorCaseSchema`,
+      ),
+      dashboardCanActivateCase: requireFalse(
+        funding.dashboardCanActivateCase,
+        `${path}.funding.dashboardCanActivateCase`,
+      ),
+      frozenClaimAndArtifactDigestsRequired: requireTrue(
+        funding.frozenClaimAndArtifactDigestsRequired,
+        `${path}.funding.frozenClaimAndArtifactDigestsRequired`,
+      ),
+      milestoneAcceptanceTestsRequired: requireTrue(
+        funding.milestoneAcceptanceTestsRequired,
+        `${path}.funding.milestoneAcceptanceTestsRequired`,
+      ),
+      nullFailureContradictionTreatmentRequired: requireTrue(
+        funding.nullFailureContradictionTreatmentRequired,
+        `${path}.funding.nullFailureContradictionTreatmentRequired`,
+      ),
+      reviewerConflictPolicyRequired: requireTrue(
+        funding.reviewerConflictPolicyRequired,
+        `${path}.funding.reviewerConflictPolicyRequired`,
+      ),
+      correctionRecoveryPolicyRequired: requireTrue(
+        funding.correctionRecoveryPolicyRequired,
+        `${path}.funding.correctionRecoveryPolicyRequired`,
+      ),
+      expiryRefundPolicyRequired: requireTrue(
+        funding.expiryRefundPolicyRequired,
+        `${path}.funding.expiryRefundPolicyRequired`,
+      ),
+      escrowFundingReceiptRequired: requireTrue(
+        funding.escrowFundingReceiptRequired,
+        `${path}.funding.escrowFundingReceiptRequired`,
+      ),
     },
     independence: {
       minimumEffectiveClusters: requireLiteral(
@@ -677,9 +780,17 @@ function parsePolicy(value: unknown, path: string): LifeGardenPolicy {
         humanData.consentOrDataUseScopeRequired,
         `${path}.humanData.consentOrDataUseScopeRequired`,
       ),
-      controlledAccessAttestationRequired: requireTrue(
-        humanData.controlledAccessAttestationRequired,
-        `${path}.humanData.controlledAccessAttestationRequired`,
+      accessLaneAttestationRequired: requireTrue(
+        humanData.accessLaneAttestationRequired,
+        `${path}.humanData.accessLaneAttestationRequired`,
+      ),
+      controlledAccessRequiredWhereConsentPolicyOrLawRequires: requireTrue(
+        humanData.controlledAccessRequiredWhereConsentPolicyOrLawRequires,
+        `${path}.humanData.controlledAccessRequiredWhereConsentPolicyOrLawRequires`,
+      ),
+      unrestrictedAccessRequiresConsentPolicyAndLawAllow: requireTrue(
+        humanData.unrestrictedAccessRequiresConsentPolicyAndLawAllow,
+        `${path}.humanData.unrestrictedAccessRequiresConsentPolicyAndLawAllow`,
       ),
       institutionalCertificationRequiredWhereApplicable: requireTrue(
         humanData.institutionalCertificationRequiredWhereApplicable,
@@ -728,7 +839,16 @@ function parseSource(value: unknown, path: string): LifeGardenSource {
   const source = asObject(value, path);
   exactKeys(
     source,
-    ["id", "authority", "title", "url", "kind", "checkedAt", "reviewAfter"],
+    [
+      "id",
+      "authority",
+      "title",
+      "url",
+      "kind",
+      "supportScope",
+      "checkedAt",
+      "reviewAfter",
+    ],
     path,
   );
   const id = asString(source.id, `${path}.id`, 128);
@@ -746,13 +866,204 @@ function parseSource(value: unknown, path: string): LifeGardenSource {
       ["official-guidance", "official-policy", "primary-research"] as const,
       `${path}.kind`,
     ),
+    supportScope: asString(source.supportScope, `${path}.supportScope`, 1_024),
     checkedAt,
     reviewAfter,
   };
 }
 
+function parseQuestMilestone(
+  value: unknown,
+  path: string,
+): LifeGardenQuestMilestone {
+  const source = asObject(value, path);
+  exactKeys(source, ["id", "evidenceLevel", "acceptanceTest"], path);
+  const id = asString(source.id, `${path}.id`, 96);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+    fail(`${path}.id`, "invalid milestone identifier");
+  }
+  return {
+    id,
+    evidenceLevel: asEnum(
+      source.evidenceLevel,
+      LIFE_GARDEN_EVIDENCE_LEVELS,
+      `${path}.evidenceLevel`,
+    ),
+    acceptanceTest: asString(
+      source.acceptanceTest,
+      `${path}.acceptanceTest`,
+      1_024,
+    ),
+  };
+}
+
+const REQUIRED_QUEST_RECEIPTS = [
+  "causal-challenge",
+  "independent-reproduction",
+  "prior-art-delta",
+  "prospective-or-descendant-impact",
+  "safety-lane",
+] as const;
+
+function parseQuestAcceptance(
+  value: unknown,
+  path: string,
+): LifeGardenQuestAcceptance {
+  const source = asObject(value, path);
+  exactKeys(
+    source,
+    [
+      "targetEvidence",
+      "scopeBounds",
+      "scopeHash",
+      "milestones",
+      "minimumEffectiveClusters",
+      "minimumOrganizationRoots",
+      "minimumDataRoots",
+      "minimumAnalysisPipelineRoots",
+      "requiredReceiptTypes",
+      "nullFailureContradictionRule",
+      "safetyApprovalSubstitutionAllowed",
+    ],
+    path,
+  );
+  const scopeBounds = asStringArray(source.scopeBounds, `${path}.scopeBounds`, 24);
+  if (scopeBounds.length < 5) fail(`${path}.scopeBounds`, "requires at least five bounds");
+  requireSorted(scopeBounds, `${path}.scopeBounds`);
+  const scopeHash = asString(source.scopeHash, `${path}.scopeHash`, 64);
+  if (!/^[a-f0-9]{64}$/.test(scopeHash)) {
+    fail(`${path}.scopeHash`, "expected a lowercase SHA-256 digest");
+  }
+  const milestones = asArray(source.milestones, `${path}.milestones`, 12).map(
+    (milestone, index) =>
+      parseQuestMilestone(milestone, `${path}.milestones[${index}]`),
+  );
+  if (milestones.length < 4) fail(`${path}.milestones`, "requires at least four");
+  requireSorted(
+    milestones.map((milestone) => milestone.id),
+    `${path}.milestones`,
+  );
+  if (new Set(milestones.map((milestone) => milestone.id)).size !== milestones.length) {
+    fail(`${path}.milestones`, "contains duplicate identifiers");
+  }
+  for (const requiredLevel of ["E0", "E3", "E4", "E5"] as const) {
+    if (!milestones.some((milestone) => milestone.evidenceLevel === requiredLevel)) {
+      fail(`${path}.milestones`, `requires a ${requiredLevel} acceptance test`);
+    }
+  }
+  const requiredReceiptTypes = asStringArray(
+    source.requiredReceiptTypes,
+    `${path}.requiredReceiptTypes`,
+    8,
+  );
+  requireSorted(requiredReceiptTypes, `${path}.requiredReceiptTypes`);
+  if (
+    requiredReceiptTypes.length !== REQUIRED_QUEST_RECEIPTS.length ||
+    requiredReceiptTypes.some(
+      (receipt, index) => receipt !== REQUIRED_QUEST_RECEIPTS[index],
+    )
+  ) {
+    fail(`${path}.requiredReceiptTypes`, "does not match the closed v1 receipt set");
+  }
+  return {
+    targetEvidence: requireLiteral(
+      source.targetEvidence,
+      "E5",
+      `${path}.targetEvidence`,
+    ),
+    scopeBounds,
+    scopeHash,
+    milestones,
+    minimumEffectiveClusters: requireLiteral(
+      source.minimumEffectiveClusters,
+      3,
+      `${path}.minimumEffectiveClusters`,
+    ),
+    minimumOrganizationRoots: requireLiteral(
+      source.minimumOrganizationRoots,
+      2,
+      `${path}.minimumOrganizationRoots`,
+    ),
+    minimumDataRoots: requireLiteral(
+      source.minimumDataRoots,
+      2,
+      `${path}.minimumDataRoots`,
+    ),
+    minimumAnalysisPipelineRoots: requireLiteral(
+      source.minimumAnalysisPipelineRoots,
+      2,
+      `${path}.minimumAnalysisPipelineRoots`,
+    ),
+    requiredReceiptTypes,
+    nullFailureContradictionRule: requireLiteral(
+      source.nullFailureContradictionRule,
+      "preserve-and-report-no-scope-mutation-no-automatic-reward",
+      `${path}.nullFailureContradictionRule`,
+    ),
+    safetyApprovalSubstitutionAllowed: requireFalse(
+      source.safetyApprovalSubstitutionAllowed,
+      `${path}.safetyApprovalSubstitutionAllowed`,
+    ),
+  };
+}
+
+function parsePrerequisiteSemantics(
+  value: unknown,
+  path: string,
+): LifeGardenPrerequisiteSemantics {
+  const source = asObject(value, path);
+  exactKeys(source, ["default", "grouped"], path);
+  const grouped = asArray(source.grouped, `${path}.grouped`, 12).map(
+    (entry, index): LifeGardenGroupedPrerequisite => {
+      const entryPath = `${path}.grouped[${index}]`;
+      const group = asObject(entry, entryPath);
+      exactKeys(group, ["nodeId", "allOf", "atLeast"], entryPath);
+      const nodeId = asString(group.nodeId, `${entryPath}.nodeId`, 128);
+      if (!NODE_ID_PATTERN.test(nodeId)) {
+        fail(`${entryPath}.nodeId`, "invalid versioned node identifier");
+      }
+      const allOf = asStringArray(group.allOf, `${entryPath}.allOf`, 16);
+      requireSorted(allOf, `${entryPath}.allOf`);
+      const atLeastSource = asObject(group.atLeast, `${entryPath}.atLeast`);
+      exactKeys(atLeastSource, ["count", "of"], `${entryPath}.atLeast`);
+      const of = asStringArray(atLeastSource.of, `${entryPath}.atLeast.of`, 16);
+      requireSorted(of, `${entryPath}.atLeast.of`);
+      const count = asSafeInteger(
+        atLeastSource.count,
+        `${entryPath}.atLeast.count`,
+      );
+      if (of.length < 2 || count < 1 || count >= of.length) {
+        fail(
+          `${entryPath}.atLeast`,
+          "requires a positive count smaller than a choice set of at least two",
+        );
+      }
+      if (allOf.some((id) => of.includes(id))) {
+        fail(entryPath, "allOf and atLeast.of must be disjoint");
+      }
+      return { nodeId, allOf, atLeast: { count, of } };
+    },
+  );
+  requireSorted(
+    grouped.map((group) => group.nodeId),
+    `${path}.grouped`,
+  );
+  if (new Set(grouped.map((group) => group.nodeId)).size !== grouped.length) {
+    fail(`${path}.grouped`, "contains duplicate node rules");
+  }
+  return {
+    default: requireLiteral(
+      source.default,
+      "all-listed-required",
+      `${path}.default`,
+    ),
+    grouped,
+  };
+}
+
 function parseNode(value: unknown, path: string): LifeGardenNode {
   const source = asObject(value, path);
+  const kind = asEnum(source.kind, LIFE_GARDEN_KINDS, `${path}.kind`);
   exactKeys(
     source,
     [
@@ -769,6 +1080,7 @@ function parseNode(value: unknown, path: string): LifeGardenNode {
       "artifactRequirements",
       "failureModes",
       "sourceIds",
+      ...(kind === "quest" ? ["acceptance"] : []),
     ],
     path,
   );
@@ -794,7 +1106,7 @@ function parseNode(value: unknown, path: string): LifeGardenNode {
     title: asString(source.title, `${path}.title`, 256),
     stage: asEnum(source.stage, LIFE_GARDEN_STAGES, `${path}.stage`),
     domain: asEnum(source.domain, LIFE_GARDEN_DOMAINS, `${path}.domain`),
-    kind: asEnum(source.kind, LIFE_GARDEN_KINDS, `${path}.kind`),
+    kind,
     summary: asString(source.summary, `${path}.summary`),
     prerequisites,
     evidenceContribution: asEnum(
@@ -815,6 +1127,10 @@ function parseNode(value: unknown, path: string): LifeGardenNode {
     artifactRequirements,
     failureModes,
     sourceIds,
+    acceptance:
+      kind === "quest"
+        ? parseQuestAcceptance(source.acceptance, `${path}.acceptance`)
+        : null,
   };
 }
 
@@ -822,6 +1138,7 @@ function validateGardenGraph(
   nodes: LifeGardenNode[],
   roots: string[],
   sourceIds: Set<string>,
+  prerequisiteSemantics: LifeGardenPrerequisiteSemantics,
 ): void {
   const byId = new Map<string, LifeGardenNode>();
   for (const node of nodes) {
@@ -856,11 +1173,42 @@ function validateGardenGraph(
       fail(`$.nodes[${index}].rewardEligibility`, "sponsor templates are quest-only");
     }
     if (node.kind === "quest") {
-      if (node.stage !== "quest" || node.evidenceContribution !== "E5") {
+      if (
+        node.stage !== "quest" ||
+        node.evidenceContribution !== "E5" ||
+        node.acceptance === null
+      ) {
         fail(`$.nodes[${index}]`, "quests must be quest-stage E5 targets");
       }
     } else if (node.stage === "quest") {
       fail(`$.nodes[${index}].kind`, "quest-stage nodes must have quest kind");
+    }
+  }
+  for (const [index, rule] of prerequisiteSemantics.grouped.entries()) {
+    const node = byId.get(rule.nodeId);
+    if (!node) {
+      fail(
+        `$.prerequisiteSemantics.grouped[${index}].nodeId`,
+        `missing node ${rule.nodeId}`,
+      );
+    }
+    if (node.kind === "quest") {
+      fail(
+        `$.prerequisiteSemantics.grouped[${index}].nodeId`,
+        "quest prerequisites cannot use alternatives in v1",
+      );
+    }
+    const union = [...rule.allOf, ...rule.atLeast.of].sort((left, right) =>
+      left.localeCompare(right, "en"),
+    );
+    if (
+      union.length !== node.prerequisites.length ||
+      union.some((id, prerequisiteIndex) => id !== node.prerequisites[prerequisiteIndex])
+    ) {
+      fail(
+        `$.prerequisiteSemantics.grouped[${index}]`,
+        "must partition the node's listed prerequisite edges exactly",
+      );
     }
   }
   const graphRoots = nodes
@@ -931,6 +1279,10 @@ export function parseEpigeneticsCapabilityGarden(
   );
   if (evidenceLadder.length !== 7) fail("$.evidenceLadder", "requires E0 through E6");
   const policy = parsePolicy(garden.policy, "$.policy");
+  const prerequisiteSemantics = parsePrerequisiteSemantics(
+    garden.prerequisiteSemantics,
+    "$.prerequisiteSemantics",
+  );
   const rewardTotal =
     evidenceLadder.reduce((total, step) => total + step.rewardBps, 0) +
     policy.funding.challengeReserveBps;
@@ -955,7 +1307,12 @@ export function parseEpigeneticsCapabilityGarden(
     nodes.map((node) => node.id),
     "$.nodes",
   );
-  validateGardenGraph(nodes, roots, new Set(sourceIds));
+  validateGardenGraph(
+    nodes,
+    roots,
+    new Set(sourceIds),
+    prerequisiteSemantics,
+  );
 
   return {
     schema: "zerone.epigenetics-capability-garden/v1",
@@ -976,6 +1333,7 @@ export function parseEpigeneticsCapabilityGarden(
     },
     evidenceLadder,
     policy,
+    prerequisiteSemantics,
     sources,
     roots,
     nodes,
@@ -1624,11 +1982,15 @@ function renderRewardTemplate(garden: EpigeneticsCapabilityGarden): HTMLElement 
 
   const breakthrough = element("div", "life-breakthrough-rule");
   breakthrough.append(
-    element("strong", undefined, "Breakthrough is derived at E4+"),
+    element(
+      "strong",
+      undefined,
+      "E4 causal candidacy; E5 required for breakthrough recognition",
+    ),
     element(
       "p",
       undefined,
-      "Prior-art delta + effective independent reproduction + serious causal challenge + prospective or descendant impact. Authors, sponsors, popularity, novelty alone, time served, and token holdings cannot select it.",
+      "Prior-art delta + effective independent reproduction + serious causal challenge + prospective generalisation or material descendant impact. Authors, sponsors, popularity, novelty alone, time served, and token holdings cannot select it.",
     ),
   );
   panel.append(breakthrough);
@@ -1668,6 +2030,7 @@ function renderLifeNode(
   node: LifeGardenNode,
   byId: ReadonlyMap<string, LifeGardenNode>,
   sourcesById: ReadonlyMap<string, LifeGardenSource>,
+  groupedPrerequisites: ReadonlyMap<string, LifeGardenGroupedPrerequisite>,
 ): HTMLDetailsElement {
   const card = element("details", "life-node");
   card.dataset.safety = node.safetyTier;
@@ -1694,16 +2057,41 @@ function renderLifeNode(
   body.append(truth);
 
   const prerequisiteBlock = element("div", "life-node-block");
-  prerequisiteBlock.append(element("h4", undefined, "Prerequisites"));
+  prerequisiteBlock.append(element("h4", undefined, "Prerequisite rule"));
   if (node.prerequisites.length === 0) {
     prerequisiteBlock.append(element("p", undefined, "Root capability"));
   } else {
-    appendTextList(
-      prerequisiteBlock,
-      node.prerequisites.map(
-        (id) => byId.get(id)?.title ?? id,
-      ),
-    );
+    const grouped = groupedPrerequisites.get(node.id);
+    if (grouped) {
+      if (grouped.allOf.length > 0) {
+        prerequisiteBlock.append(
+          element("p", "life-prerequisite-label", "All required"),
+        );
+        appendTextList(
+          prerequisiteBlock,
+          grouped.allOf.map((id) => byId.get(id)?.title ?? id),
+        );
+      }
+      prerequisiteBlock.append(
+        element(
+          "p",
+          "life-prerequisite-label",
+          `At least ${grouped.atLeast.count} of ${grouped.atLeast.of.length}`,
+        ),
+      );
+      appendTextList(
+        prerequisiteBlock,
+        grouped.atLeast.of.map((id) => byId.get(id)?.title ?? id),
+      );
+    } else {
+      prerequisiteBlock.append(
+        element("p", "life-prerequisite-label", "All listed are required"),
+      );
+      appendTextList(
+        prerequisiteBlock,
+        node.prerequisites.map((id) => byId.get(id)?.title ?? id),
+      );
+    }
   }
   body.append(prerequisiteBlock);
 
@@ -1712,13 +2100,40 @@ function renderLifeNode(
   appendTextList(evidenceBlock, node.artifactRequirements);
   body.append(evidenceBlock);
 
+  if (node.acceptance !== null) {
+    const acceptanceBlock = element("div", "life-node-block life-acceptance");
+    acceptanceBlock.append(
+      element("h4", undefined, "Inactive quest acceptance · E5 target"),
+      element(
+        "p",
+        undefined,
+        "These reviewed tests bound the static quest only. A separately funded case must still freeze its claim and artifact digests, conflicts, correction, expiry, refund, and escrow receipt; this dashboard cannot activate one.",
+      ),
+    );
+    appendTextList(
+      acceptanceBlock,
+      node.acceptance.milestones.map(
+        (milestone) =>
+          `${milestone.evidenceLevel} · ${labelFor(milestone.id)} — ${milestone.acceptanceTest}`,
+      ),
+    );
+    acceptanceBlock.append(
+      element(
+        "code",
+        "life-scope-hash",
+        `scope sha256 ${node.acceptance.scopeHash}`,
+      ),
+    );
+    body.append(acceptanceBlock);
+  }
+
   const failureBlock = element("div", "life-node-block is-failure");
   failureBlock.append(element("h4", undefined, "Failure modes"));
   appendTextList(failureBlock, node.failureModes);
   body.append(failureBlock);
 
   const sourceBlock = element("div", "life-node-block");
-  sourceBlock.append(element("h4", undefined, "Primary and official anchors"));
+  sourceBlock.append(element("h4", undefined, "Related references"));
   const sourceList = element("ul", "life-source-list");
   for (const sourceId of node.sourceIds) {
     const source = sourcesById.get(sourceId);
@@ -1728,7 +2143,7 @@ function renderLifeNode(
     link.href = source.url;
     link.target = "_blank";
     link.rel = "noreferrer";
-    item.append(link);
+    item.append(link, element("p", "life-source-scope", source.supportScope));
     sourceList.append(item);
   }
   sourceBlock.append(sourceList);
@@ -1781,7 +2196,7 @@ function renderGardenExplorer(
     element(
       "p",
       undefined,
-      "No raw identifiable data enters this standard or a public ledger. Consent or data-use scope, controlled-access attestation, institutional certification, human-participant review, biosafety risk assessment, animal-welfare review, and regulatory evidence remain external requirements where applicable—not claims this page can grant.",
+      "No raw identifiable data enters this standard or a public ledger. Every human-data case must attest its lawful access lane; controlled or unrestricted access then follows consent, policy, and jurisdiction. Institutional certification, human-participant review, biosafety risk assessment, animal-welfare review, and regulatory evidence remain separate external requirements where applicable—not claims this page can grant.",
     ),
   );
   explorer.append(safety);
@@ -1821,14 +2236,19 @@ function renderGardenExplorer(
   explorer.append(results);
 
   const map = element("div", "life-stage-map");
+  map.setAttribute("role", "region");
   map.setAttribute(
     "aria-label",
-    "Epigenetics capabilities grouped by growth stage",
+    "Epigenetics capabilities grouped by growth stage. Scroll horizontally to inspect all seven stages.",
   );
+  map.tabIndex = 0;
   explorer.append(map);
 
   const byId = new Map(garden.nodes.map((node) => [node.id, node]));
   const sourcesById = new Map(garden.sources.map((source) => [source.id, source]));
+  const groupedPrerequisites = new Map(
+    garden.prerequisiteSemantics.grouped.map((rule) => [rule.nodeId, rule]),
+  );
   const render = (): void => {
     const filters: LifeGardenFilters = {
       query: search.value,
@@ -1854,7 +2274,14 @@ function renderGardenExplorer(
       } else {
         const list = element("div", "life-stage-nodes");
         for (const node of stageNodes) {
-          list.append(renderLifeNode(node, byId, sourcesById));
+          list.append(
+            renderLifeNode(
+              node,
+              byId,
+              sourcesById,
+              groupedPrerequisites,
+            ),
+          );
         }
         column.append(list);
       }

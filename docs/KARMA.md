@@ -98,6 +98,14 @@ separation, exit and remedy, audited code, and a separately ratified release. A
 founder promise, multisig still controlled by the founder, or panel selected by
 the operator is not independence.
 
+Current `main` source separately defines a coordinated H1 target that retires
+the vesting-rewards founder auto-split and transaction-presence minting. Source
+publication is not network activation: existing state changes only through the
+agreed same-height validator upgrade and its independent post-upgrade evidence.
+The [economic-neutrality target](tokenomics/ECONOMIC-NEUTRALITY.md) therefore
+does not make this design-only foundation network-observed or structurally
+enforced; both fields remain honestly `false` here.
+
 ## 5. Let money store value without pricing beings
 
 Money can coordinate resources without becoming the measure of a person. A safe
@@ -132,6 +140,13 @@ money exists:
 - recipient and breakthrough recognition derived from evidence, not selected by
   origin; and
 - publicly auditable proof that a transfer actually succeeded.
+
+The garden now makes that boundary machine-checkable: each quest has a reviewed
+E0/E3/E4/E5 acceptance scope and hash, while its funding policy requires a
+separate case schema with frozen claim and artifact digests, objective milestone
+tests, null/failure/contradiction treatment, reviewer conflicts, correction and
+recovery, expiry and refund, and an escrow-funding receipt. Until that separate
+case exists, the dashboard cannot activate or fund a quest.
 
 Attention, wealth, token ownership, time served, citation count, address count,
 or KARMA edges never multiply human worth or governing authority.

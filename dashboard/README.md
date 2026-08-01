@@ -61,7 +61,7 @@ implemented and cannot be activated from the dashboard or this static file.
 
 The life-science explorer reads two separate, versioned static documents:
 
-- `/standards/epigenetics-capability-garden.v1.json` — 25 capabilities, 56
+- `/standards/epigenetics-capability-garden.v1.json` — 25 capabilities, 58
   prerequisite edges, seven growth stages, and three bounded breakthrough
   quests; and
 - `/standards/karma-foundation.v1.json` — contextual K-alpha recognition kinds,
@@ -153,10 +153,19 @@ for the threat model, privacy boundary, acceptance gates, and rollback order.
 The Cloudflare Pages project is `zerone-ai`. From this directory:
 
 ```bash
-wrangler pages deploy dist --project-name zerone-ai --branch main
+release_sha=$(git rev-parse HEAD)
+test -z "$(git status --porcelain --untracked-files=all)"
+./node_modules/.bin/wrangler pages deploy dist \
+  --project-name zerone-ai \
+  --branch main \
+  --commit-hash "$release_sha" \
+  --commit-dirty=false
 ```
 
-Run `npm run build` first. A non-`main` branch creates a no-index preview.
+Run `npm ci`, `npm audit`, and `npm run build` first, then repeat the clean-tree
+check. Deploy only the exact merged and CI-verified commit from a clean detached
+worktree. `--commit-dirty=false` records metadata; the explicit Git check is what
+refuses local drift. A non-`main` branch creates a no-index preview.
 
 ## Security boundaries
 
@@ -185,7 +194,7 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
   rendered only through DOM text nodes. Both documents use exact same-origin
   paths, redirect refusal, no-store, bounded streaming with a deadline, strict
   UTF-8, credential-free HTTPS source links, exact schemas, and reviewed digest
-  pins. Raw identifiable genomic and controlled-access evidence is prohibited.
+  pins. Raw identifiable genomic and access-restricted evidence is prohibited.
 - Pi callback tokens are erased from the URL before parsing and are posted once
   to a same-origin edge route. Bearers and raw Pi account subjects are never
   persisted.

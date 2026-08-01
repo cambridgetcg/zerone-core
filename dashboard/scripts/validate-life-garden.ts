@@ -13,6 +13,53 @@ import {
   type KarmaFoundation,
 } from "../src/life-garden";
 
+const EXPECTED_GROUPED_PREREQUISITES = [
+  {
+    nodeId: "analysis-batch-confounding@1",
+    allOf: ["integrity-statistics-reproducibility@1"],
+    atLeast: {
+      count: 1,
+      of: [
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1",
+        "assay-rna-seq@1",
+      ],
+    },
+  },
+  {
+    nodeId: "analysis-multi-omic-integration@1",
+    allOf: ["analysis-batch-confounding@1"],
+    atLeast: {
+      count: 2,
+      of: [
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1",
+        "assay-rna-seq@1",
+      ],
+    },
+  },
+  {
+    nodeId: "assay-single-cell-multiome@1",
+    allOf: ["foundation-cell-identity@1"],
+    atLeast: {
+      count: 2,
+      of: [
+        "assay-atac-cuttag@1",
+        "assay-bisulfite-methylation@1",
+        "assay-rna-seq@1",
+      ],
+    },
+  },
+  {
+    nodeId: "intervention-epigenome-editing@1",
+    allOf: ["analysis-causal-graphs@1"],
+    atLeast: {
+      count: 1,
+      of: ["assay-atac-cuttag@1", "assay-bisulfite-methylation@1"],
+    },
+  },
+] as const;
+
 function fail(label: string, message: string): never {
   throw new LifeGardenDataError(`${label}: ${message}`);
 }
@@ -158,6 +205,23 @@ export function validateGardenRaw(raw: string): GardenValidationSummary {
   }
   const garden: EpigeneticsCapabilityGarden =
     parseEpigeneticsCapabilityGardenJson(raw);
+  if (
+    JSON.stringify(garden.prerequisiteSemantics.grouped) !==
+    JSON.stringify(EXPECTED_GROUPED_PREREQUISITES)
+  ) {
+    fail("epigenetics garden", "reviewed v1 grouped-prerequisite shape changed");
+  }
+  for (const quest of garden.nodes.filter((node) => node.kind === "quest")) {
+    if (quest.acceptance === null) {
+      fail("epigenetics garden", `${quest.id} lacks bounded acceptance`);
+    }
+    const scopeHash = createHash("sha256")
+      .update(quest.acceptance.scopeBounds.join("\n"))
+      .digest("hex");
+    if (scopeHash !== quest.acceptance.scopeHash) {
+      fail("epigenetics garden", `${quest.id} scope hash is not canonical`);
+    }
+  }
   const byId = new Map(garden.nodes.map((node) => [node.id, node]));
   const depthMemo = new Map<string, number>();
   const depth = (id: string): number => {
@@ -191,13 +255,13 @@ export function validateGardenRaw(raw: string): GardenValidationSummary {
   };
   if (
     summary.nodeCount !== 25 ||
-    summary.edgeCount !== 56 ||
+    summary.edgeCount !== 58 ||
     summary.questCount !== 3
   ) {
     fail("epigenetics garden", "reviewed v1 graph shape changed");
   }
-  if (summary.maximumDepth > 9) {
-    fail("epigenetics garden", "graph depth exceeds the reviewed limit of 9");
+  if (summary.maximumDepth > 10) {
+    fail("epigenetics garden", "graph depth exceeds the reviewed limit of 10");
   }
   if (summary.maximumFanOut > 12) {
     fail("epigenetics garden", "graph fan-out exceeds the reviewed limit of 12");

@@ -7,7 +7,7 @@ Canonical public document:
 `dashboard/public/standards/epigenetics-capability-garden.v1.json`
 
 Reviewed SHA-256:
-`7603d89966b979ffb8798b81916dac03f6e584483be5615deba526972dd82da8`
+`7d04efe9da46309bf97b850c9b80324b1a5c4035edb1008b9ba3ad0df2bcfa63`
 
 ## 1. Release boundary
 
@@ -47,7 +47,7 @@ linear climb. Experimental life science is less tidy:
 - branches should produce new questions and independent descendants, not a
   permanent status attached to a person.
 
-The v1 garden therefore has two roots, seven growth stages, 25 capabilities, 56
+The v1 garden therefore has two roots, seven growth stages, 25 capabilities, 58
 prerequisite edges, and three bounded quests. Nodes describe evidence work, not
 human worth.
 
@@ -64,15 +64,22 @@ human worth.
 | `quest` | Bounded breakthrough candidates that require the preceding roots and remain template-only. |
 
 The graph is acyclic, reaches every node from the two declared roots, has maximum
-depth nine and maximum direct fan-out seven, and refuses prerequisites that point
+depth ten and maximum direct fan-out seven, and refuses prerequisites that point
 backward across stages.
 
-Each listed prerequisite is a minimum conceptual dependency and all entries in a
-node's list are required. Generic replication and orthogonal-challenge nodes do
-not hard-code multi-omics or spatial assays: the claim-specific protocol must
-instead name the appropriate modalities. Orthogonal challenge requires at least
-two assays with demonstrably nonshared physical principles and failure modes. A
-future schema can express richer `allOf` and `atLeast` branch logic explicitly.
+`prerequisites` is the sorted union of structural graph edges. The default rule
+requires every listed edge. Four reviewed nodes instead carry an exact
+`prerequisiteSemantics` overlay: all entries in `allOf` plus the declared
+`atLeast.count` members of `atLeast.of`. This makes “any one” a threshold of one
+and prevents broad capabilities from silently requiring one assay stack. The
+parser requires each overlay to partition the flat edge list exactly and forbids
+alternative quest gates.
+
+V1 uses threshold rules only for batch/confounding, multi-omic integration,
+single-cell multi-omic measurement, and target-layer epigenome editing. Generic
+replication and orthogonal challenge remain claim-specific rather than hard-coded
+to a modality. Orthogonal challenge requires at least two assays with
+demonstrably nonshared physical principles and failure modes.
 
 ## 4. Evidence ladder
 
@@ -108,17 +115,25 @@ is disabled. Ordinary nodes are `capability-evidence-only`: they describe work
 artifacts and grant no qualification. The three quest nodes are marked
 `sponsor-template-only`, which still grants no reward.
 
+Every quest also freezes a digest-bounded E0/E3/E4/E5 acceptance template. That
+still cannot create a funded case. Before any future sponsor money can exist, a
+separate `zerone.breakthrough-sponsor-case/v1` must bind the claim and artifact
+digests, objective milestone tests, null/failure/contradiction treatment,
+reviewer conflicts, correction and recovery, expiry and refund, and proof that
+escrow was funded. The dashboard is structurally unable to activate such a case.
+
 ## 5. Derived breakthrough rule
 
 An author, sponsor, operator, token holder, majority, citation count, model score,
-or dashboard cannot select a breakthrough. A candidate emerges only when all of
+or dashboard cannot select a breakthrough. E4 can establish a causally challenged
+candidate, but breakthrough recognition requires E5. It emerges only when all of
 these coexist:
 
-1. at least E4 evidence;
+1. at least E4 causally challenged evidence;
 2. a frozen, inspectable prior-art delta;
 3. effective independent reproduction;
 4. a serious causal or counter-hypothesis challenge; and
-5. prospective generalisation or material independent descendant impact.
+5. a preserved E5 receipt for that prospective or descendant result.
 
 Novelty alone is insufficient. Powered preregistered null results remain
 direction-neutral evidence and may earn separately scoped replication or
@@ -153,31 +168,45 @@ analysis step, model, figure, and bounded claim distinct. This follows the shape
 of the 4DN data model and prevents a repository page, latent embedding, or result
 table from standing in for lineage.
 
-Primary and official anchors in v1 include:
+Related primary and official references in v1 include:
 
 - [ENCODE data standards](https://www.encodeproject.org/data-standards/)
 - [4DN data model](https://data.4dnucleome.org/help/user-guide/data-model)
 - [scNMT-seq](https://doi.org/10.1038/s41467-018-03149-4)
 - [CRISPRoff](https://doi.org/10.1016/j.cell.2021.03.025)
+- [Two-step epigenetic Mendelian randomization](https://doi.org/10.1093/ije/dyr233)
+- [NIH preclinical rigor guidance](https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/principles-guidelines-reporting-preclinical-research)
+- [NIH rigor-of-prior-research guidance](https://grants.nih.gov/policy-and-compliance/policy-topics/reproducibility/guidance)
+- [WIPO PCT novelty guidance](https://www.wipo.int/en/web/pct-system/texts/ispe/12_01_02)
+- [DunedinPACE](https://doi.org/10.7554/eLife.73420)
+- [Epigenetic-clock reliability analysis](https://doi.org/10.1038/s43587-022-00248-2)
+- [Epigenetic-clock demographic and tissue context](https://doi.org/10.1186/s13059-016-1030-0)
+- [scPair bimodal single-cell analysis](https://doi.org/10.1038/s41467-024-53971-2)
 - [HHS Common Rule](https://www.hhs.gov/ohrp/regulations-and-policy/regulations/common-rule/index.html)
 - [NIH biosafety and biosecurity policy](https://osp.od.nih.gov/policies/biosafety-and-biosecurity-policy/)
 - [OLAW PHS animal-welfare policy](https://olaw.nih.gov/node/74)
 - [WHO Laboratory Biosafety Manual](https://www.who.int/publications/i/item/9789240011311)
 
-These anchors constrain examples and evidence shape. The garden does not convert
-them into universal standards or claim that an experiment reproduced either
-paper.
+Each JSON source states a narrow `supportScope`. References constrain examples
+and evidence shape; they do not become universal standards, certify the node as
+complete, or imply that an experiment reproduced a cited paper. The WIPO novelty
+comparison is borrowed only as an element-by-element prior-art discipline and
+makes no legal conclusion about patentability, priority, inventorship, or
+ownership.
 
 ## 8. Human genomic data and safety
 
 Raw identifiable human data never belongs in the public garden, an artifact
 receipt, or chain state. Public evidence is limited to non-identifying metadata,
-digests, permitted-use scope, controlled-access attestations, aggregate claims,
-and links whose publication is independently permitted.
+digests, permitted-use scope, access-lane attestations, aggregate claims, and
+links whose publication is independently permitted.
 
-For human genomic material, consent or permitted data-use scope and
-controlled-access handling are mandatory. Institutional certification and
-ethical or regulatory review remain required where applicable. The policy is
+For human genomic material, consent or permitted data-use scope and an explicit
+access-lane attestation are mandatory. Controlled access is required when
+consent, policy, or law requires it; unrestricted access is possible only when
+consent, policy, and the applicable legal basis permit it. Institutional
+certification and ethical or regulatory review remain required where applicable.
+The policy is
 informed by the [NIH Genomic Data Sharing Policy](https://sharing.nih.gov/genomic-data-sharing-policy/about-genomic-data-sharing),
 [controlled-access best practices](https://sharing.nih.gov/sites/default/files/flmngr/NIH_Best_Practices_for_Controlled-Access_Data_Subject_to_the_NIH_GDS_Policy.pdf),
 and [institutional certification guidance](https://sharing.nih.gov/genomic-data-sharing-policy/institutional-certifications/about-institutional-certifications).
@@ -229,8 +258,9 @@ npm test
 
 The validator is offline. It checks exact keys, enums, dates, HTTPS source URLs,
 sorted and unique identifiers, graph resolution, reachability, cycles, stage
-direction, quest-only templates, hard safety and economics literals, graph
-bounds, duplicate JSON keys, reviewed shape, and exact SHA-256 pins.
+direction, exact threshold partitions, non-alternative quest gates, bounded
+quest acceptance and canonical scope hashes, hard safety and economics literals,
+graph bounds, duplicate JSON keys, reviewed shape, and exact SHA-256 pins.
 
 The browser independently fetches both static standards with a same-origin
 versioned path, no-store caching, same-origin credentials, redirect refusal,

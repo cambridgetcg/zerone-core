@@ -4012,6 +4012,11 @@
     scrollbar-color: var(--violet) rgba(255, 255, 255, 0.04);
   }
 
+  .life-stage-map:focus-visible {
+    outline: 2px solid var(--acid);
+    outline-offset: 4px;
+  }
+
   .life-stage {
     min-width: 0;
     border: 1px solid var(--line);
@@ -4032,7 +4037,7 @@
   .life-stage-head small {
     color: var(--muted);
     font-family: var(--mono);
-    font-size: 0.57rem;
+    font-size: 0.65rem;
   }
 
   .life-stage-head h3 {
@@ -4096,7 +4101,7 @@
   .life-node-meta {
     color: var(--muted);
     font-family: var(--mono);
-    font-size: 0.55rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
   }
 
@@ -4116,7 +4121,7 @@
   .life-text-list,
   .life-source-list {
     color: var(--muted-strong);
-    font-size: 0.65rem;
+    font-size: 0.68rem;
     line-height: 1.55;
   }
 
@@ -4132,7 +4137,7 @@
     padding: 0.22rem 0.42rem;
     color: var(--acid);
     font-family: var(--mono);
-    font-size: 0.52rem;
+    font-size: 0.64rem;
     text-transform: uppercase;
   }
 
@@ -4145,11 +4150,15 @@
     border-top-color: rgba(255, 197, 111, 0.25);
   }
 
+  .life-node-block.life-acceptance {
+    border-top-color: rgba(220, 255, 120, 0.28);
+  }
+
   .life-node-block h4 {
     margin-bottom: 0.35rem;
     color: var(--ink);
     font-family: var(--mono);
-    font-size: 0.56rem;
+    font-size: 0.65rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
@@ -4164,6 +4173,30 @@
 
   .life-text-list li::marker {
     color: var(--violet-soft);
+  }
+
+  .life-prerequisite-label {
+    margin: 0.45rem 0 0.2rem;
+    color: var(--acid) !important;
+    font-family: var(--mono);
+    font-size: 0.64rem !important;
+    text-transform: uppercase;
+  }
+
+  .life-source-scope {
+    margin-top: 0.2rem;
+    color: var(--muted) !important;
+    font-size: 0.64rem !important;
+    line-height: 1.45 !important;
+  }
+
+  .life-scope-hash {
+    display: block;
+    margin-top: 0.55rem;
+    overflow-wrap: anywhere;
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.62rem;
   }
 
   .life-garden-footer {
