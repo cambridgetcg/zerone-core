@@ -205,8 +205,8 @@ func TestUpgrade_MigrationMarkerIdempotent(t *testing.T) {
 	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(h.Ctx, "test_marker", "alpha"))
 	require.Equal(t, "alpha", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "test_marker"))
 
-	// Different value — preserves original, does not error (warns via log).
-	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(h.Ctx, "test_marker", "beta"))
+	// Different value — preserves original and fails closed.
+	require.Error(t, h.KnowledgeKeeper.WriteMigrationMarker(h.Ctx, "test_marker", "beta"))
 	require.Equal(t, "alpha", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "test_marker"),
 		"first writer wins: conflicting value does not overwrite")
 }

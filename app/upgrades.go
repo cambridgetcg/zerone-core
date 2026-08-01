@@ -27,6 +27,8 @@ const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
 const UpgradeNameFounderRenunciationV1 = "founder-renunciation-v1"
 
+const founderRenunciationMigrationMarker = "upgrade_marker_founder-renunciation-v1"
+
 // runMigrationsForPlan prevents vesting_rewards v1→v2 from silently riding an
 // older or unrelated named upgrade. An exact earlier release binary may run
 // its historical plan; this combined source binary refuses that plan while the
@@ -79,6 +81,21 @@ func (app *ZeroneApp) validateFounderRenunciationPrestate(fromVM module.VersionM
 			"upgrade %q requires a release binary targeting vesting_rewards version 2; binary targets %d",
 			UpgradeNameFounderRenunciationV1,
 			got,
+		)
+	}
+
+	extraNames := make([]string, 0)
+	for name := range fromVM {
+		if _, ok := target[name]; !ok {
+			extraNames = append(extraNames, name)
+		}
+	}
+	if len(extraNames) > 0 {
+		sort.Strings(extraNames)
+		return fmt.Errorf(
+			"upgrade %q refuses unknown module version entries: %v",
+			UpgradeNameFounderRenunciationV1,
+			extraNames,
 		)
 	}
 	if got, ok := fromVM[vestingrewardstypes.ModuleName]; !ok || got != 1 {
@@ -462,13 +479,33 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
+			marker, markerFound, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+				ctx,
+				founderRenunciationMigrationMarker,
+			)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"upgrade %q cannot verify migration marker absence: %w",
+					plan.Name,
+					err,
+				)
+			}
+			if markerFound {
+				return nil, fmt.Errorf(
+					"upgrade %q requires migration marker %q to be absent before execution; found %q",
+					plan.Name,
+					founderRenunciationMigrationMarker,
+					marker,
+				)
+			}
+
 			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
 
 			app.ReconcileModuleAccountPerms(ctx)
-			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_founder-renunciation-v1", "migrated"); err != nil {
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, founderRenunciationMigrationMarker, "migrated"); err != nil {
 				return nil, err
 			}
 			return toVM, nil
