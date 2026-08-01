@@ -50,8 +50,12 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 		{name: "IBC wildcard client", path: "app_state.ibc.client_genesis.params.allowed_clients", value: []any{"*"}, issuePath: "allowed_clients"},
 		{name: "IBC missing localhost", path: "app_state.ibc.client_genesis.params.allowed_clients", value: []any{}, issuePath: "allowed_clients"},
 		{name: "IBC external client", path: "app_state.ibc.client_genesis.params.allowed_clients", value: []any{"09-localhost", "07-tendermint"}, issuePath: "allowed_clients"},
+		{name: "transfer port", path: "app_state.transfer.port_id", value: "custom", issuePath: "transfer.port_id"},
 		{name: "transfer send", path: "app_state.transfer.params.send_enabled", value: true, issuePath: "send_enabled"},
 		{name: "transfer denom state", path: "app_state.transfer.denoms", value: []any{map[string]any{"base": "ibc/UNEXPECTED"}}, issuePath: "transfer.denoms"},
+		{name: "legacy transfer denom traces", path: "app_state.transfer.denom_traces", value: []any{}, issuePath: "transfer.denom_traces"},
+		{name: "unknown transfer field", path: "app_state.transfer.unexpected", value: []any{}, issuePath: "transfer.unexpected"},
+		{name: "unknown transfer params field", path: "app_state.transfer.params.unexpected", value: false, issuePath: "transfer.params.unexpected"},
 		{name: "ICA controller", path: "app_state.interchainaccounts.controller_genesis_state.params.controller_enabled", value: true, issuePath: "controller_enabled"},
 		{name: "bridge adapter", path: "app_state.substrate_bridge.adapters", value: []any{map[string]any{"adapter_id": "unexpected"}}, issuePath: "substrate_bridge.adapters"},
 		{name: "bridge settlement ratio", path: "app_state.substrate_bridge.params.min_verified_ratio_for_settle_bps", value: 1000, issuePath: "min_verified_ratio_for_settle_bps"},
@@ -495,7 +499,7 @@ func validGenesisFixture(t *testing.T) map[string]any {
 				},
 			},
 			"transfer": map[string]any{
-				"denoms": []any{}, "total_escrowed": []any{},
+				"port_id": "transfer", "denoms": []any{}, "total_escrowed": []any{},
 				"params": map[string]any{"send_enabled": false, "receive_enabled": false},
 			},
 			"interchainaccounts": map[string]any{

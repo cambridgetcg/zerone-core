@@ -1131,6 +1131,24 @@ func (a *auditor) auditProtocolDark() {
 	// ICS-20 transfer and both ICA roles remain explicitly disabled.
 	a.requireStringArray("app_state.ibc.client_genesis.params.allowed_clients", []string{"09-localhost"})
 	a.requireBool("app_state.ibc.client_genesis.create_localhost", false)
+	transfer, _ := a.get("app_state.transfer")
+	transferObject := a.requireExactObjectKeys(
+		"app_state.transfer",
+		transfer,
+		"port_id",
+		"denoms",
+		"params",
+		"total_escrowed",
+	)
+	if transferObject != nil {
+		a.requireExactObjectKeys(
+			"app_state.transfer.params",
+			transferObject["params"],
+			"send_enabled",
+			"receive_enabled",
+		)
+	}
+	a.requireString("app_state.transfer.port_id", "transfer")
 	for _, path := range []string{
 		"app_state.ibc.client_genesis.clients",
 		"app_state.ibc.client_genesis.clients_consensus",
