@@ -13,6 +13,10 @@
     "documentSha256": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
     "policySha256": "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7"
   },
+  "constitutionBinding": {
+    "schema": "zerone.money-karma.constitution/v1",
+    "documentSha256": "sha256:f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24"
+  },
   "releaseBoundary": {
     "addsConsensusBehavior": false,
     "activatesRewards": false,
@@ -23,16 +27,60 @@
     "performsNetworkRequests": false,
     "publishesConfidentialEvidence": false
   },
+  "performanceDecision": {
+    "mode": "MEASUREMENT_COMPLETENESS_ONLY",
+    "mayEmitPerformancePass": false,
+    "measurementPrecisionAloneEstablishesPerformance": false,
+    "missingProspectiveRuleDisposition": "INCONCLUSIVE_NO_PASS",
+    "fundedCaseRequiredBindings": [
+      "baseline-comparator-digest",
+      "baseline-comparator-independent-review-receipt",
+      "comparison-direction",
+      "confidence-bound-decision-rule",
+      "effect-size-or-equivalence-margin",
+      "estimand-null-direction",
+      "latency-deadline-and-quantile",
+      "multi-metric-tradeoff-or-pareto-rule",
+      "multiple-comparison-policy",
+      "negative-result-routing",
+      "resource-match"
+    ]
+  },
   "karma": {
     "status": "OBSERVATIONAL",
-    "register": "artifact-relation",
+    "eventType": "zerone.karma.edge",
+    "eventRegister": "priced-coherence",
+    "meaning": "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH",
+    "zeroneMintsOrCreates": false,
+    "assignable": false,
+    "operatorAssignable": false,
+    "founderAssignable": false,
+    "observationsFallible": true,
+    "observationsChallengeable": true,
+    "recordingClaimsRelationOwnership": false,
+    "rawEventsEstablishCandidateStatus": false,
+    "rawEventCountEstablishesCandidateStatus": false,
+    "rawEventCountAffectsSelectionProbability": false,
     "transferable": false,
     "scalarRank": false,
     "truthOracle": false,
     "payoutWeight": false,
     "voteWeight": false,
     "founderReservedPower": false,
-    "futureUse": "capped-randomized-eligibility-only",
+    "futureUse": "domain-scoped-controller-capped-randomized-candidate-filter-only",
+    "futureCandidateFilterRequirements": {
+      "runtimeEnforced": false,
+      "sameControllerEdgesExcluded": true,
+      "selfEdgesExcluded": true,
+      "reciprocalEdgesExcluded": true,
+      "correlatedFunderEdgesExcluded": true,
+      "controllerMergesOnlyReduceUnits": true,
+      "maximumLotteryUnitsPerController": 1,
+      "candidateSetFrozenBeforeRandomness": true,
+      "unbiasedRandomnessRequired": true,
+      "operatorOverrideAllowed": false,
+      "countProportionalProbabilityAllowed": false
+    },
     "activationRequires": [
       "appeal-and-reversible-pilot",
       "controller-clustering-and-pair-caps",
@@ -90,7 +138,8 @@
     "founderShareBps": 0,
     "founderReservedSeats": 0,
     "karmaWeightBps": 0,
-    "rewardCreatesGovernancePower": false,
+    "rewardDirectlyGrantsGovernanceAuthority": false,
+    "rewardDenomIsBondableUnderCurrentProtocol": true,
     "skillUnlockCreatesReward": false,
     "timeAloneUnlocksEvidence": false,
     "milestones": [
@@ -146,6 +195,23 @@
       "falsificationAndChallenge": 700,
       "safetyAndMaintenance": 300
     }
+  },
+  "rewardAccounting": {
+    "accountingBoundary": {
+      "milestoneAndAttributionAxesAreAdditive": false,
+      "crossAxisAllocationRule": "UNDEFINED_BLOCKS_FUNDING",
+      "roundingRule": null,
+      "escrowCompartmentsBound": false,
+      "singleSettlementImplemented": false,
+      "verifiedCostCapAmount": null,
+      "reviewerBudgetCapAmount": null,
+      "futureReviewerBudgetMustBeOutcomeIndependent": true,
+      "roleCollapseRule": null,
+      "deterministicRefundRule": null,
+      "reviewAttributionPaysAdjudicator": false,
+      "unusedChallengeReserveRoute": null
+    },
+    "nodeEligibilitySemantics": "DISPLAY_ROUTING_ONLY_NO_PRESENT_QUALIFICATION_OR_ENTITLEMENT"
   },
   "standards": [
     {
@@ -457,7 +523,7 @@
           "confidence=logical-failure-two-sided-99-percent-relative-half-width-lte-0.30",
           "d10-and-d12-circuit-ensemble-size=24",
           "event-floor=100-logical-failures-per-logical-error-cell",
-          "latency=precommitted-quantile-and-deadline-at-99-percent-confidence-zero-misses-eligible",
+          "latency=precommitted-quantile-and-deadline-at-99-percent-confidence-zero-misses-may-satisfy-measurement-completeness-no-performance-pass",
           "minimum-cases=coverage-target-specific-per-cell",
           "noise-model=uniform-depolarizing-circuit-level",
           "physical-error-grid=0.001,0.002,0.003,0.004,0.005,0.006",
@@ -467,7 +533,7 @@
           "stopping-rule=event-and-confidence-gates-before-compute-cap",
           "tuning-access-and-resource-budget=frozen-before-case-opens"
         ],
-        "scopeHash": "750cb52831f333b6be906c0fd3105d679992ef4e553d28653a9f5ad25adad355",
+        "scopeHash": "6397a1b7d3a0979e24676fa91bd9642c019a1f266a9ddec045a0842cf35cbf41",
         "fixtures": [
           {
             "id": "bb-72-12-6",
@@ -514,10 +580,20 @@
         "rareEventAlternative": {
           "appliesTo": "logical-error-cells-only",
           "condition": "separately-reviewed-unbiased-estimator-only",
+          "replacesDirectGates": [
+            "minimum-cases-per-cell",
+            "minimum-logical-failures-per-cell"
+          ],
+          "preservesAllOtherCoverageAndCaseBindings": true,
+          "confidenceLevelBps": 9900,
+          "confidenceProcedure": "two-sided-estimator-specific-interval",
+          "maximumRelativeHalfWidthBps": 3000,
           "methodDigestRequired": true,
-          "reviewReceiptDigestRequired": true,
+          "independentReviewReceiptDigestRequired": true,
           "unbiasedEstimatorRequired": true,
-          "varianceAndCoverageValidationRequired": true
+          "varianceMethodDigestRequired": true,
+          "coverageValidationDigestRequired": true,
+          "mayEmitPerformancePass": false
         },
         "coverageTargets": [
           {
@@ -566,7 +642,7 @@
             "latencyEstimand": "precommitted-quantile-and-deadline",
             "confidenceLevelBps": 9900,
             "confidenceProcedure": "two-sided-quantile-interval-or-one-sided-deadline-miss-upper-bound",
-            "zeroDeadlineMissesMayBeConclusive": true,
+            "zeroDeadlineMissesMaySatisfyMeasurementCompleteness": true,
             "requiresCheckerOrCorpusDigest": true,
             "requiresCircuitAndArtifactDigests": true,
             "requiresConfidenceProcedureDigest": true

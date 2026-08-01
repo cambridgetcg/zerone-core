@@ -3,12 +3,14 @@
   "version": 1,
   "status": {
     "artifact": "SOURCE_CONSTITUTION",
-    "runtime_deployed": false,
+    "consensus_runtime_deployed": false,
     "network_activated": false,
     "claims_present_no_control": false
   },
   "separations": {
-    "money_grants_voice": false,
+    "money_directly_grants_voice": false,
+    "economic_to_governance_decoupling_enforced": false,
+    "funded_reward_activation_requires_decoupling": true,
     "karma_is_money": false,
     "recognition_grants_authority": false
   },
@@ -21,7 +23,7 @@
     "ordinary_parameter_governance_may_change": false,
     "future_coordinated_code_change_technically_possible": true,
     "compatibility_fields_only": true,
-    "migration_release": "consolidation-safety-v1",
+    "migration_release": "founder-renunciation-v1",
     "exact_prestate_required": true,
     "ordinary_named_upgrade_hitchhiking_allowed": false
   },
@@ -29,7 +31,15 @@
     "stage": "K_ALPHA",
     "representation": "EVENT_ONLY",
     "event_type": "zerone.karma.edge",
-    "meaning": "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH",
+    "event_register": "priced-coherence",
+    "meaning": "artifact-relation",
+    "zerone_mints_or_creates": false,
+    "assignable": false,
+    "operator_assignable": false,
+    "founder_assignable": false,
+    "observations_fallible": true,
+    "observations_challengeable": true,
+    "recording_claims_relation_ownership": false,
     "transferable": false,
     "delegable": false,
     "saleable": false,
@@ -44,13 +54,40 @@
     "payout": false,
     "governance_consumer": false,
     "numeric_magnitude": false,
-    "dedicated_state_store": false
+    "dedicated_state_store": false,
+    "raw_events_qualify": false,
+    "raw_event_counts_qualify": false,
+    "future_randomized_eligibility": {
+      "runtime_enforced": false,
+      "same_controller_edges_excluded": true,
+      "self_edges_excluded": true,
+      "reciprocal_edges_excluded": true,
+      "correlated_funder_edges_excluded": true,
+      "controller_merges_only_reduce_units": true,
+      "maximum_lottery_units_per_controller": 1,
+      "candidate_set_frozen_before_randomness": true,
+      "unbiased_randomness_required": true,
+      "operator_override_allowed": false,
+      "count_proportional_probability_allowed": false
+    }
+  },
+  "future_independence_activation": {
+    "status": "REQUIRED_NOT_ENFORCED",
+    "runtime_enforced": false,
+    "founder_associated_recusal_required": true,
+    "control_derived_grants_prohibited": true,
+    "economic_to_governance_decoupling_required": true
   },
   "research_governance": {
+    "scope": "OUT_OF_SCOPE_UNCHANGED",
     "spending_policy": "NORMATIVE_FAIL_CLOSED_UNTIL_GENUINELY_INDEPENDENT",
     "runtime_independence_predicate_enforced": false,
     "current_authority_managed_spending_path_exists": true,
+    "current_identity_bound": true,
     "artifact_authorizes_spending": false,
+    "artifact_disables_spending": false,
+    "artifact_refuses_disbursement": false,
+    "artifact_changes_governance": false,
     "current_karma_consumer": false,
     "future_boundary": {
       "controller_collapsed": true,
@@ -66,9 +103,14 @@
   },
   "operational_caveat": {
     "as_of": "2026-08-01",
+    "bonded_fungible_wealth_affects_current_vote_weight": true,
     "sole_founding_household_controls_validator": true,
     "sole_founding_household_controls_operator": true,
     "sole_founding_household_controls_effective_vote": true,
+    "validator_economics_remain": true,
+    "bootstrap_registrar_discretion_remains": true,
+    "default_disabled_governance_issuance_remains": true,
+    "identity_bound_research_spending_remains": true,
     "present_no_control_achieved": false,
     "independent_governance_proven": false
   },
@@ -76,6 +118,12 @@
     "h1_activates_karma": false,
     "h1_activates_life_sciences_overlay": false,
     "h1_activates_constructive_rewards": false,
+    "h2_activates_karma": false,
+    "h2_activates_life_sciences_overlay": false,
+    "h2_activates_constructive_rewards": false,
+    "h3_activates_karma": false,
+    "h3_activates_life_sciences_overlay": false,
+    "h3_activates_constructive_rewards": false,
     "skill_tree_position_activates_issuance": false,
     "breakthrough_label_activates_issuance": false
   },

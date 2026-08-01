@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import {
   EXPECTED_COMPACT_SHA256,
   EXPECTED_DOGFOOD_RECEIPT_SHA256,
+  MONEY_KARMA_SOURCE_BOUNDARY,
   FrontierCompactValidationError,
   parseAndValidateFrontierBundle,
   parseAndValidateFrontierCompact,
@@ -197,6 +198,23 @@ describe("frontier evaluation receipt shadow FL-0", () => {
     reboundReference.externalReferences.find(({ id }) => id === "nist-ai-rmf").uri =
       "https://www.nist.gov/";
     assertInvalid(() => validateFrontierCompact(reboundReference), "$");
+  });
+
+  it("scopes the money boundary to this profile and discloses current bonded-stake influence", () => {
+    const moneyBinding = canonicalCompact.sourceBindings.find(
+      ({ id }) => id === "money-karma-v1",
+    );
+    assert.equal(moneyBinding.boundary, MONEY_KARMA_SOURCE_BOUNDARY);
+
+    const globalNoVoiceClaim = compactCopy();
+    globalNoVoiceClaim.sourceBindings.find(
+      ({ id }) => id === "money-karma-v1",
+    ).boundary =
+      "Money does not grant voice, KARMA is not money, and recognition does not grant authority.";
+    assertInvalid(
+      () => validateFrontierCompact(globalNoVoiceClaim),
+      "$.sourceBindings[4].boundary",
+    );
   });
 
   it("names bounded duty holders and treats actor value as untested hypotheses", () => {

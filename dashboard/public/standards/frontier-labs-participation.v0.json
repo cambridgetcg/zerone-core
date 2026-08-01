@@ -15,12 +15,12 @@
     "sourceBindings": {
       "fc0": {
         "path": "dashboard/public/standards/frontier-commons-participation.v0.json",
-        "sha256": "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea",
+        "sha256": "df241d485143ce60f5f971d25afc1d1e1c1a3430334bdb0f0f9d30addbb2cb25",
         "relationship": "SOLE_INVITATION_SOURCE_OF_RECORD"
       },
       "fl0": {
         "path": "dashboard/public/standards/frontier-evaluation-receipt-profile.v0.json",
-        "sha256": "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6",
+        "sha256": "6a19e889b6cb744f8ee1cf9e46f54f4d8ebbaa53130ee3b872516d2a749b18ee",
         "relationship": "CURRENT_SUBORDINATE_RECEIPT_PROFILE"
       }
     },

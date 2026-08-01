@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
@@ -6,10 +7,13 @@ import {
   LIFE_SCIENCES_EVIDENCE_FIXTURE_SCHEMA,
   LIFE_SCIENCES_MAX_BYTES,
   LIFE_SCIENCES_SCHEMA,
+  MONEY_KARMA_CONSTITUTION_SCHEMA,
+  MONEY_KARMA_CONSTITUTION_SHA256,
   LifeSciencesValidationError,
   evaluateLifeSciencesEvidenceFixture,
   parseAndValidateConstructiveIntelligenceLifeSciences,
   validateConstructiveIntelligenceLifeSciences,
+  validateMoneyKarmaConstitutionBinding,
 } from "./validate-constructive-intelligence-life-sciences.mjs";
 
 const canonicalRaw = readFileSync(
@@ -20,6 +24,9 @@ const canonicalRaw = readFileSync(
   "utf8",
 );
 const canonical = JSON.parse(canonicalRaw);
+const constitutionRaw = readFileSync(
+  new URL("../../docs/constitution/money-karma-v1.json", import.meta.url),
+);
 
 function copyProfile() {
   return structuredClone(canonical);
@@ -141,6 +148,85 @@ describe("constructive-intelligence life-sciences profile", () => {
       amount: "0",
     });
     assert.equal(canonical.baseTreeBinding.sha256, BASE_TREE_SHA256);
+    assert.deepEqual(canonical.constitutionBinding, {
+      schema: MONEY_KARMA_CONSTITUTION_SCHEMA,
+      documentSha256: `sha256:${MONEY_KARMA_CONSTITUTION_SHA256}`,
+    });
+    assert.equal(
+      createHash("sha256").update(constitutionRaw).digest("hex"),
+      MONEY_KARMA_CONSTITUTION_SHA256,
+    );
+    assert.deepEqual(canonical.attestationBoundary, {
+      controlDisclosures: "SELF_DECLARED_SYNTHETIC_LABELS",
+      challengeStatus: "SELF_DECLARED_SYNTHETIC_LABEL",
+      establishesControllerIndependence: false,
+      establishesChallengeClosure: false,
+    });
+    assert.equal(
+      canonical.independence.futureEligibilityRequiresExternalControllerAttestation,
+      true,
+    );
+    assert.equal(
+      canonical.challengePolicy.futureEligibilityRequiresAdjudicationReceipt,
+      true,
+    );
+  });
+
+  it("rejects a substituted constitution pin and checked-in constitution drift", () => {
+    const substituted = copyProfile();
+    substituted.constitutionBinding.documentSha256 = `sha256:${"0".repeat(64)}`;
+    assertInvalid(
+      () => validateConstructiveIntelligenceLifeSciences(substituted),
+      "$.constitutionBinding.documentSha256",
+    );
+    assertInvalid(
+      () =>
+        validateMoneyKarmaConstitutionBinding(
+          canonical.constitutionBinding,
+          Buffer.concat([constitutionRaw, Buffer.from("\n")]),
+        ),
+      "$.constitutionBinding.documentSha256",
+    );
+  });
+
+  it("rejects any claim that synthetic declarations establish independence or closure", () => {
+    for (const [path, mutate] of [
+      [
+        "$.attestationBoundary.controlDisclosures",
+        (profile) => (profile.attestationBoundary.controlDisclosures = "VERIFIED"),
+      ],
+      [
+        "$.independence.futureEligibilityRequiresExternalControllerAttestation",
+        (profile) =>
+          (profile.independence.futureEligibilityRequiresExternalControllerAttestation =
+            false),
+      ],
+      [
+        "$.attestationBoundary.challengeStatus",
+        (profile) => (profile.attestationBoundary.challengeStatus = "VERIFIED"),
+      ],
+      [
+        "$.challengePolicy.futureEligibilityRequiresAdjudicationReceipt",
+        (profile) =>
+          (profile.challengePolicy.futureEligibilityRequiresAdjudicationReceipt = false),
+      ],
+      [
+        "$.attestationBoundary.establishesControllerIndependence",
+        (profile) =>
+          (profile.attestationBoundary.establishesControllerIndependence = true),
+      ],
+      [
+        "$.attestationBoundary.establishesChallengeClosure",
+        (profile) => (profile.attestationBoundary.establishesChallengeClosure = true),
+      ],
+    ]) {
+      const profile = copyProfile();
+      mutate(profile);
+      assertInvalid(
+        () => validateConstructiveIntelligenceLifeSciences(profile),
+        path,
+      );
+    }
   });
 
   it("rejects malformed, oversized, and non-exact documents", () => {
@@ -316,13 +402,15 @@ describe("constructive-intelligence life-sciences profile", () => {
     }
   });
 });
-
 describe("life-sciences synthetic evidence boundary", () => {
-  it("accepts a fully independent, challenge-clear crown only as zero-effect shadow evidence", () => {
+  it("reports a locally matching crown only as unverified, non-eligible shadow structure", () => {
     assert.deepEqual(
       evaluateLifeSciencesEvidenceFixture(copyProfile(), crownFixture()),
       {
-        outcome: "SHADOW_ONLY_ELIGIBLE",
+        outcome: "SHADOW_ONLY_STRUCTURAL_MATCH",
+        rewardEligible: false,
+        independenceStatus: "DECLARED_UNVERIFIED",
+        challengeStatus: "DECLARED_UNVERIFIED",
         economicEffect: "NONE",
         amount: "0",
         reasons: [],
@@ -420,6 +508,52 @@ describe("life-sciences synthetic evidence boundary", () => {
     );
     assert.equal(result.outcome, "SHADOW_ONLY_BLOCKED");
     assert.ok(result.reasons.includes("INSUFFICIENT_EFFECTIVE_CONTROL_CLUSTERS"));
+  });
+
+  it("blocks one contributor from claiming divergent control tuples", () => {
+    const disclosedControls = controls();
+    disclosedControls.push({
+      ...disclosedControls[0],
+      organizationRoot: "organization-root-divergent",
+    });
+    const result = evaluateLifeSciencesEvidenceFixture(
+      copyProfile(),
+      crownFixture({ disclosedControls }),
+    );
+    assert.equal(result.outcome, "SHADOW_ONLY_BLOCKED");
+    assert.equal(result.rewardEligible, false);
+    assert.equal(result.independenceStatus, "DECLARED_UNVERIFIED");
+    assert.equal(result.challengeStatus, "DECLARED_UNVERIFIED");
+    assert.ok(
+      result.reasons.includes(
+        "CONTRIBUTOR_CLAIMS_DIVERGENT_CONTROL_TUPLES:synthetic-contributor-a",
+      ),
+    );
+  });
+
+  it("keeps every refused or blocked output explicitly non-eligible and unverified", () => {
+    const outputs = [
+      evaluateLifeSciencesEvidenceFixture(
+        copyProfile(),
+        crownFixture({ challengeStatus: "OPEN" }),
+      ),
+      evaluateLifeSciencesEvidenceFixture(
+        copyProfile(),
+        fixture({
+          id: "synthetic-refused-output",
+          nodeId: "structure-coordinate-evidence@1",
+          requestedConclusions: ["STATIC_STRUCTURE"],
+          artifacts: [artifact("STATIC_STRUCTURE", { containsSequence: true })],
+        }),
+      ),
+    ];
+    for (const result of outputs) {
+      assert.equal(result.rewardEligible, false);
+      assert.equal(result.independenceStatus, "DECLARED_UNVERIFIED");
+      assert.equal(result.challengeStatus, "DECLARED_UNVERIFIED");
+      assert.equal(result.economicEffect, "NONE");
+      assert.equal(result.amount, "0");
+    }
   });
 
   it("refuses leakage using metadata flags without embedding a sequence or protocol", () => {

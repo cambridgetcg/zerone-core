@@ -9,10 +9,13 @@ import {
   LifeSciencesTreeError,
   fetchLifeSciencesOverlay,
   parseLifeSciencesOverlay,
+  parseLifeSciencesOverlayJson,
 } from "../src/life-sciences-tree";
 
 type MutableOverlay = Record<string, any> & {
   baseTreeBinding: Record<string, any>;
+  constitutionBinding: Record<string, any>;
+  attestationBoundary: Record<string, any>;
   releaseBoundary: Record<string, any>;
   scope: Record<string, any>;
   nodes: Array<Record<string, any>>;
@@ -76,9 +79,15 @@ describe("life-sciences shadow tree runtime guard", () => {
       24,
     );
     assert.equal(overlay.nodes.filter((node) => node.crown).length, 1);
+    assert.equal(overlay.independenceStatus, "DECLARED_UNVERIFIED");
+    assert.equal(overlay.challengeStatus, "DECLARED_UNVERIFIED");
     assert.equal(
       overlay.baseTreeSha256,
       "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    );
+    assert.equal(
+      overlay.constitutionDocumentSha256,
+      "sha256:f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24",
     );
     assert.equal(createHash("sha256").update(canonicalRaw).digest("hex"), LIFE_SCIENCES_TREE_SHA256);
   });
@@ -101,6 +110,27 @@ describe("life-sciences shadow tree runtime guard", () => {
     const coreDrift = copyOverlay();
     coreDrift.baseTreeBinding.sha256 = "0".repeat(64);
     assert.throws(() => parseLifeSciencesOverlay(coreDrift), /core-tree binding drifted/);
+
+    const constitutionDrift = copyOverlay();
+    constitutionDrift.constitutionBinding.documentSha256 = `sha256:${"0".repeat(64)}`;
+    assert.throws(
+      () => parseLifeSciencesOverlay(constitutionDrift),
+      /constitution pin drifted/,
+    );
+
+    const claimedIndependence = copyOverlay();
+    claimedIndependence.attestationBoundary.establishesControllerIndependence = true;
+    assert.throws(
+      () => parseLifeSciencesOverlay(claimedIndependence),
+      /establishesControllerIndependence/,
+    );
+
+    const claimedChallenge = copyOverlay();
+    claimedChallenge.attestationBoundary.establishesChallengeClosure = true;
+    assert.throws(
+      () => parseLifeSciencesOverlay(claimedChallenge),
+      /establishesChallengeClosure/,
+    );
   });
 
   it("requires the refusal boundary, valid prerequisites, and one crown", () => {
@@ -117,6 +147,49 @@ describe("life-sciences shadow tree runtime guard", () => {
     const secondCrown = copyOverlay();
     secondCrown.nodes[0]!.crown = true;
     assert.throws(() => parseLifeSciencesOverlay(secondCrown), /exactly one crown/);
+  });
+
+  it("rejects duplicate JSON keys and unknown fields at the browser boundary", () => {
+    const duplicateTopLevel = canonicalRaw.replace(
+      '"schema": "zerone.constructive-intelligence-life-sciences/v0",',
+      '"schema": "zerone.constructive-intelligence-life-sciences/v0",\n  "schema": "zerone.constructive-intelligence-life-sciences/v0",',
+    );
+    assert.throws(
+      () => parseLifeSciencesOverlayJson(duplicateTopLevel),
+      /duplicate JSON object key/,
+    );
+
+    const duplicateEscapedEquivalent = canonicalRaw.replace(
+      '"schema": "zerone.constructive-intelligence-life-sciences/v0",',
+      '"schema": "zerone.constructive-intelligence-life-sciences/v0",\n  "\\u0073chema": "zerone.constructive-intelligence-life-sciences/v0",',
+    );
+    assert.throws(
+      () => parseLifeSciencesOverlayJson(duplicateEscapedEquivalent),
+      /duplicate JSON object key/,
+    );
+
+    const duplicateNested = canonicalRaw.replace(
+      '"effect": "NONE",',
+      '"effect": "NONE",\n    "effect": "NONE",',
+    );
+    assert.throws(
+      () => parseLifeSciencesOverlayJson(duplicateNested),
+      /duplicate JSON object key/,
+    );
+
+    const unknownTopLevel = copyOverlay();
+    unknownTopLevel.runtimeEndpoint = "https://runtime.invalid";
+    assert.throws(
+      () => parseLifeSciencesOverlayJson(JSON.stringify(unknownTopLevel)),
+      /runtimeEndpoint: unknown field/,
+    );
+
+    const unknownNested = copyOverlay();
+    unknownNested.constitutionBinding.override = true;
+    assert.throws(
+      () => parseLifeSciencesOverlayJson(JSON.stringify(unknownNested)),
+      /override: unknown field/,
+    );
   });
 
   it("fetches exact reviewed bytes with restrictive same-origin options", async () => {

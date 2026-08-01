@@ -42,6 +42,8 @@ economics are exactly `NONE/0`, it creates no KARMA magnitude or qualification,
 and neither skill-tree position nor a breakthrough label activates issuance.
 The browser applies the same redirect, exact-path, media-type, byte-cap,
 deadline, digest, and text-node rendering boundary as the other static trees.
+H1, H2, and H3 activate none of this overlay's qualification, reward, KARMA,
+governance, or scientific-authority surfaces.
 
 The same page also loads the separately digest-pinned Quantum QEC Season 1
 extension at
@@ -49,12 +51,20 @@ extension at
 base tree bytes and adds a display-only path from quantum foundations to a
 correlated-noise decoder quest. Its canonical amount is `0 uzrn`, escrow is
 null, rewards and qualification are inactive, founder share and reserved seats
-are zero, and KARMA supplies neither payout nor vote weight. The B0–B5 display
-is a retrospective artifact-history lens, never a self-assigned badge. The
-quest pins the Nature Communications Version of Record dated 2026-05-01, exact
-BB fixtures and physical-error grid, content-digested circuits and artifacts,
-and per-cell statistical gates. Its source-check and review-after dates are
-visible; after the latter passes, active-use claims fail closed pending review.
+are zero, and KARMA supplies neither payout nor vote weight. It grants no direct
+governance authority; `uzrn` nevertheless remains bondable, so the current
+protocol still has an indirect stake-weight path. The two reward axes are
+orthogonal 100% shapes, not additive, and remain unfunded because cross-axis,
+rounding, escrow-compartment, settlement, cost, reviewer-budget, and refund
+bindings are absent. The B0–B5 display is a retrospective artifact-history
+lens, never a self-assigned badge. The quest pins the Nature Communications
+Version of Record dated 2026-05-01, exact BB fixtures and physical-error grid,
+content-digested circuits and artifacts, and per-cell measurement-completeness
+gates. V0 cannot emit a performance pass. Its source-check and review-after
+dates are visible; after the latter passes, active-use claims fail closed
+pending review.
+H1, H2, and H3 likewise activate none of this extension's qualification,
+reward, KARMA, governance, performance, or scientific-authority surfaces.
 The nested Math Frontier explorer applies the same browser boundary to
 `/standards/constructive-intelligence-math-frontier.v0.json`: exact
 same-origin path, redirect refusal, 131,072-byte streaming limit, timeout,

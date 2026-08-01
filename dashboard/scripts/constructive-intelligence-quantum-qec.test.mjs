@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
   QUANTUM_EXTENSION_MAX_BYTES,
   QuantumExtensionValidationError,
+  MONEY_KARMA_CONSTITUTION_SCHEMA,
+  MONEY_KARMA_CONSTITUTION_SHA256,
   REVIEWED_BASE_SHA256,
   REVIEWED_QUANTUM_NORMATIVE_SHA256,
   parseAndValidateQuantumExtension,
   validateQuantumExtension,
+  validateMoneyKarmaConstitutionBinding,
 } from "./validate-constructive-intelligence-quantum-qec.mjs";
 
 const extensionRaw = readFileSync(
@@ -18,6 +22,9 @@ const extensionRaw = readFileSync(
 const baseRaw = readFileSync(
   new URL("../public/standards/constructive-intelligence-tree.v1.json", import.meta.url),
   "utf8",
+);
+const constitutionRaw = readFileSync(
+  new URL("../../docs/constitution/money-karma-v1.json", import.meta.url),
 );
 const canonical = JSON.parse(extensionRaw);
 
@@ -68,6 +75,32 @@ describe("quantum QEC constructive-intelligence extension", () => {
     );
   });
 
+  it("pins the raw Money-KARMA constitution and rejects checked-in drift", () => {
+    assert.deepEqual(canonical.constitutionBinding, {
+      schema: MONEY_KARMA_CONSTITUTION_SCHEMA,
+      documentSha256: `sha256:${MONEY_KARMA_CONSTITUTION_SHA256}`,
+    });
+    assert.equal(
+      createHash("sha256").update(constitutionRaw).digest("hex"),
+      MONEY_KARMA_CONSTITUTION_SHA256,
+    );
+
+    const substituted = copy();
+    substituted.constitutionBinding.documentSha256 = `sha256:${"0".repeat(64)}`;
+    assertInvalid(
+      () => validateQuantumExtension(substituted, baseRaw, { enforceReviewedDigest: false }),
+      "$.constitutionBinding.documentSha256",
+    );
+    assertInvalid(
+      () =>
+        validateMoneyKarmaConstitutionBinding(
+          canonical.constitutionBinding,
+          Buffer.concat([constitutionRaw, Buffer.from("\n")]),
+        ),
+      "$.constitutionBinding.documentSha256",
+    );
+  });
+
   it("keeps every authority, network, money, qualification, and safety boundary false", () => {
     for (const key of ["authoritative", "networkObserved", "rewardBearing"]) {
       const tree = copy();
@@ -91,7 +124,8 @@ describe("quantum QEC constructive-intelligence extension", () => {
       ["founderShareBps", 1],
       ["founderReservedSeats", 1],
       ["karmaWeightBps", 1],
-      ["rewardCreatesGovernancePower", true],
+      ["rewardDirectlyGrantsGovernanceAuthority", true],
+      ["rewardDenomIsBondableUnderCurrentProtocol", false],
       ["skillUnlockCreatesReward", true],
       ["timeAloneUnlocksEvidence", true],
     ];
@@ -103,7 +137,22 @@ describe("quantum QEC constructive-intelligence extension", () => {
         `$.rewardPolicy.${key}`,
       );
     }
-    for (const key of ["transferable", "scalarRank", "truthOracle", "payoutWeight", "voteWeight", "founderReservedPower"]) {
+    for (const key of [
+      "zeroneMintsOrCreates",
+      "assignable",
+      "operatorAssignable",
+      "founderAssignable",
+      "recordingClaimsRelationOwnership",
+      "rawEventsEstablishCandidateStatus",
+      "rawEventCountEstablishesCandidateStatus",
+      "rawEventCountAffectsSelectionProbability",
+      "transferable",
+      "scalarRank",
+      "truthOracle",
+      "payoutWeight",
+      "voteWeight",
+      "founderReservedPower",
+    ]) {
       const tree = copy();
       tree.karma[key] = true;
       assertInvalid(
@@ -127,6 +176,49 @@ describe("quantum QEC constructive-intelligence extension", () => {
     );
   });
 
+  it("never emits a performance pass without a prospective funded-case rule", () => {
+    assert.deepEqual(canonical.performanceDecision, {
+      mode: "MEASUREMENT_COMPLETENESS_ONLY",
+      mayEmitPerformancePass: false,
+      measurementPrecisionAloneEstablishesPerformance: false,
+      missingProspectiveRuleDisposition: "INCONCLUSIVE_NO_PASS",
+      fundedCaseRequiredBindings: [
+        "baseline-comparator-digest",
+        "baseline-comparator-independent-review-receipt",
+        "comparison-direction",
+        "confidence-bound-decision-rule",
+        "effect-size-or-equivalence-margin",
+        "estimand-null-direction",
+        "latency-deadline-and-quantile",
+        "multi-metric-tradeoff-or-pareto-rule",
+        "multiple-comparison-policy",
+        "negative-result-routing",
+        "resource-match",
+      ],
+    });
+
+    const preciseButBadDecoder = copy();
+    preciseButBadDecoder.performanceDecision.measurementPrecisionAloneEstablishesPerformance = true;
+    assertInvalid(
+      () => validateQuantumExtension(preciseButBadDecoder, baseRaw, { enforceReviewedDigest: false }),
+      "$.performanceDecision.measurementPrecisionAloneEstablishesPerformance",
+    );
+
+    const inventedPass = copy();
+    inventedPass.performanceDecision.mayEmitPerformancePass = true;
+    assertInvalid(
+      () => validateQuantumExtension(inventedPass, baseRaw, { enforceReviewedDigest: false }),
+      "$.performanceDecision.mayEmitPerformancePass",
+    );
+
+    const missingRuleBinding = copy();
+    missingRuleBinding.performanceDecision.fundedCaseRequiredBindings.pop();
+    assertInvalid(
+      () => validateQuantumExtension(missingRuleBinding, baseRaw, { enforceReviewedDigest: false }),
+      "$.performanceDecision.fundedCaseRequiredBindings",
+    );
+  });
+
   it("preserves both conserved reward axes without creating an entitlement", () => {
     const milestoneDrift = copy();
     milestoneDrift.rewardPolicy.milestones[3].rewardBps += 1;
@@ -139,6 +231,90 @@ describe("quantum QEC constructive-intelligence extension", () => {
     assertInvalid(
       () => validateQuantumExtension(attributionDrift, baseRaw, { enforceReviewedDigest: false }),
       "$.rewardPolicy.attributionBps.originatingArtifact",
+    );
+    assert.equal(
+      canonical.rewardPolicy.milestones.reduce((sum, milestone) => sum + milestone.rewardBps, 0) +
+        canonical.rewardPolicy.challengeReserveBps,
+      10_000,
+    );
+    assert.equal(
+      Object.values(canonical.rewardPolicy.attributionBps).reduce((sum, value) => sum + value, 0),
+      10_000,
+    );
+    assert.equal(
+      canonical.rewardAccounting.accountingBoundary.milestoneAndAttributionAxesAreAdditive,
+      false,
+    );
+
+    const accountingMutations = [
+      ["milestoneAndAttributionAxesAreAdditive", true],
+      ["crossAxisAllocationRule", "ASSUME_MULTIPLICATION"],
+      ["roundingRule", "round-half-up"],
+      ["escrowCompartmentsBound", true],
+      ["singleSettlementImplemented", true],
+      ["verifiedCostCapAmount", "1"],
+      ["reviewerBudgetCapAmount", "1"],
+      ["futureReviewerBudgetMustBeOutcomeIndependent", false],
+      ["roleCollapseRule", "ALLOW_SELF_REVIEW"],
+      ["deterministicRefundRule", "REFUND_ORIGINATOR"],
+      ["reviewAttributionPaysAdjudicator", true],
+      ["unusedChallengeReserveRoute", "founder"],
+    ];
+    for (const [key, value] of accountingMutations) {
+      const tree = copy();
+      tree.rewardAccounting.accountingBoundary[key] = value;
+      assertInvalid(
+        () => validateQuantumExtension(tree, baseRaw, { enforceReviewedDigest: false }),
+        `$.rewardAccounting.accountingBoundary.${key}`,
+      );
+    }
+    const eligibilityEntitlement = copy();
+    eligibilityEntitlement.rewardAccounting.nodeEligibilitySemantics = "QUALIFIES";
+    assertInvalid(
+      () => validateQuantumExtension(eligibilityEntitlement, baseRaw, { enforceReviewedDigest: false }),
+      "$.rewardAccounting.nodeEligibilitySemantics",
+    );
+  });
+
+  it("keeps future KARMA filtering controller-capped, randomized, and unimplemented", () => {
+    assert.equal(canonical.karma.eventType, "zerone.karma.edge");
+    assert.equal(canonical.karma.eventRegister, "priced-coherence");
+    assert.equal(canonical.karma.meaning, "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH");
+    assert.equal(
+      canonical.karma.futureUse,
+      "domain-scoped-controller-capped-randomized-candidate-filter-only",
+    );
+    assert.deepEqual(canonical.karma.futureCandidateFilterRequirements, {
+      runtimeEnforced: false,
+      sameControllerEdgesExcluded: true,
+      selfEdgesExcluded: true,
+      reciprocalEdgesExcluded: true,
+      correlatedFunderEdgesExcluded: true,
+      controllerMergesOnlyReduceUnits: true,
+      maximumLotteryUnitsPerController: 1,
+      candidateSetFrozenBeforeRandomness: true,
+      unbiasedRandomnessRequired: true,
+      operatorOverrideAllowed: false,
+      countProportionalProbabilityAllowed: false,
+    });
+
+    const operatorOverride = copy();
+    operatorOverride.karma.futureCandidateFilterRequirements.operatorOverrideAllowed = true;
+    assertInvalid(
+      () => validateQuantumExtension(operatorOverride, baseRaw, { enforceReviewedDigest: false }),
+      "$.karma.futureCandidateFilterRequirements.operatorOverrideAllowed",
+    );
+    const countWeighted = copy();
+    countWeighted.karma.futureCandidateFilterRequirements.countProportionalProbabilityAllowed = true;
+    assertInvalid(
+      () => validateQuantumExtension(countWeighted, baseRaw, { enforceReviewedDigest: false }),
+      "$.karma.futureCandidateFilterRequirements.countProportionalProbabilityAllowed",
+    );
+    const extraControllerUnit = copy();
+    extraControllerUnit.karma.futureCandidateFilterRequirements.maximumLotteryUnitsPerController = 2;
+    assertInvalid(
+      () => validateQuantumExtension(extraControllerUnit, baseRaw, { enforceReviewedDigest: false }),
+      "$.karma.futureCandidateFilterRequirements.maximumLotteryUnitsPerController",
     );
   });
 
@@ -250,6 +426,17 @@ describe("quantum QEC constructive-intelligence extension", () => {
     assert.equal(acceptance.computeCapExhaustion, "inconclusive-no-pass");
     assert.equal(acceptance.rareEventAlternative.appliesTo, "logical-error-cells-only");
     assert.equal(acceptance.rareEventAlternative.unbiasedEstimatorRequired, true);
+    assert.deepEqual(acceptance.rareEventAlternative.replacesDirectGates, [
+      "minimum-cases-per-cell",
+      "minimum-logical-failures-per-cell",
+    ]);
+    assert.equal(acceptance.rareEventAlternative.confidenceLevelBps, 9900);
+    assert.equal(
+      acceptance.rareEventAlternative.confidenceProcedure,
+      "two-sided-estimator-specific-interval",
+    );
+    assert.equal(acceptance.rareEventAlternative.maximumRelativeHalfWidthBps, 3000);
+    assert.equal(acceptance.rareEventAlternative.mayEmitPerformancePass, false);
 
     const wrongFixture = copy();
     node(wrongFixture, questId).acceptance.fixtures[0].n = 73;
@@ -295,9 +482,33 @@ describe("quantum QEC constructive-intelligence extension", () => {
       () => validateQuantumExtension(biasedAlternative, baseRaw, { enforceReviewedDigest: false }),
       "$.nodes[12].acceptance.rareEventAlternative.unbiasedEstimatorRequired",
     );
+
+    const replacedTooMuch = copy();
+    node(replacedTooMuch, questId).acceptance.rareEventAlternative.replacesDirectGates.push(
+      "confidence-interval",
+    );
+    assertInvalid(
+      () => validateQuantumExtension(replacedTooMuch, baseRaw, { enforceReviewedDigest: false }),
+      "$.nodes[12].acceptance.rareEventAlternative.replacesDirectGates",
+    );
+
+    const oneSided = copy();
+    node(oneSided, questId).acceptance.rareEventAlternative.confidenceProcedure =
+      "one-sided-estimator-interval";
+    assertInvalid(
+      () => validateQuantumExtension(oneSided, baseRaw, { enforceReviewedDigest: false }),
+      "$.nodes[12].acceptance.rareEventAlternative.confidenceProcedure",
+    );
+
+    const inventedRarePass = copy();
+    node(inventedRarePass, questId).acceptance.rareEventAlternative.mayEmitPerformancePass = true;
+    assertInvalid(
+      () => validateQuantumExtension(inventedRarePass, baseRaw, { enforceReviewedDigest: false }),
+      "$.nodes[12].acceptance.rareEventAlternative.mayEmitPerformancePass",
+    );
   });
 
-  it("requires exact logical-error coverage while allowing conclusive zero-miss latency", () => {
+  it("requires exact logical-error coverage and limits zero-miss latency to measurement completeness", () => {
     const questId = "quest-quantum-decoder-correlated-noise@1";
     const targets = node(canonical, questId).acceptance.coverageTargets;
     assert.deepEqual(
@@ -311,7 +522,7 @@ describe("quantum QEC constructive-intelligence extension", () => {
     assert.equal(targets[0].minimumLogicalFailuresPerCell, 100);
     assert.equal(targets[1].confidenceLevelBps, 9900);
     assert.equal(targets[1].maximumRelativeHalfWidthBps, 3000);
-    assert.equal(targets[2].zeroDeadlineMissesMayBeConclusive, true);
+    assert.equal(targets[2].zeroDeadlineMissesMaySatisfyMeasurementCompleteness, true);
     assert.equal(
       targets[2].confidenceProcedure,
       "two-sided-quantile-interval-or-one-sided-deadline-miss-upper-bound",
@@ -339,10 +550,10 @@ describe("quantum QEC constructive-intelligence extension", () => {
     );
 
     const latencyNeedsMisses = copy();
-    node(latencyNeedsMisses, questId).acceptance.coverageTargets[2].zeroDeadlineMissesMayBeConclusive = false;
+    node(latencyNeedsMisses, questId).acceptance.coverageTargets[2].zeroDeadlineMissesMaySatisfyMeasurementCompleteness = false;
     assertInvalid(
       () => validateQuantumExtension(latencyNeedsMisses, baseRaw, { enforceReviewedDigest: false }),
-      "$.nodes[12].acceptance.coverageTargets[2].zeroDeadlineMissesMayBeConclusive",
+      "$.nodes[12].acceptance.coverageTargets[2].zeroDeadlineMissesMaySatisfyMeasurementCompleteness",
     );
   });
 

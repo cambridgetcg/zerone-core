@@ -84,13 +84,13 @@
         "id": "life-sciences-shadow-v0",
         "schema": "zerone.constructive-intelligence-life-sciences/v0",
         "path": "dashboard/public/standards/constructive-intelligence-life-sciences.v0.json",
-        "sha256": "2b3a0b0b92797ef459c6ec02a38d1b9ebde62105a1b558088e44779d4595508d"
+        "sha256": "64dc2c5b2e21dfc9697d173317254ce651dede8661993ece7b380b7e1421496e"
       },
       {
         "id": "money-karma-v1",
         "schema": "zerone.money-karma.constitution/v1",
         "path": "docs/constitution/money-karma-v1.json",
-        "sha256": "24d5a2bdef9f3ce8cee41ed9416be65681b2cfd123ba96df7f6a7710c810ee03"
+        "sha256": "f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24"
       }
     ],
     "moneyGrantsVoice": false,

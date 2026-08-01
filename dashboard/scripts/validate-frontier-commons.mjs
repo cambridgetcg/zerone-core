@@ -181,13 +181,13 @@ const EXPECTED_BINDINGS = Object.freeze([
     id: "life-sciences-shadow-v0",
     schema: "zerone.constructive-intelligence-life-sciences/v0",
     path: "dashboard/public/standards/constructive-intelligence-life-sciences.v0.json",
-    sha256: "2b3a0b0b92797ef459c6ec02a38d1b9ebde62105a1b558088e44779d4595508d",
+    sha256: "64dc2c5b2e21dfc9697d173317254ce651dede8661993ece7b380b7e1421496e",
   }),
   Object.freeze({
     id: "money-karma-v1",
     schema: "zerone.money-karma.constitution/v1",
     path: "docs/constitution/money-karma-v1.json",
-    sha256: "24d5a2bdef9f3ce8cee41ed9416be65681b2cfd123ba96df7f6a7710c810ee03",
+    sha256: "f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24",
   }),
 ]);
 const EXPECTED_MILESTONE_EXCLUSIONS = [
@@ -297,7 +297,7 @@ const EXPECTED_CORPORATE_GATE_IDS = [
   "service-level-support-availability-portability-and-exit",
 ];
 const FRONTIER_COMMONS_CANONICAL_SEMANTIC_SHA256 =
-  "6f378c4a5e108e4ee1a17ae47d641e50c6d991505d83de089adb5beedba17e58";
+  "8ac6ab0071e878628da8de3b43cf73de20a60b9e92af055369a09b9c670d628f";
 const TRUE_RIGHTS = new Set([
   "voluntary",
   "rightToDecline",

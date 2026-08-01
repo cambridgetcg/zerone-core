@@ -4,7 +4,10 @@ export const QUANTUM_SEASON_ENDPOINT =
   "/standards/constructive-intelligence-quantum-qec.v0.json";
 export const QUANTUM_SEASON_MAX_BYTES = 131_072;
 export const QUANTUM_SEASON_SHA256 =
-  "5352b054e6402300cbba2a732217caac498b9a209e65df4f4bebec1071643c3b";
+  "a1f15eb2cb802bca2221c0c6f96dfbb26badad870b757746c04537ac1edc5386";
+const MONEY_KARMA_CONSTITUTION_SCHEMA = "zerone.money-karma.constitution/v1";
+const MONEY_KARMA_CONSTITUTION_DOCUMENT_SHA256 =
+  "sha256:f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24";
 
 export type QuantumStage = "foundation" | "assurance" | "quest";
 export type QuantumEvidence = "E2" | "E3" | "E5";
@@ -27,7 +30,6 @@ export interface QuantumNode {
   standardIds?: string[];
   acceptance?: QuantumAcceptance;
 }
-
 export interface QuantumFixture {
   id: string;
   n: number;
@@ -62,7 +64,7 @@ export type QuantumCoverageTarget = QuantumCoverageBase & (
       analysisMode: "latency-quantile-and-deadline";
       latencyEstimand: "precommitted-quantile-and-deadline";
       confidenceProcedure: "two-sided-quantile-interval-or-one-sided-deadline-miss-upper-bound";
-      zeroDeadlineMissesMayBeConclusive: true;
+      zeroDeadlineMissesMaySatisfyMeasurementCompleteness: true;
     }
 );
 
@@ -80,10 +82,20 @@ export interface QuantumAcceptance {
   rareEventAlternative: {
     appliesTo: "logical-error-cells-only";
     condition: "separately-reviewed-unbiased-estimator-only";
+    replacesDirectGates: [
+      "minimum-cases-per-cell",
+      "minimum-logical-failures-per-cell",
+    ];
+    preservesAllOtherCoverageAndCaseBindings: true;
+    confidenceLevelBps: 9900;
+    confidenceProcedure: "two-sided-estimator-specific-interval";
+    maximumRelativeHalfWidthBps: 3000;
     methodDigestRequired: true;
-    reviewReceiptDigestRequired: true;
+    independentReviewReceiptDigestRequired: true;
     unbiasedEstimatorRequired: true;
-    varianceAndCoverageValidationRequired: true;
+    varianceMethodDigestRequired: true;
+    coverageValidationDigestRequired: true;
+    mayEmitPerformancePass: false;
   };
   coverageTargets: QuantumCoverageTarget[];
   minimumEffectiveClusters: 3;
@@ -124,17 +136,53 @@ export interface QuantumSeason {
     documentSha256: string;
     policySha256: string;
   };
+  constitutionBinding: {
+    schema: typeof MONEY_KARMA_CONSTITUTION_SCHEMA;
+    documentSha256: typeof MONEY_KARMA_CONSTITUTION_DOCUMENT_SHA256;
+  };
   releaseBoundary: Record<string, false>;
+  performanceDecision: {
+    mode: "MEASUREMENT_COMPLETENESS_ONLY";
+    mayEmitPerformancePass: false;
+    measurementPrecisionAloneEstablishesPerformance: false;
+    missingProspectiveRuleDisposition: "INCONCLUSIVE_NO_PASS";
+    fundedCaseRequiredBindings: string[];
+  };
   karma: {
     status: "OBSERVATIONAL";
-    register: "artifact-relation";
+    eventType: "zerone.karma.edge";
+    eventRegister: "priced-coherence";
+    meaning: "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH";
+    zeroneMintsOrCreates: false;
+    assignable: false;
+    operatorAssignable: false;
+    founderAssignable: false;
+    observationsFallible: true;
+    observationsChallengeable: true;
+    recordingClaimsRelationOwnership: false;
+    rawEventsEstablishCandidateStatus: false;
+    rawEventCountEstablishesCandidateStatus: false;
+    rawEventCountAffectsSelectionProbability: false;
     transferable: false;
     scalarRank: false;
     truthOracle: false;
     payoutWeight: false;
     voteWeight: false;
     founderReservedPower: false;
-    futureUse: "capped-randomized-eligibility-only";
+    futureUse: "domain-scoped-controller-capped-randomized-candidate-filter-only";
+    futureCandidateFilterRequirements: {
+      runtimeEnforced: false;
+      sameControllerEdgesExcluded: true;
+      selfEdgesExcluded: true;
+      reciprocalEdgesExcluded: true;
+      correlatedFunderEdgesExcluded: true;
+      controllerMergesOnlyReduceUnits: true;
+      maximumLotteryUnitsPerController: 1;
+      candidateSetFrozenBeforeRandomness: true;
+      unbiasedRandomnessRequired: true;
+      operatorOverrideAllowed: false;
+      countProportionalProbabilityAllowed: false;
+    };
     activationRequires: string[];
   };
   breakthroughLens: QuantumLensLevel[];
@@ -147,12 +195,30 @@ export interface QuantumSeason {
     founderShareBps: 0;
     founderReservedSeats: 0;
     karmaWeightBps: 0;
-    rewardCreatesGovernancePower: false;
+    rewardDirectlyGrantsGovernanceAuthority: false;
+    rewardDenomIsBondableUnderCurrentProtocol: true;
     skillUnlockCreatesReward: false;
     timeAloneUnlocksEvidence: false;
     milestones: QuantumMilestone[];
     challengeReserveBps: 1500;
     attributionBps: Record<string, number>;
+  };
+  rewardAccounting: {
+    accountingBoundary: {
+      milestoneAndAttributionAxesAreAdditive: false;
+      crossAxisAllocationRule: "UNDEFINED_BLOCKS_FUNDING";
+      roundingRule: null;
+      escrowCompartmentsBound: false;
+      singleSettlementImplemented: false;
+      verifiedCostCapAmount: null;
+      reviewerBudgetCapAmount: null;
+      futureReviewerBudgetMustBeOutcomeIndependent: true;
+      roleCollapseRule: null;
+      deterministicRefundRule: null;
+      reviewAttributionPaysAdjudicator: false;
+      unusedChallengeReserveRoute: null;
+    };
+    nodeEligibilitySemantics: "DISPLAY_ROUTING_ONLY_NO_PRESENT_QUALIFICATION_OR_ENTITLEMENT";
   };
   standards: Array<{
     canonicalId: string;
@@ -202,10 +268,13 @@ const EXPECTED_TOP_LEVEL = [
   "networkObserved",
   "rewardBearing",
   "base",
+  "constitutionBinding",
   "releaseBoundary",
+  "performanceDecision",
   "karma",
   "breakthroughLens",
   "rewardPolicy",
+  "rewardAccounting",
   "standards",
   "nodes",
 ] as const;
@@ -219,6 +288,13 @@ const RELEASE_KEYS = [
   "performsNetworkRequests",
   "publishesConfidentialEvidence",
 ] as const;
+const PERFORMANCE_DECISION_KEYS = [
+  "mode",
+  "mayEmitPerformancePass",
+  "measurementPrecisionAloneEstablishesPerformance",
+  "missingProspectiveRuleDisposition",
+  "fundedCaseRequiredBindings",
+] as const;
 const BASE_KEYS = [
   "schema",
   "policyVersion",
@@ -226,9 +302,22 @@ const BASE_KEYS = [
   "documentSha256",
   "policySha256",
 ] as const;
+const CONSTITUTION_BINDING_KEYS = ["schema", "documentSha256"] as const;
 const KARMA_KEYS = [
   "status",
-  "register",
+  "eventType",
+  "eventRegister",
+  "meaning",
+  "zeroneMintsOrCreates",
+  "assignable",
+  "operatorAssignable",
+  "founderAssignable",
+  "observationsFallible",
+  "observationsChallengeable",
+  "recordingClaimsRelationOwnership",
+  "rawEventsEstablishCandidateStatus",
+  "rawEventCountEstablishesCandidateStatus",
+  "rawEventCountAffectsSelectionProbability",
   "transferable",
   "scalarRank",
   "truthOracle",
@@ -236,7 +325,21 @@ const KARMA_KEYS = [
   "voteWeight",
   "founderReservedPower",
   "futureUse",
+  "futureCandidateFilterRequirements",
   "activationRequires",
+] as const;
+const FUTURE_CANDIDATE_FILTER_KEYS = [
+  "runtimeEnforced",
+  "sameControllerEdgesExcluded",
+  "selfEdgesExcluded",
+  "reciprocalEdgesExcluded",
+  "correlatedFunderEdgesExcluded",
+  "controllerMergesOnlyReduceUnits",
+  "maximumLotteryUnitsPerController",
+  "candidateSetFrozenBeforeRandomness",
+  "unbiasedRandomnessRequired",
+  "operatorOverrideAllowed",
+  "countProportionalProbabilityAllowed",
 ] as const;
 const LENS_KEYS = ["level", "name", "requires", "assignable"] as const;
 const REWARD_KEYS = [
@@ -248,12 +351,28 @@ const REWARD_KEYS = [
   "founderShareBps",
   "founderReservedSeats",
   "karmaWeightBps",
-  "rewardCreatesGovernancePower",
+  "rewardDirectlyGrantsGovernanceAuthority",
+  "rewardDenomIsBondableUnderCurrentProtocol",
   "skillUnlockCreatesReward",
   "timeAloneUnlocksEvidence",
   "milestones",
   "challengeReserveBps",
   "attributionBps",
+] as const;
+const REWARD_ACCOUNTING_KEYS = ["accountingBoundary", "nodeEligibilitySemantics"] as const;
+const ACCOUNTING_BOUNDARY_KEYS = [
+  "milestoneAndAttributionAxesAreAdditive",
+  "crossAxisAllocationRule",
+  "roundingRule",
+  "escrowCompartmentsBound",
+  "singleSettlementImplemented",
+  "verifiedCostCapAmount",
+  "reviewerBudgetCapAmount",
+  "futureReviewerBudgetMustBeOutcomeIndependent",
+  "roleCollapseRule",
+  "deterministicRefundRule",
+  "reviewAttributionPaysAdjudicator",
+  "unusedChallengeReserveRoute",
 ] as const;
 const MILESTONE_KEYS = ["level", "name", "rewardBps", "treatment"] as const;
 const ATTRIBUTION_KEYS = [
@@ -301,10 +420,17 @@ const FIXTURE_KEYS = ["id", "n", "k", "distance"] as const;
 const RARE_EVENT_KEYS = [
   "appliesTo",
   "condition",
+  "replacesDirectGates",
+  "preservesAllOtherCoverageAndCaseBindings",
+  "confidenceLevelBps",
+  "confidenceProcedure",
+  "maximumRelativeHalfWidthBps",
   "methodDigestRequired",
-  "reviewReceiptDigestRequired",
+  "independentReviewReceiptDigestRequired",
   "unbiasedEstimatorRequired",
-  "varianceAndCoverageValidationRequired",
+  "varianceMethodDigestRequired",
+  "coverageValidationDigestRequired",
+  "mayEmitPerformancePass",
 ] as const;
 const COVERAGE_COMMON_KEYS = [
   "id",
@@ -329,7 +455,7 @@ const LOGICAL_COVERAGE_KEYS = [
 const LATENCY_COVERAGE_KEYS = [
   ...COVERAGE_COMMON_KEYS,
   "latencyEstimand",
-  "zeroDeadlineMissesMayBeConclusive",
+  "zeroDeadlineMissesMaySatisfyMeasurementCompleteness",
 ] as const;
 const EXPECTED_MILESTONES = [
   ["E0", "committed", 0, "precedence-only"],
@@ -348,6 +474,32 @@ const EXPECTED_ATTRIBUTION = {
   falsificationAndChallenge: 700,
   safetyAndMaintenance: 300,
 } as const;
+const EXPECTED_FUNDED_CASE_BINDINGS = [
+  "baseline-comparator-digest",
+  "baseline-comparator-independent-review-receipt",
+  "comparison-direction",
+  "confidence-bound-decision-rule",
+  "effect-size-or-equivalence-margin",
+  "estimand-null-direction",
+  "latency-deadline-and-quantile",
+  "multi-metric-tradeoff-or-pareto-rule",
+  "multiple-comparison-policy",
+  "negative-result-routing",
+  "resource-match",
+] as const;
+const EXPECTED_FUTURE_CANDIDATE_FILTER = {
+  runtimeEnforced: false,
+  sameControllerEdgesExcluded: true,
+  selfEdgesExcluded: true,
+  reciprocalEdgesExcluded: true,
+  correlatedFunderEdgesExcluded: true,
+  controllerMergesOnlyReduceUnits: true,
+  maximumLotteryUnitsPerController: 1,
+  candidateSetFrozenBeforeRandomness: true,
+  unbiasedRandomnessRequired: true,
+  operatorOverrideAllowed: false,
+  countProportionalProbabilityAllowed: false,
+} as const;
 const EXPECTED_SCOPE = [
   "baseline=bposd-order-zero-randomized-serial-at-frozen-commit",
   "bb-fixtures=[[72,12,6],[90,8,10],[144,12,12]]",
@@ -358,7 +510,7 @@ const EXPECTED_SCOPE = [
   "confidence=logical-failure-two-sided-99-percent-relative-half-width-lte-0.30",
   "d10-and-d12-circuit-ensemble-size=24",
   "event-floor=100-logical-failures-per-logical-error-cell",
-  "latency=precommitted-quantile-and-deadline-at-99-percent-confidence-zero-misses-eligible",
+  "latency=precommitted-quantile-and-deadline-at-99-percent-confidence-zero-misses-may-satisfy-measurement-completeness-no-performance-pass",
   "minimum-cases=coverage-target-specific-per-cell",
   "noise-model=uniform-depolarizing-circuit-level",
   "physical-error-grid=0.001,0.002,0.003,0.004,0.005,0.006",
@@ -369,7 +521,7 @@ const EXPECTED_SCOPE = [
   "tuning-access-and-resource-budget=frozen-before-case-opens",
 ] as const;
 const EXPECTED_SCOPE_HASH =
-  "750cb52831f333b6be906c0fd3105d679992ef4e553d28653a9f5ad25adad355";
+  "6397a1b7d3a0979e24676fa91bd9642c019a1f266a9ddec045a0842cf35cbf41";
 const EXPECTED_FIXTURES = [
   { id: "bb-72-12-6", n: 72, k: 12, distance: 6 },
   { id: "bb-90-8-10", n: 90, k: 8, distance: 10 },
@@ -623,9 +775,47 @@ function parseNode(value: unknown, index: number): QuantumNode {
     exactKeys(rareEvent, RARE_EVENT_KEYS, `${path}.acceptance.rareEventAlternative`);
     exact(rareEvent.appliesTo, "logical-error-cells-only", `${path}.acceptance.rareEventAlternative.appliesTo`);
     exact(rareEvent.condition, "separately-reviewed-unbiased-estimator-only", `${path}.acceptance.rareEventAlternative.condition`);
-    RARE_EVENT_KEYS.slice(2).forEach((key) => {
+    const replacedGates = strings(
+      rareEvent.replacesDirectGates,
+      `${path}.acceptance.rareEventAlternative.replacesDirectGates`,
+      2,
+      2,
+    );
+    if (JSON.stringify(replacedGates) !== JSON.stringify([
+      "minimum-cases-per-cell",
+      "minimum-logical-failures-per-cell",
+    ])) {
+      fail(
+        `${path}.acceptance.rareEventAlternative.replacesDirectGates`,
+        "may replace only the direct case and logical-failure floors",
+      );
+    }
+    exact(rareEvent.confidenceLevelBps, 9900, `${path}.acceptance.rareEventAlternative.confidenceLevelBps`);
+    exact(
+      rareEvent.confidenceProcedure,
+      "two-sided-estimator-specific-interval",
+      `${path}.acceptance.rareEventAlternative.confidenceProcedure`,
+    );
+    exact(
+      rareEvent.maximumRelativeHalfWidthBps,
+      3000,
+      `${path}.acceptance.rareEventAlternative.maximumRelativeHalfWidthBps`,
+    );
+    for (const key of [
+      "preservesAllOtherCoverageAndCaseBindings",
+      "methodDigestRequired",
+      "independentReviewReceiptDigestRequired",
+      "unbiasedEstimatorRequired",
+      "varianceMethodDigestRequired",
+      "coverageValidationDigestRequired",
+    ] as const) {
       exact(rareEvent[key], true, `${path}.acceptance.rareEventAlternative.${key}`);
-    });
+    }
+    exact(
+      rareEvent.mayEmitPerformancePass,
+      false,
+      `${path}.acceptance.rareEventAlternative.mayEmitPerformancePass`,
+    );
     const receiptTypes = strings(acceptance.adoptionReceiptTypes, `${path}.acceptance.adoptionReceiptTypes`, 2, 2);
     if (
       JSON.stringify(receiptTypes) !==
@@ -663,7 +853,11 @@ function parseNode(value: unknown, index: number): QuantumNode {
       } else {
         exact(coverage.latencyEstimand, "precommitted-quantile-and-deadline", `${path}.acceptance.coverageTargets[${targetIndex}].latencyEstimand`);
         exact(coverage.confidenceProcedure, "two-sided-quantile-interval-or-one-sided-deadline-miss-upper-bound", `${path}.acceptance.coverageTargets[${targetIndex}].confidenceProcedure`);
-        exact(coverage.zeroDeadlineMissesMayBeConclusive, true, `${path}.acceptance.coverageTargets[${targetIndex}].zeroDeadlineMissesMayBeConclusive`);
+        exact(
+          coverage.zeroDeadlineMissesMaySatisfyMeasurementCompleteness,
+          true,
+          `${path}.acceptance.coverageTargets[${targetIndex}].zeroDeadlineMissesMaySatisfyMeasurementCompleteness`,
+        );
       }
       for (const key of [
         "requiresCheckerOrCorpusDigest",
@@ -708,17 +902,106 @@ export function parseQuantumSeason(value: unknown): QuantumSeason {
   exact(base.endpoint, "/standards/constructive-intelligence-tree.v1.json", "$.base.endpoint");
   exact(base.documentSha256, "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf", "$.base.documentSha256");
   exact(base.policySha256, "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7", "$.base.policySha256");
+  const constitutionBinding = object(
+    source.constitutionBinding,
+    "$.constitutionBinding",
+  );
+  exactKeys(
+    constitutionBinding,
+    CONSTITUTION_BINDING_KEYS,
+    "$.constitutionBinding",
+  );
+  exact(
+    constitutionBinding.schema,
+    MONEY_KARMA_CONSTITUTION_SCHEMA,
+    "$.constitutionBinding.schema",
+  );
+  exact(
+    constitutionBinding.documentSha256,
+    MONEY_KARMA_CONSTITUTION_DOCUMENT_SHA256,
+    "$.constitutionBinding.documentSha256",
+  );
   const release = object(source.releaseBoundary, "$.releaseBoundary");
   exactKeys(release, RELEASE_KEYS, "$.releaseBoundary");
   for (const key of RELEASE_KEYS) exact(release[key], false, `$.releaseBoundary.${key}`);
+  const performance = object(source.performanceDecision, "$.performanceDecision");
+  exactKeys(performance, PERFORMANCE_DECISION_KEYS, "$.performanceDecision");
+  exact(performance.mode, "MEASUREMENT_COMPLETENESS_ONLY", "$.performanceDecision.mode");
+  exact(performance.mayEmitPerformancePass, false, "$.performanceDecision.mayEmitPerformancePass");
+  exact(
+    performance.measurementPrecisionAloneEstablishesPerformance,
+    false,
+    "$.performanceDecision.measurementPrecisionAloneEstablishesPerformance",
+  );
+  exact(
+    performance.missingProspectiveRuleDisposition,
+    "INCONCLUSIVE_NO_PASS",
+    "$.performanceDecision.missingProspectiveRuleDisposition",
+  );
+  const fundedCaseBindings = strings(
+    performance.fundedCaseRequiredBindings,
+    "$.performanceDecision.fundedCaseRequiredBindings",
+    EXPECTED_FUNDED_CASE_BINDINGS.length,
+    EXPECTED_FUNDED_CASE_BINDINGS.length,
+  );
+  if (JSON.stringify(fundedCaseBindings) !== JSON.stringify(EXPECTED_FUNDED_CASE_BINDINGS)) {
+    fail(
+      "$.performanceDecision.fundedCaseRequiredBindings",
+      "must bind the complete prospective funded-case performance rule",
+    );
+  }
   const karma = object(source.karma, "$.karma");
   exactKeys(karma, KARMA_KEYS, "$.karma");
   exact(karma.status, "OBSERVATIONAL", "$.karma.status");
-  exact(karma.register, "artifact-relation", "$.karma.register");
-  for (const key of ["transferable", "scalarRank", "truthOracle", "payoutWeight", "voteWeight", "founderReservedPower"]) {
+  exact(karma.eventType, "zerone.karma.edge", "$.karma.eventType");
+  exact(karma.eventRegister, "priced-coherence", "$.karma.eventRegister");
+  exact(
+    karma.meaning,
+    "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH",
+    "$.karma.meaning",
+  );
+  for (const key of [
+    "zeroneMintsOrCreates",
+    "assignable",
+    "operatorAssignable",
+    "founderAssignable",
+    "recordingClaimsRelationOwnership",
+    "rawEventsEstablishCandidateStatus",
+    "rawEventCountEstablishesCandidateStatus",
+    "rawEventCountAffectsSelectionProbability",
+    "transferable",
+    "scalarRank",
+    "truthOracle",
+    "payoutWeight",
+    "voteWeight",
+    "founderReservedPower",
+  ]) {
     exact(karma[key], false, `$.karma.${key}`);
   }
-  exact(karma.futureUse, "capped-randomized-eligibility-only", "$.karma.futureUse");
+  for (const key of ["observationsFallible", "observationsChallengeable"]) {
+    exact(karma[key], true, `$.karma.${key}`);
+  }
+  exact(
+    karma.futureUse,
+    "domain-scoped-controller-capped-randomized-candidate-filter-only",
+    "$.karma.futureUse",
+  );
+  const futureFilter = object(
+    karma.futureCandidateFilterRequirements,
+    "$.karma.futureCandidateFilterRequirements",
+  );
+  exactKeys(
+    futureFilter,
+    FUTURE_CANDIDATE_FILTER_KEYS,
+    "$.karma.futureCandidateFilterRequirements",
+  );
+  for (const key of FUTURE_CANDIDATE_FILTER_KEYS) {
+    exact(
+      futureFilter[key],
+      EXPECTED_FUTURE_CANDIDATE_FILTER[key],
+      `$.karma.futureCandidateFilterRequirements.${key}`,
+    );
+  }
   const karmaGates = strings(
     karma.activationRequires,
     "$.karma.activationRequires",
@@ -726,7 +1009,7 @@ export function parseQuantumSeason(value: unknown): QuantumSeason {
     7,
   );
   if (JSON.stringify(karmaGates) !== JSON.stringify(EXPECTED_KARMA_GATES)) {
-    fail("$.karma.activationRequires", "must retain every ownerless-governance gate");
+    fail("$.karma.activationRequires", "must retain every bounded future-governance gate");
   }
   const reward = object(source.rewardPolicy, "$.rewardPolicy");
   exactKeys(reward, REWARD_KEYS, "$.rewardPolicy");
@@ -734,9 +1017,19 @@ export function parseQuantumSeason(value: unknown): QuantumSeason {
   exact(reward.denom, "uzrn", "$.rewardPolicy.denom");
   exact(reward.fundedAmount, "0", "$.rewardPolicy.fundedAmount");
   exact(reward.escrowReceipt, null, "$.rewardPolicy.escrowReceipt");
-  for (const key of ["claimable", "rewardCreatesGovernancePower", "skillUnlockCreatesReward", "timeAloneUnlocksEvidence"]) {
+  for (const key of [
+    "claimable",
+    "rewardDirectlyGrantsGovernanceAuthority",
+    "skillUnlockCreatesReward",
+    "timeAloneUnlocksEvidence",
+  ]) {
     exact(reward[key], false, `$.rewardPolicy.${key}`);
   }
+  exact(
+    reward.rewardDenomIsBondableUnderCurrentProtocol,
+    true,
+    "$.rewardPolicy.rewardDenomIsBondableUnderCurrentProtocol",
+  );
   for (const key of ["founderShareBps", "founderReservedSeats", "karmaWeightBps"]) {
     exact(reward[key], 0, `$.rewardPolicy.${key}`);
   }
@@ -783,6 +1076,58 @@ export function parseQuantumSeason(value: unknown): QuantumSeason {
       `$.rewardPolicy.attributionBps.${key}`,
     );
   }
+  const rewardAccounting = object(source.rewardAccounting, "$.rewardAccounting");
+  exactKeys(rewardAccounting, REWARD_ACCOUNTING_KEYS, "$.rewardAccounting");
+  exact(
+    rewardAccounting.nodeEligibilitySemantics,
+    "DISPLAY_ROUTING_ONLY_NO_PRESENT_QUALIFICATION_OR_ENTITLEMENT",
+    "$.rewardAccounting.nodeEligibilitySemantics",
+  );
+  const accountingBoundary = object(
+    rewardAccounting.accountingBoundary,
+    "$.rewardAccounting.accountingBoundary",
+  );
+  exactKeys(
+    accountingBoundary,
+    ACCOUNTING_BOUNDARY_KEYS,
+    "$.rewardAccounting.accountingBoundary",
+  );
+  for (const key of [
+    "milestoneAndAttributionAxesAreAdditive",
+    "escrowCompartmentsBound",
+    "singleSettlementImplemented",
+    "reviewAttributionPaysAdjudicator",
+  ]) {
+    exact(
+      accountingBoundary[key],
+      false,
+      `$.rewardAccounting.accountingBoundary.${key}`,
+    );
+  }
+  exact(
+    accountingBoundary.crossAxisAllocationRule,
+    "UNDEFINED_BLOCKS_FUNDING",
+    "$.rewardAccounting.accountingBoundary.crossAxisAllocationRule",
+  );
+  for (const key of [
+    "roundingRule",
+    "verifiedCostCapAmount",
+    "reviewerBudgetCapAmount",
+    "roleCollapseRule",
+    "deterministicRefundRule",
+    "unusedChallengeReserveRoute",
+  ]) {
+    exact(
+      accountingBoundary[key],
+      null,
+      `$.rewardAccounting.accountingBoundary.${key}`,
+    );
+  }
+  exact(
+    accountingBoundary.futureReviewerBudgetMustBeOutcomeIndependent,
+    true,
+    "$.rewardAccounting.accountingBoundary.futureReviewerBudgetMustBeOutcomeIndependent",
+  );
   if (!Array.isArray(source.breakthroughLens) || source.breakthroughLens.length !== 6) {
     fail("$.breakthroughLens", "must contain B0 through B5");
   }
@@ -1152,7 +1497,26 @@ function percent(bps: number): string {
   return `${bps / 100}%`;
 }
 
-function renderInspector(root: HTMLElement, selected: QuantumNode, byId: Map<string, QuantumNode>): void {
+export function quantumRewardEligibilityLabel(
+  value: QuantumRewardEligibility,
+): string {
+  return value === "qualification-only"
+    ? "curriculum evidence only (no qualification)"
+    : "future sponsor-case template (unfunded)";
+}
+
+export function quantumRewardMilestonesForDisplay(
+  season: QuantumSeason,
+): readonly QuantumMilestone[] {
+  return season.rewardPolicy.milestones;
+}
+
+function renderInspector(
+  root: HTMLElement,
+  selected: QuantumNode,
+  byId: Map<string, QuantumNode>,
+  performance: QuantumSeason["performanceDecision"],
+): void {
   root.replaceChildren();
   const heading = element("div", "quantum-inspector-head");
   heading.append(
@@ -1164,7 +1528,7 @@ function renderInspector(root: HTMLElement, selected: QuantumNode, byId: Map<str
   const badges = element("div", "quantum-node-badges");
   badges.append(
     element("span", undefined, selected.attainmentEvidence),
-    element("span", undefined, humanise(selected.rewardEligibility)),
+    element("span", undefined, quantumRewardEligibilityLabel(selected.rewardEligibility)),
     element("span", undefined, humanise(selected.defaultDisclosureLane)),
   );
   root.append(badges);
@@ -1185,7 +1549,7 @@ function renderInspector(root: HTMLElement, selected: QuantumNode, byId: Map<str
     const contract = selected.acceptance;
     const acceptance = element("div", "quantum-inspector-block quantum-acceptance");
     acceptance.append(
-      element("strong", undefined, "Quest acceptance floor"),
+      element("strong", undefined, "Measurement-completeness floor · no performance pass"),
       element(
         "p",
         undefined,
@@ -1208,7 +1572,7 @@ function renderInspector(root: HTMLElement, selected: QuantumNode, byId: Map<str
     contract.coverageTargets.forEach((target) => {
       const requirement = target.analysisMode === "bernoulli-logical-failure"
         ? `≥${target.minimumCasesPerCell.toLocaleString("en")} cases + ≥${target.minimumLogicalFailuresPerCell} logical failures · two-sided ${percent(target.confidenceLevelBps)} CI · ≤${percent(target.maximumRelativeHalfWidthBps)} relative half-width`
-        : `≥${target.minimumCasesPerCell.toLocaleString("en")} cases · precommitted latency quantile/deadline · ${percent(target.confidenceLevelBps)} two-sided quantile CI or one-sided miss-rate upper bound · zero misses may conclude`;
+        : `≥${target.minimumCasesPerCell.toLocaleString("en")} cases · precommitted latency quantile/deadline · ${percent(target.confidenceLevelBps)} two-sided quantile CI or one-sided miss-rate upper bound · zero misses may satisfy measurement completeness, never a performance pass`;
       coverage.append(element("li", undefined, `${humanise(target.id)} — ${requirement}`));
     });
     acceptance.append(coverageHeading, coverage);
@@ -1217,6 +1581,17 @@ function renderInspector(root: HTMLElement, selected: QuantumNode, byId: Map<str
     const bindings = element("ul", "quantum-binding-list");
     contract.requiredCaseBindings.forEach((binding) => bindings.append(element("li", undefined, binding)));
     acceptance.append(bindingsHeading, bindings);
+
+    const prospectiveHeading = element(
+      "strong",
+      undefined,
+      "Bindings still required before any funded performance rule",
+    );
+    const prospective = element("ul", "quantum-binding-list");
+    performance.fundedCaseRequiredBindings.forEach((binding) => {
+      prospective.append(element("li", undefined, binding));
+    });
+    acceptance.append(prospectiveHeading, prospective);
 
     const scopeHeading = element("strong", undefined, "Exact frozen scope");
     const scope = element("ul", "quantum-scope-list");
@@ -1227,7 +1602,12 @@ function renderInspector(root: HTMLElement, selected: QuantumNode, byId: Map<str
       element(
         "p",
         "quantum-no-pass",
-        "A compute-cap exhaustion is inconclusive and cannot pass. Rare-event substitution is limited to logical-error cells and only a separately reviewed unbiased estimator with method, review-receipt, variance, and coverage evidence is eligible.",
+        "V0 can check measurement completeness but cannot emit a performance pass. Precision alone establishes no performance result, and a missing prospective decision rule is INCONCLUSIVE_NO_PASS. A compute-cap exhaustion is also inconclusive. Rare-event substitution is limited to logical-error cells and only a separately reviewed unbiased estimator with method, review-receipt, variance, and coverage evidence is eligible.",
+      ),
+      element(
+        "p",
+        undefined,
+        "Non-normative paper context only: logical error 6.70 ± 1.93e-9, mean latency 273 ns, and 99.99% < 1 μs. These observations are not thresholds and cannot make any decoder pass.",
       ),
     );
     root.append(acceptance);
@@ -1258,11 +1638,11 @@ export function renderQuantumSeason(
   truth.setAttribute("role", "note");
   truth.append(
     element("span", "quantum-kicker", "Season 1 · shadow mode"),
-    element("strong", undefined, "Quantum capability is playable. Money is not."),
+    element("strong", undefined, "Quantum capability is playable. Money stays at zero."),
     element(
       "p",
       undefined,
-      "Thirteen hash-bound nodes, including one QEC decoder quest, are public. The template holds 0 uzrn, has no escrow receipt, and cannot create a claim, qualification, vote, founder share, or KARMA weight.",
+      "Thirteen hash-bound nodes, including one QEC decoder quest, are public. The template holds 0 uzrn, has no escrow receipt, creates no claim or qualification, and emits no performance pass. No direct governance grant. uzrn remains bondable under the current protocol, so an indirect stake-weight path exists.",
     ),
   );
   const facts = element("div", "quantum-facts");
@@ -1301,27 +1681,61 @@ export function renderQuantumSeason(
   const reward = element("div", "quantum-reward-shape");
   const release = element("div", "quantum-reward-axis");
   release.append(
-    element("span", "quantum-kicker", "When evidence survives"),
-    element("h3", undefined, "Release ladder"),
+    element("span", "quantum-kicker", "Outcome release axis · 100% shape · inactive"),
+    element("h3", undefined, "Release ladder · 0 uzrn"),
   );
   const releaseList = element("ul");
-  season.rewardPolicy.milestones.slice(2).forEach((milestone) => {
-    releaseList.append(element("li", undefined, `${milestone.level} ${humanise(milestone.name)} · ${percent(milestone.rewardBps)}`));
+  quantumRewardMilestonesForDisplay(season).forEach((milestone) => {
+    const boundary = milestone.level === "E0"
+      ? " · precedence only"
+      : milestone.level === "E1"
+        ? " · verified costs only, outside outcome %"
+        : "";
+    releaseList.append(element("li", undefined, `${milestone.level} ${humanise(milestone.name)} · ${percent(milestone.rewardBps)}${boundary}`));
   });
   releaseList.append(element("li", undefined, `Challenge + remediation · ${percent(season.rewardPolicy.challengeReserveBps)}`));
-  release.append(releaseList);
+  release.append(
+    releaseList,
+    element(
+      "p",
+      undefined,
+      "Verified costs need a separate prefunded cap; this template binds none.",
+    ),
+  );
   const attribution = element("div", "quantum-reward-axis");
   attribution.append(
-    element("span", "quantum-kicker", "Whose work constructs it"),
-    element("h3", undefined, "Attribution shape"),
+    element("span", "quantum-kicker", "Attribution credit axis · 100% shape · inactive"),
+    element("h3", undefined, "Whose work constructs it · 0 uzrn"),
   );
   const attributionList = element("ul");
   Object.entries(season.rewardPolicy.attributionBps).forEach(([name, bps]) => {
-    attributionList.append(element("li", undefined, `${humanise(name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase())} · ${percent(bps)}`));
+    const boundary = name === "independentReview"
+      ? " · attribution credit, not adjudicator pay"
+      : "";
+    attributionList.append(element("li", undefined, `${humanise(name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase())} · ${percent(bps)}${boundary}`));
   });
-  attribution.append(attributionList);
+  attribution.append(
+    attributionList,
+    element(
+      "p",
+      undefined,
+      "Any future reviewer budget must be separate and outcome-independent.",
+    ),
+  );
   reward.append(release, attribution);
   shell.append(reward);
+
+  const accounting = element("div", "quantum-karma");
+  accounting.append(
+    element("span", "quantum-kicker", "Reward accounting boundary"),
+    element("h3", undefined, "Two orthogonal shapes, never 200%"),
+    element(
+      "p",
+      undefined,
+      "The two 100% axes are non-additive. Funding stays blocked: there is no cross-axis allocation, rounding rule, escrow-compartment binding, single settlement, verified-cost cap, reviewer-budget cap, or unused-reserve route.",
+    ),
+  );
+  shell.append(accounting);
 
   const karma = element("div", "quantum-karma");
   karma.append(
@@ -1330,7 +1744,7 @@ export function renderQuantumSeason(
     element(
       "p",
       undefined,
-      "KARMA records constructive relations. It is non-transferable, not a scalar rank, and gives no payout or vote weight. A future use is limited to capped randomized eligibility—and only after independent validator, stake, host, controller, conflict, delay, challenge, appeal, and prospective named-upgrade replay tests with a declared activation height exist.",
+      "Zerone records fallible, challengeable priced-coherence observations about domain relations—not human worth, ownership, or truth. Zerone does not mint KARMA; neither operator nor founder can assign it. Raw events and counts never qualify anyone or improve selection odds. Any future candidate filter must exclude same-controller, self, reciprocal, and correlated-funder edges; collapse controllers only downward; cap one lottery unit per controller; freeze candidates before unbiased randomness; and permit neither operator override nor count-proportional probability.",
     ),
   );
   shell.append(karma);
@@ -1365,7 +1779,7 @@ export function renderQuantumSeason(
       button.addEventListener("click", () => {
         selectedId = node.id;
         setQuantumCurrentNode(buttons, selectedId);
-        renderInspector(inspector, node, byId);
+        renderInspector(inspector, node, byId, season.performanceDecision);
         if (window.matchMedia("(max-width: 1040px)").matches) {
           const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           inspector.scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" });
@@ -1427,7 +1841,7 @@ export function renderQuantumSeason(
   const selected = byId.get(selectedId);
   if (selected) {
     setQuantumCurrentNode(buttons, selectedId);
-    renderInspector(inspector, selected, byId);
+    renderInspector(inspector, selected, byId, season.performanceDecision);
   }
 }
 

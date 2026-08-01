@@ -30,6 +30,15 @@ sha256: 8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf
 Any core-tree byte drift, missing binding, or binding substitution makes the
 overlay invalid.
 
+The adjacent `constitutionBinding` pins the exact raw bytes of
+`docs/constitution/money-karma-v1.json`. The static validator hashes that
+checked-in file, and the browser parser requires the same literal pin. The
+overlay cannot silently follow an unreviewed Money–KARMA revision.
+
+Neither source publication nor any H1, H2, or H3 boundary activates this
+overlay. Those upgrade sources create no skill qualification, reward, escrow,
+KARMA consumer, or scientific authority.
+
 ## Release and money boundary
 
 The machine document fixes all consensus, reward, movement-of-funds,
@@ -151,11 +160,23 @@ Common beneficial control collapses aliases into one effective cluster.
 Shared employment, sponsorship, side payment, infrastructure, method lineage,
 or context may be relevant to that disclosure. The static evaluator does not
 discover those relationships; it fails closed on the disclosed cluster graph.
+The contributor IDs, control clusters, organization roots, method roots, and
+context roots are all self-declarations. They are explicitly
+`DECLARED_UNVERIFIED`, not independently verified identities or controller
+relationships. One contributor claiming more than one distinct control tuple
+(cluster, organization, method, and context roots) blocks the fixture instead
+of increasing its apparent independence. Any future eligibility system would
+require an external controller attestation that binds these declarations to
+independently checked control relationships.
 
 The crown requires LS5, the independence floors, an independent
 cross-context-replication observation, and `challengeStatus: CLEAR`. `OPEN`,
 `UNRESOLVED`, and `UPHELD` each block the crown. A challenge cannot create a
-reward in v0.
+reward in v0. `CLEAR` is also only a self-declared fixture value and remains
+`DECLARED_UNVERIFIED`; it is not proof that a challenge window occurred or
+that an adjudicator cleared every claim. Any future eligibility system would
+also require an external adjudication receipt. Neither prerequisite exists in
+v0.
 
 ## Graph shape
 
@@ -201,9 +222,14 @@ authority locators. It rejects:
 - embedded nucleotide-like payloads in profile nodes.
 
 The same module exposes a synthetic evidence-boundary evaluator. Its output is
-only `SHADOW_ONLY_ELIGIBLE`, `SHADOW_ONLY_BLOCKED`, or
-`SHADOW_ONLY_REFUSED`, always paired with `economicEffect: NONE` and amount
-`0`. It is a policy test oracle, not a scientific truth oracle.
+only `SHADOW_ONLY_STRUCTURAL_MATCH`, `SHADOW_ONLY_BLOCKED`, or
+`SHADOW_ONLY_REFUSED`. Every result carries `rewardEligible: false`,
+`independenceStatus: DECLARED_UNVERIFIED`,
+`challengeStatus: DECLARED_UNVERIFIED`, `economicEffect: NONE`, and amount
+`0`. A structural match means only that the submitted declarations fit the
+local fixture rules. It is a policy test oracle, not a scientific truth oracle,
+controller verifier, challenge adjudicator, qualification system, or reward
+gate.
 
 Run the checked-in validation and boundary suite with:
 

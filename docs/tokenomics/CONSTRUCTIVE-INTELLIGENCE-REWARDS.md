@@ -10,7 +10,7 @@
 
 ## Current network posture
 
-As of 2026-07-29:
+As of 2026-08-01:
 
 - the checked-in
   [constructive-intelligence tree v1](../specs/constructive-intelligence-tree-v1.md)
@@ -20,11 +20,15 @@ As of 2026-07-29:
   registry, semantic-equivalence service, breakthrough scorer, or payout path;
 - the source doctrine in [`../USEFUL_WORK.md`](../USEFUL_WORK.md) is a target
   architecture with partial bindings, not a live universal reward formula;
-- the `zerone-2` release remains **NO-GO**; and
+- the `zerone-2` release remains **NO-GO**;
 - its planned genesis profile is protocol-dark: vote extensions are disabled,
   knowledge admission is priced above the hard supply cap, knowledge reward
   rates and allocations are zero, the substrate bridge has no adapters, and
-  atomic H1 retires transaction-presence block issuance at the source level.
+  H2 retires transaction-presence block issuance at the source level; and
+- accepted source-only H1 and H2 artifacts, plus accepted H3 source commit
+  `335bb94f0fd54d3752dcb397263b7e84fb1116b4`, activate no
+  constructive-intelligence reward, KARMA consumer, qualification, escrow, or
+  payout path.
 
 The dark posture is intentional. Adding this file MUST NOT change genesis,
 module parameters, handlers, migrations, supply, governance authority, or the
@@ -242,9 +246,9 @@ weight. An LS level may constrain what evidence a quest accepts, but cannot by
 itself unlock a tranche.
 
 The published v0 profile remains `DRAFT/SHADOW_ONLY`, with `amount = 0`, no
-denomination, no escrow, and every reward or authority switch false. H1 does
-not activate it. This preserves the future reward design without letting a
-scientific map quietly become a mint.
+denomination, no escrow, and every reward or authority switch false. H1, H2,
+and H3 do not activate it. This preserves the future reward design without
+letting a scientific map quietly become a mint.
 
 The separately versioned Epigenetics Capability Garden v1 makes one possible
 evidence-release shape concrete while remaining `rewardBearing = false`. Its
@@ -269,21 +273,46 @@ reviewed v1 base tree, receipt format, or proof-of-constructive-action pins.
 Its 12 capability nodes culminate in one correlated-noise quantum-error-
 correction replication quest with frozen baselines, seeds, resources, stopping
 rules, uncertainty reporting, and independent control-cluster requirements.
+V0 can establish measurement completeness only. It emits no performance pass;
+precision alone cannot establish performance; and without a prospectively
+bound funded-case comparator, estimand/null/direction, confidence decision
+rule, minimum effect or equivalence margin, baseline-comparator independent-
+review receipt, mandatory LER-versus-latency conflict rule (hard constraint,
+lexicographic rule, or Pareto rule), latency rule, multiple-comparison policy,
+negative-result route, and resource match, the result is
+`INCONCLUSIVE_NO_PASS`. The rare-event route is logical-cell-only, replaces
+only direct case and observed-failure floors, retains every other binding, and
+requires a reviewed unbiased estimator with a two-sided 99% interval no wider
+than 30% relative half-width; it never creates a performance pass.
 
-Two reward axes remain separate:
+Two orthogonal reward axes each conserve 100% and remain non-additive:
 
-1. **Release timing** follows the inherited E2–E6 milestone ladder plus a
-   challenge/remediation reserve.
-2. **Attribution** divides a future prefunded reward across originating work,
-   independent replication, review, downstream adoption, falsification, and
-   maintenance.
+1. **Release timing** includes E0 at 0%, E1 at 0% outcome release, the inherited
+   E2–E6 milestone ladder, and the challenge/remediation reserve. Any verified
+   E1 costs sit outside the outcome percentages and require their own cap.
+2. **Attribution credit** divides a future prefunded reward across originating
+   work, independent replication, review, downstream adoption, falsification,
+   and maintenance. Independent-review credit is not adjudicator pay; a future
+   reviewer budget must be separate, capped, and outcome-independent.
 
 The published quantum template carries `amount = 0`, no escrow, no claim, no
-founder share, and no governance power. B0–B5 are retrospective research
-profiles, not assignable badges or payment inputs. KARMA events likewise remain
-non-transferable observations: they provide no scalar rank, payout oracle,
-vote weight, veto, qualification, or operator privilege. Any future eligibility
-use must be separately versioned, capture-resistant, capped, and activated by a
+founder share, no cross-axis allocation or rounding rule, no bound escrow
+compartments or single settlement, and no verified-cost, reviewer-budget, or
+unused-reserve route. Any missing item blocks funding. The template grants no
+direct governance authority, but `uzrn` remains bondable under the current
+protocol, so an indirect stake-weight path exists. Economic-to-governance
+decoupling must be enforced before any funded activation.
+
+B0–B5 are retrospective research profiles, not assignable badges or payment
+inputs. KARMA uses `zerone.karma.edge` in the `priced-coherence` register to
+record fallible, challengeable domain relations—not truth, ownership, or human
+worth. Zerone does not mint KARMA; operators and founders cannot assign it; raw
+events or counts qualify nobody and counts cannot improve selection odds. Any
+future domain-scoped candidate filter must exclude same-controller, self,
+reciprocal, and correlated-funder edges, collapse controller merges only
+downward, cap one lottery unit per controller, freeze candidates before
+unbiased randomness, and prohibit operator override and count-proportional
+probability. Such use must be separately versioned and activated by a
 release-bound process.
 
 ## 4. Six ledgers that MUST remain separate

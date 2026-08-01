@@ -3,12 +3,15 @@
 export const LIFE_SCIENCES_TREE_ENDPOINT =
   "/standards/constructive-intelligence-life-sciences.v0.json";
 export const LIFE_SCIENCES_TREE_SHA256 =
-  "2b3a0b0b92797ef459c6ec02a38d1b9ebde62105a1b558088e44779d4595508d";
+  "64dc2c5b2e21dfc9697d173317254ce651dede8661993ece7b380b7e1421496e";
 export const LIFE_SCIENCES_TREE_MAX_BYTES = 196_608;
 
 const SCHEMA = "zerone.constructive-intelligence-life-sciences/v0";
 const BASE_TREE_SHA256 =
   "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf";
+const MONEY_KARMA_CONSTITUTION_SCHEMA = "zerone.money-karma.constitution/v1";
+const MONEY_KARMA_CONSTITUTION_DOCUMENT_SHA256 =
+  "sha256:f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24";
 const STAGES = [
   "foundation",
   "measurement",
@@ -24,6 +27,115 @@ const BRANCHES = [
   "integration",
 ] as const;
 const EVIDENCE_LEVELS = ["LS0", "LS1", "LS2", "LS3", "LS4", "LS5"] as const;
+
+const TOP_LEVEL_KEYS = [
+  "schema",
+  "status",
+  "mode",
+  "authoritative",
+  "networkObserved",
+  "rewardBearing",
+  "snapshotDate",
+  "baseTreeBinding",
+  "constitutionBinding",
+  "releaseBoundary",
+  "economics",
+  "scope",
+  "fixtureBoundary",
+  "evidencePolicy",
+  "independence",
+  "challengePolicy",
+  "attestationBoundary",
+  "nonImplicationWalls",
+  "references",
+  "roots",
+  "nodes",
+] as const;
+const BASE_TREE_BINDING_KEYS = ["schema", "sha256", "policyVersion"] as const;
+const CONSTITUTION_BINDING_KEYS = ["schema", "documentSha256"] as const;
+const RELEASE_BOUNDARY_KEYS = [
+  "addsConsensusBehavior",
+  "activatesRewards",
+  "movesFunds",
+  "grantsQualification",
+  "grantsGovernanceAuthority",
+  "createsKarmaMagnitude",
+  "createsTransferableKarma",
+  "authorizesExperiments",
+  "authorizesClinicalDecisions",
+  "performsNetworkRequests",
+  "publishesRestrictedEvidence",
+  "marksReleaseReady",
+] as const;
+const ECONOMICS_KEYS = [
+  "effect",
+  "amount",
+  "denom",
+  "rewardMultiplier",
+  "escrowReference",
+] as const;
+const SCOPE_KEYS = [
+  "riskClass",
+  "allowedWork",
+  "refusedTopics",
+  "unknownRiskDisposition",
+  "privateEscalationContent",
+] as const;
+const FIXTURE_BOUNDARY_KEYS = [
+  "syntheticIdentifiersOnly",
+  "invalidTldRequired",
+  "sequencePayloadsAllowed",
+  "operationalProtocolsAllowed",
+  "identifiableHumanDataAllowed",
+  "rawHumanGenomeAllowed",
+  "maximumArtifactMetadataBytes",
+] as const;
+const EVIDENCE_POLICY_KEYS = [
+  "equivalenceToCoreTree",
+  "equivalenceToPoca",
+  "ladder",
+] as const;
+const EVIDENCE_LEVEL_KEYS = ["level", "name", "economicTreatment"] as const;
+const INDEPENDENCE_KEYS = [
+  "minimumEffectiveControlClusters",
+  "minimumOrganizationRoots",
+  "minimumMethodRoots",
+  "minimumContextRoots",
+  "rawIdentityCountIsEvidence",
+  "beneficialControlDisclosureRequired",
+  "futureEligibilityRequiresExternalControllerAttestation",
+] as const;
+const CHALLENGE_POLICY_KEYS = [
+  "openChallengeRequired",
+  "unresolvedChallengeBlocksCrown",
+  "upheldChallengeBlocksCrown",
+  "challengeCanCreateReward",
+  "futureEligibilityRequiresAdjudicationReceipt",
+] as const;
+const ATTESTATION_BOUNDARY_KEYS = [
+  "controlDisclosures",
+  "challengeStatus",
+  "establishesControllerIndependence",
+  "establishesChallengeClosure",
+] as const;
+const NON_IMPLICATION_WALL_KEYS = ["id", "premise", "doesNotEstablish"] as const;
+const REFERENCE_KEYS = ["canonicalId", "authority", "title", "specification"] as const;
+const NODE_KEYS = [
+  "id",
+  "title",
+  "stage",
+  "branch",
+  "summary",
+  "prerequisites",
+  "evidenceFloor",
+  "claimClass",
+  "permittedConclusions",
+  "forbiddenConclusions",
+  "artifactRequirements",
+  "revalidationTriggers",
+  "referenceIds",
+  "crown",
+] as const;
 
 type Stage = (typeof STAGES)[number];
 type Branch = (typeof BRANCHES)[number];
@@ -42,7 +154,6 @@ export interface LifeSciencesNode {
   forbiddenConclusions: string[];
   crown: boolean;
 }
-
 interface NonImplicationWall {
   id: string;
   premise: string;
@@ -55,9 +166,12 @@ export interface LifeSciencesOverlay {
   mode: "SHADOW_ONLY";
   snapshotDate: string;
   baseTreeSha256: string;
+  constitutionDocumentSha256: typeof MONEY_KARMA_CONSTITUTION_DOCUMENT_SHA256;
   riskClass: "GREEN_ONLY";
   refusedTopics: string[];
   minimumEffectiveControlClusters: number;
+  independenceStatus: "DECLARED_UNVERIFIED";
+  challengeStatus: "DECLARED_UNVERIFIED";
   nonImplicationWalls: NonImplicationWall[];
   nodes: LifeSciencesNode[];
 }
@@ -89,6 +203,20 @@ function object(value: unknown, path: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function exactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+  path: string,
+): void {
+  const expectedSet = new Set(expected);
+  for (const key of Object.keys(value)) {
+    if (!expectedSet.has(key)) fail(`${path}.${key}`, "unknown field");
+  }
+  for (const key of expected) {
+    if (!Object.hasOwn(value, key)) fail(`${path}.${key}`, "required field is missing");
+  }
+}
+
 function text(value: unknown, path: string, max = 1_024): string {
   if (typeof value !== "string" || value.length === 0 || value.length > max) {
     fail(path, `must be a non-empty string no longer than ${max} characters`);
@@ -106,6 +234,11 @@ function exactFalse(value: unknown, path: string): false {
   return false;
 }
 
+function exactTrue(value: unknown, path: string): true {
+  if (value !== true) fail(path, "must remain true");
+  return true;
+}
+
 function member<T extends readonly string[]>(
   value: unknown,
   allowed: T,
@@ -119,6 +252,7 @@ function member<T extends readonly string[]>(
 
 export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
   const root = object(value, "$");
+  exactKeys(root, TOP_LEVEL_KEYS, "$");
   if (root.schema !== SCHEMA) fail("$.schema", "unsupported schema");
   if (root.status !== "DRAFT") fail("$.status", "must remain DRAFT");
   if (root.mode !== "SHADOW_ONLY") fail("$.mode", "must remain SHADOW_ONLY");
@@ -127,11 +261,28 @@ export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
   exactFalse(root.rewardBearing, "$.rewardBearing");
 
   const binding = object(root.baseTreeBinding, "$.baseTreeBinding");
+  exactKeys(binding, BASE_TREE_BINDING_KEYS, "$.baseTreeBinding");
   if (binding.sha256 !== BASE_TREE_SHA256) {
     fail("$.baseTreeBinding.sha256", "core-tree binding drifted");
   }
 
+  const constitutionBinding = object(root.constitutionBinding, "$.constitutionBinding");
+  exactKeys(
+    constitutionBinding,
+    CONSTITUTION_BINDING_KEYS,
+    "$.constitutionBinding",
+  );
+  if (constitutionBinding.schema !== MONEY_KARMA_CONSTITUTION_SCHEMA) {
+    fail("$.constitutionBinding.schema", "Money-KARMA constitution schema drifted");
+  }
+  if (
+    constitutionBinding.documentSha256 !== MONEY_KARMA_CONSTITUTION_DOCUMENT_SHA256
+  ) {
+    fail("$.constitutionBinding.documentSha256", "Money-KARMA constitution pin drifted");
+  }
+
   const boundary = object(root.releaseBoundary, "$.releaseBoundary");
+  exactKeys(boundary, RELEASE_BOUNDARY_KEYS, "$.releaseBoundary");
   for (const key of [
     "addsConsensusBehavior",
     "activatesRewards",
@@ -150,6 +301,7 @@ export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
   }
 
   const economics = object(root.economics, "$.economics");
+  exactKeys(economics, ECONOMICS_KEYS, "$.economics");
   if (
     economics.effect !== "NONE" ||
     economics.amount !== "0" ||
@@ -161,6 +313,7 @@ export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
   exactFalse(economics.rewardMultiplier, "$.economics.rewardMultiplier");
 
   const scope = object(root.scope, "$.scope");
+  exactKeys(scope, SCOPE_KEYS, "$.scope");
   if (scope.riskClass !== "GREEN_ONLY") fail("$.scope.riskClass", "must remain GREEN_ONLY");
   const refusedTopics = stringArray(scope.refusedTopics, "$.scope.refusedTopics", 32);
   for (const topic of [
@@ -178,7 +331,18 @@ export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
     if (!refusedTopics.includes(topic)) fail("$.scope.refusedTopics", `missing ${topic}`);
   }
 
+  const fixtureBoundary = object(root.fixtureBoundary, "$.fixtureBoundary");
+  exactKeys(fixtureBoundary, FIXTURE_BOUNDARY_KEYS, "$.fixtureBoundary");
+
   const evidencePolicy = object(root.evidencePolicy, "$.evidencePolicy");
+  exactKeys(evidencePolicy, EVIDENCE_POLICY_KEYS, "$.evidencePolicy");
+  if (!Array.isArray(evidencePolicy.ladder)) {
+    fail("$.evidencePolicy.ladder", "must be an array");
+  }
+  evidencePolicy.ladder.forEach((item, index) => {
+    const level = object(item, `$.evidencePolicy.ladder[${index}]`);
+    exactKeys(level, EVIDENCE_LEVEL_KEYS, `$.evidencePolicy.ladder[${index}]`);
+  });
   if (
     evidencePolicy.equivalenceToCoreTree !== "NO_EQUIVALENCE_TO_E0_E6" ||
     evidencePolicy.equivalenceToPoca !== "NO_EQUIVALENCE_TO_POCA_TIERS"
@@ -187,16 +351,60 @@ export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
   }
 
   const independence = object(root.independence, "$.independence");
+  exactKeys(independence, INDEPENDENCE_KEYS, "$.independence");
   if (independence.minimumEffectiveControlClusters !== 3) {
     fail("$.independence.minimumEffectiveControlClusters", "must remain 3");
   }
   exactFalse(independence.rawIdentityCountIsEvidence, "$.independence.rawIdentityCountIsEvidence");
+  exactTrue(
+    independence.futureEligibilityRequiresExternalControllerAttestation,
+    "$.independence.futureEligibilityRequiresExternalControllerAttestation",
+  );
+
+  const challengePolicy = object(root.challengePolicy, "$.challengePolicy");
+  exactKeys(challengePolicy, CHALLENGE_POLICY_KEYS, "$.challengePolicy");
+  exactTrue(
+    challengePolicy.futureEligibilityRequiresAdjudicationReceipt,
+    "$.challengePolicy.futureEligibilityRequiresAdjudicationReceipt",
+  );
+
+  const attestationBoundary = object(root.attestationBoundary, "$.attestationBoundary");
+  exactKeys(
+    attestationBoundary,
+    ATTESTATION_BOUNDARY_KEYS,
+    "$.attestationBoundary",
+  );
+  if (attestationBoundary.controlDisclosures !== "SELF_DECLARED_SYNTHETIC_LABELS") {
+    fail(
+      "$.attestationBoundary.controlDisclosures",
+      "must remain SELF_DECLARED_SYNTHETIC_LABELS",
+    );
+  }
+  if (attestationBoundary.challengeStatus !== "SELF_DECLARED_SYNTHETIC_LABEL") {
+    fail(
+      "$.attestationBoundary.challengeStatus",
+      "must remain SELF_DECLARED_SYNTHETIC_LABEL",
+    );
+  }
+  exactFalse(
+    attestationBoundary.establishesControllerIndependence,
+    "$.attestationBoundary.establishesControllerIndependence",
+  );
+  exactFalse(
+    attestationBoundary.establishesChallengeClosure,
+    "$.attestationBoundary.establishesChallengeClosure",
+  );
 
   if (!Array.isArray(root.nonImplicationWalls) || root.nonImplicationWalls.length !== 4) {
     fail("$.nonImplicationWalls", "must contain the four scientific inference walls");
   }
   const nonImplicationWalls = root.nonImplicationWalls.map((item, index) => {
     const wall = object(item, `$.nonImplicationWalls[${index}]`);
+    exactKeys(
+      wall,
+      NON_IMPLICATION_WALL_KEYS,
+      `$.nonImplicationWalls[${index}]`,
+    );
     return {
       id: text(wall.id, `$.nonImplicationWalls[${index}].id`, 128),
       premise: text(wall.premise, `$.nonImplicationWalls[${index}].premise`, 128),
@@ -208,11 +416,18 @@ export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
     };
   });
 
+  if (!Array.isArray(root.references)) fail("$.references", "must be an array");
+  root.references.forEach((item, index) => {
+    const reference = object(item, `$.references[${index}]`);
+    exactKeys(reference, REFERENCE_KEYS, `$.references[${index}]`);
+  });
+
   if (!Array.isArray(root.nodes) || root.nodes.length < 12 || root.nodes.length > 20) {
     fail("$.nodes", "must contain 12 through 20 nodes");
   }
   const nodes = root.nodes.map((item, index): LifeSciencesNode => {
     const node = object(item, `$.nodes[${index}]`);
+    exactKeys(node, NODE_KEYS, `$.nodes[${index}]`);
     if (typeof node.crown !== "boolean") fail(`$.nodes[${index}].crown`, "must be boolean");
     return {
       id: text(node.id, `$.nodes[${index}].id`, 128),
@@ -261,9 +476,12 @@ export function parseLifeSciencesOverlay(value: unknown): LifeSciencesOverlay {
     mode: "SHADOW_ONLY",
     snapshotDate: text(root.snapshotDate, "$.snapshotDate", 10),
     baseTreeSha256: BASE_TREE_SHA256,
+    constitutionDocumentSha256: MONEY_KARMA_CONSTITUTION_DOCUMENT_SHA256,
     riskClass: "GREEN_ONLY",
     refusedTopics,
     minimumEffectiveControlClusters: 3,
+    independenceStatus: "DECLARED_UNVERIFIED",
+    challengeStatus: "DECLARED_UNVERIFIED",
     nonImplicationWalls,
     nodes,
   };
@@ -382,6 +600,103 @@ function assertCanonicalResponseUrl(
   }
 }
 
+function rejectDuplicateJsonKeys(raw: string): void {
+  let offset = 0;
+  const whitespace = (): void => {
+    while (/\s/.test(raw[offset] ?? "")) offset += 1;
+  };
+  const scanString = (): string => {
+    const start = offset;
+    offset += 1;
+    let escaped = false;
+    while (offset < raw.length) {
+      const character = raw[offset];
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') {
+        offset += 1;
+        return JSON.parse(raw.slice(start, offset)) as string;
+      }
+      offset += 1;
+    }
+    fail("$", "unterminated JSON string");
+  };
+  const scanValue = (path: string, depth = 0): void => {
+    if (depth > 64) fail(path, "JSON nesting exceeds 64");
+    whitespace();
+    const token = raw[offset];
+    if (token === "{") {
+      offset += 1;
+      whitespace();
+      const keys = new Set<string>();
+      if (raw[offset] === "}") {
+        offset += 1;
+        return;
+      }
+      while (offset < raw.length) {
+        whitespace();
+        if (raw[offset] !== '"') fail(path, "malformed object key");
+        const key = scanString();
+        if (keys.has(key)) fail(`${path}.${key}`, "duplicate JSON object key");
+        keys.add(key);
+        whitespace();
+        if (raw[offset] !== ":") fail(path, "malformed object separator");
+        offset += 1;
+        scanValue(`${path}.${key}`, depth + 1);
+        whitespace();
+        if (raw[offset] === "}") {
+          offset += 1;
+          return;
+        }
+        if (raw[offset] !== ",") fail(path, "malformed object delimiter");
+        offset += 1;
+      }
+      fail(path, "unterminated object");
+    }
+    if (token === "[") {
+      offset += 1;
+      whitespace();
+      if (raw[offset] === "]") {
+        offset += 1;
+        return;
+      }
+      let index = 0;
+      while (offset < raw.length) {
+        scanValue(`${path}[${index}]`, depth + 1);
+        whitespace();
+        if (raw[offset] === "]") {
+          offset += 1;
+          return;
+        }
+        if (raw[offset] !== ",") fail(path, "malformed array delimiter");
+        offset += 1;
+        index += 1;
+      }
+      fail(path, "unterminated array");
+    }
+    if (token === '"') {
+      scanString();
+      return;
+    }
+    while (offset < raw.length && !/[\s,\]}]/.test(raw[offset] ?? "")) offset += 1;
+  };
+  scanValue("$");
+}
+
+export function parseLifeSciencesOverlayJson(raw: string): LifeSciencesOverlay {
+  if (new TextEncoder().encode(raw).byteLength > LIFE_SCIENCES_TREE_MAX_BYTES) {
+    fail("$", `document exceeds ${LIFE_SCIENCES_TREE_MAX_BYTES} UTF-8 bytes`);
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    rejectDuplicateJsonKeys(raw);
+    return parseLifeSciencesOverlay(parsed);
+  } catch (error) {
+    if (error instanceof LifeSciencesTreeError) throw error;
+    fail("$", "malformed JSON");
+  }
+}
+
 export async function fetchLifeSciencesOverlay(
   options: LifeSciencesTreeFetchOptions = {},
 ): Promise<LifeSciencesOverlay> {
@@ -476,15 +791,7 @@ export async function fetchLifeSciencesOverlay(
         "Life-science overlay is not valid UTF-8",
       );
     }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new LifeSciencesTreeError(
-        "Life-science overlay is not valid JSON",
-      );
-    }
-    return parseLifeSciencesOverlay(parsed);
+    return parseLifeSciencesOverlayJson(raw);
   } finally {
     globalThis.clearTimeout(deadline);
   }
@@ -529,7 +836,7 @@ function renderOverlay(root: HTMLElement, overlay: LifeSciencesOverlay): void {
     el(
       "p",
       undefined,
-      `No experiments, clinical decisions, qualification, governance, rewards, or funds. Crown review needs ${overlay.minimumEffectiveControlClusters} effective control clusters and a clear challenge state.`,
+      `No experiments, clinical decisions, qualification, governance, rewards, or funds. Control roots and challenge state are self-declared synthetic labels, not verified independence or closure. A structural crown match would still never be reward-eligible.`,
     ),
   );
 
