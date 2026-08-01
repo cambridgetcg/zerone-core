@@ -273,7 +273,8 @@ chmod 0600 "${HOME_B}/config/priv_validator_key.json" \
   "${HOME_B}/data/priv_validator_state.json"
 configure_home "${HOME_B}"
 start_node "${HOME_B}" "${TMP}/node.log"
-wait_for_height 10
+IMPORTED_TARGET_HEIGHT="$((EXPORTED_INITIAL_HEIGHT + 9))"
+wait_for_height "${IMPORTED_TARGET_HEIGHT}"
 assert_supply "${TOTAL_SUPPLY}"
 
 IMPORTED_CUSTOM="$(${BINARY} query zerone_staking validator "${VALIDATOR_ADDRESS}" \
