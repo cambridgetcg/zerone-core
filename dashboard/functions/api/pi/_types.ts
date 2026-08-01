@@ -1,3 +1,6 @@
+export const PI_BEARER_PENDING_TTL_MS = 2 * 60 * 1_000;
+export const PI_CHALLENGE_RATE_WINDOW_MS = 60 * 1_000;
+
 export interface PiD1Result<T = Record<string, unknown>> {
   readonly results?: readonly T[];
   readonly success: boolean;
@@ -22,10 +25,13 @@ export interface PiD1Database {
 
 export interface PiEnv {
   readonly PI_AUTH_DB?: PiD1Database;
+  readonly PI_BEARER_SHA_CLEAN_START_CONFIRMED?: string;
   readonly PI_CLIENT_ID?: string;
   readonly PI_PILOT_ENABLED?: string;
   readonly PI_PUBLIC_ORIGIN?: string;
   readonly PI_SUBJECT_PEPPER?: string;
+  readonly PI_SUBJECT_PEPPER_PREVIOUS?: string;
+  readonly PI_SUBJECT_PEPPER_VERSION?: string;
   readonly PI_WALLET_PROOF_ENABLED?: string;
 }
 
@@ -33,7 +39,39 @@ export interface PiSession {
   readonly tokenHash: string;
   readonly subjectHash: string;
   readonly username: string;
+  readonly pepperVersion: number;
+  readonly lastSeenAt: number;
   readonly expiresAt: number;
+}
+
+export interface PiPepperPin {
+  readonly version: number;
+  readonly fingerprint: string;
+}
+
+export interface PiSubjectAlias {
+  readonly pepperVersion: number;
+  readonly aliasHash: string;
+}
+
+export interface PiRetentionPolicy {
+  readonly now: number;
+  readonly pendingBefore: number;
+  readonly idleBefore: number;
+  readonly retainedBefore: number;
+  readonly maximumRowsPerTable: number;
+}
+
+export interface PiRetentionResult {
+  readonly oauthFlowsDeleted: number;
+  readonly bearerPendingClaimsDeleted: number;
+  readonly challengesDeleted: number;
+  readonly challengeRateEventsDeleted: number;
+  readonly challengeUsesDeleted: number;
+  readonly sessionsDeleted: number;
+  readonly bindingsDeleted: number;
+  readonly subjectAliasesDeleted: number;
+  readonly deletionGuardsDeleted: number;
 }
 
 export interface PiChallenge {
@@ -85,22 +123,53 @@ export interface PiRepository {
   consumeOAuthFlow(
     stateHash: string,
     browserHash: string,
-    bearerFingerprint: string,
+    bearerReplayCommitment: string,
+    activePepperVersion: number,
+    now: number,
+  ): Promise<number | null>;
+  promoteBearerClaim(
+    bearerReplayCommitment: string,
+    stateHash: string,
+    browserHash: string,
+  ): Promise<boolean>;
+  rejectBearerClaim(
+    bearerReplayCommitment: string,
+    stateHash: string,
+    browserHash: string,
+  ): Promise<void>;
+  ensurePepperConfiguration(
+    activeVersion: number,
+    pins: readonly PiPepperPin[],
     now: number,
   ): Promise<boolean>;
-  createSession(session: PiSession, createdAt: number): Promise<void>;
-  getSession(tokenHash: string, now: number): Promise<PiSession | null>;
+  resolveSubject(
+    aliases: readonly PiSubjectAlias[],
+  ): Promise<string | null>;
+  replaceSubjectSessions(
+    session: PiSession,
+    aliases: readonly PiSubjectAlias[],
+    oauthDeletionEpoch: number,
+    createdAt: number,
+    expectedKeysetFingerprint: string,
+  ): Promise<boolean>;
+  getSession(
+    tokenHash: string,
+    now: number,
+    idleSince: number,
+  ): Promise<PiSession | null>;
   revokeSession(tokenHash: string, now: number): Promise<void>;
   createChallenge(
     challenge: PiChallenge,
     recentSince: number,
     maximumRecent: number,
+    idleSince: number,
   ): Promise<boolean>;
   getChallenge(
     idHash: string,
     sessionHash: string,
     subjectHash: string,
     now: number,
+    idleSince: number,
   ): Promise<PiChallenge | null>;
   bindChallenge(
     idHash: string,
@@ -108,11 +177,26 @@ export interface PiRepository {
     subjectHash: string,
     proofHash: string,
     consentVersion: string,
+    rotatedSession: PiSession,
+    idleSince: number,
     now: number,
   ): Promise<PiBinding | null>;
   getBinding(subjectHash: string): Promise<PiBinding | null>;
-  deleteBinding(subjectHash: string, now: number): Promise<void>;
-  deleteSubject(subjectHash: string): Promise<void>;
+  deleteBinding(
+    subjectHash: string,
+    currentSessionHash: string,
+    rotatedSession: PiSession,
+    idleSince: number,
+    now: number,
+  ): Promise<boolean>;
+  deleteSubject(
+    subjectHash: string,
+    now: number,
+    guardExpiresAt: number,
+    expectedActivePepperVersion: number,
+    expectedKeysetFingerprint: string,
+  ): Promise<boolean>;
+  cleanupExpired(policy: PiRetentionPolicy): Promise<PiRetentionResult>;
 }
 
 export type PiFetch = (

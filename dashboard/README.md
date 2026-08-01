@@ -82,10 +82,13 @@ sends no trail choice to Pi or Zerone servers. Refresh, clear, and Pi logout
 discard it.
 
 An authenticated deletion control removes all subject-linked Pi pilot
-sessions, the active address binding, outstanding challenges, and rotation
-aliases in one D1 transition. A keyed subject tombstone prevents an OAuth flow
-started before deletion from recreating the session for exactly 12 minutes;
-the row may remain until operator cleanup. Minimal
+sessions, the active address binding, outstanding challenges, challenge-rate
+events, and rotation aliases in one D1 transition. Each OAuth-flow insert
+snapshots a D1-serialized deletion epoch; deletion atomically increments that
+epoch and writes keyed subject guards. For exactly 12 minutes, a guard prevents
+a flow with an older epoch from recreating the session, without comparing
+worker wall clocks; a later flow may sign in afresh. The row may remain until
+operator cleanup. Minimal
 unindexed anti-replay fingerprints remain outside account-selectable deletion
 and therefore remain part of the separate production retention gate. This
 control never changes the person's Pi account, Keplr wallet, or blockchain
@@ -112,8 +115,67 @@ Pages Function configuration:
 | `PI_WALLET_PROOF_ENABLED` | Exact string `true` to serve wallet-proof routes. |
 | `PI_CLIENT_ID` | Public client ID from the reviewed Pi developer app. |
 | `PI_PUBLIC_ORIGIN` | Exact dashboard origin; HTTPS except for a loopback development origin. |
-| `PI_SUBJECT_PEPPER` | Deployment secret containing at least 32 random bytes. |
-| `PI_AUTH_DB` | D1 binding with the checked-in migration applied. |
+| `PI_SUBJECT_PEPPER` | Active deployment secret containing 32-1,024 bytes. |
+| `PI_SUBJECT_PEPPER_VERSION` | Optional positive integer for the active pepper. Omission preserves the legacy version `1`; configured versions must only increase. |
+| `PI_SUBJECT_PEPPER_PREVIOUS` | Optional deployment secret containing a strict JSON array of previous `{ "version": integer, "pepper": string }` keys used during a rotation overlap; omission is equivalent to `[]`. |
+| `PI_BEARER_SHA_CLEAN_START_CONFIRMED` | Exact string `true`, set only after a recorded clean-target-D1 and deployment-history review confirms pre-SHA bearer code never served that database. |
+| `PI_AUTH_DB` | D1 binding with every checked-in migration applied in order. |
+
+`PI_SUBJECT_PEPPER_PREVIOUS` accepts at most seven entries, in strictly
+ascending version order. Every version must be positive and lower than the
+active version, and every 32-1,024-byte pepper must be distinct. Previous keys
+only verify existing sessions and resolve an existing subject across the
+overlap. New sessions use the active version; subject aliases may be
+materialized for every configured overlap version. Bearer replay protection is
+independent of this keyring. D1 pins each version to its key fingerprint and
+records the active high-water mark plus the exact configured keyset fingerprint,
+so reusing a version with different key material or configuring a downgrade
+makes the pilot fail closed. While any subject-deletion guard is effective, D1
+also refuses every active-version or keyset change; this prevents a late OAuth
+callback from escaping the guard through a newly derived subject alias. D1
+refuses a keyring that would leave any durable subject with a retained session,
+challenge, challenge-rate event, or binding but no alias under a currently
+configured version.
+
+Roll out the lifecycle migration and rotation-aware code while the deployment
+still uses version `1`, then drain older code and in-flight requests before
+raising the active version and supplying version `1` in the previous-key list.
+Apply the same drain-before-increase order on later rotations. Remove a previous
+key only after every durable subject has gained an alias under a remaining key
+or its durable records have aged out. A redundant alias under the retired
+version may age out later; it does not itself block retirement.
+
+The server reserves
+`SHA-256("zerone-pi-bearer-replay-v1\0" || access_token)` before `/v2/me` and
+promotes it to a permanent minimal replay marker only after a successful Pi
+profile response. This assumes OAuth bearer credentials meet the
+unguessability target in
+[RFC 6749 section 10.10](https://www.rfc-editor.org/rfc/rfc6749#section-10.10);
+Pi documentation does not independently guarantee token lifetime, uniqueness,
+or freshness. An authoritative 401/403 removes the exact pending reservation.
+Other upstream failures leave only a pending row, which becomes
+cleanup-eligible after exactly two minutes. Ordinary retention never deletes a
+promoted marker. If migration finds any pre-SHA keyed claims, an immutable
+legacy-evidence latch keeps the pilot fail closed; routine cleanup cannot turn
+it back on.
+
+The migration latch can record legacy claims that still exist when it runs,
+but an empty latch cannot prove that older evidence was never created and
+deleted. `PI_BEARER_SHA_CLEAN_START_CONFIRMED` must therefore remain false
+unless operators record both a clean target D1 review and a deployment-history
+review confirming pre-SHA bearer code never served that database. A possibly
+reused database needs an explicit, separately reviewed remediation and
+credential-invalidation decision; clearing rows is not confirmation. Unless
+the value is exactly `true`, every enabled Pi request fails closed with HTTP
+503.
+
+An accepted Pi session has an eight-hour absolute lifetime and a 30-minute idle
+timeout. Accepted authenticated reads refresh only the idle timestamp; they do
+not extend the absolute deadline. Successful reauthentication atomically
+revokes every prior session for the canonical Pi subject and leaves only the
+new session. Successful wallet link and unlink operations likewise rotate the
+opaque session token and CSRF value, preserve the current absolute deadline,
+and revoke every other session in that subject family.
 
 `.dev.vars.example` documents the edge values without containing a usable
 secret. Vite does not read `.dev.vars`; supply the three `VITE_` values to the
@@ -128,11 +190,62 @@ separately, add reviewed Cloudflare rate-limit rules for `/api/pi/authorize`
 and `/api/pi/session`, establish the documented expired-row retention
 procedure, and disable Cloudflare Web Analytics automatic JavaScript injection.
 Verify the live dashboard response contains no third-party executable code,
-then validate phase A before enabling phase B. Preview and production must not
+then validate in both Pi sandbox and live mode that repeated authorize/reauth
+returns a fresh access token. Pi documentation does not guarantee that
+behavior; if either environment reuses a token, the permanent one-time replay
+policy must be reconsidered before activation. Validate phase A before enabling
+phase B. Preview and production must not
 share a subject pepper, D1 database, cookie state, or Pi redirect registration.
 See
 [`docs/specs/pi-account-onboarding-pilot-v1.md`](../docs/specs/pi-account-onboarding-pilot-v1.md)
 for the threat model, privacy boundary, acceptance gates, and rollback order.
+
+The repository provides an opt-in, bounded D1 cleanup primitive for an operator
+or separately reviewed job to invoke. It has no route, scheduler, or cron
+trigger. Each cleanup statement receives an operator-selected limit from 1 to
+1,000. Besides expired flow, challenge, and session detail, it can age out
+unverified bearer reservations at the separate two-minute `pendingBefore`
+boundary, pseudonymous challenge-rate events only after both their one-minute
+rate window and the explicit `retainedBefore` cutoff, and orphan challenge-use
+tombstones at that cutoff. It never deletes promoted bearer replay markers. It
+can remove a binding created by that cutoff only
+when its subject has no session seen since the cutoff and no challenge created
+since the cutoff or still unexpired; the matching `bound` challenge-use record
+is removed in the same bounded D1 batch before the binding. Repeated calls may
+be needed, and newer or not-yet-processed security tombstones may remain, so
+this mechanism is data minimisation rather than total erasure.
+
+The subject-deletion transaction records only keyed, pseudonymous subject
+digests in a guard that is effective for exactly 12 minutes. Each OAuth-flow
+insert snapshots the D1 deletion epoch, and deletion increments it in the same
+serialized batch that writes the guard. Session insertion rejects a flow whose
+snapshot precedes a matching guard's epoch; a flow inserted afterward may sign
+in afresh. This ordering does not compare worker wall clocks. The guard becomes
+cleanup-eligible at expiry and may remain physically stored until the manual
+cleanup runs. Alias guards, permanent bearer replay markers, pepper-version
+pins, and other security tombstones mean subject deletion must not be described
+as total erasure. It is logical
+deletion from the current application database: Cloudflare D1 Time Travel may
+retain recoverable history for up to 30 days on Workers Paid or seven days on
+Workers Free. Verify the deployed plan rather than assuming either window.
+Before activation, operations must also maintain a tested restore runbook and
+protected recovery evidence for at least that database's verified recovery
+window. Use an external append-only ledger, or an authoritative pre-restore
+export, with a separate purpose, key, and store from the application D1 where
+practical. It must cover logical-deletion suppressions and monotonic security
+state that a rollback could otherwise lose: the deletion-epoch high-water
+mark, permanent bearer replay markers, challenge-use tombstones, pepper pins,
+the active-version floor, the current exact keyset fingerprint, session
+revocations, and any challenge-rate event still live when service resumes.
+Keep the pilot disabled before and throughout a restore, reapply the current
+schema, and explicitly invalidate every session, in-flight OAuth flow, pending
+bearer reservation, wallet challenge, and remaining challenge-rate event
+without relying on wall-clock expiry or restore duration. Then union or replay
+the protected records with the restored database without lowering the deletion
+epoch. Only integrity checks and the normal fail-closed preflight may authorize
+serving or re-enabling Pi. Source provides neither the external evidence nor an
+automatic restore hook, so activation remains blocked until these controls
+exist.
 
 ## Deploy
 
@@ -173,6 +286,16 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
 - Pi routes are separate from the wildcard-CORS RPC/REST proxy. They require
   exact-origin and session-bound CSRF checks for mutations, return `no-store`,
   and use D1 for single-use state, sessions, challenges, and binding uniqueness.
+- Pi sessions expire after eight hours absolutely or 30 minutes idle. Accepted
+  reauthentication, wallet link, and unlink transitions rotate the single
+  subject session family atomically; stale session cookies and CSRF values no
+  longer authorize requests.
+- Pi subject deletion removes the subject-linked sessions, active binding,
+  outstanding challenges, challenge-rate events, and aliases while retaining
+  a 12-minute keyed guard against an older D1 deletion epoch. Bounded cleanup
+  is manual, and
+  security/replay tombstones may remain; neither operation promises total
+  erasure.
 - Optional Zerone wallet linking verifies the exact stored draft ADR-036-format
   challenge and derives the `zrn` address from the submitted secp256k1 public
   key. The edge verifier performs no RPC, REST, broadcast, payment, bridge, or
