@@ -159,11 +159,12 @@ The exact boundary is fixed in
 ## Consensus boundary
 
 The CAIP and in-toto projections, off-chain Sigstore compiler, and PoCA shadow
-evaluator do not by themselves require a consensus migration. The wider
-consolidation also contains consensus-visible knowledge, vesting, and
-substrate changes. Existing networks must activate those through the
-coordinated `consolidation-safety-v1` upgrade; publishing source does not
-activate them.
+evaluator do not by themselves require a consensus migration. Wider source
+changes follow three plan-specific checkpoints:
+`consolidation-safety-v1`, `liquiditypool-safety-v2`, then
+`founder-renunciation-v1`. The first two require their exact historical
+binaries; the current combined source refuses those names while
+vesting-rewards is still v1. Publishing source does not activate any of them.
 
 The validator currently pins Cosmos SDK 0.50 and IBC-Go 8. Their migration must
 be a separate, rehearsed consensus program with store/module migrations,

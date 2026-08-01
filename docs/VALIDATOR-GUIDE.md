@@ -94,14 +94,14 @@ have not been checked against the selected release.
 
 ## Consensus upgrade requirement
 
-The consolidated source includes consensus-visible knowledge, vesting, and
-substrate hardening. Existing networks require the coordinated
-`consolidation-safety-v1` upgrade before that behavior can become active.
-The source-approved liquiditypool v4 release then requires the distinct,
-later `liquiditypool-safety-v2` readiness checkpoint. The earlier handler is
-expected to run the v3→v4 module migration and activate its semantics; neither
-that transition nor the later marker authorizes native pool creation or oracle
-allowlisting.
+The release lineage has three distinct checkpoints. Existing networks first
+require the exact historical `consolidation-safety-v1` binary for its knowledge,
+substrate, and liquiditypool migration work, then the exact historical
+`liquiditypool-safety-v2` readiness checkpoint. Only a later, separately bound
+`founder-renunciation-v1` binary may advance vesting-rewards from v1 to v2.
+The current combined source deliberately refuses either older plan while the
+chain still reports vesting-rewards v1. Neither liquidity transition authorizes
+native pool creation or oracle allowlisting.
 
 Before activation:
 
@@ -114,7 +114,7 @@ Before activation:
 
 Publishing the source commit is not the upgrade.
 
-Before the ordered two-upgrade sequence, the release packet must bind a
+Before the ordered three-checkpoint sequence, the release packets must bind a
 same-height query proving zero native pools and an empty billing quote-denom
 allowlist. Positive legacy pools migrate `EXIT_ONLY`, so holders may withdraw
 without silently enabling swaps, deposits, or oracle use; any existing pool

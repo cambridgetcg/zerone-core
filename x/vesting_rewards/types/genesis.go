@@ -226,6 +226,8 @@ func ValidateParams(p *Params) error {
 
 // FounderShareCapBps is retained as a source-compatibility constant. The
 // founder tap has been irreversibly renounced, so its only valid value is zero.
+// Deprecated: validate Params or call ValidateFounderShareChange; do not use
+// this legacy symbol to infer a mutable governance range.
 const FounderShareCapBps = 0
 
 // ValidateFounderShareChange enforces permanent founder renunciation. The

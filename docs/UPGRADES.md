@@ -26,7 +26,7 @@ Existing networks currently have three ordered release checkpoints:
 2. `liquiditypool-safety-v2` at a distinct, later height; then
 3. `founder-renunciation-v1` at its own later height.
 
-Both handlers run module migrations and reconcile stored module-account
+All three handlers run module migrations and reconcile stored module-account
 permissions. The first handler is expected to activate and advance
 liquiditypool to consensus v4; the second is a readiness marker, not a second
 technical gate, and remains safe because an already-current module is skipped.

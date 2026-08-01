@@ -1,5 +1,11 @@
 # R25-5 Research & Bounties: Incentivised Truth Discovery — E2E Report
 
+> **Historical report — not current source or release guidance.** This records
+> a 2026-02-26 local v1 run. Vesting-rewards v2 retires the founder-specific
+> path at source level, but remains network NO-GO until the separately bound
+> `founder-renunciation-v1` upgrade. Use the current tokenomics and upgrade
+> documents for present behavior.
+
 **Date:** 2026-02-26
 **Chain:** `zerone-localnet` (4 validators, Cosmos SDK v0.50.15)
 **Modules tested:** `x/research`, `x/tree`, `x/vesting_rewards`
@@ -273,7 +279,7 @@ Each schedule:
 | What triggers clawback? | `FalsifyClaim` tx — claws back 33% of released + all unvested + reserve |
 | Does reserve ever release? | No — reserve is permanent. Forfeited to challenger on falsification |
 
-### Founder Share
+### Founder Share (historical v1 observation)
 
 | Setting | Value |
 |---------|-------|

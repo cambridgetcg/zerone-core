@@ -56,6 +56,18 @@ func TestMigrate1to2ClearsEveryLegacyFounderShapeAndPreservesParams(t *testing.T
 			expected.FounderShareBps = 0
 			expected.FounderAddress = ""
 			seedRawParams(t, keeper, ctx, legacy)
+			legacyDistribution := &types.BlockRewardDistribution{
+				BlockHeight:       221,
+				ProducerReward:    "550000",
+				ResearchShare:     "30969",
+				TotalMinted:       "1000000",
+				ValidatorCount:    22,
+				FundBalanceAfter:  "123456789",
+				FounderShare:      "2331",
+				DevelopmentAmount: "196700",
+				ProtocolShare:     "220000",
+			}
+			keeper.SetBlockRewardDistribution(ctx, legacyDistribution)
 			observedBefore := keeper.GetParams(ctx)
 			require.True(t, proto.Equal(legacy, observedBefore), "pre-migration reads must preserve historical bytes")
 			routing, err := keeper.DistributeRevenue(
@@ -82,6 +94,9 @@ func TestMigrate1to2ClearsEveryLegacyFounderShapeAndPreservesParams(t *testing.T
 			stored, err := keeper.getStoredParams(ctx)
 			require.NoError(t, err)
 			require.True(t, proto.Equal(expected, stored), "migration changed unrelated params\nwant: %+v\n got: %+v", expected, stored)
+			preservedDistribution, found := keeper.GetBlockRewardDistribution(ctx, legacyDistribution.BlockHeight)
+			require.True(t, found)
+			require.True(t, proto.Equal(legacyDistribution, preservedDistribution), "migration rewrote a historical distribution")
 
 			// The migration is deterministic and idempotent.
 			require.NoError(t, migrator.Migrate1to2(ctx))

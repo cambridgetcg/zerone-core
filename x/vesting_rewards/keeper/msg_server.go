@@ -301,14 +301,13 @@ func (m msgServer) UpdateParams(
 		return nil, fmt.Errorf("params must not be nil")
 	}
 
-	if err := types.ValidateParams(msg.Params); err != nil {
-		return nil, fmt.Errorf("invalid vesting_rewards params: %w", err)
-	}
-
 	// Enforce permanent founder renunciation before any state write.
 	current := m.Keeper.GetParams(ctx)
 	if err := types.ValidateFounderShareChange(current, msg.Params); err != nil {
 		return nil, err
+	}
+	if err := types.ValidateParams(msg.Params); err != nil {
+		return nil, fmt.Errorf("invalid vesting_rewards params: %w", err)
 	}
 	if err := types.ValidateRuntimeParamChange(current, msg.Params); err != nil {
 		return nil, err

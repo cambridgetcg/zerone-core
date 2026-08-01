@@ -1865,9 +1865,8 @@ func TestFounderShareGovernance(t *testing.T) {
 		ms, k, ctx := setupMsgServer(t)
 		proposed := types.DefaultParams()
 		mutate(proposed)
-		if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{Authority: "authority", Params: proposed}); err == nil {
-			t.Fatal("expected governance attempt to restore founder benefit to fail")
-		}
+		_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{Authority: "authority", Params: proposed})
+		require.ErrorIs(t, err, types.ErrFounderShareRenounced)
 		stored := k.GetParams(ctx)
 		if stored.FounderShareBps != 0 || stored.FounderAddress != "" {
 			t.Fatalf("rejected update changed renounced fields: %+v", stored)

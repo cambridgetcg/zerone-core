@@ -178,7 +178,7 @@ If the following statements are all **true** on your chain, the philosophy is op
 
 1. Every write-path handler in every module calls `RequireNotPaused(ctx, moduleName)` at its top.
 2. Every state-changing wave has a registered migration (`v<N>→v<N+1>`), a bumped `ConsensusVersion`, and a marker-write at the end.
-3. Every named upgrade has a corresponding entry in the `KnownUpgrades` lineage AND a test in `tests/cross_stack/upgrade_e2e_test.go`.
+3. Every named upgrade has a corresponding entry in the `KnownUpgrades` lineage AND a cross-stack test (`upgrade_e2e_test.go` plus plan-specific boundary files such as `founder_renunciation_upgrade_test.go`).
 4. Every incident opened in production gets resolved through the `OpenIncident → RecordRemediation → ResolveIncident → CloseIncident` flow.
 5. The **resilience drill** in `tests/cross_stack/resilience_drill_test.go` passes after every change.
 
