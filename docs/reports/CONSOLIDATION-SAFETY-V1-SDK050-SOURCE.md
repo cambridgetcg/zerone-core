@@ -105,9 +105,11 @@ on-chain parsing ambiguity. It defines no release fields and does **not** bind
 a source commit, executable, checksum, signer, or release packet; those remain
 separate release-ceremony requirements.
 
-H1 does not contain or execute the founder-renunciation migration. The exact
-H2 source is separately frozen at
-`4bffb6d218819bed1c29c7a0be7779ad31c64a97`; H2 alone changes
+H1 does not contain or execute the founder-renunciation migration. The former
+H2 candidate `4bffb6d218819bed1c29c7a0be7779ad31c64a97` is rejected activation
+NO-GO provenance: it could expose v2 behavior on a plan-less restart and is
+neither frozen nor accepted release source. A replacement H2 descended from
+the final audited H1 source remains pending and unbound; H2 alone may change
 `vesting_rewards` from `1 → 2`. The later SDK 0.53 / IBC-Go 10 H3 binary must
 consume independent evidence of both boundaries.
 
