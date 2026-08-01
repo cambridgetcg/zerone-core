@@ -4,14 +4,14 @@
     {
       "name": "frontier-evaluation-receipt-profile.v0.json",
       "digest": {
-        "sha256": "e494ffc0f791378c09f007b0b6c0664201474d3d4f67ccff4b8c4a3af4c94a27"
+        "sha256": "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6"
       }
     }
   ],
   "predicateType": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/frontier-evaluation-receipt-profile-v0.md#7-one-bounded-inconclusive-receipt-profile",
   "predicate": {
     "schema": "zerone.frontier-evaluation-receipt/v0",
-    "schemaDigest": "sha256:083b34eb24c6098a6915bdd0ec70126a841372d1fabf158ca243c6e75648f949",
+    "schemaDigest": "sha256:ca7c4613896cd6aa1cb637655680647f3c256ee770d38faafeb0a6406f3fb23d",
     "receiptKind": "ZERONE_SELF_DOGFOOD",
     "assurance": "UNSIGNED_UNVERIFIED_DECLARATION",
     "issuer": {

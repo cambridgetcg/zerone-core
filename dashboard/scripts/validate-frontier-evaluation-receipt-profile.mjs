@@ -12,13 +12,13 @@ export const PUBLIC_EVALUATION_SUBJECT_MAX_BYTES = 1_048_576;
 export const PUBLIC_EVALUATION_MATERIAL_MAX_BYTES = 1_048_576;
 export const PUBLIC_EVALUATION_MATERIALS_MAX_BYTES = 4_194_304;
 export const EXPECTED_COMPACT_SHA256 =
-  "e494ffc0f791378c09f007b0b6c0664201474d3d4f67ccff4b8c4a3af4c94a27";
+  "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6";
 export const EXPECTED_DOGFOOD_RECEIPT_SHA256 =
-  "b7ab2e2e981bf5b82cf96e5d9e3cc95056f5caae3355826142dc258d82c2e387";
+  "5a415b733bd0c18d22070add6911f69947c04f06fce7aab0d6d4a3ce9065e306";
 export const EXPECTED_COMPACT_SEMANTIC_SHA256 =
-  "043813e0b804bedf90de0c777f6523a3d2468fd47d7ad20856d7a9798df37423";
+  "37b4dd7a1e19a225ee63d71f5bc9051f99c32fbab3f9e4f60949eb1d9be78871";
 export const EXPECTED_DOGFOOD_SEMANTIC_SHA256 =
-  "1b3e860694806041f1aa6b1349a1145897284c50607f668840bcf4c30f777117";
+  "6a74db972ececbccd9c5654a5ca0a912f67bfecfe27c1d04f2417b4ea5b368f7";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPOSITORY_ROOT = resolve(dirname(SCRIPT_PATH), "../..");
@@ -354,6 +354,26 @@ const REQUIRED_STOP_CONDITIONS = [
 ];
 const REQUIRED_CORPORATE_GATES = [
   "accessibility-labor-worker-classification-and-whistleblower-review",
+  "code-of-conduct-enforcement-appeal-and-anti-retaliation",
+  "competition-and-confidentiality-review",
+  "contribution-ip-patent-publication-and-license-terms",
+  "counterparty-scope-and-signatory-authority",
+  "explicit-accountable-human-outreach-decision",
+  "governing-terms-jurisdiction-and-dispute-process",
+  "independent-governance-capture-custody-and-remedy-review",
+  "independent-receipt-parser-threat-model-and-material-binding-review",
+  "liability-indemnity-insurance-warranty-and-remedy",
+  "logo-name-affiliation-and-endorsement-policy",
+  "m0-1-declared-control-separated-nonauthor-roundtrip-complete",
+  "maintainer-change-control-versioning-and-deprecation",
+  "outreach-non-targeting-contact-source-one-contact-no-response-stop-and-retention-policy",
+  "privacy-data-map-dpa-retention-erasure-and-public-permanence",
+  "procurement-tax-accounting-sanctions-export-and-financial-promotion",
+  "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
+  "service-level-support-availability-portability-and-exit",
+];
+const REQUIRED_PROMOTION_GATES = [
+  "accessibility-labor-worker-classification-and-whistleblower-review",
   "authenticated-relation-graph-and-correction-authority",
   "code-of-conduct-enforcement-appeal-and-anti-retaliation",
   "competition-and-confidentiality-review",
@@ -374,7 +394,6 @@ const REQUIRED_CORPORATE_GATES = [
   "security-coordinated-disclosure-safe-harbor-incident-and-embargo",
   "service-level-support-availability-portability-and-exit",
 ];
-const REQUIRED_PROMOTION_GATES = REQUIRED_CORPORATE_GATES;
 
 const LANE_STATUS = Object.freeze({
   inspect: "SOURCE_AVAILABLE",

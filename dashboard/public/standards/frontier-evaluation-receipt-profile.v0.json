@@ -53,7 +53,7 @@
     {
       "id": "frontier-commons-participation-v0",
       "path": "dashboard/public/standards/frontier-commons-participation.v0.json",
-      "sha256": "eb4e5baaff47d5b61b2b2d6ed2d7053bef71c3a98321b7460648ed2b97f9ea22",
+      "sha256": "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea",
       "boundary": "FC-0 is the public read-only invitation surface of record. FL-0 is subordinate receipt hardening and creates no additional invitation, participation, adoption, completion, or outreach effect."
     },
     {
@@ -688,14 +688,12 @@
     "protectionsOperationallyEnforced": false,
     "requiredGates": [
       "accessibility-labor-worker-classification-and-whistleblower-review",
-      "authenticated-relation-graph-and-correction-authority",
       "code-of-conduct-enforcement-appeal-and-anti-retaliation",
       "competition-and-confidentiality-review",
       "contribution-ip-patent-publication-and-license-terms",
       "counterparty-scope-and-signatory-authority",
       "explicit-accountable-human-outreach-decision",
       "governing-terms-jurisdiction-and-dispute-process",
-      "human-data-owner-publication-classification",
       "independent-governance-capture-custody-and-remedy-review",
       "independent-receipt-parser-threat-model-and-material-binding-review",
       "liability-indemnity-insurance-warranty-and-remedy",
@@ -831,7 +829,7 @@
     "format": {
       "wrapper": "https://in-toto.io/Statement/v1",
       "predicateType": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/frontier-evaluation-receipt-profile-v0.md#7-one-bounded-inconclusive-receipt-profile",
-      "predicateDigest": "sha256:083b34eb24c6098a6915bdd0ec70126a841372d1fabf158ca243c6e75648f949",
+      "predicateDigest": "sha256:ca7c4613896cd6aa1cb637655680647f3c256ee770d38faafeb0a6406f3fb23d",
       "assurance": "UNSIGNED_UNVERIFIED_DECLARATION",
       "disclosureClass": "PUBLIC_METADATA_ONLY"
     },

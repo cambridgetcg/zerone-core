@@ -322,36 +322,39 @@ Deeper participation has a separate set of successor gates, also all closed:
 ### Corporate M1 — `NOT_READY`
 
 FC-0 authorizes no direct or corporate outreach and opens no institutional
-participation lane. Before any bounded external corporate invitation, all 20
+participation lane. Before any bounded external corporate invitation, all 18
 machine-listed M1 gates must close through separately reviewed evidence:
 
 1. accessibility, labor, worker-classification, and whistleblower review;
-2. an authenticated relation graph with same-subject, chronology, correction-
-   authority, and referenced-byte checks;
-3. code-of-conduct enforcement, appeal, and anti-retaliation;
-4. competition and confidentiality review;
-5. contribution, IP, patent, publication, and license terms;
-6. counterparty scope and signatory authority;
-7. an explicit accountable-human outreach decision;
-8. governing terms, jurisdiction, and a dispute process;
-9. explicit authorized human data-owner publication classification;
-10. independent governance, capture, custody, and remedy review;
-11. independent receipt-parser, threat-model, and material-binding review;
-12. liability, indemnity, insurance, warranty, and remedy;
-13. logo, name, affiliation, and endorsement policy;
-14. an independently completed FL-0 M0.1 declared-control-separated non-author
+2. code-of-conduct enforcement, appeal, and anti-retaliation;
+3. competition and confidentiality review;
+4. contribution, IP, patent, publication, and license terms;
+5. counterparty scope and signatory authority;
+6. an explicit accountable-human outreach decision;
+7. governing terms, jurisdiction, and a dispute process;
+8. independent governance, capture, custody, and remedy review;
+9. independent receipt-parser, threat-model, and material-binding review;
+10. liability, indemnity, insurance, warranty, and remedy;
+11. logo, name, affiliation, and endorsement policy;
+12. an independently completed FL-0 M0.1 declared-control-separated non-author
     roundtrip;
-15. maintainer, change-control, versioning, and deprecation rules;
-16. an outreach policy requiring no profiling or identity targeting, minimized
+13. maintainer, change-control, versioning, and deprecation rules;
+14. an outreach policy requiring no profiling or identity targeting, minimized
     lawful contact sources, one bounded contact, stop on silence or decline,
     and finite contact-data retention;
-17. privacy data map, DPA decision, retention, erasure, and public-permanence
+15. privacy data map, DPA decision, retention, erasure, and public-permanence
     review;
-18. procurement, tax, accounting, sanctions, export-control, and financial-
+16. procurement, tax, accounting, sanctions, export-control, and financial-
     promotion review;
-19. security, coordinated disclosure, safe harbor, incident, and embargo rules;
+17. security, coordinated disclosure, safe harbor, incident, and embargo rules;
     and
-20. service-level, support, availability, portability, and exit terms.
+18. service-level, support, availability, portability, and exit terms.
+
+Receipt-specific public-relation authentication and authorized human data-owner
+publication classification remain additional FL-0 promotion controls. They are
+not general Corporate M1 gates and cannot be used to redefine this source-of-
+record list. Conversely, closing an FL-0 control or M0.1 alone cannot satisfy
+an FC-0 completion gate or authorize outreach.
 
 The JSON schema can check that this ordered gate set is present, that Corporate
 M1 is `NOT_READY`, and that outreach, institutional participation, and

@@ -5201,6 +5201,503 @@
     }
   }
 
+  .frontier-participation-section {
+    scroll-margin-top: 76px;
+    border-top: 1px solid var(--line);
+    padding: clamp(5.5rem, 9vw, 8rem) 0;
+    background:
+      radial-gradient(circle at 88% 12%, rgba(220, 255, 120, 0.055), transparent 26rem),
+      radial-gradient(circle at 12% 72%, rgba(185, 155, 255, 0.06), transparent 30rem),
+      var(--bg-soft);
+  }
+
+  .frontier-participation-root {
+    min-height: 320px;
+    margin-top: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  .frontier-participation-loading,
+  .frontier-participation-error {
+    display: grid;
+    min-height: 260px;
+    place-items: center;
+    align-content: center;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.018);
+    color: var(--muted-strong);
+    text-align: center;
+  }
+
+  .frontier-participation-error {
+    border-color: rgba(255, 132, 124, 0.24);
+  }
+
+  .frontier-participation-error strong {
+    color: var(--red);
+  }
+
+  .frontier-participation-error a {
+    color: var(--ink);
+  }
+
+  .frontier-participation {
+    display: grid;
+    gap: clamp(2.5rem, 6vw, 5rem);
+  }
+
+  .frontier-participation :where(h4, p, li, dt, dd, strong, span) {
+    overflow-wrap: anywhere;
+  }
+
+  .frontier-participation-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .frontier-participation-boundary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.85rem 1rem;
+    border: 1px solid rgba(220, 255, 120, 0.28);
+    padding: clamp(1rem, 3vw, 1.5rem);
+    background: rgba(220, 255, 120, 0.035);
+  }
+
+  .frontier-participation-boundary strong {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.69rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .frontier-participation-boundary p {
+    max-width: 920px;
+    color: var(--ink-soft);
+  }
+
+  .frontier-participation-boundary.is-warning {
+    border-color: rgba(255, 197, 111, 0.34);
+    background: rgba(255, 197, 111, 0.045);
+  }
+
+  .frontier-participation-boundary.is-warning strong {
+    color: var(--amber);
+  }
+
+  .frontier-participation-facts {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+  }
+
+  .frontier-participation-fact {
+    display: grid;
+    min-height: 128px;
+    align-content: space-between;
+    gap: 0.7rem;
+    border-right: 1px solid var(--line);
+    padding: 1rem;
+  }
+
+  .frontier-participation-fact:last-child {
+    border-right: 0;
+  }
+
+  .frontier-participation-fact strong {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+    line-height: 1;
+  }
+
+  .frontier-participation-fact span,
+  .frontier-participation-fact p {
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+
+  .frontier-participation-section-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(320px, 1.2fr);
+    align-items: end;
+    gap: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .frontier-participation-section-heading h3 {
+    font-family: var(--serif);
+    font-size: clamp(1.6rem, 3vw, 2.35rem);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+  }
+
+  .frontier-participation-section-heading p {
+    color: var(--muted-strong);
+  }
+
+  .frontier-participation-reasoning,
+  .frontier-participation-lanes,
+  .frontier-participation-principles,
+  .frontier-participation-institutions,
+  .frontier-participation-roles,
+  .frontier-participation-corporate-safeguards,
+  .frontier-participation-firewalls {
+    display: grid;
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .frontier-participation-reasoning {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .frontier-participation-principles,
+  .frontier-participation-institutions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .frontier-participation-principle,
+  .frontier-participation-reason-card,
+  .frontier-participation-lane,
+  .frontier-participation-institution,
+  .frontier-participation-role,
+  .frontier-participation-consent,
+  .frontier-participation-corporate-safeguard,
+  .frontier-participation-claim-semantics,
+  .frontier-participation-forbidden-metric,
+  .frontier-participation-firewall {
+    min-width: 0;
+    background: var(--surface);
+    padding: clamp(1rem, 2.5vw, 1.5rem);
+  }
+
+  .frontier-participation-reason-card:first-child {
+    background:
+      linear-gradient(145deg, rgba(220, 255, 120, 0.055), transparent 48%),
+      var(--surface);
+  }
+
+  .frontier-participation-principle h4,
+  .frontier-participation-reason-card h4,
+  .frontier-participation-lane h4,
+  .frontier-participation-institution h4,
+  .frontier-participation-role h4,
+  .frontier-participation-consent h4,
+  .frontier-participation-corporate-safeguard h4,
+  .frontier-participation-claim-semantics h4,
+  .frontier-participation-forbidden-metric h4,
+  .frontier-participation-firewall h4 {
+    margin: 0 0 0.75rem;
+    color: var(--ink);
+    font-size: 0.98rem;
+  }
+
+  .frontier-participation-principle > p,
+  .frontier-participation-reason-card > p,
+  .frontier-participation-lane > p,
+  .frontier-participation-institution > p,
+  .frontier-participation-role > p,
+  .frontier-participation-consent > p,
+  .frontier-participation-corporate-safeguard li,
+  .frontier-participation-claim-semantics > p,
+  .frontier-participation-forbidden-metric > p,
+  .frontier-participation-firewall > p,
+  .frontier-participation-firewall li {
+    color: var(--muted-strong);
+    font-size: 0.82rem;
+  }
+
+  .frontier-participation-card-section {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 1rem;
+  }
+
+  .frontier-participation-card-section strong {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.63rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .frontier-participation-card-section p,
+  .frontier-participation-card-section li {
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+  }
+
+  .frontier-participation-card-section ul,
+  .frontier-participation-corporate-safeguard ul,
+  .frontier-participation-firewall ul,
+  .frontier-participation-acceptance-list {
+    margin: 0;
+    padding-left: 1.15rem;
+  }
+
+  .frontier-participation-lanes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .frontier-participation-lane {
+    min-height: 220px;
+  }
+
+  .frontier-participation-lane::before {
+    display: block;
+    width: 24px;
+    height: 2px;
+    margin-bottom: 1rem;
+    background: var(--acid);
+    content: "";
+  }
+
+  .frontier-participation-roles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .frontier-participation-role {
+    min-height: 250px;
+  }
+
+  .frontier-participation-firewalls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .frontier-participation-corporate-safeguards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .frontier-participation-corporate-safeguard li + li {
+    margin-top: 0.6rem;
+  }
+
+  .frontier-participation-consent {
+    border: 1px solid var(--line-strong);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(220, 255, 120, 0.065), transparent 22rem),
+      var(--surface);
+  }
+
+  .frontier-participation-consent-fields {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .frontier-participation-consent-field {
+    padding: 0.7rem 0.6rem;
+    background: rgba(220, 255, 120, 0.045);
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.67rem;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .frontier-participation-consent-limits,
+  .frontier-participation-claim-limits {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 1.25rem 0 0;
+    background: var(--line);
+  }
+
+  .frontier-participation-consent-limit,
+  .frontier-participation-claim-limit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.8rem;
+    min-height: 62px;
+    padding: 0.75rem;
+    background: var(--surface-raised);
+  }
+
+  .frontier-participation-consent-limit dt,
+  .frontier-participation-claim-limit dt {
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+  }
+
+  .frontier-participation-consent-limit dd,
+  .frontier-participation-claim-limit dd {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    text-align: right;
+  }
+
+  .frontier-participation-claim-policy {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .frontier-participation-claim-examples {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.25rem;
+  }
+
+  .frontier-participation-forbidden-metrics {
+    display: grid;
+    gap: 1px;
+    background: var(--line);
+  }
+
+  .frontier-participation-forbidden-metric {
+    padding-block: 1rem;
+  }
+
+  .frontier-participation-forbidden-metric h4 {
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .frontier-participation-firewall li + li,
+  .frontier-participation-acceptance-list li + li {
+    margin-top: 0.5rem;
+  }
+
+  .frontier-participation-acceptance {
+    border: 1px solid var(--line-strong);
+    padding: clamp(1rem, 3vw, 1.75rem);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(185, 155, 255, 0.1), transparent 22rem),
+      var(--surface);
+  }
+
+  .frontier-participation-acceptance-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 2rem;
+    margin-top: 1rem;
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+  }
+
+  .frontier-participation-footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+    color: var(--muted-strong);
+    font-size: 0.75rem;
+  }
+
+  .frontier-participation-footer a {
+    flex: 0 0 auto;
+    color: var(--violet-soft);
+  }
+
+  @media (max-width: 1040px) {
+    .frontier-participation-facts,
+    .frontier-participation-principles,
+    .frontier-participation-institutions,
+    .frontier-participation-roles {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .frontier-participation-fact:nth-child(3) {
+      border-right: 0;
+    }
+
+    .frontier-participation-fact:nth-child(-n + 3) {
+      border-bottom: 1px solid var(--line);
+    }
+  }
+
+  @media (max-width: 700px) {
+    .frontier-participation-section-heading,
+    .frontier-participation-reasoning,
+    .frontier-participation-lanes,
+    .frontier-participation-corporate-safeguards,
+    .frontier-participation-firewalls,
+    .frontier-participation-claim-policy,
+    .frontier-participation-acceptance-list {
+      grid-template-columns: 1fr;
+    }
+
+    .frontier-participation-principles,
+    .frontier-participation-institutions,
+    .frontier-participation-roles,
+    .frontier-participation-consent-limits,
+    .frontier-participation-claim-limits {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .frontier-participation-consent-fields {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .frontier-participation-boundary,
+    .frontier-participation-footer {
+      align-items: flex-start;
+      grid-template-columns: 1fr;
+      flex-direction: column;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .frontier-participation-facts,
+    .frontier-participation-principles,
+    .frontier-participation-institutions,
+    .frontier-participation-roles {
+      grid-template-columns: 1fr;
+    }
+
+    .frontier-participation-consent-fields,
+    .frontier-participation-consent-limits,
+    .frontier-participation-claim-limits,
+    .frontier-participation-claim-examples {
+      grid-template-columns: 1fr;
+    }
+
+    .frontier-participation-fact,
+    .frontier-participation-fact:nth-child(3) {
+      min-height: 92px;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .frontier-participation-fact:last-child {
+      border-bottom: 0;
+    }
+
+    .frontier-participation-role,
+    .frontier-participation-lane {
+      min-height: auto;
+    }
+  }
+
   .toast {
     position: fixed;
     z-index: 90;

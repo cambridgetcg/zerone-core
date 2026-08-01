@@ -116,6 +116,16 @@ forking, opening an issue, or submitting such a patch does not create
 institutional participation, bind an employer, open a confidential lane, or
 satisfy the separately gated corporate contribution process.
 
+### Frontier layer order — exact and non-substitutable
+
+FC-0 is the sole public invitation surface of record. The
+[Participation Compact v0](specs/frontier-labs-participation-v0.md) is an
+additive static covenant/design fixture exact-bound to FC-0 and FL-0; FL-0 is
+FC-0's subordinate receipt profile. None replaces or amends another. Compact
+`STATIC_READY` means only source-shape readiness: it satisfies no FC-0
+completion, Corporate M1, or FL-0 promotion gate, authorizes no outreach or
+participation, and records no participant or signatory.
+
 ### FL-0 / M0.1 — `INTERNAL_DOGFOOD_ONLY` / `NOT_RUN`
 
 The [Frontier Evaluation Receipt Shadow FL-0](specs/frontier-evaluation-receipt-profile-v0.md)
@@ -136,36 +146,41 @@ review process; v0 neither authenticates the roots nor proves independence.
 ### Corporate M1 — `NOT_READY`
 
 No institutional or corporate invitation is authorized. Corporate M1 remains
-`NOT_READY` until M0.1 succeeds and all 20 independently evidenced gates are
+`NOT_READY` until M0.1 succeeds and all 18 independently evidenced gates are
 closed for the exact proposed counterparty and scope:
 
 1. accessibility, labor, worker-classification, and whistleblower review;
-2. an authenticated relation graph with same-subject, chronology, correction-
-   authority, and referenced-byte checks;
-3. code of conduct, proportionate enforcement, appeal, anti-retaliation, and
+2. code of conduct, proportionate enforcement, appeal, anti-retaliation, and
    protected reporting;
-4. competition and confidentiality review for the exact scope;
-5. contribution, IP, patent, publication, and license terms;
-6. counterparty scope and signatory authority;
-7. an explicit, accountable human decision authorizing the bounded outreach;
-8. governing terms, governing law, jurisdiction, and dispute process;
-9. explicit authorized human data-owner publication classification;
-10. independent governance, capture, custody, and remedy review;
-11. independent receipt-parser, threat-model, and raw-material-binding review;
-12. liability, warranty, indemnity, insurance, and participant-remedy terms;
-13. logo, name, affiliation, endorsement, and publicity rules;
-14. a successful M0.1 declared-control-separated non-author roundtrip;
-15. maintainer, change-control, versioning, and deprecation rules;
-16. non-targeting outreach conduct: no profiling or identity targeting,
+3. competition and confidentiality review for the exact scope;
+4. contribution, IP, patent, publication, and license terms;
+5. counterparty scope and signatory authority;
+6. an explicit, accountable human decision authorizing the bounded outreach;
+7. governing terms, governing law, jurisdiction, and dispute process;
+8. independent governance, capture, custody, and remedy review;
+9. independent receipt-parser, threat-model, and raw-material-binding review;
+10. liability, warranty, indemnity, insurance, and participant-remedy terms;
+11. logo, name, affiliation, endorsement, and publicity rules;
+12. a successful M0.1 declared-control-separated non-author roundtrip;
+13. maintainer, change-control, versioning, and deprecation rules;
+14. non-targeting outreach conduct: no profiling or identity targeting,
     minimized lawful contact sources, at most one bounded contact, stop on
     silence or decline, and finite contact-data retention;
-17. privacy data map, DPA decision, retention, erasure, and public-permanence
+15. privacy data map, DPA decision, retention, erasure, and public-permanence
     review;
-18. procurement, tax, accounting, sanctions, export-control, and financial-
+16. procurement, tax, accounting, sanctions, export-control, and financial-
     promotion review;
-19. security policy, coordinated disclosure, safe harbor, incident response,
+17. security policy, coordinated disclosure, safe harbor, incident response,
     and embargo rules; and
-20. service-level, support, availability, portability, and exit terms.
+18. service-level, support, availability, portability, and exit terms.
+
+FL-0 keeps two additional receipt-pilot promotion controls outside this general
+Corporate M1 taxonomy: an authenticated relation graph with correction
+authority, and explicit authorized human data-owner publication
+classification. Its 20-control promotion list is therefore the ordered
+Corporate 18 plus those two profile-specific requirements. M0.1 completion or
+either additional control alone satisfies no FC-0 gate and authorizes no
+outreach.
 
 No stage has a calendar deadline, adoption quota, named prospect, logo target,
 conversion goal, favorable-result requirement, or presumption of consent. A

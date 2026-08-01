@@ -440,37 +440,53 @@ separation. No reviewer has completed M0.1 yet.
 
 FL-0 authorizes no institutional invitation, contract, reliance, confidential
 exchange, publicity, or production dependency. Before asking any laboratory to
-participate, every machine-listed M1 gate must close through separately
-reviewed evidence. At minimum Zerone needs:
+participate, the exact 18-gate Corporate M1 set from FC-0 must close through
+separately reviewed evidence. At minimum Zerone needs:
 
 1. accessibility, labor, worker-classification, and whistleblower review;
-2. an authenticated relation graph with same-subject, chronology, correction-
-   authority, and referenced-byte checks;
-3. a code of conduct with enforcement, appeal, anti-retaliation, and protected
+2. a code of conduct with enforcement, appeal, anti-retaliation, and protected
    reporting paths;
-4. competition and confidentiality review for the exact proposed scope;
-5. contribution, IP, patent, publication, and license terms;
-6. counterparty scope and signatory authority;
-7. an explicit, accountable human decision authorizing the bounded outreach;
-8. governing terms, governing law, jurisdiction, and a dispute process;
-9. explicit authorized human data-owner publication classification;
-10. independent governance, capture, custody, and remedy review;
-11. independent review of the receipt parser, threat model, and material-
+3. competition and confidentiality review for the exact proposed scope;
+4. contribution, IP, patent, publication, and license terms;
+5. counterparty scope and signatory authority;
+6. an explicit, accountable human decision authorizing the bounded outreach;
+7. governing terms, governing law, jurisdiction, and a dispute process;
+8. independent governance, capture, custody, and remedy review;
+9. independent review of the receipt parser, threat model, and material-
     binding behavior;
-12. liability, warranty, indemnity, insurance, and participant-remedy terms;
-13. logo, name, affiliation, endorsement, and publicity rules;
-14. a completed M0.1 declared-control-separated non-author roundtrip;
-15. maintainer, change-control, versioning, and deprecation rules;
-16. a non-targeting outreach policy: no profiling or identity targeting,
+10. liability, warranty, indemnity, insurance, and participant-remedy terms;
+11. logo, name, affiliation, endorsement, and publicity rules;
+12. a completed M0.1 declared-control-separated non-author roundtrip;
+13. maintainer, change-control, versioning, and deprecation rules;
+14. a non-targeting outreach policy: no profiling or identity targeting,
     minimized lawful contact sources, at most one bounded contact, stop on
     silence or decline, and finite contact-data retention;
-17. a privacy data map, DPA decision, retention, erasure, and public-permanence
+15. a privacy data map, DPA decision, retention, erasure, and public-permanence
     review;
-18. procurement, tax, accounting, sanctions, export-control, and financial-
+16. procurement, tax, accounting, sanctions, export-control, and financial-
     promotion review;
-19. security policy, coordinated disclosure, safe harbor, incident response,
+17. security policy, coordinated disclosure, safe harbor, incident response,
     and embargo rules; and
-20. service-level, support, availability, portability, and exit terms.
+18. service-level, support, availability, portability, and exit terms.
+
+### FL-0 promotion additions — 20 controls, still closed
+
+The receipt pilot's `promotionGates` array retains the Corporate 18 in order and
+adds two profile-specific controls at their material positions:
+
+- `authenticated-relation-graph-and-correction-authority`, required before an
+  external pilot publishes linked reproduction, challenge, correction, or
+  supersession assertions; and
+- `human-data-owner-publication-classification`, required before any public
+  receipt; an authorized accountable human data steward must classify the
+  proposed bytes and confirm applicable legal and security publication
+  authority.
+
+Until the first closes, relation links remain assertion-only with no automatic
+correction or reliance effect. Until the second closes, FL-0 provides no
+privacy or publication authorization. These two controls do not redefine
+Corporate M1, and neither they nor M0.1 completion satisfy FC-0 or authorize
+outreach, participation, or publication.
 
 The external target, which is not FL-0's current state, is one authorized
 frontier-lab team, one evaluator meeting the M0.1 non-author and declared-

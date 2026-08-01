@@ -26,7 +26,7 @@ const landscapeRaw = readFileSync(
 );
 const landscape = JSON.parse(landscapeRaw);
 const CANONICAL_SHA256 =
-  "eb4e5baaff47d5b61b2b2d6ed2d7053bef71c3a98321b7460648ed2b97f9ea22";
+  "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea";
 const LANDSCAPE_SHA256 =
   "f545f1cf542b42c5a806cc03edbc54fa6c525a672bddebcfd4bf4d9060e9d995";
 const EXPECTED_NON_MONEY_COSTS = [
@@ -38,14 +38,12 @@ const EXPECTED_NON_MONEY_COSTS = [
 ];
 const EXPECTED_CORPORATE_GATE_IDS = [
   "accessibility-labor-worker-classification-and-whistleblower-review",
-  "authenticated-relation-graph-and-correction-authority",
   "code-of-conduct-enforcement-appeal-and-anti-retaliation",
   "competition-and-confidentiality-review",
   "contribution-ip-patent-publication-and-license-terms",
   "counterparty-scope-and-signatory-authority",
   "explicit-accountable-human-outreach-decision",
   "governing-terms-jurisdiction-and-dispute-process",
-  "human-data-owner-publication-classification",
   "independent-governance-capture-custody-and-remedy-review",
   "independent-receipt-parser-threat-model-and-material-binding-review",
   "liability-indemnity-insurance-warranty-and-remedy",
@@ -125,7 +123,7 @@ describe("Frontier Commons FC-0 standard", () => {
       objectionCount: 11,
       completionGateCount: 4,
       openGateCount: 9,
-      corporateGateCount: 20,
+      corporateGateCount: 18,
     });
     assert.equal(
       createHash("sha256").update(canonicalRaw).digest("hex"),
@@ -433,7 +431,7 @@ describe("Frontier Commons FC-0 standard", () => {
     }
   });
 
-  it("keeps Corporate M1 not ready behind all 20 ordered gates", () => {
+  it("keeps Corporate M1 not ready behind all 18 ordered gates", () => {
     assert.deepEqual(Object.keys(canonical.corporateReadiness), [
       "milestone",
       "status",

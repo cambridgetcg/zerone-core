@@ -356,6 +356,24 @@ describe("frontier evaluation receipt shadow FL-0", () => {
   });
 
   it("keeps Corporate M1 explicitly not ready and unable to authorize invitations", () => {
+    assert.equal(canonicalCompact.corporateReadiness.requiredGates.length, 18);
+    assert.equal(canonicalCompact.pilot.promotionGates.length, 20);
+    assert.deepEqual(
+      canonicalCompact.pilot.promotionGates.filter(
+        (gate) => !canonicalCompact.corporateReadiness.requiredGates.includes(gate),
+      ),
+      [
+        "authenticated-relation-graph-and-correction-authority",
+        "human-data-owner-publication-classification",
+      ],
+    );
+    assert.deepEqual(
+      canonicalCompact.pilot.promotionGates.filter((gate) =>
+        canonicalCompact.corporateReadiness.requiredGates.includes(gate),
+      ),
+      canonicalCompact.corporateReadiness.requiredGates,
+    );
+
     const ready = compactCopy();
     ready.corporateReadiness.status = "READY";
     assertInvalid(
