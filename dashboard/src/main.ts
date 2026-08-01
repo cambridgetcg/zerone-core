@@ -1146,16 +1146,17 @@ const alignInitialHash = (): void => {
 };
 void Promise.allSettled([
   constructiveTreeReady,
+  quantumSeasonReady,
   mathFrontierReady,
   lifeGardenReady,
 ]).then(alignInitialHash);
 void Promise.allSettled([
   constructiveTreeReady,
+  quantumSeasonReady,
   mathFrontierReady,
   lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
-void Promise.allSettled([quantumSeasonReady]);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);

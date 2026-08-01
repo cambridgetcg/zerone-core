@@ -238,6 +238,7 @@ describe("Pi callback page hardening", () => {
       source,
       /initialiseConstructiveTree\(constructiveTreeRoot\)/,
     );
+    assert.match(source, /initialiseQuantumSeason\(quantumSeasonRoot\)/);
     assert.match(source, /initialiseMathFrontier\(mathFrontierRoot\)/);
     assert.match(source, /initialiseLifeGarden\(lifeGardenRoot\)/);
     assert.match(source, /initialNetworkReady = refreshNetwork\(false\)/);
