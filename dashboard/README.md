@@ -34,6 +34,17 @@ exist. Standards review dates are shown in the interface. Once one passes, the
 viewer remains useful as a historical snapshot but warns that active use must
 fail closed until the authority metadata is revalidated.
 
+The nested Math Frontier explorer applies the same browser boundary to
+`/standards/constructive-intelligence-math-frontier.v0.json`: exact
+same-origin path, redirect refusal, 131,072-byte streaming limit, timeout,
+reviewed SHA-256 pin, exact-key runtime validation, and text-node rendering.
+It presents a mathematics-first extension plus a prospective sponsor-escrow
+percentage template, but its live amount is zero and its economic and control
+effects are `NONE`. Its KARMA label is an `ORDINAL` shadow observation only,
+never recognition, truth, ranking, qualification, reward weight, or a vote.
+The named future eligibility-and-sortition direction is explicitly not
+implemented and cannot be activated from the dashboard or this static file.
+
 ## Build and check
 
 ```bash
@@ -127,6 +138,10 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
 - Constructive-tree strings and links are also treated as untrusted
   presentation data. Specification links must be credential-free HTTPS URLs,
   and repository references must remain safe relative paths.
+- Math Frontier data is a digest-pinned static curriculum extension. Unknown
+  fields, non-zero/reward-bearing state, governance or ranking activation,
+  non-ordinal KARMA, graph drift, and unreviewed bytes fail closed before any
+  node is rendered.
 - Pi callback tokens are erased from the URL before parsing and are posted once
   to a same-origin edge route. Bearers and raw Pi account subjects are never
   persisted.
