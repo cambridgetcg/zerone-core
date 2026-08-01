@@ -36,6 +36,12 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.SeedDefaultTokenizerSpec(ctx); err != nil {
 		return err
 	}
+	// Seed the default trace schema v1 alongside the tokenizer contract. A
+	// fresh chain must expose a complete Route B serialization surface without
+	// relying on the first caller of SeedRouteB to repair genesis.
+	if err := k.SeedDefaultTraceSchema(ctx); err != nil {
+		return err
+	}
 
 	for _, domain := range gs.Domains {
 		if domain == nil {

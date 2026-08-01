@@ -3,7 +3,6 @@ package cross_stack_test
 import (
 	"testing"
 
-	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
@@ -76,22 +75,17 @@ func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 		Authority:  authority,
 		IncidentId: "ZR-2026-0001",
 		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_NAMED_UPGRADE,
-		Reference:  zeroneapp.UpgradeNameTestnetV3,
-		Note:       "fix ships as v1.0.2-testnet knowledge v3→v4 migration",
+		Reference:  zeroneapp.UpgradeNameConsolidationSafetyV1,
+		Note:       "fix ships at the atomic consolidation safety boundary",
 	})
 	require.NoError(t, err)
 
 	// 4. Actually execute the upgrade (coupling the incident to Wave 10).
-	current := h.App.CurrentModuleVersionMap()
-	fromVM := make(module.VersionMap, len(current))
-	for name, ver := range current {
-		fromVM[name] = ver
-	}
-	fromVM["knowledge"] = 3
-	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
+	fromVM := exactConsolidationPrestate(h.App.CurrentModuleVersionMap())
+	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameConsolidationSafetyV1, fromVM, h.Height())
 	require.NoError(t, err)
 	require.Equal(t, uint64(6), toVM["knowledge"], "upgrade referenced by remediation succeeded")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
+	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
 		"remediation's named upgrade actually ran on the chain")
 
 	// 5. Emergency resume + documentation remediations.

@@ -11,6 +11,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
+	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
+	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 const UpgradeNameTestnet = "v1.0.0-testnet"
@@ -24,6 +29,147 @@ const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
 
+type consolidationVersionBoundary struct {
+	module string
+	before uint64
+	after  uint64
+}
+
+var consolidationVersionBoundaries = []consolidationVersionBoundary{
+	{module: knowledgetypes.ModuleName, before: 5, after: 6},
+	{module: claimingpottypes.ModuleName, before: 1, after: 2},
+	{module: liquiditypooltypes.ModuleName, before: 3, after: 5},
+	{module: vestingrewardstypes.ModuleName, before: 1, after: 2},
+}
+
+// runMigrationsForPlan prevents the atomic H1 bundle from silently riding an
+// older or unrelated named upgrade. The consolidated release is valid only
+// from its exact four-module prestate, with every other module already at this
+// binary's target. Its marker is written by the caller only after this helper
+// proves the complete poststate.
+func (app *ZeroneApp) runMigrationsForPlan(
+	ctx context.Context,
+	plan upgradetypes.Plan,
+	fromVM module.VersionMap,
+) (module.VersionMap, error) {
+	targetVM := app.ModuleManager.GetVersionMap()
+	boundaryModules := make(map[string]struct{}, len(consolidationVersionBoundaries))
+	for _, boundary := range consolidationVersionBoundaries {
+		boundaryModules[boundary.module] = struct{}{}
+		got, ok := targetVM[boundary.module]
+		if !ok || got != boundary.after {
+			return nil, fmt.Errorf(
+				"upgrade %q requires binary target %s=%d; got %d (present=%t)",
+				UpgradeNameConsolidationSafetyV1,
+				boundary.module,
+				boundary.after,
+				got,
+				ok,
+			)
+		}
+	}
+	for _, name := range sortedVersionMapNames(fromVM) {
+		if _, known := targetVM[name]; !known {
+			return nil, fmt.Errorf(
+				"upgrade %q refuses unknown module version entry %q",
+				plan.Name,
+				name,
+			)
+		}
+	}
+
+	if plan.Name != UpgradeNameConsolidationSafetyV1 {
+		for _, boundary := range consolidationVersionBoundaries {
+			got, ok := fromVM[boundary.module]
+			if !ok || got != boundary.after {
+				return nil, fmt.Errorf(
+					"upgrade %q cannot carry the %q bundle: require %s=%d, got %d (present=%t)",
+					plan.Name,
+					UpgradeNameConsolidationSafetyV1,
+					boundary.module,
+					boundary.after,
+					got,
+					ok,
+				)
+			}
+		}
+		return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+	}
+
+	for _, boundary := range consolidationVersionBoundaries {
+		got, ok := fromVM[boundary.module]
+		if !ok || got != boundary.before {
+			return nil, fmt.Errorf(
+				"upgrade %q requires exact prestate %s=%d; got %d (present=%t)",
+				plan.Name,
+				boundary.module,
+				boundary.before,
+				got,
+				ok,
+			)
+		}
+	}
+
+	names := make([]string, 0, len(targetVM))
+	for name := range targetVM {
+		if _, isBoundary := boundaryModules[name]; !isBoundary {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		want := targetVM[name]
+		got, ok := fromVM[name]
+		if !ok || got != want {
+			return nil, fmt.Errorf(
+				"upgrade %q refuses unrelated migration for module %q: require version %d, got %d (present=%t)",
+				plan.Name,
+				name,
+				want,
+				got,
+				ok,
+			)
+		}
+	}
+
+	toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+	if err != nil {
+		return nil, err
+	}
+	if len(toVM) != len(targetVM) {
+		return nil, fmt.Errorf(
+			"upgrade %q produced invalid poststate size %d; require %d",
+			plan.Name,
+			len(toVM),
+			len(targetVM),
+		)
+	}
+	for _, name := range sortedVersionMapNames(targetVM) {
+		want := targetVM[name]
+		got, ok := toVM[name]
+		if !ok || got != want {
+			return nil, fmt.Errorf(
+				"upgrade %q produced invalid poststate %s=%d; require %d (present=%t)",
+				plan.Name,
+				name,
+				got,
+				want,
+				ok,
+			)
+		}
+	}
+	return toVM, nil
+}
+
+func sortedVersionMapNames(vm module.VersionMap) []string {
+	names := make([]string, 0, len(vm))
+	for name := range vm {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
 // the necessary state migrations before the new binary starts producing blocks.
@@ -36,7 +182,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		UpgradeNameTestnet,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-			return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			return app.runMigrationsForPlan(ctx, plan, fromVM)
 		},
 	)
 
@@ -48,7 +194,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -72,7 +218,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -98,7 +244,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -130,7 +276,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -161,7 +307,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -201,7 +347,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -241,7 +387,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -297,7 +443,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}
@@ -347,7 +493,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
 			if err != nil {
 				return nil, err
 			}

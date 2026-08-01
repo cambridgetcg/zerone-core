@@ -12,21 +12,28 @@ import (
 )
 
 func TestMigrate1to2RetiresAutomaticClaimsWithoutMovingState(t *testing.T) {
-	for _, founderAddress := range []string{
-		"",
-		sdk.AccAddress("legacy_founder______").String(),
+	founderAddress := sdk.AccAddress("legacy_founder______").String()
+	for _, fixture := range []struct {
+		name    string
+		share   uint64
+		address string
+	}{
+		{name: "share_only", share: 70_000},
+		{name: "address_only", address: founderAddress},
+		{name: "share_and_address", share: 70_000, address: founderAddress},
 	} {
-		t.Run(founderAddress, func(t *testing.T) {
+		t.Run(fixture.name, func(t *testing.T) {
 			bank := newMockBankKeeper()
-			k, ctx := setupKeeperWithBank(t, bank, &mockStakingKeeper{activeCount: 1})
 
 			legacy := types.DefaultParams()
-			legacy.FounderShareBps = 70_000
-			legacy.FounderAddress = founderAddress
+			legacy.FounderShareBps = fixture.share
+			legacy.FounderAddress = fixture.address
 			legacy.BlockReward = "10000000"
 			legacy.FloorReward = "100000"
 			legacy.EmptyBlockRewardRate = 500
-			k.SetParams(ctx, legacy)
+			genesis := types.DefaultGenesis()
+			genesis.Params = legacy
+			k, ctx := setupKeeperWithBankAndGenesis(t, bank, &mockStakingKeeper{activeCount: 1}, genesis)
 
 			history := &types.BlockRewardDistribution{
 				BlockHeight:    9,

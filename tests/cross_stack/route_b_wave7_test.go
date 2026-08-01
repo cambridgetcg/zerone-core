@@ -11,18 +11,17 @@ import (
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// TestRouteB_Wave7_SeedRouteBBootstrap exercises the one-shot
-// initialization entry point. First call writes everything; second call
-// is a no-op (all seeds idempotent).
+// TestRouteB_Wave7_SeedRouteBBootstrap proves fresh genesis owns the complete
+// Route B bootstrap and that explicit re-seeding remains idempotent.
 func TestRouteB_Wave7_SeedRouteBBootstrap(t *testing.T) {
 	h := NewTestHarness(t)
 
 	first, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
-	require.True(t, first.MethodologiesWritten, "first run seeds methodologies")
-	require.True(t, first.TokenizerSpecWritten, "first run seeds tokenizer spec")
-	require.True(t, first.TraceSchemaWritten, "first run seeds trace schema")
-	require.True(t, first.CommitmentsWritten, "first run seeds commitments")
+	require.False(t, first.MethodologiesWritten, "genesis already seeds methodologies")
+	require.False(t, first.TokenizerSpecWritten, "genesis already seeds tokenizer spec")
+	require.False(t, first.TraceSchemaWritten, "genesis already seeds trace schema")
+	require.False(t, first.CommitmentsWritten, "genesis already seeds commitments")
 
 	second, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
@@ -35,10 +34,15 @@ func TestRouteB_Wave7_SeedRouteBBootstrap(t *testing.T) {
 // TestRouteB_Wave7_RouteBCapabilities exercises the chain's self-description.
 func TestRouteB_Wave7_RouteBCapabilities(t *testing.T) {
 	h := NewTestHarness(t)
-	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
+	qs := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
+	before, err := qs.RouteBCapabilities(h.Ctx, &knowledgetypes.QueryRouteBCapabilitiesRequest{})
+	require.NoError(t, err)
+	genesisFactCount := before.Capabilities.FactCount
+	require.Positive(t, genesisFactCount, "fresh genesis includes the doctrine corpus")
+
+	_, err = h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
-	qs := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
 	resp, err := qs.RouteBCapabilities(h.Ctx, &knowledgetypes.QueryRouteBCapabilitiesRequest{})
 	require.NoError(t, err)
 	caps := resp.Capabilities
@@ -60,8 +64,8 @@ func TestRouteB_Wave7_RouteBCapabilities(t *testing.T) {
 	require.Contains(t, caps.AvailableCorpora, "DriftCorpus")
 	require.Contains(t, caps.AvailableCorpora, "NormativeCorpus")
 
-	// Counts start at zero before any facts/bounties/etc exist.
-	require.Equal(t, uint64(0), caps.FactCount)
+	// Route B seeding does not alter the doctrine facts loaded at genesis.
+	require.Equal(t, genesisFactCount, caps.FactCount)
 	require.Equal(t, uint64(0), caps.FinalizedManifestCount)
 	require.Equal(t, uint64(0), caps.ActiveBountyCount)
 
@@ -81,6 +85,9 @@ func TestRouteB_Wave7_ManifestCreateFinalizeVerifyBundle(t *testing.T) {
 
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
 	qs := knowledgekeeper.NewQueryServerImpl(h.KnowledgeKeeper)
+	baseline, err := qs.RouteBCapabilities(h.Ctx, &knowledgetypes.QueryRouteBCapabilitiesRequest{})
+	require.NoError(t, err)
+	baselineFactCount := baseline.Capabilities.FactCount
 
 	operatorAddr := testAddr("wave7_operator")
 	operator := operatorAddr.String()
@@ -213,8 +220,8 @@ func TestRouteB_Wave7_ManifestCreateFinalizeVerifyBundle(t *testing.T) {
 	caps, err := qs.RouteBCapabilities(h.Ctx, &knowledgetypes.QueryRouteBCapabilitiesRequest{})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), caps.Capabilities.FinalizedManifestCount)
-	require.Equal(t, uint64(4), caps.Capabilities.FactCount,
-		"FactCount spans all statuses (3 active + 1 disproven)")
+	require.Equal(t, baselineFactCount+4, caps.Capabilities.FactCount,
+		"FactCount adds all four fixtures (3 active + 1 disproven) to the genesis corpus")
 
 	// 10. List manifests — all 3 status filters return what they should.
 	draftsList, err := qs.TrainingManifests(h.Ctx, &knowledgetypes.QueryTrainingManifestsRequest{
@@ -241,25 +248,26 @@ func TestRouteB_Wave7_ManifestCreateFinalizeVerifyBundle(t *testing.T) {
 // the selector explicitly asks for disproven counter-evidence.
 func TestRouteB_Wave7_ManifestNeverExportsLiveConjectures(t *testing.T) {
 	h := NewTestHarness(t)
+	const fixtureDomain = "wave7-conjecture-isolation"
 
 	for _, fact := range []*knowledgetypes.Fact{
 		{
-			Id: "ordinary", Content: "verified evidence", Domain: "sciences",
+			Id: "ordinary", Content: "verified evidence", Domain: fixtureDomain,
 			Status:    knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_ASSERTION,
 		},
 		{
-			Id: "live-provisional", Content: "an open question", Domain: "sciences",
+			Id: "live-provisional", Content: "an open question", Domain: fixtureDomain,
 			Status:    knowledgetypes.FactStatus_FACT_STATUS_PROVISIONAL,
 			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_CONJECTURE,
 		},
 		{
-			Id: "live-at-risk", Content: "still an open question", Domain: "sciences",
+			Id: "live-at-risk", Content: "still an open question", Domain: fixtureDomain,
 			Status:    knowledgetypes.FactStatus_FACT_STATUS_AT_RISK,
 			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_CONJECTURE,
 		},
 		{
-			Id: "refuted", Content: "a refuted conjecture", Domain: "sciences",
+			Id: "refuted", Content: "a refuted conjecture", Domain: fixtureDomain,
 			Status:    knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN,
 			ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_CONJECTURE,
 		},
@@ -267,12 +275,15 @@ func TestRouteB_Wave7_ManifestNeverExportsLiveConjectures(t *testing.T) {
 		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, fact))
 	}
 
-	defaultIDs := h.KnowledgeKeeper.SelectIncludedIds(h.Ctx, &knowledgetypes.CorpusSelector{})
+	defaultIDs := h.KnowledgeKeeper.SelectIncludedIds(h.Ctx, &knowledgetypes.CorpusSelector{
+		DomainWhitelist: []string{fixtureDomain},
+	})
 	require.Equal(t, []string{"ordinary"}, defaultIDs.FactIDs)
 	require.Len(t, defaultIDs.TraceIDs, 1)
 
 	withCounterEvidence := h.KnowledgeKeeper.SelectIncludedIds(h.Ctx, &knowledgetypes.CorpusSelector{
 		IncludeDisproven: true,
+		DomainWhitelist:  []string{fixtureDomain},
 	})
 	require.Equal(t, []string{"ordinary", "refuted"}, withCounterEvidence.FactIDs)
 	require.Len(t, withCounterEvidence.TraceIDs, 2)

@@ -8,12 +8,25 @@ import (
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
+	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
+
+func exactConsolidationPrestate(current module.VersionMap) module.VersionMap {
+	fromVM := make(module.VersionMap, len(current))
+	for name, version := range current {
+		fromVM[name] = version
+	}
+	fromVM[knowledgetypes.ModuleName] = 5
+	fromVM[claimingpottypes.ModuleName] = 1
+	fromVM[liquiditypooltypes.ModuleName] = 3
+	fromVM[vestingrewardstypes.ModuleName] = 1
+	return fromVM
+}
 
 // ─── Wave 10: end-to-end upgrade pipeline tests ─────────────────────────
 
@@ -66,14 +79,10 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 	require.True(t, sawVestingRewards, "vesting_rewards module appears in report")
 }
 
-// TestUpgrade_V1ToV2MigrationPipeline — exercise the v1.0.1-testnet upgrade
-// against the knowledge module downshifted from its current ConsensusVersion
-// to v1. Exercises the full pipeline Migrate1to2 → Migrate2to3 → Migrate3to4
-// in sequence. Other modules stay at their current version (no migration
-// runs for them — we're not testing SDK-module migrations here, which have
-// their own Cosmos SDK test coverage and require test fixtures this harness
-// doesn't set up).
-func TestUpgrade_V1ToV2MigrationPipeline(t *testing.T) {
+// Historical handlers cannot be reused to smuggle any member of the atomic H1
+// bundle across its activation boundary. Module migrator unit tests retain
+// coverage of the old mechanics; this cross-stack test covers plan identity.
+func TestUpgrade_OldV1ToV2PlanRefusesH1Catchup(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Build fromVM: all modules at current, knowledge downshifted to v1.
@@ -85,30 +94,16 @@ func TestUpgrade_V1ToV2MigrationPipeline(t *testing.T) {
 	fromVM["knowledge"] = 1
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
-	require.NoError(t, err, "v1.0.1-testnet handler completes without error")
-	require.Equal(t, uint64(6), toVM["knowledge"],
-		"knowledge module advances to its current ConsensusVersion (6) via full migration chain")
-
-	// All migrations ran in sequence — each wrote its marker.
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v2_complete"),
-		"v1→v2 migration marker proves Migrate1to2 ran")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
-		"v3→v4 migration marker proves Migrate3to4 ran mid-chain")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
-		"v4→v5 migration marker proves Migrate4to5 ran")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
-		"v5→v6 migration marker proves Migrate5to6 ran at the end of the chain")
-
-	// The v1.0.1 handler-level marker was written by the upgrade handler itself.
-	handlerMarker := h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1")
-	require.Equal(t, "migrated", handlerMarker,
-		"handler-level marker proves the named upgrade handler executed")
+	require.Error(t, err)
+	require.Nil(t, toVM)
+	require.Contains(t, err.Error(), "cannot carry")
+	require.Contains(t, err.Error(), zeroneapp.UpgradeNameConsolidationSafetyV1)
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1"),
+		"a refused historical plan must not claim activation")
 }
 
-// TestUpgrade_V3ToV4KnowledgeMigrationPipeline — exercise the
-// v1.0.2-testnet upgrade, which in turn fires the knowledge v3→v4
-// migration (TraceSchema backfill + v4 marker).
-func TestUpgrade_V3ToV4KnowledgeMigrationPipeline(t *testing.T) {
+func TestUpgrade_OldV3ToV4PlanRefusesH1Catchup(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Synthetic fromVM: knowledge at v3, everything else at current.
@@ -119,33 +114,14 @@ func TestUpgrade_V3ToV4KnowledgeMigrationPipeline(t *testing.T) {
 	}
 	fromVM["knowledge"] = 3 // downshift so v3→v4 migration fires
 
-	// NO pre-seeded TraceSchema — the v4 migration must backfill it.
-	_, seeded := h.KnowledgeKeeper.GetTraceSchema(h.Ctx)
-	if seeded {
-		t.Log("trace schema already present pre-upgrade; v4 migration will be a no-op on schema")
-	}
-
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV3, fromVM, h.Height())
-	require.NoError(t, err)
-	require.Equal(t, uint64(6), toVM["knowledge"],
-		"knowledge module is now at ConsensusVersion 6 post-migration (chain now extends 3→4→5→6)")
-
-	// v4 + v5 migration markers prove Migrate3to4 and Migrate4to5 both ran.
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"),
-		"v4 migration marker present")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v5_complete"),
-		"v5 migration marker present")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
-		"v6 migration marker present")
-
-	// TraceSchema is present post-upgrade.
-	schema, ok := h.KnowledgeKeeper.GetTraceSchema(h.Ctx)
-	require.True(t, ok, "TraceSchema is backfilled by v4 migration")
-	require.Equal(t, uint64(1), schema.Version)
-
-	// v1.0.2 handler-level marker.
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.2"))
+	require.Error(t, err)
+	require.Nil(t, toVM)
+	require.Contains(t, err.Error(), "cannot carry")
+	require.Contains(t, err.Error(), zeroneapp.UpgradeNameConsolidationSafetyV1)
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v4_complete"))
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.2"),
+		"a refused historical plan must not claim activation")
 }
 
 // TestUpgrade_UnknownHandlerRejected — calling an unregistered upgrade
@@ -366,16 +342,10 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 	legacyRewards.FounderAddress = "zrn1legacyfounder00000000000000000000000"
 	legacyRewards.BlockReward = "10000000"
 	legacyRewards.FloorReward = "100000"
-	h.App.VestingRewardsKeeper.SetParams(h.Ctx, legacyRewards)
+	legacyRewards.EmptyBlockRewardRate = 250_000
+	require.NoError(t, h.App.SeedLegacyVestingRewardsParamsForTests(h.Ctx, legacyRewards))
 
-	fromVM := make(module.VersionMap, len(current))
-	for name, version := range current {
-		fromVM[name] = version
-	}
-	fromVM["knowledge"] = 5
-	fromVM["claiming_pot"] = 1
-	fromVM[liquiditypooltypes.ModuleName] = 3
-	fromVM[vestingrewardstypes.ModuleName] = 1
+	fromVM := exactConsolidationPrestate(current)
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
@@ -413,6 +383,81 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 		"handler marker proves the named upgrade ran")
 }
 
+func TestUpgrade_ConsolidationSafetyV1RefusesInexactBoundary(t *testing.T) {
+	tests := []struct {
+		name        string
+		mutate      func(module.VersionMap, module.VersionMap)
+		wantErrPart string
+	}{
+		{
+			name: "already-current-bundle",
+			mutate: func(fromVM, current module.VersionMap) {
+				for _, name := range []string{
+					knowledgetypes.ModuleName,
+					claimingpottypes.ModuleName,
+					liquiditypooltypes.ModuleName,
+					vestingrewardstypes.ModuleName,
+				} {
+					fromVM[name] = current[name]
+				}
+			},
+			wantErrPart: "requires exact prestate",
+		},
+		{
+			name: "missing-bundle-entry",
+			mutate: func(fromVM, _ module.VersionMap) {
+				delete(fromVM, vestingrewardstypes.ModuleName)
+			},
+			wantErrPart: "present=false",
+		},
+		{
+			name: "partial-old-bundle",
+			mutate: func(fromVM, _ module.VersionMap) {
+				fromVM[knowledgetypes.ModuleName] = 4
+			},
+			wantErrPart: "requires exact prestate",
+		},
+		{
+			name: "unrelated-module-behind",
+			mutate: func(fromVM, current module.VersionMap) {
+				require.Greater(t, current["auth"], uint64(0))
+				fromVM["auth"] = current["auth"] - 1
+			},
+			wantErrPart: "refuses unrelated migration",
+		},
+		{
+			name: "unknown-module-entry",
+			mutate: func(fromVM, _ module.VersionMap) {
+				fromVM["retired_unknown_module"] = 1
+			},
+			wantErrPart: "refuses unknown module version entry",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := NewTestHarness(t)
+			current := h.App.CurrentModuleVersionMap()
+			fromVM := exactConsolidationPrestate(current)
+			tc.mutate(fromVM, current)
+
+			toVM, err := h.App.RunMigrationsForPlanForTests(
+				h.Ctx,
+				zeroneapp.UpgradeNameConsolidationSafetyV1,
+				fromVM,
+				h.Height(),
+			)
+			require.Error(t, err)
+			require.Nil(t, toVM)
+			require.Contains(t, err.Error(), tc.wantErrPart)
+			require.Empty(t,
+				h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"),
+				"an inexact boundary must never write the activation marker",
+			)
+		})
+	}
+}
+
 func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *testing.T) {
 	h := NewTestHarness(t)
 	h.GovKeeper.SetLIP(h.Ctx, &zeronegovtypes.LIP{
@@ -420,13 +465,7 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 		Stage: zeronegovtypes.StatusVoting,
 	})
 
-	current := h.App.CurrentModuleVersionMap()
-	fromVM := make(module.VersionMap, len(current))
-	for name, version := range current {
-		fromVM[name] = version
-	}
-	fromVM["knowledge"] = 5
-	fromVM["claiming_pot"] = 1
+	fromVM := exactConsolidationPrestate(h.App.CurrentModuleVersionMap())
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
@@ -487,7 +526,7 @@ func TestUpgrade_ConsolidationSafetyV1ReconcilesEconomicPermissions(t *testing.T
 	require.ElementsMatch(t, []string{authtypes.Minter, authtypes.Burner},
 		h.AccountKeeper.GetModuleAccount(h.Ctx, vestingrewardstypes.ModuleName).GetPermissions())
 
-	fromVM := h.App.CurrentModuleVersionMap()
+	fromVM := exactConsolidationPrestate(h.App.CurrentModuleVersionMap())
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
 		zeroneapp.UpgradeNameConsolidationSafetyV1,

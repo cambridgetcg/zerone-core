@@ -53,20 +53,7 @@ func TestEmissionCap_BootstrapClaimMintsOnDemand(t *testing.T) {
 	}
 	claimantBech := claimant.String()
 
-	pot := &cpottypes.ClaimingPot{
-		Id:            "test-emission-pot",
-		Name:          "Emission-Pathway Test Pot",
-		TotalAmount:   "1000000", // 1 ZRN
-		ClaimedAmount: "0",
-		Schedule: &cpottypes.VestingSchedule{
-			StartBlock: 1,
-			EndBlock:   10,
-		},
-		Eligibility: &cpottypes.EligibilityCriteria{
-			Whitelist: []string{claimantBech},
-		},
-		Status: cpottypes.PotStatus_POT_STATUS_ACTIVE,
-	}
+	pot := cpottypes.MakeBootstrapPotForAgent(claimantBech, uint64(h.Height()))
 	h.ClaimingPotKeeper.SetPot(h.Ctx, pot)
 
 	// Advance past the pot's EndBlock so the entire amount is vested and

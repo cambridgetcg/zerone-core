@@ -24,6 +24,7 @@ import (
 var (
 	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
+	_ module.HasGenesis     = AppModule{}
 	_ appmodule.AppModule   = AppModule{}
 )
 

@@ -85,9 +85,13 @@ func (q queryServer) BlockRewardDistribution(goCtx context.Context, req *types.Q
 // Params returns the module parameters and category configurations.
 func (q queryServer) Params(goCtx context.Context, _ *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	params, err := q.Keeper.getStoredParams(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return &types.QueryParamsResponse{
-		Params:          q.Keeper.GetParams(ctx),
+		Params:          params,
 		CategoryConfigs: q.Keeper.GetAllCategoryConfigs(ctx),
 	}, nil
 }
@@ -121,7 +125,10 @@ func (q queryServer) ResearchFundBalance(goCtx context.Context, _ *types.QueryRe
 func (q queryServer) FounderShareStatus(goCtx context.Context, _ *types.QueryFounderShareStatusRequest) (*types.QueryFounderShareStatusResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	params := q.Keeper.GetParams(ctx)
+	params, err := q.Keeper.getStoredParams(ctx)
+	if err != nil {
+		return nil, err
+	}
 	active := q.Keeper.isFounderShareActive(ctx, params)
 
 	return &types.QueryFounderShareStatusResponse{
@@ -141,7 +148,10 @@ func (q queryServer) FounderShareStatus(goCtx context.Context, _ *types.QueryFou
 // automatic block reward consumes them.
 func (q queryServer) SupplyCouplingAudit(goCtx context.Context, _ *types.QuerySupplyCouplingAuditRequest) (*types.QuerySupplyCouplingAuditResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	params := q.Keeper.GetParams(ctx)
+	params, err := q.Keeper.getStoredParams(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	totalMinted := q.Keeper.GetTotalMinted(ctx).String()
 	currentSupply := "0"
