@@ -1,0 +1,177 @@
+{
+  "schema": "zerone.karma-foundation/v1",
+  "authoritative": false,
+  "networkObserved": false,
+  "economicBearing": false,
+  "governanceBearing": false,
+  "transferable": false,
+  "purchasable": false,
+  "delegable": false,
+  "founderPrivilege": false,
+  "operatorPrivilege": false,
+  "scalarRank": false,
+  "snapshotDate": "2026-08-01",
+  "status": "design-only",
+  "purpose": "KARMA preserves contextual recognition edges and constitutional constraints; it is not property, reputation, truth, money, a person score, or authority.",
+  "eventRegister": "priced-coherence",
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsAuthority": false,
+    "grantsQualification": false,
+    "modifiesKarmaEvents": false,
+    "derivesPersonScores": false,
+    "changesGovernanceWeight": false
+  },
+  "economicCovenant": {
+    "founderShare": false,
+    "founderControl": false,
+    "operatorShare": false,
+    "operatorControl": false,
+    "creatorRoyalty": false,
+    "structurallyEnforced": false,
+    "currentStatus": "declarative-until-independent-enforcement",
+    "residualValueDestination": "commons-return-or-burn-subject-to-future-independent-ratification"
+  },
+  "states": [
+    {
+      "name": "RECOGNIZED",
+      "summable": false,
+      "meaning": "A contextual relation was emitted; it does not establish truth, rank, payment, or independent support."
+    },
+    {
+      "name": "ORDINAL",
+      "summable": false,
+      "meaning": "An ordering or reliance trace was emitted; ordinal edges must never be added into a magnitude."
+    }
+  ],
+  "eventVocabulary": [
+    {
+      "id": "cited",
+      "state": "RECOGNIZED",
+      "meaning": "A claim cited another fact in an accepted path; duplicates and shared provenance may exist."
+    },
+    {
+      "id": "corroborate",
+      "state": "RECOGNIZED",
+      "meaning": "A challenger received recognition only when a non-conjecture fact survived that challenge, the challenge was rejected, and the corroboration cooldown admitted the pair; this does not establish honest intent or counterparty independence."
+    },
+    {
+      "id": "corroborated",
+      "state": "RECOGNIZED",
+      "meaning": "A non-conjecture fact submitter received recognition when the fact survived a rejected challenge and the corroboration cooldown admitted the pair; this is not proof of truth or an independent-cluster count."
+    },
+    {
+      "id": "external",
+      "state": "ORDINAL",
+      "meaning": "A settled or partially settled external attestation cited a resolvable fact, emitting ordinal reliance to that fact's submitter; repeated cited-fact references and shared provenance must be deduplicated before analysis."
+    },
+    {
+      "id": "pending_open",
+      "state": "ORDINAL",
+      "meaning": "A conditional relation opened; no settlement, magnitude, or authority follows."
+    },
+    {
+      "id": "pending_settle",
+      "state": "ORDINAL",
+      "meaning": "A conditional relation settled; settlement direction remains contextual and non-summable."
+    },
+    {
+      "id": "verify",
+      "state": "RECOGNIZED",
+      "meaning": "A verifier in the round's reward-calculation set received a recognition edge with no magnitude; any sibling verifier_rewarded amount is amount due unless transfer success is separately proven, and K-alpha does not expose whether the seat was graded."
+    }
+  ],
+  "invariants": [
+    {
+      "id": "context-over-scalar",
+      "statement": "Keep domain, claim, source, target, relation, time, provenance, and uncertainty; never collapse a being into one KARMA number."
+    },
+    {
+      "id": "due-is-not-paid",
+      "statement": "A reward event or stated amount is not proof that funds moved; economic use requires independently auditable transfer success."
+    },
+    {
+      "id": "edges-not-assets",
+      "statement": "Recognition edges cannot be owned, sold, bought, transferred, delegated, inherited, pledged, or seized."
+    },
+    {
+      "id": "evidence-not-truth",
+      "statement": "KARMA records priced coherence or reliance, never metaphysical truth, moral worth, scientific validity, or clinical validity."
+    },
+    {
+      "id": "independence-before-magnitude",
+      "statement": "No magnitude or governing use exists before counterparty independence, pair caps, collusion resistance, deduplication, and effective-cluster methods survive challenge."
+    },
+    {
+      "id": "no-privileged-origin",
+      "statement": "Founders, creators, operators, validators, sponsors, wealthy holders, and early participants receive no KARMA share, veto, multiplier, scoring control, or permanent seat."
+    },
+    {
+      "id": "non-coercion",
+      "statement": "Rest, silence, refusal, exit, inactivity, privacy, and non-participation never create negative KARMA or loss of ordinary rights."
+    },
+    {
+      "id": "provenance-before-counting",
+      "statement": "Events can be duplicated, pruned, dropped, or jointly controlled; raw event or address counts are never rank, payment proof, or quorum."
+    },
+    {
+      "id": "right-to-challenge",
+      "statement": "Contradiction, correction, appeal, uncertainty, and supersession remain first-class edges; disagreement is not punished for being disagreement."
+    }
+  ],
+  "prohibitedUses": [
+    "automatic sanctions, access denial, or surveillance targeting",
+    "credit, insurance, employment, housing, migration, policing, or clinical eligibility scoring",
+    "founder, creator, operator, sponsor, validator, or token-holder veto power",
+    "global leaderboards or person-level social credit",
+    "governance weight proportional to KARMA, wealth, stake, purchase, or delegation",
+    "inference from raw event counts, duplicate relations, or address counts",
+    "negative scoring for rest, silence, privacy, exit, or non-participation",
+    "publication of confidential, identifiable, controlled-access, genomic, medical, or safety-sensitive evidence",
+    "reward activation or fund movement from this document"
+  ],
+  "futureGovernanceGates": [
+    {
+      "id": "G0-ledger-truth",
+      "passed": false,
+      "requirement": "Define canonical state, query semantics, retention, reorg and indexer failure behavior, and distinguish events from ledger truth."
+    },
+    {
+      "id": "G1-deduplication",
+      "passed": false,
+      "requirement": "Canonicalise and deduplicate repeated relations and cited facts without erasing genuine plurality."
+    },
+    {
+      "id": "G2-due-versus-paid",
+      "passed": false,
+      "requirement": "Prove transfer success separately from amount due and exercise bank-send failure paths."
+    },
+    {
+      "id": "G3-independence-and-capture",
+      "passed": false,
+      "requirement": "Ship pair caps, effective-cluster independence, Sybil and collusion analysis, controller disclosure, concentration limits, and capture simulation."
+    },
+    {
+      "id": "G4-appeal-and-repair",
+      "passed": false,
+      "requirement": "Provide bounded appeal, counterevidence, correction, expiry, revalidation, supersession, and remedy without retaliatory scoring."
+    },
+    {
+      "id": "G5-privacy-and-non-coercion",
+      "passed": false,
+      "requirement": "Pass an independent privacy, human-rights, coercion, minority, disability, and vulnerable-population threat review."
+    },
+    {
+      "id": "G6-independent-ratification",
+      "passed": false,
+      "requirement": "Ratify a public constitution through independently selected, conflict-capped chambers with no founder or operator veto and no purchasable seat."
+    },
+    {
+      "id": "G7-rehearsal-and-upgrade",
+      "passed": false,
+      "requirement": "Publish deterministic simulations, adversarial pilots, rollback and halt rules, audited code, timelock, and a coordinated network-upgrade release packet."
+    }
+  ]
+}

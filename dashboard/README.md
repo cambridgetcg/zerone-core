@@ -57,6 +57,30 @@ never recognition, truth, ranking, qualification, reward weight, or a vote.
 The named future eligibility-and-sortition direction is explicitly not
 implemented and cannot be activated from the dashboard or this static file.
 
+## Epigenetics garden and KARMA foundation
+
+The life-science explorer reads two separate, versioned static documents:
+
+- `/standards/epigenetics-capability-garden.v1.json` — 25 capabilities, 56
+  prerequisite edges, seven growth stages, and three bounded breakthrough
+  quests; and
+- `/standards/karma-foundation.v1.json` — contextual K-alpha recognition kinds,
+  nine constitutional invariants, and eight future-governance gates that all
+  remain closed.
+
+Both documents are non-authoritative, non-network-observed, and fail closed on
+digest or schema drift. The garden's 10,000-basis-point split is an inactive
+simulation for separately funded voluntary sponsor escrow. It moves no funds,
+issues no ZRN, grants no qualification, and authorizes no experiment. KARMA is
+non-transferable, non-purchasable, non-delegable, non-economic, non-governing,
+and never a scalar person rank. Founder and operator share/control are declared
+zero, while the interface also states honestly that independent structural
+enforcement does not exist yet.
+
+See
+[`docs/specs/epigenetics-capability-garden-v1.md`](../docs/specs/epigenetics-capability-garden-v1.md)
+and [`docs/KARMA.md`](../docs/KARMA.md).
+
 ## Build and check
 
 ```bash
@@ -65,11 +89,14 @@ npm test
 npm run build
 ```
 
-`npm run check` type-checks both the browser application and Pages Functions.
+`npm run check` validates the base tree, Math Frontier, and life-science
+documents, then type-checks both the browser application and Pages Functions.
 `npm test` exercises the REST/RPC allowlists against injected fake upstreams;
 it cannot contact the production node. `npm run build` repeats those gates,
 builds the Vite application, and compiles Pages Functions with the repository's
-pinned Wrangler version.
+pinned Wrangler version. `npm run check:life` independently validates the two
+life-science documents, their exact SHA-256 pins, graph bounds, duplicate-key
+refusal, and hard zero-authority/economics boundaries.
 
 ## Pi account onboarding pilot
 
@@ -154,6 +181,11 @@ Run `npm run build` first. A non-`main` branch creates a no-index preview.
   fields, non-zero/reward-bearing state, governance or ranking activation,
   non-ordinal KARMA, graph drift, and unreviewed bytes fail closed before any
   node is rendered.
+- Life-garden and KARMA strings are treated as untrusted presentation data and
+  rendered only through DOM text nodes. Both documents use exact same-origin
+  paths, redirect refusal, no-store, bounded streaming with a deadline, strict
+  UTF-8, credential-free HTTPS source links, exact schemas, and reviewed digest
+  pins. Raw identifiable genomic and controlled-access evidence is prohibited.
 - Pi callback tokens are erased from the URL before parsing and are posted once
   to a same-origin edge route. Bearers and raw Pi account subjects are never
   persisted.

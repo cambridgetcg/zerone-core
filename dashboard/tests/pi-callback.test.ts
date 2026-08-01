@@ -238,10 +238,12 @@ describe("Pi callback page hardening", () => {
       source,
       /initialiseConstructiveTree\(constructiveTreeRoot\)/,
     );
+    assert.match(source, /initialiseLifeGarden\(lifeGardenRoot\)/);
     assert.match(source, /initialNetworkReady = refreshNetwork\(false\)/);
-    assert.ok(html.indexOf('id="skills"') < html.indexOf('id="contribute"'));
+    assert.ok(html.indexOf('id="skills"') < html.indexOf('id="life"'));
+    assert.ok(html.indexOf('id="life"') < html.indexOf('id="contribute"'));
     assert.match(html, /href="#skills"[^>]*>Browse without signing in/);
-    assert.match(html, /<span>07<\/span> Optional account pilot/);
+    assert.match(html, /<span>08<\/span> Optional account pilot/);
   });
 });
 
