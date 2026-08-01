@@ -1,6 +1,7 @@
 import {
   beginPiSignIn,
   bindWalletProof,
+  deletePiPilotData,
   endPiSession,
   getPiSession,
   removeWalletProof,
@@ -8,10 +9,16 @@ import {
   type PiSession,
   type PiWalletProofSignature,
 } from "./pi";
+import {
+  initialisePiConstructiveCompass,
+  type PiConstructiveCompassController,
+  type PiConstructiveCompassOptions,
+} from "./pi-constructive-compass";
 import type { WalletState } from "./wallet";
 
 export interface PiPilotUiOptions {
   walletProofEnabled: boolean;
+  constructiveCompass: Promise<PiConstructiveCompassOptions | null> | null;
   getWallet(): WalletState | null;
   connectWallet(): Promise<WalletState | null>;
   signWalletProof(
@@ -42,9 +49,6 @@ function attachDialogClose(
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog && !isPending()) dialog.close();
   });
-  dialog.addEventListener("cancel", (event) => {
-    if (isPending()) event.preventDefault();
-  });
 }
 
 export async function initialisePiPilot(
@@ -70,12 +74,14 @@ export async function initialisePiPilot(
   const proofReviewButton = byId<HTMLButtonElement>("pi-proof-review");
   const proofRemoveButton = byId<HTMLButtonElement>("pi-proof-remove");
   const logoutButton = byId<HTMLButtonElement>("pi-logout");
+  const dataOpenButton = byId<HTMLButtonElement>("pi-data-open");
 
   const consentDialog = byId<HTMLDialogElement>("pi-consent-dialog");
   const consentForm = byId<HTMLFormElement>("pi-consent-form");
   const consentCheck = byId<HTMLInputElement>("pi-consent-check");
   const consentClose = byId<HTMLButtonElement>("pi-consent-close");
   const consentSubmit = byId<HTMLButtonElement>("pi-consent-submit");
+  const consentOpenButton = byId<HTMLButtonElement>("pi-consent-open");
 
   const proofDialog = byId<HTMLDialogElement>("pi-proof-dialog");
   const proofForm = byId<HTMLFormElement>("pi-proof-form");
@@ -83,13 +89,24 @@ export async function initialisePiPilot(
   const proofClose = byId<HTMLButtonElement>("pi-proof-close");
   const proofSubmit = byId<HTMLButtonElement>("pi-proof-submit");
 
+  const dataDialog = byId<HTMLDialogElement>("pi-data-dialog");
+  const dataForm = byId<HTMLFormElement>("pi-data-form");
+  const dataTitle = byId<HTMLElement>("pi-data-title");
+  const dataCheck = byId<HTMLInputElement>("pi-data-check");
+  const dataClose = byId<HTMLButtonElement>("pi-data-close");
+  const dataSubmit = byId<HTMLButtonElement>("pi-data-submit");
+  const dataStatus = byId<HTMLParagraphElement>("pi-data-status");
+
   let authPending = false;
   let proofPending = false;
   let sessionPending = false;
+  let dataPending = false;
+  let constructiveCompass: PiConstructiveCompassController | null = null;
 
   const render = (): void => {
     signedOut.hidden = session.authenticated;
     signedIn.hidden = !session.authenticated;
+    constructiveCompass?.setAuthenticated(session.authenticated);
     if (!session.authenticated) {
       username.textContent = "Pi account";
       linkedAddress.textContent = "Not linked";
@@ -129,10 +146,27 @@ export async function initialisePiPilot(
   section.hidden = false;
   render();
 
+  const pendingCompass = options.constructiveCompass;
+  if (pendingCompass) {
+    void pendingCompass.then((compassOptions) => {
+      if (!compassOptions || !session.authenticated) return;
+      try {
+        constructiveCompass = initialisePiConstructiveCompass(compassOptions);
+        constructiveCompass.setAuthenticated(true);
+      } catch {
+        options.notify(
+          "The optional Constructive Compass is unavailable. The public skill tree remains available.",
+          "error",
+        );
+      }
+    });
+  }
+
   attachDialogClose(consentDialog, consentClose, () => authPending);
   attachDialogClose(proofDialog, proofClose, () => proofPending);
+  attachDialogClose(dataDialog, dataClose, () => dataPending);
 
-  byId("pi-consent-open").addEventListener("click", () => {
+  consentOpenButton.addEventListener("click", () => {
     consentCheck.checked = false;
     consentDialog.showModal();
     window.setTimeout(() => consentCheck.focus(), 0);
@@ -185,6 +219,59 @@ export async function initialisePiPilot(
       sessionPending = false;
       logoutButton.disabled = false;
       logoutButton.textContent = "End Pi session";
+    }
+  });
+
+  dataOpenButton.addEventListener("click", () => {
+    if (sessionPending || dataPending || !session.authenticated) return;
+    dataCheck.checked = false;
+    dataStatus.textContent = "";
+    dataForm.setAttribute("aria-busy", "false");
+    dataDialog.showModal();
+    window.setTimeout(() => dataTitle.focus(), 0);
+  });
+
+  dataForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (
+      sessionPending ||
+      dataPending ||
+      !dataCheck.checked ||
+      !session.authenticated ||
+      !session.csrfToken
+    ) {
+      return;
+    }
+
+    dataPending = true;
+    sessionPending = true;
+    dataClose.disabled = true;
+    dataSubmit.disabled = true;
+    dataSubmit.textContent = "Deleting pilot data…";
+    dataStatus.textContent = "Deleting subject-linked pilot data…";
+    dataForm.setAttribute("aria-busy", "true");
+    try {
+      session = await deletePiPilotData(session.csrfToken);
+      render();
+      dataDialog.close();
+      consentOpenButton.focus();
+      options.notify(
+        "Subject-linked Pi pilot data deleted. Your Pi account, Keplr wallet, and blockchain state were not changed.",
+      );
+    } catch {
+      dataStatus.textContent =
+        "Deletion could not be confirmed. Review the message below before retrying.";
+      options.notify(
+        "Pilot-data deletion could not be confirmed. Your Pi account, Keplr wallet, and blockchain state were not changed.",
+        "error",
+      );
+    } finally {
+      dataPending = false;
+      sessionPending = false;
+      dataClose.disabled = false;
+      dataSubmit.disabled = false;
+      dataSubmit.textContent = "Delete subject-linked pilot data";
+      dataForm.setAttribute("aria-busy", "false");
     }
   });
 
