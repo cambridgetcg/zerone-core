@@ -2,7 +2,11 @@
 
 > **There will always be bugs. The architecture's job is not to prevent them (impossible) but to minimise their damage and maximise the speed of recovery.**
 
-This document names the design principles under which Zerone is built. Every module, every handler, every new wave follows these principles — if something here is violated, that's the signal to pause and redesign, not ship.
+This document names Zerone's resilience design principles and the direction
+for new work. It is not proof that every existing handler enforces every
+principle. The canonical [Upgrade and Incident Operations
+runbook](UPGRADE_AND_INCIDENT_OPERATIONS.md) governs real upgrade, quarantine,
+signer-stop, restart, and hostile-event decisions.
 
 ---
 
@@ -16,7 +20,9 @@ Every handler is written as if a bug already exists *somewhere* in its call grap
 
 **Corollaries:**
 - Never trust an invariant without enforcing it at state-read-time, even if the write-time check looks exhaustive.
-- Every msg handler has a circuit breaker check at its top (`RequireNotPaused`).
+- Every write handler covered by a module breaker calls
+  `RequireNotPaused`; uninstrumented handlers remain outside that breaker's
+  protection and must not be described as paused.
 - Every state transition is forward-only where possible (no backwards destruction of evidence).
 
 ### 2. Localize damage — module boundaries are blast radii
@@ -24,8 +30,15 @@ Every handler is written as if a bug already exists *somewhere* in its call grap
 When module X has a bug, module Y must be able to continue. Zerone's module architecture is also its damage-containment architecture.
 
 **Concretely:**
-- **Per-module circuit breakers** (Wave 12). Any module can be paused independently via `MsgPauseModule`. Writes to that module reject; every other module continues.
-- **Typed inter-module dependencies.** Modules depend on narrow interfaces (expected_keepers), never concrete keeper instances. A paused module's interface still answers read queries (safe) but rejects writes (contained).
+- **Handler-level circuit breakers** (Wave 12). The existing pause state and
+  checks are primarily implemented in `x/knowledge`. A
+  `MsgPauseModule` record is effective only for handlers that actually call
+  `RequireNotPaused`; it is not a chain-wide Cosmos SDK circuit breaker and
+  does not freeze BeginBlock, EndBlock, PreBlock, reads, or uninstrumented
+  writes.
+- **Typed inter-module dependencies.** New cross-module integrations should
+  depend on narrow interfaces. A paused module's explicitly supported read
+  interface may remain available while instrumented writes reject.
 - **Separate module accounts for value.** The `knowledge_training_fund` holds Wave 4 escrow; the `knowledge_bootstrap_fund` holds seed funds. A bug in one module account's accounting doesn't drain the other.
 
 ### 3. Fast recovery beats slow prevention — optimise for MTTR
@@ -35,7 +48,11 @@ Mean-time-to-recovery (MTTR) is the metric that matters, not mean-time-between-f
 **Concretely:**
 - **Parameter amendments** are the fastest path: `MsgUpdateParams` tunes a parameter governance-gated, no code deploy. Target: minutes.
 - **Named upgrades** with tested migrations (Wave 10) — the canonical fix-by-code path. Target: hours.
-- **Emergency halt/resume ceremonies** (`x/emergency`) — the absolute backstop when nothing else is ready. Target: hours, but hopefully rarely used.
+- **Emergency transaction-quarantine/reopen ceremonies**
+  (`x/emergency`) — a consensus-enforced gate for non-allowlisted
+  transactions. Blocks and autonomous module processing can continue. If
+  another state transition is unsafe, operators must stop enough consensus
+  signing power under the canonical runbook.
 - **Surgical state corrections** — structured authority-gated messages that patch specific records without a code upgrade. Target: block time.
 
 Every severity tier (P0 / P1 / P2 / P3) has a default SLA stamped at incident-open time. The SLA cannot be extended by reclassification (Wave 11).
@@ -49,17 +66,33 @@ When a bug is fixed, the evidence of what happened must survive. Audit is non-ne
 - **Migration markers** (`migration_vN_complete`). Once written, a marker cannot be silently overwritten with a different value; first-writer-wins. A subsequent migration can add its own marker but cannot invalidate the prior trail.
 - **Merkle-committed training manifests** (Wave 7). Finalized = immutable. A child can reference a superseded parent; the composition survives because the root was snapshotted at create time.
 - **Event stream = audit stream.** Every lifecycle event emits a structured event. An external indexer can reconstruct the full history from the event log alone, without trusting node RPC serialisation.
+- **Committed upgrades are forward-only.** H−1 is the last committed state
+  while an `x/upgrade` activation at H remains uncommitted. Once H commits,
+  repair with a new named upgrade or an explicitly authorized
+  fork/re-genesis; do not restart an old binary as though H never happened.
+  Zerone has no generic arbitrary-height finalized-state rollback.
 
 ### 5. Tested recovery paths — the pipeline is not a plan, it's a property
 
 A plan is a document. A property is tested. Zerone's resilience pipeline is a property.
 
 **Concretely:**
-- `tests/cross_stack/upgrade_e2e_test.go` — 6 tests exercising the full `SetUpgradeHandler` → `RunMigrations` → marker-write pipeline. Bump `ConsensusVersion`, add a migration, run this test. If it passes, the upgrade works.
-- `tests/cross_stack/incident_response_test.go` — 8 tests covering every severity tier end-to-end, including P0 that actually runs an upgrade handler as part of the drill.
-- `tests/cross_stack/resilience_drill_test.go` — the crown-jewel drill that ties every primitive together in one 13-step exercise: open → pause → reject write → apply upgrade → record remediation → unpause → resume → resolve → close.
+- `tests/cross_stack/upgrade_e2e_test.go` — component tests exercising the
+  `SetUpgradeHandler` → `RunMigrations` → marker-write pipeline. They prove
+  handler behavior in their fixture, not an old/new binary handoff,
+  Cosmovisor staging, validator readiness, or production recovery.
+- `tests/cross_stack/incident_response_test.go` — tests the record-state
+  transitions for every severity tier, including a P0 fixture that invokes an
+  upgrade handler. It does not stop CometBFT or authorize a signer restart.
+- `tests/cross_stack/resilience_drill_test.go` — ties the in-process primitives
+  together in one 13-step exercise: open → pause → reject write → apply
+  handler → record remediation → unpause → reopen admission → resolve →
+  close. It does not replace the operator drills in the canonical runbook.
 
-**Run before every release.** If these pass, the mechanism works; if a new wave changes state, add its test here.
+**Run before every release.** Passing is necessary, not sufficient: also
+rehearse the exact old binary stopping before H commits, the staged new binary
+starting from H−1, post-migration reconciliation, failure recovery, and
+restart as required by the canonical runbook.
 
 ---
 
@@ -73,10 +106,15 @@ A plan is a document. A property is tested. Zerone's resilience pipeline is a pr
 | **Incident log layer** | `MsgOpenIncident` / `MsgRecordRemediation` / `MsgResolveIncident` / `MsgCloseIncident` | Every significant bug; purely audit | Instant |
 | **Migration layer** | `Migrator` + `RegisterMigration` + `ConsensusVersion` | Code-level bug with state implications | Hours (via upgrade) |
 | **Upgrade layer** | `SetUpgradeHandler` + `RunMigrations` + named `UpgradeName<X>` | Code-level bug requiring coordinated release | Hours to days |
-| **Emergency layer** | `x/emergency` halt/revert/resume ceremonies | Consensus break / chain halt | Hours |
+| **Emergency layer** | `x/emergency` transaction-quarantine/reopen ceremonies | Hostile or unsafe transactions; blocks continue | Hours |
 | **Genesis layer** | `ExportGenesis` / `InitGenesis` round-trip (Wave 8) | Schema rewrite or chain restart | Genesis event |
 
-The layers compose. A typical P0 drill uses all of them in sequence: **pause** (contain), **open incident** (record), **apply upgrade** (fix), **record remediations** (audit), **unpause** (resume), **resolve incident** (close the loop).
+The layers compose, but none substitutes for a signer stop. A P0 drill should
+classify consensus, signer, transaction-admission, and release state
+independently; contain through the matching edge, transaction, or signer
+control; preserve evidence; apply an attested forward upgrade; reopen each
+surface explicitly; and complete the incident record. There is no automatic
+resume.
 
 ---
 
@@ -133,12 +171,12 @@ func TestNewHandler_BreakerRespected(t *testing.T) {
 
     ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)
     authority := h.KnowledgeKeeper.GetAuthority()
-    
+
     _, err = ms.PauseModule(h.Ctx, &MsgPauseModule{
         Authority: authority, ModuleName: types.ModuleName, Reason: "test",
     })
     require.NoError(t, err)
-    
+
     _, err = ms.DoThing(h.Ctx, &MsgDoThing{/* ... */})
     require.Error(t, err, "paused module must reject writes")
     require.Contains(t, err.Error(), "paused")
@@ -165,10 +203,16 @@ For the incident log itself (open/resolve/close), other modules can reference a 
 
 ## What this philosophy does NOT claim
 
-- **Zero downtime.** A chain halt for a P0 bug is often the right move; the goal is not to avoid halting, it's to *recover quickly* from a halt.
+- **Zero downtime.** Stopping enough consensus signers for a P0 bug can be the
+  right move when another block is unsafe. An `x/emergency` transaction
+  quarantine is a different mechanism and does not stop block production.
 - **Unfalsifiable security.** No cryptographic-level proof of correctness. The chain can still be attacked successfully; the goal is that successful attacks are *bounded in blast radius* and *addressed quickly*.
 - **Bug-free operation.** Inconceivable. Every assumption above *begins* with "bugs will happen".
-- **Full autonomy.** Governance authority retains the power to pause modules, open incidents, and apply upgrades. A truly-captured authority is a separate class of failure (outside this philosophy's scope).
+- **Full autonomy.** Governance authority retains the power to update covered
+  module controls, open incidents, and schedule upgrades while consensus and
+  transaction admission permit. Signer restart and fork choice additionally
+  require the off-chain operator authorization defined in the canonical
+  runbook.
 
 ---
 
@@ -176,11 +220,15 @@ For the incident log itself (open/resolve/close), other modules can reference a 
 
 If the following statements are all **true** on your chain, the philosophy is operational:
 
-1. Every write-path handler in every module calls `RequireNotPaused(ctx, moduleName)` at its top.
+1. Every handler claimed to be covered by a module pause demonstrably calls
+   `RequireNotPaused(ctx, moduleName)`, and the inventory explicitly lists
+   uninstrumented paths.
 2. Every state-changing wave has a registered migration (`v<N>→v<N+1>`), a bumped `ConsensusVersion`, and a marker-write at the end.
 3. Every named upgrade has a corresponding entry in the `KnownUpgrades` lineage AND a test in `tests/cross_stack/upgrade_e2e_test.go`.
 4. Every incident opened in production gets resolved through the `OpenIncident → RecordRemediation → ResolveIncident → CloseIncident` flow.
-5. The **resilience drill** in `tests/cross_stack/resilience_drill_test.go` passes after every change.
+5. The **resilience drill** in
+   `tests/cross_stack/resilience_drill_test.go` passes after every change, and
+   release operations separately rehearse the H−1/H old/new binary boundary.
 
 If any is false, that's the next wave's work.
 

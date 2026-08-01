@@ -28,6 +28,7 @@ func TestCertificateToInTotoStatement(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, InTotoStatementType, statement.StatementType)
 	require.Equal(t, TrainingProvenancePredicateType, statement.PredicateType)
+	require.NotContains(t, statement.PredicateType, "/blob/main/")
 	require.Len(t, statement.Subject, 1)
 	require.Equal(t, "zerone://zerone-origin-1/training-corpus/manifest%2Fa", statement.Subject[0].Name)
 	require.Equal(t, root, statement.Subject[0].Digest["sha256"])
@@ -43,7 +44,7 @@ func TestCertificateToInTotoStatement(t *testing.T) {
 			"name": "zerone://zerone-origin-1/training-corpus/manifest%2Fa",
 			"digest": {"sha256": "7e4a9b03c4d6f8e1023456789abcdef07e4a9b03c4d6f8e1023456789abcdef0"}
 		}],
-		"predicateType": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/training-provenance-v1.md",
+		"predicateType": "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md",
 		"predicate": {
 			"sourceChainId": "zerone-origin-1",
 			"observedOnChainId": "zerone-observer-2",

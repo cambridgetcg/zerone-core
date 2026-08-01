@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zerone.network/schemas/fork-genesis-policy-v1.json",
+  "title": "Zerone deterministic fork-genesis policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile",
+    "incident_id",
+    "source_chain_id",
+    "target_chain_id",
+    "source_last_height",
+    "source_block_id_sha256",
+    "source_app_hash_sha256",
+    "source_last_block_time",
+    "source_signed_commit_sha256",
+    "source_validator_set_sha256",
+    "source_export_sha256",
+    "old_operator_address",
+    "old_consensus_public_key",
+    "new_consensus_public_key",
+    "operator_disposition",
+    "prohibited_consensus_public_keys",
+    "prohibited_privileged_identities",
+    "expected_old_custom_consensus_pubkey",
+    "new_custom_consensus_pubkey",
+    "target_app_version",
+    "target_genesis_time",
+    "custody_assessment_sha256",
+    "fork_policy_sha256",
+    "rewrite_tool_sha256",
+    "ibc_disposition",
+    "emergency_start_mode",
+    "independent_reproducers",
+    "policy_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "zerone.fork-genesis.policy/v1"
+    },
+    "profile": {
+      "const": "consensus-key-only"
+    },
+    "incident_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source_chain_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "target_chain_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 50
+    },
+    "source_last_height": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_block_id_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_app_hash_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_last_block_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_signed_commit_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_validator_set_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_export_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "old_operator_address": {
+      "type": "string",
+      "minLength": 1
+    },
+    "old_consensus_public_key": {
+      "$ref": "#/$defs/ed25519"
+    },
+    "new_consensus_public_key": {
+      "$ref": "#/$defs/ed25519"
+    },
+    "operator_disposition": {
+      "const": "RETAIN_PROVEN_SAFE"
+    },
+    "prohibited_consensus_public_keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "#/$defs/ed25519"
+      }
+    },
+    "prohibited_privileged_identities": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "expected_old_custom_consensus_pubkey": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "new_custom_consensus_pubkey": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "target_app_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "target_genesis_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "custody_assessment_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "fork_policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "rewrite_tool_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "ibc_disposition": {
+      "const": "require-empty"
+    },
+    "emergency_start_mode": {
+      "const": "CONSENSUS_QUARANTINE"
+    },
+    "independent_reproducers": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identity",
+          "control_domain",
+          "public_key"
+        ],
+        "properties": {
+          "identity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "control_domain": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "policy_sha256": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ed25519": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{43}=$"
+    }
+  }
+}

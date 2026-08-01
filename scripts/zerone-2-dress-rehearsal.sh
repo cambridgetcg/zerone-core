@@ -2,9 +2,10 @@
 # Full local zerone-2 rehearsal using public fixtures only.
 #
 # Boots the audited genesis, onboards the operator identity, registers the
-# custom validator with real in-chain escrow, restarts, exports, imports into a
-# fresh home, and proves supply/backing survive. Nothing here is production
-# custody material and no remote endpoint is contacted.
+# custom validator with real in-chain escrow, restarts, creates a continuation
+# export at the stopped height, imports it into a fresh home, and proves
+# supply/backing survive. Nothing here is production custody material and no
+# remote endpoint is contacted.
 
 set -euo pipefail
 export LC_ALL=C
@@ -240,16 +241,24 @@ start_node "${HOME_A}" "${TMP}/node.log"
 wait_for_height "$((HEIGHT_BEFORE + 2))"
 assert_supply "${TOTAL_SUPPLY}"
 
-info "exporting all modules at zero height"
+info "exporting all modules as a stopped-height continuation genesis"
 stop_node
 EXPORT="${TMP}/export.json"
-"${BINARY}" export --for-zero-height --home "${HOME_A}" \
-  --output-document "${EXPORT}" >/dev/null 2>&1 || fail "state export failed"
+if ! "${BINARY}" export --home "${HOME_A}" \
+  --output-document "${EXPORT}" > "${TMP}/export.log" 2>&1; then
+  sed -n '1,160p' "${TMP}/export.log" >&2
+  fail "state export failed"
+fi
 if ! "${BINARY}" genesis validate "${EXPORT}" \
   > "${TMP}/export-validate.log" 2>&1; then
   sed -n '1,160p' "${TMP}/export-validate.log" >&2
   fail "exported genesis failed validation"
 fi
+EXPORTED_INITIAL_HEIGHT="$(jq -er '.initial_height | tostring' "${EXPORT}")" || \
+  fail "exported continuation genesis lacks initial_height"
+[[ "${EXPORTED_INITIAL_HEIGHT}" =~ ^[1-9][0-9]*$ ]] && \
+  [ "${EXPORTED_INITIAL_HEIGHT}" -gt 1 ] || \
+  fail "continuation export must preserve a non-zero stopped height"
 EXPORTED_SUPPLY="$(jq -r '[.app_state.bank.supply[] | select(.denom=="uzrn") | .amount][0]' "${EXPORT}")"
 [ "${EXPORTED_SUPPLY}" = "${TOTAL_SUPPLY}" ] || \
   fail "exported supply ${EXPORTED_SUPPLY} != ${TOTAL_SUPPLY}"
@@ -264,7 +273,8 @@ chmod 0600 "${HOME_B}/config/priv_validator_key.json" \
   "${HOME_B}/data/priv_validator_state.json"
 configure_home "${HOME_B}"
 start_node "${HOME_B}" "${TMP}/node.log"
-wait_for_height 10
+IMPORTED_TARGET_HEIGHT="$((EXPORTED_INITIAL_HEIGHT + 9))"
+wait_for_height "${IMPORTED_TARGET_HEIGHT}"
 assert_supply "${TOTAL_SUPPLY}"
 
 IMPORTED_CUSTOM="$(${BINARY} query zerone_staking validator "${VALIDATOR_ADDRESS}" \
@@ -278,6 +288,6 @@ IMPORTED_MODULE_BALANCE="$(rest_json "/cosmos/bank/v1beta1/balances/${CUSTOM_STA
   fail "custom staking backing did not survive export/import"
 
 EXPORT_SHA="$(shasum -a 256 "${EXPORT}" | awk '{print $1}')"
-ok "restart and ten-block export/import rehearsal passed"
+ok "restart and ten-block stopped-height export/import rehearsal passed"
 ok "supply stayed exactly ${TOTAL_SUPPLY}uzrn; export sha256 ${EXPORT_SHA}"
 printf 'zerone-2 dress rehearsal: PASS\n'

@@ -16,28 +16,6 @@ primary_region = "lhr"
   source = "zerone_data"
   destination = "/data"
 
-# CometBFT RPC (26657) — HTTP, public.
-[[services]]
-  internal_port = 26657
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
-  [[services.ports]]
-    port = 26657
-    handlers = ["http"]
-
-# REST / LCD (1317) — HTTP, public.
-[[services]]
-  internal_port = 1317
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = false
-  min_machines_running = 1
-  [[services.ports]]
-    port = 1317
-    handlers = ["http"]
-
 # P2P (26656) — raw TCP so other nodes can peer/sync.
 [[services]]
   internal_port = 26656

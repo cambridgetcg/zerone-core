@@ -453,6 +453,57 @@ function expirationTimestamp(
   };
 }
 
+function encodeUnsignedVarint(value: bigint): Uint8Array {
+  if (value < 0n) {
+    throw new RangeError("Cannot encode a negative unsigned protobuf varint.");
+  }
+  const bytes: number[] = [];
+  let remaining = value;
+  do {
+    const current = Number(remaining & 0x7fn);
+    remaining >>= 7n;
+    bytes.push(remaining === 0n ? current : current | 0x80);
+  } while (remaining !== 0n);
+  return Uint8Array.from(bytes);
+}
+
+function encodeTimestamp(timestamp: {
+  seconds: bigint;
+  nanos: number;
+}): Uint8Array {
+  const seconds = encodeUnsignedVarint(
+    BigInt.asUintN(64, timestamp.seconds),
+  );
+  const nanos = encodeUnsignedVarint(BigInt(timestamp.nanos));
+  const bytes = new Uint8Array(
+    1 + seconds.length + (timestamp.nanos === 0 ? 0 : 1 + nanos.length),
+  );
+  let offset = 0;
+  bytes[offset] = 0x08;
+  offset += 1;
+  bytes.set(seconds, offset);
+  offset += seconds.length;
+  if (timestamp.nanos !== 0) {
+    bytes[offset] = 0x10;
+    offset += 1;
+    bytes.set(nanos, offset);
+  }
+  return bytes;
+}
+
+function encodeBasicAllowance(allowance: BasicAllowance): Uint8Array {
+  // cosmjs-types 0.11 corrupts some positive int64 varints above 2^31-1
+  // through signed low-word handling. Encode Timestamp explicitly.
+  const writer = BasicAllowance.encode({
+    spendLimit: allowance.spendLimit,
+    expiration: undefined,
+  });
+  if (allowance.expiration !== undefined) {
+    writer.uint32(0x12).bytes(encodeTimestamp(allowance.expiration));
+  }
+  return writer.finish();
+}
+
 export function createBoundedGrantMessage(input: {
   granter: string;
   grantee: string;
@@ -478,7 +529,7 @@ export function createBoundedGrantMessage(input: {
   });
   const basicAny = {
     typeUrl: BASIC_ALLOWANCE_TYPE,
-    value: BasicAllowance.encode(basic).finish(),
+    value: encodeBasicAllowance(basic),
   };
   const restricted = AllowedMsgAllowance.fromPartial({
     allowance: basicAny,

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 
+	"github.com/zerone-chain/zerone/x/common/contentid"
 	"github.com/zerone-chain/zerone/x/home/types"
 )
 
@@ -280,10 +282,10 @@ func NewConfigureGuardianCmd() *cobra.Command {
 			var deadman *types.DeadmanConfig
 			if deadmanEnabled {
 				deadman = &types.DeadmanConfig{
-					Enabled:              true,
-					InactivityThreshold:  deadmanThreshold,
-					Action:               deadmanAction,
-					BeneficiaryAddress:   deadmanBeneficiary,
+					Enabled:             true,
+					InactivityThreshold: deadmanThreshold,
+					Action:              deadmanAction,
+					BeneficiaryAddress:  deadmanBeneficiary,
 				}
 			}
 
@@ -322,6 +324,10 @@ func NewUpdateMemoryCIDCmd() *cobra.Command {
 		Short: "Update the IPFS memory CID for a home",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, err := contentid.ParseMemoryV1(args[1]); err != nil {
+				return fmt.Errorf("invalid memory CID: %w", err)
+			}
+
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
 				return err

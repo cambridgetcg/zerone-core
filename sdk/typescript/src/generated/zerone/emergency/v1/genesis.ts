@@ -1,5 +1,5 @@
 //@ts-nocheck
-import { EmergencyCeremony, EmergencyAuditEntry } from "./types";
+import { EmergencyCeremony, EmergencyAuditEntry, EmergencyRecoveryAuthorization } from "./types";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
@@ -13,6 +13,48 @@ export interface GenesisState {
   status: string;
   ceremonies: EmergencyCeremony[];
   auditLog: EmergencyAuditEntry[];
+  /**
+   * Identifier of the halt ceremony (or deterministic legacy quarantine
+   * marker) that an evidence-bound resume must reference.
+   */
+  activeHaltCeremonyId: string;
+  /**
+   * Block at which transaction quarantine began. This is an escalation
+   * clock, never an automatic resume deadline.
+   */
+  haltStartBlock: bigint;
+  /**
+   * Per-Guardian and global proposal counters are consensus anti-abuse state,
+   * not disposable node-local telemetry. They must survive export/import.
+   */
+  guardianProposalCounts: GuardianProposalCount[];
+  epochProposalCount: bigint;
+  lastProposalBlock: bigint;
+  /**
+   * Most recent quarantine escalation boundary already reported. Persisting
+   * it makes diagnostics idempotent across restart and resume voting.
+   */
+  lastHaltEscalationBlock: bigint;
+  /**
+   * Block in which an affirmative resume finalized. Transaction admission
+   * remains quarantined through this entire block and reopens at H+1.
+   */
+  quarantineReleaseBlock: bigint;
+  /**
+   * Finalized Guardian authorization for one exact SDK governance recovery
+   * proposal in the currently active quarantine incident.
+   */
+  recoveryAuthorization?: EmergencyRecoveryAuthorization;
+}
+/**
+ * GuardianProposalCount is one canonical, sorted anti-abuse counter.
+ * @name GuardianProposalCount
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.GuardianProposalCount
+ */
+export interface GuardianProposalCount {
+  guardian: string;
+  count: bigint;
 }
 /**
  * Params defines the emergency module parameters.
@@ -40,7 +82,9 @@ export interface Params {
   resumePrecommitBlocks: bigint;
   resumeTimeoutBlocks: bigint;
   /**
-   * Anti-abuse limits.
+   * One shared anti-abuse budget for halt, resume, recovery-authorization,
+   * and recovery-revocation ceremonies. A Guardian cannot bypass a limit by
+   * switching ceremony lanes.
    */
   maxProposalsPerEpoch: bigint;
   maxProposalsPerGuardianPerEpoch: bigint;
@@ -68,7 +112,8 @@ export interface Params {
    */
   councilVirtualStake: string;
   /**
-   * Auto-resume: max halt duration before automatic resume.
+   * Escalation deadline. Crossing it alerts operators but never resumes
+   * transaction admission automatically.
    */
   maxHaltDurationBlocks: bigint;
 }
@@ -77,7 +122,15 @@ function createBaseGenesisState(): GenesisState {
     params: undefined,
     status: "",
     ceremonies: [],
-    auditLog: []
+    auditLog: [],
+    activeHaltCeremonyId: "",
+    haltStartBlock: BigInt(0),
+    guardianProposalCounts: [],
+    epochProposalCount: BigInt(0),
+    lastProposalBlock: BigInt(0),
+    lastHaltEscalationBlock: BigInt(0),
+    quarantineReleaseBlock: BigInt(0),
+    recoveryAuthorization: undefined
   };
 }
 /**
@@ -101,6 +154,30 @@ export const GenesisState = {
     for (const v of message.auditLog) {
       EmergencyAuditEntry.encode(v!, writer.uint32(34).fork()).ldelim();
     }
+    if (message.activeHaltCeremonyId !== "") {
+      writer.uint32(42).string(message.activeHaltCeremonyId);
+    }
+    if (message.haltStartBlock !== BigInt(0)) {
+      writer.uint32(48).uint64(message.haltStartBlock);
+    }
+    for (const v of message.guardianProposalCounts) {
+      GuardianProposalCount.encode(v!, writer.uint32(58).fork()).ldelim();
+    }
+    if (message.epochProposalCount !== BigInt(0)) {
+      writer.uint32(64).uint64(message.epochProposalCount);
+    }
+    if (message.lastProposalBlock !== BigInt(0)) {
+      writer.uint32(72).uint64(message.lastProposalBlock);
+    }
+    if (message.lastHaltEscalationBlock !== BigInt(0)) {
+      writer.uint32(80).uint64(message.lastHaltEscalationBlock);
+    }
+    if (message.quarantineReleaseBlock !== BigInt(0)) {
+      writer.uint32(88).uint64(message.quarantineReleaseBlock);
+    }
+    if (message.recoveryAuthorization !== undefined) {
+      EmergencyRecoveryAuthorization.encode(message.recoveryAuthorization, writer.uint32(98).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -122,6 +199,30 @@ export const GenesisState = {
         case 4:
           message.auditLog.push(EmergencyAuditEntry.decode(reader, reader.uint32()));
           break;
+        case 5:
+          message.activeHaltCeremonyId = reader.string();
+          break;
+        case 6:
+          message.haltStartBlock = reader.uint64();
+          break;
+        case 7:
+          message.guardianProposalCounts.push(GuardianProposalCount.decode(reader, reader.uint32()));
+          break;
+        case 8:
+          message.epochProposalCount = reader.uint64();
+          break;
+        case 9:
+          message.lastProposalBlock = reader.uint64();
+          break;
+        case 10:
+          message.lastHaltEscalationBlock = reader.uint64();
+          break;
+        case 11:
+          message.quarantineReleaseBlock = reader.uint64();
+          break;
+        case 12:
+          message.recoveryAuthorization = EmergencyRecoveryAuthorization.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -135,6 +236,64 @@ export const GenesisState = {
     message.status = object.status ?? "";
     message.ceremonies = object.ceremonies?.map(e => EmergencyCeremony.fromPartial(e)) || [];
     message.auditLog = object.auditLog?.map(e => EmergencyAuditEntry.fromPartial(e)) || [];
+    message.activeHaltCeremonyId = object.activeHaltCeremonyId ?? "";
+    message.haltStartBlock = object.haltStartBlock !== undefined && object.haltStartBlock !== null ? BigInt(object.haltStartBlock.toString()) : BigInt(0);
+    message.guardianProposalCounts = object.guardianProposalCounts?.map(e => GuardianProposalCount.fromPartial(e)) || [];
+    message.epochProposalCount = object.epochProposalCount !== undefined && object.epochProposalCount !== null ? BigInt(object.epochProposalCount.toString()) : BigInt(0);
+    message.lastProposalBlock = object.lastProposalBlock !== undefined && object.lastProposalBlock !== null ? BigInt(object.lastProposalBlock.toString()) : BigInt(0);
+    message.lastHaltEscalationBlock = object.lastHaltEscalationBlock !== undefined && object.lastHaltEscalationBlock !== null ? BigInt(object.lastHaltEscalationBlock.toString()) : BigInt(0);
+    message.quarantineReleaseBlock = object.quarantineReleaseBlock !== undefined && object.quarantineReleaseBlock !== null ? BigInt(object.quarantineReleaseBlock.toString()) : BigInt(0);
+    message.recoveryAuthorization = object.recoveryAuthorization !== undefined && object.recoveryAuthorization !== null ? EmergencyRecoveryAuthorization.fromPartial(object.recoveryAuthorization) : undefined;
+    return message;
+  }
+};
+function createBaseGuardianProposalCount(): GuardianProposalCount {
+  return {
+    guardian: "",
+    count: BigInt(0)
+  };
+}
+/**
+ * GuardianProposalCount is one canonical, sorted anti-abuse counter.
+ * @name GuardianProposalCount
+ * @package zerone.emergency.v1
+ * @see proto type: zerone.emergency.v1.GuardianProposalCount
+ */
+export const GuardianProposalCount = {
+  typeUrl: "/zerone.emergency.v1.GuardianProposalCount",
+  encode(message: GuardianProposalCount, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.guardian !== "") {
+      writer.uint32(10).string(message.guardian);
+    }
+    if (message.count !== BigInt(0)) {
+      writer.uint32(16).uint64(message.count);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): GuardianProposalCount {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGuardianProposalCount();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.guardian = reader.string();
+          break;
+        case 2:
+          message.count = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<GuardianProposalCount>): GuardianProposalCount {
+    const message = createBaseGuardianProposalCount();
+    message.guardian = object.guardian ?? "";
+    message.count = object.count !== undefined && object.count !== null ? BigInt(object.count.toString()) : BigInt(0);
     return message;
   }
 };

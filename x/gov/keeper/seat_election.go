@@ -66,6 +66,9 @@ func (k Keeper) ValidateSeatCandidate(ctx sdk.Context, candidate string) error {
 
 // NominateSeatElection creates a new seat election proposal in "nominated" stage.
 func (k Keeper) NominateSeatElection(ctx sdk.Context, msg *types.MsgNominateSeatElection) (*types.MsgNominateSeatElectionResponse, error) {
+	if err := k.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 
 	// Validate phase supports elections (OBSERVER or BALANCED).
@@ -118,6 +121,9 @@ func (k Keeper) NominateSeatElection(ctx sdk.Context, msg *types.MsgNominateSeat
 
 // AcceptSeatNomination accepts a pending nomination, advancing to "discussion" stage.
 func (k Keeper) AcceptSeatNomination(ctx sdk.Context, msg *types.MsgAcceptSeatNomination) (*types.MsgAcceptSeatNominationResponse, error) {
+	if err := k.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 
 	prop, found := k.GetSeatElection(ctx, msg.ProposalId)
@@ -168,6 +174,9 @@ func (k Keeper) AcceptSeatNomination(ctx sdk.Context, msg *types.MsgAcceptSeatNo
 
 // VoteSeatElection casts a stake-weighted vote on a seat election.
 func (k Keeper) VoteSeatElection(ctx sdk.Context, msg *types.MsgVoteSeatElection) (*types.MsgVoteSeatElectionResponse, error) {
+	if err := k.RequireNoEmergencyTransitionHold(ctx); err != nil {
+		return nil, err
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 
 	prop, found := k.GetSeatElection(ctx, msg.ProposalId)
@@ -437,20 +446,20 @@ func (k Keeper) createRunoff(ctx sdk.Context, seatIndex uint32, first, second *t
 	id1 := k.GetNextSeatElectionID(ctx)
 	k.SetNextSeatElectionID(ctx, id1+1)
 	runoff1 := &types.SeatElectionProposal{
-		ProposalId:     id1,
-		Proposer:       first.Proposer,
-		Candidate:      first.Candidate,
-		SeatIndex:      seatIndex,
-		Statement:      first.Statement,
-		Stage:          types.SeatStageVoting,
-		YesStake:       "0",
-		NoStake:        "0",
-		AbstainStake:   "0",
-		VotingEndBlock: currentHeight + types.SeatVotingBlocks,
-		CreatedAtBlock: currentHeight,
+		ProposalId:        id1,
+		Proposer:          first.Proposer,
+		Candidate:         first.Candidate,
+		SeatIndex:         seatIndex,
+		Statement:         first.Statement,
+		Stage:             types.SeatStageVoting,
+		YesStake:          "0",
+		NoStake:           "0",
+		AbstainStake:      "0",
+		VotingEndBlock:    currentHeight + types.SeatVotingBlocks,
+		CreatedAtBlock:    currentHeight,
 		CandidateAccepted: true,
-		IsRunoff:       true,
-		RunoffParentIds: parentIds,
+		IsRunoff:          true,
+		RunoffParentIds:   parentIds,
 	}
 	k.SetSeatElection(ctx, runoff1)
 
@@ -458,20 +467,20 @@ func (k Keeper) createRunoff(ctx sdk.Context, seatIndex uint32, first, second *t
 	id2 := k.GetNextSeatElectionID(ctx)
 	k.SetNextSeatElectionID(ctx, id2+1)
 	runoff2 := &types.SeatElectionProposal{
-		ProposalId:     id2,
-		Proposer:       second.Proposer,
-		Candidate:      second.Candidate,
-		SeatIndex:      seatIndex,
-		Statement:      second.Statement,
-		Stage:          types.SeatStageVoting,
-		YesStake:       "0",
-		NoStake:        "0",
-		AbstainStake:   "0",
-		VotingEndBlock: currentHeight + types.SeatVotingBlocks,
-		CreatedAtBlock: currentHeight,
+		ProposalId:        id2,
+		Proposer:          second.Proposer,
+		Candidate:         second.Candidate,
+		SeatIndex:         seatIndex,
+		Statement:         second.Statement,
+		Stage:             types.SeatStageVoting,
+		YesStake:          "0",
+		NoStake:           "0",
+		AbstainStake:      "0",
+		VotingEndBlock:    currentHeight + types.SeatVotingBlocks,
+		CreatedAtBlock:    currentHeight,
 		CandidateAccepted: true,
-		IsRunoff:       true,
-		RunoffParentIds: parentIds,
+		IsRunoff:          true,
+		RunoffParentIds:   parentIds,
 	}
 	k.SetSeatElection(ctx, runoff2)
 

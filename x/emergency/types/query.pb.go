@@ -59,12 +59,35 @@ func (*QueryStatusRequest) Descriptor() ([]byte, []int) {
 }
 
 type QueryStatusResponse struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	Status               string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
-	IsHalted             bool                   `protobuf:"varint,2,opt,name=is_halted,json=isHalted,proto3" json:"is_halted,omitempty"`
-	ActiveHaltCeremonyId string                 `protobuf:"bytes,3,opt,name=active_halt_ceremony_id,json=activeHaltCeremonyId,proto3" json:"active_halt_ceremony_id,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Status string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	// Deprecated operational name retained for API compatibility. This means
+	// application transaction admission is restricted; it does not mean that
+	// CometBFT consensus or block production stopped.
+	IsHalted             bool   `protobuf:"varint,2,opt,name=is_halted,json=isHalted,proto3" json:"is_halted,omitempty"`
+	ActiveHaltCeremonyId string `protobuf:"bytes,3,opt,name=active_halt_ceremony_id,json=activeHaltCeremonyId,proto3" json:"active_halt_ceremony_id,omitempty"`
+	RestrictionScope     string `protobuf:"bytes,4,opt,name=restriction_scope,json=restrictionScope,proto3" json:"restriction_scope,omitempty"`
+	// True means this module's transaction restriction permits consensus to
+	// continue. It is not a live observation that the validator set is healthy
+	// or that blocks are currently committing.
+	ConsensusContinues          bool   `protobuf:"varint,5,opt,name=consensus_continues,json=consensusContinues,proto3" json:"consensus_continues,omitempty"`
+	EligibleGuardians           uint64 `protobuf:"varint,6,opt,name=eligible_guardians,json=eligibleGuardians,proto3" json:"eligible_guardians,omitempty"`
+	EffectiveGuardianStake      string `protobuf:"bytes,7,opt,name=effective_guardian_stake,json=effectiveGuardianStake,proto3" json:"effective_guardian_stake,omitempty"`
+	MinimumDistinctVoters       uint64 `protobuf:"varint,8,opt,name=minimum_distinct_voters,json=minimumDistinctVoters,proto3" json:"minimum_distinct_voters,omitempty"`
+	HaltCeremonyReady           bool   `protobuf:"varint,9,opt,name=halt_ceremony_ready,json=haltCeremonyReady,proto3" json:"halt_ceremony_ready,omitempty"`
+	ReadinessReason             string `protobuf:"bytes,10,opt,name=readiness_reason,json=readinessReason,proto3" json:"readiness_reason,omitempty"`
+	AutomaticResumeEnabled      bool   `protobuf:"varint,11,opt,name=automatic_resume_enabled,json=automaticResumeEnabled,proto3" json:"automatic_resume_enabled,omitempty"`
+	ArbitraryStateRevertEnabled bool   `protobuf:"varint,12,opt,name=arbitrary_state_revert_enabled,json=arbitraryStateRevertEnabled,proto3" json:"arbitrary_state_revert_enabled,omitempty"`
+	QuarantineDeadlineExceeded  bool   `protobuf:"varint,13,opt,name=quarantine_deadline_exceeded,json=quarantineDeadlineExceeded,proto3" json:"quarantine_deadline_exceeded,omitempty"`
+	QuarantineStartedAtBlock    uint64 `protobuf:"varint,14,opt,name=quarantine_started_at_block,json=quarantineStartedAtBlock,proto3" json:"quarantine_started_at_block,omitempty"`
+	// Block through which the one-block post-resume admission latch remains
+	// active. Non-zero only after resume finalization and until H+1 BeginBlock.
+	QuarantineReleaseBlock uint64 `protobuf:"varint,15,opt,name=quarantine_release_block,json=quarantineReleaseBlock,proto3" json:"quarantine_release_block,omitempty"`
+	// First block whose DeliverTx admission is normal again. CheckTx after the
+	// release-block commit also targets this height and is admitted.
+	AdmissionReopensAtBlock uint64 `protobuf:"varint,16,opt,name=admission_reopens_at_block,json=admissionReopensAtBlock,proto3" json:"admission_reopens_at_block,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *QueryStatusResponse) Reset() {
@@ -116,6 +139,97 @@ func (x *QueryStatusResponse) GetActiveHaltCeremonyId() string {
 		return x.ActiveHaltCeremonyId
 	}
 	return ""
+}
+
+func (x *QueryStatusResponse) GetRestrictionScope() string {
+	if x != nil {
+		return x.RestrictionScope
+	}
+	return ""
+}
+
+func (x *QueryStatusResponse) GetConsensusContinues() bool {
+	if x != nil {
+		return x.ConsensusContinues
+	}
+	return false
+}
+
+func (x *QueryStatusResponse) GetEligibleGuardians() uint64 {
+	if x != nil {
+		return x.EligibleGuardians
+	}
+	return 0
+}
+
+func (x *QueryStatusResponse) GetEffectiveGuardianStake() string {
+	if x != nil {
+		return x.EffectiveGuardianStake
+	}
+	return ""
+}
+
+func (x *QueryStatusResponse) GetMinimumDistinctVoters() uint64 {
+	if x != nil {
+		return x.MinimumDistinctVoters
+	}
+	return 0
+}
+
+func (x *QueryStatusResponse) GetHaltCeremonyReady() bool {
+	if x != nil {
+		return x.HaltCeremonyReady
+	}
+	return false
+}
+
+func (x *QueryStatusResponse) GetReadinessReason() string {
+	if x != nil {
+		return x.ReadinessReason
+	}
+	return ""
+}
+
+func (x *QueryStatusResponse) GetAutomaticResumeEnabled() bool {
+	if x != nil {
+		return x.AutomaticResumeEnabled
+	}
+	return false
+}
+
+func (x *QueryStatusResponse) GetArbitraryStateRevertEnabled() bool {
+	if x != nil {
+		return x.ArbitraryStateRevertEnabled
+	}
+	return false
+}
+
+func (x *QueryStatusResponse) GetQuarantineDeadlineExceeded() bool {
+	if x != nil {
+		return x.QuarantineDeadlineExceeded
+	}
+	return false
+}
+
+func (x *QueryStatusResponse) GetQuarantineStartedAtBlock() uint64 {
+	if x != nil {
+		return x.QuarantineStartedAtBlock
+	}
+	return 0
+}
+
+func (x *QueryStatusResponse) GetQuarantineReleaseBlock() uint64 {
+	if x != nil {
+		return x.QuarantineReleaseBlock
+	}
+	return 0
+}
+
+func (x *QueryStatusResponse) GetAdmissionReopensAtBlock() uint64 {
+	if x != nil {
+		return x.AdmissionReopensAtBlock
+	}
+	return 0
 }
 
 type QueryActiveCeremonyRequest struct {
@@ -494,16 +608,118 @@ func (x *QueryParamsResponse) GetParams() *Params {
 	return nil
 }
 
+type QueryRecoveryAuthorizationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryRecoveryAuthorizationRequest) Reset() {
+	*x = QueryRecoveryAuthorizationRequest{}
+	mi := &file_zerone_emergency_v1_query_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryRecoveryAuthorizationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryRecoveryAuthorizationRequest) ProtoMessage() {}
+
+func (x *QueryRecoveryAuthorizationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_query_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryRecoveryAuthorizationRequest.ProtoReflect.Descriptor instead.
+func (*QueryRecoveryAuthorizationRequest) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_query_proto_rawDescGZIP(), []int{10}
+}
+
+type QueryRecoveryAuthorizationResponse struct {
+	state         protoimpl.MessageState          `protogen:"open.v1"`
+	Found         bool                            `protobuf:"varint,1,opt,name=found,proto3" json:"found,omitempty"`
+	Authorization *EmergencyRecoveryAuthorization `protobuf:"bytes,2,opt,name=authorization,proto3" json:"authorization,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryRecoveryAuthorizationResponse) Reset() {
+	*x = QueryRecoveryAuthorizationResponse{}
+	mi := &file_zerone_emergency_v1_query_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryRecoveryAuthorizationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryRecoveryAuthorizationResponse) ProtoMessage() {}
+
+func (x *QueryRecoveryAuthorizationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_emergency_v1_query_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryRecoveryAuthorizationResponse.ProtoReflect.Descriptor instead.
+func (*QueryRecoveryAuthorizationResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_emergency_v1_query_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *QueryRecoveryAuthorizationResponse) GetFound() bool {
+	if x != nil {
+		return x.Found
+	}
+	return false
+}
+
+func (x *QueryRecoveryAuthorizationResponse) GetAuthorization() *EmergencyRecoveryAuthorization {
+	if x != nil {
+		return x.Authorization
+	}
+	return nil
+}
+
 var File_zerone_emergency_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_emergency_v1_query_proto_rawDesc = "" +
 	"\n" +
 	"\x1fzerone/emergency/v1/query.proto\x12\x13zerone.emergency.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fzerone/emergency/v1/types.proto\x1a!zerone/emergency/v1/genesis.proto\"\x14\n" +
-	"\x12QueryStatusRequest\"\x81\x01\n" +
+	"\x12QueryStatusRequest\"\xd2\x06\n" +
 	"\x13QueryStatusResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x1b\n" +
 	"\tis_halted\x18\x02 \x01(\bR\bisHalted\x125\n" +
-	"\x17active_halt_ceremony_id\x18\x03 \x01(\tR\x14activeHaltCeremonyId\"\x1c\n" +
+	"\x17active_halt_ceremony_id\x18\x03 \x01(\tR\x14activeHaltCeremonyId\x12+\n" +
+	"\x11restriction_scope\x18\x04 \x01(\tR\x10restrictionScope\x12/\n" +
+	"\x13consensus_continues\x18\x05 \x01(\bR\x12consensusContinues\x12-\n" +
+	"\x12eligible_guardians\x18\x06 \x01(\x04R\x11eligibleGuardians\x128\n" +
+	"\x18effective_guardian_stake\x18\a \x01(\tR\x16effectiveGuardianStake\x126\n" +
+	"\x17minimum_distinct_voters\x18\b \x01(\x04R\x15minimumDistinctVoters\x12.\n" +
+	"\x13halt_ceremony_ready\x18\t \x01(\bR\x11haltCeremonyReady\x12)\n" +
+	"\x10readiness_reason\x18\n" +
+	" \x01(\tR\x0freadinessReason\x128\n" +
+	"\x18automatic_resume_enabled\x18\v \x01(\bR\x16automaticResumeEnabled\x12C\n" +
+	"\x1earbitrary_state_revert_enabled\x18\f \x01(\bR\x1barbitraryStateRevertEnabled\x12@\n" +
+	"\x1cquarantine_deadline_exceeded\x18\r \x01(\bR\x1aquarantineDeadlineExceeded\x12=\n" +
+	"\x1bquarantine_started_at_block\x18\x0e \x01(\x04R\x18quarantineStartedAtBlock\x128\n" +
+	"\x18quarantine_release_block\x18\x0f \x01(\x04R\x16quarantineReleaseBlock\x12;\n" +
+	"\x1aadmission_reopens_at_block\x18\x10 \x01(\x04R\x17admissionReopensAtBlock\"\x1c\n" +
 	"\x1aQueryActiveCeremonyRequest\"w\n" +
 	"\x1bQueryActiveCeremonyResponse\x12B\n" +
 	"\bceremony\x18\x01 \x01(\v2&.zerone.emergency.v1.EmergencyCeremonyR\bceremony\x12\x14\n" +
@@ -524,13 +740,18 @@ const file_zerone_emergency_v1_query_proto_rawDesc = "" +
 	"\x05total\x18\x02 \x01(\x04R\x05total\"\x14\n" +
 	"\x12QueryParamsRequest\"J\n" +
 	"\x13QueryParamsResponse\x123\n" +
-	"\x06params\x18\x01 \x01(\v2\x1b.zerone.emergency.v1.ParamsR\x06params2\xf3\x05\n" +
+	"\x06params\x18\x01 \x01(\v2\x1b.zerone.emergency.v1.ParamsR\x06params\"#\n" +
+	"!QueryRecoveryAuthorizationRequest\"\x95\x01\n" +
+	"\"QueryRecoveryAuthorizationResponse\x12\x14\n" +
+	"\x05found\x18\x01 \x01(\bR\x05found\x12Y\n" +
+	"\rauthorization\x18\x02 \x01(\v23.zerone.emergency.v1.EmergencyRecoveryAuthorizationR\rauthorization2\xb3\a\n" +
 	"\x05Query\x12\x80\x01\n" +
 	"\x06Status\x12'.zerone.emergency.v1.QueryStatusRequest\x1a(.zerone.emergency.v1.QueryStatusResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/zerone/emergency/v1/status\x12\xa3\x01\n" +
 	"\x0eActiveCeremony\x12/.zerone.emergency.v1.QueryActiveCeremonyRequest\x1a0.zerone.emergency.v1.QueryActiveCeremonyResponse\".\x82\xd3\xe4\x93\x02(\x12&/zerone/emergency/v1/ceremonies/active\x12\xb5\x01\n" +
 	"\x13CompletedCeremonies\x124.zerone.emergency.v1.QueryCompletedCeremoniesRequest\x1a5.zerone.emergency.v1.QueryCompletedCeremoniesResponse\"1\x82\xd3\xe4\x93\x02+\x12)/zerone/emergency/v1/ceremonies/completed\x12\x85\x01\n" +
 	"\bAuditLog\x12).zerone.emergency.v1.QueryAuditLogRequest\x1a*.zerone.emergency.v1.QueryAuditLogResponse\"\"\x82\xd3\xe4\x93\x02\x1c\x12\x1a/zerone/emergency/v1/audit\x12\x80\x01\n" +
-	"\x06Params\x12'.zerone.emergency.v1.QueryParamsRequest\x1a(.zerone.emergency.v1.QueryParamsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/zerone/emergency/v1/paramsB2Z0github.com/zerone-chain/zerone/x/emergency/typesb\x06proto3"
+	"\x06Params\x12'.zerone.emergency.v1.QueryParamsRequest\x1a(.zerone.emergency.v1.QueryParamsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/zerone/emergency/v1/params\x12\xbd\x01\n" +
+	"\x15RecoveryAuthorization\x126.zerone.emergency.v1.QueryRecoveryAuthorizationRequest\x1a7.zerone.emergency.v1.QueryRecoveryAuthorizationResponse\"3\x82\xd3\xe4\x93\x02-\x12+/zerone/emergency/v1/recovery_authorizationB2Z0github.com/zerone-chain/zerone/x/emergency/typesb\x06proto3"
 
 var (
 	file_zerone_emergency_v1_query_proto_rawDescOnce sync.Once
@@ -544,42 +765,48 @@ func file_zerone_emergency_v1_query_proto_rawDescGZIP() []byte {
 	return file_zerone_emergency_v1_query_proto_rawDescData
 }
 
-var file_zerone_emergency_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_zerone_emergency_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_zerone_emergency_v1_query_proto_goTypes = []any{
-	(*QueryStatusRequest)(nil),               // 0: zerone.emergency.v1.QueryStatusRequest
-	(*QueryStatusResponse)(nil),              // 1: zerone.emergency.v1.QueryStatusResponse
-	(*QueryActiveCeremonyRequest)(nil),       // 2: zerone.emergency.v1.QueryActiveCeremonyRequest
-	(*QueryActiveCeremonyResponse)(nil),      // 3: zerone.emergency.v1.QueryActiveCeremonyResponse
-	(*QueryCompletedCeremoniesRequest)(nil),  // 4: zerone.emergency.v1.QueryCompletedCeremoniesRequest
-	(*QueryCompletedCeremoniesResponse)(nil), // 5: zerone.emergency.v1.QueryCompletedCeremoniesResponse
-	(*QueryAuditLogRequest)(nil),             // 6: zerone.emergency.v1.QueryAuditLogRequest
-	(*QueryAuditLogResponse)(nil),            // 7: zerone.emergency.v1.QueryAuditLogResponse
-	(*QueryParamsRequest)(nil),               // 8: zerone.emergency.v1.QueryParamsRequest
-	(*QueryParamsResponse)(nil),              // 9: zerone.emergency.v1.QueryParamsResponse
-	(*EmergencyCeremony)(nil),                // 10: zerone.emergency.v1.EmergencyCeremony
-	(*EmergencyAuditEntry)(nil),              // 11: zerone.emergency.v1.EmergencyAuditEntry
-	(*Params)(nil),                           // 12: zerone.emergency.v1.Params
+	(*QueryStatusRequest)(nil),                 // 0: zerone.emergency.v1.QueryStatusRequest
+	(*QueryStatusResponse)(nil),                // 1: zerone.emergency.v1.QueryStatusResponse
+	(*QueryActiveCeremonyRequest)(nil),         // 2: zerone.emergency.v1.QueryActiveCeremonyRequest
+	(*QueryActiveCeremonyResponse)(nil),        // 3: zerone.emergency.v1.QueryActiveCeremonyResponse
+	(*QueryCompletedCeremoniesRequest)(nil),    // 4: zerone.emergency.v1.QueryCompletedCeremoniesRequest
+	(*QueryCompletedCeremoniesResponse)(nil),   // 5: zerone.emergency.v1.QueryCompletedCeremoniesResponse
+	(*QueryAuditLogRequest)(nil),               // 6: zerone.emergency.v1.QueryAuditLogRequest
+	(*QueryAuditLogResponse)(nil),              // 7: zerone.emergency.v1.QueryAuditLogResponse
+	(*QueryParamsRequest)(nil),                 // 8: zerone.emergency.v1.QueryParamsRequest
+	(*QueryParamsResponse)(nil),                // 9: zerone.emergency.v1.QueryParamsResponse
+	(*QueryRecoveryAuthorizationRequest)(nil),  // 10: zerone.emergency.v1.QueryRecoveryAuthorizationRequest
+	(*QueryRecoveryAuthorizationResponse)(nil), // 11: zerone.emergency.v1.QueryRecoveryAuthorizationResponse
+	(*EmergencyCeremony)(nil),                  // 12: zerone.emergency.v1.EmergencyCeremony
+	(*EmergencyAuditEntry)(nil),                // 13: zerone.emergency.v1.EmergencyAuditEntry
+	(*Params)(nil),                             // 14: zerone.emergency.v1.Params
+	(*EmergencyRecoveryAuthorization)(nil),     // 15: zerone.emergency.v1.EmergencyRecoveryAuthorization
 }
 var file_zerone_emergency_v1_query_proto_depIdxs = []int32{
-	10, // 0: zerone.emergency.v1.QueryActiveCeremonyResponse.ceremony:type_name -> zerone.emergency.v1.EmergencyCeremony
-	10, // 1: zerone.emergency.v1.QueryCompletedCeremoniesResponse.ceremonies:type_name -> zerone.emergency.v1.EmergencyCeremony
-	11, // 2: zerone.emergency.v1.QueryAuditLogResponse.entries:type_name -> zerone.emergency.v1.EmergencyAuditEntry
-	12, // 3: zerone.emergency.v1.QueryParamsResponse.params:type_name -> zerone.emergency.v1.Params
-	0,  // 4: zerone.emergency.v1.Query.Status:input_type -> zerone.emergency.v1.QueryStatusRequest
-	2,  // 5: zerone.emergency.v1.Query.ActiveCeremony:input_type -> zerone.emergency.v1.QueryActiveCeremonyRequest
-	4,  // 6: zerone.emergency.v1.Query.CompletedCeremonies:input_type -> zerone.emergency.v1.QueryCompletedCeremoniesRequest
-	6,  // 7: zerone.emergency.v1.Query.AuditLog:input_type -> zerone.emergency.v1.QueryAuditLogRequest
-	8,  // 8: zerone.emergency.v1.Query.Params:input_type -> zerone.emergency.v1.QueryParamsRequest
-	1,  // 9: zerone.emergency.v1.Query.Status:output_type -> zerone.emergency.v1.QueryStatusResponse
-	3,  // 10: zerone.emergency.v1.Query.ActiveCeremony:output_type -> zerone.emergency.v1.QueryActiveCeremonyResponse
-	5,  // 11: zerone.emergency.v1.Query.CompletedCeremonies:output_type -> zerone.emergency.v1.QueryCompletedCeremoniesResponse
-	7,  // 12: zerone.emergency.v1.Query.AuditLog:output_type -> zerone.emergency.v1.QueryAuditLogResponse
-	9,  // 13: zerone.emergency.v1.Query.Params:output_type -> zerone.emergency.v1.QueryParamsResponse
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	12, // 0: zerone.emergency.v1.QueryActiveCeremonyResponse.ceremony:type_name -> zerone.emergency.v1.EmergencyCeremony
+	12, // 1: zerone.emergency.v1.QueryCompletedCeremoniesResponse.ceremonies:type_name -> zerone.emergency.v1.EmergencyCeremony
+	13, // 2: zerone.emergency.v1.QueryAuditLogResponse.entries:type_name -> zerone.emergency.v1.EmergencyAuditEntry
+	14, // 3: zerone.emergency.v1.QueryParamsResponse.params:type_name -> zerone.emergency.v1.Params
+	15, // 4: zerone.emergency.v1.QueryRecoveryAuthorizationResponse.authorization:type_name -> zerone.emergency.v1.EmergencyRecoveryAuthorization
+	0,  // 5: zerone.emergency.v1.Query.Status:input_type -> zerone.emergency.v1.QueryStatusRequest
+	2,  // 6: zerone.emergency.v1.Query.ActiveCeremony:input_type -> zerone.emergency.v1.QueryActiveCeremonyRequest
+	4,  // 7: zerone.emergency.v1.Query.CompletedCeremonies:input_type -> zerone.emergency.v1.QueryCompletedCeremoniesRequest
+	6,  // 8: zerone.emergency.v1.Query.AuditLog:input_type -> zerone.emergency.v1.QueryAuditLogRequest
+	8,  // 9: zerone.emergency.v1.Query.Params:input_type -> zerone.emergency.v1.QueryParamsRequest
+	10, // 10: zerone.emergency.v1.Query.RecoveryAuthorization:input_type -> zerone.emergency.v1.QueryRecoveryAuthorizationRequest
+	1,  // 11: zerone.emergency.v1.Query.Status:output_type -> zerone.emergency.v1.QueryStatusResponse
+	3,  // 12: zerone.emergency.v1.Query.ActiveCeremony:output_type -> zerone.emergency.v1.QueryActiveCeremonyResponse
+	5,  // 13: zerone.emergency.v1.Query.CompletedCeremonies:output_type -> zerone.emergency.v1.QueryCompletedCeremoniesResponse
+	7,  // 14: zerone.emergency.v1.Query.AuditLog:output_type -> zerone.emergency.v1.QueryAuditLogResponse
+	9,  // 15: zerone.emergency.v1.Query.Params:output_type -> zerone.emergency.v1.QueryParamsResponse
+	11, // 16: zerone.emergency.v1.Query.RecoveryAuthorization:output_type -> zerone.emergency.v1.QueryRecoveryAuthorizationResponse
+	11, // [11:17] is the sub-list for method output_type
+	5,  // [5:11] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_zerone_emergency_v1_query_proto_init() }
@@ -595,7 +822,7 @@ func file_zerone_emergency_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_emergency_v1_query_proto_rawDesc), len(file_zerone_emergency_v1_query_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

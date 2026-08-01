@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 )
 
 // ─── Wave 10: migration marker side-channel ──────────────────────────────
@@ -23,13 +24,19 @@ var migrationMarkerPrefix = []byte{0x7F, 0x01}
 // Idempotent on (key, same-value); errors on (key, different-value).
 func (k Keeper) WriteMigrationMarker(ctx context.Context, key, value string) error {
 	if key == "" {
-		return nil
+		return fmt.Errorf("migration marker key cannot be empty")
+	}
+	if value == "" {
+		return fmt.Errorf("migration marker %q value cannot be empty", key)
 	}
 	store := k.storeService.OpenKVStore(ctx)
 	full := append(append([]byte{}, migrationMarkerPrefix...), []byte(key)...)
 
 	existing, err := store.Get(full)
-	if err == nil && existing != nil {
+	if err != nil {
+		return fmt.Errorf("read migration marker %q before write: %w", key, err)
+	}
+	if existing != nil {
 		if string(existing) == value {
 			return nil // idempotent
 		}
@@ -37,18 +44,42 @@ func (k Keeper) WriteMigrationMarker(ctx context.Context, key, value string) err
 		k.Logger(ctx).Warn("migration marker collision",
 			"key", key, "existing", string(existing), "incoming", value)
 		// Preserve the first writer; do not overwrite.
-		return nil
+		return fmt.Errorf(
+			"migration marker %q conflicts: existing value %q, incoming value %q",
+			key,
+			string(existing),
+			value,
+		)
 	}
-	return store.Set(full, []byte(value))
+	if err := store.Set(full, []byte(value)); err != nil {
+		return fmt.Errorf("write migration marker %q: %w", key, err)
+	}
+	return nil
 }
 
 // ReadMigrationMarker returns the value for a marker key, or "" if absent.
 func (k Keeper) ReadMigrationMarker(ctx context.Context, key string) string {
+	value, err := k.ReadMigrationMarkerChecked(ctx, key)
+	if err != nil {
+		panic(err)
+	}
+	return value
+}
+
+// ReadMigrationMarkerChecked is the fail-closed form used by upgrade
+// preconditions. It distinguishes an absent marker from an unreadable store.
+func (k Keeper) ReadMigrationMarkerChecked(ctx context.Context, key string) (string, error) {
+	if key == "" {
+		return "", fmt.Errorf("migration marker key cannot be empty")
+	}
 	store := k.storeService.OpenKVStore(ctx)
 	full := append(append([]byte{}, migrationMarkerPrefix...), []byte(key)...)
 	bz, err := store.Get(full)
-	if err != nil || bz == nil {
-		return ""
+	if err != nil {
+		return "", fmt.Errorf("read migration marker %q: %w", key, err)
 	}
-	return string(bz)
+	if bz == nil {
+		return "", nil
+	}
+	return string(bz), nil
 }

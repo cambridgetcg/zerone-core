@@ -1,0 +1,35 @@
+# Non-signing testnet sentry B.
+app = "zerone-testnet-1-sentry-b"
+primary_region = "ams"
+
+[build]
+  image = "REPLACE_WITH_REGISTRY_IMAGE_AT_SHA256"
+
+[env]
+  ZERONE_HOME = "/data/.zeroned"
+  ZERONE_NODE_ROLE = "sentry"
+  ZERONE_MONIKER = "zerone-testnet-1-sentry-b"
+  ZERONE_VALIDATOR_PEER = "REPLACE_WITH_40_LOWERCASE_HEX@replace-validator-private.example:26656"
+  ZERONE_SENTRY_PEERS = "REPLACE_WITH_40_LOWERCASE_HEX@zerone-testnet-1-sentry-a.internal:26656"
+  ZERONE_EXTERNAL_P2P_ADDRESS = "zerone-testnet-1-sentry-b.fly.dev:26656"
+  ZERONE_TOPOLOGY_SHA256 = "REPLACE_WITH_64_LOWERCASE_HEX"
+
+[mounts]
+  source = "zerone_testnet_1_sentry_b_data_v1"
+  destination = "/data"
+
+[[restart]]
+  policy = "never"
+
+[[services]]
+  internal_port = 26656
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [[services.ports]]
+    port = 26656
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"

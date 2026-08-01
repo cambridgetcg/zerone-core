@@ -13,16 +13,16 @@ import (
 
 // Keeper manages the governance module's state.
 type Keeper struct {
-	cdc           codec.Codec
-	storeKey      *storetypes.KVStoreKey
-	authority     string
-	bankKeeper    types.BankKeeper
-	stakingKeeper types.StakingKeeper
-	vestingKeeper types.VestingRewardsKeeper // set post-init to break circular deps
-	upgradeKeeper types.UpgradeKeeper       // set post-init to break circular deps
-	paramRouter    types.ParamRouter    // set post-init to break circular deps
-	emergencyKeeper types.EmergencyKeeper // set post-init (circular dep break)
-	alignmentKeeper    types.AlignmentKeeper    // set post-init (R31-3, Wood→Earth)
+	cdc                   codec.Codec
+	storeKey              *storetypes.KVStoreKey
+	authority             string
+	bankKeeper            types.BankKeeper
+	stakingKeeper         types.StakingKeeper
+	vestingKeeper         types.VestingRewardsKeeper  // set post-init to break circular deps
+	upgradeKeeper         types.UpgradeKeeper         // set post-init to break circular deps
+	paramRouter           types.ParamRouter           // set post-init to break circular deps
+	emergencyKeeper       types.EmergencyKeeper       // set post-init (circular dep break)
+	alignmentKeeper       types.AlignmentKeeper       // set post-init (R31-3, Wood→Earth)
 	creedKeeper           types.CreedKeeper           // set post-init (commitment 19 — gov ↔ creed)
 	substrateBridgeKeeper types.SubstrateBridgeKeeper // set post-init (commitment 20 — adapter registration LIPs)
 }

@@ -1794,10 +1794,30 @@
     "zerone.emergency.v1.EmergencyCeremony": {
       "description": "EmergencyCeremony tracks a 2-phase BFT ceremony (prevote → precommit).",
       "properties": {
+        "electorate": {
+          "items": {
+            "$ref": "#/definitions/zerone.emergency.v1.EmergencyElectorateMember",
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "electorateSnapshotVersion": {
+          "description": "Version 1 snapshots the exact electorate and quorum policy at creation.\nA non-terminal legacy ceremony without a complete snapshot fails closed.",
+          "format": "int64",
+          "type": "integer"
+        },
+        "electorateTotalPower": {
+          "title": "positive bigint string",
+          "type": "string"
+        },
         "failureReason": {
           "type": "string"
         },
         "id": {
+          "type": "string"
+        },
+        "minDistinctVoters": {
+          "format": "uint64",
           "type": "string"
         },
         "noPrevoteStake": {
@@ -1838,6 +1858,11 @@
           "format": "byte",
           "type": "string"
         },
+        "quorumThreshold": {
+          "format": "uint64",
+          "title": "1,000,000 = 100%",
+          "type": "string"
+        },
         "startBlock": {
           "format": "uint64",
           "type": "string"
@@ -1857,10 +1882,70 @@
       },
       "type": "object"
     },
+    "zerone.emergency.v1.EmergencyElectorateMember": {
+      "description": "EmergencyElectorateMember is one address and its immutable voting power for\na ceremony. The complete, sorted electorate is snapshotted when the\nceremony opens so staking, council-expiry, and parameter changes cannot\nalter an in-flight decision.",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "power": {
+          "title": "positive bigint string",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "zerone.emergency.v1.EmergencyPrecommit": {
       "description": "EmergencyPrecommit represents a precommit (commit to yes prevote).",
       "properties": {
         "voter": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.emergency.v1.EmergencyRecoveryAuthorization": {
+      "description": "EmergencyRecoveryAuthorization is the finalized, incident-bound capability\nfor one exact SDK-governance proposal. It does not resume transactions.",
+      "properties": {
+        "actionSha256": {
+          "type": "string"
+        },
+        "actionType": {
+          "type": "string"
+        },
+        "authorizationCeremonyId": {
+          "type": "string"
+        },
+        "authorizedAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "authorizedSubmitter": {
+          "type": "string"
+        },
+        "generation": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "haltCeremonyId": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "recoveryManifestSha256": {
+          "type": "string"
+        },
+        "sdkGovProposalId": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "terminalAtBlock": {
+          "description": "Set after SDK governance reaches a terminal result. An authorization with\na non-empty outcome cannot admit further votes, deposits, or execution.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "upgradePlanSha256": {
           "type": "string"
         }
       },
@@ -1924,12 +2009,12 @@
           "type": "string"
         },
         "maxHaltDurationBlocks": {
-          "description": "Auto-resume: max halt duration before automatic resume.",
+          "description": "Escalation deadline. Crossing it alerts operators but never resumes\ntransaction admission automatically.",
           "format": "uint64",
           "type": "string"
         },
         "maxProposalsPerEpoch": {
-          "description": "Anti-abuse limits.",
+          "description": "One shared anti-abuse budget for halt, resume, recovery-authorization,\nand recovery-revocation ceremonies. A Guardian cannot bypass a limit by\nswitching ceremony lanes.",
           "format": "uint64",
           "type": "string"
         },
@@ -2060,13 +2145,72 @@
       },
       "type": "object"
     },
+    "zerone.emergency.v1.QueryRecoveryAuthorizationResponse": {
+      "properties": {
+        "authorization": {
+          "$ref": "#/definitions/zerone.emergency.v1.EmergencyRecoveryAuthorization"
+        },
+        "found": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "zerone.emergency.v1.QueryStatusResponse": {
       "properties": {
         "activeHaltCeremonyId": {
           "type": "string"
         },
-        "isHalted": {
+        "admissionReopensAtBlock": {
+          "description": "First block whose DeliverTx admission is normal again. CheckTx after the\nrelease-block commit also targets this height and is admitted.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "arbitraryStateRevertEnabled": {
           "type": "boolean"
+        },
+        "automaticResumeEnabled": {
+          "type": "boolean"
+        },
+        "consensusContinues": {
+          "description": "True means this module's transaction restriction permits consensus to\ncontinue. It is not a live observation that the validator set is healthy\nor that blocks are currently committing.",
+          "type": "boolean"
+        },
+        "effectiveGuardianStake": {
+          "type": "string"
+        },
+        "eligibleGuardians": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "haltCeremonyReady": {
+          "type": "boolean"
+        },
+        "isHalted": {
+          "description": "Deprecated operational name retained for API compatibility. This means\napplication transaction admission is restricted; it does not mean that\nCometBFT consensus or block production stopped.",
+          "type": "boolean"
+        },
+        "minimumDistinctVoters": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "quarantineDeadlineExceeded": {
+          "type": "boolean"
+        },
+        "quarantineReleaseBlock": {
+          "description": "Block through which the one-block post-resume admission latch remains\nactive. Non-zero only after resume finalization and until H+1 BeginBlock.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "quarantineStartedAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "readinessReason": {
+          "type": "string"
+        },
+        "restrictionScope": {
+          "type": "string"
         },
         "status": {
           "type": "string"
@@ -2088,6 +2232,33 @@
         "reviewBlocks": {
           "format": "uint64",
           "title": "blocks required in review stage before last_call",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.gov.v1.EmergencyTransitionHold": {
+      "description": "EmergencyTransitionHold is the durable post-incident review gate for every\nautomatic custom-governance transition. It is created when transaction\nquarantine is observed and is not cleared by an ordinary resume ceremony.",
+      "properties": {
+        "activatedAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "incidentCount": {
+          "description": "Number of chronological incident observations committed by this hold.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "incidentId": {
+          "type": "string"
+        },
+        "incidentLineageSha256": {
+          "description": "Domain-separated rolling SHA-256 commitment to the complete chronological\nincident lineage. This keeps consensus state bounded even if a review hold\nspans many independently finalized quarantine incidents.",
+          "format": "byte",
+          "type": "string"
+        },
+        "latestIncidentId": {
+          "description": "Most recently observed quarantine incident. incident_id remains the first\nincident for compact API compatibility.",
           "type": "string"
         }
       },
@@ -2265,6 +2436,20 @@
         },
         "researchFundBalance": {
           "title": "uzrn bigint string",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.gov.v1.QueryEmergencyTransitionHoldResponse": {
+      "properties": {
+        "held": {
+          "type": "boolean"
+        },
+        "hold": {
+          "$ref": "#/definitions/zerone.gov.v1.EmergencyTransitionHold"
+        },
+        "releaseMechanism": {
           "type": "string"
         }
       },
@@ -13038,6 +13223,28 @@
         ]
       }
     },
+    "/zerone/emergency/v1/recovery_authorization": {
+      "get": {
+        "operationId": "RecoveryAuthorization",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.emergency.v1.QueryRecoveryAuthorizationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/zerone/emergency/v1/status": {
       "get": {
         "operationId": "Status",
@@ -13046,6 +13253,28 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/zerone.emergency.v1.QueryStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/gov/v1/emergency_transition_hold": {
+      "get": {
+        "operationId": "EmergencyTransitionHold",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.gov.v1.QueryEmergencyTransitionHoldResponse"
             }
           },
           "default": {

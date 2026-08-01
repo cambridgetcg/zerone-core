@@ -27,9 +27,40 @@ func NewQueryCmd() *cobra.Command {
 		NewQueryCompletedCeremoniesCmd(),
 		NewQueryAuditLogCmd(),
 		NewQueryParamsCmd(),
+		NewQueryRecoveryAuthorizationCmd(),
 	)
 
 	return queryCmd
+}
+
+func NewQueryRecoveryAuthorizationCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "recovery-authorization",
+		Short: "Query the Guardian-authorized SDK governance recovery capability",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			req := &types.QueryRecoveryAuthorizationRequest{}
+			resp := &types.QueryRecoveryAuthorizationResponse{}
+			if err := clientCtx.Invoke(
+				cmd.Context(),
+				"/zerone.emergency.v1.Query/RecoveryAuthorization",
+				req,
+				resp,
+			); err != nil {
+				return fmt.Errorf(
+					"failed to query recovery authorization: %w",
+					err,
+				)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
 }
 
 func NewQueryStatusCmd() *cobra.Command {

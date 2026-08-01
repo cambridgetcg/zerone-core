@@ -2,6 +2,8 @@ package keeper_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/zerone-chain/zerone/x/gov/keeper"
@@ -13,115 +15,145 @@ import (
 type bridgeMockUpgradeKeeper struct {
 	called bool
 	plan   *types.UpgradePlan
+	err    error
 }
 
 func (m *bridgeMockUpgradeKeeper) ScheduleUpgrade(_ context.Context, plan *types.UpgradePlan) error {
 	m.called = true
 	m.plan = plan
-	return nil
+	return m.err
 }
 
 // ---------- Upgrade Bridge Integration Tests ----------
 
 func TestUpgradeBridge_FullLifecycle(t *testing.T) {
-	// Setup: keeper with mock staking + mock upgrade keeper
-	k, ctx, mock := setupWithStaking(t, "1000000")
-	ms := keeper.NewMsgServerImpl(k)
+	k, ctx, _ := setupWithStaking(t, "1000000")
 
 	mockUK := &bridgeMockUpgradeKeeper{}
 	k.SetUpgradeKeeper(mockUK)
 
-	// 1. Submit upgrade-category LIP
-	resp, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer:     testAddr("alice"),
-		Title:        "v2.0.0 Upgrade",
-		Description:  "Major protocol upgrade",
-		Category:     types.CategoryUpgrade,
-		InitialStake: "1000000",
-	})
-	if err != nil {
-		t.Fatalf("submit failed: %v", err)
-	}
-	lipID := resp.LipId
-
-	// 2. Attach upgrade plan (name: "v2.0.0", height: 1000)
-	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer:    testAddr("alice"),
-		LipId:       lipID,
-		UpgradeName: "v2.0.0",
-		Height:      1000,
-		Info:        "https://github.com/zerone-chain/zerone/releases/v2.0.0",
-	})
-	if err != nil {
-		t.Fatalf("attach upgrade plan failed: %v", err)
-	}
-
-	// 3. Stake to meet quorum — put LIP directly into voting
-	lip, _ := k.GetLIP(ctx, lipID)
-	lip.Stage = types.StatusVoting
-	lip.VotingEndBlock = 100 // expires at current block height
+	lip := seedLegacyUpgradeLIP(k, ctx, "LEGACY-BRIDGE", types.StatusVoting)
+	lip.VotingEndBlock = uint64(ctx.BlockHeight())
+	lip.YesStake = "1000000"
+	lip.UniqueVoters = 1
 	k.SetLIP(ctx, lip)
-
-	// 4. Vote yes to pass support threshold
-	mock.delegations[testAddr("voter1")] = "500000" // 50% of total
-	_, err = ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: testAddr("voter1"), LipId: lipID, Option: types.VoteYes,
+	k.SetUpgradePlan(ctx, lip.Id, &types.UpgradePlan{
+		Name:   "v2.0.0",
+		Height: 40000,
+		Info:   "https://github.com/zerone-chain/zerone/releases/v2.0.0",
 	})
-	if err != nil {
-		t.Fatalf("cast vote failed: %v", err)
-	}
-
-	// 5. Advance block height past voting deadline — current height IS the deadline
-	// 6. Run BeginBlocker
 	k.BeginBlocker(ctx)
 
-	// 7. Assert LIP status is "passed"
-	lip, _ = k.GetLIP(ctx, lipID)
-	if lip.Stage != types.StatusPassed {
-		t.Errorf("expected passed, got %s", lip.Stage)
+	lip, _ = k.GetLIP(ctx, lip.Id)
+	if lip.Stage != types.StatusFailed {
+		t.Errorf("expected failed, got %s", lip.Stage)
 	}
 
-	// 8. Assert mock upgrade keeper received ScheduleUpgrade call
-	//    with name="v2.0.0", height=1000
-	if !mockUK.called {
-		t.Fatal("ScheduleUpgrade was not called on the mock upgrade keeper")
-	}
-	if mockUK.plan.Name != "v2.0.0" {
-		t.Errorf("scheduled plan name: got %q, want %q", mockUK.plan.Name, "v2.0.0")
-	}
-	if mockUK.plan.Height != 1000 {
-		t.Errorf("scheduled plan height: got %d, want 1000", mockUK.plan.Height)
-	}
-	if mockUK.plan.Info != "https://github.com/zerone-chain/zerone/releases/v2.0.0" {
-		t.Errorf("scheduled plan info mismatch")
+	if mockUK.called {
+		t.Fatal("retired custom authority must not call ScheduleUpgrade")
 	}
 
-	// 9. Assert "zerone.gov.upgrade_scheduled" event emitted
+	// Assert the compatibility scheduling boundary failed closed, never
+	// upgrade_scheduled. Aggregate authority-retirement events are emitted by
+	// the named activation migration, not this legacy BeginBlock path.
 	events := ctx.EventManager().Events()
-	found := false
+	foundFailure := false
 	for _, e := range events {
+		if e.Type == "zerone.gov.upgrade_schedule_failed" {
+			foundFailure = true
+		}
 		if e.Type == "zerone.gov.upgrade_scheduled" {
-			found = true
-			for _, attr := range e.Attributes {
-				switch attr.Key {
-				case "lip_id":
-					if attr.Value != lipID {
-						t.Errorf("event lip_id: got %q, want %q", attr.Value, lipID)
-					}
-				case "upgrade_name":
-					if attr.Value != "v2.0.0" {
-						t.Errorf("event upgrade_name: got %q, want %q", attr.Value, "v2.0.0")
-					}
-				case "height":
-					if attr.Value != "1000" {
-						t.Errorf("event height: got %q, want %q", attr.Value, "1000")
-					}
-				}
-			}
+			t.Fatal("retired custom authority emitted upgrade_scheduled")
 		}
 	}
-	if !found {
-		t.Error("expected zerone.gov.upgrade_scheduled event to be emitted")
+	if !foundFailure {
+		t.Error("expected zerone.gov.upgrade_schedule_failed event")
+	}
+}
+
+func TestRetireCustomUpgradeLIPsEmitsOneBoundedAggregateEvent(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	const recordCount = 1_200
+	lips := make([]*types.LIP, 0, recordCount)
+	for i := 0; i < recordCount; i++ {
+		lip := &types.LIP{
+			Id:           fmt.Sprintf("LEGACY-ACTIVATION-%04d", i),
+			Category:     types.CategoryUpgrade,
+			Stage:        types.StatusReview,
+			StakedAmount: "0",
+		}
+		k.SetLIP(ctx, lip)
+		lips = append(lips, lip)
+	}
+
+	retired, err := k.RetireCustomUpgradeLIPs(ctx, lips)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retired != recordCount {
+		t.Fatalf("retired=%d want %d", retired, recordCount)
+	}
+
+	var retirementEvents int
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type != "zerone.gov.custom_upgrade_authority_retired" {
+			continue
+		}
+		retirementEvents++
+		attributes := make(map[string]string, len(event.Attributes))
+		for _, attribute := range event.Attributes {
+			attributes[attribute.Key] = attribute.Value
+		}
+		if attributes["retired_count"] != "1200" {
+			t.Fatalf("unexpected retired_count: %q", attributes["retired_count"])
+		}
+	}
+	if retirementEvents != 1 {
+		t.Fatalf("retirement event count=%d want 1", retirementEvents)
+	}
+
+	for _, lip := range lips {
+		stored, found := k.GetLIP(ctx, lip.Id)
+		if !found || stored.Stage != types.StatusFailed {
+			t.Fatalf("LIP %q was not terminalized: %+v", lip.Id, stored)
+		}
+	}
+}
+
+func TestRetireCustomUpgradeLIPsRefusesUnattributedStakeBeforeMutation(
+	t *testing.T,
+) {
+	k, ctx := setupKeeper(t)
+	first := &types.LIP{
+		Id:           "LEGACY-ZERO",
+		Category:     types.CategoryUpgrade,
+		Stage:        types.StatusReview,
+		StakedAmount: "0",
+	}
+	second := &types.LIP{
+		Id:           "LEGACY-LOCKED",
+		Category:     types.CategoryUpgrade,
+		Stage:        types.StatusVoting,
+		StakedAmount: "77",
+	}
+	k.SetLIP(ctx, first)
+	k.SetLIP(ctx, second)
+
+	_, err := k.RetireCustomUpgradeLIPs(
+		ctx,
+		[]*types.LIP{first, second},
+	)
+	if err == nil {
+		t.Fatal("expected unattributed stake to block authority retirement")
+	}
+	if !strings.Contains(err.Error(), "reconcile it before authority retirement") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, id := range []string{first.Id, second.Id} {
+		stored, found := k.GetLIP(ctx, id)
+		if !found || types.IsTerminal(stored.Stage) {
+			t.Fatalf("guard failure partially mutated %q: %+v", id, stored)
+		}
 	}
 }
 
@@ -144,6 +176,7 @@ func TestUpgradeBridge_NonUpgradeLIP_NoSchedule(t *testing.T) {
 		LipId:       "LIP-1",
 		UpgradeName: "v2.0.0",
 		Height:      500,
+		Info:        "release manifest",
 	})
 	if err == nil {
 		t.Error("expected error when attaching upgrade plan to non-upgrade LIP")
@@ -151,54 +184,18 @@ func TestUpgradeBridge_NonUpgradeLIP_NoSchedule(t *testing.T) {
 }
 
 func TestUpgradeBridge_FailedLIP_NoSchedule(t *testing.T) {
-	// Setup: keeper with mock staking + mock upgrade keeper
-	k, ctx, mock := setupWithStaking(t, "1000000")
-	ms := keeper.NewMsgServerImpl(k)
+	k, ctx, _ := setupWithStaking(t, "1000000")
 
 	mockUK := &bridgeMockUpgradeKeeper{}
 	k.SetUpgradeKeeper(mockUK)
 
-	// Submit upgrade LIP with plan
-	resp, err := ms.SubmitLIP(ctx, &types.MsgSubmitLIP{
-		Proposer:     testAddr("alice"),
-		Title:        "Doomed Upgrade",
-		Description:  "Will be rejected",
-		Category:     types.CategoryUpgrade,
-		InitialStake: "1000000",
+	lip := seedLegacyUpgradeLIP(k, ctx, "LEGACY-FAILED", types.StatusFailed)
+	k.SetUpgradePlan(ctx, lip.Id, &types.UpgradePlan{
+		Name: "v2.0.0", Height: 1000, Info: "release manifest",
 	})
-	if err != nil {
-		t.Fatalf("submit failed: %v", err)
-	}
-	lipID := resp.LipId
-
-	// Attach upgrade plan
-	_, err = ms.AttachUpgradePlan(ctx, &types.MsgAttachUpgradePlan{
-		Proposer:    testAddr("alice"),
-		LipId:       lipID,
-		UpgradeName: "v2.0.0",
-		Height:      1000,
-	})
-	if err != nil {
-		t.Fatalf("attach upgrade plan failed: %v", err)
-	}
-
-	// Put in voting
-	lip, _ := k.GetLIP(ctx, lipID)
-	lip.Stage = types.StatusVoting
-	lip.VotingEndBlock = 100
-	k.SetLIP(ctx, lip)
-
-	// Vote to reject it (vote NO with majority)
-	mock.delegations[testAddr("voter1")] = "500000" // 50% of total
-	ms.CastVote(ctx, &types.MsgCastVote{
-		Voter: testAddr("voter1"), LipId: lipID, Option: types.VoteNo,
-	})
-
-	// Run BeginBlocker
 	k.BeginBlocker(ctx)
 
-	// Assert LIP failed
-	lip, _ = k.GetLIP(ctx, lipID)
+	lip, _ = k.GetLIP(ctx, lip.Id)
 	if lip.Stage != types.StatusFailed {
 		t.Errorf("expected failed, got %s", lip.Stage)
 	}

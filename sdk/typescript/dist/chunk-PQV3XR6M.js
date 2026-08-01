@@ -3734,6 +3734,8 @@ __export(tx_exports8, {
   EmergencyCategory: () => EmergencyCategory,
   MsgProposeHalt: () => MsgProposeHalt,
   MsgProposeHaltResponse: () => MsgProposeHaltResponse,
+  MsgProposeRecoveryAuthorization: () => MsgProposeRecoveryAuthorization,
+  MsgProposeRecoveryAuthorizationResponse: () => MsgProposeRecoveryAuthorizationResponse,
   MsgProposeResume: () => MsgProposeResume,
   MsgProposeResumeResponse: () => MsgProposeResumeResponse,
   MsgProposeRevert: () => MsgProposeRevert,
@@ -3742,6 +3744,8 @@ __export(tx_exports8, {
   MsgUpdateParamsResponse: () => MsgUpdateParamsResponse7,
   MsgVoteHalt: () => MsgVoteHalt,
   MsgVoteHaltResponse: () => MsgVoteHaltResponse,
+  MsgVoteRecoveryAuthorization: () => MsgVoteRecoveryAuthorization,
+  MsgVoteRecoveryAuthorizationResponse: () => MsgVoteRecoveryAuthorizationResponse,
   MsgVoteResume: () => MsgVoteResume,
   MsgVoteResumeResponse: () => MsgVoteResumeResponse,
   MsgVoteRevert: () => MsgVoteRevert,
@@ -4385,7 +4389,8 @@ var MsgVoteRevertResponse = {
 function createBaseMsgProposeResume() {
   return {
     proposer: "",
-    justification: ""
+    justification: "",
+    recoveryManifestSha256: ""
   };
 }
 var MsgProposeResume = {
@@ -4396,6 +4401,9 @@ var MsgProposeResume = {
     }
     if (message.justification !== "") {
       writer.uint32(18).string(message.justification);
+    }
+    if (message.recoveryManifestSha256 !== "") {
+      writer.uint32(26).string(message.recoveryManifestSha256);
     }
     return writer;
   },
@@ -4412,6 +4420,9 @@ var MsgProposeResume = {
         case 2:
           message.justification = reader.string();
           break;
+        case 3:
+          message.recoveryManifestSha256 = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -4423,6 +4434,7 @@ var MsgProposeResume = {
     const message = createBaseMsgProposeResume();
     message.proposer = object.proposer ?? "";
     message.justification = object.justification ?? "";
+    message.recoveryManifestSha256 = object.recoveryManifestSha256 ?? "";
     return message;
   }
 };
@@ -4558,6 +4570,230 @@ var MsgVoteResumeResponse = {
     return message;
   }
 };
+function createBaseMsgProposeRecoveryAuthorization() {
+  return {
+    proposer: "",
+    sdkGovProposalId: BigInt(0),
+    actionSha256: "",
+    recoveryManifestSha256: "",
+    justification: "",
+    upgradePlanSha256: "",
+    authorizedSubmitter: "",
+    actionType: ""
+  };
+}
+var MsgProposeRecoveryAuthorization = {
+  typeUrl: "/zerone.emergency.v1.MsgProposeRecoveryAuthorization",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.proposer !== "") {
+      writer.uint32(10).string(message.proposer);
+    }
+    if (message.sdkGovProposalId !== BigInt(0)) {
+      writer.uint32(16).uint64(message.sdkGovProposalId);
+    }
+    if (message.actionSha256 !== "") {
+      writer.uint32(26).string(message.actionSha256);
+    }
+    if (message.recoveryManifestSha256 !== "") {
+      writer.uint32(34).string(message.recoveryManifestSha256);
+    }
+    if (message.justification !== "") {
+      writer.uint32(42).string(message.justification);
+    }
+    if (message.upgradePlanSha256 !== "") {
+      writer.uint32(50).string(message.upgradePlanSha256);
+    }
+    if (message.authorizedSubmitter !== "") {
+      writer.uint32(58).string(message.authorizedSubmitter);
+    }
+    if (message.actionType !== "") {
+      writer.uint32(66).string(message.actionType);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgProposeRecoveryAuthorization();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.proposer = reader.string();
+          break;
+        case 2:
+          message.sdkGovProposalId = reader.uint64();
+          break;
+        case 3:
+          message.actionSha256 = reader.string();
+          break;
+        case 4:
+          message.recoveryManifestSha256 = reader.string();
+          break;
+        case 5:
+          message.justification = reader.string();
+          break;
+        case 6:
+          message.upgradePlanSha256 = reader.string();
+          break;
+        case 7:
+          message.authorizedSubmitter = reader.string();
+          break;
+        case 8:
+          message.actionType = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgProposeRecoveryAuthorization();
+    message.proposer = object.proposer ?? "";
+    message.sdkGovProposalId = object.sdkGovProposalId !== void 0 && object.sdkGovProposalId !== null ? BigInt(object.sdkGovProposalId.toString()) : BigInt(0);
+    message.actionSha256 = object.actionSha256 ?? "";
+    message.recoveryManifestSha256 = object.recoveryManifestSha256 ?? "";
+    message.justification = object.justification ?? "";
+    message.upgradePlanSha256 = object.upgradePlanSha256 ?? "";
+    message.authorizedSubmitter = object.authorizedSubmitter ?? "";
+    message.actionType = object.actionType ?? "";
+    return message;
+  }
+};
+function createBaseMsgProposeRecoveryAuthorizationResponse() {
+  return {
+    proposalId: ""
+  };
+}
+var MsgProposeRecoveryAuthorizationResponse = {
+  typeUrl: "/zerone.emergency.v1.MsgProposeRecoveryAuthorizationResponse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.proposalId !== "") {
+      writer.uint32(10).string(message.proposalId);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgProposeRecoveryAuthorizationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.proposalId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgProposeRecoveryAuthorizationResponse();
+    message.proposalId = object.proposalId ?? "";
+    return message;
+  }
+};
+function createBaseMsgVoteRecoveryAuthorization() {
+  return {
+    voter: "",
+    proposalId: "",
+    approve: false
+  };
+}
+var MsgVoteRecoveryAuthorization = {
+  typeUrl: "/zerone.emergency.v1.MsgVoteRecoveryAuthorization",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.voter !== "") {
+      writer.uint32(10).string(message.voter);
+    }
+    if (message.proposalId !== "") {
+      writer.uint32(18).string(message.proposalId);
+    }
+    if (message.approve === true) {
+      writer.uint32(24).bool(message.approve);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgVoteRecoveryAuthorization();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.voter = reader.string();
+          break;
+        case 2:
+          message.proposalId = reader.string();
+          break;
+        case 3:
+          message.approve = reader.bool();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgVoteRecoveryAuthorization();
+    message.voter = object.voter ?? "";
+    message.proposalId = object.proposalId ?? "";
+    message.approve = object.approve ?? false;
+    return message;
+  }
+};
+function createBaseMsgVoteRecoveryAuthorizationResponse() {
+  return {
+    quorumReached: false,
+    recoveryAuthorized: false
+  };
+}
+var MsgVoteRecoveryAuthorizationResponse = {
+  typeUrl: "/zerone.emergency.v1.MsgVoteRecoveryAuthorizationResponse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.quorumReached === true) {
+      writer.uint32(8).bool(message.quorumReached);
+    }
+    if (message.recoveryAuthorized === true) {
+      writer.uint32(16).bool(message.recoveryAuthorized);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgVoteRecoveryAuthorizationResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.quorumReached = reader.bool();
+          break;
+        case 2:
+          message.recoveryAuthorized = reader.bool();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgVoteRecoveryAuthorizationResponse();
+    message.quorumReached = object.quorumReached ?? false;
+    message.recoveryAuthorized = object.recoveryAuthorized ?? false;
+    return message;
+  }
+};
 function createBaseMsgUpdateParams7() {
   return {
     authority: "",
@@ -4631,7 +4867,7 @@ var MsgUpdateParamsResponse7 = {
 };
 
 // src/generated/zerone/emergency/v1/tx.registry.ts
-var registry8 = [["/zerone.emergency.v1.MsgProposeHalt", MsgProposeHalt], ["/zerone.emergency.v1.MsgVoteHalt", MsgVoteHalt], ["/zerone.emergency.v1.MsgProposeRevert", MsgProposeRevert], ["/zerone.emergency.v1.MsgVoteRevert", MsgVoteRevert], ["/zerone.emergency.v1.MsgProposeResume", MsgProposeResume], ["/zerone.emergency.v1.MsgVoteResume", MsgVoteResume], ["/zerone.emergency.v1.MsgUpdateParams", MsgUpdateParams8]];
+var registry8 = [["/zerone.emergency.v1.MsgProposeHalt", MsgProposeHalt], ["/zerone.emergency.v1.MsgVoteHalt", MsgVoteHalt], ["/zerone.emergency.v1.MsgProposeRevert", MsgProposeRevert], ["/zerone.emergency.v1.MsgVoteRevert", MsgVoteRevert], ["/zerone.emergency.v1.MsgProposeResume", MsgProposeResume], ["/zerone.emergency.v1.MsgVoteResume", MsgVoteResume], ["/zerone.emergency.v1.MsgProposeRecoveryAuthorization", MsgProposeRecoveryAuthorization], ["/zerone.emergency.v1.MsgVoteRecoveryAuthorization", MsgVoteRecoveryAuthorization], ["/zerone.emergency.v1.MsgUpdateParams", MsgUpdateParams8]];
 var MessageComposer8 = {
   encoded: {
     proposeHalt(value) {
@@ -4668,6 +4904,18 @@ var MessageComposer8 = {
       return {
         typeUrl: "/zerone.emergency.v1.MsgVoteResume",
         value: MsgVoteResume.encode(value).finish()
+      };
+    },
+    proposeRecoveryAuthorization(value) {
+      return {
+        typeUrl: "/zerone.emergency.v1.MsgProposeRecoveryAuthorization",
+        value: MsgProposeRecoveryAuthorization.encode(value).finish()
+      };
+    },
+    voteRecoveryAuthorization(value) {
+      return {
+        typeUrl: "/zerone.emergency.v1.MsgVoteRecoveryAuthorization",
+        value: MsgVoteRecoveryAuthorization.encode(value).finish()
       };
     },
     updateParams(value) {
@@ -4714,6 +4962,18 @@ var MessageComposer8 = {
         value
       };
     },
+    proposeRecoveryAuthorization(value) {
+      return {
+        typeUrl: "/zerone.emergency.v1.MsgProposeRecoveryAuthorization",
+        value
+      };
+    },
+    voteRecoveryAuthorization(value) {
+      return {
+        typeUrl: "/zerone.emergency.v1.MsgVoteRecoveryAuthorization",
+        value
+      };
+    },
     updateParams(value) {
       return {
         typeUrl: "/zerone.emergency.v1.MsgUpdateParams",
@@ -4756,6 +5016,18 @@ var MessageComposer8 = {
       return {
         typeUrl: "/zerone.emergency.v1.MsgVoteResume",
         value: MsgVoteResume.fromPartial(value)
+      };
+    },
+    proposeRecoveryAuthorization(value) {
+      return {
+        typeUrl: "/zerone.emergency.v1.MsgProposeRecoveryAuthorization",
+        value: MsgProposeRecoveryAuthorization.fromPartial(value)
+      };
+    },
+    voteRecoveryAuthorization(value) {
+      return {
+        typeUrl: "/zerone.emergency.v1.MsgVoteRecoveryAuthorization",
+        value: MsgVoteRecoveryAuthorization.fromPartial(value)
       };
     },
     updateParams(value) {
