@@ -39,20 +39,17 @@ low-tier selection uses virtual stake; higher tiers use real custom stake.
 Integrations should query the concrete result they need rather than price a
 tier multiplier as realised yield.
 
-## Block rewards
+## Automatic block rewards
 
-`vesting_rewards` reads the active bonded-validator count from Cosmos
-`x/staking`. On an eligible non-empty block it:
+Atomic H1 retires the transaction-presence block mint in vesting_rewards v2.
+`block_reward`, `floor_reward`, and `empty_block_reward_rate` are fixed at
+zero, and BeginBlock does not call `DistributeBlockReward`. A proposer cannot
+create issuance by including an arbitrary transaction.
 
-1. applies decay, bonded-validator scaling, and knowledge-survival coupling;
-2. mints only within the 222,222,222 ZRN cap; and
-3. routes 55% of the minted amount to the block proposer, 22% to protocol
-   pools/reserves, 19.67% to development, and 3.33% to research.
-
-It does not apply the custom Guardian 2× field. Empty blocks mint 0 under
-defaults. Because issuance depends on activity, validator count, decay,
-knowledge outcomes, and the cap, this document does not promise an hourly or
-annual yield.
+The custom Guardian 2× field was never a current CometBFT payout multiplier
+and remains no yield promise. Validator compensation after H1 comes from
+actual fee distribution and any future independently reviewed reward pathway,
+not a per-height or per-transaction-presence mint.
 
 ## Knowledge verification rewards
 
@@ -65,8 +62,9 @@ withhold part of a verifier's share and route it to development. A flat
 ## Fees
 
 For accumulated `uzrn` transaction fees, `RouteFees` sends 19.67% to
-development and 3.33% through research/founder routing. Approximately 77%
-remains in `fee_collector` for normal Cosmos distribution. See
+development and 3.33% in full to research. Approximately 77% remains in
+`fee_collector` for normal Cosmos distribution. The founder auto-split is
+retired. See
 [REVENUE-SPLIT.md](REVENUE-SPLIT.md).
 
 ## Custom staking defaults

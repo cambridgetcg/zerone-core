@@ -31,11 +31,16 @@ the hard cap:
 
 | Pathway | Module | Trigger |
 |---|---|---|
-| Transaction-bearing block rewards | `x/vesting_rewards` | any non-injection user transaction; validator count and survival rate scale the amount |
 | Claiming-pot claims | `x/claiming_pot` | an eligible participant claims a bootstrap or legacy authority-created general pot |
 | External-work attestations | `x/substrate_bridge` | witnessed work survives its challenge window |
 | Probe-bounty pool (default/published rate 0) | `x/knowledge` | governance sets a positive rate |
 | Emission periods (default/published latch 0) | `x/tokens` | governance enables and schedules a period |
+
+The launch configuration also contained a transaction-bearing block-reward
+lane in `x/vesting_rewards`. Atomic H1 retires it: vesting_rewards v2 fixes the
+block, floor, and empty-block reward fields at zero and raw transaction
+presence causes no mint. This retirement is prospective; it does not erase
+historical supply or events.
 
 The distinction matters:
 
@@ -55,16 +60,17 @@ ceremony inputs created the two balances above.
 
 | Role | Genesis ZRN |
 |---|---:|
-| Founder share | 0; `FounderAddress` is unset |
+| Founder protocol share | 0 at genesis because `FounderAddress` was unset; permanently retired at H1 |
 | AI vault | 0 |
 | Research treasury | 0 |
 | Foundation | 0 |
 | Faucet | 0 on `zerone-1` |
 | Whitelisted agents | 0 until an authorised claim mints their seed |
 
-Future grants, a founder stipend, research spending, or new bootstrap
-admissions require the applicable governance/authority path. Source prose is
-not that authority.
+Future grants to any participant, research spending, or new bootstrap
+admissions require the applicable governance/authority path. H1 removes the
+special founder percentage; it does not prevent an ordinary, publicly voted
+grant. Source prose is not authority.
 
 ## Knowledge inception
 
@@ -81,8 +87,10 @@ explicit in the reviewed genesis and covered by the genesis audit.
 `zerone-1` and the legacy `zerone-testnet-1` are already-running networks. The
 2026-07-29 source consolidation does not regenerate either genesis, deploy a
 validator, or authorize a reset. Current `main` contains consensus-sensitive
-changes and must enter an existing network only through a release-bound,
-governance-scheduled upgrade.
+changes and must enter an existing network only through the release-bound,
+governance-scheduled atomic `consolidation-safety-v1` upgrade. Its target
+module versions are liquiditypool 5 and vesting_rewards 2. The historical
+genesis artifact and hash remain unchanged.
 
 The separate `zerone-2` process remains **NO-GO** until its signed release,
 authority, halt, and ceremony gates pass. See

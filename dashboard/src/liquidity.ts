@@ -80,6 +80,9 @@ export interface LiquidityPool {
 export interface LiquidityParams {
   defaultSwapFeeBps: number;
   protocolFeeBps: number;
+  protocolFeePolicy:
+    | "LP_ONLY_NO_PROTOCOL_SKIM"
+    | "LEGACY_PROTOCOL_SKIM_CONFIGURED";
   minInitialLiquidity: string;
   twapWindowBlocks: number;
   maxPools: number;
@@ -340,7 +343,6 @@ export function normalizeLiquidityParams(
     poolCreators === null ||
     defaultSwapFeeBps > 100_000 ||
     protocolFeeBps > 1_000_000 ||
-    maxPools < 1 ||
     maxPools > 64 ||
     twapWindowBlocks < 1 ||
     twapWindowBlocks > 10_000
@@ -353,6 +355,10 @@ export function normalizeLiquidityParams(
   return {
     defaultSwapFeeBps,
     protocolFeeBps,
+    protocolFeePolicy:
+      protocolFeeBps === 0
+        ? "LP_ONLY_NO_PROTOCOL_SKIM"
+        : "LEGACY_PROTOCOL_SKIM_CONFIGURED",
     minInitialLiquidity,
     twapWindowBlocks,
     maxPools,

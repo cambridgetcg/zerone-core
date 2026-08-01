@@ -8,6 +8,7 @@ import {
 } from "@zerone-chain/sdk/feegrant";
 import {
   LIQUIDITY_FEE_SCALE,
+  discloseLiquiditySwapFee,
   minimumOutputForSlippage,
 } from "@zerone-chain/sdk/liquidity";
 import {
@@ -57,6 +58,11 @@ const sponsoredFee = makeSponsoredFee({
 });
 const signingFee: Parameters<SigningStargateClient["signAndBroadcast"]>[2] =
   sponsoredFee;
+const feeDisclosure = discloseLiquiditySwapFee({
+  tokenInDenom: "uzrn",
+  feeAmount: "30",
+  protocolFeeMillionths: 0n,
+});
 
 void [
   chainId,
@@ -69,5 +75,6 @@ void [
   signingFee,
   IN_TOTO_STATEMENT_V1_TYPE,
   LIQUIDITY_FEE_SCALE,
+  feeDisclosure,
   minimumOutputForSlippage("100", 10_000n),
 ];

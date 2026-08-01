@@ -60,7 +60,7 @@ export interface VestingSchedule {
      */
     cliffEndsAtBlock: bigint;
     /**
-     * last block rewards were claimed
+     * last block at which vested value was claimed
      */
     lastClaimBlock: bigint;
     /**
@@ -176,7 +176,7 @@ export interface RewardRouting {
      */
     blockNumber: bigint;
     /**
-     * founder's operational share (bigint as string)
+     * retired compatibility output; always "0"
      */
     founderShare: string;
     /**
@@ -193,7 +193,7 @@ export interface RewardRouting {
     treasuryShare: string;
 }
 /**
- * BlockRewardDistribution records block reward distribution for a specific block.
+ * BlockRewardDistribution preserves a historical pre-v2 block reward record.
  * @name BlockRewardDistribution
  * @package zerone.vesting_rewards.v1
  * @see proto type: zerone.vesting_rewards.v1.BlockRewardDistribution
@@ -225,7 +225,8 @@ export interface BlockRewardDistribution {
      */
     fundBalanceAfter: string;
     /**
-     * founder's operational share (bigint as string)
+     * Retired compatibility output. Zero for v2-created values; historical
+     * records are preserved unchanged by migration.
      */
     founderShare: string;
     /**
@@ -324,7 +325,7 @@ export declare const RewardRouting: {
     fromPartial(object: DeepPartial<RewardRouting>): RewardRouting;
 };
 /**
- * BlockRewardDistribution records block reward distribution for a specific block.
+ * BlockRewardDistribution preserves a historical pre-v2 block reward record.
  * @name BlockRewardDistribution
  * @package zerone.vesting_rewards.v1
  * @see proto type: zerone.vesting_rewards.v1.BlockRewardDistribution

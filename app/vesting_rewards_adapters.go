@@ -11,11 +11,11 @@ import (
 // vestingRewardsStakingAdapter adapts the SDK x/staking keeper to the
 // x/vesting_rewards expected StakingKeeper interface. It supplies:
 //
-//   - GetActiveValidatorCount: bonded validator count for reward scaling
-//     (min(1, active/target) participation factor).
+//   - GetActiveValidatorCount: bonded validator count for historical reward
+//     records and compatibility queries.
 //   - GetValidatorByConsAddr: consensus-address → validator resolution so
-//     block rewards are paid to the OPERATOR account instead of the
-//     unspendable consensus address.
+//     a legacy reward calculation never targets an unspendable consensus
+//     address. Consensus v2 does not mint proposer rewards.
 type vestingRewardsStakingAdapter struct {
 	sk *stakingkeeper.Keeper
 }

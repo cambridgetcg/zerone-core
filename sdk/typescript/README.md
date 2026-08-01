@@ -64,8 +64,6 @@ codecs without adding another runtime dependency:
 ```ts
 import {
   ZeroneLiquidityRestClient,
-  createExactInSwapPlan,
-  timeoutHeightAfter,
 } from "@zerone-chain/sdk/liquidity";
 
 const liquidity = new ZeroneLiquidityRestClient({
@@ -73,28 +71,22 @@ const liquidity = new ZeroneLiquidityRestClient({
   fetch, // injectable for browsers, servers, tests, or an authenticated gateway
 });
 
-const quote = await liquidity.quoteExactIn({
+const prepared = await liquidity.prepareExactInSwap({
+  sender,
   poolId: "pool-7",
   tokenInDenom: "uzrn",
   tokenInAmount: "100000",
+  expectedTokenOutDenom: "uatom",
   slippageMillionths: 5_000n, // 0.5%
-});
-
-const plan = createExactInSwapPlan({
-  sender,
-  poolId: quote.poolId,
-  tokenInDenom: quote.tokenInDenom,
-  tokenInAmount: quote.tokenInAmount,
-  minimumTokenOut: quote.minimumTokenOut,
-  timeoutHeight: timeoutHeightAfter(currentHeight, 20n),
+  lifetimeBlocks: 20n,
 });
 
 await client.signAndBroadcast(
   sender,
-  plan.messages,
+  prepared.plan.messages,
   "auto",
   "",
-  plan.timeoutHeight,
+  prepared.plan.timeoutHeight,
 );
 ```
 
@@ -110,17 +102,34 @@ fractional curve fees effective even when the separately reported whole-unit
 infinitesimal quote, so the configured fee is not mislabeled as market impact.
 The slippage helper always produces a nonzero `min_token_out`.
 
-Local quotes are fail-closed: only a v4 pool explicitly reporting `ACTIVE` is
-quotable, its persistent lock must be clear, and the calculated output must
-leave the governed minimum reserve. A pre-v4 response with no lifecycle field
-is labelled `PRE_V4`, not silently assumed active. `SWAPS_PAUSED`, `EXIT_ONLY`,
-`CLOSED`, and `UNSPECIFIED` are also rejected. Closed pool records remain
-readable tombstones with zero reserves and supply. The pool and Params REST
-queries are still observations rather than an execution reservation: call
-`simulateSwap` immediately before signing. Simulation checks the current pool
-state, reserve floor, and both input/output denoms' x/bank send-enabled state,
-but reserves nothing. Only delivery checks the sender's balance and re-runs
-those controls against the final state after any intervening transactions.
+Local `quoteExactIn` estimates are fail-closed: only a v4-or-later pool
+explicitly reporting `ACTIVE` is quotable, its persistent lock must be clear,
+and the calculated output must leave the governed minimum reserve. A pre-v4
+response with no lifecycle field is labelled `PRE_V4`, not silently assumed
+active. `SWAPS_PAUSED`, `EXIT_ONLY`, `CLOSED`, and `UNSPECIFIED` are also
+rejected. Closed pool records remain readable tombstones with zero reserves and
+supply. A local estimate is never the authority for a signed minimum output.
+
+`prepareExactInSwap` calls the chain's checked `simulateSwap`, verifies the
+selected output denom, derives slippage from that result, and makes the query's
+observed block height the base of the transaction timeout. Simulation checks
+the current pool state, reserve floor, and both input/output denoms' x/bank
+send-enabled state, but reserves nothing. The REST server or authenticated
+gateway must expose a canonical positive height in `X-Cosmos-Block-Height` or
+`Grpc-Metadata-X-Cosmos-Block-Height`; preparation fails closed when it is
+missing, malformed, or conflicting. Only delivery checks the sender's balance
+and re-runs all controls against final state after intervening transactions.
+
+The Params wire field `protocol_fee_bps` is also a 1,000,000-scale PPM value.
+Consensus v5 fixes it to zero: `feeDisclosure.policy` is `NO_PROTOCOL_SKIM`,
+`protocolFeeAmount` is zero, and the full floor-rounded reported fee remains in
+pool reserves for LP holders. Older state may report a nonzero configured
+value. That legacy policy skimmed
+`floor(feeAmount * protocolFeeMillionths / 1_000_000)` only for `uzrn` input
+and sent a positive result to `fee_collector`; counter-denom input transferred
+no protocol fee. The disclosure models both cases from freshly queried Params
+without guessing a consensus version. The executed swap event remains the
+authority for the actual delivered `protocol_fee`.
 
 The REST client also exposes bounded pool/pagination, params, simulation, and
 TWAP queries. Treat `windowUsed` returned by a TWAP query as authoritative; the

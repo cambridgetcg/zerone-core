@@ -195,6 +195,10 @@ describe("dashboard liquidity admission and oracle params", () => {
     const parsed = normalizeLiquidityParams(params());
     assert.ok(parsed);
     assert.equal(parsed.maxPools, 16);
+    assert.equal(
+      parsed.protocolFeePolicy,
+      "LEGACY_PROTOCOL_SKIM_CONFIGURED",
+    );
     assert.equal(parsed.minReserve, "1");
     assert.deepEqual(parsed.billingQuoteDenoms, []);
     assert.equal(parsed.billingOracleEnabled, false);
@@ -203,6 +207,19 @@ describe("dashboard liquidity admission and oracle params", () => {
     assert.deepEqual(parsed.poolCreators, []);
     assert.equal(parsed.poolCreationEnabled, false);
     assert.equal(parsed.poolCreationPolicy, "DISABLED_FAIL_CLOSED");
+  });
+
+  it("distinguishes historical protocol skim state from v5 LP-only fees", () => {
+    const legacy = normalizeLiquidityParams(
+      params({ maxPools: "0", protocolFeeBps: "450000" }),
+    );
+    assert.ok(legacy);
+    assert.equal(legacy.maxPools, 0);
+    assert.equal(legacy.protocolFeePolicy, "LEGACY_PROTOCOL_SKIM_CONFIGURED");
+
+    const neutral = normalizeLiquidityParams(params({ protocolFeeBps: "0" }));
+    assert.ok(neutral);
+    assert.equal(neutral.protocolFeePolicy, "LP_ONLY_NO_PROTOCOL_SKIM");
   });
 
   it("exposes both governed admission lists without broadening them", () => {
@@ -272,7 +289,6 @@ describe("dashboard liquidity admission and oracle params", () => {
     for (const overrides of [
       { defaultSwapFeeBps: "100001" },
       { protocolFeeBps: "1000001" },
-      { maxPools: "0" },
       { maxPools: "65" },
       { twapWindowBlocks: "0" },
       { twapWindowBlocks: "10001" },

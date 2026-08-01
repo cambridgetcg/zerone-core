@@ -28,6 +28,8 @@ export interface Params {
   /**
    * Protocol share of the floor-rounded fee, applied only to ZRN-input swaps
    * (1M bps scale).
+   * Retained for wire compatibility. Consensus v5 requires zero: the
+   * protocol takes no swap skim and the full fee remains in pool reserves.
    */
   protocolFeeBps: bigint;
   /**

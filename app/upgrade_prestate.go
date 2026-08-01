@@ -27,9 +27,13 @@ import (
 	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
+	claimingpottypes "github.com/zerone-chain/zerone/x/claiming_pot/types"
 	emergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
+	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 const (
@@ -344,6 +348,13 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 				err,
 			)
 		}
+		if err := app.requireConsolidationActivationBoundary(
+			ctx,
+			plan.Name,
+			versionMap,
+		); err != nil {
+			return err
+		}
 		if err := requireSDK053IBC10SourceVersions(plan.Name, versionMap); err != nil {
 			return err
 		}
@@ -405,6 +416,70 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 		return fmt.Errorf(
 			"scheduled plan %q is not supported by the guarded activation preflight",
 			plan.Name,
+		)
+	}
+	return nil
+}
+
+const (
+	consolidationSafetyMarker      = "upgrade_marker_consolidation-safety-v1"
+	consolidationSafetyMarkerValue = "migrated"
+)
+
+func (app *ZeroneApp) requireConsolidationActivationBoundary(
+	ctx context.Context,
+	planName string,
+	fromVM map[string]uint64,
+) error {
+	expected := []struct {
+		name    string
+		version uint64
+	}{
+		{knowledgetypes.ModuleName, 6},
+		{claimingpottypes.ModuleName, 2},
+		{liquiditypooltypes.ModuleName, 5},
+		{vestingrewardstypes.ModuleName, 2},
+	}
+	for _, prerequisite := range expected {
+		version, ok := fromVM[prerequisite.name]
+		if !ok {
+			return fmt.Errorf(
+				"upgrade %q requires prerequisite module %q at consensus version %d: module is absent from version map",
+				planName,
+				prerequisite.name,
+				prerequisite.version,
+			)
+		}
+		if version != prerequisite.version {
+			return fmt.Errorf(
+				"upgrade %q requires prerequisite module %q at consensus version %d: got %d",
+				planName,
+				prerequisite.name,
+				prerequisite.version,
+				version,
+			)
+		}
+	}
+
+	marker, err := app.KnowledgeKeeper.ReadMigrationMarkerChecked(
+		ctx,
+		consolidationSafetyMarker,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"upgrade %q cannot verify prerequisite marker %q: %w",
+			planName,
+			consolidationSafetyMarker,
+			err,
+		)
+	}
+	if marker != consolidationSafetyMarkerValue {
+		return fmt.Errorf(
+			"upgrade %q requires prerequisite marker %q=%q: got %q",
+			planName,
+			consolidationSafetyMarker,
+			consolidationSafetyMarkerValue,
+			marker,
 		)
 	}
 	return nil

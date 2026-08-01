@@ -40,20 +40,29 @@ stake reconciliation because no per-staker escrow ledger exists.
 
 ## Carried-forward safety checkpoints
 
-This source retains the named `consolidation-safety-v1` and later
-`liquiditypool-safety-v2` handlers. Consolidation advances knowledge to v6 and
-may advance liquiditypool to v4; the later handler is an idempotent readiness
-checkpoint. Neither handler by itself authorizes native-pool creation or
-oracle allowlisting. Before any pool activation, prove there are zero legacy
-native pools (or review their `EXIT_ONLY` transition), no billing quote-denom
-allowlist, and empty post-migration `allowed_pool_denoms` and `pool_creators`.
-See [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md).
+Existing networks have one pending consolidation boundary:
+`consolidation-safety-v1` at H1. The exact H1 binary calls module migrations,
+reconciles stored module-account permissions, and records its handler marker.
+The resulting module-version map must include `knowledge=6`, `claiming_pot=2`,
+`liquiditypool=5`, and `vesting_rewards=2`. There is no
+`liquiditypool-safety-v2` H2 handler: advertising that redundant future name
+early is unsafe under the SDK upgrade guard.
 
-For a legacy SDK v0.50 / IBC-Go v8 network, the guarded
-`sdk-0.53-ibc-10` handler's `RunMigrations` incorporates all current module
-migrations in the same authenticated activation. Do not improvise a separate
-or reordered sequence: the signed release packet must identify the actual
-source module-version map and the one handler approved for that lineage.
+Before scheduling H1, bind a same-height live snapshot proving there are zero
+native pools and no billing quote-denom allowlist. Valid legacy pools migrate
+`EXIT_ONLY`, so a network with any existing pool still needs a separately
+reviewed transition. After H1, verify `allowed_pool_denoms`, `pool_creators`,
+and `billing_quote_denoms` are empty before accepting any Params update. The
+complete no-go gates, economic-neutrality transition, status lifecycle,
+governance path, and Osmosis-testnet separation are in
+[LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md).
+
+For a legacy SDK v0.50 / IBC-Go v8 network, `sdk-0.53-ibc-10` is a later,
+guarded boundary. It refuses to run until the committed source map already
+contains the four prerequisite versions above and the
+`upgrade_marker_consolidation-safety-v1=migrated` marker. Its broad
+`RunMigrations` call is therefore not an alternate path for economic or
+consolidation activation. Do not improvise a combined or reordered sequence.
 
 ## Operator steps
 

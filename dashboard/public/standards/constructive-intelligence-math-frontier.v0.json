@@ -1,0 +1,447 @@
+{
+  "schema": "zerone.constructive-intelligence-math-frontier/v0",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "governanceBearing": false,
+  "snapshotDate": "2026-08-01",
+  "policyVersion": "0.1.0",
+  "baseTree": {
+    "schema": "zerone.constructive-intelligence-tree/v1",
+    "policyVersion": "1.0.0",
+    "documentSha256": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    "policySha256": "sha256:36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7",
+    "requiredCapabilities": [
+      "math-algebra-finite-fields@1",
+      "math-lattices-polynomial-rings@1",
+      "math-probability-information-complexity@1",
+      "math-proofcraft@1"
+    ]
+  },
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "grantsGovernancePower": false,
+    "ranksPersons": false,
+    "authorizesSecurityTesting": false,
+    "performsNetworkRequests": false,
+    "publishesConfidentialEvidence": false
+  },
+  "constitution": {
+    "identityLabelInvariant": true,
+    "reservedSeatsAllowed": false,
+    "reservedSharesAllowed": false,
+    "creatorPrivilege": false,
+    "operatorPrivilege": false,
+    "humanAiClassMultiplier": false,
+    "stakeAffectsValidity": false,
+    "stakeAffectsVoice": false,
+    "wealthAffectsEligibility": false,
+    "wealthAffectsReward": false,
+    "rewardBalanceAffectsVoice": false,
+    "karmaMagnitudeAffectsVoice": false,
+    "karmaEligibilityOnly": true,
+    "controllerMergeCanOnlyReduceVoice": true,
+    "controllerConflictRecusalRequired": true,
+    "recusalQuorumRecomputed": true,
+    "selectedControllerVoice": "ONE_CONTROLLER_ONE_VOICE",
+    "currentActivationAuthority": "NONE",
+    "futureGovernance": "KARMA_ELIGIBILITY_AND_SORTITION_NOT_IMPLEMENTED",
+    "ordinaryStakeVoteCanActivate": false,
+    "emergencyAuthorityCanActivate": false,
+    "emergencyAuthorityScope": "PAUSE_ONLY"
+  },
+  "karma": {
+    "mode": "ORDINAL_SHADOW_ONLY",
+    "eventSchema": "zerone.karma.shadow-edge/v0",
+    "state": "ORDINAL",
+    "register": "priced-coherence",
+    "truthOracle": false,
+    "onChainRecognition": false,
+    "magnitude": "NONE",
+    "transferable": false,
+    "spendable": false,
+    "rewardMultiplier": false,
+    "governanceWeight": false,
+    "economicEffect": "NONE",
+    "controlEffect": "NONE",
+    "futureRecognitionRequiresSignedReceipts": true,
+    "futureRecognitionRequiresControllerResolution": true,
+    "excludedFromRecognition": [
+      "external-unverified",
+      "reciprocal-cycle",
+      "same-controller",
+      "self"
+    ]
+  },
+  "rewardTemplate": {
+    "mode": "PROSPECTIVE_SPONSOR_ESCROW_ONLY",
+    "economicEffect": "NONE",
+    "liveAmount": "0",
+    "skillUnlockCreatesEntitlement": false,
+    "breakthroughCreatesEntitlement": false,
+    "protocolIssuanceAllowed": false,
+    "dedicatedEscrowRequired": true,
+    "policyFrozenBeforeAdmission": true,
+    "singleSettlementRequired": true,
+    "verifiedCostsTreatment": "SEPARATE_PREAUTHORIZED_CAP",
+    "milestones": [
+      {
+        "level": "E2",
+        "name": "deterministic-validity",
+        "outcomePoolBps": 1500,
+        "evidence": "The exact statement, axioms, formalization and checker result pass the frozen deterministic validity policy."
+      },
+      {
+        "level": "E3",
+        "name": "independent-reproduction",
+        "outcomePoolBps": 2000,
+        "evidence": "Effectively independent controllers reproduce the result across the frozen implementation and environment roots."
+      },
+      {
+        "level": "E4",
+        "name": "adversarial-survival",
+        "outcomePoolBps": 1500,
+        "evidence": "The result survives the frozen falsifier suite and a bounded public challenge, or is honestly disproved."
+      },
+      {
+        "level": "E5",
+        "name": "independent-downstream-use",
+        "outcomePoolBps": 2500,
+        "evidence": "An independently controlled downstream artifact reuses the result without circular authorship or funding."
+      },
+      {
+        "level": "E6",
+        "name": "maintained-recheck",
+        "outcomePoolBps": 1000,
+        "evidence": "The artifact remains reproducible across the prospectively declared maintenance interval or toolchain change."
+      }
+    ],
+    "challengeReserveBps": 1500,
+    "roles": [
+      "claimant",
+      "falsifier",
+      "formalizer",
+      "independent-reproducer",
+      "integrator",
+      "maintainer"
+    ],
+    "disproofDisposition": "E4_TO_COMPLIANT_FALSIFIER_CLAIMANT_UNPAID",
+    "unallocatedDisposition": "PROSPECTIVELY_NAMED_REFUND_OR_COMMONS",
+    "openLiabilityCap": "DEDICATED_ESCROW",
+    "specializedResearchSpendPathAllowed": false
+  },
+  "stages": [
+    "ground",
+    "craft",
+    "assurance",
+    "frontier"
+  ],
+  "nodes": [
+    {
+      "id": "math-algebra-finite-lattices@1",
+      "title": "Finite algebra and lattice construction",
+      "stage": "craft",
+      "summary": "Build exact arguments over finite fields, modules, lattices and polynomial rings without hiding parameter or representation assumptions.",
+      "prerequisites": [
+        "math-algebra-finite-fields@1",
+        "math-foundations-logic@1",
+        "math-lattices-polynomial-rings@1"
+      ],
+      "evidenceTarget": "E2",
+      "capabilityClass": "domain",
+      "artifacts": [
+        "A statement with exact fields, rings, modules, lattices, parameters and excluded degenerate cases.",
+        "A proof or counterexample with machine-checkable finite computations where used.",
+        "A dependency manifest separating imported algebraic lemmas from novel steps."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-analysis-geometry@1",
+      "title": "Analysis and geometry construction",
+      "stage": "craft",
+      "summary": "Control limits, regularity, measure, topology and geometric hypotheses with explicit domains and failure cases.",
+      "prerequisites": [
+        "math-foundations-logic@1"
+      ],
+      "evidenceTarget": "E2",
+      "capabilityClass": "domain",
+      "artifacts": [
+        "A theorem statement pinning domains, regularity, boundary conditions and exceptional sets.",
+        "A proof or counterexample that exposes every compactness, convergence and measurability dependency.",
+        "Numerical illustrations labelled as evidence rather than proof."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-combinatorics-discrete@1",
+      "title": "Combinatorics and discrete structure",
+      "stage": "craft",
+      "summary": "Construct and falsify finite, graph, extremal and discrete arguments with auditable enumeration boundaries.",
+      "prerequisites": [
+        "math-foundations-logic@1"
+      ],
+      "evidenceTarget": "E2",
+      "capabilityClass": "domain",
+      "artifacts": [
+        "A canonical object encoding and symmetry-reduction rule.",
+        "A proof, construction or counterexample with bounded enumeration where applicable.",
+        "Independent small-instance checks that cannot be confused with a general proof."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-counterexample-falsification@1",
+      "title": "Counterexamples and falsification",
+      "stage": "craft",
+      "summary": "Search for the smallest honest obstruction and preserve a negative result as first-class constructive work.",
+      "prerequisites": [
+        "math-foundations-logic@1",
+        "math-reproducible-computation@1"
+      ],
+      "evidenceTarget": "E2",
+      "capabilityClass": "method",
+      "artifacts": [
+        "A frozen claim or lemma target and the exact assumption set under attack.",
+        "A minimized counterexample or a bounded no-counterexample-found report.",
+        "A deterministic falsifier suite with seed, bounds and oracle digest."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-formalization-kernels@1",
+      "title": "Formalization and trusted kernels",
+      "stage": "craft",
+      "summary": "Translate prose mathematics into explicit terms while disclosing axioms, trusted kernels, admits and semantic gaps.",
+      "prerequisites": [
+        "math-foundations-logic@1",
+        "math-reproducible-computation@1"
+      ],
+      "evidenceTarget": "E2",
+      "capabilityClass": "method",
+      "artifacts": [
+        "A formal statement mapped line by line to the frozen human-readable statement.",
+        "A complete axiom, admit, plugin and trusted-code-base inventory.",
+        "A reproducible checker environment identified by exact artifact digests."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-foundations-logic@1",
+      "title": "Logic, definitions and semantic hygiene",
+      "stage": "ground",
+      "summary": "Make quantifiers, definitions, equivalence notions and admissible inference explicit before difficulty or novelty is scored.",
+      "prerequisites": [
+        "math-proofcraft@1"
+      ],
+      "evidenceTarget": "E1",
+      "capabilityClass": "foundation",
+      "artifacts": [
+        "A typed glossary with quantified variables and exact equality or equivalence notions.",
+        "An assumption ledger distinguishing definitions, axioms, conjectures and imported theorems.",
+        "At least one boundary or degenerate case that tests the statement's intended meaning."
+      ],
+      "unlocksReward": false,
+      "questEligible": false
+    },
+    {
+      "id": "math-independent-proof@1",
+      "title": "Independent proof and reproduction",
+      "stage": "assurance",
+      "summary": "Distinguish a genuinely independent derivation from a transcription, shared implementation or correlated review.",
+      "prerequisites": [
+        "math-formalization-kernels@1",
+        "math-prior-art-semantic-root@1"
+      ],
+      "evidenceTarget": "E3",
+      "capabilityClass": "assurance",
+      "artifacts": [
+        "Control, funding, implementation, toolchain and environment cluster disclosures.",
+        "An independent derivation or checker replay produced after the artifact freeze.",
+        "A disagreement log that preserves good-faith negative evidence."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-multi-kernel-assurance@1",
+      "title": "Multi-kernel proof assurance",
+      "stage": "assurance",
+      "summary": "Reduce one-kernel common-mode risk through independently rooted checking or a reviewed semantic translation.",
+      "prerequisites": [
+        "math-formalization-kernels@1",
+        "math-independent-proof@1"
+      ],
+      "evidenceTarget": "E3",
+      "capabilityClass": "assurance",
+      "artifacts": [
+        "At least two independently rooted checker or kernel digests.",
+        "A reviewed translation or shared-semantics statement between formalizations.",
+        "A disclosed common-mode analysis for parser, elaborator, kernel and hardware roots."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-optimization-numerics@1",
+      "title": "Optimization and numerical evidence",
+      "stage": "craft",
+      "summary": "Separate exact claims from approximation, conditioning, convergence and empirical solver behavior.",
+      "prerequisites": [
+        "math-analysis-geometry@1",
+        "math-reproducible-computation@1"
+      ],
+      "evidenceTarget": "E2",
+      "capabilityClass": "domain",
+      "artifacts": [
+        "An objective, feasible region and approximation or convergence guarantee with explicit norms.",
+        "Conditioning, precision, stopping and failure criteria pinned before execution.",
+        "Reproducible solver traces that never masquerade as proof beyond their declared bounds."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-prior-art-semantic-root@1",
+      "title": "Prior art and semantic roots",
+      "stage": "ground",
+      "summary": "Freeze what problem is actually being solved so paraphrase, lemma splitting and moving baselines cannot manufacture novelty.",
+      "prerequisites": [
+        "math-foundations-logic@1"
+      ],
+      "evidenceTarget": "E1",
+      "capabilityClass": "foundation",
+      "artifacts": [
+        "A content digest for the statement, definitions and admissible transformations.",
+        "A dated prior-art manifest with search bounds and independently challengeable omissions.",
+        "A semantic-root rule that clusters equivalent restatements before any score or budget."
+      ],
+      "unlocksReward": false,
+      "questEligible": false
+    },
+    {
+      "id": "math-probability-stochastics@1",
+      "title": "Probability and stochastic construction",
+      "stage": "craft",
+      "summary": "Reason about randomness, information, dependence and asymptotics with the probability space and conditioning made explicit.",
+      "prerequisites": [
+        "math-foundations-logic@1",
+        "math-probability-information-complexity@1"
+      ],
+      "evidenceTarget": "E2",
+      "capabilityClass": "domain",
+      "artifacts": [
+        "An explicit probability space, filtration or dependence model and all limiting regimes.",
+        "A proof or counterexample separating exact bounds from simulation evidence.",
+        "Calibrated computational checks with frozen seeds and uncertainty reporting."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    },
+    {
+      "id": "math-reproducible-computation@1",
+      "title": "Reproducible mathematical computation",
+      "stage": "ground",
+      "summary": "Bind computational evidence to exact code, data, environment, precision and declared logical role.",
+      "prerequisites": [
+        "math-proofcraft@1"
+      ],
+      "evidenceTarget": "E1",
+      "capabilityClass": "foundation",
+      "artifacts": [
+        "Content-addressed source, inputs, outputs and environment.",
+        "Deterministic seeds or an explicit entropy transcript.",
+        "A statement of whether the computation proves, falsifies, illustrates or only searches."
+      ],
+      "unlocksReward": false,
+      "questEligible": false
+    },
+    {
+      "id": "quest-math-formal-construction@1",
+      "title": "Frontier quest: formal construction",
+      "stage": "frontier",
+      "summary": "Prove, disprove or formally implement one frozen mathematical claim, then survive independent reproduction, falsification and downstream use.",
+      "prerequisites": [
+        "math-counterexample-falsification@1",
+        "math-independent-proof@1",
+        "math-multi-kernel-assurance@1"
+      ],
+      "evidenceTarget": "E5",
+      "capabilityClass": "quest",
+      "artifacts": [
+        "A complete problem packet binding the exact statement, formalization, axioms, semantic root and prior-art cutoff.",
+        "Deterministic validity evidence plus independently controlled reproduction.",
+        "A falsifier suite, challenge record and independently controlled downstream-use receipt."
+      ],
+      "unlocksReward": false,
+      "questEligible": true
+    }
+  ],
+  "questTemplate": {
+    "id": "quest-math-formal-construction@1",
+    "status": "TEMPLATE_ONLY",
+    "requiredCoreCapabilities": [
+      "math-proofcraft@1"
+    ],
+    "allowedDomainCapabilities": [
+      "math-algebra-finite-lattices@1",
+      "math-analysis-geometry@1",
+      "math-combinatorics-discrete@1",
+      "math-optimization-numerics@1",
+      "math-probability-stochastics@1"
+    ],
+    "domainSelectionMode": "EXACTLY_ONE_AT_PACKET_FREEZE",
+    "selectedDomainEvidenceMinimum": "E2",
+    "selectedDomainReceiptRequired": true,
+    "allowedArtifactRelations": [
+      "DISPROVES",
+      "IMPLEMENTS",
+      "PROVES"
+    ],
+    "requiredPacketBindings": [
+      "axiom_policy_digest",
+      "checker_kernel_digests",
+      "domain_capability_id",
+      "falsifier_suite_digest",
+      "formalization_digest",
+      "prior_art_cutoff",
+      "prior_art_manifest_digest",
+      "selected_domain_evidence",
+      "selected_domain_receipt_digest",
+      "semantic_root",
+      "statement_digest"
+    ],
+    "milestoneOrder": [
+      "E0",
+      "E1",
+      "E2",
+      "E3",
+      "E4",
+      "E5",
+      "E6"
+    ],
+    "breakthroughStatus": "DERIVED_ONLY_AFTER_E5",
+    "selfDeclaredBreakthrough": false,
+    "popularityCanOverrideValidity": false,
+    "relationSpecificValidityRequired": true,
+    "implementsEstablishesTheoremValidity": false,
+    "semanticRootReplayAllowed": false,
+    "minimumEffectiveClusters": 3,
+    "minimumOrganizationRoots": 2,
+    "minimumImplementationRoots": 2,
+    "minimumExecutionEnvironments": 2,
+    "minimumKernelFamilies": 2,
+    "counterexampleEligible": true,
+    "sunsetRequired": true,
+    "economicEffect": "NONE",
+    "controlEffect": "NONE"
+  }
+}

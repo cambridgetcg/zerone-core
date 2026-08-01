@@ -45,7 +45,6 @@ const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
-const UpgradeNameLiquiditySafetyV2 = "liquiditypool-safety-v2"
 const UpgradeNameSDK053IBC10 = "sdk-0.53-ibc-10"
 
 const (
@@ -384,9 +383,13 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	//     settlement of legacy stored records;
 	//   - falsification clawback requires an adjudicated disproven fact;
 	//   - knowledge probe work is cursor-bounded and K-alpha recognition is
-	//     emitted only for eligible factual survival.
+	//     emitted only for eligible factual survival;
+	//   - liquidity v5 keeps every swap fee in the pool for bearer LP shares;
+	//   - vesting_rewards v2 retires the founder tap and arbitrary-transaction
+	//     proposer mint while preserving routing of real transaction fees.
 	//
-	// knowledge v5→v6 provides a verifiable module-version boundary. The
+	// knowledge v5→v6, liquiditypool v3→v5, and vesting_rewards v1→v2 provide
+	// verifiable module-version boundaries. The
 	// claiming_pot v1→v2 migration charges pre-upgrade general pots against the
 	// lifetime issuance budget and reconstructs their monotonic ID counter.
 	// Operators therefore cannot mistake a plain binary restart for activation.
@@ -410,39 +413,6 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		},
 	)
 
-	// liquiditypool-safety-v2 — the named post-consolidation readiness
-	// checkpoint for liquiditypool consensus v4. The v4 state transition makes
-	// pool lifecycle explicit and bounded: final exits close rather than leave
-	// re-seedable zero-supply pools, governance controls pool status, pool growth
-	// is finite, creator-selected fees are disabled, asset/creator admission
-	// starts empty, fee math uses a strict parts-per-million scale, and oracle
-	// reads remain fail-closed unless a quote denom and ACTIVE pool are approved.
-	//
-	// consolidation-safety-v1 must be scheduled first. Its RunMigrations call
-	// may advance liquiditypool v3→v4 before this named checkpoint is reached.
-	// RunMigrations skips a module already at its current ConsensusVersion, while
-	// this handler still reconciles module-account permissions and records the
-	// dedicated liquidity readiness marker.
-	app.UpgradeKeeper.SetUpgradeHandler(
-		UpgradeNameLiquiditySafetyV2,
-		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
-			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-
-			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
-			if err != nil {
-				return nil, err
-			}
-
-			app.ReconcileModuleAccountPerms(ctx)
-
-			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_liquiditypool-safety-v2", "migrated"); err != nil {
-				return nil, err
-			}
-
-			return toVM, nil
-		},
-	)
-
 	// sdk-0.53-ibc-10 — moves the app from Cosmos SDK v0.50 / IBC-Go v8
 	// to the smallest currently supported release family (SDK v0.53 /
 	// IBC-Go v10). The IBC versions are pinned to the exact versions shipped
@@ -459,6 +429,13 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			legacyIBCManifest, err := parseSDK053IBC10PlanInfo(plan.Info)
 			if err != nil {
 				return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
+			}
+			if err := app.requireConsolidationActivationBoundary(
+				ctx,
+				plan.Name,
+				fromVM,
+			); err != nil {
+				return nil, err
 			}
 			activationPrestate, err := app.collectAndVerifyActivationPrestate()
 			if err != nil {
@@ -1215,14 +1192,6 @@ func (app *ZeroneApp) RegisterStoreUpgrades() error {
 		// top-level store keys.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
-
-	case UpgradeNameLiquiditySafetyV2:
-		// Migration-only — liquiditypool v3→v4 uses new fields and prefixes in
-		// the existing liquiditypool store. If consolidation-safety-v1 already
-		// advanced the module to v4, RunMigrations skips it safely.
-		storeUpgrades := storetypes.StoreUpgrades{}
-		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
-
 	case UpgradeNameSDK053IBC10:
 		// IBC-Go v10 removes both modules. Their persistent IAVL keys are no
 		// longer part of the normal app mount set, so the coordinated loader
@@ -1234,7 +1203,6 @@ func (app *ZeroneApp) RegisterStoreUpgrades() error {
 				app.sdk053IBC10LoaderProof = &proof
 			},
 		))
-
 	}
 
 	return nil

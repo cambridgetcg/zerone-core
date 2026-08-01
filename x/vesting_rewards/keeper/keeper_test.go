@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -608,7 +609,13 @@ func (m *mockDistrKeeper) GetDelegatorWithdrawAddr(_ context.Context, delAddr sd
 
 func setupKeeperWithBank(t *testing.T, bk *mockBankKeeper, sk *mockStakingKeeper) (keeper.Keeper, sdk.Context) {
 	t.Helper()
-	return setupKeeperWithBankAndGenesis(t, bk, sk, types.DefaultGenesis())
+	// Preserve the retired reward calculator as an isolated unit-test fixture.
+	// AppModule.BeginBlock never calls it in consensus v2 and valid Params keep
+	// both values at zero.
+	gs := types.DefaultGenesis()
+	gs.Params.BlockReward = "10000000"
+	gs.Params.FloorReward = "100000"
+	return setupKeeperWithBankAndGenesis(t, bk, sk, gs)
 }
 
 func setupKeeperWithBankAndGenesis(t *testing.T, bk *mockBankKeeper, sk *mockStakingKeeper, gs *types.GenesisState) (keeper.Keeper, sdk.Context) {
@@ -636,7 +643,7 @@ func setupKeeperWithBankAndGenesis(t *testing.T, bk *mockBankKeeper, sk *mockSta
 
 // ---------- Block Reward Distribution Tests ----------
 
-func TestDistributeBlockReward_MintAndDistribute(t *testing.T) {
+func TestDistributeBlockReward_InjectedLegacyParamsRemainInert(t *testing.T) {
 	bk := newMockBankKeeper()
 	sk := &mockStakingKeeper{activeCount: 22}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
@@ -653,32 +660,27 @@ func TestDistributeBlockReward_MintAndDistribute(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	if dist.TotalMinted == "0" {
-		t.Fatal("expected non-zero total minted")
-	}
-	if dist.ProducerReward == "0" {
-		t.Fatal("expected non-zero producer reward")
-	}
-	if dist.ResearchShare == "0" {
-		t.Fatal("expected non-zero research share")
+	if dist.TotalMinted != "0" || dist.ProducerReward != "0" || dist.ResearchShare != "0" ||
+		dist.DevelopmentAmount != "0" || dist.ProtocolShare != "0" || dist.FounderShare != "0" {
+		t.Fatalf("retired method returned a non-zero distribution: %+v", dist)
 	}
 
 	mintedAfter := k.GetTotalMinted(ctx)
-	if mintedAfter.Cmp(mintedBefore) <= 0 {
-		t.Fatal("expected total minted to increase")
+	if mintedAfter.Cmp(mintedBefore) != 0 {
+		t.Fatal("retired method changed total minted")
 	}
-	if bk.mintedCoins.IsZero() {
-		t.Fatal("expected MintCoins to be called")
+	if !bk.mintedCoins.IsZero() {
+		t.Fatalf("retired method minted %s", bk.mintedCoins)
 	}
-	if len(bk.sentToAccount) == 0 {
-		t.Fatal("expected SendCoinsFromModuleToAccount for producer")
+	if len(bk.sentToAccount) != 0 || len(bk.sentToModule) != 0 {
+		t.Fatalf("retired method transferred value: accounts=%v modules=%v", bk.sentToAccount, bk.sentToModule)
 	}
-	if _, ok := bk.sentToModule["research_fund"]; !ok {
-		t.Fatal("expected SendCoinsFromModuleToModule for research_fund")
+	if _, found := k.GetBlockRewardDistribution(ctx, uint64(ctx.BlockHeight())); found {
+		t.Fatal("retired method wrote a new block reward record")
 	}
 }
 
-func TestDistributeBlockReward_ValidatorScaling(t *testing.T) {
+func TestDistributeBlockReward_RecordsValidatorCountButNeverScalesMint(t *testing.T) {
 	bk := newMockBankKeeper()
 	sk := &mockStakingKeeper{activeCount: 3}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
@@ -693,12 +695,8 @@ func TestDistributeBlockReward_ValidatorScaling(t *testing.T) {
 	if dist.ValidatorCount != 3 {
 		t.Errorf("expected validator count 3, got %d", dist.ValidatorCount)
 	}
-	if dist.TotalMinted == "0" {
-		t.Fatal("expected non-zero total minted even with reduced validators")
-	}
-	// With 3/22 validators, reward < 10000000
-	if dist.TotalMinted == "10000000" {
-		t.Error("expected scaled reward, got full reward amount")
+	if dist.TotalMinted != "0" {
+		t.Fatalf("validator count reactivated retired issuance: %+v", dist)
 	}
 }
 
@@ -734,12 +732,12 @@ func TestDistributeBlockReward_NilBankKeeper(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	if dist.TotalMinted == "0" {
-		t.Fatal("expected non-zero distribution record even without bank")
+	if dist.TotalMinted != "0" {
+		t.Fatalf("valid v2 params must not mint, got distribution %+v", dist)
 	}
 	total := k.GetTotalMinted(ctx)
-	if total.Sign() <= 0 {
-		t.Fatal("expected total minted to increase even with nil bank")
+	if total.Sign() != 0 {
+		t.Fatalf("valid v2 params changed total minted to %s", total)
 	}
 }
 
@@ -896,7 +894,7 @@ func TestDistributeRevenue_SplitSumsToTotal(t *testing.T) {
 
 // ---------- Development Fund Deposit Tests ----------
 
-func TestDistributeBlockReward_DepositsToDevelopmentFund(t *testing.T) {
+func TestDistributeBlockReward_DoesNotDepositToDevelopmentFund(t *testing.T) {
 	bk := newMockBankKeeper()
 	sk := &mockStakingKeeper{activeCount: 22}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
@@ -908,14 +906,13 @@ func TestDistributeBlockReward_DepositsToDevelopmentFund(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	// 19.67% development: remainder = 10000000 - 5500000 - 2200000 - 333000 = 1967000
-	if dist.DevelopmentAmount == "0" {
-		t.Fatal("expected non-zero development amount")
+	if dist.DevelopmentAmount != "0" {
+		t.Fatalf("retired method returned a development amount: %+v", dist)
 	}
 
 	devCoins := bk.sentToModule["development_fund"]
-	if devCoins.AmountOf("uzrn").Int64() != 1967000 {
-		t.Errorf("expected 1967000 uzrn to development_fund, got %d", devCoins.AmountOf("uzrn").Int64())
+	if !devCoins.AmountOf("uzrn").IsZero() {
+		t.Errorf("retired method sent %s uzrn to development_fund", devCoins.AmountOf("uzrn"))
 	}
 
 }
@@ -1046,11 +1043,16 @@ func TestVestingFullLifecycle(t *testing.T) {
 	}
 }
 
-// ==================== Pure PoT Mint Tests ====================
+// ==================== Retired Automatic-Issuance Tests ====================
 
 func setupMintKeeper(t *testing.T, bk *mockBankKeeper, totalMinted string, blockHeight int64) (keeper.Keeper, sdk.Context) {
 	t.Helper()
 	gs := types.DefaultGenesis()
+	// Inject invalid pre-v2 values directly into keeper state. The public genesis
+	// path rejects them; this fixture proves the retired Go method is still inert
+	// if validation is bypassed by an internal caller.
+	gs.Params.BlockReward = "10000000"
+	gs.Params.FloorReward = "100000"
 	gs.Params.InitialFundBalance = totalMinted
 
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
@@ -1080,78 +1082,24 @@ func setupMintKeeper(t *testing.T, bk *mockBankKeeper, totalMinted string, block
 	return k, ctx
 }
 
-func TestBlockReward_Epoch0(t *testing.T) {
-	bk := newMockBankKeeper()
-	k, ctx := setupMintKeeper(t, bk, "0", 0)
-
-	producer := sdk.AccAddress("producer____________").String()
-	dist, err := k.DistributeBlockReward(ctx, producer, 22, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// At epoch 0, no decay. Reward = 10000000 (10 ZRN).
-	if dist.TotalMinted != "10000000" {
-		t.Errorf("expected full reward 10000000 at epoch 0, got %s", dist.TotalMinted)
-	}
-	if bk.mintedCoins.AmountOf("uzrn").Int64() != 10000000 {
-		t.Errorf("expected 10000000 uzrn minted, got %s", bk.mintedCoins.AmountOf("uzrn").String())
-	}
-}
-
-func TestBlockReward_Epoch1(t *testing.T) {
-	bk := newMockBankKeeper()
-	// Block 100000 = start of epoch 1
-	k, ctx := setupMintKeeper(t, bk, "0", 100000)
-
-	producer := sdk.AccAddress("producer____________").String()
-	dist, err := k.DistributeBlockReward(ctx, producer, 22, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// At epoch 1: 10000000 * 0.994478 = 9944780
-	if dist.TotalMinted != "9944780" {
-		t.Errorf("expected decayed reward 9944780 at epoch 1, got %s", dist.TotalMinted)
-	}
-}
-
-func TestBlockReward_Epoch10(t *testing.T) {
-	bk := newMockBankKeeper()
-	// Block 1000000 = start of epoch 10
-	k, ctx := setupMintKeeper(t, bk, "0", 1000000)
-
-	producer := sdk.AccAddress("producer____________").String()
-	dist, err := k.DistributeBlockReward(ctx, producer, 22, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	totalMinted := dist.TotalMinted
-	if totalMinted == "0" || totalMinted == "10000000" {
-		t.Errorf("expected decayed reward at epoch 10, got %s", totalMinted)
-	}
-	// 10000000 * 0.994478^10 ≈ 9461280
-	minted := new(big.Int)
-	minted.SetString(totalMinted, 10)
-	if minted.Cmp(big.NewInt(9400000)) < 0 || minted.Cmp(big.NewInt(9500000)) > 0 {
-		t.Errorf("epoch 10 reward %s outside expected range [9400000, 9500000]", totalMinted)
-	}
-}
-
-func TestBlockReward_FloorReward(t *testing.T) {
-	bk := newMockBankKeeper()
-	// With 1-year half-life (decay_bps=994478), floor reached at ~epoch 832 (~year 6.6)
-	k, ctx := setupMintKeeper(t, bk, "0", 1000*100000)
-
-	producer := sdk.AccAddress("producer____________").String()
-	dist, err := k.DistributeBlockReward(ctx, producer, 22, true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if dist.TotalMinted != "100000" {
-		t.Errorf("expected floor reward 100000, got %s", dist.TotalMinted)
+func TestRetiredBlockRewardIgnoresLegacyDecayAtEveryEpoch(t *testing.T) {
+	for _, height := range []int64{0, 100000, 200000, 500000, 1000000, 1000 * 100000} {
+		t.Run(fmt.Sprintf("height_%d", height), func(t *testing.T) {
+			bk := newMockBankKeeper()
+			k, ctx := setupMintKeeper(t, bk, "0", height)
+			dist, err := k.DistributeBlockReward(
+				ctx,
+				sdk.AccAddress("producer____________").String(),
+				22,
+				true,
+			)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if dist.TotalMinted != "0" || !bk.mintedCoins.IsZero() {
+				t.Fatalf("legacy decay fields reactivated issuance at height %d: dist=%+v minted=%s", height, dist, bk.mintedCoins)
+			}
+		})
 	}
 }
 
@@ -1161,14 +1109,12 @@ func TestMintWithCap_SupplyExhausted(t *testing.T) {
 	// Set supply to exactly maxSupply so remaining = 0 from the start.
 	k, ctx := setupMintKeeper(t, bk, maxSupply, 0)
 
-	producer := sdk.AccAddress("producer____________").String()
-
-	dist, err := k.DistributeBlockReward(ctx, producer, 22, true)
+	actual, err := k.MintWithCap(ctx, types.ModuleName, big.NewInt(1))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if dist.TotalMinted != "0" {
-		t.Errorf("expected 0 reward when supply exhausted, got %s", dist.TotalMinted)
+	if actual.Sign() != 0 {
+		t.Errorf("expected 0 mint when supply exhausted, got %s", actual)
 	}
 }
 
@@ -1238,40 +1184,6 @@ func TestMintWithCap_SupplyMonotonic(t *testing.T) {
 	}
 }
 
-func TestApplyDecay(t *testing.T) {
-	tests := []struct {
-		name      string
-		epoch     int64
-		minReward int64
-		maxReward int64
-	}{
-		{"epoch 0", 0, 10000000, 10000000},
-		{"epoch 1", 100000, 9944780, 9944780},
-		{"epoch 2", 200000, 9889000, 9890000},
-		{"epoch 5", 500000, 9720000, 9750000},
-		{"epoch 10", 1000000, 9440000, 9480000},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			bk := newMockBankKeeper()
-			k, ctx := setupMintKeeper(t, bk, "0", tt.epoch)
-
-			producer := sdk.AccAddress("producer____________").String()
-			dist, err := k.DistributeBlockReward(ctx, producer, 22, true)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			minted := new(big.Int)
-			minted.SetString(dist.TotalMinted, 10)
-			if minted.Cmp(big.NewInt(tt.minReward)) < 0 || minted.Cmp(big.NewInt(tt.maxReward)) > 0 {
-				t.Errorf("epoch reward %s outside expected range [%d, %d]", dist.TotalMinted, tt.minReward, tt.maxReward)
-			}
-		})
-	}
-}
-
 func TestTotalMintedGetSet(t *testing.T) {
 	k, ctx := setupKeeper(t)
 
@@ -1288,7 +1200,7 @@ func TestTotalMintedGetSet(t *testing.T) {
 	}
 }
 
-func TestExportGenesis_PreservesTotalMinted(t *testing.T) {
+func TestExportGenesis_RetiredRewardDoesNotChangeTotalMinted(t *testing.T) {
 	bk := newMockBankKeeper()
 	k, ctx := setupMintKeeper(t, bk, "0", 0)
 
@@ -1297,11 +1209,8 @@ func TestExportGenesis_PreservesTotalMinted(t *testing.T) {
 
 	exported := k.ExportGenesis(ctx)
 
-	if exported.Params.InitialFundBalance == "0" || exported.Params.InitialFundBalance == "" {
-		t.Error("expected non-zero exported total minted after distributing rewards")
-	}
-	if exported.Params.InitialFundBalance != "10000000" {
-		t.Errorf("expected exported total minted 10000000, got %s", exported.Params.InitialFundBalance)
+	if exported.Params.InitialFundBalance != "0" {
+		t.Errorf("retired reward changed exported mint ledger to %s", exported.Params.InitialFundBalance)
 	}
 }
 
@@ -1405,9 +1314,9 @@ func TestExportGenesis_PreservesExplicitClaimIndexWithDuplicateLegacyClaims(t *t
 		"relaunch must preserve the live claim index, not primary-key replay order")
 }
 
-// ---------- 4-Way Block Reward Distribution Accounting ----------
+// ---------- Retired Block Reward Accounting ----------
 
-func TestDistributeBlockReward_4WayAccounting(t *testing.T) {
+func TestDistributeBlockReward_HasNoOutflowsOrRetainedSkim(t *testing.T) {
 	bk := newMockBankKeeper()
 	sk := &mockStakingKeeper{activeCount: 22}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
@@ -1418,71 +1327,12 @@ func TestDistributeBlockReward_4WayAccounting(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	if dist.TotalMinted != "10000000" {
-		t.Errorf("expected total minted 10000000, got %s", dist.TotalMinted)
+	if dist.TotalMinted != "0" || dist.ProducerReward != "0" || dist.ResearchShare != "0" ||
+		dist.DevelopmentAmount != "0" || dist.ProtocolShare != "0" || dist.FounderShare != "0" {
+		t.Fatalf("retired reward returned non-zero accounting: %+v", dist)
 	}
-
-	// Contributor (55%): 10000000 * 550000 / 1000000 = 5500000
-	if dist.ProducerReward != "5500000" {
-		t.Errorf("expected producer reward 5500000, got %s", dist.ProducerReward)
-	}
-
-	// Research (3.33%): 10000000 * 33300 / 1000000 = 333000
-	if dist.ResearchShare != "333000" {
-		t.Errorf("expected research share 333000, got %s", dist.ResearchShare)
-	}
-
-	// Development (19.67%): remainder = 10000000 - 5500000 - 2200000 - 333000 = 1967000
-	if dist.DevelopmentAmount != "1967000" {
-		t.Errorf("expected development amount 1967000, got %s", dist.DevelopmentAmount)
-	}
-
-	// Protocol (22%): 2200000
-	if dist.ProtocolShare != "2200000" {
-		t.Errorf("expected protocol share 2200000, got %s", dist.ProtocolShare)
-	}
-
-	// Verify bank sends
-	producerCoins := bk.sentToAccount[producer]
-	if producerCoins.AmountOf("uzrn").Int64() != 5500000 {
-		t.Errorf("expected 5500000 to producer, got %d", producerCoins.AmountOf("uzrn").Int64())
-	}
-
-	// Development fund receives 1967000 (no burn)
-	devCoins := bk.sentToModule["development_fund"]
-	if devCoins.AmountOf("uzrn").Int64() != 1967000 {
-		t.Errorf("expected 1967000 to development_fund, got %d", devCoins.AmountOf("uzrn").Int64())
-	}
-
-	// Verification pool split: protocol 22% = 2200000
-	// Verification (30% of protocol): 2200000 * 300000 / 1000000 = 660000
-	// All of it funds knowledge verification (the former compute_pool
-	// slice was removed with x/compute_pool in the slim cut).
-	knowledgeCoins := bk.sentToModule["knowledge"]
-	if knowledgeCoins.AmountOf("uzrn").Int64() != 660000 {
-		t.Errorf("expected 660000 to knowledge, got %d", knowledgeCoins.AmountOf("uzrn").Int64())
-	}
-
-	// Citation pool and treasury stay in the module account (not yet distributed to
-	// specific modules). They are not tracked in sentToAccount/sentToModule.
-	// Citation: 50% of protocol = 2200000 * 500000 / 1000000 = 1100000
-	// Treasury: remainder of protocol = 2200000 - 1100000 - 660000 = 440000
-	// These are retained in the vesting_rewards module account.
-	retainedCitation := int64(1100000)
-	retainedTreasury := int64(440000)
-
-	// Total accounting: distributed + retained = total minted (no burn)
-	var totalDistributed int64
-	for _, coins := range bk.sentToAccount {
-		totalDistributed += coins.AmountOf("uzrn").Int64()
-	}
-	for _, coins := range bk.sentToModule {
-		totalDistributed += coins.AmountOf("uzrn").Int64()
-	}
-	totalDistributed += retainedCitation + retainedTreasury
-
-	if totalDistributed != 10000000 {
-		t.Errorf("ACCOUNTING FAIL: total outflows (%d) != total minted (10000000)", totalDistributed)
+	if !bk.mintedCoins.IsZero() || len(bk.sentToAccount) != 0 || len(bk.sentToModule) != 0 {
+		t.Fatalf("retired reward moved value: minted=%s accounts=%v modules=%v", bk.mintedCoins, bk.sentToAccount, bk.sentToModule)
 	}
 }
 
@@ -1561,7 +1411,7 @@ func TestRouteFees_OnlyProcessesUzrn(t *testing.T) {
 	}
 }
 
-// ==================== Founder Auto-Split Tests ====================
+// ==================== Retired Founder Auto-Split Tests ====================
 
 func setupFounderKeeper(t *testing.T, bk *mockBankKeeper, founderAddr string, govHeight uint64) (keeper.Keeper, sdk.Context) {
 	t.Helper()
@@ -1569,19 +1419,15 @@ func setupFounderKeeper(t *testing.T, bk *mockBankKeeper, founderAddr string, go
 	gs.Params.FounderShareBps = 70000
 	gs.Params.FounderAddress = founderAddr
 	gs.Params.GovernanceActivationHeight = govHeight
+	gs.Params.BlockReward = "10000000"
+	gs.Params.FloorReward = "100000"
 	return setupKeeperWithBankAndGenesis(t, bk, &mockStakingKeeper{activeCount: 22}, gs)
 }
 
-func TestFounderAutoSplit(t *testing.T) {
-	// Block reward with founder: verify 7% of research goes to founder.
-	// Math (epoch 0, full validators):
-	//   Total minted:       10,000,000
-	//   Contributor 55%:    5,500,000
-	//   Protocol 22%:       2,200,000
-	//   Research 3.33%:     333,000
-	//   Development 19.67%: 1,967,000 (remainder)
-	//   Founder (7% of research): 333,000 * 70000 / 1000000 = 23,310
-	//   Net research:       333,000 - 23,310 = 309,690
+func TestFounderAutoSplitRetiredForLegacyState(t *testing.T) {
+	// Even a directly injected legacy state cannot activate the retired tap.
+	// The entire legacy automatic-reward method is inert, including founder,
+	// proposer, public-good, and protocol outputs.
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
@@ -1592,26 +1438,16 @@ func TestFounderAutoSplit(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	if dist.TotalMinted != "10000000" {
-		t.Errorf("expected total minted 10000000, got %s", dist.TotalMinted)
-	}
-	if dist.FounderShare != "23310" {
-		t.Errorf("expected founder share 23310, got %s", dist.FounderShare)
-	}
-	if dist.ResearchShare != "309690" {
-		t.Errorf("expected net research share 309690, got %s", dist.ResearchShare)
-	}
-	if dist.ProducerReward != "5500000" {
-		t.Errorf("expected producer reward 5500000, got %s", dist.ProducerReward)
+	if dist.TotalMinted != "0" || dist.FounderShare != "0" || dist.ResearchShare != "0" || dist.ProducerReward != "0" {
+		t.Fatalf("legacy founder/reward fields reactivated value: %+v", dist)
 	}
 
 	founderCoins := bk.sentToAccount[founderAddr]
-	if founderCoins.AmountOf("uzrn").Int64() != 23310 {
-		t.Errorf("expected 23310 uzrn to founder, got %d", founderCoins.AmountOf("uzrn").Int64())
+	if founderCoins.AmountOf("uzrn").Int64() != 0 {
+		t.Errorf("expected 0 uzrn to founder, got %d", founderCoins.AmountOf("uzrn").Int64())
 	}
-	researchCoins := bk.sentToModule["research_fund"]
-	if researchCoins.AmountOf("uzrn").Int64() != 309690 {
-		t.Errorf("expected 309690 uzrn to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
+	if len(bk.sentToModule) != 0 {
+		t.Errorf("retired automatic reward sent module funds: %v", bk.sentToModule)
 	}
 }
 
@@ -1625,18 +1461,15 @@ func TestFounderSplitDisabled(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	// Research 3.33% = 333000 (full, no founder deduction)
-	if dist.ResearchShare != "333000" {
-		t.Errorf("expected full research share 333000, got %s", dist.ResearchShare)
+	if dist.ResearchShare != "0" {
+		t.Errorf("retired automatic reward returned research share %s", dist.ResearchShare)
 	}
 	if dist.FounderShare != "0" {
 		t.Errorf("expected founder share 0 when disabled, got %s", dist.FounderShare)
 	}
 }
 
-func TestFounderSplitIgnoresDeprecatedActivationHeight(t *testing.T) {
-	// The automatic height sunset was removed. A nonzero configured share with
-	// an address remains active until governance changes the BPS.
+func TestFounderSplitRetiredRegardlessOfDeprecatedHeight(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
@@ -1647,19 +1480,17 @@ func TestFounderSplitIgnoresDeprecatedActivationHeight(t *testing.T) {
 		t.Fatalf("distribute block reward failed: %v", err)
 	}
 
-	// Configured founder share: 333000 * 70000 / 1000000 = 23310
-	if dist.FounderShare != "23310" {
-		t.Errorf("expected configured founder share 23310, got %s", dist.FounderShare)
+	if dist.FounderShare != "0" {
+		t.Errorf("expected retired founder share 0, got %s", dist.FounderShare)
 	}
-	// Net research: 333000 - 23310 = 309690
-	if dist.ResearchShare != "309690" {
-		t.Errorf("expected net research share 309690, got %s", dist.ResearchShare)
+	if dist.ResearchShare != "0" {
+		t.Errorf("retired automatic reward returned research share %s", dist.ResearchShare)
 	}
 }
 
 // ==================== DepositToResearchFund Tests ====================
 
-func TestDepositToResearchFund_BasicSplit(t *testing.T) {
+func TestDepositToResearchFund_RetiredFounderGetsNothing(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
@@ -1671,13 +1502,13 @@ func TestDepositToResearchFund_BasicSplit(t *testing.T) {
 	}
 
 	researchCoins := bk.sentToModule["research_fund"]
-	if researchCoins.AmountOf("uzrn").Int64() != 93000 {
-		t.Errorf("expected 93000 to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
+	if researchCoins.AmountOf("uzrn").Int64() != 100000 {
+		t.Errorf("expected 100000 to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
 	}
 
 	founderCoins := bk.sentToAccount[founderAddr]
-	if founderCoins.AmountOf("uzrn").Int64() != 7000 {
-		t.Errorf("expected 7000 to founder, got %d", founderCoins.AmountOf("uzrn").Int64())
+	if founderCoins.AmountOf("uzrn").Int64() != 0 {
+		t.Errorf("expected 0 to founder, got %d", founderCoins.AmountOf("uzrn").Int64())
 	}
 }
 
@@ -1701,9 +1532,7 @@ func TestDepositToResearchFund_NoFounderAddress(t *testing.T) {
 	}
 }
 
-func TestDepositToResearchFund_IgnoresDeprecatedActivationHeight(t *testing.T) {
-	// The deprecated height field does not switch off an otherwise active
-	// configured share; governance can still change the BPS.
+func TestDepositToResearchFund_RetiredRegardlessOfDeprecatedHeight(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 500)
@@ -1714,15 +1543,14 @@ func TestDepositToResearchFund_IgnoresDeprecatedActivationHeight(t *testing.T) {
 		t.Fatalf("DepositToResearchFund failed: %v", err)
 	}
 
-	// 7% founder: 100000 * 70000 / 1000000 = 7000; research: 93000
 	researchCoins := bk.sentToModule["research_fund"]
-	if researchCoins.AmountOf("uzrn").Int64() != 93000 {
-		t.Errorf("expected 93000 to research_fund with configured founder, got %d", researchCoins.AmountOf("uzrn").Int64())
+	if researchCoins.AmountOf("uzrn").Int64() != 100000 {
+		t.Errorf("expected 100000 to research_fund, got %d", researchCoins.AmountOf("uzrn").Int64())
 	}
 
 	founderCoins := bk.sentToAccount[founderAddr]
-	if founderCoins.AmountOf("uzrn").Int64() != 7000 {
-		t.Errorf("expected 7000 to configured founder, got %d", founderCoins.AmountOf("uzrn").Int64())
+	if founderCoins.AmountOf("uzrn").Int64() != 0 {
+		t.Errorf("expected 0 to configured founder, got %d", founderCoins.AmountOf("uzrn").Int64())
 	}
 }
 
@@ -1767,11 +1595,11 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 			if attrs["total"] != "100000" {
 				t.Errorf("expected total=100000, got %s", attrs["total"])
 			}
-			if attrs["research"] != "93000" {
-				t.Errorf("expected research=93000, got %s", attrs["research"])
+			if attrs["research"] != "100000" {
+				t.Errorf("expected research=100000, got %s", attrs["research"])
 			}
-			if attrs["founder"] != "7000" {
-				t.Errorf("expected founder=7000, got %s", attrs["founder"])
+			if attrs["founder"] != "0" {
+				t.Errorf("expected founder=0, got %s", attrs["founder"])
 			}
 		}
 	}
@@ -1780,9 +1608,7 @@ func TestDepositToResearchFund_EmitsEvent(t *testing.T) {
 	}
 }
 
-// ==================== Founder Share Governance Tests ====================
-// Design §10: FounderShareBps floats within [0, FounderShareCapBps] under
-// governance; FounderAddress stays immutable once set.
+// ==================== Retired Founder Share Governance Tests ====================
 
 func TestUpdateParamsRejectsUnsafeRewardConfiguration(t *testing.T) {
 	tests := []struct {
@@ -1799,6 +1625,24 @@ func TestUpdateParamsRejectsUnsafeRewardConfiguration(t *testing.T) {
 			name: "non-numeric block reward",
 			mutate: func(p *types.Params) {
 				p.BlockReward = "not-an-integer"
+			},
+		},
+		{
+			name: "transaction-presence block reward reactivated",
+			mutate: func(p *types.Params) {
+				p.BlockReward = "1"
+			},
+		},
+		{
+			name: "floor reward reactivated",
+			mutate: func(p *types.Params) {
+				p.FloorReward = "1"
+			},
+		},
+		{
+			name: "empty block reward reactivated",
+			mutate: func(p *types.Params) {
+				p.EmptyBlockRewardRate = 1
 			},
 		},
 		{
@@ -1866,141 +1710,67 @@ func TestUpdateParamsRejectsNilParams(t *testing.T) {
 
 func TestFounderShareGovernance(t *testing.T) {
 	founderAddr := sdk.AccAddress("founder_____________").String()
-	otherAddr := sdk.AccAddress("another_founder_____").String()
-
-	tests := []struct {
-		name         string
-		initialBps   uint64
-		initialAddr  string
-		proposedBps  uint64
-		proposedAddr string
-		wantErr      error
-	}{
-		{
-			name:         "lower share accepted",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  50000,
-			proposedAddr: founderAddr,
+	for _, mutate := range []func(*types.Params){
+		func(params *types.Params) { params.FounderShareBps = 1 },
+		func(params *types.Params) { params.FounderAddress = founderAddr },
+		func(params *types.Params) {
+			params.FounderShareBps = 70_000
+			params.FounderAddress = founderAddr
 		},
-		{
-			name:         "zero share accepted",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  0,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "restore share to founding cap accepted",
-			initialBps:   0,
-			initialAddr:  founderAddr,
-			proposedBps:  types.FounderShareCapBps,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "identical values accepted",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  70000,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "initial set accepted",
-			initialBps:   0,
-			initialAddr:  "",
-			proposedBps:  70000,
-			proposedAddr: founderAddr,
-		},
-		{
-			name:         "raise above founding cap rejected",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  types.FounderShareCapBps + 1,
-			proposedAddr: founderAddr,
-			wantErr:      types.ErrFounderShareCapExceeded,
-		},
-		{
-			name:         "raise above cap from zeroed share rejected",
-			initialBps:   0,
-			initialAddr:  founderAddr,
-			proposedBps:  80000,
-			proposedAddr: founderAddr,
-			wantErr:      types.ErrFounderShareCapExceeded,
-		},
-		{
-			name:         "address change rejected",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  70000,
-			proposedAddr: otherAddr,
-			wantErr:      types.ErrFounderAddressImmutable,
-		},
-		{
-			name:         "address change alongside share lowering rejected",
-			initialBps:   70000,
-			initialAddr:  founderAddr,
-			proposedBps:  10000,
-			proposedAddr: otherAddr,
-			wantErr:      types.ErrFounderAddressImmutable,
-		},
+	} {
+		ms, k, ctx := setupMsgServer(t)
+		proposed := types.DefaultParams()
+		mutate(proposed)
+		if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: "authority",
+			Params:    proposed,
+		}); err == nil {
+			t.Fatal("governance reactivated a retired founder field")
+		}
+		stored := k.GetParams(ctx)
+		if stored.FounderShareBps != 0 || stored.FounderAddress != "" {
+			t.Fatalf("rejected update mutated retired fields: %+v", stored)
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			bk := newMockBankKeeper()
-			gs := types.DefaultGenesis()
-			gs.Params.FounderShareBps = tt.initialBps
-			gs.Params.FounderAddress = tt.initialAddr
-			k, ctx := setupKeeperWithBankAndGenesis(t, bk, &mockStakingKeeper{activeCount: 22}, gs)
+	ms, k, ctx := setupMsgServer(t)
+	if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+		Authority: "authority",
+		Params:    types.DefaultParams(),
+	}); err != nil {
+		t.Fatalf("zero/empty compatibility fields should remain updateable: %v", err)
+	}
+	if params := k.GetParams(ctx); params.FounderShareBps != 0 || params.FounderAddress != "" {
+		t.Fatalf("retired fields changed: %+v", params)
+	}
+}
 
-			ms := keeper.NewMsgServerImpl(k)
-
-			newParams := types.DefaultParams()
-			newParams.FounderShareBps = tt.proposedBps
-			newParams.FounderAddress = tt.proposedAddr
-
-			_, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
-				Authority: "authority",
-				Params:    newParams,
-			})
-
-			if tt.wantErr != nil {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if err != tt.wantErr {
-					t.Fatalf("expected %v, got %v", tt.wantErr, err)
-				}
-				// Rejected proposals must not mutate stored params.
-				params := k.GetParams(ctx)
-				if params.FounderShareBps != tt.initialBps {
-					t.Errorf("expected FounderShareBps unchanged at %d, got %d", tt.initialBps, params.FounderShareBps)
-				}
-				if params.FounderAddress != tt.initialAddr {
-					t.Errorf("expected FounderAddress unchanged at %q, got %q", tt.initialAddr, params.FounderAddress)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("expected success, got: %v", err)
-			}
-			params := k.GetParams(ctx)
-			if params.FounderShareBps != tt.proposedBps {
-				t.Errorf("expected FounderShareBps %d, got %d", tt.proposedBps, params.FounderShareBps)
-			}
-			if params.FounderAddress != tt.proposedAddr {
-				t.Errorf("expected FounderAddress %s, got %s", tt.proposedAddr, params.FounderAddress)
-			}
-		})
+func TestGovernanceCannotAdvertiseRetiredRewardScheduleChanges(t *testing.T) {
+	for _, mutate := range []func(*types.Params){
+		func(params *types.Params) { params.RewardDecayBps-- },
+		func(params *types.Params) { params.BlocksPerRewardEpoch++ },
+		func(params *types.Params) { params.MinValidatorsForFullReward++ },
+		func(params *types.Params) { params.KnowledgeCouplingTargetBps-- },
+		func(params *types.Params) { params.KnowledgeCouplingFloorBps-- },
+	} {
+		ms, k, ctx := setupMsgServer(t)
+		before := k.GetParams(ctx)
+		proposed := proto.Clone(before).(*types.Params)
+		mutate(proposed)
+		if _, err := ms.UpdateParams(ctx, &types.MsgUpdateParams{
+			Authority: "authority",
+			Params:    proposed,
+		}); err == nil {
+			t.Fatal("governance changed an inert retired reward-schedule field")
+		}
+		require.True(t, proto.Equal(before, k.GetParams(ctx)),
+			"rejected inert-field update mutated state")
 	}
 }
 
 // ==================== Founder Withdraw-Address Routing Tests ====================
 
-func TestDepositToResearchFund_FounderPaidAtWithdrawAddress(t *testing.T) {
-	// Design §8b: the founder share is paid to the x/distribution withdraw
-	// address of FounderAddress, not to FounderAddress directly.
+func TestDepositToResearchFund_NoFounderWithdrawAddressRouting(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________")
 	withdrawAddr := sdk.AccAddress("founder_withdraw____")
@@ -2014,18 +1784,15 @@ func TestDepositToResearchFund_FounderPaidAtWithdrawAddress(t *testing.T) {
 		t.Fatalf("DepositToResearchFund failed: %v", err)
 	}
 
-	// Founder 7% of 100000 = 7000, routed to the withdraw address.
-	if got := bk.sentToAccount[withdrawAddr.String()].AmountOf("uzrn").Int64(); got != 7000 {
-		t.Errorf("expected 7000 uzrn at withdraw address, got %d", got)
+	if got := bk.sentToAccount[withdrawAddr.String()].AmountOf("uzrn").Int64(); got != 0 {
+		t.Errorf("expected 0 uzrn at withdraw address, got %d", got)
 	}
 	if _, ok := bk.sentToAccount[founderAddr.String()]; ok {
 		t.Errorf("founder share paid to FounderAddress directly despite withdraw mapping: %v", bk.sentToAccount[founderAddr.String()])
 	}
 }
 
-func TestDepositToResearchFund_FounderDefaultWithdrawAddressIsSelf(t *testing.T) {
-	// When no withdraw mapping is set, x/distribution defaults to the
-	// delegator itself — the founder is paid directly.
+func TestDepositToResearchFund_NoFounderDefaultRouting(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________")
 	k, ctx := setupFounderKeeper(t, bk, founderAddr.String(), 0)
@@ -2036,8 +1803,8 @@ func TestDepositToResearchFund_FounderDefaultWithdrawAddressIsSelf(t *testing.T)
 		t.Fatalf("DepositToResearchFund failed: %v", err)
 	}
 
-	if got := bk.sentToAccount[founderAddr.String()].AmountOf("uzrn").Int64(); got != 7000 {
-		t.Errorf("expected 7000 uzrn at founder address, got %d", got)
+	if got := bk.sentToAccount[founderAddr.String()].AmountOf("uzrn").Int64(); got != 0 {
+		t.Errorf("expected 0 uzrn at founder address, got %d", got)
 	}
 }
 
@@ -2127,7 +1894,7 @@ func TestResolveProposerRewardAddress_NoStakingKeeper(t *testing.T) {
 
 // ==================== BeginBlock Proposer Remap Tests ====================
 
-func TestBeginBlock_ProposerRewardLandsAtOperator(t *testing.T) {
+func TestBeginBlock_DoesNotMintForTransactionPresence(t *testing.T) {
 	consAddr1 := sdk.ConsAddress("consaddr1___________")
 	consAddr2 := sdk.ConsAddress("consaddr2___________")
 	op1 := sdk.ValAddress("operator1___________")
@@ -2147,37 +1914,22 @@ func TestBeginBlock_ProposerRewardLandsAtOperator(t *testing.T) {
 	cdc := codec.NewProtoCodec(registry)
 	am := vestingrewards.NewAppModule(cdc, k)
 
-	// PotPreBlocker equivalent: mark the block as carrying user transactions.
-	// Set AFTER NewAppModule copies the keeper — the count is shared state.
-	k.SetBlockTxCount(1)
-
-	blocks := []struct {
-		cons sdk.ConsAddress
-		op   sdk.ValAddress
-	}{
-		{consAddr1, op1},
-		{consAddr2, op2},
+	blocks := []sdk.ConsAddress{
+		consAddr1,
+		consAddr2,
 	}
-	for _, blk := range blocks {
-		blockCtx := ctx.WithBlockHeader(cmtproto.Header{Height: 1000, ProposerAddress: blk.cons})
+	for _, cons := range blocks {
+		blockCtx := ctx.WithBlockHeader(cmtproto.Header{Height: 1000, ProposerAddress: cons})
 		if err := am.BeginBlock(blockCtx); err != nil {
 			t.Fatalf("BeginBlock failed: %v", err)
 		}
 	}
 
-	// Contributor share: 10,000,000 * 55% = 5,500,000 uzrn per block, paid to
-	// each proposer's OPERATOR account.
-	for _, op := range []sdk.ValAddress{op1, op2} {
-		opAcc := sdk.AccAddress(op).String()
-		if got := bk.sentToAccount[opAcc].AmountOf("uzrn").Int64(); got != 5_500_000 {
-			t.Errorf("expected 5500000 uzrn producer reward at operator %s, got %d", opAcc, got)
-		}
+	if !bk.mintedCoins.IsZero() {
+		t.Fatalf("transaction presence must not mint coins, minted %v", bk.mintedCoins)
 	}
-	// Nothing may land at the raw consensus addresses (unspendable).
-	for _, cons := range []sdk.ConsAddress{consAddr1, consAddr2} {
-		if coins, ok := bk.sentToAccount[sdk.AccAddress(cons).String()]; ok {
-			t.Errorf("reward paid to unspendable consensus address %s: %v", cons, coins)
-		}
+	if len(bk.sentToAccount) != 0 {
+		t.Fatalf("transaction presence must not pay proposer or operator accounts, got %v", bk.sentToAccount)
 	}
 }
 
@@ -2190,8 +1942,6 @@ func TestBeginBlock_UnresolvableProposerSkipsReward(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
 	am := vestingrewards.NewAppModule(cdc, k)
-	k.SetBlockTxCount(1)
-
 	blockCtx := ctx.WithBlockHeader(cmtproto.Header{Height: 1000, ProposerAddress: sdk.ConsAddress("unknown_cons________")})
 	if err := am.BeginBlock(blockCtx); err != nil {
 		t.Fatalf("BeginBlock should skip, not fail: %v", err)
@@ -2205,9 +1955,9 @@ func TestBeginBlock_UnresolvableProposerSkipsReward(t *testing.T) {
 	}
 }
 
-func TestNoAutomaticHeightSunset(t *testing.T) {
-	// The deprecated height does not create an automatic sunset. This test does
-	// not constrain governance's separate ability to change FounderShareBps.
+func TestFounderShareRetiredAtEveryHeight(t *testing.T) {
+	// Directly injected legacy fields remain inert at every height. Consensus
+	// v2 additionally clears them during migration and refuses reactivation.
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 
@@ -2221,8 +1971,8 @@ func TestNoAutomaticHeightSunset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("block 1 reward failed: %v", err)
 	}
-	if dist1.FounderShare == "0" {
-		t.Error("expected founder share active at block 1 (no sunset)")
+	if dist1.FounderShare != "0" {
+		t.Errorf("expected founder share retired at block 1, got %s", dist1.FounderShare)
 	}
 
 	// Test at block 10000 (well after activation height)
@@ -2233,8 +1983,8 @@ func TestNoAutomaticHeightSunset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("block 10000 reward failed: %v", err)
 	}
-	if dist2.FounderShare == "0" {
-		t.Error("expected founder share active at block 10000 (no sunset)")
+	if dist2.FounderShare != "0" {
+		t.Errorf("expected founder share retired at block 10000, got %s", dist2.FounderShare)
 	}
 
 	// Both should yield the same founder share amount
@@ -2265,7 +2015,7 @@ func TestQueryResearchFundBalance(t *testing.T) {
 	}
 }
 
-func TestQueryFounderShareStatus_Active(t *testing.T) {
+func TestQueryFounderShareStatus_LegacyFieldsRemainInactive(t *testing.T) {
 	bk := newMockBankKeeper()
 	founderAddr := sdk.AccAddress("founder_____________").String()
 	k, ctx := setupFounderKeeper(t, bk, founderAddr, 0)
@@ -2276,8 +2026,8 @@ func TestQueryFounderShareStatus_Active(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FounderShareStatus query failed: %v", err)
 	}
-	if !resp.Active {
-		t.Error("expected founder share to be active")
+	if resp.Active {
+		t.Error("retired founder share must remain inactive")
 	}
 	if resp.FounderShareBps != 70000 {
 		t.Errorf("expected 70000 bps, got %d", resp.FounderShareBps)
@@ -2288,8 +2038,7 @@ func TestQueryFounderShareStatus_Active(t *testing.T) {
 }
 
 func TestQueryFounderShareStatus_Inactive(t *testing.T) {
-	bk := newMockBankKeeper()
-	k, ctx := setupFounderKeeper(t, bk, "", 0)
+	k, ctx := setupKeeper(t)
 
 	qs := keeper.NewQueryServerImpl(k)
 
@@ -2298,7 +2047,10 @@ func TestQueryFounderShareStatus_Inactive(t *testing.T) {
 		t.Fatalf("FounderShareStatus query failed: %v", err)
 	}
 	if resp.Active {
-		t.Error("expected founder share to be inactive with empty address")
+		t.Error("expected founder share to be inactive")
+	}
+	if resp.FounderShareBps != 0 || resp.FounderAddress != "" {
+		t.Fatalf("retired compatibility fields are not zero/empty: %+v", resp)
 	}
 }
 
@@ -2336,8 +2088,8 @@ func TestQuerySupplyCouplingAudit_NilKnowledgeKeeper(t *testing.T) {
 	if resp.CouplingEnabled {
 		t.Error("coupling must be disabled when knowledge keeper is nil")
 	}
-	if resp.EffectiveCouplingMultiplierBps != 1_000_000 {
-		t.Errorf("expected full multiplier when coupling disabled, got %d", resp.EffectiveCouplingMultiplierBps)
+	if resp.EffectiveCouplingMultiplierBps != 0 {
+		t.Errorf("retired coupling multiplier must be zero, got %d", resp.EffectiveCouplingMultiplierBps)
 	}
 	if resp.MaxSupply != types.MaxSupplyUzrn {
 		t.Errorf("expected max supply %s, got %s", types.MaxSupplyUzrn, resp.MaxSupply)
@@ -2356,11 +2108,11 @@ func TestQuerySupplyCouplingAudit_RateAboveTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SupplyCouplingAudit failed: %v", err)
 	}
-	if !resp.CouplingEnabled {
-		t.Error("coupling must be enabled when target > 0 and keeper wired")
+	if resp.CouplingEnabled {
+		t.Error("retired coupling must remain disabled when telemetry is wired")
 	}
-	if resp.EffectiveCouplingMultiplierBps != 1_000_000 {
-		t.Errorf("at/above target → full multiplier, got %d", resp.EffectiveCouplingMultiplierBps)
+	if resp.EffectiveCouplingMultiplierBps != 0 {
+		t.Errorf("retired coupling multiplier must be zero, got %d", resp.EffectiveCouplingMultiplierBps)
 	}
 	if resp.VerificationRateBps != 850_000 {
 		t.Errorf("expected verification rate 850000, got %d", resp.VerificationRateBps)
@@ -2372,7 +2124,7 @@ func TestQuerySupplyCouplingAudit_RateBelowTarget(t *testing.T) {
 	sk := &mockStakingKeeper{activeCount: 22}
 	k, ctx := setupKeeperWithBank(t, bk, sk)
 
-	// Survival rate 350k, target 700k → multiplier = 500k (at floor).
+	// Legacy rate telemetry remains visible but no multiplier is applied.
 	k.SetKnowledgeKeeper(&stubKnowledgeKeeper{rate: 350_000, survivedRate: 350_000})
 	qs := keeper.NewQueryServerImpl(k)
 
@@ -2380,10 +2132,8 @@ func TestQuerySupplyCouplingAudit_RateBelowTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SupplyCouplingAudit failed: %v", err)
 	}
-	// 350k/700k = 500k which is the configured floor; floor kicks in.
-	if resp.EffectiveCouplingMultiplierBps != resp.KnowledgeCouplingFloorBps {
-		t.Errorf("below target → floor multiplier, expected %d got %d",
-			resp.KnowledgeCouplingFloorBps, resp.EffectiveCouplingMultiplierBps)
+	if resp.CouplingEnabled || resp.EffectiveCouplingMultiplierBps != 0 {
+		t.Errorf("legacy telemetry reactivated coupling: %+v", resp)
 	}
 }
 
@@ -2408,12 +2158,8 @@ func TestQuerySupplyCouplingAudit_UsesSurvivalRateForAppliedMultiplier(t *testin
 	if resp.SurvivedChallengeRateBps != 350_000 {
 		t.Fatalf("survival rate = %d, want 350000", resp.SurvivedChallengeRateBps)
 	}
-	if resp.EffectiveCouplingMultiplierBps != resp.KnowledgeCouplingFloorBps {
-		t.Fatalf(
-			"multiplier must follow survival rate: got %d, floor %d",
-			resp.EffectiveCouplingMultiplierBps,
-			resp.KnowledgeCouplingFloorBps,
-		)
+	if resp.CouplingEnabled || resp.EffectiveCouplingMultiplierBps != 0 {
+		t.Fatalf("observed survival rate reactivated retired coupling: %+v", resp)
 	}
 }
 

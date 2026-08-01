@@ -97,11 +97,12 @@ have not been checked against the selected release.
 The consolidated source includes consensus-visible knowledge, vesting, and
 substrate hardening. Existing networks require the coordinated
 `consolidation-safety-v1` upgrade before that behavior can become active.
-The source-approved liquiditypool v4 release then requires the distinct,
-later `liquiditypool-safety-v2` readiness checkpoint. The earlier handler is
-expected to run the v3→v4 module migration and activate its semantics; neither
-that transition nor the later marker authorizes native pool creation or oracle
-allowlisting.
+That one atomic H1 boundary also advances liquiditypool v3→v5 and
+vesting_rewards v1→v2. The target keeps every swap fee in pool reserves for
+bearer LP shares, retires the founder auto-split, and retires the
+proposer-controlled transaction-presence mint. The H1 binary must not register
+the removed `liquiditypool-safety-v2` H2 handler. H1 still does not authorize
+native pool creation or oracle allowlisting.
 
 Before activation:
 
@@ -114,11 +115,15 @@ Before activation:
 
 Publishing the source commit is not the upgrade.
 
-Before the ordered two-upgrade sequence, the release packet must bind a
-same-height query proving zero native pools and an empty billing quote-denom
-allowlist. Positive legacy pools migrate `EXIT_ONLY`, so holders may withdraw
-without silently enabling swaps, deposits, or oracle use; any existing pool
-still requires a separately reviewed transition. See
+Before H1, the release packet must bind a same-height snapshot containing the
+chain ID, height, app hash, module-version map, liquidity and vesting_rewards
+Params, module-account balances and permissions, every native pool and LP bank
+supply, and the billing quote-denom allowlist. Positive legacy pools migrate
+`EXIT_ONLY`, so holders may withdraw without silently enabling swaps, deposits,
+or oracle use; any existing pool still requires a separately reviewed
+transition. After H1, verify liquiditypool v5, vesting_rewards v2, zero retired
+fields, unchanged economic custody, empty admission lists, the applied plan,
+handler marker, and matching validator app hashes. See
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md) for the full
 invariant, lifecycle, PPM, governance, and external-Osmosis separation gates.
 

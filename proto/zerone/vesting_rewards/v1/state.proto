@@ -18,7 +18,7 @@ message VestingSchedule {
   string status              = 11; // "vesting", "paused", "completed", "falsified", "abandoned"
   uint64 accepted_at_block   = 12; // when claim was accepted
   uint64 cliff_ends_at_block = 13; // when cliff period ends
-  uint64 last_claim_block    = 14; // last block rewards were claimed
+  uint64 last_claim_block    = 14; // last block at which vested value was claimed
   uint64 total_paused_blocks = 15; // total blocks spent paused
   uint64 paused_at_block     = 16; // block when paused (0 if not paused)
   uint32 defense_count         = 17; // successful defenses (accelerates)
@@ -56,13 +56,13 @@ message RewardRouting {
   string recipient         = 7; // bech32 recipient address
   string fact_id           = 8; // related fact
   uint64 block_number      = 9; // block height
-  string founder_share     = 10; // founder's operational share (bigint as string)
+  string founder_share     = 10; // retired compatibility output; always "0"
   string citation_pool     = 11; // protocol sub-split: citations (bigint as string)
   string verification_pool = 12; // protocol sub-split: verification (bigint as string)
   string treasury_share    = 13; // protocol sub-split: treasury (bigint as string)
 }
 
-// BlockRewardDistribution records block reward distribution for a specific block.
+// BlockRewardDistribution preserves a historical pre-v2 block reward record.
 message BlockRewardDistribution {
   uint64 block_height       = 1; // block number
   string producer_reward    = 2; // reward to block producer (bigint as string)
@@ -72,7 +72,9 @@ message BlockRewardDistribution {
   // Legacy field name: cumulative shared MintWithCap accounting ledger after
   // this distribution, not a spendable fund balance or full supply history.
   string fund_balance_after = 6;
-  string founder_share      = 7; // founder's operational share (bigint as string)
+  // Retired compatibility output. Zero for v2-created values; historical
+  // records are preserved unchanged by migration.
+  string founder_share      = 7;
   string development_amount  = 8; // development fund amount (bigint as string)
   string protocol_share     = 9; // protocol share (bigint as string)
 }
