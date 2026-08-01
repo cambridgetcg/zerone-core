@@ -314,7 +314,9 @@ func (m msgServer) UpdateParams(
 		return nil, err
 	}
 
-	m.Keeper.SetParams(ctx, msg.Params)
+	if err := m.Keeper.SetParams(ctx, msg.Params); err != nil {
+		return nil, fmt.Errorf("store vesting_rewards params: %w", err)
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.vesting_rewards.update_params",

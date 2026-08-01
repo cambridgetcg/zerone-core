@@ -502,11 +502,11 @@ describe("Math Frontier presentation helpers", () => {
     );
     assert.match(
       mainSource,
-      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*quantumSeasonReady,\s*mathFrontierReady,\s*lifeGardenReady,\s*\]\)\.then\(alignInitialHash\)/,
+      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*lifeSciencesTreeReady,\s*quantumSeasonReady,\s*mathFrontierReady,\s*lifeGardenReady,\s*\]\)\.then\(alignInitialHash\)/,
     );
     assert.match(
       mainSource,
-      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*quantumSeasonReady,\s*mathFrontierReady,\s*lifeGardenReady,\s*initialNetworkReady,\s*\]\)\.then\(alignInitialHash\)/,
+      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*lifeSciencesTreeReady,\s*quantumSeasonReady,\s*mathFrontierReady,\s*lifeGardenReady,\s*initialNetworkReady,\s*\]\)\.then\(alignInitialHash\)/,
     );
   });
 });

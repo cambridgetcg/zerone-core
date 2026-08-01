@@ -40,6 +40,13 @@ func init() {
 
 func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 	t.Helper()
+	k, ctx := setupUninitializedKeeper(t)
+	k.InitGenesis(ctx, types.DefaultGenesis())
+	return k, ctx
+}
+
+func setupUninitializedKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
+	t.Helper()
 
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 
@@ -55,10 +62,6 @@ func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 
 	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(storeKey), nil, nil, "authority")
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
-
-	gs := types.DefaultGenesis()
-	k.InitGenesis(ctx, gs)
-
 	return k, ctx
 }
 
@@ -633,10 +636,31 @@ func setupKeeperWithBankAndGenesis(t *testing.T, bk *mockBankKeeper, sk *mockSta
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
 
-	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(storeKey), bk, sk, "authority")
+	storeService := runtime.NewKVStoreService(storeKey)
+	k := keeper.NewKeeper(cdc, storeService, bk, sk, "authority")
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
-	k.InitGenesis(ctx, gs)
+	params := proto.Clone(gs.Params).(*types.Params)
+	if err := types.ValidateParams(params); err != nil {
+		// A few compatibility tests deliberately exercise exact v1 bytes. Enter
+		// all unrelated genesis state through the validated v2 path, then replace
+		// only Params in the test store. Production callers have no equivalent
+		// bypass; the real migrator must strict-read these legacy bytes.
+		safeGenesis := proto.Clone(gs).(*types.GenesisState)
+		safeGenesis.Params.FounderShareBps = 0
+		safeGenesis.Params.FounderAddress = ""
+		safeGenesis.Params.BlockReward = "0"
+		safeGenesis.Params.FloorReward = "0"
+		safeGenesis.Params.EmptyBlockRewardRate = 0
+		require.NoError(t, types.ValidateParams(safeGenesis.Params))
+		k.InitGenesis(ctx, safeGenesis)
+
+		bz, marshalErr := proto.Marshal(params)
+		require.NoError(t, marshalErr)
+		require.NoError(t, storeService.OpenKVStore(ctx).Set(types.ParamsKey, bz))
+	} else {
+		k.InitGenesis(ctx, gs)
+	}
 
 	return k, ctx
 }
@@ -1055,22 +1079,9 @@ func setupMintKeeper(t *testing.T, bk *mockBankKeeper, totalMinted string, block
 	gs.Params.FloorReward = "100000"
 	gs.Params.InitialFundBalance = totalMinted
 
-	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
-	db := dbm.NewMemDB()
-	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
-	stateStore.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
-	if err := stateStore.LoadLatestVersion(); err != nil {
-		t.Fatalf("failed to load latest version: %v", err)
-	}
-
-	registry := codectypes.NewInterfaceRegistry()
-	cdc := codec.NewProtoCodec(registry)
 	sk := &mockStakingKeeper{activeCount: 22}
-
-	k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(storeKey), bk, sk, "authority")
-	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: blockHeight}, false, log.NewNopLogger())
-
-	k.InitGenesis(ctx, gs)
+	k, ctx := setupKeeperWithBankAndGenesis(t, bk, sk, gs)
+	ctx = ctx.WithBlockHeight(blockHeight)
 
 	if totalMinted != "" && totalMinted != "0" {
 		amt, ok := new(big.Int).SetString(totalMinted, 10)
@@ -1252,7 +1263,7 @@ func TestExportGenesis_PreservesTerminalSchedulesAndHistory(t *testing.T) {
 	if err := proto.Unmarshal(bz, &restored); err != nil {
 		t.Fatalf("unmarshal exported genesis: %v", err)
 	}
-	k2, ctx2 := setupKeeper(t)
+	k2, ctx2 := setupUninitializedKeeper(t)
 	k2.InitGenesis(ctx2, &restored)
 
 	for _, schedule := range schedules {
@@ -1306,7 +1317,7 @@ func TestExportGenesis_PreservesExplicitClaimIndexWithDuplicateLegacyClaims(t *t
 	var restored types.GenesisState
 	require.NoError(t, proto.Unmarshal(bz, &restored))
 
-	k2, ctx2 := setupKeeper(t)
+	k2, ctx2 := setupUninitializedKeeper(t)
 	k2.InitGenesis(ctx2, &restored)
 	after, found := k2.GetVestingByClaimId(ctx2, "legacy-duplicate-claim")
 	require.True(t, found)

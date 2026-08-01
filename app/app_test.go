@@ -20,6 +20,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 // newTestApp creates a ZeroneApp wired to an in-memory database.
@@ -122,10 +123,15 @@ func TestDefaultGenesis(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, bz)
 
-	for _, moduleName := range []string{"auth", "bank", "staking", "distribution", "gov", "upgrade"} {
+	for _, moduleName := range []string{"auth", "bank", "staking", "distribution", "gov", "upgrade", vestingrewardstypes.ModuleName} {
 		_, ok := genState[moduleName]
 		require.True(t, ok, "expected module %q in default genesis", moduleName)
 	}
+
+	var vestingGenesis vestingrewardstypes.GenesisState
+	require.NoError(t, json.Unmarshal(genState[vestingrewardstypes.ModuleName], &vestingGenesis))
+	require.NotNil(t, vestingGenesis.Params)
+	require.NoError(t, vestingrewardstypes.ValidateParams(vestingGenesis.Params))
 }
 
 // TestExportGenesis verifies the default genesis JSON round-trips correctly

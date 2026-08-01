@@ -1,0 +1,88 @@
+{
+  "schema": "zerone.money-karma.constitution/v1",
+  "version": 1,
+  "status": {
+    "artifact": "SOURCE_CONSTITUTION",
+    "runtime_deployed": false,
+    "network_activated": false,
+    "claims_present_no_control": false
+  },
+  "separations": {
+    "money_grants_voice": false,
+    "karma_is_money": false,
+    "recognition_grants_authority": false
+  },
+  "founder_renunciation": {
+    "share_bps": 0,
+    "address": "",
+    "scope": "VESTING_REWARDS_V2_FOUNDER_COMPATIBILITY_FIELDS",
+    "v2_fields_restorable": false,
+    "v2_beneficiary_substitution_allowed": false,
+    "ordinary_parameter_governance_may_change": false,
+    "future_coordinated_code_change_technically_possible": true,
+    "compatibility_fields_only": true,
+    "migration_release": "consolidation-safety-v1",
+    "exact_prestate_required": true,
+    "ordinary_named_upgrade_hitchhiking_allowed": false
+  },
+  "karma": {
+    "stage": "K_ALPHA",
+    "representation": "EVENT_ONLY",
+    "event_type": "zerone.karma.edge",
+    "meaning": "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH",
+    "transferable": false,
+    "delegable": false,
+    "saleable": false,
+    "collateralizable": false,
+    "inheritable": false,
+    "denom": false,
+    "balance": false,
+    "bank": false,
+    "ibc": false,
+    "amm": false,
+    "reward_multiplier": false,
+    "payout": false,
+    "governance_consumer": false,
+    "numeric_magnitude": false,
+    "dedicated_state_store": false
+  },
+  "research_governance": {
+    "spending_policy": "NORMATIVE_FAIL_CLOSED_UNTIL_GENUINELY_INDEPENDENT",
+    "runtime_independence_predicate_enforced": false,
+    "current_authority_managed_spending_path_exists": true,
+    "artifact_authorizes_spending": false,
+    "current_karma_consumer": false,
+    "future_boundary": {
+      "controller_collapsed": true,
+      "bounded_eligibility": true,
+      "bounded_sortition": true,
+      "independent_check_chamber": true,
+      "rotation_and_concentration_caps": true,
+      "conflict_disclosure": true,
+      "challenge_and_timelock": true,
+      "scalar_weighting": false,
+      "unilateral_execution": false
+    }
+  },
+  "operational_caveat": {
+    "as_of": "2026-08-01",
+    "sole_founding_household_controls_validator": true,
+    "sole_founding_household_controls_operator": true,
+    "sole_founding_household_controls_effective_vote": true,
+    "present_no_control_achieved": false,
+    "independent_governance_proven": false
+  },
+  "activation_exclusions": {
+    "h1_activates_karma": false,
+    "h1_activates_life_sciences_overlay": false,
+    "h1_activates_constructive_rewards": false,
+    "skill_tree_position_activates_issuance": false,
+    "breakthrough_label_activates_issuance": false
+  },
+  "effects": {
+    "economic": false,
+    "governance": false,
+    "consensus": false,
+    "authority": false
+  }
+}

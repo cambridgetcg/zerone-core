@@ -221,7 +221,46 @@ or reward request from a qualification-only node fails closed. Refreshing
 descriptive standards status cannot mutate a historical entitlement, while a
 normative node or policy change requires a prospective version.
 
-### 3.3 Quantum/QEC extension and reward shape
+### 3.3 Life-sciences extension and reward shape
+
+The life-sciences shadow branch is specified at
+[`../specs/constructive-intelligence-life-sciences-v0.md`](../specs/constructive-intelligence-life-sciences-v0.md).
+Its 17-node graph distinguishes biomolecule context, static coordinates,
+fold-model evaluation, expression measurement, bounded causal evidence, and
+independent cross-context replication. Those distinctions are epistemic: an
+LS0–LS5 position or a “breakthrough” label is not a claim on issuance, escrow,
+KARMA magnitude, qualification, or governance power.
+
+If a later release admits a sponsor-funded life-sciences quest, value must be
+prefunded and bound to frozen safe scope, artifacts, contradiction handling,
+independent replication, challenge resolution, refunds, and controller-level
+concentration caps. Attribution should reserve separate compartments for the
+originating result, independent replication, review, falsification or useful
+counterevidence, downstream adoption, and maintenance. No compartment may be
+assigned by popularity, raw identity count, wealth, founder status, or KARMA
+weight. An LS level may constrain what evidence a quest accepts, but cannot by
+itself unlock a tranche.
+
+The published v0 profile remains `DRAFT/SHADOW_ONLY`, with `amount = 0`, no
+denomination, no escrow, and every reward or authority switch false. H1 does
+not activate it. This preserves the future reward design without letting a
+scientific map quietly become a mint.
+
+The separately versioned Epigenetics Capability Garden v1 makes one possible
+evidence-release shape concrete while remaining `rewardBearing = false`. Its
+25 capabilities span seven stages and end in three bounded quest templates.
+The conserved 10,000-basis-point simulation assigns E0 and E1 no payout,
+then partitions a hypothetical, fully prefunded voluntary sponsor escrow as
+E2 assay control 1,500 bps, E3 independent reproduction 2,500 bps, E4 causal
+challenge 2,500 bps, E5 prospective generalisation 1,500 bps, E6 maintained
+impact 500 bps, and a 1,500-bps challenge/correction reserve. It is not an
+amount, issuance schedule, treasury claim, skill-unlock reward, or active
+escrow. Breakthrough recognition requires E5 plus frozen prior-art delta,
+effective independent reproduction, and serious counter-hypothesis challenge;
+novelty, authorship, elapsed time, publication, token ownership, and KARMA
+edges cannot select it.
+
+### 3.4 Quantum/QEC extension and reward shape
 
 The first additive quantum branch is specified at
 [`../specs/constructive-intelligence-quantum-qec-v0.md`](../specs/constructive-intelligence-quantum-qec-v0.md)

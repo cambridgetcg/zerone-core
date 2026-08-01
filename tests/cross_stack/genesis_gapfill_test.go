@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 
@@ -24,6 +25,7 @@ import (
 	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 	tokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
+	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -240,6 +242,18 @@ func TestKeeperGenesisRoundTrip_VestingRewards(t *testing.T) {
 		"RewardDecayBps must survive round-trip")
 	require.Equal(t, defaults.BlocksPerRewardEpoch, exported.Params.BlocksPerRewardEpoch,
 		"BlocksPerRewardEpoch must survive round-trip")
+}
+
+// The public parameter query is intentionally strict: it must observe the
+// value persisted by InitGenesis rather than GetParams' compatibility default.
+func TestFreshGenesisPersistsVestingRewardsParams(t *testing.T) {
+	h := NewTestHarness(t)
+
+	queries := vestingrewardskeeper.NewQueryServerImpl(h.VestingRewardsKeeper)
+	response, err := queries.Params(h.Ctx, &vestingrewardstypes.QueryParamsRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, response.Params)
+	require.True(t, proto.Equal(vestingrewardstypes.DefaultParams(), response.Params))
 }
 
 // ---------------------------------------------------------------------------

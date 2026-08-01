@@ -157,12 +157,34 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 	if !app.UpgradeKeeper.HasHandler(name) {
 		return nil, fmt.Errorf("no upgrade handler registered for %q", name)
 	}
+	plan := upgradetypes.Plan{Name: name, Height: height, Info: info}
+	// Preflight against the caller's exact map before SetModuleVersionMap's
+	// additive write can silently repopulate an omitted entry. The SDK/IBC
+	// transition legitimately contains retired capability and feeibc entries,
+	// so it uses its own exact source guards rather than the H1 target-map guard.
+	if plan.Name == UpgradeNameSDK053IBC10 {
+		if _, err := parseSDK053IBC10PlanInfo(plan.Info); err != nil {
+			return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
+		}
+		if err := app.requireConsolidationActivationBoundary(ctx, plan.Name, fromVM); err != nil {
+			return nil, err
+		}
+		if err := requireActivationSafetySourceVersions(plan.Name, fromVM); err != nil {
+			return nil, err
+		}
+		if err := requireSDK053IBC10SourceVersions(plan.Name, fromVM); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, err := app.validateMigrationBoundaryForPlan(plan, fromVM); err != nil {
+			return nil, fmt.Errorf("validate upgrade boundary: %w", err)
+		}
+	}
 	// Seed the on-chain module-version map to the pre-upgrade state so
 	// RunMigrations detects the correct delta per module.
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, fromVM); err != nil {
 		return nil, fmt.Errorf("seed pre-upgrade vm: %w", err)
 	}
-	plan := upgradetypes.Plan{Name: name, Height: height, Info: info}
 	applyContext := ctx
 	if plan.Name == UpgradeNameSDK053IBC10 {
 		previousProof := app.sdk053IBC10LoaderProof

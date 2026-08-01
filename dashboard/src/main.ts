@@ -16,6 +16,7 @@ import {
 } from "./config";
 import { initialiseConstructiveTree } from "./constructive-tree";
 import { initialiseLifeGarden } from "./life-garden";
+import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import { initialiseQuantumSeason } from "./quantum-season";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
@@ -70,6 +71,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
+const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
@@ -1136,6 +1138,7 @@ window.addEventListener("keplr_keystorechange", () => {
 
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
+const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
@@ -1167,12 +1170,14 @@ const alignPiHash = (): void => {
 };
 void Promise.allSettled([
   constructiveTreeReady,
+  lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
   lifeGardenReady,
 ]).then(alignInitialHash);
 void Promise.allSettled([
   constructiveTreeReady,
+  lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
   lifeGardenReady,

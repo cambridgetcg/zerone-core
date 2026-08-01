@@ -20,6 +20,15 @@ func TestInitGenesis_DefaultGenesis(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), params.MinVerifiers)
 	require.Equal(t, uint64(22), params.MaxVerifiers)
+	schema, found := k.GetTraceSchema(ctx)
+	require.True(t, found, "fresh genesis must seed the Route B trace contract")
+	require.Equal(t, uint64(1), schema.Version)
+	seeded, err := k.SeedRouteB(ctx)
+	require.NoError(t, err)
+	require.False(t, seeded.MethodologiesWritten)
+	require.False(t, seeded.TokenizerSpecWritten)
+	require.False(t, seeded.TraceSchemaWritten)
+	require.False(t, seeded.CommitmentsWritten)
 }
 
 func TestInitGenesis_CustomParams(t *testing.T) {

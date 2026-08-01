@@ -135,28 +135,109 @@ func (k Keeper) RewardWithdrawAddress(ctx sdk.Context, rewardee sdk.AccAddress) 
 
 // GetParams returns the module parameters.
 func (k Keeper) GetParams(ctx sdk.Context) *types.Params {
+	params, err := k.getStoredParams(ctx)
+	if err != nil {
+		return types.DefaultParams()
+	}
+	return params
+}
+
+// getStoredParams reads the persisted wire value without applying v2
+// validation. The v1→v2 migrator needs the exact legacy bytes—including the
+// five now-retired non-zero fields—and must fail rather than silently replace
+// missing or corrupt state with defaults.
+func (k Keeper) getStoredParams(ctx sdk.Context) (*types.Params, error) {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := store.Get(types.ParamsKey)
-	if err != nil || bz == nil {
-		return types.DefaultParams()
+	if err != nil {
+		return nil, fmt.Errorf("read params: %w", err)
+	}
+	if bz == nil {
+		return nil, fmt.Errorf("vesting_rewards params are missing")
 	}
 	var params types.Params
 	if err := proto.Unmarshal(bz, &params); err != nil {
-		return types.DefaultParams()
+		return nil, fmt.Errorf("unmarshal params: %w", err)
 	}
-	return &params
+	return &params, nil
 }
 
-// SetParams sets the module parameters.
-func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) {
+// SetParams validates and persists v2 parameters. Ordinary callers cannot use
+// this method to impersonate the coordinated v1→v2 transition by clearing
+// legacy economic fields; only the private migration path may cross it.
+func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) error {
+	if params == nil {
+		return fmt.Errorf("params must not be nil")
+	}
+	if err := types.ValidateParams(params); err != nil {
+		return err
+	}
+	current, err := k.getStoredParams(ctx)
+	if err != nil {
+		return err
+	}
+	if hasLegacyEconomicFields(current) {
+		return types.ErrEconomicNeutralityMigrationRequired
+	}
+	if err := types.ValidateRuntimeParamChange(current, params); err != nil {
+		return err
+	}
+	return k.writeParams(ctx, params)
+}
+
+// initParams is the genesis-only initialization path. Runtime writes require
+// existing valid state, so a missing key cannot be silently repaired as if it
+// had always been present.
+func (k Keeper) initParams(ctx sdk.Context, params *types.Params) error {
+	if params == nil {
+		return fmt.Errorf("params must not be nil")
+	}
+	if err := types.ValidateParams(params); err != nil {
+		return err
+	}
+	store := k.storeService.OpenKVStore(ctx)
+	bz, err := store.Get(types.ParamsKey)
+	if err != nil {
+		return fmt.Errorf("read params before genesis initialization: %w", err)
+	}
+	if bz != nil {
+		return fmt.Errorf("vesting_rewards params already initialized")
+	}
+	return k.writeParams(ctx, params)
+}
+
+// setParamsFromV1Migration is the sole transition bypass. Its caller must
+// first strict-read v1 bytes; this method still validates the complete v2
+// value before persisting it.
+func (k Keeper) setParamsFromV1Migration(ctx sdk.Context, params *types.Params) error {
+	if params == nil {
+		return fmt.Errorf("params must not be nil")
+	}
+	if err := types.ValidateParams(params); err != nil {
+		return err
+	}
+	return k.writeParams(ctx, params)
+}
+
+func (k Keeper) writeParams(ctx sdk.Context, params *types.Params) error {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := proto.Marshal(params)
 	if err != nil {
-		panic(fmt.Sprintf("failed to marshal params: %v", err))
+		return fmt.Errorf("marshal params: %w", err)
 	}
 	if err := store.Set(types.ParamsKey, bz); err != nil {
-		panic(fmt.Sprintf("failed to set params: %v", err))
+		return fmt.Errorf("set params: %w", err)
 	}
+	return nil
+
+}
+
+func hasLegacyEconomicFields(params *types.Params) bool {
+	return params.FounderShareBps != 0 ||
+		params.FounderAddress != "" ||
+		params.BlockReward != "0" ||
+		params.FloorReward != "0" ||
+		params.EmptyBlockRewardRate != 0
 }
 
 // GetRevenueSplit returns the revenue split from params, falling back to defaults.
@@ -300,8 +381,11 @@ func (k Keeper) MintWithCap(ctx sdk.Context, recipientModule string, amount *big
 
 // InitGenesis initializes the module's state from genesis.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
-	if gs.Params != nil {
-		k.SetParams(ctx, gs.Params)
+	if gs == nil {
+		panic("invalid vesting_rewards genesis: state must not be nil")
+	}
+	if err := k.initParams(ctx, gs.Params); err != nil {
+		panic(fmt.Sprintf("invalid vesting_rewards genesis params: %v", err))
 	}
 
 	for _, cfg := range gs.CategoryConfigs {

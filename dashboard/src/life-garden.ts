@@ -1715,22 +1715,40 @@ async function fetchPinnedStandard<T>(
     (typeof window === "undefined" ? undefined : window.location.href);
   try {
     let response: Response;
+    let rejectFetchOnAbort: ((reason?: unknown) => void) | undefined;
+    const fetchAborted = new Promise<never>((_resolve, reject) => {
+      rejectFetchOnAbort = reject;
+    });
+    const onFetchAbort = (): void => {
+      rejectFetchOnAbort?.(
+        signal.reason ??
+          new DOMException(`${label} request timed out`, "TimeoutError"),
+      );
+    };
+    signal.addEventListener("abort", onFetchAbort, { once: true });
+    if (signal.aborted) onFetchAbort();
     try {
-      response = await fetcher(endpoint, {
-        cache: "no-store",
-        credentials: "same-origin",
-        headers: { Accept: "application/json" },
-        redirect: "error",
-        signal,
-      });
+      response = await Promise.race([
+        fetcher(endpoint, {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+          redirect: "error",
+          signal,
+        }),
+        fetchAborted,
+      ]);
     } catch (error) {
       if (
-        error instanceof DOMException &&
-        (error.name === "AbortError" || error.name === "TimeoutError")
+        signal.aborted ||
+        (error instanceof DOMException &&
+          (error.name === "AbortError" || error.name === "TimeoutError"))
       ) {
         throw new LifeGardenDataError(`${label} request timed out`);
       }
       throw new LifeGardenDataError(`${label} is unavailable`);
+    } finally {
+      signal.removeEventListener("abort", onFetchAbort);
     }
     if (!response.ok) {
       throw new LifeGardenDataError(`${label} returned HTTP ${response.status}`);

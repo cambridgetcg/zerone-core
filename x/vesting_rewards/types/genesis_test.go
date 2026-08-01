@@ -16,6 +16,13 @@ func TestGenesisStateValidateClaimScheduleIndexes(t *testing.T) {
 		wantErr string
 	}{
 		{
+			name: "missing params",
+			state: &GenesisState{
+				CategoryConfigs: DefaultCategoryConfigs(),
+			},
+			wantErr: "params must not be nil",
+		},
+		{
 			name: "valid explicit index selects one duplicate legacy schedule",
 			state: &GenesisState{
 				Params:          DefaultParams(),

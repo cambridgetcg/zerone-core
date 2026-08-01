@@ -34,6 +34,15 @@ exist. Standards review dates are shown in the interface. Once one passes, the
 viewer remains useful as a historical snapshot but warns that active use must
 fail closed until the authority metadata is revalidated.
 
+The Life Sciences v0 shadow overlay is separately digest-pinned at
+`/standards/constructive-intelligence-life-sciences.v0.json`. It maps benign
+biomolecule, protein-folding, gene-expression, and replication evidence while
+enforcing four non-implication walls and a GREEN-only refusal boundary. Its
+economics are exactly `NONE/0`, it creates no KARMA magnitude or qualification,
+and neither skill-tree position nor a breakthrough label activates issuance.
+The browser applies the same redirect, exact-path, media-type, byte-cap,
+deadline, digest, and text-node rendering boundary as the other static trees.
+
 The same page also loads the separately digest-pinned Quantum QEC Season 1
 extension at
 `/standards/constructive-intelligence-quantum-qec.v0.json`. It preserves the

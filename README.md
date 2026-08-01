@@ -320,6 +320,9 @@ does not activate it.
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |
 | [API Reference](docs/API.md) | Generated REST/gRPC discovery and usage |
 | [Open Crypto SDK](docs/standards/OPEN_CRYPTO_SDK.md) | SDK availability and standards seams |
+| [Life Sciences Shadow Tree](docs/specs/constructive-intelligence-life-sciences-v0.md) | Digest-pinned biomolecule, folding, and gene-expression evidence path with zero economic effect |
+| [Epigenetics Capability Garden](docs/specs/epigenetics-capability-garden-v1.md) | Seven-stage life-science tree and inactive sponsor-escrow breakthrough template |
+| [KARMA Foundation](docs/KARMA.md) | Contextual recognition without money, person rank, ownership, or governing weight |
 | [Quantum QEC Season 1](docs/specs/constructive-intelligence-quantum-qec-v0.md) | Digest-pinned quantum capability path and zero-value breakthrough-reward envelope |
 | [Events](docs/EVENTS.md) | On-chain event reference |
 | [Launch Checklist](docs/LAUNCH-CHECKLIST.md) | Testnet launch checklist |

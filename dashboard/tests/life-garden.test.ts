@@ -648,4 +648,18 @@ describe("life-garden static-standard integrity", () => {
       /timed out/,
     );
   });
+
+  it(
+    "times out when an injected fetcher ignores its AbortSignal",
+    { timeout: 1_000 },
+    async () => {
+      await assert.rejects(
+        fetchEpigeneticsCapabilityGarden({
+          timeoutMs: 10,
+          fetcher: async () => new Promise<Response>(() => {}),
+        }),
+        /timed out/,
+      );
+    },
+  );
 });

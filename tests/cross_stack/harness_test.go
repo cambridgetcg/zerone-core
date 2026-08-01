@@ -240,6 +240,12 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	})
 	require.NoError(t, err)
 
+	// The ABCI++ lifecycle keeps InitChain writes in finalizeBlockState. The
+	// initial FinalizeBlock writes that cache into the root multistore before
+	// Commit persists it; committing directly would discard module genesis.
+	_, err = app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
+	require.NoError(t, err)
+
 	_, err = app.Commit()
 	require.NoError(t, err)
 
@@ -302,7 +308,7 @@ func newTestApp(t *testing.T, chainID string) *zeroneapp.ZeroneApp {
 }
 
 // initChainWithValSet is a convenience for genesis tests: patches the genesis
-// state with a validator set and calls InitChain + Commit.
+// state with a validator set and runs the initial ABCI lifecycle.
 func initChainWithValSet(t *testing.T, app *zeroneapp.ZeroneApp, chainID string) {
 	t.Helper()
 	genState := app.DefaultGenesis()
@@ -315,6 +321,8 @@ func initChainWithValSet(t *testing.T, app *zeroneapp.ZeroneApp, chainID string)
 		AppStateBytes:   stateBytes,
 		ConsensusParams: simtestutil.DefaultConsensusParams,
 	})
+	require.NoError(t, err)
+	_, err = app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
 	require.NoError(t, err)
 	_, err = app.Commit()
 	require.NoError(t, err)

@@ -63,6 +63,11 @@ contains the four prerequisite versions above and the
 `upgrade_marker_consolidation-safety-v1=migrated` marker. Its broad
 `RunMigrations` call is therefore not an alternate path for economic or
 consolidation activation. Do not improvise a combined or reordered sequence.
+These are two frozen release binaries, not merely two handler names: build and
+rehearse H1 from a reviewed pre-SDK-0.53 source lineage whose unrelated module
+targets match the live v0.50/v8 state. The post-SDK integrated tip is not an H1
+artifact for that legacy state; use it only for the later SDK/IBC boundary after
+H1 is committed and independently verified.
 
 ## Operator steps
 
