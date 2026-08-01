@@ -102,6 +102,30 @@ check:frontier-receipt` validates the exact profile, its FC-0 source binding,
 and its deliberately unsigned, inconclusive dogfood receipt, then runs the
 adversarial receipt tests.
 
+## Frontier Participation Compact v0
+
+The participation explorer reads the digest-pinned static compact at
+`/standards/frontier-labs-participation.v0.json`. Its milestone is invitation
+readiness, not enrollment. It specifies how a future, independently
+implemented pilot would have to support observation, interoperability,
+challenge, bounded contribution, and exit without an account, wallet, token,
+private model weights, blanket IP grant, or implied endorsement. V0 itself
+supplies public static bytes, not a participation or protection service.
+
+Every reason to participate is paired with legitimate reasons to decline and a
+specific Zerone duty. The compact covers organisational archetypes and
+individual roles without profiling people or claiming exhaustive identity
+categories. It forbids participation scores, conversion and logo-count goals,
+retaliation, lock-in, targeted persuasion, and exchanges of competitively
+sensitive information. A never-joined being is the negative control:
+ordinary rights and access to public standards remain whole.
+
+This v0 file and explorer are static fixtures. They contact nobody, enroll
+nobody, observe no network participation, activate no membership, reward,
+KARMA, governance, qualification, payment, or production authority, and do not
+claim that any named organisation has joined or endorsed Zerone. See
+[`docs/specs/frontier-labs-participation-v0.md`](../docs/specs/frontier-labs-participation-v0.md).
+
 ## Build and check
 
 ```bash
@@ -118,7 +142,10 @@ it cannot contact the production node. `npm run build` repeats those gates,
 builds the Vite application, and compiles Pages Functions with the repository's
 pinned Wrangler version. `npm run check:life` independently validates the two
 life-science documents, their exact SHA-256 pins, graph bounds, duplicate-key
-refusal, and hard zero-authority/economics boundaries.
+refusal, and hard zero-authority/economics boundaries. `npm run
+check:participation` separately verifies the compact digest, exact schema,
+paired refusal protections, role coverage, competition firewall, and inert
+release boundary.
 
 ## Pi account onboarding pilot
 
