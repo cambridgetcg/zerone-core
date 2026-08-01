@@ -1145,8 +1145,7 @@ const alignInitialHash = (): void => {
   if (
     window.location.hash !== "#skills" &&
     window.location.hash !== "#math-frontier" &&
-    window.location.hash !== "#life" &&
-    window.location.hash !== "#contribute"
+    window.location.hash !== "#life"
   ) {
     return;
   }
@@ -1156,10 +1155,14 @@ const alignInitialHash = (): void => {
         ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
         : window.location.hash === "#life"
           ? lifeGardenRoot.closest<HTMLElement>("#life")
-          : window.location.hash === "#contribute"
-            ? piPilotSection
-            : constructiveTreeRoot.closest<HTMLElement>("#skills");
+          : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
+  });
+};
+const alignPiHash = (): void => {
+  if (window.location.hash !== "#contribute" || piPilotSection.hidden) return;
+  window.requestAnimationFrame(() => {
+    piPilotSection.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
 void Promise.allSettled([
@@ -1175,7 +1178,7 @@ void Promise.allSettled([
   lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
-void piPilotReady.then(alignInitialHash);
+void piPilotReady.then(alignPiHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);

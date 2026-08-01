@@ -234,8 +234,8 @@ describe("Pi callback page hardening", () => {
     );
     assert.match(source, /if \(!PI_PILOT_ENABLED\) return/);
     assert.match(source, /const piPilotReady = initialisePiPilotIfEnabled\(\)/);
-    assert.match(source, /window\.location\.hash !== "#contribute"/);
-    assert.match(source, /piPilotReady\.then\(alignInitialHash\)/);
+    assert.match(source, /window\.location\.hash !== "#contribute" \|\| piPilotSection\.hidden/);
+    assert.match(source, /piPilotReady\.then\(alignPiHash\)/);
     assert.match(
       source,
       /initialiseConstructiveTree\(constructiveTreeRoot\)/,
