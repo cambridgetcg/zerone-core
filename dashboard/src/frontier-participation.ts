@@ -5,17 +5,17 @@ export const FRONTIER_PARTICIPATION_ENDPOINT =
 export const FRONTIER_PARTICIPATION_MAX_BYTES = 196_608;
 
 export const FRONTIER_PARTICIPATION_SHA256 =
-  "9d5b8bb7559478e5840336e8aa6af670b205e207c78f8a643007c0f5b0f7d1b2";
+  "eaaab53c035beb3d4a0e082b3fe81e09c43e7b1263bf34b8a304004b232f3255";
 
 const SCHEMA = "zerone.frontier-labs-participation/v0";
 const FRONTIER_COMMONS_PATH =
   "dashboard/public/standards/frontier-commons-participation.v0.json";
 const FRONTIER_COMMONS_SHA256 =
-  "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea";
+  "df241d485143ce60f5f971d25afc1d1e1c1a3430334bdb0f0f9d30addbb2cb25";
 const FRONTIER_EVALUATION_PROFILE_PATH =
   "dashboard/public/standards/frontier-evaluation-receipt-profile.v0.json";
 const FRONTIER_EVALUATION_PROFILE_SHA256 =
-  "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6";
+  "6a19e889b6cb744f8ee1cf9e46f54f4d8ebbaa53130ee3b872516d2a749b18ee";
 
 export interface FrontierParticipationFetchOptions {
   fetcher?: (

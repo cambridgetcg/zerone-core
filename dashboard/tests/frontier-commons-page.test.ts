@@ -27,7 +27,7 @@ const standard = JSON.parse(standardRaw) as {
 };
 const digest = createHash("sha256").update(standardRaw).digest("hex");
 const SECTION_SHA256 =
-  "e99104a7c97102429b904838b04dc93968f7f80009b53e50d2e3e2d34a07be77";
+  "b34d41befe087161c05a18786ddbe94cff5bd810d8b3833fa8aa4e2678099b4b";
 const start = html.indexOf('id="frontier-commons"');
 const sectionStart = html.lastIndexOf("<section", start);
 const sectionEnd = html.indexOf(

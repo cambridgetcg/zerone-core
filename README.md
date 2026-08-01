@@ -127,12 +127,26 @@ transaction fees.
 
 No separate founder stipend was activated at genesis: `FounderAddress` was
 unset, so the historical dormant `FounderShareBps` accrued 0 ZRN. Consensus v2
-clears both compatibility fields and prevents governance from reactivating an
-identity-based tap. Liquiditypool v5 likewise fixes the protocol skim at zero;
-the swap fee stays in pool reserves and accrues to bearer LP shares pro rata.
-These changes activate only through the disclosed `consolidation-safety-v1`
-software-upgrade vote; the immutable launch-genesis artifact remains historical
-evidence. See
+clears both compatibility fields, preserves retirement of transaction-presence
+rewards, and prevents ordinary parameter governance from reactivating either
+v2 path. Liquiditypool v5 likewise fixes the protocol skim at zero; the swap
+fee stays in pool
+reserves and accrues to bearer LP shares pro rata. These are ordered, distinct
+source-only boundaries: H1 `consolidation-safety-v1` at accepted source
+`65c19cd8b00bdfff9b80705b776fd0d49719398a` advances knowledge, claiming_pot,
+and liquiditypool while leaving `vesting_rewards=1`; H2
+`founder-renunciation-v1` at accepted replacement source
+`36728afbf71905a077a0863b41536fa9279109dd` (tree
+`dfeff2c71ca9c36896a3a76608600cd870d21a1f`) alone advances
+`vesting_rewards` v1→v2. H3 `sdk-0.53-ibc-10` uses accepted source commit
+`335bb94f0fd54d3752dcb397263b7e84fb1116b4`, tree
+`769f67f1cfa108be3d31cace7777cf954f731c42`. PR #34 merged that source onto
+GitHub main as `db356c61ff76b4f2da4a4a485796041b0ce55e9c`; the merge commit records
+integration and is not a substitute identity for the accepted H3 source.
+The former H2 commits `4bffb6d218819bed1c29c7a0be7779ad31c64a97` and
+`c0943ea91a4cc86e6b232b7675c7991795fd5d30` are rejected provenance only.
+Publishing source activates none of H1, H2, or H3. The immutable launch-genesis
+artifact remains historical evidence. See
 [docs/tokenomics/GENESIS.md](docs/tokenomics/GENESIS.md) for the full
 specification.
 
@@ -148,17 +162,18 @@ verification. Honest witness earns rewards; dishonest witness is slashed.
 
 ### Issuance follows survival, not acceptance
 
-ZERONE mints for *survived falsification*, never for mere acceptance. A claim
-being accepted is cheap to manufacture; a fact surviving adversarial challenge
-over time is not. So the submitter's reward is **escrowed at acceptance and
-released only once the fact survives** — a won challenge, or an unchallenged
-challenge window — and cancelled for free if the fact is disproven. Block
-rewards likewise couple to the chain's *survived-challenge* rate, not its
-accept rate. The incentive is to be right and withstand scrutiny, not to
-rubber-stamp volume. Every post-genesis native module mint passes through the
-cap gate, while InitChain separately rejects over-cap genesis supply, so no
-path can inflate past the 222,222,222 hard cap. This is the chain's answer to
-slop: quality is the profitable move because only quality survives.
+ZERONE's submitter-reward eligibility follows *survived falsification*, never
+mere acceptance. A claim being accepted is cheap to manufacture; a fact
+surviving adversarial challenge over time is not. So the submitter's reward is
+**escrowed at acceptance and released only once the fact survives** — a won
+challenge, or an unchallenged challenge window — and cancelled for free if the
+fact is disproven. The former transaction-presence block lane is retired in
+`vesting_rewards` v2; it mints nothing and couples to no rate. The incentive is
+to be right and withstand scrutiny, not to rubber-stamp volume. Every
+post-genesis native module mint passes through the cap gate, while InitChain
+separately rejects over-cap genesis supply, so no path can inflate past the
+222,222,222 hard cap. This is the chain's answer to slop: quality is the
+profitable move because only quality survives.
 
 ### Key Subsystems
 
@@ -204,7 +219,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 |---|---|
 | `staking` | 4-tier PoT staking (Apprentice → Guardian) |
 | `qualification` | Domain-specific validator certification |
-| `vesting_rewards` | Block rewards, vesting curves, revenue splits |
+| `vesting_rewards` | Vesting curves, actual-fee revenue splits, retired block-reward compatibility |
 
 ### Agent Economy
 | Module | Purpose |

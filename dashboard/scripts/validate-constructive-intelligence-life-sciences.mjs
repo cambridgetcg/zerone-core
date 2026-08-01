@@ -16,6 +16,10 @@ export const LIFE_SCIENCES_MAX_PREREQUISITES = 4;
 export const LIFE_SCIENCES_MAX_FAN_OUT = 8;
 export const BASE_TREE_SHA256 =
   "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf";
+export const MONEY_KARMA_CONSTITUTION_SCHEMA =
+  "zerone.money-karma.constitution/v1";
+export const MONEY_KARMA_CONSTITUTION_SHA256 =
+  "f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24";
 
 const TOP_LEVEL_KEYS = [
   "schema",
@@ -26,6 +30,7 @@ const TOP_LEVEL_KEYS = [
   "rewardBearing",
   "snapshotDate",
   "baseTreeBinding",
+  "constitutionBinding",
   "releaseBoundary",
   "economics",
   "scope",
@@ -33,12 +38,14 @@ const TOP_LEVEL_KEYS = [
   "evidencePolicy",
   "independence",
   "challengePolicy",
+  "attestationBoundary",
   "nonImplicationWalls",
   "references",
   "roots",
   "nodes",
 ];
 const BASE_TREE_BINDING_KEYS = ["schema", "sha256", "policyVersion"];
+const CONSTITUTION_BINDING_KEYS = ["schema", "documentSha256"];
 const RELEASE_BOUNDARY_KEYS = [
   "addsConsensusBehavior",
   "activatesRewards",
@@ -89,12 +96,20 @@ const INDEPENDENCE_KEYS = [
   "minimumContextRoots",
   "rawIdentityCountIsEvidence",
   "beneficialControlDisclosureRequired",
+  "futureEligibilityRequiresExternalControllerAttestation",
 ];
 const CHALLENGE_POLICY_KEYS = [
   "openChallengeRequired",
   "unresolvedChallengeBlocksCrown",
   "upheldChallengeBlocksCrown",
   "challengeCanCreateReward",
+  "futureEligibilityRequiresAdjudicationReceipt",
+];
+const ATTESTATION_BOUNDARY_KEYS = [
+  "controlDisclosures",
+  "challengeStatus",
+  "establishesControllerIndependence",
+  "establishesChallengeClosure",
 ];
 const WALL_KEYS = ["id", "premise", "doesNotEstablish"];
 const REFERENCE_KEYS = ["canonicalId", "authority", "title", "specification"];
@@ -375,6 +390,10 @@ const BASE_TREE_PATH = resolve(
   dirname(SCRIPT_PATH),
   "../public/standards/constructive-intelligence-tree.v1.json",
 );
+const MONEY_KARMA_CONSTITUTION_PATH = resolve(
+  dirname(SCRIPT_PATH),
+  "../../docs/constitution/money-karma-v1.json",
+);
 
 const WALL_FORBIDDEN_BY_CLAIM_CLASS = Object.freeze({
   STATIC_STRUCTURE: Object.freeze(["FOLDING_KINETICS", "FOLDING_PATHWAY"]),
@@ -429,7 +448,6 @@ export class LifeSciencesValidationError extends Error {
     this.path = path;
   }
 }
-
 function fail(path, message) {
   throw new LifeSciencesValidationError(path, message);
 }
@@ -658,6 +676,10 @@ function validateIndependence(value) {
     independence.beneficialControlDisclosureRequired,
     "$.independence.beneficialControlDisclosureRequired",
   );
+  trueOnly(
+    independence.futureEligibilityRequiresExternalControllerAttestation,
+    "$.independence.futureEligibilityRequiresExternalControllerAttestation",
+  );
 }
 
 function validateChallengePolicy(value) {
@@ -675,6 +697,35 @@ function validateChallengePolicy(value) {
   falseOnly(
     policy.challengeCanCreateReward,
     "$.challengePolicy.challengeCanCreateReward",
+  );
+  trueOnly(
+    policy.futureEligibilityRequiresAdjudicationReceipt,
+    "$.challengePolicy.futureEligibilityRequiresAdjudicationReceipt",
+  );
+}
+
+function validateAttestationBoundary(value) {
+  const boundary = record(value, "$.attestationBoundary");
+  exactKeys(boundary, ATTESTATION_BOUNDARY_KEYS, "$.attestationBoundary");
+  if (boundary.controlDisclosures !== "SELF_DECLARED_SYNTHETIC_LABELS") {
+    fail(
+      "$.attestationBoundary.controlDisclosures",
+      "must remain SELF_DECLARED_SYNTHETIC_LABELS",
+    );
+  }
+  if (boundary.challengeStatus !== "SELF_DECLARED_SYNTHETIC_LABEL") {
+    fail(
+      "$.attestationBoundary.challengeStatus",
+      "must remain SELF_DECLARED_SYNTHETIC_LABEL",
+    );
+  }
+  falseOnly(
+    boundary.establishesControllerIndependence,
+    "$.attestationBoundary.establishesControllerIndependence",
+  );
+  falseOnly(
+    boundary.establishesChallengeClosure,
+    "$.attestationBoundary.establishesChallengeClosure",
   );
 }
 
@@ -887,6 +938,34 @@ function validateBaseTreeBinding(value) {
   }
 }
 
+export function validateMoneyKarmaConstitutionBinding(
+  value,
+  constitutionRaw = readFileSync(MONEY_KARMA_CONSTITUTION_PATH),
+) {
+  const binding = record(value, "$.constitutionBinding");
+  exactKeys(binding, CONSTITUTION_BINDING_KEYS, "$.constitutionBinding");
+  if (binding.schema !== MONEY_KARMA_CONSTITUTION_SCHEMA) {
+    fail(
+      "$.constitutionBinding.schema",
+      `must remain ${MONEY_KARMA_CONSTITUTION_SCHEMA}`,
+    );
+  }
+  const expected = `sha256:${MONEY_KARMA_CONSTITUTION_SHA256}`;
+  if (binding.documentSha256 !== expected) {
+    fail(
+      "$.constitutionBinding.documentSha256",
+      `must remain ${expected}`,
+    );
+  }
+  const actual = createHash("sha256").update(constitutionRaw).digest("hex");
+  if (actual !== MONEY_KARMA_CONSTITUTION_SHA256) {
+    fail(
+      "$.constitutionBinding.documentSha256",
+      `checked-in Money-KARMA constitution drifted: expected ${MONEY_KARMA_CONSTITUTION_SHA256}, got ${actual}`,
+    );
+  }
+}
+
 export function validateConstructiveIntelligenceLifeSciences(value) {
   const profile = record(value, "$");
   exactKeys(profile, TOP_LEVEL_KEYS, "$");
@@ -900,6 +979,7 @@ export function validateConstructiveIntelligenceLifeSciences(value) {
     fail("$.snapshotDate", "must be YYYY-MM-DD");
   }
   validateBaseTreeBinding(profile.baseTreeBinding);
+  validateMoneyKarmaConstitutionBinding(profile.constitutionBinding);
   validateReleaseBoundary(profile.releaseBoundary);
   validateEconomics(profile.economics);
   validateScope(profile.scope);
@@ -907,6 +987,7 @@ export function validateConstructiveIntelligenceLifeSciences(value) {
   validateEvidencePolicy(profile.evidencePolicy);
   validateIndependence(profile.independence);
   validateChallengePolicy(profile.challengePolicy);
+  validateAttestationBoundary(profile.attestationBoundary);
   validateWalls(profile.nonImplicationWalls);
   validateReferences(profile.references);
 
@@ -1275,6 +1356,25 @@ export function evaluateLifeSciencesEvidenceFixture(profileValue, fixtureValue) 
     }
   }
 
+  const contributorControlTuples = new Map();
+  for (const control of fixture.controls) {
+    const tuples = contributorControlTuples.get(control.contributorId) ?? new Set();
+    tuples.add(
+      JSON.stringify([
+        control.effectiveControlCluster,
+        control.organizationRoot,
+        control.methodRoot,
+        control.contextRoot,
+      ]),
+    );
+    contributorControlTuples.set(control.contributorId, tuples);
+  }
+  for (const [contributorId, tuples] of contributorControlTuples) {
+    if (tuples.size > 1) {
+      reasons.add(`CONTRIBUTOR_CLAIMS_DIVERGENT_CONTROL_TUPLES:${contributorId}`);
+    }
+  }
+
   if (node.crown) {
     if (fixture.evidenceLevel !== "LS5") reasons.add("CROWN_REQUIRES_LS5");
     if (fixture.challengeStatus !== "CLEAR") {
@@ -1291,8 +1391,11 @@ export function evaluateLifeSciencesEvidenceFixture(profileValue, fixtureValue) 
     outcome: refused
       ? "SHADOW_ONLY_REFUSED"
       : reasons.size === 0
-        ? "SHADOW_ONLY_ELIGIBLE"
+        ? "SHADOW_ONLY_STRUCTURAL_MATCH"
         : "SHADOW_ONLY_BLOCKED",
+    rewardEligible: false,
+    independenceStatus: "DECLARED_UNVERIFIED",
+    challengeStatus: "DECLARED_UNVERIFIED",
     economicEffect: "NONE",
     amount: "0",
     reasons: [...reasons].sort(),

@@ -11,6 +11,10 @@
     "sha256": "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
     "policyVersion": "1.0.0"
   },
+  "constitutionBinding": {
+    "schema": "zerone.money-karma.constitution/v1",
+    "documentSha256": "sha256:f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24"
+  },
   "releaseBoundary": {
     "addsConsensusBehavior": false,
     "activatesRewards": false,
@@ -109,13 +113,21 @@
     "minimumMethodRoots": 2,
     "minimumContextRoots": 2,
     "rawIdentityCountIsEvidence": false,
-    "beneficialControlDisclosureRequired": true
+    "beneficialControlDisclosureRequired": true,
+    "futureEligibilityRequiresExternalControllerAttestation": true
   },
   "challengePolicy": {
     "openChallengeRequired": true,
     "unresolvedChallengeBlocksCrown": true,
     "upheldChallengeBlocksCrown": true,
-    "challengeCanCreateReward": false
+    "challengeCanCreateReward": false,
+    "futureEligibilityRequiresAdjudicationReceipt": true
+  },
+  "attestationBoundary": {
+    "controlDisclosures": "SELF_DECLARED_SYNTHETIC_LABELS",
+    "challengeStatus": "SELF_DECLARED_SYNTHETIC_LABEL",
+    "establishesControllerIndependence": false,
+    "establishesChallengeClosure": false
   },
   "nonImplicationWalls": [
     {

@@ -11,6 +11,8 @@ import {
   fetchQuantumSeason,
   parseQuantumSeason,
   parseQuantumSeasonJson,
+  quantumRewardEligibilityLabel,
+  quantumRewardMilestonesForDisplay,
   quantumSeasonFreshness,
   setQuantumCurrentNode,
 } from "../src/quantum-season";
@@ -66,6 +68,36 @@ describe("quantum Season 1 runtime guard", () => {
     assert.equal(season.rewardPolicy.fundedAmount, "0");
     assert.equal(season.rewardPolicy.escrowReceipt, null);
     assert.equal(season.rewardPolicy.claimable, false);
+    assert.equal(season.performanceDecision.mayEmitPerformancePass, false);
+    assert.equal(
+      season.performanceDecision.missingProspectiveRuleDisposition,
+      "INCONCLUSIVE_NO_PASS",
+    );
+    assert.equal(
+      season.rewardAccounting.accountingBoundary.crossAxisAllocationRule,
+      "UNDEFINED_BLOCKS_FUNDING",
+    );
+    assert.deepEqual(season.constitutionBinding, {
+      schema: "zerone.money-karma.constitution/v1",
+      documentSha256:
+        "sha256:f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24",
+    });
+  });
+
+  it("rejects Money-KARMA constitution binding drift", () => {
+    const digestDrift = copy();
+    digestDrift.constitutionBinding.documentSha256 = `sha256:${"0".repeat(64)}`;
+    assert.throws(
+      () => parseQuantumSeason(digestDrift),
+      /constitutionBinding\.documentSha256/,
+    );
+
+    const schemaDrift = copy();
+    schemaDrift.constitutionBinding.schema = "zerone.money-karma.constitution/v2";
+    assert.throws(
+      () => parseQuantumSeason(schemaDrift),
+      /constitutionBinding\.schema/,
+    );
   });
 
   it("pins the exact static document digest", () => {
@@ -83,6 +115,8 @@ describe("quantum Season 1 runtime guard", () => {
       ["claimable", (season) => { season.rewardPolicy.claimable = true; }],
       ["founder share", (season) => { season.rewardPolicy.founderShareBps = 1; }],
       ["founder seat", (season) => { season.rewardPolicy.founderReservedSeats = 1; }],
+      ["direct governance", (season) => { season.rewardPolicy.rewardDirectlyGrantsGovernanceAuthority = true; }],
+      ["deny bondability", (season) => { season.rewardPolicy.rewardDenomIsBondableUnderCurrentProtocol = false; }],
       ["KARMA vote", (season) => { season.karma.voteWeight = true; }],
       ["KARMA payout", (season) => { season.karma.payoutWeight = true; }],
       ["KARMA transfer", (season) => { season.karma.transferable = true; }],
@@ -96,6 +130,142 @@ describe("quantum Season 1 runtime guard", () => {
         name,
       );
     }
+  });
+
+  it("keeps performance measurement-only and rejects precision-as-performance", () => {
+    const season = parseQuantumSeasonJson(canonicalRaw);
+    assert.deepEqual(season.performanceDecision.fundedCaseRequiredBindings, [
+      "baseline-comparator-digest",
+      "baseline-comparator-independent-review-receipt",
+      "comparison-direction",
+      "confidence-bound-decision-rule",
+      "effect-size-or-equivalence-margin",
+      "estimand-null-direction",
+      "latency-deadline-and-quantile",
+      "multi-metric-tradeoff-or-pareto-rule",
+      "multiple-comparison-policy",
+      "negative-result-routing",
+      "resource-match",
+    ]);
+
+    const preciseButBadDecoder = copy();
+    preciseButBadDecoder.performanceDecision.measurementPrecisionAloneEstablishesPerformance = true;
+    assert.throws(
+      () => parseQuantumSeason(preciseButBadDecoder),
+      /measurementPrecisionAloneEstablishesPerformance/,
+    );
+    const inventedPass = copy();
+    inventedPass.performanceDecision.mayEmitPerformancePass = true;
+    assert.throws(() => parseQuantumSeason(inventedPass), /mayEmitPerformancePass/);
+    const missingRule = copy();
+    missingRule.performanceDecision.fundedCaseRequiredBindings.pop();
+    assert.throws(() => parseQuantumSeason(missingRule), /fundedCaseRequiredBindings/);
+  });
+
+  it("keeps the two reward axes orthogonal, inactive, and fully unbound", () => {
+    const season = parseQuantumSeasonJson(canonicalRaw);
+    assert.deepEqual(
+      quantumRewardMilestonesForDisplay(season).map(({ level, rewardBps }) => [level, rewardBps]),
+      [
+        ["E0", 0],
+        ["E1", 0],
+        ["E2", 1500],
+        ["E3", 2000],
+        ["E4", 1500],
+        ["E5", 2500],
+        ["E6", 1000],
+      ],
+    );
+    assert.equal(
+      season.rewardPolicy.milestones.reduce((sum, milestone) => sum + milestone.rewardBps, 0) +
+        season.rewardPolicy.challengeReserveBps,
+      10_000,
+    );
+    assert.equal(
+      Object.values(season.rewardPolicy.attributionBps).reduce((sum, bps) => sum + bps, 0),
+      10_000,
+    );
+    assert.deepEqual(season.rewardAccounting.accountingBoundary, {
+      milestoneAndAttributionAxesAreAdditive: false,
+      crossAxisAllocationRule: "UNDEFINED_BLOCKS_FUNDING",
+      roundingRule: null,
+      escrowCompartmentsBound: false,
+      singleSettlementImplemented: false,
+      verifiedCostCapAmount: null,
+      reviewerBudgetCapAmount: null,
+      futureReviewerBudgetMustBeOutcomeIndependent: true,
+      roleCollapseRule: null,
+      deterministicRefundRule: null,
+      reviewAttributionPaysAdjudicator: false,
+      unusedChallengeReserveRoute: null,
+    });
+    assert.equal(
+      season.rewardAccounting.nodeEligibilitySemantics,
+      "DISPLAY_ROUTING_ONLY_NO_PRESENT_QUALIFICATION_OR_ENTITLEMENT",
+    );
+
+    const mutations: Array<[string, unknown]> = [
+      ["milestoneAndAttributionAxesAreAdditive", true],
+      ["crossAxisAllocationRule", "ASSUME_MULTIPLICATION"],
+      ["roundingRule", "round-half-up"],
+      ["escrowCompartmentsBound", true],
+      ["singleSettlementImplemented", true],
+      ["verifiedCostCapAmount", "1"],
+      ["reviewerBudgetCapAmount", "1"],
+      ["futureReviewerBudgetMustBeOutcomeIndependent", false],
+      ["roleCollapseRule", "ALLOW_SELF_REVIEW"],
+      ["deterministicRefundRule", "REFUND_ORIGINATOR"],
+      ["reviewAttributionPaysAdjudicator", true],
+      ["unusedChallengeReserveRoute", "founder"],
+    ];
+    for (const [key, value] of mutations) {
+      const drift = copy();
+      drift.rewardAccounting.accountingBoundary[key] = value;
+      assert.throws(() => parseQuantumSeason(drift), new RegExp(key));
+    }
+  });
+
+  it("maps inherited eligibility literals to non-qualification UI copy", () => {
+    assert.equal(
+      quantumRewardEligibilityLabel("qualification-only"),
+      "curriculum evidence only (no qualification)",
+    );
+    assert.equal(
+      quantumRewardEligibilityLabel("sponsor-milestones"),
+      "future sponsor-case template (unfunded)",
+    );
+  });
+
+  it("keeps KARMA a fallible edge observation and future sortition capture-resistant", () => {
+    const season = parseQuantumSeasonJson(canonicalRaw);
+    assert.equal(season.karma.eventType, "zerone.karma.edge");
+    assert.equal(season.karma.eventRegister, "priced-coherence");
+    assert.equal(season.karma.meaning, "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH");
+    assert.equal(season.karma.zeroneMintsOrCreates, false);
+    assert.equal(season.karma.observationsFallible, true);
+    assert.equal(season.karma.observationsChallengeable, true);
+    assert.equal(season.karma.rawEventsEstablishCandidateStatus, false);
+    assert.equal(season.karma.rawEventCountAffectsSelectionProbability, false);
+    assert.deepEqual(season.karma.futureCandidateFilterRequirements, {
+      runtimeEnforced: false,
+      sameControllerEdgesExcluded: true,
+      selfEdgesExcluded: true,
+      reciprocalEdgesExcluded: true,
+      correlatedFunderEdgesExcluded: true,
+      controllerMergesOnlyReduceUnits: true,
+      maximumLotteryUnitsPerController: 1,
+      candidateSetFrozenBeforeRandomness: true,
+      unbiasedRandomnessRequired: true,
+      operatorOverrideAllowed: false,
+      countProportionalProbabilityAllowed: false,
+    });
+
+    const override = copy();
+    override.karma.futureCandidateFilterRequirements.operatorOverrideAllowed = true;
+    assert.throws(() => parseQuantumSeason(override), /operatorOverrideAllowed/);
+    const weighted = copy();
+    weighted.karma.futureCandidateFilterRequirements.countProportionalProbabilityAllowed = true;
+    assert.throws(() => parseQuantumSeason(weighted), /countProportionalProbabilityAllowed/);
   });
 
   it("requires precommitment, matched-resource artifacts, independent roots, and adoption", () => {
@@ -188,7 +358,7 @@ describe("quantum Season 1 runtime guard", () => {
     assert.throws(() => parseQuantumSeason(zeroCases), /minimumCasesPerCell/);
   });
 
-  it("enforces per-cell logical precision and the distinct zero-miss latency rule", () => {
+  it("enforces per-cell logical precision and measurement-only zero-miss latency", () => {
     const season = parseQuantumSeasonJson(canonicalRaw);
     const acceptance = season.nodes.find((node) => node.stage === "quest")?.acceptance;
     assert.ok(acceptance);
@@ -199,7 +369,7 @@ describe("quantum Season 1 runtime guard", () => {
     assert.equal(logical.confidenceLevelBps, 9900);
     assert.equal(logical.maximumRelativeHalfWidthBps, 3000);
     assert.ok(latency?.analysisMode === "latency-quantile-and-deadline");
-    assert.equal(latency.zeroDeadlineMissesMayBeConclusive, true);
+    assert.equal(latency.zeroDeadlineMissesMaySatisfyMeasurementCompleteness, true);
     assert.equal(acceptance.computeCapExhaustion, "inconclusive-no-pass");
     assert.equal(
       acceptance.circuitProvenance,
@@ -208,18 +378,47 @@ describe("quantum Season 1 runtime guard", () => {
     assert.equal(acceptance.distance10And12CircuitEnsembleSize, 24);
     assert.equal(acceptance.rareEventAlternative.appliesTo, "logical-error-cells-only");
     assert.equal(acceptance.rareEventAlternative.unbiasedEstimatorRequired, true);
+    assert.deepEqual(acceptance.rareEventAlternative.replacesDirectGates, [
+      "minimum-cases-per-cell",
+      "minimum-logical-failures-per-cell",
+    ]);
+    assert.equal(acceptance.rareEventAlternative.confidenceLevelBps, 9900);
+    assert.equal(
+      acceptance.rareEventAlternative.confidenceProcedure,
+      "two-sided-estimator-specific-interval",
+    );
+    assert.equal(acceptance.rareEventAlternative.maximumRelativeHalfWidthBps, 3000);
+    assert.equal(acceptance.rareEventAlternative.mayEmitPerformancePass, false);
 
     const tooFewFailures = copy();
     tooFewFailures.nodes.at(-1).acceptance.coverageTargets[1].minimumLogicalFailuresPerCell = 99;
     assert.throws(() => parseQuantumSeason(tooFewFailures), /minimumLogicalFailuresPerCell/);
 
     const forcedMisses = copy();
-    forcedMisses.nodes.at(-1).acceptance.coverageTargets[2].zeroDeadlineMissesMayBeConclusive = false;
-    assert.throws(() => parseQuantumSeason(forcedMisses), /zeroDeadlineMissesMayBeConclusive/);
+    forcedMisses.nodes.at(-1).acceptance.coverageTargets[2].zeroDeadlineMissesMaySatisfyMeasurementCompleteness = false;
+    assert.throws(
+      () => parseQuantumSeason(forcedMisses),
+      /zeroDeadlineMissesMaySatisfyMeasurementCompleteness/,
+    );
 
     const biased = copy();
     biased.nodes.at(-1).acceptance.rareEventAlternative.unbiasedEstimatorRequired = false;
     assert.throws(() => parseQuantumSeason(biased), /unbiasedEstimatorRequired/);
+
+    const replacedTooMuch = copy();
+    replacedTooMuch.nodes.at(-1).acceptance.rareEventAlternative.replacesDirectGates.push(
+      "confidence-interval",
+    );
+    assert.throws(() => parseQuantumSeason(replacedTooMuch), /replacesDirectGates/);
+
+    const oneSided = copy();
+    oneSided.nodes.at(-1).acceptance.rareEventAlternative.confidenceProcedure =
+      "one-sided-estimator-interval";
+    assert.throws(() => parseQuantumSeason(oneSided), /confidenceProcedure/);
+
+    const inventedRarePass = copy();
+    inventedRarePass.nodes.at(-1).acceptance.rareEventAlternative.mayEmitPerformancePass = true;
+    assert.throws(() => parseQuantumSeason(inventedRarePass), /mayEmitPerformancePass/);
 
     const smallerCircuitEnsemble = copy();
     smallerCircuitEnsemble.nodes.at(-1).acceptance.distance10And12CircuitEnsembleSize = 1;
@@ -260,7 +459,6 @@ describe("quantum Season 1 runtime guard", () => {
     assert.equal(attributes.get("second")?.get("aria-current"), "true");
   });
 });
-
 describe("quantum Season 1 bounded static fetch", () => {
   it("uses the exact same-origin path and restrictive fetch options", async () => {
     let inputSeen: RequestInfo | URL | undefined;

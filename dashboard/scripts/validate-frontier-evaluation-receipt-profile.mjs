@@ -12,13 +12,15 @@ export const PUBLIC_EVALUATION_SUBJECT_MAX_BYTES = 1_048_576;
 export const PUBLIC_EVALUATION_MATERIAL_MAX_BYTES = 1_048_576;
 export const PUBLIC_EVALUATION_MATERIALS_MAX_BYTES = 4_194_304;
 export const EXPECTED_COMPACT_SHA256 =
-  "878f57a4c969910a33d351e0908450998894c000630a9cc9c2f3233f5feb04a6";
+  "6a19e889b6cb744f8ee1cf9e46f54f4d8ebbaa53130ee3b872516d2a749b18ee";
 export const EXPECTED_DOGFOOD_RECEIPT_SHA256 =
-  "5a415b733bd0c18d22070add6911f69947c04f06fce7aab0d6d4a3ce9065e306";
+  "67140fb67356a6881d85052139a8eac9a065f30a7e58357ca0ae56ea1f1c848d";
 export const EXPECTED_COMPACT_SEMANTIC_SHA256 =
-  "37b4dd7a1e19a225ee63d71f5bc9051f99c32fbab3f9e4f60949eb1d9be78871";
+  "f1308558a6309d417740ad43a8e4a750483d0fcb0f10684078c86cb1921da637";
 export const EXPECTED_DOGFOOD_SEMANTIC_SHA256 =
-  "6a74db972ececbccd9c5654a5ca0a912f67bfecfe27c1d04f2417b4ea5b368f7";
+  "d94f92052ee9be3da1bc5982cd022d09b1e358968a86dbbe50873964043e4d18";
+export const MONEY_KARMA_SOURCE_BOUNDARY =
+  "This profile directly assigns money no voice; uzrn remains bondable and bonded stake affects current governance, so funded rewards require enforced economic-to-governance decoupling. KARMA is not money, and recognition does not grant authority.";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPOSITORY_ROOT = resolve(dirname(SCRIPT_PATH), "../..");
@@ -640,6 +642,9 @@ function validateSourceBinding(value, index) {
     fail(`${path}.sha256`, `does not match ${relativePath}`);
   }
   boundedString(binding.boundary, `${path}.boundary`);
+  if (id === "money-karma-v1") {
+    exactString(binding.boundary, MONEY_KARMA_SOURCE_BOUNDARY, `${path}.boundary`);
+  }
   return { id };
 }
 

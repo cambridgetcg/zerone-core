@@ -16,8 +16,18 @@ export const REVIEWED_BASE_SHA256 =
   "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf";
 export const REVIEWED_BASE_POLICY_SHA256 =
   "36116220c7f17dd06f8bda2217d79a000aaac771075a709004686b233402abc7";
+export const MONEY_KARMA_CONSTITUTION_SCHEMA =
+  "zerone.money-karma.constitution/v1";
+export const MONEY_KARMA_CONSTITUTION_SHA256 =
+  "f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24";
 export const REVIEWED_QUANTUM_NORMATIVE_SHA256 =
-  "906f3256be011e5d56b2eb929b6d2963f4c4291ec3034cd902ae83499477a719";
+  "7d8f0596c371fac1f35f6e59a490569c2accf769ed0db8f304ce12e0f3be2c01";
+
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const MONEY_KARMA_CONSTITUTION_PATH = resolve(
+  dirname(SCRIPT_PATH),
+  "../../docs/constitution/money-karma-v1.json",
+);
 
 const TOP_LEVEL_KEYS = [
   "schema",
@@ -28,10 +38,13 @@ const TOP_LEVEL_KEYS = [
   "networkObserved",
   "rewardBearing",
   "base",
+  "constitutionBinding",
   "releaseBoundary",
+  "performanceDecision",
   "karma",
   "breakthroughLens",
   "rewardPolicy",
+  "rewardAccounting",
   "standards",
   "nodes",
 ];
@@ -42,6 +55,7 @@ const BASE_KEYS = [
   "documentSha256",
   "policySha256",
 ];
+const CONSTITUTION_BINDING_KEYS = ["schema", "documentSha256"];
 const RELEASE_KEYS = [
   "addsConsensusBehavior",
   "activatesRewards",
@@ -52,9 +66,28 @@ const RELEASE_KEYS = [
   "performsNetworkRequests",
   "publishesConfidentialEvidence",
 ];
+const PERFORMANCE_DECISION_KEYS = [
+  "mode",
+  "mayEmitPerformancePass",
+  "measurementPrecisionAloneEstablishesPerformance",
+  "missingProspectiveRuleDisposition",
+  "fundedCaseRequiredBindings",
+];
 const KARMA_KEYS = [
   "status",
-  "register",
+  "eventType",
+  "eventRegister",
+  "meaning",
+  "zeroneMintsOrCreates",
+  "assignable",
+  "operatorAssignable",
+  "founderAssignable",
+  "observationsFallible",
+  "observationsChallengeable",
+  "recordingClaimsRelationOwnership",
+  "rawEventsEstablishCandidateStatus",
+  "rawEventCountEstablishesCandidateStatus",
+  "rawEventCountAffectsSelectionProbability",
   "transferable",
   "scalarRank",
   "truthOracle",
@@ -62,7 +95,21 @@ const KARMA_KEYS = [
   "voteWeight",
   "founderReservedPower",
   "futureUse",
+  "futureCandidateFilterRequirements",
   "activationRequires",
+];
+const FUTURE_CANDIDATE_FILTER_KEYS = [
+  "runtimeEnforced",
+  "sameControllerEdgesExcluded",
+  "selfEdgesExcluded",
+  "reciprocalEdgesExcluded",
+  "correlatedFunderEdgesExcluded",
+  "controllerMergesOnlyReduceUnits",
+  "maximumLotteryUnitsPerController",
+  "candidateSetFrozenBeforeRandomness",
+  "unbiasedRandomnessRequired",
+  "operatorOverrideAllowed",
+  "countProportionalProbabilityAllowed",
 ];
 const LENS_KEYS = ["level", "name", "requires", "assignable"];
 const REWARD_KEYS = [
@@ -74,12 +121,28 @@ const REWARD_KEYS = [
   "founderShareBps",
   "founderReservedSeats",
   "karmaWeightBps",
-  "rewardCreatesGovernancePower",
+  "rewardDirectlyGrantsGovernanceAuthority",
+  "rewardDenomIsBondableUnderCurrentProtocol",
   "skillUnlockCreatesReward",
   "timeAloneUnlocksEvidence",
   "milestones",
   "challengeReserveBps",
   "attributionBps",
+];
+const REWARD_ACCOUNTING_KEYS = ["accountingBoundary", "nodeEligibilitySemantics"];
+const ACCOUNTING_BOUNDARY_KEYS = [
+  "milestoneAndAttributionAxesAreAdditive",
+  "crossAxisAllocationRule",
+  "roundingRule",
+  "escrowCompartmentsBound",
+  "singleSettlementImplemented",
+  "verifiedCostCapAmount",
+  "reviewerBudgetCapAmount",
+  "futureReviewerBudgetMustBeOutcomeIndependent",
+  "roleCollapseRule",
+  "deterministicRefundRule",
+  "reviewAttributionPaysAdjudicator",
+  "unusedChallengeReserveRoute",
 ];
 const MILESTONE_KEYS = ["level", "name", "rewardBps", "treatment"];
 const ATTRIBUTION_KEYS = [
@@ -141,10 +204,17 @@ const FIXTURE_KEYS = ["id", "n", "k", "distance"];
 const RARE_EVENT_KEYS = [
   "appliesTo",
   "condition",
+  "replacesDirectGates",
+  "preservesAllOtherCoverageAndCaseBindings",
+  "confidenceLevelBps",
+  "confidenceProcedure",
+  "maximumRelativeHalfWidthBps",
   "methodDigestRequired",
-  "reviewReceiptDigestRequired",
+  "independentReviewReceiptDigestRequired",
   "unbiasedEstimatorRequired",
-  "varianceAndCoverageValidationRequired",
+  "varianceMethodDigestRequired",
+  "coverageValidationDigestRequired",
+  "mayEmitPerformancePass",
 ];
 const COVERAGE_COMMON_KEYS = [
   "id",
@@ -169,7 +239,7 @@ const LOGICAL_COVERAGE_KEYS = [
 const LATENCY_COVERAGE_KEYS = [
   ...COVERAGE_COMMON_KEYS,
   "latencyEstimand",
-  "zeroDeadlineMissesMayBeConclusive",
+  "zeroDeadlineMissesMaySatisfyMeasurementCompleteness",
 ];
 const EXPECTED_MILESTONES = [
   { level: "E0", name: "committed", rewardBps: 0, treatment: "precedence-only" },
@@ -187,6 +257,32 @@ const EXPECTED_ATTRIBUTION = {
   downstreamAdoption: 2500,
   falsificationAndChallenge: 700,
   safetyAndMaintenance: 300,
+};
+const EXPECTED_FUNDED_CASE_BINDINGS = [
+  "baseline-comparator-digest",
+  "baseline-comparator-independent-review-receipt",
+  "comparison-direction",
+  "confidence-bound-decision-rule",
+  "effect-size-or-equivalence-margin",
+  "estimand-null-direction",
+  "latency-deadline-and-quantile",
+  "multi-metric-tradeoff-or-pareto-rule",
+  "multiple-comparison-policy",
+  "negative-result-routing",
+  "resource-match",
+];
+const EXPECTED_FUTURE_CANDIDATE_FILTER = {
+  runtimeEnforced: false,
+  sameControllerEdgesExcluded: true,
+  selfEdgesExcluded: true,
+  reciprocalEdgesExcluded: true,
+  correlatedFunderEdgesExcluded: true,
+  controllerMergesOnlyReduceUnits: true,
+  maximumLotteryUnitsPerController: 1,
+  candidateSetFrozenBeforeRandomness: true,
+  unbiasedRandomnessRequired: true,
+  operatorOverrideAllowed: false,
+  countProportionalProbabilityAllowed: false,
 };
 const EXPECTED_LENS = [
   ["B0", "reproduction", "Known-result capability demonstration"],
@@ -221,7 +317,7 @@ const EXPECTED_SCOPE = [
   "confidence=logical-failure-two-sided-99-percent-relative-half-width-lte-0.30",
   "d10-and-d12-circuit-ensemble-size=24",
   "event-floor=100-logical-failures-per-logical-error-cell",
-  "latency=precommitted-quantile-and-deadline-at-99-percent-confidence-zero-misses-eligible",
+  "latency=precommitted-quantile-and-deadline-at-99-percent-confidence-zero-misses-may-satisfy-measurement-completeness-no-performance-pass",
   "minimum-cases=coverage-target-specific-per-cell",
   "noise-model=uniform-depolarizing-circuit-level",
   "physical-error-grid=0.001,0.002,0.003,0.004,0.005,0.006",
@@ -344,16 +440,86 @@ function validateReviewedBase(base, baseRaw) {
   return parsed;
 }
 
+export function validateMoneyKarmaConstitutionBinding(
+  value,
+  constitutionRaw = readFileSync(MONEY_KARMA_CONSTITUTION_PATH),
+) {
+  const binding = record(value, "$.constitutionBinding");
+  exactKeys(binding, CONSTITUTION_BINDING_KEYS, "$.constitutionBinding");
+  exact(
+    binding.schema,
+    MONEY_KARMA_CONSTITUTION_SCHEMA,
+    "$.constitutionBinding.schema",
+  );
+  exact(
+    binding.documentSha256,
+    `sha256:${MONEY_KARMA_CONSTITUTION_SHA256}`,
+    "$.constitutionBinding.documentSha256",
+  );
+  const actual = digest(constitutionRaw);
+  if (actual !== MONEY_KARMA_CONSTITUTION_SHA256) {
+    fail(
+      "$.constitutionBinding.documentSha256",
+      `checked-in Money-KARMA constitution drifted: expected ${MONEY_KARMA_CONSTITUTION_SHA256}, got ${actual}`,
+    );
+  }
+}
+
 function validateReleaseBoundary(boundary) {
   exactKeys(boundary, RELEASE_KEYS, "$.releaseBoundary");
   for (const key of RELEASE_KEYS) exact(boundary[key], false, `$.releaseBoundary.${key}`);
 }
 
+function validatePerformanceDecision(decision) {
+  exactKeys(decision, PERFORMANCE_DECISION_KEYS, "$.performanceDecision");
+  exact(decision.mode, "MEASUREMENT_COMPLETENESS_ONLY", "$.performanceDecision.mode");
+  exact(decision.mayEmitPerformancePass, false, "$.performanceDecision.mayEmitPerformancePass");
+  exact(
+    decision.measurementPrecisionAloneEstablishesPerformance,
+    false,
+    "$.performanceDecision.measurementPrecisionAloneEstablishesPerformance",
+  );
+  exact(
+    decision.missingProspectiveRuleDisposition,
+    "INCONCLUSIVE_NO_PASS",
+    "$.performanceDecision.missingProspectiveRuleDisposition",
+  );
+  const bindings = stringArray(
+    decision.fundedCaseRequiredBindings,
+    "$.performanceDecision.fundedCaseRequiredBindings",
+    {
+      minimum: EXPECTED_FUNDED_CASE_BINDINGS.length,
+      maximum: EXPECTED_FUNDED_CASE_BINDINGS.length,
+      sorted: true,
+    },
+  );
+  if (JSON.stringify(bindings) !== JSON.stringify(EXPECTED_FUNDED_CASE_BINDINGS)) {
+    fail(
+      "$.performanceDecision.fundedCaseRequiredBindings",
+      "must bind the complete prospective funded-case performance rule",
+    );
+  }
+}
+
 function validateKarma(karma) {
   exactKeys(karma, KARMA_KEYS, "$.karma");
   exact(karma.status, "OBSERVATIONAL", "$.karma.status");
-  exact(karma.register, "artifact-relation", "$.karma.register");
+  exact(karma.eventType, "zerone.karma.edge", "$.karma.eventType");
+  exact(karma.eventRegister, "priced-coherence", "$.karma.eventRegister");
+  exact(
+    karma.meaning,
+    "DOMAIN_RELATIONS_NOT_HUMAN_WORTH_OR_TRUTH",
+    "$.karma.meaning",
+  );
   for (const key of [
+    "zeroneMintsOrCreates",
+    "assignable",
+    "operatorAssignable",
+    "founderAssignable",
+    "recordingClaimsRelationOwnership",
+    "rawEventsEstablishCandidateStatus",
+    "rawEventCountEstablishesCandidateStatus",
+    "rawEventCountAffectsSelectionProbability",
     "transferable",
     "scalarRank",
     "truthOracle",
@@ -361,7 +527,30 @@ function validateKarma(karma) {
     "voteWeight",
     "founderReservedPower",
   ]) exact(karma[key], false, `$.karma.${key}`);
-  exact(karma.futureUse, "capped-randomized-eligibility-only", "$.karma.futureUse");
+  for (const key of ["observationsFallible", "observationsChallengeable"]) {
+    exact(karma[key], true, `$.karma.${key}`);
+  }
+  exact(
+    karma.futureUse,
+    "domain-scoped-controller-capped-randomized-candidate-filter-only",
+    "$.karma.futureUse",
+  );
+  const futureFilter = record(
+    karma.futureCandidateFilterRequirements,
+    "$.karma.futureCandidateFilterRequirements",
+  );
+  exactKeys(
+    futureFilter,
+    FUTURE_CANDIDATE_FILTER_KEYS,
+    "$.karma.futureCandidateFilterRequirements",
+  );
+  for (const key of FUTURE_CANDIDATE_FILTER_KEYS) {
+    exact(
+      futureFilter[key],
+      EXPECTED_FUTURE_CANDIDATE_FILTER[key],
+      `$.karma.futureCandidateFilterRequirements.${key}`,
+    );
+  }
   const requirements = stringArray(karma.activationRequires, "$.karma.activationRequires", {
     minimum: 7,
     maximum: 7,
@@ -377,7 +566,7 @@ function validateKarma(karma) {
     "role-separation-and-recipient-conflict-exclusion",
   ];
   if (JSON.stringify(requirements) !== JSON.stringify(required)) {
-    fail("$.karma.activationRequires", "must retain every ownerless-governance gate");
+    fail("$.karma.activationRequires", "must retain every bounded future-governance gate");
   }
 }
 
@@ -403,10 +592,15 @@ function validateRewardPolicy(reward) {
   exact(reward.escrowReceipt, null, "$.rewardPolicy.escrowReceipt");
   for (const key of [
     "claimable",
-    "rewardCreatesGovernancePower",
+    "rewardDirectlyGrantsGovernanceAuthority",
     "skillUnlockCreatesReward",
     "timeAloneUnlocksEvidence",
   ]) exact(reward[key], false, `$.rewardPolicy.${key}`);
+  exact(
+    reward.rewardDenomIsBondableUnderCurrentProtocol,
+    true,
+    "$.rewardPolicy.rewardDenomIsBondableUnderCurrentProtocol",
+  );
   for (const key of ["founderShareBps", "founderReservedSeats", "karmaWeightBps"]) {
     exact(reward[key], 0, `$.rewardPolicy.${key}`);
   }
@@ -433,6 +627,48 @@ function validateRewardPolicy(reward) {
   if (Object.values(attribution).reduce((sum, value) => sum + value, 0) !== 10_000) {
     fail("$.rewardPolicy.attributionBps", "attribution must conserve 10,000 bps");
   }
+}
+
+function validateRewardAccounting(rewardAccounting) {
+  exactKeys(rewardAccounting, REWARD_ACCOUNTING_KEYS, "$.rewardAccounting");
+  exact(
+    rewardAccounting.nodeEligibilitySemantics,
+    "DISPLAY_ROUTING_ONLY_NO_PRESENT_QUALIFICATION_OR_ENTITLEMENT",
+    "$.rewardAccounting.nodeEligibilitySemantics",
+  );
+  const boundary = record(
+    rewardAccounting.accountingBoundary,
+    "$.rewardAccounting.accountingBoundary",
+  );
+  exactKeys(boundary, ACCOUNTING_BOUNDARY_KEYS, "$.rewardAccounting.accountingBoundary");
+  for (const key of [
+    "milestoneAndAttributionAxesAreAdditive",
+    "escrowCompartmentsBound",
+    "singleSettlementImplemented",
+    "reviewAttributionPaysAdjudicator",
+  ]) {
+    exact(boundary[key], false, `$.rewardAccounting.accountingBoundary.${key}`);
+  }
+  exact(
+    boundary.crossAxisAllocationRule,
+    "UNDEFINED_BLOCKS_FUNDING",
+    "$.rewardAccounting.accountingBoundary.crossAxisAllocationRule",
+  );
+  for (const key of [
+    "roundingRule",
+    "verifiedCostCapAmount",
+    "reviewerBudgetCapAmount",
+    "roleCollapseRule",
+    "deterministicRefundRule",
+    "unusedChallengeReserveRoute",
+  ]) {
+    exact(boundary[key], null, `$.rewardAccounting.accountingBoundary.${key}`);
+  }
+  exact(
+    boundary.futureReviewerBudgetMustBeOutcomeIndependent,
+    true,
+    "$.rewardAccounting.accountingBoundary.futureReviewerBudgetMustBeOutcomeIndependent",
+  );
 }
 
 function validateStandards(standards) {
@@ -504,9 +740,50 @@ function validateAcceptance(acceptance, path) {
   exactKeys(rareEvent, RARE_EVENT_KEYS, `${path}.rareEventAlternative`);
   exact(rareEvent.appliesTo, "logical-error-cells-only", `${path}.rareEventAlternative.appliesTo`);
   exact(rareEvent.condition, "separately-reviewed-unbiased-estimator-only", `${path}.rareEventAlternative.condition`);
-  for (const key of RARE_EVENT_KEYS.slice(2)) {
+  const replacedGates = stringArray(
+    rareEvent.replacesDirectGates,
+    `${path}.rareEventAlternative.replacesDirectGates`,
+    { minimum: 2, maximum: 2, sorted: true },
+  );
+  if (JSON.stringify(replacedGates) !== JSON.stringify([
+    "minimum-cases-per-cell",
+    "minimum-logical-failures-per-cell",
+  ])) {
+    fail(
+      `${path}.rareEventAlternative.replacesDirectGates`,
+      "may replace only the direct case and logical-failure floors",
+    );
+  }
+  exact(
+    rareEvent.confidenceLevelBps,
+    9900,
+    `${path}.rareEventAlternative.confidenceLevelBps`,
+  );
+  exact(
+    rareEvent.confidenceProcedure,
+    "two-sided-estimator-specific-interval",
+    `${path}.rareEventAlternative.confidenceProcedure`,
+  );
+  exact(
+    rareEvent.maximumRelativeHalfWidthBps,
+    3000,
+    `${path}.rareEventAlternative.maximumRelativeHalfWidthBps`,
+  );
+  for (const key of [
+    "preservesAllOtherCoverageAndCaseBindings",
+    "methodDigestRequired",
+    "independentReviewReceiptDigestRequired",
+    "unbiasedEstimatorRequired",
+    "varianceMethodDigestRequired",
+    "coverageValidationDigestRequired",
+  ]) {
     exact(rareEvent[key], true, `${path}.rareEventAlternative.${key}`);
   }
+  exact(
+    rareEvent.mayEmitPerformancePass,
+    false,
+    `${path}.rareEventAlternative.mayEmitPerformancePass`,
+  );
   if (!Array.isArray(acceptance.coverageTargets) || acceptance.coverageTargets.length !== 3) {
     fail(`${path}.coverageTargets`, "must contain all three coverage targets");
   }
@@ -538,7 +815,11 @@ function validateAcceptance(acceptance, path) {
     } else {
       exact(target.latencyEstimand, "precommitted-quantile-and-deadline", `${targetPath}.latencyEstimand`);
       exact(target.confidenceProcedure, "two-sided-quantile-interval-or-one-sided-deadline-miss-upper-bound", `${targetPath}.confidenceProcedure`);
-      exact(target.zeroDeadlineMissesMayBeConclusive, true, `${targetPath}.zeroDeadlineMissesMayBeConclusive`);
+      exact(
+        target.zeroDeadlineMissesMaySatisfyMeasurementCompleteness,
+        true,
+        `${targetPath}.zeroDeadlineMissesMaySatisfyMeasurementCompleteness`,
+      );
     }
     for (const key of [
       "requiresCheckerOrCorpusDigest",
@@ -644,10 +925,13 @@ export function validateQuantumExtension(value, baseRaw, { enforceReviewedDigest
   exact(extension.snapshotDate, "2026-08-01", "$.snapshotDate");
   for (const key of ["authoritative", "networkObserved", "rewardBearing"]) exact(extension[key], false, `$.${key}`);
   const baseTree = validateReviewedBase(record(extension.base, "$.base"), baseRaw);
+  validateMoneyKarmaConstitutionBinding(extension.constitutionBinding);
   validateReleaseBoundary(record(extension.releaseBoundary, "$.releaseBoundary"));
+  validatePerformanceDecision(record(extension.performanceDecision, "$.performanceDecision"));
   validateKarma(record(extension.karma, "$.karma"));
   validateLens(extension.breakthroughLens);
   validateRewardPolicy(record(extension.rewardPolicy, "$.rewardPolicy"));
+  validateRewardAccounting(record(extension.rewardAccounting, "$.rewardAccounting"));
   validateStandards(extension.standards);
   const graph = validateNodes(extension.nodes, baseTree);
   const normativeDigest = digest(JSON.stringify(canonicalJson(extension)));

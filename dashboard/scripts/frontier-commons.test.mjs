@@ -26,7 +26,7 @@ const landscapeRaw = readFileSync(
 );
 const landscape = JSON.parse(landscapeRaw);
 const CANONICAL_SHA256 =
-  "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea";
+  "df241d485143ce60f5f971d25afc1d1e1c1a3430334bdb0f0f9d30addbb2cb25";
 const LANDSCAPE_SHA256 =
   "f545f1cf542b42c5a806cc03edbc54fa6c525a672bddebcfd4bf4d9060e9d995";
 const EXPECTED_NON_MONEY_COSTS = [

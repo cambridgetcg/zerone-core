@@ -53,7 +53,7 @@
     {
       "id": "frontier-commons-participation-v0",
       "path": "dashboard/public/standards/frontier-commons-participation.v0.json",
-      "sha256": "f57b1b35c4de1f17c731cd31514b89ab773c01f5e5d61445323b5d26a4074fea",
+      "sha256": "df241d485143ce60f5f971d25afc1d1e1c1a3430334bdb0f0f9d30addbb2cb25",
       "boundary": "FC-0 is the public read-only invitation surface of record. FL-0 is subordinate receipt hardening and creates no additional invitation, participation, adoption, completion, or outreach effect."
     },
     {
@@ -77,8 +77,8 @@
     {
       "id": "money-karma-v1",
       "path": "docs/constitution/money-karma-v1.json",
-      "sha256": "24d5a2bdef9f3ce8cee41ed9416be65681b2cfd123ba96df7f6a7710c810ee03",
-      "boundary": "Money does not grant voice, KARMA is not money, and recognition does not grant authority."
+      "sha256": "f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24",
+      "boundary": "This profile directly assigns money no voice; uzrn remains bondable and bonded stake affects current governance, so funded rewards require enforced economic-to-governance decoupling. KARMA is not money, and recognition does not grant authority."
     }
   ],
   "externalReferences": [
