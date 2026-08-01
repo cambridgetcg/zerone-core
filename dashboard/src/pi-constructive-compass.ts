@@ -192,7 +192,7 @@ export function initialisePiConstructiveCompass(
         : "That public capability is unavailable in this static snapshot.";
     } catch {
       status.textContent =
-        "The public explorer could not open that capability. Your temporary choice was not sent or saved.";
+        "The public explorer could not open that capability. This control did not send or save your temporary choice.";
     } finally {
       openPending = false;
       setTrailButtonsDisabled(false);
@@ -224,7 +224,7 @@ export function initialisePiConstructiveCompass(
       trail.append(item);
     });
     status.textContent =
-      "Temporary trail ready. This trail choice was not sent to Pi or Zerone.";
+      "Temporary trail ready. This control did not send the choice to Pi or Zerone servers.";
     result.hidden = false;
     result.focus({ preventScroll: true });
   };

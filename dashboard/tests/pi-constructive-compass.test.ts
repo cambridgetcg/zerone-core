@@ -113,7 +113,7 @@ describe("Pi Constructive Compass privacy and activation boundary", () => {
     assert.match(compassSource, /trail\.replaceChildren\(\)/);
     assert.match(
       compassSource,
-      /This trail choice was not sent to Pi or Zerone/,
+      /This control did not send the choice to Pi or Zerone servers/,
     );
   });
 
@@ -132,7 +132,7 @@ describe("Pi Constructive Compass privacy and activation boundary", () => {
     assert.match(html, /id="pi-compass-result"[\s\S]*?tabindex="-1"[\s\S]*?hidden/);
     for (const claim of [
       "not who you are",
-      "not sent to Pi or Zerone",
+      "This control does not send the choice",
       "no KYC or unique-human",
       "no identity, profile, evaluation, evidence",
       "qualification, reward, payment, wallet action",

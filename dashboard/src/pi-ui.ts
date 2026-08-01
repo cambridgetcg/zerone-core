@@ -49,9 +49,6 @@ function attachDialogClose(
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog && !isPending()) dialog.close();
   });
-  dialog.addEventListener("cancel", (event) => {
-    if (isPending()) event.preventDefault();
-  });
 }
 
 export async function initialisePiPilot(
@@ -93,9 +90,11 @@ export async function initialisePiPilot(
 
   const dataDialog = byId<HTMLDialogElement>("pi-data-dialog");
   const dataForm = byId<HTMLFormElement>("pi-data-form");
+  const dataTitle = byId<HTMLElement>("pi-data-title");
   const dataCheck = byId<HTMLInputElement>("pi-data-check");
   const dataClose = byId<HTMLButtonElement>("pi-data-close");
   const dataSubmit = byId<HTMLButtonElement>("pi-data-submit");
+  const dataStatus = byId<HTMLParagraphElement>("pi-data-status");
 
   let authPending = false;
   let proofPending = false;
@@ -225,8 +224,10 @@ export async function initialisePiPilot(
   dataOpenButton.addEventListener("click", () => {
     if (sessionPending || dataPending || !session.authenticated) return;
     dataCheck.checked = false;
+    dataStatus.textContent = "";
+    dataForm.setAttribute("aria-busy", "false");
     dataDialog.showModal();
-    window.setTimeout(() => dataCheck.focus(), 0);
+    window.setTimeout(() => dataTitle.focus(), 0);
   });
 
   dataForm.addEventListener("submit", async (event) => {
@@ -246,6 +247,8 @@ export async function initialisePiPilot(
     dataClose.disabled = true;
     dataSubmit.disabled = true;
     dataSubmit.textContent = "Deleting pilot data…";
+    dataStatus.textContent = "Deleting subject-linked pilot data…";
+    dataForm.setAttribute("aria-busy", "true");
     try {
       session = await deletePiPilotData(session.csrfToken);
       render();
@@ -254,6 +257,8 @@ export async function initialisePiPilot(
         "Subject-linked Pi pilot data deleted. Your Pi account, Keplr wallet, and blockchain state were not changed.",
       );
     } catch {
+      dataStatus.textContent =
+        "Deletion could not be confirmed. Review the message below before retrying.";
       options.notify(
         "Pilot-data deletion could not be confirmed. Your Pi account, Keplr wallet, and blockchain state were not changed.",
         "error",
@@ -264,6 +269,7 @@ export async function initialisePiPilot(
       dataClose.disabled = false;
       dataSubmit.disabled = false;
       dataSubmit.textContent = "Delete subject-linked pilot data";
+      dataForm.setAttribute("aria-busy", "false");
     }
   });
 

@@ -253,10 +253,17 @@ describe("Pi callback page hardening", () => {
     assert.match(ui, /deletePiPilotData\(session\.csrfToken\)/u);
     assert.match(html, /id="pi-data-dialog"/u);
     assert.match(html, /id="pi-data-check" type="checkbox" required/u);
-    assert.match(html, /short-lived keyed subject tombstone/u);
+    assert.match(html, /keyed subject tombstone remains for at most 12 minutes/u);
     assert.match(html, /Minimal unindexed anti-replay fingerprints/u);
+    assert.match(html, /configured D1 Time Travel window/u);
+    assert.match(html, /currently authenticated app-specific/u);
     assert.match(html, /not my Pi account/u);
     assert.match(html, /does not revoke or alter Pi, Keplr/u);
+    assert.match(html, /id="pi-data-title" tabindex="-1"/u);
+    assert.match(html, /id="pi-data-status" role="status" aria-live="polite"/u);
+    assert.match(ui, /dataForm\.setAttribute\("aria-busy", "true"\)/u);
+    assert.match(ui, /dataTitle\.focus\(\)/u);
+    assert.doesNotMatch(ui, /cancel[\s\S]{0,100}preventDefault/u);
   });
 });
 

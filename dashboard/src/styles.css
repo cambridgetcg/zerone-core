@@ -2858,6 +2858,14 @@
     border-color: rgba(255, 197, 111, 0.26);
   }
 
+  .pi-data-status {
+    min-height: 1.1rem;
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    line-height: 1.45;
+  }
+
   .toast {
     position: fixed;
     z-index: 90;

@@ -65,18 +65,24 @@ An independently flagged Constructive Compass may appear after Pi account
 authentication. It offers three fixed, non-evaluative trails into the public
 constructive-intelligence tree. Every trail is checked against the loaded
 canonical static snapshot before the control is shown. A visitor's choice
-exists only in page memory: it is not posted, persisted, attached to the Pi
-account, treated as identity or evidence, or shared with wallet code. Refresh,
-clear, and Pi logout discard it.
+exists only in page memory: it is not persisted, attached to the Pi account,
+treated as identity or evidence, or shared with wallet code. The control itself
+sends no trail choice to Pi or Zerone servers. Refresh, clear, and Pi logout
+discard it.
 
 An authenticated deletion control removes all subject-linked Pi pilot
 sessions, the active address binding, outstanding challenges, and rotation
-aliases in one D1 transition. A short-lived keyed subject tombstone prevents
-an OAuth flow started before deletion from recreating the session. Minimal
+aliases in one D1 transition. A keyed subject tombstone retained for at most
+12 minutes prevents an OAuth flow started before deletion from recreating the
+session. Minimal
 unindexed anti-replay fingerprints remain outside account-selectable deletion
 and therefore remain part of the separate production retention gate. This
 control never changes the person's Pi account, Keplr wallet, or blockchain
-state.
+state. Logical deletion may remain provider-recoverable for the database's
+configured D1 Time Travel window. The control addresses only the current
+app-specific Pi subject: a replacement UID issued after permission revocation
+is never joined to older records by username, so inactive historical records
+also require a finite operator retention policy.
 
 Browser build flags:
 

@@ -150,8 +150,19 @@ the directly linked replay row for the authenticated internal subject, then
 clears both Pi pilot cookies. Pi OAuth/bearer anti-replay rows and already
 orphaned challenge tombstones deliberately contain no subject index, so they
 cannot be selected by account and remain only until the age-based retention
-procedure removes them. The interface discloses this distinction. Deletion
-does not alter the person's Pi account, Keplr wallet, or any blockchain state.
+procedure removes them. A keyed subject deletion guard remains for at most 12
+minutes and refuses any session whose server-created OAuth flow did not start
+strictly after deletion. Logical deletion may remain provider-recoverable for
+the deployed D1 database's configured Time Travel window. The interface
+discloses these distinctions. Deletion does not alter the person's Pi account,
+Keplr wallet, or any blockchain state.
+
+Deletion addresses only the currently authenticated app-specific Pi subject.
+Pi may issue a different app-specific `uid` after a person revokes app
+permission; Zerone cannot discover an older subject from the replacement and
+must never merge them by username. Finite inactive-binding and alias retention,
+plus a documented operator privacy-request path, remain production gates for
+historical rows that the current subject cannot select.
 
 ## Threat and failure model
 
