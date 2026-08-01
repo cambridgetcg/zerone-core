@@ -69,17 +69,28 @@ func (k Keeper) ReadMigrationMarker(ctx context.Context, key string) string {
 // ReadMigrationMarkerChecked is the fail-closed form used by upgrade
 // preconditions. It distinguishes an absent marker from an unreadable store.
 func (k Keeper) ReadMigrationMarkerChecked(ctx context.Context, key string) (string, error) {
+	value, _, err := k.ReadMigrationMarkerPresenceChecked(ctx, key)
+	return value, err
+}
+
+// ReadMigrationMarkerPresenceChecked preserves marker-key presence separately
+// from its value. Historical code permitted an empty value, so callers that
+// must prove a marker is absent cannot safely infer absence from value == "".
+func (k Keeper) ReadMigrationMarkerPresenceChecked(
+	ctx context.Context,
+	key string,
+) (value string, found bool, err error) {
 	if key == "" {
-		return "", fmt.Errorf("migration marker key cannot be empty")
+		return "", false, fmt.Errorf("migration marker key cannot be empty")
 	}
 	store := k.storeService.OpenKVStore(ctx)
 	full := append(append([]byte{}, migrationMarkerPrefix...), []byte(key)...)
 	bz, err := store.Get(full)
 	if err != nil {
-		return "", fmt.Errorf("read migration marker %q: %w", key, err)
+		return "", false, fmt.Errorf("read migration marker %q: %w", key, err)
 	}
 	if bz == nil {
-		return "", nil
+		return "", false, nil
 	}
-	return string(bz), nil
+	return string(bz), true, nil
 }

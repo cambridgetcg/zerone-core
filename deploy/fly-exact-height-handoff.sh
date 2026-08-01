@@ -34,6 +34,8 @@ set -euo pipefail
 : "${OBSERVER_API_URL:?OBSERVER_API_URL must name an independent Cosmos REST endpoint}"
 : "${FLY_HANDOFF_CONFIRMATION:?FLY_HANDOFF_CONFIRMATION must acknowledge the exact handoff tuple}"
 
+readonly SDK053_IBC10_SOURCE_VERSION_MAP_SHA256="de3f0e0d9769adf2a7375f921d78f25365bc2f9a8b42d8c80de5982affa20127"
+
 for dependency in curl fly jq sha256sum; do
   if ! command -v "${dependency}" >/dev/null 2>&1; then
     echo "fly-exact-height-handoff: ${dependency} is required" >&2
@@ -122,6 +124,16 @@ if [[ "${actual_plan_digest}" != "${UPGRADE_PLAN_SHA256}" ]] ||
   echo "fly-exact-height-handoff: plan, activation-preflight, arm, or exit evidence SHA-256 mismatch" >&2
   exit 1
 fi
+h2_plan_identity_sha256=""
+if ! h2_plan_identity_sha256="$(
+  jq -er '
+    .h2_plan_identity_sha256 |
+    select(type == "string" and test("^[0-9a-f]{64}$"))
+  ' "${ACTIVATION_PREFLIGHT_REPORT_PATH}"
+)"; then
+  echo "fly-exact-height-handoff: activation-preflight must report the observed H2 plan identity as exactly 64 lowercase hexadecimal characters" >&2
+  exit 1
+fi
 armed_machine_config_sha256="$(
   jq -er '
     .machine_config_sha256 |
@@ -181,7 +193,7 @@ target_image_repository="${FLY_IMAGE_REF%@sha256:*}"
 target_image_digest="${FLY_IMAGE_REF##*@}"
 image_digest="${target_image_digest#sha256:}"
 current_digest="${current_image_digest#sha256:}"
-expected_confirmation="${FLY_APP}:${FLY_MACHINE_ID}:${FLY_VOLUME_ID}:${CHAIN_ID}:${current_digest}:${image_digest}:${FLY_CONFIG_SHA256}:${UPGRADE_NAME}:${UPGRADE_HEIGHT}:${UPGRADE_PLAN_SHA256}:${ACTIVATION_PREFLIGHT_REPORT_SHA256}:${UPGRADE_ARM_EVIDENCE_SHA256}:${UPGRADE_EXIT_EVIDENCE_SHA256}:${LAST_COMMITTED_HEIGHT}:${LAST_COMMITTED_APP_HASH}:${ATTEMPTED_UPGRADE_HEIGHT}:${EXPECTED_UPGRADE_APP_HASH}:${EXPECTED_VALIDATOR_ADDRESS}:${EXPECTED_NODE_ID}:${EXPECTED_PRIV_VALIDATOR_KEY_SHA256}:${EXPECTED_NODE_KEY_SHA256}:${EXPECTED_GENESIS_SHA256}"
+expected_confirmation="${FLY_APP}:${FLY_MACHINE_ID}:${FLY_VOLUME_ID}:${CHAIN_ID}:${current_digest}:${image_digest}:${FLY_CONFIG_SHA256}:${UPGRADE_NAME}:${UPGRADE_HEIGHT}:${UPGRADE_PLAN_SHA256}:${ACTIVATION_PREFLIGHT_REPORT_SHA256}:${h2_plan_identity_sha256}:${UPGRADE_ARM_EVIDENCE_SHA256}:${UPGRADE_EXIT_EVIDENCE_SHA256}:${LAST_COMMITTED_HEIGHT}:${LAST_COMMITTED_APP_HASH}:${ATTEMPTED_UPGRADE_HEIGHT}:${EXPECTED_UPGRADE_APP_HASH}:${EXPECTED_VALIDATOR_ADDRESS}:${EXPECTED_NODE_ID}:${EXPECTED_PRIV_VALIDATOR_KEY_SHA256}:${EXPECTED_NODE_KEY_SHA256}:${EXPECTED_GENESIS_SHA256}"
 if [[ "${FLY_HANDOFF_CONFIRMATION}" != "${expected_confirmation}" ]]; then
   echo "fly-exact-height-handoff: confirmation mismatch; expected ${expected_confirmation}" >&2
   exit 1
@@ -291,9 +303,11 @@ if ! jq -e \
   --arg plan_info_sha256 "${plan_info_sha256}" \
   --arg genesis_sha256 "${EXPECTED_GENESIS_SHA256}" \
   --arg upgrade_info_sha256 "${actual_upgrade_info_digest}" \
+  --arg source_version_map_sha256 "${SDK053_IBC10_SOURCE_VERSION_MAP_SHA256}" \
+  --arg h2_plan_identity_sha256 "${h2_plan_identity_sha256}" \
   --arg report_sha256 "${computed_preflight_report_sha256}" '
     type == "object" and
-    .schema == "zerone.activation-preflight/v3" and
+    .schema == "zerone.activation-preflight/v5" and
     .scope == "scheduled-plan-h-minus-one" and
     .activation_ready == true and
     .chain_id == $chain_id and
@@ -308,6 +322,8 @@ if ! jq -e \
     .app_hash == $last_apphash and
     (.unsafe_skip_upgrade_heights | type == "array" and length == 0) and
     (.unsafe_skip_config_sha256 | type == "string" and test("^[0-9a-f]{64}$")) and
+    .source_version_map_sha256 == $source_version_map_sha256 and
+    .h2_plan_identity_sha256 == $h2_plan_identity_sha256 and
     (.source_data_manifest_sha256 | type == "string" and test("^[0-9a-f]{64}$")) and
     (.source_data_file_count | type == "number" and floor == . and . > 0) and
     (.source_data_bytes | type == "number" and floor == . and . > 0) and
@@ -326,6 +342,10 @@ if ! jq -e \
         "effective_unsafe_skip_configuration_bound",
         "scheduled_plan_exact_h_minus_one",
         "named_handler_plan_specific_preconditions",
+        "exact_full_source_module_version_map",
+        "ordered_h1_h2_marker_and_done_height_proofs",
+        "h2_plan_identity_state_evidence",
+        "founder_renunciation_zero_poststate",
         "scheduled_height_not_unsafe_skipped",
         "exact_upgrade_handler_cache_dry_run",
         "source_database_never_opened",
@@ -336,7 +356,7 @@ if ! jq -e \
         "local_upgrade_info_exactly_matches_committed_plan"
       ] - $checks | length == 0))
   ' "${ACTIVATION_PREFLIGHT_REPORT_PATH}" >/dev/null; then
-  echo "fly-exact-height-handoff: activation-preflight report does not bind the exact v3 chain/genesis/H-1/AppHash/plan/readiness tuple" >&2
+  echo "fly-exact-height-handoff: activation-preflight report does not bind the exact v5 chain/genesis/H-1/AppHash/plan/source-lineage/readiness tuple" >&2
   exit 1
 fi
 

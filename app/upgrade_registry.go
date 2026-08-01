@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	upgradetypes "cosmossdk.io/x/upgrade/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 )
 
@@ -104,12 +105,8 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 			Description: "agenttool-seam-v1 — axis-bounds drain closed: recursion_weight multiplies the settlement reward, so it is refused against an adapter that declares no ceiling instead of being waved through. Handler gives every bounds-less adapter an explicit empty ceiling, retiring 'unbounded' as a reachable state.",
 		},
 		{
-			UpgradeName: UpgradeNameConsolidationSafetyV1,
-			Description: "consolidation-safety-v1 — atomic safety and economic-neutrality activation: provisional conjectures, starvation-safe challenge settlement, substrate axis ceilings, adjudicated clawback, bounded probes, liquiditypool v5 LP-only fees, and vesting_rewards v2 retirement of founder and transaction-presence rewards.",
-		},
-		{
 			UpgradeName: UpgradeNameSDK053IBC10,
-			Description: "sdk-0.53-ibc-10 — one coordinated activation for SDK/IBC migration, fail-closed signer policy, and upgrade/incident operations hardening; reconciles legacy emergency state before hardened getters, requires the raw-DB IBC keyset commitment, validates source versions, refuses to orphan ICS-29 funds, removes legacy stores, and retires the custom software-upgrade lane.",
+			Description: "sdk-0.53-ibc-10 — H3 SDK/IBC migration, fail-closed signer policy, and upgrade/incident operations hardening; consumes separately completed H1 consolidation and H2 founder-renunciation state proofs, reconciles legacy emergency state before hardened getters, requires the raw-DB IBC keyset commitment, validates the exact full source version map, refuses to orphan ICS-29 funds, removes legacy stores, and retires the custom software-upgrade lane.",
 		},
 	}
 
@@ -166,17 +163,23 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 		if _, err := parseSDK053IBC10PlanInfo(plan.Info); err != nil {
 			return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
 		}
-		if err := app.requireConsolidationActivationBoundary(ctx, plan.Name, fromVM); err != nil {
-			return nil, err
-		}
 		if err := requireActivationSafetySourceVersions(plan.Name, fromVM); err != nil {
 			return nil, err
 		}
 		if err := requireSDK053IBC10SourceVersions(plan.Name, fromVM); err != nil {
 			return nil, err
 		}
+		if err := app.requirePreSDKTransitionLineage(
+			ctx,
+			plan.Name,
+			plan.Height,
+			fromVM,
+			nil,
+		); err != nil {
+			return nil, err
+		}
 	} else {
-		if _, err := app.validateMigrationBoundaryForPlan(plan, fromVM); err != nil {
+		if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
 			return nil, fmt.Errorf("validate upgrade boundary: %w", err)
 		}
 	}
@@ -184,6 +187,24 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 	// RunMigrations detects the correct delta per module.
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, fromVM); err != nil {
 		return nil, fmt.Errorf("seed pre-upgrade vm: %w", err)
+	}
+	if plan.Name == UpgradeNameSDK053IBC10 {
+		// SetModuleVersionMap merges and cannot model the exact pre-H3 map,
+		// which lacks H3-native zero-version client modules. The production
+		// chain already carries exact committed source state; only this test
+		// seam removes target-only keys after all pure preflight checks pass.
+		versionStore := sdk.UnwrapSDKContext(ctx).KVStore(
+			app.keys[upgradetypes.StoreKey],
+		)
+		for name := range app.ModuleManager.GetVersionMap() {
+			if _, present := fromVM[name]; present {
+				continue
+			}
+			versionStore.Delete(append(
+				[]byte{upgradetypes.VersionMapByte},
+				[]byte(name)...,
+			))
+		}
 	}
 	applyContext := ctx
 	if plan.Name == UpgradeNameSDK053IBC10 {

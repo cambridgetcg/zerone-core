@@ -709,6 +709,7 @@ func makeTestReport(t *testing.T, mode string) (string, Report) {
 			Outcome:                      "observed",
 			PlanName:                     "sdk-0.53-ibc-10",
 			PlanInfoSHA256:               strings.Repeat("c", 64),
+			H2PlanIdentitySHA256:         strings.Repeat("8", 64),
 			UpgradeHeight:                100,
 			OldLastCommittedHeight:       99,
 			PreUpgradeAppHash:            strings.Repeat("d", 64),
@@ -887,8 +888,15 @@ func testObservation(kind string, homeManifest FullValidatorHomeManifest) any {
 		return PlanInfoObservation{"sdk-0.53-ibc-10", 100, strings.Repeat("c", 64), "zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1"}
 	case "activation-preflight":
 		return ActivationPreflightObservation{
-			"zerone.activation-preflight/v3", 99, strings.Repeat("d", 64),
-			strings.Repeat("9", 64), true, true, true, true,
+			ReportSchema:            "zerone.activation-preflight/v5",
+			Height:                  99,
+			AppHash:                 strings.Repeat("d", 64),
+			ReportSHA256:            strings.Repeat("9", 64),
+			H2PlanIdentitySHA256:    strings.Repeat("8", 64),
+			GateSatisfied:           true,
+			SourceDatabaseUnchanged: true,
+			SourceVersionsExact:     true,
+			PlanInfoExact:           true,
 		}
 	case "old-exit":
 		return OldExitObservation{100, 99, true, 1, true}

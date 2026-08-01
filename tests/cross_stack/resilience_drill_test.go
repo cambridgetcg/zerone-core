@@ -52,7 +52,7 @@ func TestResilience_FullDrillP0(t *testing.T) {
 		Id:              "ZR-DRILL-001",
 		Severity:        knowledgetypes.IncidentSeverity_INCIDENT_SEVERITY_P0,
 		Title:           "Manifest child-root corruption in edge case",
-		Description:     "A specific path in CreateTrainingManifest produces a Merkle root that cannot be re-verified by external consumers. Fix ships at the atomic consolidation safety boundary.",
+		Description:     "A specific path in CreateTrainingManifest produces a Merkle root that cannot be re-verified by external consumers. Fix ships through a handler registered by the current binary.",
 		AffectedModules: []string{"knowledge"},
 	})
 	require.NoError(t, err)
@@ -98,23 +98,22 @@ func TestResilience_FullDrillP0(t *testing.T) {
 	require.NoError(t, err)
 
 	// ── STEP 5 + 6: apply the named upgrade ───────────────────────────
-	fromVM := exactConsolidationPrestate(h.App.CurrentModuleVersionMap())
-	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameConsolidationSafetyV1, fromVM, h.Height())
+	fromVM := h.App.CurrentModuleVersionMap()
+	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
 	require.NoError(t, err, "named upgrade runs despite the module being paused (handlers, not migrations, gate writes)")
 	require.Equal(t, uint64(6), toVM["knowledge"])
 
-	// ── STEP 7: H1 migration marker present — fix "deployed" ──────────
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"))
+	// ── STEP 7: current named-upgrade marker present — fix "deployed" ─
 	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_consolidation-safety-v1"))
+		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1"))
 
 	// ── STEP 8: record the named-upgrade remediation ──────────────────
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
 		Authority:  authority,
 		IncidentId: "ZR-DRILL-001",
 		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_NAMED_UPGRADE,
-		Reference:  zeroneapp.UpgradeNameConsolidationSafetyV1,
-		Note:       "fix crossed the complete atomic H1 boundary",
+		Reference:  zeroneapp.UpgradeNameTestnetV2,
+		Note:       "fix crossed a named boundary registered by the current binary",
 	})
 	require.NoError(t, err)
 

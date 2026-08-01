@@ -33,6 +33,7 @@ type UpgradeScenario struct {
 	Outcome                      string        `json:"outcome"`
 	PlanName                     string        `json:"plan_name"`
 	PlanInfoSHA256               string        `json:"plan_info_sha256"`
+	H2PlanIdentitySHA256         string        `json:"h2_plan_identity_sha256"`
 	UpgradeHeight                int64         `json:"upgrade_height"`
 	OldLastCommittedHeight       int64         `json:"old_last_committed_height"`
 	PreUpgradeAppHash            string        `json:"pre_upgrade_app_hash"`

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
 	storeiavl "cosmossdk.io/store/iavl"
 	"cosmossdk.io/store/metrics"
 	pruningtypes "cosmossdk.io/store/pruning/types"
@@ -23,15 +24,92 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
+	abci "github.com/cometbft/cometbft/abci/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client/flags"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdkruntime "github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/server"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 var errInjectedIBCCleanup = errors.New("injected IBC cleanup failure")
+
+func TestSDK053IBC10ExactSourceVersionMapPinsEveryEntry(t *testing.T) {
+	require.Len(t, sdk053IBC10ExactSourceVersionMap, 40)
+	valid := make(map[string]uint64, len(sdk053IBC10ExactSourceVersionMap))
+	for _, expected := range sdk053IBC10ExactSourceVersionMap {
+		valid[expected.name] = expected.version
+	}
+	require.NoError(t, requireSDK053IBC10ExactSourceVersionMap(
+		UpgradeNameSDK053IBC10,
+		valid,
+	))
+	digest, err := canonicalSDK053IBC10SourceVersionMapSHA256(valid)
+	require.NoError(t, err)
+	require.Equal(t, sdk053IBC10SourceVersionMapSHA256, digest)
+	require.Equal(
+		t,
+		"de3f0e0d9769adf2a7375f921d78f25365bc2f9a8b42d8c80de5982affa20127",
+		digest,
+	)
+
+	clone := func() map[string]uint64 {
+		copyMap := make(map[string]uint64, len(valid))
+		for name, version := range valid {
+			copyMap[name] = version
+		}
+		return copyMap
+	}
+	for _, expected := range sdk053IBC10ExactSourceVersionMap {
+		t.Run(expected.name+"/missing", func(t *testing.T) {
+			mutated := clone()
+			delete(mutated, expected.name)
+			err := requireSDK053IBC10ExactSourceVersionMap(
+				UpgradeNameSDK053IBC10,
+				mutated,
+			)
+			require.ErrorContains(t, err, expected.name)
+			require.ErrorContains(t, err, "present=false")
+		})
+		t.Run(expected.name+"/wrong", func(t *testing.T) {
+			mutated := clone()
+			mutated[expected.name] = expected.version + 1
+			err := requireSDK053IBC10ExactSourceVersionMap(
+				UpgradeNameSDK053IBC10,
+				mutated,
+			)
+			require.ErrorContains(t, err, expected.name)
+			require.ErrorContains(t, err, "present=true")
+		})
+	}
+
+	for _, extra := range []string{
+		"06-solomachine",
+		"07-tendermint",
+		"unexpected-module",
+	} {
+		t.Run("extra/"+extra, func(t *testing.T) {
+			mutated := clone()
+			mutated[extra] = 0
+			err := requireSDK053IBC10ExactSourceVersionMap(
+				UpgradeNameSDK053IBC10,
+				mutated,
+			)
+			require.ErrorContains(t, err, "unexpected full source VersionMap")
+			require.ErrorContains(t, err, extra)
+		})
+	}
+}
 
 type failingIBCPrefixEnumerator struct {
 	dbm.DB
@@ -707,52 +785,162 @@ func TestSDK053IBC10HandlerRejectsOfflineProofOutsideDryRunContext(t *testing.T)
 	)
 }
 
-func TestSDK053IBC10NamedPreflightRefusesUnconsolidatedBoundaryBeforeProof(
+func TestSDK053IBC10NamedPreflightRefusesMissingH2BeforeLoaderProof(
 	t *testing.T,
 ) {
 	planInfo, err := BuildSDK053IBC10PlanInfo(nil, nil)
 	require.NoError(t, err)
-	baseVersionMap := map[string]uint64{
-		"knowledge":              6,
-		"claiming_pot":           2,
-		"liquiditypool":          5,
-		"vesting_rewards":        2,
-		"ibc":                    6,
-		"transfer":               5,
-		"interchainaccounts":     3,
-		legacyCapabilityStoreKey: 1,
-		legacyIBCFeeStoreKey:     2,
+	application := NewZeroneApp(
+		log.NewNopLogger(),
+		dbm.NewMemDB(),
+		nil,
+		true,
+		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+	)
+	ctx := application.NewUncachedContext(
+		false,
+		cmtproto.Header{Height: 1},
+	)
+	require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		consolidationSafetyMarker,
+		consolidationSafetyMarkerValue,
+	))
+	doneKey := make([]byte, 9+len(UpgradeNameConsolidationSafetyV1))
+	doneKey[0] = upgradetypes.DoneByte
+	binary.BigEndian.PutUint64(doneKey[1:9], 1)
+	copy(doneKey[9:], UpgradeNameConsolidationSafetyV1)
+	ctx.KVStore(application.keys[upgradetypes.StoreKey]).Set(doneKey, []byte{1})
+	commitID := application.CommitMultiStore().Commit()
+	require.Equal(t, int64(1), commitID.Version)
+	ctx = application.NewUncachedContext(
+		true,
+		cmtproto.Header{Height: commitID.Version},
+	)
+
+	versionMap := make(map[string]uint64, len(sdk053IBC10ExactSourceVersionMap))
+	for _, expected := range sdk053IBC10ExactSourceVersionMap {
+		versionMap[expected.name] = expected.version
 	}
+	require.Nil(t, application.sdk053IBC10LoaderProof)
+	err = application.verifyNamedActivationPreconditions(
+		ctx,
+		upgradetypes.Plan{
+			Name:   UpgradeNameSDK053IBC10,
+			Height: 3,
+			Info:   planInfo,
+		},
+		versionMap,
+		commitID.Version,
+		nil,
+	)
+	require.ErrorContains(
+		t,
+		err,
+		`marker "upgrade_marker_founder-renunciation-v1" to be present`,
+	)
+	require.Nil(t, application.sdk053IBC10LoaderProof,
+		"H2 refusal must happen before recording a loader proof")
+}
+
+func TestSDK053IBC10MigratedStartupRejectsInvalidH2Evidence(t *testing.T) {
+	planInfo, err := BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	plan := upgradetypes.Plan{
+		Name:   UpgradeNameSDK053IBC10,
+		Height: 3,
+		Info:   planInfo,
+	}
+
 	tests := []struct {
-		name      string
-		marker    string
-		corrupt   func(map[string]uint64)
-		wantError string
+		name                string
+		present             bool
+		value               string
+		nativeMarkerPresent bool
+		nativeMarker        string
+		nativeMarkerValue   string
+		emptyMigratedMarker string
+		wantError           string
 	}{
 		{
-			name:   "missing consolidation version",
-			marker: consolidationSafetyMarkerValue,
-			corrupt: func(versionMap map[string]uint64) {
-				delete(versionMap, "knowledge")
-			},
-			wantError: `requires prerequisite module "knowledge" at consensus version 6: module is absent`,
+			name:      "absent",
+			wantError: `plan identity marker "upgrade_plan_identity_founder-renunciation-v1" to be present`,
 		},
 		{
-			name:   "wrong consolidation version",
-			marker: consolidationSafetyMarkerValue,
-			corrupt: func(versionMap map[string]uint64) {
-				versionMap["knowledge"] = 5
-			},
-			wantError: `requires prerequisite module "knowledge" at consensus version 6: got 5`,
+			name:      "present empty",
+			present:   true,
+			wantError: "exactly 64 lowercase hexadecimal characters",
 		},
 		{
-			name:      "missing consolidation marker",
-			wantError: `requires prerequisite marker "upgrade_marker_consolidation-safety-v1"="migrated": got ""`,
+			name:      "uppercase",
+			present:   true,
+			value:     strings.Repeat("A", 64),
+			wantError: "exactly 64 lowercase hexadecimal characters",
 		},
 		{
-			name:      "wrong consolidation marker",
-			marker:    "unexpected",
-			wantError: `requires prerequisite marker "upgrade_marker_consolidation-safety-v1"="migrated": got "unexpected"`,
+			name:      "short",
+			present:   true,
+			value:     strings.Repeat("a", 63),
+			wantError: "exactly 64 lowercase hexadecimal characters",
+		},
+		{
+			name:      "non hex",
+			present:   true,
+			value:     strings.Repeat("g", 64),
+			wantError: "exactly 64 lowercase hexadecimal characters",
+		},
+		{
+			name:                "H1 native marker present empty",
+			present:             true,
+			value:               strings.Repeat("a", 64),
+			nativeMarkerPresent: true,
+			nativeMarker:        consolidationSafetyNativeMarker,
+			wantError:           "to be truly absent",
+		},
+		{
+			name:                "H1 native marker nonempty",
+			present:             true,
+			value:               strings.Repeat("a", 64),
+			nativeMarkerPresent: true,
+			nativeMarker:        consolidationSafetyNativeMarker,
+			nativeMarkerValue:   "genesis",
+			wantError:           "to be truly absent",
+		},
+		{
+			name:                "H2 native marker present empty",
+			present:             true,
+			value:               strings.Repeat("a", 64),
+			nativeMarkerPresent: true,
+			nativeMarker:        founderRenunciationNativeMarker,
+			wantError:           "to be truly absent",
+		},
+		{
+			name:                "H2 native marker nonempty",
+			present:             true,
+			value:               strings.Repeat("a", 64),
+			nativeMarkerPresent: true,
+			nativeMarker:        founderRenunciationNativeMarker,
+			nativeMarkerValue:   "genesis",
+			wantError:           "to be truly absent",
+		},
+		{
+			name:                "H1 migrated marker present empty",
+			present:             true,
+			value:               strings.Repeat("a", 64),
+			emptyMigratedMarker: consolidationSafetyMarker,
+			wantError:           `marker "upgrade_marker_consolidation-safety-v1"="migrated": got ""`,
+		},
+		{
+			name:                "H2 migrated marker present empty",
+			present:             true,
+			value:               strings.Repeat("a", 64),
+			emptyMigratedMarker: founderRenunciationMarker,
+			wantError:           `marker "upgrade_marker_founder-renunciation-v1"="migrated": got ""`,
+		},
+		{
+			name:    "valid lowercase",
+			present: true,
+			value:   strings.Repeat("a", 64),
 		},
 	}
 
@@ -769,55 +957,630 @@ func TestSDK053IBC10NamedPreflightRefusesUnconsolidatedBoundaryBeforeProof(
 				false,
 				cmtproto.Header{Height: 1},
 			)
-			if test.marker != "" {
-				require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
-					ctx,
-					consolidationSafetyMarker,
-					test.marker,
-				))
+			versionMap := make(map[string]uint64, len(sdk053IBC10ExactSourceVersionMap))
+			for _, expected := range sdk053IBC10ExactSourceVersionMap {
+				versionMap[expected.name] = expected.version
 			}
-			commitID := application.CommitMultiStore().Commit()
-			require.Equal(t, int64(1), commitID.Version)
-			ctx = application.NewUncachedContext(
-				true,
-				cmtproto.Header{Height: commitID.Version},
+			require.NoError(t, application.UpgradeKeeper.SetModuleVersionMap(
+				ctx,
+				versionMap,
+			))
+			application.VestingRewardsKeeper.InitGenesis(
+				ctx,
+				vestingrewardstypes.DefaultGenesis(),
 			)
-
-			versionMap := make(map[string]uint64, len(baseVersionMap))
-			for name, version := range baseVersionMap {
-				versionMap[name] = version
-			}
-			if test.corrupt != nil {
-				test.corrupt(versionMap)
-			}
-			markerBefore := application.KnowledgeKeeper.ReadMigrationMarker(
+			require.NoError(t, application.UpgradeKeeper.ScheduleUpgrade(ctx, plan))
+			require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
 				ctx,
 				consolidationSafetyMarker,
-			)
-			require.Nil(t, application.sdk053IBC10LoaderProof)
-
-			err := application.verifyNamedActivationPreconditions(
+				consolidationSafetyMarkerValue,
+			))
+			require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
 				ctx,
-				upgradetypes.Plan{
-					Name:   UpgradeNameSDK053IBC10,
-					Height: commitID.Version + 1,
-					Info:   planInfo,
-				},
-				versionMap,
-				commitID.Version,
+				founderRenunciationMarker,
+				founderRenunciationMarkerValue,
+			))
+			for name, height := range map[string]int64{
+				UpgradeNameConsolidationSafetyV1: 1,
+				UpgradeNameFounderRenunciationV1: 2,
+			} {
+				doneKey := make([]byte, 9+len(name))
+				doneKey[0] = upgradetypes.DoneByte
+				binary.BigEndian.PutUint64(doneKey[1:9], uint64(height))
+				copy(doneKey[9:], name)
+				ctx.KVStore(application.keys[upgradetypes.StoreKey]).Set(
+					doneKey,
+					[]byte{1},
+				)
+			}
+			markerKey := func(name string) []byte {
+				return append([]byte{0x7f, 0x01}, []byte(name)...)
+			}
+			if test.emptyMigratedMarker != "" {
+				ctx.KVStore(application.keys["knowledge"]).Set(
+					markerKey(test.emptyMigratedMarker),
+					[]byte{},
+				)
+			}
+			if test.present {
+				if test.value == "" {
+					ctx.KVStore(application.keys["knowledge"]).Set(
+						markerKey(founderRenunciationPlanIdentityMarker),
+						[]byte{},
+					)
+				} else {
+					require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+						ctx,
+						founderRenunciationPlanIdentityMarker,
+						test.value,
+					))
+				}
+			}
+			if test.nativeMarkerPresent {
+				if test.nativeMarkerValue == "" {
+					ctx.KVStore(application.keys["knowledge"]).Set(
+						markerKey(test.nativeMarker),
+						[]byte{},
+					)
+				} else {
+					require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+						ctx,
+						test.nativeMarker,
+						test.nativeMarkerValue,
+					))
+				}
+			}
+			require.Equal(t, int64(1), application.CommitMultiStore().Commit().Version)
+
+			// Advance to exact H-1 so the fixture exercises the same committed
+			// startup state the destructive-loader coordination consumes.
+			ctx = application.NewUncachedContext(
+				false,
+				cmtproto.Header{Height: 2},
 			)
-			require.ErrorContains(t, err, test.wantError)
-			require.Nil(t, application.sdk053IBC10LoaderProof,
-				"H-1 refusal must happen before recording a loader proof")
-			require.Equal(t, markerBefore,
-				application.KnowledgeKeeper.ReadMigrationMarker(
-					ctx,
-					consolidationSafetyMarker,
-				),
-				"H-1 refusal must not mutate the consolidation boundary",
-			)
+			require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+				ctx,
+				"test_sdk053_startup_h_minus_one",
+				"committed",
+			))
+			require.Equal(t, int64(2), application.CommitMultiStore().Commit().Version)
+
+			application.sdk053IBC10LegacyStoresAtStartup = map[string]bool{
+				legacyCapabilityStoreKey: true,
+				legacyIBCFeeStoreKey:     true,
+			}
+			application.sdk053IBC10DiskUpgradeInfo = plan
+			application.sdk053IBC10LoaderProof = &sdk053IBC10StoreLoaderProof{
+				upgradeHeight:       plan.Height,
+				preUpgradeVersion:   plan.Height - 1,
+				legacyRootsComplete: true,
+				feeLockAbsent:       true,
+			}
+			beforeCommitID := application.CommitMultiStore().LastCommitID()
+
+			err := application.ValidateSDK053IBC10StartupCoordination()
+			if test.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.wantError)
+			}
+			require.Equal(t, beforeCommitID, application.CommitMultiStore().LastCommitID(),
+				"startup validation must leave the committed H-1 state unchanged")
 		})
 	}
+}
+
+func TestSDK053IBC10ScheduledPreflightBindsStrictH2PlanIdentity(t *testing.T) {
+	tests := []struct {
+		name      string
+		present   bool
+		value     string
+		wantError string
+	}{
+		{
+			name:      "absent",
+			wantError: `plan identity marker "upgrade_plan_identity_founder-renunciation-v1" to be present`,
+		},
+		{
+			name:      "present empty",
+			present:   true,
+			wantError: "exactly 64 lowercase hexadecimal characters",
+		},
+		{
+			name:      "uppercase",
+			present:   true,
+			value:     strings.Repeat("A", 64),
+			wantError: "exactly 64 lowercase hexadecimal characters",
+		},
+		{
+			name:      "short",
+			present:   true,
+			value:     strings.Repeat("a", 63),
+			wantError: "exactly 64 lowercase hexadecimal characters",
+		},
+		{
+			name:      "non hex",
+			present:   true,
+			value:     strings.Repeat("g", 64),
+			wantError: "exactly 64 lowercase hexadecimal characters",
+		},
+		{
+			name:    "valid lowercase",
+			present: true,
+			value:   strings.Repeat("a", 64),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			application := newSDK053IBC10ScheduledPreflightFixture(
+				t,
+				test.present,
+				test.value,
+			)
+			beforeCommitID := application.CommitMultiStore().LastCommitID()
+
+			report, err := application.VerifyScheduledActivationPrestate()
+			if test.wantError != "" {
+				require.ErrorContains(t, err, test.wantError)
+				require.False(t, report.ActivationReady)
+			} else {
+				require.NoError(t, err)
+				require.True(t, report.ActivationReady)
+				require.Equal(t, "zerone.activation-preflight/v5", report.Schema)
+				require.Equal(t, "scheduled-plan-h-minus-one", report.Scope)
+				require.Equal(t, sdk053IBC10SourceVersionMapSHA256,
+					report.SourceVersionMapSHA256)
+				require.Equal(t, test.value, report.H2PlanIdentitySHA256,
+					"the report must expose observed state evidence, not a compiled expected value")
+				require.Contains(t, report.CompletedChecks,
+					"h2_plan_identity_state_evidence")
+			}
+			require.Equal(t, beforeCommitID, application.CommitMultiStore().LastCommitID(),
+				"scheduled preflight and handler dry-run must not commit mutation")
+			ctx := application.NewUncachedContext(
+				true,
+				cmtproto.Header{Height: beforeCommitID.Version},
+			)
+			require.Empty(t, application.KnowledgeKeeper.ReadMigrationMarker(
+				ctx,
+				sdk053IBC10UpgradeMarker,
+			), "scheduled preflight must discard the H3 handler cache")
+		})
+	}
+}
+
+func newSDK053IBC10ScheduledPreflightFixture(
+	t *testing.T,
+	planIdentityPresent bool,
+	planIdentity string,
+) *ZeroneApp {
+	t.Helper()
+	application := NewZeroneApp(
+		log.NewNopLogger(),
+		dbm.NewMemDB(),
+		nil,
+		false,
+		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+	)
+	legacyKeys := storetypes.NewKVStoreKeys(
+		legacyCapabilityStoreKey,
+		legacyIBCFeeStoreKey,
+	)
+	for name, key := range legacyKeys {
+		application.keys[name] = key
+	}
+	application.MountKVStores(legacyKeys)
+	require.NoError(t, application.LoadLatestVersion())
+
+	genesisState := sdk053IBC10GenesisWithValidator(t, application)
+	genesis, err := json.Marshal(genesisState)
+	require.NoError(t, err)
+	ctx := application.NewUncachedContext(
+		false,
+		cmtproto.Header{Height: 0, ChainID: "zerone-preflight-test"},
+	)
+	_, err = application.InitChainer(ctx, &abci.RequestInitChain{
+		ChainId:       "zerone-preflight-test",
+		AppStateBytes: genesis,
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), application.CommitMultiStore().Commit().Version)
+
+	ctx = application.NewUncachedContext(
+		false,
+		cmtproto.Header{Height: 2, ChainID: "zerone-preflight-test"},
+	)
+	markerKey := func(name string) []byte {
+		return append([]byte{0x7f, 0x01}, []byte(name)...)
+	}
+	// This fixture represents migrated pre-H3 state, not the disjoint native
+	// H3 genesis lineage written by InitChainer.
+	ctx.KVStore(application.keys["knowledge"]).Delete(
+		markerKey(sdk053IBC10NativeMarker),
+	)
+	versionMap := make(map[string]uint64, len(sdk053IBC10ExactSourceVersionMap))
+	for _, expected := range sdk053IBC10ExactSourceVersionMap {
+		versionMap[expected.name] = expected.version
+	}
+	currentVersionMap, err := application.UpgradeKeeper.GetModuleVersionMap(ctx)
+	require.NoError(t, err)
+	upgradeStore := ctx.KVStore(application.keys[upgradetypes.StoreKey])
+	for name := range currentVersionMap {
+		if _, expected := versionMap[name]; expected {
+			continue
+		}
+		upgradeStore.Delete(append([]byte{upgradetypes.VersionMapByte}, []byte(name)...))
+	}
+	require.NoError(t, application.UpgradeKeeper.SetModuleVersionMap(ctx, versionMap))
+	for name, value := range map[string]string{
+		consolidationSafetyMarker: consolidationSafetyMarkerValue,
+		founderRenunciationMarker: founderRenunciationMarkerValue,
+	} {
+		require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+			ctx,
+			name,
+			value,
+		))
+	}
+	if planIdentityPresent {
+		if planIdentity == "" {
+			ctx.KVStore(application.keys["knowledge"]).Set(
+				markerKey(founderRenunciationPlanIdentityMarker),
+				[]byte{},
+			)
+		} else {
+			require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+				ctx,
+				founderRenunciationPlanIdentityMarker,
+				planIdentity,
+			))
+		}
+	}
+	for name, height := range map[string]int64{
+		UpgradeNameConsolidationSafetyV1: 1,
+		UpgradeNameFounderRenunciationV1: 2,
+	} {
+		doneKey := make([]byte, 9+len(name))
+		doneKey[0] = upgradetypes.DoneByte
+		binary.BigEndian.PutUint64(doneKey[1:9], uint64(height))
+		copy(doneKey[9:], name)
+		ctx.KVStore(application.keys[upgradetypes.StoreKey]).Set(doneKey, []byte{1})
+	}
+	planInfo, err := BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, application.UpgradeKeeper.ScheduleUpgrade(
+		ctx,
+		upgradetypes.Plan{
+			Name:   UpgradeNameSDK053IBC10,
+			Height: 3,
+			Info:   planInfo,
+		},
+	))
+	require.Equal(t, int64(2), application.CommitMultiStore().Commit().Version)
+	return application
+}
+
+func sdk053IBC10GenesisWithValidator(
+	t *testing.T,
+	application *ZeroneApp,
+) GenesisState {
+	t.Helper()
+	genesis := application.DefaultGenesis()
+	privateKey := sdked25519.GenPrivKey()
+	publicKey := privateKey.PubKey()
+	accountAddress := sdk.AccAddress(publicKey.Address())
+	account := authtypes.NewBaseAccount(accountAddress, publicKey, 0, 0)
+	genesis[authtypes.ModuleName] = application.appCodec.MustMarshalJSON(
+		authtypes.NewGenesisState(
+			authtypes.DefaultParams(),
+			[]authtypes.GenesisAccount{account},
+		),
+	)
+
+	consensusKey, err := codectypes.NewAnyWithValue(publicKey)
+	require.NoError(t, err)
+	bondAmount := sdk.DefaultPowerReduction
+	validatorAddress := sdk.ValAddress(publicKey.Address())
+	validator := stakingtypes.Validator{
+		OperatorAddress:   validatorAddress.String(),
+		ConsensusPubkey:   consensusKey,
+		Status:            stakingtypes.Bonded,
+		Tokens:            bondAmount,
+		DelegatorShares:   sdkmath.LegacyOneDec(),
+		Commission:        stakingtypes.NewCommission(sdkmath.LegacyZeroDec(), sdkmath.LegacyZeroDec(), sdkmath.LegacyZeroDec()),
+		MinSelfDelegation: sdkmath.ZeroInt(),
+	}
+	genesis[stakingtypes.ModuleName] = application.appCodec.MustMarshalJSON(
+		stakingtypes.NewGenesisState(
+			stakingtypes.DefaultParams(),
+			[]stakingtypes.Validator{validator},
+			[]stakingtypes.Delegation{stakingtypes.NewDelegation(
+				accountAddress.String(),
+				validatorAddress.String(),
+				sdkmath.LegacyOneDec(),
+			)},
+		),
+	)
+
+	accountCoins := sdk.NewCoins(sdk.NewCoin(
+		sdk.DefaultBondDenom,
+		sdkmath.NewInt(100_000_000_000),
+	))
+	bondedCoins := sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, bondAmount))
+	balances := []banktypes.Balance{
+		{Address: accountAddress.String(), Coins: accountCoins},
+		{
+			Address: authtypes.NewModuleAddress(stakingtypes.BondedPoolName).String(),
+			Coins:   bondedCoins,
+		},
+	}
+	genesis[banktypes.ModuleName] = application.appCodec.MustMarshalJSON(
+		banktypes.NewGenesisState(
+			banktypes.DefaultGenesisState().Params,
+			balances,
+			accountCoins.Add(bondedCoins...),
+			nil,
+			nil,
+		),
+	)
+	return genesis
+}
+
+func TestSDK053IBC10NativeGenesisRefusesInvalidFounderPoststateBeforeSeal(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*testing.T, *ZeroneApp, GenesisState)
+		wantErr string
+	}{
+		{
+			name: "missing vesting module state",
+			mutate: func(_ *testing.T, _ *ZeroneApp, genesis GenesisState) {
+				delete(genesis, vestingrewardstypes.ModuleName)
+			},
+			wantErr: "native genesis requires vesting_rewards state",
+		},
+		{
+			name: "missing params",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				setSDK053IBC10NativeVestingGenesis(t, app, genesis, func(state *vestingrewardstypes.GenesisState) {
+					state.Params = nil
+				})
+			},
+			wantErr: "params must not be nil",
+		},
+		{
+			name: "corrupt genesis",
+			mutate: func(_ *testing.T, _ *ZeroneApp, genesis GenesisState) {
+				genesis[vestingrewardstypes.ModuleName] = []byte(`{"params":"corrupt"}`)
+			},
+			wantErr: "decode native vesting_rewards genesis",
+		},
+		{
+			name: "malformed params",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				setSDK053IBC10NativeVestingGenesis(t, app, genesis, func(state *vestingrewardstypes.GenesisState) {
+					state.Params.BlocksPerRewardEpoch = 0
+				})
+			},
+			wantErr: "blocks_per_reward_epoch must be positive",
+		},
+		{
+			name: "nonzero automatic reward",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				setSDK053IBC10NativeVestingGenesis(t, app, genesis, func(state *vestingrewardstypes.GenesisState) {
+					state.Params.BlockReward = "1"
+				})
+			},
+			wantErr: "transaction-presence block rewards are permanently retired",
+		},
+		{
+			name: "nonzero founder share",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				setSDK053IBC10NativeVestingGenesis(t, app, genesis, func(state *vestingrewardstypes.GenesisState) {
+					state.Params.FounderShareBps = 1
+				})
+			},
+			wantErr: "founder share is permanently retired",
+		},
+		{
+			name: "missing stored params after module init",
+			mutate: func(_ *testing.T, app *ZeroneApp, _ GenesisState) {
+				app.VestingRewardsKeeper = vestingrewardskeeper.NewKeeper(
+					app.appCodec,
+					sdk053IBC10NativeParamsProofStoreService{},
+					nil,
+					nil,
+					"",
+				)
+			},
+			wantErr: "vesting_rewards params are missing",
+		},
+		{
+			name: "corrupt stored params after module init",
+			mutate: func(_ *testing.T, app *ZeroneApp, _ GenesisState) {
+				app.VestingRewardsKeeper = vestingrewardskeeper.NewKeeper(
+					app.appCodec,
+					sdk053IBC10NativeParamsProofStoreService{value: []byte{0xff, 0xff}},
+					nil,
+					nil,
+					"",
+				)
+			},
+			wantErr: "unmarshal params",
+		},
+		{
+			name: "minter permission",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				base := authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				)
+				appendSDK053IBC10NativeAuthAccount(t, app, genesis, authtypes.NewModuleAccount(
+					base, vestingrewardstypes.ModuleName, authtypes.Minter,
+				))
+			},
+			wantErr: "exact empty permissions",
+		},
+		{
+			name: "burner permission",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				base := authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				)
+				appendSDK053IBC10NativeAuthAccount(t, app, genesis, authtypes.NewModuleAccount(
+					base, vestingrewardstypes.ModuleName, authtypes.Burner,
+				))
+			},
+			wantErr: "exact empty permissions",
+		},
+		{
+			name: "base account at module address",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				appendSDK053IBC10NativeAuthAccount(t, app, genesis, authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				))
+			},
+			wantErr: "implement ModuleAccountI",
+		},
+		{
+			name: "wrong module name at module address",
+			mutate: func(t *testing.T, app *ZeroneApp, genesis GenesisState) {
+				base := authtypes.NewBaseAccount(
+					authtypes.NewModuleAddress(vestingrewardstypes.ModuleName), nil, 1, 0,
+				)
+				appendSDK053IBC10NativeAuthAccount(t, app, genesis, authtypes.NewModuleAccount(
+					base, "wrong-module-name",
+				))
+			},
+			wantErr: `module account name: got "wrong-module-name"`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			application := NewZeroneApp(
+				log.NewNopLogger(),
+				dbm.NewMemDB(),
+				nil,
+				true,
+				simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+				baseapp.SetChainID("zerone-sdk053-native-genesis-test"),
+			)
+			genesis := sdk053IBC10GenesisWithValidator(t, application)
+			test.mutate(t, application, genesis)
+			genesisBytes, err := json.Marshal(genesis)
+			require.NoError(t, err)
+			beforeCommitID := application.CommitMultiStore().LastCommitID()
+
+			_, err = application.InitChain(&abci.RequestInitChain{
+				ChainId:         "zerone-sdk053-native-genesis-test",
+				AppStateBytes:   genesisBytes,
+				ConsensusParams: simtestutil.DefaultConsensusParams,
+			})
+			require.ErrorContains(t, err, test.wantErr)
+			assertSDK053IBC10NativeTransitionUnsealed(t, application, beforeCommitID)
+		})
+	}
+}
+
+func setSDK053IBC10NativeVestingGenesis(
+	t *testing.T,
+	_ *ZeroneApp,
+	genesis GenesisState,
+	mutate func(*vestingrewardstypes.GenesisState),
+) {
+	t.Helper()
+	var state vestingrewardstypes.GenesisState
+	require.NoError(t, json.Unmarshal(genesis[vestingrewardstypes.ModuleName], &state))
+	mutate(&state)
+	raw, err := json.Marshal(&state)
+	require.NoError(t, err)
+	genesis[vestingrewardstypes.ModuleName] = raw
+}
+
+func appendSDK053IBC10NativeAuthAccount(
+	t *testing.T,
+	application *ZeroneApp,
+	genesis GenesisState,
+	account authtypes.GenesisAccount,
+) {
+	t.Helper()
+	var state authtypes.GenesisState
+	application.appCodec.MustUnmarshalJSON(genesis[authtypes.ModuleName], &state)
+	accounts, err := authtypes.UnpackAccounts(state.Accounts)
+	require.NoError(t, err)
+	accounts = append(accounts, account)
+	genesis[authtypes.ModuleName] = application.appCodec.MustMarshalJSON(
+		authtypes.NewGenesisState(state.Params, accounts),
+	)
+}
+
+type sdk053IBC10NativeParamsProofStoreService struct {
+	value []byte
+}
+
+func (s sdk053IBC10NativeParamsProofStoreService) OpenKVStore(context.Context) corestore.KVStore {
+	return sdk053IBC10NativeParamsProofStore{value: s.value}
+}
+
+type sdk053IBC10NativeParamsProofStore struct {
+	value []byte
+}
+
+func (s sdk053IBC10NativeParamsProofStore) Get([]byte) ([]byte, error) {
+	return append([]byte(nil), s.value...), nil
+}
+
+func (sdk053IBC10NativeParamsProofStore) Has([]byte) (bool, error) { return false, nil }
+func (sdk053IBC10NativeParamsProofStore) Set([]byte, []byte) error { return nil }
+func (sdk053IBC10NativeParamsProofStore) Delete([]byte) error      { return nil }
+func (sdk053IBC10NativeParamsProofStore) Iterator([]byte, []byte) (corestore.Iterator, error) {
+	return nil, nil
+}
+func (sdk053IBC10NativeParamsProofStore) ReverseIterator([]byte, []byte) (corestore.Iterator, error) {
+	return nil, nil
+}
+
+func assertSDK053IBC10NativeTransitionUnsealed(
+	t *testing.T,
+	application *ZeroneApp,
+	beforeCommitID storetypes.CommitID,
+) {
+	t.Helper()
+	require.Equal(t, beforeCommitID, application.CommitMultiStore().LastCommitID(),
+		"failed InitChain must not advance the durable commit")
+	require.Zero(t, application.LastBlockHeight(),
+		"failed InitChain must not seal a BaseApp height")
+	ctx := application.NewUncachedContext(
+		false,
+		cmtproto.Header{ChainID: "zerone-sdk053-native-genesis-test"},
+	)
+	for _, marker := range []string{
+		consolidationSafetyMarker,
+		consolidationSafetyNativeMarker,
+		founderRenunciationMarker,
+		founderRenunciationNativeMarker,
+		founderRenunciationPlanIdentityMarker,
+		sdk053IBC10UpgradeMarker,
+		sdk053IBC10NativeMarker,
+	} {
+		_, found, err := application.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, marker)
+		require.NoError(t, err)
+		require.False(t, found, marker)
+	}
+	for _, upgradeName := range []string{
+		UpgradeNameConsolidationSafetyV1,
+		UpgradeNameFounderRenunciationV1,
+		UpgradeNameSDK053IBC10,
+	} {
+		doneHeight, err := application.UpgradeKeeper.GetDoneHeight(ctx, upgradeName)
+		require.NoError(t, err)
+		require.Zero(t, doneHeight, upgradeName)
+	}
+	require.False(t,
+		ctx.KVStore(application.keys["knowledge"]).Has([]byte("_iavl_init")),
+		"failed InitChain must not seal later IAVL sentinel writes",
+	)
 }
 
 func TestSDK053IBC10StoreLoaderRejectsLegacyFeeLockAndPreservesOldDatabase(t *testing.T) {
@@ -1280,100 +2043,178 @@ func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
 		legacyIBCFeeStoreKey:     2,
 	}
 	tests := []struct {
-		name          string
-		versionMap    map[string]uint64
-		upgradeMarker string
-		nativeMarker  string
-		doneHeight    int64
-		wantError     string
+		name         string
+		versionMap   map[string]uint64
+		setup        func(*testing.T, *ZeroneApp, sdk.Context)
+		removeParams bool
+		wantError    string
 	}{
 		{
-			name:         "native v10 genesis",
-			versionMap:   currentVM,
-			nativeMarker: "genesis",
+			name:       "native v10 genesis",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+			},
 		},
 		{
-			name:          "loader attested completed upgrade",
-			versionMap:    currentVM,
-			upgradeMarker: sdk053IBC10UpgradeMarkerValue,
-			doneHeight:    1,
+			name:       "loader attested completed upgrade",
+			versionMap: currentVM,
+			setup:      seedSDK053IBC10CompletedTestLineage,
+		},
+		{
+			name:       "post map without either H3 seal is refused",
+			versionMap: currentVM,
+			wantError:  "without an exact completed-upgrade or native-genesis lineage marker",
+		},
+		{
+			name:       "native marker wrong value without other evidence is refused",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "not-genesis", false)
+			},
+			wantError: "invalid native SDK/IBC lineage",
+		},
+		{
+			name:       "completed H3 done height after latest is refused",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				seedSDK053IBC10MigratedTestLineage(t, app, ctx, true)
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10UpgradeMarker, sdk053IBC10UpgradeMarkerValue, false)
+				writeSDK053IBC10TestDoneHeight(app, ctx, UpgradeNameSDK053IBC10, 4)
+			},
+			wantError: "invalid upgraded SDK/IBC lineage: latest=3 done_height=4",
 		},
 		{
 			name:       "unsafe skip aftermath retains source versions",
 			versionMap: sourceVM,
-			wantError:  "not at required post-v10 consensus version",
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+			},
+			wantError: "not at required post-v10 consensus version",
 		},
 		{
-			name:          "earlier unproved marker is refused",
-			versionMap:    currentVM,
-			upgradeMarker: "migrated",
-			doneHeight:    1,
-			wantError:     "invalid upgraded SDK/IBC lineage",
+			name:       "earlier unproved marker is refused",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10UpgradeMarker, "migrated", false)
+				writeSDK053IBC10TestDoneHeight(app, ctx, UpgradeNameSDK053IBC10, 3)
+			},
+			wantError: "invalid upgraded SDK/IBC lineage",
 		},
 		{
 			name:       "done height without loader marker is refused",
 			versionMap: currentVM,
-			doneHeight: 1,
-			wantError:  "invalid upgraded SDK/IBC lineage",
+			setup: func(_ *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestDoneHeight(app, ctx, UpgradeNameSDK053IBC10, 3)
+			},
+			wantError: "invalid upgraded SDK/IBC lineage",
+		},
+		{
+			name:       "completed lineage conflicts with present empty native marker",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				seedSDK053IBC10CompletedTestLineage(t, app, ctx)
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "", true)
+			},
+			wantError: "invalid native SDK/IBC lineage",
+		},
+		{
+			name:       "completed lineage conflicts with nonempty native marker",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				seedSDK053IBC10CompletedTestLineage(t, app, ctx)
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+			},
+			wantError: "invalid native SDK/IBC lineage",
+		},
+		{
+			name:       "native lineage conflicts with present empty upgrade marker",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10UpgradeMarker, "", true)
+			},
+			wantError: "invalid native SDK/IBC lineage",
+		},
+		{
+			name:       "native lineage conflicts with nonempty upgrade marker",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10UpgradeMarker, sdk053IBC10UpgradeMarkerValue, false)
+			},
+			wantError: "invalid native SDK/IBC lineage",
+		},
+		{
+			name:       "native lineage rejects positive H3 done height",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+				writeSDK053IBC10TestDoneHeight(app, ctx, UpgradeNameSDK053IBC10, 3)
+			},
+			wantError: "invalid native SDK/IBC lineage",
+		},
+		{
+			name:       "native lineage rejects overflow H3 done height",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+				writeSDK053IBC10TestDoneHeight(app, ctx, UpgradeNameSDK053IBC10, ^uint64(0))
+			},
+			wantError: "done_height=-1",
+		},
+		{
+			name:         "native lineage requires strict persisted Params",
+			versionMap:   currentVM,
+			removeParams: true,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+			},
+			wantError: "vesting_rewards params are missing",
+		},
+		{
+			name:         "completed lineage requires strict persisted Params",
+			versionMap:   currentVM,
+			removeParams: true,
+			setup:        seedSDK053IBC10CompletedTestLineage,
+			wantError:    "vesting_rewards params are missing",
+		},
+		{
+			name:       "native lineage requires exact empty vesting permissions",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+				seedSDK053IBC10InvalidVestingPermissions(app, ctx)
+			},
+			wantError: "exact empty permissions",
+		},
+		{
+			name:       "completed lineage requires exact empty vesting permissions",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				seedSDK053IBC10CompletedTestLineage(t, app, ctx)
+				seedSDK053IBC10InvalidVestingPermissions(app, ctx)
+			},
+			wantError: "exact empty permissions",
+		},
+		{
+			name:       "completed lineage requires retained H2 plan identity",
+			versionMap: currentVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				seedSDK053IBC10MigratedTestLineage(t, app, ctx, false)
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10UpgradeMarker, sdk053IBC10UpgradeMarkerValue, false)
+				writeSDK053IBC10TestDoneHeight(app, ctx, UpgradeNameSDK053IBC10, 3)
+			},
+			wantError: "plan identity marker",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			application := NewZeroneApp(
-				log.NewNopLogger(),
-				dbm.NewMemDB(),
-				nil,
-				false,
-				simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
-			)
-			require.NoError(t, application.LoadLatestVersion())
-			ctx := application.NewUncachedContext(
-				false,
-				cmtproto.Header{Height: 1},
-			)
-			require.NoError(
+			application := newSDK053IBC10NoRootStartupFixture(
 				t,
-				application.UpgradeKeeper.SetModuleVersionMap(
-					ctx,
-					test.versionMap,
-				),
-			)
-			if test.upgradeMarker != "" {
-				require.NoError(
-					t,
-					application.KnowledgeKeeper.WriteMigrationMarker(
-						ctx,
-						sdk053IBC10UpgradeMarker,
-						test.upgradeMarker,
-					),
-				)
-			}
-			if test.nativeMarker != "" {
-				require.NoError(
-					t,
-					application.KnowledgeKeeper.WriteMigrationMarker(
-						ctx,
-						sdk053IBC10NativeMarker,
-						test.nativeMarker,
-					),
-				)
-			}
-			if test.doneHeight > 0 {
-				key := make([]byte, 9+len(UpgradeNameSDK053IBC10))
-				key[0] = upgradetypes.DoneByte
-				binary.BigEndian.PutUint64(
-					key[1:9],
-					uint64(test.doneHeight),
-				)
-				copy(key[9:], UpgradeNameSDK053IBC10)
-				ctx.KVStore(
-					application.keys[upgradetypes.StoreKey],
-				).Set(key, []byte{1})
-			}
-			require.Equal(
-				t,
-				int64(1),
-				application.CommitMultiStore().Commit().Version,
+				test.versionMap,
+				test.setup,
+				test.removeParams,
 			)
 			err := application.
 				validateSDK053IBC10CompletedOrNativeLineage()
@@ -1384,4 +2225,184 @@ func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSDK053IBC10NativePoststateRejectsEveryPreSDKEvidenceClass(t *testing.T) {
+	currentVM := map[string]uint64{
+		"ibc":                8,
+		"transfer":           6,
+		"interchainaccounts": 3,
+	}
+	for _, marker := range []string{
+		consolidationSafetyMarker,
+		consolidationSafetyNativeMarker,
+		founderRenunciationMarker,
+		founderRenunciationNativeMarker,
+		founderRenunciationPlanIdentityMarker,
+	} {
+		for _, presentEmpty := range []bool{true, false} {
+			name := marker + "/nonempty"
+			value := "forged"
+			if presentEmpty {
+				name = marker + "/present-empty"
+				value = ""
+			}
+			t.Run(name, func(t *testing.T) {
+				application := newSDK053IBC10NoRootStartupFixture(
+					t,
+					currentVM,
+					func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+						writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+						writeSDK053IBC10TestMarker(t, app, ctx, marker, value, presentEmpty)
+					},
+					false,
+				)
+				err := application.validateSDK053IBC10CompletedOrNativeLineage()
+				require.ErrorContains(t, err, "to be truly absent")
+			})
+		}
+	}
+	for _, prerequisite := range []string{
+		UpgradeNameConsolidationSafetyV1,
+		UpgradeNameFounderRenunciationV1,
+	} {
+		for _, height := range []uint64{1, ^uint64(0)} {
+			t.Run(prerequisite+"/done-height", func(t *testing.T) {
+				application := newSDK053IBC10NoRootStartupFixture(
+					t,
+					currentVM,
+					func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+						writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+						writeSDK053IBC10TestDoneHeight(app, ctx, prerequisite, height)
+					},
+					false,
+				)
+				err := application.validateSDK053IBC10CompletedOrNativeLineage()
+				require.ErrorContains(t, err, "done height exactly 0")
+			})
+		}
+	}
+}
+
+func newSDK053IBC10NoRootStartupFixture(
+	t *testing.T,
+	versionMap map[string]uint64,
+	setup func(*testing.T, *ZeroneApp, sdk.Context),
+	removeParams bool,
+) *ZeroneApp {
+	t.Helper()
+	application := NewZeroneApp(
+		log.NewNopLogger(),
+		dbm.NewMemDB(),
+		nil,
+		false,
+		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+	)
+	require.NoError(t, application.LoadLatestVersion())
+	ctx := application.NewUncachedContext(false, cmtproto.Header{Height: 1})
+	require.NoError(t, application.UpgradeKeeper.SetModuleVersionMap(ctx, versionMap))
+	application.VestingRewardsKeeper.InitGenesis(
+		ctx,
+		vestingrewardstypes.DefaultGenesis(),
+	)
+	if setup != nil {
+		setup(t, application, ctx)
+	}
+	if removeParams {
+		ctx.KVStore(application.keys[vestingrewardstypes.StoreKey]).Delete(
+			vestingrewardstypes.ParamsKey,
+		)
+	}
+	require.Equal(t, int64(1), application.CommitMultiStore().Commit().Version)
+	for height := int64(2); height <= 3; height++ {
+		ctx = application.NewUncachedContext(false, cmtproto.Header{Height: height})
+		ctx.KVStore(application.keys["knowledge"]).Set(
+			[]byte{0x7e, byte(height)},
+			[]byte{1},
+		)
+		require.Equal(t, height, application.CommitMultiStore().Commit().Version)
+	}
+	return application
+}
+
+func writeSDK053IBC10TestMarker(
+	t *testing.T,
+	application *ZeroneApp,
+	ctx sdk.Context,
+	name string,
+	value string,
+	presentEmpty bool,
+) {
+	t.Helper()
+	if presentEmpty {
+		ctx.KVStore(application.keys["knowledge"]).Set(
+			append([]byte{0x7f, 0x01}, []byte(name)...),
+			[]byte{},
+		)
+		return
+	}
+	require.NoError(t, application.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		name,
+		value,
+	))
+}
+
+func writeSDK053IBC10TestDoneHeight(
+	application *ZeroneApp,
+	ctx sdk.Context,
+	name string,
+	height uint64,
+) {
+	key := make([]byte, 9+len(name))
+	key[0] = upgradetypes.DoneByte
+	binary.BigEndian.PutUint64(key[1:9], height)
+	copy(key[9:], name)
+	ctx.KVStore(application.keys[upgradetypes.StoreKey]).Set(key, []byte{1})
+}
+
+func seedSDK053IBC10MigratedTestLineage(
+	t *testing.T,
+	application *ZeroneApp,
+	ctx sdk.Context,
+	includePlanIdentity bool,
+) {
+	t.Helper()
+	writeSDK053IBC10TestMarker(t, application, ctx, consolidationSafetyMarker, consolidationSafetyMarkerValue, false)
+	writeSDK053IBC10TestMarker(t, application, ctx, founderRenunciationMarker, founderRenunciationMarkerValue, false)
+	if includePlanIdentity {
+		writeSDK053IBC10TestMarker(
+			t,
+			application,
+			ctx,
+			founderRenunciationPlanIdentityMarker,
+			strings.Repeat("a", 64),
+			false,
+		)
+	}
+	writeSDK053IBC10TestDoneHeight(application, ctx, UpgradeNameConsolidationSafetyV1, 1)
+	writeSDK053IBC10TestDoneHeight(application, ctx, UpgradeNameFounderRenunciationV1, 2)
+}
+
+func seedSDK053IBC10CompletedTestLineage(
+	t *testing.T,
+	application *ZeroneApp,
+	ctx sdk.Context,
+) {
+	t.Helper()
+	seedSDK053IBC10MigratedTestLineage(t, application, ctx, true)
+	writeSDK053IBC10TestMarker(t, application, ctx, sdk053IBC10UpgradeMarker, sdk053IBC10UpgradeMarkerValue, false)
+	writeSDK053IBC10TestDoneHeight(application, ctx, UpgradeNameSDK053IBC10, 3)
+}
+
+func seedSDK053IBC10InvalidVestingPermissions(
+	application *ZeroneApp,
+	ctx sdk.Context,
+) {
+	address := authtypes.NewModuleAddress(vestingrewardstypes.ModuleName)
+	application.AccountKeeper.SetModuleAccount(ctx, authtypes.NewModuleAccount(
+		authtypes.NewBaseAccount(address, nil, 0, 0),
+		vestingrewardstypes.ModuleName,
+		authtypes.Minter,
+	))
 }

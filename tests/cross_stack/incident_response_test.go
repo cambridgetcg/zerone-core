@@ -75,17 +75,17 @@ func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 		Authority:  authority,
 		IncidentId: "ZR-2026-0001",
 		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_NAMED_UPGRADE,
-		Reference:  zeroneapp.UpgradeNameConsolidationSafetyV1,
-		Note:       "fix ships at the atomic consolidation safety boundary",
+		Reference:  zeroneapp.UpgradeNameTestnetV2,
+		Note:       "fix ships through a handler registered by the current binary",
 	})
 	require.NoError(t, err)
 
 	// 4. Actually execute the upgrade (coupling the incident to Wave 10).
-	fromVM := exactConsolidationPrestate(h.App.CurrentModuleVersionMap())
-	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameConsolidationSafetyV1, fromVM, h.Height())
+	fromVM := h.App.CurrentModuleVersionMap()
+	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
 	require.NoError(t, err)
 	require.Equal(t, uint64(6), toVM["knowledge"], "upgrade referenced by remediation succeeded")
-	require.Equal(t, "true", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
+	require.Equal(t, "migrated", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1"),
 		"remediation's named upgrade actually ran on the chain")
 
 	// 5. Emergency resume + documentation remediations.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -81,6 +82,8 @@ type ActivationPreflightReport struct {
 	BlocksUntilActivation           int64             `json:"blocks_until_activation,omitempty"`
 	UnsafeSkipUpgradeHeights        []int64           `json:"unsafe_skip_upgrade_heights"`
 	UnsafeSkipConfigSHA256          string            `json:"unsafe_skip_config_sha256"`
+	SourceVersionMapSHA256          string            `json:"source_version_map_sha256,omitempty"`
+	H2PlanIdentitySHA256            string            `json:"h2_plan_identity_sha256,omitempty"`
 	SourceDataManifestSHA256        string            `json:"source_data_manifest_sha256,omitempty"`
 	SourceDataFileCount             int               `json:"source_data_file_count,omitempty"`
 	SourceDataBytes                 int64             `json:"source_data_bytes,omitempty"`
@@ -208,7 +211,7 @@ func (app *ZeroneApp) verifyActivationPrestate(
 	}
 	skipHeights, skipConfigSHA256 := app.unsafeSkipUpgradeConfig()
 	report := ActivationPreflightReport{
-		Schema:                   "zerone.activation-preflight/v3",
+		Schema:                   "zerone.activation-preflight/v5",
 		Scope:                    "common-safety",
 		ActivationReady:          false,
 		UnsafeSkipUpgradeHeights: skipHeights,
@@ -268,11 +271,13 @@ func (app *ZeroneApp) verifyActivationPrestate(
 			plan.Height,
 		)
 	}
+	var lineageEvidence preSDKTransitionLineageEvidence
 	if err := app.verifyNamedActivationPreconditions(
 		ctx,
 		plan,
 		versionMap,
 		rootID.Version,
+		&lineageEvidence,
 	); err != nil {
 		return ActivationPreflightReport{}, err
 	}
@@ -299,11 +304,17 @@ func (app *ZeroneApp) verifyActivationPrestate(
 	report.PlanName = plan.Name
 	report.PlanHeight = plan.Height
 	report.PlanInfoSHA256 = fmt.Sprintf("%x", infoDigest)
+	report.SourceVersionMapSHA256 = sdk053IBC10SourceVersionMapSHA256
+	report.H2PlanIdentitySHA256 = lineageEvidence.h2PlanIdentitySHA256
 	report.BlocksUntilActivation = plan.Height - rootID.Version
 	report.CompletedChecks = append(
 		report.CompletedChecks,
 		"scheduled_plan_exact_h_minus_one",
 		"named_handler_plan_specific_preconditions",
+		"exact_full_source_module_version_map",
+		"ordered_h1_h2_marker_and_done_height_proofs",
+		"h2_plan_identity_state_evidence",
+		"founder_renunciation_zero_poststate",
 		"scheduled_height_not_unsafe_skipped",
 		"exact_upgrade_handler_cache_dry_run",
 	)
@@ -337,6 +348,7 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 	plan upgradetypes.Plan,
 	versionMap map[string]uint64,
 	committedHeight int64,
+	lineageEvidence *preSDKTransitionLineageEvidence,
 ) error {
 	switch plan.Name {
 	case UpgradeNameSDK053IBC10:
@@ -348,14 +360,16 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 				err,
 			)
 		}
-		if err := app.requireConsolidationActivationBoundary(
-			ctx,
-			plan.Name,
-			versionMap,
-		); err != nil {
+		if err := requireSDK053IBC10SourceVersions(plan.Name, versionMap); err != nil {
 			return err
 		}
-		if err := requireSDK053IBC10SourceVersions(plan.Name, versionMap); err != nil {
+		if err := app.requirePreSDKTransitionLineage(
+			ctx,
+			plan.Name,
+			plan.Height,
+			versionMap,
+			lineageEvidence,
+		); err != nil {
 			return err
 		}
 		feeBalances := app.BankKeeper.GetAllBalances(
@@ -422,67 +436,562 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 }
 
 const (
-	consolidationSafetyMarker      = "upgrade_marker_consolidation-safety-v1"
-	consolidationSafetyMarkerValue = "migrated"
+	consolidationSafetyMarker             = "upgrade_marker_consolidation-safety-v1"
+	consolidationSafetyMarkerValue        = "migrated"
+	consolidationSafetyNativeMarker       = "chain_lineage_native_consolidation-safety-v1"
+	founderRenunciationMarker             = "upgrade_marker_founder-renunciation-v1"
+	founderRenunciationMarkerValue        = "migrated"
+	founderRenunciationNativeMarker       = "chain_lineage_native_founder-renunciation-v1"
+	founderRenunciationPlanIdentityMarker = "upgrade_plan_identity_founder-renunciation-v1"
+	sdk053IBC10SourceVersionMapSHA256     = "de3f0e0d9769adf2a7375f921d78f25365bc2f9a8b42d8c80de5982affa20127"
 )
 
-func (app *ZeroneApp) requireConsolidationActivationBoundary(
+type preSDKTransitionLineageEvidence struct {
+	h1DoneHeight         int64
+	h2DoneHeight         int64
+	h2PlanIdentitySHA256 string
+}
+
+type sdk053IBC10SourceModuleVersion struct {
+	name    string
+	version uint64
+}
+
+// sdk053IBC10ExactSourceVersionMap is the complete module VersionMap emitted
+// by the reviewed H2 pre-SDK release. It is intentionally a frozen list rather
+// than a clone of this binary's target map: deriving the source from H3 would
+// let a later module addition or version bump silently ride the H3 plan.
+var sdk053IBC10ExactSourceVersionMap = []sdk053IBC10SourceModuleVersion{
+	{name: "alignment", version: 1},
+	{name: "auth", version: 5},
+	{name: "bank", version: 4},
+	{name: legacyCapabilityStoreKey, version: 1},
+	{name: "capture_challenge", version: 1},
+	{name: "capture_defense", version: 1},
+	{name: claimingpottypes.ModuleName, version: 2},
+	{name: "consensus", version: 1},
+	{name: "counterexamples", version: 1},
+	{name: "creed", version: 1},
+	{name: "distribution", version: 3},
+	{name: emergencytypes.ModuleName, version: 1},
+	{name: "evidence", version: 1},
+	{name: "feegrant", version: 2},
+	{name: legacyIBCFeeStoreKey, version: 2},
+	{name: "genutil", version: 1},
+	{name: sdkgovtypes.ModuleName, version: 5},
+	{name: "home", version: 1},
+	{name: ibcexported.ModuleName, version: 6},
+	{name: "ibcratelimit", version: 1},
+	{name: icatypes.ModuleName, version: 3},
+	{name: knowledgetypes.ModuleName, version: 6},
+	{name: liquiditypooltypes.ModuleName, version: 5},
+	{name: "qualification", version: 1},
+	{name: "slashing", version: 4},
+	{name: "sponsorship", version: 1},
+	{name: "staking", version: 5},
+	{name: "substrate_bridge", version: 1},
+	{name: "tokens", version: 1},
+	{name: "training_provenance", version: 1},
+	{name: ibctransfertypes.ModuleName, version: 5},
+	{name: "trust_score", version: 1},
+	{name: upgradetypes.ModuleName, version: 2},
+	{name: "vesting", version: 1},
+	{name: vestingrewardstypes.ModuleName, version: 2},
+	{name: "work_creed", version: 1},
+	{name: "zerone_auth", version: 1},
+	{name: zeronegovtypes.ModuleName, version: 2},
+	{name: "zerone_ontology", version: 1},
+	{name: "zerone_staking", version: 1},
+}
+
+// requirePreSDKTransitionLineage consumes two distinct state proofs before H3:
+// exact H2 output bytes as represented by the full VersionMap, plus the
+// checked marker and immutable x/upgrade done height for each named H1/H2
+// transition. These state facts prove ordered named-plan completion; they do
+// not cryptographically attest which executable produced the state. Release
+// source/binary provenance remains a separate operator verification.
+func (app *ZeroneApp) requirePreSDKTransitionLineage(
 	ctx context.Context,
 	planName string,
+	activationHeight int64,
 	fromVM map[string]uint64,
+	evidence *preSDKTransitionLineageEvidence,
 ) error {
-	expected := []struct {
-		name    string
-		version uint64
-	}{
-		{knowledgetypes.ModuleName, 6},
-		{claimingpottypes.ModuleName, 2},
-		{liquiditypooltypes.ModuleName, 5},
-		{vestingrewardstypes.ModuleName, 2},
+	if err := requireSDK053IBC10ExactSourceVersionMap(planName, fromVM); err != nil {
+		return err
 	}
-	for _, prerequisite := range expected {
-		version, ok := fromVM[prerequisite.name]
-		if !ok {
-			return fmt.Errorf(
-				"upgrade %q requires prerequisite module %q at consensus version %d: module is absent from version map",
-				planName,
-				prerequisite.name,
-				prerequisite.version,
-			)
-		}
-		if version != prerequisite.version {
-			return fmt.Errorf(
-				"upgrade %q requires prerequisite module %q at consensus version %d: got %d",
-				planName,
-				prerequisite.name,
-				prerequisite.version,
-				version,
-			)
-		}
+	if err := app.requireAbsentH3TransitionEvidence(ctx, planName); err != nil {
+		return err
+	}
+	return app.requireMigratedPreSDKTransitionLineage(
+		ctx,
+		planName,
+		activationHeight,
+		evidence,
+	)
+}
+
+func (app *ZeroneApp) requireMigratedPreSDKTransitionLineage(
+	ctx context.Context,
+	planName string,
+	activationHeight int64,
+	evidence *preSDKTransitionLineageEvidence,
+) error {
+	if activationHeight <= 0 {
+		return fmt.Errorf(
+			"upgrade %q requires a positive H3 activation height: got %d",
+			planName,
+			activationHeight,
+		)
+	}
+	if err := app.requireAbsentPreSDKNativeLineage(ctx, planName); err != nil {
+		return err
 	}
 
-	marker, err := app.KnowledgeKeeper.ReadMigrationMarkerChecked(
+	h1DoneHeight, err := app.requireCompletedPreSDKTransition(
 		ctx,
+		planName,
+		UpgradeNameConsolidationSafetyV1,
 		consolidationSafetyMarker,
+		consolidationSafetyMarkerValue,
 	)
 	if err != nil {
+		return err
+	}
+	h2DoneHeight, err := app.requireCompletedPreSDKTransition(
+		ctx,
+		planName,
+		UpgradeNameFounderRenunciationV1,
+		founderRenunciationMarker,
+		founderRenunciationMarkerValue,
+	)
+	if err != nil {
+		return err
+	}
+	h2PlanIdentitySHA256, err := app.requireFounderRenunciationPlanIdentity(
+		ctx,
+		planName,
+	)
+	if err != nil {
+		return err
+	}
+	if h1DoneHeight >= h2DoneHeight || h2DoneHeight >= activationHeight {
 		return fmt.Errorf(
-			"upgrade %q cannot verify prerequisite marker %q: %w",
+			"upgrade %q requires ordered activation heights H1(%q) < H2(%q) < H3(%q): got %d, %d, %d",
 			planName,
-			consolidationSafetyMarker,
+			UpgradeNameConsolidationSafetyV1,
+			UpgradeNameFounderRenunciationV1,
+			UpgradeNameSDK053IBC10,
+			h1DoneHeight,
+			h2DoneHeight,
+			activationHeight,
+		)
+	}
+	if err := app.requireFounderRenunciationZeroPoststate(ctx, planName); err != nil {
+		return err
+	}
+	if evidence != nil {
+		*evidence = preSDKTransitionLineageEvidence{
+			h1DoneHeight:         h1DoneHeight,
+			h2DoneHeight:         h2DoneHeight,
+			h2PlanIdentitySHA256: h2PlanIdentitySHA256,
+		}
+	}
+	return nil
+}
+
+func (app *ZeroneApp) requireAbsentH3TransitionEvidence(
+	ctx context.Context,
+	planName string,
+) error {
+	for _, marker := range []string{
+		sdk053IBC10UpgradeMarker,
+		sdk053IBC10NativeMarker,
+	} {
+		value, found, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+			ctx,
+			marker,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"upgrade %q cannot verify H3 marker %q absence before transition seal: %w",
+				planName,
+				marker,
+				err,
+			)
+		}
+		if found {
+			return fmt.Errorf(
+				"upgrade %q requires pre-H3 marker %q to be truly absent: found value %q",
+				planName,
+				marker,
+				value,
+			)
+		}
+	}
+	doneHeight, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameSDK053IBC10)
+	if err != nil {
+		return fmt.Errorf(
+			"upgrade %q cannot verify pre-H3 done height: %w",
+			planName,
 			err,
 		)
 	}
-	if marker != consolidationSafetyMarkerValue {
+	if doneHeight != 0 {
 		return fmt.Errorf(
-			"upgrade %q requires prerequisite marker %q=%q: got %q",
+			"upgrade %q requires pre-H3 done height exactly 0: got %d",
 			planName,
-			consolidationSafetyMarker,
-			consolidationSafetyMarkerValue,
-			marker,
+			doneHeight,
 		)
 	}
 	return nil
+}
+
+func (app *ZeroneApp) requireAbsentPreSDKNativeLineage(
+	ctx context.Context,
+	planName string,
+) error {
+	for _, prerequisite := range []struct {
+		upgrade string
+		marker  string
+	}{
+		{
+			upgrade: UpgradeNameConsolidationSafetyV1,
+			marker:  consolidationSafetyNativeMarker,
+		},
+		{
+			upgrade: UpgradeNameFounderRenunciationV1,
+			marker:  founderRenunciationNativeMarker,
+		},
+	} {
+		value, found, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+			ctx,
+			prerequisite.marker,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"upgrade %q cannot verify prerequisite %q native lineage marker %q absence: %w",
+				planName,
+				prerequisite.upgrade,
+				prerequisite.marker,
+				err,
+			)
+		}
+		if found {
+			return fmt.Errorf(
+				"upgrade %q requires migrated prerequisite %q native lineage marker %q to be truly absent: found value %q",
+				planName,
+				prerequisite.upgrade,
+				prerequisite.marker,
+				value,
+			)
+		}
+	}
+	return nil
+}
+
+func (app *ZeroneApp) requireNativeH3LineagePoststate(
+	ctx context.Context,
+	planName string,
+) error {
+	for _, marker := range []string{
+		consolidationSafetyMarker,
+		consolidationSafetyNativeMarker,
+		founderRenunciationMarker,
+		founderRenunciationNativeMarker,
+		founderRenunciationPlanIdentityMarker,
+	} {
+		value, found, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+			ctx,
+			marker,
+		)
+		if err != nil {
+			return fmt.Errorf(
+				"native H3 lineage cannot verify pre-SDK marker %q absence: %w",
+				marker,
+				err,
+			)
+		}
+		if found {
+			return fmt.Errorf(
+				"native H3 lineage requires pre-SDK marker %q to be truly absent: found value %q",
+				marker,
+				value,
+			)
+		}
+	}
+	for _, prerequisite := range []string{
+		UpgradeNameConsolidationSafetyV1,
+		UpgradeNameFounderRenunciationV1,
+	} {
+		doneHeight, err := app.UpgradeKeeper.GetDoneHeight(ctx, prerequisite)
+		if err != nil {
+			return fmt.Errorf(
+				"native H3 lineage cannot read prerequisite %q done height: %w",
+				prerequisite,
+				err,
+			)
+		}
+		if doneHeight != 0 {
+			return fmt.Errorf(
+				"native H3 lineage requires prerequisite %q done height exactly 0: got %d",
+				prerequisite,
+				doneHeight,
+			)
+		}
+	}
+	return app.requireFounderRenunciationZeroPoststate(ctx, planName)
+}
+
+func (app *ZeroneApp) requireFounderRenunciationPlanIdentity(
+	ctx context.Context,
+	planName string,
+) (string, error) {
+	value, found, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		founderRenunciationPlanIdentityMarker,
+	)
+	if err != nil {
+		return "", fmt.Errorf(
+			"upgrade %q cannot verify prerequisite %q plan identity marker %q: %w",
+			planName,
+			UpgradeNameFounderRenunciationV1,
+			founderRenunciationPlanIdentityMarker,
+			err,
+		)
+	}
+	if !found {
+		return "", fmt.Errorf(
+			"upgrade %q requires prerequisite %q plan identity marker %q to be present",
+			planName,
+			UpgradeNameFounderRenunciationV1,
+			founderRenunciationPlanIdentityMarker,
+		)
+	}
+	decoded, decodeErr := hex.DecodeString(value)
+	if decodeErr != nil || len(decoded) != sha256.Size || hex.EncodeToString(decoded) != value {
+		return "", fmt.Errorf(
+			"upgrade %q requires prerequisite %q plan identity marker %q to contain exactly %d lowercase hexadecimal characters: got %q",
+			planName,
+			UpgradeNameFounderRenunciationV1,
+			founderRenunciationPlanIdentityMarker,
+			sha256.Size*2,
+			value,
+		)
+	}
+	return value, nil
+}
+
+// requireFounderRenunciationZeroPoststate proves the concrete H2 economic
+// poststate instead of inferring it from vesting_rewards=2 and named-plan
+// markers. The exact Params read never falls back to defaults, and GetAccount
+// is deliberately used instead of the lazy-creating GetModuleAccount.
+func (app *ZeroneApp) requireFounderRenunciationZeroPoststate(
+	ctx context.Context,
+	planName string,
+) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	params, err := app.VestingRewardsKeeper.GetStoredParamsChecked(sdkCtx)
+	if err != nil {
+		return fmt.Errorf(
+			"upgrade %q cannot read persisted founder-renunciation Params: %w",
+			planName,
+			err,
+		)
+	}
+	if err := vestingrewardstypes.ValidateParams(params); err != nil {
+		return fmt.Errorf(
+			"upgrade %q requires valid persisted founder-renunciation v2 Params: %w",
+			planName,
+			err,
+		)
+	}
+	if params.FounderShareBps != 0 ||
+		params.FounderAddress != "" ||
+		params.BlockReward != "0" ||
+		params.FloorReward != "0" ||
+		params.EmptyBlockRewardRate != 0 {
+		return fmt.Errorf(
+			"upgrade %q requires founder-renunciation zero poststate: founder_share_bps=%d founder_address_empty=%t block_reward=%q floor_reward=%q empty_block_reward_rate=%d",
+			planName,
+			params.FounderShareBps,
+			params.FounderAddress == "",
+			params.BlockReward,
+			params.FloorReward,
+			params.EmptyBlockRewardRate,
+		)
+	}
+
+	account := app.AccountKeeper.GetAccount(
+		sdkCtx,
+		authtypes.NewModuleAddress(vestingrewardstypes.ModuleName),
+	)
+	if account == nil {
+		return nil
+	}
+	moduleAccount, ok := account.(sdk.ModuleAccountI)
+	if !ok {
+		return fmt.Errorf(
+			"upgrade %q requires existing %q account to implement ModuleAccountI: got %T",
+			planName,
+			vestingrewardstypes.ModuleName,
+			account,
+		)
+	}
+	if moduleAccount.GetName() != vestingrewardstypes.ModuleName {
+		return fmt.Errorf(
+			"upgrade %q requires existing %q module account name: got %q",
+			planName,
+			vestingrewardstypes.ModuleName,
+			moduleAccount.GetName(),
+		)
+	}
+	if permissions := moduleAccount.GetPermissions(); len(permissions) != 0 {
+		return fmt.Errorf(
+			"upgrade %q requires existing %q module account to have exact empty permissions: got %v",
+			planName,
+			vestingrewardstypes.ModuleName,
+			permissions,
+		)
+	}
+	return nil
+}
+
+func (app *ZeroneApp) requireCompletedPreSDKTransition(
+	ctx context.Context,
+	planName string,
+	prerequisiteUpgrade string,
+	markerName string,
+	markerValue string,
+) (int64, error) {
+	marker, found, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		ctx,
+		markerName,
+	)
+	if err != nil {
+		return 0, fmt.Errorf(
+			"upgrade %q cannot verify prerequisite %q marker %q: %w",
+			planName,
+			prerequisiteUpgrade,
+			markerName,
+			err,
+		)
+	}
+	if !found {
+		return 0, fmt.Errorf(
+			"upgrade %q requires prerequisite %q marker %q to be present",
+			planName,
+			prerequisiteUpgrade,
+			markerName,
+		)
+	}
+	if marker != markerValue {
+		return 0, fmt.Errorf(
+			"upgrade %q requires prerequisite %q marker %q=%q: got %q",
+			planName,
+			prerequisiteUpgrade,
+			markerName,
+			markerValue,
+			marker,
+		)
+	}
+	doneHeight, err := app.UpgradeKeeper.GetDoneHeight(ctx, prerequisiteUpgrade)
+	if err != nil {
+		return 0, fmt.Errorf(
+			"upgrade %q cannot verify prerequisite %q done height: %w",
+			planName,
+			prerequisiteUpgrade,
+			err,
+		)
+	}
+	if doneHeight <= 0 {
+		return 0, fmt.Errorf(
+			"upgrade %q requires prerequisite %q done height greater than zero: got %d",
+			planName,
+			prerequisiteUpgrade,
+			doneHeight,
+		)
+	}
+	return doneHeight, nil
+}
+
+func requireSDK053IBC10ExactSourceVersionMap(
+	planName string,
+	fromVM map[string]uint64,
+) error {
+	expectedNames := make(map[string]struct{}, len(sdk053IBC10ExactSourceVersionMap))
+	for index, expected := range sdk053IBC10ExactSourceVersionMap {
+		if expected.name == "" ||
+			(index > 0 && sdk053IBC10ExactSourceVersionMap[index-1].name >= expected.name) {
+			return fmt.Errorf(
+				"upgrade %q has a non-canonical internal source VersionMap pin at index %d",
+				planName,
+				index,
+			)
+		}
+		expectedNames[expected.name] = struct{}{}
+		version, present := fromVM[expected.name]
+		if !present || version != expected.version {
+			return fmt.Errorf(
+				"upgrade %q requires exact full source VersionMap entry %q=%d: got %d (present=%t)",
+				planName,
+				expected.name,
+				expected.version,
+				version,
+				present,
+			)
+		}
+	}
+	extraNames := make([]string, 0)
+	for name := range fromVM {
+		if _, expected := expectedNames[name]; !expected {
+			extraNames = append(extraNames, name)
+		}
+	}
+	if len(extraNames) > 0 {
+		sort.Strings(extraNames)
+		return fmt.Errorf(
+			"upgrade %q refuses unexpected full source VersionMap entries: %v",
+			planName,
+			extraNames,
+		)
+	}
+	if len(fromVM) != len(sdk053IBC10ExactSourceVersionMap) {
+		return fmt.Errorf(
+			"upgrade %q requires exact full source VersionMap size %d: got %d",
+			planName,
+			len(sdk053IBC10ExactSourceVersionMap),
+			len(fromVM),
+		)
+	}
+	actualDigest, err := canonicalSDK053IBC10SourceVersionMapSHA256(fromVM)
+	if err != nil {
+		return fmt.Errorf(
+			"upgrade %q cannot canonicalize exact full source VersionMap: %w",
+			planName,
+			err,
+		)
+	}
+	if actualDigest != sdk053IBC10SourceVersionMapSHA256 {
+		return fmt.Errorf(
+			"upgrade %q exact full source VersionMap digest mismatch: require %s, got %s",
+			planName,
+			sdk053IBC10SourceVersionMapSHA256,
+			actualDigest,
+		)
+	}
+	return nil
+}
+
+func canonicalSDK053IBC10SourceVersionMapSHA256(
+	versionMap map[string]uint64,
+) (string, error) {
+	canonicalJSON, err := json.Marshal(versionMap)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(canonicalJSON)
+	return fmt.Sprintf("%x", digest), nil
 }
 
 func requireSDK053IBC10SourceVersions(

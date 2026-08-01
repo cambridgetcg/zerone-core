@@ -142,6 +142,14 @@ func (k Keeper) GetParams(ctx sdk.Context) *types.Params {
 	return params
 }
 
+// GetStoredParamsChecked reads the exact persisted Params bytes without the
+// query compatibility fallback in GetParams. Upgrade lineage checks must fail
+// on a missing, unreadable, or corrupt record rather than silently observing
+// v2 defaults that were never committed by H2.
+func (k Keeper) GetStoredParamsChecked(ctx sdk.Context) (*types.Params, error) {
+	return k.getStoredParams(ctx)
+}
+
 // getStoredParams reads the persisted wire value without applying v2
 // validation. The v1→v2 migrator needs the exact legacy bytes—including the
 // five now-retired non-zero fields—and must fail rather than silently replace
