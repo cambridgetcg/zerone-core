@@ -18,12 +18,12 @@ cleanup() {
 trap cleanup EXIT
 
 reject_git_history_overrides() {
-  local git_dir
+  local graft_path
   [ -z "$(git -C "${ROOT}" for-each-ref --format='%(refname)' refs/replace/)" ] || \
     die "replacement Git refs are forbidden"
-  git_dir=$(git -C "${ROOT}" rev-parse --absolute-git-dir) || \
-    die "could not resolve the repository Git directory"
-  if [ -e "${git_dir}/info/grafts" ] || [ -L "${git_dir}/info/grafts" ]; then
+  graft_path=$(git -C "${ROOT}" rev-parse --path-format=absolute \
+    --git-path info/grafts) || die "could not resolve the Git graft path"
+  if [ -e "${graft_path}" ] || [ -L "${graft_path}" ]; then
     die "legacy Git grafts are forbidden"
   fi
 }
@@ -98,6 +98,13 @@ DOCKER_ENDPOINT=$(docker context inspect --format \
   die "could not inspect Docker context"
 [[ "${DOCKER_ENDPOINT}" == unix:///* ]] || \
   die "Docker context must use a local Unix socket, got ${DOCKER_ENDPOINT}"
+BUILDER_INFO=$(docker --context "${DOCKER_CONTEXT_NAME}" \
+  buildx --builder default inspect) || \
+  die "could not inspect the context-bound default builder"
+BUILDER_DRIVER=$(printf '%s\n' "${BUILDER_INFO}" | \
+  awk '/^Driver:[[:space:]]*/ { sub(/^Driver:[[:space:]]*/, ""); print }')
+[ "${BUILDER_DRIVER}" = "docker" ] || \
+  die "default builder must use the context-bound docker driver"
 
 CONTEXT=$(mktemp -d "${TMPDIR:-/tmp}/zerone-rpc-edge-context.XXXXXX")
 materialize_git_blob deploy/Dockerfile.rpc-edge \
@@ -115,8 +122,10 @@ fi
 
 verify_source_identity
 docker --context "${DOCKER_CONTEXT_NAME}" build \
+  --builder default \
   --pull \
   --no-cache \
+  --load \
   --platform "${TARGET_PLATFORM}" \
   --build-arg "RUNTIME_IMAGE=${RUNTIME_IMAGE}" \
   --build-arg "VERSION=${VERSION}" \
@@ -131,7 +140,7 @@ docker --context "${DOCKER_CONTEXT_NAME}" build \
   --tag "${IMAGE_REF}" \
   "${CONTEXT}"
 
-printf 'local_image=%s\ncommit=%s\nversion=%s\nsource_date_epoch=%s\nplatform=%s\nbase=%s\ndocker_context=%s\ndocker_endpoint=%s\npush_or_deploy=not-performed\n' \
+printf 'local_image=%s\ncommit=%s\nversion=%s\nsource_date_epoch=%s\nplatform=%s\nbase=%s\ndocker_context=%s\ndocker_endpoint=%s\nbuilder=default\nbuilder_driver=%s\npush_or_deploy=not-performed\n' \
   "${IMAGE_REF}" "${SOURCE_COMMIT}" "${VERSION}" "${SOURCE_DATE_EPOCH}" \
   "${TARGET_PLATFORM}" "${RUNTIME_IMAGE}" "${DOCKER_CONTEXT_NAME}" \
-  "${DOCKER_ENDPOINT}"
+  "${DOCKER_ENDPOINT}" "${BUILDER_DRIVER}"

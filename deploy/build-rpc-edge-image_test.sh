@@ -49,16 +49,31 @@ case "${1:-} ${2:-}" in
     printf '%s\n' "${FAKE_DOCKER_ENDPOINT:-unix:///private/tmp/rpc-edge-test.sock}"
     ;;
   "--context rpc-edge-isolated-test")
-    [ "${3:-}" = build ]
-    context="${*: -1}"
-    [ -d "${context}" ]
-    (cd "${context}" && find . -type f -print | LC_ALL=C sort) > \
-      "${FAKE_DOCKER_CONTEXT_FILES:?}"
-    cmp "${context}/deploy/Dockerfile.rpc-edge" "${EXPECTED_DOCKERFILE:?}"
-    cmp "${context}/deploy/public-edge-nginx.conf" "${EXPECTED_NGINX:?}"
-    ! grep -R -F 'SECRET_SENTINEL_FROM_DIRTY_WORKTREE' "${context}"
-    printf '%s\n' "$@" > "${FAKE_DOCKER_ARGS:?}"
-    printf '%s\n' "${context}" > "${FAKE_DOCKER_CONTEXT_PATH:?}"
+    case "${3:-}" in
+      buildx)
+        [ "${4:-}" = '--builder' ]
+        [ "${5:-}" = 'default' ]
+        [ "${6:-}" = 'inspect' ]
+        printf 'Name: default\nDriver: %s\n' "${FAKE_BUILDER_DRIVER:-docker}"
+        ;;
+      build)
+        [ "${4:-}" = '--builder' ]
+        [ "${5:-}" = 'default' ]
+        context="${*: -1}"
+        [ -d "${context}" ]
+        (cd "${context}" && find . -type f -print | LC_ALL=C sort) > \
+          "${FAKE_DOCKER_CONTEXT_FILES:?}"
+        cmp "${context}/deploy/Dockerfile.rpc-edge" "${EXPECTED_DOCKERFILE:?}"
+        cmp "${context}/deploy/public-edge-nginx.conf" "${EXPECTED_NGINX:?}"
+        ! grep -R -F 'SECRET_SENTINEL_FROM_DIRTY_WORKTREE' "${context}"
+        printf '%s\n' "$@" > "${FAKE_DOCKER_ARGS:?}"
+        printf '%s\n' "${context}" > "${FAKE_DOCKER_CONTEXT_PATH:?}"
+        ;;
+      *)
+        printf 'unexpected context-bound fake Docker invocation: %s\n' "$*" >&2
+        exit 1
+        ;;
+    esac
     ;;
   *)
     printf 'unexpected fake Docker invocation: %s\n' "$*" >&2
@@ -90,8 +105,11 @@ cmp "${TEST_ROOT}/context-files" "${TEST_ROOT}/expected-context-files"
 CONTEXT_PATH=$(sed -n '1p' "${TEST_ROOT}/context-path")
 [ ! -e "${CONTEXT_PATH}" ] || fail "temporary context survived the build"
 for exact_argument in \
+  '--builder' \
+  'default' \
   '--pull' \
   '--no-cache' \
+  '--load' \
   'linux/amd64' \
   "RUNTIME_IMAGE=${RUNTIME_IMAGE}" \
   'VERSION=v0.1.0' \
@@ -110,6 +128,8 @@ if grep -Eiq '(^|[-])(push|deploy|buildx)($|[-])|fly|depot' \
 fi
 grep -q '^push_or_deploy=not-performed$' "${TEST_ROOT}/build-output" || \
   fail "build output did not preserve the publication boundary"
+grep -q '^builder_driver=docker$' "${TEST_ROOT}/build-output" || \
+  fail "build output did not bind the context-local Docker driver"
 
 if PATH="${TEST_ROOT}/bin:${PATH}" \
     RPC_EDGE_SOURCE_COMMIT="${SOURCE_COMMIT}" \
@@ -137,5 +157,51 @@ if FAKE_DOCKER_ENDPOINT='tcp://remote-builder.invalid:2376' \
 fi
 [ ! -s "${TEST_ROOT}/docker-args" ] || \
   fail "remote Docker endpoint reached the build command"
+
+: > "${TEST_ROOT}/docker-args"
+if FAKE_BUILDER_DRIVER='remote' \
+    FAKE_DOCKER_ARGS="${TEST_ROOT}/docker-args" \
+    FAKE_DOCKER_CONTEXT_FILES="${TEST_ROOT}/context-files" \
+    FAKE_DOCKER_CONTEXT_PATH="${TEST_ROOT}/context-path" \
+    EXPECTED_DOCKERFILE="${TEST_ROOT}/expected-Dockerfile" \
+    EXPECTED_NGINX="${TEST_ROOT}/expected-nginx.conf" \
+    PATH="${TEST_ROOT}/bin:${PATH}" \
+    RPC_EDGE_SOURCE_COMMIT="${SOURCE_COMMIT}" \
+    RPC_EDGE_VERSION='v0.1.0' \
+    RUNTIME_IMAGE="${RUNTIME_IMAGE}" \
+    "${REPOSITORY}/deploy/build-rpc-edge-image.sh" bad:test \
+    >/dev/null 2>&1; then
+  fail "non-Docker default builder was accepted"
+fi
+[ ! -s "${TEST_ROOT}/docker-args" ] || \
+  fail "non-Docker default builder reached the build command"
+
+LINKED_WORKTREE="${TEST_ROOT}/linked-worktree"
+git -C "${REPOSITORY}" worktree add --quiet --detach \
+  "${LINKED_WORKTREE}" "${SOURCE_COMMIT}"
+GRAFT_PATH=$(git -C "${LINKED_WORKTREE}" rev-parse --path-format=absolute \
+  --git-path info/grafts)
+COMMON_GRAFT_PATH=$(git -C "${REPOSITORY}" rev-parse --path-format=absolute \
+  --git-path info/grafts)
+[ "${GRAFT_PATH}" = "${COMMON_GRAFT_PATH}" ] || \
+  fail "linked-worktree graft path did not resolve through the common Git dir"
+mkdir -p "$(dirname "${GRAFT_PATH}")"
+: > "${GRAFT_PATH}"
+: > "${TEST_ROOT}/docker-args"
+if FAKE_DOCKER_ARGS="${TEST_ROOT}/docker-args" \
+    FAKE_DOCKER_CONTEXT_FILES="${TEST_ROOT}/context-files" \
+    FAKE_DOCKER_CONTEXT_PATH="${TEST_ROOT}/context-path" \
+    EXPECTED_DOCKERFILE="${TEST_ROOT}/expected-Dockerfile" \
+    EXPECTED_NGINX="${TEST_ROOT}/expected-nginx.conf" \
+    PATH="${TEST_ROOT}/bin:${PATH}" \
+    RPC_EDGE_SOURCE_COMMIT="${SOURCE_COMMIT}" \
+    RPC_EDGE_VERSION='v0.1.0' \
+    RUNTIME_IMAGE="${RUNTIME_IMAGE}" \
+    "${LINKED_WORKTREE}/deploy/build-rpc-edge-image.sh" bad:test \
+    >/dev/null 2>&1; then
+  fail "common-dir graft was accepted from a linked worktree"
+fi
+[ ! -s "${TEST_ROOT}/docker-args" ] || \
+  fail "common-dir graft reached the build command"
 
 printf 'rpc-edge build tests: PASS (two committed blobs; fake local Docker)\n'

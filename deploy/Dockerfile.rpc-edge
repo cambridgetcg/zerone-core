@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # Stateless compatibility edge for zerone-rpc.fly.dev. It uses the same
 # deny-by-default policy as a public query node, but reaches the existing
 # mainnet node through its already-published endpoints while the signer

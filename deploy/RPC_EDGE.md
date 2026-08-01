@@ -29,8 +29,10 @@ and any repository-root upload. A successful final-image scan does not erase a
 persistent builder cache.
 
 The supported build wrapper invokes only the selected local Docker context. It
-rejects TCP/SSH endpoints and Docker override variables, accepts only a
-digest-pinned base, derives the source date from the exact commit, and
+rejects TCP/SSH endpoints and Docker override variables, explicitly selects
+the context-dependent `default` builder, requires its in-engine `docker`
+driver, and does not use a remotely fetched Dockerfile frontend. It accepts
+only a digest-pinned base, derives the source date from the exact commit, and
 materializes exactly these two tracked Git blobs into a temporary context:
 
 - `deploy/Dockerfile.rpc-edge`
