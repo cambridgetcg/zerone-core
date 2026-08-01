@@ -5,14 +5,16 @@
   "type": "module",
   "sideEffects": false,
   "license": "Apache-2.0",
-  "packageManager": "npm@11.9.0",
+  "packageManager": "npm@11.19.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cambridgetcg/zerone-core.git",
     "directory": "sdk/typescript"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org"
   },
   "engines": {
     "node": ">=22"
