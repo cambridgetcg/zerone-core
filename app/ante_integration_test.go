@@ -12,6 +12,7 @@ import (
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
 	storetypes "cosmossdk.io/store/types"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	dbm "github.com/cosmos/cosmos-db"
 	protov2 "google.golang.org/protobuf/proto"
@@ -25,6 +26,11 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
+	govv1beta1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1beta1"
+	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
@@ -32,6 +38,7 @@ import (
 	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
 	emergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
+	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 )
 
 // ---------- Mock tx types ----------
@@ -45,6 +52,8 @@ type mockSignedTx struct {
 	memo       string
 	feeGranter []byte
 	sigV2      []signing.SignatureV2
+	signers    [][]byte
+	signerErr  error
 }
 
 func (m mockSignedTx) GetMsgs() []sdk.Msg                              { return m.msgs }
@@ -56,7 +65,7 @@ func (m mockSignedTx) FeePayer() []byte                                { return 
 func (m mockSignedTx) FeeGranter() []byte                              { return m.feeGranter }
 func (m mockSignedTx) GetMemo() string                                 { return m.memo }
 func (m mockSignedTx) GetSignaturesV2() ([]signing.SignatureV2, error) { return m.sigV2, nil }
-func (m mockSignedTx) GetSigners() ([][]byte, error)                   { return nil, nil }
+func (m mockSignedTx) GetSigners() ([][]byte, error)                   { return m.signers, m.signerErr }
 func (m mockSignedTx) GetPubKeys() ([]cryptotypes.PubKey, error) {
 	pks := make([]cryptotypes.PubKey, len(m.sigV2))
 	for i, sig := range m.sigV2 {
@@ -74,17 +83,20 @@ var _ authsigning.SigVerifiableTx = mockSignedTx{}
 // newMockSignedTx creates a mockSignedTx with proper signature data from Ed25519 private keys.
 func newMockSignedTx(keys []*ed25519.PrivKey, msgs []sdk.Msg, fee sdk.Coins, gas uint64) mockSignedTx {
 	sigs := make([]signing.SignatureV2, len(keys))
+	signers := make([][]byte, len(keys))
 	for i, key := range keys {
 		sigs[i] = signing.SignatureV2{
 			PubKey: key.PubKey(),
 			Data:   &signing.SingleSignatureData{SignMode: signing.SignMode_SIGN_MODE_DIRECT},
 		}
+		signers[i] = key.PubKey().Address()
 	}
 	return mockSignedTx{
-		msgs:  msgs,
-		fee:   fee,
-		gas:   gas,
-		sigV2: sigs,
+		msgs:    msgs,
+		fee:     fee,
+		gas:     gas,
+		sigV2:   sigs,
+		signers: signers,
 	}
 }
 
@@ -96,12 +108,6 @@ func newMockSignedTxWithMemo(keys []*ed25519.PrivKey, msgs []sdk.Msg, fee sdk.Co
 }
 
 // ---------- Mock keepers for ante tests ----------
-
-type mockCosmosAccountKeeperForAnte struct{}
-
-func (m mockCosmosAccountKeeperForAnte) GetAccount(_ context.Context, _ sdk.AccAddress) sdk.AccountI {
-	return nil
-}
 
 type mockStakingKeeperForEmergency struct{}
 
@@ -132,6 +138,31 @@ func (m mockBankKeeperForAnte) GetAllBalances(_ context.Context, _ sdk.AccAddres
 }
 func (m mockBankKeeperForAnte) SendCoinsFromModuleToAccount(_ context.Context, _ string, _ sdk.AccAddress, _ sdk.Coins) error {
 	return nil
+}
+
+type mockRecoveryProposalReader map[uint64]bool
+
+func (m mockRecoveryProposalReader) IsAuthorizedRecoverySubmission(
+	_ sdk.Context,
+	_ *govv1.MsgSubmitProposal,
+) bool {
+	return m[0]
+}
+
+func (m mockRecoveryProposalReader) IsExpeditedRecoveryProposal(_ sdk.Context, proposalID uint64) bool {
+	return m[proposalID]
+}
+
+type mockGovernanceHoldReader struct {
+	mockRecoveryProposalReader
+	held bool
+	err  error
+}
+
+func (m mockGovernanceHoldReader) IsGovernanceReviewHeld(
+	_ sdk.Context,
+) (bool, error) {
+	return m.held, m.err
 }
 
 // ---------- Test infrastructure ----------
@@ -241,6 +272,304 @@ func TestAnteIntegration_EmergencyHaltBlocksMsgSend(t *testing.T) {
 	}
 }
 
+func TestAnteIntegration_FinalHaltVoteCannotCarryOrdinaryTail(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHaltVoting)
+
+	decorator := NewEmergencyHaltDecorator(ek)
+	key := ed25519.GenPrivKey()
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{
+			&emergencytypes.MsgVoteHalt{
+				Voter:      sdk.AccAddress(key.PubKey().Address()).String(),
+				ProposalId: "halt-final-precommit",
+				Approve:    true,
+			},
+			mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"},
+		},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil {
+		t.Fatal("expected mixed final-halt-vote transaction to fail")
+	}
+	if !emergencytypes.ErrUnsafeEmergencyBatch.Is(err) {
+		t.Fatalf("expected ErrUnsafeEmergencyBatch, got %v", err)
+	}
+}
+
+func TestAnteIntegration_HaltVotingProvisionallyBlocksExecutableCallbacks(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHaltVoting)
+
+	decorator := NewEmergencyHaltDecorator(ek)
+	key := ed25519.GenPrivKey()
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{&channeltypes.MsgRecvPacket{
+			Packet: channeltypes.Packet{DestinationPort: "icahost"},
+			Signer: sdk.AccAddress(key.PubKey().Address()).String(),
+		}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil || !emergencytypes.ErrChainHalted.Is(err) {
+		t.Fatalf("HaltVoting must block ICA/IBC executable callback entry, got %v", err)
+	}
+}
+
+func TestAnteIntegration_HaltVotingDoesNotGrantUnilateralQuarantine(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHaltVoting)
+
+	decorator := NewEmergencyHaltDecorator(ek)
+	key := ed25519.GenPrivKey()
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	if _, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler); err != nil {
+		t.Fatalf("ordinary tx must remain admitted until the halt quorum finalizes: %v", err)
+	}
+}
+
+func TestAnteIntegration_ReleaseLatchOverridesSameBlockHaltVoting(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHaltVoting)
+	ek.SetQuarantineReleaseBlock(ctx, uint64(ctx.BlockHeight()))
+
+	tx := mockSignedTx{
+		msgs: []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+	}
+	_, err := NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx,
+		tx,
+		false,
+		passThroughHandler,
+	)
+	if err == nil || !emergencytypes.ErrChainHalted.Is(err) {
+		t.Fatalf(
+			"resume->propose-halt->ordinary same-block tail bypassed release latch: %v",
+			err,
+		)
+	}
+
+	// CheckTx after commit H targets H+1 and must be admitted to the honest
+	// mempool in time for H+1 proposal formation.
+	if _, err := NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx.WithIsCheckTx(true),
+		tx,
+		false,
+		passThroughHandler,
+	); err != nil {
+		t.Fatalf("post-commit CheckTx targeting H+1 remained quarantined: %v", err)
+	}
+}
+
+func TestAnteIntegration_AuthzCannotHideEmergencyExecutableBatch(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHaltVoting)
+
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	exec := authz.NewMsgExec(addr, []sdk.Msg{
+		&emergencytypes.MsgVoteHalt{
+			Voter:      addr.String(),
+			ProposalId: "halt-final-precommit",
+			Approve:    true,
+		},
+		&banktypes.MsgSend{
+			FromAddress: addr.String(),
+			ToAddress:   sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address()).String(),
+			Amount:      sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(1))),
+		},
+	})
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{&exec},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	_, err := NewEmergencyHaltDecorator(ek).AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil || !emergencytypes.ErrUnsafeEmergencyBatch.Is(err) {
+		t.Fatalf("authz-wrapped emergency batch must fail closed, got %v", err)
+	}
+}
+
+func TestAnteIntegration_AuthzCannotHideGovernanceWrappedEmergencyMessage(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusNormal)
+
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	emergencyAny, err := codectypes.NewAnyWithValue(&emergencytypes.MsgProposeHalt{
+		Proposer: addr.String(),
+		Reason:   "nested governance impersonation attempt",
+	})
+	if err != nil {
+		t.Fatalf("pack emergency message: %v", err)
+	}
+	proposal := &govv1.MsgSubmitProposal{
+		Messages: []*codectypes.Any{emergencyAny},
+		Proposer: addr.String(),
+		Title:    "unsafe",
+		Summary:  "unsafe",
+	}
+	exec := authz.NewMsgExec(addr, []sdk.Msg{proposal})
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{&exec},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	_, err = NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx,
+		tx,
+		false,
+		passThroughHandler,
+	)
+	if err == nil || !emergencytypes.ErrUnsafeEmergencyBatch.Is(err) {
+		t.Fatalf("authz->governance->emergency wrapper must fail closed, got %v", err)
+	}
+}
+
+func TestAnteIntegration_EmergencyMarkerIsPostIsolationDecorator(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{&emergencytypes.MsgProposeHalt{
+			Proposer: addr.String(),
+			Reason:   "marker ordering test",
+		}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	earlyCtx, err := NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx,
+		tx,
+		false,
+		passThroughHandler,
+	)
+	if err != nil {
+		t.Fatalf("early isolation rejected direct emergency tx: %v", err)
+	}
+	if emergencytypes.HasAuthenticatedEmergencyTx(earlyCtx) {
+		t.Fatal("early quarantine decorator must not authenticate emergency execution")
+	}
+
+	finalCtx, err := NewEmergencyAuthenticationDecorator().AnteHandle(
+		earlyCtx,
+		tx,
+		false,
+		passThroughHandler,
+	)
+	if err != nil {
+		t.Fatalf("post-signature marker decorator failed: %v", err)
+	}
+	if !emergencytypes.HasAuthenticatedEmergencyTx(finalCtx) {
+		t.Fatal("post-signature decorator did not mark direct emergency transaction")
+	}
+}
+
+func TestAnteIntegration_AuthzCannotHideICAHostCallbackDuringHaltVote(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHaltVoting)
+
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	exec := authz.NewMsgExec(addr, []sdk.Msg{&channeltypes.MsgRecvPacket{
+		Packet: channeltypes.Packet{DestinationPort: "icahost"},
+		Signer: addr.String(),
+	}})
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{&exec},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+
+	_, err := NewEmergencyHaltDecorator(ek).AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil || !emergencytypes.ErrChainHalted.Is(err) {
+		t.Fatalf("authz-wrapped ICA-host callback must fail during halt voting, got %v", err)
+	}
+}
+
+func TestAnteIntegration_EmergencyWrapperScanRejectsExcessiveDepth(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+
+	var nested sdk.Msg = &banktypes.MsgSend{}
+	for range maxEmergencyExecutableDepth + 1 {
+		exec := authz.NewMsgExec(addr, []sdk.Msg{nested})
+		nested = &exec
+	}
+
+	_, err := NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx,
+		mockSignedTx{msgs: []sdk.Msg{nested}},
+		false,
+		passThroughHandler,
+	)
+	if err == nil || !errors.IsOf(err, sdkerrors.ErrTxDecode) {
+		t.Fatalf("over-depth wrapper tree must fail closed as tx decode: %v", err)
+	}
+}
+
+func TestAnteIntegration_EmergencyWrapperScanRejectsExcessiveNodes(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	nested := make([]sdk.Msg, maxEmergencyExecutableMessages+1)
+	for i := range nested {
+		nested[i] = &banktypes.MsgSend{}
+	}
+	exec := authz.NewMsgExec(addr, nested)
+
+	_, err := NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx,
+		mockSignedTx{msgs: []sdk.Msg{&exec}},
+		false,
+		passThroughHandler,
+	)
+	if err == nil || !errors.IsOf(err, sdkerrors.ErrTxDecode) {
+		t.Fatalf("over-node wrapper tree must fail closed as tx decode: %v", err)
+	}
+}
+
+func TestAnteIntegration_EmergencyWrapperScanRejectsExcessiveAnyBytes(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	proposal := &govv1.MsgSubmitProposal{
+		Messages: []*codectypes.Any{{
+			TypeUrl: "/cosmos.bank.v1beta1.MsgSend",
+			Value:   make([]byte, maxEmergencyExecutableAnyBytes+1),
+		}},
+	}
+
+	_, err := NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx,
+		mockSignedTx{msgs: []sdk.Msg{proposal}},
+		false,
+		passThroughHandler,
+	)
+	if err == nil || !errors.IsOf(err, sdkerrors.ErrTxDecode) {
+		t.Fatalf("over-byte wrapper tree must fail closed as tx decode: %v", err)
+	}
+}
+
 // ---------- Test 2: Emergency halt allows MsgProposeResume ----------
 
 func TestAnteIntegration_EmergencyHaltAllowsMsgProposeResume(t *testing.T) {
@@ -261,6 +590,148 @@ func TestAnteIntegration_EmergencyHaltAllowsMsgProposeResume(t *testing.T) {
 	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
 	if err != nil {
 		t.Fatalf("emergency message should pass during halt, got: %v", err)
+	}
+}
+
+func TestAnteIntegration_QuarantineRequiresGuardianAuthorizedRecoverySubmission(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHalted)
+	action, err := codectypes.NewAnyWithValue(&upgradetypes.MsgSoftwareUpgrade{
+		Authority: "authority",
+		Plan: upgradetypes.Plan{
+			Name:   "recovery-v1",
+			Height: ctx.BlockHeight() + 100,
+		},
+	})
+	if err != nil {
+		t.Fatalf("pack software upgrade: %v", err)
+	}
+	proposal := &govv1.MsgSubmitProposal{
+		Expedited: true,
+		Messages:  []*codectypes.Any{action},
+		Proposer:  sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address()).String(),
+	}
+
+	tx := mockSignedTx{msgs: []sdk.Msg{proposal}}
+	_, err = NewEmergencyHaltDecorator(ek).AnteHandle(
+		ctx,
+		tx,
+		false,
+		passThroughHandler,
+	)
+	if err == nil || !emergencytypes.ErrChainHalted.Is(err) {
+		t.Fatalf("proposal without Guardian authorization must stay quarantined: %v", err)
+	}
+
+	if _, err := NewEmergencyHaltDecorator(
+		ek,
+		mockRecoveryProposalReader{0: true},
+	).AnteHandle(ctx, tx, false, passThroughHandler); err != nil {
+		t.Fatalf("exact Guardian-authorized recovery submission should pass: %v", err)
+	}
+
+	duplicateTx := mockSignedTx{msgs: []sdk.Msg{proposal, proposal}}
+	_, err = NewEmergencyHaltDecorator(
+		ek,
+		mockRecoveryProposalReader{0: true},
+	).AnteHandle(ctx, duplicateTx, false, passThroughHandler)
+	if err == nil || !emergencytypes.ErrUnsafeEmergencyBatch.Is(err) {
+		t.Fatalf(
+			"duplicate submissions must not reuse one pre-transaction authorization: %v",
+			err,
+		)
+	}
+}
+
+func TestAnteIntegration_QuarantineScopesVotesAndDepositsToRecoveryProposal(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusHalted)
+	decorator := NewEmergencyHaltDecorator(
+		ek,
+		mockRecoveryProposalReader{7: true},
+	)
+
+	allowed := []sdk.Msg{
+		&govv1.MsgVote{ProposalId: 7},
+		&govv1.MsgVoteWeighted{ProposalId: 7},
+		&govv1.MsgDeposit{ProposalId: 7},
+	}
+	for _, msg := range allowed {
+		if _, err := decorator.AnteHandle(
+			ctx,
+			mockSignedTx{msgs: []sdk.Msg{msg}},
+			false,
+			passThroughHandler,
+		); err != nil {
+			t.Fatalf("%T targeting authenticated recovery proposal should pass: %v", msg, err)
+		}
+	}
+
+	blocked := []sdk.Msg{
+		&govv1.MsgVote{ProposalId: 8},
+		&govv1.MsgVoteWeighted{ProposalId: 8},
+		&govv1.MsgDeposit{ProposalId: 8},
+	}
+	for _, msg := range blocked {
+		_, err := decorator.AnteHandle(
+			ctx,
+			mockSignedTx{msgs: []sdk.Msg{msg}},
+			false,
+			passThroughHandler,
+		)
+		if err == nil || !emergencytypes.ErrChainHalted.Is(err) {
+			t.Fatalf("%T targeting another proposal must stay quarantined, got: %v", msg, err)
+		}
+	}
+}
+
+func TestAnteIntegration_PostIncidentHoldRejectsAllSDKGovAdmission(t *testing.T) {
+	_, ek, ctx := setupBothKeepers(t)
+	ek.SetEmergencyStatus(ctx, emergencytypes.StatusNormal)
+	reader := mockGovernanceHoldReader{held: true}
+	decorator := NewEmergencyHaltDecorator(ek, reader)
+	addr := sdk.AccAddress(ed25519.GenPrivKey().PubKey().Address())
+	exec := authz.NewMsgExec(addr, []sdk.Msg{
+		&govv1.MsgDeposit{ProposalId: 7, Depositor: addr.String()},
+	})
+
+	blocked := []sdk.Msg{
+		&govv1.MsgSubmitProposal{Proposer: addr.String()},
+		&govv1.MsgVote{ProposalId: 7, Voter: addr.String()},
+		&govv1.MsgVoteWeighted{ProposalId: 7, Voter: addr.String()},
+		&govv1.MsgDeposit{ProposalId: 7, Depositor: addr.String()},
+		&govv1.MsgCancelProposal{ProposalId: 7, Proposer: addr.String()},
+		&govv1beta1.MsgVote{ProposalId: 7, Voter: addr.String()},
+		&exec,
+		&channeltypes.MsgRecvPacket{
+			Packet: channeltypes.Packet{DestinationPort: "icahost"},
+			Signer: addr.String(),
+		},
+	}
+	for _, msg := range blocked {
+		_, err := decorator.AnteHandle(
+			ctx,
+			mockSignedTx{msgs: []sdk.Msg{msg}},
+			false,
+			passThroughHandler,
+		)
+		if err == nil ||
+			!zeronegovtypes.ErrEmergencyTransitionHold.Is(err) {
+			t.Fatalf(
+				"post-incident review hold admitted %T: %v",
+				msg,
+				err,
+			)
+		}
+	}
+
+	if _, err := decorator.AnteHandle(
+		ctx,
+		mockSignedTx{msgs: []sdk.Msg{&banktypes.MsgSend{}}},
+		false,
+		passThroughHandler,
+	); err != nil {
+		t.Fatalf("post-incident governance hold blocked unrelated tx: %v", err)
 	}
 }
 
@@ -288,6 +759,69 @@ func TestAnteIntegration_FrozenAccountRejected(t *testing.T) {
 	}
 	if !zeroneauthtypes.ErrAccountFrozen.Is(err) {
 		t.Fatalf("expected ErrAccountFrozen, got: %v", err)
+	}
+}
+
+func TestAnteIntegration_FrozenAccountRejectedWhenSignerInfoOmitsPubKey(t *testing.T) {
+	ak, _, ctx := setupBothKeepers(t)
+
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	registerZeroneAccount(t, ak, ctx, addr.String(), true)
+
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+	// Cosmos permits this once the BaseAccount already stores the key. The
+	// message-derived signer must still be subject to Zerone account policy.
+	tx.sigV2[0].PubKey = nil
+
+	_, err := NewZeroneAccountDecorator(ak).AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil || !zeroneauthtypes.ErrAccountFrozen.Is(err) {
+		t.Fatalf("omitted public key must not bypass frozen-account policy, got: %v", err)
+	}
+}
+
+func TestAnteIntegration_SignerExtractionFailsClosed(t *testing.T) {
+	ak, _, ctx := setupBothKeepers(t)
+	decorator := NewZeroneAccountDecorator(ak)
+
+	tests := []struct {
+		name string
+		tx   mockSignedTx
+	}{
+		{
+			name: "signer extraction error",
+			tx: mockSignedTx{
+				msgs:      []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+				signerErr: sdkerrors.ErrInvalidAddress,
+			},
+		},
+		{
+			name: "empty signer address",
+			tx: mockSignedTx{
+				msgs:    []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+				signers: [][]byte{nil},
+			},
+		},
+		{
+			name: "no signers",
+			tx: mockSignedTx{
+				msgs: []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := decorator.AnteHandle(ctx, tc.tx, false, passThroughHandler)
+			if err == nil || !sdkerrors.ErrTxDecode.Is(err) {
+				t.Fatalf("signer extraction must fail closed with ErrTxDecode, got: %v", err)
+			}
+		})
 	}
 }
 
@@ -580,6 +1114,7 @@ func TestAnteIntegration_DIDResolutionFromMemo(t *testing.T) {
 		100_000,
 		did,
 	)
+	tx.sigV2[0].PubKey = nil
 
 	// Use a handler that captures the context to check for events
 	var receivedCtx sdk.Context
@@ -771,7 +1306,7 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 				registerZeroneAccountWithType(t, ak, ctx, addr.String(), tc.accountType, tc.flags)
 			}
 
-			decorator := NewZeroneCapabilityDecorator(ak, mockCosmosAccountKeeperForAnte{})
+			decorator := NewZeroneCapabilityDecorator(ak)
 			tx := newMockSignedTx(
 				[]*ed25519.PrivKey{key},
 				[]sdk.Msg{mockMsg{typeURL: tc.msgType}},
@@ -793,5 +1328,32 @@ func TestAnteIntegration_AccountCapabilityEnforcement(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+func TestAnteIntegration_CapabilityRejectedWhenSignerInfoOmitsPubKey(t *testing.T) {
+	ak, _, ctx := setupBothKeepers(t)
+
+	key := ed25519.GenPrivKey()
+	addr := sdk.AccAddress(key.PubKey().Address())
+	registerZeroneAccountWithType(
+		t,
+		ak,
+		ctx,
+		addr.String(),
+		"contract",
+		&zeroneauthtypes.AccountFlags{CanSubmitClaims: false},
+	)
+
+	tx := newMockSignedTx(
+		[]*ed25519.PrivKey{key},
+		[]sdk.Msg{mockMsg{typeURL: "/zerone.knowledge.v1.MsgSubmitClaim"}},
+		sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000))),
+		100_000,
+	)
+	tx.sigV2[0].PubKey = nil
+
+	_, err := NewZeroneCapabilityDecorator(ak).AnteHandle(ctx, tx, false, passThroughHandler)
+	if err == nil || !zeroneauthtypes.ErrAccountCapabilityDenied.Is(err) {
+		t.Fatalf("omitted public key must not bypass account capability policy, got: %v", err)
 	}
 }

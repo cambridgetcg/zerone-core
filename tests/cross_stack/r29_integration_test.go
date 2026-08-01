@@ -25,10 +25,10 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	// ── Setup: Enable alignment with short intervals ─────────────────────
 
 	h.AlignmentKeeper.SetState(h.Ctx, &aligntypes.AlignmentState{
-		Enabled:              true,
+		Enabled:               true,
 		LastObservationHeight: 0,
-		ObservationCount:     0,
-		PreviousCategory:     aligntypes.CategoryHealthy,
+		ObservationCount:      0,
+		PreviousCategory:      aligntypes.CategoryHealthy,
 	})
 	alignParams := aligntypes.DefaultParams()
 	alignParams.ObservationIntervalBlocks = 10
@@ -282,8 +282,8 @@ func TestR29_AdversarialInteractions(t *testing.T) {
 
 		// Enable alignment with short interval.
 		h.AlignmentKeeper.SetState(h.Ctx, &aligntypes.AlignmentState{
-			Enabled:              true,
-			PreviousCategory:     aligntypes.CategoryCritical,
+			Enabled:               true,
+			PreviousCategory:      aligntypes.CategoryCritical,
 			LastObservationHeight: 0,
 		})
 		alignParams := aligntypes.DefaultParams()
@@ -441,8 +441,8 @@ func TestBlockerOrdering_NoPanic(t *testing.T) {
 
 	// Enable alignment with short intervals.
 	h.AlignmentKeeper.SetState(h.Ctx, &aligntypes.AlignmentState{
-		Enabled:              true,
-		PreviousCategory:     aligntypes.CategoryDegraded,
+		Enabled:               true,
+		PreviousCategory:      aligntypes.CategoryDegraded,
 		LastObservationHeight: 0,
 	})
 	alignParams := aligntypes.DefaultParams()
@@ -596,6 +596,11 @@ func TestGenesisExportImport_WithR29State(t *testing.T) {
 	exported, err := app1.ExportAppStateAndValidators(false, nil, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, exported.AppState)
+	require.Equal(t, app1.LastBlockHeight()+1, exported.Height,
+		"continuation genesis starts after the last committed height")
+	_, err = app1.ExportAppStateAndValidators(true, nil, nil)
+	require.ErrorContains(t, err, "zero-height export is disabled",
+		"unsafe partial clock rebasing must fail closed")
 	t.Logf("Exported genesis at height %d (%d bytes)", exported.Height, len(exported.AppState))
 
 	// ── Phase 3: Import into fresh app ──────────────────────────────────

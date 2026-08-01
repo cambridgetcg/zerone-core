@@ -1,0 +1,43 @@
+# Non-signing, read-only testnet RPC/REST query edge.
+app = "zerone-testnet-1-query"
+primary_region = "lhr"
+
+[build]
+  image = "REPLACE_WITH_REGISTRY_IMAGE_AT_SHA256"
+
+[env]
+  ZERONE_HOME = "/data/.zeroned"
+  ZERONE_NODE_ROLE = "public-query"
+  ZERONE_MONIKER = "zerone-testnet-1-query"
+  ZERONE_VALIDATOR_PEER = ""
+  ZERONE_SENTRY_PEERS = "REPLACE_WITH_40_LOWERCASE_HEX@zerone-testnet-1-sentry-a.internal:26656,REPLACE_WITH_40_LOWERCASE_HEX@zerone-testnet-1-sentry-b.internal:26656"
+  ZERONE_EXTERNAL_P2P_ADDRESS = ""
+  ZERONE_TOPOLOGY_SHA256 = "REPLACE_WITH_64_LOWERCASE_HEX"
+
+[mounts]
+  source = "zerone_testnet_1_public_query_data_v1"
+  destination = "/data"
+
+[[restart]]
+  policy = "never"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 100
+    hard_limit = 200
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "15s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "3s"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"

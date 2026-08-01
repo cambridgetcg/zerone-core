@@ -24,6 +24,8 @@ import (
 	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
+	storemetrics "cosmossdk.io/store/metrics"
+	"cosmossdk.io/store/rootmulti"
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/evidence"
 	evidencekeeper "cosmossdk.io/x/evidence/keeper"
@@ -55,6 +57,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
+	authz "github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -78,35 +81,27 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	// IBC modules
-	capability "github.com/cosmos/ibc-go/modules/capability"
-	capabilitykeeper "github.com/cosmos/ibc-go/modules/capability/keeper"
-	capabilitytypes "github.com/cosmos/ibc-go/modules/capability/types"
-	ibctransfer "github.com/cosmos/ibc-go/v8/modules/apps/transfer"
-	ibctransferkeeper "github.com/cosmos/ibc-go/v8/modules/apps/transfer/keeper"
-	ibctransfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
-	ibc "github.com/cosmos/ibc-go/v8/modules/core"
-	ibcporttypes "github.com/cosmos/ibc-go/v8/modules/core/05-port/types"
-	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
-	ibckeeper "github.com/cosmos/ibc-go/v8/modules/core/keeper"
+	ibctransfer "github.com/cosmos/ibc-go/v10/modules/apps/transfer"
+	ibctransferkeeper "github.com/cosmos/ibc-go/v10/modules/apps/transfer/keeper"
+	ibctransfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
+	ibc "github.com/cosmos/ibc-go/v10/modules/core"
+	ibcporttypes "github.com/cosmos/ibc-go/v10/modules/core/05-port/types"
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	ibckeeper "github.com/cosmos/ibc-go/v10/modules/core/keeper"
 
 	// IBC Light Clients
-	solomachine "github.com/cosmos/ibc-go/v8/modules/light-clients/06-solomachine"
-	ibctm "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
+	solomachine "github.com/cosmos/ibc-go/v10/modules/light-clients/06-solomachine"
+	ibctm "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	// ICA (Interchain Accounts)
-	ica "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts"
-	icacontroller "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller"
-	icacontrollerkeeper "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller/keeper"
-	icacontrollertypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/controller/types"
-	icahost "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host"
-	icahostkeeper "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host/keeper"
-	icahosttypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/host/types"
-	icatypes "github.com/cosmos/ibc-go/v8/modules/apps/27-interchain-accounts/types"
-
-	// IBC Fee Middleware (ICS-29)
-	ibcfee "github.com/cosmos/ibc-go/v8/modules/apps/29-fee"
-	ibcfeekeeper "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/keeper"
-	ibcfeetypes "github.com/cosmos/ibc-go/v8/modules/apps/29-fee/types"
+	ica "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts"
+	icacontroller "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller"
+	icacontrollerkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/keeper"
+	icacontrollertypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/controller/types"
+	icahost "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host"
+	icahostkeeper "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/keeper"
+	icahosttypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/host/types"
+	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
 
 	// CometBFT
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -198,6 +193,53 @@ import (
 
 // App-level constants are defined in app/constants.go.
 
+type sdk053IBC10StoreLoaderProof struct {
+	upgradeHeight       int64
+	preUpgradeVersion   int64
+	legacyRootsComplete bool
+	feeLockAbsent       bool
+	preflightOnly       bool
+}
+
+func committedLegacyStoreNames(
+	db dbm.DB,
+) (map[string]bool, error) {
+	result := map[string]bool{
+		legacyCapabilityStoreKey: false,
+		legacyIBCFeeStoreKey:     false,
+	}
+	latest := rootmulti.GetLatestVersion(db)
+	if latest == 0 {
+		return result, nil
+	}
+	inspector := rootmulti.NewStore(
+		db,
+		log.NewNopLogger(),
+		storemetrics.NewNoOpMetrics(),
+	)
+	commitInfo, err := inspector.GetCommitInfo(latest)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"inspect committed store set at version %d: %w",
+			latest,
+			err,
+		)
+	}
+	if commitInfo.Version != latest {
+		return nil, fmt.Errorf(
+			"committed store metadata version %d does not match latest version %d",
+			commitInfo.Version,
+			latest,
+		)
+	}
+	for _, storeInfo := range commitInfo.StoreInfos {
+		if _, tracked := result[storeInfo.Name]; tracked {
+			result[storeInfo.Name] = true
+		}
+	}
+	return result, nil
+}
+
 var (
 	// DefaultNodeHome is the default home directory for the node.
 	DefaultNodeHome string
@@ -219,7 +261,6 @@ var (
 		consensus.AppModuleBasic{},
 		ibc.AppModuleBasic{},
 		ibctransfer.AppModuleBasic{},
-		ibcfee.AppModuleBasic{},
 		ica.AppModuleBasic{},
 		// ===== Zerone custom modules — added by batch =====
 		zeroneauth.AppModuleBasic{},
@@ -262,7 +303,6 @@ var (
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		govtypes.ModuleName:            {authtypes.Burner},
 		ibctransfertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
-		ibcfeetypes.ModuleName:         nil,
 		icatypes.ModuleName:            nil,
 		// ===== Zerone custom module accounts — added by batch =====
 		// zerone_auth: no permissions. The Minter perm was removed in the
@@ -348,6 +388,7 @@ func MakeEncodingConfig() EncodingConfig {
 	ModuleBasics.RegisterInterfaces(interfaceRegistry)
 	ModuleBasics.RegisterLegacyAminoCodec(legacyAmino)
 	txtypes.RegisterInterfaces(interfaceRegistry)
+	authz.RegisterInterfaces(interfaceRegistry)
 
 	return EncodingConfig{
 		InterfaceRegistry: interfaceRegistry,
@@ -364,15 +405,21 @@ type GenesisState map[string]json.RawMessage
 type ZeroneApp struct {
 	*baseapp.BaseApp
 
+	db                dbm.DB
 	legacyAmino       *codec.LegacyAmino
 	appCodec          codec.Codec
 	txConfig          client.TxConfig
 	interfaceRegistry codectypes.InterfaceRegistry
 
+	sdk053IBC10LegacyStoresAtStartup map[string]bool
+	sdk053IBC10DiskUpgradeInfo       upgradetypes.Plan
+	sdk053IBC10LoaderProof           *sdk053IBC10StoreLoaderProof
+	activationPreflightReadOnly      bool
+	unsafeSkipUpgradeHeights         map[int64]bool
+
 	// Store keys
-	keys    map[string]*storetypes.KVStoreKey
-	tkeys   map[string]*storetypes.TransientStoreKey
-	memKeys map[string]*storetypes.MemoryStoreKey
+	keys  map[string]*storetypes.KVStoreKey
+	tkeys map[string]*storetypes.TransientStoreKey
 
 	// ---------- Standard Cosmos SDK Keepers ----------
 	AccountKeeper   authkeeper.AccountKeeper
@@ -387,16 +434,10 @@ type ZeroneApp struct {
 	ConsensusKeeper consensuskeeper.Keeper
 
 	// ---------- IBC Keepers ----------
-	CapabilityKeeper          *capabilitykeeper.Keeper
-	ScopedIBCKeeper           capabilitykeeper.ScopedKeeper
-	ScopedTransferKeeper      capabilitykeeper.ScopedKeeper
-	ScopedICAControllerKeeper capabilitykeeper.ScopedKeeper
-	ScopedICAHostKeeper       capabilitykeeper.ScopedKeeper
-	IBCKeeper                 *ibckeeper.Keeper
-	IBCFeeKeeper              ibcfeekeeper.Keeper
-	TransferKeeper            ibctransferkeeper.Keeper
-	ICAControllerKeeper       icacontrollerkeeper.Keeper
-	ICAHostKeeper             icahostkeeper.Keeper
+	IBCKeeper           *ibckeeper.Keeper
+	TransferKeeper      ibctransferkeeper.Keeper
+	ICAControllerKeeper icacontrollerkeeper.Keeper
+	ICAHostKeeper       icahostkeeper.Keeper
 
 	// ===== Zerone custom module keepers — added by batch =====
 	ZeroneAuthKeeper         zeroneauthkeeper.Keeper
@@ -459,6 +500,48 @@ func NewZeroneApp(
 	appOpts servertypes.AppOptions,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *ZeroneApp {
+	return newZeroneApp(
+		logger,
+		db,
+		traceStore,
+		loadLatest,
+		appOpts,
+		false,
+		baseAppOptions...,
+	)
+}
+
+// NewActivationPreflightApp creates the variant used only against an isolated
+// application-DB copy. Offline mode is a constructor capability, not a Viper
+// option that a normal daemon start can inject.
+func NewActivationPreflightApp(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	loadLatest bool,
+	appOpts servertypes.AppOptions,
+	baseAppOptions ...func(*baseapp.BaseApp),
+) *ZeroneApp {
+	return newZeroneApp(
+		logger,
+		db,
+		traceStore,
+		loadLatest,
+		appOpts,
+		true,
+		baseAppOptions...,
+	)
+}
+
+func newZeroneApp(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	loadLatest bool,
+	appOpts servertypes.AppOptions,
+	activationPreflightReadOnly bool,
+	baseAppOptions ...func(*baseapp.BaseApp),
+) *ZeroneApp {
 	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(codectypes.InterfaceRegistryOptions{
 		ProtoFiles: proto.HybridResolver,
 		SigningOptions: signing.Options{
@@ -479,6 +562,7 @@ func NewZeroneApp(
 	ModuleBasics.RegisterInterfaces(interfaceRegistry)
 	ModuleBasics.RegisterLegacyAminoCodec(legacyAmino)
 	txtypes.RegisterInterfaces(interfaceRegistry)
+	authz.RegisterInterfaces(interfaceRegistry)
 	// IBC light client types must be registered for tx decoding (Any unpacking).
 	// Registered here rather than in ModuleBasics because their DefaultGenesis returns nil.
 	ibctm.RegisterInterfaces(interfaceRegistry)
@@ -490,6 +574,10 @@ func NewZeroneApp(
 	bApp.SetInterfaceRegistry(interfaceRegistry)
 
 	// ---- Store Keys ----
+	committedLegacyStores := map[string]bool{
+		legacyCapabilityStoreKey: false,
+		legacyIBCFeeStoreKey:     false,
+	}
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey,
 		banktypes.StoreKey,
@@ -500,10 +588,8 @@ func NewZeroneApp(
 		upgradetypes.StoreKey,
 		feegrant.StoreKey,
 		evidencetypes.StoreKey,
-		capabilitytypes.StoreKey,
 		ibcexported.StoreKey,
 		ibctransfertypes.StoreKey,
-		ibcfeetypes.StoreKey,
 		icacontrollertypes.StoreKey,
 		icahosttypes.StoreKey,
 		"consensus", // x/consensus module store key
@@ -530,18 +616,39 @@ func NewZeroneApp(
 		zeroneworkcreedtypes.StoreKey,
 		substratebridgetypes.StoreKey,
 	)
+	if activationPreflightReadOnly {
+		legacyStores, err := committedLegacyStoreNames(db)
+		if err != nil {
+			panic(
+				fmt.Sprintf(
+					"failed to inspect committed stores for read-only activation preflight: %s",
+					err,
+				),
+			)
+		}
+		for _, name := range []string{
+			legacyCapabilityStoreKey,
+			legacyIBCFeeStoreKey,
+		} {
+			if legacyStores[name] {
+				keys[name] = storetypes.NewKVStoreKey(name)
+			}
+		}
+		committedLegacyStores = legacyStores
+	}
 	tkeys := storetypes.NewTransientStoreKeys(paramstypes.TStoreKey)
-	memKeys := storetypes.NewMemoryStoreKeys(capabilitytypes.MemStoreKey)
 
 	app := &ZeroneApp{
-		BaseApp:           bApp,
-		legacyAmino:       legacyAmino,
-		appCodec:          appCodec,
-		txConfig:          txConfig,
-		interfaceRegistry: interfaceRegistry,
-		keys:              keys,
-		tkeys:             tkeys,
-		memKeys:           memKeys,
+		BaseApp:                          bApp,
+		db:                               db,
+		legacyAmino:                      legacyAmino,
+		appCodec:                         appCodec,
+		txConfig:                         txConfig,
+		interfaceRegistry:                interfaceRegistry,
+		keys:                             keys,
+		tkeys:                            tkeys,
+		sdk053IBC10LegacyStoresAtStartup: committedLegacyStores,
+		activationPreflightReadOnly:      activationPreflightReadOnly,
 	}
 
 	// ---- Module Keepers ----
@@ -615,8 +722,10 @@ func NewZeroneApp(
 	if upgradeHomePath == "" {
 		upgradeHomePath = DefaultNodeHome
 	}
+	configuredSkipUpgradeHeights := skipUpgradeHeights(appOpts)
+	app.unsafeSkipUpgradeHeights = configuredSkipUpgradeHeights
 	app.UpgradeKeeper = upgradekeeper.NewKeeper(
-		skipUpgradeHeights(appOpts),
+		configuredSkipUpgradeHeights,
 		sdkruntime.NewKVStoreService(keys[upgradetypes.StoreKey]),
 		appCodec,
 		upgradeHomePath,
@@ -654,39 +763,21 @@ func NewZeroneApp(
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
-	// ---- Capability Keeper (required by IBC) ----
-	app.CapabilityKeeper = capabilitykeeper.NewKeeper(
-		appCodec,
-		keys[capabilitytypes.StoreKey],
-		memKeys[capabilitytypes.MemStoreKey],
-	)
-	app.ScopedIBCKeeper = app.CapabilityKeeper.ScopeToModule(ibcexported.ModuleName)
-	app.ScopedTransferKeeper = app.CapabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
-	app.ScopedICAControllerKeeper = app.CapabilityKeeper.ScopeToModule(icacontrollertypes.SubModuleName)
-	app.ScopedICAHostKeeper = app.CapabilityKeeper.ScopeToModule(icahosttypes.SubModuleName)
-	// Seal after all ScopeToModule calls — prevents capability escalation at runtime.
-	app.CapabilityKeeper.Seal()
-
 	// ---- IBC Keepers ----
 	app.IBCKeeper = ibckeeper.NewKeeper(
 		appCodec,
-		keys[ibcexported.StoreKey],
+		sdkruntime.NewKVStoreService(keys[ibcexported.StoreKey]),
 		paramstypes.Subspace{}, // x/params removed in v0.47+; IBC accepts empty subspace
-		app.StakingKeeper,
 		app.UpgradeKeeper,
-		app.ScopedIBCKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
-	app.IBCFeeKeeper = ibcfeekeeper.NewKeeper(
-		appCodec,
-		keys[ibcfeetypes.StoreKey],
-		app.IBCKeeper.ChannelKeeper, // ics4Wrapper
-		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
-		app.AccountKeeper,
-		app.BankKeeper,
-	)
+	clientKeeper := app.IBCKeeper.ClientKeeper
+	storeProvider := clientKeeper.GetStoreProvider()
+	tmLightClientModule := ibctm.NewLightClientModule(appCodec, storeProvider)
+	clientKeeper.AddRoute(ibctm.ModuleName, &tmLightClientModule)
+	soloMachineLightClientModule := solomachine.NewLightClientModule(appCodec, storeProvider)
+	clientKeeper.AddRoute(solomachine.ModuleName, &soloMachineLightClientModule)
 
 	// IBCRateLimitKeeper must be created before TransferKeeper so it can intercept outbound SendPacket.
 	app.IBCRateLimitKeeper = zeroneibcrlkeeper.NewKeeper(
@@ -698,49 +789,44 @@ func NewZeroneApp(
 	// SECURITY: Rate limit ICS4Wrapper intercepts outbound SendPacket for quota enforcement.
 	// Created before TransferKeeper so it can be injected as the ICS4Wrapper in the outbound chain.
 	rateLimitICS4 := zeroneibcratelimit.NewIBCMiddleware(
-		nil,              // IBCModule set later (only ICS4Wrapper used here)
-		app.IBCFeeKeeper, // inner ICS4Wrapper for SendPacket forwarding
+		nil, // IBCModule set later (only ICS4Wrapper used here)
+		app.IBCKeeper.ChannelKeeper,
 		app.IBCRateLimitKeeper,
 	)
 
 	app.TransferKeeper = ibctransferkeeper.NewKeeper(
 		appCodec,
-		keys[ibctransfertypes.StoreKey],
+		sdkruntime.NewKVStoreService(keys[ibctransfertypes.StoreKey]),
 		paramstypes.Subspace{},
-		rateLimitICS4, // ics4Wrapper routes through rate limit then fee middleware
+		rateLimitICS4, // ICS4 wrapper routes through the rate-limit middleware
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
+		app.MsgServiceRouter(),
 		app.AccountKeeper,
 		app.BankKeeper,
-		app.ScopedTransferKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
 	app.ICAControllerKeeper = icacontrollerkeeper.NewKeeper(
 		appCodec,
-		keys[icacontrollertypes.StoreKey],
+		sdkruntime.NewKVStoreService(keys[icacontrollertypes.StoreKey]),
 		paramstypes.Subspace{},
 		app.IBCKeeper.ChannelKeeper, // ics4Wrapper
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
-		app.ScopedICAControllerKeeper,
 		app.MsgServiceRouter(),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
 	app.ICAHostKeeper = icahostkeeper.NewKeeper(
 		appCodec,
-		keys[icahosttypes.StoreKey],
+		sdkruntime.NewKVStoreService(keys[icahosttypes.StoreKey]),
 		paramstypes.Subspace{},
 		app.IBCKeeper.ChannelKeeper,
 		app.IBCKeeper.ChannelKeeper,
-		app.IBCKeeper.PortKeeper,
 		app.AccountKeeper,
-		app.ScopedICAHostKeeper,
 		app.MsgServiceRouter(),
+		app.GRPCQueryRouter(),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
-	app.ICAHostKeeper.WithQueryRouter(app.GRPCQueryRouter())
 
 	// ===== Zerone custom module keeper init (added by batch) =====
 
@@ -831,7 +917,6 @@ func NewZeroneApp(
 		govStakingAdapter,
 	)
 	app.ZeroneGovKeeper.SetVestingKeeper(&app.VestingRewardsKeeper)
-	app.ZeroneGovKeeper.SetUpgradeKeeper(NewGovUpgradeAdapter(app.UpgradeKeeper))
 	app.ZeroneGovKeeper.SetParamRouter(NewGovParamRouter())
 
 	qualificationStakingAdapter := zeronestakingkeeper.NewQualificationStakingKeeperAdapter(app.ZeroneStakingKeeper)
@@ -857,6 +942,13 @@ func NewZeroneApp(
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		emergencyStakingAdapter,
+	)
+	app.EmergencyKeeper.SetRecoveryAuthorizationTargetVerifier(
+		newSDKGovRecoveryProposalReader(
+			app.GovKeeper,
+			app.EmergencyKeeper,
+			app.UpgradeKeeper,
+		),
 	)
 	app.ZeroneGovKeeper.SetEmergencyKeeper(zeroneemergencykeeper.NewGovEmergencyAdapter(app.EmergencyKeeper))
 
@@ -1060,7 +1152,7 @@ func NewZeroneApp(
 	transferIBCModule := ibctransfer.NewIBCModule(app.TransferKeeper)
 	rateLimitMiddleware := zeroneibcratelimit.NewIBCMiddleware(
 		transferIBCModule,
-		app.IBCFeeKeeper, // ICS4Wrapper for SendPacket forwarding
+		app.IBCKeeper.ChannelKeeper,
 		app.IBCRateLimitKeeper,
 	)
 
@@ -1068,7 +1160,7 @@ func NewZeroneApp(
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, rateLimitMiddleware)
 	ibcRouter.AddRoute(
 		icacontrollertypes.SubModuleName,
-		icacontroller.NewIBCMiddleware(nil, app.ICAControllerKeeper),
+		icacontroller.NewIBCMiddleware(app.ICAControllerKeeper),
 	)
 	ibcRouter.AddRoute(icahosttypes.SubModuleName, icahost.NewIBCModule(app.ICAHostKeeper))
 	app.IBCKeeper.SetRouter(ibcRouter)
@@ -1081,17 +1173,32 @@ func NewZeroneApp(
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper, nil),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, nil),
 		distr.NewAppModule(appCodec, app.DistrKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil),
-		gov.NewAppModule(appCodec, app.GovKeeper, app.AccountKeeper, app.BankKeeper, nil),
+		newEmergencyAwareGovAppModule(
+			gov.NewAppModule(
+				appCodec,
+				app.GovKeeper,
+				app.AccountKeeper,
+				app.BankKeeper,
+				nil,
+			),
+			app.GovKeeper,
+			app.EmergencyKeeper,
+			app.UpgradeKeeper,
+			app.ZeroneGovKeeper,
+		),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, nil, appCodec.InterfaceRegistry()),
 		feegrantmodule.NewAppModule(appCodec, app.AccountKeeper, app.BankKeeper, app.FeeGrantKeeper, appCodec.InterfaceRegistry()),
-		upgrade.NewAppModule(app.UpgradeKeeper, addresscodec.NewBech32Codec(AccountAddressPrefix)),
+		newSingletonUpgradeAppModule(
+			app.UpgradeKeeper,
+			addresscodec.NewBech32Codec(AccountAddressPrefix),
+		),
 		evidence.NewAppModule(app.EvidenceKeeper),
 		consensus.NewAppModule(appCodec, app.ConsensusKeeper),
-		capability.NewAppModule(appCodec, *app.CapabilityKeeper, false),
 		ibc.NewAppModule(app.IBCKeeper),
 		ibctransfer.NewAppModule(app.TransferKeeper),
-		ibcfee.NewAppModule(app.IBCFeeKeeper),
 		ica.NewAppModule(&app.ICAControllerKeeper, &app.ICAHostKeeper),
+		ibctm.NewAppModule(tmLightClientModule),
+		solomachine.NewAppModule(soloMachineLightClientModule),
 		// ===== Zerone custom modules — added by batch =====
 		zeroneauth.NewAppModule(appCodec, app.ZeroneAuthKeeper),
 		zeronestaking.NewAppModule(app.ZeroneStakingKeeper),
@@ -1100,7 +1207,11 @@ func NewZeroneApp(
 		zeroneknowledge.NewAppModule(appCodec, app.KnowledgeKeeper),
 		zeronetokens.NewAppModule(appCodec, app.TokensKeeper),
 		zeroneliquiditypool.NewAppModule(appCodec, app.LiquidityPoolKeeper),
-		zeronegov.NewAppModule(appCodec, app.ZeroneGovKeeper),
+		newEmergencyAwareCustomGovAppModule(
+			zeronegov.NewAppModule(appCodec, app.ZeroneGovKeeper),
+			app.ZeroneGovKeeper,
+			app.EmergencyKeeper,
+		),
 		zeronequalification.NewAppModule(appCodec, app.QualificationKeeper),
 		zeroneemergency.NewAppModule(appCodec, app.EmergencyKeeper),
 		zeronecapturedefense.NewAppModule(appCodec, app.CaptureDefenseKeeper),
@@ -1118,15 +1229,15 @@ func NewZeroneApp(
 		substratebridge.NewAppModule(appCodec, app.SubstrateBridgeKeeper),
 	)
 
-	// PreBlockers run from PotPreBlocker (app/abci.go) before BeginBlock —
-	// x/upgrade's plan execution/halt lives here in SDK v0.50.
+	// PreBlockers run from PotPreBlocker (app/abci.go) before BeginBlock.
+	// SDK v0.53 requires x/auth after x/upgrade in this order.
 	app.ModuleManager.SetOrderPreBlockers(
 		upgradetypes.ModuleName,
+		authtypes.ModuleName,
 	)
 
 	app.ModuleManager.SetOrderBeginBlockers(
 		upgradetypes.ModuleName,
-		capabilitytypes.ModuleName,
 		vestingrewardstypes.ModuleName, // MUST run before x/distribution: RouteFees takes the research+development slices from fee_collector; distribution sweeps the remainder to validators
 		distrtypes.ModuleName,
 		slashingtypes.ModuleName,
@@ -1140,7 +1251,6 @@ func NewZeroneApp(
 		feegrant.ModuleName,
 		ibcexported.ModuleName,
 		ibctransfertypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		icatypes.ModuleName,
 		// ===== Zerone custom module BeginBlocker order — added by batch =====
 		zeroneemergencytypes.ModuleName, // emergency: EARLY — ceremony progress, auto-resume, revert monitoring
@@ -1172,9 +1282,7 @@ func NewZeroneApp(
 		stakingtypes.ModuleName,
 		ibcexported.ModuleName,
 		ibctransfertypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		icatypes.ModuleName,
-		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		distrtypes.ModuleName,
@@ -1210,7 +1318,6 @@ func NewZeroneApp(
 	)
 
 	genesisOrder := []string{
-		capabilitytypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		distrtypes.ModuleName,
@@ -1222,7 +1329,6 @@ func NewZeroneApp(
 		ibcexported.ModuleName,
 		genutiltypes.ModuleName,
 		ibctransfertypes.ModuleName,
-		ibcfeetypes.ModuleName,
 		icatypes.ModuleName,
 		vestingtypes.ModuleName,
 		upgradetypes.ModuleName,
@@ -1262,13 +1368,18 @@ func NewZeroneApp(
 	// Register upgrade handlers (must be after RegisterServices, before LoadLatestVersion).
 	app.RegisterUpgradeHandlers()
 
-	// Configure store loaders for upgrades that add/remove store keys (must be before LoadLatestVersion).
-	app.RegisterStoreUpgrades()
+	// Configure store loaders for upgrades that add/remove store keys (must be
+	// before LoadLatestVersion). The offline verifier instead mounts old stores
+	// read-only and must never stage their deletion.
+	if !activationPreflightReadOnly {
+		if err := app.RegisterStoreUpgrades(); err != nil {
+			panic(fmt.Sprintf("failed to configure upgrade store loader: %s", err))
+		}
+	}
 
 	// Mount stores
 	app.MountKVStores(keys)
 	app.MountTransientStores(tkeys)
-	app.MountMemoryStores(memKeys)
 
 	// Set ante handler
 	app.SetAnteHandler(NewAnteHandler(app))
@@ -1306,7 +1417,14 @@ func NewZeroneApp(
 			logger.Error("error loading latest version", "err", err)
 			os.Exit(1)
 		}
-
+		if err := app.ValidateSDK053IBC10StartupCoordination(); err != nil {
+			logger.Error(
+				"refusing unsafe SDK/IBC startup",
+				"err",
+				err,
+			)
+			os.Exit(1)
+		}
 	}
 
 	return app
@@ -1347,6 +1465,16 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			BondDenom,
 			genesisSupply,
 			maxSupply,
+		)
+	}
+	if err := app.KnowledgeKeeper.WriteMigrationMarker(
+		ctx,
+		sdk053IBC10NativeMarker,
+		"genesis",
+	); err != nil {
+		return nil, fmt.Errorf(
+			"write native SDK/IBC genesis lineage marker: %w",
+			err,
 		)
 	}
 

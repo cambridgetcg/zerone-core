@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
+
+if [[ "${ZERONE_OPERATION_CONTEXT:-genesis}" == "recovery" ]]; then
+  echo "REFUSED: this retired genesis ceremony must not be used for validator recovery." >&2
+  exit 1
+fi
 
 cat >&2 <<'EOF'
 REFUSED: scripts/genesis-ceremony.sh is a retired pre-launch ceremony.

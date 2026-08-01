@@ -1,5 +1,7 @@
 package types
 
+import "encoding/binary"
+
 const (
 	// ModuleName is the emergency module's name.
 	ModuleName = "emergency"
@@ -10,18 +12,25 @@ const (
 
 // KV store key prefixes.
 var (
-	ParamsKey                   = []byte{0x01}
-	CeremonyKeyPrefix           = []byte{0x02}
-	AuditLogKeyPrefix           = []byte{0x03}
-	HaltStatusKey               = []byte{0x04}
-	GuardianProposalCountPrefix = []byte{0x05}
-	EpochProposalCountKey       = []byte{0x06}
-	LastProposalBlockKey        = []byte{0x07}
-	ActiveHaltCeremonyIdKey     = []byte{0x08}
-	HaltStartBlockKey           = []byte{0x09}
-	RevertTargetHeightKey       = []byte{0x0A}
-	RevertTargetHashKey         = []byte{0x0B}
-	RevertCeremonyIdKey         = []byte{0x0C}
+	ParamsKey                    = []byte{0x01}
+	CeremonyKeyPrefix            = []byte{0x02}
+	AuditLogKeyPrefix            = []byte{0x03}
+	HaltStatusKey                = []byte{0x04}
+	GuardianProposalCountPrefix  = []byte{0x05}
+	EpochProposalCountKey        = []byte{0x06}
+	LastProposalBlockKey         = []byte{0x07}
+	ActiveHaltCeremonyIdKey      = []byte{0x08}
+	HaltStartBlockKey            = []byte{0x09}
+	RevertTargetHeightKey        = []byte{0x0A}
+	RevertTargetHashKey          = []byte{0x0B}
+	RevertCeremonyIdKey          = []byte{0x0C}
+	LastHaltEscalationBlockKey   = []byte{0x0D}
+	ActiveCeremonyIdKey          = []byte{0x0E}
+	ResumeAttemptKeyPrefix       = []byte{0x0F}
+	OperationsSafetyPreparedKey  = []byte{0x10}
+	OperationsSafetyActivatedKey = []byte{0x11}
+	QuarantineReleaseBlockKey    = []byte{0x12}
+	RecoveryAuthorizationKey     = []byte{0x13}
 )
 
 // CeremonyKey returns the store key for a ceremony by ID.
@@ -32,6 +41,24 @@ func CeremonyKey(id string) []byte {
 // GuardianProposalCountKey returns the store key for a guardian's proposal count.
 func GuardianProposalCountKey(addr string) []byte {
 	return append(GuardianProposalCountPrefix, []byte(addr)...)
+}
+
+// ResumeAttemptKey identifies the latest evidence-bound recovery generation
+// opened by one proposer for one quarantine incident. The explicit incident
+// length keeps the two variable-width components unambiguous.
+func ResumeAttemptKey(quarantineID, proposer string) []byte {
+	key := make(
+		[]byte,
+		len(ResumeAttemptKeyPrefix)+4+len(quarantineID)+len(proposer),
+	)
+	copy(key, ResumeAttemptKeyPrefix)
+	offset := len(ResumeAttemptKeyPrefix)
+	binary.BigEndian.PutUint32(key[offset:offset+4], uint32(len(quarantineID)))
+	offset += 4
+	copy(key[offset:], quarantineID)
+	offset += len(quarantineID)
+	copy(key[offset:], proposer)
+	return key
 }
 
 // AuditLogKey returns the store key for an audit entry by height and index.

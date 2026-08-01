@@ -1,9 +1,12 @@
 // Package gov is Zerone's Living Improvement Proposal (LIP) system —
 // the chain's governance surface for parameter amendments, research
-// fund spend approvals, election of governance seats, and attached
-// upgrade plans. LIPs progress through staged voting (submit, stake,
-// advance, cast, withdraw). Current vote weight is delegated bonded
-// stake read from x/staking; qualification does not replace raw bond.
+// fund spend approvals, and election of governance seats. LIPs progress
+// through staged voting (submit, stake, advance, cast, withdraw). Current vote
+// weight is delegated bonded stake read from x/staking; qualification does not
+// replace raw bond. Software upgrades are deliberately outside this custom
+// authority: standard Cosmos SDK governance is the sole executable x/upgrade
+// path. Historical custom upgrade LIPs and plans remain queryable for audit
+// compatibility.
 //
 // Truth-seeking position:
 //
@@ -27,7 +30,7 @@
 //
 // docs/TRUTH_SEEKING.md, commitment 11 (trust is queryable): the
 // chain's governance posture — open LIPs, recent passes, current
-// vote tallies, research-spend approvals, attached upgrade plans —
+// vote tallies, research-spend approvals, and historical plan records —
 // must remain queryable. The former on-chain governance_synthesis module
 // was retired; clients/indexers compose system views from this module's
 // public query surfaces. Without legible

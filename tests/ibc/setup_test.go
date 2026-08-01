@@ -23,7 +23,7 @@ import (
 	authsign "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	ibcratelimittypes "github.com/zerone-chain/zerone/x/ibcratelimit/types"
@@ -171,7 +171,7 @@ func (s *IBCTestSuite) installFeePaidSendMsgs(chain *ibctesting.TestChain) {
 
 		resp, err := chain.App.GetBaseApp().FinalizeBlock(&abci.RequestFinalizeBlock{
 			Height:             chain.App.GetBaseApp().LastBlockHeight() + 1,
-			Time:               chain.CurrentHeader.GetTime(),
+			Time:               chain.ProposedHeader.GetTime(),
 			NextValidatorsHash: chain.NextVals.Hash(),
 			Txs:                [][]byte{txBytes},
 		})
@@ -183,15 +183,16 @@ func (s *IBCTestSuite) installFeePaidSendMsgs(chain *ibctesting.TestChain) {
 		if _, err := chain.App.Commit(); err != nil {
 			return nil, err
 		}
-		chain.LastHeader = chain.CurrentTMClientHeader()
+		chain.LatestCommittedHeader = chain.CurrentTMClientHeader()
+		chain.TrustedValidators[uint64(chain.ProposedHeader.Height)] = chain.NextVals
 		chain.Vals = chain.NextVals
-		chain.NextVals = ibctesting.ApplyValSetChanges(chain.TB, chain.Vals, resp.ValidatorUpdates)
+		chain.NextVals = ibctesting.ApplyValSetChanges(chain, chain.Vals, resp.ValidatorUpdates)
 		chain.Vals.IncrementProposerPriority(1)
-		chain.CurrentHeader = cmtproto.Header{
+		chain.ProposedHeader = cmtproto.Header{
 			ChainID:            chain.ChainID,
 			Height:             chain.App.LastBlockHeight() + 1,
 			AppHash:            chain.App.LastCommitID().Hash,
-			Time:               chain.CurrentHeader.Time,
+			Time:               chain.ProposedHeader.Time,
 			ValidatorsHash:     chain.Vals.Hash(),
 			NextValidatorsHash: chain.NextVals.Hash(),
 			ProposerAddress:    chain.Vals.Proposer.Address,

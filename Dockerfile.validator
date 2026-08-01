@@ -1,8 +1,58 @@
-# RETIRED — intentionally not a validator image.
-#
-# The former file built moving source, installed cosmovisor@latest, permitted
-# runtime binary downloads, and started whatever /root/.zeroned happened to
-# contain. That is incompatible with Zerone's release-bound validator policy.
-FROM debian:bookworm-slim
+# ── Build stage ──────────────────────────────────────────────────────────
+FROM golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58 AS builder
 
-CMD ["/bin/sh", "-c", "echo 'REFUSED: Dockerfile.validator is retired; use a signed, release-bound network image.' >&2; exit 1"]
+ARG VERSION
+ARG COMMIT
+ARG SOURCE_DATE_EPOCH
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN printf '%s' "${VERSION}" | grep -Eq '^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' \
+    && printf '%s' "${COMMIT}" | grep -Eq '^[0-9a-f]{40}$' \
+    && printf '%s' "${SOURCE_DATE_EPOCH}" | grep -Eq '^[1-9][0-9]*$' \
+    && SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH}" make build VERSION="${VERSION}" COMMIT="${COMMIT}" \
+    && test "$(/app/build/zeroned version)" = "${VERSION}" \
+    && /app/build/zeroned version --long | grep -F "commit: ${COMMIT}" >/dev/null
+# Keep the validator supervisor on the version exercised by this release.
+# Never resolve @latest while building a consensus-critical image.
+RUN SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH}" \
+    go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@v1.7.1
+
+# ── Runtime stage ────────────────────────────────────────────────────────
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
+
+ARG VERSION
+ARG COMMIT
+ARG SOURCE_DATE_EPOCH
+
+LABEL org.opencontainers.image.source="https://github.com/zerone-chain/zerone" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.version="${VERSION}" \
+      io.zerone.source-date-epoch="${SOURCE_DATE_EPOCH}"
+
+RUN sed -i \
+      -e 's|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/20260713T000000Z|g' \
+      -e 's|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/20260713T000000Z|g' \
+      /etc/apt/sources.list.d/debian.sources \
+    && printf 'Acquire::Check-Valid-Until "false";\n' >/etc/apt/apt.conf.d/99snapshot \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl jq \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/build/zeroned /usr/local/bin/zeroned
+COPY --from=builder /go/bin/cosmovisor /usr/local/bin/cosmovisor
+COPY --chmod=0755 deploy/validator-cosmovisor-entrypoint.sh /usr/local/bin/validator-cosmovisor-entrypoint
+
+ENV DAEMON_NAME=zeroned
+ENV DAEMON_HOME=/root/.zeroned
+ENV DAEMON_ALLOW_DOWNLOAD_BINARIES=false
+ENV DAEMON_DOWNLOAD_MUST_HAVE_CHECKSUM=true
+ENV DAEMON_RESTART_AFTER_UPGRADE=true
+ENV UNSAFE_SKIP_BACKUP=false
+
+EXPOSE 26656 26657 1317 9090
+
+ENTRYPOINT ["/usr/local/bin/validator-cosmovisor-entrypoint"]
+CMD ["run", "start"]

@@ -1,0 +1,45 @@
+{
+  "schema": "zerone.fly-containment-topology/v1",
+  "network": "mainnet",
+  "chain_id": "zerone-1",
+  "genesis_sha256": "c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e",
+  "genesis_validator_address": "93DBC1A1D9A07E67423B193395C9EB6F1E41B8449",
+  "full_node_image": "REPLACE_WITH_REGISTRY_IMAGE_AT_SHA256",
+  "signer_boundary": {
+    "app": "zerone-1",
+    "public_services": [],
+    "restart_policy": "no",
+    "note": "The signer is outside this non-signing deployment package. Do not apply a sentry or query profile to it."
+  },
+  "roles": {
+    "sentry_a": {
+      "app": "zerone-1-sentry-a",
+      "volume": "zerone_1_sentry_a_data_v1",
+      "node_id": "REPLACE_WITH_40_LOWERCASE_HEX",
+      "topology_sha256": "REPLACE_WITH_64_LOWERCASE_HEX",
+      "public_ports": [26656]
+    },
+    "sentry_b": {
+      "app": "zerone-1-sentry-b",
+      "volume": "zerone_1_sentry_b_data_v1",
+      "node_id": "REPLACE_WITH_40_LOWERCASE_HEX",
+      "topology_sha256": "REPLACE_WITH_64_LOWERCASE_HEX",
+      "public_ports": [26656]
+    },
+    "public_query": {
+      "app": "zerone-1-query",
+      "volume": "zerone_1_public_query_data_v1",
+      "node_id": "generated-on-fresh-volume",
+      "topology_sha256": "REPLACE_WITH_64_LOWERCASE_HEX",
+      "public_ports": [443],
+      "denied": [
+        "transaction-broadcast",
+        "unsafe-rpc",
+        "peer-dial",
+        "subscriptions",
+        "search",
+        "feegrant-issued"
+      ]
+    }
+  }
+}

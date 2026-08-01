@@ -24,13 +24,39 @@ service Query {
   rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
     option (google.api.http).get = "/zerone/emergency/v1/params";
   }
+  rpc RecoveryAuthorization(QueryRecoveryAuthorizationRequest) returns (QueryRecoveryAuthorizationResponse) {
+    option (google.api.http).get = "/zerone/emergency/v1/recovery_authorization";
+  }
 }
 
 message QueryStatusRequest {}
 message QueryStatusResponse {
   string status = 1;
+  // Deprecated operational name retained for API compatibility. This means
+  // application transaction admission is restricted; it does not mean that
+  // CometBFT consensus or block production stopped.
   bool is_halted = 2;
   string active_halt_ceremony_id = 3;
+  string restriction_scope = 4;
+  // True means this module's transaction restriction permits consensus to
+  // continue. It is not a live observation that the validator set is healthy
+  // or that blocks are currently committing.
+  bool consensus_continues = 5;
+  uint64 eligible_guardians = 6;
+  string effective_guardian_stake = 7;
+  uint64 minimum_distinct_voters = 8;
+  bool halt_ceremony_ready = 9;
+  string readiness_reason = 10;
+  bool automatic_resume_enabled = 11;
+  bool arbitrary_state_revert_enabled = 12;
+  bool quarantine_deadline_exceeded = 13;
+  uint64 quarantine_started_at_block = 14;
+  // Block through which the one-block post-resume admission latch remains
+  // active. Non-zero only after resume finalization and until H+1 BeginBlock.
+  uint64 quarantine_release_block = 15;
+  // First block whose DeliverTx admission is normal again. CheckTx after the
+  // release-block commit also targets this height and is admitted.
+  uint64 admission_reopens_at_block = 16;
 }
 
 message QueryActiveCeremonyRequest {}
@@ -60,4 +86,10 @@ message QueryAuditLogResponse {
 message QueryParamsRequest {}
 message QueryParamsResponse {
   Params params = 1;
+}
+
+message QueryRecoveryAuthorizationRequest {}
+message QueryRecoveryAuthorizationResponse {
+  bool found = 1;
+  EmergencyRecoveryAuthorization authorization = 2;
 }

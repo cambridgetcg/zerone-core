@@ -91,6 +91,18 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 
+	migrator := keeper.NewMigrator(am.keeper)
+	if err := cfg.RegisterMigration(
+		types.ModuleName,
+		1,
+		migrator.Migrate1to2,
+	); err != nil {
+		panic(fmt.Sprintf(
+			"failed to register %s migration 1 to 2: %v",
+			types.ModuleName,
+			err,
+		))
+	}
 }
 
 // InitGenesis initializes the module from genesis.
@@ -113,14 +125,30 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 }
 
 // ConsensusVersion returns the module's consensus version.
-func (AppModule) ConsensusVersion() uint64 { return 1 }
+func (AppModule) ConsensusVersion() uint64 { return 2 }
 
-// BeginBlock checks ceremony progress, auto-resume, and revert monitoring.
+// BeginBlock checks ceremony progress and emits escalation diagnostics. It
+// never resumes transaction admission from a timer.
 func (am AppModule) BeginBlock(ctx context.Context) error {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	releaseBlock := am.keeper.GetQuarantineReleaseBlock(ctx)
+	if releaseBlock != 0 &&
+		sdkCtx.BlockHeight() >= 0 &&
+		uint64(sdkCtx.BlockHeight()) > releaseBlock {
+		am.keeper.ClearQuarantineReleaseBlock(ctx)
+	}
+
+	// Repair or terminalize pre-hardening live state before any ceremony can
+	// time out or apply effects under inconsistent quarantine linkage.
+	am.keeper.NormalizeLegacyQuarantineState(ctx)
+
 	// Check active ceremony progress/timeout.
 	ceremony, found := am.keeper.GetActiveCeremony(ctx)
 	if found {
-		finalized, _ := am.keeper.CheckCeremonyProgress(ctx, ceremony.Id)
+		finalized, err := am.keeper.CheckCeremonyProgress(ctx, ceremony.Id)
+		if err != nil {
+			return fmt.Errorf("check emergency ceremony %s: %w", ceremony.Id, err)
+		}
 		if finalized {
 			am.keeper.HandleCeremonyFinalization(ctx, ceremony.Id)
 		} else {
@@ -132,11 +160,9 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 		}
 	}
 
-	// Auto-resume if halt exceeded max duration.
+	// Alert if the quarantine exceeded its escalation deadline. This is
+	// deliberately non-mutating; recovery requires an affirmative ceremony.
 	am.keeper.CheckHaltExpiry(ctx)
-
-	// Monitor revert status (ERROR log every block).
-	am.keeper.MonitorRevertStatus(ctx)
 
 	return nil
 }

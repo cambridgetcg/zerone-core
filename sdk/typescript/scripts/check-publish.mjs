@@ -31,6 +31,8 @@ const consumerSource = `
 import * as root from "@zerone-chain/sdk";
 import * as caip from "@zerone-chain/sdk/caip";
 import * as liquidity from "@zerone-chain/sdk/liquidity";
+import * as cid from "@zerone-chain/sdk/cid";
+import * as feegrant from "@zerone-chain/sdk/feegrant";
 import * as messages from "@zerone-chain/sdk/messages";
 import * as provenance from "@zerone-chain/sdk/provenance";
 import * as registry from "@zerone-chain/sdk/registry";
@@ -52,9 +54,72 @@ const registerAccount: messages.auth.MsgRegisterAccount = {
 };
 const encoded = messages.authMessages.encoded.registerAccount(registerAccount);
 const registered = registry.createZeroneRegistry([]);
+const memoryCid =
+  "bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm";
+const validatedMemoryCid = cid.asZeroneMemoryCid(memoryCid);
+const feeGrant = feegrant.makeBoundedFeeGrant({
+  network,
+  granter: "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+  grantee: "zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5s75sh2",
+  spendLimit: [{ denom: "uzrn", amount: "100000" }],
+  expiration: new Date("2099-01-01T00:00:00Z"),
+  allowedMessageTypeUrls: ["/zerone.claiming_pot.v1.MsgClaim"],
+});
+const sponsoredFee = feegrant.makeSponsoredFee({
+  network,
+  granter: "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+  amount: [{ denom: "uzrn", amount: "2500" }],
+  gas: "200000",
+});
+const provenanceRoot = "7e4a9b03c4d6f8e1023456789abcdef07e4a9b03c4d6f8e1023456789abcdef0";
+const parsedProvenance = provenance.parseUnsignedZeroneInTotoStatement(
+  JSON.stringify({
+    _type: provenance.IN_TOTO_STATEMENT_V1_TYPE,
+    subject: [{
+      name: "zerone://zerone-origin-1/training-corpus/manifest%2Fa",
+      digest: { sha256: provenanceRoot },
+    }],
+    predicateType:
+      provenance.ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
+    predicate: {
+      sourceChainId: "zerone-origin-1",
+      observedOnChainId: "zerone-observer-2",
+      certificate: {
+        manifestId: "manifest/a",
+        pipelineId: "pipeline-1",
+        merkleRoot: provenanceRoot,
+        status: "MANIFEST_STATUS_FINALIZED",
+        trustGrade: "A",
+        trustExplanation:
+          "no privileged actions touched the manifest's facts; no incidents touched the knowledge module; no cartel resolutions in covered domains",
+        sourceChainId: "zerone-origin-1",
+      },
+    },
+  }),
+  {
+    manifestId: "manifest/a",
+    observedOnChainId: "zerone-observer-2",
+    sourceChainId: "zerone-origin-1",
+  },
+);
 
 assert(root.cosmosChainId("zerone-1") === "cosmos:zerone-1", "root export failed");
 assert(network.chainId === "cosmos:zerone-1", "caip export failed");
+assert(validatedMemoryCid === memoryCid, "cid export failed");
+assert(
+  feeGrant.typeUrl === "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+  "feegrant export failed",
+);
+assert(
+  sponsoredFee.granter === "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf" &&
+    sponsoredFee.gas === "200000",
+  "sponsored fee export failed",
+);
+assert(
+  parsedProvenance.assurance.authenticated === false &&
+    parsedProvenance.statement.subject[0].digest.sha256 === provenanceRoot,
+  "provenance export failed",
+);
 assert(
   liquidity.minimumOutputForSlippage("100", 10_000n) === "99",
   "liquidity export failed",
@@ -77,6 +142,16 @@ assert(
 assert(
   root.zeroneRegistryTypes.length === registry.zeroneRegistryTypes.length,
   "root registry re-export failed",
+);
+assert(
+  root.ZERONE_ONBOARDING_MESSAGE_TYPE_URLS[0] ===
+    feegrant.ZERONE_ONBOARDING_MESSAGE_TYPE_URLS[0],
+  "root feegrant re-export failed",
+);
+assert(
+  root.ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE ===
+    provenance.ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
+  "root provenance re-export failed",
 );
 `;
 

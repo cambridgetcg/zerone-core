@@ -22,7 +22,14 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 		if catCfg != nil {
 			reviewBlocks = catCfg.ReviewBlocks
 		}
-		if currentHeight >= lip.ReviewStartedBlock+reviewBlocks {
+		if reviewBlocks > ^uint64(0)-lip.ReviewStartedBlock {
+			k.Logger(ctx).Error("refusing LIP transition with overflowing review end height",
+				"lip_id", lip.Id,
+			)
+			continue
+		}
+		reviewEnd := lip.ReviewStartedBlock + reviewBlocks
+		if currentHeight >= reviewEnd {
 			lip.Stage = types.StatusLastCall
 			lip.LastCallStartedBlock = currentHeight
 			k.SetLIP(ctx, lip)
@@ -41,9 +48,36 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 	// 2. Auto-advance "last_call" LIPs to "voting" after discussion_period_blocks.
 	lastCallLIPs := k.GetLIPsByStatus(ctx, types.StatusLastCall)
 	for _, lip := range lastCallLIPs {
-		if currentHeight >= lip.LastCallStartedBlock+params.DiscussionPeriodBlocks {
+		if params.DiscussionPeriodBlocks > ^uint64(0)-lip.LastCallStartedBlock {
+			k.Logger(ctx).Error("refusing LIP transition with overflowing discussion end height",
+				"lip_id", lip.Id,
+			)
+			continue
+		}
+		transitionHeight := lip.LastCallStartedBlock + params.DiscussionPeriodBlocks
+		if currentHeight >= transitionHeight {
+			votingPeriod := k.getEffectiveVotingPeriod(ctx, lip, params)
+			if votingPeriod > ^uint64(0)-currentHeight {
+				k.Logger(ctx).Error("refusing LIP voting transition with overflowing end height",
+					"lip_id", lip.Id,
+				)
+				continue
+			}
+			votingEnd := currentHeight + votingPeriod
+			if err := k.validateUpgradePlanForVoting(ctx, lip, votingEnd); err != nil {
+				if currentHeight == transitionHeight {
+					ctx.EventManager().EmitEvent(
+						sdk.NewEvent("zerone.gov.upgrade_voting_blocked",
+							sdk.NewAttribute("lip_id", lip.Id),
+							sdk.NewAttribute("reason", err.Error()),
+							sdk.NewAttribute("prospective_voting_end_block", fmt.Sprintf("%d", votingEnd)),
+						),
+					)
+				}
+				continue
+			}
 			lip.Stage = types.StatusVoting
-			lip.VotingEndBlock = currentHeight + k.getEffectiveVotingPeriod(ctx, lip, params)
+			lip.VotingEndBlock = votingEnd
 			k.SetLIP(ctx, lip)
 
 			ctx.EventManager().EmitEvent(
@@ -95,7 +129,13 @@ func (k Keeper) tallyAndResolve(ctx sdk.Context, lip *types.LIP, params *types.P
 		quorumMet, passed = k.checkQuorumAndSupport(ctx, lip, params)
 	}
 
-	if quorumMet && passed {
+	var scheduledPlan *types.UpgradePlan
+	var scheduleErr error
+	if quorumMet && passed && lip.Category == types.CategoryUpgrade {
+		scheduledPlan, scheduleErr = k.scheduleApprovedUpgrade(ctx, lip)
+	}
+
+	if quorumMet && passed && scheduleErr == nil {
 		lip.Stage = types.StatusPassed
 		k.SetLIP(ctx, lip)
 
@@ -106,28 +146,18 @@ func (k Keeper) tallyAndResolve(ctx sdk.Context, lip *types.LIP, params *types.P
 				k.executeParamChanges(ctx, lip)
 			}
 		case types.CategoryUpgrade:
-			if plan, found := k.GetUpgradePlan(ctx, lip.Id); found {
-				if uk := k.GetUpgradeKeeper(); uk != nil {
-					if err := uk.ScheduleUpgrade(ctx, plan); err != nil {
-						k.Logger(ctx).Error("failed to schedule upgrade from LIP",
-							"lip_id", lip.Id,
-							"upgrade_name", plan.Name,
-							"error", err,
-						)
-					} else {
-						ctx.EventManager().EmitEvent(
-							sdk.NewEvent("zerone.gov.upgrade_scheduled",
-								sdk.NewAttribute("lip_id", lip.Id),
-								sdk.NewAttribute("upgrade_name", plan.Name),
-								sdk.NewAttribute("height", fmt.Sprintf("%d", plan.Height)),
-							),
-						)
-						k.Logger(ctx).Info("software upgrade scheduled via LIP governance",
-							"lip_id", lip.Id, "upgrade_name", plan.Name, "height", plan.Height,
-						)
-					}
-				}
-			}
+			ctx.EventManager().EmitEvent(
+				sdk.NewEvent("zerone.gov.upgrade_scheduled",
+					sdk.NewAttribute("lip_id", lip.Id),
+					sdk.NewAttribute("upgrade_name", scheduledPlan.Name),
+					sdk.NewAttribute("height", fmt.Sprintf("%d", scheduledPlan.Height)),
+				),
+			)
+			k.Logger(ctx).Info("software upgrade scheduled via LIP governance",
+				"lip_id", lip.Id,
+				"upgrade_name", scheduledPlan.Name,
+				"height", scheduledPlan.Height,
+			)
 		case types.CategoryPhaseTransition, types.CategoryPhaseRollback:
 			// Phase transitions don't execute immediately — enter activation delay.
 			k.HandlePhaseTransitionPass(ctx, lip.Id)
@@ -196,6 +226,19 @@ func (k Keeper) tallyAndResolve(ctx sdk.Context, lip *types.LIP, params *types.P
 	} else {
 		lip.Stage = types.StatusFailed
 		k.SetLIP(ctx, lip)
+
+		if scheduleErr != nil {
+			ctx.EventManager().EmitEvent(
+				sdk.NewEvent("zerone.gov.upgrade_schedule_failed",
+					sdk.NewAttribute("lip_id", lip.Id),
+					sdk.NewAttribute("reason", scheduleErr.Error()),
+				),
+			)
+			k.Logger(ctx).Error("approved upgrade LIP failed closed because scheduling failed",
+				"lip_id", lip.Id,
+				"error", scheduleErr,
+			)
+		}
 
 		// Notify metadata of failure for phase transition categories.
 		if types.IsPhaseTransitionCategory(lip.Category) {

@@ -92,11 +92,18 @@ or `SUPERSEDED` manifests into an
 curl http://127.0.0.1:1317/zerone/training_provenance/v1/in-toto/<manifest-id>
 ```
 
-The versioned
-[`training-provenance-v1`](../specs/attestations/training-provenance-v1.md)
-specification fixes the digest and state boundaries. The response is unsigned
-and computed from current state. Signing, caching, and publication remain
-off-chain concerns.
+The statement keeps the sealed manifest's source chain distinct from the chain
+serving the query after an export or relaunch. Its SHA-256 subject digest is
+precisely the manifest's included-ID-set commitment, not a hash of fact content,
+metadata, or version-pin fields. Predicate v1 refuses draft and composed
+manifests because its certificate counts direct fact/action/domain coverage,
+while its incident count is module-global rather than manifest-specific. The
+versioned
+[predicate specification](../specs/attestations/training-provenance-v1.md)
+records those exact boundaries and freezes them. The emitted Predicate TypeURI
+is pinned to the exact repository revision carrying that specification rather
+than a mutable branch; a semantic change requires a new predicate version and
+URI.
 
 This is an unsigned, current-state projection with no store, transaction,
 reward, or consensus-version change. A producer can sign the returned JSON
@@ -165,9 +172,15 @@ substrate changes. Existing networks must activate those through the
 coordinated `consolidation-safety-v1` upgrade; publishing source does not
 activate them.
 
-The validator currently pins Cosmos SDK 0.50 and IBC-Go 8. Their migration must
-be a separate, rehearsed consensus program with store/module migrations,
-relayer compatibility testing, recovery practice, and an explicit height.
+The source target now pins Cosmos SDK `v0.53.8`, IBC-Go `v10.7.0`, and
+CometBFT `v0.38.25`. Those dependency changes remain activation-gated by the
+coordinated `sdk-0.53-ibc-10` upgrade; merging source does not alter a deployed
+network. The handler, legacy-store proof, H−1 read-only activation preflight,
+module migrations, relayer tests, operational staging, and recovery gates are
+specified in the [upgrade and incident operations
+runbook](../UPGRADE_AND_INCIDENT_OPERATIONS.md). Scheduling requires standard
+SDK governance, exact manifest-bound plan information, rehearsal from the real
+H−1 state, and an explicit activation height.
 
 ## Implemented TypeScript SDK boundary
 
@@ -290,6 +303,26 @@ described as the shared Cosmos derivation path, not a Zerone-owned
 registration. Upstream completion also depends on registering the `zrn`
 Bech32 HRP in SLIP-0173.
 
+## Implemented: Zerone CIDv1 client preflight
+
+The Go CLI and `@zerone-chain/sdk` can parse new `x/home` memory references
+with the official Go CID implementation and `js-multiformats`, following the
+[maintained CID specification](https://specs.ipfs.tech/cid/). Zerone chooses
+lowercase base32 as its one accepted client representation for CIDv1, although
+CID itself permits other multibase strings for the same identifier. The CLI
+enforces this automatically before signing `MsgUpdateMemoryCID`; SDK callers
+must opt into `asZeroneMemoryCid`, because the raw generated message codec still
+accepts a string. The helper also exposes the parsed codec, multihash code, and
+digest length so applications can apply an artifact-specific policy.
+
+This is deliberately not a consensus change. Existing validators still accept
+the bounded opaque strings they accepted before, and historical values are not
+rewritten. Parsing proves only that text structurally encodes a content address;
+applications must independently hash the referenced bytes and apply their
+codec, multihash, authenticity, privacy, and availability policies. Zerone has
+not yet selected an on-chain allowlist. Consensus enforcement requires a
+legacy-state audit, an explicit policy, and a coordinated upgrade.
+
 ## Ranked integration roadmap
 
 ### 1. Chain Registry metadata and broader wallet adapters
@@ -310,9 +343,18 @@ allocation.
 ### 2. Delegated authority only after an ante audit
 
 [`x/feegrant`](https://docs.cosmos.network/sdk/v0.50/build/modules/feegrant/README)
-is wired. Deploy the reviewed ante guard, verify it live, restrict or
-rate-limit the unindexed direct REST `issued` route, and only then enable the
-prepared grant-creation and sponsored-spend dashboard paths.
+is already wired. Zerone's runtime CLI already exposes allowance queries plus
+grant, revoke, and prune transactions. The TypeScript SDK now builds a finite
+`BasicAllowance` wrapped by `AllowedMsgAllowance`, a revoke message, and the
+fee-granter field used by CosmJS for sponsor-funded onboarding. The builder
+requires an explicit positive budget, future expiry, and exact allowed message
+type URLs. Its reviewed onboarding policy currently allowlists only
+`/zerone.claiming_pot.v1.MsgClaim`; all other messages, including nested
+authorization envelopes, fail closed. These are client guardrails, not added
+consensus restrictions. The dashboard's separately prepared grant and
+sponsored-spend paths must remain disabled until the reviewed fee-granter ante
+guard is deployed and verified, and the unindexed direct REST `issued` route is
+restricted or rate-limited.
 
 Do not wire Cosmos SDK
 [`x/authz`](https://docs.cosmos.network/sdk/v0.50/build/modules/authz/README)
@@ -350,10 +392,11 @@ adapter and test vectors.
 
 ### 5. Additional content-addressed provenance documents
 
-Build on the read-only in-toto projection without adding rich-document parsers
-to consensus:
+Build on the read-only in-toto projection and the implemented CIDv1 client
+preflight without adding rich-document parsers to consensus:
 
-- use CIDv1 for canonical artifact references and CAR bundles;
+- select codec/multihash policies for canonical artifact references and CAR
+  bundles before any validator-side CID enforcement;
 - project AI/dataset licensing and relationships as
   [SPDX 3](https://spdx.github.io/spdx-spec/v3.0.1/);
 - attach [C2PA](https://spec.c2pa.org/specifications/specifications/2.4/specs/C2PA_Specification.html)
@@ -361,8 +404,10 @@ to consensus:
 - anchor only the deterministic digest, schema/version, media type, size, and
   availability references on-chain.
 
-CID proves integrity, not availability. Rich JSON-LD, C2PA, VC, and policy
-validation belongs outside consensus.
+A CID checked against independently retrieved bytes can detect a mismatch under
+the selected multihash's assumptions; it does not establish availability or
+authenticity. Rich JSON-LD, C2PA, VC, and policy validation belongs outside
+consensus.
 
 ### 6. A2A Agent Cards for service discovery
 
@@ -376,17 +421,120 @@ bounded URI, deterministic digest, schema version, status, and owning account
 reference. A card advertises capabilities; it does not by itself prove control
 of a Zerone identity, authorize a transaction, or justify exposing private home
 state.
+
+## Prepared: fail-closed authentication policy
+
+Zerone's post-auth DID, frozen-account, and capability decorators now derive
+authenticated addresses from `SigVerifiableTx.GetSigners()` and propagate
+extraction errors. They no longer infer the signer from the optional
+`SignerInfo.public_key` field. A real TxRaw regression fixture covers a stored
+account key with that wire field omitted.
+
+This transaction-validity change is part of the single guarded
+`sdk-0.53-ibc-10` plan and must activate at one coordinated binary height,
+not as a mixed-validator rolling deployment. The retired
+`auth-ante-hardening-v1` name has no handler, lineage entry, or store loader,
+so it cannot bypass the SDK/IBC source-version and legacy-fee-balance guards.
+The unified handler writes its auth-hardening marker only after those guards
+and module migrations succeed. Cosmos SDK 0.50.15 itself panics in its v2
+signing adapter on the omitted-key wire shape; Cosmos SDK 0.53.8 contains the
+upstream
+[nil-key adapter fix](https://github.com/cosmos/cosmos-sdk/commit/a91a822eb2339d563bbe8c7bc61d71fa6c6c60e2).
+Dependency migration and this app-level policy regression both have to pass
+before the upgrade is scheduled.
+
+The unified handler also repairs an
+[IBC-Go v10.7.0 channel-migration defect](https://github.com/cosmos/ibc-go/blob/v10.7.0/modules/core/04-channel/migrations/v10/store.go#L111-L123).
+That upstream migration calls exact-key deletion on `channelUpgrades` and
+`pruningSequenceStart`, while the v8 records are child keys below
+`channelUpgrades/…` and `pruningSequenceStart/…`. Neither the SDK cache-merge
+iterator nor IAVL v1.2.2 can prove complete traversal: both have paths that
+silently terminate without exposing the underlying error. The coordinated
+upgrade therefore requires governance to commit an independently collected raw
+old-database keyset manifest in the plan's `info`. The read-only
+[`ibc-v10-keyset-manifest`](../../tools/ibc-v10-keyset-manifest/README.md)
+tool binds its whole-tree IBC traversal to the trusted H-1 app hash and emits
+that commitment. The normal v8 genesis export omits these keys and cannot
+produce that manifest.
+
+The plan info is exact, compact canonical JSON with no whitespace, duplicate,
+unknown, missing, or trailing fields:
+
+```json
+{"schema":"zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1","channel_upgrades":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},"pruning_sequence_start":{"key_count":"0","keys_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
+```
+
+For each fixed domain, sort the full logical IBC-substore keys by raw bytes,
+reject duplicates, then hash the concatenation of
+`uint64_big_endian(key_length) || key`. Counts are canonical unsigned decimal
+strings; the example locks the empty-set vector to `SHA256("")`. Plan info is
+limited to 2,048 bytes, and each domain is bounded to 100,000 keys and 32 MiB
+of aggregate key bytes.
+
+Before `RunMigrations`, Zerone enumerates the unwrapped committed H-1 IAVL view
+and requires both count-and-digest commitments to match before the first
+deletion. A silent partial traversal, same-count key substitution, malformed
+manifest, or explicit iterator error halts the upgrade. After migrations
+succeed, the verified keys are deleted only through the upgrade context cache
+and each absence is checked. The committed parent remains unchanged unless the
+complete upgrade block commits; any failure occurs before the auth-hardening
+marker.
+
+IBC-Go v8 also persists `feeibc/locked` when its keeper detects a severe fee
+accounting condition, treats any key presence as locked, and omits the key from
+genesis export. The store loader therefore retains the dynamically mounted
+`feeibc` key, stages the store deletion, then checks `locked` against the
+canonical immutable H-1 IAVL tree before returning startup success. It rejects
+every value, not only the normal `0x01`, and converts immutable-version, store
+type, and IAVL read failures into fail-closed loader errors. The immutable
+lookup traverses the canonical tree and does not require fast-node records.
+Because the upgrade has not committed, a refusal leaves the H-1 database
+restartable under the old binary. Operators must investigate and remediate the
+underlying v8 condition rather than manually clearing the flag.
+
+This consensus loader check and the raw keyset manifest are complementary. The
+manifest tool proves and commits the two obsolete domains in the `ibc` store;
+it does not inspect the separate `feeibc` store. The exported-state census also
+cannot observe `locked`, so the validator-database rehearsal must exercise the
+loader refusal path directly.
+
+The repair deliberately preserves `recvStartSequence/…` byte-for-byte because
+IBC-Go v10 still uses it for replay protection, and likewise preserves packet
+commitments, acknowledgements, and receipts. The old-database rehearsal must
+assert both sides of that boundary: obsolete child prefixes gone, live replay
+and packet state retained.
+
+This repair does not make the current `did:zrn` lifecycle trustworthy.
+Registration still lacks identity-key proof of possession, rotation does not
+verify its authorization signature, legacy identifier aliases are ambiguous,
+and terminal deactivation is absent. Those remain a separate state/protobuf
+migration after a live-state census. The read-only
+[`identity-census`](../../tools/identity-census/README.md) tool audits a
+same-height application export for aliases, mapping inconsistencies, malformed
+keys, and Cosmos account-key/address mismatches. Its report must be retained
+with the export height and app hash; a clean report is not proof of private-key
+possession.
+
 ## Explicit deferrals
 
-- No W3C DID or Verifiable Credential claim until proof of possession,
-  rotation, metadata bounds, replay protection, and genesis invariants are
-  hardened.
-- No CosmWasm or general contract VM.
-- No new IBC middleware before the consensus-stack migration.
-- No on-chain x402 facilitator, ERC-8004 registry, C2PA/JSON-LD/A2A parser, or
-  remote-context fetch.
+- No W3C DID document or Verifiable Credential claim until `did:zrn`
+  canonicalization, identity-key proof of possession, rotation signatures,
+  metadata bounds, replay protection, and genesis invariants are hardened.
+- No CosmWasm or general contract VM; it conflicts with the slim-cut boundary.
+- No new IBC middleware while the current IBC/ICA posture remains limited.
+  The Cosmos SDK 0.53 / IBC-Go 10 prototype is not deployment-ready until one
+  coordinated upgrade plan includes the ante marker and passes a real
+  pre-upgrade state census, ICS29/channel safety checks, old-database restart
+  rehearsal, and in-flight packet tests. Cosmos SDK 0.50 / IBC-Go 8 is outside
+  the currently supported release families, so this maintenance migration is a
+  prerequisite rather than a hidden feature dependency.
+- No on-chain x402 facilitator, ERC-8004 registry, C2PA parser, JSON-LD
+  resolver, A2A parser, or remote-context fetch.
+- No reward-bearing `sigstore-in-toto-v1` registration until governance has
+  approved a reproducible compiler, pinned verification policy, retained
+  bundles, and an independent challenge procedure.
 - No incomplete same-model training-fund replay.
-- No recovery of the older capture behavior until it is re-derived and audited
+- No recovery of older capture behavior until it is re-derived and audited
   against the current state and authority model.
 
 ## Publication boundary

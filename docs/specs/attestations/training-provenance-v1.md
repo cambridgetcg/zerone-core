@@ -1,6 +1,8 @@
 # Zerone training-provenance predicate v1
 
-**Predicate type:** `https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/training-provenance-v1.md`
+**Predicate type:** the immutable repository revision URL serving this exact
+specification. Implementations must emit a commit-pinned URL, never a mutable
+branch URL.
 
 Zerone exposes a flat, sealed training manifest's current
 `x/training_provenance` certificate as an unsigned
@@ -8,11 +10,11 @@ Zerone exposes a flat, sealed training manifest's current
 that query response; it is not a projection of the complete manifest or corpus,
 and it does not add state, mint rewards, or make a new truth claim.
 
-This URI fixes the semantics below as predicate v1. Editorial clarifications
-may not broaden or change those semantics. Any change to manifest eligibility,
-coverage, counting, grading, or digest meaning requires a new predicate version
-and a new predicate-type URI so existing signed statements remain
-interpretable.
+The emitted URI fixes the semantics below as predicate v1. Editorial
+clarifications may not broaden or change those semantics. Any change to
+manifest eligibility, coverage, counting, grading, or digest meaning requires a
+new predicate version and a new predicate-type URI so existing signed
+statements remain interpretable.
 
 ## Shape
 
@@ -23,7 +25,7 @@ interpretable.
     "name": "zerone://zerone-1/training-corpus/<manifest-id>",
     "digest": {"sha256": "<included-ID-set-merkle-root>"}
   }],
-  "predicateType": "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/training-provenance-v1.md",
+  "predicateType": "<immutable URI for this exact specification revision>",
   "predicate": {
     "sourceChainId": "zerone-1",
     "observedOnChainId": "zerone-1",

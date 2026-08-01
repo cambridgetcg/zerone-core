@@ -8,7 +8,6 @@ scripts/
 .claude/
 docs/*.md
 docs/home-e2e-report.md
-
 # Mainnet custody material must never enter a Docker build context. The
 # genesis and its public manifest are safe; signing and P2P identity keys are
 # runtime secrets.
@@ -32,3 +31,13 @@ deploy/mainnet/artifacts/node_key.json
 **/*credentials*.json
 deploy/testnet/artifacts/
 deploy/networks/zerone-2/artifacts/
+**/priv_validator_key.json
+**/priv_validator_state.json
+**/node_key.json
+**/*.mnemonic
+**/*.seed
+**/keyring*/
+.env
+.env.*
+**/.env
+**/.env.*

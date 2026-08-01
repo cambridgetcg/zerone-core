@@ -15,11 +15,13 @@ import (
 )
 
 const (
-	// InTotoStatementType is the current stable in-toto Statement envelope.
+	// InTotoStatementType is the current stable in-toto Statement format.
 	InTotoStatementType = "https://in-toto.io/Statement/v1"
 
-	// TrainingProvenancePredicateType versions Zerone's predicate semantics.
-	TrainingProvenancePredicateType = "https://github.com/cambridgetcg/zerone-core/blob/main/docs/specs/attestations/training-provenance-v1.md"
+	// TrainingProvenancePredicateType versions Zerone's predicate semantics at
+	// an immutable source revision. Predicate TypeURIs must not drift when a
+	// repository branch advances.
+	TrainingProvenancePredicateType = "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md"
 )
 
 var (

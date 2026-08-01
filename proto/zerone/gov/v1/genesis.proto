@@ -40,6 +40,23 @@ message GenesisCreedAmendmentPin {
   bytes  commitments_json = 3;
 }
 
+// EmergencyTransitionHold is the durable post-incident review gate for every
+// automatic custom-governance transition. It is created when transaction
+// quarantine is observed and is not cleared by an ordinary resume ceremony.
+message EmergencyTransitionHold {
+  string incident_id = 1;
+  uint64 activated_at_block = 2;
+  // Most recently observed quarantine incident. incident_id remains the first
+  // incident for compact API compatibility.
+  string latest_incident_id = 3;
+  // Number of chronological incident observations committed by this hold.
+  uint64 incident_count = 4;
+  // Domain-separated rolling SHA-256 commitment to the complete chronological
+  // incident lineage. This keeps consensus state bounded even if a review hold
+  // spans many independently finalized quarantine incidents.
+  bytes incident_lineage_sha256 = 5;
+}
+
 // GenesisState defines the governance module's genesis state.
 message GenesisState {
   Params          params          = 1;
@@ -52,4 +69,5 @@ message GenesisState {
   repeated SeatElectionVote seat_election_votes = 8;
   uint64 next_seat_election_number = 9;
   repeated GenesisCreedAmendmentPin creed_amendment_pins = 10;
+  EmergencyTransitionHold emergency_transition_hold = 11;
 }

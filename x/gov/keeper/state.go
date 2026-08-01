@@ -3,11 +3,13 @@ package keeper
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
@@ -46,19 +48,63 @@ func (k Keeper) DeleteLIP(ctx sdk.Context, lipID string) {
 
 // IterateLIPs iterates over all LIPs. Return true from cb to stop.
 func (k Keeper) IterateLIPs(ctx sdk.Context, cb func(lip *types.LIP) bool) {
+	if err := k.IterateLIPsChecked(ctx, cb); err != nil {
+		panic("failed to iterate LIPs: " + err.Error())
+	}
+}
+
+// IterateLIPsChecked is the fail-closed form used by activation and permanent
+// authority-retirement paths. Traversal and close errors are both surfaced.
+func (k Keeper) IterateLIPsChecked(
+	ctx sdk.Context,
+	cb func(lip *types.LIP) bool,
+) (returnErr error) {
 	store := ctx.KVStore(k.storeKey)
 	iter := storetypes.KVStorePrefixIterator(store, types.LIPKeyPrefix)
-	defer iter.Close()
+	defer func() {
+		iterationErr := terminalLIPIteratorError(iter)
+		if iterationErr != nil {
+			iterationErr = fmt.Errorf("iterate LIPs: %w", iterationErr)
+		}
+		closeErr := iter.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("close LIP iterator: %w", closeErr)
+		}
+		returnErr = errors.Join(returnErr, iterationErr, closeErr)
+	}()
 
 	for ; iter.Valid(); iter.Next() {
 		var lip types.LIP
 		if err := json.Unmarshal(iter.Value(), &lip); err != nil {
-			panic(err)
+			return fmt.Errorf("decode LIP at key %x: %w", iter.Key(), err)
 		}
 		if cb(&lip) {
-			break
+			return nil
 		}
 	}
+	return nil
+}
+
+// terminalLIPIteratorError tolerates only the Cosmos SDK cache iterator's
+// normal-EOF defect. It still surfaces every other traversal error and callers
+// independently check Close. This is sufficient for ordinary state access;
+// upgrade activation uses root-reconstructed committed exports for census
+// completeness instead of relying on cache iterators.
+func terminalLIPIteratorError(iter interface {
+	Valid() bool
+	Error() error
+}) error {
+	err := iter.Error()
+	if err == nil {
+		return nil
+	}
+	if !iter.Valid() {
+		switch err.Error() {
+		case "invalid cacheMergeIterator", "invalid memIterator":
+			return nil
+		}
+	}
+	return err
 }
 
 // GetLIPsByStatus returns all LIPs with the given stage.
@@ -199,6 +245,12 @@ func (k Keeper) SetNextLIPNumber(ctx sdk.Context, n uint64) {
 
 // SetUpgradePlan stores an upgrade plan associated with a LIP.
 func (k Keeper) SetUpgradePlan(ctx sdk.Context, lipID string, plan *types.UpgradePlan) {
+	if lipID == "" || plan == nil {
+		panic("cannot persist an upgrade plan without a LIP id and plan")
+	}
+	if err := types.ValidateUpgradePlanFields(plan.Name, plan.Height, plan.Info); err != nil {
+		panic("cannot persist invalid upgrade plan: " + err.Error())
+	}
 	store := ctx.KVStore(k.storeKey)
 	bz, err := json.Marshal(plan)
 	if err != nil {
@@ -207,7 +259,26 @@ func (k Keeper) SetUpgradePlan(ctx sdk.Context, lipID string, plan *types.Upgrad
 	store.Set(types.UpgradePlanKey(lipID), bz)
 }
 
-// GetUpgradePlan retrieves the upgrade plan for a LIP.
+// setUpgradePlanFromGenesis preserves legacy exported records that older
+// binaries admitted before Info/name validation was hardened. Custom x/gov no
+// longer has software-upgrade scheduling authority, so retaining the record
+// for query/audit compatibility cannot execute it.
+func (k Keeper) setUpgradePlanFromGenesis(ctx sdk.Context, lipID string, plan *types.UpgradePlan) {
+	if lipID == "" || plan == nil {
+		panic("cannot import an upgrade plan without a LIP id and plan")
+	}
+	bz, err := json.Marshal(plan)
+	if err != nil {
+		panic("failed to marshal imported upgrade plan: " + err.Error())
+	}
+	ctx.KVStore(k.storeKey).Set(types.UpgradePlanKey(lipID), bz)
+}
+
+// GetUpgradePlan retrieves the upgrade plan for a LIP. Legacy releases allowed
+// records (notably empty Info) that are invalid for new attachments. Decode
+// those records for export/query compatibility; every voting and scheduling
+// authority path revalidates strictly and therefore fails closed until a valid
+// pre-vote plan is attached.
 func (k Keeper) GetUpgradePlan(ctx sdk.Context, lipID string) (*types.UpgradePlan, bool) {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(types.UpgradePlanKey(lipID))
@@ -216,7 +287,7 @@ func (k Keeper) GetUpgradePlan(ctx sdk.Context, lipID string) (*types.UpgradePla
 	}
 	var plan types.UpgradePlan
 	if err := json.Unmarshal(bz, &plan); err != nil {
-		return nil, false
+		panic("failed to decode persisted upgrade plan: " + err.Error())
 	}
 	return &plan, true
 }
@@ -554,16 +625,34 @@ func (k Keeper) CountDistinctVoters(ctx sdk.Context) uint64 {
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	k.SetParams(ctx, gs.Params)
 	k.SetNextLIPNumber(ctx, gs.NextLipNumber)
+	if gs.EmergencyTransitionHold != nil {
+		if err := k.SetEmergencyTransitionHold(
+			ctx,
+			gs.EmergencyTransitionHold,
+		); err != nil {
+			panic("invalid custom-governance emergency transition hold: " + err.Error())
+		}
+	} else {
+		k.clearEmergencyTransitionHold(ctx)
+	}
 
 	for _, lip := range gs.Lips {
-		k.SetLIP(ctx, lip)
+		lipToStore := lip
+		if lip != nil &&
+			lip.Category == types.CategoryUpgrade &&
+			!types.IsTerminal(lip.Stage) {
+			normalized := proto.Clone(lip).(*types.LIP)
+			normalized.Stage = types.StatusFailed
+			lipToStore = normalized
+		}
+		k.SetLIP(ctx, lipToStore)
 	}
 	for _, vote := range gs.Votes {
 		k.SetVote(ctx, vote)
 	}
 
 	for _, gup := range gs.UpgradePlans {
-		k.SetUpgradePlan(ctx, gup.LipId, gup.Plan)
+		k.setUpgradePlanFromGenesis(ctx, gup.LipId, gup.Plan)
 	}
 
 	// Restore research fund voters from params if set.
@@ -628,5 +717,15 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		SeatElections:          k.GetAllSeatElections(ctx),
 		SeatElectionVotes:      k.GetAllSeatElectionVotes(ctx),
 		NextSeatElectionNumber: k.GetNextSeatElectionID(ctx),
+		EmergencyTransitionHold: func() *types.EmergencyTransitionHold {
+			hold, found, err := k.GetEmergencyTransitionHold(ctx)
+			if err != nil {
+				panic(err)
+			}
+			if !found {
+				return nil
+			}
+			return hold
+		}(),
 	}
 }

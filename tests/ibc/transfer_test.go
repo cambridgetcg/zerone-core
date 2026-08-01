@@ -5,10 +5,10 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	ibctesting "github.com/cosmos/ibc-go/v8/testing"
+	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
+	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
-	transfertypes "github.com/cosmos/ibc-go/v8/modules/apps/transfer/types"
+	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 )
 
 // TestBasicTransferAToB sends uzrn from chain A to chain B and verifies the
@@ -146,21 +146,24 @@ func (s *IBCTestSuite) TestDenomTrace() {
 	s.Require().NoError(err)
 
 	// Verify denom trace on chain B.
-	expectedTrace := transfertypes.DenomTrace{
-		Path:      s.transferPath.EndpointB.ChannelConfig.PortID + "/" + s.transferPath.EndpointB.ChannelID,
-		BaseDenom: sdk.DefaultBondDenom,
-	}
+	expectedDenom := transfertypes.NewDenom(
+		sdk.DefaultBondDenom,
+		transfertypes.NewHop(
+			s.transferPath.EndpointB.ChannelConfig.PortID,
+			s.transferPath.EndpointB.ChannelID,
+		),
+	)
 
 	appB := GetZeroneApp(s.chainB)
-	traces := appB.TransferKeeper.GetAllDenomTraces(s.chainB.GetContext())
-	s.Require().NotEmpty(traces, "should have at least one denom trace")
+	denoms := appB.TransferKeeper.GetAllDenoms(s.chainB.GetContext())
+	s.Require().NotEmpty(denoms, "should have at least one IBC denom")
 
 	found := false
-	for _, trace := range traces {
-		if trace.BaseDenom == expectedTrace.BaseDenom && trace.Path == expectedTrace.Path {
+	for _, denom := range denoms {
+		if denom.Base == expectedDenom.Base && denom.Path() == expectedDenom.Path() {
 			found = true
 			break
 		}
 	}
-	s.Require().True(found, "expected denom trace %s not found in %v", expectedTrace, traces)
+	s.Require().True(found, "expected denom %s not found in %v", expectedDenom.Path(), denoms)
 }
