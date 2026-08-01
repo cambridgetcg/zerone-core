@@ -1,0 +1,33 @@
+{
+  "schema": "zerone.constructive-intelligence-math-problem/v0",
+  "synthetic": true,
+  "frontierDocumentSha256": "sha256:4fdcd54c35c69c26a28c385275688351ee2a9131702e81bacf100de8d7612456",
+  "questTemplateSha256": "sha256:7af1dc87b98f6b80bb798aa1427c82c5b2c049f8cdccd9b914188cba50718313",
+  "problemId": "synthetic-formal-construction-0001",
+  "domainCapabilityId": "math-combinatorics-discrete@1",
+  "selectedDomainEvidence": "E2",
+  "selectedDomainReceiptDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "artifactRelation": "PROVES",
+  "statementDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "formalizationDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "axiomPolicyDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "semanticRoot": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "priorArtCutoff": "2026-08-01",
+  "priorArtManifestDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "checkerKernelDigests": [
+    "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+  ],
+  "falsifierSuiteDigest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "breakthroughStatus": "NOT_EVALUATED",
+  "karmaProjection": {
+    "schema": "zerone.karma.shadow-edge/v0",
+    "state": "ORDINAL",
+    "register": "priced-coherence",
+    "magnitude": "NONE"
+  },
+  "economicEffect": "NONE",
+  "controlEffect": "NONE",
+  "qualification": "NONE",
+  "liveAmount": "0"
+}

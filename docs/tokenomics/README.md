@@ -30,6 +30,7 @@ the first lane. Default-zero knowledge probe issuance and default-disabled
 | [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | 4-phase research-fund model; the live genesis voter pair is unconfigured |
 | [REVIEW.md](REVIEW.md) | Honest assessment: strengths, risks, open questions |
 | [CONSTRUCTIVE-INTELLIGENCE-REWARDS.md](CONSTRUCTIVE-INTELLIGENCE-REWARDS.md) | Pre-consensus reward projection from the canonical capability tree onto artifact evidence, with power separation and fail-closed release gates |
+| [../specs/constructive-intelligence-math-frontier-v0.md](../specs/constructive-intelligence-math-frontier-v0.md) | Zero-value formal-mathematics skill-tree extension and sponsor-quest template with ordinal-only KARMA and no privileged seats, shares, or activation authority |
 
 ## Quick Numbers
 
