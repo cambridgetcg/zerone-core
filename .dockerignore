@@ -29,7 +29,10 @@ deploy/mainnet/artifacts/node_key.json
 **/.env.*
 **/*secret*.json
 **/*credentials*.json
-deploy/testnet/artifacts/
+# The containment images need the committed public testnet genesis. Keep every
+# sibling artifact out of root build contexts and reopen only that exact file.
+deploy/testnet/artifacts/*
+!deploy/testnet/artifacts/genesis.json
 deploy/networks/zerone-2/artifacts/
 **/priv_validator_key.json
 **/priv_validator_state.json

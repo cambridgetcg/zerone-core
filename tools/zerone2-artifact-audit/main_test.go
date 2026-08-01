@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -42,11 +43,15 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 		{name: "supply", path: "app_state.bank.supply", value: []any{coin("uzrn", "13555000001")}, issuePath: "bank.supply"},
 		{name: "extra allocation", path: "app_state.bank.balances", value: []any{}, issuePath: "bank.balances"},
 		{name: "gentx count", path: "app_state.genutil.gen_txs", value: []any{}, issuePath: "gen_txs"},
+		{name: "gentx unordered", path: "app_state.genutil.gen_txs.0.body.unordered", value: true, issuePath: "body.unordered"},
+		{name: "gentx timeout timestamp", path: "app_state.genutil.gen_txs.0.body.timeout_timestamp", value: "2026-01-01T00:00:00Z", issuePath: "timeout_timestamp"},
+		{name: "gentx unknown body field", path: "app_state.genutil.gen_txs.0.body.unexpected", value: true, issuePath: "body.unexpected"},
 		{name: "knowledge verifier floor", path: "app_state.knowledge.params.min_verifiers", value: "2", issuePath: "min_verifiers"},
 		{name: "IBC wildcard client", path: "app_state.ibc.client_genesis.params.allowed_clients", value: []any{"*"}, issuePath: "allowed_clients"},
 		{name: "IBC missing localhost", path: "app_state.ibc.client_genesis.params.allowed_clients", value: []any{}, issuePath: "allowed_clients"},
 		{name: "IBC external client", path: "app_state.ibc.client_genesis.params.allowed_clients", value: []any{"09-localhost", "07-tendermint"}, issuePath: "allowed_clients"},
 		{name: "transfer send", path: "app_state.transfer.params.send_enabled", value: true, issuePath: "send_enabled"},
+		{name: "transfer denom state", path: "app_state.transfer.denoms", value: []any{map[string]any{"base": "ibc/UNEXPECTED"}}, issuePath: "transfer.denoms"},
 		{name: "ICA controller", path: "app_state.interchainaccounts.controller_genesis_state.params.controller_enabled", value: true, issuePath: "controller_enabled"},
 		{name: "bridge adapter", path: "app_state.substrate_bridge.adapters", value: []any{map[string]any{"adapter_id": "unexpected"}}, issuePath: "substrate_bridge.adapters"},
 		{name: "bridge settlement ratio", path: "app_state.substrate_bridge.params.min_verified_ratio_for_settle_bps", value: 1000, issuePath: "min_verified_ratio_for_settle_bps"},
@@ -450,8 +455,11 @@ func validGenesisFixture(t *testing.T) map[string]any {
 			}},
 			"genutil": map[string]any{"gen_txs": []any{map[string]any{
 				"body": map[string]any{
-					"memo":           strings.Repeat("2", 40) + "@127.0.0.1:26656",
-					"timeout_height": "0", "extension_options": []any{}, "non_critical_extension_options": []any{},
+					"memo":              strings.Repeat("2", 40) + "@127.0.0.1:26656",
+					"timeout_height":    "0",
+					"timeout_timestamp": nil,
+					"unordered":         false,
+					"extension_options": []any{}, "non_critical_extension_options": []any{},
 					"messages": []any{map[string]any{
 						"@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
 						"description": map[string]any{
@@ -487,7 +495,7 @@ func validGenesisFixture(t *testing.T) map[string]any {
 				},
 			},
 			"transfer": map[string]any{
-				"denom_traces": []any{}, "total_escrowed": []any{},
+				"denoms": []any{}, "total_escrowed": []any{},
 				"params": map[string]any{"send_enabled": false, "receive_enabled": false},
 			},
 			"interchainaccounts": map[string]any{
@@ -608,15 +616,30 @@ func mutateGentxValoper(t *testing.T, fixture map[string]any, valoper string) []
 func setFixturePath(t *testing.T, fixture map[string]any, path string, value any) {
 	t.Helper()
 	parts := strings.Split(path, ".")
-	current := fixture
+	var current any = fixture
 	for _, part := range parts[:len(parts)-1] {
-		next, ok := current[part].(map[string]any)
-		if !ok {
-			t.Fatalf("fixture path %s is not an object", part)
+		switch typed := current.(type) {
+		case map[string]any:
+			next, ok := typed[part]
+			if !ok {
+				t.Fatalf("fixture path %s is absent", part)
+			}
+			current = next
+		case []any:
+			index, err := strconv.Atoi(part)
+			if err != nil || index < 0 || index >= len(typed) {
+				t.Fatalf("fixture path %s is not a valid array index", part)
+			}
+			current = typed[index]
+		default:
+			t.Fatalf("fixture path %s cannot descend through %T", part, current)
 		}
-		current = next
 	}
-	current[parts[len(parts)-1]] = value
+	object, ok := current.(map[string]any)
+	if !ok {
+		t.Fatalf("fixture path parent is %T, not an object", current)
+	}
+	object[parts[len(parts)-1]] = value
 }
 
 func marshalFixture(t *testing.T, fixture map[string]any) []byte {

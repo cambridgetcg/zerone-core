@@ -1100,3 +1100,112 @@ func TestValidatorDockerfilesPinBuildAndPackageProvenance(t *testing.T) {
 		})
 	}
 }
+
+func TestCanonicalDeploymentKitAndContainmentCandidatesRemainParallel(t *testing.T) {
+	read := func(path string) string {
+		t.Helper()
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(contents)
+	}
+
+	mainnetDockerfile := read("mainnet/Dockerfile")
+	for _, required := range []string{
+		"only for the custody-free context assembled",
+		"COPY .sanitized-mainnet-context-v1",
+		"COPY public/genesis.json /mainnet-seed/genesis.json",
+		"COPY runtime/entrypoint.sh /usr/local/bin/entrypoint.sh",
+	} {
+		if !strings.Contains(mainnetDockerfile, required) {
+			t.Fatalf("canonical mainnet Dockerfile lost release-kit control %q", required)
+		}
+	}
+	if strings.Contains(mainnetDockerfile, "COPY deploy/mainnet/") {
+		t.Fatal("canonical mainnet Dockerfile was remapped to the repository-root containment context")
+	}
+
+	mainnetEntrypoint := read("mainnet/entrypoint.sh")
+	if !strings.Contains(mainnetEntrypoint, "Role-separated zerone-1 signer/checkpoint/archive runtime") {
+		t.Fatal("canonical mainnet role-separated runtime was replaced")
+	}
+	if !strings.Contains(mainnetEntrypoint, "minimum-gas-prices 0.025uzrn") {
+		t.Fatal("canonical mainnet runtime lost its published node-local gas price")
+	}
+	if strings.Contains(mainnetEntrypoint, "zerone-fly-validator-entrypoint") {
+		t.Fatal("canonical mainnet runtime unexpectedly delegates to the containment entrypoint")
+	}
+
+	testnetDockerfile := read("testnet/Dockerfile")
+	if !strings.Contains(testnetDockerfile, "Fail-closed tombstone") ||
+		strings.Contains(testnetDockerfile, "/usr/local/bin/zeroned") {
+		t.Fatal("canonical testnet deployment path must remain a binary-free fail-closed tombstone")
+	}
+
+	for _, network := range []string{"mainnet", "testnet"} {
+		entrypoint := read(filepath.Join(network, "entrypoint.containment.sh"))
+		if !strings.Contains(entrypoint, "zerone-fly-validator-entrypoint") {
+			t.Fatalf("%s containment wrapper does not delegate to the shared validator entrypoint", network)
+		}
+		dockerfile := read(filepath.Join(network, "Dockerfile.containment"))
+		for _, required := range []string{
+			"COPY --from=builder /app/build/zeroned /usr/local/bin/zeroned",
+			"entrypoint.containment.sh /usr/local/bin/entrypoint.sh",
+			"fly-validator-entrypoint-common.sh /usr/local/libexec/zerone-fly-validator-entrypoint",
+		} {
+			if !strings.Contains(dockerfile, required) {
+				t.Fatalf("%s containment Dockerfile lost runtime mapping %q", network, required)
+			}
+		}
+	}
+
+	workflow := read("../.github/workflows/ci.yml")
+	for _, mapping := range []string{
+		"profile: mainnet-containment\n            dockerfile: deploy/mainnet/Dockerfile.containment",
+		"profile: testnet-containment\n            dockerfile: deploy/testnet/Dockerfile.containment",
+	} {
+		if !strings.Contains(workflow, mapping) {
+			t.Fatalf("deployment-image workflow lost explicit containment mapping %q", mapping)
+		}
+	}
+	for _, forbidden := range []string{
+		"dockerfile: deploy/mainnet/Dockerfile\n",
+		"dockerfile: deploy/testnet/Dockerfile\n",
+	} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("repository-root image workflow points at canonical deployment kit: %q", forbidden)
+		}
+	}
+
+	chainRegistryCheck := read("../scripts/check-chain-registry.mjs")
+	if !strings.Contains(chainRegistryCheck, "deploy/mainnet/entrypoint.containment.sh") {
+		t.Fatal("Chain Registry check is not mapped to the mainnet containment wrapper")
+	}
+}
+
+func TestRootDockerContextAllowsOnlyPublicTestnetGenesisArtifact(t *testing.T) {
+	contents, err := os.ReadFile("../.dockerignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(contents), "\n")
+	present := make(map[string]bool, len(lines))
+	for _, line := range lines {
+		present[line] = true
+	}
+	for _, required := range []string{
+		"deploy/testnet/artifacts/*",
+		"!deploy/testnet/artifacts/genesis.json",
+		"**/priv_validator_key.json",
+		"**/priv_validator_state.json",
+		"**/node_key.json",
+	} {
+		if !present[required] {
+			t.Fatalf("root Docker context policy lacks %q", required)
+		}
+	}
+	if present["deploy/testnet/artifacts/"] {
+		t.Fatal("whole testnet artifact directory is excluded, so Docker cannot reopen its public genesis")
+	}
+}

@@ -29,6 +29,10 @@ const mainnetEntrypoint = await readFile(
   path.join(repositoryRoot, "deploy/mainnet/entrypoint.sh"),
   "utf8",
 );
+const mainnetContainmentEntrypoint = await readFile(
+  path.join(repositoryRoot, "deploy/mainnet/entrypoint.containment.sh"),
+  "utf8",
+);
 const sharedValidatorEntrypoint = await readFile(
   path.join(repositoryRoot, "deploy/fly-validator-entrypoint-common.sh"),
   "utf8",
@@ -73,8 +77,13 @@ assert.match(dashboardConfig, /gasPriceStep: \{ low: 1, average: 1, high: 1\.2 \
 assert.match(appTemplate, /minimum-gas-prices = "0\.025uzrn"/);
 assert.match(
   mainnetEntrypoint,
+  /minimum-gas-prices 0\.025uzrn/,
+  "canonical mainnet runtime must enforce its published node-local gas price",
+);
+assert.match(
+  mainnetContainmentEntrypoint,
   /zerone-fly-validator-entrypoint/,
-  "mainnet wrapper must delegate to the reviewed shared validator entrypoint",
+  "mainnet containment wrapper must delegate to the reviewed shared validator entrypoint",
 );
 assert.match(
   sharedValidatorEntrypoint,

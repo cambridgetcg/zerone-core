@@ -833,10 +833,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - profile: mainnet
-            dockerfile: deploy/mainnet/Dockerfile
-          - profile: testnet
-            dockerfile: deploy/testnet/Dockerfile
+          - profile: mainnet-containment
+            dockerfile: deploy/mainnet/Dockerfile.containment
+          - profile: testnet-containment
+            dockerfile: deploy/testnet/Dockerfile.containment
           - profile: cosmovisor-validator
             dockerfile: Dockerfile.validator
     steps:
@@ -853,7 +853,9 @@ jobs:
           grep -Fxq '**/keyring*/' .dockerignore
           grep -Fxq '.env' .dockerignore
           grep -Fxq '.env.*' .dockerignore
-      - name: Build from repository-root context
+          grep -Fxq 'deploy/testnet/artifacts/*' .dockerignore
+          grep -Fxq '!deploy/testnet/artifacts/genesis.json' .dockerignore
+      - name: Build repository-root runtime profile
         env:
           CI_IMAGE_VERSION: v0.0.0-ci
         run: |

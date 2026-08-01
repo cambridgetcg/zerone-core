@@ -383,7 +383,7 @@ grep -q "EXPECTED_NODE_ID=\"${EXPECTED_PRODUCTION_NODE_ID}\"" \
   "${PRODUCTION_ENTRYPOINT}" || fail "entrypoint node-id pin drifted from manifest"
 grep -q '^readonly BINARY="/usr/local/bin/zeroned"$' \
   "${PRODUCTION_ENTRYPOINT}" || fail "production entrypoint binary path is not immutable"
-if rg -q 'ZERONED_BINARY' "${PRODUCTION_ENTRYPOINT}"; then
+if grep -q 'ZERONED_BINARY' "${PRODUCTION_ENTRYPOINT}"; then
   fail "production entrypoint accepts a zeroned binary override"
 fi
 
@@ -1198,7 +1198,7 @@ grep -qx 'deploy/mainnet/artifacts/\*.mnemonic' \
 for private_profile in \
   fly.halt-signer.example.toml fly.observer.example.toml \
   fly.archive-candidate.example.toml fly.archive.example.toml; do
-  if rg -q '^\[\[services\]\]' "${ROOT}/deploy/mainnet/${private_profile}"; then
+  if grep -Eq '^\[\[services\]\]' "${ROOT}/deploy/mainnet/${private_profile}"; then
     fail "${private_profile} unexpectedly exposes a public Fly service"
   fi
 done
