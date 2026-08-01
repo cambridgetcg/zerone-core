@@ -73,6 +73,7 @@ const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
+const piPilotSection = byId<HTMLElement>("contribute");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -1138,13 +1139,14 @@ const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
-void initialisePiPilotIfEnabled();
+const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
 const alignInitialHash = (): void => {
   if (
     window.location.hash !== "#skills" &&
     window.location.hash !== "#math-frontier" &&
-    window.location.hash !== "#life"
+    window.location.hash !== "#life" &&
+    window.location.hash !== "#contribute"
   ) {
     return;
   }
@@ -1154,7 +1156,9 @@ const alignInitialHash = (): void => {
         ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
         : window.location.hash === "#life"
           ? lifeGardenRoot.closest<HTMLElement>("#life")
-          : constructiveTreeRoot.closest<HTMLElement>("#skills");
+          : window.location.hash === "#contribute"
+            ? piPilotSection
+            : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
@@ -1171,6 +1175,7 @@ void Promise.allSettled([
   lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
+void piPilotReady.then(alignInitialHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);

@@ -233,7 +233,9 @@ describe("Pi callback page hardening", () => {
       /VITE_PI_WALLET_PROOF_ENABLED === "true"/,
     );
     assert.match(source, /if \(!PI_PILOT_ENABLED\) return/);
-    assert.match(source, /void initialisePiPilotIfEnabled\(\)/);
+    assert.match(source, /const piPilotReady = initialisePiPilotIfEnabled\(\)/);
+    assert.match(source, /window\.location\.hash !== "#contribute"/);
+    assert.match(source, /piPilotReady\.then\(alignInitialHash\)/);
     assert.match(
       source,
       /initialiseConstructiveTree\(constructiveTreeRoot\)/,
@@ -267,6 +269,7 @@ describe("Pi callback page hardening", () => {
     assert.match(html, /id="pi-data-status" role="status" aria-live="polite"/u);
     assert.match(ui, /dataForm\.setAttribute\("aria-busy", "true"\)/u);
     assert.match(ui, /dataTitle\.focus\(\)/u);
+    assert.match(ui, /dataDialog\.close\(\);\s*consentOpenButton\.focus\(\)/u);
     assert.doesNotMatch(ui, /cancel[\s\S]{0,100}preventDefault/u);
   });
 });

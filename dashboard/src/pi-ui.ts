@@ -81,6 +81,7 @@ export async function initialisePiPilot(
   const consentCheck = byId<HTMLInputElement>("pi-consent-check");
   const consentClose = byId<HTMLButtonElement>("pi-consent-close");
   const consentSubmit = byId<HTMLButtonElement>("pi-consent-submit");
+  const consentOpenButton = byId<HTMLButtonElement>("pi-consent-open");
 
   const proofDialog = byId<HTMLDialogElement>("pi-proof-dialog");
   const proofForm = byId<HTMLFormElement>("pi-proof-form");
@@ -165,7 +166,7 @@ export async function initialisePiPilot(
   attachDialogClose(proofDialog, proofClose, () => proofPending);
   attachDialogClose(dataDialog, dataClose, () => dataPending);
 
-  byId("pi-consent-open").addEventListener("click", () => {
+  consentOpenButton.addEventListener("click", () => {
     consentCheck.checked = false;
     consentDialog.showModal();
     window.setTimeout(() => consentCheck.focus(), 0);
@@ -253,6 +254,7 @@ export async function initialisePiPilot(
       session = await deletePiPilotData(session.csrfToken);
       render();
       dataDialog.close();
+      consentOpenButton.focus();
       options.notify(
         "Subject-linked Pi pilot data deleted. Your Pi account, Keplr wallet, and blockchain state were not changed.",
       );
