@@ -52,13 +52,14 @@ case "${1:-} ${2:-}" in
     case "${3:-}" in
       buildx)
         [ "${4:-}" = '--builder' ]
-        [ "${5:-}" = 'default' ]
+        [ "${5:-}" = 'rpc-edge-isolated-test' ]
         [ "${6:-}" = 'inspect' ]
-        printf 'Name: default\nDriver: %s\n' "${FAKE_BUILDER_DRIVER:-docker}"
+        printf 'Name: rpc-edge-isolated-test\nDriver: %s\n' \
+          "${FAKE_BUILDER_DRIVER:-docker}"
         ;;
       build)
         [ "${4:-}" = '--builder' ]
-        [ "${5:-}" = 'default' ]
+        [ "${5:-}" = 'rpc-edge-isolated-test' ]
         context="${*: -1}"
         [ -d "${context}" ]
         (cd "${context}" && find . -type f -print | LC_ALL=C sort) > \
@@ -106,7 +107,7 @@ CONTEXT_PATH=$(sed -n '1p' "${TEST_ROOT}/context-path")
 [ ! -e "${CONTEXT_PATH}" ] || fail "temporary context survived the build"
 for exact_argument in \
   '--builder' \
-  'default' \
+  'rpc-edge-isolated-test' \
   '--pull' \
   '--no-cache' \
   '--load' \
@@ -130,6 +131,8 @@ grep -q '^push_or_deploy=not-performed$' "${TEST_ROOT}/build-output" || \
   fail "build output did not preserve the publication boundary"
 grep -q '^builder_driver=docker$' "${TEST_ROOT}/build-output" || \
   fail "build output did not bind the context-local Docker driver"
+grep -q '^builder=rpc-edge-isolated-test$' "${TEST_ROOT}/build-output" || \
+  fail "build output did not bind the selected context's builder"
 
 if PATH="${TEST_ROOT}/bin:${PATH}" \
     RPC_EDGE_SOURCE_COMMIT="${SOURCE_COMMIT}" \

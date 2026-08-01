@@ -99,12 +99,12 @@ DOCKER_ENDPOINT=$(docker context inspect --format \
 [[ "${DOCKER_ENDPOINT}" == unix:///* ]] || \
   die "Docker context must use a local Unix socket, got ${DOCKER_ENDPOINT}"
 BUILDER_INFO=$(docker --context "${DOCKER_CONTEXT_NAME}" \
-  buildx --builder default inspect) || \
-  die "could not inspect the context-bound default builder"
+  buildx --builder "${DOCKER_CONTEXT_NAME}" inspect) || \
+  die "could not inspect the selected context's builder"
 BUILDER_DRIVER=$(printf '%s\n' "${BUILDER_INFO}" | \
   awk '/^Driver:[[:space:]]*/ { sub(/^Driver:[[:space:]]*/, ""); print }')
 [ "${BUILDER_DRIVER}" = "docker" ] || \
-  die "default builder must use the context-bound docker driver"
+  die "selected context's builder must use the docker driver"
 
 CONTEXT=$(mktemp -d "${TMPDIR:-/tmp}/zerone-rpc-edge-context.XXXXXX")
 materialize_git_blob deploy/Dockerfile.rpc-edge \
@@ -122,7 +122,7 @@ fi
 
 verify_source_identity
 docker --context "${DOCKER_CONTEXT_NAME}" build \
-  --builder default \
+  --builder "${DOCKER_CONTEXT_NAME}" \
   --pull \
   --no-cache \
   --load \
@@ -140,7 +140,7 @@ docker --context "${DOCKER_CONTEXT_NAME}" build \
   --tag "${IMAGE_REF}" \
   "${CONTEXT}"
 
-printf 'local_image=%s\ncommit=%s\nversion=%s\nsource_date_epoch=%s\nplatform=%s\nbase=%s\ndocker_context=%s\ndocker_endpoint=%s\nbuilder=default\nbuilder_driver=%s\npush_or_deploy=not-performed\n' \
+printf 'local_image=%s\ncommit=%s\nversion=%s\nsource_date_epoch=%s\nplatform=%s\nbase=%s\ndocker_context=%s\ndocker_endpoint=%s\nbuilder=%s\nbuilder_driver=%s\npush_or_deploy=not-performed\n' \
   "${IMAGE_REF}" "${SOURCE_COMMIT}" "${VERSION}" "${SOURCE_DATE_EPOCH}" \
   "${TARGET_PLATFORM}" "${RUNTIME_IMAGE}" "${DOCKER_CONTEXT_NAME}" \
-  "${DOCKER_ENDPOINT}" "${BUILDER_DRIVER}"
+  "${DOCKER_ENDPOINT}" "${DOCKER_CONTEXT_NAME}" "${BUILDER_DRIVER}"

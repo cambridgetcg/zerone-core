@@ -30,7 +30,7 @@ persistent builder cache.
 
 The supported build wrapper invokes only the selected local Docker context. It
 rejects TCP/SSH endpoints and Docker override variables, explicitly selects
-the context-dependent `default` builder, requires its in-engine `docker`
+the selected context's automatically created builder, requires its in-engine `docker`
 driver, and does not use a remotely fetched Dockerfile frontend. It accepts
 only a digest-pinned base, derives the source date from the exact commit, and
 materializes exactly these two tracked Git blobs into a temporary context:
