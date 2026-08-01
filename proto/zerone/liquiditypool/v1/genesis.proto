@@ -13,6 +13,8 @@ message Params {
   uint64 twap_window_blocks    = 4; // default TWAP window in blocks
   // Protocol share of the floor-rounded fee, applied only to ZRN-input swaps
   // (1M bps scale).
+  // Retained for wire compatibility. Consensus v5 requires zero: the
+  // protocol takes no swap skim and the full fee remains in pool reserves.
   uint64 protocol_fee_bps      = 5;
   string min_reserve           = 6; // minimum reserve after swap (bigint string, default "1")
   // Quote denoms the ZRN price oracle (GetZRNPrice) may price against.

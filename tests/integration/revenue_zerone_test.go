@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"math/big"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -23,50 +22,38 @@ import (
 	vestingtypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
-// ---------- Test 13: Validator Participation Scales Reward ----------
+// ---------- Test 13: Transaction Presence Cannot Mint ----------
 
-func TestValidatorParticipationScalesReward(t *testing.T) {
+func TestTransactionPresenceCannotMintAcrossValidatorCounts(t *testing.T) {
 	tests := []struct {
 		name             string
 		activeValidators uint32
 		hasTransactions  bool
-		expectedMin      int64
-		expectedMax      int64
 	}{
 		{
 			name:             "full_validators",
 			activeValidators: 22,
 			hasTransactions:  true,
-			expectedMin:      10000000,
-			expectedMax:      10000000,
 		},
 		{
 			name:             "half_validators",
 			activeValidators: 11,
 			hasTransactions:  true,
-			expectedMin:      5000000,
-			expectedMax:      5000000,
 		},
 		{
 			name:             "one_validator",
 			activeValidators: 1,
 			hasTransactions:  true,
-			expectedMin:      454545,
-			expectedMax:      454546,
 		},
 		{
 			name:             "over_target",
 			activeValidators: 30,
 			hasTransactions:  true,
-			expectedMin:      10000000,
-			expectedMax:      10000000,
 		},
 		{
 			name:             "empty_block_zero_reward",
 			activeValidators: 22,
 			hasTransactions:  false,
-			expectedMin:      0,
-			expectedMax:      0,
 		},
 	}
 
@@ -98,12 +85,17 @@ func TestValidatorParticipationScalesReward(t *testing.T) {
 				t.Fatalf("DistributeBlockReward failed: %v", err)
 			}
 
-			totalMinted := new(big.Int)
-			totalMinted.SetString(dist.TotalMinted, 10)
-
-			if totalMinted.Int64() < tc.expectedMin || totalMinted.Int64() > tc.expectedMax {
-				t.Errorf("total minted %s outside expected [%d, %d]",
-					totalMinted, tc.expectedMin, tc.expectedMax)
+			if dist.TotalMinted != "0" || dist.ProducerReward != "0" ||
+				dist.ResearchShare != "0" || dist.DevelopmentAmount != "0" ||
+				dist.ProtocolShare != "0" {
+				t.Errorf("retired automatic reward produced a distribution: %+v", dist)
+			}
+			if got := bk.totalMinted(); !got.IsZero() {
+				t.Errorf("validator count %d and transaction=%v minted %s",
+					tc.activeValidators, tc.hasTransactions, got)
+			}
+			if got := bk.totalSentToAddr(producerAddr.String()); !got.IsZero() {
+				t.Errorf("producer received retired automatic reward %s", got)
 			}
 		})
 	}
@@ -130,8 +122,7 @@ func TestResearchFundDepositAndDisburse(t *testing.T) {
 	vk := vestingkeeper.NewKeeper(cdc, runtime.NewKVStoreService(vestingStoreKey), bk, nil, "authority")
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
-	gs := vestingtypes.DefaultGenesis()
-	vk.InitGenesis(ctx, gs)
+	vk.InitGenesis(ctx, vestingtypes.DefaultGenesis())
 
 	// Step 1: Deposit 1,000,000 uzrn to research fund
 	depositCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1000000)))
@@ -140,12 +131,13 @@ func TestResearchFundDepositAndDisburse(t *testing.T) {
 		t.Fatalf("deposit failed: %v", err)
 	}
 
-	// The full deposit reaches research; the legacy founder recipient gets 0.
+	// Consensus v2 routes the full deposit to the research fund. The founder
+	// address is only a sentinel proving that no identity payout occurs.
 	expectedResearchDeposit := sdkmath.NewInt(1000000)
 
 	founderGot := bk.totalSentToAddr(founderAddr.String())
 	if !founderGot.IsZero() {
-		t.Errorf("retired founder recipient got %s on deposit, want 0", founderGot)
+		t.Errorf("retired founder account got %s on deposit", founderGot)
 	}
 
 	researchGot := bk.totalSentToModule("research_fund")
@@ -153,7 +145,7 @@ func TestResearchFundDepositAndDisburse(t *testing.T) {
 		t.Errorf("research_fund got %s on deposit, want %s", researchGot, expectedResearchDeposit)
 	}
 
-	// Step 2: Disburse from research fund — NO second founder split
+	// Step 2: governance-directed disbursement preserves the full amount.
 	bk.sentToAccount = make(map[string]sdk.Coins) // reset to isolate disburse
 	disburseCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(500000)))
 	err = vk.DisburseFromResearchFund(ctx, recipientAddr, disburseCoins)
@@ -167,10 +159,10 @@ func TestResearchFundDepositAndDisburse(t *testing.T) {
 		t.Errorf("recipient got %s, want 500000", recipientGot)
 	}
 
-	// Founder should get ZERO on disburse (no double-taxation)
+	// The sentinel founder account is not a beneficiary on either path.
 	founderDisburse := bk.totalSentToAddr(founderAddr.String())
 	if founderDisburse.IsPositive() {
-		t.Errorf("founder got %s on disburse — should be zero (no double-taxation)", founderDisburse)
+		t.Errorf("retired founder account got %s on disburse", founderDisburse)
 	}
 }
 
@@ -194,8 +186,7 @@ func TestFeeRouterSplit(t *testing.T) {
 	vk := vestingkeeper.NewKeeper(cdc, runtime.NewKVStoreService(vestingStoreKey), bk, nil, "authority")
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
-	gs := vestingtypes.DefaultGenesis()
-	vk.InitGenesis(ctx, gs)
+	vk.InitGenesis(ctx, vestingtypes.DefaultGenesis())
 
 	// Seed fee_collector balance using the canonical module address
 	feeCollectorAddr := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
@@ -212,16 +203,16 @@ func TestFeeRouterSplit(t *testing.T) {
 	// Research share: 3.33% of 1M = 33,300, deposited in full.
 	expectedResearchTotal := int64(33300)
 
-	// Verify the research fund received the complete research allocation.
+	// Verify research fund received the complete research allocation.
 	researchGot := bk.totalSentToModule("research_fund")
 	if !researchGot.Equal(sdkmath.NewInt(expectedResearchTotal)) {
 		t.Errorf("research_fund got %s, want %d", researchGot, expectedResearchTotal)
 	}
 
-	// Verify the retired founder recipient received nothing.
+	// No identity-based account receives part of the fee flow.
 	founderGot := bk.totalSentToAddr(founderAddr.String())
 	if !founderGot.IsZero() {
-		t.Errorf("retired founder recipient got %s from fees, want 0", founderGot)
+		t.Errorf("retired founder account got %s from fees", founderGot)
 	}
 
 	// Development fund: 19.67% of 1M = 196,700 (no burn)
@@ -242,7 +233,7 @@ func TestFeeRouterSplit(t *testing.T) {
 	totalExtracted := expectedResearchTotal + expectedDev // 230,000
 	remaining := int64(1000000) - totalExtracted          // 770,000
 
-	// Research is escrowed through vesting_rewards for canonical routing.
+	// Research is escrowed through vesting_rewards before reaching its fund.
 	vestingSent := bk.totalSentToModule("vesting_rewards")
 	if !vestingSent.Equal(sdkmath.NewInt(expectedResearchTotal)) {
 		t.Errorf("vesting_rewards received %s, want %d (research escrow only)", vestingSent, expectedResearchTotal)

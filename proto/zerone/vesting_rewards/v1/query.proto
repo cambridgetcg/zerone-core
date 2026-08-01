@@ -30,9 +30,9 @@ service Query {
     option (google.api.http).get = "/zerone/vesting_rewards/v1/founder_share";
   }
   // SupplyCouplingAudit is a legacy-named observability endpoint. It reports
-  // the shared MintWithCap ledger, bank supply, and block-reward coupling
-  // inputs. The aggregate ledger includes all capped callers and does not by
-  // itself prove that total issuance was caused by knowledge activity.
+  // the shared MintWithCap ledger, bank supply, retired block-reward settings,
+  // and knowledge telemetry. The aggregate ledger includes all capped callers
+  // and does not by itself prove that issuance was caused by knowledge work.
   rpc SupplyCouplingAudit(QuerySupplyCouplingAuditRequest) returns (QuerySupplyCouplingAuditResponse) {
     option (google.api.http).get = "/zerone/vesting_rewards/v1/supply_coupling";
   }
@@ -69,7 +69,7 @@ message QueryFounderShareStatusResponse {
 message QuerySupplyCouplingAuditRequest {}
 
 // SupplyCouplingAudit response surfaces the shared capped-mint ledger and the
-// separately configured block-reward coupling inputs.
+// separately configured, retired block-reward coupling inputs.
 message QuerySupplyCouplingAuditResponse {
   // MintWithCap ledger restored from initial_fund_balance at import and then
   // increased by every capped caller. Excludes direct bank/genesis minting.
@@ -77,11 +77,11 @@ message QuerySupplyCouplingAuditResponse {
   string current_supply = 2;                    // live bank supply in uzrn
   string max_supply = 3;                        // protocol cap in uzrn
   uint64 verification_rate_bps = 4;             // legacy accepted/terminal ratio; not the applied signal
-  uint64 knowledge_coupling_target_bps = 5;     // configured target rate
-  uint64 knowledge_coupling_floor_bps = 6;      // configured floor multiplier
-  uint64 effective_coupling_multiplier_bps = 7; // current applied multiplier
-  bool   coupling_enabled = 8;                  // target > 0 and keeper wired
-  // Consensus-applied survived/(survived+disproven) signal; unchallenged
-  // facts are excluded.
+  uint64 knowledge_coupling_target_bps = 5;     // retired configured target rate
+  uint64 knowledge_coupling_floor_bps = 6;      // retired configured floor multiplier
+  uint64 effective_coupling_multiplier_bps = 7; // always zero in consensus v2
+  bool   coupling_enabled = 8;                  // always false in consensus v2
+  // Observed survived/(survived+disproven) signal; unchallenged facts are
+  // excluded. It does not drive automatic issuance in consensus v2.
   uint64 survived_challenge_rate_bps = 9;
 }

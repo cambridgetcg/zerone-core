@@ -105,15 +105,11 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 		},
 		{
 			UpgradeName: UpgradeNameConsolidationSafetyV1,
-			Description: "consolidation-safety-v1 — coordinated activation for provisional conjectures, starvation-safe challenge settlement, protocol-wide substrate axis ceilings, adjudicated falsification clawback, bounded probes, and K-alpha recognition; knowledge v5→v6 records the boundary.",
-		},
-		{
-			UpgradeName: UpgradeNameLiquiditySafetyV2,
-			Description: "liquiditypool-safety-v2 — post-consolidation readiness checkpoint for liquiditypool consensus v4: closed final-exit tombstones, governance status and asset/creator admission, finite pool growth, governed fees with strict PPM math, and fail-closed ACTIVE-pool oracle selection; safe when an earlier RunMigrations already activated and recorded liquiditypool v4.",
+			Description: "consolidation-safety-v1 — atomic safety and economic-neutrality activation: provisional conjectures, starvation-safe challenge settlement, substrate axis ceilings, adjudicated clawback, bounded probes, and liquiditypool v5 LP-only fees; its exact historical binary must target vesting_rewards v1.",
 		},
 		{
 			UpgradeName: UpgradeNameFounderRenunciationV1,
-			Description: "founder-renunciation-v1 — dedicated vesting_rewards v1→v2 boundary: permanently clears the legacy founder share/address, removes founder payout arithmetic, and preserves historical records and wire fields.",
+			Description: "founder-renunciation-v1 — dedicated vesting_rewards v1→v2 boundary: clears the legacy founder and automatic-reward parameters, removes both payout paths, and preserves historical records and wire fields.",
 		},
 	}
 

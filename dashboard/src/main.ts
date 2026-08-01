@@ -160,13 +160,17 @@ function renderLiquidityParams(params: LiquidityParams | null): void {
     ? percentFromMillionScale(params.defaultSwapFeeBps)
     : "Unavailable";
   byId("protocol-fee").textContent = params
-    ? `${percentFromMillionScale(params.protocolFeeBps)} · ZRN-in fee`
+    ? params.protocolFeePolicy === "LP_ONLY_NO_PROTOCOL_SKIM"
+      ? "0% · LPs keep all swap fees"
+      : `${percentFromMillionScale(params.protocolFeeBps)} · legacy pre-H1 ZRN-fee skim`
     : "Unavailable";
   byId("minimum-liquidity").textContent = params
     ? `${microToDisplay(params.minInitialLiquidity, 0)} ZRN`
     : "Unavailable";
   byId("max-pools").textContent = params
-    ? `${formatHeight(params.maxPools)} open`
+    ? params.maxPools === 0
+      ? "Disabled · pre-H1"
+      : `${formatHeight(params.maxPools)} open`
     : "Unavailable";
   byId("minimum-reserve").textContent = params
     ? `${BigInt(params.minReserve).toLocaleString("en-GB")} base ${params.minReserve === "1" ? "unit" : "units"}`
@@ -1118,28 +1122,32 @@ initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
-void refreshNetwork(false);
+const initialNetworkReady = refreshNetwork(false);
+const alignInitialHash = (): void => {
+  if (
+    window.location.hash !== "#skills" &&
+    window.location.hash !== "#math-frontier"
+  ) {
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    const target =
+      window.location.hash === "#math-frontier"
+        ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+        : constructiveTreeRoot.closest<HTMLElement>("#skills");
+    target?.scrollIntoView({ block: "start", behavior: "instant" });
+  });
+};
 void Promise.allSettled([
   constructiveTreeReady,
   lifeSciencesTreeReady,
   mathFrontierReady,
-]).then(
-  () => {
-    if (
-      window.location.hash !== "#skills" &&
-      window.location.hash !== "#math-frontier"
-    ) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      const target =
-        window.location.hash === "#math-frontier"
-          ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-          : constructiveTreeRoot.closest<HTMLElement>("#skills");
-      target?.scrollIntoView({ block: "start", behavior: "instant" });
-    });
-  },
-);
+]).then(alignInitialHash);
+void Promise.allSettled([
+  constructiveTreeReady,
+  mathFrontierReady,
+  initialNetworkReady,
+]).then(alignInitialHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);

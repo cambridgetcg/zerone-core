@@ -160,11 +160,10 @@ The exact boundary is fixed in
 
 The CAIP and in-toto projections, off-chain Sigstore compiler, and PoCA shadow
 evaluator do not by themselves require a consensus migration. Wider source
-changes follow three plan-specific checkpoints:
-`consolidation-safety-v1`, `liquiditypool-safety-v2`, then
-`founder-renunciation-v1`. The first two require their exact historical
-binaries; the current combined source refuses those names while
-vesting-rewards is still v1. Publishing source does not activate any of them.
+changes follow two plan-specific checkpoints: `consolidation-safety-v1`, then
+`founder-renunciation-v1`. H1 requires its exact historical binary; the current
+combined source refuses that name while vesting-rewards is still v1. There is
+no `liquiditypool-safety-v2` handler. Publishing source activates neither plan.
 
 The validator currently pins Cosmos SDK 0.50 and IBC-Go 8. Their migration must
 be a separate, rehearsed consensus program with store/module migrations,

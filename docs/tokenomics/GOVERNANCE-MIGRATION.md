@@ -17,10 +17,12 @@
 
 ## Overview
 
-The research fund receives the 3.33% research slice of implemented block-reward
-and `uzrn` fee-routing paths. Planned services are not automatically revenue
-sources. At scale, this can become a significant treasury. Who controls it
-matters.
+After the H2 founder boundary, the research fund receives the 3.33% research
+slice of actual `uzrn` fee routing plus deposits from other concrete callers.
+The automatic transaction-presence block mint and founder sub-share are retired. Planned
+services and schema fields are not automatically revenue sources. At scale,
+the fund can still become significant, so custody and disbursement remain
+material.
 
 The source model for Phase 0 requires a **2-of-2 voter pair**, but the published
 genesis did not configure those voter addresses. A future activation must name
@@ -102,10 +104,9 @@ moves no funds. Phase 3 currently strands the specialised spending path and
 must not be activated until execution and tests are wired.
 
 Founding participants may still vote with whatever stake they control and may
-still propose. Vesting-rewards v2 separately retires the founder-specific
-revenue recipient; ordinary parameter governance cannot restore it. Phase 3
-removes special research-fund voting structure but does not itself prove that
-controller independence exists.
+still propose. H2 permanently retires the founder sub-share; Phase 3
+therefore changes only special research-fund voting structure, not an
+automatic founder payment.
 
 **This phase is terminal.** There is no Phase 4.
 
@@ -207,22 +208,24 @@ If the expanded committee fails, the protocol can step backward.
 
 ## Founder and operator boundary
 
-The original design proposed two founder anchors. Current source retires the
-economic anchor and leaves the governance concentration explicit:
+The original design proposed two founder anchors. H2 removes one and
+keeps the other explicit:
 
-1. **Founder sub-share** — Retired in vesting-rewards consensus v2. Compatibility
-   fields are fixed at zero/empty and the payout path is removed. This is a
-   source boundary until the separately named `founder-renunciation-v1`
-   upgrade is scheduled and verified.
+1. **Automatic founder sub-share — retired.** The legacy percentage/address
+   fields are fixed at zero/empty in vesting_rewards v2. Governance cannot
+   restore the tap through an ordinary Params proposal.
 
-2. **Configured voters** — The phase machinery supports named voter addresses
-   and community seats. No prose document can establish that custody; it must
-   be present in hash-bound genesis or current on-chain state.
+2. **Configured voters — separate governance roles.** The phase machinery
+   supports named voter addresses and community seats. Labels such as
+   “Founder” and “AI” in the phase diagrams describe configured voter seats,
+   not an economic percentage. No prose document can establish that custody;
+   it must be present in hash-bound genesis or current on-chain state.
 
 Nothing here grants an unconfigured founder or AI key permanent voting
 authority. Ordinary governance participation follows the stake and state
-actually recorded on chain; that remains concentrated today and is not made
-independent merely by retiring the revenue recipient.
+actually recorded on chain. A publicly approved research grant may name any
+recipient, including a founding participant, but that is a discrete treasury
+decision rather than identity rent.
 
 ## Timeline Estimates
 

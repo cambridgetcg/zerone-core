@@ -11,13 +11,16 @@
 Zerone retires status-derived founder revenue. Vesting-rewards consensus v2:
 
 - fixes `founder_share_bps` at `0` and `founder_address` at empty;
+- fixes the already-retired `block_reward`, `floor_reward`, and
+  `empty_block_reward_rate` compatibility fields at zero;
 - rejects restoration through parameter validation and the storage boundary;
 - removes founder calculation and account-send branches from revenue routing;
 - sends the complete research allocation to `research_fund`;
 - keeps legacy protobuf field numbers, zero-valued outputs, query shape, event
   attribute, error codes, and historical reward records; and
-- clears both legacy Params fields during v1→v2 migration, regardless of their
-  prior values, while preserving every unrelated parameter.
+- clears those legacy founder and automatic-reward Params during v1→v2
+  migration, regardless of their prior values, while preserving every
+  unrelated parameter.
 
 The migration does not erase or claw back past transfers. V1 transferred a
 configured share synchronously; it did not accrue a separate founder balance.
@@ -40,9 +43,9 @@ The only intended network boundary is the exact upgrade name
 
 The combined source binary refuses every other upgrade plan while the chain's
 version map still reports `vesting_rewards=1`. This prevents the migration
-from silently riding `consolidation-safety-v1`,
-`liquiditypool-safety-v2`, or a historical testnet name. Those earlier plans
-must use their exact reviewed historical binaries.
+from silently riding `consolidation-safety-v1` or a historical testnet name.
+The earlier plan must use its exact reviewed binary targeting
+vesting_rewards v1. The removed `liquiditypool-safety-v2` name has no handler.
 
 The dedicated handler also refuses to run unless its prestate is exactly
 `vesting_rewards=1`, its binary targets exactly v2, and every other module is

@@ -50,11 +50,16 @@ func TestMigrate1to2ClearsEveryLegacyFounderShapeAndPreservesParams(t *testing.T
 			legacy.FounderShareBps = 70_000
 			legacy.FounderAddress = founderAddress
 			legacy.BlockReward = "1234567"
+			legacy.FloorReward = "765432"
+			legacy.EmptyBlockRewardRate = 500
 			legacy.GovernanceActivationHeight = 987_654
 			legacy.KnowledgeCouplingTargetBps = 654_321
 			expected := proto.Clone(legacy).(*types.Params)
 			expected.FounderShareBps = 0
 			expected.FounderAddress = ""
+			expected.BlockReward = "0"
+			expected.FloorReward = "0"
+			expected.EmptyBlockRewardRate = 0
 			seedRawParams(t, keeper, ctx, legacy)
 			legacyDistribution := &types.BlockRewardDistribution{
 				BlockHeight:       221,
@@ -128,13 +133,26 @@ func TestSetParamsEnforcesFounderZeroAtStorageBoundary(t *testing.T) {
 	require.NoError(t, keeper.SetParams(ctx, params))
 
 	params.FounderShareBps = 1
-	require.ErrorContains(t, keeper.SetParams(ctx, params), "constitutionally fixed at 0")
+	require.ErrorIs(t, keeper.SetParams(ctx, params), types.ErrFounderShareRenounced)
 	params.FounderShareBps = 0
 	params.FounderAddress = "zrn1recipient"
-	require.ErrorContains(t, keeper.SetParams(ctx, params), "constitutionally fixed empty")
+	require.ErrorIs(t, keeper.SetParams(ctx, params), types.ErrFounderShareRenounced)
+	params.FounderAddress = ""
+	params.BlockReward = "1"
+	require.ErrorIs(t, keeper.SetParams(ctx, params), types.ErrAutomaticRewardRetired)
 
 	stored, err := keeper.getStoredParams(ctx)
 	require.NoError(t, err)
 	require.Zero(t, stored.FounderShareBps)
 	require.Empty(t, stored.FounderAddress)
+}
+
+func TestRetirementErrorCodesAreUniqueAndStable(t *testing.T) {
+	require.Equal(t, uint32(21), types.ErrFounderShareRenounced.ABCICode())
+	require.Equal(t, uint32(22), types.ErrAutomaticRewardRetired.ABCICode())
+	require.Equal(t, uint32(23), types.ErrFounderMigrationRequired.ABCICode())
+	require.NotEqual(t, types.ErrFounderShareRenounced.ABCICode(), types.ErrAutomaticRewardRetired.ABCICode())
+	require.NotEqual(t, types.ErrFounderShareRenounced.ABCICode(), types.ErrFounderMigrationRequired.ABCICode())
+	require.NotEqual(t, types.ErrAutomaticRewardRetired.ABCICode(), types.ErrFounderMigrationRequired.ABCICode())
+	require.Same(t, types.ErrFounderShareRenounced, types.ErrFounderShareRetired)
 }

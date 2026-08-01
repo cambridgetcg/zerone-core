@@ -94,14 +94,16 @@ have not been checked against the selected release.
 
 ## Consensus upgrade requirement
 
-The release lineage has three distinct checkpoints. Existing networks first
-require the exact historical `consolidation-safety-v1` binary for its knowledge,
-substrate, and liquiditypool migration work, then the exact historical
-`liquiditypool-safety-v2` readiness checkpoint. Only a later, separately bound
-`founder-renunciation-v1` binary may advance vesting-rewards from v1 to v2.
-The current combined source deliberately refuses either older plan while the
-chain still reports vesting-rewards v1. Neither liquidity transition authorizes
-native pool creation or oracle allowlisting.
+The consolidated source includes consensus-visible knowledge, vesting, and
+substrate hardening. Existing networks first require the exact historical
+`consolidation-safety-v1` release, which advances liquiditypool v3→v5 while
+retaining vesting_rewards v1. A separately reviewed
+`founder-renunciation-v1` release later advances vesting_rewards v1→v2 and
+retires both the founder auto-split and proposer-controlled
+transaction-presence mint. This combined source refuses to execute the earlier
+plan while vesting_rewards remains v1. There is no `liquiditypool-safety-v2`
+handler, and H1 still does not authorize native pool creation or oracle
+allowlisting.
 
 Before activation:
 
@@ -114,11 +116,17 @@ Before activation:
 
 Publishing the source commit is not the upgrade.
 
-Before the ordered three-checkpoint sequence, the release packets must bind a
-same-height query proving zero native pools and an empty billing quote-denom
-allowlist. Positive legacy pools migrate `EXIT_ONLY`, so holders may withdraw
-without silently enabling swaps, deposits, or oracle use; any existing pool
-still requires a separately reviewed transition. See
+Before H1, the release packet must bind a same-height snapshot containing the
+chain ID, height, app hash, module-version map, liquidity and vesting_rewards
+Params, module-account balances and permissions, every native pool and LP bank
+supply, and the billing quote-denom allowlist. Positive legacy pools migrate
+`EXIT_ONLY`, so holders may withdraw without silently enabling swaps, deposits,
+or oracle use; any existing pool still requires a separately reviewed
+transition. After H1, verify liquiditypool v5, vesting_rewards v1, unchanged
+economic custody, empty admission lists, the applied plan, handler marker, and
+matching validator app hashes. Before H2, bind a fresh snapshot; afterward
+verify vesting_rewards v2, zero retired fields, the dedicated founder marker,
+and no unrelated module-version movement. See
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md) for the full
 invariant, lifecycle, PPM, governance, and external-Osmosis separation gates.
 

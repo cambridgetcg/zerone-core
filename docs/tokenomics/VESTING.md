@@ -34,11 +34,15 @@ Each epistemic category has its own vesting curve, reflecting how durable that t
 - **Oracle feeds** vest quickly because their value is temporal — yesterday's price feed is already stale.
 - **Contested claims** have the highest reserve (40%) and lowest max release (60%) because they're by definition under dispute. The protocol is saying: "We'll pay you, but we're hedging heavily."
 
-## Category Reward Multipliers
+## Legacy category reward multipliers
 
-Beyond vesting timing, each category also has a reward multiplier applied to block rewards:
+The Params wire shape retains the following category multipliers for
+compatibility, but current production logic does not apply them to a block
+reward. H2 retires transaction-presence block minting entirely, and an
+ordinary Params update cannot pretend these non-operative values create a
+payout.
 
-| Category | Multiplier | Rationale |
+| Category | Compatibility value | Historical rationale |
 |----------|-----------|-----------|
 | Axiomatic | 1.2× | Foundational knowledge, highest value |
 | Formal Proof | 1.1× | High rigor, high durability |

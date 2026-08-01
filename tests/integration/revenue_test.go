@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"math/big"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -27,67 +26,59 @@ import (
 func TestCompleteRevenueMap(t *testing.T) {
 	h := setupRevenueHarness(t)
 
-	// SOURCE 1: Block Rewards (10 ZRN = 10,000,000 uzrn at full validators)
+	// Revenue earned by independently witnessed work still uses the transparent
+	// four-way router. It is not minted merely because a transaction appeared.
+	routing, err := h.vestingKeeper.DistributeRevenue(
+		h.ctx,
+		vestingtypes.SourceVerification,
+		"1000000",
+		h.producerAddr.String(),
+		"fact-1",
+	)
+	if err != nil {
+		t.Fatalf("revenue routing failed: %v", err)
+	}
+
+	want := map[string]string{
+		"contributor":  "550000",
+		"protocol":     "220000",
+		"research":     "33300",
+		"development":  "196700",
+		"founder":      "0",
+		"verification": "66000",
+	}
+	got := map[string]string{
+		"contributor":  routing.ContributorShare,
+		"protocol":     routing.ProtocolShare,
+		"research":     routing.ResearchShare,
+		"development":  routing.DevelopmentAmount,
+		"founder":      routing.FounderShare,
+		"verification": routing.VerificationPool,
+	}
+	for part, expected := range want {
+		if got[part] != expected {
+			t.Errorf("%s share: got %s, want %s", part, got[part], expected)
+		}
+	}
+
+	// The compatibility block-reward entry point is inert under v2 params even
+	// when the proposer supplies a transaction-bearing block.
 	dist, err := h.vestingKeeper.DistributeBlockReward(h.ctx, h.producerAddr.String(), 22, true)
 	if err != nil {
-		t.Fatalf("block reward distribution failed: %v", err)
+		t.Fatalf("retired block reward path returned an error: %v", err)
 	}
-
-	totalMinted := new(big.Int)
-	totalMinted.SetString(dist.TotalMinted, 10)
-	if totalMinted.Sign() <= 0 {
-		t.Fatal("expected non-zero block reward mint")
+	if dist.TotalMinted != "0" || dist.ProducerReward != "0" || dist.ResearchShare != "0" ||
+		dist.DevelopmentAmount != "0" || dist.ProtocolShare != "0" {
+		t.Fatalf("transaction presence produced a non-zero distribution: %+v", dist)
 	}
-
-	// 4-way revenue split: contributor 55%, protocol 22%, development 19.67%, research 3.33%
-	bps := big.NewInt(1000000)
-
-	// The complete 3.33% research allocation reaches the research fund.
-	expectedResearch := new(big.Int).Mul(totalMinted, big.NewInt(33300))
-	expectedResearch.Div(expectedResearch, bps)
-
-	researchShare := new(big.Int)
-	researchShare.SetString(dist.ResearchShare, 10)
-	if researchShare.Cmp(expectedResearch) != 0 {
-		t.Errorf("block reward research share: got %s, want %s", researchShare, expectedResearch)
+	if !h.bk.totalMinted().IsZero() {
+		t.Fatalf("transaction presence minted %s uzrn", h.bk.totalMinted())
 	}
-
-	founderShare := new(big.Int)
-	founderShare.SetString(dist.FounderShare, 10)
-	if founderShare.Sign() != 0 {
-		t.Errorf("block reward founder compatibility field must be zero, got %s", founderShare)
-	}
-
-	// Contributor (producer) = 55% of total
-	expectedProducer := new(big.Int).Mul(totalMinted, big.NewInt(550000))
-	expectedProducer.Div(expectedProducer, bps)
-
-	producerReward := new(big.Int)
-	producerReward.SetString(dist.ProducerReward, 10)
-	if producerReward.Cmp(expectedProducer) != 0 {
-		t.Errorf("block reward producer: got %s, want %s", producerReward, expectedProducer)
-	}
-
-	// Protocol = 22% of total
-	protocolAmt := new(big.Int).Mul(totalMinted, big.NewInt(220000))
-	protocolAmt.Div(protocolAmt, bps)
-
-	// Protocol sub-split: the verification pool (30% of protocol) funds
-	// knowledge in full (the former compute_pool slice was removed with
-	// x/compute_pool in the slim cut).
-	verificationPool := new(big.Int).Mul(protocolAmt, big.NewInt(300000))
-	verificationPool.Div(verificationPool, bps)
-
-	knowledgeSent := h.bk.totalSentToModule("knowledge")
-	if !knowledgeSent.Equal(sdkmath.NewIntFromBigInt(verificationPool)) {
-		t.Errorf("knowledge module received %s, want %s", knowledgeSent, verificationPool)
-	}
-
 }
 
-// ---------- Test 2: Founder Renunciation Across Deposit Sources ----------
+// ---------- Test 2: Full Research Routing Across Sources ----------
 
-func TestFounderRenunciationAllSources(t *testing.T) {
+func TestResearchDepositsRemainWholeAcrossSources(t *testing.T) {
 	h := setupRevenueHarness(t)
 	depositAmount := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1000000)))
 
@@ -123,7 +114,7 @@ func TestFounderRenunciationAllSources(t *testing.T) {
 
 			founderGot := bk.totalSentToAddr(h.founderAddr.String())
 			if !founderGot.IsZero() {
-				t.Errorf("retired founder recipient got %s from %s, want 0", founderGot, source)
+				t.Errorf("retired founder account got %s from %s", founderGot, source)
 			}
 
 			researchGot := bk.totalSentToModule("research_fund")
@@ -131,72 +122,33 @@ func TestFounderRenunciationAllSources(t *testing.T) {
 				t.Errorf("research_fund got %s from %s, want %s", researchGot, source, expectedResearch)
 			}
 
-			if !researchGot.Equal(sdkmath.NewInt(1000000)) {
-				t.Errorf("total routed %s from %s, want 1000000 (dust detected)", researchGot, source)
+			if !researchGot.Equal(depositAmount.AmountOf("uzrn")) {
+				t.Errorf("deposit conservation failed for %s: routed %s, input %s", source, researchGot, depositAmount)
 			}
 		})
 	}
 }
 
-// ---------- Test 3: No Double Taxation ----------
+// ---------- Test 3: Research Escrow Has One Beneficiary ----------
 
-func TestNoDoubleTaxation(t *testing.T) {
+func TestResearchEscrowHasOneBeneficiary(t *testing.T) {
 	h := setupRevenueHarness(t)
+	deposit := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1_000_000)))
 
-	dist, err := h.vestingKeeper.DistributeBlockReward(h.ctx, h.producerAddr.String(), 22, true)
-	if err != nil {
-		t.Fatalf("block reward failed: %v", err)
+	if err := h.vestingKeeper.DepositToResearchFund(h.ctx, "knowledge", deposit); err != nil {
+		t.Fatalf("research deposit failed: %v", err)
 	}
-
-	totalMinted := new(big.Int)
-	totalMinted.SetString(dist.TotalMinted, 10)
-
-	// 4-way split: contributor 55%, protocol 22%, development 19.67%, research 3.33%
-	bps := big.NewInt(1000000)
-
-	researchNet := new(big.Int)
-	researchNet.SetString(dist.ResearchShare, 10)
-	founderAmt := new(big.Int)
-	founderAmt.SetString(dist.FounderShare, 10)
-	if founderAmt.Sign() != 0 {
-		t.Fatalf("founder compatibility output must be zero, got %s", founderAmt)
+	if got := h.bk.totalSentToModule(vestingtypes.ModuleName); !got.Equal(sdkmath.NewInt(1_000_000)) {
+		t.Errorf("vesting escrow received %s, want 1000000", got)
 	}
-
-	// Knowledge module receives from protocol sub-split (30% verification × 70% to knowledge)
-	knowledgeModuleBalance := h.bk.totalSentToModule("knowledge")
-
-	// Compute expected knowledge balance from the actual 4-way split
-	protocolAmt := new(big.Int).Mul(totalMinted, big.NewInt(220000))
-	protocolAmt.Div(protocolAmt, bps)
-	verificationPool := new(big.Int).Mul(protocolAmt, big.NewInt(300000))
-	verificationPool.Div(verificationPool, bps)
-	expectedKnowledgeBalance := verificationPool
-
-	if !knowledgeModuleBalance.Equal(sdkmath.NewIntFromBigInt(expectedKnowledgeBalance)) {
-		t.Errorf("knowledge module balance %s != expected %s — possible double taxation",
-			knowledgeModuleBalance, expectedKnowledgeBalance)
+	if got := h.bk.totalSentToModule(vestingtypes.ResearchFundModuleName); !got.Equal(sdkmath.NewInt(1_000_000)) {
+		t.Errorf("research fund received %s, want 1000000", got)
 	}
-
-	// The key no-double-tax invariant: verifier receives full knowledge balance
-	// without additional research deduction (tax was applied at mint time only).
-	verifierAddr := sdk.AccAddress("verifier____________")
-	_ = verifierAddr
-
-	// Full accounting: all parts sum to total minted
-	producerReward := new(big.Int)
-	producerReward.SetString(dist.ProducerReward, 10)
-	burnAmt := new(big.Int)
-	burnAmt.SetString(dist.DevelopmentAmount, 10)
-	protocolShare := new(big.Int)
-	protocolShare.SetString(dist.ProtocolShare, 10)
-
-	// Total = producer + protocol + research + development.
-	accounting := new(big.Int).Add(producerReward, protocolShare)
-	accounting.Add(accounting, researchNet)
-	accounting.Add(accounting, burnAmt)
-
-	if accounting.Cmp(totalMinted) != 0 {
-		t.Errorf("accounting mismatch: sum of parts %s != total minted %s", accounting, totalMinted)
+	if got := h.bk.totalSentToAddr(h.founderAddr.String()); !got.IsZero() {
+		t.Errorf("retired founder account received %s", got)
+	}
+	if got := h.bk.totalMinted(); !got.IsZero() {
+		t.Errorf("moving existing research revenue unexpectedly minted %s", got)
 	}
 }
 
@@ -213,9 +165,16 @@ func TestDeadAccountsRemoved(t *testing.T) {
 		"treasury_reserve",
 	}
 
-	_, err := h.vestingKeeper.DistributeBlockReward(h.ctx, h.producerAddr.String(), 22, true)
+	deposit := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(1_000_000)))
+	dist, err := h.vestingKeeper.DistributeBlockReward(h.ctx, h.producerAddr.String(), 22, true)
 	if err != nil {
-		t.Fatalf("block reward failed: %v", err)
+		t.Fatalf("retired reward path failed: %v", err)
+	}
+	if dist.TotalMinted != "0" {
+		t.Fatalf("transaction presence minted %s before research deposit", dist.TotalMinted)
+	}
+	if err := h.vestingKeeper.DepositToResearchFund(h.ctx, vestingtypes.ModuleName, deposit); err != nil {
+		t.Fatalf("research deposit failed: %v", err)
 	}
 
 	for _, name := range deadAccounts {
@@ -225,29 +184,27 @@ func TestDeadAccountsRemoved(t *testing.T) {
 		}
 	}
 
-	activeAccounts := map[string]bool{
-		"research_fund":    true,
-		"knowledge":        true,
-		"development_fund": true,
+	if sent := h.bk.totalSentToModule(vestingtypes.ResearchFundModuleName); !sent.IsPositive() {
+		t.Errorf("active research fund received zero")
 	}
-	for name := range activeAccounts {
-		sent := h.bk.totalSentToModule(name)
-		if !sent.IsPositive() {
-			t.Errorf("active account %q received zero — expected positive balance", name)
-		}
+	if sent := h.bk.totalSentToModule("knowledge"); !sent.IsZero() {
+		t.Errorf("retired transaction-presence reward sent %s to knowledge", sent)
 	}
 }
 
 // ---------- Test 6: Full Ledger Balance ----------
 
-func TestLedgerBalance(t *testing.T) {
+func TestTransactionPresenceDoesNotChangeLedgerSupply(t *testing.T) {
 	h := setupRevenueHarness(t)
 
 	for i := 0; i < 5; i++ {
 		h.ctx = h.ctx.WithBlockHeight(int64(1000 + i))
-		_, err := h.vestingKeeper.DistributeBlockReward(h.ctx, h.producerAddr.String(), 22, true)
+		dist, err := h.vestingKeeper.DistributeBlockReward(h.ctx, h.producerAddr.String(), uint32(i+1), i%2 == 0)
 		if err != nil {
-			t.Fatalf("block %d reward failed: %v", 1000+i, err)
+			t.Fatalf("block %d retired reward path failed: %v", 1000+i, err)
+		}
+		if dist.TotalMinted != "0" {
+			t.Errorf("block %d minted %s from transaction presence", 1000+i, dist.TotalMinted)
 		}
 	}
 
@@ -261,25 +218,12 @@ func TestLedgerBalance(t *testing.T) {
 			actualSupply, totalMinted, totalBurned, expectedSupply)
 	}
 
-	var totalDistributed sdkmath.Int = sdkmath.ZeroInt()
-
-	for module, coins := range h.bk.sentToModule {
-		amt := coins.AmountOf("uzrn")
-		if amt.IsPositive() {
-			t.Logf("  module %s: %s uzrn", module, amt)
-			totalDistributed = totalDistributed.Add(amt)
-		}
+	if !totalMinted.IsZero() || !totalBurned.IsZero() || !actualSupply.IsZero() {
+		t.Errorf("retired automatic issuance changed ledger: minted=%s burned=%s supply=%s", totalMinted, totalBurned, actualSupply)
 	}
-
-	for addr, coins := range h.bk.sentToAccount {
-		amt := coins.AmountOf("uzrn")
-		if amt.IsPositive() {
-			t.Logf("  account %s: %s uzrn", addr, amt)
-			totalDistributed = totalDistributed.Add(amt)
-		}
+	if len(h.bk.sentToAccount) != 0 || len(h.bk.sentToModule) != 0 {
+		t.Errorf("retired automatic issuance moved funds: accounts=%v modules=%v", h.bk.sentToAccount, h.bk.sentToModule)
 	}
-
-	t.Logf("Total minted: %s, burned: %s, distributed: %s", totalMinted, totalBurned, totalDistributed)
 }
 
 // ---------- Test 7: DepositToResearchFund with No Founder ----------
@@ -321,81 +265,41 @@ func TestDepositToResearchFund_NoFounder(t *testing.T) {
 	}
 }
 
-// ---------- Test 9: Verification Reward Decay Pool Solvency ----------
+// ---------- Test 9: Automatic Reward Compatibility Surface Is Inert ----------
 
-func TestVerificationRewardDecay_PoolSolvency(t *testing.T) {
-	// Zerone: baseReward = 10,000,000 uzrn (10 ZRN)
-	baseReward := uint64(10000000)
-	decayBps := uint64(994478)    // ~1-year half-life (0.994478x per epoch)
-	floorReward := uint64(100000) // 0.1 ZRN
-
-	baseRewardBig := new(big.Int).SetUint64(baseReward)
-	var prev uint64 = baseReward
-	floorReached := false
-
-	// With 1-year half-life, floor (~0.1 ZRN) is reached at ~epoch 832 (~year 6.6).
-	// Sample key epochs to verify monotonic decay without iterating all 850.
-	checkEpochs := []uint64{0, 1, 2, 5, 10, 50, 100, 125, 250, 500, 750, 832, 850}
-	for _, epoch := range checkEpochs {
-		decayed := testApplyDecay(baseRewardBig, decayBps, epoch).Uint64()
-
-		if decayed > baseReward {
-			t.Errorf("epoch %d: decayed %d > base %d", epoch, decayed, baseReward)
-		}
-
-		if decayed > prev {
-			t.Errorf("epoch %d: decayed %d > previous %d — not monotonic", epoch, decayed, prev)
-		}
-
-		if decayed < floorReward {
-			floorReached = true
-		}
-
-		if epoch == 0 && decayed != baseReward {
-			t.Errorf("epoch 0: expected %d, got %d", baseReward, decayed)
-		}
-
-		// At epoch 1, reward should be 0.994478 * 10,000,000 = 9,944,780
-		if epoch == 1 {
-			expected := uint64(9944780)
-			if decayed != expected {
-				t.Errorf("epoch 1: expected %d, got %d", expected, decayed)
-			}
-		}
-
-		prev = decayed
+func TestAutomaticRewardCompatibilitySurfaceIsInert(t *testing.T) {
+	h := setupRevenueHarness(t)
+	params := h.vestingKeeper.GetParams(h.ctx)
+	if params.BlockReward != "0" || params.FloorReward != "0" || params.EmptyBlockRewardRate != 0 {
+		t.Fatalf("automatic reward fields are not neutral: block=%q floor=%q empty_rate=%d",
+			params.BlockReward, params.FloorReward, params.EmptyBlockRewardRate)
 	}
 
-	if !floorReached {
-		t.Errorf("floor reward %d was never reached by epoch 850", floorReward)
-	}
-
-	// At epoch 850, decay should be well below floor
-	deepDecay := testApplyDecay(baseRewardBig, decayBps, 850).Uint64()
-	if deepDecay >= floorReward {
-		t.Errorf("epoch 850: expected decay below floor, got %d (floor %d)", deepDecay, floorReward)
+	for _, epoch := range []uint64{0, 1, 10, 850, 1_000_000} {
+		if got := h.vestingKeeper.GetEpochBlockRewardPool(h.ctx, epoch); got != 0 {
+			t.Errorf("epoch %d advertises a retired reward pool of %d", epoch, got)
+		}
 	}
 }
 
-// ---------- Test 10: Full Revenue Flow With Verification Pool ----------
+// ---------- Test 10: Real Fee Revenue Still Flows ----------
 
-func TestFullRevenueFlow_WithVerificationPool(t *testing.T) {
+func TestRealFeeRevenueStillFlows(t *testing.T) {
 	h := setupRevenueHarness(t)
 
-	// --- Part A: Block reward distributes to verification pool ---
-	dist, err := h.vestingKeeper.DistributeBlockReward(h.ctx, h.producerAddr.String(), 22, true)
-	if err != nil {
-		t.Fatalf("block reward distribution failed: %v", err)
+	// Route an existing research receipt. Unlike transaction-presence rewards,
+	// this transfers already-owned value and cannot alter supply.
+	amount := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewInt(33300)))
+	if err := h.vestingKeeper.DepositToResearchFund(h.ctx, vestingtypes.ModuleName, amount); err != nil {
+		t.Fatalf("research fee deposit failed: %v", err)
 	}
-
-	totalMinted := new(big.Int)
-	totalMinted.SetString(dist.TotalMinted, 10)
-	if totalMinted.Sign() <= 0 {
-		t.Fatal("expected non-zero block reward mint")
+	if got := h.bk.totalSentToModule(vestingtypes.ResearchFundModuleName); !got.Equal(sdkmath.NewInt(33300)) {
+		t.Errorf("research fund received %s, want 33300", got)
 	}
-
-	knowledgeSent := h.bk.totalSentToModule("knowledge")
-	if !knowledgeSent.IsPositive() {
-		t.Error("knowledge module received zero from block reward — verification pool missing")
+	if got := h.bk.totalSentToAddr(h.founderAddr.String()); !got.IsZero() {
+		t.Errorf("retired founder account received %s from real fees", got)
+	}
+	if got := h.bk.totalMinted(); !got.IsZero() {
+		t.Errorf("routing real fees minted %s", got)
 	}
 }

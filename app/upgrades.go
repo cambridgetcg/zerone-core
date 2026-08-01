@@ -25,7 +25,6 @@ const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
 const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
-const UpgradeNameLiquiditySafetyV2 = "liquiditypool-safety-v2"
 const UpgradeNameFounderRenunciationV1 = "founder-renunciation-v1"
 
 // runMigrationsForPlan prevents vesting_rewards v1→v2 from silently riding an
@@ -423,12 +422,15 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	//     settlement of legacy stored records;
 	//   - falsification clawback requires an adjudicated disproven fact;
 	//   - knowledge probe work is cursor-bounded and K-alpha recognition is
-	//     emitted only for eligible factual survival.
+	//     emitted only for eligible factual survival;
+	//   - liquiditypool v5 keeps every swap fee in the pool for bearer LP
+	//     shares and removes protocol skims.
 	//
-	// knowledge v5→v6 provides a verifiable module-version boundary. The
-	// claiming_pot v1→v2 migration charges pre-upgrade general pots against the
-	// lifetime issuance budget and reconstructs their monotonic ID counter.
-	// Operators therefore cannot mistake a plain binary restart for activation.
+	// knowledge v5→v6 and liquiditypool v3→v5 provide verifiable module-version
+	// boundaries. The claiming_pot v1→v2 migration charges pre-upgrade general
+	// pots against the lifetime issuance budget and reconstructs their monotonic
+	// ID counter. The exact historical release for this plan must target
+	// vesting_rewards v1; this later source refuses to let the plan carry v2.
 	app.UpgradeKeeper.SetUpgradeHandler(
 		UpgradeNameConsolidationSafetyV1,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
@@ -450,49 +452,11 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		},
 	)
 
-	// liquiditypool-safety-v2 — the named post-consolidation readiness
-	// checkpoint for
-	// liquiditypool consensus v4. The v4 state transition makes pool lifecycle
-	// explicit and bounded: final exits close rather than leave re-seedable
-	// zero-supply pools, governance controls pool status, pool growth is finite,
-	// creator-selected fees are disabled, asset/creator admission starts empty,
-	// fee math uses a strict parts-per-million scale, and oracle reads remain
-	// fail-closed unless a quote denom and ACTIVE pool are both approved.
-	//
-	// consolidation-safety-v1 is already pending and must be scheduled first.
-	// Its RunMigrations call may advance liquiditypool v3→v4 before this named
-	// checkpoint is reached. That is intentional and safe: RunMigrations skips a
-	// module already at its current ConsensusVersion, while this handler still
-	// reconciles stored module-account permissions and records the dedicated
-	// liquidity readiness marker. Operators must not enable native pools or
-	// their oracle before this later upgrade and its release gates pass.
-	app.UpgradeKeeper.SetUpgradeHandler(
-		UpgradeNameLiquiditySafetyV2,
-		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
-			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
-
-			toVM, err := app.runMigrationsForPlan(ctx, plan, fromVM)
-			if err != nil {
-				return nil, err
-			}
-
-			// Permanent reconcile step (kept in every handler — see v1.0.3).
-			app.ReconcileModuleAccountPerms(ctx)
-
-			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_liquiditypool-safety-v2", "migrated"); err != nil {
-				return nil, err
-			}
-
-			return toVM, nil
-		},
-	)
-
 	// founder-renunciation-v1 — dedicated activation boundary for
-	// vesting_rewards v1→v2. The migration clears both legacy founder fields;
-	// v2 reward routing contains no founder recipient or arithmetic. This name
-	// must receive its own release digest, rehearsal, and governance-selected
-	// height. Publishing source does not authorize using this binary for an
-	// earlier or unrelated upgrade plan.
+	// vesting_rewards v1→v2. The migration clears legacy founder fields and the
+	// retired transaction-presence reward parameters; v2 contains neither
+	// automatic issuance nor founder payout arithmetic. This name must receive
+	// its own release digest, rehearsal, and governance-selected height.
 	app.UpgradeKeeper.SetUpgradeHandler(
 		UpgradeNameFounderRenunciationV1,
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
@@ -574,13 +538,6 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameAgenttoolSeamV1, UpgradeNameConsolidationSafetyV1:
 		// Migration-only — both upgrades operate within existing module stores
 		// and add no top-level store keys.
-		storeUpgrades := storetypes.StoreUpgrades{}
-		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
-
-	case UpgradeNameLiquiditySafetyV2:
-		// Migration-only — liquiditypool v3→v4 uses new fields and prefixes in
-		// the existing liquiditypool store. If consolidation-safety-v1 already
-		// advanced the module to v4, RunMigrations skips it safely.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 

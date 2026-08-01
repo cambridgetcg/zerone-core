@@ -59,6 +59,17 @@ assert(
   liquidity.minimumOutputForSlippage("100", 10_000n) === "99",
   "liquidity export failed",
 );
+const noSkim = liquidity.discloseLiquiditySwapFee({
+  tokenInDenom: "uzrn",
+  feeAmount: "30",
+  protocolFeeMillionths: 0n,
+});
+assert(
+  noSkim.policy === "NO_PROTOCOL_SKIM" &&
+    noSkim.poolRetainedFeeAmount === "30" &&
+    noSkim.protocolFeeAmount === "0",
+  "liquidity fee disclosure export failed",
+);
 assert(
   encoded.typeUrl === "/zerone.auth.v1.MsgRegisterAccount" &&
     encoded.value instanceof Uint8Array,

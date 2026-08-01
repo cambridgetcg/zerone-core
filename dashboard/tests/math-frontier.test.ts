@@ -34,6 +34,14 @@ const canonicalRaw = readFileSync(
   "utf8",
 );
 const canonical = JSON.parse(canonicalRaw) as MutableFrontier;
+const runtimeSource = readFileSync(
+  new URL("../src/math-frontier.ts", import.meta.url),
+  "utf8",
+);
+const mainSource = readFileSync(
+  new URL("../src/main.ts", import.meta.url),
+  "utf8",
+);
 
 function copyFrontier(): MutableFrontier {
   return structuredClone(canonical) as MutableFrontier;
@@ -484,6 +492,21 @@ describe("Math Frontier presentation helpers", () => {
         }),
       ).map((capability) => capability.id),
       ["quest-math-formal-construction@1"],
+    );
+  });
+
+  it("corrects a cold direct anchor without a competing smooth scroll", () => {
+    assert.match(
+      runtimeSource,
+      /#math-frontier[\s\S]*scrollIntoView\(\{[\s\S]*block: "start",[\s\S]*behavior: "instant",/,
+    );
+    assert.match(
+      mainSource,
+      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*mathFrontierReady,\s*\]\)\.then\(alignInitialHash\)/,
+    );
+    assert.match(
+      mainSource,
+      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*mathFrontierReady,\s*initialNetworkReady,\s*\]\)\.then\(alignInitialHash\)/,
     );
   });
 });

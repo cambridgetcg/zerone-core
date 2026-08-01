@@ -12,6 +12,7 @@ import (
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
+	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 // ─── Wave 10: end-to-end upgrade pipeline tests ─────────────────────────
@@ -43,7 +44,7 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 
 	// The report binds the current consensus releases for modules whose named
 	// activation boundaries are pending.
-	var sawKnowledge, sawLiquidityPool bool
+	var sawKnowledge, sawLiquidityPool, sawVestingRewards bool
 	for _, m := range report.Modules {
 		switch m.ModuleName {
 		case "knowledge":
@@ -52,12 +53,17 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 				"knowledge module advertises its current ConsensusVersion")
 		case liquiditypooltypes.ModuleName:
 			sawLiquidityPool = true
-			require.Equal(t, uint64(4), m.ConsensusVersion,
-				"liquiditypool module advertises the safety-v2 ConsensusVersion")
+			require.Equal(t, uint64(5), m.ConsensusVersion,
+				"liquiditypool module advertises the LP-only fee ConsensusVersion")
+		case vestingrewardstypes.ModuleName:
+			sawVestingRewards = true
+			require.Equal(t, uint64(2), m.ConsensusVersion,
+				"vesting_rewards advertises the retired automatic-tap ConsensusVersion")
 		}
 	}
 	require.True(t, sawKnowledge, "knowledge module appears in report")
 	require.True(t, sawLiquidityPool, "liquiditypool module appears in report")
+	require.True(t, sawVestingRewards, "vesting_rewards module appears in report")
 }
 
 // TestUpgrade_V1ToV2MigrationPipeline — exercise the v1.0.1-testnet upgrade
@@ -228,23 +234,11 @@ func TestUpgrade_LineageParityWithHandlers(t *testing.T) {
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameDoctrineMetabolismExemptV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameSubstrateDedupeV1)
 	require.Contains(t, lineageNames, zeroneapp.UpgradeNameConsolidationSafetyV1)
-	require.Contains(t, lineageNames, zeroneapp.UpgradeNameLiquiditySafetyV2)
-
-	// Operators must apply the already-pending consolidation boundary first.
-	// Keep the advertised lineage in that same order.
-	var consolidationIndex, liquidityIndex = -1, -1
-	for i, name := range lineageNames {
-		switch name {
-		case zeroneapp.UpgradeNameConsolidationSafetyV1:
-			consolidationIndex = i
-		case zeroneapp.UpgradeNameLiquiditySafetyV2:
-			liquidityIndex = i
-		}
-	}
-	require.NotEqual(t, -1, consolidationIndex)
-	require.NotEqual(t, -1, liquidityIndex)
-	require.Less(t, consolidationIndex, liquidityIndex,
-		"liquiditypool-safety-v2 must be advertised after consolidation-safety-v1")
+	require.Contains(t, lineageNames, zeroneapp.UpgradeNameFounderRenunciationV1)
+	require.NotContains(t, lineageNames, "liquiditypool-safety-v2",
+		"the atomic H1 binary must not advertise a future handler")
+	require.False(t, h.App.UpgradeKeeper.HasHandler("liquiditypool-safety-v2"),
+		"registering a future H2 handler in the H1 binary triggers x/upgrade's early-binary guard")
 }
 
 // TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1
@@ -356,12 +350,25 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 	h := NewTestHarness(t)
 
 	current := h.App.CurrentModuleVersionMap()
+
+	// Reproduce the published pre-H1 liquidity shape. This later binary may
+	// exercise the historical handler only once vesting_rewards is already v2;
+	// the dedicated founder test covers the isolated v1→v2 boundary.
+	legacyLiquidity := h.App.LiquidityPoolKeeper.GetParams(h.Ctx)
+	legacyLiquidity.ProtocolFeeBps = 450_000
+	legacyLiquidity.MaxPools = 0
+	legacyLiquidity.AllowedPoolDenoms = nil
+	legacyLiquidity.PoolCreators = nil
+	legacyLiquidity.BillingQuoteDenoms = nil
+	h.App.LiquidityPoolKeeper.SetParams(h.Ctx, legacyLiquidity)
+
 	fromVM := make(module.VersionMap, len(current))
 	for name, version := range current {
 		fromVM[name] = version
 	}
 	fromVM["knowledge"] = 5
 	fromVM["claiming_pot"] = 1
+	fromVM[liquiditypooltypes.ModuleName] = 3
 
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
@@ -372,6 +379,19 @@ func TestUpgrade_ConsolidationSafetyV1RecordsActivationBoundary(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(6), toVM["knowledge"])
 	require.Equal(t, uint64(2), toVM["claiming_pot"])
+	require.Equal(t, uint64(5), toVM[liquiditypooltypes.ModuleName])
+	require.Equal(t, uint64(2), toVM[vestingrewardstypes.ModuleName])
+
+	liquidityParams := h.App.LiquidityPoolKeeper.GetParams(h.Ctx)
+	require.Zero(t, liquidityParams.ProtocolFeeBps,
+		"H1 retires the protocol skim")
+	require.Empty(t, liquidityParams.AllowedPoolDenoms,
+		"pool asset admission remains fail-closed")
+	require.Empty(t, liquidityParams.PoolCreators,
+		"pool creator admission remains fail-closed")
+	require.Empty(t, liquidityParams.BillingQuoteDenoms,
+		"billing oracle admission remains fail-closed")
+
 	require.Equal(t, "true",
 		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "migration_v6_complete"),
 		"knowledge migration marker proves the module activation boundary ran")
@@ -415,98 +435,62 @@ func TestUpgrade_ConsolidationSafetyV1CannotBeBlockedByAnUnrelatedBallot(t *test
 		"the upgrade must not rewrite an unrelated ballot")
 }
 
-// TestUpgrade_LiquiditySafetyV2AfterConsolidationIsIdempotent binds the
-// production sequencing rule. consolidation-safety-v1 runs migrations first
-// and may therefore advance liquiditypool v3→v4. The later, dedicated
-// liquiditypool-safety-v2 handler must still succeed, keep the module at v4,
-// reconcile permissions, and record its own readiness checkpoint.
-func TestUpgrade_LiquiditySafetyV2AfterConsolidationIsIdempotent(t *testing.T) {
+// The historical handler retains the permanent module-account reconciliation
+// step. It restores liquidity's LP-only mint/burn authority and strips any
+// drifted vesting_rewards mint/burn permission once v2 is already active.
+func TestUpgrade_ConsolidationSafetyV1ReconcilesEconomicPermissions(t *testing.T) {
 	h := NewTestHarness(t)
 
-	current := h.App.CurrentModuleVersionMap()
-	require.Equal(t, uint64(4), current[liquiditypooltypes.ModuleName],
-		"test requires the approved liquiditypool consensus v4 binary")
+	liquidityAccount := h.AccountKeeper.GetModuleAccount(h.Ctx, liquiditypooltypes.ModuleName)
+	require.NotNil(t, liquidityAccount)
+	vestingAccount := h.AccountKeeper.GetModuleAccount(h.Ctx, vestingrewardstypes.ModuleName)
+	require.NotNil(t, vestingAccount)
 
-	// Reproduce the v3 params shape: zero meant unlimited and neither
-	// creation-admission field existed on the wire.
-	legacyParams := h.App.LiquidityPoolKeeper.GetParams(h.Ctx)
-	legacyParams.MaxPools = 0
-	legacyParams.AllowedPoolDenoms = nil
-	legacyParams.PoolCreators = nil
-	h.App.LiquidityPoolKeeper.SetParams(h.Ctx, legacyParams)
-
-	beforeConsolidation := make(module.VersionMap, len(current))
-	for name, version := range current {
-		beforeConsolidation[name] = version
-	}
-	beforeConsolidation[liquiditypooltypes.ModuleName] = 3
-
-	afterConsolidation, err := h.App.RunUpgradeHandlerForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameConsolidationSafetyV1,
-		beforeConsolidation,
-		h.Height(),
-	)
-	require.NoError(t, err)
-	require.Equal(t, uint64(4), afterConsolidation[liquiditypooltypes.ModuleName],
-		"the earlier RunMigrations may already advance liquiditypool to v4")
-	migratedParams := h.App.LiquidityPoolKeeper.GetParams(h.Ctx)
-	require.Equal(t, uint64(16), migratedParams.MaxPools,
-		"v4 migration must replace the legacy unlimited pool cap")
-	require.Empty(t, migratedParams.AllowedPoolDenoms,
-		"v4 migration must leave asset admission fail-closed")
-	require.Empty(t, migratedParams.PoolCreators,
-		"v4 migration must leave creator admission fail-closed")
-
-	afterLiquidityReadiness, err := h.App.RunUpgradeHandlerForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameLiquiditySafetyV2,
-		afterConsolidation,
-		h.Height()+1,
-	)
-	require.NoError(t, err,
-		"the named liquidity readiness checkpoint must be safe after v4 already migrated")
-	require.Equal(t, uint64(4), afterLiquidityReadiness[liquiditypooltypes.ModuleName])
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_liquiditypool-safety-v2"),
-		"the dedicated handler marker proves the later readiness checkpoint ran")
-}
-
-// TestUpgrade_LiquiditySafetyV2ReconcilesModulePermissions proves the new
-// handler retains the permanent safety step shared by all release handlers.
-func TestUpgrade_LiquiditySafetyV2ReconcilesModulePermissions(t *testing.T) {
-	h := NewTestHarness(t)
-
-	moduleAccount := h.AccountKeeper.GetModuleAccount(h.Ctx, liquiditypooltypes.ModuleName)
-	require.NotNil(t, moduleAccount)
-
-	// Reproduce an old stored account whose permissions drifted from maccPerms.
+	// Reproduce an old liquidity account missing LP permissions.
 	h.AccountKeeper.SetModuleAccount(h.Ctx, authtypes.NewModuleAccount(
 		authtypes.NewBaseAccount(
-			moduleAccount.GetAddress(),
+			liquidityAccount.GetAddress(),
 			nil,
-			moduleAccount.GetAccountNumber(),
-			moduleAccount.GetSequence(),
+			liquidityAccount.GetAccountNumber(),
+			liquidityAccount.GetSequence(),
 		),
 		liquiditypooltypes.ModuleName,
+	))
+	// Reproduce the pre-v2 vesting account with mint/burn permissions.
+	h.AccountKeeper.SetModuleAccount(h.Ctx, authtypes.NewModuleAccount(
+		authtypes.NewBaseAccount(
+			vestingAccount.GetAddress(),
+			nil,
+			vestingAccount.GetAccountNumber(),
+			vestingAccount.GetSequence(),
+		),
+		vestingrewardstypes.ModuleName,
+		authtypes.Minter,
+		authtypes.Burner,
 	))
 
 	drifted := h.AccountKeeper.GetModuleAccount(h.Ctx, liquiditypooltypes.ModuleName)
 	require.Empty(t, drifted.GetPermissions(), "precondition: stored permissions drifted")
+	require.ElementsMatch(t, []string{authtypes.Minter, authtypes.Burner},
+		h.AccountKeeper.GetModuleAccount(h.Ctx, vestingrewardstypes.ModuleName).GetPermissions())
 
 	fromVM := h.App.CurrentModuleVersionMap()
 	toVM, err := h.App.RunUpgradeHandlerForTests(
 		h.Ctx,
-		zeroneapp.UpgradeNameLiquiditySafetyV2,
+		zeroneapp.UpgradeNameConsolidationSafetyV1,
 		fromVM,
 		h.Height(),
 	)
 	require.NoError(t, err)
-	require.Equal(t, uint64(4), toVM[liquiditypooltypes.ModuleName])
+	require.Equal(t, uint64(5), toVM[liquiditypooltypes.ModuleName])
+	require.Equal(t, uint64(2), toVM[vestingrewardstypes.ModuleName])
 
 	reconciled := h.AccountKeeper.GetModuleAccount(h.Ctx, liquiditypooltypes.ModuleName)
 	require.ElementsMatch(t,
 		[]string{authtypes.Minter, authtypes.Burner},
 		reconciled.GetPermissions(),
-		"handler must restore the permissions declared by app maccPerms")
+		"H1 must restore liquidity's LP mint/burn permissions")
+	require.Empty(t,
+		h.AccountKeeper.GetModuleAccount(h.Ctx, vestingrewardstypes.ModuleName).GetPermissions(),
+		"H1 must remove vesting_rewards' retired mint/burn permissions")
 }

@@ -33,10 +33,10 @@ transferable 2,222 ZRN operator float. Those balances carry consensus and
 operational power; every address and amount is published in the hash-bound
 [genesis manifest](../deploy/mainnet/artifacts/GENESIS-MANIFEST.md).
 
-After genesis, native issuance shares the `MintWithCap` gate. The published
-configuration includes transaction-bearing block rewards, claiming-pot claims,
-and substrate-bridge attestation rewards. An ordinary user transaction makes a
-block reward-eligible; eligibility is not proof of verified truth.
+After genesis, native issuance shares the `MintWithCap` gate. The later
+`founder-renunciation-v1` H2 boundary retires
+the former transaction-bearing proposer reward. Remaining source-capable lanes
+include claiming-pot claims and substrate-bridge attestation rewards;
 `x/claiming_pot` also retains governance-created general pots under the same
 lifetime budget as bootstrap claims. A knowledge probe rate and `x/tokens`
 emission periods are additional governance controls, both disabled in
@@ -45,10 +45,10 @@ source inventory and activation status.
 
 | Account | Genesis balance | Path to funding |
 |---------|----------------|-----------------|
-| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); proposer rewards on transaction-bearing blocks |
+| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); post-H1 compensation from actual fee distribution |
 | Operator float (zerone-ops) | 2,222 ZRN | Disclosed float: gov deposits + onboarding feegrants |
 | Whitelisted agents | 0 ZRN | Bootstrap claim (0.222 ZRN each) via `x/claiming_pot` |
-| Founder-specific stipend | 0 ZRN | Retired in source v2; activation requires `founder-renunciation-v1` |
+| Founder | 0 ZRN | Automatic percentage retired at H2; an ordinary public grant remains possible |
 | AI vault | 0 ZRN | Unconfigured design role; no live genesis voter was set |
 | Research Treasury | 0 ZRN | 3.33% of revenue split, accruing |
 | Foundation | 0 ZRN | Governance proposals over time, drawing from research treasury |
@@ -63,17 +63,18 @@ mechanics, the bootstrap design, and the eligibility criteria.
 
 ### How do I earn ZRN as a validator?
 
-Validators earn ZRN through three channels:
+Under the post-H2 source target, validators may receive ZRN through two
+non-automatic channels:
 
 1. **Verification rewards** — a share of the 55% verifier pool funded by the
    claim's review fee; actual payout depends on the rewarded panel and
    independence modulation
-2. **Block rewards** — on eligible transaction-bearing blocks, the
-   decay/participation/knowledge-coupled amount is split and 55% goes to the
-   Cosmos block proposer; an ordinary transfer is sufficient for eligibility
-3. **Fee share** — `RouteFees` sends 19.67% of `uzrn` fees to development and
+2. **Fee share** — `RouteFees` sends 19.67% of `uzrn` fees to development and
    3.33% to research; the remaining ~77% stays in `fee_collector` for normal
    Cosmos distribution
+
+The former transaction-presence block mint is retired in vesting_rewards v2.
+No annual validator yield is promised.
 
 ### What are the validator tier requirements?
 
@@ -159,18 +160,11 @@ the full gas cost table.
 
 ### How are block rewards distributed?
 
-Block reward revenue is split four ways:
-
-- **55%** to the block proposer / configured withdraw address
-- **22%** to the protocol (citations, verification, treasury)
-- **19.67%** to the development fund (bug bounties, protocol development)
-- **3.33%** to the research fund (community grants)
-
-The field remains named `contributor_bps` for wire compatibility, but current
-block-reward execution sends that share to the proposer destination, not to
-fact contributors. This is not the transaction-fee split described above.
-There is no general revenue burn. Rejected substrate-attestation bonds are the
-narrow punitive burn exception.
+They are not distributed after H2. Vesting_rewards v2 fixes the block,
+floor, and empty-block reward fields at zero and no longer treats raw
+transaction inclusion as earned work. Actual `uzrn` fees still route 19.67% to
+development, 3.33% to research, and approximately 77% through normal Cosmos
+distribution. See [REVENUE-SPLIT.md](tokenomics/REVENUE-SPLIT.md).
 
 ### Why doesn't Zerone burn tokens?
 
@@ -181,20 +175,15 @@ a narrow punitive burn path.
 
 ### Can the founder share be changed by governance?
 
-No in vesting-rewards consensus v2. `founder_share_bps` is fixed at `0`,
-`founder_address` is fixed empty, storage validation rejects either value being
-restored, and reward routing contains no founder recipient. The compatibility
-fields remain on the wire and historical v1 records remain truthful.
-
-This change requires the named `founder-renunciation-v1` coordinated upgrade;
-source publication alone does not change the running chain. It removes a
-status-derived revenue path, not ordinary permissionless participation or the
-separately disclosed founding household's present validator and voting power.
+No. The dedicated H2 founder boundary retires the compatibility fields at
+zero/empty and ordinary
+governance cannot restore the auto-split. Governance may still approve a
+discrete public grant to any recipient.
 
 ### What is the development fund?
 
-The development fund receives 19.67% of block reward revenue (replacing the
-former burn allocation). It funds:
+The development fund receives 19.67% of routed actual `uzrn` fees and may
+receive other explicit deposits. It is intended to fund:
 
 - Bug bounties and security audits
 - Truth discovery rewards

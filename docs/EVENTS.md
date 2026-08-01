@@ -1552,7 +1552,7 @@ Liquidity pool created.
 - `reserve_a` -- initial reserve A
 - `reserve_b` -- initial reserve B
 - `lp_tokens` -- LP tokens minted
-- `status` -- initial pool status (`POOL_STATUS_ACTIVE` in v4)
+- `status` -- initial pool status (`POOL_STATUS_ACTIVE` in v5)
 - `counter_denom_admission_consumed` -- one-shot governed counter-denom grant consumed by this creation
 
 ### zerone.liquiditypool.swap
@@ -1564,7 +1564,7 @@ Token swap executed.
 - `token_out` -- output denomination
 - `amount_out` -- output amount
 - `fee` -- fee amount
-- `protocol_fee` -- protocol share of the floor-rounded fee; nonzero only when `token_in` is `uzrn`
+- `protocol_fee` -- retired compatibility attribute; always `0` in liquiditypool v5 because the full configured fee remains in pool reserves for LP shares
 
 ### zerone.liquiditypool.liquidity_added
 Liquidity added to pool.
@@ -2122,11 +2122,15 @@ Vesting schedule fully released.
 - `vesting_id` -- vesting ID
 - `released_amount` -- total released amount
 
-### zerone.vesting_rewards.knowledge_coupling_applied
-Block reward scaled by the survived-challenge rate.
-- `survived_challenge_rate_bps` -- survived/(survived + disproven) in BPS
-- `target_bps` -- configured target rate
-- `multiplier_bps` -- applied reward multiplier in BPS
+> **Pre-v2 historical event:**
+> `zerone.vesting_rewards.knowledge_coupling_applied` accompanied the retired
+> automatic block-reward path. Vesting_rewards v2 no longer emits it during
+> BeginBlock. Historical attributes were `survived_challenge_rate_bps`,
+> `target_bps`, and `multiplier_bps`.
+>
+> `zerone.vesting_rewards.block_reward_distributed` accompanied the same
+> retired pre-v2 path. Historical attributes were `block_height`, `producer`,
+> `total_minted`, `producer_reward`, and `active_validators`.
 
 ### zerone.vesting_rewards.update_params
 Governance parameter update.
@@ -2138,16 +2142,7 @@ Research fund deposit via revenue routing.
 - `denom` -- denomination
 - `total` -- total routed
 - `research` -- research fund share
-- `founder` -- compatibility attribute; always `0` for v2+ events (legacy
-  history may contain a nonzero value)
-
-### zerone.vesting_rewards.block_reward_distributed
-*BeginBlock.* Block reward distributed to producer.
-- `block_height` -- block height
-- `producer` -- block producer address
-- `total_minted` -- total newly minted tokens
-- `producer_reward` -- producer's share
-- `active_validators` -- active validator count
+- `founder` -- retired compatibility attribute; always `0` in consensus v2
 
 ---
 

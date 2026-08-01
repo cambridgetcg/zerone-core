@@ -13,6 +13,7 @@ import (
 	govkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
 	govtypes "github.com/zerone-chain/zerone/x/gov/types"
 	vestingkeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
+	vestingtypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 // ============================================================================
@@ -217,6 +218,7 @@ type simValidator struct {
 	tier        int
 	staked      sdkmath.Int
 	totalEarned sdkmath.Int
+	feeEarned   sdkmath.Int
 	jailed      bool
 }
 
@@ -242,16 +244,17 @@ type SimState struct {
 	tools       []*simTool
 	moduleNames []string
 
-	currentHeight      int64
-	currentEpoch       int
-	currentBlockReward sdkmath.Int
-	lastEpochReward    sdkmath.Int
-	totalMinted        sdkmath.Int
-	totalBurned        sdkmath.Int
-	initialSupply      sdkmath.Int
-	factsAdded         int
-	toolRevenue        sdkmath.Int
-	hasTransactions    bool
+	currentHeight       int64
+	currentEpoch        int
+	currentBlockReward  sdkmath.Int
+	totalMinted         sdkmath.Int
+	totalFeesCharged    sdkmath.Int
+	totalFeeResearch    sdkmath.Int
+	totalFeeDevelopment sdkmath.Int
+	totalValidatorFees  sdkmath.Int
+	initialSupply       sdkmath.Int
+	factsAdded          int
+	toolRevenue         sdkmath.Int
 }
 
 // ============================================================================
@@ -271,7 +274,8 @@ func PerBlockInvariants() []Invariant {
 		{"ModuleSolvency", checkModuleSolvency},
 		{"ResearchFundNonNegative", checkResearchFundNonNegative},
 		{"RevenueSplitIntegrity", checkRevenueSplitIntegrity},
-		{"RewardDecay", checkRewardDecay},
+		{"AutomaticIssuanceRetired", checkAutomaticIssuanceRetired},
+		{"FounderPayoutRetired", checkFounderPayoutRetired},
 	}
 }
 
@@ -289,10 +293,10 @@ func FinalInvariants() []Invariant {
 	return []Invariant{
 		{"FinalTokenAccounting", checkFinalTokenAccounting},
 		{"NoOrphanedTokens", checkNoOrphanedTokens},
-		{"RewardDistributionFairness", checkRewardDistributionFairness},
+		{"ValidatorFeeAccounting", checkValidatorFeeAccounting},
 		{"KnowledgeTreeGrowth", checkKnowledgeTreeGrowth},
 		{"ToolRevenueGenerated", checkToolRevenueGenerated},
-		{"FounderShareImmutable", checkFounderShareImmutable},
+		{"RealFeeRouting", checkRealFeeRouting},
 		{"NoBurn", checkNoBurn},
 	}
 }
@@ -352,13 +356,28 @@ func checkRevenueSplitIntegrity(s *SimState) error {
 	return nil
 }
 
-func checkRewardDecay(s *SimState) error {
-	if s.currentEpoch == 0 || s.lastEpochReward.IsZero() {
-		return nil
+func checkAutomaticIssuanceRetired(s *SimState) error {
+	params := s.vestingKeeper.GetParams(s.ctx)
+	if params.BlockReward != "0" || params.FloorReward != "0" || params.EmptyBlockRewardRate != 0 {
+		return fmt.Errorf("automatic reward fields reactivated: block=%q floor=%q empty_rate=%d",
+			params.BlockReward, params.FloorReward, params.EmptyBlockRewardRate)
 	}
-	if s.currentBlockReward.GT(s.lastEpochReward) {
-		return fmt.Errorf("block reward increased: current=%s > lastEpoch=%s (epoch %d)",
-			s.currentBlockReward, s.lastEpochReward, s.currentEpoch)
+	if !s.currentBlockReward.IsZero() || !s.totalMinted.IsZero() {
+		return fmt.Errorf("transaction presence changed supply: current=%s total=%s",
+			s.currentBlockReward, s.totalMinted)
+	}
+	if supply := s.bank.GetSupply(nil, "uzrn").Amount; !supply.Equal(s.initialSupply) {
+		return fmt.Errorf("supply changed under retired automatic issuance: initial=%s current=%s",
+			s.initialSupply, supply)
+	}
+	return nil
+}
+
+func checkFounderPayoutRetired(s *SimState) error {
+	params := s.vestingKeeper.GetParams(s.ctx)
+	if params.FounderShareBps != 0 || params.FounderAddress != "" {
+		return fmt.Errorf("founder payout fields reactivated: bps=%d address=%q",
+			params.FounderShareBps, params.FounderAddress)
 	}
 	return nil
 }
@@ -428,40 +447,17 @@ func checkNoOrphanedTokens(s *SimState) error {
 	return nil
 }
 
-func checkRewardDistributionFairness(s *SimState) error {
-	if len(s.validators) < 2 {
-		return nil
-	}
-	// In this simplified simulation, block production is round-robin (not
-	// tier-weighted), so all tiers get similar block rewards. Verification
-	// rewards ARE tier-scaled but selection is random. The check verifies
-	// that no lower tier earns more than 3x a higher tier per-validator,
-	// which would indicate a broken reward model.
-	tierEarnings := make(map[int]sdkmath.Int)
-	tierCount := make(map[int]int)
+func checkValidatorFeeAccounting(s *SimState) error {
+	total := sdkmath.ZeroInt()
 	for _, v := range s.validators {
-		if _, ok := tierEarnings[v.tier]; !ok {
-			tierEarnings[v.tier] = sdkmath.ZeroInt()
+		if v.feeEarned.IsNegative() {
+			return fmt.Errorf("validator %s has negative fee earnings: %s", v.addr, v.feeEarned)
 		}
-		tierEarnings[v.tier] = tierEarnings[v.tier].Add(v.totalEarned)
-		tierCount[v.tier]++
+		total = total.Add(v.feeEarned)
 	}
-	for t1 := 0; t1 < 4; t1++ {
-		for t2 := t1 + 1; t2 < 4; t2++ {
-			e1, ok1 := tierEarnings[t1]
-			e2, ok2 := tierEarnings[t2]
-			c1, c2 := tierCount[t1], tierCount[t2]
-			if !ok1 || !ok2 || c1 == 0 || c2 == 0 {
-				continue
-			}
-			avg1 := e1.Quo(sdkmath.NewInt(int64(c1)))
-			avg2 := e2.Quo(sdkmath.NewInt(int64(c2)))
-			// Lower tier should not earn more than 3x higher tier.
-			threshold := avg2.Mul(sdkmath.NewInt(3))
-			if avg1.GT(threshold) {
-				return fmt.Errorf("tier %d avg earnings (%s) > 3x tier %d (%s)", t1, avg1, t2, avg2)
-			}
-		}
+	if !total.Equal(s.totalValidatorFees) {
+		return fmt.Errorf("validator fee accounting mismatch: validators=%s tracked=%s",
+			total, s.totalValidatorFees)
 	}
 	return nil
 }
@@ -480,13 +476,27 @@ func checkToolRevenueGenerated(s *SimState) error {
 	return nil
 }
 
-func checkFounderShareImmutable(s *SimState) error {
-	params := s.vestingKeeper.GetParams(s.ctx)
-	if params.FounderShareBps != 0 {
-		return fmt.Errorf("founder share BPS changed: expected 0, got %d", params.FounderShareBps)
+func checkRealFeeRouting(s *SimState) error {
+	if s.totalFeesCharged.IsZero() {
+		return fmt.Errorf("simulation charged no real transaction fees")
 	}
-	if params.FounderAddress != "" {
-		return fmt.Errorf("founder address changed: expected empty, got %s", params.FounderAddress)
+	if s.totalFeeResearch.IsZero() || s.totalFeeDevelopment.IsZero() || s.totalValidatorFees.IsZero() {
+		return fmt.Errorf("real fee route inactive: research=%s development=%s validators=%s",
+			s.totalFeeResearch, s.totalFeeDevelopment, s.totalValidatorFees)
+	}
+	routed := s.totalFeeResearch.Add(s.totalFeeDevelopment).Add(s.totalValidatorFees)
+	if !routed.Equal(s.totalFeesCharged) {
+		return fmt.Errorf("real fee conservation failed: charged=%s routed=%s", s.totalFeesCharged, routed)
+	}
+	if researchBalance := s.bank.moduleBalance(vestingtypes.ResearchFundModuleName, "uzrn"); researchBalance.LT(s.totalFeeResearch) {
+		return fmt.Errorf("research fund retained %s, below routed fee share %s", researchBalance, s.totalFeeResearch)
+	}
+	if developmentBalance := s.bank.moduleBalance(vestingtypes.DevelopmentFundModuleName, "uzrn"); !developmentBalance.Equal(s.totalFeeDevelopment) {
+		return fmt.Errorf("development fund balance mismatch: balance=%s routed=%s",
+			developmentBalance, s.totalFeeDevelopment)
+	}
+	if balance := s.bank.moduleBalance(authtypes.FeeCollectorName, "uzrn"); !balance.IsZero() {
+		return fmt.Errorf("fee collector not swept after routing: %s", balance)
 	}
 	return nil
 }

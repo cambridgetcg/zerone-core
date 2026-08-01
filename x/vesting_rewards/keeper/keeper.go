@@ -24,19 +24,9 @@ type Keeper struct {
 	bankKeeper      types.BankKeeper
 	stakingKeeper   types.StakingKeeper
 	distrKeeper     types.DistributionKeeper // optional; honors withdraw-address mappings for reward payouts
-	knowledgeKeeper types.KnowledgeKeeper    // optional; scales block reward by survived-challenge rate
+	knowledgeKeeper types.KnowledgeKeeper    // optional; reports survival metrics and supports legacy reward queries
 
 	authority string
-
-	// blockTxCount is set by PotPreBlocker each block with the user transaction count
-	// (excluding vote extension injection pseudo-txs). Read by BeginBlock to determine
-	// if block rewards should be minted (PoT: 0% for empty blocks).
-	//
-	// Pointer, not value: the Keeper is copied by value into AppModule and
-	// other consumers at wiring time, while PotPreBlocker mutates the app's
-	// own Keeper field each block. A plain int on the copy would stay 0
-	// forever and silently disable all PoT emission.
-	blockTxCount *int
 }
 
 // NewKeeper creates a new vesting_rewards module Keeper.
@@ -53,7 +43,6 @@ func NewKeeper(
 		bankKeeper:    bk,
 		stakingKeeper: sk,
 		authority:     authority,
-		blockTxCount:  new(int),
 	}
 }
 
@@ -73,15 +62,16 @@ func prefixEndBytes(prefix []byte) []byte {
 	return nil
 }
 
-// SetKnowledgeKeeper wires the survived/(survived+disproven) signal used to
-// scale block rewards. Nil-safe: when unset, rewards use the decay schedule.
+// SetKnowledgeKeeper wires survived/(survived+disproven) telemetry for
+// vesting audits and legacy reward queries. Consensus v2 does not use it to
+// drive automatic issuance.
 func (k *Keeper) SetKnowledgeKeeper(kk types.KnowledgeKeeper) {
 	k.knowledgeKeeper = kk
 }
 
-// SetDistributionKeeper wires x/distribution so ordinary reward payouts (for
-// example validator block rewards) honor delegator withdraw-address mappings.
-// Nil-safe: when unset, rewards are paid to the account itself.
+// SetDistributionKeeper wires x/distribution for the historical proposer
+// reward API so it honors withdraw-address mappings. Consensus v2 does not
+// call that API automatically. Nil-safe when unset.
 func (k *Keeper) SetDistributionKeeper(dk types.DistributionKeeper) {
 	k.distrKeeper = dk
 }
@@ -101,31 +91,13 @@ func (k Keeper) GetStakingKeeper() types.StakingKeeper {
 	return k.stakingKeeper
 }
 
-// SetBlockTxCount stores the transaction count for the current block.
-// The count is shared across all value copies of this Keeper (see the
-// blockTxCount field doc).
-func (k Keeper) SetBlockTxCount(count int) {
-	if k.blockTxCount == nil {
-		return
-	}
-	*k.blockTxCount = count
-}
-
-// GetBlockTxCount returns the transaction count for the current block.
-func (k Keeper) GetBlockTxCount() int {
-	if k.blockTxCount == nil {
-		return 0
-	}
-	return *k.blockTxCount
-}
-
-// ResolveProposerRewardAddress maps a block's consensus proposer address to
-// the account that should receive the producer reward:
+// ResolveProposerRewardAddress preserves the historical proposer-resolution
+// helper for old integrations. Consensus v2 does not pay a proposer reward:
 //
 //  1. Resolve the consensus address to the validator via x/staking
 //     (GetValidatorByConsAddr) and take the OPERATOR account. The raw
 //     consensus address is not controlled by any operator key — paying it
-//     directly would make all PoT emission unspendable.
+//     directly would make a legacy transfer unspendable.
 //  2. Honor the operator's x/distribution withdraw-address mapping when the
 //     distribution keeper is wired (defaults to the operator itself).
 func (k Keeper) ResolveProposerRewardAddress(ctx sdk.Context, consAddr sdk.ConsAddress) (sdk.AccAddress, error) {
@@ -146,9 +118,8 @@ func (k Keeper) ResolveProposerRewardAddress(ctx sdk.Context, consAddr sdk.ConsA
 	return k.RewardWithdrawAddress(ctx, sdk.AccAddress(valAddr)), nil
 }
 
-// RewardWithdrawAddress returns the x/distribution withdraw address for a
-// rewardee (design §8b: payout destination rotates by standard
-// MsgSetWithdrawAddress). Falls back to the rewardee itself when the
+// RewardWithdrawAddress preserves the historical x/distribution mapping
+// helper. It falls back to the rewardee itself when the
 // distribution keeper is not wired or the lookup fails — x/distribution's own
 // default is the delegator address, so the fallback matches its semantics.
 func (k Keeper) RewardWithdrawAddress(ctx sdk.Context, rewardee sdk.AccAddress) sdk.AccAddress {
@@ -172,10 +143,9 @@ func (k Keeper) GetParams(ctx sdk.Context) *types.Params {
 }
 
 // getStoredParams strictly reads the persisted wire value. The migrator uses
-// this read so corrupt or missing state cannot be silently replaced by defaults
-// during an upgrade. GetParams also returns the stored compatibility values
-// truthfully: v2 execution ignores them, while the named migration is the only
-// state transition that clears legacy v1 bytes.
+// this path so missing or corrupt legacy state cannot be silently replaced by
+// defaults during the named upgrade. Normal queries retain their historical
+// fallback behavior through GetParams.
 func (k Keeper) getStoredParams(ctx sdk.Context) (*types.Params, error) {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := store.Get(types.ParamsKey)
@@ -193,18 +163,16 @@ func (k Keeper) getStoredParams(ctx sdk.Context) (*types.Params, error) {
 }
 
 // SetParams validates and persists module parameters. Validation lives at the
-// storage boundary so genesis, governance, migrations, and future internal
-// callers cannot reintroduce a founder recipient by bypassing MsgUpdateParams.
+// storage boundary so genesis, governance, and internal callers cannot restore
+// either retired automatic issuance or an identity-derived founder tap.
 func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) error {
 	return k.setParams(ctx, params, false)
 }
 
-// setParams is shared with the v1→v2 migrator. Only that migrator may clear a
-// persisted legacy founder configuration; ordinary parameter writes must wait
-// for the named migration so the on-disk transition and its marker stay
-// auditable. All callers, including the migrator, still pass full v2
-// validation before a write.
-func (k Keeper) setParams(ctx sdk.Context, params *types.Params, allowLegacyFounderClear bool) error {
+// setParams is shared with the v1→v2 migrator. Only that migrator may clear
+// persisted v1 founder or automatic-reward values; ordinary writes must wait
+// for the named migration so the state transition remains auditable.
+func (k Keeper) setParams(ctx sdk.Context, params *types.Params, allowLegacyRetiredClear bool) error {
 	if params == nil {
 		return fmt.Errorf("params must not be nil")
 	}
@@ -212,7 +180,7 @@ func (k Keeper) setParams(ctx sdk.Context, params *types.Params, allowLegacyFoun
 		return err
 	}
 	store := k.storeService.OpenKVStore(ctx)
-	if !allowLegacyFounderClear {
+	if !allowLegacyRetiredClear {
 		currentBz, err := store.Get(types.ParamsKey)
 		if err != nil {
 			return fmt.Errorf("read current params before write: %w", err)
@@ -222,7 +190,8 @@ func (k Keeper) setParams(ctx sdk.Context, params *types.Params, allowLegacyFoun
 			if err := proto.Unmarshal(currentBz, &current); err != nil {
 				return fmt.Errorf("unmarshal current params before write: %w", err)
 			}
-			if current.FounderShareBps != 0 || current.FounderAddress != "" {
+			if current.FounderShareBps != 0 || current.FounderAddress != "" ||
+				current.BlockReward != "0" || current.FloorReward != "0" || current.EmptyBlockRewardRate != 0 {
 				return types.ErrFounderMigrationRequired
 			}
 		}
@@ -253,6 +222,12 @@ func (k Keeper) GetProtocolSubSplit(ctx sdk.Context) *commontypes.ProtocolSubSpl
 		return params.ProtocolSubSplit
 	}
 	return types.DefaultProtocolSubSplit()
+}
+
+// isFounderShareActive is retained for the compatibility query surface.
+// Consensus version 2 permanently retires the founder auto-split.
+func (k Keeper) isFounderShareActive(_ sdk.Context, _ *types.Params) bool {
+	return false
 }
 
 // GetCategoryConfig returns the release curve config for a vesting category.
@@ -319,12 +294,14 @@ func (k Keeper) SetTotalMinted(ctx sdk.Context, amount *big.Int) {
 // This is the wired application's single cap-gated native mint entry point.
 // Current callers include:
 //
-//   - transaction-bearing block rewards from x/vesting_rewards;
 //   - bootstrap and legacy general-pot claims from x/claiming_pot;
 //   - External-work attestations: x/substrate_bridge calls MintWithCap with
 //     its audit-bounty pool module, then settles the reward to the submitter.
 //   - the default-disabled x/knowledge probe pool and x/tokens emission
 //     periods when governance activates their nonzero latches.
+//
+// The pre-v2 transaction-presence proposer mint is permanently retired and
+// is not a current caller.
 //
 // The function exists so the post-genesis cap is enforced once across native
 // mint callers; InitChainer independently rejects over-cap genesis supply.

@@ -13,15 +13,17 @@ import (
 	"github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
-// DistributeRevenue routes a reward through the governance-adjustable 4-way split.
+// DistributeRevenue computes the governance-adjustable 4-way allocation for a
+// caller-supplied reward. This compatibility helper does not mint or transfer
+// value by itself.
 //
 // The split is driven by RevenueSplit from params (not constants):
-//   - ContributorBps: goes to the reward recipient (e.g. block producer)
+//   - ContributorBps: assigned to the named reward recipient
 //   - ProtocolBps:    split further via ProtocolSubSplit (citation/verification/treasury)
-//   - ResearchBps:    deposited in full into the research fund
+//   - ResearchBps:    assigned in full to the research fund
 //   - DevelopmentBps:    development fund (bug bounties, truth discovery, protocol development)
 //
-// All block-level rewards flow through this router for consistent revenue routing.
+// The retired automatic block-reward path is not a caller in consensus v2.
 func (k Keeper) DistributeRevenue(
 	ctx sdk.Context,
 	source types.RewardSource,
@@ -76,6 +78,9 @@ func (k Keeper) DistributeRevenue(
 		treasuryShare.SetInt64(0)
 	}
 
+	// Retired wire output. Research is never reduced by an identity-based tap.
+	founderShare := new(big.Int)
+
 	routing := &types.RewardRouting{
 		Source:            string(source),
 		OriginalAmount:    amount,
@@ -86,7 +91,7 @@ func (k Keeper) DistributeRevenue(
 		Recipient:         recipient,
 		FactId:            factId,
 		BlockNumber:       uint64(ctx.BlockHeight()),
-		FounderShare:      "0", // legacy response field; founder tap is renounced
+		FounderShare:      founderShare.String(),
 		CitationPool:      citationPool.String(),
 		VerificationPool:  verificationPool.String(),
 		TreasuryShare:     treasuryShare.String(),
@@ -132,7 +137,7 @@ func (k Keeper) RouteFees(ctx sdk.Context) error {
 				k.Logger(ctx).Warn("failed to escrow fee research share", "err", err)
 				continue
 			}
-			// Route through the canonical research depositor.
+			// Route through the canonical research-fund depositor.
 			if err := k.DepositToResearchFund(ctx, types.ModuleName, researchCoins); err != nil {
 				k.Logger(ctx).Warn("failed to deposit fee research share", "err", err)
 			}
@@ -156,10 +161,9 @@ func (k Keeper) RouteFees(ctx sdk.Context) error {
 }
 
 // DepositToResearchFund routes a deposit in full to the research fund.
-// All modules that send funds to research_fund SHOULD call this instead of
-// sending directly so deposits remain auditable through one canonical path.
-//
-// sourceModule must hold the funds in its module account before calling this method.
+// sourceModule must hold the funds in its module account before calling this
+// method. The zero-valued founder event attribute is retained for indexer
+// compatibility; consensus version 2 has no founder payout path.
 func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amount sdk.Coins) error {
 	if amount.IsZero() {
 		return nil
@@ -177,6 +181,7 @@ func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amou
 			continue
 		}
 
+		founderAmount := sdkmath.ZeroInt()
 		researchAmount := coin.Amount
 
 		// Send research portion to research_fund
@@ -193,7 +198,7 @@ func (k Keeper) DepositToResearchFund(ctx sdk.Context, sourceModule string, amou
 			sdk.NewAttribute("denom", coin.Denom),
 			sdk.NewAttribute("total", coin.Amount.String()),
 			sdk.NewAttribute("research", researchAmount.String()),
-			sdk.NewAttribute("founder", "0"), // legacy attribute; tap is renounced
+			sdk.NewAttribute("founder", founderAmount.String()),
 		))
 	}
 
@@ -217,283 +222,33 @@ func (k Keeper) DisburseFromDevelopmentFund(ctx sdk.Context, recipient sdk.AccAd
 	return k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.DevelopmentFundModuleName, recipient, amount)
 }
 
-// applyDecay computes: amount * (decayBps/1000000)^epochs using integer exponentiation by squaring.
-// decayBps is on a 1,000,000 scale (900000 = 0.9).
-func applyDecay(amount *big.Int, decayBps uint64, epochs uint64) *big.Int {
-	if epochs == 0 {
-		return new(big.Int).Set(amount)
-	}
+// GetEpochBlockRewardPool preserves the legacy integration boundary and always
+// reports zero. Consensus v2 has no automatic per-block or per-epoch pool,
+// even if an internal caller bypasses parameter validation.
+func (k Keeper) GetEpochBlockRewardPool(_ sdk.Context, _ uint64) uint64 { return 0 }
 
-	denom := big.NewInt(1000000)
-	base := big.NewInt(int64(decayBps))
-	exp := epochs
-
-	// Exponentiation by squaring for decay^epochs in fixed-point (denom scale)
-	result := new(big.Int).Set(denom) // start at 1.0
-	for exp > 0 {
-		if exp%2 == 1 {
-			result.Mul(result, base)
-			result.Div(result, denom)
-		}
-		base.Mul(base, base)
-		base.Div(base, denom)
-		exp /= 2
-	}
-
-	// amount * result / denom
-	out := new(big.Int).Mul(amount, result)
-	out.Div(out, denom)
-	return out
-}
-
-// calculateBlockReward computes the per-block reward under pure PoT minting.
-// Formula: R = max(initialReward * decayFactor^epoch, floorReward)
-func calculateBlockReward(ctx sdk.Context, params *types.Params) *big.Int {
-	height := uint64(ctx.BlockHeight())
-
-	initialReward := new(big.Int)
-	if _, ok := initialReward.SetString(params.BlockReward, 10); !ok || initialReward.Sign() <= 0 {
-		return new(big.Int)
-	}
-
-	epoch := height / params.BlocksPerRewardEpoch
-
-	reward := applyDecay(initialReward, params.RewardDecayBps, epoch)
-
-	floorReward := new(big.Int)
-	if params.FloorReward != "" {
-		floorReward.SetString(params.FloorReward, 10)
-	}
-	if floorReward.Sign() > 0 && reward.Cmp(floorReward) < 0 {
-		reward.Set(floorReward)
-	}
-
-	return reward
-}
-
-// GetEpochBlockRewardPool estimates the total block rewards for a given epoch (in uzrn).
-func (k Keeper) GetEpochBlockRewardPool(ctx sdk.Context, epoch uint64) uint64 {
-	params := k.GetParams(ctx)
-
-	initialReward := new(big.Int)
-	if _, ok := initialReward.SetString(params.BlockReward, 10); !ok || initialReward.Sign() <= 0 {
-		return 0
-	}
-
-	perBlock := applyDecay(initialReward, params.RewardDecayBps, epoch)
-	if perBlock.Sign() <= 0 {
-		return 0
-	}
-
-	pool := new(big.Int).Mul(perBlock, big.NewInt(int64(params.BlocksPerRewardEpoch)))
-	if !pool.IsUint64() {
-		return ^uint64(0)
-	}
-	return pool.Uint64()
-}
-
-// DistributeBlockReward mints and distributes block-production rewards.
-//
-// Any non-injection user transaction makes the block eligible; an ordinary
-// transfer qualifies, so eligibility is not proof that new knowledge was
-// verified. The reward is scaled by validator participation:
-//
-//	reward = baseReward * min(1, activeValidators / targetValidators)
-//
-// After minting, the full 4-way revenue split is applied via DistributeRevenue.
+// DistributeBlockReward preserves the pre-v2 Go method shape while making the
+// retired path structurally inert. It never mints, transfers, writes a reward
+// record, or emits an event, even if a caller bypasses parameter validation and
+// injects legacy non-zero values. Historical records remain queryable from
+// state; new issuance must begin with independently witnessed successful work.
 func (k Keeper) DistributeBlockReward(
 	ctx sdk.Context,
-	producer string,
+	_ string,
 	activeValidatorCount uint32,
-	hasTransactions bool,
+	_ bool,
 ) (*types.BlockRewardDistribution, error) {
-	params := k.GetParams(ctx)
-	height := uint64(ctx.BlockHeight())
-
-	emptyDist := func() *types.BlockRewardDistribution {
-		return &types.BlockRewardDistribution{
-			BlockHeight:       height,
-			ProducerReward:    "0",
-			ResearchShare:     "0",
-			TotalMinted:       "0",
-			ValidatorCount:    activeValidatorCount,
-			DevelopmentAmount: "0",
-			ProtocolShare:     "0",
-		}
-	}
-
-	// Empty user-transaction block check.
-	if !hasTransactions && params.EmptyBlockRewardRate == 0 {
-		return emptyDist(), nil
-	}
-
-	// Calculate reward (decay + floor)
-	effectiveReward := calculateBlockReward(ctx, params)
-	if effectiveReward == nil || effectiveReward.Sign() <= 0 {
-		dist := emptyDist()
-		k.SetBlockRewardDistribution(ctx, dist)
-		return dist, nil
-	}
-
-	// Scale by validator participation: min(1, active/target)
-	if params.MinValidatorsForFullReward > 0 && activeValidatorCount < params.MinValidatorsForFullReward {
-		effectiveReward.Mul(effectiveReward, big.NewInt(int64(activeValidatorCount)))
-		effectiveReward.Div(effectiveReward, big.NewInt(int64(params.MinValidatorsForFullReward)))
-	}
-
-	// Apply empty block rate if applicable
-	if !hasTransactions && params.EmptyBlockRewardRate > 0 {
-		effectiveReward.Mul(effectiveReward, big.NewInt(int64(params.EmptyBlockRewardRate)))
-		effectiveReward.Div(effectiveReward, big.NewInt(10000))
-	}
-
-	// Survival-gate coupling: scale reward by the SURVIVED-CHALLENGE rate, not the
-	// accept-rate. Issuance follows truth that stood adversarial challenge, so
-	// rubber-stamping earns nothing extra and rejecting a false claim (which then
-	// falls to DISPROVEN under challenge) RAISES the rate instead of lowering it.
-	// Below target → reward decays linearly to KnowledgeCouplingFloorBps; at or
-	// above → full reward. Disabled when target is 0 or the knowledge keeper is
-	// not wired (nil-safe for harnesses).
-	if params.KnowledgeCouplingTargetBps > 0 && k.knowledgeKeeper != nil {
-		rate := k.knowledgeKeeper.GetSurvivedChallengeRate(ctx)
-		const bps uint64 = 1_000_000
-		var multiplier uint64
-		switch {
-		case rate >= params.KnowledgeCouplingTargetBps:
-			multiplier = bps
-		default:
-			// Linear scaling: rate/target, floored at KnowledgeCouplingFloorBps.
-			multiplier = rate * bps / params.KnowledgeCouplingTargetBps
-			if multiplier < params.KnowledgeCouplingFloorBps {
-				multiplier = params.KnowledgeCouplingFloorBps
-			}
-		}
-		effectiveReward.Mul(effectiveReward, new(big.Int).SetUint64(multiplier))
-		effectiveReward.Div(effectiveReward, new(big.Int).SetUint64(bps))
-
-		ctx.EventManager().EmitEvent(sdk.NewEvent(
-			"zerone.vesting_rewards.knowledge_coupling_applied",
-			sdk.NewAttribute("survived_challenge_rate_bps", fmt.Sprintf("%d", rate)),
-			sdk.NewAttribute("target_bps", fmt.Sprintf("%d", params.KnowledgeCouplingTargetBps)),
-			sdk.NewAttribute("multiplier_bps", fmt.Sprintf("%d", multiplier)),
-		))
-	}
-
-	if effectiveReward.Sign() <= 0 {
-		dist := emptyDist()
-		k.SetBlockRewardDistribution(ctx, dist)
-		return dist, nil
-	}
-
-	// Mint new tokens (supply-cap enforced) into vesting_rewards' own
-	// module account; subsequent steps split and route per the revenue
-	// distribution.
-	actualMinted, err := k.MintWithCap(ctx, types.ModuleName, effectiveReward)
-	if err != nil {
-		k.Logger(ctx).Error("failed to mint block reward", "error", err)
-		dist := emptyDist()
-		k.SetBlockRewardDistribution(ctx, dist)
-		return dist, nil
-	}
-
-	if actualMinted.Sign() <= 0 {
-		dist := emptyDist()
-		k.SetBlockRewardDistribution(ctx, dist)
-		return dist, nil
-	}
-
-	// Route through 4-way revenue split
-	routing, err := k.DistributeRevenue(ctx, types.SourceBlockProduction, actualMinted.String(), producer, "")
-	if err != nil {
-		dist := emptyDist()
-		k.SetBlockRewardDistribution(ctx, dist)
-		return dist, nil
-	}
-
-	dist := &types.BlockRewardDistribution{
-		BlockHeight:       height,
-		ProducerReward:    routing.ContributorShare,
-		ResearchShare:     routing.ResearchShare,
-		TotalMinted:       routing.OriginalAmount,
+	return &types.BlockRewardDistribution{
+		BlockHeight:       uint64(ctx.BlockHeight()),
+		ProducerReward:    "0",
+		ResearchShare:     "0",
+		TotalMinted:       "0",
 		ValidatorCount:    activeValidatorCount,
-		FounderShare:      routing.FounderShare,
-		DevelopmentAmount: routing.DevelopmentAmount,
-		ProtocolShare:     routing.ProtocolShare,
-	}
-
-	// Distribute minted coins via bank keeper
-	if k.bankKeeper != nil {
-		// Send contributor share to block producer
-		contributorBig := new(big.Int)
-		contributorBig.SetString(routing.ContributorShare, 10)
-		if contributorBig.Sign() > 0 {
-			producerAddr, addrErr := sdk.AccAddressFromBech32(producer)
-			if addrErr == nil {
-				producerCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(contributorBig)))
-				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, producerAddr, producerCoins); err != nil {
-					k.Logger(ctx).Error("failed to send producer reward", "error", err)
-				}
-			}
-		}
-
-		// Route the full research share through the canonical depositor. The
-		// legacy FounderShare output remains zero and is never recombined into
-		// runtime arithmetic.
-		researchBig := new(big.Int)
-		researchBig.SetString(routing.ResearchShare, 10)
-		if researchBig.Sign() > 0 {
-			researchCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(researchBig)))
-			if err := k.DepositToResearchFund(ctx, types.ModuleName, researchCoins); err != nil {
-				k.Logger(ctx).Error("failed to deposit research share", "error", err)
-			}
-		}
-
-		// Development fund share
-		devBig := new(big.Int)
-		devBig.SetString(routing.DevelopmentAmount, 10)
-		if devBig.Sign() > 0 {
-			devCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(devBig)))
-			if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.DevelopmentFundModuleName, devCoins); err != nil {
-				k.Logger(ctx).Error("failed to route development fund share", "error", err)
-			}
-		}
-
-		// Split protocol share via ProtocolSubSplit
-		verificationBig := new(big.Int)
-		verificationBig.SetString(routing.VerificationPool, 10)
-		citationBig := new(big.Int)
-		citationBig.SetString(routing.CitationPool, 10)
-
-		// Send verification pool to knowledge module.
-		// (The former 30% x/compute_pool slice was removed with that module
-		// in the 2026-07 slim cut — the full pool now funds verification.)
-		if verificationBig.Sign() > 0 {
-			verificationCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(verificationBig)))
-			if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, types.KnowledgeModuleName, verificationCoins); err != nil {
-				k.Logger(ctx).Error("failed to send verification pool share", "error", err)
-			}
-		}
-
-		// Citation pool and treasury stay in module account (or route to citation/treasury modules when they exist)
-		_ = citationBig
-	}
-
-	// Record total minted after distribution
-	dist.FundBalanceAfter = k.GetTotalMinted(ctx).String()
-
-	k.SetBlockRewardDistribution(ctx, dist)
-
-	k.Logger(ctx).Debug("distributed block reward",
-		"block", height,
-		"producer", producer,
-		"contributor", routing.ContributorShare,
-		"protocol", routing.ProtocolShare,
-		"research", routing.ResearchShare,
-		"development", routing.DevelopmentAmount,
-		"total_minted", dist.FundBalanceAfter,
-	)
-
-	return dist, nil
+		FundBalanceAfter:  k.GetTotalMinted(ctx).String(),
+		FounderShare:      "0",
+		DevelopmentAmount: "0",
+		ProtocolShare:     "0",
+	}, nil
 }
 
 // FalsifyClaim handles clawback when a claim is proven false.

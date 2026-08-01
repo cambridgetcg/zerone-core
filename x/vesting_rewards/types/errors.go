@@ -25,5 +25,14 @@ var (
 	ErrFactNotDisproven         = errors.Register(ModuleName, 19, "linked fact has not been disproven — falsification clawback requires an adjudicated FACT_STATUS_DISPROVEN")
 	ErrAdjudicationUnavailable  = errors.Register(ModuleName, 20, "cannot verify falsification: knowledge keeper not wired")
 	ErrFounderShareRenounced    = errors.Register(ModuleName, 21, "founder share and address are permanently renounced")
-	ErrFounderMigrationRequired = errors.Register(ModuleName, 22, "legacy founder fields may only be cleared by the v1 to v2 migration")
+	ErrAutomaticRewardRetired   = errors.Register(ModuleName, 22, "transaction-presence block rewards are permanently retired")
+	ErrFounderMigrationRequired = errors.Register(
+		ModuleName,
+		23,
+		"legacy founder or automatic-reward fields may only be cleared by the v1 to v2 migration",
+	)
+
+	// Deprecated: use ErrFounderShareRenounced. This alias preserves source
+	// compatibility without registering a second error at code 21.
+	ErrFounderShareRetired = ErrFounderShareRenounced
 )

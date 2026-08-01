@@ -2,17 +2,14 @@
 
 > Written by AI (愛), 2026-02-23. This is a critical review, not marketing.
 >
-> **⚠️ Historical review; not current source truth (updated 2026-08-01).**
-> This review captured the 2026-02-23 design and several later annotations.
-> The live `zerone-1` genesis, founder-share governance contract, module
-> inventory, and fee routes have since changed. The live genesis is **13,555
-> ZRN** of validator collateral/gas plus transferable operator float. The
-> vesting-rewards v2 permanently retires the former founder recipient; its
-> activation still requires the named `founder-renunciation-v1` upgrade. Use
-> [GENESIS.md](GENESIS.md), [REVENUE-SPLIT.md](REVENUE-SPLIT.md),
-> and the hash-bound genesis manifest for current accounting. Unedited sections
-> below are a point-in-time critique, not a claim that their named mechanisms
-> remain shipped.
+> **⚠️ Frozen historical review; not current source truth (superseded by the
+> H1 liquidity and H2 vesting boundaries).** This review captured the
+> 2026-02-23 design and later interim annotations. H1 retires the liquidity
+> protocol skim; H2 retires transaction-presence block issuance and the founder
+> auto-split. Use
+> [ECONOMIC-NEUTRALITY.md](ECONOMIC-NEUTRALITY.md), [GENESIS.md](GENESIS.md),
+> and [REVENUE-SPLIT.md](REVENUE-SPLIT.md) for current source accounting.
+> Unedited analysis below remains a point-in-time critique only.
 
 ## What's Strong
 
@@ -52,28 +49,30 @@ collateral/gas and a transferable 2,222 ZRN operations float. There was no
 separate team, foundation, investor-sale, research, or faucet allocation.
 
 The research and development funds started empty and fill through implemented
-forward routes. Block rewards occur only on eligible transaction-bearing
-blocks; an ordinary transfer is sufficient for eligibility.
+forward routes. The interim source rewarded transaction-bearing blocks, but
+H2 retires that proposer-controlled trigger.
 
-### 2. ~~Founder sub-share remains governance-bounded~~ → SOURCE-RESOLVED
+### 2. Founder sub-share → RETIRED AT H2
 
-Vesting-rewards v2 fixes the compatibility fields at zero/empty, removes the
-payout arithmetic, and migrates legacy state without rewriting historical
-records. This is not live until `founder-renunciation-v1` is scheduled and its
-release is independently verified. It removes a founder-status benefit; it
-does not remove the founding household's disclosed validator, balances, or
-stake-weighted voting power.
+The launch setting was dormant because no founder address existed. H2 fixes
+`founder_share_bps = 0` and `founder_address = ""`; ordinary governance cannot
+restore the automatic sub-share.
 
-### 3. Empty Block Reward = 0 May Cause Issues
+**Resolution:** founding participants may receive voluntary transfers or
+discrete public grants, but no identity-based runtime percentage.
+
+### 3. Transaction-presence reward → RETIRED AT H2
 
 Zero reward for blocks without PoT activity means validators earn nothing when the knowledge pipeline is quiet. In early network phases with low activity, this could create:
 - Validator exodus during quiet periods
 - Incentive to spam low-quality claims just to trigger rewards
 - Block production without economic incentive during knowledge droughts
 
-**Consideration:** Even a small empty block reward (e.g., 1% of base) would maintain validator incentives during quiet periods without undermining the PoT alignment.
+**Resolution:** H2 retires both empty and transaction-bearing automatic block
+issuance. Actual fees remain the validator compensation path. A future work
+reward needs independently witnessed successful work, not arbitrary activity.
 
-### 4. ~~Decay Is Very Aggressive~~ → RESOLVED
+### 4. Historical decay curve → SUPERSEDED AT H2
 
 **Decision: 1-year half-life.** `reward_decay_bps` changed from 850,000 (15%/epoch, ~78-day collapse) to 994,478 (0.55%/epoch, ~1-year half-life). Rewards now halve annually — 4× faster than Bitcoin's 4-year halvings but 125× slower than the original design.
 
@@ -85,14 +84,14 @@ The removed `compute_pool` module receives nothing. The full verification
 portion of the protocol split now routes to `knowledge`; citation and treasury
 reserves remain in `vesting_rewards`.
 
-### 6. Historical liquidity-pool limit
+### 6. Liquidity-pool bound and neutral fee transition
 
 The old v3 source/live shape decoded an omitted `max_pools` as zero/unlimited.
-The source-approved v4 migration replaces zero with 16 open pools and validates
+The v4 migration replaces zero with 16 open pools and validates
 a 1–64 range; a larger legacy policy value is clamped to 64 after separately
 rejecting more than 64 actual open pools. A separate hard lifetime namespace
-cap permits at most 10,000 monotonic pool records; neither bound is a claim
-that v4 is already active on the running network.
+cap permits at most 10,000 monotonic pool records. Atomic H1 continues through
+liquiditypool v5, which fixes the protocol skim at zero.
 
 ### 7. Dynamic Pricing Oracle Is Disabled
 
@@ -139,9 +138,9 @@ The centralisation risk now has a concrete mitigation timeline. See [GOVERNANCE-
 
 1. **What's the equilibrium circulating supply?** With vesting locks, staking, and the supply cap, the actual liquid supply at any given time is hard to model. A simulation would help.
 
-2. **When does the cap bind?** Issuance is activity-dependent and rejected
-   substrate bonds can burn, so calendar projections are upper-bound scenarios,
-   not a monotonic schedule.
+2. **When does the cap bind?** Automatic block issuance is retired at H2.
+   Remaining issuance is event/authority dependent and rejected substrate
+   bonds can burn, so there is no responsible calendar projection.
 
 3. **Is the development fund governance-ready?** 19.67% of all revenue is a substantial fund. The governance mechanism for disbursing it (LIP proposals) needs to be robust from day 1. Without clear disbursement criteria, the fund could become a political football or sit idle.
 
@@ -151,10 +150,11 @@ The centralisation risk now has a concrete mitigation timeline. See [GOVERNANCE-
 
 5. **Who decides the knowledge strata?** `allow_new_strata = false` at genesis. New knowledge domains can be added, but new epistemic strata require a code upgrade. Is this too conservative?
 
-6. **Can governance break the economics?** A governance proposal could set
-   `contributor_bps = 1000000`, directing all split revenue to contributors.
-   It cannot restore the retired founder fields through ordinary v2 parameter
-   governance, but the remaining split surface still needs strong review.
+6. **Can governance break the economics?** Governance still controls real-fee
+   routing, treasury roles, pool admission/status, oracle admission, and named
+   upgrades. H1 prevents ordinary Params from restoring the liquidity tap; H2
+   prevents restoration of the founder tap. Governance capture remains a
+   broader chain risk.
 
 7. **Emergency governance thresholds are very high.** 75% for halt, 80% for revert/resume. With 22 validators, that requires near-unanimity. Is this too high for actual emergencies?
 
@@ -179,4 +179,5 @@ The main strengths are:
 - **Knowledge-aligned incentives** that reward truth production over capital accumulation
 - **Self-healing economics** via autopoiesis/alignment
 
-For testnet, the priority should be empirically validating the empty block economics and vesting clawback flows. These are the mechanisms most likely to surprise when real actors interact with them. The decay curve (1-year half-life) is well-tested in unit and integration tests.
+For a post-H2 testnet, priorities are fee-routing integrity, LP reserve/supply
+accounting, invalid-transaction no-mint proofs, and vesting clawback flows.

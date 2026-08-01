@@ -1,70 +1,69 @@
 # Zerone Tokenomics
 
-> **Status:** Source-reviewed for the live custodial launch (2026-07-29)
-> **Token:** ZRN (micro-denomination: uzrn, 1 ZRN = 1,000,000 uzrn)  
+> **Status:** source target for the H1 `consolidation-safety-v1` and later H2
+> `founder-renunciation-v1` releases; not a claim that either is applied on a running chain.
+> **Token:** ZRN (`uzrn`, 1 ZRN = 1,000,000 uzrn)
 > **Chain:** Cosmos SDK v0.50, CometBFT consensus
 
 ## Overview
 
-Zerone is a **Proof-of-Truth** (PoT) research blockchain. There was no ICO or
-investor sale. The live custodial genesis did create real
-operator-controlled scaffolding: 11,333 ZRN of validator collateral
-(11,111 bonded + 222 spendable gas) and a transferable 2,222 ZRN operator
-float, 13,555 ZRN total (0.0061% of cap), with every address published.
-Post-genesis native issuance shares one `MintWithCap` gate. The published
-configuration has transaction-bearing block rewards, claiming-pot claims, and
-substrate-bridge rewards; an ordinary user transaction qualifies a block for
-the first lane. Default-zero knowledge probe issuance and default-disabled
-`x/tokens` emission periods are additional governance-activatable controls.
+Zerone is a Proof-of-Truth research blockchain with no ICO or investor sale.
+The live custodial genesis did create real operator-controlled scaffolding:
+11,333 ZRN of validator collateral/gas and a transferable 2,222 ZRN operations
+float, 13,555 ZRN total. Every address is published.
 
-## Documents in This Directory
+The H1/H2 sequence introduces enforceable economic-neutrality boundaries:
+
+- liquiditypool v5 sends no protocol share out of a pool; configured swap fees
+  stay in reserves for transferable LP shares;
+- H2 vesting_rewards v2 has no founder auto-split; and
+- after H2, raw transaction presence no longer creates a proposer mint.
+
+Actual transaction fees continue to compensate execution/consensus and route
+to development, research, and normal Cosmos distribution. Other cap-gated
+issuance pathways retain their own evidence and governance rules. See
+[Economic neutrality](ECONOMIC-NEUTRALITY.md).
+
+## Documents
 
 | File | Description |
-|------|-------------|
-| [SUPPLY.md](SUPPLY.md) | Supply cap, emission schedule, decay curve, and long-term projections |
-| [REVENUE-SPLIT.md](REVENUE-SPLIT.md) | The 4-way revenue split, protocol sub-split, and founder sunset |
-| [VESTING.md](VESTING.md) | Truth-linked vesting: epistemic categories, release curves, clawback |
-| [STAKING.md](STAKING.md) | Tiered validator system, staking economics, slashing |
-| [GENESIS.md](GENESIS.md) | Genesis distribution, bootstrap accounts, and ceremony |
-| [SINKS-AND-FLOWS.md](SINKS-AND-FLOWS.md) | Complete map of where ZRN is created, destroyed, and moves |
-| [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | 4-phase research-fund model; the live genesis voter pair is unconfigured |
-| [REVIEW.md](REVIEW.md) | Honest assessment: strengths, risks, open questions |
+|---|---|
+| [ECONOMIC-NEUTRALITY.md](ECONOMIC-NEUTRALITY.md) | H1 rule: value follows capital, paid execution, or independently witnessed work—not identity/control |
+| [SUPPLY.md](SUPPLY.md) | Hard cap and remaining issuance surfaces after automatic block-reward retirement |
+| [REVENUE-SPLIT.md](REVENUE-SPLIT.md) | Real transaction-fee routing, LP compensation, and retired compatibility fields |
+| [VESTING.md](VESTING.md) | Truth-linked vesting schedules and clawback |
+| [STAKING.md](STAKING.md) | Custom tiers, Cosmos staking, fees, and validator economics |
+| [GENESIS.md](GENESIS.md) | Immutable launch distribution and prospective H1 boundary |
+| [SINKS-AND-FLOWS.md](SINKS-AND-FLOWS.md) | Source-backed map of ZRN creation, destruction, locks, and movement |
+| [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | Research-fund committee model and implementation gaps |
+| [LIQUIDITY-TRANSPARENCY.md](LIQUIDITY-TRANSPARENCY.md) | External Osmosis testnet position, separate from the native module |
+| [REVIEW.md](REVIEW.md) | Frozen historical critique; not current accounting |
 | [CONSTRUCTIVE-INTELLIGENCE-REWARDS.md](CONSTRUCTIVE-INTELLIGENCE-REWARDS.md) | Pre-consensus reward projection from the canonical capability tree onto artifact evidence, with power separation and fail-closed release gates |
 | [../specs/constructive-intelligence-math-frontier-v0.md](../specs/constructive-intelligence-math-frontier-v0.md) | Zero-value formal-mathematics skill-tree extension and sponsor-quest template with ordinal-only KARMA and no privileged seats, shares, or activation authority |
 
-## Quick Numbers
+## Quick boundaries
 
-| Metric | Value |
-|--------|-------|
-| **Max Supply** | 222,222,222 ZRN (hard cap, enforced in code) |
-| **Genesis Supply** | 13,555 ZRN (0.0061% of cap) — 11,333 validator collateral/gas + 2,222 transferable operator float, published |
-| **Initial Block Reward** | 10 ZRN/block |
-| **Block Time** | ~2.521 seconds |
-| **Epoch Length** | 100,000 blocks (~2.9 days) |
-| **Decay Rate** | 0.994478× per epoch (1-year half-life) |
-| **Floor Reward** | 0.1 ZRN/block |
-| **Block reward to proposer / configured withdraw address** | 55% |
-| **Revenue to Protocol** | 22% |
-| **Revenue to Development** | 19.67% (bug bounties, truth discovery, protocol dev) |
-| **Revenue to Research Fund** | 3.33% |
-| **General Burn Share** | 0%; rejected substrate-attestation bonds are the narrow burn exception |
+| Metric | Source/H1 value |
+|---|---:|
+| Maximum supply | 222,222,222 ZRN |
+| Live genesis supply | 13,555 ZRN (0.0061% of cap) |
+| Transaction-presence block reward | 0 after H1 |
+| Founder protocol share | 0 after H1 |
+| Liquidity protocol skim | 0 after H1 |
+| Default pool swap fee | 0.3%, retained by LP-backed reserves |
+| Real `uzrn` transaction-fee routing | 19.67% development / 3.33% research / ~77% normal distribution |
+| General burn share | 0%; rejected substrate-attestation bonds are a narrow exception |
 
-## Design Philosophy
+## Design philosophy
 
-1. **Truth coupling is partial and measurable.** Empty blocks earn nothing, but
-   any non-injection user transaction—including an ordinary transfer—makes a
-   block reward-eligible. Validator count and the survived-challenge rate scale
-   the reward; transaction eligibility alone is not proof of verified truth.
-
-2. **Revenue is routed, not burned.** There is no general revenue burn share;
-   rejected substrate-attestation bonds are the narrow punitive exception. The
-   222M supply cap provides the primary scarcity boundary.
-
-3. **Knowledge has memory.** Rewards vest according to epistemic category — mathematical proofs vest slowly (because they should last forever), oracle feeds vest quickly (because they expire). If a claim is falsified, rewards are clawed back.
-
-4. **Anti-capture as infrastructure.** HHI-based concentration monitoring, tiered validators with reputation requirements, and cross-stratum verification make knowledge monopolies structurally expensive to maintain.
-
-5. **The chain can observe itself.** The alignment module records five health
-   dimensions and advisory corrections. The former autopoiesis regulator was
-   retired; current corrections do not automatically rewrite slash or
-   economic parameters.
+1. **No identity rent.** A founder, creator label, or safety authority does not
+   receive an automatic runtime percentage.
+2. **Capital receipts remain property.** LP shares represent funded reserves;
+   fee retention compensates capital/risk and any bearer may exit pro rata.
+3. **Paid execution remains paid.** Retiring transaction-presence issuance does
+   not retire real transaction fees or normal validator distribution.
+4. **Work rewards require evidence.** Supply-cap compliance is necessary but
+   not sufficient; each mint lane must bind a successful, non-self-attested
+   trigger.
+5. **History is not rewritten.** Genesis and pre-H1 events remain the truthful
+   record; migration changes prospective runtime state only.

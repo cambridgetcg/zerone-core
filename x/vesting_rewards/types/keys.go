@@ -26,9 +26,8 @@ const (
 	// MaxSupplyUzrn is the hard supply cap: 222,222,222 ZRN in uzrn.
 	MaxSupplyUzrn = "222222222000000"
 
-	// VerificationPoolShareBps is the share of post-research block reward
-	// routed to the knowledge module account to fund verification rewards.
-	// 500000 = 50% on 1,000,000 scale.
+	// VerificationPoolShareBps is a retired Go compatibility constant from the
+	// pre-v2 automatic reward router. Runtime execution does not consume it.
 	VerificationPoolShareBps = 500000
 
 	// KnowledgeModuleName is the module account name for the knowledge module.

@@ -9157,7 +9157,7 @@
           "type": "array"
         },
         "protocolFeeBps": {
-          "description": "Protocol share of the floor-rounded fee, applied only to ZRN-input swaps\n(1M bps scale).",
+          "description": "Protocol share of the floor-rounded fee, applied only to ZRN-input swaps\n(1M bps scale).\nRetained for wire compatibility. Consensus v5 requires zero: the\nprotocol takes no swap skim and the full fee remains in pool reserves.",
           "format": "uint64",
           "type": "string"
         },
@@ -11332,7 +11332,7 @@
       "type": "object"
     },
     "zerone.vesting_rewards.v1.BlockRewardDistribution": {
-      "description": "BlockRewardDistribution records block reward distribution for a specific block.",
+      "description": "BlockRewardDistribution preserves a historical pre-v2 block reward record.",
       "properties": {
         "blockHeight": {
           "format": "uint64",
@@ -11344,7 +11344,7 @@
           "type": "string"
         },
         "founderShare": {
-          "description": "Compatibility field: zero in v2+ records; preserved legacy records may be nonzero.",
+          "description": "Retired compatibility output. Zero for v2-created values; historical\nrecords are preserved unchanged by migration.",
           "type": "string"
         },
         "fundBalanceAfter": {
@@ -11401,7 +11401,7 @@
       "type": "object"
     },
     "zerone.vesting_rewards.v1.CategoryRewardConfig": {
-      "description": "CategoryRewardConfig defines a per-category block reward multiplier.",
+      "description": "CategoryRewardConfig preserves a retired per-category reward multiplier.",
       "properties": {
         "category": {
           "title": "epistemic category name",
@@ -11419,13 +11419,11 @@
       "description": "Params defines the vesting_rewards module parameters.",
       "properties": {
         "blockReward": {
-          "description": "base block reward in uzrn (default: \"10000000\" = 10 ZRN)",
-          "title": "Block rewards",
+          "description": "Retired transaction-presence block-reward fields. Consensus v2 requires\nblock_reward and floor_reward to be \"0\" and empty_block_reward_rate to be\nzero. The remaining schedule fields are inert compatibility metadata.",
           "type": "string"
         },
         "blocksPerRewardEpoch": {
           "format": "uint64",
-          "title": "blocks per decay epoch (default: 100,000)",
           "type": "string"
         },
         "categoryRewardConfigs": {
@@ -11438,18 +11436,18 @@
         },
         "emptyBlockRewardRate": {
           "format": "uint64",
-          "title": "10,000 scale: 10,000 = 100%; default 0",
+          "title": "retired; must be zero",
           "type": "string"
         },
         "floorReward": {
-          "title": "minimum reward per block in uzrn (default: \"100000\" = 0.1 ZRN)",
+          "title": "retired; must be \"0\"",
           "type": "string"
         },
         "founderAddress": {
           "type": "string"
         },
         "founderShareBps": {
-          "description": "Compatibility-only founder fields. The tap is constitutionally renounced:\nsource validation requires 0/empty and governance cannot restore it.",
+          "description": "Retired compatibility fields. Consensus v2 requires zero and empty;\ngovernance cannot recreate an identity-based founder revenue tap.",
           "format": "uint64",
           "type": "string"
         },
@@ -11468,13 +11466,13 @@
           "type": "string"
         },
         "knowledgeCouplingTargetBps": {
-          "description": "Survived-challenge-coupled block reward.\nWhen enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).\nRate = survived / (survived + disproven); unchallenged facts are excluded.\nBelow target → reward is reduced; at target → full reward.\n0 target = disabled (backward compat).\n\ntarget survived-challenge rate in BPS (default: 700,000 = 70%)",
+          "description": "Inert compatibility metadata from the retired block-reward path.\n\ntarget survived-challenge rate in BPS (default: 700,000 = 70%)",
           "format": "uint64",
           "type": "string"
         },
         "minValidatorsForFullReward": {
           "format": "int64",
-          "title": "target validator count for full block reward (default: 22)",
+          "title": "inert compatibility metadata",
           "type": "integer"
         },
         "protocolSubSplit": {
@@ -11495,7 +11493,6 @@
         },
         "rewardDecayBps": {
           "format": "uint64",
-          "title": "per-epoch decay (default: 994,478 = 0.994478x on 1M scale)",
           "type": "string"
         },
         "vestingEnabled": {
@@ -11586,10 +11583,10 @@
       "type": "object"
     },
     "zerone.vesting_rewards.v1.QuerySupplyCouplingAuditResponse": {
-      "description": "SupplyCouplingAudit response surfaces the shared capped-mint ledger and the\nseparately configured block-reward coupling inputs.",
+      "description": "SupplyCouplingAudit response surfaces the shared capped-mint ledger and the\nseparately configured, retired block-reward coupling inputs.",
       "properties": {
         "couplingEnabled": {
-          "title": "target \u003e 0 and keeper wired",
+          "title": "always false in consensus v2",
           "type": "boolean"
         },
         "currentSupply": {
@@ -11598,17 +11595,17 @@
         },
         "effectiveCouplingMultiplierBps": {
           "format": "uint64",
-          "title": "current applied multiplier",
+          "title": "always zero in consensus v2",
           "type": "string"
         },
         "knowledgeCouplingFloorBps": {
           "format": "uint64",
-          "title": "configured floor multiplier",
+          "title": "retired configured floor multiplier",
           "type": "string"
         },
         "knowledgeCouplingTargetBps": {
           "format": "uint64",
-          "title": "configured target rate",
+          "title": "retired configured target rate",
           "type": "string"
         },
         "maxSupply": {
@@ -11616,7 +11613,7 @@
           "type": "string"
         },
         "survivedChallengeRateBps": {
-          "description": "Consensus-applied survived/(survived+disproven) signal; unchallenged\nfacts are excluded.",
+          "description": "Observed survived/(survived+disproven) signal; unchallenged facts are\nexcluded. It does not drive automatic issuance in consensus v2.",
           "format": "uint64",
           "type": "string"
         },
@@ -11707,7 +11704,7 @@
         },
         "lastClaimBlock": {
           "format": "uint64",
-          "title": "last block rewards were claimed",
+          "title": "last block at which vested value was claimed",
           "type": "string"
         },
         "pausedAtBlock": {
@@ -19194,7 +19191,7 @@
             }
           }
         },
-        "summary": "SupplyCouplingAudit is a legacy-named observability endpoint. It reports\nthe shared MintWithCap ledger, bank supply, and block-reward coupling\ninputs. The aggregate ledger includes all capped callers and does not by\nitself prove that total issuance was caused by knowledge activity.",
+        "summary": "SupplyCouplingAudit is a legacy-named observability endpoint. It reports\nthe shared MintWithCap ledger, bank supply, retired block-reward settings,\nand knowledge telemetry. The aggregate ledger includes all capped callers\nand does not by itself prove that issuance was caused by knowledge work.",
         "tags": [
           "Query"
         ]

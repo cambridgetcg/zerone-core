@@ -103,17 +103,12 @@ decentralized. Every address and amount is published in the hash-bound
 else is subject to the same hard cap, but not every source-capable lane is
 honestly described as participation-earned.
 
-The published/default configuration exposes three current issuance families:
+The current source/default configuration exposes two bounded issuance families:
 
-1. **Transaction-bearing block rewards** — `x/vesting_rewards` rewards the block
-   proposer when a block contains any non-injection user transaction. An
-   ordinary transfer qualifies; this is not proof that the transaction created
-   verified knowledge. Empty blocks mint **0**. Validator count, decay, and the
-   survived-challenge rate scale the amount.
-2. **Claiming-pot claims** — `x/claiming_pot` includes the 0.222 ZRN bootstrap
+1. **Claiming-pot claims** — `x/claiming_pot` includes the 0.222 ZRN bootstrap
    claim and a legacy governance-created general-pot surface. Both consume the
    same fixed-size lifetime commitment budget and mint only on `MsgClaim`.
-3. **Substrate-bridge attestations** — source can mint for eligible external
+2. **Substrate-bridge attestations** — source can mint for eligible external
    work that survives challenge. The published genesis declares
    `agenttool-invocation-v1` ACTIVE with a witness reward, but current live
    query state was not reverified; that artifact is not evidence of live
@@ -125,15 +120,21 @@ emission periods are latched off. Governance can activate them. Training-fund
 disbursement and contribution-challenge bonus minting are release-sealed.
 Every post-genesis native issuance call routes through `MintWithCap`, and
 `InitChain` also rejects a genesis whose bank supply exceeds 222,222,222 ZRN.
+Consensus v2 of `x/vesting_rewards` permanently fixes its block/floor reward
+parameters at zero: mere transaction inclusion is proposer-controlled, not
+independently witnessed useful work. Validators continue to receive real
+transaction fees.
 
-No separate founder stipend was activated at genesis. Vesting-rewards
-consensus v2 goes further: `FounderShareBps` is fixed at `0`, `FounderAddress`
-is fixed empty, and the former payout branch is removed. Activation requires
-the separately scheduled `founder-renunciation-v1` upgrade; source publication
-is not live-chain evidence. This does not erase the founding household's
-disclosed validator, operations-account, or voting control. The Research Fund
-and Development Fund hold 0 ZRN at genesis and fill only from the forward
-revenue split. See
+No separate founder stipend was activated at genesis: `FounderAddress` was
+unset, so the historical dormant `FounderShareBps` accrued 0 ZRN. Consensus v2
+clears both compatibility fields, preserves main's retirement of
+transaction-presence rewards, and prevents governance from reactivating either
+path. Liquiditypool v5 likewise fixes the protocol skim at zero; the swap fee
+stays in pool reserves and accrues to bearer LP shares pro rata. These changes
+use distinct release boundaries: the exact `consolidation-safety-v1` binary
+advances liquidity while retaining vesting_rewards v1, then the separately
+bound `founder-renunciation-v1` binary alone advances vesting_rewards v1→v2.
+The immutable launch-genesis artifact remains historical evidence. See
 [docs/tokenomics/GENESIS.md](docs/tokenomics/GENESIS.md) for the full
 specification.
 

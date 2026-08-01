@@ -17,7 +17,8 @@ var researchFundModuleAddr = authtypes.NewModuleAddress(ResearchFundName)
 // package scope): calling .String() here would bech32-encode BEFORE app.init()
 // seals the "zrn" prefix, poisoning the SDK's process-wide address cache with a
 // "cosmos1…" form for these bytes — which corrupts the vesting_rewards module
-// account address and sends all producer rewards to an unspendable void.
+// account address and can send research revenue or vesting transfers to an
+// unspendable void.
 var allowedResearchFundDepositors = []sdk.AccAddress{
 	authtypes.NewModuleAddress(vestingrewardstypes.ModuleName),
 }
@@ -25,7 +26,7 @@ var allowedResearchFundDepositors = []sdk.AccAddress{
 // ResearchFundRestriction is a bank SendRestriction that rejects any send TO the
 // research_fund module account unless it originates from vesting_rewards.
 // This enforces the invariant that all research fund deposits flow through
-// DepositToResearchFund (the single auditable, full-research route).
+// DepositToResearchFund, the canonical full-value research router.
 // Genesis (block height 0) is exempt to allow initial fund seeding.
 func ResearchFundRestriction(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins) (sdk.AccAddress, error) {
 	if toAddr.Equals(researchFundModuleAddr) {

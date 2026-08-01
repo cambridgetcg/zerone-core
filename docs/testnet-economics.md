@@ -26,14 +26,16 @@ validator collateral and operator float, with no faucet. There is no team,
 foundation, or investor allocation. See [Genesis](tokenomics/GENESIS.md) for
 the canonical accounting.
 
-On a protocol network, wired native issuance shares the 222,222,222 ZRN
-`MintWithCap` gate. Published/default-active families are transaction-bearing
-block rewards, claiming-pot claims, and substrate-bridge rewards. Any ordinary
-user transaction qualifies a block; empty blocks mint 0 at the published
-setting. Claiming pots include both the 0.222 ZRN bootstrap seed and a legacy
-governance-created general-pot surface under one lifetime budget. The knowledge
-probe-bounty rate and `x/tokens` emission periods are governance-activatable
-but disabled in default/published params.
+On a protocol network, every wired native issuance caller shares the
+222,222,222 ZRN `MintWithCap` gate. H2 retires the automatic
+transaction-presence block mint: an ordinary user transaction is no longer an
+issuance trigger. Remaining source-capable paths include claiming-pot claims
+and substrate-bridge rewards. Claiming pots include both the 0.222 ZRN
+bootstrap seed and a legacy governance-created general-pot surface under one
+lifetime budget. The knowledge probe-bounty rate and `x/tokens` emission
+periods remain governance-activatable but are disabled in default/published
+params. See the [economic-neutrality rule](tokenomics/ECONOMIC-NEUTRALITY.md)
+for the H2 boundary between compensation and issuance.
 
 See [tokenomics/GENESIS.md](tokenomics/GENESIS.md) for the full specification.
 

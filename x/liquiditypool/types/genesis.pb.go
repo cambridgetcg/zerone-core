@@ -30,6 +30,8 @@ type Params struct {
 	TwapWindowBlocks    uint64                 `protobuf:"varint,4,opt,name=twap_window_blocks,json=twapWindowBlocks,proto3" json:"twap_window_blocks,omitempty"`         // default TWAP window in blocks
 	// Protocol share of the floor-rounded fee, applied only to ZRN-input swaps
 	// (1M bps scale).
+	// Retained for wire compatibility. Consensus v5 requires zero: the
+	// protocol takes no swap skim and the full fee remains in pool reserves.
 	ProtocolFeeBps uint64 `protobuf:"varint,5,opt,name=protocol_fee_bps,json=protocolFeeBps,proto3" json:"protocol_fee_bps,omitempty"`
 	MinReserve     string `protobuf:"bytes,6,opt,name=min_reserve,json=minReserve,proto3" json:"min_reserve,omitempty"` // minimum reserve after swap (bigint string, default "1")
 	// Quote denoms the ZRN price oracle (GetZRNPrice) may price against.

@@ -116,9 +116,10 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) {
 	var gs types.GenesisState
 	if err := json.Unmarshal(data, &gs); err != nil {
-		defGs := types.DefaultGenesis()
-		am.keeper.InitGenesis(ctx, defGs)
-		return
+		panic(fmt.Sprintf("failed to unmarshal %s genesis: %v", types.ModuleName, err))
+	}
+	if err := gs.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid %s genesis: %v", types.ModuleName, err))
 	}
 	am.keeper.InitGenesis(ctx, &gs)
 }
@@ -133,13 +134,14 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return bz
 }
 
-// ConsensusVersion 2 permanently clears the legacy founder-share parameters;
-// historical distribution records and protobuf field numbers remain intact.
+// ConsensusVersion 2 permanently retires the founder auto-split and the
+// proposer-controlled arbitrary-transaction block mint while keeping their
+// protobuf fields as inert compatibility values.
 func (AppModule) ConsensusVersion() uint64 { return 2 }
 
-// BeginBlock executes begin-block logic.
-// 1. Routes transaction fees through the 4-way revenue split.
-// 2. Distributes block rewards to the block producer with full revenue routing.
+// BeginBlock routes real transaction fees. Consensus v2 deliberately performs
+// no transaction-presence block mint: proposal inclusion is not successful,
+// independently witnessed work and is controlled by the proposer itself.
 func (am AppModule) BeginBlock(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := sdkCtx.BlockHeight()
@@ -154,49 +156,6 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 	if err := am.keeper.RouteFees(sdkCtx); err != nil {
 		am.keeper.Logger(sdkCtx).Error("failed to route fees",
 			"block", height, "error", err)
-	}
-
-	// Get block proposer from header and remap the CONSENSUS address to the
-	// validator's OPERATOR account (honoring its x/distribution withdraw
-	// address). The consensus address is not controlled by any operator key;
-	// paying it directly would make all PoT emission unspendable.
-	proposerAddr := sdkCtx.BlockHeader().ProposerAddress
-	if len(proposerAddr) == 0 {
-		return nil
-	}
-	producerAcc, err := am.keeper.ResolveProposerRewardAddress(sdkCtx, sdk.ConsAddress(proposerAddr))
-	if err != nil {
-		// Better to skip this block's emission than to mint coins nobody can spend.
-		am.keeper.Logger(sdkCtx).Error("failed to resolve proposer to operator account; skipping block reward",
-			"block", height, "proposer_cons_addr", sdk.ConsAddress(proposerAddr).String(), "error", err)
-		return nil
-	}
-	producer := producerAcc.String()
-
-	// Get active validator count for reward scaling
-	var activeValidatorCount uint32
-	if sk := am.keeper.GetStakingKeeper(); sk != nil {
-		activeValidatorCount = sk.GetActiveValidatorCount(sdkCtx)
-	}
-
-	// Any non-injection user transaction qualifies; ordinary transfers count.
-	// With the published/default zero empty-block rate, empty blocks mint 0.
-	hasTransactions := am.keeper.GetBlockTxCount() > 0 && activeValidatorCount > 0
-
-	dist, err := am.keeper.DistributeBlockReward(sdkCtx, producer, activeValidatorCount, hasTransactions)
-	if err != nil {
-		am.keeper.Logger(sdkCtx).Error("failed to distribute block reward",
-			"block", height, "error", err)
-	} else if hasTransactions && dist != nil {
-		sdkCtx.EventManager().EmitEvent(
-			sdk.NewEvent("zerone.vesting_rewards.block_reward_distributed",
-				sdk.NewAttribute("block_height", fmt.Sprintf("%d", height)),
-				sdk.NewAttribute("producer", producer),
-				sdk.NewAttribute("total_minted", dist.TotalMinted),
-				sdk.NewAttribute("producer_reward", dist.ProducerReward),
-				sdk.NewAttribute("active_validators", fmt.Sprintf("%d", activeValidatorCount)),
-			),
-		)
 	}
 
 	return nil

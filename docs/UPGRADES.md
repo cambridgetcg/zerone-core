@@ -18,36 +18,30 @@ old binary halts at that height (`UPGRADE <name> NEEDED`) and writes
 `data/upgrade-info.json`. The new binary — swapped in by hand or by
 cosmovisor — runs the handler and the chain resumes.
 
-## Pending release order
+## Pending release sequence
 
-Existing networks currently have three ordered release checkpoints:
+Existing networks require two separately bound software-upgrade releases:
 
-1. `consolidation-safety-v1`; then
-2. `liquiditypool-safety-v2` at a distinct, later height; then
-3. `founder-renunciation-v1` at its own later height.
+1. `consolidation-safety-v1` at H1. Its exact historical binary advances
+   liquiditypool to v5 while retaining `vesting_rewards = 1`, reconciles stored
+   module-account permissions, and records its handler marker.
+2. `founder-renunciation-v1` at a later H2. Its exact binary requires every
+   other module already at target and alone advances `vesting_rewards = 1→2`,
+   clearing founder and automatic-reward compatibility parameters.
 
-All three handlers run module migrations and reconcile stored module-account
-permissions. The first handler is expected to activate and advance
-liquiditypool to consensus v4; the second is a readiness marker, not a second
-technical gate, and remains safe because an already-current module is skipped.
-Neither of the first two checkpoints by itself authorizes a native pool or its
-oracle. The third is the only plan allowed by the combined source binary to
-advance `vesting_rewards` from v1 to v2.
+The current combined source is the second release line. It refuses to execute
+H1 while the live version map still reports vesting_rewards v1. There is no
+`liquiditypool-safety-v2` handler. Native pool
+creation and oracle use remain disabled after H1 until their separate
+governance, capital, bank-send, price/depth, and recovery gates pass.
 
-Release digests are plan-specific. If a network still reports
-`vesting_rewards=1`, this combined source binary deliberately refuses every
-older upgrade name rather than silently carrying founder renunciation under
-it. Use the exact reviewed historical binary for the first two plans, then the
-founder-renunciation release only for the third. Never build moving `main` for
-an earlier pending plan.
-
-Before scheduling the combined sequence, bind a live query proving there are
-zero native pools and no billing quote-denom allowlist. Valid legacy pools
-migrate `EXIT_ONLY`, so a network with any existing pool still needs a separately
-reviewed transition. After the first v4 migration pass, verify its new
-`allowed_pool_denoms` and `pool_creators` are empty before any params update.
-The complete no-go gates, status lifecycle, governance path, and
-Osmosis-testnet separation are in
+Before scheduling H1, bind a same-height live snapshot proving there are zero
+native pools and no billing quote-denom allowlist. Valid legacy pools migrate
+`EXIT_ONLY`, so a network with any existing pool still needs a separately
+reviewed transition. After H1, verify `allowed_pool_denoms`, `pool_creators`,
+and `billing_quote_denoms` are empty before accepting any Params update. The
+complete no-go gates, economic-neutrality transition, status lifecycle,
+governance path, and Osmosis-testnet separation are in
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md).
 
 ## Operator steps
@@ -89,15 +83,13 @@ Osmosis-testnet separation are in
    the knowledge marker `upgrade_marker_<version>` reads `migrated`; all
    validators report the same height and keep producing.
 
-For `liquiditypool-safety-v2`, verification does not authorize a pool by
-itself. Invariants and application lifecycle tests must also pass on the exact
-release, and native pool creation plus oracle quote allowlisting remain
-separate governance actions.
-
-For `founder-renunciation-v1`, verify `vesting_rewards=2`, zero/empty founder
-compatibility fields, the migration marker, complete research routing, and a
-failed ordinary-governance restoration attempt. See
-[FOUNDER-RENUNCIATION-V1.md](FOUNDER-RENUNCIATION-V1.md).
+H1 verification does not authorize a pool by itself. Invariants and
+application lifecycle tests must also pass on the exact release, and native
+pool creation plus oracle quote allowlisting remain separate governance
+actions. H1 must prove `protocol_fee_bps = 0` and LP-only swap-fee retention.
+H2 must separately prove vesting_rewards v2, founder fields zero/empty,
+transaction-presence reward fields zero, inert automatic issuance, full
+research routing, and continued routing of real transaction fees.
 
 ## Rollback
 

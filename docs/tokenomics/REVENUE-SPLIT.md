@@ -1,81 +1,75 @@
-# Revenue Split
+# Revenue and Fee Routing
 
-> **Implementation status (2026-08-01):** This page documents the current
-> source tree. It does not claim that every conceptual Zerone service routes
-> through one universal function. The concrete runtime paths are
-> `vesting_rewards.DistributeBlockReward`,
-> `vesting_rewards.DistributeRevenue`, `vesting_rewards.RouteFees`, and the
-> ZRN-input swap-fee transfer in `liquiditypool`.
+> **Implementation status:** this page describes the source target after the
+> H1 liquidity release and later H2 founder-renunciation release. Query a
+> release-matched network at a bound height before treating it as live state.
 
-## Block rewards
+## Actual transaction fees
 
-An eligible block reward is cap-gated, activity-dependent, validator-scaled,
-and knowledge-coupled before it is minted. `DistributeBlockReward` then applies
-the governance-adjustable four-way split:
+`vesting_rewards.RouteFees` runs before standard Cosmos distribution and
+handles accumulated `uzrn` in `fee_collector`:
 
-| Share | Default | Current destination |
-|---|---:|---|
-| Contributor | 55% | Block producer |
-| Protocol | 22% | 50% citation reserve, 30% knowledge verification pool, 20% treasury reserve |
-| Development | 19.67% | `development_fund` module account |
-| Research | 3.33% | `research_fund` in full |
+- 19.67% moves to `development_fund`;
+- 3.33% moves in full to `research_fund`; and
+- approximately 77% remains for normal Cosmos distribution.
 
-The four primary values use a 1,000,000 BPS scale and must sum to 1,000,000.
-Development is calculated as the remainder during routing so integer rounding
-cannot leak value.
+The values come from the current `RevenueSplit` Params. Integer rounding and
+aggregation in `fee_collector` mean the split is an aggregate rule rather than
+an exact per-transaction receipt. Non-`uzrn` balances are not split by this
+custom router.
 
-The citation and treasury parts of the protocol share currently remain in the
-`vesting_rewards` module account; no separate citation or treasury module is
-wired. The full verification part goes to `knowledge`. The removed
-`compute_pool` module receives nothing.
-
-## Transaction fees
-
-`RouteFees` treats accumulated `uzrn` fees differently from newly minted block
-rewards:
-
-- 19.67% moves from `fee_collector` to `development_fund`;
-- 3.33% is deposited in full through the canonical research routing path; and
-- the remaining approximately 77% stays in `fee_collector` for normal Cosmos
-  distribution.
-
-The contributor/protocol labels therefore do not describe distinct
-transaction-fee destinations. Non-`uzrn` balances are not split by
-`RouteFees`.
+The legacy contributor/protocol labels do not create distinct transaction-fee
+destinations: their combined 77% remains in `fee_collector`. The normal Cosmos
+distribution path may allocate community tax, validator commission, and
+delegator rewards according to its own on-chain state.
 
 ## Liquidity-pool fees
 
-On ZRN-input swaps, the governance-set protocol share of the swap fee moves to
-`fee_collector`, where `RouteFees` handles it as `uzrn`. Counter-denom-input
-swaps take no protocol share; their fee remains with liquidity providers.
+Liquiditypool v5 has no protocol skim in either swap direction.
+`protocol_fee_bps` remains on the wire for compatibility but is fixed at zero
+and governance cannot set it nonzero.
 
-## Founder recipient is retired
+The configured pool fee is still real. It is incorporated into the
+constant-product quote and the complete input amount remains in recorded pool
+reserves after output leaves. The fee therefore increases the assets backing
+all transferable LP shares pro rata. It compensates funded capital and pool
+risk; it does not flow to governance, `fee_collector`, a creator title, or a
+founder address. Swap events retain `protocol_fee = 0` for compatibility.
 
-Vesting-rewards consensus v2 permanently retires the former founder
-sub-share. Its protobuf fields remain readable for historical/wire
-compatibility, but they are not control surfaces.
+## Retired automatic block split
 
-| Parameter | Governance contract |
-|---|---|
-| `founder_share_bps` | Fixed at `0`; validation and storage reject any other value |
-| `founder_address` | Fixed empty; validation and storage reject any recipient |
+Before vesting_rewards v2, transaction presence could call
+`DistributeBlockReward` and route a new mint through a four-way split. A
+proposer controlled inclusion before
+signature, fee, balance, or successful execution was known, so the trigger did
+not prove useful work.
 
-The v1→v2 migration clears either legacy field regardless of its old value;
-all v2+ deposits route the complete research allocation to `research_fund`.
-Historical records and field numbers are preserved. This source change is
-activated only by the separately scheduled `founder-renunciation-v1` upgrade;
-it is not a claim about the currently running binary. It also says nothing
-about separately disclosed operator-controlled balances, ordinary permissionless
-participation, validator control, or stake-weighted governance.
+Vesting_rewards v2 fixes `block_reward`, `floor_reward`, and
+`empty_block_reward_rate` at zero and removes that BeginBlock call. The former
+55/22/19.67/3.33 minted-reward projection is historical, not a post-H2 revenue
+promise. Actual transaction-fee routing above remains active.
 
-## What is not implemented
+## Retired founder sub-share
 
-Older designs named `billing`, `toolbox`, `tree`, `disputes`, `channels`,
-`bvm`, `compute_pool`, and other services as universal revenue sources. Those
-modules are not present in this source inventory, and this document does not
-represent their proposed flows as runtime behavior. `x/common` defines shared
-split message types; that schema alone does not make every module a caller of
-`DistributeRevenue`.
+`founder_share_bps` and `founder_address` remain compatibility fields but must
+be zero/empty after `founder-renunciation-v1`. Every canonical research
+deposit reaches `research_fund` in full, and an ordinary Params proposal
+cannot restore the old auto-split.
+
+The published genesis recorded a 7%-of-research setting with no founder
+address, so the tap was dormant at launch. H2 does not rewrite that artifact or
+claw back history; it permanently removes prospective activation. Any future
+payment to a founder is an ordinary publicly authorised grant, not a protocol
+percentage.
+
+## Other reward routing
+
+Some keeper types still express contributor, protocol, research, and
+development fields because other modules and historical records use the wire
+shape. A schema is not a mint trigger. Integrators must identify the concrete
+caller, source balance, bank transfer, and activation state before describing
+any value flow.
 
 There is no general revenue burn share. Rejected substrate-attestation bonds
-are a separate, narrow punitive ZRN burn path.
+are a separate punitive burn path. See [Economic neutrality](ECONOMIC-NEUTRALITY.md)
+and [Sources, locks, and flows](SINKS-AND-FLOWS.md).

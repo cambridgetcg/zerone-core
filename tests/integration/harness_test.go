@@ -202,11 +202,13 @@ func setupRevenueHarness(t *testing.T) *revenueTestHarness {
 	registry := codectypes.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(registry)
 
-	// Vesting keeper with the v2 founder recipient permanently unassigned.
+	// Vesting keeper with consensus-v2 neutral economics.
 	vk := vestingkeeper.NewKeeper(cdc, runtime.NewKVStoreService(vestingStoreKey), bk, sk, "authority")
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000}, false, log.NewNopLogger())
 
-	// Keep a sentinel address only so tests can prove no account payout occurs.
+	// The founder compatibility fields and automatic block-reward fields remain
+	// fixed at their zero defaults. founderAddr is retained only as a sentinel
+	// account against which tests can assert that no identity payout occurs.
 	gs := vestingtypes.DefaultGenesis()
 	vk.InitGenesis(ctx, gs)
 

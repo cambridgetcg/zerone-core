@@ -110,15 +110,17 @@ func (x *GenesisState) GetClaimScheduleIndexes() []*ClaimScheduleIndex {
 // Params defines the vesting_rewards module parameters.
 type Params struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Block rewards
-	BlockReward          string `protobuf:"bytes,1,opt,name=block_reward,json=blockReward,proto3" json:"block_reward,omitempty"`                                 // base block reward in uzrn (default: "10000000" = 10 ZRN)
-	RewardDecayBps       uint64 `protobuf:"varint,2,opt,name=reward_decay_bps,json=rewardDecayBps,proto3" json:"reward_decay_bps,omitempty"`                     // per-epoch decay (default: 994,478 = 0.994478x on 1M scale)
-	BlocksPerRewardEpoch uint64 `protobuf:"varint,3,opt,name=blocks_per_reward_epoch,json=blocksPerRewardEpoch,proto3" json:"blocks_per_reward_epoch,omitempty"` // blocks per decay epoch (default: 100,000)
+	// Retired transaction-presence block-reward fields. Consensus v2 requires
+	// block_reward and floor_reward to be "0" and empty_block_reward_rate to be
+	// zero. The remaining schedule fields are inert compatibility metadata.
+	BlockReward          string `protobuf:"bytes,1,opt,name=block_reward,json=blockReward,proto3" json:"block_reward,omitempty"`
+	RewardDecayBps       uint64 `protobuf:"varint,2,opt,name=reward_decay_bps,json=rewardDecayBps,proto3" json:"reward_decay_bps,omitempty"`
+	BlocksPerRewardEpoch uint64 `protobuf:"varint,3,opt,name=blocks_per_reward_epoch,json=blocksPerRewardEpoch,proto3" json:"blocks_per_reward_epoch,omitempty"`
 	// Revenue split (governance-adjustable)
 	RevenueSplit     *types.RevenueSplit     `protobuf:"bytes,4,opt,name=revenue_split,json=revenueSplit,proto3" json:"revenue_split,omitempty"`
 	ProtocolSubSplit *types.ProtocolSubSplit `protobuf:"bytes,5,opt,name=protocol_sub_split,json=protocolSubSplit,proto3" json:"protocol_sub_split,omitempty"`
-	// Compatibility-only founder fields. The tap is constitutionally renounced:
-	// source validation requires 0/empty and governance cannot restore it.
+	// Retired compatibility fields. Consensus v2 requires zero and empty;
+	// governance cannot recreate an identity-based founder revenue tap.
 	FounderShareBps            uint64 `protobuf:"varint,6,opt,name=founder_share_bps,json=founderShareBps,proto3" json:"founder_share_bps,omitempty"`
 	FounderAddress             string `protobuf:"bytes,7,opt,name=founder_address,json=founderAddress,proto3" json:"founder_address,omitempty"`
 	GovernanceActivationHeight uint64 `protobuf:"varint,8,opt,name=governance_activation_height,json=governanceActivationHeight,proto3" json:"governance_activation_height,omitempty"` // DEPRECATED — retained for wire compatibility; not an activation gate
@@ -132,17 +134,13 @@ type Params struct {
 	// Compatibility-only: not an execution gate; runtime updates must preserve it.
 	VestingEnabled             bool   `protobuf:"varint,11,opt,name=vesting_enabled,json=vestingEnabled,proto3" json:"vesting_enabled,omitempty"`
 	ReleasedClawbackRate       uint64 `protobuf:"varint,12,opt,name=released_clawback_rate,json=releasedClawbackRate,proto3" json:"released_clawback_rate,omitempty"`                       // 10,000 scale: default 3300 = 33% of released value
-	MinValidatorsForFullReward uint32 `protobuf:"varint,13,opt,name=min_validators_for_full_reward,json=minValidatorsForFullReward,proto3" json:"min_validators_for_full_reward,omitempty"` // target validator count for full block reward (default: 22)
-	EmptyBlockRewardRate       uint64 `protobuf:"varint,14,opt,name=empty_block_reward_rate,json=emptyBlockRewardRate,proto3" json:"empty_block_reward_rate,omitempty"`                     // 10,000 scale: 10,000 = 100%; default 0
-	FloorReward                string `protobuf:"bytes,15,opt,name=floor_reward,json=floorReward,proto3" json:"floor_reward,omitempty"`                                                     // minimum reward per block in uzrn (default: "100000" = 0.1 ZRN)
+	MinValidatorsForFullReward uint32 `protobuf:"varint,13,opt,name=min_validators_for_full_reward,json=minValidatorsForFullReward,proto3" json:"min_validators_for_full_reward,omitempty"` // inert compatibility metadata
+	EmptyBlockRewardRate       uint64 `protobuf:"varint,14,opt,name=empty_block_reward_rate,json=emptyBlockRewardRate,proto3" json:"empty_block_reward_rate,omitempty"`                     // retired; must be zero
+	FloorReward                string `protobuf:"bytes,15,opt,name=floor_reward,json=floorReward,proto3" json:"floor_reward,omitempty"`                                                     // retired; must be "0"
 	// Genesis/import-export TotalMinted bookkeeping only; runtime updates must
 	// preserve it and it is not a spendable fund balance.
 	InitialFundBalance string `protobuf:"bytes,16,opt,name=initial_fund_balance,json=initialFundBalance,proto3" json:"initial_fund_balance,omitempty"`
-	// Survived-challenge-coupled block reward.
-	// When enabled, block reward is multiplied by clamp(rate/target, floor, 1.0).
-	// Rate = survived / (survived + disproven); unchallenged facts are excluded.
-	// Below target → reward is reduced; at target → full reward.
-	// 0 target = disabled (backward compat).
+	// Inert compatibility metadata from the retired block-reward path.
 	KnowledgeCouplingTargetBps uint64 `protobuf:"varint,17,opt,name=knowledge_coupling_target_bps,json=knowledgeCouplingTargetBps,proto3" json:"knowledge_coupling_target_bps,omitempty"` // target survived-challenge rate in BPS (default: 700,000 = 70%)
 	KnowledgeCouplingFloorBps  uint64 `protobuf:"varint,18,opt,name=knowledge_coupling_floor_bps,json=knowledgeCouplingFloorBps,proto3" json:"knowledge_coupling_floor_bps,omitempty"`    // minimum reward multiplier in BPS (default: 500,000 = 50%)
 	unknownFields              protoimpl.UnknownFields
@@ -305,7 +303,7 @@ func (x *Params) GetKnowledgeCouplingFloorBps() uint64 {
 	return 0
 }
 
-// CategoryRewardConfig defines a per-category block reward multiplier.
+// CategoryRewardConfig preserves a retired per-category reward multiplier.
 type CategoryRewardConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Category      string                 `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`                                 // epistemic category name

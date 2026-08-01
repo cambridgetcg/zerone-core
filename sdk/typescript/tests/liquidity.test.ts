@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   COSMOS_AMOUNT_MAX,
   LIQUIDITY_FEE_SCALE,
+  LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE,
   LiquidityClientError,
   MSG_CREATE_POOL_TYPE_URL,
   MSG_SUBMIT_PROPOSAL_TYPE_URL,
@@ -13,6 +14,7 @@ import {
   createExactInSwapPlan,
   createLiquidityAdmissionProposal,
   createPoolMessage,
+  discloseLiquiditySwapFee,
   minimumOutputForSlippage,
   parseCanonicalPositiveAmount,
   quoteConstantProductExactIn,
@@ -202,6 +204,78 @@ describe("canonical liquidity amounts and quotes", () => {
       "QUOTE_TOO_SMALL",
     );
   });
+
+  it("discloses v5 no-skim and legacy directional protocol fees", () => {
+    assert.deepEqual(
+      discloseLiquiditySwapFee({
+        tokenInDenom: "uzrn",
+        feeAmount: "30",
+        protocolFeeMillionths: 0n,
+      }),
+      {
+        policy: "NO_PROTOCOL_SKIM",
+        tokenInDenom: "uzrn",
+        totalFeeAmount: "30",
+        poolRetainedFeeAmount: "30",
+        protocolFeeAmount: "0",
+        protocolFeeMillionths: 0n,
+        protocolFeeDestinationModule: null,
+      },
+    );
+
+    assert.deepEqual(
+      discloseLiquiditySwapFee({
+        tokenInDenom: "uzrn",
+        feeAmount: "30",
+        protocolFeeMillionths: 450_000n,
+      }),
+      {
+        policy: "LEGACY_ZRN_INPUT_PROTOCOL_SKIM",
+        tokenInDenom: "uzrn",
+        totalFeeAmount: "30",
+        poolRetainedFeeAmount: "17",
+        protocolFeeAmount: "13",
+        protocolFeeMillionths: 450_000n,
+        protocolFeeDestinationModule:
+          LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE,
+      },
+    );
+
+    assert.deepEqual(
+      discloseLiquiditySwapFee({
+        tokenInDenom: "uatom",
+        feeAmount: "30",
+        protocolFeeMillionths: 450_000n,
+      }),
+      {
+        policy: "LEGACY_ZRN_INPUT_PROTOCOL_SKIM",
+        tokenInDenom: "uatom",
+        totalFeeAmount: "30",
+        poolRetainedFeeAmount: "30",
+        protocolFeeAmount: "0",
+        protocolFeeMillionths: 450_000n,
+        protocolFeeDestinationModule: null,
+      },
+    );
+
+    assert.equal(
+      discloseLiquiditySwapFee({
+        tokenInDenom: "uzrn",
+        feeAmount: "1",
+        protocolFeeMillionths: 450_000n,
+      }).protocolFeeAmount,
+      "0",
+    );
+    assertLiquidityError(
+      () =>
+        discloseLiquiditySwapFee({
+          tokenInDenom: "uzrn",
+          feeAmount: "30",
+          protocolFeeMillionths: 1_000_001n,
+        }),
+      "INVALID_FEE",
+    );
+  });
 });
 
 describe("Zerone liquidity REST adapter", () => {
@@ -251,14 +325,21 @@ describe("Zerone liquidity REST adapter", () => {
           return Response.json({ twap: "2000000", window_used: "90" });
         }
         if (url.pathname.endsWith("/simulate/pool-7")) {
-          return Response.json({
-            result: {
-              token_out_denom: "uatom",
-              token_out_amount: "181322",
-              fee_amount: "300",
-              price_impact_bps: "90661",
+          return Response.json(
+            {
+              result: {
+                token_out_denom: "uatom",
+                token_out_amount: "181322",
+                fee_amount: "300",
+                price_impact_bps: "90661",
+              },
             },
-          });
+            {
+              headers: {
+                "Grpc-Metadata-X-Cosmos-Block-Height": "1234",
+              },
+            },
+          );
         }
         return new Response("", { status: 404 });
       },
@@ -298,6 +379,7 @@ describe("Zerone liquidity REST adapter", () => {
         tokenOutAmount: "181322",
         feeAmount: "300",
         priceImpactMillionths: 90_661n,
+        observedHeight: 1_234n,
       },
     );
 
@@ -316,6 +398,138 @@ describe("Zerone liquidity REST adapter", () => {
     assert.equal(
       simulationUrl?.searchParams.get("tokenInAmount"),
       "100000",
+    );
+  });
+
+  it("prepares an expiring exact-in plan from authoritative simulation", async () => {
+    const requestedPaths: string[] = [];
+    const client = new ZeroneLiquidityRestClient({
+      baseUrl: "https://rest.example",
+      fetch: async (input) => {
+        const url = new URL(String(input));
+        requestedPaths.push(url.pathname);
+        if (url.pathname.endsWith("/params")) {
+          return Response.json(paramsResponse({ protocolFeeBps: "0" }));
+        }
+        if (url.pathname.endsWith("/simulate/pool-7")) {
+          return Response.json(
+            {
+              result: {
+                tokenOutDenom: "uatom",
+                // Deliberately differs from the local reserve-vector quote.
+                tokenOutAmount: "190000",
+                feeAmount: "300",
+                priceImpactBps: "50000",
+              },
+            },
+            { headers: { "X-Cosmos-Block-Height": "1000" } },
+          );
+        }
+        return new Response("", { status: 404 });
+      },
+    });
+
+    const prepared = await client.prepareExactInSwap({
+      sender: PROPOSER,
+      poolId: "pool-7",
+      tokenInDenom: "uzrn",
+      tokenInAmount: "100000",
+      expectedTokenOutDenom: "uatom",
+      slippageMillionths: 5_000n,
+      lifetimeBlocks: 20n,
+    });
+
+    assert.equal(prepared.simulation.observedHeight, 1_000n);
+    assert.equal(prepared.minimumTokenOut, "189050");
+    assert.deepEqual(prepared.feeDisclosure, {
+      policy: "NO_PROTOCOL_SKIM",
+      tokenInDenom: "uzrn",
+      totalFeeAmount: "300",
+      poolRetainedFeeAmount: "300",
+      protocolFeeAmount: "0",
+      protocolFeeMillionths: 0n,
+      protocolFeeDestinationModule: null,
+    });
+    assert.equal(prepared.plan.timeoutHeight, 1_020n);
+    assert.deepEqual(prepared.plan.messages[0]?.value as MsgSwap, {
+      sender: PROPOSER,
+      poolId: "pool-7",
+      tokenInDenom: "uzrn",
+      tokenInAmount: "100000",
+      minTokenOut: "189050",
+    });
+    assert.equal(
+      requestedPaths.some((path) => path.endsWith("/pools/pool-7")),
+      false,
+      "transaction preparation must not substitute a local pool quote",
+    );
+  });
+
+  it("rejects missing, malformed, conflicting, and mismatched observations", async () => {
+    const invalidHeightHeaders: HeadersInit[] = [
+      {},
+      { "X-Cosmos-Block-Height": "0" },
+      { "X-Cosmos-Block-Height": "01" },
+      {
+        "X-Cosmos-Block-Height": "1000",
+        "Grpc-Metadata-X-Cosmos-Block-Height": "1001",
+      },
+    ];
+    for (const headers of invalidHeightHeaders) {
+      const client = new ZeroneLiquidityRestClient({
+        baseUrl: "https://rest.example",
+        fetch: async () =>
+          Response.json(
+            {
+              result: {
+                tokenOutDenom: "uatom",
+                tokenOutAmount: "190000",
+                feeAmount: "300",
+                priceImpactBps: "50000",
+              },
+            },
+            { headers },
+          ),
+      });
+      await assert.rejects(
+        () => client.simulateSwap("pool-7", "uzrn", "100000"),
+        (error: unknown) =>
+          error instanceof LiquidityClientError &&
+          error.code === "INVALID_RESPONSE",
+      );
+    }
+
+    const mismatch = new ZeroneLiquidityRestClient({
+      baseUrl: "https://rest.example",
+      fetch: async (input) =>
+        new URL(String(input)).pathname.endsWith("/params")
+          ? Response.json(paramsResponse({ protocolFeeBps: "0" }))
+          : Response.json(
+              {
+                result: {
+                  tokenOutDenom: "uosmo",
+                  tokenOutAmount: "190000",
+                  feeAmount: "300",
+                  priceImpactBps: "50000",
+                },
+              },
+              { headers: { "X-Cosmos-Block-Height": "1000" } },
+            ),
+    });
+    await assert.rejects(
+      () =>
+        mismatch.prepareExactInSwap({
+          sender: PROPOSER,
+          poolId: "pool-7",
+          tokenInDenom: "uzrn",
+          tokenInAmount: "100000",
+          expectedTokenOutDenom: "uatom",
+          slippageMillionths: 5_000n,
+          lifetimeBlocks: 20n,
+        }),
+      (error: unknown) =>
+        error instanceof LiquidityClientError &&
+        error.code === "INVALID_RESPONSE",
     );
   });
 
@@ -494,8 +708,19 @@ describe("Zerone liquidity REST adapter", () => {
         error.code === "INVALID_RESPONSE",
     );
 
+    const legacyDisabled = new ZeroneLiquidityRestClient({
+      baseUrl: "https://rest.example",
+      fetch: async () => Response.json(paramsResponse({
+        maxPools: "0",
+        allowedPoolDenoms: ["uatom"],
+        poolCreators: [PROPOSER],
+      })),
+    });
+    const observedLegacy = await legacyDisabled.params();
+    assert.equal(observedLegacy.maxPools, 0n);
+    assert.equal(observedLegacy.poolCreationEnabled, false);
+
     for (const invalidParams of [
-      paramsResponse({ maxPools: "0" }),
       paramsResponse({ maxPools: "65" }),
       paramsResponse({ twapWindowBlocks: "0" }),
       paramsResponse({ twapWindowBlocks: "10001" }),

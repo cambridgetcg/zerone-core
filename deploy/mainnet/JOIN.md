@@ -62,10 +62,10 @@ an untrusted sender must not be able to poison another wallet's vote.
 ## Node and validator operation is paused
 
 Do not build moving `main` and install it on `zerone-1`. The pending lineage is
-`consolidation-safety-v1` → `liquiditypool-safety-v2` →
-`founder-renunciation-v1`, each with its own release binary and later height.
-The current combined source refuses either older name while vesting-rewards is
-still v1, so those plans require their exact reviewed historical binaries.
+`consolidation-safety-v1` → `founder-renunciation-v1`, each with its own release
+binary and later height. The current combined source refuses the older name
+while vesting-rewards is still v1, so H1 requires its exact reviewed historical
+binary. There is no `liquiditypool-safety-v2` handler.
 Source publication is not chain activation.
 
 Joining or upgrading a node requires a signed packet binding the exact commit,

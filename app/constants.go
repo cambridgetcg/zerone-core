@@ -10,9 +10,6 @@ package app
 // After genesis, all native issuance in the wired application routes through
 // x/vesting_rewards.MintWithCap. Source-capable callers include:
 //
-//   - x/vesting_rewards: block-proposer rewards on transaction-bearing
-//     blocks (ordinary user transactions qualify), with decay, validator,
-//     and survived-challenge scaling.
 //   - x/claiming_pot: bootstrap and legacy general-pot claims.
 //   - x/substrate_bridge: external-work rewards minted after an
 //     attestation survives its challenge rules.
@@ -20,9 +17,10 @@ package app
 //   - x/tokens: governance-created emission periods, disabled while the
 //     default/published activation latch is 0.
 //
-// Training-fund disbursements and contribution-challenge bonus minting are
-// release-sealed. InitChainer separately rejects an authored/imported bank
-// supply above the 222,222,222 ZRN hard cap.
+// The historical transaction-presence proposer reward, training-fund
+// disbursements, and contribution-challenge bonus minting are release-sealed.
+// InitChainer separately rejects an authored/imported bank supply above the
+// 222,222,222 ZRN hard cap.
 //
 // This file therefore carries no per-account allocation constants —
 // no founder, no AI vault, no validator, no foundation, no research-

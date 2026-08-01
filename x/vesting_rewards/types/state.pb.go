@@ -37,7 +37,7 @@ type VestingSchedule struct {
 	Status             string                 `protobuf:"bytes,11,opt,name=status,proto3" json:"status,omitempty"`                                                    // "vesting", "paused", "completed", "falsified", "abandoned"
 	AcceptedAtBlock    uint64                 `protobuf:"varint,12,opt,name=accepted_at_block,json=acceptedAtBlock,proto3" json:"accepted_at_block,omitempty"`        // when claim was accepted
 	CliffEndsAtBlock   uint64                 `protobuf:"varint,13,opt,name=cliff_ends_at_block,json=cliffEndsAtBlock,proto3" json:"cliff_ends_at_block,omitempty"`   // when cliff period ends
-	LastClaimBlock     uint64                 `protobuf:"varint,14,opt,name=last_claim_block,json=lastClaimBlock,proto3" json:"last_claim_block,omitempty"`           // last block rewards were claimed
+	LastClaimBlock     uint64                 `protobuf:"varint,14,opt,name=last_claim_block,json=lastClaimBlock,proto3" json:"last_claim_block,omitempty"`           // last block at which vested value was claimed
 	TotalPausedBlocks  uint64                 `protobuf:"varint,15,opt,name=total_paused_blocks,json=totalPausedBlocks,proto3" json:"total_paused_blocks,omitempty"`  // total blocks spent paused
 	PausedAtBlock      uint64                 `protobuf:"varint,16,opt,name=paused_at_block,json=pausedAtBlock,proto3" json:"paused_at_block,omitempty"`              // block when paused (0 if not paused)
 	DefenseCount       uint32                 `protobuf:"varint,17,opt,name=defense_count,json=defenseCount,proto3" json:"defense_count,omitempty"`                   // successful defenses (accelerates)
@@ -370,13 +370,12 @@ type RewardRouting struct {
 	Recipient         string                 `protobuf:"bytes,7,opt,name=recipient,proto3" json:"recipient,omitempty"`                                          // bech32 recipient address
 	FactId            string                 `protobuf:"bytes,8,opt,name=fact_id,json=factId,proto3" json:"fact_id,omitempty"`                                  // related fact
 	BlockNumber       uint64                 `protobuf:"varint,9,opt,name=block_number,json=blockNumber,proto3" json:"block_number,omitempty"`                  // block height
-	// Compatibility field: zero in v2+ outputs; legacy records may be nonzero.
-	FounderShare     string `protobuf:"bytes,10,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`
-	CitationPool     string `protobuf:"bytes,11,opt,name=citation_pool,json=citationPool,proto3" json:"citation_pool,omitempty"`             // protocol sub-split: citations (bigint as string)
-	VerificationPool string `protobuf:"bytes,12,opt,name=verification_pool,json=verificationPool,proto3" json:"verification_pool,omitempty"` // protocol sub-split: verification (bigint as string)
-	TreasuryShare    string `protobuf:"bytes,13,opt,name=treasury_share,json=treasuryShare,proto3" json:"treasury_share,omitempty"`          // protocol sub-split: treasury (bigint as string)
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	FounderShare      string                 `protobuf:"bytes,10,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`               // retired compatibility output; always "0"
+	CitationPool      string                 `protobuf:"bytes,11,opt,name=citation_pool,json=citationPool,proto3" json:"citation_pool,omitempty"`               // protocol sub-split: citations (bigint as string)
+	VerificationPool  string                 `protobuf:"bytes,12,opt,name=verification_pool,json=verificationPool,proto3" json:"verification_pool,omitempty"`   // protocol sub-split: verification (bigint as string)
+	TreasuryShare     string                 `protobuf:"bytes,13,opt,name=treasury_share,json=treasuryShare,proto3" json:"treasury_share,omitempty"`            // protocol sub-split: treasury (bigint as string)
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *RewardRouting) Reset() {
@@ -500,7 +499,7 @@ func (x *RewardRouting) GetTreasuryShare() string {
 	return ""
 }
 
-// BlockRewardDistribution records block reward distribution for a specific block.
+// BlockRewardDistribution preserves a historical pre-v2 block reward record.
 type BlockRewardDistribution struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	BlockHeight    uint64                 `protobuf:"varint,1,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`          // block number
@@ -511,7 +510,8 @@ type BlockRewardDistribution struct {
 	// Legacy field name: cumulative shared MintWithCap accounting ledger after
 	// this distribution, not a spendable fund balance or full supply history.
 	FundBalanceAfter string `protobuf:"bytes,6,opt,name=fund_balance_after,json=fundBalanceAfter,proto3" json:"fund_balance_after,omitempty"`
-	// Compatibility field: zero in v2+ records; preserved legacy records may be nonzero.
+	// Retired compatibility output. Zero for v2-created values; historical
+	// records are preserved unchanged by migration.
 	FounderShare      string `protobuf:"bytes,7,opt,name=founder_share,json=founderShare,proto3" json:"founder_share,omitempty"`
 	DevelopmentAmount string `protobuf:"bytes,8,opt,name=development_amount,json=developmentAmount,proto3" json:"development_amount,omitempty"` // development fund amount (bigint as string)
 	ProtocolShare     string `protobuf:"bytes,9,opt,name=protocol_share,json=protocolShare,proto3" json:"protocol_share,omitempty"`             // protocol share (bigint as string)
