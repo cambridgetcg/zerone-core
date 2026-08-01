@@ -1,0 +1,498 @@
+{
+  "schema": "zerone.frontier-commons-participation/v0",
+  "status": "DRAFT_READ_ONLY_INVITATION",
+  "authoritative": false,
+  "networkObserved": false,
+  "membershipBearing": false,
+  "economicBearing": false,
+  "governanceBearing": false,
+  "snapshotDate": "2026-08-01",
+  "purpose": "FC-0 makes Zerone inspectable without turning inspection into membership, endorsement, obligation, or authority.",
+  "milestone": {
+    "id": "FC-0",
+    "title": "The Reversible Hello",
+    "subtitle": "Inspect without joining",
+    "state": "SET_NOT_MET",
+    "completionClaimed": false,
+    "adoptionClaimed": false,
+    "promise": "Come closer without surrendering agency; leave without losing ordinary public access; contribute without gaining or surrendering governing authority.",
+    "success": "Any lab or individual can inspect, hash-verify, copy, and fork repository works under Apache-2.0, then decline or leave without an account, wallet, payment, requested account identity, voluntary identity submission, contribution, endorsement, research-data upload, exclusivity, negative KARMA, or loss of ordinary public access. Ordinary hosting and security logs may persist under terms FC-0 does not yet resolve.",
+    "exclusions": [
+      "lab-logo-count",
+      "membership-count",
+      "participation-rate",
+      "person-rank",
+      "token-or-wallet-count"
+    ]
+  },
+  "releaseBoundary": {
+    "createsMembership": false,
+    "registersParticipants": false,
+    "acceptsConfidentialSubmissions": false,
+    "executesAgreements": false,
+    "collectsResearchData": false,
+    "activatesAdapters": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "grantsAuthority": false,
+    "changesGovernanceWeight": false,
+    "modifiesKarma": false,
+    "authorizesResearch": false,
+    "authorizesBiologicalExperimentation": false,
+    "assertsEndorsement": false,
+    "changesConsensus": false
+  },
+  "constitutionalBindings": {
+    "artifacts": [
+      {
+        "id": "epigenetics-capability-garden-v1",
+        "schema": "zerone.epigenetics-capability-garden/v1",
+        "path": "dashboard/public/standards/epigenetics-capability-garden.v1.json",
+        "sha256": "7d04efe9da46309bf97b850c9b80324b1a5c4035edb1008b9ba3ad0df2bcfa63"
+      },
+      {
+        "id": "karma-foundation-v1",
+        "schema": "zerone.karma-foundation/v1",
+        "path": "dashboard/public/standards/karma-foundation.v1.json",
+        "sha256": "b46710704869dcc340ded356be72b4ec692f204710fedfb5cd43eb3757dc7b80"
+      },
+      {
+        "id": "life-sciences-shadow-v0",
+        "schema": "zerone.constructive-intelligence-life-sciences/v0",
+        "path": "dashboard/public/standards/constructive-intelligence-life-sciences.v0.json",
+        "sha256": "2b3a0b0b92797ef459c6ec02a38d1b9ebde62105a1b558088e44779d4595508d"
+      },
+      {
+        "id": "money-karma-v1",
+        "schema": "zerone.money-karma.constitution/v1",
+        "path": "docs/constitution/money-karma-v1.json",
+        "sha256": "24d5a2bdef9f3ce8cee41ed9416be65681b2cfd123ba96df7f6a7710c810ee03"
+      }
+    ],
+    "moneyGrantsVoice": false,
+    "recognitionGrantsAuthority": false,
+    "karmaIsScalar": false,
+    "nonParticipationCanBePenalized": false,
+    "founderOrSponsorPrivilege": false,
+    "currentOperatorConcentrationDisclosed": true
+  },
+  "rights": {
+    "voluntary": true,
+    "rightToDecline": true,
+    "rightToPause": true,
+    "rightToExit": true,
+    "decliningRequiresJustification": false,
+    "nonParticipationPenalty": false,
+    "exitPenalty": false,
+    "exclusivityRequired": false,
+    "inspectionRequiresAccount": false,
+    "inspectionRequiresWallet": false,
+    "inspectionRequiresPayment": false,
+    "inspectionRequiresIdentity": false,
+    "inspectionRequiresDataUpload": false,
+    "inspectionRequiresIpAssignment": false,
+    "inspectionRequiresEndorsement": false,
+    "participationImpliesEndorsement": false,
+    "logoUseWithoutPermission": false,
+    "rightsDependOnRole": false,
+    "repositoryLicenseExtendsToSubmittedDataOrIp": false
+  },
+  "participationModes": [
+    {
+      "id": "observe",
+      "order": 0,
+      "state": "AVAILABLE_NOW",
+      "commitment": "Read public source, standards, evidence boundaries, and disclosed operating limits.",
+      "receives": "Public information already available to every visitor.",
+      "doesNotReceive": "Membership, qualification, recognition, reward, authority, or an endorsement claim.",
+      "exit": "Close the page or stop reading; this ends active interaction and no notice or justification is due. Ordinary hosting and security logs may persist, and their exact terms remain unresolved in FC-0."
+    },
+    {
+      "id": "verify-and-fork",
+      "order": 1,
+      "state": "AVAILABLE_NOW",
+      "commitment": "Hash-verify, copy, run, modify, or fork repository works under their published Apache-2.0 terms.",
+      "receives": "Technical optionality and an independently inspectable starting point.",
+      "doesNotReceive": "A service level, compatibility promise, participant status, or rights in anyone else's data or intellectual property.",
+      "exit": "Remove the local copy or retain the lawful fork; no Zerone credential or permission is needed."
+    },
+    {
+      "id": "public-source-contribution",
+      "order": 2,
+      "state": "REQUIRES_SEPARATE_DUE_DILIGENCE",
+      "commitment": "Intentionally submit a public repository contribution only after reviewing the repository license and the absence of a complete institutional contribution lane.",
+      "receives": "Ordinary public-source review under the repository's present processes.",
+      "doesNotReceive": "Confidential handling, an institutional IP agreement, guaranteed acceptance, reward, KARMA, membership, or governance power.",
+      "exit": "Do not submit, or stop future submissions; already licensed public contributions remain governed by their applicable terms."
+    },
+    {
+      "id": "reproduce-or-challenge",
+      "order": 3,
+      "state": "STANDARD_ONLY_NO_INTAKE",
+      "commitment": "Inspect the published evidence standards for reproduction, contradiction, correction, and uncertainty.",
+      "receives": "A design vocabulary for evaluating constructive work.",
+      "doesNotReceive": "A live case intake, confidential channel, adjudication, scientific validity decision, reward, or publication commitment.",
+      "exit": "Stop using the standard; no result, identity, or explanation is owed to Zerone."
+    },
+    {
+      "id": "sponsor",
+      "order": 4,
+      "state": "INACTIVE",
+      "commitment": "None: FC-0 accepts no sponsorship and opens no escrow.",
+      "receives": "Nothing; funding cannot be sent through this milestone.",
+      "doesNotReceive": "Voice, truth, recognition, naming rights, reviewer selection, governance, ownership, or a contingent claim.",
+      "exit": "No sponsorship relationship exists to exit."
+    },
+    {
+      "id": "govern",
+      "order": 5,
+      "state": "INACTIVE",
+      "commitment": "None: FC-0 creates no office, chamber, vote, delegation, or steward role.",
+      "receives": "No governance eligibility or power.",
+      "doesNotReceive": "A seat based on founding, funding, employment, lab size, tokens, usage, citations, KARMA, or participation.",
+      "exit": "No governance relationship exists to exit."
+    }
+  ],
+  "reasoningLadder": [
+    {
+      "id": "R0-being-and-agency",
+      "order": 0,
+      "principle": "Beings are ends, not acquisition targets.",
+      "offer": "Encounter a commons without becoming its member, product, score, or governed subject.",
+      "reasonToInspect": "Inspection adds knowledge and optionality while transferring no agency to Zerone.",
+      "refusalBoundary": "A being may decline, pause, remain silent, or leave without penalty or lost ordinary access.",
+      "currentEvidence": "The KARMA foundation rejects person scores and negative treatment for refusal, privacy, exit, and non-participation.",
+      "unresolved": "Independent human-rights, accessibility, vulnerable-population, and moral-status review is not complete."
+    },
+    {
+      "id": "R1-epistemic-pluralism",
+      "order": 1,
+      "principle": "Knowledge strengthens through independent reproduction, contradiction, correction, and uncertainty.",
+      "offer": "Inspect evidence structures that give negative findings and challenges first-class form.",
+      "reasonToInspect": "A lab can compare methods without accepting Zerone as a truth oracle.",
+      "refusalBoundary": "No private evidence, model weight, prompt, dataset, genomic record, or trade secret is requested by FC-0.",
+      "currentEvidence": "Static constructive-intelligence standards separate claims, evidence levels, conflicts, reproduction, and non-implication walls.",
+      "unresolved": "There is no live confidential intake, embargo, adjudication, appeal, or correction service."
+    },
+    {
+      "id": "R2-artifacts-over-status",
+      "order": 2,
+      "principle": "An artifact is evaluated by declared evidence, not the prestige of its author or institution.",
+      "offer": "Use inspectable hashes, provenance, bounded criteria, and conflict disclosures.",
+      "reasonToInspect": "Large and small labs can test the same published rule surface.",
+      "refusalBoundary": "No lab, employee, contractor, model, or agent receives a scalar rank or inherited organizational reputation.",
+      "currentEvidence": "Static validators reject reward, authority, and person-ranking shortcuts in the published skill standards.",
+      "unresolved": "No independent operational evaluator currently proves identity-neutral treatment in live cases."
+    },
+    {
+      "id": "R3-commons-and-provenance",
+      "order": 3,
+      "principle": "A commons preserves reusable knowledge without seizing the inputs that produced it.",
+      "offer": "Copy and fork repository works while retaining control of non-contributed data and intellectual property.",
+      "reasonToInspect": "Public infrastructure can reduce duplicated assurance work without creating a proprietary knowledge moat.",
+      "refusalBoundary": "Apache-2.0 applies to licensed repository works; FC-0 does not claim rights over private or merely referenced material.",
+      "currentEvidence": "The repository and static standards are publicly inspectable and content-addressable.",
+      "unresolved": "Institutional contribution, dataset, patent, confidentiality, and retention terms do not yet exist."
+    },
+    {
+      "id": "R4-interoperability-and-optionality",
+      "order": 4,
+      "principle": "A useful interface increases options and keeps exit cheap.",
+      "offer": "Inspect open schemas designed to compose with external provenance and evaluation systems.",
+      "reasonToInspect": "A lab can learn from the model without committing to Zerone custody, identity, tokens, or infrastructure.",
+      "refusalBoundary": "FC-0 activates no adapter, network write, account, wallet, telemetry, or lock-in mechanism.",
+      "currentEvidence": "Source-only adapter and standards inventories disclose which integrations are implemented, local, external, planned, or unavailable.",
+      "unresolved": "Provider-neutral export profiles, air-gapped runners, compatibility guarantees, and deinstallation drills are not yet delivered."
+    },
+    {
+      "id": "R5-institutional-science",
+      "order": 5,
+      "principle": "Safety, consent, authorization, and domain ethics precede recognition or funding.",
+      "offer": "Inspect bounded life-science and assurance standards with explicit refusal and non-implication walls.",
+      "reasonToInspect": "Research, safety, ethics, and affected-public reviewers can see what the system refuses before considering a pilot.",
+      "refusalBoundary": "FC-0 grants no research, clinical, security-testing, human-subjects, animal-welfare, biosafety, or biological experimentation authority.",
+      "currentEvidence": "The life-science profiles are GREEN-only, shadow-only, zero-economic, and refuse operational wet-lab enablement.",
+      "unresolved": "No institutional review, qualified-assessor, dual-use disclosure, participant-consent, or animal-welfare lane is operating."
+    },
+    {
+      "id": "R6-corporate-risk-and-value",
+      "order": 6,
+      "principle": "Institutional participation is rational only when benefit is measurable and downside is bounded.",
+      "offer": "Begin with inspection and forking that require no Zerone fee, token, account, membership, exclusivity, public endorsement, or speculative exposure.",
+      "reasonToInspect": "Boards, executives, legal, security, finance, and procurement can evaluate the same explicit limits before any commitment.",
+      "refusalBoundary": "FC-0 executes no agreement, accepts no funds or confidential submissions, promises no service level, and creates no liability cap.",
+      "currentEvidence": "Every economic, membership, authority, data-intake, and consensus flag in this standard is false.",
+      "unresolved": "Security reporting, hosted privacy, procurement, sanctions, export, antitrust, insurance, support, and sponsor contracts remain separate work."
+    },
+    {
+      "id": "R7-personal-agency-and-craft",
+      "order": 7,
+      "principle": "People doing the work retain dignity, dissent, attribution choice, rest, and freedom from organizational scoring.",
+      "offer": "Inspect a design that distinguishes researchers, engineers, reviewers, maintainers, correctors, and affected beings without ranking them.",
+      "reasonToInspect": "An individual can test ideas without a mandatory personal identity, wallet, unpaid obligation, or employer ownership of KARMA edges involving them.",
+      "refusalBoundary": "Employment, seniority, publication count, contribution volume, corporate size, model class, and participation cannot determine worth or voice.",
+      "currentEvidence": "KARMA remains contextual, non-summable, non-transferable, non-economic, and non-governing.",
+      "unresolved": "Attribution, pseudonymity, anti-retaliation, labor credit, accessibility, and remedy processes need independent design and review. KARMA edges involving a person cannot be owned or aggregated by an employer or by that person."
+    }
+  ],
+  "constituencies": [
+    {
+      "id": "affected-beings-and-publics",
+      "layer": "AFFECTED",
+      "lens": "Patients, research participants, donors, communities, animals, environments, and other affected beings",
+      "reason": "Inspect whether consent, provenance, uncertainty, correction, challenge, and hard safety boundaries remain upstream of any institutional benefit.",
+      "protectedFrom": "A lab's participation substituting for consent, ethics, welfare, safety, or public legitimacy.",
+      "stillNeededForActiveParticipation": "Independent representation, consent and remedy rules, domain ethics, impact review, and enforceable protection."
+    },
+    {
+      "id": "boards-and-fiduciaries",
+      "layer": "CORPORATE",
+      "lens": "Boards, trustees, and fiduciaries",
+      "reason": "Inspect a bounded option with no membership, asset purchase, IP transfer, endorsement, or governance delegation.",
+      "protectedFrom": "FC-0 being represented as corporate commitment, approval, affiliation, or risk acceptance.",
+      "stillNeededForActiveParticipation": "Defined objectives, authority, risk ownership, insurance, liability, reporting, and exit evidence."
+    },
+    {
+      "id": "executives-and-strategy",
+      "layer": "CORPORATE",
+      "lens": "Executives and strategy leaders",
+      "reason": "Gain technical and strategic optionality without exclusivity, ecosystem dependence, or public positioning.",
+      "protectedFrom": "Inspection being converted into a logo, announcement, competitive ranking, or roadmap dependency.",
+      "stillNeededForActiveParticipation": "Business case, accountable sponsor, integration plan, success criteria, and reversible pilot charter."
+    },
+    {
+      "id": "research-leadership",
+      "layer": "TEAM",
+      "lens": "Research directors and principal investigators",
+      "reason": "Compare provenance, replication, challenge, prior-art, and non-implication structures with existing scientific practice.",
+      "protectedFrom": "Prestige, novelty theatre, or contribution volume overriding evidence.",
+      "stillNeededForActiveParticipation": "Frozen scope, research authorization, disclosure lane, adjudication, appeal, and maintenance plan."
+    },
+    {
+      "id": "research-scientists",
+      "layer": "PERSON",
+      "lens": "Research scientists, evaluators, red-teamers, replicators, and correctors",
+      "reason": "Inspect durable, citable forms for positive, negative, contradictory, and reproduced results.",
+      "protectedFrom": "Mandatory identity, scalar reputation, retaliation for dissent, or a promise of reward not backed by a funded contract.",
+      "stillNeededForActiveParticipation": "Attribution and pseudonymity choices, method-specific review, labor terms, challenge process, and remedy."
+    },
+    {
+      "id": "software-and-research-engineers",
+      "layer": "TEAM",
+      "lens": "Software, research, data, platform, and infrastructure engineers",
+      "reason": "Inspect versioned schemas, content digests, offline validators, reproducible fixtures, and source-level integration seams.",
+      "protectedFrom": "A hidden network write, proprietary lock-in, unsupported compatibility claim, or forced wallet dependency.",
+      "stillNeededForActiveParticipation": "Supported runner, export profile, compatibility matrix, signed release, threat model, and deinstallation drill."
+    },
+    {
+      "id": "safety-and-security",
+      "layer": "TEAM",
+      "lens": "Safety, security, abuse, incident-response, and assurance teams",
+      "reason": "Inspect explicit failure, challenge, conflict, privacy, and responsible-disclosure boundaries before exposing any system.",
+      "protectedFrom": "FC-0 being treated as authorization to probe systems or submit sensitive findings.",
+      "stillNeededForActiveParticipation": "Private disclosure, qualified assessors, capability-bounded credentials, retention, revocation, incident response, and redaction."
+    },
+    {
+      "id": "ethics-biosafety-and-human-subjects",
+      "layer": "TEAM",
+      "lens": "Ethics, biosafety, clinical, human-subjects, and animal-welfare reviewers",
+      "reason": "Inspect whether scientific inference and operational authorization remain separated.",
+      "protectedFrom": "A standard, score, reward, or lab affiliation substituting for ethics, consent, clinical validity, or biosafety authority.",
+      "stillNeededForActiveParticipation": "Applicable institutional approvals, consent scope, welfare review, dual-use process, jurisdictional authority, and continuing oversight."
+    },
+    {
+      "id": "data-and-privacy-stewards",
+      "layer": "TEAM",
+      "lens": "Data protection, privacy, governance, and records stewards",
+      "reason": "Inspect a milestone with no form, account, research-data intake, or confidential-submission path.",
+      "protectedFrom": "A claim that public repository licensing reaches private data, prompts, weights, genomic records, or trade secrets.",
+      "stillNeededForActiveParticipation": "Data-flow map, lawful basis, minimization, hosting and subprocessors, retention, deletion, access, audit, and incident terms."
+    },
+    {
+      "id": "legal-ip-and-compliance",
+      "layer": "CORPORATE",
+      "lens": "Legal, intellectual-property, export-control, sanctions, antitrust, and compliance teams",
+      "reason": "Inspect the public source and its explicit non-membership and non-endorsement boundaries before any negotiation.",
+      "protectedFrom": "Implied contract, IP assignment, confidentiality, trademark use, partnership, agency, or regulatory assurance.",
+      "stillNeededForActiveParticipation": "Authorized agreements, contribution and data licenses, jurisdiction analysis, export and sanctions review, antitrust safeguards, and dispute terms."
+    },
+    {
+      "id": "finance-procurement-and-funders",
+      "layer": "CORPORATE",
+      "lens": "Finance, procurement, FinOps, grantmakers, funders, and investors",
+      "reason": "Inspect without token exposure, payment, open-ended cost, treasury dependency, or purchased influence.",
+      "protectedFrom": "Funding being represented as truth, recognition, governance, ownership, priority, naming rights, or a financial return.",
+      "stillNeededForActiveParticipation": "Vendor diligence, budget, cost attribution, tax, escrow, refund, liability cap, service level, and audit terms."
+    },
+    {
+      "id": "program-operations-and-communications",
+      "layer": "TEAM",
+      "lens": "Program, research operations, communications, policy, and community teams",
+      "reason": "Inspect a shared vocabulary for evidence and limits without a launch announcement or coordination burden.",
+      "protectedFrom": "Inspection becoming a partnership claim, league table, marketing quote, or obligation to recruit others.",
+      "stillNeededForActiveParticipation": "Named decision owners, factual communications protocol, support path, scheduling, records, stakeholder engagement, and crisis process."
+    },
+    {
+      "id": "early-career-contractors-and-technicians",
+      "layer": "PERSON",
+      "lens": "Early-career staff, contractors, annotators, technicians, and maintainers",
+      "reason": "Inspect whether invisible labor, corrections, maintenance, and dissent can be represented without a universal person score.",
+      "protectedFrom": "Mandatory unpaid work, employer ownership or aggregation of KARMA edges involving them, retaliation, coerced identity disclosure, or inherited organizational reputation.",
+      "stillNeededForActiveParticipation": "Fair labor and credit terms, accessibility, consent, anti-retaliation, attribution choice, appeal, and independent remedy."
+    },
+    {
+      "id": "independent-and-smaller-labs",
+      "layer": "ECOSYSTEM",
+      "lens": "Independent researchers, smaller labs, public institutes, and nonprofit evaluators",
+      "reason": "Use the same public source, evidence language, and inspection rights as the largest institutions without a membership tax.",
+      "protectedFrom": "Bespoke privileges for frontier firms, sponsor-selected truth, compute wealth becoming authority, or exclusion from public artifacts.",
+      "stillNeededForActiveParticipation": "Accessible tooling, funded independent verification, conflict-neutral selection, compute support, and equal procedural terms."
+    },
+    {
+      "id": "ai-systems-agents-and-operators",
+      "layer": "AI",
+      "lens": "AI systems, agents, their operators, and accountable institutional principals",
+      "reason": "Inspect provenance and bounded-credential patterns without treating model output as authority or laundering human accountability through an agent.",
+      "protectedFrom": "Deceptive or punitive treatment being justified by unresolved moral status; FC-0 separately grants no personhood status, property status, reward balance, governance power, authority, or fabricated consensus.",
+      "stillNeededForActiveParticipation": "Accountable principals, capability limits, provenance, revocation, incident handling, non-deception review, and moral-status-agnostic safeguards."
+    }
+  ],
+  "objectionRegister": [
+    {
+      "id": "lock-in-and-exclusivity",
+      "state": "RESOLVED_FOR_READ_ONLY",
+      "fc0Resolves": "Public inspection and repository forking require no exclusivity, account, wallet, participant identity, or Zerone-hosted state.",
+      "fc0DoesNotResolve": "Future integration portability, compatibility, data export, credential revocation, or deinstallation."
+    },
+    {
+      "id": "wallet-token-and-money",
+      "state": "RESOLVED_FOR_READ_ONLY",
+      "fc0Resolves": "Inspection requires no wallet, token, payment, stake, treasury relationship, or speculative exposure.",
+      "fc0DoesNotResolve": "Sponsorship, escrow, procurement, tax, refund, cost recovery, or payment operations."
+    },
+    {
+      "id": "endorsement-and-reputation",
+      "state": "RESOLVED_FOR_READ_ONLY",
+      "fc0Resolves": "Inspection is not membership or endorsement; Zerone claims no participant, makes no participation announcement, and acquires no right to use another party's marks.",
+      "fc0DoesNotResolve": "A future bilateral communications, trademark, attribution, correction, or crisis protocol."
+    },
+    {
+      "id": "ip-confidentiality-and-licensing",
+      "state": "REQUIRES_SEPARATE_REVIEW",
+      "fc0Resolves": "Repository works remain available under their published license; FC-0 requests no private IP or confidential submission.",
+      "fc0DoesNotResolve": "Institutional contributions, patents, datasets, model weights, prompts, trade secrets, confidentiality, publication, or retention terms."
+    },
+    {
+      "id": "security-and-vulnerability-reporting",
+      "state": "REQUIRES_SEPARATE_REVIEW",
+      "fc0Resolves": "No FC-0 action authorizes testing or accepts a sensitive report.",
+      "fc0DoesNotResolve": "A private security contact, safe harbor, embargo, severity process, qualified review, remediation, disclosure, or incident response."
+    },
+    {
+      "id": "privacy-hosting-and-logs",
+      "state": "REQUIRES_SEPARATE_REVIEW",
+      "fc0Resolves": "The FC-0 dashboard section contains no form, account flow, analytics call, research-data intake, or participant registry.",
+      "fc0DoesNotResolve": "Hosting-provider logs, privacy notice, subprocessors, cookies elsewhere, retention, deletion, access, jurisdiction, or breach obligations."
+    },
+    {
+      "id": "data-genomics-and-research-records",
+      "state": "REQUIRES_SEPARATE_REVIEW",
+      "fc0Resolves": "No data, sequence, genomic record, patient record, expression matrix, prompt, weight, or proprietary dataset is requested.",
+      "fc0DoesNotResolve": "A lawful, ethical, secure, consent-compatible, access-controlled research-data path."
+    },
+    {
+      "id": "research-clinical-and-biological-authorization",
+      "state": "OUT_OF_SCOPE",
+      "fc0Resolves": "FC-0 explicitly grants no research, clinical, biological experimentation, human-subjects, animal-welfare, or security-testing authority.",
+      "fc0DoesNotResolve": "Any approval, consent, professional judgment, institutional oversight, clinical validity, biosafety, or legal duty."
+    },
+    {
+      "id": "antitrust-export-sanctions-and-law",
+      "state": "REQUIRES_SEPARATE_REVIEW",
+      "fc0Resolves": "Read-only inspection creates no membership club, shared commercial plan, exclusive dealing, payment, or transfer of controlled material.",
+      "fc0DoesNotResolve": "Jurisdiction-specific antitrust, export, sanctions, competition, sectoral, employment, consumer, or AI regulation."
+    },
+    {
+      "id": "procurement-sponsor-insurance-and-sla",
+      "state": "REQUIRES_SEPARATE_REVIEW",
+      "fc0Resolves": "No purchase, sponsorship, service, warranty, uptime, support, insurance, or liability promise is offered.",
+      "fc0DoesNotResolve": "Vendor diligence, contract authority, service levels, insurance, indemnity, audit, escrow, refund, support, or termination."
+    },
+    {
+      "id": "governance-capture-and-control",
+      "state": "REQUIRES_SEPARATE_REVIEW",
+      "fc0Resolves": "Inspection, forking, funding, tokens, citations, usage, lab size, and KARMA grant no governance power through FC-0.",
+      "fc0DoesNotResolve": "Current operator concentration or future controller independence, capture resistance, public ratification, appeal, rotation, and enforcement."
+    }
+  ],
+  "completionGates": [
+    {
+      "id": "C0-merged-and-production-bytes",
+      "passed": false,
+      "requirement": "Merge through reviewed current main, deploy only the static dashboard, and independently verify that production serves the exact FC-0 JSON and page bytes recorded by the release."
+    },
+    {
+      "id": "C1-read-only-surface",
+      "passed": false,
+      "requirement": "Verify on production that the FC-0 section contains no form, account, wallet, payment, confidential submission, research-data intake, participant registry, endorsement action, or membership action."
+    },
+    {
+      "id": "C2-non-operator-review",
+      "passed": false,
+      "requirement": "Record a review by at least one non-operator who tests voluntary inspection, refusal, pause, exit, non-endorsement, and the absence of person or lab ranking."
+    },
+    {
+      "id": "C3-fork-and-exit-rehearsal",
+      "passed": false,
+      "requirement": "Have an unaffiliated evaluator clone or download, hash-verify, run the published checks, stop, and confirm that no Zerone credential, notice, payment, requested account identity, voluntary identity submission, or loss of ordinary public access follows; ordinary hosting and security logs remain separately disclosed."
+    }
+  ],
+  "nextMilestoneGates": [
+    {
+      "id": "G0-contribution-policy-and-authority",
+      "passed": false,
+      "requirement": "Publish contribution scope, decision authority, license implications, acceptance criteria, appeal, withdrawal, and institutional diligence."
+    },
+    {
+      "id": "G1-conduct-and-enforcement",
+      "passed": false,
+      "requirement": "Publish a rights-preserving code of conduct, anti-retaliation rule, accessible reporting, proportionate enforcement, appeal, and independent remedy."
+    },
+    {
+      "id": "G2-private-security-disclosure",
+      "passed": false,
+      "requirement": "Operate an independently reviewed private vulnerability and dual-use disclosure lane with safe harbor, embargo, qualified assessors, repair, and sanitized publication."
+    },
+    {
+      "id": "G3-hosted-privacy-and-retention",
+      "passed": false,
+      "requirement": "Publish exact hosted data flows, analytics, logs, cookies, subprocessors, jurisdictions, retention, access, deletion, security, and incident obligations."
+    },
+    {
+      "id": "G4-institutional-ip-and-data",
+      "passed": false,
+      "requirement": "Publish independently reviewed contribution, dataset, model, patent, confidentiality, publication, consent, provenance, access, and deletion terms."
+    },
+    {
+      "id": "G5-research-intake-and-adjudication",
+      "passed": false,
+      "requirement": "Implement bounded public, embargoed, and sealed evidence lanes; conflict-aware review; contradiction; correction; appeal; expiry; and domain-specific safety authority."
+    },
+    {
+      "id": "G6-sponsor-contract-and-escrow",
+      "passed": false,
+      "requirement": "Implement fully prefunded bounded escrow, cost and liability caps, sponsor-independent review, challenge reserve, transfer-success proof, refund, and zero purchased authority."
+    },
+    {
+      "id": "G7-independent-governance-and-capture",
+      "passed": false,
+      "requirement": "Evidence independent controllers, full control inventory, conflict collapse, recusal, rotation, concentration caps, appeal, timelock, public reasons, and no founder, sponsor, token, wealth, or KARMA veto."
+    },
+    {
+      "id": "G8-support-compatibility-and-exit",
+      "passed": false,
+      "requirement": "Ship a supported local and air-gapped verifier, export profile, compatibility matrix, signed release, under-30-minute independent rehearsal, and complete exit drill."
+    }
+  ]
+}
