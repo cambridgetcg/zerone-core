@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	vestingtypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -191,24 +192,24 @@ func TestMoneyKarma_FounderRenunciationIsExecutable(t *testing.T) {
 	require.Empty(t, current.FounderAddress)
 	require.NoError(t, vestingtypes.ValidateParams(current))
 
-	withShare := *current
+	withShare := proto.Clone(current).(*vestingtypes.Params)
 	withShare.FounderShareBps = 1
-	require.Error(t, vestingtypes.ValidateParams(&withShare), "any non-zero founder share must be invalid")
-	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, &withShare), vestingtypes.ErrFounderShareRenounced)
+	require.Error(t, vestingtypes.ValidateParams(withShare), "any non-zero founder share must be invalid")
+	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withShare), vestingtypes.ErrFounderShareRenounced)
 
-	withAddress := *current
+	withAddress := proto.Clone(current).(*vestingtypes.Params)
 	withAddress.FounderAddress = "zerone1beneficiarycannotrestorefoundertap"
-	require.Error(t, vestingtypes.ValidateParams(&withAddress), "any founder address must be invalid")
-	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, &withAddress), vestingtypes.ErrFounderShareRenounced)
+	require.Error(t, vestingtypes.ValidateParams(withAddress), "any founder address must be invalid")
+	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withAddress), vestingtypes.ErrFounderShareRenounced)
 
-	withBoth := *current
+	withBoth := proto.Clone(current).(*vestingtypes.Params)
 	withBoth.FounderShareBps = 70_000
 	withBoth.FounderAddress = "zerone1renamedbeneficiaryisstillabeneficiary"
-	require.Error(t, vestingtypes.ValidateParams(&withBoth))
-	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, &withBoth), vestingtypes.ErrFounderShareRenounced)
+	require.Error(t, vestingtypes.ValidateParams(withBoth))
+	require.ErrorIs(t, vestingtypes.ValidateFounderShareChange(current, withBoth), vestingtypes.ErrFounderShareRenounced)
 
-	proposedZero := *current
-	require.NoError(t, vestingtypes.ValidateFounderShareChange(current, &proposedZero), "the only admissible proposal preserves zero and empty")
+	proposedZero := proto.Clone(current).(*vestingtypes.Params)
+	require.NoError(t, vestingtypes.ValidateFounderShareChange(current, proposedZero), "the only admissible proposal preserves zero and empty")
 }
 
 func TestMoneyKarma_NoSensitiveProductionModuleConsumesKarma(t *testing.T) {
