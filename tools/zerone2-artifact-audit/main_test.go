@@ -53,7 +53,7 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 		{name: "review gate", path: "app_state.knowledge.params.min_review_fee", value: "100000", issuePath: "min_review_fee"},
 		{name: "demand enabled", path: "app_state.knowledge.params.demand_tracking_enabled", value: true, issuePath: "demand_tracking_enabled"},
 		{name: "training rewards", path: "app_state.knowledge.params.training_fund_base_reward", value: "1", issuePath: "training_fund_base_reward"},
-		{name: "block reward", path: "app_state.vesting_rewards.params.block_reward", value: "0", issuePath: "block_reward"},
+		{name: "block reward", path: "app_state.vesting_rewards.params.block_reward", value: "1", issuePath: "block_reward"},
 		{name: "founder", path: "app_state.vesting_rewards.params.founder_share_bps", value: 1, issuePath: "founder_share_bps"},
 		{name: "vesting", path: "app_state.vesting_rewards.params.vesting_enabled", value: true, issuePath: "vesting_enabled"},
 		{name: "registrar", path: "app_state.claiming_pot.params.bootstrap_registrar", value: "zrn1operator", issuePath: "bootstrap_registrar"},
@@ -525,7 +525,7 @@ func validGenesisFixture(t *testing.T) map[string]any {
 				"training_fund_disbursements": []any{}, "augmentation_bounties": []any{}, "augmentations": []any{}, "contribution_challenges": []any{},
 			},
 			"vesting_rewards": map[string]any{"params": map[string]any{
-				"block_reward": "1", "floor_reward": "1", "empty_block_reward_rate": 0,
+				"block_reward": "0", "floor_reward": "0", "empty_block_reward_rate": 0,
 				"min_validators_for_full_reward": 22, "initial_fund_balance": "0",
 				"founder_share_bps": 0, "founder_address": "", "vesting_enabled": false,
 				"knowledge_coupling_target_bps": 0, "knowledge_coupling_floor_bps": 0,
