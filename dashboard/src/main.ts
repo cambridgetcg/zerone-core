@@ -15,6 +15,7 @@ import {
   HARD_CAP_ZRN,
 } from "./config";
 import { initialiseConstructiveTree } from "./constructive-tree";
+import { initialiseLifeGarden } from "./life-garden";
 import { initialiseQuantumSeason } from "./quantum-season";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
@@ -71,6 +72,7 @@ const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
+const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
 const toast = byId<HTMLDivElement>("toast");
 
 let snapshot: NetworkSnapshot | null = null;
@@ -1122,11 +1124,13 @@ initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
+const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
 const initialNetworkReady = refreshNetwork(false);
 const alignInitialHash = (): void => {
   if (
     window.location.hash !== "#skills" &&
-    window.location.hash !== "#math-frontier"
+    window.location.hash !== "#math-frontier" &&
+    window.location.hash !== "#life"
   ) {
     return;
   }
@@ -1134,20 +1138,25 @@ const alignInitialHash = (): void => {
     const target =
       window.location.hash === "#math-frontier"
         ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-        : constructiveTreeRoot.closest<HTMLElement>("#skills");
+        : window.location.hash === "#life"
+          ? lifeGardenRoot.closest<HTMLElement>("#life")
+          : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
 void Promise.allSettled([
   constructiveTreeReady,
+  quantumSeasonReady,
   mathFrontierReady,
+  lifeGardenReady,
 ]).then(alignInitialHash);
 void Promise.allSettled([
   constructiveTreeReady,
+  quantumSeasonReady,
   mathFrontierReady,
+  lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
-void Promise.allSettled([quantumSeasonReady]);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);
 }, 20_000);
