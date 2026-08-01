@@ -4,8 +4,14 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), browsing-topics=()
   Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-FdszTUgRXyXO9dcmwGS4VdY8An7lQXTPUIS+Sfar9Cc='; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
 
+/
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
 /pi/callback/*
-  Cache-Control: no-store, max-age=0
+  Cache-Control: no-store, max-age=0, no-transform
   Content-Security-Policy: default-src 'none'; script-src 'self' 'sha256-FdszTUgRXyXO9dcmwGS4VdY8An7lQXTPUIS+Sfar9Cc='; style-src 'self'; connect-src 'self'; img-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin

@@ -192,7 +192,7 @@ describe("Pi callback page hardening", () => {
     const callbackStart = headers.indexOf("/pi/callback/*");
     const callbackEnd = headers.indexOf("\n/assets/*", callbackStart);
     const callbackHeaders = headers.slice(callbackStart, callbackEnd);
-    assert.match(callbackHeaders, /Cache-Control: no-store/);
+    assert.match(callbackHeaders, /Cache-Control: no-store, max-age=0, no-transform/);
     assert.match(callbackHeaders, /Referrer-Policy: no-referrer/);
     assert.match(
       callbackHeaders,
@@ -200,6 +200,32 @@ describe("Pi callback page hardening", () => {
     );
     assert.match(callbackHeaders, /connect-src 'self'/);
     assert.doesNotMatch(callbackHeaders, /cloudflare|unsafe-inline/);
+  });
+
+  it("refuses automatic HTML transformations without weakening cache policy", () => {
+    const headers = readFileSync(HEADERS_PATH, "utf8");
+    const rootStart = headers.indexOf("\n/\n");
+    const rootEnd = headers.indexOf("\n/index.html", rootStart);
+    const rootHeaders = headers.slice(rootStart, rootEnd);
+    const indexStart = rootEnd;
+    const indexEnd = headers.indexOf("\n/pi/callback/*", indexStart);
+    const indexHeaders = headers.slice(indexStart, indexEnd);
+    const assetsStart = headers.indexOf("/assets/*");
+    const assetHeaders = headers.slice(assetsStart);
+
+    assert.match(
+      rootHeaders,
+      /Cache-Control: public, max-age=0, must-revalidate, no-transform/,
+    );
+    assert.match(
+      indexHeaders,
+      /Cache-Control: public, max-age=0, must-revalidate, no-transform/,
+    );
+    assert.match(
+      assetHeaders,
+      /Cache-Control: public, max-age=31536000, immutable/,
+    );
+    assert.doesNotMatch(assetHeaders, /no-transform/);
   });
 
   it("keeps bearer material out of storage, logging, and rendered copy", () => {
