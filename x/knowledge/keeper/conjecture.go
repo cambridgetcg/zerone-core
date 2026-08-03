@@ -81,12 +81,14 @@ func RestoredStatusFor(fact *types.Fact) types.FactStatus {
 // This is not tidiness. computeProvenance derives a claim's
 // dependency_confidence_floor as the MINIMUM effective confidence across all
 // its cited edges, and a conjecture's confidence is zero by construction. So a
-// claim citing one solid fact and one conjecture computes a floor of zero —
-// and a zero floor is read everywhere as "no floor at all", because the clamp
-// in createFactFromClaim is guarded by `floor > 0`. Citing a question would
-// therefore not weaken a proof chain, it would silently exempt it from the
-// ceiling its real foundations impose. A question is not evidence, and it may
-// not appear anywhere that evidence is counted — in ANY status.
+// claim citing one solid fact and one conjecture computes a floor of zero.
+// Historically that zero was read everywhere as "no floor at all" (the clamp
+// in createFactFromClaim was guarded by `floor > 0`), so citing a question
+// silently EXEMPTED a proof chain from the ceiling its real foundations
+// impose. That conflation is since repaired — a resolved edge contributing
+// zero now clamps the new fact to zero — but this wall stays on its own
+// merits: a question is not evidence, and it may not appear anywhere that
+// evidence is counted — in ANY status.
 func errIfConjectureCitation(target *types.Fact) error {
 	if !IsConjecture(target) {
 		return nil

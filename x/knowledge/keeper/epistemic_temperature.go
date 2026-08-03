@@ -202,14 +202,17 @@ func (k Keeper) AdvanceConfidence(ctx context.Context) error {
 		// Only grow confidence for active/verified facts.
 		//
 		// PROVISIONAL is deliberately excluded. Growth below is
-		// `confidence += confidence * rate`, floored at a minimum of 1 —
-		// so a node sitting at zero does not stay at zero, it climbs one
-		// unit every epoch on the passage of time alone. For an ordinary
-		// fact that floor is a rounding convenience. For a conjecture it
-		// would be the chain manufacturing belief in a proposition nobody
-		// has verified, which is the precise failure commitment 3 names:
+		// `confidence += confidence * rate`, floored at a minimum of 1 for
+		// small positive confidence — and historically that floor applied
+		// at zero too, so a node sitting at zero climbed one unit every
+		// epoch on the passage of time alone. For a conjecture that would
+		// be the chain manufacturing belief in a proposition nobody has
+		// verified, which is the precise failure commitment 3 names:
 		// popularity, not Popper. A conjecture's standing may only move
-		// when something actually happens to it.
+		// when something actually happens to it. (The zero-confidence
+		// guard below now also withholds the floor from ordinary facts at
+		// zero; this status exclusion stays as the first wall — a
+		// conjecture gets no growth arithmetic at all.)
 		//
 		// This branch was unreachable before conjectures existed — nothing
 		// in the module ever wrote PROVISIONAL — so no live fact changes
@@ -241,6 +244,18 @@ func (k Keeper) AdvanceConfidence(ctx context.Context) error {
 		// Apply growth: confidence += confidence * growthRate / BPS
 		growth := safeMulDiv(fact.Confidence, growthRate, BPS)
 		if growth == 0 {
+			// The minimum-1 floor is a rounding convenience for small
+			// POSITIVE confidence. It must not apply at zero: a VERIFIED
+			// fact sitting at zero confidence (clamped to a zero
+			// dependency floor in createFactFromClaim — its cited
+			// foundation contributed nothing) has no belief to compound,
+			// and +1 per epoch would be the chain manufacturing belief on
+			// the passage of time alone — the same failure the PROVISIONAL
+			// exclusion above prevents for conjectures. Standing at zero
+			// may only move when something actually happens to the fact.
+			if fact.Confidence == 0 {
+				return false
+			}
 			growth = 1 // minimum 1 BPS growth per epoch
 		}
 		fact.Confidence += growth
