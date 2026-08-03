@@ -77,7 +77,7 @@
         "intent": "assert",
         "domain": "mathematics",
         "category": "theorem",
-        "subject": "polynomial freiman-ruzsa conjecture",
+        "subject": "polynomial freiman-ruzsa theorem",
         "predicate": "proven",
         "tags": "additive-combinatorics,formalized,lean4",
         "firstBatch": 1
@@ -107,7 +107,7 @@
         "intent": "assert",
         "domain": "mathematics",
         "category": "theorem",
-        "subject": "kakeya set conjecture in three dimensions",
+        "subject": "kakeya set problem in three dimensions",
         "predicate": "proven",
         "tags": "harmonic-analysis,geometric-measure-theory,fields-medal-2026",
         "firstBatch": 2
@@ -136,7 +136,7 @@
         "intent": "assert",
         "domain": "mathematics",
         "category": "theorem",
-        "subject": "geometric langlands conjecture",
+        "subject": "geometric langlands correspondence",
         "predicate": "proven",
         "tags": "langlands-program,representation-theory,d-modules",
         "firstBatch": 3
