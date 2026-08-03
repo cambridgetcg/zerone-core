@@ -106,7 +106,15 @@ func (k Keeper) CountVindicationsInWindow(ctx context.Context, domain string, cu
 
 // UpdateEpistemicTemperature recalculates a domain's epistemic temperature.
 // Called from BeginBlocker at fitness epoch boundaries.
-func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string) error {
+//
+// epoch names the fitness epoch whose aggregated diversity record drives
+// conformity cooling — the caller states it. At a boundary this is the epoch
+// that just COMPLETED, the same epoch ProcessDiversity aggregated earlier in
+// the block. This function deliberately does not re-derive the epoch from
+// block height: height/FitnessEpochBlocks at a boundary names the epoch
+// BEGINNING there, whose rounds do not exist yet, which silently reset the
+// conformity streak every epoch (off-by-one fixed 2026-08-03).
+func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string, epoch uint64) error {
 	state, err := k.GetOrInitDomainEpistemicState(ctx, domain)
 	if err != nil {
 		return err
@@ -128,11 +136,7 @@ func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string) e
 		state.Temperature = neutral - safeMulDiv(diff, params.EpistemicTemperatureDecayBps, BPS)
 	}
 
-	// 2. Conformity cooling — check current epoch diversity
-	epoch := uint64(0)
-	if params.FitnessEpochBlocks > 0 {
-		epoch = height / params.FitnessEpochBlocks
-	}
+	// 2. Conformity cooling — consume the caller-stated epoch's diversity
 	rec, found, err := k.GetDomainDiversity(ctx, domain, epoch)
 	if err != nil {
 		return err

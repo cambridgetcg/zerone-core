@@ -147,7 +147,8 @@ func TestUpdateEpistemicTemperature_DecayToNeutral(t *testing.T) {
 		Temperature: 800_000,
 	}))
 
-	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics"))
+	// Completed epoch 0 has no diversity record — only decay is under test.
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics", 0))
 
 	state, found, err := k.GetDomainEpistemicState(ctx, "physics")
 	require.NoError(t, err)
@@ -174,7 +175,8 @@ func TestUpdateEpistemicTemperature_ConformityCooling(t *testing.T) {
 		RoundCount: 5,
 	}))
 
-	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics"))
+	// Consume epoch 1 — the epoch the record above was aggregated for.
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics", 1))
 
 	state, found, err := k.GetDomainEpistemicState(ctx, "physics")
 	require.NoError(t, err)
@@ -187,7 +189,7 @@ func TestUpdateEpistemicTemperature_NewDomainStartsNeutral(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 	ctx = advanceBlocks(ctx, 9_900) // height = 10,000
 
-	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "new_domain"))
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "new_domain", 0))
 
 	state, found, err := k.GetDomainEpistemicState(ctx, "new_domain")
 	require.NoError(t, err)
@@ -217,7 +219,9 @@ func TestUpdateEpistemicTemperature_VindicationHeatingCrosses700k(t *testing.T) 
 		}))
 	}
 
-	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics"))
+	// No diversity record for epoch 0 — vindication heating is what's under
+	// test (its window is keyed by height, not epoch).
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, "physics", 0))
 
 	state, found, err := k.GetDomainEpistemicState(ctx, "physics")
 	require.NoError(t, err)
@@ -404,7 +408,7 @@ func TestEpistemicTemperature_FullCycle(t *testing.T) {
 			RoundCount: 3,
 		}))
 
-		require.NoError(t, k.UpdateEpistemicTemperature(ctx, domain))
+		require.NoError(t, k.UpdateEpistemicTemperature(ctx, domain, epoch))
 	}
 
 	state, _, err = k.GetDomainEpistemicState(ctx, domain)
@@ -443,7 +447,7 @@ func TestEpistemicTemperature_FullCycle(t *testing.T) {
 		AvgEntropy: 500_000, // Healthy diversity
 		RoundCount: 3,
 	}))
-	require.NoError(t, k.UpdateEpistemicTemperature(ctx, domain))
+	require.NoError(t, k.UpdateEpistemicTemperature(ctx, domain, nextEpoch))
 
 	state, _, err = k.GetDomainEpistemicState(ctx, domain)
 	require.NoError(t, err)
@@ -467,7 +471,7 @@ func TestEpistemicTemperature_FullCycle(t *testing.T) {
 			AvgEntropy: 500_000, // Healthy
 			RoundCount: 3,
 		}))
-		require.NoError(t, k.UpdateEpistemicTemperature(ctx, domain))
+		require.NoError(t, k.UpdateEpistemicTemperature(ctx, domain, ep))
 	}
 
 	state, _, err = k.GetDomainEpistemicState(ctx, domain)
