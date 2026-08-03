@@ -41,6 +41,26 @@ describe("register", () => {
     }
   });
 
+  test("relations are validated: vocabulary, target shape, justification, contradicts ban", () => {
+    const broken = structuredClone(register);
+    const entry = broken.entries.find(candidate => candidate.chain.intent === "assert");
+    if (!entry) throw new Error("no assert entry");
+    entry.chain.relations = [
+      { relation: "contradicts", target: "a".repeat(32), justification: "x" },
+      { relation: "cites", target: "not-a-fact-id", justification: "x" },
+      { relation: "cites", target: "entry:nonexistent-entry", justification: "x" },
+      { relation: "cites", target: "b".repeat(32), justification: "" },
+    ];
+    const issues = validateRegister(broken);
+    expect(issues.some(issue => issue.problem.includes("contradicts is deliberately excluded"))).toBe(true);
+    expect(issues.some(issue => issue.problem.includes("neither a 32-hex fact id"))).toBe(true);
+    expect(issues.some(issue => issue.problem.includes("unknown register entry"))).toBe(true);
+    expect(issues.some(issue => issue.problem.includes("no justification"))).toBe(true);
+    expect(issues.some(issue => issue.problem.includes("more than 3 relations"))).toBe(true);
+    entry.chain.relations = [{ relation: "cites", target: "c".repeat(32), justification: "the paper builds on it" }];
+    expect(validateRegister(broken)).toEqual([]);
+  });
+
   test("validator catches broken entries", () => {
     const broken = structuredClone(register);
     const entry = broken.entries[0];

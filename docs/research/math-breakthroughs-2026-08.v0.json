@@ -424,7 +424,14 @@
         "subject": "alphaproof imo 2024 silver with formal lean proofs",
         "predicate": "published",
         "tags": "ai-mathematics,nature-2025,lean-verified,imo",
-        "firstBatch": null
+        "firstBatch": null,
+        "relations": [
+          {
+            "relation": "supports",
+            "target": "entry:alphageometry-2024",
+            "justification": "Adversarially verified 2026-08-03: the Nature-published IMO 2024 silver-medal result includes Problem 4 solved by AlphaGeometry 2 in 19 seconds (DeepMind announcement, a pinned source of both entries states this verbatim), so this result is direct corroborating evidence for the AlphaGeometry entry's claim of olympiad-level machine-verified geometry solving — the proto SUPPORTS condition ('this fact provides evidence for the target'). Typed supports rather than cites because the CLI relation parser omits cites; the evidence condition holds independently."
+          }
+        ]
       },
       "formalization": "The IMO 2024 solutions produced by AlphaProof are Lean proofs (published alongside the announcement/paper); AlphaGeometry2's solution is verified by its own symbolic engine."
     },
