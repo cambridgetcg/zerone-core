@@ -1,0 +1,1102 @@
+{
+  "schema": "zerone.math-breakthrough-register/v0",
+  "snapshotDate": "2026-08-03",
+  "authoritative": false,
+  "networkObserved": false,
+  "rewardBearing": false,
+  "selectionBoundary": {
+    "representative": true,
+    "exhaustive": false,
+    "window": "2023-01 through 2026-08",
+    "knownGaps": [
+      "applied and computational mathematics beyond the AI-formalization lane",
+      "results announced only in languages other than English",
+      "PDE and mathematical physics beyond Navier-Stokes status",
+      "improvements smaller than field-reshaping (e.g. exponent optimizations are noted only in caveats)"
+    ],
+    "note": "absence is not a judgment; this register records a curated, dated selection with pinned source identities (not archived bytes — see contentPinning)"
+  },
+  "statusLadder": [
+    "formalized",
+    "published_peer_reviewed",
+    "preprint_widely_accepted",
+    "preprint_under_review",
+    "announced_unverified",
+    "refuted",
+    "open_conjecture"
+  ],
+  "chainAdmission": {
+    "assertEligibleStatuses": [
+      "formalized",
+      "published_peer_reviewed",
+      "preprint_widely_accepted",
+      "refuted"
+    ],
+    "conjectureEligibleStatuses": [
+      "open_conjecture"
+    ],
+    "withheldStatuses": [
+      "preprint_under_review",
+      "announced_unverified"
+    ],
+    "notes": [
+      "a refuted entry admits the REFUTATION as the true fact, never the refuted statement",
+      "conjecture intents queue until the conjecture engine (MsgPostConjecture) reaches the live binaries via coordinated upgrade",
+      "withheld entries stay in the register and are promoted by editing status when their evidence matures"
+    ]
+  },
+  "provenance": {
+    "specification": "docs/specs/math-frontier-absorption-v0.md",
+    "verifiedByOrchestrator": [
+      "jacobian-refuted-2026 (web verification 2026-08-03: real, announced 2026-07-20)",
+      "erdos-unit-distance-refuted-2026 (web verification 2026-08-03: real, arXiv:2605.20695)"
+    ]
+  },
+  "entries": [
+    {
+      "id": "pfr-marton-2023",
+      "name": "Polynomial Freiman–Ruzsa (Marton's) conjecture in characteristic 2",
+      "statement": "If A ⊆ F_2^n has doubling |A+A| ≤ K|A|, then A can be covered by at most 2K^12 cosets of a subgroup H ≤ F_2^n with |H| ≤ |A|. Thus sets of bounded doubling in F_2^n are polynomially (in K) close to genuine subgroups, replacing the previously known exponential-in-K losses — the flagship 'polynomial Freiman–Ruzsa' inverse theorem conjectured by Katalin Marton. The proof runs through an entropic reformulation: minimizing a 'Ruzsa multidistance' functional over pairs of F_2^n-valued random variables and showing the minimum forces near-uniformity on a coset. Follow-up work by the same authors extends the result to abelian groups of bounded torsion. Published in Annals of Mathematics 201(2), 2025, and formalized in Lean 4 (the teorth/pfr project) within weeks of the preprint.",
+      "authors": "W. Timothy Gowers, Ben Green, Freddie Manners, Terence Tao",
+      "date": "2023-11",
+      "sources": [
+        "arXiv:2311.05762v2",
+        "Ann. of Math. (2) 201 (2025), no. 2, 515-549, DOI 10.4007/annals.2025.201.2.5",
+        "https://github.com/teorth/pfr (Lean 4 formalization)",
+        "https://terrytao.wordpress.com/2023/11/18/formalizing-the-proof-of-pfr-in-lean4-using-blueprint-a-short-tour/",
+        "arXiv:2311.05762",
+        "https://github.com/teorth/pfr",
+        "https://teorth.github.io/pfr/",
+        "https://mathstodon.xyz/@tao/111526765350663641"
+      ],
+      "status": "formalized",
+      "machineVerifiable": true,
+      "significance": "First polynomial bounds in inverse sumset theory, a decades-old central problem of additive combinatorics, and a landmark demonstration that a fresh research paper can be machine-formalized in weeks.",
+      "caveats": "The characteristic-2 statement is the one formalized; the bounded-torsion generalization is separate follow-up work. Exponent 12 has since been improved by others (not tracked here). First mainnet submission 2026-08-03 starved INCONCLUSIVE (operational, not mathematical); resubmitted with this amended statement.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "polynomial freiman-ruzsa theorem",
+        "predicate": "proven",
+        "tags": "additive-combinatorics,formalized,lean4",
+        "firstBatch": 1
+      },
+      "formalization": "Lean 4 (mathlib-based), repo github.com/teorth/pfr: the full K^12 statement (theorem PFR) formalized by a ~20-contributor crowdsourced project using Massot's Blueprint, launched mid-November 2023 and completed around 2023-12-05 — about three weeks after the preprint. The formalization surfaced one extremely minor, fixable error in the paper. Paper peer-reviewed: Annals of Mathematics 201(2), 2025, pp. 515-549."
+    },
+    {
+      "id": "kakeya-3d-2025",
+      "name": "Kakeya set conjecture in three dimensions",
+      "statement": "Every Kakeya set in R^3 — a compact set containing a unit line segment in every direction — has Minkowski and Hausdorff dimension 3. Wang and Zahl prove a stronger volume estimate: given a family of delta-tubes pointing in delta-separated directions satisfying natural non-concentration hypotheses (Katz–Tao convex Wolff axioms: not too many tubes inside any common convex set), the union of the tubes has almost maximal volume. The dimension statement follows. The proof is a multi-scale induction organized around 'grainy' and 'sticky' structure, building on the authors' prior resolution of the sticky Kakeya conjecture (published J. Amer. Math. Soc. 39 (2026), 515–585). As of 2026-08 the main paper (arXiv:2502.17655) is a preprint under journal review, widely accepted by the field and central to Wang's 2026 Fields Medal citation; not yet journal-published.",
+      "authors": "Hong Wang, Joshua Zahl",
+      "date": "2025-02",
+      "sources": [
+        "arXiv:2502.17655",
+        "https://terrytao.wordpress.com/2025/02/25/the-three-dimensional-kakeya-conjecture-after-wang-and-zahl/",
+        "Sticky Kakeya companion: J. Amer. Math. Soc. 39 (2026), 515–585",
+        "https://www.quantamagazine.org/hong-wang-wins-2026-fields-medal-the-third-woman-ever-20260723/",
+        "arXiv:2502.17655 — 'Volume estimates for unions of convex sets, and the Kakeya set conjecture in three dimensions' (submitted 2025-02-24)",
+        "https://www.quantamagazine.org/once-in-a-century-proof-settles-maths-kakeya-conjecture-20250314/",
+        "arXiv:2505.07695 — 'Introduction to the proof of the Kakeya conjecture' (expository)"
+      ],
+      "status": "preprint_widely_accepted",
+      "machineVerifiable": false,
+      "significance": "Resolves the 3D case of the century-old Kakeya problem (posed 1917), the foundational bottom rung of the restriction / Bochner–Riesz / local smoothing ladder in harmonic analysis; central to Hong Wang's 2026 Fields Medal.",
+      "caveats": "Under journal review as of mid-2026 (no publication found); expert reception (Tao, Kalai, field surveys) is strongly positive. The Kakeya conjecture in dimensions ≥ 4 and the maximal-function forms remain open.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "kakeya set problem in three dimensions",
+        "predicate": "proven",
+        "tags": "harmonic-analysis,geometric-measure-theory,fields-medal-2026",
+        "firstBatch": 2
+      }
+    },
+    {
+      "id": "geometric-langlands-2024",
+      "name": "Geometric Langlands conjecture (categorical, unramified, de Rham setting)",
+      "statement": "Let X be a smooth projective curve over an algebraically closed field of characteristic 0 and G a reductive group with Langlands dual G^. The categorical unramified geometric Langlands conjecture holds: the Langlands functor L_G from D-mod(Bun_G(X)), D-modules on the moduli stack of G-bundles on X, to IndCoh_Nilp(LocSys_{G^}(X)), ind-coherent sheaves with nilpotent singular support on the stack of G^-local systems, is an equivalence of DG categories compatible with Hecke functors. In particular every irreducible G^-local system admits a Hecke eigensheaf, unique up to tensoring by a vector space (multiplicity one). As of 2026-08 the five papers are arXiv preprints, not yet journal-published; community acceptance is strong (2025 Breakthrough Prize to Gaitsgory, New Horizons Prize to Raskin, explicitly for this proof).",
+      "authors": "Dennis Gaitsgory and Sam Raskin, with D. Arinkin, D. Beraldo, J. Campbell, L. Chen, J. Faergeman, K. Lin, N. Rozenblyum (author sets vary across the five papers)",
+      "date": "2024-05",
+      "sources": [
+        "arXiv:2405.03599 (I)",
+        "arXiv:2405.03648 (II)",
+        "arXiv:2409.07051 (III)",
+        "arXiv:2409.08670 (IV)",
+        "arXiv:2409.09856 (V)",
+        "https://people.mpim-bonn.mpg.de/gaitsgde/GLC/ (official proof page)",
+        "https://www.quantamagazine.org/monumental-proof-settles-geometric-langlands-conjecture-20240719/"
+      ],
+      "status": "preprint_widely_accepted",
+      "machineVerifiable": false,
+      "significance": "Completes the central conjecture of the geometric Langlands program pursued since the 1980s (Deligne, Drinfeld, Laumon, Beilinson–Drinfeld), a keystone of the 'grand unified theory of mathematics'.",
+      "caveats": "As of 2026-08 the five papers remain arXiv preprints (Part V last revised 2026-01); no journal publication found. Community acceptance is strong: 2025 Breakthrough Prize to Gaitsgory and New Horizons Prize to Raskin explicitly for this proof. Covers the de Rham (and by extension Betti) characteristic-0 setting, not arithmetic variants.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "geometric langlands correspondence",
+        "predicate": "proven",
+        "tags": "langlands-program,representation-theory,d-modules",
+        "firstBatch": 3
+      }
+    },
+    {
+      "id": "ramsey-upper-2023",
+      "name": "Exponential improvement for diagonal Ramsey upper bounds",
+      "statement": "There exists an absolute constant ε > 0 such that the diagonal Ramsey number satisfies R(k) ≤ (4 − ε)^k for all sufficiently large k, where R(k) is the least n such that every red/blue edge-coloring of the complete graph K_n contains a monochromatic K_k. This is the first exponential improvement over the Erdős–Szekeres 1935 bound R(k) ≤ 4^k; every improvement in the intervening 88 years (Rödl, Thomason, Conlon, Sah) had been by sub-exponential factors. The proof replaces the classical induction with a new 'book algorithm' that iteratively builds large monochromatic books and exploits their structure. Subsequent optimization of the method (Gupta–Ndiaye–Norin–Wei, arXiv:2407.19026) lowered the base to about 3.8.",
+      "authors": "Marcelo Campos, Simon Griffiths, Robert Morris, Julian Sahasrabudhe",
+      "date": "2023-03",
+      "sources": [
+        "arXiv:2303.09521",
+        "Ann. of Math. (2) 203 (2026), issue 3, DOI 10.4007/annals.2026.203.3.4",
+        "https://www.quantamagazine.org/after-nearly-a-century-a-new-limit-for-patterns-in-graphs-20230502/"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": false,
+      "significance": "Broke the most famous barrier in Ramsey theory, unmoved since 1935 and the subject of a long-standing Erdős problem.",
+      "caveats": "None substantive; peer-reviewed publication in Annals confirmed (May 2026).",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "diagonal ramsey number upper bound",
+        "predicate": "improved-exponentially",
+        "tags": "ramsey-theory,combinatorics,annals-2026",
+        "firstBatch": 4
+      }
+    },
+    {
+      "id": "busy-beaver-5-2024",
+      "name": "Busy Beaver BB(5) = 47,176,870 (formally verified)",
+      "statement": "The fifth Busy Beaver value is determined: S(5) = BB(5) = 47,176,870. Every 5-state, 2-symbol Turing machine started on an all-zero tape either halts within 47,176,870 steps or runs forever, and the bound is attained by Marxen–Buntrock's 1990 champion machine. The proof, organized by the online bbchallenge collaboration, enumerates 181,385,789 machines and supplies for each either a halting run or a certified non-halting proof produced by verified decider algorithms (cyclers, translated cyclers, bouncers, finite-automata/closed-tape-language methods), plus individual arguments for holdouts such as Skelet #17. The entire theorem is machine-checked in the Coq proof assistant (Coq-BB5). First new Busy Beaver value in over 40 years and the first ever formally verified.",
+      "authors": "The bbchallenge Collaboration: J. Blanchard, D. Briggs, K. Deka, N. Fenner, Y. Forster, G. Georgiev (Skelet), M. L. House, R. Hunter, Iijil, M. Kądziołka, P. Kropitz, S. Ligocki, mxdys, M. Naściszewski, savask, T. Stérin, C. Xu, J. Yuen, T. Zimmermann",
+      "date": "2024-07",
+      "sources": [
+        "arXiv:2509.12337",
+        "https://github.com/ccz181078/Coq-BB5",
+        "STOC 2026 proceedings, DOI 10.1145/3798129.3806376",
+        "https://discuss.bbchallenge.org/t/july-2nd-2024-we-have-proved-bb-5-47-176-870/237",
+        "https://scottaaronson.blog/?p=8088",
+        "https://wiki.bbchallenge.org/wiki/BB(5)"
+      ],
+      "status": "formalized",
+      "machineVerifiable": true,
+      "significance": "A concrete new value of the fastest-growing uncomputable function, defeating a 1990 prediction that S(5) would never be known, and a landmark for massively collaborative, formally verified mathematics.",
+      "caveats": "Human+software collaboration, not AI-generated; the Coq repo path is cited from memory of the project's announcements (the discussion-forum announcement and arXiv paper are the primary pins).",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "fifth busy beaver value",
+        "predicate": "determined",
+        "tags": "computability,coq-verified,bbchallenge",
+        "firstBatch": 5
+      },
+      "formalization": "Coq (now Rocq): repo github.com/ccz181078/Coq-BB5, lead formalizer mxdys; the top-level theorem states S(5) = 47,176,870 and compiles from first principles. Paper: 'Determination of the fifth Busy Beaver value' (arXiv:2509.12337), published at STOC 2026."
+    },
+    {
+      "id": "guth-maynard-zeta-2024",
+      "name": "Guth–Maynard large-value estimates and zero-density improvement for the Riemann zeta function",
+      "statement": "New large-value estimates for Dirichlet polynomials: sharpened bounds on how often an N-term Dirichlet polynomial can attain values of size near N^{3/4}, the critical regime for applications to primes. Main corollaries: (1) the zero-density estimate N(σ, T) ≤ T^{30(1−σ)/13 + o(1)} for the number of zeros of ζ(s) with real part ≥ σ and |Im s| ≤ T — the first improvement over Ingham's 1940 exponent 3(1−σ)/(2−σ) in the key range around σ = 3/4 (at σ = 3/4: exponent 15/26 ≈ 0.577 versus Ingham's 3/5); (2) the prime number theorem holds asymptotically in short intervals [x, x + x^{17/30 + o(1)}], improving Huxley's 1972 exponent 7/12. This is unconditional progress toward the density hypothesis and, distantly, the Riemann hypothesis.",
+      "authors": "Larry Guth, James Maynard",
+      "date": "2024-05",
+      "sources": [
+        "arXiv:2405.20552",
+        "Annals of Mathematics (2025) — publication recorded via Oxford University Research Archive, https://ora.ox.ac.uk/objects/uuid:ad11b8bf-ad2b-4ebf-a627-647f023c378f"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": false,
+      "significance": "First movement in 84 years on Ingham's zero-density bound at the critical exponent, the strongest unconditional progress related to the distribution of Riemann zeta zeros in decades.",
+      "caveats": "Annals 2025 publication confirmed via the Oxford research archive record; exact volume/page numbers not pinned in this scan.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "riemann zeta zero-density estimate",
+        "predicate": "improved",
+        "tags": "analytic-number-theory,riemann-zeta,annals-2025",
+        "firstBatch": 6
+      }
+    },
+    {
+      "id": "aperiodic-monotile-2023",
+      "name": "Aperiodic monotile: the hat and the Spectre (einstein problem)",
+      "statement": "The einstein problem is solved: a single closed topological disk exists that tiles the plane only aperiodically. (1) The 'hat', a 13-sided polykite, admits tilings of the plane, and every tiling by hats (reflections allowed) is non-periodic; proved both via a substitution/metatile hierarchy and via a second computer-assisted case analysis, and in fact an entire continuum Tile(a,b) of combinatorially equivalent shapes is aperiodic. (2) The 'Spectre', obtained by modifying the edges of the equilateral member Tile(1,1), is a strictly chiral aperiodic monotile: it admits tilings using only unreflected copies and admits no periodic tiling, settling the reflection-free version. First aperiodic monotiles ever found, ending a search running from Wang tiles (1960s) through Penrose's two-tile sets.",
+      "authors": "David Smith, Joseph Samuel Myers, Craig S. Kaplan, Chaim Goodman-Strauss",
+      "date": "2023-03",
+      "sources": [
+        "arXiv:2303.10798 (An aperiodic monotile)",
+        "arXiv:2305.17743 (A chiral aperiodic monotile)",
+        "Combinatorial Theory 4(1) (2024) and 4(2) (2024); chiral paper at https://escholarship.org/uc/item/4xn41982 (accepted 2024-06-07, published 2024-09-30)"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": false,
+      "significance": "Solved a famous 50+-year open problem in tiling theory with a shape simple enough to cut from paper; immediate impact across combinatorics, physics of quasicrystals, and popular mathematics.",
+      "caveats": "Part of the hat proof is computer-assisted (code released); no proof-assistant formalization. Both papers peer-reviewed in Combinatorial Theory (2024).",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "aperiodic monotile existence",
+        "predicate": "proven",
+        "tags": "tiling-theory,einstein-problem,combinatorial-geometry",
+        "firstBatch": 7
+      }
+    },
+    {
+      "id": "erdos-unit-distance-refuted-2026",
+      "name": "Erdős unit-distance conjecture (REFUTED, AI-originated proof)",
+      "statement": "Erdős's 1946 unit-distance conjecture is false: it is not true that n points in the plane determine at most n^{1+o(1)} unit distances. Theorem: there exists ε > 0 and an infinite sequence of finite point sets P ⊂ R² whose number of unit-distance pairs is at least |P|^{1+ε}; Will Sawin's refinement makes the exponent explicit with δ ≥ 0.014. The constructions abandon the square grid (which gives only n^{1+c/log log n}): one fixes a prime and climbs an infinite class-field tower of number fields with bounded root discriminant (via Golod–Shafarevich), yielding rings of integers whose unit-distance graphs are polynomially dense. The original proof was produced by an internal OpenAI reasoning model (announced 2026-05-20) and then verified, simplified and generalized by a nine-author team: Alon, Bloom, Gowers, Litt, Sawin, Shankar, Tsimerman, V. Wang, M. Matchett Wood. The Szemerédi–Trotter upper bound O(n^{4/3}) is untouched.",
+      "authors": "OpenAI internal reasoning model (original proof); human-digested version by Noga Alon, Thomas Bloom, W. T. Gowers, Daniel Litt, Will Sawin, Arul Shankar, Jacob Tsimerman, Victor Wang, Melanie Matchett Wood; explicit exponent by Will Sawin",
+      "date": "2026-05",
+      "sources": [
+        "arXiv:2605.20695 (Remarks on the disproof of the unit distance conjecture)",
+        "arXiv:2605.20579 (An explicit lower bound for the unit distance problem)",
+        "https://xenaproject.wordpress.com/2026/07/20/human-mathematicians-are-being-outcounterexampled/"
+      ],
+      "status": "refuted",
+      "machineVerifiable": true,
+      "significance": "Overturns an 80-year-old Erdős conjecture in combinatorial geometry and is the clearest case to date of an AI system autonomously producing the key idea for a major mathematical result.",
+      "caveats": "Construction uses algebraic number fields, infinite class field towers, and the Golod-Shafarevich theorem; gives an asymptotic counterexample to square-grid optimality. Verified real by orchestrator web search 2026-08-03. Lean formalization is conditional on two axiomatized classical inputs, not kernel-checked end-to-end.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "refutation",
+        "subject": "erdos unit-distance conjecture",
+        "predicate": "refuted",
+        "tags": "discrete-geometry,ai-discovered,lean-formalized,golod-shafarevich",
+        "firstBatch": 8
+      },
+      "formalization": "Lean 4: the ChatGPT-generated counterexample construction was autoformalized by Logical Intelligence within one week of the 2026-05-20 announcement; human-verified writeup by Alon, Bloom, Gowers, Litt, Sawin, Shankar, Tsimerman, V. Wang, and Wood. CONDITIONAL: two classical inputs (the Golod-Shafarevich inequality and Shafarevich's class-field-theory relation-rank bound) are stated as explicit unformalized hypotheses in the theorem signature — kernel-checked modulo those, sorry-free otherwise."
+    },
+    {
+      "id": "jacobian-refuted-2026",
+      "name": "Jacobian conjecture for n ≥ 3 (REFUTED, AI-found counterexample)",
+      "statement": "The Jacobian conjecture (Keller 1939) is FALSE in dimension n >= 3: there exists an explicit polynomial map F: C^3 -> C^3 whose Jacobian determinant is identically the nonzero constant -2 yet which is not injective (three distinct points share one image), found 2026-07-20 by Levent Alpöge (Anthropic) using the large language model Claude Fable 5 and independently verified by mathematicians within hours of its social-media announcement. The counterexample is three lines long and refutes the conjecture for every dimension greater than 2. The original two-dimensional case remains open.",
+      "authors": "Levent Alpöge with Anthropic's Claude Fable 5 model (attribution per Alpöge's announcement)",
+      "date": "2026-07",
+      "sources": [
+        "https://x.com/__alpoge__/status/2079028340955197566 (original announcement post with the counterexample)",
+        "https://terrytao.wordpress.com/2026/07/21/a-digestion-of-the-jacobian-conjecture-counterexample/",
+        "https://sbseminar.wordpress.com/2026/07/20/the-new-counterexample-to-the-jacobian-conjecture/ (reproduces the full counterexample)",
+        "https://theconversation.com/hello-there-the-jacobian-conjecture-is-false-thanx-why-a-tiny-social-media-post-has-mathematicians-rethinking-ai-283883 (reception evidence)"
+      ],
+      "status": "refuted",
+      "machineVerifiable": false,
+      "significance": "Settles (negatively, for n ≥ 3) an 87-year-old problem long listed among the most notorious in algebraic geometry, and marks a second 2026 instance of an AI system contributing the decisive object in a major result.",
+      "caveats": "Announced via social media 2026-07-20, not yet a refereed paper; verification is by direct computation (constant Jacobian determinant + explicit non-injectivity witness), independently repeated by many mathematicians. No formal-proof artifact known as of 2026-08. n=2 (the original Keller problem) remains open. Verified real by orchestrator web search 2026-08-03.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "refutation",
+        "subject": "jacobian conjecture in dimension three and higher",
+        "predicate": "refuted",
+        "tags": "algebraic-geometry,polynomial-maps,ai-discovered,claude-fable",
+        "firstBatch": 9
+      }
+    },
+    {
+      "id": "abc-status-2026",
+      "name": "abc conjecture — Mochizuki/IUT claimed proof, disputed (state as of mid-2026)",
+      "statement": "Conjecture (Oesterlé–Masser 1985): for every ε>0 there are only finitely many coprime triples a+b=c of positive integers with c > rad(abc)^(1+ε). Claimed proof: Mochizuki's Inter-universal Teichmüller theory (announced 2012, published in PRIMS 57, 2021 — a journal edited at Mochizuki's own institute). Scholze–Stix (2018) identified what most experts consider a fatal gap at Corollary 3.12 of IUT III. Kirti Joshi (2024–2025) posted an 'Arithmetic Teichmüller spaces' series claiming a corrected/completed proof and a 2025 'Final Report' on the controversy; Mochizuki has publicly and harshly rejected Joshi's work. As of mid-2026 there is no community consensus that abc is proven — 'a theorem in Kyoto, a conjecture everywhere else.'",
+      "authors": "Conjecture: Joseph Oesterlé, David Masser. Claimed proof: Shinichi Mochizuki. Claimed repair: Kirti Joshi. Objection: Peter Scholze, Jakob Stix",
+      "date": "2025-05",
+      "sources": [
+        "DOI:10.4171/PRIMS/57-1-1 (Mochizuki, IUT I–IV, Publ. RIMS 57, 2021)",
+        "arXiv:2403.10430 — Joshi, 'Construction of Arithmetic Teichmüller Spaces IV: Proof of the abc-conjecture'",
+        "arXiv:2505.10568 — Joshi, 'Final Report on the Mochizuki-Scholze-Stix Controversy'",
+        "https://www.math.columbia.edu/~woit/letterfromjoshi.pdf"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "The most consequential disputed proof in mathematics; abc implies Mordell (effective), Fermat asymptotics, and much of Diophantine geometry.",
+      "caveats": "Status field reflects the worldwide community view (open), not RIMS's formal publication. Joshi's claimed completion is itself unrefereed and rejected by Mochizuki; no neutral expert endorsement of either version found. Any conjecture engine should treat abc as OPEN with a long-running disputed-proof annotation.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "abc conjecture",
+        "predicate": "unresolved-disputed",
+        "tags": "number-theory,iut,disputed",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "aldous-lyons-refuted-2024",
+      "name": "Aldous–Lyons conjecture (REFUTED 2024)",
+      "statement": "Conjecture (Aldous–Lyons 2007): every unimodular random network is sofic, i.e. a Benjamini–Schramm limit of finite graphs (equivalently, every invariant random subgroup of a free group is co-sofic). Refutation: Bowen, Chapman, Lubotzky and Vidick construct non-sofic unimodular networks. Part I introduces 'subgroup tests' and reduces the conjecture to an undecidability statement; Part II proves the required undecidability for tailored non-local games by adapting the compression/MIP*=RE machinery from quantum interactive proofs. Together the two papers give a negative resolution of the conjecture.",
+      "authors": "Lewis Bowen, Michael Chapman, Alexander Lubotzky, Thomas Vidick",
+      "date": "2024-08",
+      "sources": [
+        "arXiv:2408.00110 — 'The Aldous–Lyons Conjecture I: Subgroup Tests'",
+        "arXiv:2501.00173 — 'The Aldous–Lyons Conjecture II: Undecidability'"
+      ],
+      "status": "refuted",
+      "machineVerifiable": false,
+      "significance": "Establishes existence of non-sofic ergodic-theoretic objects via computability theory; a striking export of MIP*=RE quantum complexity techniques into pure group theory/probability.",
+      "caveats": "Two long, technical preprints still in journal review as of mid-2026; community confidence is high because the core machinery descends from the heavily scrutinized MIP*=RE line, but this refutation is not yet peer-reviewed print. Whether an explicit non-sofic *group* exists remains open.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "refutation",
+        "subject": "aldous-lyons conjecture",
+        "predicate": "refuted",
+        "tags": "probability,group-theory,sofic-approximation",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "alphaevolve-2025",
+      "name": "AlphaEvolve (DeepMind) — evolutionary coding agent producing verified record constructions",
+      "statement": "AlphaEvolve, a Gemini-powered evolutionary coding agent (announced 14 May 2025; white paper arXiv:2506.13131, Novikov et al.), discovered: (a) an exact rank-48 tensor decomposition giving a 4x4 complex-matrix multiplication algorithm using 48 scalar multiplications, the first improvement over Strassen's 49 (1969) for this shape — verifiable by exact arithmetic and independently re-checked (e.g. github.com/PhialsBasement/AlphaEvolve-MatrixMul-Verification); (b) a configuration of 593 unit spheres touching a central unit sphere in dimension 11, raising the kissing-number lower bound from 592; (c) improved bounds on ~20% of 50+ open analysis/combinatorics/geometry problems tested (Erdos minimum overlap, autocorrelation inequalities, packing). A follow-up study with mathematicians (Georgiev, Gomez-Serrano, Tao, Wagner; arXiv:2511.02864, Nov 2025) ran it on 67 problems, rediscovering best known constructions in most and improving several.",
+      "authors": "Alexander Novikov et al. (Google DeepMind); math study with Bogdan Georgiev, Javier Gomez-Serrano, Terence Tao, Adam Zsolt Wagner",
+      "date": "2025-05",
+      "sources": [
+        "arXiv:2506.13131",
+        "arXiv:2511.02864",
+        "https://deepmind.google/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/",
+        "https://github.com/google-deepmind/alphaevolve_repository_of_problems",
+        "https://terrytao.wordpress.com/2025/11/05/mathematical-exploration-and-discovery-at-scale/"
+      ],
+      "status": "preprint_widely_accepted",
+      "machineVerifiable": true,
+      "significance": "Showed LLM-driven search can beat long-standing human records when an automatic verifier exists — constructions, not proofs, but each result is independently checkable by finite computation.",
+      "caveats": "The matrix-multiplication and kissing-number records are real and machine-checkable; press claims that AlphaEvolve 'solved Erdos problems' mostly mean improved bounds/constructions on problems from Erdos-style lists, not full resolutions. Results are certificates, not Lean/Coq proofs; the 'improved ~20%' figure is DeepMind's own accounting.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "alphaevolve verified record constructions",
+        "predicate": "announced",
+        "tags": "ai-mathematics,constructions",
+        "firstBatch": null
+      },
+      "formalization": "Not proof-assistant formalizations: the artifacts are exact machine-checkable certificates (tensor decompositions, point configurations, explicit constructions) with verification code released, incl. Colab notebooks per problem in github.com/google-deepmind/alphaevolve_repository_of_problems."
+    },
+    {
+      "id": "alphageometry-2024",
+      "name": "AlphaGeometry (DeepMind) — Nature paper on olympiad geometry",
+      "statement": "AlphaGeometry, a neuro-symbolic system pairing a language model trained on ~100M synthetic theorem-proof examples with the DDAR symbolic deduction engine, solved 25 of 30 problems on the IMO-AG-30 benchmark (IMO geometry problems 2000-2022) under competition time limits, versus 10 for the prior best system and 25.9 for the average human gold medalist. It produces human-readable, machine-checkable deduction traces and discovered a generalization of a 2004 IMO theorem. Published in Nature 625, 476-482 (17 Jan 2024), DOI 10.1038/s41586-023-06747-5. Successor AlphaGeometry2 (arXiv:2502.03544, Feb 2025) reports solving 84% of IMO geometry problems 2000-2024 and supplied the geometry component of DeepMind's IMO 2024 system.",
+      "authors": "Trieu H. Trinh, Yuhuai Wu, Quoc V. Le, He He, Thang Luong (Google DeepMind / NYU)",
+      "date": "2024-01",
+      "sources": [
+        "DOI:10.1038/s41586-023-06747-5",
+        "arXiv:2502.03544",
+        "https://github.com/google-deepmind/alphageometry",
+        "https://deepmind.google/blog/alphageometry-an-olympiad-level-ai-system-for-geometry/"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": true,
+      "significance": "First AI system to reach approximately gold-medalist performance in a whole olympiad subdomain, and the first of DeepMind's peer-reviewed olympiad-mathematics papers.",
+      "caveats": "Machine-checkability is relative to the DDAR geometry engine's axiom set rather than an independent foundational prover; AlphaGeometry2's 84% figure is from the arXiv preprint (a possible later journal version was not verified here).",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "alphageometry olympiad geometry solver",
+        "predicate": "published",
+        "tags": "ai-mathematics,nature-2024,machine-verified",
+        "firstBatch": null
+      },
+      "formalization": "Code and model released at github.com/google-deepmind/alphageometry; proofs are verified by the system's own symbolic engine (DDAR), not by a general-purpose proof assistant such as Lean."
+    },
+    {
+      "id": "alphaproof-imo2024",
+      "name": "AlphaProof + AlphaGeometry2: IMO 2024 silver-medal standard with formal Lean proofs (Nature, Nov 2025)",
+      "statement": "At IMO 2024, DeepMind's AlphaProof (an AlphaZero-style reinforcement-learning agent that writes proofs in Lean, trained on ~80 million auto-formalized statements) solved problems P1, P2 and P6 (including the hardest problem) and AlphaGeometry2 solved P4, scoring 28/42 — the first AI performance at any IMO medal level, within the silver band. Solutions to P1/P2/P6 are complete Lean proofs. Announced 25 July 2024; the methodology was peer-reviewed and published in Nature on 12 Nov 2025 as 'Olympiad-level formal mathematical reasoning with reinforcement learning' (DOI 10.1038/s41586-025-09833-y).",
+      "authors": "Google DeepMind AlphaProof team (Nature 2025 paper; announcement July 2024)",
+      "date": "2024-07",
+      "sources": [
+        "DOI:10.1038/s41586-025-09833-y",
+        "https://deepmind.google/blog/ai-solves-imo-problems-at-silver-medal-level/",
+        "https://www.nature.com/articles/d41586-025-03585-5"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": true,
+      "significance": "First medal-level AI performance at the IMO, and the strongest peer-reviewed evidence that reinforcement learning plus a proof assistant yields fully machine-verified competition mathematics.",
+      "caveats": "Problems were manually translated into formal Lean statements before solving; AlphaProof took up to ~3 days per problem versus the human 4.5-hour limit — so 'silver-medal standard' is score-equivalent, not condition-equivalent. Nature news coverage in Nov 2025 ('Mathematicians put AlphaProof to the test') reported mixed results when researchers probed it on research-level problems.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "alphaproof imo 2024 silver with formal lean proofs",
+        "predicate": "published",
+        "tags": "ai-mathematics,nature-2025,lean-verified,imo",
+        "firstBatch": null
+      },
+      "formalization": "The IMO 2024 solutions produced by AlphaProof are Lean proofs (published alongside the announcement/paper); AlphaGeometry2's solution is verified by its own symbolic engine."
+    },
+    {
+      "id": "alphaproof-nexus-2026",
+      "name": "AlphaProof Nexus — autonomous Lean-verified solutions to 9 open Erdős problems and 44 OEIS conjectures",
+      "statement": "DeepMind's AlphaProof Nexus, an agentic framework coupling a frontier Gemini model with the Lean proof assistant in propose-check-refine loops, autonomously produced complete formal Lean proofs resolving 9 of 353 attempted open Erdős problems (including two open ~56 years) and 44 of 492 conjectures associated with OEIS sequences, at reported inference cost of a few hundred dollars per problem. Preprint 'Advancing Mathematics Research with AI-Driven Formal Proof Search', arXiv:2605.22763 (21 May 2026); all Lean proofs plus prose versions released at github.com/google-deepmind/alphaproof-nexus-results.",
+      "authors": "Google DeepMind (AlphaProof Nexus team)",
+      "date": "2026-05",
+      "sources": [
+        "arXiv:2605.22763",
+        "https://github.com/google-deepmind/alphaproof-nexus-results"
+      ],
+      "status": "preprint_under_review",
+      "machineVerifiable": true,
+      "significance": "First batch-scale demonstration of an AI system both discovering and formally verifying solutions to open research problems end-to-end — the 'discovered AND machine-checked' milestone the field had been anticipating.",
+      "caveats": "Very recent (May 2026): preprint not yet peer-reviewed, and mathematical-community vetting of whether each formal statement faithfully captures the intended open problem (the classic formalization-fidelity risk) was still in progress as of mid-2026; details here are corroborated by multiple independent outlets plus the arXiv/GitHub artifacts, but I could not deep-read the preprint. Cross-check individual problems against the teorth/erdosproblems wiki.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "alphaproof nexus erdos and oeis resolutions",
+        "predicate": "under-review",
+        "tags": "ai-mathematics,lean-verified,under-review",
+        "firstBatch": null
+      },
+      "formalization": "Lean proofs (machine-readable) plus natural-language prose versions, published in github.com/google-deepmind/alphaproof-nexus-results, organized by Erdős / OEIS / research-area sections."
+    },
+    {
+      "id": "antihydra-open-2024",
+      "name": "Antihydra (newly posed 2024 — the Collatz-like obstruction to Busy Beaver BB(6))",
+      "statement": "Define a_0 = 8 and a_{n+1} = a_n + ⌊a_n/2⌋ (equivalently ⌊3a_n/2⌋). A specific 6-state Turing machine ('Antihydra', found June 2024 in the bbchallenge search of 6-state machines) halts iff at some finite stage the number of odd terms encountered so far exceeds twice the number of even terms. Conjecture: this never happens — Antihydra runs forever. Heuristically the parities behave like fair coin flips, so the tracked difference is a random walk with drift +1/2 per step and escape probability 1; but proving non-halting requires controlling parities of the 3x/2 iteration, exactly the wall behind the Collatz conjecture. Resolving Antihydra (and its fellow 'Cryptids') is necessary for determining BB(6).",
+      "authors": "bbchallenge collaboration (machine found by contributor mxdys during the BB(6) search); Collatz-connection analysis by community members incl. 'Racheline'",
+      "date": "2024-06",
+      "sources": [
+        "https://bbchallenge.org/antihydra",
+        "https://wiki.bbchallenge.org/wiki/BB(6)",
+        "https://www.quantamagazine.org/busy-beaver-hunters-reach-numbers-that-overwhelm-ordinary-math-20250822/",
+        "arXiv:2509.12337 — 'Determination of the fifth Busy Beaver value' (context: BB(5)=47,176,870, formally proven in Coq/Rocq, July 2024)"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "Billed as 'the smallest open problem in mathematics on the Busy Beaver scale'; a crisp, newly posed, well-posed conjecture that concretizes Collatz-hardness and gained wide traction 2024-2026.",
+      "caveats": "Community-posed problem without a canonical academic paper of its own; primary sources are the bbchallenge site/wiki (stable and citable). Non-halting is supported only by probabilistic heuristics.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "antihydra halting problem",
+        "predicate": "open",
+        "tags": "busy-beaver,collatz-like,bbchallenge",
+        "firstBatch": null
+      },
+      "formalization": "The conjecture is unproven; its statement is fully formal (a concrete TM). Context result BB(5)=47,176,870 is machine-verified in Rocq/Coq (Coq-BB5, ~38k lines; arXiv:2509.12337)."
+    },
+    {
+      "id": "aristotle-imo2025",
+      "name": "Aristotle (Harmonic) — IMO 2025 gold with machine-verified proofs (4 Lean + 1 Yuclid)",
+      "statement": "Aristotle, Harmonic's automated theorem prover, reached gold-medal standard on IMO 2025 with machine-verified solutions to 5 of the 6 problems: Lean 4 kernel-checked formal proofs of the four non-geometry problems (P1, P3, P4, P5), plus a solution to the geometry problem P2 produced and verified by its Yuclid C++ DD/AR engine outside of Lean. Every step of the four non-geometry proofs is independently checkable by the Lean kernel; P2's machine-checkability is relative to Yuclid's axiom set rather than an independent foundational prover. Solutions were produced within the competition time window from the official formal statements.",
+      "authors": "Harmonic AI (founded by Tudor Achim and Vlad Tenev); 'The Harmonic Team' on the arXiv paper",
+      "date": "2025-07",
+      "sources": [
+        "arXiv:2510.01346",
+        "https://harmonic.fun/",
+        "https://cryptobriefing.com/harmonic-aristotle-ai-imo-gold-medal/"
+      ],
+      "status": "formalized",
+      "machineVerifiable": true,
+      "significance": "First gold-level IMO performance in which every solution is a machine-checked formal proof — closing the verification gap left by the natural-language gold results of Google and OpenAI.",
+      "caveats": "P2 is engine-verified (Yuclid DD/AR), not Lean-kernel-checked — the same caveat this register applies to AlphaGeometry. Withheld from chain assertion until the formalization field carries commit-pinned P4-grade citations.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "aristotle imo 2025 gold with formally verified proofs",
+        "predicate": "achieved",
+        "tags": "ai-mathematics,lean-verified,imo,harmonic",
+        "firstBatch": null
+      },
+      "formalization": "Lean 4 proofs of the four non-geometry problems (IMO2025P1/P3/P4/P5.lean) plus the Yuclid P2 output (IMO2025P2.txt), published at github.com/harmonic-ai/IMO2025; system described in arXiv:2510.01346. P4-grade pinning (commit SHA, toolchain, axiom report) not yet recorded here."
+    },
+    {
+      "id": "bourgain-slicing-2024",
+      "name": "Bourgain's slicing problem / isotropic constant (hyperplane) conjecture",
+      "statement": "There is a universal constant c > 0 such that every convex body K ⊂ R^n of volume 1 admits a hyperplane H with Vol_{n−1}(K ∩ H) ≥ c, independent of the dimension n. Equivalently, the isotropic constant L_K of every convex body is bounded above by a universal constant. This affirmatively resolves Bourgain's slicing problem (1984), where the best bounds had been Bourgain's n^{1/4} log n (1991) and Klartag's n^{1/4} (2006), later improved to polylogarithmic via Chen and Klartag–Lehec. The final step combines Milman's M-ellipsoids, Eldan's stochastic localization driven by a key 2024 bound of Qingyang Guan, and Eldan–Mikulincer stability estimates for the Shannon–Stam inequality; Klartag's follow-up (arXiv:2501.06854) gives a self-contained proof via small-ball estimates.",
+      "authors": "Bo'az Klartag, Joseph Lehec (final resolution), building decisively on Qingyang Guan",
+      "date": "2024-12",
+      "sources": [
+        "arXiv:2412.15044",
+        "Geometric and Functional Analysis (2025), DOI 10.1007/s00039-025-00718-w",
+        "arXiv:2501.06854 (self-contained follow-up proof)",
+        "https://gilkalai.wordpress.com/2024/12/20/qingyang-guan-joseph-lehec-and-boaz-klartag-solved-the-slice-conjecture/"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": false,
+      "significance": "Settles the central 40-year-old problem of asymptotic convex geometry, with consequences throughout high-dimensional probability and geometry.",
+      "caveats": "The stronger Kannan–Lovász–Simonovits (KLS) conjecture, which implies slicing, remains open.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "bourgain slicing problem",
+        "predicate": "proven",
+        "tags": "convex-geometry,isotropic-constant,klartag-lehec",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "bsd-open",
+      "name": "Birch and Swinnerton-Dyer conjecture (status)",
+      "statement": "For an elliptic curve E/Q, the algebraic rank of E(Q) equals the order of vanishing of L(E,s) at s=1, with the leading coefficient given by the regulator/Sha/period formula. OPEN in general. Established territory: analytic rank 0 and 1 (Gross–Zagier, Kolyvagin, plus Iwasawa main-conjecture work of Kato, Skinner–Urban et al. for the full formula in many such cases); Bhargava–Skinner–Zhang's preprint puts a positive proportion (>66%) of curves within BSD's reach statistically. 2025-2026 activity: new analytic-rank-0 cases for elliptic curves twisted by self-dual Artin representations of dimension ≤ 4, and BSD-satisfying twist families up to conductor 500,000 — incremental, not structural. Rank ≥ 2 remains untouched.",
+      "authors": "Conjecture: Bryan Birch, Peter Swinnerton-Dyer (1965)",
+      "date": "2026-08",
+      "sources": [
+        "https://www.claymath.org/millennium/birch-and-swinnerton-dyer-conjecture/",
+        "arXiv:1407.1826 — Bhargava–Skinner–Zhang, 'A majority of elliptic curves over Q satisfy the Birch and Swinnerton-Dyer conjecture' (statistical, preprint)",
+        "arXiv:2601.16044 — twist families satisfying BSD up to conductor 500,000 (2026)"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "Millennium Prize problem; governs the arithmetic of elliptic curves and descent-based cryptographic assumptions.",
+      "caveats": "Date is a status-snapshot date. The Bhargava–Skinner–Zhang 66% statement is a long-standing preprint, not journal-published. The 2025-2026 Artin-twist rank-0 results were surfaced by search but author attribution was not pinned — treat that line as verification-in-progress.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "birch and swinnerton-dyer conjecture",
+        "predicate": "open",
+        "tags": "elliptic-curves,millennium-problem",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "bunkbed-refuted-2024",
+      "name": "Bunkbed conjecture (REFUTED 2024, peer-reviewed 2025)",
+      "statement": "Conjecture (Kasteleyn 1985): for any finite graph G and independent bond percolation on the bunkbed graph G × K_2 (two copies of G plus vertical posts), the probability that (u,0) connects to (v,0) is at least the probability that (u,0) connects to (v,1), for all vertices u,v — i.e., same-layer connection is always at least as likely as cross-layer. Refutation: Gladkov, Pak and Zimin gave an explicit counterexample, a planar graph on 7,222 vertices built from Hollom's 2024 counterexample to the hypergraph bunkbed conjecture, where the inequality fails (by a tiny but rigorously positive margin, proven without computer experiment).",
+      "authors": "Nikita Gladkov, Igor Pak, Aleksandr Zimin (building on Lawrence Hollom)",
+      "date": "2024-10",
+      "sources": [
+        "arXiv:2410.02545 — 'The bunkbed conjecture is false'",
+        "DOI:10.1073/pnas.2420725122 (Proc. Natl. Acad. Sci., 2025)",
+        "https://www.quantamagazine.org/maths-bunkbed-conjecture-has-been-debunked-20241101/"
+      ],
+      "status": "refuted",
+      "machineVerifiable": false,
+      "significance": "Killed a 40-year-old 'obviously true' monotonicity principle in percolation theory; cautionary tale about probabilistic intuition and about conjectures supported only by simulation.",
+      "caveats": "Refutation is peer-reviewed (PNAS 2025), so this one is fully settled. The failure margin is astronomically small, which is why simulations never detected it.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "refutation",
+        "subject": "bunkbed conjecture",
+        "predicate": "refuted",
+        "tags": "percolation,probability,counterexample",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "carleson-lean-2025",
+      "name": "Carleson's theorem formalized in Lean 4 (Bonn project, completed July 2025)",
+      "statement": "Complete Lean 4 formalization, finished July 2025, of a generalized Carleson theorem: bounds for a generalized Carleson operator on doubling metric measure spaces (the 'metric space Carleson' theorem of Thiele's Bonn group, plus a linearized variant covering Walsh-Fourier series), together with a machine-verified derivation of Carleson's classical 1966 result that the Fourier series of a continuous (periodic) function converges pointwise almost everywhere. Project blueprint: Becker, van Doorn, Jamneshan, Srivastava, Thiele, arXiv:2405.06423; formalization led by Floris van Doorn (Bonn) with 14 core authors and 14 further contributors.",
+      "authors": "Lars Becker, Floris van Doorn, Asgar Jamneshan, Rajula Srivastava, Christoph Thiele + ~23 further formalization contributors",
+      "date": "2025-07",
+      "sources": [
+        "arXiv:2405.06423",
+        "https://github.com/fpvandoorn/carleson",
+        "https://florisvandoorn.com/carleson/",
+        "https://florisvandoorn.com/carleson/paper.pdf"
+      ],
+      "status": "formalized",
+      "machineVerifiable": true,
+      "significance": "One of the hardest theorems of classical analysis ever formalized — and notably the formalized generalization (to doubling metric measure spaces) was new mathematics, developed hand-in-hand with the formalization.",
+      "caveats": "Human formalization effort (AI tools played at most an auxiliary role); the classical corollary formalized is a.e. convergence for continuous functions — the full L^2 Carleson-Hunt statement follows from the framework but check the repo's stated main theorems before citing a specific form.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "carleson theorem lean formalization",
+        "predicate": "completed",
+        "tags": "harmonic-analysis,lean4,formalization",
+        "firstBatch": null
+      },
+      "formalization": "Lean 4 + mathlib; repo github.com/fpvandoorn/carleson; parts being upstreamed into mathlib (see florisvandoorn.com/carleson/upstreaming.html)."
+    },
+    {
+      "id": "collatz-open",
+      "name": "Collatz conjecture (status)",
+      "statement": "For the map T(n) = n/2 (n even), 3n+1 (n odd), every positive integer eventually reaches 1. OPEN. Strongest theoretical result remains Tao (2019): almost all orbits attain almost bounded values (logarithmic density). Computational verification now extends to all n < 2^71 ≈ 2.36×10^21 (Barina, GPU pipeline, published in J. Supercomputing 2025). No non-trivial cycles with ≤ 91 elements. The Antihydra problem (see separate entry) shows even a drifted variant of the 3x/2 parity question already blocks the Busy Beaver frontier at 6 states.",
+      "authors": "Conjecture: Lothar Collatz (1937). Cited progress: Terence Tao; David Barina",
+      "date": "2019-09",
+      "sources": [
+        "arXiv:1909.03562 — Tao, 'Almost all orbits of the Collatz map attain almost bounded values' (Forum of Math, Pi, 2022; DOI:10.1017/fmp.2022.8)",
+        "https://pcbarina.fit.vutbr.cz/ — Barina, convergence verification project (limit 2^71, J. Supercomputing 2025)",
+        "https://ccchallenge.org/ — ongoing Lean formalization of the Collatz literature"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "The canonical 'easy to state, impossible to prove' iteration problem; benchmark for what conjecture engines should classify as open-with-overwhelming-evidence.",
+      "caveats": "Tao's result is measure-theoretic ('almost all'), not a route to 'all' by known methods. Verification limit 2^71 is the best I could confirm; month of the 2025 publication not pinned.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "collatz conjecture",
+        "predicate": "open",
+        "tags": "number-theory,dynamics",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "deepthink-imo2025",
+      "name": "Gemini Deep Think — first AI officially certified gold at IMO 2025 (natural language, not machine-verified)",
+      "statement": "An advanced version of Google DeepMind's Gemini with Deep Think solved 5 of 6 problems at IMO 2025 for 35/42 points, above the gold threshold, working end-to-end in natural language within the official 4.5-hour windows. IMO President Gregor Dolinar confirmed the result: DeepMind was in the inaugural cohort whose solutions were graded and certified by official IMO coordinators using the same criteria as student scripts, and graders called the proofs 'clear, precise and most of them easy to follow'. Announced 21 July 2025. (OpenAI simultaneously claimed a gold-level score for an experimental model, but that grading was not IMO-certified.)",
+      "authors": "Google DeepMind (Gemini Deep Think team)",
+      "date": "2025-07",
+      "sources": [
+        "https://deepmind.google/blog/advanced-version-of-gemini-with-deep-think-officially-achieves-gold-medal-standard-at-the-international-mathematical-olympiad/",
+        "https://simonwillison.net/2025/Jul/21/gemini-imo/"
+      ],
+      "status": "announced_unverified",
+      "machineVerifiable": false,
+      "significance": "First officially certified AI gold at the IMO and, unlike AlphaProof 2024, achieved inside the human time limit — but its correctness rests on human grading, not machine verification.",
+      "caveats": "'announced_unverified' here means no peer-reviewed paper and no formal artifact; the score itself WAS verified — by official IMO human graders. This is the canonical example of AI-suggested-and-human-checked rather than machine-verified mathematics.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "gemini deep think imo 2025 gold",
+        "predicate": "announced",
+        "tags": "ai-mathematics,natural-language,unverified",
+        "firstBatch": null
+      },
+      "formalization": "None — proofs are natural-language only; no Lean or other formal artifact was produced."
+    },
+    {
+      "id": "equational-theories-2025",
+      "name": "Equational Theories Project — complete, fully formalized implication graph of 4694 magma laws",
+      "statement": "For the 4694 equational laws on magmas involving at most four applications of the binary operation, the project determined the status of every one of the 22,028,942 ordered implication pairs (does law E entail law E' in all magmas?), each answer — proof or explicit countermodel — verified in Lean 4. Launched by Terence Tao on 25 Sep 2024 as a pilot for machine-assisted, massively collaborative mathematics; all implications were resolved informally within about two months and the complete Lean formalization was finished about five months later (first phase concluded April 2025). Combined human proofs, automated theorem provers (e.g. Vampire), and some LLM assistance; produced new magma constructions (e.g. resolving the 'Asterix-Obelix' and dual pairs) and side results on finite magmas. Paper: arXiv:2512.07087 (Dec 2025).",
+      "authors": "Terence Tao and ~50 collaborators (Equational Theories Project; paper Dec 2025)",
+      "date": "2025-04",
+      "sources": [
+        "arXiv:2512.07087",
+        "https://github.com/teorth/equational_theories",
+        "https://terrytao.wordpress.com/2024/10/12/the-equational-theories-project-a-brief-tour/",
+        "https://terrytao.wordpress.com/2025/12/09/the-equational-theories-project-advancing-collaborative-mathematical-research-at-scale/"
+      ],
+      "status": "formalized",
+      "machineVerifiable": true,
+      "significance": "The largest fully machine-verified mathematical research artifact to date and the proof-of-concept for 'industrial-scale' collaborative mathematics mixing humans, ATPs and LLMs under a formal correctness guarantee.",
+      "caveats": "AI (LLM) contributions were a minor share compared with conventional automated theorem provers and human work; the Dec 2025 paper is an arXiv preprint (journal status not verified).",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "equational theories project implication graph",
+        "predicate": "completed-formally",
+        "tags": "universal-algebra,lean4,crowdsourced,tao",
+        "firstBatch": null
+      },
+      "formalization": "Lean 4; repo github.com/teorth/equational_theories — all 22,028,942 implications/anti-implications machine-verified, with the implication graph downloadable and re-checkable."
+    },
+    {
+      "id": "erdos-db-wave-2026",
+      "name": "Erdős Problems database and the 2025-26 wave of AI-assisted resolutions",
+      "statement": "erdosproblems.com, created by Thomas Bloom (launched 2024) and later co-maintained with a GitHub presence (teorth/erdosproblems, with Tao), catalogues ~1,100+ Erdős problems. Its wiki 'AI contributions to Erdős problems' (last updated 30 Jun 2026) tracks a 4-tier verified ledger: full AI solutions to previously open problems began Dec 2025 - e.g. #333 (Claude Opus 4.5 + GPT-5.2 Pro, 25 Dec 2025), #205 and #329 (GPT-5.2, Jan 2026, Lean-formalized via Aristotle), #281 (GPT-5.2 Pro, 17 Jan 2026), #125 (DeepMind prover agent, 30 Mar 2026, with Lean), #457 (2 Mar 2026, with Lean), #1196/#1202/#1217 (GPT-5.4 Pro, Apr 2026), #38 and #694 (GPT-5.5 Pro, Apr-May 2026) - roughly two dozen full resolutions with AI involvement, 100+ partial contributions, and ~10 catalogued incorrect AI claims by mid-2026.",
+      "authors": "Database: Thomas Bloom (with Terence Tao et al. on the GitHub wiki); solutions: OpenAI GPT-5.x models, Anthropic Claude, Google DeepMind agents, Harmonic Aristotle, plus human collaborators (Chojecki, van Doorn, Althöfer and others)",
+      "date": "2026-01",
+      "sources": [
+        "https://www.erdosproblems.com/",
+        "https://github.com/teorth/erdosproblems/wiki/AI-contributions-to-Erd%C5%91s-problems"
+      ],
+      "status": "announced_unverified",
+      "machineVerifiable": false,
+      "significance": "The de facto scoreboard for AI on open research problems, notable for honestly cataloguing failures and literature-rediscoveries alongside genuine firsts — the transition point where LLMs began closing problems professional mathematicians had left open for decades.",
+      "caveats": "Status is 'mixed' by construction: entries range from Lean-formalized (machine-verified) to human-reviewed to disputed; the wiki itself warns it is 'not a benchmark' (selection bias; unsolved-ness sometimes reflects obscurity). The infamous October 2025 episode — OpenAI figures claiming GPT-5 'solved' 10 open Erdős problems — collapsed within days when Bloom showed the model had retrieved existing published solutions (useful literature search, not new mathematics). Verify any individual problem number against the wiki before citing; statuses change.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "erdos problems ai-assisted resolution wave",
+        "predicate": "ongoing",
+        "tags": "erdos-problems,ai-mathematics",
+        "firstBatch": null
+      },
+      "formalization": "Mixed: a subset of the resolutions (e.g. #205, #329, #457, #125) carry Lean formalizations (several auto-formalized by Aristotle); most others are natural-language proofs verified by human mathematicians and recorded on the wiki."
+    },
+    {
+      "id": "flt-formalization-status-2026",
+      "name": "Fermat's Last Theorem formalization project (Buzzard, Imperial) — status mid-2026: substantial progress, far from complete",
+      "statement": "FLT: x^n + y^n = z^n has no solutions in positive integers for n > 2 (Wiles/Taylor-Wiles 1995). The Lean formalization project led by Kevin Buzzard (Imperial College London; EPSRC grant EP/Y022904/1, running to Sept 2029) formalizes a modern proof route (via Khare-Wintenberger/Kisin-era technology, incl. crystalline cohomology), not Wiles's original text. Status mid-2026: ongoing and NOT complete — the stated grant-period goal is reducing FLT to results known to mathematicians by the late 1980s. 60+ contributors have merged work; Buzzard gave an 11-lecture TCC course on the proof route (spring 2026); the Buzzard-Taylor blueprint 'Towards a Lean proof of Fermat's Last Theorem' was updated 14 Jun 2026; a workshop ran 6-10 Jul 2026 in London, with funder Logos Research proposing AI-autoformalization experiments for prerequisites. Separately completed: FLT for regular primes (2024, flt-regular project) and FLT for n=3 in mathlib.",
+      "authors": "Kevin Buzzard (lead), Richard Taylor (blueprint co-author), 60+ contributors; regular-primes case: Best, Birkbeck, Brasca, Rodriguez Boidi, Van de Velde, Yang",
+      "date": "2024-10",
+      "sources": [
+        "https://github.com/ImperialCollegeLondon/FLT",
+        "https://imperialcollegelondon.github.io/FLT/",
+        "https://imperialcollegelondon.github.io/FLT/blueprint.pdf",
+        "https://xenaproject.wordpress.com/2026/05/15/formalizing-fermat-workshop/",
+        "https://leanprover-community.github.io/blog/posts/FLT-announcement/",
+        "https://github.com/leanprover-community/flt-regular"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": false,
+      "significance": "The flagship stress-test of whether modern research-level number theory (and now AI autoformalization assistance) can scale to one of mathematics' most celebrated proofs; also drives large upstream contributions to mathlib.",
+      "caveats": "Status 'published_peer_reviewed' refers to the theorem (Wiles 1995), NOT the formalization, which is years from completion — machine_verifiable=false because no end-to-end formal artifact exists yet. Date given is the EPSRC-funded project start (Oct 2024; announced 2023). Any claim that FLT 'has been formalized' is false as of mid-2026.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "fermat last theorem lean formalization status",
+        "predicate": "in-progress",
+        "tags": "flt,lean4,formalization,buzzard",
+        "firstBatch": null
+      },
+      "formalization": "In progress, Lean 4: repo github.com/ImperialCollegeLondon/FLT (compiling partial development + blueprint); completed sub-results: leanprover-community/flt-regular (FLT for regular primes) and FLT for exponent 3 in mathlib. No complete formal proof of FLT exists."
+    },
+    {
+      "id": "gauss-autoformalization-2025",
+      "name": "Gauss (Math, Inc.) — autoformalization agent completes strong PNT, then sphere packing in dimensions 8 and 24",
+      "statement": "Math, Inc.'s autoformalization agent Gauss completed, in about 3 weeks (announced Sept 2025), a Lean formalization of the strong Prime Number Theorem (PNT with classical error term) plus required complex-analysis infrastructure — >25,000 lines, ~1,100 theorems/definitions — answering the Jan 2024 formalization challenge of Tao and Kontorovich, whose human-led PrimeNumberTheoremAnd project had reported only partial progress after 18 months. In 2026 Gauss formalized Viazovska's sphere-packing results: the dimension-8 case in ~5 days (announced 23 Feb 2026) and the dimension-24 case (Cohn-Kumar-Miller-Radchenko-Viazovska) in ~2 weeks, >200,000 lines (announced 2 Mar 2026), building on human groundwork begun March 2024 launched at EPFL by Sidharth Hariharan and Maryna Viazovska with international collaborators.",
+      "authors": "Math, Inc. (CEO Jesse Han) — Gauss agent with targeted human scaffolding; sphere-packing groundwork launched by Sidharth Hariharan (now CMU) and Maryna Viazovska (EPFL) with international collaborators",
+      "date": "2025-09",
+      "sources": [
+        "https://github.com/math-inc/strongpnt",
+        "https://math-inc.github.io/strongpnt/",
+        "https://www.math.inc/gauss",
+        "https://spectrum.ieee.org/ai-proof-verification",
+        "https://x.com/mathematics_inc/status/1966194751847461309",
+        "arXiv:2604.23468 (human sphere-packing formalization milestone)",
+        "https://github.com/math-inc/Sphere-Packing-Lean"
+      ],
+      "status": "formalized",
+      "machineVerifiable": true,
+      "significance": "The clearest 2025-26 evidence that AI autoformalization compresses formalization timescales from person-years to weeks, including for Fields-Medal-level theorems (Viazovska 2016/2017 results).",
+      "caveats": "Company-announced with public Lean artifacts; the '18+ months of human partial progress' framing drew some community pushback (the human project had different, mathlib-quality goals, and Gauss's strongpnt reuses/parallels parts of it; code quality vs mathlib standards was debated). Sphere-packing claims corroborated by IEEE Spectrum but I did not compile the repos myself. Withheld from chain assertion until commit-pinned P4-grade artifact citations are recorded.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "formalization",
+        "subject": "sphere packing dimensions eight and twenty-four lean formalization",
+        "predicate": "completed",
+        "tags": "sphere-packing,viazovska,autoformalization,lean4",
+        "firstBatch": null
+      },
+      "formalization": "Lean 4. Strong PNT: github.com/math-inc/strongpnt (public, Lean-checked). Sphere packing dim 8 and dim 24: announced by Math, Inc. and covered by IEEE Spectrum (2 Mar 2026); artifact repo path not independently pinned here."
+    },
+    {
+      "id": "gaussian-primes-2024",
+      "name": "Primes of the form p² + 4q² with p, q prime (Gaussian primes conjecture)",
+      "statement": "There are infinitely many primes of the form p² + 4q² where p and q are both prime, with the conjectured asymptotic count — proving the 'Gaussian primes conjecture' posed by Friedlander and Iwaniec (2018) as a prime-variable refinement of their 1998 theorem that x² + y⁴ represents infinitely many primes. More generally, for any positive n ≡ 0 or 4 (mod 6), there are infinitely many primes p² + nq² with p, q prime, with asymptotics. Method: Type I/II sums in the number field Q(√−n), with the critical Type II ranges controlled by tools imported from additive combinatorics — quantitative concatenation theorems for Gowers norms and the quasipolynomial inverse theorem — the first use of higher-order Fourier analysis to detect primes in such a sparse polynomial family. As of 2026-08 this is an arXiv preprint widely accepted by the analytic number theory community; not yet journal-published.",
+      "authors": "Ben Green, Mehtaab Sawhney",
+      "date": "2024-10",
+      "sources": [
+        "arXiv:2410.04189",
+        "https://www.quantamagazine.org/mathematicians-uncover-a-new-way-to-count-prime-numbers-20241211/"
+      ],
+      "status": "preprint_widely_accepted",
+      "machineVerifiable": false,
+      "significance": "A new bridge between additive combinatorics and multiplicative number theory, cracking a prime-representation problem at the edge of what sieve methods can reach.",
+      "caveats": "Journal publication not confirmed in this scan (as of 2026-08); widely presented and accepted (e.g., Stanford/NTWS seminars, broad expert coverage).",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "primes of the form p squared plus four q squared",
+        "predicate": "proven",
+        "tags": "analytic-number-theory,gauss-primes,green-sawhney",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "hodge-open",
+      "name": "Hodge conjecture (status)",
+      "statement": "On a smooth complex projective variety, every rational (p,p) Hodge class is a rational linear combination of classes of algebraic cycles. OPEN. No widely accepted progress toward the general conjecture in 2024-2026; activity is confined to special cases and variants — e.g. integral Hodge conjecture results for particular Fano varieties and negative results for integral variants (the integral form is known false in general since Atiyah–Hirzebruch). Known cases remain: divisors (Lefschetz (1,1)), dimension ≤ 3 consequences, abelian varieties of CM type partial results.",
+      "authors": "Conjecture: W. V. D. Hodge (1950)",
+      "date": "2026-08",
+      "sources": [
+        "https://www.claymath.org/millennium/hodge-conjecture/",
+        "arXiv:2509.12186 — 'Algebraic cycles of some Fano varieties with Hodge structure of level one' (example of 2025-vintage special-case activity)"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "Millennium Prize problem; the bridge between topology/analysis and algebraic geometry.",
+      "caveats": "Date is a status-snapshot date (no recent milestone to anchor). Several arXiv/preprint-server claimed proofs (e.g. hypersurface-case claims under repeated revision) have no expert acceptance — excluded as unverified.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "hodge conjecture",
+        "predicate": "open",
+        "tags": "algebraic-geometry,millennium-problem",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "invariant-subspace-enflo-2023",
+      "name": "Invariant subspace problem on Hilbert space — Enflo's claimed proof",
+      "statement": "Problem (von Neumann era, ~1930s): does every bounded linear operator T on a separable infinite-dimensional complex Hilbert space have a non-trivial closed invariant subspace? (False in general Banach spaces — Enflo 1975/87, Read 1984 — open precisely for Hilbert space.) Claim: Per Enflo (May 2023, 13-page arXiv preprint, revised April 2024) asserts a positive answer: every such operator has a non-trivial closed invariant subspace.",
+      "authors": "Per H. Enflo (claim); problem classical (von Neumann, Beurling)",
+      "date": "2023-05",
+      "sources": [
+        "arXiv:2305.15442 — 'On the invariant subspace problem in Hilbert spaces' (v1 2023-05-24, revised 2024-04)",
+        "arXiv:2507.21834 — 'Recent perspectives on the Invariant Subspace Problem' (2025 survey treating the problem as unresolved)",
+        "https://theconversation.com/has-a-mathematician-solved-the-invariant-subspace-problem-and-what-does-that-even-mean-206859"
+      ],
+      "status": "preprint_under_review",
+      "machineVerifiable": false,
+      "significance": "One of the oldest open problems of operator theory, claimed by the same mathematician who settled the Banach-space case negatively 50 years earlier.",
+      "caveats": "Three years after posting, still not accepted by a peer-reviewed journal and no consensus endorsement from operator theorists; 2025 surveys continue to describe the problem as open. A conjecture engine should keep the problem OPEN with a pending-claim flag.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "invariant subspace problem on hilbert space",
+        "predicate": "claimed-solved",
+        "tags": "operator-theory,under-review",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "kervaire-126-2024",
+      "name": "Kervaire invariant one in dimension 126 (last Kervaire problem)",
+      "statement": "Smooth framed manifolds of Kervaire invariant one exist in dimension 126: the element h₆² is a permanent cycle in the classical Adams spectral sequence, so the class θ₆ ∈ π₁₂₆(S⁰) exists. Combined with Browder (1969: such manifolds can occur only in dimensions 2^j − 2), the classical constructions in dimensions 2, 6, 14, 30, 62 (Mahowald–Tangora, Barratt–Jones–Mahowald), and Hill–Hopkins–Ravenel (2016: nonexistence in dimensions 2^j − 2 for j ≥ 8), this resolves the final open case and completes the classification: framed manifolds of Kervaire invariant one exist precisely in dimensions 2, 6, 14, 30, 62 and 126. The proof uses motivic and synthetic homotopy-theory deformations together with large-scale machine-assisted computation of Adams spectral sequence differentials. As of 2026-08 this is an arXiv preprint widely accepted by the homotopy theory community; not yet journal-published.",
+      "authors": "Weinan Lin, Guozhen Wang, Zhouli Xu",
+      "date": "2024-12",
+      "sources": [
+        "arXiv:2412.10879",
+        "https://ww3.math.ucla.edu/mathematicians-including-professor-zhouli-xu-prove-dimension-126-contains-strangely-twisted-shapes"
+      ],
+      "status": "preprint_widely_accepted",
+      "machineVerifiable": false,
+      "significance": "Closes the 60-year Kervaire invariant program begun by Kervaire–Milnor, settling which dimensions contain the 'strangely twisted' framed manifolds and completing the story left open by Hill–Hopkins–Ravenel's 2016 Annals paper.",
+      "caveats": "Computer-assisted via custom software (data released), not a proof-assistant formalization; journal publication not confirmed in this scan.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "kervaire invariant one in dimension 126",
+        "predicate": "resolved",
+        "tags": "algebraic-topology,homotopy-theory,kervaire-invariant",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "mckay-conjecture-2024",
+      "name": "McKay conjecture on character degrees",
+      "statement": "For every finite group G and every prime ℓ, the number of irreducible complex characters of G whose degree is not divisible by ℓ equals the same count for the normalizer of a Sylow ℓ-subgroup: |Irr_{ℓ'}(G)| = |Irr_{ℓ'}(N_G(P))|, where P is a Sylow ℓ-subgroup of G. Conjectured by John McKay in 1971, the statement was reduced by Isaacs–Malle–Navarro (2007) to the 'inductive McKay condition' for finite simple groups; over nearly two decades this was verified family by family, and Cabanes–Späth complete the last and hardest case — groups of Lie type D (spin groups) — using the classification of finite simple groups, thereby proving the conjecture in full for all groups and all primes.",
+      "authors": "Marc Cabanes, Britta Späth",
+      "date": "2024-10",
+      "sources": [
+        "arXiv:2410.20392",
+        "Ann. of Math. (2) 203 (2026), issue 3, 933–1032, https://annals.math.princeton.edu/2026/203-3/p05",
+        "https://www.quantamagazine.org/after-20-years-math-couple-solves-major-group-theory-problem-20250219/"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": false,
+      "significance": "Proves the founding 'local–global counting conjecture' of modular representation theory, the template for the Alperin, Alperin–McKay, Dade and Navarro conjectures.",
+      "caveats": "Späth announced completion of the final step in autumn 2023; the arXiv preprint is dated 2024-10-27 and the Annals publication is May 2026. Refinements (McKay–Navarro, block-wise versions) remain active.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "mckay conjecture on character degrees",
+        "predicate": "proven",
+        "tags": "finite-group-theory,representation-theory,cabanes-spath",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "mizohata-takeuchi-refuted-2025",
+      "name": "Mizohata–Takeuchi conjecture (REFUTED)",
+      "statement": "The Mizohata–Takeuchi conjecture from the early 1980s is false. The conjecture asserted that for the Fourier extension operator E associated to a curved hypersurface S ⊂ R^d and every nonnegative weight w, one has ∫ |Ef|² w ≲ (sup over lines L of the X-ray transform Xw(L)) · ‖f‖²_{L²(S)}; it would have implied Stein's conjecture and strong weighted restriction estimates. Cairo constructs counterexamples showing an unavoidable loss of a factor on the order of log R at spatial scale R, for every C² hypersurface in R^d that does not lie in a hyperplane; the construction arranges wave packets along fractal-like sets and is complemented by a family of sharp L^p estimates for X-ray transforms of positive measures delimiting what survives.",
+      "authors": "Hannah Cairo (then a 17-year-old working with Ruixiang Zhang at UC Berkeley)",
+      "date": "2025-02",
+      "sources": [
+        "arXiv:2502.06137",
+        "https://en.wikipedia.org/wiki/Hannah_Cairo",
+        "arXiv:2502.06137 (v2) — 'A Counterexample to the Mizohata-Takeuchi Conjecture'",
+        "https://www.scientificamerican.com/article/how-teen-mathematician-hannah-cairo-disproved-a-major-conjecture-in-harmonic/",
+        "https://en.wikipedia.org/wiki/Mizohata%E2%80%93Takeuchi_conjecture"
+      ],
+      "status": "refuted",
+      "machineVerifiable": false,
+      "significance": "Overturned a 40-year-old structural belief in harmonic analysis about weighted estimates for waves with curved frequency support, forcing a rethink of Stein-type conjectures.",
+      "caveats": "The refuted item is the conjecture; Cairo's counterexample preprint is widely accepted (presented at major harmonic-analysis meetings, broad expert coverage) but journal publication was not confirmed in this scan. The loss shown is logarithmic, so weakened variants of the inequality remain possible and are under study.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "refutation",
+        "subject": "mizohata-takeuchi conjecture",
+        "predicate": "refuted",
+        "tags": "harmonic-analysis,fourier-restriction,counterexample",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "moving-sofa-2024",
+      "name": "Moving sofa problem: optimality of Gerver's sofa",
+      "statement": "The moving sofa problem (Moser, 1966) is solved: the maximum area of a connected planar shape that can be moved around a right-angled corner joining two hallways of unit width equals the area of Gerver's 1992 sofa, approximately 2.2195 (Gerver's constant; the boundary consists of 18 analytic pieces). Baek proves the matching upper bound — no shape of larger area can make the turn — confirming Gerver's conjecture that his construction is optimal. The 119-page proof reduces to 'monotone' sofas and bounds the area by a global injectivity/surjection argument for an auxiliary quantity that Gerver's shape maximizes.",
+      "authors": "Jineon Baek",
+      "date": "2024-11",
+      "sources": [
+        "arXiv:2411.19826v1",
+        "https://www.quantamagazine.org/the-largest-sofa-you-can-move-around-a-corner-20250214/",
+        "https://en.wikipedia.org/wiki/Moving_sofa_problem"
+      ],
+      "status": "preprint_under_review",
+      "machineVerifiable": false,
+      "significance": "Closes a beloved 58-year-old optimization problem by proving an exact optimal constant for a genuinely infinite-dimensional shape-optimization question.",
+      "caveats": "Reported (Quanta and others, 2026) to be under review at Annals of Mathematics; not yet published. Community confidence is high but this entry should be upgraded only after journal acceptance.",
+      "chain": {
+        "intent": "withhold",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "moving sofa problem",
+        "predicate": "claimed-solved",
+        "tags": "geometry,optimization,under-review",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "navier-stokes-open",
+      "name": "Navier–Stokes existence and smoothness (status)",
+      "statement": "Do smooth, finite-energy solutions of the 3D incompressible Navier–Stokes equations exist globally in time, or can singularities form (Clay formulation)? OPEN. Notable 2025 development: DeepMind + collaborators ('Discovery of Unstable Singularities', Sep 2025) used physics-informed neural networks with a high-precision Gauss–Newton optimizer to systematically find new families of unstable self-similar blow-up candidates for the incompressible porous media equation, Boussinesq, and 3D Euler with boundary — some to near double-float precision — with an empirical law linking blow-up rate to instability order. Since stable singularities are believed not to exist for boundary-free 3D Euler/Navier–Stokes, unstable ones are the expected route to any blow-up proof.",
+      "authors": "Problem: Clay Millennium formulation (Fefferman 2000). Cited progress: Y. Wang, J. Gómez-Serrano, T. Buckmaster, G. DeepMind team et al. (arXiv:2509.14185)",
+      "date": "2025-09",
+      "sources": [
+        "arXiv:2509.14185 — 'Discovery of Unstable Singularities' (2025-09-17)",
+        "https://deepmind.google/blog/discovering-new-solutions-to-century-old-problems-in-fluid-dynamics/",
+        "https://www.claymath.org/millennium/navier-stokes-equation/"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "Millennium Prize problem; the 2025 work is the most credible new attack vector (candidate profiles for future computer-assisted blow-up proofs).",
+      "caveats": "The 2025 singularity candidates are for related equations (IPM, Boussinesq, Euler with boundary), NOT Navier–Stokes itself, and are numerical discoveries pending rigorous (likely computer-assisted) proof and peer review. Dozens of claimed full proofs appear yearly; none accepted.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "navier-stokes existence and smoothness",
+        "predicate": "open",
+        "tags": "pde,millennium-problem",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "p-vs-np-open",
+      "name": "P vs NP (status)",
+      "statement": "Is P = NP — can every problem whose solutions are verifiable in polynomial time also be solved in polynomial time? OPEN, with no accepted progress toward either resolution in 2024-2026. Most significant adjacent 2025 result: Ryan Williams proved every multitape TM running in time t can be simulated in space O(√(t log t)) — the first improvement in ~50 years over Hopcroft–Paul–Valiant — yielding explicit problems solvable in O(n) space that require nearly n^2 time, sharpening the P vs PSPACE frontier (a strictly easier separation that remains open too). Known barriers (relativization, natural proofs, algebrization) still stand against all current techniques.",
+      "authors": "Problem: Stephen Cook, Leonid Levin (1971). Cited progress: Ryan Williams",
+      "date": "2025-02",
+      "sources": [
+        "arXiv:2502.17779 — Williams, 'Simulating Time With Square-Root Space' (ECCC TR25-017; STOC 2025)",
+        "https://www.claymath.org/millennium/p-vs-np/"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "Central problem of theoretical computer science; Millennium Prize problem.",
+      "caveats": "Williams' result bears on P vs PSPACE, not P vs NP directly; included as the only widely celebrated 2024-2026 movement in the neighborhood. Perennial claimed proofs/disproofs of P vs NP continue to appear and none has expert support.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "p versus np",
+        "predicate": "open",
+        "tags": "complexity-theory,millennium-problem",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "ramsey-lower-2025",
+      "name": "Exponential improvement for Ramsey lower bounds",
+      "statement": "For every constant C > 1 there exists ε = ε(C) > 0 such that for all sufficiently large ℓ the off-diagonal Ramsey number satisfies r(ℓ, Cℓ) ≥ (p_C^{-1/2} + ε)^ℓ, where p_C ∈ (0, 1/2) is the unique solution of C = log(p_C)/log(1 − p_C). This is the first exponential improvement over the lower bound obtained from Erdős's 1947 probabilistic method (random graph G(n, p_C)), whose exponential base had not been improved for any such regime in 78 years. Hunter, Milojević and Sudakov subsequently gave a simplified proof via Gaussian random graphs with better quantitative bounds (arXiv:2512.17718).",
+      "authors": "Jie Ma, Wujie Shen, Shengjie Xie",
+      "date": "2025-07",
+      "sources": [
+        "arXiv:2507.12926",
+        "Inventiones mathematicae (2026), DOI 10.1007/s00222-026-01421-9",
+        "https://gilkalai.wordpress.com/2025/07/23/amazing-jie-ma-wujie-shen-and-shengjie-xie-gave-an-exponential-improvement-for-ramsey-lower-bounds/"
+      ],
+      "status": "published_peer_reviewed",
+      "machineVerifiable": false,
+      "significance": "First exponential-scale progress on the lower-bound side of Ramsey numbers since Erdős's 1947 paper that founded the probabilistic method.",
+      "caveats": "The theorem is stated for fixed C > 1 (off-diagonal); it does not by itself improve the base sqrt(2) for the fully diagonal r(k,k) lower bound, which remains open.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "theorem",
+        "subject": "off-diagonal ramsey number lower bound",
+        "predicate": "improved-exponentially",
+        "tags": "ramsey-theory,probabilistic-method,inventiones-2026",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "riemann-open",
+      "name": "Riemann hypothesis (status)",
+      "statement": "All non-trivial zeros of the Riemann zeta function have real part 1/2. OPEN. Notable 2024-2026 movement: Guth and Maynard made the first improvement since Ingham (1940) on large-value estimates for Dirichlet polynomials, giving the zero-density estimate N(σ,T) ≤ T^(30(1-σ)/13+o(1)) (improving exponent 3/5 → 13/25 at the critical point) and primes in almost-all short intervals of length x^(17/30+o(1)) — progress toward density-form consequences of RH, not toward RH itself. No claimed proof of RH has gained any expert acceptance in this window.",
+      "authors": "Conjecture: Bernhard Riemann (1859). Cited progress: Larry Guth, James Maynard",
+      "date": "2024-05",
+      "sources": [
+        "arXiv:2405.20552 — 'New large value estimates for Dirichlet polynomials'",
+        "https://annals.math.princeton.edu/articles/22049 (accepted Annals of Mathematics, April 2025)",
+        "https://www.quantamagazine.org/sensational-proof-delivers-new-insights-into-prime-numbers-20240715/"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "The central open problem of analytic number theory; Millennium Prize problem.",
+      "caveats": "Related: Yitang Zhang's 2022 claimed Landau–Siegel-zero bound (arXiv:2211.02515) remains neither accepted nor formally refuted as of mid-2026 — treat as an unresolved claim, distinct from RH.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "riemann hypothesis",
+        "predicate": "open",
+        "tags": "analytic-number-theory,millennium-problem",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "telescope-refuted-2023",
+      "name": "Ravenel's telescope conjecture (REFUTED 2023)",
+      "statement": "Conjecture (Ravenel 1984, the last open one of his famous list): for every prime p and height n, telescopic localization agrees with chromatic localization — T(n)-localization and K(n)-localization coincide on finite complexes of type n. Refutation: Burklund, Hahn, Levy and Schlank prove that for every prime p and every height n+1 ≥ 2 the telescopic and chromatic categories differ; e.g. for n=2 the T(2)-local algebraic K-theory of the K(1)-local sphere is not K(2)-local. The proof runs through a new interface between algebraic K-theory, trace methods/cyclotomic spectra, and chromatic homotopy theory. Consequence: the stable homotopy groups of spheres are 'bigger' (telescopically) than the chromatic picture predicted.",
+      "authors": "Robert Burklund, Jeremy Hahn, Ishan Levy, Tomer Schlank",
+      "date": "2023-06",
+      "sources": [
+        "arXiv:2310.17459 — 'K-theoretic counterexamples to Ravenel's telescope conjecture' (announced June 2023)",
+        "https://www.quantamagazine.org/an-old-conjecture-falls-making-spheres-a-lot-more-complicated-20230822/"
+      ],
+      "status": "refuted",
+      "machineVerifiable": false,
+      "significance": "Resolved (negatively) a 40-year-old central problem of stable homotopy theory believed out of reach; spawned dedicated workshops ('Life after the Telescope Conjecture').",
+      "caveats": "Widely accepted by the homotopy-theory community since the June 2023 announcement, but my searches found no confirmed journal publication yet — still formally a preprint.",
+      "chain": {
+        "intent": "assert",
+        "domain": "mathematics",
+        "category": "refutation",
+        "subject": "ravenel telescope conjecture",
+        "predicate": "refuted",
+        "tags": "algebraic-topology,chromatic-homotopy,counterexample",
+        "firstBatch": null
+      }
+    },
+    {
+      "id": "twin-primes-open",
+      "name": "Twin prime conjecture (status, post-Zhang/Maynard)",
+      "statement": "There are infinitely many primes p with p+2 prime. OPEN. State of the art unchanged since 2014: infinitely many prime gaps ≤ 246 unconditionally (Polymath8b, refining Zhang 2013's 7·10^7 via the Maynard–Tao sieve); ≤ 12 under Elliott–Halberstam and ≤ 6 under its generalized form. The parity barrier still blocks any sieve-only route to gap 2. No improvement to 246 found in 2024-2026 searches; Chen's theorem (p+2 = prime or semiprime) remains the strongest result of its type.",
+      "authors": "Conjecture: classical (attributed to de Polignac 1849 in general form). Cited records: Yitang Zhang; James Maynard; Terence Tao; D.H.J. Polymath",
+      "date": "2014-04",
+      "sources": [
+        "arXiv:1407.4897 — Polymath8b, 'Variants of the Selberg sieve, and bounded intervals containing many primes'",
+        "arXiv:1311.4600 — Maynard, 'Small gaps between primes' (Annals 2015)",
+        "https://www.hklaureateforum.org/en/the-twin-prime-conjecture-and-the-polymath-project"
+      ],
+      "status": "open_conjecture",
+      "machineVerifiable": false,
+      "significance": "Flagship approximation target for sieve theory; the 246→2 gap measures the parity problem.",
+      "caveats": "Status snapshot as of 2026-08: bound 246 has stood for 12 years; claimed proofs appearing in low-tier venues (e.g. IOP conference proceedings) have no expert acceptance.",
+      "chain": {
+        "intent": "conjecture",
+        "domain": "mathematics",
+        "category": "open-question",
+        "subject": "twin prime conjecture",
+        "predicate": "open",
+        "tags": "number-theory,prime-gaps",
+        "firstBatch": null
+      }
+    }
+  ],
+  "contentPinning": {
+    "externalContentCaptured": false,
+    "contentSha256Available": false,
+    "sourcesRetrievedAt": "2026-08-03",
+    "reason": "source identities were verified on the snapshot date but served bytes were not archived; locators can drift and every source must be revalidated before load-bearing use (spec P1)"
+  }
+}

@@ -619,6 +619,25 @@ jobs:
         working-directory: dashboard
         run: npm run build
 
+  frontier-intake:
+    name: "Frontier intake (math breakthrough register)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/frontier-intake
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: 1.3.5
+      - name: Register validation and intake tests
+        run: |
+          bun intake.ts validate
+          bun test
+
   sigstore-compiler:
     name: "Sigstore substrate compiler"
     runs-on: ubuntu-24.04
