@@ -1,0 +1,14 @@
+{
+  "name": "frontier-intake",
+  "private": true,
+  "version": "0.1.0-dev.0",
+  "description": "Client-side intake pipeline: math breakthrough register -> zerone knowledge claims -> panel verification -> facts",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "validate": "bun intake.ts validate"
+  },
+  "engines": {
+    "bun": ">=1.3.5"
+  }
+}
