@@ -33,6 +33,7 @@ export interface RegisterEntry {
     predicate: string;
     tags: string;
     firstBatch: number | null;
+    relations?: Array<{ relation: string; target: string; justification: string }>;
   };
 }
 
@@ -71,6 +72,9 @@ const AGGREGATOR_HOSTS = [
 function isAggregatorOnly(sources: string[]): boolean {
   return sources.every(source => AGGREGATOR_HOSTS.some(host => source.includes(host)));
 }
+
+// contradicts excluded on purpose: it instantly flips the target to CONTESTED.
+export const RELATION_VOCABULARY = ["supports", "requires", "refines", "generalizes", "cites", "reformulates", "supersedes"];
 
 const SUB_PEER_REVIEW: EntryStatus[] = ["preprint_widely_accepted", "preprint_under_review", "announced_unverified"];
 const DISCLOSURE_PATTERN = /preprint|not yet (?:a )?(?:journal|refereed|peer)|announced|awaiting (?:journal|peer)|under review|social.media/i;
@@ -146,6 +150,21 @@ export function validateRegister(register: Register): ValidationIssue[] {
       const existing = seenSubjects.get(chain.subject);
       if (existing) flag(`duplicate assert subject with ${existing}`);
       seenSubjects.set(chain.subject, entry.id);
+    }
+    for (const relation of chain.relations ?? []) {
+      if (!RELATION_VOCABULARY.includes(relation.relation)) {
+        flag(`relation type "${relation.relation}" not in vocabulary (contradicts is deliberately excluded: it flips targets to CONTESTED)`);
+      }
+      const isFactId = /^[0-9a-f]{32}$/.test(relation.target);
+      const isEntryRef = relation.target.startsWith("entry:");
+      if (!isFactId && !isEntryRef) {
+        flag(`relation target "${relation.target}" is neither a 32-hex fact id nor an entry:<id> reference`);
+      }
+      if (isEntryRef && !register.entries.some(other => other.id === relation.target.slice(6))) {
+        flag(`relation target ${relation.target} names an unknown register entry`);
+      }
+      if (!relation.justification) flag(`relation to ${relation.target} has no justification — every edge is a truth claim`);
+      if ((chain.relations?.length ?? 0) > 3) flag("more than 3 relations on one entry; keep the graph conservative");
     }
   }
   return issues;

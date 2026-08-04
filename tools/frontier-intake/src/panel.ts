@@ -36,6 +36,7 @@ export interface RoundState {
   verifiers: Record<string, VerifierProgress>;
   stage: "submitted" | "pending_inclusion" | "resolved_accepted" | "resolved_other" | "missed_window" | "abandoned" | "error";
   fact_status?: string;
+  fact_id?: string;
   confidence?: string;
   query_failures?: number;
   notes: string[];

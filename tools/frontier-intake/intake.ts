@@ -191,6 +191,7 @@ async function submitEntry(
   entry: RegisterEntry,
   feeUzrn: number,
   vote: "accept" | "reject",
+  factIds: Map<string, string> = new Map(),
 ): Promise<RoundState> {
   const txArgs = [
     "knowledge", "submit-claim",
@@ -200,6 +201,8 @@ async function submitEntry(
     "--predicate", entry.chain.predicate,
     "--tags", entry.chain.tags,
   ];
+  const relations = relationsFlag(entry, factIds);
+  if (relations) txArgs.push("--relations", relations);
   const outcome = broadcast(net, net.submitter, CLAIM_GAS, txArgs);
   if (!outcome.ok || !outcome.tx_hash) {
     throw new Error(`submit-claim rejected for ${entry.id}: ${outcome.raw_log ?? outcome.detail}`);
@@ -265,6 +268,50 @@ function backfillPendingInclusion(net: NetworkConfig, round: RoundState): void {
   }
 }
 
+/** Facts get fresh ids at creation; find ours by content prefix match. */
+function discoverFactId(net: NetworkConfig, round: RoundState): string | null {
+  const register = loadRegister(defaultRegisterPath());
+  const entry = register.entries.find(candidate => candidate.id === round.entry_id);
+  if (!entry) return null;
+  const parsed = query(net, ["query", "knowledge", "facts"]);
+  const facts = (parsed?.facts ?? []) as Array<{ id?: string; content?: string; domain?: string }>;
+  const prefix = entry.statement.slice(0, 80);
+  const match = facts.filter(fact => fact.domain === entry.chain.domain && (fact.content ?? "").startsWith(prefix));
+  // Ambiguity (e.g. near-duplicate statements) is worse than absence.
+  return match.length === 1 ? (match[0]?.id ?? null) : null;
+}
+
+/**
+ * Resolve an entry's curated relations to the on-chain --relations flag.
+ * entry:<id> targets resolve through fact ids recorded in the ledger; an
+ * unresolved dependency is an ordering error, not something to skip silently.
+ */
+function relationsFlag(entry: RegisterEntry, factIds: Map<string, string>): string | null {
+  const relations = entry.chain.relations ?? [];
+  if (relations.length === 0) return null;
+  const parts: string[] = [];
+  for (const relation of relations) {
+    let target = relation.target;
+    if (target.startsWith("entry:")) {
+      const resolved = factIds.get(target.slice(6));
+      if (!resolved) {
+        throw new Error(`relation target ${target} has no recorded fact id yet — submit and resolve it first`);
+      }
+      target = resolved;
+    }
+    parts.push(`${relation.relation}:${target}`);
+  }
+  return parts.join(",");
+}
+
+function recordedFactIds(rounds: RoundState[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const round of rounds) {
+    if (round.stage === "resolved_accepted" && round.fact_id) map.set(round.entry_id, round.fact_id);
+  }
+  return map;
+}
+
 const DUPLICATE_VOTE = /duplicate commitment|duplicate reveal|already committed|already revealed/i;
 
 /** One idempotent pass over every open round; safe to run concurrently with submit. */
@@ -327,7 +374,8 @@ async function panelPass(net: NetworkConfig, params: PhaseParams): Promise<{ ope
           const verdict = classifyClaimStatus(status);
           if (verdict === "accepted") {
             round.stage = "resolved_accepted";
-            console.log(`🟢 ${round.entry_id}: ACCEPTED (claim ${round.claim_id}, confidence ${round.confidence || "?"})`);
+            round.fact_id = discoverFactId(net, round) ?? round.fact_id;
+            console.log(`🟢 ${round.entry_id}: ACCEPTED (claim ${round.claim_id}, fact ${round.fact_id ?? "?"}, confidence ${round.confidence || "?"})`);
           } else if (verdict === "terminal_other") {
             round.stage = "resolved_other";
             console.log(`🔴 ${round.entry_id}: resolved status ${status}`);
@@ -355,6 +403,7 @@ async function commandSubmit(
   entryId: string | undefined,
   batch: boolean,
   feeUzrn: number,
+  skip: Set<string> = new Set(),
 ): Promise<void> {
   const register = loadRegister(registerPath);
   const issues = validateRegister(register);
@@ -365,7 +414,22 @@ async function commandSubmit(
     .map(round => round.entry_id));
   let targets: RegisterEntry[];
   if (batch) {
-    targets = firstBatch(register).filter(entry => !done.has(entry.id));
+    const ordered = [...firstBatch(register), ...admissibleEntries(register).filter(entry => entry.chain.firstBatch === null)];
+    // Dependency order: an entry whose relations name entry:<id> targets must
+    // submit after those targets (stable insertion sort; cycles rejected by
+    // validate's conservatism in practice).
+    const placed: RegisterEntry[] = [];
+    const pending = [...ordered];
+    let guard = pending.length * pending.length + 1;
+    while (pending.length > 0 && guard-- > 0) {
+      const index = pending.findIndex(entry => (entry.chain.relations ?? []).every(relation =>
+        !relation.target.startsWith("entry:")
+        || placed.some(prior => prior.id === relation.target.slice(6))
+        || done.has(relation.target.slice(6))));
+      if (index === -1) fail(`circular entry: relation dependencies among ${pending.map(entry => entry.id).join(", ")}`);
+      placed.push(pending.splice(index, 1)[0] as RegisterEntry);
+    }
+    targets = placed.filter(entry => !done.has(entry.id) && !skip.has(entry.id));
   } else {
     if (!entryId) fail("submit needs --entry <id> or --batch");
     const entry = register.entries.find(candidate => candidate.id === entryId);
@@ -378,14 +442,34 @@ async function commandSubmit(
     console.log("nothing to submit");
     return;
   }
-  for (const [index, entry] of targets.entries()) {
-    console.log(`── submitting ${entry.id} (${index + 1}/${targets.length})`);
+  const queue = [...targets];
+  const deferrals = new Map<string, number>();
+  let position = 0;
+  while (queue.length > 0) {
+    const entry = queue.shift() as RegisterEntry;
+    position += 1;
+    // An entry whose entry:<id> relation target has no fact id yet defers to
+    // the back of the queue and waits for panels to resolve the target.
+    try {
+      relationsFlag(entry, recordedFactIds(readRounds(net)));
+    } catch (error) {
+      const count = (deferrals.get(entry.id) ?? 0) + 1;
+      deferrals.set(entry.id, count);
+      if (count > 40) fail(`entry ${entry.id} dependency never resolved after ${count} deferrals: ${error instanceof Error ? error.message : error}`);
+      console.log(`── deferring ${entry.id} (dependency not yet resolved; panels continue)`);
+      queue.push(entry);
+      await panelPass(net, params);
+      const target = latestHeight(net) + 20;
+      while (latestHeight(net) < target) await Bun.sleep(20_000);
+      continue;
+    }
+    console.log(`── submitting ${entry.id} (${position}/${targets.length})`);
     // The EFFECTIVE cooldown is pacing-scaled (observed 100 blocks on zerone-1
     // vs the base 50); trust the chain's own error over any assumption.
     let round: RoundState | null = null;
     for (let attempt = 1; attempt <= 4 && !round; attempt += 1) {
       try {
-        round = await submitEntry(net, entry, feeUzrn, "accept");
+        round = await submitEntry(net, entry, feeUzrn, "accept", recordedFactIds(readRounds(net)));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const cooldown = /cooldown active: (\d+) blocks remaining/.exec(message);
@@ -402,7 +486,7 @@ async function commandSubmit(
     if (!round) continue;
     upsertRound(net, round);
     console.log(`   claim ${round.claim_id || "?"} round ${round.round_id} @ height ${round.submit_height || "?"}`);
-    if (index < targets.length - 1) {
+    if (queue.length > 0) {
       console.log("   cooldown ~105 blocks (interleaving panel passes)…");
       const target = latestHeight(net) + 105;
       while (latestHeight(net) < target) {
@@ -526,6 +610,7 @@ async function main(): Promise<void> {
       register: { type: "string" },
       entry: { type: "string" },
       batch: { type: "boolean", default: false },
+      skip: { type: "string" },
       watch: { type: "boolean", default: false },
       "fee-uzrn": { type: "string" },
       "live-ack": { type: "string" },
@@ -562,7 +647,7 @@ runtime state lives at ~/.zerone-agent/frontier-intake/<net>.state.json.`);
     case "submit": {
       const net = requireNetwork(values.network);
       requireLiveAck(net, values["live-ack"]);
-      return commandSubmit(net, registerPath, values.entry, values.batch, feeUzrn);
+      return commandSubmit(net, registerPath, values.entry, values.batch, feeUzrn, new Set((values.skip ?? "").split(",").filter(Boolean)));
     }
     case "panel": {
       const net = requireNetwork(values.network);
