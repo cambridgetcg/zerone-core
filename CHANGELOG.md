@@ -26,6 +26,8 @@ publication are separate events and are stated explicitly when they occur.
 
 - The TypeScript SDK bounds account-address decoding to BIP-173's 90-character
   limit, preserving packed-consumer compatibility with CosmJS dependencies.
+- The dashboard lockfile advances `nanoid` to 3.3.18 to remove the
+  zero-size custom-generator denial-of-service advisory.
 - Starved knowledge challenges settle without leaving facts locked and restore
   conjectures to their type-appropriate status.
 - A manual, approval-environment SDK release workflow now requires an
