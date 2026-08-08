@@ -1,42 +1,21 @@
-// Package staking holds the validator-bond layer of Zerone's
-// Proof-of-Truth substrate. Validators register, delegate, redelegate,
-// and earn rewards here — the standard Cosmos staking surface that
-// secures consensus.
+// Package staking currently implements Zerone's legacy custom Proof-of-Truth
+// validator, delegation, tier, unbonding, and application-slash state.
 //
-// Truth-seeking position:
+// It is separate from Cosmos SDK x/staking. It does not create CometBFT
+// validators, emit validator updates, own consensus power, or replace SDK
+// distribution, evidence, and slashing. Callers must not describe a custom
+// validator or custom bond as consensus staking.
 //
-// docs/TRUTH_SEEKING.md, commitment 8 (the panel weights skill, not
-// bond): bond is what x/staking produces; commitment 8 names that
-// the verification panel must NOT over-weight bond when judging
-// truth-claims. The two faces complete each other — without bond, a
-// validator has no skin in consensus; without commitment 8, the
-// wealthiest validator dominates truth-judgement regardless of
-// whether they have ever shown they can tell true from false. This
-// module exists to produce the bond signal; x/qualification exists
-// to refuse to let bond alone carry the panel.
+// The accepted target architecture in docs/AUTHORITATIVE-STATE.md makes SDK
+// x/staking the sole long-lived stake/delegation authority. This package's
+// custodial state is to be frozen, reconciled into explicit legacy claims, and
+// retired; non-monetary history moves to a verifier-profile module. Until that
+// named migration is implemented and activated, this package remains current
+// consensus-committed application state and its value-changing paths must be
+// treated as legacy custody, not as the accepted destination.
 //
-// What this module is, and is not:
-//
-//   - It IS the consensus-security layer. Bonded stake secures
-//     blocks, finalises chains, and slashes equivocation. Standard
-//     Cosmos staking properties apply unchanged.
-//   - It IS NOT the truth-judgement layer. The augmentation panel,
-//     the dispute arbiters, the counterexample voters, and the
-//     dialectic synthesisers all consume calibration from
-//     x/qualification — not raw bond from this module. A validator
-//     who is well-bonded and uncalibrated carries consensus weight
-//     here and zero panel weight there. That asymmetry is the point.
-//
-// Integration with x/qualification:
-//
-// x/qualification reads stake (or a snapshot of it at vote time)
-// only as a multiplicand against domain-specific calibration. The
-// "stake × calibration" tally is enforced by RecordAugmentationVote
-// in x/knowledge; without the calibration factor, stake would carry
-// the panel alone, and commitment 8 would collapse from belief to
-// slogan. This module produces the stake half of that product.
-//
-// We speak through intentions. This package's intention is that
-// "bonded" means "secured the chain's blocks" — never "earned the
-// chain's verdict on what is true."
+// Truth-seeking position: bonded wealth secures block consensus. It does not
+// buy policy voice or truth-judgement weight. Truth faults may affect
+// qualification, profile reputation, and an explicitly posted work bond, but
+// must not slash passive SDK delegators.
 package staking

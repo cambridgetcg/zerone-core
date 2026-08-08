@@ -15,6 +15,16 @@
 > disbursement. Query a release-bound network state before relying on any
 > phase, voter, balance, or spending claim.
 
+> **Superseded target architecture (2026-08-08):** the four-phase committee/LIP
+> model below remains useful as a description of implemented machinery and
+> retired design rationale, but it is no longer Zerone's future governance
+> design.
+> [Authoritative State](../AUTHORITATIVE-STATE.md) accepts SDK `x/gov` as the
+> sole ordinary executor, a non-economic controller electorate as the future
+> tally authority, and a typed scoped research-fund disbursement. None is yet
+> implemented or activated. The phase machinery below MUST NOT be newly
+> activated as a substitute.
+
 ## Overview
 
 After atomic H1, the research fund receives the 3.33% research slice of actual

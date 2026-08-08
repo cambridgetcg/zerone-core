@@ -13,6 +13,13 @@
 // participated in cartel behaviour must reduce their voice on the
 // next vote, not merely produce an audit log entry."
 //
+// Current-source boundary: this package also exposes a stake pathway and holds
+// its own qualification escrow. The accepted target in
+// docs/AUTHORITATIVE-STATE.md makes qualification non-economic, retires that
+// pathway, reconciles its locked balances as legacy claims, and pins every
+// qualification to a canonical ontology revision. That migration is not yet
+// implemented or activated.
+//
 // This module's contracts:
 //
 //   - GetQualificationWeight returns 0 for non-ACTIVE qualifications

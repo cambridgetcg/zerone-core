@@ -7,6 +7,14 @@
 > by knowledge/governance modules. Do not assume a custom tier field changes
 > CometBFT rewards unless a production call path applies it.
 
+> **Accepted target architecture (2026-08-08):**
+> [Authoritative State](../AUTHORITATIVE-STATE.md) makes SDK `x/staking` the
+> sole long-lived stake/delegation authority and replaces the custom custodial
+> plane with non-custodial verifier profiles plus separately reconciled legacy
+> claims. That design is not implemented or network-activated. The sections
+> below document the current/legacy custom surface and MUST NOT be read as its
+> future authorization.
+
 ## Custom PoT tiers
 
 Source defaults:
