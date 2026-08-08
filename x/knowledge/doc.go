@@ -2,6 +2,13 @@
 // commitment. It is where the largest number of commitments named in
 // docs/TRUTH_SEEKING.md actually live in code:
 //
+// Current-source boundary: this package also stores its own writable Domain
+// records, separate from x/ontology. The accepted target in
+// docs/AUTHORITATIVE-STATE.md retires that duplicate authority: knowledge owns
+// claims, facts, rounds, verdict evidence, and derived domain analytics, while
+// ontology alone owns canonical domain identity and lifecycle. That migration
+// is not yet implemented or activated.
+//
 //   - Commitment 1 (methodology over statement): every Fact carries a
 //     MethodId; ComputeTrainingValueWeight multiplies a methodology-
 //     normalisation factor; ReasoningTrace propagates from claim to

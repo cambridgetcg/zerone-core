@@ -14,6 +14,10 @@ The mechanism-oriented references remain useful:
   record.
 - [OPEN_CRYPTO_SDK.md](standards/OPEN_CRYPTO_SDK.md) describes the strict
   SDK 0.53 / IBC-Go 10 migration evidence.
+- [AUTHORITATIVE-STATE.md](AUTHORITATIVE-STATE.md) is the accepted target
+  ownership design for staking, governance, and domains. It is a `DECISION`,
+  not current-source or live-network `OBSERVATION`, and no implementation or
+  activation is implied.
 
 They do not override the safety boundaries below.
 

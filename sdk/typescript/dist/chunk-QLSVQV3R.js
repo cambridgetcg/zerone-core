@@ -1,6 +1,7 @@
 // src/caip.ts
 import { fromBech32, toHex } from "@cosmjs/encoding";
 import { sha256 } from "@noble/hashes/sha2.js";
+var BIP173_MAX_LENGTH = 90;
 var CaipError = class extends Error {
   code;
   constructor(code, message) {
@@ -122,7 +123,7 @@ function zeroneAccountId(network, address) {
   }
   let decoded;
   try {
-    decoded = fromBech32(address);
+    decoded = fromBech32(address, BIP173_MAX_LENGTH);
   } catch {
     throw new CaipError("INVALID_BECH32", `Invalid Zerone Bech32 address: ${address}`);
   }

@@ -1,6 +1,8 @@
 import { fromBech32, toHex } from "@cosmjs/encoding";
 import { sha256 } from "@noble/hashes/sha2.js";
 
+const BIP173_MAX_LENGTH = 90;
+
 declare const caip2Brand: unique symbol;
 declare const caip10Brand: unique symbol;
 declare const cosmosChainBrand: unique symbol;
@@ -216,7 +218,7 @@ export function zeroneAccountId(
 
   let decoded: ReturnType<typeof fromBech32>;
   try {
-    decoded = fromBech32(address);
+    decoded = fromBech32(address, BIP173_MAX_LENGTH);
   } catch {
     throw new CaipError("INVALID_BECH32", `Invalid Zerone Bech32 address: ${address}`);
   }

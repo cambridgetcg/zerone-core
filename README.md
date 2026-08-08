@@ -154,6 +154,13 @@ specification.
 
 ## Architecture
 
+The accepted source design of record is
+[Authoritative State — Staking, Governance, and Domains](docs/AUTHORITATIVE-STATE.md):
+SDK `x/staking` alone owns consensus stake, SDK `x/gov` alone owns ordinary
+decision and atomic execution, and `x/ontology` alone owns canonical domain
+identity and lifecycle. That target is not implemented or network-activated;
+the module inventory below still describes the current source.
+
 ### Witnessing
 
 Validators witness the truthfulness of knowledge claims — not transactions
@@ -205,7 +212,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 | Module | Purpose |
 |---|---|
 | `knowledge` | Claim submission, verification rounds, confidence scoring |
-| `ontology` | Epistemic domains, strata, and domain proposals |
+| `ontology` | Current structural domain/stratum registry; accepted target is the sole canonical domain writer |
 | `counterexamples` | Validated wrong-claims paired with facts — alignment-by-structure (commitment 15) |
 
 ### Synthesizers (read-only)
@@ -217,8 +224,8 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 ### Validator & Staking
 | Module | Purpose |
 |---|---|
-| `staking` | 4-tier PoT staking (Apprentice → Guardian) |
-| `qualification` | Domain-specific validator certification |
+| `staking` | Legacy custom PoT stake/tier registry, separate from SDK consensus staking; accepted target migrates it to non-custodial profiles and legacy claims |
+| `qualification` | Current domain certification includes a custodial stake path; accepted target is revision-pinned and non-economic |
 | `vesting_rewards` | Vesting curves, actual-fee revenue splits, retired block-reward compatibility |
 
 ### Agent Economy
@@ -232,7 +239,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 ### Governance & Security
 | Module | Purpose |
 |---|---|
-| `gov` | Living Improvement Proposals (LIPs) |
+| `gov` | Legacy custom Living Improvement Proposals (LIPs); accepted target keeps history but retires ordinary execution in favor of SDK `x/gov` |
 | `emergency` | Application transaction quarantine and evidence-bound reopening (not a consensus stop) |
 | `capture_defense` | Anti-capture reputation scoring |
 | `capture_challenge` | Capture challenge mechanism |
@@ -331,6 +338,7 @@ does not activate it.
 | [Useful Work](docs/USEFUL_WORK.md) | The chain's metabolic doctrine — UW (recursive) + 7 mechanisms |
 | [Strange Loop](docs/STRANGE_LOOP.md) | The chain's self-referential doctrine — SL + 6 mechanisms (Phase SL-α binds SL-M1 doctrine import) |
 | [Roadmap](docs/ROADMAP.md) | Where we are, what's bound, what ships next |
+| [Authoritative State](docs/AUTHORITATIVE-STATE.md) | Accepted single-writer design for staking, governance, and canonical domains; not yet activated |
 | [Changelog](CHANGELOG.md) | Consolidated source changes and publication boundary |
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |
 | [API Reference](docs/API.md) | Generated REST/gRPC discovery and usage |

@@ -16,6 +16,12 @@ decoupling: liquid `uzrn` can be bonded, and bonded stake currently carries
 governance power. Any funded reward activation must close and test that route
 rather than repeat the broader claim that money cannot become voice.
 
+The accepted, still-unimplemented route is
+[Authoritative State](../AUTHORITATIVE-STATE.md): SDK staking remains the
+consensus-economic authority while a proposal-snapshotted, non-transferable
+controller electorate governs policy. Publishing either document activates
+nothing.
+
 KARMA is not money. Zerone does not mint or create KARMA and no operator or
 founder may assign it. At K-alpha the chain records fallible, challengeable
 observations of artifact relations: a proposed, pending, or adjudicated act
@@ -165,7 +171,13 @@ Bonded stake alone is not independence. A semantic “founder seat,” “AI sea
 or household-controlled committee is not independence. Renaming a controller
 does not create another controller.
 
-## The only admissible future governance shape
+## Boundary on any later KARMA advisory experiment
+
+[Authoritative State](../AUTHORITATIVE-STATE.md) is now the accepted source
+architecture for this boundary. Its electorate does not read KARMA for
+eligibility or power. The conditions below apply only to a later,
+separately accepted advisory experiment; they are not an alternate electorate,
+executor, veto, or activation path.
 
 A later, separately reviewed experiment may let KARMA contribute to a bounded
 governance check only if all of the following hold:
@@ -173,8 +185,8 @@ governance check only if all of the following hold:
 1. identities are collapsed to independently evidenced controllers before eligibility or selection;
 2. KARMA can qualify a bounded candidate pool, never scale ballot weight;
 3. selection uses bounded sortition, rotation, term limits, concentration caps, and conflict-of-interest disclosure;
-4. the selected body is an independent check chamber, not a unilateral executor;
-5. challenges and a public timelock precede execution;
+4. the selected body is an advisory audit chamber, not an executor, veto, or policy electorate;
+5. challenges and a public review period may inform a new SDK proposal but do not delay or authorize execution;
 6. no KARMA edge, count, score, or aggregate directly determines payout, token issuance, proposal passage, or spending.
 
 Any future funded-reward or governance activation also requires

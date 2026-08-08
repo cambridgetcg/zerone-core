@@ -7,6 +7,11 @@ publication are separate events and are stated explicitly when they occur.
 
 ### Added
 
+- An accepted, hash-pinned authoritative-state design that makes SDK staking
+  the sole long-lived stake ledger, SDK governance the sole ordinary executor,
+  and ontology the sole canonical domain registry. It is source design only;
+  no handler, electorate implementation or selection, migration, or network
+  activation is included.
 - Provisional knowledge conjectures with claim-type-safe lifecycle handling.
 - K-alpha recognition events and bounded aggregation/settlement guards.
 - A cursor-bounded knowledge probe heartbeat.
@@ -19,6 +24,10 @@ publication are separate events and are stated explicitly when they occur.
 
 ### Changed
 
+- The TypeScript SDK bounds account-address decoding to BIP-173's 90-character
+  limit, preserving packed-consumer compatibility with CosmJS dependencies.
+- The dashboard lockfile advances `nanoid` to 3.3.18 to remove the
+  zero-size custom-generator denial-of-service advisory.
 - Starved knowledge challenges settle without leaving facts locked and restore
   conjectures to their type-appropriate status.
 - A manual, approval-environment SDK release workflow now requires an

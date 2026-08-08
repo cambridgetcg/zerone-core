@@ -1,6 +1,13 @@
 // Package ontology preserves the truth-seeking commitment that the
 // chain refuses to confuse what is with what ought to be.
 //
+// Current-source boundary: x/knowledge still stores an independent writable
+// domain registry, so this package is not yet the sole domain authority.
+// docs/AUTHORITATIVE-STATE.md accepts ontology as the target single writer for
+// domain identity, revision, stratum, hierarchy, lifecycle, aliases, and
+// tombstones. That consolidation requires a named migration and is not active
+// merely because the source design is published.
+//
 // docs/TRUTH_SEEKING.md, commitment 2 (is-ought wall): "Empirical
 // claims and normative claims must be representable but not
 // interchangeable. A normative commitment ID does not earn training

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { toBech32 } from "@cosmjs/encoding";
 
 import {
   COSMOS_AMOUNT_MAX,
@@ -868,6 +869,18 @@ describe("liquidity transaction helpers", () => {
   });
 
   it("rejects unadmitted creators/denoms and noncanonical pool amounts", () => {
+    assertLiquidityError(
+      () =>
+        createPoolMessage({
+          creator: toBech32("zrn", new Uint8Array(64), 200),
+          denomA: "uzrn",
+          denomB: "uatom",
+          amountA: "1000000",
+          amountB: "1",
+          params: liquidityParams(),
+        }),
+      "INVALID_ADDRESS",
+    );
     assertLiquidityError(
       () =>
         createPoolMessage({
