@@ -181,6 +181,10 @@ describe("Zerone identity references", () => {
       () => zeroneAccountId(network, toBech32("zrn", new Uint8Array(32))),
       "WRONG_ACCOUNT_LENGTH",
     );
+    assertCaipError(
+      () => zeroneAccountId(network, toBech32("zrn", new Uint8Array(64), 200)),
+      "INVALID_BECH32",
+    );
   });
 
   it("keeps did:zrn separate from the CAIP account address", () => {

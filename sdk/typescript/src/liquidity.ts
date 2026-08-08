@@ -8,6 +8,8 @@ import {
   MsgUpdateParams,
 } from "./generated/zerone/liquiditypool/v1/tx";
 
+const BIP173_MAX_LENGTH = 90;
+
 export const LIQUIDITY_FEE_SCALE = 1_000_000n;
 export const ZERONE_MAX_SWAP_FEE = 100_000n;
 export const COSMOS_UINT64_MAX = 18_446_744_073_709_551_615n;
@@ -458,7 +460,7 @@ function validateZeroneAddress(value: unknown, field: string): string {
     );
   }
   try {
-    const decoded = fromBech32(value);
+    const decoded = fromBech32(value, BIP173_MAX_LENGTH);
     if (decoded.prefix !== "zrn" || decoded.data.length !== 20) {
       return fail(
         "INVALID_ADDRESS",

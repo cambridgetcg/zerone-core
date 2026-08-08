@@ -24,6 +24,8 @@ publication are separate events and are stated explicitly when they occur.
 
 ### Changed
 
+- The TypeScript SDK bounds account-address decoding to BIP-173's 90-character
+  limit, preserving packed-consumer compatibility with CosmJS dependencies.
 - Starved knowledge challenges settle without leaving facts locked and restore
   conjectures to their type-appropriate status.
 - A manual, approval-environment SDK release workflow now requires an

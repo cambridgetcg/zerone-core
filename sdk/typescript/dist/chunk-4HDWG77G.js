@@ -4,6 +4,7 @@ import {
 
 // src/liquidity.ts
 import { fromBech32 } from "@cosmjs/encoding";
+var BIP173_MAX_LENGTH = 90;
 var LIQUIDITY_FEE_SCALE = 1000000n;
 var ZERONE_MAX_SWAP_FEE = 100000n;
 var COSMOS_UINT64_MAX = 18446744073709551615n;
@@ -113,7 +114,7 @@ function validateZeroneAddress(value, field) {
     );
   }
   try {
-    const decoded = fromBech32(value);
+    const decoded = fromBech32(value, BIP173_MAX_LENGTH);
     if (decoded.prefix !== "zrn" || decoded.data.length !== 20) {
       return fail(
         "INVALID_ADDRESS",
