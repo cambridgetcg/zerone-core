@@ -2,6 +2,7 @@
 //
 //	go run ./tools/constructive-rewards -mode report
 //	go run ./tools/constructive-rewards -mode sweep
+//	go run ./tools/constructive-rewards -mode branch-flow
 //	go run ./tools/constructive-rewards -mode release # expected to fail closed
 package main
 
@@ -15,11 +16,12 @@ import (
 )
 
 type cliConfig struct {
-	mode          string
-	format        string
-	budget        float64
-	alpha         float64
-	controllerCap float64
+	mode           string
+	format         string
+	budget         float64
+	alpha          float64
+	controllerCap  float64
+	branchEnvelope string
 }
 
 func parseFlags(args []string, stderr io.Writer) (cliConfig, error) {
@@ -27,7 +29,7 @@ func parseFlags(args []string, stderr io.Writer) (cliConfig, error) {
 	flags := flag.NewFlagSet("constructive-rewards", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	config := cliConfig{}
-	flags.StringVar(&config.mode, "mode", "report", "report, sweep, model, or release")
+	flags.StringVar(&config.mode, "mode", "report", "report, sweep, model, branch-flow, or release")
 	flags.StringVar(&config.format, "format", "text", "text or json")
 	flags.Float64Var(&config.budget, "budget", defaults.Budget, "illustrative epoch budget")
 	flags.Float64Var(&config.alpha, "alpha", defaults.Alpha, "scarcity-allocation concavity in (0,1]")
@@ -37,14 +39,24 @@ func parseFlags(args []string, stderr io.Writer) (cliConfig, error) {
 		defaults.ControllerCapShare,
 		"maximum cumulative direct share per controller within one cluster lifetime",
 	)
+	flags.StringVar(
+		&config.branchEnvelope,
+		"branch-envelope-uzrn",
+		"100000000",
+		"exact decimal shadow envelope used by branch-flow mode",
+	)
 	if err := flags.Parse(args); err != nil {
 		return cliConfig{}, err
 	}
 	if flags.NArg() != 0 {
 		return cliConfig{}, fmt.Errorf("unexpected positional arguments: %s", strings.Join(flags.Args(), " "))
 	}
+	provided := make(map[string]bool)
+	flags.Visit(func(option *flag.Flag) {
+		provided[option.Name] = true
+	})
 	switch config.mode {
-	case "report", "sweep", "model", "release":
+	case "report", "sweep", "model", "branch-flow", "release":
 	default:
 		return cliConfig{}, fmt.Errorf("unknown mode %q", config.mode)
 	}
@@ -52,6 +64,15 @@ func parseFlags(args []string, stderr io.Writer) (cliConfig, error) {
 	case "text", "json":
 	default:
 		return cliConfig{}, fmt.Errorf("unknown format %q", config.format)
+	}
+	if config.mode == "branch-flow" {
+		for _, name := range []string{"budget", "alpha", "controller-cap"} {
+			if provided[name] {
+				return cliConfig{}, fmt.Errorf("-%s is not valid in branch-flow mode", name)
+			}
+		}
+	} else if provided["branch-envelope-uzrn"] {
+		return cliConfig{}, fmt.Errorf("-branch-envelope-uzrn is valid only in branch-flow mode")
 	}
 	return config, nil
 }
@@ -147,6 +168,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "constructive-rewards: %v\n", err)
 		return 2
+	}
+	if config.mode == "branch-flow" {
+		return runBranchFlow(config.branchEnvelope, config.format, stdout, stderr)
 	}
 	params := DefaultParams()
 	params.Budget = config.budget

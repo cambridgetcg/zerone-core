@@ -3,6 +3,60 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Unreleased — 2026-08-11 branch-flow shadow architecture
+
+### Added
+
+- An accepted
+  [constructive-intelligence branch-flow source architecture](docs/specs/constructive-intelligence-branch-flow-v1.md)
+  for one conserved, already funded role envelope: 60% direct work, 10%
+  load-bearing ancestors, 30% independently evidenced descendants, and 0%
+  base commons, with absolute `q=0.5` geometric depth through depth five and a
+  terminal tail. E5 and E6 remain inside their existing outcome-pool tranches,
+  `breakthrough` remains retrospective and creates no separate prize, and
+  outcome and TC6 realized-training-revenue flows require separate adapters,
+  ledgers, and receipt keys.
+- A standard-library-only
+  [exact-integer shadow kernel](tools/constructive-rewards/branchflow/)
+  for deterministic allocation,
+  bounded artifact-graph validation, replay/cap checks, and fail-closed result
+  projection. The package is non-custodial and exposes no bank, store,
+  governance, signer, clock, network, or vesting capability. Golden JSON
+  fixtures, unit tests, and conservation/permutation fuzz targets lock
+  conservation, absolute-depth, replay, cap, bound, ordering, and
+  malformed-input behavior. A
+  `-mode branch-flow` CLI renders the golden-locked E5 reference projection
+  under the digest-pinned policy while preserving the same no-effect fences.
+- A strictly validated, machine-readable Branch Flow v1 profile and a
+  digest-pinned, read-only dashboard view publish the reference split, depth
+  gradient, authority walls, and closed release gates without exposing a
+  transaction or activation path.
+
+### Changed
+
+- The constructive-intelligence reward design now names Cosmos SDK `x/gov` as
+  the sole target ordinary binding proposal, tally, authorization, and
+  execution path. Current source still has dual custom/SDK authority surfaces;
+  this design does not claim that migration or activation has occurred.
+  Epistemic review supplies typed evidence to the target path; it is not a
+  second binding chamber and owns no veto, treasury key, or executor.
+
+### Consensus activation
+
+The branch-flow specification and exact reference kernel are shadow source
+artifacts with `assurance = SHADOW_ONLY` and `economic_effect = NONE`. They do
+not change chain state, move or reserve funds, create a payout entitlement,
+install a second authority, satisfy the independent-implementation gate, or
+activate any network behavior. All value-bearing release gates remain closed.
+
+### Publication status
+
+The source architecture, reference kernel, static standard, and dashboard view
+are source/web inspection artifacts only. Publishing those exact static bytes
+does not publish a package registry release, validator binary, chain upgrade,
+escrow, entitlement, or economic deployment, and activates no network reward
+behavior.
+
 ## Unreleased — 2026-07-29 consolidation
 
 ### Added

@@ -984,7 +984,7 @@ func integrationGates() []GateResult {
 			Class:  "integration",
 			Name:   "collateralized-reserve",
 			Passed: false,
-			Detail: "no dedicated pre-funded breakthrough reserve and resolve-or-expire ledger exists",
+			Detail: "no dedicated pre-funded artifact-outcome envelope and resolve-or-expire ledger exists",
 		},
 		{
 			Class:  "integration",
