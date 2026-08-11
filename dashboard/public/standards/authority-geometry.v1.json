@@ -1,0 +1,1081 @@
+{
+  "schema": "zerone.authority-geometry/v1",
+  "revision": "1.0.0",
+  "snapshotDate": "2026-08-11",
+  "status": "SOURCE_OBSERVATORY_ONLY",
+  "title": "Authority Geometry",
+  "summary": "A source-pinned map of Zerone authority, influence, challenge, repair, and exit. It reports the current split honestly and describes the accepted target without claiming that H4 or H5 is implemented or live.",
+  "sourceDesign": {
+    "repositoryPath": "docs/AUTHORITATIVE-STATE.md",
+    "sha256": "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9",
+    "decisionDate": "2026-08-08",
+    "status": "ACCEPTED_SOURCE_DESIGN_ONLY"
+  },
+  "observationScopes": [
+    {
+      "id": "LIVE_NETWORK",
+      "status": "NOT_ESTABLISHED_BY_THIS_ARTIFACT",
+      "description": "A static source graph is not evidence of live validator, governance, domain, custody, or effective-control state."
+    },
+    {
+      "id": "CURRENT_SOURCE",
+      "status": "PINNED_STATIC_INSPECTION",
+      "description": "Current-source findings are bound to repository-relative files, exact SHA-256 digests, and required source snippets."
+    },
+    {
+      "id": "ACCEPTED_TARGET",
+      "status": "DESIGN_ONLY",
+      "description": "Target relationships come from the accepted authoritative-state design and have no runtime effect until separate migrations and activation gates pass."
+    }
+  ],
+  "currentTruth": {
+    "scope": "CURRENT_SOURCE_AND_DISCLOSED_CONTEXT",
+    "liveEvidence": "NOT_ESTABLISHED_BY_THIS_ARTIFACT",
+    "networkNamedForContext": "zerone-1",
+    "sourceHasDualAuthoritySurfaces": true,
+    "sourceUsesBondedWealthForSdkGovernance": true,
+    "disclosedFoundingHouseholdRetainsEffectiveControl": true,
+    "sourceTargetModulesComplete": false,
+    "sourceAuthorityUnified": false,
+    "sourceRegistersH4FreezeHandler": false,
+    "sourceRegistersH4UnificationHandler": false,
+    "sourceRegistersH5NonEconomicGovernanceHandler": false
+  },
+  "releaseBoundary": {
+    "addsConsensusBehavior": false,
+    "registersUpgradeHandler": false,
+    "schedulesUpgrade": false,
+    "changesValidatorState": false,
+    "changesGovernanceState": false,
+    "changesDomainState": false,
+    "movesFunds": false,
+    "grantsQualification": false,
+    "createsRewardOrKarma": false,
+    "submitsTransaction": false,
+    "assertsDecentralization": false,
+    "establishesLiveNetworkState": false
+  },
+  "principles": [
+    {
+      "id": "distinction",
+      "label": "Distinction",
+      "rule": "Each authoritative capability has exactly one accepted target writer; related evidence and projections do not become rival ledgers."
+    },
+    {
+      "id": "legibility",
+      "label": "Legibility",
+      "rule": "Every effectful relationship names its scope, capability, source evidence, consent boundary, challenge route, repair route, and exit route."
+    },
+    {
+      "id": "non-economic-agency",
+      "label": "Agency",
+      "rule": "Money and stake may secure consensus, but no path from wealth may silently create policy voice, epistemic eligibility, or truth weight."
+    },
+    {
+      "id": "challenge-and-repair",
+      "label": "Care",
+      "rule": "Challenge, correction, withdrawal, and claimant-bound exit are first-class relationships rather than exceptional prose."
+    },
+    {
+      "id": "honest-transition",
+      "label": "Honesty",
+      "rule": "Accepted target architecture never overwrites current-source or live-control truth before the exact transition is independently evidenced."
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "consensus-stake",
+      "label": "Consensus stake and validator power",
+      "targetWriter": "sdk-staking",
+      "currentStateSurfaces": ["sdk-staking", "custom-staking"]
+    },
+    {
+      "id": "account-key-binding",
+      "label": "Account, operational key, and self-certifying DID binding",
+      "targetWriter": "zerone-auth",
+      "currentStateSurfaces": ["zerone-auth"]
+    },
+    {
+      "id": "controller-identity",
+      "label": "Independent controller identity, rotation, and merge history",
+      "targetWriter": "controller",
+      "currentStateSurfaces": []
+    },
+    {
+      "id": "verifier-profile",
+      "label": "Verifier participation history",
+      "targetWriter": "verifier-profile",
+      "currentStateSurfaces": ["custom-staking", "zerone-auth"]
+    },
+    {
+      "id": "domain-qualification",
+      "label": "Revision-pinned domain competence",
+      "targetWriter": "qualification",
+      "currentStateSurfaces": ["qualification"]
+    },
+    {
+      "id": "knowledge-evidence",
+      "label": "Claims, facts, rounds, verdict evidence, and analytics",
+      "targetWriter": "knowledge",
+      "currentStateSurfaces": ["knowledge"]
+    },
+    {
+      "id": "ordinary-governance",
+      "label": "Ordinary proposal, ballot, tally, decision, and atomic execution",
+      "targetWriter": "sdk-gov",
+      "currentStateSurfaces": ["sdk-gov", "custom-gov"]
+    },
+    {
+      "id": "electorate-policy",
+      "label": "Governance policy, roster, and immutable proposal electorate",
+      "targetWriter": "electorate",
+      "currentStateSurfaces": []
+    },
+    {
+      "id": "domain-registry",
+      "label": "Domain identity, hierarchy, stratum, lifecycle, alias, and tombstone",
+      "targetWriter": "ontology",
+      "currentStateSurfaces": ["ontology", "knowledge"]
+    },
+    {
+      "id": "legacy-claims",
+      "label": "Reconciled legacy monetary claims and bounded withdrawals",
+      "targetWriter": "legacy-claims",
+      "currentStateSurfaces": []
+    },
+    {
+      "id": "research-fund-egress",
+      "label": "Scoped research-fund disbursement",
+      "targetWriter": "vesting-rewards",
+      "currentStateSurfaces": ["custom-gov"]
+    },
+    {
+      "id": "emergency-quarantine",
+      "label": "Emergency quarantine and one exact recovery capability",
+      "targetWriter": "emergency",
+      "currentStateSurfaces": ["emergency", "custom-gov", "knowledge"]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "bank-balance",
+      "label": "Liquid ZRN",
+      "module": "x/bank",
+      "role": "ECONOMIC_INPUT",
+      "implementation": "PRESENT_SOURCE",
+      "targetCapabilities": []
+    },
+    {
+      "id": "sdk-staking",
+      "label": "SDK staking",
+      "module": "cosmos/staking",
+      "role": "CANONICAL_WRITER",
+      "implementation": "PRESENT_AND_TARGET",
+      "targetCapabilities": ["consensus-stake"]
+    },
+    {
+      "id": "custom-staking",
+      "label": "Custom staking",
+      "module": "x/zerone_staking",
+      "role": "LEGACY_WRITER",
+      "implementation": "PRESENT_SOURCE",
+      "targetCapabilities": []
+    },
+    {
+      "id": "sdk-gov",
+      "label": "SDK governance",
+      "module": "cosmos/gov",
+      "role": "CANONICAL_WRITER",
+      "implementation": "PRESENT_AND_TARGET",
+      "targetCapabilities": ["ordinary-governance"]
+    },
+    {
+      "id": "custom-gov",
+      "label": "Custom LIP governance",
+      "module": "x/gov",
+      "role": "LEGACY_WRITER",
+      "implementation": "PRESENT_SOURCE",
+      "targetCapabilities": []
+    },
+    {
+      "id": "ontology",
+      "label": "Ontology",
+      "module": "x/ontology",
+      "role": "CANONICAL_WRITER",
+      "implementation": "PRESENT_AND_TARGET",
+      "targetCapabilities": ["domain-registry"]
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge evidence",
+      "module": "x/knowledge",
+      "role": "BOUNDED_WRITER",
+      "implementation": "PRESENT_AND_TARGET",
+      "targetCapabilities": ["knowledge-evidence"]
+    },
+    {
+      "id": "zerone-auth",
+      "label": "Zerone auth",
+      "module": "x/auth",
+      "role": "BOUNDED_WRITER",
+      "implementation": "PRESENT_AND_TARGET",
+      "targetCapabilities": ["account-key-binding"]
+    },
+    {
+      "id": "controller",
+      "label": "Controller registry",
+      "module": "x/controller",
+      "role": "TARGET_MODULE",
+      "implementation": "TARGET_ONLY",
+      "targetCapabilities": ["controller-identity"]
+    },
+    {
+      "id": "verifier-profile",
+      "label": "Verifier profile",
+      "module": "x/verifier_profile",
+      "role": "TARGET_MODULE",
+      "implementation": "TARGET_ONLY",
+      "targetCapabilities": ["verifier-profile"]
+    },
+    {
+      "id": "qualification",
+      "label": "Qualification",
+      "module": "x/qualification",
+      "role": "BOUNDED_WRITER",
+      "implementation": "PRESENT_REQUIRES_REDESIGN",
+      "targetCapabilities": ["domain-qualification"]
+    },
+    {
+      "id": "electorate",
+      "label": "Controller electorate",
+      "module": "x/electorate",
+      "role": "TARGET_MODULE",
+      "implementation": "TARGET_ONLY",
+      "targetCapabilities": ["electorate-policy"]
+    },
+    {
+      "id": "legacy-claims",
+      "label": "Legacy claims",
+      "module": "x/legacy_claims",
+      "role": "TARGET_MODULE",
+      "implementation": "TARGET_ONLY",
+      "targetCapabilities": ["legacy-claims"]
+    },
+    {
+      "id": "vesting-rewards",
+      "label": "Vesting rewards",
+      "module": "x/vesting_rewards",
+      "role": "BOUNDED_WRITER",
+      "implementation": "PRESENT_REQUIRES_REDESIGN",
+      "targetCapabilities": ["research-fund-egress"]
+    },
+    {
+      "id": "emergency",
+      "label": "Emergency circuit breaker",
+      "module": "x/emergency",
+      "role": "BOUNDED_WRITER",
+      "implementation": "PRESENT_REQUIRES_REDESIGN",
+      "targetCapabilities": ["emergency-quarantine"]
+    },
+    {
+      "id": "alignment",
+      "label": "Alignment signals",
+      "module": "x/alignment",
+      "role": "CURRENT_CONSUMER",
+      "implementation": "PRESENT_SOURCE",
+      "targetCapabilities": []
+    },
+    {
+      "id": "claiming-pot",
+      "label": "Claiming pot",
+      "module": "x/claiming_pot",
+      "role": "CURRENT_CONSUMER",
+      "implementation": "PRESENT_SOURCE",
+      "targetCapabilities": []
+    },
+    {
+      "id": "karma",
+      "label": "KARMA observations",
+      "module": "priced-coherence register",
+      "role": "EVIDENCE_ONLY",
+      "implementation": "SOURCE_CONSTITUTION_ONLY",
+      "targetCapabilities": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "current-liquid-to-sdk-stake",
+      "from": "bank-balance",
+      "to": "sdk-staking",
+      "relationship": "FUNDS_DELEGATION",
+      "scope": "CURRENT_SOURCE",
+      "effect": "ECONOMIC_INFLUENCE",
+      "evidence": ["app-wiring"],
+      "protections": {
+        "consentBoundary": "A holder-signed SDK delegation path is present in the pinned source; this artifact does not establish its live-network contract state.",
+        "challengeRoute": "The pinned source delegates consensus-fault handling to SDK evidence and slashing; this artifact creates no appeal path.",
+        "repairRoute": "The accepted source design names SDK staking as the target consensus-stake authority.",
+        "exitRoute": "SDK unbonding and redelegation paths are present in pinned source; this artifact does not establish their live availability or state."
+      }
+    },
+    {
+      "id": "current-sdk-stake-to-sdk-policy",
+      "from": "sdk-staking",
+      "to": "sdk-gov",
+      "relationship": "SUPPLIES_VOTING_POWER",
+      "scope": "CURRENT_SOURCE",
+      "effect": "ECONOMIC_INFLUENCE",
+      "evidence": ["app-wiring"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: bonded stake currently carries SDK governance power; non-economic consent is not implemented.",
+        "challengeRoute": "UNAVAILABLE: the target controller challenge process is not implemented.",
+        "repairRoute": "H5 must replace stake-weighted policy power only after the controller electorate passes every activation gate.",
+        "exitRoute": "Unbonding can remove future stake power, but it is not the accepted target governance-exit contract."
+      }
+    },
+    {
+      "id": "current-liquid-to-custom-stake",
+      "from": "bank-balance",
+      "to": "custom-staking",
+      "relationship": "FUNDS_LEGACY_DELEGATION",
+      "scope": "CURRENT_SOURCE",
+      "effect": "ECONOMIC_INFLUENCE",
+      "evidence": ["app-wiring"],
+      "protections": {
+        "consentBoundary": "Current custom messages create a separate economic claim surface.",
+        "challengeRoute": "UNAVAILABLE: complete claim reconciliation and archive replay are not yet evidenced.",
+        "repairRoute": "H4 must freeze, reconcile, and retire the custom ledger without minting or silent haircut.",
+        "exitRoute": "TARGET_ONLY: claimant-bound legacy withdrawal after exact balance-to-liability proof."
+      }
+    },
+    {
+      "id": "current-custom-stake-to-custom-policy",
+      "from": "custom-staking",
+      "to": "custom-gov",
+      "relationship": "SUPPLIES_LIP_VOTING_POWER",
+      "scope": "CURRENT_SOURCE",
+      "effect": "ECONOMIC_INFLUENCE",
+      "evidence": ["app-wiring", "custom-gov-resolution"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: custom delegation supplies a second stake-weighted policy system.",
+        "challengeRoute": "Historical custom votes remain auditable; no target controller challenge route is implemented in pinned source.",
+        "repairRoute": "H4 archives terminal receipts and retires custom execution; desired actions require new typed SDK proposals.",
+        "exitRoute": "Custom governance escrow must be zero or claimant-bound before retirement."
+      }
+    },
+    {
+      "id": "current-custom-stake-to-knowledge",
+      "from": "custom-staking",
+      "to": "knowledge",
+      "relationship": "SUPPLIES_SELECTION_INPUTS",
+      "scope": "CURRENT_SOURCE",
+      "effect": "EPISTEMIC_INFLUENCE",
+      "evidence": ["app-wiring", "knowledge-staking-adapter"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: custom stake currently affects verifier selection independently of target qualification and controller deduplication.",
+        "challengeRoute": "Existing knowledge challenges do not establish the accepted controller-deduplicated panel design.",
+        "repairRoute": "H4 must remove custom-stake consumers; target panels use qualification and one whole ballot per controller.",
+        "exitRoute": "TARGET_ONLY: reconciled custom claims exit through x/legacy_claims, separate from competence."
+      }
+    },
+    {
+      "id": "current-knowledge-to-custom-stake-slash",
+      "from": "knowledge",
+      "to": "custom-staking",
+      "relationship": "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE",
+      "scope": "CURRENT_SOURCE",
+      "effect": "VALUE_WRITE",
+      "evidence": ["app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: knowledge verdict processing can invoke custom-staking slash authority and route slashed coins; the target design does not authorize that legacy writer.",
+        "challengeRoute": "Knowledge challenge and vindication records do not establish an accepted target adjudication boundary for custom-ledger slashes.",
+        "repairRoute": "H4 must freeze custom-ledger writes and reconcile slash effects, routed coins, and liabilities with receipt-complete migration evidence.",
+        "exitRoute": "A legacy claimant exit cannot erase a finalized slash; unresolved slash disputes must remain explicit migration liabilities."
+      }
+    },
+    {
+      "id": "current-custom-stake-to-qualification",
+      "from": "custom-staking",
+      "to": "qualification",
+      "relationship": "GRANTS_STAKE_PATHWAY",
+      "scope": "CURRENT_SOURCE",
+      "effect": "EPISTEMIC_INFLUENCE",
+      "evidence": ["app-wiring"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: the legacy stake pathway conflates locked value with competence evidence.",
+        "challengeRoute": "Legacy records remain history and must not become active target qualification without independent evidence.",
+        "repairRoute": "Retire MsgQualifyByStake and require replay-protected evidence under a versioned policy.",
+        "exitRoute": "Refund or claimant-bound legacy qualification claim, independently of competence status."
+      }
+    },
+    {
+      "id": "current-custom-stake-to-emergency",
+      "from": "custom-staking",
+      "to": "emergency",
+      "relationship": "SUPPLIES_GUARDIAN_POWER",
+      "scope": "CURRENT_SOURCE",
+      "effect": "CONTROL_INFLUENCE",
+      "evidence": ["app-wiring", "custom-emergency-electorate"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: Guardian tier and effective custom stake participate in the current emergency surface.",
+        "challengeRoute": "UNAVAILABLE: target controller-deduplicated responder challenge and recusal are not implemented.",
+        "repairRoute": "H4 must install the bounded incident capability; H5 requires its reviewed responder roster before activation.",
+        "exitRoute": "Capabilities expire by incident scope in the target design; that contract is not implemented in pinned source."
+      }
+    },
+    {
+      "id": "current-custom-stake-to-alignment",
+      "from": "custom-staking",
+      "to": "alignment",
+      "relationship": "SUPPLIES_ALIGNMENT_HEALTH_INPUTS",
+      "scope": "CURRENT_SOURCE",
+      "effect": "SYSTEM_SIGNAL_INFLUENCE",
+      "evidence": ["app-wiring", "alignment-staking-adapter", "alignment-staking-callsites"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: custom bonded stake and validator counts shape alignment observations without a target authority classification.",
+        "challengeRoute": "The pinned source emits alignment observations but does not establish a distinct challenge route for the custom-stake inputs.",
+        "repairRoute": "H4 must remove the legacy consumer or explicitly re-authorize a read-only canonical input under reviewed target capability ownership.",
+        "exitRoute": "Retiring a custom claim must also end its future influence on alignment signals; that decoupling is not implemented in pinned source."
+      }
+    },
+    {
+      "id": "current-custom-stake-to-claiming-pot",
+      "from": "custom-staking",
+      "to": "claiming-pot",
+      "relationship": "GATES_CLAIM_ELIGIBILITY",
+      "scope": "CURRENT_SOURCE",
+      "effect": "VALUE_INFLUENCE",
+      "evidence": ["app-wiring", "claiming-pot-staking-adapter", "claiming-pot-staking-callsite"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: a custom validator tier can admit or reject a claimant when a pot configures a minimum staking tier.",
+        "challengeRoute": "The pinned claim handler returns an eligibility error but establishes no separate challenge route for the tier decision.",
+        "repairRoute": "H4 must remove custom-stake payout eligibility or migrate every outstanding condition to an explicitly reviewed claimant-bound rule.",
+        "exitRoute": "Outstanding pots and claims require explicit disposition before custom-staking retirement; ledger exit must not silently erase eligibility."
+      }
+    },
+    {
+      "id": "current-custom-policy-to-research",
+      "from": "custom-gov",
+      "to": "vesting-rewards",
+      "relationship": "LEGACY_RESEARCH_DISBURSEMENT",
+      "scope": "CURRENT_SOURCE",
+      "effect": "VALUE_WRITE",
+      "evidence": ["custom-research-spend", "research-router-restriction", "app-wiring"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: legacy research voters and seats are not the accepted SDK-gov typed authority.",
+        "challengeRoute": "Custom spend history remains evidence only after migration.",
+        "repairRoute": "Install the canonical inbound restriction and sole scoped vesting-rewards egress before H4 release.",
+        "exitRoute": "Unresolved proposal liabilities must be claimant-bound or zero before custom execution retires."
+      }
+    },
+    {
+      "id": "current-sdk-policy-to-knowledge-fact",
+      "from": "sdk-gov",
+      "to": "knowledge",
+      "relationship": "AUTHENTICATES_DIRECT_FACT_ADOPTION",
+      "scope": "CURRENT_SOURCE",
+      "effect": "KNOWLEDGE_WRITE",
+      "evidence": ["knowledge-writers", "app-wiring"],
+      "protections": {
+        "consentBoundary": "UNAVAILABLE: authority can bypass the verifier-panel trust chain, immediately when no veto set is configured.",
+        "challengeRoute": "A configured guardian veto is conditional and is not the accepted target authority boundary.",
+        "repairRoute": "H4 must cancel pending injections with receipts and leave no legacy materializer.",
+        "exitRoute": "Not applicable to a fact write; correction and preserved audit history are required instead."
+      }
+    },
+    {
+      "id": "target-auth-to-controller",
+      "from": "zerone-auth",
+      "to": "controller",
+      "relationship": "AUTHENTICATES_BINDING",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "IDENTITY_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Controller bindings require authenticated address/profile relationships; a DID label alone proves no independent person.",
+        "challengeRoute": "The active versioned controller policy must support challenge, merge, and rotation history.",
+        "repairRoute": "Rotations preserve history; merges may only reduce controller count.",
+        "exitRoute": "The target controller process must preserve bounded exit without manufacturing new voting units."
+      }
+    },
+    {
+      "id": "target-controller-to-profile",
+      "from": "controller",
+      "to": "verifier-profile",
+      "relationship": "RESOLVES_PROFILE",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "IDENTITY_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "A controller authenticates its own profile lifecycle; callers cannot supply their own counters or reputation.",
+        "challengeRoute": "Replay-protected knowledge receipts and versioned profile policy constrain updates.",
+        "repairRoute": "Source-labelled legacy values remain history rather than rival writers.",
+        "exitRoute": "A controller may retire its profile without changing consensus stake."
+      }
+    },
+    {
+      "id": "target-profile-to-qualification",
+      "from": "verifier-profile",
+      "to": "qualification",
+      "relationship": "SCOPES_COMPETENCE",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "ELIGIBILITY_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Qualification is profile- and immutable-domain-revision-specific; payment, stake, and global reputation do not grant it.",
+        "challengeRoute": "Evidence receipts are replay-protected and challengeable under the versioned policy.",
+        "repairRoute": "Decay, reassessment, and adjudicated track record change future eligibility without rewriting past rounds.",
+        "exitRoute": "A controller may withdraw qualification."
+      }
+    },
+    {
+      "id": "target-ontology-to-qualification",
+      "from": "ontology",
+      "to": "qualification",
+      "relationship": "REVISION_PINS_DOMAIN",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "REFERENCE_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "A qualification names one canonical domain revision and cannot follow later taxonomy mutation silently.",
+        "challengeRoute": "Domain lifecycle and alias decisions use typed SDK-governance execution and immutable receipts.",
+        "repairRoute": "Malformed or ambiguous legacy references are quarantined or resolved record by record.",
+        "exitRoute": "Withdrawn qualification remains separate from domain lifecycle."
+      }
+    },
+    {
+      "id": "target-qualification-to-knowledge",
+      "from": "qualification",
+      "to": "knowledge",
+      "relationship": "ADMITS_PANEL_ELIGIBILITY",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "ELIGIBILITY_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Eligibility intersects bonded/unjailed transport identity, active profile, controller binding, and active qualification.",
+        "challengeRoute": "Selection and decision policy hashes, candidate root, seed proof, and one-seat controller IDs are snapshotted.",
+        "repairRoute": "Insufficient panels yield no verdict; they are never padded with unqualified participants.",
+        "exitRoute": "Later profile or qualification changes do not rewrite the frozen round."
+      }
+    },
+    {
+      "id": "target-controller-to-electorate",
+      "from": "controller",
+      "to": "electorate",
+      "relationship": "DEDUPLICATES_VOICE",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "CONTROL_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "One controller contributes at most one whole unit; addresses, balances, validators, and profiles do not multiply voice.",
+        "challengeRoute": "Roster versions require uniqueness, challenge, merge, rotation, recusal, and expiry rules before open operation.",
+        "repairRoute": "Controller merges reduce units; concentration freezes governance instead of silently restoring founder authority.",
+        "exitRoute": "Roster exit is versioned and cannot alter an already-snapshotted proposal."
+      }
+    },
+    {
+      "id": "target-electorate-to-sdk-policy",
+      "from": "electorate",
+      "to": "sdk-gov",
+      "relationship": "SNAPSHOTS_NON_ECONOMIC_BALLOTS",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "CONTROL_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "H5 activation requires one immutable roster-derived electorate per proposal and rejects weighted or duplicate-controller ballots.",
+        "challengeRoute": "Ballot revisions, drops, cancellations, tally inputs, and terminal receipts remain queryable across faults and restarts.",
+        "repairRoute": "Policy changes apply only to future proposals and cannot modify their own activation proposal.",
+        "exitRoute": "Bootstrap concentration has a published sunset; failure freezes authority instead of falling back to wealth or founder control."
+      }
+    },
+    {
+      "id": "target-sdk-policy-to-ontology",
+      "from": "sdk-gov",
+      "to": "ontology",
+      "relationship": "TYPED_ATOMIC_EXECUTION",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "DOMAIN_WRITE",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "The immutable proposal bundle is classified before voting; mixed, nested, unknown, and expedited paths fail closed.",
+        "challengeRoute": "Proposal, ballot, tally, cancellation, and terminal receipts preserve the exact authority reference.",
+        "repairRoute": "A failed target mutation cannot remain recorded as successfully executed.",
+        "exitRoute": "Domain lifecycle supports freeze, deprecation, archive, merge, alias, and tombstone without dual primaries."
+      }
+    },
+    {
+      "id": "target-sdk-policy-to-research",
+      "from": "sdk-gov",
+      "to": "vesting-rewards",
+      "relationship": "SCOPED_TREASURY_EXECUTION",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "VALUE_WRITE",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Only an allowlisted SDK-gov-authority message may release the research fund within its exact scope.",
+        "challengeRoute": "Every rejected or successful attempt remains classifiable against the canonical router and egress capability.",
+        "repairRoute": "Unapproved inbound deposits and every legacy or out-of-handler egress fail integration tests.",
+        "exitRoute": "No committee, seat, or custom LIP retains post-migration spending authority."
+      }
+    },
+    {
+      "id": "target-ontology-to-knowledge",
+      "from": "ontology",
+      "to": "knowledge",
+      "relationship": "ADMITS_BY_REVISION_REFERENCE",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "REFERENCE_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Knowledge owns metrics and evidence, not domain identity or lifecycle.",
+        "challengeRoute": "Unknown, malformed, frozen, deprecated, archived, merged, and aliased IDs follow explicit fail-closed action policy.",
+        "repairRoute": "H4 reconciles every candidate ID to primary, alias, tombstone, or quarantine without opportunistic union.",
+        "exitRoute": "Legacy knowledge-domain queries remain labelled read-only for at least one full release."
+      }
+    },
+    {
+      "id": "target-knowledge-to-profile",
+      "from": "knowledge",
+      "to": "verifier-profile",
+      "relationship": "EMITS_REPLAY_PROTECTED_RECEIPT",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "EVIDENCE_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Finalized rounds update participation history through a keeper interface; callers cannot self-report results.",
+        "challengeRoute": "Contested and corrected rounds preserve their receipt history.",
+        "repairRoute": "Profile policy can suspend or decay future eligibility without changing Comet power.",
+        "exitRoute": "Retirement preserves history but ends active participation."
+      }
+    },
+    {
+      "id": "target-emergency-to-sdk-policy",
+      "from": "emergency",
+      "to": "sdk-gov",
+      "relationship": "BOUNDED_INCIDENT_CAPABILITY",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "CONTROL_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Responder authority is controller-deduplicated, incident-scoped, time-bounded, and cannot become ordinary policy power.",
+        "challengeRoute": "Quorum, duplicate-controller, expiry, renewal, cancellation-set, and cumulative-cap vectors fail closed.",
+        "repairRoute": "One exact recovery or pre-height plan cancellation receipts and clears only the matching latch.",
+        "exitRoute": "Capability expiry and incident closure restore ordinary governance without a hidden Guardian gate."
+      }
+    },
+    {
+      "id": "target-custom-stake-to-legacy-exit",
+      "from": "custom-staking",
+      "to": "legacy-claims",
+      "relationship": "RECONCILES_TO_CLAIMANT_EXIT",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "RETIREMENT_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Migration cannot silently convert custom claims into SDK delegation or alter claimant risk.",
+        "challengeRoute": "Archive-complete replay and explicit resolution manifests cover every difference.",
+        "repairRoute": "Deficits neither mint nor silently haircut; unresolved balances remain manifest-labelled and NO-GO.",
+        "exitRoute": "Only the exact claimant-signed replay-protected withdrawal releases backed coins."
+      }
+    },
+    {
+      "id": "target-knowledge-domain-to-ontology",
+      "from": "knowledge",
+      "to": "ontology",
+      "relationship": "RECONCILES_LEGACY_DOMAIN",
+      "scope": "ACCEPTED_TARGET",
+      "effect": "RETIREMENT_RELATION",
+      "evidence": ["authoritative-state-design"],
+      "protections": {
+        "consentBoundary": "Candidate count never authorizes active status; each domain receives an explicit disposition.",
+        "challengeRoute": "Migration retains proposal liabilities, source labels, logic zones, and incompleteness acknowledgments.",
+        "repairRoute": "Ambiguous records quarantine instead of defaulting or overwriting.",
+        "exitRoute": "Legacy routes remain read-only and identify their canonical replacement."
+      }
+    }
+  ],
+  "forbiddenInfluence": [
+    {
+      "id": "wealth-to-policy",
+      "label": "Money must not become ordinary policy voice",
+      "sources": ["bank-balance", "sdk-staking", "custom-staking"],
+      "targets": ["sdk-gov", "custom-gov", "electorate"],
+      "acceptedTargetPathCount": 0
+    },
+    {
+      "id": "wealth-to-qualification",
+      "label": "Money must not grant or preserve competence",
+      "sources": ["bank-balance", "sdk-staking", "custom-staking"],
+      "targets": ["qualification"],
+      "acceptedTargetPathCount": 0
+    },
+    {
+      "id": "wealth-to-truth-power",
+      "label": "Money must not weight panel selection or verdicts",
+      "sources": ["bank-balance", "sdk-staking", "custom-staking"],
+      "targets": ["knowledge"],
+      "acceptedTargetPathCount": 0
+    },
+    {
+      "id": "karma-to-authority",
+      "label": "KARMA observations must not become money, qualification, payout, rank, or voice",
+      "sources": ["karma"],
+      "targets": ["bank-balance", "sdk-staking", "sdk-gov", "electorate", "qualification", "knowledge", "vesting-rewards", "verifier-profile"],
+      "acceptedTargetPathCount": 0
+    }
+  ],
+  "sourceAnchors": [
+    {
+      "id": "authoritative-state-design",
+      "path": "docs/AUTHORITATIVE-STATE.md",
+      "sha256": "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9",
+      "requiredSnippets": [
+        "Zerone adopts three single-writer authority boundaries:",
+        "A static authority-graph check finds no alternate validator-update,",
+        "current source has dual custom/SDK authority surfaces"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "app-wiring",
+      "path": "app/app.go",
+      "sha256": "3656e3d9188cfb9123fc3d542dc5127458b092815a5c9954361cb7f33873379a",
+      "requiredSnippets": [
+        "app.StakingKeeper = stakingkeeper.NewKeeper(",
+        "app.GovKeeper = govkeeper.NewKeeper(",
+        "app.ZeroneStakingKeeper = zeronestakingkeeper.NewKeeper(",
+        "govStakingAdapter := zeronestakingkeeper.NewGovStakingKeeperAdapter(app.ZeroneStakingKeeper)",
+        "app.ZeroneGovKeeper = zeronegovkeeper.NewKeeper(",
+        "app.ZeroneOntologyKeeper = zeroneontologykeeper.NewKeeper(",
+        "app.KnowledgeKeeper = zeroneknowledgekeeper.NewKeeper(",
+        "stakingAdapter := zeronestakingkeeper.NewStakingKeeperAdapter(app.ZeroneStakingKeeper)",
+        "qualificationStakingAdapter := zeronestakingkeeper.NewQualificationStakingKeeperAdapter(app.ZeroneStakingKeeper)",
+        "emergencyStakingAdapter := zeronestakingkeeper.NewEmergencyStakingAdapter(app.ZeroneStakingKeeper)",
+        "alignmentStakingAdapter := zeronestakingkeeper.NewAlignmentStakingAdapter(app.ZeroneStakingKeeper)",
+        "cpotStakingAdapter := zeronestakingkeeper.NewClaimingPotStakingAdapter(app.ZeroneStakingKeeper)"
+      ],
+      "forbiddenSnippets": [
+        "AppendSendRestriction(ResearchFundRestriction)"
+      ]
+    },
+    {
+      "id": "custom-gov-resolution",
+      "path": "x/gov/keeper/abci.go",
+      "sha256": "65ecf4581e3c579cefa657a63f703adca47621810f813cc382b9ddcc34742ccd",
+      "requiredSnippets": [
+        "lip.Stage = types.StatusPassed",
+        "func (k Keeper) executeParamChanges(ctx sdk.Context, lip *types.LIP)",
+        "param router not set, skipping param change",
+        "param change failed"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "custom-research-spend",
+      "path": "x/gov/keeper/research_spend.go",
+      "sha256": "368aaea7dacf23d90290549f9a47efae2a182936642f7a225ae59709f952d258",
+      "requiredSnippets": [
+        "func (k Keeper) SubmitResearchSpend(ctx sdk.Context, msg *types.MsgSubmitResearchSpend)",
+        "func (k Keeper) VoteResearchSpend(ctx sdk.Context, msg *types.MsgVoteResearchSpend)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "knowledge-writers",
+      "path": "x/knowledge/keeper/msg_server.go",
+      "sha256": "20c580e2a54cb8038803029ec88a1dc6e403a2f226e8d239ea21152e5b20ab3a",
+      "requiredSnippets": [
+        "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
+        "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",
+        "func (m *msgServer) EndorseDomainProposal(ctx context.Context, msg *types.MsgEndorseDomainProposal)",
+        "Immediate path (no guardian veto configured)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "knowledge-pause-writer",
+      "path": "x/knowledge/keeper/resilience.go",
+      "sha256": "7ba126ef1a817615b7e5e022a39b7dfab20b5c83b86d4669ec7d4a47c329367f",
+      "requiredSnippets": [
+        "func (m *msgServer) PauseModule(ctx context.Context, msg *types.MsgPauseModule)",
+        "func (m *msgServer) UnpauseModule(ctx context.Context, msg *types.MsgUnpauseModule)",
+        "only governance authority may pause modules"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "ontology-writer",
+      "path": "x/ontology/keeper/msg_server.go",
+      "sha256": "7ac94dc60110601ce62f6c386f3ab635e4b515b628165128556c51617b05a9e9",
+      "requiredSnippets": [
+        "func (k msgServer) ProposeDomain(goCtx context.Context, msg *types.MsgProposeDomain)",
+        "func (k msgServer) UpdateDomain(goCtx context.Context, msg *types.MsgUpdateDomain)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "research-router-restriction",
+      "path": "app/research_fund_restriction.go",
+      "sha256": "85cae22c2b98db117c0905635ac8313e64c0a0b59e80599d307050a0822df123",
+      "requiredSnippets": [
+        "func ResearchFundRestriction(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins)",
+        "must route through DepositToResearchFund"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "custom-emergency-electorate",
+      "path": "x/emergency/keeper/keeper.go",
+      "sha256": "0281c803bf11452ee65934eacc98edaae8f39888b4cd69ab1aaa0ec8c7a89800",
+      "requiredSnippets": [
+        "func (k Keeper) IsGuardian(ctx context.Context, operatorAddr string) bool",
+        "func (k Keeper) GetGuardianStake(ctx context.Context) *big.Int",
+        "k.stakingKeeper.GetGuardianValidators(ctx)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "knowledge-staking-adapter",
+      "path": "x/staking/keeper/knowledge_adapters.go",
+      "sha256": "fbbdb7240eabe007f38d442b53ffbd38b1f71db0737816783de2eea4968ce108",
+      "requiredSnippets": [
+        "func (a *StakingKeeperAdapter) GetEffectiveStake(ctx context.Context, addr string)",
+        "func (a *StakingKeeperAdapter) SlashValidator(ctx context.Context, addr string, slashBps uint64) error",
+        "func (a *StakingKeeperAdapter) SlashValidatorToModule(ctx context.Context, addr string, slashBps uint64, destModule string)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "knowledge-slash-callsites",
+      "path": "x/knowledge/keeper/rounds.go",
+      "sha256": "bbfc78328c9ba22e1c0b130254c9a342ecc378c91d2bdbe69b9129b3030ab279",
+      "requiredSnippets": [
+        "for _, slash := range result.Slashes {",
+        "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",
+        "_ = k.stakingKeeper.SlashValidator(ctx, slash.Verifier, slash.SlashBps)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "alignment-staking-adapter",
+      "path": "x/staking/keeper/alignment_adapters.go",
+      "sha256": "99d9ec8ab0dcb602f011539c8e90b1b9123296c082173b2015894ad6101b8ae7",
+      "requiredSnippets": [
+        "func NewAlignmentStakingAdapter(k Keeper) *AlignmentStakingAdapter",
+        "func (a *AlignmentStakingAdapter) GetTotalStaked(ctx context.Context) *big.Int",
+        "func (a *AlignmentStakingAdapter) GetActiveValidatorCount(ctx context.Context) uint64"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "alignment-staking-callsites",
+      "path": "x/alignment/keeper/sensors.go",
+      "sha256": "1df9c4f2e6c939186414f370b7233baf27b7048dfe1c90ad4ebdfc176a230930",
+      "requiredSnippets": [
+        "totalStaked := k.stakingKeeper.GetTotalStaked(ctx)",
+        "active := k.stakingKeeper.GetActiveValidatorCount(ctx)",
+        "target := k.stakingKeeper.GetTargetValidatorCount(ctx)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "claiming-pot-staking-adapter",
+      "path": "x/staking/keeper/claiming_pot_adapters.go",
+      "sha256": "fd75038e6344270346d59df982b0e106a8f0eed87f48ce447ba6dde1d2ce6797",
+      "requiredSnippets": [
+        "func NewClaimingPotStakingAdapter(k Keeper) *ClaimingPotStakingAdapter",
+        "func (a *ClaimingPotStakingAdapter) GetValidatorTier(ctx context.Context, addr string) (uint32, error)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "claiming-pot-staking-callsite",
+      "path": "x/claiming_pot/keeper/msg_server.go",
+      "sha256": "90c6af6efa4a7b3f364434fe5239cc72659c5081d23f86676e75067cf542b66d",
+      "requiredSnippets": [
+        "if elig.MinStakingTier > 0 {",
+        "tier, err := m.stakingKeeper.GetValidatorTier(ctx, claimant)",
+        "if tier < elig.MinStakingTier {"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "custom-gov-quarantine-wrapper",
+      "path": "app/emergency_custom_gov.go",
+      "sha256": "a2565f486c7c50a0be05b21da62017722aec57ff1a68cdbff3918309c18dd717",
+      "requiredSnippets": [
+        "type emergencyAwareCustomGovAppModule struct {",
+        "func (am emergencyAwareCustomGovAppModule) BeginBlock(",
+        "hold, changed, err := am.keeper.EnsureEmergencyTransitionHold(",
+        "emitCustomGovFrozen(ctx, hold, \"application_transaction_quarantine\")"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "custom-gov-emergency-hold-writer",
+      "path": "x/gov/keeper/emergency_transition_hold.go",
+      "sha256": "c2d36bb5c059bfe2af8fd146d4f71609f23cfe826ba7e3bd2ab498c5eee23095",
+      "requiredSnippets": [
+        "func (k Keeper) RequireNoEmergencyTransitionHold(ctx sdk.Context) error",
+        "func (k Keeper) SetEmergencyTransitionHold(",
+        "ctx.KVStore(k.storeKey).Set(types.EmergencyTransitionHoldKey, bz)",
+        "func (k Keeper) EnsureEmergencyTransitionHold("
+      ],
+      "forbiddenSnippets": []
+    }
+  ],
+  "currentFindings": [
+    {
+      "id": "dual-staking-ledgers",
+      "label": "SDK and custom staking ledgers coexist",
+      "status": "OPEN",
+      "releaseSurface": "CUSTOM_STAKING_RUNTIME",
+      "nodes": ["sdk-staking", "custom-staking"],
+      "evidence": ["app-wiring", "knowledge-staking-adapter"]
+    },
+    {
+      "id": "dual-governance-systems",
+      "label": "SDK governance and custom LIP governance coexist",
+      "status": "OPEN",
+      "releaseSurface": "ORDINARY_GOVERNANCE_EXECUTION",
+      "nodes": ["sdk-gov", "custom-gov"],
+      "evidence": ["app-wiring", "custom-gov-resolution"]
+    },
+    {
+      "id": "dual-domain-registries",
+      "label": "Ontology and knowledge both write primary domain records",
+      "status": "OPEN",
+      "releaseSurface": "DOMAIN_REGISTRY",
+      "nodes": ["ontology", "knowledge"],
+      "evidence": ["ontology-writer", "knowledge-writers"]
+    },
+    {
+      "id": "direct-fact-adoption",
+      "label": "Knowledge retains a direct authority fact-adoption path",
+      "status": "OPEN",
+      "releaseSurface": "DIRECT_FACT_ADOPTION",
+      "nodes": ["sdk-gov", "knowledge"],
+      "evidence": ["knowledge-writers", "app-wiring"]
+    },
+    {
+      "id": "legacy-research-disbursement",
+      "label": "Custom research-spend authority remains and the canonical inbound restriction is not installed",
+      "status": "OPEN",
+      "releaseSurface": "RESEARCH_DISBURSEMENT",
+      "nodes": ["custom-gov", "vesting-rewards"],
+      "evidence": ["custom-research-spend", "research-router-restriction", "app-wiring"]
+    },
+    {
+      "id": "alternate-quarantine-surfaces",
+      "label": "Emergency, custom governance, and knowledge retain overlapping incident or pause authority",
+      "status": "OPEN",
+      "releaseSurface": "QUARANTINE_PAUSE",
+      "nodes": ["emergency", "custom-gov", "knowledge"],
+      "evidence": ["custom-emergency-electorate", "custom-gov-quarantine-wrapper", "custom-gov-emergency-hold-writer", "knowledge-pause-writer", "app-wiring"]
+    },
+    {
+      "id": "custom-staking-runtime-consumers",
+      "label": "Knowledge, governance, qualification, emergency, alignment, and claiming-pot still consume custom staking authority",
+      "status": "OPEN",
+      "releaseSurface": "CUSTOM_STAKING_RUNTIME",
+      "nodes": ["custom-staking", "custom-gov", "knowledge", "qualification", "emergency", "alignment", "claiming-pot"],
+      "evidence": ["app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "alignment-staking-adapter", "alignment-staking-callsites", "claiming-pot-staking-adapter", "claiming-pot-staking-callsite"]
+    }
+  ],
+  "staticAuthorityGate": {
+    "authoritativeStateReleaseGate": "H4-02",
+    "status": "FAIL_CURRENT_SOURCE",
+    "mode": "REPORT_SUCCEEDS_TARGET_GATE_REFUSES",
+    "surfaceChecks": [
+      {
+        "id": "validator-update-writer",
+        "status": "PASS_STATIC_INSPECTION",
+        "findingIds": []
+      },
+      {
+        "id": "ordinary-governance-execution",
+        "status": "FAIL",
+        "findingIds": ["dual-governance-systems"]
+      },
+      {
+        "id": "domain-registry-writer",
+        "status": "FAIL",
+        "findingIds": ["dual-domain-registries"]
+      },
+      {
+        "id": "direct-fact-adoption-writer",
+        "status": "FAIL",
+        "findingIds": ["direct-fact-adoption"]
+      },
+      {
+        "id": "research-disbursement-writer",
+        "status": "FAIL",
+        "findingIds": ["legacy-research-disbursement"]
+      },
+      {
+        "id": "quarantine-pause-authority",
+        "status": "FAIL",
+        "findingIds": ["alternate-quarantine-surfaces"]
+      },
+      {
+        "id": "custom-staking-runtime-consumer",
+        "status": "FAIL",
+        "findingIds": ["dual-staking-ledgers", "custom-staking-runtime-consumers"]
+      }
+    ]
+  },
+  "activationGates": {
+    "h4": [
+      {"id": "H4-01", "status": "NOT_EVIDENCED", "summary": "H4-F freeze, F commitments, scheduler receipt, and H4_PENDING match"},
+      {"id": "H4-02", "status": "NOT_EVIDENCED", "summary": "Static authority graph has no alternate writers or custom-stake consumers"},
+      {"id": "H4-03", "status": "NOT_EVIDENCED", "summary": "Custom staking satisfies B = D + U or exact resolution manifest"},
+      {"id": "H4-04", "status": "NOT_EVIDENCED", "summary": "Legacy qualification custody satisfies BQ = Q"},
+      {"id": "H4-05", "status": "NOT_EVIDENCED", "summary": "Custom governance escrow is zero or completely claimant-bound"},
+      {"id": "H4-06", "status": "NOT_EVIDENCED", "summary": "Legacy domain proposal liabilities are zero or balance-proven"},
+      {"id": "H4-07", "status": "NOT_EVIDENCED", "summary": "Every economic compartment reconciles without deficit or duplicate liability"},
+      {"id": "H4-08", "status": "NOT_EVIDENCED", "summary": "Every legacy-claim compartment equals backed liabilities"},
+      {"id": "H4-09", "status": "NOT_EVIDENCED", "summary": "Cross-boundary processes are absent or deterministically migrated"},
+      {"id": "H4-10", "status": "NOT_EVIDENCED", "summary": "SDK proposal set is drained and transition mode is exact"},
+      {"id": "H4-11", "status": "NOT_EVIDENCED", "summary": "All 24 checked-in domain candidates have explicit dispositions"},
+      {"id": "H4-12", "status": "NOT_EVIDENCED", "summary": "Cross-stratum and ontology auxiliary state survives migration"},
+      {"id": "H4-13", "status": "NOT_EVIDENCED", "summary": "Every persistent domain reference is exact and revision-pinned"},
+      {"id": "H4-14", "status": "NOT_EVIDENCED", "summary": "Ontology admission and lifecycle policy fail closed across all states"},
+      {"id": "H4-15", "status": "NOT_EVIDENCED", "summary": "Legacy knowledge-domain bytes cannot affect canonical behavior"},
+      {"id": "H4-16", "status": "NOT_EVIDENCED", "summary": "Doctrine is excluded from epistemic and reward paths"},
+      {"id": "H4-17", "status": "NOT_EVIDENCED", "summary": "Controller, profile, and qualification transitions authenticate and deduplicate"},
+      {"id": "H4-18", "status": "NOT_EVIDENCED", "summary": "Stake cannot affect truth power outside SDK consensus effects"},
+      {"id": "H4-19", "status": "NOT_EVIDENCED", "summary": "Every work bond preserves exact balance-to-liability equality"},
+      {"id": "H4-20", "status": "NOT_EVIDENCED", "summary": "Canonical research router and scoped egress are installed"},
+      {"id": "H4-21", "status": "NOT_EVIDENCED", "summary": "Governance archive and cancellation remain atomic under faults"},
+      {"id": "H4-22", "status": "NOT_EVIDENCED", "summary": "Export and import preserve all classified state and rebuild indexes"},
+      {"id": "H4-23", "status": "NOT_EVIDENCED", "summary": "Two independent replays produce the same post-state root"},
+      {"id": "H4-24", "status": "NOT_EVIDENCED", "summary": "Emergency and exact H5 cancellation vectors fail closed"}
+    ],
+    "h5": [
+      {"id": "H5-01", "status": "NOT_EVIDENCED", "summary": "H5_PENDING and the final stake-weighted scheduling receipt match"},
+      {"id": "H5-02", "status": "NOT_EVIDENCED", "summary": "The activation proposal is complete, dedicated, and strictly classified"},
+      {"id": "H5-03", "status": "NOT_EVIDENCED", "summary": "Each electorate snapshot binds one valid active roster"},
+      {"id": "H5-04", "status": "NOT_EVIDENCED", "summary": "Tally reads no SDK validator or bonded-token state"},
+      {"id": "H5-05", "status": "NOT_EVIDENCED", "summary": "Balance and delegation cannot change governance power"},
+      {"id": "H5-06", "status": "NOT_EVIDENCED", "summary": "All tally inputs come from the same immutable snapshot"},
+      {"id": "H5-07", "status": "NOT_EVIDENCED", "summary": "Checked arithmetic passes every boundary vector"},
+      {"id": "H5-08", "status": "NOT_EVIDENCED", "summary": "One controller always contributes at most one unit"},
+      {"id": "H5-09", "status": "NOT_EVIDENCED", "summary": "Weighted, ineligible, duplicate, and late ballots fail closed"},
+      {"id": "H5-10", "status": "NOT_EVIDENCED", "summary": "Governance history remains canonical across faults and restarts"},
+      {"id": "H5-11", "status": "NOT_EVIDENCED", "summary": "Policy and roster changes cannot affect active proposals"},
+      {"id": "H5-12", "status": "NOT_EVIDENCED", "summary": "Bootstrap concentration and sunset are publicly queryable"},
+      {"id": "H5-13", "status": "NOT_EVIDENCED", "summary": "Reviewed emergency responders can exercise exact H5 cancellation"},
+      {"id": "H5-14", "status": "NOT_EVIDENCED", "summary": "Transition has independent source, binary, migration, operations, and control review"}
+    ]
+  },
+  "releaseAssessment": {
+    "overall": "NO_GO",
+    "staticAuthoritySurfacesPassing": 1,
+    "staticAuthoritySurfacesTotal": 7,
+    "h4GatesEvidenced": 0,
+    "h4GatesTotal": 24,
+    "h5GatesEvidenced": 0,
+    "h5GatesTotal": 14,
+    "targetGateMustExitNonZero": true
+  }
+}

@@ -2,7 +2,8 @@
 
 The production frontend for `zerone.ai`: a live, explorer-first view of
 `zerone-1` with Keplr wallet support, standard ZRN sends, native liquidity-pool
-state, recent blocks, supply, and the disclosed custodial trust model.
+state, recent blocks, supply, the disclosed custodial trust model, and a
+source-only authority observatory.
 
 ## Run locally
 
@@ -14,6 +15,36 @@ npm run dev
 Vite proxies `/api/rpc` and `/api/rest` to the public mainnet node in local
 development. Production uses the Pages Functions in `functions/api/` so the
 HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
+
+## Authority Geometry
+
+The read-only observatory at `#authority` loads the checked-in
+`/standards/authority-geometry.v1.json`. It separates three scopes that must
+not be conflated: live-network evidence, current source, and the accepted
+target design. The static artifact establishes no live-network authority. It
+reports current source as split, records the disclosed founding household's
+retained effective control as context, and keeps the accepted H4/H5
+architecture design-only.
+
+The high-level target has one writer for each of three primary pillars: SDK
+staking for consensus stake, SDK governance for ordinary policy, and ontology
+for domain identity and lifecycle. The current source-gate assessment remains
+`NO_GO`: one of seven static authority surfaces passes, zero of 24 H4 gates are
+evidenced, and zero of 14 H5 gates are evidenced. The interface keeps those
+counts visible alongside the underlying relationship table, so the geometric
+view is never the only carrier of information.
+
+The browser uses the same fail-closed static-data pattern as the other public
+explorers: exact same-origin path, redirect refusal, bounded streaming,
+reviewed SHA-256 pin, strict parsing, and DOM text nodes. The authority view
+contains no form, account flow, wallet control, transaction path, telemetry,
+or chain mutation. It fetches only the public static artifact; the ordinary
+dashboard continues its separately disclosed read-only network refreshes.
+
+The accepted architecture is documented in
+[`docs/AUTHORITATIVE-STATE.md`](../docs/AUTHORITATIVE-STATE.md). Publication of
+either file, a green source check, or a dashboard deployment does not satisfy
+an H4 or H5 activation gate.
 
 ## Constructive-intelligence explorer
 
@@ -185,11 +216,11 @@ npm test
 npm run build
 ```
 
-`npm run check` validates the Frontier Commons FC-0 invitation, its subordinate
-FL-0 receipt shadow, the exact-bound additive Participation Compact, the base
-tree, Branch Flow reference-policy digest and zero-effect boundary, Math
-Frontier, and life-science documents, then type-checks both the browser
-application and Pages Functions.
+`npm run check` validates Authority Geometry, the Frontier Commons FC-0
+invitation, its subordinate FL-0 receipt shadow, the exact-bound additive
+Participation Compact, the base tree, Branch Flow reference-policy digest and
+zero-effect boundary, Math Frontier, and life-science documents, then
+type-checks both the browser application and Pages Functions.
 `npm test` exercises the REST/RPC allowlists against injected fake upstreams;
 it cannot contact the production node. `npm run build` repeats those gates,
 builds the Vite application, and compiles Pages Functions with the repository's
@@ -409,6 +440,17 @@ check. Deploy only the exact merged and CI-verified commit from a clean detached
 worktree. `--commit-dirty=false` records metadata; the explicit Git check is what
 refuses local drift. A non-`main` branch creates a no-index preview.
 
+After production deployment, verify that `https://zerone.ai/#authority`
+renders the source-only status, three target pillars, `1/7`, `0/24`, `0/14`,
+and `NO-GO` as selectable text. Fetch
+`https://zerone.ai/standards/authority-geometry.v1.json` without following a
+redirect, compare its exact bytes and SHA-256 with the reviewed repository
+artifact, and confirm the JSON content type. Confirm the CSP admits no
+third-party executable content and that the deep link settles on the
+observatory after its static artifact is verified. In the browser network log,
+the Authority Geometry explorer itself must request only that static JSON: no
+API query, wallet request, signature, transaction, or write is part of it.
+
 ## Security boundaries
 
 - The browser never receives a seed or private key. Keplr suggests `zerone-1`
@@ -425,6 +467,10 @@ refuses local drift. A non-`main` branch creates a no-index preview.
 - The edge RPC proxy allows public query methods plus transaction broadcast,
   and rejects every other JSON-RPC method.
 - Chain-provided strings are rendered with `textContent`, never `innerHTML`.
+- Authority Geometry strings are also rendered with DOM text nodes. The
+  digest-pinned artifact is source evidence only: it neither probes nor
+  establishes live authority, and it cannot schedule H4/H5 or mutate chain
+  state.
 - Constructive-tree strings and links are also treated as untrusted
   presentation data. Specification links must be credential-free HTTPS URLs,
   and repository references must remain safe relative paths.

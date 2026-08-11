@@ -702,10 +702,13 @@ jobs:
             tools/fork-genesis/report.schema.json \
             deploy/topology/mainnet/topology.json \
             deploy/topology/testnet/topology.json
-      - name: Test, vet, and race-test recovery tooling
+      - name: Verify current-source authority graph and closed target gate
+        run: make authority-check
+      - name: Test, vet, and race-test operations tooling
         run: |
           packages=(
             ./deploy
+            ./tools/authority-graph
             ./tools/fork-genesis
             ./tools/operations-rehearsal
             ./tools/validator-home-manifest
@@ -714,13 +717,14 @@ jobs:
           go test "${packages[@]}" -count=1
           go vet "${packages[@]}"
           go test -race "${packages[@]}" -count=1
-      - name: Verify reproducible Linux recovery-tool builds
+      - name: Verify reproducible Linux operations-tool builds
         env:
           CGO_ENABLED: "0"
           GOARCH: amd64
           GOOS: linux
         run: |
           for tool in \
+            authority-graph \
             fork-genesis \
             operations-rehearsal \
             validator-home-manifest \

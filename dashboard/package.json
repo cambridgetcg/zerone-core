@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "npm run check && vite build && npm run build:functions",
     "build:functions": "wrangler pages functions build functions --outdir .wrangler/functions-build",
-    "check": "npm run check:index && npm run check:tree && npm run check:branch-flow && npm run check:life-sciences && npm run check:math-frontier && npm run check:quantum && npm run check:life && npm run check:frontier-commons && npm run check:frontier-receipt && npm run check:participation && npm test && tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
+    "check": "npm run check:index && npm run check:tree && npm run check:branch-flow && npm run check:life-sciences && npm run check:math-frontier && npm run check:quantum && npm run check:life && npm run check:frontier-commons && npm run check:frontier-receipt && npm run check:participation && npm run check:authority-geometry && npm test && tsc --noEmit && tsc --project tsconfig.functions.json --noEmit",
     "check:index": "node scripts/validate-adapter-index.mjs public/standards/adapter-index.v1.json && node --test scripts/adapter-index.test.mjs",
     "check:frontier-receipt": "node scripts/validate-frontier-evaluation-receipt-profile.mjs public/standards/frontier-evaluation-receipt-profile.v0.json ../docs/examples/frontier-evaluation-receipt/one-bounded-inconclusive-receipt.v0.json && node --test scripts/frontier-evaluation-receipt-profile.test.mjs",
     "check:tree": "node scripts/validate-constructive-intelligence-tree.mjs public/standards/constructive-intelligence-tree.v1.json && node --test scripts/constructive-intelligence-tree.test.mjs",
@@ -18,6 +18,7 @@
     "check:life": "tsx scripts/validate-life-garden.ts public/standards/epigenetics-capability-garden.v1.json public/standards/karma-foundation.v1.json",
     "check:frontier-commons": "node scripts/validate-frontier-commons.mjs public/standards/frontier-commons-participation.v0.json && node --test scripts/frontier-commons.test.mjs",
     "check:participation": "tsx scripts/validate-frontier-participation.ts public/standards/frontier-labs-participation.v0.json",
+    "check:authority-geometry": "tsx scripts/validate-authority-geometry.ts public/standards/authority-geometry.v1.json && NODE_OPTIONS=--preserve-symlinks tsx --test tests/authority-geometry.test.ts",
     "test": "NODE_OPTIONS=--preserve-symlinks tsx --test tests/*.test.ts",
     "preview": "vite preview"
   },

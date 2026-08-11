@@ -15,6 +15,7 @@ import {
   HARD_CAP_ZRN,
 } from "./config";
 import { initialiseBranchFlow } from "./branch-flow";
+import { initialiseAuthorityGeometry } from "./authority-geometry";
 import { initialiseConstructiveTree } from "./constructive-tree";
 import { initialiseFrontierParticipation } from "./frontier-participation";
 import { initialiseLifeGarden } from "./life-garden";
@@ -72,6 +73,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
   "feegrant-revoke-submit",
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
+const authorityGeometryRoot = byId<HTMLElement>("authority-geometry-root");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
 const branchFlowRoot = byId<HTMLElement>("branch-flow-root");
 const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
@@ -1143,6 +1145,9 @@ window.addEventListener("keplr_keystorechange", () => {
 });
 
 initialiseReveal();
+const authorityGeometryReady = initialiseAuthorityGeometry(
+  authorityGeometryRoot,
+);
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 void initialiseBranchFlow(branchFlowRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
@@ -1156,6 +1161,7 @@ const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
 const alignInitialHash = (): void => {
   if (
+    window.location.hash !== "#authority" &&
     window.location.hash !== "#skills" &&
     window.location.hash !== "#branch-flow" &&
     window.location.hash !== "#math-frontier" &&
@@ -1166,15 +1172,17 @@ const alignInitialHash = (): void => {
   }
   window.requestAnimationFrame(() => {
     const target =
-      window.location.hash === "#branch-flow"
-        ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
-        : window.location.hash === "#math-frontier"
-          ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-          : window.location.hash === "#life"
-            ? lifeGardenRoot.closest<HTMLElement>("#life")
-            : window.location.hash === "#participate"
-              ? frontierParticipationRoot.closest<HTMLElement>("#participate")
-              : constructiveTreeRoot.closest<HTMLElement>("#skills");
+      window.location.hash === "#authority"
+        ? authorityGeometryRoot.closest<HTMLElement>("#authority")
+        : window.location.hash === "#branch-flow"
+          ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
+          : window.location.hash === "#math-frontier"
+            ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+            : window.location.hash === "#life"
+              ? lifeGardenRoot.closest<HTMLElement>("#life")
+              : window.location.hash === "#participate"
+                ? frontierParticipationRoot.closest<HTMLElement>("#participate")
+                : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
@@ -1199,6 +1207,7 @@ void Promise.allSettled([
   lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
+void authorityGeometryReady.then(alignInitialHash);
 void piPilotReady.then(alignPiHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);

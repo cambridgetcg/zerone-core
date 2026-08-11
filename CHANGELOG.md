@@ -66,6 +66,10 @@ behavior.
   and ontology the sole canonical domain registry. It is source design only;
   no handler, electorate implementation or selection, migration, or network
   activation is included.
+- Authority Geometry v1: a deterministic, source-pinned capability graph,
+  independent report and target-gate checks, all 24 H4 and 14 H5 gates held
+  closed, and a read-only public observatory. Current source intentionally
+  fails the target gate; the artifact changes no chain or economic state.
 - Provisional knowledge conjectures with claim-type-safe lifecycle handling.
 - K-alpha recognition events and bounded aggregation/settlement guards.
 - A cursor-bounded knowledge probe heartbeat.

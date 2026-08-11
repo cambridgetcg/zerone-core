@@ -392,11 +392,75 @@ func TestMoneyKarma_NoProductionGoKarmaConsumerOutsideExactEmitterSurface(t *tes
 	supportRanges, err := exactKarmaSupportConstantRanges(sources)
 	require.NoError(t, err)
 	audit.approvedRanges = append(audit.approvedRanges, supportRanges...)
+	policyRanges, err := exactAuthorityGraphKarmaPolicyRanges(sources)
+	require.NoError(t, err)
+	audit.approvedRanges = append(audit.approvedRanges, policyRanges...)
 
 	findings := unapprovedKarmaReferences(sources, audit.approvedRanges)
 	require.Empty(t, findings,
 		"production Go contains KARMA references outside the exact reviewed emitter/helper surface:\n%s",
 		strings.Join(findings, "\n"))
+}
+
+// Authority Geometry is an offline source observatory, not a runtime KARMA
+// consumer. Admit only its exact reviewed policy vocabulary so this
+// repository-wide tripwire still fails on any new identifier, import, or
+// string reference in the checker (and everywhere else in production Go).
+func exactAuthorityGraphKarmaPolicyRanges(sources []productionGoSource) ([]approvedSourceRange, error) {
+	const authorityGraphManifest = "tools/authority-graph/manifest.go"
+	expected := map[string]int{
+		"identifier:CreatesRewardOrKarma":      2,
+		"string:createsRewardOrKarma":          1,
+		"string:json:\"createsRewardOrKarma\"": 1,
+		"string:karma":                         2,
+		"string:karma-to-authority":            1,
+	}
+	actual := map[string]int{}
+	var ranges []approvedSourceRange
+	found := false
+	for _, source := range sources {
+		if source.rel != authorityGraphManifest {
+			continue
+		}
+		found = true
+		ast.Inspect(source.file, func(node ast.Node) bool {
+			if node == nil {
+				return true
+			}
+			var kind, value string
+			switch typed := node.(type) {
+			case *ast.Ident:
+				kind, value = "identifier", typed.Name
+			case *ast.ImportSpec:
+				kind, value = "import", unquoteGoString(typed.Path.Value)
+			case *ast.BasicLit:
+				if typed.Kind == token.STRING {
+					kind, value = "string", unquoteGoString(typed.Value)
+				}
+			}
+			if kind == "" || !strings.Contains(strings.ToLower(value), "karma") {
+				return true
+			}
+			key := kind + ":" + value
+			actual[key]++
+			ranges = append(ranges, approvedSourceRange{
+				rel: source.rel, start: node.Pos(), end: node.End(),
+			})
+			return true
+		})
+	}
+	if !found {
+		return nil, fmt.Errorf("missing %s", authorityGraphManifest)
+	}
+	if len(actual) != len(expected) {
+		return nil, fmt.Errorf("Authority Geometry KARMA policy vocabulary drifted: got %v", actual)
+	}
+	for key, count := range expected {
+		if actual[key] != count {
+			return nil, fmt.Errorf("Authority Geometry KARMA policy vocabulary %q count = %d, want %d", key, actual[key], count)
+		}
+	}
+	return ranges, nil
 }
 
 func TestMoneyKarma_KarmaAuditAdversarialFixtures(t *testing.T) {

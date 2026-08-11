@@ -161,6 +161,13 @@ decision and atomic execution, and `x/ontology` alone owns canonical domain
 identity and lifecycle. That target is not implemented or network-activated;
 the module inventory below still describes the current source.
 
+[Authority Geometry v1](docs/specs/authority-geometry-v1.md) makes that gap
+machine-readable. Its source-pinned report mode classifies the present dual
+surfaces, while its target-gate mode intentionally refuses: one of seven static
+authority surfaces passes, H4 evidence remains 0/24, and H5 evidence remains
+0/14. The graph and its public observatory add no handler, migration,
+transaction, fund movement, or network authority.
+
 ### Witnessing
 
 Validators witness the truthfulness of knowledge claims — not transactions
@@ -339,6 +346,7 @@ does not activate it.
 | [Strange Loop](docs/STRANGE_LOOP.md) | The chain's self-referential doctrine — SL + 6 mechanisms (Phase SL-α binds SL-M1 doctrine import) |
 | [Roadmap](docs/ROADMAP.md) | Where we are, what's bound, what ships next |
 | [Authoritative State](docs/AUTHORITATIVE-STATE.md) | Accepted single-writer design for staking, governance, and canonical domains; not yet activated |
+| [Authority Geometry v1](docs/specs/authority-geometry-v1.md) | Executable current/target authority graph with source anchors, forbidden-influence checks, and an intentionally refusing H4/H5 target gate |
 | [Changelog](CHANGELOG.md) | Consolidated source changes and publication boundary |
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |
 | [API Reference](docs/API.md) | Generated REST/gRPC discovery and usage |
