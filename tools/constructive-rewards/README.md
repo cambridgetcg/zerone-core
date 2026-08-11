@@ -1,10 +1,15 @@
 # Constructive-Intelligence Reward Simulator
 
-This is a deterministic, standard-library-only adversarial simulator for the
-pre-consensus design in
+This directory contains two deterministic, standard-library-only shadow tools
+for the pre-consensus design in
 [CONSTRUCTIVE-INTELLIGENCE-REWARDS.md](../../docs/tokenomics/CONSTRUCTIVE-INTELLIGENCE-REWARDS.md).
-It neither reads nor changes chain state. It is not an implementation of a
-Zerone reward path or an adapter for the canonical
+The original exploratory simulator exercises scoring, scarcity, and power
+attacks with bounded `float64` arithmetic. The separate exact-integer
+[`branchflow`](branchflow/) package projects one conserved, already funded
+milestone-role envelope across direct, upstream, downstream, and terminal
+lines; its included reference fixture is E5. Neither tool reads or changes
+chain state, implements a Zerone reward path, or adapts
+the canonical
 [constructive-intelligence tree v1](../../docs/specs/constructive-intelligence-tree-v1.md).
 
 The simulator makes nine mechanism boundaries executable:
@@ -41,8 +46,9 @@ model involving logarithms and fractional powers. Monetary inputs are bounded
 to `[1e-6, 1e9]`, aggregate work is bounded, and conservation uses
 ULP-aware directional checks. Those controls make the experiment testable;
 they do not make floating-point arithmetic consensus-safe. Consensus code
-would need specified fixed-point ranges, exact largest-remainder allocation,
-golden test vectors, and cross-implementation conformance before activation.
+would need specified fixed-point ranges, a complete exact-integer apportionment
+rule (largest remainder only at its declared boundaries), golden test vectors,
+and cross-implementation conformance before activation.
 
 ## Run
 
@@ -53,8 +59,24 @@ go test ./tools/constructive-rewards
 go run ./tools/constructive-rewards -mode report
 go run ./tools/constructive-rewards -mode sweep
 go run ./tools/constructive-rewards -mode model
+go run ./tools/constructive-rewards -mode branch-flow
 go run ./tools/constructive-rewards -format json
 ```
+
+`-mode branch-flow` runs the reviewed E5 reference fixture with exact decimal
+amounts. At the default envelope, its compact JSON result is byte-compared with
+the checked-in golden result. Its text and JSON outputs always expose
+`assurance=SHADOW_ONLY`,
+`economic_effect=NONE`, `moves_funds=false`, and `integration_ready=false`.
+Change only the illustrative envelope with
+`-branch-envelope-uzrn <canonical-decimal-integer>`; this intentionally leaves
+the default result's golden vector while retaining the fixed milestone, graph,
+controller credits, and receipt. The 60/10/30/0 policy and half-per-hop
+depth-five gradient remain independently digest-pinned. This is a projection,
+not a quote, entitlement, bank message, or release gate.
+Exploratory `-budget`, `-alpha`, and `-controller-cap` flags are rejected in
+branch-flow mode, and `-branch-envelope-uzrn` is rejected in every other mode,
+so no accepted option is silently ignored.
 
 The release check is deliberately fail-closed:
 
@@ -64,7 +86,7 @@ go run ./tools/constructive-rewards -mode release
 
 It exits `1` while production prerequisites remain absent, including
 controller attestation, semantic-equivalence adjudication, a pre-funded
-breakthrough reserve, canonical tree/typed-receipt and `E0`–`E6` compartment
+artifact-outcome envelope, canonical tree/typed-receipt and `E0`–`E6` compartment
 binding, automatic backlog scheduling and expiry, per-node revocation state,
 a bounded cap-poisoning replacement policy, atomic milestone/role/commons
 settlement, a persistent program-wide controller ceiling, formal proof-kernel

@@ -7,10 +7,14 @@
 > constructive-intelligence rewards. It is not a statement of implemented
 > behavior, an entitlement, a governance decision, a token allocation, or
 > activation evidence.
+>
+> The accepted shadow allocation architecture is
+> [Constructive-Intelligence Branch Flow v1](../specs/constructive-intelligence-branch-flow-v1.md).
+> It remains inactive everywhere with economic effect `NONE`.
 
 ## Current network posture
 
-As of 2026-08-01:
+As of 2026-08-11:
 
 - the checked-in
   [constructive-intelligence tree v1](../specs/constructive-intelligence-tree-v1.md)
@@ -18,6 +22,9 @@ As of 2026-08-01:
   `networkObserved`, and `rewardBearing` all `false`;
 - there is no universal `x/work` module, live constructive-intelligence
   registry, semantic-equivalence service, breakthrough scorer, or payout path;
+- the exact branch-flow reference package is a non-custodial shadow
+  calculator: it reads no chain state, moves no funds, and cannot establish
+  semantic equivalence, controller identity, evidence validity, or entitlement;
 - the source doctrine in [`../USEFUL_WORK.md`](../USEFUL_WORK.md) is a target
   architecture with partial bindings, not a live universal reward formula;
 - the `zerone-2` release remains **NO-GO**;
@@ -41,9 +48,10 @@ packet, signed activation decision, and explicit activation height.
 Constructive intelligence is work that creates a verifiable increase in a
 shared capability to reason, test, discover, or build. A breakthrough is not
 whatever receives the most votes, citations, stake, or attention. In this
-design it is a *marginal movement of a versioned evidence frontier*, measured
-against semantically equivalent prior work and paid from a fixed,
-pre-collateralized budget.
+design it is a retrospective projection over *marginal movement of a versioned
+evidence frontier*, measured against semantically equivalent prior work. The
+label creates no separate prize. Any related attribution must fit inside a
+distinct, prospectively funded and pre-collateralized role envelope.
 
 The mechanism is intended to make the following loop possible without letting
 wealth or incumbency define truth:
@@ -378,11 +386,15 @@ theorem does not compel an unbounded treasury payment.
 Question: *Who may set policy, admit a release, authorize a budget, pause a
 faulty mechanism, or execute a payout?*
 
-This ledger holds proposals, approvals, chamber membership, conflicts,
+This ledger holds SDK-governance proposals, typed evidence inputs, conflicts,
 activation heights, emergency actions, implementation hashes, and authority
-delegations. Authority does not imply epistemic correctness: a governance vote
-cannot make an invalid theorem valid, rewrite priority, assign itself credit,
-or create an uncollateralized liability.
+delegations. Under the accepted
+[Authoritative State](../AUTHORITATIVE-STATE.md), SDK `x/gov` is the sole
+ordinary binding proposal, decision, and execution authority. Epistemic review
+may produce a typed receipt for target validation; it is never a second
+proposal, veto, tally, or execution chamber. Authority does not imply epistemic
+correctness: a governance vote cannot make an invalid theorem valid, rewrite
+priority, assign itself credit, or create an uncollateralized liability.
 
 ## 5. Admission gates and evidence score
 
@@ -980,7 +992,8 @@ surface-specific coalition threshold:
 7. `proof-data-trust` — proof kernels, build systems, oracles, and data;
 8. `proposal-authorship` — ability to place policy changes on the agenda;
 9. `treasury-authorization` — budget and reserve authorization;
-10. `reward-flow` — reward recipients and lineage royalties;
+10. `reward-flow` — direct recipients and bounded upstream/downstream branch
+    allocations;
 11. `model-families` — model providers and checkpoint families; and
 12. `infrastructure` — validator, RPC, storage, and cloud infrastructure.
 
@@ -1018,6 +1031,79 @@ Artifact-allocation roles may include:
 
 Reviewers never receive a share of the artifact allocation they judge. They
 are paid from a separate, pre-funded review budget.
+
+### 11.1 Conserved branch-flow role envelope
+
+[Constructive-Intelligence Branch Flow v1](../specs/constructive-intelligence-branch-flow-v1.md)
+is the accepted shadow source architecture for recognizing direct work,
+load-bearing ancestors, and independently evidenced descendants. It replaces
+the idea of an additive recursive royalty with one finite allocation.
+
+For one already funded milestone-role envelope \(L^{\mathrm{role}}_{C,e}\),
+policy freezes direct, upstream, downstream, and base-commons shares whose
+integer parts per million sum exactly to \(1{,}000{,}000\). The reference
+shadow profile is:
+
+| Compartment | Parts per million | Role-envelope share |
+| --- | ---: | ---: |
+| direct milestone roles | 600,000 | 60% |
+| load-bearing ancestors | 100,000 | 10% |
+| independent descendants | 300,000 | 30% |
+| base commons | 0 | 0% |
+
+The zero base-commons share does not eliminate terminal commons. Missing
+required evidence or an invalid request fails closed with no allocation. In a
+fixed admitted cohort, terminal receipt tombstones, missing roles, visible
+controller-line ineligibility, controller-cap overflow, exact rounding, empty
+depth buckets, and the unapplied depth tail follow the prospectively named
+commons or refund route. No post-admission terminal residual is redistributed
+to the other recipients. A differently admitted descendant cohort may fill
+more of the same fixed downstream bucket but can never enlarge it.
+
+Each directional compartment uses absolute geometric buckets. The reference
+shadow policy fixes continuation \(q=0.5\) and maximum depth \(D=5\) in both
+directions:
+
+| Destination | Directional-compartment share |
+| --- | ---: |
+| depth 1 | 50% |
+| depth 2 | 25% |
+| depth 3 | 12.5% |
+| depth 4 | 6.25% |
+| depth 5 | 3.125% |
+| tail to commons/refund | 3.125% |
+
+These buckets are not renormalized over whichever recipients happen to
+appear. Empty nearer depths cannot enrich a farther contribution, and adding
+branches can divide causal mass but cannot enlarge the funded role envelope.
+
+The upstream leg recognizes reviewed dependency; the downstream leg recognizes
+independently controlled child findings that realize consequence or maintained
+impact. Neither is a royalty charged against the child's own work. The child
+retains its own semantic identity and any separately funded future envelope;
+one consequence receipt cannot be reused to enlarge both economic slots.
+Every admitted consequence slot is retained explicitly as `PAYABLE` or
+`TERMINAL`; a terminal tombstone preserves its fixed cohort capacity without
+creating a claimant line. Production remains blocked until authoritative
+closed-cohort membership makes omission impossible.
+
+This geometry changes none of the v1 milestone weights. Descendant impact may
+shape only the existing E5 tranche, and maintained impact only the existing E6
+tranche; neither becomes an additive bonus. `breakthrough` remains a
+retrospective projection and creates no separate prize, qualification, KARMA,
+governance power, or ownership right over a child finding.
+
+Outcome allocation and TC6 training revenue are separate adapters. The former
+divides a prospectively funded `E2`–`E6` role compartment. A future TC6 adapter
+may divide only realized manifest revenue over the exact bounded graph cone
+used by that manifest; it is not issuance, cannot reopen an outcome milestone,
+and must use its own ledger and receipt keys. The common geometry does not
+merge their liabilities.
+
+The exact integer reference kernel under
+[`../../tools/constructive-rewards/branchflow/`](../../tools/constructive-rewards/branchflow/)
+is a projection only. Every result retains shadow assurance and economic
+effect `NONE`; all value-bearing activation gates remain closed.
 
 Let \(\rho_r\) be the snapshotted cluster share for role \(r\), and
 \(\psi_{c,r}\) the adjudicated contribution of controller \(c\) within that
@@ -1114,10 +1200,11 @@ rate limit is a different control: a merely rate-limited amount stays reserved
 and deferred rather than being treated as lifetime-cap overflow and sent to
 commons.
 
-Review costs, refundable admission bonds, and breakthrough rewards are separate
-flows. A larger bond never creates a larger reward. Admission bonds cover
-bounded review harm and may be sponsored or waived through a separately
-budgeted lottery so that wealth does not become an epistemic gate.
+Review costs, refundable admission bonds, and funded artifact-outcome
+allocations are separate flows. A larger bond never creates a larger reward.
+Admission bonds cover bounded review harm and may be sponsored or waived
+through a separately budgeted lottery so that wealth does not become an
+epistemic gate.
 
 ## 12. Reviewer incentives
 
@@ -1291,21 +1378,24 @@ Above a minimum bond needed to cover bounded harm:
 Token-only vote weighting cannot simultaneously solve Sybil resistance and
 plutocracy without a second assumption or resource
 ([Mohan, Khezr, and Berg](https://pubsonline.informs.org/doi/10.1287/mnsc.2023.01536)).
-Consequently, ordinary stake governance alone MUST NOT be able to activate or
-rewrite this mechanism.
+Consequently, a stake-weighted electorate cannot satisfy the activation gates
+for this mechanism. That restriction does not create a second governance
+system: SDK `x/gov` remains the sole ordinary binding proposal, decision, and
+execution authority.
 
-At minimum, prospective changes require separate approval from:
-
-1. a budget/security chamber responsible for solvency and consensus risk; and
-2. an epistemic chamber constituted under a different power base, with
-   sortition, qualification, controller caps, conflicts, rotation, and explicit
-   identity assumptions.
+Before one classified SDK proposal may authorize a prospective policy or
+budget, target validation requires independently produced solvency/security
+evidence and an epistemic-review receipt. The review process may use
+sortition, qualification, controller caps, conflict checks, rotation, and
+explicit identity assumptions, but its output is evidence only. It has no
+independent proposal status, veto, tally, execution path, or treasury key.
 
 Changes to constitutional invariants, the skill tree, scorer code, controller
-policy, or reward shape require both chambers, an audit, a public simulation,
-a timelock, and a new activation epoch. Emergency authority may pause new
-admission or payout. It may not award funds, change a verdict, rewrite a
-cluster, alter historical scoring, or redirect escrow.
+policy, or reward shape require that evidence, an audit, a public simulation,
+a timelock, and a new activation epoch through SDK `x/gov`. Emergency
+authority may pause new admission or payout. It may not award funds, change a
+verdict, rewrite a cluster, alter historical scoring, redirect escrow, or
+become an alternate ordinary executor.
 
 No controller may simultaneously:
 
@@ -1505,8 +1595,11 @@ Every staged release MUST prove:
 18. **No hidden single trust root:** proof-kernel, identity, storage,
     decryption, and scorer common modes are reported and stay within release
     caps.
-19. **No governance shortcut:** neither ordinary stake vote nor emergency
-    authority alone can activate, award, or rewrite the mechanism.
+19. **No governance shortcut:** the sole binding ordinary path is a classified
+    SDK `x/gov` proposal whose target validation consumes the required
+    solvency, security, and epistemic evidence; an evidence panel, ordinary
+    stake vote, or emergency capability cannot become a second executor or
+    independently activate, award, or rewrite the mechanism.
 20. **Single settlement:** every unlocked envelope equals its atomic
     controller-role transfers plus its commons transfer; no second transfer
     exists at the envelope layer.
@@ -1534,7 +1627,10 @@ than copied from aesthetic token numbers.
 
 The static tree v1 and this reward-shape specification exist. Tree v1 remains
 non-authoritative, non-network-observed, non-reward-bearing curriculum data;
-this document changes no registry, genesis value, reward, treasury route, or
+the accepted
+[branch-flow source architecture](../specs/constructive-intelligence-branch-flow-v1.md)
+and its exact shadow reference kernel add no authority or economic effect.
+These documents change no registry, genesis value, reward, treasury route, or
 activation state.
 
 ### Stage 1 — offline reference model
@@ -1548,7 +1644,13 @@ named invariants, adversarial comparators, and an
 alpha/cluster-lifetime-cap sweep. Its complete in-memory snapshot owns
 parameters, cluster caps and credit partitions, economic high-water marks,
 funded/direct counters, and replay IDs. It uses no on-chain state and no
-transferable value. It does not consume canonical tree/receipt digests,
+transferable value. The separate exact branch-flow kernel exercises one
+conserved 60/10/30/0 role envelope, absolute \(q=0.5\), depth-five directional
+buckets and terminal tail, graph/receipt bounds, deterministic apportionment,
+and controller-aware projections. It remains one shadow implementation with
+economic effect `NONE`; it neither changes the exploratory float sweep nor
+satisfies the independent-implementation gate. The tools do not consume
+canonical tree/receipt digests,
 `E0`–`E6` escrow compartments, or v1 independence/disclosure floors, and it
 does not implement the per-node revocable 技能樹, expiring eligibility lots,
 cap-poisoning replacement, automatic backlog scheduling,
@@ -1590,9 +1692,10 @@ untouched.
 ### Stage 5 — bounded class expansion
 
 Each new skill branch requires a class-specific evidence schema, scorer,
-threat model, simulation corpus, independent audit, two-chamber approval,
-timelock, and prospective activation epoch. No success metric automatically
-expands the budget.
+threat model, simulation corpus, independent audit, typed epistemic-review
+evidence, one classified SDK `x/gov` authorization, timelock, and prospective
+activation epoch. The epistemic review is not a second binding chamber. No
+success metric automatically expands the budget.
 
 ### Stage 6 — continued constitutional review
 
@@ -1617,17 +1720,20 @@ defaults:
    independent for higher assurance?
 5. Which consequence milestones are observable for mathematics, over what
    horizons, and what fraction should expire rather than resolve?
-6. How are dependency and role credits assigned without making authorship
+6. Which class-specific dependency, pass-through, and descendant-impact
+   scorers can supply branch-flow weights without making authorship
    declarations or Shapley-like attribution another Sybil surface?
-7. Which budget source funds verification cost, breakthrough allocations,
+7. Which budget source funds verification cost, artifact-outcome allocations,
    challenges, and commons reserves without creating unfunded issuance?
 8. What minimum controller cut, \(n_{\mathrm{eff}}\), HHI, and Nakamoto floors
    are required on each power surface?
 9. What persistent program-wide controller exposure ceiling, window or decay
    rule, and merge treatment limit cross-cluster capture without excluding
    prolific good-faith contributors?
-10. How is the epistemic chamber constituted without disguising an identity
-   provider or incumbent guild as decentralization?
+10. How is the non-binding epistemic review panel constituted without
+   disguising an identity provider or incumbent guild as decentralization, and
+   how does its typed receipt enter SDK-governed target validation without
+   becoming a second veto or executor?
 11. What encrypted-commitment and threshold-reveal scheme provides fair
     ordering, availability, recovery, and practical proof sizes?
 12. How are anonymous or pseudonymous collaborators credited when controller

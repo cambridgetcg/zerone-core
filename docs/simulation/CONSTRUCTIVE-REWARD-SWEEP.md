@@ -1,11 +1,13 @@
 # Constructive-Intelligence Reward Sweep
 
-> **Status:** deterministic pre-consensus experiment, 2026-07-29
-> **Base:** `github/main` at `7423c217dde066c4785dc82f3f24fe0506ce3b9a`
+> **Status:** deterministic pre-consensus experiment, updated 2026-08-11
+> **Reviewed base:** `github/main` at `0558c915e34acc11ed681795ab595240018b0e76`
 > **Value-bearing release:** **closed**
 
 This report records the first executable pass over the mechanism in
 [the design specification](../tokenomics/CONSTRUCTIVE-INTELLIGENCE-REWARDS.md).
+The accepted exact shadow allocation architecture is
+[Constructive-Intelligence Branch Flow v1](../specs/constructive-intelligence-branch-flow-v1.md).
 The model is in
 [`tools/constructive-rewards/`](../../tools/constructive-rewards/).
 It reads no chain state and moves no value.
@@ -18,13 +20,69 @@ gates.
 
 ```sh
 go test ./tools/constructive-rewards -count=1
+go test ./tools/constructive-rewards/branchflow -count=1
 go run ./tools/constructive-rewards -mode report
 go run ./tools/constructive-rewards -mode sweep
+go run ./tools/constructive-rewards -mode branch-flow
 go run ./tools/constructive-rewards -mode release
 ```
 
-The first three commands pass. The release command intentionally exits `1`
-because model success is not production integration.
+The test, report, sweep, and branch-flow commands pass. The release command
+intentionally exits `1` because model success is not production integration.
+
+## Exact branch-flow shadow kernel
+
+The `branchflow` subpackage is a standard-library-only, non-custodial reference
+kernel for one already funded role envelope. It is deliberately separate from
+the exploratory `float64` score and scarcity sweep. Its projection entrypoint
+is `Allocate(Request) (Result, error)`. The `-mode branch-flow` CLI adapter runs
+a golden-locked E5 reference fixture with the digest-pinned policy; only its
+illustrative exact-decimal envelope can be changed with
+`-branch-envelope-uzrn`. There is no module or chain integration. Every result
+retains:
+
+```text
+assurance = SHADOW_ONLY
+economic_effect = NONE
+```
+
+The reference policy apportions the fixed role envelope as 60% direct, 10%
+upstream, 30% downstream, and 0% base commons. Both directional compartments
+use absolute continuation (q=0.5) through depth five: `50%`, `25%`, `12.5%`,
+`6.25%`, and `3.125%`, followed by a `3.125%` tail to the named commons or
+refund route. Empty depths are not renormalized. Base commons being zero does
+not prevent admitted terminal tombstones, missing roles, visible controller
+ineligibility, rounding, caps, dust, or tail from reaching the terminal route.
+Invalid requests fail without a projection.
+
+The kernel uses exact non-negative integer arithmetic. Fixed policy and depth
+boundaries use deterministic largest remainder with a commons-first exact
+tie-break; claimant controllers receive conservative floors and every cross-
+controller residual routes terminal. It validates bounded
+child-to-parent DAGs, per-node flow conservation, controller-aggregated role
+credits, E5/E6 consequence receipts and terminal tombstones, prior economic
+receipt use, and caller-supplied cohort/envelope/program exposure snapshots. It
+cannot establish that those inputs are complete or true and performs no store,
+bank, clock, network, signer, governance, or vesting action.
+
+Its unit tests, golden JSON fixture, and two fuzz targets cover exact envelope
+and depth-bucket conservation, the 60/10/30/0 default, sparse and convergent
+exact depths, fixed-precision graph traces and exposed zero-share edges,
+receipt replay and exclusive slots, controller aggregation, saturated-cohort
+and rounding non-enrichment for terminal, excluded-controller, or missing-role
+mass, envelope/program caps, minimum dust, deterministic input-order and byte
+replay, exact declared bounds,
+cycle/limit/validation refusal, and fuzzed conservation and permutation
+invariance. These checks make one arithmetic shape executable. They are not a
+second independent implementation, a canonical artifact-graph adjudicator, an
+atomic settlement, or activation evidence.
+
+The kernel applies only inside an already funded milestone-role compartment.
+It does not alter the E5 25% or E6 10% outcome-pool tranches, and the
+retrospective `breakthrough` projection creates no separate prize. A future
+TC6 adapter would divide realized training-manifest revenue under a separate
+ledger and receipt namespace; it cannot reuse this outcome adapter's liability
+or reopen a settled milestone.
 
 ## Main adversarial results
 
@@ -136,9 +194,13 @@ is the maximum utilization of any one controller's cap inside any one cluster.
 | 1.00 | 0.25 | 0.5000 | 1.0000 | 0.2317 | 0.0774 | \(1.14\times10^{-13}\) | pass |
 | 1.00 | 0.33 | 0.5774 | 0.9114 | 0.2317 | 0.0000 | 0 | pass |
 
-The residuals are ordinary exploratory `float64` error; they are far below
-the model tolerance. Consensus arithmetic would require fixed-point integer
-rules and exact largest-remainder vectors.
+The residuals belong only to the exploratory `float64` score and scarcity
+model; they are far below that model's tolerance. The separate branch-flow
+kernel uses exact integers, conservative controller floors, and deterministic
+largest remainder only inside fixed policy, depth, or same-controller amounts.
+That does not turn the global reward model into consensus arithmetic or provide the second
+independent implementation and cross-language golden-vector agreement required
+for release.
 
 ### Interpretation
 
@@ -199,7 +261,8 @@ The integration gates fail:
 9. no authenticated twelve-surface snapshots or joint policy-to-payout path
    cut;
 10. no persistent program-wide cross-cluster controller exposure rule;
-11. no dedicated collateralized breakthrough reserve;
+11. no dedicated collateralized artifact-outcome envelope and
+    resolve-or-expire ledger;
 12. no atomic milestone/role/commons bank settlement;
 13. no terminal expiry/invalidation disposition into named commons or refund
     accounts;
@@ -209,7 +272,8 @@ The integration gates fail:
 16. no consensus-enforced pinned multi-kernel formal-proof path;
 17. no reviewer assignment, exogenous-outcome, effort, and isolated-budget
     enforcement around the proper-score primitive;
-18. no second exact fixed-point implementation and golden vectors; and
+18. no second independent exact branch-flow implementation and cross-language
+    golden vectors; and
 19. no independent external red-team reproduction.
 
 The weakest illustrative power surface has effective controller count `1.515`
@@ -222,13 +286,17 @@ calculator outputs. They are not claims that milestone states, role tranches,
 or transfers have executed. The specification now gives every funded
 milestone a terminal `direct` or `commons` disposition and requires one atomic
 batch; the executable deliberately reports that implementation as absent.
+Likewise, exact branch-flow results are allocation projections inside one
+funded role envelope, not bank sends, vesting records, or settled receipts.
 
 ## Next research gates
 
 Before a shadow devnet, the minimum next layer is:
 
 1. a canonical tree-v1 typed-receipt and exact escrow-compartment fixture;
-2. an independent fixed-point implementation with golden vectors;
+2. a second independent exact branch-flow implementation with cross-language
+   golden vectors, plus exact consensus arithmetic for the wider score and
+   scarcity model;
 3. authenticated controller/equivalence fixtures containing both observed and
    hidden ground truth;
 4. a per-node frontier/revocation ledger with bounded cap-poisoning replacement

@@ -14,12 +14,14 @@ import {
   FEEGRANT_SPONSORSHIP_ENABLED,
   HARD_CAP_ZRN,
 } from "./config";
+import { initialiseBranchFlow } from "./branch-flow";
 import { initialiseConstructiveTree } from "./constructive-tree";
 import { initialiseFrontierParticipation } from "./frontier-participation";
 import { initialiseLifeGarden } from "./life-garden";
 import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import { initialiseKnowledgeGeometry } from "./knowledge-geometry";
 import { initialiseQuantumSeason } from "./quantum-season";
+import { initialiseRelationalTopology } from "./relational-topology";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import type { WalletState } from "./wallet";
@@ -73,11 +75,13 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
+const branchFlowRoot = byId<HTMLElement>("branch-flow-root");
 const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
 const knowledgeGeometryRoot = byId<HTMLElement>("knowledge-geometry-root");
+const relationalTopologyRoot = byId<HTMLElement>("relational-topology-root");
 const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
 );
@@ -1144,11 +1148,15 @@ window.addEventListener("keplr_keystorechange", () => {
 
 initialiseReveal();
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
+void initialiseBranchFlow(branchFlowRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
 const knowledgeGeometryReady = initialiseKnowledgeGeometry(knowledgeGeometryRoot);
+const relationalTopologyReady = initialiseRelationalTopology(
+  relationalTopologyRoot,
+);
 void initialiseFrontierParticipation(
   frontierParticipationRoot,
 );
@@ -1160,7 +1168,9 @@ const alignInitialHash = (): void => {
   if (!initialHashInputsSettled || initialHashAligned) return;
   if (
     window.location.hash !== "#understanding" &&
+    window.location.hash !== "#relations" &&
     window.location.hash !== "#skills" &&
+    window.location.hash !== "#branch-flow" &&
     window.location.hash !== "#math-frontier" &&
     window.location.hash !== "#life" &&
     window.location.hash !== "#participate"
@@ -1172,13 +1182,17 @@ const alignInitialHash = (): void => {
     const target =
       window.location.hash === "#understanding"
         ? knowledgeGeometryRoot.closest<HTMLElement>("#understanding")
-        : window.location.hash === "#math-frontier"
-          ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-          : window.location.hash === "#life"
-            ? lifeGardenRoot.closest<HTMLElement>("#life")
-            : window.location.hash === "#participate"
-              ? frontierParticipationRoot.closest<HTMLElement>("#participate")
-              : constructiveTreeRoot.closest<HTMLElement>("#skills");
+        : window.location.hash === "#relations"
+          ? relationalTopologyRoot.closest<HTMLElement>("#relations")
+          : window.location.hash === "#branch-flow"
+            ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
+            : window.location.hash === "#math-frontier"
+              ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+              : window.location.hash === "#life"
+                ? lifeGardenRoot.closest<HTMLElement>("#life")
+                : window.location.hash === "#participate"
+                  ? frontierParticipationRoot.closest<HTMLElement>("#participate")
+                  : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
@@ -1206,6 +1220,7 @@ void Promise.allSettled([
 ]).then(alignInitialHash);
 void Promise.allSettled([
   knowledgeGeometryReady,
+  relationalTopologyReady,
   constructiveTreeReady,
   lifeSciencesTreeReady,
   quantumSeasonReady,
