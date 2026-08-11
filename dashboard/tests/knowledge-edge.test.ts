@@ -383,7 +383,7 @@ describe("knowledge geometry edge contract", () => {
     }
   });
 
-  it("keeps nested Pages routes inside the typed JSON refusal boundary", async () => {
+  it("keeps application-routable nested Pages routes inside the typed JSON refusal boundary", async () => {
     const originalCaches = Object.getOwnPropertyDescriptor(globalThis, "caches");
     Object.defineProperty(globalThis, "caches", {
       configurable: true,
@@ -396,14 +396,16 @@ describe("knowledge geometry edge contract", () => {
     });
 
     try {
+      // Cloudflare rejects raw invalid percent escapes such as `%ZZ` before
+      // Worker dispatch, so this unit boundary covers only routable targets.
       for (const url of [
         "https://dashboard.invalid/api/knowledge/extra",
         "https://dashboard.invalid/api/knowledge%2Fextra",
         "https://dashboard.invalid/api/knowledge%252Fextra",
         "https://dashboard.invalid/api/knowledge%2Fextra/more",
-        "https://dashboard.invalid/api/knowledge%ZZ",
+        "https://dashboard.invalid/api/knowledge%25ZZ",
         "https://dashboard.invalid/api/%6Bnowledge%2Fextra",
-        "https://dashboard.invalid/api/%6Bnowledge%2Fextra%ZZ",
+        "https://dashboard.invalid/api/%6Bnowledge%2Fextra%C0%AF",
       ]) {
         const response = await knowledgeApiMiddleware({
           request: new Request(url),
