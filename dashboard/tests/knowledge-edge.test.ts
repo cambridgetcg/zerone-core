@@ -12,6 +12,7 @@ import {
   type KnowledgePagesContext,
   type KnowledgeRuntime,
 } from "../functions/api/_knowledge";
+import { onRequest as knowledgeApiMiddleware } from "../functions/api/_middleware";
 
 const ENDPOINT = "https://dashboard.invalid/api/knowledge";
 const UPSTREAMS = {
@@ -379,6 +380,55 @@ describe("knowledge geometry edge contract", () => {
       assert.equal(response.headers.get("Cache-Control"), "no-store");
       assert.equal(harness.calls.length, 0);
       assert.equal(harness.cacheMatches.length, 0);
+    }
+  });
+
+  it("keeps nested Pages routes inside the typed JSON refusal boundary", async () => {
+    const originalCaches = Object.getOwnPropertyDescriptor(globalThis, "caches");
+    Object.defineProperty(globalThis, "caches", {
+      configurable: true,
+      value: {
+        default: {
+          match: async () => undefined,
+          put: async () => undefined,
+        },
+      },
+    });
+
+    try {
+      for (const url of [
+        "https://dashboard.invalid/api/knowledge/extra",
+        "https://dashboard.invalid/api/knowledge%2Fextra",
+        "https://dashboard.invalid/api/knowledge%252Fextra",
+        "https://dashboard.invalid/api/knowledge%2Fextra/more",
+        "https://dashboard.invalid/api/knowledge%ZZ",
+        "https://dashboard.invalid/api/%6Bnowledge%2Fextra",
+        "https://dashboard.invalid/api/%6Bnowledge%2Fextra%ZZ",
+      ]) {
+        const response = await knowledgeApiMiddleware({
+          request: new Request(url),
+          waitUntil: () => undefined,
+          next: async () => new Response("unexpected fallback", { status: 599 }),
+        });
+        assert.equal(response.status, 400);
+        assert.equal(response.headers.get("Content-Type"), "application/json; charset=utf-8");
+        assert.equal(response.headers.get("Cache-Control"), "no-store");
+        assert.match(await errorMessage(response), /path is invalid/);
+      }
+
+      const fallback = await knowledgeApiMiddleware({
+        request: new Request("https://dashboard.invalid/api/unrelated"),
+        waitUntil: () => undefined,
+        next: async () => new Response("existing fallback", { status: 299 }),
+      });
+      assert.equal(fallback.status, 299);
+      assert.equal(await fallback.text(), "existing fallback");
+    } finally {
+      if (originalCaches) {
+        Object.defineProperty(globalThis, "caches", originalCaches);
+      } else {
+        Reflect.deleteProperty(globalThis, "caches");
+      }
     }
   });
 
