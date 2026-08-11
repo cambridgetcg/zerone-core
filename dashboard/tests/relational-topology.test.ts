@@ -463,6 +463,11 @@ describe("relational topology v0", () => {
         all.filter((node) => node.className === "relational-topology-edge").length,
         30,
       );
+      assert.ok(
+        all
+          .filter((node) => node.className === "relational-topology-edge")
+          .every((edge) => edge.tabIndex === -1),
+      );
       assert.equal(
         all.filter((node) => node.className === "relational-topology-principle").length,
         6,
@@ -477,6 +482,13 @@ describe("relational topology v0", () => {
           flattenedText(node).includes("SDK governance"),
       );
       assert.equal(nodeButton?.tagName, "button");
+      assert.ok(
+        nodeButton?.children.some(
+          (child) =>
+            child.tagName === "span" &&
+            child.className === "relational-topology-node-summary",
+        ),
+      );
       nodeButton?.click();
       assert.equal(nodeButton?.getAttribute("aria-pressed"), "true");
       const visibleEdges = all.filter(

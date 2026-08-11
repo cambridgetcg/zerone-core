@@ -1207,7 +1207,6 @@ export function renderRelationalTopology(
   for (const edge of topology.edges) {
     const row = el("li");
     const article = el("article", "relational-topology-edge");
-    article.tabIndex = 0;
     article.setAttribute(
       "aria-label",
       `${edge.from} ${edge.relation.toLowerCase()} ${edge.to}`,
@@ -1279,7 +1278,7 @@ export function renderRelationalTopology(
         `${plane?.name ?? node.plane} · ${node.implementation.replaceAll("_", " ")}`,
       ),
       el("strong", "relational-topology-node-title", node.label),
-      el("p", "relational-topology-node-summary", node.summary),
+      el("span", "relational-topology-node-summary", node.summary),
     );
     button.addEventListener("click", () => {
       selectNode(selectedNode === node.id ? null : node.id);
