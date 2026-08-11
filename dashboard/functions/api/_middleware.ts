@@ -26,7 +26,9 @@ function isKnowledgeNamespace(pathname: string): boolean {
     try {
       decoded = decodeURIComponent(candidate);
     } catch {
-      return false;
+      decoded = candidate.replace(/%([0-7][0-9a-f])/giu, (_escape, hex: string) =>
+        String.fromCharCode(Number.parseInt(hex, 16)),
+      );
     }
     if (decoded === candidate) {
       break;

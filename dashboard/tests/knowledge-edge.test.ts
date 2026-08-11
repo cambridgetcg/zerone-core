@@ -403,6 +403,7 @@ describe("knowledge geometry edge contract", () => {
         "https://dashboard.invalid/api/knowledge%2Fextra/more",
         "https://dashboard.invalid/api/knowledge%ZZ",
         "https://dashboard.invalid/api/%6Bnowledge%2Fextra",
+        "https://dashboard.invalid/api/%6Bnowledge%2Fextra%ZZ",
       ]) {
         const response = await knowledgeApiMiddleware({
           request: new Request(url),
