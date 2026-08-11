@@ -472,6 +472,10 @@ supports `GET`, `HEAD`, and `OPTIONS` only:
 - the function never forwards the caller's body, credentials, cookies, or
   authority to the node.
 
+A trailing slash, plain descendant, or percent-encoded descendant is a changed
+path. Pages routing MUST keep each inside the typed JSON refusal boundary and
+MUST NOT fall through to the dashboard's HTML application shell.
+
 Fixed origins, redirect refusal, timeouts, exact chain binding, structural
 normalization, byte limits, record limits, and output minimization form the
 server-side trust boundary. The route is not a general REST or RPC proxy.
