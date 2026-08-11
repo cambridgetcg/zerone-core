@@ -39,9 +39,11 @@ function isKnowledgeNamespace(pathname: string): boolean {
   return false;
 }
 
-// Pages route matching keeps encoded slashes inside a segment. Intercept the
-// knowledge namespace before static SPA fallback, including bounded nested
-// encodings, while leaving every unrelated API route unchanged.
+// For requests Cloudflare dispatches to Pages, route matching keeps encoded
+// slashes inside a segment. Intercept the knowledge namespace before static SPA
+// fallback, including bounded nested encodings, while leaving every unrelated
+// API route unchanged. Cloudflare can reject raw invalid percent escapes before
+// this middleware runs.
 export const onRequest = (context: ApiMiddlewareContext) => {
   const pathname = new URL(context.request.url).pathname;
   return isKnowledgeNamespace(pathname)

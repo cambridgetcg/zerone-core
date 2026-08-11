@@ -462,8 +462,9 @@ facts.
 
 ### 8.1 Edge request boundary
 
-The public route is exactly `/api/knowledge` with no query parameters. It
-supports `GET`, `HEAD`, and `OPTIONS` only:
+For requests Cloudflare dispatches to the Pages Worker, the public route is
+exactly `/api/knowledge` with no query parameters. It supports `GET`, `HEAD`,
+and `OPTIONS` only:
 
 - `OPTIONS` returns `204` for the bounded public read contract;
 - `HEAD` mirrors the successful `GET` status and headers with no body;
@@ -472,9 +473,16 @@ supports `GET`, `HEAD`, and `OPTIONS` only:
 - the function never forwards the caller's body, credentials, cookies, or
   authority to the node.
 
-A trailing slash, plain descendant, or percent-encoded descendant is a changed
-path. Pages routing MUST keep each inside the typed JSON refusal boundary and
-MUST NOT fall through to the dashboard's HTML application shell.
+A trailing slash, plain descendant, or syntactically valid percent-encoded
+descendant is a changed path. Pages routing MUST keep each application-routable
+request inside the typed JSON refusal boundary and MUST NOT fall through to the
+dashboard's HTML application shell.
+
+Cloudflare rejects a raw request target containing a syntactically invalid
+percent escape, such as `%ZZ`, before Worker dispatch. That pre-routing boundary
+returns Cloudflare's generic `400 text/html` response without the application's
+typed JSON or `Cache-Control: no-store` guarantees. It is not a fallthrough to
+the dashboard application shell.
 
 Fixed origins, redirect refusal, timeouts, exact chain binding, structural
 normalization, byte limits, record limits, and output minimization form the
@@ -505,9 +513,10 @@ records and relations, and all field bounds before serving it. An invalid or
 legacy cache entry is ignored and replaced only after a fresh upstream
 projection passes the same validation.
 
-Errors use `Cache-Control: no-store`. Error bodies, malformed upstream bytes,
-partial streams, and unvalidated projections are never placed in the success
-cache. The short cache does not turn the lens into a live-finality oracle or a
+Application responses for Worker-dispatched errors use
+`Cache-Control: no-store`. Error bodies, malformed upstream bytes, partial
+streams, and unvalidated projections are never placed in the success cache.
+The short cache does not turn the lens into a live-finality oracle or a
 subscription.
 
 ### 8.3 Browser boundary
@@ -536,12 +545,13 @@ Later promise completion must not snap a visitor back after that one alignment.
 
 V0 fails closed to no geometry, not to invented or stale meaning.
 
-The edge returns a bounded JSON error with `Cache-Control: no-store` when the
-fixed node is unreachable, times out, redirects, exceeds a body limit, returns
-an unsuccessful status, lacks required headers, names another chain, produces
-heights outside the binding tolerance, emits malformed JSON, or violates the
-projection contract. Upstream and validation failures return `502`; caller
-path/query failures return `400`; unsupported methods return `405`.
+For requests dispatched to the Worker, the edge returns a bounded JSON error
+with `Cache-Control: no-store` when the fixed node is unreachable, times out,
+redirects, exceeds a body limit, returns an unsuccessful status, lacks required
+headers, names another chain, produces heights outside the binding tolerance,
+emits malformed JSON, or violates the projection contract. Upstream and
+validation failures return `502`; caller path/query failures return `400`;
+unsupported methods return `405`.
 
 The edge must not answer such a failure with cached invalid bytes, a bundled
 sample, a different chain, a different node selected by the caller, a partial
@@ -603,8 +613,9 @@ after all of the following are recorded against one exact reviewed revision:
 5. the immutable deployment URL, Pages alias, and `zerone.ai` serve matching
    dashboard assets;
 6. `https://zerone.ai/api/knowledge` returns the exact schema, `zerone-1`
-   binding, bounded counts, no-store failures, and 30/60-second success cache
-   policy;
+   binding, bounded counts, application-routable no-store failures, and
+   30/60-second success cache policy, while a separate raw-invalid-percent probe
+   records Cloudflare's pre-routing `400 text/html` boundary;
 7. desktop and mobile browsers render the public lens, its zero-edge state,
    filters, inspector, refresh, and unavailable state without console or
    accessibility failures; and
