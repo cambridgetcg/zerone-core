@@ -1,0 +1,726 @@
+{
+  "schema": "zerone.relational-topology/v0",
+  "version": 0,
+  "title": "ZERONE Relational Topology v0",
+  "summary": "A non-authorizing projection of the accepted target topology and the legacy source conflicts it must retire: connection without capture, and understanding without collapse.",
+  "status": {
+    "artifact": "STATIC_CONSTITUTIONAL_PROJECTION",
+    "snapshotDate": "2026-08-11",
+    "describes": "ACCEPTED_TARGET_RELATIONAL_ARCHITECTURE_AND_SOURCE_CONFLICTS",
+    "authoritative": false,
+    "currentNetworkStateClaimed": false,
+    "consensusRuntimeDeployed": false,
+    "networkActivated": false
+  },
+  "sourcePins": [
+    {
+      "id": "authoritative-state",
+      "path": "docs/AUTHORITATIVE-STATE.md",
+      "sha256": "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9",
+      "role": "NORMATIVE_TARGET_AUTHORITY"
+    },
+    {
+      "id": "money-karma",
+      "path": "docs/constitution/money-karma-v1.json",
+      "sha256": "f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24",
+      "role": "ECONOMIC_RECOGNITION_BOUNDARY"
+    }
+  ],
+  "principles": [
+    {
+      "id": "append-only-correction",
+      "name": "Correction without erasure",
+      "basis": "SOURCE_DERIVED",
+      "statement": "A later correction may supersede an earlier projection without pretending the earlier record never existed.",
+      "structuralRule": "Every replacement preserves a traceable source lineage; publication alone never rewrites chain history.",
+      "sourceRefs": ["authoritative-state"]
+    },
+    {
+      "id": "bounded-connection",
+      "name": "Connection without capture",
+      "basis": "SOURCE_DERIVED",
+      "statement": "Every edge declares the kind of flow it carries and the conclusions it refuses to carry.",
+      "structuralRule": "No untyped edge and no undeclared authority, economic, emergency, evidence, identity, recognition, or reference flow is valid.",
+      "sourceRefs": ["authoritative-state", "money-karma"]
+    },
+    {
+      "id": "distinction-without-erasure",
+      "name": "Distinction without isolation",
+      "basis": "SOURCE_DERIVED",
+      "statement": "Related nodes remain distinct; connection does not merge their identity, custody, evidence, or authority.",
+      "structuralRule": "Each authoritative state domain has one writer, while every supporting state and projection stays explicitly non-authoritative.",
+      "sourceRefs": ["authoritative-state"]
+    },
+    {
+      "id": "non-domination",
+      "name": "Value without rule",
+      "basis": "SOURCE_DERIVED",
+      "statement": "Money can store value and recognition can describe artifact relations without either becoming voice, truth, rank, or office.",
+      "structuralRule": "Economic and recognition flows have no path into governance authority or verification ballot power.",
+      "sourceRefs": ["authoritative-state", "money-karma"]
+    },
+    {
+      "id": "traceable-understanding",
+      "name": "Understanding through provenance",
+      "basis": "SOURCE_DERIVED",
+      "statement": "A relation is legible only when its direction, meaning, scope, source, and refusal boundary travel together.",
+      "structuralRule": "Every node and edge resolves to exact, digest-pinned source and every forbidden route is machine-checkable.",
+      "sourceRefs": ["authoritative-state", "money-karma"]
+    },
+    {
+      "id": "voluntary-relation",
+      "name": "Relation without debt",
+      "basis": "DECLARED_V0_PRINCIPLE",
+      "statement": "Witness, evidence, or proximity is not consent, reciprocity, ownership, debt, or a duty to continue.",
+      "structuralRule": "No graph edge infers consent or obligation; refusal, rest, correction, and exit remain ordinary valid states outside this static map.",
+      "sourceRefs": []
+    }
+  ],
+  "planes": [
+    {
+      "id": "economy",
+      "name": "Economy",
+      "meaning": "Balances, consensus stake, bounded disbursement, and reconciled exit claims without automatic voice."
+    },
+    {
+      "id": "governance",
+      "name": "Governance",
+      "meaning": "Ordinary policy, frozen electorates, and one narrowly scoped emergency circuit breaker."
+    },
+    {
+      "id": "identity",
+      "name": "Identity",
+      "meaning": "Keys, accounts, controller resolution, and verifier participation without personhood inference."
+    },
+    {
+      "id": "knowledge",
+      "name": "Knowledge",
+      "meaning": "Canonical domains, claims, evidence, qualification, bounded panels, and non-authoritative recognition."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "karma-register",
+      "label": "KARMA event register",
+      "plane": "knowledge",
+      "role": "DERIVED_PROJECTION",
+      "implementation": "STATIC_ONLY",
+      "summary": "A fallible artifact-relation observation, not a balance, score, rank, truth, qualification, payout, or vote.",
+      "sourceRef": "money-karma",
+      "owns": [],
+      "mustNotOwn": ["authority", "balances", "governance-power", "qualification", "truth"]
+    },
+    {
+      "id": "research-fund-account",
+      "label": "research_fund account",
+      "plane": "economy",
+      "role": "SUPPORTING_STATE",
+      "implementation": "EXISTING_SOURCE",
+      "summary": "The named research-purpose account whose canonical coin balance remains owned by SDK bank.",
+      "sourceRef": "authoritative-state",
+      "owns": ["account-purpose-scope"],
+      "mustNotOwn": ["coin-ledger", "disbursement-authority", "governance-policy", "staking"]
+    },
+    {
+      "id": "sdk-bank",
+      "label": "SDK bank",
+      "plane": "economy",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "EXISTING_SOURCE",
+      "summary": "The canonical account-balance and denomination ledger; value storage is not a policy electorate.",
+      "sourceRef": "authoritative-state",
+      "owns": ["account-balances", "coin-movement", "denomination-supply"],
+      "mustNotOwn": ["controller-independence", "domain-truth", "governance-voice", "qualification"]
+    },
+    {
+      "id": "sdk-distribution",
+      "label": "SDK distribution",
+      "plane": "economy",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "EXISTING_SOURCE",
+      "summary": "The dependent reward-accounting ledger for validator commission, delegator accrual, and withdrawals.",
+      "sourceRef": "authoritative-state",
+      "owns": ["delegator-reward-accrual", "validator-commission-accrual", "withdrawal-accounting"],
+      "mustNotOwn": ["consensus-power", "governance-voice", "stake-principal", "validator-status"]
+    },
+    {
+      "id": "sdk-gov",
+      "label": "SDK governance",
+      "plane": "governance",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "TARGET_SEMANTICS_NOT_ACTIVATED",
+      "summary": "The target sole ordinary proposal, tally, decision, and atomic typed-message executor.",
+      "sourceRef": "authoritative-state",
+      "owns": ["ordinary-policy-decision", "proposal-lifecycle", "typed-execution"],
+      "mustNotOwn": ["controller-identity", "domain-identity", "individual-qualification", "stake-ledger"]
+    },
+    {
+      "id": "sdk-staking",
+      "label": "SDK staking",
+      "plane": "economy",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "EXISTING_SOURCE",
+      "summary": "The sole target authority for validator identity, delegation shares, bonded status, and consensus power.",
+      "sourceRef": "authoritative-state",
+      "owns": ["bonded-status", "consensus-power", "delegation-shares", "validator-operator"],
+      "mustNotOwn": ["controller-independence", "domain-qualification", "panel-ballot-power", "truth-verdict"]
+    },
+    {
+      "id": "verification-panel",
+      "label": "Verification panel",
+      "plane": "knowledge",
+      "role": "BOUNDED_PROCESS",
+      "implementation": "TARGET_SEMANTICS_NOT_ACTIVATED",
+      "summary": "A controller-deduplicated, domain-qualified, one-seat-one-ballot process with snapshotted policy and no wealth weighting.",
+      "sourceRef": "authoritative-state",
+      "owns": ["bounded-round-verdict"],
+      "mustNotOwn": ["controller-registry", "domain-registry", "governance-policy", "stake", "wealth-weight"]
+    },
+    {
+      "id": "vesting-rewards-disbursement",
+      "label": "x/vesting_rewards disbursement",
+      "plane": "economy",
+      "role": "BOUNDED_HANDLER",
+      "implementation": "TARGET_SEMANTICS_NOT_ACTIVATED",
+      "summary": "The target sole typed handler for one scope-checked research-fund disbursement authorized by SDK governance.",
+      "sourceRef": "authoritative-state",
+      "owns": ["scoped-disbursement-transition"],
+      "mustNotOwn": ["account-balance", "domain-policy", "electorate", "ordinary-governance"]
+    },
+    {
+      "id": "x-auth",
+      "label": "x/auth",
+      "plane": "identity",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "EXISTING_SOURCE",
+      "summary": "The account, operational-key, and self-certifying DID binding registry.",
+      "sourceRef": "authoritative-state",
+      "owns": ["account-key-binding", "operational-key-binding", "self-certifying-did-binding"],
+      "mustNotOwn": ["controller-independence", "governance-voice", "personhood", "qualification"]
+    },
+    {
+      "id": "x-controller",
+      "label": "x/controller",
+      "plane": "identity",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "TARGET_NOT_IMPLEMENTED",
+      "summary": "The target registry for challengeable controller bindings, rotations, and merges across addresses and profiles.",
+      "sourceRef": "authoritative-state",
+      "owns": ["controller-binding", "controller-merge-history", "controller-rotation-history"],
+      "mustNotOwn": ["personhood", "stake", "truth", "vote-outcome"]
+    },
+    {
+      "id": "x-electorate",
+      "label": "x/electorate",
+      "plane": "governance",
+      "role": "SUPPORTING_STATE",
+      "implementation": "TARGET_NOT_IMPLEMENTED",
+      "summary": "The target owner of governance policy, a versioned roster, and immutable per-proposal controller snapshots.",
+      "sourceRef": "authoritative-state",
+      "owns": ["electorate-policy", "electorate-roster", "proposal-electorate-snapshot"],
+      "mustNotOwn": ["ordinary-execution", "proposal-result", "stake", "token-balance"]
+    },
+    {
+      "id": "x-emergency",
+      "label": "x/emergency",
+      "plane": "governance",
+      "role": "CIRCUIT_BREAKER",
+      "implementation": "TARGET_SEMANTICS_NOT_ACTIVATED",
+      "summary": "A narrow, precommitted quarantine and one-capability recovery path; never an alternate ordinary government.",
+      "sourceRef": "authoritative-state",
+      "owns": ["emergency-ceremony-snapshot", "exact-emergency-capability", "quarantine-state"],
+      "mustNotOwn": ["domain-policy", "ordinary-policy", "treasury-policy", "unbounded-execution"]
+    },
+    {
+      "id": "x-knowledge",
+      "label": "x/knowledge",
+      "plane": "knowledge",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "EXISTING_SOURCE",
+      "summary": "The claims, facts, verification rounds, verdict evidence, relations, and domain-analytics ledger.",
+      "sourceRef": "authoritative-state",
+      "owns": ["claim-evidence", "fact-state", "typed-fact-relations", "verification-round-record"],
+      "mustNotOwn": ["domain-identity", "governance-policy", "stake", "token-balance"]
+    },
+    {
+      "id": "x-legacy-claims",
+      "label": "x/legacy_claims",
+      "plane": "economy",
+      "role": "EXIT_ONLY_LEDGER",
+      "implementation": "TARGET_NOT_IMPLEMENTED",
+      "summary": "The target claimant-bound home for reconciled legacy monetary liabilities and bounded withdrawals.",
+      "sourceRef": "authoritative-state",
+      "owns": ["claimant-bound-legacy-liability", "legacy-withdrawal-state"],
+      "mustNotOwn": ["active-stake", "governance-voice", "issuance", "unexplained-balance"]
+    },
+    {
+      "id": "x-ontology",
+      "label": "x/ontology",
+      "plane": "knowledge",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "TARGET_SEMANTICS_NOT_ACTIVATED",
+      "summary": "The target sole canonical domain identity, hierarchy, revision, stratum, lifecycle, alias, and tombstone registry.",
+      "sourceRef": "authoritative-state",
+      "owns": ["domain-hierarchy", "domain-identity", "domain-lifecycle", "domain-revision"],
+      "mustNotOwn": ["claim-verdict", "controller-identity", "governance-execution", "qualification"]
+    },
+    {
+      "id": "x-qualification",
+      "label": "x/qualification",
+      "plane": "knowledge",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "TARGET_SEMANTICS_NOT_ACTIVATED",
+      "summary": "The target evidence-derived, expiring competence state for one profile and one immutable domain revision.",
+      "sourceRef": "authoritative-state",
+      "owns": ["domain-competence", "qualification-expiry", "qualification-policy-version"],
+      "mustNotOwn": ["coin-liability", "governance-voice", "stake-weight", "truth"]
+    },
+    {
+      "id": "x-verifier-profile",
+      "label": "x/verifier_profile",
+      "plane": "identity",
+      "role": "SOLE_AUTHORITY",
+      "implementation": "TARGET_NOT_IMPLEMENTED",
+      "summary": "The target non-custodial participation-history and verifier-status registry.",
+      "sourceRef": "authoritative-state",
+      "owns": ["participation-history", "profile-status", "verifier-profile"],
+      "mustNotOwn": ["coin-liability", "consensus-power", "controller-binding", "stake"]
+    }
+  ],
+  "edges": [
+    {
+      "id": "auth-controller-binding",
+      "from": "x-auth",
+      "to": "x-controller",
+      "relation": "AUTHENTICATES",
+      "flows": ["IDENTITY", "REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Authenticated address and profile bindings become evidence for one challengeable controller record.",
+      "doesNotImply": ["one-address-is-one-controller", "personhood"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "controller-electorate-resolution",
+      "from": "x-controller",
+      "to": "x-electorate",
+      "relation": "DEDUPLICATES",
+      "flows": ["IDENTITY", "REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Electorate membership resolves through controller identity before a proposal snapshot freezes.",
+      "doesNotImply": ["independent-personhood", "per-address-voice"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "controller-emergency-deduplication",
+      "from": "x-controller",
+      "to": "x-emergency",
+      "relation": "DEDUPLICATES",
+      "flows": ["IDENTITY", "REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "The emergency responder roster resolves to at most one whole vote per controller before its ceremony snapshot freezes.",
+      "doesNotImply": ["controller-independence-proven", "ordinary-governance-membership"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "controller-panel-deduplication",
+      "from": "x-controller",
+      "to": "verification-panel",
+      "relation": "DEDUPLICATES",
+      "flows": ["IDENTITY", "REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Candidate identities collapse to at most one seat per controller before selection.",
+      "doesNotImply": ["controller-independence-proven", "personhood"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "controller-profile-resolution",
+      "from": "x-controller",
+      "to": "x-verifier-profile",
+      "relation": "REFERENCES",
+      "flows": ["IDENTITY", "REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A verifier profile resolves to a controller without copying controller authority into the profile.",
+      "doesNotImply": ["profile-is-controller", "profile-splitting-creates-voice"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "distribution-bank-withdrawal",
+      "from": "sdk-distribution",
+      "to": "sdk-bank",
+      "relation": "WITHDRAWS",
+      "flows": ["ECONOMIC"],
+      "status": "EXISTING_SOURCE",
+      "meaning": "Canonical accrued commission and delegator rewards settle through SDK bank coin movement.",
+      "doesNotImply": ["governance-voice", "stake-principal-ownership"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "electorate-governance-snapshot",
+      "from": "x-electorate",
+      "to": "sdk-gov",
+      "relation": "SNAPSHOTS",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "One immutable electorate snapshot supplies the eligible one-controller-one-voice ballot set for one proposal.",
+      "doesNotImply": ["electorate-executes-policy", "stake-weighted-voice"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "emergency-governance-cancellation",
+      "from": "x-emergency",
+      "to": "sdk-gov",
+      "relation": "CANCELS",
+      "flows": ["EMERGENCY"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A precommitted emergency capability may cancel or quarantine one exact unsafe action under its frozen ceremony.",
+      "doesNotImply": ["ordinary-policy-authority", "unbounded-execution"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "governance-electorate-policy",
+      "from": "sdk-gov",
+      "to": "x-electorate",
+      "relation": "GOVERNS",
+      "flows": ["AUTHORITY"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Ordinary governance may change future electorate policy through typed execution without changing an active proposal snapshot.",
+      "doesNotImply": ["arbitrary-membership", "retroactive-ballot-change"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "governance-emergency-policy",
+      "from": "sdk-gov",
+      "to": "x-emergency",
+      "relation": "GOVERNS",
+      "flows": ["AUTHORITY"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Ordinary governance may change only future emergency policy; every active ceremony remains bound to its frozen version and scope.",
+      "doesNotImply": ["active-ceremony-mutation", "individual-responder-appointment"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "governance-ontology-command",
+      "from": "sdk-gov",
+      "to": "x-ontology",
+      "relation": "GOVERNS",
+      "flows": ["AUTHORITY"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Typed governance messages request domain lifecycle transitions through ontology's own invariants.",
+      "doesNotImply": ["direct-state-write", "knowledge-owns-domain"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "governance-qualification-policy",
+      "from": "sdk-gov",
+      "to": "x-qualification",
+      "relation": "GOVERNS",
+      "flows": ["AUTHORITY"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Governance may change future qualification policy while individual competence remains receipt-derived.",
+      "doesNotImply": ["individual-grant", "stake-qualification"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "governance-research-disbursement",
+      "from": "sdk-gov",
+      "to": "vesting-rewards-disbursement",
+      "relation": "EXECUTES",
+      "flows": ["AUTHORITY"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A passed typed proposal may authorize one scoped research-fund disbursement through the bounded handler.",
+      "doesNotImply": ["committee-authority", "unscoped-treasury-control"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "knowledge-karma-projection",
+      "from": "x-knowledge",
+      "to": "karma-register",
+      "relation": "PROJECTS",
+      "flows": ["RECOGNITION"],
+      "status": "DESIGN_INFERENCE",
+      "meaning": "This v0 projection places fallible, challengeable knowledge-artifact relations upstream of K-alpha recognition; the pinned source does not establish a runtime producer.",
+      "doesNotImply": ["authority", "balance", "ownership", "rank", "truth"],
+      "sourceRef": "money-karma"
+    },
+    {
+      "id": "knowledge-panel-round-input",
+      "from": "x-knowledge",
+      "to": "verification-panel",
+      "relation": "SUPPLIES",
+      "flows": ["EVIDENCE", "REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A frozen claim, canonical domain revision, candidate root, policy, and round record supply bounded panel inputs.",
+      "doesNotImply": ["claimant-selected-panel", "knowledge-weighted-ballot"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "knowledge-profile-receipt",
+      "from": "x-knowledge",
+      "to": "x-verifier-profile",
+      "relation": "UPDATES",
+      "flows": ["EVIDENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Finalized replay-protected round receipts update participation history through a keeper boundary.",
+      "doesNotImply": ["caller-supplied-reputation", "coin-custody"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "knowledge-qualification-receipt",
+      "from": "x-knowledge",
+      "to": "x-qualification",
+      "relation": "UPDATES",
+      "flows": ["EVIDENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Replay-protected adjudicated domain evidence may create or update time-bounded competence under frozen policy.",
+      "doesNotImply": ["automatic-qualification", "truth-ownership"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "legacy-claim-withdrawal",
+      "from": "x-legacy-claims",
+      "to": "sdk-bank",
+      "relation": "WITHDRAWS",
+      "flows": ["ECONOMIC"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A reconciled claimant may withdraw only its fully backed, bounded legacy liability.",
+      "doesNotImply": ["active-stake", "new-issuance"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "ontology-knowledge-admission",
+      "from": "x-ontology",
+      "to": "x-knowledge",
+      "relation": "ADMITS",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Knowledge admission fails closed unless the canonical ontology domain revision is active.",
+      "doesNotImply": ["ontology-decides-verdict", "shared-domain-writer"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "ontology-qualification-domain",
+      "from": "x-ontology",
+      "to": "x-qualification",
+      "relation": "BINDS",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Every qualification is pinned to one immutable canonical domain revision resolved through ontology.",
+      "doesNotImply": ["domain-activation-grants-competence", "ontology-scores-profile"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "panel-knowledge-verdict",
+      "from": "verification-panel",
+      "to": "x-knowledge",
+      "relation": "DECIDES",
+      "flows": ["EVIDENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A snapshotted, quorum-valid panel outcome becomes bounded verdict evidence for its round.",
+      "doesNotImply": ["governance-policy", "universal-truth"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "profile-panel-participation",
+      "from": "x-verifier-profile",
+      "to": "verification-panel",
+      "relation": "FILTERS",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Only active verifier profiles enter the panel candidate intersection.",
+      "doesNotImply": ["automatic-selection", "reputation-weighted-ballot"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "profile-qualification-subject",
+      "from": "x-verifier-profile",
+      "to": "x-qualification",
+      "relation": "REFERENCES",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "Qualification identifies one verifier profile without duplicating profile or controller state.",
+      "doesNotImply": ["global-rank", "profile-owns-qualification-policy"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "qualification-panel-eligibility",
+      "from": "x-qualification",
+      "to": "verification-panel",
+      "relation": "QUALIFIES",
+      "flows": ["EVIDENCE", "REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "An active qualification for the exact canonical domain revision is required for panel eligibility.",
+      "doesNotImply": ["ballot-weight", "guaranteed-selection"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "research-account-handler-scope",
+      "from": "research-fund-account",
+      "to": "vesting-rewards-disbursement",
+      "relation": "REFERENCES",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "The typed handler is scoped to the named research-purpose account without becoming the account's coin ledger.",
+      "doesNotImply": ["handler-owns-balance", "unbounded-account-control"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "staking-distribution-accounting",
+      "from": "sdk-staking",
+      "to": "sdk-distribution",
+      "relation": "SUPPLIES",
+      "flows": ["REFERENCE"],
+      "status": "EXISTING_SOURCE",
+      "meaning": "Distribution derives validator commission and delegator reward accounting from canonical SDK staking state.",
+      "doesNotImply": ["distribution-owns-stake", "reward-accrual-changes-power"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "staking-emergency-status",
+      "from": "sdk-staking",
+      "to": "x-emergency",
+      "relation": "FILTERS",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A responder policy may reference bonded and unjailed status as binary eligibility without stake weighting the ceremony.",
+      "doesNotImply": ["stake-weighted-emergency-vote", "validator-is-independent-controller"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "staking-panel-status",
+      "from": "sdk-staking",
+      "to": "verification-panel",
+      "relation": "FILTERS",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "The current vote-extension transport may reference bonded and unjailed status as a binary eligibility condition.",
+      "doesNotImply": ["stake-weighted-ballot", "wealth-derived-selection"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "staking-profile-validator",
+      "from": "sdk-staking",
+      "to": "x-verifier-profile",
+      "relation": "BINDS",
+      "flows": ["REFERENCE"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "A validator-backed profile resolves canonical operator and consensus identity from SDK staking after operator ownership and controller binding verify.",
+      "doesNotImply": ["consensus-key-copied-as-profile-authority", "validator-creates-controller"],
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "vesting-bank-disbursement",
+      "from": "vesting-rewards-disbursement",
+      "to": "sdk-bank",
+      "relation": "DISBURSES",
+      "flows": ["ECONOMIC"],
+      "status": "TARGET_NOT_ACTIVATED",
+      "meaning": "The bounded handler moves only the scoped amount authorized by the exact typed proposal through SDK bank.",
+      "doesNotImply": ["issuance", "unbounded-account-control"],
+      "sourceRef": "authoritative-state"
+    }
+  ],
+  "currentConflicts": [
+    {
+      "id": "custom-governance-writer",
+      "surface": "custom x/gov LIPs, electorate, stages, parameters, research, and execution",
+      "conflictsWith": "sdk-gov",
+      "risk": "A separate terminal result may disagree with SDK governance or report PASSED without an authorized target mutation.",
+      "requiredDisposition": "RETIRE_WRITES_KEEP_HISTORY",
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "custom-staking-writer",
+      "surface": "x/zerone_staking validators, delegations, unbondings, tiers, reputation, and slash fields",
+      "conflictsWith": "sdk-staking",
+      "risk": "The custom ledger can disagree with consensus staking and contains unreconciled custody claims.",
+      "requiredDisposition": "RECONCILE_RETIRE_WRITES_KEEP_HISTORY",
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "knowledge-direct-fact-writer",
+      "surface": "legacy MsgAddFact and guardian-delayed PendingFactInjection materializer",
+      "conflictsWith": "verification-panel",
+      "risk": "Direct fact adoption bypasses the bounded verification path.",
+      "requiredDisposition": "CANCEL_QUEUE_RETIRE_WRITES_KEEP_HISTORY",
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "knowledge-domain-writer",
+      "surface": "x/knowledge primary domain records and independent activation path",
+      "conflictsWith": "x-ontology",
+      "risk": "Two primary domain registries can disagree while both remain committed state.",
+      "requiredDisposition": "MIGRATE_CANONICALIZE_RETIRE_WRITES",
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "knowledge-pause-correction-writer",
+      "surface": "x/knowledge incident, ModulePause, and surgical-correction mutations",
+      "conflictsWith": "x-emergency",
+      "risk": "A second pause or repair surface would bypass the bounded emergency circuit breaker.",
+      "requiredDisposition": "RETIRE_WRITES_KEEP_AUDIT_EVIDENCE",
+      "sourceRef": "authoritative-state"
+    },
+    {
+      "id": "legacy-research-disbursement-writer",
+      "surface": "legacy research voters, direct DisburseFromResearchFund callers, and unguarded module-account egress",
+      "conflictsWith": "vesting-rewards-disbursement",
+      "risk": "A parallel caller can bypass the sole typed, scope-checked disbursement handler.",
+      "requiredDisposition": "RETIRE_DIRECT_CALLERS_INSTALL_SCOPED_GUARDS",
+      "sourceRef": "authoritative-state"
+    }
+  ],
+  "forbiddenPaths": [
+    {
+      "id": "economic-to-epistemic-power",
+      "flow": "ECONOMIC",
+      "scope": "SAME_FLOW_REACHABILITY",
+      "from": ["research-fund-account", "sdk-bank", "sdk-distribution", "sdk-staking", "vesting-rewards-disbursement", "x-legacy-claims"],
+      "to": ["verification-panel", "x-qualification"],
+      "reason": "Stake, balance, payment, reward accrual, and disbursement may not grant, renew, weight, or preserve qualification or panel power."
+    },
+    {
+      "id": "economic-to-governance-authority",
+      "flow": "ECONOMIC",
+      "scope": "SAME_FLOW_REACHABILITY",
+      "from": ["research-fund-account", "sdk-bank", "sdk-distribution", "sdk-staking", "vesting-rewards-disbursement", "x-legacy-claims"],
+      "to": ["sdk-gov", "x-electorate", "x-emergency"],
+      "reason": "Balances, disbursements, claims, and stake may not become ordinary governance authority in the accepted target design."
+    },
+    {
+      "id": "governance-to-individual-verdict",
+      "flow": "AUTHORITY",
+      "scope": "SAME_FLOW_REACHABILITY",
+      "from": ["sdk-gov"],
+      "to": ["karma-register", "verification-panel"],
+      "reason": "Ordinary governance may set future policy but may not directly choose a panel verdict or assign recognition."
+    },
+    {
+      "id": "identity-to-epistemic-authority",
+      "flow": "AUTHORITY",
+      "scope": "SAME_FLOW_REACHABILITY",
+      "from": ["x-auth", "x-controller", "x-verifier-profile"],
+      "to": ["verification-panel", "x-knowledge", "x-ontology", "x-qualification"],
+      "reason": "Identity and participation records may authenticate or deduplicate; they do not decide domains, competence, or truth."
+    },
+    {
+      "id": "recognition-to-authority",
+      "flow": "RECOGNITION",
+      "scope": "SAME_FLOW_REACHABILITY",
+      "from": ["karma-register"],
+      "to": ["sdk-gov", "verification-panel", "x-electorate", "x-emergency", "x-qualification"],
+      "reason": "KARMA recognition has no outgoing route into governance, emergency, electorate, qualification, or ballot power."
+    }
+  ],
+  "releaseBoundary": {
+    "changesConsensus": false,
+    "schedulesUpgrade": false,
+    "writesChainState": false,
+    "movesFunds": false,
+    "grantsAuthority": false,
+    "grantsIdentity": false,
+    "grantsQualification": false,
+    "recordsConsent": false,
+    "activatesRewards": false,
+    "claimsLiveMigration": false
+  }
+}

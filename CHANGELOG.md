@@ -61,6 +61,12 @@ behavior.
 
 ### Added
 
+- A digest-pinned Relational Topology v0 standard and accessible dashboard map
+  for typed authority, economic, emergency, evidence, identity, recognition,
+  and reference flows. It names six known source conflicts and enforces five
+  same-flow non-domination guards while remaining a non-authoritative static
+  projection with no consensus, state, identity, qualification, reward, or
+  migration effect.
 - An accepted, hash-pinned authoritative-state design that makes SDK staking
   the sole long-lived stake ledger, SDK governance the sole ordinary executor,
   and ontology the sole canonical domain registry. It is source design only;
