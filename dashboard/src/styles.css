@@ -7395,6 +7395,12 @@
 }
 
 @layer utilities {
+  @media (min-width: 1041px) and (max-width: 1200px) {
+    .network-pill {
+      display: none;
+    }
+  }
+
   @media (max-width: 1040px) {
     :root {
       --page: min(100% - 36px, 980px);
