@@ -38,7 +38,8 @@ issuance pathways retain their own evidence and governance rules. See
 | [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | Research-fund committee model and implementation gaps |
 | [LIQUIDITY-TRANSPARENCY.md](LIQUIDITY-TRANSPARENCY.md) | External Osmosis testnet position, separate from the native module |
 | [REVIEW.md](REVIEW.md) | Frozen historical critique; not current accounting |
-| [CONSTRUCTIVE-INTELLIGENCE-REWARDS.md](CONSTRUCTIVE-INTELLIGENCE-REWARDS.md) | Pre-consensus reward projection from the canonical capability tree onto artifact evidence, with power separation and fail-closed release gates |
+| [CONSTRUCTIVE-INTELLIGENCE-REWARDS.md](CONSTRUCTIVE-INTELLIGENCE-REWARDS.md) | Pre-consensus reward projection from the canonical capability tree onto artifact evidence, including a conserved branch-flow role envelope, power separation, and fail-closed release gates |
+| [../specs/constructive-intelligence-branch-flow-v1.md](../specs/constructive-intelligence-branch-flow-v1.md) | Accepted exact shadow architecture for one conserved 60% direct / 10% upstream / 30% downstream envelope with absolute geometric depth and economic effect `NONE` |
 | [../specs/constructive-intelligence-math-frontier-v0.md](../specs/constructive-intelligence-math-frontier-v0.md) | Zero-value formal-mathematics skill-tree extension and sponsor-quest template with ordinal-only KARMA and no privileged seats, shares, or activation authority |
 
 ## Quick boundaries
@@ -53,6 +54,7 @@ issuance pathways retain their own evidence and governance rules. See
 | Default pool swap fee | 0.3%, retained by LP-backed reserves |
 | Real `uzrn` transaction-fee routing | 19.67% development / 3.33% research / ~77% normal distribution |
 | General burn share | 0%; rejected substrate-attestation bonds are a narrow exception |
+| Branch-flow economic effect | `NONE`; shadow only, with all activation gates closed |
 
 ## Design philosophy
 
@@ -67,3 +69,7 @@ issuance pathways retain their own evidence and governance rules. See
    trigger.
 5. **History is not rewritten.** Genesis and pre-H1 events remain the truthful
    record; migration changes prospective runtime state only.
+6. **Attribution conserves its envelope.** Direct, upstream, downstream, and
+   terminal amounts divide one prospectively funded role envelope. They do not
+   create recursive issuance, ownership of descendants, or a separate
+   breakthrough prize.

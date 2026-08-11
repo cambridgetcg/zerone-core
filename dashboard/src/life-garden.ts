@@ -1987,7 +1987,7 @@ function renderRewardTemplate(garden: EpigeneticsCapabilityGarden): HTMLElement 
   const heading = element("div", "life-panel-heading");
   const copy = element("div");
   copy.append(
-    element("span", "card-kicker", "Breakthrough reward shape"),
+    element("span", "card-kicker", "Outcome reward shape"),
     element("h3", undefined, "Evidence first. Money last."),
     element(
       "p",

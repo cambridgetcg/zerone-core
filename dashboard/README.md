@@ -76,6 +76,38 @@ never recognition, truth, ranking, qualification, reward weight, or a vote.
 The named future eligibility-and-sortition direction is explicitly not
 implemented and cannot be activated from the dashboard or this static file.
 
+## Branch Flow v1 shadow profile
+
+The read-only Branch Flow panel loads
+`/standards/constructive-intelligence-branch-flow.v1.json` through an exact
+same-origin path with redirect refusal, a 32,768-byte streaming cap, timeout,
+JSON media-type check, and reviewed SHA-256 pin. The standard also binds the
+canonical reference-policy preimage and digest independently from the full
+document bytes. The reference profile divides one already funded envelope into
+60% direct, 10% upstream, 30% downstream, and 0% base commons, with absolute
+half-per-hop buckets through depth five and a terminal tail. Empty depths never
+enlarge later buckets.
+
+This is `SHADOW_ONLY` architecture with economic effect `NONE`, static
+activated amount `0 uzrn`, `network_observed = false`, and all integration
+gates closed. The funded semantic cluster is the economic subject; a
+breakthrough label is retrospective and is neither
+an allocation input nor a separate prize. The static profile does not select
+evidence, policy, controllers, winners, or an authority; it reads and writes no
+chain state and moves no funds. Receipt use is globally exclusive. Within each
+bucket, claimant weights aggregate by controller, each controller receives its
+conservative proportional floor, and cross-controller rounding residue routes
+terminal before any same-controller line division. The complete cohort is then
+controller-aggregated before caps. Each admitted descendant impact is
+`PAYABLE` or a `TERMINAL` tombstone; the latter preserves capacity without a
+claimant line. Within that fixed cohort, missing role weight, visible
+controller ineligibility, rounding, caps, dust, and tail remain in the named
+terminal commons or refund route. The profile cannot establish authoritative
+cohort completeness, so that release gate remains closed. TC6 training revenue
+is not implemented here and
+would require a separate ledger, receipt namespace, and reviewed settlement
+specification.
+
 ## Epigenetics garden and KARMA foundation
 
 The life-science explorer reads two separate, versioned static documents:
@@ -155,8 +187,9 @@ npm run build
 
 `npm run check` validates the Frontier Commons FC-0 invitation, its subordinate
 FL-0 receipt shadow, the exact-bound additive Participation Compact, the base
-tree, Math Frontier, and life-science documents, then type-checks both the
-browser application and Pages Functions.
+tree, Branch Flow reference-policy digest and zero-effect boundary, Math
+Frontier, and life-science documents, then type-checks both the browser
+application and Pages Functions.
 `npm test` exercises the REST/RPC allowlists against injected fake upstreams;
 it cannot contact the production node. `npm run build` repeats those gates,
 builds the Vite application, and compiles Pages Functions with the repository's

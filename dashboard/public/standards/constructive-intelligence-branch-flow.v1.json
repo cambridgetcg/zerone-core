@@ -1,0 +1,269 @@
+{
+  "schema": "zerone.constructive-intelligence-branch-flow/v1",
+  "status": "SHADOW_ONLY",
+  "assurance": "SHADOW_ONLY",
+  "economic_effect": "NONE",
+  "moves_funds": false,
+  "integration_ready": false,
+  "authoritative": false,
+  "network_observed": false,
+  "reward_bearing": false,
+  "snapshot_date": "2026-08-11",
+  "specification": "docs/specs/constructive-intelligence-branch-flow-v1.md",
+  "purpose": "A static, non-custodial reference profile for projecting one conserved contribution envelope across direct work, load-bearing ancestors, independently evidenced descendants, and a terminal commons or refund destination.",
+  "base_tree": {
+    "schema": "zerone.constructive-intelligence-tree/v1",
+    "endpoint": "/standards/constructive-intelligence-tree.v1.json",
+    "sha256": "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf"
+  },
+  "reference_policy": {
+    "policy_digest": "sha256:cc8601fdc0efd8b0260a5a979fa456f43e45be7a3ebd821ca330b389ebb26684",
+    "scale_ppm": 1000000,
+    "base_commons_ppm": 0,
+    "direct_ppm": 600000,
+    "domain_id": "general",
+    "domain_revision": 1,
+    "downstream_continuation_ppm": 500000,
+    "downstream_max_depth": 5,
+    "downstream_ppm": 300000,
+    "envelope_controller_cap_ppm": 1000000,
+    "min_projected_payout_uzrn": "0",
+    "program_window_cap_uzrn": "",
+    "upstream_continuation_ppm": 500000,
+    "upstream_max_depth": 5,
+    "upstream_ppm": 100000,
+    "decay": [
+      {
+        "direction": "UPSTREAM",
+        "continuation_ppm": 500000,
+        "max_depth": 5,
+        "depth_weights_ppm": [
+          500000,
+          250000,
+          125000,
+          62500,
+          31250
+        ],
+        "tail_ppm": 31250
+      },
+      {
+        "direction": "DOWNSTREAM",
+        "continuation_ppm": 500000,
+        "max_depth": 5,
+        "depth_weights_ppm": [
+          500000,
+          250000,
+          125000,
+          62500,
+          31250
+        ],
+        "tail_ppm": 31250
+      }
+    ],
+    "absolute_depth_buckets": true,
+    "empty_depths_renormalize": false,
+    "recursive_issuance": false,
+    "post_admission_terminal_mass_renormalizes": false,
+    "post_settlement_unattributed_routes_to_terminal_destination": true
+  },
+  "milestone_boundary": {
+    "milestones": [
+      {
+        "level": "E2",
+        "outcome_pool_bps": 1500,
+        "constraint": "CLASS_VERIFICATION"
+      },
+      {
+        "level": "E3",
+        "outcome_pool_bps": 2000,
+        "constraint": "NOVELTY_MAY_SHAPE_ONLY_HERE"
+      },
+      {
+        "level": "E4",
+        "outcome_pool_bps": 1500,
+        "constraint": "ATTACK_DISPROOF_OR_REPAIR_COMPARTMENT"
+      },
+      {
+        "level": "E5",
+        "outcome_pool_bps": 2500,
+        "constraint": "DOWNSTREAM_CONSEQUENCE_MAY_SHAPE"
+      },
+      {
+        "level": "E6",
+        "outcome_pool_bps": 1000,
+        "constraint": "MAINTAINED_CONSEQUENCE_MAY_SHAPE"
+      }
+    ],
+    "challenge_and_remediation_reserve_bps": 1500,
+    "total_outcome_pool_bps": 10000,
+    "downstream_consequence_levels": [
+      "E5",
+      "E6"
+    ],
+    "novelty_level": "E3",
+    "attack_disproof_repair_level": "E4",
+    "branch_flow_is_additive_bonus": false,
+    "skill_unlock_creates_entitlement": false,
+    "breakthrough_creates_funds": false
+  },
+  "allocation_invariants": {
+    "funded_cluster_is_economic_subject": true,
+    "breakthrough_is_allocation_input": false,
+    "breakthrough_creates_prize": false,
+    "one_conserved_envelope": true,
+    "additive_bonus": false,
+    "edge_orientation": "CHILD_TO_PARENT",
+    "graph_input": "ADJUDICATED_ACYCLIC_DAG",
+    "edge_share_formula": "floor(S*a/max(S,sum_a))",
+    "descendant_impact_share_formula": "floor(S*m/max(S,sum_m_per_semantic_descendant))",
+    "graph_multiplication_rounding": "FLOOR_EACH_STEP",
+    "graph_floor_residue_is_reserved_terminal_mass": false,
+    "independent_abundance_may_fill_fixed_bucket": true,
+    "absolute_sparse_depths": true,
+    "admitted_impact_dispositions": [
+      "PAYABLE",
+      "TERMINAL"
+    ],
+    "terminal_disposition_preserves_capacity": true,
+    "terminal_disposition_consumes_receipt": true,
+    "economic_receipt_use": "GLOBAL_EXCLUSIVE",
+    "accepted_receipt_use": "CONSUME_ON_SUCCESSFUL_EVALUATION",
+    "zero_projection_consumes_accepted_receipt": true,
+    "invalid_request_consumes_receipt": false,
+    "controller_aggregation": "BEFORE_CAPS_AND_ROUNDING",
+    "funded_controller_descendant_credit_eligible": false,
+    "mixed_control_descendant_independent_credits_remain_evaluable": true,
+    "hidden_or_correlated_control_requires_external_adjudication": true,
+    "monetary_apportionment": "FLOOR_PER_CONTROLLER_RESIDUAL_TO_TERMINAL_INNER_HAMILTON",
+    "exact_tie_priority": "COMMONS_THEN_CANONICAL_KEY",
+    "terminal_reasons": [
+      "BASE",
+      "ADMITTED_TERMINAL",
+      "UNATTRIBUTED",
+      "CONTROLLER_INELIGIBILITY",
+      "ROUNDING",
+      "CAP",
+      "DUST",
+      "TAIL"
+    ],
+    "implemented_adapter": "OUTCOME_REWARD_ONLY",
+    "reference_milestone": "E5",
+    "impact_milestone_must_match_funded_milestone": true,
+    "pre_e5_downstream_ppm": 0,
+    "pre_e5_descendant_impacts_allowed": false,
+    "tc6_training_revenue": {
+      "implemented": false,
+      "separate_ledger_required": true,
+      "separate_receipt_namespace_required": true
+    }
+  },
+  "authority_boundary": {
+    "allocator_is_authority": false,
+    "accepts_adjudicated_inputs_only": true,
+    "selects_policy": false,
+    "selects_winners": false,
+    "reads_store": false,
+    "writes_store": false,
+    "uses_bank": false,
+    "uses_clock": false,
+    "uses_network": false,
+    "uses_signer": false,
+    "changes_governance": false,
+    "changes_qualification": false,
+    "changes_karma": false,
+    "changes_ontology": false
+  },
+  "release_boundary": {
+    "assurance": "SHADOW_ONLY",
+    "economic_effect": "NONE",
+    "amount_uzrn": "0",
+    "integration_ready": false,
+    "adds_consensus_behavior": false,
+    "activates_rewards": false,
+    "moves_funds": false,
+    "creates_entitlement": false,
+    "mints": false,
+    "reserves": false,
+    "transfers": false,
+    "vests": false,
+    "burns": false,
+    "claws_back": false,
+    "reads_chain_state": false,
+    "writes_chain_state": false,
+    "grants_qualification": false,
+    "grants_governance_power": false,
+    "modifies_karma": false,
+    "modifies_ontology": false,
+    "activates_upgrade": false
+  },
+  "release_gates": [
+    {
+      "id": "canonical-semantic-cluster-adjudication",
+      "passed": false
+    },
+    {
+      "id": "typed-causal-edge-and-consequence-receipts",
+      "passed": false
+    },
+    {
+      "id": "global-economic-receipt-consumption",
+      "passed": false
+    },
+    {
+      "id": "authoritative-controller-records-and-merges",
+      "passed": false
+    },
+    {
+      "id": "class-specific-dependency-and-impact-scorers",
+      "passed": false
+    },
+    {
+      "id": "fixed-funding-liability-expiry-refund-and-commons-state",
+      "passed": false
+    },
+    {
+      "id": "exact-milestone-and-observation-window-transitions",
+      "passed": false
+    },
+    {
+      "id": "authoritative-closed-cohort-membership-and-terminal-tombstones",
+      "passed": false
+    },
+    {
+      "id": "envelope-and-program-window-controller-caps",
+      "passed": false
+    },
+    {
+      "id": "atomic-role-commons-replay-liability-and-bank-settlement",
+      "passed": false
+    },
+    {
+      "id": "backed-vesting-schedules-and-monetary-migration",
+      "passed": false
+    },
+    {
+      "id": "sdk-governance-only-policy-authority",
+      "passed": false
+    },
+    {
+      "id": "bounded-performance-storage-replay-and-dos-analysis",
+      "passed": false
+    },
+    {
+      "id": "two-exact-implementations-and-golden-vectors",
+      "passed": false
+    },
+    {
+      "id": "adversarial-simulation-and-independent-review",
+      "passed": false
+    },
+    {
+      "id": "upgrade-rollback-incident-and-production-verification",
+      "passed": false
+    },
+    {
+      "id": "separately-authorized-network-release",
+      "passed": false
+    }
+  ]
+}
