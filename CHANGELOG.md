@@ -61,6 +61,10 @@ behavior.
 
 ### Added
 
+- A bounded, read-only Knowledge Geometry projection and dashboard lens for
+  public `zerone-1` facts and their explicitly declared typed relations. It
+  preserves missing relations and contradiction without inferring affinity,
+  understanding, authority, qualification, KARMA, or economic effect.
 - A digest-pinned Relational Topology v0 standard and accessible dashboard map
   for typed authority, economic, emergency, evidence, identity, recognition,
   and reference flows. It names six known source conflicts and enforces five
