@@ -1,4 +1,4 @@
-.PHONY: build install test lint proto-gen proto-swagger-gen proto-check creed-check clean pr-check cosmovisor-init boot-test genesis-check \
+.PHONY: build install test lint proto-gen proto-swagger-gen proto-check creed-check authority-check clean pr-check cosmovisor-init boot-test genesis-check \
        build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-all release
 
 # Only protocol release tags may become the embedded version. Component or
@@ -54,6 +54,17 @@ creed-check:
 	@bash scripts/check_readme_hash.sh
 	@bash scripts/check_recursion_manifest.sh
 
+authority-check:
+	@go test ./tools/authority-graph -count=1
+	@go run ./tools/authority-graph report >/dev/null
+	@result=$$(go run ./tools/authority-graph target-gate 2>/dev/null); status=$$?; \
+		if [ "$$status" -eq 0 ]; then \
+			echo "authority target-gate unexpectedly succeeded" >&2; \
+			exit 1; \
+		fi; \
+		printf '%s\n' "$$result" | grep -F '"status": "TARGET_GATE_REFUSED"' >/dev/null && \
+		printf '%s\n' "$$result" | grep -F '"dual-staking-ledgers"' >/dev/null
+
 recursion-check:
 	@bash scripts/recursion-check.sh
 
@@ -84,7 +95,7 @@ release: build-all
 clean:
 	rm -rf build/
 
-pr-check: lint test proto-check creed-check build
+pr-check: lint test proto-check creed-check authority-check build
 	@echo "PR check passed"
 
 cosmovisor-init: build
