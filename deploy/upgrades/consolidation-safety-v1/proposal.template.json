@@ -1,0 +1,18 @@
+{
+  "_comment": "consolidation-safety-v1 gov proposal template. plan.info MUST be canonical compact sorted-key JSON (>=1 key, <=4096 bytes) — H1's startup lineage wall verifies it byte-for-byte against data/upgrade-info.json; free text bricks the swap. Replace <HEIGHT> and <IMAGE-DIGEST-REF>; deposit is the live min_deposit (100 ZRN).",
+  "messages": [
+    {
+      "@type": "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",
+      "authority": "zrn10d07y265gmmuvt4z0w9aw880jnsr700j47tt89",
+      "plan": {
+        "name": "consolidation-safety-v1",
+        "height": "<HEIGHT>",
+        "info": "{\"commit\":\"65c19cd8b00bdfff9b80705b776fd0d49719398a\",\"image\":\"<IMAGE-DIGEST-REF>\"}"
+      }
+    }
+  ],
+  "metadata": "",
+  "deposit": "100000000uzrn",
+  "title": "consolidation-safety-v1",
+  "summary": "H1: knowledge 5->6 (conjecture engine ignition), claiming_pot 1->2, liquiditypool 3->5, vesting_rewards explicitly unchanged at 1. Source commit 65c19cd8 (independently accepted). Rollback while halted only: previous image + EXTRA_START_FLAGS --unsafe-skip-upgrades <HEIGHT>; after the height commits, repair forward with a new named upgrade."
+}
