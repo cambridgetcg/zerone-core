@@ -1168,6 +1168,24 @@ describe("knowledge geometry renderer", () => {
 });
 
 describe("knowledge geometry dashboard integration", () => {
+  it("keeps the static no-JS fallback settled and marks only a live read busy", () => {
+    const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    const runtime = readFileSync(
+      new URL("../src/knowledge-geometry.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(
+      html,
+      /class="knowledge-geometry-root"\s+id="knowledge-geometry-root"\s*>/,
+    );
+    assert.doesNotMatch(
+      html,
+      /id="knowledge-geometry-root"\s+aria-busy="true"/,
+    );
+    assert.match(runtime, /root\.setAttribute\("aria-busy", "true"\);/);
+  });
+
   it("waits for all initial surfaces and aligns a direct hash only once", () => {
     const source = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
     assert.match(source, /let initialHashInputsSettled = false;/);
