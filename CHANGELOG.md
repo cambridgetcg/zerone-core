@@ -7,6 +7,10 @@ publication are separate events and are stated explicitly when they occur.
 
 ### Added
 
+- A bounded, read-only Knowledge Geometry projection and dashboard lens for
+  public `zerone-1` facts and their explicitly declared typed relations. It
+  preserves missing relations and contradiction without inferring affinity,
+  understanding, authority, qualification, KARMA, or economic effect.
 - An accepted, hash-pinned authoritative-state design that makes SDK staking
   the sole long-lived stake ledger, SDK governance the sole ordinary executor,
   and ontology the sole canonical domain registry. It is source design only;

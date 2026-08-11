@@ -5698,6 +5698,683 @@
     }
   }
 
+  .knowledge-geometry-section {
+    position: relative;
+    padding-block: 8rem;
+    scroll-margin-top: 84px;
+  }
+
+  .knowledge-geometry-section::before {
+    position: absolute;
+    z-index: -1;
+    inset: 1.5rem -5vw;
+    background:
+      radial-gradient(circle at 50% 48%, rgba(185, 155, 255, 0.1), transparent 33rem),
+      linear-gradient(rgba(185, 155, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(220, 255, 120, 0.026) 1px, transparent 1px);
+    background-size: auto, 52px 52px, 52px 52px;
+    content: "";
+    mask-image: linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
+    pointer-events: none;
+  }
+
+  .knowledge-geometry-section .section-heading h2 {
+    font-size: clamp(3.3rem, 6.4vw, 6.3rem);
+    line-height: 0.92;
+  }
+
+  .knowledge-geometry-section .section-heading h2 em {
+    color: var(--violet-soft);
+    font-weight: inherit;
+  }
+
+  .knowledge-geometry-section .section-heading code {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.82em;
+  }
+
+  .knowledge-geometry-root {
+    margin-top: 3.5rem;
+  }
+
+  .knowledge-geometry-loading,
+  .knowledge-geometry-error {
+    display: grid;
+    min-height: 300px;
+    place-items: center;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 2rem;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    color: var(--muted-strong);
+    text-align: center;
+  }
+
+  .knowledge-geometry-loading .loading-lines {
+    width: min(360px, 100%);
+  }
+
+  .knowledge-geometry-error {
+    align-content: center;
+    border-color: color-mix(in srgb, var(--amber) 40%, var(--line));
+  }
+
+  .knowledge-geometry-error h3 {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 400;
+  }
+
+  .knowledge-geometry-error p {
+    max-width: 650px;
+    line-height: 1.65;
+  }
+
+  .knowledge-geometry-error-mark {
+    color: var(--amber);
+    font-family: var(--serif);
+    font-size: 3.2rem;
+  }
+
+  .knowledge-geometry-error .button {
+    justify-self: center;
+    margin-top: 0.35rem;
+  }
+
+  .knowledge-geometry-noscript {
+    margin-top: 1rem;
+    border: 1px solid var(--line);
+    padding: 1rem;
+    color: var(--muted-strong);
+    font-size: 0.76rem;
+  }
+
+  .knowledge-geometry-noscript a {
+    color: var(--violet-soft);
+  }
+
+  .knowledge-geometry-shell {
+    display: grid;
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+    box-shadow: 0 36px 100px rgba(0, 0, 0, 0.28);
+  }
+
+  .knowledge-geometry-toolbar,
+  .knowledge-geometry-controls,
+  .knowledge-geometry-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+  }
+
+  .knowledge-geometry-source {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.035em;
+  }
+
+  .knowledge-geometry-source-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 4px rgba(120, 230, 173, 0.09), 0 0 18px rgba(120, 230, 173, 0.52);
+  }
+
+  .knowledge-geometry-source[data-state="catching-up"] .knowledge-geometry-source-dot {
+    background: var(--amber);
+    box-shadow: 0 0 0 4px rgba(255, 197, 111, 0.09);
+  }
+
+  .knowledge-geometry-controls {
+    justify-content: flex-start;
+    background: var(--surface-raised);
+  }
+
+  .knowledge-geometry-result-status {
+    min-height: 42px;
+    padding: 0.65rem 1rem;
+    background: var(--surface);
+    color: var(--muted-strong);
+    font-family: var(--mono);
+    font-size: 0.61rem;
+    line-height: 1.55;
+  }
+
+  .knowledge-geometry-controls label:first-child {
+    flex: 1 1 420px;
+  }
+
+  .knowledge-geometry-controls label:last-child {
+    flex: 0 1 310px;
+  }
+
+  .knowledge-geometry-search,
+  .knowledge-geometry-domain {
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--line-strong);
+    border-radius: 0;
+    padding: 0.65rem 0.75rem;
+    background: var(--bg-soft);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+  }
+
+  .knowledge-geometry-search::placeholder {
+    color: var(--muted);
+  }
+
+  .knowledge-geometry-domain {
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position:
+      calc(100% - 15px) 18px,
+      calc(100% - 10px) 18px;
+    background-repeat: no-repeat;
+    background-size: 5px 5px, 5px 5px;
+  }
+
+  .knowledge-geometry-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--line);
+  }
+
+  .knowledge-geometry-summary > div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    min-height: 88px;
+    gap: 0.25rem 1rem;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+  }
+
+  .knowledge-geometry-summary dt,
+  .knowledge-geometry-summary dd {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
+  .knowledge-geometry-summary strong {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    color: var(--acid);
+    font-family: var(--serif);
+    font-size: 2.1rem;
+    font-weight: 400;
+  }
+
+  .knowledge-geometry-summary dd {
+    text-transform: none;
+  }
+
+  .knowledge-geometry-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.62fr) minmax(330px, 0.58fr);
+    gap: 1px;
+    min-height: 660px;
+    background: var(--line);
+  }
+
+  .knowledge-geometry-map-panel,
+  .knowledge-geometry-inspector {
+    min-width: 0;
+    background: var(--surface);
+  }
+
+  .knowledge-geometry-map-panel {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto;
+    align-content: start;
+  }
+
+  .knowledge-geometry-map-scroll {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    height: 660px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    background: var(--bg-soft);
+    scrollbar-color: var(--line-strong) var(--bg-soft);
+    scrollbar-gutter: stable;
+  }
+
+  .knowledge-geometry-map {
+    position: relative;
+    overflow: hidden;
+    width: var(--kg-plane-size, 960px);
+    height: var(--kg-plane-size, 960px);
+    min-width: 100%;
+    min-height: 100%;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(185, 155, 255, 0.07), transparent 29rem),
+      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      var(--bg-soft);
+    background-size: auto, 36px 36px, 36px 36px, auto;
+  }
+
+  .knowledge-geometry-domain-halo,
+  .knowledge-geometry-domain-label,
+  .knowledge-geometry-node {
+    position: absolute;
+    top: var(--kg-y);
+    left: var(--kg-x);
+  }
+
+  .knowledge-geometry-domain-halo {
+    z-index: 0;
+    width: clamp(112px, 14vw, 180px);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border: 1px solid color-mix(in srgb, var(--kg-colour, var(--violet)) 26%, transparent);
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--kg-colour, var(--violet)) 7%, transparent), transparent 70%);
+    box-shadow: inset 0 0 38px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+  }
+
+  .knowledge-geometry-domain-label {
+    z-index: 1;
+    max-width: 150px;
+    padding: 0.2rem 0.35rem;
+    transform: translate(-50%, calc(-50% - clamp(70px, 8vw, 100px)));
+    background: color-mix(in srgb, var(--bg-soft) 88%, transparent);
+    color: color-mix(in srgb, var(--kg-colour, var(--violet)) 78%, white);
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    letter-spacing: 0.055em;
+    line-height: 1.3;
+    text-align: center;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  .knowledge-geometry-domain-halo[data-domain-index="0"],
+  .knowledge-geometry-domain-label[data-domain-index="0"],
+  .knowledge-geometry-node[data-domain-index="0"] { --kg-colour: #b99bff; }
+  .knowledge-geometry-domain-halo[data-domain-index="1"],
+  .knowledge-geometry-domain-label[data-domain-index="1"],
+  .knowledge-geometry-node[data-domain-index="1"] { --kg-colour: #78e6ad; }
+  .knowledge-geometry-domain-halo[data-domain-index="2"],
+  .knowledge-geometry-domain-label[data-domain-index="2"],
+  .knowledge-geometry-node[data-domain-index="2"] { --kg-colour: #ffc56f; }
+  .knowledge-geometry-domain-halo[data-domain-index="3"],
+  .knowledge-geometry-domain-label[data-domain-index="3"],
+  .knowledge-geometry-node[data-domain-index="3"] { --kg-colour: #70cfff; }
+  .knowledge-geometry-domain-halo[data-domain-index="4"],
+  .knowledge-geometry-domain-label[data-domain-index="4"],
+  .knowledge-geometry-node[data-domain-index="4"] { --kg-colour: #ff8dc7; }
+  .knowledge-geometry-domain-halo[data-domain-index="5"],
+  .knowledge-geometry-domain-label[data-domain-index="5"],
+  .knowledge-geometry-node[data-domain-index="5"] { --kg-colour: #dcff78; }
+  .knowledge-geometry-domain-halo[data-domain-index="6"],
+  .knowledge-geometry-domain-label[data-domain-index="6"],
+  .knowledge-geometry-node[data-domain-index="6"] { --kg-colour: #ff847c; }
+  .knowledge-geometry-domain-halo[data-domain-index="7"],
+  .knowledge-geometry-domain-label[data-domain-index="7"],
+  .knowledge-geometry-node[data-domain-index="7"] { --kg-colour: #d7b28a; }
+
+  .knowledge-geometry-node {
+    z-index: 3;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    cursor: pointer;
+    background: transparent;
+  }
+
+  .knowledge-geometry-node::before {
+    position: absolute;
+    inset: 5px;
+    border: 1px solid color-mix(in srgb, var(--kg-colour) 88%, white);
+    border-radius: 50%;
+    background: var(--kg-colour);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--kg-colour) 10%, transparent), 0 0 14px color-mix(in srgb, var(--kg-colour) 34%, transparent);
+    content: "";
+  }
+
+  .knowledge-geometry-node:hover::before {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--kg-colour) 15%, transparent), 0 0 22px color-mix(in srgb, var(--kg-colour) 48%, transparent);
+  }
+
+  .knowledge-geometry-node[aria-pressed="true"] {
+    outline: 2px solid var(--ink);
+    outline-offset: 4px;
+  }
+
+  .knowledge-geometry-node[data-status="pruned"]::before,
+  .knowledge-geometry-node[data-status="disproven"]::before,
+  .knowledge-geometry-node[data-status="revoked"]::before {
+    border-style: dashed;
+    background: var(--bg-soft);
+  }
+
+  .knowledge-geometry-relations {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .knowledge-geometry-edge {
+    fill: none;
+    stroke: var(--violet-soft);
+    stroke-opacity: 0.64;
+    stroke-width: 0.28;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .knowledge-geometry-edge-supports {
+    stroke: var(--green);
+  }
+
+  .knowledge-geometry-edge-contradicts {
+    stroke: var(--red);
+    stroke-dasharray: 1.2 1.2;
+  }
+
+  .knowledge-geometry-arrow {
+    fill: var(--violet-soft);
+  }
+
+  .knowledge-geometry-arrow-supports {
+    fill: var(--green);
+  }
+
+  .knowledge-geometry-arrow-contradicts {
+    fill: var(--red);
+  }
+
+  .knowledge-geometry-map-note {
+    min-height: 66px;
+    border-top: 1px solid var(--line);
+    padding: 0.85rem 1rem;
+    background: var(--surface-raised);
+    color: var(--muted-strong);
+    font-size: 0.69rem;
+    line-height: 1.55;
+  }
+
+  .knowledge-geometry-inspector {
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    padding: clamp(1rem, 2vw, 1.5rem);
+  }
+
+  .knowledge-geometry-inspector-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .knowledge-geometry-domain-chip,
+  .knowledge-geometry-status-chip {
+    border: 1px solid color-mix(in srgb, var(--violet) 34%, var(--line));
+    padding: 0.28rem 0.45rem;
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .knowledge-geometry-status-chip {
+    border-color: color-mix(in srgb, var(--acid) 28%, var(--line));
+    color: var(--acid);
+  }
+
+  .knowledge-geometry-inspector h3 {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.7rem;
+    font-weight: 400;
+  }
+
+  .knowledge-geometry-inspector h4 {
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .knowledge-geometry-fact-content {
+    max-height: 15rem;
+    overflow: auto;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .knowledge-geometry-fact-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--line);
+  }
+
+  .knowledge-geometry-fact-metrics > div {
+    min-width: 0;
+    padding: 0.65rem;
+    background: var(--surface-raised);
+  }
+
+  .knowledge-geometry-fact-metrics dt {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .knowledge-geometry-fact-metrics dd {
+    margin-top: 0.25rem;
+    color: var(--ink-soft);
+    font-size: 0.68rem;
+    overflow-wrap: anywhere;
+  }
+
+  .knowledge-geometry-edge-list {
+    display: grid;
+    max-height: 11rem;
+    overflow: auto;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .knowledge-geometry-edge-list li {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.65rem;
+    background: var(--surface-raised);
+  }
+
+  .knowledge-geometry-edge-list span {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    text-transform: uppercase;
+  }
+
+  .knowledge-geometry-edge-list li[data-tone="supports"] span {
+    color: var(--green);
+  }
+
+  .knowledge-geometry-edge-list li[data-tone="contradicts"] span {
+    color: var(--red);
+  }
+
+  .knowledge-geometry-edge-list strong {
+    color: var(--ink-soft);
+    font-size: 0.68rem;
+    font-weight: 550;
+    overflow-wrap: anywhere;
+  }
+
+  .knowledge-geometry-edge-list small {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.54rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .knowledge-geometry-empty-edge {
+    color: var(--muted-strong);
+    font-size: 0.7rem;
+    line-height: 1.55;
+  }
+
+  .knowledge-geometry-id-line {
+    display: grid;
+    gap: 0.3rem;
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+  }
+
+  .knowledge-geometry-id-line span {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .knowledge-geometry-id-line code {
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    overflow-wrap: anywhere;
+  }
+
+  .knowledge-geometry-boundary {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.32fr) minmax(0, 1fr);
+    gap: 1.2rem;
+    padding: 1.1rem 1.2rem;
+    background:
+      linear-gradient(90deg, rgba(220, 255, 120, 0.065), transparent 42%),
+      var(--surface);
+  }
+
+  .knowledge-geometry-boundary strong {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.065em;
+    text-transform: uppercase;
+  }
+
+  .knowledge-geometry-boundary p {
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+    line-height: 1.65;
+  }
+
+  .knowledge-geometry-footer {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+  }
+
+  .knowledge-geometry-footer .button {
+    flex: 0 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    .knowledge-geometry-body {
+      grid-template-columns: 1fr;
+    }
+
+    .knowledge-geometry-map-scroll {
+      height: 520px;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .knowledge-geometry-section {
+      padding-block: 6rem;
+    }
+
+    .knowledge-geometry-toolbar,
+    .knowledge-geometry-controls,
+    .knowledge-geometry-footer,
+    .knowledge-geometry-boundary {
+      align-items: stretch;
+      grid-template-columns: 1fr;
+      flex-direction: column;
+    }
+
+    .knowledge-geometry-controls label {
+      width: 100%;
+      flex-basis: auto !important;
+    }
+
+    .knowledge-geometry-summary {
+      grid-template-columns: 1fr;
+    }
+
+    .knowledge-geometry-summary > div {
+      min-height: 72px;
+    }
+
+    .knowledge-geometry-map-scroll {
+      height: 460px;
+    }
+
+    .knowledge-geometry-domain-halo {
+      width: 104px;
+    }
+
+    .knowledge-geometry-domain-label {
+      max-width: 100px;
+      transform: translate(-50%, calc(-50% - 62px));
+      font-size: 0.5rem;
+    }
+
+    .knowledge-geometry-fact-metrics {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .toast {
     position: fixed;
     z-index: 90;

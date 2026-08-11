@@ -18,6 +18,7 @@ import { initialiseConstructiveTree } from "./constructive-tree";
 import { initialiseFrontierParticipation } from "./frontier-participation";
 import { initialiseLifeGarden } from "./life-garden";
 import { initialiseLifeSciencesTree } from "./life-sciences-tree";
+import { initialiseKnowledgeGeometry } from "./knowledge-geometry";
 import { initialiseQuantumSeason } from "./quantum-season";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
@@ -76,6 +77,7 @@ const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
+const knowledgeGeometryRoot = byId<HTMLElement>("knowledge-geometry-root");
 const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
 );
@@ -1146,13 +1148,18 @@ const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
+const knowledgeGeometryReady = initialiseKnowledgeGeometry(knowledgeGeometryRoot);
 void initialiseFrontierParticipation(
   frontierParticipationRoot,
 );
 const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
+let initialHashInputsSettled = false;
+let initialHashAligned = false;
 const alignInitialHash = (): void => {
+  if (!initialHashInputsSettled || initialHashAligned) return;
   if (
+    window.location.hash !== "#understanding" &&
     window.location.hash !== "#skills" &&
     window.location.hash !== "#math-frontier" &&
     window.location.hash !== "#life" &&
@@ -1160,15 +1167,18 @@ const alignInitialHash = (): void => {
   ) {
     return;
   }
+  initialHashAligned = true;
   window.requestAnimationFrame(() => {
     const target =
-      window.location.hash === "#math-frontier"
-        ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-        : window.location.hash === "#life"
-          ? lifeGardenRoot.closest<HTMLElement>("#life")
-          : window.location.hash === "#participate"
-            ? frontierParticipationRoot.closest<HTMLElement>("#participate")
-          : constructiveTreeRoot.closest<HTMLElement>("#skills");
+      window.location.hash === "#understanding"
+        ? knowledgeGeometryRoot.closest<HTMLElement>("#understanding")
+        : window.location.hash === "#math-frontier"
+          ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+          : window.location.hash === "#life"
+            ? lifeGardenRoot.closest<HTMLElement>("#life")
+            : window.location.hash === "#participate"
+              ? frontierParticipationRoot.closest<HTMLElement>("#participate")
+              : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
@@ -1178,6 +1188,7 @@ const alignPiHash = (): void => {
     piPilotSection.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
+void knowledgeGeometryReady.then(alignInitialHash);
 void Promise.allSettled([
   constructiveTreeReady,
   lifeSciencesTreeReady,
@@ -1193,6 +1204,18 @@ void Promise.allSettled([
   lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
+void Promise.allSettled([
+  knowledgeGeometryReady,
+  constructiveTreeReady,
+  lifeSciencesTreeReady,
+  quantumSeasonReady,
+  mathFrontierReady,
+  lifeGardenReady,
+  initialNetworkReady,
+]).then(() => {
+  initialHashInputsSettled = true;
+  alignInitialHash();
+});
 void piPilotReady.then(alignPiHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);

@@ -15,6 +15,30 @@ Vite proxies `/api/rpc` and `/api/rest` to the public mainnet node in local
 development. Production uses the Pages Functions in `functions/api/` so the
 HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
+## Knowledge Geometry
+
+The Knowledge Geometry lens is a bounded, read-only projection of the public
+`zerone-1` knowledge query. `/api/knowledge` checks the chain identity against
+RPC status, then returns at most 128 explicitly declared facts and 512
+deduplicated embedded `FactRelation` records from the typed facts response. It
+does not call a transaction, publish endpoint, relation search, or inference
+service. The edge reads at most 384 KiB from the facts response and 64 KiB
+from status; the browser independently refuses redirects and reads at most
+256 KiB from the same-origin projection.
+
+The visualization groups facts only by their declared domains, gives every
+fact the same node size, and draws a line only for an actual typed relation.
+It does not infer proximity, affinity, agreement, common ground, love, or
+understanding. Missing endpoints and the absence of relations remain visible,
+and contradiction is not collapsed into a similarity score. The snapshot is
+explicitly incomplete: current upstream pagination behavior does not support a
+completeness claim.
+
+This lens has no write path and no consensus, qualification, truth,
+relationship, reward, KARMA, governance, or economic effect. It observes the
+source chain named in the response; it does not describe or activate
+`zerone-2`.
+
 ## Constructive-intelligence explorer
 
 The 技能樹 explorer reads the checked-in
