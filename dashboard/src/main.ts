@@ -21,6 +21,7 @@ import { initialiseFrontierParticipation } from "./frontier-participation";
 import { initialiseLifeGarden } from "./life-garden";
 import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import { initialiseQuantumSeason } from "./quantum-season";
+import { initialiseRelationalTopology } from "./relational-topology";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import type { WalletState } from "./wallet";
@@ -80,6 +81,7 @@ const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
+const relationalTopologyRoot = byId<HTMLElement>("relational-topology-root");
 const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
 );
@@ -1154,6 +1156,9 @@ const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
+const relationalTopologyReady = initialiseRelationalTopology(
+  relationalTopologyRoot,
+);
 void initialiseFrontierParticipation(
   frontierParticipationRoot,
 );
@@ -1162,6 +1167,7 @@ const initialNetworkReady = refreshNetwork(false);
 const alignInitialHash = (): void => {
   if (
     window.location.hash !== "#authority" &&
+    window.location.hash !== "#relations" &&
     window.location.hash !== "#skills" &&
     window.location.hash !== "#branch-flow" &&
     window.location.hash !== "#math-frontier" &&
@@ -1174,15 +1180,17 @@ const alignInitialHash = (): void => {
     const target =
       window.location.hash === "#authority"
         ? authorityGeometryRoot.closest<HTMLElement>("#authority")
-        : window.location.hash === "#branch-flow"
-          ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
-          : window.location.hash === "#math-frontier"
-            ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-            : window.location.hash === "#life"
-              ? lifeGardenRoot.closest<HTMLElement>("#life")
-              : window.location.hash === "#participate"
-                ? frontierParticipationRoot.closest<HTMLElement>("#participate")
-                : constructiveTreeRoot.closest<HTMLElement>("#skills");
+        : window.location.hash === "#relations"
+          ? relationalTopologyRoot.closest<HTMLElement>("#relations")
+          : window.location.hash === "#branch-flow"
+            ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
+            : window.location.hash === "#math-frontier"
+              ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+              : window.location.hash === "#life"
+                ? lifeGardenRoot.closest<HTMLElement>("#life")
+                : window.location.hash === "#participate"
+                  ? frontierParticipationRoot.closest<HTMLElement>("#participate")
+                  : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
@@ -1208,6 +1216,7 @@ void Promise.allSettled([
   initialNetworkReady,
 ]).then(alignInitialHash);
 void authorityGeometryReady.then(alignInitialHash);
+void Promise.allSettled([relationalTopologyReady]).then(alignInitialHash);
 void piPilotReady.then(alignPiHash);
 window.setInterval(() => {
   if (!document.hidden) void refreshNetwork(false);

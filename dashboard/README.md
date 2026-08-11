@@ -46,6 +46,26 @@ The accepted architecture is documented in
 either file, a green source check, or a dashboard deployment does not satisfy
 an H4 or H5 activation gate.
 
+## Relational topology v0
+
+The dashboard publishes and renders the static topology at
+`/standards/relational-topology.v0.json`. It is a machine-readable view of
+typed authority, economic, emergency, evidence, identity, recognition, and
+reference flows across reviewed Zerone source. Nodes remain distinct, edges are
+directional, and the interface keeps `EXISTING_SOURCE`,
+`TARGET_NOT_IMPLEMENTED`, `TARGET_SEMANTICS_NOT_ACTIVATED`, and `STATIC_ONLY`
+claims separate instead of promoting any of them into deployed or observed
+state.
+
+V0 is non-authoritative and source-only. It performs no chain transaction,
+moves no funds, grants no identity, recognition, qualification, governance,
+delegation, or control, and does not activate a design or satisfy a migration
+gate. An edge describes a bounded relationship claim and identifies whether it
+is source-backed or an explicit design inference; it is not consent,
+endorsement, ownership, or proof that either endpoint is live. The browser
+fails closed to the raw standard link if the bounded static document cannot be
+loaded or validated.
+
 ## Constructive-intelligence explorer
 
 The 技能樹 explorer reads the checked-in
@@ -218,9 +238,10 @@ npm run build
 
 `npm run check` validates Authority Geometry, the Frontier Commons FC-0
 invitation, its subordinate FL-0 receipt shadow, the exact-bound additive
-Participation Compact, the base tree, Branch Flow reference-policy digest and
-zero-effect boundary, Math Frontier, and life-science documents, then
-type-checks both the browser application and Pages Functions.
+Participation Compact, Relational Topology v0, the base tree, Branch Flow
+reference-policy digest and zero-effect boundary, Math Frontier, and
+life-science documents, then type-checks both the browser application and Pages
+Functions.
 `npm test` exercises the REST/RPC allowlists against injected fake upstreams;
 it cannot contact the production node. `npm run build` repeats those gates,
 builds the Vite application, and compiles Pages Functions with the repository's
@@ -229,6 +250,9 @@ life-science documents, their exact SHA-256 pins, graph bounds, duplicate-key
 refusal, and hard zero-authority/economics boundaries. `npm run
 check:participation` separately verifies the compact digest, exact schema,
 paired refusal protections, role coverage, competition firewall, and inert
+release boundary.
+`npm run check:relations` validates the topology, both pinned source files,
+typed graph references and same-flow forbidden-path guards, and the all-false
 release boundary.
 
 ## Pi account onboarding pilot
