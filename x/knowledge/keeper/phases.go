@@ -40,6 +40,21 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 
 	if params.FitnessEpochBlocks > 0 && height > 0 && height%params.FitnessEpochBlocks == 0 {
 		epoch := height / params.FitnessEpochBlocks
+		// Diversity consumes the epoch that just COMPLETED at this boundary:
+		// rounds finalized during it carry epoch (height/E)-1
+		// (RecordRoundDiversity labels a round with height/E at finalization).
+		// `epoch` itself names the epoch BEGINNING at this height — aggregating
+		// it here found only rounds finalizing at exactly the boundary block,
+		// so the completed epoch's unanimity was invisible and the conformity
+		// streak reset every epoch (off-by-one fixed 2026-08-03). At the first
+		// boundary (H = E) the completed epoch is 0, covering heights 0..E-1.
+		// The other consumers below (competition, metabolism, demand bounties,
+		// role-elasticity pacing) use `epoch` as a monotone label, not as a
+		// window over past rounds, and keep the current epoch.
+		completedEpoch := uint64(0)
+		if epoch > 0 {
+			completedEpoch = epoch - 1
+		}
 
 		// Order matters:
 		// 1. Update fitness scores (current usage data)
@@ -65,12 +80,13 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		// 7. Clear query receipts (bound receipt storage to one epoch)
 		k.ClearQueryReceipts(ctx)
 		// 8. Aggregate diversity metrics and check conformity alerts (R28-2)
-		if err := k.ProcessDiversity(ctx, epoch); err != nil {
-			k.Logger(ctx).Error("diversity processing failed", "epoch", epoch, "error", err)
+		if err := k.ProcessDiversity(ctx, completedEpoch); err != nil {
+			k.Logger(ctx).Error("diversity processing failed", "epoch", completedEpoch, "error", err)
 		}
-		// 9. Update epistemic temperature for all domains (R29-2)
+		// 9. Update epistemic temperature for all domains (R29-2) — consuming
+		// the same completed epoch step 8 just aggregated.
 		k.IterateDomains(ctx, func(domain *types.Domain) bool {
-			if dErr := k.UpdateEpistemicTemperature(ctx, domain.Name); dErr != nil {
+			if dErr := k.UpdateEpistemicTemperature(ctx, domain.Name, completedEpoch); dErr != nil {
 				k.Logger(ctx).Error("epistemic temperature update failed", "domain", domain.Name, "error", dErr)
 			}
 			return false

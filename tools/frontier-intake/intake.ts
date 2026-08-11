@@ -570,8 +570,10 @@ async function commandSetup(net: NetworkConfig): Promise<void> {
     if (!included.found || included.code !== 0) fail(`funding ${key} failed on-chain: ${included.raw_log ?? "not included"}`);
     console.log(`🟢 ${key} funded (tx ${outcome.tx_hash.slice(0, 12)}…)`);
   }
-  // The live binaries gate knowledge messages on zerone_auth registration
-  // (removed on trunk, still enforced live). Register every key as an agent.
+  // Knowledge messages are gated on zerone_auth registration by the ante
+  // handler (app/ante_zerone.go), on trunk as well as on the live binaries —
+  // an earlier comment here claimed trunk had dropped the gate, which is
+  // wrong. Register every key as an agent.
   for (const { key } of needed) {
     const address = keyAddress(net, key);
     const registered = query(net, ["query", "zerone_auth", "account", address]);

@@ -83,8 +83,9 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Run temperature update — should cool the domain.
-	err = h.KnowledgeKeeper.UpdateEpistemicTemperature(h.Ctx, domain)
+	// Run temperature update consuming the epoch seeded above — should cool
+	// the domain.
+	err = h.KnowledgeKeeper.UpdateEpistemicTemperature(h.Ctx, domain, currentEpoch)
 	require.NoError(t, err)
 
 	epState, _, err = h.KnowledgeKeeper.GetDomainEpistemicState(h.Ctx, domain)
@@ -114,8 +115,9 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Run temperature update again — vindication should heat the domain.
-	err = h.KnowledgeKeeper.UpdateEpistemicTemperature(h.Ctx, domain)
+	// Run temperature update again (same epoch's low-diversity record still
+	// applies) — vindication heating must outweigh the streak-2 cooling.
+	err = h.KnowledgeKeeper.UpdateEpistemicTemperature(h.Ctx, domain, currentEpoch)
 	require.NoError(t, err)
 
 	epState, _, err = h.KnowledgeKeeper.GetDomainEpistemicState(h.Ctx, domain)
@@ -369,8 +371,10 @@ func TestR29_AdversarialInteractions(t *testing.T) {
 		kParams.FitnessEpochBlocks = 10
 		require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, kParams))
 
-		// Update temperature — should heat despite overcrowding.
-		require.NoError(t, h.KnowledgeKeeper.UpdateEpistemicTemperature(h.Ctx, domain))
+		// Update temperature — should heat despite overcrowding. No diversity
+		// record was seeded for this domain, so the epoch value is inert
+		// (vindication heating is height-windowed, not epoch-keyed).
+		require.NoError(t, h.KnowledgeKeeper.UpdateEpistemicTemperature(h.Ctx, domain, 0))
 		epState, _, err := h.KnowledgeKeeper.GetDomainEpistemicState(h.Ctx, domain)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, epState.Temperature, uint64(500_000), "vindication should heat or maintain neutral")

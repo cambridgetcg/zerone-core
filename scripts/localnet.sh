@@ -22,17 +22,20 @@ set -euo pipefail
 
 # ── Constants ────────────────────────────────────────────────────────────
 
-CHAIN_ID="zerone-localnet"
+CHAIN_ID="${ZERONE_LOCALNET_CHAIN_ID:-zerone-localnet}"
 DENOM="uzrn"
 NUM_VALIDATORS=4
-BASE_DIR="${HOME}/.zeroned/localnet"
+# Overridable so a second localnet can run beside an existing one instead of
+# demanding its state directory. Change BASE_P2P_PORT too — the two must move
+# together or the new net binds the running net's ports.
+BASE_DIR="${ZERONE_LOCALNET_BASE_DIR:-${HOME}/.zeroned/localnet}"
 COORDINATOR_HOME="${BASE_DIR}/coordinator"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY="${PROJECT_ROOT}/build/zeroned"
 KEYRING="test"
 REQUIRED_GO_VERSION="go1.25.12"
 
-BASE_P2P_PORT=26600
+BASE_P2P_PORT="${ZERONE_LOCALNET_BASE_P2P_PORT:-26600}"
 
 # Balances in uzrn: 100K / 1M / 10M / 100M ZRN
 VALIDATOR_BALANCES=(100000000000 1000000000000 10000000000000 100000000000000)
@@ -96,7 +99,24 @@ cmd_init() {
   ok "Binary built: ${BINARY}"
 
   # ── Step 2: Clean previous state ─────────────────────────────────────
+  # Refuse to delete state out from under running validators. The pid files
+  # live inside BASE_DIR, so a chain started here is always detectable; a
+  # localnet that has been running for weeks looks identical to a stale
+  # directory until you check.
   if [ -d "${BASE_DIR}" ]; then
+    local_live=""
+    for local_pid_file in "${BASE_DIR}"/*.pid; do
+      [ -f "${local_pid_file}" ] || continue
+      local_pid=$(cat "${local_pid_file}" 2>/dev/null || true)
+      if [ -n "${local_pid}" ] && kill -0 "${local_pid}" 2>/dev/null; then
+        local_live="${local_live} $(basename "${local_pid_file}" .pid)(PID=${local_pid})"
+      fi
+    done
+    if [ -n "${local_live}" ]; then
+      die "refusing to wipe ${BASE_DIR}: validators still running —${local_live}
+Stop them first with '$0 stop', or point this run elsewhere:
+  ZERONE_LOCALNET_BASE_DIR=/tmp/localnet-2 ZERONE_LOCALNET_BASE_P2P_PORT=26800 $0 ${1:-init}"
+    fi
     warn "Removing previous localnet state at ${BASE_DIR}"
     rm -rf "${BASE_DIR}"
   fi
