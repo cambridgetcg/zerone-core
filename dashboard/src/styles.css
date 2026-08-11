@@ -1314,6 +1314,725 @@
     font-size: 0.72rem;
   }
 
+  .relational-topology-section {
+    position: relative;
+    isolation: isolate;
+    padding: 7rem 0 9rem;
+    scroll-margin-top: 84px;
+  }
+
+  .relational-topology-section::before {
+    position: absolute;
+    z-index: -1;
+    inset: 2rem -4vw 0;
+    background:
+      linear-gradient(rgba(185, 155, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(220, 255, 120, 0.035) 1px, transparent 1px),
+      radial-gradient(circle at 18% 22%, rgba(185, 155, 255, 0.09), transparent 28rem);
+    background-size: 54px 54px, 54px 54px, auto;
+    content: "";
+    mask-image: linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
+    pointer-events: none;
+  }
+
+  .relational-topology-section .section-heading {
+    align-items: start;
+  }
+
+  .relational-topology-section .section-heading h2 {
+    font-size: clamp(3.4rem, 6vw, 5.8rem);
+    line-height: 0.96;
+  }
+
+  .relational-topology-section .section-heading h2 em {
+    color: var(--acid);
+    font-weight: inherit;
+  }
+
+  .relational-topology-root {
+    margin-top: 3.5rem;
+  }
+
+  .relational-topology-loading,
+  .relational-topology-load-error {
+    display: grid;
+    min-height: 240px;
+    place-items: center;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 2rem;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    color: var(--muted-strong);
+    text-align: center;
+  }
+
+  .relational-topology-loading .loading-lines {
+    width: min(360px, 100%);
+  }
+
+  .relational-topology-load-error {
+    border-color: color-mix(in srgb, var(--amber) 42%, var(--line));
+    background: color-mix(in srgb, var(--amber) 5%, var(--surface));
+  }
+
+  .relational-topology-load-error strong {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.7rem;
+    font-weight: 400;
+  }
+
+  .relational-topology-load-error p {
+    max-width: 620px;
+    line-height: 1.65;
+  }
+
+  .relational-topology-load-error a,
+  .relational-topology-noscript a,
+  .relational-topology-raw {
+    color: var(--violet-soft);
+  }
+
+  .relational-topology-noscript {
+    margin-top: 1rem;
+    border: 1px solid var(--line);
+    padding: 1rem;
+    color: var(--muted-strong);
+    font-size: 0.78rem;
+  }
+
+  .relational-topology-shell {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .relational-topology-facts {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .relational-topology-fact {
+    display: grid;
+    min-height: 96px;
+    align-content: center;
+    gap: 0.48rem;
+    padding: 1rem 1.1rem;
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+  }
+
+  .relational-topology-fact span,
+  .relational-topology-node-kicker,
+  .relational-topology-edge-count {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .relational-topology-fact strong {
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+
+  .relational-topology-boundary {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+    gap: 1.2rem;
+    border: 1px solid color-mix(in srgb, var(--acid) 35%, var(--line));
+    padding: 1.1rem 1.2rem;
+    background:
+      linear-gradient(90deg, rgba(220, 255, 120, 0.07), transparent 44%),
+      var(--surface);
+  }
+
+  .relational-topology-boundary strong {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.69rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .relational-topology-boundary p,
+  .relational-topology-instructions {
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+    line-height: 1.65;
+  }
+
+  .relational-topology-instructions {
+    margin: 0;
+    border-left: 2px solid var(--violet-deep);
+    padding: 0.45rem 0 0.45rem 0.9rem;
+  }
+
+  .relational-topology-principles,
+  .relational-topology-conflicts,
+  .relational-topology-guards {
+    display: grid;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: clamp(1.1rem, 2.5vw, 1.6rem);
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+  }
+
+  .relational-topology-principles h3,
+  .relational-topology-conflicts h3,
+  .relational-topology-guards h3 {
+    font-family: var(--serif);
+    font-size: clamp(1.45rem, 2.5vw, 2rem);
+    font-weight: 400;
+    letter-spacing: -0.025em;
+  }
+
+  .relational-topology-principle-list,
+  .relational-topology-conflict-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .relational-topology-principle,
+  .relational-topology-conflict {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.65rem;
+    padding: 1rem;
+    background:
+      linear-gradient(145deg, rgba(185, 155, 255, 0.04), transparent 60%),
+      var(--surface);
+  }
+
+  .relational-topology-principle > span,
+  .relational-topology-conflict > span {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .relational-topology-principle h4,
+  .relational-topology-conflict h4 {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.12rem;
+    font-weight: 400;
+    text-transform: capitalize;
+  }
+
+  .relational-topology-principle p,
+  .relational-topology-conflict p,
+  .relational-topology-guard-list p {
+    color: var(--muted-strong);
+    font-size: 0.68rem;
+    line-height: 1.6;
+  }
+
+  .relational-topology-principle small,
+  .relational-topology-conflict small {
+    color: var(--muted);
+    font-size: 0.62rem;
+    line-height: 1.55;
+  }
+
+  .relational-topology-conflicts {
+    border-color: color-mix(in srgb, var(--amber) 24%, var(--line));
+    background:
+      linear-gradient(135deg, rgba(255, 197, 111, 0.035), transparent 48%),
+      color-mix(in srgb, var(--surface) 96%, transparent);
+  }
+
+  .relational-topology-conflict > span,
+  .relational-topology-conflict code {
+    color: var(--amber);
+  }
+
+  .relational-topology-conflict code {
+    width: fit-content;
+    max-width: 100%;
+    border: 1px solid rgba(255, 197, 111, 0.23);
+    border-radius: 99px;
+    padding: 0.24rem 0.48rem;
+    font-family: var(--mono);
+    font-size: 0.54rem;
+    overflow-wrap: anywhere;
+  }
+
+  .relational-topology-guard-list {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    background: var(--line);
+    list-style: none;
+  }
+
+  .relational-topology-guard-list li {
+    display: grid;
+    align-content: start;
+    gap: 0.6rem;
+    padding: 0.9rem;
+    background: var(--surface);
+  }
+
+  .relational-topology-guard-list strong {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    font-weight: 600;
+    letter-spacing: 0.045em;
+    overflow-wrap: anywhere;
+  }
+
+  .relational-topology-graph {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .relational-topology-nodes {
+    display: grid;
+    overflow: hidden;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .relational-topology-node {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    min-height: 176px;
+    align-content: space-between;
+    gap: 0.8rem;
+    border: 0;
+    padding: 1.1rem;
+    cursor: pointer;
+    background:
+      linear-gradient(135deg, rgba(185, 155, 255, 0.035), transparent 54%),
+      var(--surface);
+    color: var(--ink-soft);
+    text-align: left;
+    transition:
+      transform 160ms ease,
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .relational-topology-node[data-kind]::after {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 8px;
+    height: 8px;
+    border: 1px solid color-mix(in srgb, var(--violet) 62%, var(--line));
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 0 0 4px rgba(185, 155, 255, 0.035);
+    content: "";
+  }
+
+  .relational-topology-node[data-plane="economy"]::after {
+    border-color: color-mix(in srgb, var(--amber) 72%, var(--line));
+  }
+
+  .relational-topology-node[data-plane="governance"]::after {
+    border-color: color-mix(in srgb, var(--violet) 72%, var(--line));
+  }
+
+  .relational-topology-node[data-plane="identity"]::after {
+    border-color: color-mix(in srgb, var(--green) 72%, var(--line));
+  }
+
+  .relational-topology-node[data-plane="knowledge"]::after {
+    border-color: color-mix(in srgb, var(--acid) 72%, var(--line));
+  }
+
+  .relational-topology-node:hover {
+    z-index: 1;
+    transform: translateY(-2px);
+    background:
+      linear-gradient(135deg, rgba(185, 155, 255, 0.09), transparent 58%),
+      var(--surface-hover);
+    box-shadow: inset 0 0 0 1px rgba(185, 155, 255, 0.35);
+  }
+
+  .relational-topology-node:focus-visible,
+  .relational-topology-edge:focus-visible,
+  .relational-topology-graph:focus-visible,
+  .relational-topology-reset:focus-visible,
+  .relational-topology-raw:focus-visible {
+    z-index: 2;
+    outline: 2px solid var(--acid);
+    outline-offset: -3px;
+  }
+
+  .relational-topology-node.is-selected {
+    z-index: 1;
+    background:
+      radial-gradient(circle at 88% 14%, rgba(220, 255, 120, 0.13), transparent 8rem),
+      linear-gradient(135deg, rgba(185, 155, 255, 0.09), transparent 60%),
+      var(--surface-raised);
+    box-shadow: inset 0 0 0 1px rgba(220, 255, 120, 0.62);
+  }
+
+  .relational-topology-node.is-selected::after {
+    border-color: var(--acid);
+    background: var(--acid);
+    box-shadow: 0 0 14px rgba(220, 255, 120, 0.48);
+  }
+
+  .relational-topology-node-title {
+    max-width: calc(100% - 1.5rem);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: clamp(1.18rem, 2vw, 1.55rem);
+    font-weight: 400;
+    line-height: 1.1;
+  }
+
+  .relational-topology-node-summary {
+    color: var(--muted-strong);
+    font-size: 0.68rem;
+    line-height: 1.55;
+  }
+
+  .relational-topology-edge-panel {
+    position: sticky;
+    top: 92px;
+    display: grid;
+    max-height: calc(100vh - 116px);
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(220, 255, 120, 0.055), transparent 15rem),
+      var(--surface);
+  }
+
+  .relational-topology-edge-heading {
+    display: flex;
+    min-height: 74px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    padding: 1rem;
+  }
+
+  .relational-topology-edge-heading strong {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    font-weight: 400;
+  }
+
+  .relational-topology-edge-count {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    padding: 0.28rem 0.55rem;
+    color: var(--acid);
+  }
+
+  .relational-topology-edge-list {
+    display: grid;
+    overflow: auto;
+    margin: 0;
+    padding: 0;
+    scrollbar-color: var(--violet) rgba(255, 255, 255, 0.04);
+    list-style: none;
+  }
+
+  .relational-topology-edge {
+    display: grid;
+    width: 100%;
+    gap: 0.55rem;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 1rem;
+    background: transparent;
+    color: var(--ink-soft);
+    text-align: left;
+    transition:
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .relational-topology-edge-list > li:last-child .relational-topology-edge {
+    border-bottom: 0;
+  }
+
+  .relational-topology-edge:hover,
+  .relational-topology-edge.is-related {
+    background: rgba(185, 155, 255, 0.055);
+  }
+
+  .relational-topology-edge.is-related {
+    box-shadow: inset 2px 0 0 var(--violet);
+  }
+
+  .relational-topology-edge-route {
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .relational-topology-edge-flows {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .relational-topology-edge-flow[data-flow],
+  .relational-topology-edge-flow {
+    width: fit-content;
+    border: 1px solid rgba(220, 255, 120, 0.25);
+    border-radius: 99px;
+    padding: 0.24rem 0.48rem;
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .relational-topology-edge-flow[data-flow="AUTHORITY"] {
+    border-color: rgba(185, 155, 255, 0.36);
+    color: var(--violet-soft);
+  }
+
+  .relational-topology-edge-flow[data-flow="ECONOMIC"] {
+    border-color: rgba(255, 197, 111, 0.36);
+    color: var(--amber);
+  }
+
+  .relational-topology-edge-flow[data-flow="EMERGENCY"] {
+    border-color: rgba(255, 132, 124, 0.4);
+    color: var(--red);
+  }
+
+  .relational-topology-edge-flow[data-flow="EVIDENCE"] {
+    border-color: rgba(120, 230, 173, 0.34);
+    color: var(--green);
+  }
+
+  .relational-topology-edge-flow[data-flow="IDENTITY"] {
+    border-color: rgba(210, 193, 255, 0.34);
+    color: var(--violet-soft);
+  }
+
+  .relational-topology-edge-flow[data-flow="REFERENCE"] {
+    border-color: var(--line-strong);
+    color: var(--muted-strong);
+  }
+
+  .relational-topology-edge-meaning,
+  .relational-topology-edge-refusal {
+    color: var(--muted-strong);
+    font-size: 0.67rem;
+    line-height: 1.55;
+  }
+
+  .relational-topology-edge-refusal {
+    border-left: 2px solid rgba(255, 197, 111, 0.55);
+    padding-left: 0.65rem;
+    color: color-mix(in srgb, var(--amber) 72%, var(--muted-strong));
+  }
+
+  .relational-topology-sources {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .relational-topology-source {
+    display: grid;
+    min-width: 0;
+    gap: 0.45rem;
+    padding: 1rem;
+    background: var(--surface);
+  }
+
+  .relational-topology-source strong {
+    color: var(--ink-soft);
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
+
+  .relational-topology-source :where(span, code, a) {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.59rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .relational-topology-source a {
+    color: var(--violet-soft);
+  }
+
+  .relational-topology-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 0.9rem 1rem;
+    background: rgba(255, 255, 255, 0.012);
+  }
+
+  .relational-topology-footer p {
+    max-width: 760px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    line-height: 1.55;
+  }
+
+  .relational-topology-footer > div {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.65rem;
+  }
+
+  .relational-topology-reset,
+  .relational-topology-raw {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 0.55rem 0.72rem;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--ink-soft);
+    font-size: 0.65rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .relational-topology-reset {
+    cursor: pointer;
+  }
+
+  .relational-topology-reset:hover,
+  .relational-topology-raw:hover {
+    border-color: rgba(185, 155, 255, 0.55);
+    background: rgba(185, 155, 255, 0.06);
+  }
+
+  @media (max-width: 1040px) {
+    .relational-topology-facts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .relational-topology-graph {
+      grid-template-columns: 1fr;
+    }
+
+    .relational-topology-principle-list,
+    .relational-topology-conflict-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .relational-topology-guard-list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .relational-topology-edge-panel {
+      position: static;
+      max-height: none;
+    }
+
+    .relational-topology-edge-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .relational-topology-edge-list > li:nth-child(odd) .relational-topology-edge {
+      border-right: 1px solid var(--line);
+    }
+  }
+
+  @media (max-width: 700px) {
+    .relational-topology-section::before {
+      inset-inline: 0;
+    }
+
+    .relational-topology-facts,
+    .relational-topology-nodes,
+    .relational-topology-sources,
+    .relational-topology-guard-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .relational-topology-boundary {
+      grid-template-columns: 1fr;
+      gap: 0.55rem;
+    }
+
+    .relational-topology-node {
+      min-height: 160px;
+    }
+
+    .relational-topology-footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .relational-topology-section {
+      padding: 5rem 0 6rem;
+    }
+
+    .relational-topology-root {
+      margin-top: 2.3rem;
+    }
+
+    .relational-topology-facts,
+    .relational-topology-nodes,
+    .relational-topology-edge-list,
+    .relational-topology-sources,
+    .relational-topology-principle-list,
+    .relational-topology-conflict-list,
+    .relational-topology-guard-list {
+      grid-template-columns: 1fr;
+    }
+
+    .relational-topology-edge-list > li:nth-child(odd) .relational-topology-edge {
+      border-right: 0;
+    }
+
+    .relational-topology-footer > div,
+    .relational-topology-reset,
+    .relational-topology-raw {
+      width: 100%;
+    }
+
+    .relational-topology-footer > div {
+      flex-direction: column;
+    }
+  }
+
   .ci-tree-section {
     padding: 7rem 0 9rem;
     scroll-margin-top: 84px;
