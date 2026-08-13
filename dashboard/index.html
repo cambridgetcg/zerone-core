@@ -624,6 +624,107 @@
               </p>
             </noscript>
           </div>
+
+          <section
+            class="fold-to-fire"
+            id="fold-to-fire"
+            aria-labelledby="fold-to-fire-title"
+          >
+            <div class="fold-to-fire-heading reveal">
+              <div>
+                <p class="eyebrow">Fold-to-Fire · finite lattice challenge · v0</p>
+                <h3 id="fold-to-fire-title">When a fold makes a catalytic door reachable.</h3>
+              </div>
+              <p>
+                An exact square-lattice counting laboratory separates the chance
+                of reaching one terminal-contact geometry from the reaction rate
+                assigned after that geometry exists. It is a deliberately small
+                polymer model—not an atomistic protein, enzyme prediction, or
+                claim that folding itself performs chemistry.
+              </p>
+            </div>
+
+            <div
+              class="fold-to-fire-root"
+              id="fold-to-fire-root"
+              aria-busy="true"
+            >
+              <div class="fold-to-fire-loading" role="status">
+                <div class="loading-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+                <p>Loading the reviewed Fold-to-Fire challenge…</p>
+              </div>
+            </div>
+
+            <noscript>
+              <div class="fold-to-fire-noscript">
+                <p class="fold-to-fire-noscript-lede">
+                  The interactive verifier needs JavaScript, but the challenge
+                  remains readable here. Counts use square-lattice self-avoiding
+                  walks rooted at the origin with the first step fixed East;
+                  reflections are retained. The raw
+                  <a href="/standards/constructive-intelligence-fold-to-fire.v0.json">digest-reviewed profile</a>
+                  is also available directly.
+                </p>
+
+                <section aria-labelledby="fold-to-fire-noscript-equations">
+                  <h4 id="fold-to-fire-noscript-equations">Model equations, rendered as text</h4>
+                  <div class="fold-to-fire-equations">
+                    <code>C(ω) = number of nonconsecutive nearest-neighbour contacts</code>
+                    <code>Z_n(q) = Σ_{ω ∈ W_n} q^{C(ω)}</code>
+                    <code>A_n(q) = Σ_{ω ∈ W_n : ||ω_n − ω_0||_1 = 1} q^{C(ω)}</code>
+                    <code>J_n(q) = κ A_n(q) / Z_n(q) (declared rapid-equilibrium, unit-occupancy toy assumption)</code>
+                    <code>A_n(1) / Z_n(1) = 2(n + 1)p_{n + 1} / c_n</code>
+                    <code>Conjecture for odd n: A_n(1) / Z_n(1) = n^{−59/32 + o(1)}</code>
+                  </div>
+                  <p class="fold-to-fire-noscript-lede">
+                    Here <code>c_n</code> counts unrestricted rooted
+                    <code>n</code>-step walks, while <code>p_m</code> counts
+                    <code>m</code>-edge polygons up to translation. The flux
+                    equation is a declared simplification, not a physical
+                    derivation for a real enzyme.
+                  </p>
+                </section>
+
+                <div class="fold-to-fire-table-wrap">
+                  <table class="fold-to-fire-table">
+                    <caption>Exact fixed-first-step counts at q = 1</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Steps n</th>
+                        <th scope="col">All walks Z_n(1)</th>
+                        <th scope="col">Active walks A_n(1)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr><th scope="row">3</th><td>9</td><td>2</td></tr>
+                      <tr><th scope="row">5</th><td>71</td><td>6</td></tr>
+                      <tr><th scope="row">7</th><td>543</td><td>28</td></tr>
+                      <tr><th scope="row">9</th><td>4,067</td><td>140</td></tr>
+                      <tr><th scope="row">11</th><td>30,073</td><td>744</td></tr>
+                      <tr><th scope="row">13</th><td>220,375</td><td>4,116</td></tr>
+                      <tr><th scope="row">15</th><td>1,604,149</td><td>23,504</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="fold-to-fire-noscript-boundaries">
+                  <p>
+                    <strong>Established versus bespoke.</strong> The unweighted
+                    closing identity and predicted 59/32 exponent belong to the
+                    established self-avoiding-walk problem; 59/32 remains
+                    conjectural. “Fold-to-Fire,” its catalytic reading, and this
+                    packaged challenge are bespoke framing.
+                  </p>
+                  <p>
+                    <strong>Zero effects.</strong> This display creates no reward,
+                    KARMA event or magnitude, qualification, ranking, governance
+                    power, money movement, network write, diagnosis, clinical
+                    advice, laboratory authority, or claim about a real protein.
+                  </p>
+                </div>
+              </div>
+            </noscript>
+          </section>
         </section>
 
         <section

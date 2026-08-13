@@ -151,6 +151,21 @@ never recognition, truth, ranking, qualification, reward weight, or a vote.
 The named future eligibility-and-sortition direction is explicitly not
 implemented and cannot be activated from the dashboard or this static file.
 
+Immediately beside that map, `#fold-to-fire` loads the separately versioned
+`/standards/constructive-intelligence-fold-to-fire.v0.json` challenge through
+an exact same-origin path, redirect refusal, bounded streaming, a deadline,
+strict UTF-8, a reviewed SHA-256 pin, exact-key validation, and text-node-only
+rendering. The surface exposes the square-lattice convention, contact-weighted
+partition and active-set equations, exact finite counts, the polygon-closing
+identity, and a challenge ladder. Its central boundary is explicit: the
+self-avoiding-walk closing problem and predicted 59/32 exponent are established
+research territory, while the Fold-to-Fire name, catalytic interpretation, and
+packaged challenge are bespoke framing. The exponent remains conjectural. This
+is an interacting homopolymer lattice model—not an atomistic protein or enzyme
+model—and it grants no biological, clinical, or laboratory authority. A full
+`<noscript>` account preserves the equations, counts, provenance boundary, and
+zero-effect statement without executing the browser runtime.
+
 ## Branch Flow v1 shadow profile
 
 The read-only Branch Flow panel loads
@@ -526,6 +541,12 @@ API query, wallet request, signature, transaction, or write is part of it.
   fields, non-zero/reward-bearing state, governance or ranking activation,
   non-ordinal KARMA, graph drift, and unreviewed bytes fail closed before any
   node is rendered.
+- Fold-to-Fire data is a digest-pinned, display-only research challenge.
+  Unknown fields, count or equation drift, an open/bespoke boundary change,
+  authority activation, any non-zero economic or control effect, redirects,
+  oversized or invalid UTF-8 bodies, and unreviewed bytes fail closed before
+  the challenge is rendered. Profile strings enter the page only as text;
+  reviewed source links are credential-free HTTPS URLs.
 - Life-garden and KARMA strings are treated as untrusted presentation data and
   rendered only through DOM text nodes. Both documents use exact same-origin
   paths, redirect refusal, no-store, bounded streaming with a deadline, strict

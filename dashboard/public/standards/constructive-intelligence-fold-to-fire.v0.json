@@ -1,0 +1,250 @@
+{
+  "schema": "zerone.constructive-intelligence-fold-to-fire/v0",
+  "status": "SEALED_STATIC_PROFILE",
+  "mode": "READ_ONLY_ZERO_EFFECT",
+  "title": "Fold-to-Fire: exact finite polymer geometry and a bounded catalytic bridge",
+  "snapshotDate": "2026-08-13",
+  "authoritative": false,
+  "networkObserved": false,
+  "sourceBindings": [
+    {
+      "id": "constructive-intelligence-math-frontier-v0",
+      "path": "dashboard/public/standards/constructive-intelligence-math-frontier.v0.json",
+      "schema": "zerone.constructive-intelligence-math-frontier/v0",
+      "rawSha256": "4fdcd54c35c69c26a28c385275688351ee2a9131702e81bacf100de8d7612456",
+      "canonicalSha256": "b6260de31969a56e601a5a81f1b4f7c1c68fcd34f9aa68b35ce2701c3f012503",
+      "boundary": "Pins curriculum and proof-boundary bytes only; imports no quest, reward template, qualification, governance, or KARMA effect."
+    },
+    {
+      "id": "constructive-intelligence-life-sciences-v0",
+      "path": "dashboard/public/standards/constructive-intelligence-life-sciences.v0.json",
+      "schema": "zerone.constructive-intelligence-life-sciences/v0",
+      "rawSha256": "64dc2c5b2e21dfc9697d173317254ce651dede8661993ece7b380b7e1421496e",
+      "canonicalSha256": "a208ea9e30a16ccfbb74f3f19298a5d3f93d7f87273b0b5aa10bf72e0e708822",
+      "boundary": "Pins scientific claim-boundary bytes only; imports no sequence, wet-lab, clinical, qualification, reward, governance, or network authority."
+    },
+    {
+      "id": "money-karma-v1",
+      "path": "docs/constitution/money-karma-v1.json",
+      "schema": "zerone.money-karma.constitution/v1",
+      "rawSha256": "f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24",
+      "canonicalSha256": "a41286c936d3ab83d1cbd782b119cf3b434518ba80859edfe76f0de184143b7b",
+      "boundary": "Pins constitutional separation bytes only; creates no KARMA event, magnitude, balance, reward, money, qualification, governance weight, or authority."
+    }
+  ],
+  "releaseBoundary": {
+    "changesConsensus": false,
+    "writesNetworkState": false,
+    "performsNetworkRequests": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "createsKarmaEvent": false,
+    "createsKarmaMagnitude": false,
+    "grantsQualification": false,
+    "grantsGovernance": false,
+    "grantsAuthority": false,
+    "ranksPersons": false,
+    "authorizesExperiment": false,
+    "authorizesWetLab": false,
+    "authorizesClinicalDecision": false,
+    "containsSequencePayload": false,
+    "claimsProteinPrediction": false,
+    "claimsCatalystDesign": false
+  },
+  "economics": {
+    "effect": "NONE",
+    "amount": "0",
+    "denom": null,
+    "rewardMultiplier": false,
+    "escrowReference": null
+  },
+  "modelBoundary": {
+    "lattice": "Z2_SQUARE_NEAREST_NEIGHBOUR",
+    "walkConvention": "v0=(0,0);v1=(1,0);reflections-distinct",
+    "contactDefinition": "A nearest-neighbour vertex pair whose sequence indices differ by at least two.",
+    "activeDefinition": "For n at least 3, the final vertex is a nearest neighbour of the origin.",
+    "rotationTreatment": "ROTATIONS_QUOTIENTED_BY_FIXING_FIRST_STEP_EAST",
+    "reflectionTreatment": "REFLECTIONS_REMAIN_DISTINCT",
+    "minimumActiveSteps": 3,
+    "proteinInterpretation": "ABSTRACT_POLYMER_GEOMETRY_ANALOGY_NOT_ATOMIC_PROTEIN_MODEL"
+  },
+  "enumeration": {
+    "solver": "fold-to-fire-exact-dfs/v0",
+    "maximumExactSteps": 15,
+    "evidenceRole": "EXACT_FINITE_ENUMERATION_NOT_ASYMPTOTIC_PROOF",
+    "rows": [
+      {
+        "stepCount": 3,
+        "allByContacts": ["7", "2"],
+        "activeByContacts": ["0", "2"],
+        "totalWalks": "9",
+        "activeWalks": "2",
+        "closingFraction": "2/9"
+      },
+      {
+        "stepCount": 5,
+        "allByContacts": ["41", "22", "8"],
+        "activeByContacts": ["0", "0", "6"],
+        "totalWalks": "71",
+        "activeWalks": "6",
+        "closingFraction": "6/71"
+      },
+      {
+        "stepCount": 7,
+        "allByContacts": ["235", "184", "86", "38"],
+        "activeByContacts": ["0", "4", "0", "24"],
+        "totalWalks": "543",
+        "activeWalks": "28",
+        "closingFraction": "28/543"
+      },
+      {
+        "stepCount": 9,
+        "allByContacts": ["1331", "1344", "850", "346", "196"],
+        "activeByContacts": ["0", "10", "40", "0", "90"],
+        "totalWalks": "4067",
+        "activeWalks": "140",
+        "closingFraction": "20/581"
+      },
+      {
+        "stepCount": 11,
+        "allByContacts": ["7485", "9244", "6900", "3888", "1606", "888", "62"],
+        "activeByContacts": ["0", "54", "120", "240", "0", "306", "24"],
+        "totalWalks": "30073",
+        "activeWalks": "744",
+        "closingFraction": "744/30073"
+      },
+      {
+        "stepCount": 13,
+        "allByContacts": ["41867", "60884", "52934", "33472", "19076", "7444", "3978", "720"],
+        "activeByContacts": ["0", "252", "672", "770", "1092", "112", "966", "252"],
+        "totalWalks": "220375",
+        "activeWalks": "4116",
+        "closingFraction": "4116/220375"
+      },
+      {
+        "stepCount": 15,
+        "allByContacts": ["233157", "389792", "383628", "276892", "169214", "91128", "37466", "17324", "5410", "138"],
+        "activeByContacts": ["0", "1232", "3264", "4496", "3904", "4672", "1408", "2976", "1504", "48"],
+        "totalWalks": "1604149",
+        "activeWalks": "23504",
+        "closingFraction": "23504/1604149"
+      }
+    ]
+  },
+  "frontierProblem": {
+    "status": "ESTABLISHED_OPEN_CONJECTURE",
+    "domain": "UNWEIGHTED_SQUARE_LATTICE_SELF_AVOIDING_WALK",
+    "statement": "A_n(1)/Z_n(1)=n^{-59/32+o(1)} along odd n as n tends to infinity.",
+    "exponent": "59/32",
+    "quantifier": "ODD_N_TO_INFINITY",
+    "interpretation": "UNIFORM_CLOSING_PROBABILITY",
+    "evidenceStatus": "LITERATURE_CONJECTURE_NOT_PROVED",
+    "computationDoesNotProve": true,
+    "weightedBridgeDoesNotEstablish": true
+  },
+  "weightedBridge": {
+    "status": "BESPOKE_RESEARCH_BRIDGE",
+    "domain": "POSITIVE_CONTACT_WEIGHTED_FINITE_SELF_AVOIDING_WALK",
+    "qDomain": "q>0",
+    "partitionFunction": "Z_n(q)=sum_omega q^{C(omega)}",
+    "activePartitionFunction": "A_n(q)=sum_{omega in Active_n} q^{C(omega)}",
+    "effectiveFlux": "J_n(q)=kappa*A_n(q)/Z_n(q)",
+    "interpretation": "GEOMETRIC_AVAILABILITY_TIMES_DECLARED_CHEMICAL_RATE",
+    "qNotEqualOneExponentTransfer": "OUT_OF_SCOPE_NOT_CLAIMED",
+    "noveltyAuditRequired": true,
+    "notClaimedAsEstablishedOpenProblem": true
+  },
+  "nonImplicationWalls": [
+    {
+      "id": "FINITE_ENUMERATION_NOT_ASYMPTOTIC_PROOF",
+      "premise": "EXACT_FINITE_ENUMERATION",
+      "doesNotEstablish": ["ASYMPTOTIC_EXPONENT", "CONJECTURE_PROOF"]
+    },
+    {
+      "id": "UNWEIGHTED_EXPONENT_NOT_WEIGHTED_EXPONENT",
+      "premise": "Q_EQUALS_ONE_CLOSING_CONJECTURE",
+      "doesNotEstablish": ["PROTEIN_FOLDING_SCALING_LAW", "Q_NOT_EQUAL_ONE_EXPONENT"]
+    },
+    {
+      "id": "LATTICE_POLYMER_NOT_ATOMIC_PROTEIN",
+      "premise": "SQUARE_LATTICE_SELF_AVOIDING_WALK",
+      "doesNotEstablish": ["ATOMIC_PROTEIN_FOLD", "BIOLOGICAL_FUNCTION", "FOLDING_KINETICS", "FOLDING_PATHWAY"]
+    },
+    {
+      "id": "ACTIVE_CONTACT_NOT_ENZYME_CATALYSIS",
+      "premise": "ENDPOINT_ADJACENCY",
+      "doesNotEstablish": ["ACTIVE_SITE_GEOMETRY", "BINDING", "CATALYTIC_RATE", "TRANSITION_STATE_STABILIZATION"]
+    },
+    {
+      "id": "GEOMETRY_FACTOR_NOT_CHEMICAL_RATE",
+      "premise": "CATALYTIC_COMPETENCE_FRACTION",
+      "doesNotEstablish": ["EQUILIBRIUM_CONSTANT", "KAPPA", "REACTION_RATE"]
+    },
+    {
+      "id": "FOLDING_NOT_FOLDING_CATALYST",
+      "premise": "CLIENT_FOLDING",
+      "doesNotEstablish": ["ATP_CHAPERONE_NONEQUILIBRIUM_ACTIVITY", "PDI_ACTIVITY", "PPIASE_ACTIVITY"]
+    },
+    {
+      "id": "SCIENCE_NOT_KARMA_AUTHORITY",
+      "premise": "MATHEMATICAL_OR_BIOPHYSICAL_RESULT",
+      "doesNotEstablish": ["AUTHORITY", "GOVERNANCE", "KARMA_EVENT", "KARMA_MAGNITUDE", "MONEY", "PERSON_WORTH", "QUALIFICATION", "REWARD"]
+    }
+  ],
+  "sources": [
+    {
+      "id": "saw-closing-probability",
+      "title": "On the probability that self-avoiding walk ends at a given point",
+      "url": "https://doi.org/10.1214/14-AOP993",
+      "role": "States the planar n^{-59/32+o(1)} closing prediction and proves weaker rigorous endpoint-delocalization bounds."
+    },
+    {
+      "id": "saw-counting-joining-closing",
+      "title": "On self-avoiding polygons and walks: counting, joining and closing",
+      "url": "https://arxiv.org/abs/1504.05286",
+      "role": "Gives the exact closing-probability identity in terms of polygon and walk counts and stronger rigorous upper bounds than finite enumeration supplies."
+    },
+    {
+      "id": "saw-square-enumeration",
+      "title": "Enumeration of self-avoiding walks on the square lattice",
+      "url": "https://doi.org/10.1088/0305-4470/37/21/002",
+      "role": "Provides established exact-enumeration context for square-lattice self-avoiding-walk counts."
+    },
+    {
+      "id": "saw-critical-exponents-open",
+      "title": "On the existence of critical exponents for self-avoiding walks",
+      "url": "https://doi.org/10.1088/1751-8121/ac943a",
+      "role": "Provides contemporary evidence and open-problem context for rigorous two-dimensional self-avoiding-walk critical exponents."
+    },
+    {
+      "id": "interacting-saw-precedent",
+      "title": "Exact enumeration study of free energies of interacting polygons and walks in two dimensions",
+      "url": "https://doi.org/10.1088/0305-4470/31/20/010",
+      "role": "Establishes interacting contact-weighted self-avoiding-walk precedent; this profile claims no novelty for contact weighting itself."
+    },
+    {
+      "id": "folding-chemical-landscapes",
+      "title": "On the relationship between folding and chemical landscapes in enzyme catalysis",
+      "url": "https://doi.org/10.1073/pnas.0803405105",
+      "role": "Motivates keeping conformational availability separate from the chemical activation barrier."
+    },
+    {
+      "id": "prolyl-isomerase-folding",
+      "title": "Catalysis of protein folding by prolyl isomerase",
+      "url": "https://doi.org/10.1038/329268a0",
+      "role": "Documents PPIase acceleration of otherwise slow proline-isomerization-limited refolding steps."
+    },
+    {
+      "id": "disulfide-isomerase-folding",
+      "title": "Efficient catalysis of disulphide bond rearrangements by protein disulphide isomerase",
+      "url": "https://doi.org/10.1038/365185a0",
+      "role": "Documents PDI acceleration of disulfide rearrangement in kinetically trapped folding intermediates."
+    },
+    {
+      "id": "atp-chaperone-nonequilibrium",
+      "title": "Chaperones convert the energy from ATP into the nonequilibrium stabilization of native proteins",
+      "url": "https://doi.org/10.1038/s41589-018-0013-8",
+      "role": "Separates ATP-driven chaperone machines from equilibrium catalyst shorthand."
+    }
+  ]
+}

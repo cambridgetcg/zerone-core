@@ -355,6 +355,7 @@ does not activate it.
 | [Frontier Participation Compact v0](docs/specs/frontier-labs-participation-v0.md) | Additive static covenant floor exact-bound to FC-0 and FL-0; it replaces no layer, satisfies no readiness gate, authorizes no outreach, and records no participant or signatory |
 | [Frontier Evaluation Receipt Shadow FL-0](docs/specs/frontier-evaluation-receipt-profile-v0.md) | Internal receipt-profile hardening subordinate to FC-0, plus one bounded inconclusive dogfood receipt; no additional invitation, outreach, participant, signatory, endorsement, governance, or economic effect |
 | [Life Sciences Shadow Tree](docs/specs/constructive-intelligence-life-sciences-v0.md) | Digest-pinned biomolecule, folding, and gene-expression evidence path with zero economic effect |
+| [Fold-to-Fire Challenge v0](docs/specs/constructive-intelligence-fold-to-fire-v0.md) | Exact finite lattice-fold enumeration joined to an established open closing-exponent problem, with computation kept distinct from proof and zero authority or economic effect |
 | [Epigenetics Capability Garden](docs/specs/epigenetics-capability-garden-v1.md) | Seven-stage life-science tree and inactive sponsor-escrow breakthrough template |
 | [KARMA Foundation](docs/KARMA.md) | Contextual recognition without money, person rank, ownership, or governing weight |
 | [Quantum QEC Season 1](docs/specs/constructive-intelligence-quantum-qec-v0.md) | Digest-pinned quantum capability path and zero-value breakthrough-reward envelope |

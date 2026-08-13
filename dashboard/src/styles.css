@@ -4442,6 +4442,431 @@
     text-align: center;
   }
 
+  .fold-to-fire {
+    margin-top: clamp(5rem, 10vw, 8rem);
+    scroll-margin-top: 84px;
+  }
+
+  .fold-to-fire-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.68fr);
+    align-items: end;
+    gap: 2rem;
+    border-top: 1px solid var(--line-strong);
+    padding-top: 2.5rem;
+  }
+
+  .fold-to-fire-heading h3 {
+    max-width: 820px;
+    margin-top: 0.5rem;
+    font-family: var(--serif);
+    font-size: clamp(2.4rem, 5.5vw, 4.8rem);
+    font-weight: 400;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+  }
+
+  .fold-to-fire-heading > p {
+    color: var(--muted-strong);
+    font-size: 0.84rem;
+    line-height: 1.75;
+  }
+
+  .fold-to-fire-root {
+    margin-top: 2.5rem;
+  }
+
+  body:has(.fold-to-fire-noscript) .fold-to-fire-root {
+    display: none;
+  }
+
+  .fold-to-fire-loading,
+  .fold-to-fire-load-error {
+    display: grid;
+    min-height: 200px;
+    place-items: center;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 2rem;
+    background: var(--surface);
+    color: var(--muted-strong);
+    text-align: center;
+  }
+
+  .fold-to-fire-loading .loading-lines {
+    width: min(340px, 100%);
+  }
+
+  .fold-to-fire-load-error strong {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 400;
+  }
+
+  .fold-to-fire-load-error p {
+    max-width: 620px;
+    color: var(--muted-strong);
+    font-size: 0.75rem;
+  }
+
+  .fold-to-fire-load-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.7rem;
+  }
+
+  .fold-to-fire-lab,
+  .fold-to-fire-noscript {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .fold-to-fire-boundaries {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border: 1px solid var(--line-strong);
+    background:
+      radial-gradient(circle at 92% 0%, rgba(120, 230, 173, 0.055), transparent 24rem),
+      var(--surface);
+  }
+
+  .fold-to-fire-boundary {
+    display: grid;
+    min-height: 126px;
+    align-content: center;
+    gap: 0.35rem;
+    border-right: 1px solid var(--line);
+    padding: 1rem;
+  }
+
+  .fold-to-fire-boundary:last-child {
+    border-right: 0;
+  }
+
+  .fold-to-fire-boundary span,
+  .fold-to-fire-card-kicker {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .fold-to-fire-boundary strong {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+
+  .fold-to-fire-boundary p {
+    color: var(--muted-strong);
+    font-size: 0.65rem;
+    line-height: 1.5;
+  }
+
+  .fold-to-fire-boundary.is-open strong {
+    color: var(--amber);
+  }
+
+  .fold-to-fire-boundary.is-bespoke strong {
+    color: var(--violet-soft);
+  }
+
+  .fold-to-fire-model-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 1rem;
+  }
+
+  .fold-to-fire-card,
+  .fold-to-fire-table-panel,
+  .fold-to-fire-challenge,
+  .fold-to-fire-sources,
+  .fold-to-fire-noscript {
+    min-width: 0;
+    border: 1px solid var(--line-strong);
+    padding: clamp(1rem, 3vw, 1.5rem);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(185, 155, 255, 0.045), transparent 22rem),
+      rgba(255, 255, 255, 0.012);
+  }
+
+  .fold-to-fire-card h4,
+  .fold-to-fire-table-panel h4,
+  .fold-to-fire-challenge h4,
+  .fold-to-fire-sources h4,
+  .fold-to-fire-noscript h4 {
+    margin-top: 0.25rem;
+    font-family: var(--serif);
+    font-size: clamp(1.35rem, 3vw, 2rem);
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .fold-to-fire-card > p,
+  .fold-to-fire-table-panel > p,
+  .fold-to-fire-challenge > p,
+  .fold-to-fire-sources > p,
+  .fold-to-fire-noscript-lede {
+    margin-top: 0.7rem;
+    color: var(--muted-strong);
+    font-size: 0.72rem;
+    line-height: 1.65;
+  }
+
+  .fold-to-fire-equations {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 1rem;
+  }
+
+  .fold-to-fire-equations code {
+    display: block;
+    overflow-wrap: anywhere;
+    border-left: 2px solid rgba(220, 255, 120, 0.58);
+    padding: 0.68rem 0.8rem;
+    background: rgba(220, 255, 120, 0.035);
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.67rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+
+  .fold-to-fire-convention-list,
+  .fold-to-fire-challenge ol,
+  .fold-to-fire-sources ul {
+    display: grid;
+    gap: 0.55rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .fold-to-fire-convention-list li,
+  .fold-to-fire-challenge li,
+  .fold-to-fire-sources li {
+    color: var(--muted-strong);
+    font-size: 0.69rem;
+    line-height: 1.55;
+  }
+
+  .fold-to-fire-convention-list li {
+    border-left: 1px solid var(--line-strong);
+    padding-left: 0.7rem;
+  }
+
+  .fold-to-fire-challenge ol {
+    counter-reset: fold-challenge;
+  }
+
+  .fold-to-fire-challenge li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.7rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.75rem;
+    counter-increment: fold-challenge;
+  }
+
+  .fold-to-fire-challenge li::before {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid rgba(185, 155, 255, 0.4);
+    border-radius: 50%;
+    color: var(--violet-soft);
+    content: counter(fold-challenge, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 0.55rem;
+  }
+
+  .fold-to-fire-table-wrap {
+    width: 100%;
+    margin-top: 1rem;
+    overflow-x: auto;
+  }
+
+  .fold-to-fire-table {
+    width: 100%;
+    min-width: 610px;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fold-to-fire-table caption {
+    padding-bottom: 0.65rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    text-align: left;
+  }
+
+  .fold-to-fire-table th,
+  .fold-to-fire-table td {
+    border-bottom: 1px solid var(--line);
+    padding: 0.65rem 0.75rem;
+    color: var(--muted-strong);
+    font-family: var(--mono);
+    font-size: 0.63rem;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .fold-to-fire-table thead th {
+    color: var(--muted);
+    font-size: 0.56rem;
+    font-weight: 500;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
+  .fold-to-fire-table th:first-child,
+  .fold-to-fire-table td:first-child {
+    text-align: left;
+  }
+
+  .fold-to-fire-table tbody th {
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  .fold-to-fire-table tbody tr:last-child th,
+  .fold-to-fire-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .fold-to-fire-table code {
+    color: var(--violet-soft);
+    font-size: 0.58rem;
+  }
+
+  .fold-to-fire-boundary-grid,
+  .fold-to-fire-noscript-boundaries {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .fold-to-fire-boundary-note,
+  .fold-to-fire-noscript-boundaries p {
+    border-left: 2px solid var(--amber);
+    padding: 0.9rem 1rem;
+    background: rgba(255, 197, 111, 0.045);
+    color: var(--muted-strong);
+    font-size: 0.7rem;
+    line-height: 1.6;
+  }
+
+  .fold-to-fire-boundary-note.is-bespoke,
+  .fold-to-fire-noscript-boundaries p:first-child {
+    border-left-color: var(--violet);
+    background: rgba(185, 155, 255, 0.045);
+  }
+
+  .fold-to-fire-boundary-note strong,
+  .fold-to-fire-noscript-boundaries strong {
+    color: var(--ink);
+  }
+
+  .fold-to-fire-source-link,
+  .fold-to-fire-noscript a {
+    color: var(--violet-soft);
+  }
+
+  .fold-to-fire-source-link {
+    overflow-wrap: anywhere;
+  }
+
+  .fold-to-fire-source-meta {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.56rem;
+  }
+
+  .fold-to-fire-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.61rem;
+  }
+
+  .fold-to-fire-facts strong {
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  @media (max-width: 1040px) {
+    .fold-to-fire-boundaries {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .fold-to-fire-boundary:nth-child(2) {
+      border-right: 0;
+    }
+
+    .fold-to-fire-boundary:nth-child(-n + 2) {
+      border-bottom: 1px solid var(--line);
+    }
+  }
+
+  @media (max-width: 820px) {
+    .fold-to-fire-heading,
+    .fold-to-fire-model-grid,
+    .fold-to-fire-boundary-grid,
+    .fold-to-fire-noscript-boundaries {
+      grid-template-columns: 1fr;
+    }
+
+    .fold-to-fire-heading {
+      align-items: start;
+      gap: 1rem;
+    }
+
+    .fold-to-fire-boundaries {
+      grid-template-columns: 1fr;
+    }
+
+    .fold-to-fire-boundary,
+    .fold-to-fire-boundary:nth-child(2) {
+      min-height: 96px;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .fold-to-fire-boundary:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .fold-to-fire-load-actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .fold-to-fire-load-actions .button {
+      width: 100%;
+    }
+
+    .fold-to-fire-card,
+    .fold-to-fire-table-panel,
+    .fold-to-fire-challenge,
+    .fold-to-fire-sources,
+    .fold-to-fire-noscript {
+      padding: 1rem;
+    }
+  }
+
   .footer {
     display: grid;
     grid-template-columns: 1fr auto 1fr;

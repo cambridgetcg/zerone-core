@@ -25,6 +25,7 @@ import { initialiseQuantumSeason } from "./quantum-season";
 import { initialiseRelationalTopology } from "./relational-topology";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
+import { initialiseFoldToFire } from "./fold-to-fire";
 import type { WalletState } from "./wallet";
 
 const byId = <T extends HTMLElement>(id: string): T => {
@@ -81,6 +82,7 @@ const branchFlowRoot = byId<HTMLElement>("branch-flow-root");
 const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
+const foldToFireRoot = byId<HTMLElement>("fold-to-fire-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
 const knowledgeGeometryRoot = byId<HTMLElement>("knowledge-geometry-root");
 const relationalTopologyRoot = byId<HTMLElement>("relational-topology-root");
@@ -1157,6 +1159,7 @@ void initialiseBranchFlow(branchFlowRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
+const foldToFireReady = initialiseFoldToFire(foldToFireRoot);
 const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
 const knowledgeGeometryReady = initialiseKnowledgeGeometry(knowledgeGeometryRoot);
 const relationalTopologyReady = initialiseRelationalTopology(
@@ -1178,6 +1181,7 @@ const alignInitialHash = (): void => {
     window.location.hash !== "#skills" &&
     window.location.hash !== "#branch-flow" &&
     window.location.hash !== "#math-frontier" &&
+    window.location.hash !== "#fold-to-fire" &&
     window.location.hash !== "#life" &&
     window.location.hash !== "#participate"
   ) {
@@ -1196,6 +1200,8 @@ const alignInitialHash = (): void => {
               ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
               : window.location.hash === "#math-frontier"
                 ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+                : window.location.hash === "#fold-to-fire"
+                  ? foldToFireRoot.closest<HTMLElement>("#fold-to-fire")
                 : window.location.hash === "#life"
                   ? lifeGardenRoot.closest<HTMLElement>("#life")
                   : window.location.hash === "#participate"
@@ -1216,6 +1222,7 @@ void Promise.allSettled([
   lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
+  foldToFireReady,
   lifeGardenReady,
 ]).then(alignInitialHash);
 void Promise.allSettled([
@@ -1223,6 +1230,7 @@ void Promise.allSettled([
   lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
+  foldToFireReady,
   lifeGardenReady,
   initialNetworkReady,
 ]).then(alignInitialHash);
@@ -1236,6 +1244,7 @@ void Promise.allSettled([
   lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
+  foldToFireReady,
   lifeGardenReady,
   initialNetworkReady,
 ]).then(() => {
