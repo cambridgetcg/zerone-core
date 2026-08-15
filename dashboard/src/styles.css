@@ -2033,6 +2033,1024 @@
     }
   }
 
+  .correspondence-geometry-section {
+    position: relative;
+    isolation: isolate;
+    padding: 7rem 0 9rem;
+    scroll-margin-top: 84px;
+  }
+
+  .correspondence-geometry-section::before {
+    position: absolute;
+    z-index: -1;
+    inset: 1.5rem -4vw 0;
+    background:
+      linear-gradient(30deg, transparent 49.86%, rgba(185, 155, 255, 0.045) 50%, transparent 50.14%),
+      linear-gradient(150deg, transparent 49.86%, rgba(220, 255, 120, 0.025) 50%, transparent 50.14%),
+      radial-gradient(circle at 77% 16%, rgba(185, 155, 255, 0.09), transparent 26rem),
+      radial-gradient(circle at 9% 70%, rgba(220, 255, 120, 0.04), transparent 22rem);
+    background-size: 84px 84px, 84px 84px, auto, auto;
+    border-block: 1px solid rgba(185, 155, 255, 0.08);
+    content: "";
+    mask-image: linear-gradient(to bottom, transparent, black 8rem, black calc(100% - 5rem), transparent);
+    pointer-events: none;
+  }
+
+  .correspondence-geometry-section .section-heading {
+    align-items: end;
+  }
+
+  .correspondence-geometry-section .section-heading h2 {
+    max-width: 790px;
+    font-size: clamp(3.5rem, 6.2vw, 6.4rem);
+  }
+
+  .correspondence-geometry-section .section-heading h2 em {
+    color: var(--amber);
+    font-weight: inherit;
+  }
+
+  .correspondence-geometry-static-facts,
+  .correspondence-geometry-facts {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 3rem 0 0;
+    border: 1px solid var(--line-strong);
+    background: var(--line);
+    gap: 1px;
+  }
+
+  .correspondence-geometry-static-facts > div,
+  .correspondence-geometry-fact {
+    display: grid;
+    min-width: 0;
+    min-height: 96px;
+    align-content: center;
+    gap: 0.35rem;
+    padding: 1rem;
+    background:
+      linear-gradient(135deg, rgba(185, 155, 255, 0.035), transparent 62%),
+      var(--surface);
+  }
+
+  .correspondence-geometry-static-facts dt,
+  .correspondence-geometry-fact span {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    letter-spacing: 0.065em;
+    line-height: 1.45;
+    text-transform: uppercase;
+  }
+
+  .correspondence-geometry-static-facts dd,
+  .correspondence-geometry-fact strong {
+    color: var(--acid);
+    font-family: var(--mono);
+    font-size: 1.04rem;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-static-facts > div:nth-last-child(-n + 2) dd,
+  .correspondence-geometry-fact[data-zero-effect="true"] strong {
+    color: var(--green);
+  }
+
+  .correspondence-geometry-root {
+    min-width: 0;
+    margin-top: 1rem;
+  }
+
+  body:has(.correspondence-geometry-noscript) .correspondence-geometry-root {
+    display: none;
+  }
+
+  .correspondence-geometry-loading,
+  .correspondence-geometry-load-error {
+    display: grid;
+    min-height: 220px;
+    place-items: center;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 2rem;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(185, 155, 255, 0.065), transparent 18rem),
+      var(--surface);
+    color: var(--muted-strong);
+    text-align: center;
+  }
+
+  .correspondence-geometry-loading .loading-lines {
+    width: min(340px, 100%);
+  }
+
+  .correspondence-geometry-load-error {
+    border-color: color-mix(in srgb, var(--red) 30%, var(--line));
+  }
+
+  .correspondence-geometry-load-error strong {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 400;
+  }
+
+  .correspondence-geometry-load-error p {
+    max-width: 640px;
+    color: var(--muted-strong);
+    font-size: 0.74rem;
+  }
+
+  .correspondence-geometry-load-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.65rem;
+  }
+
+  .correspondence-geometry-shell,
+  .correspondence-geometry-noscript {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  .correspondence-geometry-noscript {
+    margin-top: 1rem;
+  }
+
+  .correspondence-geometry-noscript-heading,
+  .correspondence-geometry-subheading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+    align-items: end;
+    gap: 2rem;
+    border: 1px solid var(--line-strong);
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(185, 155, 255, 0.07), transparent 22rem),
+      var(--surface);
+  }
+
+  .correspondence-geometry-noscript-heading {
+    border-color: color-mix(in srgb, var(--acid) 24%, var(--line));
+  }
+
+  .correspondence-geometry-noscript-heading h3,
+  .correspondence-geometry-subheading h4,
+  .correspondence-geometry-noscript-lanes > h4,
+  .correspondence-geometry-lanes > h3,
+  .correspondence-geometry-mappings > h3,
+  .correspondence-geometry-energy-firewall h3,
+  .correspondence-geometry-energy-firewall h4,
+  .correspondence-geometry-duality-gate h3,
+  .correspondence-geometry-duality-gate h4,
+  .correspondence-geometry-no-effects h3,
+  .correspondence-geometry-no-effects h4,
+  .correspondence-geometry-sources > h3,
+  .correspondence-geometry-sources h4 {
+    margin: 0.35rem 0 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: clamp(1.55rem, 3.3vw, 2.45rem);
+    font-weight: 400;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+  }
+
+  .correspondence-geometry-noscript-heading p,
+  .correspondence-geometry-subheading p {
+    color: var(--muted-strong);
+    font-size: 0.74rem;
+    line-height: 1.65;
+  }
+
+  .correspondence-geometry-noscript-heading a,
+  .correspondence-geometry-source a,
+  .correspondence-geometry-sources a,
+  .correspondence-geometry-raw {
+    color: var(--violet-soft);
+  }
+
+  .correspondence-geometry-kicker,
+  .correspondence-geometry-mapping > header > span,
+  .correspondence-geometry-mapping-kicker,
+  .correspondence-geometry-lane > span,
+  .correspondence-geometry-badge,
+  .correspondence-geometry-test-status {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    letter-spacing: 0.07em;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .correspondence-geometry-noscript-lanes,
+  .correspondence-geometry-lanes {
+    display: grid;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: clamp(1rem, 2.5vw, 1.4rem);
+    background: rgba(255, 255, 255, 0.012);
+  }
+
+  .correspondence-geometry-noscript-lanes > h4 {
+    font-size: clamp(1.35rem, 2.8vw, 1.9rem);
+  }
+
+  .correspondence-geometry-lanes > h3,
+  .correspondence-geometry-mappings > h3 {
+    font-size: clamp(1.35rem, 2.8vw, 1.9rem);
+  }
+
+  .correspondence-geometry-mappings {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .correspondence-geometry-lane-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .correspondence-geometry-lane {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    min-height: 148px;
+    align-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    background:
+      linear-gradient(150deg, rgba(185, 155, 255, 0.045), transparent 52%),
+      var(--surface);
+  }
+
+  .correspondence-geometry-lane::after {
+    position: absolute;
+    top: 0.9rem;
+    right: 0.9rem;
+    width: 7px;
+    height: 7px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    color: var(--violet);
+    content: "";
+  }
+
+  .correspondence-geometry-lane[data-lane="PHYSICS_MATH"]::after {
+    color: var(--green);
+  }
+
+  .correspondence-geometry-lane[data-lane="CONJECTURE"]::after {
+    color: var(--amber);
+  }
+
+  .correspondence-geometry-lane[data-lane="ZERONE_PROTOCOL"]::after {
+    color: var(--acid);
+  }
+
+  .correspondence-geometry-lane[data-lane="THEOLOGY_MEDITATION"]::after {
+    color: var(--violet-soft);
+  }
+
+  .correspondence-geometry-lane > span {
+    max-width: calc(100% - 1rem);
+    color: var(--violet-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-lane p {
+    color: var(--muted-strong);
+    font-size: 0.66rem;
+    line-height: 1.58;
+  }
+
+  .correspondence-geometry-controls,
+  .correspondence-geometry-filters {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border: 1px solid var(--line);
+    padding: 0.8rem;
+    background: var(--surface);
+  }
+
+  .correspondence-geometry-controls > span,
+  .correspondence-geometry-filter-label {
+    margin-right: 0.35rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    letter-spacing: 0.065em;
+    text-transform: uppercase;
+  }
+
+  .correspondence-geometry-filter,
+  .correspondence-geometry-reset,
+  .correspondence-geometry-raw {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 99px;
+    padding: 0.5rem 0.72rem;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--ink-soft);
+    font-size: 0.64rem;
+    font-weight: 650;
+    text-decoration: none;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .correspondence-geometry-filter:hover,
+  .correspondence-geometry-filter.is-active,
+  .correspondence-geometry-filter[aria-pressed="true"],
+  .correspondence-geometry-reset:hover,
+  .correspondence-geometry-raw:hover {
+    border-color: rgba(220, 255, 120, 0.5);
+    background: rgba(220, 255, 120, 0.07);
+    color: var(--acid);
+  }
+
+  .correspondence-geometry-filter:focus-visible,
+  .correspondence-geometry-reset:focus-visible,
+  .correspondence-geometry-raw:focus-visible,
+  .correspondence-geometry-mapping:focus-within {
+    outline: 2px solid var(--acid);
+    outline-offset: -3px;
+  }
+
+  .correspondence-geometry-mapping-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    border: 1px solid var(--line);
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .correspondence-geometry-mapping-grid > li {
+    display: grid;
+    min-width: 0;
+  }
+
+  .correspondence-geometry-mapping {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 1rem;
+    padding: clamp(1rem, 2.5vw, 1.4rem);
+    background:
+      linear-gradient(90deg, rgba(185, 155, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(rgba(185, 155, 255, 0.032) 1px, transparent 1px),
+      var(--surface);
+    background-size: 28px 28px;
+  }
+
+  .correspondence-geometry-mapping::after {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+    border: 1px solid rgba(185, 155, 255, 0.6);
+    background: var(--surface);
+    content: "";
+  }
+
+  .correspondence-geometry-mapping[data-relation-kind="PROJECTION"]::after {
+    border-color: var(--amber);
+    border-radius: 50%;
+  }
+
+  .correspondence-geometry-mapping[data-relation-kind="TRANSLATION"]::after {
+    border-color: var(--green);
+    box-shadow: -6px 6px 0 -5px var(--green), 6px -6px 0 -5px var(--green);
+  }
+
+  .correspondence-geometry-mapping[data-relation-kind="DUALITY_CANDIDATE"]::after {
+    border-color: var(--red);
+    border-radius: 50%;
+  }
+
+  .correspondence-geometry-mapping > header,
+  .correspondence-geometry-mapping-heading {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+    padding-right: 1.5rem;
+  }
+
+  .correspondence-geometry-mapping > header > span,
+  .correspondence-geometry-mapping-kicker {
+    color: var(--violet-soft);
+  }
+
+  .correspondence-geometry-mapping h5,
+  .correspondence-geometry-mapping-title {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+  }
+
+  .correspondence-geometry-badges {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .correspondence-geometry-badge,
+  .correspondence-geometry-test-status {
+    width: fit-content;
+    max-width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 99px;
+    padding: 0.24rem 0.48rem;
+    color: var(--muted-strong);
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-badge[data-kind="ANALOGY"],
+  .correspondence-geometry-badge[data-relation-kind="ANALOGY"] {
+    border-color: rgba(185, 155, 255, 0.4);
+    color: var(--violet-soft);
+  }
+
+  .correspondence-geometry-badge[data-kind="PROJECTION"],
+  .correspondence-geometry-badge[data-relation-kind="PROJECTION"] {
+    border-color: rgba(255, 197, 111, 0.42);
+    color: var(--amber);
+  }
+
+  .correspondence-geometry-badge[data-kind="TRANSLATION"],
+  .correspondence-geometry-badge[data-relation-kind="TRANSLATION"] {
+    border-color: rgba(120, 230, 173, 0.4);
+    color: var(--green);
+  }
+
+  .correspondence-geometry-route {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    border-block: 1px solid var(--line);
+    padding: 0.85rem 0;
+    color: var(--muted-strong);
+    font-family: var(--mono);
+    font-size: 0.61rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-route b,
+  .correspondence-geometry-arrow {
+    color: var(--acid);
+    font-size: 1.1rem;
+    font-weight: 400;
+  }
+
+  .correspondence-geometry-source-node,
+  .correspondence-geometry-target-node {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-mapping dl,
+  .correspondence-geometry-map-details {
+    display: grid;
+    min-width: 0;
+    gap: 0.65rem;
+    margin: 0;
+  }
+
+  .correspondence-geometry-mapping dl > div,
+  .correspondence-geometry-map-detail {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(90px, 0.27fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    border-left: 2px solid rgba(120, 230, 173, 0.46);
+    padding: 0.55rem 0.65rem;
+    background: rgba(120, 230, 173, 0.025);
+  }
+
+  .correspondence-geometry-mapping dl > div:nth-child(2),
+  .correspondence-geometry-map-detail.is-loss,
+  .correspondence-geometry-information-loss {
+    border-left-color: rgba(255, 197, 111, 0.58);
+    background: rgba(255, 197, 111, 0.035);
+  }
+
+  .correspondence-geometry-mapping dl > div:nth-child(3),
+  .correspondence-geometry-map-detail.is-refusal,
+  .correspondence-geometry-non-transfer {
+    border-left-color: rgba(255, 132, 124, 0.56);
+    background: rgba(255, 132, 124, 0.03);
+  }
+
+  .correspondence-geometry-mapping dt,
+  .correspondence-geometry-map-detail strong {
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    font-weight: 500;
+    letter-spacing: 0.045em;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .correspondence-geometry-mapping dd,
+  .correspondence-geometry-map-detail :where(p, li),
+  .correspondence-geometry-invariant,
+  .correspondence-geometry-loss,
+  .correspondence-geometry-non-transfer {
+    min-width: 0;
+    color: var(--muted-strong);
+    font-size: 0.66rem;
+    line-height: 1.58;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-map-detail ul {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .correspondence-geometry-map-detail li + li {
+    border-top: 1px solid var(--line);
+    padding-top: 0.4rem;
+  }
+
+  .correspondence-geometry-round-trips,
+  .correspondence-geometry-tests {
+    display: grid;
+    gap: 0.5rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.8rem;
+  }
+
+  .correspondence-geometry-test {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.7rem;
+    color: var(--muted-strong);
+    font-size: 0.63rem;
+  }
+
+  .correspondence-geometry-tests > strong {
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    font-weight: 500;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
+  .correspondence-geometry-test-status[data-status="PASS"] {
+    border-color: rgba(120, 230, 173, 0.4);
+    color: var(--green);
+  }
+
+  .correspondence-geometry-test-status[data-status="NOT_RUN"] {
+    border-color: rgba(255, 197, 111, 0.4);
+    color: var(--amber);
+  }
+
+  .correspondence-geometry-guard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .correspondence-geometry-guard-card {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.45rem;
+    padding: 1rem;
+    background: var(--surface);
+  }
+
+  .correspondence-geometry-guard-card strong {
+    color: var(--ink-soft);
+    font-size: 0.75rem;
+  }
+
+  .correspondence-geometry-guard-card p,
+  .correspondence-geometry-guard-card small {
+    color: var(--muted-strong);
+    font-size: 0.63rem;
+    line-height: 1.58;
+  }
+
+  .correspondence-geometry-energy-firewall,
+  .correspondence-geometry-duality-gate {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.9rem;
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    background: var(--surface);
+  }
+
+  .correspondence-geometry-energy-firewall {
+    background:
+      radial-gradient(circle at 0% 100%, rgba(255, 197, 111, 0.055), transparent 20rem),
+      var(--surface);
+  }
+
+  .correspondence-geometry-duality-gate {
+    border-left: 2px solid var(--acid);
+    background:
+      linear-gradient(135deg, rgba(220, 255, 120, 0.055), transparent 55%),
+      var(--surface);
+  }
+
+  .correspondence-geometry-energy-firewall :where(h3, h4),
+  .correspondence-geometry-duality-gate h4 {
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+  }
+
+  .correspondence-geometry-duality-gate h3 {
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+  }
+
+  .correspondence-geometry-energy-firewall ul {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    border: 1px solid var(--line);
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .correspondence-geometry-energy-firewall li {
+    display: grid;
+    min-width: 0;
+    gap: 0.3rem;
+    padding: 0.72rem;
+    background: rgba(8, 8, 11, 0.58);
+  }
+
+  .correspondence-geometry-energy-firewall code {
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-energy-firewall li span {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-energy-firewall > p,
+  .correspondence-geometry-duality-gate > p {
+    color: var(--muted-strong);
+    font-size: 0.69rem;
+    line-height: 1.62;
+  }
+
+  .correspondence-geometry-duality-gate code {
+    color: var(--acid);
+    font-size: 0.62rem;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-duality-gate ul {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--muted-strong);
+    font-size: 0.64rem;
+    line-height: 1.58;
+  }
+
+  .correspondence-geometry-no-effects {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.64fr) minmax(0, 1.36fr);
+    gap: 1.5rem;
+    border: 1px solid color-mix(in srgb, var(--green) 28%, var(--line));
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    background:
+      radial-gradient(circle at 8% 0%, rgba(120, 230, 173, 0.065), transparent 22rem),
+      var(--surface);
+  }
+
+  .correspondence-geometry-no-effects :where(h3, h4) {
+    font-size: clamp(1.55rem, 3vw, 2.2rem);
+  }
+
+  .correspondence-geometry-no-effects > div > p {
+    margin-top: 0.65rem;
+    color: var(--muted-strong);
+    font-size: 0.69rem;
+    line-height: 1.6;
+  }
+
+  .correspondence-geometry-no-effects ul {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    border: 1px solid var(--line);
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .correspondence-geometry-no-effects li {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    padding: 0.6rem 0.7rem;
+    background: rgba(8, 8, 11, 0.65);
+  }
+
+  .correspondence-geometry-no-effects code {
+    min-width: 0;
+    color: var(--muted-strong);
+    font-family: var(--mono);
+    font-size: 0.52rem;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-no-effects b {
+    flex: 0 0 auto;
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 0.52rem;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .correspondence-geometry-sources {
+    display: grid;
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .correspondence-geometry-sources > h3 {
+    margin: 0;
+    padding: clamp(1rem, 2.5vw, 1.4rem);
+    background: var(--surface);
+    font-size: clamp(1.35rem, 2.8vw, 1.9rem);
+  }
+
+  .correspondence-geometry-sources .correspondence-geometry-subheading {
+    border: 0;
+  }
+
+  .correspondence-geometry-sources ul,
+  .correspondence-geometry-source-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .correspondence-geometry-sources li,
+  .correspondence-geometry-source {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+  }
+
+  .correspondence-geometry-sources a,
+  .correspondence-geometry-source :where(a, code, span) {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .correspondence-geometry-source strong {
+    color: var(--ink-soft);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .correspondence-geometry-source :where(code, span) {
+    color: var(--muted);
+  }
+
+  .correspondence-geometry-footer {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 0.9rem 1rem;
+    background: rgba(255, 255, 255, 0.012);
+  }
+
+  .correspondence-geometry-footer p {
+    max-width: 760px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    line-height: 1.55;
+  }
+
+  .correspondence-geometry-footer > div {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.65rem;
+  }
+
+  .correspondence-geometry-reset,
+  .correspondence-geometry-raw {
+    border-radius: 3px;
+  }
+
+  @media (min-width: 1201px) {
+    .topnav {
+      gap: 0.85rem;
+    }
+
+    .topnav a {
+      font-size: 0.72rem;
+    }
+  }
+
+  @media (max-width: 1040px) {
+    .correspondence-geometry-static-facts,
+    .correspondence-geometry-facts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .correspondence-geometry-lane-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .correspondence-geometry-no-effects {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .correspondence-geometry-section::before {
+      inset-inline: 0;
+    }
+
+    .correspondence-geometry-noscript-heading,
+    .correspondence-geometry-subheading,
+    .correspondence-geometry-guard-grid {
+      grid-template-columns: 1fr;
+      align-items: start;
+      gap: 1rem;
+    }
+
+    .correspondence-geometry-lane-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .correspondence-geometry-mapping-grid,
+    .correspondence-geometry-sources ul,
+    .correspondence-geometry-source-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .correspondence-geometry-duality-gate {
+      border-top: 2px solid var(--acid);
+      border-left: 0;
+    }
+
+    .correspondence-geometry-footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .correspondence-geometry-section {
+      padding: 5rem 0 6rem;
+    }
+
+    .correspondence-geometry-section .section-heading h2 {
+      font-size: clamp(3rem, 15vw, 4.3rem);
+    }
+
+    .correspondence-geometry-static-facts,
+    .correspondence-geometry-facts,
+    .correspondence-geometry-lane-grid,
+    .correspondence-geometry-energy-firewall ul,
+    .correspondence-geometry-no-effects ul {
+      grid-template-columns: 1fr;
+    }
+
+    .correspondence-geometry-static-facts > div,
+    .correspondence-geometry-fact {
+      min-height: 70px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .correspondence-geometry-lane {
+      min-height: 116px;
+    }
+
+    .correspondence-geometry-controls,
+    .correspondence-geometry-filters {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .correspondence-geometry-controls > span,
+    .correspondence-geometry-filter-label {
+      margin: 0 0 0.2rem;
+    }
+
+    .correspondence-geometry-filter,
+    .correspondence-geometry-load-actions,
+    .correspondence-geometry-load-actions > *,
+    .correspondence-geometry-footer > div,
+    .correspondence-geometry-reset,
+    .correspondence-geometry-raw {
+      width: 100%;
+    }
+
+    .correspondence-geometry-load-actions,
+    .correspondence-geometry-footer > div {
+      flex-direction: column;
+    }
+
+    .correspondence-geometry-route {
+      grid-template-columns: 1fr;
+    }
+
+    .correspondence-geometry-route b,
+    .correspondence-geometry-arrow {
+      transform: rotate(90deg);
+      justify-self: start;
+    }
+
+    .correspondence-geometry-mapping dl > div,
+    .correspondence-geometry-map-detail {
+      grid-template-columns: 1fr;
+      gap: 0.3rem;
+    }
+
+    .correspondence-geometry-noscript-heading,
+    .correspondence-geometry-subheading,
+    .correspondence-geometry-no-effects,
+    .correspondence-geometry-energy-firewall,
+    .correspondence-geometry-duality-gate,
+    .correspondence-geometry-mapping {
+      padding: 1rem;
+    }
+
+    .correspondence-geometry-no-effects li {
+      align-items: flex-start;
+    }
+  }
+
   .ci-tree-section {
     padding: 7rem 0 9rem;
     scroll-margin-top: 84px;

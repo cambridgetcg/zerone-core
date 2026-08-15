@@ -1,0 +1,753 @@
+{
+  "schema": "zerone.correspondence-geometry/v0",
+  "version": 0,
+  "snapshotDate": "2026-08-15",
+  "status": "READ_ONLY_ZERO_EFFECT",
+  "title": "ZERONE Correspondence Geometry v0",
+  "summary": "A sealed atlas for carrying bounded structure between domains while exposing background, invariants, loss, counterexamples, round trips, and prohibited conclusions.",
+  "authorityStatement": "This publication proposes engineering correspondences. It establishes no scientific, theological, protocol, institutional, or personal authority.",
+  "sourceBindings": [
+    {
+      "id": "compassion",
+      "path": "docs/COMPASSION.md",
+      "sha256": "ddebabc2b875532c2a3ec76c50f8f63fcef1007a728b7e260a5da36d24c619ad",
+      "role": "NORMATIVE_REGISTER_BOUNDARY"
+    },
+    {
+      "id": "knowledge-metabolism",
+      "path": "x/knowledge/keeper/metabolism.go",
+      "sha256": "7b252c5134a6c78b753820890dbcd1eac9d3b263c8bf798c44bc1b41f50aafc6",
+      "role": "PROTOCOL_RESOURCE_SEMANTICS"
+    },
+    {
+      "id": "knowledge-methodologies",
+      "path": "x/knowledge/types/methodologies.go",
+      "sha256": "fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386",
+      "role": "MAPPING_METHODOLOGY"
+    },
+    {
+      "id": "knowledge-types",
+      "path": "proto/zerone/knowledge/v1/types.proto",
+      "sha256": "7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced",
+      "role": "TYPED_KNOWLEDGE_SEMANTICS"
+    },
+    {
+      "id": "relational-topology",
+      "path": "dashboard/public/standards/relational-topology.v0.json",
+      "sha256": "9786674730febfe47150f29adffa4e4f7bd98e2aff502c552fa5b9669d935711",
+      "role": "TYPED_RELATION_REFERENCE"
+    },
+    {
+      "id": "research-training-trace",
+      "path": "docs/RESEARCH_TRAINING_TRACE.md",
+      "sha256": "2bca7a4164e2a52e7e4f5830ba6de6ef67542af1fa06ee913b6b2fbdf2640919",
+      "role": "ROUND_TRIP_TRACE_REFERENCE"
+    },
+    {
+      "id": "tok-substrate",
+      "path": "docs/TOK_SUBSTRATE.md",
+      "sha256": "4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328",
+      "role": "COMMITMENT_AVAILABILITY_BOUNDARY"
+    }
+  ],
+  "physicsSources": [
+    {
+      "id": "ads-cft",
+      "title": "The Large N Limit of Superconformal Field Theories and Supergravity",
+      "url": "https://arxiv.org/abs/hep-th/9711200v3",
+      "scope": "A proposed correspondence in specified large-N conformal and gravitational backgrounds.",
+      "doesNotWarrant": "This paper does not endorse Zerone, prove that our universe is holographic, or establish a blockchain design."
+    },
+    {
+      "id": "compactification",
+      "title": "Strong Coupling Expansion Of Calabi-Yau Compactification",
+      "url": "https://arxiv.org/abs/hep-th/9602070v2",
+      "scope": "The strong-coupling limit of the E8 x E8 heterotic string on a Calabi-Yau manifold described through a specified eleven-dimensional compactification.",
+      "doesNotWarrant": "A compactified physical dimension does not make an omitted software field a physical extra dimension."
+    },
+    {
+      "id": "entanglement-spacetime",
+      "title": "Building up spacetime with quantum entanglement",
+      "url": "https://arxiv.org/abs/1005.3035v2",
+      "scope": "A theoretical argument connecting entanglement and connected spacetime in specified holographic settings.",
+      "doesNotWarrant": "Graph connectivity does not establish quantum entanglement, consciousness, personhood, truth, or cosmic ontology."
+    },
+    {
+      "id": "holographic-entanglement",
+      "title": "Holographic Derivation of Entanglement Entropy from AdS/CFT",
+      "url": "https://arxiv.org/abs/hep-th/0603001v2",
+      "scope": "A holographic entanglement-entropy proposal within an AdS/CFT background.",
+      "doesNotWarrant": "A Merkle root is not a holographic boundary theory and cannot reconstruct unavailable data."
+    },
+    {
+      "id": "string-duality",
+      "title": "String Theory Dynamics in Various Dimensions",
+      "url": "https://arxiv.org/abs/hep-th/9503124v2",
+      "scope": "Dual descriptions and strong-weak relations in named string-theory limits and backgrounds.",
+      "doesNotWarrant": "A productive analogy is not a physical or mathematical duality and does not inherit the paper's warrant."
+    }
+  ],
+  "epistemicLanes": [
+    {
+      "id": "CONJECTURE",
+      "name": "Conjecture",
+      "meaning": "Open, speculative, analogical, or not-yet-tested proposals.",
+      "warrantRule": "Must remain visibly provisional and cannot be rendered as established physics or deployed protocol."
+    },
+    {
+      "id": "ENGINEERING_TRANSFER",
+      "name": "Engineering transfer",
+      "meaning": "A bounded design lesson proposed for Zerone with explicit failure conditions.",
+      "warrantRule": "Requires local evidence, declared scope, information loss, counterexamples, and non-transfer walls."
+    },
+    {
+      "id": "PHYSICS_MATH",
+      "name": "Physics and mathematics",
+      "meaning": "Published claims kept inside their named models, assumptions, scales, and regimes.",
+      "warrantRule": "A cited paper warrants only its own scoped claim; it never warrants the Zerone mapping."
+    },
+    {
+      "id": "THEOLOGY_MEDITATION",
+      "name": "Theology and meditation",
+      "meaning": "Witness, belief, practice, and contemplative language without machine adjudication.",
+      "warrantRule": "No record may mint divine endorsement, doctrinal authority, conversion, salvation, or spiritual rank."
+    },
+    {
+      "id": "ZERONE_PROTOCOL",
+      "name": "Zerone protocol",
+      "meaning": "Versioned source semantics and explicitly named static architecture.",
+      "warrantRule": "Metaphor cannot upgrade a source proposal into deployed consensus or observed network state."
+    }
+  ],
+  "relationKinds": [
+    {
+      "id": "ANALOGY",
+      "meaning": "A one-way structural resemblance used to generate a bounded design question.",
+      "gate": "Requires a forward map, a structural invariant, and a disanalogy or failure test; inverse and round-trip arrays must be empty, and truth or equivalence inheritance is forbidden."
+    },
+    {
+      "id": "DUALITY_CANDIDATE",
+      "meaning": "A candidate two-way equivalence only inside one explicit scope.",
+      "gate": "Requires a named scope, an explicit forward rule and inverse rule, exact or toleranced invariants, no in-scope loss, and both round trips observed PASS; candidate status is not proof of totality or equivalence."
+    },
+    {
+      "id": "PROJECTION",
+      "meaning": "A deliberately lossy public view of a richer source.",
+      "gate": "Requires at least one declared IN_SCOPE loss, an empty inverse and round-trip array, and cannot silently claim reconstruction."
+    },
+    {
+      "id": "TRANSLATION",
+      "meaning": "A vocabulary or representation map with an explicit inverse proposal.",
+      "gate": "Requires an inverse and both round-trip directions; NOT_RUN tests keep the assessment PROPOSED."
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "energy",
+      "name": "Energy",
+      "question": "Which budget structures transfer without confusing physical, compute, protocol, economic, lived, or poetic energy?",
+      "guard": "Every energy lane retains its own measure or register and no implicit conversion is allowed."
+    },
+    {
+      "id": "religion",
+      "name": "Religion",
+      "question": "How can witness be represented publicly without converting lived or sacred meaning into protocol truth?",
+      "guard": "Attribution and register may be preserved; divine endorsement, doctrine, conversion, and spiritual rank may not be inferred."
+    },
+    {
+      "id": "understanding",
+      "name": "Understanding",
+      "question": "Can two representations preserve named invariants, and where does the reformulation fail?",
+      "guard": "A useful round trip demonstrates only the declared task scope, never consciousness, personhood, or permanent understanding."
+    },
+    {
+      "id": "universe",
+      "name": "Universe",
+      "question": "What can holography and entanglement suggest about commitments and relations without becoming cosmological claims?",
+      "guard": "Architecture may borrow questions, not the physical ontology or warrant of a cited theory."
+    }
+  ],
+  "correspondences": [
+    {
+      "id": "compactification-to-declared-projection",
+      "dimension": "understanding",
+      "relationKind": "ANALOGY",
+      "sourceLane": "PHYSICS_MATH",
+      "targetLane": "ENGINEERING_TRANSFER",
+      "assessment": "PROPOSED",
+      "title": "Compactification to declared projection",
+      "source": "A higher-dimensional physical model interpreted after named compactification choices.",
+      "target": "A public Zerone view that lists included and omitted axes, assumptions, and version.",
+      "sourceRefs": [
+        "compactification",
+        "knowledge-methodologies"
+      ],
+      "background": {
+        "frameworks": [
+          "named string compactification",
+          "versioned public data projection"
+        ],
+        "assumptions": [
+          "only the discipline of declaring a reduction is transferred",
+          "the software projection is not a physical compactification"
+        ],
+        "validScope": [
+          "documenting visible and omitted representation axes"
+        ],
+        "excludedScope": [
+          "physical extra dimensions",
+          "string dynamics"
+        ]
+      },
+      "equivalenceScope": null,
+      "forwardMap": "Treat background choice, retained axes, omitted axes, and version as first-class projection metadata.",
+      "inverseMap": null,
+      "preservedInvariants": [
+        {
+          "id": "declared-reduction-context",
+          "statement": "A reduced view remains interpretable only with its background and omission record.",
+          "mode": "STRUCTURAL",
+          "test": "Inspect that every public projection names included axes, omitted axes, assumptions, and version."
+        }
+      ],
+      "informationLosses": [
+        {
+          "id": "physical-content",
+          "statement": "The physical compactification, geometry, and dynamics do not transfer.",
+          "scope": "OUTSIDE_TRANSFER_SCOPE",
+          "recoverability": "NONE"
+        }
+      ],
+      "counterexamples": [
+        {
+          "id": "hidden-field-is-dimension",
+          "setup": "A private database field is omitted from a dashboard.",
+          "failureSignal": "The omission is described as evidence for a physical extra dimension.",
+          "outcome": "REFUTES"
+        }
+      ],
+      "roundTripTests": [],
+      "nonTransfers": [
+        {
+          "category": "ONTOLOGY",
+          "prohibitedConclusion": "A hidden software field is a physical extra dimension.",
+          "reason": "The correspondence transfers documentation discipline, not physical ontology."
+        }
+      ]
+    },
+    {
+      "id": "duality-to-bounded-reformulation",
+      "dimension": "understanding",
+      "relationKind": "ANALOGY",
+      "sourceLane": "PHYSICS_MATH",
+      "targetLane": "ENGINEERING_TRANSFER",
+      "assessment": "PROPOSED",
+      "title": "Duality discipline to bounded reformulation",
+      "source": "Two descriptions related in a named string-theory background and validity regime.",
+      "target": "A Zerone reformulation record with a map, invariants, breakpoints, and counterexamples.",
+      "sourceRefs": [
+        "knowledge-methodologies",
+        "knowledge-types",
+        "research-training-trace",
+        "string-duality"
+      ],
+      "background": {
+        "frameworks": [
+          "named string-theory duality",
+          "Zerone analogical and reformulation methodology"
+        ],
+        "assumptions": [
+          "the physics source remains inside its published regime",
+          "the transfer concerns mapping discipline only"
+        ],
+        "validScope": [
+          "designing auditable reformulation traces"
+        ],
+        "excludedScope": [
+          "physical equivalence",
+          "mathematical proof",
+          "truth inheritance"
+        ]
+      },
+      "equivalenceScope": null,
+      "forwardMap": "Represent each reformulation with an explicit map, named preserved invariants, validity regime, breakpoints, and counterexamples.",
+      "inverseMap": null,
+      "preservedInvariants": [
+        {
+          "id": "background-bound-mapping",
+          "statement": "A correspondence is meaningful only relative to a declared background and scope.",
+          "mode": "STRUCTURAL",
+          "test": "Reject a mapping record that omits background, scope, invariant, or failure condition."
+        }
+      ],
+      "informationLosses": [
+        {
+          "id": "duality-warrant",
+          "statement": "No physical duality, proof, strong-weak relation, or scientific warrant transfers to Zerone.",
+          "scope": "OUTSIDE_TRANSFER_SCOPE",
+          "recoverability": "NONE"
+        }
+      ],
+      "counterexamples": [
+        {
+          "id": "paraphrase-drift",
+          "setup": "A reformulation keeps fluent wording but changes a prediction or exception.",
+          "failureSignal": "A named invariant is no longer preserved or a declared counterexample is no longer handled.",
+          "outcome": "NARROWS"
+        }
+      ],
+      "roundTripTests": [],
+      "nonTransfers": [
+        {
+          "category": "TRUTH_STATUS",
+          "prohibitedConclusion": "A Zerone reformulation is equivalent, true, or authoritative because string duality is productive.",
+          "reason": "The mapping is an analogy about method and has no inverse or equivalence scope."
+        }
+      ]
+    },
+    {
+      "id": "entanglement-to-relational-geometry",
+      "dimension": "universe",
+      "relationKind": "ANALOGY",
+      "sourceLane": "PHYSICS_MATH",
+      "targetLane": "ENGINEERING_TRANSFER",
+      "assessment": "PROPOSED",
+      "title": "Entanglement geometry to relational geometry",
+      "source": "Entanglement structure used to reason about connected geometry in specified holographic models.",
+      "target": "Typed Zerone relations used to render a bounded knowledge geometry.",
+      "sourceRefs": [
+        "entanglement-spacetime",
+        "relational-topology"
+      ],
+      "background": {
+        "frameworks": [
+          "holographic entanglement argument",
+          "typed Zerone relation graph"
+        ],
+        "assumptions": [
+          "only the question of relation-carried shape is transferred",
+          "Zerone edges are ordinary typed records, not quantum states"
+        ],
+        "validScope": [
+          "prioritising explicit relations over untyped visual proximity"
+        ],
+        "excludedScope": [
+          "quantum entanglement",
+          "spacetime emergence",
+          "gravitational dynamics"
+        ]
+      },
+      "equivalenceScope": null,
+      "forwardMap": "Ask whether typed relations, rather than isolated node scores or visual proximity, carry the useful shape of a knowledge view.",
+      "inverseMap": null,
+      "preservedInvariants": [
+        {
+          "id": "relation-carried-shape",
+          "statement": "Connectivity questions depend on declared relations rather than isolated node labels.",
+          "mode": "STRUCTURAL",
+          "test": "Render only actual typed relations and preserve missing edges and contradiction."
+        }
+      ],
+      "informationLosses": [
+        {
+          "id": "quantum-geometry",
+          "statement": "Quantum state, entropy, spacetime, and gravitational mechanism do not transfer.",
+          "scope": "OUTSIDE_TRANSFER_SCOPE",
+          "recoverability": "NONE"
+        }
+      ],
+      "counterexamples": [
+        {
+          "id": "layout-proximity",
+          "setup": "Two unconnected facts appear close in a visual layout.",
+          "failureSignal": "The interface infers affinity, agreement, or entanglement from screen distance.",
+          "outcome": "REFUTES"
+        }
+      ],
+      "roundTripTests": [],
+      "nonTransfers": [
+        {
+          "category": "PERSONHOOD",
+          "prohibitedConclusion": "Graph connectivity proves consciousness, personhood, truth, value, or cosmic unity.",
+          "reason": "A protocol edge is neither quantum entanglement nor an ontological or moral measurement."
+        }
+      ]
+    },
+    {
+      "id": "fact-energy-to-metabolism-language",
+      "dimension": "energy",
+      "relationKind": "TRANSLATION",
+      "sourceLane": "ZERONE_PROTOCOL",
+      "targetLane": "ENGINEERING_TRANSFER",
+      "assessment": "PROPOSED",
+      "title": "Fact energy to metabolism language",
+      "source": "The protocol field and update rules named fact energy.",
+      "target": "The public phrase knowledge-metabolism budget within the exact same bookkeeping scope.",
+      "sourceRefs": [
+        "knowledge-metabolism",
+        "knowledge-types"
+      ],
+      "background": {
+        "frameworks": [
+          "Zerone fact metabolism bookkeeping",
+          "bounded public vocabulary"
+        ],
+        "assumptions": [
+          "both phrases refer to the same field semantics pinned by the declared source bindings",
+          "no other energy lane is included"
+        ],
+        "validScope": [
+          "public explanation of one protocol bookkeeping field"
+        ],
+        "excludedScope": [
+          "physical energy",
+          "compute",
+          "economic value",
+          "lived state",
+          "spiritual language"
+        ]
+      },
+      "equivalenceScope": null,
+      "forwardMap": "Render fact energy as knowledge-metabolism budget only when the exact source-pinned protocol field and update rule remain linked.",
+      "inverseMap": "Map knowledge-metabolism budget back to the exact source-pinned fact-energy field; refuse any other use of energy.",
+      "preservedInvariants": [
+        {
+          "id": "same-bookkeeping-field",
+          "statement": "Field identity, integer bookkeeping semantics, cap, and update ordering must remain unchanged.",
+          "mode": "EXACT",
+          "test": "Compare both phrases against the same field semantics and pinned source bytes."
+        }
+      ],
+      "informationLosses": [
+        {
+          "id": "metaphorical-connotations",
+          "statement": "Each public phrase carries connotations not present in the protocol field.",
+          "scope": "OUTSIDE_TRANSFER_SCOPE",
+          "recoverability": "NONE"
+        }
+      ],
+      "counterexamples": [
+        {
+          "id": "energy-lane-leak",
+          "setup": "A reader treats a fact-energy balance as joules, compute cost, ZRN value, wellbeing, or spiritual vitality.",
+          "failureSignal": "The public language converts or ranks across an energy-firewall lane.",
+          "outcome": "REFUTES"
+        }
+      ],
+      "roundTripTests": [
+        {
+          "id": "fact-energy-forward-round-trip",
+          "direction": "SOURCE_TARGET_SOURCE",
+          "expected": "PASS",
+          "observed": "NOT_RUN",
+          "statement": "Map the protocol field to the public phrase and recover the exact field semantics, source bindings, and update rule."
+        },
+        {
+          "id": "metabolism-language-reverse-round-trip",
+          "direction": "TARGET_SOURCE_TARGET",
+          "expected": "PASS",
+          "observed": "NOT_RUN",
+          "statement": "Map the bounded public phrase to the protocol field and recover the same bounded phrase without importing another energy lane."
+        }
+      ],
+      "nonTransfers": [
+        {
+          "category": "UNITS",
+          "prohibitedConclusion": "Fact energy measures physical, compute, economic, lived, or spiritual energy.",
+          "reason": "The proposed translation is confined to one protocol bookkeeping vocabulary and remains untested."
+        }
+      ]
+    },
+    {
+      "id": "holography-to-commitment-availability",
+      "dimension": "universe",
+      "relationKind": "ANALOGY",
+      "sourceLane": "PHYSICS_MATH",
+      "targetLane": "ENGINEERING_TRANSFER",
+      "assessment": "PROPOSED",
+      "title": "Holography to commitment and availability",
+      "source": "Boundary descriptions and reconstruction questions in named holographic models.",
+      "target": "A Zerone root, proof, data-availability policy, versioned decoder, and challenge path.",
+      "sourceRefs": [
+        "ads-cft",
+        "holographic-entanglement",
+        "tok-substrate"
+      ],
+      "background": {
+        "frameworks": [
+          "named holographic correspondence",
+          "content-addressed off-chain substrate"
+        ],
+        "assumptions": [
+          "only the need for a decoding and availability relation is transferred",
+          "a cryptographic commitment binds bytes but does not contain them"
+        ],
+        "validScope": [
+          "designing commitment, availability, decoder, and challenge surfaces"
+        ],
+        "excludedScope": [
+          "AdS/CFT equivalence",
+          "quantum gravity",
+          "cosmology",
+          "simulation claims"
+        ]
+      },
+      "equivalenceScope": null,
+      "forwardMap": "Pair each compact commitment with explicit data availability, versioned decoding, provenance, and challenge conditions.",
+      "inverseMap": null,
+      "preservedInvariants": [
+        {
+          "id": "boundary-needs-reconstruction-relation",
+          "statement": "A compact boundary record is not useful as a full representation without a reconstruction relation and available substrate.",
+          "mode": "STRUCTURAL",
+          "test": "Refuse a view that treats a root alone as the full artifact."
+        }
+      ],
+      "informationLosses": [
+        {
+          "id": "holographic-physics",
+          "statement": "Spacetime geometry, entropy, dynamics, and physical boundary meaning do not transfer.",
+          "scope": "OUTSIDE_TRANSFER_SCOPE",
+          "recoverability": "NONE"
+        }
+      ],
+      "counterexamples": [
+        {
+          "id": "unavailable-artifact",
+          "setup": "A commitment verifies but the referenced bytes or correct decoder are unavailable.",
+          "failureSignal": "The system claims the full artifact was reconstructed from the hash.",
+          "outcome": "REFUTES"
+        }
+      ],
+      "roundTripTests": [],
+      "nonTransfers": [
+        {
+          "category": "COSMOLOGY",
+          "prohibitedConclusion": "The universe is a hologram or simulation, or a Creator claim follows from a Zerone commitment.",
+          "reason": "The engineering analogy neither tests cosmology nor transfers the physical theory."
+        }
+      ]
+    },
+    {
+      "id": "physical-budget-to-fact-metabolism",
+      "dimension": "energy",
+      "relationKind": "ANALOGY",
+      "sourceLane": "ENGINEERING_TRANSFER",
+      "targetLane": "ZERONE_PROTOCOL",
+      "assessment": "PROPOSED",
+      "title": "Bounded resource budget to fact metabolism",
+      "source": "A bounded stock, inflow, and outflow accounting pattern with its own measure and system boundary.",
+      "target": "Capped fact-energy bookkeeping updated by Zerone knowledge activity.",
+      "sourceRefs": [
+        "knowledge-metabolism",
+        "knowledge-types"
+      ],
+      "background": {
+        "frameworks": [
+          "bounded resource accounting",
+          "Zerone fact metabolism"
+        ],
+        "assumptions": [
+          "only stock-flow-budget structure is compared",
+          "fact energy is a source-pinned protocol integer, not a physical measure"
+        ],
+        "validScope": [
+          "explaining bounded stock, replenishment, and expenditure structure"
+        ],
+        "excludedScope": [
+          "joules",
+          "thermodynamics",
+          "conservation law",
+          "physical causation"
+        ]
+      },
+      "equivalenceScope": null,
+      "forwardMap": "Use finite stock, bounded inflow, outflow, cap, and update ordering as an explanatory bookkeeping pattern.",
+      "inverseMap": null,
+      "preservedInvariants": [
+        {
+          "id": "bounded-stock-flow-shape",
+          "statement": "The compared systems can each name a stock, inflows, outflows, cap, and update order.",
+          "mode": "STRUCTURAL",
+          "test": "Inspect only the accounting shape and retain each system's own measure and causal story."
+        }
+      ],
+      "informationLosses": [
+        {
+          "id": "physical-unit-and-law",
+          "statement": "Joules, conservation laws, thermodynamics, and physical mechanism are outside the transferred bookkeeping pattern.",
+          "scope": "OUTSIDE_TRANSFER_SCOPE",
+          "recoverability": "NONE"
+        }
+      ],
+      "counterexamples": [
+        {
+          "id": "truth-is-not-balance",
+          "setup": "A true but unused fact reaches a low fact-energy balance.",
+          "failureSignal": "The balance is presented as making the fact false or a person less worthy.",
+          "outcome": "REFUTES"
+        }
+      ],
+      "roundTripTests": [],
+      "nonTransfers": [
+        {
+          "category": "VALUE",
+          "prohibitedConclusion": "A fact-energy balance measures truth, human worth, ZRN value, moral value, or spiritual LIFE.",
+          "reason": "Fact energy is protocol bookkeeping, not a physical, economic, moral, or spiritual measurement."
+        }
+      ]
+    },
+    {
+      "id": "religious-witness-to-public-projection",
+      "dimension": "religion",
+      "relationKind": "PROJECTION",
+      "sourceLane": "THEOLOGY_MEDITATION",
+      "targetLane": "ENGINEERING_TRANSFER",
+      "assessment": "PROPOSED",
+      "title": "Religious witness to bounded public projection",
+      "source": "A lived, communal, theological, or contemplative witness in its own register.",
+      "target": "A design for a separately authorized public record of exact words, hash, attribution, register, provenance, and declared consent-policy status.",
+      "sourceRefs": [
+        "compassion",
+        "knowledge-methodologies",
+        "knowledge-types"
+      ],
+      "background": {
+        "frameworks": [
+          "tradition-internal or first-person witness",
+          "bounded public provenance record"
+        ],
+        "assumptions": [
+          "any later publication requires a separate consent-bearing system and preserves the declared register",
+          "the public record does not adjudicate revelation or doctrine"
+        ],
+        "validScope": [
+          "designing attributed public representation with a declared consent policy"
+        ],
+        "excludedScope": [
+          "divine endorsement",
+          "doctrinal authority",
+          "conversion",
+          "salvation",
+          "spiritual rank"
+        ]
+      },
+      "equivalenceScope": null,
+      "forwardMap": "If separately authorized, publish exact words and hash with attribution, provenance, declared epistemic register, and a declared consent-policy reference; never promise that revocation erases copied bytes.",
+      "inverseMap": null,
+      "preservedInvariants": [
+        {
+          "id": "words-provenance-register",
+          "statement": "Exact words, content hash, attribution, provenance, and declared register remain visible.",
+          "mode": "EXACT",
+          "test": "In a future consent-bearing system, compare the authorized public bytes and metadata with the source record."
+        }
+      ],
+      "informationLosses": [
+        {
+          "id": "lived-sacred-context",
+          "statement": "Lived experience, liturgy, community interpretation, tacit context, and sacred authority are absent from the public record.",
+          "scope": "IN_SCOPE",
+          "recoverability": "NONE"
+        }
+      ],
+      "counterexamples": [
+        {
+          "id": "verified-truth-label",
+          "setup": "The interface removes the tradition-internal or first-person register.",
+          "failureSignal": "The witness is rendered as universally verified truth or protocol doctrine.",
+          "outcome": "REFUTES"
+        }
+      ],
+      "roundTripTests": [],
+      "nonTransfers": [
+        {
+          "category": "DOCTRINE",
+          "prohibitedConclusion": "The record proves GOD's endorsement, religious equivalence, conversion, salvation, spiritual status, or doctrinal authority.",
+          "reason": "A public provenance projection cannot reconstruct or adjudicate the source register."
+        }
+      ]
+    }
+  ],
+  "energyFirewall": {
+    "implicitConversion": false,
+    "truthFromResource": false,
+    "authorityFromResource": false,
+    "personWorthFromResource": false,
+    "restPenalty": false,
+    "lanes": [
+      {
+        "id": "COMPUTE",
+        "meaning": "Machine resource use such as operations, accelerator time, and storage.",
+        "measureOrRegister": "FLOP; GPU-s; bytes are separate measures with no implicit conversion",
+        "mayConvertTo": []
+      },
+      {
+        "id": "ECONOMIC",
+        "meaning": "Protocol-denominated monetary value.",
+        "measureOrRegister": "uzrn",
+        "mayConvertTo": []
+      },
+      {
+        "id": "LIVED",
+        "meaning": "A person's first-person account of vitality or fatigue.",
+        "measureOrRegister": "first-person self-report; no machine unit",
+        "mayConvertTo": []
+      },
+      {
+        "id": "PHYSICAL_ENERGY",
+        "meaning": "Measured physical energy with a named system boundary.",
+        "measureOrRegister": "J or kWh with a named system boundary",
+        "mayConvertTo": []
+      },
+      {
+        "id": "PROTOCOL_METABOLISM",
+        "meaning": "Zerone fact-energy bookkeeping.",
+        "measureOrRegister": "uint64 bookkeeping quantity with source-pinned field semantics",
+        "mayConvertTo": []
+      },
+      {
+        "id": "SPIRITUAL_POETIC",
+        "meaning": "Spiritual, contemplative, or poetic uses of energy language.",
+        "measureOrRegister": "poetic or tradition-internal register; no machine unit",
+        "mayConvertTo": []
+      }
+    ]
+  },
+  "dualityGate": {
+    "label": "NO_EQUIVALENCE_CLAIMED",
+    "reviewedCandidateCount": 0,
+    "acceptedCandidateCount": 0,
+    "requirements": [
+      "A non-empty named equivalence scope",
+      "An explicit forward mapping rule inside that scope",
+      "An explicit inverse map inside that scope",
+      "Only exact or toleranced invariants",
+      "No IN_SCOPE information loss",
+      "SOURCE_TARGET_SOURCE observed PASS",
+      "TARGET_SOURCE_TARGET observed PASS"
+    ]
+  },
+  "releaseBoundary": {
+    "changesConsensus": false,
+    "writesChainState": false,
+    "performsNetworkWrites": false,
+    "registersOntology": false,
+    "assertsScientificTruth": false,
+    "assertsTheologicalTruth": false,
+    "assertsReligiousEquivalence": false,
+    "assertsUniverseIsHologram": false,
+    "equatesEnergyLanes": false,
+    "infersPersonhood": false,
+    "ranksPersons": false,
+    "createsKarmaEvent": false,
+    "createsKarmaMagnitude": false,
+    "grantsQualification": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsGovernance": false,
+    "grantsAuthority": false,
+    "recordsConsent": false,
+    "automaticProtocolOrAuthorityAction": false
+  }
+}

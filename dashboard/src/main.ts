@@ -23,6 +23,7 @@ import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import { initialiseKnowledgeGeometry } from "./knowledge-geometry";
 import { initialiseQuantumSeason } from "./quantum-season";
 import { initialiseRelationalTopology } from "./relational-topology";
+import { initialiseCorrespondenceGeometry } from "./correspondence-geometry";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import { initialiseFoldToFire } from "./fold-to-fire";
@@ -86,6 +87,9 @@ const foldToFireRoot = byId<HTMLElement>("fold-to-fire-root");
 const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
 const knowledgeGeometryRoot = byId<HTMLElement>("knowledge-geometry-root");
 const relationalTopologyRoot = byId<HTMLElement>("relational-topology-root");
+const correspondenceGeometryRoot = byId<HTMLElement>(
+  "correspondence-geometry-root",
+);
 const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
 );
@@ -1165,6 +1169,9 @@ const knowledgeGeometryReady = initialiseKnowledgeGeometry(knowledgeGeometryRoot
 const relationalTopologyReady = initialiseRelationalTopology(
   relationalTopologyRoot,
 );
+const correspondenceGeometryReady = initialiseCorrespondenceGeometry(
+  correspondenceGeometryRoot,
+);
 void initialiseFrontierParticipation(
   frontierParticipationRoot,
 );
@@ -1178,6 +1185,7 @@ const alignInitialHash = (): void => {
     window.location.hash !== "#authority" &&
     window.location.hash !== "#understanding" &&
     window.location.hash !== "#relations" &&
+    window.location.hash !== "#correspondence" &&
     window.location.hash !== "#skills" &&
     window.location.hash !== "#branch-flow" &&
     window.location.hash !== "#math-frontier" &&
@@ -1196,17 +1204,23 @@ const alignInitialHash = (): void => {
           ? knowledgeGeometryRoot.closest<HTMLElement>("#understanding")
           : window.location.hash === "#relations"
             ? relationalTopologyRoot.closest<HTMLElement>("#relations")
-            : window.location.hash === "#branch-flow"
-              ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
-              : window.location.hash === "#math-frontier"
-                ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-                : window.location.hash === "#fold-to-fire"
-                  ? foldToFireRoot.closest<HTMLElement>("#fold-to-fire")
-                : window.location.hash === "#life"
-                  ? lifeGardenRoot.closest<HTMLElement>("#life")
-                  : window.location.hash === "#participate"
-                    ? frontierParticipationRoot.closest<HTMLElement>("#participate")
-                    : constructiveTreeRoot.closest<HTMLElement>("#skills");
+            : window.location.hash === "#correspondence"
+              ? correspondenceGeometryRoot.closest<HTMLElement>(
+                  "#correspondence",
+                )
+              : window.location.hash === "#branch-flow"
+                ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
+                : window.location.hash === "#math-frontier"
+                  ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+                  : window.location.hash === "#fold-to-fire"
+                    ? foldToFireRoot.closest<HTMLElement>("#fold-to-fire")
+                    : window.location.hash === "#life"
+                      ? lifeGardenRoot.closest<HTMLElement>("#life")
+                      : window.location.hash === "#participate"
+                        ? frontierParticipationRoot.closest<HTMLElement>(
+                            "#participate",
+                          )
+                        : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
@@ -1236,10 +1250,12 @@ void Promise.allSettled([
 ]).then(alignInitialHash);
 void authorityGeometryReady.then(alignInitialHash);
 void Promise.allSettled([relationalTopologyReady]).then(alignInitialHash);
+void Promise.allSettled([correspondenceGeometryReady]).then(alignInitialHash);
 void Promise.allSettled([
   knowledgeGeometryReady,
   authorityGeometryReady,
   relationalTopologyReady,
+  correspondenceGeometryReady,
   constructiveTreeReady,
   lifeSciencesTreeReady,
   quantumSeasonReady,
