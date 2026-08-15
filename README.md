@@ -347,6 +347,7 @@ does not activate it.
 | [Roadmap](docs/ROADMAP.md) | Where we are, what's bound, what ships next |
 | [Authoritative State](docs/AUTHORITATIVE-STATE.md) | Accepted single-writer design for staking, governance, and canonical domains; not yet activated |
 | [Authority Geometry v1](docs/specs/authority-geometry-v1.md) | Executable current/target authority graph with source anchors, forbidden-influence checks, and an intentionally refusing H4/H5 target gate |
+| [Correspondence Geometry v0](docs/specs/correspondence-geometry-v0.md) | Sealed cross-domain atlas with explicit invariants, losses, counterexamples, non-transfer walls, an energy firewall, and zero claimed dualities or protocol effects |
 | [Changelog](CHANGELOG.md) | Consolidated source changes and publication boundary |
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |
 | [API Reference](docs/API.md) | Generated REST/gRPC discovery and usage |

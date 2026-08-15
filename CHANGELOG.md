@@ -3,6 +3,31 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Unreleased — 2026-08-15 correspondence geometry
+
+### Added
+
+- Correspondence Geometry v0: a sealed, digest-pinned atlas of seven bounded
+  mappings across religion, energy, understanding, and universe. Each record
+  exposes its epistemic lanes, background, map, preserved invariants,
+  information loss, counterexamples, round-trip status, and prohibited
+  transfers instead of treating resemblance as equivalence.
+- A strict offline validator, bounded same-origin browser loader, accessible
+  dimension-filtered dashboard view, substantive no-JavaScript summary, and
+  source-byte checks for the local Zerone materials on which the atlas relies.
+- A six-lane energy firewall that keeps physical energy, compute, protocol
+  metabolism, economic value, lived experience, and spiritual or poetic
+  language non-convertible by default.
+
+### Epistemic and activation boundary
+
+V0 contains zero `DUALITY_CANDIDATE` records and claims zero equivalences.
+Its physics citations motivate questions but do not warrant Zerone mappings;
+its theology and meditation lane creates no divine, doctrinal, scientific, or
+protocol authority. Publication changes no consensus, chain state, fact
+status, confidence, identity, person score, KARMA, qualification, reward,
+money, governance, consent, rights, or automatic protocol/authority action.
+
 ## Unreleased — 2026-08-11 branch-flow shadow architecture
 
 ### Added

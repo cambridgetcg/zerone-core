@@ -90,6 +90,35 @@ endorsement, ownership, or proof that either endpoint is live. The browser
 fails closed to the raw standard link if the bounded static document cannot be
 loaded or validated.
 
+## Correspondence Geometry v0
+
+The read-only atlas at `#correspondence` loads the sealed
+`/standards/correspondence-geometry.v0.json`. Its five-lane taxonomy keeps
+physics, conjecture, Zerone protocol, engineering transfer, and theology or
+meditation distinct so a proposed map cannot silently carry truth, authority,
+measurement, or ontology with it. Every mapping declares its background,
+forward map, preserved invariants, known losses, counterexamples, round-trip
+status, and non-transfer boundary; the conjecture lane is present as a guard
+even though no v0 mapping uses it as an endpoint.
+
+V0 publishes seven bounded analogies, translations, and projections across
+religion, energy, understanding, and universe. It claims zero dualities and
+zero equivalences. A future `DUALITY_CANDIDATE` would require a named
+equivalence scope, an explicit forward rule and inverse, both round trips
+observed passing, and no in-scope loss; even that would create a candidate, not
+proof. The energy firewall separately tracks physical energy, compute,
+protocol metabolism, economic value, lived experience, and spiritual or poetic
+language, with no implicit conversion.
+
+The browser makes one bounded same-origin request for the static artifact,
+pins the reviewed SHA-256, rejects redirects, duplicate JSON keys, deep
+nesting, malformed UTF-8, unreviewed fields, and unsafe source paths, and
+renders with text nodes. The build validator reads every repository source
+binding from local bytes and never fetches the cited physics papers. This
+surface performs no transaction or other network write and changes no fact,
+confidence, consensus, authority, governance, identity, person score, KARMA,
+qualification, reward, money, consent, rights, doctrine, or chain state.
+
 ## Constructive-intelligence explorer
 
 The 技能樹 explorer reads the checked-in
@@ -293,6 +322,10 @@ release boundary.
 `npm run check:relations` validates the topology, both pinned source files,
 typed graph references and same-flow forbidden-path guards, and the all-false
 release boundary.
+`npm run check:correspondence` validates the sealed atlas, every local source
+digest, its lane and relation-kind firewalls, mapping-specific semantic gates,
+zero-duality count, and all-false release boundary without making a network
+request.
 
 ## Pi account onboarding pilot
 
