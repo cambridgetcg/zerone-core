@@ -2911,11 +2911,13 @@
 
   @media (min-width: 1201px) {
     .topnav {
-      gap: 0.85rem;
+      gap: 0.4rem;
     }
 
     .topnav a {
       font-size: 0.72rem;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
     }
   }
 
@@ -3048,6 +3050,642 @@
 
     .correspondence-geometry-no-effects li {
       align-items: flex-start;
+    }
+  }
+
+  .explicit-invariant-discipline-section {
+    position: relative;
+    isolation: isolate;
+    padding: 7rem 0 9rem;
+    scroll-margin-top: 84px;
+  }
+
+  .explicit-invariant-discipline-section::before {
+    position: absolute;
+    z-index: -1;
+    inset: 1.5rem -4vw 0;
+    border-block: 1px solid rgba(120, 230, 173, 0.08);
+    background:
+      linear-gradient(90deg, rgba(120, 230, 173, 0.025) 1px, transparent 1px),
+      linear-gradient(rgba(120, 230, 173, 0.02) 1px, transparent 1px),
+      radial-gradient(circle at 12% 18%, rgba(120, 230, 173, 0.085), transparent 25rem),
+      radial-gradient(circle at 88% 68%, rgba(185, 155, 255, 0.06), transparent 24rem);
+    background-size: 56px 56px, 56px 56px, auto, auto;
+    content: "";
+    mask-image: linear-gradient(to bottom, transparent, black 7rem, black calc(100% - 5rem), transparent);
+    pointer-events: none;
+  }
+
+  .explicit-invariant-discipline-section .section-heading {
+    align-items: end;
+  }
+
+  .explicit-invariant-discipline-section .section-heading h2 {
+    max-width: 920px;
+    font-size: clamp(3.25rem, 5.6vw, 5.9rem);
+  }
+
+  .explicit-invariant-discipline-section .section-heading h2 em {
+    color: var(--green);
+    font-weight: inherit;
+  }
+
+  .explicit-invariant-discipline-root {
+    min-width: 0;
+    margin-top: 3rem;
+  }
+
+  body:has(.explicit-invariant-noscript) .explicit-invariant-discipline-root {
+    display: none;
+  }
+
+  .explicit-invariant-loading,
+  .explicit-invariant-load-error {
+    display: grid;
+    min-height: 220px;
+    place-items: center;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: 2rem;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(120, 230, 173, 0.065), transparent 18rem),
+      var(--surface);
+    color: var(--muted-strong);
+    text-align: center;
+  }
+
+  .explicit-invariant-loading .loading-lines {
+    width: min(340px, 100%);
+  }
+
+  .explicit-invariant-load-error {
+    border-color: color-mix(in srgb, var(--red) 30%, var(--line));
+  }
+
+  .explicit-invariant-load-error strong {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 400;
+  }
+
+  .explicit-invariant-load-error p {
+    max-width: 640px;
+    color: var(--muted-strong);
+    font-size: 0.74rem;
+    line-height: 1.65;
+  }
+
+  .explicit-invariant-load-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.65rem;
+  }
+
+  .explicit-invariant-shell,
+  .explicit-invariant-noscript {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+  }
+
+  .explicit-invariant-noscript {
+    margin-top: 3rem;
+  }
+
+  .explicit-invariant-noscript-heading,
+  .explicit-invariant-attribution,
+  .explicit-invariant-no-effects {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+    align-items: end;
+    gap: 2rem;
+    border: 1px solid color-mix(in srgb, var(--green) 26%, var(--line));
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(120, 230, 173, 0.07), transparent 22rem),
+      var(--surface);
+  }
+
+  .explicit-invariant-noscript-heading h3,
+  .explicit-invariant-attribution h3,
+  .explicit-invariant-no-effects h3,
+  .explicit-invariant-workflow h3,
+  .explicit-invariant-principles h3,
+  .explicit-invariant-sources-panel h3 {
+    margin: 0.35rem 0 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: clamp(1.55rem, 3.3vw, 2.45rem);
+    font-weight: 400;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+  }
+
+  .explicit-invariant-noscript-heading p,
+  .explicit-invariant-attribution p,
+  .explicit-invariant-no-effects p {
+    color: var(--muted-strong);
+    font-size: 0.74rem;
+    line-height: 1.65;
+  }
+
+  .explicit-invariant-noscript-heading a,
+  .explicit-invariant-sources a,
+  .explicit-invariant-source a,
+  .explicit-invariant-raw {
+    color: var(--violet-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-kicker,
+  .explicit-invariant-badge,
+  .explicit-invariant-example-heading > span {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    letter-spacing: 0.07em;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .explicit-invariant-workflow,
+  .explicit-invariant-principles,
+  .explicit-invariant-sources-panel {
+    display: grid;
+    min-width: 0;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    padding: clamp(1rem, 2.5vw, 1.4rem);
+    background: rgba(255, 255, 255, 0.012);
+  }
+
+  .explicit-invariant-workflow-list,
+  .explicit-invariant-principle-grid,
+  .explicit-invariant-source-grid {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    border: 1px solid var(--line);
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .explicit-invariant-workflow-list > li,
+  .explicit-invariant-principle,
+  .explicit-invariant-source {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.45rem;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+  }
+
+  .explicit-invariant-workflow-list strong,
+  .explicit-invariant-principle strong,
+  .explicit-invariant-source strong {
+    min-width: 0;
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-workflow-list :where(p, small),
+  .explicit-invariant-principle :where(p, small, code, a),
+  .explicit-invariant-source :where(p, small, code, span, a) {
+    min-width: 0;
+    color: var(--muted-strong);
+    font-size: 0.64rem;
+    line-height: 1.58;
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-principle > code {
+    color: var(--green);
+    font-family: var(--mono);
+  }
+
+  .explicit-invariant-controls {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border: 1px solid var(--line);
+    padding: 0.8rem;
+    background: var(--surface);
+  }
+
+  .explicit-invariant-filter {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 99px;
+    padding: 0.52rem 0.78rem;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--ink-soft);
+    font-size: 0.64rem;
+    font-weight: 650;
+    line-height: 1.2;
+    text-align: center;
+    text-transform: capitalize;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .explicit-invariant-filter:hover,
+  .explicit-invariant-filter.is-active,
+  .explicit-invariant-filter[aria-pressed="true"] {
+    border-color: rgba(120, 230, 173, 0.52);
+    background: rgba(120, 230, 173, 0.08);
+    color: var(--green);
+  }
+
+  .explicit-invariant-visible-count {
+    min-width: 0;
+    margin-left: auto;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.06em;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .explicit-invariant-badges {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .explicit-invariant-badge {
+    width: fit-content;
+    max-width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 99px;
+    padding: 0.24rem 0.48rem;
+    color: var(--muted-strong);
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-example-grid {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    border: 1px solid var(--line);
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .explicit-invariant-example-grid > li {
+    display: grid;
+    min-width: 0;
+  }
+
+  .explicit-invariant-record {
+    --explicit-invariant-result-color: var(--green);
+  }
+
+  .explicit-invariant-record[data-result-kind="FAMILY"] {
+    --explicit-invariant-result-color: var(--violet-soft);
+  }
+
+  .explicit-invariant-record[data-result-kind="NO_GO"] {
+    --explicit-invariant-result-color: var(--red);
+  }
+
+  .explicit-invariant-record[data-result-kind="CONDITIONAL_UNIQUENESS"] {
+    --explicit-invariant-result-color: var(--acid);
+  }
+
+  .explicit-invariant-example {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 1rem;
+    padding: clamp(1rem, 2.5vw, 1.4rem);
+    background:
+      linear-gradient(90deg, rgba(120, 230, 173, 0.035) 1px, transparent 1px),
+      linear-gradient(rgba(120, 230, 173, 0.027) 1px, transparent 1px),
+      var(--surface);
+    background-size: 28px 28px;
+  }
+
+  .explicit-invariant-example::after {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--explicit-invariant-result-color);
+    border-radius: 50%;
+    background: var(--surface);
+    content: "";
+  }
+
+  .explicit-invariant-example-heading {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+    padding-right: 1.5rem;
+  }
+
+  .explicit-invariant-example-heading h4,
+  .explicit-invariant-example-title {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+  }
+
+  .explicit-invariant-example-heading h4 span {
+    color: var(--green);
+  }
+
+  .explicit-invariant-record .explicit-invariant-badge:first-child {
+    border-color: color-mix(
+      in srgb,
+      var(--explicit-invariant-result-color) 46%,
+      var(--line)
+    );
+    color: var(--explicit-invariant-result-color);
+  }
+
+  .explicit-invariant-record .explicit-invariant-badge:nth-child(3) {
+    border-color: rgba(255, 197, 111, 0.42);
+    color: var(--amber);
+  }
+
+  .explicit-invariant-detail-grid,
+  .explicit-invariant-source-result,
+  .explicit-invariant-zerone-transfer {
+    display: grid;
+    min-width: 0;
+    gap: 0.65rem;
+    margin: 0;
+  }
+
+  .explicit-invariant-source-result,
+  .explicit-invariant-zerone-transfer {
+    border-top: 1px solid var(--line);
+    padding-top: 0.85rem;
+  }
+
+  .explicit-invariant-source-result > .explicit-invariant-detail-label,
+  .explicit-invariant-zerone-transfer > .explicit-invariant-detail-label {
+    margin: 0;
+    font-size: 0.7rem;
+    letter-spacing: 0.075em;
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-source-result > .explicit-invariant-detail-label {
+    color: var(--violet-soft);
+  }
+
+  .explicit-invariant-zerone-transfer > .explicit-invariant-detail-label {
+    color: var(--green);
+  }
+
+  .explicit-invariant-detail {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(118px, 0.31fr) minmax(0, 1fr);
+    gap: 0.75rem;
+    border-left: 2px solid rgba(120, 230, 173, 0.46);
+    padding: 0.55rem 0.65rem;
+    background: rgba(120, 230, 173, 0.025);
+  }
+
+  .explicit-invariant-detail:nth-child(2),
+  .explicit-invariant-detail:nth-child(3) {
+    border-left-color: rgba(185, 155, 255, 0.48);
+    background: rgba(185, 155, 255, 0.027);
+  }
+
+  .explicit-invariant-detail:nth-child(4) {
+    border-left-color: rgba(220, 255, 120, 0.48);
+    background: rgba(220, 255, 120, 0.025);
+  }
+
+  .explicit-invariant-detail.explicit-invariant-non-transfer,
+  .explicit-invariant-non-transfer {
+    border-left-color: rgba(255, 132, 124, 0.58);
+    background: rgba(255, 132, 124, 0.035);
+  }
+
+  .explicit-invariant-detail dt,
+  .explicit-invariant-detail-label {
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    font-weight: 500;
+    letter-spacing: 0.045em;
+    line-height: 1.5;
+    text-transform: uppercase;
+  }
+
+  .explicit-invariant-detail dd,
+  .explicit-invariant-detail :where(p, li),
+  .explicit-invariant-detail-value {
+    min-width: 0;
+    color: var(--muted-strong);
+    font-size: 0.66rem;
+    line-height: 1.58;
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-detail dd > ul {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+    margin: 0;
+    padding-left: 1rem;
+  }
+
+  .explicit-invariant-detail dd > ul > li {
+    min-width: 0;
+    padding-left: 0.1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-detail dd > ul > li::marker {
+    color: var(--explicit-invariant-result-color, var(--green));
+  }
+
+  .explicit-invariant-detail code,
+  .explicit-invariant-sources code {
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    overflow-wrap: anywhere;
+  }
+
+  .explicit-invariant-sources {
+    min-width: 0;
+    margin-top: auto;
+    border-top: 1px solid var(--line);
+    padding-top: 0.85rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.57rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .explicit-invariant-sources strong {
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+
+  .explicit-invariant-sources a {
+    text-decoration-thickness: 1px;
+  }
+
+  .explicit-invariant-footer {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    margin-top: 1rem;
+    border: 1px solid color-mix(in srgb, var(--green) 24%, var(--line));
+    padding: 1rem;
+    background:
+      linear-gradient(110deg, rgba(120, 230, 173, 0.055), transparent 55%),
+      var(--surface);
+  }
+
+  .explicit-invariant-footer > div {
+    display: grid;
+    min-width: 0;
+    gap: 0.35rem;
+  }
+
+  .explicit-invariant-footer p {
+    max-width: 800px;
+    color: var(--muted-strong);
+    font-size: 0.7rem;
+    line-height: 1.62;
+  }
+
+  .explicit-invariant-raw {
+    flex: 0 0 auto;
+    border-radius: 3px;
+  }
+
+  .explicit-invariant-raw:focus-visible,
+  .explicit-invariant-filter:focus-visible,
+  .explicit-invariant-source a:focus-visible,
+  .explicit-invariant-sources a:focus-visible,
+  .explicit-invariant-example:focus-within {
+    outline: 2px solid var(--acid);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 760px) {
+    .explicit-invariant-discipline-section::before {
+      inset-inline: 0;
+    }
+
+    .explicit-invariant-discipline-section .section-heading,
+    .explicit-invariant-noscript-heading,
+    .explicit-invariant-attribution,
+    .explicit-invariant-no-effects {
+      grid-template-columns: 1fr;
+      align-items: start;
+      gap: 1rem;
+    }
+
+    .explicit-invariant-example-grid,
+    .explicit-invariant-workflow-list,
+    .explicit-invariant-principle-grid,
+    .explicit-invariant-source-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .explicit-invariant-footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .explicit-invariant-discipline-section {
+      padding: 5rem 0 6rem;
+    }
+
+    .explicit-invariant-discipline-section .section-heading h2 {
+      font-size: clamp(2.8rem, 14vw, 4.1rem);
+    }
+
+    .explicit-invariant-discipline-root,
+    .explicit-invariant-noscript {
+      margin-top: 2rem;
+    }
+
+    .explicit-invariant-noscript-heading,
+    .explicit-invariant-attribution,
+    .explicit-invariant-no-effects,
+    .explicit-invariant-example,
+    .explicit-invariant-workflow,
+    .explicit-invariant-principles,
+    .explicit-invariant-sources-panel,
+    .explicit-invariant-footer {
+      padding: 1rem;
+    }
+
+    .explicit-invariant-detail {
+      grid-template-columns: 1fr;
+      gap: 0.3rem;
+    }
+
+    .explicit-invariant-controls {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .explicit-invariant-filter {
+      width: 100%;
+    }
+
+    .explicit-invariant-visible-count {
+      margin-left: 0;
+      padding: 0.25rem 0.1rem;
+      text-align: center;
+    }
+
+    .explicit-invariant-load-actions,
+    .explicit-invariant-load-actions > *,
+    .explicit-invariant-footer > *,
+    .explicit-invariant-raw {
+      width: 100%;
+    }
+
+    .explicit-invariant-load-actions {
+      align-items: stretch;
+      flex-direction: column;
     }
   }
 
@@ -9378,6 +10016,26 @@
     color: var(--muted-strong);
     font-size: 0.72rem;
     line-height: 1.65;
+  }
+
+  .knowledge-geometry-boundary-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.65rem;
+  }
+
+  .knowledge-geometry-boundary-link {
+    width: fit-content;
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    line-height: 1.5;
+    text-underline-offset: 0.2em;
+  }
+
+  .knowledge-geometry-boundary-link:focus-visible {
+    outline: 2px solid var(--acid);
+    outline-offset: 3px;
   }
 
   .knowledge-geometry-footer {

@@ -1,0 +1,1494 @@
+{
+  "schema": "zerone.explicit-invariant-discipline/v1",
+  "version": 1,
+  "snapshotDate": "2026-08-16",
+  "status": "SEALED_STATIC_PROFILE",
+  "title": "ZERONE Explicit Invariant Discipline v1",
+  "summary": "Four reviewed examples separate scoped source results from Zerone-owned methodological analogies. Each example declares its candidate class, regime, assumptions, invariants, witnesses, falsifiers, counterexamples, result boundary, remaining family, boundary terms, permitted conclusion, limitations, local test, and prohibited transfers.",
+  "attributionStatement": "claimOwner SOURCE_AUTHORS identifies provenance of the underlying summarized claim, not authorship or endorsement of this EID-1 schema, paraphrase, hypothetical falsifiers, or wording. Zerone owns those editorial choices and possible errors. Every zeroneTransfer is authored by Zerone, is not a result of the cited paper, and is not endorsed by any cited author.",
+  "authorityStatement": "This sealed static publication proposes inspectable methodological analogies. It establishes no scientific, mathematical, theological, moral, protocol, institutional, or personal authority.",
+  "canonicalVocabulary": {
+    "claimOwners": [
+      "SOURCE_AUTHORS",
+      "ZERONE"
+    ],
+    "candidateKinds": [
+      "SCATTERING_AMPLITUDE_FAMILY"
+    ],
+    "candidateCompleteness": [
+      "ENUMERATED",
+      "PARAMETERISED",
+      "BOUNDED_SEARCH",
+      "OPEN"
+    ],
+    "assumptionKinds": [
+      "DEFINITIONAL",
+      "STRUCTURAL",
+      "DYNAMICAL",
+      "APPROXIMATION",
+      "EMPIRICAL_INPUT",
+      "COMPUTATIONAL_BOUND",
+      "INTERPRETIVE_CHOICE"
+    ],
+    "invariantModes": [
+      "EXACT",
+      "TOLERANCED",
+      "STRUCTURAL",
+      "ORDERING"
+    ],
+    "constraintKinds": [
+      "EXISTENCE",
+      "EXCLUSION",
+      "PRESERVATION",
+      "COMPLETENESS",
+      "BOUND"
+    ],
+    "witnessMethods": [
+      "FORMAL_DERIVATION",
+      "SYMBOLIC_COMPUTATION",
+      "NUMERICAL_COMPUTATION",
+      "EMPIRICAL_OBSERVATION",
+      "SOURCE_ANALYSIS"
+    ],
+    "witnessOutcomes": [
+      "PASS",
+      "FAIL",
+      "NOT_RUN",
+      "INCONCLUSIVE"
+    ],
+    "falsifierStatuses": [
+      "NOT_RUN",
+      "SURVIVED",
+      "TRIGGERED",
+      "INCONCLUSIVE"
+    ],
+    "counterexampleDispositions": [
+      "IN_SCOPE_BREAKS_RESULT",
+      "OUTSIDE_REGIME",
+      "RELAXES_ASSUMPTION",
+      "REJECTED"
+    ],
+    "resultKinds": [
+      "FAMILY",
+      "NO_GO",
+      "CONDITIONAL_UNIQUENESS"
+    ],
+    "familyCardinalities": [
+      "NONE",
+      "ONE",
+      "MANY",
+      "UNKNOWN"
+    ],
+    "boundaryTermTreatments": [
+      "RETAINED",
+      "VANISHES_BY_ASSUMPTION",
+      "BOUNDED",
+      "NEGLECTED",
+      "UNKNOWN"
+    ],
+    "relationKinds": [
+      "METHODOLOGICAL_ANALOGY"
+    ],
+    "assessments": [
+      "PROPOSED"
+    ],
+    "integrationStatuses": [
+      "CURRENT_STATIC_REFERENCE",
+      "NOT_IMPLEMENTED"
+    ]
+  },
+  "sourceBindings": [
+    {
+      "id": "constructive-intelligence-tree",
+      "path": "dashboard/public/standards/constructive-intelligence-tree.v1.json",
+      "rawSha256": "8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+      "role": "Pins the current math-proofcraft@1 node and its explicit assumptions, invariants, and counterexample expectations.",
+      "boundary": "The binding imports the named static skill-tree semantics only; it grants no qualification, reward, acceptance, or authority."
+    },
+    {
+      "id": "correspondence-geometry",
+      "path": "dashboard/public/standards/correspondence-geometry.v0.json",
+      "rawSha256": "f8cfeebf7404ab7e2e86b80362471cdd64015a108c47e98147e80ba7bb9e9a90",
+      "role": "Pins CG-0 as the current precedent for scoped mappings, explicit loss, counterexamples, and non-transfer walls.",
+      "boundary": "CG-0 is a static precedent, not evidence that any EID-1 analogy is equivalent, deployed, or true."
+    },
+    {
+      "id": "knowledge-methodologies",
+      "path": "x/knowledge/types/methodologies.go",
+      "rawSha256": "fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386",
+      "role": "Pins the current M-ANALOGICAL rubric requiring an explicit mapping, preserved invariants, and counterexample consideration.",
+      "boundary": "The prose rubric does not machine-validate these EID-1 records and does not turn a methodological analogy into proof."
+    },
+    {
+      "id": "knowledge-types",
+      "path": "proto/zerone/knowledge/v1/types.proto",
+      "rawSha256": "7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced",
+      "role": "Pins the current Claim, Fact, MethodologyApplicationTrace, ReasoningStep, and TraceSchema boundary.",
+      "boundary": "The pinned protobuf has no typed, canonical per-Fact EID-1 field, reference, or digest; this artifact writes none of those types."
+    }
+  ],
+  "primarySources": [
+    {
+      "id": "arxiv-1412.4095v1",
+      "title": "Effective Field Theories from Soft Limits",
+      "authors": [
+        "Clifford Cheung",
+        "Karol Kampf",
+        "Jiri Novotny",
+        "Jaroslav Trnka"
+      ],
+      "locator": "https://arxiv.org/abs/1412.4095v1",
+      "version": "v1",
+      "versionDate": "2014-12-12T19:32:50Z",
+      "retrievedDate": "2026-08-16",
+      "role": "Primary source for the scoped soft-limit classification result summarized in the boundary-probing example.",
+      "boundary": "The source focuses on on-shell tree amplitudes of massless scalars in four dimensions, fixed derivative power counting and soft degree, and a partly numerical ansatz analysis. It neither discusses nor endorses Zerone."
+    },
+    {
+      "id": "arxiv-1509.03309v1",
+      "title": "On-Shell Recursion Relations for Effective Field Theories",
+      "authors": [
+        "Clifford Cheung",
+        "Karol Kampf",
+        "Jiri Novotny",
+        "Chia-Hsien Shen",
+        "Jaroslav Trnka"
+      ],
+      "locator": "https://arxiv.org/abs/1509.03309v1",
+      "version": "v1",
+      "versionDate": "2015-09-10T20:03:45Z",
+      "retrievedDate": "2026-08-16",
+      "role": "Primary source for the scoped factorization-and-soft-behavior recursion result summarized in the dependency-integrity example.",
+      "boundary": "The source concerns tree-level effective-field-theory amplitudes satisfying its explicit large-z falloff, rho-sigma, multiplicity, generic-kinematics, and seed-data conditions. It neither specifies software dependency validation nor endorses Zerone."
+    },
+    {
+      "id": "arxiv-2406.02665v2",
+      "title": "Bootstrap Principle for the Spectrum and Scattering of Strings",
+      "authors": [
+        "Clifford Cheung",
+        "Aaron Hillman",
+        "Grant N. Remmen"
+      ],
+      "locator": "https://arxiv.org/abs/2406.02665v2",
+      "version": "v2",
+      "versionDate": "2025-09-09T17:09:29Z",
+      "retrievedDate": "2026-08-16",
+      "role": "Primary source for the scoped bootstrap uniqueness result and its weaker-assumption three-parameter family.",
+      "boundary": "The source's uniqueness statement is conditional on its planar, color-ordered, local, positivity-screened tree-level bootstrap class, normalization quotient, and declared asymptotic and cancellation assumptions; positivity is necessary rather than sufficient for unitarity, and the result is not unconditional uniqueness, ontology, or a protocol design."
+    },
+    {
+      "id": "arxiv-2508.09246v2",
+      "title": "Strings from Almost Nothing",
+      "authors": [
+        "Clifford Cheung",
+        "Grant N. Remmen",
+        "Francesco Sciotti",
+        "Michele Tarquini"
+      ],
+      "locator": "https://arxiv.org/abs/2508.09246v2",
+      "version": "v2",
+      "versionDate": "2026-06-24T15:33:06Z",
+      "retrievedDate": "2026-08-16",
+      "role": "Primary source for the scoped residue-zero and minimal-consistency result summarized in the witness-projection example.",
+      "boundary": "The source concerns tree-level, crossing-symmetric, Lorentz-invariant, unitary and meromorphic scattering under explicit ultrasoftness and minimal-zero assumptions. It does not make residue data a general adjudicator and does not endorse Zerone."
+    }
+  ],
+  "integrationTargets": [
+    {
+      "id": "cg-0",
+      "label": "CG-0",
+      "status": "CURRENT_STATIC_REFERENCE",
+      "currentBinding": "EID-1 reuses CG-0's discipline of declaring scope, invariants, counterexamples, losses, and prohibited conclusions for every proposed mapping.",
+      "futureBoundary": "This reference remains static and creates no equivalence or runtime dependency between the artifacts.",
+      "sourceRefs": [
+        "correspondence-geometry"
+      ]
+    },
+    {
+      "id": "knowledge-boundary",
+      "label": "Knowledge boundary",
+      "status": "CURRENT_STATIC_REFERENCE",
+      "currentBinding": "Current knowledge protobuf types carry claims, facts, methodology IDs, free-form reasoning traces, and derived training traces, but no typed, canonical EID-1 profile, per-Fact reference, or digest; arbitrary prose must not be inferred as one.",
+      "futureBoundary": "EID-1 may describe this boundary but cannot populate, reinterpret, or mutate Claim, Fact, ReasoningStep, or MethodologyApplicationTrace.",
+      "sourceRefs": [
+        "knowledge-types"
+      ]
+    },
+    {
+      "id": "m-analogical",
+      "label": "M-ANALOGICAL rubric",
+      "status": "CURRENT_STATIC_REFERENCE",
+      "currentBinding": "The current rubric asks analogical claims to state both domains, the mapping, preserved invariants, and at least one counterexample consideration.",
+      "futureBoundary": "A prose methodology criterion is not a machine proof and does not adjudicate EID-1 source results or transfers.",
+      "sourceRefs": [
+        "knowledge-methodologies"
+      ]
+    },
+    {
+      "id": "math-proofcraft-1",
+      "label": "math-proofcraft@1",
+      "status": "CURRENT_STATIC_REFERENCE",
+      "currentBinding": "The current static skill node requires quantified assumptions, proof invariants, counterexamples, falsifiers, and repair of hidden assumptions.",
+      "futureBoundary": "EID-1 publication neither grants nor records attainment, qualification, reward eligibility, or acceptance for this skill.",
+      "sourceRefs": [
+        "constructive-intelligence-tree"
+      ]
+    },
+    {
+      "id": "tok-per-fact-explicit-invariants",
+      "label": "ToK per-Fact explicit invariant support",
+      "status": "NOT_IMPLEMENTED",
+      "currentBinding": "No current Fact, Claim, MethodologyApplicationTrace, ToK bundle, or training manifest field stores or commits an EID-1 record or digest.",
+      "futureBoundary": "Future append-only EID-1 references require a coordinated protobuf, transaction, keeper validation, query, genesis, migration, trace-schema, and commitment-version upgrade. This static release performs none of it.",
+      "sourceRefs": [
+        "knowledge-types"
+      ]
+    }
+  ],
+  "records": [
+    {
+      "id": "boundary-probing-zero-input-robustness",
+      "title": "Boundary probing to zero-input robustness",
+      "sourceResult": {
+        "claimOwner": "SOURCE_AUTHORS",
+        "domain": "PHYSICS_MATH",
+        "candidateClass": {
+          "id": "scalar-eft-soft-limit-amplitudes",
+          "kind": "SCATTERING_AMPLITUDE_FAMILY",
+          "definition": "On-shell tree-level massless-scalar effective-field-theory amplitudes in the source's four-dimensional analysis, considered at fixed derivative power counting and fixed soft degree.",
+          "membershipRule": "A member has the declared scalar and flavor content, obeys Lorentz invariance and physical factorization, has the declared derivative power counting, and reaches the declared order of vanishing in a nonsingular single-soft limit; the reported ansatz search begins with a leading nonzero four-point amplitude.",
+          "completeness": "PARAMETERISED"
+        },
+        "regime": {
+          "formalSystem": "On-shell tree-level scalar effective field theory",
+          "background": "Four-dimensional on-shell massless-scalar scattering amplitudes with Lorentz invariance and physical factorization",
+          "parameterDomain": "Fixed derivative power-counting rho, fixed soft degree sigma, declared scalar or flavor content, and allowed coupling constants",
+          "approximationOrder": "Tree level at the fixed derivative order declared by the candidate class",
+          "validityScope": "The on-shell tree-level four-dimensional scalar EFT ansatz and reported checks treated in arXiv:1412.4095v1",
+          "excludedScope": "Loops, gravity, arbitrary field content, other leading valencies, an unbounded machine proof of every multiplicity, experimental validation, and any software or protocol system"
+        },
+        "assumptions": [
+          {
+            "id": "bp-a1",
+            "kind": "STRUCTURAL",
+            "statement": "The amplitudes are Lorentz invariant and factorize on physical poles.",
+            "sourceRefs": [
+              "arxiv-1412.4095v1"
+            ]
+          },
+          {
+            "id": "bp-a2",
+            "kind": "APPROXIMATION",
+            "statement": "Derivative power counting is held at one declared fixed order.",
+            "sourceRefs": [
+              "arxiv-1412.4095v1"
+            ]
+          },
+          {
+            "id": "bp-a3",
+            "kind": "STRUCTURAL",
+            "statement": "The order at which an amplitude vanishes in the single-soft limit is fixed in advance.",
+            "sourceRefs": [
+              "arxiv-1412.4095v1"
+            ]
+          },
+          {
+            "id": "bp-a4",
+            "kind": "APPROXIMATION",
+            "statement": "The reported enumeration focuses on on-shell tree amplitudes of massless scalars in four dimensions and takes the leading nonzero amplitude to be four point.",
+            "sourceRefs": [
+              "arxiv-1412.4095v1"
+            ]
+          },
+          {
+            "id": "bp-a5",
+            "kind": "STRUCTURAL",
+            "statement": "The single-soft limit used to constrain the ansatz is nonsingular.",
+            "sourceRefs": [
+              "arxiv-1412.4095v1"
+            ]
+          },
+          {
+            "id": "bp-a6",
+            "kind": "COMPUTATIONAL_BOUND",
+            "statement": "The source solves ansatz constraints partly through numerical evaluation at generic kinematic points and reports finite-multiplicity evidence for some enhanced soft behaviors; this record does not promote those checks into an unbounded completeness proof.",
+            "sourceRefs": [
+              "arxiv-1412.4095v1"
+            ]
+          }
+        ],
+        "invariants": [
+          {
+            "id": "bp-i1",
+            "statement": "The declared soft degree is preserved when an external momentum is scaled toward zero.",
+            "scope": "Single-soft behavior within the declared scalar EFT class",
+            "mode": "STRUCTURAL",
+            "tolerance": null,
+            "witnessIds": [
+              "bp-w1"
+            ]
+          },
+          {
+            "id": "bp-i2",
+            "statement": "Residues on physical poles retain the factorization required of the amplitude.",
+            "scope": "Tree-level physical poles within the declared regime",
+            "mode": "STRUCTURAL",
+            "tolerance": null,
+            "witnessIds": [
+              "bp-w1"
+            ]
+          }
+        ],
+        "constraintWitnesses": [
+          {
+            "id": "bp-w1",
+            "kind": "PRESERVATION",
+            "targetRefs": [
+              "bp-a1",
+              "bp-a2",
+              "bp-a3",
+              "bp-a4",
+              "bp-a5",
+              "bp-a6",
+              "bp-i1",
+              "bp-i2"
+            ],
+            "method": "NUMERICAL_COMPUTATION",
+            "procedure": "Construct the redundant kinematic ansatz, evaluate it at generic kinematic points to obtain linear conditions on its coefficients, impose Lorentz invariance, factorization and the nonsingular fixed soft limit, and compare the remaining parameters with the source's analytic checks.",
+            "artifactRefs": [
+              "arxiv-1412.4095v1"
+            ],
+            "outcome": "PASS",
+            "statement": "The source derives constrained amplitude families and identifies parameter choices corresponding to named scalar EFTs."
+          },
+          {
+            "id": "bp-w2",
+            "kind": "EXCLUSION",
+            "targetRefs": [
+              "scalar-eft-soft-limit-amplitudes"
+            ],
+            "method": "SOURCE_ANALYSIS",
+            "procedure": "Check each fixed power-counting and soft-degree pair for a consistent amplitude satisfying all declared constraints.",
+            "artifactRefs": [
+              "arxiv-1412.4095v1"
+            ],
+            "outcome": "PASS",
+            "statement": "The source reports that where no consistent amplitude exists, the corresponding theory does not exist within this candidate class."
+          }
+        ],
+        "falsifiers": [
+          {
+            "id": "bp-f1",
+            "targetRefs": [
+              "bp-i1",
+              "bp-i2"
+            ],
+            "condition": "Exhibit an admitted candidate whose soft scaling or physical-pole residue violates the declared constraint while remaining inside the stated regime.",
+            "procedure": "Evaluate the candidate's single-soft scaling and physical residues against the fixed class definition.",
+            "status": "NOT_RUN",
+            "witnessRef": null
+          }
+        ],
+          "counterexamples": [
+            {
+              "id": "bp-c1",
+              "targetRefs": [
+                "scalar-eft-soft-limit-amplitudes"
+              ],
+              "member": "A putative amplitude at a fixed power-counting and soft-degree pair that fails the declared consistency equations.",
+              "explanation": "It is rejected from the in-scope remaining family rather than silently treated as an existing EFT.",
+              "disposition": "REJECTED",
+              "relaxationBranchRefs": [],
+              "sourceRefs": [
+                "arxiv-1412.4095v1"
+              ]
+          }
+        ],
+        "result": {
+          "kind": "FAMILY",
+          "statement": "Within the declared four-dimensional on-shell tree-level scalar ansatz and its stated computational scope, the constraints leave parameterized amplitude families whose free parameters are couplings of named theories; some parameter-class pairs admit no consistent amplitude.",
+          "underAssumptionIds": [
+            "bp-a1",
+            "bp-a2",
+            "bp-a3",
+            "bp-a4",
+            "bp-a5",
+            "bp-a6"
+          ],
+          "underInvariantIds": [
+            "bp-i1",
+            "bp-i2"
+          ],
+          "witnessIds": [
+            "bp-w1",
+            "bp-w2"
+          ]
+        },
+        "remainingFamily": {
+          "cardinality": "MANY",
+          "description": "A power-counting- and soft-degree-indexed family with allowed coupling constants after consistency constraints are imposed.",
+          "parameters": [
+            "Derivative power-counting order",
+            "Soft degree",
+            "Allowed coupling constants"
+          ],
+            "knownMembers": [
+              "Nambu-Goldstone boson amplitudes",
+              "Dirac-Born-Infeld scalar amplitudes",
+              "Galileon amplitudes"
+            ],
+            "relaxationBranches": [
+              {
+                "id": "bp-r1",
+                "statement": "Allowing derivative power counting to vary relaxes the fixed-order candidate definition.",
+                "relaxedAssumptionIds": [
+                  "bp-a2"
+                ]
+              },
+              {
+                "id": "bp-r2",
+                "statement": "Allowing the soft degree to vary relaxes the fixed-soft-degree candidate definition.",
+                "relaxedAssumptionIds": [
+                  "bp-a3"
+                ]
+              },
+              {
+                "id": "bp-r3",
+                "statement": "Dropping physical factorization admits objects outside the source's physical amplitude class.",
+                "relaxedAssumptionIds": [
+                  "bp-a1"
+                ]
+              },
+              {
+                "id": "bp-r4",
+                "statement": "Changing dimension, external scalar or flavor content, or leading nonzero valency defines a different enumeration problem.",
+                "relaxedAssumptionIds": [
+                  "bp-a4"
+                ]
+              },
+              {
+                "id": "bp-r5",
+                "statement": "A singular soft limit lies outside the constraint procedure used by this record.",
+                "relaxedAssumptionIds": [
+                  "bp-a5"
+                ]
+              },
+              {
+                "id": "bp-r6",
+                "statement": "Extending finite numerical checks to an all-multiplicity completeness claim requires a separate proof not supplied by this record.",
+                "relaxedAssumptionIds": [
+                  "bp-a6"
+                ]
+              }
+            ]
+          },
+        "boundaryTerms": [
+          {
+            "id": "bp-b1",
+              "term": "The leading behavior as one external momentum is taken to zero",
+              "origin": "The single-soft boundary of momentum space",
+              "treatment": "RETAINED",
+              "justification": "The order of vanishing is a defining constraint, not a discarded correction.",
+              "affectedResult": "It helps classify which scalar EFT amplitude families remain.",
+              "underAssumptionIds": [
+                "bp-a3"
+              ],
+              "underInvariantIds": [
+                "bp-i1"
+              ],
+              "witnessIds": [
+                "bp-w1"
+              ]
+            }
+        ],
+        "allowedConclusion": "Within the source's on-shell tree-level four-dimensional scalar ansatz, fixed rho and sigma can leave parameterized families identified with named theories or exclude a putative amplitude at a declared parameter pair, subject to the stated computational scope.",
+        "limitations": "The classification is scoped to the source's scalar or flavor content, leading-valency choice, nonsingular soft limit, and partly numerical finite-multiplicity checks. It does not establish an unbounded all-orders classification, loop-level completion, quantum gravity, experimental realization, or any property of Zerone.",
+        "sourceRefs": [
+          "arxiv-1412.4095v1"
+        ]
+      },
+      "zeroneTransfer": {
+        "claimOwner": "ZERONE",
+        "relationKind": "METHODOLOGICAL_ANALOGY",
+        "assessment": "PROPOSED",
+        "target": "Zero-input and empty-boundary behavior of deterministic Zerone interfaces",
+        "preservedDiscipline": [
+          "Declare the zero, empty, minimum, and maximum input boundaries before claiming robustness.",
+          "Run an explicit local test at each declared boundary.",
+          "Treat a boundary failure as evidence against the scoped implementation claim.",
+          "Keep passing boundary tests separate from a claim of full-system correctness."
+        ],
+        "localTest": {
+          "testId": "eid1-boundary-zero-input",
+          "status": "NOT_RUN",
+          "statement": "Given an exact local function and declared empty input, verify the specified return value or refusal without network, chain, wallet, identity, or reward effects."
+        },
+        "nonTransfers": [
+          "A soft external momentum is not JSON null, an empty array, a zero token balance, rest, silence, or a person.",
+          "Passing a zero-input test does not prove correctness away from the tested boundary.",
+          "The source result transfers no physical law, scientific truth, or author endorsement to Zerone.",
+          "No energy, worth, personhood, authority, qualification, or reward follows from a boundary test."
+        ],
+        "zeroneRefs": [
+          "m-analogical",
+          "math-proofcraft-1",
+          "knowledge-boundary"
+        ]
+      }
+    },
+    {
+      "id": "factorization-declared-dependency-integrity",
+      "title": "Factorization to declared dependency integrity",
+      "sourceResult": {
+        "claimOwner": "SOURCE_AUTHORS",
+        "domain": "PHYSICS_MATH",
+        "candidateClass": {
+          "id": "enhanced-soft-eft-tree-amplitudes",
+          "kind": "SCATTERING_AMPLITUDE_FAMILY",
+          "definition": "Tree-level amplitudes in fixed-rho effective field theories with enhanced soft behavior, fixed lower-valency seed data, and a nontrivial all-line rescaling shift at generic kinematics.",
+          "membershipRule": "A member factorizes correctly on every physical pole, has declared soft degree sigma, admits distinct rescaling coefficients at multiplicity n greater than D+1, and satisfies A_n(z)/F_n(z) scaling as z^(m-n sigma) with m/n less than sigma; for constructibility at arbitrarily high multiplicity the source requires rho less than or equal to sigma and excludes (rho,sigma)=(1,1).",
+          "completeness": "PARAMETERISED"
+        },
+        "regime": {
+          "formalSystem": "On-shell recursion for tree-level effective field theory",
+          "background": "Complex momentum deformation with physical factorization and enhanced soft behavior",
+          "parameterDomain": "A fixed-rho EFT, declared soft degree sigma, spacetime dimension D, generic n-point kinematics with n greater than D+1 for the nontrivial shift, and fixed lower-valency seed amplitudes",
+          "approximationOrder": "Tree level",
+          "validityScope": "The enhanced-soft EFTs and rescaling momentum shift treated in arXiv:1509.03309v1",
+          "excludedScope": "Loop amplitudes, EFTs outside the constructibility condition, arbitrary software graphs, and live protocol dependencies"
+        },
+        "assumptions": [
+          {
+            "id": "fd-a1",
+            "kind": "APPROXIMATION",
+            "statement": "The amplitudes are evaluated at tree level.",
+            "sourceRefs": [
+              "arxiv-1509.03309v1"
+            ]
+          },
+          {
+            "id": "fd-a2",
+            "kind": "STRUCTURAL",
+            "statement": "Physical poles factorize into declared lower-point amplitudes.",
+            "sourceRefs": [
+              "arxiv-1509.03309v1"
+            ]
+          },
+          {
+            "id": "fd-a3",
+            "kind": "STRUCTURAL",
+            "statement": "The theory has the enhanced soft behavior required by the recursion relation.",
+            "sourceRefs": [
+              "arxiv-1509.03309v1"
+            ]
+          },
+            {
+              "id": "fd-a4",
+              "kind": "STRUCTURAL",
+              "statement": "Under the all-line rescaling shift, A_n(z)/F_n(z) scales as z^(m-n sigma) and must fall at infinity, requiring m/n less than sigma; for a fixed-rho theory at arbitrarily high multiplicity this becomes rho less than or equal to sigma with (rho,sigma) not equal to (1,1).",
+              "sourceRefs": [
+                "arxiv-1509.03309v1"
+              ]
+            },
+            {
+              "id": "fd-a5",
+              "kind": "DEFINITIONAL",
+              "statement": "Lower valencies for which the all-line rescaling shift is trivial, including the required amplitudes through n=D+1, are supplied as fixed seed data rather than inferred by this recursion.",
+              "sourceRefs": [
+                "arxiv-1509.03309v1"
+              ]
+            },
+            {
+              "id": "fd-a6",
+              "kind": "STRUCTURAL",
+              "statement": "The recursively constructed amplitude has multiplicity n greater than D+1 and generic kinematics, so distinct coefficients a_i exist with sum_i a_i p_i=0 and the all-line rescaling shift is nontrivial.",
+              "sourceRefs": [
+                "arxiv-1509.03309v1"
+              ]
+            }
+          ],
+        "invariants": [
+          {
+            "id": "fd-i1",
+            "statement": "Every physical residue matches the product of the declared lower-point amplitudes for that channel.",
+            "scope": "Physical factorization channels of the tree amplitude",
+            "mode": "EXACT",
+            "tolerance": null,
+            "witnessIds": [
+              "fd-w1"
+            ]
+          },
+            {
+              "id": "fd-i2",
+              "statement": "The recursively constructed amplitude retains the theory's declared enhanced soft degree.",
+              "scope": "The declared EFT and soft limit",
+              "mode": "STRUCTURAL",
+              "tolerance": null,
+              "witnessIds": [
+                "fd-w1"
+              ]
+            },
+            {
+              "id": "fd-i3",
+              "statement": "No undeclared contour contribution remains at the boundary of the admissible rescaling deformation.",
+              "scope": "The complex rescaling contour used by the declared recursion",
+              "mode": "EXACT",
+              "tolerance": null,
+              "witnessIds": [
+                "fd-w2"
+              ]
+            }
+          ],
+        "constraintWitnesses": [
+          {
+            "id": "fd-w1",
+            "kind": "PRESERVATION",
+            "targetRefs": [
+              "fd-a2",
+              "fd-a3",
+              "fd-i1",
+              "fd-i2"
+            ],
+            "method": "FORMAL_DERIVATION",
+            "procedure": "Apply the source's rescaling momentum shift, reconstruct from factorization residues, and check the prescribed soft behavior.",
+            "artifactRefs": [
+              "arxiv-1509.03309v1"
+            ],
+            "outcome": "PASS",
+            "statement": "The source derives recursion relations based on factorization and soft behavior for the stated EFT class."
+          },
+          {
+            "id": "fd-w2",
+            "kind": "COMPLETENESS",
+              "targetRefs": [
+                "enhanced-soft-eft-tree-amplitudes",
+                "fd-a4",
+                "fd-a5",
+                "fd-a6",
+                "fd-i3"
+            ],
+            "method": "FORMAL_DERIVATION",
+            "procedure": "At generic n greater than D+1, construct distinct rescaling coefficients, verify that m-n sigma is negative so A_n(z)/F_n(z) vanishes at infinity, and close the recursion from the fixed lower-valency data.",
+            "artifactRefs": [
+              "arxiv-1509.03309v1"
+            ],
+            "outcome": "PASS",
+            "statement": "Within the enhanced-soft tree-level regime, the source concludes that the amplitudes are on-shell constructible."
+          }
+        ],
+        "falsifiers": [
+          {
+            "id": "fd-f1",
+            "targetRefs": [
+              "fd-i1",
+              "fd-i2",
+              "fd-w2"
+            ],
+            "condition": "Find an admitted higher-point tree amplitude with the same fixed seeds whose physical residues or soft behavior disagree with the recursive construction, or whose deformation has a nonzero undeclared boundary contribution.",
+            "procedure": "Compare every physical residue and the soft limit, then evaluate the contour boundary under the declared rescaling shift.",
+            "status": "NOT_RUN",
+            "witnessRef": null
+          }
+        ],
+        "counterexamples": [
+          {
+            "id": "fd-c1",
+            "targetRefs": [
+              "enhanced-soft-eft-tree-amplitudes"
+            ],
+              "member": "An EFT amplitude without the enhanced soft behavior or shift falloff needed to eliminate the contour boundary.",
+              "explanation": "Such an amplitude is not established as constructible by this recursion and lies outside the declared candidate regime.",
+              "disposition": "OUTSIDE_REGIME",
+              "relaxationBranchRefs": [],
+              "sourceRefs": [
+                "arxiv-1509.03309v1"
+              ]
+          }
+        ],
+        "result": {
+          "kind": "CONDITIONAL_UNIQUENESS",
+          "statement": "For fixed lower-valency seed data in the declared fixed-rho, enhanced-soft tree-level regime, at generic multiplicity n greater than D+1 and under the explicit falloff criterion, factorization and soft behavior close the recursion and determine the higher-point amplitude.",
+          "underAssumptionIds": [
+              "fd-a1",
+              "fd-a2",
+              "fd-a3",
+              "fd-a4",
+              "fd-a5",
+              "fd-a6"
+            ],
+            "underInvariantIds": [
+              "fd-i1",
+              "fd-i2",
+              "fd-i3"
+            ],
+          "witnessIds": [
+            "fd-w1",
+            "fd-w2"
+          ]
+        },
+        "remainingFamily": {
+          "cardinality": "ONE",
+          "description": "One recursively constructed higher-point amplitude for the fixed-rho theory, seed amplitudes, soft degree, generic n greater than D+1 kinematics, and admissible deformation.",
+          "parameters": [
+            "Fixed lower-point seed data",
+            "Fixed EFT soft degree",
+            "Fixed rho power counting",
+            "Generic multiplicity n greater than D+1"
+          ],
+            "knownMembers": [
+              "The sector-specific recursively constructed tree amplitude"
+            ],
+            "relaxationBranches": [
+              {
+                "id": "fd-r1",
+                "statement": "Relaxing enhanced soft behavior can restore contact-term ambiguity.",
+                "relaxedAssumptionIds": [
+                  "fd-a3"
+                ]
+              },
+              {
+                "id": "fd-r2",
+                "statement": "Allowing a nonzero contour boundary requires additional data beyond the declared recursion.",
+                "relaxedAssumptionIds": [
+                  "fd-a4"
+                ]
+              },
+              {
+                "id": "fd-r3",
+                "statement": "Allowing lower-point seeds to vary defines a family of different conditional problems.",
+                "relaxedAssumptionIds": [
+                  "fd-a5"
+                ]
+              },
+              {
+                "id": "fd-r4",
+                "statement": "At n less than or equal to D+1 or nongeneric kinematics, the declared all-line shift is trivial or unavailable and this recursion does not determine the amplitude.",
+                "relaxedAssumptionIds": [
+                  "fd-a6"
+                ]
+              }
+            ]
+          },
+        "boundaryTerms": [
+          {
+            "id": "fd-b1",
+              "term": "The contour contribution at the boundary of the complex rescaling deformation",
+              "origin": "The on-shell recursion contour",
+              "treatment": "VANISHES_BY_ASSUMPTION",
+              "justification": "Constructibility depends on the declared enhanced-soft boundary behavior; the term is not silently discarded.",
+              "affectedResult": "If it does not vanish, lower-point factorization data alone do not close the stated recursion.",
+              "underAssumptionIds": [
+                "fd-a4"
+              ],
+              "underInvariantIds": [
+                "fd-i3"
+              ],
+              "witnessIds": [
+                "fd-w2"
+              ]
+            }
+        ],
+          "allowedConclusion": "Within the declared enhanced-soft tree-level class, at generic multiplicity n greater than D+1 and under the explicit m/n and rho-sigma falloff criteria, fixed lower-valency seeds, physical factorization, and prescribed soft behavior determine the higher-point amplitude through the stated recursion.",
+        "limitations": "The conclusion is conditional on tree level, fixed-rho power counting, the explicit falloff criterion, fixed seeds, enhanced soft behavior, generic n greater than D+1 kinematics, and the rescaling-shift boundary. It is not a claim that every EFT or every dependency graph is recursively unique.",
+        "sourceRefs": [
+          "arxiv-1509.03309v1"
+        ]
+      },
+      "zeroneTransfer": {
+        "claimOwner": "ZERONE",
+        "relationKind": "METHODOLOGICAL_ANALOGY",
+        "assessment": "PROPOSED",
+        "target": "Declared dependency integrity for local derived artifacts",
+        "preservedDiscipline": [
+          "Name every immediate dependency used to derive an artifact.",
+          "Verify that each declared boundary or join reconstructs the expected local result.",
+          "Refuse a completeness claim when an undeclared dependency or boundary contribution remains.",
+          "Keep dependency integrity scoped to the exact versioned inputs under test."
+        ],
+        "localTest": {
+          "testId": "eid1-declared-dependency-integrity",
+          "status": "NOT_RUN",
+          "statement": "Given a fixed local artifact and a sorted declared dependency set, recompute its local digest or derived value and fail if any dependency is missing, extra, reordered contrary to the contract, or digest-mismatched."
+        },
+        "nonTransfers": [
+          "A software dependency edge is not a physical factorization channel.",
+          "A matching local digest does not prove scientific truth, semantic completeness, or absence of bugs outside the declared inputs.",
+          "Panel acceptance or a REFORMULATES edge is not a factorization proof or mathematical equivalence.",
+          "The source result transfers no author endorsement, string ontology, energy claim, personhood, reward, or authority."
+        ],
+        "zeroneRefs": [
+          "m-analogical",
+          "math-proofcraft-1",
+          "knowledge-boundary",
+          "tok-per-fact-explicit-invariants"
+        ]
+      }
+    },
+    {
+      "id": "bootstrap-conditional-solution-space",
+      "title": "Bootstrap to a conditional solution-space claim",
+      "sourceResult": {
+        "claimOwner": "SOURCE_AUTHORS",
+        "domain": "PHYSICS_MATH",
+          "candidateClass": {
+            "id": "four-point-string-bootstrap-amplitudes",
+            "kind": "SCATTERING_AMPLITUDE_FAMILY",
+            "definition": "Planar, color-ordered, weakly coupled tree-level four-point amplitudes admitted by the analytically solvable string bootstrap problem declared in the source.",
+            "membershipRule": "A member is crossing symmetric, local with finite-spin exchanges and polynomial residues, admits the convergent dual-resonant simple-pole representation, obeys the declared high-energy falloff, and has an infinite sequence of momentum-transfer values at which higher-spin exchanges cancel; partial-wave positivity is imposed as a necessary unitarity condition, and trivial normalizations and affine kinematic redefinitions are quotiented out.",
+            "completeness": "PARAMETERISED"
+          },
+          "regime": {
+            "formalSystem": "Analytic four-point S-matrix bootstrap",
+            "background": "Planar, color-ordered tree-level scattering with crossing symmetry, locality, dual resonance, and an infinite cancellation sequence in momentum transfer",
+            "parameterDomain": "Candidate amplitudes and spectra satisfying the source's base amplitude class and two headline bootstrap assumptions",
+            "approximationOrder": "Tree-level four-point scattering as treated by the source",
+            "validityScope": "The analytically solvable bootstrap problem of arXiv:2406.02665v2",
+          "excludedScope": "Weaker asymptotics unless explicitly placed in a relaxation branch, loop amplitudes, arbitrary dimensions or backgrounds, empirical string detection, and Zerone protocol state"
+        },
+        "assumptions": [
+          {
+            "id": "bs-a1",
+            "kind": "STRUCTURAL",
+            "statement": "The amplitude falls faster than any power in the specified high-energy scattering limit.",
+            "sourceRefs": [
+              "arxiv-2406.02665v2"
+            ]
+          },
+          {
+            "id": "bs-a2",
+            "kind": "STRUCTURAL",
+            "statement": "There exists an infinite sequence of momentum-transfer values at which higher-spin exchanges cancel.",
+            "sourceRefs": [
+              "arxiv-2406.02665v2"
+            ]
+          },
+            {
+              "id": "bs-a3",
+              "kind": "DEFINITIONAL",
+              "statement": "The candidate class is the source's declared analytically solvable four-point bootstrap problem, not all logically possible scattering theories.",
+              "sourceRefs": [
+                "arxiv-2406.02665v2"
+              ]
+            },
+            {
+              "id": "bs-a4",
+              "kind": "STRUCTURAL",
+              "statement": "The amplitude is planar, color ordered, weakly coupled, tree level, crossing symmetric, and meromorphic with a convergent dual-resonant sum over simple poles.",
+              "sourceRefs": [
+                "arxiv-2406.02665v2"
+              ]
+            },
+            {
+              "id": "bs-a5",
+              "kind": "STRUCTURAL",
+              "statement": "Locality restricts each exchanged state to finite spin and each residue to a polynomial, with the source's nonrepeating level ordering used in the analytic solution.",
+              "sourceRefs": [
+                "arxiv-2406.02665v2"
+              ]
+            },
+            {
+              "id": "bs-a6",
+              "kind": "DYNAMICAL",
+              "statement": "Partial-wave positivity, used as a necessary but not sufficient unitarity condition, excludes the q greater than one branches before selecting the linear string spectrum.",
+              "sourceRefs": [
+                "arxiv-2406.02665v2"
+              ]
+            },
+            {
+              "id": "bs-a7",
+              "kind": "DEFINITIONAL",
+              "statement": "The analytic solution fixes overall normalization by c(0)=1 and fixes shifts and rescalings by mu(0)=0 and mu(1)=1, so uniqueness is stated modulo those trivial transformations.",
+              "sourceRefs": [
+                "arxiv-2406.02665v2"
+              ]
+            }
+          ],
+        "invariants": [
+          {
+            "id": "bs-i1",
+            "statement": "The infinite higher-spin cancellation sequence remains exact throughout the admitted solution.",
+            "scope": "The prescribed momentum-transfer sequence",
+            "mode": "EXACT",
+            "tolerance": null,
+            "witnessIds": [
+              "bs-w1"
+            ]
+          },
+          {
+            "id": "bs-i2",
+            "statement": "The admitted solution preserves the faster-than-power-law high-energy ordering assumed by the bootstrap.",
+            "scope": "The source's high-energy limit",
+            "mode": "ORDERING",
+            "tolerance": null,
+            "witnessIds": [
+              "bs-w1"
+            ]
+          }
+        ],
+        "constraintWitnesses": [
+          {
+            "id": "bs-w1",
+            "kind": "COMPLETENESS",
+              "targetRefs": [
+                "four-point-string-bootstrap-amplitudes",
+                "bs-a1",
+                "bs-a2",
+                "bs-a3",
+                "bs-a4",
+                "bs-a5",
+                "bs-a6",
+                "bs-a7",
+                "bs-i1",
+                "bs-i2"
+            ],
+              "method": "FORMAL_DERIVATION",
+              "procedure": "Solve the declared planar, color-ordered, local and crossing-symmetric tree-level bootstrap under the asymptotic and cancellation assumptions, then apply the source's positivity restriction to the solution branches.",
+            "artifactRefs": [
+              "arxiv-2406.02665v2"
+            ],
+            "outcome": "PASS",
+              "statement": "The source reports the Veneziano amplitude, including its mass spectrum, as the unique solution to this fully scoped bootstrap problem."
+          },
+          {
+            "id": "bs-w2",
+              "kind": "BOUND",
+              "targetRefs": [
+                "bs-a1",
+                "bs-i2"
+              ],
+            "method": "FORMAL_DERIVATION",
+            "procedure": "Weaken faster-than-power-law falloff to mere vanishing at high energy and solve the enlarged problem.",
+              "artifactRefs": [
+                "arxiv-2406.02665v2"
+              ],
+              "outcome": "PASS",
+              "statement": "The source reports a broader three-parameter analytic family containing Veneziano, Coon, hypergeometric amplitudes, and more under the weaker asymptotic condition before the final positivity restriction."
+          }
+        ],
+        "falsifiers": [
+          {
+            "id": "bs-f1",
+            "targetRefs": [
+              "bs-w1"
+            ],
+            "condition": "Exhibit a second inequivalent amplitude inside the exact declared candidate class that satisfies both bootstrap assumptions.",
+            "procedure": "Check the candidate's high-energy falloff, full cancellation sequence, and inequivalence to the Veneziano solution within the source's bootstrap variables.",
+            "status": "NOT_RUN",
+            "witnessRef": null
+          }
+        ],
+        "counterexamples": [
+          {
+            "id": "bs-c1",
+              "targetRefs": [
+                "bs-a1",
+                "bs-a6",
+                "bs-w1"
+              ],
+              "member": "The source's broader three-parameter analytic family containing Veneziano, Coon, hypergeometric amplitudes, and additional solutions before the necessary positivity restriction screens its branches.",
+              "explanation": "It demonstrates that the uniqueness conclusion is lost in the widened solution problem when the stronger asymptotic assumption and the final positivity restriction are not both retained.",
+              "disposition": "RELAXES_ASSUMPTION",
+              "relaxationBranchRefs": [
+                "bs-r1"
+              ],
+              "sourceRefs": [
+                "arxiv-2406.02665v2"
+            ]
+          }
+        ],
+          "result": {
+            "kind": "CONDITIONAL_UNIQUENESS",
+            "statement": "A normalized Veneziano representative and its mass spectrum are unique, modulo the source's fixed overall normalization and affine kinematic redefinitions, only within the declared planar, color-ordered, local, positivity-screened tree-level bootstrap class under crossing symmetry, dual resonance, faster-than-power-law falloff, and the infinite cancellation-sequence assumption.",
+          "underAssumptionIds": [
+              "bs-a1",
+              "bs-a2",
+              "bs-a3",
+              "bs-a4",
+              "bs-a5",
+              "bs-a6",
+              "bs-a7"
+            ],
+          "underInvariantIds": [
+            "bs-i1",
+            "bs-i2"
+          ],
+          "witnessIds": [
+            "bs-w1",
+            "bs-w2"
+          ]
+        },
+        "remainingFamily": {
+          "cardinality": "ONE",
+            "description": "One normalized Veneziano representative with its output spectrum inside the fully constrained bootstrap class, modulo the fixed trivial transformations.",
+            "parameters": [
+              "c(0)=1 overall normalization",
+              "mu(0)=0 and mu(1)=1 shift-and-rescaling convention"
+            ],
+            "knownMembers": [
+              "Veneziano amplitude in the source's normalized quotient"
+            ],
+            "relaxationBranches": [
+              {
+                "id": "bs-r1",
+                "statement": "Replacing faster-than-power-law falloff with mere vanishing in the broader analytic solution before the positivity restriction yields a three-parameter family.",
+                "relaxedAssumptionIds": [
+                  "bs-a1",
+                  "bs-a6"
+                ]
+              },
+              {
+                "id": "bs-r2",
+                "statement": "Removing the infinite cancellation sequence defines a different, unclassified candidate space.",
+                "relaxedAssumptionIds": [
+                  "bs-a2"
+                ]
+              }
+            ]
+          },
+        "boundaryTerms": [
+          {
+            "id": "bs-b1",
+              "term": "The asymptotic contribution permitted by the high-energy falloff condition",
+              "origin": "The high-energy boundary of the bootstrap problem",
+              "treatment": "RETAINED",
+              "justification": "The strength of the falloff is a decisive assumption whose relaxation demonstrably enlarges the solution family.",
+              "affectedResult": "It separates the fully scoped unique solution from the broader weaker-asymptotic analytic family before the final positivity restriction.",
+              "underAssumptionIds": [
+                "bs-a1"
+              ],
+              "underInvariantIds": [
+                "bs-i2"
+              ],
+              "witnessIds": [
+                "bs-w2"
+              ]
+            }
+        ],
+          "allowedConclusion": "The normalized Veneziano representative and its output spectrum are unique only inside the declared bootstrap quotient under every listed constraint; relaxing the faster-than-power-law and positivity conditions admits the source's broader analytic family.",
+          "limitations": "The result is a conditional four-point scattering bootstrap statement in a normalized quotient, and its positivity screen is necessary rather than sufficient for full unitarity. It is not unconditional uniqueness of string theory, an experimental detection, an ontology of the universe, or evidence for any blockchain, theology, morality, or personhood claim.",
+        "sourceRefs": [
+          "arxiv-2406.02665v2"
+        ]
+      },
+      "zeroneTransfer": {
+        "claimOwner": "ZERONE",
+        "relationKind": "METHODOLOGICAL_ANALOGY",
+        "assessment": "PROPOSED",
+        "target": "Conditional solution-space claims in Zerone research publications",
+        "preservedDiscipline": [
+          "Publish the candidate class before publishing a no-go, family, or conditional-uniqueness result.",
+          "Bind every result to exact assumptions, invariants, witnesses, and regime.",
+          "Publish the remaining family and the branches reopened by relaxing decisive assumptions.",
+          "Refuse the word unique when the candidate class is open or a completeness witness is missing."
+        ],
+        "localTest": {
+          "testId": "eid1-conditional-solution-space",
+          "status": "NOT_RUN",
+          "statement": "Mutate one decisive assumption in a local EID-1 fixture and verify that CONDITIONAL_UNIQUENESS is rejected unless the result, remainingFamily, witnesses, and relaxationBranches are updated coherently."
+        },
+        "nonTransfers": [
+          "Conditional uniqueness inside a scattering bootstrap is not unconditional uniqueness of string theory or of any protocol design.",
+          "A finite validator can verify declared record coherence but cannot prove that a scientific candidate class is physically complete.",
+          "No physics result establishes theology, morality, string ontology, universal simulation, or author endorsement.",
+          "No solution-space label changes consensus, chain state, truth status, rewards, qualifications, funds, consent, governance, or authority."
+        ],
+        "zeroneRefs": [
+          "cg-0",
+          "m-analogical",
+          "math-proofcraft-1",
+          "knowledge-boundary"
+        ]
+      }
+    },
+    {
+      "id": "witness-projection-publication-integrity",
+      "title": "Witness projection to publication integrity, not adjudication",
+      "sourceResult": {
+        "claimOwner": "SOURCE_AUTHORS",
+        "domain": "PHYSICS_MATH",
+          "candidateClass": {
+            "id": "minimal-residue-zero-string-amplitudes",
+            "kind": "SCATTERING_AMPLITUDE_FAMILY",
+            "definition": "Tree-level four-point, Lorentz-invariant, crossing-symmetric, unitary scattering amplitudes in either the source's planar identical color-ordered scalar sector or its nonplanar identical massless scalar sector, whose residues have the prescribed consistency zeros and no additional zeros.",
+            "membershipRule": "A member is local with finite-spin polynomial residues, meromorphic with the declared simple-pole and monotonically increasing spectrum whose relative level spacing becomes asymptotically small, has a nonconstant Regge trajectory, admits complete rather than partial Regge-root blocks, exhibits every mandated residue zero and no extra residue zeros beyond that minimal set, and has a bijective Regge trajectory on negative momentum transfer together with the declared superpolynomial high-energy falloff in its fixed sector.",
+            "completeness": "PARAMETERISED"
+          },
+          "regime": {
+            "formalSystem": "Tree-level four-point S-matrix consistency analysis",
+            "background": "Lorentz-invariant, crossing-symmetric, unitary and meromorphic scattering in a fixed sector with prescribed momentum-transfer residue zeros",
+            "parameterDomain": "The planar identical color-ordered scalar and nonplanar identical massless scalar sectors, evaluated separately under the declared analytic, spectral, ultrasoftness, and minimal-zero assumptions",
+          "approximationOrder": "Tree-level four-point scattering, with a separately noted similar five-point argument",
+          "validityScope": "The minimal-consistency candidate sectors analyzed in arXiv:2508.09246v2",
+          "excludedScope": "Loops, unrestricted multiplicity, amplitudes with additional residue zeros, empirical string detection, and any publication or protocol adjudication system"
+        },
+        "assumptions": [
+          {
+            "id": "wp-a1",
+            "kind": "APPROXIMATION",
+            "statement": "The principal result is evaluated for tree-level four-point scattering amplitudes.",
+            "sourceRefs": [
+              "arxiv-2508.09246v2"
+            ]
+          },
+            {
+              "id": "wp-a2",
+              "kind": "STRUCTURAL",
+              "statement": "For the minimal candidate search, residues are restricted to the Regge-zero locations derived by the source's contour and consistency argument.",
+            "sourceRefs": [
+              "arxiv-2508.09246v2"
+            ]
+          },
+            {
+              "id": "wp-a3",
+              "kind": "STRUCTURAL",
+              "statement": "Ultrasoftness combines superpolynomial high-energy boundedness with a Regge trajectory that is bijective for negative momentum transfer.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+          },
+          {
+            "id": "wp-a4",
+            "kind": "DEFINITIONAL",
+              "statement": "Minimal consistency admits the mandated residue zeros and no additional zeros.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            },
+            {
+              "id": "wp-a5",
+              "kind": "STRUCTURAL",
+              "statement": "The four-point amplitude is Lorentz invariant, crossing symmetric, and unitary, with tree-level exchanges and the declared simple-pole spectrum.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            },
+            {
+              "id": "wp-a6",
+              "kind": "STRUCTURAL",
+              "statement": "The amplitude is meromorphic in the full complex s plane, including infinity, within the source's analytic argument.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            },
+            {
+              "id": "wp-assumption-a-locality",
+              "kind": "STRUCTURAL",
+              "statement": "Locality restricts every finite-energy exchanged level to finite maximal spin, so its residues are polynomials rather than infinite-spin nonlocal objects.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            },
+            {
+              "id": "wp-assumption-b-sector",
+              "kind": "DEFINITIONAL",
+              "statement": "The planar result uses identical color-ordered scalar external states, while the nonplanar result uses identical massless scalar external states; the two sectors are analyzed separately.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            },
+            {
+              "id": "wp-assumption-c-relative-level-spacing",
+              "kind": "APPROXIMATION",
+              "statement": "The mass-squared spectrum mu(n) is monotonically increasing and its large-level finite difference mu'(n) is asymptotically much smaller than mu(n).",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            },
+            {
+              "id": "wp-assumption-d-nonconstant-regge",
+              "kind": "STRUCTURAL",
+              "statement": "The leading Regge trajectory depends nontrivially on momentum transfer rather than remaining a constant integer.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            },
+            {
+              "id": "wp-assumption-e-complete-root-block",
+              "kind": "STRUCTURAL",
+              "statement": "Whenever one root of alpha(t)+r=0 appears in a planar residue, every root of that equation enters as a complete block; the analogous complete-block condition applies to alpha(t)+2r=0 in the nonplanar sector, excluding partial-root branches.",
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+              ]
+            }
+          ],
+        "invariants": [
+          {
+            "id": "wp-i1",
+            "statement": "Residues vanish at every prescribed momentum-transfer value mandated by the consistency analysis.",
+            "scope": "The declared residue sequence in the fixed scattering sector",
+            "mode": "EXACT",
+            "tolerance": null,
+            "witnessIds": [
+              "wp-w1",
+              "wp-w2"
+            ]
+          },
+            {
+              "id": "wp-i2",
+              "statement": "The admitted candidate contains no residue zeros beyond the mandated minimal set.",
+              "scope": "Minimal candidates in the fixed sector",
+              "mode": "STRUCTURAL",
+              "tolerance": null,
+              "witnessIds": [
+                "wp-w1"
+              ]
+            },
+            {
+              "id": "wp-i3",
+              "statement": "The Regge trajectory remains bijective for negative momentum transfer while the amplitude is superpolynomially bounded in the declared high-energy limit.",
+              "scope": "The source's ultrasoft high-energy regime on the real momentum-transfer axis",
+              "mode": "ORDERING",
+              "tolerance": null,
+              "witnessIds": [
+                "wp-w1"
+              ]
+            }
+          ],
+        "constraintWitnesses": [
+          {
+            "id": "wp-w1",
+            "kind": "COMPLETENESS",
+            "targetRefs": [
+                "minimal-residue-zero-string-amplitudes",
+                "wp-a1",
+                "wp-a2",
+                "wp-a3",
+                "wp-a4",
+                "wp-a5",
+                "wp-a6",
+                "wp-assumption-a-locality",
+                "wp-assumption-b-sector",
+                "wp-assumption-c-relative-level-spacing",
+                "wp-assumption-d-nonconstant-regge",
+                "wp-assumption-e-complete-root-block",
+                "wp-i1",
+                "wp-i2",
+                "wp-i3"
+              ],
+              "method": "FORMAL_DERIVATION",
+              "procedure": "Within every declared base condition—including the exact external-state sector, finite-spin locality, meromorphy, the monotone spectrum with asymptotically small relative level spacing, a nonconstant trajectory, and complete Regge-root blocks—impose bijective ultrasoft behavior, the prescribed residue-zero pattern, and no-additional-zero minimality.",
+            "artifactRefs": [
+              "arxiv-2508.09246v2"
+            ],
+            "outcome": "PASS",
+            "statement": "The source reports collapse onto the Veneziano and Virasoro-Shapiro amplitudes in the respective minimally consistent sectors."
+          },
+          {
+              "id": "wp-w2",
+              "kind": "EXISTENCE",
+              "targetRefs": [
+                "wp-a2",
+                "wp-i1"
+              ],
+              "method": "SOURCE_ANALYSIS",
+              "procedure": "Trace the source's contour and residue argument to the prescribed zero locations without treating this source analysis as an independent proof.",
+              "artifactRefs": [
+                "arxiv-2508.09246v2"
+              ],
+              "outcome": "PASS",
+              "statement": "The source derives prescribed residue zeros as explicit consistency consequences rather than leaving the constraint implicit."
+          }
+        ],
+        "falsifiers": [
+          {
+            "id": "wp-f1",
+            "targetRefs": [
+              "wp-w1"
+            ],
+            "condition": "Exhibit a distinct minimally consistent amplitude inside a fixed declared sector that has exactly the mandated zeros, no additional zeros, and the same ultrasoft behavior.",
+            "procedure": "Compare the full residue-zero set, asymptotics, and sector assignment against the source's candidate definition.",
+            "status": "NOT_RUN",
+            "witnessRef": null
+          }
+        ],
+        "counterexamples": [
+          {
+            "id": "wp-c1",
+            "targetRefs": [
+              "wp-a4",
+              "wp-i2"
+            ],
+              "member": "An amplitude with all mandated residue zeros plus additional zeros.",
+              "explanation": "It violates the declared minimality assumption and is therefore outside this candidate class rather than evidence for the scoped result.",
+              "disposition": "OUTSIDE_REGIME",
+              "relaxationBranchRefs": [],
+              "sourceRefs": [
+                "arxiv-2508.09246v2"
+            ]
+          }
+        ],
+        "result": {
+          "kind": "FAMILY",
+          "statement": "Across the fixed planar identical color-ordered scalar and nonplanar identical massless scalar four-point candidate sectors, the minimally consistent solutions reported by the source are the Veneziano and Virasoro-Shapiro amplitudes; the source argues conditional uniqueness within each respective sector under every listed assumption.",
+          "underAssumptionIds": [
+              "wp-a1",
+              "wp-a2",
+              "wp-a3",
+              "wp-a4",
+              "wp-a5",
+              "wp-a6",
+              "wp-assumption-a-locality",
+              "wp-assumption-b-sector",
+              "wp-assumption-c-relative-level-spacing",
+              "wp-assumption-d-nonconstant-regge",
+              "wp-assumption-e-complete-root-block"
+            ],
+            "underInvariantIds": [
+              "wp-i1",
+              "wp-i2",
+              "wp-i3"
+            ],
+          "witnessIds": [
+            "wp-w1",
+            "wp-w2"
+          ]
+        },
+        "remainingFamily": {
+          "cardinality": "MANY",
+          "description": "A sector-indexed pair of minimal tree-level four-point solutions, with one named amplitude in each declared sector.",
+            "parameters": [
+              "Choice of fixed planar identical color-ordered scalar or nonplanar identical massless scalar sector"
+          ],
+            "knownMembers": [
+              "Veneziano amplitude",
+              "Virasoro-Shapiro amplitude"
+            ],
+            "relaxationBranches": [
+              {
+                "id": "wp-r1",
+                "statement": "Allowing additional residue zeros enlarges the candidate class beyond minimal consistency.",
+                "relaxedAssumptionIds": [
+                  "wp-a4"
+                ]
+              },
+              {
+                "id": "wp-r2",
+                "statement": "Weakening ultrasoft high-energy behavior defines a different solution space.",
+                "relaxedAssumptionIds": [
+                  "wp-a3"
+                ]
+              },
+              {
+                "id": "wp-r3",
+                "statement": "Leaving the tree-level four-point approximation defines a larger problem not classified by this record.",
+                "relaxedAssumptionIds": [
+                  "wp-a1"
+                ]
+              },
+              {
+                "id": "wp-r4",
+                "statement": "Allowing only partial branches of a Regge-root equation reopens cases excluded by the source's complete-block assumption.",
+                "relaxedAssumptionIds": [
+                  "wp-assumption-e-complete-root-block"
+                ]
+              },
+              {
+                "id": "wp-r5",
+                "statement": "Changing the external-state content or mixing the planar and nonplanar sectors defines a different candidate class.",
+                "relaxedAssumptionIds": [
+                  "wp-assumption-b-sector"
+                ]
+              },
+              {
+                "id": "wp-r6",
+                "statement": "Dropping the analytic, locality, asymptotically small relative-level-spacing, or nonconstant-trajectory conditions invalidates the scoped derivation and opens an unclassified space.",
+                "relaxedAssumptionIds": [
+                  "wp-a5",
+                  "wp-a6",
+                  "wp-assumption-a-locality",
+                  "wp-assumption-c-relative-level-spacing",
+                  "wp-assumption-d-nonconstant-regge"
+                ]
+              }
+            ]
+          },
+        "boundaryTerms": [
+          {
+            "id": "wp-b1",
+              "term": "The asymptotic contribution controlled by ultrasoft high-energy behavior",
+              "origin": "The high-energy boundary of the minimal-consistency construction",
+              "treatment": "VANISHES_BY_ASSUMPTION",
+              "justification": "The source explicitly assumes ultrasoft behavior when deriving the minimal solutions.",
+              "affectedResult": "Relaxing this behavior can reopen the solution family.",
+              "underAssumptionIds": [
+                "wp-a3"
+              ],
+              "underInvariantIds": [
+                "wp-i3"
+              ],
+              "witnessIds": [
+                "wp-w1"
+              ]
+            }
+        ],
+          "allowedConclusion": "Under every listed planar assumption the minimal solution is the Veneziano amplitude, and under every listed nonplanar assumption the minimal solution is the Virasoro-Shapiro amplitude, within the source's stated tree-level four-point scope.",
+          "limitations": "The record summarizes a tree-level, principally four-point, assumption-bound source result with fixed external-state sectors, meromorphy, locality, a monotonically increasing spectrum with asymptotically small relative level spacing, a nonconstant Regge trajectory, and a complete-root-block assumption. It does not establish all-multiplicity or loop uniqueness, physical realization in our universe, or the validity of any Zerone record.",
+        "sourceRefs": [
+          "arxiv-2508.09246v2"
+        ]
+      },
+      "zeroneTransfer": {
+        "claimOwner": "ZERONE",
+        "relationKind": "METHODOLOGICAL_ANALOGY",
+        "assessment": "PROPOSED",
+        "target": "Publication integrity through inspectable witnesses without automated adjudication",
+        "preservedDiscipline": [
+          "Publish the exact witness, the constraint it addresses, its procedure, and its observed status together.",
+          "Keep the witness attached to its candidate class, regime, assumptions, and limitations.",
+          "Permit readers and local validators to inspect structural coherence without granting the witness authority to decide truth.",
+          "Publish counterexamples and relaxation branches beside positive witnesses."
+        ],
+        "localTest": {
+          "testId": "eid1-witness-publication-integrity",
+          "status": "NOT_RUN",
+          "statement": "Given a local EID-1 record, reject unresolved witness, invariant, assumption, source, integration-target, or result references and verify that no witness outcome triggers any external or chain action."
+        },
+        "nonTransfers": [
+          "A projected residue zero is not a verifier vote, chain event, proof-of-personhood signal, consent record, or universal truth oracle.",
+          "Publishing a witness does not adjudicate the claim, rank a person, simulate an author's reasoning, or confer author endorsement.",
+          "A static validator checks record coherence and pinned bytes; it does not reproduce the cited paper's full derivation or certify scientific truth.",
+          "Physics cannot be converted by this record into theology, morality, energy value, personhood, reward, governance, qualification, or authority."
+        ],
+        "zeroneRefs": [
+          "cg-0",
+          "m-analogical",
+          "math-proofcraft-1",
+          "knowledge-boundary",
+          "tok-per-fact-explicit-invariants"
+        ]
+      }
+    }
+  ],
+  "browserBoundary": {
+    "staticReadCount": 1,
+    "sameOriginOnly": true,
+    "externalFetchCount": 0,
+    "purpose": "The EID-1 initializer performs exactly one automatic bounded same-origin static read of this artifact per page load. It never fetches a primary source; deliberate user activation of a displayed external link is separate."
+  },
+  "releaseBoundary": {
+    "claimsAuthorEndorsement": false,
+    "simulatesPersonReasoning": false,
+    "claimsUnconditionalUniqueness": false,
+    "assertsStringOntology": false,
+    "transfersPhysicsToTheology": false,
+    "transfersPhysicsToMorality": false,
+    "changesConsensus": false,
+    "writesChainState": false,
+    "performsNetworkWrites": false,
+    "registersOntology": false,
+    "assertsScientificTruth": false,
+    "assertsTheologicalTruth": false,
+    "equatesEnergyLanes": false,
+    "infersPersonhood": false,
+    "ranksPersons": false,
+    "createsKarmaEvent": false,
+    "createsKarmaMagnitude": false,
+    "grantsQualification": false,
+    "activatesRewards": false,
+    "movesFunds": false,
+    "grantsGovernance": false,
+    "grantsAuthority": false,
+    "recordsConsent": false,
+    "automaticProtocolOrAuthorityAction": false
+  }
+}

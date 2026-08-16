@@ -1399,13 +1399,29 @@ export function renderKnowledgeGeometry(
 
   body.append(mapPanel, inspector);
   const boundary = element("div", "knowledge-geometry-boundary");
-  boundary.append(
-    element("strong", "", "A map of records, not minds."),
+  const invariantDisciplineLink = element(
+    "a",
+    "knowledge-geometry-boundary-link",
+    "Inspect the static explicit-invariant discipline ↓",
+  );
+  invariantDisciplineLink.href = "#explicit-invariants";
+  const boundaryCopy = element("div", "knowledge-geometry-boundary-copy");
+  boundaryCopy.append(
     element(
       "p",
       "",
       "Equal-size nodes prevent protocol confidence, energy, wealth, identity, or popularity from becoming visual worth. A Fact status is a chain record—not a truth certificate. This read creates no query receipt, transaction, KARMA, qualification, reward, authority, or claim that anyone understands anyone else.",
     ),
+    element(
+      "p",
+      "",
+      "This live snapshot does not expose a candidate class, assumption set, invariant test, or solution-space result for each Fact. Do not infer them. The separate static discipline shows how a proposed analysis must declare those fields.",
+    ),
+    invariantDisciplineLink,
+  );
+  boundary.append(
+    element("strong", "", "A map of records, not minds."),
+    boundaryCopy,
   );
   const footer = element("div", "knowledge-geometry-footer");
   const raw = element("a", "button button-ghost", "Inspect bounded JSON ↗");

@@ -24,6 +24,7 @@ import { initialiseKnowledgeGeometry } from "./knowledge-geometry";
 import { initialiseQuantumSeason } from "./quantum-season";
 import { initialiseRelationalTopology } from "./relational-topology";
 import { initialiseCorrespondenceGeometry } from "./correspondence-geometry";
+import { initialiseExplicitInvariantDiscipline } from "./explicit-invariant-discipline";
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import { initialiseFoldToFire } from "./fold-to-fire";
@@ -89,6 +90,9 @@ const knowledgeGeometryRoot = byId<HTMLElement>("knowledge-geometry-root");
 const relationalTopologyRoot = byId<HTMLElement>("relational-topology-root");
 const correspondenceGeometryRoot = byId<HTMLElement>(
   "correspondence-geometry-root",
+);
+const explicitInvariantDisciplineRoot = byId<HTMLElement>(
+  "explicit-invariant-discipline-root",
 );
 const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
@@ -1172,6 +1176,9 @@ const relationalTopologyReady = initialiseRelationalTopology(
 const correspondenceGeometryReady = initialiseCorrespondenceGeometry(
   correspondenceGeometryRoot,
 );
+const explicitInvariantDisciplineReady = initialiseExplicitInvariantDiscipline(
+  explicitInvariantDisciplineRoot,
+);
 void initialiseFrontierParticipation(
   frontierParticipationRoot,
 );
@@ -1186,6 +1193,7 @@ const alignInitialHash = (): void => {
     window.location.hash !== "#understanding" &&
     window.location.hash !== "#relations" &&
     window.location.hash !== "#correspondence" &&
+    window.location.hash !== "#explicit-invariants" &&
     window.location.hash !== "#skills" &&
     window.location.hash !== "#branch-flow" &&
     window.location.hash !== "#math-frontier" &&
@@ -1208,6 +1216,10 @@ const alignInitialHash = (): void => {
               ? correspondenceGeometryRoot.closest<HTMLElement>(
                   "#correspondence",
                 )
+              : window.location.hash === "#explicit-invariants"
+                ? explicitInvariantDisciplineRoot.closest<HTMLElement>(
+                    "#explicit-invariants",
+                  )
               : window.location.hash === "#branch-flow"
                 ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
                 : window.location.hash === "#math-frontier"
@@ -1251,11 +1263,13 @@ void Promise.allSettled([
 void authorityGeometryReady.then(alignInitialHash);
 void Promise.allSettled([relationalTopologyReady]).then(alignInitialHash);
 void Promise.allSettled([correspondenceGeometryReady]).then(alignInitialHash);
+void Promise.allSettled([explicitInvariantDisciplineReady]).then(alignInitialHash);
 void Promise.allSettled([
   knowledgeGeometryReady,
   authorityGeometryReady,
   relationalTopologyReady,
   correspondenceGeometryReady,
+  explicitInvariantDisciplineReady,
   constructiveTreeReady,
   lifeSciencesTreeReady,
   quantumSeasonReady,
