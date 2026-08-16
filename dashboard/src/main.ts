@@ -1184,6 +1184,13 @@ void initialiseFrontierParticipation(
 );
 const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
+const alignReadingPathHash = (): void => {
+  if (window.location.hash !== "#reading-path") return;
+  document
+    .getElementById("reading-path")
+    ?.scrollIntoView({ block: "start", behavior: "instant" });
+};
+alignReadingPathHash();
 let initialHashInputsSettled = false;
 let initialHashAligned = false;
 const alignInitialHash = (): void => {

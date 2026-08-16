@@ -621,6 +621,7 @@
     border: 1px solid rgba(255, 197, 111, 0.26);
     padding: 1.35rem 1.5rem;
     background: linear-gradient(90deg, rgba(255, 197, 111, 0.075), rgba(255, 197, 111, 0.025));
+    scroll-margin-top: 92px;
   }
 
   .truth-icon {
@@ -657,6 +658,206 @@
     font-size: 0.72rem;
     font-weight: 700;
     white-space: nowrap;
+  }
+
+  .reading-path {
+    position: relative;
+    isolation: isolate;
+    margin-top: clamp(4.5rem, 8vw, 7rem);
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+    padding: clamp(3rem, 6vw, 5rem) 0;
+    scroll-margin-top: 92px;
+  }
+
+  .reading-path::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(185, 155, 255, 0.045), transparent 38%),
+      radial-gradient(circle at 82% 12%, rgba(220, 255, 120, 0.055), transparent 24rem);
+    content: "";
+    pointer-events: none;
+  }
+
+  .reading-path-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+    align-items: end;
+    gap: clamp(2rem, 6vw, 6rem);
+  }
+
+  .reading-path-heading .eyebrow span {
+    color: var(--violet-soft);
+    letter-spacing: 0.18em;
+  }
+
+  .reading-path-heading h2 {
+    margin-top: 1rem;
+    font-family: var(--serif);
+    font-size: clamp(3rem, 5vw, 5rem);
+    font-weight: 400;
+    letter-spacing: -0.052em;
+    line-height: 0.96;
+  }
+
+  .reading-path-heading h2 em {
+    color: var(--acid);
+    font-weight: inherit;
+  }
+
+  .reading-path-heading > p {
+    color: var(--muted-strong);
+    font-family: var(--serif);
+    font-size: 1.02rem;
+    line-height: 1.65;
+  }
+
+  .reading-path-heading code,
+  .reading-path-link code {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.72em;
+    font-weight: 500;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  .reading-path-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    margin: clamp(2.5rem, 5vw, 4rem) 0 0;
+    border: 1px solid var(--line);
+    padding: 0;
+    background: var(--line);
+    list-style: none;
+  }
+
+  .reading-path-list > li {
+    --reading-path-accent: var(--violet-soft);
+    display: flex;
+    min-width: 0;
+    background: var(--surface);
+  }
+
+  .reading-path-list > li[data-stage="map"] {
+    --reading-path-accent: var(--amber);
+  }
+
+  .reading-path-list > li[data-stage="bound"] {
+    --reading-path-accent: var(--green);
+  }
+
+  .reading-path-list > li[data-stage="trace"] {
+    --reading-path-accent: var(--acid);
+  }
+
+  .reading-path-link {
+    position: relative;
+    display: flex;
+    flex: 1;
+    height: 100%;
+    min-width: 0;
+    min-height: 330px;
+    flex-direction: column;
+    padding: clamp(1.25rem, 2.4vw, 1.8rem);
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    text-decoration: none;
+    transition:
+      background 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .reading-path-link::before {
+    position: absolute;
+    top: -1px;
+    right: 1.35rem;
+    left: 1.35rem;
+    height: 2px;
+    background: color-mix(in srgb, var(--reading-path-accent) 72%, transparent);
+    content: "";
+  }
+
+  .reading-path-link:hover {
+    background:
+      radial-gradient(circle at 78% 8%, color-mix(in srgb, var(--reading-path-accent) 9%, transparent), transparent 11rem),
+      var(--surface-hover);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--reading-path-accent) 25%, transparent);
+  }
+
+  .reading-path-link:focus-visible {
+    z-index: 1;
+  }
+
+  .reading-path-step {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.075em;
+    text-transform: uppercase;
+  }
+
+  .reading-path-step > span:first-child {
+    color: var(--reading-path-accent);
+  }
+
+  .reading-path-step > span:last-child {
+    text-align: right;
+  }
+
+  .reading-path-link h3 {
+    margin: 2.3rem 0 1rem;
+    font-family: var(--serif);
+    font-size: clamp(1.7rem, 2.6vw, 2.2rem);
+    font-weight: 400;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+  }
+
+  .reading-path-link p {
+    color: var(--muted-strong);
+    font-size: 0.78rem;
+    line-height: 1.65;
+  }
+
+  .reading-path-link small {
+    display: block;
+    margin-top: auto;
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+    color: var(--reading-path-accent);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    line-height: 1.55;
+  }
+
+  .reading-path-boundary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin-top: 1px;
+    border: 1px solid var(--line);
+    padding: 1.25rem 1.4rem;
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--muted);
+    font-size: 0.72rem;
+    line-height: 1.65;
+  }
+
+  .reading-path-boundary strong {
+    color: var(--ink-soft);
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   .section-heading {
@@ -10208,6 +10409,14 @@
       gap: 1.5rem;
     }
 
+    .reading-path-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .reading-path-link {
+      min-height: 290px;
+    }
+
     .metric-card {
       min-height: 175px;
       padding-inline: 1rem;
@@ -10333,6 +10542,24 @@
       grid-column: 2;
     }
 
+    .reading-path-heading {
+      grid-template-columns: 1fr;
+      gap: 1.4rem;
+    }
+
+    .reading-path-heading > p {
+      max-width: 680px;
+    }
+
+    .reading-path-list,
+    .reading-path-boundary {
+      grid-template-columns: 1fr;
+    }
+
+    .reading-path-link {
+      min-height: 250px;
+    }
+
     .split-section {
       grid-template-columns: 1fr;
       gap: 3rem;
@@ -10456,6 +10683,41 @@
     .hero-actions {
       display: grid;
       grid-template-columns: 1fr;
+    }
+
+    .reading-path {
+      padding: 3rem 0;
+    }
+
+    .reading-path-heading h2 {
+      font-size: clamp(2.8rem, 14vw, 4rem);
+    }
+
+    .reading-path-step {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .reading-path-step > span:last-child {
+      text-align: left;
+    }
+
+    .reading-path-link {
+      min-height: 0;
+      padding: 1.25rem;
+    }
+
+    .reading-path-link h3 {
+      margin-top: 1.8rem;
+    }
+
+    .reading-path-link small {
+      margin-top: 2rem;
+    }
+
+    .reading-path-boundary {
+      padding: 1.1rem 1.2rem;
     }
 
     .hero-orbit {
