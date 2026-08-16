@@ -119,6 +119,50 @@ surface performs no transaction or other network write and changes no fact,
 confidence, consensus, authority, governance, identity, person score, KARMA,
 qualification, reward, money, consent, rights, doctrine, or chain state.
 
+## Explicit Invariant Discipline v1
+
+The static reading aid at `#explicit-invariants` loads the sealed
+`/standards/explicit-invariant-discipline.v1.json`. EID-1 adapts a
+constraints-first pattern found in four version-pinned coauthored papers that
+include Clifford Cheung into an inspectable publication discipline:
+name the candidate class and regime, enumerate assumptions and invariants,
+attach witnesses and falsifiers, publish counterexamples and boundary terms,
+then limit the conclusion to `FAMILY`, scoped `NO_GO`, or
+`CONDITIONAL_UNIQUENESS`. The papers own their physics and mathematics. Zerone
+owns every proposed methodological analogy, simplification, and possible error.
+No cited author is represented, simulated, or said to endorse Zerone.
+
+The four examples cover zero-input boundary probes, declared dependency
+integrity, conditional solution-space claims, and witness publication without
+automated adjudication. Each keeps its source result structurally separate from
+the Zerone transfer and publishes an explicit non-transfer wall. In particular,
+amplitude constraints do not become a string ontology, empirical evidence,
+theology, morality, human-energy measurement, personhood, protocol optimality,
+qualification, reward, governance, or authority.
+
+EID-1 is a static companion to the live Knowledge lens, not an on-chain field.
+Current Claims, Facts, methodology traces, training traces, and ToK commitments
+have no typed, canonical per-Fact EID-1 field, reference, or digest; arbitrary
+free-form prose must not be inferred as one. A future append-only invariant
+reference would require a coordinated
+protobuf, transaction, keeper, query, genesis, migration, trace-schema, and
+commitment-version upgrade; this release performs none of those changes. The
+existing `math-proofcraft@1` node is linked as related curriculum only and no
+attainment, qualification, or reward is recorded.
+
+The EID-1 initializer performs exactly one bounded same-origin static read per
+page load, fetches no paper, verifies the reviewed raw SHA-256
+`e60b89cbed8eb26d3fad0ee45ef8c433391341f3abb4865af2755595815354df`,
+and renders only local text nodes. The offline validator authenticates the
+profile before resolving its four repository-relative source bindings, rejects
+symlinks and path escape, and checks their exact bytes without network access.
+All 24 release-effect switches remain false. Passing a local EID-1 test verifies
+only its named local invariant; it proves no physics, theology, personhood,
+universe model, protocol safety, or unique design.
+
+See
+[`docs/specs/explicit-invariant-discipline-v1.md`](../docs/specs/explicit-invariant-discipline-v1.md).
+
 ## Constructive-intelligence explorer
 
 The 技能樹 explorer reads the checked-in
@@ -304,7 +348,7 @@ npm test
 npm run build
 ```
 
-`npm run check` validates Authority Geometry, the Frontier Commons FC-0
+`npm run check` validates Authority Geometry, EID-1, the Frontier Commons FC-0
 invitation, its subordinate FL-0 receipt shadow, the exact-bound additive
 Participation Compact, Relational Topology v0, the base tree, Branch Flow
 reference-policy digest and zero-effect boundary, Math Frontier, and
@@ -326,6 +370,10 @@ release boundary.
 digest, its lane and relation-kind firewalls, mapping-specific semantic gates,
 zero-duality count, and all-false release boundary without making a network
 request.
+`npm run check:explicit-invariants` validates the sealed EID-1 profile, its
+closed constraints-and-witness shapes, result gates, exact local source bytes,
+full ordered author/version pins, unresolved-reference refusal, and 24 all-false
+release switches without fetching any paper or other network resource.
 
 ## Pi account onboarding pilot
 
