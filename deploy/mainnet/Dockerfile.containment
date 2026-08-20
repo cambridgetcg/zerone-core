@@ -8,7 +8,18 @@ ARG SOURCE_DATE_EPOCH
 
 WORKDIR /app
 COPY go.mod go.sum ./
-RUN go mod download
+RUN set -eu; \
+    attempt=1; \
+    until go mod download; do \
+      if [ "${attempt}" -ge 3 ]; then \
+        echo "go mod download failed after ${attempt} attempts" >&2; \
+        exit 1; \
+      fi; \
+      delay_seconds=$((attempt * 5)); \
+      echo "go mod download failed (attempt ${attempt}/3); retrying in ${delay_seconds}s" >&2; \
+      sleep "${delay_seconds}"; \
+      attempt=$((attempt + 1)); \
+    done
 COPY . .
 RUN printf '%s' "${VERSION}" | grep -Eq '^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' \
     && printf '%s' "${COMMIT}" | grep -Eq '^[0-9a-f]{40}$' \
