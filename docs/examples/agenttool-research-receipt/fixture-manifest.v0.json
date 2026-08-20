@@ -1,0 +1,91 @@
+{
+  "_format": "zerone.agenttool-research-fixture-set/0.1",
+  "status": "PHASE_A_STATIC_FIXTURE_ONLY",
+  "source": {
+    "repository": "https://github.com/cambridgetcg/agenttool",
+    "source_revision": "6a644b9e858b7d23bdea613d91412bf7310c2338",
+    "main_merge_revision": "55342fac97250898c2c4ea884f1a03bec1f8cc8c",
+    "pull_request": "https://github.com/cambridgetcg/agenttool/pull/335",
+    "source_directory": "packages/research-commons/examples/amplitude-bootstrap-garden",
+    "copied_byte_for_byte": true
+  },
+  "adapter": {
+    "version": "agenttool-research-receipt/v1",
+    "receipt_schema": "zerone.agenttool-research-receipt-shadow/v0",
+    "output_encoding": "UTF8_GO_JSON_INDENT_2_TRAILING_LF",
+    "assurance": "UNVERIFIED_SHADOW_PROJECTION",
+    "status": "STRUCTURAL_CANDIDATE",
+    "economic_effect": "NONE",
+    "amount_uzrn": "0"
+  },
+  "shared_pins": {
+    "settlement_bundle_format": "agenttool.research-settlement-bundle/0.1",
+    "public_projection_format": "agenttool.research-public-projection/0.1",
+    "static_interop_profile_id": "agenttool.research-commons-zerone-static-interop/0.1",
+    "static_interop_raw_sha256": "8c5b1749447c1587b89b238dadb5113e10230df19fd3f4e7942d9a163aef6a8a",
+    "six_ledger_profile_id": "research-commons.six-ledger-boundary/0.1",
+    "six_ledger_profile_digest": "sha256:fd5ed0b66dd00b180729221a06e7fbeeb7ef6149136916842014a1afbdbc54b2",
+    "tree_schema": "zerone.constructive-intelligence-tree/v1",
+    "tree_raw_sha256": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+    "tree_node_id": "math-proofcraft@1",
+    "tree_node_digest": "sha256:d8f364772611a214aaf5f671c630a5fa00daa3558330bfaf5e85efe7c5a1d0e2"
+  },
+  "fixtures": [
+    {
+      "id": "primary-e2-null",
+      "settlement": {
+        "source_path": "packages/research-commons/examples/amplitude-bootstrap-garden/settlement-bundle.json",
+        "source_raw_sha256": "2f064cd1eff537528ad944a321dcc3178247ac27a97b379ef90b5c62438a1f49",
+        "copied_path": "docs/examples/agenttool-research-receipt/amplitude-bootstrap-garden.settlement.json",
+        "copied_raw_sha256": "2f064cd1eff537528ad944a321dcc3178247ac27a97b379ef90b5c62438a1f49",
+        "envelope_id": "sha256:625d899247b9e9f3d59db369583386eeb245f7d19151c7cf2cc38036028df719"
+      },
+      "projection": {
+        "source_path": "packages/research-commons/examples/amplitude-bootstrap-garden/public-projection.json",
+        "source_raw_sha256": "90cefc37dc843e9ce3729745c0671d3bf1c134152d0e21af20fa4acef638081c",
+        "copied_path": "docs/examples/agenttool-research-receipt/amplitude-bootstrap-garden.public-projection.json",
+        "copied_raw_sha256": "90cefc37dc843e9ce3729745c0671d3bf1c134152d0e21af20fa4acef638081c",
+        "envelope_id": "sha256:75afd4f13a8163d95e211282a6ff2baed3606d09196be8fe40ec88d52bebced1"
+      },
+      "expected_receipt": {
+        "receipt_id": "sha256:27688b86fbe11f73395f3b1a591457718dfa5f2ea9171464b3fd932783e1c8e1",
+        "raw_sha256": "c9fd054b2e76bfc0548fe3f4146a200427d8333131e39e26519e988bd2fc8dc5",
+        "declared_result_kind": "NULL",
+        "highest_evidence_level": "E2",
+        "simulated_credit_amount": 30
+      }
+    },
+    {
+      "id": "reviewer-e1-not-applicable",
+      "settlement": {
+        "source_path": "packages/research-commons/examples/amplitude-bootstrap-garden/reviewer-settlement-bundle.json",
+        "source_raw_sha256": "da5939fe9bd93db67ae943a1039670432e2383241f6a7cebe7db159301db2f5b",
+        "copied_path": "docs/examples/agenttool-research-receipt/amplitude-bootstrap-garden.reviewer-settlement.json",
+        "copied_raw_sha256": "da5939fe9bd93db67ae943a1039670432e2383241f6a7cebe7db159301db2f5b",
+        "envelope_id": "sha256:96cc6c9b5fe6870d23b87c4f016c5cc53386093a54e591b9f4456c6272cce589"
+      },
+      "projection": {
+        "source_path": "packages/research-commons/examples/amplitude-bootstrap-garden/reviewer-public-projection.json",
+        "source_raw_sha256": "0e13dc1cc28e9a0423fa91bf0540b0d4f446039517bb2db9f5e9c5df818655aa",
+        "copied_path": "docs/examples/agenttool-research-receipt/amplitude-bootstrap-garden.reviewer-public-projection.json",
+        "copied_raw_sha256": "0e13dc1cc28e9a0423fa91bf0540b0d4f446039517bb2db9f5e9c5df818655aa",
+        "envelope_id": "sha256:c1b304286f90acb6d88f6812975591caf92a392551d2c1803d430c51aaea2acf"
+      },
+      "expected_receipt": {
+        "receipt_id": "sha256:4e006fb42e388cb4ab55a637b0dc18efabd1984822df93dee978b392c4e057bb",
+        "raw_sha256": "eb6298ee19fe6276748d9810c403ca5f3ffee1cd2db6320966ff54cef1ccab71",
+        "declared_result_kind": "NOT_APPLICABLE",
+        "highest_evidence_level": "E1",
+        "simulated_credit_amount": 10
+      }
+    }
+  ],
+  "boundary": {
+    "reciprocal_cross_pin_present": false,
+    "integration_ready": false,
+    "imports_agenttool_state": false,
+    "calls_agenttool": false,
+    "moves_value": false,
+    "adjudicates_science": false
+  }
+}
