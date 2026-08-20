@@ -1315,6 +1315,19 @@ func TestCosmovisorEntrypointRejectsMutableSafetyPolicy(t *testing.T) {
 }
 
 func TestValidatorDockerfilesPinBuildAndPackageProvenance(t *testing.T) {
+	const goModDownloadRetry = `RUN set -eu; \
+    attempt=1; \
+    until go mod download; do \
+      if [ "${attempt}" -ge 3 ]; then \
+        echo "go mod download failed after ${attempt} attempts" >&2; \
+        exit 1; \
+      fi; \
+      delay_seconds=$((attempt * 5)); \
+      echo "go mod download failed (attempt ${attempt}/3); retrying in ${delay_seconds}s" >&2; \
+      sleep "${delay_seconds}"; \
+      attempt=$((attempt + 1)); \
+    done`
+
 	for _, dockerfile := range []string{
 		"../Dockerfile.validator",
 		"mainnet/Dockerfile.containment",
@@ -1326,6 +1339,9 @@ func TestValidatorDockerfilesPinBuildAndPackageProvenance(t *testing.T) {
 				t.Fatal(err)
 			}
 			body := string(bodyBytes)
+			if !strings.Contains(body, goModDownloadRetry) {
+				t.Fatalf("%s does not contain the shared bounded Go module download retry", dockerfile)
+			}
 			for _, required := range []string{
 				"golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58",
 				"debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818",
