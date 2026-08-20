@@ -352,6 +352,49 @@ func TestCreateBountyOrder_MaxActivePerSponsor(t *testing.T) {
 	}
 }
 
+func TestCreateBountyOrder_SponsorAliasCannotEvadeCanonicalCap(t *testing.T) {
+	k, ctx, bk, _, storeService := setupWithStoreService(t)
+	srv := keeper.NewMsgServerImpl(k)
+	k.SetParams(ctx, &types.Params{MinTargetCount: 1, MinDurationBlocks: 100, MaxActiveBountiesPerSponsor: 1})
+	sponsor := mkAddr("sponsor-alias-cap-123")
+	canonical := sponsor.String()
+	alias := strings.ToUpper(canonical)
+	bk.setBalance(canonical, "uzrn", 10)
+
+	first, err := srv.CreateBountyOrder(ctx, &types.MsgCreateBountyOrder{
+		Sponsor: canonical, Domain: "math", PricePerArtifact: "1",
+		TargetCount: 1, DurationBlocks: 500, WorkContract: testWorkContract(),
+	})
+	if err != nil {
+		t.Fatalf("canonical create: %v", err)
+	}
+	sponsorBefore := bk.balances[canonical]["uzrn"]
+	moduleBefore := bk.moduleBalances[types.ModuleName]["uzrn"]
+	_, err = srv.CreateBountyOrder(ctx, &types.MsgCreateBountyOrder{
+		Sponsor: alias, Domain: "math", PricePerArtifact: "1",
+		TargetCount: 1, DurationBlocks: 500, WorkContract: testWorkContract(),
+	})
+	if err == nil || !strings.Contains(err.Error(), "canonical lowercase") {
+		t.Fatalf("uppercase alias must fail before cap/escrow admission: %v", err)
+	}
+	if bk.balances[canonical]["uzrn"] != sponsorBefore || bk.moduleBalances[types.ModuleName]["uzrn"] != moduleBefore {
+		t.Fatal("rejected address alias moved escrow")
+	}
+	if got := k.CountActiveBountiesBySponsor(ctx, alias); got != 1 {
+		t.Fatalf("alias lookup must resolve the canonical cap bucket: got %d", got)
+	}
+	if !storeHas(t, storeService, ctx, types.ActiveSponsorIndexKey(canonical, first.BountyId)) {
+		t.Fatal("canonical active-sponsor key missing")
+	}
+	if storeHas(t, storeService, ctx, types.ActiveSponsorIndexKey(alias, first.BountyId)) {
+		t.Fatal("noncanonical active-sponsor key must never be written")
+	}
+	order, found := k.GetBountyOrder(ctx, first.BountyId)
+	if !found || order.Sponsor != canonical {
+		t.Fatalf("new order did not store canonical sponsor: %+v", order)
+	}
+}
+
 func TestCreateBountyOrder_LazilyPrunesExpiredSponsorSlot(t *testing.T) {
 	k, ctx, bk, _ := setup(t)
 	srv := keeper.NewMsgServerImpl(k)
@@ -1248,7 +1291,7 @@ func TestMigration1To2_NormalizesLegacyPricesAndBuildsTombstones(t *testing.T) {
 	sponsor := mkAddr("legacy-migration-spon1")
 	worker := mkAddr("legacy-migration-work1")
 	k.SetBountyOrder(ctx, &types.BountyOrder{
-		Id: "bounty-1", Sponsor: sponsor.String(), Domain: "math", PricePerArtifact: "001",
+		Id: "bounty-1", Sponsor: strings.ToUpper(sponsor.String()), Domain: "math", PricePerArtifact: "001",
 		TargetCount: 2, EscrowRemaining: "+002", StartBlock: 1, EndBlock: 2000,
 		Status: types.BountyStatus_BOUNTY_STATUS_ACTIVE,
 	})
@@ -1272,6 +1315,12 @@ func TestMigration1To2_NormalizesLegacyPricesAndBuildsTombstones(t *testing.T) {
 		order1.EscrowRemaining != "2" || order2.EscrowRemaining != "0" {
 		t.Fatalf("legacy amounts not normalized: %+v %+v", order1, order2)
 	}
+	if order1.Sponsor != sponsor.String() || order2.Sponsor != sponsor.String() {
+		t.Fatalf("legacy sponsor aliases not normalized: %+v %+v", order1, order2)
+	}
+	if got := k.CountActiveBountiesBySponsor(ctx, strings.ToUpper(sponsor.String())); got != 1 {
+		t.Fatalf("canonical migration index not shared by alias lookup: %d", got)
+	}
 	if !k.IsFactConsumed(ctx, "legacy-paid-fact") {
 		t.Fatal("historical payout did not create permanent fact tombstone")
 	}
@@ -1285,6 +1334,34 @@ func TestMigration1To2_NormalizesLegacyPricesAndBuildsTombstones(t *testing.T) {
 	}
 	if err := k.EnsureEscrowAccounting(ctx); err != nil {
 		t.Fatalf("migration persisted/derived liability mismatch: %v", err)
+	}
+}
+
+func TestMigration1To2_SponsorAliasesShareCapBeforeWrites(t *testing.T) {
+	k, ctx, bk, _ := setup(t)
+	sponsor := mkAddr("legacy-alias-cap-spon")
+	k.SetParams(ctx, &types.Params{
+		MinTargetCount: 1, MinDurationBlocks: 100, MaxActiveBountiesPerSponsor: 1,
+	})
+	for i, address := range []string{sponsor.String(), strings.ToUpper(sponsor.String())} {
+		k.SetBountyOrder(ctx, &types.BountyOrder{
+			Id: fmt.Sprintf("bounty-%d", i+1), Sponsor: address, Domain: "math", PricePerArtifact: "1",
+			TargetCount: 1, EscrowRemaining: "1", StartBlock: 1, EndBlock: 2000,
+			Status: types.BountyStatus_BOUNTY_STATUS_ACTIVE,
+		})
+	}
+	bk.moduleBalances[types.ModuleName] = map[string]int64{"uzrn": 2}
+
+	err := keeper.NewMigrator(k).Migrate1to2(ctx)
+	if err == nil || !strings.Contains(err.Error(), "2 active bounties") {
+		t.Fatalf("address aliases must fail the single-account migration cap: %v", err)
+	}
+	if got := k.CountActiveBountiesBySponsor(ctx, sponsor.String()); got != 0 {
+		t.Fatalf("failed migration wrote a canonical active index: %d", got)
+	}
+	storedAlias, found := k.GetBountyOrder(ctx, "bounty-2")
+	if !found || storedAlias.Sponsor != strings.ToUpper(sponsor.String()) {
+		t.Fatalf("failed preflight mutated stored legacy state: %+v", storedAlias)
 	}
 }
 
@@ -1426,6 +1503,48 @@ func TestInitExportGenesis_NormalizesLegacyV1Shapes(t *testing.T) {
 	liability, err := k.TotalEscrowLiability(ctx)
 	if err != nil || liability.String() != "2" {
 		t.Fatalf("normalized liability: got %v err=%v", liability, err)
+	}
+}
+
+func TestInitGenesis_LegacySponsorAliasCanCancelAndRefund(t *testing.T) {
+	k, ctx, bk, _ := setup(t)
+	sponsor := mkAddr("legacy-genesis-alias")
+	canonical := sponsor.String()
+	alias := strings.ToUpper(canonical)
+	bk.moduleBalances[types.ModuleName] = map[string]int64{"uzrn": 10}
+	gs := &types.GenesisState{
+		Params: types.DefaultParams(),
+		Orders: []*types.BountyOrder{{
+			Id: "bounty-1", Sponsor: alias, Domain: "math", PricePerArtifact: "10",
+			TargetCount: 1, EscrowRemaining: "10", StartBlock: 1, EndBlock: 2000,
+			Status: types.BountyStatus_BOUNTY_STATUS_ACTIVE,
+		}},
+		NextBountyId: 2,
+	}
+	k.InitGenesis(ctx, gs)
+	order, found := k.GetBountyOrder(ctx, "bounty-1")
+	if !found || order.Sponsor != canonical {
+		t.Fatalf("legacy genesis sponsor not normalized: %+v", order)
+	}
+	if got := k.CountActiveBountiesBySponsor(ctx, alias); got != 1 {
+		t.Fatalf("legacy alias did not resolve canonical active index: %d", got)
+	}
+
+	resp, err := keeper.NewMsgServerImpl(k).CancelBountyOrder(ctx, &types.MsgCancelBountyOrder{
+		Sponsor: alias, BountyId: order.Id,
+	})
+	if err != nil || resp.RefundedAmount != "10" {
+		t.Fatalf("address-semantic legacy cancellation failed: resp=%+v err=%v", resp, err)
+	}
+	if got := bk.balances[canonical]["uzrn"]; got != 10 {
+		t.Fatalf("legacy refund did not reach canonical account: %d", got)
+	}
+	order, _ = k.GetBountyOrder(ctx, order.Id)
+	if order.Sponsor != canonical || order.Status != types.BountyStatus_BOUNTY_STATUS_CANCELED {
+		t.Fatalf("canceled legacy order is not canonical and terminal: %+v", order)
+	}
+	if got := k.CountActiveBountiesBySponsor(ctx, alias); got != 0 {
+		t.Fatalf("legacy cancellation left canonical active index: %d", got)
 	}
 }
 

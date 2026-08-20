@@ -180,6 +180,46 @@ func TestGenesisValidate_ClampsLegacyOnlyMaxActiveParam(t *testing.T) {
 	require.Error(t, gs.Validate(), "bound v2 genesis must never use legacy parameter normalization")
 }
 
+func TestGenesisValidate_CanonicalizesLegacySponsorAndRejectsBoundAlias(t *testing.T) {
+	canonical := mkAddr("genesis-sponsor-alias")
+	alias := strings.ToUpper(canonical)
+	activeOrder := func(id, sponsor string, contract *types.WorkContract) *types.BountyOrder {
+		return &types.BountyOrder{
+			Id: id, Sponsor: sponsor, Domain: "math", PricePerArtifact: "1",
+			TargetCount: 1, EscrowRemaining: "1", StartBlock: 10, EndBlock: 100,
+			Status: types.BountyStatus_BOUNTY_STATUS_ACTIVE, WorkContract: contract,
+		}
+	}
+
+	legacy := &types.GenesisState{
+		Params: types.DefaultParams(), Orders: []*types.BountyOrder{activeOrder("bounty-1", alias, nil)},
+		NextBountyId: 2,
+	}
+	require.NoError(t, legacy.Validate())
+	require.Equal(t, canonical, legacy.Orders[0].Sponsor,
+		"direct v1 import must deterministically normalize the stored sponsor")
+
+	bound := &types.GenesisState{
+		Params: types.DefaultParams(), Orders: []*types.BountyOrder{activeOrder("bounty-1", alias, validWorkContract())},
+		NextBountyId: 2,
+	}
+	require.ErrorContains(t, bound.Validate(), "canonical lowercase",
+		"bound v2 state must never receive legacy address normalization")
+
+	params := types.DefaultParams()
+	params.MaxActiveBountiesPerSponsor = 1
+	aliasCap := &types.GenesisState{
+		Params: params,
+		Orders: []*types.BountyOrder{
+			activeOrder("bounty-1", canonical, nil),
+			activeOrder("bounty-2", alias, nil),
+		},
+		NextBountyId: 3,
+	}
+	require.ErrorContains(t, aliasCap.Validate(), "2 active bounties",
+		"equivalent legacy spellings must share one genesis cap bucket")
+}
+
 func TestWorkContract_ZeroAndPositiveCorroborationPoliciesValidate(t *testing.T) {
 	contract := validWorkContract()
 	contract.MinCorroborations = 0

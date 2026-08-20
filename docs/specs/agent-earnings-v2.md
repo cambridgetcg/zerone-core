@@ -29,9 +29,15 @@ have no work contract, remain refund-only, and retain active cancellation so
 old funds are recoverable.
 
 The v1→v2 migration and direct legacy-genesis import canonicalize equivalent
-v1 decimal spellings in nil-WorkContract prices, escrow balances, and payout
-records (for example `001` and `+1`). Runtime v1 exports already used canonical
-escrow strings, but the old genesis validator admitted authored equivalents.
+v1 sponsor Bech32 aliases and decimal spellings in nil-WorkContract prices,
+escrow balances, and payout records (for example an all-uppercase address,
+`001`, and `+1`). Runtime v1 exports already used canonical escrow strings,
+but the old genesis validator admitted authored equivalents. Legacy cancellation
+compares decoded account bytes, so normalization cannot strand a refund.
+Sponsor canonicalization therefore ships in the initial v1→v2 activation
+binary. If an environment has already recorded sponsorship module version 2,
+it must use a new v2→v3 order/index repair migration rather than rerunning
+`Migrate1to2`.
 Historical uint64-wrapped legacy deadlines and their fulfillment timestamps
 are preserved for round-trip compatibility; none of these relaxations apply
 to bound v2 records. A legacy max-active parameter above 256 is clamped only
@@ -142,4 +148,5 @@ order history. ACTIVE orders are indexed by sponsor and deadline;
 `max_active_bounties_per_sponsor` has a consensus hard cap of 256, and each
 BeginBlock processes at most 256 due expiry transitions. A sponsor-side lazy
 expiry pass over that bounded active set prevents a delayed global sweep from
-stranding a newly available slot.
+stranding a newly available slot. Sponsor index keys always use canonical
+lowercase Bech32, so equivalent textual spellings share one cap bucket.

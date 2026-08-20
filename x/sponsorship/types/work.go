@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	sdkmath "cosmossdk.io/math"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -46,12 +45,8 @@ func (c *WorkContract) Validate() error {
 			return err
 		}
 	}
-	worker, err := sdk.AccAddressFromBech32(c.WorkerAddress)
-	if err != nil {
-		return fmt.Errorf("worker_address must be a valid account address: %w", err)
-	}
-	if worker.String() != c.WorkerAddress {
-		return fmt.Errorf("worker_address must use canonical lowercase bech32 encoding")
+	if err := ValidateCanonicalAccountAddress("worker_address", c.WorkerAddress); err != nil {
+		return err
 	}
 	return nil
 }

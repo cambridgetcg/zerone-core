@@ -150,8 +150,12 @@ func (k Keeper) GetAllBountyOrders(ctx context.Context) []*types.BountyOrder {
 }
 
 func (k Keeper) CountActiveBountiesBySponsor(ctx context.Context, sponsor string) uint32 {
+	canonicalSponsor, err := types.CanonicalAccountAddress(sponsor)
+	if err != nil {
+		return 0
+	}
 	kv := k.storeService.OpenKVStore(ctx)
-	prefix := types.ActiveSponsorIndexPrefix(sponsor)
+	prefix := types.ActiveSponsorIndexPrefix(canonicalSponsor)
 	iter, err := kv.Iterator(prefix, prefixEndBytes(prefix))
 	if err != nil {
 		return 0
@@ -168,8 +172,15 @@ func (k Keeper) indexActiveBounty(ctx context.Context, order *types.BountyOrder)
 	if order == nil || order.Status != types.BountyStatus_BOUNTY_STATUS_ACTIVE {
 		return
 	}
+	canonicalSponsor, err := types.CanonicalAccountAddress(order.Sponsor)
+	if err != nil {
+		return
+	}
 	kv := k.storeService.OpenKVStore(ctx)
-	_ = kv.Set(types.ActiveSponsorIndexKey(order.Sponsor, order.Id), []byte{1})
+	if canonicalSponsor != order.Sponsor {
+		_ = kv.Delete(types.ActiveSponsorIndexKey(order.Sponsor, order.Id))
+	}
+	_ = kv.Set(types.ActiveSponsorIndexKey(canonicalSponsor, order.Id), []byte{1})
 	_ = kv.Set(types.DeadlineIndexKey(order.EndBlock, order.Id), []byte{1})
 }
 
@@ -179,6 +190,9 @@ func (k Keeper) unindexActiveBounty(ctx context.Context, order *types.BountyOrde
 	}
 	kv := k.storeService.OpenKVStore(ctx)
 	_ = kv.Delete(types.ActiveSponsorIndexKey(order.Sponsor, order.Id))
+	if canonicalSponsor, err := types.CanonicalAccountAddress(order.Sponsor); err == nil && canonicalSponsor != order.Sponsor {
+		_ = kv.Delete(types.ActiveSponsorIndexKey(canonicalSponsor, order.Id))
+	}
 	_ = kv.Delete(types.DeadlineIndexKey(order.EndBlock, order.Id))
 }
 
@@ -186,8 +200,12 @@ func (k Keeper) unindexActiveBounty(ctx context.Context, order *types.BountyOrde
 // set before enforcing MaxActiveBountiesPerSponsor. This keeps delayed global
 // expiry processing from stranding a sponsor behind stale index entries.
 func (k Keeper) PruneExpiredBountiesForSponsor(ctx context.Context, sponsor string, currentBlock uint64) {
+	canonicalSponsor, err := types.CanonicalAccountAddress(sponsor)
+	if err != nil {
+		return
+	}
 	kv := k.storeService.OpenKVStore(ctx)
-	prefix := types.ActiveSponsorIndexPrefix(sponsor)
+	prefix := types.ActiveSponsorIndexPrefix(canonicalSponsor)
 	iter, err := kv.Iterator(prefix, prefixEndBytes(prefix))
 	if err != nil {
 		return
@@ -200,7 +218,7 @@ func (k Keeper) PruneExpiredBountiesForSponsor(ctx context.Context, sponsor stri
 	for _, id := range ids {
 		order, found := k.GetBountyOrder(ctx, id)
 		if !found || order.Status != types.BountyStatus_BOUNTY_STATUS_ACTIVE {
-			_ = kv.Delete(types.ActiveSponsorIndexKey(sponsor, id))
+			_ = kv.Delete(types.ActiveSponsorIndexKey(canonicalSponsor, id))
 			continue
 		}
 		if currentBlock < order.EndBlock {
@@ -470,7 +488,7 @@ func (k Keeper) ProcessBountyExpiry(ctx context.Context, currentBlock uint64) {
 			continue
 		}
 		if order.Status != types.BountyStatus_BOUNTY_STATUS_ACTIVE {
-			_ = kv.Delete(types.ActiveSponsorIndexKey(order.Sponsor, order.Id))
+			k.unindexActiveBounty(ctx, order)
 			continue
 		}
 		if currentBlock < order.EndBlock {
@@ -479,7 +497,7 @@ func (k Keeper) ProcessBountyExpiry(ctx context.Context, currentBlock uint64) {
 		}
 		order.Status = types.BountyStatus_BOUNTY_STATUS_EXPIRED
 		k.SetBountyOrder(ctx, order)
-		_ = kv.Delete(types.ActiveSponsorIndexKey(order.Sponsor, order.Id))
+		k.unindexActiveBounty(ctx, order)
 	}
 }
 

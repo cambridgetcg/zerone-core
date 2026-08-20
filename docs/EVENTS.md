@@ -1952,7 +1952,7 @@ A sponsor escrowed ZRN against a bound computational WorkContract for one
 preassigned worker in a specific domain. The sponsor funds the maximum payout;
 knowledge verification remains independent of payment.
 - `bounty_id` -- assigned bounty identifier
-- `sponsor` -- bech32 of the sponsor
+- `sponsor` -- canonical lowercase Bech32 account of the sponsor
 - `domain` -- target epistemic domain
 - `price_per_artifact` -- payout per fulfillment (uzrn)
 - `target_count` -- maximum fulfillments

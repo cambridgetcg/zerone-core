@@ -80,8 +80,12 @@ func (gs *GenesisState) Validate() error {
 		if n > maxBountyID {
 			maxBountyID = n
 		}
-		if _, err := sdk.AccAddressFromBech32(o.Sponsor); err != nil {
+		canonicalSponsor, err := CanonicalAccountAddress(o.Sponsor)
+		if err != nil {
 			return fmt.Errorf("bounty %s has invalid sponsor: %w", o.Id, err)
+		}
+		if o.Sponsor != canonicalSponsor {
+			return fmt.Errorf("bounty %s sponsor must use canonical lowercase bech32 encoding", o.Id)
 		}
 		if o.Domain == "" {
 			return fmt.Errorf("bounty %s has empty domain", o.Id)
@@ -214,6 +218,10 @@ func (gs *GenesisState) normalizeLegacyRecords() error {
 			legacyOnly = false
 			continue
 		}
+		canonicalSponsor, err := CanonicalAccountAddress(order.Sponsor)
+		if err != nil {
+			return fmt.Errorf("legacy bounty %s has invalid sponsor %q: %w", order.Id, order.Sponsor, err)
+		}
 		price, err := NormalizeLegacyPositiveAmount(order.PricePerArtifact)
 		if err != nil {
 			return fmt.Errorf("legacy bounty %s has invalid price_per_artifact %q: %w", order.Id, order.PricePerArtifact, err)
@@ -224,6 +232,7 @@ func (gs *GenesisState) normalizeLegacyRecords() error {
 		}
 		order.PricePerArtifact = price
 		order.EscrowRemaining = remaining
+		order.Sponsor = canonicalSponsor
 		legacyOrders[order.Id] = true
 	}
 	for _, fulfillment := range gs.Fulfillments {
@@ -267,7 +276,7 @@ func (msg *MsgCreateBountyOrder) GetSigners() []sdk.AccAddress {
 }
 
 func (msg *MsgCreateBountyOrder) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sponsor); err != nil {
+	if err := ValidateCanonicalAccountAddress("sponsor", msg.Sponsor); err != nil {
 		return fmt.Errorf("invalid sponsor address: %w", err)
 	}
 	if msg.Domain == "" {

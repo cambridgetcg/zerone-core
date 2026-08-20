@@ -32,6 +32,14 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
 	}
+	canonicalSponsor, err := types.CanonicalAccountAddress(msg.Sponsor)
+	if err != nil || canonicalSponsor != msg.Sponsor {
+		return nil, fmt.Errorf("%w: sponsor must use canonical lowercase bech32 encoding", types.ErrInvalidConfig)
+	}
+	sponsorAddr, err := sdk.AccAddressFromBech32(canonicalSponsor)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sponsor address: %w", err)
+	}
 	params := m.GetParams(ctx)
 
 	// Param-floor checks.
@@ -42,8 +50,8 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 		return nil, fmt.Errorf("%w: duration_blocks %d < min %d", types.ErrInvalidConfig, msg.DurationBlocks, params.MinDurationBlocks)
 	}
 	currentBlock := uint64(ctx.BlockHeight())
-	m.PruneExpiredBountiesForSponsor(ctx, msg.Sponsor, currentBlock)
-	if m.CountActiveBountiesBySponsor(ctx, msg.Sponsor) >= params.MaxActiveBountiesPerSponsor {
+	m.PruneExpiredBountiesForSponsor(ctx, canonicalSponsor, currentBlock)
+	if m.CountActiveBountiesBySponsor(ctx, canonicalSponsor) >= params.MaxActiveBountiesPerSponsor {
 		return nil, fmt.Errorf("%w: max active bounties for sponsor reached (%d)", types.ErrInvalidConfig, params.MaxActiveBountiesPerSponsor)
 	}
 
@@ -61,11 +69,6 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 	}
 	if err := m.canAllocateBountyID(ctx); err != nil {
 		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
-	}
-
-	sponsorAddr, err := sdk.AccAddressFromBech32(msg.Sponsor)
-	if err != nil {
-		return nil, fmt.Errorf("invalid sponsor address: %w", err)
 	}
 
 	// Verify sponsor has the funds.
@@ -98,7 +101,7 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 	id := fmt.Sprintf("bounty-%d", nextID)
 	order := &types.BountyOrder{
 		Id:               id,
-		Sponsor:          msg.Sponsor,
+		Sponsor:          canonicalSponsor,
 		Domain:           msg.Domain,
 		PricePerArtifact: msg.PricePerArtifact,
 		TargetCount:      msg.TargetCount,
@@ -119,7 +122,7 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 		sdk.NewEvent(
 			"zerone.sponsorship.bounty_created",
 			sdk.NewAttribute("bounty_id", id),
-			sdk.NewAttribute("sponsor", msg.Sponsor),
+			sdk.NewAttribute("sponsor", canonicalSponsor),
 			sdk.NewAttribute("domain", msg.Domain),
 			sdk.NewAttribute("price_per_artifact", msg.PricePerArtifact),
 			sdk.NewAttribute("target_count", fmt.Sprintf("%d", msg.TargetCount)),
@@ -333,7 +336,15 @@ func (m msgServer) CancelBountyOrder(goCtx context.Context, msg *types.MsgCancel
 	if !found {
 		return nil, fmt.Errorf("%w: %s", types.ErrBountyNotFound, msg.BountyId)
 	}
-	if order.Sponsor != msg.Sponsor {
+	orderSponsorAddr, err := sdk.AccAddressFromBech32(order.Sponsor)
+	if err != nil {
+		return nil, fmt.Errorf("%w: bounty has invalid stored sponsor: %v", types.ErrInvalidConfig, err)
+	}
+	callerSponsorAddr, err := sdk.AccAddressFromBech32(msg.Sponsor)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sponsor address: %w", err)
+	}
+	if !orderSponsorAddr.Equals(callerSponsorAddr) {
 		return nil, fmt.Errorf("%w: bounty sponsor is %s, caller is %s",
 			types.ErrUnauthorized, order.Sponsor, msg.Sponsor)
 	}
@@ -368,20 +379,19 @@ func (m msgServer) CancelBountyOrder(goCtx context.Context, msg *types.MsgCancel
 	// Refund escrow_remaining to sponsor (zero-refund is permitted if
 	// the bounty was fully consumed; the cancel still flips status).
 	if remaining.Sign() > 0 {
-		sponsorAddr, err := sdk.AccAddressFromBech32(msg.Sponsor)
-		if err != nil {
-			return nil, fmt.Errorf("invalid sponsor address: %w", err)
-		}
 		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remaining)))
-		if err := m.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, sponsorAddr, coins); err != nil {
+		if err := m.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, orderSponsorAddr, coins); err != nil {
 			return nil, fmt.Errorf("refund: %w", err)
 		}
 	}
 
+	// Remove both canonical and any historical raw alias key before rewriting
+	// a terminal legacy record in canonical form.
+	m.unindexActiveBounty(ctx, order)
+	order.Sponsor = orderSponsorAddr.String()
 	order.Status = types.BountyStatus_BOUNTY_STATUS_CANCELED
 	order.EscrowRemaining = "0"
 	m.SetBountyOrder(ctx, order)
-	m.unindexActiveBounty(ctx, order)
 	if err := m.DecreaseEscrowLiability(ctx, remaining); err != nil {
 		return nil, fmt.Errorf("%w: decrease liability: %v", types.ErrEscrowInvariant, err)
 	}
@@ -390,7 +400,7 @@ func (m msgServer) CancelBountyOrder(goCtx context.Context, msg *types.MsgCancel
 		sdk.NewEvent(
 			"zerone.sponsorship.bounty_canceled",
 			sdk.NewAttribute("bounty_id", order.Id),
-			sdk.NewAttribute("sponsor", msg.Sponsor),
+			sdk.NewAttribute("sponsor", order.Sponsor),
 			sdk.NewAttribute("refunded_amount", remaining.String()),
 			sdk.NewAttribute("creed_commitment", "20"),
 		),

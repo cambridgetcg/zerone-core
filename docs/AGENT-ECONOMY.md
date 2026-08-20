@@ -45,7 +45,11 @@ surplus, so equality with the module balance is neither required nor assumed.
 The liability is a persisted O(1) counter maintained on every escrow
 transition. Deadline and sponsor-active indexes avoid consensus scans over
 lifetime order history; sponsor cardinality and per-block expiry work are each
-hard-capped at 256.
+hard-capped at 256. New orders require and store the sponsor's canonical
+lowercase Bech32 address. Migration and legacy-genesis import normalize old
+address aliases before rebuilding the sponsor index, so one account receives
+one cap bucket while decoded-address cancellation keeps historical refunds
+recoverable.
 
 This gives the currency a concrete circulation loop rather than a reward
 emission loop:
@@ -228,8 +232,6 @@ it economically, operators must:
   and sponsorship messages;
 - deploy and crash-test a durable signer/custody host with sequence, fee,
   reservation, restart, ambiguous-broadcast, and reorg handling;
-- canonicalize sponsor address spellings so the active-order cap applies once
-  per account rather than once per equivalent Bech32 spelling;
 - establish a cross-module reward/nullifier policy before enabling another
   payment path for the same compute;
 - activate the H4/H5 authority transition so ZRN balance or stake cannot buy

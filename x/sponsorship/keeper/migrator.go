@@ -30,31 +30,41 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 
 	orders := m.keeper.GetAllBountyOrders(ctx)
 	activeBySponsor := make(map[string]uint32)
+	legacySponsorAliases := make(map[string]string)
 	// v1 accepted any base-10 string understood by big.Int (for example
 	// "001" and "+1"). Its genesis validator also admitted equivalent
 	// escrow_remaining spellings. Normalize both before v2's canonical sdk.Int
 	// validation becomes active.
 	for _, order := range orders {
+		canonicalSponsor, err := types.CanonicalAccountAddress(order.Sponsor)
+		if err != nil {
+			return fmt.Errorf("bounty %s has invalid sponsor %q: %w", order.Id, order.Sponsor, err)
+		}
+		if order.WorkContract == nil {
+			legacySponsorAliases[order.Id] = order.Sponsor
+			order.Sponsor = canonicalSponsor
+		} else if order.Sponsor != canonicalSponsor {
+			return fmt.Errorf("bound bounty %s has noncanonical sponsor %q", order.Id, order.Sponsor)
+		}
+		if order.WorkContract == nil {
+			price, err := types.NormalizeLegacyPositiveAmount(order.PricePerArtifact)
+			if err != nil {
+				return fmt.Errorf("legacy bounty %s has invalid price_per_artifact %q", order.Id, order.PricePerArtifact)
+			}
+			remaining, err := types.NormalizeLegacyNonNegativeAmount(order.EscrowRemaining)
+			if err != nil {
+				return fmt.Errorf("legacy bounty %s has invalid escrow_remaining %q", order.Id, order.EscrowRemaining)
+			}
+			order.PricePerArtifact = price
+			order.EscrowRemaining = remaining
+		}
 		if order.Status == types.BountyStatus_BOUNTY_STATUS_ACTIVE {
-			activeBySponsor[order.Sponsor]++
-			if activeBySponsor[order.Sponsor] > params.MaxActiveBountiesPerSponsor {
+			activeBySponsor[canonicalSponsor]++
+			if activeBySponsor[canonicalSponsor] > params.MaxActiveBountiesPerSponsor {
 				return fmt.Errorf("legacy sponsor %s has %d active bounties, v2 max is %d",
-					order.Sponsor, activeBySponsor[order.Sponsor], params.MaxActiveBountiesPerSponsor)
+					canonicalSponsor, activeBySponsor[canonicalSponsor], params.MaxActiveBountiesPerSponsor)
 			}
 		}
-		if order.WorkContract != nil {
-			continue
-		}
-		price, err := types.NormalizeLegacyPositiveAmount(order.PricePerArtifact)
-		if err != nil {
-			return fmt.Errorf("legacy bounty %s has invalid price_per_artifact %q", order.Id, order.PricePerArtifact)
-		}
-		remaining, err := types.NormalizeLegacyNonNegativeAmount(order.EscrowRemaining)
-		if err != nil {
-			return fmt.Errorf("legacy bounty %s has invalid escrow_remaining %q", order.Id, order.EscrowRemaining)
-		}
-		order.PricePerArtifact = price
-		order.EscrowRemaining = remaining
 	}
 	fulfillments := m.keeper.GetAllFulfillments(ctx)
 	for _, fulfillment := range fulfillments {
@@ -69,6 +79,9 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 	// All fallible compatibility preflight above completed before store writes.
 	m.keeper.SetParams(ctx, params)
 	for _, order := range orders {
+		if rawSponsor := legacySponsorAliases[order.Id]; rawSponsor != "" && rawSponsor != order.Sponsor {
+			_ = m.keeper.storeService.OpenKVStore(ctx).Delete(types.ActiveSponsorIndexKey(rawSponsor, order.Id))
+		}
 		m.keeper.SetBountyOrder(ctx, order)
 		m.keeper.indexActiveBounty(ctx, order)
 	}
