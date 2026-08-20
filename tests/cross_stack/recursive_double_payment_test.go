@@ -57,6 +57,7 @@ func TestRecursiveDoublePayment_ManuallyStagedStateExercisesTwoPayouts(t *testin
 	createResp, err := spSrv.CreateBountyOrder(h.Ctx, &sponsorshiptypes.MsgCreateBountyOrder{
 		Sponsor: sponsor.String(), Domain: selfcompile.SelfDomain,
 		PricePerArtifact: "500000", TargetCount: 1, DurationBlocks: 2000,
+		WorkContract: sponsorshipV2WorkContract(submitter.String()),
 	})
 	require.NoError(t, err)
 
@@ -118,14 +119,9 @@ func TestRecursiveDoublePayment_ManuallyStagedStateExercisesTwoPayouts(t *testin
 	//          successful verification of the pending claim)             ─
 
 	const selfFactID = "dp-self-fact-1"
-	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-		Id:               selfFactID,
-		Content:          link.PendingClaims[0].ClaimContent,
-		Domain:           selfcompile.SelfDomain,
-		Submitter:        submitter.String(),
-		SubmittedAtBlock: uint64(h.Ctx.BlockHeight()),
-		Status:           knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-	}))
+	selfFact := sponsorshipV2Fact(selfFactID, selfcompile.SelfDomain, submitter.String(), uint64(h.Ctx.BlockHeight()))
+	selfFact.Content = link.PendingClaims[0].ClaimContent
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, selfFact))
 
 	// ── Step 5: sponsorship fulfill pays from sponsor's escrow ───────
 

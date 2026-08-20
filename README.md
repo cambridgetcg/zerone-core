@@ -320,7 +320,7 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 217 paths and 446 definitions.
+  inventory of record: 217 paths and 447 definitions.
 - The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
   across 20 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
@@ -347,6 +347,7 @@ does not activate it.
 | [Roadmap](docs/ROADMAP.md) | Where we are, what's bound, what ships next |
 | [Authoritative State](docs/AUTHORITATIVE-STATE.md) | Accepted single-writer design for staking, governance, and canonical domains; not yet activated |
 | [Authority Geometry v1](docs/specs/authority-geometry-v1.md) | Executable current/target authority graph with source anchors, forbidden-influence checks, and an intentionally refusing H4/H5 target gate |
+| [Agent Economy](docs/AGENT-ECONOMY.md) | Prefunded ZRN compute loop, dual-key wallet/identity boundary, Tree-of-Knowledge absorption, treasury policy, and explicit activation gates |
 | [Correspondence Geometry v0](docs/specs/correspondence-geometry-v0.md) | Sealed cross-domain atlas with explicit invariants, losses, counterexamples, non-transfer walls, an energy firewall, and zero claimed dualities or protocol effects |
 | [Changelog](CHANGELOG.md) | Consolidated source changes and publication boundary |
 | [FAQ](docs/FAQ.md) | Validator and network FAQ |

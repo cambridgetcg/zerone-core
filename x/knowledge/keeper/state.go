@@ -368,6 +368,35 @@ func ComputeClaimContentHash(content, domain string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// ComputeComputationalClaimContentHash commits every externally retrievable
+// work root into the claim's content hash. GenerateClaimID commits this hash,
+// GenerateFactID commits the claim ID, and the ToK snapshot commits the fact
+// ID; therefore an existing fact-ID tree root transitively binds the complete
+// computational commitment without changing the legacy ID recipe.
+//
+// Each variable-length component is uint64-length-prefixed. This avoids the
+// delimiter ambiguity of concatenating user-controlled domain/content bytes.
+func ComputeComputationalClaimContentHash(content, domain string, c *types.ComputationalCommitment) string {
+	h := sha256.New()
+	h.Write([]byte("ZRN.claim.computational.v1\x00"))
+	writePart := func(value string) {
+		var size [8]byte
+		binary.BigEndian.PutUint64(size[:], uint64(len(value)))
+		h.Write(size[:])
+		h.Write([]byte(value))
+	}
+	writePart(domain)
+	writePart(content)
+	writePart(c.WorkSpecHash)
+	writePart(c.AcceptanceHash)
+	writePart(c.InputRoot)
+	writePart(c.EnvironmentRoot)
+	writePart(c.ArtifactRoot)
+	writePart(c.EvidenceRoot)
+	writePart(c.WorkReceiptHash)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // GenerateClaimID generates a deterministic claim ID from submitter, content hash, and block.
 func GenerateClaimID(submitter, contentHash string, height uint64) string {
 	h := sha256.New()

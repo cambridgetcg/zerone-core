@@ -783,7 +783,7 @@
     {
       "id": "knowledge-writers",
       "path": "x/knowledge/keeper/msg_server.go",
-      "sha256": "20c580e2a54cb8038803029ec88a1dc6e403a2f226e8d239ea21152e5b20ab3a",
+      "sha256": "5f6a4b76e9d4e3d85882790b249b041e3a4bade3603aee7f0d758e9a545e1a11",
       "requiredSnippets": [
         "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
         "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",
@@ -848,7 +848,7 @@
     {
       "id": "knowledge-slash-callsites",
       "path": "x/knowledge/keeper/rounds.go",
-      "sha256": "bbfc78328c9ba22e1c0b130254c9a342ecc378c91d2bdbe69b9129b3030ab279",
+      "sha256": "3214ec468f323bd267449226ce1cf82ca7bccc240abdc5f0349db68a09f8953b",
       "requiredSnippets": [
         "for _, slash := range result.Slashes {",
         "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",

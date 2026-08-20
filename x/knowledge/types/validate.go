@@ -8,6 +8,11 @@ import "cosmossdk.io/errors"
 // K-beta paramifies this (DoR A-3).
 const MaxRelationsPerClaim = 16
 
+// MaxReasoningTraceBytes bounds the newly exposed ordinary-claim trace path.
+// The wire value is opaque JSON, so byte length is the only deterministic,
+// encoding-independent admission check consensus can apply.
+const MaxReasoningTraceBytes = 64 * 1024
+
 // CommitSeatHardCap bounds a verification round's commit list on the tx path
 // (SubmitCommitment). It is a state-growth and BeginBlocker-work backstop,
 // deliberately far above any quorum (mainnet effective minimum ≤ 6, mainnet
@@ -37,6 +42,20 @@ func (msg *MsgSubmitClaim) ValidateBasic() error {
 	if len(msg.Relations) > MaxRelationsPerClaim {
 		return errors.Wrapf(ErrInvalidClaim,
 			"claim carries %d relations, max %d", len(msg.Relations), MaxRelationsPerClaim)
+	}
+	if err := ValidateComputationalClaim(msg.ClaimType, msg.ComputationalCommitment); err != nil {
+		return errors.Wrap(ErrInvalidClaim, err.Error())
+	}
+	if msg.ClaimType == ClaimType_CLAIM_TYPE_COMPUTATIONAL {
+		if msg.MethodId == "" {
+			return errors.Wrap(ErrInvalidClaim, "computational claims require method_id")
+		}
+		if err := ValidateWorkReceiptBinding(msg.ComputationalCommitment, msg.Submitter); err != nil {
+			return errors.Wrap(ErrInvalidClaim, err.Error())
+		}
+	}
+	if len(msg.ReasoningTrace) > MaxReasoningTraceBytes {
+		return errors.Wrapf(ErrInvalidClaim, "reasoning_trace is %d bytes, max %d", len(msg.ReasoningTrace), MaxReasoningTraceBytes)
 	}
 	return nil
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
+	"math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -26,7 +28,7 @@ type SurvivalPendingReward struct {
 	ClaimId       string `json:"claim_id"`
 	FactId        string `json:"fact_id"`
 	Recipient     string `json:"recipient"`
-	Amount        string `json:"amount"`         // uzrn, string for big.Int compat
+	Amount        string `json:"amount"` // uzrn, string for big.Int compat
 	Category      string `json:"category"`
 	PartnershipId string `json:"partnership_id"` // route through the partnership split on release, if set
 	Deadline      uint64 `json:"deadline"`       // block height the challenge window closes
@@ -77,18 +79,13 @@ func (k Keeper) deleteSurvivalPending(ctx context.Context, pr SurvivalPendingRew
 // EscrowSubmitterReward records the submitter reward as pending (nothing minted)
 // and stamps the fact's challenge window. Replaces the accept-time reward routing.
 func (k Keeper) EscrowSubmitterReward(ctx context.Context, fact *types.Fact, claim *types.Claim) {
+	deadline := k.OpenChallengeWindow(ctx, fact)
+	if deadline == 0 {
+		return
+	}
 	if k.vestingRewardsKeeper == nil {
 		return
 	}
-	params, err := k.GetParams(ctx)
-	if err != nil {
-		return
-	}
-	window := params.ChallengeDurationBlocks
-	if window == 0 {
-		window = 34_272 // ~1 day at 2.521s block time — defensive default
-	}
-	deadline := uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()) + window
 	k.SetSurvivalPendingReward(ctx, SurvivalPendingReward{
 		ClaimId:       claim.Id,
 		FactId:        fact.Id,
@@ -98,8 +95,46 @@ func (k Keeper) EscrowSubmitterReward(ctx context.Context, fact *types.Fact, cla
 		PartnershipId: claim.PartnershipId,
 		Deadline:      deadline,
 	})
+}
+
+// OpenChallengeWindow stamps settlement maturity independently of any reward
+// entitlement. Computational facts use this path so they remain challengeable
+// but cannot collect both sponsorship escrow and legacy minted/demand rewards.
+func (k Keeper) OpenChallengeWindow(ctx context.Context, fact *types.Fact) uint64 {
+	if fact == nil {
+		return 0
+	}
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		k.Logger(ctx).Error("failed to open fact challenge window", "fact_id", fact.Id, "error", err)
+		return 0
+	}
+	height := uint64(sdk.UnwrapSDKContext(ctx).BlockHeight())
+	deadline, err := challengeWindowDeadline(height, params.ChallengeDurationBlocks)
+	if err != nil {
+		k.Logger(ctx).Error("failed to open fact challenge window", "fact_id", fact.Id, "error", err)
+		return 0
+	}
 	fact.ChallengeWindowEnd = deadline
-	_ = k.SetFact(ctx, fact)
+	if err := k.SetFact(ctx, fact); err != nil {
+		k.Logger(ctx).Error("failed to persist fact challenge window", "fact_id", fact.Id, "error", err)
+		return 0
+	}
+	return deadline
+}
+
+// challengeWindowDeadline is the side-effect-free maturity preflight. Bound
+// computational facts call it before their first state write so an invalid
+// deadline cannot leave behind a permanently unpayable fact.
+func challengeWindowDeadline(height, configuredWindow uint64) (uint64, error) {
+	window := configuredWindow
+	if window == 0 {
+		window = 34_272 // ~1 day at 2.521s block time — defensive default
+	}
+	if window > math.MaxUint64-height {
+		return 0, fmt.Errorf("challenge window overflows uint64: height=%d window=%d", height, window)
+	}
+	return height + window, nil
 }
 
 // releaseSurvivalReward issues the escrowed reward exactly once (no-op if already

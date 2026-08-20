@@ -34,6 +34,9 @@ type trackingBankKeeper struct {
 	moduleBalances map[string]sdk.Coins
 	// Track calls for assertions
 	sendCalls []sendRecord
+	// Optional deterministic failure injection for atomicity tests.
+	failModuleToModuleRecipient string
+	failModuleToModuleErr       error
 }
 
 type sendRecord struct {
@@ -64,6 +67,9 @@ func (bk *trackingBankKeeper) SendCoinsFromAccountToModule(_ context.Context, se
 }
 
 func (bk *trackingBankKeeper) SendCoinsFromModuleToModule(_ context.Context, senderModule, recipientModule string, amt sdk.Coins) error {
+	if recipientModule == bk.failModuleToModuleRecipient {
+		return bk.failModuleToModuleErr
+	}
 	bk.sendCalls = append(bk.sendCalls, sendRecord{senderModule, recipientModule, amt})
 	// Track module balance changes for bootstrap fund tests
 	if bal, ok := bk.moduleBalances[senderModule]; ok {

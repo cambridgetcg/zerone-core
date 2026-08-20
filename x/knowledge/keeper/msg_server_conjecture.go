@@ -86,6 +86,14 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 	if !ok || stakeAmt.Sign() <= 0 {
 		return nil, fmt.Errorf("invalid review fee amount: %s", msg.Stake)
 	}
+	// The coin constructor panics above sdk.Int's bound and the shared revenue
+	// split is uint64-denominated. Reject both hazards before any bank send.
+	if stakeAmt.BitLen() > sdkmath.MaxBitLen {
+		return nil, fmt.Errorf("review fee exceeds %d-bit sdk.Int limit", sdkmath.MaxBitLen)
+	}
+	if !stakeAmt.IsUint64() {
+		return nil, fmt.Errorf("review fee exceeds uint64 revenue-accounting limit")
+	}
 	effectiveMinFee := m.keeper.GetEffectiveMinReviewFee(ctx)
 	minFee, _ := new(big.Int).SetString(effectiveMinFee, 10)
 	if minFee != nil && stakeAmt.Cmp(minFee) < 0 {
@@ -119,7 +127,7 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 			return nil, fmt.Errorf("failed to collect review fee: %w", err)
 		}
 		if err := m.keeper.distributeReviewFee(ctx, stakeAmt.Uint64()); err != nil {
-			m.keeper.Logger(ctx).Error("failed to distribute review fee", "error", err)
+			return nil, fmt.Errorf("failed to distribute review fee: %w", err)
 		}
 	}
 

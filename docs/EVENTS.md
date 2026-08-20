@@ -992,6 +992,18 @@ Knowledge claim submitted for verification.
 - `stake` -- bonded stake
 - `content_hash` -- claim content hash
 
+### zerone.knowledge.computational_commitment_submitted
+Computational Claim submitted with commitment-only work provenance. No raw
+artifact, environment, reasoning trace, or evidence bytes are emitted.
+- `claim_id` -- claim identifier
+- `work_spec_hash` -- exact work and receipt-schema commitment
+- `acceptance_hash` -- evaluator and acceptance-policy commitment
+- `input_root` -- canonical input-manifest root
+- `environment_root` -- execution-environment root
+- `artifact_root` -- result artifact-manifest root
+- `evidence_root` -- evidence-manifest root
+- `work_receipt_hash` -- receipt binding the commitments and submitter wallet
+
 ### zerone.knowledge.submit_commitment
 Verifier commitment submitted (commit-reveal).
 - `round_id` -- verification round ID
@@ -1113,6 +1125,16 @@ Research fund proposal executed.
 - `claim_id` -- source claim ID
 - `domain` -- knowledge domain
 - `confidence` -- confidence score (BPS)
+
+### zerone.knowledge.computational_economic_route
+*BeginBlock.* Bound computational Fact accepted onto the sponsorship-only
+worker-payment route. The ordinary challenge window still opens, while both
+legacy knowledge payment effects remain zero.
+- `fact_id` -- accepted computational Fact identifier
+- `claim_id` -- source computational Claim identifier
+- `economic_route` -- fixed value `sponsorship_only`
+- `knowledge_reward_effect` -- fixed value `0`
+- `demand_bounty_effect` -- fixed value `0`
 
 ### zerone.knowledge.round_phase_changed
 *BeginBlock.* Verification round phase transitioned.
@@ -1926,7 +1948,9 @@ Governance parameter update.
 ## sponsorship
 
 ### zerone.sponsorship.bounty_created
-A sponsor escrowed external value against a typed bounty for verified work in a specific domain. Commitment 12 (chain pays for its own audit), extended scope: the chain mediates external payment for the work it audits — sponsors fund, the chain verifies.
+A sponsor escrowed ZRN against a bound computational WorkContract for one
+preassigned worker in a specific domain. The sponsor funds the maximum payout;
+knowledge verification remains independent of payment.
 - `bounty_id` -- assigned bounty identifier
 - `sponsor` -- bech32 of the sponsor
 - `domain` -- target epistemic domain
@@ -1934,20 +1958,43 @@ A sponsor escrowed external value against a typed bounty for verified work in a 
 - `target_count` -- maximum fulfillments
 - `total_escrow` -- price × target_count (uzrn)
 - `end_block` -- bounty window deadline
+- `work_spec_hash` -- exact task and receipt-schema commitment
+- `acceptance_hash` -- evaluator and acceptance-policy commitment
+- `input_root` -- canonical input-manifest root
+- `environment_root` -- execution-environment root
+- `min_corroborations` -- survived formal challenges required after ordinary maturity
+- `worker_address` -- preassigned Fact submitter, settlement signer, and payout wallet in canonical lowercase Bech32
 - `creed_commitment` -- "20"
 
 ### zerone.sponsorship.bounty_fulfilled
-A verified fact in the bounty's domain triggered payout from escrow to the fact's submitter. The chain enforced eligibility (status, domain, window, no double-fulfill); the sponsor had no editorial role in the payout decision (commitment 8: panel weights skill, not bond — sponsor cannot buy verification).
-- `bounty_id`
-- `fact_id`
-- `worker` -- fact.Submitter (the recipient)
+A mature bound computational Fact triggered conserved payout from escrow. The
+Fact submitter and transaction signer both matched the preassigned worker; the
+stored commitments matched exactly; and permanent Fact, receipt, and
+contract-plus-artifact-plus-worker replay keys were unused.
+- `bounty_id` -- fulfilled bounty identifier
+- `fact_id` -- accepted computational Fact identifier
+- `worker` -- stored `fact.Submitter` and payout recipient
+- `worker_address` -- worker preassigned by the WorkContract
+- `settlement_signer` -- authenticated fulfillment signer; equal to `worker`
 - `amount_paid` -- price_per_artifact (uzrn)
 - `fulfilled_count` -- new count after this payout
-- `target_count`
+- `target_count` -- funded target count
+- `work_spec_hash` -- exact task and receipt-schema commitment
+- `acceptance_hash` -- evaluator and acceptance-policy commitment
+- `input_root` -- canonical input-manifest root
+- `artifact_root` -- paid artifact-manifest root
+- `evidence_root` -- evidence-manifest root; no raw/private evidence is emitted
+- `environment_root` -- execution-environment root
+- `work_receipt_hash` -- receipt binding all result commitments and worker wallet
+- `settlement_nullifier` -- sponsorship-global worker-bound economic-unit key
+- `challenge_window_end` -- maturity height proven elapsed at settlement
+- `corroboration_count` -- survived formal challenges at settlement
 - `creed_commitment` -- "20"
 
 ### zerone.sponsorship.bounty_canceled
-A sponsor reclaimed the remaining escrow of an ACTIVE or EXPIRED bounty.
+A sponsor reclaimed remaining escrow. Bound v2 orders are cancelable only at
+or after their deadline; legacy nil-contract orders retain v1 ACTIVE
+cancellation solely for escrow recovery.
 - `bounty_id`
 - `sponsor`
 - `refunded_amount` -- remaining escrow returned (uzrn; may be "0")

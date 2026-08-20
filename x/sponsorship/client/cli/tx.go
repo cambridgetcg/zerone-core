@@ -39,12 +39,21 @@ func NewCreateBountyCmd() *cobra.Command {
 sponsorship module account. Verified facts in [domain] submitted after this
 block trigger payouts of [price-per-artifact-uzrn] to the fact's submitter,
 up to [target-count] fulfillments, until the [duration-blocks] window expires.
+The fact submitter must be the wallet preassigned by --worker-address.
 
 Sponsor cannot override verification — the chain decides what counts (UW M3,
-commitment 8). Sponsor can cancel and reclaim remaining escrow at any time.
+commitment 8). A bound v2 bounty cannot be canceled before its deadline;
+after expiry the sponsor can reclaim any remaining escrow.
+
+Every digest flag is required and uses bare lowercase 64-hex SHA-256. The work
+spec must include the exact task and input semantics; acceptance commits the
+evaluator/policy. Raw material stays off chain.
 
 Example:
-  zeroned tx sponsorship create-bounty mathematics 1000000 10 5000 --from sponsor`,
+  zeroned tx sponsorship create-bounty mathematics 1000000 10 5000 \
+    --work-spec-hash <sha256> --acceptance-hash <sha256> \
+    --input-root <sha256> --environment-root <sha256> \
+    --worker-address zrn1... --from sponsor`,
 		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -59,12 +68,29 @@ Example:
 			if err != nil {
 				return err
 			}
+			workSpecHash, _ := cmd.Flags().GetString("work-spec-hash")
+			acceptanceHash, _ := cmd.Flags().GetString("acceptance-hash")
+			inputRoot, _ := cmd.Flags().GetString("input-root")
+			environmentRoot, _ := cmd.Flags().GetString("environment-root")
+			workerAddress, _ := cmd.Flags().GetString("worker-address")
+			minCorroborations, err := cmd.Flags().GetUint64("min-corroborations")
+			if err != nil {
+				return err
+			}
 			msg := &types.MsgCreateBountyOrder{
 				Sponsor:          clientCtx.GetFromAddress().String(),
 				Domain:           args[0],
 				PricePerArtifact: args[1],
 				TargetCount:      uint32(targetCount),
 				DurationBlocks:   durationBlocks,
+				WorkContract: &types.WorkContract{
+					WorkSpecHash:      workSpecHash,
+					AcceptanceHash:    acceptanceHash,
+					InputRoot:         inputRoot,
+					EnvironmentRoot:   environmentRoot,
+					MinCorroborations: minCorroborations,
+					WorkerAddress:     workerAddress,
+				},
 			}
 			if err := msg.ValidateBasic(); err != nil {
 				return err
@@ -72,6 +98,12 @@ Example:
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
 		},
 	}
+	cmd.Flags().String("work-spec-hash", "", "Work-spec SHA-256 (bare lowercase 64-hex)")
+	cmd.Flags().String("acceptance-hash", "", "Acceptance/evaluator SHA-256 (bare lowercase 64-hex)")
+	cmd.Flags().String("input-root", "", "Input manifest root (bare lowercase 64-hex)")
+	cmd.Flags().String("environment-root", "", "Execution environment root (bare lowercase 64-hex)")
+	cmd.Flags().String("worker-address", "", "Preassigned worker payout address (zrn1...)")
+	cmd.Flags().Uint64("min-corroborations", 0, "Minimum survived formal challenges required in addition to challenge-window maturity")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
@@ -79,18 +111,20 @@ Example:
 // NewFulfillBountyCmd builds a tx that pays the submitter of [fact-id]
 // the bounty's per-artifact price, provided the fact is verified, in the
 // bounty's domain, submitted within the window, and not already fulfilled.
-// Anyone can be the caller; the chain reads the worker from fact.Submitter.
+// The signer must be the worker stored in fact.Submitter.
 func NewFulfillBountyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "fulfill-bounty [bounty-id] [fact-id]",
 		Short: "Trigger payout from a bounty to the submitter of a qualifying fact",
-		Long: `Permissionless: anyone can trigger fulfillment. The chain enforces all
-eligibility checks (bounty active, fact verified, domain matches, fact
-submitted after bounty start, not already fulfilled). Payout flows from
-bounty escrow to fact.Submitter, NOT to the caller.
+		Long: `The stored fact submitter must sign fulfillment, so the worker chooses
+which matching offer consumes its fact and receipt. The chain enforces all
+eligibility checks (bounty active, exact computational contract match,
+challenge window elapsed, required corroborations survived, sponsorship-global
+fact/receipt/worker-bound-nullifier replay tombstones). Payout flows from bounty escrow to
+fact.Submitter; no caller-selected payee is accepted.
 
 Example:
-  zeroned tx sponsorship fulfill-bounty bounty-1 fact-abc --from anyone`,
+  zeroned tx sponsorship fulfill-bounty bounty-1 fact-abc --from fact-submitter`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -119,9 +153,10 @@ func NewCancelBountyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cancel-bounty [bounty-id]",
 		Short: "Close a bounty and reclaim remaining escrow",
-		Long: `Only the original sponsor can cancel. Refunds escrow_remaining to the
-sponsor. FULFILLED bounties have no remaining escrow; CANCELED bounties
-cannot be re-canceled.
+		Long: `Only the original sponsor can cancel. Bound v2 bounties become
+cancelable only after their deadline; legacy unbound bounties remain
+cancelable so old escrow is recoverable. Refunds escrow_remaining to the
+sponsor. FULFILLED and CANCELED bounties cannot be canceled.
 
 Example:
   zeroned tx sponsorship cancel-bounty bounty-1 --from sponsor`,

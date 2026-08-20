@@ -29,6 +29,7 @@ type MsgCreateBountyOrder struct {
 	PricePerArtifact string                 `protobuf:"bytes,3,opt,name=price_per_artifact,json=pricePerArtifact,proto3" json:"price_per_artifact,omitempty"`
 	TargetCount      uint32                 `protobuf:"varint,4,opt,name=target_count,json=targetCount,proto3" json:"target_count,omitempty"`
 	DurationBlocks   uint64                 `protobuf:"varint,5,opt,name=duration_blocks,json=durationBlocks,proto3" json:"duration_blocks,omitempty"`
+	WorkContract     *WorkContract          `protobuf:"bytes,6,opt,name=work_contract,json=workContract,proto3" json:"work_contract,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -98,6 +99,13 @@ func (x *MsgCreateBountyOrder) GetDurationBlocks() uint64 {
 	return 0
 }
 
+func (x *MsgCreateBountyOrder) GetWorkContract() *WorkContract {
+	if x != nil {
+		return x.WorkContract
+	}
+	return nil
+}
+
 type MsgCreateBountyOrderResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	BountyId      string                 `protobuf:"bytes,1,opt,name=bounty_id,json=bountyId,proto3" json:"bounty_id,omitempty"`
@@ -143,10 +151,12 @@ func (x *MsgCreateBountyOrderResponse) GetBountyId() string {
 }
 
 type MsgFulfillBounty struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Caller        string                 `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
-	BountyId      string                 `protobuf:"bytes,2,opt,name=bounty_id,json=bountyId,proto3" json:"bounty_id,omitempty"`
-	FactId        string                 `protobuf:"bytes,3,opt,name=fact_id,json=factId,proto3" json:"fact_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Must equal both the submitter stored on fact_id and the worker address
+	// preassigned by the bounty's WorkContract.
+	Caller        string `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	BountyId      string `protobuf:"bytes,2,opt,name=bounty_id,json=bountyId,proto3" json:"bounty_id,omitempty"`
+	FactId        string `protobuf:"bytes,3,opt,name=fact_id,json=factId,proto3" json:"fact_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -362,13 +372,14 @@ var File_zerone_sponsorship_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_sponsorship_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	"\x1ezerone/sponsorship/v1/tx.proto\x12\x15zerone.sponsorship.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a!zerone/sponsorship/v1/state.proto\"\xd0\x01\n" +
+	"\x1ezerone/sponsorship/v1/tx.proto\x12\x15zerone.sponsorship.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a!zerone/sponsorship/v1/state.proto\"\x9a\x02\n" +
 	"\x14MsgCreateBountyOrder\x12\x18\n" +
 	"\asponsor\x18\x01 \x01(\tR\asponsor\x12\x16\n" +
 	"\x06domain\x18\x02 \x01(\tR\x06domain\x12,\n" +
 	"\x12price_per_artifact\x18\x03 \x01(\tR\x10pricePerArtifact\x12!\n" +
 	"\ftarget_count\x18\x04 \x01(\rR\vtargetCount\x12'\n" +
-	"\x0fduration_blocks\x18\x05 \x01(\x04R\x0edurationBlocks:\f\x82\xe7\xb0*\asponsor\";\n" +
+	"\x0fduration_blocks\x18\x05 \x01(\x04R\x0edurationBlocks\x12H\n" +
+	"\rwork_contract\x18\x06 \x01(\v2#.zerone.sponsorship.v1.WorkContractR\fworkContract:\f\x82\xe7\xb0*\asponsor\";\n" +
 	"\x1cMsgCreateBountyOrderResponse\x12\x1b\n" +
 	"\tbounty_id\x18\x01 \x01(\tR\bbountyId\"m\n" +
 	"\x10MsgFulfillBounty\x12\x16\n" +
@@ -410,19 +421,21 @@ var file_zerone_sponsorship_v1_tx_proto_goTypes = []any{
 	(*MsgFulfillBountyResponse)(nil),     // 3: zerone.sponsorship.v1.MsgFulfillBountyResponse
 	(*MsgCancelBountyOrder)(nil),         // 4: zerone.sponsorship.v1.MsgCancelBountyOrder
 	(*MsgCancelBountyOrderResponse)(nil), // 5: zerone.sponsorship.v1.MsgCancelBountyOrderResponse
+	(*WorkContract)(nil),                 // 6: zerone.sponsorship.v1.WorkContract
 }
 var file_zerone_sponsorship_v1_tx_proto_depIdxs = []int32{
-	0, // 0: zerone.sponsorship.v1.Msg.CreateBountyOrder:input_type -> zerone.sponsorship.v1.MsgCreateBountyOrder
-	2, // 1: zerone.sponsorship.v1.Msg.FulfillBounty:input_type -> zerone.sponsorship.v1.MsgFulfillBounty
-	4, // 2: zerone.sponsorship.v1.Msg.CancelBountyOrder:input_type -> zerone.sponsorship.v1.MsgCancelBountyOrder
-	1, // 3: zerone.sponsorship.v1.Msg.CreateBountyOrder:output_type -> zerone.sponsorship.v1.MsgCreateBountyOrderResponse
-	3, // 4: zerone.sponsorship.v1.Msg.FulfillBounty:output_type -> zerone.sponsorship.v1.MsgFulfillBountyResponse
-	5, // 5: zerone.sponsorship.v1.Msg.CancelBountyOrder:output_type -> zerone.sponsorship.v1.MsgCancelBountyOrderResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	6, // 0: zerone.sponsorship.v1.MsgCreateBountyOrder.work_contract:type_name -> zerone.sponsorship.v1.WorkContract
+	0, // 1: zerone.sponsorship.v1.Msg.CreateBountyOrder:input_type -> zerone.sponsorship.v1.MsgCreateBountyOrder
+	2, // 2: zerone.sponsorship.v1.Msg.FulfillBounty:input_type -> zerone.sponsorship.v1.MsgFulfillBounty
+	4, // 3: zerone.sponsorship.v1.Msg.CancelBountyOrder:input_type -> zerone.sponsorship.v1.MsgCancelBountyOrder
+	1, // 4: zerone.sponsorship.v1.Msg.CreateBountyOrder:output_type -> zerone.sponsorship.v1.MsgCreateBountyOrderResponse
+	3, // 5: zerone.sponsorship.v1.Msg.FulfillBounty:output_type -> zerone.sponsorship.v1.MsgFulfillBountyResponse
+	5, // 6: zerone.sponsorship.v1.Msg.CancelBountyOrder:output_type -> zerone.sponsorship.v1.MsgCancelBountyOrderResponse
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_zerone_sponsorship_v1_tx_proto_init() }

@@ -22,6 +22,17 @@ func mkAddr(seed string) string {
 	return sdk.AccAddress(b).String()
 }
 
+func validWorkContract() *types.WorkContract {
+	return &types.WorkContract{
+		WorkSpecHash:      strings.Repeat("1", 64),
+		AcceptanceHash:    strings.Repeat("2", 64),
+		InputRoot:         strings.Repeat("3", 64),
+		EnvironmentRoot:   strings.Repeat("4", 64),
+		MinCorroborations: 0,
+		WorkerAddress:     mkAddr("assigned-worker-test"),
+	}
+}
+
 func TestParams_Validate(t *testing.T) {
 	t.Run("default_params_valid", func(t *testing.T) {
 		if err := types.DefaultParams().Validate(); err != nil {
@@ -49,6 +60,13 @@ func TestParams_Validate(t *testing.T) {
 			t.Fatal("expected error for zero max_active_bounties_per_sponsor")
 		}
 	})
+	t.Run("max_active_hard_cap", func(t *testing.T) {
+		p := types.DefaultParams()
+		p.MaxActiveBountiesPerSponsor = types.MaxActiveBountiesPerSponsorHardCap + 1
+		if err := p.Validate(); err == nil {
+			t.Fatal("expected hard-cap error")
+		}
+	})
 }
 
 func TestMsgCreateBountyOrder_ValidateBasic(t *testing.T) {
@@ -61,9 +79,22 @@ func TestMsgCreateBountyOrder_ValidateBasic(t *testing.T) {
 			PricePerArtifact: "1000000",
 			TargetCount:      10,
 			DurationBlocks:   1000,
+			WorkContract:     validWorkContract(),
 		}
 		if err := msg.ValidateBasic(); err != nil {
 			t.Fatalf("expected valid, got %v", err)
+		}
+	})
+
+	t.Run("invalid_assigned_worker", func(t *testing.T) {
+		contract := validWorkContract()
+		contract.WorkerAddress = "not-bech32"
+		msg := &types.MsgCreateBountyOrder{
+			Sponsor: sponsor, Domain: "mathematics", PricePerArtifact: "1000000",
+			TargetCount: 1, DurationBlocks: 100, WorkContract: contract,
+		}
+		if err := msg.ValidateBasic(); err == nil || !strings.Contains(err.Error(), "worker_address") {
+			t.Fatalf("expected assigned-worker validation error, got %v", err)
 		}
 	})
 

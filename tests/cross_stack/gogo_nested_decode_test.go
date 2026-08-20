@@ -1,6 +1,7 @@
 package cross_stack_test
 
 import (
+	"strings"
 	"testing"
 
 	gogoproto "github.com/cosmos/gogoproto/proto"
@@ -10,7 +11,9 @@ import (
 	zeroneemergency "github.com/zerone-chain/zerone/x/emergency/types"
 	zeronegov "github.com/zerone-chain/zerone/x/gov/types"
 	zeronehome "github.com/zerone-chain/zerone/x/home/types"
+	zeroneknowledge "github.com/zerone-chain/zerone/x/knowledge/types"
 	zeronelp "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	zeronesponsorship "github.com/zerone-chain/zerone/x/sponsorship/types"
 	zeronestaking "github.com/zerone-chain/zerone/x/staking/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 	zeronevesting "github.com/zerone-chain/zerone/x/vesting_rewards/types"
@@ -77,11 +80,14 @@ var allNestedMsgFullNames = []string{
 	"zerone.knowledge.v1.ClaimRelation",
 	"zerone.knowledge.v1.CorpusSelector",
 	"zerone.knowledge.v1.DemandReport",
+	"zerone.knowledge.v1.ComputationalCommitment",
 	// ontology
 	"zerone.ontology.v1.Params",
 	"zerone.ontology.v1.LogicZoneProperties",
 	// qualification
 	"zerone.qualification.v1.Params",
+	// sponsorship
+	"zerone.sponsorship.v1.WorkContract",
 	// staking
 	"zerone.staking.v1.Params",
 	"zerone.staking.v1.TierConfig",
@@ -122,6 +128,31 @@ func TestNestedMsgTxRoundTripDecode(t *testing.T) {
 		msg  gogoproto.Message
 	}{
 		{
+			name: "knowledge/MsgSubmitClaim(computational commitment)",
+			msg: &zeroneknowledge.MsgSubmitClaim{
+				Submitter: authority, FactContent: "deterministic computational result",
+				Domain: "physics", Stake: "100000", ClaimType: zeroneknowledge.ClaimType_CLAIM_TYPE_COMPUTATIONAL,
+				MethodId: zeroneknowledge.MethodologyComputational,
+				ComputationalCommitment: &zeroneknowledge.ComputationalCommitment{
+					WorkSpecHash: strings.Repeat("1", 64), AcceptanceHash: strings.Repeat("2", 64),
+					InputRoot: strings.Repeat("3", 64), EnvironmentRoot: strings.Repeat("4", 64),
+					ArtifactRoot: strings.Repeat("5", 64), EvidenceRoot: strings.Repeat("6", 64),
+					WorkReceiptHash: strings.Repeat("7", 64),
+				},
+			},
+		},
+		{
+			name: "sponsorship/MsgCreateBountyOrder(work contract)",
+			msg: &zeronesponsorship.MsgCreateBountyOrder{
+				Sponsor: authority, Domain: "physics", PricePerArtifact: "1000", TargetCount: 1, DurationBlocks: 100,
+				WorkContract: &zeronesponsorship.WorkContract{
+					WorkSpecHash: strings.Repeat("1", 64), AcceptanceHash: strings.Repeat("2", 64),
+					InputRoot: strings.Repeat("3", 64), EnvironmentRoot: strings.Repeat("4", 64),
+					WorkerAddress: authority,
+				},
+			},
+		},
+		{
 			// substrate_bridge: the module that first surfaced the bug.
 			// MsgRegisterAdapter embeds AdapterRegistration, which itself
 			// embeds AxisBounds and SlashGradient — exercising the transitive
@@ -130,10 +161,10 @@ func TestNestedMsgTxRoundTripDecode(t *testing.T) {
 			msg: &substratebridgetypes.MsgRegisterAdapter{
 				Authority: authority,
 				Adapter: &substratebridgetypes.AdapterRegistration{
-					AdapterId:   "wikipedia-en-v1",
-					SourceType:  "wikipedia",
-					Version:     "1.0.0",
-					AxisBounds:  &substratebridgetypes.AxisBounds{},
+					AdapterId:     "wikipedia-en-v1",
+					SourceType:    "wikipedia",
+					Version:       "1.0.0",
+					AxisBounds:    &substratebridgetypes.AxisBounds{},
 					SlashGradient: &substratebridgetypes.SlashGradient{},
 				},
 			},

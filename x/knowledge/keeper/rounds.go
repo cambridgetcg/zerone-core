@@ -110,6 +110,25 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		return fmt.Errorf("claim %s not found for round %s", round.ClaimId, round.Id)
 	}
 
+	// A bound computational acceptance is economically unusable without a
+	// representable challenge-maturity height. Preflight it before mutating the
+	// round, calibration, invitation-bonus state, or any other consensus state:
+	// BeginBlock retries aggregation failures, so even an otherwise harmless
+	// pre-fact write here would repeat on every block.
+	var computationalChallengeWindowEnd uint64
+	if result.Verdict == types.Verdict_VERDICT_ACCEPT &&
+		claim.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL &&
+		claim.ComputationalCommitment != nil {
+		params, err := k.GetParams(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get params before computational acceptance: %w", err)
+		}
+		computationalChallengeWindowEnd, err = challengeWindowDeadline(height, params.ChallengeDurationBlocks)
+		if err != nil {
+			return fmt.Errorf("failed to open computational fact challenge window: %w", err)
+		}
+	}
+
 	round.Verdict = result.Verdict
 	round.VerdictBlock = height
 	round.Phase = types.VerificationPhase_VERIFICATION_PHASE_COMPLETE
@@ -144,7 +163,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	case types.Verdict_VERDICT_ACCEPT:
 		// Create fact from accepted claim
 		var err error
-		factId, err = k.createFactFromClaim(ctx, claim, round, result.Confidence)
+		factId, err = k.createFactFromClaim(ctx, claim, round, result.Confidence, computationalChallengeWindowEnd)
 		if err != nil {
 			return err
 		}
@@ -465,7 +484,7 @@ func (k Keeper) forwardWithheldToDevelopmentFund(ctx context.Context, amount uin
 
 // createFactFromClaim creates a new Fact from an accepted claim.
 // Returns the generated factID and any error.
-func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, round *types.VerificationRound, confidence uint64) (string, error) {
+func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, round *types.VerificationRound, confidence, computationalChallengeWindowEnd uint64) (string, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -477,8 +496,17 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// carry none of the standing that an accepted assertion carries.
 	isConjecture := claim.ClaimType == types.ClaimType_CLAIM_TYPE_CONJECTURE
 
-	// Calculate fitness epoch from current height
-	params, _ := k.GetParams(ctx)
+	// Calculate fitness epoch from current height. CompleteRound has already
+	// preflighted the challenge deadline for bound computational facts before
+	// any state-changing finalization work.
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get params while creating fact: %w", err)
+	}
+	isBoundComputational := claim.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL && claim.ComputationalCommitment != nil
+	if isBoundComputational && computationalChallengeWindowEnd == 0 {
+		return "", fmt.Errorf("bound computational fact requires a preflighted challenge window")
+	}
 	epochBorn := uint64(0)
 	if params.FitnessEpochBlocks > 0 {
 		epochBorn = height / params.FitnessEpochBlocks
@@ -519,7 +547,9 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		MethodId: ResolveMethodId(claim.MethodId),
 		// Reasoning trace (Phase 9): structured derivation flows through to
 		// the accepted Fact as first-class training data.
-		ReasoningTrace: claim.ReasoningTrace,
+		ReasoningTrace:          claim.ReasoningTrace,
+		ComputationalCommitment: claim.ComputationalCommitment,
+		ChallengeWindowEnd:      computationalChallengeWindowEnd,
 		// Fitness fields
 		FitnessScore:        params.FitnessInitialScore,
 		FitnessUpdatedBlock: height,
@@ -758,7 +788,16 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// is when someone destroys the conjecture. Nor may a conjecture fill a
 	// knowledge bounty — a sponsor who paid for an answer must not be settled
 	// with a question.
-	if !isConjecture {
+	if isBoundComputational {
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.computational_economic_route",
+			sdk.NewAttribute("fact_id", fact.Id),
+			sdk.NewAttribute("claim_id", claim.Id),
+			sdk.NewAttribute("economic_route", "sponsorship_only"),
+			sdk.NewAttribute("knowledge_reward_effect", "0"),
+			sdk.NewAttribute("demand_bounty_effect", "0"),
+		))
+	} else if !isConjecture {
 		k.EscrowSubmitterReward(ctx, fact, claim)
 		k.ClaimBountyForFact(ctx, fact, claim)
 	}

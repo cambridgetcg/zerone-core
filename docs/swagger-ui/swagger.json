@@ -3739,6 +3739,10 @@
         "claimType": {
           "$ref": "#/definitions/zerone.knowledge.v1.ClaimType"
         },
+        "computationalCommitment": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ComputationalCommitment",
+          "description": "Required for CLAIM_TYPE_COMPUTATIONAL and forbidden for every other\nclaim type. The verifier panel adjudicates the committed work while the\nchain preserves only compact hashes/roots."
+        },
         "contentHash": {
           "title": "SHA-256 of fact_content for duplicate detection",
           "type": "string"
@@ -3950,6 +3954,33 @@
         },
         "subject": {
           "title": "Normalized subject string",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.ComputationalCommitment": {
+      "description": "ComputationalCommitment anchors externally executed work without placing\nraw artifacts, private evidence, or execution transcripts on chain. Every\nfield is a bare, lowercase, 64-character SHA-256 hex digest. The work,\nacceptance, input, and environment commitments bind the result to the\nsponsor's declared contract; the remaining roots make the produced artifact\nand its evidence independently retrievable and auditable.",
+      "properties": {
+        "acceptanceHash": {
+          "type": "string"
+        },
+        "artifactRoot": {
+          "type": "string"
+        },
+        "environmentRoot": {
+          "type": "string"
+        },
+        "evidenceRoot": {
+          "type": "string"
+        },
+        "inputRoot": {
+          "type": "string"
+        },
+        "workReceiptHash": {
+          "type": "string"
+        },
+        "workSpecHash": {
           "type": "string"
         }
       },
@@ -4603,6 +4634,10 @@
           "format": "uint64",
           "title": "Extra maintenance from competition (energy units)",
           "type": "string"
+        },
+        "computationalCommitment": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ComputationalCommitment",
+          "description": "Present only on CLAIM_TYPE_COMPUTATIONAL facts. Copied byte-for-byte\nfrom the accepted claim so settlement never trusts caller-supplied work\nor receipt identifiers."
         },
         "confidence": {
           "format": "uint64",

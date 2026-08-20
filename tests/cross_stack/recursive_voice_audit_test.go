@@ -71,6 +71,7 @@ func TestRecursiveVoiceAudit_StagedRecursionEventsCarryDoctrineAttributes(t *tes
 	createResp, err := spSrv.CreateBountyOrder(h.Ctx, &sponsorshiptypes.MsgCreateBountyOrder{
 		Sponsor: sponsor.String(), Domain: selfcompile.SelfDomain,
 		PricePerArtifact: "1000000", TargetCount: 1, DurationBlocks: 2000,
+		WorkContract: sponsorshipV2WorkContract(submitter.String()),
 	})
 	require.NoError(t, err)
 
@@ -90,14 +91,9 @@ func TestRecursiveVoiceAudit_StagedRecursionEventsCarryDoctrineAttributes(t *tes
 	// their x/knowledge translation is wired (ToK Plan 4) — the self-loop
 	// cites verified facts instead.
 	const selfFactID = "voice-audit-fact-1"
-	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-		Id:               selfFactID,
-		Content:          link.PendingClaims[0].ClaimContent,
-		Domain:           selfcompile.SelfDomain,
-		Submitter:        submitter.String(),
-		SubmittedAtBlock: uint64(h.Ctx.BlockHeight()),
-		Status:           knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-	}))
+	selfFact := sponsorshipV2Fact(selfFactID, selfcompile.SelfDomain, submitter.String(), uint64(h.Ctx.BlockHeight()))
+	selfFact.Content = link.PendingClaims[0].ClaimContent
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, selfFact))
 	link.PendingClaims = nil
 	link.CitedFacts = []*substratebridgetypes.FactCitation{
 		{FactId: selfFactID, CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},

@@ -35,4 +35,16 @@ var (
 	// ErrInsufficientEscrow is raised when the sponsor lacks the funds to
 	// back the bounty they're trying to create.
 	ErrInsufficientEscrow = errors.Register(ModuleName, 9, "insufficient escrow balance")
+
+	// ErrWorkContractRequired keeps v1 orders refund-only after the v2
+	// activation boundary.
+	ErrWorkContractRequired = errors.Register(ModuleName, 10, "bound work contract required")
+
+	ErrSettlementReplay = errors.Register(ModuleName, 11, "sponsorship settlement already consumed")
+
+	ErrEscrowInvariant = errors.Register(ModuleName, 12, "escrow liability invariant violated")
+
+	ErrFactNotMature = errors.Register(ModuleName, 13, "fact has not completed challenge survival")
+
+	ErrBountyNotCancelable = errors.Register(ModuleName, 14, "bound bounty cannot be canceled before its deadline")
 )

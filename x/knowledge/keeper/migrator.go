@@ -50,3 +50,10 @@ func (m Migrator) Migrate4to5(ctx sdk.Context) error {
 func (m Migrator) Migrate5to6(ctx sdk.Context) error {
 	return m.keeper.WriteMigrationMarker(ctx, "migration_v6_complete", "true")
 }
+
+// Migrate6to7 marks the activation boundary for bound computational claims.
+// Additive protobuf fields require no rewrite; legacy computational records
+// remain readable but cannot satisfy sponsorship v2 without commitments.
+func (m Migrator) Migrate6to7(ctx sdk.Context) error {
+	return m.keeper.WriteMigrationMarker(ctx, "migration_v7_complete", "true")
+}

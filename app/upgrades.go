@@ -115,9 +115,12 @@ func requireCompletedPreSDKTransitionVersions(
 ) error {
 	for _, prerequisite := range completedPreSDKTransitionVersions {
 		got, present := fromVM[prerequisite.module]
-		if !present || got != prerequisite.version {
+		// A later, explicitly registered module migration preserves proof that
+		// the prerequisite boundary was crossed. Requiring exact equality would
+		// make every future ConsensusVersion bump strand all named upgrades.
+		if !present || got < prerequisite.version {
 			return fmt.Errorf(
-				"upgrade %q cannot carry prerequisite transition %q: require %s=%d, got %d (present=%t)",
+				"upgrade %q cannot carry prerequisite transition %q: require %s>=%d, got %d (present=%t)",
 				planName,
 				prerequisite.upgrade,
 				prerequisite.module,

@@ -42,6 +42,7 @@ import (
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	sponsorshiptypes "github.com/zerone-chain/zerone/x/sponsorship/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -585,12 +586,12 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 
 	// The report binds the current consensus releases for modules whose named
 	// activation boundaries are pending.
-	var sawKnowledge, sawLiquidityPool, sawVestingRewards bool
+	var sawKnowledge, sawLiquidityPool, sawSponsorship, sawVestingRewards bool
 	for _, m := range report.Modules {
 		switch m.ModuleName {
 		case "knowledge":
 			sawKnowledge = true
-			require.Equal(t, uint64(6), m.ConsensusVersion,
+			require.Equal(t, uint64(7), m.ConsensusVersion,
 				"knowledge module advertises its current ConsensusVersion")
 		case liquiditypooltypes.ModuleName:
 			sawLiquidityPool = true
@@ -600,10 +601,15 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 			sawVestingRewards = true
 			require.Equal(t, uint64(2), m.ConsensusVersion,
 				"vesting_rewards advertises the retired automatic-tap ConsensusVersion")
+		case sponsorshiptypes.ModuleName:
+			sawSponsorship = true
+			require.Equal(t, uint64(2), m.ConsensusVersion,
+				"sponsorship module advertises its bound-contract ConsensusVersion")
 		}
 	}
 	require.True(t, sawKnowledge, "knowledge module appears in report")
 	require.True(t, sawLiquidityPool, "liquiditypool module appears in report")
+	require.True(t, sawSponsorship, "sponsorship module appears in report")
 	require.True(t, sawVestingRewards, "vesting_rewards module appears in report")
 }
 
@@ -1104,6 +1110,10 @@ func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
 	targetVM := h.App.CurrentModuleVersionMap()
 	require.Equal(t, targetVM, toVM,
 		"H3 must produce the current binary's complete target VersionMap")
+	require.Equal(t, uint64(7), toVM[knowledgetypes.ModuleName],
+		"H3 runs the knowledge 6→7 computational-commitment migration")
+	require.Equal(t, uint64(2), toVM[sponsorshiptypes.ModuleName],
+		"H3 runs the sponsorship 1→2 escrow/replay migration")
 	require.NotContains(t, targetVM, "capability")
 	require.NotContains(t, targetVM, "feeibc")
 }

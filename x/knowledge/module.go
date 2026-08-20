@@ -123,6 +123,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 5, migrator.Migrate5to6); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration v5→v6: %v", types.ModuleName, err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 6, migrator.Migrate6to7); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration v6→v7: %v", types.ModuleName, err))
+	}
 }
 
 // RegisterInvariants is a no-op for now; invariants are added in R2-2.
@@ -153,4 +156,4 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 // TraceSchema backfill + marker) → v5 (drop 11 dead anti-slop/FARM/citation-
 // gaming params) → v6 (consolidation safety activation marker). Bump this when
 // you add a new migration.
-func (AppModule) ConsensusVersion() uint64 { return 6 }
+func (AppModule) ConsensusVersion() uint64 { return 7 }

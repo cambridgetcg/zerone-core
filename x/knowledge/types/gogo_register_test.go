@@ -16,6 +16,7 @@ func TestNestedMsgTypesGogoResolvable(t *testing.T) {
 		"zerone.knowledge.v1.Params",
 		"zerone.knowledge.v1.ClaimStructure",
 		"zerone.knowledge.v1.ClaimRelation",
+		"zerone.knowledge.v1.ComputationalCommitment",
 		"zerone.knowledge.v1.DemandReport",
 		"zerone.knowledge.v1.TokenizerSpec",
 		"zerone.knowledge.v1.TraceSchema",

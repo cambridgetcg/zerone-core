@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -63,6 +64,60 @@ func TestSubmitClaim_FeeDistributed(t *testing.T) {
 	require.True(t, protocolSent, "protocol treasury should receive 22%")
 	require.True(t, devSent, "development fund should receive 19.67%")
 	require.True(t, researchSent, "research fund should receive 3.33%")
+}
+
+func TestSubmitClaim_FeeDistributionFailureFailsTransaction(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	ms := keeper.NewMsgServerImpl(k)
+	submitter := makeValidBech32Addr("compute-fee-atomic")
+	bk.failModuleToModuleRecipient = "development_fund"
+	bk.failModuleToModuleErr = errors.New("injected development transfer failure")
+	bankCallsBefore := len(bk.sendCalls)
+
+	resp, err := ms.SubmitClaim(ctx, computationalSubmitMsg(submitter, "5", "6"))
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.Contains(t, err.Error(), "failed to distribute review fee")
+	require.Contains(t, err.Error(), "injected development transfer failure")
+
+	// The handler must fail before publishing claim/round state. BaseApp's tx
+	// cache consequently rolls back the successful collection and protocol
+	// transfer represented by the mock calls before the injected failure.
+	claimCount := 0
+	k.IterateClaims(ctx, func(*types.Claim) bool {
+		claimCount++
+		return false
+	})
+	require.Zero(t, claimCount)
+	require.Equal(t, bankCallsBefore+2, len(bk.sendCalls),
+		"fixture must fail after collection plus one partial split")
+}
+
+func TestPostConjecture_FeeDistributionFailureFailsTransaction(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	ms := keeper.NewMsgServerImpl(k)
+	bk.failModuleToModuleRecipient = "development_fund"
+	bk.failModuleToModuleErr = errors.New("injected conjecture distribution failure")
+	bankCallsBefore := len(bk.sendCalls)
+
+	resp, err := ms.PostConjecture(ctx, &types.MsgPostConjecture{
+		Proposer:               makeValidBech32Addr("conjecture-fee-atomic"),
+		Statement:              "A conjecture whose review-fee routing fails after collection",
+		FalsificationPredicate: "Exhibit a deterministic counterexample under the stated procedure",
+		Stake:                  "1000000",
+	})
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.Contains(t, err.Error(), "failed to distribute review fee")
+	require.Contains(t, err.Error(), "injected conjecture distribution failure")
+	claimCount := 0
+	k.IterateClaims(ctx, func(*types.Claim) bool {
+		claimCount++
+		return false
+	})
+	require.Zero(t, claimCount)
+	require.Equal(t, bankCallsBefore+2, len(bk.sendCalls),
+		"fixture must fail after collection plus one partial split")
 }
 
 func TestCompleteRound_Accept_NoRefund(t *testing.T) {
