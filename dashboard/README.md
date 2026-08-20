@@ -271,6 +271,83 @@ is not implemented here and
 would require a separate ledger, receipt namespace, and reviewed settlement
 specification.
 
+## Research Commons RC-0.1
+
+With JavaScript enabled, the public observatory at `#research-commons` loads
+exactly one checked-in
+`/standards/research-commons.v0.1.json` document. It refuses redirects, any
+final URL other than that exact same-origin path, non-JSON media, malformed
+UTF-8, duplicate keys, reordered or unknown fields, responses above 65,536
+bytes, and bytes that do not match the reviewed SHA-256. Rendering uses DOM
+text nodes; the version-pinned paper and baseline-source links remain inert
+until a visitor activates them. The offline validator authenticates the
+manifest before resolving ten exact local provenance bindings and independently
+reconstructing the vendored reciprocal profile ID. Manifest
+bytes are capped at 65,536 and each local source at 262,144; descriptor-based
+reads refuse path escape, terminal or intermediate symlinks, special files,
+oversize input, and identity or metadata changes during the read.
+
+RC-0.1 separates three responsibility planes—knowledge, research case, and
+work/economy—from a fourth closed witness seam. Tree nodes are passive
+non-person, non-wallet reference coordinates; only a future case could name a
+node-scoped question or earmarked destination. Agents are prospective bounded
+participants with decline, pause, rest, and exit paths and no inactivity
+penalty. DID, key, wallet, account, agent, and controller remain distinct, and
+none proves independent control. Public-safe outputs remain open; payments
+could buy only bounded labour or review, never truth, ownership, exclusive
+access, graph priority, or authority. Sensitive, embargoed, human-subject,
+security, dual-use, raw-personal, and secret bytes remain off-public and
+off-chain.
+
+The shared vocabulary pin names six irreducible research ledgers—validity,
+novelty/priority, significance/consequence, attribution/credit,
+funding/liability, and governance/authority—with no shared unit, arithmetic,
+inference, or implicit conversion. Attention/metabolism, external value,
+identity, relational KARMA, and work/rest obligations remain separate
+non-import registers. The displayed prefunding waterfall, E0–E6 schedule, and
+Amplitude Bootstrap Garden are reference designs only. Fixed delivery-work
+pay is direction-independent across positive, negative, null, inconclusive,
+and not-applicable outcomes; reviewer pay is fixed and verdict-independent.
+E0 records only a caller-declared, case-local preregistration reference and
+proves no trusted time, novelty, priority, or entitlement.
+RC-0.1 imports no reward bonuses, slashing, controller inference, live funding,
+or scientific result from another profile.
+
+The current amount is `0 uzrn`; all actions are disabled. One static
+compatibility gate is cross-pinned and the other eleven release gates are
+closed. This surface uses no mainnet, ZRN, API, RPC, chain state, wallet,
+bridge or adapter invocation, AgentTool call, hosted payout, or research
+adjudication. AgentTool remains `SHADOW_REFERENCE`. The frozen vocabulary names
+its settlement bundle and public projection formats and pins
+`agenttool.research-commons-zerone-static-interop/0.1` at raw SHA-256
+`8c5b1749447c1587b89b238dadb5113e10230df19fd3f4e7942d9a163aef6a8a`,
+plus reciprocal profile `agenttool.zerone-research-adapter-reciprocal/0.1`
+at canonical ID
+`sha256:4d927f4db623884453f4e16b73573a81b0b1cc4cc7b72529e69ca153b39112c7`.
+That profile pins Zerone Phase A, while RC-0.1 pins its exact AgentTool Phase B
+source `91a1396c76edd5e1585af33042e46640c5b5cf4a`, main merge
+`8c63c6b4b5c14286addd29bf9da00337e43c46cd`, profile and schema bytes, and
+immutable permalinks. Byte-for-byte local copies live beside the Phase A
+fixtures under `docs/examples/agenttool-research-receipt/`; the offline
+validator reconstructs the domain-separated canonical profile ID rather than
+trusting it.
+Its 29-key wire effect profile is not field-equated with Zerone's stricter
+41-key, context-specific surface boundary.
+Append-only work/challenge retention is only relative to a caller-supplied
+`prior_state`; content addressing proves no provenance, trusted time, canonical
+head, global order, or prevention of an old-state fork.
+AgentTool artifact records declare intended open/nonexclusive access only;
+RC-0.1 fetches no artifact bytes, locator, or licence and verifies no public
+availability or digest-only safety. Any open-knowledge integration claim still
+requires external availability, licence, and safety review.
+The cross-pin proves static format compatibility only. It does not activate the
+witness seam, make integration ready, authorize an adapter, import state, open
+another release gate, or enable an action.
+Even every gate passing would be necessary, not sufficient or self-activating:
+a successor profile, separate authorization, independent review, and reviewed
+deployment verification would still be required. See
+[`docs/specs/research-commons-rc-0.1.md`](../docs/specs/research-commons-rc-0.1.md).
+
 ## Epigenetics garden and KARMA foundation
 
 The life-science explorer reads two separate, versioned static documents:
@@ -351,7 +428,8 @@ npm run build
 `npm run check` validates Authority Geometry, EID-1, the Frontier Commons FC-0
 invitation, its subordinate FL-0 receipt shadow, the exact-bound additive
 Participation Compact, Relational Topology v0, the base tree, Branch Flow
-reference-policy digest and zero-effect boundary, Math Frontier, and
+reference-policy digest and zero-effect boundary, Research Commons RC-0.1,
+Math Frontier, and
 life-science documents, then type-checks both the browser application and Pages
 Functions.
 `npm test` exercises the REST/RPC allowlists against injected fake upstreams;
@@ -374,6 +452,11 @@ request.
 closed constraints-and-witness shapes, result gates, exact local source bytes,
 full ordered author/version pins, unresolved-reference refusal, and 24 all-false
 release switches without fetching any paper or other network resource.
+`npm run check:research-commons` verifies the RC-0.1 seal, strict static shape,
+zero participants and funds, closed actions, the single compatibility gate,
+the eleven remaining closed release gates, and all ten local artifact/source
+digests without fetching the paper, chain, AgentTool, or any other network
+resource.
 
 ## Pi account onboarding pilot
 
