@@ -17,9 +17,18 @@ raw hashes, envelope ids, deterministic receipt ids, and raw Go-output hashes
 are frozen in
 [`fixture-manifest.v0.json`](../../docs/examples/agenttool-research-receipt/fixture-manifest.v0.json)
 at raw SHA-256
-`8d478e7e0c1ba6198337d87bf49ffab92991dc75b8e37c03c3e196f2a08f329a`.
+`cf367bb39553567e86c43c0db48501802832396b2a3f681410aaac7c5e2221e8`.
 This Phase A fixture pin proves only local byte compatibility. It is not an
 AgentTool reciprocal pin or a live integration claim.
+
+The upstream package declares `Apache-2.0`. The fixture manifest pins its exact
+`packages/research-commons/LICENSE` bytes at
+`0536b51c54e477f03f1becf00eedeee82f6276f76f08c1b94d3a30632724eb15`
+and its exact `packages/research-commons/NOTICE` bytes at
+`d03f1590ea4f829d90760ee163304191c0d36a4e283fc7c06da459e717ff3e44`.
+That NOTICE is reproduced beside the fixtures as
+[`NOTICE`](../../docs/examples/agenttool-research-receipt/NOTICE) with the same
+raw hash.
 
 To exercise the reviewer `NOT_APPLICABLE` path, substitute:
 
@@ -28,10 +37,18 @@ To exercise the reviewer `NOT_APPLICABLE` path, substitute:
 --projection docs/examples/agenttool-research-receipt/amplitude-bootstrap-garden.reviewer-public-projection.json
 ```
 
-The command reads only those three explicit bounded regular files and writes a
-deterministic `zerone.agenttool-research-receipt-shadow/v0` JSON object to
-stdout. It has no network, RPC, database, wallet, key, signer, background
-worker, or chain dependency.
+`go run` is a Go toolchain invocation outside the adapter process boundary. It
+may read repository source and module metadata, populate build or module
+caches, and contact a configured module proxy or version-control remote when a
+dependency is unavailable locally. For an offline or no-filesystem-write
+runtime, prepare the binary in a separately controlled build step and then
+execute that already-compiled binary.
+
+The already-compiled adapter process reads only the three explicit bounded
+regular files and writes a deterministic
+`zerone.agenttool-research-receipt-shadow/v0` JSON object to stdout. That
+process has no network client, RPC, database, wallet, key, signer, background
+worker, chain dependency, or filesystem write path.
 
 Each input is opened through a no-follow, non-blocking descriptor. The compiler
 checks descriptor identity, size, mode, mtime, and ctime before and after its

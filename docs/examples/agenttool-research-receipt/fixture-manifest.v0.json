@@ -7,6 +7,13 @@
     "main_merge_revision": "55342fac97250898c2c4ea884f1a03bec1f8cc8c",
     "pull_request": "https://github.com/cambridgetcg/agenttool/pull/335",
     "source_directory": "packages/research-commons/examples/amplitude-bootstrap-garden",
+    "license_spdx": "Apache-2.0",
+    "license_source_path": "packages/research-commons/LICENSE",
+    "license_source_raw_sha256": "0536b51c54e477f03f1becf00eedeee82f6276f76f08c1b94d3a30632724eb15",
+    "notice_source_path": "packages/research-commons/NOTICE",
+    "notice_source_raw_sha256": "d03f1590ea4f829d90760ee163304191c0d36a4e283fc7c06da459e717ff3e44",
+    "notice_copied_path": "docs/examples/agenttool-research-receipt/NOTICE",
+    "notice_copied_raw_sha256": "d03f1590ea4f829d90760ee163304191c0d36a4e283fc7c06da459e717ff3e44",
     "copied_byte_for_byte": true
   },
   "adapter": {

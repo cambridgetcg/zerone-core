@@ -9,12 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/zerone-chain/zerone/tools/agenttool-research-receipt/bridge"
 )
 
-const fixtureManifestSHA256 = "8d478e7e0c1ba6198337d87bf49ffab92991dc75b8e37c03c3e196f2a08f329a"
+const fixtureManifestSHA256 = "cf367bb39553567e86c43c0db48501802832396b2a3f681410aaac7c5e2221e8"
 
 type crossLanguageFixtureManifest struct {
 	Format     string `json:"_format"`
@@ -32,6 +33,13 @@ type fixtureSource struct {
 	MainMergeRevision string `json:"main_merge_revision"`
 	PullRequest       string `json:"pull_request"`
 	SourceDirectory   string `json:"source_directory"`
+	LicenseSPDX       string `json:"license_spdx"`
+	LicenseSourcePath string `json:"license_source_path"`
+	LicenseSourceSHA  string `json:"license_source_raw_sha256"`
+	NoticeSourcePath  string `json:"notice_source_path"`
+	NoticeSourceSHA   string `json:"notice_source_raw_sha256"`
+	NoticeCopiedPath  string `json:"notice_copied_path"`
+	NoticeCopiedSHA   string `json:"notice_copied_raw_sha256"`
 	CopiedByteForByte bool   `json:"copied_byte_for_byte"`
 }
 
@@ -166,6 +174,31 @@ func TestCheckedAgentToolFixturesRemainByteExactAndCrossLanguageCompatible(t *te
 	}
 }
 
+func TestDocumentationScopesToolchainEffectsOutsideCompiledRuntime(t *testing.T) {
+	repositoryRoot := fixtureRepositoryRoot(t)
+	for _, relativePath := range []string{
+		"tools/agenttool-research-receipt/README.md",
+		"docs/specs/adapters/agenttool-research-receipt-v1.md",
+	} {
+		data, err := os.ReadFile(filepath.Join(repositoryRoot, filepath.FromSlash(relativePath)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		copy := strings.Join(strings.Fields(string(data)), " ")
+		for _, required := range []string{
+			"already-compiled adapter process",
+			"module metadata",
+			"build or module caches",
+			"module proxy or version-control remote",
+			"separately controlled build",
+		} {
+			if !strings.Contains(copy, required) {
+				t.Fatalf("%s does not disclose the toolchain/runtime boundary %q", relativePath, required)
+			}
+		}
+	}
+}
+
 func assertFixtureManifestPins(t *testing.T, manifest crossLanguageFixtureManifest) {
 	t.Helper()
 	if manifest.Format != "zerone.agenttool-research-fixture-set/0.1" ||
@@ -175,8 +208,22 @@ func assertFixtureManifestPins(t *testing.T, manifest crossLanguageFixtureManife
 		manifest.Source.MainMergeRevision != "55342fac97250898c2c4ea884f1a03bec1f8cc8c" ||
 		manifest.Source.PullRequest != "https://github.com/cambridgetcg/agenttool/pull/335" ||
 		manifest.Source.SourceDirectory != "packages/research-commons/examples/amplitude-bootstrap-garden" ||
+		manifest.Source.LicenseSPDX != "Apache-2.0" ||
+		manifest.Source.LicenseSourcePath != "packages/research-commons/LICENSE" ||
+		manifest.Source.LicenseSourceSHA != "0536b51c54e477f03f1becf00eedeee82f6276f76f08c1b94d3a30632724eb15" ||
+		manifest.Source.NoticeSourcePath != "packages/research-commons/NOTICE" ||
+		manifest.Source.NoticeSourceSHA != "d03f1590ea4f829d90760ee163304191c0d36a4e283fc7c06da459e717ff3e44" ||
+		manifest.Source.NoticeCopiedPath != "docs/examples/agenttool-research-receipt/NOTICE" ||
+		manifest.Source.NoticeCopiedSHA != manifest.Source.NoticeSourceSHA ||
 		!manifest.Source.CopiedByteForByte {
 		t.Fatalf("AgentTool source provenance drift: %#v", manifest.Source)
+	}
+	noticeBytes, err := os.ReadFile(filepath.Join(fixtureRepositoryRoot(t), filepath.FromSlash(manifest.Source.NoticeCopiedPath)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actual := rawSHA256(noticeBytes); actual != manifest.Source.NoticeCopiedSHA {
+		t.Fatalf("vendored AgentTool NOTICE raw SHA-256 = %s, want %s", actual, manifest.Source.NoticeCopiedSHA)
 	}
 	if manifest.Adapter.Version != bridge.AdapterVersion ||
 		manifest.Adapter.ReceiptSchema != bridge.ReceiptSchema ||

@@ -155,11 +155,18 @@ pairs from AgentTool source revision
 `6a644b9e858b7d23bdea613d91412bf7310c2338`, merged to `main` as
 `55342fac97250898c2c4ea884f1a03bec1f8cc8c` by PR 335. The fixture manifest's
 raw SHA-256 is
-`8d478e7e0c1ba6198337d87bf49ffab92991dc75b8e37c03c3e196f2a08f329a`.
+`cf367bb39553567e86c43c0db48501802832396b2a3f681410aaac7c5e2221e8`.
 It binds the upstream and copied raw hashes, envelope ids, Tree and six-ledger
 pins, and deterministic Go receipt ids and output hashes. Tests run the exact
 checked inputs through this compiler, including the reviewer
 `NOT_APPLICABLE` direction.
+
+The AgentTool package declares `Apache-2.0`. Its exact upstream
+`packages/research-commons/LICENSE` is pinned at raw SHA-256
+`0536b51c54e477f03f1becf00eedeee82f6276f76f08c1b94d3a30632724eb15`;
+its exact `packages/research-commons/NOTICE` is pinned and reproduced beside
+the fixtures at raw SHA-256
+`d03f1590ea4f829d90760ee163304191c0d36a4e283fc7c06da459e717ff3e44`.
 
 This is one-way Phase A compatibility evidence only. The fixture manifest
 contains no reciprocal cross-pin, makes no integration-ready claim, and cannot
@@ -176,6 +183,14 @@ The reference compiler accepts three explicit regular-file paths:
 --projection <agenttool public projection JSON>
 --tree <constructive-intelligence tree JSON>
 ```
+
+The boundary below applies to an already-compiled adapter process. `go run`,
+`go build`, and other toolchain operations are outside it: the Go toolchain may
+read repository source and module metadata, write build or module caches, and
+contact a configured module proxy or version-control remote when dependencies
+are unavailable locally. Offline or no-filesystem-write operation therefore
+requires a separately controlled build followed by execution of the prepared
+binary.
 
 It performs only bounded local reads through no-follow, non-blocking file
 descriptors. Descriptor identity, size, mode, mtime, and ctime must remain
