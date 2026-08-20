@@ -28,6 +28,7 @@ import { initialiseExplicitInvariantDiscipline } from "./explicit-invariant-disc
 import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import { initialiseFoldToFire } from "./fold-to-fire";
+import { initialiseResearchCommons } from "./research-commons";
 import type { WalletState } from "./wallet";
 
 const byId = <T extends HTMLElement>(id: string): T => {
@@ -81,6 +82,7 @@ const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const authorityGeometryRoot = byId<HTMLElement>("authority-geometry-root");
 const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
 const branchFlowRoot = byId<HTMLElement>("branch-flow-root");
+const researchCommonsRoot = byId<HTMLElement>("research-commons-root");
 const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
 const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
 const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
@@ -1164,6 +1166,7 @@ const authorityGeometryReady = initialiseAuthorityGeometry(
 );
 const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
 void initialiseBranchFlow(branchFlowRoot);
+const researchCommonsReady = initialiseResearchCommons(researchCommonsRoot);
 const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
 const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
 const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
@@ -1203,6 +1206,7 @@ const alignInitialHash = (): void => {
     window.location.hash !== "#explicit-invariants" &&
     window.location.hash !== "#skills" &&
     window.location.hash !== "#branch-flow" &&
+    window.location.hash !== "#research-commons" &&
     window.location.hash !== "#math-frontier" &&
     window.location.hash !== "#fold-to-fire" &&
     window.location.hash !== "#life" &&
@@ -1227,19 +1231,23 @@ const alignInitialHash = (): void => {
                 ? explicitInvariantDisciplineRoot.closest<HTMLElement>(
                     "#explicit-invariants",
                   )
-              : window.location.hash === "#branch-flow"
-                ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
-                : window.location.hash === "#math-frontier"
-                  ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-                  : window.location.hash === "#fold-to-fire"
-                    ? foldToFireRoot.closest<HTMLElement>("#fold-to-fire")
-                    : window.location.hash === "#life"
-                      ? lifeGardenRoot.closest<HTMLElement>("#life")
-                      : window.location.hash === "#participate"
-                        ? frontierParticipationRoot.closest<HTMLElement>(
-                            "#participate",
-                          )
-                        : constructiveTreeRoot.closest<HTMLElement>("#skills");
+                : window.location.hash === "#branch-flow"
+                  ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
+                  : window.location.hash === "#research-commons"
+                    ? researchCommonsRoot.closest<HTMLElement>(
+                        "#research-commons",
+                      )
+                    : window.location.hash === "#math-frontier"
+                      ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
+                      : window.location.hash === "#fold-to-fire"
+                        ? foldToFireRoot.closest<HTMLElement>("#fold-to-fire")
+                        : window.location.hash === "#life"
+                          ? lifeGardenRoot.closest<HTMLElement>("#life")
+                          : window.location.hash === "#participate"
+                            ? frontierParticipationRoot.closest<HTMLElement>(
+                                "#participate",
+                              )
+                            : constructiveTreeRoot.closest<HTMLElement>("#skills");
     target?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
@@ -1252,6 +1260,7 @@ const alignPiHash = (): void => {
 void knowledgeGeometryReady.then(alignInitialHash);
 void Promise.allSettled([
   constructiveTreeReady,
+  researchCommonsReady,
   lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
@@ -1260,6 +1269,7 @@ void Promise.allSettled([
 ]).then(alignInitialHash);
 void Promise.allSettled([
   constructiveTreeReady,
+  researchCommonsReady,
   lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
@@ -1278,6 +1288,7 @@ void Promise.allSettled([
   correspondenceGeometryReady,
   explicitInvariantDisciplineReady,
   constructiveTreeReady,
+  researchCommonsReady,
   lifeSciencesTreeReady,
   quantumSeasonReady,
   mathFrontierReady,
