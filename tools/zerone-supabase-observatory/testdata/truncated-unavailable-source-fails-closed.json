@@ -1,0 +1,81 @@
+{
+  "_format": "zerone-agenttool-supabase-observatory-journal/0.1",
+  "mode": "SOURCE_ONLY_SYNTHETIC_FIXTURE",
+  "projection": {
+    "provider": "SUPABASE_POSTGRESQL",
+    "relation": "PROJECTS",
+    "mode": "SCHEMA_DESIGN_ONLY",
+    "authority": "NONE",
+    "rebuildable": true,
+    "database_order_is_chain_order": false,
+    "database_time_is_trusted_time": false,
+    "row_is_scientific_truth": false,
+    "preserves": [
+      "GRAPH_KIND",
+      "SOURCE_STATUS",
+      "EXACT_RESPONSE_DIGESTS",
+      "RETURNED_CHAIN_AND_HEIGHT",
+      "SAME_HEIGHT_CONFLICT_MULTIPLICITY"
+    ],
+    "loses": [
+      "RAW_PAYLOAD_BYTES",
+      "SOURCE_ENDPOINT",
+      "CHAIN_PROOF",
+      "SCIENTIFIC_TRUTH",
+      "IDENTITY_AND_CONTROLLER",
+      "CONSENT_AND_AUTHORITY"
+    ]
+  },
+  "observations": [
+    {
+      "observation_id": "sha256:ca37a1dbe2fb87d80fbe63c15500398e95a7c726e94376c99c26f19e8c04572f",
+      "graph_kind": "TOK_ONCHAIN",
+      "source_kind": "ZERONE_CURRENT_ONLY_QUERY",
+      "source_status": "TRUNCATED",
+      "observed_at": "2026-08-21T09:43:02Z",
+      "request": {
+        "at_block_height": 0,
+        "selector_sha256": "sha256:4723ea30ddd7b968a631463a506003f100b56a969ec4f27c4eea41fdc49ce3f5"
+      },
+      "response": {
+        "returned_chain_id": "zerone-fixture-2",
+        "returned_actual_block_height": "424243",
+        "returned_block_hash": "hex:890e90f76ddff5bf0b9cd5a37ab55ff05e12d662cc7363e95522a1a7191c230d",
+        "returned_app_hash": "hex:46cc8f3e1bfab395d9f3e9abea5d3b905c3c2e706974ddfadc5f05a152bd31fb",
+        "tok_snapshot_root": "hex:6aded5bb22a84abfa32a40d4ddaf493129980a10345530146127d7b21b5a037c",
+        "tok_root_version": "v1",
+        "raw_payload_sha256": "sha256:6964f2456fbdf0a6ae1aec277e0aabcb4a849a669d89b15a88e3894a329fb2b0",
+        "raw_payload_media_type": "application/x-ndjson",
+        "raw_payload_complete": false,
+        "proof_posture": "SYNTHETIC_UNVERIFIED_RESPONSE"
+      }
+    }
+  ],
+  "effects": {
+    "network": false,
+    "storage": false,
+    "database_read": false,
+    "database_write": false,
+    "agenttool_api_write": false,
+    "hosted_route": false,
+    "economic": false,
+    "governance": false,
+    "consensus": false,
+    "identity": false,
+    "permission": false,
+    "authority_transfer": false,
+    "karma": false,
+    "nen": false,
+    "score": false,
+    "chain_read": false,
+    "chain_write": false,
+    "knowledge_admission": false,
+    "scientific_adjudication": false,
+    "wallet": false,
+    "escrow": false,
+    "payout": false,
+    "reward": false,
+    "zrn": false,
+    "integration_ready": false
+  }
+}
