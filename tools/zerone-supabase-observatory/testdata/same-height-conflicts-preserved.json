@@ -1,0 +1,104 @@
+{
+  "_format": "zerone-agenttool-supabase-observatory-journal/0.1",
+  "mode": "SOURCE_ONLY_SYNTHETIC_FIXTURE",
+  "projection": {
+    "provider": "SUPABASE_POSTGRESQL",
+    "relation": "PROJECTS",
+    "mode": "SCHEMA_DESIGN_ONLY",
+    "authority": "NONE",
+    "rebuildable": true,
+    "database_order_is_chain_order": false,
+    "database_time_is_trusted_time": false,
+    "row_is_scientific_truth": false,
+    "preserves": [
+      "GRAPH_KIND",
+      "SOURCE_STATUS",
+      "EXACT_RESPONSE_DIGESTS",
+      "RETURNED_CHAIN_AND_HEIGHT",
+      "SAME_HEIGHT_CONFLICT_MULTIPLICITY"
+    ],
+    "loses": [
+      "RAW_PAYLOAD_BYTES",
+      "SOURCE_ENDPOINT",
+      "CHAIN_PROOF",
+      "SCIENTIFIC_TRUTH",
+      "IDENTITY_AND_CONTROLLER",
+      "CONSENT_AND_AUTHORITY"
+    ]
+  },
+  "observations": [
+    {
+      "observation_id": "sha256:bc6556fd7f737976dc381fe31d76fdf1a53b346b5c346a97662b46866c77189e",
+      "graph_kind": "TOK_ONCHAIN",
+      "source_kind": "ZERONE_CURRENT_ONLY_QUERY",
+      "source_status": "COMPLETE",
+      "observed_at": "2026-08-21T09:43:00Z",
+      "request": {
+        "at_block_height": 0,
+        "selector_sha256": "sha256:89cd92161a2dc12492c45cbd0cc176633fa628fad936eef9b49f9f5519ef84dd"
+      },
+      "response": {
+        "returned_chain_id": "zerone-fixture-2",
+        "returned_actual_block_height": "424242",
+        "returned_block_hash": "hex:7b2a10e661e53dbbfec5cdf111f823013f5bc877015d478af53660ba205bc233",
+        "returned_app_hash": "hex:77aee1e137baf5f380879b3c4f9587a1f8a13933cd6642382f24b5d13fa159b4",
+        "tok_snapshot_root": "hex:a8b11352c62518e7934a7ae3f9c5c8461c16f14481574f0992c57c0e3a9b4860",
+        "tok_root_version": "v1",
+        "raw_payload_sha256": "sha256:6f136867b02b681f5f99e1238e3f6cbd9ec3fd3251b966bf38b5dcc58592efc6",
+        "raw_payload_media_type": "application/x-ndjson",
+        "raw_payload_complete": true,
+        "proof_posture": "SYNTHETIC_UNVERIFIED_RESPONSE"
+      }
+    },
+    {
+      "observation_id": "sha256:3ad28de6c7a3cd3b516caa824646984232ab42494d706be6418ce2f7b93acd20",
+      "graph_kind": "TOK_ONCHAIN",
+      "source_kind": "ZERONE_CURRENT_ONLY_QUERY",
+      "source_status": "COMPLETE",
+      "observed_at": "2026-08-21T09:43:01Z",
+      "request": {
+        "at_block_height": 0,
+        "selector_sha256": "sha256:89cd92161a2dc12492c45cbd0cc176633fa628fad936eef9b49f9f5519ef84dd"
+      },
+      "response": {
+        "returned_chain_id": "zerone-fixture-2",
+        "returned_actual_block_height": "424242",
+        "returned_block_hash": "hex:7065b71b555b9c81cd7502187a7a42698dc6f8148766d2b3906db4e7d2b0d25f",
+        "returned_app_hash": "hex:4d1d96161f5b8dc77df39660a603fef15017871c804174b4ebd0fe20ae4fe60a",
+        "tok_snapshot_root": "hex:57b15f758cd5ef6bfe7c4bcfd2c6e9672030facb284658d53e0c68873fe64894",
+        "tok_root_version": "v1",
+        "raw_payload_sha256": "sha256:a069dd17a3a3817613c968f1d91deb71a27b0b79146e3a249f6d1bd74542ba41",
+        "raw_payload_media_type": "application/x-ndjson",
+        "raw_payload_complete": true,
+        "proof_posture": "SYNTHETIC_UNVERIFIED_RESPONSE"
+      }
+    }
+  ],
+  "effects": {
+    "network": false,
+    "storage": false,
+    "database_read": false,
+    "database_write": false,
+    "agenttool_api_write": false,
+    "hosted_route": false,
+    "economic": false,
+    "governance": false,
+    "consensus": false,
+    "identity": false,
+    "permission": false,
+    "authority_transfer": false,
+    "karma": false,
+    "nen": false,
+    "score": false,
+    "chain_read": false,
+    "chain_write": false,
+    "knowledge_admission": false,
+    "scientific_adjudication": false,
+    "wallet": false,
+    "escrow": false,
+    "payout": false,
+    "reward": false,
+    "zrn": false,
+    "integration_ready": false
+  }
+}

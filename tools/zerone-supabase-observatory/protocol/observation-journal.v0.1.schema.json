@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:zerone:agenttool:supabase:observatory:journal:0.1",
+  "title": "Zerone AgentTool Supabase Observatory source-only journal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["_format", "mode", "projection", "observations", "effects"],
+  "properties": {
+    "_format": {"const": "zerone-agenttool-supabase-observatory-journal/0.1"},
+    "mode": {"const": "SOURCE_ONLY_SYNTHETIC_FIXTURE"},
+    "projection": {"$ref": "#/$defs/projection"},
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "oneOf": [
+          {"$ref": "#/$defs/staticTreeObservation"},
+          {"$ref": "#/$defs/tokObservation"},
+          {"$ref": "#/$defs/knowledgeGeometryObservation"}
+        ]
+      }
+    },
+    "effects": {"$ref": "#/$defs/zeroEffects"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "hex32": {"type": "string", "pattern": "^hex:[0-9a-f]{64}$"},
+    "height": {"type": "string", "pattern": "^[1-9][0-9]{0,19}$"},
+    "chainId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$"
+    },
+    "proofPosture": {"enum": ["SYNTHETIC_UNVERIFIED_RESPONSE", "UNVERIFIED_REMOTE_RESPONSE"]},
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider", "relation", "mode", "authority", "rebuildable",
+        "database_order_is_chain_order", "database_time_is_trusted_time",
+        "row_is_scientific_truth", "preserves", "loses"
+      ],
+      "properties": {
+        "provider": {"const": "SUPABASE_POSTGRESQL"},
+        "relation": {"const": "PROJECTS"},
+        "mode": {"const": "SCHEMA_DESIGN_ONLY"},
+        "authority": {"const": "NONE"},
+        "rebuildable": {"const": true},
+        "database_order_is_chain_order": {"const": false},
+        "database_time_is_trusted_time": {"const": false},
+        "row_is_scientific_truth": {"const": false},
+        "preserves": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "GRAPH_KIND"},
+            {"const": "SOURCE_STATUS"},
+            {"const": "EXACT_RESPONSE_DIGESTS"},
+            {"const": "RETURNED_CHAIN_AND_HEIGHT"},
+            {"const": "SAME_HEIGHT_CONFLICT_MULTIPLICITY"}
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
+        },
+        "loses": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "RAW_PAYLOAD_BYTES"},
+            {"const": "SOURCE_ENDPOINT"},
+            {"const": "CHAIN_PROOF"},
+            {"const": "SCIENTIFIC_TRUTH"},
+            {"const": "IDENTITY_AND_CONTROLLER"},
+            {"const": "CONSENT_AND_AUTHORITY"}
+          ],
+          "items": false,
+          "minItems": 6,
+          "maxItems": 6
+        }
+      }
+    },
+    "tokObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "graph_kind", "source_kind", "source_status", "observed_at", "request", "response"],
+      "properties": {
+        "observation_id": {"$ref": "#/$defs/digest"},
+        "graph_kind": {"const": "TOK_ONCHAIN"},
+        "source_kind": {"const": "ZERONE_CURRENT_ONLY_QUERY"},
+        "source_status": {"const": "COMPLETE"},
+        "observed_at": {"$ref": "#/$defs/timestamp"},
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["at_block_height", "selector_sha256"],
+          "properties": {
+            "at_block_height": {"const": 0},
+            "selector_sha256": {"$ref": "#/$defs/digest"}
+          }
+        },
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "returned_chain_id", "returned_actual_block_height", "returned_block_hash",
+            "returned_app_hash", "tok_snapshot_root", "tok_root_version",
+            "raw_payload_sha256", "raw_payload_media_type", "raw_payload_complete", "proof_posture"
+          ],
+          "properties": {
+            "returned_chain_id": {"$ref": "#/$defs/chainId"},
+            "returned_actual_block_height": {"$ref": "#/$defs/height"},
+            "returned_block_hash": {"$ref": "#/$defs/hex32"},
+            "returned_app_hash": {"$ref": "#/$defs/hex32"},
+            "tok_snapshot_root": {"$ref": "#/$defs/hex32"},
+            "tok_root_version": {"enum": ["v1", "v2"]},
+            "raw_payload_sha256": {"$ref": "#/$defs/digest"},
+            "raw_payload_media_type": {"const": "application/x-ndjson"},
+            "raw_payload_complete": {"const": true},
+            "proof_posture": {"$ref": "#/$defs/proofPosture"}
+          }
+        }
+      }
+    },
+    "staticTreeObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "graph_kind", "source_kind", "source_status", "observed_at", "source", "interpretation"],
+      "properties": {
+        "observation_id": {"$ref": "#/$defs/digest"},
+        "graph_kind": {"const": "STATIC_TREE"},
+        "source_kind": {"const": "REPOSITORY_BYTES"},
+        "source_status": {"const": "COMPLETE"},
+        "observed_at": {"$ref": "#/$defs/timestamp"},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "revision", "path", "raw_payload_sha256", "raw_payload_complete"],
+          "properties": {
+            "repository": {"const": "https://github.com/cambridgetcg/zerone-core"},
+            "revision": {"const": "264f3c383f408729f4d0c27d332cd454c9eb4400"},
+            "path": {"const": "dashboard/public/standards/constructive-intelligence-tree.v1.json"},
+            "raw_payload_sha256": {"const": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf"},
+            "raw_payload_complete": {"const": true}
+          }
+        },
+        "interpretation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["authoritative", "network_observed", "reward_bearing"],
+          "properties": {
+            "authoritative": {"const": false},
+            "network_observed": {"const": false},
+            "reward_bearing": {"const": false}
+          }
+        }
+      }
+    },
+    "knowledgeGeometryObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "graph_kind", "source_kind", "source_status", "observed_at", "response"],
+      "properties": {
+        "observation_id": {"$ref": "#/$defs/digest"},
+        "graph_kind": {"const": "KNOWLEDGE_GEOMETRY"},
+        "source_kind": {"const": "ZERONE_BOUNDED_READ_PROJECTION"},
+        "source_status": {"const": "COMPLETE"},
+        "observed_at": {"$ref": "#/$defs/timestamp"},
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "returned_chain_id", "returned_actual_block_height", "raw_payload_sha256",
+            "raw_payload_complete", "completeness", "truncated", "proof_posture"
+          ],
+          "properties": {
+            "returned_chain_id": {"const": "zerone-1"},
+            "returned_actual_block_height": {"$ref": "#/$defs/height"},
+            "raw_payload_sha256": {"$ref": "#/$defs/digest"},
+            "raw_payload_complete": {"const": true},
+            "completeness": {"const": "NOT_CLAIMED"},
+            "truncated": {"const": false},
+            "proof_posture": {"$ref": "#/$defs/proofPosture"}
+          }
+        }
+      }
+    },
+    "zeroEffects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "network", "storage", "database_read", "database_write", "agenttool_api_write",
+        "hosted_route", "economic", "governance", "consensus", "identity", "permission",
+        "authority_transfer", "karma", "nen", "score", "chain_read", "chain_write",
+        "knowledge_admission", "scientific_adjudication", "wallet", "escrow", "payout",
+        "reward", "zrn", "integration_ready"
+      ],
+      "properties": {
+        "network": {"const": false},
+        "storage": {"const": false},
+        "database_read": {"const": false},
+        "database_write": {"const": false},
+        "agenttool_api_write": {"const": false},
+        "hosted_route": {"const": false},
+        "economic": {"const": false},
+        "governance": {"const": false},
+        "consensus": {"const": false},
+        "identity": {"const": false},
+        "permission": {"const": false},
+        "authority_transfer": {"const": false},
+        "karma": {"const": false},
+        "nen": {"const": false},
+        "score": {"const": false},
+        "chain_read": {"const": false},
+        "chain_write": {"const": false},
+        "knowledge_admission": {"const": false},
+        "scientific_adjudication": {"const": false},
+        "wallet": {"const": false},
+        "escrow": {"const": false},
+        "payout": {"const": false},
+        "reward": {"const": false},
+        "zrn": {"const": false},
+        "integration_ready": {"const": false}
+      }
+    }
+  }
+}

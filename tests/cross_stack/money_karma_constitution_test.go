@@ -395,11 +395,78 @@ func TestMoneyKarma_NoProductionGoKarmaConsumerOutsideExactEmitterSurface(t *tes
 	policyRanges, err := exactAuthorityGraphKarmaPolicyRanges(sources)
 	require.NoError(t, err)
 	audit.approvedRanges = append(audit.approvedRanges, policyRanges...)
+	observatoryRanges, err := exactSupabaseObservatoryZeroEffectKarmaPolicyRanges(sources)
+	require.NoError(t, err)
+	audit.approvedRanges = append(audit.approvedRanges, observatoryRanges...)
 
 	findings := unapprovedKarmaReferences(sources, audit.approvedRanges)
 	require.Empty(t, findings,
 		"production Go contains KARMA references outside the exact reviewed emitter/helper surface:\n%s",
 		strings.Join(findings, "\n"))
+}
+
+// The Supabase Observatory is an offline, source-only verifier whose sealed
+// protocol must state the protected economic coordinate explicitly and hold it
+// false. This admits only that exact policy vocabulary in the two reviewed
+// files; it admits no event, helper, consumer, import, or runtime effect.
+func exactSupabaseObservatoryZeroEffectKarmaPolicyRanges(sources []productionGoSource) ([]approvedSourceRange, error) {
+	expected := map[string]map[string]int{
+		"tools/zerone-supabase-observatory/types.go": {
+			"identifier:KARMA":      2,
+			"string:json:\"karma\"": 2,
+		},
+		"tools/zerone-supabase-observatory/validator.go": {
+			"string:karma": 2,
+		},
+	}
+	actual := map[string]map[string]int{}
+	found := map[string]bool{}
+	var ranges []approvedSourceRange
+	for _, source := range sources {
+		if _, reviewed := expected[source.rel]; !reviewed {
+			continue
+		}
+		found[source.rel] = true
+		actual[source.rel] = map[string]int{}
+		ast.Inspect(source.file, func(node ast.Node) bool {
+			if node == nil {
+				return true
+			}
+			var kind, value string
+			switch typed := node.(type) {
+			case *ast.Ident:
+				kind, value = "identifier", typed.Name
+			case *ast.ImportSpec:
+				kind, value = "import", unquoteGoString(typed.Path.Value)
+			case *ast.BasicLit:
+				if typed.Kind == token.STRING {
+					kind, value = "string", unquoteGoString(typed.Value)
+				}
+			}
+			if kind == "" || !strings.Contains(strings.ToLower(value), "karma") {
+				return true
+			}
+			key := kind + ":" + value
+			actual[source.rel][key]++
+			ranges = append(ranges, approvedSourceRange{rel: source.rel, start: node.Pos(), end: node.End()})
+			return true
+		})
+	}
+	for rel, expectedCounts := range expected {
+		if !found[rel] {
+			return nil, fmt.Errorf("missing reviewed source-only observatory policy file %s", rel)
+		}
+		actualCounts := actual[rel]
+		if len(actualCounts) != len(expectedCounts) {
+			return nil, fmt.Errorf("source-only observatory KARMA policy vocabulary drifted in %s: got %v", rel, actualCounts)
+		}
+		for key, count := range expectedCounts {
+			if actualCounts[key] != count {
+				return nil, fmt.Errorf("source-only observatory KARMA policy vocabulary %s %q count = %d, want %d", rel, key, actualCounts[key], count)
+			}
+		}
+	}
+	return ranges, nil
 }
 
 // Authority Geometry is an offline source observatory, not a runtime KARMA
@@ -464,6 +531,31 @@ func exactAuthorityGraphKarmaPolicyRanges(sources []productionGoSource) ([]appro
 }
 
 func TestMoneyKarma_KarmaAuditAdversarialFixtures(t *testing.T) {
+	t.Run("source-only observatory policy is exact and rejects one extra reference", func(t *testing.T) {
+		typeSource := `package main
+			type candidateEffects struct { KARMA bool ` + "`json:\"karma\"`" + ` }
+			type validatorExecution struct { KARMA bool ` + "`json:\"karma\"`" + ` }
+		`
+		validatorSource := `package main
+			var effectFields = []string{"karma"}
+			func validateShape() []string { return []string{"karma"} }
+		`
+		sources := append(
+			parseGoFixture(t, "tools/zerone-supabase-observatory/types.go", typeSource),
+			parseGoFixture(t, "tools/zerone-supabase-observatory/validator.go", validatorSource)...,
+		)
+		_, err := exactSupabaseObservatoryZeroEffectKarmaPolicyRanges(sources)
+		require.NoError(t, err)
+
+		driftedValidator := validatorSource + `var hidden = "karma"`
+		drifted := append(
+			parseGoFixture(t, "tools/zerone-supabase-observatory/types.go", typeSource),
+			parseGoFixture(t, "tools/zerone-supabase-observatory/validator.go", driftedValidator)...,
+		)
+		_, err = exactSupabaseObservatoryZeroEffectKarmaPolicyRanges(drifted)
+		require.ErrorContains(t, err, "vocabulary")
+	})
+
 	t.Run("constant event type plus transparent wrapper chain is transitive", func(t *testing.T) {
 		sources := parseGoFixture(t, "app/wrapper_chain.go", `package fixture
 			const edgeType = "zerone.karma.edge"
