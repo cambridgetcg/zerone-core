@@ -2118,6 +2118,8 @@ func TestUpgrade_SDK053IBC10RefusesLegacyFeeBalance(t *testing.T) {
 // wiring under the exact plan name a governance proposal would carry.
 func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
 	h := NewTestHarness(t)
+	require.False(t, h.SubstrateBridgeKeeper.IsDedupeArmed(h.Ctx),
+		"pre-upgrade fixture must begin with dedupe enforcement disarmed")
 
 	// A settled attestation that predates the wall — the seed must index its
 	// source so a post-upgrade replay is blocked.
