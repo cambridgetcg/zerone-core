@@ -45,6 +45,7 @@ func setupSubstrateBridgeKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 	if err := k.SetParams(ctx, &params); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
+	k.SetDedupeArmed(ctx) // fixtures exercise submission; arm as InitGenesis would
 
 	return k, ctx
 }
@@ -147,6 +148,7 @@ func setupSubstrateBridgeKeeperFull(t *testing.T) (keeper.Keeper, sdk.Context, *
 	if err := k.SetParams(ctx, &params); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
+	k.SetDedupeArmed(ctx) // fixtures exercise submission; arm as InitGenesis would
 
 	return k, ctx, bk, vk
 }
@@ -177,6 +179,7 @@ func setupSubstrateBridgeKeeperWithBank(t *testing.T) (keeper.Keeper, sdk.Contex
 	if err := k.SetParams(ctx, &params); err != nil {
 		t.Fatalf("set params: %v", err)
 	}
+	k.SetDedupeArmed(ctx) // fixtures exercise submission; arm as InitGenesis would
 
 	return k, ctx
 }

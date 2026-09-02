@@ -15,6 +15,23 @@ import (
 //     for the last pending claim).
 func (k Keeper) BeginBlocker(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+
+	// Fail closed while enforcement is unarmed. Every mint path — settlement
+	// (SettleAttestation) and witness-reward release (SweepWitnessRewards) —
+	// is reached only from here, and each authorizes a mint by consulting the
+	// 0x8E source index. On a plan-less restart the substrate-dedupe-v1 handler
+	// has not run, so that index is empty and unarmed: a pre-existing in-flight
+	// attestation whose already-settled twin minted before the index existed
+	// would find its source "free" and mint a second time. Deferring settlement
+	// (rather than zeroing rewards) leaves the attestations in flight, losing
+	// nothing; the handler seeds the index + arms, and the very next block
+	// settles them correctly — the seeded holder suppresses the duplicate. A
+	// fresh chain is always armed before anything can settle, because the only
+	// creator of attestations, SubmitExternalAttestation, arms on its first call.
+	if !k.IsDedupeArmed(ctx) {
+		return nil
+	}
+
 	currentHeight := uint64(sdkCtx.BlockHeight())
 	params := k.GetParams(ctx)
 

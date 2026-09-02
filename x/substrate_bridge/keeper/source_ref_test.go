@@ -39,7 +39,8 @@ func newUnarmedKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 
 	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, &stubBankKeeper{}, nil, nil)
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
-	require.NoError(t, k.SetParams(ctx, types.DefaultParams()))
+	params := types.DefaultParams()
+	require.NoError(t, k.SetParams(ctx, &params))
 	return k, ctx
 }
 
@@ -61,7 +62,8 @@ func newUnarmedKeeperFull(t *testing.T) (keeper.Keeper, sdk.Context, *stubBankKe
 	vk := &stubVestingKeeper{}
 	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, bk, nil, vk)
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
-	require.NoError(t, k.SetParams(ctx, types.DefaultParams()))
+	params := types.DefaultParams()
+	require.NoError(t, k.SetParams(ctx, &params))
 	return k, ctx, bk, vk
 }
 

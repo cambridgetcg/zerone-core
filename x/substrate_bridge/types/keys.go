@@ -12,23 +12,41 @@ const (
 )
 
 var (
-	LineageEdgePrefix                = []byte{0x80}
-	LineageByUpstreamPrefix          = []byte{0x81}
-	LineageByDownstreamPrefix        = []byte{0x82}
-	LineageRoyaltyAccumulatorPrefix  = []byte{0x83}
-	AdapterRegistrationPrefix        = []byte{0x84}
-	ExternalAttestationPrefix        = []byte{0x85}
-	AttestationByStatusPrefix        = []byte{0x86}
-	PendingFactIndexPrefix           = []byte{0x87}
-	AttestationPendingClaimsPrefix   = []byte{0x88}
-	AdapterByStatusPrefix            = []byte{0x89}
+	LineageEdgePrefix               = []byte{0x80}
+	LineageByUpstreamPrefix         = []byte{0x81}
+	LineageByDownstreamPrefix       = []byte{0x82}
+	LineageRoyaltyAccumulatorPrefix = []byte{0x83}
+	AdapterRegistrationPrefix       = []byte{0x84}
+	ExternalAttestationPrefix       = []byte{0x85}
+	AttestationByStatusPrefix       = []byte{0x86}
+	PendingFactIndexPrefix          = []byte{0x87}
+	AttestationPendingClaimsPrefix  = []byte{0x88}
+	AdapterByStatusPrefix           = []byte{0x89}
 
 	ParamsKey               = []byte{0x8A}
 	AttestationIDCounterKey = []byte{0x8B}
 
 	WitnessPendingRewardPrefix = []byte{0x8C}
 	WitnessDeadlineIndexPrefix = []byte{0x8D}
+
+	SourceRefPrefix = []byte{0x8E}
+
+	DedupeArmedKey = []byte{0x8F}
 )
+
+// SourceRefKey indexes the one attestation holding an external source
+// reference: 0x8E | len(adapter_id) | adapter_id | source_id. The adapter
+// ID is length-prefixed rather than delimiter-separated so the key is
+// unambiguous for arbitrary bytes — no assumption that adapter IDs or
+// source IDs exclude any particular separator byte, which nothing at
+// registration enforces.
+func SourceRefKey(adapterID, sourceID string) []byte {
+	key := append([]byte{}, SourceRefPrefix...)
+	key = append(key, BeUint32(uint32(len(adapterID)))...)
+	key = append(key, []byte(adapterID)...)
+	key = append(key, []byte(sourceID)...)
+	return key
+}
 
 func WitnessPendingRewardKey(attestationID string) []byte {
 	return append(append([]byte{}, WitnessPendingRewardPrefix...), []byte(attestationID)...)
@@ -131,5 +149,11 @@ func Be8(status uint8) []byte { return []byte{status} }
 func BeUint64(v uint64) []byte {
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, v)
+	return buf
+}
+
+func BeUint32(v uint32) []byte {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, v)
 	return buf
 }

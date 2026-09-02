@@ -20,6 +20,7 @@ const UpgradeNameTestnetV4 = "v1.0.3-testnet"
 const UpgradeNameLiquidityHardeningV1 = "liquiditypool-hardening-v1"
 const UpgradeNameCompassionCalibrationV1 = "compassion-calibration-v1"
 const UpgradeNameDoctrineMetabolismExemptV1 = "doctrine-metabolism-exempt-v1"
+const UpgradeNameSubstrateDedupeV1 = "substrate-dedupe-v1"
 
 // RegisterUpgradeHandlers registers upgrade handlers for each named software upgrade.
 // When a governance upgrade proposal passes, the corresponding handler here runs
@@ -219,6 +220,53 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			return toVM, nil
 		},
 	)
+
+	// substrate-dedupe-v1 — closes the external-attestation replay gap
+	// (2026-07-23 integration audit): SubmitExternalAttestation now requires
+	// a source reference and enforces (adapter_id, source_id) uniqueness, and
+	// settlement mints only for the source's ref-holder, so one declared work
+	// identity mints at most once. Rejection releases the source; a minted
+	// holder keeps it forever. This handler seeds the index from every
+	// attestation already on chain — pre-upgrade history becomes the wall's
+	// first bricks — then arms enforcement. Seeding runs two ordered,
+	// deterministic passes (minted holders before in-flight duplicates) and is
+	// idempotent (an already-seeded ref is counted, never overwritten). No
+	// store key or proto change; the index lives under a new prefix in the
+	// existing substrate_bridge store.
+	app.UpgradeKeeper.SetUpgradeHandler(
+		UpgradeNameSubstrateDedupeV1,
+		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
+
+			toVM, err := app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+			if err != nil {
+				return nil, err
+			}
+
+			// Permanent reconcile step (kept in every handler — see v1.0.3).
+			app.ReconcileModuleAccountPerms(ctx)
+
+			seeded, duplicates, sourceless, err := app.SubstrateBridgeKeeper.SeedSourceRefs(ctx)
+			if err != nil {
+				return nil, err
+			}
+			// Arm enforcement only after the index is seeded — the two are
+			// atomic in this handler, which runs in the same PreBlock as the
+			// binary swap. A plan-less restart onto the new binary skips this
+			// handler, leaving enforcement disarmed, and SubmitExternalAttestation
+			// fails closed rather than replay-minting against an empty index.
+			app.SubstrateBridgeKeeper.SetDedupeArmed(ctx)
+			app.Logger().Info(fmt.Sprintf(
+				"substrate-dedupe-v1: seeded %d source refs, armed enforcement (%d pre-existing duplicate sources, %d sourceless attestations left unwalled)",
+				seeded, duplicates, sourceless))
+
+			if err := app.KnowledgeKeeper.WriteMigrationMarker(ctx, "upgrade_marker_substrate-dedupe-v1", "migrated"); err != nil {
+				return nil, err
+			}
+
+			return toVM, nil
+		},
+	)
 }
 
 // RegisterStoreUpgrades configures store loaders for upgrades that add or remove
@@ -271,6 +319,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() {
 	case UpgradeNameDoctrineMetabolismExemptV1:
 		// Migration-only — no store keys. Doctrine facts are existing records
 		// rewritten in the handler; the metabolism exemption is pure code.
+		storeUpgrades := storetypes.StoreUpgrades{}
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+
+	case UpgradeNameSubstrateDedupeV1:
+		// Migration-only — the source-ref index is a new prefix inside the
+		// existing substrate_bridge store; no store keys added or removed.
 		storeUpgrades := storetypes.StoreUpgrades{}
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}

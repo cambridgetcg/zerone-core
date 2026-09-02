@@ -23,6 +23,10 @@ var (
 	ErrInvalidCitationType       = errors.Register(codespace, 17, "citation_type unspecified or unknown (UW + M6)")
 	ErrContributionSharesInvalid = errors.Register(codespace, 18, "contribution_share_bps does not sum to 10000 across cites (UW + M6)")
 	ErrPendingClaimsNotSupported = errors.Register(codespace, 19, "pending_claims are not accepted yet: translation into x/knowledge is unwired (ToK Plan 4), so an accepted pending claim could never resolve and the bond would slash on timeout — submit cited_facts only")
+	ErrSourceRequired            = errors.Register(codespace, 22, "substrate-link source with a non-empty source_id is required (UW + M2: the source reference is the identity of the work)")
+	ErrDuplicateSource           = errors.Register(codespace, 23, "source already attested for this adapter (UW + M1: one work, one attestation — replay is closed on-chain)")
+	ErrAdapterIdMismatch         = errors.Register(codespace, 24, "msg.adapter_id and link.adapter_id differ — one submission, one adapter")
+	ErrDedupeNotArmed            = errors.Register(codespace, 25, "external-attestation dedupe is not armed on this node: the substrate-dedupe-v1 migration has not run (plan-less deploy?) — submissions are refused fail-closed rather than risk a replay-mint until the source-ref index is seeded")
 
 	// State machine errors.
 	ErrAttestationNotFound    = errors.Register(codespace, 20, "attestation not found")

@@ -9,9 +9,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
-	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	substratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
+	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 )
 
 // TestSubstrateBridge_HappyPathSettlement drives the full lifecycle:
@@ -50,6 +50,11 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 	// x/knowledge translation).
 	link := &substratebridgetypes.SubstrateLink{
 		AdapterId: "test-wiki",
+		Source: &substratebridgetypes.ExternalSource{
+			AdapterId:   "test-wiki",
+			SourceId:    "article-happy-path",
+			ContentHash: []byte{0x01},
+		},
 		CitedFacts: []*substratebridgetypes.FactCitation{
 			{FactId: "seed-fact", CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},
 		},
@@ -104,6 +109,10 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 // must stay alive for the day the translation lands.
 func TestSubstrateBridge_PendingClaimResolutionMachinery(t *testing.T) {
 	h := NewTestHarness(t)
+	// A real chain is armed post-genesis (InitGenesis) or after its first
+	// submission; this test writes attestations directly, so reflect that
+	// armed state — otherwise BeginBlocker fails closed and defers settlement.
+	h.SubstrateBridgeKeeper.SetDedupeArmed(h.Ctx)
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
 		AdapterId: "machinery-adapter",
 		Status:    substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,

@@ -8,8 +8,8 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
-	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmted25519 "github.com/cometbft/cometbft/crypto/ed25519"
@@ -17,8 +17,8 @@ import (
 	cmttypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
@@ -29,27 +29,27 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
-	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	zeronestakingkeeper "github.com/zerone-chain/zerone/x/staking/keeper"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
+	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 
 	// R7 module keepers
 	zeronealignmentkeeper "github.com/zerone-chain/zerone/x/alignment/keeper"
-	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
-	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
-	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
-	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
-	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
-	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
-	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
 	zeronecckeeper "github.com/zerone-chain/zerone/x/capture_challenge/keeper"
-	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
-	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
-	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
+	zeronecdkeeper "github.com/zerone-chain/zerone/x/capture_defense/keeper"
+	zeronecpotkeeper "github.com/zerone-chain/zerone/x/claiming_pot/keeper"
 	zeronecounterexkeeper "github.com/zerone-chain/zerone/x/counterexamples/keeper"
 	zeronecreedkeeper "github.com/zerone-chain/zerone/x/creed/keeper"
-	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
+	zeroneemergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
+	zeronegovkeeper "github.com/zerone-chain/zerone/x/gov/keeper"
+	zeroneknowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
+	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
+	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
+	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
 	zeronesubstratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
+	zeroneprovenancekeeper "github.com/zerone-chain/zerone/x/training_provenance/keeper"
+	zeronetrustscorekeeper "github.com/zerone-chain/zerone/x/trust_score/keeper"
+	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 )
 
 const testChainID = "zerone-test-1"
@@ -86,9 +86,9 @@ type TestHarness struct {
 	QualificationKeeper      zeronequalificationkeeper.Keeper
 	TrainingProvenanceKeeper zeroneprovenancekeeper.Keeper
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
-	CounterexamplesKeeper     zeronecounterexkeeper.Keeper
-	CreedKeeper               zeronecreedkeeper.Keeper
-	SubstrateBridgeKeeper     zeronesubstratebridgekeeper.Keeper
+	CounterexamplesKeeper    zeronecounterexkeeper.Keeper
+	CreedKeeper              zeronecreedkeeper.Keeper
+	SubstrateBridgeKeeper    zeronesubstratebridgekeeper.Keeper
 
 	// Standard Cosmos SDK keepers
 	BankKeeper    bankkeeper.Keeper
@@ -210,6 +210,13 @@ func genesisStateWithValSetHelper(
 // and a single bonded validator. Uses an in-memory database so each test gets
 // a clean, isolated state.
 func NewTestHarness(t *testing.T) *TestHarness {
+	return newTestHarnessWithGenesisMutation(t, nil)
+}
+
+// newTestHarnessWithGenesisMutation lets upgrade tests model state that
+// predates a module's InitGenesis behavior. The mutation runs after the
+// validator-set fixture is installed but before InitChain.
+func newTestHarnessWithGenesisMutation(t *testing.T, mutate func(zeroneapp.GenesisState)) *TestHarness {
 	t.Helper()
 
 	db := dbm.NewMemDB()
@@ -224,6 +231,9 @@ func NewTestHarness(t *testing.T) *TestHarness {
 
 	genState := app.DefaultGenesis()
 	genState = genesisStateWithValSet(t, app, genState)
+	if mutate != nil {
+		mutate(genState)
+	}
 	stateBytes, err := json.Marshal(genState)
 	require.NoError(t, err)
 
@@ -238,10 +248,10 @@ func NewTestHarness(t *testing.T) *TestHarness {
 	require.NoError(t, err)
 
 	h := &TestHarness{
-		T:             t,
-		App:           app,
-		AuthKeeper:    app.ZeroneAuthKeeper,
-		StakingKeeper: app.ZeroneStakingKeeper,
+		T:               t,
+		App:             app,
+		AuthKeeper:      app.ZeroneAuthKeeper,
+		StakingKeeper:   app.ZeroneStakingKeeper,
 		BankKeeper:      app.BankKeeper,
 		AccountKeeper:   app.AccountKeeper,
 		KnowledgeKeeper: app.KnowledgeKeeper,
@@ -253,9 +263,9 @@ func NewTestHarness(t *testing.T) *TestHarness {
 		QualificationKeeper:      app.QualificationKeeper,
 		TrainingProvenanceKeeper: app.TrainingProvenanceKeeper,
 		TrustScoreKeeper:         app.TrustScoreKeeper,
-		CounterexamplesKeeper:     app.CounterexamplesKeeper,
-		CreedKeeper:               app.CreedKeeper,
-		SubstrateBridgeKeeper:     app.SubstrateBridgeKeeper,
+		CounterexamplesKeeper:    app.CounterexamplesKeeper,
+		CreedKeeper:              app.CreedKeeper,
+		SubstrateBridgeKeeper:    app.SubstrateBridgeKeeper,
 
 		// R7 keepers
 		AlignmentKeeper:      app.AlignmentKeeper,
@@ -404,4 +414,3 @@ func min(a, b int) int {
 func (h *TestHarness) Height() int64 {
 	return h.currentHeight
 }
-
