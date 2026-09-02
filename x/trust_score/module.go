@@ -1,7 +1,6 @@
 package trust_score
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	"github.com/zerone-chain/zerone/x/trust_score/keeper"
@@ -22,14 +22,17 @@ import (
 var (
 	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
+	_ module.HasGenesis     = AppModule{}
 	_ appmodule.AppModule   = AppModule{}
 )
 
 type AppModuleBasic struct{ cdc codec.Codec }
 
-func (AppModuleBasic) Name() string                                          { return types.ModuleName }
-func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino)        { types.RegisterCodec(cdc) }
-func (a AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry)    { types.RegisterInterfaces(reg) }
+func (AppModuleBasic) Name() string                                    { return types.ModuleName }
+func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) { types.RegisterCodec(cdc) }
+func (a AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
+	types.RegisterInterfaces(reg)
+}
 func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 	bz, err := json.Marshal(types.DefaultGenesis())
 	if err != nil {
@@ -63,8 +66,11 @@ func (am AppModule) ConsensusVersion() uint64 { return 1 }
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 }
-func (am AppModule) InitGenesis(_ context.Context, _ codec.JSONCodec, _ json.RawMessage) {}
-func (am AppModule) ExportGenesis(_ context.Context, _ codec.JSONCodec) json.RawMessage {
-	bz, _ := json.Marshal(types.DefaultGenesis())
+func (am AppModule) InitGenesis(_ sdk.Context, _ codec.JSONCodec, _ json.RawMessage) {}
+func (am AppModule) ExportGenesis(_ sdk.Context, _ codec.JSONCodec) json.RawMessage {
+	bz, err := json.Marshal(types.DefaultGenesis())
+	if err != nil {
+		panic("failed to marshal genesis: " + err.Error())
+	}
 	return bz
 }

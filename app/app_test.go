@@ -2,16 +2,19 @@ package app_test
 
 import (
 	"encoding/json"
+	"sort"
 	"testing"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
+	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/log"
 
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 )
@@ -68,6 +71,57 @@ func TestDefaultGenesis(t *testing.T) {
 	} {
 		_, ok := genState[moduleName]
 		require.True(t, ok, "expected module %q in default genesis", moduleName)
+	}
+}
+
+// TestDefaultGenesisModulesHaveExporters prevents a module from contributing
+// default genesis JSON without satisfying one of the module manager's stateful
+// genesis interfaces. Such a module boots successfully but disappears from a
+// later `zeroned export`, making the exported genesis fail validation.
+func TestDefaultGenesisModulesHaveExporters(t *testing.T) {
+	app := newTestApp(t)
+	genState := app.DefaultGenesis()
+
+	moduleNames := make([]string, 0, len(genState))
+	for moduleName := range genState {
+		moduleNames = append(moduleNames, moduleName)
+	}
+	sort.Strings(moduleNames)
+
+	for _, moduleName := range moduleNames {
+		t.Run(moduleName, func(t *testing.T) {
+			appModule, ok := app.ModuleManager.Modules[moduleName]
+			require.True(t, ok, "default-genesis module is not registered")
+
+			_, hasCoreGenesis := appModule.(appmodule.HasGenesis)
+			_, hasLegacyGenesis := appModule.(module.HasGenesis)
+			_, hasABCIGenesis := appModule.(module.HasABCIGenesis)
+			require.True(t, hasCoreGenesis || hasLegacyGenesis || hasABCIGenesis,
+				"module contributes default genesis but has no compatible exporter")
+		})
+	}
+}
+
+func TestReadOnlyModulesExportGenesis(t *testing.T) {
+	app := newTestApp(t)
+	moduleNames := []string{"training_provenance", "trust_score"}
+
+	exported, err := app.ModuleManager.ExportGenesisForModules(
+		app.NewContext(true),
+		app.AppCodec(),
+		moduleNames,
+	)
+	require.NoError(t, err)
+	require.Len(t, exported, len(moduleNames))
+
+	defaults := app.DefaultGenesis()
+	for _, moduleName := range moduleNames {
+		t.Run(moduleName, func(t *testing.T) {
+			raw, ok := exported[moduleName]
+			require.True(t, ok, "module manager omitted genesis export")
+			require.True(t, json.Valid(raw), "module manager returned invalid genesis JSON")
+			require.JSONEq(t, string(defaults[moduleName]), string(raw))
+		})
 	}
 }
 
