@@ -1,8 +1,9 @@
 # Economic Neutrality
 
-> **Activation status:** source target for the governance-scheduled atomic
-> `consolidation-safety-v1` upgrade at H1. Source publication and historical
-> genesis do not make this state live.
+> **Activation status:** source target reached through two ordered pre-SDK
+> upgrades: H1 `consolidation-safety-v1` for liquidity and H2
+> `founder-renunciation-v1` for vesting rewards. Source publication and
+> historical genesis do not make either state live.
 
 ## Rule
 
@@ -19,20 +20,23 @@ testable: ordinary runtime code must not convert those identities or control
 roles into a hidden protocol skim, founder tap, or proposer-created mint
 trigger.
 
-## Atomic H1 transition
+## Ordered H1/H2 transition
 
-H1 is one software-upgrade boundary, not a two-height rollout. Its target
-module versions and economic effects are:
+The complete economic-neutrality target requires two independently frozen
+software-upgrade boundaries. Their target module versions and effects are:
 
-| Module | Version | Retired automatic claim | Preserved value path |
-|---|---:|---|---|
-| `liquiditypool` | 5 | Protocol share of swap fees | Complete configured pool fee remains in reserves for transferable LP shares |
-| `vesting_rewards` | 2 | Founder sub-share | Complete research allocation reaches `research_fund` |
-| `vesting_rewards` | 2 | Mint caused by raw transaction presence | Actual transaction fees continue through fee routing |
+| Boundary | Module | Version | Retired automatic claim | Preserved value path |
+|---|---|---:|---|---|
+| H1 `consolidation-safety-v1` | `liquiditypool` | 5 | Protocol share of swap fees | Complete configured pool fee remains in reserves for transferable LP shares |
+| H1 `consolidation-safety-v1` | `vesting_rewards` | 1 | None; no vesting migration | V1 Params and economics are preserved for H2 |
+| H2 `founder-renunciation-v1` | `vesting_rewards` | 2 | Founder sub-share | Complete research allocation reaches `research_fund` |
+| H2 `founder-renunciation-v1` | `vesting_rewards` | 2 | Mint caused by raw transaction presence | Actual transaction fees continue through fee routing |
 
-The H1 binary recognises `consolidation-safety-v1` and does not register the
-removed `liquiditypool-safety-v2` H2 name. Pool and oracle admission remain
-separate governance actions after H1.
+The exact H1 binary recognises `consolidation-safety-v1`, preserves
+vesting_rewards V1, and does not register H2. The exact H2 binary requires the
+complete H1 poststate and alone advances vesting_rewards V1→V2. The obsolete
+`liquiditypool-safety-v2` name is not a handler. Pool and oracle admission
+remain separate governance actions after H1.
 
 ## What earns value
 
@@ -67,7 +71,7 @@ compensation. It is not a separate liquidity skim or founder share.
 
 ### Independently witnessed work
 
-Other cap-gated mint pathways are outside this H1 retirement and must be judged
+Other cap-gated mint pathways are outside this H2 retirement and must be judged
 by their own evidence and authority rules. Current source includes claiming-pot
 claims, challenge-surviving external-work attestations, a default-zero probe
 pool, and default-disabled emission periods. A shared supply cap is not proof
@@ -75,7 +79,7 @@ that each trigger is earned; each pathway needs its own review.
 
 The retired block lane did not meet that standard. A proposer controlled raw
 transaction inclusion before signature, fee, balance, or successful execution
-was known. H1 therefore fixes `block_reward`, `floor_reward`, and
+was known. H2 therefore fixes `block_reward`, `floor_reward`, and
 `empty_block_reward_rate` at zero and removes transaction-presence issuance.
 A future block/work reward must be introduced through another named upgrade
 and consume a successful, independently witnessed or challenge-surviving work
@@ -94,17 +98,17 @@ Standard Cosmos governance remains authorised to:
 - schedule a named, release-bound consensus upgrade.
 
 Those powers must not trap existing LP exits or recreate a retired percentage
-through ordinary Params. The legacy compatibility fields are constrained as
-follows after H1:
+through ordinary Params. The legacy compatibility fields are constrained at
+their respective boundaries:
 
-| Field | Required value |
-|---|---:|
-| liquidity `protocol_fee_bps` | `0` |
-| vesting `founder_share_bps` | `0` |
-| vesting `founder_address` | empty |
-| vesting `block_reward` | `"0"` |
-| vesting `floor_reward` | `"0"` |
-| vesting `empty_block_reward_rate` | `0` |
+| Boundary | Field | Required value |
+|---|---|---:|
+| H1 | liquidity `protocol_fee_bps` | `0` |
+| H2 | vesting `founder_share_bps` | `0` |
+| H2 | vesting `founder_address` | empty |
+| H2 | vesting `block_reward` | `"0"` |
+| H2 | vesting `floor_reward` | `"0"` |
+| H2 | vesting `empty_block_reward_rate` | `0` |
 
 An ordinary `MsgUpdateParams` containing any retired nonzero/nonempty value is
 invalid. Reintroduction requires explicit new consensus code, migration,
@@ -122,15 +126,16 @@ state that actually existed, including:
   path was dormant at genesis; and
 - former transaction-bearing block-reward parameters.
 
-H1 changes live state prospectively at its applied height. Migration does not
-claw back prior transfers, erase events, or pretend the old configuration
-never existed. Release evidence must retain the pre-H1 snapshot and explain
-every post-H1 state delta.
+H1 changes live liquidity state prospectively at its applied height, and H2
+later changes live vesting state. Neither migration claws back prior transfers,
+erases events, or pretends the old configuration never existed. Release
+evidence must retain each bound pre-upgrade snapshot and explain every state
+delta at its own boundary.
 
 ## Verification contract
 
-A release may claim economic neutrality only if its bound rehearsal and
-post-H1 evidence prove all of the following:
+A release may claim complete economic neutrality only if its bound rehearsals
+and ordered post-H1/post-H2 evidence prove all of the following:
 
 1. module versions are liquiditypool 5 and vesting_rewards 2;
 2. every retired field has its required value and governance cannot restore it;
@@ -145,7 +150,9 @@ post-H1 evidence prove all of the following:
 8. pool, creator, and billing-quote admission remain fail-closed until later
    governance acts.
 
-The exact preflight, halt, recovery, and pool-admission procedure is in the
-[liquiditypool v5 runbook](../LIQUIDITYPOOL-SAFETY-V2.md). Genesis accounting
-is in [Genesis and native issuance](GENESIS.md), and live fee routing is in
+The exact H1 liquidity preflight, halt, recovery, and pool-admission procedure
+is in the [liquiditypool v5 runbook](../LIQUIDITYPOOL-SAFETY-V2.md). The
+ordered H1/H2/H3 release contract is in [the upgrade
+runbook](../UPGRADES.md). Genesis accounting is in
+[Genesis and native issuance](GENESIS.md), and live fee routing is in
 [Revenue split](REVENUE-SPLIT.md).

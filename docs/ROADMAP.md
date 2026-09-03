@@ -45,15 +45,19 @@ line:
 
 Several items above change consensus-visible behavior. They are source-complete
 only after their tests pass; they are **not live** merely because the code is
-published. The consolidation work requires the named
-`consolidation-safety-v1` coordinated upgrade. Its atomic migration pass is
-expected to record liquiditypool v5 and vesting_rewards v2. There is no later
+published. A legacy network must first run the accepted H1
+`consolidation-safety-v1` release, which records liquiditypool v5 while
+explicitly preserving vesting_rewards v1, then the accepted H2
+`founder-renunciation-v1` replacement release, which alone advances
+vesting_rewards v1→v2. Each boundary has its own exact pre-SDK source and
+requires its own separately attested executable. The current integrated SDK
+v0.53 source consumes proof of both but can execute neither. There is no
 `liquiditypool-safety-v2` software-upgrade handler. Native pool/oracle
 activation remains forbidden until
 [the separate release and governance gates](LIQUIDITYPOOL-SAFETY-V2.md) pass.
-H1 requires an agreed height, matching validator binaries, an exact pre-H1
-snapshot, and the normal upgrade/recovery rehearsal. Never mix binaries at the
-same height.
+Each boundary requires an agreed height, matching validator binaries, an exact
+pre-upgrade snapshot, and the normal upgrade/recovery rehearsal. Never mix
+binaries at the same height or reorder H1, H2, and the later SDK/IBC boundary.
 
 ## Publication boundary
 
@@ -192,10 +196,11 @@ loss of unrelated public access, negative KARMA, or an adverse record.
 1. **Close the source consolidation.** Regenerate protobuf and Swagger
    artifacts, run creed/recursion integrity checks, complete Go and TypeScript
    tests, and publish the exact reviewed commit to GitHub.
-2. **Prepare the consensus release.** Independently review
-   `consolidation-safety-v1`, rehearse migration/export/restart paths, build
-   reproducible binaries, and obtain an explicit activation decision.
-3. **Prepare liquidity admission separately.** After atomic H1 is applied and
+2. **Prepare the ordered consensus releases.** Independently verify the exact
+   accepted H1 and H2 sources, rehearse each migration/export/restart boundary,
+   build reproducible binaries, and obtain a separate explicit activation
+   decision for each before preparing the later SDK/IBC transition.
+3. **Prepare liquidity admission separately.** After H1 is applied and
    verified, keep native pool creation and oracle allowlisting disabled until
    invariants, application lifecycle tests, restart rehearsal, and separate
    governance capital/asset/price-depth decisions all pass. This is not a

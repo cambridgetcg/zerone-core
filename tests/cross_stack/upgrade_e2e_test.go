@@ -2254,6 +2254,38 @@ func TestUpgrade_CurrentSDKBinaryExcludesPreSDKHandlersAndLoaders(t *testing.T) 
 	}
 }
 
+func TestUpgrade_OperatorDocsPreserveOrderedH1H2Boundary(t *testing.T) {
+	operatorDocs := []string{
+		"../../docs/UPGRADES.md",
+		"../../docs/UPGRADE_PROTOCOL.md",
+		"../../docs/VALIDATOR-GUIDE.md",
+		"../../docs/LIQUIDITYPOOL-SAFETY-V2.md",
+		"../../docs/tokenomics/ECONOMIC-NEUTRALITY.md",
+		"../../docs/ROADMAP.md",
+	}
+
+	for _, path := range operatorDocs {
+		body, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.NotContains(t, string(body), "feat/h1-ignition",
+			"moving or stale ignition branches must not be operator authority in %s", path)
+	}
+
+	runbook, err := os.ReadFile("../../docs/UPGRADES.md")
+	require.NoError(t, err)
+	body := strings.Join(strings.Fields(string(runbook)), " ")
+	require.Contains(t, body, zeroneapp.UpgradeNameConsolidationSafetyV1)
+	require.Contains(t, body, zeroneapp.UpgradeNameFounderRenunciationV1)
+	require.Contains(t, body,
+		"`vesting_rewards=1`: H1 explicitly preserves vesting_rewards V1")
+	require.Contains(t, body,
+		"alone advances `vesting_rewards` V1→V2")
+	require.Contains(t, body,
+		"contains `knowledge=6`, `claiming_pot=2`, `liquiditypool=5`, and `vesting_rewards=2`")
+	require.Contains(t, body,
+		"post-SDK integrated tip registers neither pre-SDK handler")
+}
+
 func TestUpgrade_CurrentSDKHandlersCannotCarryFounderRenunciation(t *testing.T) {
 	h := NewTestHarness(t)
 	fromVM := h.App.CurrentModuleVersionMap()
