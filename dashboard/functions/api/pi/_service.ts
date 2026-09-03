@@ -331,6 +331,17 @@ function mutationOriginIsValid(request: Request, config: PiConfig): boolean {
   return fetchSite === null || fetchSite === "same-origin";
 }
 
+function authorizationOriginIsValid(
+  request: Request,
+  config: PiConfig,
+): boolean {
+  return (
+    requestIsAtOrigin(request, config) &&
+    request.headers.get("Origin") === config.origin &&
+    request.headers.get("Sec-Fetch-Site") === "same-origin"
+  );
+}
+
 function queryIsEmpty(request: Request): boolean {
   try {
     return new URL(request.url).search === "";
@@ -689,8 +700,15 @@ async function authorize(
   config: PiConfig,
   runtime: PiRuntime,
 ): Promise<Response> {
-  if (request.method !== "GET") return methodNotAllowed(["GET"]);
-  if (!requestIsAtOrigin(request, config) || !queryIsEmpty(request)) {
+  if (request.method !== "POST") return methodNotAllowed(["POST"]);
+  if (!authorizationOriginIsValid(request, config)) {
+    return jsonError("Pi authorization origin was not accepted", 403);
+  }
+  if (!queryIsEmpty(request)) {
+    return jsonError("Invalid Pi authorization request", 400);
+  }
+  const body = await readJsonBody(request);
+  if (!body.ok || !hasOnlyKeys(body.value, [])) {
     return jsonError("Invalid Pi authorization request", 400);
   }
   const now = runtime.now();
@@ -709,14 +727,16 @@ async function authorize(
   target.searchParams.set("scope", "username");
   target.searchParams.set("state", state);
 
-  const headers = responseHeaders();
-  headers.delete("Content-Type");
-  headers.set("Location", target.toString());
-  headers.append(
-    "Set-Cookie",
-    setCookie(OAUTH_COOKIE, browserTransaction, OAUTH_TTL_MS / 1_000),
+  return jsonResponse(
+    { authorizationUrl: target.toString() },
+    200,
+    (headers) => {
+      headers.append(
+        "Set-Cookie",
+        setCookie(OAUTH_COOKIE, browserTransaction, OAUTH_TTL_MS / 1_000),
+      );
+    },
   );
-  return new Response(null, { status: 302, headers });
 }
 
 function validAccessToken(value: unknown): value is string {

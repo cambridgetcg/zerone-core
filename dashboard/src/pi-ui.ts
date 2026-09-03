@@ -172,7 +172,7 @@ export async function initialisePiPilot(
     window.setTimeout(() => consentCheck.focus(), 0);
   });
 
-  consentForm.addEventListener("submit", (event) => {
+  consentForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (authPending || !consentCheck.checked) return;
     authPending = true;
@@ -180,7 +180,7 @@ export async function initialisePiPilot(
     consentSubmit.disabled = true;
     consentSubmit.textContent = "Continuing to Pi…";
     try {
-      beginPiSignIn();
+      await beginPiSignIn();
     } catch {
       authPending = false;
       consentClose.disabled = false;

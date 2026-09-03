@@ -51,6 +51,12 @@ p {
   line-height: 1.65;
 }
 
+.callback-fallback {
+  margin-top: 16px;
+  color: #ffc56f;
+  font-size: 0.875rem;
+}
+
 a {
   display: inline-flex;
   min-height: 46px;

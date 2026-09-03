@@ -5,6 +5,29 @@ The production frontend for `zerone.ai`: a live, explorer-first view of
 state, recent blocks, supply, the disclosed custodial trust model, and a
 source-only authority observatory.
 
+## First-run production path
+
+The primary `#onboarding` route is an orientation surface, not an account
+issuance flow. Its default completion is deliberately small: a visitor can
+reach the dashboard and inspect Zerone without providing credentials,
+connecting a wallet, or changing chain state. A visitor who already controls a
+`zrn1…` account may optionally connect Keplr to read that address and balance.
+
+New-account admission, key creation, starter funds, identity or passport
+claims, reward claims, Pi sign-in, fee sponsorship, and onboarding
+transactions remain paused. Reopening any of those lanes requires the current
+release-bound operator packet and explicit authorization described in
+[`deploy/mainnet/JOIN.md`](../deploy/mainnet/JOIN.md). The public onboarding
+surface must not be treated as that authorization. Existing-account send tools
+remain outside the first-run path and require a separate user action and Keplr
+review.
+
+The readiness strip progressively reports the live-record check and optional
+wallet connection, but its honest static defaults remain useful if JavaScript
+does not load. Network freshness allows 75 seconds: two observed 30-second
+block intervals plus polling and transport latency. This avoids calling a
+normally producing chain stalled while still surfacing a genuinely old block.
+
 ## Run locally
 
 ```bash
@@ -677,6 +700,14 @@ third-party executable content and that the deep link settles on the
 observatory after its static artifact is verified. In the browser network log,
 the Authority Geometry explorer itself must request only that static JSON: no
 API query, wallet request, signature, transaction, or write is part of it.
+
+Also verify `https://zerone.ai/#onboarding` on desktop and mobile with and
+without JavaScript. The hero and compact header must reach the section; the
+zero-account route must remain usable; the existing-account action must be
+clearly optional; and the new-account lane must remain visibly paused. Confirm
+that the live status reports `zerone-1` only after a fresh, non-syncing block,
+that `/api/pi/me` remains disabled, and that no onboarding action requests a
+secret, payment, signature, or transaction.
 
 ## Security boundaries
 

@@ -29,6 +29,10 @@ import type { FeeGrantAllowance } from "./feegrant";
 import { initialiseMathFrontier } from "./math-frontier";
 import { initialiseFoldToFire } from "./fold-to-fire";
 import { initialiseResearchCommons } from "./research-commons";
+import {
+  assessNetworkReadiness,
+  initialiseOnboarding,
+} from "./onboarding";
 import type { WalletState } from "./wallet";
 
 const byId = <T extends HTMLElement>(id: string): T => {
@@ -101,6 +105,7 @@ const frontierParticipationRoot = byId<HTMLElement>(
 );
 const piPilotSection = byId<HTMLElement>("contribute");
 const toast = byId<HTMLDivElement>("toast");
+const onboarding = initialiseOnboarding(byId<HTMLElement>("onboarding"));
 
 let snapshot: NetworkSnapshot | null = null;
 let connectedWallet: WalletState | null = null;
@@ -394,20 +399,30 @@ function updateSnapshot(next: NetworkSnapshot): void {
   const previous = snapshot;
   snapshot = next;
   const blockAgeMs = Date.now() - Date.parse(next.blockTime);
-  const fresh = blockAgeMs >= 0 && blockAgeMs <= 30_000;
   const regressed = previous !== null && next.height < previous.height;
-  const healthy = next.chainId === CHAIN_ID && !next.catchingUp && fresh && !regressed;
-  const stateLabel = regressed
-    ? "Height regression"
-    : !fresh
-      ? "Mainnet stale"
-      : next.catchingUp
-        ? "Node syncing"
-        : `${CHAIN_ID} live`;
+  const chainMatches = next.chainId === CHAIN_ID;
+  const readiness = assessNetworkReadiness({
+    blockAgeMs,
+    catchingUp: next.catchingUp,
+    chainMatches,
+    regressed,
+  });
+  const fresh = readiness === "ready" || readiness === "syncing";
+  const healthy = readiness === "ready";
+  const stateLabel = !chainMatches
+    ? "Wrong network"
+    : regressed
+      ? "Height regression"
+      : !fresh
+        ? "Mainnet stale"
+        : next.catchingUp
+          ? "Node syncing"
+          : `${CHAIN_ID} live`;
   setNetworkState(
-    healthy ? "online" : regressed || !fresh ? "offline" : "loading",
+    healthy ? "online" : readiness === "syncing" ? "loading" : "offline",
     stateLabel,
   );
+  onboarding.setNetwork(readiness);
   heroHeight.textContent = formatHeight(next.height);
   heroBlockAge.textContent = `sealed ${timeAgo(next.blockTime)}`;
   heroState.textContent = healthy
@@ -513,6 +528,7 @@ async function refreshNetwork(showFailure = true): Promise<void> {
     }
   } catch (error) {
     setNetworkState("offline", "Mainnet unavailable");
+    onboarding.setNetwork("unavailable");
     heroState.textContent = snapshot ? "Stale snapshot" : "Unavailable";
     heroBlockAge.textContent = snapshot
       ? `last sealed ${timeAgo(snapshot.blockTime)}`
@@ -685,6 +701,11 @@ function renderWallet(wallet: WalletState): void {
     button.title = wallet.address;
     button.disabled = false;
   });
+  onboarding.setWallet({
+    state: "connected",
+    address: wallet.address,
+    balanceZrn: microToDisplay(wallet.balanceUzrn),
+  });
 }
 
 function renderWalletDisconnected(): void {
@@ -700,12 +721,11 @@ function renderWalletDisconnected(): void {
   document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
     button.disabled = false;
     button.removeAttribute("title");
-    button.textContent = button.classList.contains("compact")
-      ? "Connect wallet"
-      : button.closest(".hero")
-        ? "Open your wallet"
-        : "Connect Keplr";
+    button.textContent =
+      button.dataset.disconnectedLabel ??
+      (button.classList.contains("compact") ? "Connect wallet" : "Connect Keplr");
   });
+  onboarding.setWallet({ state: "disconnected" });
 }
 
 async function handleWalletConnect(): Promise<void> {
@@ -716,6 +736,7 @@ async function handleWalletConnect(): Promise<void> {
   if (walletConnectRunning) return;
   const requestedEpoch = walletEpoch;
   walletConnectRunning = true;
+  onboarding.setWallet({ state: "connecting" });
   const buttons = document.querySelectorAll<HTMLButtonElement>(".wallet-connect");
   buttons.forEach((button) => {
     button.disabled = true;
@@ -730,7 +751,9 @@ async function handleWalletConnect(): Promise<void> {
   } catch (error) {
     if (requestedEpoch !== walletEpoch) return;
     renderWalletDisconnected();
-    showToast(readableError(error), "error");
+    const message = readableError(error);
+    onboarding.setWallet({ state: "error", message });
+    showToast(message, "error");
   } finally {
     walletConnectRunning = false;
     if (requestedEpoch !== walletEpoch && connectedWallet === null) {
@@ -1108,6 +1131,7 @@ async function initialisePiPilotIfEnabled(): Promise<void> {
 
 document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
   button.addEventListener("click", () => void handleWalletConnect());
+  button.disabled = false;
 });
 byId("wallet-refresh").addEventListener("click", () => void handleWalletRefresh());
 byId("pools-refresh").addEventListener("click", () => void refreshNetwork());
