@@ -211,10 +211,15 @@
                 class="button button-ghost wallet-connect"
                 type="button"
                 data-disconnected-label="Connect existing account"
+                data-js-required="wallet"
+                disabled
               >
                 Connect existing account
               </button>
-              <small>Connection is not account creation, admission, identity proof, or funding.</small>
+              <small>
+                Requires JavaScript and Keplr. Connection is not account creation,
+                admission, identity proof, or funding.
+              </small>
             </li>
             <li data-path="new-account">
               <span class="onboarding-path-state">Paused in this release</span>
@@ -385,9 +390,15 @@
               </div>
               <h3>Bring your own key.</h3>
               <p>Connect an existing <code>zrn1…</code> account. This site takes no custody and needs no login.</p>
-              <button class="button button-primary wallet-connect" type="button">
+              <button
+                class="button button-primary wallet-connect"
+                type="button"
+                data-js-required="wallet"
+                disabled
+              >
                 Connect Keplr
               </button>
+              <small>Requires JavaScript and the Keplr extension.</small>
               <a href="https://www.keplr.app/" target="_blank" rel="noreferrer">Get Keplr ↗</a>
             </div>
 

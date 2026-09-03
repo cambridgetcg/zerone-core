@@ -71,7 +71,10 @@ describe("production onboarding surface", () => {
     assert.match(text, /Explore without joining/u);
     assert.match(text, /Completion: you reach the dashboard with zero credentials requested/u);
     assert.match(text, /Bring an existing account/u);
-    assert.match(text, /Connection is not account creation, admission, identity proof, or funding/u);
+    assert.match(
+      text,
+      /Requires JavaScript and Keplr\. Connection is not account creation, admission, identity proof, or funding/u,
+    );
     assert.match(text, /Need a new account\? Paused in this release|Paused in this release Need a new account\?/u);
     assert.match(text, /No signup, key creation, starter funds, or waitlist is active/u);
     assert.match(text, /Do not send money, secrets, identity documents, or seed phrases/u);
@@ -80,7 +83,7 @@ describe("production onboarding surface", () => {
     assert.equal(onboarding.match(/<button\b/gu)?.length, 1);
     assert.match(
       onboarding,
-      /<button[\s\S]*class="button button-ghost wallet-connect"[\s\S]*data-disconnected-label="Connect existing account"/u,
+      /<button[\s\S]*class="button button-ghost wallet-connect"[\s\S]*data-disconnected-label="Connect existing account"[\s\S]*data-js-required="wallet"[\s\S]*disabled/u,
     );
     assert.doesNotMatch(onboarding, /<(?:form|input|select|textarea|dialog)\b/iu);
     assert.doesNotMatch(onboarding, /\b(?:data-endpoint|data-fetch|data-secret|data-create)\s*=/iu);
@@ -99,6 +102,7 @@ describe("production onboarding surface", () => {
       onboarding,
       /deploy\/mainnet\/JOIN\.md#onboarding-and-transaction-lanes-are-paused/u,
     );
+    assert.doesNotMatch(onboarding, /<noscript\b/iu);
     assert.doesNotMatch(onboarding, /<script\b|\son[a-z]+\s*=/iu);
   });
 
@@ -108,7 +112,36 @@ describe("production onboarding surface", () => {
     assert.match(main, /onboarding\.setNetwork\("unavailable"\)/u);
     assert.match(main, /onboarding\.setWallet\(\{ state: "connecting" \}\)/u);
     assert.match(main, /onboarding\.setWallet\(\{ state: "error", message \}\)/u);
+    assert.match(
+      main,
+      /\.wallet-connect"\)\.forEach\(\(button\) => \{[\s\S]*button\.addEventListener\("click"[\s\S]*button\.disabled = false;/u,
+    );
     assert.doesNotMatch(main, /(?:create|register|issue|fund)Onboarding/u);
+  });
+
+  it("keeps both wallet controls honest until their handlers exist", () => {
+    const walletButtons = [...html.matchAll(/<button[\s\S]*?<\/button>/gu)].filter(
+      ([button]) => button.includes("wallet-connect"),
+    );
+
+    assert.equal(walletButtons.length, 2);
+    for (const [button] of walletButtons) {
+      assert.match(button, /data-js-required="wallet"/u);
+      assert.match(button, /\sdisabled(?:\s|>)/u);
+    }
+    assert.equal(html.match(/Requires JavaScript and (?:Keplr|the Keplr extension)\./gu)?.length, 2);
+
+    const registrationStart = main.indexOf(
+      'document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {',
+    );
+    const registrationEnd = main.indexOf("});", registrationStart);
+    const registration = main.slice(registrationStart, registrationEnd);
+    assert.ok(registrationStart >= 0);
+    assert.ok(registrationEnd > registrationStart);
+    assert.ok(
+      registration.indexOf('button.addEventListener("click"') <
+        registration.indexOf("button.disabled = false;"),
+    );
   });
 
   it("uses a three-to-one responsive layout with visible status tones", () => {
