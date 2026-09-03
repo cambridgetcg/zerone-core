@@ -1,0 +1,195 @@
+{
+  "_format": "zerone-agenttool-supabase-observatory-manifest/0.1",
+  "protocol": "zerone-agenttool-supabase-observatory/0.1",
+  "status": "SOURCE_ONLY_OFFLINE_NO_EFFECT",
+  "as_of": "2026-08-21T09:42:59Z",
+  "source_pins": [
+    {
+      "id": "zerone.research-commons-spec",
+      "owner": "ZERONE",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/zerone-core",
+      "revision": "264f3c383f408729f4d0c27d332cd454c9eb4400",
+      "path": "docs/specs/research-commons-rc-0.1.md",
+      "raw_sha256": "sha256:cff28edbbc7bbad80a101555257046173c19ac05b80b14a9d93317f220dccce7",
+      "pin_role": "CURRENT",
+      "verification": "LOCAL_BYTES"
+    },
+    {
+      "id": "zerone.research-commons-manifest",
+      "owner": "ZERONE",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/zerone-core",
+      "revision": "264f3c383f408729f4d0c27d332cd454c9eb4400",
+      "path": "dashboard/public/standards/research-commons.v0.1.json",
+      "raw_sha256": "sha256:94f020f1d37faac48300d14071ec995245aedbdc7f08fc19cafd3797450cdb8c",
+      "pin_role": "CURRENT",
+      "verification": "LOCAL_BYTES"
+    },
+    {
+      "id": "zerone.tok-substrate-doctrine",
+      "owner": "ZERONE",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/zerone-core",
+      "revision": "264f3c383f408729f4d0c27d332cd454c9eb4400",
+      "path": "docs/TOK_SUBSTRATE.md",
+      "raw_sha256": "sha256:4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328",
+      "pin_role": "CURRENT",
+      "verification": "LOCAL_BYTES"
+    },
+    {
+      "id": "zerone.tok-bundle-implementation",
+      "owner": "ZERONE",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/zerone-core",
+      "revision": "264f3c383f408729f4d0c27d332cd454c9eb4400",
+      "path": "x/knowledge/keeper/tok_bundle.go",
+      "raw_sha256": "sha256:e2d786d7287a2194ff858d47de84e3b140c9922b7ef37dcfadaec74be675f248",
+      "pin_role": "CURRENT",
+      "verification": "LOCAL_BYTES"
+    },
+    {
+      "id": "zerone.static-tree",
+      "owner": "ZERONE",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/zerone-core",
+      "revision": "264f3c383f408729f4d0c27d332cd454c9eb4400",
+      "path": "dashboard/public/standards/constructive-intelligence-tree.v1.json",
+      "raw_sha256": "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf",
+      "pin_role": "CURRENT",
+      "verification": "LOCAL_BYTES"
+    },
+    {
+      "id": "zerone.knowledge-geometry-projection",
+      "owner": "ZERONE",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/zerone-core",
+      "revision": "264f3c383f408729f4d0c27d332cd454c9eb4400",
+      "path": "dashboard/functions/api/_knowledge.ts",
+      "raw_sha256": "sha256:c828c0cd0cdca353d6fd6005d3e3e113cda964123d4a7722d060ad5ed9baed9e",
+      "pin_role": "CURRENT",
+      "verification": "LOCAL_BYTES"
+    },
+    {
+      "id": "agenttool.research-commons-static-interop",
+      "owner": "AGENTTOOL",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/agenttool",
+      "revision": "796a753ab8624ad11af621ef4572544ea3b8f463",
+      "path": "packages/research-commons/interop/research-commons-zerone-v0.1.json",
+      "raw_sha256": "sha256:8c5b1749447c1587b89b238dadb5113e10230df19fd3f4e7942d9a163aef6a8a",
+      "pin_role": "CURRENT",
+      "verification": "EXTERNAL_PIN_LITERAL"
+    },
+    {
+      "id": "agenttool.supabase-stack-baseline",
+      "owner": "AGENTTOOL",
+      "source_state": "CURRENT_TRACKED",
+      "repository": "https://github.com/cambridgetcg/agenttool",
+      "revision": "796a753ab8624ad11af621ef4572544ea3b8f463",
+      "path": "docs/STACK.md",
+      "raw_sha256": "sha256:207b66a20bf8dd34ac8637d9783858a7ae897afeb531285bbe5078f3bd890d43",
+      "pin_role": "CURRENT",
+      "verification": "EXTERNAL_PIN_LITERAL"
+    }
+  ],
+  "pending_bindings": [
+    {
+      "id": "agenttool.supabase-research-shadow-hosting-profile",
+      "owner": "AGENTTOOL",
+      "state": "PENDING_UNTRACKED",
+      "repository": "https://github.com/cambridgetcg/agenttool",
+      "revision": null,
+      "path": null,
+      "raw_sha256": null,
+      "authority_transfer": false,
+      "integration_ready": false
+    }
+  ],
+  "schema": {
+    "path": "tools/zerone-supabase-observatory/protocol/observation-journal.v0.1.schema.json",
+    "raw_sha256": "sha256:87270fec29894f7ebf12d752db583ed355dd951bc99387727a6743abc70abd3b",
+    "dialect": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "fixtures": [
+    {
+      "id": "valid-current-observation",
+      "path": "tools/zerone-supabase-observatory/testdata/valid-current-observation.json",
+      "raw_sha256": "sha256:a36ca02882fc0037416a3f4c9685d74808b87fd97d1158402fb8181291ba4c1b",
+      "expected_decision": "ACCEPT",
+      "expected_observation_count": 1,
+      "expected_conflict_groups": 0
+    },
+    {
+      "id": "same-height-conflicts-preserved",
+      "path": "tools/zerone-supabase-observatory/testdata/same-height-conflicts-preserved.json",
+      "raw_sha256": "sha256:f7b054d1ec9c931aee3dc801e94b6a312bddd4f67d5685e14dc7b8fc112a7afb",
+      "expected_decision": "ACCEPT",
+      "expected_observation_count": 2,
+      "expected_conflict_groups": 1
+    },
+    {
+      "id": "truncated-unavailable-source-fails-closed",
+      "path": "tools/zerone-supabase-observatory/testdata/truncated-unavailable-source-fails-closed.json",
+      "raw_sha256": "sha256:2de3741ad8f999cb2accd8cb4529bf9c90bbcdb7e2b1d25c5714f12df7dd827f",
+      "expected_decision": "REJECT",
+      "expected_observation_count": 0,
+      "expected_conflict_groups": 0
+    }
+  ],
+  "semantics": {
+    "graph_kinds": ["STATIC_TREE", "TOK_ONCHAIN", "KNOWLEDGE_GEOMETRY"],
+    "tok_height_mode": "CURRENT_ONLY",
+    "tok_request_at_block_height": 0,
+    "tok_root_scope": "VERSIONED_TOPOLOGY_AND_LIFECYCLE_NOT_FULL_NODE_PAYLOAD",
+    "raw_payload_digest_required": true,
+    "same_height_conflict_policy": "PRESERVE_ALL_DISTINCT_OBSERVATIONS",
+    "unavailable_source_policy": "FAIL_CLOSED_NO_SUBSTITUTION",
+    "supabase_projection_relation": "PROJECTS_REBUILDABLE_READ_MODEL",
+    "database_ordering_authority": "NONE",
+    "database_timestamp_authority": "NONE",
+    "scientific_authority": "NONE",
+    "observation_id_canonicalization": "SHA256_DOMAIN_NUL_RECURSIVE_ASCII_KEY_SORTED_COMPACT_JSON_WITHOUT_ID"
+  },
+  "candidate_effects": {
+    "network": false,
+    "storage": false,
+    "database_read": false,
+    "database_write": false,
+    "agenttool_api_write": false,
+    "hosted_route": false,
+    "economic": false,
+    "governance": false,
+    "consensus": false,
+    "identity": false,
+    "permission": false,
+    "authority_transfer": false,
+    "karma": false,
+    "nen": false,
+    "score": false,
+    "chain_read": false,
+    "chain_write": false,
+    "knowledge_admission": false,
+    "scientific_adjudication": false,
+    "wallet": false,
+    "escrow": false,
+    "payout": false,
+    "reward": false,
+    "zrn": false,
+    "integration_ready": false
+  },
+  "validator_execution": {
+    "network": false,
+    "local_file_read": "BOUNDED_EXPLICIT_REPOSITORY_FILES",
+    "local_file_write": false,
+    "database": false,
+    "chain": false,
+    "economic": false,
+    "governance": false,
+    "identity": false,
+    "permission": false,
+    "karma": false,
+    "nen": false,
+    "score": false
+  }
+}
