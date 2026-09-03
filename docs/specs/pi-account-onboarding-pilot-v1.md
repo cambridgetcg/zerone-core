@@ -84,10 +84,16 @@ subject pepper in a preview.
 
 ## Authentication boundary
 
-`GET /api/pi/authorize` is the only OAuth entry. The edge generates a random
-browser transaction and random OAuth state, stores only keyed or one-way
-representations with a short expiry, sets a Secure, HttpOnly, SameSite cookie,
-and redirects to Pi's fixed authorization host.
+`POST /api/pi/authorize` is the only OAuth entry. After the local consent step,
+the browser sends an empty same-origin JSON request. The edge requires the exact
+configured `Origin` and `Sec-Fetch-Site: same-origin`; missing or cross-site
+metadata, legacy GET navigation, query parameters, and non-empty bodies fail
+before OAuth state is created. The edge generates a random browser transaction
+and random OAuth state, stores only keyed or one-way representations with a
+short expiry, sets a Secure, HttpOnly, SameSite cookie, and returns the fixed Pi
+authorization URL as no-store JSON. Before navigation, the browser validates
+the exact Pi HTTPS origin and path, fixed response type and scope, exact local
+callback, bounded client ID, and opaque state.
 
 Pi returns the bearer in the callback fragment. The dedicated callback:
 
@@ -412,7 +418,10 @@ Before phase A activation:
   current keyset fingerprint, and monotonic replay, challenge-use, pepper, and
   revocation state; and successful integrity/preflight checks before the
   restored database can serve or Pi can be re-enabled;
-- cookie, Origin, CSRF, cache, CSP, and referrer-policy checks pass; and
+- cookie, Origin, CSRF, cache, CSP, and referrer-policy checks pass;
+- the OAuth entry rejects legacy GET, missing or cross-site Origin/fetch
+  metadata, query parameters, and non-empty bodies without creating state, and
+  the client refuses any authorization URL outside the exact Pi contract; and
 - the UI copy and anonymous path receive product/security review.
 
 Before phase B activation:

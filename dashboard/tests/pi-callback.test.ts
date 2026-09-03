@@ -20,9 +20,14 @@ const CALLBACK_SOURCE_PATH = resolve(
   DASHBOARD_ROOT,
   "src/pi-callback.ts",
 );
+const CALLBACK_STYLES_PATH = resolve(
+  DASHBOARD_ROOT,
+  "pi/callback/callback.css",
+);
 const PI_TRANSPORT_PATH = resolve(DASHBOARD_ROOT, "src/pi.ts");
 const MAIN_SOURCE_PATH = resolve(DASHBOARD_ROOT, "src/main.ts");
 const MAIN_HTML_PATH = resolve(DASHBOARD_ROOT, "index.html");
+const MAIN_STYLES_PATH = resolve(DASHBOARD_ROOT, "src/styles.css");
 const HEADERS_PATH = resolve(DASHBOARD_ROOT, "public/_headers");
 const STATE = "s".repeat(43);
 const ACCESS_TOKEN = "pi-token.with_safe-characters_1234567890";
@@ -245,6 +250,49 @@ describe("Pi callback page hardening", () => {
     assert.match(transport, /redirect: "error"/);
     assert.match(transport, /piRequest\("\/api\/pi\/session"/);
     assert.doesNotMatch(transport, /accessToken.*(?:searchParams|localStorage)/);
+  });
+
+  it("keeps a visible safe return when callback JavaScript is absent", () => {
+    const html = readFileSync(CALLBACK_HTML_PATH, "utf8");
+    const source = readFileSync(CALLBACK_SOURCE_PATH, "utf8");
+    const styles = readFileSync(CALLBACK_STYLES_PATH, "utf8");
+    const returnTag = html.match(/<a\s+id="callback-return"[^>]*>/u)?.[0];
+
+    assert.ok(returnTag);
+    assert.doesNotMatch(returnTag, /\bhidden\b/u);
+    assert.match(returnTag, /href="\/#contribute"/u);
+    assert.match(
+      html,
+      /<h1 id="callback-title">Sign-in could not be completed\.<\/h1>/u,
+    );
+    assert.match(
+      html,
+      /<noscript>[\s\S]*JavaScript is disabled[\s\S]*private URL[\s\S]*fragment[\s\S]*<\/noscript>/u,
+    );
+    assert.match(styles, /\.callback-fallback\s*\{[^}]*color:\s*#ffc56f/su);
+    assert.match(
+      source,
+      /setCallbackCopy\(\s*"Finishing sign-in…",[\s\S]*?true,\s*\);/u,
+    );
+  });
+
+  it("restores a high-contrast keyboard focus cue for Pi confirmation rows", () => {
+    const styles = readFileSync(MAIN_STYLES_PATH, "utf8");
+    const genericSuppression = styles.indexOf(".send-dialog input:focus");
+    const restoredFocus = styles.indexOf(
+      ".send-dialog .pi-check-row input:focus-visible",
+    );
+
+    assert.ok(genericSuppression >= 0);
+    assert.ok(restoredFocus > genericSuppression);
+    assert.match(
+      styles,
+      /\.send-dialog \.pi-check-row:focus-within\s*\{[^}]*border-color:\s*var\(--acid\)[^}]*box-shadow:\s*0 0 0 2px var\(--acid\)/su,
+    );
+    assert.match(
+      styles,
+      /\.send-dialog \.pi-check-row input:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--acid\)[^}]*outline-offset:\s*3px/su,
+    );
   });
 
   it("keeps both pilot phases independent and default-off", () => {

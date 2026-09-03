@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#09090c" />
     <meta
       name="description"
-      content="The live Zerone dashboard: hold your keys; inspect bounded knowledge; read proposed mappings and invariant constraints; trace a static curriculum."
+      content="Explore the live Zerone record without an account, or connect an existing wallet when you are ready. New-account admission remains paused."
     />
     <meta property="og:title" content="ZERONE — Mainnet Dashboard" />
     <meta
@@ -30,6 +30,7 @@
         </a>
 
         <nav class="topnav" aria-label="Primary navigation">
+          <a href="#onboarding">Start</a>
           <a href="#wallet">Wallet</a>
           <a href="#liquidity">Liquidity</a>
           <a href="#activity">Activity</a>
@@ -51,9 +52,7 @@
             <span class="pulse-dot"></span>
             <span id="network-pill-label">Connecting</span>
           </div>
-          <button class="button button-primary compact wallet-connect" type="button">
-            Connect wallet
-          </button>
+          <a class="button button-primary compact" href="#onboarding">Start here</a>
         </div>
       </header>
 
@@ -63,13 +62,13 @@
             <div class="eyebrow"><span>01</span> The mainnet record</div>
             <h1 id="hero-title">The record<br /><em>is live.</em></h1>
             <p class="hero-lede">
-              Read the chain as it is. Hold your own keys. Watch each ZRN issuance,
-              block by witnessed block.
+              Read the chain as it is. No account is needed to explore. Watch the
+              issued supply and each newly witnessed block.
             </p>
             <div class="hero-actions">
-              <button class="button button-primary wallet-connect" type="button">
-                Open your wallet
-              </button>
+              <a class="button button-primary" href="#onboarding">
+                Start here <span aria-hidden="true">↓</span>
+              </a>
               <a
                 class="button button-ghost"
                 href="https://github.com/cambridgetcg/zerone-core"
@@ -78,9 +77,6 @@
               >Read the code <span aria-hidden="true">↗</span></a>
               <a class="button button-ghost" href="#honest-state">
                 Begin with honest state <span aria-hidden="true">↓</span>
-              </a>
-              <a class="button button-ghost" href="#participate">
-                Read the open door <span aria-hidden="true">↓</span>
               </a>
             </div>
           </div>
@@ -147,6 +143,103 @@
             rel="noreferrer"
           >Read the trust model <span aria-hidden="true">↗</span></a>
         </aside>
+
+        <section
+          class="section onboarding reveal"
+          id="onboarding"
+          aria-labelledby="onboarding-title"
+        >
+          <header class="onboarding-heading">
+            <div>
+              <p class="eyebrow"><span>START</span> First visit · production scope</p>
+              <h2 id="onboarding-title">Start with what<br /><em>is available.</em></h2>
+            </div>
+            <p>
+              Zerone is open to inspect before you connect anything. Existing
+              <code>zrn1…</code> accounts can be viewed through Keplr. New-account
+              admission, starter funds, identity claims, and Pi sign-in remain paused
+              in this release.
+            </p>
+          </header>
+
+          <div
+            class="onboarding-readiness"
+            id="onboarding-readiness"
+            aria-label="Onboarding readiness"
+            aria-live="polite"
+            aria-atomic="false"
+          >
+            <div data-onboarding-status="network" data-tone="checking">
+              <span>Live record</span>
+              <strong id="onboarding-network-state">Checking mainnet</strong>
+              <small id="onboarding-network-detail">Reading chain identity and latest block.</small>
+            </div>
+            <div data-onboarding-status="wallet" data-tone="neutral">
+              <span>Existing account</span>
+              <strong id="onboarding-wallet-state">Optional</strong>
+              <small id="onboarding-wallet-detail">Explore first, or connect an existing account.</small>
+            </div>
+            <div data-onboarding-status="admission" data-tone="paused">
+              <span>New account</span>
+              <strong>Paused</strong>
+              <small>No signup, key creation, starter funds, or waitlist is active.</small>
+            </div>
+          </div>
+
+          <ol class="onboarding-choices" role="list">
+            <li data-path="explore">
+              <span class="onboarding-path-state">Available now · no wallet</span>
+              <h3>Explore without joining</h3>
+              <p>
+                Read live blocks, supply, authority boundaries, and the static learning
+                path. Opening these views creates no account and writes nothing to the
+                chain.
+              </p>
+              <a class="button button-primary" href="#reading-path">
+                Explore Zerone <span aria-hidden="true">↓</span>
+              </a>
+              <small>Completion: you reach the dashboard with zero credentials requested.</small>
+            </li>
+            <li data-path="existing-wallet">
+              <span class="onboarding-path-state">Optional · existing accounts only</span>
+              <h3>Bring an existing account</h3>
+              <p>
+                Connect Keplr to read your <code>zerone-1</code> address and balance.
+                The extension keeps your seed and asks before any separate transaction.
+              </p>
+              <button
+                class="button button-ghost wallet-connect"
+                type="button"
+                data-disconnected-label="Connect existing account"
+              >
+                Connect existing account
+              </button>
+              <small>Connection is not account creation, admission, identity proof, or funding.</small>
+            </li>
+            <li data-path="new-account">
+              <span class="onboarding-path-state">Paused in this release</span>
+              <h3>Need a new account?</h3>
+              <p>
+                There is no production-safe issuance path yet. Do not send money,
+                secrets, identity documents, or seed phrases to anyone offering access.
+              </p>
+              <a
+                class="button button-ghost"
+                href="https://github.com/cambridgetcg/zerone-core/blob/main/deploy/mainnet/JOIN.md#onboarding-and-transaction-lanes-are-paused"
+                target="_blank"
+                rel="noreferrer"
+              >Read the current pause <span aria-hidden="true">↗</span></a>
+              <small>Reopening requires a release-bound operator packet and explicit authorization.</small>
+            </li>
+          </ol>
+
+          <p class="onboarding-boundary">
+            <strong>Release boundary.</strong> This start path never creates keys,
+            registers an identity, requests payment, distributes ZRN, claims rewards,
+            or broadcasts a transaction. Wallet send tools remain a separate,
+            user-initiated surface for already funded accounts.
+          </p>
+        </section>
 
         <nav
           class="section reading-path reveal"
@@ -404,8 +497,9 @@
             <div class="eyebrow"><span>05</span> Verify, don't trust</div>
             <h2 id="network-title">Network</h2>
             <p>
-              Zerone began with a disclosed 13,555 ZRN genesis. New supply is minted
-              through participation-gated work and bootstrap claims, under a fixed cap.
+              Zerone began with a disclosed 13,555 ZRN genesis. Issuance is readable
+              on-chain under a fixed cap; this dashboard does not attribute every unit
+              to participation.
             </p>
           </div>
 
@@ -431,7 +525,7 @@
                 <div><dt>Native denom</dt><dd>uzrn · 6 decimals</dd></div>
                 <div><dt>Address prefix</dt><dd>zrn</dd></div>
                 <div><dt>Minimum gas price</dt><dd>1 uzrn / gas</dd></div>
-                <div><dt>Target block time</dt><dd>≈ 2.5 seconds</dd></div>
+                <div><dt>Observed block cadence</dt><dd>≈ 30 seconds</dd></div>
                 <div><dt>Consensus</dt><dd>CometBFT 0.38</dd></div>
                 <div><dt>Network started</dt><dd>8 July 2026</dd></div>
               </dl>

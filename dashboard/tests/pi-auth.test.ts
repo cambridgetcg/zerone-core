@@ -643,20 +643,39 @@ interface OAuthStart {
   readonly browserCookie: string;
 }
 
+function authorizationRequest(
+  url = `${ORIGIN}/api/pi/authorize`,
+  headers: HeadersInit = {},
+  body = {},
+): Request {
+  return new Request(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: ORIGIN,
+      "Sec-Fetch-Site": "same-origin",
+      ...Object.fromEntries(new Headers(headers)),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 async function startOAuth(
   testHarness: Harness,
   env: PiEnv = ENV,
 ): Promise<OAuthStart> {
   const response = await handlePiRequest(
     "authorize",
-    new Request(`${ORIGIN}/api/pi/authorize`),
+    authorizationRequest(),
     env,
     testHarness.runtime,
   );
-  assert.equal(response.status, 302);
-  const location = response.headers.get("Location");
-  if (!location) assert.fail("authorize response did not include Location");
-  const target = new URL(location);
+  assert.equal(response.status, 200);
+  const body = (await response.clone().json()) as JsonRecord;
+  if (typeof body.authorizationUrl !== "string") {
+    assert.fail("authorize response did not include authorizationUrl");
+  }
+  const target = new URL(body.authorizationUrl);
   return {
     state: target.searchParams.get("state") ?? "",
     browserCookie: cookieValue(response, "__Host-zrn-pi-oauth"),
@@ -802,13 +821,17 @@ test("authorize uses fixed Pi OAuth parameters and a distinct browser transactio
   const testHarness = harness();
   const response = await handlePiRequest(
     "authorize",
-    new Request(`${ORIGIN}/api/pi/authorize`),
+    authorizationRequest(),
     ENV,
     testHarness.runtime,
   );
 
-  assert.equal(response.status, 302);
-  const target = new URL(response.headers.get("Location") ?? "");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Location"), null);
+  assert.match(response.headers.get("Content-Type") ?? "", /^application\/json/u);
+  const body = (await response.clone().json()) as JsonRecord;
+  assert.equal(typeof body.authorizationUrl, "string");
+  const target = new URL(String(body.authorizationUrl));
   assert.equal(target.origin, "https://accounts.pinet.com");
   assert.equal(target.pathname, "/oauth/authorize");
   assert.deepEqual(
@@ -830,6 +853,87 @@ test("authorize uses fixed Pi OAuth parameters and a distinct browser transactio
   assert.match(response.headers.get("Set-Cookie") ?? "", /SameSite=Lax/u);
   assert.equal(testHarness.repository.oauthFlows.get(hashOpaque(state))?.browserHash, hashOpaque(browser));
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+});
+
+test("authorize rejects cross-site, headerless, and legacy GET initiation before creating state", async () => {
+  const testHarness = harness();
+  const requests = [
+    new Request(`${ORIGIN}/api/pi/authorize`, {
+      headers: {
+        Origin: ORIGIN,
+        "Sec-Fetch-Site": "same-origin",
+      },
+    }),
+    new Request(`${ORIGIN}/api/pi/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://attacker.invalid",
+        "Sec-Fetch-Site": "cross-site",
+      },
+      body: "{}",
+    }),
+    new Request(`${ORIGIN}/api/pi/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: ORIGIN,
+        "Sec-Fetch-Site": "cross-site",
+      },
+      body: "{}",
+    }),
+    new Request(`${ORIGIN}/api/pi/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Sec-Fetch-Site": "same-origin",
+      },
+      body: "{}",
+    }),
+    new Request(`${ORIGIN}/api/pi/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: ORIGIN,
+      },
+      body: "{}",
+    }),
+  ];
+
+  for (const [index, request] of requests.entries()) {
+    const response = await handlePiRequest(
+      "authorize",
+      request,
+      ENV,
+      testHarness.runtime,
+    );
+    assert.equal(response.status, index === 0 ? 405 : 403);
+    assert.equal(response.headers.get("Set-Cookie"), null);
+    assert.equal(response.headers.get("Location"), null);
+  }
+  assert.equal(testHarness.repository.oauthFlows.size, 0);
+});
+
+test("authorize rejects query parameters and non-empty JSON before creating state", async () => {
+  const testHarness = harness();
+  const withQuery = await handlePiRequest(
+    "authorize",
+    authorizationRequest(`${ORIGIN}/api/pi/authorize?next=pi`),
+    ENV,
+    testHarness.runtime,
+  );
+  const withBody = await handlePiRequest(
+    "authorize",
+    authorizationRequest(`${ORIGIN}/api/pi/authorize`, {}, { next: "pi" }),
+    ENV,
+    testHarness.runtime,
+  );
+
+  assert.equal(withQuery.status, 400);
+  assert.equal(withBody.status, 400);
+  assert.equal(withQuery.headers.get("Set-Cookie"), null);
+  assert.equal(withBody.headers.get("Set-Cookie"), null);
+  assert.equal(testHarness.repository.oauthFlows.size, 0);
 });
 
 test("session atomically consumes state, browser transaction, and bearer before fixed /v2/me", async () => {
@@ -2005,11 +2109,11 @@ test("a paused v1 session cannot mint after the D1 pepper floor advances", async
   };
   const rollout = await handlePiRequest(
     "authorize",
-    new Request(`${ORIGIN}/api/pi/authorize`),
+    authorizationRequest(),
     v2Overlap,
     testHarness.runtime,
   );
-  assert.equal(rollout.status, 302);
+  assert.equal(rollout.status, 200);
   releaseFetch?.();
   const staleResult = await pending;
   assert.equal(staleResult.status, 409);
