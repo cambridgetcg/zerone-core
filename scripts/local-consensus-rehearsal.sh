@@ -74,6 +74,27 @@ sha256_file() {
   fi
 }
 
+normalize_app_hash() {
+  python3 - "$1" <<'PY'
+import base64
+import binascii
+import re
+import sys
+
+value = sys.argv[1]
+if re.fullmatch(r"[0-9A-Fa-f]{64}", value):
+    print(value.lower())
+    raise SystemExit(0)
+try:
+    decoded = base64.b64decode(value, validate=True)
+except (binascii.Error, ValueError) as error:
+    raise SystemExit(f"invalid AppHash encoding: {error}")
+if len(decoded) != 32:
+    raise SystemExit(f"decoded AppHash is {len(decoded)} bytes, expected 32")
+print(decoded.hex())
+PY
+}
+
 is_owned_pid() {
   local index="$1" pid command_line
   pid="${NODE_PID[$index]:-}"
@@ -547,8 +568,10 @@ verify_offline_custom_staking_census() {
   printf '%s\n' "${abci_1}" > "${RUN_ROOT}/reports/census-node1-abci-info.json.raw"
   app_height_0="$(printf '%s' "${abci_0}" | jq -er '.result.response.last_block_height | select(test("^[1-9][0-9]*$"))')"
   app_height_1="$(printf '%s' "${abci_1}" | jq -er '.result.response.last_block_height | select(test("^[1-9][0-9]*$"))')"
-  app_hash_0="$(printf '%s' "${abci_0}" | jq -er '.result.response.last_block_app_hash | ascii_downcase | select(test("^[0-9a-f]{64}$"))')"
-  app_hash_1="$(printf '%s' "${abci_1}" | jq -er '.result.response.last_block_app_hash | ascii_downcase | select(test("^[0-9a-f]{64}$"))')"
+  app_hash_0="$(normalize_app_hash "$(printf '%s' "${abci_0}" | jq -er '.result.response.last_block_app_hash')")" || \
+    die "node 0 ABCI AppHash is neither 32-byte hexadecimal nor base64"
+  app_hash_1="$(normalize_app_hash "$(printf '%s' "${abci_1}" | jq -er '.result.response.last_block_app_hash')")" || \
+    die "node 1 ABCI AppHash is neither 32-byte hexadecimal nor base64"
   [ "${app_height_0}" = "${first_height}" ] || \
     die "node 0 ABCI height ${app_height_0} differs from halted consensus height ${first_height}"
   [ "${app_height_1}" = "${app_height_0}" ] || \
@@ -638,7 +661,7 @@ case "${KEEP}" in
   *) die "KEEP_REHEARSAL must be 0 or 1" ;;
 esac
 
-for dependency in go git jq curl lsof ps awk sed shasum rg; do
+for dependency in go git jq curl lsof ps awk sed shasum rg python3; do
   command -v "${dependency}" >/dev/null 2>&1 || die "${dependency} is required"
 done
 [ -f "${ROOT}/go.mod" ] || die "repository root not found at ${ROOT}"
@@ -689,21 +712,33 @@ LDFLAGS="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com
 BINARY_SHA="$(sha256_file "${BINARY}")"
 EXPECTED_COMET="$(cd "${ROOT}" && go list -m -f '{{.Version}}' github.com/cometbft/cometbft)"
 go version -m "${BINARY}" > "${RUN_ROOT}/reports/binary-build-info.txt"
+"${BINARY}" version --long --home "${RUN_ROOT}/cli" \
+  > "${RUN_ROOT}/reports/zeroned-version.txt" 2>&1 || die "fresh binary version query failed"
+VERSION_REPORT_COMMIT="$(sed -n 's/^commit: //p' "${RUN_ROOT}/reports/zeroned-version.txt")"
+VERSION_REPORT_VERSION="$(sed -n 's/^version: //p' "${RUN_ROOT}/reports/zeroned-version.txt")"
+[ "${VERSION_REPORT_COMMIT}" = "${SOURCE_FULL_HEAD}" ] || \
+  die "built binary explicit commit ${VERSION_REPORT_COMMIT:-missing} != checkout ${SOURCE_FULL_HEAD}"
+[ "${VERSION_REPORT_VERSION}" = "${VERSION}" ] || \
+  die "built binary version ${VERSION_REPORT_VERSION:-missing} != requested ${VERSION}"
 VCS_REVISION="$(sed -n 's/.*vcs\.revision=//p' "${RUN_ROOT}/reports/binary-build-info.txt")"
 VCS_MODIFIED="$(sed -n 's/.*vcs\.modified=//p' "${RUN_ROOT}/reports/binary-build-info.txt")"
-[ "${VCS_REVISION}" = "${SOURCE_FULL_HEAD}" ] || \
-  die "built binary VCS revision ${VCS_REVISION:-missing} != checkout ${SOURCE_FULL_HEAD}"
-if [ "${ALLOW_DIRTY}" -eq 0 ]; then
-  [ "${VCS_MODIFIED}" = "false" ] || \
-    die "definitive binary reports vcs.modified=${VCS_MODIFIED:-missing}, expected false"
+if [ -n "${VCS_REVISION}" ] || [ -n "${VCS_MODIFIED}" ]; then
+  [ "${VCS_REVISION}" = "${SOURCE_FULL_HEAD}" ] || \
+    die "built binary VCS revision ${VCS_REVISION:-missing} != checkout ${SOURCE_FULL_HEAD}"
+  if [ "${ALLOW_DIRTY}" -eq 0 ]; then
+    [ "${VCS_MODIFIED}" = "false" ] || \
+      die "definitive binary reports vcs.modified=${VCS_MODIFIED:-missing}, expected false"
+  else
+    [ "${VCS_MODIFIED}" = "true" ] || \
+      die "dirty development binary unexpectedly reports vcs.modified=${VCS_MODIFIED:-missing}"
+  fi
 else
-  [ "${VCS_MODIFIED}" = "true" ] || \
-    die "dirty development binary unexpectedly reports vcs.modified=${VCS_MODIFIED:-missing}"
+  printf '%s\n' \
+    "Go omitted optional VCS settings; exact commit is bound by the clean checkout, build command, and verified SDK commit field." \
+    > "${RUN_ROOT}/reports/go-vcs-stamp-note.txt"
 fi
 grep -F "github.com/cometbft/cometbft" "${RUN_ROOT}/reports/binary-build-info.txt" | \
   grep -F "${EXPECTED_COMET}" >/dev/null || die "built binary does not embed CometBFT ${EXPECTED_COMET}"
-"${BINARY}" version --long --home "${RUN_ROOT}/cli" \
-  > "${RUN_ROOT}/reports/zeroned-version.txt" 2>&1 || die "fresh binary version query failed"
 ok "fresh zeroned sha256=${BINARY_SHA}, CometBFT=${EXPECTED_COMET}"
 
 COORDINATOR="${RUN_ROOT}/coordinator"
