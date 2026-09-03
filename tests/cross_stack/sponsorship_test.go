@@ -23,6 +23,7 @@ import (
 // the worker's account grew, gated entirely by chain-side verification.
 func TestSponsorship_CreateFulfillEndToEnd(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	// Sponsor account, funded.
 	sponsor := sdk.AccAddress(make([]byte, 20))
@@ -91,6 +92,7 @@ func TestSponsorship_CreateFulfillEndToEnd(t *testing.T) {
 // reclaim unspent bound escrow after the committed deadline.
 func TestSponsorship_CancelRefundsRemaining(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	sponsor := sdk.AccAddress(make([]byte, 20))
 	for i := range sponsor {
@@ -127,6 +129,7 @@ func TestSponsorship_CancelRefundsRemaining(t *testing.T) {
 // and after a full bounty lifecycle (create + fulfill + cancel).
 func TestSponsorship_NoMintingHappens(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	sponsor := sdk.AccAddress(make([]byte, 20))
 	for i := range sponsor {

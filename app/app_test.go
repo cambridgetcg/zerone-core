@@ -80,6 +80,35 @@ func TestRegisterAPIRoutesIncludesTrainingProvenance(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, unknown.Code)
 }
 
+// TestRegisterAPIRoutesIncludesSponsorshipSettlement guards the app-level v2
+// gateway wiring for the public evidence an agent wallet needs to reconcile a
+// fulfillment and the module escrow liability. Generated handlers and Swagger
+// alone are insufficient: without these registrations both routes return 404.
+func TestRegisterAPIRoutesIncludesSponsorshipSettlement(t *testing.T) {
+	app := newTestApp(t)
+	clientCtx := client.Context{
+		Codec:             app.AppCodec(),
+		InterfaceRegistry: app.InterfaceRegistry(),
+		TxConfig:          app.TxConfig(),
+	}
+	apiServer := api.New(clientCtx, log.NewNopLogger(), grpc.NewServer())
+	app.RegisterAPIRoutes(apiServer, config.APIConfig{})
+
+	for _, route := range []string{
+		"/zerone/sponsorship/v1/fulfillments/missing-order/missing-fact",
+		"/zerone/sponsorship/v1/escrow_accounting",
+	} {
+		t.Run(route, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			apiServer.Router.ServeHTTP(
+				response,
+				httptest.NewRequest(http.MethodGet, route, nil),
+			)
+			require.NotEqual(t, http.StatusNotFound, response.Code)
+		})
+	}
+}
+
 // TestRegisterAPIRoutesIncludesStandardServices guards the direct gateway
 // registrations that do not belong to ModuleBasics. The requests reach the
 // service boundary and may fail without a running node, but they must not be

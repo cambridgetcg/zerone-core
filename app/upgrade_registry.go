@@ -182,6 +182,13 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 		if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
 			return nil, fmt.Errorf("validate upgrade boundary: %w", err)
 		}
+		if err := requireReservedAgentEconomyTransitionOwner(
+			plan.Name,
+			fromVM,
+			app.ModuleManager.GetVersionMap(),
+		); err != nil {
+			return nil, fmt.Errorf("validate reserved upgrade boundary: %w", err)
+		}
 	}
 	// Seed the on-chain module-version map to the pre-upgrade state so
 	// RunMigrations detects the correct delta per module.

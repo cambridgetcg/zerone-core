@@ -47,4 +47,6 @@ var (
 	ErrFactNotMature = errors.Register(ModuleName, 13, "fact has not completed challenge survival")
 
 	ErrBountyNotCancelable = errors.Register(ModuleName, 14, "bound bounty cannot be canceled before its deadline")
+
+	ErrAgentEconomyDisabled = errors.Register(ModuleName, 15, "agent economy is not activated")
 )

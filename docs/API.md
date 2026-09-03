@@ -10,8 +10,8 @@ The checked-in Swagger 2.0 document is
 [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json). At this source
 revision it contains:
 
-- 217 REST paths; and
-- 446 schema definitions.
+- 223 REST paths; and
+- 458 schema definitions.
 
 Those counts cover standard Cosmos APIs and the 23 custom Zerone modules.
 Transaction generation separately covers 169 request message types across 20
@@ -84,6 +84,12 @@ curl --fail-with-body \
 
 grpcurl -plaintext 127.0.0.1:9090 \
   zerone.knowledge.v1.Query/Params
+
+grpcurl -plaintext 127.0.0.1:9090 \
+  zerone.knowledge.v1.Query/AgentEconomyStatus
+
+grpcurl -plaintext 127.0.0.1:9090 \
+  zerone.sponsorship.v1.Query/EscrowAccounting
 ```
 
 CAIP and in-toto responses are computed projections. Their limitations are

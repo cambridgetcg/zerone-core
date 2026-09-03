@@ -68,6 +68,7 @@ func TestSubmitClaim_FeeDistributed(t *testing.T) {
 
 func TestSubmitClaim_FeeDistributionFailureFailsTransaction(t *testing.T) {
 	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
 	ms := keeper.NewMsgServerImpl(k)
 	submitter := makeValidBech32Addr("compute-fee-atomic")
 	bk.failModuleToModuleRecipient = "development_fund"

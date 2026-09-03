@@ -13,6 +13,7 @@ import (
 // submission block, and submitter before paying out.
 type KnowledgeKeeper interface {
 	GetFact(ctx context.Context, factID string) (*knowledgetypes.Fact, bool)
+	AgentEconomyActivated(ctx context.Context) (bool, error)
 }
 
 // BankKeeper handles escrow movement: sponsor → module account on create,

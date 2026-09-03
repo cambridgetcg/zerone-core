@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
@@ -19,7 +20,7 @@ func TestComputationalClaimContentHash_BindsEveryCommitmentField(t *testing.T) {
 	}
 	want := keeper.ComputeComputationalClaimContentHash("result", "compute", base)
 	for i := 0; i < 7; i++ {
-		c := *base
+		c := proto.Clone(base).(*types.ComputationalCommitment)
 		switch i {
 		case 0:
 			c.WorkSpecHash = strings.Repeat("a", 64)
@@ -36,7 +37,7 @@ func TestComputationalClaimContentHash_BindsEveryCommitmentField(t *testing.T) {
 		case 6:
 			c.WorkReceiptHash = strings.Repeat("8", 64)
 		}
-		require.NotEqual(t, want, keeper.ComputeComputationalClaimContentHash("result", "compute", &c), "field %d must affect the fact-ID ancestry", i)
+		require.NotEqual(t, want, keeper.ComputeComputationalClaimContentHash("result", "compute", c), "field %d must affect the fact-ID ancestry", i)
 	}
 }
 

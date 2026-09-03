@@ -37,6 +37,7 @@ import (
 // Spec: docs/specs/adapters/zerone-self-v1.md; docs/RECURSIVE_ZERONE.md.
 func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	// ── Setup ────────────────────────────────────────────────────────
 
@@ -196,6 +197,7 @@ func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T
 // commits through the bridge.
 func TestZeroneSelf_MultipleFulfillmentsCompoundEarnings(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
 		AdapterId:              selfcompile.AdapterID,

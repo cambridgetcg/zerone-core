@@ -6572,6 +6572,28 @@
       },
       "type": "object"
     },
+    "zerone.knowledge.v1.QueryAgentEconomyStatusResponse": {
+      "properties": {
+        "activated": {
+          "type": "boolean"
+        },
+        "lineage": {
+          "description": "\"none\", \"upgrade\", or \"native\". Any conflicting or invalid marker\nstate makes the query fail rather than returning an ambiguous lineage.",
+          "type": "string"
+        },
+        "marker": {
+          "type": "string"
+        },
+        "markerValue": {
+          "type": "string"
+        },
+        "snapshotBlockHeight": {
+          "format": "uint64",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "zerone.knowledge.v1.QueryAgentLeaderboardResponse": {
       "properties": {
         "entries": {
@@ -10138,6 +10160,214 @@
       "properties": {
         "qualification": {
           "$ref": "#/definitions/zerone.qualification.v1.DomainQualification"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.BountyFulfillment": {
+      "description": "BountyFulfillment records a single payout from a bounty to a worker\n(the submitter of the fulfilling fact).",
+      "properties": {
+        "amountPaid": {
+          "type": "string"
+        },
+        "artifactRoot": {
+          "description": "Stored so genesis can mechanically rederive the settlement nullifier.",
+          "type": "string"
+        },
+        "bountyId": {
+          "type": "string"
+        },
+        "factId": {
+          "type": "string"
+        },
+        "fulfilledAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "settlementNullifier": {
+          "description": "SHA-256(\"ZRN.sponsorship.settlement.v2\\0\" followed by work_spec_hash,\nacceptance_hash, input_root, environment_root, artifact_root, and the\nassigned worker address as uint64 big-endian length-prefixed UTF-8).\nDerived from stored state.",
+          "type": "string"
+        },
+        "workReceiptHash": {
+          "type": "string"
+        },
+        "worker": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.BountyOrder": {
+      "description": "BountyOrder is a sponsor's commitment of escrowed funds against a\ntyped bounty for verified work in a specific domain.",
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "endBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "escrowRemaining": {
+          "type": "string"
+        },
+        "fulfilledCount": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "pricePerArtifact": {
+          "type": "string"
+        },
+        "sponsor": {
+          "type": "string"
+        },
+        "startBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/zerone.sponsorship.v1.BountyStatus"
+        },
+        "targetCount": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "workContract": {
+          "$ref": "#/definitions/zerone.sponsorship.v1.WorkContract",
+          "description": "Nil only for legacy v1 orders. Such orders remain cancelable but are\ndeliberately ineligible for fulfillment after sponsorship v2."
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.BountyStatus": {
+      "default": "BOUNTY_STATUS_UNSPECIFIED",
+      "description": "BountyStatus enumerates the lifecycle states of a BountyOrder.\n\n - BOUNTY_STATUS_ACTIVE: accepting fulfillments\n - BOUNTY_STATUS_FULFILLED: target_count reached\n - BOUNTY_STATUS_EXPIRED: currentBlock \u003e= end_block, set by BeginBlocker\n - BOUNTY_STATUS_CANCELED: sponsor reclaimed remaining",
+      "enum": [
+        "BOUNTY_STATUS_UNSPECIFIED",
+        "BOUNTY_STATUS_ACTIVE",
+        "BOUNTY_STATUS_FULFILLED",
+        "BOUNTY_STATUS_EXPIRED",
+        "BOUNTY_STATUS_CANCELED"
+      ],
+      "type": "string"
+    },
+    "zerone.sponsorship.v1.Params": {
+      "description": "Params is the governance-tunable configuration.",
+      "properties": {
+        "maxActiveBountiesPerSponsor": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "minDurationBlocks": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "minTargetCount": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.QueryBountyOrderResponse": {
+      "properties": {
+        "order": {
+          "$ref": "#/definitions/zerone.sponsorship.v1.BountyOrder"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.QueryBountyOrdersResponse": {
+      "properties": {
+        "orders": {
+          "items": {
+            "$ref": "#/definitions/zerone.sponsorship.v1.BountyOrder",
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.QueryEscrowAccountingResponse": {
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "moduleBalance": {
+          "type": "string"
+        },
+        "persistedLiability": {
+          "type": "string"
+        },
+        "snapshotBlockHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "solvent": {
+          "type": "boolean"
+        },
+        "surplus": {
+          "description": "Signed decimal balance minus liability. A negative value means insolvent.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.QueryFulfillmentResponse": {
+      "properties": {
+        "factConsumedByBountyId": {
+          "type": "string"
+        },
+        "fulfillment": {
+          "$ref": "#/definitions/zerone.sponsorship.v1.BountyFulfillment"
+        },
+        "receiptConsumedByBountyId": {
+          "type": "string"
+        },
+        "settlementNullifierConsumedByBountyId": {
+          "type": "string"
+        },
+        "snapshotBlockHeight": {
+          "format": "uint64",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.QueryParamsResponse": {
+      "properties": {
+        "params": {
+          "$ref": "#/definitions/zerone.sponsorship.v1.Params"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.sponsorship.v1.WorkContract": {
+      "description": "WorkContract is the immutable commitment a sponsor funds. Every digest is\na bare, lowercase, 64-character SHA-256 hex string. Raw work inputs,\nacceptance policy, and environment manifests remain off chain.",
+      "properties": {
+        "acceptanceHash": {
+          "type": "string"
+        },
+        "environmentRoot": {
+          "type": "string"
+        },
+        "inputRoot": {
+          "type": "string"
+        },
+        "minCorroborations": {
+          "description": "Survived formal challenges required after the ordinary challenge window.\nZero accepts an unchallenged fact once its verifier quorum and challenge\nwindow have both completed.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "workSpecHash": {
+          "type": "string"
+        },
+        "workerAddress": {
+          "description": "Preassigned payout wallet. The accepted Fact submitter and fulfillment\nsigner must both equal this canonical lowercase Bech32 address.",
+          "type": "string"
         }
       },
       "type": "object"
@@ -14101,6 +14331,29 @@
           }
         },
         "summary": "─── Feedback loop (Phase 5) ───────────────────────────────────────\nAgentCalibration: returns the per-submitter track record that the\nfeedback loop writes after every round outcome, corroboration, and\ndisproval. The mechanism by which a ZERONE-trained model is measured\nagainst the same adjudication it was trained on.",
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/knowledge/v1/agent_economy/status": {
+      "get": {
+        "operationId": "AgentEconomyStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.knowledge.v1.QueryAgentEconomyStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "summary": "AgentEconomyStatus reports the exact consensus-latched activation\nlineage. Wallets must not infer this gate from compiled module versions.",
         "tags": [
           "Query"
         ]
@@ -18203,6 +18456,138 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/zerone.qualification.v1.QueryByValidatorResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/sponsorship/v1/escrow_accounting": {
+      "get": {
+        "operationId": "EscrowAccounting",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.sponsorship.v1.QueryEscrowAccountingResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/sponsorship/v1/fulfillments/{bountyId}/{factId}": {
+      "get": {
+        "operationId": "Fulfillment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bountyId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "factId",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.sponsorship.v1.QueryFulfillmentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/sponsorship/v1/orders": {
+      "get": {
+        "operationId": "BountyOrders",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.sponsorship.v1.QueryBountyOrdersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/sponsorship/v1/orders/{id}": {
+      "get": {
+        "operationId": "BountyOrder",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.sponsorship.v1.QueryBountyOrderResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/sponsorship/v1/params": {
+      "get": {
+        "operationId": "Params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.sponsorship.v1.QueryParamsResponse"
             }
           },
           "default": {

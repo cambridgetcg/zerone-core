@@ -558,9 +558,10 @@ func (gs *GenesisState) Validate() error {
 // validateGenesisComputationalRecord preserves the exact pre-v7 legacy shape:
 // CLAIM_TYPE_COMPUTATIONAL already existed, but those records had no
 // ComputationalCommitment field. A nil commitment therefore remains
-// importable and routes through legacy economics, while any record that opts
-// into the v7 field must be complete, method-bound, and receipt-bound. Every
-// other epistemic type is forbidden from carrying computational provenance.
+// importable, but post-v7 acceptance gives it no legacy payout route; any
+// record that opts into the v7 field must be complete, method-bound, and
+// receipt-bound. Every other epistemic type is forbidden from carrying
+// computational provenance.
 func validateGenesisComputationalRecord(claimType ClaimType, methodID, submitter string, commitment *ComputationalCommitment) error {
 	if claimType != ClaimType_CLAIM_TYPE_COMPUTATIONAL {
 		if commitment != nil {

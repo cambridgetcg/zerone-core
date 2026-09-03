@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -110,16 +111,25 @@ func (m *mockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, senderM
 }
 
 type mockKnowledgeKeeper struct {
-	facts map[string]*knowledgetypes.Fact
+	facts               map[string]*knowledgetypes.Fact
+	agentEconomyActive  bool
+	agentEconomyReadErr error
 }
 
 func newMockKnowledge() *mockKnowledgeKeeper {
-	return &mockKnowledgeKeeper{facts: map[string]*knowledgetypes.Fact{}}
+	return &mockKnowledgeKeeper{
+		facts:              map[string]*knowledgetypes.Fact{},
+		agentEconomyActive: true,
+	}
 }
 
 func (m *mockKnowledgeKeeper) GetFact(_ context.Context, id string) (*knowledgetypes.Fact, bool) {
 	f, ok := m.facts[id]
 	return f, ok
+}
+
+func (m *mockKnowledgeKeeper) AgentEconomyActivated(_ context.Context) (bool, error) {
+	return m.agentEconomyActive, m.agentEconomyReadErr
 }
 
 // ---------- Setup ----------
@@ -146,6 +156,10 @@ func setupWithStoreService(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankK
 	storeService := runtime.NewKVStoreService(storeKey)
 	k := keeper.NewKeeper(storeService, cdc, bk, kk)
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 1000, ChainID: "zerone-test"}, false, log.NewNopLogger())
+	k.SetParams(ctx, types.DefaultParams())
+	if err := k.SetEscrowLiability(ctx, new(big.Int)); err != nil {
+		t.Fatalf("initialize escrow liability: %v", err)
+	}
 	return k, ctx, bk, kk, storeService
 }
 

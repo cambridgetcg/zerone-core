@@ -147,6 +147,7 @@ func TestMsgServer_SubmitClaim_ZeroStake(t *testing.T) {
 func TestMsgServer_SubmitClaim_ComputationalStakeUint64Bounds(t *testing.T) {
 	t.Run("max uint64 is represented without truncation", func(t *testing.T) {
 		k, ctx := setupKnowledgeTest(t)
+		activateAgentEconomyForKeeperTest(t, k, ctx)
 		ms := keeper.NewMsgServerImpl(k)
 		msg := computationalSubmitMsg(makeValidBech32Addr("compute-max-stake"), "5", "6")
 		msg.Stake = strconv.FormatUint(math.MaxUint64, 10)
@@ -160,6 +161,7 @@ func TestMsgServer_SubmitClaim_ComputationalStakeUint64Bounds(t *testing.T) {
 
 	t.Run("max uint64 plus one is rejected before bank or state", func(t *testing.T) {
 		k, ctx, bk := setupKnowledgeTestWithBank(t)
+		activateAgentEconomyForKeeperTest(t, k, ctx)
 		ms := keeper.NewMsgServerImpl(k)
 		msg := computationalSubmitMsg(makeValidBech32Addr("compute-over-stake"), "5", "6")
 		tooLarge := new(big.Int).Add(new(big.Int).SetUint64(math.MaxUint64), big.NewInt(1))
@@ -181,6 +183,7 @@ func TestMsgServer_SubmitClaim_ComputationalStakeUint64Bounds(t *testing.T) {
 
 	t.Run("257 bit input cannot panic sdk int construction", func(t *testing.T) {
 		k, ctx, bk := setupKnowledgeTestWithBank(t)
+		activateAgentEconomyForKeeperTest(t, k, ctx)
 		ms := keeper.NewMsgServerImpl(k)
 		msg := computationalSubmitMsg(makeValidBech32Addr("compute-sdk-overflow"), "5", "6")
 		msg.Stake = new(big.Int).Lsh(big.NewInt(1), 256).String()
@@ -224,6 +227,7 @@ func TestMsgServer_SubmitClaim_DuplicateContent(t *testing.T) {
 
 func TestMsgServer_SubmitClaim_ComputationalDedupBindsResultCommitment(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
 	ms := keeper.NewMsgServerImpl(k)
 	submitter := makeValidBech32Addr("computational-dedup")
 
@@ -244,6 +248,7 @@ func TestMsgServer_SubmitClaim_ComputationalDedupBindsResultCommitment(t *testin
 
 func TestMsgServer_SubmitClaim_ComputationalMethodMustBeRegistered(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
 	ms := keeper.NewMsgServerImpl(k)
 	msg := computationalSubmitMsg(makeValidBech32Addr("computational-method"), "5", "6")
 	msg.MethodId = "M-NOT-REGISTERED"

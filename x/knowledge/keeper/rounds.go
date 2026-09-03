@@ -109,6 +109,12 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	if !found {
 		return fmt.Errorf("claim %s not found for round %s", round.ClaimId, round.Id)
 	}
+	if result != nil && result.Verdict == types.Verdict_VERDICT_ACCEPT &&
+		claim.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL {
+		if err := k.requireAgentEconomyActivated(ctx); err != nil {
+			return err
+		}
+	}
 
 	// A bound computational acceptance is economically unusable without a
 	// representable challenge-maturity height. Preflight it before mutating the
@@ -503,7 +509,8 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	if err != nil {
 		return "", fmt.Errorf("failed to get params while creating fact: %w", err)
 	}
-	isBoundComputational := claim.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL && claim.ComputationalCommitment != nil
+	isComputational := claim.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL
+	isBoundComputational := isComputational && claim.ComputationalCommitment != nil
 	if isBoundComputational && computationalChallengeWindowEnd == 0 {
 		return "", fmt.Errorf("bound computational fact requires a preflighted challenge window")
 	}
@@ -788,12 +795,19 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// is when someone destroys the conjecture. Nor may a conjecture fill a
 	// knowledge bounty — a sponsor who paid for an answer must not be settled
 	// with a question.
-	if isBoundComputational {
+	if isComputational {
+		economicRoute := "sponsorship_only"
+		if !isBoundComputational {
+			// Historical pre-v7 computational records remain importable, but
+			// they have no receipt binding and therefore cannot safely receive
+			// either a sponsorship payment or either legacy knowledge payout.
+			economicRoute = "legacy_unbound_no_payout"
+		}
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.computational_economic_route",
 			sdk.NewAttribute("fact_id", fact.Id),
 			sdk.NewAttribute("claim_id", claim.Id),
-			sdk.NewAttribute("economic_route", "sponsorship_only"),
+			sdk.NewAttribute("economic_route", economicRoute),
 			sdk.NewAttribute("knowledge_reward_effect", "0"),
 			sdk.NewAttribute("demand_bounty_effect", "0"),
 		))

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -35,7 +36,7 @@ func TestMsgSubmitClaim_ValidateBasic_ComputationalTypeWall(t *testing.T) {
 		"artifact_root", "evidence_root", "work_receipt_hash",
 	} {
 		t.Run("missing_"+field, func(t *testing.T) {
-			c := *valid
+			c := proto.Clone(valid).(*types.ComputationalCommitment)
 			switch field {
 			case "work_spec_hash":
 				c.WorkSpecHash = ""
@@ -54,7 +55,7 @@ func TestMsgSubmitClaim_ValidateBasic_ComputationalTypeWall(t *testing.T) {
 			}
 			err := (&types.MsgSubmitClaim{
 				Submitter: payee, ClaimType: types.ClaimType_CLAIM_TYPE_COMPUTATIONAL,
-				MethodId: types.MethodologyComputational, ComputationalCommitment: &c,
+				MethodId: types.MethodologyComputational, ComputationalCommitment: c,
 			}).ValidateBasic()
 			require.Error(t, err)
 		})
@@ -80,7 +81,7 @@ func TestWorkReceiptHash_BindsEveryFieldAndPayee(t *testing.T) {
 	want := base.WorkReceiptHash
 	mutations := []*types.ComputationalCommitment{}
 	for i := 0; i < 6; i++ {
-		c := *base
+		c := proto.Clone(base).(*types.ComputationalCommitment)
 		switch i {
 		case 0:
 			c.WorkSpecHash = strings.Repeat("a", 64)
@@ -95,7 +96,7 @@ func TestWorkReceiptHash_BindsEveryFieldAndPayee(t *testing.T) {
 		case 5:
 			c.EvidenceRoot = strings.Repeat("f", 64)
 		}
-		mutations = append(mutations, &c)
+		mutations = append(mutations, c)
 	}
 	for _, mutation := range mutations {
 		require.NotEqual(t, want, types.ComputeWorkReceiptHash(mutation, "zrn1alice"))
@@ -131,21 +132,19 @@ func TestGenesisValidate_ComputationalCompatibilityAndTypeWall(t *testing.T) {
 	})
 	require.NoError(t, gs.Validate())
 
-	badType := *gs
-	badType.Facts = append([]*types.Fact(nil), gs.Facts...)
+	badType := proto.Clone(gs).(*types.GenesisState)
 	badType.Facts = append(badType.Facts, &types.Fact{
 		Id: "assertion-with-provenance", ClaimType: types.ClaimType_CLAIM_TYPE_ASSERTION,
 		Submitter: payee, ComputationalCommitment: validComputationalCommitment(payee),
 	})
 	require.Error(t, badType.Validate(), "noncomputational genesis records cannot carry a commitment")
 
-	badReceipt := *gs
-	badReceipt.Facts = append([]*types.Fact(nil), gs.Facts...)
-	c := *validComputationalCommitment(payee)
+	badReceipt := proto.Clone(gs).(*types.GenesisState)
+	c := validComputationalCommitment(payee)
 	c.WorkReceiptHash = strings.Repeat("f", 64)
 	badReceipt.Facts = append(badReceipt.Facts, &types.Fact{
 		Id: "bound-bad-receipt", ClaimType: types.ClaimType_CLAIM_TYPE_COMPUTATIONAL,
-		Submitter: payee, MethodId: types.MethodologyComputational, ComputationalCommitment: &c,
+		Submitter: payee, MethodId: types.MethodologyComputational, ComputationalCommitment: c,
 	})
 	require.Error(t, badReceipt.Validate(), "bound genesis receipts must commit the stored submitter")
 }

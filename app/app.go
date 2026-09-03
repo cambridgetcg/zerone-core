@@ -1625,6 +1625,7 @@ func (app *ZeroneApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.API
 	}
 	must(zeroneauthtypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneauthtypes.NewQueryClient(clientCtx)))
 	must(zeroneknowledgetypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneknowledgetypes.NewQueryClient(clientCtx)))
+	must(zeronesponsorshiptypes.RegisterQueryHandlerClient(ctx, gwmux, zeronesponsorshiptypes.NewQueryClient(clientCtx)))
 	must(zeroneontologytypes.RegisterQueryHandlerClient(ctx, gwmux, zeroneontologytypes.NewQueryClient(clientCtx)))
 	must(zeronestakingtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronestakingtypes.NewQueryClient(clientCtx)))
 	must(zeronelptypes.RegisterQueryHandlerClient(ctx, gwmux, zeronelptypes.NewQueryClient(clientCtx)))

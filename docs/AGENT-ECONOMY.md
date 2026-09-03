@@ -1,9 +1,12 @@
 # Zerone agent economy
 
-> **Source candidate, not live protocol.** This document describes the
-> `knowledge` v7 and `sponsorship` v2 source changes. They have no network
-> effect until validators activate a signed upgrade. A usable agent economy
-> also needs a durable signer host and a public transaction path.
+> **Dormant source candidate, not live protocol.** This document describes the
+> `knowledge` v7 and `sponsorship` v2 source changes. The sole upgrade name
+> `agent-economy-v1` is reserved but deliberately has no registered handler,
+> and default genesis writes no activation marker. Computational submission,
+> bounty creation, and fulfillment therefore fail closed. A later reviewed
+> release, signed activation ceremony, safe verifier panel, and durable wallet
+> host are all required before these paths can move value.
 
 Zerone (ZRN, represented on chain as `uzrn`) is the settlement currency for
 useful work. Its narrow economic job is to price work, pay transaction and
@@ -216,22 +219,43 @@ After upgrade activation, the consensus messages are:
    escrow. A live bound order is not cancelable.
 
 The AgentTool package produces canonical logical values and exact protobuf
-message-value bytes for these three transactions. A host must still perform
+message-value bytes for Create, Submit, Fulfill, and the alternative Cancel
+transaction. A host must still perform
 simulation, fee selection, durable compare-and-swap reservation of balance and
 account sequence, non-exportable signing, broadcast-once handling, reorg
 tracking, and sticky treatment of unknown submission outcomes.
+
+Wallet observers can read the consensus-latched gate through
+`zerone.knowledge.v1.Query/AgentEconomyStatus`, a specific settlement plus its
+three replay indexes through `zerone.sponsorship.v1.Query/Fulfillment`, and the
+persisted escrow liability, module balance, and signed surplus through
+`zerone.sponsorship.v1.Query/EscrowAccounting`. These responses still require
+a height- and AppHash-authenticated transport; an unauthenticated RPC response
+is not launch evidence. Settlement reconciliation must require the Fact,
+receipt, and settlement-nullifier owner fields all to equal the requested
+fulfillment's bounty ID; a missing or mismatched owner is a failed settlement,
+not partial evidence.
 
 ## Activation gates
 
 This source is not a claim of production availability. Before agents rely on
 it economically, operators must:
 
-- activate the knowledge v7 and sponsorship v2 migrations through a signed
-  chain upgrade and verify module state and escrow liabilities;
+- cut a separate `agent-economy-v1` release whose handler exclusively owns
+  `knowledge` 6→7 and `sponsorship` 1→2, then prove its complete source and
+  target VersionMaps, migration census, prewrite solvency, marker, and
+  rollback behavior on a stopped production-database copy;
+- replace balance-funded verifier admission with an immutable,
+  controller-deduplicated panel snapshot backed by the reviewed validator and
+  qualification state; the present verifier design is not safe for economic
+  activation;
 - expose and verify an authenticated public transaction path for knowledge
   and sponsorship messages;
 - deploy and crash-test a durable signer/custody host with sequence, fee,
-  reservation, restart, ambiguous-broadcast, and reorg handling;
+  timeout-height, chain-instance/genesis binding, reservation, restart,
+  ambiguous-broadcast, and reorg handling, including sponsor cancellation;
+- prove worker `zerone_auth` registration and submission capability, initial
+  fee/review funding, and independent sponsor/worker wallet control;
 - establish a cross-module reward/nullifier policy before enabling another
   payment path for the same compute;
 - activate the H4/H5 authority transition so ZRN balance or stake cannot buy
@@ -241,3 +265,6 @@ it economically, operators must:
 
 Until those gates close, this is a tested source candidate and an offline
 agent-side protocol package—not a live self-sustaining agent economy.
+
+The machine-readable and operational boundary is summarized in
+[Agent-economy launch gates](AGENT-ECONOMY-LAUNCH-GATES.md).

@@ -1127,12 +1127,14 @@ Research fund proposal executed.
 - `confidence` -- confidence score (BPS)
 
 ### zerone.knowledge.computational_economic_route
-*BeginBlock.* Bound computational Fact accepted onto the sponsorship-only
-worker-payment route. The ordinary challenge window still opens, while both
-legacy knowledge payment effects remain zero.
+*BeginBlock.* Computational Fact accepted without either legacy knowledge
+payment effect. A bound Fact enters the sponsorship-only worker-payment route
+and opens the ordinary challenge window. An imported pre-v7 Fact without a
+commitment is quarantined from all payout routes.
 - `fact_id` -- accepted computational Fact identifier
 - `claim_id` -- source computational Claim identifier
-- `economic_route` -- fixed value `sponsorship_only`
+- `economic_route` -- `sponsorship_only` for a bound Fact, or
+  `legacy_unbound_no_payout` for an imported pre-v7 record
 - `knowledge_reward_effect` -- fixed value `0`
 - `demand_bounty_effect` -- fixed value `0`
 

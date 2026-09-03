@@ -111,6 +111,61 @@ func TestSDK053IBC10ExactSourceVersionMapPinsEveryEntry(t *testing.T) {
 	}
 }
 
+func TestSDK053IBC10ExactTargetVersionMapPinsFrozenH3Binary(t *testing.T) {
+	require.Len(t, sdk053IBC10ExactTargetVersionMap, 38)
+	valid := make(map[string]uint64, len(sdk053IBC10ExactTargetVersionMap))
+	for _, expected := range sdk053IBC10ExactTargetVersionMap {
+		valid[expected.name] = expected.version
+	}
+	require.NoError(t, requireSDK053IBC10TargetVersions(
+		UpgradeNameSDK053IBC10,
+		valid,
+	))
+	digest, err := canonicalSDK053IBC10SourceVersionMapSHA256(valid)
+	require.NoError(t, err)
+	require.Equal(t, sdk053IBC10TargetVersionMapSHA256, digest)
+	require.Equal(
+		t,
+		"4c08f3696de4bc969fed03e47126d89495289138d869b8483369bd5d5d2b8a42",
+		digest,
+	)
+
+	clone := func() map[string]uint64 {
+		copyMap := make(map[string]uint64, len(valid))
+		for name, version := range valid {
+			copyMap[name] = version
+		}
+		return copyMap
+	}
+	for _, expected := range sdk053IBC10ExactTargetVersionMap {
+		t.Run(expected.name+"/missing", func(t *testing.T) {
+			mutated := clone()
+			delete(mutated, expected.name)
+			err := requireSDK053IBC10TargetVersions(
+				UpgradeNameSDK053IBC10,
+				mutated,
+			)
+			require.ErrorContains(t, err, "target VersionMap size")
+		})
+		t.Run(expected.name+"/wrong", func(t *testing.T) {
+			mutated := clone()
+			mutated[expected.name] = expected.version + 1
+			err := requireSDK053IBC10TargetVersions(
+				UpgradeNameSDK053IBC10,
+				mutated,
+			)
+			require.ErrorContains(t, err, expected.name)
+			require.ErrorContains(t, err, "use the exact reviewed H3 binary")
+		})
+	}
+	mutated := clone()
+	mutated["unexpected-module"] = 1
+	require.ErrorContains(t, requireSDK053IBC10TargetVersions(
+		UpgradeNameSDK053IBC10,
+		mutated,
+	), "target VersionMap size")
+}
+
 type failingIBCPrefixEnumerator struct {
 	dbm.DB
 
@@ -938,9 +993,10 @@ func TestSDK053IBC10MigratedStartupRejectsInvalidH2Evidence(t *testing.T) {
 			wantError:           `marker "upgrade_marker_founder-renunciation-v1"="migrated": got ""`,
 		},
 		{
-			name:    "valid lowercase",
-			present: true,
-			value:   strings.Repeat("a", 64),
+			name:      "valid lowercase reaches later-binary guard",
+			present:   true,
+			value:     strings.Repeat("a", 64),
+			wantError: "refusing incompatible H3 startup binary",
 		},
 	}
 
@@ -1105,9 +1161,10 @@ func TestSDK053IBC10ScheduledPreflightBindsStrictH2PlanIdentity(t *testing.T) {
 			wantError: "exactly 64 lowercase hexadecimal characters",
 		},
 		{
-			name:    "valid lowercase",
-			present: true,
-			value:   strings.Repeat("a", 64),
+			name:      "valid lowercase reaches later-binary guard",
+			present:   true,
+			value:     strings.Repeat("a", 64),
+			wantError: "requires frozen H3 target VersionMap",
 		},
 	}
 

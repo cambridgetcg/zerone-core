@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/sponsorship/types"
 )
@@ -55,8 +56,7 @@ func TestGenesisValidate_V2CrossBountyReplayRejected(t *testing.T) {
 	order1 := legacyOrder("bounty-1", sponsor)
 	order1.WorkContract = contract
 	order2 := legacyOrder("bounty-2", sponsor)
-	copyContract := *contract
-	order2.WorkContract = &copyContract
+	order2.WorkContract = proto.Clone(contract).(*types.WorkContract)
 	fulfillment1 := legacyFulfillment("bounty-1", "same-v2-fact", worker)
 	fulfillment1.WorkReceiptHash, fulfillment1.SettlementNullifier, fulfillment1.ArtifactRoot = receipt, nullifier, artifact
 	fulfillment2 := legacyFulfillment("bounty-2", "same-v2-fact", worker)

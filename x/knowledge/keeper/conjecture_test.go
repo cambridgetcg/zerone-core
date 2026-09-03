@@ -261,6 +261,7 @@ func TestOrdinaryClaim_StillEscrows(t *testing.T) {
 
 func TestComputationalClaim_UsesSponsorshipOnlyEconomicRoute(t *testing.T) {
 	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
 	k.SetVestingRewardsKeeper(stubVestingKeeper{})
 	submitter := makeValidBech32Addr("compute-route-worker")
 	commitment := &types.ComputationalCommitment{
@@ -325,6 +326,7 @@ func TestComputationalClaim_UsesSponsorshipOnlyEconomicRoute(t *testing.T) {
 
 func TestComputationalClaim_ChallengeWindowFailureRejectsAcceptance(t *testing.T) {
 	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
 	params, err := k.GetParams(ctx)
 	require.NoError(t, err)
 	params.ChallengeDurationBlocks = math.MaxUint64
@@ -389,8 +391,8 @@ func TestComputationalClaim_ChallengeWindowFailureRejectsAcceptance(t *testing.T
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION, storedClaim.Status)
 }
 
-func TestLegacyNilComputationalClaim_RetainsPreV7EconomicRoute(t *testing.T) {
-	k, ctx, _ := setupKnowledgeTestWithBank(t)
+func TestLegacyNilComputationalClaim_IsSealedThenReceivesNoLegacyPayout(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
 	k.SetVestingRewardsKeeper(stubVestingKeeper{})
 	submitter := makeValidBech32Addr("legacy-compute-worker")
 	claim := &types.Claim{
@@ -407,6 +409,30 @@ func TestLegacyNilComputationalClaim_RetainsPreV7EconomicRoute(t *testing.T) {
 	}))
 	round := makeRoundInPhase("r-legacy-computational", claim.Id, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, 80)
 	require.NoError(t, k.SetVerificationRound(ctx, round))
+	bankCallsBefore := len(bk.sendCalls)
+	eventsBefore := len(ctx.EventManager().Events())
+	err := k.CompleteRound(ctx, round, &keeper.VerificationResult{
+		Verdict: types.Verdict_VERDICT_ACCEPT, Confidence: 900_000,
+	})
+	require.ErrorIs(t, err, types.ErrAgentEconomyDisabled)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, round.Phase)
+	require.Equal(t, types.Verdict_VERDICT_UNSPECIFIED, round.Verdict)
+	require.Len(t, bk.sendCalls, bankCallsBefore)
+	require.Len(t, ctx.EventManager().Events(), eventsBefore)
+	var factBeforeActivation *types.Fact
+	k.IterateFacts(ctx, func(candidate *types.Fact) bool {
+		if candidate.ClaimId == claim.Id {
+			factBeforeActivation = candidate
+			return true
+		}
+		return false
+	})
+	require.Nil(t, factBeforeActivation, "sealed acceptance must not create a Fact")
+	bounty, found := k.GetBounty(ctx, "legacy-demand-route")
+	require.True(t, found)
+	require.False(t, bounty.Claimed)
+
+	activateAgentEconomyForKeeperTest(t, k, ctx)
 	require.NoError(t, k.CompleteRound(ctx, round, &keeper.VerificationResult{
 		Verdict: types.Verdict_VERDICT_ACCEPT, Confidence: 900_000,
 	}))
@@ -422,14 +448,23 @@ func TestLegacyNilComputationalClaim_RetainsPreV7EconomicRoute(t *testing.T) {
 	require.NotNil(t, fact)
 	require.Nil(t, fact.ComputationalCommitment)
 	_, pending := k.GetSurvivalPendingReward(ctx, fact.Id)
-	require.True(t, pending, "pre-v7 nil computational claims keep their historical survival entitlement")
-	bounty, found := k.GetBounty(ctx, "legacy-demand-route")
+	require.False(t, pending, "unbound computational claims cannot receive a legacy survival entitlement")
+	bounty, found = k.GetBounty(ctx, "legacy-demand-route")
 	require.True(t, found)
-	require.True(t, bounty.Claimed, "pre-v7 nil computational claims keep their historical demand-bounty route")
+	require.False(t, bounty.Claimed, "unbound computational claims cannot receive a legacy demand bounty")
+	var quarantinedRoute bool
 	for _, event := range ctx.EventManager().Events() {
-		require.NotEqual(t, "zerone.knowledge.computational_economic_route", event.Type,
-			"legacy nil records must not be mislabeled sponsorship-only")
+		if event.Type != "zerone.knowledge.computational_economic_route" {
+			continue
+		}
+		attrs := map[string]string{}
+		for _, attr := range event.Attributes {
+			attrs[attr.Key] = attr.Value
+		}
+		quarantinedRoute = attrs["economic_route"] == "legacy_unbound_no_payout" &&
+			attrs["knowledge_reward_effect"] == "0" && attrs["demand_bounty_effect"] == "0"
 	}
+	require.True(t, quarantinedRoute, "the zero-effect legacy quarantine must be auditable")
 }
 
 // TestConjecture_IsExcludedFromTrainingCorpus should pass WITHOUT any change to

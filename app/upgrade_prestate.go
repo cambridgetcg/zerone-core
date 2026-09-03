@@ -419,6 +419,19 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 		); err != nil {
 			return err
 		}
+		if err := requireSDK053IBC10TargetVersions(
+			plan.Name,
+			app.ModuleManager.GetVersionMap(),
+		); err != nil {
+			return err
+		}
+		if err := requireReservedAgentEconomyTransitionOwner(
+			plan.Name,
+			versionMap,
+			app.ModuleManager.GetVersionMap(),
+		); err != nil {
+			return err
+		}
 		app.sdk053IBC10LoaderProof = &sdk053IBC10StoreLoaderProof{
 			upgradeHeight:       plan.Height,
 			preUpgradeVersion:   committedHeight,
@@ -444,6 +457,7 @@ const (
 	founderRenunciationNativeMarker       = "chain_lineage_native_founder-renunciation-v1"
 	founderRenunciationPlanIdentityMarker = "upgrade_plan_identity_founder-renunciation-v1"
 	sdk053IBC10SourceVersionMapSHA256     = "de3f0e0d9769adf2a7375f921d78f25365bc2f9a8b42d8c80de5982affa20127"
+	sdk053IBC10TargetVersionMapSHA256     = "4c08f3696de4bc969fed03e47126d89495289138d869b8483369bd5d5d2b8a42"
 )
 
 type preSDKTransitionLineageEvidence struct {
@@ -493,6 +507,50 @@ var sdk053IBC10ExactSourceVersionMap = []sdk053IBC10SourceModuleVersion{
 	{name: "tokens", version: 1},
 	{name: "training_provenance", version: 1},
 	{name: ibctransfertypes.ModuleName, version: 5},
+	{name: "trust_score", version: 1},
+	{name: upgradetypes.ModuleName, version: 2},
+	{name: "vesting", version: 1},
+	{name: vestingrewardstypes.ModuleName, version: 2},
+	{name: "work_creed", version: 1},
+	{name: "zerone_auth", version: 1},
+	{name: zeronegovtypes.ModuleName, version: 2},
+	{name: "zerone_ontology", version: 1},
+	{name: "zerone_staking", version: 1},
+}
+
+// sdk053IBC10ExactTargetVersionMap is frozen to the module map compiled by
+// the reviewed H3 release. A later binary with any added/bumped module must
+// refuse the old plan rather than silently expanding its RunMigrations set.
+var sdk053IBC10ExactTargetVersionMap = []sdk053IBC10SourceModuleVersion{
+	{name: "alignment", version: 1},
+	{name: "auth", version: 5},
+	{name: "bank", version: 4},
+	{name: "capture_challenge", version: 1},
+	{name: "capture_defense", version: 1},
+	{name: claimingpottypes.ModuleName, version: 2},
+	{name: "consensus", version: 1},
+	{name: "counterexamples", version: 1},
+	{name: "creed", version: 1},
+	{name: "distribution", version: 3},
+	{name: emergencytypes.ModuleName, version: 2},
+	{name: "evidence", version: 1},
+	{name: "feegrant", version: 2},
+	{name: "genutil", version: 1},
+	{name: sdkgovtypes.ModuleName, version: 5},
+	{name: "home", version: 1},
+	{name: ibcexported.ModuleName, version: 8},
+	{name: "ibcratelimit", version: 1},
+	{name: icatypes.ModuleName, version: 3},
+	{name: knowledgetypes.ModuleName, version: 6},
+	{name: liquiditypooltypes.ModuleName, version: 5},
+	{name: "qualification", version: 1},
+	{name: "slashing", version: 4},
+	{name: "sponsorship", version: 1},
+	{name: "staking", version: 5},
+	{name: "substrate_bridge", version: 1},
+	{name: "tokens", version: 1},
+	{name: "training_provenance", version: 1},
+	{name: ibctransfertypes.ModuleName, version: 6},
 	{name: "trust_score", version: 1},
 	{name: upgradetypes.ModuleName, version: 2},
 	{name: "vesting", version: 1},
@@ -1027,6 +1085,49 @@ func requireSDK053IBC10SourceVersions(
 				version,
 			)
 		}
+	}
+	return nil
+}
+
+func requireSDK053IBC10TargetVersions(
+	planName string,
+	targetVM map[string]uint64,
+) error {
+	if len(targetVM) != len(sdk053IBC10ExactTargetVersionMap) {
+		return fmt.Errorf(
+			"upgrade %q requires frozen H3 target VersionMap size %d: compiled target has %d; use the exact reviewed H3 binary",
+			planName,
+			len(sdk053IBC10ExactTargetVersionMap),
+			len(targetVM),
+		)
+	}
+	for index, expected := range sdk053IBC10ExactTargetVersionMap {
+		if index > 0 && sdk053IBC10ExactTargetVersionMap[index-1].name >= expected.name {
+			return fmt.Errorf("internal H3 target VersionMap is not strictly sorted")
+		}
+		actual, found := targetVM[expected.name]
+		if !found || actual != expected.version {
+			return fmt.Errorf(
+				"upgrade %q requires frozen H3 target module %q at consensus version %d: found=%t compiled=%d; use the exact reviewed H3 binary",
+				planName,
+				expected.name,
+				expected.version,
+				found,
+				actual,
+			)
+		}
+	}
+	digest, err := canonicalSDK053IBC10SourceVersionMapSHA256(targetVM)
+	if err != nil {
+		return fmt.Errorf("upgrade %q cannot canonicalize frozen H3 target VersionMap: %w", planName, err)
+	}
+	if digest != sdk053IBC10TargetVersionMapSHA256 {
+		return fmt.Errorf(
+			"upgrade %q frozen H3 target VersionMap digest mismatch: require %s, got %s",
+			planName,
+			sdk053IBC10TargetVersionMapSHA256,
+			digest,
+		)
 	}
 	return nil
 }

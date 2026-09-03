@@ -3,10 +3,22 @@ package cross_stack_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	sponsorshiptypes "github.com/zerone-chain/zerone/x/sponsorship/types"
 )
+
+func activateAgentEconomySourceCandidate(t *testing.T, h *TestHarness) {
+	t.Helper()
+	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(
+		h.Ctx,
+		knowledgetypes.AgentEconomyNativeMarker,
+		knowledgetypes.AgentEconomyActivationValue,
+	))
+}
 
 func sponsorshipV2Digest(label string) string {
 	sum := sha256.Sum256([]byte(label))

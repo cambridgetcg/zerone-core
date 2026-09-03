@@ -19,9 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Query_Params_FullMethodName       = "/zerone.sponsorship.v1.Query/Params"
-	Query_BountyOrder_FullMethodName  = "/zerone.sponsorship.v1.Query/BountyOrder"
-	Query_BountyOrders_FullMethodName = "/zerone.sponsorship.v1.Query/BountyOrders"
+	Query_Params_FullMethodName           = "/zerone.sponsorship.v1.Query/Params"
+	Query_BountyOrder_FullMethodName      = "/zerone.sponsorship.v1.Query/BountyOrder"
+	Query_BountyOrders_FullMethodName     = "/zerone.sponsorship.v1.Query/BountyOrders"
+	Query_Fulfillment_FullMethodName      = "/zerone.sponsorship.v1.Query/Fulfillment"
+	Query_EscrowAccounting_FullMethodName = "/zerone.sponsorship.v1.Query/EscrowAccounting"
 )
 
 // QueryClient is the client API for Query service.
@@ -31,6 +33,8 @@ type QueryClient interface {
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	BountyOrder(ctx context.Context, in *QueryBountyOrderRequest, opts ...grpc.CallOption) (*QueryBountyOrderResponse, error)
 	BountyOrders(ctx context.Context, in *QueryBountyOrdersRequest, opts ...grpc.CallOption) (*QueryBountyOrdersResponse, error)
+	Fulfillment(ctx context.Context, in *QueryFulfillmentRequest, opts ...grpc.CallOption) (*QueryFulfillmentResponse, error)
+	EscrowAccounting(ctx context.Context, in *QueryEscrowAccountingRequest, opts ...grpc.CallOption) (*QueryEscrowAccountingResponse, error)
 }
 
 type queryClient struct {
@@ -71,6 +75,26 @@ func (c *queryClient) BountyOrders(ctx context.Context, in *QueryBountyOrdersReq
 	return out, nil
 }
 
+func (c *queryClient) Fulfillment(ctx context.Context, in *QueryFulfillmentRequest, opts ...grpc.CallOption) (*QueryFulfillmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryFulfillmentResponse)
+	err := c.cc.Invoke(ctx, Query_Fulfillment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) EscrowAccounting(ctx context.Context, in *QueryEscrowAccountingRequest, opts ...grpc.CallOption) (*QueryEscrowAccountingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryEscrowAccountingResponse)
+	err := c.cc.Invoke(ctx, Query_EscrowAccounting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -78,6 +102,8 @@ type QueryServer interface {
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	BountyOrder(context.Context, *QueryBountyOrderRequest) (*QueryBountyOrderResponse, error)
 	BountyOrders(context.Context, *QueryBountyOrdersRequest) (*QueryBountyOrdersResponse, error)
+	Fulfillment(context.Context, *QueryFulfillmentRequest) (*QueryFulfillmentResponse, error)
+	EscrowAccounting(context.Context, *QueryEscrowAccountingRequest) (*QueryEscrowAccountingResponse, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -96,6 +122,12 @@ func (UnimplementedQueryServer) BountyOrder(context.Context, *QueryBountyOrderRe
 }
 func (UnimplementedQueryServer) BountyOrders(context.Context, *QueryBountyOrdersRequest) (*QueryBountyOrdersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BountyOrders not implemented")
+}
+func (UnimplementedQueryServer) Fulfillment(context.Context, *QueryFulfillmentRequest) (*QueryFulfillmentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Fulfillment not implemented")
+}
+func (UnimplementedQueryServer) EscrowAccounting(context.Context, *QueryEscrowAccountingRequest) (*QueryEscrowAccountingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EscrowAccounting not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -172,6 +204,42 @@ func _Query_BountyOrders_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_Fulfillment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryFulfillmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Fulfillment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_Fulfillment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Fulfillment(ctx, req.(*QueryFulfillmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_EscrowAccounting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryEscrowAccountingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).EscrowAccounting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_EscrowAccounting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).EscrowAccounting(ctx, req.(*QueryEscrowAccountingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +258,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BountyOrders",
 			Handler:    _Query_BountyOrders_Handler,
+		},
+		{
+			MethodName: "Fulfillment",
+			Handler:    _Query_Fulfillment_Handler,
+		},
+		{
+			MethodName: "EscrowAccounting",
+			Handler:    _Query_EscrowAccounting_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

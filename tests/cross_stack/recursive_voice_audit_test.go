@@ -30,6 +30,7 @@ import (
 // audit of every chain event or of the unwired pending-claim loop.
 func TestRecursiveVoiceAudit_StagedRecursionEventsCarryDoctrineAttributes(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	// Setup: adapter, domain, sponsor, submitter.
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{

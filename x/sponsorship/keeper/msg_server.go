@@ -28,6 +28,13 @@ var _ types.MsgServer = msgServer{}
 // honoring of the sponsor's commitment — funds remain locked until the
 // bounty fulfills or expires and is canceled.
 func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreateBountyOrder) (*types.MsgCreateBountyOrderResponse, error) {
+	active, err := m.knowledgeKeeper.AgentEconomyActivated(goCtx)
+	if err != nil {
+		return nil, types.ErrAgentEconomyDisabled.Wrap(err.Error())
+	}
+	if !active {
+		return nil, types.ErrAgentEconomyDisabled
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
@@ -40,7 +47,10 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 	if err != nil {
 		return nil, fmt.Errorf("invalid sponsor address: %w", err)
 	}
-	params := m.GetParams(ctx)
+	params, err := m.getParamsChecked(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%w: read params: %v", types.ErrInvalidConfig, err)
+	}
 
 	// Param-floor checks.
 	if msg.TargetCount < params.MinTargetCount {
@@ -50,8 +60,14 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 		return nil, fmt.Errorf("%w: duration_blocks %d < min %d", types.ErrInvalidConfig, msg.DurationBlocks, params.MinDurationBlocks)
 	}
 	currentBlock := uint64(ctx.BlockHeight())
-	m.PruneExpiredBountiesForSponsor(ctx, canonicalSponsor, currentBlock)
-	if m.CountActiveBountiesBySponsor(ctx, canonicalSponsor) >= params.MaxActiveBountiesPerSponsor {
+	if err := m.PruneExpiredBountiesForSponsor(ctx, canonicalSponsor, currentBlock); err != nil {
+		return nil, fmt.Errorf("%w: prune sponsor orders: %v", types.ErrEscrowInvariant, err)
+	}
+	activeBounties, err := m.countActiveBountiesBySponsorChecked(ctx, canonicalSponsor)
+	if err != nil {
+		return nil, fmt.Errorf("%w: count sponsor orders: %v", types.ErrEscrowInvariant, err)
+	}
+	if activeBounties >= params.MaxActiveBountiesPerSponsor {
 		return nil, fmt.Errorf("%w: max active bounties for sponsor reached (%d)", types.ErrInvalidConfig, params.MaxActiveBountiesPerSponsor)
 	}
 
@@ -112,11 +128,15 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 		Status:           types.BountyStatus_BOUNTY_STATUS_ACTIVE,
 		WorkContract:     msg.WorkContract,
 	}
-	m.SetBountyOrder(ctx, order)
+	if err := m.setBountyOrderChecked(ctx, order); err != nil {
+		return nil, fmt.Errorf("store bounty: %w", err)
+	}
 	if err := m.IncreaseEscrowLiability(ctx, totalEscrow); err != nil {
 		return nil, fmt.Errorf("%w: increase liability: %v", types.ErrEscrowInvariant, err)
 	}
-	m.indexActiveBounty(ctx, order)
+	if err := m.indexActiveBountyChecked(ctx, order); err != nil {
+		return nil, fmt.Errorf("index bounty: %w", err)
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
@@ -146,12 +166,22 @@ func (m msgServer) CreateBountyOrder(goCtx context.Context, msg *types.MsgCreate
 // the contract's preassigned worker and sign settlement. The payee is always
 // derived from stored state.
 func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBounty) (*types.MsgFulfillBountyResponse, error) {
+	active, err := m.knowledgeKeeper.AgentEconomyActivated(goCtx)
+	if err != nil {
+		return nil, types.ErrAgentEconomyDisabled.Wrap(err.Error())
+	}
+	if !active {
+		return nil, types.ErrAgentEconomyDisabled
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	if err := msg.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
 	}
 
-	order, found := m.GetBountyOrder(ctx, msg.BountyId)
+	order, found, err := m.getBountyOrderChecked(ctx, msg.BountyId)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrEscrowInvariant, err)
+	}
 	if !found {
 		return nil, fmt.Errorf("%w: %s", types.ErrBountyNotFound, msg.BountyId)
 	}
@@ -168,10 +198,18 @@ func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBou
 	if err := order.WorkContract.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: corrupt work contract: %v", types.ErrInvalidConfig, err)
 	}
-	if _, exists := m.GetFulfillment(ctx, order.Id, msg.FactId); exists {
+	if _, exists, err := m.getFulfillmentChecked(ctx, order.Id, msg.FactId); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrEscrowInvariant, err)
+	} else if exists {
 		return nil, fmt.Errorf("%w: %s/%s", types.ErrAlreadyFulfilled, order.Id, msg.FactId)
 	}
-	if m.IsFactConsumed(ctx, msg.FactId) {
+	if _, consumed, err := m.consumptionOwnerChecked(
+		ctx,
+		types.FactConsumptionKey(msg.FactId),
+		"fact",
+	); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrEscrowInvariant, err)
+	} else if consumed {
 		return nil, fmt.Errorf("%w: fact %s", types.ErrSettlementReplay, msg.FactId)
 	}
 
@@ -224,10 +262,22 @@ func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBou
 		work.WorkSpecHash, work.AcceptanceHash, work.InputRoot, work.EnvironmentRoot, work.ArtifactRoot,
 		order.WorkContract.WorkerAddress,
 	)
-	if m.IsReceiptConsumed(ctx, work.WorkReceiptHash) {
+	if _, consumed, err := m.consumptionOwnerChecked(
+		ctx,
+		types.ReceiptConsumptionKey(work.WorkReceiptHash),
+		"receipt",
+	); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrEscrowInvariant, err)
+	} else if consumed {
 		return nil, fmt.Errorf("%w: receipt %s", types.ErrSettlementReplay, work.WorkReceiptHash)
 	}
-	if m.IsSettlementNullifierConsumed(ctx, nullifier) {
+	if _, consumed, err := m.consumptionOwnerChecked(
+		ctx,
+		types.SettlementNullifierKey(nullifier),
+		"settlement nullifier",
+	); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrEscrowInvariant, err)
+	} else if consumed {
 		return nil, fmt.Errorf("%w: nullifier %s", types.ErrSettlementReplay, nullifier)
 	}
 
@@ -271,16 +321,20 @@ func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBou
 	if bountyNowFulfilled {
 		order.Status = types.BountyStatus_BOUNTY_STATUS_FULFILLED
 	}
-	m.SetBountyOrder(ctx, order)
+	if err := m.setBountyOrderChecked(ctx, order); err != nil {
+		return nil, fmt.Errorf("store fulfilled bounty: %w", err)
+	}
 	if bountyNowFulfilled {
-		m.unindexActiveBounty(ctx, order)
+		if err := m.unindexActiveBountyChecked(ctx, order); err != nil {
+			return nil, fmt.Errorf("unindex fulfilled bounty: %w", err)
+		}
 	}
 	if err := m.DecreaseEscrowLiability(ctx, price); err != nil {
 		return nil, fmt.Errorf("%w: decrease liability: %v", types.ErrEscrowInvariant, err)
 	}
 
 	// Record fulfillment.
-	m.SetFulfillment(ctx, &types.BountyFulfillment{
+	if err := m.setFulfillmentChecked(ctx, &types.BountyFulfillment{
 		BountyId:            order.Id,
 		FactId:              msg.FactId,
 		Worker:              fact.Submitter,
@@ -289,7 +343,9 @@ func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBou
 		WorkReceiptHash:     work.WorkReceiptHash,
 		SettlementNullifier: nullifier,
 		ArtifactRoot:        work.ArtifactRoot,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("store fulfillment: %w", err)
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
@@ -332,7 +388,10 @@ func (m msgServer) CancelBountyOrder(goCtx context.Context, msg *types.MsgCancel
 		return nil, fmt.Errorf("%w: %v", types.ErrInvalidConfig, err)
 	}
 
-	order, found := m.GetBountyOrder(ctx, msg.BountyId)
+	order, found, err := m.getBountyOrderChecked(ctx, msg.BountyId)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrEscrowInvariant, err)
+	}
 	if !found {
 		return nil, fmt.Errorf("%w: %s", types.ErrBountyNotFound, msg.BountyId)
 	}
@@ -387,11 +446,15 @@ func (m msgServer) CancelBountyOrder(goCtx context.Context, msg *types.MsgCancel
 
 	// Remove both canonical and any historical raw alias key before rewriting
 	// a terminal legacy record in canonical form.
-	m.unindexActiveBounty(ctx, order)
+	if err := m.unindexActiveBountyChecked(ctx, order); err != nil {
+		return nil, fmt.Errorf("unindex canceled bounty: %w", err)
+	}
 	order.Sponsor = orderSponsorAddr.String()
 	order.Status = types.BountyStatus_BOUNTY_STATUS_CANCELED
 	order.EscrowRemaining = "0"
-	m.SetBountyOrder(ctx, order)
+	if err := m.setBountyOrderChecked(ctx, order); err != nil {
+		return nil, fmt.Errorf("store canceled bounty: %w", err)
+	}
 	if err := m.DecreaseEscrowLiability(ctx, remaining); err != nil {
 		return nil, fmt.Errorf("%w: decrease liability: %v", types.ErrEscrowInvariant, err)
 	}

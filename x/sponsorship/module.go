@@ -99,8 +99,7 @@ func (AppModule) ConsensusVersion() uint64 { return 2 }
 // has elapsed transition to EXPIRED.
 func (am AppModule) BeginBlock(goCtx context.Context) error {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	am.keeper.ProcessBountyExpiry(ctx, uint64(ctx.BlockHeight()))
-	return nil
+	return am.keeper.ProcessBountyExpiry(ctx, uint64(ctx.BlockHeight()))
 }
 
 func (am AppModule) EndBlock(_ context.Context) error { return nil }

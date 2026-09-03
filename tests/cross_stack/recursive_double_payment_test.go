@@ -30,6 +30,7 @@ import (
 // This is not double-spending — it's compound payment for compound value.
 func TestRecursiveDoublePayment_ManuallyStagedStateExercisesTwoPayouts(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	// ── Setup: adapter, domain, accounts ─────────────────────────────
 

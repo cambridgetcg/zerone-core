@@ -289,6 +289,15 @@ func advanceBlocks(ctx sdk.Context, n int64) sdk.Context {
 	return ctx.WithBlockHeight(ctx.BlockHeight() + n)
 }
 
+func activateAgentEconomyForKeeperTest(t *testing.T, k keeper.Keeper, ctx sdk.Context) {
+	t.Helper()
+	require.NoError(t, k.WriteMigrationMarker(
+		ctx,
+		types.AgentEconomyNativeMarker,
+		types.AgentEconomyActivationValue,
+	))
+}
+
 // makeValidatorAddr returns a deterministic bech32 validator address.
 func makeValidatorAddr(i int) string {
 	return fmt.Sprintf("zrn1validator%d", i)

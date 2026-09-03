@@ -1,8 +1,10 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -54,17 +56,39 @@ func (k Keeper) SetParams(ctx context.Context, params *types.Params) {
 	_ = kv.Set(types.ParamsKey, bz)
 }
 
+func (k Keeper) setParamsChecked(ctx context.Context, params *types.Params) error {
+	bz, err := proto.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("marshal params: %w", err)
+	}
+	if err := k.storeService.OpenKVStore(ctx).Set(types.ParamsKey, bz); err != nil {
+		return fmt.Errorf("write params: %w", err)
+	}
+	return nil
+}
+
 func (k Keeper) GetParams(ctx context.Context) *types.Params {
+	params, err := k.getParamsChecked(ctx)
+	if err != nil {
+		return types.DefaultParams()
+	}
+	return params
+}
+
+func (k Keeper) getParamsChecked(ctx context.Context) (*types.Params, error) {
 	kv := k.storeService.OpenKVStore(ctx)
 	bz, err := kv.Get(types.ParamsKey)
-	if err != nil || bz == nil {
-		return types.DefaultParams()
+	if err != nil {
+		return nil, fmt.Errorf("read params: %w", err)
+	}
+	if bz == nil {
+		return nil, fmt.Errorf("sponsorship params are absent")
 	}
 	var p types.Params
 	if err := proto.Unmarshal(bz, &p); err != nil {
-		return types.DefaultParams()
+		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	return &p
+	return &p, nil
 }
 
 // ---------- Counter ----------
@@ -72,8 +96,14 @@ func (k Keeper) GetParams(ctx context.Context) *types.Params {
 func (k Keeper) nextBountyID(ctx context.Context) (uint64, error) {
 	kv := k.storeService.OpenKVStore(ctx)
 	bz, err := kv.Get(types.BountyCounterKey)
-	if err != nil || bz == nil {
+	if err != nil {
+		return 0, fmt.Errorf("read bounty counter: %w", err)
+	}
+	if bz == nil {
 		bz = make([]byte, 8)
+	}
+	if len(bz) != 8 {
+		return 0, fmt.Errorf("invalid bounty counter length %d", len(bz))
 	}
 	n := binary.BigEndian.Uint64(bz)
 	if n >= math.MaxUint64-1 {
@@ -82,7 +112,9 @@ func (k Keeper) nextBountyID(ctx context.Context) (uint64, error) {
 	n++
 	newBz := make([]byte, 8)
 	binary.BigEndian.PutUint64(newBz, n)
-	_ = kv.Set(types.BountyCounterKey, newBz)
+	if err := kv.Set(types.BountyCounterKey, newBz); err != nil {
+		return 0, fmt.Errorf("write bounty counter: %w", err)
+	}
 	return n, nil
 }
 
@@ -91,6 +123,9 @@ func (k Keeper) canAllocateBountyID(ctx context.Context) error {
 	bz, err := kv.Get(types.BountyCounterKey)
 	if err != nil {
 		return err
+	}
+	if bz != nil && len(bz) != 8 {
+		return fmt.Errorf("invalid bounty counter length %d", len(bz))
 	}
 	if bz != nil && binary.BigEndian.Uint64(bz) >= math.MaxUint64-1 {
 		return fmt.Errorf("bounty id space exhausted")
@@ -109,17 +144,52 @@ func (k Keeper) SetBountyOrder(ctx context.Context, o *types.BountyOrder) {
 	_ = kv.Set(types.BountyOrderKey(o.Id), bz)
 }
 
+func (k Keeper) setBountyOrderChecked(ctx context.Context, order *types.BountyOrder) error {
+	if order == nil || order.Id == "" {
+		return fmt.Errorf("cannot write nil or id-less bounty order")
+	}
+	bz, err := proto.Marshal(order)
+	if err != nil {
+		return fmt.Errorf("marshal bounty %q: %w", order.Id, err)
+	}
+	if err := k.storeService.OpenKVStore(ctx).Set(types.BountyOrderKey(order.Id), bz); err != nil {
+		return fmt.Errorf("write bounty %q: %w", order.Id, err)
+	}
+	return nil
+}
+
 func (k Keeper) GetBountyOrder(ctx context.Context, id string) (*types.BountyOrder, bool) {
+	order, found, err := k.getBountyOrderChecked(ctx, id)
+	if err != nil {
+		return nil, false
+	}
+	return order, found
+}
+
+func (k Keeper) getBountyOrderChecked(
+	ctx context.Context,
+	id string,
+) (*types.BountyOrder, bool, error) {
 	kv := k.storeService.OpenKVStore(ctx)
 	bz, err := kv.Get(types.BountyOrderKey(id))
-	if err != nil || bz == nil {
-		return nil, false
+	if err != nil {
+		return nil, false, fmt.Errorf("read bounty %q: %w", id, err)
+	}
+	if bz == nil {
+		return nil, false, nil
 	}
 	var o types.BountyOrder
 	if err := proto.Unmarshal(bz, &o); err != nil {
-		return nil, false
+		return nil, false, fmt.Errorf("decode bounty %q: %w", id, err)
 	}
-	return &o, true
+	if o.Id != id {
+		return nil, false, fmt.Errorf(
+			"bounty key id %q does not match encoded id %q",
+			id,
+			o.Id,
+		)
+	}
+	return &o, true, nil
 }
 
 func (k Keeper) IterateBountyOrders(ctx context.Context, cb func(*types.BountyOrder) bool) {
@@ -149,23 +219,96 @@ func (k Keeper) GetAllBountyOrders(ctx context.Context) []*types.BountyOrder {
 	return out
 }
 
+// getAllBountyOrdersChecked is the migration/accounting census. Unlike the
+// permissive query helper above, it refuses any unreadable, malformed, or
+// key-mismatched row and checks close errors. Cosmos SDK's cacheMergeIterator
+// defines Error as "iterator is no longer valid", so natural exhaustion always
+// returns an error and cannot be used as an underlying-storage error channel.
+func (k Keeper) getAllBountyOrdersChecked(
+	ctx context.Context,
+) (orders []*types.BountyOrder, err error) {
+	kv := k.storeService.OpenKVStore(ctx)
+	iter, err := kv.Iterator(
+		types.BountyOrderKeyPrefix,
+		prefixEndBytes(types.BountyOrderKeyPrefix),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("open bounty-order census: %w", err)
+	}
+	defer func() {
+		closeErr := iter.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("close bounty-order census: %w", closeErr)
+		}
+		if joined := errors.Join(err, closeErr); joined != nil {
+			orders = nil
+			err = joined
+		}
+	}()
+
+	for ; iter.Valid(); iter.Next() {
+		var order types.BountyOrder
+		if decodeErr := proto.Unmarshal(iter.Value(), &order); decodeErr != nil {
+			return nil, fmt.Errorf(
+				"decode bounty-order row at key %x: %w",
+				iter.Key(),
+				decodeErr,
+			)
+		}
+		if order.Id == "" || !bytes.Equal(iter.Key(), types.BountyOrderKey(order.Id)) {
+			return nil, fmt.Errorf(
+				"bounty-order row key %x does not match encoded id %q",
+				iter.Key(),
+				order.Id,
+			)
+		}
+		orders = append(orders, &order)
+	}
+	return orders, nil
+}
+
 func (k Keeper) CountActiveBountiesBySponsor(ctx context.Context, sponsor string) uint32 {
-	canonicalSponsor, err := types.CanonicalAccountAddress(sponsor)
+	count, err := k.countActiveBountiesBySponsorChecked(ctx, sponsor)
 	if err != nil {
 		return 0
+	}
+	return count
+}
+
+func (k Keeper) countActiveBountiesBySponsorChecked(
+	ctx context.Context,
+	sponsor string,
+) (count uint32, err error) {
+	canonicalSponsor, err := types.CanonicalAccountAddress(sponsor)
+	if err != nil {
+		return 0, err
 	}
 	kv := k.storeService.OpenKVStore(ctx)
 	prefix := types.ActiveSponsorIndexPrefix(canonicalSponsor)
 	iter, err := kv.Iterator(prefix, prefixEndBytes(prefix))
 	if err != nil {
-		return 0
+		return 0, fmt.Errorf("open active-bounty index for %q: %w", canonicalSponsor, err)
 	}
-	defer iter.Close()
-	var n uint32
+	defer func() {
+		if closeErr := iter.Close(); closeErr != nil {
+			count = 0
+			err = errors.Join(err, fmt.Errorf(
+				"close active-bounty index for %q: %w",
+				canonicalSponsor,
+				closeErr,
+			))
+		}
+	}()
 	for ; iter.Valid(); iter.Next() {
-		n++
+		if len(iter.Key()) <= len(prefix) {
+			return 0, fmt.Errorf("empty bounty id in active index for %q", canonicalSponsor)
+		}
+		if count == math.MaxUint32 {
+			return 0, fmt.Errorf("active-bounty count overflow for %q", canonicalSponsor)
+		}
+		count++
 	}
-	return n
+	return count, nil
 }
 
 func (k Keeper) indexActiveBounty(ctx context.Context, order *types.BountyOrder) {
@@ -184,50 +327,128 @@ func (k Keeper) indexActiveBounty(ctx context.Context, order *types.BountyOrder)
 	_ = kv.Set(types.DeadlineIndexKey(order.EndBlock, order.Id), []byte{1})
 }
 
-func (k Keeper) unindexActiveBounty(ctx context.Context, order *types.BountyOrder) {
+func (k Keeper) indexActiveBountyChecked(ctx context.Context, order *types.BountyOrder) error {
 	if order == nil {
-		return
+		return fmt.Errorf("cannot index nil bounty")
+	}
+	if order.Status != types.BountyStatus_BOUNTY_STATUS_ACTIVE {
+		return nil
+	}
+	canonicalSponsor, err := types.CanonicalAccountAddress(order.Sponsor)
+	if err != nil {
+		return fmt.Errorf("canonicalize active bounty %q sponsor: %w", order.Id, err)
 	}
 	kv := k.storeService.OpenKVStore(ctx)
-	_ = kv.Delete(types.ActiveSponsorIndexKey(order.Sponsor, order.Id))
-	if canonicalSponsor, err := types.CanonicalAccountAddress(order.Sponsor); err == nil && canonicalSponsor != order.Sponsor {
-		_ = kv.Delete(types.ActiveSponsorIndexKey(canonicalSponsor, order.Id))
+	if canonicalSponsor != order.Sponsor {
+		if err := kv.Delete(types.ActiveSponsorIndexKey(order.Sponsor, order.Id)); err != nil {
+			return fmt.Errorf("delete legacy sponsor index for bounty %q: %w", order.Id, err)
+		}
 	}
-	_ = kv.Delete(types.DeadlineIndexKey(order.EndBlock, order.Id))
+	if err := kv.Set(types.ActiveSponsorIndexKey(canonicalSponsor, order.Id), []byte{1}); err != nil {
+		return fmt.Errorf("write active sponsor index for bounty %q: %w", order.Id, err)
+	}
+	if err := kv.Set(types.DeadlineIndexKey(order.EndBlock, order.Id), []byte{1}); err != nil {
+		return fmt.Errorf("write deadline index for bounty %q: %w", order.Id, err)
+	}
+	return nil
+}
+
+func (k Keeper) unindexActiveBounty(ctx context.Context, order *types.BountyOrder) {
+	_ = k.unindexActiveBountyChecked(ctx, order)
+}
+
+func (k Keeper) unindexActiveBountyChecked(
+	ctx context.Context,
+	order *types.BountyOrder,
+) error {
+	if order == nil {
+		return nil
+	}
+	canonicalSponsor, err := types.CanonicalAccountAddress(order.Sponsor)
+	if err != nil {
+		return fmt.Errorf("canonicalize bounty %q sponsor before unindex: %w", order.Id, err)
+	}
+	kv := k.storeService.OpenKVStore(ctx)
+	if err := kv.Delete(types.ActiveSponsorIndexKey(order.Sponsor, order.Id)); err != nil {
+		return fmt.Errorf("delete active sponsor index for bounty %q: %w", order.Id, err)
+	}
+	if canonicalSponsor != order.Sponsor {
+		if err := kv.Delete(types.ActiveSponsorIndexKey(canonicalSponsor, order.Id)); err != nil {
+			return fmt.Errorf("delete canonical active sponsor index for bounty %q: %w", order.Id, err)
+		}
+	}
+	if err := kv.Delete(types.DeadlineIndexKey(order.EndBlock, order.Id)); err != nil {
+		return fmt.Errorf("delete deadline index for bounty %q: %w", order.Id, err)
+	}
+	return nil
 }
 
 // PruneExpiredBountiesForSponsor lazily closes the sponsor's bounded active
 // set before enforcing MaxActiveBountiesPerSponsor. This keeps delayed global
 // expiry processing from stranding a sponsor behind stale index entries.
-func (k Keeper) PruneExpiredBountiesForSponsor(ctx context.Context, sponsor string, currentBlock uint64) {
+func (k Keeper) PruneExpiredBountiesForSponsor(
+	ctx context.Context,
+	sponsor string,
+	currentBlock uint64,
+) error {
 	canonicalSponsor, err := types.CanonicalAccountAddress(sponsor)
 	if err != nil {
-		return
+		return err
 	}
 	kv := k.storeService.OpenKVStore(ctx)
 	prefix := types.ActiveSponsorIndexPrefix(canonicalSponsor)
 	iter, err := kv.Iterator(prefix, prefixEndBytes(prefix))
 	if err != nil {
-		return
+		return fmt.Errorf("open active-bounty pruning index for %q: %w", canonicalSponsor, err)
 	}
-	var ids []string
+	ids := make([]string, 0, types.MaxActiveBountiesPerSponsorHardCap)
 	for ; iter.Valid(); iter.Next() {
+		if len(iter.Key()) <= len(prefix) {
+			closeErr := iter.Close()
+			return errors.Join(
+				fmt.Errorf("empty bounty id in active pruning index for %q", canonicalSponsor),
+				closeErr,
+			)
+		}
+		if uint32(len(ids)) >= types.MaxActiveBountiesPerSponsorHardCap {
+			closeErr := iter.Close()
+			return errors.Join(
+				fmt.Errorf(
+					"active pruning index for %q exceeds hard cap %d",
+					canonicalSponsor,
+					types.MaxActiveBountiesPerSponsorHardCap,
+				),
+				closeErr,
+			)
+		}
 		ids = append(ids, string(iter.Key()[len(prefix):]))
 	}
-	iter.Close()
+	if err := iter.Close(); err != nil {
+		return fmt.Errorf("close active-bounty pruning index for %q: %w", canonicalSponsor, err)
+	}
 	for _, id := range ids {
-		order, found := k.GetBountyOrder(ctx, id)
+		order, found, err := k.getBountyOrderChecked(ctx, id)
+		if err != nil {
+			return err
+		}
 		if !found || order.Status != types.BountyStatus_BOUNTY_STATUS_ACTIVE {
-			_ = kv.Delete(types.ActiveSponsorIndexKey(canonicalSponsor, id))
+			if err := kv.Delete(types.ActiveSponsorIndexKey(canonicalSponsor, id)); err != nil {
+				return fmt.Errorf("delete stale active index for bounty %q: %w", id, err)
+			}
 			continue
 		}
 		if currentBlock < order.EndBlock {
 			continue
 		}
 		order.Status = types.BountyStatus_BOUNTY_STATUS_EXPIRED
-		k.SetBountyOrder(ctx, order)
-		k.unindexActiveBounty(ctx, order)
+		if err := k.setBountyOrderChecked(ctx, order); err != nil {
+			return err
+		}
+		if err := k.unindexActiveBountyChecked(ctx, order); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // ---------- Fulfillment CRUD ----------
@@ -240,6 +461,34 @@ func (k Keeper) SetFulfillment(ctx context.Context, f *types.BountyFulfillment) 
 	}
 	_ = kv.Set(types.FulfillmentKey(f.BountyId, f.FactId), bz)
 	k.SetConsumptionIndexes(ctx, f)
+}
+
+func (k Keeper) setFulfillmentChecked(ctx context.Context, fulfillment *types.BountyFulfillment) error {
+	if fulfillment == nil || fulfillment.BountyId == "" || fulfillment.FactId == "" {
+		return fmt.Errorf("cannot write nil or unbound fulfillment")
+	}
+	bz, err := proto.Marshal(fulfillment)
+	if err != nil {
+		return fmt.Errorf(
+			"marshal fulfillment %q/%q: %w",
+			fulfillment.BountyId,
+			fulfillment.FactId,
+			err,
+		)
+	}
+	kv := k.storeService.OpenKVStore(ctx)
+	if err := kv.Set(
+		types.FulfillmentKey(fulfillment.BountyId, fulfillment.FactId),
+		bz,
+	); err != nil {
+		return fmt.Errorf(
+			"write fulfillment %q/%q: %w",
+			fulfillment.BountyId,
+			fulfillment.FactId,
+			err,
+		)
+	}
+	return k.setConsumptionIndexesChecked(ctx, fulfillment)
 }
 
 // SetConsumptionIndexes writes permanent replay tombstones. Empty v1 receipt
@@ -261,32 +510,131 @@ func (k Keeper) SetConsumptionIndexes(ctx context.Context, f *types.BountyFulfil
 	}
 }
 
+func (k Keeper) setConsumptionIndexesChecked(
+	ctx context.Context,
+	fulfillment *types.BountyFulfillment,
+) error {
+	if fulfillment == nil {
+		return fmt.Errorf("cannot index nil fulfillment")
+	}
+	kv := k.storeService.OpenKVStore(ctx)
+	entries := []struct {
+		key   []byte
+		value string
+		name  string
+	}{
+		{types.FactConsumptionKey(fulfillment.FactId), fulfillment.BountyId, "fact"},
+	}
+	if fulfillment.WorkReceiptHash != "" {
+		entries = append(entries, struct {
+			key   []byte
+			value string
+			name  string
+		}{types.ReceiptConsumptionKey(fulfillment.WorkReceiptHash), fulfillment.BountyId, "receipt"})
+	}
+	if fulfillment.SettlementNullifier != "" {
+		entries = append(entries, struct {
+			key   []byte
+			value string
+			name  string
+		}{types.SettlementNullifierKey(fulfillment.SettlementNullifier), fulfillment.BountyId, "settlement nullifier"})
+	}
+	for _, entry := range entries {
+		if err := kv.Set(entry.key, []byte(entry.value)); err != nil {
+			return fmt.Errorf(
+				"write %s consumption index for fulfillment %q/%q: %w",
+				entry.name,
+				fulfillment.BountyId,
+				fulfillment.FactId,
+				err,
+			)
+		}
+	}
+	return nil
+}
+
 func (k Keeper) IsFactConsumed(ctx context.Context, factID string) bool {
-	bz, err := k.storeService.OpenKVStore(ctx).Get(types.FactConsumptionKey(factID))
-	return err == nil && bz != nil
+	_, found, err := k.consumptionOwnerChecked(ctx, types.FactConsumptionKey(factID), "fact")
+	return err == nil && found
 }
 
 func (k Keeper) IsReceiptConsumed(ctx context.Context, receiptHash string) bool {
-	bz, err := k.storeService.OpenKVStore(ctx).Get(types.ReceiptConsumptionKey(receiptHash))
-	return err == nil && bz != nil
+	_, found, err := k.consumptionOwnerChecked(ctx, types.ReceiptConsumptionKey(receiptHash), "receipt")
+	return err == nil && found
 }
 
 func (k Keeper) IsSettlementNullifierConsumed(ctx context.Context, nullifier string) bool {
-	bz, err := k.storeService.OpenKVStore(ctx).Get(types.SettlementNullifierKey(nullifier))
-	return err == nil && bz != nil
+	_, found, err := k.consumptionOwnerChecked(
+		ctx,
+		types.SettlementNullifierKey(nullifier),
+		"settlement nullifier",
+	)
+	return err == nil && found
 }
 
 func (k Keeper) GetFulfillment(ctx context.Context, bountyID, factID string) (*types.BountyFulfillment, bool) {
+	fulfillment, found, err := k.getFulfillmentChecked(ctx, bountyID, factID)
+	if err != nil {
+		return nil, false
+	}
+	return fulfillment, found
+}
+
+func (k Keeper) getFulfillmentChecked(
+	ctx context.Context,
+	bountyID string,
+	factID string,
+) (*types.BountyFulfillment, bool, error) {
 	kv := k.storeService.OpenKVStore(ctx)
 	bz, err := kv.Get(types.FulfillmentKey(bountyID, factID))
-	if err != nil || bz == nil {
-		return nil, false
+	if err != nil {
+		return nil, false, fmt.Errorf(
+			"read fulfillment %q/%q: %w",
+			bountyID,
+			factID,
+			err,
+		)
+	}
+	if bz == nil {
+		return nil, false, nil
 	}
 	var f types.BountyFulfillment
 	if err := proto.Unmarshal(bz, &f); err != nil {
-		return nil, false
+		return nil, false, fmt.Errorf(
+			"decode fulfillment %q/%q: %w",
+			bountyID,
+			factID,
+			err,
+		)
 	}
-	return &f, true
+	if f.BountyId != bountyID || f.FactId != factID {
+		return nil, false, fmt.Errorf(
+			"fulfillment key %q/%q does not match encoded pair %q/%q",
+			bountyID,
+			factID,
+			f.BountyId,
+			f.FactId,
+		)
+	}
+	return &f, true, nil
+}
+
+func (k Keeper) consumptionOwnerChecked(
+	ctx context.Context,
+	key []byte,
+	kind string,
+) (string, bool, error) {
+	bz, err := k.storeService.OpenKVStore(ctx).Get(key)
+	if err != nil {
+		return "", false, fmt.Errorf("read %s consumption index: %w", kind, err)
+	}
+	if bz == nil {
+		return "", false, nil
+	}
+	if len(bz) == 0 {
+		return "", false, fmt.Errorf("%s consumption index has empty bounty id", kind)
+	}
+	return string(bz), true, nil
 }
 
 func (k Keeper) GetAllFulfillments(ctx context.Context) []*types.BountyFulfillment {
@@ -307,37 +655,89 @@ func (k Keeper) GetAllFulfillments(ctx context.Context) []*types.BountyFulfillme
 	return out
 }
 
+func (k Keeper) getAllFulfillmentsChecked(
+	ctx context.Context,
+) (fulfillments []*types.BountyFulfillment, err error) {
+	kv := k.storeService.OpenKVStore(ctx)
+	iter, err := kv.Iterator(
+		types.FulfillmentKeyPrefix,
+		prefixEndBytes(types.FulfillmentKeyPrefix),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("open fulfillment census: %w", err)
+	}
+	defer func() {
+		closeErr := iter.Close()
+		if closeErr != nil {
+			closeErr = fmt.Errorf("close fulfillment census: %w", closeErr)
+		}
+		if joined := errors.Join(err, closeErr); joined != nil {
+			fulfillments = nil
+			err = joined
+		}
+	}()
+
+	for ; iter.Valid(); iter.Next() {
+		var fulfillment types.BountyFulfillment
+		if decodeErr := proto.Unmarshal(iter.Value(), &fulfillment); decodeErr != nil {
+			return nil, fmt.Errorf(
+				"decode fulfillment row at key %x: %w",
+				iter.Key(),
+				decodeErr,
+			)
+		}
+		if fulfillment.BountyId == "" || fulfillment.FactId == "" ||
+			!bytes.Equal(
+				iter.Key(),
+				types.FulfillmentKey(fulfillment.BountyId, fulfillment.FactId),
+			) {
+			return nil, fmt.Errorf(
+				"fulfillment row key %x does not match encoded pair %q/%q",
+				iter.Key(),
+				fulfillment.BountyId,
+				fulfillment.FactId,
+			)
+		}
+		fulfillments = append(fulfillments, &fulfillment)
+	}
+	return fulfillments, nil
+}
+
 // DerivedEscrowLiability scans orders to derive the open liability. Consensus
 // transaction paths never call it; it is reserved for genesis, migration,
 // export verification, and tests.
 func (k Keeper) DerivedEscrowLiability(ctx context.Context) (*big.Int, error) {
+	orders, err := k.getAllBountyOrdersChecked(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return derivedEscrowLiabilityFromOrders(orders)
+}
+
+func derivedEscrowLiabilityFromOrders(
+	orders []*types.BountyOrder,
+) (*big.Int, error) {
 	total := new(big.Int)
-	var firstErr error
-	k.IterateBountyOrders(ctx, func(order *types.BountyOrder) bool {
+	for _, order := range orders {
+		if order == nil {
+			return nil, fmt.Errorf("nil bounty order in liability census")
+		}
 		remaining, err := types.ParseNonNegativeAmount(order.EscrowRemaining)
 		if err != nil {
-			firstErr = fmt.Errorf("bounty %s: invalid escrow_remaining: %w", order.Id, err)
-			return true
+			return nil, fmt.Errorf("bounty %s: invalid escrow_remaining: %w", order.Id, err)
 		}
 		expected, err := types.ExpectedEscrowRemaining(order)
 		if err != nil {
-			firstErr = fmt.Errorf("bounty %s: %w", order.Id, err)
-			return true
+			return nil, fmt.Errorf("bounty %s: %w", order.Id, err)
 		}
 		if remaining.Cmp(expected) != 0 {
-			firstErr = fmt.Errorf("bounty %s: escrow_remaining %s != derived liability %s", order.Id, remaining, expected)
-			return true
+			return nil, fmt.Errorf("bounty %s: escrow_remaining %s != derived liability %s", order.Id, remaining, expected)
 		}
 		if order.Status == types.BountyStatus_BOUNTY_STATUS_ACTIVE || order.Status == types.BountyStatus_BOUNTY_STATUS_EXPIRED {
 			total.Add(total, remaining)
 		} else if remaining.Sign() != 0 {
-			firstErr = fmt.Errorf("bounty %s: terminal status %s retains escrow %s", order.Id, order.Status, remaining)
-			return true
+			return nil, fmt.Errorf("bounty %s: terminal status %s retains escrow %s", order.Id, order.Status, remaining)
 		}
-		return false
-	})
-	if firstErr != nil {
-		return nil, firstErr
 	}
 	return total, nil
 }
@@ -349,7 +749,7 @@ func (k Keeper) TotalEscrowLiability(ctx context.Context) (*big.Int, error) {
 		return nil, err
 	}
 	if bz == nil {
-		return new(big.Int), nil
+		return nil, fmt.Errorf("persisted escrow liability is absent")
 	}
 	liability, err := types.ParseNonNegativeAmount(string(bz))
 	if err != nil {
@@ -370,11 +770,17 @@ func (k Keeper) SetEscrowLiability(ctx context.Context, liability *big.Int) erro
 }
 
 func (k Keeper) IncreaseEscrowLiability(ctx context.Context, amount *big.Int) error {
-	if err := k.CanIncreaseEscrowLiability(ctx, amount); err != nil {
+	if amount == nil || amount.Sign() < 0 {
+		return fmt.Errorf("liability increase must be non-negative")
+	}
+	current, err := k.TotalEscrowLiability(ctx)
+	if err != nil {
 		return err
 	}
-	current, _ := k.TotalEscrowLiability(ctx)
 	next := new(big.Int).Add(current, amount)
+	if _, err := types.ParseNonNegativeAmount(next.String()); err != nil {
+		return err
+	}
 	return k.SetEscrowLiability(ctx, next)
 }
 
@@ -406,10 +812,16 @@ func (k Keeper) CanDecreaseEscrowLiability(ctx context.Context, amount *big.Int)
 }
 
 func (k Keeper) DecreaseEscrowLiability(ctx context.Context, amount *big.Int) error {
-	if err := k.CanDecreaseEscrowLiability(ctx, amount); err != nil {
+	if amount == nil || amount.Sign() < 0 {
+		return fmt.Errorf("liability decrease must be non-negative")
+	}
+	current, err := k.TotalEscrowLiability(ctx)
+	if err != nil {
 		return err
 	}
-	current, _ := k.TotalEscrowLiability(ctx)
+	if current.Cmp(amount) < 0 {
+		return fmt.Errorf("persisted escrow liability %s below outgoing amount %s", current, amount)
+	}
 	return k.SetEscrowLiability(ctx, new(big.Int).Sub(current, amount))
 }
 
@@ -453,11 +865,11 @@ const MaxExpiryTransitionsPerBlock = 256
 // commitment (commitment 1) and the chain honors it. Funds remain in
 // escrow on EXPIRED bounties until the sponsor calls CancelBountyOrder
 // to reclaim them.
-func (k Keeper) ProcessBountyExpiry(ctx context.Context, currentBlock uint64) {
+func (k Keeper) ProcessBountyExpiry(ctx context.Context, currentBlock uint64) error {
 	kv := k.storeService.OpenKVStore(ctx)
 	iter, err := kv.Iterator(types.DeadlineIndexKeyPrefix, prefixEndBytes(types.DeadlineIndexKeyPrefix))
 	if err != nil {
-		return
+		return fmt.Errorf("open deadline expiry index: %w", err)
 	}
 	type dueEntry struct {
 		key []byte
@@ -465,40 +877,56 @@ func (k Keeper) ProcessBountyExpiry(ctx context.Context, currentBlock uint64) {
 	}
 	due := make([]dueEntry, 0, MaxExpiryTransitionsPerBlock)
 	for ; iter.Valid() && len(due) < MaxExpiryTransitionsPerBlock; iter.Next() {
-		key := iter.Key()
-		if len(key) < 9 {
-			due = append(due, dueEntry{key: append([]byte(nil), key...)})
-			continue
+		key := bytes.Clone(iter.Key())
+		if len(key) <= 9 {
+			closeErr := iter.Close()
+			return errors.Join(
+				fmt.Errorf("malformed deadline index key %x", key),
+				closeErr,
+			)
 		}
 		endBlock := binary.BigEndian.Uint64(key[1:9])
 		if endBlock > currentBlock {
 			break
 		}
-		due = append(due, dueEntry{key: append([]byte(nil), key...), id: string(key[9:])})
+		due = append(due, dueEntry{key: key, id: string(key[9:])})
 	}
-	iter.Close()
+	if err := iter.Close(); err != nil {
+		return fmt.Errorf("close deadline expiry index: %w", err)
+	}
 
 	for _, entry := range due {
-		_ = kv.Delete(entry.key)
-		if entry.id == "" {
-			continue
+		if err := kv.Delete(entry.key); err != nil {
+			return fmt.Errorf("delete deadline index for bounty %q: %w", entry.id, err)
 		}
-		order, found := k.GetBountyOrder(ctx, entry.id)
+		order, found, err := k.getBountyOrderChecked(ctx, entry.id)
+		if err != nil {
+			return err
+		}
 		if !found {
 			continue
 		}
 		if order.Status != types.BountyStatus_BOUNTY_STATUS_ACTIVE {
-			k.unindexActiveBounty(ctx, order)
+			if err := k.unindexActiveBountyChecked(ctx, order); err != nil {
+				return err
+			}
 			continue
 		}
 		if currentBlock < order.EndBlock {
-			k.indexActiveBounty(ctx, order) // repair a stale deadline key
+			if err := k.indexActiveBountyChecked(ctx, order); err != nil {
+				return err
+			}
 			continue
 		}
 		order.Status = types.BountyStatus_BOUNTY_STATUS_EXPIRED
-		k.SetBountyOrder(ctx, order)
-		k.unindexActiveBounty(ctx, order)
+		if err := k.setBountyOrderChecked(ctx, order); err != nil {
+			return err
+		}
+		if err := k.unindexActiveBountyChecked(ctx, order); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // ---------- Genesis ----------
@@ -508,22 +936,32 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) {
 		panic(fmt.Sprintf("invalid sponsorship genesis: %v", err))
 	}
 	if gs.Params != nil {
-		k.SetParams(ctx, gs.Params)
+		if err := k.setParamsChecked(ctx, gs.Params); err != nil {
+			panic(fmt.Sprintf("store sponsorship genesis params: %v", err))
+		}
 	}
 	for _, o := range gs.Orders {
-		k.SetBountyOrder(ctx, o)
-		k.indexActiveBounty(ctx, o)
+		if err := k.setBountyOrderChecked(ctx, o); err != nil {
+			panic(fmt.Sprintf("store sponsorship genesis order: %v", err))
+		}
+		if err := k.indexActiveBountyChecked(ctx, o); err != nil {
+			panic(fmt.Sprintf("index sponsorship genesis order: %v", err))
+		}
 	}
 	for _, f := range gs.Fulfillments {
-		k.SetFulfillment(ctx, f)
+		if err := k.setFulfillmentChecked(ctx, f); err != nil {
+			panic(fmt.Sprintf("store sponsorship genesis fulfillment: %v", err))
+		}
 	}
 	if gs.NextBountyId > 0 {
 		kv := k.storeService.OpenKVStore(ctx)
 		buf := make([]byte, 8)
 		binary.BigEndian.PutUint64(buf, gs.NextBountyId-1) // counter increments before use
-		_ = kv.Set(types.BountyCounterKey, buf)
+		if err := kv.Set(types.BountyCounterKey, buf); err != nil {
+			panic(fmt.Sprintf("store sponsorship genesis counter: %v", err))
+		}
 	}
-	liability, err := k.DerivedEscrowLiability(ctx)
+	liability, err := derivedEscrowLiabilityFromOrders(gs.Orders)
 	if err != nil {
 		panic(fmt.Sprintf("derive sponsorship genesis liability: %v", err))
 	}
@@ -542,21 +980,55 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	if err := k.EnsureEscrowAccounting(ctx); err != nil {
 		panic(fmt.Sprintf("export sponsorship escrow accounting: %v", err))
 	}
+	orders, err := k.getAllBountyOrdersChecked(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("export sponsorship bounty orders: %v", err))
+	}
+	fulfillments, err := k.getAllFulfillmentsChecked(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("export sponsorship fulfillments: %v", err))
+	}
+	params, err := k.getParamsChecked(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("export sponsorship params: %v", err))
+	}
+	nextBountyID, err := k.peekNextBountyIDChecked(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("export sponsorship counter: %v", err))
+	}
 	return &types.GenesisState{
-		Params:       k.GetParams(ctx),
-		Orders:       k.GetAllBountyOrders(ctx),
-		Fulfillments: k.GetAllFulfillments(ctx),
-		NextBountyId: k.peekNextBountyID(ctx),
+		Params:       params,
+		Orders:       orders,
+		Fulfillments: fulfillments,
+		NextBountyId: nextBountyID,
 	}
 }
 
 func (k Keeper) peekNextBountyID(ctx context.Context) uint64 {
-	kv := k.storeService.OpenKVStore(ctx)
-	bz, err := kv.Get(types.BountyCounterKey)
-	if err != nil || bz == nil {
+	next, err := k.peekNextBountyIDChecked(ctx)
+	if err != nil {
 		return 1
 	}
-	return binary.BigEndian.Uint64(bz) + 1
+	return next
+}
+
+func (k Keeper) peekNextBountyIDChecked(ctx context.Context) (uint64, error) {
+	kv := k.storeService.OpenKVStore(ctx)
+	bz, err := kv.Get(types.BountyCounterKey)
+	if err != nil {
+		return 0, fmt.Errorf("read bounty counter: %w", err)
+	}
+	if bz == nil {
+		return 1, nil
+	}
+	if len(bz) != 8 {
+		return 0, fmt.Errorf("invalid bounty counter length %d", len(bz))
+	}
+	counter := binary.BigEndian.Uint64(bz)
+	if counter == math.MaxUint64 {
+		return 0, fmt.Errorf("bounty id space exhausted")
+	}
+	return counter + 1, nil
 }
 
 // ---------- helpers ----------

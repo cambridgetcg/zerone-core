@@ -24,6 +24,11 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 // ─── Core PoT handlers ──────────────────────────────────────────────────────
 
 func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) (*types.MsgSubmitClaimResponse, error) {
+	if msg != nil && msg.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL {
+		if err := m.keeper.requireAgentEconomyActivated(ctx); err != nil {
+			return nil, err
+		}
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	if err := msg.ValidateBasic(); err != nil {

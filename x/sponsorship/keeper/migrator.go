@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/zerone-chain/zerone/x/sponsorship/types"
 )
@@ -17,7 +18,10 @@ func NewMigrator(keeper Keeper) Migrator { return Migrator{keeper: keeper} }
 // Legacy orders intentionally remain without WorkContract: v2 fulfillment
 // refuses them, while CancelBountyOrder can still return their escrow.
 func (m Migrator) Migrate1to2(ctx sdk.Context) error {
-	params := m.keeper.GetParams(ctx)
+	params, err := m.keeper.getParamsChecked(ctx)
+	if err != nil {
+		return fmt.Errorf("read sponsorship params for v2: %w", err)
+	}
 	// v1 did not have a consensus hard cap. Clamp an otherwise valid legacy
 	// parameter to the v2 bound, but refuse activation if live state itself
 	// exceeds the bound: lazy sponsor pruning must remain O(256).
@@ -28,7 +32,10 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 		return fmt.Errorf("invalid sponsorship params for v2: %w", err)
 	}
 
-	orders := m.keeper.GetAllBountyOrders(ctx)
+	orders, err := m.keeper.getAllBountyOrdersChecked(ctx)
+	if err != nil {
+		return fmt.Errorf("census legacy bounty orders: %w", err)
+	}
 	activeBySponsor := make(map[string]uint32)
 	legacySponsorAliases := make(map[string]string)
 	// v1 accepted any base-10 string understood by big.Int (for example
@@ -66,7 +73,10 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 			}
 		}
 	}
-	fulfillments := m.keeper.GetAllFulfillments(ctx)
+	fulfillments, err := m.keeper.getAllFulfillmentsChecked(ctx)
+	if err != nil {
+		return fmt.Errorf("census legacy fulfillments: %w", err)
+	}
 	for _, fulfillment := range fulfillments {
 		amount, err := types.NormalizeLegacyPositiveAmount(fulfillment.AmountPaid)
 		if err != nil {
@@ -75,24 +85,45 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 		}
 		fulfillment.AmountPaid = amount
 	}
+	liability, err := derivedEscrowLiabilityFromOrders(orders)
+	if err != nil {
+		return fmt.Errorf("derive v2 escrow liability before writes: %w", err)
+	}
+	moduleAddr := sdk.AccAddress(authtypes.NewModuleAddress(types.ModuleName))
+	moduleBalance := m.keeper.bankKeeper.GetBalance(ctx, moduleAddr, "uzrn").Amount.BigInt()
+	if moduleBalance.Cmp(liability) < 0 {
+		return fmt.Errorf(
+			"prewrite sponsorship module balance %suzrn is below escrow liability %suzrn",
+			moduleBalance,
+			liability,
+		)
+	}
 
 	// All fallible compatibility preflight above completed before store writes.
-	m.keeper.SetParams(ctx, params)
+	if err := m.keeper.setParamsChecked(ctx, params); err != nil {
+		return err
+	}
 	for _, order := range orders {
 		if rawSponsor := legacySponsorAliases[order.Id]; rawSponsor != "" && rawSponsor != order.Sponsor {
-			_ = m.keeper.storeService.OpenKVStore(ctx).Delete(types.ActiveSponsorIndexKey(rawSponsor, order.Id))
+			if err := m.keeper.storeService.OpenKVStore(ctx).Delete(
+				types.ActiveSponsorIndexKey(rawSponsor, order.Id),
+			); err != nil {
+				return fmt.Errorf("delete legacy sponsor index for bounty %q: %w", order.Id, err)
+			}
 		}
-		m.keeper.SetBountyOrder(ctx, order)
-		m.keeper.indexActiveBounty(ctx, order)
+		if err := m.keeper.setBountyOrderChecked(ctx, order); err != nil {
+			return err
+		}
+		if err := m.keeper.indexActiveBountyChecked(ctx, order); err != nil {
+			return err
+		}
 	}
 	for _, fulfillment := range fulfillments {
 		// SetFulfillment both normalizes the exported record and installs the
 		// permanent fact tombstone. Receipt/artifact/nullifier remain empty for v1.
-		m.keeper.SetFulfillment(ctx, fulfillment)
-	}
-	liability, err := m.keeper.DerivedEscrowLiability(ctx)
-	if err != nil {
-		return fmt.Errorf("derive v2 escrow liability: %w", err)
+		if err := m.keeper.setFulfillmentChecked(ctx, fulfillment); err != nil {
+			return err
+		}
 	}
 	if err := m.keeper.SetEscrowLiability(ctx, liability); err != nil {
 		return fmt.Errorf("store v2 escrow liability: %w", err)
