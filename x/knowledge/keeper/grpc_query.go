@@ -49,8 +49,8 @@ func boundedPageRequest(request *sdkquery.PageRequest) (*sdkquery.PageRequest, e
 	if page.Offset > 0 && len(page.Key) > 0 {
 		return nil, status.Error(codes.InvalidArgument, "pagination offset and key cannot both be set")
 	}
-	if len(page.Key) > 0 && page.CountTotal {
-		return nil, status.Error(codes.InvalidArgument, "count_total cannot be used with a pagination key")
+	if page.CountTotal {
+		return nil, status.Error(codes.InvalidArgument, "count_total is disabled for bounded knowledge queries")
 	}
 	if page.Offset > maxQueryPageOffset {
 		return nil, status.Errorf(codes.InvalidArgument, "pagination offset exceeds %d", maxQueryPageOffset)

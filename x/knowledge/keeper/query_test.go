@@ -128,15 +128,14 @@ func TestQuery_Facts_PaginationUsesStableRawStoreCursor(t *testing.T) {
 	first, err := qs.Facts(ctx, &types.QueryFactsRequest{
 		Category: "selected",
 		Pagination: &sdkquery.PageRequest{
-			Limit:      2,
-			CountTotal: true,
+			Limit: 2,
 		},
 	})
 	require.NoError(t, err)
 	require.Len(t, first.Facts, 2)
 	require.Equal(t, "!cursor-00", first.Facts[0].Id)
 	require.Equal(t, "!cursor-02", first.Facts[1].Id)
-	require.Equal(t, uint64(3), first.Pagination.Total)
+	require.Zero(t, first.Pagination.Total)
 	require.Equal(t, []byte("!cursor-04"), first.Pagination.NextKey)
 
 	// A matching key inserted before the cursor must not shift or repeat page 2.
@@ -177,9 +176,9 @@ func TestQuery_Facts_RejectsUnboundedPagination(t *testing.T) {
 	require.ErrorContains(t, err, "offset and key cannot both be set")
 
 	_, err = qs.Facts(ctx, &types.QueryFactsRequest{
-		Pagination: &sdkquery.PageRequest{Key: []byte("fact-id"), CountTotal: true},
+		Pagination: &sdkquery.PageRequest{CountTotal: true},
 	})
-	require.ErrorContains(t, err, "count_total cannot be used with a pagination key")
+	require.ErrorContains(t, err, "count_total is disabled for bounded knowledge queries")
 
 	resp, err := qs.Facts(ctx, &types.QueryFactsRequest{
 		Pagination: &sdkquery.PageRequest{Key: []byte{1}, Limit: 1},
@@ -252,13 +251,12 @@ func TestQuery_FactsByDomain_RawCursorPagesSecondaryIndex(t *testing.T) {
 	first, err := qs.FactsByDomain(ctx, &types.QueryFactsByDomainRequest{
 		Domain: "domain-page-only",
 		Pagination: &sdkquery.PageRequest{
-			Limit:      2,
-			CountTotal: true,
+			Limit: 2,
 		},
 	})
 	require.NoError(t, err)
 	require.Len(t, first.Facts, 2)
-	require.Equal(t, uint64(3), first.Pagination.Total)
+	require.Zero(t, first.Pagination.Total)
 	require.Equal(t, []byte("domain-page-3"), first.Pagination.NextKey)
 
 	second, err := qs.FactsByDomain(ctx, &types.QueryFactsByDomainRequest{
@@ -423,12 +421,12 @@ func TestQuery_PendingClaims_SelectiveFilterUsesRawCursor(t *testing.T) {
 	}
 
 	first, err := qs.PendingClaims(ctx, &types.QueryPendingClaimsRequest{
-		Pagination: &sdkquery.PageRequest{Limit: 1, CountTotal: true},
+		Pagination: &sdkquery.PageRequest{Limit: 1},
 	})
 	require.NoError(t, err)
 	require.Len(t, first.Claims, 1)
 	require.Equal(t, "!pending-00", first.Claims[0].Id)
-	require.Equal(t, uint64(2), first.Pagination.Total)
+	require.Zero(t, first.Pagination.Total)
 	require.Equal(t, []byte("!pending-02"), first.Pagination.NextKey)
 
 	require.NoError(t, k.SetClaim(ctx, &types.Claim{
@@ -526,11 +524,11 @@ func TestQuery_Domains_RawCursorPagesStore(t *testing.T) {
 	qs := keeper.NewQueryServerImpl(k)
 
 	first, err := qs.Domains(ctx, &types.QueryDomainsRequest{
-		Pagination: &sdkquery.PageRequest{Limit: 2, CountTotal: true},
+		Pagination: &sdkquery.PageRequest{Limit: 2},
 	})
 	require.NoError(t, err)
 	require.Len(t, first.Domains, 2)
-	require.Equal(t, uint64(22), first.Pagination.Total)
+	require.Zero(t, first.Pagination.Total)
 	require.NotEmpty(t, first.Pagination.NextKey)
 
 	second, err := qs.Domains(ctx, &types.QueryDomainsRequest{
