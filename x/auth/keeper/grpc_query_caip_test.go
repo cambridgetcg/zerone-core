@@ -19,12 +19,7 @@ func TestQueryAccountIdentifier(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(k)
 	qs := keeper.NewQueryServerImpl(k)
 
-	_, err := ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
+	_, err := ms.RegisterAccount(ctx, signedRegistration(t, ctx, testAddr1, testPrivKey1, "agent", ""))
 	if err != nil {
 		t.Fatalf("failed to register fixture account: %v", err)
 	}
@@ -122,7 +117,7 @@ func TestQueryAccountIdentifierValidation(t *testing.T) {
 	}
 }
 
-func TestQueryAccountIdentifierReportsStoredNonProjectableAddress(t *testing.T) {
+func TestRegisterAccountRejectsNoncanonicalAddress(t *testing.T) {
 	overlong, err := bech32.ConvertAndEncode("zrn", make([]byte, 21))
 	if err != nil {
 		t.Fatalf("failed to encode overlong fixture: %v", err)
@@ -137,24 +132,14 @@ func TestQueryAccountIdentifierReportsStoredNonProjectableAddress(t *testing.T) 
 			k, baseCtx := setupKeeper(t)
 			ctx := baseCtx.WithChainID("zerone-2")
 			ms := keeper.NewMsgServerImpl(k)
-			qs := keeper.NewQueryServerImpl(k)
+			msg := signedRegistration(t, ctx, testAddr1, testPrivKey1, "agent", "")
+			msg.Sender = address
 
-			_, err := ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-				Sender:      address,
-				Did:         testDID1,
-				PublicKey:   testPubKey1,
-				AccountType: "agent",
-			})
-			if err != nil {
-				t.Fatalf("fixture demonstrates accepted account state: %v", err)
+			if _, err := ms.RegisterAccount(ctx, msg); err == nil {
+				t.Fatal("expected noncanonical sender to be rejected")
 			}
-			if _, found := k.GetAccount(ctx, address); !found {
-				t.Fatal("registered non-projectable account was not stored")
-			}
-
-			_, err = qs.AccountIdentifier(ctx, &types.QueryAccountIdentifierRequest{Address: address})
-			if status.Code(err) != codes.FailedPrecondition {
-				t.Fatalf("expected FailedPrecondition for stored account, got %s (%v)", status.Code(err), err)
+			if _, found := k.GetAccount(ctx, address); found {
+				t.Fatal("rejected account was stored")
 			}
 		})
 	}
@@ -165,17 +150,12 @@ func TestQueryAccountIdentifierRejectsEmptyChainID(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(k)
 	qs := keeper.NewQueryServerImpl(k)
 
-	_, err := ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
+	_, err := ms.RegisterAccount(ctx, signedRegistration(t, ctx, testAddr1, testPrivKey1, "agent", ""))
 	if err != nil {
 		t.Fatalf("failed to register fixture account: %v", err)
 	}
 
-	_, err = qs.AccountIdentifier(ctx, &types.QueryAccountIdentifierRequest{Address: testAddr1})
+	_, err = qs.AccountIdentifier(ctx.WithChainID(""), &types.QueryAccountIdentifierRequest{Address: testAddr1})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("expected FailedPrecondition, got %s (%v)", status.Code(err), err)
 	}
@@ -187,12 +167,7 @@ func TestQueryAccountIdentifierDetectsCorruptDIDMapping(t *testing.T) {
 	ms := keeper.NewMsgServerImpl(k)
 	qs := keeper.NewQueryServerImpl(k)
 
-	_, err := ms.RegisterAccount(ctx, &types.MsgRegisterAccount{
-		Sender:      testAddr1,
-		Did:         testDID1,
-		PublicKey:   testPubKey1,
-		AccountType: "agent",
-	})
+	_, err := ms.RegisterAccount(ctx, signedRegistration(t, ctx, testAddr1, testPrivKey1, "agent", ""))
 	if err != nil {
 		t.Fatalf("failed to register fixture account: %v", err)
 	}

@@ -292,7 +292,7 @@ python3 "${CHAIN_VERIFIER}" cutover-postinit "${AUTHORITY_BUNDLE}" \
   --initiation-sig "${CUTOVER_INITIATION_SIGNATURE}" \
   --config-policy "${CONFIG_POLICY}" --tool-root "${ROOT}" >/dev/null || \
   die "CUTOVER transitive authority chain did not verify"
-"${TX_GATE}" --check \
+"${TX_GATE}" --offline-artifact-check \
   "${RELEASE_PACKET}" "${RELEASE_SIGNATURE}" \
   "${CUTOVER_DECISION}" "${CUTOVER_SIGNATURE}" \
   "${AUTHORITY_BUNDLE}/CUTOVER-SIGNED-TX.json" cutover \

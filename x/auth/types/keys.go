@@ -35,17 +35,23 @@ var (
 
 // AccountKey returns the store key for an account by bech32 address.
 func AccountKey(address string) []byte {
-	return append(AccountKeyPrefix, []byte(address)...)
+	key := make([]byte, 0, len(AccountKeyPrefix)+len(address))
+	key = append(key, AccountKeyPrefix...)
+	return append(key, address...)
 }
 
 // DIDMappingKey returns the store key for DID mapping.
 func DIDMappingKey(did string) []byte {
-	return append(DIDMappingPrefix, []byte(did)...)
+	key := make([]byte, 0, len(DIDMappingPrefix)+len(did))
+	key = append(key, DIDMappingPrefix...)
+	return append(key, did...)
 }
 
-// LastRotationKey returns the store key for last rotation timestamp.
+// LastRotationKey returns the store key for the last rotation block height.
 func LastRotationKey(address string) []byte {
-	return append(LastRotationPrefix, []byte(address)...)
+	key := make([]byte, 0, len(LastRotationPrefix)+len(address))
+	key = append(key, LastRotationPrefix...)
+	return append(key, address...)
 }
 
 // Uint32ToBytes converts uint32 to 4 bytes (big-endian).

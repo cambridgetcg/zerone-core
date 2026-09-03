@@ -455,7 +455,8 @@ function createBaseMsgRegisterAccount() {
     publicKey: "",
     accountType: "",
     operationalKeyHash: "",
-    metadata: ""
+    metadata: "",
+    identityProofSignature: new Uint8Array()
   };
 }
 var MsgRegisterAccount = {
@@ -478,6 +479,9 @@ var MsgRegisterAccount = {
     }
     if (message.metadata !== "") {
       writer.uint32(50).string(message.metadata);
+    }
+    if (message.identityProofSignature.length !== 0) {
+      writer.uint32(58).bytes(message.identityProofSignature);
     }
     return writer;
   },
@@ -506,6 +510,9 @@ var MsgRegisterAccount = {
         case 6:
           message.metadata = reader.string();
           break;
+        case 7:
+          message.identityProofSignature = reader.bytes();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -521,6 +528,7 @@ var MsgRegisterAccount = {
     message.accountType = object.accountType ?? "";
     message.operationalKeyHash = object.operationalKeyHash ?? "";
     message.metadata = object.metadata ?? "";
+    message.identityProofSignature = object.identityProofSignature ?? new Uint8Array();
     return message;
   }
 };
@@ -555,7 +563,9 @@ function createBaseMsgRotateKey() {
   return {
     sender: "",
     newOperationalKey: new Uint8Array(),
-    authorizationSignature: new Uint8Array()
+    authorizationSignature: new Uint8Array(),
+    authorizationExpiresAtUnix: BigInt(0),
+    newKeyConfirmationSignature: new Uint8Array()
   };
 }
 var MsgRotateKey = {
@@ -569,6 +579,12 @@ var MsgRotateKey = {
     }
     if (message.authorizationSignature.length !== 0) {
       writer.uint32(26).bytes(message.authorizationSignature);
+    }
+    if (message.authorizationExpiresAtUnix !== BigInt(0)) {
+      writer.uint32(32).int64(message.authorizationExpiresAtUnix);
+    }
+    if (message.newKeyConfirmationSignature.length !== 0) {
+      writer.uint32(42).bytes(message.newKeyConfirmationSignature);
     }
     return writer;
   },
@@ -588,6 +604,12 @@ var MsgRotateKey = {
         case 3:
           message.authorizationSignature = reader.bytes();
           break;
+        case 4:
+          message.authorizationExpiresAtUnix = reader.int64();
+          break;
+        case 5:
+          message.newKeyConfirmationSignature = reader.bytes();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -600,6 +622,8 @@ var MsgRotateKey = {
     message.sender = object.sender ?? "";
     message.newOperationalKey = object.newOperationalKey ?? new Uint8Array();
     message.authorizationSignature = object.authorizationSignature ?? new Uint8Array();
+    message.authorizationExpiresAtUnix = object.authorizationExpiresAtUnix !== void 0 && object.authorizationExpiresAtUnix !== null ? BigInt(object.authorizationExpiresAtUnix.toString()) : BigInt(0);
+    message.newKeyConfirmationSignature = object.newKeyConfirmationSignature ?? new Uint8Array();
     return message;
   }
 };

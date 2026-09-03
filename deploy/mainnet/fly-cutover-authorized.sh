@@ -24,9 +24,10 @@ The observer stage is the only CUTOVER path allowed before the successor-link
 transaction. It verifies both halt configs first, deploys only the observer,
 then proves signer/observer identity, trusted-block agreement, live-chain
 agreement, and the signed lead before F. After the exact transaction commits
-and signed initiation evidence exists, the signer stage repeats those checks,
-deploys the signer last, and rechecks both nodes. Generic per-config CUTOVER
-deployment is intentionally rejected.
+and signed initiation evidence exists, the signer stage verifies that post-init
+authority and the exact committed TxRaw artifact without treating its consumed
+sequence as currently broadcastable, deploys the signer last, and rechecks both
+nodes. Generic per-config CUTOVER deployment is intentionally rejected.
 USAGE
   exit 2
 }
@@ -152,7 +153,11 @@ python3 "${POLICY}" "${OBSERVER_CONFIG}" zerone-2-cutover-decision-v1 \
   zerone_1_observer - "${F}" "${A}" "${H}" >/dev/null || \
   die "observer config violates structural policy"
 
-"${TX_GATE}" --check "${RELEASE}" "${RELEASE_SIG}" \
+TX_GATE_MODE=--check
+if [ "${STAGE}" = signer ]; then
+  TX_GATE_MODE=--offline-artifact-check
+fi
+"${TX_GATE}" "${TX_GATE_MODE}" "${RELEASE}" "${RELEASE_SIG}" \
   "${CUTOVER}" "${CUTOVER_SIG}" \
   "${AUTHORITY_BUNDLE}/CUTOVER-SIGNED-TX.json" cutover \
   "${AUTHORITY_BUNDLE}/zeroned-zerone-1-release" http://localhost \

@@ -4,6 +4,25 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      sign_release_components:
+        description: "Create public keyless bundles for the three production image digests"
+        required: true
+        default: false
+        type: boolean
+      zerone_1_halt_image:
+        description: "Exact zerone-1 halt image; must match the protected environment pin"
+        required: false
+        type: string
+      zerone_2_runtime_image:
+        description: "Exact zerone-2 runtime image; must match the protected environment pin"
+        required: false
+        type: string
+      query_gateway_image:
+        description: "Exact query-gateway image; must match the protected environment pin"
+        required: false
+        type: string
 
 env:
   GO_VERSION: "1.25.12"
@@ -12,8 +31,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Signing dispatches have a separate non-cancelling lane. A later ordinary
+  # push therefore cannot interrupt a run after it has published a log entry.
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_release_components && format('ci-signing-{0}', github.ref) || format('ci-{0}', github.ref) }}
+  # A signing run may already have published an immutable Rekor entry. Let it
+  # finish so its evidence packet is complete and auditable.
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.sign_release_components) }}
 
 jobs:
   build:
@@ -288,6 +311,8 @@ jobs:
             .private_bootstrap_transactions.operator_onboarding.message_type ==
               "/zerone.auth.v1.MsgRegisterAccount" and
             .private_bootstrap_transactions.operator_onboarding.account_type == "human" and
+            (.private_bootstrap_transactions.operator_onboarding.identity_proof_signature |
+              type == "string") and
             .private_bootstrap_transactions.operator_onboarding.did ==
               ("did:zrn:" +
                 .private_bootstrap_transactions.operator_onboarding.public_key) and
@@ -638,6 +663,93 @@ jobs:
           bun intake.ts validate
           bun test
 
+  frontier-intake-macos:
+    name: "Frontier intake macOS ACL boundary"
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: 1.3.5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Build universal descriptor ACL inspector
+        run: make darwin-acl-helper
+      - name: Verify deterministic helper identity and bytes
+        env:
+          LC_ALL: C
+          LANG: C
+        run: |
+          first="$(/usr/bin/shasum -a 256 build/darwin-acl-check | awk '{print $1}')"
+          make darwin-acl-helper
+          second="$(/usr/bin/shasum -a 256 build/darwin-acl-check | awk '{print $1}')"
+          test "$first" = "$second"
+          codesign -dv --verbose=4 build/darwin-acl-check 2>&1 |
+            grep -Fx 'Identifier=org.zerone.darwin-acl-check'
+      - name: Test zeroned plain, local, and inherited ACL custody
+        run: go test ./x/auth/client/cli -count=1
+      - name: Test Frontier plain, local, and inherited ACL custody
+        working-directory: tools/frontier-intake
+        env:
+          LC_ALL: C
+          LANG: C
+        run: |
+          bun intake.ts validate
+          bun test
+      - name: Verify production Bun bundle layout
+        working-directory: tools/frontier-intake
+        env:
+          LC_ALL: C
+          LANG: C
+        run: |
+          bun build intake.ts --target=bun --outfile=build/frontier-intake.js
+          bun build/frontier-intake.js validate
+      - name: Build and verify deterministic Frontier macOS artifact
+        env:
+          LC_ALL: C
+          LANG: C
+        run: |
+          make frontier-intake-macos-package COMMIT="$GITHUB_SHA"
+          first_archive="$(/usr/bin/shasum -a 256 build/frontier-intake-macos.tar | awk '{print $1}')"
+          first_manifest="$(/usr/bin/shasum -a 256 build/frontier-intake-macos.manifest.json | awk '{print $1}')"
+          make frontier-intake-macos-package COMMIT="$GITHUB_SHA"
+          second_archive="$(/usr/bin/shasum -a 256 build/frontier-intake-macos.tar | awk '{print $1}')"
+          second_manifest="$(/usr/bin/shasum -a 256 build/frontier-intake-macos.manifest.json | awk '{print $1}')"
+          test "$first_archive" = "$second_archive"
+          test "$first_manifest" = "$second_manifest"
+          make frontier-intake-macos-package-check COMMIT="$GITHUB_SHA"
+          install_root="$RUNNER_TEMP/frontier-intake-install"
+          mkdir -m 0700 "$install_root"
+          COPYFILE_DISABLE=1 /usr/bin/tar -xf build/frontier-intake-macos.tar -C "$install_root"
+          test "$(/usr/bin/stat -f '%Lp' "$install_root/frontier-intake-macos")" = 555
+          test "$(/usr/bin/stat -f '%Lp' "$install_root/frontier-intake-macos/tools/frontier-intake/build")" = 555
+          test "$(/usr/bin/stat -f '%Lp' "$install_root/frontier-intake-macos/tools/frontier-intake/build/frontier-intake.js")" = 555
+          test "$(/usr/bin/stat -f '%Lp' "$install_root/frontier-intake-macos/tools/frontier-intake/build/darwin-acl-check")" = 555
+          /usr/bin/cmp tools/frontier-intake/build/frontier-intake.js \
+            "$install_root/frontier-intake-macos/tools/frontier-intake/build/frontier-intake.js"
+          /usr/bin/cmp tools/frontier-intake/build/darwin-acl-check \
+            "$install_root/frontier-intake-macos/tools/frontier-intake/build/darwin-acl-check"
+          /usr/bin/cmp docs/research/math-breakthroughs-2026-08.v0.json \
+            "$install_root/frontier-intake-macos/docs/research/math-breakthroughs-2026-08.v0.json"
+          bun "$install_root/frontier-intake-macos/tools/frontier-intake/build/frontier-intake.js" validate
+      - name: Hand exact Frontier artifact to protected signer
+        if: github.event_name == 'workflow_dispatch' && inputs.sign_release_components
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontier-intake-macos-unsigned-${{ github.sha }}
+          path: |
+            build/frontier-intake-macos.tar
+            build/frontier-intake-macos.tar.sha256
+            build/frontier-intake-macos.manifest.json
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
   sigstore-compiler:
     name: "Sigstore substrate compiler"
     runs-on: ubuntu-24.04
@@ -676,6 +788,14 @@ jobs:
           go build -trimpath -buildvcs=false -ldflags='-buildid=' -o "$RUNNER_TEMP/compiler-b" .
           cmp "$RUNNER_TEMP/compiler-a" "$RUNNER_TEMP/compiler-b"
           sha256sum "$RUNNER_TEMP/compiler-a"
+          go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+            -o "$RUNNER_TEMP/component-verifier-a" \
+            ./cmd/zerone-component-signature-verifier
+          go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+            -o "$RUNNER_TEMP/component-verifier-b" \
+            ./cmd/zerone-component-signature-verifier
+          cmp "$RUNNER_TEMP/component-verifier-a" "$RUNNER_TEMP/component-verifier-b"
+          sha256sum "$RUNNER_TEMP/component-verifier-a"
 
   operations-safety-tools:
     name: "Operations safety tools"
@@ -916,3 +1036,379 @@ jobs:
               -c 'find / -type f \( -name priv_validator_key.json -o -name priv_validator_state.json -o -name node_key.json \) -print 2>/dev/null'
           )"
           test -z "$found"
+
+  sign-release-components:
+    name: "Sign production component manifests"
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.sign_release_components
+    needs:
+      - build
+      - lint
+      - test
+      - typescript-sdk
+      - frontier-intake
+      - frontier-intake-macos
+      - sigstore-compiler
+      - operations-safety-tools
+      - containment-runtime
+      - public-rpc-edge
+      - chain-registry
+      - deployment-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: zerone-production-signing
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Require protected policy and exact environment-approved images
+        id: authorize
+        shell: bash
+        env:
+          # This value must be defined on the protected environment itself.
+          # A missing environment is auto-created by GitHub without protection;
+          # the empty value then keeps this job fail-closed before OIDC use.
+          PRODUCTION_SIGNING_POLICY: ${{ vars.ZERONE_PRODUCTION_SIGNING_POLICY }}
+          REQUESTED_ZERONE_1_HALT_IMAGE: ${{ inputs.zerone_1_halt_image }}
+          REQUESTED_ZERONE_2_RUNTIME_IMAGE: ${{ inputs.zerone_2_runtime_image }}
+          REQUESTED_QUERY_GATEWAY_IMAGE: ${{ inputs.query_gateway_image }}
+          APPROVED_ZERONE_1_HALT_IMAGE: ${{ vars.ZERONE_PRODUCTION_APPROVED_ZERONE_1_HALT_IMAGE }}
+          APPROVED_ZERONE_2_RUNTIME_IMAGE: ${{ vars.ZERONE_PRODUCTION_APPROVED_ZERONE_2_RUNTIME_IMAGE }}
+          APPROVED_QUERY_GATEWAY_IMAGE: ${{ vars.ZERONE_PRODUCTION_APPROVED_QUERY_GATEWAY_IMAGE }}
+        run: |
+          set -euo pipefail
+          test "$PRODUCTION_SIGNING_POLICY" = "required-reviewers-v1"
+          test "$GITHUB_REPOSITORY" = cambridgetcg/zerone-core
+          test "$GITHUB_REF" = refs/heads/main
+          image_pattern='^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?/[a-z0-9]+([._-][a-z0-9]+)*(/[a-z0-9]+([._-][a-z0-9]+)*)*@sha256:[0-9a-f]{64}$'
+          for image in \
+            "$APPROVED_ZERONE_1_HALT_IMAGE" \
+            "$APPROVED_ZERONE_2_RUNTIME_IMAGE" \
+            "$APPROVED_QUERY_GATEWAY_IMAGE"; do
+            [[ "$image" =~ $image_pattern ]]
+          done
+          test "$REQUESTED_ZERONE_1_HALT_IMAGE" = "$APPROVED_ZERONE_1_HALT_IMAGE"
+          test "$REQUESTED_ZERONE_2_RUNTIME_IMAGE" = "$APPROVED_ZERONE_2_RUNTIME_IMAGE"
+          test "$REQUESTED_QUERY_GATEWAY_IMAGE" = "$APPROVED_QUERY_GATEWAY_IMAGE"
+          test "$APPROVED_ZERONE_1_HALT_IMAGE" != "$APPROVED_ZERONE_2_RUNTIME_IMAGE"
+          test "$APPROVED_ZERONE_1_HALT_IMAGE" != "$APPROVED_QUERY_GATEWAY_IMAGE"
+          test "$APPROVED_ZERONE_2_RUNTIME_IMAGE" != "$APPROVED_QUERY_GATEWAY_IMAGE"
+          halt_digest=${APPROVED_ZERONE_1_HALT_IMAGE##*@sha256:}
+          runtime_digest=${APPROVED_ZERONE_2_RUNTIME_IMAGE##*@sha256:}
+          gateway_digest=${APPROVED_QUERY_GATEWAY_IMAGE##*@sha256:}
+          test "$halt_digest" != "$runtime_digest"
+          test "$halt_digest" != "$gateway_digest"
+          test "$runtime_digest" != "$gateway_digest"
+          {
+            printf 'zerone_1_halt_image=%s\n' "$APPROVED_ZERONE_1_HALT_IMAGE"
+            printf 'zerone_2_runtime_image=%s\n' "$APPROVED_ZERONE_2_RUNTIME_IMAGE"
+            printf 'query_gateway_image=%s\n' "$APPROVED_QUERY_GATEWAY_IMAGE"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require exact current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+
+      - name: Download same-run Frontier macOS artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: frontier-intake-macos-unsigned-${{ github.sha }}
+          path: ${{ runner.temp }}/frontier-intake-macos-handoff
+
+      - name: Install pinned Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.6
+
+      - name: Sign exact approved artifact bytes
+        id: sign
+        shell: bash
+        env:
+          ZERONE_1_HALT_IMAGE: ${{ steps.authorize.outputs.zerone_1_halt_image }}
+          ZERONE_2_RUNTIME_IMAGE: ${{ steps.authorize.outputs.zerone_2_runtime_image }}
+          QUERY_GATEWAY_IMAGE: ${{ steps.authorize.outputs.query_gateway_image }}
+          FRONTIER_MACOS_HANDOFF: ${{ runner.temp }}/frontier-intake-macos-handoff
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/zerone-component-signatures"
+          mkdir -m 0700 "$output"
+          signer_identity="https://github.com/cambridgetcg/zerone-core/.github/workflows/ci.yml@refs/heads/main"
+          issuer="https://token.actions.githubusercontent.com"
+          signing_config="$output/SIGSTORE-SIGNING-CONFIG.json"
+
+          cosign signing-config create --with-default-services \
+            --out "$signing_config"
+          jq -e '
+            .mediaType == "application/vnd.dev.sigstore.signingconfig.v0.2+json" and
+            (.caUrls | type == "array" and length > 0) and
+            (.rekorTlogUrls | type == "array" and length > 0) and
+            (.tsaUrls | type == "array" and length > 0) and
+            (.rekorTlogConfig.selector == "ANY" or
+             (.rekorTlogConfig.selector | startswith("EXACT:"))) and
+            (.tsaConfig.selector == "ANY" or
+             (.tsaConfig.selector | startswith("EXACT:")))
+          ' "$signing_config" >/dev/null
+
+          prepare_component() {
+            local image=$1 stem=$2 manifest config expected actual
+            manifest="$output/${stem}-OCI-MANIFEST.json"
+            config="$output/${stem}-OCI-IMAGE-CONFIG.json"
+            docker buildx imagetools inspect --raw "$image" > "$manifest"
+            expected=${image##*@sha256:}
+            actual=$(sha256sum "$manifest" | cut -d ' ' -f 1)
+            test "$actual" = "$expected"
+            jq -e '
+              .schemaVersion == 2 and
+              (.config.digest | test("^sha256:[0-9a-f]{64}$")) and
+              (.layers | type == "array" and length > 0) and
+              (has("manifests") | not)
+            ' "$manifest" >/dev/null
+            docker buildx imagetools inspect "$image" \
+              --format '{{json .Image}}' > "$config"
+            jq -e --arg commit "$GITHUB_SHA" \
+              '.config.Labels["org.opencontainers.image.revision"] == $commit' \
+              "$config" >/dev/null
+          }
+
+          sign_component() {
+            local component=$1 image=$2 stem=$3 manifest config bundle
+            manifest="$output/${stem}-OCI-MANIFEST.json"
+            config="$output/${stem}-OCI-IMAGE-CONFIG.json"
+            bundle="$output/${stem}-SIGNATURE-BUNDLE.json"
+            cosign sign-blob --yes --signing-config "$signing_config" \
+              --bundle "$bundle" "$manifest"
+            cosign verify-blob \
+              --bundle "$bundle" \
+              --certificate-identity "$signer_identity" \
+              --certificate-oidc-issuer "$issuer" \
+              --certificate-github-workflow-sha "$GITHUB_SHA" \
+              --use-signed-timestamps \
+              "$manifest"
+            jq -e \
+              '.mediaType == "application/vnd.dev.sigstore.bundle.v0.3+json" and
+               (.messageSignature.messageDigest.algorithm == "SHA2_256") and
+               (.verificationMaterial.tlogEntries | length > 0) and
+               (.verificationMaterial.timestampVerificationData.rfc3161Timestamps |
+                 length > 0)' \
+              "$bundle" >/dev/null
+            jq -S -c . "$bundle" > "$bundle.canonical"
+            mv "$bundle.canonical" "$bundle"
+            printf '%s\t%s\t%s\t%s\t%s\n' \
+              "$component" "$image" "${manifest##*/}" "${config##*/}" \
+              "${bundle##*/}" \
+              >> "$output/components.tsv"
+          }
+
+          # Resolve and validate every immutable input before the first
+          # irreversible transparency-log publication.
+          prepare_component "$ZERONE_1_HALT_IMAGE" ZERONE-1-HALT
+          prepare_component "$ZERONE_2_RUNTIME_IMAGE" ZERONE-2-RUNTIME
+          prepare_component "$QUERY_GATEWAY_IMAGE" QUERY-GATEWAY
+
+          frontier_archive="$FRONTIER_MACOS_HANDOFF/frontier-intake-macos.tar"
+          frontier_checksum="$FRONTIER_MACOS_HANDOFF/frontier-intake-macos.tar.sha256"
+          frontier_manifest="$FRONTIER_MACOS_HANDOFF/frontier-intake-macos.manifest.json"
+          for file in "$frontier_archive" "$frontier_checksum" "$frontier_manifest"; do
+            test -f "$file"
+            test ! -L "$file"
+          done
+          handoff_files="$({
+            find "$FRONTIER_MACOS_HANDOFF" -mindepth 1 -maxdepth 1 -type f -print
+          } | sed "s#^$FRONTIER_MACOS_HANDOFF/##" | LC_ALL=C sort)"
+          expected_handoff_files="$(printf '%s\n' \
+            frontier-intake-macos.manifest.json \
+            frontier-intake-macos.tar \
+            frontier-intake-macos.tar.sha256)"
+          test "$handoff_files" = "$expected_handoff_files"
+          frontier_archive_sha=$(sha256sum "$frontier_archive" | cut -d ' ' -f 1)
+          printf '%s  frontier-intake-macos.tar\n' "$frontier_archive_sha" |
+            cmp - "$frontier_checksum"
+
+          archive_members="$(tar -tf "$frontier_archive")"
+          expected_archive_members="$(printf '%s\n' \
+            frontier-intake-macos/ \
+            frontier-intake-macos/MANIFEST.json \
+            frontier-intake-macos/docs/ \
+            frontier-intake-macos/docs/research/ \
+            frontier-intake-macos/docs/research/math-breakthroughs-2026-08.v0.json \
+            frontier-intake-macos/tools/ \
+            frontier-intake-macos/tools/frontier-intake/ \
+            frontier-intake-macos/tools/frontier-intake/build/ \
+            frontier-intake-macos/tools/frontier-intake/build/frontier-intake.js \
+            frontier-intake-macos/tools/frontier-intake/build/darwin-acl-check)"
+          test "$archive_members" = "$expected_archive_members"
+          mapfile -t archive_verbose < <(tar -tvf "$frontier_archive")
+          mapfile -t expected_members <<< "$expected_archive_members"
+          expected_modes=(
+            dr-xr-xr-x -r--r--r-- dr-xr-xr-x dr-xr-xr-x -r--r--r--
+            dr-xr-xr-x dr-xr-xr-x dr-xr-xr-x -r-xr-xr-x -r-xr-xr-x
+          )
+          test "${#archive_verbose[@]}" = "${#expected_members[@]}"
+          test "${#archive_verbose[@]}" = "${#expected_modes[@]}"
+          for index in "${!archive_verbose[@]}"; do
+            test "${archive_verbose[$index]:0:10}" = "${expected_modes[$index]}"
+            [[ "${archive_verbose[$index]}" == *" ${expected_members[$index]}" ]]
+          done
+          frontier_unpack="$RUNNER_TEMP/frontier-intake-macos-unpack"
+          mkdir -m 0700 "$frontier_unpack"
+          tar -xf "$frontier_archive" -C "$frontier_unpack"
+          frontier_root="$frontier_unpack/frontier-intake-macos"
+          test -d "$frontier_root"
+          test ! -L "$frontier_root"
+          frontier_register="$frontier_root/docs/research/math-breakthroughs-2026-08.v0.json"
+          frontier_build="$frontier_root/tools/frontier-intake/build"
+          for file in \
+            "$frontier_root/MANIFEST.json" \
+            "$frontier_register" \
+            "$frontier_build/frontier-intake.js" \
+            "$frontier_build/darwin-acl-check"; do
+            test -f "$file"
+            test ! -L "$file"
+            test "$(stat -c '%h' "$file")" = 1
+          done
+          cmp "$frontier_manifest" "$frontier_root/MANIFEST.json"
+          jq -S -c . "$frontier_manifest" | cmp - "$frontier_manifest"
+          for directory in \
+            "$frontier_root" \
+            "$frontier_root/docs" \
+            "$frontier_root/docs/research" \
+            "$frontier_root/tools" \
+            "$frontier_root/tools/frontier-intake" \
+            "$frontier_build"; do
+            test -d "$directory"
+            test ! -L "$directory"
+            test "$(stat -c '%a' "$directory")" = 555
+          done
+          test "$(stat -c '%a' "$frontier_root/MANIFEST.json")" = 444
+          test "$(stat -c '%a' "$frontier_register")" = 444
+          test "$(stat -c '%a' "$frontier_build/frontier-intake.js")" = 555
+          test "$(stat -c '%a' "$frontier_build/darwin-acl-check")" = 555
+          frontier_register_sha=$(sha256sum "$frontier_register" | cut -d ' ' -f 1)
+          frontier_helper_sha=$(sha256sum "$frontier_build/darwin-acl-check" | cut -d ' ' -f 1)
+          frontier_bundle_sha=$(sha256sum "$frontier_build/frontier-intake.js" | cut -d ' ' -f 1)
+          frontier_register_size=$(stat -c '%s' "$frontier_register")
+          frontier_helper_size=$(stat -c '%s' "$frontier_build/darwin-acl-check")
+          frontier_bundle_size=$(stat -c '%s' "$frontier_build/frontier-intake.js")
+          jq -e \
+            --arg commit "$GITHUB_SHA" \
+            --arg register_sha "$frontier_register_sha" \
+            --arg helper_sha "$frontier_helper_sha" \
+            --arg bundle_sha "$frontier_bundle_sha" \
+            --argjson register_size "$frontier_register_size" \
+            --argjson helper_size "$frontier_helper_size" \
+            --argjson bundle_size "$frontier_bundle_size" '
+              (keys | sort) == ([
+                "acl_helper_protocol", "archive_root", "bun_version", "files",
+                "minimum_macos", "provenance_requirement", "schema", "source_commit"
+              ] | sort) and
+              .schema == "zerone.frontier-intake-macos-artifact.v1" and
+              .source_commit == $commit and
+              .archive_root == "frontier-intake-macos" and
+              .acl_helper_protocol == "zerone-darwin-acl-v1" and
+              .minimum_macos == "12.0" and
+              .bun_version == "1.3.5" and
+              .provenance_requirement ==
+                "verify an authorized distributor signature over the archive before execution" and
+              .files == [
+                {
+                  mode: "0444",
+                  path: "frontier-intake-macos/docs/research/math-breakthroughs-2026-08.v0.json",
+                  sha256: $register_sha,
+                  size: $register_size
+                },
+                {
+                  mode: "0555",
+                  path: "frontier-intake-macos/tools/frontier-intake/build/darwin-acl-check",
+                  sha256: $helper_sha,
+                  size: $helper_size
+                },
+                {
+                  mode: "0555",
+                  path: "frontier-intake-macos/tools/frontier-intake/build/frontier-intake.js",
+                  sha256: $bundle_sha,
+                  size: $bundle_size
+                }
+              ]
+            ' "$frontier_manifest" >/dev/null
+
+          sign_component zerone_1_halt "$ZERONE_1_HALT_IMAGE" ZERONE-1-HALT
+          sign_component zerone_2_runtime "$ZERONE_2_RUNTIME_IMAGE" ZERONE-2-RUNTIME
+          sign_component query_gateway "$QUERY_GATEWAY_IMAGE" QUERY-GATEWAY
+
+          frontier_signature="$output/FRONTIER-INTAKE-MACOS-SIGNATURE-BUNDLE.json"
+          cosign sign-blob --yes --signing-config "$signing_config" \
+            --bundle "$frontier_signature" "$frontier_archive"
+          cosign verify-blob \
+            --bundle "$frontier_signature" \
+            --certificate-identity "$signer_identity" \
+            --certificate-oidc-issuer "$issuer" \
+            --certificate-github-workflow-sha "$GITHUB_SHA" \
+            --use-signed-timestamps \
+            "$frontier_archive"
+          jq -e \
+            '.mediaType == "application/vnd.dev.sigstore.bundle.v0.3+json" and
+             (.messageSignature.messageDigest.algorithm == "SHA2_256") and
+             (.verificationMaterial.tlogEntries | length > 0) and
+             (.verificationMaterial.timestampVerificationData.rfc3161Timestamps |
+               length > 0)' \
+            "$frontier_signature" >/dev/null
+          jq -S -c . "$frontier_signature" > "$frontier_signature.canonical"
+          mv "$frontier_signature.canonical" "$frontier_signature"
+          install -m 0600 "$frontier_archive" "$output/frontier-intake-macos.tar"
+          install -m 0600 "$frontier_checksum" "$output/frontier-intake-macos.tar.sha256"
+          install -m 0600 "$frontier_manifest" "$output/frontier-intake-macos.manifest.json"
+          frontier_manifest_sha=$(sha256sum "$frontier_manifest" | cut -d ' ' -f 1)
+          frontier_signature_sha=$(sha256sum "$frontier_signature" | cut -d ' ' -f 1)
+
+          jq -n -S -c \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg source_commit "$GITHUB_SHA" \
+            --arg workflow_ref "$GITHUB_WORKFLOW_REF" \
+            --arg run_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --arg halt "$ZERONE_1_HALT_IMAGE" \
+            --arg runtime "$ZERONE_2_RUNTIME_IMAGE" \
+            --arg gateway "$QUERY_GATEWAY_IMAGE" \
+            --arg frontier_archive_sha "$frontier_archive_sha" \
+            --arg frontier_manifest_sha "$frontier_manifest_sha" \
+            --arg frontier_signature_sha "$frontier_signature_sha" \
+            '{
+              schema: "zerone-component-signing-run-v1",
+              repository: $repository,
+              source_commit: $source_commit,
+              workflow_ref: $workflow_ref,
+              run_url: $run_url,
+              images: {
+                zerone_1_halt: $halt,
+                zerone_2_runtime: $runtime,
+                query_gateway: $gateway
+              },
+              artifacts: {
+                frontier_intake_macos: {
+                  archive: "frontier-intake-macos.tar",
+                  archive_sha256: $frontier_archive_sha,
+                  manifest: "frontier-intake-macos.manifest.json",
+                  manifest_sha256: $frontier_manifest_sha,
+                  signature_bundle: "FRONTIER-INTAKE-MACOS-SIGNATURE-BUNDLE.json",
+                  signature_bundle_sha256: $frontier_signature_sha
+                }
+              }
+            }' > "$output/SIGNING-RUN.json"
+          echo "output=$output" >> "$GITHUB_OUTPUT"
+
+      - name: Upload immutable signature bundles
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zerone-component-signatures-${{ github.sha }}
+          path: ${{ steps.sign.outputs.output }}
+          if-no-files-found: error
+          retention-days: 14

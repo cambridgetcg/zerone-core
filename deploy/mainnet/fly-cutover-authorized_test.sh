@@ -46,10 +46,41 @@ elif [ "$1" = tx ] && [ "$2" = decode ] && [ "$4" = --output ] && \
         amount:[{denom:"uzrn",amount:"1"}]}],memo:$tx.memo,
         timeout_height:$tx.timeout_height,extension_options:[],
         non_critical_extension_options:[]},
-      auth_info:{signer_infos:[{}],fee:{amount:[{denom:"uzrn",amount:"200000"}],
+      auth_info:{signer_infos:[{
+        mode_info:{single:{mode:"SIGN_MODE_DIRECT"}},sequence:"7"
+      }],fee:{amount:[{denom:"uzrn",amount:"200000"}],
         gas_limit:"200000",payer:"",granter:""},tip:null},
       signatures:["fixture-signature"]
     }'
+elif [ "$1" = tx ] && [ "$2" = validate-signatures ] && [ "$#" -ge 3 ]; then
+  if [ "${FAKE_EXPECT_OFFLINE_TX_CHECK:?}" = 1 ]; then
+    for required in '--account-number 0' '--sequence 7' '--offline'; do
+      case " $* " in
+        *" ${required} "*) ;;
+        *) exit 2 ;;
+      esac
+    done
+    case " $* " in
+      *' --node '*) exit 2 ;;
+    esac
+  else
+    case " $* " in
+      *' --offline '*) exit 2 ;;
+    esac
+    case " $* " in
+      *' --node '*) ;;
+      *) exit 2 ;;
+    esac
+  fi
+  printf 'Signatures: OK\n'
+elif [ "$1" = query ] && [ "$2" = auth ] && [ "$3" = account ] && \
+  [ "$4" = "$(jq -er '.successor_commitment_transaction.sender' \
+    "${FAKE_CUTOVER:?}")" ] && [ "$5" = --node ] && \
+  [ "$7" = --output ] && [ "$8" = json ]; then
+  [ "${FAKE_EXPECT_OFFLINE_TX_CHECK:?}" = 0 ] || exit 99
+  jq -n --arg address "$4" '
+    {account:{"@type":"/cosmos.auth.v1beta1.BaseAccount",
+      address:$address,account_number:"12",sequence:"7"}}'
 else
   exit 2
 fi
@@ -103,7 +134,7 @@ url=${!#}
 case "${url}" in
   *signer.internal*/status) node=${FAKE_SIGNER_NODE:?} ;;
   *observer.internal*/status) node=${FAKE_OBSERVER_NODE:?} ;;
-  */status) exit 22 ;;
+  */status) node=${FAKE_SIGNER_NODE:?} ;;
   *) node= ;;
 esac
 if [ -n "${node}" ]; then
@@ -152,10 +183,12 @@ FLY_LOG="${TMP}/fly.log"
 
 run_gate() {
   local stage=$1 mode=${2:-deploy} height=${3:-80}
+  local expect_offline=0
   local -a args
   args=("${stage}" "${RELEASE}" "${BUNDLE}/RELEASE-PACKET.json.sig"
     "${CUTOVER}" "${BUNDLE}/CUTOVER-DECISION.json.sig")
   if [ "${stage}" = signer ]; then
+    expect_offline=1
     args+=("${BUNDLE}/CUTOVER-INITIATION-EVIDENCE.json"
       "${BUNDLE}/CUTOVER-INITIATION-EVIDENCE.json.sig")
   fi
@@ -165,6 +198,7 @@ run_gate() {
   [ "${mode}" = check ] && args=(--check "${args[@]}")
   PATH="${TMP}/bin:${PATH}" FAKE_GPG_FINGERPRINT="${MAIN}" \
     FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION}" FAKE_CUTOVER="${CUTOVER}" \
+    FAKE_EXPECT_OFFLINE_TX_CHECK="${expect_offline}" \
     FAKE_FLY_LOG="${FLY_LOG}" \
     FAKE_SIGNER_NODE="$(jq -er '.predecessor.trusted_rpc_node_id' "${RELEASE}")" \
     FAKE_OBSERVER_NODE="$(jq -er '.predecessor.trusted_observer_node_id' "${RELEASE}")" \

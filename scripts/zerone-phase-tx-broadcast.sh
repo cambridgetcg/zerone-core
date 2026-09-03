@@ -9,7 +9,7 @@ die() {
 usage() {
   cat >&2 <<'USAGE'
 Usage:
-  scripts/zerone-phase-tx-broadcast.sh [--check] \
+  scripts/zerone-phase-tx-broadcast.sh [--check|--offline-artifact-check] \
     RELEASE.json RELEASE.json.sig DECISION.json DECISION.json.sig \
     SIGNED_TX.json cutover|open-beta RELEASE_BINARY PRIVATE_RPC_URL \
     EXPECTED_MAIN_FINGERPRINT AUTHORITY_BUNDLE_DIRECTORY \
@@ -20,15 +20,29 @@ bundle. CUTOVER requires the exact signed DARK chain and the byte-matching soak,
 rehearsal, and notice artifacts. OPEN requires the transition-signed full FINAL
 chain and exact adoption/readiness/revalidation artifacts. It then verifies the
 deadline and exact transaction semantics before broadcast_tx_sync.
+With --check it performs the same live-chain and ordinary TxRaw signature
+validation, then returns the expected hash without submitting the bytes.
+With --offline-artifact-check it verifies signed post-init authority, deadline
+structure, the exact TxRaw bytes/hash, and decoded transaction semantics without
+applying the current broadcast cutoff or consulting RPC/current account state.
+Post-init authority policy still rejects future-dated or expired security
+evidence. This mode is only for post-commit artifact consumers; it does not
+establish that a transaction is currently broadcastable.
 USAGE
   exit 2
 }
 
 MODE=broadcast
-if [ "${1:-}" = --check ]; then
-  MODE=check
-  shift
-fi
+case "${1:-}" in
+  --check)
+    MODE=check
+    shift
+    ;;
+  --offline-artifact-check)
+    MODE=offline-artifact-check
+    shift
+    ;;
+esac
 [ "$#" -ge 10 ] || usage
 RELEASE=$1
 RELEASE_SIG=$2
@@ -86,9 +100,28 @@ require_regular "${OPEN_TEMPLATE}" "OPEN-BETA template"
 require_regular "${ADOPTION_TEMPLATE}" "archive adoption template"
 require_regular "${AUTHORITY_BUNDLE}/DARK-START-INITIATION-EVIDENCE.json" \
   "bundled DARK-START initiation evidence"
+POST_INIT_EVIDENCE=
+POST_INIT_EVIDENCE_SIG=
+if [ "${MODE}" = offline-artifact-check ]; then
+  case "${PHASE}" in
+    cutover)
+      POST_INIT_EVIDENCE="${AUTHORITY_BUNDLE}/CUTOVER-INITIATION-EVIDENCE.json"
+      POST_INIT_EVIDENCE_SIG="${AUTHORITY_BUNDLE}/CUTOVER-INITIATION-EVIDENCE.json.sig"
+      ;;
+    open-beta)
+      POST_INIT_EVIDENCE="${AUTHORITY_BUNDLE}/OPEN-BETA-INITIATION-EVIDENCE.json"
+      POST_INIT_EVIDENCE_SIG="${AUTHORITY_BUNDLE}/OPEN-BETA-INITIATION-EVIDENCE.json.sig"
+      ;;
+  esac
+  require_regular "${POST_INIT_EVIDENCE}" "bundled post-initiation evidence"
+  require_regular "${POST_INIT_EVIDENCE_SIG}" \
+    "bundled post-initiation evidence signature"
+fi
 command -v jq >/dev/null 2>&1 || die "jq is required"
 command -v gpg >/dev/null 2>&1 || die "gpg is required"
-command -v curl >/dev/null 2>&1 || die "curl is required"
+if [ "${MODE}" != offline-artifact-check ]; then
+  command -v curl >/dev/null 2>&1 || die "curl is required"
+fi
 command -v python3 >/dev/null 2>&1 || die "python3 is required"
 
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/zerone-phase-tx.XXXXXX")
@@ -107,6 +140,16 @@ install -m 0600 "${ADOPTION_TEMPLATE}" \
   "${TMP}/ARCHIVE-ADOPTION-AUTHORITY.example.json"
 install -m 0600 "${AUTHORITY_BUNDLE}/DARK-START-INITIATION-EVIDENCE.json" \
   "${TMP}/DARK-START-INITIATION-EVIDENCE.json"
+if [ "${MODE}" = offline-artifact-check ]; then
+  POST_INIT_EVIDENCE_NAME=$(basename -- "${POST_INIT_EVIDENCE}")
+  POST_INIT_EVIDENCE_SIG_NAME=$(basename -- "${POST_INIT_EVIDENCE_SIG}")
+  install -m 0600 "${POST_INIT_EVIDENCE}" \
+    "${TMP}/${POST_INIT_EVIDENCE_NAME}"
+  install -m 0600 "${POST_INIT_EVIDENCE_SIG}" \
+    "${TMP}/${POST_INIT_EVIDENCE_SIG_NAME}"
+  POST_INIT_EVIDENCE="${TMP}/${POST_INIT_EVIDENCE_NAME}"
+  POST_INIT_EVIDENCE_SIG="${TMP}/${POST_INIT_EVIDENCE_SIG_NAME}"
+fi
 RELEASE="${TMP}/release.json"
 RELEASE_SIG="${TMP}/release.json.sig"
 DECISION="${TMP}/decision.json"
@@ -206,26 +249,51 @@ verify_signature "${DECISION}" "${DECISION_SIG}" "${DECISION_SIG_NAME}" \
 
 case "${PHASE}" in
   cutover)
-    python3 "${CHAIN_VERIFIER}" cutover-preinit "${AUTHORITY_BUNDLE}" \
-      "${EXPECTED_SIGNER}" \
-      --release "${RELEASE}" --release-sig "${RELEASE_SIG}" \
-      --decision "${DECISION}" --decision-sig "${DECISION_SIG}" \
-      --config-policy "${CONFIG_POLICY}" \
-      --tool-root "${ROOT}" \
-      >/dev/null || die "CUTOVER predecessor authority bundle did not verify"
+    if [ "${MODE}" = offline-artifact-check ]; then
+      python3 "${CHAIN_VERIFIER}" cutover-postinit "${AUTHORITY_BUNDLE}" \
+        "${EXPECTED_SIGNER}" \
+        --release "${RELEASE}" --release-sig "${RELEASE_SIG}" \
+        --decision "${DECISION}" --decision-sig "${DECISION_SIG}" \
+        --initiation "${POST_INIT_EVIDENCE}" \
+        --initiation-sig "${POST_INIT_EVIDENCE_SIG}" \
+        --config-policy "${CONFIG_POLICY}" \
+        --tool-root "${ROOT}" \
+        >/dev/null || die "CUTOVER post-init authority bundle did not verify"
+    else
+      python3 "${CHAIN_VERIFIER}" cutover-preinit "${AUTHORITY_BUNDLE}" \
+        "${EXPECTED_SIGNER}" \
+        --release "${RELEASE}" --release-sig "${RELEASE_SIG}" \
+        --decision "${DECISION}" --decision-sig "${DECISION_SIG}" \
+        --config-policy "${CONFIG_POLICY}" \
+        --tool-root "${ROOT}" \
+        >/dev/null || die "CUTOVER predecessor authority bundle did not verify"
+    fi
     ;;
   open-beta)
-    python3 "${CHAIN_VERIFIER}" open-preinit "${AUTHORITY_BUNDLE}" \
-      "${EXPECTED_SIGNER}" "${EXPECTED_TRANSITION_SIGNER}" \
-      --release "${RELEASE}" --release-sig "${RELEASE_SIG}" \
-      --decision "${DECISION}" --decision-sig "${DECISION_SIG}" \
-      --final "${AUTHORITY_BUNDLE}/FINAL-CHECKPOINT.json" \
-      --final-sig "${AUTHORITY_BUNDLE}/FINAL-CHECKPOINT.json.sig" \
-      --config-policy "${CONFIG_POLICY}" \
-      --tool-root "${ROOT}" \
-      --final-template "${FINAL_TEMPLATE}" --open-template "${OPEN_TEMPLATE}" \
-      --adoption-template "${ADOPTION_TEMPLATE}" \
-      >/dev/null || die "OPEN predecessor authority bundle did not verify"
+    OPEN_VERIFY_STAGE=open-preinit
+    if [ "${MODE}" = offline-artifact-check ]; then
+      OPEN_VERIFY_STAGE=open-postinit
+    fi
+    OPEN_VERIFY_COMMAND=(
+      python3 "${CHAIN_VERIFIER}" "${OPEN_VERIFY_STAGE}" "${AUTHORITY_BUNDLE}"
+      "${EXPECTED_SIGNER}" "${EXPECTED_TRANSITION_SIGNER}"
+      --release "${RELEASE}" --release-sig "${RELEASE_SIG}"
+      --decision "${DECISION}" --decision-sig "${DECISION_SIG}"
+      --final "${AUTHORITY_BUNDLE}/FINAL-CHECKPOINT.json"
+      --final-sig "${AUTHORITY_BUNDLE}/FINAL-CHECKPOINT.json.sig"
+      --config-policy "${CONFIG_POLICY}"
+      --tool-root "${ROOT}"
+      --final-template "${FINAL_TEMPLATE}" --open-template "${OPEN_TEMPLATE}"
+      --adoption-template "${ADOPTION_TEMPLATE}"
+    )
+    if [ "${MODE}" = offline-artifact-check ]; then
+      OPEN_VERIFY_COMMAND+=(
+        --initiation "${POST_INIT_EVIDENCE}"
+        --initiation-sig "${POST_INIT_EVIDENCE_SIG}"
+      )
+    fi
+    "${OPEN_VERIFY_COMMAND[@]}" >/dev/null || \
+      die "OPEN ${OPEN_VERIFY_STAGE} authority bundle did not verify"
     ;;
 esac
 
@@ -248,9 +316,11 @@ INCLUSION_MARGIN=$(jq -er \
   [ "$((DEADLINE_EPOCH - BROADCAST_NOT_AFTER_EPOCH))" -ge \
     "$((10#${INCLUSION_MARGIN}))" ] || \
   die "decision broadcast cutoff lacks its signed inclusion margin"
-NOW_EPOCH=$(date -u '+%s')
-[ "${NOW_EPOCH}" -gt "${BROADCAST_NOT_AFTER_EPOCH}" ] && \
-  die "signed broadcast cutoff passed before submission"
+if [ "${MODE}" != offline-artifact-check ]; then
+  NOW_EPOCH=$(date -u '+%s')
+  [ "${NOW_EPOCH}" -gt "${BROADCAST_NOT_AFTER_EPOCH}" ] && \
+    die "signed broadcast cutoff passed before submission"
+fi
 
 case "${PHASE}" in
   cutover)
@@ -380,6 +450,9 @@ jq -e \
   --arg sender "${SENDER}" --arg memo "${EXPECTED_MEMO}" \
   --arg timeout_height "${EXPECTED_TIMEOUT_HEIGHT}" \
   --arg decision_sha "${DECISION_SHA}" '
+    def canonical_uint64_text:
+      type == "string" and test("^(0|[1-9][0-9]{0,19})$") and
+      (length < 20 or . <= "18446744073709551615");
     (.body.messages | length) == 1 and
     .body.messages[0]["@type"] == "/cosmos.bank.v1beta1.MsgSend" and
     .body.messages[0].from_address == $sender and
@@ -390,6 +463,10 @@ jq -e \
     ((.body.extension_options // []) | length) == 0 and
     ((.body.non_critical_extension_options // []) | length) == 0 and
     (.auth_info.signer_infos | length) == 1 and
+    .auth_info.signer_infos[0].mode_info == {
+      single:{mode:"SIGN_MODE_DIRECT"}
+    } and
+    (.auth_info.signer_infos[0].sequence | canonical_uint64_text) and
     .auth_info.fee.amount == [{denom:"uzrn",amount:"200000"}] and
     .auth_info.fee.gas_limit == "200000" and
     (.auth_info.fee.payer // "") == "" and
@@ -399,11 +476,71 @@ jq -e \
     ((tostring | ascii_downcase) | contains($decision_sha | ascii_downcase) | not)
   ' <<<"${DECODED_TX}" >/dev/null || \
   die "decoded TxRaw semantics differ from the signed phase contract"
+SIGNED_SEQUENCE=$(jq -er '.auth_info.signer_infos[0].sequence' \
+  <<<"${DECODED_TX}") || die "decoded TxRaw signer sequence is missing"
 
-if [ "${MODE}" = check ]; then
+if [ "${MODE}" = offline-artifact-check ]; then
+  # Cosmos requires these two CLI flags in offline mode even though its offline
+  # signer/order path does not use account number to reconstruct sign bytes.
+  # Repeat the canonical decoded sequence and use the documented inert account
+  # number so no current account state is substituted into the consumed TxRaw.
+  if ! SIGNATURE_CHECK=$("${BINARY}" tx validate-signatures "${TX_FILE}" \
+    --chain-id "${EXPECTED_CHAIN_ID}" --account-number 0 \
+    --sequence "${SIGNED_SEQUENCE}" --offline --output json 2>&1); then
+    die "signed phase TxRaw failed offline signer/order validation: ${SIGNATURE_CHECK}"
+  fi
   printf '%s\n' "${EXPECTED_TX_HASH}"
   exit 0
 fi
+
+# Account query output differs by Cosmos SDK account implementation: a plain
+# BaseAccount is direct, module/Ethermint-style accounts wrap base_account, and
+# vesting accounts add base_vesting_account. Traverse only those known wrappers
+# (plus their camelCase and legacy Amino spellings), then require exactly one
+# canonical BaseAccount candidate. Numbers remain JSON strings so uint64 values
+# are never rounded by jq.
+verify_live_sender_sequence() {
+  local response live_sequence
+  response=$("${BINARY}" query auth account "${SENDER}" \
+    --node "${RPC_URL%/}" --output json 2>"${TMP}/account-query.stderr") || \
+    die "release binary could not query the live sender BaseAccount"
+  live_sequence=$(jq -er --arg sender "${SENDER}" '
+    def canonical_uint64_text:
+      type == "string" and test("^(0|[1-9][0-9]{0,19})$") and
+      (length < 20 or . <= "18446744073709551615");
+    def base_accounts:
+      . as $node |
+      if ($node | type) != "object" then empty
+      else
+        (if (($node.address? | type) == "string") and
+            (($node.sequence? | type) == "string") and
+            (($node | has("account_number")) or
+             ($node | has("accountNumber"))) and
+            ((($node | has("account_number")) | not) or
+             ($node.account_number | canonical_uint64_text)) and
+            ((($node | has("accountNumber")) | not) or
+             ($node.accountNumber | canonical_uint64_text)) and
+            (((($node | has("account_number")) and
+               ($node | has("accountNumber"))) | not) or
+             ($node.account_number == $node.accountNumber))
+         then {address:$node.address, sequence:$node.sequence}
+         else empty end),
+        (["account", "base_account", "baseAccount",
+          "base_vesting_account", "baseVestingAccount", "value"][] as $key |
+         select(($node[$key]? | type) == "object") |
+         $node[$key] | base_accounts)
+      end;
+    [base_accounts] as $accounts |
+    select(($accounts | length) == 1) |
+    $accounts[0] |
+    select(.address == $sender) |
+    .sequence |
+    select(canonical_uint64_text)
+  ' <<<"${response}") || \
+    die "live sender account response has no unique canonical BaseAccount"
+  [ "${live_sequence}" = "${SIGNED_SEQUENCE}" ] || \
+    die "live sender sequence ${live_sequence} differs from signed TxRaw sequence ${SIGNED_SEQUENCE}"
+}
 
 verify_trusted_rpc_block() {
   local response
@@ -440,6 +577,18 @@ if [ "${PHASE}" = cutover ]; then
   [ "$((10#${CURRENT_HEIGHT} + MINIMUM_HALT_LEAD))" -le "$((10#${F}))" ] || \
     die "live zerone-1 height no longer preserves the signed halt lead"
 fi
+if ! SIGNATURE_CHECK=$("${BINARY}" tx validate-signatures "${TX_FILE}" \
+  --chain-id "${EXPECTED_CHAIN_ID}" --node "${RPC_URL%/}" \
+  --output json 2>&1); then
+  die "signed phase TxRaw failed signature/account-sequence validation: ${SIGNATURE_CHECK}"
+fi
+verify_live_sender_sequence
+
+if [ "${MODE}" = check ]; then
+  printf '%s\n' "${EXPECTED_TX_HASH}"
+  exit 0
+fi
+
 NOW_EPOCH=$(date -u '+%s')
 [ "${NOW_EPOCH}" -gt "${BROADCAST_NOT_AFTER_EPOCH}" ] && \
   die "signed broadcast cutoff passed before the exact raw-byte broadcast"
@@ -462,6 +611,7 @@ if [ "${PHASE}" = cutover ]; then
   [ "$((10#${FINAL_HEIGHT} + MINIMUM_HALT_LEAD))" -le "$((10#${F}))" ] || \
     die "final zerone-1 height no longer preserves the signed halt lead"
 fi
+verify_live_sender_sequence
 
 REQUEST=$(jq -cn --arg tx "${ENCODED_TX}" \
   '{jsonrpc:"2.0",id:1,method:"broadcast_tx_sync",params:{tx:$tx}}')

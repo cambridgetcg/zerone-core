@@ -782,7 +782,7 @@ func (zdd ZeroneDIDDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bo
 		return next(ctx, tx, simulate)
 	}
 
-	// Extract DID from memo (format: "did:zrn:{32-64hex}")
+	// Extract the canonical DID from memo (format: "did:zrn:{64-lower-hex}").
 	did := memo
 	if len(did) > 72 { // "did:zrn:" + 64 hex = 72
 		did = memo[:72]

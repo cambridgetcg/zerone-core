@@ -80,8 +80,7 @@ const CAIP10_PATTERN =
   /^([-a-z0-9]{3,8}):([-_a-zA-Z0-9]{1,32}):([-.%a-zA-Z0-9]{1,128})$/;
 const COSMOS_DIRECT_REFERENCE = /^(?!hashed-)[-a-zA-Z0-9]{1,32}$/;
 const COSMOS_HASHED_REFERENCE = /^hashed-[0-9a-f]{16}$/;
-const EXISTING_ZERONE_DID =
-  /^did:zrn:(?:[0-9A-Fa-f]{32}|[0-9A-Fa-f]{64})$/;
+const EXISTING_ZERONE_DID = /^did:zrn:[0-9a-f]{64}$/;
 
 function fullMatch(pattern: RegExp, value: string): RegExpExecArray | null {
   const match = pattern.exec(value);

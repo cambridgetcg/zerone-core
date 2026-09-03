@@ -76,6 +76,14 @@ case "${MODE}" in
   *) usage ;;
 esac
 
+# Reject caller-controlled links before compiling helpers or inspecting any
+# release metadata. These checks are repeated when the files are frozen below
+# so a path swap between the early check and the private copy still fails.
+if [ "${MODE}" = real ]; then
+  require_regular_file "${INPUT_FILE}" "public ceremony input"
+  require_regular_file "${GENTX_INPUT}" "signed gentx input"
+fi
+
 [ ! -e "${OUT_DIR}" ] || die "output already exists; refusing overwrite: ${OUT_DIR}"
 OUTPUT_PARENT="$(cd "$(dirname "${OUT_DIR}")" && pwd)" \
   || die "output parent must already exist: $(dirname "${OUT_DIR}")"

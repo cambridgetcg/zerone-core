@@ -257,7 +257,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 ### Identity & Interchain
 | Module | Purpose |
 |---|---|
-| `auth` | Account registration and DID identity anchoring |
+| `zerone_auth` | Account registration and DID identity anchoring |
 | `tokens` | Token emission control |
 | `ibcratelimit` | IBC transfer rate limiting |
 | `substrate_bridge` | Cross-substrate adapters + external-work attestation (e.g. agenttool) |

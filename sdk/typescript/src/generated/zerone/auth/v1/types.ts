@@ -16,7 +16,7 @@ export interface Account {
    */
   address: string;
   /**
-   * DID derived from identity key: did:zrn:{32-hex}
+   * Canonical DID derived from the full identity key: did:zrn:{64-lower-hex}
    */
   did: string;
   /**
@@ -28,11 +28,12 @@ export interface Account {
    */
   accountType: string;
   /**
-   * Hash of current operational key
+   * Lowercase SHA-256 of the current operational public-key bytes
    */
   operationalKeyHash: string;
   /**
-   * Hex-encoded Ed25519 operational public key (synced to Cosmos BaseAccount)
+   * Hex-encoded Ed25519 operational public key. This is independent of the
+   * Cosmos BaseAccount transaction key and must never replace it.
    */
   operationalPublicKey: string;
   operationalKeyVersion: number;

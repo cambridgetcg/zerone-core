@@ -1,5 +1,6 @@
 {
   "schema": "zerone-typescript-sdk-wire-vectors/v1",
+  "purpose": "Protobuf serialization parity only. Values intentionally include short, nonsemantic byte patterns and MUST NOT be used as valid Zerone transactions, DIDs, keys, or signatures.",
   "vectors": [
     {
       "name": "auth-register-account-strings",
@@ -10,9 +11,10 @@
         "publicKey": "ed25519:7YWHMfk9JZe0LM0g1ZauHuiSxhI=",
         "accountType": "sovereign-agent",
         "operationalKeyHash": "sha256:0123456789abcdef",
-        "metadata": "{\"name\":\"Sophia\",\"role\":\"research\"}"
+        "metadata": "{\"name\":\"Sophia\",\"role\":\"research\"}",
+        "identityProofSignature": "AQIDBA=="
       },
-      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b6612286469643a7a726e3a30313233343536373839616263646566303132333435363738396162636465661a24656432353531393a375957484d666b394a5a65304c4d3067315a6175487569537868493d220f736f7665726569676e2d6167656e742a177368613235363a3031323334353637383961626364656632237b226e616d65223a22536f70686961222c22726f6c65223a227265736561726368227d"
+      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b6612286469643a7a726e3a30313233343536373839616263646566303132333435363738396162636465661a24656432353531393a375957484d666b394a5a65304c4d3067315a6175487569537868493d220f736f7665726569676e2d6167656e742a177368613235363a3031323334353637383961626364656632237b226e616d65223a22536f70686961222c22726f6c65223a227265736561726368227d3a0401020304"
     },
     {
       "name": "auth-rotate-key-bytes",
@@ -20,9 +22,11 @@
       "value": {
         "sender": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
         "newOperationalKey": "AAECA/7/",
-        "authorizationSignature": "3q2+7wARIjNEVWZ3iJmqu8zd7v8="
+        "authorizationSignature": "3q2+7wARIjNEVWZ3iJmqu8zd7v8=",
+        "authorizationExpiresAtUnix": "1788436800",
+        "newKeyConfirmationSignature": "BQYHCA=="
       },
-      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b66120600010203feff1a14deadbeef00112233445566778899aabbccddeeff"
+      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b66120600010203feff1a14deadbeef00112233445566778899aabbccddeeff20c0c2e5d4062a0405060708"
     },
     {
       "name": "liquidity-create-pool-uint64",

@@ -22,6 +22,29 @@ deliberately different scopes.
       `REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE`
 - [ ] SBOM, provenance, vulnerability decision, signature, and secret scan for
       all three deployables: `REPLACE_EVIDENCE_HASHES`
+- [ ] GitHub API evidence confirms `zerone-production-signing` exists before
+      dispatch, restricts deployment to `main`, has required reviewers, and its
+      environment-level `ZERONE_PRODUCTION_SIGNING_POLICY` is exactly
+      `required-reviewers-v1`; the API also confirms its three component-specific
+      `ZERONE_PRODUCTION_APPROVED_*_IMAGE` variables equal the exact candidate
+      digest refs and are not repository- or organization-scoped fallbacks
+- [ ] Protected `zerone-production-signing` dispatch produced three real v0.3
+      keyless bundles for the exact OCI manifest digests; the exact
+      `ci.yml@refs/heads/main` SAN, GitHub OIDC issuer, Fulcio source commit,
+      SCT, per-entry Rekor inclusion proof, and RFC 3161 countersignature
+      verify offline; these bundles are approval evidence, not standalone build
+      provenance or deploy authority
+- [ ] The same protected run signed its same-run deterministic Frontier macOS
+      archive; the source-bound manifest, exact register/bundle/helper hashes,
+      archive checksum, workflow identity, Rekor proof, and RFC 3161 timestamp
+      verify before the onboarding tool is extracted or executed
+- [ ] TUF-authenticated production Sigstore trusted-root bytes and the
+      reproducibly built Linux component verifier are independently reviewed,
+      hash-pinned by the v2 operator-tool manifest, and byte-identical in the
+      authority bundle
+- [ ] Every component evidence `signed_at` equals an authenticated observer
+      time returned by the release-bound offline verifier: Rekor v1
+      `integratedTime` or an RFC 3161 TSA time
 - [ ] One-validator `f=0`, no-direct-balance-migration, and protocol-dark launch
       policies accepted
 

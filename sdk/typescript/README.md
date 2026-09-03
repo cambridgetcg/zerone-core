@@ -14,7 +14,9 @@ consensus module, enable IBC, or expand the public gateway. It provides:
 - checksum-aware `zrn` account IDs;
 - canonical CIDv1 preflight for new agent-home memory references;
 - bounded feegrant builders for sponsor-funded onboarding; and
-- a separate validator for the `did:zrn` identifiers accepted by `x/auth`.
+- a separate validator for the `did:zrn` identifiers accepted by `x/auth`;
+- registration proof-of-possession sign bytes; and
+- dual-signature operational-key rotation sign bytes.
 
 ## Use the transaction registry
 
@@ -226,7 +228,9 @@ const accountId = zeroneAccountId(
 
 const identity = {
   accountId,
-  did: asExistingZeroneDid("did:zrn:abcdef0123456789abcdef0123456789"),
+  did: asExistingZeroneDid(
+    "did:zrn:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  ),
 };
 ```
 
@@ -327,6 +331,116 @@ is authoritative, so callers should leave a practical clock-skew and inclusion
 margin. Use a direct protobuf signer; CosmJS 0.39 does not provide legacy Amino
 feegrant converters. CosmJS applications can use `setupFeegrantExtension` from
 `@cosmjs/stargate` for allowance queries.
+
+## Prove identity-key possession during registration
+
+```ts
+import { toHex } from "@cosmjs/encoding";
+import {
+  accountRegistrationProofSignBytes,
+  auth,
+} from "@zerone-chain/sdk/messages";
+
+const identityPublicKey = await identityKeyCustody.publicKey(); // 32 bytes.
+const publicKey = toHex(identityPublicKey);
+const did = `did:zrn:${publicKey}`;
+const accountType = "agent" as const;
+const metadata = "";
+const proofBytes = accountRegistrationProofSignBytes({
+  chainId: "zerone-2",
+  sender,
+  did,
+  identityPublicKey,
+  accountType,
+  metadata,
+});
+const identityProofSignature = await identityKeyCustody.sign(proofBytes);
+
+const registration = auth.MsgRegisterAccount.fromPartial({
+  sender,
+  did,
+  publicKey,
+  accountType,
+  operationalKeyHash: "", // The chain derives the canonical SHA-256 value.
+  metadata,
+  identityProofSignature,
+});
+```
+
+The identity key signs the exact chain ID, sender, self-certifying DID, raw
+identity public key, account type, and metadata. The normal Cosmos signature on
+the containing `TxRaw` is also required. This proof prevents a funded account
+from registering someone else's public identity key or occupying its DID
+without possessing the corresponding private key. The chain stores this
+identity key as operational-key version 1 and derives its lowercase SHA-256
+commitment; `operationalKeyHash` may be empty, but a supplied value must match.
+
+The helper requires a 32-byte key and exact `did:zrn:<64-lower-hex>` binding.
+Obtain the key from a real Ed25519 implementation: validators additionally
+reject noncanonical, off-curve, small-order, and mixed-order points. Preserve
+the metadata bytes exactly between proof construction and the message, require
+a 64-byte signature from custody, simulate, and set a transaction timeout
+height before signing the final `TxRaw`.
+
+## Authorize an operational-key rotation
+
+```ts
+import {
+  auth,
+  keyRotationAcceptanceSignBytes,
+  keyRotationAuthorizationSignBytes,
+} from "@zerone-chain/sdk/messages";
+
+const currentKeyVersion = 7; // Query the connected chain immediately before use.
+const observedBlockTimeUnix = 1_788_448_000n; // Parse the latest block header.
+const authorizationExpiresAtUnix = observedBlockTimeUnix + 300n;
+const newOperationalKey = await newOperationalKeyCustody.publicKey(); // 32 bytes.
+
+const rotationProof = {
+  chainId: "zerone-2",
+  sender,
+  currentKeyVersion,
+  newOperationalKey,
+  authorizationExpiresAtUnix,
+};
+const authorizationBytes = keyRotationAuthorizationSignBytes(rotationProof);
+const authorizationSignature = await operationalKeyCustody.sign(
+  authorizationBytes,
+);
+const acceptanceBytes = keyRotationAcceptanceSignBytes(rotationProof);
+const newKeyConfirmationSignature = await newOperationalKeyCustody.sign(
+  acceptanceBytes,
+);
+
+const message = auth.MsgRotateKey.fromPartial({
+  sender,
+  newOperationalKey,
+  authorizationSignature,
+  authorizationExpiresAtUnix,
+  newKeyConfirmationSignature,
+});
+```
+
+The current Ed25519 operational key signs a domain-separated authorization and
+the proposed key signs a separately domain-separated acceptance of the same
+fields. The account's normal Cosmos signer then signs the containing `TxRaw`.
+All three signatures are required. Both Ed25519 proofs bind the chain ID,
+sender, current key version, replacement key, and expiry. Validators compare
+the expiry only with consensus block time and reject it when expired or more
+than ten minutes ahead. The bounded future window is not evidence of when a
+proof was physically signed. A successful rotation increments the key version,
+making both proofs single-use. Operational keys are independent of the
+account's secp256k1 transaction key, which rotation does not replace.
+
+The helper builds sign bytes only. It does not query state, choose a safe
+expiry, access an Ed25519 private key, sign `TxRaw`, or broadcast. Re-query the
+current key version, use an expiry with an inclusion margin inside the
+ten-minute limit, verify both 64-byte custody-provider signatures, ensure the
+new key differs from the current key, and require custody to return a canonical
+prime-subgroup Ed25519 public key. Validators recheck the key and both
+signatures before rotating. Simulate the final message and set a transaction
+timeout height.
+
 ## Parse an unsigned provenance projection
 
 ```ts
@@ -386,8 +500,10 @@ custom transaction controls:
 
 - require a direct signer and confirm the RPC-reported chain ID;
 - simulate, set explicit fees and limits, and validate every chain response;
-- do not expose `MsgRotateKey` until the chain verifies its
-  `authorization_signature`; and
+- expose `MsgRegisterAccount` only with the identity-key proof of possession
+  above;
+- expose `MsgRotateKey` only through the dual-signature, current-version,
+  consensus-time-bounded flow above; and
 - do not expose substrate attestations until adapter identity equality and the
   versioned, exhaustive link commitment are enforced server-side.
 

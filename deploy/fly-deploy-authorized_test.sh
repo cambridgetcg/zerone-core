@@ -50,6 +50,21 @@ elif [ "$#" -eq 3 ] && [ "$1" = tx ] && [ "$2" = encode ]; then
 elif [ "$#" -eq 5 ] && [ "$1" = tx ] && [ "$2" = decode ] && \
   [ "$4" = --output ] && [ "$5" = json ]; then
   cat "${FAKE_DECODED_TX:?}"
+elif [ "$#" -ge 3 ] && [ "$1" = tx ] && [ "$2" = validate-signatures ]; then
+  for required in '--account-number 0' '--sequence 7' '--offline'; do
+    case " $* " in
+      *" ${required} "*) ;;
+      *) exit 2 ;;
+    esac
+  done
+  case " $* " in
+    *' --node '*) exit 2 ;;
+  esac
+  printf 'Signatures: OK\n'
+elif [ "$#" -eq 8 ] && [ "$1" = query ] && [ "$2" = auth ] && \
+  [ "$3" = account ] && [ "$4" = "${FAKE_ACCOUNT_ADDRESS:?}" ] && \
+  [ "$5" = --node ] && [ "$7" = --output ] && [ "$8" = json ]; then
+  exit 99
 else
   exit 2
 fi
@@ -128,6 +143,27 @@ printf '[GNUPG:] VALIDSIG %s 2026-07-10 %s 0 4 0 1 10 00 %s\n' \
 EOF
 chmod +x "${TMP}/bin/gpg"
 
+cat > "${TMP}/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+url=${!#}
+case "${url}" in
+  */status)
+    jq -n --arg node "${FAKE_PHASE_NODE:?}" '
+      {jsonrpc:"2.0",id:1,result:{node_info:{network:"zerone-2",id:$node},
+       sync_info:{catching_up:false,latest_block_height:"80"}}}'
+    ;;
+  */block\?height=1)
+    jq -n --arg hash "${FAKE_PHASE_BLOCK_HASH:?}" \
+      --arg app "${FAKE_PHASE_APP_HASH:?}" '
+      {jsonrpc:"2.0",id:1,result:{block_id:{hash:$hash},block:{header:{
+       chain_id:"zerone-2",height:"1",app_hash:$app}}}}'
+    ;;
+  *) exit 22 ;;
+esac
+EOF
+chmod +x "${TMP}/bin/curl"
+
 BUNDLE="${TMP}/authority-bundle"
 "${FIXTURE}" \
   --output "${BUNDLE}" \
@@ -181,7 +217,9 @@ jq -n -S -c \
       non_critical_extension_options:[]
     },
     auth_info: {
-      signer_infos:[{}],
+      signer_infos:[{
+        mode_info:{single:{mode:"SIGN_MODE_DIRECT"}},sequence:"7"
+      }],
       fee:{
         amount:[{denom:"uzrn",amount:"200000"}],
         gas_limit:"200000",
@@ -198,6 +236,10 @@ gate_env() {
     FAKE_GPG_MAIN_FINGERPRINT="${FAKE_GPG_MAIN_FINGERPRINT:-${MAIN_FINGERPRINT}}" \
     FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
     FAKE_DECODED_TX="${TMP}/decoded-open-tx.json" \
+    FAKE_ACCOUNT_ADDRESS="${SENDER}" FAKE_ACCOUNT_SEQUENCE=7 \
+    FAKE_PHASE_NODE="$(jq -er '.public_identities.validator_node_id' "${RELEASE}")" \
+    FAKE_PHASE_BLOCK_HASH="$(jq -er '.first_committed_block.block_id_hash' "${DARK_INIT}")" \
+    FAKE_PHASE_APP_HASH="$(jq -er '.first_committed_block.app_hash' "${DARK_INIT}")" \
     "$@"
 }
 

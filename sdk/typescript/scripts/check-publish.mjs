@@ -44,14 +44,48 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const network: caip.ZeroneNetwork = caip.defineZeroneNetwork("zerone-1");
+const identityPublicKeyHex =
+  "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
+const identityPublicKey = Uint8Array.from(
+  identityPublicKeyHex.match(/../g) ?? [],
+  (byte) => Number.parseInt(byte, 16),
+);
 const registerAccount: messages.auth.MsgRegisterAccount = {
-  sender: "zrn1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnrql8a",
-  did: \`did:zrn:\${"00".repeat(32)}\`,
-  publicKey: "",
+  sender: "zrn1m037n75vk2jhdr56y2ptzjjj02uljwnqwwzr7z",
+  did: \`did:zrn:\${identityPublicKeyHex}\`,
+  publicKey: identityPublicKeyHex,
   accountType: "human",
   operationalKeyHash: "",
   metadata: "",
+  identityProofSignature: new Uint8Array(64),
 };
+const registrationProof = messages.accountRegistrationProofSignBytes({
+  chainId: "zerone-1",
+  sender: registerAccount.sender,
+  did: registerAccount.did,
+  identityPublicKey,
+  accountType: "human",
+  metadata: registerAccount.metadata,
+});
+const replacementPublicKeyHex =
+  "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c";
+const replacementPublicKey = Uint8Array.from(
+  replacementPublicKeyHex.match(/../g) ?? [],
+  (byte) => Number.parseInt(byte, 16),
+);
+const rotationContext = {
+  chainId: "zerone-1",
+  sender: registerAccount.sender,
+  currentKeyVersion: 1,
+  newOperationalKey: replacementPublicKey,
+  authorizationExpiresAtUnix: 1n,
+};
+const rotationAuthorization = root.keyRotationAuthorizationSignBytes(
+  rotationContext,
+);
+const rotationAcceptance = messages.keyRotationAcceptanceSignBytes(
+  rotationContext,
+);
 const encoded = messages.authMessages.encoded.registerAccount(registerAccount);
 const registered = registry.createZeroneRegistry([]);
 const memoryCid =
@@ -139,6 +173,15 @@ assert(
   encoded.typeUrl === "/zerone.auth.v1.MsgRegisterAccount" &&
     encoded.value instanceof Uint8Array,
   "messages export failed",
+);
+assert(registrationProof.length > 32, "registration proof export failed");
+assert(
+  rotationAuthorization.length > 32 &&
+    rotationAcceptance.length > 32 &&
+    root.KEY_ROTATION_AUTHORIZATION_DOMAIN ===
+      "zerone.auth/rotate-key/v1" &&
+    root.KEY_ROTATION_ACCEPTANCE_DOMAIN === "zerone.auth/accept-key/v1",
+  "dual-signature rotation exports failed",
 );
 assert(
   provenance.IN_TOTO_STATEMENT_V1_TYPE ===

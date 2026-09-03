@@ -833,7 +833,6 @@ func newZeroneApp(
 	app.ZeroneAuthKeeper = zeroneauthkeeper.NewKeeper(
 		appCodec,
 		sdkruntime.NewKVStoreService(keys[zeroneauthtypes.StoreKey]),
-		app.AccountKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 

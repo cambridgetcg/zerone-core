@@ -25,6 +25,7 @@ CHAIN_ID="zerone-localnet"
 DENOM="uzrn"
 BASE_DIR="${HOME}/.zeroned/localnet"
 COORDINATOR_HOME="${BASE_DIR}/coordinator"
+IDENTITY_DIR="${BASE_DIR}/e2e-identities"
 KEYRING="test"
 RPC_URL="http://127.0.0.1:26601"
 
@@ -204,22 +205,6 @@ get_addr() {
   ${BINARY} keys show "$1" -a ${KEYRING_FLAG} ${HOME_FLAG}
 }
 
-# Generate a synthetic 64-char hex "public key" for zerone_auth DID registration.
-# The zerone_auth module requires 64-hex-char (32-byte) Ed25519 keys, but the cosmos
-# keyring only supports secp256k1. The DID derivation is structural (not signature-verified),
-# so a deterministic synthetic key works for registration.
-gen_synthetic_pubkey() {
-  local name="$1"
-  # SHA-256 of a deterministic seed → exactly 64 hex chars
-  printf '%s' "zerone-e2e-${name}-pubkey-seed-v1" | shasum -a 256 | cut -c1-64
-}
-
-# Derive DID from pubkey hex: did:zrn:{first 32 hex chars}
-derive_did() {
-  local pubkey_hex="$1"
-  echo "did:zrn:${pubkey_hex:0:32}"
-}
-
 # Extract event attribute from tx result JSON.
 get_event_attr() {
   local tx_json="$1"
@@ -286,7 +271,8 @@ record_phase_time "Phase 1 (chain verify)" "$(($(date +%s) - PHASE1_START))"
 header "Phase 2: Account Registration + Capabilities"
 PHASE2_START=$(date +%s)
 
-# Create test accounts (secp256k1 for cosmos, synthetic ed25519 pubkeys for zerone_auth DID)
+# Create test accounts (secp256k1 for Cosmos TxRaw signatures; the onboarding
+# command separately creates a real Ed25519 identity/operational key).
 # Delete first to avoid interactive overwrite prompt
 for name in alice sage1 rogue; do
   ${BINARY} keys delete "$name" ${KEYRING_FLAG} ${HOME_FLAG} -y 2>/dev/null || true
@@ -322,15 +308,16 @@ done
 
 # Register with zerone_auth
 info "Registering accounts with zerone_auth..."
+mkdir -p "${IDENTITY_DIR}"
+chmod 700 "${IDENTITY_DIR}"
 
 CHECKPOINT1_PASS=true
 for entry in "alice:human" "sage1:agent" "rogue:agent"; do
   name="${entry%%:*}"
   acct_type="${entry##*:}"
-  pubkey_hex=$(gen_synthetic_pubkey "$name")
-  did=$(derive_did "$pubkey_hex")
-  info "Registering $name as $acct_type (DID: $did, pubkey: ${pubkey_hex:0:16}...)"
-  if send_tx "${BINARY} tx zerone_auth register-account ${did} ${pubkey_hex} ${acct_type} --from ${name} ${TX_FLAGS}"; then
+  identity_file="${IDENTITY_DIR}/$(get_addr "$name").ed25519.json"
+  info "Registering $name as $acct_type with an Ed25519 possession proof"
+  if send_tx "${BINARY} tx zerone_auth onboard ${acct_type} --identity-out ${identity_file} --from ${name} ${TX_FLAGS}"; then
     info "$name registered successfully"
   else
     warn "$name registration failed"
@@ -346,10 +333,9 @@ info "Registering validators with zerone_auth..."
 for entry in "val0:agent" "val1:agent" "val2:agent" "val3:agent"; do
   name="${entry%%:*}"
   acct_type="${entry##*:}"
-  pubkey_hex=$(gen_synthetic_pubkey "$name")
-  did=$(derive_did "$pubkey_hex")
-  info "Registering $name as $acct_type (DID: $did)"
-  if send_tx "${BINARY} tx zerone_auth register-account ${did} ${pubkey_hex} ${acct_type} --from ${name} ${TX_FLAGS}"; then
+  identity_file="${IDENTITY_DIR}/$(get_addr "$name").ed25519.json"
+  info "Registering $name as $acct_type with an Ed25519 possession proof"
+  if send_tx "${BINARY} tx zerone_auth onboard ${acct_type} --identity-out ${identity_file} --from ${name} ${TX_FLAGS}"; then
     info "$name registered"
   else
     warn "$name registration failed"
