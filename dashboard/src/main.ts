@@ -1131,6 +1131,7 @@ async function initialisePiPilotIfEnabled(): Promise<void> {
 
 document.querySelectorAll<HTMLButtonElement>(".wallet-connect").forEach((button) => {
   button.addEventListener("click", () => void handleWalletConnect());
+  button.disabled = false;
 });
 byId("wallet-refresh").addEventListener("click", () => void handleWalletRefresh());
 byId("pools-refresh").addEventListener("click", () => void refreshNetwork());

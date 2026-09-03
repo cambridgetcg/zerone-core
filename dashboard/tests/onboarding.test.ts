@@ -80,7 +80,7 @@ describe("production onboarding surface", () => {
     assert.equal(onboarding.match(/<button\b/gu)?.length, 1);
     assert.match(
       onboarding,
-      /<button[\s\S]*class="button button-ghost wallet-connect"[\s\S]*data-disconnected-label="Connect existing account"/u,
+      /<button[\s\S]*class="button button-ghost wallet-connect"[\s\S]*data-disconnected-label="Connect existing account"[\s\S]*data-js-required="wallet"[\s\S]*disabled/u,
     );
     assert.doesNotMatch(onboarding, /<(?:form|input|select|textarea|dialog)\b/iu);
     assert.doesNotMatch(onboarding, /\b(?:data-endpoint|data-fetch|data-secret|data-create)\s*=/iu);
@@ -99,6 +99,10 @@ describe("production onboarding surface", () => {
       onboarding,
       /deploy\/mainnet\/JOIN\.md#onboarding-and-transaction-lanes-are-paused/u,
     );
+    assert.match(
+      onboarding,
+      /<noscript>[\s\S]*Wallet connection needs JavaScript and the Keplr extension\.[\s\S]*<\/noscript>/u,
+    );
     assert.doesNotMatch(onboarding, /<script\b|\son[a-z]+\s*=/iu);
   });
 
@@ -108,6 +112,10 @@ describe("production onboarding surface", () => {
     assert.match(main, /onboarding\.setNetwork\("unavailable"\)/u);
     assert.match(main, /onboarding\.setWallet\(\{ state: "connecting" \}\)/u);
     assert.match(main, /onboarding\.setWallet\(\{ state: "error", message \}\)/u);
+    assert.match(
+      main,
+      /\.wallet-connect"\)\.forEach\(\(button\) => \{[\s\S]*button\.addEventListener\("click"[\s\S]*button\.disabled = false;/u,
+    );
     assert.doesNotMatch(main, /(?:create|register|issue|fund)Onboarding/u);
   });
 
