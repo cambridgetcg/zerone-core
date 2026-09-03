@@ -59,6 +59,10 @@ case "$*" in
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
     timestamp=1783693800
     ;;
+  *CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig*)
+    fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
+    timestamp=1783692840
+    ;;
   *FINAL-CHECKPOINT.json.sig*)
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
     timestamp=1783695660
@@ -133,7 +137,7 @@ jq -n -S -c \
   --arg fingerprint "${FINGERPRINT}" --arg binary "${BINARY_SHA}" \
   --arg genesis "${GENESIS_SHA}" '
   {
-    schema: "zerone-2-release-packet-v1",
+    schema: "zerone-2-release-packet-v2",
     chain_id: "zerone-2",
     signature_authority: {
       algorithm: "openpgp",

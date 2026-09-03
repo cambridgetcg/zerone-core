@@ -34,6 +34,7 @@ IMAGE_REF = re.compile(
 OPERATOR_TOOL_PATHS = {
     "deploy/verify-authority-chain.py",
     "deploy/frozen_evidence.py",
+    "deploy/run-custom-staking-census-evidence.py",
     "deploy/validate-fly-phase-config.py",
     "deploy/fly-deploy-pinned.sh",
     "deploy/fly-deploy-authorized.sh",
@@ -51,6 +52,21 @@ OPERATOR_TOOL_PATHS = {
     "deploy/query-gateway/fly.zerone-1-archive.public.example.toml",
     "tools/zerone2-artifact-audit/main.go",
 }
+CENSUS_BINARY_FILENAME = "custom-staking-census-linux-amd64"
+CENSUS_EXECUTION_RUNNER_PATH = "deploy/run-custom-staking-census-evidence.py"
+CENSUS_EXECUTION_EVIDENCE_FILENAME = (
+    "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json"
+)
+CENSUS_EXECUTION_SIGNATURE_FILENAME = (
+    "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+)
+CENSUS_EXECUTION_AUTHORITY_LIMIT = (
+    "factual attestation that the exact RELEASE-bound census binary scanned the "
+    "declared stopped observer copy and produced the bound report; no migration, "
+    "deployment, transaction, public-service, or DNS authority"
+)
+CENSUS_REPORT_TRANSPORT = "stdout-captured-and-atomically-published"
+MAX_CENSUS_EXECUTION_SECONDS = 6 * 60 * 60
 ARCHIVE_GATEWAY_RENDERER_PATH = (
     "deploy/query-gateway/render-archive-gateway-config.py"
 )
@@ -213,6 +229,8 @@ MONITORING_EVIDENCE_FILENAMES = frozenset(
 )
 FROZEN_EVIDENCE_FILES = {
     "CUSTOM-STAKING-CENSUS.json",
+    CENSUS_EXECUTION_EVIDENCE_FILENAME,
+    CENSUS_EXECUTION_SIGNATURE_FILENAME,
     "ZERONE-1-INVENTORY-V3.json",
     "SIGNER-EVIDENCE-MANIFEST.json",
     "OBSERVER-EVIDENCE-MANIFEST.json",
@@ -273,7 +291,7 @@ def secure_read_path(path: pathlib.Path, label: str) -> bytes:
 
 
 def bundle_file_size_limit(name: str) -> int:
-    if name.startswith("zeroned-"):
+    if name.startswith("zeroned-") or name == CENSUS_BINARY_FILENAME:
         return 384 * 1024 * 1024
     if name == "POST-ANCHOR-STATE-EXPORT.json.raw":
         return 384 * 1024 * 1024
@@ -493,6 +511,55 @@ def validate_archive_gateway_render_contract(
         template_hashes["zerone_1_archive_gateway"],
         "RELEASE archive gateway template",
     )
+    return contract
+
+
+def validate_census_execution_contract(
+    files: dict[str, bytes], release: dict[str, Any]
+) -> dict[str, Any]:
+    contract = require_exact_object(
+        release.get("custom_staking_census_execution"),
+        {"schema", "binary", "execution_evidence"},
+        "RELEASE custom-staking census execution contract",
+    )
+    binary = require_exact_object(
+        contract["binary"],
+        {"filename", "sha256"},
+        "RELEASE custom-staking census binary",
+    )
+    evidence = require_exact_object(
+        contract["execution_evidence"],
+        {
+            "filename",
+            "detached_signature_filename",
+            "authorized_signer_fingerprint",
+        },
+        "RELEASE custom-staking census execution evidence",
+    )
+    transition = (
+        release.get("public_identities", {})
+        .get("transition_attestation", {})
+        .get("authorized_signer_fingerprint")
+    )
+    if not (
+        contract["schema"]
+        == "zerone-custom-staking-census-execution-contract-v1"
+        and binary["filename"] == CENSUS_BINARY_FILENAME
+        and evidence["filename"] == CENSUS_EXECUTION_EVIDENCE_FILENAME
+        and evidence["detached_signature_filename"]
+        == CENSUS_EXECUTION_SIGNATURE_FILENAME
+        and isinstance(evidence["authorized_signer_fingerprint"], str)
+        and FINGERPRINT.fullmatch(evidence["authorized_signer_fingerprint"])
+        and isinstance(transition, str)
+        and normalize_fingerprint(evidence["authorized_signer_fingerprint"])
+        == normalize_fingerprint(transition)
+    ):
+        fail("RELEASE custom-staking census execution contract is unsafe")
+    binary_hash = require_hash(
+        binary["sha256"], "RELEASE custom-staking census binary"
+    )
+    if sha256(files[CENSUS_BINARY_FILENAME]) != binary_hash:
+        fail("bundled custom-staking census binary differs from RELEASE")
     return contract
 
 
@@ -1727,7 +1794,7 @@ def contains_placeholder(value: Any) -> bool:
 def same_shape_and_static(candidate: Any, template: Any, label: str) -> None:
     if isinstance(template, dict):
         if not isinstance(candidate, dict) or set(candidate) != set(template):
-            fail(f"{label} keys differ from the canonical v3 template")
+            fail(f"{label} keys differ from the canonical template")
         for key in template:
             same_shape_and_static(candidate[key], template[key], f"{label}.{key}")
         return
@@ -1847,6 +1914,331 @@ def require_main_signature(
         ("signature_authority",),
         main,
     )
+
+
+def require_safe_absolute_posix_path(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value or "\x00" in value:
+        fail(f"{label} is not a non-empty POSIX path")
+    path = pathlib.PurePosixPath(value)
+    if (
+        not path.is_absolute()
+        or value != str(path)
+        or value == "/"
+        or any(part in {"", ".", ".."} for part in path.parts[1:])
+    ):
+        fail(f"{label} is not a canonical bounded absolute POSIX path")
+    if len(value.encode("utf-8")) > 4096:
+        fail(f"{label} exceeds the path byte ceiling")
+    return value
+
+
+def validate_census_execution_evidence(
+    files: dict[str, bytes],
+    paths: dict[str, pathlib.Path],
+    objects: dict[str, Any],
+    release: dict[str, Any],
+    final: dict[str, Any],
+    transition: str,
+    f: str,
+    a: str,
+    cutover_evidence_signature_epoch: int,
+    final_created_epoch: int,
+    final_signature_epoch: int,
+) -> None:
+    contract = validate_census_execution_contract(files, release)
+    signature_epoch = verify_signature(
+        paths,
+        objects,
+        CENSUS_EXECUTION_EVIDENCE_FILENAME,
+        CENSUS_EXECUTION_SIGNATURE_FILENAME,
+        ("signature_authority",),
+        transition,
+    )
+    evidence = require_exact_object(
+        objects[CENSUS_EXECUTION_EVIDENCE_FILENAME],
+        {
+            "schema",
+            "result",
+            "created_at",
+            "release_packet",
+            "cutover_initiation_evidence",
+            "runner",
+            "state",
+            "binary",
+            "source_snapshot",
+            "command",
+            "execution",
+            "scan_guarantees",
+            "signature_authority",
+        },
+        "custom-staking census execution evidence",
+    )
+    if not (
+        evidence["schema"]
+        == "zerone-custom-staking-census-execution-evidence-v1"
+        and evidence["result"] == "PASS"
+        and evidence["release_packet"]
+        == exact_pair(files, "RELEASE-PACKET.json", "RELEASE-PACKET.json.sig")
+        and evidence["cutover_initiation_evidence"]
+        == exact_pair(
+            files,
+            "CUTOVER-INITIATION-EVIDENCE.json",
+            "CUTOVER-INITIATION-EVIDENCE.json.sig",
+        )
+    ):
+        fail("custom-staking census execution authority chain is mismatched")
+
+    runner = require_exact_object(
+        evidence["runner"],
+        {"path", "sha256"},
+        "custom-staking census execution runner",
+    )
+    operator_manifest = objects.get("OPERATOR-TOOL-MANIFEST.json")
+    operator_files = (
+        operator_manifest.get("files")
+        if isinstance(operator_manifest, dict)
+        else None
+    )
+    if not (
+        runner["path"] == CENSUS_EXECUTION_RUNNER_PATH
+        and isinstance(operator_files, dict)
+        and runner["sha256"] == operator_files.get(CENSUS_EXECUTION_RUNNER_PATH)
+    ):
+        fail("custom-staking census execution runner differs from RELEASE")
+    require_hash(runner["sha256"], "custom-staking census execution runner")
+
+    authority = require_exact_object(
+        evidence["signature_authority"],
+        {
+            "algorithm",
+            "authorized_signer_fingerprint",
+            "detached_signature_filename",
+            "authority_limit",
+        },
+        "custom-staking census execution signature authority",
+    )
+    if authority != {
+        "algorithm": "openpgp",
+        "authorized_signer_fingerprint": contract["execution_evidence"][
+            "authorized_signer_fingerprint"
+        ],
+        "detached_signature_filename": CENSUS_EXECUTION_SIGNATURE_FILENAME,
+        "authority_limit": CENSUS_EXECUTION_AUTHORITY_LIMIT,
+    }:
+        fail("custom-staking census execution signature authority is over-broad")
+
+    state = require_exact_object(
+        evidence["state"],
+        {"chain_id", "height", "app_hash", "source_commit"},
+        "custom-staking census execution state",
+    )
+    census = objects["CUSTOM-STAKING-CENSUS.json"]
+    census_report_hash = census.get("report_sha256") if isinstance(census, dict) else None
+    expected_app_hash = final.get("excluded_post_anchor_state", {}).get("app_hash")
+    if not isinstance(expected_app_hash, str):
+        fail("FINAL excluded post-anchor AppHash is missing for census execution")
+    if not (
+        state
+        == {
+            "chain_id": "zerone-1",
+            "height": a,
+            "app_hash": expected_app_hash.lower(),
+            "source_commit": release["source"]["commit"],
+        }
+        and isinstance(census, dict)
+        and census.get("result") == "PASS"
+        and census.get("evidence") == state
+    ):
+        fail("custom-staking census execution state differs from its report/A/E")
+
+    binary = require_exact_object(
+        evidence["binary"],
+        {"filename", "sha256"},
+        "custom-staking census execution binary",
+    )
+    if binary != contract["binary"]:
+        fail("custom-staking census execution binary differs from RELEASE")
+
+    snapshot = require_exact_object(
+        evidence["source_snapshot"],
+        {
+            "manifest_filename",
+            "manifest_sha256",
+            "database_snapshot_sha256",
+            "file_manifest_sha256",
+        },
+        "custom-staking census execution source snapshot",
+    )
+    snapshot_manifest = objects["OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json"]
+    if not (
+        snapshot["manifest_filename"]
+        == "OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json"
+        and snapshot["manifest_sha256"]
+        == sha256(files["OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json"])
+        and snapshot["database_snapshot_sha256"]
+        == snapshot_manifest.get("database_snapshot_sha256")
+        and snapshot["file_manifest_sha256"]
+        == snapshot_manifest.get("file_manifest_sha256")
+    ):
+        fail("custom-staking census execution snapshot is not the frozen observer copy")
+    for field in ("manifest_sha256", "database_snapshot_sha256", "file_manifest_sha256"):
+        require_hash(snapshot[field], f"custom-staking census execution {field}")
+
+    command = require_exact_object(
+        evidence["command"],
+        {
+            "argv",
+            "binary_path",
+            "home_path",
+            "backend",
+            "copied_db",
+            "report_transport",
+            "output_path",
+        },
+        "custom-staking census execution command",
+    )
+    binary_path = require_safe_absolute_posix_path(
+        command["binary_path"], "custom-staking census binary path"
+    )
+    home_path = require_safe_absolute_posix_path(
+        command["home_path"], "custom-staking census copied home path"
+    )
+    output_path = require_safe_absolute_posix_path(
+        command["output_path"], "custom-staking census output path"
+    )
+    binary_parts = pathlib.PurePosixPath(binary_path).parts
+    home_parts = pathlib.PurePosixPath(home_path).parts
+    output_parts = pathlib.PurePosixPath(output_path).parts
+    if not (
+        pathlib.PurePosixPath(binary_path).name == CENSUS_BINARY_FILENAME
+        and pathlib.PurePosixPath(output_path).name == "CUSTOM-STAKING-CENSUS.json"
+        and binary_parts != home_parts
+        and output_parts[: len(home_parts)] != home_parts
+        and binary_parts[: len(home_parts)] != home_parts
+        and command["backend"] in {"goleveldb", "pebbledb"}
+        and command["copied_db"] is True
+        and command["report_transport"] == CENSUS_REPORT_TRANSPORT
+    ):
+        fail("custom-staking census execution paths/backend are unsafe")
+    expected_argv = [
+        binary_path,
+        "--home",
+        home_path,
+        "--backend",
+        command["backend"],
+        "--chain-id",
+        "zerone-1",
+        "--expected-height",
+        a,
+        "--expected-app-hash",
+        expected_app_hash.lower(),
+        "--source-commit",
+        release["source"]["commit"],
+        "--copied-db",
+    ]
+    if command["argv"] != expected_argv:
+        fail("custom-staking census execution argv is not the exact safe command")
+
+    execution = require_exact_object(
+        evidence["execution"],
+        {
+            "started_at",
+            "completed_at",
+            "exit_code",
+            "stdout_sha256",
+            "stderr_sha256",
+            "report_filename",
+            "report_sha256",
+            "report_self_hash",
+            "report_result",
+        },
+        "custom-staking census execution result",
+    )
+    empty_hash = sha256(b"")
+    if not (
+        execution["exit_code"] == 0
+        and not isinstance(execution["exit_code"], bool)
+        and execution["stdout_sha256"]
+        == sha256(files["CUSTOM-STAKING-CENSUS.json"])
+        and execution["stderr_sha256"] == empty_hash
+        and execution["report_filename"] == "CUSTOM-STAKING-CENSUS.json"
+        and execution["report_sha256"] == sha256(files["CUSTOM-STAKING-CENSUS.json"])
+        and execution["report_self_hash"] == census_report_hash
+        and execution["report_result"] == census.get("result") == "PASS"
+    ):
+        fail("custom-staking census execution report differs from the bound bytes")
+    for field in ("stdout_sha256", "stderr_sha256", "report_sha256", "report_self_hash"):
+        require_hash(execution[field], f"custom-staking census execution {field}")
+
+    guarantees = require_exact_object(
+        evidence["scan_guarantees"],
+        {
+            "required_stores",
+            "complete_logical_store_iteration",
+            "root_bound_leaf_count",
+            "ics23_membership_proof_per_leaf",
+            "root_commit_info_rechecked_after_scan",
+            "database_backend_read_only",
+            "write_attempts",
+        },
+        "custom-staking census execution scan guarantees",
+    )
+    if guarantees != {
+        "required_stores": ["zerone_staking", "bank", "staking"],
+        "complete_logical_store_iteration": True,
+        "root_bound_leaf_count": True,
+        "ics23_membership_proof_per_leaf": True,
+        "root_commit_info_rechecked_after_scan": True,
+        "database_backend_read_only": True,
+        "write_attempts": 0,
+    }:
+        fail("custom-staking census execution did not attest the full proof scan")
+
+    started_epoch = canonical_epoch(
+        execution["started_at"], "custom-staking census execution start"
+    )
+    completed_epoch = canonical_epoch(
+        execution["completed_at"], "custom-staking census execution completion"
+    )
+    created_epoch = canonical_epoch(
+        evidence["created_at"], "custom-staking census execution evidence time"
+    )
+    if completed_epoch - started_epoch > MAX_CENSUS_EXECUTION_SECONDS:
+        fail("custom-staking census execution exceeded the runner duration limit")
+    observer_terminal = objects.get("OBSERVER-EVIDENCE-MANIFEST.json")
+    observer_halt_time = (
+        observer_terminal.get("halt_trigger_block_time")
+        if isinstance(observer_terminal, dict)
+        else None
+    )
+    halt_trigger_ns = canonical_nanoseconds(
+        observer_halt_time,
+        "custom-staking census terminal halt-trigger time",
+    )
+    if not (
+        cutover_evidence_signature_epoch
+        <= halt_trigger_ns // 1_000_000_000
+        <= started_epoch
+        <= completed_epoch
+        <= created_epoch
+        <= signature_epoch
+        <= final_created_epoch
+        <= final_signature_epoch
+    ):
+        fail("custom-staking census execution chronology is non-monotonic")
+    if halt_trigger_ns > started_epoch * 1_000_000_000:
+        fail("custom-staking census execution began before terminal block H")
+
+    artifacts = final.get("artifacts", {})
+    if not (
+        artifacts.get("custom_staking_census_execution_evidence_sha256")
+        == sha256(files[CENSUS_EXECUTION_EVIDENCE_FILENAME])
+        and artifacts.get(
+            "custom_staking_census_execution_evidence_detached_signature_sha256"
+        )
+        == sha256(files[CENSUS_EXECUTION_SIGNATURE_FILENAME])
+    ):
+        fail("FINAL does not bind the custom-staking census execution evidence")
 
 
 def validate_dark_bootstrap_contract(
@@ -2234,7 +2626,7 @@ def validate_cutover_chain(
             paths, objects, payload, signature, main
         )
 
-    if not isinstance(release, dict) or release.get("schema") != "zerone-2-release-packet-v1":
+    if not isinstance(release, dict) or release.get("schema") != "zerone-2-release-packet-v2":
         fail("release packet schema changed")
     if set(release) != {
         "schema",
@@ -2249,13 +2641,14 @@ def validate_cutover_chain(
         "public_identities",
         "archive_render_contract",
         "archive_gateway_render_contract",
+        "custom_staking_census_execution",
         "deployment_configs",
         "phase_dependent_config_template_sha256",
         "monitoring_alerts_sha256",
         "operator_tool_manifest_sha256",
         "accepted_policy",
     }:
-        fail("release packet does not have the exact v1 field set")
+        fail("release packet does not have the exact v2 field set")
     if release.get("chain_id") != "zerone-2":
         fail("release packet chain ID changed")
     transition = (
@@ -2288,6 +2681,7 @@ def validate_cutover_chain(
     }:
         fail("RELEASE component set is malformed")
     validate_release_ceremony(files, objects, release, main)
+    validate_census_execution_contract(files, release)
     validate_monitoring_artifacts(
         files, objects, release, release_created_epoch
     )
@@ -3207,7 +3601,7 @@ def validate_open_chain(
     same_shape_and_static(final, final_template, "FINAL-CHECKPOINT")
     if contains_placeholder(final):
         fail("FINAL-CHECKPOINT retains a placeholder")
-    if final.get("schema") != "zerone-final-checkpoint-v3":
+    if final.get("schema") != "zerone-final-checkpoint-v4":
         fail("FINAL-CHECKPOINT schema changed")
     authority = final.get("authority_chain", {})
     expected_authority = {
@@ -3232,6 +3626,19 @@ def validate_open_chain(
         fail(f"frozen checkpoint evidence mismatch: {exc}")
     except Exception as exc:
         fail(f"frozen checkpoint evidence validator failed closed: {exc}")
+    validate_census_execution_evidence(
+        files,
+        paths,
+        objects,
+        release,
+        final,
+        transition,
+        f,
+        a,
+        cutover_evidence_signature_epoch,
+        final_created_epoch,
+        final_signature_epoch,
+    )
     validate_frozen_terminal_cryptography(
         paths, objects, f, a, h, temp_path
     )
@@ -3833,6 +4240,7 @@ def main() -> None:
         "ZERONE-2-ONBOARD-SIGNED-TX.json",
         "ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json",
         "OPERATOR-TOOL-MANIFEST.json",
+        CENSUS_BINARY_FILENAME,
         "zeroned-zerone-1-release",
         "genesis.json",
         "genesis.sha256",
@@ -3998,6 +4406,7 @@ def main() -> None:
             "CUTOVER-INITIATION-EVIDENCE.json",
             "zerone-1-archive-transition.json",
             "ARCHIVE-ADOPTION-AUTHORITY.json",
+            CENSUS_EXECUTION_EVIDENCE_FILENAME,
             "FINAL-CHECKPOINT.json",
             "OPEN-BETA-DECISION.json",
             "OPEN-BETA-INITIATION-EVIDENCE.json",

@@ -18,8 +18,8 @@ from typing import Any
 RENDERER_PATH = "deploy/query-gateway/render-archive-gateway-config.py"
 TEMPLATE_PATH = "deploy/query-gateway/fly.zerone-1-archive.public.example.toml"
 CONTRACT_SCHEMA = "zerone-1-archive-gateway-render-contract-v1"
-RELEASE_SCHEMA = "zerone-2-release-packet-v1"
-FINAL_SCHEMA = "zerone-final-checkpoint-v3"
+RELEASE_SCHEMA = "zerone-2-release-packet-v2"
+FINAL_SCHEMA = "zerone-final-checkpoint-v4"
 
 LOWER_HASH = re.compile(r"^[0-9a-f]{64}$")
 UPPER_HASH = re.compile(r"^[0-9A-F]{64}$")

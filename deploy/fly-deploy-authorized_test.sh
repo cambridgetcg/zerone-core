@@ -105,7 +105,7 @@ payload=${@: -1}
 schema=$(jq -er '.schema' "${payload}")
 fingerprint=${FAKE_GPG_MAIN_FINGERPRINT:?}
 case "${schema}" in
-  zerone-2-release-packet-v1) timestamp=1783677660 ;;
+  zerone-2-release-packet-v2) timestamp=1783677660 ;;
   zerone-2-dark-start-decision-v1) timestamp=1783678260 ;;
   zerone-2-dark-start-initiation-evidence-v1) timestamp=1783678920 ;;
   zerone-2-dark-registration-evidence-v1) timestamp=1783680000 ;;
@@ -115,7 +115,11 @@ case "${schema}" in
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
     timestamp=1783693800
     ;;
-  zerone-final-checkpoint-v3)
+  zerone-custom-staking-census-execution-evidence-v1)
+    fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
+    timestamp=1783692840
+    ;;
+  zerone-final-checkpoint-v4)
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
     timestamp=1783695660
     ;;

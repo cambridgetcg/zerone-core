@@ -55,7 +55,7 @@ first linked page.
 | "The network continues with one validator offline" | Recorded 3/4 continuation window and heights | Rehearsal claim only |
 | "The network halts without two-thirds voting power" | Recorded 2/4 halt window, then recovery evidence | Rehearsal claim only |
 | "One signed message commits once and exact replay is rejected" | Committed MsgSend bytes/proof, one sequence increment, replay response, and unchanged post-replay state | Rehearsal claim only |
-| "Legacy custom-staking custody was inventoried" | Self-sealed census at application height `A`, AppHash `E` recomputed from all multistore roots, FINAL hash binding, and release-built census binary provenance | Production evidence absent |
+| "Legacy custom-staking custody was inventoried" | Self-sealed census at application height `A`, AppHash `E` recomputed from all multistore roots, transition-signed release-bound execution evidence, FINAL report/evidence/signature hash binding, and independently verified census-binary provenance | Production evidence absent; the transition signature is an attestation, not mechanical execution proof |
 | "A release candidate exists" | Signed tag, reproducible binary, SBOM, provenance, vulnerability decision, immutable images, and passing release gates | NO-GO |
 | "`zerone-2` is live" | Signed OPEN-BETA decision and initiation evidence, committed history link, published immutable coordinates, and passing public probes | NO-GO |
 | "`zerone-2` is decentralized or Byzantine-resilient" | At least four independent failure domains and no actor with one-third voting power, plus the applicable source and operational gates | Prohibited at initial custodial beta |

@@ -504,13 +504,71 @@ marker and a fresh private A/A probe-evidence hash. A missing or changed
 readiness marker fails closed.
 
 Before completing FINAL, build `custom-staking-census` reproducibly from the
-exact signed RELEASE source. After every source daemon is stopped, run it only
-against a separately captured disposable observer database copy, with chain ID
-`zerone-1`, expected height `A`, the lowercase excluded post-anchor/ABCI
-AppHash, and the RELEASE commit. Preserve its exact self-sealed
-`CUSTOM-STAKING-CENSUS.json` bytes in the authority bundle for FINAL. Separately,
-independently verify its release-built binary provenance before OPEN. A report
-at checkpoint `F`, or one used as a migration plan, is invalid.
+exact signed RELEASE source and place the exact RELEASE-bound Linux/AMD64 bytes
+in the authority bundle as `custom-staking-census-linux-amd64`. After every
+source daemon is stopped, create a separately captured disposable observer
+database copy. Capture its exact application-DB file manifest without
+overwriting any earlier evidence:
+
+```bash
+python3 deploy/run-custom-staking-census-evidence.py capture-manifest \
+  --home /secure/offline/zerone-1-halted-observer \
+  --output /secure/private/OFFLINE-HALTED-OBSERVER-APPLICATION-DB-FILE-MANIFEST.json
+```
+
+Put the resulting database snapshot hash and file-manifest byte hash into
+`OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json`. Keep the byte-bearing file
+manifest private with the stopped copy; it can reveal database filenames and
+digests. From the first verification through receipt publication, keep both
+the copy and manifest in isolated transition-custodian storage with no
+concurrent same-UID writer. The runner's before/after checks reject persistent
+drift but cannot prove that a transient write was not restored before the
+second scan. After the terminal observer manifest and signed
+CUTOVER-initiation evidence exist, run the release-bound producer from the
+signed checkout:
+
+```bash
+python3 deploy/run-custom-staking-census-evidence.py execute \
+  --authority-bundle /secure/authority-bundle \
+  --release-packet /secure/authority-bundle/RELEASE-PACKET.json \
+  --release-signature /secure/authority-bundle/RELEASE-PACKET.json.sig \
+  --operator-tool-manifest /secure/authority-bundle/OPERATOR-TOOL-MANIFEST.json \
+  --cutover-decision /secure/authority-bundle/CUTOVER-DECISION.json \
+  --cutover-decision-signature /secure/authority-bundle/CUTOVER-DECISION.json.sig \
+  --cutover-initiation-evidence /secure/authority-bundle/CUTOVER-INITIATION-EVIDENCE.json \
+  --cutover-initiation-signature /secure/authority-bundle/CUTOVER-INITIATION-EVIDENCE.json.sig \
+  --snapshot-manifest /secure/authority-bundle/OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json \
+  --terminal-observer-manifest /secure/authority-bundle/OBSERVER-EVIDENCE-MANIFEST.json \
+  --source-file-manifest /secure/private/OFFLINE-HALTED-OBSERVER-APPLICATION-DB-FILE-MANIFEST.json \
+  --binary /secure/authority-bundle/custom-staking-census-linux-amd64 \
+  --home /secure/offline/zerone-1-halted-observer \
+  --backend goleveldb \
+  --report-output /secure/authority-bundle/CUSTOM-STAKING-CENSUS.json \
+  --evidence-output /secure/authority-bundle/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json \
+  --expected-release-signer-fingerprint '<main-full-fingerprint>' \
+  --expected-transition-signer-fingerprint '<transition-full-fingerprint>' \
+  --config-policy "$(pwd)/deploy/validate-fly-phase-config.py" \
+  --tool-root "$(pwd)"
+```
+
+The producer runs the full `cutover-postinit` authority verifier before the
+census, checks the copied database before and after execution, derives chain
+ID/A/E/source rather than accepting them as operator flags, snapshots the
+authenticated binary bytes to close a source-path swap, and deliberately omits
+the census binary's `--output` flag. It captures stdout in an already-open
+unlinked file, validates and atomically publishes exactly those report bytes,
+binds their hash plus the exact argv/status/stderr, and refuses to replace a
+report or receipt. Review the emitted canonical receipt on the second offline
+machine, then sign those exact bytes with the RELEASE-authorized transition key
+and append
+`CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig`. Do not hand-author the
+receipt.
+
+The transition signature is accountable operational evidence, not an
+independent proof of execution or a substitute for census-binary SBOM/Sigstore/
+reproducible-build provenance. Independently verify that provenance before
+OPEN. A report at checkpoint `F`, an unsigned receipt, or a census used as a
+migration plan is invalid.
 
 Independently hash the inventory, custom-staking census, post-anchor state
 export, and sanitized database archive. The post-anchor application state at
@@ -519,7 +577,7 @@ successor inventory and eligibility. Only after candidate readiness, final
 runtime-marker, and private probe evidence exist, complete
 `FINAL-CHECKPOINT.json` from
 [`zerone-1/frozen/FINAL-CHECKPOINT.example.json`](../zerone-1/frozen/FINAL-CHECKPOINT.example.json),
-the single authoritative v3 template. It must bind RELEASE, DARK-START and its
+the single authoritative v4 template. It must bind RELEASE, DARK-START and its
 initiation evidence, CUTOVER and its initiation evidence, ARCHIVE-ADOPTION,
 inner transition, archive config, readiness, runtime-marker, and probe hashes.
 It contains no public URL/config, history-link transaction, or OPEN reference.

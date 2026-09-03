@@ -232,7 +232,7 @@ esac
 RELEASE_SHA=$(sha256_file "${RELEASE}")
 RELEASE_SIG_SHA=$(sha256_file "${RELEASE_SIG}")
 DECISION_SHA=$(sha256_file "${DECISION}")
-jq -e '.schema == "zerone-2-release-packet-v1" and .chain_id == "zerone-2"' \
+jq -e '.schema == "zerone-2-release-packet-v2" and .chain_id == "zerone-2"' \
   "${RELEASE}" >/dev/null || die "release root has the wrong schema or chain ID"
 DEADLINE=$(jq -er '.authorization_semantics.initiation_deadline' "${DECISION}")
 DEADLINE_EPOCH=$(canonical_utc_epoch "${DEADLINE}") || \

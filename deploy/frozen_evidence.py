@@ -78,6 +78,8 @@ def _rpc_filename(prefix: str, key: str) -> str:
 REQUIRED_FROZEN_EVIDENCE_FILES = frozenset(
     {
         "CUSTOM-STAKING-CENSUS.json",
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json",
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig",
         "ZERONE-1-INVENTORY-V3.json",
         "SIGNER-EVIDENCE-MANIFEST.json",
         "OBSERVER-EVIDENCE-MANIFEST.json",
@@ -1911,6 +1913,8 @@ def _validate_export_and_storage(
         final.get("artifacts"),
         {
             "custom_staking_census_sha256",
+            "custom_staking_census_execution_evidence_sha256",
+            "custom_staking_census_execution_evidence_detached_signature_sha256",
             "post_anchor_state_export_sha256",
             "post_anchor_state_export_included_in_successor_inventory",
             "offline_halted_observer_database_snapshot_sha256",
@@ -1921,6 +1925,12 @@ def _validate_export_and_storage(
     )
     if artifacts != {
         "custom_staking_census_sha256": census_sha,
+        "custom_staking_census_execution_evidence_sha256": _sha256(
+            files["CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json"]
+        ),
+        "custom_staking_census_execution_evidence_detached_signature_sha256": _sha256(
+            files["CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"]
+        ),
         "post_anchor_state_export_sha256": export_sha,
         "post_anchor_state_export_included_in_successor_inventory": False,
         "offline_halted_observer_database_snapshot_sha256": offline_database_sha,

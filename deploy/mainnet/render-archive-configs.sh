@@ -165,7 +165,7 @@ for payload in "${RELEASE_PACKET}" "${CUTOVER_DECISION}" \
 done
 
 jq -e '
-  .schema == "zerone-2-release-packet-v1" and
+  .schema == "zerone-2-release-packet-v2" and
   .chain_id == "zerone-2" and
   .signature_authority.algorithm == "openpgp" and
   .public_identities.transition_attestation.algorithm == "openpgp" and

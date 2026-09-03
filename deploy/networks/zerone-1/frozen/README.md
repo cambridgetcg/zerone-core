@@ -25,12 +25,15 @@ independently inspectable after it is removed from the serving copy.
 The package contains:
 
 - original `genesis.json` and `GENESIS-MANIFEST.md`;
-- `FINAL-CHECKPOINT.json`, completed from the v3 manifest example here;
+- `FINAL-CHECKPOINT.json`, completed from the v4 manifest example here;
 - the `zerone-relaunch-snapshot-v3` inventory and eligibility output hashes;
 - raw terminal RPC evidence plus its SHA-256 manifest;
 - exact `CUSTOM-STAKING-CENSUS.json` bytes produced from a disposable copy of
   the stopped observer application database at applied height `A` and the
   excluded post-anchor AppHash;
+- canonical `CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json` plus its detached
+  transition-key signature, and the RELEASE-bound census binary retained in
+  the authority bundle;
 - the sanitized `A/A` archive snapshot and rollback log hashes;
 - `FINAL-CHECKPOINT.sha256`, `FINAL-CHECKPOINT.json.sig`, and final
   `TRANSITION.md`.
@@ -51,12 +54,31 @@ claimant and reverse-index coverage, and the passing row reconciliations. The
 report neither migrates a balance nor makes the legacy `consensus_pubkey`
 authoritative.
 
-FINAL binds only the exact passing `A/E` report bytes. The current RELEASE
-component model does not yet carry a dedicated census executable hash, SBOM,
-provenance, and signature. Separately, OPEN remains NO-GO until those binary
-bytes are reproducibly built from the signed RELEASE source and their
-provenance is independently verified and bound. The authority fixture only
-rehearses report/file semantics; it is not binary provenance.
+RELEASE v2 fixes the census executable filename/hash, execution-evidence
+filenames, and distinct transition signer. The release-bound runner verifies
+the complete signed `cutover-postinit` chain, matches the actual copied
+`application.db` against a canonical private file manifest before and after
+the run, derives A/E/source from authenticated inputs, snapshots the
+authenticated binary into a private execution path, invokes the exact safe
+stdout-mode argv, captures the report in an already-open unlinked file, and
+atomically publishes those exact validated bytes before emitting—not hand-
+authoring—the canonical execution evidence. FINAL binds the exact report,
+evidence, and detached-signature hashes. The verifier requires the signature
+from the transition key and orders the execution after terminal block H and
+before FINAL.
+
+The custodian must isolate the stopped copy and its private file manifest from
+all concurrent same-UID writers throughout the scan. Before/after equality
+rejects persistent changes, but cannot mechanically detect a transient change
+that is restored byte-for-byte before the second scan.
+
+That signature is an accountable factual attestation, not a cryptographic
+proof that the process ran or a retained root proof for every census row. The
+full-scan/per-leaf-proof fields describe the exact RELEASE-bound binary's
+contract, and ultimately remain claims of the transition signer. RELEASE's
+binary hash also is not an SBOM, Sigstore verification, or independently
+reproduced provenance record. OPEN remains NO-GO until binary provenance is
+separately verified. The authority fixture rehearses structure only.
 
 ## Exact signed bytes
 

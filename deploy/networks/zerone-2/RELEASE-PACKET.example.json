@@ -1,5 +1,5 @@
 {
-  "schema": "zerone-2-release-packet-v1",
+  "schema": "zerone-2-release-packet-v2",
   "created_at": "REPLACE_WITH_RFC3339_UTC",
   "chain_id": "zerone-2",
   "signature_authority": {
@@ -102,6 +102,18 @@
       "expected_archive_height": "FINAL-CHECKPOINT.json.final_application_block.height",
       "expected_archive_app_hash": "lower(FINAL-CHECKPOINT.json.excluded_post_anchor_state.app_hash)",
       "expected_archive_block_hash": "lower(FINAL-CHECKPOINT.json.final_application_block.block_id_hash)"
+    }
+  },
+  "custom_staking_census_execution": {
+    "schema": "zerone-custom-staking-census-execution-contract-v1",
+    "binary": {
+      "filename": "custom-staking-census-linux-amd64",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "execution_evidence": {
+      "filename": "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json",
+      "detached_signature_filename": "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig",
+      "authorized_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX"
     }
   },
   "deployment_configs": {

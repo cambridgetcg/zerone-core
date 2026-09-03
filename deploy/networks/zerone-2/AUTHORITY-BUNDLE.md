@@ -41,6 +41,8 @@ The invariant root of every stage contains:
 - `ZERONE-2-ONBOARD-SIGNED-TX.json`;
 - `ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json`;
 - `OPERATOR-TOOL-MANIFEST.json`;
+- `custom-staking-census-linux-amd64`, whose filename and SHA-256 are fixed by
+  RELEASE v2;
 - `MONITORING-ALERTS.json`, `MONITORING-RULES.json`, and
   `MONITORING-ALERT-TESTS.json`;
 - the 40 non-empty raw alert-test evidence files named by the fixed monitoring
@@ -54,8 +56,9 @@ The invariant root of every stage contains:
   release packet.
 
 The release-bound operator-tool manifest covers every verifier, transaction
-gate, deployment gate, renderer, the archive-gateway render template,
-canonicalizer, ceremony/build recipe, and artifact auditor used by the launch.
+gate, deployment gate, renderer, the archive-gateway render template, the
+custom-staking census evidence runner, canonicalizer, ceremony/build recipe,
+and artifact auditor used by the launch.
 A valid release signature is insufficient if the locally executed tool bytes
 do not match that manifest.
 
@@ -127,6 +130,8 @@ hash fields copied into FINAL:
 - `ZERONE-1-INVENTORY-V3.json`;
 - exact self-sealed `CUSTOM-STAKING-CENSUS.json` from a disposable stopped
   database copy at application height `A`;
+- canonical `CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json` and its detached
+  transition-key `.sig`;
 - `SIGNER-EVIDENCE-MANIFEST.json` and
   `OBSERVER-EVIDENCE-MANIFEST.json`;
 - `SIGNER-RPC-{STATUS,GENESIS,TRUSTED-BLOCK,TRUSTED-COMMIT,TRUSTED-VALIDATORS,BLOCK-A,COMMIT-A,VALIDATORS-A,BLOCK-RESULTS-A,BLOCK-H,COMMIT-H,VALIDATORS-H,ABCI-INFO,BLOCK-RESULTS-H-MISSING}.json.raw`;
@@ -148,16 +153,30 @@ staged block `H` and ABCI-at-`A` expose `E`, and `E` is never used for the
 successor inventory. The custom-staking census must bind `A/E` (with lowercase
 `E`) and the RELEASE source commit, pass its internal seal and claimant checks,
 independently recompute `E` from its complete multistore roots, satisfy the
-passing row reconciliations, and be hashed by FINAL. It is custody evidence only
-and confers no migration, staking, validator, or consensus authority. FINAL
-binds only those exact `A/E` report bytes; it does not establish how the census
-executable was built.
+passing row reconciliations, and be hashed by FINAL. RELEASE v2 fixes the exact
+census filename/hash and the execution-evidence filenames/transition signer.
+The release-bound runner first executes the complete `cutover-postinit`
+authority gate, verifies the copied application database against its private
+byte-bearing file manifest before and after the run, snapshots the already-
+authenticated census binary into a private execution path, invokes only the
+fixed stdout-mode argv, captures the report in an already-open unlinked file,
+and atomically publishes those exact validated bytes before emitting the
+canonical receipt. FINAL binds the report, receipt, and receipt signature
+bytes.
 
-The current RELEASE schema does not bind a dedicated census executable/SBOM/
-provenance/signature set. Separately, production remains NO-GO until the census
-binary is reproducibly built from RELEASE, independently verified, and its
-provenance is added to the signed artifact chain. The structural fixture does
-not satisfy that requirement.
+The transition custodian must run it on an isolated, stopped copy and exclude
+all concurrent same-UID writers to both the copied database and its private
+file manifest for the entire scan. The before/after equality checks reject
+persistent drift; they cannot mechanically detect a transient write that is
+restored byte-for-byte before the second scan.
+
+This closes the previously unauthenticated report-substitution path only at the
+transition key's factual-attestation trust boundary. The receipt does not
+cryptographically prove that execution occurred, and its signed full-scan and
+per-leaf-proof claims are not a retained root witness. It also does not provide
+SBOM, Sigstore, or reproducible-build provenance for the census binary.
+Production therefore remains NO-GO until those binary-provenance requirements
+are independently satisfied. The structural fixture satisfies none of them.
 
 ## Archive, FINAL, and OPEN additions
 
@@ -243,9 +262,9 @@ earlier stage.
 
 The out-of-band main fingerprint signs RELEASE, all three operator decisions,
 and the four initiation/registration evidence files. The distinct transition
-fingerprint signs only the deterministic archive-adoption attestation and
-FINAL. Neither bundle possession nor the transition key grants deployment or
-transaction authority.
+fingerprint signs only the deterministic archive-adoption attestation, census
+execution evidence, and FINAL. Neither bundle possession nor the transition
+key grants deployment or transaction authority.
 
 Connected actions use the specialized gates in the order documented in
 [`CUTOVER.md`](CUTOVER.md): private successor/bootstrap first, CUTOVER observer

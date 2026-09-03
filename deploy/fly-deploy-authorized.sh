@@ -258,7 +258,7 @@ verify_signed_payload() {
 require_canonical_json "${RELEASE}" "release packet"
 verify_signed_payload "${RELEASE}" "${RELEASE_SIGNATURE}" \
   "${RELEASE_SIGNATURE_NAME}" "release packet"
-jq -e '.schema == "zerone-2-release-packet-v1" and .chain_id == "zerone-2"' \
+jq -e '.schema == "zerone-2-release-packet-v2" and .chain_id == "zerone-2"' \
   "${RELEASE}" >/dev/null || die "release root has the wrong schema or chain ID"
 jq -e '
   (.deployment_configs | keys | sort) == ([
@@ -546,7 +546,7 @@ if [ "${SCHEMA}" = "zerone-2-open-beta-decision-v1" ]; then
         (.candidate_readiness_sha256 | test("^[0-9a-f]{64}$")) and
         (.final_runtime_marker_sha256 | test("^[0-9a-f]{64}$")) and
         (.private_a_a_probe_evidence_sha256 | test("^[0-9a-f]{64}$"));
-      .schema == "zerone-final-checkpoint-v3" and
+      .schema == "zerone-final-checkpoint-v4" and
       .status == "frozen" and
       .chain_id == "zerone-1" and
       ($open.dark_start_decision | hash_pair) and

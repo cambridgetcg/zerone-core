@@ -51,7 +51,9 @@ jobs:
       - name: Canonical signed-payload publication
         run: bash scripts/zerone-canonical-json-test.sh
       - name: Transitive signed authority chain
-        run: bash deploy/verify-authority-chain_test.sh
+        run: |
+          bash deploy/run-custom-staking-census-evidence_test.sh
+          bash deploy/verify-authority-chain_test.sh
       - name: Signed phase transaction byte gate
         run: |
           bash scripts/zerone-2-bootstrap-tx-broadcast_test.sh
@@ -85,7 +87,7 @@ jobs:
               "source_halt_release", "deployment_config_sha256", "archive",
               "accepted_policy", "attestation"
             ] | sort) and
-            .schema == "zerone-final-checkpoint-v3" and
+            .schema == "zerone-final-checkpoint-v4" and
             .status == "frozen" and
             .chain_id == "zerone-1" and
             (.accepted_policy | keys | sort) == ([
@@ -184,6 +186,8 @@ jobs:
               type == "string")
             and (.artifacts | keys | sort) == ([
               "custom_staking_census_sha256",
+              "custom_staking_census_execution_evidence_sha256",
+              "custom_staking_census_execution_evidence_detached_signature_sha256",
               "post_anchor_state_export_sha256",
               "post_anchor_state_export_included_in_successor_inventory",
               "offline_halted_observer_database_snapshot_sha256",
@@ -191,6 +195,10 @@ jobs:
               "archive_rollback_log_sha256"
             ] | sort)
             and (.artifacts.custom_staking_census_sha256 | type == "string")
+            and (.artifacts.custom_staking_census_execution_evidence_sha256 |
+              type == "string")
+            and (.artifacts.custom_staking_census_execution_evidence_detached_signature_sha256 |
+              type == "string")
             and .artifacts.post_anchor_state_export_included_in_successor_inventory == false
             and (.archive | has("rpc_url") | not)
             and (.archive | has("rest_url") | not)
@@ -198,14 +206,51 @@ jobs:
             and (has("open_beta") | not)
             and (has("dns") | not)
           ' deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json >/dev/null
+          jq -e '
+            (keys | sort) == ([
+              "schema", "result", "created_at", "release_packet",
+              "cutover_initiation_evidence", "runner", "state", "binary",
+              "source_snapshot", "command", "execution", "scan_guarantees",
+              "signature_authority"
+            ] | sort) and
+            .schema == "zerone-custom-staking-census-execution-evidence-v1" and
+            .result == "PASS" and
+            .runner.path == "deploy/run-custom-staking-census-evidence.py" and
+            .binary.filename == "custom-staking-census-linux-amd64" and
+            .source_snapshot.manifest_filename ==
+              "OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json" and
+            .command.copied_db == true and
+            .command.report_transport ==
+              "stdout-captured-and-atomically-published" and
+            .execution.exit_code == 0 and
+            .execution.report_filename == "CUSTOM-STAKING-CENSUS.json" and
+            .execution.report_result == "PASS" and
+            .scan_guarantees.required_stores ==
+              ["zerone_staking", "bank", "staking"] and
+            .scan_guarantees.complete_logical_store_iteration == true and
+            .scan_guarantees.root_bound_leaf_count == true and
+            .scan_guarantees.ics23_membership_proof_per_leaf == true and
+            .signature_authority.detached_signature_filename ==
+              "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+          ' deploy/networks/zerone-1/frozen/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.example.json >/dev/null
       - name: Scoped immutable decision templates
         run: |
           jq -e '
-            .schema == "zerone-2-release-packet-v1" and
+            .schema == "zerone-2-release-packet-v2" and
             .chain_id == "zerone-2" and
             .signature_authority.algorithm == "openpgp" and
             .signature_authority.authorized_signer_fingerprint == .source.tag_signer_fingerprint and
             .signature_authority.detached_signature_filename == "RELEASE-PACKET.json.sig" and
+            .custom_staking_census_execution.schema ==
+              "zerone-custom-staking-census-execution-contract-v1" and
+            .custom_staking_census_execution.binary.filename ==
+              "custom-staking-census-linux-amd64" and
+            .custom_staking_census_execution.execution_evidence.filename ==
+              "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" and
+            .custom_staking_census_execution.execution_evidence.detached_signature_filename ==
+              "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig" and
+            .custom_staking_census_execution.execution_evidence.authorized_signer_fingerprint ==
+              .public_identities.transition_attestation.authorized_signer_fingerprint and
             .accepted_policy.one_operator_validator_bft_f == 0 and
             .accepted_policy.public_grpc_live_at_initial_beta == false and
             .accepted_policy.hosted_transaction_submission_live_at_initial_beta == false and
@@ -454,7 +499,7 @@ jobs:
             (.initial_beta_exclusions |
               index("custom-staking census as migration or validator authority") != null) and
             (.required_preconditions |
-              index("FINAL binds exact passing A/E custom-staking census report bytes; separately, independently verified release-built census binary provenance must exist") != null)
+              index("FINAL binds exact passing A/E custom-staking census report bytes and transition-signed release-bound execution evidence; separately, independently verified census binary provenance must exist") != null)
           ' deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json >/dev/null
           jq -e '
             .schema == "zerone-2-dark-start-initiation-evidence-v1" and

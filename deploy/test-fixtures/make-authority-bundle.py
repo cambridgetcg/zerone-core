@@ -824,6 +824,7 @@ def main() -> None:
     parser.add_argument("--release-binary-file", required=True)
     parser.add_argument("--halt-release-binary-file")
     parser.add_argument("--runtime-release-binary-file")
+    parser.add_argument("--census-binary-file")
     parser.add_argument("--signed-tx-file", required=True)
     args = parser.parse_args()
 
@@ -846,14 +847,22 @@ def main() -> None:
     runtime_binary_bytes = pathlib.Path(
         args.runtime_release_binary_file or shared_binary
     ).read_bytes()
+    census_binary_bytes = (
+        pathlib.Path(args.census_binary_file).read_bytes()
+        if args.census_binary_file
+        else b"#!/bin/sh\n# dedicated synthetic custom-staking-census fixture\nexit 64\n"
+    )
     if digest(halt_binary_bytes) != args.halt_binary_sha:
         raise SystemExit("fixture halt binary hash differs from the signed component hash")
     if digest(runtime_binary_bytes) != args.runtime_binary_sha:
         raise SystemExit("fixture runtime binary hash differs from the signed component hash")
+    if census_binary_bytes in {halt_binary_bytes, runtime_binary_bytes}:
+        raise SystemExit("fixture census binary must be distinct from release daemon bytes")
     signed_tx_bytes = pathlib.Path(args.signed_tx_file).read_bytes()
     for name, binary_bytes in (
         ("zeroned-zerone-1-release", halt_binary_bytes),
         ("zeroned-zerone-2-release", runtime_binary_bytes),
+        ("custom-staking-census-linux-amd64", census_binary_bytes),
     ):
         path = output / name
         path.write_bytes(binary_bytes)
@@ -888,6 +897,7 @@ def main() -> None:
     tool_paths = (
         "deploy/verify-authority-chain.py",
         "deploy/frozen_evidence.py",
+        "deploy/run-custom-staking-census-evidence.py",
         "deploy/validate-fly-phase-config.py",
         "deploy/fly-deploy-pinned.sh",
         "deploy/fly-deploy-authorized.sh",
@@ -925,6 +935,7 @@ def main() -> None:
         "CUTOVER-DECISION.json.sig",
         "CUTOVER-INITIATION-EVIDENCE.json.sig",
         "ARCHIVE-ADOPTION-AUTHORITY.json.sig",
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig",
         "FINAL-CHECKPOINT.json.sig",
         "OPEN-BETA-DECISION.json.sig",
         "OPEN-BETA-INITIATION-EVIDENCE.json.sig",
@@ -979,6 +990,12 @@ def main() -> None:
         validator_consensus_pubkey=base64.b64encode(b"p" * 32).decode(),
     )
     release["public_identities"]["edge_node_id"] = "e" * 40
+    release["custom_staking_census_execution"]["binary"]["sha256"] = digest(
+        census_binary_bytes
+    )
+    release["custom_staking_census_execution"]["execution_evidence"][
+        "authorized_signer_fingerprint"
+    ] = args.transition
     renderer_path = root / "deploy" / "mainnet" / "render-archive-configs.sh"
     candidate_template_path = (
         root / "deploy" / "mainnet" / "fly.archive-candidate.example.toml"
@@ -1951,6 +1968,109 @@ def main() -> None:
     }
     offline_snapshot_raw = canonical_bytes(offline_snapshot)
     sanitized_snapshot_raw = canonical_bytes(sanitized_snapshot)
+    census_binary_path = (
+        "/secure/evidence/.custom-staking-census-binary.fixture/"
+        "custom-staking-census-linux-amd64"
+    )
+    census_home_path = "/secure/offline/zerone-1-halted-observer"
+    census_output_path = "/secure/evidence/CUSTOM-STAKING-CENSUS.json"
+    census_execution = {
+        "schema": "zerone-custom-staking-census-execution-evidence-v1",
+        "result": "PASS",
+        "created_at": "2026-07-10T14:13:00Z",
+        "release_packet": release_pair,
+        "cutover_initiation_evidence": cutover_init_pair,
+        "runner": {
+            "path": "deploy/run-custom-staking-census-evidence.py",
+            "sha256": tool_manifest["files"][
+                "deploy/run-custom-staking-census-evidence.py"
+            ],
+        },
+        "state": {
+            "chain_id": "zerone-1",
+            "height": "1001",
+            "app_hash": post_anchor_app_hash.lower(),
+            "source_commit": release["source"]["commit"],
+        },
+        "binary": copy.deepcopy(
+            release["custom_staking_census_execution"]["binary"]
+        ),
+        "source_snapshot": {
+            "manifest_filename": "OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json",
+            "manifest_sha256": digest(offline_snapshot_raw),
+            "database_snapshot_sha256": offline_snapshot[
+                "database_snapshot_sha256"
+            ],
+            "file_manifest_sha256": offline_snapshot["file_manifest_sha256"],
+        },
+        "command": {
+            "argv": [
+                census_binary_path,
+                "--home",
+                census_home_path,
+                "--backend",
+                "goleveldb",
+                "--chain-id",
+                "zerone-1",
+                "--expected-height",
+                "1001",
+                "--expected-app-hash",
+                post_anchor_app_hash.lower(),
+                "--source-commit",
+                release["source"]["commit"],
+                "--copied-db",
+            ],
+            "binary_path": census_binary_path,
+            "home_path": census_home_path,
+            "backend": "goleveldb",
+            "copied_db": True,
+            "report_transport": "stdout-captured-and-atomically-published",
+            "output_path": census_output_path,
+        },
+        "execution": {
+            "started_at": "2026-07-10T14:11:00Z",
+            "completed_at": "2026-07-10T14:12:00Z",
+            "exit_code": 0,
+            "stdout_sha256": digest(custom_staking_census),
+            "stderr_sha256": digest(b""),
+            "report_filename": "CUSTOM-STAKING-CENSUS.json",
+            "report_sha256": digest(custom_staking_census),
+            "report_self_hash": json.loads(custom_staking_census)[
+                "report_sha256"
+            ],
+            "report_result": "PASS",
+        },
+        "scan_guarantees": {
+            "required_stores": ["zerone_staking", "bank", "staking"],
+            "complete_logical_store_iteration": True,
+            "root_bound_leaf_count": True,
+            "ics23_membership_proof_per_leaf": True,
+            "root_commit_info_rechecked_after_scan": True,
+            "database_backend_read_only": True,
+            "write_attempts": 0,
+        },
+        "signature_authority": {
+            "algorithm": "openpgp",
+            "authorized_signer_fingerprint": args.transition,
+            "detached_signature_filename": (
+                "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+            ),
+            "authority_limit": (
+                "factual attestation that the exact RELEASE-bound census binary "
+                "scanned the declared stopped observer copy and produced the bound "
+                "report; no migration, deployment, transaction, public-service, or "
+                "DNS authority"
+            ),
+        },
+    }
+    census_execution_raw = canonical_bytes(census_execution)
+    census_execution_signature = (
+        "fixture signature CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig "
+        f"{digest(census_execution_raw)}\n"
+    )
+    (output / "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig").write_text(
+        census_execution_signature
+    )
     rollback_output = b"fixture: rolled back blockstore H to A and removed staged H\n"
     rollback_log = {
         "schema": "zerone-1-archive-rollback-evidence-v2",
@@ -1977,6 +2097,7 @@ def main() -> None:
     }
     source_raw = {
         "CUSTOM-STAKING-CENSUS.json": custom_staking_census,
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json": census_execution_raw,
         "ZERONE-1-INVENTORY-V3.json": canonical_bytes(inventory),
         "SIGNER-EVIDENCE-MANIFEST.json": canonical_bytes(signer_evidence),
         "OBSERVER-EVIDENCE-MANIFEST.json": canonical_bytes(observer_evidence),
@@ -2327,6 +2448,15 @@ def main() -> None:
     )
     final["artifacts"] = {
         "custom_staking_census_sha256": digest(custom_staking_census),
+        "custom_staking_census_execution_evidence_sha256": digest(
+            source_raw["CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json"]
+        ),
+        "custom_staking_census_execution_evidence_detached_signature_sha256": digest(
+            (
+                output
+                / "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+            ).read_bytes()
+        ),
         "post_anchor_state_export_sha256": digest(export_raw),
         "post_anchor_state_export_included_in_successor_inventory": False,
         "offline_halted_observer_database_snapshot_sha256": offline_snapshot[

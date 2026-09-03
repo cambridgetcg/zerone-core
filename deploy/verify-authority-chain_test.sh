@@ -50,6 +50,38 @@ elif mutation == "source-commit":
     report["evidence"]["source_commit"] = "2" * 40
 elif mutation == "arithmetic":
     report["census"]["liabilities_uzrn"] = "31"
+elif mutation == "fabricated-consistent-ledger":
+    census = report["census"]
+    census["module_balances"][0]["amount"] = "300"
+    census["balance_uzrn"] = "300"
+    census["delegations_uzrn"] = "200"
+    census["pending_unbondings_uzrn"] = "100"
+    census["liabilities_uzrn"] = "300"
+    validator = census["validators"][0]
+    validator["stored_delegated"] = "200"
+    validator["computed_delegated"] = "200"
+    validator["stored_total"] = "200"
+    validator["computed_total"] = "200"
+    for claim in census["claims"]:
+        if claim["source_kind"] == "delegation":
+            claim["amount"] = "200"
+        elif claim["source_kind"] == "pending_unbonding":
+            claim["amount"] = "100"
+    census["unbondings"][0]["amount"] = "100"
+    claimant = hashlib.sha256()
+    def write_field(value):
+        encoded = value.encode("utf-8")
+        claimant.update(len(encoded).to_bytes(8, "big"))
+        claimant.update(encoded)
+    write_field("zerone/custom-staking-claimants/v1")
+    claimant.update(len(census["claims"]).to_bytes(8, "big"))
+    for claim in census["claims"]:
+        for key in (
+            "source_kind", "source_claim_id", "claimant", "validator",
+            "denom", "amount",
+        ):
+            write_field(claim[key])
+    census["claimant_root"] = claimant.hexdigest()
 elif mutation == "findings":
     report["census"]["findings"] = [
         {"code": "fixture", "key": "fixture", "detail": "fixture"}
@@ -131,6 +163,51 @@ rebind_census_final() {
   canonical_mutate "${bundle}/FINAL-CHECKPOINT.json" \
     '.artifacts.custom_staking_census_sha256 = $sha' \
     --arg sha "${census_sha}"
+}
+
+rebind_census_execution_final() {
+  local bundle=$1 census_sha census_self evidence_sha signature_sha
+  census_sha=$(sha256_file "${bundle}/CUSTOM-STAKING-CENSUS.json")
+  census_self=$(jq -er '.report_sha256' \
+    "${bundle}/CUSTOM-STAKING-CENSUS.json")
+  # shellcheck disable=SC2016 # jq variables are not shell variables.
+  canonical_mutate \
+    "${bundle}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" \
+    '.execution.report_sha256 = $sha
+    | .execution.report_self_hash = $self' \
+    --arg sha "${census_sha}" --arg self "${census_self}"
+  evidence_sha=$(sha256_file \
+    "${bundle}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json")
+  signature_sha=$(sha256_file \
+    "${bundle}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig")
+  # shellcheck disable=SC2016 # jq variables are not shell variables.
+  canonical_mutate "${bundle}/FINAL-CHECKPOINT.json" \
+    '.artifacts.custom_staking_census_execution_evidence_sha256 = $evidence
+    | .artifacts.custom_staking_census_execution_evidence_detached_signature_sha256 = $signature' \
+    --arg evidence "${evidence_sha}" --arg signature "${signature_sha}"
+}
+
+sign_census_execution_fixture() {
+  local bundle=$1 payload_sha
+  payload_sha=$(sha256_file \
+    "${bundle}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json")
+  printf 'fixture signature %s %s\n' \
+    'CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig' \
+    "${payload_sha}" \
+    > "${bundle}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+}
+
+rebind_census_execution_artifacts_final() {
+  local bundle=$1 evidence_sha signature_sha
+  evidence_sha=$(sha256_file \
+    "${bundle}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json")
+  signature_sha=$(sha256_file \
+    "${bundle}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig")
+  # shellcheck disable=SC2016 # jq variables are not shell variables.
+  canonical_mutate "${bundle}/FINAL-CHECKPOINT.json" \
+    '.artifacts.custom_staking_census_execution_evidence_sha256 = $evidence
+    | .artifacts.custom_staking_census_execution_evidence_detached_signature_sha256 = $signature' \
+    --arg evidence "${evidence_sha}" --arg signature "${signature_sha}"
 }
 
 clone_bundle() {
@@ -325,8 +402,17 @@ cat > "${TMP}/bin/gpg" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 signature=${@: -2:1}
+payload=${@: -1}
 base=${signature##*/}
 expected="fixture signature ${base}"
+if [ "${base}" = CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig ]; then
+  if command -v sha256sum >/dev/null 2>&1; then
+    payload_sha=$(sha256sum "${payload}" | awk '{print $1}')
+  else
+    payload_sha=$(shasum -a 256 "${payload}" | awk '{print $1}')
+  fi
+  expected="${expected} ${payload_sha}"
+fi
 [ "$(cat "${signature}")" = "${expected}" ] || exit 1
 
 fingerprint=${FAKE_GPG_MAIN_FINGERPRINT:?}
@@ -341,6 +427,13 @@ case "${base}" in
   ARCHIVE-ADOPTION-AUTHORITY.json.sig)
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
     timestamp=1783693800
+    ;;
+  CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig)
+    fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
+    if [ "${FAKE_GPG_WRONG_CENSUS_SIGNER:-}" = 1 ]; then
+      fingerprint=${FAKE_GPG_MAIN_FINGERPRINT:?}
+    fi
+    timestamp=1783692840
     ;;
   FINAL-CHECKPOINT.json.sig)
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
@@ -374,6 +467,11 @@ BASE_BUNDLE="${TMP}/authority-bundle"
   --sender "${SENDER}" \
   --release-binary-file "${TMP}/zeroned" \
   --signed-tx-file "${TMP}/signed-tx.json"
+[ "$(sha256_file "${BASE_BUNDLE}/custom-staking-census-linux-amd64")" != \
+  "$(sha256_file "${BASE_BUNDLE}/zeroned-zerone-1-release")" ] || {
+  printf 'fixture census and halt-daemon bytes unexpectedly match\n' >&2
+  exit 1
+}
 # This expected value was generated independently with
 # cosmossdk.io/store/types.CommitInfo.Hash at store v1.1.2.
 python3 - "${ROOT}/deploy/frozen_evidence.py" <<'PY'
@@ -524,6 +622,7 @@ run_open() {
     FAKE_GPG_MAIN_FINGERPRINT="${MAIN_FINGERPRINT}" \
     FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
     FAKE_GPG_FUTURE_SIGNATURE="${FAKE_GPG_FUTURE_SIGNATURE:-}" \
+    FAKE_GPG_WRONG_CENSUS_SIGNER="${FAKE_GPG_WRONG_CENSUS_SIGNER:-}" \
     "${args[@]}"
 }
 
@@ -829,6 +928,73 @@ expect_rejected "missing custom-staking census" \
   "could not open bundle file CUSTOM-STAKING-CENSUS.json" \
   run_open_pre "${missing_census}"
 
+missing_census_execution=$(clone_bundle missing-custom-staking-census-execution)
+mv "${missing_census_execution}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" \
+  "${missing_census_execution}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.missing"
+expect_rejected "missing custom-staking census execution evidence" \
+  "could not open bundle file CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" \
+  run_open_pre "${missing_census_execution}"
+
+missing_census_execution_signature=$(clone_bundle \
+  missing-custom-staking-census-execution-signature)
+mv \
+  "${missing_census_execution_signature}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig" \
+  "${missing_census_execution_signature}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig.missing"
+expect_rejected "missing custom-staking census execution signature" \
+  "could not open bundle file CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig" \
+  run_open_pre "${missing_census_execution_signature}"
+
+wrong_census_execution_signer=$(clone_bundle \
+  wrong-custom-staking-census-execution-signer)
+FAKE_GPG_WRONG_CENSUS_SIGNER=1 expect_rejected \
+  "custom-staking census execution signed by main authority" \
+  "was signed by a different key" \
+  run_open_pre "${wrong_census_execution_signer}"
+
+overlong_census_execution=$(clone_bundle overlong-custom-staking-census-execution)
+canonical_mutate \
+  "${overlong_census_execution}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" \
+  '.execution.completed_at = "2026-07-10T20:11:01Z"'
+sign_census_execution_fixture "${overlong_census_execution}"
+rebind_census_execution_artifacts_final "${overlong_census_execution}"
+expect_rejected "signed overlong custom-staking census execution" \
+  "exceeded the runner duration limit" \
+  run_open_pre "${overlong_census_execution}"
+
+path_owned_census_report=$(clone_bundle path-owned-custom-staking-census-report)
+canonical_mutate \
+  "${path_owned_census_report}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" \
+  '.command.report_transport = "child-owned-path"'
+sign_census_execution_fixture "${path_owned_census_report}"
+rebind_census_execution_artifacts_final "${path_owned_census_report}"
+expect_rejected "signed path-owned custom-staking census report" \
+  "execution paths/backend are unsafe" \
+  run_open_pre "${path_owned_census_report}"
+
+unbound_census_stdout=$(clone_bundle unbound-custom-staking-census-stdout)
+canonical_mutate \
+  "${unbound_census_stdout}/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" \
+  '.execution.stdout_sha256 = ("0" * 64)'
+sign_census_execution_fixture "${unbound_census_stdout}"
+rebind_census_execution_artifacts_final "${unbound_census_stdout}"
+expect_rejected "signed unbound custom-staking census stdout" \
+  "execution report differs from the bound bytes" \
+  run_open_pre "${unbound_census_stdout}"
+
+census_binary_substitution=$(clone_bundle custom-staking-census-binary-substitution)
+cp "${census_binary_substitution}/zeroned-zerone-1-release" \
+  "${census_binary_substitution}/custom-staking-census-linux-amd64"
+expect_rejected "halt daemon substituted for custom-staking census binary" \
+  "bundled custom-staking census binary differs from RELEASE" \
+  run_cutover_pre "${census_binary_substitution}"
+
+census_binary_hash=$(clone_bundle custom-staking-census-binary-release-hash)
+canonical_mutate "${census_binary_hash}/RELEASE-PACKET.json" \
+  '.custom_staking_census_execution.binary.sha256 = ("0" * 64)'
+expect_rejected "custom-staking census binary RELEASE hash drift" \
+  "bundled custom-staking census binary differs from RELEASE" \
+  run_cutover_pre "${census_binary_hash}"
+
 census_self_hash=$(clone_bundle custom-staking-census-self-hash)
 census_mutate "${census_self_hash}/CUSTOM-STAKING-CENSUS.json" self-hash
 rebind_census_final "${census_self_hash}"
@@ -871,6 +1037,24 @@ rebind_census_final "${census_arithmetic}"
 expect_rejected "custom-staking census arithmetic drift" \
   "does not prove B = D + U and delta = 0" \
   run_open_pre "${census_arithmetic}"
+
+census_fabricated=$(clone_bundle custom-staking-census-fabricated-ledger)
+census_mutate "${census_fabricated}/CUSTOM-STAKING-CENSUS.json" \
+  fabricated-consistent-ledger
+rebind_census_final "${census_fabricated}"
+expect_rejected "self-consistent fabricated custom-staking ledger" \
+  "execution report differs from the bound bytes" \
+  run_open_pre "${census_fabricated}"
+
+census_fabricated_evidence=$(clone_bundle \
+  custom-staking-census-fabricated-execution-evidence)
+census_mutate "${census_fabricated_evidence}/CUSTOM-STAKING-CENSUS.json" \
+  fabricated-consistent-ledger
+rebind_census_final "${census_fabricated_evidence}"
+rebind_census_execution_final "${census_fabricated_evidence}"
+expect_rejected "rebound forged custom-staking execution evidence" \
+  "detached signature verification failed" \
+  run_open_pre "${census_fabricated_evidence}"
 
 census_findings=$(clone_bundle custom-staking-census-findings)
 census_mutate "${census_findings}/CUSTOM-STAKING-CENSUS.json" findings

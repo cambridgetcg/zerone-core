@@ -1,5 +1,5 @@
 {
-  "schema": "zerone-final-checkpoint-v3",
+  "schema": "zerone-final-checkpoint-v4",
   "status": "frozen",
   "created_at": "REPLACE_WITH_RFC3339_UTC",
   "chain_id": "zerone-1",
@@ -150,6 +150,8 @@
   },
   "artifacts": {
     "custom_staking_census_sha256": "REPLACE_WITH_64_HEX",
+    "custom_staking_census_execution_evidence_sha256": "REPLACE_WITH_64_HEX",
+    "custom_staking_census_execution_evidence_detached_signature_sha256": "REPLACE_WITH_64_HEX",
     "post_anchor_state_export_sha256": "REPLACE_WITH_64_HEX",
     "post_anchor_state_export_included_in_successor_inventory": false,
     "offline_halted_observer_database_snapshot_sha256": "REPLACE_WITH_64_HEX",

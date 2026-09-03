@@ -55,21 +55,25 @@ explicit about the custodial and NO-GO boundaries.
 
 The detached-signature payload starts from
 [`zerone-1/frozen/FINAL-CHECKPOINT.example.json`](../zerone-1/frozen/FINAL-CHECKPOINT.example.json),
-the single authoritative v3 template. It is a manifest of hashed evidence, not
+the single authoritative v4 template. It is a manifest of hashed evidence, not
 a replacement for the v3 inventory or raw RPC bundle. Do not create a second
 copy under `zerone-2`; signing two independently editable templates would make
 the transition payload ambiguous.
 
 The signed phase graph is acyclic: RELEASE → DARK-START/initiation → private
-registration evidence → CUTOVER/initiation → generated ARCHIVE-ADOPTION →
-FINAL-CHECKPOINT → OPEN-BETA/initiation → public profiles. CUTOVER may finish
+registration evidence → CUTOVER/initiation → generated ARCHIVE-ADOPTION plus
+generated custom-staking census execution evidence → FINAL-CHECKPOINT →
+OPEN-BETA/initiation → public profiles. CUTOVER may finish
 only the private historical package after its old-chain initiation event.
 Public P2P, query gateways, the history-link transaction, endpoints, and DNS
 require the later main-key OPEN-BETA decision. The transition key signs factual
 archive and checkpoint attestations only; it never grants operator GO
-authority. RELEASE therefore binds only the archive gateway's static mapping,
-renderer, and template; verified FINAL supplies A/E/B, and OPEN binds the exact
-deterministically rendered public config hash.
+authority. RELEASE v2 additionally binds the exact census binary and execution
+evidence contract. Its transition signature remains a factual operational
+attestation, not proof of process execution or binary provenance. RELEASE binds
+only the archive gateway's static mapping, renderer, and template; verified
+FINAL supplies A/E/B, and OPEN binds the exact deterministically rendered
+public config hash.
 
 ## Ceremony
 

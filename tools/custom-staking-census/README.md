@@ -89,6 +89,21 @@ case "$status" in
 esac
 ```
 
+For the Zerone production transition, do not invoke that command by hand.
+Use `deploy/run-custom-staking-census-evidence.py` as specified in
+`deploy/networks/zerone-2/CUTOVER.md`. The release-bound runner authenticates
+the complete CUTOVER post-initiation chain, verifies a byte-bearing manifest of
+the actual copied `application.db` before and after the run, derives the
+height/AppHash/source flags, snapshots the authenticated binary bytes into a
+private execution path, and invokes a fixed argv without a shell or `--output`.
+It captures stdout in an already-open unlinked file, validates and atomically
+publishes exactly those bytes, then emits the canonical transition-signing
+receipt. The receipt remains an accountable operator attestation, not
+independent proof that execution took place or proof of the binary's build
+provenance. Transition custody must also exclude concurrent same-UID writers to
+the stopped copy and its private file manifest: matching before/after bytes
+cannot reveal a transient mutation that is restored before the post-run scan.
+
 - `--home` is an absolute node-home path containing
   `data/application.db`.
 - `--backend` is exactly `goleveldb` or `pebbledb` and must match the copied

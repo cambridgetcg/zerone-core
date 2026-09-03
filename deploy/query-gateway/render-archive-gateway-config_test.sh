@@ -53,7 +53,7 @@ def canonical(value: Any) -> bytes:
 
 def make_release(template_bytes: bytes) -> dict[str, Any]:
     return {
-        "schema": "zerone-2-release-packet-v1",
+        "schema": "zerone-2-release-packet-v2",
         "chain_id": "zerone-2",
         "components": {"query_gateway": {"image_ref": image}},
         "archive_render_contract": {
@@ -116,7 +116,7 @@ def make_release(template_bytes: bytes) -> dict[str, Any]:
 
 def make_final(release_bytes: bytes) -> dict[str, Any]:
     return {
-        "schema": "zerone-final-checkpoint-v3",
+        "schema": "zerone-final-checkpoint-v4",
         "status": "frozen",
         "chain_id": "zerone-1",
         "authority_chain": {

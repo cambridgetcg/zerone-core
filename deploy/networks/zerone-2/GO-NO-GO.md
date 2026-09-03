@@ -191,10 +191,19 @@ endpoint publication, or DNS.
 - [ ] Exact self-sealed `CUSTOM-STAKING-CENSUS.json` passes at application
       height `A` against the lowercase excluded post-anchor/ABCI AppHash,
       binds the RELEASE commit, reconciles `B = D + U`, and has no findings;
-      FINAL binds these exact `A/E` report bytes, which grant no migration or
-      validator authority
+      the RELEASE-bound producer ran only after terminal H through the full
+      `cutover-postinit` gate and matched the actual stopped-copy file manifest
+      before and after execution; transition custody excluded concurrent
+      same-UID writers to both the database and private manifest throughout
+- [ ] Canonical census execution evidence binds the exact RELEASE and
+      CUTOVER-initiation pairs, runner/binary, snapshot hashes, argv, exit-zero
+      PASS, stdout-captured atomic report publication, and full-scan/per-leaf-
+      proof claims; its detached transition-key signature verifies, and FINAL
+      binds report/evidence/signature bytes
 - [ ] Separately, the release-built census binary has independently verified
-      provenance; report binding alone does not establish binary provenance
+      SBOM/Sigstore/reproducible-build provenance; the transition-signed
+      execution attestation does not establish provenance or mechanically
+      prove execution
 - [ ] `FINAL-CHECKPOINT.json` contains the full release/dark/cutover/adoption
       authority chain, private archive evidence, no public URL/config authority,
       and a valid transition-key detached signature
