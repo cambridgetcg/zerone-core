@@ -31,8 +31,12 @@ type MsgRegisterAccount struct {
 	AccountType        string                 `protobuf:"bytes,4,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"`
 	OperationalKeyHash string                 `protobuf:"bytes,5,opt,name=operational_key_hash,json=operationalKeyHash,proto3" json:"operational_key_hash,omitempty"`
 	Metadata           string                 `protobuf:"bytes,6,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Ed25519 signature by public_key over the canonical, domain-separated
+	// registration proof bytes. This proves that the transaction signer
+	// controls the independently stored identity/initial operational key.
+	IdentityProofSignature []byte `protobuf:"bytes,7,opt,name=identity_proof_signature,json=identityProofSignature,proto3" json:"identity_proof_signature,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *MsgRegisterAccount) Reset() {
@@ -107,6 +111,13 @@ func (x *MsgRegisterAccount) GetMetadata() string {
 	return ""
 }
 
+func (x *MsgRegisterAccount) GetIdentityProofSignature() []byte {
+	if x != nil {
+		return x.IdentityProofSignature
+	}
+	return nil
+}
+
 type MsgRegisterAccountResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -143,14 +154,24 @@ func (*MsgRegisterAccountResponse) Descriptor() ([]byte, []int) {
 	return file_zerone_auth_v1_tx_proto_rawDescGZIP(), []int{1}
 }
 
-// MsgRotateKey rotates the operational key for an account.
+// MsgRotateKey rotates the independent Ed25519 operational key for an account.
+// The normal TxRaw signature authenticates sender. authorization_signature is
+// an additional Ed25519 signature by the current operational key over Zerone's
+// domain-separated rotation authorization bytes. authorization_expires_at_unix
+// is consensus-checked against the containing block time and is part of those
+// signed bytes.
 type MsgRotateKey struct {
-	state                  protoimpl.MessageState `protogen:"open.v1"`
-	Sender                 string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
-	NewOperationalKey      []byte                 `protobuf:"bytes,2,opt,name=new_operational_key,json=newOperationalKey,proto3" json:"new_operational_key,omitempty"`
-	AuthorizationSignature []byte                 `protobuf:"bytes,3,opt,name=authorization_signature,json=authorizationSignature,proto3" json:"authorization_signature,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"open.v1"`
+	Sender                     string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	NewOperationalKey          []byte                 `protobuf:"bytes,2,opt,name=new_operational_key,json=newOperationalKey,proto3" json:"new_operational_key,omitempty"`
+	AuthorizationSignature     []byte                 `protobuf:"bytes,3,opt,name=authorization_signature,json=authorizationSignature,proto3" json:"authorization_signature,omitempty"`
+	AuthorizationExpiresAtUnix int64                  `protobuf:"varint,4,opt,name=authorization_expires_at_unix,json=authorizationExpiresAtUnix,proto3" json:"authorization_expires_at_unix,omitempty"`
+	// Ed25519 signature by new_operational_key over the separately
+	// domain-separated key-acceptance bytes. The current-key authorization and
+	// new-key confirmation are both required.
+	NewKeyConfirmationSignature []byte `protobuf:"bytes,5,opt,name=new_key_confirmation_signature,json=newKeyConfirmationSignature,proto3" json:"new_key_confirmation_signature,omitempty"`
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *MsgRotateKey) Reset() {
@@ -200,6 +221,20 @@ func (x *MsgRotateKey) GetNewOperationalKey() []byte {
 func (x *MsgRotateKey) GetAuthorizationSignature() []byte {
 	if x != nil {
 		return x.AuthorizationSignature
+	}
+	return nil
+}
+
+func (x *MsgRotateKey) GetAuthorizationExpiresAtUnix() int64 {
+	if x != nil {
+		return x.AuthorizationExpiresAtUnix
+	}
+	return 0
+}
+
+func (x *MsgRotateKey) GetNewKeyConfirmationSignature() []byte {
+	if x != nil {
+		return x.NewKeyConfirmationSignature
 	}
 	return nil
 }
@@ -527,7 +562,7 @@ var File_zerone_auth_v1_tx_proto protoreflect.FileDescriptor
 
 const file_zerone_auth_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	"\x17zerone/auth/v1/tx.proto\x12\x0ezerone.auth.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a\x1azerone/auth/v1/types.proto\x1a\x1czerone/auth/v1/genesis.proto\"\xdb\x01\n" +
+	"\x17zerone/auth/v1/tx.proto\x12\x0ezerone.auth.v1\x1a\x17cosmos/msg/v1/msg.proto\x1a\x1azerone/auth/v1/types.proto\x1a\x1czerone/auth/v1/genesis.proto\"\x95\x02\n" +
 	"\x12MsgRegisterAccount\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12\x10\n" +
 	"\x03did\x18\x02 \x01(\tR\x03did\x12\x1d\n" +
@@ -535,12 +570,15 @@ const file_zerone_auth_v1_tx_proto_rawDesc = "" +
 	"public_key\x18\x03 \x01(\tR\tpublicKey\x12!\n" +
 	"\faccount_type\x18\x04 \x01(\tR\vaccountType\x120\n" +
 	"\x14operational_key_hash\x18\x05 \x01(\tR\x12operationalKeyHash\x12\x1a\n" +
-	"\bmetadata\x18\x06 \x01(\tR\bmetadata:\v\x82\xe7\xb0*\x06sender\"\x1c\n" +
-	"\x1aMsgRegisterAccountResponse\"\x9c\x01\n" +
+	"\bmetadata\x18\x06 \x01(\tR\bmetadata\x128\n" +
+	"\x18identity_proof_signature\x18\a \x01(\fR\x16identityProofSignature:\v\x82\xe7\xb0*\x06sender\"\x1c\n" +
+	"\x1aMsgRegisterAccountResponse\"\xa4\x02\n" +
 	"\fMsgRotateKey\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12.\n" +
 	"\x13new_operational_key\x18\x02 \x01(\fR\x11newOperationalKey\x127\n" +
-	"\x17authorization_signature\x18\x03 \x01(\fR\x16authorizationSignature:\v\x82\xe7\xb0*\x06sender\">\n" +
+	"\x17authorization_signature\x18\x03 \x01(\fR\x16authorizationSignature\x12A\n" +
+	"\x1dauthorization_expires_at_unix\x18\x04 \x01(\x03R\x1aauthorizationExpiresAtUnix\x12C\n" +
+	"\x1enew_key_confirmation_signature\x18\x05 \x01(\fR\x1bnewKeyConfirmationSignature:\v\x82\xe7\xb0*\x06sender\">\n" +
 	"\x14MsgRotateKeyResponse\x12&\n" +
 	"\x0fnew_key_version\x18\x01 \x01(\rR\rnewKeyVersion\"i\n" +
 	"\x10MsgFreezeAccount\x12\x16\n" +

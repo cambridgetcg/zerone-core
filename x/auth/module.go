@@ -60,6 +60,9 @@ func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, _ client.TxEncodingCo
 	if err := cdc.UnmarshalJSON(bz, &data); err != nil {
 		return fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err)
 	}
+	// This SDK interface supplies no trustworthy chain ID. Keep authored and
+	// imported genesis validation strict; the narrowly chain-bound zerone-1
+	// compatibility path exists only while exporting committed keeper state.
 	return data.Validate()
 }
 

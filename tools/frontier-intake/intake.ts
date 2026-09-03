@@ -3,7 +3,6 @@
 // Client-side only: shells the zeroned CLI, touches no consensus code.
 // See docs/specs/math-frontier-absorption-v0.md.
 import { parseArgs } from "node:util";
-import { generateKeyPairSync } from "node:crypto";
 import {
   chmodSync,
   closeSync,
@@ -44,6 +43,17 @@ import {
   type PhaseParams,
   type RoundState,
 } from "./src/panel.ts";
+import {
+  accountRegistrationCommandArgs,
+  loadPersistedIdentityKey,
+  loadOrCreatePersistedIdentityKey,
+  type PersistedIdentityKey,
+} from "./src/account-registration.ts";
+import {
+  classifyRegisteredAccountQuery,
+  reconcileRegisteredAccount,
+  type ClassifiedAccountQuery,
+} from "./src/account-reconciliation.ts";
 import {
   CLAIM_GAS,
   COMMIT_GAS,
@@ -542,21 +552,109 @@ function commandStatus(net: NetworkConfig): void {
 
 async function commandSetup(net: NetworkConfig): Promise<void> {
   const funderAddress = keyAddress(net, net.funder);
-  console.log(`funder ${net.funder} = ${funderAddress} (${(spendableUzrn(net, funderAddress) / 1e6).toFixed(1)} ZRN)`);
   const needed: Array<{ key: string; target: number; floor: number }> = [
     { key: net.submitter, target: SUBMITTER_FUND_UZRN, floor: SUBMITTER_FUND_UZRN / 2 },
     ...net.verifiers.map(key => ({ key, target: VERIFIER_FUND_UZRN, floor: VERIFIER_TOPUP_FLOOR_UZRN })),
   ];
-  for (const { key, target, floor } of needed) {
+  const addressed: Array<(typeof needed)[number] & { address: string }> = [];
+  for (const item of needed) {
     let address: string;
     try {
-      address = keyAddress(net, key);
+      address = keyAddress(net, item.key);
     } catch {
-      console.log(`creating key ${key}…`);
-      const created = run(["keys", "add", key, "--keyring-backend", "test", "--home", net.keyring_home.replace("~", process.env.HOME ?? "~")]);
-      if (created.exit_code !== 0) fail(`could not create key ${key}: ${created.stderr.trim().split("\n")[0]}`);
-      address = keyAddress(net, key);
+      console.log(`creating key ${item.key}…`);
+      const created = run(["keys", "add", item.key, "--keyring-backend", "test", "--home", net.keyring_home.replace("~", process.env.HOME ?? "~")]);
+      if (created.exit_code !== 0) fail(`could not create key ${item.key}: ${created.stderr.trim().split("\n")[0]}`);
+      address = keyAddress(net, item.key);
     }
+    addressed.push({ ...item, address });
+  }
+
+  // Complete every identity/account preflight before the first funding or
+  // registration transaction. A truthy query is not evidence of custody:
+  // existing accounts must match the exact local keypair and current
+  // operational key. Only a confirmed module-level NotFound permits creation.
+  const inspected: Array<(typeof addressed)[number] & {
+    identityPath: string;
+    registration: ClassifiedAccountQuery;
+  }> = [];
+  for (const item of addressed) {
+    const identityPath = statePath(net.name).replace(
+      /state\.json$/,
+      `${item.key}.ed25519.json`,
+    );
+    let registration: ClassifiedAccountQuery;
+    try {
+      registration = classifyRegisteredAccountQuery(run([
+        "query",
+        "zerone_auth",
+        "account",
+        item.address,
+        "--node",
+        net.rpc,
+        "--output",
+        "json",
+      ]));
+    } catch (error) {
+      fail(
+        `cannot safely determine zerone_auth registration for ${item.key}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+    inspected.push({ ...item, identityPath, registration });
+  }
+
+  // Reconcile every already-registered identity before creating any missing
+  // one. Thus a later ambiguous query or custody mismatch cannot leave behind
+  // a newly generated key from an earlier confirmed NotFound result.
+  const reconciled = new Map<string, PersistedIdentityKey>();
+  for (const item of inspected) {
+    const { registration } = item;
+    if (registration.kind === "found") {
+      let identity: PersistedIdentityKey;
+      try {
+        identity = loadPersistedIdentityKey(item.identityPath, item.key);
+        reconcileRegisteredAccount(registration.account, {
+          key: item.key,
+          address: item.address,
+          accountType: "agent",
+          identity,
+        });
+      } catch (error) {
+        fail(
+          `registered identity custody check failed for ${item.key}: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+      console.log(
+        `🟢 ${item.key} zerone_auth identity and current operational key reconciled (v${registration.account.operational_key_version})`,
+      );
+      reconciled.set(item.key, identity);
+    }
+  }
+
+  const prepared: Array<(typeof addressed)[number] & {
+    identity: PersistedIdentityKey;
+    registered: boolean;
+  }> = [];
+  for (const item of inspected) {
+    if (item.registration.kind === "found") {
+      const identity = reconciled.get(item.key);
+      if (!identity) fail(`internal setup error: reconciled identity ${item.key} is missing`);
+      prepared.push({ ...item, identity, registered: true });
+    } else {
+      let identity: PersistedIdentityKey;
+      try {
+        identity = loadOrCreatePersistedIdentityKey(item.identityPath, item.key);
+      } catch (error) {
+        fail(
+          `could not establish identity custody for unregistered ${item.key}: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+      prepared.push({ ...item, identity, registered: false });
+    }
+  }
+
+  console.log(`funder ${net.funder} = ${funderAddress} (${(spendableUzrn(net, funderAddress) / 1e6).toFixed(1)} ZRN)`);
+  for (const { key, address, target, floor } of prepared) {
     const balance = spendableUzrn(net, address);
     if (balance >= floor) {
       console.log(`🟢 ${key} ${address}: ${(balance / 1e6).toFixed(2)} ZRN (sufficient)`);
@@ -570,34 +668,53 @@ async function commandSetup(net: NetworkConfig): Promise<void> {
     if (!included.found || included.code !== 0) fail(`funding ${key} failed on-chain: ${included.raw_log ?? "not included"}`);
     console.log(`🟢 ${key} funded (tx ${outcome.tx_hash.slice(0, 12)}…)`);
   }
-  // The live binaries gate knowledge messages on zerone_auth registration
-  // (removed on trunk, still enforced live). Register every key as an agent.
-  for (const { key } of needed) {
-    const address = keyAddress(net, key);
-    const registered = query(net, ["query", "zerone_auth", "account", address]);
-    if (registered) {
-      console.log(`🟢 ${key} already registered in zerone_auth`);
-      continue;
-    }
-    const identityPath = statePath(net.name).replace(/state\.json$/, `${key}.ed25519.json`);
-    let publicHex: string;
-    if (existsSync(identityPath)) {
-      publicHex = (JSON.parse(readFileSync(identityPath, "utf8")) as { public_hex: string }).public_hex;
-    } else {
-      const pair = generateKeyPairSync("ed25519");
-      publicHex = (pair.publicKey.export({ format: "der", type: "spki" }) as Buffer).subarray(-32).toString("hex");
-      const privateHex = (pair.privateKey.export({ format: "der", type: "pkcs8" }) as Buffer).toString("hex");
-      mkdirSync(dirname(identityPath), { recursive: true, mode: 0o700 });
-      writeFileSync(identityPath, JSON.stringify({ key, public_hex: publicHex, private_pkcs8_hex: privateHex }), { mode: 0o600 });
-    }
-    console.log(`registering ${key} in zerone_auth (did:zrn:${publicHex.slice(0, 12)}…)…`);
-    const outcome = broadcast(net, key, 300_000, [
-      "zerone_auth", "register-account", `did:zrn:${publicHex}`, publicHex, "agent",
-    ]);
+  // Knowledge messages require zerone_auth registration. Register every key as
+  // an agent, with an Ed25519 proof that binds this chain, sender, DID and role.
+  for (const { key, address, identity, registered } of prepared) {
+    if (registered) continue;
+    console.log(`registering ${key} in zerone_auth (did:zrn:${identity.public_hex.slice(0, 12)}…)…`);
+    const registrationArgs = accountRegistrationCommandArgs({
+      chainId: net.chain_id,
+      sender: address,
+      identity,
+      accountType: "agent",
+      metadata: "",
+    });
+    const outcome = broadcast(net, key, 300_000, registrationArgs);
     if (!outcome.ok || !outcome.tx_hash) fail(`registering ${key} rejected: ${outcome.raw_log ?? outcome.detail}`);
     const included = await waitForTx(net, outcome.tx_hash);
     if (!included.found || included.code !== 0) fail(`registering ${key} failed on-chain: ${included.raw_log ?? "not included"}`);
-    console.log(`🟢 ${key} registered`);
+
+    let confirmedVersion = 0;
+    try {
+      const confirmed = classifyRegisteredAccountQuery(run([
+        "query",
+        "zerone_auth",
+        "account",
+        address,
+        "--node",
+        net.rpc,
+        "--output",
+        "json",
+      ]));
+      if (confirmed.kind !== "found") {
+        throw new Error("account is still absent after successful registration transaction");
+      }
+      reconcileRegisteredAccount(confirmed.account, {
+        key,
+        address,
+        accountType: "agent",
+        identity,
+      });
+      confirmedVersion = confirmed.account.operational_key_version;
+    } catch (error) {
+      fail(
+        `post-registration custody check failed for ${key}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+    console.log(
+      `🟢 ${key} registered and reconciled (operational key v${confirmedVersion})`,
+    );
   }
 }
 

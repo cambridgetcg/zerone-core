@@ -1,19 +1,27 @@
 # Sigstore → substrate_bridge compiler
 
-`sigstore-substrate-compiler` verifies a local Sigstore bundle and projects
-its exact in-toto DSSE payload and proof bundle into a witness-only Zerone
-`SubstrateLink` for the fixed `sigstore-in-toto-v1` adapter.
+This nested module builds two offline Sigstore tools:
+
+- `sigstore-substrate-compiler` verifies a local in-toto DSSE bundle and
+  projects its exact payload and proof into a witness-only Zerone
+  `SubstrateLink`; and
+- `zerone-component-signature-verifier` verifies the keyless
+  `messageSignature` bundle for a digest-pinned release image and returns its
+  authenticated Rekor-v1 or RFC 3161 observer time to the production
+  authority-chain gate.
 
 It is intentionally an off-chain compiler. It adds no validator dependency,
 state, consensus code, claims, citations, recursion weight, or automatic
 economic reward.
 
-Status: **experimental and unregistered**. Keep it off chain with
-`witness_reward_uzrn` at `"0"` until an end-to-end cryptographic fixture passes
-under Zerone's selected production trusted root, exact identity, artifact, and
-predicate policy.
+The substrate adapter remains **experimental and unregistered**. Its hermetic
+cryptographic fixture now passes, but keep it off chain with
+`witness_reward_uzrn` at `"0"` until governance selects and rehearses the
+production root, identity, artifact, predicate, and challenge policy. The
+component verifier is a separate release-safety tool and grants no on-chain
+adapter status.
 
-## Verification policy
+## Substrate compiler verification policy
 
 The CLI fails closed unless all of these checks pass:
 
@@ -45,6 +53,9 @@ and uses the same Go 1.25.12 security patch as the chain's root module.
 cd tools/sigstore-substrate-compiler
 GOTOOLCHAIN=go1.25.12 go test ./...
 GOTOOLCHAIN=go1.25.12 go build -trimpath -o sigstore-substrate-compiler .
+GOTOOLCHAIN=go1.25.12 go build -trimpath \
+  -o zerone-component-signature-verifier \
+  ./cmd/zerone-component-signature-verifier
 ```
 
 For the binary hash registered by governance, pin the Zerone commit, Go
@@ -55,6 +66,12 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=go1.25.12 \
   go build -trimpath -buildvcs=false -ldflags='-buildid=' \
   -o sigstore-substrate-compiler-linux-amd64 .
 shasum -a 256 sigstore-substrate-compiler-linux-amd64
+
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=go1.25.12 \
+  go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+  -o zerone-component-signature-verifier-linux-amd64 \
+  ./cmd/zerone-component-signature-verifier
+shasum -a 256 zerone-component-signature-verifier-linux-amd64
 ```
 
 ## Use
@@ -75,6 +92,31 @@ operations runbook; changing that file changes who is trusted.
   --fetched-at-block 648000 \
   > substrate-link.json
 ```
+
+Release-component verification uses no predicate or source URL. It accepts
+only a Sigstore v0.3 `messageSignature` and emits a small JSON result containing
+the exact accepted identity, Fulcio source-repository commit, digest, media
+type, and authenticated observer time:
+
+```sh
+./zerone-component-signature-verifier \
+  --bundle ./ZERONE-2-RUNTIME-SIGNATURE-BUNDLE.json \
+  --trusted-root ./SIGSTORE-TRUSTED-ROOT.json \
+  --certificate-issuer https://token.actions.githubusercontent.com \
+  --certificate-san 'https://github.com/cambridgetcg/zerone-core/.github/workflows/ci.yml@refs/heads/main' \
+  --source-repository-digest 0123456789abcdef0123456789abcdef01234567 \
+  --artifact-digest sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+Every supplied transparency-log entry must carry an inclusion proof. At least
+one trusted log entry and one observer time must verify. Observer time is either
+a Rekor v1 SET-authenticated integrated time or an RFC 3161 TSA timestamp over
+the exact signature; the verifier never substitutes its current clock.
+
+The production authority bundle pins this executable, trusted-root file, and
+policy transitively under the OpenPGP-signed RELEASE packet. Do not substitute
+an ambient Cosign installation or refreshed TUF cache during offline phase
+verification.
 
 `--fetched-at-block` is optional and defaults to `0`. The compiler never
 dereferences `--source-url`; it must be a public HTTPS audit locator with no
@@ -111,8 +153,11 @@ payload identity hashing, exact-bundle proof hashing, deterministic canonical
 link hashing, and absence of economic claims. They also construct a hermetic
 v0.3 bundle and matching local trusted root with the pinned SDK's public
 signing and test-CA APIs. The end-to-end tests verify the Fulcio chain,
-embedded SCT, Rekor inclusion proof and signed integrated time, exact policy
-matches, and the complete CLI path without network access. This fixture proves
+embedded SCT, Rekor inclusion proof and authenticated observer time, exact
+policy matches, both DSSE and plain-message signature paths, a Rekor v2
+`hashedrekord` proof whose sole observer time is an RFC 3161 countersignature,
+and both complete CLIs without network access. Negative cases alter the TSA
+binding and Rekor v2 checkpoint independently. This fixture proves
 the compiler's cryptographic wiring; it does not select production trust.
 An environment-specific end-to-end fixture must still pass when Zerone selects
 its production Sigstore root, identity, artifact selection rule, and predicate

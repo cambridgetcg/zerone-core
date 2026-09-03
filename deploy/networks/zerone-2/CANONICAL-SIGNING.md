@@ -195,9 +195,23 @@ trusted anchor; then encodes the snapshot and submits those exact raw bytes.
 The DARK gate additionally enforces the two fixed filenames, message types,
 sequence `0` then `1`, increasing timeout heights, DID/operator/consensus-key
 bindings, and proof that onboarding committed before validator registration.
+Its `--check` form runs the same live successor, deadline, identity-proof, and
+normal `TxRaw` signature checks and omits only submission.
 The CUTOVER/OPEN gate enforces the exact one-message self-send, amount, fee,
-gas, signer, timeout, memo, and extension-free semantics. A direct `zeroned tx
-broadcast` command is not an authorized release path.
+gas, signer, timeout, memo, and extension-free semantics. Its live `--check`
+and broadcast paths verify the ordinary `TxRaw` signature against the
+authenticated private node's current account number and sequence before check
+success or broadcast. Post-commit deploy and archive consumers instead use the
+internal `--offline-artifact-check` path: it requires matching signed
+post-initiation evidence and code-zero committed transaction hash, then checks
+the release binary, exact TxRaw SHA-256/Comet hash, decoded contract, signer
+order/address, direct mode, and canonical consumed sequence without consulting
+the current broadcast cutoff, RPC, or current account state. The post-init
+authority verifier still applies its future-dating and security-expiry policy.
+That offline structural check is not an independent cryptographic
+re-verification of historical sign bytes; the signed code-zero commit evidence
+is the historical acceptance authority. A direct `zeroned tx broadcast`
+command is not an authorized release path.
 
 After successful commit, create the corresponding canonical main-key
 initiation-evidence payload from independent raw query evidence. No halt/public

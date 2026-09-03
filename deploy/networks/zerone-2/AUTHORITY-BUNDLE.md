@@ -1,11 +1,11 @@
 # Authority bundle contract
 
-> **Current source limitation — deployment NO-GO.** The verifier checks the
-> component signature bundle's declared shape, identity, issuer, and digest,
-> but does not yet perform cryptographic Sigstore verification against trusted
-> Fulcio/Rekor material. Repository CI also does not request GitHub OIDC or
-> produce these component signatures. The fixture bundle is only a structural
-> rehearsal; do not treat a passing fixture-shaped check as image provenance.
+> **Current artifact state — deployment NO-GO.** Source now performs offline
+> cryptographic Sigstore verification and CI contains a protected manual OIDC
+> signing job. The three real image bundles, reviewed frozen trusted root,
+> hash-pinned verifier binary, and real signed authority/evidence graph do not
+> exist merely because those paths compile. A fixture bundle remains a rehearsal
+> and is never production image provenance.
 
 The production authority bundle is an append-only directory of public release,
 signed authority, transaction, configuration, and evidence bytes. It contains
@@ -41,6 +41,8 @@ The invariant root of every stage contains:
 - `ZERONE-2-ONBOARD-SIGNED-TX.json`;
 - `ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json`;
 - `OPERATOR-TOOL-MANIFEST.json`;
+- `zerone-component-signature-verifier` and
+  `SIGSTORE-TRUSTED-ROOT.json`;
 - `zeroned-zerone-1-release` and `zeroned-zerone-2-release`;
 - `genesis.json`, `genesis.sha256`, `network-manifest.json`, and
   `GENESIS-MANIFEST.md`;
@@ -49,10 +51,14 @@ The invariant root of every stage contains:
   vulnerability scan, and signed vulnerability decision files named by the
   release packet.
 
-The release-bound operator-tool manifest covers every verifier, transaction
+The release-bound v2 operator-tool manifest covers every verifier, transaction
 gate, deployment gate, renderer, canonicalizer, ceremony/build recipe, and
-artifact auditor used by the launch. A valid release signature is insufficient
-if the locally executed tool bytes do not match that manifest.
+artifact auditor used by the launch. It also hashes the exact executable
+component-signature verifier and frozen Sigstore trusted root in the authority
+bundle and fixes the accepted issuer, workflow SAN, bundle media type, SCT,
+Fulcio source-commit claim, transparency-log, and observer-time thresholds. A
+valid release signature is insufficient if any locally executed tool,
+workflow, template, policy, or trust-root byte differs.
 
 Each component has six fixed byte-bearing artifacts: SBOM, provenance,
 signature evidence, offline signature bundle, vulnerability scan, and
@@ -61,6 +67,74 @@ provenance, signature evidence, and vulnerability decision; those files in
 turn bind the exact signature bundle and scan bytes. Provenance must repeat the
 signed source commit/tag, immutable image digest, build-recipe hash, and binary
 hash where the component contains `zeroned`.
+
+Component signature acceptance is cryptographic, not structural. After the
+OpenPGP RELEASE signature authenticates the verifier and trusted-root hashes,
+the authority verifier invokes that exact local executable once per component.
+It requires a v0.3 Sigstore `messageSignature`, exact GitHub Actions issuer/SAN
+and Fulcio source-repository commit, one valid certificate SCT, an inclusion
+proof on every supplied Rekor entry, at least one trusted Rekor entry, and one
+signed observer timestamp. The evidence file's `signed_at` must equal a
+verified Rekor v1 integrated time or RFC 3161 TSA countersignature time. No
+network, ambient TUF state, or workstation-current-time fallback participates
+in that decision.
+
+The GitHub Actions `CI` workflow exposes `sign_release_components` only through
+manual dispatch on current `main`. Its `zerone-production-signing` environment
+must exist before the first dispatch, have required reviewers, and define the
+environment-level variable `ZERONE_PRODUCTION_SIGNING_POLICY` with the exact
+value `required-reviewers-v1`. The same environment must define three exact
+full digest references under
+`ZERONE_PRODUCTION_APPROVED_ZERONE_1_HALT_IMAGE`,
+`ZERONE_PRODUCTION_APPROVED_ZERONE_2_RUNTIME_IMAGE`, and
+`ZERONE_PRODUCTION_APPROVED_QUERY_GATEWAY_IMAGE`. Those values are the
+authoritative component-to-repository mapping for the signing run; each
+dispatch input must match its approved value byte-for-byte.
+
+GitHub otherwise creates a referenced missing environment without protection;
+the workflow checks all four values before checkout, Cosign installation, or
+OIDC use and fails closed when any are absent or malformed. Confirm through the
+GitHub API that the environment, main-only policy, reviewers, and all four
+variables are environment-scoped as an operator preflight; the in-job checks
+cannot prove variable scope. The job waits for every CI job, checks three
+pairwise-distinct digest-only image references, rejects multi-platform indexes,
+checks the source-revision label against the workflow commit, captures a
+default Sigstore signing configuration containing Rekor and TSA services,
+hash-checks and signs each exact OCI manifest, verifies the exact workflow
+identity and commit plus its RFC 3161 timestamp, and uploads the evidence for
+14 days. Its separate non-cancelling concurrency lane prevents an ordinary
+push from interrupting a signing run after log publication. Dispatching the
+job creates public signature/transparency evidence for environment-approved
+bytes; it is not builder provenance, does not create chain authority, and does
+not deploy anything. No component-image bundle is accepted for launch outside
+the later OpenPGP-signed RELEASE graph, which independently binds component
+provenance, recipes, source, images, and binaries.
+
+On the dedicated Linux release workstation, build the verifier twice from the
+signed release checkout and compare the outputs before freezing it:
+
+```bash
+cd tools/sigstore-substrate-compiler
+export GOTOOLCHAIN=go1.25.12 CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+go mod verify
+go test ./...
+go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+  -o /secure/build/component-verifier-a \
+  ./cmd/zerone-component-signature-verifier
+go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+  -o /secure/build/component-verifier-b \
+  ./cmd/zerone-component-signature-verifier
+cmp /secure/build/component-verifier-a /secure/build/component-verifier-b
+sha256sum /secure/build/component-verifier-a
+```
+
+Retrieve `trusted_root.json` through Sigstore's signed production TUF
+repository, review its Fulcio, Rekor, CT-log, and timestamp-authority entries,
+then copy those exact bytes as `SIGSTORE-TRUSTED-ROOT.json`. Do not use the
+mutable GitHub branch copy
+as the trust bootstrap. Copy the compared verifier as
+`zerone-component-signature-verifier`, calculate both hashes, and place them in
+`OPERATOR-TOOL-MANIFEST.json` before canonicalizing and signing RELEASE.
 
 ## CUTOVER additions
 

@@ -597,7 +597,7 @@ case "${SCHEMA}" in
       --config-policy "${CONFIG_POLICY}" \
       --tool-root "${ROOT}" \
       >/dev/null || die "CUTOVER transitive authority chain did not verify"
-    "${TX_GATE}" --check \
+    "${TX_GATE}" --offline-artifact-check \
       "${RELEASE}" "${RELEASE_SIGNATURE}" "${AUTHORITY}" "${SIGNATURE}" \
       "${AUTHORITY_BUNDLE}/CUTOVER-SIGNED-TX.json" cutover \
       "${AUTHORITY_BUNDLE}/zeroned-zerone-1-release" http://localhost \
@@ -618,7 +618,7 @@ case "${SCHEMA}" in
       --final-template "${FINAL_TEMPLATE}" --open-template "${OPEN_TEMPLATE}" \
       --adoption-template "${ADOPTION_TEMPLATE}" \
       >/dev/null || die "OPEN-BETA transitive authority chain did not verify"
-    "${TX_GATE}" --check \
+    "${TX_GATE}" --offline-artifact-check \
       "${RELEASE}" "${RELEASE_SIGNATURE}" "${AUTHORITY}" "${SIGNATURE}" \
       "${AUTHORITY_BUNDLE}/OPEN-BETA-SIGNED-TX.json" open-beta \
       "${AUTHORITY_BUNDLE}/zeroned-zerone-2-release" http://localhost \

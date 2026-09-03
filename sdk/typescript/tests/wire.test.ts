@@ -65,6 +65,10 @@ function encodeVector(vector: WireVector): {
           "operationalKeyHash",
         ),
         metadata: asString(value.metadata, "metadata"),
+        identityProofSignature: asBytes(
+          value.identityProofSignature,
+          "identityProofSignature",
+        ),
       });
       return wireResult(MsgRegisterAccount, message);
     }
@@ -75,6 +79,14 @@ function encodeVector(vector: WireVector): {
         authorizationSignature: asBytes(
           value.authorizationSignature,
           "authorizationSignature",
+        ),
+        authorizationExpiresAtUnix: asBigInt(
+          value.authorizationExpiresAtUnix,
+          "authorizationExpiresAtUnix",
+        ),
+        newKeyConfirmationSignature: asBytes(
+          value.newKeyConfirmationSignature,
+          "newKeyConfirmationSignature",
         ),
       });
       return wireResult(MsgRotateKey, message);

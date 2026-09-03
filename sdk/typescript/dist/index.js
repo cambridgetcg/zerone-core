@@ -34,7 +34,7 @@ import {
   makeBoundedFeeGrant,
   makeRevokeFeeGrant,
   makeSponsoredFee
-} from "./chunk-P4QK5G57.js";
+} from "./chunk-2SQQL3WA.js";
 import {
   CaipError,
   asExistingZeroneDid,
@@ -46,7 +46,16 @@ import {
   parseCaip2,
   parseCosmosChainId,
   zeroneAccountId
-} from "./chunk-QLSVQV3R.js";
+} from "./chunk-HSUZCRNJ.js";
+import {
+  ACCOUNT_REGISTRATION_PROOF_DOMAIN,
+  KEY_ROTATION_ACCEPTANCE_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_MAX_TTL_SECONDS,
+  accountRegistrationProofSignBytes,
+  keyRotationAcceptanceSignBytes,
+  keyRotationAuthorizationSignBytes
+} from "./chunk-75TLLSKH.js";
 import {
   IN_TOTO_STATEMENT_V1_TYPE,
   ProvenanceParseError,
@@ -58,17 +67,21 @@ import {
   createZeroneRegistry,
   registerZeroneMessages,
   zeroneRegistryTypes
-} from "./chunk-5DBSOIK7.js";
-import "./chunk-PQV3XR6M.js";
+} from "./chunk-AIS675TF.js";
+import "./chunk-HO2DCVPK.js";
 import "./chunk-CXBAXZI7.js";
 import "./chunk-MLKGABMK.js";
 export {
+  ACCOUNT_REGISTRATION_PROOF_DOMAIN,
   COSMOS_AMOUNT_MAX,
   COSMOS_UINT64_MAX,
   CaipError,
   CidError,
   FeeGrantError,
   IN_TOTO_STATEMENT_V1_TYPE,
+  KEY_ROTATION_ACCEPTANCE_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_MAX_TTL_SECONDS,
   LIQUIDITY_FEE_SCALE,
   LIQUIDITY_LEGACY_PROTOCOL_FEE_DESTINATION_MODULE,
   LIQUIDITY_POOL_STATUS,
@@ -84,6 +97,7 @@ export {
   ZERONE_PROVENANCE_LIMITS,
   ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
   ZeroneLiquidityRestClient,
+  accountRegistrationProofSignBytes,
   asExistingZeroneDid,
   asZeroneMemoryCid,
   cosmosChainId,
@@ -96,6 +110,8 @@ export {
   discloseLiquiditySwapFee,
   formatCaip10,
   formatCaip2,
+  keyRotationAcceptanceSignBytes,
+  keyRotationAuthorizationSignBytes,
   makeBoundedFeeGrant,
   makeRevokeFeeGrant,
   makeSponsoredFee,

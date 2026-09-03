@@ -527,11 +527,20 @@ commitments, acknowledgements, and receipts. The old-database rehearsal must
 assert both sides of that boundary: obsolete child prefixes gone, live replay
 and packet state retained.
 
-This repair does not make the current `did:zrn` lifecycle trustworthy.
-Registration still lacks identity-key proof of possession, rotation does not
-verify its authorization signature, legacy identifier aliases are ambiguous,
-and terminal deactivation is absent. Those remain a separate state/protobuf
-migration after a live-state census. The read-only
+Current source now hardens new `did:zrn` writes: registration requires a
+chain/account-bound Ed25519 identity-key proof of possession; the identifier is
+the full canonical lowercase identity key; and rotation requires the normal
+Cosmos transaction signature, a domain-separated authorization by the current
+operational key, and a separately domain-separated acceptance proof by the new
+key. The rotation proofs bind chain ID, account, current key version, new key,
+and a consensus-time acceptance horizon. Metadata bounds and lossless rotation
+cooldown export are enforced as state invariants.
+
+That source change does not retroactively prove control of identities already
+recorded on `zerone-1`, and it is not live merely because it is present in Git.
+Legacy aliases, absent historical proof material, and terminal deactivation
+remain migration concerns. A fresh `zerone-2` launch or any `zerone-1` upgrade
+must retain the explicit source/deployed boundary. The read-only
 [`identity-census`](../../tools/identity-census/README.md) tool audits a
 same-height application export for aliases, mapping inconsistencies, malformed
 keys, and Cosmos account-key/address mismatches. Its report must be retained
@@ -540,9 +549,9 @@ possession.
 
 ## Explicit deferrals
 
-- No W3C DID document or Verifiable Credential claim until `did:zrn`
-  canonicalization, identity-key proof of possession, rotation signatures,
-  metadata bounds, replay protection, and genesis invariants are hardened.
+- No W3C DID document or Verifiable Credential claim until the hardened
+  `did:zrn` lifecycle is activated, historical identities have an explicit
+  migration/provenance treatment, and terminal deactivation is specified.
 - No CosmWasm or general contract VM; it conflicts with the slim-cut boundary.
 - No new IBC middleware while the current IBC/ICA posture remains limited.
   The Cosmos SDK 0.53 / IBC-Go 10 prototype is not deployment-ready until one

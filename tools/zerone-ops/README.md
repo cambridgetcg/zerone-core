@@ -284,7 +284,7 @@ zerone-ops approval-statement \
   --trust-policy-sha256 <pinned-policy-sha256> \
   --input draft.json \
   --role release-verifier \
-  --identity did:zrn:release-verifier-1 \
+  --identity release-verifier-1 \
   --public-key <64-lowercase-hex> \
   --power 0
 ```
@@ -341,7 +341,7 @@ zerone-ops supersession-approval-statement \
   --old-head-sha256 <old-journal-head-sha256> \
   --input supersession-draft.json \
   --role evidence-custodian \
-  --identity did:zrn:evidence-custodian-1 \
+  --identity evidence-custodian-1 \
   --public-key <64-lowercase-hex>
 ```
 

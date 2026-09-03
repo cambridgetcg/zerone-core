@@ -17,6 +17,15 @@ message GenesisState {
   Params params = 1;
   repeated Account accounts = 2;
   repeated DIDMapping did_mappings = 3;
+  // Last successful operational-key rotation per account. Exporting this
+  // preserves cooldown semantics across export/import and fork recovery.
+  repeated KeyRotationRecord last_key_rotations = 6;
+}
+
+// KeyRotationRecord preserves the cooldown anchor for one account.
+message KeyRotationRecord {
+  string address = 1;
+  uint64 height = 2;
 }
 
 // Params defines the auth module parameters.

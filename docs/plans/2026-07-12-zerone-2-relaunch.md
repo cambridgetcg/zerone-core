@@ -236,6 +236,10 @@ The launch candidate is **no-go** unless every item passes:
 - binary rebuilt independently with the same SHA-256;
 - SBOM, binary build metadata, three distinct full immutable image references
   (old halt, new runtime, query gateway), and signed release manifest;
+- keyless v0.3 signature bundles for all three exact OCI manifest digests pass
+  the release-bound offline verifier against the reviewed, hash-pinned Sigstore
+  root, exact workflow identity and source commit, SCT, per-entry Rekor
+  inclusion proof, and authenticated Rekor-v1 or RFC 3161 observer time;
 - every reviewed Fly config is bound by exact SHA-256, expected role, full
   image reference, app/volume, peers, and service exposure at deployment;
 - image/build-context scan finds no custody filename or known old-secret hash;

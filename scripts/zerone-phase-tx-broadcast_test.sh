@@ -19,6 +19,7 @@ FINGERPRINT=$(printf 'a%.0s' {1..40})
 GENESIS_SHA=$(printf 'b%.0s' {1..64})
 FINAL_SHA=$(printf 'c%.0s' {1..64})
 SENDER=zerone1testsender
+UINT64_OVERFLOW=18446744073709551616
 printf 'exact signed TxRaw bytes' > "${TMP}/raw"
 RAW_SHA=$(sha256_file "${TMP}/raw")
 TX_HASH=$(printf '%s' "${RAW_SHA}" | tr '[:lower:]' '[:upper:]')
@@ -32,11 +33,72 @@ cat > "${FAKE_BINARY}" <<'EOF'
 set -euo pipefail
 if [ "${1:-}" = verify-frozen-terminal ]; then
   printf 'frozen-terminal-crypto: MATCH\n'
+elif [ "$1" = tx ] && [ "$2" = validate-signatures ] && [ "$#" -ge 3 ]; then
+  [ "${FAKE_INVALID_TX_SIGNATURE:-0}" != 1 ] || exit 1
+  if [ "${FAKE_REQUIRE_OFFLINE_SIGNATURE_CHECK:-0}" = 1 ]; then
+    for required in '--account-number 0' '--sequence 7' '--offline'; do
+      case " $* " in
+        *" ${required} "*) ;;
+        *) exit 1 ;;
+      esac
+    done
+    case " $* " in
+      *' --node '*) exit 1 ;;
+    esac
+  fi
+  printf 'Signatures: OK\n'
 elif [ "$1" = tx ] && [ "$2" = encode ] && [ "$#" -eq 3 ]; then
   jq -er '.encoded' "$3"
 elif [ "$1" = tx ] && [ "$2" = decode ] && [ "$4" = --output ] && \
   [ "$5" = json ]; then
   cat "${FAKE_DECODED_TX:?}"
+elif [ "$1" = query ] && [ "$2" = auth ] && [ "$3" = account ] && \
+  [ "$5" = --node ] && [ "$7" = --output ] && [ "$8" = json ]; then
+  [ "${FAKE_ACCOUNT_QUERY_FORBIDDEN:-0}" != 1 ] || exit 99
+  [ "$4" = "${FAKE_ACCOUNT_ADDRESS:?}" ]
+  sequence=${FAKE_LIVE_SEQUENCE:?}
+  case "${FAKE_ACCOUNT_QUERY_SHAPE:-nested}" in
+    nested)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{"@type":"/cosmos.vesting.v1beta1.ContinuousVestingAccount",
+          base_vesting_account:{base_account:{address:$address,
+            account_number:"41",sequence:$sequence}}}}'
+      ;;
+    camel)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{"@type":"/example.v1.WrappedAccount",
+          baseAccount:{address:$address,
+            accountNumber:"18446744073709551615",sequence:$sequence}}}'
+      ;;
+    malformed)
+      printf '{"account":'
+      ;;
+    malformed-account-number)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{address:$address,account_number:"09",sequence:$sequence}}'
+      ;;
+    overflow-account-number)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{address:$address,
+          account_number:"18446744073709551616",sequence:$sequence}}'
+      ;;
+    ambiguous)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{address:$address,account_number:"41",sequence:$sequence},
+         value:{address:$address,account_number:"41",sequence:$sequence}}'
+      ;;
+    flip)
+      if [ -e "${FAKE_ACCOUNT_QUERY_STATE:?}" ]; then
+        sequence=${FAKE_SECOND_LIVE_SEQUENCE:?}
+      else
+        : > "${FAKE_ACCOUNT_QUERY_STATE}"
+      fi
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{"@type":"/cosmos.auth.v1beta1.BaseAccount",
+          address:$address,account_number:"41",sequence:$sequence}}'
+      ;;
+    *) exit 2 ;;
+  esac
 else
   exit 2
 fi
@@ -72,6 +134,7 @@ EOF
 cat > "${TMP}/bin/curl" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+[ "${FAKE_RPC_FORBIDDEN:-0}" != 1 ] || exit 99
 request=
 url=
 while [ "$#" -gt 0 ]; do
@@ -257,7 +320,9 @@ make_decoded() {
         non_critical_extension_options:[]
       },
       auth_info: {
-        signer_infos:[{}],
+        signer_infos:[{
+          mode_info:{single:{mode:"SIGN_MODE_DIRECT"}},sequence:"7"
+        }],
         fee:{amount:[{denom:"uzrn",amount:$fee}],gas_limit:$gas,payer:"",granter:""},
         tip:null
       },
@@ -276,6 +341,7 @@ make_decoded "${OPEN_MEMO}" "${SENDER}" 200000 200000 1300 "${OPEN_DECODED}"
 
 run_gate() {
   local phase=$4 decoded=${6:-} chain bundle=${8:-${AUTHORITY_BUNDLE}}
+  local mode=${9:-broadcast}
   local node trusted_height trusted_block trusted_app
   local -a gate_args
   if [ -z "${decoded}" ]; then
@@ -313,6 +379,12 @@ run_gate() {
   if [ "${phase}" = open-beta ]; then
     gate_args+=("${TRANSITION_FINGERPRINT}")
   fi
+  case "${mode}" in
+    check) gate_args=(--check "${gate_args[@]}") ;;
+    offline-artifact-check)
+      gate_args=(--offline-artifact-check "${gate_args[@]}")
+      ;;
+  esac
   PATH="${TMP}/bin:${PATH}" FAKE_GPG_FINGERPRINT="${FINGERPRINT}" \
   FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
   FAKE_DECODED_TX="${decoded}" EXPECTED_FAKE_CHAIN_ID="${chain}" \
@@ -321,6 +393,14 @@ run_gate() {
   EXPECTED_FAKE_TRUSTED_BLOCK_HASH="${trusted_block}" \
   EXPECTED_FAKE_TRUSTED_APP_HASH="${trusted_app}" \
   EXPECTED_FAKE_TX_BASE64="${ENCODED}" EXPECTED_FAKE_TX_HASH="${TX_HASH}" \
+  FAKE_INVALID_TX_SIGNATURE="${FAKE_INVALID_TX_SIGNATURE:-0}" \
+  FAKE_REQUIRE_OFFLINE_SIGNATURE_CHECK="${FAKE_REQUIRE_OFFLINE_SIGNATURE_CHECK:-0}" \
+  FAKE_RPC_FORBIDDEN="${FAKE_RPC_FORBIDDEN:-0}" \
+  FAKE_ACCOUNT_ADDRESS="${SENDER}" FAKE_LIVE_SEQUENCE="${FAKE_LIVE_SEQUENCE:-7}" \
+  FAKE_ACCOUNT_QUERY_FORBIDDEN="${FAKE_ACCOUNT_QUERY_FORBIDDEN:-0}" \
+  FAKE_SECOND_LIVE_SEQUENCE="${FAKE_SECOND_LIVE_SEQUENCE:-8}" \
+  FAKE_ACCOUNT_QUERY_SHAPE="${FAKE_ACCOUNT_QUERY_SHAPE:-nested}" \
+  FAKE_ACCOUNT_QUERY_STATE="${FAKE_ACCOUNT_QUERY_STATE:-${TMP}/account-query-state}" \
     "${GATE}" "${gate_args[@]}"
 }
 
@@ -338,6 +418,111 @@ for phase in cutover open-beta; do
   [ "$(run_gate "${DECISION}" "${DECISION_SIG}" "${TX_FILE}" \
     "${phase}" "${FAKE_BINARY}")" = "${TX_HASH}" ]
 done
+
+[ "$(run_gate "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+  "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" check)" = "${TX_HASH}" ]
+
+for phase in cutover open-beta; do
+  case "${phase}" in
+    cutover)
+      DECISION="${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json"
+      DECISION_SIG="${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig"
+      ;;
+    open-beta)
+      DECISION="${AUTHORITY_BUNDLE}/OPEN-BETA-DECISION.json"
+      DECISION_SIG="${AUTHORITY_BUNDLE}/OPEN-BETA-DECISION.json.sig"
+      ;;
+  esac
+  [ "$(FAKE_REQUIRE_OFFLINE_SIGNATURE_CHECK=1 FAKE_RPC_FORBIDDEN=1 \
+    FAKE_ACCOUNT_QUERY_FORBIDDEN=1 FAKE_LIVE_SEQUENCE=8 \
+    run_gate "${DECISION}" "${DECISION_SIG}" "${TX_FILE}" "${phase}" \
+      "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" \
+      offline-artifact-check)" = "${TX_HASH}" ]
+done
+
+if FAKE_INVALID_TX_SIGNATURE=1 FAKE_RPC_FORBIDDEN=1 \
+  FAKE_ACCOUNT_QUERY_FORBIDDEN=1 run_gate \
+    "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+    "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+    "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" \
+    offline-artifact-check >/dev/null 2>&1; then
+  printf 'phase tx gate test: invalid offline signer/order check was accepted\n' >&2
+  exit 1
+fi
+
+if FAKE_INVALID_TX_SIGNATURE=1 run_gate \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+  "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" check >/dev/null 2>&1; then
+  printf 'phase tx gate test: invalid Cosmos TxRaw signature was accepted by check mode\n' >&2
+  exit 1
+fi
+
+[ "$(FAKE_ACCOUNT_QUERY_SHAPE=camel run_gate \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+  "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" check)" = "${TX_HASH}" ] || {
+  printf 'phase tx gate test: canonical camelCase BaseAccount wrapper was rejected\n' >&2
+  exit 1
+}
+
+if FAKE_LIVE_SEQUENCE=8 run_gate \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+  "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" check >/dev/null 2>&1; then
+  printf 'phase tx gate test: stale live account sequence was accepted\n' >&2
+  exit 1
+fi
+
+for account_shape in malformed ambiguous malformed-account-number \
+  overflow-account-number; do
+  if FAKE_ACCOUNT_QUERY_SHAPE="${account_shape}" run_gate \
+    "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+    "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+    "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" check >/dev/null 2>&1; then
+    printf 'phase tx gate test: %s live account response was accepted\n' \
+      "${account_shape}" >&2
+    exit 1
+  fi
+done
+
+overflow_output=
+if overflow_output=$(FAKE_LIVE_SEQUENCE="${UINT64_OVERFLOW}" run_gate \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+  "${FAKE_BINARY}" "" "" "${AUTHORITY_BUNDLE}" check 2>&1); then
+  printf 'phase tx gate test: uint64-overflow live sequence was accepted\n' >&2
+  exit 1
+fi
+grep -Fq 'no unique canonical BaseAccount' <<<"${overflow_output}" || {
+  printf 'phase tx gate test: uint64-overflow live sequence failed for the wrong reason\n' >&2
+  exit 1
+}
+
+OVERFLOW_SEQUENCE_DECODED="${TMP}/decoded-overflow-sequence.json"
+jq --arg sequence "${UINT64_OVERFLOW}" \
+  '.auth_info.signer_infos[0].sequence = $sequence' \
+  "${CUTOVER_DECODED}" > "${OVERFLOW_SEQUENCE_DECODED}"
+if FAKE_LIVE_SEQUENCE="${UINT64_OVERFLOW}" run_gate \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+  "${FAKE_BINARY}" "${OVERFLOW_SEQUENCE_DECODED}" "" \
+  "${AUTHORITY_BUNDLE}" check >/dev/null 2>&1; then
+  printf 'phase tx gate test: uint64-overflow signed sequence was accepted\n' >&2
+  exit 1
+fi
+
+SECOND_QUERY_STATE="${TMP}/phase-second-query-state"
+if FAKE_ACCOUNT_QUERY_SHAPE=flip \
+  FAKE_ACCOUNT_QUERY_STATE="${SECOND_QUERY_STATE}" \
+  FAKE_SECOND_LIVE_SEQUENCE=8 run_gate \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json" \
+  "${AUTHORITY_BUNDLE}/CUTOVER-DECISION.json.sig" "${TX_FILE}" cutover \
+  "${FAKE_BINARY}" >/dev/null 2>&1; then
+  printf 'phase tx gate test: sequence change immediately before broadcast was accepted\n' >&2
+  exit 1
+fi
 
 for mutation in recipient memo fee gas; do
   decoded="${TMP}/decoded-wrong-${mutation}.json"

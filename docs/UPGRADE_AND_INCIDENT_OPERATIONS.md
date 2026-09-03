@@ -411,7 +411,7 @@ go run ./tools/zerone-ops approval-statement \
   --trust-policy-sha256 <independently-anchored-policy-sha256> \
   --input transition-draft.json \
   --role release-verifier \
-  --identity did:zrn:reviewer-1 \
+  --identity release-verifier-1 \
   --public-key <64-lowercase-hex> \
   --power 0
 

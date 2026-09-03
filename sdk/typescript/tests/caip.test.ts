@@ -188,17 +188,24 @@ describe("Zerone identity references", () => {
   });
 
   it("keeps did:zrn separate from the CAIP account address", () => {
-    const did = asExistingZeroneDid("did:zrn:abcdef0123456789abcdef0123456789");
-    assert.equal(did, "did:zrn:abcdef0123456789abcdef0123456789");
+    const did = asExistingZeroneDid(
+      "did:zrn:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    );
     assert.equal(
-      asExistingZeroneDid(
-        "did:zrn:ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789",
-      ),
-      "did:zrn:ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789",
+      did,
+      "did:zrn:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
     );
     assertCaipError(() => asExistingZeroneDid("did:zrn:short"), "INVALID_DID_ZRN");
     assertCaipError(
-      () => asExistingZeroneDid(`did:zrn:${"g".repeat(32)}`),
+      () => asExistingZeroneDid(`did:zrn:${"a".repeat(32)}`),
+      "INVALID_DID_ZRN",
+    );
+    assertCaipError(
+      () => asExistingZeroneDid(`did:zrn:${"A".repeat(64)}`),
+      "INVALID_DID_ZRN",
+    );
+    assertCaipError(
+      () => asExistingZeroneDid(`did:zrn:${"g".repeat(64)}`),
       "INVALID_DID_ZRN",
     );
     const encodedDid = `did%3Azrn%3A${"a".repeat(32)}`;

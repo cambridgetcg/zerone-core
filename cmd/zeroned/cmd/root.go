@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"cosmossdk.io/client/v2/autocli"
 	"cosmossdk.io/core/appmodule"
@@ -11,8 +14,11 @@ import (
 	feegrantcli "cosmossdk.io/x/feegrant/client/cli"
 	upgradecli "cosmossdk.io/x/upgrade/client/cli"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/client/debug"
@@ -335,14 +341,15 @@ func appExport(
 	appOpts servertypes.AppOptions,
 	modulesToExport []string,
 ) (servertypes.ExportedApp, error) {
-	homePath, ok := appOpts.Get(flags.FlagHome).(string)
-	if !ok || homePath == "" {
-		return servertypes.ExportedApp{}, nil
+	homePath := cast.ToString(appOpts.Get(flags.FlagHome))
+	if homePath == "" {
+		return servertypes.ExportedApp{}, fmt.Errorf("state export requires a non-empty home directory")
 	}
 
-	zeroneApp := app.NewZeroneApp(
-		logger, db, traceStore, height == -1, appOpts,
-	)
+	zeroneApp, err := newExportApp(logger, db, traceStore, height == -1, appOpts)
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
 
 	if height != -1 {
 		if err := zeroneApp.LoadHeight(height); err != nil {
@@ -351,6 +358,241 @@ func appExport(
 	}
 
 	return zeroneApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs, modulesToExport)
+}
+
+// newExportApp applies the same SDK BaseApp options as normal daemon startup,
+// then binds the chain ID parsed from the source home's genesis file. An
+// environment or command-line chain-id override must never make a different
+// source home eligible for the narrow zerone-1 historical export boundary.
+func newExportApp(
+	logger log.Logger,
+	db dbm.DB,
+	traceStore io.Writer,
+	loadLatest bool,
+	appOpts servertypes.AppOptions,
+) (*app.ZeroneApp, error) {
+	chainID, err := exportSourceChainID(appOpts)
+	if err != nil {
+		return nil, err
+	}
+	baseappOptions := server.DefaultBaseappOptions(appOpts)
+	// Last option wins. This makes the source-genesis value authoritative even
+	// when a matching explicit override was supplied.
+	baseappOptions = append(baseappOptions, baseapp.SetChainID(chainID))
+	return app.NewZeroneApp(
+		logger,
+		db,
+		traceStore,
+		loadLatest,
+		appOpts,
+		baseappOptions...,
+	), nil
+}
+
+func exportSourceChainID(appOpts servertypes.AppOptions) (string, error) {
+	homeDir := cast.ToString(appOpts.Get(flags.FlagHome))
+	if homeDir == "" {
+		return "", fmt.Errorf("state export requires a non-empty home directory")
+	}
+	genesisRelativePath, err := exportGenesisRelativePath(
+		cast.ToString(appOpts.Get("genesis_file")),
+	)
+	if err != nil {
+		return "", err
+	}
+	genesisFile, genesisPath, err := openExportGenesisNoFollow(homeDir, genesisRelativePath)
+	if err != nil {
+		return "", err
+	}
+	chainID, parseErr := genutiltypes.ParseChainIDFromGenesis(genesisFile)
+	closeErr := genesisFile.Close()
+	if parseErr != nil {
+		return "", fmt.Errorf("parse chain ID from source genesis %s: %w", genesisPath, parseErr)
+	}
+	if closeErr != nil {
+		return "", fmt.Errorf("close source genesis %s: %w", genesisPath, closeErr)
+	}
+	configuredChainID := cast.ToString(appOpts.Get(flags.FlagChainID))
+	if configuredChainID != "" && configuredChainID != chainID {
+		return "", fmt.Errorf(
+			"configured chain ID %q does not match source genesis chain ID %q",
+			configuredChainID,
+			chainID,
+		)
+	}
+	return chainID, nil
+}
+
+// exportGenesisRelativePath accepts CometBFT's standard home-relative
+// genesis_file form, but confines export identity to the selected home's
+// config tree. Rejecting non-canonical components up front prevents a path such
+// as config/../../other-home/genesis.json from selecting the zerone-1 legacy
+// export exception for unrelated application state.
+func exportGenesisRelativePath(configured string) (string, error) {
+	if configured == "" {
+		configured = filepath.Join("config", "genesis.json")
+	}
+	if filepath.IsAbs(configured) {
+		return "", fmt.Errorf("genesis_file must be relative to the selected home")
+	}
+	components := strings.Split(configured, string(filepath.Separator))
+	if len(components) < 2 || components[0] != "config" {
+		return "", fmt.Errorf("genesis_file must name a file beneath the selected home/config directory")
+	}
+	for _, component := range components {
+		if component == "" || component == "." || component == ".." {
+			return "", fmt.Errorf("genesis_file contains an unsafe path component")
+		}
+	}
+	clean := filepath.Clean(configured)
+	if clean != configured {
+		return "", fmt.Errorf("genesis_file must use a canonical relative path")
+	}
+	return clean, nil
+}
+
+// openExportGenesisNoFollow first resolves the selected home itself so normal
+// platform aliases (for example macOS /var -> /private/var) remain usable. It
+// then opens that canonical directory from the filesystem root one component
+// at a time, and traverses every genesis_file edge relative to held directory
+// descriptors. O_NOFOLLOW makes a symlink or raced replacement fail closed;
+// the final descriptor is accepted only when it names a regular file.
+func openExportGenesisNoFollow(homeDir, relativePath string) (*os.File, string, error) {
+	absoluteHome, err := filepath.Abs(homeDir)
+	if err != nil {
+		return nil, "", fmt.Errorf("resolve source home %s: %w", homeDir, err)
+	}
+	canonicalHome, err := filepath.EvalSymlinks(absoluteHome)
+	if err != nil {
+		return nil, "", fmt.Errorf("resolve source home %s: %w", absoluteHome, err)
+	}
+	canonicalHome = filepath.Clean(canonicalHome)
+	home, err := openAbsoluteDirectoryNoFollow(canonicalHome)
+	if err != nil {
+		return nil, "", fmt.Errorf("securely open source home %s: %w", canonicalHome, err)
+	}
+
+	components := strings.Split(relativePath, string(filepath.Separator))
+	current := home
+	currentPath := canonicalHome
+	for _, component := range components[:len(components)-1] {
+		nextPath := filepath.Join(currentPath, component)
+		descriptor, openErr := unix.Openat(
+			int(current.Fd()),
+			component,
+			unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK,
+			0,
+		)
+		if openErr != nil {
+			_ = current.Close()
+			return nil, "", fmt.Errorf(
+				"source genesis parent %s must be a real non-symlink directory: %w",
+				nextPath,
+				openErr,
+			)
+		}
+		next := os.NewFile(uintptr(descriptor), nextPath)
+		if next == nil {
+			_ = unix.Close(descriptor)
+			_ = current.Close()
+			return nil, "", fmt.Errorf("bind source genesis directory descriptor %s", nextPath)
+		}
+		if closeErr := current.Close(); closeErr != nil {
+			_ = next.Close()
+			return nil, "", fmt.Errorf("close traversed source genesis directory %s: %w", currentPath, closeErr)
+		}
+		current = next
+		currentPath = nextPath
+	}
+
+	basename := components[len(components)-1]
+	genesisPath := filepath.Join(currentPath, basename)
+	descriptor, openErr := unix.Openat(
+		int(current.Fd()),
+		basename,
+		unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK,
+		0,
+	)
+	if openErr != nil {
+		_ = current.Close()
+		return nil, "", fmt.Errorf(
+			"source genesis %s must be a regular non-symlink file: %w",
+			genesisPath,
+			openErr,
+		)
+	}
+	genesisFile := os.NewFile(uintptr(descriptor), genesisPath)
+	if genesisFile == nil {
+		_ = unix.Close(descriptor)
+		_ = current.Close()
+		return nil, "", fmt.Errorf("bind source genesis file descriptor %s", genesisPath)
+	}
+	if closeErr := current.Close(); closeErr != nil {
+		_ = genesisFile.Close()
+		return nil, "", fmt.Errorf("close source genesis parent %s: %w", currentPath, closeErr)
+	}
+	info, statErr := genesisFile.Stat()
+	if statErr != nil {
+		_ = genesisFile.Close()
+		return nil, "", fmt.Errorf("inspect source genesis %s: %w", genesisPath, statErr)
+	}
+	if !info.Mode().IsRegular() {
+		_ = genesisFile.Close()
+		return nil, "", fmt.Errorf("source genesis %s must be a regular non-symlink file", genesisPath)
+	}
+	return genesisFile, genesisPath, nil
+}
+
+func openAbsoluteDirectoryNoFollow(path string) (*os.File, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return nil, fmt.Errorf("directory path must be absolute and canonical")
+	}
+	descriptor, err := unix.Open(
+		string(filepath.Separator),
+		unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK,
+		0,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("open filesystem root: %w", err)
+	}
+	current := os.NewFile(uintptr(descriptor), string(filepath.Separator))
+	if current == nil {
+		_ = unix.Close(descriptor)
+		return nil, fmt.Errorf("bind filesystem root descriptor")
+	}
+	components := strings.Split(strings.TrimPrefix(path, string(filepath.Separator)), string(filepath.Separator))
+	if len(components) == 1 && components[0] == "" {
+		components = nil
+	}
+	for _, component := range components {
+		if component == "" || component == "." || component == ".." {
+			_ = current.Close()
+			return nil, fmt.Errorf("directory path contains an unsafe component")
+		}
+		nextPath := filepath.Join(current.Name(), component)
+		nextDescriptor, openErr := unix.Openat(
+			int(current.Fd()),
+			component,
+			unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK,
+			0,
+		)
+		if openErr != nil {
+			_ = current.Close()
+			return nil, fmt.Errorf("directory component %s must be a real non-symlink directory: %w", nextPath, openErr)
+		}
+		next := os.NewFile(uintptr(nextDescriptor), nextPath)
+		if next == nil {
+			_ = unix.Close(nextDescriptor)
+			_ = current.Close()
+			return nil, fmt.Errorf("bind directory descriptor %s", nextPath)
+		}
+		if closeErr := current.Close(); closeErr != nil {
+			_ = next.Close()
+			return nil, fmt.Errorf("close traversed directory %s: %w", current.Name(), closeErr)
+		}
+		current = next
+	}
+	return current, nil
 }
 
 // emptyAppOptions satisfies servertypes.AppOptions for creating a temporary

@@ -9,9 +9,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 )
 
-// ExportAppStateAndValidators exports application state and validators for a
-// continuation genesis. Its height is the next InitChain height after the last
-// committed block.
+// ExportAppStateAndValidators exports application state and validators. Its
+// height is the next InitChain height after the last committed block. Normal
+// exports are continuation genesis; the narrowly accepted historical
+// zerone-1 auth shape is archival evidence and remains intentionally invalid
+// as fresh genesis.
 func (app *ZeroneApp) ExportAppStateAndValidators(
 	forZeroHeight bool,
 	jailAllowedAddrs []string,
@@ -24,7 +26,16 @@ func (app *ZeroneApp) ExportAppStateAndValidators(
 	}
 	_ = jailAllowedAddrs
 
-	ctx := app.NewContext(true)
+	chainID := app.ChainID()
+	if chainID == "" {
+		return servertypes.ExportedApp{}, fmt.Errorf(
+			"state export requires a non-empty BaseApp chain ID",
+		)
+	}
+	// BaseApp.NewContext is a test helper that deliberately starts from an
+	// empty header. Bind the BaseApp chain ID explicitly so module exporters
+	// can make exact historical-chain compatibility decisions.
+	ctx := app.NewContext(true).WithChainID(chainID)
 	genState, err := app.ModuleManager.ExportGenesisForModules(ctx, app.appCodec, modulesToExport)
 	if err != nil {
 		return servertypes.ExportedApp{}, err

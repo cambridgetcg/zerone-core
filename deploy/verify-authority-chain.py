@@ -32,6 +32,7 @@ IMAGE_REF = re.compile(
     r"@sha256:[0-9a-f]{64}$"
 )
 OPERATOR_TOOL_PATHS = {
+    ".github/workflows/ci.yml",
     "deploy/verify-authority-chain.py",
     "deploy/frozen_evidence.py",
     "deploy/validate-fly-phase-config.py",
@@ -48,7 +49,20 @@ OPERATOR_TOOL_PATHS = {
     "deploy/networks/zerone-2/runtime/build-image.sh",
     "deploy/query-gateway/build-image.sh",
     "tools/zerone2-artifact-audit/main.go",
+    "tools/sigstore-substrate-compiler/go.mod",
+    "tools/sigstore-substrate-compiler/go.sum",
+    "tools/sigstore-substrate-compiler/verification/verification.go",
+    "tools/sigstore-substrate-compiler/verification/component.go",
+    "tools/sigstore-substrate-compiler/cmd/zerone-component-signature-verifier/main.go",
+    "deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json",
+    "deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json",
+    "deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json",
 }
+COMPONENT_SIGNATURE_VERIFIER_FILE = "zerone-component-signature-verifier"
+SIGSTORE_TRUSTED_ROOT_FILE = "SIGSTORE-TRUSTED-ROOT.json"
+COMPONENT_SIGNATURE_BUNDLE_MEDIA_TYPE = (
+    "application/vnd.dev.sigstore.bundle.v0.3+json"
+)
 COMPONENT_ARTIFACT_FILES = {
     "zerone_1_halt": {
         "sbom": "ZERONE-1-HALT-SBOM.json",
@@ -156,6 +170,8 @@ def bundle_file_size_limit(name: str) -> int:
         return 64 * 1024 * 1024
     if name == "ZERONE-1-INVENTORY-V3.json":
         return 128 * 1024 * 1024
+    if name == COMPONENT_SIGNATURE_VERIFIER_FILE:
+        return 64 * 1024 * 1024
     return 32 * 1024 * 1024
 
 
@@ -392,8 +408,10 @@ def validate_tool_manifest(
         "source_commit",
         "signed_tag",
         "files",
+        "authority_bundle",
+        "component_signature_policy",
     } or not (
-        manifest["schema"] == "zerone-operator-tool-manifest-v1"
+        manifest["schema"] == "zerone-operator-tool-manifest-v2"
         and manifest["source_commit"] == release.get("source", {}).get("commit")
         and manifest["signed_tag"]
         == release.get("source", {}).get("signed_annotated_tag")
@@ -401,6 +419,64 @@ def validate_tool_manifest(
         and set(manifest["files"]) == OPERATOR_TOOL_PATHS
     ):
         fail("operator-tool manifest schema/source/path set is inconsistent")
+    authority_bundle = require_exact_object(
+        manifest["authority_bundle"],
+        {"component_signature_verifier", "sigstore_trusted_root"},
+        "operator-tool authority bundle",
+    )
+    verifier_artifact = require_exact_object(
+        authority_bundle["component_signature_verifier"],
+        {"filename", "sha256"},
+        "component-signature verifier artifact",
+    )
+    trusted_root_artifact = require_exact_object(
+        authority_bundle["sigstore_trusted_root"],
+        {"filename", "sha256"},
+        "Sigstore trusted-root artifact",
+    )
+    if not (
+        verifier_artifact["filename"] == COMPONENT_SIGNATURE_VERIFIER_FILE
+        and trusted_root_artifact["filename"] == SIGSTORE_TRUSTED_ROOT_FILE
+    ):
+        fail("operator-tool authority-bundle filenames changed")
+    for artifact, label in (
+        (verifier_artifact, "component-signature verifier"),
+        (trusted_root_artifact, "Sigstore trusted root"),
+    ):
+        expected = require_hash(artifact["sha256"], f"{label} artifact")
+        filename = artifact["filename"]
+        if expected != sha256(files[filename]):
+            fail(f"bundled {label} bytes differ from the operator-tool manifest")
+    signature_policy = require_exact_object(
+        manifest["component_signature_policy"],
+        {
+            "bundle_media_type",
+            "certificate_issuer",
+            "certificate_san",
+            "certificate_source_repository_digest",
+            "minimum_signed_certificate_timestamps",
+            "minimum_transparency_log_entries",
+            "minimum_observer_timestamps",
+        },
+        "component-signature policy",
+    )
+    threshold_fields = (
+        "minimum_signed_certificate_timestamps",
+        "minimum_transparency_log_entries",
+        "minimum_observer_timestamps",
+    )
+    if any(type(signature_policy[field]) is not int for field in threshold_fields):
+        fail("component-signature policy thresholds must be exact integers")
+    if signature_policy != {
+        "bundle_media_type": COMPONENT_SIGNATURE_BUNDLE_MEDIA_TYPE,
+        "certificate_issuer": CANONICAL_COMPONENT_CERTIFICATE_ISSUER,
+        "certificate_san": CANONICAL_COMPONENT_SIGNER_IDENTITY,
+        "certificate_source_repository_digest": "RELEASE.source.commit",
+        "minimum_signed_certificate_timestamps": 1,
+        "minimum_transparency_log_entries": 1,
+        "minimum_observer_timestamps": 1,
+    }:
+        fail("component-signature policy is not the canonical fail-closed policy")
     try:
         root_info = os.lstat(tool_root)
     except OSError as exc:
@@ -884,8 +960,123 @@ def validate_release_ceremony(
         fail("ceremony human manifest does not repeat the exact signed release facts")
 
 
+def verify_component_signature(
+    paths: dict[str, pathlib.Path],
+    tool_manifest: dict[str, Any],
+    component: str,
+    bundle_filename: str,
+    artifact_digest: str,
+    source_repository_digest: str,
+) -> set[str]:
+    verifier_path = paths[COMPONENT_SIGNATURE_VERIFIER_FILE]
+    trusted_root_path = paths[SIGSTORE_TRUSTED_ROOT_FILE]
+    bundle_path = paths[bundle_filename]
+    policy = tool_manifest["component_signature_policy"]
+    os.chmod(verifier_path, 0o700)
+    command = [
+        str(verifier_path),
+        "--bundle",
+        str(bundle_path),
+        "--trusted-root",
+        str(trusted_root_path),
+        "--certificate-issuer",
+        policy["certificate_issuer"],
+        "--certificate-san",
+        policy["certificate_san"],
+        "--source-repository-digest",
+        source_repository_digest,
+        "--artifact-digest",
+        artifact_digest,
+    ]
+    environment = {
+        "HOME": str(verifier_path.parent),
+        "TMPDIR": str(verifier_path.parent),
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin:/bin",
+    }
+    try:
+        result = subprocess.run(
+            command,
+            cwd=verifier_path.parent,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        fail(f"{component} component-signature verifier failed: {exc}")
+    if len(result.stdout) > 64 * 1024 or len(result.stderr) > 64 * 1024:
+        fail(f"{component} component-signature verifier output exceeded its limit")
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).decode(errors="replace").strip()
+        fail(
+            f"{component} Sigstore cryptographic verification failed"
+            + (f": {detail}" if detail else "")
+        )
+    if result.stderr:
+        fail(f"{component} component-signature verifier wrote unexpected stderr")
+    verification = parse_json(
+        result.stdout, f"{component} component-signature verifier output"
+    )
+    verification = require_exact_object(
+        verification,
+        {
+            "schema",
+            "result",
+            "artifact_digest",
+            "bundle_media_type",
+            "certificate_issuer",
+            "certificate_san",
+            "source_repository_digest",
+            "verified_timestamps",
+        },
+        f"{component} component-signature verifier output",
+    )
+    if not (
+        verification["schema"] == "zerone.component-signature-verification/v1"
+        and verification["result"] == "verified"
+        and verification["artifact_digest"] == artifact_digest
+        and verification["bundle_media_type"] == policy["bundle_media_type"]
+        and verification["certificate_issuer"] == policy["certificate_issuer"]
+        and verification["certificate_san"] == policy["certificate_san"]
+        and verification["source_repository_digest"] == source_repository_digest
+        and isinstance(verification["verified_timestamps"], list)
+        and len(verification["verified_timestamps"])
+        >= policy["minimum_observer_timestamps"]
+    ):
+        fail(f"{component} component-signature verifier result is inconsistent")
+    timestamps: set[str] = set()
+    observers: set[tuple[str, str, str]] = set()
+    for index, value in enumerate(verification["verified_timestamps"]):
+        timestamp = require_exact_object(
+            value,
+            {"type", "uri", "timestamp"},
+            f"{component} verified timestamp {index}",
+        )
+        if timestamp["type"] not in {"Tlog", "TimestampAuthority"}:
+            fail(f"{component} verified timestamp {index} has an unknown observer type")
+        uri = require_nonempty_string(
+            timestamp["uri"], f"{component} verified timestamp {index} URI"
+        )
+        if not uri.startswith("https://"):
+            fail(f"{component} verified timestamp {index} URI is not HTTPS")
+        canonical_nanoseconds(
+            timestamp["timestamp"], f"{component} verified timestamp {index}"
+        )
+        observer = (timestamp["type"], uri, timestamp["timestamp"])
+        if observer in observers:
+            fail(f"{component} component-signature verifier repeated an observer")
+        observers.add(observer)
+        timestamps.add(timestamp["timestamp"])
+    return timestamps
+
+
 def validate_release_components(
     files: dict[str, bytes],
+    paths: dict[str, pathlib.Path],
     objects: dict[str, Any],
     release: dict[str, Any],
     main: str,
@@ -907,6 +1098,7 @@ def validate_release_components(
     source = release["source"]
     tool_manifest = objects["OPERATOR-TOOL-MANIFEST.json"]
     images: dict[str, str] = {}
+    image_digests: set[str] = set()
     for component, names in COMPONENT_ARTIFACT_FILES.items():
         fields = base_fields | ({"binary_sha256"} if component in binary_components else set())
         declaration = require_exact_object(
@@ -917,6 +1109,9 @@ def validate_release_components(
             fail(f"RELEASE {component} image is not digest pinned")
         images[component] = image_ref
         image_digest = image_ref.rsplit("@sha256:", 1)[1]
+        if image_digest in image_digests:
+            fail("RELEASE component image digests must be pairwise distinct")
+        image_digests.add(image_digest)
         for field, artifact_type in (
             ("sbom_sha256", "sbom"),
             ("provenance_sha256", "provenance"),
@@ -1081,7 +1276,7 @@ def validate_release_components(
             message_signature["signature"], f"{component} image signature"
         )
         if not (
-            bundle["mediaType"] == "application/vnd.dev.sigstore.bundle.v0.3+json"
+            bundle["mediaType"] == COMPONENT_SIGNATURE_BUNDLE_MEDIA_TYPE
             and isinstance(bundle["verificationMaterial"], dict)
             and bool(bundle["verificationMaterial"])
             and message_digest["algorithm"] == "SHA2_256"
@@ -1089,11 +1284,30 @@ def validate_release_components(
             and len(raw_signature) >= 32
         ):
             fail(f"{component} Sigstore bundle does not sign the image digest")
-        signed_epoch = canonical_epoch(signature["signed_at"], f"{component} signing time")
+        signed_ns = canonical_nanoseconds(
+            signature["signed_at"], f"{component} signing time"
+        )
+        verified_signing_times = verify_component_signature(
+            paths,
+            tool_manifest,
+            component,
+            names["signature_bundle"],
+            f"sha256:{image_digest}",
+            source["commit"],
+        )
+        if signature["signed_at"] not in verified_signing_times:
+            fail(
+                f"{component} signed_at is not an authenticated observer time"
+            )
         verified_epoch = canonical_epoch(
             signature["verified_at"], f"{component} verification time"
         )
-        if not build_finish <= signed_epoch <= verified_epoch <= release_created_epoch:
+        if not (
+            build_finish * 1_000_000_000
+            <= signed_ns
+            <= verified_epoch * 1_000_000_000
+            <= release_created_epoch * 1_000_000_000
+        ):
             fail(f"{component} image-signature chronology is non-monotonic")
 
         scan = require_exact_object(
@@ -1412,6 +1626,7 @@ def validate_dark_bootstrap_contract(
             "account_type",
             "operational_key_hash",
             "metadata",
+            "identity_proof_signature",
             "fee",
             "gas_limit",
             "signer_sequence",
@@ -1450,6 +1665,16 @@ def validate_dark_bootstrap_contract(
     identity_key = onboarding["public_key"]
     if not isinstance(identity_key, str) or not re.fullmatch(r"[0-9a-f]{64}", identity_key):
         fail("DARK onboarding identity public key is not lowercase 32-byte hex")
+    identity_proof = onboarding["identity_proof_signature"]
+    try:
+        decoded_identity_proof = base64.b64decode(identity_proof, validate=True)
+    except (binascii.Error, TypeError, ValueError) as exc:
+        fail(f"DARK onboarding identity proof is not canonical base64: {exc}")
+    if (
+        len(decoded_identity_proof) != 64
+        or base64.b64encode(decoded_identity_proof).decode() != identity_proof
+    ):
+        fail("DARK onboarding identity proof is not one canonical 64-byte signature")
     consensus_hex = base64.b64decode(
         identities["validator_consensus_pubkey"], validate=True
     ).hex()
@@ -1765,7 +1990,7 @@ def validate_cutover_chain(
         fail("RELEASE component set is malformed")
     validate_release_ceremony(files, objects, release, main)
     component_images = validate_release_components(
-        files, objects, release, main, release_created_epoch
+        files, paths, objects, release, main, release_created_epoch
     )
     release_configs = release.get("deployment_configs", {})
     release_keys = {
@@ -3247,6 +3472,8 @@ def main() -> None:
         "ZERONE-2-ONBOARD-SIGNED-TX.json",
         "ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json",
         "OPERATOR-TOOL-MANIFEST.json",
+        COMPONENT_SIGNATURE_VERIFIER_FILE,
+        SIGSTORE_TRUSTED_ROOT_FILE,
         "zeroned-zerone-1-release",
         "genesis.json",
         "genesis.sha256",
@@ -3392,8 +3619,6 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="zerone-authority-chain.") as temp:
         temp_path = pathlib.Path(temp)
         config_policy_path = temp_path / "validate-fly-phase-config.py"
-        config_policy_path.write_bytes(config_policy_bytes)
-        os.chmod(config_policy_path, 0o700)
         paths: dict[str, pathlib.Path] = {}
         for name, data in files.items():
             destination = temp_path / name
@@ -3428,6 +3653,17 @@ def main() -> None:
             files, objects, pathlib.Path(args.tool_root)
         )
 
+        release_config_policy = verified_tools.get(
+            "deploy/validate-fly-phase-config.py"
+        )
+        if (
+            release_config_policy is None
+            or config_policy_bytes != release_config_policy
+        ):
+            fail("explicit structural config policy differs from RELEASE")
+        config_policy_path.write_bytes(release_config_policy)
+        os.chmod(config_policy_path, 0o700)
+
         if args.stage == "dark-registration-preinit":
             validate_cutover_chain(
                 files,
@@ -3448,20 +3684,31 @@ def main() -> None:
                 config_policy_path,
             )
         else:
-            final_template = parse_json(
-                secure_read_path(pathlib.Path(args.final_template), "FINAL template"),
-                "FINAL template",
-            )
-            open_template = parse_json(
-                secure_read_path(pathlib.Path(args.open_template), "OPEN template"),
-                "OPEN template",
-            )
-            adoption_template = parse_json(
-                secure_read_path(
-                    pathlib.Path(args.adoption_template), "archive adoption template"
+            template_specs = (
+                (
+                    args.final_template,
+                    "deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json",
+                    "FINAL template",
                 ),
-                "archive adoption template",
+                (
+                    args.open_template,
+                    "deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json",
+                    "OPEN template",
+                ),
+                (
+                    args.adoption_template,
+                    "deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json",
+                    "archive adoption template",
+                ),
             )
+            parsed_templates: list[Any] = []
+            for explicit_path, release_path, label in template_specs:
+                explicit_bytes = secure_read_path(pathlib.Path(explicit_path), label)
+                release_bytes = verified_tools.get(release_path)
+                if release_bytes is None or explicit_bytes != release_bytes:
+                    fail(f"explicit {label} differs from RELEASE")
+                parsed_templates.append(parse_json(release_bytes, label))
+            final_template, open_template, adoption_template = parsed_templates
             validate_open_chain(
                 files,
                 paths,

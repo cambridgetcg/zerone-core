@@ -22,6 +22,7 @@ sha256_file() {
 
 MAIN=$(printf 'a%.0s' {1..40})
 TRANSITION=$(printf 'b%.0s' {1..40})
+UINT64_OVERFLOW=18446744073709551616
 PHASE_RAW="${TMP}/phase.raw"
 printf 'fixture phase TxRaw bytes' > "${PHASE_RAW}"
 PHASE_SHA=$(sha256_file "${PHASE_RAW}")
@@ -34,6 +35,26 @@ FAKE_BINARY="${TMP}/zeroned"
 cat > "${FAKE_BINARY}" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [ "$1" = tx ] && [ "$2" = validate-signatures ] && [ "$#" -ge 3 ]; then
+  [ "${FAKE_INVALID_TX_SIGNATURE:-0}" != 1 ] || exit 1
+  printf 'Signatures: OK\n'
+  exit 0
+fi
+if [ "$1" = tx ] && [ "$2" = zerone_auth ] && \
+  [ "$3" = verify-registration-proof ] && [ "$#" -eq 12 ]; then
+  [ "${FAKE_INVALID_IDENTITY_PROOF:-0}" != 1 ] || exit 1
+  [ "$4" = "${FAKE_ONBOARD_SENDER:?}" ]
+  [ "$5" = "${FAKE_ONBOARD_DID:?}" ]
+  [ "$6" = "${FAKE_ONBOARD_PUBLIC_KEY:?}" ]
+  [ "$7" = human ]
+  [ "$8" = "${FAKE_ONBOARD_PROOF_HEX:?}" ]
+  [ "$9" = --chain-id ]
+  [ "${10}" = zerone-2 ]
+  [ "${11}" = --metadata ]
+  [ -z "${12}" ]
+  printf 'registration proof valid\n'
+  exit 0
+fi
 if [ "$1" = tx ] && [ "$2" = encode ] && [ "$#" -eq 3 ]; then
   jq -er '.encoded' "$3"
   exit 0
@@ -51,7 +72,8 @@ if [ "$1" = tx ] && [ "$2" = decode ] && [ "$4" = --output ] && \
           sender:$contract.sender,did:$contract.did,
           public_key:$contract.public_key,account_type:$contract.account_type,
           operational_key_hash:$contract.operational_key_hash,
-          metadata:$contract.metadata
+          metadata:$contract.metadata,
+          identity_proof_signature:$contract.identity_proof_signature
         }],memo:$contract.memo,timeout_height:$contract.timeout_height,
         extension_options:[],non_critical_extension_options:[]},
         auth_info:{signer_infos:[{
@@ -89,6 +111,54 @@ if [ "$1" = tx ] && [ "$2" = decode ] && [ "$4" = --output ] && \
     '
     exit 0
   fi
+fi
+if [ "$1" = query ] && [ "$2" = auth ] && [ "$3" = account ] && \
+  [ "$5" = --node ] && [ "$7" = --output ] && [ "$8" = json ]; then
+  [ "$4" = "${FAKE_ACCOUNT_ADDRESS:?}" ]
+  sequence=${FAKE_LIVE_SEQUENCE:?}
+  case "${FAKE_ACCOUNT_QUERY_SHAPE:-nested}" in
+    nested)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{"@type":"/cosmos.vesting.v1beta1.ContinuousVestingAccount",
+          base_vesting_account:{base_account:{address:$address,
+            account_number:"9",sequence:$sequence}}}}'
+      ;;
+    camel)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{"@type":"/example.v1.WrappedAccount",
+          baseAccount:{address:$address,
+            accountNumber:"18446744073709551615",sequence:$sequence}}}'
+      ;;
+    malformed)
+      printf '{"account":'
+      ;;
+    malformed-account-number)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{address:$address,account_number:"09",sequence:$sequence}}'
+      ;;
+    overflow-account-number)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{address:$address,
+          account_number:"18446744073709551616",sequence:$sequence}}'
+      ;;
+    ambiguous)
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{address:$address,account_number:"9",sequence:$sequence},
+         value:{address:$address,account_number:"9",sequence:$sequence}}'
+      ;;
+    flip)
+      if [ -e "${FAKE_ACCOUNT_QUERY_STATE:?}" ]; then
+        sequence=${FAKE_SECOND_LIVE_SEQUENCE:?}
+      else
+        : > "${FAKE_ACCOUNT_QUERY_STATE}"
+      fi
+      jq -n --arg address "$4" --arg sequence "${sequence}" '
+        {account:{"@type":"/cosmos.auth.v1beta1.BaseAccount",
+          address:$address,account_number:"9",sequence:$sequence}}'
+      ;;
+    *) exit 2 ;;
+  esac
+  exit 0
 fi
 exit 2
 EOF
@@ -215,10 +285,37 @@ BLOCK_ONE_HASH=$(jq -er '.first_committed_block.block_id_hash' \
   "${BUNDLE}/DARK-START-INITIATION-EVIDENCE.json")
 BLOCK_ONE_APP=$(jq -er '.first_committed_block.app_hash' \
   "${BUNDLE}/DARK-START-INITIATION-EVIDENCE.json")
+ONBOARD_SENDER=$(jq -er \
+  '.private_bootstrap_transactions.operator_onboarding.sender' "${DARK}")
+ONBOARD_DID=$(jq -er \
+  '.private_bootstrap_transactions.operator_onboarding.did' "${DARK}")
+ONBOARD_PUBLIC_KEY=$(jq -er \
+  '.private_bootstrap_transactions.operator_onboarding.public_key' "${DARK}")
+ONBOARD_PROOF_HEX=$(jq -er \
+  '.private_bootstrap_transactions.operator_onboarding.identity_proof_signature' \
+  "${DARK}" | base64 --decode | od -An -v -tx1 | tr -d ' \n')
 
 run_gate() {
   local role=$1 mode=${2:-broadcast}
+  local account_address live_sequence
   local -a args
+  case "${role}" in
+    operator-onboarding)
+      account_address=$(jq -er \
+        '.private_bootstrap_transactions.operator_onboarding.sender' "${DARK}")
+      live_sequence=$(jq -er \
+        '.private_bootstrap_transactions.operator_onboarding.signer_sequence' \
+        "${DARK}")
+      ;;
+    custom-validator-registration)
+      account_address=$(jq -er \
+        '.private_bootstrap_transactions.custom_validator_registration.operator' \
+        "${DARK}")
+      live_sequence=$(jq -er \
+        '.private_bootstrap_transactions.custom_validator_registration.signer_sequence' \
+        "${DARK}")
+      ;;
+  esac
   args=(
     "${BUNDLE}/RELEASE-PACKET.json" "${BUNDLE}/RELEASE-PACKET.json.sig"
     "${DARK}" "${BUNDLE}/DARK-START-DECISION.json.sig"
@@ -234,7 +331,18 @@ run_gate() {
     FAKE_REGISTER_ENCODED="${REGISTER_ENCODED}" \
     FAKE_ONBOARD_HASH="${ONBOARD_HASH}" FAKE_REGISTER_HASH="${REGISTER_HASH}" \
     FAKE_SUCCESSOR_NODE_ID="${NODE_ID}" FAKE_BLOCK_ONE_HASH="${BLOCK_ONE_HASH}" \
-    FAKE_BLOCK_ONE_APP="${BLOCK_ONE_APP}" "${GATE}" "${args[@]}"
+    FAKE_BLOCK_ONE_APP="${BLOCK_ONE_APP}" \
+    FAKE_INVALID_TX_SIGNATURE="${FAKE_INVALID_TX_SIGNATURE:-0}" \
+    FAKE_INVALID_IDENTITY_PROOF="${FAKE_INVALID_IDENTITY_PROOF:-0}" \
+    FAKE_ONBOARD_SENDER="${ONBOARD_SENDER}" FAKE_ONBOARD_DID="${ONBOARD_DID}" \
+    FAKE_ONBOARD_PUBLIC_KEY="${ONBOARD_PUBLIC_KEY}" \
+    FAKE_ONBOARD_PROOF_HEX="${ONBOARD_PROOF_HEX}" \
+    FAKE_ACCOUNT_ADDRESS="${account_address}" \
+    FAKE_LIVE_SEQUENCE="${FAKE_LIVE_SEQUENCE:-${live_sequence}}" \
+    FAKE_SECOND_LIVE_SEQUENCE="${FAKE_SECOND_LIVE_SEQUENCE:-9}" \
+    FAKE_ACCOUNT_QUERY_SHAPE="${FAKE_ACCOUNT_QUERY_SHAPE:-nested}" \
+    FAKE_ACCOUNT_QUERY_STATE="${FAKE_ACCOUNT_QUERY_STATE:-${TMP}/account-query-state}" \
+    "${GATE}" "${args[@]}"
 }
 
 [ "$(run_gate operator-onboarding check)" = "${ONBOARD_HASH}" ] || \
@@ -245,6 +353,47 @@ run_gate() {
   fail "onboarding broadcast did not prove commit"
 [ "$(run_gate custom-validator-registration)" = "${REGISTER_HASH}" ] || \
   fail "registration broadcast did not prove ordered commit"
+if FAKE_INVALID_TX_SIGNATURE=1 \
+  run_gate operator-onboarding check >/dev/null 2>&1; then
+  fail "invalid Cosmos TxRaw signature was accepted by check mode"
+fi
+if FAKE_INVALID_IDENTITY_PROOF=1 \
+  run_gate operator-onboarding check >/dev/null 2>&1; then
+  fail "invalid onboarding identity proof was accepted by check mode"
+fi
+
+[ "$(FAKE_ACCOUNT_QUERY_SHAPE=camel \
+  run_gate custom-validator-registration check)" = "${REGISTER_HASH}" ] || \
+  fail "canonical camelCase BaseAccount wrapper was rejected"
+
+if FAKE_LIVE_SEQUENCE=9 \
+  run_gate operator-onboarding check >/dev/null 2>&1; then
+  fail "stale live bootstrap account sequence was accepted"
+fi
+
+for account_shape in malformed ambiguous malformed-account-number \
+  overflow-account-number; do
+  if FAKE_ACCOUNT_QUERY_SHAPE="${account_shape}" \
+    run_gate operator-onboarding check >/dev/null 2>&1; then
+    fail "${account_shape} live bootstrap account response was accepted"
+  fi
+done
+
+overflow_output=
+if overflow_output=$(FAKE_LIVE_SEQUENCE="${UINT64_OVERFLOW}" \
+  run_gate operator-onboarding check 2>&1); then
+  fail "uint64-overflow live bootstrap account sequence was accepted"
+fi
+grep -Fq 'no unique canonical BaseAccount' <<<"${overflow_output}" || \
+  fail "uint64-overflow live bootstrap sequence failed for the wrong reason"
+
+SECOND_QUERY_STATE="${TMP}/bootstrap-second-query-state"
+if FAKE_ACCOUNT_QUERY_SHAPE=flip \
+  FAKE_ACCOUNT_QUERY_STATE="${SECOND_QUERY_STATE}" \
+  FAKE_SECOND_LIVE_SEQUENCE=9 \
+  run_gate operator-onboarding >/dev/null 2>&1; then
+  fail "bootstrap account sequence change immediately before broadcast was accepted"
+fi
 
 BAD_TX="${TMP}/bad-onboard.json"
 jq -n --arg encoded "$(printf 'wrong raw' | base64 | tr -d '\r\n')" \

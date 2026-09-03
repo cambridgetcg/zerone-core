@@ -24,4 +24,4 @@ authority-state-v1 22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea8
 constructive-intelligence-branch-flow-v1 6bc9e137f666e2675649f8270024ef029cf168c89c007e9164ea90bd0edd82e4  docs/specs/constructive-intelligence-branch-flow-v1.md
 constructive-intelligence-branch-flow-profile-v1 6b83912450fec94772dad8a7bde11c980c4dea6bdb6b867e495e4480d4cc55aa  dashboard/public/standards/constructive-intelligence-branch-flow.v1.json
 authority-geometry-v1 73ef1d24e47bb88cadcb20f4d8444823648f134d63943b90e1a2bdd9f2698021  docs/specs/authority-geometry-v1.md
-authority-geometry-v1-manifest 510d55e8c0ead4d25beab193c413e41b6aaf55803a6b95db5c567869a17108b6  dashboard/public/standards/authority-geometry.v1.json
+authority-geometry-v1-manifest f2ff3c64274a19dc850583e614a7fae4f2a9b0b4f22f12b81b64e3a2f2a160ef  dashboard/public/standards/authority-geometry.v1.json

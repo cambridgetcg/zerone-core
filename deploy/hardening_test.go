@@ -1446,6 +1446,125 @@ func TestCanonicalDeploymentKitAndContainmentCandidatesRemainParallel(t *testing
 	}
 }
 
+func TestProductionSigningWorkflowFailsClosedWithoutEnvironmentPolicy(t *testing.T) {
+	contents, err := os.ReadFile("../.github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(contents)
+	const frontierHandoff = "frontier-intake-macos-unsigned-${{ github.sha }}"
+	if strings.Count(workflow, frontierHandoff) != 2 {
+		t.Fatal("Frontier macOS artifact must have one same-run upload and one protected download")
+	}
+	jobStart := strings.Index(workflow, "\n  sign-release-components:")
+	if jobStart < 0 {
+		t.Fatal("production signing job is missing")
+	}
+	job := workflow[jobStart:]
+	required := []string{
+		"environment: zerone-production-signing",
+		"PRODUCTION_SIGNING_POLICY: ${{ vars.ZERONE_PRODUCTION_SIGNING_POLICY }}",
+		"APPROVED_ZERONE_1_HALT_IMAGE: ${{ vars.ZERONE_PRODUCTION_APPROVED_ZERONE_1_HALT_IMAGE }}",
+		"APPROVED_ZERONE_2_RUNTIME_IMAGE: ${{ vars.ZERONE_PRODUCTION_APPROVED_ZERONE_2_RUNTIME_IMAGE }}",
+		"APPROVED_QUERY_GATEWAY_IMAGE: ${{ vars.ZERONE_PRODUCTION_APPROVED_QUERY_GATEWAY_IMAGE }}",
+		`test "$PRODUCTION_SIGNING_POLICY" = "required-reviewers-v1"`,
+		`test "$REQUESTED_ZERONE_1_HALT_IMAGE" = "$APPROVED_ZERONE_1_HALT_IMAGE"`,
+		`test "$REQUESTED_ZERONE_2_RUNTIME_IMAGE" = "$APPROVED_ZERONE_2_RUNTIME_IMAGE"`,
+		`test "$REQUESTED_QUERY_GATEWAY_IMAGE" = "$APPROVED_QUERY_GATEWAY_IMAGE"`,
+		"ZERONE_1_HALT_IMAGE: ${{ steps.authorize.outputs.zerone_1_halt_image }}",
+		"ZERONE_2_RUNTIME_IMAGE: ${{ steps.authorize.outputs.zerone_2_runtime_image }}",
+		"QUERY_GATEWAY_IMAGE: ${{ steps.authorize.outputs.query_gateway_image }}",
+		"uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
+		frontierHandoff,
+		`.source_commit == $commit`,
+		`frontier_signature="$output/FRONTIER-INTAKE-MACOS-SIGNATURE-BUNDLE.json"`,
+		`signature_bundle_sha256: $frontier_signature_sha`,
+	}
+	for _, value := range required {
+		if !strings.Contains(job, value) {
+			t.Fatalf("production signing workflow lost environment guard %q", value)
+		}
+	}
+	guard := strings.Index(job, required[5])
+	for _, dangerous := range []string{"actions/checkout", "Install pinned Cosign", "cosign sign-blob"} {
+		index := strings.Index(job, dangerous)
+		if index < 0 || guard > index {
+			t.Fatalf("production signing environment guard does not precede %q", dangerous)
+		}
+	}
+	signStep := strings.Index(job, "- name: Sign exact approved artifact bytes")
+	if signStep < 0 || strings.Contains(job[signStep:], "${{ inputs.") {
+		t.Fatal("production signing step must consume only validated authorization outputs")
+	}
+	frontierValidation := strings.Index(job, `.source_commit == $commit`)
+	firstSignature := strings.Index(job, `sign_component zerone_1_halt`)
+	if frontierValidation < 0 || firstSignature < 0 || frontierValidation > firstSignature {
+		t.Fatal("all Frontier handoff validation must precede the first signature publication")
+	}
+}
+
+func TestPostInitPhaseConsumersUseOfflineArtifactValidation(t *testing.T) {
+	read := func(path string) string {
+		t.Helper()
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(contents)
+	}
+
+	phaseGate := read("../scripts/zerone-phase-tx-broadcast.sh")
+	for _, required := range []string{
+		"--offline-artifact-check",
+		"cutover-postinit",
+		"open-postinit",
+		`--chain-id "${EXPECTED_CHAIN_ID}" --account-number 0`,
+		`--sequence "${SIGNED_SEQUENCE}" --offline --output json`,
+		"signed phase TxRaw failed offline signer/order validation",
+	} {
+		if !strings.Contains(phaseGate, required) {
+			t.Fatalf("phase transaction gate lost offline artifact boundary %q", required)
+		}
+	}
+	offlineExit := strings.Index(phaseGate, "signed phase TxRaw failed offline signer/order validation")
+	liveRPC := strings.Index(phaseGate, "STATUS_RESPONSE=$(curl")
+	if offlineExit < 0 || liveRPC < 0 || offlineExit > liveRPC {
+		t.Fatal("offline artifact success no longer precedes every live RPC check")
+	}
+
+	renderer := read("mainnet/render-archive-configs.sh")
+	if strings.Count(renderer, `"${TX_GATE}" --offline-artifact-check`) != 1 ||
+		strings.Contains(renderer, `"${TX_GATE}" --check`) {
+		t.Fatal("post-commit archive renderer must use only offline artifact validation")
+	}
+
+	specializedCutover := read("mainnet/fly-cutover-authorized.sh")
+	for _, required := range []string{
+		"TX_GATE_MODE=--check",
+		`[ "${STAGE}" = signer ]`,
+		"TX_GATE_MODE=--offline-artifact-check",
+	} {
+		if !strings.Contains(specializedCutover, required) {
+			t.Fatalf("observer-first/signer-last gate lost phase boundary %q", required)
+		}
+	}
+
+	genericDeploy := read("fly-deploy-authorized.sh")
+	if strings.Count(genericDeploy, `"${TX_GATE}" --offline-artifact-check`) != 2 {
+		t.Fatal("CUTOVER and OPEN post-init deployment paths must both inspect consumed TxRaw offline")
+	}
+
+	rendererTest := read("mainnet/render-archive-configs_test.sh")
+	for _, sentinel := range []string{
+		"offline artifact validation attempted an RPC call",
+		"offline artifact validation applied a broadcast-cutoff clock check",
+	} {
+		if !strings.Contains(rendererTest, sentinel) {
+			t.Fatalf("archive renderer regression lost no-live-state sentinel %q", sentinel)
+		}
+	}
+}
+
 func TestRootDockerContextAllowsOnlyPublicTestnetGenesisArtifact(t *testing.T) {
 	contents, err := os.ReadFile("../.dockerignore")
 	if err != nil {

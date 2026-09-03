@@ -1,4 +1,10 @@
-import { cosmosChainId, zeroneRegistryTypes } from "@zerone-chain/sdk";
+import {
+  accountRegistrationProofSignBytes,
+  cosmosChainId,
+  keyRotationAcceptanceSignBytes,
+  keyRotationAuthorizationSignBytes,
+  zeroneRegistryTypes,
+} from "@zerone-chain/sdk";
 import { asZeroneMemoryCid } from "@zerone-chain/sdk/cid";
 import { defineZeroneNetwork } from "@zerone-chain/sdk/caip";
 import {
@@ -31,14 +37,44 @@ const grantee = "zrn1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5s75sh2";
 const memoryCid = asZeroneMemoryCid(
   "bafzbeigai3eoy2ccc7ybwjfz5r3rdxqrinwi4rwytly24tdbh6yk7zslrm",
 );
+const identityPublicKeyHex =
+  "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
+const identityPublicKey = Uint8Array.from(
+  identityPublicKeyHex.match(/../g) ?? [],
+  (byte) => Number.parseInt(byte, 16),
+);
 const registerAccount: auth.MsgRegisterAccount = {
-  sender: "zrn1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnrql8a",
-  did: `did:zrn:${"00".repeat(32)}`,
-  publicKey: "",
+  sender: "zrn1m037n75vk2jhdr56y2ptzjjj02uljwnqwwzr7z",
+  did: `did:zrn:${identityPublicKeyHex}`,
+  publicKey: identityPublicKeyHex,
   accountType: "human",
   operationalKeyHash: "",
   metadata: "",
+  identityProofSignature: new Uint8Array(64),
 };
+const registrationProof = accountRegistrationProofSignBytes({
+  chainId: "zerone-1",
+  sender: registerAccount.sender,
+  did: registerAccount.did,
+  identityPublicKey,
+  accountType: "human",
+  metadata: registerAccount.metadata,
+});
+const replacementPublicKeyHex =
+  "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c";
+const replacementPublicKey = Uint8Array.from(
+  replacementPublicKeyHex.match(/../g) ?? [],
+  (byte) => Number.parseInt(byte, 16),
+);
+const rotationContext = {
+  chainId: "zerone-1",
+  sender: registerAccount.sender,
+  currentKeyVersion: 1,
+  newOperationalKey: replacementPublicKey,
+  authorizationExpiresAtUnix: 1n,
+};
+const rotationAuthorization = keyRotationAuthorizationSignBytes(rotationContext);
+const rotationAcceptance = keyRotationAcceptanceSignBytes(rotationContext);
 const encoded = authMessages.encoded.registerAccount(registerAccount);
 const registry = createZeroneRegistry(defaultRegistryTypes);
 const grant = makeBoundedFeeGrant({
@@ -67,6 +103,9 @@ const feeDisclosure = discloseLiquiditySwapFee({
 void [
   chainId,
   memoryCid,
+  registrationProof,
+  rotationAuthorization,
+  rotationAcceptance,
   encoded,
   registry,
   zeroneRegistryTypes,

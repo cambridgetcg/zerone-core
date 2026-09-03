@@ -1,6 +1,8 @@
 package cross_stack_test
 
 import (
+	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/hex"
 	"testing"
 
@@ -21,14 +23,23 @@ func testAddr(seed string) sdk.AccAddress {
 
 // testPubKeyHex returns a deterministic 64-char hex Ed25519 public key from a seed.
 func testPubKeyHex(seed string) string {
-	b := make([]byte, 32)
-	copy(b, []byte(seed))
-	return hex.EncodeToString(b)
+	digest := sha256.Sum256([]byte(seed))
+	publicKey := ed25519.NewKeyFromSeed(digest[:]).Public().(ed25519.PublicKey)
+	return hex.EncodeToString(publicKey)
 }
 
 // testDID returns the canonical DID derived from a public key hex.
 func testDID(pubKeyHex string) string {
-	return "did:zrn:" + pubKeyHex[:32]
+	return "did:zrn:" + pubKeyHex
+}
+
+func testOperationalKeyHash(pubKeyHex string) string {
+	publicKey, err := hex.DecodeString(pubKeyHex)
+	if err != nil {
+		panic(err)
+	}
+	digest := sha256.Sum256(publicKey)
+	return hex.EncodeToString(digest[:])
 }
 
 // TestAuthStaking_RegisterAndStake verifies the full flow from
@@ -56,6 +67,7 @@ func TestAuthStaking_RegisterAndStake(t *testing.T) {
 		Did:                   did,
 		PublicKey:             pubKeyHex,
 		AccountType:           "agent",
+		OperationalKeyHash:    testOperationalKeyHash(pubKeyHex),
 		OperationalPublicKey:  pubKeyHex,
 		OperationalKeyVersion: 1,
 		ReputationScore:       500_000,
@@ -89,18 +101,18 @@ func TestAuthStaking_RegisterAndStake(t *testing.T) {
 	// 4. Register as validator via x/staking.
 	stakeAmount := "1000000000" // 1,000 ZRN in uzrn
 	val := &zeronestakingtypes.Validator{
-		OperatorAddress:  addr.String(),
-		ConsensusPubkey:  pubKeyHex,
-		Did:              did,
-		Moniker:          "test-validator",
-		Tier:             zeronestakingtypes.TierApprentice,
-		SelfDelegation:   stakeAmount,
-		DelegatedStake:   "0",
-		TotalStake:       stakeAmount,
-		ReputationScore:  500_000,
-		JoinedAtBlock:    uint64(h.Height()),
-		IsActive:         true,
-		CommissionBps:    500, // 5%
+		OperatorAddress: addr.String(),
+		ConsensusPubkey: pubKeyHex,
+		Did:             did,
+		Moniker:         "test-validator",
+		Tier:            zeronestakingtypes.TierApprentice,
+		SelfDelegation:  stakeAmount,
+		DelegatedStake:  "0",
+		TotalStake:      stakeAmount,
+		ReputationScore: 500_000,
+		JoinedAtBlock:   uint64(h.Height()),
+		IsActive:        true,
+		CommissionBps:   500, // 5%
 	}
 	h.StakingKeeper.SetValidator(h.Ctx, val)
 
@@ -163,6 +175,7 @@ func TestAuthStaking_FrozenAccountCannotStake(t *testing.T) {
 		Did:                   did,
 		PublicKey:             pubKeyHex,
 		AccountType:           "agent",
+		OperationalKeyHash:    testOperationalKeyHash(pubKeyHex),
 		OperationalPublicKey:  pubKeyHex,
 		OperationalKeyVersion: 1,
 		ReputationScore:       500_000,
@@ -224,4 +237,3 @@ func TestAuthStaking_FrozenAccountCannotStake(t *testing.T) {
 	require.True(t, found)
 	require.True(t, valRetrieved.IsActive, "unfrozen account can register as validator")
 }
-

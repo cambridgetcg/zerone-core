@@ -4,7 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,6 +30,9 @@ func GetTxCmd() *cobra.Command {
 	txCmd.AddCommand(
 		CmdOnboard(),
 		CmdRegisterAccount(),
+		CmdRegistrationSignBytes(),
+		CmdVerifyRegistrationProof(),
+		CmdRotationSignBytes(),
 		CmdRotateKey(),
 		CmdFreezeAccount(),
 		CmdUnfreezeAccount(),
@@ -38,8 +41,9 @@ func GetTxCmd() *cobra.Command {
 	return txCmd
 }
 
-// onboardIdentity is the on-disk shape of a generated zerone identity.
-// The private key never leaves this file; the chain only ever sees the pubkey.
+// onboardIdentity is the on-disk shape of a generated Zerone identity and
+// initial operational key. The private key never leaves this file; the chain
+// only ever sees the public key.
 type onboardIdentity struct {
 	Address       string `json:"address"`
 	Did           string `json:"did"`
@@ -47,6 +51,8 @@ type onboardIdentity struct {
 	PrivateKeyHex string `json:"private_key_hex"`
 	Note          string `json:"note"`
 }
+
+const maxOnboardIdentityBytes = 16 << 10
 
 // CmdOnboard is the one-shot hospitable door: it generates (or reuses) an
 // ed25519 identity keypair, derives the self-certifying did:zrn, persists the
@@ -58,8 +64,11 @@ func CmdOnboard() *cobra.Command {
 		Short: "One-shot registration: generate an identity key, derive your DID, register",
 		Long: `Generates an ed25519 identity keypair (separate from your tx-signing key),
 derives the self-certifying DID (did:zrn:<pubkey-hex>), saves the identity to a
-file you must keep (it is your future key-rotation anchor), and broadcasts
-MsgRegisterAccount.
+file you must keep (it is also the initial operational key), and broadcasts
+MsgRegisterAccount. The currently active operational private key authorizes
+each later rotation: after rotating, securely retain and back up the new
+operational private key because this original file alone cannot authorize a
+subsequent rotation.
 
 account-type defaults to "agent". "agent" and "human" can submit claims and
 witness; "contract" and "system" cannot (CanSubmitClaims=false).
@@ -96,27 +105,21 @@ failed or interrupted registration is safe to retry.`,
 			}
 
 			// Reuse an existing identity file (idempotent retry); generate otherwise.
-			// Creation uses O_EXCL so two concurrent onboards can never silently
-			// overwrite each other's key; reuse verifies pub derives from priv.
+			// Bind and validate the full directory chain before key generation.
+			// Creation uses openat(O_EXCL|O_NOFOLLOW) against that held parent, so
+			// path replacement cannot redirect or overwrite private material.
 			guide := cmd.ErrOrStderr()
 			var ident onboardIdentity
-			if raw, err := os.ReadFile(identityOut); err == nil {
-				if err := json.Unmarshal(raw, &ident); err != nil {
-					return fmt.Errorf("identity file %s exists but is unreadable: %w (move it aside to generate a fresh key)", identityOut, err)
-				}
-				if ident.Address != "" && ident.Address != from {
-					return fmt.Errorf("identity file %s belongs to %s, not %s — pass --identity-out to use a different file", identityOut, ident.Address, from)
-				}
-				seed, err := hex.DecodeString(ident.PrivateKeyHex)
-				if err != nil || len(seed) != ed25519.SeedSize {
-					return fmt.Errorf("identity file %s has a malformed private key — move it aside to generate a fresh one", identityOut)
-				}
-				derived := hex.EncodeToString(ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey))
-				if derived != ident.PublicKeyHex || ident.Did != "did:zrn:"+derived {
-					return fmt.Errorf("identity file %s is inconsistent (public key does not derive from private key) — refusing to register it", identityOut)
-				}
+			identityLocation, err := secureOnboardIdentityLocation(identityOut, true)
+			if err != nil {
+				return fmt.Errorf("identity custody directory for %s is unsafe or unavailable: %w", identityOut, err)
+			}
+			defer identityLocation.close()
+
+			ident, err = readOnboardIdentityAt(identityLocation, from)
+			if err == nil {
 				fmt.Fprintln(guide, "• reusing identity from "+identityOut)
-			} else {
+			} else if errors.Is(err, os.ErrNotExist) {
 				pub, priv, err := ed25519.GenerateKey(rand.Reader)
 				if err != nil {
 					return fmt.Errorf("keygen failed: %w", err)
@@ -126,34 +129,47 @@ failed or interrupted registration is safe to retry.`,
 					Did:           "did:zrn:" + hex.EncodeToString(pub),
 					PublicKeyHex:  hex.EncodeToString(pub),
 					PrivateKeyHex: hex.EncodeToString(priv.Seed()),
-					Note:          "KEEP THIS FILE. The private key is your identity/rotation anchor; the chain only ever sees the public key.",
+					Note:          "KEEP THIS FILE. It holds your immutable identity and initial operational private key. After rotation, also retain every newly current operational private key; the chain only sees public keys.",
 				}
-				if err := os.MkdirAll(filepath.Dir(identityOut), 0o700); err != nil {
-					return err
-				}
-				raw, _ := json.MarshalIndent(ident, "", "  ")
-				f, err := os.OpenFile(identityOut, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-				if err != nil {
+				if err := persistOnboardIdentityAt(identityLocation, ident); err != nil {
 					return fmt.Errorf("could not persist identity before broadcasting (refusing to register a key we might lose; a concurrent onboard may hold %s): %w", identityOut, err)
 				}
-				if _, err := f.Write(raw); err != nil {
-					f.Close()
-					return fmt.Errorf("identity write failed: %w", err)
-				}
-				if err := f.Close(); err != nil {
-					return fmt.Errorf("identity write failed: %w", err)
-				}
 				fmt.Fprintln(guide, "• identity generated and saved: "+identityOut)
+			} else {
+				return fmt.Errorf("identity file %s exists but is unsafe or unreadable: %w (move it aside to generate a fresh key)", identityOut, err)
+			}
+			if err := identityLocation.assertReachable(); err != nil {
+				return fmt.Errorf("identity custody path changed before proof signing: %w", err)
 			}
 
 			fmt.Fprintln(guide, "• DID: "+ident.Did)
 			fmt.Fprintln(guide, "• registering account type '"+accountType+"' for "+from+" …")
 
+			identitySeed, err := hex.DecodeString(ident.PrivateKeyHex)
+			if err != nil || len(identitySeed) != ed25519.SeedSize {
+				return fmt.Errorf("identity file %s has a malformed private key", identityOut)
+			}
+			identityProofSignature, err := signAccountRegistrationProof(
+				identitySeed,
+				clientCtx.ChainID,
+				from,
+				ident.Did,
+				accountType,
+				"",
+			)
+			if err != nil {
+				return fmt.Errorf("could not sign identity registration proof: %w", err)
+			}
+
 			msg := &types.MsgRegisterAccount{
-				Sender:      from,
-				Did:         ident.Did,
-				PublicKey:   ident.PublicKeyHex,
-				AccountType: accountType,
+				Sender:                 from,
+				Did:                    ident.Did,
+				PublicKey:              ident.PublicKeyHex,
+				AccountType:            accountType,
+				IdentityProofSignature: identityProofSignature,
+			}
+			if err := identityLocation.assertReachable(); err != nil {
+				return fmt.Errorf("identity custody path changed before broadcast: %w", err)
 			}
 			if err := tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg); err != nil {
 				return err
@@ -174,6 +190,7 @@ failed or interrupted registration is safe to retry.`,
 			fmt.Fprintln(guide, "                     (witnessing currently requires a ≥100 ZRN balance at commit time)")
 			fmt.Fprintln(guide, "  watch a claim      zeroned q knowledge claim-watch <claim-id>")
 			fmt.Fprintln(guide, "  keep safe          "+identityOut)
+			fmt.Fprintln(guide, "  after key rotation securely retain and back up the newly current operational private key; this identity file alone cannot authorize the next rotation")
 			return nil
 		},
 	}
@@ -183,12 +200,39 @@ failed or interrupted registration is safe to retry.`,
 	return cmd
 }
 
+func signAccountRegistrationProof(
+	identitySeed []byte,
+	chainID string,
+	sender string,
+	did string,
+	accountType string,
+	metadata string,
+) ([]byte, error) {
+	if len(identitySeed) != ed25519.SeedSize {
+		return nil, fmt.Errorf("identity seed must be %d bytes", ed25519.SeedSize)
+	}
+	identityPrivateKey := ed25519.NewKeyFromSeed(identitySeed)
+	identityPublicKey := identityPrivateKey.Public().(ed25519.PublicKey)
+	proofBytes, err := types.AccountRegistrationProofSignBytes(
+		chainID,
+		sender,
+		did,
+		identityPublicKey,
+		accountType,
+		metadata,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return ed25519.Sign(identityPrivateKey, proofBytes), nil
+}
+
 // CmdRegisterAccount registers a new Zerone account.
 func CmdRegisterAccount() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "register-account [did] [public-key] [account-type]",
+		Use:   "register-account [did] [public-key] [account-type] [identity-proof-signature-hex]",
 		Short: "Register a new Zerone account with DID mapping",
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -197,14 +241,22 @@ func CmdRegisterAccount() *cobra.Command {
 
 			opKeyHash, _ := cmd.Flags().GetString("operational-key-hash")
 			metadata, _ := cmd.Flags().GetString("metadata")
+			identityProofSignature, err := hex.DecodeString(args[3])
+			if err != nil {
+				return fmt.Errorf("invalid identity proof signature hex: %w", err)
+			}
 
 			msg := &types.MsgRegisterAccount{
-				Sender:             clientCtx.GetFromAddress().String(),
-				Did:                args[0],
-				PublicKey:          args[1],
-				AccountType:        args[2],
-				OperationalKeyHash: opKeyHash,
-				Metadata:           metadata,
+				Sender:                 clientCtx.GetFromAddress().String(),
+				Did:                    args[0],
+				PublicKey:              args[1],
+				AccountType:            args[2],
+				OperationalKeyHash:     opKeyHash,
+				Metadata:               metadata,
+				IdentityProofSignature: identityProofSignature,
+			}
+			if err := verifyAccountRegistrationProof(clientCtx.ChainID, msg); err != nil {
+				return fmt.Errorf("identity proof preflight failed: %w", err)
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -218,12 +270,126 @@ func CmdRegisterAccount() *cobra.Command {
 	return cmd
 }
 
+// CmdRegistrationSignBytes emits the domain-separated bytes the identity key
+// must sign before CmdRegisterAccount is broadcast. It never reads or writes a
+// private key.
+func CmdRegistrationSignBytes() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "registration-sign-bytes [did] [public-key] [account-type]",
+		Short: "Print exact account-registration identity proof bytes as hex",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			identityPublicKey, err := types.DecodeEd25519PublicKeyHex(args[1])
+			if err != nil {
+				return fmt.Errorf("invalid identity public key hex: %w", err)
+			}
+			metadata, err := cmd.Flags().GetString("metadata")
+			if err != nil {
+				return err
+			}
+			signBytes, err := types.AccountRegistrationProofSignBytes(
+				clientCtx.ChainID,
+				clientCtx.GetFromAddress().String(),
+				args[0],
+				identityPublicKey,
+				args[2],
+				metadata,
+			)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), hex.EncodeToString(signBytes))
+			return err
+		},
+	}
+
+	cmd.Flags().String("metadata", "", "Account metadata (must match register-account exactly)")
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+// CmdVerifyRegistrationProof performs a fully offline proof preflight before
+// a pre-signed registration transaction is submitted. This avoids consuming a
+// fee and account sequence for malformed proof material.
+func CmdVerifyRegistrationProof() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "verify-registration-proof [sender] [did] [public-key] [account-type] [signature-hex]",
+		Short: "Verify an account-registration identity proof offline",
+		Args:  cobra.ExactArgs(5),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID, err := cmd.Flags().GetString(flags.FlagChainID)
+			if err != nil {
+				return err
+			}
+			metadata, err := cmd.Flags().GetString("metadata")
+			if err != nil {
+				return err
+			}
+			signature, err := hex.DecodeString(args[4])
+			if err != nil {
+				return fmt.Errorf("invalid identity proof signature hex: %w", err)
+			}
+			msg := &types.MsgRegisterAccount{
+				Sender:                 args[0],
+				Did:                    args[1],
+				PublicKey:              args[2],
+				AccountType:            args[3],
+				Metadata:               metadata,
+				IdentityProofSignature: signature,
+			}
+			if err := verifyAccountRegistrationProof(chainID, msg); err != nil {
+				return fmt.Errorf("invalid registration proof: %w", err)
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "registration proof valid")
+			return err
+		},
+	}
+	cmd.Flags().String(flags.FlagChainID, "", "chain ID encoded into the registration proof (required)")
+	cmd.Flags().String("metadata", "", "account metadata (must match register-account exactly)")
+	_ = cmd.MarkFlagRequired(flags.FlagChainID)
+	return cmd
+}
+
+func verifyAccountRegistrationProof(chainID string, msg *types.MsgRegisterAccount) error {
+	if msg == nil {
+		return fmt.Errorf("registration message cannot be nil")
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return err
+	}
+	identityPublicKey, err := types.DecodeEd25519PublicKeyHex(msg.PublicKey)
+	if err != nil {
+		return err
+	}
+	proofBytes, err := types.AccountRegistrationProofSignBytes(
+		chainID,
+		msg.Sender,
+		msg.Did,
+		identityPublicKey,
+		msg.AccountType,
+		msg.Metadata,
+	)
+	if err != nil {
+		return err
+	}
+	return types.VerifyEd25519Signature(identityPublicKey, proofBytes, msg.IdentityProofSignature)
+}
+
 // CmdRotateKey rotates the operational key.
 func CmdRotateKey() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rotate-key [new-op-key-hex] [auth-sig-hex]",
-		Short: "Rotate operational key",
-		Args:  cobra.ExactArgs(2),
+		Use:   "rotate-key [new-op-key-hex] [auth-sig-hex] [new-key-confirmation-sig-hex]",
+		Short: "Rotate the independent Ed25519 operational key",
+		Long: `Rotate the independent Ed25519 operational key using authorization
+from the current key and proof of possession by the proposed new key. Securely
+retain and back up the new operational private key before broadcasting: it is
+required to authorize every subsequent rotation, and social recovery is not
+implemented on chain.`,
+		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -239,17 +405,101 @@ func CmdRotateKey() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid auth signature hex: %w", err)
 			}
+			newKeyConfirmationSig, err := hex.DecodeString(args[2])
+			if err != nil {
+				return fmt.Errorf("invalid new key confirmation signature hex: %w", err)
+			}
+
+			expiresAtUnix, err := cmd.Flags().GetInt64("authorization-expires-at-unix")
+			if err != nil {
+				return err
+			}
 
 			msg := &types.MsgRotateKey{
-				Sender:                 clientCtx.GetFromAddress().String(),
-				NewOperationalKey:      newKey,
-				AuthorizationSignature: authSig,
+				Sender:                      clientCtx.GetFromAddress().String(),
+				NewOperationalKey:           newKey,
+				AuthorizationSignature:      authSig,
+				AuthorizationExpiresAtUnix:  expiresAtUnix,
+				NewKeyConfirmationSignature: newKeyConfirmationSig,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
 		},
 	}
 
+	cmd.Flags().Int64(
+		"authorization-expires-at-unix",
+		0,
+		"expiry from the signed authorization (Unix seconds; required and at most 10 minutes after consensus block time)",
+	)
+	_ = cmd.MarkFlagRequired("authorization-expires-at-unix")
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+// CmdRotationSignBytes emits the domain-separated bytes either the current
+// Ed25519 operational key must authorize or the proposed new key must accept
+// before CmdRotateKey is broadcast. It never reads or writes a private key.
+func CmdRotationSignBytes() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rotation-sign-bytes [new-op-key-hex]",
+		Short: "Print exact operational-key rotation proof bytes as hex",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+			newKey, err := hex.DecodeString(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid new key hex: %w", err)
+			}
+			currentVersion, err := cmd.Flags().GetUint32("current-key-version")
+			if err != nil {
+				return err
+			}
+			expiresAtUnix, err := cmd.Flags().GetInt64("authorization-expires-at-unix")
+			if err != nil {
+				return err
+			}
+			proof, err := cmd.Flags().GetString("proof")
+			if err != nil {
+				return err
+			}
+
+			var signBytes []byte
+			switch proof {
+			case "authorization":
+				signBytes, err = types.KeyRotationAuthorizationSignBytes(
+					clientCtx.ChainID,
+					clientCtx.GetFromAddress().String(),
+					currentVersion,
+					newKey,
+					expiresAtUnix,
+				)
+			case "acceptance":
+				signBytes, err = types.KeyRotationAcceptanceSignBytes(
+					clientCtx.ChainID,
+					clientCtx.GetFromAddress().String(),
+					currentVersion,
+					newKey,
+					expiresAtUnix,
+				)
+			default:
+				return fmt.Errorf("proof must be authorization or acceptance (got %q)", proof)
+			}
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), hex.EncodeToString(signBytes))
+			return err
+		},
+	}
+	cmd.Flags().Uint32("current-key-version", 0, "current on-chain operational key version (required)")
+	cmd.Flags().Int64("authorization-expires-at-unix", 0, "authorization expiry in Unix seconds (required)")
+	cmd.Flags().String("proof", "authorization", "proof bytes to emit: authorization (current key) or acceptance (new key)")
+	_ = cmd.MarkFlagRequired("current-key-version")
+	_ = cmd.MarkFlagRequired("authorization-expires-at-unix")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
@@ -308,4 +558,3 @@ func CmdUnfreezeAccount() *cobra.Command {
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
-

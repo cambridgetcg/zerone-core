@@ -1,6 +1,8 @@
 package types
 
 import (
+	"crypto/ed25519"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -9,59 +11,96 @@ import (
 
 // Validate validates module parameters.
 func (p *Params) Validate() error {
+	if p == nil {
+		return fmt.Errorf("params cannot be nil")
+	}
 	if p.MaxMetadataLength == 0 {
 		return fmt.Errorf("max_metadata_length must be > 0")
 	}
 	return nil
 }
 
-// ValidateDID validates DID format: did:zrn:{hex}
-// Accepts 32-char (canonical) or 64-char (full pubkey) hex suffixes.
+// ValidateCanonicalAccountAddress validates the one canonical address form
+// accepted by zerone_auth state and authorization encodings.
+func ValidateCanonicalAccountAddress(address string) error {
+	parsed, err := sdk.AccAddressFromBech32(address)
+	if err != nil {
+		return fmt.Errorf("invalid account address: %w", err)
+	}
+	if len(parsed) != cosmosAccountAddressBytes {
+		return fmt.Errorf("account address must decode to %d bytes, got %d", cosmosAccountAddressBytes, len(parsed))
+	}
+	if parsed.String() != address {
+		return fmt.Errorf("account address must use canonical lowercase Bech32 encoding")
+	}
+	return nil
+}
+
+// ValidateDID validates the sole canonical DID form used by zerone-2:
+// did:zrn:{the full 32-byte identity public key as lowercase hex}.
 func ValidateDID(did string) error {
 	if !strings.HasPrefix(did, "did:zrn:") {
 		return fmt.Errorf("DID must start with 'did:zrn:'")
 	}
 	suffix := strings.TrimPrefix(did, "did:zrn:")
-	if len(suffix) != 32 && len(suffix) != 64 {
-		return fmt.Errorf("DID suffix must be 32 or 64 hex characters, got %d", len(suffix))
+	if len(suffix) != ed25519.PublicKeySize*2 {
+		return fmt.Errorf("DID suffix must be %d lowercase hex characters, got %d", ed25519.PublicKeySize*2, len(suffix))
 	}
-	for _, c := range suffix {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-			return fmt.Errorf("DID suffix contains non-hex character: %c", c)
-		}
+	decoded, err := hex.DecodeString(suffix)
+	if err != nil || hex.EncodeToString(decoded) != suffix {
+		return fmt.Errorf("DID suffix must be lowercase hex")
 	}
 	return nil
 }
 
 // PublicKeyToDID derives the canonical DID from a hex-encoded Ed25519 public key.
-// Format: did:zrn:{first 32 hex chars of pubkey}
+// Format: did:zrn:{full 64-lower-hex public key}.
 func PublicKeyToDID(pubKeyHex string) string {
-	if len(pubKeyHex) < 32 {
+	if _, err := DecodeEd25519PublicKeyHex(pubKeyHex); err != nil {
 		return ""
 	}
-	return "did:zrn:" + strings.ToLower(pubKeyHex[:32])
+	return "did:zrn:" + pubKeyHex
 }
 
 // ValidateDIDDerivation checks that a DID correctly derives from the given public key.
 func ValidateDIDDerivation(did string, pubKeyHex string) error {
-	if len(pubKeyHex) != 64 {
-		return fmt.Errorf("public key must be 64 hex characters, got %d", len(pubKeyHex))
+	if err := ValidateDID(did); err != nil {
+		return err
 	}
-	suffix := strings.TrimPrefix(did, "did:zrn:")
-	switch len(suffix) {
-	case 32:
-		expected := strings.ToLower(pubKeyHex[:32])
-		if strings.ToLower(suffix) != expected {
-			return fmt.Errorf("DID does not derive from public key: expected did:zrn:%s, got %s", expected, did)
-		}
-	case 64:
-		if !strings.EqualFold(suffix, pubKeyHex) {
-			return fmt.Errorf("DID does not match full public key: expected did:zrn:%s, got %s", strings.ToLower(pubKeyHex), did)
-		}
-	default:
-		return fmt.Errorf("DID suffix must be 32 or 64 hex characters, got %d", len(suffix))
+	if _, err := DecodeEd25519PublicKeyHex(pubKeyHex); err != nil {
+		return err
+	}
+	expected := "did:zrn:" + pubKeyHex
+	if did != expected {
+		return fmt.Errorf("DID does not derive from public key: expected %s, got %s", expected, did)
 	}
 	return nil
+}
+
+// DecodeEd25519PublicKeyHex decodes the canonical lowercase hex form and
+// applies the strict curve/subgroup validation used by all auth entry points.
+func DecodeEd25519PublicKeyHex(value string) ([]byte, error) {
+	if len(value) != ed25519.PublicKeySize*2 {
+		return nil, fmt.Errorf("public key must be %d lowercase hex characters", ed25519.PublicKeySize*2)
+	}
+	decoded, err := hex.DecodeString(value)
+	if err != nil || hex.EncodeToString(decoded) != value {
+		return nil, fmt.Errorf("public key must be lowercase hex")
+	}
+	if err := ValidateEd25519PublicKey(decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+// ValidateAccountType validates the closed account-type vocabulary.
+func ValidateAccountType(accountType string) error {
+	switch accountType {
+	case "agent", "human", "contract", "system":
+		return nil
+	default:
+		return fmt.Errorf("account_type must be agent, human, contract, or system")
+	}
 }
 
 // sdk.Msg interface implementations for proto-generated types.
@@ -72,14 +111,20 @@ func (msg *MsgRotateKey) GetSigners() []sdk.AccAddress {
 }
 
 func (msg *MsgRotateKey) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
+	if err := ValidateCanonicalAccountAddress(msg.Sender); err != nil {
 		return fmt.Errorf("invalid sender address: %w", err)
 	}
-	if len(msg.NewOperationalKey) == 0 {
-		return fmt.Errorf("new_operational_key cannot be empty")
+	if err := ValidateEd25519PublicKey(msg.NewOperationalKey); err != nil {
+		return fmt.Errorf("invalid new_operational_key: %w", err)
 	}
-	if len(msg.AuthorizationSignature) == 0 {
-		return fmt.Errorf("authorization_signature cannot be empty")
+	if len(msg.AuthorizationSignature) != ed25519.SignatureSize {
+		return fmt.Errorf("authorization_signature must be %d bytes", ed25519.SignatureSize)
+	}
+	if len(msg.NewKeyConfirmationSignature) != ed25519.SignatureSize {
+		return fmt.Errorf("new_key_confirmation_signature must be %d bytes", ed25519.SignatureSize)
+	}
+	if msg.AuthorizationExpiresAtUnix <= 0 {
+		return fmt.Errorf("authorization_expires_at_unix must be positive")
 	}
 	return nil
 }
@@ -90,13 +135,13 @@ func (msg *MsgUpdateParams) GetSigners() []sdk.AccAddress {
 }
 
 func (msg *MsgUpdateParams) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Authority); err != nil {
+	if err := ValidateCanonicalAccountAddress(msg.Authority); err != nil {
 		return fmt.Errorf("invalid authority address: %w", err)
 	}
-	if msg.Params != nil {
-		return msg.Params.Validate()
+	if msg.Params == nil {
+		return fmt.Errorf("params cannot be nil")
 	}
-	return nil
+	return msg.Params.Validate()
 }
 
 func (msg *MsgRegisterAccount) GetSigners() []sdk.AccAddress {
@@ -105,24 +150,30 @@ func (msg *MsgRegisterAccount) GetSigners() []sdk.AccAddress {
 }
 
 func (msg *MsgRegisterAccount) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
+	if err := ValidateCanonicalAccountAddress(msg.Sender); err != nil {
 		return fmt.Errorf("invalid sender address: %w", err)
-	}
-	if err := ValidateDID(msg.Did); err != nil {
-		return fmt.Errorf("invalid DID: %w", err)
-	}
-	if msg.PublicKey == "" {
-		return fmt.Errorf("public_key cannot be empty")
-	}
-	if len(msg.PublicKey) != 64 {
-		return fmt.Errorf("public_key must be 64 hex characters (32 bytes Ed25519)")
 	}
 	if err := ValidateDIDDerivation(msg.Did, msg.PublicKey); err != nil {
 		return fmt.Errorf("DID derivation mismatch: %w", err)
 	}
-	validTypes := map[string]bool{"agent": true, "human": true, "contract": true, "system": true}
-	if !validTypes[msg.AccountType] {
-		return fmt.Errorf("account_type must be agent, human, contract, or system")
+	publicKey, err := DecodeEd25519PublicKeyHex(msg.PublicKey)
+	if err != nil {
+		return fmt.Errorf("invalid public_key: %w", err)
+	}
+	if msg.OperationalKeyHash != "" {
+		expected, err := OperationalKeyHash(publicKey)
+		if err != nil {
+			return err
+		}
+		if msg.OperationalKeyHash != expected {
+			return fmt.Errorf("%w: operational_key_hash must be the lowercase SHA-256 of public_key", ErrInvalidPublicKey)
+		}
+	}
+	if err := ValidateAccountType(msg.AccountType); err != nil {
+		return err
+	}
+	if len(msg.IdentityProofSignature) != ed25519.SignatureSize {
+		return fmt.Errorf("identity_proof_signature must be %d bytes", ed25519.SignatureSize)
 	}
 	return nil
 }
@@ -133,10 +184,10 @@ func (msg *MsgFreezeAccount) GetSigners() []sdk.AccAddress {
 }
 
 func (msg *MsgFreezeAccount) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
+	if err := ValidateCanonicalAccountAddress(msg.Sender); err != nil {
 		return fmt.Errorf("invalid sender address: %w", err)
 	}
-	if _, err := sdk.AccAddressFromBech32(msg.Address); err != nil {
+	if err := ValidateCanonicalAccountAddress(msg.Address); err != nil {
 		return fmt.Errorf("invalid target address: %w", err)
 	}
 	return nil
@@ -148,12 +199,11 @@ func (msg *MsgUnfreezeAccount) GetSigners() []sdk.AccAddress {
 }
 
 func (msg *MsgUnfreezeAccount) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Authority); err != nil {
+	if err := ValidateCanonicalAccountAddress(msg.Authority); err != nil {
 		return fmt.Errorf("invalid authority address: %w", err)
 	}
-	if _, err := sdk.AccAddressFromBech32(msg.Address); err != nil {
+	if err := ValidateCanonicalAccountAddress(msg.Address); err != nil {
 		return fmt.Errorf("invalid target address: %w", err)
 	}
 	return nil
 }
-

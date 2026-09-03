@@ -4,6 +4,19 @@
 **Localnet:** zerone-localnet (4 validators, CometBFT v0.38.19)
 **Binary:** zeroned built from source (Cosmos SDK v0.50.15)
 
+> **2026-09-03 resolution note:** BUG-2 and BUG-3 below describe the tested
+> historical binary. Current source keeps operational Ed25519 keys independent
+> from the Cosmos `BaseAccount`, verifies the current operational key's
+> domain-separated rotation authorization and the proposed new key's distinct
+> acceptance proof, binds chain ID/sender/key version/new key/expiry, and checks
+> the future acceptance horizon against consensus block time. Registration also
+> requires a chain/account-bound proof of possession by the identity key and an
+> exact `did:zrn:<64-lowercase-hex-public-key>`. The current manual
+> `register-account` command takes the proof signature as its fourth positional
+> argument; prefer `zerone_auth onboard` for key generation and proof creation.
+> Deployment still requires a coordinated binary release; this note does not
+> rewrite the historical localnet result.
+
 ---
 
 ## Summary
@@ -46,6 +59,8 @@ Tested the full agent identity bootstrapping sequence: fresh account → DID reg
 
 ### BUG-2: Key Rotation Bricks Account (CRITICAL)
 
+**Current source status (2026-09-03): RESOLVED; release upgrade required.**
+
 **Affects:** `MsgRotateKey` (msg_server.go:136-192)
 **Symptom:** After successful key rotation, the account can no longer sign ANY transactions.
 **Root Cause:** The `RotateKey` handler syncs the new Ed25519 operational key to the Cosmos `BaseAccount` (line 167-174). However, Cosmos SDK v0.50's `sigverify.go:433` does **not** support Ed25519 for standard account signature verification — only secp256k1. The mismatch permanently locks the account.
@@ -59,6 +74,8 @@ Tested the full agent identity bootstrapping sequence: fresh account → DID reg
 3. Use secp256k1 for operational keys instead of Ed25519
 
 ### BUG-3: Authorization Signature Not Validated
+
+**Current source status (2026-09-03): RESOLVED; release upgrade required.**
 
 **Affects:** `MsgRotateKey`
 **Symptom:** The `authorization_signature` field in `MsgRotateKey` is accepted but never validated in the handler. A dummy random signature succeeds.

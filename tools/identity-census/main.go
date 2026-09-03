@@ -1,5 +1,5 @@
-// identity-census performs a read-only pre-migration audit of Zerone identity
-// records in an exported genesis/app-state JSON document.
+// identity-census performs a read-only source/deployed-boundary audit of
+// Zerone identity records in an exported genesis/app-state JSON document.
 package main
 
 import (
@@ -96,11 +96,17 @@ func readInput(path string, stdin io.Reader) ([]byte, string, error) {
 func printText(output io.Writer, report Report) {
 	fmt.Fprintf(output, "Zerone identity census: %s\n", report.Source)
 	fmt.Fprintf(output, "Input: %s; complete snapshot: %t\n", report.Coverage.InputKind, report.Coverage.CompleteSnapshot)
+	chainID := report.Coverage.ChainID
+	if chainID == "" {
+		chainID = "unavailable"
+	}
+	fmt.Fprintf(output, "Chain/profile: %s; %s\n", chainID, report.Coverage.ValidationProfile)
 	fmt.Fprintf(
 		output,
-		"Records: %d zerone accounts, %d DID mappings, %d Cosmos BaseAccounts\n",
+		"Records: %d zerone accounts, %d DID mappings, %d last-key rotations, %d Cosmos BaseAccounts\n",
 		report.Summary.ZeroneAccounts,
 		report.Summary.DIDMappings,
+		report.Summary.KeyRotations,
 		report.Summary.CosmosAccounts,
 	)
 	fmt.Fprintf(output, "Rotation coverage: %s\n", report.Coverage.RotationState)

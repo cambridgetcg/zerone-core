@@ -27,6 +27,7 @@
       "account_type": "human",
       "operational_key_hash": "",
       "metadata": "",
+      "identity_proof_signature": "REPLACE_WITH_BASE64_64_BYTE_ED25519_SIGNATURE",
       "fee": "200000uzrn",
       "gas_limit": "200000",
       "signer_sequence": "0",
