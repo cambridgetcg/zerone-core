@@ -122,6 +122,88 @@ CANONICAL_COMPONENT_SIGNER_IDENTITY = (
 CANONICAL_COMPONENT_CERTIFICATE_ISSUER = (
     "https://token.actions.githubusercontent.com"
 )
+MONITORING_RULE_DEFINITIONS = (
+    (
+        "stalled_height",
+        "ZeroneStalledHeight",
+        "critical",
+        "consensus_height_no_progress",
+        {"maximum_stall_seconds": 120},
+        "hold_height_without_progress_past_threshold",
+    ),
+    (
+        "missed_signing",
+        "ZeroneValidatorMissedSigning",
+        "critical",
+        "validator_missed_blocks_above_threshold",
+        {"maximum_missed_blocks": 0, "window_blocks": 100},
+        "inject_validator_missed_blocks_above_threshold",
+    ),
+    (
+        "double_sign_risk",
+        "ZeroneDoubleSignRisk",
+        "critical",
+        "active_signer_instances_above_threshold",
+        {"maximum_active_signer_instances": 1},
+        "inject_signer_instance_count_above_threshold",
+    ),
+    (
+        "app_hash_divergence",
+        "ZeroneAppHashDivergence",
+        "critical",
+        "equal_height_app_hashes_diverge",
+        {"maximum_distinct_app_hashes": 1, "minimum_independent_sources": 2},
+        "inject_equal_height_mismatched_app_hash",
+    ),
+    (
+        "peer_loss",
+        "ZeronePeerLoss",
+        "critical",
+        "private_peer_count_below_threshold",
+        {"minimum_private_peers": 1},
+        "disconnect_all_private_peers",
+    ),
+    (
+        "disk_capacity",
+        "ZeroneDiskCapacity",
+        "warning",
+        "disk_free_percent_below_threshold",
+        {"minimum_free_percent": 20},
+        "inject_disk_free_percent_below_threshold",
+    ),
+    (
+        "restart_count",
+        "ZeroneRestartCount",
+        "warning",
+        "process_restarts_above_threshold",
+        {"maximum_restarts": 0, "window_seconds": 900},
+        "inject_restart_counter_above_threshold",
+    ),
+    (
+        "stale_backup",
+        "ZeroneStaleBackup",
+        "critical",
+        "verified_backup_age_above_threshold",
+        {"maximum_verified_backup_age_seconds": 86400},
+        "inject_verified_backup_age_above_threshold",
+    ),
+    (
+        "gateway_wrong_chain",
+        "ZeroneGatewayWrongChain",
+        "critical",
+        "gateway_chain_id_mismatch",
+        {"expected_chain_id": "zerone-2"},
+        "inject_gateway_chain_id_mismatch",
+    ),
+    (
+        "gateway_stale_origin",
+        "ZeroneGatewayStaleOrigin",
+        "critical",
+        "gateway_origin_height_lag_above_threshold",
+        {"maximum_height_lag": 3},
+        "inject_gateway_origin_height_lag_above_threshold",
+    ),
+)
 
 
 def make_component_artifacts(
@@ -243,6 +325,88 @@ def make_component_artifacts(
                 (output / names["vulnerability_decision"]).read_bytes()
             ),
         )
+
+
+def make_monitoring_artifacts(
+    output: pathlib.Path, release: dict[str, Any]
+) -> None:
+    rules = {
+        "schema": "zerone-production-monitoring-rules-v1",
+        "chain_id": "zerone-2",
+        "source_commit": release["source"]["commit"],
+        "ruleset_id": "zerone-2-production",
+        "evaluation_interval_seconds": 15,
+        "notification_route_id": "primary-on-call",
+        "rules": [
+            {
+                "check": check,
+                "alert_name": alert_name,
+                "enabled": True,
+                "severity": severity,
+                "expression": expression,
+                "parameters": parameters,
+            }
+            for check, alert_name, severity, expression, parameters, _ in (
+                MONITORING_RULE_DEFINITIONS
+            )
+        ],
+    }
+    write_json(output, "MONITORING-RULES.json", rules)
+    rules_hash = digest((output / "MONITORING-RULES.json").read_bytes())
+    tests = {
+        "schema": "zerone-production-monitoring-alert-tests-v1",
+        "chain_id": "zerone-2",
+        "source_commit": release["source"]["commit"],
+        "ruleset_id": rules["ruleset_id"],
+        "rules_sha256": rules_hash,
+        "started_at": "2026-07-10T09:35:00Z",
+        "completed_at": "2026-07-10T09:45:00Z",
+        "notification_route_id": rules["notification_route_id"],
+        "tests": [
+            {
+                "check": check,
+                "alert_name": alert_name,
+                "stimulus": stimulus,
+                "observed_states": ["INACTIVE", "FIRING", "RESOLVED"],
+                "notification_delivery": "DELIVERED",
+                "stimulus_evidence_sha256": digest(
+                    f"{check}:stimulus".encode()
+                ),
+                "firing_evidence_sha256": digest(f"{check}:firing".encode()),
+                "notification_evidence_sha256": digest(
+                    f"{check}:notification".encode()
+                ),
+                "resolution_evidence_sha256": digest(
+                    f"{check}:resolution".encode()
+                ),
+                "result": "PASS",
+            }
+            for check, alert_name, _, _, _, stimulus in MONITORING_RULE_DEFINITIONS
+        ],
+        "result": "PASS",
+    }
+    write_json(output, "MONITORING-ALERT-TESTS.json", tests)
+    manifest = {
+        "schema": "zerone-production-monitoring-alerts-v1",
+        "chain_id": "zerone-2",
+        "source_commit": release["source"]["commit"],
+        "created_at": "2026-07-10T09:50:00Z",
+        "rules": {
+            "filename": "MONITORING-RULES.json",
+            "sha256": rules_hash,
+        },
+        "alert_tests": {
+            "filename": "MONITORING-ALERT-TESTS.json",
+            "sha256": digest(
+                (output / "MONITORING-ALERT-TESTS.json").read_bytes()
+            ),
+        },
+        "result": "PASS",
+    }
+    write_json(output, "MONITORING-ALERTS.json", manifest)
+    release["monitoring_alerts_sha256"] = digest(
+        (output / "MONITORING-ALERTS.json").read_bytes()
+    )
 
 
 def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> str:
@@ -637,6 +801,7 @@ def main() -> None:
             digest(archive_gateway_config),
         ),
     }
+    make_monitoring_artifacts(output, release)
     make_component_artifacts(output, release, tool_manifest, args.main)
     args.genesis_sha = make_ceremony_artifacts(output, release)
     write_json(output, "RELEASE-PACKET.json", release)

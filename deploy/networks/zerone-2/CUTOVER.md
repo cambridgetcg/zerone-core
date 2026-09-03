@@ -19,14 +19,18 @@ ZERONE_1_HALT_IMAGE_REF=REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_64_HE
 ZERONE_2_BINARY_SHA=REPLACE_64_HEX
 ZERONE_2_RUNTIME_IMAGE_REF=REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_64_HEX
 QUERY_GATEWAY_IMAGE_REF=REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_64_HEX
+MONITORING_ALERTS_SHA256=REPLACE_64_HEX
 ```
 
 Record the exact app, role, image component/reference, and SHA-256 for every
 phase-invariant z2/public Fly config. Also bind the z1 halt/observer/archive
-template hashes, deterministic archive-renderer hash, and fixed private archive
-app/volume/region/topology constraints. A bare digest is insufficient: the
-signed packet must distinguish the live `zerone-1` halt image, `zerone-2`
-runtime image, and query-gateway image.
+template hashes, deterministic archive-renderer hash, fixed private archive
+app/volume/region/topology constraints, and the canonical
+`MONITORING-ALERTS.json`. That monitoring manifest must hash the exact
+`MONITORING-RULES.json` and `MONITORING-ALERT-TESTS.json` bytes. A bare digest
+is insufficient: the signed packet must distinguish the live `zerone-1` halt
+image, `zerone-2` runtime image, and query-gateway image, while the monitoring
+manifest must identify the actual tested rules and evidence.
 
 Never edit or reissue that packet merely to choose checkpoint heights; all
 three operator decisions reference its unchanged hash and detached signature.
@@ -80,8 +84,12 @@ configs/coordinates, and DNS manifest.
 - Prove the runbook does not treat a live daemon or green RPC/health endpoint as
   proof of progress or shutdown. Rehearse bounded stability checks followed by
   manual SIGTERM and signer fencing before copying the stopped database.
-- Test alerts for stopped height, app-hash divergence, signer double-start,
-  disk, restart count, and stale snapshots.
+- Test every RELEASE-bound rule for stalled height, missed signing,
+  double-sign risk without starting a second live signer, equal-height AppHash
+  divergence, private-peer loss, disk capacity, restart count, stale verified
+  backup, gateway wrong-chain, and gateway stale-origin. Preserve distinct
+  stimulus, firing, notification-delivery, and resolution evidence for each;
+  every test must observe `INACTIVE` → `FIRING` → `RESOLVED` and end in `PASS`.
 
 Any failed item is a no-go.
 

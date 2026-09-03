@@ -87,6 +87,86 @@ CANONICAL_COMPONENT_SIGNER_IDENTITY = (
 CANONICAL_COMPONENT_CERTIFICATE_ISSUER = (
     "https://token.actions.githubusercontent.com"
 )
+MONITORING_ARTIFACT_FILES = {
+    "manifest": "MONITORING-ALERTS.json",
+    "rules": "MONITORING-RULES.json",
+    "tests": "MONITORING-ALERT-TESTS.json",
+}
+MONITORING_RULE_SPECS = {
+    "stalled_height": {
+        "alert_name": "ZeroneStalledHeight",
+        "severity": "critical",
+        "expression": "consensus_height_no_progress",
+        "parameters": {"maximum_stall_seconds"},
+        "stimulus": "hold_height_without_progress_past_threshold",
+    },
+    "missed_signing": {
+        "alert_name": "ZeroneValidatorMissedSigning",
+        "severity": "critical",
+        "expression": "validator_missed_blocks_above_threshold",
+        "parameters": {"maximum_missed_blocks", "window_blocks"},
+        "stimulus": "inject_validator_missed_blocks_above_threshold",
+    },
+    "double_sign_risk": {
+        "alert_name": "ZeroneDoubleSignRisk",
+        "severity": "critical",
+        "expression": "active_signer_instances_above_threshold",
+        "parameters": {"maximum_active_signer_instances"},
+        "stimulus": "inject_signer_instance_count_above_threshold",
+    },
+    "app_hash_divergence": {
+        "alert_name": "ZeroneAppHashDivergence",
+        "severity": "critical",
+        "expression": "equal_height_app_hashes_diverge",
+        "parameters": {
+            "maximum_distinct_app_hashes",
+            "minimum_independent_sources",
+        },
+        "stimulus": "inject_equal_height_mismatched_app_hash",
+    },
+    "peer_loss": {
+        "alert_name": "ZeronePeerLoss",
+        "severity": "critical",
+        "expression": "private_peer_count_below_threshold",
+        "parameters": {"minimum_private_peers"},
+        "stimulus": "disconnect_all_private_peers",
+    },
+    "disk_capacity": {
+        "alert_name": "ZeroneDiskCapacity",
+        "severity": "warning",
+        "expression": "disk_free_percent_below_threshold",
+        "parameters": {"minimum_free_percent"},
+        "stimulus": "inject_disk_free_percent_below_threshold",
+    },
+    "restart_count": {
+        "alert_name": "ZeroneRestartCount",
+        "severity": "warning",
+        "expression": "process_restarts_above_threshold",
+        "parameters": {"maximum_restarts", "window_seconds"},
+        "stimulus": "inject_restart_counter_above_threshold",
+    },
+    "stale_backup": {
+        "alert_name": "ZeroneStaleBackup",
+        "severity": "critical",
+        "expression": "verified_backup_age_above_threshold",
+        "parameters": {"maximum_verified_backup_age_seconds"},
+        "stimulus": "inject_verified_backup_age_above_threshold",
+    },
+    "gateway_wrong_chain": {
+        "alert_name": "ZeroneGatewayWrongChain",
+        "severity": "critical",
+        "expression": "gateway_chain_id_mismatch",
+        "parameters": {"expected_chain_id"},
+        "stimulus": "inject_gateway_chain_id_mismatch",
+    },
+    "gateway_stale_origin": {
+        "alert_name": "ZeroneGatewayStaleOrigin",
+        "severity": "critical",
+        "expression": "gateway_origin_height_lag_above_threshold",
+        "parameters": {"maximum_height_lag"},
+        "stimulus": "inject_gateway_origin_height_lag_above_threshold",
+    },
+}
 FROZEN_EVIDENCE_FILES = {
     "ZERONE-1-INVENTORY-V3.json",
     "SIGNER-EVIDENCE-MANIFEST.json",
@@ -416,6 +496,276 @@ def validate_tool_manifest(
             fail(f"operator tool bytes drifted from RELEASE: {relative}")
         verified_tools[relative] = tool_bytes
     return verified_tools
+
+
+def validate_monitoring_artifacts(
+    files: dict[str, bytes],
+    objects: dict[str, Any],
+    release: dict[str, Any],
+    release_created_epoch: int,
+) -> None:
+    manifest_name = MONITORING_ARTIFACT_FILES["manifest"]
+    rules_name = MONITORING_ARTIFACT_FILES["rules"]
+    tests_name = MONITORING_ARTIFACT_FILES["tests"]
+
+    expected_manifest_hash = require_hash(
+        release.get("monitoring_alerts_sha256"), "RELEASE monitoring alerts"
+    )
+    if expected_manifest_hash != sha256(files[manifest_name]):
+        fail("RELEASE monitoring-alert hash differs from bundled MONITORING-ALERTS.json")
+
+    manifest = require_exact_object(
+        objects[manifest_name],
+        {
+            "schema",
+            "chain_id",
+            "source_commit",
+            "created_at",
+            "rules",
+            "alert_tests",
+            "result",
+        },
+        "monitoring alert manifest",
+    )
+    rules_reference = require_exact_object(
+        manifest["rules"], {"filename", "sha256"}, "monitoring rules reference"
+    )
+    tests_reference = require_exact_object(
+        manifest["alert_tests"],
+        {"filename", "sha256"},
+        "monitoring alert-test reference",
+    )
+    if not (
+        manifest["schema"] == "zerone-production-monitoring-alerts-v1"
+        and manifest["chain_id"] == release.get("chain_id") == "zerone-2"
+        and manifest["source_commit"] == release.get("source", {}).get("commit")
+        and manifest["result"] == "PASS"
+        and rules_reference["filename"] == rules_name
+        and tests_reference["filename"] == tests_name
+    ):
+        fail("monitoring alert manifest is incomplete or mismatched")
+    rules_hash = require_hash(
+        rules_reference["sha256"], "monitoring rules artifact"
+    )
+    tests_hash = require_hash(
+        tests_reference["sha256"], "monitoring alert-test artifact"
+    )
+    if rules_hash != sha256(files[rules_name]):
+        fail("monitoring rules hash differs from bundled MONITORING-RULES.json")
+    if tests_hash != sha256(files[tests_name]):
+        fail("monitoring alert-test hash differs from bundled test evidence")
+
+    rules = require_exact_object(
+        objects[rules_name],
+        {
+            "schema",
+            "chain_id",
+            "source_commit",
+            "ruleset_id",
+            "evaluation_interval_seconds",
+            "notification_route_id",
+            "rules",
+        },
+        "monitoring rules artifact",
+    )
+    if not (
+        rules["schema"] == "zerone-production-monitoring-rules-v1"
+        and rules["chain_id"] == "zerone-2"
+        and rules["source_commit"] == release["source"]["commit"]
+        and isinstance(rules["ruleset_id"], str)
+        and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", rules["ruleset_id"])
+        and isinstance(rules["notification_route_id"], str)
+        and re.fullmatch(
+            r"[a-z0-9][a-z0-9._-]{0,63}", rules["notification_route_id"]
+        )
+        and isinstance(rules["evaluation_interval_seconds"], int)
+        and not isinstance(rules["evaluation_interval_seconds"], bool)
+        and 1 <= rules["evaluation_interval_seconds"] <= 60
+        and isinstance(rules["rules"], list)
+        and len(rules["rules"]) == len(MONITORING_RULE_SPECS)
+    ):
+        fail("monitoring rules artifact is incomplete or mismatched")
+
+    rules_by_check: dict[str, dict[str, Any]] = {}
+    for index, candidate in enumerate(rules["rules"]):
+        rule = require_exact_object(
+            candidate,
+            {
+                "check",
+                "alert_name",
+                "enabled",
+                "severity",
+                "expression",
+                "parameters",
+            },
+            f"monitoring rule {index}",
+        )
+        check = rule["check"]
+        if not isinstance(check, str) or check not in MONITORING_RULE_SPECS:
+            fail(f"monitoring rule {index} has an unknown check")
+        if check in rules_by_check:
+            fail(f"monitoring rules contain duplicate check {check}")
+        spec = MONITORING_RULE_SPECS[check]
+        parameters = rule["parameters"]
+        if not (
+            rule["alert_name"] == spec["alert_name"]
+            and rule["enabled"] is True
+            and rule["severity"] == spec["severity"]
+            and rule["expression"] == spec["expression"]
+            and isinstance(parameters, dict)
+            and set(parameters) == spec["parameters"]
+        ):
+            fail(f"monitoring rule {check} is disabled or semantically incomplete")
+        rules_by_check[check] = rule
+    if set(rules_by_check) != set(MONITORING_RULE_SPECS):
+        fail("monitoring rules omit a required production check")
+
+    def bounded_parameter(check: str, name: str, minimum: int, maximum: int) -> int:
+        value = rules_by_check[check]["parameters"][name]
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or value < minimum
+            or value > maximum
+        ):
+            fail(
+                f"monitoring rule {check} parameter {name} is outside the safe range"
+            )
+        return value
+
+    maximum_stall = bounded_parameter(
+        "stalled_height", "maximum_stall_seconds", 15, 300
+    )
+    if maximum_stall < rules["evaluation_interval_seconds"]:
+        fail("stalled-height threshold is shorter than the evaluation interval")
+    maximum_missed = bounded_parameter(
+        "missed_signing", "maximum_missed_blocks", 0, 9
+    )
+    window_blocks = bounded_parameter("missed_signing", "window_blocks", 10, 10000)
+    if maximum_missed >= window_blocks:
+        fail("missed-signing threshold must be smaller than its window")
+    if (
+        bounded_parameter(
+            "double_sign_risk", "maximum_active_signer_instances", 1, 1
+        )
+        != 1
+        or bounded_parameter(
+            "app_hash_divergence", "maximum_distinct_app_hashes", 1, 1
+        )
+        != 1
+        or bounded_parameter(
+            "app_hash_divergence", "minimum_independent_sources", 2, 16
+        )
+        < 2
+        or bounded_parameter("peer_loss", "minimum_private_peers", 1, 64) < 1
+    ):
+        fail("monitoring consensus-safety thresholds are incomplete")
+    bounded_parameter("disk_capacity", "minimum_free_percent", 10, 40)
+    bounded_parameter("restart_count", "maximum_restarts", 0, 2)
+    bounded_parameter("restart_count", "window_seconds", 300, 3600)
+    bounded_parameter(
+        "stale_backup", "maximum_verified_backup_age_seconds", 3600, 86400
+    )
+    expected_chain = rules_by_check["gateway_wrong_chain"]["parameters"].get(
+        "expected_chain_id"
+    )
+    if expected_chain != "zerone-2":
+        fail("gateway wrong-chain monitoring does not pin zerone-2")
+    bounded_parameter("gateway_stale_origin", "maximum_height_lag", 0, 10)
+
+    tests = require_exact_object(
+        objects[tests_name],
+        {
+            "schema",
+            "chain_id",
+            "source_commit",
+            "ruleset_id",
+            "rules_sha256",
+            "started_at",
+            "completed_at",
+            "notification_route_id",
+            "tests",
+            "result",
+        },
+        "monitoring alert-test evidence",
+    )
+    if not (
+        tests["schema"] == "zerone-production-monitoring-alert-tests-v1"
+        and tests["chain_id"] == "zerone-2"
+        and tests["source_commit"] == release["source"]["commit"]
+        and tests["ruleset_id"] == rules["ruleset_id"]
+        and tests["notification_route_id"] == rules["notification_route_id"]
+        and tests["rules_sha256"] == rules_hash
+        and tests["result"] == "PASS"
+        and isinstance(tests["tests"], list)
+        and len(tests["tests"]) == len(MONITORING_RULE_SPECS)
+    ):
+        fail("monitoring alert-test evidence is incomplete or mismatched")
+    require_hash(tests["rules_sha256"], "monitoring alert-test rules hash")
+
+    evidence_hashes: set[str] = set()
+    tested_checks: set[str] = set()
+    for index, candidate in enumerate(tests["tests"]):
+        test = require_exact_object(
+            candidate,
+            {
+                "check",
+                "alert_name",
+                "stimulus",
+                "observed_states",
+                "notification_delivery",
+                "stimulus_evidence_sha256",
+                "firing_evidence_sha256",
+                "notification_evidence_sha256",
+                "resolution_evidence_sha256",
+                "result",
+            },
+            f"monitoring alert test {index}",
+        )
+        check = test["check"]
+        if not isinstance(check, str) or check not in MONITORING_RULE_SPECS:
+            fail(f"monitoring alert test {index} has an unknown check")
+        if check in tested_checks:
+            fail(f"monitoring alert tests contain duplicate check {check}")
+        spec = MONITORING_RULE_SPECS[check]
+        if not (
+            test["alert_name"] == spec["alert_name"]
+            and test["stimulus"] == spec["stimulus"]
+            and test["observed_states"] == ["INACTIVE", "FIRING", "RESOLVED"]
+            and test["notification_delivery"] == "DELIVERED"
+            and test["result"] == "PASS"
+        ):
+            fail(f"monitoring alert test {check} did not prove firing and recovery")
+        for field in (
+            "stimulus_evidence_sha256",
+            "firing_evidence_sha256",
+            "notification_evidence_sha256",
+            "resolution_evidence_sha256",
+        ):
+            proof_hash = require_hash(test[field], f"monitoring alert test {check} {field}")
+            if proof_hash == "0" * 64 or proof_hash in evidence_hashes:
+                fail("monitoring alert tests reuse or omit required evidence")
+            evidence_hashes.add(proof_hash)
+        tested_checks.add(check)
+    if tested_checks != set(MONITORING_RULE_SPECS):
+        fail("monitoring alert tests omit a required production check")
+
+    tests_started_epoch = canonical_epoch(
+        tests["started_at"], "monitoring alert-test start time"
+    )
+    tests_completed_epoch = canonical_epoch(
+        tests["completed_at"], "monitoring alert-test completion time"
+    )
+    manifest_created_epoch = canonical_epoch(
+        manifest["created_at"], "monitoring alert manifest creation time"
+    )
+    if not (
+        tests_started_epoch
+        <= tests_completed_epoch
+        <= manifest_created_epoch
+        <= release_created_epoch
+    ):
+        fail("monitoring evidence chronology is non-monotonic")
 
 
 def load_frozen_evidence_validator(
@@ -1764,6 +2114,9 @@ def validate_cutover_chain(
     }:
         fail("RELEASE component set is malformed")
     validate_release_ceremony(files, objects, release, main)
+    validate_monitoring_artifacts(
+        files, objects, release, release_created_epoch
+    )
     component_images = validate_release_components(
         files, objects, release, main, release_created_epoch
     )
@@ -3253,6 +3606,7 @@ def main() -> None:
         "network-manifest.json",
         "GENESIS-MANIFEST.md",
         "zeroned-zerone-2-release",
+        *MONITORING_ARTIFACT_FILES.values(),
     }
     for component_files in COMPONENT_ARTIFACT_FILES.values():
         base.update(component_files.values())
@@ -3404,6 +3758,7 @@ def main() -> None:
             "RELEASE-PACKET.json",
             "DARK-START-DECISION.json",
             "DARK-START-INITIATION-EVIDENCE.json",
+            *MONITORING_ARTIFACT_FILES.values(),
             "DARK-REGISTRATION-EVIDENCE.json",
             "CUTOVER-DECISION.json",
             "CUTOVER-INITIATION-EVIDENCE.json",

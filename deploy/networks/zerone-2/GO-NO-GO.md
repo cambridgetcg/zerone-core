@@ -41,7 +41,14 @@ snapshot byte-for-byte.
 - [ ] Service-free edge query-soak config SHA-256 and role `edge`: `REPLACE`
 - [ ] Service-free private gateway config SHA-256 and role `zerone-2-query`:
       `REPLACE`
-- [ ] Monitor/alert configuration SHA-256: `REPLACE`
+- [ ] `MONITORING-ALERTS.json` SHA-256 plus its byte-matched
+      `MONITORING-RULES.json` and `MONITORING-ALERT-TESTS.json` hashes:
+      `REPLACE`
+- [ ] All ten required rules are enabled and their stalled-height,
+      missed-signing, double-sign-risk, AppHash-divergence, peer-loss, disk,
+      restart-count, stale-backup, gateway-wrong-chain, and
+      gateway-stale-origin alert tests each prove firing, notification delivery,
+      resolution, and `PASS`: `REPLACE_EVIDENCE_HASHES`
 - [ ] Full tests, artifact audit, signed-source two-run ceremony comparison,
       restart/export/import, image-context, deploy-gate, SBOM, and secret gates
       pass
@@ -77,8 +84,9 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
 
 - [ ] Exact production chain observed for at least 1,000 blocks and 60 minutes;
       first-block time / evidence height / evidence app hash: `REPLACE`
-- [ ] Validator and edge match at equal heights; cadence, disk, restart,
-      double-sign, stale-height, and divergence alerts pass: `REPLACE_HASH`
+- [ ] Validator and edge match at equal heights; every RELEASE-bound monitoring
+      rule and alert-test artifact remains byte-identical and `PASS`:
+      `REPLACE_HASH`
 - [ ] Exact supply/two balances/one SDK validator/protocol-dark profile still
       match genesis: `REPLACE_HASH`
 - [ ] Operator onboarding and 111,000,000 uzrn custom-staking registration txs

@@ -77,6 +77,23 @@ rebind_frozen_source_chain() {
     --arg observer "${observer_manifest_sha}"
 }
 
+rebind_monitoring_chain() {
+  local bundle=$1 rules_sha tests_sha manifest_sha
+  rules_sha=$(sha256_file "${bundle}/MONITORING-RULES.json")
+  # shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+  canonical_mutate "${bundle}/MONITORING-ALERT-TESTS.json" \
+    '.rules_sha256 = $sha' --arg sha "${rules_sha}"
+  tests_sha=$(sha256_file "${bundle}/MONITORING-ALERT-TESTS.json")
+  # shellcheck disable=SC2016 # jq variables are not shell variables.
+  canonical_mutate "${bundle}/MONITORING-ALERTS.json" \
+    '.rules.sha256 = $rules | .alert_tests.sha256 = $tests' \
+    --arg rules "${rules_sha}" --arg tests "${tests_sha}"
+  manifest_sha=$(sha256_file "${bundle}/MONITORING-ALERTS.json")
+  # shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+  canonical_mutate "${bundle}/RELEASE-PACKET.json" \
+    '.monitoring_alerts_sha256 = $sha' --arg sha "${manifest_sha}"
+}
+
 expect_rejected() {
   local label=$1 expected=$2
   shift 2
@@ -308,6 +325,62 @@ run_cutover_pre "${BASE_BUNDLE}" >/dev/null
 run_cutover_post "${BASE_BUNDLE}" >/dev/null
 run_open_pre "${BASE_BUNDLE}" >/dev/null
 run_open_post "${BASE_BUNDLE}" >/dev/null
+
+missing_monitoring=$(clone_bundle missing-monitoring)
+mv "${missing_monitoring}/MONITORING-ALERTS.json" \
+  "${missing_monitoring}/MONITORING-ALERTS.json.missing"
+expect_rejected "missing monitoring artifact" \
+  "could not open bundle file MONITORING-ALERTS.json" \
+  run_cutover_pre "${missing_monitoring}"
+
+tampered_monitoring=$(clone_bundle tampered-monitoring)
+canonical_mutate "${tampered_monitoring}/MONITORING-ALERTS.json" \
+  '.result = "FAIL"'
+expect_rejected "tampered monitoring artifact" \
+  "RELEASE monitoring-alert hash differs" \
+  run_cutover_pre "${tampered_monitoring}"
+
+tampered_monitoring_rules=$(clone_bundle tampered-monitoring-rules)
+canonical_mutate "${tampered_monitoring_rules}/MONITORING-RULES.json" \
+  '.rules[0].parameters.maximum_stall_seconds = 121'
+expect_rejected "tampered monitoring rules" \
+  "monitoring rules hash differs" \
+  run_cutover_pre "${tampered_monitoring_rules}"
+
+disabled_monitoring_rule=$(clone_bundle disabled-monitoring-rule)
+canonical_mutate "${disabled_monitoring_rule}/MONITORING-RULES.json" \
+  '(.rules[] | select(.check == "stalled_height") | .enabled) = false'
+rebind_monitoring_chain "${disabled_monitoring_rule}"
+expect_rejected "disabled required monitoring rule" \
+  "is disabled or semantically incomplete" \
+  run_cutover_pre "${disabled_monitoring_rule}"
+
+self_asserted_monitoring=$(clone_bundle self-asserted-monitoring)
+canonical_mutate \
+  "${self_asserted_monitoring}/MONITORING-ALERT-TESTS.json" \
+  '.tests |= map({check, result})'
+rebind_monitoring_chain "${self_asserted_monitoring}"
+expect_rejected "self-asserted monitoring PASS without evidence" \
+  "does not have the exact required fields" \
+  run_cutover_pre "${self_asserted_monitoring}"
+
+missing_monitoring_check=$(clone_bundle missing-monitoring-check)
+canonical_mutate \
+  "${missing_monitoring_check}/MONITORING-ALERT-TESTS.json" \
+  'del(.tests[-1])'
+rebind_monitoring_chain "${missing_monitoring_check}"
+expect_rejected "missing required monitoring check" \
+  "monitoring alert-test evidence is incomplete" \
+  run_cutover_pre "${missing_monitoring_check}"
+
+failed_monitoring_check=$(clone_bundle failed-monitoring-check)
+canonical_mutate \
+  "${failed_monitoring_check}/MONITORING-ALERT-TESTS.json" \
+  '.tests[0].result = "FAIL"'
+rebind_monitoring_chain "${failed_monitoring_check}"
+expect_rejected "failed required monitoring check" \
+  "did not prove firing and recovery" \
+  run_cutover_pre "${failed_monitoring_check}"
 
 missing=$(clone_bundle missing-authority)
 mv "${missing}/DARK-START-DECISION.json" \

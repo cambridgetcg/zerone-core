@@ -94,9 +94,11 @@ self-bond and commission profile.
 RELEASE also pins two distinct trusted predecessor node IDs and one exact
 trusted `zerone-1` block height/block ID/AppHash. It hashes the ceremony output,
 the operator-tool manifest, and each component's SBOM, provenance, signature,
-and vulnerability-decision evidence. Those public bytes belong in the
-append-only authority bundle; a source tag, image digest, or genesis hash on its
-own is not sufficient release provenance.
+and vulnerability-decision evidence. It also hashes
+`MONITORING-ALERTS.json`, whose exact transitive inputs are the normalized
+production rules and complete alert-test evidence. Those public bytes belong in
+the append-only authority bundle; a source tag, image digest, genesis hash, or
+unresolved monitoring digest on its own is not sufficient release provenance.
 
 The ceremony emits public artifacts only:
 

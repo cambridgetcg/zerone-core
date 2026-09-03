@@ -41,6 +41,8 @@ The invariant root of every stage contains:
 - `ZERONE-2-ONBOARD-SIGNED-TX.json`;
 - `ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json`;
 - `OPERATOR-TOOL-MANIFEST.json`;
+- `MONITORING-ALERTS.json`, `MONITORING-RULES.json`, and
+  `MONITORING-ALERT-TESTS.json`;
 - `zeroned-zerone-1-release` and `zeroned-zerone-2-release`;
 - `genesis.json`, `genesis.sha256`, `network-manifest.json`, and
   `GENESIS-MANIFEST.md`;
@@ -53,6 +55,18 @@ The release-bound operator-tool manifest covers every verifier, transaction
 gate, deployment gate, renderer, canonicalizer, ceremony/build recipe, and
 artifact auditor used by the launch. A valid release signature is insufficient
 if the locally executed tool bytes do not match that manifest.
+
+`RELEASE-PACKET.json.monitoring_alerts_sha256` hashes the exact canonical
+`MONITORING-ALERTS.json`. That manifest is source/chain/time bound and in turn
+hashes the actual normalized `MONITORING-RULES.json` and the complete
+`MONITORING-ALERT-TESTS.json` bytes. The rules and tests must cover every one of
+stalled height, missed signing, double-sign risk, equal-height AppHash
+divergence, private-peer loss, disk capacity, restart count, stale verified
+backup, gateway wrong-chain, and gateway stale-origin. Every rule must be
+enabled within the verifier's safety bounds. Every alert test must bind distinct
+stimulus, firing, notification-delivery, and resolution evidence and record the
+exact `INACTIVE` → `FIRING` → `RESOLVED` sequence with result `PASS`. A list of
+check names or self-asserted PASS values is not evidence and is rejected.
 
 Each component has six fixed byte-bearing artifacts: SBOM, provenance,
 signature evidence, offline signature bundle, vulnerability scan, and
