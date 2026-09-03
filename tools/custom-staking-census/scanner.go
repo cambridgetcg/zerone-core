@@ -579,17 +579,17 @@ func scanEntireIAVLStore(
 				err,
 			)
 		}
-		if !ics23.VerifyMembership(
-			ics23.IavlSpec,
+		if proofErr := verifyIAVLMembership(
 			committed.rootHash,
 			proof,
 			key,
 			value,
-		) {
+		); proofErr != nil {
 			return storeEvidence{}, fmt.Errorf(
-				"%s IAVL membership proof for key %q does not verify against committed root",
+				"%s IAVL membership proof for key %q does not verify against committed root: %w",
 				name,
 				key,
+				proofErr,
 			)
 		}
 
@@ -621,6 +621,80 @@ func scanEntireIAVLStore(
 		inputBytes: inputBytes,
 		leavesHash: leavesHasher.Sum(nil),
 	}, nil
+}
+
+// verifyIAVLMembership retains the upstream ICS23 verifier for ordinary IAVL
+// leaves. IAVL also permits a non-nil, zero-byte value (used by Cosmos SDK
+// index/sentinel keys), while github.com/cosmos/ics23/go v0.11.0 rejects every
+// zero-byte value before hashing it. For that representable IAVL case only, we
+// validate the generated proof against the exact IAVL spec and calculate the
+// same SHA-256 path without the helper's non-empty-value policy check.
+func verifyIAVLMembership(
+	rootHash []byte,
+	proof *ics23.CommitmentProof,
+	key, value []byte,
+) error {
+	if len(value) != 0 {
+		if !ics23.VerifyMembership(ics23.IavlSpec, rootHash, proof, key, value) {
+			return errors.New("ICS23 verification failed")
+		}
+		return nil
+	}
+
+	existence := proof.GetExist()
+	if existence == nil {
+		return errors.New("empty-value proof is not a direct existence proof")
+	}
+	if err := existence.CheckAgainstSpec(ics23.IavlSpec); err != nil {
+		return fmt.Errorf("empty-value proof violates the IAVL ICS23 spec: %w", err)
+	}
+	if !bytes.Equal(existence.Key, key) {
+		return errors.New("empty-value proof key does not match the traversed key")
+	}
+	if len(existence.Value) != 0 {
+		return errors.New("empty-value proof contains a non-empty value")
+	}
+
+	calculated := calculateEmptyValueIAVLRoot(existence)
+	if !bytes.Equal(calculated, rootHash) {
+		return errors.New("empty-value proof calculated a different root")
+	}
+	return nil
+}
+
+func calculateEmptyValueIAVLRoot(proof *ics23.ExistenceProof) []byte {
+	valueHash := sha256.Sum256(nil)
+	preimage := make(
+		[]byte,
+		0,
+		len(proof.Leaf.Prefix)+binary.MaxVarintLen64+len(proof.Key)+1+sha256.Size,
+	)
+	preimage = append(preimage, proof.Leaf.Prefix...)
+	preimage = appendUvarintBytes(preimage, proof.Key)
+	preimage = appendUvarintBytes(preimage, valueHash[:])
+	currentArray := sha256.Sum256(preimage)
+	current := currentArray[:]
+
+	for _, operation := range proof.Path {
+		preimage = make(
+			[]byte,
+			0,
+			len(operation.Prefix)+len(current)+len(operation.Suffix),
+		)
+		preimage = append(preimage, operation.Prefix...)
+		preimage = append(preimage, current...)
+		preimage = append(preimage, operation.Suffix...)
+		next := sha256.Sum256(preimage)
+		current = next[:]
+	}
+	return bytes.Clone(current)
+}
+
+func appendUvarintBytes(destination, value []byte) []byte {
+	var length [binary.MaxVarintLen64]byte
+	written := binary.PutUvarint(length[:], uint64(len(value)))
+	destination = append(destination, length[:written]...)
+	return append(destination, value...)
 }
 
 func hashLogicalLeaf(hasher hash.Hash, key, value []byte) {

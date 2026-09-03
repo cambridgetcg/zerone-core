@@ -62,13 +62,15 @@ func TestExecuteCensusEndToEndBalancedRootmulti(t *testing.T) {
 	}
 	require.True(t, completedFound)
 
-	require.Len(t, result.Keyspace, 9)
-	wantKeyspaceCounts := []uint64{1, 2, 2, 4, 1, 1, 1, 1, 2}
+	require.Len(t, result.Keyspace, 10)
+	wantKeyspaceCounts := []uint64{1, 2, 2, 4, 1, 1, 1, 1, 2, 1}
 	for index, keyspace := range result.Keyspace {
-		require.Equal(t, "0x0"+string(rune('1'+index)), keyspace.Prefix)
 		require.Equal(t, wantKeyspaceCounts[index], keyspace.LeafCount)
 		require.NotEmpty(t, keyspace.Digest)
 	}
+	require.Equal(t, "0x01", result.Keyspace[0].Prefix)
+	require.Equal(t, "0x09", result.Keyspace[8].Prefix)
+	require.Equal(t, "0x5f6961766c5f696e6974", result.Keyspace[9].Prefix)
 
 	require.Len(t, result.Validators, 1)
 	validator := result.Validators[0]
@@ -88,7 +90,7 @@ func TestExecuteCensusEndToEndBalancedRootmulti(t *testing.T) {
 		require.Len(t, store.RootSHA256, 64)
 		require.Len(t, store.LeavesSHA256, 64)
 	}
-	require.Equal(t, "15", report.Stores[0].LeafCount)
+	require.Equal(t, "16", report.Stores[0].LeafCount)
 	require.Equal(t, "1", report.Stores[1].LeafCount)
 	require.Equal(t, "1", report.Stores[2].LeafCount)
 }

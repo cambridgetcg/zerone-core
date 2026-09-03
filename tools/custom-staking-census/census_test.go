@@ -41,9 +41,12 @@ func TestCensusBalancedStatePassesAndLinksSDKByAddressBytes(t *testing.T) {
 	require.Equal(t, "35", result.LiabilitiesUzrn)
 	require.Equal(t, "0", result.DeltaUzrn)
 	require.Equal(t, uint64(3), result.ClaimCount)
-	require.Len(t, result.Keyspace, 9)
+	require.Len(t, result.Keyspace, 10)
 	require.Equal(t, "0x01", result.Keyspace[0].Prefix)
 	require.Equal(t, "0x09", result.Keyspace[8].Prefix)
+	require.Equal(t, "0x5f6961766c5f696e6974", result.Keyspace[9].Prefix)
+	require.Equal(t, "app_iavl_init_sentinel", result.Keyspace[9].Name)
+	require.Equal(t, uint64(1), result.Keyspace[9].LeafCount)
 	require.NotEmpty(t, result.ClaimantRoot)
 
 	require.Len(t, result.Validators, 1)
@@ -183,6 +186,43 @@ func TestCensusFailsClosedOnCorruptJSONUnknownPrefixAndUnexpectedDenom(t *testin
 	requireFindingCode(t, result, "custom_key_unknown_prefix")
 	requireFindingCode(t, result, "module_balance_unexpected_denom")
 	require.Equal(t, []denominationBalance{{Denom: "ufoo", Amount: "7"}, {Denom: "uzrn", Amount: "35"}}, result.Balances)
+}
+
+func TestCensusAcceptsOnlyTheExactOptionalAppIAVLInitSentinel(t *testing.T) {
+	leaves, _, _ := balancedCensusFixture(t)
+	withoutSentinel := slices.DeleteFunc(slices.Clone(leaves), func(leaf censusFixture) bool {
+		return leaf.store == customStakingStore && bytes.Equal(leaf.key, []byte(appIAVLInitSentinelKey))
+	})
+	withoutResult := runCensusFixture(t, withoutSentinel)
+	require.True(t, withoutResult.Passed)
+	require.Zero(t, withoutResult.Keyspace[9].LeafCount)
+
+	for _, mutation := range []censusFixture{
+		{store: customStakingStore, key: []byte(appIAVLInitSentinelKey), value: []byte{0x02}},
+		{store: customStakingStore, key: []byte(appIAVLInitSentinelKey + "_extra"), value: []byte{0x01}},
+	} {
+		mutated := append(slices.Clone(withoutSentinel), mutation)
+		result := runCensusFixture(t, mutated)
+		require.False(t, result.Passed)
+	}
+	requireFindingCode(
+		t,
+		runCensusFixture(t, append(slices.Clone(withoutSentinel), censusFixture{
+			store: customStakingStore,
+			key:   []byte(appIAVLInitSentinelKey),
+			value: []byte{0x02},
+		})),
+		"app_iavl_init_sentinel_invalid",
+	)
+	requireFindingCode(
+		t,
+		runCensusFixture(t, append(slices.Clone(withoutSentinel), censusFixture{
+			store: customStakingStore,
+			key:   []byte(appIAVLInitSentinelKey + "_extra"),
+			value: []byte{0x01},
+		})),
+		"custom_key_unknown_prefix",
+	)
 }
 
 func TestCensusReconcilesDIDReverseTierAndSequenceIndexesExactly(t *testing.T) {
@@ -364,6 +404,7 @@ func balancedCensusFixture(t *testing.T) ([]censusFixture, string, string) {
 	params := customstakingtypes.DefaultParams()
 
 	leaves := []censusFixture{
+		{store: customStakingStore, key: []byte(appIAVLInitSentinelKey), value: []byte{0x01}},
 		{store: customStakingStore, key: customstakingtypes.ValidatorKey(operator), value: mustJSON(t, validator)},
 		{store: customStakingStore, key: customstakingtypes.DelegationKey(operator, operator), value: mustJSON(t, selfDelegation)},
 		{store: customStakingStore, key: customstakingtypes.DelegationKey(delegator, operator), value: mustJSON(t, otherDelegation)},

@@ -41,7 +41,7 @@ func TestBuildCensusReportIsCanonicalAndSelfVerifying(t *testing.T) {
 	if report.Evidence.Height != "42" || report.Evidence.AppHash != hex.EncodeToString(options.AppHash) {
 		t.Fatalf("unexpected evidence: %+v", report.Evidence)
 	}
-	if len(report.Stores) != len(requiredStoreNames) || report.Stores[0].LeafCount != "14" {
+	if len(report.Stores) != len(requiredStoreNames) || report.Stores[0].LeafCount != "15" {
 		t.Fatalf("unexpected stores: %+v", report.Stores)
 	}
 	if len(report.Multistore) != 4 {

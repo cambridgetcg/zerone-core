@@ -303,6 +303,68 @@ func TestScanEntireIAVLStoreRejectsBadProofAndVisitorFailure(t *testing.T) {
 	require.ErrorContains(t, err, "panic while traversing")
 }
 
+func TestVerifyIAVLMembershipSupportsCommittedEmptyValue(t *testing.T) {
+	tree := iavl.NewMutableTree(
+		iavldb.NewMemDB(),
+		0,
+		true,
+		iavl.NewNopLogger(),
+		iavl.AsyncPruningOption(false),
+	)
+	require.False(t, mustSetScannerLeaf(t, tree, []byte("empty"), []byte{}))
+	require.False(t, mustSetScannerLeaf(t, tree, []byte("ordinary"), []byte("value")))
+	root, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, tree.Close()) })
+
+	emptyProof, err := tree.GetMembershipProof([]byte("empty"))
+	require.NoError(t, err)
+	require.False(t, ics23.VerifyMembership(
+		ics23.IavlSpec,
+		root,
+		emptyProof,
+		[]byte("empty"),
+		[]byte{},
+	), "the upstream helper is known to reject representable empty IAVL values")
+	require.NoError(t, verifyIAVLMembership(root, emptyProof, []byte("empty"), []byte{}))
+	require.ErrorContains(
+		t,
+		verifyIAVLMembership(scannerHashBytes(91), emptyProof, []byte("empty"), []byte{}),
+		"different root",
+	)
+	require.ErrorContains(
+		t,
+		verifyIAVLMembership(root, emptyProof, []byte("wrong"), []byte{}),
+		"key does not match",
+	)
+
+	ordinaryProof, err := tree.GetMembershipProof([]byte("ordinary"))
+	require.NoError(t, err)
+	require.NoError(t, verifyIAVLMembership(
+		root,
+		ordinaryProof,
+		[]byte("ordinary"),
+		[]byte("value"),
+	))
+	require.ErrorContains(t, verifyIAVLMembership(
+		root,
+		ordinaryProof,
+		[]byte("ordinary"),
+		[]byte("tampered"),
+	), "ICS23 verification failed")
+}
+
+func mustSetScannerLeaf(
+	t *testing.T,
+	tree *iavl.MutableTree,
+	key, value []byte,
+) bool {
+	t.Helper()
+	updated, err := tree.Set(key, value)
+	require.NoError(t, err)
+	return updated
+}
+
 func TestScanEntireIAVLStoreEnforcesBounds(t *testing.T) {
 	tree, root := newScannerProofTree(t, [][]byte{[]byte("a")})
 	committed := committedStore{version: tree.Version(), rootHash: root}

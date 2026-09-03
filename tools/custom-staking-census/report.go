@@ -357,13 +357,30 @@ func validateCensusResultForReport(result censusResult, stores []storeEvidence) 
 		return errors.New("census findings are not in deterministic order")
 	}
 
-	if len(result.Keyspace) != 9 {
-		return errors.New("census must contain exactly nine custom-staking keyspace records")
+	if len(result.Keyspace) != customModuleKeyspaceCount+1 {
+		return errors.New("census must contain exactly nine custom-module keyspaces and the app IAVL sentinel class")
 	}
-	wantNames := [...]string{"validators", "delegations", "unbondings", "tier_configs", "params", "did_indexes", "unbonding_sequence", "redelegation_cooldowns", "validator_delegation_indexes"}
+	wantNames := [...]string{
+		"validators",
+		"delegations",
+		"unbondings",
+		"tier_configs",
+		"params",
+		"did_indexes",
+		"unbonding_sequence",
+		"redelegation_cooldowns",
+		"validator_delegation_indexes",
+		"app_iavl_init_sentinel",
+	}
 	var keyspaceLeaves, keyspaceBytes uint64
 	for index, row := range result.Keyspace {
 		wantPrefix := fmt.Sprintf("0x%02x", index+1)
+		if index == customModuleKeyspaceCount {
+			wantPrefix = "0x" + hex.EncodeToString([]byte(appIAVLInitSentinelKey))
+			if row.LeafCount > 1 {
+				return errors.New("census app IAVL sentinel class contains more than one leaf")
+			}
+		}
 		if row.Prefix != wantPrefix || row.Name != wantNames[index] {
 			return fmt.Errorf("census custom keyspace %d is not canonical", index)
 		}

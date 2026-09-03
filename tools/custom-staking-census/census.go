@@ -148,7 +148,7 @@ type census struct {
 	sdkValidators map[string]*parsedSDKValidator
 	balances      map[string]*big.Int
 
-	classLeaves          [9][]leafCommitment
+	classLeaves          [10][]leafCommitment
 	findings             []censusFinding
 	findingSet           map[string]struct{}
 	findingLimitExceeded bool
@@ -156,6 +156,9 @@ type census struct {
 }
 
 const (
+	customModuleKeyspaceCount = 9
+	appIAVLInitSentinelKey    = "_iavl_init"
+
 	maxCensusFindings   = 25_000
 	maxSDKValidatorRows = 25_000
 	maxModuleDenomRows  = 10_000
@@ -217,8 +220,23 @@ func (c *census) ingestCustomStaking(key, value []byte) {
 		c.addFinding("custom_key_empty", display, "custom staking key is empty")
 		return
 	}
+	if bytes.Equal(key, []byte(appIAVLInitSentinelKey)) {
+		if !bytes.Equal(value, []byte{0x01}) {
+			c.addFinding(
+				"app_iavl_init_sentinel_invalid",
+				display,
+				"app IAVL initialization sentinel must contain exactly 0x01",
+			)
+			return
+		}
+		c.classLeaves[customModuleKeyspaceCount] = append(
+			c.classLeaves[customModuleKeyspaceCount],
+			newLeafCommitment(key, value),
+		)
+		return
+	}
 	prefix := int(key[0])
-	if prefix < 1 || prefix > len(c.classLeaves) {
+	if prefix < 1 || prefix > customModuleKeyspaceCount {
 		c.addFinding("custom_key_unknown_prefix", display, fmt.Sprintf("unknown custom staking prefix 0x%02x", key[0]))
 		return
 	}
@@ -958,7 +976,18 @@ func mustModuleAddress() string {
 }
 
 func (c *census) keyspaceResult() []keyspaceClass {
-	names := [...]string{"validators", "delegations", "unbondings", "tier_configs", "params", "did_indexes", "unbonding_sequence", "redelegation_cooldowns", "validator_delegation_indexes"}
+	names := [...]string{
+		"validators",
+		"delegations",
+		"unbondings",
+		"tier_configs",
+		"params",
+		"did_indexes",
+		"unbonding_sequence",
+		"redelegation_cooldowns",
+		"validator_delegation_indexes",
+		"app_iavl_init_sentinel",
+	}
 	result := make([]keyspaceClass, 0, len(names))
 	for index, name := range names {
 		leaves := append([]leafCommitment(nil), c.classLeaves[index]...)
@@ -970,7 +999,13 @@ func (c *census) keyspaceResult() []keyspaceClass {
 		})
 		h := sha256.New()
 		writeHashField(h, []byte("zerone/custom-staking-census/key-class/v1"))
-		_, _ = h.Write([]byte{byte(index + 1)})
+		prefix := fmt.Sprintf("0x%02x", index+1)
+		if index == customModuleKeyspaceCount {
+			prefix = "0x" + hex.EncodeToString([]byte(appIAVLInitSentinelKey))
+			writeHashField(h, []byte(appIAVLInitSentinelKey))
+		} else {
+			_, _ = h.Write([]byte{byte(index + 1)})
+		}
 		var count [8]byte
 		binary.BigEndian.PutUint64(count[:], uint64(len(leaves)))
 		_, _ = h.Write(count[:])
@@ -980,7 +1015,7 @@ func (c *census) keyspaceResult() []keyspaceClass {
 			inputBytes += leaf.inputSize
 		}
 		result = append(result, keyspaceClass{
-			Prefix: fmt.Sprintf("0x%02x", index+1), Name: name, LeafCount: uint64(len(leaves)),
+			Prefix: prefix, Name: name, LeafCount: uint64(len(leaves)),
 			InputBytes: inputBytes, Digest: hex.EncodeToString(h.Sum(nil)),
 		})
 	}
