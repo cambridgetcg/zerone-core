@@ -16,6 +16,21 @@ export interface GenesisState {
   params?: Params;
   accounts: Account[];
   didMappings: DIDMapping[];
+  /**
+   * Last successful operational-key rotation per account. Exporting this
+   * preserves cooldown semantics across export/import and fork recovery.
+   */
+  lastKeyRotations: KeyRotationRecord[];
+}
+/**
+ * KeyRotationRecord preserves the cooldown anchor for one account.
+ * @name KeyRotationRecord
+ * @package zerone.auth.v1
+ * @see proto type: zerone.auth.v1.KeyRotationRecord
+ */
+export interface KeyRotationRecord {
+  address: string;
+  height: bigint;
 }
 /**
  * Params defines the auth module parameters.
@@ -43,7 +58,8 @@ function createBaseGenesisState(): GenesisState {
   return {
     params: undefined,
     accounts: [],
-    didMappings: []
+    didMappings: [],
+    lastKeyRotations: []
   };
 }
 /**
@@ -68,6 +84,9 @@ export const GenesisState = {
     for (const v of message.didMappings) {
       DIDMapping.encode(v!, writer.uint32(26).fork()).ldelim();
     }
+    for (const v of message.lastKeyRotations) {
+      KeyRotationRecord.encode(v!, writer.uint32(50).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -86,6 +105,9 @@ export const GenesisState = {
         case 3:
           message.didMappings.push(DIDMapping.decode(reader, reader.uint32()));
           break;
+        case 6:
+          message.lastKeyRotations.push(KeyRotationRecord.decode(reader, reader.uint32()));
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -98,6 +120,57 @@ export const GenesisState = {
     message.params = object.params !== undefined && object.params !== null ? Params.fromPartial(object.params) : undefined;
     message.accounts = object.accounts?.map(e => Account.fromPartial(e)) || [];
     message.didMappings = object.didMappings?.map(e => DIDMapping.fromPartial(e)) || [];
+    message.lastKeyRotations = object.lastKeyRotations?.map(e => KeyRotationRecord.fromPartial(e)) || [];
+    return message;
+  }
+};
+function createBaseKeyRotationRecord(): KeyRotationRecord {
+  return {
+    address: "",
+    height: BigInt(0)
+  };
+}
+/**
+ * KeyRotationRecord preserves the cooldown anchor for one account.
+ * @name KeyRotationRecord
+ * @package zerone.auth.v1
+ * @see proto type: zerone.auth.v1.KeyRotationRecord
+ */
+export const KeyRotationRecord = {
+  typeUrl: "/zerone.auth.v1.KeyRotationRecord",
+  encode(message: KeyRotationRecord, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.address !== "") {
+      writer.uint32(10).string(message.address);
+    }
+    if (message.height !== BigInt(0)) {
+      writer.uint32(16).uint64(message.height);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): KeyRotationRecord {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseKeyRotationRecord();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.address = reader.string();
+          break;
+        case 2:
+          message.height = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<KeyRotationRecord>): KeyRotationRecord {
+    const message = createBaseKeyRotationRecord();
+    message.address = object.address ?? "";
+    message.height = object.height !== undefined && object.height !== null ? BigInt(object.height.toString()) : BigInt(0);
     return message;
   }
 };

@@ -118,16 +118,6 @@ func (m mockStakingKeeperForEmergency) GetGuardianValidators(_ context.Context) 
 	return nil, nil
 }
 
-type mockCosmosAccountKeeperForAuth struct{}
-
-func (m mockCosmosAccountKeeperForAuth) GetAccount(_ context.Context, _ sdk.AccAddress) sdk.AccountI {
-	return nil
-}
-func (m mockCosmosAccountKeeperForAuth) SetAccount(_ context.Context, _ sdk.AccountI) {}
-func (m mockCosmosAccountKeeperForAuth) NewAccountWithAddress(_ context.Context, _ sdk.AccAddress) sdk.AccountI {
-	return nil
-}
-
 type mockBankKeeperForAnte struct{}
 
 func (m mockBankKeeperForAnte) GetBalance(_ context.Context, _ sdk.AccAddress, _ string) sdk.Coin {
@@ -179,7 +169,6 @@ func setupAuthKeeper(t *testing.T, stateStore store.CommitMultiStore) (zeroneaut
 	k := zeroneauthkeeper.NewKeeper(
 		cdc,
 		runtime.NewKVStoreService(storeKey),
-		mockCosmosAccountKeeperForAuth{},
 		"authority",
 	)
 	return k, storeKey
@@ -1096,13 +1085,14 @@ func TestAnteIntegration_DIDResolutionFromMemo(t *testing.T) {
 	addr := sdk.AccAddress(key.PubKey().Address())
 	pubKeyHex := hex.EncodeToString(key.PubKey().Bytes())
 
-	// Create a DID from the first 32 hex chars of the pubkey
-	did := "did:zrn:" + pubKeyHex[:32]
+	// Create the canonical self-certifying DID from the full public key.
+	did := "did:zrn:" + pubKeyHex
 
 	// Register the DID mapping
 	ak.SetDIDMapping(ctx, &zeroneauthtypes.DIDMapping{
 		Did:    did,
 		Bech32: addr.String(),
+		PubKey: pubKeyHex,
 	})
 
 	decorator := NewZeroneDIDDecorator(ak)

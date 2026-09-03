@@ -15,6 +15,12 @@ export interface MsgRegisterAccount {
   accountType: string;
   operationalKeyHash: string;
   metadata: string;
+  /**
+   * Ed25519 signature by public_key over the canonical, domain-separated
+   * registration proof bytes. This proves that the transaction signer
+   * controls the independently stored identity/initial operational key.
+   */
+  identityProofSignature: Uint8Array;
 }
 /**
  * @name MsgRegisterAccountResponse
@@ -23,7 +29,12 @@ export interface MsgRegisterAccount {
  */
 export interface MsgRegisterAccountResponse {}
 /**
- * MsgRotateKey rotates the operational key for an account.
+ * MsgRotateKey rotates the independent Ed25519 operational key for an account.
+ * The normal TxRaw signature authenticates sender. authorization_signature is
+ * an additional Ed25519 signature by the current operational key over Zerone's
+ * domain-separated rotation authorization bytes. authorization_expires_at_unix
+ * is consensus-checked against the containing block time and is part of those
+ * signed bytes.
  * @name MsgRotateKey
  * @package zerone.auth.v1
  * @see proto type: zerone.auth.v1.MsgRotateKey
@@ -32,6 +43,13 @@ export interface MsgRotateKey {
   sender: string;
   newOperationalKey: Uint8Array;
   authorizationSignature: Uint8Array;
+  authorizationExpiresAtUnix: bigint;
+  /**
+   * Ed25519 signature by new_operational_key over the separately
+   * domain-separated key-acceptance bytes. The current-key authorization and
+   * new-key confirmation are both required.
+   */
+  newKeyConfirmationSignature: Uint8Array;
 }
 /**
  * @name MsgRotateKeyResponse
@@ -97,7 +115,8 @@ function createBaseMsgRegisterAccount(): MsgRegisterAccount {
     publicKey: "",
     accountType: "",
     operationalKeyHash: "",
-    metadata: ""
+    metadata: "",
+    identityProofSignature: new Uint8Array()
   };
 }
 /**
@@ -127,6 +146,9 @@ export const MsgRegisterAccount = {
     if (message.metadata !== "") {
       writer.uint32(50).string(message.metadata);
     }
+    if (message.identityProofSignature.length !== 0) {
+      writer.uint32(58).bytes(message.identityProofSignature);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): MsgRegisterAccount {
@@ -154,6 +176,9 @@ export const MsgRegisterAccount = {
         case 6:
           message.metadata = reader.string();
           break;
+        case 7:
+          message.identityProofSignature = reader.bytes();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -169,6 +194,7 @@ export const MsgRegisterAccount = {
     message.accountType = object.accountType ?? "";
     message.operationalKeyHash = object.operationalKeyHash ?? "";
     message.metadata = object.metadata ?? "";
+    message.identityProofSignature = object.identityProofSignature ?? new Uint8Array();
     return message;
   }
 };
@@ -208,11 +234,18 @@ function createBaseMsgRotateKey(): MsgRotateKey {
   return {
     sender: "",
     newOperationalKey: new Uint8Array(),
-    authorizationSignature: new Uint8Array()
+    authorizationSignature: new Uint8Array(),
+    authorizationExpiresAtUnix: BigInt(0),
+    newKeyConfirmationSignature: new Uint8Array()
   };
 }
 /**
- * MsgRotateKey rotates the operational key for an account.
+ * MsgRotateKey rotates the independent Ed25519 operational key for an account.
+ * The normal TxRaw signature authenticates sender. authorization_signature is
+ * an additional Ed25519 signature by the current operational key over Zerone's
+ * domain-separated rotation authorization bytes. authorization_expires_at_unix
+ * is consensus-checked against the containing block time and is part of those
+ * signed bytes.
  * @name MsgRotateKey
  * @package zerone.auth.v1
  * @see proto type: zerone.auth.v1.MsgRotateKey
@@ -228,6 +261,12 @@ export const MsgRotateKey = {
     }
     if (message.authorizationSignature.length !== 0) {
       writer.uint32(26).bytes(message.authorizationSignature);
+    }
+    if (message.authorizationExpiresAtUnix !== BigInt(0)) {
+      writer.uint32(32).int64(message.authorizationExpiresAtUnix);
+    }
+    if (message.newKeyConfirmationSignature.length !== 0) {
+      writer.uint32(42).bytes(message.newKeyConfirmationSignature);
     }
     return writer;
   },
@@ -247,6 +286,12 @@ export const MsgRotateKey = {
         case 3:
           message.authorizationSignature = reader.bytes();
           break;
+        case 4:
+          message.authorizationExpiresAtUnix = reader.int64();
+          break;
+        case 5:
+          message.newKeyConfirmationSignature = reader.bytes();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -259,6 +304,8 @@ export const MsgRotateKey = {
     message.sender = object.sender ?? "";
     message.newOperationalKey = object.newOperationalKey ?? new Uint8Array();
     message.authorizationSignature = object.authorizationSignature ?? new Uint8Array();
+    message.authorizationExpiresAtUnix = object.authorizationExpiresAtUnix !== undefined && object.authorizationExpiresAtUnix !== null ? BigInt(object.authorizationExpiresAtUnix.toString()) : BigInt(0);
+    message.newKeyConfirmationSignature = object.newKeyConfirmationSignature ?? new Uint8Array();
     return message;
   }
 };

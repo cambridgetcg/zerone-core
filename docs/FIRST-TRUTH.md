@@ -145,9 +145,16 @@ The whole ceremony is one parameterized script: `scripts/first-truth-ceremony.sh
 (register → claim → commit/reveal → accept → escrow). Read it; it is short.
 What the docs won't tell you but the drills did (the manual path, still true):
 
-- Everyone — verifiers included — must `zerone_auth register-account` first
-  (ed25519 identity key, `did:zrn:<pubkey-hex>`; keep the private key, it is
-  your rotation anchor).
+- Everyone — verifiers included — must register first. For the source-prepared
+  `zerone-2` release, prefer `zerone_auth onboard`; the manual
+  `register-account` form takes DID, public key, account type, and an Ed25519
+  identity-proof signature over the bytes emitted by
+  `registration-sign-bytes`. This proof-bearing wire form is not a claim that
+  the currently deployed `zerone-1` binary has already changed.
+- Keep the identity private key: it is also the initial operational key. After
+  each rotation, securely retain and back up the newly current operational
+  private key; the original identity seed alone cannot authorize another
+  rotation, and on-chain social recovery is not implemented.
 - Verifiers need **≥100 ZRN spendable at commit time** (hardcoded); fund to
   100.5+, fees deduct before the gate is checked.
 - The commit preimage is `ZRN.commit.v1:<round_id>:<vote>:0:<salt_hex>` —

@@ -43,16 +43,30 @@ message MsgRegisterAccount {
   string account_type = 4;
   string operational_key_hash = 5;
   string metadata = 6;
+  // Ed25519 signature by public_key over the canonical, domain-separated
+  // registration proof bytes. This proves that the transaction signer
+  // controls the independently stored identity/initial operational key.
+  bytes identity_proof_signature = 7;
 }
 
 message MsgRegisterAccountResponse {}
 
-// MsgRotateKey rotates the operational key for an account.
+// MsgRotateKey rotates the independent Ed25519 operational key for an account.
+// The normal TxRaw signature authenticates sender. authorization_signature is
+// an additional Ed25519 signature by the current operational key over Zerone's
+// domain-separated rotation authorization bytes. authorization_expires_at_unix
+// is consensus-checked against the containing block time and is part of those
+// signed bytes.
 message MsgRotateKey {
   option (cosmos.msg.v1.signer) = "sender";
   string sender = 1;
   bytes new_operational_key = 2;
   bytes authorization_signature = 3;
+  int64 authorization_expires_at_unix = 4;
+  // Ed25519 signature by new_operational_key over the separately
+  // domain-separated key-acceptance bytes. The current-key authorization and
+  // new-key confirmation are both required.
+  bytes new_key_confirmation_signature = 5;
 }
 
 message MsgRotateKeyResponse {

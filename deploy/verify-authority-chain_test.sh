@@ -217,6 +217,14 @@ clone_bundle() {
   printf '%s\n' "${destination}"
 }
 
+make_dark_pre_bundle() {
+  local name=$1 destination
+  destination=$(clone_bundle "${name}")
+  canonical_mutate "${destination}/DARK-START-DECISION.json" \
+    '.authorization_semantics.initiation_deadline = "2099-07-10T11:00:00Z"'
+  printf '%s\n' "${destination}"
+}
+
 rebind_frozen_source_chain() {
   local bundle=$1
   local signer_manifest_sha observer_manifest_sha transition_sha adoption_sha
@@ -548,8 +556,22 @@ else:
     raise SystemExit("claimant root did not fail closed on invalid UTF-8")
 PY
 
+run_dark_pre() {
+  local bundle=$1 tool_root=${2:-${ROOT}} config_policy=${3:-${POLICY}}
+  PATH="${TMP}/bin:${PATH}" \
+    FAKE_GPG_MAIN_FINGERPRINT="${MAIN_FINGERPRINT}" \
+    FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
+    FAKE_GPG_FUTURE_SIGNATURE="${FAKE_GPG_FUTURE_SIGNATURE:-}" \
+    "${VERIFY}" dark-preinit "${bundle}" "${MAIN_FINGERPRINT}" \
+      --release "${bundle}/RELEASE-PACKET.json" \
+      --release-sig "${bundle}/RELEASE-PACKET.json.sig" \
+      --decision "${bundle}/DARK-START-DECISION.json" \
+      --decision-sig "${bundle}/DARK-START-DECISION.json.sig" \
+      --config-policy "${config_policy}" --tool-root "${tool_root}"
+}
+
 run_cutover_pre() {
-  local bundle=$1 tool_root=${2:-${ROOT}}
+  local bundle=$1 tool_root=${2:-${ROOT}} config_policy=${3:-${POLICY}}
   PATH="${TMP}/bin:${PATH}" \
     FAKE_GPG_MAIN_FINGERPRINT="${MAIN_FINGERPRINT}" \
     FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
@@ -559,7 +581,7 @@ run_cutover_pre() {
       --release-sig "${bundle}/RELEASE-PACKET.json.sig" \
       --decision "${bundle}/CUTOVER-DECISION.json" \
       --decision-sig "${bundle}/CUTOVER-DECISION.json.sig" \
-      --config-policy "${POLICY}" --tool-root "${tool_root}"
+      --config-policy "${config_policy}" --tool-root "${tool_root}"
 }
 
 run_dark_registration() {
@@ -597,6 +619,7 @@ run_cutover_post() {
 
 run_open() {
   local stage=$1 bundle=$2 tool_root=${3:-${ROOT}}
+  local final_template=${4:-${FINAL_TEMPLATE}}
   local args=(
     "${VERIFY}" "${stage}" "${bundle}"
     "${MAIN_FINGERPRINT}" "${TRANSITION_FINGERPRINT}"
@@ -606,7 +629,7 @@ run_open() {
     --decision-sig "${bundle}/OPEN-BETA-DECISION.json.sig"
     --final "${bundle}/FINAL-CHECKPOINT.json"
     --final-sig "${bundle}/FINAL-CHECKPOINT.json.sig"
-    --final-template "${FINAL_TEMPLATE}"
+    --final-template "${final_template}"
     --open-template "${OPEN_TEMPLATE}"
     --adoption-template "${ADOPTION_TEMPLATE}"
     --config-policy "${POLICY}"
@@ -634,11 +657,27 @@ run_open_post() {
   run_open open-postinit "$1"
 }
 
+dark_pre_bundle=$(make_dark_pre_bundle dark-preinit)
+mv "${dark_pre_bundle}/DARK-START-INITIATION-EVIDENCE.json" \
+  "${dark_pre_bundle}/DARK-START-INITIATION-EVIDENCE.json.not-created"
+mv "${dark_pre_bundle}/DARK-START-INITIATION-EVIDENCE.json.sig" \
+  "${dark_pre_bundle}/DARK-START-INITIATION-EVIDENCE.json.sig.not-created"
+run_dark_pre "${dark_pre_bundle}" >/dev/null
+expect_rejected "expired DARK pre-init authority" \
+  "DARK-START initiation deadline has passed" \
+  run_dark_pre "${BASE_BUNDLE}"
 run_dark_registration "${BASE_BUNDLE}" >/dev/null
 run_cutover_pre "${BASE_BUNDLE}" >/dev/null
 run_cutover_post "${BASE_BUNDLE}" >/dev/null
 run_open_pre "${BASE_BUNDLE}" >/dev/null
 run_open_post "${BASE_BUNDLE}" >/dev/null
+
+missing_dark_sigstore=$(make_dark_pre_bundle dark-preinit-missing-sigstore)
+mv "${missing_dark_sigstore}/SIGSTORE-TRUSTED-ROOT.json" \
+  "${missing_dark_sigstore}/SIGSTORE-TRUSTED-ROOT.json.missing"
+expect_rejected "DARK pre-init missing Sigstore trusted root" \
+  "could not open bundle file SIGSTORE-TRUSTED-ROOT.json" \
+  run_dark_pre "${missing_dark_sigstore}"
 
 missing_monitoring=$(clone_bundle missing-monitoring)
 mv "${missing_monitoring}/MONITORING-ALERTS.json" \
@@ -855,6 +894,22 @@ expect_rejected "malformed trusted predecessor anchor" \
   "predecessor trusted AppHash is not an exact uppercase SHA-256" \
   run_cutover_pre "${trusted_anchor}"
 
+duplicate_component_digest=$(clone_bundle duplicate-component-digest)
+halt_ref=$(jq -er '.components.zerone_1_halt.image_ref' \
+  "${duplicate_component_digest}/RELEASE-PACKET.json")
+canonical_mutate "${duplicate_component_digest}/RELEASE-PACKET.json" \
+  '.components.zerone_2_runtime.image_ref = $halt' --arg halt "${halt_ref}"
+expect_rejected "duplicate component image digest" \
+  "component image digests must be pairwise distinct" \
+  run_cutover_pre "${duplicate_component_digest}"
+
+invalid_identity_proof=$(clone_bundle invalid-onboarding-identity-proof)
+canonical_mutate "${invalid_identity_proof}/DARK-START-DECISION.json" \
+  '.private_bootstrap_transactions.operator_onboarding.identity_proof_signature = "AA=="'
+expect_rejected "malformed onboarding identity proof" \
+  "identity proof is not one canonical 64-byte signature" \
+  run_dark_registration "${invalid_identity_proof}"
+
 provenance=$(clone_bundle provenance-artifact)
 canonical_mutate "${provenance}/ZERONE-2-RUNTIME-PROVENANCE.json" \
   '.subject.image_digest = ("sha256:" + ("9" * 64))'
@@ -896,6 +951,76 @@ canonical_mutate "${certificate_issuer}/RELEASE-PACKET.json" \
 expect_rejected "non-canonical component certificate issuer" \
   "image signature evidence is incomplete or mismatched" \
   run_cutover_pre "${certificate_issuer}"
+
+component_signature=$(make_dark_pre_bundle component-cryptographic-signature)
+bad_component_signature=$(printf 'x%.0s' {1..80} | base64 | tr -d '\r\n')
+canonical_mutate \
+  "${component_signature}/ZERONE-2-RUNTIME-SIGNATURE-BUNDLE.json" \
+  '.messageSignature.signature = $signature' \
+  --arg signature "${bad_component_signature}"
+component_bundle_sha=$(sha256_file \
+  "${component_signature}/ZERONE-2-RUNTIME-SIGNATURE-BUNDLE.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate \
+  "${component_signature}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json" \
+  '.bundle_sha256 = $sha' --arg sha "${component_bundle_sha}"
+component_evidence_sha=$(sha256_file \
+  "${component_signature}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${component_signature}/RELEASE-PACKET.json" \
+  '.components.zerone_2_runtime.signature_sha256 = $sha' \
+  --arg sha "${component_evidence_sha}"
+expect_rejected "invalid component cryptographic signature" \
+  "Sigstore cryptographic verification failed" \
+  run_dark_pre "${component_signature}"
+
+component_signing_time=$(clone_bundle component-signing-time)
+canonical_mutate \
+  "${component_signing_time}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json" \
+  '.signed_at = "2026-07-10T09:11:59Z"'
+component_time_evidence_sha=$(sha256_file \
+  "${component_signing_time}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${component_signing_time}/RELEASE-PACKET.json" \
+  '.components.zerone_2_runtime.signature_sha256 = $sha' \
+  --arg sha "${component_time_evidence_sha}"
+expect_rejected "unauthenticated component signing time" \
+  "signed_at is not an authenticated observer time" \
+  run_cutover_pre "${component_signing_time}"
+
+trusted_root_drift=$(make_dark_pre_bundle sigstore-trusted-root-drift)
+printf ' \n' >> "${trusted_root_drift}/SIGSTORE-TRUSTED-ROOT.json"
+expect_rejected "Sigstore trusted-root drift" \
+  "bundled Sigstore trusted root bytes differ" \
+  run_dark_pre "${trusted_root_drift}"
+
+component_verifier_drift=$(make_dark_pre_bundle component-verifier-drift)
+printf '\n# drift\n' >> \
+  "${component_verifier_drift}/zerone-component-signature-verifier"
+expect_rejected "component verifier drift" \
+  "bundled component-signature verifier bytes differ" \
+  run_dark_pre "${component_verifier_drift}"
+
+wrong_source_digest=$(clone_bundle component-verifier-wrong-source-digest)
+sed \
+  's/"source_repository_digest": args.source_repository_digest/"source_repository_digest": "2" * 40/' \
+  "${wrong_source_digest}/zerone-component-signature-verifier" \
+  > "${wrong_source_digest}/zerone-component-signature-verifier.new"
+mv "${wrong_source_digest}/zerone-component-signature-verifier.new" \
+  "${wrong_source_digest}/zerone-component-signature-verifier"
+chmod 0700 "${wrong_source_digest}/zerone-component-signature-verifier"
+wrong_verifier_sha=$(sha256_file \
+  "${wrong_source_digest}/zerone-component-signature-verifier")
+canonical_mutate "${wrong_source_digest}/OPERATOR-TOOL-MANIFEST.json" \
+  '.authority_bundle.component_signature_verifier.sha256 = $sha' \
+  --arg sha "${wrong_verifier_sha}"
+wrong_manifest_sha=$(sha256_file \
+  "${wrong_source_digest}/OPERATOR-TOOL-MANIFEST.json")
+canonical_mutate "${wrong_source_digest}/RELEASE-PACKET.json" \
+  '.operator_tool_manifest_sha256 = $sha' --arg sha "${wrong_manifest_sha}"
+expect_rejected "component certificate source-commit drift" \
+  "component-signature verifier result is inconsistent" \
+  run_cutover_pre "${wrong_source_digest}"
 
 registration=$(clone_bundle registration-evidence)
 canonical_mutate "${registration}/DARK-REGISTRATION-EVIDENCE.json" \
@@ -1363,7 +1488,52 @@ done < <(jq -r '.files | keys[]' \
   "${BASE_BUNDLE}/OPERATOR-TOOL-MANIFEST.json")
 printf '\n# fixture drift\n' >> "${tool_root}/deploy/validate-fly-phase-config.py"
 expect_rejected "operator tool drift" "operator tool bytes drifted" \
-  run_cutover_pre "${BASE_BUNDLE}" "${tool_root}"
+  run_dark_pre "${dark_pre_bundle}" "${tool_root}"
+
+explicit_policy="${TMP}/drifted-explicit-policy.py"
+cp "${POLICY}" "${explicit_policy}"
+printf '\n# explicit fixture drift\n' >> "${explicit_policy}"
+expect_rejected "explicit config policy drift" \
+  "explicit structural config policy differs from RELEASE" \
+  run_cutover_pre "${BASE_BUNDLE}" "${ROOT}" "${explicit_policy}"
+
+explicit_final_template="${TMP}/drifted-final-template.json"
+cp "${FINAL_TEMPLATE}" "${explicit_final_template}"
+printf ' \n' >> "${explicit_final_template}"
+expect_rejected "explicit FINAL template drift" \
+  "explicit FINAL template differs from RELEASE" \
+  run_open open-preinit "${BASE_BUNDLE}" "${ROOT}" \
+    "${explicit_final_template}"
+
+boolean_component_threshold=$(clone_bundle boolean-component-threshold)
+canonical_mutate \
+  "${boolean_component_threshold}/OPERATOR-TOOL-MANIFEST.json" \
+  '.component_signature_policy.minimum_observer_timestamps = true'
+boolean_threshold_manifest_sha=$(sha256_file \
+  "${boolean_component_threshold}/OPERATOR-TOOL-MANIFEST.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${boolean_component_threshold}/RELEASE-PACKET.json" \
+  '.operator_tool_manifest_sha256 = $sha' \
+  --arg sha "${boolean_threshold_manifest_sha}"
+expect_rejected "boolean component-signature threshold" \
+  "component-signature policy thresholds must be exact integers" \
+  run_cutover_pre "${boolean_component_threshold}"
+
+float_component_threshold=$(clone_bundle float-component-threshold)
+sed 's/"minimum_observer_timestamps":1/"minimum_observer_timestamps":1.0/' \
+  "${float_component_threshold}/OPERATOR-TOOL-MANIFEST.json" \
+  > "${float_component_threshold}/OPERATOR-TOOL-MANIFEST.json.new"
+mv "${float_component_threshold}/OPERATOR-TOOL-MANIFEST.json.new" \
+  "${float_component_threshold}/OPERATOR-TOOL-MANIFEST.json"
+float_threshold_manifest_sha=$(sha256_file \
+  "${float_component_threshold}/OPERATOR-TOOL-MANIFEST.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${float_component_threshold}/RELEASE-PACKET.json" \
+  '.operator_tool_manifest_sha256 = $sha' \
+  --arg sha "${float_threshold_manifest_sha}"
+expect_rejected "floating-point component-signature threshold" \
+  "component-signature policy thresholds must be exact integers" \
+  run_cutover_pre "${float_component_threshold}"
 
 upstream=$(clone_bundle upstream-config)
 sed 's/zerone-2-edge\.internal/attacker.internal/g' \

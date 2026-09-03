@@ -1,11 +1,11 @@
 # Authority bundle contract
 
-> **Current source limitation — deployment NO-GO.** The verifier checks the
-> component signature bundle's declared shape, identity, issuer, and digest,
-> but does not yet perform cryptographic Sigstore verification against trusted
-> Fulcio/Rekor material. Repository CI also does not request GitHub OIDC or
-> produce these component signatures. The fixture bundle is only a structural
-> rehearsal; do not treat a passing fixture-shaped check as image provenance.
+> **Current artifact state — deployment NO-GO.** Source now performs offline
+> cryptographic Sigstore verification and CI contains a protected manual OIDC
+> signing job. The three real image bundles, reviewed frozen trusted root,
+> hash-pinned verifier binary, and real signed authority/evidence graph do not
+> exist merely because those paths compile. A fixture bundle remains a rehearsal
+> and is never production image provenance.
 
 The production authority bundle is an append-only directory of public release,
 signed authority, transaction, configuration, and evidence bytes. It contains
@@ -14,18 +14,22 @@ Every production gate snapshots the files it needs, rejects symlinks, verifies
 the exact signed graph, and fails if a required byte or release-bound operator
 tool has changed.
 
-`deploy/verify-authority-chain.py` exposes five monotonically stronger stages:
+`deploy/verify-authority-chain.py` exposes six monotonically stronger stages:
 
-1. `dark-registration-preinit` verifies RELEASE, DARK-START and block-1
+1. `dark-preinit` verifies RELEASE, DARK-START, both exact private bootstrap
+   transactions, the complete monitoring package, release-bound operator
+   tools, and every component's offline Sigstore signature against the frozen
+   trusted root before private block 1 may start.
+2. `dark-registration-preinit` adds block-1
    initiation evidence before either exact private bootstrap transaction.
-2. `cutover-preinit` adds ordered registration evidence, private soak, halt
+3. `cutover-preinit` adds ordered registration evidence, private soak, halt
    rehearsal, public notice, halt configs, and the CUTOVER transaction/decision.
-3. `cutover-postinit` additionally requires the signed evidence that the exact
+4. `cutover-postinit` additionally requires the signed evidence that the exact
    CUTOVER TxRaw committed successfully and before its deadline.
-4. `open-preinit` adds the complete frozen predecessor evidence, deterministic
+5. `open-preinit` adds the complete frozen predecessor evidence, deterministic
    archive adoption, FINAL checkpoint, successor revalidation, public configs,
    DNS manifest, and the exact OPEN history-link transaction.
-5. `open-postinit` additionally requires the signed evidence that the exact
+6. `open-postinit` additionally requires the signed evidence that the exact
    history-link TxRaw committed successfully and before its deadline.
 
 Passing a later stage implies successful revalidation of every earlier stage.
@@ -37,7 +41,6 @@ The invariant root of every stage contains:
 
 - `RELEASE-PACKET.json` and `.sig`;
 - `DARK-START-DECISION.json` and `.sig`;
-- `DARK-START-INITIATION-EVIDENCE.json` and `.sig`;
 - `ZERONE-2-ONBOARD-SIGNED-TX.json`;
 - `ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json`;
 - `OPERATOR-TOOL-MANIFEST.json`;
@@ -47,6 +50,8 @@ The invariant root of every stage contains:
   `MONITORING-ALERT-TESTS.json`;
 - the 40 non-empty raw alert-test evidence files named by the fixed monitoring
   evidence convention below;
+- `zerone-component-signature-verifier` and
+  `SIGSTORE-TRUSTED-ROOT.json`;
 - `zeroned-zerone-1-release` and `zeroned-zerone-2-release`;
 - `genesis.json`, `genesis.sha256`, `network-manifest.json`, and
   `GENESIS-MANIFEST.md`;
@@ -55,12 +60,20 @@ The invariant root of every stage contains:
   vulnerability scan, and signed vulnerability decision files named by the
   release packet.
 
-The release-bound operator-tool manifest covers every verifier, transaction
+Every stage after `dark-preinit` additionally requires
+`DARK-START-INITIATION-EVIDENCE.json` and `.sig`. Thus the first deployment
+gate can authenticate the full release and supply chain before block 1 exists,
+while every later stage preserves and revalidates the signed block-1 evidence.
+
+The release-bound v2 operator-tool manifest covers every verifier, transaction
 gate, deployment gate, renderer, the archive-gateway render template, the
 custom-staking census evidence runner, canonicalizer, ceremony/build recipe,
-and artifact auditor used by the launch.
-A valid release signature is insufficient if the locally executed tool bytes
-do not match that manifest.
+and artifact auditor used by the launch. It also hashes the exact executable
+component-signature verifier and frozen Sigstore trusted root in the authority
+bundle and fixes the accepted issuer, workflow SAN, bundle media type, SCT,
+Fulcio source-commit claim, transparency-log, and observer-time thresholds. A
+valid release signature is insufficient if any locally executed tool,
+workflow, template, policy, or trust-root byte differs.
 
 `RELEASE-PACKET.json.monitoring_alerts_sha256` hashes the exact canonical
 `MONITORING-ALERTS.json`. That manifest is source/chain/time bound and in turn
@@ -106,6 +119,74 @@ provenance, signature evidence, and vulnerability decision; those files in
 turn bind the exact signature bundle and scan bytes. Provenance must repeat the
 signed source commit/tag, immutable image digest, build-recipe hash, and binary
 hash where the component contains `zeroned`.
+
+Component signature acceptance is cryptographic, not structural. After the
+OpenPGP RELEASE signature authenticates the verifier and trusted-root hashes,
+the authority verifier invokes that exact local executable once per component.
+It requires a v0.3 Sigstore `messageSignature`, exact GitHub Actions issuer/SAN
+and Fulcio source-repository commit, one valid certificate SCT, an inclusion
+proof on every supplied Rekor entry, at least one trusted Rekor entry, and one
+signed observer timestamp. The evidence file's `signed_at` must equal a
+verified Rekor v1 integrated time or RFC 3161 TSA countersignature time. No
+network, ambient TUF state, or workstation-current-time fallback participates
+in that decision.
+
+The GitHub Actions `CI` workflow exposes `sign_release_components` only through
+manual dispatch on current `main`. Its `zerone-production-signing` environment
+must exist before the first dispatch, have required reviewers, and define the
+environment-level variable `ZERONE_PRODUCTION_SIGNING_POLICY` with the exact
+value `required-reviewers-v1`. The same environment must define three exact
+full digest references under
+`ZERONE_PRODUCTION_APPROVED_ZERONE_1_HALT_IMAGE`,
+`ZERONE_PRODUCTION_APPROVED_ZERONE_2_RUNTIME_IMAGE`, and
+`ZERONE_PRODUCTION_APPROVED_QUERY_GATEWAY_IMAGE`. Those values are the
+authoritative component-to-repository mapping for the signing run; each
+dispatch input must match its approved value byte-for-byte.
+
+GitHub otherwise creates a referenced missing environment without protection;
+the workflow checks all four values before checkout, Cosign installation, or
+OIDC use and fails closed when any are absent or malformed. Confirm through the
+GitHub API that the environment, main-only policy, reviewers, and all four
+variables are environment-scoped as an operator preflight; the in-job checks
+cannot prove variable scope. The job waits for every CI job, checks three
+pairwise-distinct digest-only image references, rejects multi-platform indexes,
+checks the source-revision label against the workflow commit, captures a
+default Sigstore signing configuration containing Rekor and TSA services,
+hash-checks and signs each exact OCI manifest, verifies the exact workflow
+identity and commit plus its RFC 3161 timestamp, and uploads the evidence for
+14 days. Its separate non-cancelling concurrency lane prevents an ordinary
+push from interrupting a signing run after log publication. Dispatching the
+job creates public signature/transparency evidence for environment-approved
+bytes; it is not builder provenance, does not create chain authority, and does
+not deploy anything. No component-image bundle is accepted for launch outside
+the later OpenPGP-signed RELEASE graph, which independently binds component
+provenance, recipes, source, images, and binaries.
+
+On the dedicated Linux release workstation, build the verifier twice from the
+signed release checkout and compare the outputs before freezing it:
+
+```bash
+cd tools/sigstore-substrate-compiler
+export GOTOOLCHAIN=go1.25.14 CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+go mod verify
+go test ./...
+go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+  -o /secure/build/component-verifier-a \
+  ./cmd/zerone-component-signature-verifier
+go build -trimpath -buildvcs=false -ldflags='-buildid=' \
+  -o /secure/build/component-verifier-b \
+  ./cmd/zerone-component-signature-verifier
+cmp /secure/build/component-verifier-a /secure/build/component-verifier-b
+sha256sum /secure/build/component-verifier-a
+```
+
+Retrieve `trusted_root.json` through Sigstore's signed production TUF
+repository, review its Fulcio, Rekor, CT-log, and timestamp-authority entries,
+then copy those exact bytes as `SIGSTORE-TRUSTED-ROOT.json`. Do not use the
+mutable GitHub branch copy
+as the trust bootstrap. Copy the compared verifier as
+`zerone-component-signature-verifier`, calculate both hashes, and place them in
+`OPERATOR-TOOL-MANIFEST.json` before canonicalizing and signing RELEASE.
 
 ## CUTOVER additions
 
@@ -207,14 +288,15 @@ config or a template hash masquerading as deployable config bytes is invalid.
 
 ## Read-only verification
 
-Production `open-preinit`/`open-postinit` verification, and every deployment or
-transaction gate that invokes either stage, must run on the dedicated
-`linux/amd64` release workstation. The bundle deliberately executes the exact
+Every production verification stage, and every deployment or transaction gate
+that invokes one, must run on the dedicated `linux/amd64` release workstation.
+All stages execute the exact release-bound Linux/AMD64 component-signature
+verifier. OPEN verification additionally executes the exact
 `zeroned-zerone-1-release` binary whose hash and provenance are signed in
-RELEASE; the pinned halt build is a Linux/AMD64 executable and is not portable
-to this macOS preparation workspace. macOS shell doubles are test fixtures
-only. Never replace the release binary with a native rebuild, emulator wrapper,
-or script to make a production check pass.
+RELEASE. These pinned binaries are not portable to this macOS preparation
+workspace; macOS shell doubles are test fixtures only. Never replace either
+binary with a native rebuild, emulator wrapper, or script to make a production
+check pass.
 
 Run the verifier from the same signed release checkout whose operator-tool
 bytes are named by `OPERATOR-TOOL-MANIFEST.json`. For example, the final

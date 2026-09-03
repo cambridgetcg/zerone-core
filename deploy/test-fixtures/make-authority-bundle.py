@@ -895,6 +895,7 @@ def main() -> None:
         }
     )
     tool_paths = (
+        ".github/workflows/ci.yml",
         "deploy/verify-authority-chain.py",
         "deploy/frozen_evidence.py",
         "deploy/run-custom-staking-census-evidence.py",
@@ -914,18 +915,115 @@ def main() -> None:
         "deploy/query-gateway/render-archive-gateway-config.py",
         "deploy/query-gateway/fly.zerone-1-archive.public.example.toml",
         "tools/zerone2-artifact-audit/main.go",
+        "tools/sigstore-substrate-compiler/go.mod",
+        "tools/sigstore-substrate-compiler/go.sum",
+        "tools/sigstore-substrate-compiler/verification/verification.go",
+        "tools/sigstore-substrate-compiler/verification/component.go",
+        "tools/sigstore-substrate-compiler/cmd/zerone-component-signature-verifier/main.go",
+        "deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json",
+        "deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json",
+        "deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json",
     )
+    component_verifier = b'''#!/usr/bin/env python3
+import argparse
+import base64
+import json
+import pathlib
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--bundle", required=True)
+parser.add_argument("--trusted-root", required=True)
+parser.add_argument("--certificate-issuer", required=True)
+parser.add_argument("--certificate-san", required=True)
+parser.add_argument("--source-repository-digest", required=True)
+parser.add_argument("--artifact-digest", required=True)
+args = parser.parse_args()
+try:
+    bundle = json.loads(pathlib.Path(args.bundle).read_bytes())
+    trusted_root = json.loads(pathlib.Path(args.trusted_root).read_bytes())
+    certificate = base64.b64decode(
+        bundle["verificationMaterial"]["certificate"], validate=True
+    ).decode()
+    component = certificate.removeprefix("fixture-")
+    message_signature = bundle["messageSignature"]
+    digest = base64.b64decode(
+        message_signature["messageDigest"]["digest"], validate=True
+    ).hex()
+    signature = base64.b64decode(message_signature["signature"], validate=True)
+except Exception:
+    sys.exit(1)
+if not (
+    trusted_root == {"fixture_trusted_root": True}
+    and bundle["mediaType"]
+        == "application/vnd.dev.sigstore.bundle.v0.3+json"
+    and bundle["messageSignature"]["messageDigest"]["algorithm"] == "SHA2_256"
+    and args.artifact_digest == "sha256:" + digest
+    and component in {"zerone_1_halt", "zerone_2_runtime", "query_gateway"}
+    and signature == component.encode() + b"s" * 64
+    and args.certificate_issuer == "https://token.actions.githubusercontent.com"
+    and args.certificate_san
+        == "https://github.com/cambridgetcg/zerone-core/.github/workflows/ci.yml@refs/heads/main"
+    and args.source_repository_digest == "1" * 40
+):
+    sys.exit(1)
+json.dump(
+    {
+        "schema": "zerone.component-signature-verification/v1",
+        "result": "verified",
+        "artifact_digest": args.artifact_digest,
+        "bundle_media_type": bundle["mediaType"],
+        "certificate_issuer": args.certificate_issuer,
+        "certificate_san": args.certificate_san,
+        "source_repository_digest": args.source_repository_digest,
+        "verified_timestamps": [
+            {
+                "type": "Tlog",
+                "uri": "https://rekor.fixture.invalid",
+                "timestamp": "2026-07-10T09:12:00Z",
+            }
+        ],
+    },
+    sys.stdout,
+    sort_keys=True,
+    separators=(",", ":"),
+)
+sys.stdout.write("\\n")
+'''
+    sigstore_trusted_root = canonical_bytes({"fixture_trusted_root": True})
+    raw["zerone-component-signature-verifier"] = component_verifier
+    raw["SIGSTORE-TRUSTED-ROOT.json"] = sigstore_trusted_root
     tool_manifest = {
-        "schema": "zerone-operator-tool-manifest-v1",
+        "schema": "zerone-operator-tool-manifest-v2",
         "source_commit": "1" * 40,
         "signed_tag": "zerone-2-fixture",
         "files": {
             path: digest((root / path).read_bytes()) for path in tool_paths
         },
+        "authority_bundle": {
+            "component_signature_verifier": {
+                "filename": "zerone-component-signature-verifier",
+                "sha256": digest(component_verifier),
+            },
+            "sigstore_trusted_root": {
+                "filename": "SIGSTORE-TRUSTED-ROOT.json",
+                "sha256": digest(sigstore_trusted_root),
+            },
+        },
+        "component_signature_policy": {
+            "bundle_media_type": "application/vnd.dev.sigstore.bundle.v0.3+json",
+            "certificate_issuer": CANONICAL_COMPONENT_CERTIFICATE_ISSUER,
+            "certificate_san": CANONICAL_COMPONENT_SIGNER_IDENTITY,
+            "certificate_source_repository_digest": "RELEASE.source.commit",
+            "minimum_signed_certificate_timestamps": 1,
+            "minimum_transparency_log_entries": 1,
+            "minimum_observer_timestamps": 1,
+        },
     }
     raw["OPERATOR-TOOL-MANIFEST.json"] = canonical_bytes(tool_manifest)
     for name, data in raw.items():
         (output / name).write_bytes(data)
+    (output / "zerone-component-signature-verifier").chmod(0o700)
 
     signature_names = (
         "RELEASE-PACKET.json.sig",
@@ -1138,8 +1236,13 @@ def main() -> None:
         minimum_registration_inclusion_margin_seconds=300,
     )
     operator_address = release["public_identities"]["operations_account_address"]
-    registration_public_key = "7" * 64
+    # RFC 8032 test-vector public key: a canonical, prime-order Ed25519 point.
+    registration_public_key = (
+        "d75a980182b10ab7d54bfed3c964073a"
+        "0ee172f3daa62325af021a68f707511a"
+    )
     registration_did = "did:zrn:" + registration_public_key
+    registration_identity_proof = base64.b64encode(b"s" * 64).decode()
     consensus_key_hex = base64.b64decode(
         release["public_identities"]["validator_consensus_pubkey"]
     ).hex()
@@ -1159,6 +1262,7 @@ def main() -> None:
             "account_type": "human",
             "operational_key_hash": "",
             "metadata": "",
+            "identity_proof_signature": registration_identity_proof,
             "fee": "200000uzrn",
             "gas_limit": "200000",
             "signer_sequence": "0",

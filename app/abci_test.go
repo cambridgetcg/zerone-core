@@ -121,36 +121,6 @@ func TestPrepareProposalCannotWrapDeclaredGasTotal(t *testing.T) {
 	require.Equal(t, [][]byte{valid}, response.Txs)
 }
 
-func TestProcessProposalEnforcesAggregateConsensusGasWithoutWraparound(t *testing.T) {
-	app := newTestApp(t)
-	handler := app.ProcessProposalHandler()
-	first := proposalTxBytes(t, app, 60, "first")
-	exact := proposalTxBytes(t, app, 40, "exact")
-	over := proposalTxBytes(t, app, 41, "over")
-	maxUint := proposalTxBytes(t, app, ^uint64(0), "max-uint")
-
-	accepted, err := handler(proposalContext(app, 100), &abci.RequestProcessProposal{
-		Height: 2,
-		Txs:    [][]byte{first, exact},
-	})
-	require.NoError(t, err)
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, accepted.Status)
-
-	for name, txs := range map[string][][]byte{
-		"aggregate over limit": {first, over},
-		"overflow declaration": {first, maxUint},
-	} {
-		t.Run(name, func(t *testing.T) {
-			response, err := handler(proposalContext(app, 100), &abci.RequestProcessProposal{
-				Height: 2,
-				Txs:    txs,
-			})
-			require.NoError(t, err)
-			require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status)
-		})
-	}
-}
-
 func TestVoteExtInjectionEncodeDecode(t *testing.T) {
 	inj := zeroneapp.VoteExtInjection{
 		Commitments: []zeroneapp.InjectedCommitment{
@@ -358,7 +328,7 @@ func TestVoteExtensionJSONRoundTrip(t *testing.T) {
 	require.Equal(t, uint64(750_000), decoded.Reveals[0].Confidence)
 }
 
-func TestAcceptedUnsignedTransactionCannotTriggerAutomaticMint(t *testing.T) {
+func TestUnsignedTransactionIsRejectedWithoutAutomaticMint(t *testing.T) {
 	app := newTestApp(t)
 	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 2})
 	app.VestingRewardsKeeper.InitGenesis(ctx, vestingrewardstypes.DefaultGenesis())
@@ -376,13 +346,13 @@ func TestAcceptedUnsignedTransactionCannotTriggerAutomaticMint(t *testing.T) {
 
 	beforeSupply := app.BankKeeper.GetSupply(ctx, "uzrn").Amount
 	beforeMinted := app.VestingRewardsKeeper.GetTotalMinted(ctx)
-	response, err := app.ProcessProposalHandler()(ctx, &abci.RequestProcessProposal{
-		Height: 2,
+	response, err := app.ProcessProposal(&abci.RequestProcessProposal{
+		Height: 1,
 		Txs:    [][]byte{txBytes},
 	})
 	require.NoError(t, err)
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, response.Status,
-		"the fixture must reproduce a stateless-valid proposal tx")
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status,
+		"every validator must apply signature and account checks to proposal txs")
 
 	module := vestingrewards.NewAppModule(app.AppCodec(), app.VestingRewardsKeeper)
 	require.NoError(t, module.BeginBlock(ctx))

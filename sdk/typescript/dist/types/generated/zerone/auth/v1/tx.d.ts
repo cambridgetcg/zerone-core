@@ -14,6 +14,12 @@ export interface MsgRegisterAccount {
     accountType: string;
     operationalKeyHash: string;
     metadata: string;
+    /**
+     * Ed25519 signature by public_key over the canonical, domain-separated
+     * registration proof bytes. This proves that the transaction signer
+     * controls the independently stored identity/initial operational key.
+     */
+    identityProofSignature: Uint8Array;
 }
 /**
  * @name MsgRegisterAccountResponse
@@ -23,7 +29,12 @@ export interface MsgRegisterAccount {
 export interface MsgRegisterAccountResponse {
 }
 /**
- * MsgRotateKey rotates the operational key for an account.
+ * MsgRotateKey rotates the independent Ed25519 operational key for an account.
+ * The normal TxRaw signature authenticates sender. authorization_signature is
+ * an additional Ed25519 signature by the current operational key over Zerone's
+ * domain-separated rotation authorization bytes. authorization_expires_at_unix
+ * is consensus-checked against the containing block time and is part of those
+ * signed bytes.
  * @name MsgRotateKey
  * @package zerone.auth.v1
  * @see proto type: zerone.auth.v1.MsgRotateKey
@@ -32,6 +43,13 @@ export interface MsgRotateKey {
     sender: string;
     newOperationalKey: Uint8Array;
     authorizationSignature: Uint8Array;
+    authorizationExpiresAtUnix: bigint;
+    /**
+     * Ed25519 signature by new_operational_key over the separately
+     * domain-separated key-acceptance bytes. The current-key authorization and
+     * new-key confirmation are both required.
+     */
+    newKeyConfirmationSignature: Uint8Array;
 }
 /**
  * @name MsgRotateKeyResponse
@@ -117,7 +135,12 @@ export declare const MsgRegisterAccountResponse: {
     fromPartial(_: DeepPartial<MsgRegisterAccountResponse>): MsgRegisterAccountResponse;
 };
 /**
- * MsgRotateKey rotates the operational key for an account.
+ * MsgRotateKey rotates the independent Ed25519 operational key for an account.
+ * The normal TxRaw signature authenticates sender. authorization_signature is
+ * an additional Ed25519 signature by the current operational key over Zerone's
+ * domain-separated rotation authorization bytes. authorization_expires_at_unix
+ * is consensus-checked against the containing block time and is part of those
+ * signed bytes.
  * @name MsgRotateKey
  * @package zerone.auth.v1
  * @see proto type: zerone.auth.v1.MsgRotateKey

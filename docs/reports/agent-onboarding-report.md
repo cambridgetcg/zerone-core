@@ -4,6 +4,17 @@
 **Sessions:** R24-1 through R24-5
 **Chain:** zerone-localnet (Cosmos SDK v0.50.15, CometBFT v0.38.19/20)
 
+> **2026-09-03 resolution note:** the key-rotation bricking and no-op secondary
+> signature findings below apply to the historical tested binary. Current
+> source separates operational Ed25519 keys from Cosmos account keys and
+> verifies replay-bounded authorization by the current key plus acceptance by
+> the proposed new key. Registration now requires an identity-key possession
+> proof and an exact `did:zrn:<64-lowercase-hex-public-key>`; the current manual
+> `register-account` command takes that proof signature as its fourth positional
+> argument, while `zerone_auth onboard` creates it. All wall-time-shaped bounds
+> use consensus block time. A coordinated release upgrade is still required
+> before those fixes are live.
+
 ---
 
 ## Executive Summary
@@ -253,7 +264,7 @@ An agent must understand **5 separate key systems:**
 ### P0 — Before Testnet Launch
 
 - [ ] **Fix proto codec (BUG-1):** Re-generate proto files with `protoc-gen-gogo` for Cosmos SDK v0.50 compatibility. Unblocks session keys, recovery config, and any future nested message types.
-- [ ] **Fix key rotation account bricking (BUG-2):** Don't sync Ed25519 keys to Cosmos BaseAccount, or add Ed25519 support to the ante handler.
+- [x] **Fix key rotation account bricking (BUG-2), source-level:** Operational Ed25519 keys are no longer synced into the Cosmos BaseAccount. A coordinated release upgrade remains required.
 - [ ] **Fix join-testnet.sh (BUG-4,5,6):** `read_seeds()` crash, hardcoded chain-id, wrong validate-genesis command.
 - [ ] **Fix VALIDATOR-GUIDE.md:** All 9 discrepancies, especially the missing SDK staking registration step.
 - [ ] **Deploy faucet:** Agents cannot onboard without initial funds.
@@ -267,7 +278,7 @@ An agent must understand **5 separate key systems:**
 - [ ] **Fix unbonding query:** CLI calls wrong gRPC method; add proper unbondings query handler.
 - [ ] **Add commission update tx:** `MsgUpdateCommission` with rate-limiting.
 - [ ] **Fix configure-node.sh macOS compatibility:** Replace BSD sed with portable approach.
-- [ ] **Validate or remove `authorization_signature`:** Currently a no-op providing false security.
+- [x] **Validate rotation proofs, source-level:** The current-key authorization and new-key acceptance each bind chain ID, sender, current key version, replacement key, and a consensus-time-bounded acceptance horizon. A coordinated release upgrade remains required.
 - [ ] **Check `min_reputation` in ComputeValidatorTier:** Or remove the dead field.
 - [ ] **Self-unfreeze mechanism:** Allow time-delayed self-unfreeze so agents aren't permanently locked.
 

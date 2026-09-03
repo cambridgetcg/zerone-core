@@ -38,3 +38,5 @@ export * as tokens from "./generated/zerone/tokens/v1/tx";
 export { MessageComposer as tokensMessages } from "./generated/zerone/tokens/v1/tx.registry";
 export * as vestingRewards from "./generated/zerone/vesting_rewards/v1/tx";
 export { MessageComposer as vestingRewardsMessages } from "./generated/zerone/vesting_rewards/v1/tx.registry";
+export * from "./account-registration";
+export * from "./key-rotation";

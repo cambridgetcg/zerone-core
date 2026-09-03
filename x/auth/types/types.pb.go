@@ -29,15 +29,16 @@ type Account struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Bech32 address (store key for account lookups)
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	// DID derived from identity key: did:zrn:{32-hex}
+	// Canonical DID derived from the full identity key: did:zrn:{64-lower-hex}
 	Did string `protobuf:"bytes,2,opt,name=did,proto3" json:"did,omitempty"`
 	// Hex-encoded Ed25519 identity public key (immutable)
 	PublicKey string `protobuf:"bytes,3,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 	// Account type: agent, human, contract, system
 	AccountType string `protobuf:"bytes,4,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"`
-	// Hash of current operational key
+	// Lowercase SHA-256 of the current operational public-key bytes
 	OperationalKeyHash string `protobuf:"bytes,5,opt,name=operational_key_hash,json=operationalKeyHash,proto3" json:"operational_key_hash,omitempty"`
-	// Hex-encoded Ed25519 operational public key (synced to Cosmos BaseAccount)
+	// Hex-encoded Ed25519 operational public key. This is independent of the
+	// Cosmos BaseAccount transaction key and must never replace it.
 	OperationalPublicKey  string `protobuf:"bytes,6,opt,name=operational_public_key,json=operationalPublicKey,proto3" json:"operational_public_key,omitempty"`
 	OperationalKeyVersion uint32 `protobuf:"varint,7,opt,name=operational_key_version,json=operationalKeyVersion,proto3" json:"operational_key_version,omitempty"`
 	// Cached reputation score (0-1000000)

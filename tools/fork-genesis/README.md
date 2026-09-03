@@ -68,7 +68,7 @@ go build -o ./build/fork-genesis ./tools/fork-genesis
   --input-sha256 "$SOURCE_EXPORT_SHA256" \
   --policy /absolute/path/policy.json \
   --policy-sha256 "$POLICY_FILE_SHA256" \
-  --reproducer-id did:zrn:reproducer-a \
+  --reproducer-id reproducer-a \
   --output /absolute/new/path/target-genesis.json \
   --report /absolute/new/path/reproducer-a-report.json
 ```

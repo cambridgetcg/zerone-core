@@ -1,5 +1,7 @@
 .PHONY: build install test lint proto-gen proto-swagger-gen proto-check creed-check authority-check clean pr-check cosmovisor-init boot-test genesis-check \
-       build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-all release
+       build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-all release \
+       darwin-acl-helper frontier-intake-darwin-acl-helper \
+       frontier-intake-macos-package frontier-intake-macos-package-check
 
 # Only protocol release tags may become the embedded version. Component or
 # tooling tags must not silently relabel the validator binary.
@@ -18,12 +20,38 @@ LDFLAGS := -s -w \
 
 build:
 	mkdir -p build
+	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
 	go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned ./cmd/zeroned
 
 install:
+	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
+	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then \
+		bin_dir="$$(go env GOBIN)"; \
+		if [ -z "$$bin_dir" ]; then bin_dir="$$(go env GOPATH)/bin"; fi; \
+		/bin/mkdir -p "$$bin_dir"; \
+		bin_dir="$$(cd "$$bin_dir" && /bin/pwd -P)"; \
+		bin_owner="$$(/usr/bin/stat -f '%u' "$$bin_dir")"; \
+		bin_mode="$$(/usr/bin/stat -f '%Lp' "$$bin_dir")"; \
+		{ [ "$$bin_owner" = 0 ] || [ "$$bin_owner" = "$$(/usr/bin/id -u)" ]; } || \
+			{ echo "install directory must be owned by root or the current user" >&2; exit 1; }; \
+		[ $$((0$$bin_mode & 022)) -eq 0 ] || \
+			{ echo "install directory must not be group/world writable" >&2; exit 1; }; \
+		test "$$(build/darwin-acl-check < "$$bin_dir")" = \
+			"zerone-darwin-acl-v1 clear"; \
+		install_tmp="$$(/usr/bin/mktemp "$$bin_dir/.darwin-acl-check.XXXXXX")"; \
+		trap '/bin/rm -f "$$install_tmp"' EXIT; \
+		/bin/cp build/darwin-acl-check "$$install_tmp"; \
+		/bin/chmod 0555 "$$install_tmp"; \
+		/bin/mv -f "$$install_tmp" "$$bin_dir/darwin-acl-check"; \
+		test "$$("$$bin_dir/darwin-acl-check" < "$$bin_dir/darwin-acl-check")" = \
+			"zerone-darwin-acl-v1 clear"; \
+		test "$$("$$bin_dir/darwin-acl-check" < "$$bin_dir")" = \
+			"zerone-darwin-acl-v1 clear"; \
+	fi
 	go install -ldflags "$(LDFLAGS)" ./cmd/zeroned
 
 test:
+	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
 	go test ./... -count=1 -timeout 300s
 
 lint:
@@ -79,18 +107,38 @@ build-linux-arm64:
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned-linux-arm64 ./cmd/zeroned
 
 build-darwin-arm64:
+	@case "$$(/usr/bin/uname -s)" in Darwin) ;; *) \
+		echo "build-darwin-arm64 requires macOS so its mandatory ACL helper can be built" >&2; \
+		exit 1 ;; esac
 	mkdir -p build
+	@$(MAKE) darwin-acl-helper
 	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned-darwin-arm64 ./cmd/zeroned
 
 build-all: build-linux-amd64 build-linux-arm64 build-darwin-arm64
 
-release: build-all
-	@echo "Binaries built:"
-	@ls -la build/zeroned-*
+release: build-all frontier-intake-macos-package
+	@echo "Release artifacts built:"
+	@ls -la build/zeroned-linux-amd64 build/zeroned-linux-arm64 \
+		build/zeroned-darwin-arm64 build/darwin-acl-check \
+		build/frontier-intake-macos.tar \
+		build/frontier-intake-macos.manifest.json
 	@echo ""
-	@cd build && for f in zeroned-*; do shasum -a 256 "$$f" > "$$f.sha256"; done
+	@cd build && set -e; checksum_tmp=; \
+		trap '[ -z "$$checksum_tmp" ] || /bin/rm -f "$$checksum_tmp"' EXIT HUP INT TERM; \
+		for f in zeroned-linux-amd64 zeroned-linux-arm64 \
+			zeroned-darwin-arm64 darwin-acl-check frontier-intake-macos.tar \
+			frontier-intake-macos.manifest.json; do \
+			checksum_tmp="$$(/usr/bin/mktemp ".$$f.sha256.XXXXXX")"; \
+			LC_ALL=C LANG=C /usr/bin/shasum -a 256 "$$f" > "$$checksum_tmp"; \
+			/bin/chmod 0444 "$$checksum_tmp"; \
+			/bin/mv -f "$$checksum_tmp" "$$f.sha256"; \
+			checksum_tmp=; \
+		done
 	@echo "Checksums:"
-	@cat build/*.sha256
+	@cat build/zeroned-linux-amd64.sha256 build/zeroned-linux-arm64.sha256 \
+		build/zeroned-darwin-arm64.sha256 build/darwin-acl-check.sha256 \
+		build/frontier-intake-macos.tar.sha256 \
+		build/frontier-intake-macos.manifest.json.sha256
 
 clean:
 	rm -rf build/
@@ -109,3 +157,57 @@ boot-test: build
 
 genesis-check:
 	@go run tools/genesis-check/main.go --genesis $(GENESIS)
+
+# macOS mode bits do not include NFSv4 ACL grants. Build one small native
+# descriptor inspector for both zeroned and frontier-intake. The generated
+# Mach-O remains untracked and enters the checksummed release artifact set
+# rather than source control; distributors must bind it to a signed release.
+darwin-acl-helper:
+	@case "$$(/usr/bin/uname -s)" in Darwin) ;; *) \
+		echo "Darwin ACL helper can only be built on macOS" >&2; \
+		exit 1 ;; esac
+	@/bin/mkdir -p build tools/frontier-intake/build
+	@tmp="$$(/usr/bin/mktemp build/.darwin-acl-check.XXXXXX)"; \
+		frontier_tmp="$$(/usr/bin/mktemp tools/frontier-intake/build/.darwin-acl-check.XXXXXX)"; \
+		trap '/bin/rm -f "$$tmp" "$$frontier_tmp"' EXIT; \
+		/usr/bin/xcrun --sdk macosx clang \
+			-std=c11 -Os -Wall -Wextra -Werror -Wpedantic -Wconversion \
+			-Wsign-conversion -Wformat=2 -Wshadow -fstack-protector-strong \
+			-Wl,-no_uuid \
+			-mmacosx-version-min=12.0 -arch arm64 -arch x86_64 \
+			-o "$$tmp" tools/darwin-acl-check/main.c && \
+		/usr/bin/lipo "$$tmp" -verify_arch arm64 x86_64 && \
+		/usr/bin/codesign --force --sign - --identifier org.zerone.darwin-acl-check \
+			--timestamp=none "$$tmp" >/dev/null && \
+		/usr/bin/codesign --verify --strict "$$tmp" && \
+		/bin/chmod 0555 "$$tmp" && \
+		/bin/mv -f "$$tmp" build/darwin-acl-check && \
+		/bin/cp -p build/darwin-acl-check "$$frontier_tmp" && \
+		/bin/mv -f "$$frontier_tmp" tools/frontier-intake/build/darwin-acl-check && \
+		/usr/bin/cmp build/darwin-acl-check tools/frontier-intake/build/darwin-acl-check && \
+		test "$$(build/darwin-acl-check < build/darwin-acl-check)" = \
+			"zerone-darwin-acl-v1 clear" && \
+		test "$$(build/darwin-acl-check < build)" = \
+			"zerone-darwin-acl-v1 clear" && \
+		test "$$(tools/frontier-intake/build/darwin-acl-check < tools/frontier-intake/build/darwin-acl-check)" = \
+			"zerone-darwin-acl-v1 clear" && \
+		test "$$(tools/frontier-intake/build/darwin-acl-check < tools/frontier-intake/build)" = \
+			"zerone-darwin-acl-v1 clear"
+
+frontier-intake-darwin-acl-helper: darwin-acl-helper
+
+# One deterministic, read-only archive is the atomic Frontier macOS release
+# unit. Its internal manifest binds the exact Bun bundle and universal helper;
+# the sidecar digest is integrity metadata, not provenance. Production
+# distributors sign the archive bytes in the protected signing workflow.
+frontier-intake-macos-package: darwin-acl-helper
+	@command -v bun >/dev/null 2>&1 || \
+		{ echo "frontier-intake-macos-package requires Bun" >&2; exit 1; }
+	@cd tools/frontier-intake && \
+		bun build intake.ts --target=bun --outfile=build/frontier-intake.js
+	@SOURCE_COMMIT="$(COMMIT)" \
+		bun tools/frontier-intake/scripts/macos-artifact.ts build
+
+frontier-intake-macos-package-check:
+	@SOURCE_COMMIT="$(COMMIT)" \
+		bun tools/frontier-intake/scripts/macos-artifact.ts verify "$(COMMIT)"

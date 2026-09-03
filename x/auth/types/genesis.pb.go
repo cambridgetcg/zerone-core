@@ -27,12 +27,15 @@ const (
 // sessions and social recovery in the 2026-07 slim cut; their numbers
 // are reserved and must not be reused.
 type GenesisState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Accounts      []*Account             `protobuf:"bytes,2,rep,name=accounts,proto3" json:"accounts,omitempty"`
-	DidMappings   []*DIDMapping          `protobuf:"bytes,3,rep,name=did_mappings,json=didMappings,proto3" json:"did_mappings,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Params      *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Accounts    []*Account             `protobuf:"bytes,2,rep,name=accounts,proto3" json:"accounts,omitempty"`
+	DidMappings []*DIDMapping          `protobuf:"bytes,3,rep,name=did_mappings,json=didMappings,proto3" json:"did_mappings,omitempty"`
+	// Last successful operational-key rotation per account. Exporting this
+	// preserves cooldown semantics across export/import and fork recovery.
+	LastKeyRotations []*KeyRotationRecord `protobuf:"bytes,6,rep,name=last_key_rotations,json=lastKeyRotations,proto3" json:"last_key_rotations,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -86,6 +89,66 @@ func (x *GenesisState) GetDidMappings() []*DIDMapping {
 	return nil
 }
 
+func (x *GenesisState) GetLastKeyRotations() []*KeyRotationRecord {
+	if x != nil {
+		return x.LastKeyRotations
+	}
+	return nil
+}
+
+// KeyRotationRecord preserves the cooldown anchor for one account.
+type KeyRotationRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Address       string                 `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Height        uint64                 `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyRotationRecord) Reset() {
+	*x = KeyRotationRecord{}
+	mi := &file_zerone_auth_v1_genesis_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyRotationRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyRotationRecord) ProtoMessage() {}
+
+func (x *KeyRotationRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_auth_v1_genesis_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyRotationRecord.ProtoReflect.Descriptor instead.
+func (*KeyRotationRecord) Descriptor() ([]byte, []int) {
+	return file_zerone_auth_v1_genesis_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *KeyRotationRecord) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *KeyRotationRecord) GetHeight() uint64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
 // Params defines the auth module parameters.
 //
 // Session params (1, 2), recovery params (4, 5, 10, 11, 12) and the
@@ -105,7 +168,7 @@ type Params struct {
 
 func (x *Params) Reset() {
 	*x = Params{}
-	mi := &file_zerone_auth_v1_genesis_proto_msgTypes[1]
+	mi := &file_zerone_auth_v1_genesis_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -117,7 +180,7 @@ func (x *Params) String() string {
 func (*Params) ProtoMessage() {}
 
 func (x *Params) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_auth_v1_genesis_proto_msgTypes[1]
+	mi := &file_zerone_auth_v1_genesis_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -130,7 +193,7 @@ func (x *Params) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Params.ProtoReflect.Descriptor instead.
 func (*Params) Descriptor() ([]byte, []int) {
-	return file_zerone_auth_v1_genesis_proto_rawDescGZIP(), []int{1}
+	return file_zerone_auth_v1_genesis_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Params) GetKeyRotationCooldown() uint64 {
@@ -158,11 +221,15 @@ var File_zerone_auth_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_auth_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"\x1czerone/auth/v1/genesis.proto\x12\x0ezerone.auth.v1\x1a\x1azerone/auth/v1/types.proto\"\xde\x01\n" +
+	"\x1czerone/auth/v1/genesis.proto\x12\x0ezerone.auth.v1\x1a\x1azerone/auth/v1/types.proto\"\xaf\x02\n" +
 	"\fGenesisState\x12.\n" +
 	"\x06params\x18\x01 \x01(\v2\x16.zerone.auth.v1.ParamsR\x06params\x123\n" +
 	"\baccounts\x18\x02 \x03(\v2\x17.zerone.auth.v1.AccountR\baccounts\x12=\n" +
-	"\fdid_mappings\x18\x03 \x03(\v2\x1a.zerone.auth.v1.DIDMappingR\vdidMappingsJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\fsession_keysR\x10recovery_configs\"\x98\x03\n" +
+	"\fdid_mappings\x18\x03 \x03(\v2\x1a.zerone.auth.v1.DIDMappingR\vdidMappings\x12O\n" +
+	"\x12last_key_rotations\x18\x06 \x03(\v2!.zerone.auth.v1.KeyRotationRecordR\x10lastKeyRotationsJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\fsession_keysR\x10recovery_configs\"E\n" +
+	"\x11KeyRotationRecord\x12\x18\n" +
+	"\aaddress\x18\x01 \x01(\tR\aaddress\x12\x16\n" +
+	"\x06height\x18\x02 \x01(\x04R\x06height\"\x98\x03\n" +
 	"\x06Params\x122\n" +
 	"\x15key_rotation_cooldown\x18\x03 \x01(\x04R\x13keyRotationCooldown\x12.\n" +
 	"\x13max_metadata_length\x18\b \x01(\rR\x11maxMetadataLength\x12\x1f\n" +
@@ -182,22 +249,24 @@ func file_zerone_auth_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_zerone_auth_v1_genesis_proto_rawDescData
 }
 
-var file_zerone_auth_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_zerone_auth_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_zerone_auth_v1_genesis_proto_goTypes = []any{
-	(*GenesisState)(nil), // 0: zerone.auth.v1.GenesisState
-	(*Params)(nil),       // 1: zerone.auth.v1.Params
-	(*Account)(nil),      // 2: zerone.auth.v1.Account
-	(*DIDMapping)(nil),   // 3: zerone.auth.v1.DIDMapping
+	(*GenesisState)(nil),      // 0: zerone.auth.v1.GenesisState
+	(*KeyRotationRecord)(nil), // 1: zerone.auth.v1.KeyRotationRecord
+	(*Params)(nil),            // 2: zerone.auth.v1.Params
+	(*Account)(nil),           // 3: zerone.auth.v1.Account
+	(*DIDMapping)(nil),        // 4: zerone.auth.v1.DIDMapping
 }
 var file_zerone_auth_v1_genesis_proto_depIdxs = []int32{
-	1, // 0: zerone.auth.v1.GenesisState.params:type_name -> zerone.auth.v1.Params
-	2, // 1: zerone.auth.v1.GenesisState.accounts:type_name -> zerone.auth.v1.Account
-	3, // 2: zerone.auth.v1.GenesisState.did_mappings:type_name -> zerone.auth.v1.DIDMapping
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: zerone.auth.v1.GenesisState.params:type_name -> zerone.auth.v1.Params
+	3, // 1: zerone.auth.v1.GenesisState.accounts:type_name -> zerone.auth.v1.Account
+	4, // 2: zerone.auth.v1.GenesisState.did_mappings:type_name -> zerone.auth.v1.DIDMapping
+	1, // 3: zerone.auth.v1.GenesisState.last_key_rotations:type_name -> zerone.auth.v1.KeyRotationRecord
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_zerone_auth_v1_genesis_proto_init() }
@@ -212,7 +281,7 @@ func file_zerone_auth_v1_genesis_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_auth_v1_genesis_proto_rawDesc), len(file_zerone_auth_v1_genesis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

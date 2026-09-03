@@ -89,8 +89,9 @@ ZERONE_AUTHORIZED_RELEASE_SIGNER_FINGERPRINT='<40-or-64-hex>' \
 Generate an SBOM, scan and sign the result, push it, and record its full
 `registry/repository@sha256:<64-hex>` reference in the signed release packet.
 Deploy through `deploy/fly-deploy-authorized.sh`: the private z2 gateway uses
-the main-key DARK-START authority (and dark-initiation evidence after expiry),
-while either public gateway requires OPEN-BETA plus verified on-time
+the main-key DARK-START authority plus the complete authority bundle (and
+dark-initiation evidence after block 1), while either public gateway requires
+OPEN-BETA plus verified on-time
 OPEN-BETA-INITIATION-EVIDENCE and the transition-signed FINAL checkpoint chain.
 The lower-level pinned gate is for local checks.
 

@@ -53,6 +53,9 @@ Preparation for attention gathering and external explanation follows
 authority to publish: it keeps claims phase-scoped, evidence-linked, and
 explicit about the custodial and NO-GO boundaries.
 
+The chain/release signature domains and authoritative-time rules are fixed in
+[`docs/SIGNATURE-AND-TIME.md`](../../../docs/SIGNATURE-AND-TIME.md).
+
 The detached-signature payload starts from
 [`zerone-1/frozen/FINAL-CHECKPOINT.example.json`](../zerone-1/frozen/FINAL-CHECKPOINT.example.json),
 the single authoritative v4 template. It is a manifest of hashed evidence, not

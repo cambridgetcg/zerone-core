@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
+	authtypes "github.com/zerone-chain/zerone/x/auth/types"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -30,19 +31,23 @@ type Finding struct {
 	Related  []string `json:"related,omitempty"`
 }
 
-// Coverage makes the audit boundary explicit. In particular, the current
-// zerone_auth export schema does not contain the last-rotation store.
+// Coverage makes the audit boundary explicit. Legacy exceptions apply only
+// when a full document identifies the already-deployed zerone-1 chain.
 type Coverage struct {
-	InputKind        string   `json:"input_kind"`
-	CosmosAuth       bool     `json:"cosmos_auth_present"`
-	CompleteSnapshot bool     `json:"complete_snapshot"`
-	RotationState    string   `json:"rotation_state"`
-	Limitations      []string `json:"limitations"`
+	InputKind            string   `json:"input_kind"`
+	ChainID              string   `json:"chain_id,omitempty"`
+	ValidationProfile    string   `json:"validation_profile"`
+	CosmosAuth           bool     `json:"cosmos_auth_present"`
+	CompleteSnapshot     bool     `json:"complete_snapshot"`
+	RotationStatePresent bool     `json:"rotation_state_present"`
+	RotationState        string   `json:"rotation_state"`
+	Limitations          []string `json:"limitations"`
 }
 
 type Summary struct {
 	ZeroneAccounts int `json:"zerone_accounts"`
 	DIDMappings    int `json:"did_mappings"`
+	KeyRotations   int `json:"last_key_rotations"`
 	CosmosAccounts int `json:"cosmos_accounts"`
 	Errors         int `json:"errors"`
 	Warnings       int `json:"warnings"`
@@ -61,6 +66,7 @@ type zeroneAccount struct {
 	DID                   string          `json:"did"`
 	PublicKey             string          `json:"public_key"`
 	AccountType           string          `json:"account_type"`
+	OperationalKeyHash    string          `json:"operational_key_hash"`
 	OperationalPublicKey  string          `json:"operational_public_key"`
 	OperationalKeyVersion json.RawMessage `json:"operational_key_version"`
 }
@@ -78,31 +84,42 @@ type cosmosBaseAccount struct {
 }
 
 type didOccurrence struct {
-	Raw      string
-	Address  string
-	Location string
+	Raw             string
+	Address         string
+	Location        string
+	CanonicalTarget string
+	LegacyPrefix    string
+	LegacyShort     bool
 }
 
 type auditor struct {
 	report         Report
-	didOccurrences map[string][]didOccurrence
+	legacyZerone1  bool
+	didOccurrences []didOccurrence
 }
 
-func newAuditor(source string) *auditor {
+func newAuditor(source, chainID string) *auditor {
+	legacyZerone1 := chainID == "zerone-1"
+	profile := "source-canonical"
+	if legacyZerone1 {
+		profile = "deployed-zerone-1-legacy-audit"
+	}
 	return &auditor{
 		report: Report{
 			Source: source,
 			Coverage: Coverage{
-				RotationState: "not exported by zerone_auth GenesisState; only rotation evidence in account fields can be checked",
+				ChainID:           chainID,
+				ValidationProfile: profile,
 				Limitations: []string{
 					"signature possession and private-key control cannot be proven from exported state",
-					"historical rotation events and the last-rotation cooldown height are absent from the current export schema",
+					"last_key_rotations preserves only the latest cooldown anchor, not historical rotation events",
 					"unknown Cosmos public-key types are reported but cannot have their address invariant recomputed",
 				},
 			},
 			Findings: []Finding{},
 		},
-		didOccurrences: make(map[string][]didOccurrence),
+		legacyZerone1:  legacyZerone1,
+		didOccurrences: []didOccurrence{},
 	}
 }
 
@@ -118,17 +135,23 @@ func auditDocument(data []byte, source string) (Report, error) {
 		return Report{}, fmt.Errorf("decode input JSON: %w", err)
 	}
 
-	a := newAuditor(source)
 	modules := root
+	inputKind := ""
+	chainID := ""
 	if appStateRaw, ok := root["app_state"]; ok {
 		if err := json.Unmarshal(appStateRaw, &modules); err != nil {
 			return Report{}, fmt.Errorf("decode app_state: %w", err)
 		}
-		a.report.Coverage.InputKind = "genesis"
+		inputKind = "genesis"
+		var err error
+		chainID, err = documentChainID(root)
+		if err != nil {
+			return Report{}, err
+		}
 	} else if _, hasZeroneAuth := root["zerone_auth"]; hasZeroneAuth {
-		a.report.Coverage.InputKind = "app_state"
+		inputKind = "app_state"
 	} else if _, hasAccounts := root["accounts"]; hasAccounts {
-		a.report.Coverage.InputKind = "zerone_auth_module"
+		inputKind = "zerone_auth_module"
 		moduleRaw, err := json.Marshal(root)
 		if err != nil {
 			return Report{}, fmt.Errorf("re-encode zerone_auth module: %w", err)
@@ -137,17 +160,40 @@ func auditDocument(data []byte, source string) (Report, error) {
 	} else {
 		return Report{}, fmt.Errorf("zerone_auth module not found")
 	}
+	a := newAuditor(source, chainID)
+	a.report.Coverage.InputKind = inputKind
 
 	zeroneRaw, ok := modules["zerone_auth"]
 	if !ok {
 		return Report{}, fmt.Errorf("zerone_auth module not found")
 	}
-	accounts, mappings, err := parseZeroneAuth(zeroneRaw)
+	accounts, mappings, rotations, rotationsPresent, err := parseZeroneAuth(zeroneRaw)
 	if err != nil {
 		return Report{}, err
 	}
 	a.report.Summary.ZeroneAccounts = len(accounts)
 	a.report.Summary.DIDMappings = len(mappings)
+	a.report.Summary.KeyRotations = len(rotations)
+	a.report.Coverage.RotationStatePresent = rotationsPresent
+	switch {
+	case rotationsPresent:
+		a.report.Coverage.RotationState = fmt.Sprintf(
+			"zerone_auth.last_key_rotations is present with %d record(s); latest cooldown anchors are correlated with account versions",
+			len(rotations),
+		)
+	case a.legacyZerone1:
+		a.report.Coverage.RotationState = "zerone_auth.last_key_rotations is absent in this deployed zerone-1 snapshot; legacy account versions can be inspected but cooldown anchors are unavailable"
+		a.report.Coverage.Limitations = append(
+			a.report.Coverage.Limitations,
+			"the deployed zerone-1 schema may omit last_key_rotations; absence is preserved and is not evidence that no rotation occurred",
+		)
+	default:
+		a.report.Coverage.RotationState = "zerone_auth.last_key_rotations is absent; current source supports the field, so cooldown anchors cannot be audited"
+		a.report.Coverage.Limitations = append(
+			a.report.Coverage.Limitations,
+			"without an exact zerone-1 chain ID, missing legacy fields are not granted the deployed-chain compatibility profile",
+		)
+	}
 
 	var cosmosAccounts []cosmosBaseAccount
 	if authRaw, exists := modules["auth"]; exists {
@@ -171,30 +217,55 @@ func auditDocument(data []byte, source string) (Report, error) {
 	a.auditMappings(mappings)
 	a.auditParity(accounts, mappings)
 	a.auditDIDGroups()
+	a.auditRotations(accounts, rotations, rotationsPresent)
 	a.auditCosmosAccounts(cosmosAccounts, accounts)
 	a.finish()
 	return a.report, nil
 }
 
-func parseZeroneAuth(raw json.RawMessage) ([]zeroneAccount, []didMapping, error) {
+func documentChainID(root map[string]json.RawMessage) (string, error) {
+	raw, exists := root["chain_id"]
+	if !exists || string(raw) == "null" {
+		return "", nil
+	}
+	var chainID string
+	if err := json.Unmarshal(raw, &chainID); err != nil {
+		return "", fmt.Errorf("decode chain_id: %w", err)
+	}
+	return chainID, nil
+}
+
+type keyRotationRecord struct {
+	Address string          `json:"address"`
+	Height  json.RawMessage `json:"height"`
+}
+
+func parseZeroneAuth(raw json.RawMessage) ([]zeroneAccount, []didMapping, []*keyRotationRecord, bool, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, nil, fmt.Errorf("decode zerone_auth state: %w", err)
+		return nil, nil, nil, false, fmt.Errorf("decode zerone_auth state: %w", err)
 	}
 
 	var accounts []zeroneAccount
 	if accountRaw, ok := fields["accounts"]; ok && string(accountRaw) != "null" {
 		if err := json.Unmarshal(accountRaw, &accounts); err != nil {
-			return nil, nil, fmt.Errorf("decode zerone_auth.accounts: %w", err)
+			return nil, nil, nil, false, fmt.Errorf("decode zerone_auth.accounts: %w", err)
 		}
 	}
 	var mappings []didMapping
 	if mappingRaw, ok := fields["did_mappings"]; ok && string(mappingRaw) != "null" {
 		if err := json.Unmarshal(mappingRaw, &mappings); err != nil {
-			return nil, nil, fmt.Errorf("decode zerone_auth.did_mappings: %w", err)
+			return nil, nil, nil, false, fmt.Errorf("decode zerone_auth.did_mappings: %w", err)
 		}
 	}
-	return accounts, mappings, nil
+	rotationRaw, rotationsPresent := fields["last_key_rotations"]
+	var rotations []*keyRotationRecord
+	if rotationsPresent && string(rotationRaw) != "null" {
+		if err := json.Unmarshal(rotationRaw, &rotations); err != nil {
+			return nil, nil, nil, false, fmt.Errorf("decode zerone_auth.last_key_rotations: %w", err)
+		}
+	}
+	return accounts, mappings, rotations, rotationsPresent, nil
 }
 
 func parseCosmosAuth(raw json.RawMessage) ([]cosmosBaseAccount, error) {
@@ -265,12 +336,7 @@ func (a *auditor) auditZeroneAccounts(accounts []zeroneAccount) {
 		seenAddresses[account.Address]++
 		a.validateAddress(account.Address, location+".address")
 
-		normalized, valid := a.auditDID(account.DID, account.Address, location+".did")
-		if valid {
-			a.didOccurrences[normalized] = append(a.didOccurrences[normalized], didOccurrence{
-				Raw: account.DID, Address: account.Address, Location: location + ".did",
-			})
-		}
+		did := a.auditDID(account.DID, account.Address, location+".did")
 
 		identityKey, identityValid := a.auditHexKey(
 			account.PublicKey,
@@ -286,8 +352,16 @@ func (a *auditor) auditZeroneAccounts(accounts []zeroneAccount) {
 			location+".operational_public_key",
 			"OPERATIONAL",
 		)
+		a.recordDIDOccurrence(
+			account.DID,
+			account.Address,
+			location+".did",
+			did,
+			identityKey,
+		)
+		a.auditOperationalKeyHash(account, operationalKey, location)
 
-		if valid && identityValid && !didMatchesKey(account.DID, identityKey) {
+		if did.Valid && identityValid && !didMatchesKey(account.DID, identityKey) {
 			a.add(Finding{
 				Severity: severityError,
 				Code:     "DID_KEY_DERIVATION_MISMATCH",
@@ -319,16 +393,6 @@ func (a *auditor) auditZeroneAccounts(accounts []zeroneAccount) {
 					Location: location,
 				})
 			}
-			if version > 1 || (identityValid && operationalValid && !equalBytes(identityKey, operationalKey)) {
-				a.add(Finding{
-					Severity: severityWarning,
-					Code:     "ROTATION_STATE_NOT_EXPORTED",
-					Message:  "account shows rotation evidence, but last-rotation height/history is absent from exported genesis and cannot be preserved or audited",
-					Address:  account.Address,
-					DID:      account.DID,
-					Location: location,
-				})
-			}
 		}
 	}
 
@@ -348,12 +412,7 @@ func (a *auditor) auditMappings(mappings []didMapping) {
 	for i, mapping := range mappings {
 		location := fmt.Sprintf("zerone_auth.did_mappings[%d]", i)
 		a.validateAddress(mapping.Bech32, location+".bech32")
-		normalized, valid := a.auditDID(mapping.DID, mapping.Bech32, location+".did")
-		if valid {
-			a.didOccurrences[normalized] = append(a.didOccurrences[normalized], didOccurrence{
-				Raw: mapping.DID, Address: mapping.Bech32, Location: location + ".did",
-			})
-		}
+		did := a.auditDID(mapping.DID, mapping.Bech32, location+".did")
 		key, keyValid := a.auditHexKey(
 			mapping.PubKey,
 			mapping.Bech32,
@@ -361,7 +420,8 @@ func (a *auditor) auditMappings(mappings []didMapping) {
 			location+".pub_key",
 			"MAPPING",
 		)
-		if valid && keyValid && !didMatchesKey(mapping.DID, key) {
+		a.recordDIDOccurrence(mapping.DID, mapping.Bech32, location+".did", did, key)
+		if did.Valid && keyValid && !didMatchesKey(mapping.DID, key) {
 			a.add(Finding{
 				Severity: severityError,
 				Code:     "MAPPING_DID_KEY_DERIVATION_MISMATCH",
@@ -455,14 +515,24 @@ func (a *auditor) auditParity(accounts []zeroneAccount, mappings []didMapping) {
 }
 
 func (a *auditor) auditDIDGroups() {
-	normalizedDIDs := make([]string, 0, len(a.didOccurrences))
-	for normalized := range a.didOccurrences {
-		normalizedDIDs = append(normalizedDIDs, normalized)
+	canonicalGroups := make(map[string][]didOccurrence)
+	prefixGroups := make(map[string][]didOccurrence)
+	for _, occurrence := range a.didOccurrences {
+		if occurrence.CanonicalTarget != "" {
+			canonicalGroups[occurrence.CanonicalTarget] = append(
+				canonicalGroups[occurrence.CanonicalTarget],
+				occurrence,
+			)
+		}
+		prefixGroups[occurrence.LegacyPrefix] = append(
+			prefixGroups[occurrence.LegacyPrefix],
+			occurrence,
+		)
 	}
-	sort.Strings(normalizedDIDs)
 
-	for _, normalized := range normalizedDIDs {
-		occurrences := a.didOccurrences[normalized]
+	canonicalDIDs := sortedKeys(canonicalGroups)
+	for _, canonical := range canonicalDIDs {
+		occurrences := canonicalGroups[canonical]
 		rawDIDs := make(map[string]struct{})
 		addresses := make(map[string]struct{})
 		for _, occurrence := range occurrences {
@@ -475,8 +545,8 @@ func (a *auditor) auditDIDGroups() {
 			a.add(Finding{
 				Severity: severityError,
 				Code:     "DID_NORMALIZATION_ALIAS",
-				Message:  "distinct stored DIDs collapse to the same lowercase 32-hex migration identifier",
-				DID:      normalized,
+				Message:  "distinct stored DIDs resolve to the same current full lowercase identity-key DID",
+				DID:      canonical,
 				Related:  sortedKeys(rawDIDs),
 			})
 		}
@@ -484,11 +554,127 @@ func (a *auditor) auditDIDGroups() {
 			a.add(Finding{
 				Severity: severityError,
 				Code:     "DID_NORMALIZED_DUPLICATE",
-				Message:  "one normalized DID is associated with multiple addresses",
-				DID:      normalized,
+				Message:  "one current full lowercase identity-key DID is associated with multiple addresses",
+				DID:      canonical,
 				Related:  sortedKeys(addresses),
 			})
 		}
+	}
+
+	prefixes := sortedKeys(prefixGroups)
+	for _, prefix := range prefixes {
+		occurrences := prefixGroups[prefix]
+		hasLegacyShort := false
+		targets := make(map[string]struct{})
+		for _, occurrence := range occurrences {
+			hasLegacyShort = hasLegacyShort || occurrence.LegacyShort
+			if occurrence.CanonicalTarget != "" {
+				targets[occurrence.CanonicalTarget] = struct{}{}
+			}
+		}
+		if hasLegacyShort && len(targets) > 1 {
+			a.add(Finding{
+				Severity: severityError,
+				Code:     "DID_LEGACY_PREFIX_AMBIGUOUS",
+				Message:  "legacy 32-hex DID prefix corresponds to multiple full identity-key DIDs",
+				DID:      "did:zrn:" + prefix,
+				Related:  sortedKeys(targets),
+			})
+		}
+	}
+}
+
+func (a *auditor) auditRotations(accounts []zeroneAccount, rotations []*keyRotationRecord, fieldPresent bool) {
+	accountsByAddress := make(map[string][]zeroneAccount)
+	for _, account := range accounts {
+		accountsByAddress[account.Address] = append(accountsByAddress[account.Address], account)
+	}
+
+	rotationsByAddress := make(map[string]int)
+	for index, rotation := range rotations {
+		location := fmt.Sprintf("zerone_auth.last_key_rotations[%d]", index)
+		if rotation == nil {
+			a.add(Finding{
+				Severity: severityError,
+				Code:     "KEY_ROTATION_RECORD_INVALID",
+				Message:  "key rotation record must be an object, not null",
+				Location: location,
+			})
+			continue
+		}
+
+		rotationsByAddress[rotation.Address]++
+		a.validateAddress(rotation.Address, location+".address")
+		height, heightOK := parseUint64(rotation.Height)
+		if !heightOK || height == 0 {
+			a.add(Finding{
+				Severity: severityError,
+				Code:     "KEY_ROTATION_HEIGHT_INVALID",
+				Message:  "last key rotation height must be a positive uint64",
+				Address:  rotation.Address,
+				Location: location + ".height",
+			})
+		}
+
+		accountRecords := accountsByAddress[rotation.Address]
+		if len(accountRecords) == 0 {
+			a.add(Finding{
+				Severity: severityError,
+				Code:     "KEY_ROTATION_RECORD_ORPHANED",
+				Message:  "last key rotation record points to no zerone_auth account",
+				Address:  rotation.Address,
+				Location: location,
+			})
+			continue
+		}
+		if len(accountRecords) == 1 {
+			version, versionOK := parseUint32(accountRecords[0].OperationalKeyVersion)
+			if versionOK && version == 1 {
+				a.add(Finding{
+					Severity: severityError,
+					Code:     "KEY_ROTATION_RECORD_UNEXPECTED",
+					Message:  "version-1 account cannot have a last key rotation record",
+					Address:  rotation.Address,
+					DID:      accountRecords[0].DID,
+					Location: location,
+				})
+			}
+		}
+	}
+
+	for address, count := range rotationsByAddress {
+		if count > 1 {
+			a.add(Finding{
+				Severity: severityError,
+				Code:     "KEY_ROTATION_RECORD_DUPLICATE",
+				Message:  fmt.Sprintf("address appears in %d last key rotation records", count),
+				Address:  address,
+				Location: "zerone_auth.last_key_rotations",
+			})
+		}
+	}
+
+	for index, account := range accounts {
+		version, versionOK := parseUint32(account.OperationalKeyVersion)
+		if !versionOK || version <= 1 || rotationsByAddress[account.Address] != 0 {
+			continue
+		}
+		severity := severityError
+		code := "KEY_ROTATION_RECORD_MISSING"
+		message := "rotated account is missing the last key rotation cooldown anchor required by current source"
+		if a.legacyZerone1 && !fieldPresent {
+			severity = severityWarning
+			code = "KEY_ROTATION_RECORD_MISSING_LEGACY"
+			message = "deployed zerone-1 account shows rotation evidence, but its legacy export has no last key rotation cooldown anchor"
+		}
+		a.add(Finding{
+			Severity: severity,
+			Code:     code,
+			Message:  message,
+			Address:  account.Address,
+			DID:      account.DID,
+			Location: fmt.Sprintf("zerone_auth.accounts[%d].operational_key_version", index),
+		})
 	}
 }
 
@@ -608,7 +794,13 @@ func (a *auditor) auditBaseAccountKey(account cosmosBaseAccount) {
 	}
 }
 
-func (a *auditor) auditDID(did, address, location string) (string, bool) {
+type didDescriptor struct {
+	SuffixLower string
+	LegacyShort bool
+	Valid       bool
+}
+
+func (a *auditor) auditDID(did, address, location string) didDescriptor {
 	if !strings.HasPrefix(did, "did:zrn:") {
 		a.add(Finding{
 			Severity: severityError,
@@ -618,19 +810,19 @@ func (a *auditor) auditDID(did, address, location string) (string, bool) {
 			DID:      did,
 			Location: location,
 		})
-		return "", false
+		return didDescriptor{}
 	}
 	suffix := strings.TrimPrefix(did, "did:zrn:")
 	if len(suffix) != 32 && len(suffix) != 64 {
 		a.add(Finding{
 			Severity: severityError,
 			Code:     "DID_LENGTH_INVALID",
-			Message:  fmt.Sprintf("DID suffix has %d hex characters; expected 32 or 64", len(suffix)),
+			Message:  fmt.Sprintf("DID suffix has %d hex characters; current source requires 64, while 32 is recognized only for legacy census", len(suffix)),
 			Address:  address,
 			DID:      did,
 			Location: location,
 		})
-		return "", false
+		return didDescriptor{}
 	}
 	if _, err := hex.DecodeString(suffix); err != nil {
 		a.add(Finding{
@@ -641,29 +833,44 @@ func (a *auditor) auditDID(did, address, location string) (string, bool) {
 			DID:      did,
 			Location: location,
 		})
-		return "", false
+		return didDescriptor{}
+	}
+	descriptor := didDescriptor{
+		SuffixLower: strings.ToLower(suffix),
+		LegacyShort: len(suffix) == 32,
+		Valid:       true,
 	}
 	if suffix != strings.ToLower(suffix) {
+		severity := a.sourceCanonicalSeverity()
+		message := "DID suffix is not lowercase and is invalid under the current source identity contract"
+		if a.legacyZerone1 {
+			message = "deployed zerone-1 DID uses historical uppercase hex; current source requires lowercase"
+		}
 		a.add(Finding{
-			Severity: severityWarning,
+			Severity: severity,
 			Code:     "DID_NON_CANONICAL_CASE",
-			Message:  "DID suffix is not lowercase",
+			Message:  message,
 			Address:  address,
 			DID:      did,
 			Location: location,
 		})
 	}
-	if len(suffix) == 64 {
+	if descriptor.LegacyShort {
+		severity := a.sourceCanonicalSeverity()
+		message := "32-hex DID is a legacy short form and is invalid under the current source identity contract, which binds all 32 public-key bytes"
+		if a.legacyZerone1 {
+			message = "deployed zerone-1 DID uses the historical 32-hex prefix form; current source binds the full 64-lower-hex identity key"
+		}
 		a.add(Finding{
-			Severity: severityWarning,
-			Code:     "DID_NON_CANONICAL_LENGTH",
-			Message:  "64-hex DID form aliases the canonical lowercase 32-hex migration identifier",
+			Severity: severity,
+			Code:     "DID_LEGACY_SHORT_FORM",
+			Message:  message,
 			Address:  address,
 			DID:      did,
 			Location: location,
 		})
 	}
-	return "did:zrn:" + strings.ToLower(suffix[:32]), true
+	return descriptor
 }
 
 func (a *auditor) auditHexKey(value, address, did, location, kind string) ([]byte, bool) {
@@ -691,16 +898,118 @@ func (a *auditor) auditHexKey(value, address, did, location, kind string) ([]byt
 		return nil, false
 	}
 	if value != strings.ToLower(value) {
+		severity := a.sourceCanonicalSeverity()
+		message := "hex public key is not lowercase and is invalid under the current source identity contract"
+		if a.legacyZerone1 {
+			message = "deployed zerone-1 public key uses historical uppercase hex; current source requires lowercase"
+		}
 		a.add(Finding{
-			Severity: severityWarning,
+			Severity: severity,
 			Code:     kind + "_KEY_NON_CANONICAL_CASE",
-			Message:  "hex public key is not lowercase",
+			Message:  message,
 			Address:  address,
 			DID:      did,
 			Location: location,
 		})
 	}
+	if err := authtypes.ValidateEd25519PublicKey(key); err != nil {
+		a.add(Finding{
+			Severity: severityError,
+			Code:     kind + "_KEY_ED25519_INVALID",
+			Message:  fmt.Sprintf("public key is not a canonical prime-subgroup Ed25519 point: %v", err),
+			Address:  address,
+			DID:      did,
+			Location: location,
+		})
+		return key, false
+	}
 	return key, true
+}
+
+func (a *auditor) sourceCanonicalSeverity() string {
+	if a.legacyZerone1 {
+		return severityWarning
+	}
+	return severityError
+}
+
+func (a *auditor) recordDIDOccurrence(
+	did, address, location string,
+	descriptor didDescriptor,
+	identityKey []byte,
+) {
+	if !descriptor.Valid {
+		return
+	}
+	canonicalTarget := ""
+	if descriptor.LegacyShort {
+		if len(identityKey) == 32 {
+			canonicalTarget = "did:zrn:" + hex.EncodeToString(identityKey)
+		}
+	} else {
+		canonicalTarget = "did:zrn:" + descriptor.SuffixLower
+	}
+	a.didOccurrences = append(a.didOccurrences, didOccurrence{
+		Raw:             did,
+		Address:         address,
+		Location:        location,
+		CanonicalTarget: canonicalTarget,
+		LegacyPrefix:    descriptor.SuffixLower[:32],
+		LegacyShort:     descriptor.LegacyShort,
+	})
+}
+
+func (a *auditor) auditOperationalKeyHash(account zeroneAccount, operationalKey []byte, location string) {
+	if account.OperationalKeyHash == "" {
+		severity := severityError
+		code := "OPERATIONAL_KEY_HASH_MISSING"
+		message := "operational_key_hash is required by current source and must commit to the operational public key"
+		if a.legacyZerone1 {
+			severity = severityWarning
+			code = "OPERATIONAL_KEY_HASH_MISSING_LEGACY"
+			message = "deployed zerone-1 record predates mandatory operational-key commitments; absence is preserved and is not proof of key possession"
+		}
+		a.add(Finding{
+			Severity: severity,
+			Code:     code,
+			Message:  message,
+			Address:  account.Address,
+			DID:      account.DID,
+			Location: location + ".operational_key_hash",
+		})
+		return
+	}
+
+	decodedHash, err := hex.DecodeString(account.OperationalKeyHash)
+	if len(account.OperationalKeyHash) != sha256.Size*2 || err != nil ||
+		hex.EncodeToString(decodedHash) != account.OperationalKeyHash {
+		a.add(Finding{
+			Severity: severityError,
+			Code:     "OPERATIONAL_KEY_HASH_INVALID",
+			Message:  "operational_key_hash must be exactly 64 lowercase hexadecimal characters",
+			Address:  account.Address,
+			DID:      account.DID,
+			Location: location + ".operational_key_hash",
+		})
+		return
+	}
+	if len(operationalKey) != 32 {
+		return
+	}
+	expected, err := authtypes.OperationalKeyHash(operationalKey)
+	if err != nil {
+		return
+	}
+	if account.OperationalKeyHash != expected {
+		a.add(Finding{
+			Severity: severityError,
+			Code:     "OPERATIONAL_KEY_HASH_MISMATCH",
+			Message:  fmt.Sprintf("operational_key_hash is %s; expected %s for the stored operational public key", account.OperationalKeyHash, expected),
+			Address:  account.Address,
+			DID:      account.DID,
+			Location: location + ".operational_key_hash",
+		})
+	}
 }
 
 func (a *auditor) validateAddress(address, location string) {
@@ -730,8 +1039,8 @@ func (a *auditor) validateAddress(address, location string) {
 func (a *auditor) finish() {
 	sort.SliceStable(a.report.Findings, func(i, j int) bool {
 		left, right := a.report.Findings[i], a.report.Findings[j]
-		leftKey := left.Severity + "\x00" + left.Code + "\x00" + left.Address + "\x00" + left.DID + "\x00" + left.Location
-		rightKey := right.Severity + "\x00" + right.Code + "\x00" + right.Address + "\x00" + right.DID + "\x00" + right.Location
+		leftKey := findingSortKey(left)
+		rightKey := findingSortKey(right)
 		return leftKey < rightKey
 	})
 	for _, finding := range a.report.Findings {
@@ -742,6 +1051,18 @@ func (a *auditor) finish() {
 			a.report.Summary.Warnings++
 		}
 	}
+}
+
+func findingSortKey(finding Finding) string {
+	return strings.Join([]string{
+		finding.Severity,
+		finding.Code,
+		finding.Address,
+		finding.DID,
+		finding.Location,
+		finding.Message,
+		strings.Join(finding.Related, "\x01"),
+	}, "\x00")
 }
 
 func didMatchesKey(did string, key []byte) bool {
@@ -771,6 +1092,25 @@ func parseUint32(raw json.RawMessage) (uint32, bool) {
 	if err := json.Unmarshal(raw, &text); err == nil {
 		if value, err := strconv.ParseUint(text, 10, 32); err == nil {
 			return uint32(value), true
+		}
+	}
+	return 0, false
+}
+
+func parseUint64(raw json.RawMessage) (uint64, bool) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, false
+	}
+	var number json.Number
+	if err := json.Unmarshal(raw, &number); err == nil {
+		if value, err := strconv.ParseUint(string(number), 10, 64); err == nil {
+			return value, true
+		}
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		if value, err := strconv.ParseUint(text, 10, 64); err == nil {
+			return value, true
 		}
 	}
 	return 0, false
@@ -813,6 +1153,9 @@ func decodeCosmosPubKey(value any) (string, []byte, bool, error) {
 	case "/cosmos.crypto.ed25519.PubKey", "tendermint/PubKeyEd25519":
 		if len(key) != 32 {
 			return pubKeyType, nil, true, fmt.Errorf("Ed25519 public key has %d bytes; expected 32", len(key))
+		}
+		if err := authtypes.ValidateEd25519PublicKey(key); err != nil {
+			return pubKeyType, nil, true, fmt.Errorf("Ed25519 public key is not a canonical prime-subgroup point: %w", err)
 		}
 		return pubKeyType, key, true, nil
 	case "/cosmos.crypto.secp256k1.PubKey", "tendermint/PubKeySecp256k1":

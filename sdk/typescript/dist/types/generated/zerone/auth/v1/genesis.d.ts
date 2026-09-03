@@ -15,6 +15,21 @@ export interface GenesisState {
     params?: Params;
     accounts: Account[];
     didMappings: DIDMapping[];
+    /**
+     * Last successful operational-key rotation per account. Exporting this
+     * preserves cooldown semantics across export/import and fork recovery.
+     */
+    lastKeyRotations: KeyRotationRecord[];
+}
+/**
+ * KeyRotationRecord preserves the cooldown anchor for one account.
+ * @name KeyRotationRecord
+ * @package zerone.auth.v1
+ * @see proto type: zerone.auth.v1.KeyRotationRecord
+ */
+export interface KeyRotationRecord {
+    address: string;
+    height: bigint;
 }
 /**
  * Params defines the auth module parameters.
@@ -53,6 +68,18 @@ export declare const GenesisState: {
     encode(message: GenesisState, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisState;
     fromPartial(object: DeepPartial<GenesisState>): GenesisState;
+};
+/**
+ * KeyRotationRecord preserves the cooldown anchor for one account.
+ * @name KeyRotationRecord
+ * @package zerone.auth.v1
+ * @see proto type: zerone.auth.v1.KeyRotationRecord
+ */
+export declare const KeyRotationRecord: {
+    typeUrl: string;
+    encode(message: KeyRotationRecord, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): KeyRotationRecord;
+    fromPartial(object: DeepPartial<KeyRotationRecord>): KeyRotationRecord;
 };
 /**
  * Params defines the auth module parameters.

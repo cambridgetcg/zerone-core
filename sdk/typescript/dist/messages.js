@@ -1,4 +1,13 @@
 import {
+  ACCOUNT_REGISTRATION_PROOF_DOMAIN,
+  KEY_ROTATION_ACCEPTANCE_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_MAX_TTL_SECONDS,
+  accountRegistrationProofSignBytes,
+  keyRotationAcceptanceSignBytes,
+  keyRotationAuthorizationSignBytes
+} from "./chunk-75TLLSKH.js";
+import {
   MessageComposer,
   MessageComposer10,
   MessageComposer11,
@@ -38,12 +47,17 @@ import {
   tx_exports7 as tx_exports8,
   tx_exports8 as tx_exports9,
   tx_exports9 as tx_exports10
-} from "./chunk-PQV3XR6M.js";
+} from "./chunk-HO2DCVPK.js";
 import {
   tx_exports
 } from "./chunk-CXBAXZI7.js";
 import "./chunk-MLKGABMK.js";
 export {
+  ACCOUNT_REGISTRATION_PROOF_DOMAIN,
+  KEY_ROTATION_ACCEPTANCE_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_DOMAIN,
+  KEY_ROTATION_AUTHORIZATION_MAX_TTL_SECONDS,
+  accountRegistrationProofSignBytes,
   tx_exports2 as alignment,
   MessageComposer as alignmentMessages,
   tx_exports3 as auth,
@@ -66,6 +80,8 @@ export {
   MessageComposer10 as homeMessages,
   tx_exports12 as ibcRateLimit,
   MessageComposer11 as ibcRateLimitMessages,
+  keyRotationAcceptanceSignBytes,
+  keyRotationAuthorizationSignBytes,
   tx_exports13 as knowledge,
   MessageComposer12 as knowledgeMessages,
   tx_exports as liquidityPool,

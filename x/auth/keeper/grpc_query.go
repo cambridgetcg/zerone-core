@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"encoding/hex"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/grpc/codes"
@@ -22,8 +23,37 @@ func NewQueryServerImpl(keeper Keeper) types.QueryServer {
 	return &queryServer{Keeper: keeper}
 }
 
+// validateDIDForLookup preserves the exact DID grammar accepted by the
+// historical zerone-1 registration path. It is deliberately private to this
+// read-only query: new writes and imported state must use types.ValidateDID.
+func validateDIDForLookup(chainID, did string) error {
+	currentErr := types.ValidateDID(did)
+	if currentErr == nil || chainID != "zerone-1" {
+		return currentErr
+	}
+
+	const prefix = "did:zrn:"
+	if len(did) < len(prefix) || did[:len(prefix)] != prefix {
+		return currentErr
+	}
+	suffix := did[len(prefix):]
+	if len(suffix) != 32 && len(suffix) != 64 {
+		return currentErr
+	}
+	if _, err := hex.DecodeString(suffix); err != nil {
+		return currentErr
+	}
+	return nil
+}
+
 // Account returns a Zerone account by bech32 address.
 func (qs queryServer) Account(goCtx context.Context, req *types.QueryAccountRequest) (*types.QueryAccountResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	if err := types.ValidateCanonicalAccountAddress(req.Address); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid account address: %v", err)
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	account, found := qs.GetAccount(ctx, req.Address)
@@ -36,7 +66,13 @@ func (qs queryServer) Account(goCtx context.Context, req *types.QueryAccountRequ
 
 // AccountByDID returns a Zerone account by DID.
 func (qs queryServer) AccountByDID(goCtx context.Context, req *types.QueryAccountByDIDRequest) (*types.QueryAccountByDIDResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := validateDIDForLookup(ctx.ChainID(), req.Did); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid DID: %v", err)
+	}
 
 	account, found := qs.GetAccountByDID(ctx, req.Did)
 	if !found {
@@ -112,9 +148,8 @@ func (qs queryServer) AccountIdentifier(goCtx context.Context, req *types.QueryA
 
 	accountID, err := types.CAIP10AccountID(rawChainID, account.Address)
 	if err != nil {
-		// Registration and historical genesis validation admit a wider address
-		// set than the draft Cosmos CAIP-10 profile. A stored-but-unprojectable
-		// record is server state, not malformed client input.
+		// A corrupt or legacy stored-but-unprojectable record is server state,
+		// not malformed client input.
 		return nil, status.Errorf(codes.FailedPrecondition, "registered account address is not CAIP-projectable: %v", err)
 	}
 

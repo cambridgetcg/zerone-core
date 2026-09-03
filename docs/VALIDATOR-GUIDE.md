@@ -13,10 +13,12 @@ network and it is not deployment authority.
 - No validator deployment is authorized by source publication.
 - `zerone-2` remains **NO-GO** until its signed ceremony and authority
   requirements are complete.
-- Current CI does not issue an OIDC-backed component signature, and the
-  checked-in authority verifier does not yet cryptographically validate its
-  declared Sigstore bundle against trusted Fulcio/Rekor material. Structural
-  fixture checks are not production provenance.
+- Current CI contains a protected manual OIDC component-signing job, and the
+  checked-in authority verifier cryptographically validates exact v0.3 bundles
+  against a pinned local Sigstore root, identity, source commit, transparency
+  log, and observer-time policy. Those source paths do not create the three
+  real bundles, reviewed trusted root, or signed authority graph; fixture
+  checks are not production provenance.
 
 Do not download from old `zerone-chain/zerone` or `nickkpope/zerone` release
 URLs. Do not build a production validator from a moving branch.

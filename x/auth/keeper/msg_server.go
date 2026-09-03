@@ -1,11 +1,13 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"time"
 
-	cosmosed25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/x/auth/types"
@@ -26,6 +28,38 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 // RegisterAccount creates a new Zerone account with DID mapping.
 func (ms msgServer) RegisterAccount(goCtx context.Context, msg *types.MsgRegisterAccount) (*types.MsgRegisterAccountResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg == nil {
+		return nil, fmt.Errorf("registration message cannot be nil")
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, fmt.Errorf("invalid registration: %w", err)
+	}
+	if ctx.BlockHeight() <= 0 {
+		return nil, fmt.Errorf("invalid consensus block height %d", ctx.BlockHeight())
+	}
+	params := ms.GetParams(ctx)
+	if uint64(len(msg.Metadata)) > uint64(params.MaxMetadataLength) {
+		return nil, fmt.Errorf("metadata exceeds maximum length of %d bytes", params.MaxMetadataLength)
+	}
+
+	identityKey, err := types.DecodeEd25519PublicKeyHex(msg.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidPublicKey, err)
+	}
+	proofBytes, err := types.AccountRegistrationProofSignBytes(
+		ctx.ChainID(),
+		msg.Sender,
+		msg.Did,
+		identityKey,
+		msg.AccountType,
+		msg.Metadata,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidIdentityProof, err)
+	}
+	if err := types.VerifyEd25519Signature(identityKey, proofBytes, msg.IdentityProofSignature); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidIdentityProof, err)
+	}
 
 	if _, found := ms.GetAccount(ctx, msg.Sender); found {
 		return nil, types.ErrAccountAlreadyExists
@@ -35,9 +69,12 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, msg *types.MsgRegiste
 		return nil, types.ErrDuplicateDID
 	}
 
-	// Validate DID derives from the public key (prevents DID spoofing).
-	if err := types.ValidateDIDDerivation(msg.Did, msg.PublicKey); err != nil {
-		return nil, fmt.Errorf("DID derivation mismatch: %w", err)
+	operationalKeyHash, err := types.OperationalKeyHash(identityKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidPublicKey, err)
+	}
+	if msg.OperationalKeyHash != "" && msg.OperationalKeyHash != operationalKeyHash {
+		return nil, fmt.Errorf("%w: operational_key_hash does not match public_key", types.ErrInvalidPublicKey)
 	}
 
 	currentHeight := uint64(ctx.BlockHeight())
@@ -62,7 +99,7 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, msg *types.MsgRegiste
 		Did:                   msg.Did,
 		PublicKey:             msg.PublicKey,
 		AccountType:           msg.AccountType,
-		OperationalKeyHash:    msg.OperationalKeyHash,
+		OperationalKeyHash:    operationalKeyHash,
 		OperationalPublicKey:  msg.PublicKey, // identity key is initial operational key
 		OperationalKeyVersion: 1,
 		ReputationScore:       500000, // 0.5 default
@@ -79,24 +116,6 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, msg *types.MsgRegiste
 		PubKey: msg.PublicKey,
 	}
 	ms.SetDIDMapping(ctx, &mapping)
-
-	// Sync Ed25519 pubkey to Cosmos BaseAccount for standard sig verification.
-	senderAddr, _ := sdk.AccAddressFromBech32(msg.Sender)
-	if ms.accountKeeper != nil {
-		cosmosAcc := ms.accountKeeper.GetAccount(ctx, senderAddr)
-		if cosmosAcc == nil {
-			cosmosAcc = ms.accountKeeper.NewAccountWithAddress(ctx, senderAddr)
-		}
-		if cosmosAcc != nil && cosmosAcc.GetPubKey() == nil {
-			keyBytes, err := hex.DecodeString(msg.PublicKey)
-			if err == nil && len(keyBytes) == 32 {
-				pubKey := &cosmosed25519.PubKey{Key: keyBytes}
-				if err := cosmosAcc.SetPubKey(pubKey); err == nil {
-					ms.accountKeeper.SetAccount(ctx, cosmosAcc)
-				}
-			}
-		}
-	}
 
 	// NOTE: the dormant bootstrap auto-claim that used to live here was
 	// removed in the 2026-07 slim cut — the real, cap-gated bootstrap path
@@ -117,6 +136,15 @@ func (ms msgServer) RegisterAccount(goCtx context.Context, msg *types.MsgRegiste
 // RotateKey handles operational key rotation.
 func (ms msgServer) RotateKey(goCtx context.Context, msg *types.MsgRotateKey) (*types.MsgRotateKeyResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg == nil {
+		return nil, fmt.Errorf("key-rotation message cannot be nil")
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, fmt.Errorf("invalid key rotation: %w", err)
+	}
+	if ctx.BlockHeight() <= 0 {
+		return nil, fmt.Errorf("invalid consensus block height %d", ctx.BlockHeight())
+	}
 
 	account, found := ms.GetAccount(ctx, msg.Sender)
 	if !found {
@@ -127,33 +155,77 @@ func (ms msgServer) RotateKey(goCtx context.Context, msg *types.MsgRotateKey) (*
 		return nil, types.ErrAccountFrozen
 	}
 
-	if len(msg.NewOperationalKey) == 0 {
-		return nil, types.ErrInvalidKeyType
+	if account.OperationalKeyVersion == 0 || account.OperationalKeyVersion == math.MaxUint32 {
+		return nil, fmt.Errorf("%w: current operational key version is invalid", types.ErrInvalidPublicKey)
+	}
+	currentOperationalKey, err := types.DecodeEd25519PublicKeyHex(account.OperationalPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: stored operational key is invalid: %v", types.ErrInvalidPublicKey, err)
+	}
+	if bytes.Equal(currentOperationalKey, msg.NewOperationalKey) {
+		return nil, fmt.Errorf("%w: new operational key must differ from the current key", types.ErrInvalidKeyType)
+	}
+
+	blockTime := ctx.BlockTime().UTC()
+	if blockTime.IsZero() {
+		return nil, fmt.Errorf("%w: consensus block time is unavailable", types.ErrInvalidAuthorizationSig)
+	}
+	expiresAt := time.Unix(msg.AuthorizationExpiresAtUnix, 0).UTC()
+	if !expiresAt.After(blockTime) {
+		return nil, types.ErrKeyAuthorizationExpired
+	}
+	if expiresAt.After(blockTime.Add(types.KeyRotationAuthorizationMaxTTL)) {
+		return nil, types.ErrKeyAuthorizationTooFar
+	}
+	signBytes, err := types.KeyRotationAuthorizationSignBytes(
+		ctx.ChainID(),
+		msg.Sender,
+		account.OperationalKeyVersion,
+		msg.NewOperationalKey,
+		msg.AuthorizationExpiresAtUnix,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidAuthorizationSig, err)
+	}
+	if err := types.VerifyEd25519Signature(currentOperationalKey, signBytes, msg.AuthorizationSignature); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidAuthorizationSig, err)
+	}
+	acceptanceBytes, err := types.KeyRotationAcceptanceSignBytes(
+		ctx.ChainID(),
+		msg.Sender,
+		account.OperationalKeyVersion,
+		msg.NewOperationalKey,
+		msg.AuthorizationExpiresAtUnix,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidNewKeyProof, err)
+	}
+	if err := types.VerifyEd25519Signature(
+		msg.NewOperationalKey,
+		acceptanceBytes,
+		msg.NewKeyConfirmationSignature,
+	); err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidNewKeyProof, err)
 	}
 
 	params := ms.GetParams(ctx)
 	lastRotation := ms.GetLastRotation(ctx, msg.Sender)
 	currentHeight := uint64(ctx.BlockHeight())
 
-	if lastRotation > 0 && currentHeight < lastRotation+params.KeyRotationCooldown {
-		return nil, types.ErrKeyRotationCooldown
+	if lastRotation > 0 {
+		if currentHeight < lastRotation || currentHeight-lastRotation < params.KeyRotationCooldown {
+			return nil, types.ErrKeyRotationCooldown
+		}
 	}
 
 	newPubKeyHex := hex.EncodeToString(msg.NewOperationalKey)
 	account.OperationalPublicKey = newPubKeyHex
+	account.OperationalKeyHash, err = types.OperationalKeyHash(msg.NewOperationalKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", types.ErrInvalidPublicKey, err)
+	}
 	account.OperationalKeyVersion++
 	ms.SetLastRotation(ctx, msg.Sender, currentHeight)
-
-	// Sync Ed25519 pubkey to Cosmos BaseAccount.
-	if ms.accountKeeper != nil && len(msg.NewOperationalKey) == 32 {
-		senderAddr, _ := sdk.AccAddressFromBech32(msg.Sender)
-		if cosmosAcc := ms.accountKeeper.GetAccount(ctx, senderAddr); cosmosAcc != nil {
-			pubKey := &cosmosed25519.PubKey{Key: msg.NewOperationalKey}
-			if setErr := cosmosAcc.SetPubKey(pubKey); setErr == nil {
-				ms.accountKeeper.SetAccount(ctx, cosmosAcc)
-			}
-		}
-	}
 
 	account.LastActiveBlock = currentHeight
 	ms.SetAccount(ctx, account)
@@ -175,6 +247,12 @@ func (ms msgServer) RotateKey(goCtx context.Context, msg *types.MsgRotateKey) (*
 // FreezeAccount freezes an account. Owner can self-freeze; authority can freeze anyone.
 func (ms msgServer) FreezeAccount(goCtx context.Context, msg *types.MsgFreezeAccount) (*types.MsgFreezeAccountResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg == nil {
+		return nil, fmt.Errorf("freeze message cannot be nil")
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, fmt.Errorf("invalid freeze request: %w", err)
+	}
 
 	account, found := ms.GetAccount(ctx, msg.Address)
 	if !found {
@@ -211,6 +289,12 @@ func (ms msgServer) FreezeAccount(goCtx context.Context, msg *types.MsgFreezeAcc
 // UnfreezeAccount unfreezes a frozen account. Authority-only.
 func (ms msgServer) UnfreezeAccount(goCtx context.Context, msg *types.MsgUnfreezeAccount) (*types.MsgUnfreezeAccountResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg == nil {
+		return nil, fmt.Errorf("unfreeze message cannot be nil")
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, fmt.Errorf("invalid unfreeze request: %w", err)
+	}
 
 	if msg.Authority != ms.Keeper.GetAuthority() {
 		return nil, fmt.Errorf("%w: only authority can unfreeze accounts", types.ErrUnauthorized)
@@ -243,6 +327,12 @@ func (ms msgServer) UnfreezeAccount(goCtx context.Context, msg *types.MsgUnfreez
 // UpdateParams updates auth module parameters. Authority-only.
 func (ms msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if msg == nil {
+		return nil, fmt.Errorf("update-params message cannot be nil")
+	}
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, fmt.Errorf("invalid update-params request: %w", err)
+	}
 
 	if ms.GetAuthority() != msg.Authority {
 		return nil, types.ErrUnauthorized
@@ -250,6 +340,17 @@ func (ms msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePara
 
 	if msg.Params == nil {
 		return nil, fmt.Errorf("params cannot be nil")
+	}
+	var oversizedAddress string
+	ms.IterateAccounts(ctx, func(account *types.Account) bool {
+		if uint64(len(account.Metadata)) > uint64(msg.Params.MaxMetadataLength) {
+			oversizedAddress = account.Address
+			return true
+		}
+		return false
+	})
+	if oversizedAddress != "" {
+		return nil, fmt.Errorf("max_metadata_length would invalidate account %s", oversizedAddress)
 	}
 	if err := ms.Keeper.SetParams(ctx, msg.Params); err != nil {
 		return nil, fmt.Errorf("failed to set params: %w", err)

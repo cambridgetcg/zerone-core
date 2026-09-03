@@ -14,7 +14,7 @@ var CAIP2_PATTERN = /^([-a-z0-9]{3,8}):([-_a-zA-Z0-9]{1,32})$/;
 var CAIP10_PATTERN = /^([-a-z0-9]{3,8}):([-_a-zA-Z0-9]{1,32}):([-.%a-zA-Z0-9]{1,128})$/;
 var COSMOS_DIRECT_REFERENCE = /^(?!hashed-)[-a-zA-Z0-9]{1,32}$/;
 var COSMOS_HASHED_REFERENCE = /^hashed-[0-9a-f]{16}$/;
-var EXISTING_ZERONE_DID = /^did:zrn:(?:[0-9A-Fa-f]{32}|[0-9A-Fa-f]{64})$/;
+var EXISTING_ZERONE_DID = /^did:zrn:[0-9a-f]{64}$/;
 function fullMatch(pattern, value) {
   const match = pattern.exec(value);
   return match?.[0] === value ? match : null;

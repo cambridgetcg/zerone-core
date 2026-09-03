@@ -653,17 +653,26 @@ def validate_release(
     operator = parse_canonical_json(operator_raw, "operator-tool manifest")
     operator = exact_object(
         operator,
-        {"schema", "source_commit", "signed_tag", "files"},
+        {
+            "schema",
+            "source_commit",
+            "signed_tag",
+            "files",
+            "authority_bundle",
+            "component_signature_policy",
+        },
         "operator-tool manifest",
     )
     runner_hash, _ = hash_regular(
         pathlib.Path(__file__).resolve(), "census evidence runner", MAX_JSON_BYTES
     )
     if not (
-        operator["schema"] == "zerone-operator-tool-manifest-v1"
+        operator["schema"] == "zerone-operator-tool-manifest-v2"
         and operator["source_commit"] == source["commit"]
         and operator["signed_tag"] == source["signed_annotated_tag"]
         and isinstance(operator["files"], dict)
+        and isinstance(operator["authority_bundle"], dict)
+        and isinstance(operator["component_signature_policy"], dict)
         and operator["files"].get(RUNNER_PATH) == runner_hash
     ):
         fail("this census evidence runner is not bound by the RELEASE operator manifest")

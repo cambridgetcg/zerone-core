@@ -18,8 +18,10 @@ Usage:
 The bundle must contain the exact two pre-signed TxRaw JSON files declared by
 DARK-START. The wrapper verifies the signed predecessor chain, release binary,
 raw bytes, decoded message/fee/timeout semantics, private successor identity,
-and block-1 anchor. The validator-registration transaction additionally proves
-that the exact onboarding transaction committed successfully first.
+the onboarding identity proof, and block-1 anchor. The validator-registration
+transaction additionally proves that the exact onboarding transaction
+committed successfully first. --check runs the same live state, deadline, and
+signature gates but returns the expected hash without submitting the bytes.
 USAGE
   exit 2
 }
@@ -235,11 +237,13 @@ case "${TRANSACTION_ROLE}" in
       --arg sender "$(jq -er "${TX_PATH}.sender" "${DARK}")" \
       --arg did "$(jq -er "${TX_PATH}.did" "${DARK}")" \
       --arg public_key "$(jq -er "${TX_PATH}.public_key" "${DARK}")" \
+      --arg identity_proof "$(jq -er "${TX_PATH}.identity_proof_signature" "${DARK}")" \
       "${COMMON_JQ} and
        .body.messages[0] == {
          \"@type\":\"/zerone.auth.v1.MsgRegisterAccount\",
          sender:\$sender,did:\$did,public_key:\$public_key,account_type:\"human\",
-         operational_key_hash:\"\",metadata:\"\"
+         operational_key_hash:\"\",metadata:\"\",
+         identity_proof_signature:\$identity_proof
        }" <<<"${DECODED_TX}" >/dev/null || \
       die "decoded onboarding TxRaw differs from the signed DARK contract"
     ;;
@@ -261,10 +265,97 @@ case "${TRANSACTION_ROLE}" in
       die "decoded custom-validator TxRaw differs from the signed DARK contract"
     ;;
 esac
+SIGNED_SEQUENCE=$(jq -er '
+  def canonical_uint64_text:
+    type == "string" and test("^(0|[1-9][0-9]{0,19})$") and
+    (length < 20 or . <= "18446744073709551615");
+  .auth_info.signer_infos[0].sequence | select(canonical_uint64_text)' \
+  <<<"${DECODED_TX}") || die "decoded bootstrap TxRaw signer sequence is malformed"
+[ "${SIGNED_SEQUENCE}" = "${EXPECTED_SEQUENCE}" ] || \
+  die "decoded bootstrap TxRaw signer sequence differs from DARK-START"
+case "${TRANSACTION_ROLE}" in
+  operator-onboarding)
+    SIGNED_SENDER=$(jq -er "${TX_PATH}.sender" "${DARK}")
+    ;;
+  custom-validator-registration)
+    SIGNED_SENDER=$(jq -er "${TX_PATH}.operator" "${DARK}")
+    ;;
+esac
+[ -n "${SIGNED_SENDER}" ] || die "signed bootstrap sender is empty"
 
-if [ "${MODE}" = check ]; then
-  printf '%s\n' "${EXPECTED_TX_HASH}"
-  exit 0
+# Cosmos account implementations wrap BaseAccount in several stable shapes.
+# Walk only those known wrappers and require exactly one canonical candidate;
+# this rejects malformed, ambiguous, and lossy numeric sequence responses.
+verify_live_sender_sequence() {
+  local response live_sequence
+  response=$("${BINARY}" query auth account "${SIGNED_SENDER}" \
+    --node "${RPC_URL%/}" --output json 2>"${TMP}/account-query.stderr") || \
+    die "release binary could not query the live bootstrap sender BaseAccount"
+  live_sequence=$(jq -er --arg sender "${SIGNED_SENDER}" '
+    def canonical_uint64_text:
+      type == "string" and test("^(0|[1-9][0-9]{0,19})$") and
+      (length < 20 or . <= "18446744073709551615");
+    def base_accounts:
+      . as $node |
+      if ($node | type) != "object" then empty
+      else
+        (if (($node.address? | type) == "string") and
+            (($node.sequence? | type) == "string") and
+            (($node | has("account_number")) or
+             ($node | has("accountNumber"))) and
+            ((($node | has("account_number")) | not) or
+             ($node.account_number | canonical_uint64_text)) and
+            ((($node | has("accountNumber")) | not) or
+             ($node.accountNumber | canonical_uint64_text)) and
+            (((($node | has("account_number")) and
+               ($node | has("accountNumber"))) | not) or
+             ($node.account_number == $node.accountNumber))
+         then {address:$node.address, sequence:$node.sequence}
+         else empty end),
+        (["account", "base_account", "baseAccount",
+          "base_vesting_account", "baseVestingAccount", "value"][] as $key |
+         select(($node[$key]? | type) == "object") |
+         $node[$key] | base_accounts)
+      end;
+    [base_accounts] as $accounts |
+    select(($accounts | length) == 1) |
+    $accounts[0] |
+    select(.address == $sender) |
+    .sequence |
+    select(canonical_uint64_text)
+  ' <<<"${response}") || \
+    die "live bootstrap account response has no unique canonical BaseAccount"
+  [ "${live_sequence}" = "${SIGNED_SEQUENCE}" ] || \
+    die "live bootstrap sender sequence ${live_sequence} differs from signed TxRaw sequence ${SIGNED_SEQUENCE}"
+}
+
+# The authority-bundle verifier deliberately treats the release binary as
+# signed data and therefore cannot import its consensus implementation. Run
+# the release binary's fully offline verifier here so --check rejects a
+# well-shaped but cryptographically invalid identity proof before a failed
+# DeliverTx can consume the first bootstrap account sequence.
+ONBOARD_PATH=.private_bootstrap_transactions.operator_onboarding
+ONBOARD_CHAIN_ID=$(jq -er "${ONBOARD_PATH}.chain_id" "${DARK}")
+ONBOARD_SENDER=$(jq -er "${ONBOARD_PATH}.sender" "${DARK}")
+ONBOARD_DID=$(jq -er "${ONBOARD_PATH}.did" "${DARK}")
+ONBOARD_PUBLIC_KEY=$(jq -er "${ONBOARD_PATH}.public_key" "${DARK}")
+ONBOARD_ACCOUNT_TYPE=$(jq -er "${ONBOARD_PATH}.account_type" "${DARK}")
+ONBOARD_METADATA=$(jq -er "${ONBOARD_PATH}.metadata" "${DARK}")
+ONBOARD_PROOF_BASE64=$(jq -er "${ONBOARD_PATH}.identity_proof_signature" "${DARK}")
+if ! printf '%s' "${ONBOARD_PROOF_BASE64}" | \
+  base64 --decode > "${TMP}/identity-proof.bin" 2>/dev/null; then
+  printf '%s' "${ONBOARD_PROOF_BASE64}" | \
+    base64 -D > "${TMP}/identity-proof.bin" 2>/dev/null || \
+    die "could not decode onboarding identity proof"
+fi
+[ "$(wc -c < "${TMP}/identity-proof.bin" | tr -d ' ')" = 64 ] || \
+  die "onboarding identity proof is not 64 bytes"
+ONBOARD_PROOF_HEX=$(od -An -v -tx1 "${TMP}/identity-proof.bin" | tr -d ' \n')
+if ! PROOF_CHECK=$("${BINARY}" tx zerone_auth verify-registration-proof \
+  "${ONBOARD_SENDER}" "${ONBOARD_DID}" "${ONBOARD_PUBLIC_KEY}" \
+  "${ONBOARD_ACCOUNT_TYPE}" "${ONBOARD_PROOF_HEX}" \
+  --chain-id "${ONBOARD_CHAIN_ID}" --metadata "${ONBOARD_METADATA}" 2>&1); then
+  die "signed onboarding identity proof failed verification: ${PROOF_CHECK}"
 fi
 
 COMMIT_DEADLINE=$(jq -er '.authorization_semantics.registration_commit_deadline' \
@@ -307,8 +398,16 @@ jq -e --arg hash "${TRUSTED_BLOCK_HASH}" --arg app "${TRUSTED_APP_HASH}" '
   .result.block.header.app_hash == $app
 ' <<<"${ANCHOR}" >/dev/null || die "successor RPC differs from signed block-1 anchor"
 
+# Verify the normal Cosmos TxRaw signature against the anchored successor's
+# current account number and sequence before a failed DeliverTx can charge the
+# account or strand the second pre-signed bootstrap transaction.
+if ! SIGNATURE_CHECK=$("${BINARY}" tx validate-signatures "${TX_FILE}" \
+  --chain-id zerone-2 --node "${RPC_URL%/}" --output json 2>&1); then
+  die "signed bootstrap TxRaw failed pre-broadcast signature validation: ${SIGNATURE_CHECK}"
+fi
+verify_live_sender_sequence
+
 if [ "${TRANSACTION_ROLE}" = custom-validator-registration ]; then
-  ONBOARD_PATH=.private_bootstrap_transactions.operator_onboarding
   ONBOARD_HASH=$(jq -er "${ONBOARD_PATH}.expected_transaction_hash" "${DARK}")
   ONBOARD_FILE=$(jq -er "${ONBOARD_PATH}.filename" "${DARK}")
   [ "${ONBOARD_FILE}" = ZERONE-2-ONBOARD-SIGNED-TX.json ] || \
@@ -328,8 +427,14 @@ if [ "${TRANSACTION_ROLE}" = custom-validator-registration ]; then
     die "custom-validator registration requires the exact successful onboarding first"
 fi
 
+if [ "${MODE}" = check ]; then
+  printf '%s\n' "${EXPECTED_TX_HASH}"
+  exit 0
+fi
+
 [ "$(date -u '+%s')" -le "${BROADCAST_NOT_AFTER_EPOCH}" ] || \
   die "registration cutoff passed before exact raw-byte broadcast"
+verify_live_sender_sequence
 REQUEST=$(jq -cn --arg tx "${ENCODED_TX}" \
   '{jsonrpc:"2.0",id:1,method:"broadcast_tx_sync",params:{tx:$tx}}')
 RESPONSE=$(curl -fsS --max-time 15 -H 'Content-Type: application/json' \

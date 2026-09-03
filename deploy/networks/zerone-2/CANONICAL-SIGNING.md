@@ -183,9 +183,10 @@ Production DARK/OPEN Fly deployments use `deploy/fly-deploy-authorized.sh`;
 CUTOVER uses only `deploy/mainnet/fly-cutover-authorized.sh`, not manually
 transcribed expected values. It snapshots RELEASE, the canonical phase
 authority, both signatures, and the config; verifies the exact out-of-band
-signer and release-to-phase chain; extracts the app, image, role, component,
-and concrete config hash from the signed phase `GO`; then passes those values
-to the lower-level immutable-image gate. Example:
+signer and full release-to-phase authority bundle, including release-bound
+operator tools and offline component Sigstore verification; extracts the app,
+image, role, component, and concrete config hash from the signed phase `GO`;
+then passes those values to the lower-level immutable-image gate. Example:
 
 ```bash
 # Valid only before private block 1 and while DARK-START is unexpired:
@@ -193,7 +194,8 @@ deploy/fly-deploy-authorized.sh --check \
   RELEASE-PACKET.json RELEASE-PACKET.json.sig \
   DARK-START-DECISION.json DARK-START-DECISION.json.sig \
   /secure/fly.edge.toml zerone_2_edge_private \
-  '<main-full-fingerprint>'
+  '<main-full-fingerprint>' \
+  /secure/authority-bundle
 
 # After block 1, every remaining DARK profile switch requires its evidence:
 deploy/fly-deploy-authorized.sh --check \
@@ -202,7 +204,8 @@ deploy/fly-deploy-authorized.sh --check \
   /secure/fly.edge.toml zerone_2_edge_private \
   '<main-full-fingerprint>' \
   DARK-START-INITIATION-EVIDENCE.json \
-  DARK-START-INITIATION-EVIDENCE.json.sig
+  DARK-START-INITIATION-EVIDENCE.json.sig \
+  /secure/authority-bundle
 ```
 
 Only DARK-START may deploy private successor profiles; the specialized CUTOVER
@@ -212,10 +215,11 @@ may deploy the three public profiles. CUTOVER and OPEN require their verified
 initiation-evidence payload/signature pairs. OPEN additionally requires the
 transition-signed
 `FINAL-CHECKPOINT.json`, its detached signature, and the separately pinned full
-transition-key fingerprint. Production OPEN verification runs on the dedicated
+transition-key fingerprint. Every production stage runs on the dedicated
 `linux/amd64` release workstation because it executes the exact signed
-Linux/AMD64 predecessor halt binary for offline Comet cryptography; native
-macOS rebuilds and test doubles are forbidden. Archive candidate/final
+component verifier; OPEN also executes the signed Linux/AMD64 predecessor halt
+binary for offline Comet cryptography. Native macOS rebuilds and test doubles
+are forbidden. Archive candidate/final
 deployments use
 `deploy/mainnet/fly-deploy-archive-authorized.sh`, which reruns the renderer and
 byte-compares its output before accepting the transition signature. The release
@@ -234,9 +238,23 @@ trusted anchor; then encodes the snapshot and submits those exact raw bytes.
 The DARK gate additionally enforces the two fixed filenames, message types,
 sequence `0` then `1`, increasing timeout heights, DID/operator/consensus-key
 bindings, and proof that onboarding committed before validator registration.
+Its `--check` form runs the same live successor, deadline, identity-proof, and
+normal `TxRaw` signature checks and omits only submission.
 The CUTOVER/OPEN gate enforces the exact one-message self-send, amount, fee,
-gas, signer, timeout, memo, and extension-free semantics. A direct `zeroned tx
-broadcast` command is not an authorized release path.
+gas, signer, timeout, memo, and extension-free semantics. Its live `--check`
+and broadcast paths verify the ordinary `TxRaw` signature against the
+authenticated private node's current account number and sequence before check
+success or broadcast. Post-commit deploy and archive consumers instead use the
+internal `--offline-artifact-check` path: it requires matching signed
+post-initiation evidence and code-zero committed transaction hash, then checks
+the release binary, exact TxRaw SHA-256/Comet hash, decoded contract, signer
+order/address, direct mode, and canonical consumed sequence without consulting
+the current broadcast cutoff, RPC, or current account state. The post-init
+authority verifier still applies its future-dating and security-expiry policy.
+That offline structural check is not an independent cryptographic
+re-verification of historical sign bytes; the signed code-zero commit evidence
+is the historical acceptance authority. A direct `zeroned tx broadcast`
+command is not an authorized release path.
 
 After successful commit, create the corresponding canonical main-key
 initiation-evidence payload from independent raw query evidence. No halt/public

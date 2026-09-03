@@ -12,7 +12,7 @@
 #   BINARY, NODE, CHAIN_ID, HOME_DIR (keyring home), KEYRING
 #   FUNDER (key name), SUBMITTER (key name), VERIFIERS (space-sep 4 key names)
 #   DOMAIN, CATEGORY, CONTENT, FEE_UZRN (200000 = safe max under critical pacing)
-#   STATE_DIR (ed25519 identity keys + ceremony log land here)
+#   STATE_DIR (ed25519 identity files + ceremony log land here)
 #   SKIP_FUND=1 to skip funding, SKIP_REGISTER=1 to skip zerone_auth registration
 set -euo pipefail
 
@@ -101,23 +101,6 @@ ensure_key() {
     || "$BINARY" keys add "$1" --keyring-backend "$KEYRING" --home "$HOME_DIR" >/dev/null
 }
 
-ed25519_identity() { # $1=actor name → prints pub hex; persists priv hex
-  local f="$STATE_DIR/$1.ed25519"
-  if [ ! -f "$f" ]; then
-    python3 - "$f" <<'PY'
-import sys
-from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives import serialization
-k = ed25519.Ed25519PrivateKey.generate()
-priv = k.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()).hex()
-pub  = k.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
-open(sys.argv[1], "w").write(f"{priv}\n{pub}\n")
-PY
-    chmod 600 "$f"
-  fi
-  sed -n 2p "$f"
-}
-
 is_registered() { # $1=address
   local rest="${NODE/tcp:\/\//http://}"; rest="${rest/26657/1317}"; rest="${rest/26601/26611}" # localnet REST heuristic unused; use CLI
   "$BINARY" q zerone_auth account "$1" "${QFLAGS[@]}" >/dev/null 2>&1
@@ -161,8 +144,8 @@ if [ "${SKIP_REGISTER:-0}" != "1" ]; then
   for k in $SUBMITTER $VERIFIERS; do
     a=$(addr_of "$k")
     if is_registered "$a"; then say "  $k already registered"; continue; fi
-    PUB=$(ed25519_identity "$k")
-    send_tx "register-$k" "$GAS_REGISTER" zerone_auth register-account "did:zrn:$PUB" "$PUB" agent --from "$k" >/dev/null
+    send_tx "register-$k" "$GAS_REGISTER" zerone_auth onboard agent \
+      --identity-out "$STATE_DIR/$k.ed25519.json" --from "$k" >/dev/null
   done
 fi
 

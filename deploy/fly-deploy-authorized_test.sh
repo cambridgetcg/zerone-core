@@ -16,6 +16,13 @@ sha256_file() {
   fi
 }
 
+canonical_mutate() {
+  local path=$1 filter=$2
+  shift 2
+  jq -S -c "$@" "${filter}" "${path}" > "${path}.new"
+  mv "${path}.new" "${path}"
+}
+
 expect_rejected() {
   local label=$1 expected=$2
   shift 2
@@ -50,6 +57,21 @@ elif [ "$#" -eq 3 ] && [ "$1" = tx ] && [ "$2" = encode ]; then
 elif [ "$#" -eq 5 ] && [ "$1" = tx ] && [ "$2" = decode ] && \
   [ "$4" = --output ] && [ "$5" = json ]; then
   cat "${FAKE_DECODED_TX:?}"
+elif [ "$#" -ge 3 ] && [ "$1" = tx ] && [ "$2" = validate-signatures ]; then
+  for required in '--account-number 0' '--sequence 7' '--offline'; do
+    case " $* " in
+      *" ${required} "*) ;;
+      *) exit 2 ;;
+    esac
+  done
+  case " $* " in
+    *' --node '*) exit 2 ;;
+  esac
+  printf 'Signatures: OK\n'
+elif [ "$#" -eq 8 ] && [ "$1" = query ] && [ "$2" = auth ] && \
+  [ "$3" = account ] && [ "$4" = "${FAKE_ACCOUNT_ADDRESS:?}" ] && \
+  [ "$5" = --node ] && [ "$7" = --output ] && [ "$8" = json ]; then
+  exit 99
 else
   exit 2
 fi
@@ -132,6 +154,27 @@ printf '[GNUPG:] VALIDSIG %s 2026-07-10 %s 0 4 0 1 10 00 %s\n' \
 EOF
 chmod +x "${TMP}/bin/gpg"
 
+cat > "${TMP}/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+url=${!#}
+case "${url}" in
+  */status)
+    jq -n --arg node "${FAKE_PHASE_NODE:?}" '
+      {jsonrpc:"2.0",id:1,result:{node_info:{network:"zerone-2",id:$node},
+       sync_info:{catching_up:false,latest_block_height:"80"}}}'
+    ;;
+  */block\?height=1)
+    jq -n --arg hash "${FAKE_PHASE_BLOCK_HASH:?}" \
+      --arg app "${FAKE_PHASE_APP_HASH:?}" '
+      {jsonrpc:"2.0",id:1,result:{block_id:{hash:$hash},block:{header:{
+       chain_id:"zerone-2",height:"1",app_hash:$app}}}}'
+    ;;
+  *) exit 22 ;;
+esac
+EOF
+chmod +x "${TMP}/bin/curl"
+
 BUNDLE="${TMP}/authority-bundle"
 "${FIXTURE}" \
   --output "${BUNDLE}" \
@@ -149,6 +192,27 @@ BUNDLE="${TMP}/authority-bundle"
   --edge-private-config-file "${PRIVATE_CONFIG}" \
   --release-binary-file "${TMP}/zeroned" \
   --signed-tx-file "${TMP}/signed-tx.json"
+
+make_dark_pre_bundle() {
+  local name=$1 destination
+  destination="${TMP}/${name}"
+  cp -R "${BUNDLE}" "${destination}"
+  canonical_mutate "${destination}/DARK-START-DECISION.json" \
+    '.authorization_semantics.initiation_deadline = "2099-07-10T11:00:00Z"'
+  printf '%s\n' "${destination}"
+}
+
+rebind_dark_release() {
+  local bundle=$1 release_sha release_signature_sha
+  release_sha=$(sha256_file "${bundle}/RELEASE-PACKET.json")
+  release_signature_sha=$(sha256_file "${bundle}/RELEASE-PACKET.json.sig")
+  canonical_mutate "${bundle}/DARK-START-DECISION.json" \
+    '.release_packet_sha256 = $release
+    | .release_packet_detached_signature_sha256 = $signature' \
+    --arg release "${release_sha}" --arg signature "${release_signature_sha}"
+}
+
+DARK_PRE_BUNDLE=$(make_dark_pre_bundle dark-preinit-authority-bundle)
 
 RELEASE="${BUNDLE}/RELEASE-PACKET.json"
 RELEASE_SIG="${BUNDLE}/RELEASE-PACKET.json.sig"
@@ -186,7 +250,9 @@ jq -n -S -c \
       non_critical_extension_options:[]
     },
     auth_info: {
-      signer_infos:[{}],
+      signer_infos:[{
+        mode_info:{single:{mode:"SIGN_MODE_DIRECT"}},sequence:"7"
+      }],
       fee:{
         amount:[{denom:"uzrn",amount:"200000"}],
         gas_limit:"200000",
@@ -203,6 +269,10 @@ gate_env() {
     FAKE_GPG_MAIN_FINGERPRINT="${FAKE_GPG_MAIN_FINGERPRINT:-${MAIN_FINGERPRINT}}" \
     FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
     FAKE_DECODED_TX="${TMP}/decoded-open-tx.json" \
+    FAKE_ACCOUNT_ADDRESS="${SENDER}" FAKE_ACCOUNT_SEQUENCE=7 \
+    FAKE_PHASE_NODE="$(jq -er '.public_identities.validator_node_id' "${RELEASE}")" \
+    FAKE_PHASE_BLOCK_HASH="$(jq -er '.first_committed_block.block_id_hash' "${DARK_INIT}")" \
+    FAKE_PHASE_APP_HASH="$(jq -er '.first_committed_block.app_hash' "${DARK_INIT}")" \
     "$@"
 }
 
@@ -210,7 +280,18 @@ run_dark() {
   gate_env "${GATE}" --check \
     "${RELEASE}" "${RELEASE_SIG}" "${DARK}" "${DARK_SIG}" \
     "${PRIVATE_CONFIG}" zerone_2_edge_private "${MAIN_FINGERPRINT}" \
-    "${DARK_INIT}" "${DARK_INIT_SIG}"
+    "${DARK_INIT}" "${DARK_INIT_SIG}" "${BUNDLE}"
+}
+
+run_dark_pre() {
+  local bundle=${1:-${DARK_PRE_BUNDLE}}
+  gate_env "${GATE}" --check \
+    "${bundle}/RELEASE-PACKET.json" \
+    "${bundle}/RELEASE-PACKET.json.sig" \
+    "${bundle}/DARK-START-DECISION.json" \
+    "${bundle}/DARK-START-DECISION.json.sig" \
+    "${PRIVATE_CONFIG}" zerone_2_edge_private "${MAIN_FINGERPRINT}" \
+    "${bundle}"
 }
 
 run_open() {
@@ -232,9 +313,55 @@ run_open_archive() {
     "${FINAL}" "${FINAL_SIG}" "${TRANSITION_FINGERPRINT}" "${BUNDLE}"
 }
 
+[ "$(run_dark_pre)" = "${RUNTIME_IMAGE}" ]
 [ "$(run_dark)" = "${RUNTIME_IMAGE}" ]
 [ "$(run_open)" = "${RUNTIME_IMAGE}" ]
 [ "$(run_open_archive)" = "${QUERY_IMAGE}" ]
+
+run_dark_without_bundle() {
+  gate_env "${GATE}" --check \
+    "${RELEASE}" "${RELEASE_SIG}" "${DARK}" "${DARK_SIG}" \
+    "${PRIVATE_CONFIG}" zerone_2_edge_private "${MAIN_FINGERPRINT}" \
+    "${DARK_INIT}" "${DARK_INIT_SIG}"
+}
+expect_rejected "DARK deployment without authority bundle" \
+  "DARK-START deployment requires the complete authority bundle" \
+  run_dark_without_bundle
+
+missing_dark_sigstore=$(make_dark_pre_bundle dark-preinit-missing-sigstore)
+mv "${missing_dark_sigstore}/SIGSTORE-TRUSTED-ROOT.json" \
+  "${missing_dark_sigstore}/SIGSTORE-TRUSTED-ROOT.json.missing"
+expect_rejected "DARK deployment with missing Sigstore root" \
+  "could not open bundle file SIGSTORE-TRUSTED-ROOT.json" \
+  run_dark_pre "${missing_dark_sigstore}"
+
+corrupt_dark_sigstore=$(make_dark_pre_bundle dark-preinit-corrupt-sigstore)
+bad_component_signature=$(printf 'x%.0s' {1..80} | base64 | tr -d '\r\n')
+canonical_mutate \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-BUNDLE.json" \
+  '.messageSignature.signature = $signature' \
+  --arg signature "${bad_component_signature}"
+component_bundle_sha=$(sha256_file \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-BUNDLE.json")
+canonical_mutate \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json" \
+  '.bundle_sha256 = $sha' --arg sha "${component_bundle_sha}"
+component_evidence_sha=$(sha256_file \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json")
+canonical_mutate "${corrupt_dark_sigstore}/RELEASE-PACKET.json" \
+  '.components.zerone_2_runtime.signature_sha256 = $sha' \
+  --arg sha "${component_evidence_sha}"
+rebind_dark_release "${corrupt_dark_sigstore}"
+expect_rejected "DARK deployment with corrupt Sigstore signature" \
+  "Sigstore cryptographic verification failed" \
+  run_dark_pre "${corrupt_dark_sigstore}"
+
+corrupt_dark_verifier=$(make_dark_pre_bundle dark-preinit-corrupt-verifier)
+printf '\n# corrupt bundled verifier\n' >> \
+  "${corrupt_dark_verifier}/zerone-component-signature-verifier"
+expect_rejected "DARK deployment with corrupt component verifier" \
+  "bundled component-signature verifier bytes differ" \
+  run_dark_pre "${corrupt_dark_verifier}"
 
 run_cutover_generic() {
   gate_env "${GATE}" --check \

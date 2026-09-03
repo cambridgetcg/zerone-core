@@ -9,7 +9,7 @@ import {
   parseCaip2,
   parseCosmosChainId,
   zeroneAccountId
-} from "./chunk-QLSVQV3R.js";
+} from "./chunk-HSUZCRNJ.js";
 import "./chunk-MLKGABMK.js";
 export {
   CaipError,

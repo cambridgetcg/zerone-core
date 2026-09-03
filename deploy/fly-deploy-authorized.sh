@@ -11,11 +11,13 @@ usage() {
 Usage:
   deploy/fly-deploy-authorized.sh [--check] \
     RELEASE.json RELEASE.json.sig AUTHORITY.json AUTHORITY.json.sig \
-    CONFIG CONFIG_KEY EXPECTED_MAIN_FINGERPRINT
+    CONFIG CONFIG_KEY EXPECTED_MAIN_FINGERPRINT \
+    DARK_AUTHORITY_BUNDLE_DIRECTORY
   deploy/fly-deploy-authorized.sh [--check] \
     RELEASE.json RELEASE.json.sig AUTHORITY.json AUTHORITY.json.sig \
     CONFIG CONFIG_KEY EXPECTED_MAIN_FINGERPRINT \
-    INITIATION-EVIDENCE.json INITIATION-EVIDENCE.json.sig
+    INITIATION-EVIDENCE.json INITIATION-EVIDENCE.json.sig \
+    DARK_AUTHORITY_BUNDLE_DIRECTORY
   deploy/fly-deploy-authorized.sh [--check] \
     RELEASE.json RELEASE.json.sig OPEN-BETA.json OPEN-BETA.json.sig \
     CONFIG CONFIG_KEY EXPECTED_MAIN_FINGERPRINT \
@@ -24,7 +26,8 @@ Usage:
     EXPECTED_TRANSITION_FINGERPRINT OPEN_AUTHORITY_BUNDLE_DIRECTORY
 
 DARK-START may deploy before its deadline without evidence; after block 1, its
-signed initiation evidence permits the scoped private continuation. CUTOVER is
+signed initiation evidence permits the scoped private continuation. Both DARK
+forms require the complete authority bundle. CUTOVER is
 accepted only by mainnet/fly-cutover-authorized.sh so observer-first/signer-last
 ordering and fresh dual-node height checks cannot be bypassed. OPEN-BETA
 deployments always require their signed on-time initiation evidence.
@@ -45,6 +48,12 @@ case "$#" in
     HAS_EVIDENCE=false
     HAS_FINAL=false
     HAS_CHAIN_BUNDLE=false
+    ;;
+  8)
+    HAS_EVIDENCE=false
+    HAS_FINAL=false
+    HAS_CHAIN_BUNDLE=true
+    AUTHORITY_BUNDLE=$8
     ;;
   9)
     HAS_EVIDENCE=true
@@ -597,8 +606,26 @@ fi
 
 case "${SCHEMA}" in
   zerone-2-dark-start-decision-v1)
-    [ "${HAS_CHAIN_BUNDLE}" = false ] || \
-      die "DARK-START does not accept a CUTOVER/OPEN authority bundle"
+    [ "${HAS_CHAIN_BUNDLE}" = true ] || \
+      die "DARK-START deployment requires the complete authority bundle"
+    if [ "${HAS_EVIDENCE}" = true ]; then
+      python3 "${CHAIN_VERIFIER}" dark-registration-preinit \
+        "${AUTHORITY_BUNDLE}" "${EXPECTED_SIGNER}" \
+        --release "${RELEASE}" --release-sig "${RELEASE_SIGNATURE}" \
+        --decision "${AUTHORITY}" --decision-sig "${SIGNATURE}" \
+        --initiation "${EVIDENCE}" --initiation-sig "${EVIDENCE_SIGNATURE}" \
+        --config-policy "${CONFIG_POLICY}" \
+        --tool-root "${ROOT}" \
+        >/dev/null || die "DARK-START authority chain did not verify"
+    else
+      python3 "${CHAIN_VERIFIER}" dark-preinit \
+        "${AUTHORITY_BUNDLE}" "${EXPECTED_SIGNER}" \
+        --release "${RELEASE}" --release-sig "${RELEASE_SIGNATURE}" \
+        --decision "${AUTHORITY}" --decision-sig "${SIGNATURE}" \
+        --config-policy "${CONFIG_POLICY}" \
+        --tool-root "${ROOT}" \
+        >/dev/null || die "DARK-START authority chain did not verify"
+    fi
     ;;
   zerone-2-cutover-decision-v1)
     [ "${HAS_CHAIN_BUNDLE}" = true ] || \
@@ -611,7 +638,7 @@ case "${SCHEMA}" in
       --config-policy "${CONFIG_POLICY}" \
       --tool-root "${ROOT}" \
       >/dev/null || die "CUTOVER transitive authority chain did not verify"
-    "${TX_GATE}" --check \
+    "${TX_GATE}" --offline-artifact-check \
       "${RELEASE}" "${RELEASE_SIGNATURE}" "${AUTHORITY}" "${SIGNATURE}" \
       "${AUTHORITY_BUNDLE}/CUTOVER-SIGNED-TX.json" cutover \
       "${AUTHORITY_BUNDLE}/zeroned-zerone-1-release" http://localhost \
@@ -632,7 +659,7 @@ case "${SCHEMA}" in
       --final-template "${FINAL_TEMPLATE}" --open-template "${OPEN_TEMPLATE}" \
       --adoption-template "${ADOPTION_TEMPLATE}" \
       >/dev/null || die "OPEN-BETA transitive authority chain did not verify"
-    "${TX_GATE}" --check \
+    "${TX_GATE}" --offline-artifact-check \
       "${RELEASE}" "${RELEASE_SIGNATURE}" "${AUTHORITY}" "${SIGNATURE}" \
       "${AUTHORITY_BUNDLE}/OPEN-BETA-SIGNED-TX.json" open-beta \
       "${AUTHORITY_BUNDLE}/zeroned-zerone-2-release" http://localhost \

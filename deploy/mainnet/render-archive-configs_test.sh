@@ -33,7 +33,18 @@ FAKE_BINARY="${TMP}/zeroned"
 cat > "${FAKE_BINARY}" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-if [ "$1" = tx ] && [ "$2" = encode ] && [ "$#" -eq 3 ]; then
+if [ "$1" = tx ] && [ "$2" = validate-signatures ] && [ "$#" -ge 3 ]; then
+  for required in '--account-number 0' '--sequence 7' '--offline'; do
+    case " $* " in
+      *" ${required} "*) ;;
+      *) exit 2 ;;
+    esac
+  done
+  case " $* " in
+    *' --node '*) exit 2 ;;
+  esac
+  printf 'Signers and signature order: OK\n'
+elif [ "$1" = tx ] && [ "$2" = encode ] && [ "$#" -eq 3 ]; then
   jq -er '.encoded' "$3"
 elif [ "$1" = tx ] && [ "$2" = decode ] && [ "$4" = --output ] && \
   [ "$5" = json ]; then
@@ -45,7 +56,8 @@ elif [ "$1" = tx ] && [ "$2" = decode ] && [ "$4" = --output ] && \
         amount:[{denom:"uzrn",amount:"1"}]}],memo:$tx.memo,
         timeout_height:$tx.timeout_height,extension_options:[],
         non_critical_extension_options:[]},
-      auth_info:{signer_infos:[{}],fee:{amount:[{denom:"uzrn",amount:"200000"}],
+      auth_info:{signer_infos:[{mode_info:{single:{mode:"SIGN_MODE_DIRECT"}},
+        sequence:"7"}],fee:{amount:[{denom:"uzrn",amount:"200000"}],
         gas_limit:"200000",payer:"",granter:""},tip:null},
       signatures:["fixture-signature"]
     }'
@@ -103,7 +115,19 @@ esac
 printf '[GNUPG:] VALIDSIG %s 2026-07-10 %s 0 4 0 1 10 00 %s\n' \
   "${fingerprint}" "${timestamp}" "${fingerprint}"
 EOF
-chmod +x "${TMP}/bin/gpg"
+cat > "${TMP}/bin/curl" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'offline artifact validation attempted an RPC call\n' >&2
+exit 99
+EOF
+cat > "${TMP}/bin/date" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'offline artifact validation applied a broadcast-cutoff clock check\n' >&2
+exit 99
+EOF
+chmod +x "${TMP}/bin/gpg" "${TMP}/bin/curl" "${TMP}/bin/date"
 
 render() {
   local output=$1

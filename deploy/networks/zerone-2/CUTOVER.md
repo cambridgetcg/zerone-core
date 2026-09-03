@@ -115,14 +115,18 @@ As soon as private block 1 commits, capture validator and independent-edge raw
 evidence, complete canonical `DARK-START-INITIATION-EVIDENCE.json`, sign it with
 the main key, and verify its block time is no later than the signed deadline.
 Before the deadline, the DARK decision itself can start the profiles needed to
-produce block 1. After the deadline, any remaining private profile switch must
-also pass that signed evidence pair to the deployment gate.
+produce block 1. Both that pre-block-1 path and every later private profile
+switch must pass the complete authority bundle so the gate revalidates the
+release-bound tools, trusted root, and component Sigstore signatures. After
+block 1, the invocation must additionally pass its signed initiation-evidence
+pair.
 
 Deploy every reviewed config through `deploy/fly-deploy-authorized.sh`, using
 the canonical RELEASE and DARK-START payload/signature pairs, config key, and
-out-of-band main fingerprint. The wrapper derives app, full immutable image
-reference, role, and exact config SHA-256 from the signed release/decision
-chain. Start the validator, then the service-free edge profile. Keep
+out-of-band main fingerprint plus `/secure/authority-bundle`. The wrapper
+derives app, full immutable image reference, role, and exact config SHA-256
+from the signed release/decision chain. Start the validator, then the
+service-free edge profile. Keep
 RPC/REST loopback-only, P2P private, and all public Fly services absent. Verify:
 
 - chain ID, genesis hash, source tag, runtime binary, and image reference;
@@ -146,7 +150,9 @@ offline-sign these two transactions in order:
 
 1. one `/zerone.auth.v1.MsgRegisterAccount` for the operator, account type
    `human`, the exact `did:zrn:<identity-public-key>`, fee `200000uzrn`, gas
-   `200000`, signer sequence `0`, signed timeout height, and fixed onboarding memo;
+   `200000`, signer sequence `0`, signed timeout height, fixed onboarding memo,
+   and a valid Ed25519 identity-possession signature over the release binary's
+   domain-separated registration bytes (including chain ID and operator address);
 2. one `/zerone.staking.v1.MsgRegisterValidator` for the same operator/DID and
    genesis consensus public key, exactly `111000000` uzrn self-delegation,
    commission `500`, the disclosed moniker/details, fee/gas, signer sequence
@@ -329,7 +335,11 @@ deploy/mainnet/fly-cutover-authorized.sh signer \
 
 The specialized gate refuses missing, mismatched, late, near-`F`, wrong-node,
 or divergent evidence, deploys the signer last, and immediately rechecks both
-nodes. Generic `fly-deploy-authorized.sh` deliberately rejects CUTOVER.
+nodes. Its post-init transaction inspection requires the signed code-zero
+commit evidence and revalidates the exact release binary, TxRaw bytes/hash, and
+decoded signer/message contract offline. It deliberately does not compare the
+already-consumed sequence to current account state. Generic
+`fly-deploy-authorized.sh` deliberately rejects CUTOVER.
 
 ```text
 ZERONE_CHECKPOINT_STATE_HEIGHT=REPLACE_F
@@ -457,9 +467,17 @@ ZERONE_AUTHORIZED_RELEASE_SIGNER_FINGERPRINT='<main-full-fingerprint>' \
 Require byte equality for `fly.archive-candidate.toml`, `fly.archive.toml`, and
 canonical `ARCHIVE-ADOPTION-AUTHORITY.json`. The renderer verifies both main
 signatures, on-time initiation evidence, exact templates/renderer/static
-constraints, and every allowed substitution. Sign only its emitted adoption
-JSON with the transition-attestation key; verify the full fingerprint and
-detached signature independently. Never hand-author a `MATCH` payload.
+constraints, the exact committed TxRaw artifact, and every allowed
+substitution. Its artifact check performs no RPC/current-sequence lookup and
+does not reject merely because the broadcast cutoff has passed: the signed
+code-zero initiation evidence establishes historical acceptance and on-time
+commit, while the release binary checks the exact bytes/hash, decoded contract,
+direct signer mode, and consumed sequence structurally. The post-init authority
+verifier still rejects future-dated or expired security evidence. This is not a
+claim that the transaction remains broadcastable. Sign only the renderer's
+emitted adoption JSON with the transition-attestation key; verify the full
+fingerprint and detached signature independently. Never hand-author a `MATCH`
+payload.
 
 Deploy the private candidate using the reproduction gate (use the same command
 with config key `zerone_1_archive` only after candidate readiness):
@@ -666,7 +684,10 @@ deploy/fly-deploy-authorized.sh \
 Repeat for keys `zerone_2_gateway_public` and
 `zerone_1_archive_gateway` with their exact configs. Never redeploy the private
 archive origin under OPEN; section 7 already adopted it under the deterministic
-archive authority.
+archive authority. These post-init deploy checks use the same offline artifact
+inspection boundary: signed code-zero initiation evidence proves historical
+acceptance, and no current account sequence is substituted for the consumed
+sequence in the signed TxRaw.
 
 Verify external gateway `/status` chain IDs and archive A/A invariants, then
 publish query-only RPC/REST, public P2P, and archive endpoints. Public gRPC and

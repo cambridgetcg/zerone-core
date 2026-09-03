@@ -227,13 +227,39 @@ class Case:
 
         self.operator_manifest = self.inputs / "OPERATOR-TOOL-MANIFEST.json"
         operator = {
-            "schema": "zerone-operator-tool-manifest-v1",
+            "schema": "zerone-operator-tool-manifest-v2",
             "source_commit": "4" * 40,
             "signed_tag": "zerone-2-runner-fixture",
             "files": {
                 "deploy/run-custom-staking-census-evidence.py": runner_hash,
                 "deploy/verify-authority-chain.py": sha(fake_verifier.read_bytes()),
                 "deploy/validate-fly-phase-config.py": sha(fake_policy.read_bytes()),
+            },
+            "authority_bundle": {
+                "component_signature_verifier": {
+                    "filename": "zerone-component-signature-verifier",
+                    "sha256": "5" * 64,
+                },
+                "sigstore_trusted_root": {
+                    "filename": "SIGSTORE-TRUSTED-ROOT.json",
+                    "sha256": "6" * 64,
+                },
+            },
+            "component_signature_policy": {
+                "bundle_media_type": (
+                    "application/vnd.dev.sigstore.bundle.v0.3+json"
+                ),
+                "certificate_issuer": (
+                    "https://token.actions.githubusercontent.com"
+                ),
+                "certificate_san": (
+                    "https://github.com/cambridgetcg/zerone-core/"
+                    ".github/workflows/ci.yml@refs/heads/main"
+                ),
+                "certificate_source_repository_digest": "RELEASE.source.commit",
+                "minimum_signed_certificate_timestamps": 1,
+                "minimum_transparency_log_entries": 1,
+                "minimum_observer_timestamps": 1,
             },
         }
         self.operator_manifest.write_bytes(canonical(operator))

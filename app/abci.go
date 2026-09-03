@@ -253,6 +253,16 @@ func (app *ZeroneApp) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return app.processProposal
 }
 
+func addProposalTxGas(total, txGas, max uint64) (uint64, bool) {
+	if max == 0 {
+		return total, true
+	}
+	if total > max || txGas > max-total {
+		return total, false
+	}
+	return total + txGas, true
+}
+
 func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessProposal) (resp *abci.ResponseProcessProposal, err error) {
 	logger := ctx.Logger().With("module", "abci", "handler", "ProcessProposal")
 
@@ -305,9 +315,15 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 			continue
 		}
 
-		tx, err := app.txConfig.TxDecoder()(txBytes)
+		// A proposer is not a trusted extension of this validator's mempool.
+		// Re-run the SDK proposal verification path so signatures, fees,
+		// sequences, emergency quarantine, account freezes, and Zerone
+		// capabilities are enforced independently by every validator. The SDK
+		// keeps these writes in the disposable ProcessProposal state while
+		// carrying ante effects between transactions in proposal order.
+		tx, err := app.BaseApp.ProcessProposalVerifyTx(txBytes)
 		if err != nil {
-			logger.Warn("invalid tx in proposal", "index", i, "err", err)
+			logger.Warn("proposal tx failed full ante verification", "index", i, "err", err)
 			return &abci.ResponseProcessProposal{
 				Status: abci.ResponseProcessProposal_REJECT,
 			}, nil
@@ -316,7 +332,8 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 			txGas := gasTx.GetGas()
 			// Use subtraction so adversarial declarations cannot wrap the
 			// aggregate. This mirrors PrepareProposal's consensus-param bound.
-			if txGas > maxBlockGas-totalTxGas {
+			updatedGas, fits := addProposalTxGas(totalTxGas, txGas, maxBlockGas)
+			if !fits {
 				logger.Warn("proposal transaction gas exceeds consensus block limit",
 					"index", i,
 					"tx_gas", txGas,
@@ -327,22 +344,7 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 					Status: abci.ResponseProcessProposal_REJECT,
 				}, nil
 			}
-			totalTxGas += txGas
-		}
-
-		for _, msg := range tx.GetMsgs() {
-			if m, ok := msg.(sdk.HasValidateBasic); ok {
-				if err := m.ValidateBasic(); err != nil {
-					logger.Warn("invalid msg in proposal",
-						"index", i,
-						"msg_type", sdk.MsgTypeURL(msg),
-						"err", err,
-					)
-					return &abci.ResponseProcessProposal{
-						Status: abci.ResponseProcessProposal_REJECT,
-					}, nil
-				}
-			}
+			totalTxGas = updatedGas
 		}
 	}
 
