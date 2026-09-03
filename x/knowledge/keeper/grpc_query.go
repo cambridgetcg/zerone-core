@@ -29,6 +29,12 @@ const (
 	defaultQueryPageLimit uint64 = 50
 	maxQueryPageLimit     uint64 = 100
 	maxQueryPageOffset    uint64 = 1_000_000
+	// FilteredQueryScanCap bounds the number of records whose values a single
+	// filtered query may inspect. FilteredPaginate otherwise keeps walking until
+	// it finds a full result page (or exhausts the store), even when no records
+	// match. The SDK callback supplies the next raw key, so capped scans remain
+	// resumable without reverting to mutation-sensitive result offsets.
+	FilteredQueryScanCap  uint64 = 1_000
 	maxLineageDepth       uint64 = 64
 	defaultProgenyDepth   uint64 = 3
 	maxProgenyDepth       uint64 = 8
@@ -37,7 +43,10 @@ const (
 	maxGraphTreeNodes     uint32 = 512
 )
 
-var errGraphTreeNodeLimit = errors.New("knowledge graph query exceeds 512 nodes")
+var (
+	errGraphTreeNodeLimit     = errors.New("knowledge graph query exceeds 512 nodes")
+	errFilteredQueryScanLimit = errors.New("knowledge filtered query scan limit reached")
+)
 
 // boundedPageRequest preserves the SDK's raw store-key cursor semantics while
 // placing a module-specific ceiling on both result pages and legacy offsets.
@@ -78,12 +87,41 @@ func (q *queryServer) filteredPaginate(
 		runtime.KVStoreAdapter(q.keeper.storeService.OpenKVStore(ctx)),
 		prefix,
 	)
-	return sdkquery.FilteredPaginate(store, page, func(key, value []byte, accumulate bool) (bool, error) {
+	var examined uint64
+	var hits uint64
+	var continuation []byte
+	response, err := sdkquery.FilteredPaginate(store, page, func(key, value []byte, accumulate bool) (bool, error) {
 		if err := ctx.Err(); err != nil {
 			return false, status.FromContextError(err).Err()
 		}
-		return onResult(key, value, accumulate)
+		if examined >= FilteredQueryScanCap {
+			// FilteredPaginate has already supplied this raw key/value as its
+			// one-record lookahead, but do not decode or otherwise inspect the
+			// value. A key-based follow-up starts at this exact record.
+			continuation = append([]byte(nil), key...)
+			return false, errFilteredQueryScanLimit
+		}
+		examined++
+		hit, err := onResult(key, value, accumulate)
+		if hit {
+			hits++
+		}
+		return hit, err
 	})
+	if !errors.Is(err, errFilteredQueryScanLimit) {
+		return response, err
+	}
+	if len(page.Key) == 0 && hits < page.Offset {
+		// A raw cursor cannot encode the number of filtered hits still to skip.
+		// Fail instead of returning a cursor with silently changed offset
+		// semantics; callers can retry with a selective indexed query or key.
+		return nil, status.Errorf(
+			codes.ResourceExhausted,
+			"knowledge query examined %d records before satisfying pagination offset",
+			FilteredQueryScanCap,
+		)
+	}
+	return &sdkquery.PageResponse{NextKey: continuation}, nil
 }
 
 func decodeFact(value []byte) (*types.Fact, error) {

@@ -6,6 +6,8 @@ import (
 
 	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
@@ -154,6 +156,156 @@ func TestQuery_Facts_PaginationUsesStableRawStoreCursor(t *testing.T) {
 	require.Equal(t, "!cursor-04", second.Facts[0].Id)
 	require.Empty(t, second.Pagination.NextKey)
 	require.Zero(t, second.Pagination.Total)
+}
+
+func TestQuery_Facts_SelectiveScanCapReturnsStableRawCursor(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	const domain = "scan-cap-domain"
+	factID := func(i uint64) string {
+		return fmt.Sprintf("!scan-fact-%020d", i)
+	}
+	for i := uint64(0); i <= keeper.FilteredQueryScanCap; i++ {
+		category := "ignored"
+		if i == 0 || i == keeper.FilteredQueryScanCap {
+			category = "selected"
+		}
+		makeTestFact(
+			t,
+			k,
+			ctx,
+			factID(i),
+			"Selective scan cap pagination test content",
+			domain,
+			category,
+			"zrn1scan",
+			700_000,
+		)
+	}
+
+	first, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain:   domain,
+		Category: "selected",
+		Pagination: &sdkquery.PageRequest{
+			Limit: 2,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, first.Facts, 1)
+	require.Equal(t, factID(0), first.Facts[0].Id)
+	require.Equal(
+		t,
+		[]byte(factID(keeper.FilteredQueryScanCap)),
+		first.Pagination.NextKey,
+	)
+
+	// A newly matching record before the returned raw key must not shift or
+	// repeat the capped continuation page.
+	makeTestFact(
+		t,
+		k,
+		ctx,
+		factID(keeper.FilteredQueryScanCap-1)+"a",
+		"Inserted before capped raw cursor",
+		domain,
+		"selected",
+		"zrn1scan",
+		700_000,
+	)
+	second, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain:   domain,
+		Category: "selected",
+		Pagination: &sdkquery.PageRequest{
+			Key:   first.Pagination.NextKey,
+			Limit: 1,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, second.Facts, 1)
+	require.Equal(t, factID(keeper.FilteredQueryScanCap), second.Facts[0].Id)
+	require.Empty(t, second.Pagination.NextKey)
+
+	_, err = qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain:   domain,
+		Category: "selected",
+		Pagination: &sdkquery.PageRequest{
+			Offset: 2,
+			Limit:  1,
+		},
+	})
+	require.Equal(t, codes.ResourceExhausted, status.Code(err))
+	require.ErrorContains(
+		t,
+		err,
+		fmt.Sprintf(
+			"examined %d records before satisfying pagination offset",
+			keeper.FilteredQueryScanCap,
+		),
+	)
+
+	// Exactly satisfying an offset at the cap is resumable: the offset is fully
+	// consumed, and the raw key identifies the first record of the result page.
+	offsetPage, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain:   domain,
+		Category: "selected",
+		Pagination: &sdkquery.PageRequest{
+			Offset: 1,
+			Limit:  1,
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, offsetPage.Facts)
+	require.Equal(
+		t,
+		[]byte(factID(keeper.FilteredQueryScanCap-1)+"a"),
+		offsetPage.Pagination.NextKey,
+	)
+	offsetContinuation, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain:   domain,
+		Category: "selected",
+		Pagination: &sdkquery.PageRequest{
+			Key:   offsetPage.Pagination.NextKey,
+			Limit: 1,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, offsetContinuation.Facts, 1)
+	require.Equal(
+		t,
+		factID(keeper.FilteredQueryScanCap-1)+"a",
+		offsetContinuation.Facts[0].Id,
+	)
+
+	// Reverse pagination uses the same inclusive raw-key continuation contract.
+	reversePage, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain:   domain,
+		Category: "reverse-selected",
+		Pagination: &sdkquery.PageRequest{
+			Limit:   1,
+			Reverse: true,
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, reversePage.Facts)
+	require.NotEmpty(t, reversePage.Pagination.NextKey)
+	reverseCursor := string(reversePage.Pagination.NextKey)
+	cursorFact, found := k.GetFact(ctx, reverseCursor)
+	require.True(t, found)
+	cursorFact.Category = "reverse-selected"
+	require.NoError(t, k.SetFact(ctx, cursorFact))
+	reverseContinuation, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain:   domain,
+		Category: "reverse-selected",
+		Pagination: &sdkquery.PageRequest{
+			Key:     reversePage.Pagination.NextKey,
+			Limit:   1,
+			Reverse: true,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, reverseContinuation.Facts, 1)
+	require.Equal(t, reverseCursor, reverseContinuation.Facts[0].Id)
 }
 
 func TestQuery_Facts_RejectsUnboundedPagination(t *testing.T) {
@@ -439,6 +591,39 @@ func TestQuery_PendingClaims_SelectiveFilterUsesRawCursor(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, second.Claims, 1)
 	require.Equal(t, "!pending-02", second.Claims[0].Id)
+	require.Empty(t, second.Pagination.NextKey)
+}
+
+func TestQuery_PendingClaims_NoMatchScanCapReturnsRawCursor(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	claimID := func(i uint64) string {
+		return fmt.Sprintf("!scan-claim-%020d", i)
+	}
+	for i := uint64(0); i <= keeper.FilteredQueryScanCap; i++ {
+		require.NoError(t, k.SetClaim(ctx, &types.Claim{
+			Id:     claimID(i),
+			Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		}))
+	}
+
+	first, err := qs.PendingClaims(ctx, &types.QueryPendingClaimsRequest{
+		Pagination: &sdkquery.PageRequest{Limit: 1},
+	})
+	require.NoError(t, err)
+	require.Empty(t, first.Claims)
+	require.Equal(
+		t,
+		[]byte(claimID(keeper.FilteredQueryScanCap)),
+		first.Pagination.NextKey,
+	)
+
+	second, err := qs.PendingClaims(ctx, &types.QueryPendingClaimsRequest{
+		Pagination: &sdkquery.PageRequest{Key: first.Pagination.NextKey, Limit: 1},
+	})
+	require.NoError(t, err)
+	require.Empty(t, second.Claims)
 	require.Empty(t, second.Pagination.NextKey)
 }
 
