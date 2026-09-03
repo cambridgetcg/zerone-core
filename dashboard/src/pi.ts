@@ -1,4 +1,6 @@
 const PI_API_PREFIX = "/api/pi/";
+const PI_AUTHORIZATION_ORIGIN = "https://accounts.pinet.com";
+const PI_AUTHORIZATION_PATH = "/oauth/authorize";
 const MAX_JSON_RESPONSE_BYTES = 16_384;
 const PI_REQUEST_TIMEOUT_MS = 12_000;
 const ZERONE_ADDRESS = /^zrn1[023456789acdefghjklmnpqrstuvwxyz]{38}$/;
@@ -162,6 +164,50 @@ function parseWalletChallenge(value: unknown): PiWalletChallenge {
   };
 }
 
+function parsePiAuthorizationUrl(value: unknown): URL {
+  if (
+    !isRecord(value) ||
+    !hasOnlyKeys(value, ["authorizationUrl"]) ||
+    typeof value.authorizationUrl !== "string" ||
+    value.authorizationUrl.length > 4_096
+  ) {
+    throw new PiTransportError("The Pi authorization response was invalid.");
+  }
+
+  let target: URL;
+  try {
+    target = new URL(value.authorizationUrl);
+  } catch {
+    throw new PiTransportError("The Pi authorization response was invalid.");
+  }
+  const expectedKeys = [
+    "client_id",
+    "redirect_uri",
+    "response_type",
+    "scope",
+    "state",
+  ];
+  const actualKeys = [...target.searchParams.keys()].sort();
+  if (
+    target.origin !== PI_AUTHORIZATION_ORIGIN ||
+    target.pathname !== PI_AUTHORIZATION_PATH ||
+    target.username !== "" ||
+    target.password !== "" ||
+    target.hash !== "" ||
+    actualKeys.length !== expectedKeys.length ||
+    actualKeys.some((key, index) => key !== expectedKeys[index]) ||
+    !boundedText(target.searchParams.get("client_id"), 1, 256) ||
+    target.searchParams.get("redirect_uri") !==
+      `${window.location.origin}/pi/callback/` ||
+    target.searchParams.get("response_type") !== "token" ||
+    target.searchParams.get("scope") !== "username" ||
+    !/^[A-Za-z0-9_-]{43}$/u.test(target.searchParams.get("state") ?? "")
+  ) {
+    throw new PiTransportError("The Pi authorization response was invalid.");
+  }
+  return target;
+}
+
 function sameOriginPiUrl(path: string): URL {
   const url = new URL(path, window.location.origin);
   if (
@@ -272,8 +318,14 @@ async function piRequest(
   return readJsonResponse(response);
 }
 
-export function beginPiSignIn(): void {
-  window.location.assign(sameOriginPiUrl("/api/pi/authorize"));
+export async function beginPiSignIn(): Promise<void> {
+  const target = parsePiAuthorizationUrl(
+    await piRequest("/api/pi/authorize", {
+      method: "POST",
+      body: {},
+    }),
+  );
+  window.location.assign(target);
 }
 
 export async function finishPiSignIn(

@@ -12,12 +12,20 @@
   <body>
     <main aria-labelledby="callback-title">
       <span class="kicker">Optional Pi account pilot</span>
-      <h1 id="callback-title">Finishing sign-in…</h1>
+      <h1 id="callback-title">Sign-in could not be completed.</h1>
       <p id="callback-status" role="status" aria-live="polite">
-        Confirming the Pi account with Zerone. No wallet or on-chain action is
-        being requested.
+        The private callback handoff did not complete in this page. Return to
+        Zerone below; no Zerone account, wallet proof, contribution record,
+        payment, qualification, or reward was created.
       </p>
-      <a id="callback-return" href="/#contribute" hidden>Return to Zerone</a>
+      <noscript>
+        <p class="callback-fallback">
+          JavaScript is disabled, so this sign-in cannot complete. Use the
+          return link to leave this callback address and its private URL
+          fragment before starting again.
+        </p>
+      </noscript>
+      <a id="callback-return" href="/#contribute">Return to Zerone</a>
     </main>
     <script type="module" src="/src/pi-callback.ts"></script>
   </body>
