@@ -4,10 +4,13 @@ Status: **internal preparation; public launch NO-GO**
 
 This plan turns attention into informed participation. It does not authorize a
 post, announcement, endpoint, token promotion, validator invitation, or network
-launch. Public communication follows the signed phase authority in
-[`CUTOVER.md`](CUTOVER.md): RELEASE may describe a candidate, CUTOVER may
-announce the proposed transition, and only OPEN-BETA may publish live
-`zerone-2` coordinates.
+launch. Public communication must follow the evidence order in
+[`CUTOVER.md`](CUTOVER.md). The exact transition notice must be public before
+CUTOVER is signed, but the current artifact graph has no earlier signed
+decision authorizing that publication. The pre-notice and CUTOVER phases
+therefore remain NO-GO until a distinct main-key decision binds the exact notice
+bytes, URL, deadline, and narrow publication-only scope. Only OPEN-BETA may
+publish live `zerone-2` coordinates.
 
 ## Persuasion standard
 
@@ -51,7 +54,7 @@ first linked page.
 | "Four local validators reached consensus" | Retained four-node report with equal AppHash and exact binary/source provenance | Rehearsal claim only |
 | "The network continues with one validator offline" | Recorded 3/4 continuation window and heights | Rehearsal claim only |
 | "The network halts without two-thirds voting power" | Recorded 2/4 halt window, then recovery evidence | Rehearsal claim only |
-| "Messaging rejects replay and bad sequence" | Named transaction/replay tests and committed results | Rehearsal claim only |
+| "One signed message commits once and exact replay is rejected" | Committed MsgSend bytes/proof, one sequence increment, replay response, and unchanged post-replay state | Rehearsal claim only |
 | "Legacy custom-staking custody was inventoried" | Self-sealed census at application height `A`, AppHash `E` recomputed from all multistore roots, FINAL hash binding, and release-built census binary provenance | Production evidence absent |
 | "A release candidate exists" | Signed tag, reproducible binary, SBOM, provenance, vulnerability decision, immutable images, and passing release gates | NO-GO |
 | "`zerone-2` is live" | Signed OPEN-BETA decision and initiation evidence, committed history link, published immutable coordinates, and passing public probes | NO-GO |
@@ -62,8 +65,11 @@ test are supporting context; none substitutes for the required signed artifact.
 
 ## Attention sequence
 
-The sequence is gate-driven, not date-driven. A failed gate returns the process
-to the preceding private phase.
+The sequence is gate-driven, not date-driven. Before a phase's initiation
+event, a failed gate leaves the process in the preceding safe/private phase.
+After initiation, operators must follow that signed phase's exact
+completion/abandonment boundary; after the old chain freezes, recovery is
+forward-only and must never be described as a return to an earlier phase.
 
 ### 0. Engineering notebook — now
 
@@ -89,11 +95,17 @@ blockers—not impressions or follower counts.
 RELEASE does not authorize a live-network announcement or the old-chain
 transition.
 
-### 2. Transition notice — after signed CUTOVER GO
+### 2. Transition pre-notice — blocked on distinct signed authority
 
-- State the exact proposed `F/A/H` boundary, observation window, expected
-  service changes, custody model, and abort/forward-only boundaries.
-- Link the signed notice and verification command.
+- Add and independently review a main-key pre-notice decision that binds the
+  exact notice bytes, destination URL, publication deadline, and
+  publication-only scope. A later CUTOVER decision cannot retroactively
+  authorize its own prerequisite.
+- Only after that decision verifies, publish the exact notice stating the
+  proposed `F/A/H` boundary, observation window, expected service changes,
+  custody model, and abort/forward-only boundaries.
+- Capture byte-bound publication evidence, then complete and sign CUTOVER as
+  specified by the operational contract.
 - Maintain one timestamped status page; corrections append rather than silently
   replacing earlier claims.
 
@@ -150,8 +162,10 @@ success statement after the source commit or artifact bytes change.
 ## Response and incident discipline
 
 - One named status record is authoritative during a launch window.
-- Security reports use a private intake path named by the signed release; do
-  not ask reporters to disclose an exploit publicly.
+- Before external publication, designate a private security intake path in a
+  separately authenticated and approved operator notice; the current RELEASE
+  schema does not bind that field. Do not ask reporters to disclose an exploit
+  publicly.
 - A discrepancy in hashes, authority, supply, validator identity, or history
   link changes the public state to `NO-GO` or `INCIDENT` immediately.
 - State what is known, what is being checked, and the next update time. Avoid a
@@ -160,7 +174,8 @@ success statement after the source commit or artifact bytes change.
 
 ## Before any message leaves the workspace
 
-- [ ] The relevant signed phase decision authorizes the exact communication.
+- [ ] A non-circular signed decision already authorizes the exact communication;
+      a later phase may not retroactively authorize its prerequisite.
 - [ ] Every technical claim has a direct proof link and exact commit/hash.
 - [ ] The trust, custody, validator concentration, and disabled-feature limits
       are visible without opening a second document.
