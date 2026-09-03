@@ -323,7 +323,7 @@ if (args[0] === "keys" && args[1] === "show") {
     writeFakeZeroned(fakeZeroned);
     return Bun.spawnSync({
       cmd: [
-        "bun",
+        process.execPath,
         new URL("../intake.ts", import.meta.url).pathname,
         "setup",
         "--network",

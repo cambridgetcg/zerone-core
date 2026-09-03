@@ -55,7 +55,7 @@ try {
       });
       expect(addSpecialMode.exitCode, addSpecialMode.stderr.toString()).toBe(0);
       const specialModeRejected = Bun.spawnSync({
-        cmd: ["bun", runner],
+        cmd: [process.execPath, runner],
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -73,7 +73,7 @@ try {
       });
       expect(addHelperAcl.exitCode, addHelperAcl.stderr.toString()).toBe(0);
       const helperRejected = Bun.spawnSync({
-        cmd: ["bun", runner],
+        cmd: [process.execPath, runner],
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -94,7 +94,7 @@ try {
       });
       expect(addDirectoryAcl.exitCode, addDirectoryAcl.stderr.toString()).toBe(0);
       const directoryRejected = Bun.spawnSync({
-        cmd: ["bun", runner],
+        cmd: [process.execPath, runner],
         stdout: "pipe",
         stderr: "pipe",
       });

@@ -6,15 +6,20 @@ import {
   type KeyObject,
 } from "node:crypto";
 import {
+  chmodSync,
   closeSync,
   constants,
   fchmodSync,
   fstatSync,
   fsyncSync,
+  lstatSync,
+  mkdtempSync,
   mkdirSync,
   openSync,
   realpathSync,
   readSync,
+  rmdirSync,
+  unlinkSync,
   writeSync,
   type Stats,
 } from "node:fs";
@@ -42,6 +47,10 @@ const DARWIN_ACL_INSPECTION_LIMIT_MS = 10_000;
 const DARWIN_ACL_CLEAR = "zerone-darwin-acl-v1 clear\n";
 const DARWIN_ACL_PRESENT = "zerone-darwin-acl-v1 present\n";
 const DARWIN_ACL_PRESENT_EXIT = 10;
+const MAX_DARWIN_ACL_RESULT_BYTES = 1024;
+const DARWIN_POSIX_SPAWN_OPEN_MAX = 10_240;
+export const DARWIN_ACL_CAPTURE_PARENT = "/private/tmp" as const;
+export const DARWIN_ACL_CAPTURE_PREFIX = ".zerone-darwin-acl-" as const;
 const MACH_O_FAT_MAGICS = new Set(["cafebabe", "cafebabf"]);
 
 interface ValidatedDarwinAclHelper {
@@ -49,6 +58,16 @@ interface ValidatedDarwinAclHelper {
   readonly stat: Stats;
   readonly directoryFd: number;
   readonly directoryStat: Stats;
+}
+
+interface DarwinAclCapture {
+  readonly fd: number;
+  readonly stat: Stats;
+}
+
+interface DarwinAclCaptures {
+  readonly stdout: DarwinAclCapture;
+  readonly stderr: DarwinAclCapture;
 }
 
 class IdentityFileContentError extends Error {}
@@ -770,42 +789,393 @@ function validateNoDarwinExtendedAcl(
 }
 
 function inspectDarwinAclDescriptor(fd: number, deadline: number): boolean {
-  const remainingMs = Math.ceil(deadline - performance.now());
-  if (remainingMs <= 0) {
-    throw new Error("descriptor ACL inspection timed out");
+  validateDarwinSpawnFd(fd, "target");
+  const captures = openUnlinkedDarwinAclCaptures();
+  try {
+    validateDarwinSpawnFd(captures.stdout.fd, "stdout capture");
+    validateDarwinSpawnFd(captures.stderr.fd, "stderr capture");
+    const remainingMs = Math.ceil(deadline - performance.now());
+    if (remainingMs <= 0) {
+      throw new Error("descriptor ACL inspection timed out");
+    }
+    const result = Bun.spawnSync({
+      cmd: [DARWIN_ACL_HELPER_PATH],
+      // The helper calls acl_get_fd_np(0, ACL_TYPE_EXTENDED). Passing the
+      // already-open object as fd 0 is descriptor-bound and preserves the
+      // parent's fd in Bun; no /dev/fd pathname is inspected.
+      stdin: fd,
+      // Bun 1.3 can intermittently report an empty pipe after a successful
+      // child write on Darwin. Unlinked private files preserve the exact
+      // stdout/stderr protocol without leaving pathname-addressable evidence.
+      stdout: captures.stdout.fd,
+      stderr: captures.stderr.fd,
+      env: {},
+      timeout: remainingMs,
+    });
+    return decodeDarwinAclInspectionResult(
+      result.exitCode,
+      result.signalCode,
+      readDarwinAclCapture(captures.stdout),
+      readDarwinAclCapture(captures.stderr),
+    );
+  } finally {
+    closeDarwinAclCaptures(captures);
   }
-  const result = Bun.spawnSync({
-    cmd: [DARWIN_ACL_HELPER_PATH],
-    // The helper calls acl_get_fd_np(0, ACL_TYPE_EXTENDED). Passing the
-    // already-open object as fd 0 is descriptor-bound and preserves the
-    // parent's fd in Bun; no /dev/fd pathname is inspected.
-    stdin: fd,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: {},
-    timeout: remainingMs,
-  });
-  const stdout = result.stdout.toString("utf8");
-  const stderr = result.stderr.toString("utf8");
+}
+
+export function decodeDarwinAclInspectionResult(
+  exitCode: number | null,
+  signalCode: unknown,
+  stdout: string,
+  stderr: string,
+): boolean {
   if (
-    result.exitCode === 0 &&
-    result.signalCode === undefined &&
+    exitCode === 0 &&
+    signalCode === undefined &&
     stdout === DARWIN_ACL_CLEAR &&
     stderr === ""
   ) {
     return false;
   }
   if (
-    result.exitCode === DARWIN_ACL_PRESENT_EXIT &&
-    result.signalCode === undefined &&
+    exitCode === DARWIN_ACL_PRESENT_EXIT &&
+    signalCode === undefined &&
     stdout === DARWIN_ACL_PRESENT &&
     stderr === ""
   ) {
     return true;
   }
   throw new Error(
-    `descriptor ACL inspection returned an invalid result (exit ${String(result.exitCode)}, signal ${String(result.signalCode)})`,
+    `descriptor ACL inspection returned an invalid result (exit ${String(exitCode)}, signal ${String(signalCode)})`,
   );
+}
+
+function openUnlinkedDarwinAclCaptures(): DarwinAclCaptures {
+  const parent = openValidatedDarwinAclCaptureParent();
+  let captures: DarwinAclCaptures | undefined;
+  try {
+    const directoryPath = mkdtempSync(
+      join(
+        DARWIN_ACL_CAPTURE_PARENT,
+        `${DARWIN_ACL_CAPTURE_PREFIX}${process.pid}-`,
+      ),
+    );
+    captures = openUnlinkedDarwinAclCapturesIn(directoryPath);
+    assertDarwinAclCaptureParentUnchanged(parent);
+    return captures;
+  } catch (error) {
+    if (captures !== undefined) {
+      try {
+        closeDarwinAclCaptures(captures);
+      } catch {
+        // Preserve the parent/setup failure.
+      }
+    }
+    throw error;
+  } finally {
+    try {
+      closeSync(parent.fd);
+    } catch {
+      // The caller will still validate and close both capture descriptors.
+    }
+  }
+}
+
+function openUnlinkedDarwinAclCapturesIn(
+  directoryPath: string,
+): DarwinAclCaptures {
+  const stdoutPath = join(directoryPath, "stdout");
+  const stderrPath = join(directoryPath, "stderr");
+  let directoryFd: number | undefined;
+  let directoryStat: Stats | undefined;
+  let stdout: DarwinAclCapture | undefined;
+  let stderr: DarwinAclCapture | undefined;
+  try {
+    directoryStat = lstatSync(directoryPath);
+    const effectiveUid = typeof process.geteuid === "function" ? process.geteuid() : -1;
+    if (!directoryStat.isDirectory() || directoryStat.uid !== effectiveUid) {
+      throw new Error("private ACL capture directory has unsafe ownership");
+    }
+    chmodSync(directoryPath, 0o700);
+    const securedAtPath = lstatSync(directoryPath);
+    if (
+      securedAtPath.dev !== directoryStat.dev ||
+      securedAtPath.ino !== directoryStat.ino ||
+      (securedAtPath.mode & 0o7777) !== 0o700
+    ) {
+      throw new Error("private ACL capture directory changed during chmod");
+    }
+    directoryFd = openDirectoryNoFollow(directoryPath);
+    const openedDirectory = fstatSync(directoryFd);
+    if (
+      openedDirectory.dev !== directoryStat.dev ||
+      openedDirectory.ino !== directoryStat.ino
+    ) {
+      throw new Error("private ACL capture directory changed during open");
+    }
+    fchmodSync(directoryFd, 0o700);
+    directoryStat = fstatSync(directoryFd);
+    if (
+      !directoryStat.isDirectory() ||
+      directoryStat.uid !== effectiveUid ||
+      (directoryStat.mode & 0o7777) !== 0o700
+    ) {
+      throw new Error("private ACL capture directory has unsafe metadata");
+    }
+
+    stdout = openDarwinAclCapture(stdoutPath);
+    stderr = openDarwinAclCapture(stderrPath);
+    unlinkDarwinAclCapture(stdoutPath, stdout);
+    unlinkDarwinAclCapture(stderrPath, stderr);
+    const atPath = lstatSync(directoryPath);
+    if (
+      atPath.dev !== directoryStat.dev ||
+      atPath.ino !== directoryStat.ino ||
+      !atPath.isDirectory()
+    ) {
+      throw new Error("private ACL capture directory changed during setup");
+    }
+    rmdirSync(directoryPath);
+    try {
+      lstatSync(directoryPath);
+      throw new Error("private ACL capture directory remained after removal");
+    } catch (error) {
+      if (filesystemErrorCode(error) !== "ENOENT") throw error;
+    }
+    const removed = fstatSync(directoryFd);
+    if (
+      removed.dev !== directoryStat.dev ||
+      removed.ino !== directoryStat.ino ||
+      (removed.mode & 0o7777) !== 0o700
+    ) {
+      throw new Error("private ACL capture directory changed during removal");
+    }
+    return { stdout, stderr };
+  } catch (error) {
+    try {
+      cleanupDarwinAclCapture(stdoutPath, stdout);
+    } catch {
+      // Keep attempting every cleanup operation before preserving the error.
+    }
+    try {
+      cleanupDarwinAclCapture(stderrPath, stderr);
+    } catch {
+      // Keep attempting every cleanup operation before preserving the error.
+    }
+    try {
+      cleanupDarwinAclCaptureDirectory(directoryPath, directoryStat);
+    } catch {
+      // The original setup failure remains the fail-closed diagnostic.
+    }
+    if (stdout !== undefined) {
+      try {
+        closeSync(stdout.fd);
+      } catch {
+        // The setup already failed closed; continue closing the other handles.
+      }
+    }
+    if (stderr !== undefined) {
+      try {
+        closeSync(stderr.fd);
+      } catch {
+        // The setup already failed closed.
+      }
+    }
+    throw error;
+  } finally {
+    if (directoryFd !== undefined) {
+      try {
+        closeSync(directoryFd);
+      } catch {
+        // Never skip capture cleanup or lose the original fail-closed result.
+      }
+    }
+  }
+}
+
+function openValidatedDarwinAclCaptureParent(): DarwinAclCapture {
+  const fd = openDirectoryNoFollow(DARWIN_ACL_CAPTURE_PARENT);
+  try {
+    const stat = fstatSync(fd);
+    if (
+      !stat.isDirectory() ||
+      stat.uid !== 0 ||
+      (stat.mode & 0o7777) !== 0o1777
+    ) {
+      throw new Error("Darwin ACL capture parent has unsafe metadata");
+    }
+    const atPath = lstatSync(DARWIN_ACL_CAPTURE_PARENT);
+    if (atPath.dev !== stat.dev || atPath.ino !== stat.ino) {
+      throw new Error("Darwin ACL capture parent changed during open");
+    }
+    return { fd, stat };
+  } catch (error) {
+    closeSync(fd);
+    throw error;
+  }
+}
+
+function assertDarwinAclCaptureParentUnchanged(parent: DarwinAclCapture): void {
+  const held = fstatSync(parent.fd);
+  const atPath = lstatSync(DARWIN_ACL_CAPTURE_PARENT);
+  if (
+    held.dev !== parent.stat.dev ||
+    held.ino !== parent.stat.ino ||
+    held.uid !== 0 ||
+    (held.mode & 0o7777) !== 0o1777 ||
+    atPath.dev !== held.dev ||
+    atPath.ino !== held.ino
+  ) {
+    throw new Error("Darwin ACL capture parent changed during inspection");
+  }
+}
+
+function openDarwinAclCapture(path: string): DarwinAclCapture {
+  const fd = openSync(
+    path,
+    constants.O_CREAT |
+      constants.O_EXCL |
+      constants.O_RDWR |
+      requiredNoFollowFlag(),
+    0o600,
+  );
+  try {
+    fchmodSync(fd, 0o600);
+    const stat = fstatSync(fd);
+    const effectiveUid = typeof process.geteuid === "function" ? process.geteuid() : -1;
+    if (
+      !stat.isFile() ||
+      stat.uid !== effectiveUid ||
+      (stat.mode & 0o7777) !== 0o600 ||
+      stat.nlink !== 1 ||
+      stat.size !== 0
+    ) {
+      throw new Error("private ACL result capture has unsafe metadata");
+    }
+    return { fd, stat };
+  } catch (error) {
+    try {
+      unlinkSync(path);
+    } catch {
+      // The caller's directory cleanup remains fail-closed and non-recursive.
+    }
+    try {
+      closeSync(fd);
+    } catch {
+      // Preserve the metadata/setup failure that caused cleanup.
+    }
+    throw error;
+  }
+}
+
+function unlinkDarwinAclCapture(path: string, capture: DarwinAclCapture): void {
+  const atPath = lstatSync(path);
+  if (
+    atPath.dev !== capture.stat.dev ||
+    atPath.ino !== capture.stat.ino ||
+    !atPath.isFile()
+  ) {
+    throw new Error("private ACL result capture changed before unlink");
+  }
+  unlinkSync(path);
+  validateUnlinkedDarwinAclCapture(capture, 0);
+}
+
+function readDarwinAclCapture(capture: DarwinAclCapture): string {
+  const stat = fstatSync(capture.fd);
+  validateUnlinkedDarwinAclCapture(capture, stat.size);
+  if (!Number.isSafeInteger(stat.size) || stat.size > MAX_DARWIN_ACL_RESULT_BYTES) {
+    throw new Error("descriptor ACL inspection result exceeded its safe bound");
+  }
+  const output = Buffer.alloc(stat.size);
+  let offset = 0;
+  while (offset < output.length) {
+    const count = readSync(
+      capture.fd,
+      output,
+      offset,
+      output.length - offset,
+      offset,
+    );
+    if (count <= 0) {
+      throw new Error("descriptor ACL inspection result was truncated");
+    }
+    offset += count;
+  }
+  if (readSync(capture.fd, Buffer.alloc(1), 0, 1, offset) !== 0) {
+    throw new Error("descriptor ACL inspection result had trailing bytes");
+  }
+  validateUnlinkedDarwinAclCapture(capture, output.length);
+  return output.toString("utf8");
+}
+
+function validateUnlinkedDarwinAclCapture(
+  capture: DarwinAclCapture,
+  expectedSize: number,
+): void {
+  const stat = fstatSync(capture.fd);
+  if (
+    !stat.isFile() ||
+    stat.dev !== capture.stat.dev ||
+    stat.ino !== capture.stat.ino ||
+    stat.uid !== capture.stat.uid ||
+    (stat.mode & 0o7777) !== 0o600 ||
+    stat.nlink !== 0 ||
+    stat.size !== expectedSize
+  ) {
+    throw new Error("descriptor ACL inspection result metadata changed");
+  }
+}
+
+function validateDarwinSpawnFd(fd: number, kind: string): void {
+  if (!Number.isInteger(fd) || fd < 3 || fd >= DARWIN_POSIX_SPAWN_OPEN_MAX) {
+    throw new Error(`${kind} descriptor ${String(fd)} is outside the safe Darwin spawn range`);
+  }
+}
+
+function closeDarwinAclCaptures(captures: DarwinAclCaptures): void {
+  let firstError: unknown;
+  try {
+    closeSync(captures.stdout.fd);
+  } catch (error) {
+    firstError = error;
+  }
+  try {
+    closeSync(captures.stderr.fd);
+  } catch (error) {
+    if (firstError === undefined) firstError = error;
+  }
+  if (firstError !== undefined) throw firstError;
+}
+
+function cleanupDarwinAclCapture(
+  path: string,
+  capture: DarwinAclCapture | undefined,
+): void {
+  if (capture === undefined) return;
+  try {
+    const atPath = lstatSync(path);
+    if (atPath.dev === capture.stat.dev && atPath.ino === capture.stat.ino) {
+      unlinkSync(path);
+    }
+  } catch (error) {
+    if (filesystemErrorCode(error) !== "ENOENT") throw error;
+  }
+}
+
+function cleanupDarwinAclCaptureDirectory(
+  path: string,
+  expected: Stats | undefined,
+): void {
+  if (expected === undefined) return;
+  try {
+    const atPath = lstatSync(path);
+    if (atPath.dev === expected.dev && atPath.ino === expected.ino) {
+      rmdirSync(path);
+    }
+  } catch (error) {
+    if (filesystemErrorCode(error) !== "ENOENT") throw error;
+  }
 }
 
 function openValidatedDarwinAclHelper(): ValidatedDarwinAclHelper {

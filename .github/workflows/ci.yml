@@ -761,7 +761,9 @@ jobs:
       - name: Register validation and intake tests
         run: |
           bun intake.ts validate
-          bun test
+          # Keep discovery rooted to reduce test-runner descriptor pressure;
+          # production subprocess capture is hardened separately.
+          bun test ./tests
 
   frontier-intake-macos:
     name: "Frontier intake macOS ACL boundary"
@@ -800,7 +802,9 @@ jobs:
           LANG: C
         run: |
           bun intake.ts validate
-          bun test
+          # Keep discovery rooted to reduce test-runner descriptor pressure;
+          # this is CI hygiene, not the production capture fix.
+          bun test ./tests
       - name: Verify production Bun bundle layout
         working-directory: tools/frontier-intake
         env:

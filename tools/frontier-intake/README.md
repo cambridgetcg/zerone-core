@@ -4,7 +4,9 @@ Client-side intake pipeline for the math breakthrough register: validated
 register entries become `x/knowledge` claims, panel-verified into facts on the
 live zerone networks. Shells the `zeroned` CLI; contains no consensus code and
 persists a distinct Ed25519 identity key for each registered operator key.
-Normative context: `docs/specs/math-frontier-absorption-v0.md`.
+Normative context: `docs/specs/math-frontier-absorption-v0.md`. Every CLI and
+artifact-build invocation requires the audited Bun 1.3.5 runtime exactly; the
+tool refuses an ambient newer or older Bun.
 
 ```
 bun intake.ts validate                       # register schema + admission rules (no network)
@@ -32,6 +34,13 @@ and neither builds nor loads the Darwin helper. The helper targets macOS 12,
 matching the pinned Go 1.25 runtime baseline; its exact protocol, packaging,
 and installation-tree trust boundary are documented in
 `tools/darwin-acl-check/README.md`.
+
+On macOS, helper stdout and stderr are captured through separate mode-0600
+files inside an atomic mode-0700 directory under root-owned `/private/tmp`.
+Both files and the directory are unlinked before helper execution, and the
+caller verifies their descriptors, byte bounds, EOF, and the helper's exact
+result tuple. A host with nonstandard inherited ACLs or metadata on
+`/private/tmp` is outside this release profile and must not run live intake.
 
 ## Release posture
 
@@ -92,8 +101,8 @@ and descriptor protocol. The helper's ad-hoc Mach-O signature remains an
 execution-format property; only the separately verified distributor Sigstore
 bundle supplies provenance.
 
-Extract the verified archive as a unit and keep its directory read-only. Run
-it as
+Extract the verified archive as a unit and keep its directory read-only.
+Verify `bun --version` reports exactly `1.3.5`, then run it as
 `bun frontier-intake-macos/tools/frontier-intake/build/frontier-intake.js ...`;
 moving only the Bun file or only the helper breaks the custody boundary and
 setup fails closed.
