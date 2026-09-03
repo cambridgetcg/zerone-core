@@ -27,10 +27,13 @@ phase-invariant z2/public Fly config. Also bind the z1 halt/observer/archive
 template hashes, deterministic archive-renderer hash, fixed private archive
 app/volume/region/topology constraints, and the canonical
 `MONITORING-ALERTS.json`. That monitoring manifest must hash the exact
-`MONITORING-RULES.json` and `MONITORING-ALERT-TESTS.json` bytes. A bare digest
-is insufficient: the signed packet must distinguish the live `zerone-1` halt
-image, `zerone-2` runtime image, and query-gateway image, while the monitoring
-manifest must identify the actual tested rules and evidence.
+`MONITORING-RULES.json` and v2 `MONITORING-ALERT-TESTS.json` bytes. Every test
+must in turn identify its four exact, non-empty
+`MONITORING-ALERT-<CHECK>-<KIND>-EVIDENCE.json.raw` files and their byte hashes.
+A bare digest is insufficient: the signed packet must distinguish the live
+`zerone-1` halt image, `zerone-2` runtime image, and query-gateway image, while
+the monitoring manifest must identify the actual tested rules and byte-bearing
+evidence.
 
 Never edit or reissue that packet merely to choose checkpoint heights; all
 three operator decisions reference its unchanged hash and detached signature.

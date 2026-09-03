@@ -463,6 +463,19 @@ MONITORING_RULE_DEFINITIONS = (
         "inject_gateway_origin_height_lag_above_threshold",
     ),
 )
+MONITORING_EVIDENCE_KINDS = (
+    "stimulus",
+    "firing",
+    "notification",
+    "resolution",
+)
+
+
+def monitoring_evidence_filename(check: str, kind: str) -> str:
+    return (
+        f"MONITORING-ALERT-{check.replace('_', '-').upper()}-"
+        f"{kind.upper()}-EVIDENCE.json.raw"
+    )
 
 
 def make_component_artifacts(
@@ -612,8 +625,38 @@ def make_monitoring_artifacts(
     }
     write_json(output, "MONITORING-RULES.json", rules)
     rules_hash = digest((output / "MONITORING-RULES.json").read_bytes())
+    alert_tests = []
+    for check, alert_name, _, _, _, stimulus in MONITORING_RULE_DEFINITIONS:
+        evidence = {}
+        for kind in MONITORING_EVIDENCE_KINDS:
+            filename = monitoring_evidence_filename(check, kind)
+            evidence_bytes = canonical_bytes(
+                {
+                    "schema": "zerone-monitoring-alert-evidence-fixture-v1",
+                    "fixture_only": True,
+                    "check": check,
+                    "alert_name": alert_name,
+                    "kind": kind,
+                }
+            )
+            (output / filename).write_bytes(evidence_bytes)
+            evidence[kind] = {
+                "filename": filename,
+                "sha256": digest(evidence_bytes),
+            }
+        alert_tests.append(
+            {
+                "check": check,
+                "alert_name": alert_name,
+                "stimulus": stimulus,
+                "observed_states": ["INACTIVE", "FIRING", "RESOLVED"],
+                "notification_delivery": "DELIVERED",
+                "evidence": evidence,
+                "result": "PASS",
+            }
+        )
     tests = {
-        "schema": "zerone-production-monitoring-alert-tests-v1",
+        "schema": "zerone-production-monitoring-alert-tests-v2",
         "chain_id": "zerone-2",
         "source_commit": release["source"]["commit"],
         "ruleset_id": rules["ruleset_id"],
@@ -621,27 +664,7 @@ def make_monitoring_artifacts(
         "started_at": "2026-07-10T09:35:00Z",
         "completed_at": "2026-07-10T09:45:00Z",
         "notification_route_id": rules["notification_route_id"],
-        "tests": [
-            {
-                "check": check,
-                "alert_name": alert_name,
-                "stimulus": stimulus,
-                "observed_states": ["INACTIVE", "FIRING", "RESOLVED"],
-                "notification_delivery": "DELIVERED",
-                "stimulus_evidence_sha256": digest(
-                    f"{check}:stimulus".encode()
-                ),
-                "firing_evidence_sha256": digest(f"{check}:firing".encode()),
-                "notification_evidence_sha256": digest(
-                    f"{check}:notification".encode()
-                ),
-                "resolution_evidence_sha256": digest(
-                    f"{check}:resolution".encode()
-                ),
-                "result": "PASS",
-            }
-            for check, alert_name, _, _, _, stimulus in MONITORING_RULE_DEFINITIONS
-        ],
+        "tests": alert_tests,
         "result": "PASS",
     }
     write_json(output, "MONITORING-ALERT-TESTS.json", tests)

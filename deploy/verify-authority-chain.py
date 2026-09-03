@@ -190,6 +190,27 @@ MONITORING_RULE_SPECS = {
         "stimulus": "inject_gateway_origin_height_lag_above_threshold",
     },
 }
+MONITORING_EVIDENCE_KINDS = (
+    "stimulus",
+    "firing",
+    "notification",
+    "resolution",
+)
+MONITORING_EVIDENCE_FILES = {
+    check: {
+        kind: (
+            f"MONITORING-ALERT-{check.replace('_', '-').upper()}-"
+            f"{kind.upper()}-EVIDENCE.json.raw"
+        )
+        for kind in MONITORING_EVIDENCE_KINDS
+    }
+    for check in MONITORING_RULE_SPECS
+}
+MONITORING_EVIDENCE_FILENAMES = frozenset(
+    filename
+    for files_by_kind in MONITORING_EVIDENCE_FILES.values()
+    for filename in files_by_kind.values()
+)
 FROZEN_EVIDENCE_FILES = {
     "CUSTOM-STAKING-CENSUS.json",
     "ZERONE-1-INVENTORY-V3.json",
@@ -256,6 +277,8 @@ def bundle_file_size_limit(name: str) -> int:
         return 384 * 1024 * 1024
     if name == "POST-ANCHOR-STATE-EXPORT.json.raw":
         return 384 * 1024 * 1024
+    if name in MONITORING_EVIDENCE_FILENAMES:
+        return 16 * 1024 * 1024
     if name.endswith(".json.raw"):
         return 64 * 1024 * 1024
     if name == "ZERONE-1-INVENTORY-V3.json":
@@ -819,7 +842,7 @@ def validate_monitoring_artifacts(
         "monitoring alert-test evidence",
     )
     if not (
-        tests["schema"] == "zerone-production-monitoring-alert-tests-v1"
+        tests["schema"] == "zerone-production-monitoring-alert-tests-v2"
         and tests["chain_id"] == "zerone-2"
         and tests["source_commit"] == release["source"]["commit"]
         and tests["ruleset_id"] == rules["ruleset_id"]
@@ -843,10 +866,7 @@ def validate_monitoring_artifacts(
                 "stimulus",
                 "observed_states",
                 "notification_delivery",
-                "stimulus_evidence_sha256",
-                "firing_evidence_sha256",
-                "notification_evidence_sha256",
-                "resolution_evidence_sha256",
+                "evidence",
                 "result",
             },
             f"monitoring alert test {index}",
@@ -865,13 +885,37 @@ def validate_monitoring_artifacts(
             and test["result"] == "PASS"
         ):
             fail(f"monitoring alert test {check} did not prove firing and recovery")
-        for field in (
-            "stimulus_evidence_sha256",
-            "firing_evidence_sha256",
-            "notification_evidence_sha256",
-            "resolution_evidence_sha256",
-        ):
-            proof_hash = require_hash(test[field], f"monitoring alert test {check} {field}")
+        evidence = require_exact_object(
+            test["evidence"],
+            set(MONITORING_EVIDENCE_KINDS),
+            f"monitoring alert test {check} evidence",
+        )
+        for kind in MONITORING_EVIDENCE_KINDS:
+            reference = require_exact_object(
+                evidence[kind],
+                {"filename", "sha256"},
+                f"monitoring alert test {check} {kind} evidence reference",
+            )
+            expected_filename = MONITORING_EVIDENCE_FILES[check][kind]
+            if reference["filename"] != expected_filename:
+                fail(
+                    f"monitoring alert test {check} {kind} evidence must reference "
+                    f"exact bundle file {expected_filename}"
+                )
+            proof_hash = require_hash(
+                reference["sha256"],
+                f"monitoring alert test {check} {kind} evidence",
+            )
+            proof_bytes = files[expected_filename]
+            if not proof_bytes:
+                fail(
+                    f"monitoring alert test {check} {kind} evidence file is empty"
+                )
+            if proof_hash != sha256(proof_bytes):
+                fail(
+                    f"monitoring alert test {check} {kind} evidence hash differs "
+                    f"from bundled {expected_filename}"
+                )
             if proof_hash == "0" * 64 or proof_hash in evidence_hashes:
                 fail("monitoring alert tests reuse or omit required evidence")
             evidence_hashes.add(proof_hash)
@@ -3796,6 +3840,7 @@ def main() -> None:
         "GENESIS-MANIFEST.md",
         "zeroned-zerone-2-release",
         *MONITORING_ARTIFACT_FILES.values(),
+        *MONITORING_EVIDENCE_FILENAMES,
     }
     for component_files in COMPONENT_ARTIFACT_FILES.values():
         base.update(component_files.values())

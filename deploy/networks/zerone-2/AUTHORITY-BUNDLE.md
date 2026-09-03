@@ -43,6 +43,8 @@ The invariant root of every stage contains:
 - `OPERATOR-TOOL-MANIFEST.json`;
 - `MONITORING-ALERTS.json`, `MONITORING-RULES.json`, and
   `MONITORING-ALERT-TESTS.json`;
+- the 40 non-empty raw alert-test evidence files named by the fixed monitoring
+  evidence convention below;
 - `zeroned-zerone-1-release` and `zeroned-zerone-2-release`;
 - `genesis.json`, `genesis.sha256`, `network-manifest.json`, and
   `GENESIS-MANIFEST.md`;
@@ -64,10 +66,35 @@ hashes the actual normalized `MONITORING-RULES.json` and the complete
 stalled height, missed signing, double-sign risk, equal-height AppHash
 divergence, private-peer loss, disk capacity, restart count, stale verified
 backup, gateway wrong-chain, and gateway stale-origin. Every rule must be
-enabled within the verifier's safety bounds. Every alert test must bind distinct
-stimulus, firing, notification-delivery, and resolution evidence and record the
-exact `INACTIVE` → `FIRING` → `RESOLVED` sequence with result `PASS`. A list of
-check names or self-asserted PASS values is not evidence and is rejected.
+enabled within the verifier's safety bounds.
+
+The alert-test document uses
+`zerone-production-monitoring-alert-tests-v2`. Each test has one exact
+`evidence` object with exactly `stimulus`, `firing`, `notification`, and
+`resolution` members. Each member is an exact `{filename, sha256}` reference.
+The verifier derives, requires, and hashes the filename itself; a document
+cannot choose another path. The fixed form is:
+
+```text
+MONITORING-ALERT-<CHECK>-<KIND>-EVIDENCE.json.raw
+```
+
+`<CHECK>` is exactly one of `STALLED-HEIGHT`, `MISSED-SIGNING`,
+`DOUBLE-SIGN-RISK`, `APP-HASH-DIVERGENCE`, `PEER-LOSS`, `DISK-CAPACITY`,
+`RESTART-COUNT`, `STALE-BACKUP`, `GATEWAY-WRONG-CHAIN`, or
+`GATEWAY-STALE-ORIGIN`. `<KIND>` is exactly `STIMULUS`, `FIRING`,
+`NOTIFICATION`, or `RESOLUTION`. Thus every stage requires exactly 40 raw
+proof files. Each must be non-empty, no two references may reuse a digest, and
+each file is capped at 16 MiB before authentication and counted toward the
+bundle's 1 GiB aggregate cap.
+
+Every alert test must record the exact `INACTIVE` → `FIRING` → `RESOLVED`
+sequence with result `PASS` and bind the actual bytes for stimulus, firing,
+notification delivery, and resolution. A list of check names, self-asserted
+PASS values, unbound digests, missing bytes, or a substituted proof file is
+rejected. The raw evidence is intentionally byte-preserved rather than parsed
+or normalized by the authority verifier; the signing operator remains
+responsible for reviewing what those bytes prove.
 
 Each component has six fixed byte-bearing artifacts: SBOM, provenance,
 signature evidence, offline signature bundle, vulnerability scan, and

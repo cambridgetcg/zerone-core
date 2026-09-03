@@ -548,6 +548,93 @@ expect_rejected "missing monitoring artifact" \
   "could not open bundle file MONITORING-ALERTS.json" \
   run_cutover_pre "${missing_monitoring}"
 
+stalled_stimulus_evidence=MONITORING-ALERT-STALLED-HEIGHT-STIMULUS-EVIDENCE.json.raw
+missed_stimulus_evidence=MONITORING-ALERT-MISSED-SIGNING-STIMULUS-EVIDENCE.json.raw
+
+missing_monitoring_evidence=$(clone_bundle missing-monitoring-evidence)
+mv "${missing_monitoring_evidence}/${stalled_stimulus_evidence}" \
+  "${missing_monitoring_evidence}/${stalled_stimulus_evidence}.missing"
+expect_rejected "missing monitoring evidence blob" \
+  "could not open bundle file ${stalled_stimulus_evidence}" \
+  run_cutover_pre "${missing_monitoring_evidence}"
+
+substituted_monitoring_evidence=$(clone_bundle substituted-monitoring-evidence)
+cp "${substituted_monitoring_evidence}/${missed_stimulus_evidence}" \
+  "${substituted_monitoring_evidence}/${stalled_stimulus_evidence}"
+expect_rejected "substituted monitoring evidence bytes" \
+  "stalled_height stimulus evidence hash differs from bundled ${stalled_stimulus_evidence}" \
+  run_cutover_pre "${substituted_monitoring_evidence}"
+
+substituted_monitoring_reference=$(clone_bundle substituted-monitoring-reference)
+missed_stimulus_sha=$(sha256_file \
+  "${substituted_monitoring_reference}/${missed_stimulus_evidence}")
+# shellcheck disable=SC2016 # jq variables are not shell variables.
+canonical_mutate \
+  "${substituted_monitoring_reference}/MONITORING-ALERT-TESTS.json" \
+  '(.tests[] | select(.check == "stalled_height") | .evidence.stimulus) = {
+    filename: $filename,
+    sha256: $sha
+  }' \
+  --arg filename "${missed_stimulus_evidence}" \
+  --arg sha "${missed_stimulus_sha}"
+rebind_monitoring_chain "${substituted_monitoring_reference}"
+expect_rejected "substituted monitoring evidence reference" \
+  "stalled_height stimulus evidence must reference exact bundle file ${stalled_stimulus_evidence}" \
+  run_cutover_pre "${substituted_monitoring_reference}"
+
+malformed_monitoring_reference=$(clone_bundle malformed-monitoring-reference)
+canonical_mutate \
+  "${malformed_monitoring_reference}/MONITORING-ALERT-TESTS.json" \
+  'del(.tests[] | select(.check == "stalled_height")
+    | .evidence.stimulus.filename)'
+rebind_monitoring_chain "${malformed_monitoring_reference}"
+expect_rejected "malformed monitoring evidence reference" \
+  "stalled_height stimulus evidence reference does not have the exact required fields" \
+  run_cutover_pre "${malformed_monitoring_reference}"
+
+unbound_monitoring_hash=$(clone_bundle unbound-monitoring-hash)
+canonical_mutate \
+  "${unbound_monitoring_hash}/MONITORING-ALERT-TESTS.json" \
+  '(.tests[] | select(.check == "stalled_height")
+    | .evidence.stimulus.sha256) = ("f" * 64)'
+rebind_monitoring_chain "${unbound_monitoring_hash}"
+expect_rejected "unbound monitoring evidence hash" \
+  "stalled_height stimulus evidence hash differs from bundled ${stalled_stimulus_evidence}" \
+  run_cutover_pre "${unbound_monitoring_hash}"
+
+empty_monitoring_evidence=$(clone_bundle empty-monitoring-evidence)
+python3 - "${empty_monitoring_evidence}/${stalled_stimulus_evidence}" <<'PY'
+import pathlib
+import sys
+
+with pathlib.Path(sys.argv[1]).open("wb"):
+    pass
+PY
+empty_monitoring_sha=$(sha256_file \
+  "${empty_monitoring_evidence}/${stalled_stimulus_evidence}")
+# shellcheck disable=SC2016 # jq variables are not shell variables.
+canonical_mutate \
+  "${empty_monitoring_evidence}/MONITORING-ALERT-TESTS.json" \
+  '(.tests[] | select(.check == "stalled_height")
+    | .evidence.stimulus.sha256) = $sha' \
+  --arg sha "${empty_monitoring_sha}"
+rebind_monitoring_chain "${empty_monitoring_evidence}"
+expect_rejected "empty monitoring evidence blob" \
+  "stalled_height stimulus evidence file is empty" \
+  run_cutover_pre "${empty_monitoring_evidence}"
+
+oversized_monitoring_evidence=$(clone_bundle oversized-monitoring-evidence)
+python3 - "${oversized_monitoring_evidence}/${stalled_stimulus_evidence}" <<'PY'
+import pathlib
+import sys
+
+with pathlib.Path(sys.argv[1]).open("wb") as evidence:
+    evidence.truncate(16 * 1024 * 1024 + 1)
+PY
+expect_rejected "oversized monitoring evidence blob" \
+  "${stalled_stimulus_evidence} exceeds its pre-authentication size limit" \
+  run_cutover_pre "${oversized_monitoring_evidence}"
+
 tampered_monitoring=$(clone_bundle tampered-monitoring)
 canonical_mutate "${tampered_monitoring}/MONITORING-ALERTS.json" \
   '.result = "FAIL"'

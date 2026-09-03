@@ -54,13 +54,15 @@ snapshot byte-for-byte.
 - [ ] Service-free private gateway config SHA-256 and role `zerone-2-query`:
       `REPLACE`
 - [ ] `MONITORING-ALERTS.json` SHA-256 plus its byte-matched
-      `MONITORING-RULES.json` and `MONITORING-ALERT-TESTS.json` hashes:
-      `REPLACE`
+      `MONITORING-RULES.json`, v2 `MONITORING-ALERT-TESTS.json`, and all 40
+      fixed-name raw evidence files: `REPLACE`
 - [ ] All ten required rules are enabled and their stalled-height,
       missed-signing, double-sign-risk, AppHash-divergence, peer-loss, disk,
       restart-count, stale-backup, gateway-wrong-chain, and
       gateway-stale-origin alert tests each prove firing, notification delivery,
-      resolution, and `PASS`: `REPLACE_EVIDENCE_HASHES`
+      resolution, and `PASS`; each test's exact stimulus, firing, notification,
+      and resolution `{filename, sha256}` reference matches the non-empty
+      bundled bytes: `REPLACE_EVIDENCE_REVIEW`
 - [ ] Full tests, artifact audit, signed-source two-run ceremony comparison,
       restart and complete stopped-data-directory restore, image-context,
       deploy-gate, SBOM, and secret gates pass. Genesis export/import remains a
