@@ -47,6 +47,12 @@ transition-key attestations follow
 [`CANONICAL-SIGNING.md`](CANONICAL-SIGNING.md). The exact append-only file set
 and five fail-closed verification stages are documented in
 [`AUTHORITY-BUNDLE.md`](AUTHORITY-BUNDLE.md).
+
+Preparation for attention gathering and external explanation follows
+[`LAUNCH-COMMUNICATIONS.md`](LAUNCH-COMMUNICATIONS.md). That plan is not
+authority to publish: it keeps claims phase-scoped, evidence-linked, and
+explicit about the custodial and NO-GO boundaries.
+
 The detached-signature payload starts from
 [`zerone-1/frozen/FINAL-CHECKPOINT.example.json`](../zerone-1/frozen/FINAL-CHECKPOINT.example.json),
 the single authoritative v3 template. It is a manifest of hashed evidence, not
