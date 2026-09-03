@@ -162,7 +162,10 @@ nonempty tree it:
 1. streams leaves in strict, unique byte order;
 2. requires the emitted leaf count to equal the root-bound IAVL tree size;
 3. creates and directly verifies an ICS23 IAVL membership proof for every
-   key/value pair against that store's committed root; and
+   key/value pair against that store's committed root (for IAVL's valid
+   zero-byte values, which the pinned ICS23 helper rejects before hashing, the
+   tool first enforces the exact IAVL proof spec and then performs the same
+   SHA-256 leaf/path calculation without that non-empty-value policy); and
 4. fails on iterator, proof, decode, close, resource-limit, or concurrent-root
    stability errors.
 
@@ -194,10 +197,12 @@ Resource ceilings are part of the fail-closed contract:
 
 Crossing a resource ceiling is an operational failure, never a partial PASS.
 
-## Nine legacy custom keyspaces
+## Nine legacy custom keyspaces and one app sentinel
 
 Every recognized key in `zerone_staking` is classified into exactly one of the
-nine persisted keyspaces:
+nine persisted module keyspaces. The app-wide exact `_iavl_init = 0x01`
+infrastructure sentinel is classified separately when present; its absence is
+valid for a pre-sentinel lineage, but a malformed value or lookalike key fails.
 
 | Prefix | State |
 | --- | --- |
@@ -210,6 +215,7 @@ nine persisted keyspaces:
 | `0x07` | singleton unbonding sequence |
 | `0x08` | redelegation cooldown heights |
 | `0x09` | validator-to-delegator reverse index |
+| `0x5f6961766c5f696e6974` | exact app `_iavl_init` infrastructure sentinel |
 
 Keys outside those prefixes are still bound by the complete store-evidence
 digest and reported as failures. Malformed keys, malformed JSON/scalar/index

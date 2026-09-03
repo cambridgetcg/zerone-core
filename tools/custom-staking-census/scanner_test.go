@@ -11,6 +11,7 @@ import (
 
 	storetypes "cosmossdk.io/store/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/gogoproto/types"
 	"github.com/cosmos/iavl"
 	iavldb "github.com/cosmos/iavl/db"
@@ -337,6 +338,46 @@ func TestVerifyIAVLMembershipSupportsCommittedEmptyValue(t *testing.T) {
 		verifyIAVLMembership(root, emptyProof, []byte("wrong"), []byte{}),
 		"key does not match",
 	)
+
+	nonEmptyProofValue := proto.Clone(emptyProof).(*ics23.CommitmentProof)
+	nonEmptyProofValue.GetExist().Value = []byte{0x01}
+	require.ErrorContains(t, verifyIAVLMembership(
+		root,
+		nonEmptyProofValue,
+		[]byte("empty"),
+		[]byte{},
+	), "contains a non-empty value")
+
+	malformedLeaf := proto.Clone(emptyProof).(*ics23.CommitmentProof)
+	malformedLeaf.GetExist().Leaf.Hash = ics23.HashOp_NO_HASH
+	require.ErrorContains(t, verifyIAVLMembership(
+		root,
+		malformedLeaf,
+		[]byte("empty"),
+		[]byte{},
+	), "violates the IAVL ICS23 spec")
+
+	wrongPath := proto.Clone(emptyProof).(*ics23.CommitmentProof)
+	require.NotEmpty(t, wrongPath.GetExist().Path)
+	lastPathByte := len(wrongPath.GetExist().Path[0].Suffix) - 1
+	require.GreaterOrEqual(t, lastPathByte, 0)
+	wrongPath.GetExist().Path[0].Suffix[lastPathByte] ^= 0xff
+	require.ErrorContains(t, verifyIAVLMembership(
+		root,
+		wrongPath,
+		[]byte("empty"),
+		[]byte{},
+	), "calculated a different root")
+
+	wrongLeafVersion := proto.Clone(emptyProof).(*ics23.CommitmentProof)
+	require.Len(t, wrongLeafVersion.GetExist().Leaf.Prefix, 3)
+	wrongLeafVersion.GetExist().Leaf.Prefix[2] = 0x04
+	require.ErrorContains(t, verifyIAVLMembership(
+		root,
+		wrongLeafVersion,
+		[]byte("empty"),
+		[]byte{},
+	), "calculated a different root")
 
 	ordinaryProof, err := tree.GetMembershipProof([]byte("ordinary"))
 	require.NoError(t, err)

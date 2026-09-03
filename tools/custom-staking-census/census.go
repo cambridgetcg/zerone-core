@@ -221,18 +221,17 @@ func (c *census) ingestCustomStaking(key, value []byte) {
 		return
 	}
 	if bytes.Equal(key, []byte(appIAVLInitSentinelKey)) {
+		c.classLeaves[customModuleKeyspaceCount] = append(
+			c.classLeaves[customModuleKeyspaceCount],
+			newLeafCommitment(key, value),
+		)
 		if !bytes.Equal(value, []byte{0x01}) {
 			c.addFinding(
 				"app_iavl_init_sentinel_invalid",
 				display,
 				"app IAVL initialization sentinel must contain exactly 0x01",
 			)
-			return
 		}
-		c.classLeaves[customModuleKeyspaceCount] = append(
-			c.classLeaves[customModuleKeyspaceCount],
-			newLeafCommitment(key, value),
-		)
 		return
 	}
 	prefix := int(key[0])

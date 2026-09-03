@@ -190,6 +190,8 @@ func TestCensusFailsClosedOnCorruptJSONUnknownPrefixAndUnexpectedDenom(t *testin
 
 func TestCensusAcceptsOnlyTheExactOptionalAppIAVLInitSentinel(t *testing.T) {
 	leaves, _, _ := balancedCensusFixture(t)
+	validResult := runCensusFixture(t, leaves)
+	require.True(t, validResult.Passed)
 	withoutSentinel := slices.DeleteFunc(slices.Clone(leaves), func(leaf censusFixture) bool {
 		return leaf.store == customStakingStore && bytes.Equal(leaf.key, []byte(appIAVLInitSentinelKey))
 	})
@@ -205,15 +207,22 @@ func TestCensusAcceptsOnlyTheExactOptionalAppIAVLInitSentinel(t *testing.T) {
 		result := runCensusFixture(t, mutated)
 		require.False(t, result.Passed)
 	}
-	requireFindingCode(
+	invalidValueResult := runCensusFixture(
 		t,
-		runCensusFixture(t, append(slices.Clone(withoutSentinel), censusFixture{
+		append(slices.Clone(withoutSentinel), censusFixture{
 			store: customStakingStore,
 			key:   []byte(appIAVLInitSentinelKey),
 			value: []byte{0x02},
-		})),
-		"app_iavl_init_sentinel_invalid",
+		}),
 	)
+	requireFindingCode(t, invalidValueResult, "app_iavl_init_sentinel_invalid")
+	require.Equal(t, uint64(1), invalidValueResult.Keyspace[9].LeafCount)
+	require.Equal(
+		t,
+		uint64(len(appIAVLInitSentinelKey)+1),
+		invalidValueResult.Keyspace[9].InputBytes,
+	)
+	require.NotEqual(t, validResult.Keyspace[9].Digest, invalidValueResult.Keyspace[9].Digest)
 	requireFindingCode(
 		t,
 		runCensusFixture(t, append(slices.Clone(withoutSentinel), censusFixture{
