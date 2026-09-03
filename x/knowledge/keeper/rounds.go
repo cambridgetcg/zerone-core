@@ -590,11 +590,18 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// edge loop below — one IAVL read per distinct target on this
 	// BeginBlocker path, not two.
 	citedTargets := k.fetchCitedTargets(ctx, claim)
-	dist, floor := computeProvenance(claim, citedTargets)
+	dist, floor, floorSet := computeProvenance(claim, citedTargets)
 	fact.AxiomDistance = dist
 	fact.DependencyConfidenceFloor = floor
-	// Clamp the fact's own confidence to the inherited floor if it exists.
-	if floor > 0 && fact.Confidence > floor {
+	// Clamp the fact's own confidence to the inherited floor whenever cited
+	// support actually resolved — floorSet, not `floor > 0`. A floor of ZERO
+	// is a real floor: a proof resting on a zero-confidence foundation
+	// inherits zero confidence. Guarding on `floor > 0` read "worthless
+	// foundation" as "no foundation" and exempted exactly the weakest chains
+	// from the ceiling (the InferenceStrengthBps=1 escape). The clamp event
+	// fires for the zero case too — a clamp to zero is exactly the event a
+	// reader needs to see.
+	if floorSet && fact.Confidence > floor {
 		fact.Confidence = floor
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.confidence_clamped_to_floor",
@@ -876,12 +883,22 @@ func (k Keeper) fetchCitedTargets(ctx context.Context, claim *types.Claim) map[s
 //     the contribution by 30%. The floor is the minimum contribution across
 //     all edges. References-only cites have no declared strength and default
 //     to full BPS (pure citation preserves the cited fact's confidence).
-//     Facts with no cites have floor 0 (= no cap).
+//
+//   - floorSet reports whether any cited edge actually resolved. false means
+//     the fact is foundational (no resolvable cites → no floor exists). true
+//     with floor 0 means support resolved and contributed ZERO — a real
+//     floor, the lowest one there is. The two cases were previously conflated
+//     into a bare 0, and the `floor > 0` clamp guard in createFactFromClaim
+//     read "my foundation is worthless" as "I have no foundation, cap
+//     nothing" — so an edge declaring InferenceStrengthBps = 1 (integer
+//     division → contribution 0) EXEMPTED a fact from the ceiling its
+//     foundations impose instead of weakening it. Declaring your own
+//     reasoning weaker must never buy more confidence.
 //
 // targets carries the pre-fetched cited facts (fetchCitedTargets); a nil or
 // absent entry means the cite did not resolve and is ignored, exactly as the
 // former in-function GetFact miss was.
-func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint32, uint64) {
+func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (dist uint32, floor uint64, floorSet bool) {
 	const bps uint64 = 1_000_000
 
 	// Per-edge contributions: (factID → strengthBps). References default to
@@ -916,7 +933,7 @@ func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint
 	}
 
 	if len(edges) == 0 {
-		return 0, 0
+		return 0, 0, false
 	}
 
 	var minDist uint32 = ^uint32(0)
@@ -945,9 +962,12 @@ func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint
 	}
 
 	if minDist == ^uint32(0) {
-		return 0, 0
+		// No cited edge resolved — genuinely foundational, no floor exists.
+		return 0, 0, false
 	}
-	return minDist + 1, minFloor
+	// minDist was set by the same loop iterations that set floorInitialized,
+	// so an edge resolved and minFloor is a real floor — even at 0.
+	return minDist + 1, minFloor, true
 }
 
 // handleChallengeSurvival restores a challenged fact and grants survival energy
