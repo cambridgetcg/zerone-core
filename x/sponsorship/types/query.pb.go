@@ -7,6 +7,7 @@
 package types
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -269,11 +270,260 @@ func (x *QueryBountyOrdersResponse) GetOrders() []*BountyOrder {
 	return nil
 }
 
+type QueryFulfillmentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BountyId      string                 `protobuf:"bytes,1,opt,name=bounty_id,json=bountyId,proto3" json:"bounty_id,omitempty"`
+	FactId        string                 `protobuf:"bytes,2,opt,name=fact_id,json=factId,proto3" json:"fact_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryFulfillmentRequest) Reset() {
+	*x = QueryFulfillmentRequest{}
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryFulfillmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryFulfillmentRequest) ProtoMessage() {}
+
+func (x *QueryFulfillmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryFulfillmentRequest.ProtoReflect.Descriptor instead.
+func (*QueryFulfillmentRequest) Descriptor() ([]byte, []int) {
+	return file_zerone_sponsorship_v1_query_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *QueryFulfillmentRequest) GetBountyId() string {
+	if x != nil {
+		return x.BountyId
+	}
+	return ""
+}
+
+func (x *QueryFulfillmentRequest) GetFactId() string {
+	if x != nil {
+		return x.FactId
+	}
+	return ""
+}
+
+type QueryFulfillmentResponse struct {
+	state                                 protoimpl.MessageState `protogen:"open.v1"`
+	Fulfillment                           *BountyFulfillment     `protobuf:"bytes,1,opt,name=fulfillment,proto3" json:"fulfillment,omitempty"`
+	FactConsumedByBountyId                string                 `protobuf:"bytes,2,opt,name=fact_consumed_by_bounty_id,json=factConsumedByBountyId,proto3" json:"fact_consumed_by_bounty_id,omitempty"`
+	ReceiptConsumedByBountyId             string                 `protobuf:"bytes,3,opt,name=receipt_consumed_by_bounty_id,json=receiptConsumedByBountyId,proto3" json:"receipt_consumed_by_bounty_id,omitempty"`
+	SettlementNullifierConsumedByBountyId string                 `protobuf:"bytes,4,opt,name=settlement_nullifier_consumed_by_bounty_id,json=settlementNullifierConsumedByBountyId,proto3" json:"settlement_nullifier_consumed_by_bounty_id,omitempty"`
+	SnapshotBlockHeight                   uint64                 `protobuf:"varint,5,opt,name=snapshot_block_height,json=snapshotBlockHeight,proto3" json:"snapshot_block_height,omitempty"`
+	unknownFields                         protoimpl.UnknownFields
+	sizeCache                             protoimpl.SizeCache
+}
+
+func (x *QueryFulfillmentResponse) Reset() {
+	*x = QueryFulfillmentResponse{}
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryFulfillmentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryFulfillmentResponse) ProtoMessage() {}
+
+func (x *QueryFulfillmentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryFulfillmentResponse.ProtoReflect.Descriptor instead.
+func (*QueryFulfillmentResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_sponsorship_v1_query_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *QueryFulfillmentResponse) GetFulfillment() *BountyFulfillment {
+	if x != nil {
+		return x.Fulfillment
+	}
+	return nil
+}
+
+func (x *QueryFulfillmentResponse) GetFactConsumedByBountyId() string {
+	if x != nil {
+		return x.FactConsumedByBountyId
+	}
+	return ""
+}
+
+func (x *QueryFulfillmentResponse) GetReceiptConsumedByBountyId() string {
+	if x != nil {
+		return x.ReceiptConsumedByBountyId
+	}
+	return ""
+}
+
+func (x *QueryFulfillmentResponse) GetSettlementNullifierConsumedByBountyId() string {
+	if x != nil {
+		return x.SettlementNullifierConsumedByBountyId
+	}
+	return ""
+}
+
+func (x *QueryFulfillmentResponse) GetSnapshotBlockHeight() uint64 {
+	if x != nil {
+		return x.SnapshotBlockHeight
+	}
+	return 0
+}
+
+type QueryEscrowAccountingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryEscrowAccountingRequest) Reset() {
+	*x = QueryEscrowAccountingRequest{}
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryEscrowAccountingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryEscrowAccountingRequest) ProtoMessage() {}
+
+func (x *QueryEscrowAccountingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryEscrowAccountingRequest.ProtoReflect.Descriptor instead.
+func (*QueryEscrowAccountingRequest) Descriptor() ([]byte, []int) {
+	return file_zerone_sponsorship_v1_query_proto_rawDescGZIP(), []int{8}
+}
+
+type QueryEscrowAccountingResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Denom              string                 `protobuf:"bytes,1,opt,name=denom,proto3" json:"denom,omitempty"`
+	PersistedLiability string                 `protobuf:"bytes,2,opt,name=persisted_liability,json=persistedLiability,proto3" json:"persisted_liability,omitempty"`
+	ModuleBalance      string                 `protobuf:"bytes,3,opt,name=module_balance,json=moduleBalance,proto3" json:"module_balance,omitempty"`
+	// Signed decimal balance minus liability. A negative value means insolvent.
+	Surplus             string `protobuf:"bytes,4,opt,name=surplus,proto3" json:"surplus,omitempty"`
+	Solvent             bool   `protobuf:"varint,5,opt,name=solvent,proto3" json:"solvent,omitempty"`
+	SnapshotBlockHeight uint64 `protobuf:"varint,6,opt,name=snapshot_block_height,json=snapshotBlockHeight,proto3" json:"snapshot_block_height,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *QueryEscrowAccountingResponse) Reset() {
+	*x = QueryEscrowAccountingResponse{}
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryEscrowAccountingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryEscrowAccountingResponse) ProtoMessage() {}
+
+func (x *QueryEscrowAccountingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_sponsorship_v1_query_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryEscrowAccountingResponse.ProtoReflect.Descriptor instead.
+func (*QueryEscrowAccountingResponse) Descriptor() ([]byte, []int) {
+	return file_zerone_sponsorship_v1_query_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *QueryEscrowAccountingResponse) GetDenom() string {
+	if x != nil {
+		return x.Denom
+	}
+	return ""
+}
+
+func (x *QueryEscrowAccountingResponse) GetPersistedLiability() string {
+	if x != nil {
+		return x.PersistedLiability
+	}
+	return ""
+}
+
+func (x *QueryEscrowAccountingResponse) GetModuleBalance() string {
+	if x != nil {
+		return x.ModuleBalance
+	}
+	return ""
+}
+
+func (x *QueryEscrowAccountingResponse) GetSurplus() string {
+	if x != nil {
+		return x.Surplus
+	}
+	return ""
+}
+
+func (x *QueryEscrowAccountingResponse) GetSolvent() bool {
+	if x != nil {
+		return x.Solvent
+	}
+	return false
+}
+
+func (x *QueryEscrowAccountingResponse) GetSnapshotBlockHeight() uint64 {
+	if x != nil {
+		return x.SnapshotBlockHeight
+	}
+	return 0
+}
+
 var File_zerone_sponsorship_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_sponsorship_v1_query_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/sponsorship/v1/query.proto\x12\x15zerone.sponsorship.v1\x1a!zerone/sponsorship/v1/state.proto\"\x14\n" +
+	"!zerone/sponsorship/v1/query.proto\x12\x15zerone.sponsorship.v1\x1a\x1cgoogle/api/annotations.proto\x1a!zerone/sponsorship/v1/state.proto\"\x14\n" +
 	"\x12QueryParamsRequest\"L\n" +
 	"\x13QueryParamsResponse\x125\n" +
 	"\x06params\x18\x01 \x01(\v2\x1d.zerone.sponsorship.v1.ParamsR\x06params\")\n" +
@@ -283,11 +533,30 @@ const file_zerone_sponsorship_v1_query_proto_rawDesc = "" +
 	"\x05order\x18\x01 \x01(\v2\".zerone.sponsorship.v1.BountyOrderR\x05order\"\x1a\n" +
 	"\x18QueryBountyOrdersRequest\"W\n" +
 	"\x19QueryBountyOrdersResponse\x12:\n" +
-	"\x06orders\x18\x01 \x03(\v2\".zerone.sponsorship.v1.BountyOrderR\x06orders2\xcb\x02\n" +
-	"\x05Query\x12_\n" +
-	"\x06Params\x12).zerone.sponsorship.v1.QueryParamsRequest\x1a*.zerone.sponsorship.v1.QueryParamsResponse\x12n\n" +
-	"\vBountyOrder\x12..zerone.sponsorship.v1.QueryBountyOrderRequest\x1a/.zerone.sponsorship.v1.QueryBountyOrderResponse\x12q\n" +
-	"\fBountyOrders\x12/.zerone.sponsorship.v1.QueryBountyOrdersRequest\x1a0.zerone.sponsorship.v1.QueryBountyOrdersResponseB4Z2github.com/zerone-chain/zerone/x/sponsorship/typesb\x06proto3"
+	"\x06orders\x18\x01 \x03(\v2\".zerone.sponsorship.v1.BountyOrderR\x06orders\"O\n" +
+	"\x17QueryFulfillmentRequest\x12\x1b\n" +
+	"\tbounty_id\x18\x01 \x01(\tR\bbountyId\x12\x17\n" +
+	"\afact_id\x18\x02 \x01(\tR\x06factId\"\xf3\x02\n" +
+	"\x18QueryFulfillmentResponse\x12J\n" +
+	"\vfulfillment\x18\x01 \x01(\v2(.zerone.sponsorship.v1.BountyFulfillmentR\vfulfillment\x12:\n" +
+	"\x1afact_consumed_by_bounty_id\x18\x02 \x01(\tR\x16factConsumedByBountyId\x12@\n" +
+	"\x1dreceipt_consumed_by_bounty_id\x18\x03 \x01(\tR\x19receiptConsumedByBountyId\x12Y\n" +
+	"*settlement_nullifier_consumed_by_bounty_id\x18\x04 \x01(\tR%settlementNullifierConsumedByBountyId\x122\n" +
+	"\x15snapshot_block_height\x18\x05 \x01(\x04R\x13snapshotBlockHeight\"\x1e\n" +
+	"\x1cQueryEscrowAccountingRequest\"\xf5\x01\n" +
+	"\x1dQueryEscrowAccountingResponse\x12\x14\n" +
+	"\x05denom\x18\x01 \x01(\tR\x05denom\x12/\n" +
+	"\x13persisted_liability\x18\x02 \x01(\tR\x12persistedLiability\x12%\n" +
+	"\x0emodule_balance\x18\x03 \x01(\tR\rmoduleBalance\x12\x18\n" +
+	"\asurplus\x18\x04 \x01(\tR\asurplus\x12\x18\n" +
+	"\asolvent\x18\x05 \x01(\bR\asolvent\x122\n" +
+	"\x15snapshot_block_height\x18\x06 \x01(\x04R\x13snapshotBlockHeight2\xae\x06\n" +
+	"\x05Query\x12\x86\x01\n" +
+	"\x06Params\x12).zerone.sponsorship.v1.QueryParamsRequest\x1a*.zerone.sponsorship.v1.QueryParamsResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/zerone/sponsorship/v1/params\x12\x9a\x01\n" +
+	"\vBountyOrder\x12..zerone.sponsorship.v1.QueryBountyOrderRequest\x1a/.zerone.sponsorship.v1.QueryBountyOrderResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/zerone/sponsorship/v1/orders/{id}\x12\x98\x01\n" +
+	"\fBountyOrders\x12/.zerone.sponsorship.v1.QueryBountyOrdersRequest\x1a0.zerone.sponsorship.v1.QueryBountyOrdersResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/zerone/sponsorship/v1/orders\x12\xb1\x01\n" +
+	"\vFulfillment\x12..zerone.sponsorship.v1.QueryFulfillmentRequest\x1a/.zerone.sponsorship.v1.QueryFulfillmentResponse\"A\x82\xd3\xe4\x93\x02;\x129/zerone/sponsorship/v1/fulfillments/{bounty_id}/{fact_id}\x12\xaf\x01\n" +
+	"\x10EscrowAccounting\x123.zerone.sponsorship.v1.QueryEscrowAccountingRequest\x1a4.zerone.sponsorship.v1.QueryEscrowAccountingResponse\"0\x82\xd3\xe4\x93\x02*\x12(/zerone/sponsorship/v1/escrow_accountingB4Z2github.com/zerone-chain/zerone/x/sponsorship/typesb\x06proto3"
 
 var (
 	file_zerone_sponsorship_v1_query_proto_rawDescOnce sync.Once
@@ -301,32 +570,42 @@ func file_zerone_sponsorship_v1_query_proto_rawDescGZIP() []byte {
 	return file_zerone_sponsorship_v1_query_proto_rawDescData
 }
 
-var file_zerone_sponsorship_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_zerone_sponsorship_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_zerone_sponsorship_v1_query_proto_goTypes = []any{
-	(*QueryParamsRequest)(nil),        // 0: zerone.sponsorship.v1.QueryParamsRequest
-	(*QueryParamsResponse)(nil),       // 1: zerone.sponsorship.v1.QueryParamsResponse
-	(*QueryBountyOrderRequest)(nil),   // 2: zerone.sponsorship.v1.QueryBountyOrderRequest
-	(*QueryBountyOrderResponse)(nil),  // 3: zerone.sponsorship.v1.QueryBountyOrderResponse
-	(*QueryBountyOrdersRequest)(nil),  // 4: zerone.sponsorship.v1.QueryBountyOrdersRequest
-	(*QueryBountyOrdersResponse)(nil), // 5: zerone.sponsorship.v1.QueryBountyOrdersResponse
-	(*Params)(nil),                    // 6: zerone.sponsorship.v1.Params
-	(*BountyOrder)(nil),               // 7: zerone.sponsorship.v1.BountyOrder
+	(*QueryParamsRequest)(nil),            // 0: zerone.sponsorship.v1.QueryParamsRequest
+	(*QueryParamsResponse)(nil),           // 1: zerone.sponsorship.v1.QueryParamsResponse
+	(*QueryBountyOrderRequest)(nil),       // 2: zerone.sponsorship.v1.QueryBountyOrderRequest
+	(*QueryBountyOrderResponse)(nil),      // 3: zerone.sponsorship.v1.QueryBountyOrderResponse
+	(*QueryBountyOrdersRequest)(nil),      // 4: zerone.sponsorship.v1.QueryBountyOrdersRequest
+	(*QueryBountyOrdersResponse)(nil),     // 5: zerone.sponsorship.v1.QueryBountyOrdersResponse
+	(*QueryFulfillmentRequest)(nil),       // 6: zerone.sponsorship.v1.QueryFulfillmentRequest
+	(*QueryFulfillmentResponse)(nil),      // 7: zerone.sponsorship.v1.QueryFulfillmentResponse
+	(*QueryEscrowAccountingRequest)(nil),  // 8: zerone.sponsorship.v1.QueryEscrowAccountingRequest
+	(*QueryEscrowAccountingResponse)(nil), // 9: zerone.sponsorship.v1.QueryEscrowAccountingResponse
+	(*Params)(nil),                        // 10: zerone.sponsorship.v1.Params
+	(*BountyOrder)(nil),                   // 11: zerone.sponsorship.v1.BountyOrder
+	(*BountyFulfillment)(nil),             // 12: zerone.sponsorship.v1.BountyFulfillment
 }
 var file_zerone_sponsorship_v1_query_proto_depIdxs = []int32{
-	6, // 0: zerone.sponsorship.v1.QueryParamsResponse.params:type_name -> zerone.sponsorship.v1.Params
-	7, // 1: zerone.sponsorship.v1.QueryBountyOrderResponse.order:type_name -> zerone.sponsorship.v1.BountyOrder
-	7, // 2: zerone.sponsorship.v1.QueryBountyOrdersResponse.orders:type_name -> zerone.sponsorship.v1.BountyOrder
-	0, // 3: zerone.sponsorship.v1.Query.Params:input_type -> zerone.sponsorship.v1.QueryParamsRequest
-	2, // 4: zerone.sponsorship.v1.Query.BountyOrder:input_type -> zerone.sponsorship.v1.QueryBountyOrderRequest
-	4, // 5: zerone.sponsorship.v1.Query.BountyOrders:input_type -> zerone.sponsorship.v1.QueryBountyOrdersRequest
-	1, // 6: zerone.sponsorship.v1.Query.Params:output_type -> zerone.sponsorship.v1.QueryParamsResponse
-	3, // 7: zerone.sponsorship.v1.Query.BountyOrder:output_type -> zerone.sponsorship.v1.QueryBountyOrderResponse
-	5, // 8: zerone.sponsorship.v1.Query.BountyOrders:output_type -> zerone.sponsorship.v1.QueryBountyOrdersResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	10, // 0: zerone.sponsorship.v1.QueryParamsResponse.params:type_name -> zerone.sponsorship.v1.Params
+	11, // 1: zerone.sponsorship.v1.QueryBountyOrderResponse.order:type_name -> zerone.sponsorship.v1.BountyOrder
+	11, // 2: zerone.sponsorship.v1.QueryBountyOrdersResponse.orders:type_name -> zerone.sponsorship.v1.BountyOrder
+	12, // 3: zerone.sponsorship.v1.QueryFulfillmentResponse.fulfillment:type_name -> zerone.sponsorship.v1.BountyFulfillment
+	0,  // 4: zerone.sponsorship.v1.Query.Params:input_type -> zerone.sponsorship.v1.QueryParamsRequest
+	2,  // 5: zerone.sponsorship.v1.Query.BountyOrder:input_type -> zerone.sponsorship.v1.QueryBountyOrderRequest
+	4,  // 6: zerone.sponsorship.v1.Query.BountyOrders:input_type -> zerone.sponsorship.v1.QueryBountyOrdersRequest
+	6,  // 7: zerone.sponsorship.v1.Query.Fulfillment:input_type -> zerone.sponsorship.v1.QueryFulfillmentRequest
+	8,  // 8: zerone.sponsorship.v1.Query.EscrowAccounting:input_type -> zerone.sponsorship.v1.QueryEscrowAccountingRequest
+	1,  // 9: zerone.sponsorship.v1.Query.Params:output_type -> zerone.sponsorship.v1.QueryParamsResponse
+	3,  // 10: zerone.sponsorship.v1.Query.BountyOrder:output_type -> zerone.sponsorship.v1.QueryBountyOrderResponse
+	5,  // 11: zerone.sponsorship.v1.Query.BountyOrders:output_type -> zerone.sponsorship.v1.QueryBountyOrdersResponse
+	7,  // 12: zerone.sponsorship.v1.Query.Fulfillment:output_type -> zerone.sponsorship.v1.QueryFulfillmentResponse
+	9,  // 13: zerone.sponsorship.v1.Query.EscrowAccounting:output_type -> zerone.sponsorship.v1.QueryEscrowAccountingResponse
+	9,  // [9:14] is the sub-list for method output_type
+	4,  // [4:9] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_zerone_sponsorship_v1_query_proto_init() }
@@ -341,7 +620,7 @@ func file_zerone_sponsorship_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_sponsorship_v1_query_proto_rawDesc), len(file_zerone_sponsorship_v1_query_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

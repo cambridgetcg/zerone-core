@@ -3,7 +3,10 @@ package keeper_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
+	"strconv"
+	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -76,6 +79,59 @@ func TestPostConjecture_OpensAndSettlesOrdinalPendingPair(t *testing.T) {
 	require.Len(t, settles, 1)
 	require.Equal(t, resp.ClaimId, settles[0]["ref_id"])
 	require.Equal(t, "VERDICT_INCONCLUSIVE", settles[0]["verdict"])
+}
+
+func TestPostConjecture_ReviewFeeUint64Bounds(t *testing.T) {
+	validMsg := func(proposer, stake string) *types.MsgPostConjecture {
+		return &types.MsgPostConjecture{
+			Proposer:               proposer,
+			Statement:              "A conjecture with a review fee at a deterministic numeric boundary",
+			FalsificationPredicate: "Exhibit a finite counterexample under the committed search procedure",
+			Stake:                  stake,
+		}
+	}
+
+	t.Run("max uint64", func(t *testing.T) {
+		k, ctx, _ := setupKnowledgeTestWithBank(t)
+		resp, err := keeper.NewMsgServerImpl(k).PostConjecture(ctx,
+			validMsg(makeValidBech32Addr("conjecture-max-fee"), strconv.FormatUint(math.MaxUint64, 10)))
+		require.NoError(t, err)
+		require.NotEmpty(t, resp.ClaimId)
+	})
+
+	for _, tc := range []struct {
+		name     string
+		stake    string
+		contains string
+	}{
+		{
+			name:     "max uint64 plus one",
+			stake:    new(big.Int).Add(new(big.Int).SetUint64(math.MaxUint64), big.NewInt(1)).String(),
+			contains: "uint64",
+		},
+		{
+			name:     "257 bit sdk int overflow",
+			stake:    new(big.Int).Lsh(big.NewInt(1), 256).String(),
+			contains: "256-bit sdk.Int",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			k, ctx, bk := setupKnowledgeTestWithBank(t)
+			before := len(bk.sendCalls)
+			resp, err := keeper.NewMsgServerImpl(k).PostConjecture(ctx,
+				validMsg(makeValidBech32Addr("conjecture-over-fee"), tc.stake))
+			require.Error(t, err)
+			require.Nil(t, resp)
+			require.Contains(t, err.Error(), tc.contains)
+			require.Len(t, bk.sendCalls, before)
+			claimCount := 0
+			k.IterateClaims(ctx, func(*types.Claim) bool {
+				claimCount++
+				return false
+			})
+			require.Zero(t, claimCount)
+		})
+	}
 }
 
 // acceptConjecture drives a conjecture claim through a round to ACCEPT and
@@ -201,6 +257,214 @@ func TestOrdinaryClaim_StillEscrows(t *testing.T) {
 	_, pending := k.GetSurvivalPendingReward(ctx, factID)
 	require.True(t, pending,
 		"control: an ordinary accepted claim MUST still escrow its submitter reward — if this fails, the conjecture exemption has leaked onto every claim")
+}
+
+func TestComputationalClaim_UsesSponsorshipOnlyEconomicRoute(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
+	k.SetVestingRewardsKeeper(stubVestingKeeper{})
+	submitter := makeValidBech32Addr("compute-route-worker")
+	commitment := &types.ComputationalCommitment{
+		WorkSpecHash: strings.Repeat("1", 64), AcceptanceHash: strings.Repeat("2", 64),
+		InputRoot: strings.Repeat("3", 64), EnvironmentRoot: strings.Repeat("4", 64),
+		ArtifactRoot: strings.Repeat("5", 64), EvidenceRoot: strings.Repeat("6", 64),
+	}
+	commitment.WorkReceiptHash = types.ComputeWorkReceiptHash(commitment, submitter)
+	claim := &types.Claim{
+		Id: "computational-claim", FactContent: "A deterministic computational result",
+		Domain: "mathematics", Category: "computational", Submitter: submitter,
+		Stake: "100000", Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		ClaimType: types.ClaimType_CLAIM_TYPE_COMPUTATIONAL,
+		MethodId:  types.MethodologyComputational, ComputationalCommitment: commitment,
+		Structure: &types.ClaimStructure{Subject: "sponsored compute target", Predicate: "produces result"},
+	}
+	require.NoError(t, k.SetClaim(ctx, claim))
+	require.NoError(t, k.SetBounty(ctx, &types.KnowledgeBounty{
+		Id: "legacy-demand-bounty", Domain: claim.Domain, Subject: claim.Structure.Subject,
+		RewardAmount: "50000", CreatedAtBlock: 1, ExpiresAtBlock: uint64(ctx.BlockHeight()) + 100,
+	}))
+	round := makeRoundInPhase("r-computational", claim.Id, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, 80)
+	require.NoError(t, k.SetVerificationRound(ctx, round))
+	before := len(bk.sendCalls)
+	require.NoError(t, k.CompleteRound(ctx, round, &keeper.VerificationResult{
+		Verdict: types.Verdict_VERDICT_ACCEPT, Confidence: 900_000,
+	}))
+
+	var fact *types.Fact
+	k.IterateFacts(ctx, func(candidate *types.Fact) bool {
+		if candidate.ClaimId == claim.Id {
+			fact = candidate
+			return true
+		}
+		return false
+	})
+	require.NotNil(t, fact)
+	require.NotZero(t, fact.ChallengeWindowEnd, "sponsorship settlement still requires challenge maturity")
+	_, pending := k.GetSurvivalPendingReward(ctx, fact.Id)
+	require.False(t, pending, "computational facts have no legacy vesting entitlement")
+	bounty, found := k.GetBounty(ctx, "legacy-demand-bounty")
+	require.True(t, found)
+	require.False(t, bounty.Claimed, "computational facts cannot also claim an immediate demand bounty")
+	for _, call := range bk.sendCalls[before:] {
+		require.NotEqual(t, submitter, call.to, "computational acceptance must not pay the submitter outside sponsorship")
+	}
+
+	var routeEvent bool
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type != "zerone.knowledge.computational_economic_route" {
+			continue
+		}
+		attrs := map[string]string{}
+		for _, attr := range event.Attributes {
+			attrs[attr.Key] = attr.Value
+		}
+		routeEvent = attrs["economic_route"] == "sponsorship_only" &&
+			attrs["knowledge_reward_effect"] == "0" && attrs["demand_bounty_effect"] == "0"
+	}
+	require.True(t, routeEvent, "zero-effect sponsorship-only route must be auditable")
+}
+
+func TestComputationalClaim_ChallengeWindowFailureRejectsAcceptance(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
+	params, err := k.GetParams(ctx)
+	require.NoError(t, err)
+	params.ChallengeDurationBlocks = math.MaxUint64
+	require.NoError(t, k.SetParams(ctx, params))
+
+	submitter := makeValidBech32Addr("compute-window-overflow")
+	commitment := &types.ComputationalCommitment{
+		WorkSpecHash: strings.Repeat("1", 64), AcceptanceHash: strings.Repeat("2", 64),
+		InputRoot: strings.Repeat("3", 64), EnvironmentRoot: strings.Repeat("4", 64),
+		ArtifactRoot: strings.Repeat("5", 64), EvidenceRoot: strings.Repeat("6", 64),
+	}
+	commitment.WorkReceiptHash = types.ComputeWorkReceiptHash(commitment, submitter)
+	claim := &types.Claim{
+		Id: "computational-window-overflow", FactContent: "A result whose maturity deadline cannot be represented",
+		Domain: "mathematics", Category: "computational", Submitter: submitter,
+		Stake: "100000", Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		ClaimType: types.ClaimType_CLAIM_TYPE_COMPUTATIONAL,
+		MethodId:  types.MethodologyComputational, ComputationalCommitment: commitment,
+		ProvisionalFactId: "invited-target-before-overflow",
+	}
+	require.NoError(t, k.SetFact(ctx, &types.Fact{
+		Id: claim.ProvisionalFactId, Content: "A currently invited target",
+		Domain: claim.Domain, Submitter: makeValidBech32Addr("overflow-target-author"),
+		Status: types.FactStatus_FACT_STATUS_VERIFIED, ProbeInvitedAtBlock: 90,
+	}))
+	require.NoError(t, k.SetClaim(ctx, claim))
+	round := makeRoundInPhase("r-computational-window-overflow", claim.Id, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, 80)
+	require.NoError(t, k.SetVerificationRound(ctx, round))
+	bankCallsBefore := len(bk.sendCalls)
+	_, calibratedBefore := k.GetAgentCalibration(ctx, submitter)
+	require.False(t, calibratedBefore)
+
+	for attempt := 0; attempt < 2; attempt++ {
+		err = k.CompleteRound(ctx, round, &keeper.VerificationResult{
+			Verdict: types.Verdict_VERDICT_ACCEPT, Confidence: 900_000,
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "challenge window")
+	}
+	var created bool
+	k.IterateFacts(ctx, func(fact *types.Fact) bool {
+		if fact.ClaimId == claim.Id {
+			created = true
+		}
+		return false
+	})
+	require.False(t, created, "deadline preflight must run before the first fact write")
+	_, calibratedAfter := k.GetAgentCalibration(ctx, submitter)
+	require.False(t, calibratedAfter, "retryable preflight failures must not farm calibration")
+	require.Len(t, bk.sendCalls, bankCallsBefore, "preflight failure must not attempt an invitation payout")
+	for _, event := range ctx.EventManager().Events() {
+		require.NotEqual(t, "zerone.knowledge.invitation_bonus_paid", event.Type)
+		require.NotEqual(t, "zerone.knowledge.invitation_bonus_unfunded", event.Type)
+	}
+	storedRound, found := k.GetVerificationRound(ctx, round.Id)
+	require.True(t, found)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, storedRound.Phase)
+	require.Equal(t, types.Verdict_VERDICT_UNSPECIFIED, storedRound.Verdict)
+	require.Zero(t, storedRound.VerdictBlock)
+	storedClaim, found := k.GetClaim(ctx, claim.Id)
+	require.True(t, found)
+	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION, storedClaim.Status)
+}
+
+func TestLegacyNilComputationalClaim_IsSealedThenReceivesNoLegacyPayout(t *testing.T) {
+	k, ctx, bk := setupKnowledgeTestWithBank(t)
+	k.SetVestingRewardsKeeper(stubVestingKeeper{})
+	submitter := makeValidBech32Addr("legacy-compute-worker")
+	claim := &types.Claim{
+		Id: "legacy-computational-claim", FactContent: "A pre-upgrade computational claim with no v7 commitment",
+		Domain: "mathematics", Category: "computational", Submitter: submitter,
+		Stake: "100000", Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		ClaimType: types.ClaimType_CLAIM_TYPE_COMPUTATIONAL, MethodId: types.MethodologyComputational,
+		Structure: &types.ClaimStructure{Subject: "legacy compute target", Predicate: "produces result"},
+	}
+	require.NoError(t, k.SetClaim(ctx, claim))
+	require.NoError(t, k.SetBounty(ctx, &types.KnowledgeBounty{
+		Id: "legacy-demand-route", Domain: claim.Domain, Subject: claim.Structure.Subject,
+		RewardAmount: "50000", CreatedAtBlock: 1, ExpiresAtBlock: uint64(ctx.BlockHeight()) + 100,
+	}))
+	round := makeRoundInPhase("r-legacy-computational", claim.Id, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, 80)
+	require.NoError(t, k.SetVerificationRound(ctx, round))
+	bankCallsBefore := len(bk.sendCalls)
+	eventsBefore := len(ctx.EventManager().Events())
+	err := k.CompleteRound(ctx, round, &keeper.VerificationResult{
+		Verdict: types.Verdict_VERDICT_ACCEPT, Confidence: 900_000,
+	})
+	require.ErrorIs(t, err, types.ErrAgentEconomyDisabled)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, round.Phase)
+	require.Equal(t, types.Verdict_VERDICT_UNSPECIFIED, round.Verdict)
+	require.Len(t, bk.sendCalls, bankCallsBefore)
+	require.Len(t, ctx.EventManager().Events(), eventsBefore)
+	var factBeforeActivation *types.Fact
+	k.IterateFacts(ctx, func(candidate *types.Fact) bool {
+		if candidate.ClaimId == claim.Id {
+			factBeforeActivation = candidate
+			return true
+		}
+		return false
+	})
+	require.Nil(t, factBeforeActivation, "sealed acceptance must not create a Fact")
+	bounty, found := k.GetBounty(ctx, "legacy-demand-route")
+	require.True(t, found)
+	require.False(t, bounty.Claimed)
+
+	activateAgentEconomyForKeeperTest(t, k, ctx)
+	require.NoError(t, k.CompleteRound(ctx, round, &keeper.VerificationResult{
+		Verdict: types.Verdict_VERDICT_ACCEPT, Confidence: 900_000,
+	}))
+
+	var fact *types.Fact
+	k.IterateFacts(ctx, func(candidate *types.Fact) bool {
+		if candidate.ClaimId == claim.Id {
+			fact = candidate
+			return true
+		}
+		return false
+	})
+	require.NotNil(t, fact)
+	require.Nil(t, fact.ComputationalCommitment)
+	_, pending := k.GetSurvivalPendingReward(ctx, fact.Id)
+	require.False(t, pending, "unbound computational claims cannot receive a legacy survival entitlement")
+	bounty, found = k.GetBounty(ctx, "legacy-demand-route")
+	require.True(t, found)
+	require.False(t, bounty.Claimed, "unbound computational claims cannot receive a legacy demand bounty")
+	var quarantinedRoute bool
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type != "zerone.knowledge.computational_economic_route" {
+			continue
+		}
+		attrs := map[string]string{}
+		for _, attr := range event.Attributes {
+			attrs[attr.Key] = attr.Value
+		}
+		quarantinedRoute = attrs["economic_route"] == "legacy_unbound_no_payout" &&
+			attrs["knowledge_reward_effect"] == "0" && attrs["demand_bounty_effect"] == "0"
+	}
+	require.True(t, quarantinedRoute, "the zero-effect legacy quarantine must be auditable")
 }
 
 // TestConjecture_IsExcludedFromTrainingCorpus should pass WITHOUT any change to

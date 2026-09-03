@@ -3,6 +3,8 @@ package keeper
 import (
 	"context"
 	"fmt"
+
+	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
 // ─── Wave 10: migration marker side-channel ──────────────────────────────
@@ -93,4 +95,76 @@ func (k Keeper) ReadMigrationMarkerPresenceChecked(
 		return "", false, nil
 	}
 	return string(bz), true, nil
+}
+
+// AgentEconomyActivated reports whether exactly one reviewed activation
+// lineage is present. Merely running module migrations is insufficient: this
+// keeps a later binary restart or an unrelated broad RunMigrations handler
+// from opening computational claims and escrow settlement.
+func (k Keeper) AgentEconomyActivated(ctx context.Context) (bool, error) {
+	active, _, _, _, err := k.AgentEconomyActivationStatus(ctx)
+	return active, err
+}
+
+// AgentEconomyActivationStatus returns the exact marker evidence behind the
+// binary gate. It is shared by message admission and the public read-only
+// query so wallets do not have to infer activation from module versions.
+func (k Keeper) AgentEconomyActivationStatus(
+	ctx context.Context,
+) (active bool, lineage string, marker string, value string, err error) {
+	type markerState struct {
+		key   string
+		kind  string
+		value string
+		found bool
+	}
+	states := make([]markerState, 0, 2)
+	for _, candidate := range []struct {
+		key  string
+		kind string
+	}{
+		{types.AgentEconomyUpgradeMarker, types.AgentEconomyLineageUpgrade},
+		{types.AgentEconomyNativeMarker, types.AgentEconomyLineageNative},
+	} {
+		value, found, err := k.ReadMigrationMarkerPresenceChecked(ctx, candidate.key)
+		if err != nil {
+			return false, "", "", "", err
+		}
+		states = append(states, markerState{
+			key: candidate.key, kind: candidate.kind, value: value, found: found,
+		})
+	}
+	if states[0].found && states[1].found {
+		return false, "", "", "", fmt.Errorf(
+			"conflicting agent-economy lineages: both %q and %q are present",
+			states[0].key,
+			states[1].key,
+		)
+	}
+	for _, state := range states {
+		if !state.found {
+			continue
+		}
+		if state.value != types.AgentEconomyActivationValue {
+			return false, "", "", "", fmt.Errorf(
+				"agent-economy marker %q has value %q, require %q",
+				state.key,
+				state.value,
+				types.AgentEconomyActivationValue,
+			)
+		}
+		return true, state.kind, state.key, state.value, nil
+	}
+	return false, types.AgentEconomyLineageNone, "", "", nil
+}
+
+func (k Keeper) requireAgentEconomyActivated(ctx context.Context) error {
+	active, err := k.AgentEconomyActivated(ctx)
+	if err != nil {
+		return types.ErrAgentEconomyDisabled.Wrap(err.Error())
+	}
+	if !active {
+		return types.ErrAgentEconomyDisabled
+	}
+	return nil
 }

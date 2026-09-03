@@ -9,7 +9,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
-	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	sponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
 	sponsorshiptypes "github.com/zerone-chain/zerone/x/sponsorship/types"
 )
@@ -24,6 +23,7 @@ import (
 // the worker's account grew, gated entirely by chain-side verification.
 func TestSponsorship_CreateFulfillEndToEnd(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	// Sponsor account, funded.
 	sponsor := sdk.AccAddress(make([]byte, 20))
@@ -47,6 +47,7 @@ func TestSponsorship_CreateFulfillEndToEnd(t *testing.T) {
 		PricePerArtifact: "1000000",
 		TargetCount:      3,
 		DurationBlocks:   1000,
+		WorkContract:     sponsorshipV2WorkContract(worker.String()),
 	})
 	require.NoError(t, err)
 	bountyID := createResp.BountyId
@@ -59,19 +60,13 @@ func TestSponsorship_CreateFulfillEndToEnd(t *testing.T) {
 	// bypasses the verification round (exercised in knowledge tests);
 	// here we test the sponsorship pathway in isolation.
 	currentBlock := uint64(h.Ctx.BlockHeight())
-	fact := &knowledgetypes.Fact{
-		Id:               "test-fact-sponsorship-1",
-		Domain:           "mathematics",
-		Submitter:        worker.String(),
-		SubmittedAtBlock: currentBlock,
-		Status:           knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		Content:          "Test fact for sponsorship MVP",
-	}
+	fact := sponsorshipV2Fact("test-fact-sponsorship-1", "mathematics", worker.String(), currentBlock)
+	fact.Content = "Test fact for sponsorship v2"
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, fact))
 
-	// Fulfill the bounty with this fact. Anyone can be the caller.
+	// Fulfill the bounty with this fact. The worker signs to choose settlement.
 	fulfillResp, err := srv.FulfillBounty(h.Ctx, &sponsorshiptypes.MsgFulfillBounty{
-		Caller:   sponsor.String(), // doesn't matter — chain reads worker from fact.Submitter
+		Caller:   worker.String(),
 		BountyId: bountyID,
 		FactId:   fact.Id,
 	})
@@ -94,9 +89,10 @@ func TestSponsorship_CreateFulfillEndToEnd(t *testing.T) {
 }
 
 // TestSponsorship_CancelRefundsRemaining confirms that the sponsor can
-// reclaim unspent escrow at any time.
+// reclaim unspent bound escrow after the committed deadline.
 func TestSponsorship_CancelRefundsRemaining(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	sponsor := sdk.AccAddress(make([]byte, 20))
 	for i := range sponsor {
@@ -109,8 +105,13 @@ func TestSponsorship_CancelRefundsRemaining(t *testing.T) {
 	createResp, err := srv.CreateBountyOrder(h.Ctx, &sponsorshiptypes.MsgCreateBountyOrder{
 		Sponsor: sponsor.String(), Domain: "mathematics", PricePerArtifact: "1000000",
 		TargetCount: 5, DurationBlocks: 1000,
+		WorkContract: sponsorshipV2WorkContract(),
 	})
 	require.NoError(t, err)
+	order, found := h.SponsorshipKeeper.GetBountyOrder(h.Ctx, createResp.BountyId)
+	require.True(t, found)
+	h.Ctx = h.Ctx.WithBlockHeight(int64(order.EndBlock))
+	h.SponsorshipKeeper.ProcessBountyExpiry(h.Ctx, order.EndBlock)
 
 	cancelResp, err := srv.CancelBountyOrder(h.Ctx, &sponsorshiptypes.MsgCancelBountyOrder{
 		Sponsor: sponsor.String(), BountyId: createResp.BountyId,
@@ -128,6 +129,7 @@ func TestSponsorship_CancelRefundsRemaining(t *testing.T) {
 // and after a full bounty lifecycle (create + fulfill + cancel).
 func TestSponsorship_NoMintingHappens(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	sponsor := sdk.AccAddress(make([]byte, 20))
 	for i := range sponsor {
@@ -145,18 +147,21 @@ func TestSponsorship_NoMintingHappens(t *testing.T) {
 	createResp, err := srv.CreateBountyOrder(h.Ctx, &sponsorshiptypes.MsgCreateBountyOrder{
 		Sponsor: sponsor.String(), Domain: "mathematics", PricePerArtifact: "1000000",
 		TargetCount: 2, DurationBlocks: 1000,
+		WorkContract: sponsorshipV2WorkContract(worker.String()),
 	})
 	require.NoError(t, err)
 
 	currentBlock := uint64(h.Ctx.BlockHeight())
-	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-		Id: "no-mint-fact", Domain: "mathematics", Submitter: worker.String(),
-		SubmittedAtBlock: currentBlock, Status: knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-	}))
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx,
+		sponsorshipV2Fact("no-mint-fact", "mathematics", worker.String(), currentBlock)))
 	_, err = srv.FulfillBounty(h.Ctx, &sponsorshiptypes.MsgFulfillBounty{
-		Caller: sponsor.String(), BountyId: createResp.BountyId, FactId: "no-mint-fact",
+		Caller: worker.String(), BountyId: createResp.BountyId, FactId: "no-mint-fact",
 	})
 	require.NoError(t, err)
+	order, found := h.SponsorshipKeeper.GetBountyOrder(h.Ctx, createResp.BountyId)
+	require.True(t, found)
+	h.Ctx = h.Ctx.WithBlockHeight(int64(order.EndBlock))
+	h.SponsorshipKeeper.ProcessBountyExpiry(h.Ctx, order.EndBlock)
 
 	_, err = srv.CancelBountyOrder(h.Ctx, &sponsorshiptypes.MsgCancelBountyOrder{
 		Sponsor: sponsor.String(), BountyId: createResp.BountyId,

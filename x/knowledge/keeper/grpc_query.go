@@ -34,6 +34,27 @@ func (q *queryServer) Params(ctx context.Context, _ *types.QueryParamsRequest) (
 	return &types.QueryParamsResponse{Params: params}, nil
 }
 
+func (q *queryServer) AgentEconomyStatus(
+	ctx context.Context,
+	_ *types.QueryAgentEconomyStatusRequest,
+) (*types.QueryAgentEconomyStatusResponse, error) {
+	active, lineage, marker, value, err := q.keeper.AgentEconomyActivationStatus(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	height := sdk.UnwrapSDKContext(ctx).BlockHeight()
+	if height < 0 {
+		return nil, status.Error(codes.Internal, "negative consensus block height")
+	}
+	return &types.QueryAgentEconomyStatusResponse{
+		Activated:           active,
+		Lineage:             lineage,
+		Marker:              marker,
+		MarkerValue:         value,
+		SnapshotBlockHeight: uint64(height),
+	}, nil
+}
+
 func (q *queryServer) Fact(ctx context.Context, req *types.QueryFactRequest) (*types.QueryFactResponse, error) {
 	if req.Id == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact id is required")
@@ -378,11 +399,11 @@ func (q *queryServer) BootstrapFundStatus(ctx context.Context, _ *types.QueryBoo
 	}
 
 	return &types.QueryBootstrapFundStatusResponse{
-		Balance:            balance.Amount.String(),
-		Enabled:            params.BootstrapFundEnabled,
-		TotalClaimsFunded:  fmt.Sprintf("%d", totalClaims),
-		TotalAmountSpent:   "0", // Not tracked separately — can be derived from genesis allocation minus balance
-		RemainingPerEpoch:  fmt.Sprintf("%d", remaining),
+		Balance:           balance.Amount.String(),
+		Enabled:           params.BootstrapFundEnabled,
+		TotalClaimsFunded: fmt.Sprintf("%d", totalClaims),
+		TotalAmountSpent:  "0", // Not tracked separately — can be derived from genesis allocation minus balance
+		RemainingPerEpoch: fmt.Sprintf("%d", remaining),
 	}, nil
 }
 
@@ -774,10 +795,10 @@ func (q *queryServer) StructuredCorpus(ctx context.Context, req *types.QueryStru
 	}
 
 	return &types.QueryStructuredCorpusResponse{
-		Entries:                      entries,
-		Total:                        total,
-		SnapshotBlockHeight:          snapshotHeight,
-		TokenizerVersion:             tokenizerVersion,
+		Entries:                       entries,
+		Total:                         total,
+		SnapshotBlockHeight:           snapshotHeight,
+		TokenizerVersion:              tokenizerVersion,
 		CanonicalSerialisationVersion: canonicalVersion,
 	}, nil
 }
@@ -996,8 +1017,8 @@ func (q *queryServer) VindicationCorpus(ctx context.Context, req *types.QueryVin
 			return false
 		}
 		entries = append(entries, &types.VindicationCorpusEntry{
-			FactId:             rec.FactId,
-			Verifier:           rec.Verifier,
+			FactId:   rec.FactId,
+			Verifier: rec.Verifier,
 			// Vote is captured in VindicationEntry (pending) but not retained
 			// on the executed record; training-pipeline consumers reconstruct
 			// it from the round reveals if needed.
@@ -1205,18 +1226,18 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 	grounded := computeGroundedScore(fact)
 
 	return &types.QueryTrustProfileResponse{
-		Fact:                          fact,
-		OwnConfidenceBps:              fact.Confidence,
-		DependencyConfidenceFloor:     fact.DependencyConfidenceFloor,
-		AxiomDistance:                 fact.AxiomDistance,
-		DirectSupporters:              directSupporters,
-		DirectDescendants:             directDescendants,
-		MinimumConfidenceInAncestry:   minInAncestry,
-		Status:                        fact.Status,
-		GroundedScoreBps:              grounded,
-		MethodId:                      fact.MethodId,
-		CorroborationCount:            fact.CorroborationCount,
-		LastCorroboratedBlock:         fact.LastCorroboratedBlock,
+		Fact:                        fact,
+		OwnConfidenceBps:            fact.Confidence,
+		DependencyConfidenceFloor:   fact.DependencyConfidenceFloor,
+		AxiomDistance:               fact.AxiomDistance,
+		DirectSupporters:            directSupporters,
+		DirectDescendants:           directDescendants,
+		MinimumConfidenceInAncestry: minInAncestry,
+		Status:                      fact.Status,
+		GroundedScoreBps:            grounded,
+		MethodId:                    fact.MethodId,
+		CorroborationCount:          fact.CorroborationCount,
+		LastCorroboratedBlock:       fact.LastCorroboratedBlock,
 	}, nil
 }
 
@@ -1283,9 +1304,9 @@ func computeGroundedScore(fact *types.Fact) uint64 {
 
 	// grounded = own × axiomWeight × floorWeight × corrBoost / BPS³
 	// Intermediate steps kept in uint64 space.
-	mid := own * axiomWeight / bps              // ≤ own
-	mid = mid * floorWeight / bps               // ≤ own
-	grounded := mid * corrBoost / bps           // can exceed own if corrBoost > BPS
+	mid := own * axiomWeight / bps    // ≤ own
+	mid = mid * floorWeight / bps     // ≤ own
+	grounded := mid * corrBoost / bps // can exceed own if corrBoost > BPS
 	if grounded > bps {
 		grounded = bps // absolute 100% cap — no claim earns more than this
 	}
@@ -1445,12 +1466,12 @@ func (q *queryServer) buildProofNode(
 
 	isAxiom := fact.AxiomDistance == 0
 	node := &types.ProofTreeNode{
-		Fact:                    fact,
-		EdgeRelation:            edgeRelation,
-		EdgeInference:           edgeInference,
+		Fact:                     fact,
+		EdgeRelation:             edgeRelation,
+		EdgeInference:            edgeInference,
 		EdgeInferenceStrengthBps: edgeStrengthBps,
-		Depth:                   currentDepth,
-		IsAxiom:                 isAxiom,
+		Depth:                    currentDepth,
+		IsAxiom:                  isAxiom,
 	}
 
 	if fact.Confidence > 0 && fact.Confidence < *minConf {
@@ -1986,15 +2007,15 @@ func (q *queryServer) TrainingValueWeight(ctx context.Context, req *types.QueryT
 	}
 	b := q.keeper.ComputeTrainingValueWeight(ctx, req.FactId)
 	return &types.QueryTrainingValueWeightResponse{
-		TvwBps:                    b.Final,
-		BaseWeight:                b.BaseWeight,
-		MethodologyMultiplierBps:  b.MethodologyMultiplier,
-		VindicationMultiplierBps:  b.VindicationMultiplier,
-		SubmitterCalibrationBps:   b.SubmitterCalibration,
-		AxiomProximityBps:         b.AxiomProximity,
-		BlockedIsOught:            b.BlockedByIsOught,
-		Disproven:                 b.Disproven,
-		StatusIneligible:          b.StatusIneligible,
+		TvwBps:                   b.Final,
+		BaseWeight:               b.BaseWeight,
+		MethodologyMultiplierBps: b.MethodologyMultiplier,
+		VindicationMultiplierBps: b.VindicationMultiplier,
+		SubmitterCalibrationBps:  b.SubmitterCalibration,
+		AxiomProximityBps:        b.AxiomProximity,
+		BlockedIsOught:           b.BlockedByIsOught,
+		Disproven:                b.Disproven,
+		StatusIneligible:         b.StatusIneligible,
 	}, nil
 }
 

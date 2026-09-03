@@ -24,8 +24,16 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 // ─── Core PoT handlers ──────────────────────────────────────────────────────
 
 func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) (*types.MsgSubmitClaimResponse, error) {
+	if msg != nil && msg.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL {
+		if err := m.keeper.requireAgentEconomyActivated(ctx); err != nil {
+			return nil, err
+		}
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
 
 	params, err := m.keeper.GetParams(ctx)
 	if err != nil {
@@ -47,6 +55,9 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 			return nil, fmt.Errorf("domain %s does not exist", msg.Domain)
 		}
 	}
+	if msg.MethodId != "" && !m.keeper.IsMethodologyRegistered(ctx, msg.MethodId) {
+		return nil, fmt.Errorf("methodology %s does not exist", msg.MethodId)
+	}
 
 	// partnership_id retired with x/partnerships (slim cut): the wire slot is
 	// kept for compatibility but claims may no longer assert an unverifiable
@@ -59,6 +70,16 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 	stakeAmt, ok := new(big.Int).SetString(msg.Stake, 10)
 	if !ok || stakeAmt.Sign() <= 0 {
 		return nil, fmt.Errorf("invalid review fee amount: %s", msg.Stake)
+	}
+	// sdkmath.NewIntFromBigInt panics above its consensus integer bound, while
+	// the revenue split below is intentionally uint64-denominated. Check both
+	// representations before any bank send so malformed fees cannot panic or
+	// silently truncate during distribution.
+	if stakeAmt.BitLen() > sdkmath.MaxBitLen {
+		return nil, fmt.Errorf("review fee exceeds %d-bit sdk.Int limit", sdkmath.MaxBitLen)
+	}
+	if !stakeAmt.IsUint64() {
+		return nil, fmt.Errorf("review fee exceeds uint64 revenue-accounting limit")
 	}
 	effectiveMinFee := m.keeper.GetEffectiveMinReviewFee(ctx)
 	minFee, _ := new(big.Int).SetString(effectiveMinFee, 10)
@@ -131,6 +152,12 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 	if canonicalForm != "" {
 		canonicalForm = types.NormalizeCanonicalForm(canonicalForm)
 		canonicalHash = types.HashCanonicalForm(canonicalForm)
+		if msg.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL {
+			// A work contract may fund multiple outputs with the same structured
+			// subject. Include the complete result commitment so canonical dedup
+			// refuses actual duplicate work without collapsing distinct artifacts.
+			canonicalHash = ComputeComputationalClaimContentHash(canonicalForm, msg.Domain, msg.ComputationalCommitment)
+		}
 
 		// Dedup against canonical hash (stronger than content_hash)
 		if existingID, exists := m.keeper.GetClaimByCanonicalHash(ctx, canonicalHash); exists {
@@ -140,6 +167,9 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 
 	// Check content hash dedup
 	contentHash := ComputeClaimContentHash(msg.FactContent, msg.Domain)
+	if msg.ClaimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL {
+		contentHash = ComputeComputationalClaimContentHash(msg.FactContent, msg.Domain, msg.ComputationalCommitment)
+	}
 	if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
 		return nil, fmt.Errorf("duplicate claim: content hash matches existing claim %s", existingID)
 	}
@@ -190,7 +220,9 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 
 		// Distribute fee via revenue split (same path regardless of who paid)
 		if err := m.keeper.distributeReviewFee(ctx, feeAmount); err != nil {
-			m.keeper.Logger(ctx).Error("failed to distribute review fee", "error", err)
+			// Returning the error is essential: BaseApp's transaction cache then
+			// rolls back both fee collection and any earlier split transfer.
+			return nil, fmt.Errorf("failed to distribute review fee: %w", err)
 		}
 	}
 
@@ -204,22 +236,25 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 	}
 
 	claim := &types.Claim{
-		Id:               claimID,
-		FactContent:      msg.FactContent,
-		Domain:           msg.Domain,
-		Category:         msg.Category,
-		Submitter:        msg.Submitter,
-		SubmittedAtBlock: height,
-		Status:           types.ClaimStatus_CLAIM_STATUS_PENDING,
-		References:       msg.References,
-		Stake:            msg.Stake,
-		PartnershipId:    msg.PartnershipId,
-		ContentHash:      contentHash,
-		ClaimType:        claimType,
-		Relations:        msg.Relations,
-		Structure:        msg.Structure,
-		CanonicalForm:    canonicalForm,
-		CanonicalHash:    canonicalHash,
+		Id:                      claimID,
+		FactContent:             msg.FactContent,
+		Domain:                  msg.Domain,
+		Category:                msg.Category,
+		Submitter:               msg.Submitter,
+		SubmittedAtBlock:        height,
+		Status:                  types.ClaimStatus_CLAIM_STATUS_PENDING,
+		References:              msg.References,
+		Stake:                   msg.Stake,
+		PartnershipId:           msg.PartnershipId,
+		ContentHash:             contentHash,
+		ClaimType:               claimType,
+		Relations:               msg.Relations,
+		Structure:               msg.Structure,
+		CanonicalForm:           canonicalForm,
+		CanonicalHash:           canonicalHash,
+		MethodId:                msg.MethodId,
+		ReasoningTrace:          msg.ReasoningTrace,
+		ComputationalCommitment: msg.ComputationalCommitment,
 	}
 
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
@@ -267,6 +302,20 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 			sdk.NewAttribute("sponsored", fmt.Sprintf("%t", sponsored)),
 		),
 	)
+	if claim.ComputationalCommitment != nil {
+		c := claim.ComputationalCommitment
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.computational_commitment_submitted",
+			sdk.NewAttribute("claim_id", claimID),
+			sdk.NewAttribute("work_spec_hash", c.WorkSpecHash),
+			sdk.NewAttribute("acceptance_hash", c.AcceptanceHash),
+			sdk.NewAttribute("input_root", c.InputRoot),
+			sdk.NewAttribute("environment_root", c.EnvironmentRoot),
+			sdk.NewAttribute("artifact_root", c.ArtifactRoot),
+			sdk.NewAttribute("evidence_root", c.EvidenceRoot),
+			sdk.NewAttribute("work_receipt_hash", c.WorkReceiptHash),
+		))
+	}
 	sdkCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.knowledge.review_fee_distributed",
 			sdk.NewAttribute("claim_id", claimID),

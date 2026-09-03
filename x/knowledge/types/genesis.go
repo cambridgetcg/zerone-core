@@ -504,6 +504,9 @@ func (gs *GenesisState) Validate() error {
 		if f == nil {
 			continue
 		}
+		if err := validateGenesisComputationalRecord(f.ClaimType, f.MethodId, f.Submitter, f.ComputationalCommitment); err != nil {
+			return fmt.Errorf("fact %s has invalid computational commitment: %w", f.Id, err)
+		}
 		if seenFacts[f.Id] {
 			return fmt.Errorf("duplicate fact ID: %s", f.Id)
 		}
@@ -515,6 +518,9 @@ func (gs *GenesisState) Validate() error {
 	for _, c := range gs.PendingClaims {
 		if c == nil {
 			continue
+		}
+		if err := validateGenesisComputationalRecord(c.ClaimType, c.MethodId, c.Submitter, c.ComputationalCommitment); err != nil {
+			return fmt.Errorf("claim %s has invalid computational commitment: %w", c.Id, err)
 		}
 		if seenClaims[c.Id] {
 			return fmt.Errorf("duplicate claim ID: %s", c.Id)
@@ -547,6 +553,32 @@ func (gs *GenesisState) Validate() error {
 	}
 
 	return nil
+}
+
+// validateGenesisComputationalRecord preserves the exact pre-v7 legacy shape:
+// CLAIM_TYPE_COMPUTATIONAL already existed, but those records had no
+// ComputationalCommitment field. A nil commitment therefore remains
+// importable, but post-v7 acceptance gives it no legacy payout route; any
+// record that opts into the v7 field must be complete, method-bound, and
+// receipt-bound. Every other epistemic type is forbidden from carrying
+// computational provenance.
+func validateGenesisComputationalRecord(claimType ClaimType, methodID, submitter string, commitment *ComputationalCommitment) error {
+	if claimType != ClaimType_CLAIM_TYPE_COMPUTATIONAL {
+		if commitment != nil {
+			return fmt.Errorf("computational_commitment is only valid for CLAIM_TYPE_COMPUTATIONAL")
+		}
+		return nil
+	}
+	if commitment == nil {
+		return nil // historical pre-v7 computational record
+	}
+	if methodID == "" {
+		return fmt.Errorf("bound computational records require method_id")
+	}
+	if err := commitment.Validate(); err != nil {
+		return err
+	}
+	return ValidateWorkReceiptBinding(commitment, submitter)
 }
 
 // validateGenesisFundAllocation accepts the historical empty value as zero,

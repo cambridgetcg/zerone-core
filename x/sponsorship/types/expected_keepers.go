@@ -13,6 +13,7 @@ import (
 // submission block, and submitter before paying out.
 type KnowledgeKeeper interface {
 	GetFact(ctx context.Context, factID string) (*knowledgetypes.Fact, bool)
+	AgentEconomyActivated(ctx context.Context) (bool, error)
 }
 
 // BankKeeper handles escrow movement: sponsor → module account on create,
@@ -23,4 +24,5 @@ type BankKeeper interface {
 	SendCoinsFromAccountToModule(ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	SpendableCoins(ctx context.Context, addr sdk.AccAddress) sdk.Coins
+	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
 }

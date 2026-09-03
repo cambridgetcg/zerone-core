@@ -3,7 +3,7 @@
 export const AUTHORITY_GEOMETRY_ENDPOINT =
   "/standards/authority-geometry.v1.json";
 export const AUTHORITY_GEOMETRY_SHA256 =
-  "510d55e8c0ead4d25beab193c413e41b6aaf55803a6b95db5c567869a17108b6";
+  "b5f7c6bc8e897b2431688229141409224a13ab39cd57b3e408ba8ad008dbd7d6";
 export const AUTHORITY_GEOMETRY_MAX_BYTES = 65_536;
 export const AUTHORITY_GEOMETRY_TIMEOUT_MS = 8_000;
 

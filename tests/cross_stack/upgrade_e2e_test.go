@@ -42,6 +42,7 @@ import (
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	sponsorshiptypes "github.com/zerone-chain/zerone/x/sponsorship/types"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -585,12 +586,12 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 
 	// The report binds the current consensus releases for modules whose named
 	// activation boundaries are pending.
-	var sawKnowledge, sawLiquidityPool, sawVestingRewards bool
+	var sawKnowledge, sawLiquidityPool, sawSponsorship, sawVestingRewards bool
 	for _, m := range report.Modules {
 		switch m.ModuleName {
 		case "knowledge":
 			sawKnowledge = true
-			require.Equal(t, uint64(6), m.ConsensusVersion,
+			require.Equal(t, uint64(7), m.ConsensusVersion,
 				"knowledge module advertises its current ConsensusVersion")
 		case liquiditypooltypes.ModuleName:
 			sawLiquidityPool = true
@@ -600,10 +601,15 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 			sawVestingRewards = true
 			require.Equal(t, uint64(2), m.ConsensusVersion,
 				"vesting_rewards advertises the retired automatic-tap ConsensusVersion")
+		case sponsorshiptypes.ModuleName:
+			sawSponsorship = true
+			require.Equal(t, uint64(2), m.ConsensusVersion,
+				"sponsorship module advertises its bound-contract ConsensusVersion")
 		}
 	}
 	require.True(t, sawKnowledge, "knowledge module appears in report")
 	require.True(t, sawLiquidityPool, "liquiditypool module appears in report")
+	require.True(t, sawSponsorship, "sponsorship module appears in report")
 	require.True(t, sawVestingRewards, "vesting_rewards module appears in report")
 }
 
@@ -1031,7 +1037,7 @@ func TestFlyEntrypointRefusesDigestValidPersistedSignerDrift(t *testing.T) {
 	}
 }
 
-func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
+func TestUpgrade_SDK053IBC10LaterBinaryRefusesFrozenPlanBeforeMutation(t *testing.T) {
 	h := NewTestHarness(t)
 	seedPreSDKTransitionLineage(t, h)
 	h.GovKeeper.SetLIP(h.Ctx, &zeronegovtypes.LIP{
@@ -1062,50 +1068,31 @@ func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
 
 	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
 	require.NoError(t, err)
-	toVM, err := h.App.RunUpgradeHandlerWithInfoForTests(
+	_, err = h.App.RunUpgradeHandlerWithInfoForTests(
 		h.Ctx,
 		zeroneapp.UpgradeNameSDK053IBC10,
 		fromVM,
 		testH3ActivationHeight,
 		planInfo,
 	)
-	require.NoError(t, err)
-	require.Equal(t, uint64(8), toVM["ibc"], "IBC core must run v6→v7→v8 migrations")
-	require.Equal(t, uint64(6), toVM["transfer"], "ICS-20 must run its v5→v6 denom migration")
-	require.Equal(t, uint64(3), toVM["interchainaccounts"])
-	require.NotContains(t, toVM, "capability")
-	require.NotContains(t, toVM, "feeibc")
+	require.ErrorContains(t, err, "requires frozen H3 target VersionMap")
+	for _, marker := range []string{
+		"upgrade_marker_auth-ante-hardening-v1",
+		"upgrade_marker_sdk-0.53-ibc-10",
+		"upgrade_marker_upgrade-incident-operations-v1",
+	} {
+		require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, marker))
+	}
 	require.Equal(
 		t,
-		"migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_auth-ante-hardening-v1"),
-		"the unified guarded plan must activate and mark signer-policy hardening",
+		zeroneemergencytypes.StatusHaltVoting,
+		h.EmergencyKeeper.GetEmergencyStatus(h.Ctx),
 	)
-	require.Equal(
-		t,
-		"migrated-with-loader-proof-v1",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_sdk-0.53-ibc-10"),
-	)
-	require.Equal(
-		t,
-		"migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_upgrade-incident-operations-v1"),
-	)
-	require.Equal(t, zeroneemergencytypes.StatusNormal, h.EmergencyKeeper.GetEmergencyStatus(h.Ctx))
 	_, active := h.EmergencyKeeper.GetActiveCeremony(h.Ctx)
-	require.False(t, active)
+	require.True(t, active)
 	legacyUpgrade, found := h.GovKeeper.GetLIP(h.Ctx, "LIP-sdk-plan-legacy-upgrade")
 	require.True(t, found)
-	require.Equal(t, zeronegovtypes.StatusFailed, legacyUpgrade.Stage)
-
-	// Both the compiled module manager and persisted x/upgrade map exclude the
-	// retired modules. The handler explicitly deletes those merge-only version
-	// keys so post-H startup can detect unsafe-skip aftermath.
-	targetVM := h.App.CurrentModuleVersionMap()
-	require.Equal(t, targetVM, toVM,
-		"H3 must produce the current binary's complete target VersionMap")
-	require.NotContains(t, targetVM, "capability")
-	require.NotContains(t, targetVM, "feeibc")
+	require.Equal(t, zeronegovtypes.StatusReview, legacyUpgrade.Stage)
 }
 
 func TestUpgrade_SDK053IBC10RefusesMissingKeysetManifestBeforeAuthMarker(t *testing.T) {
@@ -1757,7 +1744,7 @@ func TestSDK053IBC10RefusesInvalidFounderRenunciationPoststateBeforeMutation(
 	}
 }
 
-func TestSDK053IBC10FounderRenunciationPoststateAcceptsAbsentModuleAccount(
+func TestSDK053IBC10FounderRenunciationPoststateAcceptsAbsentAccountBeforeTargetRefusal(
 	t *testing.T,
 ) {
 	h := NewTestHarness(t)
@@ -1771,15 +1758,22 @@ func TestSDK053IBC10FounderRenunciationPoststateAcceptsAbsentModuleAccount(
 
 	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
 	require.NoError(t, err)
-	toVM, err := h.App.RunUpgradeHandlerWithInfoForTests(
+	_, err = h.App.RunUpgradeHandlerWithInfoForTests(
 		h.Ctx,
 		zeroneapp.UpgradeNameSDK053IBC10,
 		sdk053IBC10SourceVM(h),
 		testH3ActivationHeight,
 		planInfo,
 	)
-	require.NoError(t, err)
-	require.Equal(t, h.App.CurrentModuleVersionMap(), toVM)
+	require.ErrorContains(t, err, "requires frozen H3 target VersionMap")
+	require.Nil(t, h.AccountKeeper.GetAccount(h.Ctx, moduleAddress))
+	for _, marker := range []string{
+		"upgrade_marker_sdk-0.53-ibc-10",
+		"upgrade_marker_auth-ante-hardening-v1",
+		"upgrade_marker_upgrade-incident-operations-v1",
+	} {
+		require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, marker))
+	}
 }
 
 func TestSDK053IBC10ScheduledPreflightRefusesPersistedUnconsolidatedVersion(

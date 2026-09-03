@@ -84,7 +84,7 @@ func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 	fromVM := h.App.CurrentModuleVersionMap()
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
 	require.NoError(t, err)
-	require.Equal(t, uint64(6), toVM["knowledge"], "upgrade referenced by remediation succeeded")
+	require.Equal(t, uint64(7), toVM["knowledge"], "upgrade referenced by remediation succeeded")
 	require.Equal(t, "migrated", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1"),
 		"remediation's named upgrade actually ran on the chain")
 

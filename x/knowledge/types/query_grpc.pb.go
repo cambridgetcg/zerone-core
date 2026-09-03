@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	Query_Params_FullMethodName                       = "/zerone.knowledge.v1.Query/Params"
+	Query_AgentEconomyStatus_FullMethodName           = "/zerone.knowledge.v1.Query/AgentEconomyStatus"
 	Query_Fact_FullMethodName                         = "/zerone.knowledge.v1.Query/Fact"
 	Query_Facts_FullMethodName                        = "/zerone.knowledge.v1.Query/Facts"
 	Query_FactsByDomain_FullMethodName                = "/zerone.knowledge.v1.Query/FactsByDomain"
@@ -119,6 +120,9 @@ const (
 type QueryClient interface {
 	// Params queries module parameters.
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+	// AgentEconomyStatus reports the exact consensus-latched activation
+	// lineage. Wallets must not infer this gate from compiled module versions.
+	AgentEconomyStatus(ctx context.Context, in *QueryAgentEconomyStatusRequest, opts ...grpc.CallOption) (*QueryAgentEconomyStatusResponse, error)
 	// Fact queries a single fact by ID.
 	Fact(ctx context.Context, in *QueryFactRequest, opts ...grpc.CallOption) (*QueryFactResponse, error)
 	// Facts queries facts with optional domain, status, and category filters.
@@ -377,6 +381,16 @@ func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts .
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryParamsResponse)
 	err := c.cc.Invoke(ctx, Query_Params_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) AgentEconomyStatus(ctx context.Context, in *QueryAgentEconomyStatusRequest, opts ...grpc.CallOption) (*QueryAgentEconomyStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryAgentEconomyStatusResponse)
+	err := c.cc.Invoke(ctx, Query_AgentEconomyStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1281,6 +1295,9 @@ func (c *queryClient) BundleToK(ctx context.Context, in *QueryBundleToKRequest, 
 type QueryServer interface {
 	// Params queries module parameters.
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+	// AgentEconomyStatus reports the exact consensus-latched activation
+	// lineage. Wallets must not infer this gate from compiled module versions.
+	AgentEconomyStatus(context.Context, *QueryAgentEconomyStatusRequest) (*QueryAgentEconomyStatusResponse, error)
 	// Fact queries a single fact by ID.
 	Fact(context.Context, *QueryFactRequest) (*QueryFactResponse, error)
 	// Facts queries facts with optional domain, status, and category filters.
@@ -1537,6 +1554,9 @@ type UnimplementedQueryServer struct{}
 
 func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Params not implemented")
+}
+func (UnimplementedQueryServer) AgentEconomyStatus(context.Context, *QueryAgentEconomyStatusRequest) (*QueryAgentEconomyStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AgentEconomyStatus not implemented")
 }
 func (UnimplementedQueryServer) Fact(context.Context, *QueryFactRequest) (*QueryFactResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Fact not implemented")
@@ -1840,6 +1860,24 @@ func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Params(ctx, req.(*QueryParamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_AgentEconomyStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAgentEconomyStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).AgentEconomyStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_AgentEconomyStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).AgentEconomyStatus(ctx, req.(*QueryAgentEconomyStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3456,6 +3494,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Params",
 			Handler:    _Query_Params_Handler,
+		},
+		{
+			MethodName: "AgentEconomyStatus",
+			Handler:    _Query_AgentEconomyStatus_Handler,
 		},
 		{
 			MethodName: "Fact",

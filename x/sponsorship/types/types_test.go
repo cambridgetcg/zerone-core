@@ -22,6 +22,33 @@ func mkAddr(seed string) string {
 	return sdk.AccAddress(b).String()
 }
 
+func validWorkContract() *types.WorkContract {
+	return &types.WorkContract{
+		WorkSpecHash:      strings.Repeat("1", 64),
+		AcceptanceHash:    strings.Repeat("2", 64),
+		InputRoot:         strings.Repeat("3", 64),
+		EnvironmentRoot:   strings.Repeat("4", 64),
+		MinCorroborations: 0,
+		WorkerAddress:     mkAddr("assigned-worker-test"),
+	}
+}
+
+func TestCanonicalAccountAddress(t *testing.T) {
+	canonical := mkAddr("canonical-sponsor-test")
+	alias := strings.ToUpper(canonical)
+
+	got, err := types.CanonicalAccountAddress(alias)
+	if err != nil {
+		t.Fatalf("uppercase bech32 alias should decode: %v", err)
+	}
+	if got != canonical {
+		t.Fatalf("canonical address: want %s, got %s", canonical, got)
+	}
+	if err := types.ValidateCanonicalAccountAddress("sponsor", alias); err == nil {
+		t.Fatal("textual alias must fail canonical admission")
+	}
+}
+
 func TestParams_Validate(t *testing.T) {
 	t.Run("default_params_valid", func(t *testing.T) {
 		if err := types.DefaultParams().Validate(); err != nil {
@@ -49,6 +76,13 @@ func TestParams_Validate(t *testing.T) {
 			t.Fatal("expected error for zero max_active_bounties_per_sponsor")
 		}
 	})
+	t.Run("max_active_hard_cap", func(t *testing.T) {
+		p := types.DefaultParams()
+		p.MaxActiveBountiesPerSponsor = types.MaxActiveBountiesPerSponsorHardCap + 1
+		if err := p.Validate(); err == nil {
+			t.Fatal("expected hard-cap error")
+		}
+	})
 }
 
 func TestMsgCreateBountyOrder_ValidateBasic(t *testing.T) {
@@ -61,9 +95,22 @@ func TestMsgCreateBountyOrder_ValidateBasic(t *testing.T) {
 			PricePerArtifact: "1000000",
 			TargetCount:      10,
 			DurationBlocks:   1000,
+			WorkContract:     validWorkContract(),
 		}
 		if err := msg.ValidateBasic(); err != nil {
 			t.Fatalf("expected valid, got %v", err)
+		}
+	})
+
+	t.Run("invalid_assigned_worker", func(t *testing.T) {
+		contract := validWorkContract()
+		contract.WorkerAddress = "not-bech32"
+		msg := &types.MsgCreateBountyOrder{
+			Sponsor: sponsor, Domain: "mathematics", PricePerArtifact: "1000000",
+			TargetCount: 1, DurationBlocks: 100, WorkContract: contract,
+		}
+		if err := msg.ValidateBasic(); err == nil || !strings.Contains(err.Error(), "worker_address") {
+			t.Fatalf("expected assigned-worker validation error, got %v", err)
 		}
 	})
 
@@ -74,6 +121,17 @@ func TestMsgCreateBountyOrder_ValidateBasic(t *testing.T) {
 		err := msg.ValidateBasic()
 		if err == nil || !strings.Contains(err.Error(), "invalid sponsor") {
 			t.Fatalf("expected sponsor error, got %v", err)
+		}
+	})
+
+	t.Run("noncanonical_sponsor_alias", func(t *testing.T) {
+		msg := &types.MsgCreateBountyOrder{
+			Sponsor: strings.ToUpper(sponsor), Domain: "m", PricePerArtifact: "1",
+			TargetCount: 1, DurationBlocks: 100, WorkContract: validWorkContract(),
+		}
+		err := msg.ValidateBasic()
+		if err == nil || !strings.Contains(err.Error(), "canonical lowercase") {
+			t.Fatalf("expected canonical sponsor error, got %v", err)
 		}
 	})
 
@@ -150,6 +208,12 @@ func TestMsgCancelBountyOrder_ValidateBasic(t *testing.T) {
 		msg := &types.MsgCancelBountyOrder{Sponsor: sponsor, BountyId: "b"}
 		if err := msg.ValidateBasic(); err != nil {
 			t.Fatalf("expected valid, got %v", err)
+		}
+	})
+	t.Run("legacy_alias_is_address_semantic", func(t *testing.T) {
+		msg := &types.MsgCancelBountyOrder{Sponsor: strings.ToUpper(sponsor), BountyId: "b"}
+		if err := msg.ValidateBasic(); err != nil {
+			t.Fatalf("legacy cancellation must accept an equivalent signer spelling: %v", err)
 		}
 	})
 	t.Run("invalid_sponsor", func(t *testing.T) {

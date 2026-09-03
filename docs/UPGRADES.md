@@ -69,6 +69,22 @@ targets match the live v0.50/v8 state. The post-SDK integrated tip is not an H1
 artifact for that legacy state; use it only for the later SDK/IBC boundary after
 H1 is committed and independently verified.
 
+The H3 target is also frozen to the reviewed 38-entry VersionMap, whose
+canonical compact-JSON SHA-256 is
+`4c08f3696de4bc969fed03e47126d89495289138d869b8483369bd5d5d2b8a42`.
+It ends with `knowledge=6` and `sponsorship=1`. A later binary that advertises
+`knowledge=7` or `sponsorship=2` must refuse H3 during startup preflight and
+again immediately before the handler's first mutation. Use the exact H3
+release for H3; never let a new module migration hitchhike an old plan.
+
+`agent-economy-v1` is currently a **reserved, unregistered** plan name. It is
+not listed by the upgrade registry, has no store-loader case, and cannot be
+scheduled successfully with this binary. The reservation only prevents every
+existing broad `RunMigrations` handler from acquiring the `knowledge` 6→7 or
+`sponsorship` 1→2 transitions. A future handler requires its own reviewed
+release and activation packet; see
+[Agent-economy launch gates](AGENT-ECONOMY-LAUNCH-GATES.md).
+
 ## Operator steps
 
 1. **Freeze and attest the release.** Add the new named handler (copy the

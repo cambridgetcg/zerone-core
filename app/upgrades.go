@@ -36,6 +36,7 @@ import (
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	sponsorshiptypes "github.com/zerone-chain/zerone/x/sponsorship/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -51,6 +52,12 @@ const UpgradeNameAgenttoolSeamV1 = "agenttool-seam-v1"
 const UpgradeNameConsolidationSafetyV1 = "consolidation-safety-v1"
 const UpgradeNameFounderRenunciationV1 = "founder-renunciation-v1"
 const UpgradeNameSDK053IBC10 = "sdk-0.53-ibc-10"
+
+// UpgradeNameAgentEconomyV1 reserves sole ownership of knowledge 6->7 and
+// sponsorship 1->2. This source candidate intentionally does not register an
+// executable handler for it: verifier admission and durable wallet hosting
+// have not passed their activation gates.
+const UpgradeNameAgentEconomyV1 = "agent-economy-v1"
 
 const (
 	SDK053IBC10PlanInfoSchema = "zerone.sdk-0.53-ibc-10/legacy-ibc-keyset/v1"
@@ -106,7 +113,55 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
 		return nil, err
 	}
+	if err := requireReservedAgentEconomyTransitionOwner(
+		plan.Name,
+		fromVM,
+		app.ModuleManager.GetVersionMap(),
+	); err != nil {
+		return nil, err
+	}
 	return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
+}
+
+// requireReservedAgentEconomyTransitionOwner prevents a broad historical
+// RunMigrations handler from acquiring new semantics merely because a later
+// binary advertises higher module versions. The reserved owner is named here
+// before its handler exists so every current executable plan fails closed.
+func requireReservedAgentEconomyTransitionOwner(
+	planName string,
+	fromVM module.VersionMap,
+	targetVM module.VersionMap,
+) error {
+	boundaries := []struct {
+		module string
+		from   uint64
+		to     uint64
+	}{
+		{module: knowledgetypes.ModuleName, from: 6, to: 7},
+		{module: sponsorshiptypes.ModuleName, from: 1, to: 2},
+	}
+	for _, boundary := range boundaries {
+		sourceVersion, sourcePresent := fromVM[boundary.module]
+		targetVersion, targetPresent := targetVM[boundary.module]
+		if !targetPresent || targetVersion < boundary.to ||
+			(sourcePresent && sourceVersion >= boundary.to) {
+			continue
+		}
+		if planName != UpgradeNameAgentEconomyV1 {
+			return fmt.Errorf(
+				"upgrade %q cannot carry reserved transition %s %d->%d; sole owner is %q (source_found=%t source=%d target=%d)",
+				planName,
+				boundary.module,
+				boundary.from,
+				boundary.to,
+				UpgradeNameAgentEconomyV1,
+				sourcePresent,
+				sourceVersion,
+				targetVersion,
+			)
+		}
+	}
+	return nil
 }
 
 func requireCompletedPreSDKTransitionVersions(
@@ -115,9 +170,12 @@ func requireCompletedPreSDKTransitionVersions(
 ) error {
 	for _, prerequisite := range completedPreSDKTransitionVersions {
 		got, present := fromVM[prerequisite.module]
-		if !present || got != prerequisite.version {
+		// A later, explicitly registered module migration preserves proof that
+		// the prerequisite boundary was crossed. Requiring exact equality would
+		// make every future ConsensusVersion bump strand all named upgrades.
+		if !present || got < prerequisite.version {
 			return fmt.Errorf(
-				"upgrade %q cannot carry prerequisite transition %q: require %s=%d, got %d (present=%t)",
+				"upgrade %q cannot carry prerequisite transition %q: require %s>=%d, got %d (present=%t)",
 				planName,
 				prerequisite.upgrade,
 				prerequisite.module,
@@ -506,6 +564,19 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 					"upgrade %q failed to verify obsolete IBC v8 channel state: %w",
 					plan.Name, err,
 				)
+			}
+			if err := requireSDK053IBC10TargetVersions(
+				plan.Name,
+				app.ModuleManager.GetVersionMap(),
+			); err != nil {
+				return nil, err
+			}
+			if err := requireReservedAgentEconomyTransitionOwner(
+				plan.Name,
+				fromVM,
+				app.ModuleManager.GetVersionMap(),
+			); err != nil {
+				return nil, err
 			}
 
 			// This is the only plan a pre-SDK chain can execute at H. Reconcile
@@ -1301,6 +1372,12 @@ func (app *ZeroneApp) ValidateSDK053IBC10StartupCoordination() error {
 			"migrated pre-H3 startup lineage is invalid: %w",
 			err,
 		)
+	}
+	if err := requireSDK053IBC10TargetVersions(
+		onChainPlan.Name,
+		app.ModuleManager.GetVersionMap(),
+	); err != nil {
+		return fmt.Errorf("refusing incompatible H3 startup binary: %w", err)
 	}
 	return nil
 }

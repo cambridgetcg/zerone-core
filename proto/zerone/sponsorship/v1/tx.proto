@@ -20,11 +20,14 @@ message MsgCreateBountyOrder {
   string price_per_artifact  = 3;
   uint32 target_count        = 4;
   uint64 duration_blocks     = 5;
+  WorkContract work_contract = 6;
 }
 message MsgCreateBountyOrderResponse { string bounty_id = 1; }
 
 message MsgFulfillBounty {
   option (cosmos.msg.v1.signer) = "caller";
+  // Must equal both the submitter stored on fact_id and the worker address
+  // preassigned by the bounty's WorkContract.
   string caller    = 1;
   string bounty_id = 2;
   string fact_id   = 3;

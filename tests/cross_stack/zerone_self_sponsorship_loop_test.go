@@ -37,6 +37,7 @@ import (
 // Spec: docs/specs/adapters/zerone-self-v1.md; docs/RECURSIVE_ZERONE.md.
 func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	// ── Setup ────────────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T
 		PricePerArtifact: "1000000", // 1 ZRN per verified self-fact
 		TargetCount:      3,
 		DurationBlocks:   2000,
+		WorkContract:     sponsorshipV2WorkContract(submitter.String()),
 	})
 	require.NoError(t, err)
 	bountyID := createResp.BountyId
@@ -138,33 +140,22 @@ func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T
 	// informed of a resolution. This deliberately isolates later sponsorship
 	// behavior from the missing translation.
 	const selfFactID = "zerone-self-fact-loop-1"
-	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-		Id:               selfFactID,
-		Content:          link.PendingClaims[0].ClaimContent,
-		Domain:           selfcompile.SelfDomain,
-		Submitter:        submitter.String(),
-		SubmittedAtBlock: uint64(h.Ctx.BlockHeight()),
-		VerifiedAtBlock:  uint64(h.Ctx.BlockHeight()),
-		Status:           knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-	}))
+	selfFact := sponsorshipV2Fact(selfFactID, selfcompile.SelfDomain, submitter.String(), uint64(h.Ctx.BlockHeight()))
+	selfFact.Content = link.PendingClaims[0].ClaimContent
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, selfFact))
 
-	// ── Step 4: anyone fulfills the bounty with the verified self-fact ─
-
-	// `anyone` calls fulfill — chain reads worker from fact.Submitter, not
-	// from caller. Demonstrates the permissionless surface.
-	anyone := testAddr("loop_random_caller")
-	require.NoError(t, h.FundAccount(anyone, sdk.NewCoins(sdk.NewCoin(zeroneapp.BondDenom, sdkmath.NewInt(1_000_000)))))
+	// ── Step 4: the stored worker chooses and signs settlement ───────
 
 	submitterPreFulfill := h.App.BankKeeper.GetBalance(h.Ctx, submitter, zeroneapp.BondDenom)
 
 	fulfillResp, err := spSrv.FulfillBounty(h.Ctx, &sponsorshiptypes.MsgFulfillBounty{
-		Caller:   anyone.String(),
+		Caller:   submitter.String(),
 		BountyId: bountyID,
 		FactId:   selfFactID,
 	})
 	require.NoError(t, err, "fulfillment must succeed — fixture has verified status, matching domain/window, and is unused")
 	require.Equal(t, submitter.String(), fulfillResp.Worker,
-		"worker MUST be fact.Submitter, NOT caller — the chain reads provenance, not who-pressed-the-button")
+		"worker and signer MUST be the stored fact submitter")
 	require.Equal(t, "1000000", fulfillResp.AmountPaid)
 	require.False(t, fulfillResp.BountyNowFulfilled, "1 of 3 fulfilled")
 
@@ -189,7 +180,7 @@ func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T
 	// ── Step 6: idempotency — same fact can't double-claim ──
 
 	_, err = spSrv.FulfillBounty(h.Ctx, &sponsorshiptypes.MsgFulfillBounty{
-		Caller:   anyone.String(),
+		Caller:   submitter.String(),
 		BountyId: bountyID,
 		FactId:   selfFactID,
 	})
@@ -206,6 +197,7 @@ func TestZeroneSelf_ScaffoldedEconomicLoopRequiresManualBridgeState(t *testing.T
 // commits through the bridge.
 func TestZeroneSelf_MultipleFulfillmentsCompoundEarnings(t *testing.T) {
 	h := NewTestHarness(t)
+	activateAgentEconomySourceCandidate(t, h)
 
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
 		AdapterId:              selfcompile.AdapterID,
@@ -225,6 +217,7 @@ func TestZeroneSelf_MultipleFulfillmentsCompoundEarnings(t *testing.T) {
 	createResp, err := spSrv.CreateBountyOrder(h.Ctx, &sponsorshiptypes.MsgCreateBountyOrder{
 		Sponsor: sponsor.String(), Domain: selfcompile.SelfDomain,
 		PricePerArtifact: "1000000", TargetCount: 3, DurationBlocks: 2000,
+		WorkContract: sponsorshipV2WorkContract(submitter.String()),
 	})
 	require.NoError(t, err)
 	bountyID := createResp.BountyId
@@ -237,15 +230,9 @@ func TestZeroneSelf_MultipleFulfillmentsCompoundEarnings(t *testing.T) {
 		"cccccccccccccccccccccccccccccccccccccccc",
 	} {
 		factID := "self-fact-compound-" + sha[:6]
-		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-			Id:               factID,
-			Content:          "synthetic test commit " + sha[:6],
-			Domain:           selfcompile.SelfDomain,
-			Submitter:        submitter.String(),
-			SubmittedAtBlock: uint64(h.Ctx.BlockHeight()),
-			VerifiedAtBlock:  uint64(h.Ctx.BlockHeight()),
-			Status:           knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		}))
+		fact := sponsorshipV2Fact(factID, selfcompile.SelfDomain, submitter.String(), uint64(h.Ctx.BlockHeight()))
+		fact.Content = "synthetic test commit " + sha[:6]
+		require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, fact))
 
 		resp, err := spSrv.FulfillBounty(h.Ctx, &sponsorshiptypes.MsgFulfillBounty{
 			Caller: submitter.String(), BountyId: bountyID, FactId: factID,

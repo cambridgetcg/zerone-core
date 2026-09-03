@@ -147,18 +147,19 @@ func TestSDK053IBC10ActivationSkipsUnknownMessagesOnlyInTerminalGovProposals(
 	t *testing.T,
 ) {
 	for _, testCase := range []struct {
-		name      string
-		status    govv1.ProposalStatus
-		wantError bool
+		name          string
+		status        govv1.ProposalStatus
+		wantErrorText string
 	}{
 		{
-			name:   "terminal proposal is inert",
-			status: govv1.StatusPassed,
+			name:          "terminal proposal is inert before target refusal",
+			status:        govv1.StatusPassed,
+			wantErrorText: "requires frozen H3 target VersionMap",
 		},
 		{
-			name:      "active proposal fails closed",
-			status:    govv1.StatusVotingPeriod,
-			wantError: true,
+			name:          "active proposal fails closed",
+			status:        govv1.StatusVotingPeriod,
+			wantErrorText: "SDK governance authority audit failed",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -189,15 +190,9 @@ func TestSDK053IBC10ActivationSkipsUnknownMessagesOnlyInTerminalGovProposals(
 				sdk053IBC10SourceVM(h),
 				testH3ActivationHeight,
 			)
-			if testCase.wantError {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "SDK governance authority audit failed")
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(
+			require.ErrorContains(t, err, testCase.wantErrorText)
+			require.Empty(
 				t,
-				"migrated",
 				h.KnowledgeKeeper.ReadMigrationMarker(
 					h.Ctx,
 					"upgrade_marker_upgrade-incident-operations-v1",

@@ -16,6 +16,12 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/params";
   }
 
+  // AgentEconomyStatus reports the exact consensus-latched activation
+  // lineage. Wallets must not infer this gate from compiled module versions.
+  rpc AgentEconomyStatus(QueryAgentEconomyStatusRequest) returns (QueryAgentEconomyStatusResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/agent_economy/status";
+  }
+
   // Fact queries a single fact by ID.
   rpc Fact(QueryFactRequest) returns (QueryFactResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/facts/{id}";
@@ -513,6 +519,18 @@ message QueryParamsRequest {}
 
 message QueryParamsResponse {
   Params params = 1;
+}
+
+message QueryAgentEconomyStatusRequest {}
+
+message QueryAgentEconomyStatusResponse {
+  bool activated = 1;
+  // "none", "upgrade", or "native". Any conflicting or invalid marker
+  // state makes the query fail rather than returning an ambiguous lineage.
+  string lineage = 2;
+  string marker = 3;
+  string marker_value = 4;
+  uint64 snapshot_block_height = 5;
 }
 
 message QueryFactRequest {

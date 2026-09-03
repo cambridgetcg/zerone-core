@@ -33,8 +33,10 @@ func parseClaimType(s string) (types.ClaimType, error) {
 		return types.ClaimType_CLAIM_TYPE_NEGATION, nil
 	case "observation":
 		return types.ClaimType_CLAIM_TYPE_OBSERVATION, nil
+	case "computational":
+		return types.ClaimType_CLAIM_TYPE_COMPUTATIONAL, nil
 	default:
-		return 0, fmt.Errorf("unknown claim type %q: must be assertion, relation, definition, constraint, negation, or observation", s)
+		return 0, fmt.Errorf("unknown claim type %q: must be assertion, relation, definition, constraint, negation, observation, or computational", s)
 	}
 }
 
@@ -165,20 +167,52 @@ func NewSubmitClaimCmd() *cobra.Command {
 
 			canonicalForm, _ := cmd.Flags().GetString("canonical")
 			sponsored, _ := cmd.Flags().GetBool("sponsored")
+			methodID, _ := cmd.Flags().GetString("method-id")
+			if claimType == types.ClaimType_CLAIM_TYPE_COMPUTATIONAL && methodID == "" {
+				methodID = types.MethodologyComputational
+			}
+			reasoningTrace, _ := cmd.Flags().GetString("reasoning-trace")
+			workSpecHash, _ := cmd.Flags().GetString("work-spec-hash")
+			acceptanceHash, _ := cmd.Flags().GetString("acceptance-hash")
+			inputRoot, _ := cmd.Flags().GetString("input-root")
+			environmentRoot, _ := cmd.Flags().GetString("environment-root")
+			artifactRoot, _ := cmd.Flags().GetString("artifact-root")
+			evidenceRoot, _ := cmd.Flags().GetString("evidence-root")
+			workReceiptHash, _ := cmd.Flags().GetString("work-receipt-hash")
+
+			var computational *types.ComputationalCommitment
+			if workSpecHash != "" || acceptanceHash != "" || inputRoot != "" ||
+				environmentRoot != "" || artifactRoot != "" || evidenceRoot != "" || workReceiptHash != "" {
+				computational = &types.ComputationalCommitment{
+					WorkSpecHash:    workSpecHash,
+					AcceptanceHash:  acceptanceHash,
+					InputRoot:       inputRoot,
+					EnvironmentRoot: environmentRoot,
+					ArtifactRoot:    artifactRoot,
+					EvidenceRoot:    evidenceRoot,
+					WorkReceiptHash: workReceiptHash,
+				}
+			}
 
 			msg := &types.MsgSubmitClaim{
-				Submitter:     clientCtx.GetFromAddress().String(),
-				FactContent:   args[0],
-				Domain:        args[1],
-				Category:      args[2],
-				Stake:         args[3],
-				References:    references,
-				PartnershipId: partnershipId,
-				ClaimType:     claimType,
-				Relations:     relations,
-				Structure:     structure,
-				CanonicalForm: canonicalForm,
-				Sponsored:     sponsored,
+				Submitter:               clientCtx.GetFromAddress().String(),
+				FactContent:             args[0],
+				Domain:                  args[1],
+				Category:                args[2],
+				Stake:                   args[3],
+				References:              references,
+				PartnershipId:           partnershipId,
+				ClaimType:               claimType,
+				Relations:               relations,
+				Structure:               structure,
+				CanonicalForm:           canonicalForm,
+				Sponsored:               sponsored,
+				MethodId:                methodID,
+				ReasoningTrace:          reasoningTrace,
+				ComputationalCommitment: computational,
+			}
+			if err := msg.ValidateBasic(); err != nil {
+				return err
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -187,7 +221,7 @@ func NewSubmitClaimCmd() *cobra.Command {
 
 	cmd.Flags().String("references", "", "Comma-separated fact IDs to reference")
 	cmd.Flags().String("partnership-id", "", "Partnership ID for collaborative claims")
-	cmd.Flags().String("claim-type", "assertion", "Claim type: assertion (default), relation, definition, constraint, negation, observation")
+	cmd.Flags().String("claim-type", "assertion", "Claim type: assertion (default), relation, definition, constraint, negation, observation, computational")
 	cmd.Flags().String("relations", "", "Typed relations: supports:FACT_ID,contradicts:FACT_ID,requires:FACT_ID")
 	cmd.Flags().String("subject", "", "Claim subject (structured)")
 	cmd.Flags().String("predicate", "", "Claim predicate (structured)")
@@ -198,6 +232,15 @@ func NewSubmitClaimCmd() *cobra.Command {
 	cmd.Flags().String("tags", "", "Comma-separated tags")
 	cmd.Flags().String("canonical", "", "Explicit canonical form (auto-derived from structure if omitted)")
 	cmd.Flags().Bool("sponsored", false, "Request bootstrap fund sponsorship (fund pays review fee)")
+	cmd.Flags().String("method-id", "", "Registered methodology ID (for computational work, normally M-COMPUTATIONAL)")
+	cmd.Flags().String("reasoning-trace", "", "Optional structured reasoning trace (JSON string)")
+	cmd.Flags().String("work-spec-hash", "", "Computational work-spec SHA-256 (bare lowercase 64-hex)")
+	cmd.Flags().String("acceptance-hash", "", "Computational acceptance-policy SHA-256 (bare lowercase 64-hex)")
+	cmd.Flags().String("input-root", "", "Computational input root (bare lowercase 64-hex)")
+	cmd.Flags().String("environment-root", "", "Computational environment root (bare lowercase 64-hex)")
+	cmd.Flags().String("artifact-root", "", "Produced artifact root (bare lowercase 64-hex)")
+	cmd.Flags().String("evidence-root", "", "Evaluation evidence root (bare lowercase 64-hex)")
+	cmd.Flags().String("work-receipt-hash", "", "Terminal work receipt SHA-256 (bare lowercase 64-hex)")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
@@ -456,14 +499,14 @@ func NewSubmitContradictionCmd() *cobra.Command {
 			}
 
 			msg := &types.MsgSubmitContradiction{
-				Submitter:   clientCtx.GetFromAddress().String(),
-				FactId:      args[0],
+				Submitter:    clientCtx.GetFromAddress().String(),
+				FactId:       args[0],
 				CounterClaim: args[1],
-				Stake:       args[2],
-				Reason:      args[3],
-				Domain:      domain,
-				Category:    category,
-				EvidenceIds: evidenceIds,
+				Stake:        args[2],
+				Reason:       args[3],
+				Domain:       domain,
+				Category:     category,
+				EvidenceIds:  evidenceIds,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)

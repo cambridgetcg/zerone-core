@@ -11,6 +11,23 @@ enum BountyStatus {
   BOUNTY_STATUS_CANCELED    = 4;  // sponsor reclaimed remaining
 }
 
+// WorkContract is the immutable commitment a sponsor funds. Every digest is
+// a bare, lowercase, 64-character SHA-256 hex string. Raw work inputs,
+// acceptance policy, and environment manifests remain off chain.
+message WorkContract {
+  string work_spec_hash   = 1;
+  string acceptance_hash  = 2;
+  string input_root       = 3;
+  string environment_root = 4;
+  // Survived formal challenges required after the ordinary challenge window.
+  // Zero accepts an unchallenged fact once its verifier quorum and challenge
+  // window have both completed.
+  uint64 min_corroborations = 5;
+  // Preassigned payout wallet. The accepted Fact submitter and fulfillment
+  // signer must both equal this canonical lowercase Bech32 address.
+  string worker_address = 6;
+}
+
 // BountyOrder is a sponsor's commitment of escrowed funds against a
 // typed bounty for verified work in a specific domain.
 message BountyOrder {
@@ -24,6 +41,9 @@ message BountyOrder {
   uint64       start_block          = 8;
   uint64       end_block            = 9;
   BountyStatus status               = 10;
+  // Nil only for legacy v1 orders. Such orders remain cancelable but are
+  // deliberately ineligible for fulfillment after sponsorship v2.
+  WorkContract work_contract        = 11;
 }
 
 // BountyFulfillment records a single payout from a bounty to a worker
@@ -34,6 +54,14 @@ message BountyFulfillment {
   string worker             = 3;
   string amount_paid        = 4;
   uint64 fulfilled_at_block = 5;
+  string work_receipt_hash  = 6;
+  // SHA-256("ZRN.sponsorship.settlement.v2\0" followed by work_spec_hash,
+  // acceptance_hash, input_root, environment_root, artifact_root, and the
+  // assigned worker address as uint64 big-endian length-prefixed UTF-8).
+  // Derived from stored state.
+  string settlement_nullifier = 7;
+  // Stored so genesis can mechanically rederive the settlement nullifier.
+  string artifact_root = 8;
 }
 
 // Params is the governance-tunable configuration.

@@ -77,6 +77,98 @@ func (BountyStatus) EnumDescriptor() ([]byte, []int) {
 	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{0}
 }
 
+// WorkContract is the immutable commitment a sponsor funds. Every digest is
+// a bare, lowercase, 64-character SHA-256 hex string. Raw work inputs,
+// acceptance policy, and environment manifests remain off chain.
+type WorkContract struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	WorkSpecHash    string                 `protobuf:"bytes,1,opt,name=work_spec_hash,json=workSpecHash,proto3" json:"work_spec_hash,omitempty"`
+	AcceptanceHash  string                 `protobuf:"bytes,2,opt,name=acceptance_hash,json=acceptanceHash,proto3" json:"acceptance_hash,omitempty"`
+	InputRoot       string                 `protobuf:"bytes,3,opt,name=input_root,json=inputRoot,proto3" json:"input_root,omitempty"`
+	EnvironmentRoot string                 `protobuf:"bytes,4,opt,name=environment_root,json=environmentRoot,proto3" json:"environment_root,omitempty"`
+	// Survived formal challenges required after the ordinary challenge window.
+	// Zero accepts an unchallenged fact once its verifier quorum and challenge
+	// window have both completed.
+	MinCorroborations uint64 `protobuf:"varint,5,opt,name=min_corroborations,json=minCorroborations,proto3" json:"min_corroborations,omitempty"`
+	// Preassigned payout wallet. The accepted Fact submitter and fulfillment
+	// signer must both equal this canonical lowercase Bech32 address.
+	WorkerAddress string `protobuf:"bytes,6,opt,name=worker_address,json=workerAddress,proto3" json:"worker_address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkContract) Reset() {
+	*x = WorkContract{}
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkContract) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkContract) ProtoMessage() {}
+
+func (x *WorkContract) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkContract.ProtoReflect.Descriptor instead.
+func (*WorkContract) Descriptor() ([]byte, []int) {
+	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *WorkContract) GetWorkSpecHash() string {
+	if x != nil {
+		return x.WorkSpecHash
+	}
+	return ""
+}
+
+func (x *WorkContract) GetAcceptanceHash() string {
+	if x != nil {
+		return x.AcceptanceHash
+	}
+	return ""
+}
+
+func (x *WorkContract) GetInputRoot() string {
+	if x != nil {
+		return x.InputRoot
+	}
+	return ""
+}
+
+func (x *WorkContract) GetEnvironmentRoot() string {
+	if x != nil {
+		return x.EnvironmentRoot
+	}
+	return ""
+}
+
+func (x *WorkContract) GetMinCorroborations() uint64 {
+	if x != nil {
+		return x.MinCorroborations
+	}
+	return 0
+}
+
+func (x *WorkContract) GetWorkerAddress() string {
+	if x != nil {
+		return x.WorkerAddress
+	}
+	return ""
+}
+
 // BountyOrder is a sponsor's commitment of escrowed funds against a
 // typed bounty for verified work in a specific domain.
 type BountyOrder struct {
@@ -91,13 +183,16 @@ type BountyOrder struct {
 	StartBlock       uint64                 `protobuf:"varint,8,opt,name=start_block,json=startBlock,proto3" json:"start_block,omitempty"`
 	EndBlock         uint64                 `protobuf:"varint,9,opt,name=end_block,json=endBlock,proto3" json:"end_block,omitempty"`
 	Status           BountyStatus           `protobuf:"varint,10,opt,name=status,proto3,enum=zerone.sponsorship.v1.BountyStatus" json:"status,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Nil only for legacy v1 orders. Such orders remain cancelable but are
+	// deliberately ineligible for fulfillment after sponsorship v2.
+	WorkContract  *WorkContract `protobuf:"bytes,11,opt,name=work_contract,json=workContract,proto3" json:"work_contract,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BountyOrder) Reset() {
 	*x = BountyOrder{}
-	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[0]
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -109,7 +204,7 @@ func (x *BountyOrder) String() string {
 func (*BountyOrder) ProtoMessage() {}
 
 func (x *BountyOrder) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[0]
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -122,7 +217,7 @@ func (x *BountyOrder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BountyOrder.ProtoReflect.Descriptor instead.
 func (*BountyOrder) Descriptor() ([]byte, []int) {
-	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{0}
+	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BountyOrder) GetId() string {
@@ -195,6 +290,13 @@ func (x *BountyOrder) GetStatus() BountyStatus {
 	return BountyStatus_BOUNTY_STATUS_UNSPECIFIED
 }
 
+func (x *BountyOrder) GetWorkContract() *WorkContract {
+	if x != nil {
+		return x.WorkContract
+	}
+	return nil
+}
+
 // BountyFulfillment records a single payout from a bounty to a worker
 // (the submitter of the fulfilling fact).
 type BountyFulfillment struct {
@@ -204,13 +306,21 @@ type BountyFulfillment struct {
 	Worker           string                 `protobuf:"bytes,3,opt,name=worker,proto3" json:"worker,omitempty"`
 	AmountPaid       string                 `protobuf:"bytes,4,opt,name=amount_paid,json=amountPaid,proto3" json:"amount_paid,omitempty"`
 	FulfilledAtBlock uint64                 `protobuf:"varint,5,opt,name=fulfilled_at_block,json=fulfilledAtBlock,proto3" json:"fulfilled_at_block,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	WorkReceiptHash  string                 `protobuf:"bytes,6,opt,name=work_receipt_hash,json=workReceiptHash,proto3" json:"work_receipt_hash,omitempty"`
+	// SHA-256("ZRN.sponsorship.settlement.v2\0" followed by work_spec_hash,
+	// acceptance_hash, input_root, environment_root, artifact_root, and the
+	// assigned worker address as uint64 big-endian length-prefixed UTF-8).
+	// Derived from stored state.
+	SettlementNullifier string `protobuf:"bytes,7,opt,name=settlement_nullifier,json=settlementNullifier,proto3" json:"settlement_nullifier,omitempty"`
+	// Stored so genesis can mechanically rederive the settlement nullifier.
+	ArtifactRoot  string `protobuf:"bytes,8,opt,name=artifact_root,json=artifactRoot,proto3" json:"artifact_root,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BountyFulfillment) Reset() {
 	*x = BountyFulfillment{}
-	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[1]
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +332,7 @@ func (x *BountyFulfillment) String() string {
 func (*BountyFulfillment) ProtoMessage() {}
 
 func (x *BountyFulfillment) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[1]
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +345,7 @@ func (x *BountyFulfillment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BountyFulfillment.ProtoReflect.Descriptor instead.
 func (*BountyFulfillment) Descriptor() ([]byte, []int) {
-	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{1}
+	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *BountyFulfillment) GetBountyId() string {
@@ -273,6 +383,27 @@ func (x *BountyFulfillment) GetFulfilledAtBlock() uint64 {
 	return 0
 }
 
+func (x *BountyFulfillment) GetWorkReceiptHash() string {
+	if x != nil {
+		return x.WorkReceiptHash
+	}
+	return ""
+}
+
+func (x *BountyFulfillment) GetSettlementNullifier() string {
+	if x != nil {
+		return x.SettlementNullifier
+	}
+	return ""
+}
+
+func (x *BountyFulfillment) GetArtifactRoot() string {
+	if x != nil {
+		return x.ArtifactRoot
+	}
+	return ""
+}
+
 // Params is the governance-tunable configuration.
 type Params struct {
 	state                       protoimpl.MessageState `protogen:"open.v1"`
@@ -285,7 +416,7 @@ type Params struct {
 
 func (x *Params) Reset() {
 	*x = Params{}
-	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[2]
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -297,7 +428,7 @@ func (x *Params) String() string {
 func (*Params) ProtoMessage() {}
 
 func (x *Params) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[2]
+	mi := &file_zerone_sponsorship_v1_state_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -310,7 +441,7 @@ func (x *Params) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Params.ProtoReflect.Descriptor instead.
 func (*Params) Descriptor() ([]byte, []int) {
-	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{2}
+	return file_zerone_sponsorship_v1_state_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Params) GetMinTargetCount() uint32 {
@@ -338,7 +469,15 @@ var File_zerone_sponsorship_v1_state_proto protoreflect.FileDescriptor
 
 const file_zerone_sponsorship_v1_state_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/sponsorship/v1/state.proto\x12\x15zerone.sponsorship.v1\"\xef\x02\n" +
+	"!zerone/sponsorship/v1/state.proto\x12\x15zerone.sponsorship.v1\"\xfd\x01\n" +
+	"\fWorkContract\x12$\n" +
+	"\x0ework_spec_hash\x18\x01 \x01(\tR\fworkSpecHash\x12'\n" +
+	"\x0facceptance_hash\x18\x02 \x01(\tR\x0eacceptanceHash\x12\x1d\n" +
+	"\n" +
+	"input_root\x18\x03 \x01(\tR\tinputRoot\x12)\n" +
+	"\x10environment_root\x18\x04 \x01(\tR\x0fenvironmentRoot\x12-\n" +
+	"\x12min_corroborations\x18\x05 \x01(\x04R\x11minCorroborations\x12%\n" +
+	"\x0eworker_address\x18\x06 \x01(\tR\rworkerAddress\"\xb9\x03\n" +
 	"\vBountyOrder\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\asponsor\x18\x02 \x01(\tR\asponsor\x12\x16\n" +
@@ -351,14 +490,18 @@ const file_zerone_sponsorship_v1_state_proto_rawDesc = "" +
 	"startBlock\x12\x1b\n" +
 	"\tend_block\x18\t \x01(\x04R\bendBlock\x12;\n" +
 	"\x06status\x18\n" +
-	" \x01(\x0e2#.zerone.sponsorship.v1.BountyStatusR\x06status\"\xb0\x01\n" +
+	" \x01(\x0e2#.zerone.sponsorship.v1.BountyStatusR\x06status\x12H\n" +
+	"\rwork_contract\x18\v \x01(\v2#.zerone.sponsorship.v1.WorkContractR\fworkContract\"\xb4\x02\n" +
 	"\x11BountyFulfillment\x12\x1b\n" +
 	"\tbounty_id\x18\x01 \x01(\tR\bbountyId\x12\x17\n" +
 	"\afact_id\x18\x02 \x01(\tR\x06factId\x12\x16\n" +
 	"\x06worker\x18\x03 \x01(\tR\x06worker\x12\x1f\n" +
 	"\vamount_paid\x18\x04 \x01(\tR\n" +
 	"amountPaid\x12,\n" +
-	"\x12fulfilled_at_block\x18\x05 \x01(\x04R\x10fulfilledAtBlock\"\xa8\x01\n" +
+	"\x12fulfilled_at_block\x18\x05 \x01(\x04R\x10fulfilledAtBlock\x12*\n" +
+	"\x11work_receipt_hash\x18\x06 \x01(\tR\x0fworkReceiptHash\x121\n" +
+	"\x14settlement_nullifier\x18\a \x01(\tR\x13settlementNullifier\x12#\n" +
+	"\rartifact_root\x18\b \x01(\tR\fartifactRoot\"\xa8\x01\n" +
 	"\x06Params\x12(\n" +
 	"\x10min_target_count\x18\x01 \x01(\rR\x0eminTargetCount\x12.\n" +
 	"\x13min_duration_blocks\x18\x02 \x01(\x04R\x11minDurationBlocks\x12D\n" +
@@ -383,20 +526,22 @@ func file_zerone_sponsorship_v1_state_proto_rawDescGZIP() []byte {
 }
 
 var file_zerone_sponsorship_v1_state_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_zerone_sponsorship_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_zerone_sponsorship_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_zerone_sponsorship_v1_state_proto_goTypes = []any{
 	(BountyStatus)(0),         // 0: zerone.sponsorship.v1.BountyStatus
-	(*BountyOrder)(nil),       // 1: zerone.sponsorship.v1.BountyOrder
-	(*BountyFulfillment)(nil), // 2: zerone.sponsorship.v1.BountyFulfillment
-	(*Params)(nil),            // 3: zerone.sponsorship.v1.Params
+	(*WorkContract)(nil),      // 1: zerone.sponsorship.v1.WorkContract
+	(*BountyOrder)(nil),       // 2: zerone.sponsorship.v1.BountyOrder
+	(*BountyFulfillment)(nil), // 3: zerone.sponsorship.v1.BountyFulfillment
+	(*Params)(nil),            // 4: zerone.sponsorship.v1.Params
 }
 var file_zerone_sponsorship_v1_state_proto_depIdxs = []int32{
 	0, // 0: zerone.sponsorship.v1.BountyOrder.status:type_name -> zerone.sponsorship.v1.BountyStatus
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 1: zerone.sponsorship.v1.BountyOrder.work_contract:type_name -> zerone.sponsorship.v1.WorkContract
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_zerone_sponsorship_v1_state_proto_init() }
@@ -410,7 +555,7 @@ func file_zerone_sponsorship_v1_state_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_sponsorship_v1_state_proto_rawDesc), len(file_zerone_sponsorship_v1_state_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

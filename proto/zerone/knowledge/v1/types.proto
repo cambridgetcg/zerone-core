@@ -209,6 +209,22 @@ message ClaimStructure {
   repeated string tags     = 7;  // Free-form searchable tags: ["thermodynamics", "entropy", "physics"]
 }
 
+// ComputationalCommitment anchors externally executed work without placing
+// raw artifacts, private evidence, or execution transcripts on chain. Every
+// field is a bare, lowercase, 64-character SHA-256 hex digest. The work,
+// acceptance, input, and environment commitments bind the result to the
+// sponsor's declared contract; the remaining roots make the produced artifact
+// and its evidence independently retrievable and auditable.
+message ComputationalCommitment {
+  string work_spec_hash    = 1;
+  string acceptance_hash   = 2;
+  string input_root        = 3;
+  string environment_root  = 4;
+  string artifact_root     = 5;
+  string evidence_root     = 6;
+  string work_receipt_hash = 7;
+}
+
 // Fact represents a piece of verified knowledge in the protocol.
 // Confidence is measured on a 0-1,000,000 BPS scale (1,000,000 = 100%).
 message Fact {
@@ -351,6 +367,11 @@ message Fact {
   // ordinary fact. A non-empty predicate on a PROVISIONAL fact is the
   // chain's standing invitation to destroy it.
   string falsification_predicate = 75;
+
+  // Present only on CLAIM_TYPE_COMPUTATIONAL facts. Copied byte-for-byte
+  // from the accepted claim so settlement never trusts caller-supplied work
+  // or receipt identifiers.
+  ComputationalCommitment computational_commitment = 76;
 }
 
 // CurriculumTier orders training examples by difficulty and foundational depth.
@@ -726,6 +747,11 @@ message Claim {
   // conjecture with no stated killer is not well-posed and must be returned
   // MALFORMED. Empty for every other claim type.
   string falsification_predicate = 24;
+
+  // Required for CLAIM_TYPE_COMPUTATIONAL and forbidden for every other
+  // claim type. The verifier panel adjudicates the committed work while the
+  // chain preserves only compact hashes/roots.
+  ComputationalCommitment computational_commitment = 25;
 }
 
 // VerificationRound tracks one commit-reveal verification cycle.

@@ -34,6 +34,9 @@ type trackingBankKeeper struct {
 	moduleBalances map[string]sdk.Coins
 	// Track calls for assertions
 	sendCalls []sendRecord
+	// Optional deterministic failure injection for atomicity tests.
+	failModuleToModuleRecipient string
+	failModuleToModuleErr       error
 }
 
 type sendRecord struct {
@@ -64,6 +67,9 @@ func (bk *trackingBankKeeper) SendCoinsFromAccountToModule(_ context.Context, se
 }
 
 func (bk *trackingBankKeeper) SendCoinsFromModuleToModule(_ context.Context, senderModule, recipientModule string, amt sdk.Coins) error {
+	if recipientModule == bk.failModuleToModuleRecipient {
+		return bk.failModuleToModuleErr
+	}
 	bk.sendCalls = append(bk.sendCalls, sendRecord{senderModule, recipientModule, amt})
 	// Track module balance changes for bootstrap fund tests
 	if bal, ok := bk.moduleBalances[senderModule]; ok {
@@ -281,6 +287,15 @@ func setupKnowledgeTestFull(t *testing.T) (keeper.Keeper, sdk.Context, *tracking
 // advanceBlocks returns a new context with the block height advanced by n.
 func advanceBlocks(ctx sdk.Context, n int64) sdk.Context {
 	return ctx.WithBlockHeight(ctx.BlockHeight() + n)
+}
+
+func activateAgentEconomyForKeeperTest(t *testing.T, k keeper.Keeper, ctx sdk.Context) {
+	t.Helper()
+	require.NoError(t, k.WriteMigrationMarker(
+		ctx,
+		types.AgentEconomyNativeMarker,
+		types.AgentEconomyActivationValue,
+	))
 }
 
 // makeValidatorAddr returns a deterministic bech32 validator address.

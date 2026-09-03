@@ -2,12 +2,25 @@ syntax = "proto3";
 package zerone.sponsorship.v1;
 option go_package = "github.com/zerone-chain/zerone/x/sponsorship/types";
 
+import "google/api/annotations.proto";
 import "zerone/sponsorship/v1/state.proto";
 
 service Query {
-  rpc Params(QueryParamsRequest) returns (QueryParamsResponse);
-  rpc BountyOrder(QueryBountyOrderRequest) returns (QueryBountyOrderResponse);
-  rpc BountyOrders(QueryBountyOrdersRequest) returns (QueryBountyOrdersResponse);
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/sponsorship/v1/params";
+  }
+  rpc BountyOrder(QueryBountyOrderRequest) returns (QueryBountyOrderResponse) {
+    option (google.api.http).get = "/zerone/sponsorship/v1/orders/{id}";
+  }
+  rpc BountyOrders(QueryBountyOrdersRequest) returns (QueryBountyOrdersResponse) {
+    option (google.api.http).get = "/zerone/sponsorship/v1/orders";
+  }
+  rpc Fulfillment(QueryFulfillmentRequest) returns (QueryFulfillmentResponse) {
+    option (google.api.http).get = "/zerone/sponsorship/v1/fulfillments/{bounty_id}/{fact_id}";
+  }
+  rpc EscrowAccounting(QueryEscrowAccountingRequest) returns (QueryEscrowAccountingResponse) {
+    option (google.api.http).get = "/zerone/sponsorship/v1/escrow_accounting";
+  }
 }
 
 message QueryParamsRequest {}
@@ -18,3 +31,26 @@ message QueryBountyOrderResponse { BountyOrder order = 1; }
 
 message QueryBountyOrdersRequest {}
 message QueryBountyOrdersResponse { repeated BountyOrder orders = 1; }
+
+message QueryFulfillmentRequest {
+  string bounty_id = 1;
+  string fact_id = 2;
+}
+message QueryFulfillmentResponse {
+  BountyFulfillment fulfillment = 1;
+  string fact_consumed_by_bounty_id = 2;
+  string receipt_consumed_by_bounty_id = 3;
+  string settlement_nullifier_consumed_by_bounty_id = 4;
+  uint64 snapshot_block_height = 5;
+}
+
+message QueryEscrowAccountingRequest {}
+message QueryEscrowAccountingResponse {
+  string denom = 1;
+  string persisted_liability = 2;
+  string module_balance = 3;
+  // Signed decimal balance minus liability. A negative value means insolvent.
+  string surplus = 4;
+  bool solvent = 5;
+  uint64 snapshot_block_height = 6;
+}

@@ -101,7 +101,7 @@ func TestResilience_FullDrillP0(t *testing.T) {
 	fromVM := h.App.CurrentModuleVersionMap()
 	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
 	require.NoError(t, err, "named upgrade runs despite the module being paused (handlers, not migrations, gate writes)")
-	require.Equal(t, uint64(6), toVM["knowledge"])
+	require.Equal(t, uint64(7), toVM["knowledge"])
 
 	// ── STEP 7: current named-upgrade marker present — fix "deployed" ─
 	require.Equal(t, "migrated",

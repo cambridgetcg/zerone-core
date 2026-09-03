@@ -42,6 +42,7 @@ var (
 	ErrClaimStakeInsufficient   = errors.Register(ModuleName, 36, "claim stake below minimum")
 	ErrRoundExpired             = errors.Register(ModuleName, 37, "verification round has expired")
 	ErrUnauthorized             = errors.Register(ModuleName, 38, "unauthorized")
+	ErrAgentEconomyDisabled     = errors.Register(ModuleName, 39, "agent economy is not activated")
 
 	// ─── Adversarial verification (40–47) ───────────────────────────────────
 	ErrNotProvisional        = errors.Register(ModuleName, 40, "fact is not in provisional state")
@@ -78,6 +79,6 @@ var (
 	ErrUnqualifiedVerifier = errors.Register(ModuleName, 70, "verifier not qualified for domain")
 
 	// ─── Partnership validation (80–81) ──────────────────────────────────
-	ErrInvalidPartnership  = errors.Register(ModuleName, 80, "invalid partnership")
-	ErrPartnershipFrozen   = errors.Register(ModuleName, 81, "partnership is frozen")
+	ErrInvalidPartnership = errors.Register(ModuleName, 80, "invalid partnership")
+	ErrPartnershipFrozen  = errors.Register(ModuleName, 81, "partnership is frozen")
 )

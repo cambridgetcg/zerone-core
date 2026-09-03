@@ -1,6 +1,10 @@
 package keeper_test
 
 import (
+	"math"
+	"math/big"
+	"strconv"
+	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -9,6 +13,23 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
+
+func computationalSubmitMsg(submitter, artifactDigit, evidenceDigit string) *types.MsgSubmitClaim {
+	commitment := &types.ComputationalCommitment{
+		WorkSpecHash: strings.Repeat("1", 64), AcceptanceHash: strings.Repeat("2", 64),
+		InputRoot: strings.Repeat("3", 64), EnvironmentRoot: strings.Repeat("4", 64),
+		ArtifactRoot: strings.Repeat(artifactDigit, 64), EvidenceRoot: strings.Repeat(evidenceDigit, 64),
+	}
+	commitment.WorkReceiptHash = types.ComputeWorkReceiptHash(commitment, submitter)
+	return &types.MsgSubmitClaim{
+		Submitter: submitter, FactContent: "A deterministic computational output for the shared target",
+		Domain: "physics", Category: "computational", Stake: "1000000",
+		ClaimType: types.ClaimType_CLAIM_TYPE_COMPUTATIONAL, MethodId: types.MethodologyComputational,
+		ReasoningTrace:          "{\"executor\":\"deterministic-v1\"}",
+		CanonicalForm:           "computational:shared-target:produces-output",
+		ComputationalCommitment: commitment,
+	}
+}
 
 // ─── SubmitClaim ────────────────────────────────────────────────────────────
 
@@ -123,6 +144,65 @@ func TestMsgServer_SubmitClaim_ZeroStake(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestMsgServer_SubmitClaim_ComputationalStakeUint64Bounds(t *testing.T) {
+	t.Run("max uint64 is represented without truncation", func(t *testing.T) {
+		k, ctx := setupKnowledgeTest(t)
+		activateAgentEconomyForKeeperTest(t, k, ctx)
+		ms := keeper.NewMsgServerImpl(k)
+		msg := computationalSubmitMsg(makeValidBech32Addr("compute-max-stake"), "5", "6")
+		msg.Stake = strconv.FormatUint(math.MaxUint64, 10)
+
+		resp, err := ms.SubmitClaim(ctx, msg)
+		require.NoError(t, err)
+		claim, found := k.GetClaim(ctx, resp.ClaimId)
+		require.True(t, found)
+		require.Equal(t, msg.Stake, claim.Stake)
+	})
+
+	t.Run("max uint64 plus one is rejected before bank or state", func(t *testing.T) {
+		k, ctx, bk := setupKnowledgeTestWithBank(t)
+		activateAgentEconomyForKeeperTest(t, k, ctx)
+		ms := keeper.NewMsgServerImpl(k)
+		msg := computationalSubmitMsg(makeValidBech32Addr("compute-over-stake"), "5", "6")
+		tooLarge := new(big.Int).Add(new(big.Int).SetUint64(math.MaxUint64), big.NewInt(1))
+		msg.Stake = tooLarge.String()
+		bankCallsBefore := len(bk.sendCalls)
+
+		resp, err := ms.SubmitClaim(ctx, msg)
+		require.Error(t, err)
+		require.Nil(t, resp)
+		require.Contains(t, err.Error(), "uint64")
+		require.Len(t, bk.sendCalls, bankCallsBefore, "rejected fee must not reach the bank")
+		claimCount := 0
+		k.IterateClaims(ctx, func(*types.Claim) bool {
+			claimCount++
+			return false
+		})
+		require.Zero(t, claimCount, "rejected fee must not create a claim")
+	})
+
+	t.Run("257 bit input cannot panic sdk int construction", func(t *testing.T) {
+		k, ctx, bk := setupKnowledgeTestWithBank(t)
+		activateAgentEconomyForKeeperTest(t, k, ctx)
+		ms := keeper.NewMsgServerImpl(k)
+		msg := computationalSubmitMsg(makeValidBech32Addr("compute-sdk-overflow"), "5", "6")
+		msg.Stake = new(big.Int).Lsh(big.NewInt(1), 256).String()
+		bankCallsBefore := len(bk.sendCalls)
+
+		resp, err := ms.SubmitClaim(ctx, msg)
+		require.Error(t, err)
+		require.Nil(t, resp)
+		require.Contains(t, err.Error(), "256-bit sdk.Int")
+		require.Len(t, bk.sendCalls, bankCallsBefore)
+		claimCount := 0
+		k.IterateClaims(ctx, func(*types.Claim) bool {
+			claimCount++
+			return false
+		})
+		require.Zero(t, claimCount)
+	})
+}
+
 func TestMsgServer_SubmitClaim_DuplicateContent(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 	ms := keeper.NewMsgServerImpl(k)
@@ -143,6 +223,38 @@ func TestMsgServer_SubmitClaim_DuplicateContent(t *testing.T) {
 	_, err = ms.SubmitClaim(ctx, msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "duplicate")
+}
+
+func TestMsgServer_SubmitClaim_ComputationalDedupBindsResultCommitment(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
+	ms := keeper.NewMsgServerImpl(k)
+	submitter := makeValidBech32Addr("computational-dedup")
+
+	first, err := ms.SubmitClaim(ctx, computationalSubmitMsg(submitter, "5", "6"))
+	require.NoError(t, err)
+	second, err := ms.SubmitClaim(advanceBlocks(ctx, 51), computationalSubmitMsg(submitter, "a", "b"))
+	require.NoError(t, err, "same structure/work contract with a distinct artifact and receipt is distinct work")
+	require.NotEqual(t, first.ClaimId, second.ClaimId)
+	claim1, found := k.GetClaim(ctx, first.ClaimId)
+	require.True(t, found)
+	claim2, found := k.GetClaim(ctx, second.ClaimId)
+	require.True(t, found)
+	require.NotEqual(t, claim1.CanonicalHash, claim2.CanonicalHash)
+	require.NotEqual(t, claim1.ContentHash, claim2.ContentHash)
+	require.Equal(t, types.MethodologyComputational, claim2.MethodId)
+	require.Equal(t, "{\"executor\":\"deterministic-v1\"}", claim2.ReasoningTrace)
+}
+
+func TestMsgServer_SubmitClaim_ComputationalMethodMustBeRegistered(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	activateAgentEconomyForKeeperTest(t, k, ctx)
+	ms := keeper.NewMsgServerImpl(k)
+	msg := computationalSubmitMsg(makeValidBech32Addr("computational-method"), "5", "6")
+	msg.MethodId = "M-NOT-REGISTERED"
+	_, err := ms.SubmitClaim(ctx, msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "methodology M-NOT-REGISTERED does not exist")
 }
 
 func TestMsgServer_SubmitClaim_CreatesVerificationRound(t *testing.T) {

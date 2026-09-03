@@ -12,6 +12,7 @@ import (
 func init() {
 	proto.RegisterType((*ClaimStructure)(nil), "zerone.knowledge.v1.ClaimStructure")
 	proto.RegisterType((*ClaimRelation)(nil), "zerone.knowledge.v1.ClaimRelation")
+	proto.RegisterType((*ComputationalCommitment)(nil), "zerone.knowledge.v1.ComputationalCommitment")
 	proto.RegisterType((*Fact)(nil), "zerone.knowledge.v1.Fact")
 	proto.RegisterType((*Claim)(nil), "zerone.knowledge.v1.Claim")
 	proto.RegisterType((*Params)(nil), "zerone.knowledge.v1.Params")
