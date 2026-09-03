@@ -667,14 +667,14 @@ case "${KEEP}" in
   *) die "KEEP_REHEARSAL must be 0 or 1" ;;
 esac
 
-for dependency in go git jq curl lsof ps awk sed shasum rg python3; do
+for dependency in go git jq curl lsof ps awk sed shasum grep python3; do
   command -v "${dependency}" >/dev/null 2>&1 || die "${dependency} is required"
 done
 [ -f "${ROOT}/go.mod" ] || die "repository root not found at ${ROOT}"
 [ -f "${ROOT}/tests/multivalidator/multivalidator_test.go" ] || die "multivalidator test source is missing"
-rg -q 'ZERONE_TEST_RPC_ADDR' "${ROOT}/tests/multivalidator/multivalidator_test.go" || \
+grep -Eq 'ZERONE_TEST_RPC_ADDR' "${ROOT}/tests/multivalidator/multivalidator_test.go" || \
   die "TestBlockSignatures does not support an isolated RPC endpoint"
-rg -q 'validatorSet\.VerifyCommit\(' "${ROOT}/tests/multivalidator/multivalidator_test.go" || \
+grep -Eq 'validatorSet\.VerifyCommit\(' "${ROOT}/tests/multivalidator/multivalidator_test.go" || \
   die "TestBlockSignatures is not the cryptographic commit verifier"
 
 SOURCE_FULL_HEAD="$(git -C "${ROOT}" rev-parse HEAD)"
