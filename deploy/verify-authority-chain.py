@@ -168,6 +168,7 @@ MONITORING_RULE_SPECS = {
     },
 }
 FROZEN_EVIDENCE_FILES = {
+    "CUSTOM-STAKING-CENSUS.json",
     "ZERONE-1-INVENTORY-V3.json",
     "SIGNER-EVIDENCE-MANIFEST.json",
     "OBSERVER-EVIDENCE-MANIFEST.json",
@@ -236,6 +237,9 @@ def bundle_file_size_limit(name: str) -> int:
         return 64 * 1024 * 1024
     if name == "ZERONE-1-INVENTORY-V3.json":
         return 128 * 1024 * 1024
+    if name == "CUSTOM-STAKING-CENSUS.json":
+        # The census seals at <=64 MiB, then its atomic publisher appends one LF.
+        return 64 * 1024 * 1024 + 1
     return 32 * 1024 * 1024
 
 

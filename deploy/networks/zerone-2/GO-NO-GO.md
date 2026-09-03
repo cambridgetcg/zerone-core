@@ -171,6 +171,11 @@ endpoint publication, or DNS.
       authority extractor
 - [ ] Candidate readiness, final runtime marker, and private A/A probe evidence
       are hashed and stable; old signer remains stopped and fenced
+- [ ] Exact self-sealed `CUSTOM-STAKING-CENSUS.json` passes at application
+      height `A` against the lowercase excluded post-anchor/ABCI AppHash,
+      binds the RELEASE commit, reconciles `B = D + U`, has no findings, and
+      has independently verified release-binary provenance; it grants no
+      migration or validator authority
 - [ ] `FINAL-CHECKPOINT.json` contains the full release/dark/cutover/adoption
       authority chain, private archive evidence, no public URL/config authority,
       and a valid transition-key detached signature

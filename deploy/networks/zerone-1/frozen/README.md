@@ -28,6 +28,9 @@ The package contains:
 - `FINAL-CHECKPOINT.json`, completed from the v3 manifest example here;
 - the `zerone-relaunch-snapshot-v3` inventory and eligibility output hashes;
 - raw terminal RPC evidence plus its SHA-256 manifest;
+- exact `CUSTOM-STAKING-CENSUS.json` bytes produced from a disposable copy of
+  the stopped observer application database at applied height `A` and the
+  excluded post-anchor AppHash;
 - the sanitized `A/A` archive snapshot and rollback log hashes;
 - `FINAL-CHECKPOINT.sha256`, `FINAL-CHECKPOINT.json.sig`, and final
   `TRANSITION.md`.
@@ -35,6 +38,22 @@ The package contains:
 `FINAL-CHECKPOINT.json` is the signed package manifest; it is not the v3
 inventory itself. Never include node/consensus keys, signer state, mnemonics,
 tokens, environment files, or an unsanitized private database.
+
+The custom-staking census is deliberately an `A`-state custody/claimant audit,
+not checkpoint-`F` successor inventory. Preserve the tool's compact,
+self-sealed output bytes exactly; do not pass them through the FINAL canonical
+JSON helper. FINAL hashes the sealed file, while the release-bound frozen
+validator independently requires `PASS`, verifies its self-hash, binds its
+lowercase AppHash to ABCI/excluded post-anchor state at `A`, binds its source
+commit to RELEASE, and checks `B = D + U`, zero delta, empty findings, and the
+complete claimant root. The report neither migrates a balance nor makes the
+legacy `consensus_pubkey` authoritative.
+
+The current RELEASE component model does not yet carry a dedicated census
+executable hash, SBOM, provenance, and signature. A real FINAL remains NO-GO
+until those bytes are reproducibly built from the signed RELEASE source and
+their provenance is independently verified and bound. The authority fixture
+only rehearses report/file semantics; it is not binary provenance.
 
 ## Exact signed bytes
 

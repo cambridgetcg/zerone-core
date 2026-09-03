@@ -97,6 +97,8 @@ OPEN verification requires the actual byte-bearing frozen evidence, not only
 hash fields copied into FINAL:
 
 - `ZERONE-1-INVENTORY-V3.json`;
+- exact self-sealed `CUSTOM-STAKING-CENSUS.json` from a disposable stopped
+  database copy at application height `A`;
 - `SIGNER-EVIDENCE-MANIFEST.json` and
   `OBSERVER-EVIDENCE-MANIFEST.json`;
 - `SIGNER-RPC-{STATUS,GENESIS,TRUSTED-BLOCK,TRUSTED-COMMIT,TRUSTED-VALIDATORS,BLOCK-A,COMMIT-A,VALIDATORS-A,BLOCK-RESULTS-A,BLOCK-H,COMMIT-H,VALIDATORS-H,ABCI-INFO,BLOCK-RESULTS-H-MISSING}.json.raw`;
@@ -115,7 +117,16 @@ requires one-third trusted-set continuity from the RELEASE anchor to `A`.
 The evidence keeps checkpoint-`F` AppHash `B`
 distinct from excluded post-anchor-`A` AppHash `E`: block `A` commits `B`,
 staged block `H` and ABCI-at-`A` expose `E`, and `E` is never used for the
-successor inventory.
+successor inventory. The custom-staking census must bind `A/E` (with lowercase
+`E`) and the RELEASE source commit, pass its internal seal and claimant checks,
+and be hashed by FINAL. It is custody evidence only and confers no migration,
+staking, validator, or consensus authority.
+
+The current RELEASE schema does not bind a dedicated census executable/SBOM/
+provenance/signature set. Production therefore remains NO-GO until the census
+binary is reproducibly built from RELEASE, independently verified, and its
+provenance is added to the signed artifact chain. The structural fixture does
+not satisfy that requirement.
 
 ## Archive, FINAL, and OPEN additions
 

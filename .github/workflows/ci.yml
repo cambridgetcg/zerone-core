@@ -181,12 +181,14 @@ jobs:
             and (.successor_commitment.public_notice_publication_evidence_sha256 |
               type == "string")
             and (.artifacts | keys | sort) == ([
+              "custom_staking_census_sha256",
               "post_anchor_state_export_sha256",
               "post_anchor_state_export_included_in_successor_inventory",
               "offline_halted_observer_database_snapshot_sha256",
               "sanitized_a_a_database_snapshot_sha256",
               "archive_rollback_log_sha256"
             ] | sort)
+            and (.artifacts.custom_staking_census_sha256 | type == "string")
             and .artifacts.post_anchor_state_export_included_in_successor_inventory == false
             and (.archive | has("rpc_url") | not)
             and (.archive | has("rest_url") | not)
@@ -436,7 +438,11 @@ jobs:
               "zerone_1_archive_gateway"
             ] | sort) and
             (.initial_beta_exclusions | index("public gRPC") != null) and
-            (.initial_beta_exclusions | index("hosted transaction submission") != null)
+            (.initial_beta_exclusions | index("hosted transaction submission") != null) and
+            (.initial_beta_exclusions |
+              index("custom-staking census as migration or validator authority") != null) and
+            (.required_preconditions |
+              index("FINAL binds exact passing post-anchor custom-staking census bytes and independently verified release-built census binary provenance") != null)
           ' deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json >/dev/null
           jq -e '
             .schema == "zerone-2-dark-start-initiation-evidence-v1" and

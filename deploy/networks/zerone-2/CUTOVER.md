@@ -500,11 +500,21 @@ private archive role must consume the exact readiness marker on the same
 marker and a fresh private A/A probe-evidence hash. A missing or changed
 readiness marker fails closed.
 
-Independently hash the inventory, post-anchor state export, and sanitized
-database archive. The post-anchor application state at `A` is archival evidence
-only and is explicitly excluded from successor inventory and eligibility. Only
-after candidate readiness, final runtime-marker, and private probe evidence
-exist, complete `FINAL-CHECKPOINT.json` from
+Before completing FINAL, build `custom-staking-census` reproducibly from the
+exact signed RELEASE source. After every source daemon is stopped, run it only
+against a separately captured disposable observer database copy, with chain ID
+`zerone-1`, expected height `A`, the lowercase excluded post-anchor/ABCI
+AppHash, and the RELEASE commit. Preserve its exact self-sealed
+`CUSTOM-STAKING-CENSUS.json` bytes in the authority bundle and independently
+verify its binary provenance. A report at checkpoint `F`, or one used as a
+migration plan, is invalid.
+
+Independently hash the inventory, custom-staking census, post-anchor state
+export, and sanitized database archive. The post-anchor application state at
+`A` is archival/custody evidence only and is explicitly excluded from
+successor inventory and eligibility. Only after candidate readiness, final
+runtime-marker, and private probe evidence exist, complete
+`FINAL-CHECKPOINT.json` from
 [`zerone-1/frozen/FINAL-CHECKPOINT.example.json`](../zerone-1/frozen/FINAL-CHECKPOINT.example.json),
 the single authoritative v3 template. It must bind RELEASE, DARK-START and its
 initiation evidence, CUTOVER and its initiation evidence, ARCHIVE-ADOPTION,
@@ -519,9 +529,9 @@ machine.
 Keep the final A/A origin private and service-free. The later public gateway
 must reject `broadcast_tx_*` and non-query REST methods. The signed raw bundle,
 not the serving database, preserves `H`. `FINAL-CHECKPOINT.json` is the signed
-manifest of the v3 inventory, raw response hashes, excluded state, rollback,
-adoption, and private archive evidence; it is not the v3 inventory itself and
-does not authorize exposure.
+manifest of the v3 inventory, raw response hashes, custom-staking custody
+census, excluded state, rollback, adoption, and private archive evidence; it is
+not the v3 inventory itself and does not authorize exposure or migration.
 
 ## 8. Link histories and open the beta
 

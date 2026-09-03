@@ -111,6 +111,7 @@
   "required_preconditions": [
     "old zerone-1 signer remains fenced and cannot restart",
     "archive adoption authority and final checkpoint signatures verify under the release-authorized transition fingerprint",
+    "FINAL binds exact passing post-anchor custom-staking census bytes and independently verified release-built census binary provenance",
     "private archive A/A readiness evidence remains byte-stable",
     "private zerone-2 health and protocol-dark invariants were freshly revalidated",
     "all three public config mappings equal the immutable release packet",
@@ -121,6 +122,7 @@
     "hosted transaction submission",
     "direct plaintext RPC or REST origins",
     "direct zerone-1 balance migration",
+    "custom-staking census as migration or validator authority",
     "vote extensions and PoT",
     "external IBC, transfer, or ICA",
     "bridge, claims, automatic issuance, knowledge rewards, alignment, counterexamples, or liquidity activation"

@@ -71,6 +71,7 @@ def _rpc_filename(prefix: str, key: str) -> str:
 
 REQUIRED_FROZEN_EVIDENCE_FILES = frozenset(
     {
+        "CUSTOM-STAKING-CENSUS.json",
         "ZERONE-1-INVENTORY-V3.json",
         "SIGNER-EVIDENCE-MANIFEST.json",
         "OBSERVER-EVIDENCE-MANIFEST.json",
@@ -890,16 +891,424 @@ def _validate_rpc_set(
     return hashes
 
 
+def _census_amount(value: Any, label: str, positive: bool = False) -> int:
+    # The producer rejects values outside the Cosmos SDK's 256-bit amount bound.
+    if not isinstance(value, str) or len(value) > 78 or not DECIMAL.fullmatch(value):
+        _fail(f"{label} is not a canonical bounded census amount")
+    number = int(value)
+    if positive and number <= 0:
+        _fail(f"{label} must be positive")
+    return number
+
+
+def _claimant_root(claims: list[dict[str, Any]]) -> str:
+    digest = hashlib.sha256()
+
+    def write_field(value: str) -> None:
+        encoded = value.encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+
+    write_field("zerone/custom-staking-claimants/v1")
+    digest.update(len(claims).to_bytes(8, "big"))
+    for claim in claims:
+        for key in (
+            "source_kind",
+            "source_claim_id",
+            "claimant",
+            "validator",
+            "denom",
+            "amount",
+        ):
+            write_field(claim[key])
+    return digest.hexdigest()
+
+
+def _validate_custom_staking_census(
+    files: Mapping[str, bytes],
+    objects: Mapping[str, Any],
+    final: Mapping[str, Any],
+    release: Mapping[str, Any],
+    transition: Mapping[str, Any],
+    inventory: Mapping[str, Any],
+    f: str,
+    a: str,
+) -> str:
+    name = "CUSTOM-STAKING-CENSUS.json"
+    raw = files.get(name)
+    if raw is None or not raw or len(raw) > 64 * 1024 * 1024 + 1:
+        _fail("custom-staking census is missing, empty, or oversized")
+    report = _exact_object(
+        _object(files, objects, name),
+        {
+            "schema",
+            "result",
+            "evidence",
+            "multistore",
+            "stores",
+            "census",
+            "report_sha256",
+        },
+        "custom-staking census report",
+    )
+    if report["schema"] != "zerone/custom-staking-census/v1":
+        _fail("custom-staking census schema changed")
+    if report["result"] != "PASS":
+        _fail("custom-staking census did not PASS")
+
+    report_hash = _lower_hash(
+        report["report_sha256"], "custom-staking census self-hash"
+    )
+    suffix = f',"report_sha256":"{report_hash}"}}'.encode()
+    if not raw.endswith(b"\n") or not raw[:-1].endswith(suffix):
+        _fail("custom-staking census is not the exact sealed report encoding")
+    sealed = raw[:-1]
+    unsealed = sealed[: -len(suffix)] + b',"report_sha256":""}'
+    if _sha256(unsealed) != report_hash:
+        _fail("custom-staking census self-hash does not match its unsealed bytes")
+
+    evidence = _exact_object(
+        report["evidence"],
+        {"chain_id", "height", "app_hash", "source_commit"},
+        "custom-staking census evidence",
+    )
+    source = release.get("source")
+    if not isinstance(source, dict):
+        _fail("RELEASE source is missing for custom-staking census binding")
+    source_commit = source.get("commit")
+    if not isinstance(source_commit, str) or not re.fullmatch(
+        r"[0-9a-f]{40}", source_commit
+    ):
+        _fail("RELEASE source commit is not canonical for census binding")
+    expected_app_hash = inventory["post_anchor_hash"].lower()
+    excluded = final.get("excluded_post_anchor_state")
+    if not isinstance(excluded, dict) or not (
+        excluded.get("abci_last_applied_height") == a
+        and excluded.get("app_hash") == inventory["post_anchor_hash"]
+        and transition.get("expected_post_anchor_app_hash")
+        == inventory["post_anchor_hash"]
+    ):
+        _fail("FINAL/transition excluded post-anchor state is not census-bindable")
+    if not (
+        evidence["chain_id"] == "zerone-1"
+        and evidence["height"] == a
+        and evidence["height"] != f
+        and evidence["app_hash"] == expected_app_hash
+        and evidence["source_commit"] == source_commit
+    ):
+        _fail(
+            "custom-staking census must bind RELEASE source and excluded "
+            "post-anchor application state A, never checkpoint F"
+        )
+    _lower_hash(evidence["app_hash"], "custom-staking census AppHash")
+
+    multistore = report["multistore"]
+    if not isinstance(multistore, list) or not 1 <= len(multistore) <= 4096:
+        _fail("custom-staking census multistore is not a bounded non-empty list")
+    multistore_roots: dict[str, str] = {}
+    previous_name = ""
+    for index, row in enumerate(multistore):
+        row = _exact_object(
+            row, {"name", "root_sha256"}, f"custom-staking multistore[{index}]"
+        )
+        store_name = _string(row["name"], f"custom-staking multistore[{index}].name")
+        if store_name <= previous_name or store_name in multistore_roots:
+            _fail("custom-staking multistore names are not uniquely sorted")
+        previous_name = store_name
+        multistore_roots[store_name] = _lower_hash(
+            row["root_sha256"], f"custom-staking multistore[{index}].root"
+        )
+
+    stores = report["stores"]
+    required_stores = ("zerone_staking", "bank", "staking")
+    if not isinstance(stores, list) or len(stores) != len(required_stores):
+        _fail("custom-staking census does not contain the three required stores")
+    store_stats: dict[str, tuple[int, int]] = {}
+    for index, (row, expected_name) in enumerate(zip(stores, required_stores)):
+        row = _exact_object(
+            row,
+            {
+                "name",
+                "version",
+                "root_sha256",
+                "leaf_count",
+                "input_bytes",
+                "leaves_sha256",
+            },
+            f"custom-staking store[{index}]",
+        )
+        if row["name"] != expected_name or row["version"] != a:
+            _fail("custom-staking store order/version differs from application A")
+        root_hash = _lower_hash(
+            row["root_sha256"], f"custom-staking store[{index}].root"
+        )
+        if multistore_roots.get(expected_name) != root_hash:
+            _fail("custom-staking store root differs from its multistore commitment")
+        _lower_hash(
+            row["leaves_sha256"], f"custom-staking store[{index}].leaves"
+        )
+        for field in ("leaf_count", "input_bytes"):
+            value = row[field]
+            if not isinstance(value, str) or not re.fullmatch(
+                r"(?:0|[1-9][0-9]{0,19})", value
+            ):
+                _fail(f"custom-staking store[{index}].{field} is not canonical")
+            if int(value) > 2**64 - 1:
+                _fail(f"custom-staking store[{index}].{field} exceeds uint64")
+        store_stats[expected_name] = (
+            int(row["leaf_count"]),
+            int(row["input_bytes"]),
+        )
+
+    census = _exact_object(
+        report["census"],
+        {
+            "module_address",
+            "module_address_hex",
+            "module_balances",
+            "balance_uzrn",
+            "delegations_uzrn",
+            "pending_unbondings_uzrn",
+            "liabilities_uzrn",
+            "delta_uzrn",
+            "claimant_root",
+            "claimant_root_complete",
+            "claim_count",
+            "custom_keyspace",
+            "validators",
+            "claims",
+            "unbondings",
+            "did_indexes",
+            "reverse_delegation_indexes",
+            "redelegation_cooldowns",
+            "sdk_validators",
+            "tier_configs",
+            "findings",
+        },
+        "custom-staking census",
+    )
+    _string(census["module_address"], "custom-staking module address")
+    if not isinstance(census["module_address_hex"], str) or not re.fullmatch(
+        r"[0-9a-f]{40}", census["module_address_hex"]
+    ):
+        _fail("custom-staking module address bytes are not canonical")
+    balance = _census_amount(census["balance_uzrn"], "custom-staking B")
+    delegations = _census_amount(
+        census["delegations_uzrn"], "custom-staking D"
+    )
+    pending = _census_amount(
+        census["pending_unbondings_uzrn"], "custom-staking U"
+    )
+    liabilities = _census_amount(
+        census["liabilities_uzrn"], "custom-staking liabilities"
+    )
+    if not (
+        liabilities == delegations + pending
+        and balance == liabilities
+        and census["delta_uzrn"] == "0"
+    ):
+        _fail("custom-staking census does not prove B = D + U and delta = 0")
+    if census["claimant_root_complete"] is not True or census["findings"] != []:
+        _fail("custom-staking census is incomplete or contains findings")
+
+    balances = census["module_balances"]
+    if not isinstance(balances, list):
+        _fail("custom-staking module balances are not a list")
+    previous_denom = ""
+    module_uzrn = 0
+    for index, row in enumerate(balances):
+        row = _exact_object(
+            row, {"denom", "amount"}, f"custom-staking module balance[{index}]"
+        )
+        denom = _string(row["denom"], f"custom-staking module balance[{index}].denom")
+        if denom <= previous_denom:
+            _fail("custom-staking module balances are not in strict denomination order")
+        previous_denom = denom
+        amount = _census_amount(
+            row["amount"], f"custom-staking module balance[{index}].amount", True
+        )
+        if denom == "uzrn":
+            module_uzrn = amount
+    if module_uzrn != balance:
+        _fail("custom-staking module balances do not exactly explain B")
+
+    collection_names = (
+        "custom_keyspace",
+        "validators",
+        "claims",
+        "unbondings",
+        "did_indexes",
+        "reverse_delegation_indexes",
+        "redelegation_cooldowns",
+        "sdk_validators",
+        "tier_configs",
+    )
+    if any(not isinstance(census[key], list) for key in collection_names):
+        _fail("custom-staking census collections must all be lists")
+
+    claims = census["claims"]
+    claim_count = census["claim_count"]
+    if (
+        not isinstance(claim_count, int)
+        or isinstance(claim_count, bool)
+        or claim_count < 0
+        or claim_count > 2**64 - 1
+        or claim_count != len(claims)
+    ):
+        _fail("custom-staking claim count is invalid or incomplete")
+    delegation_total = 0
+    pending_total = 0
+    seen_sources: set[tuple[str, str]] = set()
+    previous_claim: tuple[str, ...] | None = None
+    for index, claim in enumerate(claims):
+        claim = _exact_object(
+            claim,
+            {
+                "source_kind",
+                "source_claim_id",
+                "claimant",
+                "validator",
+                "denom",
+                "amount",
+            },
+            f"custom-staking claim[{index}]",
+        )
+        for field in (
+            "source_kind",
+            "source_claim_id",
+            "claimant",
+            "validator",
+            "denom",
+            "amount",
+        ):
+            _string(claim[field], f"custom-staking claim[{index}].{field}")
+        order = tuple(
+            claim[field]
+            for field in (
+                "source_kind",
+                "source_claim_id",
+                "claimant",
+                "validator",
+                "denom",
+                "amount",
+            )
+        )
+        if previous_claim is not None and order <= previous_claim:
+            _fail("custom-staking claims are not in strict deterministic order")
+        previous_claim = order
+        source = (claim["source_kind"], claim["source_claim_id"])
+        if source in seen_sources:
+            _fail("custom-staking claimant source is duplicated")
+        seen_sources.add(source)
+        if claim["denom"] != "uzrn":
+            _fail("custom-staking claim denomination is not uzrn")
+        amount = _census_amount(
+            claim["amount"], f"custom-staking claim[{index}].amount", positive=True
+        )
+        if claim["source_kind"] == "delegation":
+            if claim["source_claim_id"] != (
+                f'{claim["claimant"]}->{claim["validator"]}'
+            ):
+                _fail("custom-staking delegation claimant source is malformed")
+            delegation_total += amount
+        elif claim["source_kind"] == "pending_unbonding":
+            pending_total += amount
+        else:
+            _fail("custom-staking claim has an unknown source kind")
+    if delegation_total != delegations or pending_total != pending:
+        _fail("custom-staking claimant rows do not sum to D and U")
+
+    claimant_root = _lower_hash(
+        census["claimant_root"], "custom-staking claimant root"
+    )
+    if claimant_root != _claimant_root(claims):
+        _fail("custom-staking claimant root does not match the complete claim list")
+
+    keyspace = census["custom_keyspace"]
+    expected_names = (
+        "validators",
+        "delegations",
+        "unbondings",
+        "tier_configs",
+        "params",
+        "did_indexes",
+        "unbonding_sequence",
+        "redelegation_cooldowns",
+        "validator_delegation_indexes",
+        "app_iavl_init_sentinel",
+    )
+    expected_prefixes = tuple(f"0x{index:02x}" for index in range(1, 10)) + (
+        "0x5f6961766c5f696e6974",
+    )
+    if not isinstance(keyspace, list) or len(keyspace) != len(expected_names):
+        _fail("custom-staking keyspace census is incomplete")
+    keyspace_counts: dict[str, int] = {}
+    keyspace_input_bytes = 0
+    for index, (row, expected_name, expected_prefix) in enumerate(
+        zip(keyspace, expected_names, expected_prefixes)
+    ):
+        row = _exact_object(
+            row,
+            {"prefix", "name", "leaf_count", "input_bytes", "digest"},
+            f"custom-staking keyspace[{index}]",
+        )
+        prefix = row["prefix"]
+        name = row["name"]
+        if prefix != expected_prefix or name != expected_name:
+            _fail("custom-staking keyspace identities or order changed")
+        keyspace_counts[name] = _integer(
+            row["leaf_count"], f"custom-staking keyspace[{index}].leaf_count"
+        )
+        keyspace_input_bytes += _integer(
+            row["input_bytes"], f"custom-staking keyspace[{index}].input_bytes"
+        )
+        _lower_hash(row["digest"], f"custom-staking keyspace[{index}].digest")
+    expected_counts = {
+        "validators": len(census["validators"]),
+        "delegations": sum(
+            1 for claim in claims if claim["source_kind"] == "delegation"
+        ),
+        "unbondings": len(census["unbondings"]),
+        "tier_configs": len(census["tier_configs"]),
+        "params": 1,
+        "did_indexes": len(census["did_indexes"]),
+        "redelegation_cooldowns": len(census["redelegation_cooldowns"]),
+        "validator_delegation_indexes": len(
+            census["reverse_delegation_indexes"]
+        ),
+    }
+    if any(keyspace_counts[name] != count for name, count in expected_counts.items()):
+        _fail("custom-staking record counts do not cover the complete keyspace")
+    if (
+        sum(keyspace_counts.values()) != store_stats["zerone_staking"][0]
+        or keyspace_input_bytes != store_stats["zerone_staking"][1]
+    ):
+        _fail("custom-staking keyspaces do not cover the complete scanned store")
+    if keyspace_counts["tier_configs"] != 4 or keyspace_counts[
+        "unbonding_sequence"
+    ] not in {0, 1}:
+        _fail("custom-staking tier or sequence inventory is invalid")
+    if keyspace_counts["app_iavl_init_sentinel"] not in {0, 1}:
+        _fail("custom-staking app IAVL sentinel inventory is invalid")
+    if census["unbondings"] and keyspace_counts["unbonding_sequence"] != 1:
+        _fail("custom-staking unbondings lack the sequence singleton")
+    return _sha256(raw)
+
+
 def _validate_export_and_storage(
     files: Mapping[str, bytes],
     objects: Mapping[str, Any],
     final: Mapping[str, Any],
+    release: Mapping[str, Any],
     transition: Mapping[str, Any],
     inventory: Mapping[str, Any],
     f: str,
     a: str,
     h: str,
 ) -> None:
+    census_sha = _validate_custom_staking_census(
+        files, objects, final, release, transition, inventory, f, a
+    )
     export_name = "POST-ANCHOR-STATE-EXPORT.json.raw"
     if export_name not in files:
         _fail(f"required frozen evidence file {export_name} is missing")
@@ -1085,6 +1494,7 @@ def _validate_export_and_storage(
     artifacts = _exact_object(
         final.get("artifacts"),
         {
+            "custom_staking_census_sha256",
             "post_anchor_state_export_sha256",
             "post_anchor_state_export_included_in_successor_inventory",
             "offline_halted_observer_database_snapshot_sha256",
@@ -1094,6 +1504,7 @@ def _validate_export_and_storage(
         "FINAL frozen artifacts",
     )
     if artifacts != {
+        "custom_staking_census_sha256": census_sha,
         "post_anchor_state_export_sha256": export_sha,
         "post_anchor_state_export_included_in_successor_inventory": False,
         "offline_halted_observer_database_snapshot_sha256": offline_database_sha,
@@ -1375,5 +1786,5 @@ def validate_frozen_evidence(
         files, final, release, inventory, manifests, rpc_hashes, f, a, h
     )
     _validate_export_and_storage(
-        files, objects, final, transition, inventory, f, a, h
+        files, objects, final, release, transition, inventory, f, a, h
     )

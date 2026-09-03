@@ -27,6 +27,68 @@ canonical_mutate() {
   mv "${path}.new" "${path}"
 }
 
+census_mutate() {
+  local path=$1 mutation=$2
+  python3 - "${path}" "${mutation}" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+mutation = sys.argv[2]
+report = json.loads(path.read_bytes())
+if mutation == "self-hash":
+    report["report_sha256"] = "0" * 64
+elif mutation == "result-fail":
+    report["result"] = "FAIL"
+elif mutation == "checkpoint-height":
+    report["evidence"]["height"] = "1000"
+elif mutation == "checkpoint-app-hash":
+    report["evidence"]["app_hash"] = "b" * 64
+elif mutation == "source-commit":
+    report["evidence"]["source_commit"] = "2" * 40
+elif mutation == "arithmetic":
+    report["census"]["liabilities_uzrn"] = "31"
+elif mutation == "findings":
+    report["census"]["findings"] = [
+        {"code": "fixture", "key": "fixture", "detail": "fixture"}
+    ]
+elif mutation == "claimant-incomplete":
+    report["census"]["claimant_root_complete"] = False
+elif mutation == "claimant-root":
+    report["census"]["claimant_root"] = "f" * 64
+elif mutation == "unbound-multistore":
+    report["multistore"].append(
+        {"name": "zzz_fixture", "root_sha256": "f" * 64}
+    )
+elif mutation == "sentinel-count":
+    report["census"]["custom_keyspace"][9]["leaf_count"] = 2
+    report["stores"][0]["leaf_count"] = "12"
+else:
+    raise SystemExit(f"unknown census mutation: {mutation}")
+
+if mutation != "self-hash":
+    report["report_sha256"] = ""
+    unsealed = json.dumps(
+        report, separators=(",", ":"), ensure_ascii=False
+    ).encode()
+    report["report_sha256"] = hashlib.sha256(unsealed).hexdigest()
+path.write_bytes(
+    (json.dumps(report, separators=(",", ":"), ensure_ascii=False) + "\n").encode()
+)
+PY
+}
+
+rebind_census_final() {
+  local bundle=$1 census_sha
+  census_sha=$(sha256_file "${bundle}/CUSTOM-STAKING-CENSUS.json")
+  # shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+  canonical_mutate "${bundle}/FINAL-CHECKPOINT.json" \
+    '.artifacts.custom_staking_census_sha256 = $sha' \
+    --arg sha "${census_sha}"
+}
+
 clone_bundle() {
   local name=$1
   local destination="${TMP}/${name}"
@@ -519,6 +581,92 @@ canonical_mutate "${final}/FINAL-CHECKPOINT.json" \
   'del(.authority_chain.archive_adoption_authority)'
 expect_rejected "truncated FINAL checkpoint" "FINAL-CHECKPOINT" \
   run_open_pre "${final}"
+
+missing_census=$(clone_bundle missing-custom-staking-census)
+mv "${missing_census}/CUSTOM-STAKING-CENSUS.json" \
+  "${missing_census}/CUSTOM-STAKING-CENSUS.json.missing"
+expect_rejected "missing custom-staking census" \
+  "could not open bundle file CUSTOM-STAKING-CENSUS.json" \
+  run_open_pre "${missing_census}"
+
+census_self_hash=$(clone_bundle custom-staking-census-self-hash)
+census_mutate "${census_self_hash}/CUSTOM-STAKING-CENSUS.json" self-hash
+rebind_census_final "${census_self_hash}"
+expect_rejected "custom-staking census self-hash drift" \
+  "census self-hash does not match its unsealed bytes" \
+  run_open_pre "${census_self_hash}"
+
+census_result=$(clone_bundle custom-staking-census-result)
+census_mutate "${census_result}/CUSTOM-STAKING-CENSUS.json" result-fail
+rebind_census_final "${census_result}"
+expect_rejected "non-passing custom-staking census" \
+  "custom-staking census did not PASS" \
+  run_open_pre "${census_result}"
+
+census_height=$(clone_bundle custom-staking-census-height)
+census_mutate "${census_height}/CUSTOM-STAKING-CENSUS.json" checkpoint-height
+rebind_census_final "${census_height}"
+expect_rejected "custom-staking census at checkpoint F" \
+  "post-anchor application state A, never checkpoint F" \
+  run_open_pre "${census_height}"
+
+census_app_hash=$(clone_bundle custom-staking-census-app-hash)
+census_mutate \
+  "${census_app_hash}/CUSTOM-STAKING-CENSUS.json" checkpoint-app-hash
+rebind_census_final "${census_app_hash}"
+expect_rejected "custom-staking census at checkpoint AppHash" \
+  "post-anchor application state A, never checkpoint F" \
+  run_open_pre "${census_app_hash}"
+
+census_source=$(clone_bundle custom-staking-census-source)
+census_mutate "${census_source}/CUSTOM-STAKING-CENSUS.json" source-commit
+rebind_census_final "${census_source}"
+expect_rejected "custom-staking census source drift" \
+  "must bind RELEASE source" \
+  run_open_pre "${census_source}"
+
+census_arithmetic=$(clone_bundle custom-staking-census-arithmetic)
+census_mutate "${census_arithmetic}/CUSTOM-STAKING-CENSUS.json" arithmetic
+rebind_census_final "${census_arithmetic}"
+expect_rejected "custom-staking census arithmetic drift" \
+  "does not prove B = D + U and delta = 0" \
+  run_open_pre "${census_arithmetic}"
+
+census_findings=$(clone_bundle custom-staking-census-findings)
+census_mutate "${census_findings}/CUSTOM-STAKING-CENSUS.json" findings
+rebind_census_final "${census_findings}"
+expect_rejected "custom-staking census findings" \
+  "is incomplete or contains findings" \
+  run_open_pre "${census_findings}"
+
+census_incomplete=$(clone_bundle custom-staking-census-incomplete)
+census_mutate \
+  "${census_incomplete}/CUSTOM-STAKING-CENSUS.json" claimant-incomplete
+rebind_census_final "${census_incomplete}"
+expect_rejected "custom-staking census incomplete claimant root" \
+  "is incomplete or contains findings" \
+  run_open_pre "${census_incomplete}"
+
+census_claimant_root=$(clone_bundle custom-staking-census-claimant-root)
+census_mutate "${census_claimant_root}/CUSTOM-STAKING-CENSUS.json" claimant-root
+rebind_census_final "${census_claimant_root}"
+expect_rejected "custom-staking census claimant root drift" \
+  "claimant root does not match the complete claim list" \
+  run_open_pre "${census_claimant_root}"
+
+census_sentinel=$(clone_bundle custom-staking-census-sentinel)
+census_mutate "${census_sentinel}/CUSTOM-STAKING-CENSUS.json" sentinel-count
+rebind_census_final "${census_sentinel}"
+expect_rejected "custom-staking census duplicate IAVL sentinel" \
+  "app IAVL sentinel inventory is invalid" \
+  run_open_pre "${census_sentinel}"
+
+census_unbound=$(clone_bundle custom-staking-census-unbound)
+census_mutate "${census_unbound}/CUSTOM-STAKING-CENSUS.json" \
+  unbound-multistore
+expect_rejected "custom-staking census not hashed by FINAL" \
+  "FINAL frozen artifact hashes differ from the actual evidence" \
+  run_open_pre "${census_unbound}"
 
 rpc_byte_drift=$(clone_bundle rpc-byte-drift)
 printf ' \n' >> "${rpc_byte_drift}/OBSERVER-RPC-BLOCK-A.json.raw"

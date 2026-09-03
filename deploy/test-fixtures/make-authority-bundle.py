@@ -63,6 +63,175 @@ def canonical_bytes(value: Any) -> bytes:
     ).encode()
 
 
+def custom_staking_claimant_root(claims: list[dict[str, Any]]) -> str:
+    result = hashlib.sha256()
+
+    def write_field(value: str) -> None:
+        encoded = value.encode("utf-8")
+        result.update(len(encoded).to_bytes(8, "big"))
+        result.update(encoded)
+
+    write_field("zerone/custom-staking-claimants/v1")
+    result.update(len(claims).to_bytes(8, "big"))
+    for claim in claims:
+        for key in (
+            "source_kind",
+            "source_claim_id",
+            "claimant",
+            "validator",
+            "denom",
+            "amount",
+        ):
+            write_field(claim[key])
+    return result.hexdigest()
+
+
+def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
+    validator = "zrn1validatorfixture"
+    delegator = "zrn1delegatorfixture"
+    claims = [
+        {
+            "source_kind": "delegation",
+            "source_claim_id": f"{delegator}->{validator}",
+            "claimant": delegator,
+            "validator": validator,
+            "denom": "uzrn",
+            "amount": "20",
+        },
+        {
+            "source_kind": "pending_unbonding",
+            "source_claim_id": "unbonding-1",
+            "claimant": delegator,
+            "validator": validator,
+            "denom": "uzrn",
+            "amount": "10",
+        },
+    ]
+    roots = {
+        "bank": "1" * 64,
+        "staking": "2" * 64,
+        "zerone_staking": "3" * 64,
+    }
+    keyspace_names = (
+        "validators",
+        "delegations",
+        "unbondings",
+        "tier_configs",
+        "params",
+        "did_indexes",
+        "unbonding_sequence",
+        "redelegation_cooldowns",
+        "validator_delegation_indexes",
+        "app_iavl_init_sentinel",
+    )
+    keyspace_counts = (1, 1, 1, 4, 1, 0, 1, 0, 1, 1)
+    report = {
+        "schema": "zerone/custom-staking-census/v1",
+        "result": "PASS",
+        "evidence": {
+            "chain_id": "zerone-1",
+            "height": "1001",
+            "app_hash": app_hash.lower(),
+            "source_commit": source_commit,
+        },
+        "multistore": [
+            {"name": name, "root_sha256": roots[name]} for name in sorted(roots)
+        ],
+        "stores": [
+            {
+                "name": name,
+                "version": "1001",
+                "root_sha256": roots[name],
+                "leaf_count": "11" if name == "zerone_staking" else "1",
+                "input_bytes": "1100" if name == "zerone_staking" else "100",
+                "leaves_sha256": str(index + 4) * 64,
+            }
+            for index, name in enumerate(("zerone_staking", "bank", "staking"))
+        ],
+        "census": {
+            "module_address": "zrn1customstakingfixture",
+            "module_address_hex": "4" * 40,
+            "module_balances": [{"denom": "uzrn", "amount": "30"}],
+            "balance_uzrn": "30",
+            "delegations_uzrn": "20",
+            "pending_unbondings_uzrn": "10",
+            "liabilities_uzrn": "30",
+            "delta_uzrn": "0",
+            "claimant_root": custom_staking_claimant_root(claims),
+            "claimant_root_complete": True,
+            "claim_count": len(claims),
+            "custom_keyspace": [
+                {
+                    "prefix": (
+                        "0x5f6961766c5f696e6974"
+                        if name == "app_iavl_init_sentinel"
+                        else f"0x{index + 1:02x}"
+                    ),
+                    "name": name,
+                    "leaf_count": keyspace_counts[index],
+                    "input_bytes": keyspace_counts[index] * 100,
+                    "digest": str((index % 9) + 1) * 64,
+                }
+                for index, name in enumerate(keyspace_names)
+            ],
+            "validators": [
+                {
+                    "operator": validator,
+                    "address_hex": "5" * 40,
+                    "legacy_consensus_pubkey": "fixture-untrusted-legacy-key",
+                    "legacy_consensus_pubkey_trusted": False,
+                    "stored_self": "0",
+                    "computed_self": "0",
+                    "stored_delegated": "20",
+                    "computed_delegated": "20",
+                    "stored_total": "20",
+                    "computed_total": "20",
+                    "aggregates_match": True,
+                    "sdk_link": "absent",
+                }
+            ],
+            "claims": claims,
+            "unbondings": [
+                {
+                    "id": "unbonding-1",
+                    "delegator": delegator,
+                    "validator": validator,
+                    "amount": "10",
+                    "created_at_height": 900,
+                    "completes_at_height": 1100,
+                    "status": "pending",
+                    "sequence": 1,
+                }
+            ],
+            "did_indexes": [],
+            "reverse_delegation_indexes": [
+                {"validator": validator, "delegator": delegator}
+            ],
+            "redelegation_cooldowns": [],
+            "sdk_validators": [],
+            "tier_configs": [
+                {
+                    "tier": tier,
+                    "name": f"tier-{tier}",
+                    "stored_digest": str(tier) * 64,
+                    "params_digest": str(tier) * 64,
+                    "matches": True,
+                }
+                for tier in range(1, 5)
+            ],
+            "findings": [],
+        },
+        "report_sha256": "",
+    }
+    unsealed = json.dumps(
+        report, separators=(",", ":"), ensure_ascii=False
+    ).encode()
+    report["report_sha256"] = digest(unsealed)
+    return (
+        json.dumps(report, separators=(",", ":"), ensure_ascii=False) + "\n"
+    ).encode()
+
+
 def write_json(output: pathlib.Path, name: str, value: Any) -> None:
     (output / name).write_bytes(canonical_bytes(value))
 
@@ -1621,6 +1790,9 @@ def main() -> None:
         "included_in_successor_inventory": False,
         "result": "MATCH",
     }
+    custom_staking_census = custom_staking_census_bytes(
+        release["source"]["commit"], post_anchor_app_hash
+    )
     offline_snapshot = {
         "schema": "zerone-1-offline-halted-observer-snapshot-manifest-v1",
         "chain_id": "zerone-1",
@@ -1684,6 +1856,7 @@ def main() -> None:
         "result": "MATCH",
     }
     source_raw = {
+        "CUSTOM-STAKING-CENSUS.json": custom_staking_census,
         "ZERONE-1-INVENTORY-V3.json": canonical_bytes(inventory),
         "SIGNER-EVIDENCE-MANIFEST.json": canonical_bytes(signer_evidence),
         "OBSERVER-EVIDENCE-MANIFEST.json": canonical_bytes(observer_evidence),
@@ -2033,6 +2206,7 @@ def main() -> None:
         rpc_canonical_sha256=inventory["source"]["rpc_genesis_canonical_sha256"],
     )
     final["artifacts"] = {
+        "custom_staking_census_sha256": digest(custom_staking_census),
         "post_anchor_state_export_sha256": digest(export_raw),
         "post_anchor_state_export_included_in_successor_inventory": False,
         "offline_halted_observer_database_snapshot_sha256": offline_snapshot[

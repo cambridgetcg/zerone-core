@@ -149,6 +149,7 @@
     "memo": "successor_chain_id=zerone-2;successor_genesis_sha256=REPLACE_64_HEX;checkpoint_state_height=REPLACE_F;final_committed_height=REPLACE_A;halt_trigger_height=REPLACE_H"
   },
   "artifacts": {
+    "custom_staking_census_sha256": "REPLACE_WITH_64_HEX",
     "post_anchor_state_export_sha256": "REPLACE_WITH_64_HEX",
     "post_anchor_state_export_included_in_successor_inventory": false,
     "offline_halted_observer_database_snapshot_sha256": "REPLACE_WITH_64_HEX",
@@ -207,6 +208,6 @@
     "algorithm": "openpgp",
     "authorized_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX",
     "detached_signature_filename": "FINAL-CHECKPOINT.json.sig",
-    "authority_limit": "historical checkpoint and private archive evidence only; no public deployment, transaction, endpoint, or DNS authority"
+    "authority_limit": "historical checkpoint, custom-staking custody census, and private archive evidence only; no migration, public deployment, transaction, endpoint, or DNS authority"
   }
 }
