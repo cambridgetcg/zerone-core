@@ -163,12 +163,7 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 	if req.MaxTxBytes > 0 {
 		maxTxBytes = uint64(req.MaxTxBytes)
 	}
-	var maxBlockGas uint64
-	if block := ctx.ConsensusParams().Block; block != nil {
-		if block.MaxGas > 0 {
-			maxBlockGas = uint64(block.MaxGas)
-		}
-	}
+	maxBlockGas, blockGasLimited := consensusBlockGasLimit(ctx)
 	proposalFull := false
 
 	// Process vote extensions from previous block (if available)
@@ -223,7 +218,7 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		// The SDK selector adds uint64 gas limits internally. Rejecting an
 		// individually impossible gas declaration first keeps that addition
 		// bounded by maxBlockGas and prevents wraparound on adversarial bytes.
-		if gasTx, ok := tx.(baseapp.GasTx); ok && maxBlockGas > 0 && gasTx.GetGas() > maxBlockGas {
+		if gasTx, ok := tx.(baseapp.GasTx); ok && blockGasLimited && gasTx.GetGas() > maxBlockGas {
 			logger.Warn("skipping tx whose declared gas exceeds the consensus block limit",
 				"gas", gasTx.GetGas(), "max_block_gas", maxBlockGas)
 			continue
@@ -253,10 +248,15 @@ func (app *ZeroneApp) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return app.processProposal
 }
 
-func addProposalTxGas(total, txGas, max uint64) (uint64, bool) {
-	if max == 0 {
-		return total, true
+func consensusBlockGasLimit(ctx sdk.Context) (uint64, bool) {
+	block := ctx.ConsensusParams().Block
+	if block == nil || block.MaxGas < 0 {
+		return 0, false
 	}
+	return uint64(block.MaxGas), true
+}
+
+func addProposalTxGas(total, txGas, max uint64) (uint64, bool) {
 	if total > max || txGas > max-total {
 		return total, false
 	}
@@ -277,10 +277,7 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 		}
 	}()
 
-	var maxBlockGas uint64
-	if block := ctx.ConsensusParams().Block; block != nil && block.MaxGas > 0 {
-		maxBlockGas = uint64(block.MaxGas)
-	}
+	maxBlockGas, blockGasLimited := consensusBlockGasLimit(ctx)
 	var totalTxGas uint64
 
 	for i, txBytes := range req.Txs {
@@ -328,7 +325,7 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 				Status: abci.ResponseProcessProposal_REJECT,
 			}, nil
 		}
-		if gasTx, ok := tx.(baseapp.GasTx); ok && maxBlockGas > 0 {
+		if gasTx, ok := tx.(baseapp.GasTx); ok && blockGasLimited {
 			txGas := gasTx.GetGas()
 			// Use subtraction so adversarial declarations cannot wrap the
 			// aggregate. This mirrors PrepareProposal's consensus-param bound.

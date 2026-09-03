@@ -87,6 +87,22 @@ func TestPrepareProposalUsesCurrentConsensusMaxGas(t *testing.T) {
 
 }
 
+func TestPrepareProposalPreservesZeroConsensusMaxGas(t *testing.T) {
+	app := newTestApp(t)
+	positiveGas := proposalTxBytes(t, app, 1, "positive-gas")
+	zeroGas := proposalTxBytes(t, app, 0, "zero-gas")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{positiveGas, zeroGas})
+
+	response, err := app.PrepareProposalHandler()(proposalContext(app, 0), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: maxBytes,
+		Txs:        [][]byte{positiveGas, zeroGas},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{zeroGas}, response.Txs,
+		"a zero consensus gas ceiling must not be treated as unlimited")
+}
+
 func TestPrepareProposalSkipsMalformedAndHighGasTransactions(t *testing.T) {
 	app := newTestApp(t)
 	highGas := proposalTxBytes(t, app, 101, "high-gas")

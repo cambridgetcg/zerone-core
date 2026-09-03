@@ -52,13 +52,11 @@ func installProposalSigner(
 		})
 	}
 
-	if maxBlockGas > 0 {
-		params, err := h.App.ConsensusKeeper.ParamsStore.Get(h.Ctx)
-		require.NoError(t, err)
-		require.NotNil(t, params.Block)
-		params.Block.MaxGas = maxBlockGas
-		require.NoError(t, h.App.ConsensusKeeper.ParamsStore.Set(h.Ctx, params))
-	}
+	params, err := h.App.ConsensusKeeper.ParamsStore.Get(h.Ctx)
+	require.NoError(t, err)
+	require.NotNil(t, params.Block)
+	params.Block.MaxGas = maxBlockGas
+	require.NoError(t, h.App.ConsensusKeeper.ParamsStore.Set(h.Ctx, params))
 
 	accountNumber := account.GetAccountNumber()
 	h.CommitHMinusOne()
@@ -123,7 +121,7 @@ func processProposalAtNextHeight(
 func TestProcessProposalRunsFullAnteChain(t *testing.T) {
 	t.Run("valid signed transaction", func(t *testing.T) {
 		h := NewTestHarness(t)
-		privateKey, accountNumber := installProposalSigner(t, h, false, 0)
+		privateKey, accountNumber := installProposalSigner(t, h, false, -1)
 		txBytes := signedProposalTx(t, h, privateKey, accountNumber, 0, 200_000, 200_000)
 
 		response := processProposalAtNextHeight(t, h, txBytes)
@@ -132,7 +130,7 @@ func TestProcessProposalRunsFullAnteChain(t *testing.T) {
 
 	t.Run("unsigned transaction", func(t *testing.T) {
 		h := NewTestHarness(t)
-		privateKey, _ := installProposalSigner(t, h, false, 0)
+		privateKey, _ := installProposalSigner(t, h, false, -1)
 		sender := sdk.AccAddress(privateKey.PubKey().Address())
 		builder := h.App.TxConfig().NewTxBuilder()
 		require.NoError(t, builder.SetMsgs(banktypes.NewMsgSend(
@@ -154,7 +152,7 @@ func TestProcessProposalRunsFullAnteChain(t *testing.T) {
 
 	t.Run("underpriced fee", func(t *testing.T) {
 		h := NewTestHarness(t)
-		privateKey, accountNumber := installProposalSigner(t, h, false, 0)
+		privateKey, accountNumber := installProposalSigner(t, h, false, -1)
 		txBytes := signedProposalTx(t, h, privateKey, accountNumber, 0, 200_000, 199_999)
 
 		response := processProposalAtNextHeight(t, h, txBytes)
@@ -163,7 +161,7 @@ func TestProcessProposalRunsFullAnteChain(t *testing.T) {
 
 	t.Run("out of order sequence", func(t *testing.T) {
 		h := NewTestHarness(t)
-		privateKey, accountNumber := installProposalSigner(t, h, false, 0)
+		privateKey, accountNumber := installProposalSigner(t, h, false, -1)
 		txBytes := signedProposalTx(t, h, privateKey, accountNumber, 1, 200_000, 200_000)
 
 		response := processProposalAtNextHeight(t, h, txBytes)
@@ -172,12 +170,22 @@ func TestProcessProposalRunsFullAnteChain(t *testing.T) {
 
 	t.Run("frozen signer", func(t *testing.T) {
 		h := NewTestHarness(t)
-		privateKey, accountNumber := installProposalSigner(t, h, true, 0)
+		privateKey, accountNumber := installProposalSigner(t, h, true, -1)
 		txBytes := signedProposalTx(t, h, privateKey, accountNumber, 0, 200_000, 200_000)
 
 		response := processProposalAtNextHeight(t, h, txBytes)
 		require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status)
 	})
+}
+
+func TestProcessProposalPreservesZeroConsensusMaxGas(t *testing.T) {
+	h := NewTestHarness(t)
+	privateKey, accountNumber := installProposalSigner(t, h, false, 0)
+	txBytes := signedProposalTx(t, h, privateKey, accountNumber, 0, 200_000, 200_000)
+
+	response := processProposalAtNextHeight(t, h, txBytes)
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status,
+		"a zero consensus gas ceiling must reject a positive-gas transaction")
 }
 
 func TestProcessProposalEnforcesAggregateConsensusGas(t *testing.T) {
